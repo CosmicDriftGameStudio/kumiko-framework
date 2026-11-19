@@ -18,10 +18,10 @@ describe("PublicShell", () => {
         </PublicShell>,
       );
       const header = screen.getByRole("banner");
-      expect(within(header).getByText("OFFLOT")).toBeTruthy();
-      expect(within(header).getByRole("button", { name: "Anmelden" })).toBeTruthy();
-      expect(within(screen.getByRole("main")).getByText("Inhalt")).toBeTruthy();
-      expect(within(screen.getByRole("contentinfo")).getByText("Impressum")).toBeTruthy();
+      within(header).getByText("OFFLOT");
+      within(header).getByRole("button", { name: "Anmelden" });
+      within(screen.getByRole("main")).getByText("Inhalt");
+      within(screen.getByRole("contentinfo")).getByText("Impressum");
       unmount();
     }
   });
@@ -45,9 +45,7 @@ describe("PublicShell", () => {
         <p>Schritt</p>
       </PublicShell>,
     );
-    expect(
-      within(screen.getByRole("banner")).getByRole("list", { name: "Fortschritt" }),
-    ).toBeTruthy();
+    within(screen.getByRole("banner")).getByRole("list", { name: "Fortschritt" });
     expect(screen.getByRole("main").className).toContain("max-w-3xl");
   });
 
@@ -58,7 +56,7 @@ describe("PublicShell", () => {
       </PublicShell>,
     );
     const card = screen.getByTestId("public-shell-card");
-    expect(within(card).getByRole("form", { name: "Anmelden" })).toBeTruthy();
+    within(card).getByRole("form", { name: "Anmelden" });
     expect(screen.getByRole("main").className).toContain("justify-center");
   });
 

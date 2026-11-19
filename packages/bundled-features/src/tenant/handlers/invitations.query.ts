@@ -1,17 +1,10 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.ts";
+import { decryptStoredPii, KMS_POOL_CONCURRENCY } from "../../shared/index.ts";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.ts";
 import { isSystemAdmin } from "./is-system-admin.ts";
-
-// Bounded, not Promise.all/sequential: each decrypt hits the KMS adapter's
-// own small dedicated pool (PgKmsAdapter default max: 4). Promise.all fires
-// one call per row unbounded and exhausts the pool once invitation counts
-// exceed a handful, surfacing as "the connection was closed"; a strict
-// sequential loop caps concurrency at 1 and leaves 3 pool slots idle.
-const KMS_POOL_CONCURRENCY = 4;
 
 // Pending invitations for the current tenant, admin-only, filtered to
 // status="pending" — accepted/cancelled/expired don't belong in this UI
@@ -24,18 +17,14 @@ export const invitationsQuery = defineQueryHandler({
   name: "invitations",
   schema: z.object({}),
   access: { roles: access.admin },
+  systemScope: true,
   description:
     "Lists the still-pending invitations of the caller's own tenant with their email and inviter decrypted; accepted, cancelled and expired ones are left out.",
   // Decrypted invitee and inviter email.
   agent: { risk: "high" },
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "tenant:query:invitations requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
-      });
-    }
-    const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
+    const { systemDb } = ctx;
+    const db = systemDb.assertTenantMatch(query.user.tenantId);
     const rows = await selectMany<Record<string, unknown>>(db, tenantInvitationsTable, {
       tenantId: query.user.tenantId,
       status: INVITATION_STATUS.pending,

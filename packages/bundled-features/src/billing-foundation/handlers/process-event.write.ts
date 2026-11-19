@@ -19,7 +19,11 @@ import {
   configuredPiiSubjectKms,
   encryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import type { HandlerContext, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineWriteHandler,
+  type HandlerContext,
+  type WriteResult,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
@@ -41,6 +45,7 @@ import {
   SUBSCRIPTION_AGGREGATE_TYPE,
   SUBSCRIPTION_CANCELED_EVENT_QN,
   SUBSCRIPTION_CREATED_EVENT_QN,
+  SUBSCRIPTION_STATE_EVENT_QNS,
   SUBSCRIPTION_UPDATED_EVENT_QN,
   type SubscriptionEventHeaders,
   type SubscriptionEventPayload,
@@ -101,12 +106,6 @@ const NORMALIZED_TO_ES_EVENT: Readonly<Record<string, string>> = {
   [SubscriptionEventTypes.invoicePaymentFailed]: INVOICE_PAYMENT_FAILED_EVENT_QN,
 } satisfies Readonly<Record<string, string>>;
 
-const STATE_EVENT_QNS: ReadonlySet<string> = new Set([
-  SUBSCRIPTION_CREATED_EVENT_QN,
-  SUBSCRIPTION_UPDATED_EVENT_QN,
-  SUBSCRIPTION_CANCELED_EVENT_QN,
-]);
-
 const STATE_EVENT_TYPES: ReadonlySet<string> = new Set([
   SubscriptionEventTypes.created,
   SubscriptionEventTypes.updated,
@@ -154,7 +153,8 @@ export function isLateStateEvent(
 
 type SubscriptionStreamEvent = Awaited<ReturnType<HandlerContext["events"]["load"]>>[number];
 
-async function lockAndLoadSubscriptionStream(
+// Locks per aggregate id, so the payment stream reuses it too.
+export async function lockAndLoadSubscriptionStream(
   ctx: HandlerContext,
   aggId: string,
 ): Promise<readonly SubscriptionStreamEvent[]> {
@@ -191,20 +191,17 @@ export async function appendSubscriptionEvent(
   const aggId = subscriptionAggregateId(tenantId);
   const payload = clampProviderEventAt(rawPayload, now);
 
-  // The lock serialises the read (idempotency + late check) with the append: the append re-reads the
-  // stream version itself, so without it a concurrent delivery could slip in between and the late
-  // check would have judged an outdated stream. A caller that already holds it passes its stream.
+  // The lock serialises the read (idempotency + late check) with the append; the append is pinned to
+  // the version of the stream that was judged, so an unlocked writer slipping in conflicts instead of
+  // landing on top. A caller that already holds the lock passes its stream.
 
   // ---------------------------------------------------------------
   // 1. Idempotency: load the subscription stream and check whether this
   //    providerEventId was already seen. A provider retry storm (Stripe
   //    resends up to 5x within 4h) hits the same stream and finds the
   //    event id in metadata.
-  //
-  //    **Performance caveat:** O(N) per stream. With 5 years of history
-  //    (monthly recurring = ~60 events) still <50ms. For much longer
-  //    streams, optimize via snapshot or a per-tenant dedup table as the
-  //    idempotency anchor (like cap-counter).
+  //    O(N) over the whole stream, checkout-opened, consent and plan-switch
+  //    events included; kept until load is measured (docs/reference/decisions.md, 2026-11-17).
   // ---------------------------------------------------------------
   const existingEvents = lockedStream ?? (await lockAndLoadSubscriptionStream(ctx, aggId));
   if (hasSeenProviderEvent(existingEvents, payload)) {
@@ -290,6 +287,7 @@ export async function appendSubscriptionEvent(
     type: esEventType,
     payload: eventPayload,
     headers,
+    expectedVersion: existingEvents.at(-1)?.version ?? 0,
   });
 
   return { duplicate: false, subscriptionAggregateId: aggId };
@@ -358,7 +356,7 @@ function pendingSwitchConsentId(
   const carried = new Set<string>();
   for (const stored of storedEvents) {
     // skip: only subscription state events can carry a consent
-    if (!STATE_EVENT_QNS.has(stored.type)) continue;
+    if (!SUBSCRIPTION_STATE_EVENT_QNS.has(stored.type)) continue;
     const consentId = propertyOf(stored.payload, "consentId");
     if (typeof consentId === "string") carried.add(consentId);
   }
@@ -438,15 +436,27 @@ function admitProviderEvent(
   return { admitted: true, ...(switchConsentId !== undefined && { consentId: switchConsentId }) };
 }
 
-export function createProcessEventHandler(now: () => Temporal.Instant): WriteHandlerDef {
-  return {
+type ProcessEventData =
+  | {
+      readonly ignored: true;
+      readonly reason: IgnoredEventReason;
+      readonly retry?: true;
+      readonly subscriptionAggregateId: string;
+    }
+  | {
+      readonly duplicate: boolean;
+      readonly stale?: true;
+      readonly subscriptionAggregateId: string;
+    };
+
+export function createProcessEventHandler(now: () => Temporal.Instant) {
+  return defineWriteHandler({
     name: "process-event",
     agent: { expose: false },
     schema: processEventSchema,
     access: { roles: ["SystemAdmin"] },
-    handler: async (event, ctx) => {
-      // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const payload = event.payload as ProcessEventPayload;
+    handler: async (event, ctx): Promise<WriteResult<ProcessEventData>> => {
+      const payload = event.payload;
       const aggId = subscriptionAggregateId(event.user.tenantId);
       // One locked load serves admission and the append; the stream grows with every opened checkout.
       // The lock comes first so the stream and `current` are both read under it.
@@ -486,5 +496,5 @@ export function createProcessEventHandler(now: () => Temporal.Instant): WriteHan
       );
       return { isSuccess: true as const, data: result };
     },
-  };
+  });
 }

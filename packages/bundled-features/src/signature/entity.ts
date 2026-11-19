@@ -7,6 +7,9 @@ import {
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { EntityEventMigration, ParentRefDef } from "@cosmicdrift/kumiko-types/fields";
+import type { SignatureLegacyHostResolver } from "./options.ts";
+import { createRequestHostUpcast } from "./request-host-upcast.ts";
 import {
   SIGNATURE_LEVEL,
   SIGNATURE_METHOD,
@@ -36,18 +39,25 @@ const METHOD_OPTIONS = [SIGNATURE_METHOD.InPerson, SIGNATURE_METHOD.Link] as con
 
 export const DEFAULT_SIGNATURE_RETENTION_KEEP_FOR = "10y";
 
-export type SignatureRetention = { readonly keepFor: string };
+export type SignatureRetention = {
+  readonly keepFor: string;
+  readonly unfinishedKeepFor?: string;
+};
 
 // A signer has no user account, so the signer row itself is the crypto-shredding subject for the
 // name, email, signature image and the audit values (IP, user agent) stored with the signature.
 // find: "none" except the email, which the user-data hook looks up by exact match.
 const SIGNER_PERSONAL = { personal: "self", find: "none" } as const;
 
-export function createSignatureRequestEntity(
-  retention: SignatureRetention = { keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR },
+function buildSignatureRequestEntity(
+  retention: Pick<SignatureRetention, "keepFor">,
+  parentRef: ParentRefDef | undefined,
+  hostUpcast: EntityEventMigration,
 ) {
   return createEntity({
     table: "read_signature_requests",
+    eventVersion: 2,
+    eventMigrations: [hostUpcast],
     description:
       "A request to sign one PDF document by several people, on a display in person or through a link, tracked through open, all-signed, completed, declined, expired, failed and cancelled; the document is referenced by file id and hash and never changed.",
     retention: { keepFor: retention.keepFor, strategy: "hardDelete", reference: "createdAt" },
@@ -84,6 +94,20 @@ export function createSignatureRequestEntity(
         reason: "technical_reference",
         maxLength: 100,
       }),
+      hostType: createTextField({
+        required: false,
+        personal: false,
+        reason: "technical_reference",
+        filterable: true,
+        maxLength: 100,
+      }),
+      hostId: createTextField({
+        required: false,
+        personal: false,
+        reason: "technical_reference",
+        filterable: true,
+        maxLength: 100,
+      }),
       status: createSelectField({
         options: REQUEST_STATUS_OPTIONS,
         required: true,
@@ -117,17 +141,40 @@ export function createSignatureRequestEntity(
         sortable: true,
       }),
     },
+    ...(parentRef !== undefined && { parentRef }),
     indexes: [
       { columns: ["tenantId", "status"] },
       { columns: ["tenantId", "subjectType", "subjectId"] },
+      { columns: ["tenantId", "hostType", "hostId"] },
     ],
+    name: SIGNATURE_REQUEST_ENTITY,
   });
 }
 
+// A request is visible only while its host row is readable through the host entity's own read rules.
+export function createSignatureRequestEntity(
+  retention: Pick<SignatureRetention, "keepFor">,
+  hostEntities: readonly string[],
+  legacyHostOf?: SignatureLegacyHostResolver,
+) {
+  return buildSignatureRequestEntity(
+    retention,
+    {
+      entityTypeField: "hostType",
+      entityIdField: "hostId",
+      allowedTypes: hostEntities,
+    },
+    createRequestHostUpcast(legacyHostOf, hostEntities),
+  );
+}
+
 export function createSignatureSignerEntity(
-  retention: SignatureRetention = { keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR },
+  retention: Pick<SignatureRetention, "keepFor"> = {
+    keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR,
+  },
 ) {
   return createEntity({
+    name: SIGNATURE_SIGNER_ENTITY,
     table: "read_signature_signers",
     description:
       "One person who has to sign a signature request, with their way of signing (in person or link), the signature image and the audit values stored when they signed or declined; name, email, image, IP address and user agent are the signer's personal data.",
@@ -181,14 +228,31 @@ export function createSignatureSignerEntity(
   });
 }
 
-export const signatureRequestEntity = createSignatureRequestEntity();
+// Table shape without the host gate; the mounted entity and its handler executors carry parentRef with the mount's hosts.
+export const signatureRequestEntity = buildSignatureRequestEntity(
+  { keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR },
+  undefined,
+  createRequestHostUpcast(undefined, []),
+);
 export const signatureSignerEntity = createSignatureSignerEntity();
 
-export const { executor: requestExecutor, table: signatureRequestTable } = createEntityExecutor(
-  SIGNATURE_REQUEST_ENTITY,
-  signatureRequestEntity,
-);
-export const { executor: signerExecutor, table: signatureSignerTable } = createEntityExecutor(
-  SIGNATURE_SIGNER_ENTITY,
-  signatureSignerEntity,
-);
+// ungated: system paths only (sweep, user-data run as systemUser and must see every host)
+export const { executor: ungatedRequestExecutor, table: signatureRequestTable } =
+  createEntityExecutor(signatureRequestEntity);
+
+export function createSignatureRequestExecutor(
+  hostEntities: readonly string[],
+  legacyHostOf?: SignatureLegacyHostResolver,
+) {
+  return createEntityExecutor(
+    createSignatureRequestEntity(
+      { keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR },
+      hostEntities,
+      legacyHostOf,
+    ),
+  ).executor;
+}
+
+export type SignatureRequestExecutor = ReturnType<typeof createSignatureRequestExecutor>;
+export const { executor: signerExecutor, table: signatureSignerTable } =
+  createEntityExecutor(signatureSignerEntity);

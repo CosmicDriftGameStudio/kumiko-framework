@@ -16,11 +16,11 @@ import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
   type ButtonProps,
-  type CorePrimitives,
   type FormProps,
   type InputProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider } from "../nav.tsx";
@@ -62,7 +62,7 @@ const domInput: ComponentType<InputProps> = (props) => {
   );
 };
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: domButton,
   Banner: passChildren,
   Field: passChildren,
@@ -81,7 +81,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 let lastWrite: { type: string; payload: unknown } | undefined;
 
@@ -92,25 +92,19 @@ function requireLastWrite(): { type: string; payload: unknown } {
 }
 
 function stubDispatcher(record: Readonly<Record<string, unknown>>): Dispatcher {
-  return {
-    write: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async (type: string, payload: unknown) => {
       lastWrite = { type, payload };
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
-    query: (async () => ({ isSuccess: true, data: record })) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    query: async () => ({ isSuccess: true, data: record }),
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function buildSchema(apiKeyRequired: boolean): FeatureSchema {
   const entity: EntityDefinition = {
+    name: "entity",
     fields: {
       name: {
         type: "text",
@@ -206,7 +200,7 @@ afterEach(cleanup);
 describe("entityEdit writeOnly field", () => {
   test("a set value shows the masked marker first, then the keep-placeholder after Replace", async () => {
     mountEdit(SET_RECORD);
-    expect(await screen.findByText("•••••••••• set")).toBeDefined();
+    await screen.findByText("•••••••••• set");
     expect(capturedInputs["apiKey"]).toBeUndefined();
     await openReplace();
     await waitFor(() => {
@@ -235,7 +229,7 @@ describe("entityEdit writeOnly field", () => {
       expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
     });
     // The value is "set" again, so the masked marker returns.
-    expect(await screen.findByText("•••••••••• set")).toBeDefined();
+    await screen.findByText("•••••••••• set");
     const changes = await submitAndReadChanges();
     expect(Object.hasOwn(changes, "apiKey")).toBe(false);
   });

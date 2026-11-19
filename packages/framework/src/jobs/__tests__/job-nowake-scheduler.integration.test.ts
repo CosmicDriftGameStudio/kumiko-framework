@@ -27,8 +27,12 @@ afterAll(async () => {
 });
 
 const feature = defineFeature("sleepy", (r) => {
-  r.job("sweep", { trigger: { cron: "0 * * * *", wakesSleepingApp: false } }, async () => {});
-  r.job("tidy", { trigger: { maintenance: true } }, async () => {});
+  r.job({
+    name: "sweep",
+    trigger: { cron: "0 * * * *", wakesSleepingApp: false },
+    handler: async () => {},
+  });
+  r.job({ name: "tidy", trigger: { maintenance: true }, handler: async () => {} });
 });
 
 async function withRunner(
@@ -113,7 +117,7 @@ describe("schedulers that do not wake a sleeping app", () => {
         createRegistry([
           defineFeature("bad", (r) => {
             // @ts-expect-error the type already rejects both, the boot check covers untyped callers
-            r.job("sweep", { trigger }, async () => {});
+            r.job({ name: "sweep", trigger, handler: async () => {} });
           }),
         ]),
       ).toThrow("only false is valid, and only on a cron or maintenance trigger");

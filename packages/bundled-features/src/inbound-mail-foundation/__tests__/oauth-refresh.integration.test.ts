@@ -1,6 +1,6 @@
 // OAuth access-token refresh — real foundation, real secrets, real
 // connect-callback HTTP route, fake OAuth provider registered via
-// r.useExtension. The clock is an injected Temporal instant.
+// r.applyExtension. The clock is an injected Temporal instant.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
@@ -60,12 +60,20 @@ import {
   seenMessageEntity,
   syncCursorEntity,
 } from "../index.ts";
-import { signOAuthState } from "../oauth-state.ts";
+import {
+  OAUTH_BROWSER_BINDING_COOKIE,
+  oauthBrowserBinding,
+  signOAuthState,
+} from "../oauth-state.ts";
 import { rawMsg } from "./mail-test-support.ts";
 
 const PROVIDER_KEY = "oauth-fake";
 const STATE_SECRET = "oauth-refresh-test-state-secret-0123456789abcdef";
 const CALLBACK_URL = "http://localhost/inbound-mail/oauth/callback";
+const TEST_BROWSER_BINDING = "oauth-refresh-test-browser";
+const BINDING_COOKIE_HEADER = {
+  Cookie: `${OAUTH_BROWSER_BINDING_COOKIE}=${TEST_BROWSER_BINDING}`,
+};
 const T0 = Temporal.Instant.from("2030-01-01T00:00:00Z");
 
 type RefreshCall = { readonly accountId: string; readonly refreshToken: string };
@@ -140,7 +148,7 @@ const fakePlugin: InboundMailProviderPlugin = {
 
 const fakeProviderFeature = defineFeature("inbound-provider-oauth-fake", (r) => {
   r.requires({ features: ["inbound-mail-foundation"] });
-  r.useExtension(INBOUND_MAIL_PROVIDER_EXTENSION, PROVIDER_KEY, fakePlugin);
+  r.applyExtension({ name: INBOUND_MAIL_PROVIDER_EXTENSION, entity: PROVIDER_KEY, ...fakePlugin });
 });
 
 let clock = T0;
@@ -299,6 +307,7 @@ function signedStateFor(tenantNumber: number): string {
       ownerUserId: null,
       providerKey: PROVIDER_KEY,
       mailbox: mailboxOf(tenantNumber),
+      browserBinding: oauthBrowserBinding(TEST_BROWSER_BINDING),
     },
     15,
     STATE_SECRET,
@@ -539,6 +548,7 @@ describe("oauth refresh — connect callback", () => {
     const state = signedStateFor(4710);
     const res = await stack.app.request(
       `/inbound-mail/oauth/callback?code=${encodeURIComponent(mailboxOf(4710))}&state=${encodeURIComponent(state)}`,
+      { headers: BINDING_COOKIE_HEADER },
     );
     expect(res.status).toBe(200);
     const { accountId } = (await res.json()) as { accountId: string };
@@ -560,6 +570,7 @@ describe("oauth refresh — connect callback", () => {
     const state = signedStateFor(4711);
     const res = await stack.app.request(
       `/inbound-mail/oauth/callback?code=boom&state=${encodeURIComponent(state)}`,
+      { headers: BINDING_COOKIE_HEADER },
     );
     expect(res.status).toBe(502);
     const text = await res.text();
@@ -589,6 +600,7 @@ describe("oauth refresh — first sync after the callback", () => {
     try {
       const res = await stack.app.request(
         `/inbound-mail/oauth/callback?code=${encodeURIComponent(mailboxOf(4712))}&state=${encodeURIComponent(signedStateFor(4712))}`,
+        { headers: BINDING_COOKIE_HEADER },
       );
       expect(res.status).toBe(200);
       const { accountId } = (await res.json()) as { accountId: string };

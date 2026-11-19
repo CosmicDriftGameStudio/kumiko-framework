@@ -1,7 +1,7 @@
 // Proves the escapeHatch declaration gate, not just its type.
 //
 // TenantDataHookCtx/UserDataHookCtx.db is a tenant-filtered TenantDb. A hook
-// that declares `escapeHatch: { reason }` on its `r.useExtension(...)`
+// that declares `escapeHatch: { reason }` on its `r.applyExtension(...)`
 // registration can call `ctx.db.unsafeRaw()` to get a REAL unfiltered
 // DbRunner — the two tests below use it with a deliberately filter-less
 // `DELETE FROM <table>` (no WHERE at all) to prove the grant is genuinely
@@ -67,15 +67,17 @@ async function bootBaseTables(stack: TestStack): Promise<void> {
 
 describe("escape-hatch declaration :: declared hook gets a real unfiltered DbRunner", () => {
   const DECLARED_REASON =
-    "fw#2914 test: escape-hatch declared on r.useExtension — ctx.db.unsafeRaw() must grant a real unfiltered DbRunner";
+    "fw#2914 test: escape-hatch declared on r.applyExtension — ctx.db.unsafeRaw() must grant a real unfiltered DbRunner";
 
   const declaredLeakHook: UserDataDeleteHook = async (ctx) => {
     // No WHERE clause at all — only possible with a genuinely unfiltered runner.
-    await asRawClient(ctx.db.unsafeRaw()).unsafe(`DELETE FROM test_leaky_declared`);
+    await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(`DELETE FROM test_leaky_declared`);
   };
 
   const declaredFeature = defineFeature("test-leaky-declared", (r) => {
-    r.useExtension(EXT_USER_DATA, "leaky-declared", {
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "leaky-declared",
       export: async () => null,
       delete: declaredLeakHook,
       escapeHatch: { reason: DECLARED_REASON },
@@ -128,11 +130,13 @@ describe("escape-hatch declaration :: declared hook gets a real unfiltered DbRun
 
 describe("escape-hatch declaration :: undeclared hook is denied, not silently unfiltered", () => {
   const undeclaredLeakHook: UserDataDeleteHook = async (ctx) => {
-    await asRawClient(ctx.db.unsafeRaw()).unsafe(`DELETE FROM test_leaky_undeclared`);
+    await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(`DELETE FROM test_leaky_undeclared`);
   };
 
   const undeclaredFeature = defineFeature("test-leaky-undeclared", (r) => {
-    r.useExtension(EXT_USER_DATA, "leaky-undeclared", {
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "leaky-undeclared",
       export: async () => null,
       delete: undeclaredLeakHook,
       // Deliberately NOT declared: this is the case under test.

@@ -22,10 +22,11 @@ import { eventsTable } from "../../event-store/index.ts";
 import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "sar_notes",
   fields: { title: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 const noteExecutor = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
 
 const reservationTable = defineUnmanagedTable({
@@ -58,7 +59,7 @@ async function outerNoteVisible(label: string): Promise<boolean> {
 }
 
 const feature = defineFeature(FEATURE, (r) => {
-  const note = r.entity({ name: "note", ...noteEntity });
+  const note = r.entity(noteEntity);
 
   r.writeHandler({
     name: "inner:create",

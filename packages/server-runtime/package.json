@@ -30,6 +30,10 @@
       "types": "./src/run-prod-app.ts",
       "default": "./src/run-prod-app.ts"
     },
+    "./standalone-cli": {
+      "types": "./src/standalone-cli.ts",
+      "default": "./src/standalone-cli.ts"
+    },
     "./run-worker-app": {
       "types": "./src/run-worker-app.ts",
       "default": "./src/run-worker-app.ts"
@@ -103,7 +107,6 @@
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-renderer": "workspace:*",
-    "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
     "@cosmicdrift/kumiko-types": "workspace:*",
     "ioredis": "^5.11.1",
     "temporal-polyfill": "^0.3.2",
@@ -131,6 +134,10 @@
       "./run-prod-app": {
         "types": "./dist/run-prod-app.d.ts",
         "default": "./dist/run-prod-app.js"
+      },
+      "./standalone-cli": {
+        "types": "./dist/standalone-cli.d.ts",
+        "default": "./dist/standalone-cli.js"
       },
       "./run-worker-app": {
         "types": "./dist/run-worker-app.d.ts",

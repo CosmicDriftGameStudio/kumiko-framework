@@ -15,32 +15,23 @@ import {
   configValuesTable,
   createConfigFeature,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import {
-  type SessionCallbacks,
-  userSessionEntity,
-} from "@cosmicdrift/kumiko-bundled-features/sessions";
+import type { SessionCallbacks } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import {
   sessionCallbacksFromLateBound,
   withMintedSession,
 } from "@cosmicdrift/kumiko-bundled-features/sessions/testing";
 import {
   createTenantFeature,
-  tenantEntity,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
-import {
-  createUserFeature,
-  UserHandlers,
-  userEntity,
-} from "@cosmicdrift/kumiko-bundled-features/user";
+import { createUserFeature, UserHandlers } from "@cosmicdrift/kumiko-bundled-features/user";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createLateBoundHolder } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as jose from "jose";
@@ -70,9 +61,6 @@ beforeAll(async () => {
   });
   callbacks.set(createSessionCallbacks({ db: stack.db }));
 
-  await unsafeCreateEntityTable(stack.db, userEntity);
-  await unsafeCreateEntityTable(stack.db, userSessionEntity);
-  await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 

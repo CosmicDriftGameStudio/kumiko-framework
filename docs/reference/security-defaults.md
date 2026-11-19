@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-11-04
-evidence: "packages/framework/src/db/cross-tenant-reads.ts, packages/types/src/handlers.ts, packages/server-runtime/src/security-headers.ts, csp-hashes.ts, rate-limit-defaults.ts; packages/server-runtime/src/__tests__/security-headers.test.ts, csp-hashes.test.ts, run-prod-app.integration.test.ts; packages/framework/src/db/render-rls-ddl.ts, row-level-security-connection.ts, row-level-security-boot-check.ts; packages/framework/src/db/__tests__/row-level-security-scope.integration.test.ts, row-level-security-boot-check.integration.test.ts"
+verified: 2026-11-17
+evidence: "packages/framework/src/db/cross-tenant-reads.ts, packages/types/src/handlers.ts, packages/server-runtime/src/security-headers.ts, csp-hashes.ts, rate-limit-defaults.ts; packages/server-runtime/src/__tests__/security-headers.test.ts, csp-hashes.test.ts, run-prod-app.integration.test.ts; packages/framework/src/db/tenant-db-runner-binding.ts, packages/framework/src/db/render-rls-ddl.ts, row-level-security-connection.ts, row-level-security-boot-check.ts; packages/framework/src/db/__tests__/row-level-security-scope.integration.test.ts, packages/framework/src/db/__tests__/unsafe-raw-scope.integration.test.ts, row-level-security-boot-check.integration.test.ts"
 ---
 
 # Security defaults: CSP, rate limits and row level security
@@ -124,8 +124,20 @@ Each declared escape hatch also decides the Postgres scope:
 |---|---|---|---|
 | none (`ctx.db`) | tenant of the call | own tenant; system tenant rows only on `systemRowsReadable` tables | own tenant only |
 | `escapeHatch: { reason, grants: ["crossTenantReads"] }` → `ctx.crossTenantReads` | system, with the reason | every tenant, through `selectMany`, `fetchOne` and `count` | none |
-| `escapeHatch: { reason, grants: ["unsafeRaw"] }` → `ctx.db.unsafeRaw()` | system, with the reason | every tenant | every tenant |
+| `escapeHatch: { reason, grants: ["unsafeRaw"] }` → `ctx.db.unsafeRaw()` | scope of the TenantDb (tenant of the call in tenant mode) | own tenant; system tenant rows only on `systemRowsReadable` tables | own tenant only |
+| same grant → `ctx.db.unsafeRawAllTenants()` | system, with the reason | every tenant | every tenant |
 | `r.systemScope()` → `ctx.systemDb` | system | every tenant | every tenant |
+
+### Statement path
+
+A statement from `ctx.db` passes four layers on its way to Postgres:
+
+1. `boundRunner` (`tenant-db-runner-binding.ts`) applies the personal-data gate, binds the projection registry and carries the executor write capability.
+2. `withRowLevelSecurityScope` (`row-level-security-scope.ts`) sets the scope of the statement; the innermost scope wins.
+3. `enforceRowLevelSecurity` (`row-level-security-connection.ts`) runs BEGIN, `set_config`, the statement and COMMIT pipelined on one reserved connection outside a transaction. Inside a transaction it sets `kumiko.scope` only when the scope changes.
+4. The savepoint serialization (`transaction-serialization.ts`) makes a statement on a transaction wait for the savepoints opened before it.
+
+The layers stay separate because each carries exactly one concern.
 
 `ctx.crossTenantReads` is the narrow choice for a handler or job that only has to look at other tenants, for example a cron that asks "does any tenant have open work?":
 
@@ -146,7 +158,7 @@ r.job({
 
 Pitfalls:
 
-- `ctx.crossTenantReads` is `undefined` without the grant. It is also `undefined` during member resolution and inside an agent tool call, including nested dispatches, so a tool call never reads across tenants.
+- `ctx.crossTenantReads` is `undefined` without the grant. It is also `undefined` during member resolution and inside an agent tool call, including nested dispatches, so a tool call never reads across tenants. For `define*` handlers that declare the grant the field is typed as present; without it the call ends at entry with `access_denied` or `internal_error`.
 - `grants: ["crossTenantReads"]` does not unlock `ctx.db.unsafeRaw()`. The reverse holds: an `unsafeRaw` grant implies `crossTenantReads`, because the raw runner reads everything anyway.
 - Every call is reported as `cross-tenant-read`. The audit log keeps one entry per report window and handler; the metric counts each call.
 - An `escapeHatch` without `grants` unlocks every grant. Name the grants you need.

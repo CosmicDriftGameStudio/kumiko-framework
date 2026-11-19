@@ -11,12 +11,11 @@ import {
 import { createEventStoreExecutor } from "../db/event-store-executor.ts";
 import { buildEntityTable } from "../db/table-builder.ts";
 import { createTenantDb } from "../db/tenant-db.ts";
+import { defineEntityQueryHandler, defineEntityWriteHandler } from "../engine/entity-handlers.ts";
 import {
   createEntity,
   createSystemUser,
   createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
   defineFeature,
   from,
 } from "../engine/index.ts";
@@ -26,6 +25,7 @@ import { createTestUser, testTenantId } from "../seeding/seed-users.ts";
 const SECRET_TITLE = "owner-only-secret-title";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "readrule_notes",
   softDelete: true,
   fields: {
@@ -36,7 +36,7 @@ const noteEntity = createEntity({
 });
 
 const notesFeature = defineFeature("readrulenotes", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
   for (const verb of ["create", "update", "delete", "restore"] as const) {
     r.writeHandler(
       defineEntityWriteHandler(`note:${verb}`, noteEntity, { access: { roles: ["Member"] } }),
@@ -151,7 +151,7 @@ describe("access.read is enforced on update, delete and restore", () => {
 });
 
 describe("access.read is enforced on forget", () => {
-  const noteExecutor = createEventStoreExecutor(buildEntityTable("note", noteEntity), noteEntity, {
+  const noteExecutor = createEventStoreExecutor(buildEntityTable(noteEntity), noteEntity, {
     entityName: "note",
   });
   const tenantDbFor = (user: SessionUser) =>

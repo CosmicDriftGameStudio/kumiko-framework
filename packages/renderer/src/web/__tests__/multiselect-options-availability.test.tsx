@@ -5,10 +5,16 @@
 import { describe, expect, test } from "bun:test";
 import type { ActionFormScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
-import type { Dispatcher } from "../../headless/index.ts";
+import type { Dispatcher, QueryResult } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const AVAILABILITY_QUERY = "demo:query:role-availability";
 
@@ -44,11 +50,11 @@ function schemaFor(
   return { featureName: "demo", entities: {}, screens: [rolesScreen(display, options)] };
 }
 
-function dispatcherWith(query: Dispatcher["query"]): Dispatcher {
+function dispatcherWith(query: MockQueryHandler): Dispatcher {
   return createMockDispatcher({ query });
 }
 
-const availabilityRows = {
+const availabilityRows: QueryResult = {
   isSuccess: true,
   data: {
     rows: [
@@ -62,9 +68,7 @@ const availabilityRows = {
 describe("multiSelect optionsAvailabilityQuery", () => {
   test("combobox drops the disabled option once the query answered", async () => {
     const user = userEvent.setup();
-    const dispatcher = dispatcherWith(
-      (async () => availabilityRows) as unknown as Dispatcher["query"],
-    );
+    const dispatcher = dispatcherWith(async () => availabilityRows);
     render(
       <DispatcherProvider dispatcher={dispatcher}>
         <KumikoScreen schema={schemaFor()} qn="demo:screen:set-roles" />
@@ -74,14 +78,12 @@ describe("multiSelect optionsAvailabilityQuery", () => {
     await waitFor(() => screen.getByTestId("combobox-kumiko-edit-roles"));
     await user.click(screen.getByTestId("combobox-kumiko-edit-roles"));
     await waitFor(() => expect(screen.queryByText("TenantAdmin")).toBeNull());
-    expect(screen.getByText("User")).toBeDefined();
-    expect(screen.getByText("Admin")).toBeDefined();
+    screen.getByText("User");
+    screen.getByText("Admin");
   });
 
   test("checkbox grid drops the disabled option too", async () => {
-    const dispatcher = dispatcherWith(
-      (async () => availabilityRows) as unknown as Dispatcher["query"],
-    );
+    const dispatcher = dispatcherWith(async () => availabilityRows);
     render(
       <DispatcherProvider dispatcher={dispatcher}>
         <KumikoScreen schema={schemaFor("checkboxes")} qn="demo:screen:set-roles" />
@@ -89,29 +91,27 @@ describe("multiSelect optionsAvailabilityQuery", () => {
     );
 
     await waitFor(() => expect(screen.queryByText("TenantAdmin")).toBeNull());
-    expect(screen.getByText("User")).toBeDefined();
-    expect(screen.getByText("Admin")).toBeDefined();
+    screen.getByText("User");
+    screen.getByText("Admin");
   });
 
   test("a failing query leaves every static option", async () => {
-    const dispatcher = dispatcherWith((async () => ({
+    const dispatcher = dispatcherWith(async () => ({
       isSuccess: false,
-      error: { code: "internal", message: "boom" },
-    })) as unknown as Dispatcher["query"]);
+      error: { code: "internal", httpStatus: 500, i18nKey: "errors.internal", message: "boom" },
+    }));
     render(
       <DispatcherProvider dispatcher={dispatcher}>
         <KumikoScreen schema={schemaFor("checkboxes")} qn="demo:screen:set-roles" />
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText("User")).toBeDefined());
-    expect(screen.getByText("TenantAdmin")).toBeDefined();
+    await waitFor(() => screen.getByText("User"));
+    screen.getByText("TenantAdmin");
   });
 
   test("a prefilled value on a disabled option stays listed, disabled", async () => {
-    const dispatcher = dispatcherWith(
-      (async () => availabilityRows) as unknown as Dispatcher["query"],
-    );
+    const dispatcher = dispatcherWith(async () => availabilityRows);
     render(
       <DispatcherProvider dispatcher={dispatcher}>
         <NavProvider
@@ -132,7 +132,7 @@ describe("multiSelect optionsAvailabilityQuery", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText("Admin")).toBeDefined());
+    await waitFor(() => screen.getByText("Admin"));
     const held = screen.getByRole("checkbox", { name: "TenantAdmin" });
     expect(held.getAttribute("aria-checked")).toBe("true");
     expect(held.hasAttribute("disabled")).toBe(true);
@@ -140,10 +140,10 @@ describe("multiSelect optionsAvailabilityQuery", () => {
 
   test("a readOnly field never queries availability", async () => {
     const queried: string[] = [];
-    const dispatcher = dispatcherWith((async (type: string) => {
+    const dispatcher = dispatcherWith(async (type: string) => {
       queried.push(type);
       return availabilityRows;
-    }) as unknown as Dispatcher["query"]);
+    });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
         <KumikoScreen
@@ -153,7 +153,7 @@ describe("multiSelect optionsAvailabilityQuery", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText("TenantAdmin")).toBeDefined());
+    await waitFor(() => screen.getByText("TenantAdmin"));
     expect(queried).not.toContain(AVAILABILITY_QUERY);
   });
 });

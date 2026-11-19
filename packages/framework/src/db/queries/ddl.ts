@@ -10,7 +10,6 @@ import {
 } from "../render-rls-ddl.ts";
 import { quoteIdent } from "../sql-identifier.ts";
 import { type RowLevelSecurityShape, readRowLevelSecurityShape } from "./rls-shape.ts";
-import { quoteTableIdent } from "./table-ops.ts";
 
 // Generic DDL helpers used on the prod-boot path (db/table-push.ts's
 // unsafePushTables, event-consumer-state.ts's multi-instance backfill) —
@@ -36,7 +35,7 @@ export async function alterTableAddColumn(
   ifNotExists = false,
 ): Promise<void> {
   await asRawClient(db).unsafe(
-    `ALTER TABLE ${quoteTableIdent(tableName)} ADD COLUMN ${ifNotExists ? "IF NOT EXISTS " : ""}${quoteTableIdent(columnName)} ${columnType}${defaultClause}${notNull}`,
+    `ALTER TABLE ${quoteIdent(tableName)} ADD COLUMN ${ifNotExists ? "IF NOT EXISTS " : ""}${quoteIdent(columnName)} ${columnType}${defaultClause}${notNull}`,
   );
 }
 
@@ -50,7 +49,7 @@ export async function createIndexIfNotExists(
 ): Promise<void> {
   const where = whereSql !== undefined ? ` WHERE ${whereSql}` : "";
   await asRawClient(db).unsafe(
-    `CREATE ${indexKind} IF NOT EXISTS ${quoteTableIdent(indexName)} ON ${quoteTableIdent(tableName)} (${columnList})${where}`,
+    `CREATE ${indexKind} IF NOT EXISTS ${quoteIdent(indexName)} ON ${quoteIdent(tableName)} (${columnList})${where}`,
   );
 }
 

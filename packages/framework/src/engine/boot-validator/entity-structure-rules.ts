@@ -96,6 +96,28 @@ export const ENTITY_STRUCTURE_RULES = {
     summary: "Every transition target is an option of the select field.",
     fix: "Use an existing option.",
   },
+  entityVerbReservedName: {
+    id: "entity-verb/reserved-name",
+    summary:
+      "A declared entity verb is not a lifecycle verb (created, updated, deleted, restored, forgotten).",
+    fix: "Rename the verb.",
+  },
+  entityVerbInvalidName: {
+    id: "entity-verb/invalid-name",
+    summary: "A declared entity verb is a camelCase word without dots or colons.",
+    fix: "Rename the verb to match ^[a-z][a-zA-Z0-9]*$.",
+  },
+  entityVerbTransitionField: {
+    id: "entity-verb/transition-field",
+    summary: "A verb transition names a select field of the entity.",
+    fix: "Point the transition at a select field.",
+  },
+  entityVerbTransitionState: {
+    id: "entity-verb/transition-state",
+    summary:
+      "A verb transition uses options of the field, a non-empty from list, and only pairs the entity's transitions allow.",
+    fix: "Use existing options and keep from/to inside entity.transitions.",
+  },
   extendSchemaCollision: {
     id: "entity/extend-schema-collision",
     summary: "An extendSchema column does not collide with an entity field.",

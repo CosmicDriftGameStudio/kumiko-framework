@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
-import { type ButtonProps, type CorePrimitives, PrimitivesProvider } from "../../primitives.tsx";
+import { type ButtonProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { VariableChips } from "../variable-chips.tsx";
 
 const captureButton: ComponentType<ButtonProps> = ({ children, onClick, ariaLabel, disabled }) => (
@@ -14,7 +15,7 @@ const captureButton: ComponentType<ButtonProps> = ({ children, onClick, ariaLabe
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: captureButton,
   Banner: passChildren,
   Field: passChildren,
@@ -33,7 +34,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return (

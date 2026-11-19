@@ -1,6 +1,7 @@
 import {
   configuredPiiSubjectKms,
   encryptPiiValueForSubject,
+  encryptPiiValuesForSubject,
   KeyErasedError,
   type LocalKeyKmsAdapter,
   PII_ERASED_SENTINEL,
@@ -14,6 +15,7 @@ import {
   insertMany,
   insertOnConflictDoNothing,
   insertOne,
+  selectMany,
   transaction,
   updateMany,
   upsertOnConflict,
@@ -39,17 +41,11 @@ import type {
 } from "@cosmicdrift/kumiko-framework/jobs";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { mapWithConcurrency } from "../shared/index.ts";
 import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./events.ts";
 import { parseJobInstant } from "./job-instant.ts";
 import { jobRunLogsTable, jobRunsTable } from "./job-run-table.ts";
 import { tenantJobFailuresTable } from "./tenant-job-failure-table.ts";
 import { tenantJobRunsTable } from "./tenant-job-run-table.ts";
-
-// Matches PgKmsAdapter's default pool size (see tenant/handlers/*.query.ts) —
-// bounds concurrent getOrCreateDek calls so a large log batch doesn't claim
-// every connection in the pool.
-const KMS_POOL_CONCURRENCY = 4;
 
 // Direct-write job-run log: onJobStart/-Complete/-Failed write
 // straight into jobRunsTable / jobRunLogsTable instead of appending to the
@@ -135,22 +131,29 @@ async function encryptOrSentinel(
 // batched log line's `message` before insertMany into
 // jobRunLogsTable — that table is unmanaged/direct-write, so there is no
 // event-piiFields catalog to lean on here either. "message" is the AAD
-// field name and must match the field passed to decryptStoredPii on read
-// (detail.query.ts) or decrypt fails loud. Same skip rule as the payload:
-// absent KMS (rollout mode) stays plaintext. Bounded concurrency —
-// unbounded Promise.all would fire one getOrCreateDek per log line at once
-// against the KMS adapter's pool.
+// field name and must match the field passed to decryptStoredPiiValues on
+// read (detail.query.ts) or decrypt fails loud. Absent KMS (rollout mode)
+// stays plaintext. One key lookup per batch; an erased key writes the sentinel.
 async function encryptLogMessages<T extends { readonly message: string }>(
   logs: readonly T[],
   triggeredById: string | null,
 ): Promise<T[]> {
   const kms = configuredPiiSubjectKms();
   if (!kms) return [...logs];
-  const subject = jobRunSubject(triggeredById);
-  return mapWithConcurrency(logs, KMS_POOL_CONCURRENCY, async (log) => ({
-    ...log,
-    message: await encryptOrSentinel(kms, subject, log.message, "message"),
-  }));
+  let messages: string[];
+  try {
+    messages = await encryptPiiValuesForSubject(
+      kms,
+      jobRunSubject(triggeredById),
+      logs.map((log) => log.message),
+      { requestId: "jobs:job-run-logger" },
+      "message",
+    );
+  } catch (e) {
+    if (!(e instanceof KeyErasedError)) throw e;
+    messages = logs.map(() => PII_ERASED_SENTINEL);
+  }
+  return logs.map((log, index) => ({ ...log, message: messages[index] ?? PII_ERASED_SENTINEL }));
 }
 
 async function insertEncryptedRunLogs(
@@ -527,39 +530,54 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
   };
   const runIdByBullJobId = new Map<string, CacheEntry>();
 
-  function cachePut(bullJobId: string, runId: string, triggeredById: string | null): void {
+  // BullMQ job ids are only unique per queue (one queue per job), so two jobs
+  // can share a bullJobId; the cache and DB lookup key on both.
+  function runCacheKey(jobName: string, bullJobId: string): string {
+    return JSON.stringify([jobName, bullJobId]);
+  }
+
+  function cachePut(
+    jobName: string,
+    bullJobId: string,
+    runId: string,
+    triggeredById: string | null,
+  ): void {
     // Enforce max-size BEFORE insert. Map iteration returns insertion
     // order, so dropping the first entry is the oldest.
     if (runIdByBullJobId.size >= DEFAULT_CACHE_MAX_ENTRIES) {
       const oldest = runIdByBullJobId.keys().next().value;
       if (oldest !== undefined) runIdByBullJobId.delete(oldest);
     }
-    runIdByBullJobId.set(bullJobId, {
+    runIdByBullJobId.set(runCacheKey(jobName, bullJobId), {
       runId,
       triggeredById,
       expiresAt: Date.now() + DEFAULT_CACHE_TTL_MS,
     });
   }
 
-  function cacheGet(bullJobId: string): CacheEntry | undefined {
-    const entry = runIdByBullJobId.get(bullJobId);
+  function cacheGet(jobName: string, bullJobId: string): CacheEntry | undefined {
+    const key = runCacheKey(jobName, bullJobId);
+    const entry = runIdByBullJobId.get(key);
     if (!entry) return undefined;
     if (Date.now() >= entry.expiresAt) {
-      runIdByBullJobId.delete(bullJobId); // immediate cleanup on terminal callback
+      runIdByBullJobId.delete(key); // immediate cleanup on terminal callback
       return undefined;
     }
     return entry;
   }
 
   async function resolveRun(
+    jobName: string,
     bullJobId: string,
   ): Promise<{ readonly runId: string; readonly triggeredById: string | null } | undefined> {
-    const cached = cacheGet(bullJobId);
+    const cached = cacheGet(jobName, bullJobId);
     if (cached) return { runId: cached.runId, triggeredById: cached.triggeredById };
-    const row = await fetchOne<{ id: string | number; triggeredById: string | null }>(
+    // A retried/deferred job id starts a fresh run row; the newest one is live.
+    const [row] = await selectMany<{ id: string | number; triggeredById: string | null }>(
       db,
       jobRunsTable,
-      { bullJobId },
+      { jobName, bullJobId },
+      { orderBy: { col: "startedAt", direction: "desc" }, limit: 1 },
     );
     if (!row) return undefined;
     // buildBaseColumns's signature types `id` as `string | number` because
@@ -571,7 +589,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
     // softDelete × serial/uuid).
     const runId = String(row.id);
     const triggeredById = row.triggeredById ?? null;
-    cachePut(bullJobId, runId, triggeredById);
+    cachePut(jobName, bullJobId, runId, triggeredById);
     return { runId, triggeredById };
   }
 
@@ -599,11 +617,11 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
         jobName,
         bullJobId,
       );
-      const resolved = await resolveRun(bullJobId);
+      const resolved = await resolveRun(jobName, bullJobId);
       // skip: run row already gone (cache evicted and row unreachable)
       if (!resolved) return;
       await deleteMany(db, jobRunsTable, { id: resolved.runId });
-      runIdByBullJobId.delete(bullJobId);
+      runIdByBullJobId.delete(runCacheKey(jobName, bullJobId));
     },
 
     onJobStart: async (jobName: string, bullJobId: string, meta: JobMeta) => {
@@ -614,7 +632,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
       );
       const runId = generateId();
       const triggeredById = meta.triggeredById ?? null;
-      cachePut(bullJobId, runId, triggeredById);
+      cachePut(jobName, bullJobId, runId, triggeredById);
       // Parse against the registered schema so out-of-dispatcher writes
       // get the same validation guarantee as ctx.events.append. A shape
       // drift between feature + logger fails loudly at the source
@@ -663,7 +681,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
         jobName,
         bullJobId,
       );
-      const resolved = await resolveRun(bullJobId);
+      const resolved = await resolveRun(jobName, bullJobId);
       // skip: state loss between start + complete (worker restart, cache
       // evicted AND DB has no matching bull_job_id). Rare edge case; we
       // drop the completion write rather than forging a run row from
@@ -696,7 +714,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
         { id: runId },
       );
       await insertEncryptedRunLogs(db, runId, triggeredById, payload.logs);
-      runIdByBullJobId.delete(bullJobId); // immediate cleanup on terminal callback
+      runIdByBullJobId.delete(runCacheKey(jobName, bullJobId)); // immediate cleanup on terminal callback
     },
 
     onJobFailed: async (
@@ -718,7 +736,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
         jobName,
         bullJobId,
       );
-      const resolved = await resolveRun(bullJobId);
+      const resolved = await resolveRun(jobName, bullJobId);
       // skip: same rare state-loss case as in onJobComplete — drop the
       // failure write rather than forge a run row from scratch.
       if (!resolved) return;
@@ -756,7 +774,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
         { id: runId },
       );
       await insertEncryptedRunLogs(db, runId, triggeredById, payload.logs);
-      runIdByBullJobId.delete(bullJobId); // immediate cleanup on terminal callback
+      runIdByBullJobId.delete(runCacheKey(jobName, bullJobId)); // immediate cleanup on terminal callback
     },
   };
 }

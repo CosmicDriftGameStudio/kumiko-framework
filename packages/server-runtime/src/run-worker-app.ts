@@ -19,8 +19,8 @@ import type { ServerOptions } from "@cosmicdrift/kumiko-framework/api";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection, RowLevelSecurityMode } from "@cosmicdrift/kumiko-framework/db";
 import type {
-  BundledListsOptions,
   FeatureDefinition,
+  ListDefaultsOptions,
   Registry,
   ValidateBootOptions,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -45,10 +45,7 @@ import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.t
 import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.ts";
 import { startSearchReindexOnBoot } from "./boot/search-reindex-on-boot.ts";
 import { withEnvDefaults } from "./boot/shared-boot-steps.ts";
-import {
-  runStreamTenantBackfillOnBoot,
-  type SearchBackendDeclaration,
-} from "./boot/stream-tenant-backfill-on-boot.ts";
+import { runStreamTenantBackfillOnBoot } from "./boot/stream-tenant-backfill-on-boot.ts";
 import type { DatabaseWaitClock } from "./boot/wait-for-database.ts";
 import {
   bootWorkerProcess,
@@ -64,7 +61,12 @@ import type { BillingBootOption } from "./boot-options/billing-option.ts";
 import type { FileStorageBootOption } from "./boot-options/file-storage-option.ts";
 import type { KmsMode } from "./boot-options/kms-mode.ts";
 import type { MailBootOption } from "./boot-options/mail-option.ts";
-import { resolveBootOptionWiring } from "./boot-options/resolve-boot-options.ts";
+import { prodKmsModeDefault } from "./boot-options/prod-boot-defaults.ts";
+import {
+  type BootOptionWiring,
+  resolveBootOptionWiring,
+} from "./boot-options/resolve-boot-options.ts";
+import type { SearchOption } from "./boot-options/search-option.ts";
 import { assertStackBootRequirements } from "./boot-options/stack-boot-requirements.ts";
 import {
   makeDispatchSystemQuery,
@@ -104,18 +106,13 @@ export type WorkerWireDeps = SystemWireDeps & {
 export type RunWorkerAppOptions = {
   /** Row level security mode of every connection; pass appConfig.rowLevelSecurity. Default "on". */
   readonly rowLevelSecurity?: RowLevelSecurityMode;
-  /** `"none"`: the app has no search backend in any process (no `searchAdapter` in `extraContext`),
-   *  so no search docs can be orphaned and the stream-tenant backfill runs without a reindex. Unset:
-   *  a process without a search adapter defers the backfill of searchable entities to one that has
-   *  it. Combining `"none"` with a `searchAdapter` fails the boot. Must match the API process. */
-  readonly search?: SearchBackendDeclaration;
   /** App-specific features — same array as in the API/all-in-one process,
    *  so the registry + schema stay identical across processes. */
   readonly features: readonly FeatureDefinition[];
   /** Opt-in boot-validator warnings — see ValidateBootOptions. */
   readonly validateBootOptions?: ValidateBootOptions;
-  /** One table block for every list of the bundled features, see ComposeFeaturesOptions.bundledLists. Must match the API process. */
-  readonly bundledLists?: BundledListsOptions;
+  /** One table block for every list of all composed features, see ComposeFeaturesOptions.listDefaults. Must match the API process. */
+  readonly listDefaults?: ListDefaultsOptions;
   /** Mount the auto-mixed config/user/tenant/auth-email-password features —
    *  MUST match the API process's `includeBundled` value, otherwise API
    *  and worker run with a diverging registry topology. Also controls
@@ -169,7 +166,9 @@ export type RunWorkerAppOptions = {
   readonly mail?: MailBootOption;
   /** Same as RunProdAppOptions["fileStorage"]: mounts the file providers the worker's file jobs use. */
   readonly fileStorage?: FileStorageBootOption;
-  /** Same as RunProdAppOptions["kmsMode"]; cannot be combined with `kms` / `blindIndexKey` / `allowPlaintextPii`. */
+  /** Same as RunProdAppOptions["search"]: the worker's search consumer indexes into the same Meilisearch; `"none"` must match the API process. */
+  readonly search?: SearchOption;
+  /** Same as RunProdAppOptions["kmsMode"], including the production default; cannot be combined with `kms` / `blindIndexKey` / `allowPlaintextPii`. */
   readonly kmsMode?: KmsMode;
   /** Same as RunProdAppOptions["billing"]: mounts the configured subscription providers so the registry matches the API. The webhook route belongs to the API process. */
   readonly billing?: BillingBootOption;
@@ -239,6 +238,21 @@ function wireHookDb(db: DbConnection, options: RunWorkerAppOptions): DbConnectio
   return appHookScopedRunner(db, options.rowLevelSecurity ?? DEFAULT_ROW_LEVEL_SECURITY_MODE);
 }
 
+function withWiredBootOptions(
+  options: RunWorkerAppOptions,
+  wiring: BootOptionWiring,
+): Parameters<typeof bootWorkerProcess>[0] {
+  return {
+    ...options,
+    features: [...options.features, ...wiring.features],
+    ...(wiring.kms.kms && { kms: wiring.kms.kms }),
+    ...(wiring.kms.blindIndexKey !== undefined && { blindIndexKey: wiring.kms.blindIndexKey }),
+    ...(wiring.kms.allowPlaintextPii !== undefined && {
+      allowPlaintextPii: wiring.kms.allowPlaintextPii,
+    }),
+  };
+}
+
 // Runs before the metrics port opens and before start() consumes jobs: a worker must not process
 // events of a feature whose streams still sit on the wrong tenant.
 async function backfillThenStartMetrics(
@@ -250,14 +264,35 @@ async function backfillThenStartMetrics(
     registry: boot.registry,
     extraContext: boot.extraContext,
     processName: "runWorkerApp",
-    ...(options.search && { search: options.search }),
+    ...(options.search === "none" && { search: options.search }),
     ...(options.databaseWait && { databaseWait: options.databaseWait }),
   });
   return options.metrics ? startWorkerMetricsServer(options.metrics, boot.entrypoint) : undefined;
 }
 
-export async function runWorkerApp(options: RunWorkerAppOptions): Promise<WorkerAppHandle> {
+async function runWireComponents(
+  options: RunWorkerAppOptions,
+  boot: Extract<WorkerBootResult, { kind: "booted" }>,
+): Promise<void> {
+  if (!options.wireComponents) return;
+  const { db, redis, registry, entrypoint } = boot;
+  await options.wireComponents({
+    db: wireHookDb(db, options),
+    redis,
+    registry,
+    filesForTenant: makeFilesForTenant(entrypoint.context),
+    metricsFor: createMetricsForFactory(entrypoint.observability.meter),
+    dispatchSystemWrite: makeDispatchSystemWrite(entrypoint.dispatcher),
+    dispatchSystemQuery: makeDispatchSystemQuery(entrypoint.dispatcher),
+    lifecycle: entrypoint.lifecycle,
+    ...(boot.secrets && { secrets: boot.secrets }),
+  });
+}
+
+export async function runWorkerApp(rawOptions: RunWorkerAppOptions): Promise<WorkerAppHandle> {
   assertSeedModeNotInProduction();
+  const kmsMode = prodKmsModeDefault(rawOptions, rawOptions.envSource ?? process.env);
+  const options: RunWorkerAppOptions = { ...rawOptions, ...(kmsMode !== undefined && { kmsMode }) };
   const resolvedEnvSource = await resolveGatedEnvSource(options);
   if (resolvedEnvSource === undefined) return makeBootModeHandle();
   const log = installProcessLogger(options.extraContext, "runWorkerApp");
@@ -268,22 +303,11 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
   const envSource = withEnvDefaults(wiring.envDefaults, resolvedEnvSource);
   let boot: WorkerBootResult;
   try {
-    boot = await bootWorkerProcess(
-      {
-        ...options,
-        features: [...options.features, ...wiring.features],
-        ...(wiring.kms.kms && { kms: wiring.kms.kms }),
-        ...(wiring.kms.blindIndexKey !== undefined && { blindIndexKey: wiring.kms.blindIndexKey }),
-        ...(wiring.kms.allowPlaintextPii !== undefined && {
-          allowPlaintextPii: wiring.kms.allowPlaintextPii,
-        }),
-      },
-      envSource,
-      {
-        processName: "runWorkerApp",
-        ...(wiring.featureToggles && { featureToggles: wiring.featureToggles }),
-      },
-    );
+    boot = await bootWorkerProcess(withWiredBootOptions(options, wiring), envSource, {
+      processName: "runWorkerApp",
+      ...(wiring.featureToggles && { featureToggles: wiring.featureToggles }),
+      ...(wiring.searchAdapter && { searchAdapter: wiring.searchAdapter }),
+    });
   } catch (error) {
     await wiring.kms.close().catch(() => {});
     throw error;
@@ -337,19 +361,7 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
     envSource,
   });
 
-  if (options.wireComponents) {
-    await options.wireComponents({
-      db: wireHookDb(db, options),
-      redis,
-      registry,
-      filesForTenant: makeFilesForTenant(entrypoint.context),
-      metricsFor: createMetricsForFactory(entrypoint.observability.meter),
-      dispatchSystemWrite: makeDispatchSystemWrite(entrypoint.dispatcher),
-      dispatchSystemQuery: makeDispatchSystemQuery(entrypoint.dispatcher),
-      lifecycle: entrypoint.lifecycle,
-      ...(boot.secrets && { secrets: boot.secrets }),
-    });
-  }
+  await runWireComponents(options, boot);
 
   let shuttingDown = false;
   const shutdown = async (signal: string) => {

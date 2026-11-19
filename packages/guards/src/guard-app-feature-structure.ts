@@ -3,16 +3,15 @@
 // feature.ts = registration only, screens under web/, handlers under handlers/.
 // A feature file's runtime follows from its path (web/** is client, the rest is server or
 // isomorphic), so a runtime-client marker is never needed: outside web/ it hides client code
-// in the server tree, inside web/ it is redundant. This guard flags the four most expensive deviations:
+// in the server tree, inside web/ it is redundant. In the framework repo the sample apps and
+// recipes are checked too (samples/recipes/<r>/src/ = one feature folder). This guard flags the four most expensive deviations:
 //   1. web.tsx/web.ts monolith or JSX screens directly at the feature root
 //   2. feature.ts as a logic dump (> MAX_FEATURE_TS_LINES lines)
 //   3. r.screen({ type: "custom" }) without an allowlist tag — declarative
-//      screen types (entityList/dashboard/data-table) are the default.
+//      screen types (entityList/dashboard/data-table) are the default
+//      (the custom-screen galleries under samples are exempt).
 //   4. a runtime-client marker instead of the web/ path.
-//
-// ponytail: the handler file convention (*.query.ts/*.write.ts under handlers/)
-// is not enforced yet — add it once the registration API shapes are
-// inventoried and stable.
+// The handler file convention (handlers/<topic>.write.ts|.query.ts) is enforced by guard-handler-definitions.ts.
 
 import * as path from "node:path";
 import { type SourceFile, SyntaxKind } from "ts-morph";
@@ -24,17 +23,24 @@ const SCAN: ScanSpec = {
   scope: "source",
   extensions: ["ts", "tsx"],
   within: ["features/**"],
-  frameworkWithin: ["packages/bundled-features/src/**"],
+  frameworkWithin: [
+    "packages/bundled-features/src/**",
+    "samples/apps/*/src/features/**",
+    "samples/recipes/*/src/**",
+  ],
 };
 const EXCLUDE = /(__tests__|\.test\.tsx?$|\.integration\.tsx?$|\.d\.ts$)/;
 const IGNORE_TAG = "kumiko-lint-ignore app-feature-structure";
 
 const MAX_FEATURE_TS_LINES = 300;
 
-// src/features/<name>/<file> or packages/bundled-features/src/<name>/<file>
+// src/features/<name>/<file>, packages/bundled-features/src/<name>/<file> or
+// samples/recipes/<recipe>/src/<file> (a recipe's src/ is one feature folder)
 // — exactly one level below the feature folder.
 function isFeatureRootFile(filePath: string): boolean {
-  const m = filePath.match(/(src\/features|packages\/bundled-features\/src)\/[^/]+\/[^/]+$/);
+  const m = filePath.match(
+    /(?:(?:src\/features|packages\/bundled-features\/src)\/[^/]+|samples\/recipes\/[^/]+\/src)\/[^/]+$/,
+  );
   return m !== null;
 }
 
@@ -92,8 +98,14 @@ function checkFeatureTsSize(sf: SourceFile, base: string, violations: GuardViola
   }
 }
 
+// The widget galleries and the screens-nav recipe exist to show custom screens registered through
+// r.screen; a declarative screen type would remove what they demonstrate.
+const CUSTOM_SCREEN_SHOWCASES =
+  /(?:^|\/)samples\/(?:apps\/(?:showcase|styleguide)|recipes\/screens-nav)\//;
+
 // 3. type: "custom" without an allowlist tag
 function checkCustomScreens(sf: SourceFile, violations: GuardViolation[]): void {
+  if (CUSTOM_SCREEN_SHOWCASES.test(sf.getFilePath())) return;
   for (const prop of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
     if (prop.getName() !== "type") continue;
     const init = prop.getInitializer();
@@ -114,7 +126,8 @@ function checkCustomScreens(sf: SourceFile, violations: GuardViolation[]): void 
 }
 
 const DIRECTIVE_HEAD_CHARS = 600;
-const FEATURE_RELATIVE_PATH = /(?:src\/features|packages\/bundled-features\/src)\/[^/]+\/(.+)$/;
+const FEATURE_RELATIVE_PATH =
+  /(?:(?:src\/features|packages\/bundled-features\/src)\/[^/]+|samples\/recipes\/[^/]+\/src(?!\/features\/))\/(.+)$/;
 
 const PATH_IMPLIED_RUNTIME_DIRS = ["dev/", "scripts/"];
 
@@ -138,6 +151,7 @@ function clientMarkerViolation(sf: SourceFile): GuardViolation | undefined {
 
 export const guard: AstGuard = {
   name: "App-Feature-Structure Guard (App-Repos)",
+  ignoreTag: IGNORE_TAG,
   scan: SCAN,
   hint:
     "Convention: feature.ts is registration only, screens live under web/ (one file per screen), handlers under handlers/, " +

@@ -16,14 +16,15 @@ import { createEventStoreExecutor } from "../event-store-executor.ts";
 import { buildEntityTable } from "../table-builder.ts";
 
 const ledgerEntity = createEntity({
+  name: "ledger-entry",
   table: "read_restore_money_entries",
   fields: { grossTotal: createMoneyField() },
   softDelete: true,
 });
-const ledgerTable = buildEntityTable("ledger-entry", ledgerEntity);
+const ledgerTable = buildEntityTable(ledgerEntity);
 
 const ledgerFeature = defineFeature("restoremoney", (r) => {
-  r.entity({ name: "ledger-entry", ...ledgerEntity });
+  r.entity(ledgerEntity);
   const executor = createEventStoreExecutor(ledgerTable, ledgerEntity, {
     entityName: "ledger-entry",
   });
@@ -98,8 +99,6 @@ describe("event-store-executor restore — money in payload.previous", () => {
     expect(restoredPrevious["grossTotal"]).toEqual({
       amount: 1500,
       currency: "EUR",
-      amountScaled: 150000,
-      amountMinor: 150000,
     });
     expect(restoredPrevious["grossTotal"]).toEqual(deletedPrevious["grossTotal"]);
     expect("grossTotalCurrency" in restoredPrevious).toBe(false);

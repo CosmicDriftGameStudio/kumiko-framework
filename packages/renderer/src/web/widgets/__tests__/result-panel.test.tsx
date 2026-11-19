@@ -22,7 +22,7 @@ describe("ResultTable", () => {
     );
     expect(container.querySelector(".rounded-lg.border.bg-card")).toBeTruthy();
     expect(container.querySelector("thead.bg-muted")).toBeTruthy();
-    expect(screen.getByText("2026")).toBeTruthy();
+    screen.getByText("2026");
   });
 
   test("without card, no wrapper (bare default)", () => {
@@ -31,6 +31,15 @@ describe("ResultTable", () => {
     );
     expect(container.querySelector(".rounded-lg.border.bg-card")).toBeNull();
     expect(container.querySelector("thead.bg-muted")).toBeNull();
+  });
+
+  test("without card, cells keep the DataTable gutter so adjacent values do not run together", () => {
+    const { container } = render(
+      <ResultTable columns={COLUMNS} rows={ROWS} rowKey={(r) => String(r.year)} testId="rt" />,
+    );
+    const cells = [...container.querySelectorAll("th, td")];
+    expect(cells.length).toBeGreaterThan(0);
+    expect(cells.filter((cell) => !cell.classList.contains("px-2"))).toEqual([]);
   });
 
   test("footer rows render as table rows spanning all-but-last column, value under the last column", () => {
@@ -53,7 +62,7 @@ describe("ResultTable", () => {
     expect(totalRow?.querySelector("td[colspan]")?.textContent).toBe("Total");
     expect(totalRow?.querySelectorAll("td")[1]?.textContent).toBe("300");
     expect(totalRow?.className).toContain("font-semibold");
-    expect(screen.getByText("Subtotal")).toBeTruthy();
+    screen.getByText("Subtotal");
   });
 
   test("single-column table: footer value still renders (not dropped)", () => {
@@ -74,8 +83,8 @@ describe("ResultTable", () => {
     // set to 0, since there's only one column to span.
     expect(totalRow?.querySelectorAll("td")).toHaveLength(1);
     expect(totalRow?.querySelector("td")?.hasAttribute("colspan")).toBe(false);
-    expect(screen.getByText("Total")).toBeTruthy();
-    expect(screen.getByText("300")).toBeTruthy();
+    screen.getByText("Total");
+    screen.getByText("300");
   });
 });
 
@@ -97,7 +106,7 @@ describe("ComparisonTable", () => {
     );
     expect(container.querySelector(".rounded-lg.border.bg-card")).toBeTruthy();
     expect(container.querySelector("thead.bg-muted")).toBeTruthy();
-    expect(screen.getByText("A-Zins")).toBeTruthy();
+    screen.getByText("A-Zins");
   });
 
   test("without card, no wrapper (bare default)", () => {

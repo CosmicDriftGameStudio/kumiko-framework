@@ -5,7 +5,6 @@ import type {
 } from "@cosmicdrift/kumiko-types/fields";
 import { isFileHandle } from "@cosmicdrift/kumiko-types/identifiers";
 import * as z from "zod";
-import { moneyPayloadToMinorUnits } from "../db/money.ts";
 import { isValidIanaTimeZone } from "../time/index.ts";
 import { assertUnreachable } from "../utils/index.ts";
 import { withDerivedCells } from "./embedded-derived.ts";
@@ -13,6 +12,13 @@ import { DEFAULT_CURRENCIES } from "./field-helpers.ts";
 import { isValidIban } from "./iban.ts";
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+// Carried into z.toJSONSchema: agent tools see only the JSON Schema, and a bare integer
+// reads as whole units, so "12,500 GBP" would be written as 12500 (125 GBP).
+const MONEY_AMOUNT_DESCRIPTION =
+  "Integer amount in minor units of the currency (cents for EUR, pence for GBP): 12.50 is 1250. Never whole units.";
+const EMBEDDED_MONEY_AMOUNT_DESCRIPTION =
+  "Integer amount in minor units of the record's currency (cents for EUR, pence for GBP): 12.50 is 1250. Never whole units.";
 
 // True if `n` carries at most `scale` decimal places. A relative epsilon
 // tolerates float artifacts (`0.1 + 0.2 = 0.30000000000000004` is accepted at
@@ -65,7 +71,7 @@ function embeddedSubFieldToZod(subField: EmbeddedSubFieldDef): z.ZodTypeAny {
       // Signed minor units; the currency lives on the head aggregate, not the
       // row. The safe-integer cap mirrors bigInt mode:"number" — jsonb has no
       // BIGINT column behind it, so 2^53 is the real representability boundary.
-      return z.number().int().safe();
+      return z.number().int().safe().describe(EMBEDDED_MONEY_AMOUNT_DESCRIPTION);
     case "timestamp":
       // No locatedBy/min/max on EmbeddedSubFieldDef (unlike the top-level
       // timestamp field) — plain UTC-instant ISO-datetime validation.
@@ -222,7 +228,7 @@ function moneyFieldToZod(currencies: readonly string[]): z.ZodTypeAny {
   const [first, ...rest] = currencies;
   if (!first) throw new Error("No currencies configured");
   return z.object({
-    amount: z.number(),
+    amount: z.number().int().safe().describe(MONEY_AMOUNT_DESCRIPTION),
     currency: z.enum([first, ...rest]),
   });
 }
@@ -366,16 +372,20 @@ export function fieldToZod(
     case "files":
     case "images":
       return fileListFieldToZod(field);
-    case "reference":
+    case "reference": {
       // Validates the UUID shape. Checking that the reference exists
       // (the row exists in the referenced table and belongs to the tenant) is
       // the handler / foreign-key constraint's responsibility, not the schema
       // validator's; checking it here would require a database round trip during
       // parsing.
       // Multi-mode accepts an array of UUIDs.
-      return field.multiple === true
-        ? z.array(z.uuid().meta({ references: field.entity }))
-        : z.uuid().meta({ references: field.entity });
+      if (field.multiple === true) return z.array(z.uuid().meta({ references: field.entity }));
+      if (field.required === true) return z.uuid().meta({ references: field.entity });
+      // An untouched reference picker submits "" — read it as unset (null), like an optional select.
+      return z
+        .preprocess((value) => (value === "" ? null : value), z.uuid().nullable())
+        .meta({ references: field.entity });
+    }
     default:
       assertUnreachable(field, "field type");
   }
@@ -392,7 +402,6 @@ export function fieldToZod(
 //
 // Known limitation: compares against rounded `derived` cells, i.e.
 // "sum-of-rounded" not "round-of-sum".
-// kumiko-lint-ignore complexity-budget currency-equality check on sibling money payloads
 function applyTotalsMatchRefinements(
   entity: EntityDefinition,
   schema: z.ZodObject<Record<string, z.ZodTypeAny>>,
@@ -421,7 +430,11 @@ function applyTotalsMatchRefinements(
         // Not an array -> a different refinement already rejects the shape;
         // this check isn't the right place to report it.
         if (!Array.isArray(rawRows)) continue;
-        const siblingMinor = moneyPayloadToMinorUnits(siblingRaw);
+        const siblingAmount =
+          typeof siblingRaw === "object" && siblingRaw !== null
+            ? Reflect.get(siblingRaw, "amount")
+            : undefined;
+        const siblingMinor = typeof siblingAmount === "number" ? siblingAmount : undefined;
         if (siblingMinor === undefined) continue;
         const siblingCurrency =
           typeof siblingRaw === "object" && siblingRaw !== null && "currency" in siblingRaw

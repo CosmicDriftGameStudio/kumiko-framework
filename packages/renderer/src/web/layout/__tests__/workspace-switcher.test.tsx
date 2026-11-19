@@ -37,8 +37,8 @@ describe("WorkspaceSwitcher — Render", () => {
         testId="sw"
       />,
     );
-    expect(screen.getByTestId("sw")).toBeTruthy();
-    expect(screen.getByText("Beta")).toBeTruthy();
+    screen.getByTestId("sw");
+    screen.getByText("Beta");
   });
 
   test("Opening the dropdown lists all workspaces, aria-checked on the active one", async () => {
@@ -92,7 +92,7 @@ describe("WorkspaceSwitcher — Render", () => {
       />,
     );
     expect(screen.getByTestId("sw").textContent).not.toBe("");
-    expect(screen.getByText("Select workspace")).toBeTruthy();
+    screen.getByText("Select workspace");
   });
 
   test("rendering outside a SidebarProvider throws — the JSDoc requirement is a real crash, not just documentation", () => {
@@ -148,7 +148,7 @@ describe("WorkspaceSwitcher — i18n-Labels (Punkt-Konvention)", () => {
       </LocaleProvider>,
     );
     // Trigger shows the translated active label.
-    expect(screen.getByText("Admin Area")).toBeTruthy();
+    screen.getByText("Admin Area");
     await user.click(screen.getByTestId("workspace-switcher-trigger"));
     // No dot: verbatim, no t() roundtrip.
     expect(screen.getByTestId("workspace-tab-b").textContent).toBe("Plain Label");

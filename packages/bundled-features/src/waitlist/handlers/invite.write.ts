@@ -135,6 +135,7 @@ export function createInviteHandler(invite: WaitlistInviteOptions = DEFAULT_INVI
     name: "invite",
     schema: WaitlistIdSchema,
     access: adminAccess,
+    systemScope: true,
     description:
       "Invites a pending or already-invited waitlist entry: creates its tenant (or uses the configured shared tenant), mails the entrant a fresh accept link with the configured role and marks the entry invited; rejected entries cannot be invited. The invitee never receives a global role.",
     // Sends an invite link by email, which cannot be recalled.
@@ -142,11 +143,9 @@ export function createInviteHandler(invite: WaitlistInviteOptions = DEFAULT_INVI
     escapeHatch: { grants: ["unsafeRaw"], reason: INVITE_LOCK_REASON },
     handler: async (event, ctx) => {
       const db = waitlistDb(ctx);
-      if (!ctx.systemDb) {
-        throw new InternalError({ message: "waitlist:invite requires ctx.systemDb" });
-      }
+      const { systemDb } = ctx;
       await acquireNamespacedAdvisoryLock(
-        ctx.systemDb.unsafeRaw(INVITE_LOCK_REASON),
+        systemDb.unsafeRaw(INVITE_LOCK_REASON),
         INVITE_LOCK_NAMESPACE,
         event.payload.id,
       );
@@ -164,16 +163,13 @@ export function createInviteHandler(invite: WaitlistInviteOptions = DEFAULT_INVI
         return writeFailure(new UnprocessableError(WaitlistErrors.notInvitable));
       }
 
-      // inviteCreate is admin-only (no system role); the system variant with an
-      // empty globalRoles list is the only in-process path, and a waitlist
-      // invite must never grant a global role.
+      // inviteCreate is admin-only (no system role); the system variant is the only in-process path.
       const invited = await ctx.dispatch.writeAs(
         createSystemUser(target.tenantId),
         AuthHandlers.systemInviteCreate,
         {
           email: entry.email.toLowerCase(),
           role: target.role,
-          globalRoles: [],
           ...(entry.locale !== undefined && { locale: entry.locale }),
         },
       );

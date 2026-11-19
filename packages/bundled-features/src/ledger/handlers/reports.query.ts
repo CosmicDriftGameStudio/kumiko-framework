@@ -1,4 +1,9 @@
-import type { AccessRule, QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type AccessRule,
+  defineQueryHandler,
+  type HandlerContext,
+} from "@cosmicdrift/kumiko-framework/engine";
+import type { WhereObject } from "@cosmicdrift/kumiko-types/where-clause-types";
 import * as z from "zod";
 import { accountTable, transactionTable } from "../executor.ts";
 import {
@@ -10,26 +15,33 @@ import {
   toAccounts,
   toEntries,
 } from "../reports.ts";
-import { DEFAULT_LEDGER_ACCESS } from "../web/constants.ts";
+import { DEFAULT_LEDGER_ACCESS, type TransactionStatus } from "../web/constants.ts";
+
+const POSTED: TransactionStatus = "posted";
 
 // Reports take an optional reporting period. Balance-sheet is cumulative → pass
-// { to: asOf }; income-statement is a period → { from, to }.
+// { to: asOf }; income-statement is a period → { from, to }. Both bounds are
+// inclusive ISO dates because they are compared against the date column in SQL.
 const periodSchema = z.object({
-  from: z.string().min(1).max(32).optional(),
-  to: z.string().min(1).max(32).optional(),
+  from: z.string().date().optional(),
+  to: z.string().date().optional(),
 });
 
-type QueryCtx = Parameters<QueryHandlerDef["handler"]>[1];
+type ReportPeriod = z.infer<typeof periodSchema>;
 
 async function loadBooks(
-  ctx: QueryCtx,
+  ctx: HandlerContext,
+  period: ReportPeriod,
 ): Promise<{ accounts: LedgerAccount[]; entries: LedgerEntry[] }> {
   const accountRows = await ctx.db.selectMany(accountTable, { tenantId: ctx.user.tenantId });
-  const txRows = await ctx.db.selectMany(transactionTable, { tenantId: ctx.user.tenantId });
+  const where: WhereObject = { tenantId: ctx.user.tenantId, status: POSTED };
+  const dateBounds: { gte?: string; lte?: string } = {};
+  if (period.from !== undefined) dateBounds.gte = period.from;
+  if (period.to !== undefined) dateBounds.lte = period.to;
+  if (Object.keys(dateBounds).length > 0) where["date"] = dateBounds;
+  const txRows = await ctx.db.selectMany(transactionTable, where);
   return { accounts: toAccounts(accountRows), entries: toEntries(txRows) };
 }
-
-type ReportPeriod = z.infer<typeof periodSchema>;
 
 function createPeriodReportHandler(
   report: {
@@ -42,18 +54,18 @@ function createPeriodReportHandler(
     ) => unknown;
   },
   access: AccessRule,
-): QueryHandlerDef {
-  return {
+) {
+  return defineQueryHandler({
     name: report.name,
     schema: periodSchema,
     access,
     description: report.description,
     handler: async (query, ctx) => {
-      const period = periodSchema.parse(query);
-      const { accounts, entries } = await loadBooks(ctx);
+      const period = query.payload;
+      const { accounts, entries } = await loadBooks(ctx, period);
       return report.compute(accounts, entries, period);
     },
-  };
+  });
 }
 
 const BALANCES_REPORT = {
@@ -78,22 +90,16 @@ const BALANCE_SHEET_REPORT = {
 };
 
 // Per-account balances (natural sign) + the trial balance (Σ raw = 0 invariant).
-export function createBalancesReportHandler(
-  access: AccessRule = DEFAULT_LEDGER_ACCESS,
-): QueryHandlerDef {
+export function createBalancesReportHandler(access: AccessRule = DEFAULT_LEDGER_ACCESS) {
   return createPeriodReportHandler(BALANCES_REPORT, access);
 }
 
 // GuV — income − expense over the period.
-export function createIncomeStatementHandler(
-  access: AccessRule = DEFAULT_LEDGER_ACCESS,
-): QueryHandlerDef {
+export function createIncomeStatementHandler(access: AccessRule = DEFAULT_LEDGER_ACCESS) {
   return createPeriodReportHandler(INCOME_STATEMENT_REPORT, access);
 }
 
 // Bilanz as of `to` — current result folded into equity so it balances.
-export function createBalanceSheetHandler(
-  access: AccessRule = DEFAULT_LEDGER_ACCESS,
-): QueryHandlerDef {
+export function createBalanceSheetHandler(access: AccessRule = DEFAULT_LEDGER_ACCESS) {
   return createPeriodReportHandler(BALANCE_SHEET_REPORT, access);
 }

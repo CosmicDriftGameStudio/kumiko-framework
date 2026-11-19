@@ -41,6 +41,7 @@ export type ToggleSyncSignal = {
 // per-instance behavior for the only process there is.
 export class GlobalFeatureToggleRuntime {
   private snapshot = new Map<string, boolean>();
+  private effectiveFeaturesCache: ReadonlySet<string> | undefined;
   // One buffer per requested load, open from the call until its SELECT finished: the SELECT
   // may have started before a flip committed, so its rows can be older than the flips collected.
   private readonly pendingFlipBuffers = new Set<Map<string, boolean>>();
@@ -88,6 +89,7 @@ export class GlobalFeatureToggleRuntime {
         ...rows.map((r): [string, boolean] => [r.featureName, r.enabled]),
         ...pendingFlips,
       ]);
+      this.effectiveFeaturesCache = undefined;
     } finally {
       this.pendingFlipBuffers.delete(pendingFlips);
     }
@@ -107,6 +109,7 @@ export class GlobalFeatureToggleRuntime {
   // lock. Kept alongside refresh() so both options are explicit.
   apply(featureName: string, enabled: boolean): void {
     this.snapshot.set(featureName, enabled);
+    this.effectiveFeaturesCache = undefined;
     for (const pendingFlips of this.pendingFlipBuffers) pendingFlips.set(featureName, enabled);
   }
 
@@ -141,13 +144,15 @@ export class GlobalFeatureToggleRuntime {
     return this.snapshot.get(featureName);
   }
 
-  // The callback shape the dispatcher expects. Computes the effective
-  // feature set from the current snapshot + the registry's requires()
-  // cascade every call. Cheap: the cascade is a DFS over O(features);
-  // for the expected sizes (tens of features per app) this is ~µs.
+  // The callback shape the dispatcher expects, called on every handler invocation.
+  // Memoized until the snapshot changes: the registry is fixed after boot, so apply()
+  // and a snapshot load are the only inputs that can change the result.
   effectiveFeatures = (): ReadonlySet<string> => {
-    const reader: ToggleReader = (name) => this.snapshot.get(name);
-    return computeEffectiveFeatures(this.registry, reader);
+    if (this.effectiveFeaturesCache === undefined) {
+      const reader: ToggleReader = (name) => this.snapshot.get(name);
+      this.effectiveFeaturesCache = computeEffectiveFeatures(this.registry, reader);
+    }
+    return this.effectiveFeaturesCache;
   };
 }
 

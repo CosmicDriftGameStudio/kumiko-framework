@@ -86,7 +86,7 @@ export function PlanSwitchConfirmDialog({
   }
 
   const reply = previewQuery.data;
-  const money = (amount: number, currency: string) => formatMoney(amount, currency, locale);
+  const money = (amount: number, currency: string) => formatMoney(amount, currency, { locale });
   const recurringKey = reply === null ? undefined : intervalKey(reply.target);
   const recurring = reply === null ? null : recurringAmountsOf(reply);
   const recurringPrice =

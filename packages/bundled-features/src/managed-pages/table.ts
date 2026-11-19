@@ -5,6 +5,7 @@ import {
   createSelectField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { BODY_FORMATS, type BodyFormat, DEFAULT_BODY_FORMAT } from "./constants.ts";
 
 // Page — a tenant-editable, server-rendered public page (landing,
@@ -15,6 +16,7 @@ import { BODY_FORMATS, type BodyFormat, DEFAULT_BODY_FORMAT } from "./constants.
 // app-wide pages; otherwise the page belongs to the tenant resolved from the
 // host via resolveApexTenant during rendering.
 export const pageEntity = createEntity({
+  name: "page",
   table: "read_pages",
   systemRowsReadable: true,
   description:
@@ -62,11 +64,11 @@ export const pageEntity = createEntity({
   indexes: [{ unique: true, columns: ["tenantId", "slug", "lang"], name: "read_pages_unique" }],
 });
 
-export const pagesTable = buildEntityTable("page", pageEntity);
+export const pagesTable = buildEntityTable(pageEntity);
 
 // Concrete row type — the single source of truth for named values instead
 // of `row["x"] as Y` casts in handlers. Includes entity.fields and standard
-// columns (id, version, tenantId, createdAt, updatedAt, createdBy, updatedBy).
+// columns (id, version, tenantId, insertedAt, modifiedAt, insertedById, modifiedById).
 export type PageRow = {
   readonly id: string;
   readonly version: number;
@@ -79,8 +81,8 @@ export type PageRow = {
   readonly description: string | null;
   readonly ogImage: string | null;
   readonly published: boolean;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-  readonly createdBy: string;
-  readonly updatedBy: string;
+  readonly insertedAt: Temporal.Instant;
+  readonly modifiedAt: Temporal.Instant | null;
+  readonly insertedById: string | null;
+  readonly modifiedById: string | null;
 };

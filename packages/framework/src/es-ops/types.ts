@@ -51,8 +51,8 @@ export type SeedUserRow = {
  * Distinguishes two tenantIds: the logical one from the read projection
  * (`tenantId`) and the physical one from the aggregate stream
  * (`streamTenantId`). They only differ for memberships written by an admin
- * of another tenant before `backfillTenantStreamTenants` ran; afterwards
- * `streamTenantId = tenantId`. */
+ * of another tenant before the stream-tenant migration of 2026-10; streams
+ * written since then have `streamTenantId = tenantId`. */
 export type SeedMembershipRow = {
   readonly userId: string;
   /** Payload tenant from `read_tenant_memberships.tenant_id`; it is used
@@ -125,6 +125,14 @@ export type SeedMigrationContext = {
     tenantIdOverride?: TenantId,
     extraRoles?: readonly string[],
   ) => Promise<WriteResult>;
+
+  /** Runs a registered query handler as the system user; same user choice as systemWriteAs. Throws when the query fails. Use instead of raw SQL on read tables. */
+  readonly systemQueryAs: (
+    handlerQualifiedName: string,
+    payload: unknown,
+    tenantIdOverride?: TenantId,
+    extraRoles?: readonly string[],
+  ) => Promise<unknown>;
 
   // Read helpers for common lookups. They grow on demand; further lookups
   // are added with further seeds.

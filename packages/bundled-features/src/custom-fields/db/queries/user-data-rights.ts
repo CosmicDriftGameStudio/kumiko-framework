@@ -1,13 +1,6 @@
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/db";
-
-function quoteTable(tableName: string): string {
-  return `"${tableName.replace(/"/g, '""')}"`;
-}
-
-function quoteColumn(columnName: string): string {
-  return `"${columnName.replace(/"/g, '""')}"`;
-}
+import { quoteIdent } from "./projection.ts";
 
 export async function selectCustomFieldsHostRows(
   db: DbRunner,
@@ -16,24 +9,12 @@ export async function selectCustomFieldsHostRows(
   userId: string,
   tenantId: string,
 ): Promise<readonly unknown[]> {
-  const tbl = quoteTable(tableName);
-  const userCol = quoteColumn(userIdColumn);
+  const tbl = quoteIdent(tableName);
+  const userCol = quoteIdent(userIdColumn);
   const rowsResult = await unsafeReadRetrying(
     db,
     `SELECT id, custom_fields FROM ${tbl} WHERE ${userCol} = $1 AND tenant_id = $2`,
     [userId, tenantId],
   );
   return Array.isArray(rowsResult) ? rowsResult : [];
-}
-
-export async function selectFieldDefinitionsForEntity(
-  db: DbRunner,
-  entityName: string,
-  tenantId: string,
-): Promise<readonly { field_key: string; serialized_field: unknown }[]> {
-  return unsafeReadRetrying<{ field_key: string; serialized_field: unknown }>(
-    db,
-    "SELECT field_key, serialized_field FROM read_custom_field_definitions WHERE entity_name = $1 AND tenant_id = $2",
-    [entityName, tenantId],
-  );
 }

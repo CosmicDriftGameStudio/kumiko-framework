@@ -16,10 +16,10 @@ import {
   createSystemUser,
   createTextField,
   defineFeature,
+  defineWriteHandler,
   type FeatureDefinition,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 
 // product — toggleable, default on. Owns the `product` entity and a
@@ -27,6 +27,7 @@ import { z } from "zod";
 // lifecycle pipeline (that's where the cross-feature hook below gets
 // invoked from).
 export const productEntity = createEntity({
+  name: "product",
   table: "read_products",
   fields: {
     name: createTextField({
@@ -38,7 +39,7 @@ export const productEntity = createEntity({
     active: createBooleanField({ default: true }),
   },
 });
-export const productTable = buildEntityTable("product", productEntity);
+export const productTable = buildEntityTable(productEntity);
 const productCrud = createEventStoreExecutor(productTable, productEntity, {
   entityName: "product",
 });
@@ -47,23 +48,21 @@ export function createProductFeature(): FeatureDefinition {
   return defineFeature("product", (r) => {
     r.systemScope();
     r.toggleable({ default: true });
-    r.entity({ name: "product", ...productEntity });
-    r.writeHandler({
-      name: "product:create",
-      schema: z.object({ name: z.string().min(1).max(100) }),
-      handler: async (event, ctx) => {
-        if (!ctx.systemDb) {
-          throw new InternalError({
-            message: "product:create requires ctx.systemDb — is r.systemScope() still set?",
-          });
-        }
-        const db = ctx.systemDb.acknowledgeCrossTenant(
-          "product catalog is system-wide, not tenant-scoped",
-        );
-        return productCrud.create(event.payload, event.user, db);
-      },
-      access: { roles: ["SystemAdmin"] },
-    });
+    r.entity(productEntity);
+    r.writeHandler(
+      defineWriteHandler({
+        name: "product:create",
+        schema: z.object({ name: z.string().min(1).max(100) }),
+        access: { roles: ["SystemAdmin"] },
+        systemScope: true,
+        handler: async (event, ctx) => {
+          const db = ctx.systemDb.acknowledgeCrossTenant(
+            "product catalog is system-wide, not tenant-scoped",
+          );
+          return productCrud.create(event.payload, event.user, db);
+        },
+      }),
+    );
   });
 }
 
@@ -73,6 +72,7 @@ export function createProductFeature(): FeatureDefinition {
 // When product itself is off, the handler is gated before any write
 // happens — the hook never has anything to react to.
 export const productAuditEntity = createEntity({
+  name: "product-audit",
   table: "read_product_audits",
   fields: {
     productName: createTextField({
@@ -83,7 +83,7 @@ export const productAuditEntity = createEntity({
     }),
   },
 });
-export const productAuditTable = buildEntityTable("product-audit", productAuditEntity);
+export const productAuditTable = buildEntityTable(productAuditEntity);
 const productAuditCrud = createEventStoreExecutor(productAuditTable, productAuditEntity, {
   entityName: "product-audit",
 });
@@ -92,7 +92,7 @@ export function createProductAuditFeature(): FeatureDefinition {
   return defineFeature("product-audit", (r) => {
     r.systemScope();
     r.toggleable({ default: true });
-    r.entity({ name: "product-audit", ...productAuditEntity });
+    r.entity(productAuditEntity);
 
     r.hook({
       type: "postSave",

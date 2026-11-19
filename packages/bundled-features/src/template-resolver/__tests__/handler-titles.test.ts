@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test";
 import {
   buildAppSchema,
   createRegistry,
+  defineFeature,
   handlerTitleKey,
+  handlerTranslationKeys,
   QnTypes,
   qn,
   resolveAgentExposure,
@@ -14,6 +16,7 @@ import { localeFrBundle } from "@cosmicdrift/kumiko-locale-fr";
 import { localeItBundle } from "@cosmicdrift/kumiko-locale-it";
 import { findHandlerTranslationGaps } from "../../agent-tools/index.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
+import { collectionHandlerName, TEMPLATE_RESOLVER_FEATURE } from "../web/qualified-names.ts";
 
 const feature = createTemplateResolverFeature();
 
@@ -52,10 +55,39 @@ describe("template-resolver handler titles", () => {
     expect(untitled).toEqual([]);
   });
 
-  test("the agent lint reports no missing title for template-resolver", () => {
-    const titleGaps = findHandlerTranslationGaps([feature]).filter((gap) =>
-      gap.message.includes(handlerTitleKey(gap.qn)),
-    );
-    expect(titleGaps).toEqual([]);
+  test("the agent lint reports no translation gap for template-resolver", () => {
+    expect(findHandlerTranslationGaps([feature])).toEqual([]);
+  });
+
+  test("a mounted collection's set handler needs labels the app supplies", () => {
+    const withCollection = createTemplateResolverFeature({
+      collections: [{ id: "notes", kind: "snippet", nav: { label: "app:nav.notes" } }],
+    });
+    const appLabels = defineFeature("app-labels", (r) => {
+      r.translations({
+        keys: handlerTranslationKeys(TEMPLATE_RESOLVER_FEATURE, {
+          writes: {
+            "notes-set": {
+              title: { en: "Save note" },
+              fields: {
+                slug: { en: "Identifier" },
+                locale: { en: "Language" },
+                title: { en: "Title" },
+                content: { en: "Content" },
+                folder: { en: "Folder" },
+                createOnly: { en: "Create only" },
+                tenantIdOverride: { en: "Target organization" },
+              },
+            },
+          },
+        }),
+      });
+    });
+    const setQn = collectionHandlerName("notes");
+
+    expect(findHandlerTranslationGaps([withCollection]).map((gap) => gap.qn)).toContain(setQn);
+    expect(
+      findHandlerTranslationGaps([withCollection, appLabels]).filter((gap) => gap.qn === setQn),
+    ).toEqual([]);
   });
 });

@@ -25,6 +25,7 @@ import type { FeatureDefinition } from "../engine/types/index.ts";
 
 import { isSqlExpression } from "./dialect.ts";
 import { fieldToColumnMeta } from "./entity-column-meta.ts";
+import { autoIndexedReferenceFieldNames } from "./entity-table-indexes.ts";
 import type {
   BuildEntityTableMetaOptions,
   ColumnMeta,
@@ -107,20 +108,18 @@ export function resolveTableName(
  * escape hatch.
  */
 export function deriveEntityTableMeta(
-  entityName: string,
   entity: EntityDefinition,
   options: BuildEntityTableMetaOptions & { readonly source: "unmanaged" },
 ): EntityTableMeta & Writable;
 export function deriveEntityTableMeta(
-  entityName: string,
   entity: EntityDefinition,
   options?: BuildEntityTableMetaOptions,
 ): EntityTableMeta;
 export function deriveEntityTableMeta(
-  entityName: string,
   entity: EntityDefinition,
   options?: BuildEntityTableMetaOptions,
 ): EntityTableMeta {
+  const entityName = entity.name;
   const tableName = resolveTableName(entityName, entity, options?.featureName);
   const source = options?.source ?? "managed";
   const idType = entity.idType ?? "uuid";
@@ -213,6 +212,9 @@ function foreignKeyIndexes(
   const fkSnakeNames = new Set<string>();
   for (const [name, field] of Object.entries(entity.fields)) {
     if (field.type === "file" || field.type === "image") fkSnakeNames.add(toSnakeCase(name));
+  }
+  for (const name of autoIndexedReferenceFieldNames(entity)) {
+    fkSnakeNames.add(fieldNameToSnake.get(name) ?? toSnakeCase(name));
   }
   for (const rel of Object.values(relations ?? {})) {
     if (rel.type === "belongsTo") {

@@ -29,9 +29,9 @@ function renderEmptyList(props: Partial<Parameters<typeof RenderList>[0]>) {
 describe("RenderList — empty state", () => {
   test("the default box offers the create button", () => {
     const { getByText, getByTestId } = renderEmptyList({ onCreate: () => {} });
-    expect(getByText("No entries yet.")).toBeDefined();
-    expect(getByText("Create the first one to get started.")).toBeDefined();
-    expect(getByTestId("render-list-empty-create")).toBeDefined();
+    getByText("No entries yet.");
+    getByText("Create the first one to get started.");
+    getByTestId("render-list-empty-create");
   });
 
   test("an authored empty state replaces title and hint but keeps the create button", () => {
@@ -39,15 +39,15 @@ describe("RenderList — empty state", () => {
       onCreate: () => {},
       emptyContent: { title: "No leases open", description: "Leases appear after activation." },
     });
-    expect(getByText("No leases open")).toBeDefined();
-    expect(getByText("Leases appear after activation.")).toBeDefined();
+    getByText("No leases open");
+    getByText("Leases appear after activation.");
     expect(queryByText("Create the first one to get started.")).toBeNull();
-    expect(getByTestId("render-list-empty-create")).toBeDefined();
+    getByTestId("render-list-empty-create");
   });
 
   test("a rendered empty state has no entry-count footer under it", () => {
     const { getByText, queryByTestId } = renderEmptyList({ onCreate: () => {} });
-    expect(getByText("No entries yet.")).toBeDefined();
+    getByText("No entries yet.");
     expect(queryByTestId("render-list-footer")).toBeNull();
     expect(queryByTestId("render-list-footer-count")).toBeNull();
   });
@@ -70,7 +70,7 @@ describe("RenderList — empty state", () => {
       narrowed: true,
       emptyContent: { title: "No leases open" },
     });
-    expect(getByText("No entries match the current search or filters.")).toBeDefined();
+    getByText("No entries match the current search or filters.");
     expect(queryByText("No leases open")).toBeNull();
     expect(queryByTestId("render-list-empty-create")).toBeNull();
   });
@@ -101,8 +101,8 @@ describe("RenderList — empty state", () => {
         />
       </PageHeaderSlotProvider>,
     );
-    expect(getByTestId("render-list-create")).toBeDefined();
-    expect(getByText("No entries yet.")).toBeDefined();
+    getByTestId("render-list-create");
+    getByText("No entries yet.");
     expect(queryByTestId("render-list-empty-create")).toBeNull();
   });
 

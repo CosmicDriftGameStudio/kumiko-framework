@@ -2,7 +2,11 @@
 // under the same tenant, ownership and soft-delete rules as any other list.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  liveMeiliConnection,
+  meiliAvailable,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -10,18 +14,13 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Meilisearch } from "meilisearch";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "../crypto/index.ts";
-import {
-  buildEntityTable,
-  createEventStoreExecutor,
-  createTenantDb,
-  selectMany,
-} from "../db/index.ts";
+import { buildEntityTable, createEventStoreExecutor, selectMany } from "../db/index.ts";
+import { createTenantDb } from "../db/tenant-db.ts";
+import { defineEntityQueryHandler, defineEntityWriteHandler } from "../engine/entity-handlers.ts";
 import {
   createEntity,
   createLongTextField,
   createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
   defineFeature,
   from,
 } from "../engine/index.ts";
@@ -35,6 +34,7 @@ import { createTestUser, TestUsers, testTenantId } from "../seeding/seed-users.t
 const tenant = testTenantId(1);
 
 const memoEntity = createEntity({
+  name: "memo",
   table: "longtext_search_memos",
   softDelete: true,
   fields: {
@@ -47,11 +47,11 @@ const memoEntity = createEntity({
   },
 });
 
-const memoTable = buildEntityTable("memo", memoEntity);
+const memoTable = buildEntityTable(memoEntity);
 
 const roles = ["Admin", "Member"] as const;
 const feature = defineFeature("ltsearch", (r) => {
-  r.entity({ name: "memo", ...memoEntity });
+  r.entity(memoEntity);
   for (const verb of ["create", "delete", "restore"] as const) {
     r.writeHandler(
       defineEntityWriteHandler(`memo:${verb}`, memoEntity, { access: { roles: [...roles] } }),
@@ -166,21 +166,9 @@ describe("longText find: fuzzy", () => {
   });
 });
 
-const MEILI_URL = process.env["MEILI_URL"] ?? "http://localhost:17700";
-const MEILI_KEY = process.env["MEILI_MASTER_KEY"] ?? "kumiko-dev-key";
-
-async function meiliAvailable(): Promise<boolean> {
-  try {
-    return (await fetch(`${MEILI_URL}/health`, { signal: AbortSignal.timeout(2000) })).ok;
-  } catch {
-    return false;
-  }
-}
+const { url: MEILI_URL, masterKey: MEILI_KEY } = liveMeiliConnection();
 
 const MEILI_UP = await meiliAvailable();
-if (!MEILI_UP && process.env["REQUIRE_MEILI"] === "1") {
-  throw new Error(`REQUIRE_MEILI=1 but Meilisearch not reachable at ${MEILI_URL}`);
-}
 
 // The stack's own search adapter is in-memory, so the real search consumer is replayed over the
 // stored events of one memo against a live Meilisearch index.

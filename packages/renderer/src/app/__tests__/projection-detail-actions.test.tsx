@@ -19,7 +19,7 @@ import type { ComponentType, ReactNode } from "react";
 import { useState } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import { UserRolesProvider } from "../../context/user-roles-context.tsx";
-import type { Dispatcher } from "../../headless/index.ts";
+import type { Dispatcher, WriteResult } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
@@ -27,11 +27,11 @@ import {
   type BannerProps,
   type ButtonProps,
   type CardProps,
-  type CorePrimitives,
   type DialogProps,
   type FormProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import { AppFeaturesProvider } from "../app-features-context.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
@@ -135,7 +135,7 @@ const TestDialog: DialogSpy = Object.assign(
   { lastProps: null as DialogProps | null },
 );
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: TestButton,
   Banner: TestBanner,
   Field: passChildren,
@@ -155,7 +155,7 @@ const testPrimitives: CorePrimitives = {
   ConfigCascadeView: noop,
   Link: noop,
   ActionOverflowMenu: TestActionOverflowMenu,
-};
+});
 
 function stubDispatcher(
   record: Readonly<Record<string, unknown>>,
@@ -163,7 +163,7 @@ function stubDispatcher(
   calls?: { readonly writes: unknown[][]; queries: number },
   holdWrites?: Promise<void>,
 ): Dispatcher {
-  const writeResult =
+  const writeResult: WriteResult =
     writeErrorMessage !== undefined
       ? {
           isSuccess: false,
@@ -175,25 +175,18 @@ function stubDispatcher(
           },
         }
       : { isSuccess: true, data: {} };
-  return {
-    write: (async (...args: unknown[]) => {
+  return createMockDispatcher({
+    write: async (...args: unknown[]) => {
       calls?.writes.push(args);
       await holdWrites;
       return writeResult;
-    }) as unknown as Dispatcher["write"],
-    query: (async () => {
+    },
+    query: async () => {
       if (calls !== undefined) calls.queries += 1;
       return { isSuccess: true, data: record };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function detailScreen(

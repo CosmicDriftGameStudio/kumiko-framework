@@ -32,6 +32,7 @@ function entity(opts: {
     ]),
   );
   return createEntity({
+    name: "thing",
     table: "t",
     idType: "uuid",
     ...(opts.transferable !== false && { transferable: true }),
@@ -185,6 +186,7 @@ describe("resolveTransferAdjacency", () => {
 
   test("ignores a multiple reference, which the boot validator rejects up front", () => {
     const bulk = createEntity({
+      name: "bulk",
       table: "t",
       idType: "uuid",
       transferable: true,

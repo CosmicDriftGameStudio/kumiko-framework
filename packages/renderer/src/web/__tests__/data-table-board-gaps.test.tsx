@@ -61,7 +61,7 @@ describe("DataTable sortOptions", () => {
           testId="t"
         />,
       );
-      expect(within(screen.getByTestId("t-sort")).getByText("Customer")).toBeTruthy();
+      within(screen.getByTestId("t-sort")).getByText("Customer");
     });
   });
 });
@@ -279,7 +279,7 @@ describe("DataTable card buttons", () => {
         />,
       );
       const buttons = screen.getByTestId("row-r1-card-buttons");
-      expect(within(buttons).getByText("Pay")).toBeTruthy();
+      within(buttons).getByText("Pay");
       expect(within(buttons).queryByText("Hidden")).toBeNull();
       fireEvent.click(within(buttons).getByText("Pay"));
       expect(onTrigger).toHaveBeenCalledTimes(1);
@@ -381,7 +381,7 @@ describe("StepBar stacked", () => {
     const list = screen.getByTestId("stages");
     expect(list.tagName).toBe("OL");
     expect(list.querySelectorAll("li")).toHaveLength(2);
-    expect(within(list).getByText("21 Aug")).toBeTruthy();
+    within(list).getByText("21 Aug");
   });
 });
 
@@ -402,7 +402,7 @@ describe("DataTable showOnNarrowOnly and plainSentence", () => {
   test("the column shows on the cards", () => {
     atViewportWidth(500, () => {
       render(<DataTable columns={narrowOnlyColumns} rows={rentRows} testId="phone" />);
-      expect(screen.getByText("890 EUR cold")).toBeTruthy();
+      screen.getByText("890 EUR cold");
     });
   });
 
@@ -437,7 +437,7 @@ describe("DataTable showOnNarrowOnly and plainSentence", () => {
   test("cards drop the reason and its toggle", () => {
     atViewportWidth(500, () => {
       render(<DataTable columns={reasonHint(false)} rows={hintRows} testId="cards" />);
-      expect(screen.getByText("Ship it")).toBeTruthy();
+      screen.getByText("Ship it");
       expect(screen.queryByRole("button", { name: "Why?" })).toBeNull();
       expect(screen.queryByText("Paid")).toBeNull();
     });
@@ -481,7 +481,7 @@ describe("DataTable hint reason box", () => {
   test("opens the reason box with its title on rows flagged open", () => {
     render(<DataTable columns={reasonColumns} rows={reasonRows} />);
     expect(screen.getAllByText(/14 days overdue\./)).toHaveLength(1);
-    expect(screen.getByText("Rule 10")).toBeTruthy();
+    screen.getByText("Rule 10");
     expect(screen.queryByText(/Asked twice\./)).toBeNull();
   });
 });
@@ -577,7 +577,7 @@ describe("DataTable rowActionMode menu", () => {
   test("the table puts every action in the kebab", () => {
     atViewportWidth(1280, () => {
       render(<DataTable columns={COLUMNS} rows={ROWS} rowActions={actions} rowActionMode="menu" />);
-      expect(screen.getByTestId("row-r1-actions-menu")).toBeTruthy();
+      screen.getByTestId("row-r1-actions-menu");
       expect(screen.queryByTestId("row-r1-action-open")).toBeNull();
     });
   });
@@ -600,7 +600,7 @@ describe("DataTable rowActionMode menu", () => {
   test("a phone card without a row target keeps its kebab", () => {
     atViewportWidth(500, () => {
       render(<DataTable columns={COLUMNS} rows={ROWS} rowActions={actions} rowActionMode="menu" />);
-      expect(screen.getByTestId("row-r1-actions-menu")).toBeTruthy();
+      screen.getByTestId("row-r1-actions-menu");
     });
   });
 });
@@ -669,6 +669,75 @@ describe("DataTable multiline and cardAbove columns", () => {
       const channel = within(screen.getByTestId("card-above-r1")).getByTestId("cell-r1-channel");
       expect(channel.className).toContain("font-semibold");
       expect(channel.className).toContain("text-foreground");
+    });
+  });
+});
+
+describe("DataTable cardLabel columns", () => {
+  const OLD_IBAN = "DE02120300000000202051";
+  const columns = [
+    { field: "name", label: "Name", type: "string", sortable: false },
+    { field: "current", label: "Current value", type: "string", sortable: false, cardLabel: true },
+    { field: "next", label: "New value", type: "string", sortable: false, cardLabel: true },
+  ] as const;
+  const rows = [{ id: "r1", values: { name: "Owner", current: OLD_IBAN, next: "DE89" } }];
+
+  test("on the phone card each labelled column has its own line that starts with the label", () => {
+    atViewportWidth(500, () => {
+      render(<DataTable columns={columns} rows={rows} testId="phone" />);
+      const meta = screen.getByTestId("card-meta-r1");
+      const current = within(meta).getByTestId("cell-r1-current");
+      const next = within(meta).getByTestId("cell-r1-next");
+      expect(current.textContent).toBe(`Current value: ${OLD_IBAN}`);
+      expect(next.textContent).toBe("New value: DE89");
+      expect(current.parentElement).not.toBe(next.parentElement);
+      // The value moves below its label as one piece before it breaks inside.
+      expect(within(current).getByText(OLD_IBAN).className).toContain("inline-block");
+    });
+  });
+
+  test("a labelled date keeps date and time together when the card line runs out of room", () => {
+    atViewportWidth(500, () => {
+      render(
+        <DataTable
+          columns={[
+            ...columns,
+            {
+              field: "by",
+              label: "Requested by",
+              type: "string",
+              sortable: false,
+              cardLabel: true,
+              narrowInline: true,
+            },
+            {
+              field: "at",
+              label: "Requested at",
+              type: "string",
+              sortable: false,
+              cardLabel: true,
+              narrowInline: true,
+              renderer: { format: "timestamp" },
+            },
+          ]}
+          rows={[
+            { id: "r1", values: { ...rows[0]?.values, by: "Lukas", at: "2026-11-18T12:46:00Z" } },
+          ]}
+          testId="phone"
+        />,
+      );
+      const meta = screen.getByTestId("card-meta-r1");
+      const valueSpan = (field: string): Element | null =>
+        within(meta).getByTestId(`cell-r1-${field}`).querySelector("span.inline-block");
+      expect(valueSpan("at")?.className).toContain("whitespace-nowrap");
+      expect(valueSpan("by")?.className).not.toContain("whitespace-nowrap");
+    });
+  });
+
+  test("the wide table keeps the label in the header only", () => {
+    atViewportWidth(1280, () => {
+      render(<DataTable columns={columns} rows={rows} testId="wide" />);
+      expect(screen.getByText(OLD_IBAN).closest("td")?.textContent).toBe(OLD_IBAN);
     });
   });
 });

@@ -1,16 +1,16 @@
-import { SYSTEM_TENANT_ID, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { requireForTenant } from "../../shared/index.ts";
 import { fieldDefinitionAggregateId } from "../aggregate-id.ts";
 import { fieldDefinitionExecutor } from "../executor.ts";
 import { createCustomFieldsFeature } from "../feature.ts";
-import { type DeleteFieldPayload, deleteFieldPayloadSchema } from "../schemas.ts";
+import { deleteFieldPayloadSchema } from "../schemas.ts";
 import { FIELD_DEFINITION_AGGREGATE_TYPE } from "../web/constants.ts";
 
 // delete-system-field — SystemAdmin deletes a system-wide field definition.
 // Tenants can no longer set new values for it, but existing values remain in
-// read_<entity>.customFields jsonb until host-entity MSPs remove them in
+// read_<entity>.customFields jsonb until the custom-fields values projection removes them in
 // response to the customFieldDefinition.deleted event. Events remain for audit.
-export const deleteSystemFieldHandler: WriteHandlerDef = {
+export const deleteSystemFieldHandler = defineWriteHandler({
   name: "delete-system-field",
   schema: deleteFieldPayloadSchema,
   access: { roles: ["SystemAdmin"] },
@@ -18,7 +18,7 @@ export const deleteSystemFieldHandler: WriteHandlerDef = {
     "Deletes a system-tenant custom-field definition and cascades an event that strips the now-orphaned values out of every tenant's host rows; use it to retire a platform-wide field for all tenants at once.",
   agent: { risk: "high" },
   handler: async (event, ctx) => {
-    const payload = event.payload as DeleteFieldPayload; // @cast-boundary engine-payload
+    const payload = event.payload;
 
     const aggregateId = fieldDefinitionAggregateId(
       SYSTEM_TENANT_ID,
@@ -31,8 +31,8 @@ export const deleteSystemFieldHandler: WriteHandlerDef = {
       streamTenantId,
     });
 
-    // Cascade-cleanup event — host-entity MSPs remove orphaned values from their
-    // customFields jsonb in the same transaction for atomicity.
+    // Cascade-cleanup event — the custom-fields values projection removes orphaned values from each
+    // wired host's customFields jsonb in the same transaction for atomicity.
     if (result.isSuccess) {
       await ctx.events.unsafeAppend({
         aggregateId,
@@ -43,9 +43,11 @@ export const deleteSystemFieldHandler: WriteHandlerDef = {
           fieldKey: payload.fieldKey,
           tenantId: SYSTEM_TENANT_ID,
         },
+        blindAppendReason:
+          "cascade event right after the executor delete in this transaction, which already pinned the definition stream's version; it only announces the delete that just happened",
       });
     }
 
     return result;
   },
-};
+});

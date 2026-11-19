@@ -37,7 +37,7 @@ describe("ModeSwitch count", () => {
     expect(screen.getByTestId("filter-count-all").textContent).toBe("6");
     expect(screen.getByTestId("filter-count-todo").textContent).toBe("0");
     expect(screen.queryByTestId("filter-count-read")).toBeNull();
-    expect(screen.getByRole("button", { name: "Todo 0" })).toBeTruthy();
+    screen.getByRole("button", { name: "Todo 0" });
   });
 
   test("mutes the counter of inactive options only", () => {
@@ -141,7 +141,7 @@ describe("SideBySideTable", () => {
 
   test("exposes a named table with column and row headers", () => {
     renderTable();
-    expect(screen.getByRole("table", { name: "Angaben im Vergleich" })).toBeTruthy();
+    screen.getByRole("table", { name: "Angaben im Vergleich" });
     const columnHeaders = screen.getAllByRole("columnheader").map((th) => th.textContent);
     expect(columnHeaders).toEqual(["Angabe", "Aus dem Dokument", "Im Bestand"]);
     const rowHeaders = screen.getAllByRole("rowheader");

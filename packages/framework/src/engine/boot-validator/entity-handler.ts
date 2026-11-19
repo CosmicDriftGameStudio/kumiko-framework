@@ -168,6 +168,7 @@ export function validateHandlerAccess(feature: FeatureDefinition): void {
   }
   for (const [name, handler] of Object.entries(feature.writeHandlers)) {
     validateTenantlessAnonymous(feature.name, name, handler);
+    validateDispatchOnly(feature.name, name, handler);
     validateAdditionalRateLimits(feature.name, name, handler);
     validateRateLimitCost(feature.name, name, handler);
     validatePerCommandTransaction(feature.name, name, handler);
@@ -296,6 +297,26 @@ export function validateTenantlessAnonymous(
       message:
         `${where} with rateLimit.per "${per}" — every anonymous visitor shares the same ` +
         `tenant/user bucket, so one caller could exhaust it for all. Use ${IP_SCOPED_RATE_LIMIT_PER.map((allowed) => `"${allowed}"`).join(" or ")}.`,
+    });
+  }
+}
+
+export function validateDispatchOnly(
+  featureName: string,
+  handlerName: string,
+  handler: FeatureDefinition["writeHandlers"][string],
+): void {
+  // skip: handler is reachable through the HTTP entry
+  if (!handler.dispatchOnly) return;
+  const where = `write handler "${featureName}:write:${handlerName}" declares dispatchOnly`;
+  if (handler.agent?.expose === true) {
+    throw bootRuleError(HANDLER_ACCESS_RULES.dispatchOnlyAgentExposed, {
+      message: `${where} and agent.expose: true — a dispatch-only handler is never an agent tool. Drop agent.expose or dispatchOnly.`,
+    });
+  }
+  if (handler.tenantlessAnonymous) {
+    throw bootRuleError(HANDLER_ACCESS_RULES.dispatchOnlyTenantless, {
+      message: `${where} and tenantlessAnonymous — tenantlessAnonymous only matters for the HTTP entry dispatchOnly closes. Drop one of the two.`,
     });
   }
 }
@@ -490,96 +511,6 @@ export function validateLocatedTimestamps(feature: FeatureDefinition): void {
             `locatedBy: "${field.locatedBy}" but that field is type "${referenced.type}", ` +
             `expected "tz". The locatedBy marker must point to a tz-field (IANA-zone slot).`,
         });
-      }
-    }
-  }
-}
-
-// --- Entity-index validation ---
-//
-// entity.indexes declares composite/unique indexes over multiple field
-// columns. Common errors include misspelled field names, an empty column
-// list, and an index on a field for which the DB has no column (file/image
-// in the multi-value variant). Catch these at boot, long before drizzle-kit
-// fails during the generate run.
-//
-// A `tenantId`-only index is redundant because buildEntityTable creates
-// that index automatically. Composite forms remain allowed
-// (`["tenantId", "key"]` is useful); only the tenantId-only single-column
-// form is rejected.
-export function validateEntityIndexes(feature: FeatureDefinition): void {
-  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
-    if (!entity.indexes) continue;
-    const fieldNames = new Set(Object.keys(entity.fields));
-    for (const [idx, def] of entity.indexes.entries()) {
-      const where = `Feature "${feature.name}", entity "${entityName}", indexes[${idx}]`;
-      if (def.columns.length === 0) {
-        throw bootRuleError(ENTITY_STRUCTURE_RULES.indexColumnsEmpty, {
-          message: `${where}: empty columns list. An index needs at least one column.`,
-        });
-      }
-      for (const col of def.columns) {
-        if (col === "tenantId" || col === "id" || col === "version") continue; // base columns
-        if (!fieldNames.has(col)) {
-          throw bootRuleError(ENTITY_STRUCTURE_RULES.indexUnknownColumn, {
-            message:
-              `${where}: column "${col}" does not match any field in the entity. ` +
-              `Available fields: ${[...fieldNames].join(", ")}.`,
-          });
-        }
-        const field = entity.fields[col];
-        if (
-          field &&
-          (field.type === "files" ||
-            field.type === "images" ||
-            (field.type === "reference" && field.multiple === true))
-        ) {
-          throw bootRuleError(ENTITY_STRUCTURE_RULES.indexMultiValueColumn, {
-            message:
-              `${where}: column "${col}" is a multi-value field (${field.type}) — ` +
-              `a jsonb array cannot be indexed as a column. Use a single-value field or remove from the index.`,
-          });
-        }
-        if (field && field.type === "longText") {
-          // longText semantically means "potentially-megabytes content" — a
-          // BTREE index on a 1-MB column is a performance disaster
-          // (PG would need to dereference TOAST pages for every
-          // index lookup). This is consistent with the type-level decision
-          // that longText has no sortable/searchable/filterable flags. Anyone
-          // who truly needs indexing should use `text` with the
-          // corresponding scaling trade-offs.
-          throw bootRuleError(ENTITY_STRUCTURE_RULES.indexLongTextColumn, {
-            message:
-              `${where}: column "${col}" is a longText field — these cannot be indexed. ` +
-              `Use \`text\` if you need indexing, or rely on the SearchAdapter (Meilisearch) for full-text search on long content.`,
-          });
-        }
-      }
-      // A UNIQUE constraint on tenantId is semantically meaningful (1:1 tenant→entity)
-      // and NOT redundant — buildEntityTable's automatic index is only a
-      // performance hint, not a constraint. Only the tenantId-only,
-      // single-column, non-unique form is rejected.
-      if (def.columns.length === 1 && def.columns[0] === "tenantId" && !def.unique) {
-        throw bootRuleError(ENTITY_STRUCTURE_RULES.indexTenantIdOnly, {
-          message:
-            `${where}: single-column index on "tenantId" is redundant — ` +
-            `buildEntityTable always creates one automatically. Remove this entry.`,
-        });
-      }
-      // AES-GCM's random-IV ciphertext is never equal to itself across two
-      // writes of the same plaintext, so a unique index on an encrypted
-      // column can never detect a real duplicate.
-      if (def.unique) {
-        for (const col of def.columns) {
-          const field = entity.fields[col];
-          if (field && (field.type === "text" || field.type === "longText") && field.encrypted) {
-            throw bootRuleError(ENTITY_STRUCTURE_RULES.indexUniqueEncryptedColumn, {
-              message:
-                `${where}: column "${col}" is encrypted — a unique index on it can never detect ` +
-                `duplicates (non-deterministic ciphertext). Remove \`unique\` or \`encrypted\`.`,
-            });
-          }
-        }
       }
     }
   }
@@ -1100,6 +1031,68 @@ export function validateTransitions(feature: FeatureDefinition): void {
   }
 }
 
+// --- Entity verb validation ---
+
+const LIFECYCLE_VERB_NAMES: ReadonlySet<string> = new Set([
+  "created",
+  "updated",
+  "deleted",
+  "restored",
+  "forgotten",
+]);
+const ENTITY_VERB_NAME = /^[a-z][a-zA-Z0-9]*$/;
+
+export function validateEntityVerbs(feature: FeatureDefinition): void {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+    if (!entity.verbs) continue;
+
+    for (const [verbName, def] of Object.entries(entity.verbs)) {
+      const where = `Verb "${verbName}" on entity "${entityName}" in feature "${feature.name}"`;
+      if (LIFECYCLE_VERB_NAMES.has(verbName)) {
+        throw bootRuleError(ENTITY_STRUCTURE_RULES.entityVerbReservedName, {
+          message: `${where} is a lifecycle verb; rename it.`,
+        });
+      }
+      if (!ENTITY_VERB_NAME.test(verbName)) {
+        throw bootRuleError(ENTITY_STRUCTURE_RULES.entityVerbInvalidName, {
+          message: `${where} must match ${ENTITY_VERB_NAME.source}.`,
+        });
+      }
+      const transition = def.transition;
+      if (!transition) continue;
+
+      const field = entity.fields[transition.field];
+      if (!field || field.type !== "select") {
+        throw bootRuleError(ENTITY_STRUCTURE_RULES.entityVerbTransitionField, {
+          message: `${where} has a transition on "${transition.field}", which is ${field ? `of type "${field.type}"` : "not a field of the entity"} (must be a select field).`,
+        });
+      }
+      const validOptions = new Set(field.options);
+      if (transition.from.length === 0) {
+        throw bootRuleError(ENTITY_STRUCTURE_RULES.entityVerbTransitionState, {
+          message: `${where} has an empty "from" list on "${transition.field}".`,
+        });
+      }
+      for (const state of [...transition.from, transition.to]) {
+        if (!validOptions.has(state)) {
+          throw bootRuleError(ENTITY_STRUCTURE_RULES.entityVerbTransitionState, {
+            message: `${where} uses "${state}" on "${transition.field}", which is not a valid option. Valid: ${[...validOptions].join(", ")}`,
+          });
+        }
+      }
+      const allowedMap = entity.transitions?.[transition.field];
+      if (!allowedMap) continue;
+      for (const from of transition.from) {
+        if (!(allowedMap[from] ?? []).includes(transition.to)) {
+          throw bootRuleError(ENTITY_STRUCTURE_RULES.entityVerbTransitionState, {
+            message: `${where} moves "${from}" → "${transition.to}" on "${transition.field}", which entity.transitions does not allow.`,
+          });
+        }
+      }
+    }
+  }
+}
+
 // --- extendSchema column collision detection ---
 
 export function validateExtendSchemaCollisions(feature: FeatureDefinition): void {
@@ -1168,7 +1161,11 @@ function throwSearchableRestricted(subject: string, entityName: string): never {
 export function validateSearchableFieldReadAccess(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {
-      if (field.type === "text" && field.searchable && !isUnrestrictedReadAccess(field.access)) {
+      if (
+        (field.type === "text" || field.type === "longText") &&
+        field.searchable === true &&
+        !isUnrestrictedReadAccess(field.access)
+      ) {
         throwSearchableRestricted(`Field "${fieldName}"`, entityName);
       }
       if (field.type !== "embedded") continue;

@@ -136,8 +136,18 @@ type ButtonBaseProps = {
    *  Delete, "secondary" for a Confirm state, "link" for inline actions in
    *  running text (no background, underline), "danger-ghost" for a
    *  destructive action as red text instead of a red fill, "ghost" for a
-   *  low-emphasis primary-colored text action beside a filled primary. */
-  readonly variant?: "primary" | "secondary" | "danger" | "link" | "danger-ghost" | "ghost";
+   *  low-emphasis primary-colored text action beside a filled primary.
+   *  "plain" is a click target without fixed height, padding, centring and
+   *  background, for multi-line rows and image tiles; layout via className,
+   *  focus ring and disabled stay. */
+  readonly variant?:
+    | "primary"
+    | "secondary"
+    | "danger"
+    | "link"
+    | "danger-ghost"
+    | "ghost"
+    | "plain";
   /** Size—default="md". "sm" is for compact inline actions (toolbars,
    *  list rows); "icon" is for square icon-only buttons. */
   readonly size?: "sm" | "md" | "icon";
@@ -180,6 +190,10 @@ export type LinkProps = {
    *  `rel` is set explicitly. */
   readonly target?: "_blank" | "_self" | "_parent" | "_top";
   readonly rel?: string;
+  /** Saves the target as a file under this name instead of navigating (empty =
+   *  name chosen by the browser) and then also allows `blob:` and
+   *  `data:image/` hrefs. */
+  readonly download?: string;
   /** Plain left-click handler (SPA navigation); `href` stays set for
    *  modifier/middle clicks, which the browser handles itself. */
   readonly onPress?: () => void;
@@ -517,9 +531,11 @@ export type InputProps =
       /** Only for kind:"image" — forwarded to the file input's `capture`
        *  attribute so a phone opens the camera instead of the file picker. */
       readonly capture?: "environment" | "user";
-      /** Web-only folder picker: the picked files (with `webkitRelativePath`)
-       *  go to `onFilesPicked` and nothing is uploaded. */
+      /** Pick-only: with `onFilesPicked` set, the picked files go to the callback and nothing is
+       *  uploaded. `directory` makes it the web-only folder picker (files carry
+       *  `webkitRelativePath`), `multiple` allows several files. */
       readonly directory?: boolean;
+      readonly multiple?: boolean;
       readonly onFilesPicked?: (files: readonly PickedFile[]) => void;
       /** Translated label of the pick button; absent → the upload/change default. */
       readonly pickLabel?: string;
@@ -950,6 +966,8 @@ export type DataTableProps = {
    *  and would otherwise show a card nested inside that boundary. Default
    *  false: unchanged card-framed table. */
   readonly chromeless?: boolean;
+  /** "muted": the header row gets the muted background (tabs-mode related list). */
+  readonly headerTone?: "muted";
   /** Fills the available height of its flex container and scrolls rows
    *  internally instead of growing with row count — for a host that would
    *  otherwise have a long table stretch the whole page, or a short table
@@ -1092,6 +1110,8 @@ export type SectionProps = {
   /** Shows the subtitle only below the `lg` breakpoint: a wizard's step rail
    *  carries the same text from `lg` up. Native impls may ignore it. */
   readonly subtitleBelowLgOnly?: boolean;
+  /** false hides the title below `sm`. */
+  readonly titleOnNarrow?: false;
   readonly children: ReactNode;
   /** Rendered top-right in the title row — never a footer. A
    *  title-less/subtitle-less Section still draws the row when `actions`
@@ -1134,6 +1154,8 @@ export type FillContainerProps = {
    *  edge even with few rows. Set only when the screen fills the shell
    *  height. */
   readonly grow?: boolean;
+  /** Extra `data-*` attributes on the container. */
+  readonly dataAttributes?: DataAttributes;
 };
 
 /** Column-based layout. Web uses CSS grid; native implementations use
@@ -1197,11 +1219,9 @@ export type GridCellProps = {
   readonly children: ReactNode;
 };
 
-/** Semantic text. Variants map to standard typography roles: `body` is
- *  the default, `small` for secondary labels, `code` for inline monospace
- *  (entityId, screen-id), `required-mark` for the asterisk after labels,
- *  `muted` for dimmed body text (text-sm muted-foreground). Custom impls map
- *  these to their own type scale. */
+/** Semantic text. Variants map to standard typography roles: `body` is the default, `small` for secondary
+ *  labels, `code` for inline monospace (entityId, screen-id), `required-mark` for the asterisk after labels,
+ *  `muted` for dimmed body text (text-sm muted-foreground). Custom impls map these to their own type scale. */
 export type TextProps = {
   readonly variant?: "body" | "small" | "code" | "required-mark" | "muted";
   /** Pure ornament (e.g. a separator glyph): hidden from assistive tech. */
@@ -1210,6 +1230,8 @@ export type TextProps = {
   readonly concealed?: boolean;
   /** Phone wording: `children` show from `sm` up, this text below it. */
   readonly narrow?: string;
+  /** Screen readers announce the text when it appears or changes (web: `role="status"`). */
+  readonly announce?: boolean;
   readonly children: ReactNode;
   readonly testId?: string;
 };
@@ -1596,10 +1618,7 @@ export type CorePrimitives = {
   readonly Field: ComponentType<FieldProps>;
   readonly Input: ComponentType<InputProps>;
   readonly DataTable: ComponentType<DataTableProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly EmbeddedListInput?: ComponentType<EmbeddedListInputProps>;
+  readonly EmbeddedListInput: ComponentType<EmbeddedListInputProps>;
   readonly Form: ComponentType<FormProps>;
   readonly Section: ComponentType<SectionProps>;
   readonly Card: ComponentType<CardProps>;
@@ -1609,85 +1628,34 @@ export type CorePrimitives = {
   readonly Heading: ComponentType<HeadingProps>;
   readonly Dialog: ComponentType<DialogProps>;
   readonly Modal: ComponentType<ModalProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly Drawer?: ComponentType<DrawerProps>;
+  readonly Drawer: ComponentType<DrawerProps>;
   readonly Lightbox: ComponentType<LightboxProps>;
   readonly ConfigSourceBadge: ComponentType<ConfigSourceBadgeProps>;
   readonly ConfigCascadeView: ComponentType<ConfigCascadeViewProps>;
   readonly Link: ComponentType<LinkProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly Progress?: ComponentType<ProgressProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly StepBar?: ComponentType<StepBarProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly WizardStepGroup?: ComponentType<WizardStepGroupProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly Tabs?: ComponentType<TabsProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly StatusBadge?: ComponentType<StatusBadgeProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly Metric?: ComponentType<MetricProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly JsonView?: ComponentType<JsonViewProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly FileValueList?: ComponentType<FileValueListProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly FillContainer?: ComponentType<FillContainerProps>;
-  /** Optional — additive rollout, see StickyActionBar. Without it, header
-   *  content stays where the screen always rendered it. */
-  readonly PageHeader?: ComponentType<PageHeaderProps>;
-  /** Optional — additive rollout, see StickyActionBar. */
-  readonly MetricBand?: ComponentType<MetricBandProps>;
-  /** Optional — without it the detail screen renders the path as plain links. */
-  readonly RecordBreadcrumb?: ComponentType<RecordBreadcrumbProps>;
-  /** Optional — without it the summary renders as plain text. */
-  readonly RecordSummary?: ComponentType<RecordSummaryProps>;
-  /** Optional — without it a relatedList with `photoGrid` falls back to its table. */
-  readonly PhotoGrid?: ComponentType<PhotoGridProps>;
-  /** Optional — without it a stepList section renders nothing. */
-  readonly StepList?: ComponentType<StepListProps>;
-  /** Optional — without it the steps render as a plain card. */
-  readonly RecordSteps?: ComponentType<RecordStepsProps>;
-  /** Optional: without an implementation, callers with >2 header/row
-   *  actions fall back to today's all-buttons-inline rendering. */
-  readonly ActionOverflowMenu?: ComponentType<ActionOverflowMenuProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly SecretReveal?: ComponentType<SecretRevealProps>;
-  /** Optional (unlike the other Core-Primitives) so existing partial
-   *  CorePrimitives mocks in tests keep compiling — additive rollout of
-   *  a new primitive shouldn't force every test double to grow a stub. */
-  readonly StickyActionBar?: ComponentType<StickyActionBarProps>;
-  /** Optional — additive rollout, see StickyActionBar. */
-  readonly CopyButton?: ComponentType<CopyButtonProps>;
-  /** Optional — additive rollout, see StickyActionBar. */
-  readonly ShareButton?: ComponentType<ShareButtonProps>;
-  /** Optional — additive rollout, see StickyActionBar. */
-  readonly PromoPanel?: ComponentType<PromoPanelProps>;
-  /** Optional — additive rollout, see StickyActionBar. Without it the
-   *  "not available" states fall back to a Card. */
-  readonly EmptyState?: ComponentType<EmptyStateProps>;
+  readonly Progress: ComponentType<ProgressProps>;
+  readonly StepBar: ComponentType<StepBarProps>;
+  readonly WizardStepGroup: ComponentType<WizardStepGroupProps>;
+  readonly Tabs: ComponentType<TabsProps>;
+  readonly StatusBadge: ComponentType<StatusBadgeProps>;
+  readonly Metric: ComponentType<MetricProps>;
+  readonly JsonView: ComponentType<JsonViewProps>;
+  readonly FileValueList: ComponentType<FileValueListProps>;
+  readonly FillContainer: ComponentType<FillContainerProps>;
+  readonly PageHeader: ComponentType<PageHeaderProps>;
+  readonly MetricBand: ComponentType<MetricBandProps>;
+  readonly RecordBreadcrumb: ComponentType<RecordBreadcrumbProps>;
+  readonly RecordSummary: ComponentType<RecordSummaryProps>;
+  readonly PhotoGrid: ComponentType<PhotoGridProps>;
+  readonly StepList: ComponentType<StepListProps>;
+  readonly RecordSteps: ComponentType<RecordStepsProps>;
+  readonly ActionOverflowMenu: ComponentType<ActionOverflowMenuProps>;
+  readonly SecretReveal: ComponentType<SecretRevealProps>;
+  readonly StickyActionBar: ComponentType<StickyActionBarProps>;
+  readonly CopyButton: ComponentType<CopyButtonProps>;
+  readonly ShareButton: ComponentType<ShareButtonProps>;
+  readonly PromoPanel: ComponentType<PromoPanelProps>;
+  readonly EmptyState: ComponentType<EmptyStateProps>;
 };
 
 /** Extension point for app-owned primitives. Developers extend this

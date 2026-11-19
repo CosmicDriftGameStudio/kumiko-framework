@@ -46,6 +46,16 @@ describe("cardColumnRoles", () => {
     expect(roles.meta.map((c) => c.field)).toEqual(["s2"]);
   });
 
+  test("a select column hidden on narrow is no status badge, the next visible select is", () => {
+    const roles = cardColumnRoles([
+      { field: "name" },
+      { field: "stage", type: "select", hideOnNarrow: true },
+      { field: "state", type: "select" },
+    ]);
+    expect(roles.status?.field).toBe("state");
+    expect(roles.meta.map((c) => c.field)).toEqual([]);
+  });
+
   test("a select with a renderer is not a status; a title select is not a status either", () => {
     const withRenderer = cardColumnRoles([
       { field: "name" },

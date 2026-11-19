@@ -35,24 +35,24 @@ describe("CapUsageCell", () => {
   test("renders the not-measured text for used null with a finite limit", () => {
     renderCell({ used: null, limit: 100, fraction: 0 });
 
-    expect(screen.getByTestId("cap-usage-not-measured")).toBeTruthy();
+    screen.getByTestId("cap-usage-not-measured");
   });
 
   test("renders a bar for a regular used/limit value", () => {
     renderCell({ used: 40, limit: 100, fraction: 0.4 });
 
-    expect(screen.getByTestId("cap-usage-bar")).toBeTruthy();
+    screen.getByTestId("cap-usage-bar");
   });
 
   test("renders not-included for limit 0", () => {
     renderCell({ used: null, limit: 0, fraction: 0 });
 
-    expect(screen.getByTestId("cap-usage-not-included")).toBeTruthy();
+    screen.getByTestId("cap-usage-not-included");
   });
 
   test("accepts a known unit and rejects an unknown one", () => {
     renderCell({ used: 40, limit: 100, fraction: 0.4, unit: "mb" });
-    expect(screen.getByTestId("cap-usage-bar")).toBeTruthy();
+    screen.getByTestId("cap-usage-bar");
   });
 
   test("renders nothing for an unknown unit", () => {

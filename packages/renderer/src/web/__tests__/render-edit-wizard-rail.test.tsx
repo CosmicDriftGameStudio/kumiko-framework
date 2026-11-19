@@ -7,7 +7,7 @@ import {
   useExtensionFormSubmit,
 } from "../../index.ts";
 import { makeDispatcher, orderEntity, type TestValues } from "./_render-edit-helpers.tsx";
-import { fireEvent, render, renderWithPrimitivesOverride, screen, waitFor } from "./test-utils.tsx";
+import { fireEvent, render, screen, waitFor } from "./test-utils.tsx";
 
 type WizardLayout = NonNullable<EntityEditScreenDefinition["layout"]["wizard"]>;
 type SectionSpecs = EntityEditScreenDefinition["layout"]["sections"];
@@ -67,24 +67,6 @@ describe("wizard step rail: per-step texts", () => {
     // Step 1 stays mounted but hidden: only its own header copy remains, the rail intro moved on.
     expect(screen.getAllByText("Name the order.")).toHaveLength(1);
     expect(screen.getAllByText("Count the items.")).toHaveLength(2);
-  });
-
-  test("without a rendered rail the step description stays in the section header", () => {
-    renderWithPrimitivesOverride(
-      <DispatcherProvider dispatcher={makeDispatcher()}>
-        <RenderEdit<TestValues>
-          screen={wizardScreen(describedSections)}
-          entity={orderEntity}
-          featureName="orders"
-          initial={{ title: "Acme", count: 1, isUrgent: false } as TestValues}
-          writeCommand="order:create"
-          fillScreenHeight
-        />
-      </DispatcherProvider>,
-      { StepBar: undefined },
-    );
-    expect(screen.getByText("Name the order.").className).not.toContain("lg:hidden");
-    expect(screen.queryByTestId("render-edit-wizard-steps")).toBeNull();
   });
 
   test("an explicit subtitle wins over the description in the row", () => {
@@ -215,7 +197,7 @@ describe("wizard footer", () => {
     expect(screen.queryByTestId("render-edit-wizard-save-close")).toBeNull();
     view.unmount();
     renderWizard(wizardScreen(describedSections, { saveAndCloseOnCreate: true }));
-    expect(screen.getByTestId("render-edit-wizard-save-close")).toBeTruthy();
+    screen.getByTestId("render-edit-wizard-save-close");
   });
 
   test("submitDisabledWhen disables Finish while the condition holds", () => {
@@ -342,12 +324,12 @@ describe("wizard footer: last step", () => {
   test("Save and close stays hidden on the last step by default", () => {
     gotoLastStep();
     expect(screen.queryByTestId("render-edit-wizard-save-close")).toBeNull();
-    expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
+    screen.getByTestId("render-edit-submit");
   });
 
   test("with saveAndCloseOnCreate it sits next to the submit on the last step", () => {
     gotoLastStep({ saveAndCloseOnCreate: true });
-    expect(screen.getByTestId("render-edit-wizard-save-close")).toBeTruthy();
-    expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
+    screen.getByTestId("render-edit-wizard-save-close");
+    screen.getByTestId("render-edit-submit");
   });
 });

@@ -1,6 +1,6 @@
-import { bootRuleError } from "@cosmicdrift/kumiko-framework/engine";
+import { access, bootRuleError } from "@cosmicdrift/kumiko-framework/engine";
 import { PRESENCE_BOOT_RULES } from "./boot-rules.ts";
-export const PRESENCE_DEFAULT_ROLES: readonly string[] = ["TenantAdmin", "TenantMember"];
+export const PRESENCE_DEFAULT_ROLES: readonly string[] = access.tenantMembers;
 export const PRESENCE_DEFAULT_TTL_SECONDS = 45;
 
 export type PresenceOptions = {

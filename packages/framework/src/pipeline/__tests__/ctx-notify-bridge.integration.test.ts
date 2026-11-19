@@ -18,12 +18,13 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 // context has no commit sink to schedule on.
 
 const thingEntity = createEntity({
+  name: "thing",
   table: "nfy_things",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const thingTable = buildEntityTable("thing", thingEntity);
+const thingTable = buildEntityTable(thingEntity);
 const thingCrud = createEventStoreExecutor(thingTable, thingEntity, { entityName: "thing" });
 
 type NotifyCall = { readonly path: "afterCommit" | "inTransaction"; readonly type: string };
@@ -41,7 +42,7 @@ const notifyFactory: NotifyFactory = (_user, _tenantId, _jobs, deliveryDb) => as
 const openToAll = { openToAll: { reason: "test handler callable by any signed-in test user" } };
 
 const notifyFeature = defineFeature("nfy", (r) => {
-  const thing = r.entity({ name: "thing", ...thingEntity });
+  const thing = r.entity(thingEntity);
 
   r.writeHandler({
     name: "thing:create",

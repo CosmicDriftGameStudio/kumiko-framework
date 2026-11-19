@@ -24,7 +24,7 @@ const openRead = {
 } as const;
 
 export const listingsFeature = defineFeature("listings", (r) => {
-  r.crud("listing", listingEntity, { write: editorWrite, read: openRead });
+  r.crud(listingEntity, { write: editorWrite, read: openRead });
 
   r.screen({
     id: "listing-wizard",

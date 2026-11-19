@@ -6,18 +6,9 @@
 // double-entry invariant.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import {
-  accountEntity,
-  createLedgerFeature,
-  transactionEntity,
-} from "@cosmicdrift/kumiko-bundled-features/ledger";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createLedgerFeature } from "@cosmicdrift/kumiko-bundled-features/ledger";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { bankingFlow, type LedgerClient } from "../usage";
 
 // Each test runs in its own tenant, so rows from other tests never show up.
@@ -35,9 +26,6 @@ const client: LedgerClient = {
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [ledger] });
-  await unsafeCreateEntityTable(stack.db, accountEntity);
-  await unsafeCreateEntityTable(stack.db, transactionEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

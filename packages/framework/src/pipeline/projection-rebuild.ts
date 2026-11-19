@@ -1,5 +1,7 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
+import type { ProjectionDefinition } from "@cosmicdrift/kumiko-types/projection";
 import type { DbConnection, DbTx } from "../db/connection.ts";
+import { executorManagedEntitySourceOf } from "../db/executor-managed-tables.ts";
 import {
   countSubscribedEvents,
   finalizeProjectionRebuild,
@@ -9,11 +11,14 @@ import {
 } from "../db/queries/projection-rebuild.ts";
 import { assertRebuildableRowLevelSecurity } from "../db/queries/rebuild-rls-guard.ts";
 import {
+  alignShadowRowVersionsWithStreams,
   assertLiveColumnsMatchMeta,
   assertNoBlindIndexLoss,
   assertNoUnreachableLiveRows,
+  assertReplayWroteOnlyShadow,
   buildShadowTable,
   type ColumnDriftResult,
+  captureLiveRelationWriteCounts,
   countColumnDrift,
   ensureRebuildSchema,
   fenceLiveTable,
@@ -24,6 +29,7 @@ import { coerceRow, runInSavepoint, selectMany } from "../db/query.ts";
 import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import { withoutStatementTimeout } from "../db/statement-timeout.ts";
 import { extractTableInfo } from "../db/table-info.ts";
+import { tableNameOf } from "../db/table-introspection.ts";
 import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
 import { eventsTable, getEventsHighWaterMark, upcastStoredEvent } from "../event-store/index.ts";
@@ -33,6 +39,7 @@ import {
   type SkippedApply,
 } from "../event-store/rebuild-dead-letter.ts";
 import { toStoredEvent } from "../event-store/row-to-stored-event.ts";
+import { inEventStreamScope } from "../event-store/stream-scope.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import { emitProjectionRebuild } from "../observability/standard-metrics.ts";
 import type { Meter } from "../observability/types/metric.ts";
@@ -210,6 +217,21 @@ export function rebuildProjection(
   );
 }
 
+// The entity table belongs to the implicit projection, which already merges the explicit
+// applies. Rebuilding only the explicit projection would drop every row without a matching event.
+function findOwningEntityProjection(
+  registry: RebuildDeps["registry"],
+  projection: ProjectionDefinition,
+): ProjectionDefinition | undefined {
+  const tableName = tableNameOf(projection.table);
+  for (const candidate of registry.getAllProjections().values()) {
+    if (candidate.isImplicit === true && tableNameOf(candidate.table) === tableName) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
 async function replayProjectionIntoShadow(
   projectionName: string,
   deps: RebuildDeps,
@@ -222,6 +244,11 @@ async function replayProjectionIntoShadow(
         [...registry.getAllProjections().keys()].join(", ") || "(none)"
       }`,
     );
+  }
+
+  if (projection.isImplicit !== true) {
+    const owner = findOwningEntityProjection(registry, projection);
+    if (owner) return replayProjectionIntoShadow(owner.name, deps);
   }
 
   const meta = rebuildMetaOrThrow(projection.table, projectionName);
@@ -260,29 +287,34 @@ async function replayProjectionIntoShadow(
     for (const r of rawEvents) {
       deps.signal?.throwIfAborted();
       const row = coerceRow<Parameters<typeof toStoredEvent>[0]>(r, eventsInfo);
+      const streamTenantId = row.tenantId as TenantId; // @cast-boundary db-row
       const storedEvent = await upcastStoredEvent(toStoredEvent(row), upcasters, {
         db: tx,
-        tenantId: row.tenantId as TenantId, // @cast-boundary db-row
+        tenantId: streamTenantId,
       });
       const applyFn = projection.apply[row.type];
       // skip: apply-key validation ensures every subscribed type has a handler;
       //       defensive check against runtime-mutated registry
       if (!applyFn) continue;
-      if (skipApplyErrors) {
-        // Driver-native savepoint: a throwing SQL statement would otherwise
-        // poison the rebuild tx (25P02) AND make the driver reject the whole
-        // begin() even after a caught error. The apply runs on the
-        // savepoint-scoped handle so its statements are confined.
-        try {
-          await runInSavepoint(applyTx, async (sp) => {
-            await applyFn(storedEvent, sp, projection.table);
-          });
-        } catch (e) {
-          skipped.push({ event: storedEvent, error: e });
+      // Same tenant scope as the live path (projections-runner); an apply that reads without a
+      // tenant filter would otherwise see every tenant here.
+      await inEventStreamScope(streamTenantId, async () => {
+        if (skipApplyErrors) {
+          // Driver-native savepoint: a throwing SQL statement would otherwise
+          // poison the rebuild tx (25P02) AND make the driver reject the whole
+          // begin() even after a caught error. The apply runs on the
+          // savepoint-scoped handle so its statements are confined.
+          try {
+            await runInSavepoint(applyTx, async (sp) => {
+              await applyFn(storedEvent, sp, projection.table);
+            });
+          } catch (e) {
+            skipped.push({ event: storedEvent, error: e });
+          }
+        } else {
+          await applyFn(storedEvent, applyTx, projection.table);
         }
-      } else {
-        await applyFn(storedEvent, applyTx, projection.table);
-      }
+      });
       eventsProcessed++;
       lastProcessedEventId = row.id;
     }
@@ -300,6 +332,7 @@ async function replayProjectionIntoShadow(
       await assertLiveColumnsMatchMeta(tx, meta, projectionName);
       await buildShadowTable(tx, meta);
       deps.__test_onBuildShadowTable?.();
+      const liveWritesBefore = await captureLiveRelationWriteCounts(tx);
 
       // A projection that subscribes to nothing has no events to replay and no
       // live writer touching its table — skip straight to swapping the empty
@@ -358,6 +391,17 @@ async function replayProjectionIntoShadow(
           }
         }
       }
+
+      if (projection.isImplicit === true) {
+        await alignShadowRowVersionsWithStreams(
+          tx,
+          meta.tableName,
+          sourcesList,
+          executorManagedEntitySourceOf(projection.table)?.entity.systemStream === true,
+        );
+      }
+
+      await assertReplayWroteOnlyShadow(tx, liveWritesBefore, projectionName);
 
       if (skipped.length > 0) {
         await recordRebuildDeadLetters(tx, projectionName, skipped);
@@ -460,18 +504,14 @@ export async function getProjectionState(
   };
 }
 
-// List every registered projection with its current state (if any).
-// The registry is the source-of-truth for which projections exist; the
-// state table holds per-projection rebuild info and may be sparse.
-//
-// Implicit projections (auto-registered by r.entity, one per entity) are filtered
-// out by default. They stay addressable as rebuild targets via
-// `<feature>:projection:<entity>-entity`, but would dominate `kumiko project list`
-// without adding information. Opt in with `{ includeImplicit: true }`.
+// List every registered single-stream projection with its current state (if any),
+// implicit entity projections (`<feature>:projection:<entity>-entity`) included: an
+// r.projection on an entity table rebuilds through the implicit one, so its name is the
+// rebuild target an operator needs. The registry is the source of truth for which
+// projections exist; the state table holds per-projection rebuild info and may be sparse.
 export async function listProjectionsWithState(
   db: DbConnection,
   registry: Registry,
-  options: { readonly includeImplicit?: boolean } = {},
 ): Promise<
   ReadonlyArray<{
     readonly name: string;
@@ -494,20 +534,18 @@ export async function listProjectionsWithState(
   const stateRows = await selectMany<StateRow>(db, projectionStateTable);
   const stateByName = new Map(stateRows.map((r) => [r.name, r]));
 
-  return [...projections.values()]
-    .filter((proj) => options.includeImplicit === true || !proj.isImplicit)
-    .map((proj) => {
-      const state = stateByName.get(proj.name);
-      const sources = Array.isArray(proj.source) ? proj.source : [proj.source];
-      return {
-        name: proj.name,
-        sources,
-        status: state?.status ?? "never-rebuilt",
-        lastProcessedEventId: state?.lastProcessedEventId ?? 0n,
-        lastRebuildAt: state?.lastRebuildAt ?? null,
-        lastError: state?.lastError ?? null,
-      };
-    });
+  return [...projections.values()].map((proj) => {
+    const state = stateByName.get(proj.name);
+    const sources = Array.isArray(proj.source) ? proj.source : [proj.source];
+    return {
+      name: proj.name,
+      sources,
+      status: state?.status ?? "never-rebuilt",
+      lastProcessedEventId: state?.lastProcessedEventId ?? 0n,
+      lastRebuildAt: state?.lastRebuildAt ?? null,
+      lastError: state?.lastError ?? null,
+    };
+  });
 }
 
 export type ProjectionProgress = {

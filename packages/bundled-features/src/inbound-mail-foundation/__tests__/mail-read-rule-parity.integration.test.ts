@@ -24,6 +24,7 @@ import { inboundMessagesProjectionTable } from "../projection.ts";
 import { adminFor, type MailTestStack, setupMailStack } from "./mail-test-support.ts";
 
 const documentEntity = createEntity({
+  name: "document",
   table: "mail_parity_documents",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture" }),
@@ -31,10 +32,10 @@ const documentEntity = createEntity({
   },
   readGate: { fileOwner: { field: "file" } },
 });
-const documentTable = buildEntityTable("document", documentEntity);
+const documentTable = buildEntityTable(documentEntity);
 
 const documentFeature = defineFeature("mailparity", (r) => {
-  r.crud("document", documentEntity, {
+  r.crud(documentEntity, {
     write: { access: { roles: ["SystemAdmin"] } },
     read: { access: { roles: ["User", "TenantAdmin", "SystemAdmin"] } },
   });

@@ -44,8 +44,6 @@ export function createSignatureListScreen(
       { field: "completedAt", hideOnNarrow: true },
     ],
     defaultSort: { field: "expiresAt", dir: "desc" },
-    // A user bound by authorizeSubject gets no total, so the list pages by cursor.
-    pagination: "infinite",
     access,
     searchable: true,
     rowActions: [

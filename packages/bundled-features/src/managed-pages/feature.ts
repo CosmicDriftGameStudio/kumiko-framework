@@ -1,22 +1,30 @@
 import { computeRevisionEtag, etagMatches } from "@cosmicdrift/kumiko-framework/api";
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineFeature,
+  type FeatureDefinition,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { RateLimitError } from "@cosmicdrift/kumiko-framework/errors";
+import { escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
+import { BRANDING_TOKENS_QUERY_QN, coerceBranding } from "../branding/index.ts";
 import {
   type BrandingTokens,
+  brandingHeaderHtml,
+  brandingStyleBlock,
   cachedSecurePageResponse,
   EMPTY_BRANDING,
+  isSafeHttpsUrl,
+  tenantStyleBlock,
   wrapInLayout,
 } from "../page-render/index.ts";
 import { rateLimitedTextResponse, type SystemQueryFn } from "../shared/index.ts";
-import { BRANDING_KEYS, BRANDING_QUERY_QN, CUSTOM_CSS_KEY, coerceBranding } from "./branding.ts";
 import { type BodyFormat, MANAGED_PAGES_FEATURE } from "./constants.ts";
-import { createBrandingQuery } from "./handlers/branding.query.ts";
 import { bySlugQuery } from "./handlers/by-slug.query.ts";
 import { byTenantPublishedQuery } from "./handlers/by-tenant-published.query.ts";
 import { pageCrudQueries, pageCrudWrites } from "./handlers/page-crud.ts";
 import { setWrite } from "./handlers/set.write.ts";
+import { MANAGED_PAGES_HANDLER_I18N } from "./i18n.ts";
 import { renderPageBody } from "./render-page-body.ts";
-import { createBrandingSettingsScreen } from "./screens/branding-screen.ts";
 import { pageEditScreen, pageListScreen } from "./screens/page-screens.ts";
 import { pageEntity } from "./table.ts";
 import { MANAGED_PAGES_I18N } from "./web/i18n.ts";
@@ -64,58 +72,65 @@ async function readBrandingViaSystemQuery(
   tenantId: string,
 ): Promise<BrandingTokens> {
   try {
-    return coerceBranding(await systemQuery(BRANDING_QUERY_QN, {}, tenantId));
+    return coerceBranding(await systemQuery(BRANDING_TOKENS_QUERY_QN, {}, tenantId));
   } catch (error) {
     if (error instanceof RateLimitError) throw error;
     return EMPTY_BRANDING;
   }
 }
 
-export type ManagedPagesWrapLayout = (opts: {
-  readonly title: string;
+// Every tenant value arrives escaped or sanitized, so a custom layout may interpolate each field
+// as is; brandingStyleHtml belongs after the layout's own <style>, the content container carries TENANT_CONTENT_ATTR.
+export type ManagedPagesWrapLayout = (parts: {
   readonly bodyHtml: string;
-  readonly lang: string;
-  readonly slug: string;
-  readonly description: string | null;
-  readonly ogImage: string | null;
-  // Per-tenant branding tokens resolved at render time (accent color, logo,
-  // layout preset, …). A custom wrapLayout may apply them however it likes;
-  // the default skeleton emits scoped :root vars + a logo/title header.
-  readonly branding: BrandingTokens;
+  readonly titleHtml: string;
+  readonly descriptionHtml: string;
+  readonly langHtml: string;
+  readonly slugHtml: string;
+  readonly ogImageHtml: string;
+  readonly brandingStyleHtml: string;
+  readonly brandingHeaderHtml: string;
 }) => string;
 
+function escapedLayoutParts(args: {
+  readonly page: NonNullable<BySlugQueryResult>;
+  readonly slug: string;
+  readonly bodyHtml: string;
+  readonly branding: BrandingTokens;
+}): Parameters<ManagedPagesWrapLayout>[0] {
+  const { page, slug, bodyHtml, branding } = args;
+  const description =
+    page.description && page.description.length > 0 ? page.description : branding.description;
+  return {
+    bodyHtml,
+    titleHtml: escapeHtmlAttr(page.title),
+    descriptionHtml: escapeHtmlAttr(description ?? ""),
+    langHtml: escapeHtmlAttr(page.lang),
+    slugHtml: escapeHtmlAttr(slug),
+    ogImageHtml: page.ogImage && isSafeHttpsUrl(page.ogImage) ? escapeHtmlAttr(page.ogImage) : "",
+    brandingStyleHtml: brandingStyleBlock(branding) + tenantStyleBlock(branding.customCss),
+    brandingHeaderHtml: brandingHeaderHtml(branding),
+  };
+}
+
+export type ApexTenantResolver = (
+  host: string,
+  deps: { readonly hostTenantId: () => Promise<TenantId | null> },
+) => Promise<string | null> | string | null;
+
 export type ManagedPagesOptions = {
-  /** Host → tenantId for anonymous per-tenant delivery. NULL → 404 (no
-   *  tenant for this host). Apex/marketing apps provide their subdomain or
-   *  custom-domain resolution here; single-tenant apps return a constant
-   *  tenantId (or SYSTEM_TENANT_ID). Required because the apex host has no
-   *  ambient ctx.tenantId. */
-  readonly resolveApexTenant: (host: string) => Promise<string | null> | string | null;
-  /** Custom layout wrapper (branding/chrome). Default: a minimal page-render
-   *  skeleton. Receives slug + SEO meta for free use.
-   *  **`branding` is RAW, untrusted tenant input.** `title`/`description`
-   *  are only length-capped on write, NOT HTML-escaped; `customCss` is
-   *  unsanitized. The wrapper MUST emit them through the boundary helpers
-   *  (all re-exported from `@cosmicdrift/kumiko-bundled-features/managed-pages`):
-   *  `brandingHeaderHtml(branding)` + `brandingStyleBlock(branding)` (which
-   *  escape header/theme) and, with allowCustomCss, `tenantStyleBlock(branding.
-   *  customCss)` in the `<head>` plus `TENANT_CONTENT_ATTR` on the body
-   *  container. A custom wrapper that interpolates `branding.title` itself is
-   *  stored XSS; the default wrapper uses the helpers throughout. */
+  /** Host → tenantId for the anonymous page route; NULL → 404. Omit it to use the
+   *  server's own host resolution (`deps.hostTenantId()`: host-routing, a tenant
+   *  resolver or `anonymousAccess.defaultTenantId`). Pass it for a fixed tenant or
+   *  an app-specific mapping; `deps.hostTenantId` is available inside it. */
+  readonly resolveApexTenant?: ApexTenantResolver;
+  /** Custom layout wrapper. Receives only escaped or sanitized parts (see
+   *  ManagedPagesWrapLayout); without it the default skeleton wrapInLayout applies. */
   readonly wrapLayout?: ManagedPagesWrapLayout;
   /** Base path for page routes. Default "/p" → GET /p/:slug. */
   readonly basePath?: string;
   /** Default language when `?lang=` is missing. Default "en". */
   readonly defaultLang?: string;
-  /** Enables the per-tenant custom CSS capability (raw, untrusted): a
-   *  `branding-custom-css` config key + a CSS field in the branding editor +
-   *  render emission as a scoped, allowlist-sanitized `<style data-tenant-css>`.
-   *  Default **false** (fail-closed — opt-in for untrusted tenant input). Even
-   *  when true, emission is additionally gated per tenant by the
-   *  `managed-pages-css` toggle (createManagedPagesCssFeature) once a
-   *  feature-toggles/tier-engine runtime is wired. The render-time sanitizer
-   *  (page-render/css-sanitize) is the safety boundary. */
-  readonly allowCustomCss?: boolean;
 };
 
 // managed-pages — tenant-editable, server-rendered public pages.
@@ -141,44 +156,25 @@ export type ManagedPagesOptions = {
 //     TenantAdmin. Without navigation, the screens remain dormant — no leak in
 //     flat-nav apps that use managed-pages only for public rendering.
 export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDefinition {
-  const wrapLayout: ManagedPagesWrapLayout =
-    opts.wrapLayout ??
-    ((o) =>
-      wrapInLayout({
-        title: o.title,
-        bodyHtml: o.bodyHtml,
-        lang: o.lang,
-        description: o.description,
-        branding: o.branding,
-      }));
   const basePath = opts.basePath ?? "/p";
   const defaultLang = opts.defaultLang ?? "en";
-  const allowCustomCss = opts.allowCustomCss ?? false;
 
   return defineFeature(MANAGED_PAGES_FEATURE, (r) => {
-    r.adoptsBundledLists();
     r.describe(
-      "Tenant-editable, server-rendered public pages with per-tenant branding. Stores one `page` (Markdown or editor-document HTML body, per `bodyFormat`) per `(tenantId, slug, lang)` in the `read_pages` entity table with a `published` gate plus `description`/`ogImage` SEO meta. Registers an anonymous `GET {basePath}/:slug` route that resolves the tenant from the request Host via the app-supplied `resolveApexTenant`, serves only published pages (drafts → 404), renders Markdown through the hardened `page-render` core and document bodies through the template-resolver document sanitizer, and isolates per-tenant content with `Vary: Host`. Ships TenantAdmin/SystemAdmin admin screens (`entityList` + `entityEdit`) backed by convention CRUD handlers (`managed-pages:write:page:{create,update,delete}`, `managed-pages:query:page:{list,detail}`); the app wires nav/workspace onto `managed-pages:screen:page-list`. Also exposes `managed-pages:query:by-tenant-published` (anonymous, SQL-filtered on `published`) for sitemap/discovery consumers such as the `seo` feature. Branding (via `config`, scope tenant): `branding-{title,description,site-url,accent-color,logo-url,layout-preset,custom-css}` keys with write-time validation (hex color, https URLs), a `configEdit` self-service screen (`managed-pages:screen:branding-settings`), and a `managed-pages:query:branding` read that the render path applies as scoped `:root` CSS vars + a logo/title header. Also exposes `managed-pages:write:set` (idempotent slug-keyed upsert, SystemAdmin cross-tenant via `tenantIdOverride`) as a provisioning API. Requires `config` + `anonymousAccess` wired at app bootstrap.",
+      "Tenant-editable, server-rendered public pages with per-tenant branding. Stores one `page` (Markdown or editor-document HTML body, per `bodyFormat`) per `(tenantId, slug, lang)` in the `read_pages` entity table with a `published` gate plus `description`/`ogImage` SEO meta. Registers an anonymous `GET {basePath}/:slug` route that resolves the tenant from the request Host through the server's host resolution (`deps.hostTenantId`) or an app-supplied `resolveApexTenant`, serves only published pages (drafts → 404), renders Markdown through the hardened `page-render` core and document bodies through the template-resolver document sanitizer, and isolates per-tenant content with `Vary: Host`. Ships TenantAdmin/SystemAdmin admin screens (`entityList` + `entityEdit`) backed by convention CRUD handlers (`managed-pages:write:page:{create,update,delete}`, `managed-pages:query:page:{list,detail}`); the app wires nav/workspace onto `managed-pages:screen:page-list`. Also exposes `managed-pages:query:by-tenant-published` (anonymous, SQL-filtered on `published`) for sitemap/discovery consumers such as the `seo` feature. Branding comes from the branding feature (branding:query:tokens); the render path applies it as scoped `:root` CSS vars + a logo/title header. Also exposes `managed-pages:write:set` (idempotent slug-keyed upsert, SystemAdmin cross-tenant via `tenantIdOverride`) as a provisioning API. Requires `config`, `branding` + `anonymousAccess` wired at app bootstrap.",
     );
     r.uiHints({
       displayLabel: "Managed Pages · Public CMS",
       category: "content",
       recommended: false,
     });
-    r.requires({ features: ["config"] });
-    r.entity({ name: "page", ...pageEntity });
-
-    // Per-tenant branding config keys (scope: tenant). Write-validated via
-    // keyDef.pattern (hex / https) — see branding.ts. read:all so the
-    // anonymous render path may resolve them. The raw-CSS key is added only
-    // when allowCustomCss (fail-closed: no key/editor when the capability off).
-    r.config({ keys: allowCustomCss ? { ...BRANDING_KEYS, ...CUSTOM_CSS_KEY } : BRANDING_KEYS });
+    r.requires({ features: ["config", "branding"] });
+    r.entity(pageEntity);
 
     const handlers = { set: r.writeHandler(setWrite) };
     const queries = {
       bySlug: r.queryHandler(bySlugQuery),
       byTenantPublished: r.queryHandler(byTenantPublishedQuery),
-      branding: r.queryHandler(createBrandingQuery({ allowCustomCss })),
     };
 
     for (const def of pageCrudWrites) r.writeHandler(def);
@@ -186,15 +182,15 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
 
     r.screen(pageListScreen);
     r.screen(pageEditScreen);
-    r.screen(createBrandingSettingsScreen({ allowCustomCss }));
 
     r.translations({ keys: MANAGED_PAGES_I18N });
+    r.translations({ keys: MANAGED_PAGES_HANDLER_I18N });
 
     r.httpRoute({
       method: "GET",
       path: `${basePath}/:slug`,
       anonymous: true,
-      handler: async (c, { systemQuery }) => {
+      handler: async (c, { systemQuery, hostTenantId }) => {
         // `param("slug")` is string|undefined because `path` is a computed
         // template (Hono infers `:slug` only from string literals).
         const slug = c.req.param("slug");
@@ -204,7 +200,9 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
         // Host-Header zuerst (prod hinter Proxy), URL-Host als Fallback.
         const host = c.req.header("host") ?? url.host;
 
-        const tenantId = await opts.resolveApexTenant(host);
+        const tenantId = opts.resolveApexTenant
+          ? await opts.resolveApexTenant(host, { hostTenantId })
+          : await hostTenantId();
         if (!tenantId) return c.text("not found", 404);
 
         // Page and branding are read in parallel, both forced through systemQuery
@@ -261,23 +259,24 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
           });
         }
 
-        const html = wrapLayout({
-          title: data.title,
-          bodyHtml: renderPageBody({
-            tenantId,
-            slug,
-            lang,
-            version: data.version,
-            updatedAt: data.updatedAt,
-            body: data.body,
-            bodyFormat: data.bodyFormat,
-          }),
-          lang: data.lang,
+        const bodyHtml = renderPageBody({
+          tenantId,
           slug,
-          description: data.description,
-          ogImage: data.ogImage,
-          branding,
+          lang,
+          version: data.version,
+          updatedAt: data.updatedAt,
+          body: data.body,
+          bodyFormat: data.bodyFormat,
         });
+        const html = opts.wrapLayout
+          ? opts.wrapLayout(escapedLayoutParts({ page: data, slug, bodyHtml, branding }))
+          : wrapInLayout({
+              title: data.title,
+              bodyHtml,
+              lang: data.lang,
+              description: data.description,
+              branding,
+            });
 
         return cachedSecurePageResponse(c.req.raw, {
           body: html,

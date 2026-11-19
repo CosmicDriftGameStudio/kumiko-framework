@@ -43,9 +43,7 @@ describe("scaffoldAppFeature", () => {
     const feature = readFileSync(join(appRoot, "src/features/product-catalog/feature.ts"), "utf-8");
     expect(feature).toContain("defineFeature(PRODUCT_CATALOG_FEATURE");
     expect(feature).toContain("export const productCatalogFeature");
-    expect(feature).toContain(
-      'r.entity({ name: "product-catalog-item", ...productCatalogItemEntity })',
-    );
+    expect(feature).toContain("r.entity(productCatalogItemEntity);");
     expect(feature).toContain('type: "entityList"');
     expect(feature).toContain("r.translations({ keys: productCatalogTranslationKeys })");
     // Entity fields belong in schema/ rather than inline in feature.ts.
@@ -59,6 +57,7 @@ describe("scaffoldAppFeature", () => {
       "utf-8",
     );
     expect(entity).toContain("sortable: true");
+    expect(entity).toContain('name: "product-catalog-item"');
     const feature = readFileSync(join(appRoot, "src/features/product-catalog/feature.ts"), "utf-8");
     expect(feature).toContain('defaultSort: { field: "title", dir: "asc" }');
     const i18n = readFileSync(join(appRoot, "src/features/product-catalog/i18n.ts"), "utf-8");

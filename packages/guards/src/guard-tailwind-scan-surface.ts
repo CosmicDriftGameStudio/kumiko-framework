@@ -23,8 +23,7 @@
  *
  * Baseline-regression guard: pins the
  * currently-known violation count per file. Reductions are allowed but
- * don't auto-update the baseline. Without a baseline file the guard stays
- * warning-only (bootstrap: run `--write-baseline` once).
+ * don't auto-update the baseline. A missing baseline file counts as an empty baseline, so every existing hit fails until it is frozen with `--write-baseline`.
  *
  * Usage:
  *   bun guards/guard-tailwind-scan-surface.ts                  # compare against baseline
@@ -136,13 +135,16 @@ function scan(
     const file = path.relative(ROOT, sf.getFilePath());
     for (const attr of sf.getDescendantsOfKind(SyntaxKind.JsxAttribute)) {
       if (attr.getNameNode().getText() !== "className") continue;
-      if (hasIgnoreTag(attr, IGNORE_TAG)) continue;
       const init = attr.getInitializer();
       if (init === undefined || init.getKind() !== SyntaxKind.StringLiteral) continue;
       const text = init.asKindOrThrow(SyntaxKind.StringLiteral).getLiteralText();
       const line = init.getStartLineNumber();
-      for (const token of text.split(/\s+/)) {
-        if (token.length === 0 || allowed.has(token)) continue;
+      const offending = text
+        .split(/\s+/)
+        .filter((token) => token.length > 0 && !allowed.has(token));
+      if (offending.length === 0) continue;
+      if (hasIgnoreTag(attr, IGNORE_TAG)) continue;
+      for (const token of offending) {
         findings.push({ file, line, token });
         console.warn(
           `  [tailwind-scan-surface WARN] ${file}:${line}  class "${token}" is outside the Tailwind scan surface (renderer/src, samples/**/src)`,
@@ -600,6 +602,7 @@ export function createGuard(options: { readonly baselineRoot?: string } = {}): A
   const baselineRoot = options.baselineRoot ?? BASELINE_ROOT;
   return {
     name: "Tailwind-Scan-Surface Guard",
+    ignoreTag: IGNORE_TAG,
     scan: SCAN,
     hint:
       "Tailwind class in bundled-features outside the @source scan surface (renderer/src, samples/**/src) " +

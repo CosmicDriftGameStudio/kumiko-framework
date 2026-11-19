@@ -1,4 +1,5 @@
 import type { AccessRule } from "./handlers.ts";
+import type { AdminNavArea } from "./nav.ts";
 
 // Workspace declaration. A workspace is a persona-/role-scoped UI surface:
 // pure UI composition with no backend, DB or auth impact. The engine stores
@@ -36,6 +37,8 @@ export type WorkspaceDefinition = {
   // Explicit nav QNs that belong to this workspace. Merged with any nav
   // entries that self-assign via r.nav({ workspaces: [...] }).
   readonly nav?: readonly string[];
+  // Collects every nav whose adminArea matches, after the explicit nav list, sorted by order.
+  readonly collectAdminArea?: AdminNavArea;
   // Default workspace at login when the user has access to multiple. Boot
   // validator rejects more than one default per app.
   readonly default?: boolean;

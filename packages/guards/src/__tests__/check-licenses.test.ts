@@ -87,6 +87,21 @@ describe("evaluateLicenses", () => {
     expect(blockedNames([pkg("dual", "(GPL-3.0 OR MIT)")])).toEqual([]);
     expect(blockedNames([pkg("both", "MIT AND GPL-3.0")])).toEqual(["both"]);
   });
+
+  test("framework transitives pass with only the bundled exceptions", () => {
+    expect(
+      blockedNames(
+        [
+          pkg("caniuse-lite", "CC-BY-4.0"),
+          pkg("slick", "MIT http://mootools.net/license.txt"),
+          pkg("@fontsource/inter", "OFL-1.1"),
+          pkg("@fontsource-variable/inter", "OFL-1.1"),
+          pkg("@img/sharp-libvips-darwin-arm64", "LGPL-3.0-or-later"),
+        ],
+        loadLicenseExceptions([]),
+      ),
+    ).toEqual([]);
+  });
 });
 
 describe("runLicenseCheck", () => {
@@ -141,6 +156,6 @@ describe("loadLicenseExceptions", () => {
       expect(entry.reviewedBy).not.toBe("");
       expect(Number.isNaN(Date.parse(entry.expires))).toBe(false);
     }
-    expect(loadLicenseExceptions([])).toHaveLength(6);
+    expect(loadLicenseExceptions([])).toHaveLength(11);
   });
 });

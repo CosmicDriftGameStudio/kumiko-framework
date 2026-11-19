@@ -5,6 +5,7 @@ import {
   type ActionMenuItemSpec,
   FOOTER_ACTION_ROLE_PROP,
   type FooterActionMarker,
+  usePrimitives,
 } from "../primitives.tsx";
 import { EditSlotMount } from "./edit-mounts.tsx";
 import { RenderEditActionButton } from "./render-edit-action-button.tsx";
@@ -139,18 +140,19 @@ function renderCopyLinkButton<TValues extends FormValues, TCtx>({
   );
 }
 
-// The role prop is read by NarrowPinnedFooter from the element, so the DOM span needs a component in between.
+// The role prop is read by NarrowPinnedFooter from the element, so the container needs a component in between.
 function FooterStartGroup({
   children,
 }: { readonly children: ReactNode } & FooterActionMarker): ReactNode {
+  const { FillContainer } = usePrimitives();
   return (
-    <span
-      className="mr-auto inline-flex gap-2 max-sm:flex max-sm:w-full max-sm:[&>button]:flex-1"
-      data-footer-align="start"
-      data-testid="render-edit-footer-start"
+    <FillContainer
+      testId="render-edit-footer-start"
+      dataAttributes={{ "data-footer-align": "start" }}
+      className="mr-auto inline-flex flex-row gap-2 max-sm:flex max-sm:w-full"
     >
       {children}
-    </span>
+    </FillContainer>
   );
 }
 
@@ -158,12 +160,13 @@ function renderCustomActions<TValues extends FormValues, TCtx>({
   engine: { props, state },
   layout,
 }: RenderEditModel<TValues, TCtx>): ReactNode {
-  const { Button, Dialog } = state.primitives;
-  const button = (action: RenderEditAction) => (
+  const { Button, Dialog, FillContainer, Text } = state.primitives;
+  const button = (action: RenderEditAction, className?: string) => (
     <RenderEditActionButton
       key={action.id}
       action={action}
       iconOnly={layout.iconOnlyMidActions}
+      {...(className !== undefined && { className })}
       {...(action.pinnedOnPhone === true && { hideIcon: true })}
       {...(action.pinnedOnPhone === true && { [FOOTER_ACTION_ROLE_PROP]: "inline" as const })}
       Button={Button}
@@ -176,12 +179,9 @@ function renderCustomActions<TValues extends FormValues, TCtx>({
   return (
     <>
       {props.footerHint !== undefined && (
-        <span
-          data-testid="render-edit-footer-hint"
-          className="mr-auto min-w-0 text-[13px] text-muted-foreground max-sm:hidden"
-        >
-          {props.footerHint}
-        </span>
+        <FillContainer testId="render-edit-footer-hint" className="mr-auto min-w-0 max-sm:hidden">
+          <Text variant="muted">{props.footerHint}</Text>
+        </FillContainer>
       )}
       {startActions.length > 0 && (
         <FooterStartGroup
@@ -189,10 +189,10 @@ function renderCustomActions<TValues extends FormValues, TCtx>({
             [FOOTER_ACTION_ROLE_PROP]: "inline" as const,
           })}
         >
-          {startActions.map(button)}
+          {startActions.map((action) => button(action, "max-sm:flex-1"))}
         </FooterStartGroup>
       )}
-      {otherActions?.map(button)}
+      {otherActions?.map((action) => button(action))}
     </>
   );
 }

@@ -75,9 +75,8 @@ describe("build-prod-bundle/discovery (convention mode)", () => {
     expect(resolveClientEntries(workDir, {})).toEqual([]);
   });
 
-  // Regression: a plain module imported by the real entry, named
-  // like a legacy client-<suffix>.tsx file, must not turn into an error or
-  // a second entry once src/client.tsx exists (single mode wins outright).
+  // Regression: a plain module named client-<suffix>.tsx next to src/client.tsx stays a module
+  // (single mode wins outright).
   test("src/client.tsx alongside src/client-utils.tsx → exactly one entry, no error", async () => {
     await mkdir(join(workDir, "src"), { recursive: true });
     await writeFile(join(workDir, "src/client.tsx"), "// real entry");
@@ -89,28 +88,11 @@ describe("build-prod-bundle/discovery (convention mode)", () => {
     expect(entries[0]?.name).toBe("client");
   });
 
-  test("legacy src/client-<suffix>.tsx without a declaration → migration error with a package.json snippet", async () => {
+  test("src/client-admin.tsx without a declaration and without src/client.tsx → no entries, no error", async () => {
     await mkdir(join(workDir, "src"), { recursive: true });
     await writeFile(join(workDir, "src/client-admin.tsx"), "// admin");
-    await writeFile(join(workDir, "src/client-public.tsx"), "// public");
 
-    expect(() => resolveClientEntries(workDir, {})).toThrow(/client-admin\.tsx/);
-    expect(() => resolveClientEntries(workDir, {})).toThrow(/client-public\.tsx/);
-    expect(() => resolveClientEntries(workDir, {})).toThrow(/kumiko\.clientEntries/);
-    expect(() => resolveClientEntries(workDir, {})).toThrow(
-      /"name":\s*"admin",\s*"sourceFile":\s*"\.\/src\/client-admin\.tsx"/,
-    );
-  });
-
-  test("legacy src/client-<suffix>.ts (no x) → migration snippet names the exact .ts extension", async () => {
-    await mkdir(join(workDir, "src"), { recursive: true });
-    await writeFile(join(workDir, "src/client-admin.ts"), "// admin");
-
-    expect(() => resolveClientEntries(workDir, {})).toThrow(/src\/client-admin\.ts\b/);
-    expect(() => resolveClientEntries(workDir, {})).toThrow(
-      /"sourceFile":\s*"\.\/src\/client-admin\.ts"/,
-    );
-    expect(() => resolveClientEntries(workDir, {})).not.toThrow(/client-admin\.tsx/);
+    expect(resolveClientEntries(workDir, {})).toEqual([]);
   });
 
   test("discoverHtmlTemplate finds index.html in cwd", async () => {

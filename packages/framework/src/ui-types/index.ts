@@ -39,13 +39,15 @@ export {
   isFormDerivationInputMode,
   isUnusedFallbackOperand,
 } from "../engine/form-derivations.ts";
-export type { ParsedRefTarget } from "../engine/parse-ref-target.ts";
-export { parseRefTarget } from "../engine/parse-ref-target.ts";
+export type { ParsedFieldOptionsRef, ParsedRefTarget } from "../engine/parse-ref-target.ts";
+export { parseFieldOptionsRef, parseRefTarget } from "../engine/parse-ref-target.ts";
 export {
   ACTION_FORM_PSEUDO_ENTITY,
   availableSelectOptions,
+  declaredSortNulls,
   evalFieldCondition,
   findUnavailableSelectOptions,
+  instantSortKey,
   isExtensionEditSection,
   isFieldsEditSection,
   isFormatSpec,
@@ -54,6 +56,7 @@ export {
   isWriteFormEditSection,
   normalizeEditField,
   normalizeListColumn,
+  nullsSortFirst,
   pickEmptyStateText,
   resolveNavParentScreen,
   sectionFieldSpecs,
@@ -208,10 +211,15 @@ export { MAX_BULK_SELECTION } from "../engine/types/screen.ts";
 export type { TargetRef } from "../engine/types/target-ref.ts";
 export type { TreeAction } from "../engine/types/tree-node.ts";
 export type { WorkspaceDefinition } from "../engine/types/workspace.ts";
+export type {
+  HandlerTranslations,
+  HandlerTranslationTexts,
+} from "../i18n/required-surface-keys.ts";
 export {
   ACTION_FORM_ENTITY,
   handlerFieldLabelKey,
   handlerTitleKey,
+  handlerTranslationKeys,
   PROJECTION_DETAIL_ENTITY,
   WRITE_FORM_SECTION_ENTITY,
 } from "../i18n/required-surface-keys.ts";
@@ -221,7 +229,12 @@ export type {
   QualifiedContentCollection,
   WorkspaceSchema,
 } from "./app-schema.ts";
-export { CARD_META_MAX, cardColumnRoles, cardMetaLines } from "./card-column-roles.ts";
+export {
+  CARD_META_MAX,
+  cardColumnRoles,
+  cardMetaLines,
+  referencedFileFieldOf,
+} from "./card-column-roles.ts";
 export { type Formality, formalLocaleTag } from "./formality.ts";
 export {
   LIST_ROW_META_COLUMNS,

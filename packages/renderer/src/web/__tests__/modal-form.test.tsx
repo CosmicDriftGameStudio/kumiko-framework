@@ -19,7 +19,7 @@ describe("DefaultModal hosting a form", () => {
       </Modal>,
     );
     const dialog = screen.getByTestId("m");
-    expect(screen.getByRole("heading", { name: "Create customer" })).toBeTruthy();
+    screen.getByRole("heading", { name: "Create customer" });
     expect(dialog.querySelector("[data-slot=card]")).toBeNull();
     expect(dialog.querySelector("[data-testid=f-title]")).toBeNull();
     expect(dialog.querySelector(".max-w-4xl")).toBeNull();

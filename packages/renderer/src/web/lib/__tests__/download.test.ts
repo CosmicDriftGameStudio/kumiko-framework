@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { Dispatcher, DispatcherError, QueryResult } from "../../../headless/index.ts";
+import { createMockDispatcher } from "../../../testing.ts";
 import { postWithDownload } from "../download.ts";
 
 function stubDispatcher(result: QueryResult<{ url?: string }>): Dispatcher {
-  return { query: async () => result } as unknown as Dispatcher;
+  return createMockDispatcher({ query: async () => result });
 }
 
 // Covers both bunfig (node) and bunfig.dom.toml (happy-dom):

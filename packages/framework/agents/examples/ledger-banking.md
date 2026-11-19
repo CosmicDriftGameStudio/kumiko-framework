@@ -48,7 +48,7 @@ the whole chart of accounts + journal is available.
 
 ## Run
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 bun test src/__tests__/feature.integration.test.ts
@@ -67,18 +67,9 @@ bun test src/__tests__/feature.integration.test.ts
 // double-entry invariant.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import {
-  accountEntity,
-  createLedgerFeature,
-  transactionEntity,
-} from "@cosmicdrift/kumiko-bundled-features/ledger";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createLedgerFeature } from "@cosmicdrift/kumiko-bundled-features/ledger";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { bankingFlow, type LedgerClient } from "../usage";
 
 // Each test runs in its own tenant, so rows from other tests never show up.
@@ -96,9 +87,6 @@ const client: LedgerClient = {
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [ledger] });
-  await unsafeCreateEntityTable(stack.db, accountEntity);
-  await unsafeCreateEntityTable(stack.db, transactionEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

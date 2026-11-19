@@ -5,6 +5,7 @@ import type { JobHandlerFn } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { rebuildProjectionOrMultiStream } from "@cosmicdrift/kumiko-framework/migrations";
 import * as z from "zod";
+import { requireSystemDb } from "../../shared/index.ts";
 
 export const projectionRebuildPayloadSchema = z.object({
   projection: z.string().min(1),
@@ -15,12 +16,7 @@ export const projectionRebuildPayloadSchema = z.object({
 
 export const projectionRebuildJob: JobHandlerFn = async (rawPayload, ctx): Promise<void> => {
   const { projection, skipApplyErrors } = projectionRebuildPayloadSchema.parse(rawPayload);
-  if (!ctx.systemDb) {
-    throw new InternalError({
-      message:
-        "[jobs:projection-rebuild] ctx.systemDb missing — is r.systemScope() still set on the jobs feature?",
-    });
-  }
+  const systemDb = requireSystemDb(ctx, "jobs:projection-rebuild");
   if (!ctx.registry) {
     throw new InternalError({
       message:
@@ -29,8 +25,8 @@ export const projectionRebuildJob: JobHandlerFn = async (rawPayload, ctx): Promi
   }
   // Global rebuild by design (streams every tenant's events) — acknowledgeCrossTenant
   // documents that instead of the previous implicit ctx.db cast.
-  ctx.systemDb.acknowledgeCrossTenant("global projection rebuild");
-  const db = ctx.systemDb.unsafeRaw("projection rebuild spans every tenant's rows") as DbConnection; // @cast-boundary db-operator — DbRunner narrows to DbConnection, jobs never run inside a DbTx
+  systemDb.acknowledgeCrossTenant("global projection rebuild");
+  const db = systemDb.unsafeRaw("projection rebuild spans every tenant's rows") as DbConnection; // @cast-boundary db-operator — DbRunner narrows to DbConnection, jobs never run inside a DbTx
   const result = await rebuildProjectionOrMultiStream(projection, {
     db,
     registry: ctx.registry,

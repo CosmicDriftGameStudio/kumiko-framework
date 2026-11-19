@@ -1,3 +1,4 @@
+import type { ContractQueryAs, ContractWriteAs } from "@cosmicdrift/kumiko-types/handler-contract";
 import type {
   ActiveMembershipResult,
   EscapeHatchDeclaration,
@@ -14,6 +15,7 @@ import type { HandlerContext, SessionUser } from "../engine/types/index.ts";
 
 import { AccessDeniedError, FrameworkReasons, InternalError } from "../errors/index.ts";
 import { attachOutsideTransaction } from "./attach-outside-transaction.ts";
+import { bindContractQueryAs, bindContractWriteAs } from "./contract-dispatch.ts";
 
 export type QueryAsFn = (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
 export type WriteAsFn = (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
@@ -23,6 +25,10 @@ export type ResolveActiveMembershipFn = (
 ) => Promise<ActiveMembershipResult>;
 export type ProjectionReader = HandlerContext["dispatch"]["queryProjection"];
 export type IdentitySwitch = { readonly queryAs: QueryAsFn; readonly writeAs: WriteAsFn };
+export type GatedIdentitySwitch = {
+  readonly queryAs: ContractQueryAs;
+  readonly writeAs: ContractWriteAs;
+};
 export type IdentitySwitchAudit = {
   readonly reason: string | undefined;
   readonly report: EscapeHatchReporter;
@@ -71,7 +77,7 @@ export function systemIdentitySwitchDenied(callerLabel: string): AccessDeniedErr
   return new AccessDeniedError({
     message:
       `${callerLabel} may not switch identity to SYSTEM — declare r.systemScope() or ` +
-      "escapeHatch: { reason } on it",
+      'escapeHatch: { reason, grants: ["systemIdentity"] } on it',
     details: { reason: FrameworkReasons.systemIdentitySwitchDenied },
   });
 }
@@ -81,7 +87,7 @@ export function identitySwitchDenied(callerLabel: string, asUser: SessionUser): 
   return new AccessDeniedError({
     message:
       `${callerLabel} may only switch identity to its own caller (same user, tenant, claims and ` +
-      "a subset of its roles) — declare r.systemScope() or escapeHatch: { reason } on it",
+      'a subset of its roles) — declare r.systemScope() or escapeHatch: { reason, grants: ["systemIdentity"] } on it',
     details: { reason: FrameworkReasons.identitySwitchDenied },
   });
 }
@@ -90,7 +96,7 @@ export function unsafeAllTenantsDenied(callerLabel: string): AccessDeniedError {
   return new AccessDeniedError({
     message:
       `${callerLabel} may not call ctx.dispatch.queryProjection(..., { unsafeAllTenants: true }) — declare ` +
-      "r.systemScope() or escapeHatch: { reason } on it",
+      'r.systemScope() or escapeHatch: { reason, grants: ["systemIdentity"] } on it',
     details: { reason: FrameworkReasons.unsafeAllTenantsDenied },
   });
 }
@@ -132,22 +138,22 @@ export function createGatedIdentitySwitch(
   hasGrant: boolean,
   ungated: IdentitySwitch,
   audit?: IdentitySwitchAudit,
-): IdentitySwitch {
+): GatedIdentitySwitch {
   const assertSwitchAllowed = (asUser: SessionUser): void => {
     if (!isIdentitySwitchAllowed(caller, asUser, hasGrant)) {
       throw identitySwitchDenied(callerLabel, asUser);
     }
     reportGrantedSwitch(caller, asUser, hasGrant, audit);
   };
-  const queryAs: QueryAsFn = async (asUser, qn, payload) => {
+  const queryAs = bindContractQueryAs(async (asUser, qn, payload) => {
     assertSwitchAllowed(asUser);
     return ungated.queryAs(asUser, qn, payload);
-  };
-  const writeAs: WriteAsFn = async (asUser, qn, payload) => {
+  });
+  const writeAs = bindContractWriteAs(async (asUser, qn, payload) => {
     assertSwitchAllowed(asUser);
     return ungated.writeAs(asUser, qn, payload);
-  };
-  const gated: IdentitySwitch = { queryAs, writeAs };
+  });
+  const gated: GatedIdentitySwitch = { queryAs, writeAs };
   const source: GatedIdentitySwitchSource = { ungated, caller, report: audit?.report };
   sourceByGated.set(queryAs, source);
   sourceByGated.set(writeAs, source);
@@ -271,7 +277,7 @@ function gatedIdentitySwitchFields(
   escapeHatch: EscapeHatchDeclaration | undefined,
   ctxQueryAs: QueryAsFn | undefined,
   ctxWriteAs: WriteAsFn | undefined,
-): Partial<IdentitySwitch> {
+): Partial<GatedIdentitySwitch> {
   if (!ctxQueryAs && !ctxWriteAs) return {};
   const querySource = ctxQueryAs && sourceByGated.get(ctxQueryAs);
   const writeSource = ctxWriteAs && sourceByGated.get(ctxWriteAs);

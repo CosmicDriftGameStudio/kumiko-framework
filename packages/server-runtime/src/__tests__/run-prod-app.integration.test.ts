@@ -16,6 +16,7 @@ import { dirname, join } from "node:path";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import {
   createSessionsFeature,
   userSessionEntity,
@@ -34,7 +35,6 @@ import {
   type SseEvent,
   signatureRoute,
 } from "@cosmicdrift/kumiko-framework/api";
-
 import { InMemoryKmsAdapter, type KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { asRawClient, createDbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -61,9 +61,9 @@ import {
   APEX_LIGHTBOX_SCRIPT_CSP_HASH,
   renderApexPage,
 } from "@cosmicdrift/kumiko-renderer/headless/apex";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { testRunQueueNamePrefix, unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-testing/stack";
+import { AUTH_COOKIE_BASE, sessionCookieName } from "@cosmicdrift/kumiko-types/session-cookies";
 import { Queue } from "bullmq";
 import * as z from "zod";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app.ts";
@@ -86,6 +86,7 @@ async function createTempStaticDir(files: Record<string, string>): Promise<strin
 }
 
 const widgetEntity = createEntity({
+  name: "widget",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
     active: createBooleanField({ default: true }),
@@ -94,7 +95,7 @@ const widgetEntity = createEntity({
 });
 
 const widgetFeature = defineFeature("prod-probe", (r) => {
-  r.entity({ name: "widget", ...widgetEntity });
+  r.entity(widgetEntity);
   // Anonymous query — covers the "anonymousAccess flows from runProdApp
   // through createApiEntrypoint to the auth-middleware" wiring that
   // earlier silently dropped the option in the entrypoint layer.
@@ -154,6 +155,7 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
       // so the strictly typed appendEvent narrows to never here.
       await ctx.events.unsafeAppend({
         aggregateId: payload.aggregateId,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "probe",
         type: pingedEvent.name,
         payload: { note: payload.note },
@@ -179,7 +181,12 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
 // runProdApp must schedule it (single-instance runs both lanes); on the old
 // createApiEntrypoint path it was silently never registered → exports hung.
 const cronProbeFeature = defineFeature("cron-probe", (r) => {
-  r.job("worker-lane-cron", { trigger: { cron: "0 0 1 1 *" }, runIn: "worker" }, async () => {});
+  r.job({
+    name: "worker-lane-cron",
+    trigger: { cron: "0 0 1 1 *" },
+    runIn: "worker",
+    handler: async () => {},
+  });
 });
 
 async function workerLaneSchedulers(prefix: string): Promise<{ name?: string; key?: string }[]> {
@@ -804,8 +811,11 @@ describe("runProdApp", () => {
       tenantId: TENANT_ID as import("@cosmicdrift/kumiko-framework/engine").TenantId,
       roles: ["User"],
     });
+    // Without `auth:` runProdApp keeps the NODE_ENV fallback for the cookie names, so under bun test
+    // the auth cookie has no __Host- prefix.
+    const authCookie = `${sessionCookieName(AUTH_COOKIE_BASE, { secure: false })}=${token}`;
     const schemaRes = await handle.fetch(
-      new Request("http://test/api/schema", { headers: { Cookie: `kumiko_auth=${token}` } }),
+      new Request("http://test/api/schema", { headers: { Cookie: authCookie } }),
     );
     expect(schemaRes.status).toBe(200);
     const schema = (await schemaRes.json()) as { features: readonly unknown[] };
@@ -877,7 +887,7 @@ describe("runProdApp", () => {
       hostDispatch: ({ host }) =>
         host === "apex.example.test"
           ? { kind: "redirect", to: "https://target.example", status: 302 }
-          : { kind: "html", file: "index.html", injectSchema: false },
+          : { kind: "html", file: "index.html" },
     });
 
     const res = await handle.fetch(
@@ -895,7 +905,7 @@ describe("runProdApp", () => {
       staticDir: tmpStaticDir,
       hostDispatch: ({ host }) =>
         host === "known.example.test"
-          ? { kind: "html", file: "index.html", injectSchema: false }
+          ? { kind: "html", file: "index.html" }
           : { kind: "not-found" },
     });
 
@@ -912,7 +922,7 @@ describe("runProdApp", () => {
     const csp = "default-src 'self'; script-src 'self'";
     const handle = await boot(undefined, {
       staticDir: tmpStaticDir,
-      hostDispatch: () => ({ kind: "html", file: "index.html", injectSchema: false, csp }),
+      hostDispatch: () => ({ kind: "html", file: "index.html", csp }),
     });
 
     const res = await handle.fetch(new Request("http://x.example.test/"));
@@ -932,7 +942,6 @@ describe("runProdApp", () => {
       hostDispatch: ({ host }) => ({
         kind: "html",
         file: "index.html",
-        injectSchema: false,
         ...(host === "special.example.test" && { csp: hostCsp }),
       }),
     });
@@ -1174,6 +1183,35 @@ describe("runProdApp — real Bun.serve socket resolves the client IP (addendum)
   });
 });
 
+describe("runProdApp — shutdown order over real HTTP", () => {
+  test("stop() closes HTTP before the job drain starts", async () => {
+    const handle = await boot(undefined, { autoListen: true, signals: false });
+    const port = handle.server?.port;
+    if (port === undefined) throw new Error("expected handle.server to be listening");
+    const url = `http://127.0.0.1:${port}/health`;
+    // connection: close keeps a pooled keep-alive socket from skewing the probe
+    expect((await fetch(url, { headers: { connection: "close" } })).status).toBe(200);
+
+    let probe: Promise<"accepted" | "refused"> | undefined;
+    handle.entrypoint.lifecycle.onStateChange((_from, to) => {
+      if (to === "draining") {
+        probe = fetch(url, { headers: { connection: "close" } }).then(
+          () => "accepted" as const,
+          () => "refused" as const,
+        );
+      }
+    });
+
+    await handle.stop();
+    // avoid a second stop()/close() from the module-level afterEach
+    const idx = prodAppHandles.indexOf(handle);
+    if (idx >= 0) prodAppHandles.splice(idx, 1);
+
+    if (probe === undefined) throw new Error("lifecycle never entered draining");
+    expect(await probe).toBe("refused");
+  });
+});
+
 describe("runProdApp — rejected WebSocket upgrades carry the security headers", () => {
   const wsProbeFeature = defineFeature("ws-probe", (r) => {
     r.webSocketRoute({ path: "/api/ws/probe", connect: () => ({}) });
@@ -1227,6 +1265,56 @@ describe("runProdApp: local event dispatcher (MSP application in a single contai
     let dispatchSystemWrite: import("../extra-routes-deps.ts").SystemWireDeps["dispatchSystemWrite"];
     const handle = await boot(undefined, {
       eventDispatcher: { pollIntervalMs: 50 },
+      wire: (deps) => {
+        dispatchSystemWrite = deps.dispatchSystemWrite;
+      },
+    });
+
+    // The default boot builds the local dispatcher and start() has started it.
+    expect(handle.entrypoint.eventDispatcher).toBeDefined();
+
+    const aggregateId = crypto.randomUUID();
+    const result = await dispatchSystemWrite!({
+      handlerQn: "prod-probe:write:probe-append",
+      payload: { aggregateId, note: "dispatched" },
+      tenantId: TENANT_ID as import("@cosmicdrift/kumiko-framework/engine").TenantId,
+    });
+    expect(result.isSuccess).toBe(true);
+
+    const url = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
+    const { db, close } = createDbConnection({ url, rowLevelSecurity: "off" });
+    try {
+      const row = await pollFor(async () => {
+        const rows = (await asRawClient(db).unsafe(
+          `SELECT note FROM prod_probe_pings WHERE aggregate_id = $1`,
+          [aggregateId],
+        )) as Array<{ note: string }>;
+        return rows[0];
+      });
+      expect(row.note).toBe("dispatched");
+
+      // In prod this table was empty, which proved no dispatcher ever ran.
+      // The cursor is committed after the projection row, so poll on the
+      // cursor value itself — a registered consumer still reads 0 for a moment.
+      const consumer = await pollFor(async () => {
+        const rows = (await asRawClient(db).unsafe(
+          `SELECT name, last_processed_event_id FROM kumiko_event_consumers
+           WHERE name = $1`,
+          ["prod-probe:projection:probe-ping-projection"],
+        )) as Array<{ name: string; last_processed_event_id: string | number }>;
+        const [consumerRow] = rows;
+        return Number(consumerRow?.last_processed_event_id) > 0 ? consumerRow : undefined;
+      });
+      expect(Number(consumer.last_processed_event_id)).toBeGreaterThan(0);
+    } finally {
+      await close();
+    }
+  });
+
+  test("LISTEN wake-up: MSP applies without the poll timer", async () => {
+    let dispatchSystemWrite: import("../extra-routes-deps.ts").SystemWireDeps["dispatchSystemWrite"];
+    const handle = await boot(undefined, {
+      eventDispatcher: { pollIntervalMs: 60_000 },
       wire: (deps) => {
         dispatchSystemWrite = deps.dispatchSystemWrite;
       },
@@ -1561,13 +1649,13 @@ describe("rate-limit defaults", () => {
 
 describe("hard PII boot gate", () => {
   const gatePiiFeature = defineFeature("gate-pii", (r) => {
-    r.entity({
-      name: "gate-person",
-      ...createEntity({
+    r.entity(
+      createEntity({
+        name: "gate-person",
         table: "read_gate_persons",
         fields: { email: createTextField({ required: true, personal: "self", find: "none" }) },
       }),
-    });
+    );
   });
 
   test("PII entities without a kms abort the boot", async () => {

@@ -7,6 +7,7 @@ import {
   type PresenceListResult,
 } from "@cosmicdrift/kumiko-types/presence-types";
 import { useEffect, useState } from "react";
+import { usePageVisibility } from "../../context/page-visibility-context.tsx";
 import { useQuery } from "../../hooks/use-query.ts";
 import { useLiveEvents } from "../../sse/live-events.tsx";
 import { isPermanentPresenceFailure, isPresenceSignalFor } from "./presence-signal.ts";
@@ -31,6 +32,7 @@ export function usePresenceList({
   enabled = true,
 }: UsePresenceListOptions): UsePresenceListResult {
   const subscribe = useLiveEvents();
+  const pageVisibility = usePageVisibility();
   const [gaveUpOn, setGaveUpOn] = useState<string | null>(null);
   const gaveUp = gaveUpOn === entity;
   const active = enabled && !gaveUp;
@@ -53,9 +55,11 @@ export function usePresenceList({
     // skip: nothing to listen for while the list is off or has given up
     if (!active) return;
     return subscribe(PRESENCE_CHANGED_EVENT, (event) => {
-      if (isPresenceSignalFor(event.data, entity)) void refetch();
+      if (isPresenceSignalFor(event.data, entity) && pageVisibility.getSnapshot() !== "hidden") {
+        void refetch();
+      }
     });
-  }, [subscribe, active, entity, refetch]);
+  }, [subscribe, pageVisibility, active, entity, refetch]);
 
   return { byId: gaveUp ? NO_ENTRIES : (query.data?.byId ?? NO_ENTRIES) };
 }

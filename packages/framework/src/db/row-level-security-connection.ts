@@ -12,7 +12,7 @@ import {
   rowLevelSecurityScopeKey,
   runInCapturedRowLevelSecurityScope,
 } from "./row-level-security-scope.ts";
-import { registerRunnerProxyTarget } from "./transaction-serialization.ts";
+import { registerRunnerProxyTarget, runnerProxyTargetOf } from "./transaction-serialization.ts";
 
 const enforcedHandles = new WeakSet<object>();
 
@@ -34,7 +34,8 @@ export function rowLevelSecurityModeOf(db: unknown): RowLevelSecurityMode {
   let current: unknown = db;
   while (isHandle(current)) {
     if (enforcedHandles.has(current)) return "on";
-    current = innerOfScopedRunner(current);
+    // A registry-bound app connection (bindAppProjectionRegistry) is a runner proxy over the enforced pool.
+    current = innerOfScopedRunner(current) ?? runnerProxyTargetOf(current);
   }
   return "off";
 }

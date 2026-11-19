@@ -19,7 +19,8 @@ import type { Dispatcher, RuntimeRenderer } from "../../headless/index.ts";
 import { REFERENCE_LIST_LOOKUP_LIMIT } from "../../hooks/reference-limits.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import { type CorePrimitives, type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
+import { type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi } from "../nav.tsx";
@@ -70,7 +71,7 @@ const getCapturedProps = (): DataTableProps | undefined => capturedProps;
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: passChildren,
   Field: passChildren,
@@ -89,12 +90,12 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function stubDispatcher(): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: {} }),
+    query: async (type: string, payload: unknown) => {
       if (type === "delivery:query:owner:list") {
         return { isSuccess: true, data: answerOwnerList(payload) };
       }
@@ -137,7 +138,12 @@ function stubDispatcher(): Dispatcher {
           failedDirectoryCalls += 1;
           return {
             isSuccess: false,
-            error: { code: "access_denied", message: "denied" },
+            error: {
+              code: "access_denied",
+              httpStatus: 403,
+              i18nKey: "errors.access_denied",
+              message: "denied",
+            },
           };
         }
         return {
@@ -149,16 +155,9 @@ function stubDispatcher(): Dispatcher {
         };
       }
       return { isSuccess: true, data: { rows: [], nextCursor: null } };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function buildSchema(screen: ProjectionListScreenDefinition): FeatureSchema {

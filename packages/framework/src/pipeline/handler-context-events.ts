@@ -26,6 +26,7 @@ import {
   VersionConflictError as EventStoreVersionConflictError,
 } from "../event-store/errors.ts";
 import {
+  getStreamVersion,
   loadAggregate,
   loadAggregateAsOf,
   loadAggregateForWriting,
@@ -49,7 +50,7 @@ import { asTypedAppendEventFn } from "./typed-append-event.ts";
 
 async function appendDomainEvent(
   ctx: DispatchContext,
-  args: AppendEventArgs & { readonly expectedVersion?: number },
+  args: AppendEventArgs,
   user: SessionUser,
   tx: DbTx | undefined,
   callerFeature: string | undefined,
@@ -186,10 +187,16 @@ export async function loadUpcastedAggregate(
 ): Promise<readonly StoredEvent[]> {
   const { db, registry, tenantId } = source;
   const includeArchived = loadOptions?.includeArchived === true;
+  const aggregateType = loadOptions?.aggregateType;
+  const typeFilter = aggregateType !== undefined ? { aggregateType } : {};
   const events = loadOptions?.asOf
-    ? await loadAggregateAsOf(db, aggregateId, tenantId, loadOptions.asOf, { includeArchived })
+    ? await loadAggregateAsOf(db, aggregateId, tenantId, loadOptions.asOf, {
+        includeArchived,
+        ...typeFilter,
+      })
     : await loadAggregate(db, aggregateId, tenantId, {
         includeArchived,
+        ...typeFilter,
         ...(loadOptions?.atVersion !== undefined && { atVersion: loadOptions.atVersion }),
       });
   return upcastStoredEvents(events, registry.getEventUpcasters(), makeUpcastCtx(db, tenantId));
@@ -297,9 +304,8 @@ export function buildEventStoreFacet(scope: HandlerContextScope): {
 } {
   const { ctx, type, user, tx, registry } = scope;
   const events: EventsFacet = {
-    // Strict + unsafe share the same runtime — only the type-surface
-    // differs. The strict signature is what's exposed to typed callers;
-    // unsafe is the explicit escape-hatch for runtime-pluggable events.
+    // Strict and unsafe differ only in the payload type; both enforce the concurrency contract in
+    // appendDomainEventCore.
     append: asTypedAppendEventFn(async (args: AppendEventArgs) => {
       await appendDomainEvent(ctx, args, user, tx, registry.getHandlerFeature(type));
     }),
@@ -330,6 +336,10 @@ export function buildEventStoreFacet(scope: HandlerContextScope): {
     isArchived: async (aggregateId: string): Promise<boolean> => {
       const dbSource = requireDbSource(ctx, tx, `ctx.events.isArchived("${aggregateId}")`);
       return isStreamArchived(dbSource, user.tenantId, aggregateId);
+    },
+    streamVersion: async (aggregateId: string): Promise<number> => {
+      const dbSource = requireDbSource(ctx, tx, `ctx.events.streamVersion("${aggregateId}")`);
+      return getStreamVersion(dbSource, aggregateId, user.tenantId);
     },
     snapshot: buildSnapshotAggregate(scope),
     loadWithSnapshot: buildLoadAggregateWithSnapshot(scope),

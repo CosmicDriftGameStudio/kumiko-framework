@@ -2,13 +2,12 @@
 
 import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
 import { PageHeaderSlotAvailableProvider } from "../../page-header-slot.ts";
 import {
   createMockDispatcher,
+  type MockQueryHandler,
   render,
-  renderWithPrimitivesOverride,
   screen,
   waitFor,
 } from "./test-utils.tsx";
@@ -46,7 +45,7 @@ function renderDetail(
   detail: ProjectionDetailScreenDefinition,
   options: { readonly pageHeader?: boolean } = {},
 ): void {
-  const query = (async () => ({ isSuccess: true, data: record })) as unknown as Dispatcher["query"];
+  const query: MockQueryHandler = async () => ({ isSuccess: true, data: record });
   const body = (
     <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
       <KumikoScreen
@@ -82,15 +81,15 @@ describe("KumikoScreen / projectionDetail — board gaps", () => {
     renderDetail({ ...baseScreen, progress: { field: "chains" } });
     await waitFor(() => screen.getByTestId("record-progress-0"));
     expect(screen.getByTestId("record-progress-0").closest(".lg\\:col-span-4")).toBeNull();
-    expect(screen.getByTestId("record-progress-0-up-next")).toBeTruthy();
+    screen.getByTestId("record-progress-0-up-next");
   });
 
   test("a chain without steps renders no progress and the steps take the full width", async () => {
     const emptyChain = { ...record, chains: [{ title: "Order", currentIndex: 0, steps: [] }] };
-    const query = (async () => ({
+    const query: MockQueryHandler = async () => ({
       isSuccess: true,
       data: emptyChain,
-    })) as unknown as Dispatcher["query"];
+    });
     render(
       <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
         <KumikoScreen
@@ -109,10 +108,10 @@ describe("KumikoScreen / projectionDetail — board gaps", () => {
 
   test("the banner sits in the same px-6 inset as the other guidance blocks", async () => {
     const withBanner = { ...record, notice: { title: "Heads up", text: "Check this" } };
-    const query = (async () => ({
+    const query: MockQueryHandler = async () => ({
       isSuccess: true,
       data: withBanner,
-    })) as unknown as Dispatcher["query"];
+    });
     render(
       <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
         <KumikoScreen
@@ -163,10 +162,10 @@ describe("KumikoScreen / projectionDetail — board gaps", () => {
       banner: { field: "notice", actions: [hideIcon ? { ...action, hideIcon: true } : action] },
     });
     const notice = { ...record, notice: { title: "Heads up" } };
-    const query = (async () => ({
+    const query: MockQueryHandler = async () => ({
       isSuccess: true,
       data: notice,
-    })) as unknown as Dispatcher["query"];
+    });
     for (const hideIcon of [true, false]) {
       const { unmount } = render(
         <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
@@ -200,10 +199,10 @@ describe("KumikoScreen / projectionDetail — board gaps", () => {
         ],
       },
     };
-    const query = (async () => ({
+    const query: MockQueryHandler = async () => ({
       isSuccess: true,
       data: { ...record, todo: [{ id: "s1", title: "Remind", why: "Because" }] },
-    })) as unknown as Dispatcher["query"];
+    });
     render(
       <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
         <KumikoScreen
@@ -225,7 +224,7 @@ describe("KumikoScreen / projectionDetail — board gaps", () => {
       ...baseScreen,
       steps: { field: "todo" },
     };
-    const query = (async () => ({
+    const query: MockQueryHandler = async () => ({
       isSuccess: true,
       data: {
         ...record,
@@ -240,7 +239,7 @@ describe("KumikoScreen / projectionDetail — board gaps", () => {
           { id: "s2", title: "Escalate", why: "Two mails unanswered." },
         ],
       },
-    })) as unknown as Dispatcher["query"];
+    });
     render(
       <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
         <KumikoScreen
@@ -272,9 +271,8 @@ describe("KumikoScreen / projectionDetail — board gaps", () => {
     function renderNotice(
       detail: ProjectionDetailScreenDefinition,
       data: Record<string, unknown>,
-      primitives?: Parameters<typeof renderWithPrimitivesOverride>[1],
     ): void {
-      const query = (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["query"];
+      const query: MockQueryHandler = async () => ({ isSuccess: true, data });
       const ui = (
         <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
           <KumikoScreen
@@ -284,20 +282,13 @@ describe("KumikoScreen / projectionDetail — board gaps", () => {
           />
         </DispatcherProvider>
       );
-      if (primitives === undefined) render(ui);
-      else renderWithPrimitivesOverride(ui, primitives);
+      render(ui);
     }
 
     test("a narrowLabel draws both labels, one per breakpoint", async () => {
       renderNotice(withBannerAction, notice);
       await waitFor(() => screen.getByText("Refresh order"));
-      expect(screen.getByText("Refresh")).toBeTruthy();
-    });
-
-    test("without FillContainer the host gets the one button, not both stacked", async () => {
-      renderNotice(withBannerAction, notice, { FillContainer: undefined });
-      await waitFor(() => screen.getByText("Refresh order"));
-      expect(screen.queryByText("Refresh")).toBeNull();
+      screen.getByText("Refresh");
     });
 
     const withSubtitle = (narrowSubtitle: string): ProjectionDetailScreenDefinition => ({

@@ -56,8 +56,8 @@ beforeAll(async () => {
     ],
     // extraContext runs AFTER the default `redis: testRedis.redis` spread,
     // so setting redis:undefined here overrides it on the handler-facing
-    // AppContext. Framework internals (rate-limit, idempotency, eventDedup,
-    // entityCache) receive the real redis via separate buildServer wiring
+    // AppContext. Framework internals (rate-limit, idempotency, eventDedup)
+    // receive the real redis via separate buildServer wiring
     // and stay operational — only the handler's ctx.services.redis is gone.
     extraContext: () => ({
       configResolver: resolver,

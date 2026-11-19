@@ -11,11 +11,14 @@
 // bidx recomputed automatically there; this sweep covers the rows left
 // behind (foreign entities with userOwned fields).
 
+import { parseTenantId, type TenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import { collectLookupableFields } from "../crypto/blind-index.ts";
-import { quoteIdent, subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern.ts";
+import { subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern.ts";
 import { isSelfPiiField } from "../crypto/is-self-pii-field.ts";
+import type { SubjectId } from "../crypto/kms-adapter.ts";
 import { findEntity } from "../engine/find-entity.ts";
 import type { FeatureDefinition } from "../engine/types/index.ts";
+import { InternalError } from "../errors/index.ts";
 import { toSnakeCase } from "../utils/case.ts";
 import type { DbRunner } from "./connection.ts";
 import { resolveTableName } from "./entity-table-meta.ts";
@@ -23,6 +26,7 @@ import { toPostgresArrayLiteral } from "./queries/postgres-array-literal.ts";
 import { executeRawQuery, executeRawQueryRead } from "./queries/raw-sql.ts";
 import { runInSystemRowLevelSecurityScope } from "./row-level-security-scope.ts";
 import { columnNamesOf, tableExists } from "./schema-inspection.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 
 export async function nullBlindIndexesForSubject(
   db: DbRunner,
@@ -72,6 +76,76 @@ export async function nullBlindIndexesForSubject(
           );
         }
       }
+    },
+  );
+}
+
+// Fields declared personal { of, whenAbsent: "self" } were encrypted under the row's
+// record key while the owner was empty; the created event keeps that ciphertext after the
+// owner is set. Forgetting the owner must erase those record keys too.
+// Soft-deleted rows count (their events remain); rows already hard-deleted are not found.
+// pii/record-key-one-owner keeps each such key to that one owner's data, so erasing it reaches no other subject.
+export type OwnedRecordSubject = {
+  readonly subject: Extract<SubjectId, { kind: "record" }>;
+  readonly tenantId: TenantId;
+};
+
+export async function recordSubjectsOwnedByUser(
+  db: DbRunner,
+  features: ReadonlyMap<string, FeatureDefinition>,
+  userId: string,
+): Promise<readonly OwnedRecordSubject[]> {
+  return runInSystemRowLevelSecurityScope(
+    "owned record subjects of a forgotten user span tenants",
+    async () => {
+      const candidates: {
+        entityName: string;
+        tableName: string;
+        ownerColumns: readonly string[];
+      }[] = [];
+      for (const feature of features.values()) {
+        for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+          const ownerColumns = new Set<string>();
+          for (const field of Object.values(entity.fields)) {
+            if ("userOwned" in field && field.userOwned?.whenAbsent === "self") {
+              ownerColumns.add(toSnakeCase(field.userOwned.ownerField));
+            }
+          }
+          if (ownerColumns.size === 0) continue;
+          candidates.push({
+            entityName,
+            tableName: resolveTableName(entityName, entity, undefined),
+            ownerColumns: [...ownerColumns],
+          });
+        }
+      }
+      const existing = await existingTableNames(
+        db,
+        candidates.map((c) => c.tableName),
+      );
+      const owned: OwnedRecordSubject[] = [];
+      for (const { entityName, tableName, ownerColumns } of candidates) {
+        if (!existing.has(tableName)) continue;
+        const columns = await columnNamesOf(db, tableName);
+        const present = ownerColumns.filter((column) => columns.has(column));
+        if (present.length === 0) continue;
+        const ownerMatch = present.map((column) => `${quoteIdent(column)}::text = $1`).join(" OR ");
+        const rows = await executeRawQueryRead<{ id: string; tenant_id: string }>(
+          db,
+          `SELECT id::text AS id, tenant_id::text AS tenant_id FROM ${quoteIdent(tableName)} WHERE ${ownerMatch}`,
+          [userId],
+        );
+        for (const row of rows) {
+          const tenantId = parseTenantId(row.tenant_id);
+          if (tenantId === null) {
+            throw new InternalError({
+              message: `[blind-index-cleanup] ${tableName} row ${row.id} has no parseable tenant_id`,
+            });
+          }
+          owned.push({ subject: { kind: "record", entity: entityName, id: row.id }, tenantId });
+        }
+      }
+      return owned;
     },
   );
 }

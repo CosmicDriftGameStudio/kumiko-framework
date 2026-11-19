@@ -32,7 +32,7 @@ describe("MemberRolesCell", () => {
         />
       </Wrapper>,
     );
-    expect(screen.getByText("Tenant Admin, Editor")).toBeTruthy();
+    screen.getByText("Tenant Admin, Editor");
   });
 
   test("falls back to the raw name for an unknown, app-defined role", () => {
@@ -45,7 +45,7 @@ describe("MemberRolesCell", () => {
         />
       </Wrapper>,
     );
-    expect(screen.getByText("AppCustomRole")).toBeTruthy();
+    screen.getByText("AppCustomRole");
   });
 
   test("renders nothing for a non-array roles value", () => {

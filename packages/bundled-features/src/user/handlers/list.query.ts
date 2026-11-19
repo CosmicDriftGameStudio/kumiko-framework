@@ -7,7 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
-// kumiko-lint-ignore cross-feature-import SystemAdmin user-list joins memberships for tenants column
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { decryptTenantNames, tenantMembershipsTable, tenantTable } from "../../tenant/index.ts";
 import { userEntity } from "../schema/user.ts";
 
@@ -116,14 +116,13 @@ export const listQuery: QueryHandlerDef = {
       throw new Error("user:list base handler missing");
     }
     const result = await baseHandler(query, ctx);
-    if (result === null || typeof result !== "object" || !("rows" in result)) {
-      return result;
-    }
-    const envelope = result as { rows: readonly Record<string, unknown>[] };
+    if (!isPlainObject(result)) return result;
+    const baseRows = result["rows"];
+    if (!Array.isArray(baseRows) || !baseRows.every(isPlainObject)) return result;
     // Without the tenant feature there are no membership tables to join; with
     // it, a failing lookup must surface instead of rendering a silent empty column.
     if (!ctx.registry.features.has("tenant")) return result;
-    const rows = await attachTenantLabels(envelope.rows, dbForList(ctx));
-    return { ...envelope, rows };
+    const rows = await attachTenantLabels(baseRows, dbForList(ctx));
+    return { ...result, rows };
   },
 };

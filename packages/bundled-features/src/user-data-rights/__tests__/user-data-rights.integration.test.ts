@@ -3,11 +3,12 @@
 // Pre-commit checklist item: each new feature gets a five-line boot smoke test.
 // Catches drift in the schema definition or boot validation early.
 //
-// A deeper cross-feature test using useExtension(EXT_USER_DATA, ...) and
+// A deeper cross-feature test using applyExtension({ name: EXT_USER_DATA, ... }) and
 // the H1/H2 hooks is covered separately in the cross-data matrix.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
@@ -46,8 +47,9 @@ describe("user-data-rights :: feature-definition smoke", () => {
     expect(userDataRights.name).toBe("user-data-rights");
   });
 
-  test("EXT_USER_DATA extension is registered (other features can attach via useExtension)", () => {
-    expect(userDataRights.registrarExtensions["userData"]).toBeDefined();
+  test("EXT_USER_DATA is framework-owned: in the registry without user-data-rights declaring it", () => {
+    expect(stack.registry.getExtension(EXT_USER_DATA)).toBeDefined();
+    expect(userDataRights.registrarExtensions[EXT_USER_DATA]).toBeUndefined();
   });
 
   test("requires user + data-retention + compliance-profiles", () => {

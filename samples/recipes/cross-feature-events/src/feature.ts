@@ -41,6 +41,7 @@ import { z } from "zod";
 // --- Entity ---
 
 export const orderEntity = createEntity({
+  name: "pubsub-order",
   table: "read_sample_pubsub_orders",
   fields: {
     customer: createTextField({ personal: { of: "id" }, find: "none", required: true }),
@@ -65,7 +66,7 @@ export const invoicedOrderIds: string[] = [];
 // --- Feature ---
 
 export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
-  r.entity({ name: "pubsub-order", ...orderEntity });
+  r.entity(orderEntity);
 
   // Define the event shape once. The returned `.name` is the qualified
   // name ("pubsub-orders:event:order-placed") — pass it to ctx.events.append.
@@ -75,7 +76,7 @@ export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
     { piiFields: "none" },
   );
 
-  const { executor: orderExecutor } = createEntityExecutor("pubsub-order", orderEntity);
+  const { executor: orderExecutor } = createEntityExecutor(orderEntity);
 
   r.writeHandler({
     name: "order:place",
@@ -88,7 +89,8 @@ export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
         // error, not a runtime Zod reject. The event lands on the order's
         // OWN stream (aggregateType "pubsub-order"), with the correct
         // version bumped automatically. Schema validation still runs at
-        // append-time; a mismatch rolls back the whole write.
+        // append-time; a mismatch rolls back the whole write. The create already put version 1 on
+        // the stream, so the follow-up event is pinned to result.data.event.version.
         await emitEvent(ctx, orderPlaced, {
           aggregateId: String(result.data.id),
           aggregateType: "pubsub-order",
@@ -97,6 +99,7 @@ export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
             customer: event.payload.customer,
             product: event.payload.product,
           },
+          expectedVersion: result.data.event.version,
         });
       }
       return result;
@@ -108,14 +111,15 @@ export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
   // consumer cursor that starts at the beginning of the event store, so a job
   // added to a running app also processes the orders placed before it existed.
   // Without catchUp the job only sees events appended after its deploy.
-  r.job(
-    "invoice-order",
-    { trigger: { on: orderPlaced.name, catchUp: true }, runIn: "worker" },
-    async (payload) => {
+  r.job({
+    name: "invoice-order",
+    trigger: { on: orderPlaced.name, catchUp: true },
+    runIn: "worker",
+    handler: async (payload) => {
       const order = orderPlaced.schema.parse(payload);
       invoicedOrderIds.push(order.id);
     },
-  );
+  });
 
   // Async consumer — Marten-style. Fires after commit, via the event-
   // dispatcher. No `table` means this MSP is pure side-effect (no state

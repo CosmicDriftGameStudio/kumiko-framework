@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTenantDb, defineUnmanagedTable } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  createFilesFeature,
   createInMemoryFileProvider,
   createTenantFileContext,
   fileRefsTable,
@@ -15,7 +16,6 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { readFileRefContent } from "../file-foundation/read-file-ref-content.ts";
-import { createFilesFeature } from "../files/index.ts";
 
 const tenantA = testTenantId(1);
 const tenantB = testTenantId(2);

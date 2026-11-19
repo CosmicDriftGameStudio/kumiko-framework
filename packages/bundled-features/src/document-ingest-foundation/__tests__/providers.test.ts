@@ -31,13 +31,13 @@ function makeProviderFeature(name: string, options: DocumentIngestProviderOption
     // direct resolveDocumentIngestProviders/validateDocumentIngestProviderWiring
     // tests below never look at it.
     r.requires({ features: ["document-ingest-foundation"] });
-    r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, name, options);
+    r.applyExtension({ name: EXT_DOCUMENT_INGEST_PROVIDER, entity: name, ...options });
   });
 }
 
 function makeConsumerFeature(jobName: string, trigger: JobTrigger) {
   return defineFeature(`test-consumer-${jobName}`, (r) => {
-    r.job(jobName, { trigger, runIn: "worker" }, async () => {});
+    r.job({ name: jobName, trigger, runIn: "worker", handler: async () => {} });
   });
 }
 
@@ -83,7 +83,7 @@ describe("resolveDocumentIngestProviders", () => {
     const feature = makeProviderFeature(
       "bad",
       // Missing maxFileBytes — only reachable by a caller that bypasses the
-      // typed r.useExtension overload (e.g. hand-built dynamic config).
+      // typed r.applyExtension overload (e.g. hand-built dynamic config).
       { mimeTypes: ["application/pdf"] } as DocumentIngestProviderOptions,
     );
 

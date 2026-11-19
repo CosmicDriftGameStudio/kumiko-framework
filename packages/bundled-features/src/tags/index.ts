@@ -1,26 +1,11 @@
 export { tagAssignmentAggregateId } from "./aggregate-id.ts";
 export { tagAssignmentEntity, tagEntity } from "./entity.ts";
+export { createTagAssignmentExecutor, type TagAssignmentExecutor } from "./executor.ts";
 export { createTagsFeature, type TagsFeatureOptions } from "./feature.ts";
-export {
-  assignTagHandler,
-  createAssignTagHandler,
-} from "./handlers/assign-tag.write.ts";
-export {
-  createCreateTagHandler,
-  createTagHandler,
-} from "./handlers/create-tag.write.ts";
-export {
-  createDeleteTagHandler,
-  deleteTagHandler,
-} from "./handlers/delete-tag.write.ts";
-export {
-  createRemoveTagHandler,
-  removeTagHandler,
-} from "./handlers/remove-tag.write.ts";
-export {
-  createUpdateTagHandler,
-  updateTagHandler,
-} from "./handlers/update-tag.write.ts";
+export { createAssignTagHandler } from "./handlers/assign-tag.write.ts";
+export { createCreateTagHandler } from "./handlers/create-tag.write.ts";
+export { createDeleteTagHandler } from "./handlers/delete-tag.write.ts";
+export { createRemoveTagHandler } from "./handlers/remove-tag.write.ts";
 export {
   type AssignTagPayload,
   assignTagPayloadSchema,
@@ -30,8 +15,6 @@ export {
   deleteTagPayloadSchema,
   type RemoveTagPayload,
   removeTagPayloadSchema,
-  type UpdateTagPayload,
-  updateTagPayloadSchema,
 } from "./schemas.ts";
 export { createTagEditScreen, createTagListScreen } from "./screens.ts";
 export {

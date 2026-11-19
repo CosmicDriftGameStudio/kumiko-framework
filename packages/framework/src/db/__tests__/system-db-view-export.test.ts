@@ -5,7 +5,8 @@
 
 import { describe, expect, test } from "bun:test";
 import * as dbBarrel from "@cosmicdrift/kumiko-framework/db";
-import { createSystemDbView, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createSystemDbView } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { AccessDeniedError } from "../../errors/index.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
 import type { DbRunner } from "../connection.ts";
@@ -59,7 +60,7 @@ describe("createSystemDbView(...).unsafeRaw", () => {
       tenantId,
       mode: "tenant",
       grants: {
-        unsafeRaw: { reason: "handler declared unsafeRaw" },
+        unsafeRaw: { reason: "handler declared unsafeRaw", grants: ["unsafeRaw"] },
         report: (kind, reason) => sourceReports.push({ kind, reason }),
       },
     });
@@ -77,7 +78,10 @@ describe("createSystemDbView(...).unsafeRaw", () => {
       db: fakeRunner(),
       tenantId,
       mode: "tenant",
-      grants: { unsafeRaw: { reason: "handler declared unsafeRaw" }, memberReadOnly: true },
+      grants: {
+        unsafeRaw: { reason: "handler declared unsafeRaw", grants: ["unsafeRaw"] },
+        memberReadOnly: true,
+      },
     });
     const view = createSystemDbView(source);
 
@@ -100,7 +104,11 @@ describe("withSystemDbUnsafeRawGrant(createSystemDbView(...))", () => {
     const source = createTenantDb({ db: fakeRunner(), tenantId, mode: "tenant" });
     const view = createSystemDbView(source);
 
-    const rebound = withSystemDbUnsafeRawGrant(view, { reason: "hook grant" }, "some hook");
+    const rebound = withSystemDbUnsafeRawGrant(
+      view,
+      { reason: "hook grant", grants: ["unsafeRaw"] },
+      "some hook",
+    );
     expect(rebound).toBe(view);
     expect(() => rebound.unsafeRaw("x")).toThrow(AccessDeniedError);
   });

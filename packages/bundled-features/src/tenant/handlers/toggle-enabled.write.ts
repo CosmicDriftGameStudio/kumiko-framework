@@ -1,6 +1,5 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { tenantEntity, tenantTable } from "../schema/tenant.ts";
 
@@ -14,18 +13,15 @@ function createToggleTenantHandler(enable: boolean) {
     name: verbName,
     schema: z.object({ id: z.uuid() }),
     access: { roles: ["SystemAdmin"] },
+    systemScope: true,
     // Disabling locks every member out; enabling is its undo.
     ...(enable ? {} : { agent: { risk: "high" as const } }),
     description: enable
       ? "Re-enables a disabled tenant so its members can sign in and switch to it again; this is the undo for tenant:write:disable."
       : "Marks a tenant disabled so it stops counting as a membership — its members can no longer sign in to it or switch to it — while leaving all of its data in place.",
     handler: async (event, ctx) => {
-      if (!ctx.systemDb) {
-        throw new InternalError({
-          message: `tenant:write:${verbName} requires ctx.systemDb — is r.systemScope() still set on the tenant feature?`,
-        });
-      }
-      const db = ctx.systemDb.acknowledgeCrossTenant(
+      const { systemDb } = ctx;
+      const db = systemDb.acknowledgeCrossTenant(
         "SystemAdmin enables/disables tenants platform-wide",
       );
       return crud.update({ id: event.payload.id, changes: { isEnabled: enable } }, event.user, db, {

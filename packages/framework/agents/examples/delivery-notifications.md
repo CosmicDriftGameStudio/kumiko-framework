@@ -95,6 +95,7 @@ import {
   notificationPreferencesTable,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import {
   createTemplateResolverFeature,
   TemplateResolverHandlers,
@@ -108,9 +109,7 @@ import {
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -175,7 +174,6 @@ beforeAll(async () => {
     tenantMembershipsTable,
     ticketTable,
   });
-  await createEventsTable(db);
   // setupTestStack does not run boot seeds; a real app seeds at boot.
   await seedNotificationTemplates(db, stack.registry);
 });
@@ -390,6 +388,7 @@ import { z } from "zod";
 // --- Entity ---
 
 export const ticketEntity = createEntity({
+  name: "ticket",
   table: "read_sample_delivery_tickets",
   fields: {
     title: createTextField({
@@ -405,7 +404,7 @@ export const ticketEntity = createEntity({
   },
 });
 
-export const ticketTable = buildEntityTable("ticket", ticketEntity);
+export const ticketTable = buildEntityTable(ticketEntity);
 
 function ticketExecutor() {
   return createEventStoreExecutor(ticketTable, ticketEntity, { entityName: "ticket" });
@@ -418,9 +417,10 @@ export const TICKET_ASSIGNED = qn("support", QnTypes.notify, "ticket-assigned");
 export const supportFeature = defineFeature("support", (r) => {
   r.requires({ features: ["delivery"] });
 
-  r.entity({ name: "ticket", ...ticketEntity });
+  r.entity(ticketEntity);
 
-  r.notification("ticket-assigned", {
+  r.notification({
+    name: "ticket-assigned",
     variables: {
       ticketId: templateVariable.text({ required: true }),
       title: templateVariable.text({ required: true }),

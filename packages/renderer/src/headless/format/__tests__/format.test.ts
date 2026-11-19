@@ -1,14 +1,41 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import type { UnitKey } from "@cosmicdrift/kumiko-framework/engine";
-import { applyFormatSpec, moneyAmountToMinor, UNIT_FORMAT_KEYS } from "../index.ts";
+import { applyFormatSpec, formatMoney, UNIT_FORMAT_KEYS } from "../index.ts";
 
-describe("moneyAmountToMinor", () => {
-  test.each([
-    ["EUR", 12.5, 1250],
-    ["JPY", 1234, 1234],
-    ["BHD", 1.234, 1234],
-  ])("scales %s by its own decimals", (currency, amount, minor) => {
-    expect(moneyAmountToMinor(amount, currency)).toBe(minor);
+describe("formatMoney", () => {
+  test("takes minor units and scales by the currency decimals", () => {
+    expect(formatMoney(123450, "EUR", { locale: "de-DE" })).toBe("1.234,50 €");
+    expect(formatMoney(1234, "BHD", { locale: "en-US" })).toContain("1.234");
+    expect(formatMoney(1200, "JPY", { locale: "ja-JP" })).toContain("1,200");
+  });
+
+  test("signDisplay negative suppresses the sign of a rounded zero", () => {
+    const text = formatMoney(-30, "EUR", {
+      locale: "de-DE",
+      maximumFractionDigits: 0,
+      signDisplay: "negative",
+    });
+    expect(text).not.toContain("-");
+  });
+
+  test("compact notation follows Intl", () => {
+    const expected = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "EUR",
+      notation: "compact",
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    }).format(1234567);
+    const actual = formatMoney(123456700, "EUR", {
+      locale: "en-US",
+      notation: "compact",
+      maximumFractionDigits: 1,
+    });
+    expect(actual).toBe(expected);
+  });
+
+  test("an unknown currency code formats as a plain two-decimal number", () => {
+    expect(formatMoney(1050, "XX1", { locale: "en-US" })).toBe("10.50");
   });
 });
 
@@ -136,7 +163,7 @@ describe("applyFormatSpec — priority", () => {
 describe("applyFormatSpec — empty values for other formats", () => {
   test("collapse to ''", () => {
     expect(applyFormatSpec({ format: "boolean" }, undefined)).toBe("");
-    expect(applyFormatSpec({ format: "currency", symbol: "€" }, null)).toBe("");
+    expect(applyFormatSpec({ format: "currency", currency: "EUR" }, null)).toBe("");
     expect(applyFormatSpec({ format: "timestamp" }, "")).toBe("");
   });
 });
@@ -150,9 +177,36 @@ describe("applyFormatSpec — boolean/currency", () => {
     );
   });
 
-  test("currency appends symbol", () => {
-    expect(applyFormatSpec({ format: "currency", symbol: "€" }, 12)).toBe("12 €");
+  test("currency formats the amount with Intl in the given locale", () => {
+    expect(applyFormatSpec({ format: "currency", currency: "EUR", locale: "de-DE" }, 123450)).toBe(
+      "1.234,50\u00a0€",
+    );
+    expect(applyFormatSpec({ format: "currency", currency: "USD", locale: "en-US" }, "9990")).toBe(
+      "$99.90",
+    );
+    expect(applyFormatSpec({ format: "currency", currency: "JPY", locale: "en-US" }, 1234)).toBe(
+      "¥1,234",
+    );
     expect(applyFormatSpec({ format: "currency" }, 12)).toBe("12");
+    expect(applyFormatSpec({ format: "currency", currency: "€" }, 12)).toBe("12");
+    expect(applyFormatSpec({ format: "currency", currency: "EUR" }, "abc")).toBe("abc");
+  });
+});
+
+describe("applyFormatSpec — money", () => {
+  test("formats a money value in its own currency and the given locale", () => {
+    expect(
+      applyFormatSpec({ format: "money", locale: "de-DE" }, { amount: 123450, currency: "EUR" }),
+    ).toBe("1.234,50\u00a0€");
+    expect(
+      applyFormatSpec({ format: "money", locale: "en-US" }, { amount: 1234, currency: "jpy" }),
+    ).toBe("¥1,234");
+  });
+
+  test("a value that is no money value is not shown as an object", () => {
+    expect(applyFormatSpec({ format: "money" }, 12)).toBe("12");
+    expect(applyFormatSpec({ format: "money" }, { amount: 1, currency: "€" })).toBe("");
+    expect(applyFormatSpec({ format: "money" }, null)).toBe("");
   });
 });
 
@@ -413,6 +467,25 @@ describe("applyFormatSpec — enumOption", () => {
     expect(applyFormatSpec({ format: "enumOption" }, "active", translate)).toBe("active");
   });
 
+  test("optionsOf resolves the label through the field-option key convention", () => {
+    const translate = (key: string) =>
+      key === "contact:entity:contact:field:status:option:active" ? "Aktiv" : key;
+    expect(
+      applyFormatSpec(
+        { format: "enumOption", optionsOf: "contact:contact.status" },
+        "active",
+        translate,
+      ),
+    ).toBe("Aktiv");
+  });
+
+  test("a malformed optionsOf falls back to the raw value", () => {
+    const translate = (key: string) => `translated:${key}`;
+    expect(
+      applyFormatSpec({ format: "enumOption", optionsOf: "status" }, "active", translate),
+    ).toBe("active");
+  });
+
   test("non-string value is stringified before key construction", () => {
     const translate = (key: string) =>
       key === "contact:entity:contact:field:status:option:1" ? "Eins" : key;
@@ -493,6 +566,18 @@ describe("applyFormatSpec — image and file", () => {
   test("fall back to the raw id outside the web list cell, joining arrays", () => {
     expect(applyFormatSpec({ format: "image", variant: "thumb" }, "abc")).toBe("abc");
     expect(applyFormatSpec({ format: "file" }, ["a", "b"])).toBe("a, b");
+  });
+});
+
+describe("applyFormatSpec — month", () => {
+  test("a stored YYYY-MM reads as month and year in the UI locale", () => {
+    expect(applyFormatSpec({ format: "month", locale: "de-DE" }, "2026-06")).toBe("Juni 2026");
+    expect(applyFormatSpec({ format: "month", locale: "en-US" }, "2026-01")).toBe("January 2026");
+  });
+
+  test("anything that is not YYYY-MM stays as stored", () => {
+    expect(applyFormatSpec({ format: "month", locale: "de-DE" }, "2026-13")).toBe("2026-13");
+    expect(applyFormatSpec({ format: "month", locale: "de-DE" }, "Q2 2026")).toBe("Q2 2026");
   });
 });
 

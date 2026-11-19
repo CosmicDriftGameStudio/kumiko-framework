@@ -13,6 +13,7 @@ export const LEDGER_FEATURE_NAME = "ledger";
 // no update/delete, so a posted journal entry can never be mutated.
 export const LedgerHandlers = {
   createAccount: "ledger:write:account:create",
+  ensureAccounts: "ledger:write:ensure-accounts",
   updateAccount: "ledger:write:account:update",
   createTransaction: "ledger:write:create-transaction",
   reverseTransaction: "ledger:write:reverse-transaction",
@@ -34,6 +35,8 @@ export const LedgerQueries = {
   reportBalances: "ledger:query:report:balances",
   reportIncomeStatement: "ledger:query:report:income-statement",
   reportBalanceSheet: "ledger:query:report:balance-sheet",
+  reportSubjectTotals: "ledger:query:report:subject-totals",
+  scheduleActuals: "ledger:query:schedule-actuals",
 } as const;
 
 // Account types double-entry needs to interpret a balance: asset/expense are

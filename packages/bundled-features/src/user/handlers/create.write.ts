@@ -6,7 +6,6 @@ import {
 import {
   AccessDeniedError,
   ConflictError,
-  InternalError,
   type WriteErrorInfo,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
@@ -14,6 +13,7 @@ import { canonicalizeLocaleTag, isValidLocaleTag } from "@cosmicdrift/kumiko-fra
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
+import { normalizeEmail } from "../../shared/index.ts";
 import { rolesInputSchema } from "../roles-input-schema.ts";
 import { userEntity, userTable } from "../schema/user.ts";
 import { UserErrors } from "../web/constants.ts";
@@ -35,7 +35,7 @@ const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user
 export const createWrite = defineWriteHandler({
   name: "user:create",
   schema: z.object({
-    email: z.email(),
+    email: z.email().transform(normalizeEmail),
     passwordHash: z.string().optional(),
     displayName: z.string().min(1).max(100),
     locale: z
@@ -53,10 +53,8 @@ export const createWrite = defineWriteHandler({
   access: { roles: ["system", "SystemAdmin"] },
   description:
     "Creates a tenant-agnostic identity record from email, display name, optional locale, timezone and global roles, refusing an email that a live user already holds; the auth features and SystemAdmins use it to onboard a person.",
+  systemScope: true,
   handler: async (event, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({ message: "user:create requires r.systemScope()" });
-    }
     const db = ctx.systemDb.acknowledgeCrossTenant(
       "user rows are tenant-agnostic identity records; uniqueness check and create need no tenant filter",
     );

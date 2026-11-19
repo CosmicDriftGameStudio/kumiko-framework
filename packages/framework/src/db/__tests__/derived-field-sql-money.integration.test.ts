@@ -21,6 +21,7 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 import { buildEntityTable } from "../table-builder.ts";
 
 const rentEntity = createEntity({
+  name: "dsqm-rent",
   table: "dsqm_rents",
   fields: {
     propertyId: { type: "reference", entity: "dsqm-property" },
@@ -34,6 +35,7 @@ const rentEntity = createEntity({
 });
 
 const propertyEntity = createEntity({
+  name: "dsqm-property",
   table: "dsqm_properties",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -65,8 +67,8 @@ const propertyEntity = createEntity({
 
 const feature = defineFeature("dsqm", (r) => {
   const access = { roles: ["Admin", "User"] };
-  r.crud("dsqm-rent", rentEntity, { write: { access }, read: { access } });
-  r.crud("dsqm-property", propertyEntity, { write: { access }, read: { access } });
+  r.crud(rentEntity, { write: { access }, read: { access } });
+  r.crud(propertyEntity, { write: { access }, read: { access } });
 });
 
 const LIST = "dsqm:query:dsqm-property:list";
@@ -97,7 +99,7 @@ describe("SQL derived money field", () => {
     const tenantId = admin.tenantId;
     await seedRows(
       stack.db,
-      buildEntityTable("dsqm-property", propertyEntity),
+      buildEntityTable(propertyEntity),
       [
         { id: P1, tenantId, name: "Alpha", storedRent: 120050, storedRentCurrency: "EUR" },
         { id: P2, tenantId, name: "Beta", storedRent: 90000, storedRentCurrency: "CHF" },
@@ -108,7 +110,7 @@ describe("SQL derived money field", () => {
     );
     await seedRows(
       stack.db,
-      buildEntityTable("dsqm-rent", rentEntity),
+      buildEntityTable(rentEntity),
       [
         // P1: the newest entry wins, not the highest amount.
         { tenantId, propertyId: P1, validFrom: "2025-01-01", rent: 999999, rentCurrency: "EUR" },
@@ -128,12 +130,10 @@ describe("SQL derived money field", () => {
     const page = await list({ limit: 10 });
 
     expect(rowOf(page, P1)?.["currentRent"]).toEqual({
-      amount: 1200.5,
+      amount: 120050,
       currency: "EUR",
-      amountScaled: 120050,
-      amountMinor: 120050,
     });
-    expect(rowOf(page, P2)?.["currentRent"]).toMatchObject({ amount: 900, currency: "CHF" });
+    expect(rowOf(page, P2)?.["currentRent"]).toMatchObject({ amount: 90000, currency: "CHF" });
     expect(rowOf(page, P1)?.["currentRent"]).toEqual(rowOf(page, P1)?.["storedRent"]);
     expect(rowOf(page, P2)?.["currentRent"]).toEqual(rowOf(page, P2)?.["storedRent"]);
   });
@@ -165,6 +165,6 @@ describe("SQL derived money field", () => {
     expect(ids(asUser)).toEqual([P1, P2, P3, P4]);
 
     const asAdmin = await list({ limit: 10 });
-    expect(rowOf(asAdmin, P1)?.["currentSecretRent"]).toMatchObject({ amount: 7.77 });
+    expect(rowOf(asAdmin, P1)?.["currentSecretRent"]).toMatchObject({ amount: 777 });
   });
 });

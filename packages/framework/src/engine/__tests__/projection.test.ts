@@ -17,6 +17,7 @@ const testTable = table("test_projection", {
 
 function exampleEntity(name = "unit") {
   return createEntity({
+    name: "unit",
     table: name,
     fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
   });
@@ -35,7 +36,7 @@ function exampleProjection(overrides: Partial<ProjectionDefinition> = {}): Proje
 describe("r.projection() — registration", () => {
   test("stores the projection on the FeatureDefinition", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "unit", ...exampleEntity() });
+      r.entity(exampleEntity());
       r.projection(exampleProjection());
     });
     expect(feature.projections["units-per-property"]).toBeDefined();
@@ -45,7 +46,7 @@ describe("r.projection() — registration", () => {
   test("rejects duplicate projection names within the same feature", () => {
     expect(() =>
       defineFeature("test", (r) => {
-        r.entity({ name: "unit", ...exampleEntity() });
+        r.entity(exampleEntity());
         r.projection(exampleProjection());
         r.projection(exampleProjection());
       }),
@@ -55,14 +56,14 @@ describe("r.projection() — registration", () => {
   test("rejects non-kebab-case projection names", () => {
     expect(() =>
       defineFeature("test", (r) => {
-        r.entity({ name: "unit", ...exampleEntity() });
+        r.entity(exampleEntity());
         r.projection(exampleProjection({ name: "units_per_property" }));
       }),
     ).toThrow(/kebab-case/);
 
     expect(() =>
       defineFeature("test", (r) => {
-        r.entity({ name: "unit", ...exampleEntity() });
+        r.entity(exampleEntity());
         r.projection(exampleProjection({ name: "UnitsPerProperty" }));
       }),
     ).toThrow(/kebab-case/);
@@ -71,7 +72,7 @@ describe("r.projection() — registration", () => {
   test("accepts kebab-case projection names", () => {
     expect(() =>
       defineFeature("test", (r) => {
-        r.entity({ name: "unit", ...exampleEntity() });
+        r.entity(exampleEntity());
         r.projection(exampleProjection({ name: "units-per-property" }));
       }),
     ).not.toThrow();
@@ -81,7 +82,7 @@ describe("r.projection() — registration", () => {
 describe("createRegistry — projection indexing", () => {
   test("indexes projections by source entity for O(1) lookup", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "unit", ...exampleEntity() });
+      r.entity(exampleEntity());
       r.projection(exampleProjection());
     });
     const registry = createRegistry([feature]);
@@ -94,7 +95,7 @@ describe("createRegistry — projection indexing", () => {
 
   test("returns empty list for entities with no explicit projections", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "unit", ...exampleEntity() });
+      r.entity(exampleEntity());
     });
     const registry = createRegistry([feature]);
     // r.entity registers an implicit projection, which is filtered out here
@@ -104,8 +105,8 @@ describe("createRegistry — projection indexing", () => {
 
   test("fans out a multi-source projection to each entity's index", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "unit", ...exampleEntity("unit") });
-      r.entity({ name: "lease", ...exampleEntity("lease") });
+      r.entity(exampleEntity("unit"));
+      r.entity({ ...exampleEntity("lease"), name: "lease" });
       r.projection(exampleProjection({ name: "combined", source: ["unit", "lease"] }));
     });
     const registry = createRegistry([feature]);
@@ -115,7 +116,7 @@ describe("createRegistry — projection indexing", () => {
 
   test("boot-validates source entity — typos must fail loudly", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "unit", ...exampleEntity() });
+      r.entity(exampleEntity());
       // Typo: "unti" instead of "unit". Without the source-validation guard
       // this would silently be a no-op at runtime. Post "events-only-source"
       // framework change the error message shifted: registry now accepts
@@ -130,7 +131,7 @@ describe("createRegistry — projection indexing", () => {
 
   test("boot-validates apply-keys against the source's event types", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "unit", ...exampleEntity() });
+      r.entity(exampleEntity());
       r.projection(
         exampleProjection({
           // Typo: "creatd" instead of "created". Same motivation as source-
@@ -146,7 +147,7 @@ describe("createRegistry — projection indexing", () => {
 
   test("accepts all four auto-generated event-type apply-keys", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "unit", ...exampleEntity() });
+      r.entity(exampleEntity());
       r.projection(
         exampleProjection({
           apply: {
@@ -163,7 +164,7 @@ describe("createRegistry — projection indexing", () => {
 
   test("exposes all projections via getAllProjections", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "unit", ...exampleEntity() });
+      r.entity(exampleEntity());
       r.projection(exampleProjection());
       r.projection(exampleProjection({ name: "other" }));
     });
@@ -175,11 +176,11 @@ describe("createRegistry — projection indexing", () => {
 
   test("rejects the same projection name registered by two features", () => {
     const a = defineFeature("a", (r) => {
-      r.entity({ name: "unit", ...exampleEntity() });
+      r.entity(exampleEntity());
       r.projection(exampleProjection({ name: "shared" }));
     });
     const b = defineFeature("b", (r) => {
-      r.entity({ name: "unit2", ...exampleEntity("unit2") });
+      r.entity({ ...exampleEntity("unit2"), name: "unit2" });
       r.projection(exampleProjection({ name: "shared", source: "unit2" }));
     });
     // Names get qualified with the feature-prefix so same short name from

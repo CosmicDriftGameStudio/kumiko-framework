@@ -6,23 +6,13 @@
 // silently drop the fail-closed guard and dev/prod would diverge.
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import {
-  createAuthFoundationFeature,
-  type SessionMassRevoker,
-} from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import {
   DELIVERY_UNSUBSCRIBE_PATH,
   signUnsubscribeToken,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
-import {
-  type BindPatAutoRevokeOnPasswordChange,
-  bindPatAutoRevokeOnPasswordChangeFromFeature,
-  createPersonalAccessTokensFeature,
-} from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
-import {
-  bindAutoRevokeFromFeature,
-  createSessionsFeature,
-} from "@cosmicdrift/kumiko-bundled-features/sessions";
+import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
+import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import {
   requireTemplateResolver,
   TEXT_BLOCK_KIND,
@@ -41,7 +31,6 @@ import {
   createTextField,
   defineFeature,
   defineQueryHandler,
-  type FeatureDefinition,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
@@ -58,12 +47,12 @@ import { runDevApp } from "../run-dev-app.ts";
 
 function validFeature() {
   return defineFeature("shop", (r) => {
-    r.entity({
-      name: "product",
-      ...createEntity({
+    r.entity(
+      createEntity({
+        name: "product",
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
       }),
-    });
+    );
   });
 }
 
@@ -153,15 +142,15 @@ describe("runDevApp — auth allowedOrigins forwarding", () => {
 describe("runDevApp — masterKey satisfies the encrypted-field boot gate", () => {
   function encryptedFeature() {
     return defineFeature("dev-master-key-probe", (r) => {
-      r.entity({
-        name: "note",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "note",
           table: "dev_master_key_probe_note",
           fields: {
             body: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
           },
         }),
-      });
+      );
     });
   }
 
@@ -365,74 +354,6 @@ describe("runDevApp — session boot gate", () => {
     const body = (await login.json()) as { token?: string };
     expect(body.token).toBeTypeOf("string");
     expect(typeof jose.decodeJwt(body.token!).jti).toBe("string");
-  });
-});
-
-type PatRevoker = Parameters<BindPatAutoRevokeOnPasswordChange>[0];
-
-type RevokerBinder<Revoker> = (revoker: Revoker) => () => void;
-
-function recordBinds<Revoker>(
-  realBind: RevokerBinder<Revoker> | undefined,
-  bound: Revoker[],
-  released: Revoker[],
-): RevokerBinder<Revoker> {
-  if (!realBind) throw new Error("feature exposes no bindAutoRevokeOnPasswordChange");
-  return (revoker) => {
-    bound.push(revoker);
-    const unbind = realBind(revoker);
-    return () => {
-      released.push(revoker);
-      unbind();
-    };
-  };
-}
-
-function withBinder<Revoker>(
-  feature: FeatureDefinition,
-  binder: RevokerBinder<Revoker>,
-): FeatureDefinition {
-  const baseExports =
-    typeof feature.exports === "object" && feature.exports !== null ? feature.exports : {};
-  return { ...feature, exports: { ...baseExports, bindAutoRevokeOnPasswordChange: binder } };
-}
-
-describe("runDevApp — late-bound revokers bind once and are released on stop", () => {
-  test("sessions and PAT revokers are bound once at boot and released by stop()", async () => {
-    const sessions = createSessionsFeature();
-    const pat = createPersonalAccessTokensFeature({ scopes: {} });
-    const sessionBound: SessionMassRevoker[] = [];
-    const sessionReleased: SessionMassRevoker[] = [];
-    const patBound: PatRevoker[] = [];
-    const patReleased: PatRevoker[] = [];
-
-    handle = await runDevApp({
-      features: [
-        createAuthFoundationFeature(),
-        withBinder(
-          pat,
-          recordBinds(bindPatAutoRevokeOnPasswordChangeFromFeature(pat), patBound, patReleased),
-        ),
-        withBinder(
-          sessions,
-          recordBinds(bindAutoRevokeFromFeature(sessions), sessionBound, sessionReleased),
-        ),
-        ...composeRendererStack(),
-      ],
-      port: 0,
-      auth: { admin: ADMIN },
-    });
-
-    expect(sessionBound).toHaveLength(1);
-    expect(sessionReleased).toHaveLength(0);
-    expect(patBound).toHaveLength(1);
-    expect(patReleased).toHaveLength(0);
-
-    await handle.stop();
-    handle = undefined;
-
-    expect(sessionReleased).toEqual(sessionBound);
-    expect(patReleased).toEqual(patBound);
   });
 });
 

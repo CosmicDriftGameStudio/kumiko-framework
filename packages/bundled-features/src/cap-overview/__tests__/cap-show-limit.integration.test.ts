@@ -14,7 +14,6 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createBillingFoundationFeature } from "../../billing-foundation/index.ts";
-import { capCounterEntity } from "../../cap-counter/entity.ts";
 import { createCapCounterFeature } from "../../cap-counter/feature.ts";
 import { withCapEnforcement } from "../../cap-counter/with-cap-enforcement.ts";
 import {
@@ -114,7 +113,6 @@ beforeAll(async () => {
     },
   });
   await unsafePushTables(stack.db, { configValuesTable });
-  await unsafeCreateEntityTable(stack.db, capCounterEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, tierAssignmentEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);

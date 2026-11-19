@@ -19,24 +19,26 @@ import { buildEventMetadata } from "../event-store-executor-context.ts";
 import { buildEntityTable } from "../table-builder.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "read_vc_http_notes",
   fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
   softDelete: true,
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 
 const vaultEntity = createEntity({
+  name: "vault",
   table: "read_vc_http_vaults",
   fields: {
     secret: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
   },
   softDelete: true,
 });
-const vaultTable = buildEntityTable("vault", vaultEntity);
+const vaultTable = buildEntityTable(vaultEntity);
 
 const noteFeature = defineFeature("vchttp", (r) => {
-  r.entity({ name: "note", ...noteEntity });
-  r.entity({ name: "vault", ...vaultEntity });
+  r.entity(noteEntity);
+  r.entity(vaultEntity);
   const vaultExecutor = createEventStoreExecutor(vaultTable, vaultEntity, { entityName: "vault" });
   r.writeHandler({
     name: "vault:create",

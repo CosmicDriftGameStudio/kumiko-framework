@@ -46,10 +46,10 @@ export const DEFINITION_UI_EXTENSION_RULES = {
     summary: "Hooks use a known hook type.",
     fix: "Use a valid hook type; preQuery hooks were removed.",
   },
-  useExtensionEscapeHatchInvalid: {
-    id: "extension/use-escape-hatch-invalid",
-    summary: "r.useExtension() escapeHatch carries a valid reason and grants.",
-    fix: 'Pass escapeHatch as { reason: "<explanation>" } with valid grants.',
+  applyExtensionEscapeHatchInvalid: {
+    id: "extension/apply-escape-hatch-invalid",
+    summary: "r.applyExtension() escapeHatch carries a valid reason.",
+    fix: 'Pass escapeHatch as { reason: "<explanation>" }.',
   },
   extensionSelectorDuplicate: {
     id: "extension-selector/duplicate",

@@ -49,9 +49,18 @@ export type UnboundedSiblingPool = {
 // Keyed by the pool so withoutStatementTimeout can open a sibling with identical connect options.
 const unboundedSiblingFactories = new WeakMap<object, () => UnboundedSiblingPool>();
 
+// A runner proxy over the app connection (bindAppProjectionRegistry) resolves to its original pool.
+// close() drops the factory entries of the pool, so an alias finds nothing afterwards.
+const unboundedSiblingAliases = new WeakMap<object, object>();
+
+export function shareUnboundedSiblingPool(connection: object, alias: object): void {
+  unboundedSiblingAliases.set(alias, connection);
+}
+
 export function openUnboundedSiblingPool(db: unknown): UnboundedSiblingPool | undefined {
   if (typeof db !== "function" && (typeof db !== "object" || db === null)) return undefined;
-  return unboundedSiblingFactories.get(db)?.();
+  const key = unboundedSiblingAliases.get(db) ?? db;
+  return unboundedSiblingFactories.get(key)?.();
 }
 
 // Bun.SQL treats `true` and a TLS object without rejectUnauthorized as sslmode=require, which

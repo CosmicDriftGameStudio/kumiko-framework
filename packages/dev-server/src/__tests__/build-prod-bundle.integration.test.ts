@@ -248,7 +248,7 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
     }
   }
 
-  test("src/client-admin.tsx without a kumiko.clientEntries declaration → exit 1 with the declaration snippet on stderr", async () => {
+  test("src/client-admin.tsx without a kumiko.clientEntries declaration is no entry: nothing to build", async () => {
     await mkdir(join(tmp, "src"), { recursive: true });
     await writeFile(join(tmp, "src/client-admin.tsx"), `console.log("admin");`);
     await writeFile(join(tmp, "package.json"), `{"name":"legacy-entry","private":true}`);
@@ -256,9 +256,7 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
     const result = runKumikoBuild(tmp);
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain("✗");
-    expect(result.stderr).toContain('"kumiko.clientEntries"');
-    expect(result.stderr).toContain(`{ "name": "admin", "sourceFile": "./src/client-admin.tsx" }`);
+    expect(result.stderr).toContain("Nichts zu bauen");
     expect(existsSync(join(tmp, "dist"))).toBe(false);
   });
 

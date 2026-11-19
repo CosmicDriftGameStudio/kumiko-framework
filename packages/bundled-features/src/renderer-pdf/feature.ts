@@ -1,6 +1,5 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  RENDERER_EXTENSION,
   RendererError,
   type RenderRequest,
   type RenderResponse,
@@ -46,7 +45,9 @@ export function createRendererPdfFeature(): FeatureDefinition {
     });
     r.requires({ features: ["renderer-foundation"] });
 
-    r.useExtension(RENDERER_EXTENSION, "pdf", {
+    r.applyExtension({
+      name: "renderer",
+      entity: "pdf",
       kinds: ["document-pdf"] as const,
       render: (req) => renderTablePdfRequest(req),
     });

@@ -1,152 +1,139 @@
 // Runtime test for r.job multi-trigger:
 // proves that a job with an array trigger fires for ALL declared triggers
-// and that payload._triggerName contains the correct name.
+// and that ctx.triggerName names the trigger that fired.
 //
 // Unit tests in engine.test.ts cover only boot behavior (acceptance +
 // validator rejection). This test exercises the runtime-dispatch paths
 // through a real BullMQ worker.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  createTestRedis,
-  type TestRedis,
-  testRunQueueNamePrefix,
-} from "@cosmicdrift/kumiko-testing/stack";
-import type { Hono } from "hono";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { buildServer, type JwtHelper } from "../../api/index.ts";
-import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
-import { createRegistry, defineFeature, type SessionUser } from "../../engine/index.ts";
+import { defineFeature, emitEvent, triggeredEventOf } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
-import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
-import { createJobRunner, type JobRunner } from "../job-runner.ts";
 
 const jobExecutions: Array<{ trigger: string; payload: Record<string, unknown> }> = [];
+const typedExecutions: Array<{ readonly type: string; readonly id: string }> = [];
 
-// Feature with two write handlers and one job that listens to both.
-// One job body with multiple triggers is the DRY case addressed by
-// r.job multi-trigger.
+// Feature with two write handlers, each appending its own event, and one job
+// that listens to both events. One job body with multiple triggers is the DRY
+// case addressed by r.job multi-trigger.
 const orderFeature = defineFeature("multi", (r) => {
+  const orderOpened = r.defineEvent("order-opened", z.object({ id: z.string() }), {
+    piiFields: "none",
+  });
+  const orderCancelled = r.defineEvent("order-cancelled", z.object({ id: z.string() }), {
+    piiFields: "none",
+  });
   r.writeHandler({
     name: "order:open",
     schema: z.object({ id: z.string() }),
-    handler: async (event) => ({ isSuccess: true, data: { id: event.payload.id } }),
+    handler: async (event, ctx) => {
+      await emitEvent(ctx, orderOpened, {
+        aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
+        aggregateType: "order",
+        payload: { id: event.payload.id },
+      });
+      return { isSuccess: true, data: { id: event.payload.id } };
+    },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
   r.writeHandler({
     name: "order:cancel",
     schema: z.object({ id: z.string() }),
-    handler: async (event) => ({ isSuccess: true, data: { id: event.payload.id } }),
+    handler: async (event, ctx) => {
+      await emitEvent(ctx, orderCancelled, {
+        aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
+        aggregateType: "order",
+        payload: { id: event.payload.id },
+      });
+      return { isSuccess: true, data: { id: event.payload.id } };
+    },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.job(
-    "fanout",
-    {
-      trigger: {
-        on: ["multi:write:order:open", "multi:write:order:cancel"],
-      },
+  r.job({
+    name: "fanout",
+    trigger: {
+      on: ["multi:event:order-opened", "multi:event:order-cancelled"],
     },
-    async (payload, ctx) => {
+    handler: async (payload, ctx) => {
       // ctx.triggerName is the idiomatic API: for multi-trigger jobs,
       // this field tells the handler which of the N triggers fired.
       jobExecutions.push({ trigger: ctx.triggerName ?? "<missing>", payload });
     },
-  );
+  });
+  r.job({
+    name: "typed-fanout",
+    trigger: { on: [orderOpened.name, orderCancelled.name] },
+    handler: async (payload, ctx) => {
+      const event = await triggeredEventOf([orderOpened, orderCancelled], payload, ctx);
+      typedExecutions.push({ type: event.type, id: event.payload.id });
+    },
+  });
 });
 
-let testDb: BunTestDb;
-let testRedis: TestRedis;
-let app: Hono;
-let jwt: JwtHelper;
-let jobRunner: JobRunner;
+let stack: TestStack;
 
 const adminUser = TestUsers.admin;
-const JWT_SECRET = "multi-trigger-test-secret-minimum-32-chars!!";
 
 beforeAll(async () => {
-  await ensureTemporalPolyfill();
-  testDb = await createTestDb();
-  testRedis = await createTestRedis();
-
-  const registry = createRegistry([orderFeature]);
-  const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
-
-  jobRunner = createJobRunner({
-    registry,
-    context: {},
-    redisUrl,
-    consumerLane: "worker",
-    queueNamePrefix: testRunQueueNamePrefix("kumiko-multi-trigger-test"),
+  stack = await setupTestStack({
+    features: [orderFeature],
+    jobs: { consumerLane: "worker" },
   });
-
-  const server = buildServer({
-    registry,
-    context: {},
-    jwtSecret: JWT_SECRET,
-    dispatcherOptions: { jobRunner },
-  });
-  app = server.app;
-  jwt = server.jwt;
-
-  await jobRunner.start();
 });
 
 afterAll(async () => {
-  await jobRunner.stop();
-  await testDb.cleanup();
-  await testRedis.cleanup();
+  await stack.cleanup();
 });
 
-async function writeApi(user: SessionUser, type: string, payload: unknown) {
-  const token = await jwt.sign(user);
-  const res = await app.request("/api/write", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ type, payload }),
-  });
-  return res.json();
-}
-
 describe("r.job multi-trigger — runtime-dispatch", () => {
-  test("Trigger 1 (order:open) → Job runs with ctx.triggerName=multi:write:order:open", async () => {
+  test("Trigger 1 (order-opened) → Job runs with ctx.triggerName=multi:event:order-opened", async () => {
     jobExecutions.length = 0;
 
-    const result = await writeApi(adminUser, "multi:write:order:open", { id: "o-1" });
-    expect(result.isSuccess).toBe(true);
+    await stack.http.writeOk("multi:write:order:open", { id: "o-1" }, adminUser);
+    await stack.drainJobs();
 
-    await waitFor(() => {
-      const exec = jobExecutions[0];
-      expect(exec).toBeDefined();
-      expect(exec?.trigger).toBe("multi:write:order:open");
-      expect(exec?.payload["id"]).toBe("o-1");
-    });
+    const exec = jobExecutions[0];
+    expect(exec).toBeDefined();
+    expect(exec?.trigger).toBe("multi:event:order-opened");
+    expect(exec?.payload["id"]).toBe("o-1");
   });
 
-  test("Trigger 2 (order:cancel) → the same job runs with ctx.triggerName=multi:write:order:cancel", async () => {
+  test("Trigger 2 (order-cancelled) → the same job runs with ctx.triggerName=multi:event:order-cancelled", async () => {
     jobExecutions.length = 0;
 
-    const result = await writeApi(adminUser, "multi:write:order:cancel", { id: "o-2" });
-    expect(result.isSuccess).toBe(true);
+    await stack.http.writeOk("multi:write:order:cancel", { id: "o-2" }, adminUser);
+    await stack.drainJobs();
 
-    await waitFor(() => {
-      const exec = jobExecutions[0];
-      expect(exec).toBeDefined();
-      expect(exec?.trigger).toBe("multi:write:order:cancel");
-      expect(exec?.payload["id"]).toBe("o-2");
-    });
+    const exec = jobExecutions[0];
+    expect(exec).toBeDefined();
+    expect(exec?.trigger).toBe("multi:event:order-cancelled");
+    expect(exec?.payload["id"]).toBe("o-2");
   });
 
   test("Both triggers in sequence → 2 job runs, each with the correct ctx.triggerName", async () => {
     jobExecutions.length = 0;
 
-    await writeApi(adminUser, "multi:write:order:open", { id: "a" });
-    await writeApi(adminUser, "multi:write:order:cancel", { id: "b" });
+    await stack.http.writeOk("multi:write:order:open", { id: "a" }, adminUser);
+    await stack.http.writeOk("multi:write:order:cancel", { id: "b" }, adminUser);
+    await stack.drainJobs();
 
-    await waitFor(() => {
-      expect(jobExecutions.length).toBe(2);
-      const triggers = jobExecutions.map((e) => e.trigger).sort();
-      expect(triggers).toEqual(["multi:write:order:cancel", "multi:write:order:open"]);
-    });
+    expect(jobExecutions.length).toBe(2);
+    const triggers = jobExecutions.map((e) => e.trigger).sort();
+    expect(triggers).toEqual(["multi:event:order-cancelled", "multi:event:order-opened"]);
+  });
+
+  test("triggeredEventOf parses each run's payload against the event that fired", async () => {
+    typedExecutions.length = 0;
+    await stack.http.writeOk("multi:write:order:open", { id: "t-1" }, adminUser);
+    await stack.http.writeOk("multi:write:order:cancel", { id: "t-2" }, adminUser);
+    await stack.drainJobs();
+    expect([...typedExecutions].sort((a, b) => a.id.localeCompare(b.id))).toEqual([
+      { type: "multi:event:order-opened", id: "t-1" },
+      { type: "multi:event:order-cancelled", id: "t-2" },
+    ]);
   });
 });

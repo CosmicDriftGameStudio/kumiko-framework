@@ -15,12 +15,8 @@ import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import {
-  type BannerProps,
-  type CorePrimitives,
-  type DataTableProps,
-  PrimitivesProvider,
-} from "../../primitives.tsx";
+import { type BannerProps, type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi } from "../nav.tsx";
@@ -41,7 +37,7 @@ const TestBanner: ComponentType<BannerProps> = ({ children, testId }) => (
   <div data-testid={testId}>{children}</div>
 );
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: TestBanner,
   Field: passChildren,
@@ -60,21 +56,14 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function stubDispatcher(queryResult: unknown): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async () => ({ isSuccess: true, data: queryResult })) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: {} }),
+    query: async () => ({ isSuccess: true, data: queryResult }),
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function buildSchema(screen: ProjectionListScreenDefinition): FeatureSchema {

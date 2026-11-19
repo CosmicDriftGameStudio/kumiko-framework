@@ -24,12 +24,9 @@ import {
   decodeBlindIndexKey,
   InMemoryKmsAdapter,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import {
-  asRawClient,
-  createEventStoreExecutor,
-  createTenantDb,
-} from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,

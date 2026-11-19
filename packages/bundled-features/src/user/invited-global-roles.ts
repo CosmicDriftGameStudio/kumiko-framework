@@ -1,11 +1,11 @@
 import {
   createEventStoreExecutor,
-  createTenantDb,
   type DbRunner,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { userEntity, userTable } from "./schema/user.ts";
 import { GLOBAL_ROLE_OPTIONS, type GlobalRole } from "./web/constants.ts";

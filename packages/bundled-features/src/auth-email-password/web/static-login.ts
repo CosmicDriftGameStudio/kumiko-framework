@@ -2,21 +2,15 @@
 // must not import auth-client.ts or auth-gate.tsx, which pull in the renderer, React and window
 // access at import time. Only the pure modules below are allowed.
 
-import {
-  failureFromErrorField,
-  isRecord,
-  type KnownLoginFailureReason,
-  parseRetryAfterSeconds,
-} from "./login-failure.ts";
+import { failureFromErrorField, type KnownLoginFailureReason } from "./login-failure.ts";
 import { appendReturnTo, type LoginUrlBuilder, NEXT_QUERY_PARAM } from "./login-url.ts";
 import { isSafeReturnPath } from "./return-path.ts";
+import { postJson, STATIC_UNAUTHENTICATED_REASON, STATIC_UNKNOWN_REASON } from "./static-client.ts";
 
 export { NEXT_QUERY_PARAM };
 
 export const STATIC_LOGIN_FAILED_REASON = "login_failed";
 export const STATIC_MFA_VERIFY_FAILED_REASON = "mfa_verify_failed";
-export const STATIC_NETWORK_FAILURE_REASON = "network";
-export const STATIC_RATE_LIMITED_REASON = "rate_limited" satisfies KnownLoginFailureReason;
 export const STATIC_MFA_SETUP_REQUIRED_REASON =
   "mfa_setup_required" satisfies KnownLoginFailureReason;
 
@@ -60,32 +54,20 @@ function interpretBody(body: Record<string, unknown>, fallbackReason: string): S
   return failure(reason, retryAfterSeconds);
 }
 
-// Same request shape as auth-client's login() and mfa-client's verifyMfaChallenge(): no CSRF
-// header because no session exists yet.
 async function postAuth(
   path: string,
   payload: Record<string, string>,
   fallbackReason: string,
 ): Promise<StaticAuthResult> {
-  let res: Response;
-  try {
-    res = await fetch(path, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-  } catch {
-    return failure(STATIC_NETWORK_FAILURE_REASON);
-  }
-  if (res.status === 429) {
-    return failure(
-      STATIC_RATE_LIMITED_REASON,
-      parseRetryAfterSeconds(res.headers.get("Retry-After")),
-    );
-  }
-  const parsed: unknown = await res.json().catch(() => ({}));
-  return interpretBody(isRecord(parsed) ? parsed : {}, fallbackReason);
+  const result = await postJson(path, payload);
+  if (result.kind === "success") return interpretBody(result.data, fallbackReason);
+  if (result.reason === STATIC_MFA_SETUP_REQUIRED_REASON) return { kind: "mfa-setup-required" };
+  // The flow-specific fallback names the failed step better than the core's generic reasons.
+  const reason =
+    result.reason === STATIC_UNKNOWN_REASON || result.reason === STATIC_UNAUTHENTICATED_REASON
+      ? fallbackReason
+      : result.reason;
+  return failure(reason, result.retryAfterSeconds);
 }
 
 export function loginWithPassword(email: string, password: string): Promise<StaticAuthResult> {

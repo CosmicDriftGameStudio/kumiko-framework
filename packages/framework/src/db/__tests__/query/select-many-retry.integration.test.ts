@@ -29,7 +29,7 @@ type FakeClientOptions = {
 
 type FakeClient = {
   unsafe: (sql: string, params?: readonly unknown[]) => Promise<readonly unknown[]>;
-  begin?: () => never;
+  begin: () => never;
   savepoint?: () => never;
   release?: () => never;
   reserve?: () => never;
@@ -41,6 +41,10 @@ function fakeClient(failures: unknown[], opts: FakeClientOptions = {}): FakeClie
   const remaining = [...failures];
   const client: FakeClient = {
     calls: 0,
+    // RawDbClient requires begin; savepoint/release handles are never classified as pooled, so a throwing stub is equivalent to "no begin".
+    begin: () => {
+      throw new Error("not used in test");
+    },
     unsafe: async () => {
       client.calls++;
       const err = remaining.shift();
@@ -50,9 +54,6 @@ function fakeClient(failures: unknown[], opts: FakeClientOptions = {}): FakeClie
   };
   const { begin = true, savepoint = false, release = false, reserve = true } = opts;
   if (begin) {
-    client.begin = () => {
-      throw new Error("not used in test");
-    };
     client.options = { max: 1 };
   }
   if (savepoint)
@@ -70,7 +71,8 @@ function fakeClient(failures: unknown[], opts: FakeClientOptions = {}): FakeClie
   return client;
 }
 
-const table = buildEntityTable("note", {
+const table = buildEntityTable({
+  name: "note",
   fields: {
     title: {
       type: "text",

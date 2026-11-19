@@ -7,7 +7,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createRateLimitingFeature } from "../feature.ts";
@@ -86,7 +86,7 @@ describe("rate-limiting feature — status query", () => {
     expect(blocked.status).toBe(429);
   });
 
-  test("status access requires Admin/SystemAdmin", async () => {
+  test("status access requires an admin role", async () => {
     const guest = TestUsers.user;
     const res = await stack.http.query(
       "rate-limiting:query:status",
@@ -150,6 +150,21 @@ describe("rate-limiting feature — bucket tenant scope", () => {
       expect(status.bucket).toBe(bucket);
       expect(status.remaining).toBe(5);
     }
+  });
+
+  test("a TenantAdmin without Admin peeks its own tenant bucket", async () => {
+    const tenantAdminOnly = createTestUser({
+      id: 55,
+      tenantId: admin.tenantId,
+      roles: ["TenantAdmin"],
+    });
+    const bucket = `tenant:${admin.tenantId}`;
+    const status = await stack.http.queryOk<{ bucket: string }>(
+      "rate-limiting:query:status",
+      { bucket, limit: 5, windowSeconds: 60 },
+      tenantAdminOnly,
+    );
+    expect(status.bucket).toBe(bucket);
   });
 
   test("denies own-subject buckets with the wrong handler arity", async () => {

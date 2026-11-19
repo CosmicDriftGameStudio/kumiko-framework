@@ -76,7 +76,7 @@ export type ChannelResult = {
 
 // Output of a channel's render step, passed into send(). Only channels that
 // declare render() (email) produce one; inline channels (inApp) and channels
-// without an expensive render step (push) receive `undefined`.
+// without an expensive render step (in-memory or test channels) receive `undefined`.
 export type RenderedMessage = {
   readonly html: string;
   readonly subject: string;
@@ -88,8 +88,8 @@ export type RenderedMessage = {
 
 // `mode` decides how the delivery-service dispatches a channel:
 //   inline — sent synchronously inside notify() (inApp: DB insert + SSE).
-//   queued — sent asynchronously via the delivery.send job; channels with a
-//            render() additionally run through delivery.render first.
+//   queued — sent asynchronously via the delivery.send job, which also runs
+//            the channel's render().
 export const DELIVERY_CHANNEL_MODES = ["inline", "queued"] as const;
 export type DeliveryChannelMode = (typeof DELIVERY_CHANNEL_MODES)[number];
 
@@ -141,7 +141,7 @@ export type DeliveryService = {
   logAttempt(entry: DeliveryLogEntry, deliveryDb?: DbConnection): Promise<void>;
 };
 
-// r.useExtension options-shape: `name` is NOT part of the registration
+// r.applyExtension options-shape: `name` is NOT part of the registration
 // payload — collectChannels derives it from the usage's entityName instead.
 export type DeliveryChannelPlugin = Omit<DeliveryChannel, "name">;
 
@@ -165,7 +165,7 @@ export function isDeliveryChannelPlugin(o: unknown): o is DeliveryChannelPlugin 
   );
 }
 
-// r.useExtension options-shape, co-located since the framework never imports upward.
+// r.applyExtension options-shape, co-located since the framework never imports upward.
 declare module "@cosmicdrift/kumiko-framework/engine" {
   interface KumikoExtensionOptionsMap {
     [DELIVERY_CHANNEL_EXTENSION]: DeliveryChannelPlugin;

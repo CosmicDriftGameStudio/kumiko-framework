@@ -139,7 +139,7 @@ describe("collection entry create form", () => {
     renderForm(mock());
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     expect(screen.queryByLabelText(/slug/i)).toBeNull();
-    expect(screen.getByTestId("collection-entry-create-preview")).toBeDefined();
+    screen.getByTestId("collection-entry-create-preview");
   });
 
   test("a text without placeholders previews with the plain info text, no example values and no placeholder rail", () => {
@@ -214,7 +214,7 @@ describe("collection entry create form", () => {
       fireEvent.click(createButton());
       await Promise.resolve();
     });
-    expect(screen.getByText(/triage/i, { selector: "[role=alert], [role=alert] *" })).toBeTruthy();
+    screen.getByText(/triage/i, { selector: "[role=alert], [role=alert] *" });
     expect(dispatchTarget).not.toHaveBeenCalled();
   });
 

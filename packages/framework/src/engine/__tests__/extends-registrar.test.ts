@@ -1,5 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
-import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestStoredEvent,
+  withBootValidatorFixture,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
 import * as z from "zod";
 import { AccessDeniedError } from "../../errors/index.ts";
@@ -7,16 +10,22 @@ import {
   createGatedIdentitySwitch,
   type QueryAsFn,
 } from "../../pipeline/system-identity-switch.ts";
+import { validateBoot as validateBootRaw } from "../boot-validator.ts";
 import {
   createEntity,
   createRegistry,
   createSystemUser,
   createTextField,
   defineFeature,
+  EXT_USER_DATA,
 } from "../index.ts";
 import type { TenantId } from "../types/identifiers.ts";
 
 import { stubHandlerContext, stubHandlerContextWith } from "./handler-context-stub.ts";
+
+function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
+  validateBootRaw(withBootValidatorFixture(features));
+}
 
 const TENANT = "00000000-0000-4000-8000-00000000ee01" as TenantId;
 const dummySaveContext: SaveContext = {
@@ -30,18 +39,18 @@ const dummySaveContext: SaveContext = {
 };
 
 describe("extendsRegistrar", () => {
-  test("r.useExtension records usage with name, entity, and options", () => {
+  test("r.applyExtension records usage with name, entity, and options", () => {
     const consumer = defineFeature("fleet", (r) => {
-      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
-      r.useExtension("tags", "vehicle");
-      r.useExtension("customFields", "vehicle", { allowTypes: ["text", "number"] });
+      r.entity(createEntity({ name: "vehicle", table: "Vehicles", fields: {} }));
+      r.applyExtension({ name: "tags", entity: "vehicle" });
+      r.applyExtension({ name: "customFields", entity: "vehicle", allowTypes: ["text", "number"] });
     });
 
     expect(consumer.extensionUsages).toHaveLength(2);
     expect(consumer.extensionUsages[0]).toEqual({
       extensionName: "tags",
       entityName: "vehicle",
-      options: undefined,
+      options: {},
     });
     expect(consumer.extensionUsages[1]).toEqual({
       extensionName: "customFields",
@@ -58,14 +67,14 @@ describe("extendsRegistrar", () => {
     });
 
     const consumer = defineFeature("fleet", (r) => {
-      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
-      r.useExtension("tags", "vehicle");
+      r.entity(createEntity({ name: "vehicle", table: "Vehicles", fields: {} }));
+      r.applyExtension({ name: "tags", entity: "vehicle" });
     });
 
     createRegistry([ext, consumer]);
 
     expect(onRegister).toHaveBeenCalledTimes(1);
-    expect(onRegister).toHaveBeenCalledWith("vehicle", undefined);
+    expect(onRegister).toHaveBeenCalledWith("vehicle", {});
   });
 
   test("registry throws on duplicate extension name", () => {
@@ -87,10 +96,10 @@ describe("extendsRegistrar", () => {
       r.extendsRegistrar("commentable", { onRegister: () => {} });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
-      r.useExtension("tags", "vehicle");
-      r.useExtension("commentable", "vehicle");
-      r.useExtension("tags", "driver");
+      r.entity(createEntity({ name: "vehicle", table: "Vehicles", fields: {} }));
+      r.applyExtension({ name: "tags", entity: "vehicle" });
+      r.applyExtension({ name: "commentable", entity: "vehicle" });
+      r.applyExtension({ name: "tags", entity: "driver" });
     });
 
     const registry = createRegistry([ext1, ext2, consumer]);
@@ -111,14 +120,14 @@ describe("extendsRegistrar", () => {
       });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity({
-        name: "vehicle",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "vehicle",
           table: "Vehicles",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
-      r.useExtension("customFields", "vehicle");
+      );
+      r.applyExtension({ name: "customFields", entity: "vehicle" });
     });
 
     const registry = createRegistry([ext, consumer]);
@@ -126,6 +135,40 @@ describe("extendsRegistrar", () => {
     expect(entity?.fields["name"]).toBeDefined();
     expect(entity?.fields["customData"]).toBeDefined();
     expect(entity?.fields["customData"]?.type).toBe("text");
+  });
+
+  test("a read-restricted extendSchema field makes unbound queries declare their result entity", () => {
+    const ext = defineFeature("internalNotes", (r) => {
+      r.extendsRegistrar("internalNotes", {
+        extendSchema: () => ({
+          internalNote: createTextField({
+            personal: false,
+            reason: "test_fixture",
+            access: { read: ["Admin"] },
+          }),
+        }),
+      });
+    });
+    const consumer = defineFeature("fleet", (r) => {
+      r.entity(
+        createEntity({
+          name: "vehicle",
+          table: "Vehicles",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
+      r.applyExtension({ name: "internalNotes", entity: "vehicle" });
+      r.queryHandler({
+        name: "fleet-overview",
+        schema: z.object({}),
+        handler: async () => [],
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+    });
+
+    expect(() => createRegistry([ext, consumer])).toThrow(
+      /"fleet:query:fleet-overview" returns data of feature "fleet".*declares no resultEntity/,
+    );
   });
 
   test("extension preSave hooks fire for bare CRUD handler with smart entity map", () => {
@@ -138,13 +181,13 @@ describe("extendsRegistrar", () => {
     });
     const consumer = defineFeature("credit", (r) => {
       r.requires({ features: ["audit"] });
-      r.entity({
-        name: "credit",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "credit",
           table: "Credits",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
       r.writeHandler({
         name: "create",
         schema: z.object({ name: z.string() }),
@@ -154,7 +197,7 @@ describe("extendsRegistrar", () => {
         }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.useExtension("audited", "credit");
+      r.applyExtension({ name: "audited", entity: "credit" });
     });
 
     const registry = createRegistry([ext, consumer]);
@@ -173,14 +216,14 @@ describe("extendsRegistrar", () => {
       });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity({
-        name: "vehicle",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "vehicle",
           table: "Vehicles",
           idType: "uuid",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
       // Explicit handlers — the entity mapping is inferred from the
       // "vehicle:" prefix via tryMapEntity, so the extension's preSave
       // wires onto every entity-scoped handler automatically.
@@ -202,7 +245,7 @@ describe("extendsRegistrar", () => {
         }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.useExtension("audited", "vehicle");
+      r.applyExtension({ name: "audited", entity: "vehicle" });
     });
 
     const registry = createRegistry([ext, consumer]);
@@ -228,8 +271,8 @@ describe("extendsRegistrar", () => {
       });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
-      r.useExtension("audited", "vehicle");
+      r.entity(createEntity({ name: "vehicle", table: "Vehicles", fields: {} }));
+      r.applyExtension({ name: "audited", entity: "vehicle" });
     });
 
     const registry = createRegistry([ext, consumer]);
@@ -272,8 +315,8 @@ describe("extendsRegistrar", () => {
       });
     });
     const consumer = defineFeature("fleet", (r) => {
-      r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
-      r.useExtension("audited", "vehicle");
+      r.entity(createEntity({ name: "vehicle", table: "Vehicles", fields: {} }));
+      r.applyExtension({ name: "audited", entity: "vehicle" });
     });
 
     const registry = createRegistry([ext, consumer]);
@@ -284,5 +327,35 @@ describe("extendsRegistrar", () => {
 
     expect(caught).toBeInstanceOf(AccessDeniedError);
     expect(ungatedQueryAs).not.toHaveBeenCalled();
+  });
+});
+
+describe("framework-owned EXT_USER_DATA", () => {
+  test("a feature registers hooks without requiring a provider feature", () => {
+    const owner = defineFeature("owner", (r) => {
+      r.entity(createEntity({ name: "item", table: "Items", fields: {} }));
+      r.applyExtension({
+        name: EXT_USER_DATA,
+        entity: "item",
+        export: async () => null,
+        delete: async () => {},
+      });
+    });
+
+    expect(() => validateBoot([owner])).not.toThrow();
+    const registry = createRegistry([owner]);
+    const usages = registry.getExtensionUsages(EXT_USER_DATA);
+    expect(usages).toHaveLength(1);
+    expect(usages[0]?.entityName).toBe("item");
+    expect(usages[0]?.featureName).toBe("owner");
+    expect(registry.getExtension(EXT_USER_DATA)).toBeDefined();
+  });
+
+  test("extendsRegistrar for EXT_USER_DATA fails as duplicate", () => {
+    const redefiner = defineFeature("redefiner", (r) => {
+      r.extendsRegistrar(EXT_USER_DATA, {});
+    });
+
+    expect(() => createRegistry([redefiner])).toThrow(/Duplicate registrar extension/);
   });
 });

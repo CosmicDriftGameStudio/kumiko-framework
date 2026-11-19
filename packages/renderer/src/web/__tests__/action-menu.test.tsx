@@ -14,7 +14,7 @@ describe("ActionMenu", () => {
     );
     const trigger = screen.getByTestId("action-menu-trigger");
     expect(trigger.getAttribute("aria-label")).toBe("More actions");
-    expect(screen.getByText("Open")).toBeTruthy();
+    screen.getByText("Open");
   });
 
   test("opens menu: item, separator, label, shortcut, danger, icon", async () => {
@@ -59,10 +59,10 @@ describe("ActionMenu", () => {
     await user.click(screen.getByTestId("am"));
 
     await waitFor(() => {
-      expect(screen.getByText("Section")).toBeTruthy();
-      expect(screen.getByTestId("action-menu-item-edit")).toBeTruthy();
-      expect(screen.getByTestId("edit-icon")).toBeTruthy();
-      expect(screen.getByText("⌘E")).toBeTruthy();
+      screen.getByText("Section");
+      screen.getByTestId("action-menu-item-edit");
+      screen.getByTestId("edit-icon");
+      screen.getByText("⌘E");
       expect(screen.getByTestId("action-menu-item-delete").className).toContain("text-destructive");
       expect(screen.getByTestId("action-menu-item-disabled").getAttribute("data-disabled")).toBe(
         "",

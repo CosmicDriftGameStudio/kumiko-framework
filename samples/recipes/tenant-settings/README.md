@@ -58,7 +58,7 @@ role vocabulary overrides those instead of forking the feature.
 
 `buildInsertSchema` always makes `currency` required _inside_ a money field's
 value object, even when the field itself is optional — a caller literally
-cannot submit `{ amount: 1000 }` against the plain `defineEntityCreateHandler`.
+cannot submit `{ amount: 1000 }` (1000 minor units, 10.00 EUR) against the plain `defineEntityCreateHandler`.
 `defineCreateWithTenantDefaults` swaps in its own schema (`.extend()` over the
 same `buildInsertSchema` output, with just the declared `currencyFields`
 relaxed) so the caller _can_ omit `currency`, then fills it from
@@ -85,7 +85,7 @@ changes them from **Settings → Tenant → Default Currency / Default Locale**.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 bun test src/__tests__/feature.integration.test.ts

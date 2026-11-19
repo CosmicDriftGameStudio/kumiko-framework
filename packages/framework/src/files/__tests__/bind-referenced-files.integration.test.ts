@@ -34,6 +34,7 @@ import { createLocalProvider } from "../local-provider.ts";
 import { findImplicitEntityTable } from "../record-write-check.ts";
 
 const dossierEntity = createEntity({
+  name: "dossier",
   table: "bind_ref_dossiers",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -43,6 +44,7 @@ const dossierEntity = createEntity({
 });
 
 const textOnlyEntity = createEntity({
+  name: "plain",
   table: "bind_ref_plain",
   fields: { title: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
@@ -50,8 +52,8 @@ const textOnlyEntity = createEntity({
 const ROLES = { access: { roles: ["Admin", "User", "SystemAdmin"] } } as const;
 
 const bindFeature = defineFeature("bind-ref", (r) => {
-  r.entity({ name: "dossier", ...dossierEntity });
-  r.entity({ name: "plain", ...textOnlyEntity });
+  r.entity(dossierEntity);
+  r.entity(textOnlyEntity);
   r.writeHandler(defineEntityCreateHandler("dossier", dossierEntity, ROLES));
   r.queryHandler(defineEntityDetailHandler("dossier", dossierEntity, ROLES));
 });

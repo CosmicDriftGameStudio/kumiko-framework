@@ -9,7 +9,7 @@
 // The real prod trigger was never identified, so this test reproduces the
 // SHAPE of the bug via a legitimate fault-injection point instead of the
 // unknown original cause: EventDispatcherOptions.meter is dependency-injected,
-// and emitLagFromTx (called INSIDE the same db.begin, after
+// and emitConsumerLagMetrics (called INSIDE the same db.begin, after
 // delivery+persistConsumerOutcome already ran) is where a thrown metric
 // emission rolls back an otherwise-successful pass. No production code is
 // touched to make this reproducible.
@@ -40,7 +40,7 @@ const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity,
 });
 
 const feature = defineFeature("passfailure", (r) => {
-  r.entity({ name: "widget", ...sharedWidgetEntity });
+  r.entity(sharedWidgetEntity);
 });
 
 const admin = TestUsers.admin;
@@ -67,7 +67,7 @@ async function appendWidget(name: string): Promise<void> {
 
 // A meter that throws on the lag-gauge emission for one specific consumer —
 // the same injection point prod's unidentified exception would have hit,
-// since emitLagFromTx runs last inside processConsumer's db.begin.
+// since emitConsumerLagMetrics runs last inside processConsumer's db.begin.
 function makeLagFailingMeter(shouldFail: (consumer: string) => boolean): Meter {
   const base = getFallbackMeter();
   return {

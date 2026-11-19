@@ -6,7 +6,7 @@ import { PlanCard, PlanGrid } from "../plan-card.tsx";
 describe("PlanCard", () => {
   test("current renders the badge and the primary border, and no cta when none is passed", () => {
     render(<PlanCard title="Business" current testId="plan-card-business" />);
-    expect(screen.getByText("Current plan")).toBeTruthy();
+    screen.getByText("Current plan");
     expect(screen.getByTestId("plan-card-business").className).toContain("border-primary");
     expect(screen.queryByRole("button")).toBeNull();
   });
@@ -74,8 +74,8 @@ describe("PlanCard", () => {
 
   test("price=null renders the price-unavailable fallback instead of an amount", () => {
     render(<PlanCard title="Pro" price={null} testId="plan-card-pro" />);
-    expect(screen.getByText("Price not available")).toBeTruthy();
-    expect(screen.getByTestId("plan-card-pro-price-unavailable")).toBeTruthy();
+    screen.getByText("Price not available");
+    screen.getByTestId("plan-card-pro-price-unavailable");
   });
 
   test("price.prefix renders before the amount", () => {
@@ -106,8 +106,8 @@ describe("PlanCard", () => {
 
   test("features render as a checkmark list", () => {
     render(<PlanCard title="Pro" features={["Unlimited projects", "Priority support"]} />);
-    expect(screen.getByText("Unlimited projects")).toBeTruthy();
-    expect(screen.getByText("Priority support")).toBeTruthy();
+    screen.getByText("Unlimited projects");
+    screen.getByText("Priority support");
   });
 
   test("compact variant renders title and price but no feature list", () => {
@@ -119,8 +119,8 @@ describe("PlanCard", () => {
         features={["Should not render"]}
       />,
     );
-    expect(screen.getByText("Credits 100")).toBeTruthy();
-    expect(screen.getByText("$9.99")).toBeTruthy();
+    screen.getByText("Credits 100");
+    screen.getByText("$9.99");
     expect(screen.queryByText("Should not render")).toBeNull();
   });
 });
@@ -133,8 +133,8 @@ describe("PlanGrid", () => {
         <PlanCard title="Pro" />
       </PlanGrid>,
     );
-    expect(screen.getByText("Basic")).toBeTruthy();
-    expect(screen.getByText("Pro")).toBeTruthy();
+    screen.getByText("Basic");
+    screen.getByText("Pro");
     expect(container.querySelector('[data-testid="plan-grid"]')).toBeTruthy();
   });
 });

@@ -9,7 +9,6 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   DispatcherProvider,
@@ -18,7 +17,13 @@ import {
   REFERENCE_SEARCH_DEBOUNCE_MS,
   RenderEdit,
 } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const FORM: ActionFormScreenDefinition = {
   id: "reply",
@@ -98,10 +103,10 @@ const entityWithChips = {
 describe("multiSelect display chips and aiAssist.contextFields", () => {
   test("toggling a chip shows a check, and re-runs the AI query with the selection", async () => {
     const calls: { type: string; payload: unknown }[] = [];
-    const query = (async (type: string, payload: unknown) => {
+    const query: MockQueryHandler = async (type: string, payload: unknown) => {
       calls.push({ type, payload });
       return { isSuccess: true, data: { message: `Draft ${calls.length}` } };
-    }) as unknown as Dispatcher["query"];
+    };
     render(
       <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
         <RenderEdit
@@ -134,10 +139,10 @@ describe("multiSelect display chips and aiAssist.contextFields", () => {
 
   function renderAsk(initial: Record<string, unknown>) {
     const calls: { type: string; payload: unknown }[] = [];
-    const query = (async (type: string, payload: unknown) => {
+    const query: MockQueryHandler = async (type: string, payload: unknown) => {
       calls.push({ type, payload });
       return { isSuccess: true, data: { message: "Draft" } };
-    }) as unknown as Dispatcher["query"];
+    };
     render(
       <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
         <RenderEdit
@@ -234,10 +239,10 @@ describe("aiAssist autoRun false", () => {
       },
     };
     const calls: { payload: unknown }[] = [];
-    const query = (async (_type: string, payload: unknown) => {
+    const query: MockQueryHandler = async (_type: string, payload: unknown) => {
       calls.push({ payload });
       return { isSuccess: true, data: { message: "Draft" } };
-    }) as unknown as Dispatcher["query"];
+    };
     render(
       <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
         <RenderEdit
@@ -276,10 +281,10 @@ describe("actionForm summary.paramsFromLoad", () => {
       summary: { title: "summary.title", paramsFromLoad: ["buyerName"] },
     };
     const schema: FeatureSchema = { featureName: "swap", entities: {}, screens: [form] };
-    const query = (async () => ({
+    const query: MockQueryHandler = async () => ({
       isSuccess: true,
       data: { text: "", buyerName: "Marta" },
-    })) as unknown as Dispatcher["query"];
+    });
     render(
       <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
         <NavProvider
@@ -303,7 +308,7 @@ describe("actionForm summary.paramsFromLoad", () => {
         </NavProvider>
       </DispatcherProvider>,
     );
-    expect(await screen.findByText("Reply to Marta")).toBeDefined();
+    await screen.findByText("Reply to Marta");
   });
 });
 
@@ -338,13 +343,13 @@ describe("actionForm load.passPrefill", () => {
       entities: { trip: { fields: { title: { type: "text" } } } as never },
       screens: [list, form],
     };
-    const query = (async (type: string, payload: unknown) => {
+    const query: MockQueryHandler = async (type: string, payload: unknown) => {
       if (type === "fleet:query:pick:load") {
         loads.push(payload);
         return { isSuccess: true, data: { note: "" } };
       }
       return { isSuccess: true, data: { rows: [{ id: "r1", title: "Alpha" }], nextCursor: null } };
-    }) as unknown as Dispatcher["query"];
+    };
     render(
       <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
         <KumikoScreen schema={schema} qn="fleet:screen:trip-list" />
@@ -370,13 +375,13 @@ describe("actionForm load.passPrefill", () => {
 describe("aiAssist.noteField", () => {
   test("the note shows under the field and goes away with the next result without one", async () => {
     let call = 0;
-    const query = (async () => {
+    const query: MockQueryHandler = async () => {
       call += 1;
       return {
         isSuccess: true,
         data: call === 1 ? { message: "Draft", hint: "Could not rewrite" } : { message: "Draft 2" },
       };
-    }) as unknown as Dispatcher["query"];
+    };
     const screenDef: EntityEditScreenDefinition = {
       id: "demo:screen:note",
       type: "entityEdit",

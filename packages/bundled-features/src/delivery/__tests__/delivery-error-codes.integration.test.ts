@@ -13,6 +13,7 @@ import {
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -25,6 +26,7 @@ import { DELIVERY_CHANNEL_EXTENSION } from "../constants.ts";
 import { createDeliveryFeature } from "../feature.ts";
 import { deliveryAttemptsTable } from "../tables.ts";
 import { createDeliveryTestContext } from "../testing.ts";
+import type { ChannelResult } from "../types.ts";
 
 const LEAKY_MESSAGE =
   "POST https://hooks.example.com/services/SECRET123 failed for ops@example.com";
@@ -44,13 +46,15 @@ const recordingLogger: Logger = {
 function leakyChannelFeature(name: string, behavior: "send" | "render", mode: "inline" | "queued") {
   return defineFeature(name, (r) => {
     r.requires({ features: ["delivery"] });
-    r.useExtension(DELIVERY_CHANNEL_EXTENSION, name, {
+    r.applyExtension({
+      name: DELIVERY_CHANNEL_EXTENSION,
+      entity: name,
       mode,
       render: async () => {
         if (behavior === "render") throw new Error(LEAKY_MESSAGE);
         return { html: "<p>x</p>", subject: "x" };
       },
-      send: async () => {
+      send: async (): Promise<ChannelResult> => {
         if (behavior === "send") throw new Error(LEAKY_MESSAGE);
         return { status: "sent" };
       },
@@ -93,7 +97,11 @@ async function buildStack(withJobs: boolean): Promise<TestStack> {
       probeFeature,
     ],
     ...(withJobs && { jobs: { consumerLane: "worker" } }),
-    extraContext: (deps) => createDeliveryTestContext(deps, { log: recordingLogger }),
+    extraContext: (deps) =>
+      createDeliveryTestContext(deps, {
+        log: recordingLogger,
+        addressCipher: createTestEnvelopeCipher(),
+      }),
   });
   await unsafePushTables(stack.db, { deliveryAttemptsTable });
   return stack;
@@ -107,7 +115,7 @@ async function expectNoLeak(stack: TestStack, notificationType: string, code: st
   );
   expect(rows.map((r) => [r.status, r.error])).toEqual([["failed", code]]);
   const events = await selectMany(stack.db, eventsTable, { aggregateType: "deliveryAttempt" });
-  const payloads = events.map((e) => JSON.stringify(e.payload));
+  const payloads = events.map((e) => JSON.stringify(e["payload"]));
   const mine = payloads.filter((p) => p.includes(notificationType));
   expect(mine.length).toBeGreaterThan(0);
   const serialized = JSON.stringify([rows, mine]);

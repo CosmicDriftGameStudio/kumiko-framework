@@ -1,11 +1,11 @@
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   declareEscapeHatch,
   type HandlerContext,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { findUserMfaRow } from "./db/queries.ts";
-import { verifyMfaFactor } from "./verify-factor.ts";
+import { verifyTotpFactor } from "./verify-factor.ts";
 
 export type MfaCodeVerifyResult = { readonly enrolled: boolean; readonly ok: boolean };
 
@@ -27,10 +27,11 @@ export function createMfaCodeVerifier(): MfaCodeVerifier {
   return async (ctx, userId, tenantId, code) => {
     declareEscapeHatch({
       reason:
-        "reads the MFA enrollment of the user being re-authenticated on the caller's handler context; the calling handler declares its own escapeHatch",
+        "reads the MFA enrollment of the user being re-authenticated on the caller's handler context; the calling handler has to grant unsafeRaw itself",
+      grants: ["unsafeRaw"],
     });
     const scopedDb = createTenantDb({
-      db: ctx.db.unsafeRaw(),
+      db: ctx.db.unsafeRawAllTenants(),
       tenantId,
       mode: "system",
       reason:
@@ -41,7 +42,7 @@ export function createMfaCodeVerifier(): MfaCodeVerifier {
     // Fail closed without ctx.services.redis, matching disable.write.ts/verify.write.ts —
     // skipping the TOTP-replay burn would let an observed code be replayed.
     if (!code || !ctx.services.redis) return { enrolled: true, ok: false };
-    const verify = await verifyMfaFactor(row, code, { redis: ctx.services.redis, userId });
-    return { enrolled: true, ok: verify.ok && verify.method === "totp" };
+    const totp = await verifyTotpFactor(row, code, { redis: ctx.services.redis, userId });
+    return { enrolled: true, ok: totp === "valid" };
   };
 }

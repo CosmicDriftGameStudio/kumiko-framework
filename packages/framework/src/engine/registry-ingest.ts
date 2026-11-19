@@ -4,7 +4,6 @@ import { buildMetricName, validateMetricName } from "../observability/metric-val
 import { toKebab } from "./qualified-name.ts";
 import type { RegistryState } from "./registry-state.ts";
 import { mergeHookList, mergeHookListQualified, qualify } from "./registry-state.ts";
-import { WORKFLOW_SYSTEM_EVENT_DEFS } from "./steps/workflow-system-events.ts";
 import type { FeatureDefinition } from "./types/index.ts";
 
 // Feature registration + entities (globally-unique, physical-table-checked) + relations
@@ -279,15 +278,6 @@ export function populateEvents(state: RegistryState, feature: FeatureDefinition)
   for (const [eventName, eventDef] of Object.entries(feature.events ?? {})) {
     const qualified = qualify(feature.name, "event", eventName);
     state.eventMap.set(qualified, { ...eventDef, name: qualified });
-  }
-}
-
-// Framework-owned events outside any feature namespace (kumiko:system:workflow.*).
-// Seeded into the same eventMap as r.defineEvent so apply-key validation, the
-// PII catalog and the upcaster chain see them through one path.
-export function populateSystemEvents(state: RegistryState): void {
-  for (const [name, eventDef] of WORKFLOW_SYSTEM_EVENT_DEFS) {
-    state.eventMap.set(name, eventDef);
   }
 }
 

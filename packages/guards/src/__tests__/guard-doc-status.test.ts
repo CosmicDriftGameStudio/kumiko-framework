@@ -81,8 +81,39 @@ describe("parseStatusFrontmatter", () => {
 
 describe("statusDocHygieneWarnings", () => {
   function warningsFor(relPath: string, lines: readonly string[]): readonly string[] {
-    return statusDocHygieneWarnings({ relPath, ...parseStatusFrontmatter(frontmatter(lines)) });
+    return statusDocHygieneWarnings(
+      { relPath, ...parseStatusFrontmatter(frontmatter(lines)) },
+      Temporal.PlainDate.from("2026-11-16"),
+    );
   }
+
+  test("warns about an active plan not verified for over 90 days", () => {
+    expect(
+      warningsFor("docs/plans/a.md", [
+        "status: in-progress",
+        "verified: 2026-08-17",
+        "issue: x#1",
+        "next: x",
+      ]),
+    ).toEqual([expect.stringContaining("over 90 days ago")]);
+    expect(
+      warningsFor("docs/plans/a.md", [
+        "status: in-progress",
+        "verified: 2026-08-18",
+        "issue: x#1",
+        "next: x",
+      ]),
+    ).toEqual([]);
+    expect(
+      warningsFor("docs/plans/a.md", [
+        "status: blocked",
+        "verified: 2026-01-01",
+        "issue: x#1",
+        "next: x",
+      ]),
+    ).toEqual([expect.stringContaining("over 90 days ago")]);
+    expect(warningsFor("docs/plans/a.md", ["status: parked", "verified: 2026-01-01"])).toEqual([]);
+  });
 
   test("warns about an active spec without issue and a finished plan outside the archive", () => {
     expect(

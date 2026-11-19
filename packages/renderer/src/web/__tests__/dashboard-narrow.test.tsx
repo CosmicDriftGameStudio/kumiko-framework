@@ -2,7 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
-import type { Dispatcher } from "../../headless/index.ts";
+import type { QueryResult } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -35,17 +35,17 @@ function BrowserNav({ children }: { readonly children: ReactNode }): ReactNode {
   return <NavProvider value={nav}>{children}</NavProvider>;
 }
 
-type Handler = () => unknown;
+type Handler = () => QueryResult | Promise<QueryResult>;
 
 function renderDashboard(
   dashboard: DashboardScreenDefinition,
   handlers: Readonly<Record<string, Handler>>,
 ): void {
   const dispatcher = createMockDispatcher({
-    query: (async (type: string) => {
+    query: async (type: string) => {
       const handler = handlers[type];
       return handler === undefined ? { isSuccess: true, data: {} } : handler();
-    }) as unknown as Dispatcher["query"],
+    },
   });
   const schema: FeatureSchema = { featureName: "demo", entities: {}, screens: [dashboard] };
   render(
@@ -77,7 +77,7 @@ function renderDashboard(
   );
 }
 
-const ok = (data: unknown) => ({ isSuccess: true, data });
+const ok = (data: unknown): QueryResult => ({ isSuccess: true, data });
 
 const ROWS = Array.from({ length: 5 }, (_unused, index) => ({
   id: `t${index}`,
@@ -116,7 +116,7 @@ describe("dashboard panels on a phone", () => {
     });
     setViewportWidth(DESKTOP_WIDTH);
     renderDashboard(dashboard, {});
-    await waitFor(() => expect(screen.getByTestId("dashboard-panel-tips")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-panel-tips"));
   });
 
   test("hideOnNarrow leaves nothing on a phone", async () => {
@@ -133,7 +133,7 @@ describe("dashboard panels on a phone", () => {
       ),
       {},
     );
-    await waitFor(() => expect(screen.getByTestId("dashboard-panel-kept")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-panel-kept"));
     expect(screen.queryByTestId("dashboard-panel-tips")).toBeNull();
   });
 
@@ -143,9 +143,9 @@ describe("dashboard panels on a phone", () => {
       "demo:query:task:list": listAnswer,
     });
     await waitFor(() => expect(screen.getAllByTestId("dashboard-list-card")).toHaveLength(3));
-    expect(screen.getByText("3 of 11")).toBeTruthy();
-    expect(screen.getByText(/8 more/)).toBeTruthy();
-    expect(screen.getByText("Due 0")).toBeTruthy();
+    screen.getByText("3 of 11");
+    screen.getByText(/8 more/);
+    screen.getByText("Due 0");
   });
 
   test("a card without a tone next to toned cards keeps the grey stripe and the same inset", async () => {
@@ -174,7 +174,7 @@ describe("dashboard panels on a phone", () => {
     renderDashboard(dashboardOf(listPanel({ layout: "cards", limit: 3 })), {
       "demo:query:task:list": listAnswer,
     });
-    await waitFor(() => expect(screen.getByText("Task 4")).toBeTruthy());
+    await waitFor(() => screen.getByText("Task 4"));
     expect(screen.queryAllByTestId("dashboard-list-card")).toHaveLength(0);
   });
 
@@ -205,7 +205,7 @@ describe("dashboard panels on a phone", () => {
       });
     setViewportWidth(PHONE_WIDTH);
     renderDashboard(dashboard, { "demo:query:brief": answer });
-    await waitFor(() => expect(screen.getByText("Short briefing")).toBeTruthy());
+    await waitFor(() => screen.getByText("Short briefing"));
     expect(screen.queryByText("Long briefing")).toBeNull();
   });
 
@@ -220,7 +220,7 @@ describe("dashboard panels on a phone", () => {
       }),
       {},
     );
-    await waitFor(() => expect(screen.getByText("Short help")).toBeTruthy());
+    await waitFor(() => screen.getByText("Short help"));
     expect(screen.queryByText("Long help")).toBeNull();
   });
 });
@@ -247,8 +247,8 @@ describe("dashboard list texts and row link", () => {
     });
     setViewportWidth(DESKTOP_WIDTH);
     renderDashboard(dashboardOf(panel), { "demo:query:task:list": listAnswer });
-    await waitFor(() => expect(screen.getByText("5 urgent of 11")).toBeTruthy());
-    expect(screen.getByText(/plus 6 further/)).toBeTruthy();
+    await waitFor(() => screen.getByText("5 urgent of 11"));
+    screen.getByText(/plus 6 further/);
   });
 
   test("the narrow showTotal and moreText replace the wide ones on a phone", async () => {
@@ -264,8 +264,8 @@ describe("dashboard list texts and row link", () => {
     });
     setViewportWidth(PHONE_WIDTH);
     renderDashboard(dashboardOf(panel), { "demo:query:task:list": listAnswer });
-    await waitFor(() => expect(screen.getByText("3/11")).toBeTruthy());
-    expect(screen.getByText(/\+8/)).toBeTruthy();
+    await waitFor(() => screen.getByText("3/11"));
+    screen.getByText(/\+8/);
   });
 
   test("the label-less 'k more' text under phone cards is primary, not muted", async () => {
@@ -373,7 +373,7 @@ describe("dashboard list texts and row link", () => {
     renderDashboard(dashboardOf(rowLinkPanel()), {
       "demo:query:task:list": () => ok({ rows: rowLinkRows }),
     });
-    await waitFor(() => expect(screen.getByText("Task 0")).toBeTruthy());
+    await waitFor(() => screen.getByText("Task 0"));
     const iconLinks = screen.getAllByRole("link", { name: "Open" });
     expect(iconLinks).toHaveLength(2);
     const target = iconLinks[0]?.getAttribute("href");
@@ -499,7 +499,7 @@ describe("dashboard board gaps (round 6)", () => {
           }),
       },
     );
-    await waitFor(() => expect(screen.getByText("Task 0")).toBeTruthy());
+    await waitFor(() => screen.getByText("Task 0"));
     expect(screen.getAllByRole("link", { name: "Open" })).toHaveLength(1);
     fireEvent.click(screen.getByText("Task 0"));
     expect(window.location.href).toContain("e0");
@@ -515,7 +515,7 @@ describe("dashboard board gaps (round 6)", () => {
           ],
         }),
     });
-    await waitFor(() => expect(screen.getByText("Short title")).toBeTruthy());
+    await waitFor(() => screen.getByText("Short title"));
     expect(screen.queryByText("A very long desktop sentence")).toBeNull();
   });
 
@@ -531,7 +531,7 @@ describe("dashboard board gaps (round 6)", () => {
     ];
     setViewportWidth(DESKTOP_WIDTH);
     renderDashboard(dashboardOf(panel), { "demo:query:task:list": () => ok({ rows }) });
-    await waitFor(() => expect(screen.getByText("Task 0")).toBeTruthy());
+    await waitFor(() => screen.getByText("Task 0"));
     expect(screen.queryByText("Show all")).toBeNull();
     cleanup();
     setViewportWidth(PHONE_WIDTH);
@@ -621,7 +621,7 @@ describe("dashboard list reason box and badge dot", () => {
     setViewportWidth(DESKTOP_WIDTH);
     renderDashboard(dashboardOf(reasonPanel([hintColumn])), { "demo:query:task:list": reasonRows });
     await screen.findByText(/Overdue 14 days\./);
-    expect(screen.getByText("Rule 10")).toBeTruthy();
+    screen.getByText("Rule 10");
     const toggle = document.body.querySelector("[data-hint-reason-toggle]") as HTMLElement;
     fireEvent.click(toggle);
     expect(screen.queryByText(/Overdue 14 days\./)).toBeNull();
@@ -783,14 +783,14 @@ describe("stat labelNarrow and AI badge", () => {
   ])("below sm labelNarrow resolves the plural for %d", async (total, text) => {
     setViewportWidth(PHONE_WIDTH);
     renderDashboard(dashboardOf(statPanel), { "demo:query:a": () => ok({ total }) });
-    expect(await screen.findByText(text)).not.toBeNull();
+    await screen.findByText(text);
     expect(screen.queryByText("Answers received")).toBeNull();
   });
 
   test("from sm the full label stays", async () => {
     setViewportWidth(DESKTOP_WIDTH);
     renderDashboard(dashboardOf(statPanel), { "demo:query:a": () => ok({ total: 2 }) });
-    expect(await screen.findByText("Answers received")).not.toBeNull();
+    await screen.findByText("Answers received");
   });
 
   test("badgeIcon sparkles draws the soft AI pill with an icon and no dot", async () => {

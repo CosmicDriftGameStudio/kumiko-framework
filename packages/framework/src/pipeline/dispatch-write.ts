@@ -1,6 +1,6 @@
 import type { WriteHandlerDef, WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
-import type { DbRow, DbRunner, DbTx } from "../db/connection.ts";
+import type { DbRunner, DbTx } from "../db/connection.ts";
 import { ConfigScopes } from "../engine/constants.ts";
 import { HookPhases } from "../engine/hook-helpers.ts";
 import type { HandlerContext, SessionUser } from "../engine/types/index.ts";
@@ -123,11 +123,13 @@ async function runLifecycle(
 ): Promise<void> {
   const { lifecycle } = ctx;
   if (!lifecycle) {
-    handlerContext.obs.log.debug(`runLifecycle: skipping ${type} — no lifecycle pipeline`);
+    handlerContext.obs.log.debug("runLifecycle: skipped, no lifecycle pipeline", { handler: type });
     return;
   }
   if (!isLifecycleResult(data)) {
-    handlerContext.obs.log.debug(`runLifecycle: skipping ${type} — result is not a lifecycle kind`);
+    handlerContext.obs.log.debug("runLifecycle: skipped, result is not a lifecycle kind", {
+      handler: type,
+    });
     return;
   }
   const result = data;
@@ -153,11 +155,16 @@ async function runLifecycle(
       lifecycle.runPostSave(type, result, afterCommitContext, HookPhases.afterCommit),
     );
   } else if (result.kind === "delete") {
-    await lifecycle.runPreDelete(type, result, handlerContext);
+    const cascaded = await lifecycle.runPreDelete(type, result, handlerContext);
     await lifecycle.runPostDelete(type, result, handlerContext, HookPhases.inTransaction);
     queueAfterCommit((afterCommitContext) =>
       lifecycle.runPostDelete(type, result, afterCommitContext, HookPhases.afterCommit),
     );
+    for (const child of cascaded) {
+      queueAfterCommit((afterCommitContext) =>
+        lifecycle.runEntityPostDelete(child, afterCommitContext, HookPhases.afterCommit),
+      );
+    }
   }
 }
 
@@ -322,7 +329,6 @@ type SettleWriteArgs = {
   readonly origin: WriteOrigin;
   readonly tx: DbTx | undefined;
   readonly afterCommitHooks: AfterCommitHook[];
-  readonly parsedPayload: unknown;
   readonly reservation: ConsumedReservation | undefined;
   readonly isPerCommand: boolean;
   readonly handlerContext: HandlerContext;
@@ -355,18 +361,9 @@ function scheduleWriteAfterCommit(
   ctx: DispatchContext,
   type: string,
   user: SessionUser,
-  parsedPayload: unknown,
   result: WriteResult,
   afterCommitHooks: AfterCommitHook[],
 ): void {
-  const { jobRunner } = ctx;
-  // jobRunner has external side-effects (BullMQ enqueue) — must NOT
-  // fire for rolled-back writes. Defer to afterCommit.
-  if (jobRunner) {
-    const eventData = (parsedPayload ?? {}) as DbRow; // @cast-boundary engine-payload
-    afterCommitHooks.push(() => jobRunner.handleEvent(type, eventData, user));
-  }
-
   invalidateTenantTimezoneCache(ctx, type, user, result);
   // Again after commit: a query landing between the drop above and the
   // commit would read the pre-write row (tx not yet visible) and
@@ -392,14 +389,7 @@ async function settleSuccessfulWrite(
     if (lifecycleFailure) return lifecycleFailure;
   }
 
-  scheduleWriteAfterCommit(
-    ctx,
-    args.type,
-    args.user,
-    args.parsedPayload,
-    args.result,
-    args.afterCommitHooks,
-  );
+  scheduleWriteAfterCommit(ctx, args.type, args.user, args.result, args.afterCommitHooks);
   return undefined;
 }
 
@@ -438,7 +428,6 @@ async function executeWriteInner(
     origin,
     tx,
     afterCommitHooks,
-    parsedPayload: gated.parsedPayload,
     reservation: gated.reservation,
     isPerCommand,
     handlerContext,

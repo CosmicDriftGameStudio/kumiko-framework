@@ -13,7 +13,6 @@ import {
   createEntity,
   createFilesField,
   createLongTextField,
-  createNumberField,
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -30,28 +29,26 @@ import {
 } from "./normalize-inbound-message.ts";
 
 // ============================================================================
-// Read models for the three event-sourced aggregates
+// Read models for the two event-sourced aggregates
 // ============================================================================
 //
 // Inline projection targets. Written EXCLUSIVELY by projection applies
 // (see feature.ts), never directly by the handler.
-// The event-store streams `mail-account` / `inbound-message` / `mail-thread`
+// The event-store streams `mail-account` / `inbound-message`
 // are the source of truth, so these tables can be rebuilt.
 //
-// **PII convention:** `personal: "tenant"` (not `encrypted`): fields must
-// be crypto-shredded when eraseSubjectKeys deletes the tenant subject key on
-// tenant destruction (pattern from billing-foundation).
+// **PII convention:** mail-account fields are `personal: "tenant"` and are
+// shredded when tenant destruction deletes the tenant subject key. The PII
+// fields of a mail are `personal: { of: "id" }`: they lie under the record key
+// `record:inbound-message:<messageId>`, which forget, retention and tenant
+// destroy erase. A sender-forget (keys per sender) is deliberately left out.
 // The projection holds ciphertext, so these fields' maxLength comes from
 // piiCiphertextMaxLengthFor(<plaintext limit>).
-//
-// **Design decision:** The PII subject of an inbound mail is currently the
-// TENANT (mailbox owner), not the external sender. A sender-forget flow would
-// require per-sender keys and is deliberately not included; the erasure path
-// is tenant destruction.
 
 /** A connected mailbox. One row per account, with PK = aggregateId
  *  (= accountId, random uuid on connect). */
 export const mailAccountEntity = createEntity({
+  name: "mail-account",
   table: "read_mail_accounts",
   fields: {
     provider: createTextField({
@@ -128,6 +125,7 @@ function ownMailboxOrSharedRead(memberRoles: readonly string[]): OwnershipMap {
  *  inboundMessageAggregateId(accountId, providerMessageId). */
 export function createInboundMessageEntity(memberRoles: readonly string[]) {
   return createEntity({
+    name: "inbound-message",
     access: { read: ownMailboxOrSharedRead(memberRoles) },
     table: "read_inbound_messages",
     fields: {
@@ -155,28 +153,28 @@ export function createInboundMessageEntity(memberRoles: readonly string[]) {
       from: createTextField({
         required: true,
         maxLength: piiCiphertextMaxLengthFor(INBOUND_FROM_MAX_CHARS),
-        personal: "tenant",
+        personal: { of: "id" },
         find: "none",
       }),
       // JSON-stringified string[] — als Ganzes encrypted.
       to: createTextField({
         maxLength: piiCiphertextMaxLengthFor(INBOUND_ADDRESS_LIST_JSON_MAX_CHARS),
-        personal: "tenant",
+        personal: { of: "id" },
         find: "none",
       }),
       cc: createTextField({
         maxLength: piiCiphertextMaxLengthFor(INBOUND_ADDRESS_LIST_JSON_MAX_CHARS),
-        personal: "tenant",
+        personal: { of: "id" },
         find: "none",
       }),
       subject: createTextField({
         maxLength: piiCiphertextMaxLengthFor(INBOUND_SUBJECT_MAX_CHARS),
-        personal: "tenant",
+        personal: { of: "id" },
         find: "none",
       }),
       snippet: createTextField({
         maxLength: piiCiphertextMaxLengthFor(INBOUND_SNIPPET_MAX_CHARS),
-        personal: "tenant",
+        personal: { of: "id" },
         find: "none",
       }),
       receivedAt: createTimestampField({ required: true }),
@@ -186,7 +184,7 @@ export function createInboundMessageEntity(memberRoles: readonly string[]) {
       // Plaintext is clipped to INBOUND_BODY_TEXT_MAX_CHARS (32_000) before encryption.
       bodyText: createLongTextField({
         maxLength: piiCiphertextMaxLengthFor(INBOUND_BODY_TEXT_MAX_CHARS),
-        personal: "tenant",
+        personal: { of: "id" },
         find: "none",
       }),
       bodyTextTruncated: createBooleanField(),
@@ -194,7 +192,7 @@ export function createInboundMessageEntity(memberRoles: readonly string[]) {
       // drops anything over 500_000 bytes after sanitizing, before encryption.
       bodyHtml: createLongTextField({
         maxLength: piiCiphertextMaxLengthFor(INBOUND_BODY_HTML_MAX_BYTES),
-        personal: "tenant",
+        personal: { of: "id" },
         find: "none",
       }),
       // Bound to the message (entityType = the aggregate type), so the file guard answers with the
@@ -227,6 +225,12 @@ export function createInboundMessageEntity(memberRoles: readonly string[]) {
       }),
     },
     attachedFileAccess: "record-only",
+    // message:list pages newest first per tenant or account and filters by thread; retention deletes by receivedAt per tenant.
+    indexes: [
+      { columns: ["tenantId", "receivedAt"] },
+      { columns: ["tenantId", "accountId", "receivedAt"] },
+      { columns: ["tenantId", "threadKey"] },
+    ],
   });
 }
 
@@ -236,34 +240,12 @@ export const inboundMessageEntity = createInboundMessageEntity([
   ...DEFAULT_INBOUND_MAIL_USER_ROLES,
 ]);
 
-/** Thread-Rollup. PK = aggregateId = mailThreadAggregateId(tenantId,
- *  threadKey). */
-export const mailThreadEntity = createEntity({
-  table: "read_mail_threads",
-  fields: {
-    threadKey: createTextField({
-      required: true,
-      maxLength: 500,
-      personal: false,
-      reason: "technical_reference",
-    }),
-    subject: createTextField({
-      maxLength: piiCiphertextMaxLengthFor(INBOUND_SUBJECT_MAX_CHARS),
-      personal: "tenant",
-      find: "none",
-    }),
-    lastMessageAt: createTimestampField({ required: true }),
-    messageCount: createNumberField({ required: true, integer: true }),
-  },
-});
-
 // Single source of truth for the PII field lists — encrypt (ingest/
 // connect-handler) and decrypt (list-queries) share the same list,
 // so a future tenantOwned field cannot be omitted in either location
 // (pattern from billing-foundation entities.ts).
 export const MAIL_ACCOUNT_PII_FIELDS = collectPiiSubjectFields(mailAccountEntity);
 export const INBOUND_MESSAGE_PII_FIELDS = collectPiiSubjectFields(inboundMessageEntity);
-export const MAIL_THREAD_PII_FIELDS = collectPiiSubjectFields(mailThreadEntity);
 
 // ============================================================================
 // Unmanaged direct-write stores — sync machinery, NOT event-sourced
@@ -281,6 +263,7 @@ export const MAIL_THREAD_PII_FIELDS = collectPiiSubjectFields(mailThreadEntity);
  *  Write-locked to privileged — only Foundation handlers/supervisors
  *  write it; tenant requests cannot. */
 export const syncCursorEntity = createEntity({
+  name: "mail-sync-cursor",
   table: "store_mail_sync_cursors",
   softDelete: false,
   fields: {
@@ -317,6 +300,7 @@ export const syncCursorEntity = createEntity({
  *  The ingest handler checks here first (cheap); the stream scan remains
  *  defense-in-depth. */
 export const seenMessageEntity = createEntity({
+  name: "mail-seen-message",
   table: "store_mail_seen_messages",
   softDelete: false,
   indexes: [{ unique: true, columns: ["accountId", "providerMessageId"] }],
@@ -345,9 +329,9 @@ export const seenMessageEntity = createEntity({
 // Plain EntityTableMeta (not a branded EntityTable) — unmanaged direct-
 // write stores; handlers write via ctx.db (see user-session.ts-
 // rationale).
-export const syncCursorTable = deriveEntityTableMeta("mail-sync-cursor", syncCursorEntity, {
+export const syncCursorTable = deriveEntityTableMeta(syncCursorEntity, {
   source: "unmanaged",
 });
-export const seenMessageTable = deriveEntityTableMeta("mail-seen-message", seenMessageEntity, {
+export const seenMessageTable = deriveEntityTableMeta(seenMessageEntity, {
   source: "unmanaged",
 });

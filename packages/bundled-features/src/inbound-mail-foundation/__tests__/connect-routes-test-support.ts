@@ -42,6 +42,7 @@ import {
   seenMessageEntity,
   syncCursorEntity,
 } from "../index.ts";
+import { OAUTH_BROWSER_BINDING_COOKIE } from "../oauth-state.ts";
 
 export const OAUTH_PROVIDER_KEY = "oauth-test";
 export const STATE_SECRET = "inbound-mail-connect-test-state-secret-32b";
@@ -85,7 +86,11 @@ const oauthTestPlugin: InboundMailProviderPlugin = {
 
 export const oauthTestProviderFeature = defineFeature("inbound-provider-oauth-test", (r) => {
   r.requires({ features: ["inbound-mail-foundation"] });
-  r.useExtension(INBOUND_MAIL_PROVIDER_EXTENSION, OAUTH_PROVIDER_KEY, oauthTestPlugin);
+  r.applyExtension({
+    name: INBOUND_MAIL_PROVIDER_EXTENSION,
+    entity: OAUTH_PROVIDER_KEY,
+    ...oauthTestPlugin,
+  });
 });
 
 export const connectRouteFeatures = [
@@ -170,8 +175,21 @@ export async function getConnect(stack: TestStack, query: string, user?: Connect
   return stack.app.request(`${CONNECT_PATH}?${query}`, { headers, redirect: "manual" });
 }
 
-export async function getCallback(stack: TestStack, query: string) {
-  return stack.app.request(`${CALLBACK_PATH}?${query}`);
+export async function getCallback(stack: TestStack, query: string, cookie?: string) {
+  return stack.app.request(
+    `${CALLBACK_PATH}?${query}`,
+    cookie ? { headers: { Cookie: cookie } } : {},
+  );
+}
+
+// The "name=value" pair a browser would send back to the callback.
+export function bindingCookieFrom(connectRes: Response): string {
+  return (
+    connectRes.headers
+      .getSetCookie()
+      .find((c) => c.startsWith(`${OAUTH_BROWSER_BINDING_COOKIE}=`))
+      ?.split(";")[0] ?? ""
+  );
 }
 
 export function stateFrom(connectRes: Response): string {
@@ -192,5 +210,9 @@ export async function connectViaOauth(
 ) {
   const connectRes = await getConnect(stack, query, user);
   const mailbox = new URLSearchParams(query).get("mailbox") ?? "";
-  return getCallback(stack, callbackQuery(signedInAs ?? mailbox, stateFrom(connectRes)));
+  return getCallback(
+    stack,
+    callbackQuery(signedInAs ?? mailbox, stateFrom(connectRes)),
+    bindingCookieFrom(connectRes),
+  );
 }

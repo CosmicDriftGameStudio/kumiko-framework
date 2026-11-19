@@ -110,8 +110,7 @@ beforeEach(async () => {
   await resetTestTables(stack.db, [userTable, globalFeatureStateTable, eventsTable]);
   await runtime.refresh();
   emailTransport.sent.length = 0;
-  const allKeys = await stack.redis.redis.keys("signup:*");
-  if (allKeys.length > 0) await stack.redis.redis.del(...allKeys);
+  await stack.redis.flushNamespace();
 });
 
 async function postSignupRequest(email: string): Promise<Response> {

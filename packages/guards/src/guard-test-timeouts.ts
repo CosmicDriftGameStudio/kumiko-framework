@@ -14,11 +14,17 @@
  *   (c) sleep loops — a `while`/`do`/`for`/`for…of`/`for…in` whose body calls
  *       `sleep(...)`/`Bun.sleep(...)` or awaits a `new Promise` that only
  *       runs `setTimeout` (hand-rolled polling; use `waitFor`/`expect.poll`)
+ *   (c') in Playwright files (`e2e*` dirs, `*.spec.ts`): a one-argument
+ *       `<identifier>.setTimeout(ms)` or `<identifier>.slow()` on any test
+ *       object, e.g. one built with `base.extend(...)`
+ *   (d) in Playwright files: a number literal on a `timeout` property — use an
+ *       `E2E_TIMEOUT_MS` class from `@cosmicdrift/kumiko-testing/e2e`.
+ *       Playwright config files are not checked.
  * A single `sleep()`/`setTimeout` outside a loop, and a sleeping loop that
  * `yield`s (slow-producer generator), are work simulation and never flagged.
  *
  * Opt-out on the finding's own line or the line above (loop statement for
- * (c)): `// @timeout-exception: #<issue> <technical reason>`. A marker
+ * (c)): `// kumiko-lint-ignore test-timeouts #<issue> <technical reason>`. A marker
  * without an issue number or a reason does not count and is called out in
  * the message.
  *
@@ -32,7 +38,14 @@
  * Consumer (via the published `kumiko-guards` CLI):
  *   kumiko-guards guards --guard=test-timeouts
  */
-import { type CallExpression, Node, type SourceFile, SyntaxKind, type Type } from "ts-morph";
+import {
+  type CallExpression,
+  Node,
+  type PropertyAssignment,
+  type SourceFile,
+  SyntaxKind,
+  type Type,
+} from "ts-morph";
 import {
   type AstGuard,
   type GuardOutcome,
@@ -42,6 +55,7 @@ import {
   runStandalone,
   type ScanSpec,
 } from "./_lib/guard-kit";
+import { lineHasIgnoreTag } from "./_lib/ignore-tag";
 import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 import {
   canonicalCalleeText,
@@ -65,8 +79,8 @@ const SCAN: ScanSpec = {
   ],
 };
 
-const EXCEPTION_TAG = "@timeout-exception";
-const COMPLETE_EXCEPTION = /@timeout-exception:\s*#\d+\s+\S/;
+const EXCEPTION_TAG = "kumiko-lint-ignore test-timeouts";
+const COMPLETE_EXCEPTION = /kumiko-lint-ignore test-timeouts\s+#\d+\s+\S/;
 
 const LOOP_LABELS: ReadonlyMap<SyntaxKind, string> = new Map([
   [SyntaxKind.WhileStatement, "while"],
@@ -83,6 +97,13 @@ const SET_DEFAULT_TIMEOUT_CALLEE = /(^|\.)setDefaultTimeout$/;
 const DESCRIBE_CONFIGURE_CALLEE = /(^|\.)describe\.configure$/;
 
 const HOOK_DECLARATION_CALLEE = /^(beforeAll|beforeEach|afterAll|afterEach)$/;
+
+const PLAYWRIGHT_FILE = /(^|\/)e2e[^/]*\/|\.spec\.tsx?$/;
+const PLAYWRIGHT_CONFIG = /(^|\/)playwright[^/]*\.config\.tsx?$/;
+
+function isPlaywrightFile(file: string): boolean {
+  return PLAYWRIGHT_FILE.test(file) && !PLAYWRIGHT_CONFIG.test(file);
+}
 
 export interface Finding {
   file: string;
@@ -140,7 +161,7 @@ function exceptionNote(node: Node): "allowed" | "incomplete" | "none" {
   const line = node.getStartLineNumber();
   const nearby = [lines[line - 1] ?? "", lines[line - 2] ?? ""];
   if (nearby.some((text) => COMPLETE_EXCEPTION.test(text))) return "allowed";
-  return nearby.some((text) => text.includes(EXCEPTION_TAG)) ? "incomplete" : "none";
+  return nearby.some((text) => lineHasIgnoreTag(text, EXCEPTION_TAG)) ? "incomplete" : "none";
 }
 
 function hasTimeoutProperty(node: Node | undefined): boolean {
@@ -173,6 +194,16 @@ function isTimeoutArgument(arg: Node): boolean {
   );
 }
 
+// The second argument is the test body or Playwright's details object; only a `timeout`
+// on an options object raises the timeout there, so an untyped body is not flagged.
+function isTimeoutOptions(arg: Node | undefined): boolean {
+  if (arg === undefined) return false;
+  if (Node.isObjectLiteralExpression(arg)) return hasTimeoutProperty(arg);
+  if (!Node.isIdentifier(arg)) return false;
+  const type = arg.getType();
+  return !type.isAny() && !type.isUnknown() && type.getProperty("timeout") !== undefined;
+}
+
 function declarationTimeoutReason(
   call: CallExpression,
   aliases: ReadonlyMap<string, string>,
@@ -184,14 +215,15 @@ function declarationTimeoutReason(
     return `${base}(…, timeout) raises the timeout instead of fixing the cause`;
   }
   if (!TEST_DECLARATION_CALLEE.test(base)) return undefined;
-  const [, , ...extra] = call.getArguments();
-  if (!extra.some(isTimeoutArgument)) return undefined;
+  const [, options, ...extra] = call.getArguments();
+  if (!isTimeoutOptions(options) && !extra.some(isTimeoutArgument)) return undefined;
   return `${base}(…, timeout) raises the timeout instead of fixing the cause`;
 }
 
 function raisedTimeoutReason(
   call: CallExpression,
   aliases: ReadonlyMap<string, string>,
+  playwright: boolean,
 ): string | undefined {
   const callee = call.getExpression();
   const calleeText = canonicalCalleeText(callee.getText(), aliases);
@@ -203,10 +235,43 @@ function raisedTimeoutReason(
   if (DESCRIBE_CONFIGURE_CALLEE.test(calleeText) && call.getArguments().some(hasTimeoutProperty)) {
     return `${calleeText}(…) raises the timeout instead of fixing the cause`;
   }
+  if (playwright && isPlaywrightTimeoutRaise(call)) {
+    return `${callee.getText()}(…) raises the timeout instead of fixing the cause`;
+  }
   if (Node.isPropertyAccessExpression(callee) && callee.getName() === "waitForTimeout") {
     return `${calleeText}(…) waits for time, not for a condition`;
   }
   return undefined;
+}
+
+// Extended Playwright test objects (`base.extend(...)`, also imported from helpers) are not
+// resolvable here, so a one-arg setTimeout on any identifier in Playwright files is the raise.
+// A shared E2E_TIMEOUT_MS class is the sanctioned budget; a literal or computed one is not.
+function isPlaywrightTimeoutRaise(call: CallExpression): boolean {
+  const callee = call.getExpression();
+  if (!Node.isPropertyAccessExpression(callee) || !Node.isIdentifier(callee.getExpression())) {
+    return false;
+  }
+  if (callee.getName() === "slow") return true;
+  const args = call.getArguments();
+  return callee.getName() === "setTimeout" && args.length === 1 && !isE2eTimeoutClass(args[0]);
+}
+
+function isE2eTimeoutClass(node: Node | undefined): boolean {
+  return (
+    node !== undefined &&
+    Node.isPropertyAccessExpression(node) &&
+    node.getExpression().getText() === "E2E_TIMEOUT_MS"
+  );
+}
+
+function isLiteralTimeoutProperty(prop: PropertyAssignment): boolean {
+  const name = prop.getNameNode();
+  const isTimeoutName =
+    (Node.isIdentifier(name) && name.getText() === "timeout") ||
+    (Node.isStringLiteral(name) && name.getLiteralText() === "timeout");
+  const initializer = prop.getInitializer();
+  return isTimeoutName && initializer !== undefined && Node.isNumericLiteral(initializer);
 }
 
 function withExceptionNote(node: Node, message: string): string | undefined {
@@ -230,9 +295,25 @@ export function scanTimeouts(
     }
   };
   const aliases = testFrameworkAliases(sf);
+  const playwright = isPlaywrightFile(file);
+  const reportedCalls = new Set<Node>();
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-    const reason = raisedTimeoutReason(call, aliases);
-    if (reason !== undefined) add(call, reason);
+    const reason = raisedTimeoutReason(call, aliases, playwright);
+    if (reason !== undefined) {
+      reportedCalls.add(call);
+      add(call, reason);
+    }
+  }
+  if (playwright) {
+    for (const prop of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
+      if (!isLiteralTimeoutProperty(prop)) continue;
+      const enclosingCall = prop.getFirstAncestorByKind(SyntaxKind.CallExpression);
+      if (enclosingCall !== undefined && reportedCalls.has(enclosingCall)) continue;
+      add(
+        prop,
+        "literal Playwright timeout — use an E2E_TIMEOUT_MS class from @cosmicdrift/kumiko-testing/e2e",
+      );
+    }
   }
   for (const [kind, label] of LOOP_LABELS) {
     for (const loop of sf.getDescendantsOfKind(kind)) {
@@ -244,10 +325,10 @@ export function scanTimeouts(
   return findings.sort((a, b) => a.line - b.line);
 }
 
-const REMEDIATION = `Wait for a condition (\`waitFor\`, \`expect.poll\`) instead of raising timeouts or sleeping, or mark the line with \`// ${EXCEPTION_TAG}: #<issue> <technical reason>\`.`;
+const REMEDIATION = `Wait for a condition (\`waitFor\`, \`expect.poll\`) instead of raising timeouts or sleeping, use an E2E_TIMEOUT_MS class instead of a number in Playwright files, or mark the line with \`// ${EXCEPTION_TAG} #<issue> <technical reason>\`.`;
 
 const HINT =
-  "Diagnose in this order: (1) reproduce a single run (`--repeat-each`, single file), (2) check shared state and missing isolation (one tenant per flow), (3) wait for a condition, not for time (`waitFor`, `expect.poll`), (4) check the seed, (5) only then change the central template via an issue — never per app. See https://github.com/CosmicDriftGameStudio/kumiko-framework/blob/main/docs/guides/test-failures.md.";
+  "Diagnose in this order: (1) reproduce a single run (`--repeat-each`, single file), (2) check shared state and missing isolation (one tenant per flow), (3) wait for a condition, not for time (`waitFor`, `expect.poll`); use an E2E_TIMEOUT_MS class instead of a number, (4) check the seed, (5) only then change the central template via an issue — never per app. See https://github.com/CosmicDriftGameStudio/kumiko-framework/blob/main/docs/guides/test-failures.md.";
 
 function analyse(files: readonly SourceFile[], roots: readonly RepoRoot[]): GuardOutcome {
   const findings: Finding[] = [];

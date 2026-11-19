@@ -42,7 +42,8 @@ export type InboundMailSupervisorDeps = {
    *  before `plugin.watch()`, ensureWatcher claims a TTL lease for the
    *  account via `lock.acquire` and renews it via `lock.renew` while the
    *  watcher lives. Required: without it every worker would hold its own
-   *  IDLE connection per account. */
+   *  IDLE connection per account. The same lock also carries the poll lease
+   *  `<accountId>:poll`, so only one worker per interval polls a mailbox. */
   readonly lock: DistributedLock;
   /** Access-token lifecycle for OAuth accounts. Defaults to a manager built
    *  from `db` + `providerCtx.secrets`; pass the instance shared with
@@ -79,7 +80,7 @@ export type WatchLeaseResult = "acquired" | "no-token" | "stale";
 export type InboundMailSupervisor = {
   readonly start: () => Promise<void>;
   /** Reconciliation run across all active accounts; also usable standalone
-   *  for tests and manual operational triggers. */
+   *  for tests and manual operational triggers. Runs without the poll lease. */
   readonly pollOnce: () => Promise<void>;
   /** Syncs one account immediately (connect/reconnect wake-up); joins a sync already running for it. */
   readonly syncAccountNow: (accountId: string) => Promise<void>;

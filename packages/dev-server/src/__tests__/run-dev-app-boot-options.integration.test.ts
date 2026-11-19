@@ -14,6 +14,7 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
+import { createInMemorySearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import * as z from "zod";
 import type { KumikoServerHandle } from "../create-kumiko-server.ts";
@@ -23,12 +24,12 @@ const PLAINTEXT_REASON = "test: boot options focus, not PII crypto";
 
 function shopFeature() {
   return defineFeature("shop", (r) => {
-    r.entity({
-      name: "product",
-      ...createEntity({
+    r.entity(
+      createEntity({
+        name: "product",
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
       }),
-    });
+    );
   });
 }
 
@@ -161,6 +162,47 @@ describe("runDevApp boot options", () => {
         envSource: {},
       }),
     ).rejects.toThrow(/DEV_BOOT_OPTIONS_REQUIRED/);
+  });
+
+  test("search meili-env without MEILI_URL and MEILI_MASTER_KEY aborts the boot", async () => {
+    await expect(
+      runDevApp({
+        features: [shopFeature()],
+        port: 0,
+        kmsMode: { plaintextReason: PLAINTEXT_REASON },
+        search: { provider: "meili-env" },
+        envSource: {},
+      }),
+    ).rejects.toThrow(/missing: MEILI_URL, MEILI_MASTER_KEY/);
+  });
+
+  test("search plus extraContext.searchAdapter aborts the boot", async () => {
+    await expect(
+      runDevApp({
+        features: [shopFeature()],
+        port: 0,
+        kmsMode: { plaintextReason: PLAINTEXT_REASON },
+        search: { provider: "meili-env" },
+        extraContext: { searchAdapter: createInMemorySearchAdapter() },
+        envSource: {
+          ...process.env,
+          MEILI_URL: "http://127.0.0.1:1",
+          MEILI_MASTER_KEY: "test-key",
+        },
+      }),
+    ).rejects.toThrow(/\[runDevApp\] the search option and extraContext.searchAdapter/);
+  });
+
+  test("search meili-env puts its adapter into the request context", async () => {
+    handle = await runDevApp({
+      features: [shopFeature()],
+      port: 0,
+      kmsMode: { plaintextReason: PLAINTEXT_REASON },
+      search: { provider: "meili-env" },
+      envSource: { ...process.env, MEILI_URL: "http://127.0.0.1:1", MEILI_MASTER_KEY: "test-key" },
+    });
+    expect(handle.stack.context.searchAdapter).toBeDefined();
+    expect(handle.stack.context.searchAdapter).not.toBe(handle.stack.search);
   });
 });
 

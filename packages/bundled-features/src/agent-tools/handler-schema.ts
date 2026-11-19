@@ -32,14 +32,25 @@ function withoutSystemOnlyProperties(
   };
 }
 
+// Handler defs are long-lived registry objects and the manifest is rebuilt every agent turn;
+// z.toJSONSchema is the expensive part. An undefined result is cached too.
+const inputJsonSchemaByDef = new WeakMap<
+  QueryHandlerDef | WriteHandlerDef,
+  Readonly<Record<string, unknown>> | undefined
+>();
+
 /** `undefined` when the schema can't be expressed as JSON Schema (transforms,
  *  z.instanceof, ...) — such a handler is unusable for an agent tool call. */
 export function handlerInputJsonSchema(
   def: QueryHandlerDef | WriteHandlerDef,
 ): Readonly<Record<string, unknown>> | undefined {
+  if (inputJsonSchemaByDef.has(def)) return inputJsonSchemaByDef.get(def);
+  let schema: Readonly<Record<string, unknown>> | undefined;
   try {
-    return withoutSystemOnlyProperties(z.toJSONSchema(def.schema, { io: "input" }));
+    schema = withoutSystemOnlyProperties(z.toJSONSchema(def.schema, { io: "input" }));
   } catch {
-    return undefined;
+    schema = undefined;
   }
+  inputJsonSchemaByDef.set(def, schema);
+  return schema;
 }

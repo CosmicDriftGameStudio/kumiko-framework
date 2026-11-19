@@ -31,15 +31,16 @@ const TEST_KEY_B64 = Buffer.alloc(32, 9).toString("base64");
 const TEST_KEY = decodeBlindIndexKey(TEST_KEY_B64);
 
 const personEntity = createEntity({
+  name: "person",
   table: "read_bidx_guard_persons",
   fields: {
     email: createTextField({ required: true, personal: "self", find: "exact" }),
   },
 });
 const personFeature = defineFeature("bidxguardtest", (r) => {
-  r.entity({ name: "person", ...personEntity });
+  r.entity(personEntity);
 });
-const personTable = buildEntityTable("person", personEntity);
+const personTable = buildEntityTable(personEntity);
 const implicitName = "bidxguardtest:projection:person-entity";
 
 const admin = TestUsers.admin;

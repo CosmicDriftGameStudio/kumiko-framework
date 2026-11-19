@@ -23,6 +23,7 @@ import {
 // A UNIQUE index on (tenantId, entityName) allows at most one override per
 // entity.
 export const tenantRetentionOverrideEntity = createEntity({
+  name: "tenant-retention-override",
   table: "read_tenant_retention_overrides",
   fields: {
     entityName: createTextField({
@@ -46,7 +47,4 @@ export const tenantRetentionOverrideEntity = createEntity({
   indexes: [{ unique: true, columns: ["tenantId", "entityName"] }],
 });
 
-export const tenantRetentionOverrideTable = buildEntityTable(
-  "tenantRetentionOverride",
-  tenantRetentionOverrideEntity,
-);
+export const tenantRetentionOverrideTable = buildEntityTable(tenantRetentionOverrideEntity);

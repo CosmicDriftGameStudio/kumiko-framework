@@ -466,6 +466,55 @@ describe("serializeError", () => {
     }
   });
 
+  const leakyInternalError = () =>
+    new InternalError({
+      message: "jobs: handler 'billing:sync' has no config key PADDLE_API_KEY",
+      i18nParams: { qn: "billing:sync" },
+      details: { configKey: "PADDLE_API_KEY" },
+    });
+
+  test("InternalError message and i18nParams are replaced in production", () => {
+    const original = process.env["NODE_ENV"];
+    process.env["NODE_ENV"] = "production";
+    try {
+      const body = serializeError(leakyInternalError());
+      expect(body.error.code).toBe("internal_error");
+      expect(body.error.message).toBe("internal error");
+      expect(body.error).not.toHaveProperty("i18nParams");
+      expect(body.error).not.toHaveProperty("details");
+    } finally {
+      if (original === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = original;
+    }
+  });
+
+  test("InternalError keeps its message in test", () => {
+    const original = process.env["NODE_ENV"];
+    process.env["NODE_ENV"] = "test";
+    try {
+      const body = serializeError(leakyInternalError());
+      expect(body.error.message).toBe(
+        "jobs: handler 'billing:sync' has no config key PADDLE_API_KEY",
+      );
+    } finally {
+      if (original === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = original;
+    }
+  });
+
+  test("NotFoundError keeps its message in production", () => {
+    const original = process.env["NODE_ENV"];
+    process.env["NODE_ENV"] = "production";
+    try {
+      const err = new NotFoundError("order", 42);
+      const body = serializeError(err);
+      expect(body.error.message).toBe(err.message);
+    } finally {
+      if (original === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = original;
+    }
+  });
+
   test("omits requestId field when not provided", () => {
     const body = serializeError(new AccessDeniedError());
     expect(body.error).not.toHaveProperty("requestId");

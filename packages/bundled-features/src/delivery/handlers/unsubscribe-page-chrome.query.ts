@@ -1,24 +1,17 @@
-import { access, defineQueryHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { fileContextForTenant } from "../../file-foundation/index.ts";
 import {
   collectRendererPlugins,
-  createRendererFoundationApi,
   type MailChrome,
   RendererError,
   type RendererPlugin,
+  selectRendererPlugin,
 } from "../../renderer-foundation/index.ts";
 
-function mailChromePlugin(
-  plugins: readonly RendererPlugin[],
-  tenantId: TenantId,
-): RendererPlugin | null {
+function mailChromePlugin(plugins: readonly RendererPlugin[]): RendererPlugin | null {
   try {
-    const plugin = createRendererFoundationApi(plugins).createRendererForTenant({
-      tenantId,
-      kind: "mail",
-    });
+    const plugin = selectRendererPlugin(plugins, "mail");
     return plugin.readMailChrome === undefined ? null : plugin;
   } catch (e) {
     if (e instanceof RendererError && e.code === "no_plugin_for_kind") return null;
@@ -35,19 +28,15 @@ export const unsubscribePageChromeQuery = defineQueryHandler({
   agent: { expose: false },
   description:
     "Returns the tenant's mail brand row and footer resolved for one locale, or null without a mail renderer; dispatched by the signed unsubscribe route or by createUnsubscribePageChromeReader for a tenant the app resolved server-side, to dress its pages like the mail; not meant for UI callers.",
+  systemScope: true,
   handler: async (query, ctx): Promise<MailChrome | null> => {
     const { tenantId } = query.user;
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message: "unsubscribePageChrome: ctx.systemDb missing on a system-scoped handler",
-      });
-    }
-    const plugin = mailChromePlugin(collectRendererPlugins(ctx.registry), tenantId);
+    const plugin = mailChromePlugin(collectRendererPlugins(ctx.registry));
     if (plugin?.readMailChrome === undefined) return null;
     return plugin.readMailChrome(
       { locale: query.payload.locale },
       {
-        db: ctx.systemDb.assertTenantMatch(tenantId),
+        db: ctx.systemDb.scopedTo(tenantId),
         registry: ctx.registry,
         tenantId,
         ...(ctx.config !== undefined && { config: ctx.config }),

@@ -28,6 +28,7 @@ import {
   type DataTableRowAction,
   PrimitivesProvider,
 } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider } from "../nav.tsx";
@@ -54,7 +55,7 @@ async function flushPendingWork(): Promise<void> {
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const baseTestPrimitives: CorePrimitives = {
+const baseTestPrimitives = createStubPrimitives({
   Button: noop,
   Banner: passChildren,
   Field: passChildren,
@@ -73,7 +74,7 @@ const baseTestPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function capturingPrimitives(state: StubState): CorePrimitives {
   const captureDataTable: ComponentType<DataTableProps> = (props) => {
@@ -84,8 +85,8 @@ function capturingPrimitives(state: StubState): CorePrimitives {
 }
 
 function stubDispatcher(state: StubState): Dispatcher {
-  return {
-    write: (async () => {
+  return createMockDispatcher({
+    write: async () => {
       if (!state.writeIsSuccess) {
         return {
           isSuccess: false,
@@ -98,27 +99,21 @@ function stubDispatcher(state: StubState): Dispatcher {
         };
       }
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
-    query: (async () => {
+    },
+    query: async () => {
       state.queryCallCount += 1;
       return {
         isSuccess: true,
         data: { rows: [{ id: "unit-1", status: "active" }], nextCursor: null, total: 1 },
       };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function buildSchema(): FeatureSchema {
   const entity: EntityDefinition = {
+    name: "entity",
     fields: {
       status: {
         type: "text",
@@ -244,14 +239,15 @@ const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId }) =
 
 const renderToolbarEnd: ComponentType<DataTableProps> = (props) => <>{props.toolbarEnd}</>;
 
-const toolbarTestPrimitives: CorePrimitives = {
+const toolbarTestPrimitives = createStubPrimitives({
   ...baseTestPrimitives,
   Button: TestButton,
   DataTable: renderToolbarEnd,
-};
+});
 
 function buildToolbarSchema(): FeatureSchema {
   const entity: EntityDefinition = {
+    name: "entity",
     fields: {
       status: {
         type: "text",

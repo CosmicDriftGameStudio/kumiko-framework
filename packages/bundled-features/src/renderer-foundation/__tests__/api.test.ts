@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { createRendererFoundationApi } from "../api.ts";
+import { selectRendererPlugin } from "../api.ts";
 import {
   type RendererContext,
   RendererError,
@@ -20,7 +20,7 @@ const STUB_CTX: RendererContext = {
 };
 
 // Test helper: minimal plugin with a fixed response. Multiple plugins are
-// used for multi-kind and tenant-override tests.
+// used for multi-kind tests.
 function makePlugin(name: string, kinds: RendererPlugin["kinds"]): RendererPlugin {
   return {
     name,
@@ -51,76 +51,52 @@ function makePlugin(name: string, kinds: RendererPlugin["kinds"]): RendererPlugi
   };
 }
 
-const TENANT: TenantId = "22222222-2222-4222-8222-222222222222" as TenantId;
-
 describe("renderer-foundation :: Plugin-Selection", () => {
   test("default plugin for kind mail = 'mail-html'", async () => {
-    const api = createRendererFoundationApi([
-      makePlugin("other", ["mail"]),
-      makePlugin("mail-html", ["mail"]),
-    ]);
-    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
+    const plugin = selectRendererPlugin(
+      [makePlugin("other", ["mail"]), makePlugin("mail-html", ["mail"])],
+      "mail",
+    );
     expect(plugin.name).toBe("mail-html");
   });
 
   test("default plugin for document-pdf = 'puppeteer'", async () => {
-    const api = createRendererFoundationApi([
-      makePlugin("puppeteer", ["document-pdf", "image-snapshot"]),
-    ]);
-    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" });
+    const plugin = selectRendererPlugin(
+      [makePlugin("puppeteer", ["document-pdf", "image-snapshot"])],
+      "document-pdf",
+    );
     expect(plugin.name).toBe("puppeteer");
   });
 
-  test("Tenant override takes precedence over default", async () => {
-    const api = createRendererFoundationApi(
-      [makePlugin("mail-html", ["mail"]), makePlugin("custom-mail", ["mail"])],
-      (tid) => (tid === TENANT ? { mail: "custom-mail" } : null),
-    );
-    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
-    expect(plugin.name).toBe("custom-mail");
+  test("the default plugin wins even when another plugin for the kind is mounted first", () => {
+    expect(
+      selectRendererPlugin(
+        [makePlugin("custom-pdf", ["document-pdf"]), makePlugin("puppeteer", ["document-pdf"])],
+        "document-pdf",
+      ).name,
+    ).toBe("puppeteer");
   });
 
-  test("Tenant override for unregistered plugin → falls back to default", async () => {
-    const api = createRendererFoundationApi([makePlugin("mail-html", ["mail"])], () => ({
-      mail: "ghost-plugin",
-    }));
-    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
-    expect(plugin.name).toBe("mail-html");
-  });
-
-  test("Falls back to first matching plugin when neither tenant config nor default name matches", async () => {
-    const api = createRendererFoundationApi([makePlugin("nonstandard-name", ["mail"])]);
-    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
+  test("Falls back to the first plugin serving the kind when the default name is not mounted", async () => {
+    const plugin = selectRendererPlugin([makePlugin("nonstandard-name", ["mail"])], "mail");
     expect(plugin.name).toBe("nonstandard-name");
   });
 
   test("no plugin for kind → RendererError", () => {
-    const api = createRendererFoundationApi([makePlugin("mail-html", ["mail"])]);
-    expect(() => api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" })).toThrow(
+    expect(() => selectRendererPlugin([makePlugin("mail-html", ["mail"])], "document-pdf")).toThrow(
       RendererError,
     );
   });
 
   test("empty plugin pool → RendererError for every kind", () => {
-    const api = createRendererFoundationApi([]);
-    expect(() => api.createRendererForTenant({ tenantId: TENANT, kind: "mail" })).toThrow(
-      RendererError,
-    );
-    expect(() => api.createRendererForTenant({ tenantId: TENANT, kind: "mail" })).toThrow(
-      RendererError,
-    );
-    expect(() => api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" })).toThrow(
-      RendererError,
-    );
-    expect(() => api.createRendererForTenant({ tenantId: TENANT, kind: "image-snapshot" })).toThrow(
-      RendererError,
-    );
+    expect(() => selectRendererPlugin([], "mail")).toThrow(RendererError);
+    expect(() => selectRendererPlugin([], "document-pdf")).toThrow(RendererError);
+    expect(() => selectRendererPlugin([], "image-snapshot")).toThrow(RendererError);
   });
 
   test("RendererError code='no_plugin_for_kind' when no plugin", () => {
-    const api = createRendererFoundationApi([]);
     try {
-      api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
+      selectRendererPlugin([], "mail");
       throw new Error("expected RendererError");
     } catch (e) {
       expect(e).toBeInstanceOf(RendererError);
@@ -129,39 +105,23 @@ describe("renderer-foundation :: Plugin-Selection", () => {
   });
 
   test("Plugin with multiple kinds is selected for each matching kind", async () => {
-    const multi = makePlugin("multi", ["mail", "document-pdf"]);
-    const api = createRendererFoundationApi([multi]);
-    expect(api.createRendererForTenant({ tenantId: TENANT, kind: "mail" }).name).toBe("multi");
-    expect(api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" }).name).toBe(
-      "multi",
-    );
+    const plugins = [makePlugin("multi", ["mail", "document-pdf"])];
+    expect(selectRendererPlugin(plugins, "mail").name).toBe("multi");
+    expect(selectRendererPlugin(plugins, "document-pdf").name).toBe("multi");
   });
 
   test("Plugin with empty kinds is never selected", () => {
-    const api = createRendererFoundationApi([
-      makePlugin("empty-kinds", []),
-      makePlugin("mail-html", ["mail"]),
-    ]);
-    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
-    expect(plugin.name).toBe("mail-html");
-  });
-
-  test("Tenant override with plugin for wrong kind → ignored, fallback", async () => {
-    // Tenant config picks "puppeteer" for mail, but puppeteer only renders
-    // document-pdf. The foundation must ignore an entry with the wrong kind.
-    const api = createRendererFoundationApi(
-      [makePlugin("mail-html", ["mail"]), makePlugin("puppeteer", ["document-pdf"])],
-      () => ({ mail: "puppeteer" }),
+    const plugin = selectRendererPlugin(
+      [makePlugin("empty-kinds", []), makePlugin("mail-html", ["mail"])],
+      "mail",
     );
-    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
     expect(plugin.name).toBe("mail-html");
   });
 });
 
 describe("renderer-foundation :: Plugin executes render", () => {
   test("Plugin.render returns RenderResponse with the same kind", async () => {
-    const api = createRendererFoundationApi([makePlugin("mail-html", ["mail"])]);
-    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
+    const plugin = selectRendererPlugin([makePlugin("mail-html", ["mail"])], "mail");
     const response = await plugin.render(
       { kind: "mail", payload: { slug: "welcome", locale: "en", variables: {} } },
       STUB_CTX,

@@ -10,11 +10,15 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  BRANDING_QN,
+  BRANDING_TOKENS_QUERY_QN,
+  createBrandingCssFeature,
+  createBrandingFeature,
+} from "../../branding/index.ts";
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
-import { BRANDING_QN, BRANDING_QUERY_QN } from "../branding.ts";
-import { createManagedPagesCssFeature } from "../css-gate.ts";
 import { createManagedPagesFeature } from "../feature.ts";
 import { seedPage } from "../seeding.ts";
 import { type PageRow, pageEntity, pagesTable } from "../table.ts";
@@ -47,8 +51,7 @@ const managed = createManagedPagesFeature({
   },
 });
 
-// managed-pages declares `r.requires({ features: ["config"] })` for the branding keys —
-// the config feature must be in the stack and `ctx.config` wired.
+// managed-pages requires config + branding — both must be in the stack and `ctx.config` wired.
 const configFeature = createConfigFeature();
 
 beforeAll(async () => {
@@ -58,7 +61,7 @@ beforeAll(async () => {
   // This mirrors publicstatus' host-based tenantResolver without a fixed default.
   const resolver = createConfigResolver();
   stack = await setupTestStack({
-    features: [configFeature, managed],
+    features: [configFeature, createBrandingFeature(), managed],
     rateLimitNowMs: () => frozenNowMs ?? Date.now(),
     anonymousAccess: {
       tenantExists: async (id) => id === TENANT_A || id === TENANT_B,
@@ -175,6 +178,7 @@ describe("managed-pages :: Cache + Security-Header", () => {
     expect(res.headers.get("cache-control")).toBe("public, max-age=60, must-revalidate");
     expect(res.headers.get("etag")).toBeTruthy();
     expect(res.headers.get("content-security-policy")).toContain("script-src 'none'");
+    expect(res.headers.get("content-security-policy")).toContain("form-action 'none'");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
@@ -457,6 +461,130 @@ describe("managed-pages :: by-tenant-published (Discovery-Query)", () => {
     );
     expect(res.pages).toEqual([expect.objectContaining({ slug: "about", title: "About B" })]);
   });
+
+  test("an override in the payload is no field: the caller still lists only its own tenant", async () => {
+    const res = await stack.http.queryOk<{ pages: Array<{ slug: string; title: string }> }>(
+      "managed-pages:query:by-tenant-published",
+      { tenantIdOverride: TENANT_A },
+      pageAdminB,
+    );
+    expect(res.pages).toEqual([expect.objectContaining({ slug: "about", title: "About B" })]);
+  });
+});
+
+describe("managed-pages :: by-tenant-published ordering and columns", () => {
+  const TENANT_SORT = "44444444-4444-4444-8444-444444444444";
+  const sortAdmin = createTestUser({ id: 16, roles: ["TenantAdmin"], tenantId: TENANT_SORT });
+
+  test("returns published pages sorted by slug with only the discovery columns", async () => {
+    await seedPage(stack.db, {
+      tenantId: TENANT_SORT,
+      slug: "zeta",
+      lang: "en",
+      title: "Zeta",
+      body: "z",
+      published: true,
+    });
+    await seedPage(stack.db, {
+      tenantId: TENANT_SORT,
+      slug: "alpha",
+      lang: "en",
+      title: "Alpha",
+      body: "a",
+      published: true,
+    });
+    await seedPage(stack.db, {
+      tenantId: TENANT_SORT,
+      slug: "hidden",
+      lang: "en",
+      title: "Hidden",
+      body: "h",
+      published: false,
+    });
+    const res = await stack.http.queryOk<{ pages: Array<Record<string, unknown>> }>(
+      "managed-pages:query:by-tenant-published",
+      {},
+      sortAdmin,
+    );
+    expect(res.pages.map((p) => p["slug"])).toEqual(["alpha", "zeta"]);
+    expect(Object.keys(res.pages[0] ?? {}).sort()).toEqual(["lang", "slug", "title", "updatedAt"]);
+  });
+});
+
+describe("managed-pages :: page field rules on every write path", () => {
+  test("create rejects a slug that is not kebab-case", async () => {
+    const error = await stack.http.writeErr(
+      "managed-pages:write:page:create",
+      { slug: "Foo Bar", lang: "en", title: "x", body: "x" },
+      tenantAdmin,
+    );
+    expectErrorIncludes(error, "slug");
+  });
+
+  test("create rejects a malformed lang", async () => {
+    const error = await stack.http.writeErr(
+      "managed-pages:write:page:create",
+      { slug: "valid-lang", lang: "xx_YY", title: "x", body: "x" },
+      tenantAdmin,
+    );
+    expectErrorIncludes(error, "lang");
+  });
+
+  test("create rejects a non-https ogImage", async () => {
+    const error = await stack.http.writeErr(
+      "managed-pages:write:page:create",
+      { slug: "og-js", lang: "en", title: "x", body: "x", ogImage: "javascript:alert(1)" },
+      tenantAdmin,
+    );
+    expectErrorIncludes(error, "ogImage");
+  });
+
+  test("update rejects a bad slug in changes", async () => {
+    await stack.http.writeOk(
+      "managed-pages:write:page:create",
+      {
+        slug: "og-ok",
+        lang: "en",
+        title: "x",
+        body: "x",
+        ogImage: "https://cdn.example.com/og.png",
+      },
+      tenantAdmin,
+    );
+    const list = await stack.http.queryOk<{ rows: Array<{ id: string; slug: string }> }>(
+      "managed-pages:query:page:list",
+      {},
+      tenantAdmin,
+    );
+    const id = list.rows.find((row) => row.slug === "og-ok")?.id;
+    if (!id) throw new Error("og-ok page not listed");
+    const detail = await stack.http.queryOk<{ version: number }>(
+      "managed-pages:query:page:detail",
+      { id },
+      tenantAdmin,
+    );
+    const error = await stack.http.writeErr(
+      "managed-pages:write:page:update",
+      { id, version: detail.version, changes: { slug: "Bad Slug" } },
+      tenantAdmin,
+    );
+    expectErrorIncludes(error, "slug");
+  });
+
+  test("set rejects an http ogImage", async () => {
+    const error = await stack.http.writeErr(
+      "managed-pages:write:set",
+      {
+        slug: "set-og",
+        lang: "en",
+        title: "x",
+        body: null,
+        ogImage: "http://insecure.example/og.png",
+      },
+      tenantAdmin,
+    );
+    expectErrorIncludes(error, "ogImage");
+  });
 });
 
 describe("managed-pages :: Branding (Config + Render)", () => {
@@ -465,12 +593,12 @@ describe("managed-pages :: Branding (Config + Render)", () => {
   const adminA = createTestUser({ id: 20, roles: ["TenantAdmin"], tenantId: TENANT_A });
   const adminB = createTestUser({ id: 21, roles: ["TenantAdmin"], tenantId: TENANT_B });
 
-  test("configEdit-Screen branding-settings is registered", () => {
-    expect(Object.keys(managed.screens)).toContain("branding-settings");
+  test("managed-pages no longer registers the branding-settings screen (it lives in branding)", () => {
+    expect(Object.keys(managed.screens)).not.toContain("branding-settings");
   });
 
   test("Custom-CSS-Key NOT registered without allowCustomCss (fail-closed-by-construction)", async () => {
-    // With allowCustomCss=false, the branding-custom-css key is not registered and
+    // With allowCustomCss=false, the custom-css key is not registered and
     // writes are rejected. This preserves the fail-closed behavior if keys are
     // ever registered unconditionally.
     const error = await stack.http.writeErr(
@@ -478,7 +606,11 @@ describe("managed-pages :: Branding (Config + Render)", () => {
       { key: BRANDING_QN.customCss, value: ".x { color: red; }" },
       adminA,
     );
-    expect(error).toBeTruthy();
+    expect(error).toMatchObject({
+      code: "not_found",
+      httpStatus: 404,
+      i18nKey: "config.errors.unknownKey",
+    });
   });
 
   test("valid Branding (Hex + https + Preset) is set and applied in rendering", async () => {
@@ -545,7 +677,11 @@ describe("managed-pages :: Branding (Config + Render)", () => {
       adminA,
     );
     await stack.http.writeOk("config:write:set", { key: BRANDING_QN.siteUrl, value: "" }, adminA);
-    const branding = await stack.http.queryOk<{ siteUrl: string }>(BRANDING_QUERY_QN, {}, adminA);
+    const branding = await stack.http.queryOk<{ siteUrl: string }>(
+      BRANDING_TOKENS_QUERY_QN,
+      {},
+      adminA,
+    );
     expect(branding.siteUrl).toBe("");
   });
 
@@ -587,18 +723,26 @@ describe("managed-pages :: Branding (Config + Render)", () => {
     );
     expect(res.isSuccess).toBe(true);
 
-    const branding = await stack.http.queryOk<{ title: string }>(BRANDING_QUERY_QN, {}, adminA);
+    const branding = await stack.http.queryOk<{ title: string }>(
+      BRANDING_TOKENS_QUERY_QN,
+      {},
+      adminA,
+    );
     expect(branding.title).toBe("Provisioned by system");
 
     // The provisioned value lands on TENANT_A only — not leaked to TENANT_B.
-    const brandingB = await stack.http.queryOk<{ title: string }>(BRANDING_QUERY_QN, {}, adminB);
+    const brandingB = await stack.http.queryOk<{ title: string }>(
+      BRANDING_TOKENS_QUERY_QN,
+      {},
+      adminB,
+    );
     expect(brandingB.title).not.toBe("Provisioned by system");
   });
 });
 
 // Separate stack with allowCustomCss:true and the companion toggle feature. The
 // per-tenant gate is simulated through `effectiveFeatures`: TENANT_A enables
-// `managed-pages-css`, while TENANT_B disables it: same app opt-in
+// `branding-css`, while TENANT_B disables it: same app opt-in
 // (allowCustomCss), different operator/tier toggle. This verifies end-to-end
 // rendering, the kill switch, and that the render sanitizer catches values that
 // bypassed the write-path validation.
@@ -613,23 +757,23 @@ describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
       if (host.startsWith("b.")) return TENANT_B;
       return null;
     },
-    allowCustomCss: true,
   });
-  const cssGate = createManagedPagesCssFeature();
+  const brandingWithCss = createBrandingFeature({ allowCustomCss: true });
+  const cssGate = createBrandingCssFeature();
   const cssConfigFeature = createConfigFeature();
 
   beforeAll(async () => {
     const resolver = createConfigResolver();
     cssStack = await setupTestStack({
-      features: [cssConfigFeature, managedWithCss, cssGate],
+      features: [cssConfigFeature, brandingWithCss, managedWithCss, cssGate],
       anonymousAccess: {
         tenantExists: async (id) => id === TENANT_A || id === TENANT_B,
       },
       // Per-Tenant-Toggle: A enabled, B disabled.
       effectiveFeatures: (tid) =>
         tid === TENANT_A
-          ? new Set(["config", "managed-pages", "managed-pages-css"])
-          : new Set(["config", "managed-pages"]),
+          ? new Set(["config", "branding", "managed-pages", "branding-css"])
+          : new Set(["config", "branding", "managed-pages"]),
       extraContext: ({ registry }) => ({
         configResolver: resolver,
         configAccessorFactory: createConfigAccessorFactory(registry, resolver),
@@ -668,7 +812,7 @@ describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
     // The branding query returns the raw customCss, proving both that the key is
     // registered and that its value persists—not merely that the write succeeds.
     const branding = await cssStack.http.queryOk<{ customCss?: string }>(
-      BRANDING_QUERY_QN,
+      BRANDING_TOKENS_QUERY_QN,
       {},
       cssAdminA,
     );
@@ -726,9 +870,9 @@ describe("managed-pages :: Custom CSS (gated, sanitized render)", () => {
   });
 
   test("configEdit-Screen displays the customCss field when allowCustomCss", () => {
-    const screen = managedWithCss.screens["branding-settings"];
+    const screen = brandingWithCss.screens["branding-settings"];
     expect(screen).toBeTruthy();
-    expect(JSON.stringify(screen)).toContain("branding-custom-css");
+    expect(JSON.stringify(screen)).toContain(BRANDING_QN.customCss);
   });
 });
 
@@ -763,7 +907,7 @@ describe("managed-pages :: resolverTrust authoritative (host-based, as in public
   beforeAll(async () => {
     const resolver = createConfigResolver();
     authStack = await setupTestStack({
-      features: [authConfigFeature, authManaged],
+      features: [authConfigFeature, createBrandingFeature(), authManaged],
       anonymousAccess: {
         // No URL fallback—this mirrors publicstatus' real resolver
         // (resolveSubdomain(c.req.header("Host") ?? "")). An internal

@@ -90,6 +90,8 @@ export async function requestTenantDestruction(args: RequestTenantDestructionArg
         requestedBy: actor.id,
         gracePeriodEnd: gracePeriodEnd.toString(),
       },
+      blindAppendReason:
+        "records the transition crud.update just performed on this tenant stream in the same transaction; the status check on the tenant row decided it, and that update already moved the stream version",
     },
   );
 

@@ -116,17 +116,24 @@ describe("createClientIpResolver", () => {
       expect(resolver.resolve(sourceOf({ "x-forwarded-for": "9.9.9.9" }))).toBe("9.9.9.9");
     });
 
-    test("no XFF: falls back to x-real-ip", () => {
+    test("no XFF: ignores x-real-ip and uses the socket address", () => {
       const resolver = createClientIpResolver(1);
-      expect(resolver.resolve(sourceOf({ "x-real-ip": "203.0.113.10" }))).toBe("203.0.113.10");
+      expect(resolver.resolve(sourceOf({ "x-real-ip": "203.0.113.10" }, "10.2.2.2"))).toBe(
+        "10.2.2.2",
+      );
     });
 
-    test("no XFF and no x-real-ip: falls back to the socket address", () => {
+    test("no XFF, x-real-ip only, no socket address: 'unknown'", () => {
+      const resolver = createClientIpResolver(1);
+      expect(resolver.resolve(sourceOf({ "x-real-ip": "203.0.113.10" }))).toBe("unknown");
+    });
+
+    test("no XFF: falls back to the socket address", () => {
       const resolver = createClientIpResolver(1);
       expect(resolver.resolve(sourceOf({}, "10.2.2.2"))).toBe("10.2.2.2");
     });
 
-    test("no XFF, no x-real-ip, no socket address: falls back to 'unknown', never skips", () => {
+    test("no XFF, no socket address: falls back to 'unknown', never skips", () => {
       const resolver = createClientIpResolver(1);
       expect(resolver.resolve(sourceOf({}))).toBe("unknown");
     });
@@ -138,11 +145,13 @@ describe("createClientIpResolver", () => {
   });
 
   describe("hops = 2: chain shorter than configured hops falls back", () => {
-    test("a single-entry chain (shorter than 2 hops) falls back to x-real-ip", () => {
+    test("a single-entry chain (shorter than 2 hops) falls back to the socket address, not x-real-ip", () => {
       const resolver = createClientIpResolver(2);
       expect(
-        resolver.resolve(sourceOf({ "x-forwarded-for": "9.9.9.9", "x-real-ip": "203.0.113.11" })),
-      ).toBe("203.0.113.11");
+        resolver.resolve(
+          sourceOf({ "x-forwarded-for": "9.9.9.9", "x-real-ip": "203.0.113.11" }, "10.4.4.4"),
+        ),
+      ).toBe("10.4.4.4");
     });
 
     test("a two-entry chain resolves to the leftmost (first) trusted-hop entry", () => {

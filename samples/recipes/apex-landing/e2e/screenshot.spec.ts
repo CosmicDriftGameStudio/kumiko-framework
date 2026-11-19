@@ -9,8 +9,8 @@ import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
-import { HERO_SCREENSHOT } from "../src/constants";
-import { renderLanding, SAMPLE_PLANS } from "../src/feature";
+import { HERO_SCREENSHOT, SAMPLE_PLANS } from "../src/constants";
+import { renderLanding } from "../src/feature";
 
 const OUT_DIR = process.env["SCREENSHOT_DIR"] ?? resolve(import.meta.dirname, "../screenshots");
 const HERO_APP_PNG = resolve(OUT_DIR, "hero-app.png");

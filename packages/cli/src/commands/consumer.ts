@@ -1,7 +1,7 @@
-import { join } from "node:path";
-import { loadAppConfig } from "./load-app-config";
+import { loadAppConfigWithDatabaseUrl } from "./load-app-config";
 import type { CliCommand, CliCommandContext } from "./types";
 
+const CONSUMER_STATE_TABLE = "public.kumiko_event_consumers";
 const CONSUMER_SUBCOMMANDS = ["list", "status", "restart", "disable", "enable", "skip"] as const;
 type ConsumerSubcommand = (typeof CONSUMER_SUBCOMMANDS)[number];
 
@@ -24,26 +24,11 @@ export const consumerCommand: CliCommand = {
       return 1;
     }
 
-    const configPath = join(ctx.cwd, "kumiko.config.ts");
-    if (!(await Bun.file(configPath).exists())) {
-      ctx.out.err("");
-      ctx.out.err(`  kumiko.config.ts not found at: ${configPath}`);
-      ctx.out.err("");
-      return 1;
-    }
-
-    const databaseUrl = process.env["DATABASE_URL"];
-    if (!databaseUrl) {
-      ctx.out.err("");
-      ctx.out.err("  DATABASE_URL not set.");
-      ctx.out.err("");
-      return 1;
-    }
-
-    const config = await loadAppConfig(ctx, configPath);
-    if (config === null) return 1;
+    const loaded = await loadAppConfigWithDatabaseUrl(ctx);
+    if (loaded === null) return 1;
+    const { config, databaseUrl } = loaded;
     const { createRegistry } = await import("@cosmicdrift/kumiko-framework/engine");
-    const { createDbConnection } = await import("@cosmicdrift/kumiko-framework/db");
+    const { createDbConnection, tableExists } = await import("@cosmicdrift/kumiko-framework/db");
     const {
       createEventConsumerStateTable,
       disableConsumer,
@@ -68,13 +53,19 @@ export const consumerCommand: CliCommand = {
     const { db, close } = createDbConnection({ url: databaseUrl });
 
     try {
-      await createEventConsumerStateTable(db);
+      if (sub !== "list" && sub !== "status") await createEventConsumerStateTable(db);
       return await runInSystemRowLevelSecurityScope(
         "operator consumer tool skips poison events, which reads the events of every tenant",
         async () => {
           switch (sub) {
             case "list":
-              return await listConsumers(ctx, db, registeredConsumerNames, listConsumersWithState);
+              return await listConsumers(
+                ctx,
+                db,
+                registeredConsumerNames,
+                listConsumersWithState,
+                await tableExists(db, CONSUMER_STATE_TABLE),
+              );
             case "status":
               return await showConsumerStatus(
                 ctx,
@@ -82,6 +73,7 @@ export const consumerCommand: CliCommand = {
                 arg,
                 registeredConsumerNames,
                 getConsumerState,
+                await tableExists(db, CONSUMER_STATE_TABLE),
               );
             case "restart":
               return await transitionOne(ctx, "restart", arg, "restarted", (name) =>
@@ -123,7 +115,16 @@ async function listConsumers(
   db: import("@cosmicdrift/kumiko-framework/db").DbConnection,
   registeredConsumerNames: readonly string[],
   listConsumersWithState: typeof import("@cosmicdrift/kumiko-framework/pipeline").listConsumersWithState,
+  stateTableExists: boolean,
 ): Promise<number> {
+  if (!stateTableExists) {
+    ctx.out.log("");
+    ctx.out.log(
+      "  No event consumer has run yet: table kumiko_event_consumers does not exist (the app creates it on boot).",
+    );
+    ctx.out.log("");
+    return 0;
+  }
   const entries = await listConsumersWithState(db, registeredConsumerNames);
   if (entries.length === 0) {
     ctx.out.log("");
@@ -150,6 +151,7 @@ async function showConsumerStatus(
   arg: string | undefined,
   registeredConsumerNames: readonly string[],
   getConsumerState: typeof import("@cosmicdrift/kumiko-framework/pipeline").getConsumerState,
+  stateTableExists: boolean,
 ): Promise<number> {
   if (!arg) {
     ctx.out.err("");
@@ -157,7 +159,7 @@ async function showConsumerStatus(
     ctx.out.err("");
     return 1;
   }
-  const state = await getConsumerState(db, arg);
+  const state = stateTableExists ? await getConsumerState(db, arg) : null;
   if (!state) {
     if (!registeredConsumerNames.includes(arg)) {
       ctx.out.err("");

@@ -14,6 +14,7 @@ import * as z from "zod";
 import { generateE2ESpec, generateZodFixture } from "../e2e-generator.ts";
 
 const taskEntity = createEntity({
+  name: "task",
   table: "tasks",
   fields: {
     title: createTextField({
@@ -33,7 +34,7 @@ const taskEntity = createEntity({
 function createTasksFeature() {
   return defineFeature("tasks", (r) => {
     r.systemScope();
-    r.entity({ name: "task", ...taskEntity });
+    r.entity(taskEntity);
     r.writeHandler(
       defineEntityCreateHandler("task", taskEntity, {
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -100,7 +101,7 @@ describe("generateE2ESpec", () => {
   test("groups-only sections provide required fields, fill ops, and text assertion", () => {
     const feature = defineFeature("tasks", (r) => {
       r.systemScope();
-      r.entity({ name: "task", ...taskEntity });
+      r.entity(taskEntity);
       r.writeHandler(
         defineEntityCreateHandler("task", taskEntity, {
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -148,6 +149,7 @@ describe("generateE2ESpec", () => {
 
   test("date emits fill, timestamp is skipped (two inputs)", () => {
     const entity = createEntity({
+      name: "event",
       table: "events",
       fields: {
         title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -157,7 +159,7 @@ describe("generateE2ESpec", () => {
     });
     const feature = defineFeature("events", (r) => {
       r.systemScope();
-      r.entity({ name: "event", ...entity });
+      r.entity(entity);
       r.writeHandler(
         defineEntityCreateHandler("event", entity, {
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -206,7 +208,7 @@ describe("generateE2ESpec", () => {
     // generated wrongly.
     const readOnly = defineFeature("read-only", (r) => {
       r.systemScope();
-      r.entity({ name: "task", ...taskEntity });
+      r.entity(taskEntity);
       r.screen({ id: "list", type: "entityList", entity: "task", columns: ["title"] });
     });
     const specs = generateE2ESpec(createRegistry([readOnly]));
@@ -220,7 +222,7 @@ describe("generateE2ESpec", () => {
     // verifies inside the edit view itself).
     const editOnly = defineFeature("edit-only", (r) => {
       r.systemScope();
-      r.entity({ name: "task", ...taskEntity });
+      r.entity(taskEntity);
       r.writeHandler(
         defineEntityCreateHandler("task", taskEntity, {
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -244,6 +246,7 @@ describe("generateE2ESpec", () => {
     // otherwise Zod validation on the server fails as soon as the generator
     // output runs against a real API.
     const contactEntity = createEntity({
+      name: "contact",
       table: "contacts",
       fields: {
         name: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -258,7 +261,7 @@ describe("generateE2ESpec", () => {
     });
     const feature = defineFeature("contacts", (r) => {
       r.systemScope();
-      r.entity({ name: "contact", ...contactEntity });
+      r.entity(contactEntity);
       r.writeHandler(
         defineEntityCreateHandler("contact", contactEntity, {
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -283,7 +286,7 @@ describe("generateE2ESpec", () => {
     // types. Custom is skipped, list + edit yield their respective spec kinds.
     const mixed = defineFeature("mixed", (r) => {
       r.systemScope();
-      r.entity({ name: "task", ...taskEntity });
+      r.entity(taskEntity);
       r.writeHandler(
         defineEntityCreateHandler("task", taskEntity, {
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },

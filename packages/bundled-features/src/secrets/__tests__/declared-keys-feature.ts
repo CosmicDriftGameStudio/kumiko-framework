@@ -22,14 +22,16 @@ export function createDeclaredKeysFeature(): {
   let keys: DeclaredSecretKeys | undefined;
   const feature = defineFeature("secrets-test", (r) => {
     keys = {
-      plain: r.secret("plain.key", { label: { en: "Plain key" }, scope: "tenant" }),
-      systemOnly: r.secret("system.only.key", {
+      plain: r.secret({ name: "plain.key", label: { en: "Plain key" }, scope: "tenant" }),
+      systemOnly: r.secret({
+        name: "system.only.key",
         label: { en: "System-only key" },
         scope: "tenant",
         writeRoles: ["SystemAdmin"],
       }),
-      extra: r.secret("extra.key", { label: { en: "Extra key" }, scope: "tenant" }),
-      namespace: r.secretNamespace("hooks", {
+      extra: r.secret({ name: "extra.key", label: { en: "Extra key" }, scope: "tenant" }),
+      namespace: r.secretNamespace({
+        name: "hooks",
         label: { en: "Hook tokens" },
         scope: "tenant",
         nameSchema: z
@@ -37,7 +39,8 @@ export function createDeclaredKeysFeature(): {
           .min(1)
           .regex(/^[a-z][a-z0-9-]*$/),
       }),
-      systemOnlyNamespace: r.secretNamespace("operator-hooks", {
+      systemOnlyNamespace: r.secretNamespace({
+        name: "operator-hooks",
         label: { en: "Operator hook tokens" },
         scope: "tenant",
         writeRoles: ["SystemAdmin"],

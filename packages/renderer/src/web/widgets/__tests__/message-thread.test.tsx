@@ -60,11 +60,11 @@ describe("MessageThread", () => {
       "Guten Tag, seit gestern Abend ist meine Heizung komplett kalt. Bitte melden.",
     );
     expect(row.textContent).toContain("Mo 08:14");
-    expect(screen.getByTestId("message-open-m3")).toBeTruthy();
+    screen.getByTestId("message-open-m3");
     expect(screen.queryByTestId("message-open-m1")).toBeNull();
 
     fireEvent.click(row);
-    expect(screen.getByTestId("message-open-m1")).toBeTruthy();
+    screen.getByTestId("message-open-m1");
     expect(screen.queryByTestId("message-row-m1")).toBeNull();
   });
 
@@ -83,7 +83,7 @@ describe("MessageThread", () => {
       expect(row.querySelector('[data-testid="message-row-chevron"]')).not.toBeNull();
     }
     fireEvent.click(screen.getByTestId("message-row-m1"));
-    expect(screen.getByTestId("message-open-m1")).toBeTruthy();
+    screen.getByTestId("message-open-m1");
   });
 
   test("quoted text is folded behind a button with the line count and toggles", () => {
@@ -102,8 +102,8 @@ describe("MessageThread", () => {
     const open = screen.getByTestId("message-open-m3");
     expect(open.textContent).toContain("a.schneider@mieter.test");
     expect(open.textContent).toContain("Heute 09:41");
-    expect(screen.getByText("thermometer-kinderzimmer.jpg")).toBeTruthy();
-    expect(screen.getByText("Foto, 1,2 MB")).toBeTruthy();
+    screen.getByText("thermometer-kinderzimmer.jpg");
+    screen.getByText("Foto, 1,2 MB");
   });
 
   test("showHeaders false drops author, address and time but keeps body and attachments", () => {
@@ -112,7 +112,7 @@ describe("MessageThread", () => {
     const open = screen.getByTestId("message-open-m3");
     expect(open.textContent).not.toContain("a.schneider@mieter.test");
     expect(open.textContent).toContain("Der Monteur ist nicht gekommen.");
-    expect(screen.getByText("thermometer-kinderzimmer.jpg")).toBeTruthy();
+    screen.getByText("thermometer-kinderzimmer.jpg");
   });
 
   describe("html bodies", () => {
@@ -233,7 +233,7 @@ describe("MessageThread", () => {
     ])("folds the quote of a sanitized %s body", (_client, html) => {
       render(<MessageThread messages={[{ ...annaLast, body: { kind: "html", html } }]} />);
       expect(screen.getAllByTitle("Anna Schneider").length).toBe(1);
-      expect(screen.getByText(/^Show quoted text \(\d+ lines\)$/)).toBeTruthy();
+      screen.getByText(/^Show quoted text \(\d+ lines\)$/);
     });
 
     test("the folded main part ends at the signature: no Gmail separator break, no trailing margin", () => {
@@ -275,9 +275,9 @@ describe("ClampedText", () => {
     mockBoxHeights(400, 200);
     render(<ClampedText lines={4}>lange Nachricht</ClampedText>);
     fireEvent.click(screen.getByText("Show more"));
-    expect(screen.getByText("Show less")).toBeTruthy();
+    screen.getByText("Show less");
     fireEvent.click(screen.getByText("Show less"));
-    expect(screen.getByText("Show more")).toBeTruthy();
+    screen.getByText("Show more");
   });
 
   test("a folded thread offers the whole mail instead of more, a plain thread keeps show more", () => {
@@ -285,9 +285,9 @@ describe("ClampedText", () => {
     const { rerender } = render(
       <MessageThread messages={[reply, annaLast]} clampLines={4} foldOlderTogether />,
     );
-    expect(screen.getByText("Read the whole mail")).toBeTruthy();
+    screen.getByText("Read the whole mail");
     rerender(<MessageThread messages={[reply, annaLast]} clampLines={4} />);
-    expect(screen.getByText("Show more")).toBeTruthy();
+    screen.getByText("Show more");
   });
 
   test("a folded thread cuts an html mail short by height, a plain thread shows it whole", () => {
@@ -300,7 +300,7 @@ describe("ClampedText", () => {
       <MessageThread messages={[reply, htmlLast]} clampLines={4} foldOlderTogether />,
     );
     fireEvent.click(screen.getByText("Read the whole mail"));
-    expect(screen.getByText("Show less")).toBeTruthy();
+    screen.getByText("Show less");
     rerender(<MessageThread messages={[reply, htmlLast]} clampLines={4} />);
     expect(screen.queryByText("Read the whole mail")).toBeNull();
     expect(screen.queryByText("Show more")).toBeNull();
@@ -369,7 +369,7 @@ describe("MessageReader", () => {
   test("without attachment tabs there is no tab bar", () => {
     render(<MessageReader thread={{ messages: [annaLast] }} />);
     expect(screen.queryByRole("tablist")).toBeNull();
-    expect(screen.getByTestId("message-thread")).toBeTruthy();
+    screen.getByTestId("message-thread");
   });
 
   test("with tabs it starts on the mail and switches uncontrolled", () => {
@@ -381,11 +381,11 @@ describe("MessageReader", () => {
         onTabChange={onTabChange}
       />,
     );
-    expect(screen.getByRole("tablist")).toBeTruthy();
-    expect(screen.getByTestId("message-thread")).toBeTruthy();
+    screen.getByRole("tablist");
+    screen.getByTestId("message-thread");
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Anhang 1: Vertrag.pdf" }));
     fireEvent.click(screen.getByRole("tab", { name: "Anhang 1: Vertrag.pdf" }));
-    expect(screen.getByText("PDF-Vorschau Vertrag")).toBeTruthy();
+    screen.getByText("PDF-Vorschau Vertrag");
     expect(screen.queryByTestId("message-thread")).toBeNull();
     expect(onTabChange).toHaveBeenCalledWith("att1");
   });
@@ -394,7 +394,7 @@ describe("MessageReader", () => {
     render(
       <MessageReader thread={{ messages: [annaLast] }} attachmentTabs={tabs} activeTabId="att1" />,
     );
-    expect(screen.getByText("PDF-Vorschau Vertrag")).toBeTruthy();
+    screen.getByText("PDF-Vorschau Vertrag");
   });
 });
 
@@ -446,16 +446,16 @@ describe("MessageThread folded older messages", () => {
     render(<MessageThread messages={[annaFirst, reply, annaLast]} foldOlderTogether />);
     expect(screen.queryByTestId("message-row-m1")).toBeNull();
     expect(screen.queryByTestId("message-row-m2")).toBeNull();
-    expect(screen.getByTestId("message-open-m3")).toBeTruthy();
+    screen.getByTestId("message-open-m3");
     fireEvent.click(screen.getByText("2 earlier mails"));
-    expect(screen.getByTestId("message-row-m1")).toBeTruthy();
-    expect(screen.getByTestId("message-row-m2")).toBeTruthy();
+    screen.getByTestId("message-row-m1");
+    screen.getByTestId("message-row-m2");
     expect(screen.queryByTestId("message-thread-earlier")).toBeNull();
   });
 
   test("one older message gets the singular toggle, a single message none", () => {
     const { rerender } = render(<MessageThread messages={[reply, annaLast]} foldOlderTogether />);
-    expect(screen.getByText("1 earlier mail")).toBeTruthy();
+    screen.getByText("1 earlier mail");
     rerender(<MessageThread messages={[annaLast]} foldOlderTogether />);
     expect(screen.queryByTestId("message-thread-earlier")).toBeNull();
   });

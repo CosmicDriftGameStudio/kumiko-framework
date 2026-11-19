@@ -36,7 +36,7 @@ export function defineCreateWithTenantDefaults(
     readonly localeField?: string;
   },
 ): WriteHandlerDef {
-  const { executor } = createEntityExecutor(entityName, entity);
+  const { executor } = createEntityExecutor({ ...entity, name: entityName });
   const relax: Record<string, z.ZodTypeAny> = {};
   for (const field of options.currencyFields ?? []) {
     const def = entity.fields[field];

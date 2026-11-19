@@ -1,7 +1,7 @@
 # Lifecycle hooks
 
-Attach behaviour to the four entity lifecycle moments: validation
-(reject bad input), postSave (log every change), preDelete (block delete
+Attach behaviour to the five entity lifecycle moments: validation
+(reject bad input), preSave (derive fields or reject the write), postSave (log every change), preDelete (block delete
 when an invariant says no), postDelete (log after commit). This recipe
 ships an `article` entity with hooks at each phase.
 
@@ -16,6 +16,7 @@ back.
   handler body executes. Returns either `null` (pass) or an array of
   `{ field, error }` objects (fail). Used here to reject titles
   containing the word "spam" and titles longer than 200 characters.
+- **`r.hook({ type: "preSave", target: [createRef, updateRef], handler })`** — runs inside the write before ownership checks and may return derived fields. Throwing a KumikoError (here `UnprocessableError("published_article_needs_content")` with `details.fields`) rejects the write with exactly that error, and no event is written; any other throw surfaces as `presave_hook_failed`. For `r.crud` entities the target is the handler name, for example `"article:create"`.
 - **`r.hook({ type: "postSave", target: { allOf: entityRef }, handler })`** — fires after every
   successful save (create or update) in the same transaction.
   `result.isNew` distinguishes create from update; `result.changes`
@@ -42,7 +43,7 @@ pick the right rollback semantics for each side effect.
 ## Source
 
 The whole feature lives in `src/feature.ts` (~100 lines). Integration
-tests exercise each of the four hook phases plus the rollback path on
+tests exercise each of the five hook phases plus the rollback path on
 preDelete violation.
 
 ```bash

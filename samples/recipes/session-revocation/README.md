@@ -20,9 +20,8 @@ const callbacks = createSessionCallbacks({ db });
 
 const server = buildServer({
   registry: buildRegistry([
-    createSessionsFeature({
-      autoRevokeOnPasswordChange: callbacks.sessionMassRevoker,
-    }),
+    // A password change revokes every session in the same transaction.
+    createSessionsFeature(),
     // ... other features
   ]),
   context: { db /* ... */ },

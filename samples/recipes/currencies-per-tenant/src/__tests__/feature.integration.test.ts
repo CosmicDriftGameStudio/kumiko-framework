@@ -17,13 +17,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { currencyEntity } from "../entities/currency";
-import { invoiceEntity } from "../entities/invoice";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { currenciesPerTenantFeature } from "../feature";
 
 // The executor returns the rehydrated read-form: money is the combined
@@ -40,9 +34,6 @@ beforeAll(async () => {
     features: [currenciesPerTenantFeature],
     systemHooks: [],
   });
-
-  await unsafeCreateEntityTable(stack.db, currencyEntity);
-  await unsafeCreateEntityTable(stack.db, invoiceEntity);
 
   // Tenant 1 creates their own currencies: EUR, USD, XYZ
   for (const { code, name } of [

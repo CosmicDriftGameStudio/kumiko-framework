@@ -2,7 +2,6 @@ import { isPiiCiphertext, PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framew
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  InternalError,
   NotFoundError,
   UnprocessableError,
   writeFailure,
@@ -28,14 +27,12 @@ export const retryWrite = defineWriteHandler({
   // Post-ES: runId is the uuid aggregate-id. See detail.query for the
   // rationale — jobs is framework-ops, callers are admin tooling only.
   schema: z.object({ runId: z.uuid() }),
+  agent: { expose: false },
   access: { roles: ["SystemAdmin"] },
+  systemScope: true,
   handler: async (event, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message: "jobs:write:retry requires ctx.systemDb (feature must declare r.systemScope())",
-      });
-    }
-    const db = ctx.systemDb.acknowledgeCrossTenant("cross-tenant job monitoring");
+    const { systemDb } = ctx;
+    const db = systemDb.acknowledgeCrossTenant("cross-tenant job monitoring");
     // @cast-boundary engine-payload — JobRunner attached by app-boot via ctx-extension
     const jobRunner = ctx.services.jobRunner as JobRunner;
 
@@ -54,6 +51,26 @@ export const retryWrite = defineWriteHandler({
         new UnprocessableError(JobErrors.onlyFailedCanRetry, {
           i18nKey: "jobs.errors.onlyFailedCanRetry",
           details: { status: run.status },
+        }),
+      );
+    }
+
+    const jobDef = ctx.registry.getJob(run.jobName);
+    if (!jobDef) {
+      return writeFailure(
+        new NotFoundError("job", run.jobName, { i18nKey: "jobs.errors.unknownJob" }),
+      );
+    }
+
+    // The run row stores neither the tenant of a perTenant child run nor the
+    // event payload, so a retry would fan out to every tenant or run with an
+    // empty payload.
+    const rerunInputUnrecorded = jobDef.perTenant === true || "on" in jobDef.trigger;
+    if (rerunInputUnrecorded) {
+      return writeFailure(
+        new UnprocessableError(JobErrors.notRetryable, {
+          i18nKey: "jobs.errors.notRetryable",
+          details: { jobName: run.jobName },
         }),
       );
     }

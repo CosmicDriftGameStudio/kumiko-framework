@@ -1,7 +1,9 @@
-import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
+import { forEachPage, type JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { requestExecutor } from "./entity.ts";
+import { RendererError } from "../renderer-foundation/index.ts";
+import { renderHtmlToPdf } from "../renderer-puppeteer-client/index.ts";
+import { signerExecutor, ungatedRequestExecutor } from "./entity.ts";
 import {
   discardGeneratedFile,
   PDF_MIME_TYPE,
@@ -16,7 +18,6 @@ import {
   type RequestRow,
   type SignerRow,
 } from "./lib.ts";
-import type { SignatureOptions } from "./options.ts";
 import {
   appendPdfPages,
   buildSignaturePageHtml,
@@ -27,35 +28,53 @@ import {
   SIGNATURE_FAILURE_REASON,
   SIGNATURE_METHOD,
   SIGNATURE_REQUEST_STATUS,
+  SIGNATURE_SIGNER_STATUS,
   type SignatureFailureReason,
   SignatureInternalHandlers,
 } from "./web/constants.ts";
 
-// Equals the executor's MAX_LIST_LIMIT.
-const SWEEP_PAGE_SIZE = 200;
-
-type RequestPage = Awaited<ReturnType<typeof requestExecutor.list>>;
-
+// ungated: system paths only (sweep runs as systemUser over every host)
 // Keyset-paged, so rows that leave the status while the sweep works on them cannot shift the next page.
-async function forEachRequestWithStatus(
+export async function forEachRequestPageWithStatus(
   ctx: JobContext,
   status: string,
-  visit: (request: RequestRow) => Promise<void>,
+  visitPage: (requests: readonly RequestRow[]) => Promise<void>,
 ): Promise<void> {
-  let cursor: string | null = null;
-  do {
-    const page: RequestPage = await requestExecutor.list(
-      {
-        filter: { field: "status", op: "eq", value: status },
-        limit: SWEEP_PAGE_SIZE,
-        ...(cursor !== null && { cursor }),
-      },
-      ctx.systemUser,
-      ctx.db,
-    );
-    for (const request of page.rows) await visit(request);
-    cursor = page.nextCursor;
-  } while (cursor !== null);
+  await forEachPage(
+    (request) =>
+      ungatedRequestExecutor.list(
+        { filter: { field: "status", op: "eq", value: status }, ...request },
+        ctx.systemUser,
+        ctx.db,
+      ),
+    async (requests) => {
+      await visitPage(requests);
+    },
+  );
+}
+
+// One grouped count per page instead of a reconcile write per open request: most open requests
+// still wait for a signer, and reconciling them would load the signers only to change nothing.
+async function requestIdsWithUnsignedSigners(
+  ctx: JobContext,
+  requestIds: readonly string[],
+): Promise<ReadonlySet<string> | null> {
+  if (requestIds.length === 0) return new Set();
+  const result = await signerExecutor.aggregate(
+    {
+      filters: [
+        { field: "requestId", op: "in", value: requestIds },
+        { field: "status", op: "ne", value: SIGNATURE_SIGNER_STATUS.Signed },
+      ],
+      aggregate: { groupBy: "requestId", measures: [] },
+    },
+    ctx.systemUser,
+    ctx.db,
+  );
+  if (result.truncated === true) return null;
+  return new Set(
+    result.groups.flatMap((group) => (typeof group.key === "string" ? [group.key] : [])),
+  );
 }
 
 function bySignedAt(left: SignerRow, right: SignerRow): number {
@@ -69,22 +88,27 @@ async function signaturePageEntries(
   ctx: JobContext,
   signers: readonly SignerRow[],
 ): Promise<readonly SignaturePageEntry[] | null> {
-  const entries: SignaturePageEntry[] = [];
-  for (const signer of [...signers].sort(bySignedAt)) {
-    const signedAt = instantOrNull(signer.signedAt);
-    if (signedAt === null || typeof signer.imageFileId !== "string") return null;
-    const image = await readTenantFile(ctx, ctx.systemUser.tenantId, signer.imageFileId);
-    if (image === null) return null;
-    entries.push({
-      name: signer.name,
-      role: signer.role ?? null,
-      signedAtIso: signedAt.toString(),
-      method:
-        signer.method === SIGNATURE_METHOD.Link ? SIGNATURE_METHOD.Link : SIGNATURE_METHOD.InPerson,
-      imagePng: image.content,
-    });
-  }
-  return entries;
+  const sorted = [...signers].sort(bySignedAt);
+  const entries = await Promise.all(
+    sorted.map(async (signer): Promise<SignaturePageEntry | null> => {
+      const signedAt = instantOrNull(signer.signedAt);
+      if (signedAt === null || typeof signer.imageFileId !== "string") return null;
+      const image = await readTenantFile(ctx, ctx.systemUser.tenantId, signer.imageFileId);
+      if (image === null) return null;
+      return {
+        name: signer.name,
+        role: signer.role ?? null,
+        signedAtIso: signedAt.toString(),
+        method:
+          signer.method === SIGNATURE_METHOD.Link
+            ? SIGNATURE_METHOD.Link
+            : SIGNATURE_METHOD.InPerson,
+        imagePng: image.content,
+      };
+    }),
+  );
+  const present = entries.filter((entry): entry is SignaturePageEntry => entry !== null);
+  return present.length === entries.length ? present : null;
 }
 
 async function failRequest(
@@ -112,14 +136,21 @@ async function failRequest(
   }
 }
 
-// Appends the signature page to the unchanged original. A missing or changed original or a
-// missing signature image can never heal and ends the request as failed. A renderer outage
-// throws, the request stays all-signed and the next run tries again.
-async function finalizeRequest(
-  ctx: JobContext,
-  opts: SignatureOptions,
-  request: RequestRow,
-): Promise<void> {
+// The service's size limit does not change between runs, so an oversized page never prints;
+// an outage or any other error still throws and the next run retries.
+async function renderSignaturePages(html: string): Promise<Uint8Array | null> {
+  try {
+    return await renderHtmlToPdf(html);
+  } catch (error) {
+    if (error instanceof RendererError && error.code === "payload_too_large") return null;
+    throw error;
+  }
+}
+
+// Appends the signature page to the unchanged original. A missing or changed original, a missing
+// signature image or a signature page above the renderer's size limit can never heal and ends the
+// request as failed. A renderer outage throws, the request stays all-signed and the next run tries again.
+async function finalizeRequest(ctx: JobContext, request: RequestRow): Promise<void> {
   const original = await readTenantFile(ctx, ctx.systemUser.tenantId, request.documentFileId);
   if (original === null || sha256Hex(original.content) !== request.documentSha256) {
     await failRequest(ctx, request, SIGNATURE_FAILURE_REASON.DocumentChanged);
@@ -139,7 +170,11 @@ async function finalizeRequest(
     entries,
     labels: DEFAULT_SIGNATURE_PAGE_LABELS,
   });
-  const signaturePages = await opts.renderHtmlToPdf(html);
+  const signaturePages = await renderSignaturePages(html);
+  if (signaturePages === null) {
+    await failRequest(ctx, request, SIGNATURE_FAILURE_REASON.SignaturePageTooLarge);
+    return;
+  }
   const completed = await appendPdfPages(original.content, signaturePages);
   const stored = await storeGeneratedFile(ctx, ctx.systemUser, {
     fileName: "signed-document.pdf",
@@ -161,25 +196,36 @@ async function finalizeRequest(
   }
 }
 
-export async function sweepSignatureRequests(
-  ctx: JobContext,
-  opts: SignatureOptions,
-): Promise<void> {
+export async function sweepSignatureRequests(ctx: JobContext): Promise<void> {
   const now = ctx.tz.now();
-  await forEachRequestWithStatus(ctx, SIGNATURE_REQUEST_STATUS.Open, async (request) => {
-    const qn = isPastInstant(request.expiresAt, now)
-      ? SignatureInternalHandlers.expire
-      : SignatureInternalHandlers.reconcile;
-    await ctx.dispatch.write(qn, { requestId: request.id });
+  await forEachRequestPageWithStatus(ctx, SIGNATURE_REQUEST_STATUS.Open, async (requests) => {
+    const running: RequestRow[] = [];
+    for (const request of requests) {
+      if (isPastInstant(request.expiresAt, now)) {
+        await ctx.dispatch.write(SignatureInternalHandlers.expire, { requestId: request.id });
+      } else {
+        running.push(request);
+      }
+    }
+    const unsigned = await requestIdsWithUnsignedSigners(
+      ctx,
+      running.map((request) => request.id),
+    );
+    for (const request of running) {
+      if (unsigned?.has(request.id) === true) continue;
+      await ctx.dispatch.write(SignatureInternalHandlers.reconcile, { requestId: request.id });
+    }
   });
-  await forEachRequestWithStatus(ctx, SIGNATURE_REQUEST_STATUS.AllSigned, async (request) => {
-    try {
-      await finalizeRequest(ctx, opts, request);
-    } catch (error) {
-      ctx.obs.log.warn("[signature:sweep] completing failed, retrying on the next run", {
-        requestId: request.id,
-        error: error instanceof Error ? error.message : String(error),
-      });
+  await forEachRequestPageWithStatus(ctx, SIGNATURE_REQUEST_STATUS.AllSigned, async (requests) => {
+    for (const request of requests) {
+      try {
+        await finalizeRequest(ctx, request);
+      } catch (error) {
+        ctx.obs.log.warn("[signature:sweep] completing failed, retrying on the next run", {
+          requestId: request.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
   });
 }

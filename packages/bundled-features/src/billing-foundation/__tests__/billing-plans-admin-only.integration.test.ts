@@ -59,7 +59,7 @@ const adminOnlyProviderFeature = defineFeature("test-mock-admin-only-provider", 
       };
     },
   };
-  r.useExtension("subscriptionProvider", "mock-admin-only-provider", plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: "mock-admin-only-provider", ...plugin });
 });
 
 async function resolveCurrentTier(db: TenantDb, tenantId: string): Promise<string> {

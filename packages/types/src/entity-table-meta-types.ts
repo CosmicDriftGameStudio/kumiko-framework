@@ -88,6 +88,10 @@ export type EntityTableMeta = {
   // Positive classification: only a marked table gets the row-level-security policy that lets
   // tenant sessions read SYSTEM_TENANT_ID rows. Absent means no such policy.
   readonly systemRowsReadable?: true;
+  // Event schema version of the entity this table projects (EntityDefinition.eventVersion, default 1).
+  // Only entity tables carry it; the migration generator compares it against the previous snapshot
+  // to refuse a column rename without an event migration. Not part of the DDL diff.
+  readonly entityEventVersion?: number;
 };
 
 export type BuildEntityTableMetaOptions = {

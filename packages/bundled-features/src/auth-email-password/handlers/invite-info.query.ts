@@ -65,9 +65,13 @@ export const inviteInfoQuery = defineQueryHandler({
       readonly id: string;
     };
 
-    const invitation = await fetchOne<InvitationRow>(ctx.db.unsafeRaw(), tenantInvitationsTable, {
-      id: invitationId,
-    });
+    const invitation = await fetchOne<InvitationRow>(
+      ctx.db.unsafeRawAllTenants(),
+      tenantInvitationsTable,
+      {
+        id: invitationId,
+      },
+    );
     if (!invitation || invitation.status !== INVITATION_STATUS.pending) {
       throwInvalidInviteToken();
     }

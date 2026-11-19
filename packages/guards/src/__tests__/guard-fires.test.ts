@@ -17,6 +17,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Project, type SourceFile } from "ts-morph";
 import type { AstGuard, GuardOutcome } from "../_lib/guard-kit";
+import { guard as featureImportCyclesGuard } from "../guard-feature-import-cycles";
 import { createGuard as createTailwindScanSurfaceGuard } from "../guard-tailwind-scan-surface";
 import { GUARDS } from "../run-guards";
 import { UI_GUARDS } from "../run-ui-guards";
@@ -91,6 +92,17 @@ function runTailwindPublishedSurfaceFixture(sf: SourceFile): GuardOutcome {
 const CWD = process.cwd();
 const PKG = `${CWD}/packages/framework/src`;
 const FEAT = `${CWD}/packages/bundled-features/src`;
+
+// A cycle needs both features in the scanned files; extraFiles only reach the file system.
+function runFeatureCycleFixture(sf: SourceFile): GuardOutcome {
+  const beta = sf
+    .getProject()
+    .createSourceFile(
+      `${FEAT}/beta/b.ts`,
+      'import { a } from "../alpha/a";\nexport const b = () => a;\n',
+    );
+  return featureImportCyclesGuard.run([sf, beta]);
+}
 const APP = `${CWD}/packages/app/src`;
 
 const ENFORCING: Record<string, Violating> = {
@@ -204,6 +216,21 @@ const ENFORCING: Record<string, Violating> = {
     code: "declare function sleep(ms: number): Promise<void>;\ndeclare function ready(): boolean;\nexport async function poll() { while (!ready()) { await sleep(10); } }",
     expectedMessage: /while loop polls with sleep/,
   },
+  "test-env-writes": {
+    path: `${PKG}/features/x/__tests__/x.test.ts`,
+    code: 'process.env.FOO = "1";',
+    expectedMessage: /direct env write\(s\)/,
+  },
+  "weak-assertions": {
+    path: `${PKG}/features/x/__tests__/x.test.ts`,
+    code: 'declare function load(): unknown;\ntest("loads", () => { expect(load()).toBeDefined(); });',
+    expectedMessage: /weak-assertion test\(s\) (?:over baseline|without a baseline file)/,
+  },
+  "seed-runtime-imports": {
+    path: `${CWD}/packages/app/seeds/demo.ts`,
+    code: 'import { x } from "@cosmicdrift/kumiko-framework/engine";\nexport const y = x;',
+    expectedMessage: /runtime import of/,
+  },
   "Test-ES-Row-Writes Guard": {
     path: `${PKG}/features/x/__tests__/x.integration.test.ts`,
     code: 'import { updateRows } from "@cosmicdrift/kumiko-testing/helpers";\ndeclare const db: never;\nexport const run = () => updateRows(db, {} as never, {}, {});',
@@ -213,6 +240,11 @@ const ENFORCING: Record<string, Violating> = {
     path: `${PKG}/features/x/huge.ts`,
     code: "export const line = 1;\n".repeat(2001),
     expectedMessage: /oversized file\(s\)/,
+  },
+  "Data-Testid Guard": {
+    path: `${PKG}/features/x/hooked.tsx`,
+    code: 'export const View = () => <div data-testid="new-hook" />;',
+    expectedMessage: /data-testid hook\(s\)/,
   },
   "test-template-drift": {
     path: `${PKG}/features/x/e2e/screen.spec.ts`,
@@ -234,6 +266,17 @@ const ENFORCING: Record<string, Violating> = {
     code: "// biome-ignore lint/plugin: user supplied url here\nexport const load = (url: string) => fetch(url);\n",
     expectedMessage: /suppressed security plugin finding\(s\)/,
   },
+  "Handler Definitions": {
+    path: `${FEAT}/x/feature.ts`,
+    code: "declare function defineWriteHandler(cfg: unknown): unknown;\nexport const h = defineWriteHandler({});\n",
+    expectedMessage: /handler definition finding\(s\) (?:over baseline|without a baseline file)/,
+  },
+  "Feature Import Cycles": {
+    path: `${FEAT}/alpha/a.ts`,
+    code: 'import { b } from "../beta/b";\nexport const a = () => b;\n',
+    expectedMessage: /cyclic feature import\(s\) (?:over baseline|without a baseline file)/,
+    execute: runFeatureCycleFixture,
+  },
 };
 
 // These guards can't produce a violation by construction — they report
@@ -241,7 +284,7 @@ const ENFORCING: Record<string, Violating> = {
 // here is bookkeeping about what does NOT block, not a free pass.
 const WARNING_ONLY: Record<string, string> = {
   "Complexity Check":
-    "baseline-ratchet pattern — only fails against a committed `.kumiko-complexity-baseline.json`; stays warning-only until a repo bootstraps it with --write-baseline",
+    "baseline-ratchet against the repo's committed `.kumiko-complexity-baseline.json`; no fixture here because the hard-cap path needs a 40+ branch function",
 };
 
 describe("every registered guard catches its own violation", () => {

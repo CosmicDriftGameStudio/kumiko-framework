@@ -23,7 +23,7 @@ export function createDeleteHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS)
       const secrets = requireSecretsContext(
         { secrets: ctx.services.secrets, user: ctx.user },
         SecretsHandlers.delete,
-      ).withRunner(ctx.db.unsafeRaw());
+      ).withRunner(ctx.db.unsafeRawAllTenants());
       const target = resolveSecretTarget(event.user, event.payload.scope);
       if (!target.ok) return writeFailure(target.error);
       const gate = checkSecretKeyWrite(ctx.registry, event.user.roles, event.payload.key, {

@@ -43,6 +43,28 @@ export async function selectEventsForProjectionRebuildBatch(
   );
 }
 
+// One keyset batch of a multi-stream projection replay: ids in (afterId, horizon], ascending.
+// Archived streams are deliberately NOT excluded: the live dispatcher delivers them, so the
+// rebuild must see the same events or sums and counters drift after a rebuild.
+export async function selectEventsForMultiStreamRebuild(
+  db: AnyDb,
+  eventTypes: readonly string[],
+  afterId: bigint,
+  horizon: bigint,
+  limit: number,
+): Promise<ReadonlyArray<Record<string, unknown>>> {
+  return unsafeReadRetrying<Record<string, unknown>>(
+    db,
+    `SELECT e.* FROM "kumiko_events" e
+     WHERE e."type" = ANY($1::text[])
+       AND e."id" > $2
+       AND e."id" <= $3
+     ORDER BY e."id" ASC
+     LIMIT $4`,
+    [toPostgresArrayLiteral(eventTypes), afterId, horizon, limit],
+  );
+}
+
 // Total subscribed events in the log — same source/type filter as
 // selectEventsForProjectionRebuildBatch, no id cursor. Under the cutover fence
 // this is the ground-truth count the rebuild must have applied; a shortfall

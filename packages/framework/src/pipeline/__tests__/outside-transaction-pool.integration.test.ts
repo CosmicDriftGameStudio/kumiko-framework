@@ -20,12 +20,13 @@ const MAIN_POOL_MAX = 3;
 const CONCURRENT_WRITES = MAIN_POOL_MAX;
 
 const noteEntity = createEntity({
+  name: "note",
   table: "outside_pool_notes",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 
 function createBarrier(parties: number): () => Promise<void> {
   let arrived = 0;
@@ -43,7 +44,7 @@ function createBarrier(parties: number): () => Promise<void> {
 let waitForAllWrites = createBarrier(CONCURRENT_WRITES);
 
 const poolFeature = defineFeature("outsidepool", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
   const crud = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
 
   r.writeHandler({

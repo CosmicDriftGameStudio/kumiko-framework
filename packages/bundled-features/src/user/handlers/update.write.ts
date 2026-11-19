@@ -1,22 +1,16 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineWriteHandler, hasAccess } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  AccessDeniedError,
-  InternalError,
-  writeFailure,
-} from "@cosmicdrift/kumiko-framework/errors";
+import { AccessDeniedError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { canonicalizeLocaleTag, isValidLocaleTag } from "@cosmicdrift/kumiko-framework/i18n";
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
+import { normalizeEmail } from "../../shared/index.ts";
 import { rolesInputSchema } from "../roles-input-schema.ts";
 import { userEntity, userTable } from "../schema/user.ts";
 import { UserErrors } from "../web/constants.ts";
 import { applyUserRolesUpdate } from "./update-roles.ts";
 
 const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
-
-const SYSTEM_ADMIN_DEMOTION_COUNT_REASON =
-  "on a SystemAdmin demotion, a jsonb @> prefilter over the global users table counts remaining active SystemAdmins";
 
 // Users can update their OWN profile; SystemAdmin/system can update anyone.
 // Handler-level access is openToAll — the row guard below is the actual gate,
@@ -40,7 +34,7 @@ export const updateWrite = defineWriteHandler({
         .transform(canonicalizeLocaleTag)
         .optional(),
       timezone: z.string().max(64).refine(isValidIanaTimeZone, "invalid IANA time zone").optional(),
-      email: z.email().optional(),
+      email: z.email().transform(normalizeEmail).optional(),
       passwordHash: z.string().optional(),
       lastActiveTenantId: z.string().optional(),
       emailVerified: z.boolean().optional(),
@@ -60,9 +54,7 @@ export const updateWrite = defineWriteHandler({
   description:
     "Changes a user's display name, locale, timezone, email, verification flag, last active tenant or global roles against the version the caller read; callers may edit themselves, while editing someone else or granting roles needs a privileged actor.",
   agent: { risk: "high" },
-  escapeHatch: {
-    reason: SYSTEM_ADMIN_DEMOTION_COUNT_REASON,
-  },
+  systemScope: true,
   handler: async (event, ctx) => {
     const isSelf = event.payload.id === event.user.id;
     const isPrivileged = hasAccess(event.user, { roles: access.privileged });
@@ -86,9 +78,6 @@ export const updateWrite = defineWriteHandler({
       );
     }
 
-    if (!ctx.systemDb) {
-      throw new InternalError({ message: "user:update requires r.systemScope()" });
-    }
     const db = ctx.systemDb.acknowledgeCrossTenant(
       "user rows are tenant-agnostic identity records; self/admin update needs no tenant filter",
     );

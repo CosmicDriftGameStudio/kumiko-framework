@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ExtensionFormRegistryProvider } from "../app/extension-form-submit.tsx";
 import type { EditSectionViewModel, FormValues } from "../headless/index.ts";
 import { EditSlotMount, ExtensionSectionMount } from "./edit-mounts.tsx";
 import { RelatedListSection } from "./related-list-section.tsx";
@@ -21,9 +22,8 @@ function renderExtensionSection<TValues extends FormValues, TCtx>(
   const { hideSectionTitles } = props;
   const { Card } = state.primitives;
   const anchorId = sectionNavAnchorId(model.titles.sectionNavItems, sectionIndex);
-  const mount = (
+  const sectionMount = (
     <ExtensionSectionMount
-      key={section.title}
       {...(anchorId !== undefined && { anchorId })}
       section={section}
       entityName={sections.vm.entityName}
@@ -45,6 +45,17 @@ function renderExtensionSection<TValues extends FormValues, TCtx>(
       {...(hideSectionTitles !== true &&
         sectionActionsEl !== undefined && { actions: sectionActionsEl })}
     />
+  );
+  // A self-saving extension (NotesSection) folds into the host's Save only where the host has one
+  // of its own; in a locked form or a projectionDetail it keeps its own save button.
+  const hostHasOwnSave = !props.disabled && sections.isFormEditable;
+  const mount = (
+    <ExtensionFormRegistryProvider
+      key={section.title}
+      value={section.contributesToFormSubmit || hostHasOwnSave ? state.extensionFormRegistry : null}
+    >
+      {sectionMount}
+    </ExtensionFormRegistryProvider>
   );
   // Tabs mode: an unframed padded panel (the tab panel is the
   // surface), so extension content neither sits flush at the shell
@@ -72,7 +83,8 @@ function renderRelatedListSection<TValues extends FormValues, TCtx>(
   { model, sectionIndex, sectionActionsEl }: SectionRenderContext<TValues, TCtx>,
   section: RelatedListSectionModel,
 ): ReactNode {
-  const { props, form, sections } = model.engine;
+  const { props, form, sections, state } = model.engine;
+  const { FillContainer } = state.primitives;
   const { hideSectionTitles, fillScreenHeight, refreshToken, onRelatedListDrawerAction } = props;
   // parentId is the displayed record's id — without it there's no
   // parent row whose related rows could be queried.
@@ -108,12 +120,9 @@ function renderRelatedListSection<TValues extends FormValues, TCtx>(
   // Tabs mode: the table runs full-bleed under the tab strip (board
   // layout); the toolbar buttons live in the list's own toolbar.
   return hideSectionTitles === true ? (
-    <div
-      key={section.title}
-      className={fillScreenHeight === true ? "flex min-h-0 flex-1 flex-col" : undefined}
-    >
+    <FillContainer key={section.title} {...(fillScreenHeight === true && { grow: true })}>
       {mount}
-    </div>
+    </FillContainer>
   ) : (
     mount
   );
@@ -124,7 +133,7 @@ function renderStepListSection<TValues extends FormValues, TCtx>(
   section: Extract<EditSectionViewModel, { readonly kind: "stepList" }>,
 ): ReactNode {
   const { Section, StepList } = model.engine.state.primitives;
-  if (StepList === undefined || section.items.length === 0) return null;
+  if (section.items.length === 0) return null;
   const items = section.items.map((item, index) => ({ id: String(index), ...item }));
   return (
     <Section
@@ -137,6 +146,7 @@ function renderStepListSection<TValues extends FormValues, TCtx>(
       {...(model.engine.props.recordSections?.labelTitles === true && {
         titleStyle: "label" as const,
       })}
+      {...(section.titleOnNarrow === false && { titleOnNarrow: false as const })}
       testId="step-list-section"
     >
       <StepList items={items} testId="step-list" />
@@ -234,11 +244,6 @@ function createWizardStepWrapper<TValues extends FormValues, TCtx>(
   const stepHidden = state.isStepped && sectionIndex !== steps.currentStep;
   return (key, el) => {
     if (!state.isStepped) return el;
-    if (WizardStepGroup === undefined) {
-      throw new Error(
-        `RenderEdit: ${props.screen.layout.mode} layout requires primitives.WizardStepGroup, but none is registered.`,
-      );
-    }
     return (
       <WizardStepGroup
         key={key}
@@ -261,31 +266,24 @@ function withSectionPresentation<TValues extends FormValues, TCtx>(
 ): ReactNode {
   const { props, form, sections, state } = model.engine;
   const { FillContainer } = state.primitives;
-  if (node === null || FillContainer === undefined) return node;
+  if (node === null) return node;
   const narrowClass =
     section.hideOnNarrow === true
       ? "max-sm:hidden"
       : section.showOnNarrowOnly === true
         ? "sm:hidden"
         : undefined;
-  const titleClass =
-    section.titleOnNarrow === false ? "max-sm:[&_[data-section-title]]:hidden" : undefined;
   const sectionTail =
     section.kind === "fields" && section.id !== undefined
       ? props.afterSection?.(section.id, form.snapshot.values)
       : undefined;
-  if (
-    section.after === undefined &&
-    sectionTail === undefined &&
-    narrowClass === undefined &&
-    titleClass === undefined
-  ) {
+  if (section.after === undefined && sectionTail === undefined && narrowClass === undefined) {
     return node;
   }
   return (
     <FillContainer
       key={`section-presentation-${sectionIndex}`}
-      className={[narrowClass, titleClass, "gap-3"].filter((c) => c !== undefined).join(" ")}
+      className={[narrowClass, "gap-3"].filter((c) => c !== undefined).join(" ")}
     >
       {node}
       {sectionTail}
@@ -327,7 +325,7 @@ export function renderEditSections<TValues extends FormValues, TCtx>(
     }),
   );
   const { FillContainer } = model.engine.state.primitives;
-  if (model.engine.props.recordSections?.photosBeside !== true || FillContainer === undefined) {
+  if (model.engine.props.recordSections?.photosBeside !== true) {
     return rendered.map(({ node }) => node);
   }
   const photos = rendered.filter(({ section }) => isPhotoGridSection(section));

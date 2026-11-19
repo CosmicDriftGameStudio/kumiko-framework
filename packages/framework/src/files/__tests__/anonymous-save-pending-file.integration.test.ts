@@ -19,13 +19,14 @@ import { fileRefsTable } from "../file-ref-table.ts";
 import { createInMemoryFileProvider } from "../in-memory-provider.ts";
 
 const submissionEntity = createEntity({
+  name: "submission",
   table: "anonymous_save_pending_submissions",
   fields: { attachment: createFileField() },
 });
-const submissionTable = buildEntityTable("submission", submissionEntity);
+const submissionTable = buildEntityTable(submissionEntity);
 
 const openFormFeature = defineFeature("open-form", (r) => {
-  r.entity({ name: "submission", ...submissionEntity });
+  r.entity(submissionEntity);
   r.writeHandler({
     name: "stash",
     schema: z.object({}),

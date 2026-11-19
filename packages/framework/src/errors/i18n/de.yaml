@@ -57,6 +57,19 @@ field_access_denied:
     (siehe [Permissions](/en/guides/field-level-permissions/)) oder fordere die
     nötige Rolle an.
 
+field_approval_required:
+  endUser: |
+    Für dieses Feld braucht es die Freigabe einer zweiten Person.
+    Reiche die Änderung als Antrag ein; jemand mit Freigaberolle übernimmt sie.
+  developer: |
+    `AccessDeniedError` beim Field-Approval-Check des Executors: eine direkte
+    Änderung an einem Feld mit `access.approve` durch einen Benutzer ohne
+    Freigaberolle.
+
+    `details.entity` und `details.fields` nennen die betroffenen Felder.
+    Reiche die Änderung über den `request-change`-Handler von field-approval
+    ein; siehe `createFieldApprovalFeature`.
+
 delete_restricted:
   endUser: |
     Dieser Eintrag kann nicht gelöscht werden weil andere Datensätze noch
@@ -240,7 +253,7 @@ irreversible_operation_without_entry_handler:
 
     Ein Job oder eine Multi-Stream-Projektion, die das darf, deklariert
     `irreversibleWithoutEntryHandler` (`"rebuildable-derived-data"`,
-    `"high-risk-or-cron-pipeline"` oder `"per-dispatch-record-key"`). Eine Route, ein
+    `"high-risk-or-cron-pipeline"`). Eine Route, ein
     `afterCommit`-Hook oder ein Agent-Tool-Call dispatcht stattdessen einen
     Write-Handler mit `agent: { risk: "high" }`; Hooks und Agent-Tool-Calls erben die
     Deklaration des umgebenden Jobs nie.

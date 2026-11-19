@@ -1,10 +1,8 @@
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { decryptStoredPii, mapWithConcurrency } from "../shared/index.ts";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
+import { decryptStoredPii, KMS_POOL_CONCURRENCY } from "../shared/index.ts";
 import { userTable } from "./schema/user.ts";
-
-// Shares the KMS adapter's small dedicated pool, same as member-directory.
-const KMS_POOL_CONCURRENCY = 4;
 
 // One batched lookup for a page of user ids. Users that are missing or have no
 // display name are left out, so callers fall back to the raw id. Decrypt errors

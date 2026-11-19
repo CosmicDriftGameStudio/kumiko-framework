@@ -21,12 +21,14 @@ const SYSTEM_ONLY_SLUG = "account-so:notify:deletion-verification";
 const EDITABLE_SLUG = "account-so:notify:welcome";
 
 const account = defineFeature("account-so", (r) => {
-  r.notification("deletion-verification", {
+  r.notification({
+    name: "deletion-verification",
     systemOnly: true,
     template: { de: { body: "<p>Löschung bestätigen</p>" } },
     meta: { de: { subject: "Löschung" } },
   });
-  r.notification("welcome", {
+  r.notification({
+    name: "welcome",
     template: { de: { body: "<p>Willkommen</p>" } },
     meta: { de: { subject: "Willkommen" } },
   });
@@ -130,6 +132,22 @@ describe("template-resolver :: systemOnly notification templates", () => {
         i18nKey: "templateResolver.errors.systemOnlyTemplate",
       });
     }
+  });
+
+  test("a tenant admin cannot export the system-only template, a SystemAdmin can", async () => {
+    const payload = { slug: SYSTEM_ONLY_SLUG, kind: "mail", scope: "system" };
+    const denied = await stack.http.queryErr(
+      TemplateResolverQueries.exportBundle,
+      payload,
+      tenantAdmin,
+    );
+    expect(denied.code).toBe("not_found");
+    const bundle = await stack.http.queryOk<{ slug: string }>(
+      TemplateResolverQueries.exportBundle,
+      payload,
+      systemAdmin,
+    );
+    expect(bundle.slug).toBe(SYSTEM_ONLY_SLUG);
   });
 
   test("a SystemAdmin cannot push an override into a tenant either", async () => {

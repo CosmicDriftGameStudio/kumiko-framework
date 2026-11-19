@@ -12,11 +12,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
-import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import { createTzContext, getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   resetTestTables,
@@ -98,7 +99,10 @@ beforeAll(async () => {
       createSessionsFeature(),
       // appExportDownloadUrl set → the default export-ready mail is enabled, so
       // this also proves the export cron's mail bridge end-to-end.
-      createUserDataRightsFeature({ appExportDownloadUrl: EXPORT_DOWNLOAD_URL }),
+      createUserDataRightsFeature({
+        appExportDownloadUrl: EXPORT_DOWNLOAD_URL,
+        mailDefaults: { appName: "Acme" },
+      }),
     ],
     extraContext: (deps) => {
       const delivery = createDeliveryTestContext(deps);
@@ -189,13 +193,17 @@ describe("run-export-jobs cron-context", () => {
         tenantId: TENANT,
         mode: "tenant",
         grants: {
-          unsafeRaw: { reason: "processes pending export jobs across every tenant" },
+          unsafeRaw: {
+            reason: "processes pending export jobs across every tenant",
+            grants: ["unsafeRaw"],
+          },
         },
       }),
       registry: stack.registry,
       services: { configResolver, _notifyFactory: notifyFactory, extensions: {} },
       lifecycle: {},
       systemUser: createSystemUser(TENANT),
+      tz: createTzContext(),
       obs: { log: { warn() {} } },
       now: getTemporal().Now.instant(),
     };
@@ -208,11 +216,11 @@ describe("run-export-jobs cron-context", () => {
       job?.handler({}, jobCtx as unknown as JobContext),
     );
 
-    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+    const [row] = await selectMany<{
       status: string;
       bytesWritten: number | null;
       errorMessage: string | null;
-    }>;
+    }>(stack.db, exportJobsTable, { id: jobId });
     expect(row?.errorMessage).toBeNull();
     expect(row?.status).toBe(EXPORT_JOB_STATUS.Done);
     expect(row?.bytesWritten ?? 0).toBeGreaterThan(0);

@@ -15,12 +15,8 @@ import {
   PrimitivesProvider,
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import {
-  createStore,
-  type Dispatcher,
-  type DispatcherError,
-  type DispatcherStatus,
-} from "@cosmicdrift/kumiko-renderer/headless";
+import type { Dispatcher, DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AUTH_MFA_FEATURE_I18N } from "../i18n.ts";
@@ -53,19 +49,14 @@ const schema: FeatureSchema = {
 };
 
 function makeDispatcher(writes: Array<{ type: string; payload: unknown }>): Dispatcher {
-  return {
-    // The generic WriteResult<T> admits no concrete success literal; the form only reads isSuccess.
-    write: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async (type: string, payload: unknown) => {
       writes.push({ type, payload });
       return { isSuccess: true, data: { disabled: true } };
-    }) as unknown as Dispatcher["write"],
+    },
     query: async () => ({ isSuccess: false, error: STUB_ERROR }),
     batch: async () => ({ isSuccess: true, results: [] }),
-    statusStore: createStore<DispatcherStatus>("online"),
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+  });
 }
 
 describe("auth-mfa disable screen", () => {

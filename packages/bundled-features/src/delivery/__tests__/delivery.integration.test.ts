@@ -5,7 +5,6 @@ import {
   buildEntityTable,
   createEventStoreExecutor,
   createSystemDbView,
-  createTenantDb,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -21,10 +20,11 @@ import {
   templateVariable,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { FrameworkReasons } from "@cosmicdrift/kumiko-framework/errors";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import {
+  createTestEnvelopeCipher,
   expectSuccess,
   resetBlindIndexKeyForTests,
   waitFor,
@@ -46,6 +46,7 @@ import { createInMemoryPushTransport } from "../../channel-push/types.ts";
 import { createConfigFeature } from "../../config/feature.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { seedNotificationTemplates } from "../../template-resolver/seeding.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
@@ -67,7 +68,7 @@ import {
 } from "../constants.ts";
 import { collectChannels, createDeliveryService } from "../delivery-service.ts";
 import { createDeliveryFeature } from "../feature.ts";
-import { deliveryRenderJob, deliverySendJob } from "../jobs.ts";
+import { deliverySendJob } from "../jobs.ts";
 import { maskRecipientAddress } from "../mask-recipient-address.ts";
 import {
   deliveryAttemptsTable,
@@ -77,11 +78,8 @@ import {
 } from "../tables.ts";
 import { createDeliveryTestContext } from "../testing.ts";
 import type { DeliveryService } from "../types.ts";
-import {
-  createUnsubscribeRoutes,
-  signAddressUnsubscribeToken,
-  signUnsubscribeToken,
-} from "../unsubscribe.ts";
+import { createUnsubscribeRoutes } from "../unsubscribe.ts";
+import { signAddressUnsubscribeToken, signUnsubscribeToken } from "../unsubscribe-tokens.ts";
 import { createPlainFallbackEmailFeature } from "./plain-email-channel.ts";
 import { deletePreferencesOfUser } from "./preference-writes.ts";
 import { scopedForTest } from "./scoped-delivery-service.ts";
@@ -149,7 +147,8 @@ const appFeature = defineFeature("app", (r) => {
   r.requires({ features: ["delivery"] });
 
   // Declared with a stored template so the async render job does a real mail render.
-  r.notification("async-e2e", {
+  r.notification({
+    name: "async-e2e",
     variables: {
       title: templateVariable.text({ required: true }),
       body: templateVariable.text({ required: true }),
@@ -262,13 +261,14 @@ const appFeature = defineFeature("app", (r) => {
 
 // Feature with CRUD entity + declarative r.notification()
 const ticketEntity = createEntity({
+  name: "ticket",
   fields: {
     title: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     assigneeId: createTextField({ personal: false, reason: "pseudonymous_fk" }),
     status: createTextField({ required: true, personal: false, reason: "technical_reference" }),
   },
 });
-const ticketTable = buildEntityTable("ticket", ticketEntity);
+const ticketTable = buildEntityTable(ticketEntity);
 
 function ticketExecutor() {
   return createEventStoreExecutor(ticketTable, ticketEntity, { entityName: "ticket" });
@@ -277,7 +277,7 @@ function ticketExecutor() {
 const ticketFeature = defineFeature("tickets", (r) => {
   r.requires({ features: ["delivery"] });
 
-  r.entity({ name: "ticket", ...ticketEntity });
+  r.entity(ticketEntity);
 
   // Real CRUD handler with CrudExecutor (not stub)
   const createHandler = r.writeHandler({
@@ -293,7 +293,8 @@ const ticketFeature = defineFeature("tickets", (r) => {
 
   // Declarative: notify assignee when ticket is created with assigneeId
   // Uses handler ref + per-channel templates
-  r.notification("ticket-assigned", {
+  r.notification({
+    name: "ticket-assigned",
     trigger: { on: createHandler },
     recipient: (result) => {
       const assigneeId = result.data["assigneeId"] as string | undefined;
@@ -330,7 +331,8 @@ const ticketFeature = defineFeature("tickets", (r) => {
   });
 
   // Second notification on same trigger — tests multiple notifications per handler
-  r.notification("ticketCreatedAdmin", {
+  r.notification({
+    name: "ticketCreatedAdmin",
     trigger: { on: createHandler },
     recipient: () => admin.id, // always notify admin
     data: (result) => ({
@@ -383,7 +385,7 @@ const systemBroadcastFeature = defineFeature("test-system-broadcast", (r) => {
     handler: async (_query, ctx) => {
       let dbUnsafeRawThrew = false;
       try {
-        ctx.db.unsafeRaw();
+        ctx.db.unsafeRawAllTenants();
       } catch {
         dbUnsafeRawThrew = true;
       }
@@ -964,6 +966,43 @@ describe("flow 7: unsubscribe endpoint", () => {
       (r) => r["notificationType"] === "app:notify:one-click" && r["channel"] === "inApp",
     );
     expect(pref).toBeDefined();
+    expect(pref?.["enabled"]).toBe(false);
+  });
+
+  test("user unsubscribe tokens carry no expiry and still unsubscribe weeks later", async () => {
+    const token = await signUnsubscribeToken(
+      {
+        userId: user2.id,
+        tenantId: user2.tenantId,
+        notificationType: "app:notify:one-click-old",
+        channel: "inApp",
+      },
+      UNSUBSCRIBE_SECRET,
+    );
+    const originalClaims = jose.decodeJwt(token);
+    expect(originalClaims.exp).toBeUndefined();
+
+    const issuedWeeksAgo = Math.floor(Date.now() / 1000) - 30 * 24 * 3600;
+    const oldToken = await new jose.SignJWT({ ...originalClaims })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt(issuedWeeksAgo)
+      .sign(new TextEncoder().encode(UNSUBSCRIBE_SECRET));
+
+    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${oldToken}`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: "List-Unsubscribe=One-Click",
+    });
+    expect(res.status).toBe(200);
+
+    const prefs = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
+      DeliveryQueries.preferences,
+      {},
+      user2,
+    );
+    const pref = prefs.rows.find(
+      (r) => r["notificationType"] === "app:notify:one-click-old" && r["channel"] === "inApp",
+    );
     expect(pref?.["enabled"]).toBe(false);
   });
 
@@ -1655,6 +1694,52 @@ describe("flow 14: wildcard-only preference conflicts resolve deterministically"
   });
 });
 
+describe("flow 14b: preferences of several recipients are evaluated per user", () => {
+  const user3 = createTestUser({ id: 917, roles: ["User"] });
+  const NOTIFICATION_TYPE = "app:notify:batched-prefs";
+
+  test("each recipient gets their own verdict; a ('*','*') row matches nothing", async () => {
+    for (const user of [user1, user2, user3]) await deletePreferencesOfUser(db, user);
+
+    await stack.http.writeOk(
+      DeliveryHandlers.setPreference,
+      { notificationType: NOTIFICATION_TYPE, channel: "inApp", enabled: false },
+      user1,
+    );
+    await stack.http.writeOk(
+      DeliveryHandlers.setPreference,
+      { notificationType: "*", channel: "*", enabled: false },
+      user2,
+    );
+    await stack.http.writeOk(
+      DeliveryHandlers.setPreference,
+      { notificationType: "*", channel: "inApp", enabled: false },
+      user3,
+    );
+
+    await deliveryService.notify(
+      NOTIFICATION_TYPE,
+      { to: [user1.id, user2.id, user3.id], data: { title: "B", body: "B" } },
+      admin,
+      admin.tenantId,
+    );
+
+    const rows = await selectMany(db, deliveryAttemptsTable, {
+      notificationType: NOTIFICATION_TYPE,
+      channel: "inApp",
+    });
+    const outcomeOf = (userId: string) => {
+      const row = rows.find((r) => r["recipientId"] === userId);
+      return { status: row?.["status"], error: row?.["error"] };
+    };
+    expect(outcomeOf(user1.id)).toEqual({ status: "skipped", error: "preference_disabled" });
+    expect(outcomeOf(user2.id)).toEqual({ status: "sent", error: null });
+    expect(outcomeOf(user3.id)).toEqual({ status: "skipped", error: "preference_disabled" });
+
+    for (const user of [user1, user2, user3]) await deletePreferencesOfUser(db, user);
+  });
+});
+
 // --- Flow 15: Idempotency without Redis throws (no silent no-op) ---
 
 describe("flow 15: idempotency requires Redis", () => {
@@ -1857,14 +1942,14 @@ describe("flow 16: repeated unsubscribe clicks are idempotent", () => {
   });
 });
 
-// --- Flow 17: async delivery via delivery.render → delivery.send jobs ---
+// --- Flow 17: async delivery via the delivery.send job ---
 
 // Dedicated recipient id, untouched by earlier tests, so no stale preference
 // or unsubscribe row disables a channel under us. String id — notify() treats a
 // non-string `to` as a broadcast target ("tenant" in to).
 const asyncRecipient = "7";
 
-function makeStubRunner(): {
+function makeStubRunner(options: { failDispatch?: boolean } = {}): {
   runner: JobRunner;
   dispatched: Array<{
     name: string;
@@ -1885,6 +1970,7 @@ function makeStubRunner(): {
       payload?: Record<string, unknown>,
       meta?: Record<string, unknown>,
     ) {
+      if (options.failDispatch) throw new Error("queue unavailable");
       dispatched.push({ name, payload: payload ?? {}, ...(meta !== undefined && { meta }) });
       return "stub-job-id";
     },
@@ -1893,14 +1979,16 @@ function makeStubRunner(): {
   return { runner, dispatched };
 }
 
-describe("flow 17: async render→send pipeline", () => {
-  test("with a real job runner, email + push deliver via delivery.render → delivery.send", async () => {
+const cipher = createTestEnvelopeCipher();
+
+describe("flow 17: async send pipeline", () => {
+  test("with a real job runner, email + push deliver via the delivery.send job", async () => {
     const redisUrl = process.env["REDIS_URL"];
     if (!redisUrl) throw new Error("REDIS_URL required for the async delivery e2e test");
     const queueNamePrefix = testRunQueueNamePrefix("kumiko-delivery-test");
     const jobRunner = createJobRunner({
       registry: stack.registry,
-      context: { db },
+      context: { db, configEncryption: cipher },
       redisUrl,
       consumerLane: "worker",
       queueNamePrefix,
@@ -1913,6 +2001,7 @@ describe("flow 17: async render→send pipeline", () => {
         channels: collectChannels(stack.registry),
         tenantUserIdsQuery: TenantQueries.resolveUserIds,
         jobRunner,
+        addressCipher: cipher,
       });
 
       await asyncService.notify(
@@ -1925,8 +2014,7 @@ describe("flow 17: async render→send pipeline", () => {
         admin.tenantId,
       );
 
-      // Email: queued → render job → send job → sent. Proves the framework
-      // jobRunner-into-job-ctx injection (render dispatches send) end-to-end.
+      // Email: queued → send job (renders, then sends) → sent.
       await waitFor(
         async () => {
           const rows = await selectMany(db, deliveryAttemptsTable, {
@@ -1943,7 +2031,7 @@ describe("flow 17: async render→send pipeline", () => {
       expect(email?.html).toContain("delivered via jobs");
       expect(email?.html).toContain("<!doctype html>");
 
-      // Push: no render step → dispatched straight to delivery.send.
+      // Push: no render step, the same send job delivers it.
       await waitFor(
         async () => {
           const rows = await selectMany(db, deliveryAttemptsTable, {
@@ -1970,6 +2058,7 @@ describe("flow 17: async render→send pipeline", () => {
       channels: collectChannels(stack.registry),
       tenantUserIdsQuery: TenantQueries.resolveUserIds,
       jobRunner: runner,
+      addressCipher: cipher,
     });
 
     await asyncService.notify(
@@ -1979,13 +2068,12 @@ describe("flow 17: async render→send pipeline", () => {
       admin.tenantId,
     );
 
-    // email has a render step → delivery.render; push has none → delivery.send.
-    const renderDispatch = dispatched.find((d) => d.name === DeliveryJobs.render);
-    expect(renderDispatch?.payload["channelName"]).toBe("email");
-    expect(renderDispatch?.payload["deliveryAttemptId"]).toBeDefined();
-    expect(
-      dispatched.some((d) => d.name === DeliveryJobs.send && d.payload["channelName"] === "push"),
-    ).toBe(true);
+    // email and push both go through the one delivery.send job.
+    const sendDispatches = dispatched.filter((d) => d.name === DeliveryJobs.send);
+    expect(sendDispatches.map((d) => d.payload["channelName"]).sort()).toEqual(["email", "push"]);
+    for (const dispatch of sendDispatches) {
+      expect(dispatch.payload["deliveryAttemptId"]).toBeDefined();
+    }
 
     // email is NOT sent inline — it waits for the job.
     expect(emailTransport.sent.find((m) => m.to === testEmail(asyncRecipient))).toBeUndefined();
@@ -2041,83 +2129,42 @@ describe("flow 17: async render→send pipeline", () => {
         mode: "system",
         reason: "test reads delivery rows of any tenant",
         grants: {
-          unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+          unsafeRaw: {
+            reason: "test: job context mirrors systemScope() grant",
+            grants: ["unsafeRaw"],
+          },
         },
       }),
     );
   }
 
-  test("delivery.render on a channel without a render step records failed and does not dispatch send", async () => {
-    const { runner, dispatched } = makeStubRunner();
-    const logged: string[] = [];
-    const attemptId = "00000000-0000-4000-8000-0000000000aa";
-    await expect(
-      deliveryRenderJob(
-        {
-          channelName: "push", // push has no render() — render job must not be used for it
-          address: testPushToken(asyncRecipient),
-          tenantId: admin.tenantId,
-          recipientId: String(asyncRecipient),
-          notificationType: "app:notify:render-isolation",
-          deliveryAttemptId: attemptId,
-          priority: "normal",
-          message: { notificationType: "app:notify:render-isolation", title: "X" },
-        },
-        // @cast-boundary test-seam — job throws before touching systemUser/write/queryAs; log only receives the redacted failure
-        {
-          db,
-          registry: stack.registry,
-          services: { jobRunner: runner, extensions: {} },
-          obs: { log: { error: (msg: string) => logged.push(msg) } },
-          systemDb: makeSystemDb(admin.tenantId),
-        } as unknown as JobContext,
-      ),
-    ).rejects.toThrow(new Error("render_failed"));
-
-    // No send dispatched, and the attempt is recorded as failed (not stuck queued).
-    expect(dispatched).toHaveLength(0);
-    expect(logged.some((l) => l.includes("no render step"))).toBe(true);
-    const rows = await selectMany(db, deliveryAttemptsTable, {
-      notificationType: "app:notify:render-isolation",
+  test("a failing job dispatch closes the queued attempt as failed instead of leaving it queued", async () => {
+    const { runner } = makeStubRunner({ failDispatch: true });
+    const failingService = createDeliveryService({
+      db,
+      registry: stack.registry,
+      channels: collectChannels(stack.registry),
+      tenantUserIdsQuery: TenantQueries.resolveUserIds,
+      jobRunner: runner,
+      addressCipher: cipher,
     });
-    expect(rows.some((r) => r["status"] === "failed" && r["error"] === "render_failed")).toBe(true);
-  });
 
-  test("delivery.render records channel_error when handing off to delivery.send fails", async () => {
-    const failingRunner = {
-      dispatch: async () => {
-        throw new Error("redis down at redis://user:secret@cache.internal:6379");
-      },
-    };
-    const logged: string[] = [];
-    await expect(
-      deliveryRenderJob(
-        {
-          channelName: "email",
-          address: testEmail(asyncRecipient),
-          tenantId: admin.tenantId,
-          recipientId: String(asyncRecipient),
-          notificationType: "app:notify:render-dispatch-fails",
-          deliveryAttemptId: "00000000-0000-4000-8000-0000000000dd",
-          priority: "normal",
-          message: { notificationType: "app:notify:render-dispatch-fails", title: "X" },
-        },
-        // @cast-boundary test-seam — only the fields the render job reads
-        {
-          db,
-          registry: stack.registry,
-          services: { jobRunner: failingRunner, extensions: {} },
-          obs: { log: { error: (msg: string) => logged.push(msg) } },
-          systemDb: makeSystemDb(admin.tenantId),
-        } as unknown as JobContext,
-      ),
-    ).rejects.toThrow(new Error("channel_error"));
+    await failingService.notify(
+      "app:notify:dispatch-fails",
+      { to: asyncRecipient, data: { title: "D", body: "D", subject: "D" } },
+      admin,
+      admin.tenantId,
+    );
 
-    expect(logged.join("\n")).not.toContain("secret");
-    const rows = await selectMany(db, deliveryAttemptsTable, {
-      notificationType: "app:notify:render-dispatch-fails",
-    });
-    expect(rows.map((r) => r["error"])).toEqual(["channel_error"]);
+    for (const channel of ["email", "push"]) {
+      const rows = await selectMany(db, deliveryAttemptsTable, {
+        notificationType: "app:notify:dispatch-fails",
+        channel,
+      });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.["status"]).toBe("failed");
+      expect(rows[0]?.["error"]).toBe("channel_error");
+    }
   });
 
   // The regression this diff exists to prevent: a payload.tenantId that
@@ -2137,16 +2184,18 @@ describe("flow 17: async render→send pipeline", () => {
     } as unknown as JobContext;
 
     await expect(
-      deliveryRenderJob(
+      deliverySendJob(
         {
           channelName: "email",
-          address: testEmail(asyncRecipient),
           tenantId: foreignTenantId,
           recipientId: String(asyncRecipient),
           notificationType: "app:notify:cross-tenant",
           deliveryAttemptId: attemptId,
           priority: "normal",
-          message: { notificationType: "app:notify:cross-tenant", title: "X" },
+          content: {
+            address: testEmail(asyncRecipient),
+            message: { notificationType: "app:notify:cross-tenant", title: "X" },
+          },
         },
         ctxWithMismatchedSystemDb,
       ),
@@ -2168,13 +2217,15 @@ describe("flow 17: async render→send pipeline", () => {
     const attemptId = "00000000-0000-4000-8000-0000000000bb";
     const payload = {
       channelName: "email",
-      address: testEmail(asyncRecipient),
       tenantId: admin.tenantId,
       recipientId: String(asyncRecipient),
       notificationType: "app:notify:missing-systemdb",
       deliveryAttemptId: attemptId,
       priority: "normal" as const,
-      message: { notificationType: "app:notify:missing-systemdb", title: "X" },
+      content: {
+        address: testEmail(asyncRecipient),
+        message: { notificationType: "app:notify:missing-systemdb", title: "X" },
+      },
     };
     // @cast-boundary test-seam — no systemDb, unlike what job-runner.ts actually wires
     const ctxWithoutSystemDb = {
@@ -2183,9 +2234,6 @@ describe("flow 17: async render→send pipeline", () => {
       services: { jobRunner: runner, extensions: {} },
     } as unknown as JobContext;
 
-    await expect(deliveryRenderJob(payload, ctxWithoutSystemDb)).rejects.toThrow(
-      /ctx\.systemDb missing/,
-    );
     await expect(deliverySendJob(payload, ctxWithoutSystemDb)).rejects.toThrow(
       /ctx\.systemDb missing/,
     );
@@ -2196,7 +2244,7 @@ describe("flow 17: async render→send pipeline", () => {
 
 describe("flow 18: priority → job priority mapping", () => {
   test("critical/normal/low map to ascending BullMQ priorities on dispatch", async () => {
-    const send = async (notificationType: string, priority: "critical" | "normal" | "low") => {
+    const sendWith = async (notificationType: string, priority: "critical" | "normal" | "low") => {
       const { runner, dispatched } = makeStubRunner();
       const asyncService = createDeliveryService({
         db,
@@ -2204,6 +2252,7 @@ describe("flow 18: priority → job priority mapping", () => {
         channels: collectChannels(stack.registry),
         tenantUserIdsQuery: TenantQueries.resolveUserIds,
         jobRunner: runner,
+        addressCipher: cipher,
       });
       await asyncService.notify(
         notificationType,
@@ -2211,14 +2260,16 @@ describe("flow 18: priority → job priority mapping", () => {
         admin,
         admin.tenantId,
       );
-      // email → delivery.render carries the priority meta.
-      const render = dispatched.find((d) => d.name === DeliveryJobs.render);
-      return render?.meta?.["priority"];
+      // email → delivery.send carries the priority meta.
+      const send = dispatched.find(
+        (d) => d.name === DeliveryJobs.send && d.payload["channelName"] === "email",
+      );
+      return send?.meta?.["priority"];
     };
 
-    const critical = await send("app:notify:prio-critical", "critical");
-    const normal = await send("app:notify:prio-normal", "normal");
-    const low = await send("app:notify:prio-low", "low");
+    const critical = await sendWith("app:notify:prio-critical", "critical");
+    const normal = await sendWith("app:notify:prio-normal", "normal");
+    const low = await sendWith("app:notify:prio-low", "low");
 
     expect(critical).toBe(1);
     expect(normal).toBe(2);

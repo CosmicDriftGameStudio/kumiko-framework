@@ -13,7 +13,7 @@ import { CONTENT_FORMATS, TEMPLATE_KINDS } from "./web/constants.ts";
 // locale).
 //
 // Why a separate table instead of a nullable ownerId on read_template_resources:
-// `content` here carries the owner's name, phone and address, so it needs
+// `title`, `folder` and `content` here carry the owner's name, phone and address, so it needs
 // `userOwned` for crypto-shredding. That annotation is resolved per entity, not
 // per row — `resolveSubjectForField` throws when the owner column is empty
 // (crypto/subject-resolver.ts). On a mixed table every tenant-wide mail template
@@ -23,16 +23,17 @@ import { CONTENT_FORMATS, TEMPLATE_KINDS } from "./web/constants.ts";
 // Not part of `resolveTemplate`'s 4-level fallback: these entries are listed and
 // edited by their owner, never resolved as a tenant/system template override.
 export const userContentEntryEntity = createEntity({
+  name: "user-content-entry",
   table: "read_user_content_entries",
   fields: {
     ownerId: createTextField({ required: true, personal: "ref" }),
     slug: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     kind: createSelectField({ required: true, options: [...TEMPLATE_KINDS] }),
     locale: createTextField({ required: true, personal: false, reason: "technical_reference" }),
-    // Organizational label for the entry (e.g. "Default signature"), not the
-    // owner's PII itself — that lives in `content` below.
-    title: createTextField({ personal: false, reason: "technical_reference" }),
-    folder: createTextField({ personal: false, reason: "technical_reference" }),
+    // Users name entries after people and cases ("Signatur Dr. Weber", folder "Kündigung
+    // Müller"), so title and folder are the owner's personal data like the body.
+    title: createTextField({ personal: { of: "ownerId" }, find: "none" }),
+    folder: createTextField({ personal: { of: "ownerId" }, find: "none" }),
     content: createLongTextField({
       personal: { of: "ownerId" },
       find: "none",
@@ -48,10 +49,7 @@ export const userContentEntryEntity = createEntity({
   ],
 });
 
-export const userContentEntriesTable = buildEntityTable(
-  "user-content-entry",
-  userContentEntryEntity,
-);
+export const userContentEntriesTable = buildEntityTable(userContentEntryEntity);
 
 export type UserContentEntryRow = {
   readonly id: string | number;

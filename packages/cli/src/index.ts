@@ -9,9 +9,11 @@
 // `consumer`). Workspace-only maintainer commands (ci:guards, dev, build, …)
 // stay in the framework repo's bin/kumiko.ts.
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import type { CliCommand } from "./commands";
 import { APP_COMMANDS, findAppCommand } from "./commands";
-import { missingPeerMessage } from "./missing-peer";
 import type { Output } from "./output";
 
 export type { Output } from "./output";
@@ -27,7 +29,19 @@ const DEFAULT_OUT: Output = {
   err: (line) => console.error(line),
 };
 
-const VERSION = "0.1.0";
+function readCliVersion(): string {
+  const manifestPath = join(import.meta.dir, "..", "package.json");
+  const manifest = parseJsonOrThrow<unknown>(readFileSync(manifestPath, "utf-8"), manifestPath);
+  if (
+    typeof manifest === "object" &&
+    manifest !== null &&
+    "version" in manifest &&
+    typeof manifest.version === "string"
+  ) {
+    return manifest.version;
+  }
+  throw new Error(`${manifestPath} has no "version"`);
+}
 
 export async function runCli(options: RunCliOptions): Promise<number> {
   const out = options.out ?? DEFAULT_OUT;
@@ -40,7 +54,7 @@ export async function runCli(options: RunCliOptions): Promise<number> {
     return 0;
   }
   if (first === "-v" || first === "--version") {
-    out.log(VERSION);
+    out.log(readCliVersion());
     return 0;
   }
 
@@ -54,55 +68,27 @@ export async function runCli(options: RunCliOptions): Promise<number> {
       printCommandHelp(appCommand, out);
       return 0;
     }
-    return await runAppCommand(appCommand, { argv: rest, cwd, out });
+    return await appCommand.run({ argv: rest, cwd, out });
   }
 
   out.err(`kumiko: unknown command "${first}". Run \`kumiko --help\` for usage.`);
   return 1;
 }
 
-async function runAppCommand(
-  command: CliCommand,
-  context: Parameters<CliCommand["run"]>[0],
-): Promise<number> {
-  try {
-    return await command.run(context);
-  } catch (error) {
-    const message = missingPeerMessage(error);
-    if (message === undefined) throw error;
-    context.out.err(`kumiko ${command.id}: ${message}`);
-    return 1;
-  }
-}
-
 async function runNew(args: readonly string[], out: Output, cwd: string): Promise<number> {
-  const [subject, name] = args;
+  const [subject] = args;
   if (subject !== "app") {
     out.err(`kumiko new: only "new app <name>" is supported. Got "${subject ?? "(nothing)"}".`);
     return 1;
   }
-  if (!name) {
-    out.err("kumiko new app: missing <name>. Example: `kumiko new app my-shop`.");
-    return 1;
-  }
   try {
-    // Loaded on demand: the dev-server barrel costs ~0.6 s cold, which every --help paid before.
-    const { scaffoldApp } = await import("@cosmicdrift/kumiko-dev-server");
-    const { renderTestSetup } = await import("@cosmicdrift/kumiko-testing/scaffold");
-    const result = await scaffoldApp({
-      name,
-      destination: `${cwd}/${name}`,
-      testSetup: renderTestSetup,
-    });
-    out.log(`✓ Scaffolded ${result.appName} → ${result.destination}`);
-    out.log("");
-    for (const f of result.files) out.log(`  ${f}`);
-    out.log("");
-    out.log("Next:");
-    out.log(`  cd ${name}`);
-    out.log("  bun install && cp .env.example .env");
-    out.log("  bun run boot");
-    return 0;
+    const { parseArgv, runCreate } = await import("create-kumiko-app");
+    const parsed = parseArgv(args.slice(1));
+    if (!parsed.name) {
+      out.err("kumiko new app: missing <name>. Example: `kumiko new app my-shop`.");
+      return 1;
+    }
+    return await runCreate({ ...parsed, yes: true, cwd, log: (line) => out.log(line) });
   } catch (e) {
     out.err(`kumiko new app: ${e instanceof Error ? e.message : String(e)}`);
     return 1;
@@ -120,7 +106,9 @@ async function runAdd(args: readonly string[], out: Output, cwd: string): Promis
     return 1;
   }
   try {
-    const { scaffoldAppFeature } = await import("@cosmicdrift/kumiko-dev-server");
+    const { scaffoldAppFeature } = await import(
+      "@cosmicdrift/kumiko-dev-server/scaffold-app-feature"
+    );
     const result = scaffoldAppFeature({ name, appRoot: cwd });
     out.log(`✓ Added feature ${result.featureName}:`);
     for (const f of result.files) out.log(`  ${f}`);
@@ -137,10 +125,12 @@ async function runAdd(args: readonly string[], out: Output, cwd: string): Promis
 }
 
 function printHelp(out: Output): void {
-  out.log(`kumiko v${VERSION} — scaffold Kumiko apps`);
+  out.log(`kumiko v${readCliVersion()} — scaffold Kumiko apps`);
   out.log("");
   out.log("Commands:");
-  out.log("  kumiko new app <name>        Scaffold a new app workspace");
+  out.log(
+    "  kumiko new app <name>        Scaffold an app with the recommended features (--blank: no demo data)",
+  );
   out.log("  kumiko add feature <name>    Add + auto-mount a feature");
   for (const cmd of APP_COMMANDS) {
     out.log(`  kumiko ${cmd.id.padEnd(22)}${cmd.description}`);

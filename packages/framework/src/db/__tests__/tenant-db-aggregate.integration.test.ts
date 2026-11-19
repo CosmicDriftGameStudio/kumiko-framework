@@ -111,6 +111,69 @@ describe("TenantDb.aggregate — measures", () => {
       await tdb.aggregate(itemsTable, { measure: { fn: "avg", field: "amount" } }, where),
     ).toEqual([{ keys: [], value: null }]);
   });
+
+  test("min, max and percentile over the tenant's own rows", async () => {
+    const tdb = createTenantDb({ db: stack.db, tenantId: tenantA });
+    expect(await tdb.aggregate(itemsTable, { measure: { fn: "min", field: "amount" } })).toEqual([
+      { keys: [], value: 10 },
+    ]);
+    expect(await tdb.aggregate(itemsTable, { measure: { fn: "max", field: "amount" } })).toEqual([
+      { keys: [], value: 50 },
+    ]);
+    expect(
+      await tdb.aggregate(itemsTable, {
+        measure: { fn: "percentile", field: "amount", fraction: 0.5 },
+      }),
+    ).toEqual([{ keys: [], value: 30 }]);
+    const p95 = await tdb.aggregate(itemsTable, {
+      measure: { fn: "percentile", field: "amount", fraction: 0.95 },
+    });
+    expect(p95.length).toBe(1);
+    expect(p95[0]?.keys).toEqual([]);
+    expect(p95[0]?.value).toBeCloseTo(48, 9);
+  });
+
+  test("percentile per group", async () => {
+    const tdb = createTenantDb({ db: stack.db, tenantId: tenantA });
+    expect(
+      await tdb.aggregate(itemsTable, {
+        measure: { fn: "percentile", field: "amount", fraction: 0.5 },
+        groupBy: [{ field: "status" }],
+      }),
+    ).toEqual([
+      { keys: ["failed"], value: 40 },
+      { keys: ["ok"], value: 20 },
+    ]);
+  });
+
+  test("min, max and percentile are null when no row matches", async () => {
+    const tdb = createTenantDb({ db: stack.db, tenantId: tenantA });
+    const where = { status: "nonexistent" };
+    for (const measure of [
+      { fn: "min", field: "amount" },
+      { fn: "max", field: "amount" },
+      { fn: "percentile", field: "amount", fraction: 0.5 },
+    ] as const) {
+      expect(await tdb.aggregate(itemsTable, { measure }, where)).toEqual([
+        { keys: [], value: null },
+      ]);
+    }
+  });
+
+  test("percentile fraction outside 0..1 and non-numeric measure columns are refused", async () => {
+    const tdb = createTenantDb({ db: stack.db, tenantId: tenantA });
+    await expect(
+      tdb.aggregate(itemsTable, { measure: { fn: "percentile", field: "amount", fraction: 1.5 } }),
+    ).rejects.toThrow("aggregateWhere: percentile fraction must be between 0 and 1, got 1.5");
+    await expect(
+      tdb.aggregate(itemsTable, {
+        measure: { fn: "percentile", field: "amount", fraction: Number.NaN },
+      }),
+    ).rejects.toThrow("aggregateWhere: percentile fraction must be between 0 and 1");
+    await expect(
+      tdb.aggregate(itemsTable, { measure: { fn: "max", field: "status" } }),
+    ).rejects.toThrow('aggregateWhere: max needs a numeric column, "status" is text');
+  });
 });
 
 describe("TenantDb.aggregate — grouping", () => {

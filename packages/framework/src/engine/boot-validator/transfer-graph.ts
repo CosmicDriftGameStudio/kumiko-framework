@@ -1,4 +1,6 @@
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import { buildEntityTable } from "../../db/table-builder.ts";
+import { tableNameOf } from "../ownership.ts";
 import { parseRefTargetEntityName } from "../parse-ref-target.ts";
 import {
   findOverDeepTransferChain,
@@ -12,10 +14,11 @@ import { ENTITY_DECLARATION_RULES } from "./entity-declaration-rules.ts";
 // --- Transfer-graph boot validation ---
 //
 // tenant-handover walks an entity graph across the tenant boundary along two
-// declared edge kinds: `parentRef` and plain `reference` fields. Two shapes
-// cannot be walked, and both have to fail loudly here rather than silently
-// leaving rows behind in the source tenant — the partial move is exactly what
-// this validation exists to end.
+// declared edge kinds: `parentRef` and plain `reference` fields. Four shapes
+// cannot be moved whole (a multiple reference, a chain beyond the depth limit,
+// and a side projection or a table-backed multi-stream projection that does not move with its source), and all have to
+// fail loudly here rather than silently leaving rows behind in the source
+// tenant — the partial move is exactly what this validation exists to end.
 //
 // Scoped to entities declaring `transferable: true`, so a consumer that has
 // one of these shapes but never hands that entity over is unaffected.
@@ -63,6 +66,78 @@ function validateNoMultipleReferenceEdge(
   }
 }
 
+function transferableEntityTables(
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): ReadonlyMap<string, string> {
+  const tables = new Map<string, string>();
+  for (const feature of featureMap.values()) {
+    for (const [name, entity] of Object.entries(feature.entities ?? {})) {
+      if (entity.transferable !== true) continue;
+      tables.set(
+        name,
+        tableNameOf(feature.entityTables?.[name] ?? buildEntityTable({ ...entity, name: name })),
+      );
+    }
+  }
+  return tables;
+}
+
+// tenant-handover moves the rows of a transferable entity's own table. A projection that
+// copies its events into another table keeps those rows in the source tenant, splitting one
+// record across two tenants. Multi-stream projections are checked below.
+function validateNoSideProjection(
+  feature: FeatureDefinition,
+  transferableTables: ReadonlyMap<string, string>,
+): void {
+  for (const projection of Object.values(feature.projections)) {
+    if (projection.isImplicit === true) continue;
+    const sources = [
+      ...(typeof projection.source === "string" ? [projection.source] : projection.source),
+      ...(projection.extraSources ?? []),
+    ];
+    const projectionTable = tableNameOf(projection.table);
+    for (const source of sources) {
+      const entityName = parseRefTargetEntityName(source);
+      const entityTable = transferableTables.get(entityName);
+      if (entityTable === undefined || entityTable === projectionTable) continue;
+      throw bootRuleError(ENTITY_DECLARATION_RULES.transferCustomProjection, {
+        message:
+          `[Kumiko TransferGraph] projection "${projection.name}" (feature: "${feature.name}") is fed by ` +
+          `the transferable entity "${entityName}" but writes into "${projectionTable}", not into the ` +
+          `entity table "${entityTable}". tenant-handover moves only the entity table rows, so the ` +
+          `projection rows would stay in the source tenant. Fix: move the projected columns into ` +
+          `"${entityName}", or drop transferable from "${entityName}".`,
+      });
+    }
+  }
+}
+
+// A multi-stream projection with a table that folds a transferable entity's events keeps its rows in the
+// source tenant. Without a table (workflow triggers, custom fields, notifications) there is nothing to
+// move. Apply keys are matched by the `<entity>.` prefix of lifecycle and entity-named domain events.
+function validateNoMultiStreamProjectionTable(
+  feature: FeatureDefinition,
+  transferableTables: ReadonlyMap<string, string>,
+): void {
+  for (const projection of Object.values(feature.multiStreamProjections)) {
+    if (projection.table === undefined) continue;
+    const applyKeys = Object.keys(projection.apply);
+    const projectionTable = tableNameOf(projection.table);
+    for (const [entityName, entityTable] of transferableTables) {
+      if (entityTable === projectionTable) continue;
+      if (!applyKeys.some((key) => key.startsWith(`${entityName}.`))) continue;
+      throw bootRuleError(ENTITY_DECLARATION_RULES.transferMultiStreamProjection, {
+        message:
+          `[Kumiko TransferGraph] multi-stream projection "${projection.name}" (feature: "${feature.name}") ` +
+          `applies events of the transferable entity "${entityName}" and writes into "${projectionTable}", ` +
+          `not into the entity table "${entityTable}". tenant-handover moves only the entity table rows, so ` +
+          `the projection rows would stay in the source tenant. Fix: move the projected columns into ` +
+          `"${entityName}", drop the projection's table, or drop transferable from "${entityName}".`,
+      });
+    }
+  }
+}
+
 export function validateTransferGraph(
   feature: FeatureDefinition,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
@@ -94,4 +169,8 @@ export function validateTransferGraph(
       });
     }
   }
+
+  const transferableTables = transferableEntityTables(featureMap);
+  validateNoSideProjection(feature, transferableTables);
+  validateNoMultiStreamProjectionTable(feature, transferableTables);
 }

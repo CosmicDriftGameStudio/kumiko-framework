@@ -8,22 +8,22 @@ import {
 import { isEntitySearchable } from "../is-entity-searchable.ts";
 
 const feature = defineFeature("searchable-probe", (r) => {
-  r.entity({
-    name: "indexed",
-    ...createEntity({
+  r.entity(
+    createEntity({
+      name: "indexed",
       table: "probe_indexed",
       fields: {
         title: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
       },
     }),
-  });
-  r.entity({
-    name: "plain",
-    ...createEntity({
+  );
+  r.entity(
+    createEntity({
+      name: "plain",
       table: "probe_plain",
       fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
     }),
-  });
+  );
 });
 
 describe("isEntitySearchable", () => {

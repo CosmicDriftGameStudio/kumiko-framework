@@ -10,44 +10,64 @@ import {
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import * as z from "zod";
-import { createRegistry, defineFeature } from "../../engine/index.ts";
+import { createRegistry, defineFeature, emitEvent } from "../../engine/index.ts";
 import { createDistributedLock } from "../../pipeline/distributed-lock.ts";
 import { RedisKeys } from "../../pipeline/redis-keys.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { createJobRunner } from "../job-runner.ts";
+import { purgeRawRedisKeys } from "./purge-raw-redis-keys.ts";
 
 const retryRuns: [number, boolean][] = [];
 const singleRuns: [number, boolean][] = [];
 
 const attemptFixtureFeature = defineFeature("attemptfixture", (r) => {
+  const triggerRetry = r.defineEvent("trigger-retry", z.object({}), { piiFields: "none" });
   r.writeHandler({
     name: "trigger-retry",
     schema: z.object({}),
-    handler: async () => ({ isSuccess: true as const, data: {} }),
+    handler: async (_event, ctx) => {
+      await emitEvent(ctx, triggerRetry, {
+        aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
+        aggregateType: "trigger-retry-request",
+        payload: {},
+      });
+      return { isSuccess: true as const, data: {} };
+    },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.job(
-    "retry",
-    { trigger: { on: "attemptfixture:write:trigger-retry" }, retries: 2 },
-    async (_payload, ctx) => {
+  r.job({
+    name: "retry",
+    trigger: { on: "attemptfixture:event:trigger-retry" },
+    retries: 2,
+    handler: async (_payload, ctx) => {
       retryRuns.push([ctx.attempt, ctx.finalAttempt]);
       if (ctx.attempt < 3) throw new Error(`fails on attempt ${ctx.attempt}`);
     },
-  );
+  });
 
+  const triggerSingle = r.defineEvent("trigger-single", z.object({}), { piiFields: "none" });
   r.writeHandler({
     name: "trigger-single",
     schema: z.object({}),
-    handler: async () => ({ isSuccess: true as const, data: {} }),
+    handler: async (_event, ctx) => {
+      await emitEvent(ctx, triggerSingle, {
+        aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
+        aggregateType: "trigger-single-request",
+        payload: {},
+      });
+      return { isSuccess: true as const, data: {} };
+    },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.job(
-    "single",
-    { trigger: { on: "attemptfixture:write:trigger-single" } },
-    async (_payload, ctx) => {
+  r.job({
+    name: "single",
+    trigger: { on: "attemptfixture:event:trigger-single" },
+    handler: async (_payload, ctx) => {
       singleRuns.push([ctx.attempt, ctx.finalAttempt]);
     },
-  );
+  });
 });
 
 let stack: TestStack;
@@ -106,26 +126,23 @@ describe("JobContext.attempt / finalAttempt through the runner's other entry poi
   }
 
   async function purgeWorkerKeys(queueNamePrefix: string): Promise<void> {
-    const keys = await testRedis.redis.keys(`bull:${queueNamePrefix}-worker:*`);
-    if (keys.length > 0) await testRedis.redis.del(...keys);
+    await purgeRawRedisKeys(testRedis.redisUrl, `bull:${queueNamePrefix}-worker:*`);
   }
 
   test("a sequential retry that hits a busy lock keeps counting instead of restarting at 1", async () => {
     const runs: [number, boolean][] = [];
     const feature = defineFeature("attemptseq", (r) => {
-      r.job(
-        "flaky",
-        {
-          trigger: { manual: true },
-          concurrency: "sequential",
-          retries: 1,
-          backoff: { type: "fixed", delayMs: 800 },
-        },
-        async (_payload, ctx) => {
+      r.job({
+        name: "flaky",
+        trigger: { manual: true },
+        concurrency: "sequential",
+        retries: 1,
+        backoff: { type: "fixed", delayMs: 800 },
+        handler: async (_payload, ctx) => {
           runs.push([ctx.attempt, ctx.finalAttempt]);
           throw new Error("always fails");
         },
-      );
+      });
     });
     const jobName = "attemptseq:job:flaky";
     const queueNamePrefix = uniquePrefix("seq");
@@ -182,13 +199,15 @@ describe("JobContext.attempt / finalAttempt through the runner's other entry poi
   test("a boot gate runs inline as attempt 1 and is already final", async () => {
     const runs: [number, boolean][] = [];
     const feature = defineFeature("attemptgate", (r) => {
-      r.job(
-        "check",
-        { trigger: { manual: true }, bootGate: true, retries: 2 },
-        async (_payload, ctx) => {
+      r.job({
+        name: "check",
+        trigger: { manual: true },
+        bootGate: true,
+        retries: 2,
+        handler: async (_payload, ctx) => {
           runs.push([ctx.attempt, ctx.finalAttempt]);
         },
-      );
+      });
     });
     const queueNamePrefix = uniquePrefix("gate");
     const runner = createJobRunner({

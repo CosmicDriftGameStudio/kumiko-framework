@@ -7,7 +7,8 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import type { Dispatcher } from "../../headless/index.ts";
+import type { QueryResult } from "../../headless/index.ts";
+import { isRecord } from "../../headless/is-record.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -23,7 +24,7 @@ import { WebDashboardBody } from "../app/dashboard-body.tsx";
 import { useBrowserNavApi } from "../app/nav.tsx";
 import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
 
-type Handler = (payload: Readonly<Record<string, unknown>>) => unknown | Promise<unknown>;
+type Handler = (payload: Readonly<Record<string, unknown>>) => QueryResult | Promise<QueryResult>;
 
 function BrowserNav({
   children,
@@ -50,10 +51,12 @@ function renderDashboard(
   appFeatures: readonly FeatureSchema[] = [],
 ): void {
   const dispatcher = createMockDispatcher({
-    query: (async (type: string, payload: Record<string, unknown> = {}) => {
+    query: async (type: string, payload: unknown) => {
       const handler = handlers[type];
-      return handler === undefined ? { isSuccess: true, data: {} } : await handler(payload);
-    }) as unknown as Dispatcher["query"],
+      return handler === undefined
+        ? { isSuccess: true, data: {} }
+        : await handler(isRecord(payload) ? payload : {});
+    },
   });
   const schema: FeatureSchema = { featureName: "demo", entities: {}, screens: [dashboard] };
   render(
@@ -74,7 +77,7 @@ function renderDashboard(
   );
 }
 
-const ok = (data: unknown) => ({ isSuccess: true, data });
+const ok = (data: unknown): QueryResult => ({ isSuccess: true, data });
 
 const TASK_ROW = {
   id: "t1",
@@ -122,8 +125,8 @@ describe("dashboard list panel row guidance", () => {
     );
     const sentence = await screen.findByText("Send reminder");
     expect(sentence.closest("[data-hint-tone]")?.getAttribute("data-hint-tone")).toBe("warn");
-    expect(screen.getByText("until Friday")).toBeTruthy();
-    expect(screen.getByText("Nothing open")).toBeTruthy();
+    screen.getByText("until Friday");
+    screen.getByText("Nothing open");
   });
 
   test("the Why toggle reveals the reason without following the row", async () => {
@@ -135,7 +138,7 @@ describe("dashboard list panel row guidance", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(screen.queryByText("The invoice is 14 days overdue.")).toBeNull();
     await userEvent.click(toggle);
-    expect(screen.getByText("The invoice is 14 days overdue.")).toBeTruthy();
+    screen.getByText("The invoice is 14 days overdue.");
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     await userEvent.click(toggle);
     expect(screen.queryByText("The invoice is 14 days overdue.")).toBeNull();
@@ -177,16 +180,16 @@ describe("dashboard text panel with a query", () => {
   });
 
   test("static blocks show while the query loads, query blocks replace them afterwards", async () => {
-    let release: (value: unknown) => void = () => {};
-    const pending = new Promise((resolve) => {
+    let release: (value: QueryResult) => void = () => {};
+    const pending = new Promise<QueryResult>((resolve) => {
       release = resolve;
     });
     renderDashboard(textDashboard([{ kind: "heading", text: "demo:static-heading" }]), {
       "demo:query:tips": () => pending,
     });
-    expect(await screen.findByText("Statische Hilfe")).toBeTruthy();
+    await screen.findByText("Statische Hilfe");
     release(ok({ blocks: [{ kind: "paragraph", text: "Live tip" }] }));
-    await waitFor(() => expect(screen.getByText("Live tip")).toBeTruthy());
+    await waitFor(() => screen.getByText("Live tip"));
     expect(screen.queryByText("Statische Hilfe")).toBeNull();
   });
 
@@ -194,7 +197,7 @@ describe("dashboard text panel with a query", () => {
     renderDashboard(textDashboard(), {
       "demo:query:tips": () => ok({ blocks: [] }),
     });
-    expect(await screen.findByText("Statische Hilfe")).toBeTruthy();
+    await screen.findByText("Statische Hilfe");
   });
 
   test("DashboardI18nText is translated with its params", async () => {
@@ -209,7 +212,7 @@ describe("dashboard text panel with a query", () => {
           ],
         }),
     });
-    expect(await screen.findByText("Hallo Ada")).toBeTruthy();
+    await screen.findByText("Hallo Ada");
   });
 
   test("an invalid block is dropped, the valid ones stay", async () => {
@@ -223,7 +226,7 @@ describe("dashboard text panel with a query", () => {
           ],
         }),
     });
-    expect(await screen.findByText("Valid hint")).toBeTruthy();
+    await screen.findByText("Valid hint");
     expect(screen.queryByText("42")).toBeNull();
   });
 
@@ -231,17 +234,22 @@ describe("dashboard text panel with a query", () => {
     renderDashboard(textDashboard(), {
       "demo:query:tips": () => ok({ blocks: "nope" }),
     });
-    expect(await screen.findByText("Statische Hilfe")).toBeTruthy();
+    await screen.findByText("Statische Hilfe");
   });
 
   test("without static blocks a failing query shows the panel error", async () => {
     renderDashboard(textDashboard([], { label: "demo:list-label" }), {
       "demo:query:tips": () => ({
         isSuccess: false,
-        error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
+        error: {
+          code: "internal",
+          httpStatus: 500,
+          message: "kaputt",
+          i18nKey: "errors.internal",
+        },
       }),
     });
-    expect(await screen.findByText(/konnte nicht geladen werden|could not be loaded/)).toBeTruthy();
+    await screen.findByText(/konnte nicht geladen werden|could not be loaded/);
   });
 
   test("a link block to a screen the user may not open is hidden", async () => {

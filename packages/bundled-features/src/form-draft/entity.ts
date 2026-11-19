@@ -17,12 +17,13 @@ import { FORM_DRAFT_KEY_MAX_LENGTH, FORM_DRAFT_UNIQUE_KEY_CONSTRAINT } from "./w
 // submit succeeds; partially-created domain data past that point is the
 // consuming app's concern, not this feature's.
 export const formDraftEntity = createEntity({
+  name: "form-draft",
   table: "read_form_drafts",
   fields: {
     // Never client-supplied — stamped from event.user.id (see handlers), so
     // a draft can't be saved/read/discarded as someone else. subjectRef
     // feeds the GDPR-hook-coverage boot guard (it's a plain FK into `user`,
-    // not content of its own) — see ../form-draft-user-data for the
+    // not content of its own) — see form-draft's user-data hooks (user-data-hooks.ts) for the
     // required export/delete hook coverage.
     ownerId: createTextField({
       personal: "ref",

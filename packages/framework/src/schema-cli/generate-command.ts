@@ -1,7 +1,12 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { generateMigration, writeSnapshotJson } from "../db/index.ts";
-import { assertValidMigrationName, hasNoSchemaChanges } from "../db/migrate-generator.ts";
+import {
+  assertValidMigrationName,
+  hasEntityEventVersionChanges,
+  hasNoSchemaChanges,
+  type UnversionedEntityRename,
+} from "../db/migrate-generator.ts";
 import { readMigrationSqlTexts } from "../db/migrate-runner.ts";
 import { rebuildTablesFromDiff, writeRebuildMarker } from "../db/rebuild-marker.ts";
 import {
@@ -84,6 +89,29 @@ function reportGeneratedMigration(
   out.log("");
 }
 
+function reportUnversionedEntityRenames(
+  out: SchemaCliOut,
+  renames: readonly UnversionedEntityRename[],
+): void {
+  out.err(
+    "  ✗ entity columns dropped and added without a raised eventVersion; no migration file written.",
+  );
+  for (const rename of renames) {
+    out.err(
+      `    ${rename.tableName}: drops ${rename.droppedColumns.join(", ")}, adds ${rename.newColumns.join(", ")}`,
+    );
+  }
+  out.err(
+    "    A rebuild skips event payload keys that are no longer fields, so renamed values would be lost.",
+  );
+  out.err(
+    "    Rename: raise eventVersion on the entity and add an eventMigrations step that maps the old field to the new one.",
+  );
+  out.err(
+    "    Unrelated drop and add: generate them as two migrations (docs/guides/expand-contract-managed-projections.md).",
+  );
+}
+
 export async function runGenerateCommand(ctx: SchemaCliContext): Promise<number> {
   const { out, migrationsDir } = ctx;
   const parsed = parseGenerateName(ctx);
@@ -101,8 +129,17 @@ export async function runGenerateCommand(ctx: SchemaCliContext): Promise<number>
     priorMigrationsSql: readMigrationSqlTexts(migrationsDir),
   });
 
+  if (result.unversionedEntityRenames.length > 0) {
+    reportUnversionedEntityRenames(out, result.unversionedEntityRenames);
+    return 1;
+  }
+
   if (hasNoSchemaChanges(result)) {
     out.log("  No schema changes detected — no new migration file written.");
+    if (hasEntityEventVersionChanges(prevSnapshot, result.snapshot)) {
+      writeSnapshotJson(snapshotPath, result.snapshot);
+      out.log("  Entity eventVersion changed — .snapshot.json updated, commit it.");
+    }
     return 0;
   }
 

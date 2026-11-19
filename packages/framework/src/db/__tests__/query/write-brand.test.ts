@@ -29,10 +29,11 @@ import {
 } from "../../tenant-db.ts";
 
 const brandSampleEntity = createEntity({
+  name: "brandSample",
   table: "brand_sample",
   fields: { title: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
-const brandedEntity = buildEntityTable("brandSample", brandSampleEntity);
+const brandedEntity = buildEntityTable(brandSampleEntity);
 
 const unmanagedTable = defineUnmanagedTable({
   tableName: "brand_unmanaged",
@@ -48,7 +49,7 @@ const projectionTable = pgTable("read_brand_projection", {
   id: pgUuid("id").primaryKey(),
 });
 
-const derivedUnmanaged = deriveEntityTableMeta("brandSample", brandSampleEntity, {
+const derivedUnmanaged = deriveEntityTableMeta(brandSampleEntity, {
   source: "unmanaged",
 });
 
@@ -116,7 +117,7 @@ async function _registryTableNeedsCapability(db: DbRunner, registry: Registry): 
 // 3. unsafeRaw() strips the capability; the TenantDb itself has none either.
 async function _unsafeRawDoesNotUnlock(tenantDb: TenantDb): Promise<void> {
   // @ts-expect-error — unsafeRaw() returns a plain DbRunner without the capability.
-  await insertOne(tenantDb.unsafeRaw(), brandedEntity, { title: "x" });
+  await insertOne(tenantDb.unsafeRawAllTenants(), brandedEntity, { title: "x" });
   // @ts-expect-error — a plain TenantDb only accepts Writable tables.
   await tenantDb.insertOne(brandedEntity, { title: "x" });
 }
@@ -124,7 +125,7 @@ async function _unsafeRawDoesNotUnlock(tenantDb: TenantDb): Promise<void> {
 // 4. Even the capable TenantDb hands out a capability-free runner from unsafeRaw().
 async function _capableUnsafeRawDoesNotUnlock(destroyDb: ExecutorManagedTenantDb): Promise<void> {
   // @ts-expect-error — unsafeRaw() on an ExecutorManagedTenantDb drops the capability.
-  await insertOne(destroyDb.unsafeRaw(), brandedEntity, { title: "x" });
+  await insertOne(destroyDb.unsafeRawAllTenants(), brandedEntity, { title: "x" });
 }
 
 // 5. Apply functions receive the capability and the (managed) projection table.

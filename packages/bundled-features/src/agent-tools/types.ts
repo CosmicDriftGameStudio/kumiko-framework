@@ -75,17 +75,11 @@ export type ToolDispatchDescriptor =
       readonly op: "write";
       readonly qn: string;
       readonly risk: AgentRisk;
-      /** "proposal": the write changes a suggestion a person still approves, so no approval step. */
+      /** "proposal": no approval step; "outbound": approval on every call, never a standing approval. */
       readonly effect?: AgentEffect;
       readonly entity?: string;
-      /** `<feature>:query:<entity>:detail` QN when one is mounted and readable.
-       *  Dispatch reads the current `version` from it before an optimistic-lock
-       *  write, and re-reads through it after a successful write so the result
-       *  goes through the field-level read filter. */
+      /** `<feature>:query:<entity>:detail` QN when one is mounted and readable. Dispatch re-reads through it after a successful write so the result goes through the field-level read filter. */
       readonly detailQn?: string;
-      /** True when the handler schema requires `version` and `detailQn` exists,
-       *  so the catalog stripped `version` from the model-facing input schema. */
-      readonly injectsVersion?: boolean;
     }
   | {
       readonly kind: "client";

@@ -82,7 +82,11 @@ export function DefaultCard({
       <div
         className={cn(
           "flex flex-col gap-3",
-          inlineHeader ? "px-4 pt-3.5" : "px-[var(--card-padding)] pt-6 pb-4",
+          options?.headerPadding === "flush"
+            ? "px-0 pt-1 pb-2"
+            : inlineHeader
+              ? "px-4 pt-3.5"
+              : "px-[var(--card-padding)] pt-6 pb-4",
           fillHeight && "shrink-0",
         )}
       >

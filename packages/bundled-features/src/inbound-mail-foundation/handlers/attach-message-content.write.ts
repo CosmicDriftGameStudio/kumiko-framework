@@ -158,6 +158,7 @@ export const attachMessageContentHandler = defineWriteHandler({
     const messageAggId = inboundMessageAggregateId(payload.accountId, payload.providerMessageId);
 
     await ctx.db.advisoryXactLock(MESSAGE_LOCK_NAMESPACE, messageAggId);
+    const messageStreamVersion = await ctx.events.streamVersion(messageAggId);
     const events = await ctx.events.load(messageAggId);
     if (events.length === 0) return failNotFound("inbound-message", messageAggId);
     if (hasContentAlready(events)) {
@@ -186,6 +187,7 @@ export const attachMessageContentHandler = defineWriteHandler({
       type: INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN,
       payload: eventPayload,
       headers: { providerMessageId: payload.providerMessageId, outcome: payload.outcome },
+      expectedVersion: messageStreamVersion,
     });
     // Losing the version race must roll back the stored attachments instead of reporting success.
     if (!appended.ok) {

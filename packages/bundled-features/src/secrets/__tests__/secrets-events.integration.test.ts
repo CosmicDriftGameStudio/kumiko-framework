@@ -35,6 +35,12 @@ const admin = createTestUser({
   roles: ["TenantAdmin"],
 });
 
+type EventRow = {
+  readonly type: string;
+  readonly aggregateType: string;
+  readonly aggregateId: string;
+  readonly payload: unknown;
+};
 const declared = createDeclaredKeysFeature();
 
 let stack: TestStack;
@@ -73,7 +79,9 @@ describe("tenantSecret lifecycle events", () => {
       admin,
     );
 
-    const created = await selectMany(stack.db, eventsTable, { type: "tenant-secret.created" });
+    const created = await selectMany<EventRow>(stack.db, eventsTable, {
+      type: "tenant-secret.created",
+    });
     expect(created.length).toBe(1);
     // aggregateType stable; downstream MSPs filter by this.
     expect(created[0]?.aggregateType).toBe("tenant-secret");
@@ -90,7 +98,9 @@ describe("tenantSecret lifecycle events", () => {
     );
     await stack.http.writeOk("secrets:write:delete", { key: declared.keys.extra.name }, admin);
 
-    const events = await selectMany(stack.db, eventsTable, { aggregateType: "tenant-secret" });
+    const events = await selectMany<EventRow>(stack.db, eventsTable, {
+      aggregateType: "tenant-secret",
+    });
 
     // Exactly 2 events on the same aggregate-stream: created + deleted.
     expect(events.length).toBe(2);

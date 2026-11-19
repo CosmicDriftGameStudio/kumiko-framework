@@ -37,14 +37,14 @@ describe("DefaultInput select → segmented control (edit-existing feedback)", (
   test("≤4 short options render the segmented control, not the dropdown", () => {
     renderSelect(["Draft", "Review", "Published"]);
     expect(screen.queryByTestId("combobox-status")).toBeNull();
-    expect(screen.getByRole("radiogroup")).toBeTruthy();
+    screen.getByRole("radiogroup");
     expect(screen.getAllByRole("radio")).toHaveLength(3);
   });
 
   test("4 options keep the dropdown", () => {
     renderSelect(["Draft", "Review", "Published", "Archived"]);
     expect(screen.queryByRole("radiogroup")).toBeNull();
-    expect(screen.getByTestId("combobox-status")).toBeTruthy();
+    screen.getByTestId("combobox-status");
   });
 
   test("3 options with a long label render a radio list instead of segments", () => {
@@ -57,7 +57,7 @@ describe("DefaultInput select → segmented control (edit-existing feedback)", (
   test("5 options keep the dropdown", () => {
     renderSelect(["Draft", "Review", "Published", "Archived", "Deleted"]);
     expect(screen.queryByRole("radiogroup")).toBeNull();
-    expect(screen.getByTestId("combobox-status")).toBeTruthy();
+    screen.getByTestId("combobox-status");
   });
 
   test("a long label no longer pushes the field into the dropdown", () => {
@@ -74,7 +74,7 @@ describe("DefaultInput select → segmented control (edit-existing feedback)", (
 
   test("group has an accessible name and the selected segment is aria-checked", () => {
     renderSelect(["Draft", "Review", "Published"], { value: "Review" });
-    expect(screen.getByRole("radiogroup", { name: "Status" })).toBeTruthy();
+    screen.getByRole("radiogroup", { name: "Status" });
     expect(screen.getByRole("radio", { name: "Review" }).getAttribute("aria-checked")).toBe("true");
     expect(screen.getByRole("radio", { name: "Draft" }).getAttribute("aria-checked")).toBe("false");
   });
@@ -191,7 +191,7 @@ describe("DefaultInput select → placeholder option is excluded from the segmen
         />
       </Field>,
     );
-    expect(screen.getByRole("radiogroup")).toBeTruthy();
+    screen.getByRole("radiogroup");
     expect(screen.getAllByRole("radio")).toHaveLength(3);
   });
 
@@ -217,7 +217,7 @@ describe("DefaultInput select → placeholder option is excluded from the segmen
       </Field>,
     );
     expect(screen.queryByRole("radiogroup")).toBeNull();
-    expect(screen.getByTestId("combobox-letter")).toBeTruthy();
+    screen.getByTestId("combobox-letter");
   });
 });
 

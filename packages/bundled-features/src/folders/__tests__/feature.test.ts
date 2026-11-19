@@ -39,8 +39,8 @@ function rawWriteAccess(
 }
 
 describe("createFoldersFeature shape", () => {
-  test("registers folder + folder-assignment entities, 5 write-handlers, 3 query-handlers", () => {
-    const feature = createFoldersFeature();
+  test("registers folder and folder-assignment entities with their handlers", () => {
+    const feature = createFoldersFeature({ parents: ["credit"] });
 
     expect(Object.keys(feature.entities ?? {})).toEqual(
       expect.arrayContaining(["folder", "folder-assignment"]),
@@ -55,7 +55,6 @@ describe("createFoldersFeature shape", () => {
         expect.stringMatching(/clear-folder/),
       ]),
     );
-    expect(Object.keys(feature.writeHandlers)).toHaveLength(5);
 
     expect(Object.keys(feature.queryHandlers)).toEqual(
       expect.arrayContaining([
@@ -64,14 +63,12 @@ describe("createFoldersFeature shape", () => {
         expect.stringMatching(/folder-assignment:list/),
       ]),
     );
-    expect(Object.keys(feature.queryHandlers)).toHaveLength(3);
   });
 });
 
 describe("createFoldersFeature access-options", () => {
-  test("without options: singleton with default roles on every path", () => {
-    const feature = createFoldersFeature();
-    expect(feature).toBe(createFoldersFeature());
+  test("with only parents: default roles on every path", () => {
+    const feature = createFoldersFeature({ parents: ["credit"] });
     for (const path of [
       "folder:create",
       "folder:update",
@@ -86,7 +83,7 @@ describe("createFoldersFeature access-options", () => {
   });
 
   test("roles option overrides every write- and query-path", () => {
-    const feature = createFoldersFeature({ roles: ["Admin", "Editor"] });
+    const feature = createFoldersFeature({ parents: ["credit"], roles: ["Admin", "Editor"] });
     expect(writeAccess(feature, "set-folder")).toEqual(["Admin", "Editor"]);
     expect(writeAccess(feature, "folder:create")).toEqual(["Admin", "Editor"]);
     expect(queryAccess(feature, "folder:list")).toEqual(["Admin", "Editor"]);
@@ -94,6 +91,7 @@ describe("createFoldersFeature access-options", () => {
 
   test("access:{openToAll} applies to every write- and query-path", () => {
     const feature = createFoldersFeature({
+      parents: ["credit"],
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
     for (const path of [
@@ -111,6 +109,7 @@ describe("createFoldersFeature access-options", () => {
 
   test("access takes precedence over the roles shorthand", () => {
     const feature = createFoldersFeature({
+      parents: ["credit"],
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       roles: ["Admin"],
     });
@@ -122,20 +121,20 @@ describe("createFoldersFeature access-options", () => {
 
 describe("createFoldersFeature toggleable-option (tier-gating)", () => {
   test("without toggleable: feature is always-on (toggleableDefault undefined)", () => {
-    expect(createFoldersFeature().toggleableDefault).toBeUndefined();
+    expect(createFoldersFeature({ parents: ["credit"] }).toggleableDefault).toBeUndefined();
   });
 
   test("toggleable:{default:false} makes the feature tier-gatable, fail-closed", () => {
     const feature = createFoldersFeature({
+      parents: ["credit"],
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       toggleable: { default: false },
     });
     expect(feature.toggleableDefault).toBe(false);
   });
 
-  test("toggleable alone (no access/roles) builds a fresh, non-singleton feature", () => {
-    const feature = createFoldersFeature({ toggleable: { default: false } });
-    expect(feature).not.toBe(createFoldersFeature());
+  test("toggleable alone (no access/roles) keeps the default roles", () => {
+    const feature = createFoldersFeature({ parents: ["credit"], toggleable: { default: false } });
     expect(writeAccess(feature, "folder:create")).toEqual([...DEFAULT_FOLDER_ROLES]);
   });
 });

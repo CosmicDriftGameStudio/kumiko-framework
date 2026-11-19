@@ -4,14 +4,14 @@
 // system-template seed), never straight into the tables.
 
 import { seedAdmin } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
-import { BRANDING_QN } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
+import { BRANDING_QN } from "@cosmicdrift/kumiko-bundled-features/branding";
+import { DEFAULT_MAIL_LAYOUT_MJML } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import {
   TemplateResolverHandlers,
   TemplateResolverQueries,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { DEFAULT_MAIL_LAYOUT_MJML } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { readBundledAsset } from "@cosmicdrift/kumiko-server-runtime";
 import {
   NORDLICHT_TENANT_ID,

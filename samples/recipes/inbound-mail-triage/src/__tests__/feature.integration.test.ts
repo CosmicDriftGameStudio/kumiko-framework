@@ -6,8 +6,8 @@
 //      projection row).
 //   2. ingest-message lands on the HTTP surface (in production the
 //      watch-supervisor dispatches it), the inline projection
-//      materializes read_inbound_messages, and the handler-trigger
-//      fires the worker-lane triage job with the plaintext payload.
+//      materializes read_inbound_messages, and the received event
+//      triggers the worker-lane triage job.
 //   3. An idempotent replay (same providerMessageId) does NOT create a
 //      second message row — and the keyed triage store keeps exactly
 //      one item even though the trigger fires again.
@@ -24,7 +24,6 @@ import {
   inboundMessageEntity,
   ingestFailureEntity,
   mailAccountEntity,
-  mailThreadEntity,
   quarantineEntity,
   seenMessageEntity,
   syncCursorEntity,
@@ -67,7 +66,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(testDb.db, mailAccountEntity);
   await unsafeCreateEntityTable(testDb.db, inboundMessageEntity);
-  await unsafeCreateEntityTable(testDb.db, mailThreadEntity);
   await unsafeCreateEntityTable(testDb.db, syncCursorEntity);
   await unsafeCreateEntityTable(testDb.db, seenMessageEntity);
   await unsafeCreateEntityTable(testDb.db, quarantineEntity);
@@ -170,15 +168,15 @@ describe("inbound-mail triage sample", () => {
       await waitFor(() => {
         expect(triageInbox.size).toBe(1);
       });
-      const item = triageInbox.get("uid-triage-1");
-      expect(item?.from).toContain("mieterin@example.com");
-      expect(item?.subject).toBe("Heizung defekt");
+      const item = [...triageInbox.values()][0];
+      expect(item?.accountId).toBe(accountId);
+      expect(item?.messageId).toBeDefined();
       expect(item?.scope).toBe("inbox");
       expect(item?.threadHint).toBe("triage-1@example.com");
 
       // 4. Replay (IDLE-Doppel-Notify / Cursor-Overlap): Handler meldet
-      //    duplicate, Trigger feuert erneut — der keyed Store bleibt
-      //    bei genau einem Item.
+      //    duplicate, es entsteht kein zweites Event — der keyed Store
+      //    bleibt bei genau einem Item.
       const replayRes = await entry.app.request("/api/write", {
         method: "POST",
         headers,

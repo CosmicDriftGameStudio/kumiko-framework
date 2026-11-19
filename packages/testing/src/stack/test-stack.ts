@@ -1,5 +1,7 @@
 // @runtime dev
 import type { AuthRoutesConfig, JwtHelper, SseBroker } from "@cosmicdrift/kumiko-framework/api";
+import { bindAppProjectionRegistry } from "@cosmicdrift/kumiko-framework/db";
+import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   AppContext,
   FeatureDefinition,
@@ -277,15 +279,25 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   const jwtSecret = options.jwtSecret ?? DEFAULT_JWT_SECRET;
   const enabledHooks = options.systemHooks ?? ["sse", "search"];
   await validateStackFeatures(options, jwtSecret);
-  const { testDb, testRedis } = await provisionStackStorage(options);
+  const storage = await provisionStackStorage(options);
+  const { testRedis } = storage;
   // Declared before the try so the catch only cleans up what already exists:
   // the extraContext/runLogger factories are caller code and can throw, and
   // createJobRunner() opens live BullMQ Redis connections.
   let cacheSync: ClosableCacheSyncBus | undefined;
   let jobRunner: JobRunner | undefined;
   try {
+    const registry = createRegistry([...options.features]);
+    const testDb = {
+      ...storage.testDb,
+      db: bindAppProjectionRegistry(storage.testDb.db, registry),
+      outsideTransactionDb: bindAppProjectionRegistry(
+        storage.testDb.outsideTransactionDb,
+        registry,
+      ),
+    };
     cacheSync = createStackCacheSync(options, testRedis);
-    const services = await buildStackServices(options, testDb, testRedis, cacheSync);
+    const services = await buildStackServices(options, testDb, testRedis, cacheSync, registry);
     // Fed to the job runner's onJobComplete/onJobFailed so drainJobs()
     // can tell a job's final outcome apart from an attempt that will retry —
     // built regardless of whether a runner ends up existing, so the returned
@@ -318,7 +330,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       async () => {
         if (cacheSync) await cacheSync.close();
       },
-      () => testDb.cleanup(),
+      () => storage.testDb.cleanup(),
       () => testRedis.cleanup(),
     ]);
     throw error;

@@ -2,7 +2,7 @@
 // remove through the real dispatcher + entity-projection + DB. Proves the
 // architecture end-to-end WITHOUT any host wiring (tags are host-agnostic — the
 // host is just the entityType/entityId strings on the assignment):
-//   - create-tag projects into read_tags
+//   - tag:create projects into read_tags
 //   - assign-tag projects a join row keyed by (entityType, entityId)
 //   - read-layer composition both directions (tags of an entity / entities of a tag)
 //   - assign + remove are idempotent (re-assign = one row, remove-missing = ok)
@@ -19,18 +19,19 @@ import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import { expectErrorIncludes, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { ListAggregateResult } from "@cosmicdrift/kumiko-types/list-aggregate-types";
 import { v5 as uuidv5 } from "uuid";
 import { tagAssignmentEntity, tagEntity } from "../entity.ts";
 import { createTagsFeature } from "../feature.ts";
 import { TagsHandlers, TagsQueries } from "../web/constants.ts";
 
-const tagsFeature = createTagsFeature();
+const tagsFeature = createTagsFeature({ parents: ["credit", "note"] });
 
 const CREDIT_TABLE = "tags_test_credits";
 const NOTE_TABLE = "tags_test_notes";
@@ -42,11 +43,11 @@ const hostFields = {
     reason: "technical_reference",
   }),
 };
-const creditEntity = createEntity({ table: CREDIT_TABLE, fields: hostFields });
-const noteEntity = createEntity({ table: NOTE_TABLE, fields: hostFields });
+const creditEntity = createEntity({ name: "credit", table: CREDIT_TABLE, fields: hostFields });
+const noteEntity = createEntity({ name: "note", table: NOTE_TABLE, fields: hostFields });
 const hostFixturesFeature = defineFeature("tags-test-host-fixtures", (r) => {
-  r.entity({ name: "credit", ...creditEntity });
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(creditEntity);
+  r.entity(noteEntity);
 });
 
 // The parent entity's ids are uuid-shaped, but the readable labels below carry
@@ -165,7 +166,7 @@ async function countAssignments(tenantId: string): Promise<number> {
 }
 
 describe("tags integration — catalog + assignment roundtrip", () => {
-  test("create-tag lands in read_tags", async () => {
+  test("tag:create lands in read_tags", async () => {
     const id = await createTag("Kunde Müller");
     const tags = await listTags();
     expect(tags).toHaveLength(1);
@@ -205,8 +206,30 @@ describe("tags integration — catalog + assignment roundtrip", () => {
   });
 });
 
+describe("tags integration — usage counts", () => {
+  test("assignmentList aggregate counts active assignments per tag", async () => {
+    const urgent = await createTag("Dringend");
+    const later = await createTag("Später");
+    await assign(urgent, "credit", hostId("credit-6"));
+    await assign(urgent, "credit", hostId("credit-7"));
+    await assign(urgent, "credit", hostId("credit-8"));
+    await assign(later, "credit", hostId("credit-6"));
+    await remove(urgent, "credit", hostId("credit-8"));
+
+    const res = await stack.http.queryOk<ListAggregateResult>(
+      TagsQueries.assignmentList,
+      { aggregate: { groupBy: "tagId", measures: [] } },
+      admin,
+    );
+    expect(Object.fromEntries(res.groups.map((g) => [String(g.key), g.count]))).toEqual({
+      [urgent]: 2,
+      [later]: 1,
+    });
+  });
+});
+
 describe("tags integration — rename", () => {
-  test("rename-tag updates name, preserves color, bumps version", async () => {
+  test("tag:update rename updates name, preserves color, bumps version", async () => {
     const { id } = await stack.http.writeOk<{ id: string }>(
       TagsHandlers.createTag,
       { name: "Mandant Alt", color: "#abc" },
@@ -219,7 +242,11 @@ describe("tags integration — rename", () => {
     expect(typeof before?.["version"]).toBe("number");
     const version = before?.["version"] as number;
 
-    await stack.http.writeOk(TagsHandlers.updateTag, { id, version, name: "Mandant Neu" }, admin);
+    await stack.http.writeOk(
+      TagsHandlers.updateTag,
+      { id, version, changes: { name: "Mandant Neu" } },
+      admin,
+    );
 
     const after = await tagById(id);
     expect(after?.["name"]).toBe("Mandant Neu");
@@ -227,18 +254,22 @@ describe("tags integration — rename", () => {
     expect(after?.["version"]).toBe(version + 1);
   });
 
-  test("rename-tag with a stale version is rejected (409), name unchanged", async () => {
+  test("tag:update with a stale version is rejected (409), name unchanged", async () => {
     const { id } = await stack.http.writeOk<{ id: string }>(
       TagsHandlers.createTag,
       { name: "Konflikt" },
       admin,
     );
     const stale = (await tagById(id))?.["version"] as number;
-    await stack.http.writeOk(TagsHandlers.updateTag, { id, version: stale, name: "Erster" }, admin);
+    await stack.http.writeOk(
+      TagsHandlers.updateTag,
+      { id, version: stale, changes: { name: "Erster" } },
+      admin,
+    );
 
     const err = await stack.http.writeErr(
       TagsHandlers.updateTag,
-      { id, version: stale, name: "Zweiter" }, // stale: the row already moved to stale+1
+      { id, version: stale, changes: { name: "Zweiter" } }, // stale: the row already moved to stale+1
       admin,
     );
     expect(err.httpStatus).toBe(409);
@@ -255,7 +286,7 @@ describe("tags integration — rename", () => {
 
     const err = await stack.http.writeErr(
       TagsHandlers.updateTag,
-      { id, version, name: "B-Übernahme" },
+      { id, version, changes: { name: "B-Übernahme" } },
       otherTenant,
     );
     expect(err.httpStatus).toBe(404);
@@ -264,7 +295,7 @@ describe("tags integration — rename", () => {
 });
 
 describe("tags integration — update (recolor / re-scope)", () => {
-  test("update-tag changes color + scope, preserves the untouched name", async () => {
+  test("tag:update changes color + scope, preserves the untouched name", async () => {
     const { id } = await stack.http.writeOk<{ id: string }>(
       TagsHandlers.createTag,
       { name: "Projekt", color: "#111111" },
@@ -273,7 +304,7 @@ describe("tags integration — update (recolor / re-scope)", () => {
     const version = (await tagById(id))?.["version"] as number;
     await stack.http.writeOk(
       TagsHandlers.updateTag,
-      { id, version, color: "#22cc88", scope: "note" },
+      { id, version, changes: { color: "#22cc88", scope: "note" } },
       admin,
     );
     const after = await tagById(id);
@@ -282,19 +313,142 @@ describe("tags integration — update (recolor / re-scope)", () => {
     expect(after?.["scope"]).toBe("note");
   });
 
-  test("update-tag with empty color clears it", async () => {
+  test("tag:update changes only the scope, preserving name and color", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Nur Bereich", color: "#123456" },
+      admin,
+    );
+    const version = (await tagById(id))?.["version"] as number;
+    await stack.http.writeOk(
+      TagsHandlers.updateTag,
+      { id, version, changes: { scope: "note" } },
+      admin,
+    );
+    const after = await tagById(id);
+    expect(after?.["scope"]).toBe("note");
+    expect(after?.["name"]).toBe("Nur Bereich");
+    expect(after?.["color"]).toBe("#123456");
+  });
+
+  test("tag:update with empty scope clears it", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Bereich leeren", scope: "note" },
+      admin,
+    );
+    const version = (await tagById(id))?.["version"] as number;
+    await stack.http.writeOk(
+      TagsHandlers.updateTag,
+      { id, version, changes: { scope: "" } },
+      admin,
+    );
+    expect((await tagById(id))?.["scope"]).toBe("");
+  });
+
+  test("tag:update trims the name server-side", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Vorher" },
+      admin,
+    );
+    const version = (await tagById(id))?.["version"] as number;
+    await stack.http.writeOk(
+      TagsHandlers.updateTag,
+      { id, version, changes: { name: "  foo  " } },
+      admin,
+    );
+    expect((await tagById(id))?.["name"]).toBe("foo");
+  });
+
+  test("tag:update rejects a no-op (id + version, no mutable field)", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Kein Feld" },
+      admin,
+    );
+    const version = (await tagById(id))?.["version"] as number;
+    const err = await stack.http.writeErr(
+      TagsHandlers.updateTag,
+      { id, version, changes: {} },
+      admin,
+    );
+    expectErrorIncludes(err, "no_changes");
+    expect((await tagById(id))?.["version"]).toBe(version);
+  });
+
+  test("tag:update with empty color clears it", async () => {
     const { id } = await stack.http.writeOk<{ id: string }>(
       TagsHandlers.createTag,
       { name: "Farbe", color: "#abcdef" },
       admin,
     );
     const version = (await tagById(id))?.["version"] as number;
-    await stack.http.writeOk(TagsHandlers.updateTag, { id, version, color: "" }, admin);
+    await stack.http.writeOk(
+      TagsHandlers.updateTag,
+      { id, version, changes: { color: "" } },
+      admin,
+    );
     expect((await tagById(id))?.["color"]).toBe("");
+  });
+
+  test("tag:update rejects a colour that is not a hex code", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Farbe streng", color: "#abcdef" },
+      admin,
+    );
+    const version = (await tagById(id))?.["version"] as number;
+    const err = await stack.http.writeErr(
+      TagsHandlers.updateTag,
+      { id, version, changes: { color: "red" } },
+      admin,
+    );
+    expectErrorIncludes(err, "invalid_color");
+    expect((await tagById(id))?.["color"]).toBe("#abcdef");
+  });
+
+  test.each([
+    ["an empty name", ""],
+    ["a whitespace-only name", "   "],
+    ["a name over 64 characters", "x".repeat(65)],
+  ])("tag:update rejects %s and leaves the tag untouched", async (_label, name) => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Name streng" },
+      admin,
+    );
+    const version = (await tagById(id))?.["version"] as number;
+    const err = await stack.http.writeErr(
+      TagsHandlers.updateTag,
+      { id, version, changes: { name } },
+      admin,
+    );
+    expect(err.httpStatus).toBeGreaterThanOrEqual(400);
+    expect(err.httpStatus).toBeLessThan(500);
+    const after = await tagById(id);
+    expect(after?.["name"]).toBe("Name streng");
+    expect(after?.["version"]).toBe(version);
+  });
+
+  test("tag:update without a version is rejected", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Ohne Version" },
+      admin,
+    );
+    const err = await stack.http.writeErr(
+      TagsHandlers.updateTag,
+      { id, changes: { name: "Neu" } },
+      admin,
+    );
+    expect(err.httpStatus).toBeGreaterThanOrEqual(400);
+    expect(err.httpStatus).toBeLessThan(500);
+    expect((await tagById(id))?.["name"]).toBe("Ohne Version");
   });
 });
 
-describe("tags integration — delete-tag cascade", () => {
+describe("tags integration — tag:delete cascade", () => {
   test("deletes the tag and detaches it from every entity (multiple types)", async () => {
     const target = await createTag("Sammelmappe");
     const other = await createTag("bleibt");
@@ -456,6 +610,7 @@ describe("tags integration — openToAll access model", () => {
     openStack = await setupTestStack({
       features: [
         createTagsFeature({
+          parents: ["credit", "note"],
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         }),
         hostFixturesFeature,

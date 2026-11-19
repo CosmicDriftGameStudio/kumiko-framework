@@ -12,11 +12,11 @@ import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
   type ButtonProps,
-  type CorePrimitives,
   type GridProps,
   type InputProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RenderField } from "../render-field.tsx";
 
 let capturedInputs: InputProps[] = [];
@@ -38,7 +38,7 @@ const captureGrid: ComponentType<GridProps> = (props) => {
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 const noop = (): ReactNode => null;
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: captureButton,
   Banner: noop,
   Field: passChildren,
@@ -57,7 +57,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function languagesField(overrides: Partial<EditFieldViewModel> = {}): EditFieldViewModel {
   return {

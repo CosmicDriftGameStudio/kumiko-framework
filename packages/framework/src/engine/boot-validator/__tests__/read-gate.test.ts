@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import * as z from "zod";
-import { FILE_REF_ENTITY_NAME, fileRefEntity } from "../../../files/file-ref-entity.ts";
+import { fileRefEntity } from "../../../files/file-ref-entity.ts";
 import { defineFeature } from "../../define-feature.ts";
 import { defineEntityListHandler } from "../../entity-handlers.ts";
 import { createEntity, createFileField, createTextField } from "../../factories.ts";
@@ -17,9 +17,14 @@ const text = () =>
   });
 
 const linkEntity = createEntity({
+  name: "link",
   table: "read_gate_boot_links",
   fields: { documentId: text(), entityType: text(), entityId: text() },
-  parentRef: { entityTypeField: "entityType", entityIdField: "entityId" },
+  parentRef: {
+    entityTypeField: "entityType",
+    entityIdField: "entityId",
+    allowedTypes: ["host"],
+  },
 });
 
 function gated(readGate: EntityDefinition["readGate"], extra: Partial<EntityDefinition> = {}) {
@@ -28,6 +33,7 @@ function gated(readGate: EntityDefinition["readGate"], extra: Partial<EntityDefi
     fields: { title: text(), file: createFileField() },
     ...(readGate !== undefined && { readGate }),
     ...extra,
+    name: "doc",
   });
 }
 
@@ -38,8 +44,8 @@ const validGate = {
 
 function check(docEntity: EntityDefinition, withFiles = true, handwrittenList = false): void {
   const docs = defineFeature("docs", (r) => {
-    r.entity({ name: "doc", ...docEntity });
-    r.entity({ name: "link", ...linkEntity });
+    r.entity({ ...docEntity, name: "doc" });
+    r.entity(linkEntity);
     if (handwrittenList) {
       r.queryHandler({
         name: "doc:list",
@@ -50,7 +56,7 @@ function check(docEntity: EntityDefinition, withFiles = true, handwrittenList = 
     }
   });
   const files = defineFeature("files-stub", (r) => {
-    r.entity({ name: FILE_REF_ENTITY_NAME, ...fileRefEntity });
+    r.entity(fileRefEntity);
   });
   const features: FeatureDefinition[] = withFiles ? [docs, files] : [docs];
   validateReadGates(docs, new Map(features.map((f) => [f.name, f] as const)));
@@ -63,7 +69,7 @@ describe("validateReadGates", () => {
 
   test("rejects a gate combined with parentRef", () => {
     const entity = gated(validGate, {
-      parentRef: { entityTypeField: "title", entityIdField: "title" },
+      parentRef: { entityTypeField: "title", entityIdField: "title", allowedTypes: ["host"] },
     });
     expect(() => check(entity)).toThrow(/cannot be combined/);
   });
@@ -103,8 +109,8 @@ describe("validateReadGates", () => {
   test("accepts the convention list handler", () => {
     const docEntity = gated(validGate);
     const docs = defineFeature("docs", (r) => {
-      r.entity({ name: "doc", ...docEntity });
-      r.entity({ name: "link", ...linkEntity });
+      r.entity(docEntity);
+      r.entity(linkEntity);
       r.queryHandler(
         defineEntityListHandler("doc", docEntity, {
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -112,7 +118,7 @@ describe("validateReadGates", () => {
       );
     });
     const files = defineFeature("files-stub", (r) => {
-      r.entity({ name: FILE_REF_ENTITY_NAME, ...fileRefEntity });
+      r.entity(fileRefEntity);
     });
     expect(() =>
       validateReadGates(docs, new Map([docs, files].map((f) => [f.name, f] as const))),

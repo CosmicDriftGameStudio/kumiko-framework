@@ -1,5 +1,6 @@
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
-import { SUPPORTED_FIELD_TYPES } from "./web/constants.ts";
+import { SUPPORTED_EMBEDDED_SUB_TYPES, SUPPORTED_FIELD_TYPES } from "./web/constants.ts";
 
 export const fieldTypeSchema = z.enum(SUPPORTED_FIELD_TYPES);
 
@@ -8,8 +9,7 @@ export const fieldTypeSchema = z.enum(SUPPORTED_FIELD_TYPES);
 // in addition to the handler-level RBAC. Absent or empty `write` means
 // the handler-level RBAC is the only gate.
 //
-// `read` is reserved for the postQuery-flatten pipeline and is not
-// currently enforced.
+// `read` restricts which roles see the value in query results; read-restricted fields are never put into the search index.
 export const customFieldAccessSchema = z
   .object({
     read: z.array(z.string()).optional(),
@@ -39,19 +39,6 @@ export type CustomFieldAccess = z.infer<typeof customFieldAccessSchema>;
 // carry supplemental business data only, and PII support was removed.
 const serializedFieldBaseShape = {
   fieldAccess: customFieldAccessSchema,
-  // `retention`: per-field expiry. The retention-cron strips
-  // values whose host-row `modified_at` is older than `keepFor`. Strategy
-  // `delete` removes the key from the customFields jsonb; `anonymize`
-  // sets it to `null` (key stays, value gone — preserves the schema
-  // shape for downstream consumers).
-  retention: z
-    .object({
-      keepFor: z
-        .string()
-        .regex(/^\d+[hdwmy]$/, "keepFor must match /^\\d+[hdwmy]$/ (e.g. '30d', '10y')"),
-      strategy: z.enum(["delete", "anonymize"]),
-    })
-    .optional(),
 };
 
 const rejectSensitive = [
@@ -59,15 +46,50 @@ const rejectSensitive = [
   "custom fields don't support PII — `sensitive` was removed (#972). Model personal data as a schema entity field with a pii/userOwned/tenantOwned annotation instead.",
 ] as const;
 
+const rejectRetention = [
+  (v: Record<string, unknown>) => !("retention" in v),
+  "per-field custom-field retention was removed — it never ran. Set retention on the host entity (data-retention) instead.",
+] as const;
+
+const EMBEDDED_SUB_TYPES_SET: ReadonlySet<string> = new Set(SUPPORTED_EMBEDDED_SUB_TYPES);
+
+function isCheckedEmbeddedSubField(sub: unknown, definitionCurrency: unknown): boolean {
+  if (!isPlainObject(sub) || typeof sub["type"] !== "string") return false;
+  if (!EMBEDDED_SUB_TYPES_SET.has(sub["type"])) return false;
+  if (sub["type"] === "enum") return Array.isArray(sub["values"]) && sub["values"].length > 0;
+  // An embedded amount is a bare integer, so the definition is the only place its currency lives.
+  if (sub["type"] === "money") return typeof definitionCurrency === "string";
+  return true;
+}
+
+// Each sub-field must be one set-custom-field can check, otherwise its values would be stored unchecked.
+export function hasCheckedEmbeddedSubFields(serializedField: Record<string, unknown>): boolean {
+  if (serializedField["type"] !== "embedded") return true;
+  const schema = serializedField["schema"];
+  return (
+    isPlainObject(schema) &&
+    Object.keys(schema).length > 0 &&
+    Object.values(schema).every((sub) =>
+      isCheckedEmbeddedSubField(sub, serializedField["currency"]),
+    )
+  );
+}
+
+const UNCHECKED_EMBEDDED_SUB_FIELDS_MESSAGE = `embedded needs at least one sub-field, each one of ${SUPPORTED_EMBEDDED_SUB_TYPES.join(", ")}; enum needs values, money needs the definition's currency`;
+
 const serializedFieldSchema = z
   .looseObject({ type: fieldTypeSchema, ...serializedFieldBaseShape })
   .refine((v) => typeof v["type"] === "string", "serializedField must have a string `type`")
-  .refine(...rejectSensitive);
+  .refine(...rejectSensitive)
+  .refine(...rejectRetention)
+  .refine(hasCheckedEmbeddedSubFields, UNCHECKED_EMBEDDED_SUB_FIELDS_MESSAGE);
 
 // Update may omit `type`: it is immutable, so the handler takes it from the stored definition.
+// The embedded sub-field check needs that type and the stored sub-fields, so it runs there.
 const updateSerializedFieldSchema = z
   .looseObject({ type: fieldTypeSchema.optional(), ...serializedFieldBaseShape })
-  .refine(...rejectSensitive);
+  .refine(...rejectSensitive)
+  .refine(...rejectRetention);
 
 // i18n labels — `{ de: "...", en: "...", ... }`. At least one entry.
 const labelSchema = z.record(z.string().min(2).max(8), z.string().min(1));

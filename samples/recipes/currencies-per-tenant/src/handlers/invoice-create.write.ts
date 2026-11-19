@@ -13,9 +13,9 @@ export const invoiceCreate = defineWriteHandler({
   name: "invoice:create",
   schema: z.object({
     title: z.string().min(1),
-    amount: z.number(),
+    amount: z.number().int(),
     amountCurrency: z.string().length(3),
-    shippingCost: z.number().optional(),
+    shippingCost: z.number().int().optional(),
     shippingCostCurrency: z.string().length(3).optional(),
   }),
   access: { roles: ["Admin"] },

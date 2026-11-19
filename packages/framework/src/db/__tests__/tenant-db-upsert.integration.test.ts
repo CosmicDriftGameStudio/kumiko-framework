@@ -16,6 +16,7 @@ const columns = [
   { name: "code", pgType: "text", notNull: true },
   { name: "token", pgType: "text", notNull: true },
   { name: "label", pgType: "text", notNull: true },
+  { name: "hits", pgType: "integer", notNull: true, defaultSql: "0" },
 ] as const;
 
 const slotsTable = defineUnmanagedTable({
@@ -153,5 +154,76 @@ describe("TenantDb.upsert", () => {
     await expect(
       denied.upsert(slotsTable, { code: "d", token: "tok-d", label: "l" }, byCode),
     ).rejects.toThrow(/ctx\.db\.upsert: writes are not available/);
+  });
+});
+
+describe("TenantDb.upsert increment", () => {
+  test("starts at the delta on insert and adds it on conflict", async () => {
+    const dbA = createTenantDb({ db: stack.db, tenantId: tenantA });
+    const row = { code: "inc1", token: "tok-inc1", label: "x" };
+
+    const first = await dbA.upsert(slotsTable, row, { ...byCode, increment: { hits: 1 } });
+    const second = await dbA.upsert(slotsTable, row, { ...byCode, increment: { hits: 1 } });
+
+    expect(first).toMatchObject({ hits: 1 });
+    expect(second).toMatchObject({ hits: 2 });
+  });
+
+  test("parallel increments on one key add up exactly", async () => {
+    const dbA = createTenantDb({ db: stack.db, tenantId: tenantA });
+
+    await Promise.all(
+      Array.from({ length: 20 }, (_, i) =>
+        dbA.upsert(
+          slotsTable,
+          { code: "par", token: `tok-par-${i}`, label: "x" },
+          { ...byCode, update: { label: "par" }, increment: { hits: 1 } },
+        ),
+      ),
+    );
+
+    expect(await dbA.fetchOne(slotsTable, { code: "par" })).toMatchObject({ hits: 20 });
+  });
+
+  test("another tenant's increment on the same code leaves A's counter alone", async () => {
+    const dbA = createTenantDb({ db: stack.db, tenantId: tenantA });
+    const dbB = createTenantDb({ db: stack.db, tenantId: tenantB });
+    const rowA = { code: "own", token: "tok-own-a", label: "a" };
+    await dbA.upsert(slotsTable, rowA, { ...byCode, increment: { hits: 1 } });
+    await dbA.upsert(slotsTable, rowA, { ...byCode, increment: { hits: 1 } });
+
+    await dbB.upsert(
+      slotsTable,
+      { code: "own", token: "tok-own-b", label: "b" },
+      { ...byCode, increment: { hits: 1 } },
+    );
+
+    expect(await dbA.fetchOne(slotsTable, { code: "own" })).toMatchObject({ hits: 2 });
+    expect(await dbB.fetchOne(slotsTable, { code: "own" })).toMatchObject({ hits: 1 });
+  });
+
+  test("rejects increments that cannot be applied atomically", async () => {
+    const dbA = createTenantDb({ db: stack.db, tenantId: tenantA });
+    const row = { code: "bad", token: "tok-bad", label: "x" };
+
+    await expect(
+      dbA.upsert(slotsTable, row, {
+        ...byCode,
+        update: { hits: 5 },
+        increment: { hits: 1 },
+      }),
+    ).rejects.toThrow(/both in update and increment/);
+    await expect(
+      dbA.upsert(slotsTable, row, { ...byCode, increment: { code: 1 } }),
+    ).rejects.toThrow(/key column/);
+    await expect(
+      dbA.upsert(slotsTable, row, { ...byCode, increment: { label: 1 } }),
+    ).rejects.toThrow(/numeric column/);
+    await expect(
+      dbA.upsert(slotsTable, row, { ...byCode, increment: { hits: Number.POSITIVE_INFINITY } }),
+    ).rejects.toThrow(/finite number/);
+    await expect(
+      dbA.upsert(slotsTable, row, { ...byCode, increment: { hits: 1.5 } }),
+    ).rejects.toThrow(/integer for integer columns/);
   });
 });

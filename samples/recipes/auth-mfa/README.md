@@ -11,7 +11,7 @@ The production wiring shape: mount `createAuthMfaFeature()` next to `createAuthE
 1. `createAuthMfaFeature({ setupTokenSecret, challengeTokenSecret, issuer })` builds the feature; `mfaStatusCheckerFromFeature(mfaFeature)` reads its login-status callback back off.
 2. That callback goes into `createAuthEmailPasswordFeature({ mfaStatusChecker: ... })` — `login.write.ts` calls it after the password check to decide whether to mint a JWT or a challenge.
 3. `buildServer({ auth: { mfaVerifyHandler: AuthMfaHandlers.verify, switchTenantMfaGateHandler: AuthHandlers.switchTenantMfaGate } })` (the gate is required with `mfaVerifyHandler`, so a tenant switch asks for the second factor too) mounts `POST /auth/mfa/verify`, a framework route (not a dispatcher write-handler) with its own rate limiter, since it runs before a JWT exists.
-4. If `sessions` is mounted too, `bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(sessionCallbacks.sessionRevokeAllOthers)` wires "enable/disable/regenerate signs out every other session."
+4. If `sessions` (and `personal-access-tokens`) are mounted, enable/disable/regenerate sign out every other session and revoke access tokens automatically through the auth-foundation credentialRevoker; no wiring needed.
 
 ## What to copy into your app
 
@@ -22,16 +22,14 @@ const mfaFeature = createAuthMfaFeature({
   issuer: "Your App",
 });
 const sessionCallbacks = createSessionCallbacks({ db });
-bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(sessionCallbacks.sessionRevokeAllOthers);
 
 const server = buildServer({
   registry: buildRegistry([
     createAuthEmailPasswordFeature({
       mfaStatusChecker: mfaStatusCheckerFromFeature(mfaFeature),
     }),
-    createSessionsFeature({
-      autoRevokeOnPasswordChange: sessionCallbacks.sessionMassRevoker,
-    }),
+    createAuthFoundationFeature(),
+    createSessionsFeature(),
     mfaFeature,
     // ... other features
   ]),
@@ -49,7 +47,7 @@ const server = buildServer({
 });
 ```
 
-Apps built via `runDevApp`/`runProdApp` (the dev-server bootstrap used by `create-kumiko-app`) get all of this automatically — just add `createAuthMfaFeature(...)` to `APP_FEATURES`. `composeFeatures` threads the status-checker and the bootstrap wires the session-revoke bind and the verify route for you. This sample shows the raw contract those helpers implement.
+Apps built via `runDevApp`/`runProdApp` (the dev-server bootstrap used by `create-kumiko-app`) get all of this automatically — just add `createAuthMfaFeature(...)` to `APP_FEATURES`. `composeFeatures` threads the status-checker and the bootstrap wires the verify route for you. This sample shows the raw contract those helpers implement.
 
 ## Self-service screen
 

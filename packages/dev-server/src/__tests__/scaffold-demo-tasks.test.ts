@@ -1,7 +1,7 @@
 // Regression: scaffolded `tasks` demo feature had hardcoded nav
 // labels ("Tasks", "New task") instead of i18n keys, invisible to
 // guard-i18n-ui-strings because it only scans src/features/**/*.ts, not
-// demo/src/... or the dev-server's own template strings.
+// the dev-server's own template strings.
 
 import { describe, expect, test } from "bun:test";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
@@ -43,5 +43,24 @@ describe("demo tasks feature nav labels are i18n keys", () => {
     expect(rendered).toContain('"tasks:nav.taskNew": "Neue Aufgabe"');
     expect(rendered).toContain('"tasks:nav.tasks": "Tasks"');
     expect(rendered).toContain('"tasks:nav.taskNew": "New task"');
+  });
+});
+
+describe("demo tasks feature uses r.crud", () => {
+  test("registers the entity and all five CRUD handlers", () => {
+    const feature = createDemoTasksFeature();
+    expect(feature.writeHandlers["task:create"]).toBeDefined();
+    expect(feature.writeHandlers["task:update"]).toBeDefined();
+    expect(feature.writeHandlers["task:delete"]).toBeDefined();
+    expect(feature.queryHandlers["task:list"]).toBeDefined();
+    expect(feature.queryHandlers["task:detail"]).toBeDefined();
+    expect(feature.entities?.["task"]).toBeDefined();
+  });
+
+  test("the rendered feature file calls r.crud instead of the define*Handler helpers", () => {
+    const source = renderDemoTasksFeatureFile();
+    expect(source).toContain("r.crud(taskEntity, {");
+    expect(source).toContain('name: "task",');
+    expect(source).not.toContain("defineEntityCreateHandler");
   });
 });

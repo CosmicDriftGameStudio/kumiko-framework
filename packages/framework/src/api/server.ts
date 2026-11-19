@@ -109,9 +109,9 @@ export type ServerOptions = {
     };
     // LISTEN-capable client (Bun.SQL) for NOTIFY wake-up. When
     // present, `.start()` subscribes to EVENTS_PUBSUB_CHANNEL — delivery
-    // latency drops from pollIntervalMs to TCP-round-trip. The poll timer
-    // stays on as a safety net. Typically wired from
-    // `createDbConnection({ url }).listenClient`.
+    // latency drops from the poll interval to TCP-round-trip. If omitted,
+    // buildServer uses `context.db` when it can LISTEN. The poll timer then
+    // only runs as a safety net.
     pgClient?: PgListenClient;
   };
   // Observability: tracer + meter used for auto-instrumentation across

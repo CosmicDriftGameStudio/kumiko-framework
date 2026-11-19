@@ -7,7 +7,6 @@ import type {
   ProjectionDetailScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -18,7 +17,13 @@ import {
 } from "../../index.ts";
 import { WebDashboardBody } from "../app/dashboard-body.tsx";
 import { useBrowserNavApi } from "../app/nav.tsx";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const DETAIL_QUERY = "sites:query:site:detail";
 
@@ -57,10 +62,10 @@ describe("dashboard screen panel / projectionDetail", () => {
   test("runs the detail query with the dashboard's record id and renders its fields and header inline", async () => {
     window.history.replaceState(null, "", "/site-board?siteId=site-1");
     const payloads: unknown[] = [];
-    const query = (async (_type: string, payload: unknown) => {
+    const query: MockQueryHandler = async (_type: string, payload: unknown) => {
       payloads.push(payload);
       return { isSuccess: true, data: { id: "site-1", name: "Berlin Hub", region: "EU-North" } };
-    }) as unknown as Dispatcher["query"];
+    };
 
     render(
       <BrowserNav>
@@ -74,7 +79,7 @@ describe("dashboard screen panel / projectionDetail", () => {
       </BrowserNav>,
     );
 
-    await waitFor(() => expect(screen.getByText("EU-North")).toBeTruthy());
+    await waitFor(() => screen.getByText("EU-North"));
     expect(payloads).toContainEqual({ id: "site-1" });
     const tile = screen.getByTestId("dashboard-panel-site");
     expect(tile.textContent).toContain("EU-North");

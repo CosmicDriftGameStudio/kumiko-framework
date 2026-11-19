@@ -6,6 +6,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { configureEntityFieldEncryption, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -29,6 +30,9 @@ import {
 import { ConfigHandlers, createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
+import { createSessionsFeature } from "../../sessions/feature.ts";
+import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session.ts";
+import { createSessionCallbacks } from "../../sessions/session-callbacks.ts";
 import { hashPassword } from "../../shared/index.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
@@ -41,16 +45,12 @@ import { updateUserViaEventStore } from "../../user/testing.ts";
 import { base32Decode } from "../base32.ts";
 import { mfaRequiredConfigHandle } from "../config.ts";
 import { createAuthMfaFeature } from "../feature.ts";
-import {
-  bindMfaRevokeAllOtherSessionsFromFeature,
-  mfaStatusCheckerFromFeature,
-} from "../feature-exports.ts";
+import { mfaStatusCheckerFromFeature } from "../feature-exports.ts";
 import { userMfaEntity, userMfaTable } from "../schema/user-mfa.ts";
 import { currentTotpCode } from "../totp.ts";
 import { AuthMfaHandlers } from "../web/constants.ts";
 
 let stack: TestStack;
-const revokedForUserIds: string[] = [];
 
 const CHALLENGE_TOKEN_SECRET = "integration-test-challenge-token-secret-not-real-0001";
 const SETUP_TOKEN_SECRET = "integration-test-setup-token-secret-not-real-0002";
@@ -71,6 +71,8 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
+      createAuthFoundationFeature(),
+      createSessionsFeature(),
       authMfaFeature,
       createAuthEmailPasswordFeature({
         mfaStatusChecker: mfaStatusCheckerFromFeature(authMfaFeature),
@@ -92,21 +94,8 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, userMfaEntity);
+  await unsafeCreateEntityTable(stack.db, userSessionEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
-
-  // Wire a spy in place of the real session-revoke callback (run-prod-app
-  // only binds this once the sessions feature is mounted — not the case in
-  // this test stack) so the regression can observe whether
-  // revokeAllOtherSessions actually fires, instead of silently no-op'ing.
-  const bind = bindMfaRevokeAllOtherSessionsFromFeature(authMfaFeature);
-  // If the binder ever returns undefined, the spy below never wires up and
-  // the regression check further down would pass vacuously (nothing
-  // to revoke because nothing observed) instead of catching a real re-break.
-  expect(bind).toBeDefined();
-  bind?.((userId) => {
-    revokedForUserIds.push(userId);
-    return Promise.resolve(0);
-  });
 });
 
 afterAll(async () => {
@@ -114,9 +103,26 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetTestTables(stack.db, [userTable, tenantMembershipsTable, eventsTable]);
-  revokedForUserIds.length = 0;
+  await resetTestTables(stack.db, [
+    userTable,
+    tenantMembershipsTable,
+    userSessionTable,
+    eventsTable,
+  ]);
 });
+
+async function createLiveSession(userId: string): Promise<string> {
+  const { sessionCreator } = createSessionCallbacks({ db: stack.db });
+  return sessionCreator(
+    { id: userId, tenantId: TENANT_ID, roles: ["User"] },
+    { ip: "127.0.0.1", userAgent: "test" },
+  );
+}
+
+async function sessionStatus(sid: string, userId: string): Promise<string> {
+  const result = await createSessionCallbacks({ db: stack.db }).sessionChecker(sid, userId);
+  return typeof result === "string" ? result : result.status;
+}
 
 async function loginBlockedByEnforcement(
   email = "unenrolled@example.com",
@@ -162,7 +168,8 @@ async function startEnrollment(
 describe("POST /auth/mfa/preauth-confirm", () => {
   test("completes enrollment + login: full chain, minted JWT authenticates a follow-up request", async () => {
     const email = "chain@example.com";
-    const { preauthSetupToken } = await loginBlockedByEnforcement(email);
+    const { preauthSetupToken, userId } = await loginBlockedByEnforcement(email);
+    const existingSid = await createLiveSession(userId);
     const { setupToken, secret } = await startEnrollment(preauthSetupToken, email);
 
     const res = await stack.http.raw("POST", "/api/auth/mfa/preauth-confirm", {
@@ -185,9 +192,9 @@ describe("POST /auth/mfa/preauth-confirm", () => {
     );
     expect(meRes.status).toBe(200);
 
-    // Positive control for the regression below — proves the spy
-    // wiring actually observes a real revoke call, not just silent no-ops.
-    expect(revokedForUserIds).toContain(body.user.id);
+    // Positive control for the regression below — proves the credentialRevoker
+    // really revokes the user's existing session.
+    expect(await sessionStatus(existingSid, userId)).toBe("revoked");
   });
 
   test("a stored user timezone survives the preauth-confirm login", async () => {
@@ -306,6 +313,7 @@ describe("POST /auth/mfa/preauth-confirm", () => {
   test("user restricted between start and confirm → invalid_setup_token, no session revoked", async () => {
     const email = "restricted-midflight@example.com";
     const { preauthSetupToken, userId } = await loginBlockedByEnforcement(email);
+    const existingSid = await createLiveSession(userId);
     const { setupToken, secret } = await startEnrollment(preauthSetupToken, email);
 
     await updateUserViaEventStore(stack.db, userId, { status: USER_STATUS.Restricted });
@@ -318,7 +326,8 @@ describe("POST /auth/mfa/preauth-confirm", () => {
     expect(res.status).not.toBe(200);
     const body = await res.json();
     expect(body.error.details.reason).toBe("invalid_setup_token");
-    expect(revokedForUserIds).not.toContain(userId);
+    // The rejected confirm must not have revoked the session (a restricted user reads as blocked, not revoked).
+    expect(await sessionStatus(existingSid, userId)).not.toBe("revoked");
     // Enrollment write itself rolls back with the handler's failure return —
     // pinned here too so a future change to that transactional behavior
     // doesn't silently reintroduce the original "row persists" half of the bug.

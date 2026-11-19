@@ -37,6 +37,7 @@ const teamScopedRead: NonNullable<EntityDefinition["access"]> = {
 };
 
 const projectEntity = createEntity({
+  name: "project",
   table: PROJECT_TABLE,
   fields: {
     teamId: createTextField({
@@ -50,7 +51,7 @@ const projectEntity = createEntity({
 });
 
 const hostFixturesFeature = defineFeature("folders-rg-test-fixtures", (r) => {
-  r.entity({ name: "project", ...projectEntity });
+  r.entity(projectEntity);
 });
 
 type TestUser = ReturnType<typeof createTestUser>;
@@ -80,6 +81,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createFoldersFeature({
+        parents: ["project"],
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       }),
       hostFixturesFeature,

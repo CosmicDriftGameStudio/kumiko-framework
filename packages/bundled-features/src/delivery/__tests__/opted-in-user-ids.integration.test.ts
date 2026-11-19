@@ -32,8 +32,8 @@ const tenantAdminA = createTestUser({ id: 931, roles: ["TenantAdmin"], tenantId:
 
 const appFeature = defineFeature("app", (r) => {
   r.requires({ features: ["delivery"] });
-  r.notification("daily-digest", { renamedFrom: [FORMER_DIGEST_TYPE] });
-  r.notification("invoice-ready", {});
+  r.notification({ name: "daily-digest", renamedFrom: [FORMER_DIGEST_TYPE] });
+  r.notification({ name: "invoice-ready" });
 });
 
 let stack: TestStack;

@@ -1,12 +1,12 @@
 ---
 status: reference
 verified: 2026-10-18
-evidence: "packages/renderer-mail-html/src/index.ts; packages/renderer-mail-html/src/render.ts; packages/renderer-puppeteer-client/src/index.ts; packages/renderer-puppeteer-client/src/http-client.ts; apps/puppeteer-service/src/egress-guard.ts; apps/puppeteer-service/src/server.ts"
+evidence: "packages/bundled-features/src/renderer-mail-html/index.ts; packages/bundled-features/src/renderer-mail-html/render.ts; packages/bundled-features/src/renderer-puppeteer-client/index.ts; packages/bundled-features/src/renderer-puppeteer-client/http-client.ts; apps/puppeteer-service/src/egress-guard.ts; apps/puppeteer-service/src/server.ts"
 ---
 
 # Renderer parity with the former Enterprise copies
 
-The Enterprise copies of the renderer packages and the puppeteer service were removed (Enterprise 56ad50a2); consumers use `@cosmicdrift/kumiko-renderer-mail-html` and `@cosmicdrift/kumiko-renderer-puppeteer-client`.
+The Enterprise copies of the renderer packages and the puppeteer service were removed (Enterprise 56ad50a2); consumers use `@cosmicdrift/kumiko-bundled-features/renderer-mail-html` and `@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client`.
 
 The Enterprise scope was `@cosmicdriftgamestudio/kumiko-renderer-*`. Where the framework differs, the table says so.
 
@@ -14,7 +14,7 @@ The Enterprise scope was `@cosmicdriftgamestudio/kumiko-renderer-*`. Where the f
 
 | Export | Enterprise name | FW name | Status |
 |---|---|---|---|
-| Package | `@cosmicdriftgamestudio/kumiko-renderer-mail-html` | `@cosmicdrift/kumiko-renderer-mail-html` | different scope |
+| Package | `@cosmicdriftgamestudio/kumiko-renderer-mail-html` | `@cosmicdrift/kumiko-bundled-features/renderer-mail-html` | different scope |
 | Subpaths `.` and `./seeding` | present | present | same |
 | `DEFAULT_MAIL_LAYOUT_MJML` | `DEFAULT_MAIL_LAYOUT_MJML` | `DEFAULT_MAIL_LAYOUT_MJML` | same name, different layout (variables `tenantName`, `subject`, `previewText`, `lang`, `imprint`, `mailFooterHtml`; no `appName`) |
 | `createRendererMailHtmlFeature` | `createRendererMailHtmlFeature()`, kind `mail-html` | `createRendererMailHtmlFeature(options)`, kind `mail`; options `{ footer, brandSuffix }` | different signature and kind |
@@ -34,7 +34,7 @@ Deliberately absent in the framework:
 
 | Export | Enterprise name | FW name | Status |
 |---|---|---|---|
-| Package | `@cosmicdriftgamestudio/kumiko-renderer-puppeteer-client` | `@cosmicdrift/kumiko-renderer-puppeteer-client` | different scope |
+| Package | `@cosmicdriftgamestudio/kumiko-renderer-puppeteer-client` | `@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client` | different scope |
 | `ClientConfig`, `loadClientConfig` | present | present | same |
 | `countPdfPages` | present | present | same |
 | `createRendererPuppeteerClientFeature` | `()` | `()` | same name; the FW feature also registers the `rendered-pdf` entity, the `puppeteer-status` and `preview-pdf` queries and `previewDocument`, which needs the `rendered_pdfs` migration |

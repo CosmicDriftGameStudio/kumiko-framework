@@ -25,6 +25,7 @@ import { useBrowserNavApi } from "../app/nav.tsx";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";
 
 const tokenEntity: EntityDefinition = {
+  name: "token",
   fields: {
     name: {
       type: "text",
@@ -195,7 +196,7 @@ const schema: FeatureSchema = {
 
 function makeDispatcher(): Dispatcher {
   return createMockDispatcher({
-    query: (async (type: string) => {
+    query: async (type: string) => {
       if (type === "tokens:query:token:list") {
         return {
           isSuccess: true,
@@ -221,8 +222,8 @@ function makeDispatcher(): Dispatcher {
         };
       }
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["query"],
-    write: (async (command: string) => {
+    },
+    write: async (command: string) => {
       if (command === "tokens:write:token-secret:mint") {
         return { isSuccess: true, data: { secret: "shh-secret" } };
       }
@@ -233,7 +234,7 @@ function makeDispatcher(): Dispatcher {
         return { isSuccess: true, data: { id: "new-tok" } };
       }
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
+    },
   });
 }
 
@@ -299,7 +300,7 @@ describe("returnTo", () => {
     window.history.replaceState(null, "", "/settings");
     renderApp();
 
-    await waitFor(() => expect(screen.getByText("Token 1")).toBeTruthy());
+    await waitFor(() => screen.getByText("Token 1"));
     await user.click(screen.getByTestId("render-list-toolbar-action-create"));
 
     expect(window.location.pathname).toBe("/token-create");
@@ -314,7 +315,7 @@ describe("returnTo", () => {
     window.history.replaceState(null, "", "/settings");
     renderApp();
 
-    await waitFor(() => expect(screen.getByText("Token 1")).toBeTruthy());
+    await waitFor(() => screen.getByText("Token 1"));
     await user.click(screen.getByTestId("render-list-toolbar-action-create"));
     expect(window.location.pathname).toBe("/token-create");
 
@@ -323,9 +324,7 @@ describe("returnTo", () => {
     const submitBtn = await waitForEnabled("render-edit-submit");
     await user.click(submitBtn);
 
-    await waitFor(() =>
-      expect(screen.getByTestId("kumiko-screen-secret-mint-reveal")).toBeTruthy(),
-    );
+    await waitFor(() => screen.getByTestId("kumiko-screen-secret-mint-reveal"));
     await user.click(screen.getByTestId("kumiko-screen-secret-mint-confirm"));
 
     expect(window.location.pathname).toBe("/settings");
@@ -336,7 +335,7 @@ describe("returnTo", () => {
     window.history.replaceState(null, "", "/settings");
     renderApp();
 
-    await waitFor(() => expect(screen.getByText("Token 1")).toBeTruthy());
+    await waitFor(() => screen.getByText("Token 1"));
     await user.click(screen.getByTestId("render-list-toolbar-action-action"));
     expect(window.location.pathname).toBe("/token-action");
     expect(window.location.search).toBe("?returnTo=settings");
@@ -352,7 +351,7 @@ describe("returnTo", () => {
     window.history.replaceState(null, "", "/settings");
     renderApp();
 
-    await waitFor(() => expect(screen.getByText("Token 1")).toBeTruthy());
+    await waitFor(() => screen.getByText("Token 1"));
     await user.click(screen.getByTestId("render-list-toolbar-action-action"));
     expect(window.location.pathname).toBe("/token-action");
 
@@ -365,7 +364,7 @@ describe("returnTo", () => {
     window.history.replaceState(null, "", "/settings");
     renderApp();
 
-    await waitFor(() => expect(screen.getByText("Token 1")).toBeTruthy());
+    await waitFor(() => screen.getByText("Token 1"));
     await user.click(screen.getByTestId("render-list-create"));
 
     expect(window.location.pathname).toBe("/token-edit");
@@ -384,7 +383,7 @@ describe("returnTo", () => {
     window.history.replaceState(null, "", "/settings");
     renderApp();
 
-    await waitFor(() => expect(screen.getByText("Token 1")).toBeTruthy());
+    await waitFor(() => screen.getByText("Token 1"));
     await user.click(screen.getByTestId("row-tok-1-actions-menu"));
     await user.click(await screen.findByTestId("row-tok-1-action-open"));
 
@@ -430,7 +429,7 @@ describe("returnTo", () => {
     window.history.replaceState(null, "", "/token-list");
     renderApp();
 
-    await waitFor(() => expect(screen.getByText("Token 1")).toBeTruthy());
+    await waitFor(() => screen.getByText("Token 1"));
     await user.click(screen.getByTestId("render-list-toolbar-action-create"));
 
     expect(window.location.pathname).toBe("/token-create");
@@ -473,9 +472,7 @@ describe("returnTo", () => {
     const submitBtn = await waitForEnabled("render-edit-submit");
     await user.click(submitBtn);
 
-    await waitFor(() =>
-      expect(screen.getByTestId("kumiko-screen-secret-mint-reveal")).toBeTruthy(),
-    );
+    await waitFor(() => screen.getByTestId("kumiko-screen-secret-mint-reveal"));
     await user.click(screen.getByTestId("kumiko-screen-secret-mint-confirm"));
 
     expect(window.location.pathname).toBe("/token-list");
@@ -640,9 +637,7 @@ describe("returnTo", () => {
     ) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "My token" } });
     await user.click(await waitForEnabled("render-edit-submit"));
-    await waitFor(() =>
-      expect(screen.getByTestId("kumiko-screen-secret-mint-reveal")).toBeTruthy(),
-    );
+    await waitFor(() => screen.getByTestId("kumiko-screen-secret-mint-reveal"));
     await user.click(screen.getByTestId("kumiko-screen-secret-mint-confirm"));
 
     await waitFor(() => expect(window.location.pathname).toBe("/token-tabs-mint/tok-1"));
@@ -656,7 +651,7 @@ describe("returnTo", () => {
     window.history.replaceState(null, "", "/token-list?token-list.sort=name&token-list.dir=desc");
     renderApp();
 
-    await waitFor(() => expect(screen.getByText("Token 1")).toBeTruthy());
+    await waitFor(() => screen.getByText("Token 1"));
     await user.click(screen.getByTestId("render-list-create"));
 
     expect(window.location.pathname).toBe("/token-edit");
@@ -682,7 +677,7 @@ describe("returnTo", () => {
     window.history.replaceState(null, "", "/token-list?token-list.sort=name&token-list.dir=desc");
     renderApp();
 
-    await waitFor(() => expect(screen.getByText("Token 1")).toBeTruthy());
+    await waitFor(() => screen.getByText("Token 1"));
     await user.click(await screen.findByTestId("row-tok-1-action-edit"));
 
     await waitFor(() => expect(window.location.pathname).toBe("/token-edit/tok-1"));

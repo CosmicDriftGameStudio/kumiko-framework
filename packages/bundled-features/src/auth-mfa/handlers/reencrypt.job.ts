@@ -31,12 +31,12 @@ import {
 import {
   configuredEntityFieldEncryption,
   createEventStoreExecutor,
-  createTenantDb,
   type DbConnection,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import {
   type ChunkedMigrationStopReason,
@@ -125,16 +125,21 @@ export async function mfaReencryptJob(
   let alreadyCurrent = 0;
   const targetVersion = provider.currentVersion();
 
-  // ponytail: one full candidate scan — MFA rows are user-scale, not
-  // tenant-scale like config; cursor pagination when that ever matters.
-  // Served in slices so runChunkedMigration's deadline/signal/failure
-  // checks run between chunks, not only once.
-  let pending: UserMfaRow[] | undefined;
+  // Keyset pages by id: the cursor moves past failed rows too, so a page is
+  // never served twice and a short page ends the run.
+  let cursor: string | undefined;
+  let exhausted = false;
   async function nextBatch(): Promise<readonly UserMfaRow[]> {
-    if (pending === undefined) {
-      pending = [...(await selectMany<UserMfaRow>(db, userMfaTable, {}))];
-    }
-    return pending.splice(0, batchSize);
+    if (exhausted) return [];
+    const page = await selectMany<UserMfaRow>(
+      db,
+      userMfaTable,
+      cursor === undefined ? {} : { id: { gt: cursor } },
+      { orderBy: { col: "id", direction: "asc" }, limit: batchSize },
+    );
+    if (page.length < batchSize) exhausted = true;
+    cursor = page.at(-1)?.id ?? cursor;
+    return page;
   }
 
   async function migrateRow(row: UserMfaRow): Promise<"migrated" | "skipped" | "failed"> {
@@ -191,7 +196,7 @@ export async function mfaReencryptJob(
     // version_conflict == a concurrent enable/disable/regenerate beat us;
     // the row now holds a fresh write, already fine.
     if (!result.isSuccess) {
-      if (result.error.code === "version_conflict") return "skipped";
+      if (result.error.code === VERSION_CONFLICT_CODE) return "skipped";
       ctx.obs.log?.warn?.(`[auth-mfa:reencrypt] executor rejected row ${row.id}`, {
         code: result.error.code,
       });

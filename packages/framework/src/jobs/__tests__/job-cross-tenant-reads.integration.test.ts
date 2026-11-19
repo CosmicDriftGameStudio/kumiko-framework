@@ -60,19 +60,21 @@ async function probe(
 }
 
 const jobsFeature = defineFeature("crosstenant", (r) => {
-  r.job("plain", { trigger: { manual: true } }, (_payload, ctx) =>
-    probe("plain", ctx.crossTenantReads),
-  );
+  r.job({
+    name: "plain",
+    trigger: { manual: true },
+    handler: (_payload, ctx) => probe("plain", ctx.crossTenantReads),
+  });
   r.job({
     name: "declared",
     trigger: { manual: true },
-    escapeHatch: { reason: DECLARED_REASON },
+    escapeHatch: { reason: DECLARED_REASON, grants: ["crossTenantReads"] },
     handler: (_payload, ctx) => probe("declared", ctx.crossTenantReads),
   });
   r.job({
     name: "sys-cron",
     trigger: { cron: "0 0 1 1 *" },
-    escapeHatch: { reason: DECLARED_REASON },
+    escapeHatch: { reason: DECLARED_REASON, grants: ["crossTenantReads"] },
     handler: (_payload, ctx) => probe("sysCron", ctx.crossTenantReads),
   });
 });

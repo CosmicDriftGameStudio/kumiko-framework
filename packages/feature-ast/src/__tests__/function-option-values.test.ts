@@ -15,7 +15,7 @@ function featureWithOptions(optionsSource: string): string {
   return `
 const EXT_MY_EXTENSION = "my-extension";
 defineFeature("fn-options", (r) => {
-  r.useExtension(EXT_MY_EXTENSION, "photo", ${optionsSource});
+  r.applyExtension({ name: EXT_MY_EXTENSION, entity: "photo", ${optionsSource.slice(1, -1)} });
 });
 `;
 }
@@ -82,7 +82,7 @@ describe("useExtension name imported from a package specifier", () => {
       `
 import { EXT_FROM_DTS } from "ext-pkg";
 defineFeature("pkg-name", (r) => {
-  r.useExtension(EXT_FROM_DTS, "photo", { isPublic: () => true });
+  r.applyExtension({ name: EXT_FROM_DTS, entity: "photo", isPublic: () => true });
 });
 `,
     );
@@ -106,7 +106,7 @@ describe("r.secret options with function values", () => {
     test(`${label}: parsed as __raw and render roundtrip is stable`, () => {
       const source = `
 defineFeature("secret-fn", (r) => {
-  r.secret("api-key", { label: "API key", redact: ${redactSource} });
+  r.secret({ name: "api-key", label: "API key", redact: ${redactSource} });
 });
 `;
       const first = parseSourceFile(createProject().createSourceFile("secret.ts", source));
@@ -133,7 +133,7 @@ defineFeature("secret-fn", (r) => {
   test("metric options still reject function values", () => {
     const sf = createProject().createSourceFile(
       "metric.ts",
-      'defineFeature("m", (r) => { r.metric("x", { help: "h", fn: () => 1 }); });',
+      'defineFeature("m", (r) => { r.metric({ name: "x", help: "h", fn: () => 1 }); });',
     );
     expect(parseSourceFile(sf).errors).not.toEqual([]);
   });

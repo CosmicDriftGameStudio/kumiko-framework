@@ -80,7 +80,7 @@ describe("auth-foundation-providers recipe", () => {
 //
 // After #1374, apps do NOT pass tenantResolver/tenantExists on
 // anonymousAccess. They mount a feature that registers providers via
-// r.useExtension(EXT_TENANT_RESOLVER / EXT_TENANT_EXISTENCE). Boot
+// r.applyExtension({ name: EXT_TENANT_RESOLVER / EXT_TENANT_EXISTENCE, … }). Boot
 // (runProdApp / runDevApp) merges them through
 // resolveAnonymousAccessFromRegistry.
 //
@@ -148,8 +148,8 @@ export function createSubdomainTenantRoutingFeature(
       build: () => (tenantId) => opts.existsById(tenantId as TenantId),
     };
 
-    r.useExtension(EXT_TENANT_RESOLVER, "subdomain", resolverPlugin);
-    r.useExtension(EXT_TENANT_EXISTENCE, "db", existencePlugin);
+    r.applyExtension({ name: EXT_TENANT_RESOLVER, entity: "subdomain", ...resolverPlugin });
+    r.applyExtension({ name: EXT_TENANT_EXISTENCE, entity: "db", ...existencePlugin });
   });
 }
 ```

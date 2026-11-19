@@ -41,10 +41,10 @@ const correctFromParamsForm: ActionFormScreenDefinition = {
 function renderParamsForm(searchParams: Record<string, string>): unknown[] {
   const writes: unknown[] = [];
   const dispatcher: Dispatcher = createMockDispatcher({
-    write: (async (_type: string, payload: unknown) => {
+    write: async (_type: string, payload: unknown) => {
       writes.push(payload);
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
+    },
   });
   render(
     <DispatcherProvider dispatcher={dispatcher}>
@@ -71,11 +71,11 @@ function renderParamsForm(searchParams: Record<string, string>): unknown[] {
 function renderForm(record: Record<string, unknown>): unknown[] {
   const writes: unknown[] = [];
   const dispatcher: Dispatcher = createMockDispatcher({
-    query: (async () => ({ isSuccess: true, data: record })) as unknown as Dispatcher["query"],
-    write: (async (_type: string, payload: unknown) => {
+    query: async () => ({ isSuccess: true, data: record }),
+    write: async (_type: string, payload: unknown) => {
       writes.push(payload);
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
+    },
   });
   render(
     <DispatcherProvider dispatcher={dispatcher}>

@@ -1,6 +1,6 @@
 import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import type { SubjectScope } from "../../shared/index.ts";
+import { joinRowParentIsVisible } from "../../shared/index.ts";
 import {
   createTemplateResolverApi,
   isVariantSlugOf,
@@ -9,10 +9,11 @@ import {
   TemplateNotFoundError,
   VARIANT_UNKNOWN_REASON,
 } from "../../template-resolver/index.ts";
-import { documentDraftExecutor } from "../entity.ts";
+import type { DocumentDraftExecutor } from "../entity.ts";
 import { draftNotFound } from "../lib.ts";
 import { createDraftSchema } from "../payloads.ts";
 import {
+  DOCUMENT_DRAFT_ENTITY,
   DOCUMENT_DRAFT_ERROR,
   DOCUMENT_DRAFT_LAST_CHANGE_SOURCE,
   DOCUMENT_DRAFT_STATUS,
@@ -22,7 +23,7 @@ type CreateData = { readonly id: string; readonly version: number };
 
 export function createCreateHandler(
   access: AccessRule,
-  scope: SubjectScope,
+  documentDraftExecutor: DocumentDraftExecutor,
   subjectTypes: readonly [string, ...string[]],
 ) {
   const schema = createDraftSchema(subjectTypes);
@@ -36,7 +37,14 @@ export function createCreateHandler(
     handler: async (event, ctx) => {
       const { subjectType, subjectId, templateSlug, variant, locale, variables } = event.payload;
       const user = event.user;
-      if (!(await scope.allows(ctx, user, subjectType, subjectId))) return draftNotFound();
+      const subjectIsVisible = await joinRowParentIsVisible(
+        ctx.registry,
+        DOCUMENT_DRAFT_ENTITY,
+        { subjectType, subjectId },
+        user,
+        ctx.db,
+      );
+      if (!subjectIsVisible) return draftNotFound();
       if (variant !== undefined && !isVariantSlugOf(variant, templateSlug)) {
         return variantUnknown(variant);
       }

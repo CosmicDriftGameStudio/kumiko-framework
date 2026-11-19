@@ -42,28 +42,31 @@ const admin = TestUsers.admin;
 const NONEXISTENT_ID = "00000000-0000-4000-8000-00000000dead";
 
 const hardEntity = createEntity({
+  name: "hard",
   table: "gate_hard_items",
   fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
-const hardTable = buildEntityTable("hard", hardEntity);
+const hardTable = buildEntityTable(hardEntity);
 const hardExecutor = createEventStoreExecutor(hardTable, hardEntity, { entityName: "hard" });
 
 const softEntity = createEntity({
+  name: "soft",
   table: "gate_soft_items",
   fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
   softDelete: true,
 });
-const softTable = buildEntityTable("soft", softEntity);
+const softTable = buildEntityTable(softEntity);
 const softExecutor = createEventStoreExecutor(softTable, softEntity, { entityName: "soft" });
 
 const promptEntity = createEntity({
+  name: "prompt",
   table: "gate_hard_prompts",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
     body: createLongTextField({ personal: false, reason: "test_fixture", readAsInstruction: true }),
   },
 });
-const promptTable = buildEntityTable("prompt", promptEntity);
+const promptTable = buildEntityTable(promptEntity);
 const promptExecutor = createEventStoreExecutor(promptTable, promptEntity, {
   entityName: "prompt",
 });
@@ -187,14 +190,14 @@ const consumerOutcomes = new Map<string, Outcome>();
 const CONSUMER_LABEL_PREFIX = { undeclared: "msp-undeclared", declared: "msp-declared" } as const;
 
 const gateFeature = defineFeature("gatetest", (r) => {
-  r.entity({ name: "hard", ...hardEntity });
-  r.entity({ name: "soft", ...softEntity });
+  r.entity(hardEntity);
+  r.entity(softEntity);
 
-  r.crud("hard", hardEntity, {
+  r.crud(hardEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });
-  r.crud("soft", softEntity, {
+  r.crud(softEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });
@@ -248,18 +251,18 @@ const gateFeature = defineFeature("gatetest", (r) => {
     access: { roles: ["Admin"] },
   });
 
-  r.streamHandler(
-    "delete-hard",
-    z.object({ id: z.uuid() }),
-    async function* (query, ctx) {
+  r.streamHandler({
+    name: "delete-hard",
+    schema: z.object({ id: z.uuid() }),
+    handler: async function* (query, ctx) {
       await hardExecutor.delete({ id: query.payload.id }, query.user, ctx.db);
       yield "deleted";
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.entity({ name: "prompt", ...promptEntity });
-  r.crud("prompt", promptEntity, {
+  r.entity(promptEntity);
+  r.crud(promptEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });
@@ -286,18 +289,16 @@ const gateFeature = defineFeature("gatetest", (r) => {
   });
 
   for (const [name, probe] of Object.entries(jobProbes)) {
-    r.job(
+    r.job({
       name,
-      {
-        trigger: { manual: true },
-        retries: 0,
-        ...(probe.exemption && { irreversibleWithoutEntryHandler: probe.exemption }),
-      },
-      async (payload, ctx) => {
+      trigger: { manual: true },
+      retries: 0,
+      ...(probe.exemption && { irreversibleWithoutEntryHandler: probe.exemption }),
+      handler: async (payload, ctx) => {
         const { id } = jobPayloadSchema.parse(payload);
         jobOutcomes.set(name, await probe.act(id, ctx));
       },
-    );
+    });
   }
 
   for (const [label, exemption] of [

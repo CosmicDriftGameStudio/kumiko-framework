@@ -2,7 +2,7 @@
 // The stack mirrors a production mail setup: delivery + channel-email with an in-memory transport.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineFeature,
@@ -14,8 +14,8 @@ import {
   fileRefEntity,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import {
   buildMultipartBody,
   expectErrorIncludes,
@@ -35,6 +35,7 @@ import { configValuesTable } from "../../config/table.ts";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../../delivery/tables.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
@@ -77,7 +78,8 @@ const invMailer = defineFeature("inv-mailer", (r) => {
     access: { roles: ["TenantAdmin"] },
     handler: async () => ({ isSuccess: true as const, data: {} }),
   });
-  r.notification("invoice", {
+  r.notification({
+    name: "invoice",
     trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),
@@ -108,7 +110,8 @@ const invMailer = defineFeature("inv-mailer", (r) => {
     },
     meta: { de: { subject: "Rechnung {{invoiceNumber}}" } },
   });
-  r.notification("locked", {
+  r.notification({
+    name: "locked",
     trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),

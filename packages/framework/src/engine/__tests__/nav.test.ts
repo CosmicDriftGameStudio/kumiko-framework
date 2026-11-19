@@ -12,6 +12,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
 function productEntity() {
   return createEntity({
+    name: "product",
     table: "products",
     fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
   });
@@ -28,7 +29,7 @@ describe("r.nav() — registration", () => {
 
   test("stores a nav entry with icon, order, parent, screen, access", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "products",
         type: "entityList",
@@ -92,7 +93,7 @@ describe("r.nav() — registration", () => {
 describe("r.screen({ nav }) — inline nav sugar", () => {
   test("synthesizes a nav entry from the screen's id", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "products",
         type: "entityList",
@@ -113,7 +114,7 @@ describe("r.screen({ nav }) — inline nav sugar", () => {
   test("supports parent like a standalone r.nav()", () => {
     const feature = defineFeature("shop", (r) => {
       r.nav({ id: "catalog", label: "x" });
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "products",
         type: "entityList",
@@ -127,7 +128,7 @@ describe("r.screen({ nav }) — inline nav sugar", () => {
 
   test("passes the same boot-validation as a standalone r.nav()", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "products",
         type: "entityList",
@@ -141,7 +142,7 @@ describe("r.screen({ nav }) — inline nav sugar", () => {
 
   test("screen without nav registers no nav entry", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "products",
         type: "entityList",
@@ -156,7 +157,7 @@ describe("r.screen({ nav }) — inline nav sugar", () => {
     expect(() =>
       defineFeature("shop", (r) => {
         r.nav({ id: "products", label: "standalone" });
-        r.entity({ name: "product", ...productEntity() });
+        r.entity(productEntity());
         r.screen({
           id: "products",
           type: "entityList",
@@ -286,7 +287,7 @@ describe("validateBoot — nav validation", () => {
 
   test("nav with valid screen + parent refs passes boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "products",
         type: "entityList",
@@ -306,7 +307,7 @@ describe("validateBoot — nav validation", () => {
 
   test("nav can reference a screen registered by another feature", () => {
     const shop = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "products",
         type: "entityList",
@@ -377,7 +378,7 @@ describe("validateBoot — nav action validation", () => {
 
   test("createAction with both screen and target fails boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "products",
         type: "entityList",
@@ -428,7 +429,7 @@ describe("validateBoot — nav action validation", () => {
 
   test("createAction with a screen-only action referencing a registered screen passes boot", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity({ name: "product", ...productEntity() });
+      r.entity(productEntity());
       r.screen({
         id: "products",
         type: "entityList",

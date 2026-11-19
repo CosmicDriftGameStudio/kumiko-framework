@@ -1,20 +1,32 @@
-// Drafts go through the real HTTP pipeline and resolver; only the print function is a stub that
-// uploads fixed PDF bytes and records what it was asked to print.
+// Drafts go through the real HTTP pipeline, resolver and print client; only the print service
+// is a local HTTP stub that returns fixed PDF bytes and records the HTML it was asked to print.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import {
+  buildEntityTable,
+  createEventStoreExecutor,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEntity,
+  createTextField,
+  defineFeature,
+  type EntityDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
-  createFileRefFromUploadedBytes,
   createFilesFeature,
   createInMemoryFileProvider,
-  type UploadedFileBytes,
-  uploadFileBytesBeforeTransaction,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import {
@@ -23,7 +35,9 @@ import {
   createConfigResolver,
 } from "../../config/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
-import { fileContextForTenant } from "../../file-foundation/index.ts";
+import { createRendererFoundationFeature } from "../../renderer-foundation/index.ts";
+import { renderedPdfEntity } from "../../renderer-puppeteer-client/entity.ts";
+import { createRendererPuppeteerClientFeature } from "../../renderer-puppeteer-client/feature.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
 import {
   createTemplateResolverFeature,
@@ -32,9 +46,8 @@ import {
 import { createTenantFeature } from "../../tenant/index.ts";
 import { createUserFeature } from "../../user/index.ts";
 import { createUserDataRightsFeature } from "../../user-data-rights/feature.ts";
-import { documentDraftExecutor } from "../entity.ts";
+import { ungatedDocumentDraftExecutor } from "../entity.ts";
 import { createDocumentDraftFeature } from "../feature.ts";
-import type { DocumentDraftRenderArgs } from "../options.ts";
 import { forgetDocumentDraftsOfSubject } from "../user-data.ts";
 import { DocumentDraftHandlers, DocumentDraftQueries } from "../web/constants.ts";
 
@@ -42,9 +55,18 @@ const BASE = "lease-contract";
 const OWN_VARIANT = `${BASE}:commercial`;
 const FOREIGN_VARIANT = "other-contract:short";
 const SUBJECT_TYPE = "lease";
-const SUBJECT = "lease-1";
+let SUBJECT: string;
+let FORGET_SUBJECT: string;
+let KEEP_SUBJECT: string;
+let DISCARD_SUBJECT: string;
+let TRAIL_SUBJECT: string;
 const CLAUSE = "Haustiere sind erlaubt.";
-const STUB_PDF = new TextEncoder().encode("%PDF-1.4\n%%EOF");
+const STUB_PDF = new TextEncoder().encode(
+  "%PDF-1.4\n1 0 obj<< /Type /Pages /Kids [] /Count 1 >>endobj\n%%EOF",
+);
+const SERVICE_TOKEN = "document-draft-test-service-token";
+const ENV_KEYS = ["PUPPETEER_SERVICE_URL", "PUPPETEER_AUTH_TOKEN"] as const;
+const savedEnv = new Map<string, string | undefined>();
 const SECRET_TENANT_NAME = "Geheim Mieterin";
 const REPEAT_BASE = "repeat-contract";
 const REPEAT_BODY =
@@ -52,16 +74,90 @@ const REPEAT_BODY =
 
 const TENANT = testTenantId(9801);
 const admin = createTestUser({ id: 9801, roles: ["TenantAdmin"], tenantId: TENANT });
-const allowedMember = createTestUser({ id: 9802, roles: ["TenantMember"], tenantId: TENANT });
-const blockedMember = createTestUser({ id: 9803, roles: ["TenantMember"], tenantId: TENANT });
+const allowedMember = createTestUser({
+  id: 9802,
+  roles: ["TenantMember"],
+  tenantId: TENANT,
+  claims: { team: "team-a" },
+});
+const blockedMember = createTestUser({
+  id: 9803,
+  roles: ["TenantMember"],
+  tenantId: TENANT,
+  claims: { team: "team-b" },
+});
 const foreignAdmin = createTestUser({
   id: 9804,
   roles: ["TenantAdmin"],
   tenantId: testTenantId(9804),
 });
 
+const leaseEntity = createEntity({
+  name: SUBJECT_TYPE,
+  table: "document_draft_test_leases",
+  fields: {
+    teamId: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
+  access: {
+    read: {
+      TenantAdmin: "all",
+      TenantMember: {
+        kind: "where",
+        where: (user, ctx) => ({
+          sqlText: `${ctx.tableName}.team_id = $${ctx.paramStart}`,
+          params: [user.claims?.["team"] ?? null],
+        }),
+      },
+    },
+  } satisfies NonNullable<EntityDefinition["access"]>,
+});
+
+const leaseHostFeature = defineFeature("document-draft-test-lease-host", (r) => {
+  r.entity(leaseEntity);
+});
+
+const leaseExecutor = createEventStoreExecutor(buildEntityTable(leaseEntity), leaseEntity, {
+  entityName: SUBJECT_TYPE,
+});
+
+async function seedLease(teamId: string): Promise<string> {
+  const created = await leaseExecutor.create(
+    { teamId },
+    admin,
+    createTenantDb({
+      db: stack.db,
+      tenantId: TENANT,
+      mode: "system",
+      reason: "test seeds the subject row",
+    }),
+  );
+  if (!created.isSuccess) throw new Error(`lease create failed: ${created.error.message}`);
+  return String(created.data.id);
+}
+
 const provider = createInMemoryFileProvider();
-const renderCalls: DocumentDraftRenderArgs[] = [];
+const printedHtml: string[] = [];
+const stubService = Bun.serve({
+  port: 0,
+  async fetch(request) {
+    const { pathname } = new URL(request.url);
+    if (
+      pathname !== "/render" ||
+      request.headers.get("Authorization") !== `Bearer ${SERVICE_TOKEN}`
+    ) {
+      return new Response("unauthorized", { status: 401 });
+    }
+    const body: { html: string } = await request.json();
+    printedHtml.push(body.html);
+    return new Response(STUB_PDF, { headers: { "Content-Type": "application/pdf" } });
+  },
+});
+const STUB_URL = `http://127.0.0.1:${stubService.port}`;
 let stack: TestStack;
 
 const documentPayload = (slug: string, extra: Record<string, unknown> = {}) => ({
@@ -128,6 +224,7 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       createUserDataRightsFeature(),
       createFilesFeature(),
+      leaseHostFeature,
       createConfigFeature(),
       createTenantFeature(),
       createTemplateResolverFeature({
@@ -135,37 +232,11 @@ beforeAll(async () => {
           { kind: "document-pdf", slug: BASE, access: { roles: ["TenantAdmin"] }, variants: true },
         ],
       }),
-      createDocumentDraftFeature<UploadedFileBytes>({
+      createRendererFoundationFeature(),
+      createRendererPuppeteerClientFeature(),
+      createDocumentDraftFeature({
         subjectTypes: [SUBJECT_TYPE],
         subjectScreens: { [SUBJECT_TYPE]: "lease-detail" },
-        pdf: {
-          render: async (ctx, args) => {
-            renderCalls.push(args);
-            const uploaded = await uploadFileBytesBeforeTransaction(
-              {
-                db: ctx.db,
-                services: {
-                  files: fileContextForTenant(ctx, ctx.user.tenantId, ctx.user.tenantId),
-                },
-                registry: ctx.registry,
-                user: ctx.user,
-              },
-              { fileName: "contract.pdf", mimeType: "application/pdf", data: STUB_PDF },
-            );
-            return uploaded;
-          },
-          store: async (ctx, upload) => {
-            const stored = await createFileRefFromUploadedBytes(ctx, upload);
-            if (!stored.isSuccess) return stored;
-            return {
-              isSuccess: true,
-              data: { fileRefId: stored.data.id, fileName: stored.data.fileName },
-            };
-          },
-        },
-        authorizeSubject: async (_ctx, user, subject) =>
-          user.id === allowedMember.id && subject.subjectId === SUBJECT,
-        unscopedRoles: ["TenantAdmin"],
       }),
     ],
     files: { storageProvider: provider },
@@ -174,6 +245,14 @@ beforeAll(async () => {
       configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
     }),
   });
+
+  await unsafeCreateEntityTable(stack.db, renderedPdfEntity, "rendered-pdf");
+
+  SUBJECT = await seedLease("team-a");
+  FORGET_SUBJECT = await seedLease("team-a");
+  KEEP_SUBJECT = await seedLease("team-a");
+  DISCARD_SUBJECT = await seedLease("team-a");
+  TRAIL_SUBJECT = await seedLease("team-a");
 
   const system = (payload: Record<string, unknown>) =>
     stack.http.writeOk(TemplateResolverHandlers.upsertSystem, payload, TestUsers.systemAdmin);
@@ -201,11 +280,23 @@ beforeAll(async () => {
 afterAll(async () => {
   resetPiiSubjectKmsForTests();
   await stack.cleanup();
+  await stubService.stop(true);
+});
+
+afterEach(() => {
+  for (const key of ENV_KEYS) {
+    const saved = savedEnv.get(key);
+    if (saved === undefined) delete process.env[key];
+    else process.env[key] = saved;
+  }
 });
 
 beforeEach(() => {
-  renderCalls.length = 0;
+  printedHtml.length = 0;
   provider.clear();
+  for (const key of ENV_KEYS) savedEnv.set(key, process.env[key]);
+  process.env["PUPPETEER_SERVICE_URL"] = STUB_URL;
+  process.env["PUPPETEER_AUTH_TOKEN"] = SERVICE_TOKEN;
 });
 
 describe("create", () => {
@@ -373,7 +464,10 @@ describe("save", () => {
 
 describe("repeat table template", () => {
   test("keeps data-each and data-repeat-header, an unchanged save shows no deviation and finalize prints the repeated rows", async () => {
-    const created = await create({ templateSlug: REPEAT_BASE, variables: {} });
+    const created = await create({
+      templateSlug: REPEAT_BASE,
+      variables: { rentSteps: [{ from: "ab 2027" }, { from: "ab 2028" }] },
+    });
     const fresh = await blocksOf(created.id);
     expect(fresh.body).toBe(fresh.templateBody);
     expect(fresh.body).toContain('data-each="rentSteps"');
@@ -394,9 +488,10 @@ describe("repeat table template", () => {
       { id: created.id, base: saved.version },
       admin,
     );
-    const printed = renderCalls[0]?.draft.content ?? "";
-    expect(printed).toContain('<tr data-if="rentSteps" data-repeat-header="">');
-    expect(printed).toContain('<tr data-each="rentSteps">');
+    expect(printedHtml).toHaveLength(1);
+    expect(printedHtml[0]).toContain("Staffel");
+    expect(printedHtml[0]).toContain("ab 2027");
+    expect(printedHtml[0]).toContain("ab 2028");
   });
 });
 
@@ -415,10 +510,9 @@ describe("finalize and revise", () => {
       revision: number;
     }>(DocumentDraftHandlers.finalize, { id: created.id, base: patched.version }, admin);
     expect(finalized.revision).toBe(1);
-    expect(renderCalls).toHaveLength(1);
-    expect(renderCalls[0]?.slug).toBe(BASE);
-    expect(renderCalls[0]?.variables).toEqual({ partyName: SECRET_TENANT_NAME });
-    expect(renderCalls[0]?.draft.content).toContain(CLAUSE);
+    expect(printedHtml).toHaveLength(1);
+    expect(printedHtml[0]).toContain(SECRET_TENANT_NAME);
+    expect(printedHtml[0]).toContain(CLAUSE);
 
     const closed = await blocksOf(created.id);
     expect(closed.status).toBe("finalized");
@@ -444,11 +538,11 @@ describe("finalize and revise", () => {
   });
 
   test("discard hides the draft from by-subject", async () => {
-    const created = await create({ subjectId: "lease-discard" });
+    const created = await create({ subjectId: DISCARD_SUBJECT });
     const listed = () =>
       stack.http.queryOk<{ id: string }[]>(
         DocumentDraftQueries.bySubject,
-        { subjectType: SUBJECT_TYPE, subjectId: "lease-discard" },
+        { subjectType: SUBJECT_TYPE, subjectId: DISCARD_SUBJECT },
         admin,
       );
     expect((await listed()).map((row) => row.id)).toEqual([created.id]);
@@ -463,7 +557,7 @@ describe("finalize and revise", () => {
 
 describe("event trail and erasure", () => {
   test("each patch is an event with the user and the ops, not readable in the event store", async () => {
-    const created = await create({ subjectId: "lease-trail" });
+    const created = await create({ subjectId: TRAIL_SUBJECT });
     await stack.http.writeOk(
       DocumentDraftHandlers.patch,
       { id: created.id, base: created.version, ops: [insertClause()] },
@@ -487,8 +581,8 @@ describe("event trail and erasure", () => {
   });
 
   test("forgetDocumentDraftsOfSubject makes the body unreadable and leaves other subjects alone", async () => {
-    const erased = await create({ subjectId: "lease-forget" });
-    const kept = await create({ subjectId: "lease-keep" });
+    const erased = await create({ subjectId: FORGET_SUBJECT });
+    const kept = await create({ subjectId: KEEP_SUBJECT });
     await stack.http.writeOk(
       DocumentDraftHandlers.patch,
       { id: erased.id, base: erased.version, ops: [insertClause()] },
@@ -503,11 +597,11 @@ describe("event trail and erasure", () => {
     });
     const result = await forgetDocumentDraftsOfSubject(
       { db, user: admin },
-      { subjectType: SUBJECT_TYPE, subjectId: "lease-forget" },
+      { subjectType: SUBJECT_TYPE, subjectId: FORGET_SUBJECT },
     );
     expect(result).toEqual({ erased: 1 });
 
-    const gone = await documentDraftExecutor.detail({ id: erased.id }, admin, db);
+    const gone = await ungatedDocumentDraftExecutor.detail({ id: erased.id }, admin, db);
     expect(gone).toBeNull();
     expect(JSON.stringify(gone)).not.toContain(CLAUSE);
     expect(JSON.stringify(gone)).not.toContain(SECRET_TENANT_NAME);
@@ -533,10 +627,10 @@ describe("access", () => {
       (await stack.http.queryErr(DocumentDraftQueries.blocks, { id: created.id }, foreignAdmin))
         .httpStatus,
     ).toBe(404);
-    expect(renderCalls).toEqual([]);
+    expect(printedHtml).toEqual([]);
   });
 
-  test("authorizeSubject false answers not found, true lets the user through", async () => {
+  test("a subject the user cannot read answers not found, one they can read lets them through", async () => {
     const created = await create();
     for (const [type, payload] of [
       [
@@ -564,7 +658,7 @@ describe("access", () => {
         )
       ).httpStatus,
     ).toBe(404);
-    expect(renderCalls).toEqual([]);
+    expect(printedHtml).toEqual([]);
 
     // Neither a wrong base nor a finalized draft may tell a blocked user anything but NotFound.
     const wrongBase = { id: created.id, base: Number(created.version) + 99 };
@@ -577,7 +671,7 @@ describe("access", () => {
       { id: created.id, base: created.version },
       allowedMember,
     );
-    const printsBefore = renderCalls.length;
+    const printsBefore = printedHtml.length;
     expect(
       (
         await stack.http.writeErr(
@@ -587,9 +681,10 @@ describe("access", () => {
         )
       ).httpStatus,
     ).toBe(404);
-    expect(renderCalls).toHaveLength(printsBefore);
+    expect(printedHtml).toHaveLength(printsBefore);
 
     const own = await create({}, allowedMember);
     expect((await blocksOf(own.id, allowedMember)).id).toBe(own.id);
+    expect((await blocksOf(own.id, admin)).id).toBe(own.id);
   });
 });

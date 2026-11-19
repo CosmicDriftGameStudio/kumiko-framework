@@ -21,8 +21,13 @@ const clockFeature = defineFeature("clockprobe", (r) => {
     }),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.job("record-now", { trigger: { manual: true }, runIn: "worker" }, async (_payload, ctx) => {
-    jobSeenNow.push(ctx.tz.now().toString());
+  r.job({
+    name: "record-now",
+    trigger: { manual: true },
+    runIn: "worker",
+    handler: async (_payload, ctx) => {
+      jobSeenNow.push(ctx.tz.now().toString());
+    },
   });
 });
 

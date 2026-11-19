@@ -1,11 +1,24 @@
+import type { ContractQuery, ContractWrite } from "@cosmicdrift/kumiko-types/handler-contract";
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
+import { isValidHttpRouteRateLimit } from "@cosmicdrift/kumiko-types/http-route";
+import type {
+  RateLimitDecision,
+  RateLimitResolver,
+} from "@cosmicdrift/kumiko-types/rate-limit-types";
 import type { Context, Hono } from "hono";
 import { ROLES } from "../auth/roles.ts";
 import { createSystemUser } from "../engine/system-user.ts";
-import type { Registry } from "../engine/types/index.ts";
+import type { Registry, SessionUser } from "../engine/types/index.ts";
+import { FILE_DOWNLOAD_LINK_ROUTE_PREFIX } from "../files/file-download-link.ts";
 
 import { createFallbackLogger } from "../logging/index.ts";
+import { bindContractQuery, bindContractWrite } from "../pipeline/contract-dispatch.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
+import {
+  createFailOpenReporter,
+  respondRateLimited,
+  setRateLimitHeaders,
+} from "../rate-limit/middleware.ts";
 import { assertUnreachable } from "../utils/index.ts";
 import { NON_PUBLIC_API_PATHS, PUBLIC_API_PATHS } from "./api-constants.ts";
 import { getUser } from "./auth-middleware.ts";
@@ -16,15 +29,29 @@ import {
   type ExtraRouteEntry,
   ExtraRouteRejection,
   type RoleDispatchArgs,
+  type SignatureExtraRoute,
   type SystemDispatchArgs,
 } from "./extra-route.ts";
 import { bodyLimitForRoutePath, DEFAULT_MAX_REQUEST_BYTES } from "./route-registrars.ts";
-import { makeSystemQuery, mountHonoRoute } from "./server-feature-http-routes.ts";
+import {
+  buildRouteRateLimitGuards,
+  makeSystemQuery,
+  mountHonoRoute,
+} from "./server-feature-http-routes.ts";
 import { isMissingOrAnonymousUser, unauthenticatedResponse } from "./server-routes.ts";
 import type { ServerWiring } from "./server-wiring.ts";
 import { tenantScopedSecrets } from "./tenant-scoped-secrets.ts";
 
 export type PublicApiRequestMatcher = (c: Context) => boolean;
+
+// The signed token is the permission. Exactly one segment after the prefix, so a deeper path such
+// as /files/:id/variant/:name with id "link" keeps its session guard.
+function isFileDownloadLinkPath(path: string): boolean {
+  return (
+    path.startsWith(FILE_DOWNLOAD_LINK_ROUTE_PREFIX) &&
+    !path.includes("/", FILE_DOWNLOAD_LINK_ROUTE_PREFIX.length)
+  );
+}
 
 // Only entry:"signature" bypasses jwtGuard (verify() authenticates
 // itself); entry:"anonymous" still needs the anonymousAccess fallthrough
@@ -37,12 +64,21 @@ export function compilePublicApiRequestMatcher(
     .map((route) => ({ method: route.method, pattern: honoPathToRegex(route.path) }));
   return (c) =>
     PUBLIC_API_PATHS.has(c.req.path) ||
+    (c.req.method === "GET" && isFileDownloadLinkPath(c.req.path)) ||
     matchers.some((m) => m.method === c.req.method && m.pattern.test(c.req.path));
 }
 
 export function mountExtraRoutes(
   app: Hono,
-  wiring: Pick<ServerWiring, "options" | "dispatcher" | "context" | "clientIpResolver">,
+  wiring: Pick<
+    ServerWiring,
+    | "options"
+    | "dispatcher"
+    | "context"
+    | "clientIpResolver"
+    | "rateLimitResolver"
+    | "observability"
+  >,
 ): void {
   const { options, dispatcher, context, clientIpResolver } = wiring;
   // extraRoutes — declarative HTTP-routes with a
@@ -57,9 +93,14 @@ export function mountExtraRoutes(
     for (const route of options.extraRoutes) {
       assertValidExtraRoute(route);
     }
+    assertSignatureRoutesDoNotOverlapMountedRoutes(app, options.extraRoutes);
     const dispatchSystemWrite = makeDispatchSystemWrite(dispatcher);
     const dispatchSystemQuery = makeDispatchSystemQuery(dispatcher);
     const dispatchWriteAs = makeDispatchWriteAs(dispatcher);
+    const verifiedRateLimitFailOpen = createFailOpenReporter(
+      "extra-route-verified",
+      wiring.observability.meter,
+    );
     for (const route of options.extraRoutes) {
       const honoHandler = buildExtraRouteHonoHandler(route, {
         app,
@@ -70,14 +111,13 @@ export function mountExtraRoutes(
         dispatchSystemQuery,
         dispatchWriteAs,
         clientIpResolver,
+        rateLimitResolver: wiring.rateLimitResolver,
+        onVerifiedRateLimitFailOpen: verifiedRateLimitFailOpen,
       });
-      mountHonoRoute(
-        app,
-        route.method,
-        route.path,
-        honoHandler,
-        bodyLimitForRoutePath(route.path, options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES),
-      );
+      mountHonoRoute(app, route.method, route.path, honoHandler, [
+        ...buildRouteRateLimitGuards(route, wiring),
+        ...bodyLimitForRoutePath(route.path, options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES),
+      ]);
     }
   }
 }
@@ -124,6 +164,52 @@ function assertValidExtraRoute(route: ExtraRouteDefinition): void {
       );
     }
   }
+  if (route.rateLimit !== undefined && !isValidHttpRouteRateLimit(route.rateLimit)) {
+    throw new Error(
+      `[kumiko] extraRoutes: "${route.method} ${route.path}" rateLimit needs positive integer ` +
+        "limit and windowSeconds.",
+    );
+  }
+  if (
+    route.entry === ExtraRouteEntries.signature &&
+    route.verifiedRateLimit !== undefined &&
+    !isValidHttpRouteRateLimit(route.verifiedRateLimit)
+  ) {
+    throw new Error(
+      `[kumiko] extraRoutes: "${route.method} ${route.path}" verifiedRateLimit needs positive integer ` +
+        "limit and windowSeconds.",
+    );
+  }
+}
+
+// The public matcher lets every request through that a signature route's pattern matches, so a
+// signature route must not overlap a /api route that relies on the auth chain: the framework's own
+// sub-routes (mounted before extraRoutes, e.g. /api/files/:id) and the non-signature extraRoutes.
+function assertSignatureRoutesDoNotOverlapMountedRoutes(
+  app: Hono,
+  extraRoutes: readonly ExtraRouteDefinition[],
+): void {
+  const guardedRoutes: readonly { readonly method: string; readonly path: string }[] = [
+    ...app.routes.filter((route) => route.method !== "ALL" && route.path.startsWith("/api/")),
+    ...extraRoutes.filter((route) => route.entry !== ExtraRouteEntries.signature),
+  ];
+  for (const signatureRoute of extraRoutes) {
+    if (signatureRoute.entry !== ExtraRouteEntries.signature) continue;
+    const signatureMethod: string = signatureRoute.method;
+    const signaturePattern = honoPathToRegex(signatureRoute.path);
+    const overlapped = guardedRoutes.find(
+      (route) =>
+        route.method === signatureMethod &&
+        (signaturePattern.test(route.path) ||
+          honoPathToRegex(route.path).test(signatureRoute.path)),
+    );
+    if (overlapped !== undefined) {
+      throw new Error(
+        `[kumiko] extraRoutes: entry:"signature" route "${signatureRoute.method} ${signatureRoute.path}" must not ` +
+          `overlap the route "${overlapped.method} ${overlapped.path}" — it would bypass the auth chain for it.`,
+      );
+    }
+  }
 }
 
 // SystemAdmin write/query builders shared by mountExtraRoutes
@@ -157,23 +243,29 @@ export function makeDispatchSystemQuery(
     dispatcher.query(handlerQn, payload, createSystemUser(tenantId, [ROLES.SystemAdmin]));
 }
 
-// Same dispatcher.write(...) as entry:"user", but the user is getUser(c) —
-// see AnonymousExtraRouteDeps.write for the privilege/tenant contract.
-function makeAnonymousWrite(
-  // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
-  c: import("hono").Context<any, any>,
-  dispatcher: Dispatcher,
-): (type: string, payload: unknown) => Promise<WriteResult> {
-  return (type, payload) => {
-    const user = getUser(c);
-    if (!user) {
-      throw new Error(
-        '[kumiko] extraRoutes: entry:"anonymous" deps.write requires this route to be mounted ' +
-          'under "/api/" with anonymousAccess wired — no request-resolved session user was found.',
-      );
-    }
-    return dispatcher.write(type, payload, user);
-  };
+// Same dispatcher calls as entry:"user", but the user is getUser(c) —
+// see AnonymousExtraRouteDeps.write/query for the privilege/tenant contract.
+function requireRequestSessionUser(c: Context, depName: "write" | "query"): SessionUser {
+  const user = getUser(c);
+  if (!user) {
+    throw new Error(
+      `[kumiko] extraRoutes: entry:"anonymous" deps.${depName} requires this route to be mounted ` +
+        'under "/api/" with anonymousAccess wired — no request-resolved session user was found.',
+    );
+  }
+  return user;
+}
+
+function makeAnonymousWrite(c: Context, dispatcher: Dispatcher): ContractWrite {
+  return bindContractWrite((type, payload) =>
+    dispatcher.write(type, payload, requireRequestSessionUser(c, "write")),
+  );
+}
+
+function makeAnonymousQuery(c: Context, dispatcher: Dispatcher): ContractQuery {
+  return bindContractQuery((type, payload) =>
+    dispatcher.query(type, payload, requireRequestSessionUser(c, "query")),
+  );
 }
 
 const extraRouteLog = createFallbackLogger("extra-route");
@@ -210,13 +302,45 @@ type ExtraRouteHonoHandlerDeps = {
   readonly dispatchSystemQuery: (args: SystemDispatchArgs) => Promise<unknown>;
   readonly dispatchWriteAs: (args: RoleDispatchArgs) => Promise<WriteResult>;
   readonly clientIpResolver: ClientIpResolver;
+  readonly rateLimitResolver: RateLimitResolver | undefined;
+  readonly onVerifiedRateLimitFailOpen: (err: unknown) => void;
 };
+
+async function verifiedRateLimitResponse(
+  c: Context,
+  route: SignatureExtraRoute<unknown>,
+  verified: unknown,
+  shared: ExtraRouteHonoHandlerDeps,
+): Promise<Response | undefined> {
+  const rateLimit = route.verifiedRateLimit;
+  const resolver = shared.rateLimitResolver;
+  if (rateLimit === undefined || resolver === undefined) return undefined;
+  // Computed outside the try so a throwing key() is not swallowed as fail-open.
+  const bucket = `extra:${route.method} ${route.path}:${rateLimit.key(verified)}`;
+  let decision: RateLimitDecision;
+  try {
+    decision = await resolver.check(bucket, {
+      limit: rateLimit.limit,
+      windowSeconds: rateLimit.windowSeconds,
+    });
+  } catch (e) {
+    shared.onVerifiedRateLimitFailOpen(e);
+    return undefined;
+  }
+  if (decision.allowed) {
+    setRateLimitHeaders(c, decision);
+    return undefined;
+  }
+  if (rateLimit.rejectionBody === undefined) return respondRateLimited(c, decision, bucket);
+  c.header("Retry-After", String(Math.max(1, decision.retryAfterSeconds)));
+  setRateLimitHeaders(c, decision);
+  return c.json(rateLimit.rejectionBody(decision), 429);
+}
 
 function buildExtraRouteHonoHandler(
   route: ExtraRouteDefinition,
   shared: ExtraRouteHonoHandlerDeps,
-  // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
-): (c: import("hono").Context<any, any>) => Promise<Response> {
+): (c: Context) => Promise<Response> {
   switch (route.entry) {
     case ExtraRouteEntries.anonymous:
       return async (c) =>
@@ -225,6 +349,7 @@ function buildExtraRouteHonoHandler(
           registry: shared.registry,
           systemQuery: makeSystemQuery(c, shared.dispatcher, shared.clientIpResolver),
           write: makeAnonymousWrite(c, shared.dispatcher),
+          query: makeAnonymousQuery(c, shared.dispatcher),
           clientIp: shared.clientIpResolver.resolve(clientIpSourceFromHonoContext(c)),
         });
     case ExtraRouteEntries.user:
@@ -237,8 +362,8 @@ function buildExtraRouteHonoHandler(
           app: shared.app,
           registry: shared.registry,
           user,
-          query: (type, payload) => shared.dispatcher.query(type, payload, user),
-          write: (type, payload) => shared.dispatcher.write(type, payload, user),
+          query: bindContractQuery((type, payload) => shared.dispatcher.query(type, payload, user)),
+          write: bindContractWrite((type, payload) => shared.dispatcher.write(type, payload, user)),
         });
       };
     case ExtraRouteEntries.signature:
@@ -276,6 +401,8 @@ function buildExtraRouteHonoHandler(
             401,
           );
         }
+        const limited = await verifiedRateLimitResponse(c, route, verified, shared);
+        if (limited !== undefined) return limited;
         return route.handler(c, verified, {
           app: shared.app,
           registry: shared.registry,

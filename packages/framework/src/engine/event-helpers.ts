@@ -1,4 +1,9 @@
-import type { AppendEventArgs, EventDef, HandlerContext } from "./types/handlers.ts";
+import type {
+  AppendConcurrency,
+  AppendEventArgs,
+  EventDef,
+  HandlerContext,
+} from "./types/handlers.ts";
 
 // The ctx-surface emitEvent needs. Accepting the narrow shape lets tests or
 // MultiStreamApplyContext-style callers pass their own events.unsafeAppend without
@@ -10,7 +15,7 @@ import type { AppendEventArgs, EventDef, HandlerContext } from "./types/handlers
 // path. The strict events.append is for direct in-handler callsites.
 export type EmitCtx = { readonly events: Pick<HandlerContext["events"], "unsafeAppend"> };
 
-// Typed wrapper around ctx.events.append. Two wins over the raw call:
+// Typed, version-checked wrapper around ctx.events.unsafeAppend. Wins over the raw call:
 //
 //   1. The payload is checked against the EventDef's inferred TPayload,
 //      so a Zod-schema mismatch becomes a compile error at the emit site
@@ -22,6 +27,7 @@ export type EmitCtx = { readonly events: Pick<HandlerContext["events"], "unsafeA
 //     aggregateId: String(result.data.id),
 //     aggregateType: "pubsub-order",
 //     payload: { id, customer, product },
+//     expectedVersion: 0,
 //   });
 //
 // aggregateType stays explicit on purpose — the EventDef doesn't know which
@@ -35,15 +41,9 @@ export async function emitEvent<TPayload>(
     readonly aggregateType: string;
     readonly payload: TPayload;
     readonly headers?: AppendEventArgs["headers"];
-  },
+  } & AppendConcurrency,
 ): Promise<void> {
-  const appendArgs: AppendEventArgs = {
-    aggregateId: args.aggregateId,
-    aggregateType: args.aggregateType,
-    type: eventDef.name,
-    payload: args.payload,
-    ...(args.headers !== undefined && { headers: args.headers }),
-  };
+  const appendArgs: AppendEventArgs = { ...args, type: eventDef.name };
   await ctx.events.unsafeAppend(appendArgs);
 }
 

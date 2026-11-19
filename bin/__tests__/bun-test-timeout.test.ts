@@ -7,8 +7,6 @@ import { TEST_TIMEOUT_MS } from "@cosmicdrift/kumiko-testing/bunfig";
 // a warning (#3078, #2796) — only `--timeout` on the CLI raises the 5000ms
 // default, so the DOM runs must carry it on every invocation.
 const repoRoot = join(import.meta.dir, "..", "..");
-// The repo suite and consumer apps use different DOM budgets; what must hold is that one is passed.
-const DOM_TIMEOUT_FLAG = /--timeout=\d+/;
 const DOM_CONFIG = /--config=bunfig\.(?:ci-)?dom\.toml/;
 const INTEGRATION_CONFIG = /--config=bunfig\.integration\.toml/;
 
@@ -32,23 +30,27 @@ describe("bun test timeout comes from the CLI, not from bunfig", () => {
     expect(withDeadKey).toEqual([]);
   });
 
-  test("every DOM test command passes the timeout explicitly", () => {
-    const sources = ["package.json", "bin/kumiko-legacy.ts"];
+  test("every DOM test command passes the shared DOM timeout explicitly", () => {
+    const expectedFlag = `--timeout=${TEST_TIMEOUT_MS.dom}`;
+    const sources = ["package.json", "bin/check-pipeline.ts"];
     const missing: string[] = [];
+    let matched = 0;
 
     for (const source of sources) {
       for (const segment of readRepoFile(source).split("\n").flatMap(splitCommands)) {
         if (!DOM_CONFIG.test(segment)) continue;
-        if (!DOM_TIMEOUT_FLAG.test(segment)) missing.push(`${source}: ${segment.trim()}`);
+        matched++;
+        if (!segment.includes(expectedFlag)) missing.push(`${source}: ${segment.trim()}`);
       }
     }
 
+    expect(matched).toBeGreaterThan(0);
     expect(missing).toEqual([]);
   });
 
   test("every integration test command passes the shared integration timeout explicitly", () => {
     const expectedFlag = `--timeout=${TEST_TIMEOUT_MS.integration}`;
-    const sources = ["package.json", "bin/kumiko-legacy.ts"];
+    const sources = ["package.json", "bin/check-pipeline.ts"];
     const missing: string[] = [];
     let matched = 0;
 

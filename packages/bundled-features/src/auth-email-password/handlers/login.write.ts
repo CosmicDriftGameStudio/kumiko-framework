@@ -11,8 +11,13 @@ import {
 import type { WriteFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { verifyDummyPassword, verifyPassword } from "../../shared/index.ts";
-import { USER_STATUS, UserQueries } from "../../user/index.ts";
+import {
+  mintAuthSession,
+  normalizeEmail,
+  verifyDummyPassword,
+  verifyPassword,
+} from "../../shared/index.ts";
+import { isPrincipalBlockedForNewAuth, USER_STATUS, UserQueries } from "../../user/index.ts";
 import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row.ts";
 import {
   accountLocked,
@@ -108,9 +113,9 @@ export async function gateResolveAuthUser(
 }
 
 // Unknown and deleted addresses are counted too, under a keyed digest of the
-// address exactly as findForAuth looks it up (no own normalization: a differently
-// cased spelling is a different, unknown address and must not share a counter with a
-// registered one). ctx.rateLimitDigest is derived from the JWT secret, so that after the
+// address. The handler normalizes the email like all storage paths, so another spelling
+// hits the same account and counts in the same lockout bucket.
+// ctx.rateLimitDigest is derived from the JWT secret, so that after the
 // threshold they answer account_locked exactly like a registered address.
 // Without a digest key (no rate-limit wiring) they stay plain invalid_credentials.
 function unknownEmailLockoutSubject(ctx: HandlerContext, email: string): string | undefined {
@@ -196,7 +201,7 @@ export function gateEnforceAccountStatus(found: AuthUserRow): GateOutcome<undefi
   if (found.status === USER_STATUS.Restricted) {
     return reject(accountRestricted());
   }
-  if (found.status === USER_STATUS.DeletionRequested || found.status === USER_STATUS.Deleted) {
+  if (isPrincipalBlockedForNewAuth(found.status)) {
     return reject(invalidCredentials());
   }
   return ok(undefined);
@@ -275,16 +280,13 @@ export async function gateBuildSession(
   timezone?: string | null,
   locale?: string | null,
 ): Promise<{ readonly kind: "auth-session"; readonly session: SessionUser }> {
-  const baseSession: SessionUser = {
-    id: userId,
+  const session = await mintAuthSession(ctx, {
+    userId,
     tenantId,
     roles: mergedRoles,
-    ...(timezone !== null && timezone !== undefined && { timezone }),
-    ...(locale !== null && locale !== undefined && { locale }),
-  };
-  const claims = await ctx.auth.resolveClaims(baseSession);
-  const session: SessionUser =
-    Object.keys(claims).length > 0 ? { ...baseSession, claims } : baseSession;
+    timezone,
+    locale,
+  });
   return { kind: "auth-session", session };
 }
 
@@ -374,15 +376,14 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
     handler: async (event, ctx): Promise<WriteResult<LoginResult>> => {
       const systemUser = createSystemUser(SYSTEM_USER_ID);
 
+      const email = normalizeEmail(event.payload.email);
       const foundRow = parseAuthUserRow(
-        await ctx.dispatch.queryAs(systemUser, UserQueries.findForAuth, {
-          email: event.payload.email,
-        }),
+        await ctx.dispatch.queryAs(systemUser, UserQueries.findForAuth, { email }),
       );
       if (!foundRow?.passwordHash || foundRow.isDeleted) {
         const unknown = await gateCountUnknownUser(
           ctx,
-          event.payload.email,
+          email,
           maxFailedAttempts,
           lockoutDurationMinutes,
         );

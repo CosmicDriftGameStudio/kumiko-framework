@@ -223,8 +223,10 @@ export function sanitizeTemplateWriteBody(input: {
   readonly scope: TemplateWriteScope;
   readonly contentFormat: ContentFormat;
   readonly content: string | null;
+  /** Kinds outside the sanitized set (text-block) still must not store raw html. */
+  readonly alwaysSanitizeHtml?: boolean;
 }): SanitizeBodyResult {
-  const { kind, scope, contentFormat, content } = input;
+  const { kind, scope, contentFormat, content, alwaysSanitizeHtml } = input;
   if (kind === "mail-layout" && content !== null) {
     return sanitizeMailLayout(scope, contentFormat, content);
   }
@@ -240,5 +242,10 @@ export function sanitizeTemplateWriteBody(input: {
     }
     return fromLayoutResult(sanitizeLayoutHtml(content));
   }
-  return sanitizeTemplateBody({ kind, contentFormat, content });
+  return sanitizeTemplateBody({
+    kind,
+    contentFormat,
+    content,
+    ...(alwaysSanitizeHtml === undefined ? {} : { alwaysSanitizeHtml }),
+  });
 }

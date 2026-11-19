@@ -42,7 +42,9 @@ const spyLogger: Logger = {
 
 const leakyChannelFeature = defineFeature("leaky-inline", (r) => {
   r.requires({ features: ["delivery"] });
-  r.useExtension(DELIVERY_CHANNEL_EXTENSION, "leaky-inline", {
+  r.applyExtension({
+    name: DELIVERY_CHANNEL_EXTENSION,
+    entity: "leaky-inline",
     mode: "inline",
     send: async () => {
       throw new Error(LEAKY_MESSAGE);

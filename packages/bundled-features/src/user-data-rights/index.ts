@@ -1,14 +1,17 @@
 export { deletionTokenSecretEnvSchema } from "./env.ts";
-export { createUserDataRightsFeature, type UserDataRightsOptions } from "./feature.ts";
-export type { SendDeletionVerificationEmailFn } from "./handlers/request-deletion-by-email.write.ts";
+export { createUserDataRightsFeature } from "./feature.ts";
 export {
-  denyIfTargetOutsideAdminTenant,
+  denyIfTargetBeyondAdminReach,
+  resolveAdminReachOverUser,
+  TARGET_USER_IN_OTHER_TENANTS,
   TARGET_USER_NOT_IN_ADMIN_TENANT,
-} from "./lib/deny-if-target-outside-admin-tenant.ts";
+  TARGET_USER_OUTRANKS_ACTOR,
+} from "./lib/deny-if-target-beyond-admin-reach.ts";
 export { isSystemAdminActor } from "./lib/is-admin-actor.ts";
 // Reconcile existing data once before re-enabling read_users rebuilds.
 // See the library documentation for the required procedure.
 export { backfillUserLifecycleEvents, updateUserLifecycle } from "./lib/update-user-lifecycle.ts";
+export type { UserDataRightsOptions } from "./options.ts";
 export type {
   SendExportFailedEmailFn,
   SendExportReadyEmailFn,
@@ -18,7 +21,7 @@ export type { SendDeletionExecutedEmailFn } from "./run-forget-cleanup.ts";
 // waiting for the job cron.
 // Shared retention-to-strategy mapping: other EXT_USER_DATA delete hooks that
 // independently consult a DIFFERENT entity's retention (for example,
-// notes-history-user-data's host-entity check) reuse this instead of
+// the host-entity check in notes-history's user-data-hooks.ts) reuse this instead of
 // re-deriving the anonymize/delete split.
 export { policyToStrategy, runForgetCleanup } from "./run-forget-cleanup.ts";
 export type { UserExportBundle } from "./run-user-export.ts";

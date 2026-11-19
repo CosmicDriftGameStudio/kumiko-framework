@@ -15,7 +15,6 @@ import { randomBytes } from "node:crypto";
 import {
   createEventStoreExecutor,
   createSystemDbView,
-  createTenantDb,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -25,6 +24,7 @@ import {
   defineFeature,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { ESCAPE_HATCH_USED_SIGNAL } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createEnvelopeCipher,
@@ -130,7 +130,10 @@ function jobCtx(captured: CapturedLog): Parameters<typeof reencryptJob>[1] {
         mode: "system",
         reason: "test seeds config values of several tenants for the re-encryption job",
         grants: {
-          unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+          unsafeRaw: {
+            reason: "test: job context mirrors systemScope() grant",
+            grants: ["unsafeRaw"],
+          },
         },
       }),
     ),

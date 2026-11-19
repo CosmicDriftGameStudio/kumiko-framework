@@ -10,12 +10,14 @@
 //      the log would be a double-write).
 //   5. cursor is advanced to the last processed event after rebuild so
 //      live dispatcher passes don't redeliver what rebuild consumed.
+//   6. replay reads the log in keyset batches; a log larger than one batch
+//      replays every event exactly once.
 //
 // Deliberately separate from projection-rebuild.integration.ts because MSPs
 // carry a different state row (kumiko_event_consumers, not kumiko_projections)
 // and a different apply signature (3rd ctx arg).
 
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -28,11 +30,15 @@ import * as z from "zod";
 import type { DbConnection, DbTx } from "../../db/connection.ts";
 import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import * as projectionRebuildQueries from "../../db/queries/projection-rebuild.ts";
 import { readRowLevelSecurityState } from "../../db/queries/rls-catalog.ts";
-import { asRawClient, selectMany, updateMany } from "../../db/query.ts";
+import { asRawClient, insertOne, selectMany, updateMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
+import { unsafePushTables } from "../../db/table-push.ts";
 import { withExecutorManagedWrites } from "../../db/tenant-db.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import { append } from "../../event-store/event-store.ts";
+import { archiveStream } from "../../event-store/index.ts";
 import {
   eventConsumerStateTable,
   getConsumerState,
@@ -40,24 +46,27 @@ import {
 } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state.ts";
+import { REBUILD_BATCH_SIZE } from "../projection-rebuild.ts";
 
 // --- Fixtures: two aggregates feeding one MSP + two cornered MSPs ---
 
 const invoiceEntity = createEntity({
+  name: "msp-reb-invoice",
   table: "read_mspreb_invoices",
   fields: {
     customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const invoiceTable = buildEntityTable("msp-reb-invoice", invoiceEntity);
+const invoiceTable = buildEntityTable(invoiceEntity);
 
 const paymentEntity = createEntity({
+  name: "msp-reb-payment",
   table: "read_mspreb_payments",
   fields: {
     customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const paymentTable = buildEntityTable("msp-reb-payment", paymentEntity);
+const paymentTable = buildEntityTable(paymentEntity);
 
 // Main read-model: running balance per customer.
 const balanceTable = pgTable("read_mspreb_balance", {
@@ -65,6 +74,19 @@ const balanceTable = pgTable("read_mspreb_balance", {
   tenantId: pgUuid("tenant_id").notNull(),
   invoicesCents: pgInteger("invoices_cents").notNull().default(0),
   paymentsCents: pgInteger("payments_cents").notNull().default(0),
+});
+
+// MSP whose apply also writes a second table — the single-table contract violation
+// the rebuild guard must catch.
+const doubleWriterTable = pgTable("read_mspreb_dw_primary", {
+  id: pgUuid("id").primaryKey(),
+  tenantId: pgUuid("tenant_id").notNull(),
+  invoicesCents: pgInteger("invoices_cents").notNull(),
+});
+const doubleWriterSideTable = pgTable("read_mspreb_dw_side", {
+  id: pgUuid("id").primaryKey(),
+  tenantId: pgUuid("tenant_id").notNull(),
+  invoicesCents: pgInteger("invoices_cents").notNull(),
 });
 
 // Saga-MSP read-model — never actually written, exists to satisfy the
@@ -79,8 +101,8 @@ const sagaStateTable = pgTable("read_mspreb_saga_state", {
 let invoiceBilledEventName = "";
 
 const feature = defineFeature("mspreb", (r) => {
-  r.entity({ name: "msp-reb-invoice", ...invoiceEntity });
-  r.entity({ name: "msp-reb-payment", ...paymentEntity });
+  r.entity(invoiceEntity);
+  r.entity(paymentEntity);
 
   const invoiceBilled = r.defineEvent(
     "invoice-billed",
@@ -121,6 +143,19 @@ const feature = defineFeature("mspreb", (r) => {
     },
   });
 
+  r.multiStreamProjection({
+    name: "double-writer",
+    table: doubleWriterTable,
+    apply: {
+      [invoiceBilled.name]: async (event, tx) => {
+        const p = event.payload as { customer: string; cents: number };
+        const row = { id: crypto.randomUUID(), tenantId: event.tenantId, invoicesCents: p.cents };
+        await insertOne(tx, doubleWriterTable, row);
+        await insertOne(tx, doubleWriterSideTable, { ...row, id: crypto.randomUUID() });
+      },
+    },
+  });
+
   // 2) Side-effect-only MSP: no table. rebuild must reject.
   r.multiStreamProjection({
     name: "webhook-sink",
@@ -143,6 +178,7 @@ const feature = defineFeature("mspreb", (r) => {
         const p = event.payload as { customer: string };
         await ctx.unsafeAppendEvent({
           aggregateId: p.customer,
+          blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
           aggregateType: "msp-reb-invoice",
           type: escalationTriggered.name,
           payload: { customer: p.customer },
@@ -170,6 +206,7 @@ const feature = defineFeature("mspreb", (r) => {
       if (!res.isSuccess) return res;
       await ctx.events.unsafeAppend({
         aggregateId: String(res.data.id),
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "msp-reb-invoice",
         type: invoiceBilled.name,
         payload: event.payload,
@@ -191,6 +228,7 @@ const feature = defineFeature("mspreb", (r) => {
       if (!res.isSuccess) return res;
       await ctx.events.unsafeAppend({
         aggregateId: String(res.data.id),
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "msp-reb-payment",
         type: paymentReceived.name,
         payload: event.payload,
@@ -204,6 +242,7 @@ const feature = defineFeature("mspreb", (r) => {
 const BALANCE_MSP = "mspreb:projection:customer-balance";
 const WEBHOOK_MSP = "mspreb:projection:webhook-sink";
 const SAGA_MSP = "mspreb:projection:saga-emitter";
+const DOUBLE_WRITER_MSP = "mspreb:projection:double-writer";
 
 const admin = TestUsers.admin;
 let stack: TestStack;
@@ -215,6 +254,10 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, invoiceEntity, "msp-reb-invoice");
   await unsafeCreateEntityTable(stack.db, paymentEntity, "msp-reb-payment");
+  await unsafePushTables(stack.db, {
+    doubleWriter: doubleWriterTable,
+    doubleWriterSide: doubleWriterSideTable,
+  });
 });
 
 afterAll(async () => {
@@ -230,6 +273,8 @@ afterEach(async () => {
     "read_mspreb_payments",
     "read_mspreb_balance",
     "read_mspreb_saga_state",
+    "read_mspreb_dw_primary",
+    "read_mspreb_dw_side",
   ]);
 });
 
@@ -308,9 +353,9 @@ describe("rebuildMultiStreamProjection — rebuildable read-model", () => {
     await stack.http.writeOk("mspreb:write:invoice:bill", { customer: bob, cents: 7_50 }, admin);
     await runFullDispatcher();
 
-    const liveRows = await selectMany(stack.db, balanceTable);
-    const aliceLive = liveRows.find((r) => r.customer === alice);
-    const bobLive = liveRows.find((r) => r.customer === bob);
+    const liveRows = await selectMany<{ readonly customer: string }>(stack.db, balanceTable);
+    const aliceLive = liveRows.find((r) => r["customer"] === alice);
+    const bobLive = liveRows.find((r) => r["customer"] === bob);
     expect(aliceLive).toMatchObject({ invoicesCents: 15_00, paymentsCents: 3_00 });
     expect(bobLive).toMatchObject({ invoicesCents: 7_50, paymentsCents: 0 });
 
@@ -426,6 +471,118 @@ describe("rebuildMultiStreamProjection — rebuildable read-model", () => {
 
     const [finalRow] = await selectMany(stack.db, balanceTable, { customer: frank });
     expect(finalRow).toMatchObject({ invoicesCents: 101_00 });
+  });
+});
+
+describe("rebuildMultiStreamProjection — archived streams", () => {
+  test("events of an archived stream are replayed like on the live path", async () => {
+    const gina = "00000000-0000-4000-8000-000000000a07";
+    const hugo = "00000000-0000-4000-8000-000000000b08";
+    await updateMany(
+      stack.db,
+      eventConsumerStateTable,
+      { status: "disabled", updatedAt: sql`now()` },
+      { name: SAGA_MSP },
+    );
+    const archivedInvoice = await stack.http.writeOk<{ id: string }>(
+      "mspreb:write:invoice:bill",
+      { customer: gina, cents: 11_00 },
+      admin,
+    );
+    await stack.http.writeOk("mspreb:write:invoice:bill", { customer: hugo, cents: 6_00 }, admin);
+    await archiveStream(stack.db, {
+      tenantId: admin.tenantId,
+      aggregateId: archivedInvoice.id,
+      aggregateType: "msp-reb-invoice",
+      archivedBy: "msp-rebuild-test",
+    });
+
+    const result = await rebuildMultiStreamProjection(BALANCE_MSP, {
+      db: stack.db,
+      registry: stack.registry,
+    });
+
+    expect(result.eventsProcessed).toBe(2);
+    const rows = await selectMany(stack.db, balanceTable);
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r) => r["customer"] === gina)).toMatchObject({ invoicesCents: 11_00 });
+    expect(rows.find((r) => r["customer"] === hugo)).toMatchObject({ invoicesCents: 6_00 });
+  });
+});
+
+describe("rebuildMultiStreamProjection — batched replay", () => {
+  test("replays more events than one batch exactly once and reads them in keyset batches", async () => {
+    await updateMany(
+      stack.db,
+      eventConsumerStateTable,
+      { status: "disabled", updatedAt: sql`now()` },
+      { name: SAGA_MSP },
+    );
+    const customer = "00000000-0000-4000-8000-000000000d10";
+    const eventCount = REBUILD_BATCH_SIZE + 1;
+    for (let i = 0; i < eventCount; i++) {
+      await append(stack.db, {
+        aggregateId: crypto.randomUUID(),
+        aggregateType: "msp-reb-invoice",
+        tenantId: admin.tenantId,
+        expectedVersion: 0,
+        type: invoiceBilledEventName,
+        payload: { customer, cents: 1 },
+        metadata: { userId: admin.id },
+      });
+    }
+
+    const readSpy = spyOn(projectionRebuildQueries, "selectEventsForMultiStreamRebuild");
+    try {
+      const result = await rebuildMultiStreamProjection(BALANCE_MSP, {
+        db: stack.db,
+        registry: stack.registry,
+      });
+      expect(result.eventsProcessed).toBe(eventCount);
+      const [row] = await selectMany(stack.db, balanceTable, { customer });
+      expect(row).toMatchObject({ invoicesCents: eventCount, paymentsCents: 0 });
+      const state = await getConsumerState(stack.db, BALANCE_MSP);
+      expect(state?.status).toBe("idle");
+      expect(state?.lastProcessedEventId).toBe(result.lastProcessedEventId);
+      expect(await readPendingGaps(BALANCE_MSP)).toEqual([]);
+
+      expect(readSpy.mock.calls.map((call) => call[4])).toEqual([
+        REBUILD_BATCH_SIZE,
+        REBUILD_BATCH_SIZE,
+      ]);
+      expect(readSpy.mock.calls[0]?.[2]).toBe(0n);
+      expect(readSpy.mock.calls[1]?.[2]).toBeGreaterThan(0n);
+    } finally {
+      readSpy.mockRestore();
+    }
+  });
+});
+
+describe("rebuildMultiStreamProjection — single-table guard", () => {
+  test("an apply that also writes a second table fails the rebuild and names the table", async () => {
+    const ivan = "00000000-0000-4000-8000-000000000c09";
+    await updateMany(
+      stack.db,
+      eventConsumerStateTable,
+      { status: "disabled", updatedAt: sql`now()` },
+      { name: SAGA_MSP },
+    );
+    await stack.http.writeOk("mspreb:write:invoice:bill", { customer: ivan, cents: 2_00 }, admin);
+    await runFullDispatcher();
+    const liveBefore = await selectMany(stack.db, doubleWriterTable);
+    expect(liveBefore).toHaveLength(1);
+
+    await expect(
+      rebuildMultiStreamProjection(DOUBLE_WRITER_MSP, {
+        db: stack.db,
+        registry: stack.registry,
+      }),
+    ).rejects.toThrow(/read_mspreb_dw_side/);
+
+    const state = await getConsumerState(stack.db, DOUBLE_WRITER_MSP);
+    expect(state?.status).toBe("dead");
+    expect(state?.lastError).toMatch(/read_mspreb_dw_side/);
+    expect(await selectMany(stack.db, doubleWriterTable)).toEqual(liveBefore);
   });
 });
 

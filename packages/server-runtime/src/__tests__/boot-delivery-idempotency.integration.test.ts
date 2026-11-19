@@ -31,7 +31,9 @@ let sendCount = 0;
 
 const countingChannelFeature = defineFeature("counting-inline", (r) => {
   r.requires({ features: ["delivery"] });
-  r.useExtension(DELIVERY_CHANNEL_EXTENSION, "counting-inline", {
+  r.applyExtension({
+    name: DELIVERY_CHANNEL_EXTENSION,
+    entity: "counting-inline",
     mode: "inline",
     send: async () => {
       sendCount += 1;

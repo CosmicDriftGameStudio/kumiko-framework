@@ -148,6 +148,8 @@ export type PdfOptions = {
   readonly printBackground?: boolean;
   readonly displayHeaderFooter?: boolean;
   readonly landscape?: boolean;
+  /** Chromium page ranges such as "1" or "1-3, 5"; absent prints every page. */
+  readonly pageRanges?: string;
 };
 
 export type ImageOptions = {
@@ -216,17 +218,25 @@ export type RendererPlugin = {
   readMailChrome?(req: MailChromeRequest, ctx: RendererContext): Promise<MailChrome>;
 };
 
+export type RendererPayloadLimits = { readonly maxBytes?: number; readonly gotBytes?: number };
+
 export class RendererError extends Error {
   constructor(
     message: string,
-    public readonly code: "no_plugin_for_kind" | "invalid_payload" | "unavailable" | "other",
+    public readonly code:
+      | "no_plugin_for_kind"
+      | "invalid_payload"
+      | "payload_too_large"
+      | "unavailable"
+      | "other",
+    public readonly limits?: RendererPayloadLimits,
   ) {
     super(message);
     this.name = "RendererError";
   }
 }
 
-// r.useExtension options-shape: `name` is NOT part of the registration
+// r.applyExtension options-shape: `name` is NOT part of the registration
 // payload — collectRendererPlugins derives it from the usage's entityName.
 export type RendererRegistrationPlugin = Omit<RendererPlugin, "name">;
 
@@ -241,7 +251,7 @@ export function isRendererRegistrationPlugin(o: unknown): o is RendererRegistrat
   );
 }
 
-// r.useExtension options-shape, co-located since the framework never imports upward.
+// r.applyExtension options-shape, co-located since the framework never imports upward.
 declare module "@cosmicdrift/kumiko-framework/engine" {
   interface KumikoExtensionOptionsMap {
     [RENDERER_EXTENSION]: RendererRegistrationPlugin;

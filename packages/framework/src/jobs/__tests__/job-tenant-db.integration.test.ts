@@ -46,33 +46,37 @@ function labelsOf(rows: readonly { label: string }[]): string[] {
 }
 
 const jobsFeature = defineFeature("jobtenantdb", (r) => {
-  r.job("undeclared", { trigger: { manual: true } }, async (_payload, ctx) => {
-    const own = await selectMany<{ label: string }>(ctx.db, itemsTable);
-    const foreignWhere = await selectMany<{ label: string }>(ctx.db, itemsTable, {
-      tenantId: foreignTenant,
-    });
-    let unsafeRawDenied = false;
-    try {
-      ctx.db.unsafeRaw();
-    } catch (err) {
-      unsafeRawDenied = err instanceof AccessDeniedError;
-    }
-    outcomes.push({
-      job: "undeclared",
-      mode: ctx.db.mode,
-      tenantId: ctx.db.tenantId,
-      labels: labelsOf(own),
-      foreignWhereLabels: labelsOf(foreignWhere),
-      unsafeRawDenied,
-    });
+  r.job({
+    name: "undeclared",
+    trigger: { manual: true },
+    handler: async (_payload, ctx) => {
+      const own = await selectMany<{ label: string }>(ctx.db, itemsTable);
+      const foreignWhere = await selectMany<{ label: string }>(ctx.db, itemsTable, {
+        tenantId: foreignTenant,
+      });
+      let unsafeRawDenied = false;
+      try {
+        ctx.db.unsafeRawAllTenants();
+      } catch (err) {
+        unsafeRawDenied = err instanceof AccessDeniedError;
+      }
+      outcomes.push({
+        job: "undeclared",
+        mode: ctx.db.mode,
+        tenantId: ctx.db.tenantId,
+        labels: labelsOf(own),
+        foreignWhereLabels: labelsOf(foreignWhere),
+        unsafeRawDenied,
+      });
+    },
   });
 
   r.job({
     name: "declared",
     trigger: { manual: true },
-    escapeHatch: { reason: DECLARED_REASON },
+    escapeHatch: { reason: DECLARED_REASON, grants: ["unsafeRaw"] },
     handler: async (_payload, ctx) => {
-      const raw = ctx.db.unsafeRaw();
+      const raw = ctx.db.unsafeRawAllTenants();
       const rows = await selectMany<{ label: string }>(raw, itemsTable);
       outcomes.push({ job: "declared", rawLabels: labelsOf(rows) });
     },
@@ -154,7 +158,12 @@ describe("JobContext.db", () => {
   test("r.job rejects an escapeHatch with an empty reason at registration", () => {
     const register = () =>
       defineFeature("jobtenantdb-empty", (r) => {
-        r.job("bad", { trigger: { manual: true }, escapeHatch: { reason: "   " } }, async () => {});
+        r.job({
+          name: "bad",
+          trigger: { manual: true },
+          escapeHatch: { reason: "   ", grants: ["unsafeRaw"] },
+          handler: async () => {},
+        });
       });
     expect(register).toThrow(/r\.job\("bad"\) declares an invalid escapeHatch — .*non-empty/);
   });

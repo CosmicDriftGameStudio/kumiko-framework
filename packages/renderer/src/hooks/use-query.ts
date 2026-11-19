@@ -1,29 +1,31 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useDispatcher, useOptionalQueryPools } from "../context/dispatcher-context.tsx";
-import type { QuerySlot } from "../context/query-pool.ts";
+import { type QueryContract, qualifiedNameOf } from "@cosmicdrift/kumiko-types/handler-contract";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useQueryHub } from "../context/dispatcher-context.tsx";
+import { usePageVisibility } from "../context/page-visibility-context.tsx";
+import {
+  isValidConcurrency,
+  type QueryEntryState,
+  queryHubKey,
+  selectQueryData,
+} from "../context/query-hub.ts";
 import type { DispatcherError } from "../headless/index.ts";
 import { useLiveEvents } from "../sse/live-events.tsx";
-import { subscribeToEntities, useLiveEntitiesForQuery } from "./live-query-entities.ts";
-import { createLiveRefetchScheduler } from "./live-refetch-scheduler.ts";
+import { useLiveEntitiesForQuery } from "./live-query-entities.ts";
 
 export { entityFromQueryType } from "./live-query-entities.ts";
 
-// React wrapper around dispatcher.query. Fires on mount, re-fires
-// whenever `type` or the serialized payload change, and exposes a
-// `refetch` imperative hook for after-mutation reloads.
+// React wrapper around the query hub of the DispatcherProvider. Hooks with the
+// same type and serialized payload share one state per key: one request on
+// mount, one per polling tick and live refetch, and a refetch from any hook
+// updates all of them. The state is held only while a hook is subscribed, so
+// there is no cache; `refetch` reloads after a mutation.
 //
-// Cancellation: each fetch owns an AbortController; a newer fetch
-// (change in deps or manual refetch) aborts the older one's network
-// call before firing, so a slow request can't overwrite a fresh one.
-// Unmount aborts any in-flight call too — React will throw the
-// "state on unmounted" warning if we set state after unmount, and
-// aborting pre-emptively makes that path a no-op.
+// Cancellation lives in the hub: a newer fetch aborts the older one's network
+// call, and the last unsubscribe aborts whatever is still running.
 //
-// Result shape modeled on the dispatcher's own QueryResult: a
-// discriminated state so callers can branch on `loading | data | error`
-// without undefined-juggling. The first render is `loading: true,
-// data: null, error: null` (no optimistic "online" cache — add that
-// later if needed).
+// Result shape modeled on the dispatcher's own QueryResult: callers branch on
+// `loading | data | error` without undefined-juggling. The first render is
+// `loading: true, data: null, error: null`. After an error, the last data stays.
 
 export type UseQueryResult<TData> = {
   readonly data: TData | null;
@@ -52,117 +54,78 @@ export type UseQueryOptions = {
   // line (loading stays true). A hook that unmounts or refetches while
   // waiting leaves the line without taking a slot. Unset = no cap.
   readonly concurrency?: number;
+  // Reads only this top-level field of the answer; hooks with the same type
+  // and payload share one request whatever their resultField.
+  readonly resultField?: string;
 };
 
-function isValidConcurrency(value: number | undefined): value is number {
-  return value !== undefined && Number.isFinite(value) && value >= 1;
-}
-
+export function useQuery<TPayload, TResult>(
+  contract: QueryContract<TPayload, TResult>,
+  payload: NoInfer<TPayload>,
+  options?: UseQueryOptions,
+): UseQueryResult<TResult>;
 export function useQuery<TData = unknown>(
   type: string,
   payload: unknown,
+  options?: UseQueryOptions,
+): UseQueryResult<TData>;
+export function useQuery<TData>(
+  target: string | QueryContract<unknown, TData>,
+  payload: unknown,
   options: UseQueryOptions = {},
 ): UseQueryResult<TData> {
-  const dispatcher = useDispatcher();
-  const { enabled = true, live = false, refetchIntervalMs, concurrency } = options;
-  const queryPools = useOptionalQueryPools();
-
-  const [data, setData] = useState<TData | null>(null);
-  const [error, setError] = useState<DispatcherError | null>(null);
-  const [loading, setLoading] = useState<boolean>(enabled);
-
-  // Track the AbortController for the most recent fetch so a newer
-  // call can cancel the older one. Ref, not state, because the
-  // controller identity shouldn't trigger a re-render.
-  const activeCtrl = useRef<AbortController | null>(null);
-  // A tick that aborted a running fetch would starve slow queries, so
-  // ticks consult this flag instead.
-  const fetchInFlight = useRef(false);
+  const type = qualifiedNameOf(target);
+  const hub = useQueryHub();
+  const { enabled = true, live = false, refetchIntervalMs, concurrency, resultField } = options;
+  const validConcurrency = isValidConcurrency(concurrency) ? concurrency : undefined;
 
   // Serialize payload so object-identity-changes across renders (the
-  // caller building a fresh `{}` every render) don't loop. Strings are
-  // stable by reference in React's dep-array check.
+  // caller building a fresh `{}` every render) don't loop.
   const payloadKey = JSON.stringify(payload);
+  const key = queryHubKey(type, payloadKey);
+  const payloadRef = useRef(payload);
+  payloadRef.current = payload;
 
-  // `dispatcher` is stable (context identity); `type` + `payloadKey`
-  // are the meaningful re-run triggers. `payload` itself is intentionally
-  // not in deps — it's serialized into payloadKey above.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: payload goes through payloadKey
-  const runFetch = useCallback(
-    async (background: boolean): Promise<void> => {
-      // Abort whatever's in flight. observer on Safari 17+ handles this
-      // without raising a fetch-throw in the previous caller — they
-      // already set the error path.
-      activeCtrl.current?.abort();
-      const ctrl = new AbortController();
-      activeCtrl.current = ctrl;
-
-      fetchInFlight.current = true;
-      if (!background) setLoading(true);
-      let result: Awaited<ReturnType<typeof dispatcher.query<TData>>>;
-      let slot: QuerySlot | null = null;
-      try {
-        if (queryPools !== undefined && isValidConcurrency(concurrency)) {
-          slot = await queryPools.acquire(type, Math.floor(concurrency), ctrl.signal);
-          // skip: aborted while queued, the superseding run owns the state
-          if (slot === null) return;
-          // skip: slot granted just as the run was superseded, finally frees it
-          if (ctrl.signal.aborted) return;
-        }
-        result = await dispatcher.query<TData>(type, payload, { signal: ctrl.signal });
-      } finally {
-        slot?.release();
-        // A rejected fetch must not leave polling stuck; a superseded one must
-        // not clear the newer fetch's flag.
-        if (activeCtrl.current === ctrl) fetchInFlight.current = false;
-      }
-      // skip: a newer fetch already superseded this one, don't clobber its state
-      if (ctrl.signal.aborted) return;
-      if (result.isSuccess) {
-        setData(result.data);
-        setError(null);
-      } else {
-        // A cancelled request comes back with code "aborted" from the
-        // skip: aborted request, a newer run already replaces this result
-        if (result.error.code === "aborted") return;
-        setError(result.error);
-      }
-      setLoading(false);
-    },
-    [dispatcher, type, payloadKey, queryPools, concurrency],
+  // Must run before the polling and live effects: its subscribe effect creates the hub entry they use.
+  const subscribe = useCallback(
+    (listener: () => void) =>
+      hub.subscribe(
+        key,
+        { type, payload: payloadRef.current, concurrency: validConcurrency, autoLoad: enabled },
+        listener,
+      ),
+    [hub, key, type, enabled, validConcurrency],
   );
+  const getSnapshot = useCallback(() => hub.getState(key), [hub, key]);
+  const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
-  const run = useCallback((): Promise<void> => runFetch(false), [runFetch]);
+  // A payload change keeps showing the previous key's answer until the new one settles.
+  const lastSettled = useRef<QueryEntryState | undefined>(undefined);
+  if (state?.settled === true) lastSettled.current = state;
+  const shown = state?.settled === true ? state : lastSettled.current;
 
-  useEffect(() => {
-    if (!enabled) {
-      setLoading(false);
-      // skip: query disabled, loading state already cleared above
-      return;
-    }
-    void run();
-    return () => {
-      activeCtrl.current?.abort();
-      fetchInFlight.current = false;
-    };
-  }, [enabled, run]);
+  const refetch = useCallback((): Promise<void> => hub.load(key, "refetch"), [hub, key]);
 
+  const pageVisibility = usePageVisibility();
   useEffect(() => {
     // skip: polling off or disabled query
     if (!enabled || refetchIntervalMs === undefined) return;
     // skip: non-positive or non-finite interval disables polling
     if (!Number.isFinite(refetchIntervalMs) || refetchIntervalMs <= 0) return;
-    const timer = setInterval(() => {
-      // skip: a fetch is still running, the next tick retries
-      if (fetchInFlight.current) return;
-      void runFetch(true);
-    }, refetchIntervalMs);
-    return () => clearInterval(timer);
-  }, [enabled, refetchIntervalMs, runFetch]);
+    const tick = (): void => {
+      // skip: nobody sees the page, the return to the page retries
+      if (pageVisibility.getSnapshot() === "hidden") return;
+      void hub.load(key, "poll");
+    };
+    const timer = setInterval(tick, refetchIntervalMs);
+    const unsubscribe = pageVisibility.subscribe(tick);
+    return () => {
+      clearInterval(timer);
+      unsubscribe();
+    };
+  }, [enabled, refetchIntervalMs, hub, key, pageVisibility]);
 
-  // Live mode: listen for SSE events for the query entity and refetch.
-  // A separate effect ensures changes to `live` or `type` update the
-  // subscription lifecycle exactly once.
+  // Live mode: the hub opens one SSE subscription per key and refetches on events.
   const subscribeLive = useLiveEvents();
   const liveEntities = useLiveEntitiesForQuery(type);
   useEffect(() => {
@@ -170,13 +133,13 @@ export function useQuery<TData = unknown>(
     if (!live || !enabled) return;
     // skip: no entity to listen on, nothing to subscribe to
     if (liveEntities.length === 0) return;
-    const scheduler = createLiveRefetchScheduler(() => runFetch(true));
-    const unsubscribe = subscribeToEntities(subscribeLive, liveEntities, scheduler.trigger);
-    return () => {
-      unsubscribe();
-      scheduler.dispose();
-    };
-  }, [live, enabled, liveEntities, runFetch, subscribeLive]);
+    return hub.watchLive(key, subscribeLive, liveEntities);
+  }, [live, enabled, liveEntities, hub, key, subscribeLive]);
 
-  return { data, error, loading, refetch: run };
+  return {
+    data: shown ? selectQueryData<TData>(shown, resultField) : null,
+    error: shown?.error ?? null,
+    loading: state === undefined ? enabled : state.loading,
+    refetch,
+  };
 }

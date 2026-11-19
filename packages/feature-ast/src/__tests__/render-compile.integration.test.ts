@@ -123,21 +123,23 @@ import { z } from "zod";
 defineFeature("catalog", (r) => {
   r.systemScope();
   r.describe("Product catalog and pricing.");
-  r.optionalRequires("promotions");
+  r.optionalRequires({ features: ["promotions"] });
   r.uiHints({ displayLabel: "Catalog", category: "Commerce", recommended: true });
-  r.readsConfig("auth.smtpHost");
+  r.readsConfig({ keys: ["auth.smtpHost"] });
   r.translations({ keys: { en: { title: "Catalog" } } });
-  r.useExtension("audit-log", "item");
+  r.applyExtension({ name: "audit-log", entity: "item" });
   r.extendsRegistrar("audit-log", {});
   r.envSchema(z.object({ CATALOG_API_KEY: z.string() }));
   r.usesApi("compliance.forTenant");
   r.exposesApi("catalog.pricingFor");
-  r.secret("apiKey", {
+  r.secret({
+    name: "apiKey",
     label: { en: "API key" },
     scope: "tenant",
     writeRoles: ["TenantAdmin"],
   });
-  r.secretNamespace("webhook-auth", {
+  r.secretNamespace({
+    name: "webhook-auth",
     label: { en: "Webhook auth" },
     scope: "tenant",
     writeRoles: ["TenantAdmin", "Operator"],
@@ -155,11 +157,12 @@ const INTEGRATION_FEATURE = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("fulfillment", (r) => {
-  r.job("reconcile-counts", { trigger: { manual: true } }, async (payload, context) => {
+  r.job({ name: "reconcile-counts", trigger: { manual: true }, handler: async (payload, context) => {
     console.log(payload, context);
-  });
+  }});
 
-  r.notification("itemLowStock", {
+  r.notification({
+    name: "itemLowStock",
     trigger: { on: "item:lowStock" },
     recipient: () => null,
     data: () => ({}),

@@ -1,3 +1,4 @@
+import { qualifiedNameOf, type WriteContract } from "@cosmicdrift/kumiko-types/handler-contract";
 import { useCallback, useRef, useState } from "react";
 import { useDispatcher } from "../context/dispatcher-context.tsx";
 import type { DispatcherError, WriteResult } from "../headless/index.ts";
@@ -11,15 +12,22 @@ import type { DispatcherError, WriteResult } from "../headless/index.ts";
 // (navigate on success, keep the form open on failure) without waiting
 // for a re-render of `error`/`data`.
 
-export type UseMutationResult<TData> = {
-  readonly mutate: (payload: unknown) => Promise<WriteResult<TData>>;
+export type UseMutationResult<TData, TPayload = unknown> = {
+  readonly mutate: (payload: TPayload) => Promise<WriteResult<TData>>;
   readonly pending: boolean;
   readonly error: DispatcherError | null;
   readonly data: TData | null;
   readonly reset: () => void;
 };
 
-export function useMutation<TData = unknown>(type: string): UseMutationResult<TData> {
+export function useMutation<TPayload, TData>(
+  contract: WriteContract<TPayload, TData>,
+): UseMutationResult<TData, TPayload>;
+export function useMutation<TData = unknown>(type: string): UseMutationResult<TData>;
+export function useMutation<TData>(
+  target: string | WriteContract<unknown, TData>,
+): UseMutationResult<TData> {
+  const type = qualifiedNameOf(target);
   const dispatcher = useDispatcher();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<DispatcherError | null>(null);

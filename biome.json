@@ -24,12 +24,9 @@
       "!**/CHANGELOG.md",
       "!packages/framework/agents",
       "!**/renderer/src/web/ui",
-      "!**/__tests__/fixtures/migrate-db-raw",
-      "!**/__tests__/fixtures/migrate-open-to-all",
-      "!**/__tests__/fixtures/migrate-cross-tenant",
-      "!**/__tests__/fixtures/object-form",
-      "!**/__tests__/fixtures/testing-move",
-      "!**/__tests__/fixtures/ctx-namespaces"
+      "!**/__tests__/fixtures/entity-name",
+      "!**/__tests__/fixtures/escape-hatch-grants",
+      "!**/__tests__/fixtures/registrar-single-form"
     ]
   },
   "assist": {
@@ -168,6 +165,45 @@
         "rules": {
           "style": {
             "noRestrictedImports": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "samples/**/__tests__/**",
+        "!samples/recipes/api-worker-split/**",
+        "!samples/recipes/inbound-mail-triage/**",
+        "!samples/recipes/lane-routing/**",
+        "!samples/recipes/user-data-rights/src/__tests__/feature.integration.test.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@cosmicdrift/kumiko-testing/stack": {
+                    "importNames": ["unsafeCreateEntityTable"],
+                    "message": "setupTestStack already creates the r.entity tables of the features it gets; drop the call."
+                  },
+                  "@cosmicdrift/kumiko-framework/event-store": {
+                    "importNames": ["createEventsTable"],
+                    "message": "setupTestStack already creates the events table; drop the call."
+                  },
+                  "temporal-polyfill": {
+                    "message": "import { Temporal } from \"@cosmicdrift/kumiko-types/temporal\" instead — it prefers the native global, so framework and consumer share one set of Temporal classes."
+                  }
+                },
+                "patterns": [
+                  {
+                    "group": ["temporal-polyfill/*"],
+                    "message": "import { Temporal } from \"@cosmicdrift/kumiko-types/temporal\" instead — it prefers the native global, so framework and consumer share one set of Temporal classes."
+                  }
+                ]
+              }
+            }
           }
         }
       }

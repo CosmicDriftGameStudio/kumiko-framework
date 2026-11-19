@@ -22,10 +22,11 @@ import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
   type BannerProps,
   type CardProps,
-  type CorePrimitives,
+  type EmptyStateProps,
   type FormProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import { AppFeaturesProvider } from "../app-features-context.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
@@ -47,7 +48,20 @@ const TestCard: ComponentType<CardProps> = ({ children, testId }) => (
   <div data-testid={testId}>{children}</div>
 );
 
-const testPrimitives: CorePrimitives = {
+const TestEmptyState: ComponentType<EmptyStateProps> = ({
+  title,
+  description,
+  actions,
+  testId,
+}) => (
+  <div data-testid={testId}>
+    {title}
+    {description}
+    {actions}
+  </div>
+);
+
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: TestBanner,
   Field: passChildren,
@@ -56,6 +70,7 @@ const testPrimitives: CorePrimitives = {
   Form: FormWithActions,
   Section: passChildren,
   Card: TestCard,
+  EmptyState: TestEmptyState,
   Grid: passChildren,
   GridCell: passChildren,
   Text: passChildren,
@@ -66,27 +81,20 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function stubDispatcher(
   record: Readonly<Record<string, unknown>> | null,
   queries: Array<{ type: string; payload: unknown }>,
 ): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: {} }),
+    query: async (type: string, payload: unknown) => {
       queries.push({ type, payload });
       return { isSuccess: true, data: record };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function meScreen(
@@ -153,7 +161,7 @@ describe("projectionDetail singleton", () => {
       queries,
     });
 
-    await waitFor(() => expect(getByTestId("form-body")).toBeTruthy());
+    await waitFor(() => getByTestId("form-body"));
     expect(queryByTestId("kumiko-screen-projection-detail-missing-id")).toBeNull();
     expect(queries).toEqual([{ type: "app:query:me", payload: {} }]);
   });
@@ -162,9 +170,7 @@ describe("projectionDetail singleton", () => {
     const queries: Array<{ type: string; payload: unknown }> = [];
     const { getByTestId } = renderScreen({ screen: meScreen(), queries });
 
-    await waitFor(() =>
-      expect(getByTestId("kumiko-screen-projection-detail-missing-id")).toBeTruthy(),
-    );
+    await waitFor(() => getByTestId("kumiko-screen-projection-detail-missing-id"));
   });
 
   test("singleton ignores a stray path id — the query never receives it", async () => {
@@ -175,7 +181,7 @@ describe("projectionDetail singleton", () => {
       queries,
     });
 
-    await waitFor(() => expect(getByTestId("form-body")).toBeTruthy());
+    await waitFor(() => getByTestId("form-body"));
     expect(queries).toEqual([{ type: "app:query:me", payload: {} }]);
   });
 

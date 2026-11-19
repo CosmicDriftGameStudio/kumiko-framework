@@ -7,6 +7,7 @@ import { createRegistry } from "../registry.ts";
 import { templateVariable } from "../template-variables.ts";
 
 const contactEntity = createEntity({
+  name: "contact",
   table: "record_mapping_contacts",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test fixture" }),
@@ -19,14 +20,15 @@ function contactMailer(
   options: { readonly withVariables?: boolean } = {},
 ) {
   return defineFeature("contacts", (r) => {
-    r.entity({ name: "contact", ...contactEntity });
+    r.entity(contactEntity);
     r.writeHandler({
       name: "ping",
       schema: z.object({}),
       access: { roles: ["TenantAdmin"] },
       handler: async () => ({ isSuccess: true as const, data: {} }),
     });
-    r.notification("hello", {
+    r.notification({
+      name: "hello",
       ...(options.withVariables === false
         ? {}
         : { variables: { name: templateVariable.text(), city: templateVariable.text() } }),

@@ -34,7 +34,6 @@ import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/deli
 import { createFileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import { createFileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
 import { createFileProviderS3Feature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
-import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import {
   createLegalPagesFeature,
@@ -45,6 +44,12 @@ import { createMailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-
 import { createMailTransportSmtpFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-smtp";
 import { createRateLimitingFeature } from "@cosmicdrift/kumiko-bundled-features/rate-limiting";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import {
+  createRendererMailHtmlFeature,
+  type MailBrandSuffixResolver,
+  type MailFooterResolver,
+  type MailHtmlRenderOptions,
+} from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import {
   createSubscriptionMollieFeature,
@@ -70,11 +75,7 @@ import {
   type WaitlistOptions,
 } from "@cosmicdrift/kumiko-bundled-features/waitlist";
 import type { BootOptionName, FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  createRendererMailHtmlFeature,
-  type MailBrandSuffixResolver,
-  type MailFooterResolver,
-} from "@cosmicdrift/kumiko-renderer-mail-html";
+import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 
 export type FileProviderKind = "inmemory" | "s3" | "s3-env";
 export type MailTransportKind = "inmemory" | "smtp";
@@ -175,6 +176,8 @@ export type RendererStackOptions = {
   readonly mailFooter?: MailFooterResolver;
   /** Word after the tenant name in the mail's brand row, e.g. "Status". */
   readonly mailBrandSuffix?: MailBrandSuffixResolver;
+  /** Title and accent color of the system tenant's own mails while no branding is stored for it. */
+  readonly mailPlatformBrand?: MailHtmlRenderOptions["platformBrand"];
   /** Passed to createTemplateResolverFeature, e.g. `tenantEditable` to let a TenantAdmin edit chosen templates. */
   readonly templateResolver?: TemplateResolverOptions;
 };
@@ -186,6 +189,7 @@ export function composeRendererStack(options: RendererStackOptions = {}): Featur
     createRendererMailHtmlFeature({
       ...(options.mailFooter !== undefined && { footer: options.mailFooter }),
       ...(options.mailBrandSuffix !== undefined && { brandSuffix: options.mailBrandSuffix }),
+      ...(options.mailPlatformBrand !== undefined && { platformBrand: options.mailPlatformBrand }),
     }),
   ];
 }

@@ -95,9 +95,9 @@ function assertNoSelectOptionsQuery(
     optionsQueryPayload?: unknown;
   };
   const declaresOptionsQuery = optionsQuery !== undefined || optionsQueryPayload !== undefined;
-  if (field.type === "select" && declaresOptionsQuery) {
+  if ((field.type === "select" || field.type === "multiSelect") && declaresOptionsQuery) {
     throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.selectOptionsQueryUnsupported, {
-      message: `[Feature ${featureName}] Entity select field "${path}" declares optionsQuery — not supported on entity fields because the stored value would not be validated against the query result. Use static options, or a reference field.`,
+      message: `[Feature ${featureName}] Entity ${field.type} field "${path}" declares optionsQuery — not supported on entity fields because the stored value would not be validated against the query result. Use static options, or a reference field.`,
     });
   }
 }

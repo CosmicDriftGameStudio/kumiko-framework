@@ -65,6 +65,7 @@ const trivialFreeform = defineWriteHandler({
 });
 
 const productEntity = createEntity({
+  name: "perf-product",
   table: "perf_smoke_products",
   fields: {
     sku: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -76,7 +77,7 @@ const perfFeature = defineFeature("perftest", (r) => {
   // Entity-registration is needed so the dispatcher boots cleanly even
   // though the trivial handlers don't touch it; without an entity, the
   // feature is empty enough that some boot-validators short-circuit.
-  r.entity({ name: "perf-product", ...productEntity });
+  r.entity(productEntity);
   r.writeHandler(trivialPipeline);
   r.writeHandler(trivialFreeform);
 });

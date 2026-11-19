@@ -78,6 +78,7 @@ const tenantAdmin = TestUsers.admin;
 const tenantId = tenantAdmin.tenantId;
 
 const ledgerEntity = createEntity({
+  name: "ledger",
   table: "read_hold_ledger",
   fields: {
     holder: createTextField({
@@ -91,12 +92,14 @@ const ledgerEntity = createEntity({
   retention: { keepFor: "1y", strategy: "blockDelete" },
 });
 const scratchEntity = createEntity({
+  name: "scratch",
   table: "read_hold_scratch",
   fields: {
     label: createTextField({ personal: false, reason: "is_business_data", required: true }),
   },
 });
 const matterEntity = createEntity({
+  name: "matter",
   table: "read_hold_matter",
   fields: {
     label: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -104,10 +107,10 @@ const matterEntity = createEntity({
   },
   retention: { keepFor: "1y", strategy: "blockDelete", reference: "closedAt" },
 });
-const matterTable = buildEntityTable("matter", matterEntity);
+const matterTable = buildEntityTable(matterEntity);
 const matterCrud = createEventStoreExecutor(matterTable, matterEntity, { entityName: "matter" });
-const ledgerTable = buildEntityTable("ledger", ledgerEntity);
-const scratchTable = buildEntityTable("scratch", scratchEntity);
+const ledgerTable = buildEntityTable(ledgerEntity);
+const scratchTable = buildEntityTable(scratchEntity);
 const ledgerCrud = createEventStoreExecutor(ledgerTable, ledgerEntity, { entityName: "ledger" });
 const scratchCrud = createEventStoreExecutor(scratchTable, scratchEntity, {
   entityName: "scratch",
@@ -136,8 +139,8 @@ async function forgetAllMatterRows(ctx: TenantDataHookCtx): Promise<void> {
 
 const holdFixturesFeature = defineFeature("hold-fixtures", (r) => {
   r.requires({ features: ["tenant-lifecycle"] });
-  r.entity({ name: "ledger", ...ledgerEntity });
-  r.entity({ name: "scratch", ...scratchEntity });
+  r.entity(ledgerEntity);
+  r.entity(scratchEntity);
   r.writeHandler({
     name: "ledger-create",
     schema: z.object({ holder: z.string(), amount: z.string() }),
@@ -145,7 +148,7 @@ const holdFixturesFeature = defineFeature("hold-fixtures", (r) => {
     description: "test-only ledger row creation",
     handler: async (event, ctx) => ledgerCrud.create(event.payload, event.user, ctx.db),
   });
-  r.entity({ name: "matter", ...matterEntity });
+  r.entity(matterEntity);
   r.writeHandler({
     name: "matter-create",
     schema: z.object({ label: z.string(), closedAt: z.string().optional() }),
@@ -153,7 +156,7 @@ const holdFixturesFeature = defineFeature("hold-fixtures", (r) => {
     description: "test-only matter row creation",
     handler: async (event, ctx) => matterCrud.create(event.payload, event.user, ctx.db),
   });
-  r.useExtension(EXT_TENANT_DATA, "matter", { destroy: forgetAllMatterRows });
+  r.applyExtension({ name: EXT_TENANT_DATA, entity: "matter", destroy: forgetAllMatterRows });
   r.writeHandler({
     name: "scratch-create",
     schema: z.object({ label: z.string() }),
@@ -161,12 +164,8 @@ const holdFixturesFeature = defineFeature("hold-fixtures", (r) => {
     description: "test-only scratch row creation",
     handler: async (event, ctx) => scratchCrud.create(event.payload, event.user, ctx.db),
   });
-  r.useExtension(EXT_TENANT_DATA, "ledger", {
-    destroy: forgetAllLedgerRows,
-  });
-  r.useExtension(EXT_TENANT_DATA, "scratch", {
-    destroy: forgetAllScratchRows,
-  });
+  r.applyExtension({ name: EXT_TENANT_DATA, entity: "ledger", destroy: forgetAllLedgerRows });
+  r.applyExtension({ name: EXT_TENANT_DATA, entity: "scratch", destroy: forgetAllScratchRows });
 });
 
 const clockStart = getTemporal().Now.instant();

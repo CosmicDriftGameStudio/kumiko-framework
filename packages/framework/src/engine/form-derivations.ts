@@ -1,5 +1,4 @@
 import type { FormFieldDefinition } from "@cosmicdrift/kumiko-types/fields";
-import { toMajorUnits, toMinorUnits } from "@cosmicdrift/kumiko-types/minor-units";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   computeDerivedCellValue,
@@ -17,11 +16,11 @@ export type FormDerivationScreen = {
 type MoneyOperand = { readonly minor: number; readonly currency: string | undefined };
 
 function readMoneyOperand(raw: unknown): MoneyOperand | undefined {
-  if (typeof raw === "number") return { minor: toMinorUnits(raw), currency: undefined };
+  if (typeof raw === "number") return { minor: raw, currency: undefined };
   if (!isPlainObject(raw) || typeof raw["amount"] !== "number") return undefined;
   const currency = raw["currency"];
   return {
-    minor: toMinorUnits(raw["amount"]),
+    minor: raw["amount"],
     currency: typeof currency === "string" && currency !== "" ? currency : undefined,
   };
 }
@@ -169,8 +168,8 @@ function computeOrdinary(
 /** Recomputes every derived head field of an action form from its inputs.
  *  Pure and client-safe: the renderer runs it live, the server runs it
  *  again (`withFormDerivations`) and overwrites whatever the client sent.
- *  Money operands are converted to minor units for the arithmetic and money
- *  targets are written back as `{ amount, currency }` in major units. */
+ *  Money operands and results are integers in minor units; money
+ *  targets are written back as `{ amount, currency }`. */
 export function applyFormDerivations(values: unknown, screen: FormDerivationScreen): unknown {
   if (!isPlainObject(values)) return values;
   const derive = screen.derive;
@@ -210,10 +209,7 @@ export function applyFormDerivations(values: unknown, screen: FormDerivationScre
     if (targetField.type === "money") {
       const minor = roundDerivedCellValue(computed, { type: "money" });
       const currency = targetCurrency(targetField, result[target], sourceCurrency);
-      result[target] =
-        currency === undefined
-          ? { amount: toMajorUnits(minor) }
-          : { amount: toMajorUnits(minor), currency };
+      result[target] = currency === undefined ? { amount: minor } : { amount: minor, currency };
     } else if (targetField.type === "decimal") {
       result[target] = roundDerivedCellValue(computed, targetField);
     } else {

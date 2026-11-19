@@ -97,6 +97,51 @@ export type SchemaDiff = {
   readonly changedTables: readonly TableDiff[];
 };
 
+export type UnversionedEntityRename = {
+  readonly tableName: string;
+  readonly droppedColumns: readonly string[];
+  readonly newColumns: readonly string[];
+};
+
+// Replay skips event payload keys that are no longer entity fields (apply-entity-event), so a
+// field rename without an eventMigrations step loses every historical value on the next rebuild.
+// The generator cannot tell a rename from an unrelated drop + add, so both are refused in one
+// diff unless eventVersion rose; a pure drop keeps its values in the events and stays allowed.
+// A snapshot written before entityEventVersion existed counts as version 1.
+export function findUnversionedEntityRenames(
+  prev: Snapshot | null,
+  diff: SchemaDiff,
+): readonly UnversionedEntityRename[] {
+  if (prev === null) return [];
+  const prevByName = new Map(prev.tables.map((table) => [table.tableName, table]));
+  return diff.changedTables.flatMap((tableDiff) => {
+    const nextVersion = tableDiff.nextMeta.entityEventVersion;
+    if (nextVersion === undefined) return [];
+    if (tableDiff.droppedColumns.length === 0 || tableDiff.newColumns.length === 0) return [];
+    const prevVersion = prevByName.get(tableDiff.tableName)?.entityEventVersion ?? 1;
+    if (nextVersion > prevVersion) return [];
+    return [
+      {
+        tableName: tableDiff.tableName,
+        droppedColumns: tableDiff.droppedColumns,
+        newColumns: tableDiff.newColumns.map((column) => column.name),
+      },
+    ];
+  });
+}
+
+// A bare eventVersion bump changes no column, so generate writes no migration; the snapshot must
+// still record the version, or a later unversioned rename compares against the old one and passes.
+export function hasEntityEventVersionChanges(prev: Snapshot | null, next: Snapshot): boolean {
+  if (prev === null) return false;
+  const prevByName = new Map(prev.tables.map((table) => [table.tableName, table]));
+  return next.tables.some((table) => {
+    const previous = prevByName.get(table.tableName);
+    if (previous === undefined || table.entityEventVersion === undefined) return false;
+    return (previous.entityEventVersion ?? 1) !== table.entityEventVersion;
+  });
+}
+
 export function snapshotFromMetas(
   metas: readonly EntityTableMeta[],
   options: { readonly rowLevelSecurity?: RowLevelSecurityMode } = {},
@@ -562,6 +607,7 @@ export type GenerateMigrationOutput = {
   readonly diff: SchemaDiff;
   readonly retiredDrops: readonly RetiredFrameworkTable[];
   readonly rowLevelSecurityChanges: readonly RowLevelSecurityChange[];
+  readonly unversionedEntityRenames: readonly UnversionedEntityRename[];
 };
 
 // Shared allowlist for migration names — used by the CLI and by
@@ -622,5 +668,6 @@ export function generateMigration(input: GenerateMigrationInput): GenerateMigrat
     diff,
     retiredDrops,
     rowLevelSecurityChanges,
+    unversionedEntityRenames: findUnversionedEntityRenames(input.prevSnapshot, diff),
   };
 }

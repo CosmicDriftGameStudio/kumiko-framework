@@ -46,13 +46,53 @@ describe("useDraft", () => {
     // `name` remains the raw key; only the DOM id gets prefixed.
     expect(a.result.current.field("sum").name).toBe("sum");
   });
+
+  type D = { sum: number | undefined };
+  type HookProps = { key: string | null; values: D | undefined };
+  const hook = (props: HookProps) => useDraft<D>({ sum: 0 }, { initialFrom: props });
+
+  test("initialFrom fills the draft once the values for the key arrive", () => {
+    const initialProps: HookProps = { key: "a", values: undefined };
+    const { result, rerender } = renderHook(hook, { initialProps });
+    expect(result.current.draft.sum).toBe(0);
+    expect(result.current.loadedKey).toBeNull();
+    rerender({ key: "a", values: { sum: 5 } });
+    expect(result.current.draft.sum).toBe(5);
+    expect(result.current.loadedKey).toBe("a");
+  });
+
+  test("a refetch for the same key keeps the edited draft", () => {
+    const initialProps: HookProps = { key: "a", values: { sum: 5 } };
+    const { result, rerender } = renderHook(hook, { initialProps });
+    expect(result.current.draft.sum).toBe(5);
+    act(() => result.current.patch({ sum: 9 }));
+    rerender({ key: "a", values: { sum: 7 } });
+    expect(result.current.draft.sum).toBe(9);
+  });
+
+  test("a new key loads its values and a null key resets to the defaults", () => {
+    const initialProps: HookProps = { key: "a", values: { sum: 5 } };
+    const { result, rerender } = renderHook(hook, { initialProps });
+    rerender({ key: "b", values: { sum: 3 } });
+    expect(result.current.draft.sum).toBe(3);
+    expect(result.current.loadedKey).toBe("b");
+    rerender({ key: null, values: undefined });
+    expect(result.current.draft.sum).toBe(0);
+    expect(result.current.loadedKey).toBeNull();
+  });
+
+  test("without initialFrom loadedKey stays null", () => {
+    const { result } = renderHook(() => useDraft<D>({ sum: 1 }));
+    expect(result.current.loadedKey).toBeNull();
+    expect(result.current.draft.sum).toBe(1);
+  });
 });
 
 describe("NumberField", () => {
   test("renders a label and reports a number on input", () => {
     const onChange = mock();
     render(<NumberField label="Summe" id="sum" name="sum" value={300} onChange={onChange} />);
-    expect(screen.getByText("Summe")).toBeTruthy();
+    screen.getByText("Summe");
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "42" } });
     expect(onChange).toHaveBeenCalledWith(42);
   });
@@ -69,8 +109,8 @@ describe("NumberField", () => {
     const { rerender } = render(
       <MoneyField label="Betrag (€)" id="b" name="b" value={1} onChange={noop} />,
     );
-    expect(screen.getByText("Betrag (€)")).toBeTruthy();
-    expect(screen.getByRole("textbox")).toBeTruthy();
+    screen.getByText("Betrag (€)");
+    screen.getByRole("textbox");
     expect(screen.queryByText("€")).toBeNull(); // The unit belongs in the label; no separate badge
     rerender(<PercentField label="Zins (%)" id="z" name="z" value={1} onChange={noop} />);
     expect(screen.queryByText("%")).toBeNull();
@@ -96,7 +136,7 @@ describe("DetailList emphasize", () => {
 describe("ResultPanel", () => {
   test("empty shows the placeholder, not a list", () => {
     render(<ResultPanel title="Ergebnis" empty emptyText="Werte eingeben" />);
-    expect(screen.getByText("Werte eingeben")).toBeTruthy();
+    screen.getByText("Werte eingeben");
   });
 
   test("filled shows metrics and children", () => {
@@ -105,8 +145,8 @@ describe("ResultPanel", () => {
         <span>extra</span>
       </ResultPanel>,
     );
-    expect(screen.getByText("Rate")).toBeTruthy();
-    expect(screen.getByText("extra")).toBeTruthy();
+    screen.getByText("Rate");
+    screen.getByText("extra");
   });
 });
 
@@ -123,8 +163,8 @@ describe("ResultTable", () => {
         rowKey={(r) => r.name}
       />,
     );
-    expect(screen.getByText("Tranche")).toBeTruthy();
-    expect(screen.getByText("Bank")).toBeTruthy();
+    screen.getByText("Tranche");
+    screen.getByText("Bank");
     expect(screen.getByText("Summe").className).toContain("text-right");
     expect(screen.getByText("300.000 €").className).toContain("tabular-nums");
   });
@@ -147,8 +187,8 @@ describe("Feld-Widgets (Select/Date/Text/Boolean/Textarea)", () => {
         ]}
       />,
     );
-    expect(screen.getByText("Land")).toBeTruthy();
-    expect(screen.getByText("Nordrhein-Westfalen")).toBeTruthy();
+    screen.getByText("Land");
+    screen.getByText("Nordrhein-Westfalen");
   });
 
   test("TextField meldet Eingabe", () => {
@@ -169,7 +209,7 @@ describe("Feld-Widgets (Select/Date/Text/Boolean/Textarea)", () => {
         max="2030-01-01"
       />,
     );
-    expect(screen.getByText("Datum")).toBeTruthy();
+    screen.getByText("Datum");
   });
 
   test("BooleanField meldet Umschalten", () => {
@@ -198,7 +238,7 @@ describe("ResultPanel footer", () => {
         <span>body</span>
       </ResultPanel>,
     );
-    expect(screen.getByRole("button", { name: "Los" })).toBeTruthy();
+    screen.getByRole("button", { name: "Los" });
   });
 });
 
@@ -217,7 +257,7 @@ describe("RangeField", () => {
         onChange={onChange}
       />,
     );
-    expect(screen.getByText("Abruf")).toBeTruthy();
+    screen.getByText("Abruf");
     fireEvent.change(screen.getByRole("slider"), { target: { value: "45" } });
     expect(onChange).toHaveBeenCalledWith(45);
   });
@@ -228,7 +268,7 @@ describe("FileField", () => {
     render(
       <FileField label="Bild" id="f" name="f" value={null} onChange={() => {}} variant="image" />,
     );
-    expect(screen.getByText("Bild")).toBeTruthy();
+    screen.getByText("Bild");
   });
 
   test('variant="image" with a set FileRef shows a preview + Remove button', () => {
@@ -244,7 +284,7 @@ describe("FileField", () => {
     );
     const img = document.querySelector("img") as HTMLImageElement;
     expect(img.src).toContain("/api/files/11111111-2222-4333-8444-555555555555");
-    expect(screen.getByRole("button", { name: "Remove" })).toBeTruthy();
+    screen.getByRole("button", { name: "Remove" });
   });
 
   test("Remove-Button ruft onChange(null)", () => {
@@ -331,7 +371,7 @@ describe("Button size", () => {
 
   test("ariaLabel gives icon-only buttons an accessible name", () => {
     render(<IconBtn />);
-    expect(screen.getByRole("button", { name: "Entfernen" })).toBeTruthy();
+    screen.getByRole("button", { name: "Entfernen" });
   });
 
   test('width="full" stretches the button (w-full)', () => {
@@ -362,8 +402,8 @@ describe("ComparisonTable", () => {
         ]}
       />,
     );
-    expect(screen.getByText("Kennzahl")).toBeTruthy();
-    expect(screen.getByText("A")).toBeTruthy();
+    screen.getByText("Kennzahl");
+    screen.getByText("A");
     // B (850) is cheaper → highlighted (`font-semibold text-primary` span)
     expect(screen.getByText("850 €").className).toContain("text-primary");
     expect(screen.getByText("900 €").className).not.toContain("text-primary");

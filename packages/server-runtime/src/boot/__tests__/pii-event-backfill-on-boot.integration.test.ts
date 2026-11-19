@@ -13,8 +13,8 @@ import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityDetailHandler,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { runPiiEventBackfill } from "@cosmicdrift/kumiko-framework/migrations";
@@ -30,16 +30,17 @@ const TABLE = "read_backfill_boot_contacts";
 const BIDX_KEY = Buffer.alloc(32, 7).toString("base64");
 
 const contactEntity = createEntity({
+  name: "contact",
   table: TABLE,
   fields: { email: createTextField({ required: true, personal: "self", find: "exact" }) },
 });
 const crmFeature = defineFeature("crm", (r) => {
-  r.entity({ name: "contact", ...contactEntity });
+  r.entity(contactEntity);
   r.writeHandler(
-    defineEntityWriteHandler("contact:create", contactEntity, { access: { roles: ["Admin"] } }),
+    defineEntityCreateHandler("contact", contactEntity, { access: { roles: ["Admin"] } }),
   );
   r.queryHandler(
-    defineEntityQueryHandler("contact:detail", contactEntity, { access: { roles: ["Admin"] } }),
+    defineEntityDetailHandler("contact", contactEntity, { access: { roles: ["Admin"] } }),
   );
 });
 

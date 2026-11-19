@@ -1,4 +1,9 @@
-import type { AccessRule, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type AccessRule,
+  access,
+  type HandlerContext,
+  type SessionUser,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   NotFoundError,
   UnprocessableError,
@@ -6,13 +11,13 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import type { SubjectScope, SubjectScopeContext } from "../shared/index.ts";
+import { joinRowParentIsVisible } from "../shared/index.ts";
 import {
   type PdfTemplateMeta,
   parseTemplateMeta,
   readPdfTemplateMeta,
 } from "../template-resolver/index.ts";
-import { documentDraftExecutor } from "./entity.ts";
+import type { DocumentDraftExecutor } from "./entity.ts";
 import {
   DOCUMENT_DRAFT_ENTITY,
   DOCUMENT_DRAFT_ERROR,
@@ -20,24 +25,31 @@ import {
   type DocumentDraftStatus,
 } from "./web/constants.ts";
 
-export const DEFAULT_DOCUMENT_DRAFT_ACCESS: AccessRule = { roles: ["TenantAdmin", "TenantMember"] };
+export const DEFAULT_DOCUMENT_DRAFT_ACCESS: AccessRule = { roles: access.tenantMembers };
 
-export type DraftRow = NonNullable<Awaited<ReturnType<typeof documentDraftExecutor.detail>>>;
+export type DraftRow = NonNullable<Awaited<ReturnType<DocumentDraftExecutor["detail"]>>>;
 
 export function draftNotFound(id?: string) {
   return writeFailure(new NotFoundError(DOCUMENT_DRAFT_ENTITY, id));
 }
 
-// A draft of another tenant, an unknown id and a subject the user may not see all answer the same.
+// A draft of another tenant, an unknown id and a subject the user may not read all answer the same.
 export async function loadScopedDraft(
-  ctx: SubjectScopeContext,
+  documentDraftExecutor: DocumentDraftExecutor,
+  ctx: Pick<HandlerContext, "db" | "registry">,
   user: SessionUser,
-  scope: SubjectScope,
   id: string,
 ): Promise<DraftRow | null> {
   const row = await documentDraftExecutor.detail({ id }, user, ctx.db);
-  if (row === null || !(await scope.allowsRequest(ctx, user, row))) return null;
-  return row;
+  if (row === null) return null;
+  const subjectIsVisible = await joinRowParentIsVisible(
+    ctx.registry,
+    DOCUMENT_DRAFT_ENTITY,
+    { subjectType: row.subjectType, subjectId: row.subjectId },
+    user,
+    ctx.db,
+  );
+  return subjectIsVisible ? row : null;
 }
 
 export function notInStatus(expected: DocumentDraftStatus) {

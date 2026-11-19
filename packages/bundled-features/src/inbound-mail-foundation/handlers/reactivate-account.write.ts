@@ -5,10 +5,10 @@
 
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import {
+  defineWriteHandler,
   type HandlerContext,
   SYSTEM_ROLE,
   SYSTEM_USER_ID,
-  type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
@@ -60,6 +60,7 @@ async function appendMailAccountReactivation(
   ctx: Pick<HandlerContext, "events">,
   accountId: string,
   current: MailAccountEventPayload,
+  accountStreamVersion: number,
 ): Promise<boolean> {
   if (isAlreadyHealthy(current)) return false;
   const eventPayload: MailAccountEventPayload = {
@@ -78,15 +79,13 @@ async function appendMailAccountReactivation(
     type: MAIL_ACCOUNT_UPDATED_EVENT_QN,
     payload: eventPayload,
     headers,
+    expectedVersion: accountStreamVersion,
   });
   return true;
 }
 
-export function createReactivateAccountHandler({
-  memberRoles,
-  adminRoles,
-}: InboundMailRoles): WriteHandlerDef {
-  return {
+export function createReactivateAccountHandler({ memberRoles, adminRoles }: InboundMailRoles) {
+  return defineWriteHandler({
     name: "reactivate-account",
     schema: reactivateAccountSchema,
     // Members: the owner re-arms a personal mailbox; mayReactivateMailbox keeps shared ones to admins.
@@ -96,7 +95,8 @@ export function createReactivateAccountHandler({
     description:
       "Brings a disconnected, interrupted or sign-in-failed mailbox back to active under its existing accountId, so cursor, seen messages and threads survive; the caller replaces the credential in the same flow.",
     handler: async (event, ctx) => {
-      const payload = reactivateAccountSchema.parse(event.payload);
+      const payload = event.payload;
+      const accountStreamVersion = await ctx.events.streamVersion(payload.accountId);
       const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
       if (!current) return failNotFound("mail-account", payload.accountId);
       if (
@@ -113,7 +113,7 @@ export function createReactivateAccountHandler({
       const secrets = requireSecretsContext(
         { secrets: ctx.services.secrets, user: ctx.user },
         "reactivate-account",
-      ).withRunner(ctx.db.unsafeRaw());
+      ).withRunner(ctx.db.unsafeRawAllTenants());
       const hasCredential = await secrets.has(
         event.user.tenantId,
         inboundCredentialSecretKey(payload.accountId),
@@ -122,8 +122,13 @@ export function createReactivateAccountHandler({
         const { reason, i18nKey } = InboundMailConnectErrors.credentialRequired;
         return writeFailure(new UnprocessableError(reason, { i18nKey }));
       }
-      const changed = await appendMailAccountReactivation(ctx, payload.accountId, current);
+      const changed = await appendMailAccountReactivation(
+        ctx,
+        payload.accountId,
+        current,
+        accountStreamVersion,
+      );
       return { isSuccess: true as const, data: { accountId: payload.accountId, changed } };
     },
-  };
+  });
 }

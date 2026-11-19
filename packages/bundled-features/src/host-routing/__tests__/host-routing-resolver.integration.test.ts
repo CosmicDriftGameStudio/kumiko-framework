@@ -19,7 +19,15 @@ import {
   createAuthFoundationFeature,
   resolveAnonymousAccessFromRegistry,
 } from "../../auth-foundation/index.ts";
-import { configValuesTable, createConfigFeature } from "../../config/index.ts";
+import { createBrandingFeature } from "../../branding/index.ts";
+import {
+  configValuesTable,
+  createConfigAccessorFactory,
+  createConfigFeature,
+  createConfigResolver,
+} from "../../config/index.ts";
+import { createManagedPagesFeature, pageEntity } from "../../managed-pages/index.ts";
+import { seedPage } from "../../managed-pages/seeding.ts";
 import {
   createTenantFeature,
   TenantHandlers,
@@ -31,7 +39,6 @@ import { createUserFeature, userEntity } from "../../user/index.ts";
 import { createHostDispatch } from "../dispatch.ts";
 import { createHostRoutingFeature } from "../feature.ts";
 import type { HostRoutingOptions, HostTenantResolver } from "../options.ts";
-import { createHostTenantIdResolver } from "../tenant-lookup.ts";
 
 const BASE_DOMAIN = "resolver-routing.test";
 const WHOAMI = "hostprobe:query:whoami";
@@ -115,6 +122,7 @@ async function tenantIdOf(res: Response): Promise<string> {
 }
 
 beforeAll(async () => {
+  const configResolver = createConfigResolver();
   stack = await setupTestStack({
     features: [
       createConfigFeature(),
@@ -122,19 +130,36 @@ beforeAll(async () => {
       createTenantFeature(),
       createAuthFoundationFeature(),
       createHostRoutingFeature(options),
+      createBrandingFeature(),
+      createManagedPagesFeature({}),
       probeFeature,
     ],
     anonymousAccess: {},
     enrichAnonymousAccess: (base, deps) => resolveAnonymousAccessFromRegistry(base, deps),
+    extraContext: ({ registry }) => ({
+      configResolver,
+      configAccessorFactory: createConfigAccessorFactory(registry, configResolver),
+    }),
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
+  await unsafeCreateEntityTable(stack.db, pageEntity);
   await unsafePushTables(stack.db, {
     configValuesTable,
     tenantMembershipsTable,
     tenantProfileTable,
   });
   for (const tenant of [ACME, GLOBEX, DISABLED]) await seedTenant(stack.db, tenant);
+  for (const tenant of [ACME, GLOBEX]) {
+    await seedPage(stack.db, {
+      tenantId: tenant.id,
+      slug: "about",
+      lang: "en",
+      title: `About ${tenant.name}`,
+      body: `Hello from ${tenant.name}`,
+      published: true,
+    });
+  }
   await stack.http.writeOk(TenantHandlers.disable, { id: DISABLED.id }, TestUsers.systemAdmin);
   await seedRow(stack.db, tenantProfileTable, { tenantId: ACME.id, subdomain: "shop" });
   await seedRow(stack.db, tenantProfileTable, {
@@ -243,12 +268,20 @@ describe("host-routing with a tenantBy resolver", () => {
     expect(await errorCode(res)).toBe("tenant_required");
   });
 
-  test("createHostTenantIdResolver maps hosts for managed-pages", async () => {
-    const resolveHost = createHostTenantIdResolver(options, stack.db);
-    expect(await resolveHost(`shop.${BASE_DOMAIN}`)).toBe(ACME.id);
-    expect(await resolveHost("status.globex.example")).toBe(GLOBEX.id);
-    expect(await resolveHost(BASE_DOMAIN)).toBe(SYSTEM_TENANT_ID);
-    expect(await resolveHost(`old.${BASE_DOMAIN}`)).toBeNull();
-    expect(await resolveHost("a@b")).toBeNull();
+  test("managed-pages takes the page tenant from the host resolution", async () => {
+    const page = (host: string, headers: Record<string, string> = {}) =>
+      stack.http.raw("GET", "/p/about", undefined, { Host: host, ...headers });
+
+    const acme = await page(`shop.${BASE_DOMAIN}`);
+    expect(acme.status).toBe(200);
+    expect(await acme.text()).toContain("About Acme");
+
+    const globex = await page("status.globex.example");
+    expect(globex.status).toBe(200);
+    expect(await globex.text()).toContain("About Globex");
+
+    expect((await page(`old.${BASE_DOMAIN}`)).status).toBe(404);
+    expect((await page(`old.${BASE_DOMAIN}`, { "X-Tenant": ACME.id })).status).toBe(404);
+    expect((await page(BASE_DOMAIN)).status).toBe(404);
   });
 });

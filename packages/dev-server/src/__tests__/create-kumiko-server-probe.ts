@@ -8,6 +8,7 @@ import {
 import * as z from "zod";
 
 const probeEntity = createEntity({
+  name: "probe",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
     done: createBooleanField(),
@@ -16,7 +17,7 @@ const probeEntity = createEntity({
 });
 
 export const probeFeature = defineFeature("dev-server-probe", (r) => {
-  r.entity({ name: "probe", ...probeEntity });
+  r.entity(probeEntity);
   // Anonymous query for hostDispatch's deps.systemQuery — proves the
   // dev path gets the same anonymous-role dispatch-deps shape as prod.
   r.queryHandler({

@@ -84,9 +84,13 @@ flat object with those fields.
 **Nav.** A sidebar entry: `r.nav({ id, label, screen, parent, order })`.
 Parents may belong to another feature; refer to them by QN.
 
-**Events.** Declare a domain event with `r.defineEvent(name, zodSchema)`.
+**Events.** Declare a domain event with `r.defineEvent(name, schema, { piiFields })`.
+`piiFields` is required: `"none"` when the payload holds no personal data, otherwise a
+map from payload field to owner, `{ email: { personal: { of: "userId" } } }`; registration
+fails without it.
 Emit it inside a write handler with `emitEvent(ctx, def, { ... })` or
 `ctx.events.append(...)`; it commits in the same transaction as the write.
+Every append states `expectedVersion` (read `ctx.events.streamVersion` before you read state; `0` for a stream you create) or a concrete `blindAppendReason`; without one it throws.
 React to it with `r.projection(...)` (state on the same stream) or
 `r.multiStreamProjection({ name, apply })` (async consumer across streams,
 at least once, ordered).
@@ -170,7 +174,7 @@ Files whose first line reads `kumiko-managed` (deploy/, `.github/workflows/`,
 `bunx kumiko sync-managed --write` restores them. Keep a deliberate change with
 `# kumiko-managed: local <reason>` on line 2. `biome.json` and `tsconfig.json`
 extend `@cosmicdrift/kumiko-framework/biome` and `.../tsconfig.app.json`; put
-app overrides next to `extends`. Full list: `docs/reference/app-skeleton.md`.
+app overrides next to `extends`.
 
 The scaffolded `src/features/tasks/feature.ts` and
 `src/__tests__/tasks.integration.test.ts` are the smallest complete pair of
@@ -210,11 +214,20 @@ produces code that compiles and then fails in production.
   handler: `r.crud`, the `defineEntity*Handler` helpers, the executor from
   `createEntityExecutor`, or `emitEvent` / `ctx.events.append`. The query
   helpers and `ctx.db` throw `AccessDeniedError` on such a write, also
-  through `ctx.db.unsafeRaw()`. Test seeds on an entity table use
+  through `ctx.db.unsafeRaw()` and `ctx.db.unsafeRawAllTenants()`. Test seeds on an entity table use
   `seedRowViaEventStore` / `seedRowsViaEventStore` from
-  `@cosmicdrift/kumiko-testing/helpers`; `seedRow` is for tables without
-  event sourcing and throws on an entity table unless the test passes
-  `{ projectionOnly: "<why>" }`.
+  `@cosmicdrift/kumiko-testing/helpers`; `seedRow`, `updateRows` and
+  `deleteRows` are for tables without event sourcing and throw on an entity
+  table unless the test passes `{ projectionOnly: "<why>" }`; change entity
+  rows with `updateRowViaEventStore` / `deleteRowViaEventStore`.
+- Every `r.entity` table is rebuilt on deploy from its `<entity>.created`,
+  `.updated`, `.deleted` and `.restored` events, so a row written without
+  those events is gone after the next rebuild. Keep data without events in
+  a table registered with `r.storeTable(meta, { reason })`; build `meta`
+  with `defineUnmanagedTable` or `deriveEntityTableMeta(..., { source:
+  "unmanaged" })` from `@cosmicdrift/kumiko-framework/db`, and a rebuild
+  skips it. The `read_` table prefix is reserved; use `store_`. Example:
+  `agents/examples/tenant-isolation.md`.
 - Never store a value that can be computed. Derive it in a query or a
   projection.
 - Never hand-write SQL for reads that an executor `list` or `detail` covers.
@@ -347,7 +360,7 @@ as bundled features.
 | Tags or notes on any entity                | Tags, notes history                                                                                                                                          | `agents/examples/tags-basic.md`, `agents/examples/notes-history-basic.md` |
 | Tenant-defined extra fields                | Custom fields                                                                                                                                                | `agents/examples/custom-fields-basic.md`                                  |
 | Lookup tables and seeds                    | Upsert seeds                                                                                                                                                 | `agents/examples/reference-data.md`                                       |
-| Multi-step background flows                | Workflow engine                                                                                                                                              | `agents/examples/workflow-engine.md`                                      |
+| Multi-step background flows                | Jobs triggered by events (`r.job({ trigger: { on } })`)                                                                                                      | `agents/examples/lane-routing.md`                                         |
 | A mount invariant for my feature           | `r.bootCheck`                                                                                                                                                | `agents/examples/boot-check.md`                                           |
 | A widget for a custom screen               | Search by concern                                                                                                                                            | `agents/widgets.md`                                                       |
 | A bundled feature and its config           | Search by name or purpose                                                                                                                                    | `agents/features-index.md`, then `agents/features.md`                     |
@@ -359,12 +372,14 @@ Each `agents/examples/<name>.md` starts with the sample's README, then every
 source file with its path. `src/feature.ts` holds the feature;
 `src/__tests__/*.integration.test.ts` shows how it is tested. Samples inside
 the framework repo set up their stack with `setupTestStack` from
-`@cosmicdrift/kumiko-testing/stack` and create tables in the test. In an
-app, `setupAppTestStack` and `seedTenant` do that for you; keep the
-assertions, take the setup from your scaffolded integration test. Table
-setup in sample tests (`unsafeCreateEntityTable`, `createEventsTable`) and
-any raw `DELETE FROM` cleanup are framework internals. Never copy them;
-isolate tests with one tenant each.
+`@cosmicdrift/kumiko-testing/stack`, which creates the entity and event tables
+of the features it gets. In an app, `setupAppTestStack` and `seedTenant` do
+that for you; keep the assertions, take the setup from your scaffolded
+integration test. The recipes that run a worker or a mail pipeline on a bare
+test database (`api-worker-split`, `inbound-mail-triage`, `lane-routing`)
+create tables by hand; that setup, `unsafePushTables` and any raw `DELETE FROM`
+cleanup are framework internals. Never copy them; isolate tests with one
+tenant each.
 
 ## Package entry points
 

@@ -149,7 +149,7 @@ export type FieldAiAssist = {
 };
 
 export type FieldValueChips = {
-  /** Name of a field of the same form whose value is an array of numbers. For `money`, major units. */
+  /** Name of a field of the same form whose value is an array of numbers. For `money`, minor units. */
   readonly from: string;
 };
 
@@ -448,7 +448,9 @@ export type EditRelatedListSection = EditSectionPresentation & {
    *  entityList column of that field (select as a status badge with the
    *  translated option label, dates locale-formatted, default header from the
    *  field's label key). The column's own `sortable` still decides the
-   *  header sort. Without it every column renders as plain text. */
+   *  header sort, except on a reference field the query cannot order by its
+   *  label (not in `serverSortFields`): that column never sorts, a uuid order
+   *  means nothing. Without it every column renders as plain text. */
   readonly entity?: string;
   /** i18n key for the one-line hint at the left of the tab toolbar. */
   readonly description?: string;
@@ -458,12 +460,20 @@ export type EditRelatedListSection = EditSectionPresentation & {
   readonly pageSize?: number;
   /** Opt-in table behaviour: remembered state, reset, column picker, density. */
   readonly table?: ListTableOptions;
-  /** Initial sort on mount, applied client-side over the already-loaded rows
-   *  (this section has no pager; if the fetch is truncated, `nextCursor !== null`,
-   *  the section shows a hint banner that the sort covers only the loaded rows).
+  /** Initial sort on mount. Sent to the query when `field` is in
+   *  `serverSortFields`, so the first page already holds the right rows;
+   *  otherwise applied client-side over the loaded rows (this section has no
+   *  pager; a truncated fetch, `nextCursor !== null`, shows a hint banner).
    *  `field` must name a column with `sortable: true` — boot-validator pins
    *  that, same as `entityList.defaultSort`. */
   readonly defaultSort?: ListSortSpec;
+  /** Derived by buildAppSchema, never authored (an authored value is
+   *  overwritten): the columns the bound query orders itself, from its Zod
+   *  `sort` param (enum literals, or for an `<entity>:list` query the fields
+   *  its SQL sort accepts for every caller, so no field with its own
+   *  `access.read`), plus `insertedAt` when the query can order by creation
+   *  time. Absent when the query has no `sort` param. */
+  readonly serverSortFields?: readonly string[];
   /** Renders a search box whose debounced term rides along as
    *  `payload.search` on this section's own query. Opt-in, unlike
    *  `projectionList.searchable` (derived from the bound query's schema): a
@@ -604,7 +614,8 @@ export type EditWriteFormSection = EditSectionPresentation & {
 };
 
 // Max width of the form container (see FormScreenShell in renderer/web).
-export type FormWidth = "3xl" | "4xl" | "full";
+/** "settings": 940px settings column (configEdit compact). */
+export type FormWidth = "3xl" | "4xl" | "settings" | "full";
 
 export type EditLayout = {
   readonly sections: readonly EditSectionSpec[];
@@ -753,6 +764,9 @@ export type EntityEditScreenDefinition = {
    *  `mask.title` label here. A missing entry falls back to the
    *  convention. */
   readonly fieldLabels?: Readonly<Record<string, FieldTextRef>>;
+  /** Field name -> entity whose label and option keys the field uses instead of `entity`.
+   *  Set by the actionForm shim from `labelEntity`. */
+  readonly fieldTextEntities?: Readonly<Record<string, string>>;
   /** Record actions. Reuses `RowAction` — analogous to
    *  `ProjectionDetailScreenDefinition.actions` (the loaded record stands
    *  in for the "row"). `rowClick` has no target here and is rejected by

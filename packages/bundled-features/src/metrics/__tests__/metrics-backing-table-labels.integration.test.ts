@@ -16,10 +16,12 @@ import { TENANT_A } from "./metrics-fixtures.ts";
 const nameField = createTextField({ required: true, personal: false, reason: "test_fixture" });
 
 const teamEntity = createEntity({
+  name: "team",
   table: "metrics_bt_teams",
   fields: { name: nameField },
 });
 const ticketEntity = createEntity({
+  name: "ticket",
   table: "metrics_bt_tickets",
   fields: {
     teamId: { type: "reference", entity: "metricsbtteams:team", labelField: "name" } as const,
@@ -27,16 +29,16 @@ const ticketEntity = createEntity({
 });
 // The physical table is not the one the entity's own `table` names: apps point an entity at a
 // hand-picked backing table, and metrics read from that one.
-const backingEntity = { ...ticketEntity, table: "metrics_bt_tickets_backing" };
-const teamTable = buildEntityTable("team", teamEntity);
-const backingTicketTable = buildEntityTable("ticket", backingEntity);
+const backingEntity = { ...ticketEntity, table: "metrics_bt_tickets_backing", name: "ticket" };
+const teamTable = buildEntityTable(teamEntity);
+const backingTicketTable = buildEntityTable(backingEntity);
 
 const teamsFeature = defineFeature("metricsbtteams", (r) => {
-  r.entity({ name: "team", ...teamEntity });
+  r.entity(teamEntity);
 });
 const ticketsFeature = defineFeature("metricsbttickets", (r) => {
   r.requires({ features: ["metricsbtteams"] });
-  r.entity({ name: "ticket", ...ticketEntity, backingTable: backingTicketTable });
+  r.entity({ ...ticketEntity, backingTable: backingTicketTable });
 });
 
 const TEAM_SUPPORT = "aaaaaaaa-0000-4000-8000-0000000000b1";

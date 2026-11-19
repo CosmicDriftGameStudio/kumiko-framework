@@ -1,12 +1,10 @@
 import type { ConfigKeyDefinition } from "@cosmicdrift/kumiko-types/config";
 import { optionsQueryFieldRefs } from "@cosmicdrift/kumiko-types/fields";
-import { createFallbackLogger } from "../../logging/utils.ts";
 import { isEncryptedAtRest } from "../config-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
+import type { BootWarningSink } from "./boot-warning.ts";
 import { CONFIG_KEY_RULES } from "./config-key-rules.ts";
-
-const log = createFallbackLogger("kumiko:boot");
 
 // --- Toggleable-dependency warnings ---
 //
@@ -17,6 +15,7 @@ const log = createFallbackLogger("kumiko:boot");
 // fail) because the combination is legal: an app might intentionally
 // require an opt-in feature to make it explicit that B must be activated.
 export function warnOnToggleableDependencies(
+  warn: BootWarningSink,
   features: readonly FeatureDefinition[],
   featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
@@ -25,11 +24,14 @@ export function warnOnToggleableDependencies(
       const depFeature = featureMap.get(dep);
       if (!depFeature) continue; // requires-target-missing is handled elsewhere
       if (depFeature.toggleableDefault === false) {
-        log.warn(
-          `Feature "${f.name}" requires "${dep}", which is toggleable(default=false). ` +
+        warn({
+          kind: "config/toggleable-dependency",
+          feature: f.name,
+          message:
+            `Feature "${f.name}" requires "${dep}", which is toggleable(default=false). ` +
             `"${f.name}" will be effectively disabled until "${dep}" is enabled globally via the feature-toggles feature. ` +
             `If this is intentional, ignore this warning; otherwise consider r.optionalRequires() or default=true.`,
-        );
+        });
       }
     }
   }

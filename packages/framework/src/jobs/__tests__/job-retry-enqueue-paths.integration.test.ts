@@ -9,7 +9,7 @@
 // eventually" would pass without the fix there.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestRedis,
   type TestRedis,
@@ -19,6 +19,8 @@ import { Queue } from "bullmq";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
 import type { AppContext, TenantId } from "../../engine/types/index.ts";
 import { bootJobIdForJobName, createJobRunner, type JobMeta } from "../job-runner.ts";
+import { purgeRawRedisKeys } from "./purge-raw-redis-keys.ts";
+import { waitForNoPendingJobs } from "./wait-for-no-pending-jobs.ts";
 
 let testRedis: TestRedis;
 let redisUrl: string;
@@ -40,8 +42,7 @@ async function purgeWorkerKeys(queueNamePrefix: string): Promise<void> {
   // Cron leaves its repeatable scheduler firing into a stopped worker if not
   // purged — the same hazard the jobs.integration.test.ts helper guards
   // against.
-  const keys = await testRedis.redis.keys(`bull:${queueNamePrefix}-worker:*`);
-  if (keys.length > 0) await testRedis.redis.del(...keys);
+  await purgeRawRedisKeys(testRedis.redisUrl, `bull:${queueNamePrefix}-worker:*`);
 }
 
 describe("job retries on every enqueue path", () => {
@@ -49,9 +50,14 @@ describe("job retries on every enqueue path", () => {
     let callCount = 0;
     const starts: Array<{ jobId: string; attempt: number | undefined }> = [];
     const cronFeature = defineFeature("retrycron", (r) => {
-      r.job("flaky", { trigger: { cron: "* * * * * *" }, retries: 1 }, async () => {
-        callCount += 1;
-        if (callCount === 1) throw new Error("fails on first cron tick");
+      r.job({
+        name: "flaky",
+        trigger: { cron: "* * * * * *" },
+        retries: 1,
+        handler: async () => {
+          callCount += 1;
+          if (callCount === 1) throw new Error("fails on first cron tick");
+        },
       });
     });
 
@@ -91,9 +97,15 @@ describe("job retries on every enqueue path", () => {
     const starts: Array<{ jobId: string; attempt: number | undefined }> = [];
     let callCount = 0;
     const bootFeature = defineFeature("retryboot", (r) => {
-      r.job("flaky", { trigger: { manual: true }, runOnBoot: true, retries: 1 }, async () => {
-        callCount += 1;
-        if (callCount === 1) throw new Error("fails on first boot run");
+      r.job({
+        name: "flaky",
+        trigger: { manual: true },
+        runOnBoot: true,
+        retries: 1,
+        handler: async () => {
+          callCount += 1;
+          if (callCount === 1) throw new Error("fails on first boot run");
+        },
       });
     });
 
@@ -129,16 +141,18 @@ describe("job retries on every enqueue path", () => {
     const callCountByTenant = new Map<string, number>();
     const tenants = ["retry-child-a", "retry-child-b"] as TenantId[];
     const perTenantFeature = defineFeature("retrychild", (r) => {
-      r.job(
-        "flaky",
-        { trigger: { manual: true }, perTenant: true, retries: 1 },
-        async (_payload, ctx) => {
+      r.job({
+        name: "flaky",
+        trigger: { manual: true },
+        perTenant: true,
+        retries: 1,
+        handler: async (_payload, ctx) => {
           const tenantId = String(ctx.systemUser.tenantId);
           const count = (callCountByTenant.get(tenantId) ?? 0) + 1;
           callCountByTenant.set(tenantId, count);
           if (count === 1) throw new Error(`fails on first attempt for ${tenantId}`);
         },
-      );
+      });
     });
 
     const registry = createRegistry([perTenantFeature]);
@@ -179,14 +193,16 @@ describe("job retries on every enqueue path", () => {
     const handlerCalls = new Map<string, number>();
     let getActiveTenantIdsCalls = 0;
     const wrapperFeature = defineFeature("retrywrapper", (r) => {
-      r.job(
-        "fanout",
-        { trigger: { manual: true }, perTenant: true, retries: 1 },
-        async (_payload, ctx) => {
+      r.job({
+        name: "fanout",
+        trigger: { manual: true },
+        perTenant: true,
+        retries: 1,
+        handler: async (_payload, ctx) => {
           const tenantId = String(ctx.systemUser.tenantId);
           handlerCalls.set(tenantId, (handlerCalls.get(tenantId) ?? 0) + 1);
         },
-      );
+      });
     });
 
     const registry = createRegistry([wrapperFeature]);
@@ -218,7 +234,7 @@ describe("job retries on every enqueue path", () => {
       // A wrapper retry re-derives the same child ids from its own stable
       // BullMQ job id, so a late second fan-out would be a no-op on
       // existing-jobId add() — but nothing should even attempt one here.
-      await sleep(400);
+      await waitForNoPendingJobs(runner);
       for (const tenantId of tenants) {
         expect(handlerCalls.get(tenantId)).toBe(1);
       }
@@ -237,10 +253,12 @@ describe("job retries on every enqueue path", () => {
       releaseGate = resolve;
     });
     const sequentialFeature = defineFeature("retryseq", (r) => {
-      r.job(
-        "flaky",
-        { trigger: { manual: true }, concurrency: "sequential", retries: 1 },
-        async () => {
+      r.job({
+        name: "flaky",
+        trigger: { manual: true },
+        concurrency: "sequential",
+        retries: 1,
+        handler: async () => {
           callCount += 1;
           const attemptNumber = callCount;
           if (attemptNumber === 1) {
@@ -249,7 +267,7 @@ describe("job retries on every enqueue path", () => {
           }
           if (attemptNumber === 2) throw new Error("fails on second call (first retry slot)");
         },
-      );
+      });
     });
 
     const registry = createRegistry([sequentialFeature]);

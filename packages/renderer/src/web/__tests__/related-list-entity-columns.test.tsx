@@ -6,7 +6,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { cleanup, render, screen } from "@testing-library/react";
-import type { Dispatcher, EditRelatedListSectionViewModel } from "../../headless/index.ts";
+import type { EditRelatedListSectionViewModel } from "../../headless/index.ts";
 import {
   AppFeaturesProvider,
   createStaticLocaleResolver,
@@ -23,6 +23,7 @@ import {
 } from "../../index.ts";
 import { defaultPrimitives } from "../primitives/index.tsx";
 import { defaultTokens } from "../tokens.ts";
+import { createMockDispatcher } from "./test-utils.tsx";
 
 afterEach(cleanup);
 
@@ -48,15 +49,11 @@ const bundles = {
 
 const rows = [{ id: "p1", datum: "2026-09-29", status: "gepostet", kanal: "mobile.de" }];
 
-const dispatcher = {
+const dispatcher = createMockDispatcher({
   query: async () => ({ isSuccess: true, data: { rows, nextCursor: null } }),
   write: async () => ({ isSuccess: true, data: null }),
   batch: async () => ({ isSuccess: true, results: [] }),
-  statusStore: { getState: () => "online", subscribe: () => () => {} },
-  async *stream() {},
-  pendingWrites: () => [],
-  pendingFiles: () => [],
-} as unknown as Dispatcher;
+});
 
 const nav: NavApi = {
   route: undefined,

@@ -53,6 +53,7 @@ type AccountState = {
   nextVerifyError: unknown;
   hangingFetch: Promise<void> | null;
   lastFetchSignal: AbortSignal | undefined;
+  fetchCount: number;
   credentialSecretKey: string | null;
 };
 
@@ -71,6 +72,7 @@ function stateFor(accountId: string): AccountState {
       nextVerifyError: null,
       hangingFetch: null,
       lastFetchSignal: undefined,
+      fetchCount: 0,
       credentialSecretKey: null,
     };
     accounts.set(accountId, state);
@@ -125,6 +127,11 @@ export function hangFetchesOf(accountId: string): { readonly release: () => void
       resolve();
     },
   };
+}
+
+/** Test helper: how often fetch() ran for the account (reconciliation polls and catch-ups). */
+export function fetchCountOf(accountId: string): number {
+  return stateFor(accountId).fetchCount;
 }
 
 /** Test helper: the abort signal the last fetch of the account received. */
@@ -199,6 +206,7 @@ export const inMemoryInboundMailPlugin: InboundMailProviderPlugin = {
   fetch: async (ctx, account, cursor, opts): Promise<InboundFetchResult> => {
     const state = stateFor(account.id);
     state.lastFetchSignal = opts.signal;
+    state.fetchCount += 1;
     if (state.hangingFetch !== null) await state.hangingFetch;
     if (state.nextFetchError) {
       const err = state.nextFetchError;
@@ -256,7 +264,11 @@ export function createInboundProviderInMemoryFeature() {
         recommended: false,
       });
       r.requires({ features: ["inbound-mail-foundation"] });
-      r.useExtension("inboundMailProvider", INMEMORY_PROVIDER_KEY, inMemoryInboundMailPlugin);
+      r.applyExtension({
+        name: "inboundMailProvider",
+        entity: INMEMORY_PROVIDER_KEY,
+        ...inMemoryInboundMailPlugin,
+      });
     },
     { dedupeOptions: {} },
   );

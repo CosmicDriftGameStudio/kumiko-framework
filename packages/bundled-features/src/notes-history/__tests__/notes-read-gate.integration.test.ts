@@ -37,6 +37,7 @@ const teamScopedRead: NonNullable<EntityDefinition["access"]> = {
 };
 
 const projectEntity = createEntity({
+  name: "project",
   table: PROJECT_TABLE,
   fields: {
     teamId: createTextField({
@@ -50,7 +51,7 @@ const projectEntity = createEntity({
 });
 
 const hostFixturesFeature = defineFeature("notes-rg-test-fixtures", (r) => {
-  r.entity({ name: "project", ...projectEntity });
+  r.entity(projectEntity);
 });
 
 type TestUser = ReturnType<typeof createTestUser>;
@@ -73,7 +74,7 @@ const ORPHAN_HOST_ID = "d0000000-0000-4000-8000-0000000000ff";
 type NoteRow = { id: string; entityType: string; entityId: string; body: string };
 type Page = { rows: readonly NoteRow[]; nextCursor: string | null; total?: number };
 
-const noteEntryEntity = createNoteEntryEntity();
+const noteEntryEntity = createNoteEntryEntity(undefined, ["project"]);
 
 let stack: TestStack;
 
@@ -83,6 +84,7 @@ beforeAll(async () => {
     features: [
       createNotesHistoryFeature({
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        parents: ["project"],
       }),
       hostFixturesFeature,
     ],
@@ -174,6 +176,7 @@ describe("notes-history read-gate", () => {
 describe("notes-history read-gate — parents allowlist narrows both paths", () => {
   const OTHER_TABLE = "notes_rg_other_hosts";
   const otherEntity = createEntity({
+    name: "widget",
     table: OTHER_TABLE,
     fields: {
       label: createTextField({
@@ -185,8 +188,8 @@ describe("notes-history read-gate — parents allowlist narrows both paths", () 
     },
   });
   const fixtures = defineFeature("notes-rg-parents-fixtures", (r) => {
-    r.entity({ name: "project", ...projectEntity });
-    r.entity({ name: "widget", ...otherEntity });
+    r.entity(projectEntity);
+    r.entity(otherEntity);
   });
   const WIDGET = "d0000000-0000-4000-8000-00000000002a";
 

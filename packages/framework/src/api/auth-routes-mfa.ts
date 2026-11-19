@@ -1,12 +1,55 @@
+import {
+  isWriteQualifiedName,
+  type WriteContract,
+  writeContract,
+} from "@cosmicdrift/kumiko-types/handler-contract";
+import type { Context } from "hono";
 import * as z from "zod";
 import { hashOpaqueTokenSync } from "../crypto/opaque-token-hash.ts";
 import { createAnonymousUser } from "../engine/system-user.ts";
 import type { SessionUser } from "../engine/types/index.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
+import type { Dispatcher } from "../pipeline/dispatcher.ts";
 import { Routes } from "./api-constants.ts";
 import { inMemoryLoginRateLimiterFallback } from "./auth-rate-limiters.ts";
 import type { AuthRouteContext } from "./auth-routes-context.ts";
 import { handlerFailureResponse } from "./auth-routes-shared.ts";
+
+type MfaVerifySuccess = { readonly kind: "mfa-verify-success"; readonly session: SessionUser };
+type MfaPreauthEnableStartSuccess = {
+  readonly setupToken: string;
+  readonly otpauthUri: string;
+  readonly recoveryCodes: readonly string[];
+};
+type MfaPreauthConfirmSuccess = {
+  readonly kind: "mfa-preauth-confirm-success";
+  readonly session: SessionUser;
+};
+
+// The config carries plain strings; the contract constructor needs the write-handler shape.
+function requireWriteContract<TData>(
+  field: string,
+  qualifiedName: string,
+): WriteContract<unknown, TData> {
+  if (!isWriteQualifiedName(qualifiedName)) {
+    throw new Error(`createAuthRoutes: ${field} must be a write handler qualified name`);
+  }
+  return writeContract<unknown, TData>(qualifiedName);
+}
+
+async function runAnonymousMfaWrite<TData>(
+  c: Context,
+  dispatcher: Dispatcher,
+  contract: WriteContract<unknown, TData>,
+  body: unknown,
+  statusMap: Readonly<Record<string, number>>,
+): Promise<
+  { readonly ok: true; readonly data: TData } | { readonly ok: false; readonly response: Response }
+> {
+  const result = await dispatcher.write(contract, body, createAnonymousUser(SYSTEM_TENANT_ID));
+  if (result.isSuccess) return { ok: true, data: result.data };
+  return { ok: false, response: handlerFailureResponse(c, result.error, statusMap) };
+}
 
 // Body schema for POST /auth/mfa/verify. challengeToken is opaque to the
 // framework — it's minted and verified entirely by the mfaVerifyHandler
@@ -57,7 +100,10 @@ export function registerMfaVerifyRoute(ctx: AuthRouteContext): void {
   // still-valid challenge token) is a separate mechanism the handler itself
   // owns — see AuthRoutesConfig.mfaVerifyHandler's doc comment.
   if (config.mfaVerifyHandler) {
-    const mfaVerifyQn = config.mfaVerifyHandler;
+    const mfaVerifyContract = requireWriteContract<MfaVerifySuccess>(
+      "mfaVerifyHandler",
+      config.mfaVerifyHandler,
+    );
     const statusMap = config.mfaVerifyErrorStatusMap ?? {};
     const rateLimiter =
       config.mfaVerifyRateLimit === null
@@ -81,18 +127,9 @@ export function registerMfaVerifyRoute(ctx: AuthRouteContext): void {
         }
       }
 
-      const result = await dispatcher.write(
-        mfaVerifyQn,
-        body,
-        createAnonymousUser(SYSTEM_TENANT_ID),
-      );
-
-      if (!result.isSuccess) {
-        return handlerFailureResponse(c, result.error, statusMap);
-      }
-
-      // @cast-boundary engine-payload — generic dispatcher.write result for mfa-verify handler
-      const data = result.data as { kind: "mfa-verify-success"; session: SessionUser };
+      const outcome = await runAnonymousMfaWrite(c, dispatcher, mfaVerifyContract, body, statusMap);
+      if (!outcome.ok) return outcome.response;
+      const data = outcome.data;
 
       const token = await mintSessionAndRespond(c, data.session);
       const landingPath = landingPathFragment({
@@ -128,7 +165,10 @@ export function registerMfaPreauthEnableStartRoute(ctx: AuthRouteContext): void 
   // not-single-use for its whole TTL, so without this cap a replay is a
   // memory-hard CPU amplifier (see AuthRoutesConfig doc comment).
   if (config.mfaPreauthEnableStartHandler) {
-    const mfaPreauthEnableStartQn = config.mfaPreauthEnableStartHandler;
+    const mfaPreauthEnableStartContract = requireWriteContract<MfaPreauthEnableStartSuccess>(
+      "mfaPreauthEnableStartHandler",
+      config.mfaPreauthEnableStartHandler,
+    );
     const statusMap = config.mfaPreauthEnableStartErrorStatusMap ?? {};
     const rateLimiter =
       config.mfaPreauthEnableStartRateLimit === null
@@ -160,25 +200,16 @@ export function registerMfaPreauthEnableStartRoute(ctx: AuthRouteContext): void 
         }
       }
 
-      const result = await dispatcher.write(
-        mfaPreauthEnableStartQn,
+      const outcome = await runAnonymousMfaWrite(
+        c,
+        dispatcher,
+        mfaPreauthEnableStartContract,
         body,
-        createAnonymousUser(SYSTEM_TENANT_ID),
+        statusMap,
       );
+      if (!outcome.ok) return outcome.response;
 
-      if (!result.isSuccess) {
-        return handlerFailureResponse(c, result.error, statusMap);
-      }
-
-      // @cast-boundary engine-payload — generic dispatcher.write result for
-      // the preauth-enable-start handler
-      const data = result.data as {
-        setupToken: string;
-        otpauthUri: string;
-        recoveryCodes: readonly string[];
-      };
-
-      return c.json({ isSuccess: true, ...data });
+      return c.json({ isSuccess: true, ...outcome.data });
     });
   }
 }
@@ -194,7 +225,10 @@ export function registerMfaPreauthConfirmRoute(ctx: AuthRouteContext): void {
   // one still-valid setupToken) is owned by the handler itself — see
   // AuthRoutesConfig.mfaPreauthConfirmHandler's doc comment.
   if (config.mfaPreauthConfirmHandler) {
-    const mfaPreauthConfirmQn = config.mfaPreauthConfirmHandler;
+    const mfaPreauthConfirmContract = requireWriteContract<MfaPreauthConfirmSuccess>(
+      "mfaPreauthConfirmHandler",
+      config.mfaPreauthConfirmHandler,
+    );
     const statusMap = config.mfaPreauthConfirmErrorStatusMap ?? {};
     const rateLimiter =
       config.mfaPreauthConfirmRateLimit === null
@@ -218,18 +252,15 @@ export function registerMfaPreauthConfirmRoute(ctx: AuthRouteContext): void {
         }
       }
 
-      const result = await dispatcher.write(
-        mfaPreauthConfirmQn,
+      const outcome = await runAnonymousMfaWrite(
+        c,
+        dispatcher,
+        mfaPreauthConfirmContract,
         body,
-        createAnonymousUser(SYSTEM_TENANT_ID),
+        statusMap,
       );
-
-      if (!result.isSuccess) {
-        return handlerFailureResponse(c, result.error, statusMap);
-      }
-
-      // @cast-boundary engine-payload — generic dispatcher.write result for mfa-preauth-confirm handler
-      const data = result.data as { kind: "mfa-preauth-confirm-success"; session: SessionUser };
+      if (!outcome.ok) return outcome.response;
+      const data = outcome.data;
 
       const token = await mintSessionAndRespond(c, data.session);
       const landingPath = landingPathFragment({

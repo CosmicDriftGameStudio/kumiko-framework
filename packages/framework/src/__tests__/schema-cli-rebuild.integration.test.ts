@@ -34,6 +34,7 @@ import { TestUsers } from "../seeding/seed-users.ts";
 import { ensureTemporalPolyfill } from "../time/polyfill.ts";
 
 const itemEntity = createEntity({
+  name: "apply-item",
   table: "read_apply_items",
   fields: {
     groupId: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -41,7 +42,7 @@ const itemEntity = createEntity({
   },
   softDelete: true,
 });
-const itemTable = buildEntityTable("apply-item", itemEntity);
+const itemTable = buildEntityTable(itemEntity);
 
 const COUNTER_TABLE = "read_apply_items_per_group";
 const counterTable = pgTable(COUNTER_TABLE, {
@@ -66,7 +67,7 @@ const counterProjection: ProjectionDefinition = {
 };
 
 const feature = defineFeature("applyrebuildtest", (r) => {
-  r.entity({ name: "apply-item", ...itemEntity });
+  r.entity(itemEntity);
   r.projection(counterProjection);
 });
 
@@ -128,7 +129,7 @@ beforeEach(async () => {
 });
 
 async function counterFor(groupId: string): Promise<number | undefined> {
-  const [row] = await selectMany(testDb.db, counterTable, { groupId });
+  const [row] = await selectMany<{ itemCount: number }>(testDb.db, counterTable, { groupId });
   return row?.itemCount;
 }
 

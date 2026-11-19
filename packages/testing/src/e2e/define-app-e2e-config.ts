@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { availableParallelism } from "node:os";
+import { availableParallelism, cpus } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
@@ -18,6 +18,7 @@ import { isRealProviderRun } from "../helpers/real-providers.ts";
 import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 import {
   DESKTOP_VIEWPORT,
+  E2E_MEILI_INDEX_PREFIX,
   E2E_MEILI_RUN_PREFIX_ENV,
   E2E_REMOTE_BASE_URL_ENV,
   E2E_STORAGE_STATE_ENV,
@@ -58,19 +59,47 @@ export function appDotenvValues(): Record<string, string> {
   return values;
 }
 
+// The file provider stays chosen by FILE_STORAGE_PROVIDER; these values only make the
+// s3-env provider usable against the template's local MinIO.
+const S3_ENV_FROM_MINIO = {
+  S3_ENDPOINT: "MINIO_ENDPOINT",
+  S3_ACCESS_KEY: "MINIO_ACCESS_KEY",
+  S3_SECRET_KEY: "MINIO_SECRET_KEY",
+  S3_BUCKET: "MINIO_BUCKET",
+  S3_REGION: "MINIO_REGION",
+} as const satisfies Record<string, keyof typeof SERVICE_ENV_DEFAULTS>;
+
+const S3_FORCE_PATH_STYLE_ENV = "S3_FORCE_PATH_STYLE";
+
 // Precedence per key: shell/CI environment, then the app's `.env`, then the local-dev default.
-function infraEnvDefaults(): Record<string, string> {
-  const definedInAppDotenv = new Set(Object.keys(appDotenvValues()));
-  return Object.fromEntries(
-    Object.entries(SERVICE_ENV_DEFAULTS).flatMap(([key, value]) => {
+export function infraEnvDefaults(): Record<string, string> {
+  const dotenv = appDotenvValues();
+  const definedInAppDotenv = new Set(Object.keys(dotenv));
+  const serviceEnv = Object.entries(SERVICE_ENV_DEFAULTS).flatMap<readonly [string, string]>(
+    ([key, value]) => {
       const fromEnvironment = process.env[key];
       if (OPT_IN_SERVICE_ENV_KEYS.includes(key)) {
         return fromEnvironment === undefined ? [] : [[key, fromEnvironment]];
       }
       if (fromEnvironment === undefined && definedInAppDotenv.has(key)) return [];
       return [[key, fromEnvironment ?? value]];
-    }),
+    },
   );
+  const s3Sources: ReadonlyArray<readonly [string, string | undefined, string]> = [
+    ...Object.entries(S3_ENV_FROM_MINIO).map(([s3Key, minioKey]) => {
+      const minioValue =
+        process.env[minioKey] ?? dotenv[minioKey] ?? SERVICE_ENV_DEFAULTS[minioKey];
+      return [s3Key, process.env[s3Key], minioValue] as const;
+    }),
+    [S3_FORCE_PATH_STYLE_ENV, process.env[S3_FORCE_PATH_STYLE_ENV], "true"],
+  ];
+  const s3Env = s3Sources.flatMap<readonly [string, string]>(
+    ([s3Key, fromEnvironment, fallback]) => {
+      if (fromEnvironment === undefined && definedInAppDotenv.has(s3Key)) return [];
+      return [[s3Key, fromEnvironment ?? fallback]];
+    },
+  );
+  return Object.fromEntries([...serviceEnv, ...s3Env]);
 }
 
 const TEMPLATE_OWNED_PROJECT_KEYS = [
@@ -156,17 +185,33 @@ function patternList(
   return typeof patterns === "string" || patterns instanceof RegExp ? [patterns] : [...patterns];
 }
 
+function isPositiveInteger(value: number): boolean {
+  return Number.isInteger(value) && value > 0;
+}
+
+// Under Bun, availableParallelism() reads globalThis.navigator; a library that replaces it
+// (pdfjs did) turns the result into NaN, and Playwright then hangs on "NaN workers".
+function usableCpuCount(cpuCount: number, fallbackCpuCount: () => number): number {
+  if (isPositiveInteger(cpuCount)) return cpuCount;
+  const fallback = fallbackCpuCount();
+  if (isPositiveInteger(fallback)) return fallback;
+  throw new Error(
+    `defineAppE2eConfig: cannot determine the CPU count (availableParallelism() returned ${cpuCount}, os.cpus().length ${fallback}); set ${E2E_WORKERS_ENV} to a positive integer`,
+  );
+}
+
 export function resolveE2eWorkers(
   env: Readonly<Record<string, string | undefined>> = process.env,
   // cpus() reports every host core inside a CPU-limited container (1.5 CPU CI
   // pods got 4 workers); availableParallelism() honours the cgroup quota.
   cpuCount: number = availableParallelism(),
+  fallbackCpuCount: () => number = () => cpus().length,
 ): number {
   const override = env[E2E_WORKERS_ENV];
   if (override === undefined || override === "") {
     // 1.5 CPU CI pod, publicstatus 59 tests: 1/2/4 workers = 2.6/2.6/2.7 min;
     // saturated at 1.
-    return Math.max(1, Math.min(4, Math.floor(cpuCount / 2)));
+    return Math.max(1, Math.min(4, Math.floor(usableCpuCount(cpuCount, fallbackCpuCount) / 2)));
   }
   const workers = Number(override);
   if (!Number.isInteger(workers) || workers < 1) {
@@ -208,7 +253,7 @@ function seedTokenForRun(): string {
 // The run's database is thrown away, a shared Meilisearch is not: a prefix per run lets the
 // teardown drop exactly this run's indexes. Dedicated env, so a prefix set in the shell is never dropped.
 function meiliIndexPrefixForRun(): string {
-  process.env[E2E_MEILI_RUN_PREFIX_ENV] ??= `e2e_${randomUUID()}_`;
+  process.env[E2E_MEILI_RUN_PREFIX_ENV] ??= `${E2E_MEILI_INDEX_PREFIX}${randomUUID()}_`;
   return process.env[E2E_MEILI_RUN_PREFIX_ENV];
 }
 
@@ -426,6 +471,9 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
         },
         reuseExistingServer: false,
         timeout: E2E_TIMEOUT_MS.webServer,
+        // Playwright's default teardown is SIGKILL, so the dev server's stop() never ran and
+        // left its per-boot `bull:kumiko-dev-*` queues in the shared Redis.
+        gracefulShutdown: { signal: "SIGTERM", timeout: E2E_TIMEOUT_MS.webServerShutdown },
         stdout: "pipe",
         stderr: "pipe",
       },

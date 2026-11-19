@@ -179,8 +179,6 @@ function EmbeddedListFieldInner({
     );
   });
 
-  if (EmbeddedListInput === undefined) return null;
-
   const cardPlacement = cardPlacementByField(derived, cells);
 
   const columns: EmbeddedListColumn[] = cells.map((cell) => {

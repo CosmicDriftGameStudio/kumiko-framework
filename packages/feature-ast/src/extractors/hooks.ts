@@ -122,9 +122,10 @@ export function readOptionalEscapeHatch(value: unknown): EscapeHatchDeclaration 
   if (!isPlainObject(value)) return undefined;
   if (typeof value["reason"] !== "string") return undefined;
   const grants = value["grants"];
-  if (grants === undefined) return { reason: value["reason"] };
   if (!Array.isArray(grants) || !grants.every(isEscapeHatchGrant)) return undefined;
-  return { reason: value["reason"], grants };
+  const [firstGrant, ...otherGrants] = grants;
+  if (firstGrant === undefined) return undefined;
+  return { reason: value["reason"], grants: [firstGrant, ...otherGrants] };
 }
 
 // Reads the `escapeHatch` sub-property node first, not via readDataLiteralNode

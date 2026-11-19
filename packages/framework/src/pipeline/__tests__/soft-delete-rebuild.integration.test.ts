@@ -13,14 +13,15 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 import { rebuildProjection } from "../index.ts";
 
 const itemEntity = createEntity({
+  name: "soft-item",
   table: "read_soft_rebuild_items",
   fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
   softDelete: true,
 });
-const itemTable = buildEntityTable("soft-item", itemEntity);
+const itemTable = buildEntityTable(itemEntity);
 
 const softFeature = defineFeature("softrebuild", (r) => {
-  r.entity({ name: "soft-item", ...itemEntity });
+  r.entity(itemEntity);
   const executor = createEventStoreExecutor(itemTable, itemEntity, { entityName: "soft-item" });
   const idPayload = z.object({ id: z.uuid() });
 

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   canonicalizeLocaleTag,
+  isValidLocaleTag,
   pickAcceptLanguage,
   rankAcceptLanguage,
   rankPreferredLocales,
@@ -15,6 +16,20 @@ describe("canonicalizeLocaleTag", () => {
   });
 });
 
+describe("isValidLocaleTag", () => {
+  test("accepts tags Intl can format with", () => {
+    for (const tag of ["de", "de-DE", "zh-Hant-TW", "en-US-u-ca-gregory", "de-DE-x-foo"]) {
+      expect(isValidLocaleTag(tag)).toBe(true);
+    }
+  });
+
+  test("rejects well-shaped tags that Intl rejects", () => {
+    for (const tag of ["en-a", "de-1", "en-u", "de-DE-DE", "en-x"]) {
+      expect(isValidLocaleTag(tag)).toBe(false);
+    }
+  });
+});
+
 describe("resolveHeaderLocale", () => {
   test("canonicalizes X-Locale", () => {
     expect(resolveHeaderLocale({ headerLocale: "DE" })).toBe("de");
@@ -22,6 +37,10 @@ describe("resolveHeaderLocale", () => {
 
   test("canonicalizes Accept-Language pick", () => {
     expect(resolveHeaderLocale({ acceptLanguage: "DE-at,en;q=0.8" })).toBe("de-AT");
+  });
+
+  test("an X-Locale Intl rejects falls through to Accept-Language", () => {
+    expect(resolveHeaderLocale({ headerLocale: "en-a", acceptLanguage: "de-AT" })).toBe("de-AT");
   });
 });
 
@@ -37,6 +56,10 @@ describe("rankAcceptLanguage", () => {
 
   test("drops q=0, malformed tags and unparsable q", () => {
     expect(rankAcceptLanguage("de;q=0, <script>, en;q=abc, es")).toEqual(["es"]);
+  });
+
+  test("drops tags Intl rejects", () => {
+    expect(rankAcceptLanguage("de-1, fr;q=0.5")).toEqual(["fr"]);
   });
 
   test("empty or missing header yields no tags", () => {

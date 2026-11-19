@@ -1,14 +1,8 @@
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.ts";
+import { decryptStoredPii, decryptStoredPiiValues } from "../../shared/index.ts";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table.ts";
-
-// Matches job-run-logger.ts's KMS_POOL_CONCURRENCY / the tenant handlers'
-// KMS_POOL_CONCURRENCY — bounds concurrent decrypt calls against the KMS
-// adapter's connection pool.
-const KMS_POOL_CONCURRENCY = 4;
 
 export const detailQuery = defineQueryHandler({
   name: "details",
@@ -20,13 +14,10 @@ export const detailQuery = defineQueryHandler({
   // contract). z.uuid() guards against accidental number-id passing.
   schema: z.object({ runId: z.uuid() }),
   access: { roles: ["SystemAdmin"] },
+  systemScope: true,
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message: "jobs:query:details requires ctx.systemDb (feature must declare r.systemScope())",
-      });
-    }
-    const db = ctx.systemDb.acknowledgeCrossTenant("cross-tenant job monitoring");
+    const { systemDb } = ctx;
+    const db = systemDb.acknowledgeCrossTenant("cross-tenant job monitoring");
 
     const row = await fetchOne(db, jobRunsTable, { id: query.payload.runId });
 
@@ -43,7 +34,7 @@ export const detailQuery = defineQueryHandler({
       row["error"] = await decryptStoredPii(row["error"], "error", "job-run-detail");
     }
 
-    const logs = await selectMany(
+    const logs = await selectMany<{ readonly message: string } & Record<string, unknown>>(
       db,
       jobRunLogsTable,
       { runId: query.payload.runId },
@@ -52,17 +43,17 @@ export const detailQuery = defineQueryHandler({
       },
     );
 
-    // message is stored encrypted under the triggering user's DEK,
-    // same mechanism as row.payload above. Bounded concurrency —
-    // unbounded Promise.all would fire one decrypt per log line at once
-    // against the KMS adapter's pool.
-    const decryptedLogs = await mapWithConcurrency(logs, KMS_POOL_CONCURRENCY, async (log) => {
-      if (typeof log["message"] !== "string") return log;
-      return {
-        ...log,
-        message: await decryptStoredPii(log["message"], "message", "job-run-detail-log"),
-      };
-    });
+    // message is stored encrypted under the triggering user's DEK, same
+    // mechanism as row.payload above; one key lookup for all lines.
+    const messages = await decryptStoredPiiValues(
+      logs.map((log) => log.message),
+      "message",
+      "job-run-detail-log",
+    );
+    const decryptedLogs = logs.map((log, index) => ({
+      ...log,
+      message: messages[index] ?? log.message,
+    }));
 
     return { ...row, logs: decryptedLogs };
   },

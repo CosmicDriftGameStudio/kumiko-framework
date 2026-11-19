@@ -1,3 +1,5 @@
+import { handlerTranslationKeys } from "@cosmicdrift/kumiko-framework/engine";
+
 // English-only, per convention (see cap-overview/i18n.ts) — de/es coverage
 // lives exclusively in the locale-de/locale-es packages' harvested
 // strings.ts + en-catalog.ts, not inline here.
@@ -169,3 +171,61 @@ export const BILLING_FOUNDATION_I18N: Readonly<Record<string, LocalizedString>> 
     en: "The terms are temporarily unavailable. Please try again later.",
   },
 };
+
+export const BILLING_FOUNDATION_HANDLER_I18N = handlerTranslationKeys("billing-foundation", {
+  writes: {
+    "create-checkout-session": {
+      title: { en: "Start checkout" },
+      fields: {
+        providerName: { en: "Payment provider" },
+        priceId: { en: "Price" },
+        successUrl: { en: "Success page" },
+        cancelUrl: { en: "Cancel page" },
+        providerCustomerId: { en: "Provider customer" },
+        mode: { en: "Mode" },
+        consent: { en: "Consent" },
+      },
+    },
+    "request-contract-termination": {
+      title: { en: "Declare contract termination" },
+      fields: {
+        declarationType: { en: "Declaration" },
+        terminationKind: { en: "Termination type" },
+        reason: { en: "Reason" },
+        name: { en: "Name" },
+        email: { en: "Email" },
+        customerReference: { en: "Customer reference" },
+        locale: { en: "Language" },
+      },
+    },
+    "revoke-contract-termination": {
+      title: { en: "Revoke contract termination" },
+      fields: {
+        requestId: { en: "Request" },
+        token: { en: "Token" },
+        tenantId: { en: "Account" },
+      },
+    },
+    "terminate-contract": {
+      title: { en: "Terminate contract" },
+      fields: {
+        declarationType: { en: "Declaration" },
+        terminationKind: { en: "Termination type" },
+        reason: { en: "Reason" },
+      },
+    },
+    "create-portal-session": { title: { en: "Open billing portal" } },
+    "start-plan-checkout": {
+      title: { en: "Start plan checkout" },
+      fields: {
+        tier: { en: "Plan" },
+        providerName: { en: "Payment provider" },
+        consent: { en: "Consent" },
+      },
+    },
+    "switch-plan": {
+      title: { en: "Switch plan" },
+      fields: { tier: { en: "Plan" }, consent: { en: "Consent" } },
+    },
+  },
+});

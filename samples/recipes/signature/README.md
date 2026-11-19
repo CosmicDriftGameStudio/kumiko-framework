@@ -6,16 +6,18 @@ unchanged original and completes the request.
 
 ## What it shows
 
-- **Feature** - `createSignatureFeature({ retention, linkSecret, renderHtmlToPdf, deliverLink, signaturePageUrl })`.
-  Needs `files` and `user-data-rights` (exports and erases signer data); the test mounts user-data-rights with its own dependencies.
+- **Feature** - `createSignatureFeature({ retention, hostEntities, linkSecret, deliverLink, signaturePageUrl })`.
+  Needs `files`, `user-data-rights` (exports and erases signer data) and `renderer-puppeteer-client`
+  (prints the signature page); the test mounts user-data-rights with its own dependencies.
+- **Host** - every request belongs to a host row (`hostType`, `hostId`, one of `hostEntities`, here a
+  `lease`); a user sees and works on the request only while they can read that row.
 - **deliverLink** - `issue-link` hands the signing link to the app (mail) and returns only
   `{ signerId, linkSentAt }`: whoever may issue a link must not be able to sign with it.
-- **renderHtmlToPdf** - injected; in an app it is the client of `@cosmicdrift/kumiko-renderer-puppeteer-client`.
 - **Test** - `setupTestStack` and HTTP: request, issue-link, anonymous sign-by-link, sweep job, completed.
 
 ## Files
 
 ```
-src/feature.ts                              the feature with a link outbox and a stand-in printer
+src/feature.ts                              the feature with a link outbox
 src/__tests__/feature.integration.test.ts   request to completed request over HTTP
 ```

@@ -9,7 +9,11 @@
 
 import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { resolveSafeLocale } from "../../headless/format/safe-locale.ts";
-import { currencyDecimals, formatMoney as formatMoneyForLocale } from "../../headless/index.ts";
+import {
+  currencyDecimals,
+  type FormatMoneyOptions,
+  formatMoney as formatMoneyForLocale,
+} from "../../headless/index.ts";
 import { cn } from "../lib/cn.ts";
 import { inlineSuffixStyle } from "./inline-suffix.ts";
 import { parseLocaleNumber } from "./locale-number.ts";
@@ -167,10 +171,12 @@ export function MoneyInput({
 export function formatMoney(
   amountMinor: number,
   currency: string,
-  locale?: string,
-  fractionDigits?: number,
+  options?: FormatMoneyOptions,
 ): string {
-  return formatMoneyForLocale(amountMinor, currency, resolveSafeLocale(locale), fractionDigits);
+  return formatMoneyForLocale(amountMinor, currency, {
+    ...options,
+    locale: resolveSafeLocale(options?.locale),
+  });
 }
 
 // The currency symbol is rendered as a separate adornment, so the field

@@ -52,7 +52,7 @@ instead of hard-coding region rules.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 # From kumiko-framework repo root:
@@ -103,14 +103,8 @@ try interactively, mount `complianceProfilesDemoFeatures` in your own
 //   - Plus worksCouncilApprovalRequired
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { tenantComplianceProfileEntity } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { complianceProfilesDemoFeatures } from "../feature";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";
@@ -136,8 +130,6 @@ const tenantCHrAdmin = createTestUser({
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: complianceProfilesDemoFeatures });
-  await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
-  await createEventsTable(stack.db);
 
   // Onboarding-Setup: jeder Tenant-Admin waehlt sein Profile.
   await stack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, tenantADachAdmin);

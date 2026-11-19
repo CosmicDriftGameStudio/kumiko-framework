@@ -21,9 +21,11 @@
 
 import {
   createEntity,
+  createReferenceField,
   createTextField,
   defineFeature,
   from,
+  fromParent,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 // The "teams" feature declares the teamId claim. Any other feature can
@@ -31,11 +33,12 @@ import {
 // cross-feature import needed. The boot-validator rejects a reference to a
 // claim no feature declared.
 export const teamsFeature = defineFeature("teams", (r) => {
-  r.claimKey("teamId", { type: "string" });
+  r.claimKey({ name: "teamId", type: "string" });
 });
 
 // Contract entity demonstrating the full access matrix.
 export const contractEntity = createEntity({
+  name: "contract",
   table: "read_ownership_contracts",
   softDelete: true,
   fields: {
@@ -89,10 +92,35 @@ export const contractEntity = createEntity({
   },
 });
 
+// A note has no teamId of its own: fromParent grants a TeamMember the notes whose contract that
+// same role may read (and write), so the scoping column is not copied into every child.
+export const contractNoteEntity = createEntity({
+  name: "contractNote",
+  table: "read_ownership_contract_notes",
+  fields: {
+    contractId: createReferenceField({
+      entity: "contract",
+      personal: false,
+      reason: "is_system_identifier",
+      required: true,
+    }),
+    text: createTextField({ personal: false, reason: "is_business_data", required: true }),
+  },
+  access: {
+    read: { Admin: "all", TeamMember: fromParent("contractId", "contract") },
+    write: { Admin: "all", TeamMember: fromParent("contractId", "contract") },
+  },
+});
+
 export const contractsFeature = defineFeature("contracts", (r) => {
   const contractAccess = { access: { roles: ["Admin", "TeamMember", "Driver"] } } as const;
-  r.crud("contract", contractEntity, {
+  r.crud(contractEntity, {
     write: contractAccess,
     read: contractAccess,
+  });
+  const noteAccess = { access: { roles: ["Admin", "TeamMember"] } } as const;
+  r.crud(contractNoteEntity, {
+    write: noteAccess,
+    read: noteAccess,
   });
 });

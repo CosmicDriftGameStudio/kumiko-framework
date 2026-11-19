@@ -36,12 +36,13 @@ const ADMIN_URL = process.env["TEST_DATABASE_URL"] ?? "";
 const TEST_DB_URL = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
 
 const seededNoteEntity = createEntity({
+  name: "note",
   fields: { title: createTextField({ personal: false, reason: "test_fixture", required: true }) },
   table: "seed_deps_notes",
 });
 
 const seedProbeFeature = defineFeature("seed-probe", (r) => {
-  r.entity({ name: "note", ...seededNoteEntity });
+  r.entity(seededNoteEntity);
   r.writeHandler(
     defineEntityCreateHandler("note", seededNoteEntity, {
       access: { roles: ["SystemAdmin", "User"] },

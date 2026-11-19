@@ -108,13 +108,14 @@ export function useRefetchRegistry(): {
 export function useDashboardQuery<TData>(
   type: string,
   payload: Readonly<Record<string, unknown>>,
-  options: { readonly enabled?: boolean } = {},
+  options: { readonly enabled?: boolean; readonly resultField?: string } = {},
 ): UseQueryResult<TData> {
   const { refreshIntervalMs, register } = useContext(DashboardQueryContext);
   const enabled = options.enabled ?? true;
   const result = useQuery<TData>(type, payload, {
     live: true,
     enabled,
+    ...(options.resultField !== undefined && { resultField: options.resultField }),
     ...(refreshIntervalMs !== undefined && { refetchIntervalMs: refreshIntervalMs }),
   });
   const { refetch } = result;
@@ -176,7 +177,13 @@ export function useDashboardFormats(): DashboardFormats {
   const longDate = new Intl.DateTimeFormat(locale, { dateStyle: "full", timeZone });
   const medium = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone });
   const formatMinor = (amountMinor: number, currency: string, fractionDigits?: number): string =>
-    formatMoney(amountMinor, currency, locale, fractionDigits);
+    formatMoney(amountMinor, currency, {
+      locale,
+      ...(fractionDigits !== undefined && {
+        minimumFractionDigits: fractionDigits,
+        maximumFractionDigits: fractionDigits,
+      }),
+    });
   return {
     timeZone,
     formatMedium: (atMs) => medium.format(atMs),
@@ -372,6 +379,7 @@ export function QueryPanel<TData>({
   const { data, error, loading, refetch } = useDashboardQuery<TData>(
     panel.query,
     panelPayload(panel, screenParams),
+    { ...(panel.resultField !== undefined && { resultField: panel.resultField }) },
   );
   useReportPanelLoaded(data, loading);
   let body: ReactNode;

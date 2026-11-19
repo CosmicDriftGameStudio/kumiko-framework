@@ -2,7 +2,7 @@
 // the mailbox fetches it again and, when it now goes through, removes the quarantine row
 // (quarantine-retry.ts). The handler only flags; the supervisor owns the provider connection.
 
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
   failNotFound,
@@ -22,8 +22,8 @@ export const retryQuarantinedMessageSchema = z
 export function createRetryQuarantinedMessageHandler({
   memberRoles,
   adminRoles,
-}: InboundMailRoles): WriteHandlerDef {
-  return {
+}: InboundMailRoles) {
+  return defineWriteHandler({
     name: "retry-quarantined-message",
     schema: retryQuarantinedMessageSchema,
     access: { roles: [...memberRoles] },
@@ -31,7 +31,7 @@ export function createRetryQuarantinedMessageHandler({
     description:
       "Asks for a quarantined mail to be loaded again from the provider on the next sync of its mailbox; the owner of a personal mailbox or, for a shared one, an admin may call it, and the quarantine entry disappears once the mail went through.",
     handler: async (event, ctx) => {
-      const payload = retryQuarantinedMessageSchema.parse(event.payload);
+      const payload = event.payload;
       const account = await loadCurrentMailAccountPayload(ctx, payload.accountId);
       if (!account) return failNotFound("mail-account", payload.accountId);
       if (!mayManageQuarantine(account.ownerUserId, event.user, adminRoles)) {
@@ -45,5 +45,5 @@ export function createRetryQuarantinedMessageHandler({
       if (updated.length === 0) return failNotFound("mail-quarantine", payload.providerMessageId);
       return { isSuccess: true as const, data: { requested: true as const } };
     },
-  };
+  });
 }

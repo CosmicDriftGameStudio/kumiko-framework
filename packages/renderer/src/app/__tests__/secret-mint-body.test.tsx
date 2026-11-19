@@ -24,14 +24,17 @@ import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { PageHeaderSlotAvailableProvider } from "../../page-header-slot.ts";
 import {
   type BannerProps,
+  type ButtonProps,
   type CardProps,
-  type CorePrimitives,
+  type FormProps,
+  type InputProps,
   type PageHeaderProps,
   PrimitivesProvider,
   type SecretRevealProps,
   type SectionProps,
   type TextProps,
 } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider, type NavTarget } from "../nav.tsx";
@@ -41,28 +44,17 @@ const cardOptionsSeen: Array<CardProps["options"]> = [];
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 const noop = () => null;
 
-const testButton: ComponentType<{
-  children?: ReactNode;
-  onClick?: () => void;
-  testId?: string;
-  type?: "button" | "submit";
-  disabled?: boolean;
-}> = ({ children, onClick, testId, type, disabled }) => (
+const testButton: ComponentType<ButtonProps> = ({ children, onClick, testId, type, disabled }) => (
   <button type={type ?? "button"} data-testid={testId} onClick={onClick} disabled={disabled}>
     {children}
   </button>
 );
 
-const testForm: ComponentType<{
-  children?: ReactNode;
-  actions?: ReactNode;
-  secondaryActions?: ReactNode;
-  onSubmit?: () => void;
-}> = ({ children, actions, secondaryActions, onSubmit }) => (
+const testForm: ComponentType<FormProps> = ({ children, actions, secondaryActions, onSubmit }) => (
   <form
     onSubmit={(e) => {
       e.preventDefault();
-      onSubmit?.();
+      onSubmit();
     }}
   >
     {children}
@@ -71,30 +63,31 @@ const testForm: ComponentType<{
   </form>
 );
 
-const testInput: ComponentType<{
-  kind?: string;
-  name?: string;
-  value?: unknown;
-  autoComplete?: string;
-  onChange?: (v: unknown) => void;
-}> = ({ kind, name = "field", value, autoComplete, onChange }) =>
-  kind === "boolean" ? (
-    <input
-      type="checkbox"
-      aria-label={name}
-      data-testid={`input-${name}`}
-      checked={value === true}
-      onChange={(e) => onChange?.(e.target.checked)}
-    />
-  ) : (
-    <input
-      aria-label={name}
-      data-testid={`input-${name}`}
-      value={typeof value === "string" ? value : ""}
-      autoComplete={autoComplete}
-      onChange={(e) => onChange?.(e.target.value)}
-    />
-  );
+const testInput: ComponentType<InputProps> = (props) => {
+  if (props.kind === "boolean") {
+    return (
+      <input
+        type="checkbox"
+        aria-label={props.name}
+        data-testid={`input-${props.name}`}
+        checked={props.value}
+        onChange={(e) => props.onChange(e.target.checked)}
+      />
+    );
+  }
+  if (props.kind === "text") {
+    return (
+      <input
+        aria-label={props.name}
+        data-testid={`input-${props.name}`}
+        value={props.value}
+        autoComplete={props.autoComplete}
+        onChange={(e) => props.onChange(e.target.value)}
+      />
+    );
+  }
+  return null;
+};
 
 const testSection: ComponentType<SectionProps> = ({ testId, children }) => (
   <div data-testid={testId}>{children}</div>
@@ -122,7 +115,7 @@ const testPageHeader: ComponentType<PageHeaderProps> = ({ title }) => (
   <div data-testid="test-page-header-title">{title}</div>
 );
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: testButton,
   Banner: testBanner,
   Field: passChildren,
@@ -145,7 +138,7 @@ const testPrimitives: CorePrimitives = {
   ConfigCascadeView: noop,
   Link: noop,
   SecretReveal: testSecretReveal,
-} as unknown as CorePrimitives;
+});
 
 const mintScreen: SecretMintScreenDefinition = {
   id: "mint-token",
@@ -169,21 +162,14 @@ function stubDispatcher(writeData: unknown): {
   queryCalls: unknown[];
 } {
   const queryCalls: unknown[] = [];
-  const dispatcher: Dispatcher = {
-    write: (async () => ({ isSuccess: true, data: writeData })) as unknown as Dispatcher["write"],
-    query: (async (type: string, payload: unknown) => {
+  const dispatcher: Dispatcher = createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: writeData }),
+    query: async (type: string, payload: unknown) => {
       queryCalls.push({ type, payload });
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
   return { dispatcher, queryCalls };
 }
 
@@ -195,21 +181,14 @@ function stubMultiWriteDispatcher(responses: Readonly<Record<string, unknown>>):
   writeCalls: Array<{ readonly command: string; readonly payload: unknown }>;
 } {
   const writeCalls: Array<{ readonly command: string; readonly payload: unknown }> = [];
-  const dispatcher: Dispatcher = {
-    write: (async (command: string, payload: unknown) => {
+  const dispatcher: Dispatcher = createMockDispatcher({
+    write: async (command: string, payload: unknown) => {
       writeCalls.push({ command, payload });
       return { isSuccess: true, data: responses[command] ?? {} };
-    }) as unknown as Dispatcher["write"],
-    query: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    query: async () => ({ isSuccess: true, data: {} }),
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
   return { dispatcher, writeCalls };
 }
 
@@ -400,17 +379,16 @@ describe("SecretMintBody tenant-declared money currency", () => {
     const configLanded = new Promise<void>((resolve) => {
       releaseConfig = resolve;
     });
-    const { dispatcher: base } = stubDispatcher({ token: "kpat_secret" });
-    const dispatcher: Dispatcher = {
-      ...base,
-      query: (async () => {
+    const dispatcher = createMockDispatcher({
+      write: async () => ({ isSuccess: true, data: { token: "kpat_secret" } }),
+      query: async () => {
         await configLanded;
         return {
           isSuccess: true,
           data: { [TENANT_CURRENCY_CONFIG_KEY]: { value: "CHF" } },
         };
-      }) as unknown as Dispatcher["query"],
-    };
+      },
+    });
     renderMintScreen(dispatcher, moneyMintScreen);
 
     expect(rtlScreen.queryByTestId("kumiko-screen-loading")).not.toBeNull();

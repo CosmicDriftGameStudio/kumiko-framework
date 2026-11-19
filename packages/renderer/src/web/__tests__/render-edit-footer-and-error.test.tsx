@@ -5,9 +5,15 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import { WriteOnlyTextInput } from "../../components/render-field-write-only.tsx";
-import type { Dispatcher, EditFieldViewModel } from "../../headless/index.ts";
+import type { EditFieldViewModel } from "../../headless/index.ts";
 import { DispatcherProvider, RenderEdit } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockWriteHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const entity = {
   fields: { note: { type: "text" }, title: { type: "text" } },
@@ -45,14 +51,22 @@ describe("RenderEdit footer actions", () => {
     expect(row.textContent).toContain("Park");
     expect(row.firstElementChild).toBe(start);
     expect(start.className).toContain("mr-auto");
+    expect(start.getAttribute("data-footer-align")).toBe("start");
+    expect(screen.getByTestId("render-edit-action-discard").className).toContain("max-sm:flex-1");
   });
 });
 
 describe("RenderEdit formErrorOnTop", () => {
-  const failingWrite = (async () => ({
+  const failingWrite: MockWriteHandler = async () => ({
     isSuccess: false,
-    error: { code: "boom", message: "Could not save", details: {} },
-  })) as unknown as Dispatcher["write"];
+    error: {
+      code: "boom",
+      httpStatus: 500,
+      i18nKey: "errors.internal",
+      message: "Could not save",
+      details: {},
+    },
+  });
 
   async function submitAndGetFormHtml(formErrorOnTop: boolean): Promise<string> {
     render(
@@ -70,7 +84,7 @@ describe("RenderEdit formErrorOnTop", () => {
     const user = userEvent.setup();
     await user.type(screen.getAllByRole("textbox")[0] as HTMLElement, "x");
     await user.click(screen.getByTestId("render-edit-submit"));
-    await waitFor(() => expect(screen.getByTestId("render-edit-form-error")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form-error"));
     return screen.getByTestId("render-edit-form").innerHTML;
   }
 

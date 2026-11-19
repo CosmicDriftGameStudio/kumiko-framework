@@ -14,12 +14,8 @@ import {
   isPiiCiphertext,
   subjectIdToKey,
 } from "../../crypto/index.ts";
-import {
-  asRawClient,
-  buildEntityTable,
-  createEventStoreExecutor,
-  createTenantDb,
-} from "../../db/index.ts";
+import { asRawClient, buildEntityTable, createEventStoreExecutor } from "../../db/index.ts";
+import { createTenantDb } from "../../db/tenant-db.ts";
 import {
   createEntity,
   createRegistry,
@@ -32,6 +28,7 @@ import { generateId } from "../../utils/index.ts";
 import { purgeSearchDocumentsForSubject } from "../purge-subject.ts";
 
 const contactEntity = createEntity({
+  name: "contact",
   table: "read_search_pii_contacts",
   fields: {
     // personal: "self" → subject = entity id. find: "fuzzy" → searchable via derived index.
@@ -46,15 +43,16 @@ const contactEntity = createEntity({
   },
 });
 
-const contactTable = buildEntityTable("contact", contactEntity);
+const contactTable = buildEntityTable(contactEntity);
 
 const contactFeature = defineFeature("search-pii-probe", (r) => {
-  r.entity({ name: "contact", ...contactEntity });
+  r.entity(contactEntity);
 });
 
 // whenAbsent: "self" with a uuid (reference) owner column: only ownerless rows are record-keyed.
 const ownerReference: ReferenceFieldDef = { type: "reference", entity: "user" };
 const slipEntity = createEntity({
+  name: "slip",
   table: "read_search_pii_slips",
   fields: {
     ownerId: ownerReference,
@@ -65,19 +63,20 @@ const slipEntity = createEntity({
     }),
   },
 });
-const slipTable = buildEntityTable("slip", slipEntity);
+const slipTable = buildEntityTable(slipEntity);
 const slipFeature = defineFeature("search-pii-slip", (r) => {
-  r.entity({ name: "slip", ...slipEntity });
+  r.entity(slipEntity);
 });
 
 const ghostSearchEntity = createEntity({
+  name: "ghost",
   table: "read_search_pii_ghosts_missing",
   fields: {
     label: createTextField({ required: true, maxLength: 100, personal: "self", find: "fuzzy" }),
   },
 });
 const ghostSearchFeature = defineFeature("search-pii-ghost", (r) => {
-  r.entity({ name: "ghost", ...ghostSearchEntity });
+  r.entity(ghostSearchEntity);
 });
 
 let stack: TestStack;

@@ -26,21 +26,23 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 
 const baseEntity = createEntity({
+  name: "base-thing",
   fields: { title: createTextField({ personal: false, reason: "test_fixture", required: true }) },
   table: "phase2_base_thing",
 });
 
 const noteEntity = createEntity({
+  name: "note",
   fields: { title: createTextField({ personal: false, reason: "test_fixture", required: true }) },
   table: "phase2_note",
 });
 
 const baseFeature: FeatureDefinition = defineFeature("phase2-base", (r) => {
-  r.entity({ name: "base-thing", ...baseEntity });
+  r.entity(baseEntity);
 });
 
 const notesFeature: FeatureDefinition = defineFeature("phase2-notes", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
 });
 
 const dbName = `kumiko_phase2_${generateId().slice(-8)}`;

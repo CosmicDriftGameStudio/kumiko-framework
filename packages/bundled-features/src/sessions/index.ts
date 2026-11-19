@@ -7,14 +7,10 @@ export {
   SessionHandlers,
   SessionQueries,
 } from "./constants.ts";
-export type { BindAutoRevokeOnPasswordChange, SessionsFeatureOptions } from "./feature.ts";
-export { bindAutoRevokeFromFeature, createSessionsFeature } from "./feature.ts";
+export type { SessionsFeatureOptions } from "./feature.ts";
+export { createSessionsFeature } from "./feature.ts";
 export { userSessionEntity, userSessionTable } from "./schema/user-session.ts";
-export type {
-  SessionCallbacks,
-  SessionCallbacksOptions,
-  SessionMassRevoker,
-} from "./session-callbacks.ts";
+export type { SessionCallbacks, SessionCallbacksOptions } from "./session-callbacks.ts";
 export { createSessionCallbacks } from "./session-callbacks.ts";
 export type { SessionRevokedPayload } from "./session-revoked-event.ts";
 export {

@@ -94,7 +94,7 @@ describe("boot-seed contract", () => {
     expect(profileRow.profileKey).toBe("swiss-dsg");
     expect(profileRow.version).toBe(2);
 
-    const events = await selectMany(stack.db, eventsTable, {
+    const events = await selectMany<{ type: string }>(stack.db, eventsTable, {
       aggregateId: profileRow.id,
     });
     expect(events).toHaveLength(2);

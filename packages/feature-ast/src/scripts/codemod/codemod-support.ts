@@ -1,12 +1,6 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import {
-  type ImportDeclaration,
-  type ImportSpecifier,
-  Node,
-  type SourceFile,
-  SyntaxKind,
-} from "ts-morph";
+import { Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { collectSourceFiles } from "./collect-source-files.ts";
 
 export interface CodemodSite {
@@ -25,35 +19,6 @@ export type SiteLists = { rewrites: CodemodSite[]; manual: CodemodSite[] };
 
 export const SCRIPT_EXTENSION = /\.(js|ts|tsx)$/;
 
-// A relative specifier below `<root><marker>...` is a module of that package's own source tree.
-export function sourceRelativeModule(
-  specifier: string,
-  filePath: string,
-  sourceMarker: string,
-): { readonly root: string; readonly module: string; readonly extension: string } | undefined {
-  if (!specifier.startsWith(".")) return undefined;
-  const resolved = resolve(dirname(filePath), specifier);
-  const extension = SCRIPT_EXTENSION.exec(resolved)?.[0] ?? "";
-  const stripped = resolved.slice(0, resolved.length - extension.length);
-  const markerIndex = stripped.lastIndexOf(sourceMarker);
-  if (markerIndex === -1) return undefined;
-  return {
-    root: stripped.slice(0, markerIndex + sourceMarker.length),
-    module: stripped.slice(markerIndex + sourceMarker.length),
-    extension,
-  };
-}
-
-export function relativeSpecifier(
-  fromFile: string,
-  root: string,
-  module: string,
-  extension: string,
-): string {
-  const path = relative(dirname(fromFile), join(root, module)).split("\\").join("/");
-  return `${path.startsWith(".") ? path : `./${path}`}${extension}`;
-}
-
 function stringLiteralOf(node: Node | undefined): Node | undefined {
   return node !== undefined && Node.isStringLiteral(node) ? node : undefined;
 }
@@ -62,24 +27,6 @@ export interface TextEdit {
   readonly start: number;
   readonly end: number;
   readonly text: string;
-}
-
-export function detectIndent(source: string): string {
-  return /^([ \t]+)"/m.exec(source)?.[1] ?? "  ";
-}
-
-export function isStringRecord(value: unknown): value is Record<string, string> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Object.values(value).every((entry) => typeof entry === "string")
-  );
-}
-
-export function isSortedKeys(record: Record<string, string>): boolean {
-  const keys = Object.keys(record);
-  return keys.every((key, index) => index === 0 || (keys[index - 1] ?? "") <= key);
 }
 
 export function applyEdits(source: string, edits: readonly TextEdit[]): string {
@@ -111,78 +58,6 @@ export function moduleSpecifierLiterals(sourceFile: SourceFile): Node[] {
     if (isModuleLoad && literal !== undefined) literals.push(literal);
   }
   return literals;
-}
-
-export function isPlainNamedImport(declaration: Node): boolean {
-  return (
-    Node.isImportDeclaration(declaration) &&
-    declaration.getNamespaceImport() === undefined &&
-    declaration.getDefaultImport() === undefined
-  );
-}
-
-export function hasImportBinding(sourceFile: SourceFile, localName: string): boolean {
-  return sourceFile
-    .getImportDeclarations()
-    .some(
-      (declaration) =>
-        declaration.getDefaultImport()?.getText() === localName ||
-        declaration.getNamespaceImport()?.getText() === localName ||
-        declaration
-          .getNamedImports()
-          .some((named) => (named.getAliasNode()?.getText() ?? named.getName()) === localName),
-    );
-}
-
-// remove() would drop leading comments with the declaration (e.g. a file-level lint marker that
-// has to stay attached to the next statement), so only the declaration's own line goes.
-function removeDeclarationLine(
-  sourceFile: SourceFile,
-  declaration: { getStart(): number; getEnd(): number },
-): void {
-  const text = sourceFile.getFullText();
-  const end = declaration.getEnd();
-  const lineEnd = text[end] === "\n" ? end + 1 : end;
-  sourceFile.replaceWithText(text.slice(0, declaration.getStart()) + text.slice(lineEnd));
-}
-
-export function removeNamedImport(
-  sourceFile: SourceFile,
-  declaration: ImportDeclaration,
-  named: ImportSpecifier,
-): void {
-  if (declaration.getNamedImports().length > 1) {
-    named.remove();
-  } else {
-    removeDeclarationLine(sourceFile, declaration);
-  }
-}
-
-export function ensureNamedImport(
-  sourceFile: SourceFile,
-  specifier: string,
-  name: string,
-  isTypeOnly: boolean,
-): void {
-  const declarations = sourceFile.getImportDeclarations();
-  const target = declarations.find(
-    (declaration) =>
-      declaration.getModuleSpecifierValue() === specifier &&
-      declaration.isTypeOnly() === isTypeOnly &&
-      isPlainNamedImport(declaration) &&
-      declaration.getNamedImports().length > 0,
-  );
-  if (target === undefined) {
-    sourceFile.addImportDeclaration({
-      moduleSpecifier: specifier,
-      namedImports: [name],
-      isTypeOnly,
-    });
-  } else if (
-    !target.getNamedImports().some((named) => named.getName() === name && !named.getAliasNode())
-  ) {
-    target.addNamedImport(name);
-  }
 }
 
 function findBiomeBinary(startDir: string): string | undefined {

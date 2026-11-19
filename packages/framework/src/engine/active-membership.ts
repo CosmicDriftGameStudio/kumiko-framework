@@ -18,7 +18,7 @@ export type PrincipalProfile = {
   readonly locale?: string;
 };
 
-// Registered via r.useExtension(EXT_PRINCIPAL_STATUS, "user", principalStatusPlugin).
+// Registered via r.applyExtension({ name: EXT_PRINCIPAL_STATUS, entity: "user", ...principalStatusPlugin }).
 export type PrincipalStatusPlugin = {
   readonly resolveStatus: (
     userId: string,

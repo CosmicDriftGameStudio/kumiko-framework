@@ -99,14 +99,19 @@ import type { SourceLocation } from "./source-location.ts";
 // Carries `definition.description` transitively (no dedicated field here):
 // that prose feeds the AI-agent manifest output. An entity without it still
 // works, but the agent has nothing to say about it in the tool catalogue.
+// `entityName` is the single source of the name; the definition never repeats it.
+export type EntityPatternDefinition = Omit<EntityDefinition, "name">;
+
 export type EntityPattern = {
   readonly kind: "entity";
   readonly source: SourceLocation;
   readonly entityName: string;
-  readonly definition: EntityDefinition;
+  readonly definition: EntityPatternDefinition;
   // Table identifier from `{ name, ...ref, backingTable }`; only kept for the spread form, where
   // the definition is an opaque reference and the table would otherwise be lost on re-render.
   readonly backingTable?: RawRefSentinel;
+  // Set for `{ ...ref, name }`: the literal name replaces the referenced entity's own name.
+  readonly overridesName?: true;
 };
 
 // `r.relation(entity, relationName, definition)` — attaches a named
@@ -194,13 +199,6 @@ export type OptionalRequiresPattern = {
 // operations. Marker call — no arguments.
 export type SystemScopePattern = {
   readonly kind: "systemScope";
-  readonly source: SourceLocation;
-};
-
-// `r.adoptsBundledLists()` — opts the feature's list screens into the app-wide
-// `bundledLists` table block. Marker call — no arguments.
-export type AdoptsBundledListsPattern = {
-  readonly kind: "adoptsBundledLists";
   readonly source: SourceLocation;
 };
 
@@ -306,7 +304,7 @@ export type ReadsConfigPattern = {
   readonly qualifiedKeys: readonly string[];
 };
 
-// `r.useExtension(extensionName, entity, options?)` — opts an entity into a
+// `r.applyExtension({ name, entity, ...options })` — opts an entity into a
 // registrar extension declared via `r.extendsRegistrar`: runs its
 // `onRegister`, merges its extra schema fields, and installs its entity
 // hooks at registry build time. The `options` bag is passed verbatim to
@@ -317,7 +315,7 @@ export type UseExtensionPattern = {
   readonly source: SourceLocation;
   readonly extensionName: string;
   // Set only when `extensionName` was authored as an identifier resolving
-  // to a string constant (`r.useExtension(EXT_TENANT_DATA, ...)`) rather
+  // to a string constant (`r.applyExtension({ name: EXT_TENANT_DATA, ... })`) rather
   // than a literal — the renderer emits this verbatim instead of
   // `JSON.stringify(extensionName)` so the round-trip doesn't inline the
   // reference. A caller constructing an edited pattern must omit
@@ -610,7 +608,7 @@ export type DefineEventPattern = {
 
 // `r.extendsRegistrar(extensionName, def)` — declares a named, globally
 // unique extension point that other features opt into per entity via
-// `r.useExtension`. The def can contribute `onRegister`, extra schema
+// `r.applyExtension`. The def can contribute `onRegister`, extra schema
 // fields (`extendSchema`), and entity hooks; wiring happens at registry
 // build time.
 export type ExtendsRegistrarPattern = {
@@ -654,51 +652,6 @@ export type EnvSchemaPattern = {
   readonly schemaBody: SourceLocation;
 };
 
-/** Live-editable policy defaults for an AI pipeline step instance. */
-export type AiStepPolicy = {
-  readonly enabled: boolean;
-  readonly providerId?: string;
-  readonly model?: string;
-  readonly params: Record<string, unknown>;
-};
-
-/** Preserves an unresolvable argument reference across parse → render. */
-export type AiStepOpaqueArgs = {
-  readonly __raw: string;
-};
-
-type AiStepCommonPatternFields = {
-  readonly source: SourceLocation;
-  /** Whole-args reference when the spec is not an inline/same-file object. */
-  readonly argsSource?: AiStepOpaqueArgs;
-  readonly stepKey?: string | AiStepOpaqueArgs;
-  readonly promptKey?: string | AiStepOpaqueArgs;
-  readonly promptFallback?: string | AiStepOpaqueArgs;
-  readonly defaults?: AiStepPolicy | AiStepOpaqueArgs;
-  readonly paramsSchemaSource?: SourceLocation;
-};
-
-// `aiGenerateStep({...})` inside `stepsPipeline` — Tier-3 freeform generation.
-export type AiGeneratePattern = AiStepCommonPatternFields & {
-  readonly kind: "ai.generate";
-  readonly inputBody?: SourceLocation;
-};
-
-// `aiExtractStep({...})` — schema-driven structured extraction.
-export type AiExtractPattern = AiStepCommonPatternFields & {
-  readonly kind: "ai.extract";
-  readonly outputSchemaSource?: SourceLocation;
-  readonly instructionsBody?: SourceLocation;
-  readonly documentBody?: SourceLocation;
-};
-
-// `aiClassifyStep({...})` — action-catalogue classification.
-export type AiClassifyPattern = AiStepCommonPatternFields & {
-  readonly kind: "ai.classify";
-  readonly actions?: readonly { readonly type: string; readonly description: string }[];
-  readonly inputBody?: SourceLocation;
-};
-
 // Catch-all — r.* calls the visitor doesn't recognise. Designer renders
 // "unknown call (cannot edit)", AI patcher leaves them unchanged. When
 // an UnknownPattern shows up in the wild it's a signal that a new r.*
@@ -725,7 +678,6 @@ export type FeaturePattern =
   | RequiresPattern
   | OptionalRequiresPattern
   | SystemScopePattern
-  | AdoptsBundledListsPattern
   | ToggleablePattern
   | DescribePattern
   | UiHintsPattern
@@ -754,9 +706,6 @@ export type FeaturePattern =
   | DefineEventPattern
   | ExtendsRegistrarPattern
   | EnvSchemaPattern
-  | AiGeneratePattern
-  | AiExtractPattern
-  | AiClassifyPattern
   // Catch-all
   | UnknownPattern;
 
@@ -815,14 +764,10 @@ const EDITABILITY_BY_KIND: Readonly<Record<FeaturePatternKind, Editability>> = {
   projection: "mixed",
   multiStreamProjection: "mixed",
   defineEvent: "mixed",
-  "ai.generate": "mixed",
-  "ai.extract": "mixed",
-  "ai.classify": "mixed",
   authClaims: "opaque",
   extendsRegistrar: "opaque",
   envSchema: "opaque",
   uiHints: "opaque",
-  adoptsBundledLists: "opaque",
   unknown: "opaque",
 };
 

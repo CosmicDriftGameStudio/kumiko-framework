@@ -15,7 +15,7 @@ describe("preload/dom", () => {
 
   test("testing-library/react can render into the registered DOM", () => {
     render(<button type="button">preload works</button>);
-    expect(screen.getByRole("button", { name: "preload works" })).toBeTruthy();
+    screen.getByRole("button", { name: "preload works" });
   });
 
   // Printing a happy-dom node used to walk ownerDocument plus every React fiber

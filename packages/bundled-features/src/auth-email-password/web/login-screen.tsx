@@ -156,10 +156,11 @@ function LoginScreenBody({
     setSubmitting(true);
     setError(null);
     setResendStatus({ kind: "idle" });
+    const keepCurrentPage = session.inputKeptOnSessionEnd === true;
     const res = await session.login({ email, password });
     setSubmitting(false);
     if (res.kind === "success") {
-      followNextOrLandingAfterLogin(res.data.landingPath);
+      if (!keepCurrentPage) followNextOrLandingAfterLogin(res.data.landingPath);
       return;
     }
     if (res.kind === "mfa-challenge") {

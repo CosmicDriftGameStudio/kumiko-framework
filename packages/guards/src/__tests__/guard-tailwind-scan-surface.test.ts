@@ -187,13 +187,13 @@ export function X() { return <div className={cn("rogue-token")} />; }`,
     expect(warnings).toHaveLength(0);
   });
 
-  test("without a baseline file, a flagged token stays warning-only", () => {
+  test("without a baseline file, a flagged token fails as unfrozen", () => {
     const { warnings, violations } = runFor(
       'export function X() { return <div className="rogue-token" />; }',
       'export const x = "";',
     );
     expect(warnings.some((w) => w.includes('"rogue-token"'))).toBe(true);
-    expect(violations).toBe(0);
+    expect(violations).toBeGreaterThan(0);
   });
 
   test("with a baseline, a new flagged token fails as a regression", () => {

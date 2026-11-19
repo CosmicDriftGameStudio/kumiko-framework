@@ -33,7 +33,7 @@ import { ConfigHandlers } from "../../config/web/constants.ts";
 import { capCounterEntity } from "../entity.ts";
 import { createStockCapGuard } from "../stock-cap-guard.ts";
 
-const { executor, table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
+const { executor, table: capCounterTable } = createEntityExecutor(capCounterEntity);
 
 let stack: TestStack;
 let db: DbConnection;

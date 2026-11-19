@@ -21,6 +21,7 @@ const OPEN_ACCESS = {
 } as const;
 
 const ticketEntity = createEntity({
+  name: "ticket",
   webhookEvents: true,
   fields: {
     title: createTextField({ required: true, personal: false, reason: "technical_reference" }),
@@ -31,8 +32,8 @@ export const FIXTURE_RATE_LIMIT = { maxRequests: 30, windowMs: 10_000 } as const
 
 export function buildTicketingFeature(): FeatureDefinition {
   return defineFeature("ticketing", (r) => {
-    r.entity({ name: "ticket", ...ticketEntity });
-    r.crud("ticket", ticketEntity, {
+    r.entity(ticketEntity);
+    r.crud(ticketEntity, {
       write: { access: OPEN_ACCESS },
       read: { access: OPEN_ACCESS },
     });

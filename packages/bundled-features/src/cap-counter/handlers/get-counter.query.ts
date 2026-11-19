@@ -1,8 +1,8 @@
-import { createEntityExecutor, type QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { createEntityExecutor, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { capCounterEntity } from "../entity.ts";
 
-const { table } = createEntityExecutor("cap-counter", capCounterEntity);
+const { table } = createEntityExecutor(capCounterEntity);
 
 // get-counter — return the current counter row for (calling tenant,
 // capName, periodStartIso). Returns null if no increment has happened
@@ -16,14 +16,14 @@ const getCounterSchema = z.object({
   periodStartIso: z.string().min(1),
 });
 
-export const getCounterQuery: QueryHandlerDef = {
+export const getCounterQuery = defineQueryHandler({
   name: "get-counter",
   description:
     "Returns the calendar-period usage counter row of the caller's tenant for one cap name and period start, or null when nothing was counted yet; use it to show remaining quota.",
   schema: getCounterSchema,
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   handler: async (query, ctx) => {
-    const { capName, periodStartIso } = query.payload as z.infer<typeof getCounterSchema>; // @cast-boundary engine-payload
+    const { capName, periodStartIso } = query.payload;
 
     // ctx.db is tenant-scoped; filter by capName + periodStart explicitly.
     const rows = await ctx.db.selectMany(
@@ -34,4 +34,4 @@ export const getCounterQuery: QueryHandlerDef = {
 
     return rows[0] ?? null;
   },
-};
+});

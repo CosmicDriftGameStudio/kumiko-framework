@@ -6,9 +6,9 @@
 // same conditional UPDATE that spends the anchor, so a replayed or raced
 // token can never re-target a row that already moved.
 //
-// The subject is NOT secret (row-bound-grant.ts) — a grant on a run exposes
-// its row id to whoever holds the token. That is only safe because this
-// token never leaves the anonymous visitor's own browser: it must not be
+// Subject and anchor are NOT secret (row-bound-grant.ts) — a grant on a run
+// exposes its row id and the source tenant id to whoever holds the token.
+// That is only safe because this token never leaves the anonymous visitor's own browser: it must not be
 // put in a URL, logged, or emailed. The run's own photos may show plates —
 // the grant must stay exactly where the anonymous flow minted it.
 

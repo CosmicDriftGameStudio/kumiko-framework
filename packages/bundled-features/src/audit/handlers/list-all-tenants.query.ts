@@ -12,7 +12,7 @@ import {
   listAuditEvents,
   technicalEntriesFilterSchema,
 } from "./audit-events.ts";
-import { requireAuditSystemDb } from "./audit-system-db.ts";
+import { createAuditPayloadFilter } from "./audit-payload-visibility.ts";
 import { allTenantsCondition, assertMayReadAllTenants } from "./resolve-audit-tenant.ts";
 
 const MAX_TENANT_FILTER_IDS = 100;
@@ -36,6 +36,7 @@ export const listAllTenantsQuery = defineQueryHandler({
     .object({ ...auditListPayloadShape, filters: auditFiltersSchema.optional() })
     .refine(AUDIT_DATE_RANGE_CHECK.isValid, AUDIT_DATE_RANGE_CHECK.params),
   access: { roles: access.systemAdmin },
+  systemScope: true,
   handler: async (query, ctx) => {
     assertMayReadAllTenants(query.user);
     const p = query.payload;
@@ -46,10 +47,16 @@ export const listAllTenantsQuery = defineQueryHandler({
       { ...p, includeTechnical: includesTechnicalEntries(p.filters) },
       direction,
     );
-    const db = requireAuditSystemDb(
-      ctx.systemDb,
-      "audit:query:list-all-tenants",
-    ).acknowledgeCrossTenant("SystemAdmin reads the audit trail of every tenant");
-    return listAuditEvents(db, where, p, direction, createEntityNounKeyResolver(ctx.registry));
+    const db = ctx.systemDb.acknowledgeCrossTenant(
+      "SystemAdmin reads the audit trail of every tenant",
+    );
+    return listAuditEvents(
+      db,
+      where,
+      p,
+      direction,
+      createEntityNounKeyResolver(ctx.registry),
+      createAuditPayloadFilter(ctx.registry, query.user),
+    );
   },
 });

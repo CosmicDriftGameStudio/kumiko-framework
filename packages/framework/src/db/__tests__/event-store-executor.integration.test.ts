@@ -16,9 +16,7 @@ import { createBooleanField, createEntity, createTextField } from "../../engine/
 
 import { FrameworkReasons } from "../../errors/index.ts";
 import { loadEventsAfterVersion } from "../../event-store/event-store.ts";
-import { append } from "../../event-store/index.ts";
 
-import type { EntityCache } from "../../pipeline/entity-cache.ts";
 import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
 import { applyEntityEvent } from "../apply-entity-event.ts";
 import { resetEntityFieldEncryptionCacheForTests } from "../entity-field-encryption.ts";
@@ -28,6 +26,7 @@ import { buildEntityTable } from "../table-builder.ts";
 import { createTenantDb, type TenantDb, withExecutorManagedWrites } from "../tenant-db.ts";
 
 const entity = createEntity({
+  name: "esExecUser",
   table: "read_es_exec_users",
   fields: {
     email: createTextField({
@@ -41,7 +40,7 @@ const entity = createEntity({
   },
   softDelete: true,
 });
-const table = buildEntityTable("esExecUser", entity);
+const table = buildEntityTable(entity);
 
 let testDb: TestDb;
 let tdb: TenantDb;
@@ -144,6 +143,7 @@ describe("event-store-executor", () => {
 // field entirely.
 const SENSITIVE_TEST_KEY = Buffer.from("s3nS!t1vE.kP9xQ2@wN!vL$hR5yT8eU0").toString("base64");
 const sensitiveEntity = createEntity({
+  name: "esExecSensitive",
   table: "read_es_exec_sensitive",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -162,13 +162,15 @@ const sensitiveEntity = createEntity({
   },
   softDelete: true,
 });
-const sensitiveTable = buildEntityTable("esExecSensitive", sensitiveEntity);
+const sensitiveTable = buildEntityTable(sensitiveEntity);
 
 describe("event-store-executor — sensitive fields", () => {
   const crud = createEventStoreExecutor(sensitiveTable, sensitiveEntity, {
     entityName: "esExecSensitive",
     encryption: createTestEnvelopeCipher(SENSITIVE_TEST_KEY),
   });
+  // The lean-previous checks need a plain text column, which only the esExecUser entity has.
+  const userCrud = createEventStoreExecutor(table, entity, { entityName: "esExecUser" });
 
   beforeAll(async () => {
     await unsafeCreateEntityTable(testDb.db, sensitiveEntity, "esExecSensitive");
@@ -225,7 +227,7 @@ describe("event-store-executor — sensitive fields", () => {
     expect(result.data.event.payload["apiToken"]).toBeUndefined();
   });
 
-  test("update event carries ciphertext in BOTH changes and previous", async () => {
+  test("update event carries ciphertext in changes and in previous for the changed keys", async () => {
     const created = await crud.create(
       { email: "u@test.de", passwordHash: "old-hash", apiToken: "old-tok" },
       adminUser,
@@ -253,12 +255,11 @@ describe("event-store-executor — sensitive fields", () => {
     expect(event.payload.changes.email).toBe("u2@test.de");
     expect(event.payload.changes.passwordHash).toBeDefined();
     expect(event.payload.changes.passwordHash).not.toBe("new-hash");
-    // Previous: email plaintext, passwordHash + apiToken ciphertext.
+    // Previous: the old values of the changed keys only — email plaintext, passwordHash ciphertext.
     expect(event.payload.previous.email).toBe("u@test.de");
     expect(event.payload.previous.passwordHash).toBeDefined();
     expect(event.payload.previous.passwordHash).not.toBe("old-hash");
-    expect(event.payload.previous.apiToken).toBeDefined();
-    expect(event.payload.previous.apiToken).not.toBe("old-tok");
+    expect(event.payload.previous).not.toHaveProperty("apiToken");
 
     // Caller-facing event echo stays stripped.
     if (!result.data.event) throw new Error("no event echo");
@@ -271,7 +272,52 @@ describe("event-store-executor — sensitive fields", () => {
     expect(echoPayload.previous["apiToken"]).toBeUndefined();
   });
 
-  test("delete event carries ciphertext in previous", async () => {
+  test("update leaves an unchanged long text out of the stored previous", async () => {
+    const longText = "long-unchanged-text ".repeat(200);
+    const created = await userCrud.create(
+      { email: "long@test.de", firstName: longText },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const result = await userCrud.update(
+      { id: created.data.id, version: 1, changes: { email: "long2@test.de" } },
+      adminUser,
+      tdb,
+    );
+    if (!result.isSuccess) throw new Error("update failed");
+
+    const event = await lastEvent<{ previous: Record<string, unknown> }>();
+    expect(event.type).toBe("esExecUser.updated");
+    expect(event.payload.previous).toEqual({ email: "long@test.de" });
+    expect(result.data.previous["firstName"]).toBe(longText);
+  });
+
+  test("update stores the old value of a moved key in previous so a projection can undo it", async () => {
+    const created = await userCrud.create(
+      { email: "move@test.de", firstName: "old-parent" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const result = await userCrud.update(
+      { id: created.data.id, version: 1, changes: { firstName: "new-parent" } },
+      adminUser,
+      tdb,
+    );
+    if (!result.isSuccess) throw new Error("update failed");
+
+    const event = await lastEvent<{
+      changes: Record<string, unknown>;
+      previous: Record<string, unknown>;
+    }>();
+    expect(event.payload.changes).toEqual({ firstName: "new-parent" });
+    expect(event.payload.previous).toEqual({ firstName: "old-parent" });
+  });
+
+  test("delete event keeps plaintext columns and drops sensitive ones from previous", async () => {
     const created = await crud.create(
       { email: "d@test.de", passwordHash: "pw", apiToken: "tk" },
       adminUser,
@@ -287,10 +333,9 @@ describe("event-store-executor — sensitive fields", () => {
     const event = await lastEvent<SensitivePrevious>();
     expect(event.type).toBe("esExecSensitive.deleted");
     expect(event.payload.previous.email).toBe("d@test.de");
-    expect(event.payload.previous.passwordHash).toBeDefined();
-    expect(event.payload.previous.passwordHash).not.toBe("pw");
-    expect(event.payload.previous.apiToken).toBeDefined();
-    expect(event.payload.previous.apiToken).not.toBe("tk");
+    expect(event.payload.previous).not.toHaveProperty("passwordHash");
+    expect(event.payload.previous).not.toHaveProperty("apiToken");
+    expect(event.payload.previous).toMatchObject({ id: created.data.id });
   });
 
   test("restore event carries ciphertext in previous", async () => {
@@ -317,42 +362,8 @@ describe("event-store-executor — sensitive fields", () => {
   });
 });
 
-describe("event-store-executor — detail returns the stream version", () => {
+describe("event-store-executor — detail and list read one consistent row", () => {
   const crud = createEventStoreExecutor(table, entity, { entityName: "esExecUser" });
-
-  // Lifecycle writes via ctx.events.append advance the stream without changing row.version.
-  // Returning the stale row version from detail would make every CRUD update built on
-  // entityEdit (which uses detail.version for optimistic locking) fail with
-  // version_conflict. For example, incident:open can advance the stream to v2 while
-  // the row remains at v1, preventing incident-edit from saving.
-  test("after a ctx.events.append-like stream bump: detail.version == Stream, update succeeds", async () => {
-    const created = await crud.create({ email: "stream@test.de" }, adminUser, tdb);
-    expect(created.isSuccess).toBe(true);
-    if (!created.isSuccess) return;
-    const id = created.data.id;
-
-    // Hand-emitted event on the same aggregate, as in incident:post-update.
-    await append(testDb.db, {
-      aggregateId: String(id),
-      aggregateType: "esExecUser",
-      tenantId: adminUser.tenantId,
-      expectedVersion: 1,
-      type: "esExecUser.lifecycle-bumped",
-      payload: { note: "stream moved past the row" },
-      metadata: { userId: String(adminUser.id) },
-    });
-
-    const detail = await crud.detail({ id }, adminUser, tdb);
-    expect(detail).not.toBeNull();
-    expect(detail?.["version"]).toBe(2);
-
-    const updated = await crud.update(
-      { id, version: 2, changes: { firstName: "After" } },
-      adminUser,
-      tdb,
-    );
-    expect(updated.isSuccess).toBe(true);
-  });
 
   // A's detail() reads row and stream version; B commits an update in between
   // the two reads of the old implementation. Handing out (old row, new
@@ -402,26 +413,6 @@ describe("event-store-executor — detail returns the stream version", () => {
     expect(after?.["firstName"]).toBe("B");
   });
 
-  test("list after a stream bump returns the stream version", async () => {
-    const created = await crud.create({ email: "list-stream@test.de" }, adminUser, tdb);
-    expect(created.isSuccess).toBe(true);
-    if (!created.isSuccess) return;
-    const id = created.data.id;
-    await append(testDb.db, {
-      aggregateId: String(id),
-      aggregateType: "esExecUser",
-      tenantId: adminUser.tenantId,
-      expectedVersion: 1,
-      type: "esExecUser.lifecycle-bumped",
-      payload: { note: "stream moved past the row" },
-      metadata: { userId: String(adminUser.id) },
-    });
-
-    const listed = await crud.list({ limit: 10 }, adminUser, tdb);
-
-    expect(listed.rows.map((r) => [r["id"], r["version"]])).toEqual([[id, 2]]);
-  });
-
   test("concurrent update during list(): row and version come from the same snapshot", async () => {
     const created = await crud.create(
       { email: "list-race@test.de", firstName: "orig" },
@@ -462,15 +453,17 @@ describe("event-store-executor — detail returns the stream version", () => {
 
 const ENCRYPTION_TEST_KEY = Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64");
 const encryptedEntity = createEntity({
+  name: "esExecEncrypted",
   table: "read_es_exec_encrypted",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     secretNote: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
   },
 });
-const encryptedTable = buildEntityTable("esExecEncrypted", encryptedEntity);
+const encryptedTable = buildEntityTable(encryptedEntity);
 
 const encryptedSoftDeleteEntity = createEntity({
+  name: "esExecEncSoft",
   table: "read_es_exec_enc_soft",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -478,7 +471,7 @@ const encryptedSoftDeleteEntity = createEntity({
   },
   softDelete: true,
 });
-const encryptedSoftDeleteTable = buildEntityTable("esExecEncSoft", encryptedSoftDeleteEntity);
+const encryptedSoftDeleteTable = buildEntityTable(encryptedSoftDeleteEntity);
 
 describe("event-store-executor — encrypted fields", () => {
   const encryption = createTestEnvelopeCipher(ENCRYPTION_TEST_KEY);
@@ -621,7 +614,7 @@ describe("event-store-executor — encrypted fields", () => {
     expect(rows[0]?.payload.changes).not.toHaveProperty("secretNote");
   });
 
-  test("update's persisted event carries ciphertext (not plaintext) for an encrypted field in `previous`", async () => {
+  test("update's persisted event carries ciphertext (not plaintext) for a changed encrypted field in `previous`", async () => {
     // Regression: `previous` in the STORED event came from loadById(), which
     // decrypts — appending it unchanged would put the plaintext of an
     // `encrypted` field into the immutable kumiko_events log even though the
@@ -633,10 +626,8 @@ describe("event-store-executor — encrypted fields", () => {
     );
     if (!created.isSuccess) throw new Error("create failed");
 
-    // Change an UNRELATED field — `secretNote` still rides along in `previous`
-    // unchanged, at its pre-update (decrypted) value.
     const updated = await crud.update(
-      { id: created.data.id, version: 1, changes: { email: "prev-enc-2@test.de" } },
+      { id: created.data.id, version: 1, changes: { secretNote: "new-plaintext-note" } },
       adminUser,
       tdb,
     );
@@ -650,7 +641,28 @@ describe("event-store-executor — encrypted fields", () => {
     expect(storedPrevious).not.toBe("old-plaintext-note");
   });
 
-  test("delete's persisted event carries ciphertext (not plaintext) for an encrypted field in `previous`", async () => {
+  test("update of an unrelated field leaves the encrypted field out of previous", async () => {
+    const created = await crud.create(
+      { email: "prev-unrelated@test.de", secretNote: "kept-note" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const updated = await crud.update(
+      { id: created.data.id, version: 1, changes: { email: "prev-unrelated-2@test.de" } },
+      adminUser,
+      tdb,
+    );
+    if (!updated.isSuccess) throw new Error("update failed");
+
+    const rows = (await asRawClient(testDb.db).unsafe(
+      `SELECT payload FROM kumiko_events WHERE type = 'esExecEncrypted.updated' ORDER BY id DESC LIMIT 1`,
+    )) as Array<{ payload: { previous?: Record<string, unknown> } }>;
+    expect(rows[0]?.payload.previous).not.toHaveProperty("secretNote");
+  });
+
+  test("delete's persisted event leaves an encrypted field out of `previous`", async () => {
     const created = await crud.create(
       { email: "del-enc@test.de", secretNote: "delete-plaintext-note" },
       adminUser,
@@ -663,10 +675,11 @@ describe("event-store-executor — encrypted fields", () => {
 
     const rows = (await asRawClient(testDb.db).unsafe(
       `SELECT payload FROM kumiko_events WHERE type = 'esExecEncrypted.deleted' ORDER BY id DESC LIMIT 1`,
-    )) as Array<{ payload: { previous?: { secretNote?: string } } }>;
-    const storedPrevious = rows[0]?.payload.previous?.secretNote;
-    expect(storedPrevious).toBeDefined();
-    expect(storedPrevious).not.toBe("delete-plaintext-note");
+    )) as Array<{ payload: { previous?: Record<string, unknown> } }>;
+    expect(rows[0]?.payload.previous).toBeDefined();
+    expect(rows[0]?.payload.previous?.["email"]).toBe("del-enc@test.de");
+    expect(rows[0]?.payload.previous).not.toHaveProperty("secretNote");
+    expect(JSON.stringify(rows[0]?.payload)).not.toContain("delete-plaintext-note");
   });
 
   test("restore returns plaintext (data + previous) for an encrypted field, not ciphertext (725/2)", async () => {
@@ -690,261 +703,21 @@ describe("event-store-executor — encrypted fields", () => {
     expect(restored.data.data["secretNote"]).toBe("restore-plaintext-note");
     expect(restored.data.previous?.["secretNote"]).toBe("restore-plaintext-note");
   });
-});
 
-describe("event-store-executor — undecryptable encrypted field with entity cache", () => {
-  const encryption = createTestEnvelopeCipher(ENCRYPTION_TEST_KEY);
-  const store = new Map<string, Record<string, unknown>>();
-  const entityCache: EntityCache = {
-    get: async (tenantId, name, id) => store.get(`${tenantId}:${name}:${id}`) ?? null,
-    mget: async () => new Map(),
-    set: async (tenantId, name, id, data) => {
-      store.set(`${tenantId}:${name}:${id}`, data);
-    },
-    mset: async (tenantId, name, entries) => {
-      for (const { id, data } of entries) store.set(`${tenantId}:${name}:${id}`, data);
-    },
-    del: async (tenantId, name, id) => {
-      store.delete(`${tenantId}:${name}:${id}`);
-    },
-  };
-  const cachedCrud = createEventStoreExecutor(encryptedTable, encryptedEntity, {
-    entityName: "esExecEncrypted",
-    encryption,
-    entityCache,
-  });
-
-  beforeAll(async () => {
-    resetEntityFieldEncryptionCacheForTests();
-    await unsafeCreateEntityTable(testDb.db, encryptedEntity, "esExecEncrypted");
-  });
-
-  beforeEach(async () => {
-    store.clear();
-    await asRawClient(testDb.db).unsafe(
-      `TRUNCATE kumiko_events, read_es_exec_encrypted RESTART IDENTITY CASCADE`,
-    );
-  });
-
-  test("a degraded row is never cached; after repair detail serves the real value", async () => {
-    const created = await cachedCrud.create(
-      { email: "degraded@test.de", secretNote: "real-note" },
+  // list decrypted BEFORE the snake→camel coercion, so any multi-word
+  // encrypted/pii field (secret_note vs secretNote) came back as raw
+  // ciphertext to the caller.
+  test("list() returns plaintext for camelCase encrypted fields", async () => {
+    const created = await crud.create(
+      { email: "list-enc@test.de", secretNote: "list-plaintext-note" },
       adminUser,
       tdb,
     );
     if (!created.isSuccess) throw new Error("create failed");
-    const id = created.data.id;
-    const storeKey = `${adminUser.tenantId}:esExecEncrypted:${id}`;
-    const goodStored = (await asRawClient(testDb.db).unsafe(
-      `SELECT secret_note FROM read_es_exec_encrypted WHERE id = $1`,
-      [id],
-    )) as Array<{ secret_note: string }>;
-    const goodEnvelope = goodStored[0]?.secret_note;
-    await asRawClient(testDb.db).unsafe(
-      `UPDATE read_es_exec_encrypted SET secret_note = 'not-an-envelope' WHERE id = $1`,
-      [id],
-    );
 
-    const first = await cachedCrud.detail({ id }, adminUser, tdb);
-    const cachedAfterFirst = store.has(storeKey);
-    const second = await cachedCrud.detail({ id }, adminUser, tdb);
-    const cachedAfterSecond = store.has(storeKey);
-    await asRawClient(testDb.db).unsafe(
-      `UPDATE read_es_exec_encrypted SET secret_note = $2 WHERE id = $1`,
-      [id, goodEnvelope],
-    );
-    const repaired = await cachedCrud.detail({ id }, adminUser, tdb);
-
-    expect([first?.["secretNote"], second?.["secretNote"]]).toEqual([null, null]);
-    expect([cachedAfterFirst, cachedAfterSecond]).toEqual([false, false]);
-    expect(repaired?.["secretNote"]).toBe("real-note");
-    expect(store.has(storeKey)).toBe(true);
-  });
-});
-
-describe("event-store-executor — entity cache read-through", () => {
-  // In-memory stand-in for EntityCache — no Redis needed.
-  const store = new Map<string, Record<string, unknown>>();
-  const entityCache: EntityCache = {
-    get: async (tenantId, name, id) => store.get(`${tenantId}:${name}:${id}`) ?? null,
-    mget: async () => new Map(),
-    set: async (tenantId, name, id, data) => {
-      store.set(`${tenantId}:${name}:${id}`, data);
-    },
-    mset: async (tenantId, name, entries) => {
-      for (const { id, data } of entries) store.set(`${tenantId}:${name}:${id}`, data);
-    },
-    del: async (tenantId, name, id) => {
-      store.delete(`${tenantId}:${name}:${id}`);
-    },
-  };
-  const cachedCrud = createEventStoreExecutor(table, entity, {
-    entityName: "esExecUser",
-    entityCache,
-  });
-
-  beforeEach(() => store.clear());
-
-  test("first detail populates cache; second detail is served from cache", async () => {
-    const created = await cachedCrud.create({ email: "cache@test.de" }, adminUser, tdb);
-    if (!created.isSuccess) throw new Error("create failed");
-    const id = created.data.id;
-    const storeKey = `${adminUser.tenantId}:esExecUser:${id}`;
-
-    // create() calls del() — cache must be empty after create.
-    expect(store.has(storeKey)).toBe(false);
-
-    // First detail: miss → DB → populates cache.
-    const first = await cachedCrud.detail({ id }, adminUser, tdb);
-    expect(first).not.toBeNull();
-    expect(store.has(storeKey)).toBe(true);
-
-    // Poison the cache entry — proves the second detail reads from cache, not DB.
-    const cachedEntry = store.get(storeKey);
-    if (!cachedEntry) throw new Error("cache not populated");
-    store.set(storeKey, { ...cachedEntry, email: "from-cache@test.de" });
-
-    const second = await cachedCrud.detail({ id }, adminUser, tdb);
-    expect(second?.["email"]).toBe("from-cache@test.de");
-  });
-
-  test("stale cache entry re-set after a concurrent update is ignored: detail returns the live row, old-version update conflicts", async () => {
-    const created = await cachedCrud.create(
-      { email: "stale@test.de", firstName: "orig" },
-      adminUser,
-      tdb,
-    );
-    if (!created.isSuccess) throw new Error("create failed");
-    const id = created.data.id;
-    const storeKey = `${adminUser.tenantId}:esExecUser:${id}`;
-
-    await cachedCrud.detail({ id }, adminUser, tdb);
-    const staleEntry = store.get(storeKey);
-    if (!staleEntry) throw new Error("cache not populated");
-
-    const b = await cachedCrud.update(
-      { id, version: 1, changes: { firstName: "B" } },
-      adminUser,
-      tdb,
-    );
-    expect(b.isSuccess).toBe(true);
-    expect(store.has(storeKey)).toBe(false);
-    // A detail() that read before B's commit lands its set() after B's del().
-    store.set(storeKey, staleEntry);
-
-    const detail = await cachedCrud.detail({ id }, adminUser, tdb);
-    expect(detail?.["firstName"]).toBe("B");
-    expect(detail?.["version"]).toBe(2);
-
-    const updateA = await cachedCrud.update(
-      { id, version: 1, changes: { firstName: "A" } },
-      adminUser,
-      tdb,
-    );
-    expect(updateA.isSuccess).toBe(false);
-    if (!updateA.isSuccess) expect(updateA.error.code).toBe("version_conflict");
-  });
-
-  test("cache entry cached before a stream bump is a miss; detail returns version 2", async () => {
-    const created = await cachedCrud.create({ email: "bump@test.de" }, adminUser, tdb);
-    if (!created.isSuccess) throw new Error("create failed");
-    const id = created.data.id;
-    const storeKey = `${adminUser.tenantId}:esExecUser:${id}`;
-
-    await cachedCrud.detail({ id }, adminUser, tdb);
-    const cachedEntry = store.get(storeKey);
-    if (!cachedEntry) throw new Error("cache not populated");
-    store.set(storeKey, { ...cachedEntry, email: "from-cache@test.de" });
-
-    await append(testDb.db, {
-      aggregateId: String(id),
-      aggregateType: "esExecUser",
-      tenantId: adminUser.tenantId,
-      expectedVersion: 1,
-      type: "esExecUser.lifecycle-bumped",
-      payload: { note: "stream moved past the cached row" },
-      metadata: { userId: String(adminUser.id) },
-    });
-
-    const detail = await cachedCrud.detail({ id }, adminUser, tdb);
-    expect(detail?.["version"]).toBe(2);
-    expect(detail?.["email"]).toBe("bump@test.de");
-    expect(store.get(storeKey)?.["version"]).toBe(2);
-  });
-});
-
-describe("event-store-executor — entity cache + encrypted fields", () => {
-  // Regression: detail() cached the already-decrypted row verbatim, so an
-  // `encrypted` field's plaintext ended up in a second at-rest store (Redis)
-  // the field-encryption feature doesn't cover.
-  const store = new Map<string, Record<string, unknown>>();
-  const entityCache: EntityCache = {
-    get: async (tenantId, name, id) => store.get(`${tenantId}:${name}:${id}`) ?? null,
-    mget: async () => new Map(),
-    set: async (tenantId, name, id, data) => {
-      store.set(`${tenantId}:${name}:${id}`, data);
-    },
-    mset: async (tenantId, name, entries) => {
-      for (const { id, data } of entries) store.set(`${tenantId}:${name}:${id}`, data);
-    },
-    del: async (tenantId, name, id) => {
-      store.delete(`${tenantId}:${name}:${id}`);
-    },
-  };
-  const encryption = createTestEnvelopeCipher(ENCRYPTION_TEST_KEY);
-  const cachedEncryptedCrud = createEventStoreExecutor(encryptedTable, encryptedEntity, {
-    entityName: "esExecEncrypted",
-    entityCache,
-    encryption,
-  });
-
-  beforeEach(() => store.clear());
-
-  test("cached row is ciphertext at rest; detail() still returns plaintext to the caller", async () => {
-    const created = await cachedEncryptedCrud.create(
-      { email: "cache-enc@test.de", secretNote: "cache-plaintext-note" },
-      adminUser,
-      tdb,
-    );
-    if (!created.isSuccess) throw new Error("create failed");
-    const id = created.data.id;
-    const storeKey = `${adminUser.tenantId}:esExecEncrypted:${id}`;
-
-    const first = await cachedEncryptedCrud.detail({ id }, adminUser, tdb);
-    expect(first?.["secretNote"]).toBe("cache-plaintext-note");
-
-    const cachedRaw = store.get(storeKey);
-    expect(cachedRaw?.["secretNote"]).toBeDefined();
-    expect(cachedRaw?.["secretNote"]).not.toBe("cache-plaintext-note");
-
-    // Second read (cache hit) must still decrypt back to the real plaintext.
-    const second = await cachedEncryptedCrud.detail({ id }, adminUser, tdb);
-    expect(second?.["secretNote"]).toBe("cache-plaintext-note");
-  });
-
-  // Regression twin pack for the list() path:
-  //   1. list decrypted BEFORE the snake→camel coercion, so any multi-word
-  //      encrypted/pii field (secret_note vs secretNote) came back as raw
-  //      ciphertext to the caller.
-  //   2. list's mset cached the decrypted rows — plaintext in Redis, the
-  //      exact leak the detail() path re-encrypts to avoid.
-  test("list() returns plaintext for camelCase encrypted fields and caches ciphertext", async () => {
-    const created = await cachedEncryptedCrud.create(
-      { email: "cache-list@test.de", secretNote: "list-plaintext-note" },
-      adminUser,
-      tdb,
-    );
-    if (!created.isSuccess) throw new Error("create failed");
-    const storeKey = `${adminUser.tenantId}:esExecEncrypted:${created.data.id}`;
-    store.clear();
-
-    const list = await cachedEncryptedCrud.list({}, adminUser, tdb);
+    const list = await crud.list({}, adminUser, tdb);
     const listed = list.rows.find((r) => r["id"] === created.data.id);
     expect(listed?.["secretNote"]).toBe("list-plaintext-note");
-
-    const cachedRaw = store.get(storeKey);
-    expect(cachedRaw?.["secretNote"]).toBeDefined();
-    expect(cachedRaw?.["secretNote"]).not.toBe("list-plaintext-note");
   });
 });
 
@@ -954,6 +727,7 @@ describe("event-store-executor — entity cache + encrypted fields", () => {
 // subject key renders every value as the [[erased]] sentinel without
 // touching the immutable log.
 const piiEntity = createEntity({
+  name: "esExecPii",
   table: "read_es_exec_pii",
   fields: {
     email: createTextField({ required: true, personal: "self", find: "none" }),
@@ -965,7 +739,7 @@ const piiEntity = createEntity({
     plain: createTextField({ personal: false, reason: "test_fixture" }),
   },
 });
-const piiTable = buildEntityTable("esExecPii", piiEntity);
+const piiTable = buildEntityTable(piiEntity);
 
 describe("event-store-executor — pii subject encryption", () => {
   const kms = new InMemoryKmsAdapter();
@@ -1098,6 +872,7 @@ describe("event-store-executor — pii subject encryption", () => {
 });
 
 const piiSoftEntity = createEntity({
+  name: "esExecPiiSoft",
   table: "read_es_exec_pii_soft",
   fields: {
     email: createTextField({ required: true, personal: "self", find: "none" }),
@@ -1107,7 +882,7 @@ const piiSoftEntity = createEntity({
   },
   softDelete: true,
 });
-const piiSoftTable = buildEntityTable("esExecPiiSoft", piiSoftEntity);
+const piiSoftTable = buildEntityTable(piiSoftEntity);
 
 type KeyState = "existing-key" | "never-keyed";
 const KEY_STATES: KeyState[] = ["existing-key", "never-keyed"];
@@ -1296,7 +1071,7 @@ describe("event-store-executor — restore re-encrypts pii in previous", () => {
     "erased subject (%s): update fails without a writePurpose, erasure update stores the sentinel in previous",
     async (keyState) => {
       const id = await createPreKmsRowWithErasedSubject(keyState);
-      const changes = { secretNote: "after-erasure" };
+      const changes = { email: "after-erasure@test.de" };
 
       await expect(
         kmsCrud.update({ id, changes }, adminUser, tdb, { skipOptimisticLock: true }),
@@ -1334,7 +1109,7 @@ describe("event-store-executor — restore re-encrypts pii in previous", () => {
   );
 
   test.each(KEY_STATES)(
-    "erased subject (%s): forget succeeds on a pre-KMS plaintext row and removes it",
+    "erased subject (%s): forget succeeds on a pre-KMS plaintext row, removes it and stores no personal field",
     async (keyState) => {
       const id = await createPreKmsRowWithErasedSubject(keyState);
 
@@ -1346,9 +1121,48 @@ describe("event-store-executor — restore re-encrypts pii in previous", () => {
       )) as Array<{ id: unknown }>;
       expect(rows).toHaveLength(0);
       const previous = await loadStoredPrevious("esExecPiiSoft.forgotten", id);
-      expect(previous["email"]).toBe(PII_ERASED_SENTINEL);
+      expect(previous).not.toHaveProperty("email");
     },
   );
+
+  test.each(KEY_STATES)(
+    "erased subject (%s): delete without a writePurpose succeeds and stores no personal field",
+    async (keyState) => {
+      const id = await createPreKmsRowWithErasedSubject(keyState);
+
+      const deleted = await kmsCrud.delete({ id }, adminUser, tdb);
+
+      expect(deleted.isSuccess).toBe(true);
+      const previous = await loadStoredPrevious("esExecPiiSoft.deleted", id);
+      expect(previous).not.toHaveProperty("email");
+      await expectRestoreRefusedAndNothingStored(id);
+    },
+  );
+
+  test("forget of a KMS row stores no personal field and no ciphertext in previous", async () => {
+    const created = await kmsCrud.create(
+      {
+        email: "forget-kms@test.de",
+        secretNote: "forget-kms-note",
+        ownerId: adminUser.id,
+        ownerSecret: "forget-kms-owner-secret",
+      },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const forgotten = await kmsCrud.forget({ id: created.data.id }, adminUser, tdb);
+    if (!forgotten.isSuccess) throw new Error("forget failed");
+
+    const previous = await loadStoredPrevious("esExecPiiSoft.forgotten", created.data.id);
+    expect(previous).not.toHaveProperty("email");
+    expect(previous).not.toHaveProperty("secretNote");
+    expect(previous).not.toHaveProperty("ownerSecret");
+    expect(previous).toHaveProperty("id");
+    expect(previous).toHaveProperty("isDeleted");
+    expect(JSON.stringify(previous)).not.toContain(PII_CIPHERTEXT_PREFIX);
+  });
 
   test.each(KEY_STATES)(
     "erased subject (%s): after an erasure delete, restore stays refused",

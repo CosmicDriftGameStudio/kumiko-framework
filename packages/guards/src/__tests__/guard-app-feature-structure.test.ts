@@ -109,8 +109,71 @@ describe("guard-app-feature-structure", () => {
     expect(outcome.violations[0]?.message).toContain("lines");
   });
 
+  const customScreenSource = `export const f = (r: { screen: (d: unknown) => void }) => {
+  r.screen({ id: "x", type: "custom", component: "X" });
+};`;
+
+  test("skips custom screens in the showcase gallery", () => {
+    const sf = parse(customScreenSource, "/samples/apps/showcase/src/features/gallery/feature.ts");
+    expect(guard.run([sf]).violations).toHaveLength(0);
+  });
+
+  test("skips custom screens in the screens-nav recipe", () => {
+    const sf = parse(customScreenSource, "/samples/recipes/screens-nav/src/feature.ts");
+    expect(guard.run([sf]).violations).toHaveLength(0);
+  });
+
+  test("still flags custom screens in other sample apps", () => {
+    const sf = parse(
+      customScreenSource,
+      "/samples/apps/ui-walkthrough/src/features/rental/feature.ts",
+    );
+    expect(guard.run([sf]).violations).toHaveLength(1);
+  });
+
+  test("still applies the feature.ts line limit in the exempt sample paths", () => {
+    const body = Array.from({ length: 310 }, (_, i) => `// Zeile ${i}`).join("\n");
+    const sf = parse(
+      `${body}\nexport const f = 1;`,
+      "/samples/apps/styleguide/src/features/gallery/feature.ts",
+    );
+    const outcome = guard.run([sf]);
+    expect(outcome.violations).toHaveLength(1);
+    expect(outcome.violations[0]?.message).toContain("lines");
+  });
+
   test("scan includes bundled-features src paths", () => {
     expect(guard.scan.frameworkWithin?.some((g) => g.includes("bundled-features"))).toBe(true);
+  });
+
+  test("scan includes sample apps and recipes", () => {
+    expect(guard.scan.frameworkWithin).toContain("samples/apps/*/src/features/**");
+    expect(guard.scan.frameworkWithin).toContain("samples/recipes/*/src/**");
+  });
+
+  test("flags a recipe src/feature.ts over the line limit", () => {
+    const body = Array.from({ length: 310 }, (_, i) => `// Zeile ${i}`).join("\n");
+    const sf = parse(`${body}\nexport const f = 1;`, "samples/recipes/demo/src/feature.ts");
+    const outcome = guard.run([sf]);
+    expect(outcome.violations).toHaveLength(1);
+    expect(outcome.violations[0]?.message).toContain("lines");
+  });
+
+  test("flags a web.ts monolith at a recipe src root", () => {
+    const sf = parse(`export const x = 1;`, "samples/recipes/demo/src/web.ts");
+    const outcome = guard.run([sf]);
+    expect(outcome.violations).toHaveLength(1);
+    expect(outcome.violations[0]?.message).toContain("web monolith");
+  });
+
+  test("a recipe's nested feature folder keeps its own web/ root", () => {
+    const sf = parse(
+      `// @runtime client\nexport const x = 1;`,
+      "samples/recipes/demo/src/features/shop/web/constants.ts",
+    );
+    const outcome = guard.run([sf]);
+    expect(outcome.violations).toHaveLength(1);
+    expect(outcome.violations[0]?.message).toContain("redundant");
   });
 });
 

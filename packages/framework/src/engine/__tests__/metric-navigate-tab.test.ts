@@ -100,12 +100,12 @@ describe("validateBoot — MetricNavigate.tab (cross-screen)", () => {
 
   test("metric navigate.entity + entityId + unknown tab throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity({
-        name: "vehicle",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "vehicle",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
       r.queryHandler({
         name: "vehicle:detail",
         schema: z.object({}),
@@ -192,13 +192,13 @@ describe("validateBoot — MetricNavigate.tab (cross-screen)", () => {
   describe("metric navigate without tab", () => {
     function featureWithMetricNavigate(navigate: Record<string, string>) {
       return defineFeature("app", (r) => {
-        r.entity({
-          name: "vehicle",
-          ...createEntity({
+        r.entity(
+          createEntity({
+            name: "vehicle",
             table: "Vehicles",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        });
+        );
         r.queryHandler({
           name: "vehicle:detail",
           schema: z.object({}),

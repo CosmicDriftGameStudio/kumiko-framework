@@ -4,7 +4,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   createStaticLocaleResolver,
@@ -48,10 +47,10 @@ describe("dashboard header date", () => {
   test("shows the day of the pinned server clock from the answer, not the device clock", async () => {
     const schema: FeatureSchema = { featureName: "demo", entities: {}, screens: [dashboard] };
     const dispatcher = createMockDispatcher({
-      query: (async () => {
+      query: async () => {
         noteServerClock(new Headers({ "x-kumiko-now": PINNED_SERVER_TIME }));
         return { isSuccess: true, data: { value: 3 } };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <LocaleProvider

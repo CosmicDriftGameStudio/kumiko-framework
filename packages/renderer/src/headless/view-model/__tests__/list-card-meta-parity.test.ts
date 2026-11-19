@@ -13,6 +13,7 @@ import { computeListViewModel } from "../list.ts";
 
 const text = () => createTextField({ personal: false, reason: "test_fixture" });
 const entity = createEntity({
+  name: "item",
   fields: {
     name: text(),
     a: text(),
@@ -46,7 +47,7 @@ describe("card meta overflow parity with computeListViewModel", () => {
   for (const columns of columnSets) {
     test(`columns ${JSON.stringify(columns)}`, () => {
       const feature = defineFeature("cards", (r) => {
-        r.entity({ name: "item", ...entity });
+        r.entity(entity);
         r.screen({ id: "item-list", type: "entityList", entity: "item", columns });
       });
       const view = computeListViewModel({

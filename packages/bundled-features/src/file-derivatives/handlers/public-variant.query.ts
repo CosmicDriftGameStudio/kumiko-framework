@@ -22,7 +22,7 @@
 // publicVariantByFileRefQuery — tenantId there comes from the FileRef row,
 // but this handler's own isPublic gate runs exactly the same either way.
 
-import { computeRevisionEtag } from "@cosmicdrift/kumiko-framework/api";
+import { computeRevisionEtag, etagMatches } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { resolveFieldVariant } from "@cosmicdrift/kumiko-framework/derivatives";
 import {
@@ -66,7 +66,7 @@ function isDerivativePublicPredicatePlugin(o: unknown): o is DerivativePublicPre
   return typeof o === "object" && o !== null && "isPublic" in o && typeof o.isPublic === "function";
 }
 
-// r.useExtension options-shape, co-located since the framework never imports upward.
+// r.applyExtension options-shape, co-located since the framework never imports upward.
 declare module "@cosmicdrift/kumiko-framework/engine" {
   interface KumikoExtensionOptionsMap {
     [EXT_DERIVATIVE_PUBLIC_PREDICATE]: DerivativePublicPredicatePlugin;
@@ -80,14 +80,29 @@ declare module "@cosmicdrift/kumiko-framework/engine" {
 // def itself — mirrors managed-pages' BY_SLUG_QN.
 export const PUBLIC_VARIANT_QN = "file-derivatives:query:public-variant";
 
+// Cap for the forwarded If-None-Match value; a longer header is not forwarded and the
+// request falls back to a full read.
+export const MAX_IF_NONE_MATCH_LENGTH = 1024;
+
+export type PublicVariantResult =
+  | { readonly notModified: true; readonly mimeType: string; readonly revision: string }
+  | {
+      readonly notModified: false;
+      readonly dataBase64: string;
+      readonly mimeType: string;
+      readonly revision: string;
+    };
+
 // Shared with publicVariantByFileRefQuery — same payload shape, both routes
-// forward `{ fileRefId, variant }` unchanged.
+// forward `{ fileRefId, variant, ifNoneMatch? }` unchanged.
 export const publicVariantPayloadSchema = z.object({
   // Loose, version-agnostic UUID shape (same as isUuid/TENANT_ID_REGEX in
   // packages/types) — not zod's `.uuid()`, which is stricter than this
   // repo's convention and would reject valid v7/nil ids the DB accepts.
   fileRefId: z.string().refine(isUuid, "invalid fileRefId"),
   variant: z.string().min(1).max(64),
+  // The client's If-None-Match, so a revalidation that already holds the variant skips the storage read.
+  ifNoneMatch: z.string().max(MAX_IF_NONE_MATCH_LENGTH).optional(),
 });
 
 export const publicVariantQuery = defineQueryHandler({
@@ -101,7 +116,7 @@ export const publicVariantQuery = defineQueryHandler({
   // front of it (see api/client-ip.ts). Left at the default 0 with a proxy
   // actually in front, every caller collapses into one shared bucket.
   rateLimit: { per: "ip", limit: 60, windowSeconds: 60 },
-  handler: async (query, ctx) => {
+  handler: async (query, ctx): Promise<PublicVariantResult | null> => {
     const row = await fetchOne<FileRefRow>(ctx.db, fileRefsTable, {
       id: query.payload.fileRefId,
       tenantId: ctx.user.tenantId,
@@ -149,19 +164,30 @@ export const publicVariantQuery = defineQueryHandler({
     const spec = resolveFieldVariant(ctx.registry, entityType, fieldName, query.payload.variant);
     if (!spec) return null;
     const result = await derivatives.variant(query.payload.fileRefId, spec, query.payload.variant);
+    // tenant + fileRef + variant + storageKey: the storageKey carries the spec hash, so a changed
+    // field spec yields a new ETag; hashed so the storageKey never leaves over /api/query.
+    const revision = computeRevisionEtag([
+      ctx.user.tenantId,
+      query.payload.fileRefId,
+      query.payload.variant,
+      result.storageKey,
+    ]);
+    if (etagMatches(query.payload.ifNoneMatch ?? null, revision)) {
+      return { notModified: true, mimeType: result.mimeType, revision };
+    }
     const bytes = await files.refFromFileRef(result).read();
 
-    // ponytail: fully buffered (no streaming), +33% over the wire from
+    // ponytail: on a 200 fully buffered (no streaming), +33% over the wire from
     // base64 — HttpRouteHandlerDeps only exposes {app, systemQuery} (no
     // direct ctx.services.files access from the Hono handler itself), and the local
     // dev storage provider has no getSignedUrl (a redirect design wouldn't
     // work in dev). Upgrade path: a binary-passthrough dispatcher primitive
     // would be its own, larger issue.
     return {
+      notModified: false,
       dataBase64: Buffer.from(bytes).toString("base64"),
       mimeType: result.mimeType,
-      // Opaque revision for ETag — never expose the internal storageKey over /api/query.
-      revision: computeRevisionEtag([result.storageKey]),
+      revision,
     };
   },
 });

@@ -119,8 +119,9 @@ export function buildWebhookEventMethods(state: FeatureBuilderState, featureName
       readonly version: number;
       readonly wireName?: string;
     }): WebhookEventHandle {
-      if (!isObjectArgument(definition))
+      if (!isObjectArgument(definition)) {
         throwObjectArgumentRequired(featureName, "defineWebhookEvent");
+      }
       const { name, description, payload, version } = definition;
       const where = `[Feature ${featureName}] defineWebhookEvent`;
       assertValidWebhookEventDefinition(where, definition);

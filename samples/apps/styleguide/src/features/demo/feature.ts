@@ -15,6 +15,7 @@ import { z } from "zod";
 import { DEMO_I18N } from "./i18n";
 
 export const demoEntity = createEntity({
+  name: "item",
   table: "read_styleguide_items",
   fields: {
     name: createTextField({
@@ -56,12 +57,12 @@ const open = {
 
 export const demoFeature = defineFeature("styleguide", (r) => {
   r.translations({ keys: DEMO_I18N });
-  r.crud("item", demoEntity, { write: open, read: open });
+  r.crud(demoEntity, { write: open, read: open });
 
   // r.crud only auto-registers create/update/delete — these three status
   // transitions back the icon-only rowActions on item-list (>2 icon actions
   // triggers shouldRenderActionsIconOnly) and need their own write handlers.
-  const { executor: itemExecutor } = createEntityExecutor("item", demoEntity);
+  const { executor: itemExecutor } = createEntityExecutor(demoEntity);
 
   r.writeHandler({
     name: "item:archive",

@@ -23,16 +23,10 @@ export const registeredQuery = defineQueryHandler({
     "Lists every registered feature with whether it is toggleable, its default, its explicit override, its dependencies and its effective on/off state; use it as the full feature inventory.",
   schema: z.object({}),
   access: { roles: ["SystemAdmin"] },
+  systemScope: true,
   handler: async (_event, ctx) => {
-    // ctx.systemDb is populated for r.systemScope() handlers only (feature.ts
-    // declares it) — guarded instead of asserted, see set.write.ts Guard 0.5.
-    if (!ctx.systemDb) {
-      throw new Error(
-        "[feature-toggles] registered-query requires ctx.systemDb — the feature-toggles " +
-          "feature must stay r.systemScope() (see feature.ts).",
-      );
-    }
-    const db = ctx.systemDb.acknowledgeCrossTenant(FEATURE_TOGGLE_CROSS_TENANT_REASON);
+    const { systemDb } = ctx;
+    const db = systemDb.acknowledgeCrossTenant(FEATURE_TOGGLE_CROSS_TENANT_REASON);
 
     type OverrideRow = { featureName: string; enabled: boolean };
     const overrideRows = await db.global(globalFeatureStateTable).selectMany<OverrideRow>();

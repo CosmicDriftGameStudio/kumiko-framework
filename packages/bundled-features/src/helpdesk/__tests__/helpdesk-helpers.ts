@@ -1,10 +1,11 @@
 import { expect } from "bun:test";
-import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   type SessionUser,
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { buildMultipartBody } from "@cosmicdrift/kumiko-testing/helpers";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding.ts";

@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-11-01
-evidence: "packages/server-runtime/src/bundled-lists-table.ts (bundledLists); packages/framework/src/engine/boot-validator/bundled-lists-table.ts; packages/framework/src/engine/define-feature.ts (adoptsBundledLists); packages/renderer/src/web/primitives/lightbox.tsx (actions, showPosition); packages/renderer/src/web/app/nav.tsx (searchParams); kumiko-framework#3570 (chart axes and height, ModeSwitch pill, LanguageSwitcher chip, useQuery concurrency); d5b87a19e (Lightbox paging); packages/renderer/src/hooks/use-query.ts; packages/renderer/src/web/widgets/charts.tsx; packages/renderer/src/web/widgets/mode-switch.tsx; packages/renderer/src/web/layout/language-switcher.tsx; packages/renderer/src/primitives.tsx; packages/types/src/screen-list-table.ts; packages/renderer/src/web/primitives/data-table/; packages/renderer/src/web/app/session-list-state-store.ts; packages/types/src/screen-list-bulk.ts; packages/renderer/src/app/list-bulk-actions.ts; packages/renderer/src/hooks/use-bulk-run.ts; samples/recipes/list-table-options"
+verified: 2026-11-17
+evidence: "packages/server-runtime/src/list-defaults.ts (listDefaults); packages/framework/src/engine/boot-validator/list-defaults.ts; packages/renderer/src/web/primitives/lightbox.tsx (actions, showPosition); packages/renderer/src/web/app/nav.tsx (searchParams); kumiko-framework#3570 (chart axes and height, ModeSwitch pill, LanguageSwitcher chip, useQuery concurrency); d5b87a19e (Lightbox paging); packages/renderer/src/hooks/use-query.ts; packages/renderer/src/web/widgets/charts.tsx; packages/renderer/src/web/widgets/mode-switch.tsx; packages/renderer/src/web/layout/language-switcher.tsx; packages/renderer/src/primitives.tsx; packages/types/src/screen-list-table.ts; packages/renderer/src/web/primitives/data-table/; packages/renderer/src/web/app/session-list-state-store.ts; packages/types/src/screen-list-bulk.ts; packages/renderer/src/app/list-bulk-actions.ts; packages/renderer/src/hooks/use-bulk-run.ts; samples/recipes/list-table-options"
 ---
 
 # Renderer widget options
@@ -44,6 +44,93 @@ const stats = useQuery<RowStats>("metrics:query:row-stats", { rowId }, { concurr
 ```
 
 The x axis is time, not index: five minutes of data in a 30-day window draws a narrow strip at the right edge.
+
+## `NumericLineChart`, `SignedBarChart`, `HistogramChart` and `DivergingBarChart`: numeric axes
+
+These four charts from `@cosmicdrift/kumiko-renderer/web` cover numeric x axes (years, euros, correlations) that `TimeseriesChart` and `StackedBarChart` do not. They share the styling of `TimeseriesChart`: an SVG that scales to its box, axis labels in an HTML gutter, colors from the status theme tokens. `StackedAreaChart` and its types (`ChartSeries`, `ChartMarker`, `ChartLine`, `StackedAreaRanges`) are now exported from `/web` as well. `niceTicks(min, max, tickCount)` returns the round tick values the charts use.
+
+### `NumericLineChart`
+
+| Prop | Type | Effect |
+|---|---|---|
+| `series` | `{ key; label; points: { x; y }[]; dashed? }[]` | One line per series. |
+| `xAxis` | `{ ticks: number; format?; domain?: { min; max } }` | `domain` defaults to the min and max of all x values. |
+| `yAxis` | `{ ticks: number; format? }` | Ticks span `min(0, all y)` to `max(all y)`, rounded to 1, 2 or 5 times a power of ten. |
+| `referenceLines` | `{ axis: "x" \| "y"; value; label?; dashed? }[]` | Lines such as a sale date or a threshold. |
+| `colors` | `Record<string, string>` | Series key to CSS color. |
+| `renderTooltip` | `(x: number) => ReactNode` | Hover box for the x value nearest to the pointer. |
+| `ariaLabel`, `height`, `testId` | | `height` in px, default 192. |
+
+```tsx
+<NumericLineChart
+  ariaLabel={t("wealth.chart")}
+  series={[
+    { key: "property", label: t("wealth.property"), points: propertyByYear },
+    { key: "etf", label: t("wealth.etf"), points: etfByYear, dashed: true },
+  ]}
+  xAxis={{ ticks: 5, format: (year) => `${year} y` }}
+  yAxis={{ ticks: 5, format: (eur) => euro.format(eur) }}
+  referenceLines={[{ axis: "x", value: 10, label: t("wealth.sale"), dashed: true }]}
+  renderTooltip={(year) => <YearTooltip year={year} />}
+/>
+```
+
+### `SignedBarChart`
+
+| Prop | Type | Effect |
+|---|---|---|
+| `buckets` | `{ x: number; values: Record<string, number> }[]` | One bar per bucket. Positive values stack up from the zero line in `series` order, negative values down. A value of 0 draws no segment. |
+| `series` | `{ key; label }[]` | Stack order and legend. |
+| `xAxis` | `{ format: (x: number) => string }` | Bucket label. |
+| `yAxis` | `{ ticks: number; format? }` | The range comes from the largest positive and the smallest negative sum. |
+| `colors`, `formatValue` | | `formatValue` fills the segment tooltips and the legend. |
+| `ariaLabel`, `height`, `testId` | | |
+
+```tsx
+<SignedBarChart
+  ariaLabel={t("cashflow.chart")}
+  buckets={years.map((year) => ({ x: year, values: { subsidy: -costs[year], surplus: income[year] } }))}
+  series={[{ key: "subsidy", label: t("cashflow.subsidy") }, { key: "surplus", label: t("cashflow.surplus") }]}
+  xAxis={{ format: (year) => String(year) }}
+  yAxis={{ ticks: 5 }}
+/>
+```
+
+### `HistogramChart`
+
+| Prop | Type | Effect |
+|---|---|---|
+| `bins` | `{ id; start; end; count }[]` | Each bar spans `start` to `end` on the x axis. |
+| `xAxis`, `yAxis` | `{ ticks: number; format? }` | The y ticks run from 0 to the largest count. |
+| `referenceLines` | `{ value; label? }[]` | Vertical dashed lines, for example the breakeven. |
+| `color`, `ariaLabel`, `height`, `testId` | | |
+
+```tsx
+<HistogramChart
+  ariaLabel={t("result.distribution")}
+  bins={bins}
+  xAxis={{ ticks: 5, format: (eur) => euro.format(eur) }}
+  yAxis={{ ticks: 4 }}
+  referenceLines={[{ value: 0, label: t("result.breakeven") }]}
+/>
+```
+
+### `DivergingBarChart`
+
+| Prop | Type | Effect |
+|---|---|---|
+| `rows` | `{ key; label; value }[]` | Sorted by absolute value, largest first. The widest bar fills half of the track. |
+| `formatValue` | `(value: number) => string` | Value text next to the bar. |
+| `positiveTone`, `negativeTone` | `"positive" \| "negative" \| "active" \| "neutral"` | Defaults `"positive"` and `"negative"`. |
+| `ariaLabel`, `testId` | | |
+
+```tsx
+<DivergingBarChart
+  ariaLabel={t("drivers.chart")}
+  rows={drivers.map((d) => ({ key: d.id, label: d.label, value: d.correlation }))}
+  formatValue={(value) => value.toFixed(2)}
+/>
+```
 
 ## `ModeSwitch`: `variant` and `className`
 
@@ -206,7 +293,7 @@ r.screen({
 | `density.userChoice` | Shows the density choice in the view menu. |
 | `pinning` | The user pins columns left or right in the view menu. Columns may start pinned with `pinned: "left" \| "right"`. Pinned columns stay sticky while scrolling horizontally. |
 | `resizing` | Switches the table to `table-layout: fixed`; the user drags or uses the arrow keys on the header edge. `width` and `minWidth` (px) on a column are start values. Widths stay between `minWidth` and 2000 px and are remembered per session, like the column choice and density, whether or not `rememberState` is on. |
-| `keyboardNavigation` | Rows are one tab stop. ArrowUp and ArrowDown move, Home and End jump, Enter runs the row click. Space selects the focused row when the list has `bulkActions`. |
+| `keyboardNavigation` | Rows are one tab stop. ArrowUp and ArrowDown move, Home and End jump, Enter runs the row click. Space selects the focused row when the list has `bulkActions`. Default on for `entityList`, `projectionList` and `relatedList`; `keyboardNavigation: false` turns it off. |
 | `compactHeader` | Renders the header row in 12px semibold. Default off. |
 | `export.xlsx` | Shows an Export button that downloads the filtered list as an XLSX file. `entityList` and `projectionList` only. |
 | `export.maxRows` | Row limit of one export, default 10000, hard cap 100000. |
@@ -217,7 +304,7 @@ r.screen({
 
 `ResultTable` takes the same `compactHeader` prop (12px semibold header, default off).
 
-`pinning`, `resizing`, `keyboardNavigation` and `compactHeader` are opt-in. Without `resizing` the table keeps its auto layout and the column widths follow the content. All three have no effect in the card layout below `md`. `pinned` needs `pinning`; `width` and `minWidth` need `resizing` and must be finite numbers greater than 0, with `minWidth` not above `width`. Otherwise the boot validator rejects the screen.
+`pinning`, `resizing` and `compactHeader` are opt-in; `keyboardNavigation` is on unless set to `false`. Without `resizing` the table keeps its auto layout and the column widths follow the content. All three have no effect in the card layout below `md`. `pinned` needs `pinning`; `width` and `minWidth` need `resizing` and must be finite numbers greater than 0, with `minWidth` not above `width`. Otherwise the boot validator rejects the screen.
 
 **URL against store.** The URL stays the source of truth. The remembered parameters are copied into the URL once, when the list opens without any list parameter. A link that carries parameters always wins, and the remembered state follows the new URL. The page number alone does not count as a deviation. A `relatedList` keeps its state in the component and under the key `<route screenId>#<section id or query>`.
 
@@ -235,18 +322,18 @@ r.screen({
 
 **Totals row.** `totals` sends one `aggregate` query without `groupBy` over the same filters and search, kept live like the list. Money measures come back per currency and show one amount per currency. When the server caps groups or search hits, the toolbar shows a hint (`truncated`, `searchTruncated`).
 
-**Number range facet.** `facets: { amount: { display: "range" } }` on a `number`, `decimal`, `money` or `bigInt` field that is `filterable` shows from/to inputs. They land in the URL as `<screenId>.f.<field>.min` and `.max` and reach the query as `gte`/`lte` filters. Money is typed in major units and sent in minor units (×100). Groups, totals and rows all follow the range.
+**Number range facet.** `facets: { amount: { display: "range" } }` on a `number`, `decimal`, `money` or `bigInt` field that is `filterable` shows from/to inputs. They land in the URL as `<screenId>.f.<field>.min` and `.max` and reach the query as `gte`/`lte` filters. Money is typed in major units and sent in minor units, scaled by 10^decimals of the field's currency: its literal `currency` code, the tenant currency for `currency: { kind: "tenant" }` (no bound is sent until it has loaded), otherwise the entity's `defaultCurrency` (EUR without one). Groups, totals and rows all follow the range.
 
 **Session storage.** Choices live in `sessionStorage` under `kumiko.list.<tenantId>.<userId>.<storeKey>`, so they last for the tab only. The marker `kumiko.list.identity` records who wrote them. They are removed when the user or tenant changes, when the identity disappears, and on logout. An app without a current user keeps them in memory only and writes nothing to `sessionStorage`.
 
-## `bundledLists`: one `table` block for the bundled lists
+## `listDefaults`: one `table` block for every list
 
-The bundled features (users, tenants, jobs, sessions, audit and the others) ship their list screens without a `table` block. `bundledLists` in the `composeFeatures` options sets one block for all of them, so an app does not redefine every bundled screen to get the column picker or the export button there.
+`listDefaults` sets one `table` block for every list screen of the app, the bundled features (users, tenants, jobs, sessions, audit and the others) included, so an app does not repeat its table standard on every screen.
 
 ```ts illustration
 export default defineAppConfig({
   features: [...APP_FEATURES],
-  bundledLists: {
+  listDefaults: {
     table: {
       rememberState: true,
       resetAll: true,
@@ -264,12 +351,12 @@ export default defineAppConfig({
 });
 ```
 
-- The block reaches every `entityList`, `projectionList` and `relatedList` section of a feature that calls `r.adoptsBundledLists()`: the bundled features with lists (including the foundation features `user` and `tenant`). Feature packages such as Enterprise can call it too; a feature of the app itself never does, so its screens are not touched.
-- A `table` block on the bundled screen itself wins per key. `export` is left out on `relatedList` sections, where it is not allowed.
-- `grouping` and `totals` are rejected in `bundledLists.table`, because they depend on the fields of one list. Set them on the screen's own `table` block.
-- `pinFirstColumn: true` pins the first column left on every bundled list where no column is pinned yet. It needs `table.pinning: true`.
+- The block reaches every `entityList`, `projectionList` and `relatedList` section of every composed feature: app features, feature packages such as Enterprise and the bundled features.
+- A `table` block on the screen itself wins per key, so a single list sets `pinning: false` or `resizing: false` there; `export: undefined` drops the shared export for that list. `export` is left out on `relatedList` sections, where it is not allowed.
+- `grouping` and `totals` are rejected in `listDefaults.table`, because they depend on the fields of one list. Set them on the screen's own `table` block.
+- `pinFirstColumn: true` pins the first column left on every list where no column is pinned yet. It needs `table.pinning: true`.
 - `composeFeatures` validates the block before it mixes it in. The mixed screens then pass the boot validator like any app screen, and `/api/schema` delivers them with the block, so the renderer needs no change.
-- The option lives in `kumiko.config.ts` (`bundledLists`), where the managed `kumiko/schema.ts` reads it, and in the run options of `runProdApp`, `runDevApp` and `runWorkerApp` (`bundledLists`), which the app's bin files pass on like `validateBootOptions`. Both must carry the same value, so `kumiko check` and the running app see the same screens. An app whose `kumiko.config.ts` already calls `composeFeatures` can pass the option there as well; a second pass over already mixed screens changes nothing.
+- The option lives in `kumiko.config.ts` (`listDefaults`), where the managed `kumiko/schema.ts` reads it, and in the run options of `runProdApp`, `runDevApp` and `runWorkerApp` (`listDefaults`), which the app's bin files pass on like `validateBootOptions`. Both must carry the same value, so `kumiko check` and the running app see the same screens. An app whose `kumiko.config.ts` already calls `composeFeatures` can pass the option there as well; a second pass over already mixed screens changes nothing.
 
 ## List `bulkActions`
 
@@ -317,7 +404,7 @@ preview: {
 
 - The query payload is the current value of `fields` (all form fields when unset). It runs 300 ms after the last change of a sent field and not while a required field among them is empty.
 - `facts` read numbers, strings or arrays from the result like the success box. `list.field` names an array of objects in the result; each `columns` entry shows one field of every object.
-- A fact or column takes `type` (`text` default, `number`, `money`, `date`, `timestamp`) and formats like a list cell. A fact also takes `file`: a stored file id or an array of them, shown with name, download link and PDF preview. A `money` value is an object `{ amount, currency }` with `amount` in major units (12.5 is 12.50 EUR), not minor units; `date` and `timestamp` values are ISO strings. The same `type` on a success fact formats the success box.
+- A fact or column takes `type` (`text` default, `number`, `money`, `date`, `timestamp`) and formats like a list cell. A fact also takes `file`: a stored file id or an array of them, shown with name, download link and PDF preview. A `money` value is an object `{ amount, currency }` with `amount` in minor units (1250 is 12.50 EUR); `date` and `timestamp` values are ISO strings. The same `type` on a success fact formats the success box.
 - `section` names a layout section id (fields section): the panel then renders at the end of that section instead of above the submit button. Boot rejects an id no fields section has. Without `title` the panel has no title row.
 - A failing query shows a warning in the panel and never blocks the submit. The panel shows a loading banner until the first result.
 - Let the query and the write handler call one pure function, so the preview shows what the handler will do. The boot validator rejects an unknown query, a `fields` entry that is no form field, a fact or column without a label and a preview without facts and list.

@@ -53,17 +53,22 @@ Likewise: `failUnprocessable("reason", details?)` and `writeFailure(new AnyKumik
 When your feature needs its own differentiation (e.g. `already_paid` vs. `already_cancelled`), use `UnprocessableError` or `ConflictError` and set `details.reason`:
 
 ```ts illustration
-export const OrdersLiteReasons = {
-  alreadyPaid: "already_paid",
-  alreadyCancelled: "already_cancelled",
-} as const;
+export const ordersLiteFailures = defineFailureReasons("orders-lite", {
+  alreadyPaid: { en: "This order is already paid.", de: "Diese Bestellung ist bereits bezahlt." },
+  alreadyCancelled: {
+    en: "This order is already cancelled.",
+    de: "Diese Bestellung ist bereits storniert.",
+  },
+});
 
-return failUnprocessable(OrdersLiteReasons.alreadyPaid, { orderId });
+// in defineFeature: r.translations({ keys: ordersLiteFailures.translationKeys });
+
+return ordersLiteFailures.fail("alreadyPaid", { orderId });
 ```
 
 **Rules:**
 - `snake_case`, no spaces
-- One `<Feature>Reasons` const-object per feature
+- One `defineFailureReasons` table per feature; the key is the camelCase name, the slug is its snake_case form, the i18n key is `<feature>.errors.<name>`. Register `translationKeys` with `r.translations` and in the client bundle
 - Framework reasons (`stale_state`, `invalid_transition`, `field_access_denied`, `delete_restricted`) come from `FrameworkReasons` — **reuse, don't duplicate**
 
 ## Throw vs. writeFailure
@@ -117,18 +122,13 @@ The chain lands in the log (for forensics), but **not** in the response to the c
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { updateRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { OrdersLiteReasons, orderEntity, ordersLiteFeature } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { orderEntity, ordersLiteFailures, ordersLiteFeature } from "../feature";
 
 let stack: TestStack;
-const orderTable = buildEntityTable("order", orderEntity);
+const orderTable = buildEntityTable(orderEntity);
 
 const admin = TestUsers.admin;
 const alice = createTestUser({ id: 10, roles: ["User"] });
@@ -136,8 +136,6 @@ const bob = createTestUser({ id: 11, roles: ["User"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [ordersLiteFeature], systemHooks: [] });
-  await unsafeCreateEntityTable(stack.db, orderEntity);
-  await createEventsTable(stack.db);
 });
 afterAll(async () => stack?.cleanup());
 
@@ -193,7 +191,7 @@ describe("writeFailure(AccessDeniedError) → 403", () => {
 
 // --- 4) UnprocessableError with feature reason ---
 
-describe("failUnprocessable(OrdersLiteReasons.X) → 422", () => {
+describe("ordersLiteFailures.fail(name) → 422", () => {
   test("cancelling an already-cancelled order fails with reason=already_cancelled", async () => {
     const order = await stack.http.writeOk<{ id: number }>(
       "orders-lite:write:order:create",
@@ -209,7 +207,10 @@ describe("failUnprocessable(OrdersLiteReasons.X) → 422", () => {
     );
     expect(error.code).toBe("unprocessable");
     expect(error.httpStatus).toBe(422);
-    expect(error.details).toMatchObject({ reason: OrdersLiteReasons.alreadyCancelled });
+    expect(error.details).toMatchObject({
+      reason: ordersLiteFailures.reasonOf("alreadyCancelled"),
+    });
+    expect(error.i18nKey).toBe("orders-lite.errors.alreadyCancelled");
   });
 });
 
@@ -322,24 +323,25 @@ import {
 import {
   AccessDeniedError,
   ConflictError,
+  defineFailureReasons,
   failNotFound,
-  failUnprocessable,
   NotFoundError,
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 
-// --- Feature-local reasons: snake_case, no feature prefix needed since the
-//     feature name is already namespaced by defineFeature("orders-lite", ...).
-//     The framework convention: one const object per feature that needs its
-//     own reason strings. For framework-level reasons (stale_state,
-//     invalid_transition, ...) use FrameworkReasons instead.
-export const OrdersLiteReasons = {
-  alreadyPaid: "already_paid",
-  alreadyCancelled: "already_cancelled",
-  emptyCart: "cart_is_empty",
-} as const;
+// --- Feature-local reasons: one table per feature gives each reason its slug (snake_case,
+//     no feature prefix), its i18n key and its texts. Framework-level reasons (stale_state,
+//     invalid_transition, ...) come from FrameworkReasons instead.
+export const ordersLiteFailures = defineFailureReasons("orders-lite", {
+  alreadyPaid: { en: "This order is already paid.", de: "Diese Bestellung ist bereits bezahlt." },
+  alreadyCancelled: {
+    en: "This order is already cancelled.",
+    de: "Diese Bestellung ist bereits storniert.",
+  },
+  cartIsEmpty: { en: "The cart is empty.", de: "Der Warenkorb ist leer." },
+});
 
 // --- Entity with a state machine so we can show guardTransition + version
 //     conflicts. Prices in cents (integer minor unit — see money-type.md).
@@ -355,6 +357,7 @@ const ORDER_TRANSITIONS = defineTransitions({
 });
 
 export const orderEntity = createEntity({
+  name: "order",
   table: "read_errctr_orders",
   fields: {
     ownerId: createTextField({ personal: "ref", required: true }),
@@ -371,10 +374,11 @@ export const orderEntity = createEntity({
   },
 });
 
-const orderTable = buildEntityTable("order", orderEntity);
+const orderTable = buildEntityTable(orderEntity);
 
 export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
-  r.entity({ name: "order", ...orderEntity });
+  r.entity(orderEntity);
+  r.translations({ keys: ordersLiteFailures.translationKeys });
 
   // 1) Create — standard path. Zod schema rejects an empty cart; the
   //    dispatcher converts the ZodIssue into a ValidationError with
@@ -382,7 +386,7 @@ export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
   r.writeHandler({
     name: "order:create",
     schema: z.object({
-      totalCents: z.number().int().min(1, "cart_is_empty"),
+      totalCents: z.number().int().min(1, ordersLiteFailures.reasonOf("cartIsEmpty")),
     }),
     handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(orderTable, orderEntity, { entityName: "order" });
@@ -400,7 +404,7 @@ export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
   //      - NotFoundError (order doesn't exist)
   //      - AccessDeniedError (someone else's order, distinct from not_found
   //        so the caller knows it's a permissions issue)
-  //      - UnprocessableError with reason from OrdersLiteReasons
+  //      - UnprocessableError with a reason from ordersLiteFailures
   //      - Framework-generated UnprocessableError with reason
   //        FrameworkReasons.invalidTransition via guardTransition
   r.writeHandler({
@@ -429,12 +433,10 @@ export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
       }
 
       // UnprocessableError with feature reason — "this order is already in
-      // the terminal paid state". Uses the OrdersLiteReasons const so the
-      // literal string lives in one place.
+      // the terminal paid state". Uses ordersLiteFailures so the
+      // slug, i18n key and text live in one place.
       if (data["status"] === "paid") {
-        return failUnprocessable(OrdersLiteReasons.alreadyPaid, {
-          orderId: event.payload.id,
-        });
+        return ordersLiteFailures.fail("alreadyPaid", { orderId: event.payload.id });
       }
 
       // guardTransition throws UnprocessableError with
@@ -469,7 +471,7 @@ export const ordersLiteFeature = defineFeature("orders-lite", (r) => {
       const data = current as Record<string, unknown>;
 
       if (data["status"] === "cancelled") {
-        return failUnprocessable(OrdersLiteReasons.alreadyCancelled);
+        return ordersLiteFailures.fail("alreadyCancelled");
       }
       if (data["status"] === "paid") {
         return writeFailure(

@@ -1,9 +1,8 @@
 ---
-status: in-progress
-verified: 2026-06-30
-evidence: "M1 shipped als @cosmicdrift/kumiko-headless + dispatcher-live (View-Model, Nav, Form-Controller, Batch-API); M2 teilweise als renderer-web/renderer; M3–M9 offen"
+status: parked
+verified: 2026-11-16
+evidence: "M1 shipped, since 0.379.0 in @cosmicdrift/kumiko-renderer (renderer/headless, renderer/live); kumiko-platform#443 closed; M3-M9 not started"
 issue: kumiko-platform#443
-next: M2–M4 verifizieren/abschließen (renderer-web + App-Skelett + E2E); Issue #110 geschlossen (M1-Scope)
 ---
 
 # UI Build Plan — Meilensteine

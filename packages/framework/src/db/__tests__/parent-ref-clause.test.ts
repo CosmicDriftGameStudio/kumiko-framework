@@ -30,9 +30,24 @@ const textField = () =>
   });
 
 const joinEntity = createEntity({
+  name: "test-join",
   table: "read_test_joins",
   fields: { entityType: textField(), entityId: textField() },
-  parentRef: { entityTypeField: "entityType", entityIdField: "entityId" },
+  parentRef: {
+    entityTypeField: "entityType",
+    entityIdField: "entityId",
+    allowedTypes: [
+      "host",
+      "other",
+      "third",
+      "dropped",
+      "kept",
+      "global-host",
+      "readable-host",
+      "reference-host",
+      "where-host",
+    ],
+  },
 });
 
 function hostEntity(opts?: {
@@ -42,13 +57,14 @@ function hostEntity(opts?: {
   readonly parentRef?: EntityDefinition["parentRef"];
 }) {
   return createEntity({
+    name: "host",
     table: "read_test_hosts",
     fields: { ownerId: textField(), entityType: textField(), entityId: textField() },
     ...opts,
   });
 }
 
-const joinTable = buildEntityTable("test-join", joinEntity);
+const joinTable = buildEntityTable(joinEntity);
 
 function build(
   entities: ReadonlyMap<string, EntityDefinition> | undefined,
@@ -70,10 +86,10 @@ function build(
 
 describe("buildParentRefClause", () => {
   test("an entity without parentRef is not gated", () => {
-    const plain = createEntity({ table: "read_plain", fields: { a: textField() } });
+    const plain = createEntity({ name: "plain", table: "read_plain", fields: { a: textField() } });
     const clause = buildParentRefClause(
       plain,
-      buildEntityTable("plain", plain),
+      buildEntityTable(plain),
       "read_plain",
       user,
       tenantDb,
@@ -105,7 +121,7 @@ describe("buildParentRefClause", () => {
 
   test("a candidate that is itself a join row is excluded — no recursive gating", () => {
     const host = hostEntity({
-      parentRef: { entityTypeField: "entityType", entityIdField: "entityId" },
+      parentRef: { entityTypeField: "entityType", entityIdField: "entityId", allowedTypes: ["x"] },
     });
     expect(build(new Map([["host", host]])).kind).toBe("empty");
   });
@@ -123,6 +139,18 @@ describe("buildParentRefClause", () => {
     expect(narrowed.sqlText.split(" OR ")).toHaveLength(1);
     expect(narrowed.params).toContain("other");
     expect(narrowed.params).not.toContain("host");
+  });
+
+  test("a registered entity missing from allowedTypes gets no branch", () => {
+    const entities = new Map([
+      ["host", hostEntity()],
+      ["unlisted", hostEntity()],
+    ]);
+    const clause = build(entities);
+    if (clause.kind !== "sql") throw new Error("expected sql clause");
+    expect(clause.sqlText.split(" OR ")).toHaveLength(1);
+    expect(clause.params).toContain("host");
+    expect(clause.params).not.toContain("unlisted");
   });
 
   test("the host's soft-delete filter applies by default and lifts under includeDeleted", () => {
@@ -216,6 +244,7 @@ describe("combineClauses", () => {
 
 describe("buildParentRefClause on a global host", () => {
   const globalHost = createEntity({
+    name: "reference-host",
     table: "read_test_global_hosts",
     tenancy: "global",
     fields: { ownerId: textField() },
@@ -265,6 +294,7 @@ describe("buildParentRefClause on a global host", () => {
 
   test("a global host marked systemRowsReadable keeps its EXISTS arm under the tenant scope", () => {
     const readableHost = createEntity({
+      name: "readableHost",
       table: "read_test_readable_global_hosts",
       tenancy: "global",
       systemRowsReadable: true,
@@ -276,7 +306,7 @@ describe("buildParentRefClause on a global host", () => {
   });
 
   test("a global host classified only on its registry table (reference data) keeps its EXISTS arm", () => {
-    const registryTable = buildEntityTable("reference-host", globalHost);
+    const registryTable = buildEntityTable(globalHost);
     declareSystemRowsReadable(registryTable);
     const clause = buildParentRefClause(
       joinEntity,
@@ -293,6 +323,7 @@ describe("buildParentRefClause on a global host", () => {
 
   test("the host check skips readable hosts and hosts whose access.read is a where-rule", () => {
     const whereHost = createEntity({
+      name: "whereHost",
       table: "read_test_where_global_hosts",
       tenancy: "global",
       fields: { ownerId: textField() },
@@ -309,6 +340,7 @@ describe("buildParentRefClause on a global host", () => {
       },
     });
     const readableHost = createEntity({
+      name: "readableHost",
       table: "read_test_readable_global_hosts",
       tenancy: "global",
       systemRowsReadable: true,

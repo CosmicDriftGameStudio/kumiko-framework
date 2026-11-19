@@ -1,3 +1,5 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
+
 import type { DbRunner } from "@cosmicdrift/kumiko-types/db-connection";
 import { createFallbackLogger } from "../../logging/utils.ts";
 import {
@@ -48,6 +50,11 @@ export async function notifyPgChannel(db: AnyDb, channel: string): Promise<void>
 
 const IDEMPOTENCY_INDEX_NAME = "events_idempotency_uq";
 export const MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME = "events_membership_payload_tenant_idx";
+export const MEMBERSHIP_PAYLOAD_USER_INDEX_NAME = "events_membership_payload_user_idx";
+export const TENANT_ID_INDEX_NAME = "events_tenant_id_idx";
+export const CREATED_AT_INDEX_NAME = "events_created_at_idx";
+export const AGGREGATE_TYPE_ID_INDEX_NAME = "events_aggregate_type_id_idx";
+export const TYPE_ID_INDEX_NAME = "events_type_id_idx";
 
 // Tenant-scoped partial unique index over metadata.idempotencyKey.
 // Expression index straight on the jsonb column — no dedicated key column,
@@ -129,34 +136,50 @@ async function buildIdempotencyKeyIndex(db: AnyDb): Promise<void> {
   }
 }
 
-// forget-cleanup reads the membership history by payload->>'tenantId' (not the
-// tenant_id column — cross-tenant SystemAdmin adds land under the actor's
-// tenant), which no other index covers: without this it scans every event.
-// Same CONCURRENTLY + INVALID-rebuild handling as the idempotency index.
-export function ensureMembershipPayloadTenantIndex(db: AnyDb): Promise<void> {
+// Plain (non-unique) kumiko_events indexes that older installs get on boot (CONCURRENTLY, INVALID ones rebuilt).
+// forget-cleanup reads membership history by payload tenantId/userId, not the tenant_id column: cross-tenant SystemAdmin adds land under the actor's tenant.
+// Type-wide id-cursor scans (streamAllEventsByType, projection rebuild, PII backfill) read by (aggregate_type, id).
+const SECONDARY_EVENT_INDEXES: ReadonlyArray<{
+  readonly name: string;
+  readonly definition: string;
+}> = [
+  {
+    name: MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME,
+    definition: `((("payload"->>'tenantId'))) WHERE "aggregate_type" = 'tenant-membership'`,
+  },
+  {
+    name: MEMBERSHIP_PAYLOAD_USER_INDEX_NAME,
+    definition: `((("payload"->>'userId'))) WHERE "aggregate_type" = 'tenant-membership'`,
+  },
+  { name: TENANT_ID_INDEX_NAME, definition: `("tenant_id", "id")` },
+  { name: CREATED_AT_INDEX_NAME, definition: `("created_at")` },
+  { name: AGGREGATE_TYPE_ID_INDEX_NAME, definition: `("aggregate_type", "id")` },
+  { name: TYPE_ID_INDEX_NAME, definition: `("type", "id")` },
+];
+
+export function ensureSecondaryEventIndexes(db: AnyDb): Promise<void> {
   return outsideRowLevelSecurityScope(() =>
-    withoutStatementTimeout(innerOfScopedRunner(db) ?? db, buildMembershipPayloadTenantIndex),
+    withoutStatementTimeout(innerOfScopedRunner(db) ?? db, buildSecondaryEventIndexes),
   );
 }
 
-async function buildMembershipPayloadTenantIndex(db: AnyDb): Promise<void> {
+async function buildSecondaryEventIndexes(db: AnyDb): Promise<void> {
   const client = asRawClient(db);
-  try {
-    if ((await indexValidity(client, MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME)) === false) {
+  for (const index of SECONDARY_EVENT_INDEXES) {
+    try {
+      if ((await indexValidity(client, index.name)) === false) {
+        await client.unsafe(`DROP INDEX CONCURRENTLY IF EXISTS "${index.name}"`);
+      }
       await client.unsafe(
-        `DROP INDEX CONCURRENTLY IF EXISTS "${MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME}"`,
+        `CREATE INDEX CONCURRENTLY IF NOT EXISTS "${index.name}" ON "kumiko_events" ${index.definition}`,
       );
+    } catch (e) {
+      if (isBenignConcurrentIndexBuildRace(e)) {
+        // skip: sibling pod already built a valid index — this race loser is done.
+        if ((await indexValidity(client, index.name)) === true) continue;
+      }
+      throw e;
     }
-    await client.unsafe(
-      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "${MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME}" ON "kumiko_events" ` +
-        `((("payload"->>'tenantId'))) WHERE "aggregate_type" = 'tenant-membership'`,
-    );
-  } catch (e) {
-    if (isBenignConcurrentIndexBuildRace(e)) {
-      // skip: sibling pod already built a valid index — this race loser is done.
-      if ((await indexValidity(client, MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME)) === true) return;
-    }
-    throw e;
   }
 }
 
@@ -288,6 +311,51 @@ export async function insertSubsequentEventRow(
   return rows[0];
 }
 
+export type EventBatchInsertRow = SubsequentEventInsertRow & { readonly aggregate_id: string };
+
+// One statement and one optimistic check per stream for the whole batch; a lost race returns
+// no row for that stream instead of a 23505. A single jsonb parameter keeps the statement
+// clear of the 65535 bind-parameter limit.
+export async function insertEventRowsBatch(
+  db: AnyDb,
+  rows: readonly Omit<SubsequentEventInsertParams, "createdAt">[],
+): Promise<readonly EventBatchInsertRow[]> {
+  const recordset = rows.map((row) => ({
+    aggregate_id: row.aggregateId,
+    aggregate_type: row.aggregateType,
+    tenant_id: row.tenantId,
+    version: row.newVersion,
+    type: row.type,
+    event_version: row.eventVersion,
+    payload: row.payload,
+    metadata: row.metadata,
+    created_by: row.createdBy,
+    expected_version: row.expectedVersion,
+  }));
+  return asRawClient(db).unsafe<EventBatchInsertRow>(
+    `INSERT INTO "kumiko_events" (
+       aggregate_id, aggregate_type, tenant_id, version,
+       type, event_version, payload, metadata, created_by
+     )
+     SELECT u.aggregate_id, u.aggregate_type, u.tenant_id, u.version,
+            u.type, u.event_version, u.payload, u.metadata, u.created_by
+     FROM jsonb_to_recordset($1::jsonb -> 'rows') AS u(
+       aggregate_id uuid, aggregate_type text, tenant_id uuid, version integer, type text,
+       event_version integer, payload jsonb, metadata jsonb, created_by text,
+       expected_version integer)
+     WHERE u.expected_version = 0 OR EXISTS (
+       SELECT 1 FROM "kumiko_events" e
+       WHERE e.aggregate_id = u.aggregate_id
+         AND e.version = u.expected_version
+         AND e.tenant_id = u.tenant_id)
+     ON CONFLICT (tenant_id, aggregate_id, version) DO NOTHING
+     RETURNING id, created_at, aggregate_id`,
+    // Wrapped in an object: a bare JS array param would hit the driver's array-type inference
+    // (see toPostgresArrayLiteral), while an object binds to jsonb like payload above.
+    [{ rows: recordset }],
+  );
+}
+
 export async function selectStreamMaxVersion(
   db: AnyDb,
   aggregateId: string,
@@ -373,6 +441,49 @@ export async function selectEventsHighWaterMark(db: AnyDb): Promise<bigint> {
 /** Head event id for lag metrics — alias for selectEventsHighWaterMark. */
 export async function selectEventsHeadId(db: AnyDb): Promise<bigint> {
   return selectEventsHighWaterMark(db);
+}
+
+// A stream is only deleted whole: a partial prune drops the created event while later events stay,
+// and a rebuild then loses the row. The limit counts streams so no batch cuts one.
+export async function selectExpiredStreamEventIds(
+  db: AnyDb,
+  args: {
+    aggregateTypes: readonly string[];
+    aggregateIds?: readonly string[];
+    cutoff: Temporal.Instant;
+    streamLimit?: number;
+  },
+): Promise<bigint[]> {
+  const params: unknown[] = [toPostgresArrayLiteral(args.aggregateTypes)];
+  let idFilter = "";
+  if (args.aggregateIds !== undefined) {
+    params.push(toPostgresArrayLiteral(args.aggregateIds));
+    idFilter = `AND s."aggregate_id" = ANY($${params.length}::uuid[])`;
+  }
+  params.push(args.cutoff.toString());
+  const cutoffPlaceholder = `$${params.length}::timestamptz`;
+  let limitClause = "";
+  if (args.streamLimit !== undefined) {
+    params.push(args.streamLimit);
+    limitClause = `LIMIT $${params.length}`;
+  }
+  const rows = await unsafeReadRetrying<{ id: string | bigint }>(
+    db,
+    `SELECT e."id" FROM "kumiko_events" e
+JOIN (
+  SELECT s."tenant_id", s."aggregate_type", s."aggregate_id" FROM "kumiko_events" s
+  WHERE s."aggregate_type" = ANY($1::text[]) ${idFilter}
+  GROUP BY s."tenant_id", s."aggregate_type", s."aggregate_id"
+  HAVING MAX(s."created_at") < ${cutoffPlaceholder}
+  ORDER BY MIN(s."id")
+  ${limitClause}
+) expired ON expired."tenant_id" = e."tenant_id"
+  AND expired."aggregate_type" = e."aggregate_type"
+  AND expired."aggregate_id" = e."aggregate_id"
+ORDER BY e."id"`,
+    params,
+  );
+  return rows.map((row) => (typeof row.id === "bigint" ? row.id : BigInt(row.id)));
 }
 
 export async function selectNextEventIdAfter(db: AnyDb, afterId: bigint): Promise<bigint | null> {

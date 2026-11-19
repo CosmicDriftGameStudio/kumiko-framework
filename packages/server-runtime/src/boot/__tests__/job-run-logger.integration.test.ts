@@ -6,6 +6,7 @@
 // its side effect to prove the lane is actually being consumed.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import {
+  createJobRunLogger,
   createJobsFeature,
   jobRunLogsTable,
   jobRunsTable,
@@ -46,8 +47,12 @@ const jobRuns: Array<{ readonly note: string }> = [];
 
 // No `runIn` — the exact case the lane-default regression hits.
 const probeFeature = defineFeature("probe", (r) => {
-  r.job("noteIt", { trigger: { manual: true } }, async (payload) => {
-    jobRuns.push({ note: (payload as { note: string }).note });
+  r.job({
+    name: "noteIt",
+    trigger: { manual: true },
+    handler: async (payload) => {
+      jobRuns.push({ note: (payload as { note: string }).note });
+    },
   });
 });
 
@@ -104,12 +109,13 @@ describe("startDevJobRunners", () => {
 // startDevJobRunners as the lane consumer) and drives a job that calls both
 // ctx.dispatch.write and ctx.dispatch.queryAs end-to-end.
 const attachNoteEntity = createEntity({
+  name: "note",
   table: "job_attach_notes",
   // The job's dispatch.write lands on the system tenant; the tenant session must read it back.
   systemRowsReadable: true,
   fields: { text: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
-const attachNoteTable = buildEntityTable("note", attachNoteEntity);
+const attachNoteTable = buildEntityTable(attachNoteEntity);
 
 const attachJobPayload = z.object({ text: z.string() });
 const attachListRows = z.array(z.object({ text: z.string() }));
@@ -118,7 +124,7 @@ const attachResults: Array<{ writeOk: boolean; rowCount: number }> = [];
 const attachFailures: string[] = [];
 
 const attachDispatcherFeature = defineFeature("jobattach", (r) => {
-  r.entity({ name: "note", ...attachNoteEntity });
+  r.entity(attachNoteEntity);
 
   r.writeHandler({
     name: "create",
@@ -139,14 +145,15 @@ const attachDispatcherFeature = defineFeature("jobattach", (r) => {
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
-  r.job(
-    "record",
-    {
-      trigger: { manual: true },
-      retries: 0,
-      escapeHatch: { reason: "test job reads the note list as a signed-in user" },
+  r.job({
+    name: "record",
+    trigger: { manual: true },
+    retries: 0,
+    escapeHatch: {
+      reason: "test job reads the note list as a signed-in user",
+      grants: ["systemIdentity"],
     },
-    async (payload, ctx) => {
+    handler: async (payload, ctx) => {
       try {
         const { text } = attachJobPayload.parse(payload);
         const writeResult = await ctx.dispatch.write("jobattach:write:create", { text });
@@ -160,7 +167,7 @@ const attachDispatcherFeature = defineFeature("jobattach", (r) => {
         throw error;
       }
     },
-  );
+  });
 });
 
 describe("startDevJobRunners attaches the dispatcher", () => {
@@ -225,13 +232,21 @@ describe("startDevJobRunners isolates queues by queueNamePrefix", () => {
     const runsB: string[] = [];
 
     const isoFeatureA = defineFeature("iso", (r) => {
-      r.job("mark", { trigger: { manual: true } }, async (payload) => {
-        runsA.push((payload as { note: string }).note);
+      r.job({
+        name: "mark",
+        trigger: { manual: true },
+        handler: async (payload) => {
+          runsA.push((payload as { note: string }).note);
+        },
       });
     });
     const isoFeatureB = defineFeature("iso", (r) => {
-      r.job("mark", { trigger: { manual: true } }, async (payload) => {
-        runsB.push((payload as { note: string }).note);
+      r.job({
+        name: "mark",
+        trigger: { manual: true },
+        handler: async (payload) => {
+          runsB.push((payload as { note: string }).note);
+        },
       });
     });
 
@@ -275,5 +290,47 @@ describe("startDevJobRunners isolates queues by queueNamePrefix", () => {
       await runnerA.stop();
       await runnerB.stop();
     }
+  });
+});
+
+// BullMQ job ids are only unique per queue, so two jobs can complete under the
+// same bullJobId; each run row must be resolved by (jobName, bullJobId).
+describe("createJobRunLogger — run resolution", () => {
+  const readRunStatuses = async (bullJobId: string) => {
+    const rows = await selectMany<{ jobName: string; status: string }>(db, jobRunsTable, {
+      bullJobId,
+    });
+    return Object.fromEntries(rows.map((r) => [r.jobName, r.status]));
+  };
+
+  test("completion resolves the run of its own job when another job shares the bullJobId", async () => {
+    const logger = createJobRunLogger({
+      db,
+      registry: createRegistry([createJobsFeature()]),
+    });
+    await logger.onJobStart?.("probe:job:first", "shared-cached", {});
+    await logger.onJobStart?.("probe:job:second", "shared-cached", {});
+
+    await logger.onJobComplete?.("probe:job:first", "shared-cached", 5, []);
+
+    expect(await readRunStatuses("shared-cached")).toEqual({
+      "probe:job:first": "completed",
+      "probe:job:second": "running",
+    });
+  });
+
+  test("a cache miss falls back to the run of its own job, not any run with that bullJobId", async () => {
+    const registry = createRegistry([createJobsFeature()]);
+    const starter = createJobRunLogger({ db, registry });
+    await starter.onJobStart?.("probe:job:other", "shared-uncached", {});
+    await starter.onJobStart?.("probe:job:wanted", "shared-uncached", {});
+
+    const freshLogger = createJobRunLogger({ db, registry });
+    await freshLogger.onJobComplete?.("probe:job:wanted", "shared-uncached", 5, []);
+
+    expect(await readRunStatuses("shared-uncached")).toEqual({
+      "probe:job:other": "running",
+      "probe:job:wanted": "completed",
+    });
   });
 });

@@ -1,7 +1,7 @@
-import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
+import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
 // Async export-job worker — a pure pipeline function.
 //
-// A cron-triggered pass (see the r.job wrap in feature.ts) processes all
+// A pass (maintenance job and on-request job in jobs.ts) processes all
 // pending jobs. Each job is claimed with optimistic locking through the version
 // column: when two worker replicas pick the same job, the second one gets a
 // VersionConflictError and skips it. The export bundle is built by
@@ -22,16 +22,12 @@ import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 
 import { addDurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
 import type { DbConnection, DbRunner } from "@cosmicdrift/kumiko-framework/db";
-import {
-  createEventStoreExecutor,
-  createTenantDb,
-  fetchOne,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type {
   EscapeHatchAuditSink,
   Registry,
   TenantId,
+  UserDataStorageProvider,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -40,12 +36,17 @@ import {
   tenantExportPrefix,
   type ZipEntry,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { MetricsHandle } from "@cosmicdrift/kumiko-framework/observability";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resolveProfileForTenant } from "../compliance-profiles/index.ts";
 import { decryptStoredUserEmail } from "../shared/index.ts";
 import { userTable } from "../user/index.ts";
-import { selectExportJobsForStorageCleanup } from "./db/queries/export-jobs.ts";
+import {
+  type ExportBundleRef,
+  selectExportJobsForStorageCleanup,
+} from "./db/queries/export-jobs.ts";
+import { isExportSubjectErased, selectErasedExportSubjects } from "./lib/export-subject-erased.ts";
 import { runUserExport, type UserExportBundle } from "./run-user-export.ts";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "./schema/download-token.ts";
 import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "./schema/export-job.ts";
@@ -53,8 +54,7 @@ import { generateDownloadToken } from "./token-helpers.ts";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
-// Gauge short name (feature.ts registers it via r.metric + resolves ctx.meter
-// into a MetricsHandle — jobs get no bound ctx.obs.metrics, see feature.ts).
+// Gauge short name (jobs.ts registers it via r.metric; jobs get no bound ctx.obs.metrics).
 // No "_seconds"/"_total" suffix: validateMetricName rejects both on a gauge.
 // Unit lives in the r.metric() `unit: "seconds"` declaration instead.
 export const EXPORT_CLEANUP_BACKLOG_AGE_METRIC = "export_cleanup_backlog_age";
@@ -64,9 +64,14 @@ export const EXPORT_CLEANUP_BACKLOG_AGE_METRIC = "export_cleanup_backlog_age";
 // the backlog gauge disappear — alert on `time() - this > interval + buffer`.
 export const EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC = "export_cleanup_last_run_timestamp";
 
+const exportJobsLog = createFallbackLogger("user-data-rights:run-export-jobs");
+
 const crud = createEventStoreExecutor(exportJobsTable, exportJobEntity, {
   entityName: "export-job",
 });
+
+// errorMessage of a job ended because its user was erased (forget run or worker check).
+export const EXPORT_JOB_ERROR_USER_ERASED = "cancelled: user erased";
 
 // Separate event-store executor for download tokens. `crud.create` emits
 // `exportDownloadToken.created` and synchronously updates
@@ -81,23 +86,9 @@ export const tokenCrud = createEventStoreExecutor(
 );
 
 /**
- * Notification callback for the done path. The plain token remains ephemeral
- * and is never stored in the database or event store. The application wires
- * this callback to its email provider, such as `delivery.notify`,
- * `mailFoundation.send`, or a custom Resend/SES integration.
- *
- * **Best-effort:** a throw from the callback bubbles to the r.job wrap, and the
- * jobs feature records the worker run as failed in jobRunsTable while the export
- * job stays done. That failed path is covered by Scenario 2 in
- * `jobs/__tests__/jobs-feature.integration.test.ts` instead of being duplicated
- * end to end here. Operators see the failure in the /jobs dashboard and can
- * re-run the worker via jobs:write:retry.
- *
- * **Recovering the plain token after an email failure:** the plain token is
- * ephemeral, so it is lost when the callback throws. Flip the job back to
- * pending and nothing else: do not delete the token row, because an eventless
- * read-side delete collides with projection rebuilds. The next worker run
- * rotates the token in place on the same aggregate.
+ * Done-path notification; the plain token stays ephemeral (never stored in the database or event store).
+ * After a failed send, flip the job back to pending and keep the token row (an eventless read-side
+ * delete collides with projection rebuilds): the next run rotates the token in place.
  */
 export type SendExportReadyEmailFn = (args: {
   readonly userId: string;
@@ -187,24 +178,45 @@ export interface RunExportJobsResult {
   readonly tokenByJobId: ReadonlyMap<string, string>;
 }
 
+type TenantProfileLookup = (tenantId: TenantId) => ReturnType<typeof resolveProfileForTenant>;
+
+// One lookup per tenant and run: a pass otherwise resolves the same tenant once per job.
+// Only resolved values are cached, so a failed lookup is retried by the next candidate.
+function cachePerTenant<T>(
+  load: (tenantId: TenantId) => Promise<T>,
+): (tenantId: TenantId) => Promise<T> {
+  const resolved = new Map<TenantId, T>();
+  return async (tenantId) => {
+    const hit = resolved.get(tenantId);
+    if (hit !== undefined) return hit;
+    const value = await load(tenantId);
+    resolved.set(tenantId, value);
+    return value;
+  };
+}
+
 export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJobsResult> {
   const { db, registry, buildStorageProvider, now, sendExportReadyEmail, sendExportFailedEmail } =
     args;
+
+  const profileFor: TenantProfileLookup = cachePerTenant((tenantId) =>
+    resolveProfileForTenant({ db, tenantId }),
+  );
+  const storageProviderFor = cachePerTenant(buildStorageProvider);
 
   // Validate this configuration before the pass loop so a missing URL is not
   // swallowed by the per-job try/catch. Callback failures are best-effort, but
   // this is a hard application configuration error.
   if (sendExportReadyEmail && args.appExportDownloadUrl === undefined) {
     throw new Error(
-      "user-data-rights: sendExportReadyEmail gesetzt aber appExportDownloadUrl fehlt — beide muessen zusammen konfiguriert sein",
+      "user-data-rights: sendExportReadyEmail is set but appExportDownloadUrl is missing, configure both together",
     );
   }
 
   // Fail running jobs whose tenant-specific stale timeout has elapsed before
   // pickup, so a new run recovers jobs left behind by an earlier crash.
-  const staleFailedJobIds = await staleDetectionPass({ db, now });
+  const staleFailedJobIds = await staleDetectionPass({ db, now, profileFor });
 
-  // Pass 2: Pickup pending jobs + Process them.
   const completedJobIds: string[] = [];
   const failedJobIds: string[] = [];
   const errors: ExportJobError[] = [];
@@ -212,16 +224,26 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
 
   const pendingJobs = await fetchPendingJobs(db);
   for (const job of pendingJobs) {
-    const outcome = await processJob({
-      db,
-      registry,
-      buildStorageProvider,
-      now,
-      job,
-      escapeHatchAuditSink: args.escapeHatchAuditSink,
-      escapeHatchAuditLog: args.escapeHatchAuditLog,
-      actor: args.actor,
-    });
+    let outcome: ProcessOutcome;
+    try {
+      outcome = await processJob({
+        db,
+        registry,
+        buildStorageProvider: storageProviderFor,
+        profileFor,
+        now,
+        job,
+        escapeHatchAuditSink: args.escapeHatchAuditSink,
+        escapeHatchAuditLog: args.escapeHatchAuditLog,
+        actor: args.actor,
+      });
+    } catch {
+      // Pre-claim and claim errors (erased check, version-checked claim) skip only this job: the
+      // job stays pending for the next run, and the remaining jobs and the cleanup pass still run.
+      // Only the job id is logged, a driver error message can carry the user id.
+      exportJobsLog.warn("pending export job skipped after an unexpected error", { jobId: job.id });
+      continue;
+    }
     if (outcome.kind === "done") {
       completedJobIds.push(job.id);
       // Keep the plain token only in memory for downstream callbacks; never put it
@@ -272,15 +294,14 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
         }
       }
     }
-    // A claim race means another worker already owns the job; skip it without
-    // reporting an error.
   }
 
   // Storage cleanup: expired done jobs (expiresAt + grace < now) get their
   // storage object deleted and downloadStorageKey cleared in the database.
   const cleanedJobIds = await storageCleanupPass({
     db,
-    buildStorageProvider,
+    buildStorageProvider: storageProviderFor,
+    profileFor,
     now,
     metrics: args.metrics,
   });
@@ -321,12 +342,13 @@ type ProcessOutcome =
       bytesWritten: number;
     }
   | { kind: "failed"; error: ExportJobError }
-  | { kind: "skipped" }; // claim-race-loss (anderer Worker)
+  | { kind: "skipped" }; // another worker won the claim, or the user was erased (no mail)
 
 async function processJob(args: {
   db: DbConnection;
   registry: Registry;
   buildStorageProvider: (tenantId: TenantId) => Promise<FileStorageProvider>;
+  profileFor: TenantProfileLookup;
   now: Instant;
   job: JobRow;
   escapeHatchAuditSink?: EscapeHatchAuditSink;
@@ -339,6 +361,12 @@ async function processJob(args: {
   // is tenant-agnostic. System mode bypasses the automatic tenant filter while
   // `requestedFromTenantId` preserves the stream identity.
   const tdb = systemTenantDb(db, job.requestedFromTenantId);
+
+  // The forget run fails the jobs it sees; this catches one requested while that run was in flight.
+  if (await isExportSubjectErased(db, job.userId)) {
+    await failExportJob(db, job, now, EXPORT_JOB_ERROR_USER_ERASED);
+    return { kind: "skipped" };
+  }
 
   // Claim with a version check so a concurrent worker causes a conflict.
   // Persist downloadStorageKey during the claim: if the worker crashes after
@@ -359,12 +387,9 @@ async function processJob(args: {
     tdb,
   );
   if (!claimResult.isSuccess) {
-    // Another worker won the claim race, so skip this job without logging an error.
     return { kind: "skipped" };
   }
 
-  // Build the bundle, stream the ZIP, and write it to storage. Errors before
-  // completion are materialized as a failed job.
   try {
     const bundle = await runUserExport({
       db,
@@ -376,37 +401,33 @@ async function processJob(args: {
       actor: args.actor,
     });
 
-    const profile = await resolveProfileForTenant({
-      db,
-      tenantId: job.requestedFromTenantId,
-    });
+    const profile = await args.profileFor(job.requestedFromTenantId);
     const ttl = profile.profile.userRights.exportDownloadTtl;
 
-    // Cross-tenant file references require a provider per tenant because storage
-    // configuration may differ. Cache each provider so a tenant is initialized
-    // only once; the requested tenant owns the write path, while reads use each
-    // file reference's tenantId.
-    const providerCache = new Map<TenantId, FileStorageProvider>();
-    const cachedProvider = async (tenantId: TenantId): Promise<FileStorageProvider> => {
-      let p = providerCache.get(tenantId);
-      if (!p) {
-        p = await buildStorageProvider(tenantId);
-        providerCache.set(tenantId, p);
-      }
-      return p;
-    };
-
-    const writeProvider = await cachedProvider(job.requestedFromTenantId);
-    // The provider type requires both methods, so runtime optional checks are
-    // unnecessary.
+    // Reads use the provider of each file reference's tenantId; the requesting
+    // tenant owns the write path.
+    const writeProvider = await buildStorageProvider(job.requestedFromTenantId);
 
     const tracker = countingStream(
-      createZipStream(bundleToZipEntries(bundle, now, cachedProvider)),
+      createZipStream(bundleToZipEntries(bundle, now, buildStorageProvider)),
     );
 
     await writeProvider.writeStream(storageKey, tracker.stream, {
       mimeType: "application/zip",
     });
+
+    // A forget run may have erased the user while the ZIP was written. Delete by the in-memory key:
+    // a parallel storage-cleanup pass may already have cleared the key on the job row.
+    if (await isExportSubjectErased(db, job.userId)) {
+      await writeProvider.delete(storageKey);
+      await failExportJob(
+        db,
+        { ...job, version: job.version + 1 },
+        now,
+        EXPORT_JOB_ERROR_USER_ERASED,
+      );
+      return { kind: "skipped" };
+    }
 
     // Create the token before the done transition: if token creation fails, the
     // job is still running and the catch path marks it failed (monotonic status).
@@ -461,9 +482,6 @@ async function processJob(args: {
           tdb,
         );
     if (!tokenCreateResult.isSuccess) {
-      // Token creation failed before the done transition. The catch path marks the
-      // job failed, and cleanup can remove the ZIP whose path was persisted at
-      // claim time.
       throw new Error(
         `Job ${job.id}: Token-Creation failed before done-flip. ` +
           `${(tokenCreateResult as { error?: { code?: string } }).error?.code ?? "unknown"}`, // @cast-boundary engine-payload
@@ -478,8 +496,6 @@ async function processJob(args: {
         changes: {
           status: EXPORT_JOB_STATUS.Done,
           completedAt: now,
-          // downloadStorageKey was set during the claim, so it does not need to be
-          // written again.
           expiresAt,
           bytesWritten: tracker.bytes,
         },
@@ -499,6 +515,21 @@ async function processJob(args: {
     return { kind: "done", tokenPlain, expiresAt, bytesWritten: tracker.bytes };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
+    // A forget run that landed between the second check and the done flip: end the job as erased,
+    // send no failure mail and expire a token that was already issued. The orphaned ZIP goes with
+    // the cleanup pass of this run (failed job with key).
+    if (await isExportSubjectErased(db, job.userId).catch(() => false)) {
+      await expireExportToken(db, job, now);
+      await failExportJob(
+        db,
+        { ...job, version: job.version + 1 },
+        now,
+        EXPORT_JOB_ERROR_USER_ERASED,
+      ).catch(() => {
+        /* swallow: the forget run may have ended the job already */
+      });
+      return { kind: "skipped" };
+    }
     // Failure handling is best-effort. If the failure transition also fails, the
     // job remains running and stale detection will recover it on a later run.
     await crud
@@ -516,7 +547,7 @@ async function processJob(args: {
         tdb,
       )
       .catch(() => {
-        /* swallow — stale-detection kommt im nachsten Pass */
+        /* swallow: the next stale pass fails this job */
       });
     return {
       kind: "failed",
@@ -533,13 +564,14 @@ async function processJob(args: {
 async function staleDetectionPass(args: {
   db: DbConnection;
   now: Instant;
+  profileFor: TenantProfileLookup;
 }): Promise<readonly string[]> {
-  const { db, now } = args;
+  const { db, now, profileFor } = args;
 
   // Fetch all running jobs instead of applying a coarse one-hour filter:
   // exportStaleTimeoutMinutes is tenant-specific and may be as low as five
-  // minutes, so a coarse filter could miss stale jobs. The expected number of
-  // running jobs makes resolving each tenant's profile practical.
+  // minutes, so a coarse filter could miss stale jobs. Profiles are resolved
+  // once per run and tenant, which keeps the per-candidate check cheap.
   const candidates = await selectMany<{
     id: string;
     version: number;
@@ -550,10 +582,7 @@ async function staleDetectionPass(args: {
 
   const failed: string[] = [];
   for (const c of candidates) {
-    const profile = await resolveProfileForTenant({
-      db,
-      tenantId: c.requestedFromTenantId,
-    });
+    const profile = await profileFor(c.requestedFromTenantId);
     const cutoffMs =
       now.epochMilliseconds - profile.profile.userRights.exportStaleTimeoutMinutes * 60 * 1000;
     const startedMs = c.startedAt?.epochMilliseconds ?? Number.MAX_SAFE_INTEGER;
@@ -572,7 +601,6 @@ async function staleDetectionPass(args: {
         systemTenantDb(db, c.requestedFromTenantId),
       );
       if (result.isSuccess) failed.push(c.id);
-      // Another worker completed the job, so skip it.
     }
   }
   return failed;
@@ -581,14 +609,15 @@ async function staleDetectionPass(args: {
 async function storageCleanupPass(args: {
   db: DbConnection;
   buildStorageProvider: (tenantId: TenantId) => Promise<FileStorageProvider>;
+  profileFor: TenantProfileLookup;
   now: Instant;
   metrics?: MetricsHandle;
 }): Promise<readonly string[]> {
-  const { db, buildStorageProvider, now, metrics } = args;
+  const { db, buildStorageProvider, profileFor, now, metrics } = args;
 
   // Done jobs are cleaned after expiresAt plus the tenant's grace period
   // (default 24h after expiry, so re-downloads after a dropped connection still
-  // work). Failed jobs with a persisted downloadStorageKey are orphaned ZIPs:
+  // work), or at once when their user was erased. Failed jobs with a persisted downloadStorageKey are orphaned ZIPs:
   // the worker wrote the ZIP but failed before the done flip, so no token was
   // ever issued and no user has seen it. They are removed immediately, without
   // grace: the right to erasure outweighs forensics here, and the job's
@@ -601,6 +630,13 @@ async function storageCleanupPass(args: {
   );
 
   const cleaned: string[] = [];
+  const erasedUserIds = await selectErasedExportSubjects(db, [
+    ...new Set(
+      candidates
+        .filter((c) => c.status === EXPORT_JOB_STATUS.Done && c.downloadStorageKey)
+        .map((c) => c.userId),
+    ),
+  ]);
   // Candidates past their due-instant, keyed by that instant — used below to
   // report how far cleanup has fallen behind if a candidate is still standing
   // (delete threw, or the version-checked null-out lost a race) once the pass
@@ -612,50 +648,45 @@ async function storageCleanupPass(args: {
     for (const c of candidates) {
       if (!c.downloadStorageKey) continue;
 
-      // Done jobs need the expiresAt+grace check. Failed jobs pass straight
-      // through (no user path, so clean up immediately).
+      // Done jobs need the expiresAt+grace check unless their user was erased: that bundle goes
+      // at once. Failed jobs pass straight through (no user path, so clean up immediately).
       if (c.status === EXPORT_JOB_STATUS.Done) {
-        if (!c.expiresAt) continue;
-        // Count the candidate as overdue (lower bound, grace unknown) before the
-        // throwing profile lookup, so a failing pass still shows a backlog.
-        overdueDoneCleanupAfterMs.set(c.id, c.expiresAt.epochMilliseconds);
-        const profile = await resolveProfileForTenant({
-          db,
-          tenantId: c.requestedFromTenantId,
-        });
-        const cleanupAfter =
-          c.expiresAt.epochMilliseconds +
-          profile.profile.userRights.exportStorageCleanupGraceHours * 60 * 60 * 1000;
-        if (now.epochMilliseconds < cleanupAfter) {
-          overdueDoneCleanupAfterMs.delete(c.id);
-          continue;
+        if (erasedUserIds.has(c.userId)) {
+          overdueDoneCleanupAfterMs.set(c.id, now.epochMilliseconds);
+        } else {
+          if (!c.expiresAt) continue;
+          // Count the candidate as overdue (lower bound, grace unknown) before the
+          // throwing profile lookup, so a failing pass still shows a backlog.
+          overdueDoneCleanupAfterMs.set(c.id, c.expiresAt.epochMilliseconds);
+          const profile = await profileFor(c.requestedFromTenantId);
+          const cleanupAfter =
+            c.expiresAt.epochMilliseconds +
+            profile.profile.userRights.exportStorageCleanupGraceHours * 60 * 60 * 1000;
+          if (now.epochMilliseconds < cleanupAfter) {
+            overdueDoneCleanupAfterMs.delete(c.id);
+            continue;
+          }
+          overdueDoneCleanupAfterMs.set(c.id, cleanupAfter);
         }
-        overdueDoneCleanupAfterMs.set(c.id, cleanupAfter);
-      }
-      // Failed-job branch: no TTL check, clean up immediately.
-      else {
+      } else {
         const failedAt = c.completedAt ?? c.startedAt;
         if (failedAt) overdueDoneCleanupAfterMs.set(c.id, failedAt.epochMilliseconds);
       }
 
-      // Delete the storage file and null the DB column.
       try {
         const provider = await buildStorageProvider(c.requestedFromTenantId);
         await provider.delete(c.downloadStorageKey);
       } catch {
-        // best-effort; if the storage delete fails, retry on the next pass
+        // best-effort; a failed storage delete retries on the next pass
         continue;
       }
-      const result = await crud.update(
-        {
-          id: c.id,
-          version: c.version,
-          changes: { downloadStorageKey: null },
-        },
-        createSystemUser(c.requestedFromTenantId),
-        systemTenantDb(db, c.requestedFromTenantId),
-      );
-      if (result.isSuccess) cleaned.push(c.id);
+      const keyCleared = await clearExportBundleKey(db, {
+        id: c.id,
+        version: c.version,
+        requestedFromTenantId: c.requestedFromTenantId,
+        downloadStorageKey: c.downloadStorageKey,
+      });
+      if (keyCleared) cleaned.push(c.id);
     }
     passCompleted = true;
   } finally {
@@ -724,7 +755,7 @@ function reportCleanupLastRun(metrics: MetricsHandle | undefined, now: Instant):
 // `crud.update` requires a TenantDb for event-store stream lookup. Export jobs are tenant-agnostic
 // (one job per userId), so system mode bypasses the automatic tenant filter while
 // `requestedFromTenantId` preserves stream identity and keeps the stream counter consistent.
-function systemTenantDb(db: DbConnection, tenantId: TenantId) {
+function systemTenantDb(db: DbRunner, tenantId: TenantId) {
   return createTenantDb({
     db,
     tenantId,
@@ -734,26 +765,79 @@ function systemTenantDb(db: DbConnection, tenantId: TenantId) {
   });
 }
 
+// Version-checked like the claim: false when another writer moved the job first.
+export async function failExportJob(
+  db: DbRunner,
+  job: Pick<JobRow, "id" | "version" | "requestedFromTenantId">,
+  now: Instant,
+  errorMessage: string,
+): Promise<boolean> {
+  const result = await crud.update(
+    {
+      id: job.id,
+      version: job.version,
+      changes: { status: EXPORT_JOB_STATUS.Failed, completedAt: now, errorMessage },
+    },
+    createSystemUser(job.requestedFromTenantId),
+    systemTenantDb(db, job.requestedFromTenantId),
+  );
+  return result.isSuccess;
+}
+
+// Storage first, key second: a crash in between leaves a key to an absent object, which the
+// next (idempotent) delete tolerates; the reverse order would orphan the ZIP with no key left
+// pointing at it. Throws when the storage delete fails, so each caller picks skip or rollback.
+// Takes a DbRunner so the forget run can null the key inside its per-user sub-transaction.
+export async function deleteExportBundle(
+  db: DbRunner,
+  bundle: ExportBundleRef,
+  provider: Pick<UserDataStorageProvider, "delete">,
+): Promise<boolean> {
+  await provider.delete(bundle.downloadStorageKey);
+  return clearExportBundleKey(db, bundle);
+}
+
+// Version-checked: false when another writer moved the job first. Update errors propagate.
+async function clearExportBundleKey(db: DbRunner, bundle: ExportBundleRef): Promise<boolean> {
+  const result = await crud.update(
+    { id: bundle.id, version: bundle.version, changes: { downloadStorageKey: null } },
+    createSystemUser(bundle.requestedFromTenantId),
+    systemTenantDb(db, bundle.requestedFromTenantId),
+  );
+  return result.isSuccess;
+}
+
+// Expires instead of deleting: an eventless read-side delete collides with projection rebuilds.
+// Best-effort, since download-by-token answers notFound for an erased user regardless.
+async function expireExportToken(db: DbConnection, job: JobRow, now: Instant): Promise<void> {
+  try {
+    const tokenRow = await fetchOne<{ id: string; version: number }>(
+      db,
+      exportDownloadTokensTable,
+      { jobId: job.id },
+    );
+    if (!tokenRow) return;
+    await tokenCrud.update(
+      { id: tokenRow.id, version: tokenRow.version, changes: { expiresAt: now } },
+      createSystemUser(job.requestedFromTenantId),
+      systemTenantDb(db, job.requestedFromTenantId),
+    );
+  } catch {
+    /* swallow: see above */
+  }
+}
+
 function buildExportStorageKey(job: JobRow): string {
   return `${tenantExportPrefix(job.requestedFromTenantId)}${job.id}.zip`;
 }
 
-/**
- * Converts a UserExportBundle to an `AsyncIterable<ZipEntry>` for
- * createZipStream. `bundle.json` contains the bundle metadata and file
- * references; each file is streamed from the provider at its `zipPath`, so
- * large files do not require an in-memory copy.
- *
- * `getProvider` caches providers by tenantId, ensuring each tenant is built
- * only once while processing cross-tenant file references.
- */
+/** Streams bundle.json plus one ZIP entry per fileRef; `getProvider` caches one provider per tenant. */
 async function* bundleToZipEntries(
   bundle: UserExportBundle,
   mtime: Instant,
   getProvider: (tenantId: TenantId) => Promise<FileStorageProvider>,
 ): AsyncIterable<ZipEntry> {
-  // Emit bundle.json first so readers can parse the metadata before the file
-  // entries arrive.
+  // bundle.json first so readers can parse the metadata before the file entries arrive.
   const bundleJson = JSON.stringify(bundle, null, 2);
   yield {
     path: "bundle.json",
@@ -767,8 +851,6 @@ async function* bundleToZipEntries(
   // held in the heap at once.
   for (const ref of bundle.fileRefs) {
     const provider = await getProvider(ref.tenantId);
-    // `readStream` is required by the FileStorageProvider type, so no runtime
-    // optional check is needed.
     yield {
       path: ref.zipPath,
       data: provider.readStream(ref.storageKey),
@@ -781,11 +863,7 @@ async function* oneShot(bytes: Uint8Array): AsyncIterable<Uint8Array> {
   yield bytes;
 }
 
-/**
- * Wraps an `AsyncIterable<Uint8Array>` and counts the total bytes. After
- * `for await`, `tracker.bytes` contains the final value used for
- * `bytesWritten` in the job row.
- */
+/** Counts the bytes streamed through; `tracker.bytes` is final after `for await` and feeds `bytesWritten`. */
 function countingStream(source: AsyncIterable<Uint8Array>): {
   stream: AsyncIterable<Uint8Array>;
   readonly bytes: number;
@@ -858,7 +936,7 @@ async function fireExportReadyCallback(args: {
   const baseUrl = args.appExportDownloadUrl;
   if (!baseUrl) {
     throw new Error(
-      "user-data-rights: sendExportReadyEmail gesetzt aber appExportDownloadUrl fehlt — beide muessen zusammen konfiguriert sein",
+      "user-data-rights: sendExportReadyEmail is set but appExportDownloadUrl is missing, configure both together",
     );
   }
   const downloadUrl = `${baseUrl}#token=${encodeURIComponent(args.plainToken)}`;

@@ -3,8 +3,9 @@
 // the tier's live price server-side and opens a hosted checkout for it.
 // Only registered when `createBillingFoundationFeature` gets a `catalog`.
 
-import type { HandlerContext, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { FeatureDisabledError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import {
   assertBillingEnabled,
@@ -17,7 +18,6 @@ import {
   type ResolvedProvider,
 } from "../checkout-core.ts";
 import {
-  type ConsentPayload,
   consentCheckoutFields,
   consentPayloadSchema,
   prepareConsent,
@@ -59,7 +59,7 @@ async function pickCheckoutProvider(
 export function createStartPlanCheckoutHandler(
   options: ResolvedBillingFoundationOptions,
   catalog: BillingPlanCatalog,
-): WriteHandlerDef {
+) {
   const plans = catalog.plans;
   if (!isNonEmptyStringArray(plans)) {
     throw new Error("start-plan-checkout: catalog.plans must not be empty");
@@ -72,7 +72,7 @@ export function createStartPlanCheckoutHandler(
       : tierSchema
   ).strict();
 
-  return {
+  return defineWriteHandler({
     name: "start-plan-checkout",
     description:
       "Starts a hosted checkout for a plan tier when the tenant has no active subscription; the server picks price and redirect URLs. Name the provider with providerName when the catalog offers several.",
@@ -80,12 +80,7 @@ export function createStartPlanCheckoutHandler(
     access: { roles: purchaseRolesOf(catalog) },
     rateLimit: CHECKOUT_START_RATE_LIMIT,
     handler: async (event, ctx) => {
-      // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const payload = event.payload as {
-        tier: string;
-        providerName?: string;
-        consent?: ConsentPayload;
-      };
+      const payload = event.payload;
       const { name: providerName, plugin } = await pickCheckoutProvider(
         ctx,
         catalog,
@@ -108,7 +103,7 @@ export function createStartPlanCheckoutHandler(
         ? await prepareConsent(
             ctx,
             consumerProtection,
-            payload.consent,
+            consentPayloadSchema.optional().parse(propertyOf(payload, "consent")),
             "subscription",
             providerName,
           )
@@ -147,5 +142,5 @@ export function createStartPlanCheckoutHandler(
 
       return { isSuccess: true as const, data: { url: result.url } };
     },
-  };
+  });
 }

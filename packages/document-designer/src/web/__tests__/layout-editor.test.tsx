@@ -14,6 +14,7 @@ import {
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { documentDesignerClient } from "../client-plugin.tsx";
@@ -60,7 +61,12 @@ function fakeDispatcher(source: LayoutSourceView | null, calls: Call[]): Dispatc
     ...(source !== null && { "template-resolver:query:layout-source": source }),
     "template-resolver:query:overview": { rows: [], nextCursor: null, total: 0 },
     "template-resolver:query:validate": okValidation,
-    "managed-pages:query:branding": {
+    "template-resolver:query:usage": {
+      usedByTemplates: [
+        { slug: "invoice", locale: "de", title: "Invoice", status: "draft", version: 1 },
+      ],
+    },
+    "branding:query:tokens": {
       title: "Nordlicht",
       accentColor: "#205265",
       logoUrl: "",
@@ -73,13 +79,13 @@ function fakeDispatcher(source: LayoutSourceView | null, calls: Call[]): Dispatc
       totalTenants: 4,
     },
   };
-  return {
-    write: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async (type: string, payload: unknown) => {
       calls.push({ type, payload });
       return { isSuccess: true, data: { id: "s-2" } };
-    }) as unknown as Dispatcher["write"],
-    batch: (async () => ({ isSuccess: true, data: [] })) as unknown as Dispatcher["batch"],
-    query: (async (type: string, payload: unknown) => {
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+    query: async (type: string, payload: unknown) => {
       calls.push({ type, payload });
       return type in answers
         ? { isSuccess: true, data: answers[type] }
@@ -87,15 +93,8 @@ function fakeDispatcher(source: LayoutSourceView | null, calls: Call[]): Dispatc
             isSuccess: false,
             error: { code: "not_found", httpStatus: 404, i18nKey: "x", message: "" },
           };
-    }) as unknown as Dispatcher["query"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+  });
 }
 
 const nav: NavApi = {
@@ -107,8 +106,8 @@ const nav: NavApi = {
   setSearchParams: () => {},
 };
 
-const MANAGED_PAGES_FEATURE: FeatureSchema = {
-  featureName: "managed-pages",
+const BRANDING_FEATURE: FeatureSchema = {
+  featureName: "branding",
   entities: {},
   screens: [],
 };
@@ -124,7 +123,7 @@ function renderEditor(
   calls: Call[],
   searchParams: Readonly<Record<string, string>> = nav.searchParams,
   scope: "tenant" | "system" = "tenant",
-  features: readonly FeatureSchema[] = [MANAGED_PAGES_FEATURE],
+  features: readonly FeatureSchema[] = [BRANDING_FEATURE],
 ): void {
   render(
     <AppFeaturesProvider features={features}>
@@ -245,7 +244,7 @@ describe("LayoutEditor", () => {
       within(screen.getByTestId("layout-mjml-tab")).getByRole("button", { name: "Draft" }),
     );
     await screen.findByTestId("document-designer-paper");
-    expect(screen.getByTestId("document-designer-mjml-preview")).toBeDefined();
+    screen.getByTestId("document-designer-mjml-preview");
   });
 
   test("publishing as platform admin saves and then publishes the saved version", async () => {
@@ -361,14 +360,14 @@ describe("LayoutEditor", () => {
     }
   });
 
-  test("without managed-pages the editor never asks for branding", async () => {
+  test("without the branding feature the editor never asks for branding", async () => {
     const calls: Call[] = [];
     renderEditor(["TenantAdmin"], tenantSource, calls, nav.searchParams, "tenant", []);
     await screen.findByTestId("document-designer-region-header");
     await waitFor(() =>
       expect(calls.some((call) => call.type === "template-resolver:query:validate")).toBe(true),
     );
-    expect(calls.some((call) => call.type === "managed-pages:query:branding")).toBe(false);
+    expect(calls.some((call) => call.type === "branding:query:tokens")).toBe(false);
   });
 
   test("appearance edits are saved as layout meta, keeping only non-default values", async () => {
@@ -512,6 +511,23 @@ describe("pdf layout letter settings", () => {
     fireEvent.change(await screen.findByTestId("layout-table-line"), { target: { value: "blue" } });
     await waitFor(() =>
       expect(screen.getByTestId("document-designer-save").hasAttribute("disabled")).toBe(true),
+    );
+  });
+
+  test("an unsaved layout blocks publishing drafts and applying it elsewhere until it is saved", async () => {
+    renderEditor(["TenantAdmin"], pdfSource, [], pdfParams);
+    const publish = await screen.findByTestId("layout-usage-publish");
+    const applyOpen = screen.getByTestId("layout-apply-open");
+    expect(publish.hasAttribute("disabled")).toBe(false);
+    expect(applyOpen.hasAttribute("disabled")).toBe(false);
+    expect(screen.queryByText(/Save the layout first/)).toBeNull();
+
+    fireEvent.change(screen.getByTestId("layout-table-line"), { target: { value: "#336699" } });
+
+    await waitFor(() => expect(publish.hasAttribute("disabled")).toBe(true));
+    expect(applyOpen.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText(/Save the layout first/).textContent).toBe(
+      "Save the layout first. Publishing and applying use the saved version.",
     );
   });
 });

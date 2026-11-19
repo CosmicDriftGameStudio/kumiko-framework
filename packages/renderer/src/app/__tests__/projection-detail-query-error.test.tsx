@@ -10,10 +10,10 @@ import {
   type BannerProps,
   type ButtonProps,
   type CardProps,
-  type CorePrimitives,
   type FormProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import { AppFeaturesProvider } from "../app-features-context.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
@@ -44,7 +44,7 @@ const TestCard: ComponentType<CardProps> = ({ children, testId }) => (
   <div data-testid={testId}>{children}</div>
 );
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: TestButton,
   Banner: TestBanner,
   Field: passChildren,
@@ -63,13 +63,13 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function failingThenWorkingDispatcher(): Dispatcher {
   let calls = 0;
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async () => {
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: {} }),
+    query: async () => {
       calls += 1;
       if (calls === 1) {
         return {
@@ -78,16 +78,9 @@ function failingThenWorkingDispatcher(): Dispatcher {
         };
       }
       return { isSuccess: true, data: { id: "u1", name: "Ada" } };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 describe("projectionDetail query errors", () => {
@@ -126,12 +119,12 @@ describe("projectionDetail query errors", () => {
       </LocaleProvider>,
     );
 
-    await waitFor(() => expect(getByTestId("kumiko-screen-retry")).toBeTruthy());
+    await waitFor(() => getByTestId("kumiko-screen-retry"));
     expect(queryByTestId("form-body")).toBeNull();
 
     fireEvent.click(getByTestId("kumiko-screen-retry"));
 
-    await waitFor(() => expect(getByTestId("form-body")).toBeTruthy());
+    await waitFor(() => getByTestId("form-body"));
     expect(queryByTestId("kumiko-screen-error")).toBeNull();
   });
 });

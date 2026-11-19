@@ -37,6 +37,8 @@ export type GridCellForFieldProps = {
   /** Title the surrounding section shows. An embedded list whose label equals it
    *  keeps its label for screen readers only, so it is not printed twice. */
   readonly sectionTitle?: string;
+  /** The field is read-only only for now (a pending approval), so it keeps the cell it has while editable. */
+  readonly keepsEditableWidth?: boolean;
 };
 
 const FIELD_CELL_WIDTH_BY_TYPE: Readonly<Record<string, FieldCellWidth>> = {
@@ -91,6 +93,7 @@ export function GridCellForField({
   accent,
   fillDisabled,
   sectionTitle,
+  keepsEditableWidth,
 }: GridCellForFieldProps): ReactNode {
   // RenderField renders nothing for a hidden field, but the GridCell around it still claims the row.
   if (!field.visible) return null;
@@ -104,7 +107,9 @@ export function GridCellForField({
   return (
     <GridCell
       span={effectiveSpan}
-      {...(flow === true && { width: fieldCellWidth(field) })}
+      {...(flow === true && {
+        width: fieldCellWidth(keepsEditableWidth === true ? { ...field, readOnly: false } : field),
+      })}
       {...(field.hideOnNarrow === true && { hideOnNarrow: true })}
     >
       <RenderField

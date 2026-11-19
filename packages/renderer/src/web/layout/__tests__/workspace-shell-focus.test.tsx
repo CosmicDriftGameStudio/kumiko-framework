@@ -48,9 +48,9 @@ describe("WorkspaceShell focus mode", () => {
     window.localStorage.clear();
     render(<Harness focused={false} />);
     expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).toBeNull();
-    expect(screen.getByPlaceholderText("Search navigation…")).toBeTruthy();
-    expect(screen.getByText("Footer row")).toBeTruthy();
-    expect(screen.getByText("Global action")).toBeTruthy();
+    screen.getByPlaceholderText("Search navigation…");
+    screen.getByText("Footer row");
+    screen.getByText("Global action");
   });
 
   test("a focused screen collapses to the icon rail without labels, the app header actions stay, the footer pinned below", () => {
@@ -63,7 +63,7 @@ describe("WorkspaceShell focus mode", () => {
       "Footer row",
     );
     expect(screen.queryByRole("button", { name: "More" })).toBeNull();
-    expect(screen.getByText("Global action")).toBeTruthy();
+    screen.getByText("Global action");
     expect(screen.queryByText("Posteingang")).toBeNull();
     expect(document.querySelector('[data-kumiko-layout="sidebar-footer"]')).toBeNull();
     expect(screen.getByRole("banner").querySelector('button[data-sidebar="trigger"]')).toBeNull();
@@ -81,11 +81,11 @@ describe("WorkspaceShell focus mode", () => {
     );
     const rail = document.querySelector('[data-kumiko-layout="focus-rail"]');
     expect(rail?.querySelectorAll("nav > *").length).toBe(1);
-    expect(screen.getByRole("link", { name: "Posteingang" })).toBeTruthy();
+    screen.getByRole("link", { name: "Posteingang" });
     expect(screen.queryByRole("button", { name: "Bestand" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "More" }));
     expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).toBeNull();
-    expect(screen.getByPlaceholderText("Search navigation…")).toBeTruthy();
+    screen.getByPlaceholderText("Search navigation…");
   });
 
   test("focusRailNavQns finds entries nested in a group, in list order, and only the nested tile is active", () => {
@@ -111,7 +111,7 @@ describe("WorkspaceShell focus mode", () => {
     const tiles = [...document.querySelectorAll('[data-kumiko-layout="focus-rail"] nav > *')];
     expect(tiles.map((tile) => tile.getAttribute("aria-label"))).toEqual(["Bestand", "Einheiten"]);
     expect(tiles.map((tile) => tile.getAttribute("data-active"))).toEqual(["false", "true"]);
-    expect(screen.getByRole("button", { name: "More" })).toBeTruthy();
+    screen.getByRole("button", { name: "More" });
   });
 
   test("More stays plain when a shown nested tile holds the active screen of an unlisted group", () => {

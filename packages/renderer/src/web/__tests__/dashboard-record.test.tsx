@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, jest, setSystemTime, test } fr
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { act, cleanup, fireEvent } from "@testing-library/react";
 import type { ReactNode } from "react";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   DashboardBodyProvider,
@@ -57,15 +56,15 @@ function mountDashboard(
   const queries: Call[] = [];
   const writes: Call[] = [];
   const dispatcher = createMockDispatcher({
-    query: (async (type: string, payload: unknown) => {
+    query: async (type: string, payload: unknown) => {
       queries.push({ type, payload });
       return { isSuccess: true, data: handlers.query?.(type, payload) ?? { value: "ok" } };
-    }) as unknown as Dispatcher["query"],
-    write: (async (type: string, payload: unknown) => {
+    },
+    write: async (type: string, payload: unknown) => {
       writes.push({ type, payload });
       handlers.write?.(type, payload);
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
+    },
   });
   render(
     <BrowserNav>
@@ -90,7 +89,7 @@ describe("dashboard record binding", () => {
   test("the record id from the URL lands in every panel payload", async () => {
     window.history.replaceState(null, "", "/monitor?monitorId=m-1");
     const { queries } = mountDashboard(schemaOf({ record: { param: "monitorId" } }));
-    await waitFor(() => expect(screen.getByText("ok")).toBeTruthy());
+    await waitFor(() => screen.getByText("ok"));
     expect(queries.find((c) => c.type === STAT_QUERY)?.payload).toEqual({ monitorId: "m-1" });
   });
 
@@ -107,7 +106,7 @@ describe("dashboard record binding", () => {
         ],
       }),
     );
-    await waitFor(() => expect(screen.getByText("ok")).toBeTruthy());
+    await waitFor(() => screen.getByText("ok"));
     expect(queries.find((c) => c.type === STAT_QUERY)?.payload).toEqual({ monitorId: "pinned" });
   });
 
@@ -115,9 +114,7 @@ describe("dashboard record binding", () => {
     const { queries } = mountDashboard(
       schemaOf({ record: { param: "monitorId", query: RECORD_QUERY } }),
     );
-    await waitFor(() =>
-      expect(screen.getByTestId("dashboard-monitor-record-missing")).toBeTruthy(),
-    );
+    await waitFor(() => screen.getByTestId("dashboard-monitor-record-missing"));
     expect(queries).toEqual([]);
   });
 
@@ -130,7 +127,7 @@ describe("dashboard record binding", () => {
           type === RECORD_QUERY ? { id: "m-1", name: "API monitor" } : { value: "ok" },
       },
     );
-    await waitFor(() => expect(screen.getByText("API monitor")).toBeTruthy());
+    await waitFor(() => screen.getByText("API monitor"));
     expect(queries.find((c) => c.type === RECORD_QUERY)?.payload).toEqual({ monitorId: "m-1" });
   });
 
@@ -265,8 +262,8 @@ describe("dashboard refresh and relative time", () => {
     );
     await advance(0);
     await advance(0);
-    expect(screen.getByText("1 min. ago")).toBeTruthy();
+    screen.getByText("1 min. ago");
     await advance(60_000);
-    expect(screen.getByText("2 min. ago")).toBeTruthy();
+    screen.getByText("2 min. ago");
   });
 });

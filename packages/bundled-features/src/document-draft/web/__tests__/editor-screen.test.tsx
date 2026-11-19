@@ -14,6 +14,7 @@ import {
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
@@ -50,27 +51,20 @@ const OPEN_DRAFT = {
 };
 
 function dispatcherFor(record: Readonly<Record<string, unknown>>): Dispatcher {
-  return {
-    write: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async (type: string, payload: unknown) => {
       writes.push({ type, payload: payload as Record<string, unknown> });
       return { isSuccess: true, data: { id: "d1" } };
-    }) as unknown as Dispatcher["write"],
-    query: (async (type: string) => ({
+    },
+    query: async (type: string) => ({
       isSuccess: true,
       data:
         type === "config:query:values"
           ? { "tenant-settings:config:currency": { value: "GBP", scope: "tenant" } }
           : record,
-    })) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    }),
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function WebPreviewStub({ content }: PreviewRendererProps): ReactNode {
@@ -149,7 +143,7 @@ describe("document draft editor", () => {
       variables: { rent: 85000 },
       variableSchema: { rent: { type: "money" } },
     });
-    expect(await screen.findByText("£850.00")).toBeTruthy();
+    await screen.findByText("£850.00");
     expect(screen.queryByText("85000")).toBeNull();
   });
 
@@ -164,10 +158,10 @@ describe("document draft editor", () => {
         steps: { type: "list", item: { validFrom: { type: "date", label: "Valid from" } } },
       },
     });
-    expect(await screen.findByText("£850.00")).toBeTruthy();
-    expect(screen.getByText("End of lease")).toBeTruthy();
-    expect(screen.getByText("Company name")).toBeTruthy();
-    expect(screen.getByText("Valid from")).toBeTruthy();
+    await screen.findByText("£850.00");
+    screen.getByText("End of lease");
+    screen.getByText("Company name");
+    screen.getByText("Valid from");
     expect(screen.queryByText("validFrom")).toBeNull();
     expect(screen.queryByText("endDate")).toBeNull();
     expect(screen.queryByText("tenantName")).toBeNull();
@@ -175,7 +169,7 @@ describe("document draft editor", () => {
 
   test("a draft equal to its template says so instead of listing deviations", async () => {
     mountEditor({ ...OPEN_DRAFT, deviations: [{ change: "same", content: "<p>Intro</p>" }] });
-    expect(await screen.findByText("The draft matches the template.")).toBeTruthy();
+    await screen.findByText("The draft matches the template.");
     expect(screen.queryByTestId("document-draft-workbench-rail-deviation")).toBeNull();
   });
 

@@ -12,17 +12,18 @@ import type { TenantId } from "../../engine/types/identifiers.ts";
 import { createSecret } from "../../secrets/types.ts";
 import { createTestUser } from "../../seeding/seed-users.ts";
 import { createDispatcher } from "../dispatcher.ts";
+import type { IdempotencyGuard } from "../idempotency.ts";
 
 const streamCleanupState = { closed: false };
 
 const echoFeature = defineFeature("echo", (r) => {
-  r.entity({
-    name: "item",
-    ...createEntity({
+  r.entity(
+    createEntity({
+      name: "item",
       table: "Items",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
     }),
-  });
+  );
 
   r.writeHandler({
     name: "item:create",
@@ -41,30 +42,30 @@ const echoFeature = defineFeature("echo", (r) => {
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
-  r.streamHandler(
-    "item:tail",
-    z.object({ count: z.number().int().min(0) }),
-    async function* (query) {
+  r.streamHandler({
+    name: "item:tail",
+    schema: z.object({ count: z.number().int().min(0) }),
+    handler: async function* (query) {
       for (let i = 0; i < query.payload.count; i++) {
         yield { i };
       }
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.streamHandler(
-    "item:tail-leak",
-    z.object({}),
-    async function* () {
+  r.streamHandler({
+    name: "item:tail-leak",
+    schema: z.object({}),
+    handler: async function* () {
       yield { apiKey: createSecret("leak-me") };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.streamHandler(
-    "item:tail-cleanup",
-    z.object({}),
-    async function* () {
+  r.streamHandler({
+    name: "item:tail-cleanup",
+    schema: z.object({}),
+    handler: async function* () {
       try {
         yield { i: 0 };
         yield { i: 1 };
@@ -72,8 +73,8 @@ const echoFeature = defineFeature("echo", (r) => {
         streamCleanupState.closed = true;
       }
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   r.hook({
     type: "validation",
@@ -134,13 +135,13 @@ describe("dispatcher.write", () => {
     // it must SKIP the rate-limit — not throw "no RateLimitResolver is
     // configured". (The HTTP path still has the resolver for real anon writes.)
     const rlFeature = defineFeature("rl", (r) => {
-      r.entity({
-        name: "item",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "item",
           table: "Items",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
       r.writeHandler({
         name: "item:create",
         schema: z.object({ name: z.string() }),
@@ -163,13 +164,13 @@ describe("dispatcher.write", () => {
     // rate-limiting feature. User buckets cannot skip (unlike ip+no-IP), so we
     // fail loud at first write instead of silently running uncapped.
     const rlFeature = defineFeature("rl-user", (r) => {
-      r.entity({
-        name: "item",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "item",
           table: "Items",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
       r.writeHandler({
         name: "item:create",
         schema: z.object({ name: z.string() }),
@@ -197,13 +198,13 @@ describe("dispatcher.write", () => {
     // to ensure they refer to the same object.
     const captured: { fromEvent?: unknown; fromCtx?: unknown } = {};
     const aliasFeature = defineFeature("alias", (r) => {
-      r.entity({
-        name: "item",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "item",
           table: "Items",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
       r.writeHandler({
         name: "item:create",
         schema: z.object({ name: z.string() }),
@@ -352,17 +353,17 @@ describe("dispatcher.stream", () => {
     });
 
     const revokeFeature = defineFeature("revoke", (r) => {
-      r.streamHandler(
-        "tail",
-        z.object({}),
-        async function* () {
+      r.streamHandler({
+        name: "tail",
+        schema: z.object({}),
+        handler: async function* () {
           yield { i: 0 };
           await hang;
           yield { i: 1 };
           releaseHang?.();
         },
-        { access: { roles: ["Admin"] } },
-      );
+        access: { roles: ["Admin"] },
+      });
     });
 
     const user = createTestUser({ roles: ["Admin"] });
@@ -411,10 +412,10 @@ describe("dispatcher.stream", () => {
     });
 
     const expiryFeature = defineFeature("expiry", (r) => {
-      r.streamHandler(
-        "tail",
-        z.object({}),
-        async function* () {
+      r.streamHandler({
+        name: "tail",
+        schema: z.object({}),
+        handler: async function* () {
           try {
             yield { i: 0 };
             await hang;
@@ -423,8 +424,8 @@ describe("dispatcher.stream", () => {
             handlerCleanups++;
           }
         },
-        { access: { roles: ["Admin"] } },
-      );
+        access: { roles: ["Admin"] },
+      });
     });
 
     const dispatcher = createDispatcher(createRegistry([expiryFeature]), {}, { sseBroker: broker });
@@ -484,18 +485,18 @@ describe("dispatcher.stream", () => {
     // active at that pull (or none) instead of the stream's dispatcher span.
     const provider = createRecordingProvider();
     const nestedFeature = defineFeature("nested", (r) => {
-      r.streamHandler(
-        "tail",
-        z.object({ count: z.number().int().min(0) }),
-        async function* (query, handlerCtx) {
+      r.streamHandler({
+        name: "tail",
+        schema: z.object({ count: z.number().int().min(0) }),
+        handler: async function* (query, handlerCtx) {
           for (let i = 0; i < query.payload.count; i++) {
             const child = handlerCtx.obs.tracer.startSpan("nested.child");
             child.end();
             yield { i };
           }
         },
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
     const dispatcher = createDispatcher(createRegistry([nestedFeature]), {
       tracer: provider.tracer,
@@ -520,10 +521,10 @@ describe("dispatcher.stream", () => {
     // both the error-counter and the span status.
     const provider = createRecordingProvider();
     const closeFailFeature = defineFeature("closefail", (r) => {
-      r.streamHandler(
-        "tail",
-        z.object({}),
-        async function* () {
+      r.streamHandler({
+        name: "tail",
+        schema: z.object({}),
+        handler: async function* () {
           try {
             yield { i: 0 };
             yield { i: 1 };
@@ -532,8 +533,8 @@ describe("dispatcher.stream", () => {
             throw new Error("close-boom");
           }
         },
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
     const dispatcher = createDispatcher(createRegistry([closeFailFeature]), {
       tracer: provider.tracer,
@@ -559,15 +560,15 @@ describe("dispatcher.stream", () => {
     // cannot silently reclassify clean streams as aborted.
     const provider = createRecordingProvider();
     const feature = defineFeature("complete", (r) => {
-      r.streamHandler(
-        "tail",
-        z.object({}),
-        async function* () {
+      r.streamHandler({
+        name: "tail",
+        schema: z.object({}),
+        handler: async function* () {
           yield { i: 0 };
           yield { i: 1 };
         },
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
     const dispatcher = createDispatcher(createRegistry([feature]), {
       tracer: provider.tracer,
@@ -594,16 +595,16 @@ describe("dispatcher.stream", () => {
     // the loop.
     const provider = createRecordingProvider();
     const feature = defineFeature("abort", (r) => {
-      r.streamHandler(
-        "tail",
-        z.object({}),
-        async function* () {
+      r.streamHandler({
+        name: "tail",
+        schema: z.object({}),
+        handler: async function* () {
           yield { i: 0 };
           yield { i: 1 };
           yield { i: 2 };
         },
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
     const dispatcher = createDispatcher(createRegistry([feature]), {
       tracer: provider.tracer,
@@ -783,13 +784,13 @@ describe("dispatcher feature-gate", () => {
   function toggled() {
     return defineFeature("toggled", (r) => {
       r.toggleable({ default: true });
-      r.entity({
-        name: "widget",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "widget",
           table: "Widgets",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
       r.queryHandler({
         name: "widget:list",
         schema: z.object({}).passthrough(),
@@ -802,10 +803,10 @@ describe("dispatcher feature-gate", () => {
         handler: async (event) => ({ isSuccess: true, data: { name: event.payload.name } }),
         access: { roles: ["Admin"] },
       });
-      r.streamHandler(
-        "widget:tail",
-        z.object({}).passthrough(),
-        async function* () {
+      r.streamHandler({
+        name: "widget:tail",
+        schema: z.object({}).passthrough(),
+        handler: async function* () {
           // Never completes on its own — the mid-stream toggle-off test
           // relies on the generator staying open past the first yield.
           let i = 0;
@@ -814,8 +815,8 @@ describe("dispatcher feature-gate", () => {
             i++;
           }
         },
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
   }
 
@@ -1017,8 +1018,8 @@ describe("dispatcher feature-gate", () => {
     // The sync resolver never carries trial features, so without the
     // trialGate fallback this silently reads false for a trial tenant even
     // though the tenant is genuinely in-trial for that companion feature —
-    // mirrors packages/bundled-features/src/managed-pages/handlers/branding.query.ts
-    // checking MANAGED_PAGES_CSS_FEATURE, which no handler owns.
+    // mirrors packages/bundled-features/src/branding/handlers/tokens.query.ts
+    // checking BRANDING_CSS_FEATURE, which no handler owns.
     const trialTenant = "00000000-0000-4000-8000-0000000000c5" as TenantId;
     const plainTenant = "00000000-0000-4000-8000-0000000000d6" as TenantId;
 
@@ -1058,13 +1059,13 @@ describe("write-handler shape guard", () => {
 
   function brokenFeature() {
     return defineFeature("broken", (r) => {
-      r.entity({
-        name: "item",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "item",
           table: "Items",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
       r.writeHandler({
         name: "item:create",
         schema: z.object({ name: z.string() }),
@@ -1141,12 +1142,16 @@ describe("dispatcher context.geoTzProvider (680/1)", () => {
 
 // --- Mock helpers ---
 
-function createMockIdempotencyGuard() {
+function createMockIdempotencyGuard(): IdempotencyGuard {
   const results = new Map<string, string>();
   const pendingTokens = new Map<string, string>();
   let nextToken = 0;
 
   return {
+    keepPendingAlive() {
+      // The mock's pending tokens never expire, so there is no lock to renew.
+      return () => undefined;
+    },
     async check(tenantId: string, userId: string, requestId: string) {
       const key = `${tenantId}:${userId}:${requestId}`;
       const cached = results.get(key);

@@ -121,9 +121,9 @@ describe("list aggregate field access", () => {
 
   test("a row-dependent read rule on a money measure limits both its currencies and its sums", async () => {
     const mine = (amount: number, currency: string) => ({ amount, currency });
-    await order({ title: "a", rowOwnedAmount: mine(10, "EUR"), fieldOwnerId: user.id }, user.id);
-    await order({ title: "b", rowOwnedAmount: mine(4, "EUR"), fieldOwnerId: admin.id }, user.id);
-    await order({ title: "c", rowOwnedAmount: mine(5, "USD"), fieldOwnerId: admin.id }, user.id);
+    await order({ title: "a", rowOwnedAmount: mine(1000, "EUR"), fieldOwnerId: user.id }, user.id);
+    await order({ title: "b", rowOwnedAmount: mine(400, "EUR"), fieldOwnerId: admin.id }, user.id);
+    await order({ title: "c", rowOwnedAmount: mine(500, "USD"), fieldOwnerId: admin.id }, user.id);
     const aggregate = { measures: [{ field: "rowOwnedAmount", kind: "sum" }] };
     const asUser = await stack.http.queryOk<AggResult>(LIST_ORDERS, { aggregate }, user);
     const asAdmin = await stack.http.queryOk<AggResult>(LIST_ORDERS, { aggregate }, admin);

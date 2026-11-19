@@ -11,19 +11,10 @@
 // This is the smallest evidence that an entity needs zero tag-wiring.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import {
-  createTagsFeature,
-  tagAssignmentEntity,
-  tagEntity,
-} from "@cosmicdrift/kumiko-bundled-features/tags";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { noteEntity, noteFeature } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { noteFeature } from "../feature";
 import { type TagClient, tagFlow } from "../usage";
 
 // Each test runs in its own tenant, so rows from other tests never show up.
@@ -35,16 +26,12 @@ const tagClient: TagClient = {
   write: <T>(type: string, payload: unknown) => stack.http.writeOk<T>(type, payload, admin),
   query: <T>(type: string, payload: unknown) => stack.http.queryOk<T>(type, payload, admin),
 };
-const tags = createTagsFeature();
+const tags = createTagsFeature({ parents: ["note"] });
 
 let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [tags, noteFeature] });
-  await unsafeCreateEntityTable(stack.db, tagEntity);
-  await unsafeCreateEntityTable(stack.db, tagAssignmentEntity);
-  await unsafeCreateEntityTable(stack.db, noteEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -61,7 +48,7 @@ async function createNote(id: string, title: string) {
 }
 
 async function createTag(name: string): Promise<string> {
-  const tag = await stack.http.writeOk<{ id: string }>("tags:write:create-tag", { name }, admin);
+  const tag = await stack.http.writeOk<{ id: string }>("tags:write:tag:create", { name }, admin);
   return tag.id;
 }
 

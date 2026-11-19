@@ -44,7 +44,7 @@ export const FIELD_DEFINITION_DELETED_EVENT = "field-definition-deleted";
 export const CUSTOM_FIELD_SET_EVENT = "custom-field-set";
 export const CUSTOM_FIELD_CLEARED_EVENT = "custom-field-cleared";
 
-// Extension name for r.useExtension("customFields", "<entity>"): registers
+// Extension name for r.applyExtension({ name: "customFields", entity: "<entity>" }): registers
 // that a host entity may have custom fields.
 export const CUSTOM_FIELDS_EXTENSION = "customFields";
 
@@ -76,3 +76,14 @@ export const SUPPORTED_FIELD_TYPES = [
   "embedded",
 ] as const;
 export type SupportedFieldType = (typeof SUPPORTED_FIELD_TYPES)[number];
+
+// Sub-field types an embedded custom field may declare; set-custom-field checks each of them
+// (value-schema.ts), so a definition naming any other is refused.
+export const SUPPORTED_EMBEDDED_SUB_TYPES = [
+  "text",
+  "number",
+  "boolean",
+  "date",
+  "money",
+  "enum",
+] as const;

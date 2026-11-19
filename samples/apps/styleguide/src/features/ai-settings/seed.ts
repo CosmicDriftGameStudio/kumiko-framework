@@ -7,7 +7,7 @@ import { ANTHROPIC_CONNECTION_ID, OPENROUTER_CONNECTION_ID } from "./catalog";
 import { connectionEntity } from "./feature";
 
 export const seedAiConnections: SeedFn = async (stack) => {
-  const { executor } = createEntityExecutor("connection", connectionEntity);
+  const { executor } = createEntityExecutor(connectionEntity);
   const tenantDb = createTenantDb({ db: stack.db, tenantId: TestUsers.admin.tenantId });
   const connections = [
     {

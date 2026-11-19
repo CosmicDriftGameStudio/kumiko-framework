@@ -38,6 +38,7 @@ import {
 //   - userId / aggregate reference — counters are scoped to the platform
 //     tenant, not to a user (even when a user triggers the increment).
 export const capCounterEntity = createEntity({
+  name: "cap-counter",
   table: "read_cap_counters",
   description:
     "One usage counter per tenant, cap name and calendar period, holding the accumulated value and the timestamp of the last soft-limit warning.",

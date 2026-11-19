@@ -1,4 +1,4 @@
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildSessionRoles,
   createSystemUser,
@@ -6,10 +6,11 @@ import {
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { burnToken, sessionLocaleField, sessionTimezoneField } from "../../shared/index.ts";
-import { USER_STATUS, UserQueries } from "../../user/index.ts";
+import { burnToken, mintAuthSession } from "../../shared/index.ts";
+import { isPrincipalBlockedForNewAuth, UserQueries } from "../../user/index.ts";
 import { findUserMfaRow } from "../db/queries.ts";
 import { invalidChallengeToken, invalidTotpCode, tooManyAttempts } from "../errors.ts";
 import { verifyMfaChallengeToken } from "../mfa-challenge-token.ts";
@@ -100,7 +101,7 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       // tenantId is meaningless here — the challenge token is the source
       // of truth for which tenant's row to read.
       const scopedDb = createTenantDb({
-        db: ctx.db.unsafeRaw(),
+        db: ctx.db.unsafeRawAllTenants(),
         tenantId,
         mode: "system",
         reason: "MFA challenge has no session, the tenant comes from the verified challenge token",
@@ -172,16 +173,9 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       // now. Deliberately NOT re-checking strictEmailVerification here:
       // MfaVerifyOptions has no such flag, and email verification can't
       // regress between login and verify within the 10-minute window.
-      if (!userRow) return invalidChallengeToken();
-      if (
-        userRow?.status === USER_STATUS.Restricted ||
-        userRow?.status === USER_STATUS.DeletionRequested ||
-        userRow?.status === USER_STATUS.Deleted
-      ) {
-        return invalidChallengeToken();
-      }
+      if (!userRow || isPrincipalBlockedForNewAuth(userRow.status)) return invalidChallengeToken();
 
-      const globalRoles = parseRoles(userRow?.roles ?? null);
+      const globalRoles = parseRoles(userRow.roles ?? null);
 
       // Membership revoked or principal blocked between login and verify —
       // mirror login.write.ts's refusal instead of falling back to globalRoles only.
@@ -192,16 +186,13 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
       // read-time backstop against a rebuild-resurrected role.
       const mergedRoles = buildSessionRoles(globalRoles, active.membership.roles);
 
-      const baseSession: SessionUser = {
-        id: userId,
+      const session = await mintAuthSession(ctx, {
+        userId,
         tenantId,
         roles: mergedRoles,
-        ...sessionTimezoneField(userRow?.timezone),
-        ...sessionLocaleField(userRow?.locale),
-      };
-      const claims = await ctx.auth.resolveClaims(baseSession);
-      const session: SessionUser =
-        Object.keys(claims).length > 0 ? { ...baseSession, claims } : baseSession;
+        timezone: userRow.timezone,
+        locale: userRow.locale,
+      });
 
       return { isSuccess: true, data: { kind: "mfa-verify-success", session } };
     },

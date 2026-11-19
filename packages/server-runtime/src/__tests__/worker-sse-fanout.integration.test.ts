@@ -37,12 +37,13 @@ const JWT_SECRET = "test-worker-sse-secret-32-chars-min!!";
 const noAppEnvSchema = composeEnvSchema({ features: [] });
 
 const noteEntity = createEntity({
+  name: "note",
   fields: { title: createTextField({ personal: false, reason: "test_fixture", required: true }) },
   table: "sse_probe_notes",
 });
 
 const sseProbeFeature = defineFeature("sse-probe", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
   r.writeHandler(
     defineEntityCreateHandler("note", noteEntity, { access: { roles: ["SystemAdmin"] } }),
   );

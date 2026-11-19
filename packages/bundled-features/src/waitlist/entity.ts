@@ -32,6 +32,7 @@ export function isOpenWaitlistStatus(status: unknown): boolean {
 // tenancy "global" + systemStream: entries are platform-wide and live on
 // SYSTEM_TENANT_ID, which also lets the per-tenant GDPR hooks read them.
 export const waitlistEntryEntity = createEntity({
+  name: "waitlistEntry",
   table: "read_waitlist_entries",
   description:
     "A prospect's signup on the platform waitlist, tracked through pending, invited, provisioned and rejected status as admins process it; name, email and message are the entry's own personal data.",
@@ -75,4 +76,4 @@ export const waitlistEntryEntity = createEntity({
   },
 });
 
-export const waitlistEntryTable = buildEntityTable("waitlistEntry", waitlistEntryEntity);
+export const waitlistEntryTable = buildEntityTable(waitlistEntryEntity);

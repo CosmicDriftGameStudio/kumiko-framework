@@ -26,7 +26,7 @@ export async function setPreferenceEnabled(
       message: `${handlerName}: ctx.systemDb missing on a system-scoped handler`,
     });
   }
-  const db = ctx.systemDb.assertTenantMatch(tenantId);
+  const db = ctx.systemDb.scopedTo(tenantId);
 
   const result = await upsertPreference(db, event.user, {
     tenantId,

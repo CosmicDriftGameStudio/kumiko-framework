@@ -64,9 +64,9 @@ describe("PageHelpButton", () => {
     expect(button.getAttribute("title")).toBe("Hilfe zu dieser Seite");
     await userEvent.click(button);
     const drawer = screen.getByTestId("page-help-drawer");
-    expect(within(drawer).getByText("Hilfe zu dieser Seite")).toBeTruthy();
-    expect(within(drawer).getByText("Belege")).toBeTruthy();
-    expect(within(drawer).getByText("Was die Status bedeuten")).toBeTruthy();
+    within(drawer).getByText("Hilfe zu dieser Seite");
+    within(drawer).getByText("Belege");
+    within(drawer).getByText("Was die Status bedeuten");
   });
 
   test("a text section and a status section are stacked in order", async () => {

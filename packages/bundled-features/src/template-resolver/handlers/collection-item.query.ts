@@ -2,6 +2,7 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   type ContentCollectionDefinition,
   defineQueryHandler,
+  SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { DEFAULT_COLLECTION_ACCESS } from "../web/constants.ts";
@@ -20,8 +21,8 @@ export function makeCollectionItemQuery(collection: ContentCollectionDefinition)
     schema: z.object({
       slug: z.string().min(1).max(80),
       locale: z.string().min(2).max(8),
-      /** Optional cross-tenant read — SystemAdmin only. */
-      tenantIdOverride: z.string().min(1).optional(),
+      /** Narrows the read to the SYSTEM reference rows — SystemAdmin only. */
+      tenantIdOverride: z.literal(SYSTEM_TENANT_ID).optional(),
     }),
     access: collection.access ?? DEFAULT_COLLECTION_ACCESS,
     description:

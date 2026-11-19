@@ -5,10 +5,7 @@ export {
   registerMailAccountWakeListener,
   wakeMailAccount,
 } from "./account-wake.ts";
-export {
-  inboundMessageAggregateId,
-  mailThreadAggregateId,
-} from "./aggregate-id.ts";
+export { inboundMessageAggregateId } from "./aggregate-id.ts";
 export {
   createInboundMailConnectRoutes,
   type InboundMailConnectRoutesOptions,
@@ -36,9 +33,7 @@ export {
   INBOUND_MESSAGE_PII_FIELDS,
   inboundMessageEntity,
   MAIL_ACCOUNT_PII_FIELDS,
-  MAIL_THREAD_PII_FIELDS,
   mailAccountEntity,
-  mailThreadEntity,
   seenMessageEntity,
   seenMessageTable,
   syncCursorEntity,
@@ -62,14 +57,9 @@ export {
   MAIL_ACCOUNT_DISCONNECTED_EVENT_SHORT,
   MAIL_ACCOUNT_UPDATED_EVENT_QN,
   MAIL_ACCOUNT_UPDATED_EVENT_SHORT,
-  MAIL_THREAD_AGGREGATE_TYPE,
-  MAIL_THREAD_UPDATED_EVENT_QN,
-  MAIL_THREAD_UPDATED_EVENT_SHORT,
   type MailAccountEventHeaders,
   type MailAccountEventPayload,
-  type MailThreadEventPayload,
   mailAccountEventPayloadSchema,
-  mailThreadEventPayloadSchema,
 } from "./events.ts";
 export { createInboundMailFoundationFeature } from "./feature.ts";
 export { type AddressMatch, findMailboxByAddress } from "./handlers/account-address.ts";
@@ -77,6 +67,10 @@ export {
   type InboundMessageContent,
   loadInboundMessageContent,
 } from "./handlers/message-content.query.ts";
+export {
+  type InboundMessageEnvelope,
+  loadInboundMessageEnvelope,
+} from "./handlers/message-envelope.ts";
 export { isMailAdmin, mayReactivateMailbox } from "./handlers/scope-visibility.ts";
 export type { InboundOAuthFlow, OAuthCodeExchange, OAuthTokenSet } from "./inbound-oauth-flow.ts";
 export { ingestFailureEntity, ingestFailureTable } from "./ingest-failures.ts";
@@ -110,7 +104,9 @@ export {
   usesFoundationManagedOAuth,
 } from "./oauth-access-token.ts";
 export {
+  OAUTH_BROWSER_BINDING_COOKIE,
   type OAuthStatePayload,
+  oauthBrowserBinding,
   signOAuthState,
   type VerifyOAuthStateResult,
   verifyOAuthState,
@@ -128,11 +124,17 @@ export {
   outboundMailMessageSchema,
   type ProviderSentMail,
 } from "./outbound-mail.ts";
+export {
+  OUTBOUND_SEND_STATUSES,
+  type OutboundSendStatus,
+  outboundMailSendEntity,
+  outboundMailSendsTable,
+} from "./outbound-send-entities.ts";
+export { type ParsedSenderAddress, parseSenderAddress } from "./parse-sender-address.ts";
 export { isOwnLoginAddress } from "./personal-address.ts";
 export {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
-  mailThreadsProjectionTable,
 } from "./projection.ts";
 export {
   InboundAuthError,

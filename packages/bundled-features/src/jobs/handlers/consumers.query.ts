@@ -1,5 +1,4 @@
 import { defineQueryHandler, type Registry } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import {
   type ConsumerProgress,
   getAllConsumerProgress,
@@ -77,14 +76,10 @@ export const consumersQuery = defineQueryHandler({
     sortDirection: z.enum(["asc", "desc"]).optional(),
   }),
   access: { roles: ["SystemAdmin"] },
+  systemScope: true,
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "jobs:query:consumers requires ctx.systemDb (feature must declare r.systemScope())",
-      });
-    }
-    const db = ctx.systemDb.unsafeRaw(
+    const { systemDb } = ctx;
+    const db = systemDb.unsafeRaw(
       "event consumer state is global dispatcher state, not tenant data",
     );
     const progress = await getAllConsumerProgress(db, registeredConsumerNames(ctx.registry));
@@ -112,16 +107,12 @@ export const consumerDetailQuery = defineQueryHandler({
     "Returns one event consumer with its status, lag, attempts, the full last error and the time of its last state change; use it to decide between restart, skip and pause.",
   schema: z.object({ consumerId: z.string().min(1) }),
   access: { roles: ["SystemAdmin"] },
+  systemScope: true,
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "jobs:query:consumer-details requires ctx.systemDb (feature must declare r.systemScope())",
-      });
-    }
+    const { systemDb } = ctx;
     const target = splitConsumerRowId(query.payload.consumerId);
     if (!target) return null;
-    const db = ctx.systemDb.unsafeRaw(
+    const db = systemDb.unsafeRaw(
       "event consumer state is global dispatcher state, not tenant data",
     );
     const all = await getAllConsumerProgress(db, registeredConsumerNames(ctx.registry));

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { entityListSchema } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -15,16 +16,21 @@ import { defaultTranslations } from "../i18n.ts";
 type FolderRow = { id: string; name: string; parentId: string | null; version: number };
 
 let folderRows: readonly FolderRow[] = [];
+let folderNextCursor: string | null = null;
 
 beforeEach(() => {
   folderRows = [];
+  folderNextCursor = null;
   dispatchSpy.mockClear();
 });
 
 const dispatchSpy = mock(async () => ({ isSuccess: true, data: undefined }));
 
-const useQuerySpy = mock((type: string) => ({
-  data: type === FoldersQueries.folderList ? { rows: folderRows } : { rows: [] },
+const useQuerySpy = mock((type: string, _params?: unknown) => ({
+  data:
+    type === FoldersQueries.folderList
+      ? { rows: folderRows, nextCursor: folderNextCursor }
+      : { rows: [] },
   loading: false,
   error: null,
   refetch: mock(async () => {}),
@@ -65,9 +71,9 @@ describe("FolderManager filing mode", () => {
         <FolderManager filing={filingWith(() => {})} />
       </Wrapper>,
     );
-    expect(screen.getByTestId("folder-leaf-c-1")).toBeTruthy();
-    expect(screen.getByTestId("folder-node-unfiled")).toBeTruthy();
-    expect(screen.getByTestId("folder-leaf-c-2")).toBeTruthy();
+    screen.getByTestId("folder-leaf-c-1");
+    screen.getByTestId("folder-node-unfiled");
+    screen.getByTestId("folder-leaf-c-2");
   });
 
   test("dropping a leaf on another folder dispatches set-folder + refetches the host", async () => {
@@ -128,7 +134,7 @@ describe("FolderManager filing mode", () => {
         <FolderManager />
       </Wrapper>,
     );
-    expect(screen.getByTestId("folder-node-f1")).toBeTruthy();
+    screen.getByTestId("folder-node-f1");
     expect(screen.queryByTestId("folder-node-unfiled")).toBeNull();
     expect(screen.queryByTestId("folder-leaf-c-1")).toBeNull();
   });
@@ -328,6 +334,43 @@ describe("FolderManager filing mode", () => {
     );
     // An empty `unfiled` array must not remove the bucket —
     // it's the only drop target to un-file a leaf back out of its folder.
-    expect(screen.getByTestId("folder-node-unfiled")).toBeTruthy();
+    screen.getByTestId("folder-node-unfiled");
+  });
+});
+
+describe("FolderManager catalog query", () => {
+  test("asks for the whole catalog within the list schema limit", () => {
+    useQuerySpy.mockClear();
+    render(
+      <Wrapper>
+        <FolderManager />
+      </Wrapper>,
+    );
+    const call = useQuerySpy.mock.calls.find((c) => c[0] === FoldersQueries.folderList);
+    const payload = call?.[1];
+    expect(entityListSchema.safeParse(payload).success).toBe(true);
+    expect(payload).toEqual({ limit: 200 });
+  });
+
+  test("warns when the catalog has more folders than one page", () => {
+    folderRows = [{ id: "f1", name: "A", parentId: null, version: 1 }];
+    folderNextCursor = "next";
+    render(
+      <Wrapper>
+        <FolderManager />
+      </Wrapper>,
+    );
+    screen.getByTestId("folder-manager-truncated");
+  });
+
+  test("shows no truncation notice for a complete catalog", () => {
+    folderRows = [{ id: "f1", name: "A", parentId: null, version: 1 }];
+    folderNextCursor = null;
+    render(
+      <Wrapper>
+        <FolderManager />
+      </Wrapper>,
+    );
+    expect(screen.queryByTestId("folder-manager-truncated")).toBeNull();
   });
 });

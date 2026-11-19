@@ -49,12 +49,12 @@ const CURRENCY_CATALOG = [
 ] as const;
 
 export const currenciesGlobalFeature = defineFeature("currenciesGlobal", (r) => {
-  const currency = r.entity({ name: "currency", ...currencyEntity });
-  r.entity({ name: "tenant-currency", ...tenantCurrencyEntity });
-  r.entity({ name: "invoice", ...invoiceEntity });
+  const currency = r.entity(currencyEntity);
+  r.entity(tenantCurrencyEntity);
+  r.entity(invoiceEntity);
 
   // Seed global currency table — available for all tenants to pick from
-  r.referenceData(currency, [...CURRENCY_CATALOG], { upsertKey: "code" });
+  r.referenceData({ entity: currency, data: [...CURRENCY_CATALOG], upsertKey: "code" });
 
   r.writeHandler(tenantCurrencyAssign);
   r.writeHandler(invoiceCreate);

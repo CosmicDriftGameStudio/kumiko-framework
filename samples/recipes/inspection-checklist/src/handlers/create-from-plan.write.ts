@@ -4,11 +4,8 @@ import { z } from "zod";
 import { inspectionPlanEntity } from "../entities/inspection-plan";
 import { inspectionProtocolEntity } from "../entities/inspection-protocol";
 
-const { executor: planExecutor } = createEntityExecutor("inspection-plan", inspectionPlanEntity);
-const { executor: protocolExecutor } = createEntityExecutor(
-  "inspection-protocol",
-  inspectionProtocolEntity,
-);
+const { executor: planExecutor } = createEntityExecutor(inspectionPlanEntity);
+const { executor: protocolExecutor } = createEntityExecutor(inspectionProtocolEntity);
 
 const planRows = z.array(
   z.object({

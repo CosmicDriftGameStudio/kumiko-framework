@@ -149,6 +149,15 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
           "cursor": {
             "type": "string",
           },
+          "fields": {
+            "items": {
+              "minLength": 1,
+              "type": "string",
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array",
+          },
           "filter": {
             "properties": {
               "field": {
@@ -273,13 +282,21 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
             "type": "boolean",
           },
           "notes": {
+            "maxLength": 200,
             "type": "string",
           },
           "parentId": {
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "anyOf": [
+              {
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "type": "string",
+              },
+              {
+                "type": "null",
+              },
+            ],
             "references": "item",
-            "type": "string",
           },
           "priority": {
             "default": 1,
@@ -304,6 +321,7 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
             "type": "string",
           },
           "title": {
+            "maxLength": 200,
             "minLength": 1,
             "type": "string",
           },
@@ -371,18 +389,30 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
                 "type": "boolean",
               },
               "notes": {
-                "type": [
-                  "string",
-                  "null",
+                "anyOf": [
+                  {
+                    "maxLength": 200,
+                    "type": "string",
+                  },
+                  {
+                    "type": "null",
+                  },
                 ],
               },
               "parentId": {
                 "anyOf": [
                   {
-                    "format": "uuid",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "anyOf": [
+                      {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string",
+                      },
+                      {
+                        "type": "null",
+                      },
+                    ],
                     "references": "item",
-                    "type": "string",
                   },
                   {
                     "type": "null",
@@ -411,6 +441,7 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
                 "type": "string",
               },
               "title": {
+                "maxLength": 200,
                 "minLength": 1,
                 "type": "string",
               },

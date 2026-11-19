@@ -27,7 +27,12 @@ import { act } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { LIVE_REFETCH_COALESCE_MS } from "../../hooks/live-refetch-scheduler.ts";
 import type { FeatureSchema, LiveEventSubscriber, NavApi } from "../../index.ts";
-import { LiveEventsProvider, NavProvider } from "../../index.ts";
+import {
+  createStaticLocaleResolver,
+  LiveEventsProvider,
+  LocaleProvider,
+  NavProvider,
+} from "../../index.ts";
 import { NavProvidersProvider } from "../app/nav-providers-context.tsx";
 import { NavTree } from "../layout/nav-tree.tsx";
 import { ShellNavStyleProvider } from "../layout/shell-style.tsx";
@@ -120,15 +125,15 @@ describe("NavTree role-gating", () => {
         user={{ id: "u1", roles: ["SystemAdmin", "User"] }}
       />,
     );
-    expect(screen.getByText("Public")).toBeTruthy();
-    expect(screen.getByText("Sysadmin")).toBeTruthy();
+    screen.getByText("Public");
+    screen.getByText("Sysadmin");
     expect(screen.queryByText("Admin")).toBeNull();
   });
 
   test("user with ['Admin'] sees public + admin, NOT sysadmin", () => {
     render(<NavTree schema={makeRoleGatedSchema()} user={{ id: "u1", roles: ["Admin"] }} />);
-    expect(screen.getByText("Public")).toBeTruthy();
-    expect(screen.getByText("Admin")).toBeTruthy();
+    screen.getByText("Public");
+    screen.getByText("Admin");
     expect(screen.queryByText("Sysadmin")).toBeNull();
   });
 
@@ -137,7 +142,7 @@ describe("NavTree role-gating", () => {
     // fails to pass through user, resolveNavigation treats the request as
     // anonymous and hides all role-gated navigation entries.
     render(<NavTree schema={makeRoleGatedSchema()} />);
-    expect(screen.getByText("Public")).toBeTruthy();
+    screen.getByText("Public");
     expect(screen.queryByText("Admin")).toBeNull();
     expect(screen.queryByText("Sysadmin")).toBeNull();
   });
@@ -149,9 +154,9 @@ describe("NavTree role-gating", () => {
         user={{ id: "u1", roles: ["Admin", "SystemAdmin", "User"] }}
       />,
     );
-    expect(screen.getByText("Public")).toBeTruthy();
-    expect(screen.getByText("Admin")).toBeTruthy();
-    expect(screen.getByText("Sysadmin")).toBeTruthy();
+    screen.getByText("Public");
+    screen.getByText("Admin");
+    screen.getByText("Sysadmin");
   });
 });
 
@@ -210,12 +215,12 @@ describe("NavTree", () => {
 
     // Section "Data" is a STATIC heading (sidebar-07 pattern), not a toggle
     // button — collapse belongs on items with children, not on the section.
-    expect(screen.getByText("Data")).toBeTruthy();
+    screen.getByText("Data");
     expect(screen.getByText("Data").closest("button")).toBeNull();
 
-    expect(screen.getByText("Items")).toBeTruthy();
-    expect(screen.getByText("Active")).toBeTruthy();
-    expect(screen.getByText("Backlog")).toBeTruthy();
+    screen.getByText("Items");
+    screen.getByText("Active");
+    screen.getByText("Backlog");
   });
 
   test("section header does not collapse — children stay visible", () => {
@@ -224,8 +229,8 @@ describe("NavTree", () => {
     // There is no section toggle: "Data" is not inside a button, so there is
     // nothing to click. The items must remain permanently visible.
     expect(screen.getByText("Data").closest("button")).toBeNull();
-    expect(screen.getByText("Items")).toBeTruthy();
-    expect(screen.getByText("Active")).toBeTruthy();
+    screen.getByText("Items");
+    screen.getByText("Active");
   });
 
   test("Each Nav-label span carries title === Label, so truncated entries are readable on hover", () => {
@@ -265,8 +270,8 @@ describe("NavTree", () => {
     render(<NavTree schema={makeSchema()} testId="tree" />);
 
     // "Items" hat children Active+Backlog; default expanded
-    expect(screen.getByText("Active")).toBeTruthy();
-    expect(screen.getByText("Backlog")).toBeTruthy();
+    screen.getByText("Active");
+    screen.getByText("Backlog");
 
     // The section header "Data" is a single toggle button (with no nested
     // chevron button). In contrast, the parent-with-screen "Items" renders
@@ -282,7 +287,7 @@ describe("NavTree", () => {
     expect(screen.queryByText("Active")).toBeNull();
     expect(screen.queryByText("Backlog")).toBeNull();
     // Items itself stays visible
-    expect(screen.getByText("Items")).toBeTruthy();
+    screen.getByText("Items");
   });
 
   test("Nav entry with a known icon renders a Lucide icon; without an icon, only the label", () => {
@@ -501,7 +506,7 @@ describe("NavTree navBadges (Runtime-Badge-Slot)", () => {
       />,
     );
     expect(screen.queryByText("Ghost")).toBeNull();
-    expect(screen.getByText("Tarif & Limits")).toBeTruthy();
+    screen.getByText("Tarif & Limits");
   });
 });
 
@@ -564,7 +569,7 @@ describe("NavTree collapse state survives remount and navigation", () => {
 
     render(<NavTree schema={twoContainerSchema()} />);
     expect(screen.queryByText("AChild")).toBeNull();
-    expect(screen.getByText("BChild")).toBeTruthy();
+    screen.getByText("BChild");
   });
 
   test("navigating into a collapsed container opens only that container", () => {
@@ -584,7 +589,7 @@ describe("NavTree collapse state survives remount and navigation", () => {
         <NavTree schema={schema} />
       </NavProvider>,
     );
-    expect(screen.getByText("AChild")).toBeTruthy();
+    screen.getByText("AChild");
     expect(screen.queryByText("BChild")).toBeNull();
   });
 
@@ -608,8 +613,8 @@ describe("NavTree collapse state survives remount and navigation", () => {
         <NavTree schema={schema} />
       </NavProvider>,
     );
-    expect(screen.getByText("AChild")).toBeTruthy();
-    expect(screen.getByText("AChildTwo")).toBeTruthy();
+    screen.getByText("AChild");
+    screen.getByText("AChildTwo");
   });
 
   test("the search filter opens everything temporarily and clearing it restores the stored state", () => {
@@ -617,10 +622,56 @@ describe("NavTree collapse state survives remount and navigation", () => {
     fireEvent.click(collapseButton("AList"));
     const input = screen.getByRole("textbox");
     fireEvent.change(input, { target: { value: "AChild" } });
-    expect(screen.getByText("AChild")).toBeTruthy();
+    screen.getByText("AChild");
     fireEvent.change(input, { target: { value: "" } });
     expect(screen.queryByText("AChild")).toBeNull();
-    expect(screen.getByText("BChild")).toBeTruthy();
+    screen.getByText("BChild");
+  });
+});
+
+describe("NavTree scrolls the active entry into view", () => {
+  let scrolled: { readonly label: string | null; readonly options: unknown }[] = [];
+  const originalScrollIntoView = Element.prototype.scrollIntoView;
+  beforeEach(() => {
+    scrolled = [];
+    Element.prototype.scrollIntoView = function (this: Element, options?: unknown) {
+      scrolled.push({
+        label: this.querySelector("span[title]")?.getAttribute("title") ?? null,
+        options,
+      });
+    };
+  });
+  afterEach(() => {
+    Element.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
+  test("on mount, also when the entry sits in a container the user collapsed", () => {
+    const first = render(<NavTree schema={twoContainerSchema()} />);
+    fireEvent.click(collapseButton("BList"));
+    first.unmount();
+
+    render(
+      <NavProvider value={navWithRoute("b-child")}>
+        <NavTree schema={twoContainerSchema()} />
+      </NavProvider>,
+    );
+    expect(scrolled).toEqual([{ label: "BChild", options: { block: "nearest" } }]);
+  });
+
+  test("on a route change, and not again when the user collapses another container", () => {
+    const schema = twoContainerSchema();
+    const view = render(
+      <NavProvider value={navWithRoute("a-child")}>
+        <NavTree schema={schema} />
+      </NavProvider>,
+    );
+    view.rerender(
+      <NavProvider value={navWithRoute("b-child")}>
+        <NavTree schema={schema} />
+      </NavProvider>,
+    );
+    fireEvent.click(collapseButton("AList"));
+    expect(scrolled.map((entry) => entry.label)).toEqual(["AChild", "BChild"]);
   });
 });
 
@@ -890,9 +941,59 @@ describe("NavTree dynamic provider nodes", () => {
       renderDynamic({ schema: dynamicSchema(), providers });
     });
 
-    expect(screen.getByText("Content")).toBeTruthy();
-    expect(screen.getByText("apex")).toBeTruthy();
-    expect(screen.getByText("hero")).toBeTruthy();
+    screen.getByText("Content");
+    screen.getByText("apex");
+    screen.getByText("hero");
+  });
+
+  test("a provider node's labelKey is translated when the bundle has it, otherwise its label shows", async () => {
+    const provider: TreeChildrenSubscribe = () => (emit) => {
+      emit([
+        { label: "legal", labelKey: "cms.folder.legal", children: [pageLeaf("imprint")] },
+        { label: "Marketing", labelKey: "cms.folder.Marketing", children: [pageLeaf("hero")] },
+      ]);
+      return () => {};
+    };
+    await act(async () => {
+      render(
+        <LocaleProvider
+          resolver={createStaticLocaleResolver()}
+          fallbackBundles={[{ en: { "cms.folder.legal": "Legal notices" } }]}
+        >
+          <NavProvidersProvider value={new Map([["cms:nav:content", provider]])}>
+            <NavTree schema={dynamicSchema()} />
+          </NavProvidersProvider>
+        </LocaleProvider>,
+      );
+    });
+    screen.getByText("Legal notices");
+    expect(screen.queryByText("legal")).toBeNull();
+    screen.getByText("Marketing");
+  });
+
+  test("the search filter finds a provider node by its translated labelKey", async () => {
+    const provider: TreeChildrenSubscribe = () => (emit) => {
+      emit([
+        { label: "legal", labelKey: "cms.folder.legal", children: [pageLeaf("imprint")] },
+        { label: "Marketing", children: [pageLeaf("hero")] },
+      ]);
+      return () => {};
+    };
+    await act(async () => {
+      render(
+        <LocaleProvider
+          resolver={createStaticLocaleResolver()}
+          fallbackBundles={[{ en: { "cms.folder.legal": "Legal notices" } }]}
+        >
+          <NavProvidersProvider value={new Map([["cms:nav:content", provider]])}>
+            <NavTree schema={dynamicSchema()} />
+          </NavProvidersProvider>
+        </LocaleProvider>,
+      );
+    });
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "notices" } });
+    screen.getByText("Legal notices");
+    expect(screen.queryByText("Marketing")).toBeNull();
   });
 
   test("createAction renders a plus button that dispatches its target", async () => {
@@ -1036,7 +1137,7 @@ describe("NavTree dynamic provider nodes", () => {
         renderDynamic({ schema, providers: new Map() });
       });
 
-      expect(screen.getByRole("link", { name: "Ambiguous action" })).toBeTruthy();
+      screen.getByRole("link", { name: "Ambiguous action" });
       expect(warnSpy).toHaveBeenCalledTimes(1);
       expect(warnSpy.mock.calls[0]?.[0]).toContain("Ambiguous action");
       expect(warnSpy.mock.calls[0]?.[0]).toContain('both "screen" and "target"');
@@ -1089,14 +1190,14 @@ describe("NavTree dynamic provider nodes", () => {
       });
     });
 
-    expect(screen.getByText("apex")).toBeTruthy();
+    screen.getByText("apex");
     expect(screen.queryByText("pricing")).toBeNull();
 
     // A new page is created → the text-block event fires → the provider re-fires.
     pages = ["apex", "hero", "pricing"];
     await fireAndFlushCoalesced(live, "text-block");
 
-    expect(screen.getByText("pricing")).toBeTruthy();
+    screen.getByText("pricing");
   });
 
   test("Provider subscription is properly cleaned up on re-fire + unmount (no leak)", async () => {
@@ -1163,7 +1264,7 @@ describe("NavTree live refresh coalescing", () => {
     await fireAndFlushCoalesced(live, "text-block", 5);
 
     expect(subscribes).toBe(before + 1);
-    expect(screen.getByText("apex")).toBeTruthy();
+    screen.getByText("apex");
   });
 });
 
@@ -1231,12 +1332,12 @@ describe("NavTree Suchfeld", () => {
     fireEvent.change(input, { target: { value: "active" } });
 
     // The match itself remains visible (case-insensitive).
-    expect(screen.getByText("Active")).toBeTruthy();
+    screen.getByText("Active");
     // Nicht-Treffer-Geschwister weg.
     expect(screen.queryByText("Backlog")).toBeNull();
     // Ancestors remain so the matching item stays reachable.
-    expect(screen.getByText("Items")).toBeTruthy();
-    expect(screen.getByText("Data")).toBeTruthy();
+    screen.getByText("Items");
+    screen.getByText("Data");
   });
 
   test("Filter with no matches clears the tree; clearing it restores everything", () => {
@@ -1248,8 +1349,8 @@ describe("NavTree Suchfeld", () => {
     expect(screen.queryByText("Data")).toBeNull();
 
     fireEvent.change(input, { target: { value: "" } });
-    expect(screen.getByText("Backlog")).toBeTruthy();
-    expect(screen.getByText("Data")).toBeTruthy();
+    screen.getByText("Backlog");
+    screen.getByText("Data");
   });
 });
 

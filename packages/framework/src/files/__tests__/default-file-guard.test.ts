@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createDefaultGuard } from "../default-file-guard.ts";
+import { createDefaultGuard, DEFAULT_PRIVILEGED_ROLES } from "../default-file-guard.ts";
 import type { FileAccessGuard } from "../file-routes.ts";
 
 type GuardArgs = Parameters<FileAccessGuard>[0];
@@ -36,5 +36,18 @@ describe("default file guard: anonymous visitors", () => {
     } as unknown as GuardArgs;
     expect(await guard(args)).toBe("deny");
     expect(await guard({ ...args, operation: "delete" })).toBe("deny");
+  });
+});
+
+describe("default file guard: default privileged roles", () => {
+  const defaultGuard = createDefaultGuard(DEFAULT_PRIVILEGED_ROLES, canReadRecord, [], RECORD_ONLY);
+
+  test("a TenantAdmin reads files of an ordinary entity type like an Admin", async () => {
+    expect(await defaultGuard(request("invoice", { id: "owner", roles: ["TenantAdmin"] }))).toBe(
+      "allow",
+    );
+    expect(await defaultGuard(request("invoice", { id: "member", roles: ["Member"] }))).toBe(
+      "deny",
+    );
   });
 });

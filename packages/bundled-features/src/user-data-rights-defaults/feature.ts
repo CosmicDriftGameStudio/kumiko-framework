@@ -39,11 +39,9 @@ import {
 // user-data-rights-defaults — Default hooks for the core entities
 // `user` and `fileRef`.
 //
-// Architectural decision: user-data-rights itself cannot call
-// r.requires({ features: ["user", "files"] }) + r.useExtension(EXT_USER_DATA, ...)
-// because it provides EXT_USER_DATA itself (the boot validator rejects
-// self-extension). The solution is a third, optionally mountable feature
-// that requires both sources and makes the useExtension calls.
+// Architectural decision: bundles the EXT_USER_DATA hooks for core entities that have no
+// bundled-features owner (the framework fileRef among them); EXT_USER_DATA is framework-owned,
+// so this feature only requires user-data-rights to keep the bundle opt-out.
 //
 // App authors can omit this feature if they want to register custom hooks
 // instead (for example, "anonymize should hard-delete the user row" — an
@@ -73,52 +71,70 @@ export function createUserDataRightsDefaultsFeature(): FeatureDefinition {
     // no-ops at runtime when its source feature isn't mounted (see
     // hooks/feature-mounted.ts) — the export runner has no per-hook
     // try/catch, so a query against a missing table would kill the job.
-    r.optionalRequires(
-      "sessions",
-      "personal-access-tokens",
-      "channel-in-app",
-      "tenant",
-      "delivery",
-      "config",
-      "jobs",
-    );
+    r.optionalRequires({
+      features: [
+        "sessions",
+        "personal-access-tokens",
+        "channel-in-app",
+        "tenant",
+        "delivery",
+        "config",
+        "jobs",
+      ],
+    });
 
-    r.useExtension(EXT_USER_DATA, "user", {
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "user",
       export: userExportHook,
       delete: userDeleteHook,
     });
 
-    r.useExtension(EXT_USER_DATA, "fileRef", {
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "fileRef",
       export: fileRefExportHook,
       delete: fileRefDeleteHook,
     });
 
-    r.useExtension(EXT_USER_DATA, "user-session", {
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "user-session",
       export: userSessionExportHook,
       delete: userSessionDeleteHook,
     });
 
-    r.useExtension(EXT_USER_DATA, "api-token", {
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "api-token",
       export: apiTokenExportHook,
       delete: apiTokenDeleteHook,
     });
 
-    r.useExtension(EXT_USER_DATA, "in-app-message", {
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "in-app-message",
       export: inAppMessageExportHook,
       delete: inAppMessageDeleteHook,
     });
 
-    r.useExtension(EXT_USER_DATA, "tenant-invitation", {
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "tenant-invitation",
       export: tenantInvitationExportHook,
       delete: tenantInvitationDeleteHook,
     });
 
-    r.useExtension(EXT_USER_DATA, "notification-preference", {
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "notification-preference",
       export: notificationPreferenceExportHook,
       delete: notificationPreferenceDeleteHook,
     });
 
-    r.useExtension(EXT_USER_DATA, "config-value", {
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "config-value",
       export: configValueExportHook,
       delete: configValueDeleteHook,
     });
@@ -127,17 +143,23 @@ export function createUserDataRightsDefaultsFeature(): FeatureDefinition {
     // delete hooks are deliberate no-ops — erasure happens via crypto-
     // shredding (forget erases the user's DEK; recipientAddress / job
     // payload become unreadable in events AND rows).
-    r.useExtension(EXT_USER_DATA, "delivery-attempt", {
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "delivery-attempt",
       export: deliveryAttemptExportHook,
       delete: deliveryAttemptDeleteHook,
     });
 
-    r.useExtension(EXT_USER_DATA, "download-attempt", {
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "download-attempt",
       export: downloadAttemptExportHook,
       delete: downloadAttemptDeleteHook,
     });
 
-    r.useExtension(EXT_USER_DATA, "job-run", {
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "job-run",
       export: jobRunExportHook,
       delete: jobRunDeleteHook,
     });

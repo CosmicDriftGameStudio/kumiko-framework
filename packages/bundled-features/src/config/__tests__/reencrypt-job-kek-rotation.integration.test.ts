@@ -13,7 +13,6 @@ import { randomBytes } from "node:crypto";
 import {
   createEventStoreExecutor,
   createSystemDbView,
-  createTenantDb,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -23,6 +22,7 @@ import {
   defineFeature,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createEnvelopeCipher,
@@ -154,7 +154,9 @@ function jobCtx(captured?: CapturedLog): Parameters<typeof reencryptJob>[1] {
     tenantId: SYSTEM_TENANT_ID,
     mode: "system",
     reason: "test seeds and inspects config values across tenants around the KEK rotation",
-    grants: { unsafeRaw: { reason: "test: job context mirrors systemScope() grant" } },
+    grants: {
+      unsafeRaw: { reason: "test: job context mirrors systemScope() grant", grants: ["unsafeRaw"] },
+    },
   });
   return {
     db: systemModeDb,

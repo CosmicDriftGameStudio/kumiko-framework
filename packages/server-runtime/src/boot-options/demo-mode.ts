@@ -2,8 +2,14 @@ import {
   type ExtraRouteDefinition,
   isWebSocketUpgradeRequest,
 } from "@cosmicdrift/kumiko-framework/api";
+import {
+  DEMO_MODE_PATH,
+  type DemoAccountRole,
+  type DemoModePayload,
+} from "@cosmicdrift/kumiko-types/demo-mode-types";
 
-export type DemoAccountRole = "admin" | "sysadmin";
+export type { DemoAccountRole, DemoModePayload };
+export { DEMO_MODE_PATH };
 
 /** A role alone, or a role with the label the banner shows next to the login. */
 export type DemoAccountEntry =
@@ -42,7 +48,6 @@ export type DemoModeOption = {
   readonly allowedWritePaths?: readonly string[];
 };
 
-export const DEMO_MODE_PATH = "/demo-mode";
 export const DEMO_READ_ONLY_ERROR_CODE = "demo_read_only";
 
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -58,20 +63,6 @@ const ACCOUNT_ENV_KEYS: Readonly<
 > = {
   admin: { email: "DEMO_ADMIN_EMAIL", password: "DEMO_ADMIN_PASSWORD" },
   sysadmin: { email: "DEMO_SYSADMIN_EMAIL", password: "DEMO_SYSADMIN_PASSWORD" },
-};
-
-export type DemoModePayload = {
-  readonly readOnly: boolean;
-  readonly notice: {
-    readonly text?: Readonly<Record<string, string>>;
-    readonly links?: DemoModeNotice["links"];
-    readonly accounts: readonly {
-      readonly role: DemoAccountRole;
-      readonly label?: Readonly<Record<string, string>>;
-      readonly email: string;
-      readonly password: string;
-    }[];
-  };
 };
 
 export function buildDemoModePayload(

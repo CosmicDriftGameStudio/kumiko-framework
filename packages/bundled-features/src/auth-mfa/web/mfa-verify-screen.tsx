@@ -7,7 +7,6 @@
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
-// kumiko-lint-ignore cross-feature-import client-only barrel, the feature's server barrel has no web/ re-export
 import { AuthCard, useSession } from "../../auth-email-password/web/index.ts";
 import { verifyMfaChallenge } from "./mfa-client.ts";
 import { MfaCodeOrRecoveryField } from "./mfa-code-or-recovery-field.tsx";

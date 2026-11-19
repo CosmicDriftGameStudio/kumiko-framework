@@ -8,21 +8,17 @@ import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
-import {
-  createEntity,
-  createRegistry,
-  createTextField,
-  defineFeature,
-} from "../../engine/index.ts";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
-import { createCascadeDeleteHook } from "../cascade-handler.ts";
 import { rebuildProjection } from "../index.ts";
 
 const parentEntity = createEntity({
+  name: "rb-parent",
   table: "read_cascade_rb_parents",
   fields: { name: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 const cascadeChildEntity = createEntity({
+  name: "rb-cascade-child",
   table: "read_cascade_rb_cascade_children",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -30,28 +26,33 @@ const cascadeChildEntity = createEntity({
   },
 });
 const setNullChildEntity = createEntity({
+  name: "rb-setnull-child",
   table: "read_cascade_rb_setnull_children",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
     parentId: createTextField({ personal: false, reason: "test_fixture" }),
   },
 });
-const parentTable = buildEntityTable("rb-parent", parentEntity);
-const cascadeChildTable = buildEntityTable("rb-cascade-child", cascadeChildEntity);
-const setNullChildTable = buildEntityTable("rb-setnull-child", setNullChildEntity);
+const parentTable = buildEntityTable(parentEntity);
+const cascadeChildTable = buildEntityTable(cascadeChildEntity);
+const setNullChildTable = buildEntityTable(setNullChildEntity);
 
 const feature = defineFeature("cascaderb", (r) => {
-  r.entity({ name: "rb-parent", ...parentEntity });
-  r.entity({ name: "rb-cascade-child", ...cascadeChildEntity });
-  r.entity({ name: "rb-setnull-child", ...setNullChildEntity });
+  r.entity(parentEntity);
+  r.entity(cascadeChildEntity);
+  r.entity(setNullChildEntity);
 
-  r.relation("rb-parent", "cascadeChildren", {
+  r.relation({
+    entity: "rb-parent",
+    name: "cascadeChildren",
     type: "hasMany",
     target: "rb-cascade-child",
     foreignKey: "parentId",
     onDelete: "cascade",
   });
-  r.relation("rb-parent", "setNullChildren", {
+  r.relation({
+    entity: "rb-parent",
+    name: "setNullChildren",
     type: "hasMany",
     target: "rb-setnull-child",
     foreignKey: "parentId",
@@ -102,16 +103,7 @@ const admin = TestUsers.admin;
 let stack: TestStack;
 
 beforeAll(async () => {
-  const tables = new Map([
-    ["rb-cascade-child", cascadeChildTable],
-    ["rb-setnull-child", setNullChildTable],
-  ]);
-  const hook = createCascadeDeleteHook(createRegistry([feature]), tables);
-  stack = await setupTestStack({
-    features: [feature],
-    systemHooks: [],
-    lifecycleSystemHooks: { preDelete: [hook] },
-  });
+  stack = await setupTestStack({ features: [feature], systemHooks: [] });
   await unsafeCreateEntityTable(stack.db, parentEntity, "rb-parent");
   await unsafeCreateEntityTable(stack.db, cascadeChildEntity, "rb-cascade-child");
   await unsafeCreateEntityTable(stack.db, setNullChildEntity, "rb-setnull-child");

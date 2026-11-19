@@ -13,7 +13,7 @@ import {
   type NamedWebhookExample,
   resolveApiDocsConfig,
   WebhookExampleFileSchema,
-} from "@cosmicdrift/kumiko-bundled-features/agent-tools";
+} from "@cosmicdrift/kumiko-bundled-features/agent-tools/api-docs";
 import { allAppFeatures } from "@cosmicdrift/kumiko-framework/config";
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime";
@@ -64,15 +64,17 @@ function readGolden(dir: string): Map<string, string> {
   );
 }
 
+const appName = PackageNameSchema.parse(
+  JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")),
+).name;
+const resolvedConfig = await resolveApiDocsConfig(config.apiDocs ?? {}, { appName });
+
 describe("api-docs golden", () => {
-  const appName = PackageNameSchema.parse(
-    JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")),
-  ).name;
   const generated = generateApiDocs({
     registry: createRegistry(
       composeFeatures(allAppFeatures(config), { includeBundled: config.includeBundled === true }),
     ),
-    config: resolveApiDocsConfig(config.apiDocs ?? {}, { appName }),
+    config: resolvedConfig,
     // Fixed so that a release does not turn the golden red.
     source: { framework: "0.0.0-recipe", app: { name: appName, version: "0.0.0" } },
     examples: readExamples(),

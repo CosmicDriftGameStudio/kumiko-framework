@@ -1,8 +1,5 @@
-import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
 import { extractTableInfo } from "../db/table-info.ts";
-
-import { getStreamVersion } from "../event-store/index.ts";
 import { buildDerivedSelect } from "./derived-field-sql.ts";
 import type { EventStoreExecutor } from "./event-store-executor.ts";
 import type { ExecutorContext } from "./event-store-executor-context.ts";
@@ -14,10 +11,11 @@ import {
   resolveListPagination,
 } from "./event-store-executor-read-paging.ts";
 import {
-  appendStreamVersionProjection,
   coerceAndRehydrateRow,
-  takeStreamVersions,
-  withStreamVersion,
+  listColumnsExcluding,
+  listSelectColumns,
+  omitListFields,
+  pickListFields,
 } from "./event-store-executor-read-rows.ts";
 import {
   renderListOrderBy,
@@ -27,6 +25,7 @@ import {
 import { buildListWhere } from "./event-store-executor-read-where.ts";
 import { withGlobalParentHosts } from "./parent-ref-global-hosts.ts";
 import { resolveReadOwnership } from "./read-ownership.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import { tenantDbRunnerForTable } from "./tenant-db-runner.ts";
 
@@ -43,18 +42,7 @@ function emptyListPage(totalCount: boolean) {
 export function createReadVerbs(
   ctx: ExecutorContext,
 ): Pick<EventStoreExecutor, "list" | "detail" | "aggregate"> {
-  const {
-    table,
-    entity,
-    entityName,
-    entityCache,
-    streamTenantFor,
-    idFilter,
-    probeOwnershipWithStreamVersion,
-    loadDetailSnapshot,
-    decryptForRead,
-    encryptForStorage,
-  } = ctx;
+  const { table, entity, idFilter, loadDetailRow, decryptForRead } = ctx;
 
   return {
     // list + detail are unchanged from crud-executor — projections are the
@@ -101,14 +89,20 @@ export function createReadVerbs(
       const offsetClause = !payload.cursor && offset > 0 ? ` OFFSET ${offset}` : "";
       const whereClauseSqlText =
         where.whereSql.length > 0 ? ` WHERE ${where.whereSql.join(" AND ")}` : "";
-      const streamVersionProjection = appendStreamVersionProjection(
-        where.params,
-        tableName,
-        streamTenantFor(user),
-      );
-      const derivedProjection = derived?.projections(where.params) ?? "";
-      const selectList = `*${sortLabelProjection}${streamVersionProjection}${derivedProjection}`;
-      const listSql = `SELECT ${selectList} FROM "${tableName}"${whereClauseSqlText}${orderByClause} LIMIT ${limit}${offsetClause}`;
+      const fields = payload.fields;
+      const excludedFields = payload.excludeFields ?? [];
+      let columnList: string;
+      if (fields !== undefined) {
+        columnList = listSelectColumns(fields, excludedFields, sort, table, entity);
+      } else if (excludedFields.length === 0) {
+        columnList = "*";
+      } else {
+        columnList = listColumnsExcluding(excludedFields, sort, table);
+      }
+      const derivedProjection =
+        fields === undefined ? (derived?.projections(where.params) ?? "") : "";
+      const selectList = `${columnList}${sortLabelProjection}${derivedProjection}`;
+      const listSql = `SELECT ${selectList} FROM ${quoteIdent(tableName)}${whereClauseSqlText}${orderByClause} LIMIT ${limit}${offsetClause}`;
 
       const rawRows = await executeRawQueryRead<Record<string, unknown>>(
         runner,
@@ -116,31 +110,23 @@ export function createReadVerbs(
         where.params,
       );
       const lastSortLabel = takeLastSortLabel(rawRows, sort);
-      const streamVersions = takeStreamVersions(rawRows);
-      const derivedValues = derived?.takeValues(rawRows);
+      const derivedValues = fields === undefined ? derived?.takeValues(rawRows) : undefined;
       const tableInfo = extractTableInfo(table);
       const encryptedRows = rawRows.map((r) => coerceAndRehydrateRow(r, tableInfo, entity));
       const decryptedRows = await Promise.all(
         encryptedRows.map((r) => decryptForRead(r, { degradeUndecryptable: () => {} })),
       );
 
-      // Stream version is authoritative (see detail()): ctx.events.append bumps the
-      // stream without touching row.version, so the raw row version would hand
-      // clients a stale optimistic-lock base. Rows without events keep theirs.
-      const storedRows = decryptedRows.map((r, i) => withStreamVersion(r, streamVersions[i] ?? 0));
-
-      // Cache the still-encrypted raw rows (read-row version): same at-rest guarantee as
-      // detail()'s encryptForStorage round-trip, without a re-encrypt; detail() rejects
-      // a cached version that differs from the stream.
-      if (entityCache && entityName && storedRows.length > 0) {
-        await entityCache.mset(
-          user.tenantId,
-          entityName,
-          encryptedRows.map((r) => ({ id: r["id"] as EntityId, data: r })), // @cast-boundary engine-payload
-        );
+      let storedRows: Record<string, unknown>[];
+      if (fields !== undefined) {
+        storedRows = decryptedRows.map((r) => pickListFields(r, fields));
+      } else if (excludedFields.length > 0) {
+        storedRows = decryptedRows.map((r) => omitListFields(r, excludedFields));
+      } else {
+        storedRows = decryptedRows;
       }
 
-      // Viewer-dependent, so attached only after the cache write, as new row objects.
+      // Viewer-dependent, so attached as new row objects.
       const rows =
         derivedValues === undefined
           ? storedRows
@@ -188,79 +174,12 @@ export function createReadVerbs(
 
       const idWhere = idFilter(payload.id);
 
-      // Stream-version authoritative (same policy as update/Block 0):
-      // ctx.events.append (lifecycle-writes like incident:post-update) bumps
-      // the stream WITHOUT touching row.version — a detail-read that hands
-      // out the stale row.version dooms the next CRUD update built on it
-      // (entityEdit loads detail.version as its optimistic-lock base) to a
-      // guaranteed version_conflict.
-      // A cache hit only counts when its version equals the live stream version:
-      // a late entityCache.set() can resurrect an old row after the writer's del().
-      if (entityCache && entityName) {
-        const cached = await entityCache.get(user.tenantId, entityName, payload.id);
-        if (cached) {
-          let streamVersion: number;
-          if (ownership.kind === "sql") {
-            // Re-check ownership predicate (incl. the parent-ref gate) against
-            // the live row — the cache is keyed only by tenant + id, not by
-            // role, so a cache hit can't bypass either gate. The probe carries
-            // the stream version in the same statement.
-            const probe = await probeOwnershipWithStreamVersion(
-              db,
-              idWhere,
-              ownership,
-              streamTenantFor(user),
-              String(payload.id),
-            );
-            if (!probe.owned) return null;
-            streamVersion = probe.streamVersion;
-          } else {
-            streamVersion = await getStreamVersion(
-              tenantDbRunnerForTable(db, table),
-              String(payload.id),
-              streamTenantFor(user),
-            );
-          }
-          if (!(streamVersion > 0 && cached["version"] !== streamVersion)) {
-            // Cached rows are stored re-encrypted (see the `set` below) so an
-            // `encrypted` field's plaintext never sits in a second at-rest
-            // store (Redis) the field-encryption feature doesn't cover.
-            return withStreamVersion(
-              await decryptForRead(cached, { degradeUndecryptable: () => {} }),
-              streamVersion,
-            );
-          }
-        }
-      }
-
-      const snapshot = await loadDetailSnapshot(
-        db,
-        idWhere,
-        ownership,
-        streamTenantFor(user),
-        String(payload.id),
-      );
-      const raw = snapshot.row;
+      // row.version follows the stream (domain events bump it in runProjectionsForEvent), so one row read is consistent.
+      const raw = await loadDetailRow(db, idWhere, ownership);
       if (!raw) return null;
-      const undecryptableFields: string[] = [];
-      const coerced = await decryptForRead(
-        coerceAndRehydrateRow(raw, extractTableInfo(table), entity),
-        { degradeUndecryptable: (field) => undecryptableFields.push(field) },
-      );
-      const result = withStreamVersion(coerced, snapshot.streamVersion);
-
-      // A degraded row must not be cached: re-encrypting its null would
-      // replay the missing value on later cache hits without any error log.
-      if (entityCache && entityName && undecryptableFields.length === 0) {
-        await entityCache.set(
-          user.tenantId,
-          entityName,
-          payload.id,
-          await encryptForStorage(result, user),
-        );
-      }
-
-      return result;
+      return decryptForRead(coerceAndRehydrateRow(raw, extractTableInfo(table), entity), {
+        degradeUndecryptable: () => {},
+      });
     },
   };
 }

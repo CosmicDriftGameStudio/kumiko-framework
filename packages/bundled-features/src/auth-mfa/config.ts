@@ -21,7 +21,7 @@ export const mfaRequiredConfigHandle: ConfigKeyHandle<"select"> = {
 // Write access is machine-only: a TenantAdmin must not be able to relax the
 // policy back to "optional". The app-wide default comes from
 // `createAuthMfaFeature({ requiredPolicy })`, per-tenant overrides are set by
-// system writes (runBootstrap `tenants[].config`, jobs, SystemAdmin tooling).
+// system writes (a `seeds.run` function, jobs, SystemAdmin tooling).
 export function mfaRequiredConfigKey(defaultPolicy: MfaRequiredPolicy = "optional") {
   return createTenantConfig("select", {
     default: defaultPolicy,

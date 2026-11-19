@@ -31,6 +31,8 @@ let resolver: ConfigResolver;
 
 const tenantAdmin = createTestUser({ id: 2 });
 
+let computedWithRowCalls = 0;
+
 const cascadeFeature = defineFeature("cascade-test", (r) => {
   r.requires({ features: ["config"] });
 
@@ -81,6 +83,16 @@ const cascadeFeature = defineFeature("cascade-test", (r) => {
         read: access.all,
         write: access.all,
       }),
+      // Has a stored row AND a computed resolver: the row must win without
+      // ever running computed.
+      computedWithRowKey: createTenantConfig("number", {
+        computed: async () => {
+          computedWithRowCalls++;
+          return 7;
+        },
+        read: access.all,
+        write: access.all,
+      }),
       // End-to-end seam key: a plain scope factory carrying an `env` binding
       // so buildEnvConfigOverrides reads it off the real registry under the
       // qualified name define-feature assigns.
@@ -95,6 +107,7 @@ const cascadeFeature = defineFeature("cascade-test", (r) => {
       tenantKey: createTenantSeed({ value: "SEED_TENANT" }),
       systemKey: createSystemSeed({ value: "SEED_SYSTEM" }),
       userInheritKey: createSystemSeed({ value: "SEED_SYSTEM_FOR_USER" }),
+      computedWithRowKey: createSystemSeed({ value: 5 }),
     },
   });
 });
@@ -109,6 +122,7 @@ const NUMBER_KEY = "cascade-test:config:number-key";
 const BOOLEAN_KEY = "cascade-test:config:boolean-key";
 const QUERY_SELECT_KEY = "cascade-test:config:query-select-key";
 const COMPUTED_KEY = "cascade-test:config:computed-key";
+const COMPUTED_WITH_ROW_KEY = "cascade-test:config:computed-with-row-key";
 const ENV_KEY = "cascade-test:config:env-key";
 
 beforeAll(async () => {
@@ -445,6 +459,72 @@ describe("cascade levels — non-DB sources", () => {
     // declared default ("DEFAULT_ENV").
     expect(result.source).toBe("app-override");
     expect(result.value).toBe("from-env");
+  });
+});
+
+describe("getWithSource", () => {
+  async function resolveWithSource(key: string, userId: string = tenantAdmin.id) {
+    const keyDef = stack.registry.getConfigKey(key);
+    expect(keyDef).toBeDefined();
+    return resolver.getWithSource(key, keyDef!, tenantAdmin.tenantId, userId, db);
+  }
+
+  test("seeded system-row matches getCascade", async () => {
+    const keyDef = stack.registry.getConfigKey(TENANT_KEY);
+    const cascade = await resolver.getCascade(
+      TENANT_KEY,
+      keyDef!,
+      tenantAdmin.tenantId,
+      tenantAdmin.id,
+      db,
+    );
+    const result = await resolveWithSource(TENANT_KEY);
+    expect(result).toEqual({ value: "SEED_TENANT", source: "system-row" });
+    expect(result.value).toBe(cascade.value);
+    expect(result.source).toBe(cascade.source);
+  });
+
+  test("user-scope key falls through to the system-row", async () => {
+    expect(await resolveWithSource(USER_INHERIT_KEY)).toEqual({
+      value: "SEED_SYSTEM_FOR_USER",
+      source: "system-row",
+    });
+  });
+
+  test("user-row beats tenant-row; another user sees the tenant-row", async () => {
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: USER_KEY, value: "TENANT_VAL", scope: "tenant" },
+      tenantAdmin,
+    );
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: USER_KEY, value: "USER_VAL", scope: "user" },
+      tenantAdmin,
+    );
+
+    expect(await resolveWithSource(USER_KEY)).toEqual({ value: "USER_VAL", source: "user-row" });
+    expect(await resolveWithSource(USER_KEY, createTestUser({ id: 77 }).id)).toEqual({
+      value: "TENANT_VAL",
+      source: "tenant-row",
+    });
+  });
+
+  test("no row falls back to the default", async () => {
+    expect(await resolveWithSource(NUMBER_KEY)).toEqual({ value: 0, source: "default" });
+  });
+
+  test("no row falls back to computed", async () => {
+    expect(await resolveWithSource(COMPUTED_KEY)).toEqual({ value: 42, source: "computed" });
+  });
+
+  test("a stored row wins without running computed", async () => {
+    computedWithRowCalls = 0;
+    expect(await resolveWithSource(COMPUTED_WITH_ROW_KEY)).toEqual({
+      value: 5,
+      source: "system-row",
+    });
+    expect(computedWithRowCalls).toBe(0);
   });
 });
 

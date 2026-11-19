@@ -3,6 +3,7 @@ import type { DbConnection } from "../db/connection.ts";
 import { EXT_FILE_PROVIDER } from "../engine/extension-names.ts";
 import type { AppContext, Registry } from "../engine/types/index.ts";
 import { assertSeedModeNotInProduction } from "../event-store/seed-clock.ts";
+import { createFileDownloadLinkSigner } from "../files/file-download-link.ts";
 import { makeFileProviderResolver } from "../files/provider-resolver.ts";
 import { createFallbackLogger } from "../logging/index.ts";
 import { createNoopProvider, type ObservabilityProvider } from "../observability/index.ts";
@@ -32,7 +33,11 @@ import {
   createServerEventDispatcher,
   registerOwnedShutdownHooks,
 } from "./server-event-dispatcher.ts";
-import { resolveServerRateLimit, type ServerRateLimit } from "./server-rate-limit-wiring.ts";
+import {
+  resolveServerRateLimit,
+  type ServerRateLimit,
+  signingMasterSecret,
+} from "./server-rate-limit-wiring.ts";
 import type { SseBroker } from "./sse-broker.ts";
 
 // The per-tenant file-provider resolver, built once for a registry+context so
@@ -244,7 +249,7 @@ function resolveTracedRedis(
 }
 
 function buildServerAppContext(
-  options: Pick<ServerOptions, "dispatcherOptions">,
+  options: Pick<ServerOptions, "dispatcherOptions" | "jwtSecret">,
   parts: {
     readonly contextWithFiles: AppContext;
     readonly tracedRedis: AppContext["redis"];
@@ -259,6 +264,8 @@ function buildServerAppContext(
     ...(tracedRedis ? { redis: tracedRedis } : {}),
     ...(rateLimit.resolver ? { rateLimit: rateLimit.resolver } : {}),
     _rateLimitPayloadDigest: rateLimit.payloadDigest,
+    _visitorKeyDigest: rateLimit.visitorKeyDigest,
+    _fileDownloadLinkSigner: createFileDownloadLinkSigner(signingMasterSecret(options.jwtSecret)),
     ...(cacheSync ? { cacheSync } : {}),
     // Propagate the feature-toggle resolver to the context so the event-
     // dispatcher (and any future context-reading consumer) sees the same

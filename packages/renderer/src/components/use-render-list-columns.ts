@@ -4,6 +4,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
 import { useMemo } from "react";
+import { useAppFeatures } from "../app/app-features-context.tsx";
 import {
   type ScreenLinkResolver,
   useReferenceLinkResolver,
@@ -94,9 +95,10 @@ export function useRenderListColumns(input: RenderListColumnsInput) {
   // mounts a ReferenceLookupBridge that publishes its map to local state
   // through onMap. Each bridge makes a constant number of hook calls (one),
   // and React manages its lifecycle when the schema changes via key.
+  const appFeatures = useAppFeatures();
   const referenceColumns = useMemo(
-    () => selectReferenceColumns(vm.columns, featureName),
-    [vm.columns, featureName],
+    () => selectReferenceColumns(vm.columns, featureName, appFeatures),
+    [vm.columns, featureName, appFeatures],
   );
   const { referenceRequests, handleLookupMap, referenceLookups } = useReferenceColumnLookups(
     rows,

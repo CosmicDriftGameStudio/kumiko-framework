@@ -223,7 +223,7 @@ function defaultOnFailClosed(label: string): (err: unknown) => void {
   };
 }
 
-function setRateLimitHeaders(c: Context, decision: RateLimitDecision): void {
+export function setRateLimitHeaders(c: Context, decision: RateLimitDecision): void {
   c.header("X-RateLimit-Limit", String(decision.limit));
   c.header("X-RateLimit-Remaining", String(decision.remaining));
   // Unix-epoch seconds — matches the de-facto industry standard (GitHub,

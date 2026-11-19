@@ -1,9 +1,8 @@
 // @runtime dev
 import { createSseBroker, withFileProviderResolver } from "@cosmicdrift/kumiko-framework/api";
-import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
+import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { createNoopProvider } from "@cosmicdrift/kumiko-framework/observability";
-import { createEntityCache } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   type ClosableCacheSyncBus,
   createLocalCacheSyncBus,
@@ -87,10 +86,10 @@ export async function buildStackServices(
   testDb: StackStorage["testDb"],
   testRedis: TestRedis,
   cacheSync: ClosableCacheSyncBus,
+  registry: Registry,
 ) {
   const searchAdapter = createInMemorySearchAdapter();
   const events = createEventCollector();
-  const registry = createRegistry([...options.features]);
 
   // Wire SSE broker with event collector — built early (not just before
   // buildServer) because extraContext + the job context below both need it.
@@ -101,7 +100,6 @@ export async function buildStackServices(
     () => {},
   );
 
-  const entityCache = createEntityCache(testRedis.redis, { ttlSeconds: 60 });
   const extraContextClock: { current: unknown } = { current: undefined };
   const fileProviderResolver = await resolveStackFileProvider(
     options,
@@ -111,7 +109,7 @@ export async function buildStackServices(
   const observability = options.observability ?? createNoopProvider();
 
   // Same AppContext buildServer() gets below (db/redis/searchAdapter/
-  // entityCache/masterKeyProvider/fileProviderResolver/extraContext) —
+  // masterKeyProvider/fileProviderResolver/extraContext) —
   // shared so the job context can't drift from the request-path context:
   // a reduced `{ db, registry }` literal let jobs pass in tests while
   // reaching for fields only prod's context has.
@@ -142,7 +140,6 @@ export async function buildStackServices(
       db: testDb.db,
       redis: testRedis.redis,
       searchAdapter,
-      entityCache,
       registry,
       ...(options.masterKeyProvider ? { masterKeyProvider: options.masterKeyProvider } : {}),
       ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
@@ -163,7 +160,6 @@ export async function buildStackServices(
     events,
     registry,
     sseBroker,
-    entityCache,
     observability,
     appContext,
     clock: effectiveClock,

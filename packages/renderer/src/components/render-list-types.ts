@@ -112,6 +112,8 @@ export type RenderListProps = {
   /** Forwarded to `DataTableProps.chromeless` — drops the table's own card frame for a
    *  host that already provides one (relatedList in a tabs-mode section). Default false. */
   readonly chromeless?: boolean;
+  /** Forwarded to `DataTableProps.headerTone`. */
+  readonly headerTone?: "muted";
   /** Forwarded to `DataTableProps.scrollBody` — bounds the table height and scrolls rows
    *  internally instead of growing the page (relatedList in a tabs-mode section). Default false. */
   readonly scrollBody?: boolean;

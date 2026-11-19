@@ -45,3 +45,5 @@ export const WHATSAPP_BUTTON_PAYLOAD_MAX_CHARS = 256;
 export const WHATSAPP_BUTTON_TITLE_MAX_CHARS = 20;
 export const WHATSAPP_MAX_REPLY_BUTTONS = 3;
 export const WHATSAPP_MAX_TEMPLATE_BUTTONS = 10;
+
+export const WHATSAPP_RETENTION_CURSOR_ENTITY = "whatsapp-retention-cursor" as const;

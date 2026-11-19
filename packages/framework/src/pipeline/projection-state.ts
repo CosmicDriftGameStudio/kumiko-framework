@@ -13,8 +13,8 @@ import { pushTableIfMissing } from "../db/table-push.ts";
 //   - lastProcessedEventId: the bigserial `events.id` of the most recent
 //     event that was applied. Rebuild uses it as the cursor for what's
 //     done; live writes DON'T currently update it (synchronous apply means
-//     no meaningful lag, see projections-runner.ts). Once async apply lands
-//     in B.3+, this becomes the lag source.
+//     no meaningful lag, see projections-runner.ts). Sync projections have no
+//     lag; the value is only the rebuild cursor.
 //   - status: "idle" (normal) | "rebuilding" (in-progress) | "failed"
 //   - lastRebuildAt: wall-clock time the last full rebuild finished
 //   - lastError: last error message when status = "failed" — rebuild sets

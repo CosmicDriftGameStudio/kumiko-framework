@@ -5,6 +5,7 @@ import {
   createSystemUser,
   type SessionUser,
   type UserDataDeleteHook,
+  type UserDataDeleteStrategy,
   type UserDataExportHook,
   type UserDataHookCtx,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -12,16 +13,16 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { collectErasureFailure, throwIfErasureFailed } from "../shared/index.ts";
 import { resolveVerifiedUserEmail } from "../user/index.ts";
-import { requestExecutor, signatureSignerTable, signerExecutor } from "./entity.ts";
-import { deleteFileRef } from "./files.ts";
+import { signatureSignerTable, signerExecutor, ungatedRequestExecutor } from "./entity.ts";
+import { deleteFileRef, type GeneratedFileContext } from "./files.ts";
 import { setRequestStatus } from "./lib.ts";
 import { SIGNATURE_REQUEST_STATUS, SIGNATURE_SIGNER_ENTITY } from "./web/constants.ts";
 
 const PII_DECRYPT_REASON = "signature:user-data";
-const ANONYMIZED_NAME = "anonymized";
+export const ANONYMIZED_SIGNER_NAME = "anonymized";
 const ERASE_REASON = "signature:subject-forget";
 
-type SignerRecord = Record<string, unknown>;
+export type SignerRecord = Record<string, unknown>;
 
 // A signer has no user account: the only link to a user is the signer's email, which is stored
 // lowercase and findable by exact match. Without a verified email nothing matches.
@@ -99,12 +100,12 @@ async function cancelUnfinishedRequest(
   systemUser: SessionUser,
   requestId: string,
 ): Promise<void> {
-  const request = await requestExecutor.detail({ id: requestId }, systemUser, ctx.db);
+  const request = await ungatedRequestExecutor.detail({ id: requestId }, systemUser, ctx.db);
   const status = request?.status;
   if (status !== SIGNATURE_REQUEST_STATUS.Open && status !== SIGNATURE_REQUEST_STATUS.AllSigned) {
     return;
   }
-  await setRequestStatus(ctx, systemUser, requestId, status, {
+  await setRequestStatus(ungatedRequestExecutor, ctx, systemUser, requestId, status, {
     status: SIGNATURE_REQUEST_STATUS.Cancelled,
   });
 }
@@ -115,10 +116,14 @@ async function cancelUnfinishedRequest(
 // contract (Art. 17(3)(e) GDPR), and the row's status and timestamps under "anonymize". A forgotten
 // signer would let the others complete the request without them (delete) or leave an all-signed
 // request without the image it needs (anonymize), so an open or all-signed request is cancelled.
-export const signatureDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
+export async function eraseSignerRows(
+  ctx: UserDataHookCtx,
+  rows: readonly SignerRecord[],
+  strategy: UserDataDeleteStrategy,
+): Promise<void> {
   const systemUser = createSystemUser(ctx.tenantId);
   const failures: string[] = [];
-  for (const row of await findSignerRows(ctx)) {
+  for (const row of rows) {
     const id = stringOrNull(row["id"]);
     if (id === null) continue;
     const imageFileId = stringOrNull(row["imageFileId"]);
@@ -137,7 +142,7 @@ export const signatureDeleteHook: UserDataDeleteHook = async (ctx, strategy) => 
       {
         id,
         changes: {
-          name: ANONYMIZED_NAME,
+          name: ANONYMIZED_SIGNER_NAME,
           email: null,
           imageFileId: null,
           signedFromIp: null,
@@ -156,4 +161,19 @@ export const signatureDeleteHook: UserDataDeleteHook = async (ctx, strategy) => 
     await shredSignerKey(ctx, id);
   }
   throwIfErasureFailed(failures);
-};
+}
+
+export const signatureDeleteHook: UserDataDeleteHook = async (ctx, strategy) =>
+  eraseSignerRows(ctx, await findSignerRows(ctx), strategy);
+
+// Jobs and handlers erase through the same path as the user-data hooks; the storage comes from the file provider.
+export function signerEraseContext(ctx: GeneratedFileContext, user: SessionUser): UserDataHookCtx {
+  const resolver = ctx.services._fileProviderResolver;
+  return {
+    db: ctx.db,
+    registry: ctx.registry,
+    tenantId: user.tenantId,
+    userId: user.id,
+    ...(resolver !== undefined && { buildStorageProvider: resolver }),
+  };
+}

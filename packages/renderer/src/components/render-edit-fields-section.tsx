@@ -143,6 +143,7 @@ function renderSectionFieldBody<TValues extends FormValues, TCtx>(
       key={group.title}
       title={group.title}
       titleStyle="label"
+      {...(section.titleOnNarrow === false && { titleOnNarrow: false as const })}
       testId={`section-${sectionKey}-group-${groupIndex}`}
     >
       {renderFieldGrid(
@@ -207,6 +208,7 @@ function renderDefaultFieldsSection<TValues extends FormValues, TCtx>(
         section.description !== undefined && { subtitleBelowLgOnly: true })}
       {...(section.icon !== undefined && { icon: section.icon })}
       {...(labelTitles && { titleStyle: "label" as const })}
+      {...(section.titleOnNarrow === false && { titleOnNarrow: false as const })}
       {...sectionHintProp(section, sectionKey, hintBelow)}
       {...(sectionActionsEl !== undefined && { actions: sectionActionsEl })}
       {...(model.footer.isSettingsList && { layout: "settings-list" as const })}

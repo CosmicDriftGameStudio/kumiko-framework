@@ -13,16 +13,10 @@ export const listQuery = defineQueryHandler({
     "Lists only the features that carry an explicit platform-wide on/off override, with who flipped it and when; use it to see which toggles were changed away from their default.",
   schema: z.object({}),
   access: { roles: ["SystemAdmin"] },
+  systemScope: true,
   handler: async (_event, ctx) => {
-    // ctx.systemDb is populated for r.systemScope() handlers only (feature.ts
-    // declares it) — guarded instead of asserted, see set.write.ts Guard 0.5.
-    if (!ctx.systemDb) {
-      throw new Error(
-        "[feature-toggles] list-query requires ctx.systemDb — the feature-toggles " +
-          "feature must stay r.systemScope() (see feature.ts).",
-      );
-    }
-    const db = ctx.systemDb.acknowledgeCrossTenant(FEATURE_TOGGLE_CROSS_TENANT_REASON);
+    const { systemDb } = ctx;
+    const db = systemDb.acknowledgeCrossTenant(FEATURE_TOGGLE_CROSS_TENANT_REASON);
 
     type Row = {
       featureName: string;

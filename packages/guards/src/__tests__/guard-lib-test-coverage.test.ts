@@ -133,6 +133,7 @@ export type FinanceRole = keyof typeof FINANCE_COLOR;`,
       run({
         [LIB]: `// kumiko-lint-ignore lib-test-coverage integration-covered via public-share.integration.test.ts
 export async function loadRows(db: unknown): Promise<unknown[]> { return []; }`,
+        "/src/__tests__/public-share.integration.test.ts": `test("x", () => {});`,
       }),
     ).toHaveLength(0);
   });
@@ -140,10 +141,11 @@ export async function loadRows(db: unknown): Promise<unknown[]> { return []; }`,
   test("all functions are ignore-tagged → file needs no test", () => {
     expect(
       run({
-        [LIB]: `// kumiko-lint-ignore lib-test-coverage integration-covered
+        [LIB]: `// kumiko-lint-ignore lib-test-coverage integration-covered via src/__tests__/rows.integration.test.ts
 export async function loadRows(db: unknown): Promise<unknown[]> { return []; }
-// kumiko-lint-ignore lib-test-coverage integration-covered
+// kumiko-lint-ignore lib-test-coverage integration-covered via src/__tests__/rows.integration.test.ts
 export async function loadOne(db: unknown): Promise<unknown> { return null; }`,
+        "/src/__tests__/rows.integration.test.ts": `test("x", () => {});`,
       }),
     ).toHaveLength(0);
   });
@@ -161,8 +163,96 @@ export async function loadOne(db: unknown): Promise<unknown> { return null; }`,
       run({
         [LIB]: `// kumiko-lint-ignore lib-test-coverage integration-covered via public-share.integration.test.ts
 export const loadRows = async (db: unknown): Promise<unknown[]> => { return []; };`,
+        "/src/__tests__/public-share.integration.test.ts": `test("x", () => {});`,
       }),
     ).toHaveLength(0);
+  });
+
+  test("ignore tag without a cited test file is reported", () => {
+    const messages = run({
+      [LIB]: `// kumiko-lint-ignore lib-test-coverage integration-covered by the loader flow
+export async function loadRows(db: unknown): Promise<unknown[]> { return []; }`,
+    });
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain("cites no test file");
+  });
+
+  test("ignore tag citing a missing test file is reported", () => {
+    const messages = run({
+      [LIB]: `// kumiko-lint-ignore lib-test-coverage integration-covered via src/__tests__/missing.integration.test.ts
+export async function loadRows(db: unknown): Promise<unknown[]> { return []; }`,
+    });
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain('cites "src/__tests__/missing.integration.test.ts"');
+  });
+
+  test("file-wide pragma with an existing test exempts every untested export", () => {
+    expect(
+      run({
+        [LIB]: `// kumiko-lint-ignore-file lib-test-coverage integration-covered via rows.integration.test.ts
+export async function loadRows(db: unknown): Promise<unknown[]> { return []; }
+export function mapRow(row: unknown): unknown { return row; }`,
+        "/src/__tests__/rows.integration.test.ts": `test("x", () => {});`,
+      }),
+    ).toHaveLength(0);
+  });
+
+  test("file-wide pragma citing a missing test is one violation on line 1", () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      LIB,
+      `// kumiko-lint-ignore-file lib-test-coverage integration-covered via src/__tests__/missing.integration.test.ts
+export async function loadRows(db: unknown): Promise<unknown[]> { return []; }
+export function mapRow(row: unknown): unknown { return row; }`,
+    );
+    const { violations } = guard.run(project.getSourceFiles());
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.line).toBe(1);
+    expect(violations[0]?.message).toContain('cites "src/__tests__/missing.integration.test.ts"');
+  });
+
+  test("file-wide pragma without a cited test is one violation on line 1", () => {
+    const project = new Project({ useInMemoryFileSystem: true });
+    project.createSourceFile(
+      LIB,
+      `// kumiko-lint-ignore-file lib-test-coverage integration-covered by the loader flow
+export async function loadRows(db: unknown): Promise<unknown[]> { return []; }`,
+    );
+    const { violations } = guard.run(project.getSourceFiles());
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.line).toBe(1);
+    expect(violations[0]?.message).toContain("cites no test file");
+  });
+
+  test("file-wide pragma after the first statement does not exempt the exports", () => {
+    expect(
+      run({
+        [LIB]: `export async function loadRows(db: unknown): Promise<unknown[]> { return []; }
+// kumiko-lint-ignore-file lib-test-coverage integration-covered via rows.integration.test.ts
+export function mapRow(row: unknown): unknown { return row; }`,
+        "/src/__tests__/rows.integration.test.ts": `test("x", () => {});`,
+      }),
+    ).toEqual([expect.stringContaining("No test imports this lib module")]);
+  });
+
+  test("a bare basename citation matches by path suffix", () => {
+    expect(
+      run({
+        [LIB]: `// kumiko-lint-ignore lib-test-coverage integration-covered via public-share.integration.test.ts
+export async function loadRows(db: unknown): Promise<unknown[]> { return []; }`,
+        "/src/features/x/__tests__/public-share.integration.test.ts": `test("x", () => {});`,
+      }),
+    ).toHaveLength(0);
+  });
+
+  test("two citations with one missing file report once", () => {
+    expect(
+      run({
+        [LIB]: `// kumiko-lint-ignore lib-test-coverage integration-covered via a.integration.test.ts and b.integration.test.ts
+export async function loadRows(db: unknown): Promise<unknown[]> { return []; }`,
+        "/src/__tests__/a.integration.test.ts": `test("x", () => {});`,
+      }),
+    ).toHaveLength(1);
   });
 
   test("named import unused in the test body does NOT count as a reference (after fix: function violation, not green)", () => {

@@ -30,7 +30,7 @@ type ServerErrorInfo = {
 // identical to FieldIssue — but we re-build it so a future field-addition
 // on either side forces a compile error here, the right place to update.
 export function mapServerError(serverError: ServerErrorInfo): DispatcherError {
-  const normalizedDetails = normalizeDetails(serverError.details);
+  const normalizedDetails = normalizeDetails(serverError.details, serverError.i18nKey);
   return {
     code: serverError.code,
     httpStatus: serverError.httpStatus,
@@ -43,7 +43,7 @@ export function mapServerError(serverError: ServerErrorInfo): DispatcherError {
   };
 }
 
-function normalizeDetails(details: unknown): DispatcherError["details"] {
+function normalizeDetails(details: unknown, i18nKey: string): DispatcherError["details"] {
   if (!isPlainObject(details)) return undefined;
   const { fields, ...otherDetails } = details;
   if (!Array.isArray(fields)) {
@@ -52,8 +52,15 @@ function normalizeDetails(details: unknown): DispatcherError["details"] {
     // payload here.
     return otherDetails;
   }
+  const reason = otherDetails["reason"];
   const mappedFields: FieldIssue[] = [];
   for (const r of fields) {
+    // A reasoned denial (field_approval_required) names its fields as plain strings; the
+    // envelope's reason and text then apply to each of them.
+    if (typeof r === "string" && typeof reason === "string") {
+      mappedFields.push({ path: r, code: reason, i18nKey });
+      continue;
+    }
     if (!isPlainObject(r)) {
       // Server sent a non-object entry in details.fields — contract
       // breach (ValidationFieldIssue shape is required). Warn so the

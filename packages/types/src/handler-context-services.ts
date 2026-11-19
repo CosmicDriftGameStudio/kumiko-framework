@@ -2,9 +2,8 @@ import type { Redis } from "ioredis";
 import type { CacheSyncBus } from "./cache-sync-types.ts";
 import type { ConfigAccessor, ConfigResolver } from "./config.ts";
 import type { DerivativesContext } from "./derivatives-types.ts";
-import type { EntityCache } from "./entity-cache.ts";
 import type { EnvelopeCipher } from "./envelope-cipher-types.ts";
-import type { FileContext } from "./file-handle-types.ts";
+import type { FileContext, FileDownloadLinks } from "./file-handle-types.ts";
 import type { FileProviderResolver } from "./file-provider-resolver-types.ts";
 import type {
   DeliveryAttemptLogFn,
@@ -41,7 +40,6 @@ export type ContextServices = {
   readonly userLiveSignals?: UserLiveSignals;
   readonly jobRunner?: JobRunnerRef;
   readonly searchAdapter?: SearchAdapter;
-  readonly entityCache?: EntityCache;
   // Tenant-scoped secrets accessor. Present when the app wired a MasterKeyProvider at boot.
   // Secret<string> carries the brand that the response guard rejects on serialization.
   readonly secrets?: SecretsContext;
@@ -49,6 +47,8 @@ export type ContextServices = {
   readonly kms?: KmsAdapter;
   // Binary storage, built per call and bound to the caller's tenant from `_fileProviderResolver`.
   readonly files?: FileContext;
+  // Signed, tenant-bound download links; present whenever the server signs them.
+  readonly fileDownloadLinks?: FileDownloadLinks;
   // Derive-on-first-use variants (thumbnails, resized images) of a tracked FileRef. Present whenever `files` resolves.
   readonly derivatives?: DerivativesContext;
   readonly configResolver?: ConfigResolver;

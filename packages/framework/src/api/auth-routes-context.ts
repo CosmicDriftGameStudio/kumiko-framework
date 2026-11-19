@@ -4,13 +4,15 @@ import { deleteCookie, setCookie } from "hono/cookie";
 import { buildSessionRoles } from "../engine/membership-roles.ts";
 import { createSystemUser } from "../engine/system-user.ts";
 import type { SessionUser, TenantId } from "../engine/types/index.ts";
+import { toClientWriteErrorInfo } from "../errors/write-error-info.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
 import { parseRoles } from "../utils/serialization.ts";
-import type { PendingMfaStep, PublicAuthErrorStatus } from "./auth-routes-shared.ts";
+import type { PendingMfaStep } from "./auth-routes-shared.ts";
 import { isUnknownHandlerError, pendingMfaStepResponse } from "./auth-routes-shared.ts";
 import type { AuthRoutesConfig, SessionMetadata } from "./auth-routes-types.ts";
 import type { ClientIpResolver } from "./client-ip.ts";
 import { clientIpSourceFromHonoContext, createClientIpResolver } from "./client-ip.ts";
+import { toContentfulStatus } from "./contentful-status.ts";
 import type { JwtHelper } from "./jwt.ts";
 import type { PostAuthLandingArgs } from "./post-auth-landing.ts";
 import { resolvePostAuthLandingPath } from "./post-auth-landing.ts";
@@ -171,6 +173,12 @@ export function createAuthRouteContext(
         "POST /auth/switch-tenant would mint admin sessions without the second factor",
     );
   }
+  if (config.mfaVerifyHandler && Object.keys(config.sessionExchangeHandlers ?? {}).length > 0) {
+    throw new Error(
+      "createAuthRoutes: mfaVerifyHandler and sessionExchangeHandlers are both set; " +
+        "POST /auth/session-exchange would mint sessions without the second factor",
+    );
+  }
   const retiredCookieDomains = config.retiredCookieDomains ?? [];
   // Single hop-count-aware IP getter for every rate-limit call site below —
   // see AuthRoutesConfig.trustedProxyHops and client-ip.ts's resolveClientIp
@@ -198,8 +206,10 @@ export function createAuthRouteContext(
       createSystemUser(user.tenantId),
     );
     if (!gate.isSuccess) {
-      const status = gate.error.httpStatus as PublicAuthErrorStatus; // @cast-boundary engine-payload
-      return { response: c.json({ isSuccess: false, error: gate.error }, status) };
+      const status = toContentfulStatus(gate.error.httpStatus);
+      return {
+        response: c.json({ isSuccess: false, error: toClientWriteErrorInfo(gate.error) }, status),
+      };
     }
     // @cast-boundary engine-payload — the gate handler's three-shape result
     const gateData = gate.data as

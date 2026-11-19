@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { ActionFormScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import type { Dispatcher } from "../../headless/index.ts";
+import { isRecord } from "../../headless/is-record.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
 import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
@@ -25,7 +26,7 @@ function schemaWith(screenDefinition: ActionFormScreenDefinition): FeatureSchema
 
 function dispatcherWith(handlerResult: "ok" | "rejected"): Dispatcher {
   return createMockDispatcher({
-    query: (async (type: string) =>
+    query: async (type: string) =>
       type === "tenant:query:tenant-directory"
         ? {
             isSuccess: true,
@@ -40,14 +41,20 @@ function dispatcherWith(handlerResult: "ok" | "rejected"): Dispatcher {
         : {
             isSuccess: true,
             data: { rows: [], nextCursor: null },
-          }) as unknown as Dispatcher["query"],
-    write: (async () =>
+          },
+    write: async () =>
       handlerResult === "ok"
         ? { isSuccess: true, data: {} }
         : {
             isSuccess: false,
-            error: { code: "validation", message: "no", details: { fields: [] } },
-          }) as unknown as Dispatcher["write"],
+            error: {
+              code: "validation",
+              httpStatus: 422,
+              i18nKey: "errors.validation",
+              message: "no",
+              details: { fields: [] },
+            },
+          },
   });
 }
 
@@ -94,7 +101,7 @@ async function submitWithNote(): Promise<void> {
 describe("actionForm successMessage", () => {
   test("names the chosen record's label, not its id, after a successful submit", async () => {
     renderScreen(TIER_ACTION_FORM);
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
 
     await submitWithNote();
 
@@ -107,7 +114,8 @@ describe("actionForm successMessage", () => {
 
   test("names a record that lies beyond the lookup cap by asking for exactly that id", async () => {
     const crowdedDirectory = createMockDispatcher({
-      query: (async (type: string, payload?: { ids?: string[] }) => {
+      query: async (type: string, payload: unknown) => {
+        const ids = isRecord(payload) && Array.isArray(payload["ids"]) ? payload["ids"] : undefined;
         if (type !== "tenant:query:tenant-directory") {
           return { isSuccess: true, data: { rows: [], nextCursor: null } };
         }
@@ -119,18 +127,15 @@ describe("actionForm successMessage", () => {
         return {
           isSuccess: true,
           data: {
-            rows:
-              payload?.ids === undefined
-                ? capped
-                : everyone.filter((r) => payload.ids?.includes(r.id)),
+            rows: ids === undefined ? capped : everyone.filter((r) => ids.includes(r.id)),
             nextCursor: null,
           },
         };
-      }) as unknown as Dispatcher["query"],
-      write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
+      },
+      write: async () => ({ isSuccess: true, data: {} }),
     });
     renderScreen(TIER_ACTION_FORM, "ok", crowdedDirectory, { tenantId: "t-250" });
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
 
     await submitWithNote();
 
@@ -143,21 +148,21 @@ describe("actionForm successMessage", () => {
 
   test("shows no message when the handler rejects the submit", async () => {
     renderScreen(TIER_ACTION_FORM, "rejected");
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
 
     await submitWithNote();
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     expect(screen.queryByTestId("action-form-success")).toBeNull();
   });
 
   test("shows no message when the screen declares none", async () => {
     renderScreen({ ...TIER_ACTION_FORM, successMessage: undefined });
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
 
     await submitWithNote();
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     expect(screen.queryByTestId("action-form-success")).toBeNull();
   });
 });

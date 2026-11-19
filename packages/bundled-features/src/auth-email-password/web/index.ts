@@ -28,7 +28,12 @@ export {
   verifyEmail,
 } from "./auth-client.ts";
 export type { AuthCardProps, AuthShellRenderer } from "./auth-form-primitives.tsx";
-export { AuthCard, AuthShellProvider, useAuthShell } from "./auth-form-primitives.tsx";
+export {
+  AuthCard,
+  AuthShellProvider,
+  makeAuthShellProvider,
+  useAuthShell,
+} from "./auth-form-primitives.tsx";
 export type {
   AuthGateOptions,
   LoginRouteOptions,
@@ -52,6 +57,7 @@ export { emailPasswordClient } from "./client-plugin.ts";
 export type { ConfirmAccountUnlockScreenProps } from "./confirm-account-unlock-screen.tsx";
 export { ConfirmAccountUnlockScreen } from "./confirm-account-unlock-screen.tsx";
 export { AuthHandlers } from "./constants.ts";
+export type { DefaultAuthPagesOptions } from "./default-auth-pages-gate.tsx";
 export type { DefaultTopbarActionsProps } from "./default-topbar-actions.tsx";
 export { DefaultTopbarActions } from "./default-topbar-actions.tsx";
 export type { ForgotPasswordScreenProps } from "./forgot-password-screen.tsx";

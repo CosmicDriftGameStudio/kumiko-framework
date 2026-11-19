@@ -67,8 +67,8 @@ describe("MfaSetupPreauthScreen", () => {
         <MfaSetupPreauthScreen preauthSetupToken="preauth-1" accountLabel="user@example.com" />
       </Wrapper>,
     );
-    expect(screen.getByText("Two-factor authentication required")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Start setup" })).toBeTruthy();
+    screen.getByText("Two-factor authentication required");
+    screen.getByRole("button", { name: "Start setup" });
     expect(screen.queryByLabelText(/^Code from your authenticator app/)).toBeNull();
   });
 
@@ -96,10 +96,10 @@ describe("MfaSetupPreauthScreen", () => {
       );
     });
     await waitFor(() => {
-      expect(screen.getByText("ABCD1234")).toBeTruthy();
+      screen.getByText("ABCD1234");
     });
-    expect(screen.getByText(/code-1/)).toBeTruthy();
-    expect(screen.getByText(/code-2/)).toBeTruthy();
+    screen.getByText(/code-1/);
+    screen.getByText(/code-2/);
   });
 
   test("Confirm button remains disabled until recovery codes are confirmed + 6-digit code entered", async () => {
@@ -110,7 +110,7 @@ describe("MfaSetupPreauthScreen", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
     await waitFor(() => {
-      expect(screen.getByText("ABCD1234")).toBeTruthy();
+      screen.getByText("ABCD1234");
     });
 
     const confirm = screen.getByRole("button", { name: "Complete setup" });
@@ -146,7 +146,7 @@ describe("MfaSetupPreauthScreen", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
     await waitFor(() => {
-      expect(screen.getByText("ABCD1234")).toBeTruthy();
+      screen.getByText("ABCD1234");
     });
     fireEvent.click(screen.getByLabelText("I've saved my recovery codes."));
     fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
@@ -182,7 +182,7 @@ describe("MfaSetupPreauthScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Two-factor authentication is already enabled.")).toBeTruthy();
+      screen.getByText("Two-factor authentication is already enabled.");
     });
     expect(screen.queryByText("ABCD1234")).toBeNull();
   });
@@ -234,7 +234,7 @@ describe("MfaSetupPreauthScreen", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
     await waitFor(() => {
-      expect(screen.getByText("ABCD1234")).toBeTruthy();
+      screen.getByText("ABCD1234");
     });
     fireEvent.click(screen.getByLabelText("I've saved my recovery codes."));
     fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
@@ -242,11 +242,11 @@ describe("MfaSetupPreauthScreen", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Invalid code. Please try again.")).toBeTruthy();
+      screen.getByText("Invalid code. Please try again.");
     });
     expect(onSuccess).not.toHaveBeenCalled();
     // Form stays usable — QR/recovery section is still there, a retry is possible.
-    expect(screen.getByText("ABCD1234")).toBeTruthy();
+    screen.getByText("ABCD1234");
     const input = screen.getByLabelText(/^Code from your authenticator app/);
     expect(input).toHaveProperty("value", "");
     expect(input).toHaveProperty("disabled", false);
@@ -277,7 +277,7 @@ describe("MfaSetupPreauthScreen", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
     await waitFor(() => {
-      expect(screen.getByText("ABCD1234")).toBeTruthy();
+      screen.getByText("ABCD1234");
     });
     fireEvent.click(screen.getByLabelText("I've saved my recovery codes."));
     fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
@@ -285,11 +285,11 @@ describe("MfaSetupPreauthScreen", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Setup expired. Please start again.")).toBeTruthy();
+      screen.getByText("Setup expired. Please start again.");
     });
     // The actual fix: intro re-appears with a working start button, the QR/
     // recovery-codes section from the dead setup is gone.
-    expect(screen.getByRole("button", { name: "Start setup" })).toBeTruthy();
+    screen.getByRole("button", { name: "Start setup" });
     expect(screen.queryByText("ABCD1234")).toBeNull();
   });
 
@@ -310,7 +310,7 @@ describe("MfaSetupPreauthScreen", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
     await waitFor(() => {
-      expect(screen.getByText("ABCD1234")).toBeTruthy();
+      screen.getByText("ABCD1234");
     });
     fireEvent.click(screen.getByLabelText("I've saved my recovery codes."));
     fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
@@ -318,7 +318,7 @@ describe("MfaSetupPreauthScreen", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Start setup" })).toBeTruthy();
+      screen.getByRole("button", { name: "Start setup" });
     });
   });
 
@@ -346,7 +346,7 @@ describe("MfaSetupPreauthScreen", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
     await waitFor(() => {
-      expect(screen.getByText("ABCD1234")).toBeTruthy();
+      screen.getByText("ABCD1234");
     });
     fireEvent.click(screen.getByLabelText("I've saved my recovery codes."));
     fireEvent.change(screen.getByLabelText(/^Code from your authenticator app/), {
@@ -354,9 +354,7 @@ describe("MfaSetupPreauthScreen", () => {
     });
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Too many failed attempts. Try again in 42 seconds, or sign in again."),
-      ).toBeTruthy();
+      screen.getByText("Too many failed attempts. Try again in 42 seconds, or sign in again.");
     });
   });
 
@@ -370,7 +368,7 @@ describe("MfaSetupPreauthScreen", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Start setup" }));
     await waitFor(() => {
-      expect(screen.getByText("ABCD1234")).toBeTruthy();
+      screen.getByText("ABCD1234");
     });
     fireEvent.click(screen.getByLabelText("I've saved my recovery codes."));
     const fetchMock = globalThis.fetch as unknown as ReturnType<typeof mock>;

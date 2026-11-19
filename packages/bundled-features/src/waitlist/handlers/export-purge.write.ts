@@ -26,6 +26,7 @@ async function appendAudit(ctx: HandlerContext, type: string, count: number): Pr
     aggregateType: WAITLIST_AUDIT_AGGREGATE_TYPE,
     type,
     payload: { count },
+    expectedVersion: 0,
   });
 }
 

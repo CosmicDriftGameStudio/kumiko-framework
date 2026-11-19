@@ -81,7 +81,7 @@ describe("seedSystemTemplateBundle with resources", () => {
     const logoLink = parseLinkedResourceEntries(row?.linkedResources ?? null)["logo"];
     expect(typeof logoLink).toBe("string");
     const fileRefs = await selectMany(stack.db, fileRefsTable, { tenantId: SYSTEM_TENANT_ID });
-    expect(fileRefs.map((ref) => ref.id)).toContain(logoLink);
+    expect(fileRefs.map((ref) => ref.id)).toContain(String(logoLink));
 
     const versionBefore = { de: row?.version, en: (await systemRow("en"))?.version };
     const fileRefCountBefore = fileRefs.length;

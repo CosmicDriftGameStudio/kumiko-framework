@@ -4,8 +4,11 @@ import {
   assignTagPayloadSchema,
   createTagPayloadSchema,
   deleteTagPayloadSchema,
+  rejectBlankTagNameChange,
+  rejectEmptyTagUpdate,
+  rejectInvalidTagColorChange,
   removeTagPayloadSchema,
-  updateTagPayloadSchema,
+  trimTagName,
 } from "../schemas.ts";
 import { DEFAULT_TAG_ROLES } from "../web/constants.ts";
 
@@ -48,8 +51,8 @@ function rawQueryAccess(feature: ReturnType<typeof createTagsFeature>, nameMatch
 }
 
 describe("createTagsFeature shape", () => {
-  test("registers tag + tag-assignment entities, legacy + convention CRUD handlers", () => {
-    const feature = createTagsFeature();
+  test("registers tag + tag-assignment entities, catalog and assignment handlers", () => {
+    const feature = createTagsFeature({ parents: ["credit"] });
 
     expect(Object.keys(feature.entities ?? {})).toEqual(
       expect.arrayContaining(["tag", "tag-assignment"]),
@@ -57,17 +60,13 @@ describe("createTagsFeature shape", () => {
 
     expect(Object.keys(feature.writeHandlers)).toEqual(
       expect.arrayContaining([
-        expect.stringMatching(/create-tag/),
-        expect.stringMatching(/update-tag/),
-        expect.stringMatching(/delete-tag/),
-        expect.stringMatching(/assign-tag/),
-        expect.stringMatching(/remove-tag/),
         "tag:create",
         "tag:update",
         "tag:delete",
+        expect.stringMatching(/assign-tag/),
+        expect.stringMatching(/remove-tag/),
       ]),
     );
-    expect(Object.keys(feature.writeHandlers)).toHaveLength(8);
 
     expect(Object.keys(feature.queryHandlers)).toEqual(
       expect.arrayContaining([
@@ -76,17 +75,15 @@ describe("createTagsFeature shape", () => {
         "tag:detail",
       ]),
     );
-    expect(Object.keys(feature.queryHandlers)).toHaveLength(3);
   });
 });
 
 describe("createTagsFeature access-options", () => {
-  test("without options: singleton with default roles on every path", () => {
-    const feature = createTagsFeature();
-    expect(feature).toBe(createTagsFeature());
-    expect(writeAccess(feature, "create-tag")).toEqual([...DEFAULT_TAG_ROLES]);
-    expect(writeAccess(feature, "update-tag")).toEqual([...DEFAULT_TAG_ROLES]);
-    expect(writeAccess(feature, "delete-tag")).toEqual([...DEFAULT_TAG_ROLES]);
+  test("with only parents: default roles on every path", () => {
+    const feature = createTagsFeature({ parents: ["credit"] });
+    expect(writeAccess(feature, "tag:create")).toEqual([...DEFAULT_TAG_ROLES]);
+    expect(writeAccess(feature, "tag:update")).toEqual([...DEFAULT_TAG_ROLES]);
+    expect(writeAccess(feature, "tag:delete")).toEqual([...DEFAULT_TAG_ROLES]);
     expect(writeAccess(feature, "assign-tag")).toEqual([...DEFAULT_TAG_ROLES]);
     expect(writeAccess(feature, "remove-tag")).toEqual([...DEFAULT_TAG_ROLES]);
     expect(queryAccess(feature, "tag:list")).toEqual([...DEFAULT_TAG_ROLES]);
@@ -94,10 +91,10 @@ describe("createTagsFeature access-options", () => {
   });
 
   test("roles option overrides every write- and query-path", () => {
-    const feature = createTagsFeature({ roles: ["Admin", "Editor"] });
-    expect(writeAccess(feature, "create-tag")).toEqual(["Admin", "Editor"]);
-    expect(writeAccess(feature, "update-tag")).toEqual(["Admin", "Editor"]);
-    expect(writeAccess(feature, "delete-tag")).toEqual(["Admin", "Editor"]);
+    const feature = createTagsFeature({ parents: ["credit"], roles: ["Admin", "Editor"] });
+    expect(writeAccess(feature, "tag:create")).toEqual(["Admin", "Editor"]);
+    expect(writeAccess(feature, "tag:update")).toEqual(["Admin", "Editor"]);
+    expect(writeAccess(feature, "tag:delete")).toEqual(["Admin", "Editor"]);
     expect(writeAccess(feature, "assign-tag")).toEqual(["Admin", "Editor"]);
     expect(writeAccess(feature, "remove-tag")).toEqual(["Admin", "Editor"]);
     expect(queryAccess(feature, "tag:list")).toEqual(["Admin", "Editor"]);
@@ -106,18 +103,10 @@ describe("createTagsFeature access-options", () => {
 
   test("access:{openToAll} applies to every write- and query-path", () => {
     const feature = createTagsFeature({
+      parents: ["credit"],
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
-    for (const path of [
-      "create-tag",
-      "update-tag",
-      "delete-tag",
-      "tag:create",
-      "tag:update",
-      "tag:delete",
-      "assign-tag",
-      "remove-tag",
-    ]) {
+    for (const path of ["tag:create", "tag:update", "tag:delete", "assign-tag", "remove-tag"]) {
       expect(rawWriteAccess(feature, path)).toEqual({
         openToAll: { reason: "test handler callable by any signed-in test user" },
       });
@@ -131,10 +120,11 @@ describe("createTagsFeature access-options", () => {
 
   test("access takes precedence over the roles shorthand", () => {
     const feature = createTagsFeature({
+      parents: ["credit"],
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       roles: ["Admin"],
     });
-    expect(rawWriteAccess(feature, "create-tag")).toEqual({
+    expect(rawWriteAccess(feature, "tag:create")).toEqual({
       openToAll: { reason: "test handler callable by any signed-in test user" },
     });
     expect(rawQueryAccess(feature, "tag:list")).toEqual({
@@ -143,7 +133,7 @@ describe("createTagsFeature access-options", () => {
   });
 
   test("access:{roles} threads through like the roles shorthand", () => {
-    const feature = createTagsFeature({ access: { roles: ["Owner"] } });
+    const feature = createTagsFeature({ parents: ["credit"], access: { roles: ["Owner"] } });
     expect(writeAccess(feature, "remove-tag")).toEqual(["Owner"]);
     expect(queryAccess(feature, "tag-assignment:list")).toEqual(["Owner"]);
   });
@@ -151,9 +141,10 @@ describe("createTagsFeature access-options", () => {
 
 describe("createTagsFeature toggleable-option (tier-gating)", () => {
   test("without toggleable: feature is always-on (toggleableDefault undefined)", () => {
-    expect(createTagsFeature().toggleableDefault).toBeUndefined();
+    expect(createTagsFeature({ parents: ["credit"] }).toggleableDefault).toBeUndefined();
     expect(
       createTagsFeature({
+        parents: ["credit"],
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       }).toggleableDefault,
     ).toBeUndefined();
@@ -161,6 +152,7 @@ describe("createTagsFeature toggleable-option (tier-gating)", () => {
 
   test("toggleable:{default:false} makes the feature tier-gatable, fail-closed", () => {
     const feature = createTagsFeature({
+      parents: ["credit"],
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       toggleable: { default: false },
     });
@@ -168,14 +160,15 @@ describe("createTagsFeature toggleable-option (tier-gating)", () => {
   });
 
   test("toggleable:{default:true} declares toggleable, enabled-by-default", () => {
-    expect(createTagsFeature({ toggleable: { default: true } }).toggleableDefault).toBe(true);
+    expect(
+      createTagsFeature({ parents: ["credit"], toggleable: { default: true } }).toggleableDefault,
+    ).toBe(true);
   });
 
-  test("toggleable alone (no access/roles) builds a fresh, non-singleton feature", () => {
-    const feature = createTagsFeature({ toggleable: { default: false } });
-    expect(feature).not.toBe(createTagsFeature());
+  test("toggleable alone (no access/roles) keeps the default roles", () => {
+    const feature = createTagsFeature({ parents: ["credit"], toggleable: { default: false } });
     // access still defaults when only toggleable is set
-    expect(writeAccess(feature, "create-tag")).toEqual([...DEFAULT_TAG_ROLES]);
+    expect(writeAccess(feature, "tag:create")).toEqual([...DEFAULT_TAG_ROLES]);
   });
 });
 
@@ -197,44 +190,28 @@ describe("createTagPayloadSchema", () => {
   });
 });
 
-describe("updateTagPayloadSchema", () => {
-  const valid = { id: "tag-1", version: 0, name: "Neu" };
-
-  test("accepts id + version + name (rename)", () => {
-    expect(updateTagPayloadSchema.safeParse(valid).success).toBe(true);
+describe("createTagPayloadSchema colour", () => {
+  test("accepts #abc and the empty string", () => {
+    expect(createTagPayloadSchema.safeParse({ name: "a", color: "#abc" }).success).toBe(true);
+    expect(createTagPayloadSchema.safeParse({ name: "a", color: "" }).success).toBe(true);
   });
 
-  test("accepts color-only (recolor) and scope-only (re-scope)", () => {
-    expect(updateTagPayloadSchema.safeParse({ id: "t", version: 0, color: "#abc" }).success).toBe(
-      true,
-    );
-    expect(updateTagPayloadSchema.safeParse({ id: "t", version: 0, scope: "note" }).success).toBe(
-      true,
-    );
+  test("rejects a colour that is not a hex code", () => {
+    expect(createTagPayloadSchema.safeParse({ name: "a", color: "red" }).success).toBe(false);
+  });
+});
+
+describe("rejectInvalidTagColorChange", () => {
+  test("flags a non-hex colour in changes", () => {
+    expect(rejectInvalidTagColorChange({ changes: { color: "red" } })).toEqual([
+      { field: "color", error: "invalid_color" },
+    ]);
   });
 
-  test("accepts color/scope = '' to clear them", () => {
-    expect(
-      updateTagPayloadSchema.safeParse({ id: "t", version: 0, color: "", scope: "" }).success,
-    ).toBe(true);
-  });
-
-  test("rejects a no-op (id + version, no mutable field)", () => {
-    expect(updateTagPayloadSchema.safeParse({ id: "tag-1", version: 0 }).success).toBe(false);
-  });
-
-  test("rejects a missing version (optimistic lock is mandatory)", () => {
-    expect(updateTagPayloadSchema.safeParse({ id: "tag-1", name: "Neu" }).success).toBe(false);
-  });
-
-  test("rejects an empty name", () => {
-    expect(updateTagPayloadSchema.safeParse({ ...valid, name: "" }).success).toBe(false);
-  });
-
-  test("rejects a name over 64 chars", () => {
-    expect(updateTagPayloadSchema.safeParse({ ...valid, name: "x".repeat(65) }).success).toBe(
-      false,
-    );
+  test("passes a hex colour, an empty colour and changes without colour", () => {
+    expect(rejectInvalidTagColorChange({ changes: { color: "#fff" } })).toBeNull();
+    expect(rejectInvalidTagColorChange({ changes: { color: "" } })).toBeNull();
+    expect(rejectInvalidTagColorChange({ changes: { name: "x" } })).toBeNull();
   });
 });
 
@@ -270,5 +247,45 @@ describe("assign/remove payload schemas", () => {
     expect(assignTagPayloadSchema.safeParse({ ...valid, entityId: "x".repeat(129) }).success).toBe(
       false,
     );
+  });
+});
+
+describe("rejectBlankTagNameChange", () => {
+  test("flags an empty or whitespace-only name in changes", () => {
+    const expected = [{ field: "name", error: "invalid_name" }];
+    expect(rejectBlankTagNameChange({ changes: { name: "" } })).toEqual(expected);
+    expect(rejectBlankTagNameChange({ changes: { name: "   " } })).toEqual(expected);
+  });
+
+  test("passes a real name and changes without a name", () => {
+    expect(rejectBlankTagNameChange({ changes: { name: "Neu" } })).toBeNull();
+    expect(rejectBlankTagNameChange({ changes: { color: "#fff" } })).toBeNull();
+  });
+});
+
+describe("rejectEmptyTagUpdate", () => {
+  test("rejects a no-op (id + version, no mutable field)", () => {
+    const expected = [{ field: "changes", error: "no_changes" }];
+    expect(rejectEmptyTagUpdate({ id: "tag-1", version: 0, changes: {} })).toEqual(expected);
+    expect(rejectEmptyTagUpdate({ id: "tag-1", version: 0 })).toEqual(expected);
+  });
+
+  test("passes name-only, color-only, scope-only and scope cleared with ''", () => {
+    expect(rejectEmptyTagUpdate({ changes: { name: "Neu" } })).toBeNull();
+    expect(rejectEmptyTagUpdate({ changes: { color: "#fff" } })).toBeNull();
+    expect(rejectEmptyTagUpdate({ changes: { scope: "note" } })).toBeNull();
+    expect(rejectEmptyTagUpdate({ changes: { scope: "" } })).toBeNull();
+  });
+});
+
+describe("trimTagNameChange", () => {
+  test("trims the changed name and leaves other changes alone", () => {
+    const trimmed = trimTagName({ name: "  foo  ", scope: " x " });
+    expect(trimmed).toEqual({ name: "foo", scope: " x " });
+  });
+
+  test("passes changes without a name through", () => {
+    const changes = { color: "#fff" };
+    expect(trimTagName(changes)).toBe(changes);
   });
 });

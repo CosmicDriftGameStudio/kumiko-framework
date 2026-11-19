@@ -580,6 +580,7 @@ export function createImagesField(
 // (`{ type: "reference", ... }`) without `as const`; otherwise it widens to
 // string and produces `never`.
 export function createEntity<const F, const T extends EntityTenancy = "tenant">(def: {
+  readonly name: string;
   readonly table?: string;
   readonly fields: F;
   readonly description?: string;
@@ -596,6 +597,8 @@ export function createEntity<const F, const T extends EntityTenancy = "tenant">(
   readonly searchWeight?: number;
   readonly defaultCurrency?: string;
   readonly transitions?: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>>;
+  /** See EntityDefinition.verbs. */
+  readonly verbs?: EntityDefinition["verbs"];
   /** See EntityDefinition.lockedWhen. */
   readonly lockedWhen?: EntityDefinition["lockedWhen"];
   readonly indexes?: readonly EntityIndexDef[];
@@ -606,6 +609,10 @@ export function createEntity<const F, const T extends EntityTenancy = "tenant">(
   /** See EntityDefinition.readGate. */
   readonly readGate?: EntityDefinition["readGate"];
   readonly retention?: RetentionDef;
+  /** See EntityDefinition.streamRetention. */
+  readonly streamRetention?: EntityDefinition["streamRetention"];
+  /** See EntityDefinition.forgetWithSubject. */
+  readonly forgetWithSubject?: true;
   readonly derivedFields?: EntityDefinition["derivedFields"];
   /** See EntityDefinition.namedFilters. */
   readonly namedFilters?: EntityDefinition["namedFilters"];

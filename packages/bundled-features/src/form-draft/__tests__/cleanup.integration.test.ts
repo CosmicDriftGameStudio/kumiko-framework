@@ -42,6 +42,7 @@ import {
   FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY,
 } from "../handlers/cleanup.job.ts";
 import { FORM_DRAFT_FEATURE_NAME, FormDraftHandlers } from "../web/constants.ts";
+import { seedUploadedFileRef } from "./seed-uploaded-file-ref.ts";
 
 let stack: TestStack;
 
@@ -111,12 +112,8 @@ function fileRefPointer(storageKey: string) {
 
 // The real file_refs row a genuine POST /files upload would have created —
 // filterOwnedStorageKeys requires this to exist before a release proceeds.
-async function seedFileRef(storageKey: string, uploader = owner): Promise<void> {
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO "file_refs" ("tenant_id", "storage_key", "file_name", "mime_type", "size", "inserted_by_id")
-     VALUES ($1, $2, 'photo.jpg', 'image/jpeg', 3, $3)`,
-    [uploader.tenantId, storageKey, uploader.id],
-  );
+function seedFileRef(storageKey: string, uploader = owner, boundToEntityId?: string) {
+  return seedUploadedFileRef(stack.db, storageKey, uploader, boundToEntityId);
 }
 
 async function backdate(draftKey: string, daysAgo: number): Promise<void> {
@@ -437,6 +434,24 @@ describe("form-draft cleanup job — FileRef release", () => {
     });
     expect(await draftExists("wizard:stale-with-prefilled-photo")).toBe(false);
     // The live domain entity this draft was editing still references `key`.
+    expect(providerA.keys()).toContain(key);
+  });
+
+  test("does NOT release a create-mode storageKey whose file_refs row is already bound to a saved entity", async () => {
+    const key = "tenant-a/vehicle/bound.jpg";
+    await providerA.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");
+    await seedFileRef(key, owner, "00000000-0000-4000-8000-000000000001");
+    await saveDraft("wizard:new:bound-stale", { photo: fileRefPointer(key) });
+    await backdate("wizard:new:bound-stale", 40);
+
+    const sentinelKey = await seedReleaseSentinel("bound");
+
+    await dispatchCleanup();
+
+    await waitFor(() => {
+      expect(providerA.keys()).not.toContain(sentinelKey);
+    });
+    expect(await draftExists("wizard:new:bound-stale")).toBe(false);
     expect(providerA.keys()).toContain(key);
   });
 

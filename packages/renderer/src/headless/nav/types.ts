@@ -11,6 +11,8 @@ import type { NavDefinition, TargetRef, TreeAction } from "@cosmicdrift/kumiko-f
 export type NavNode = {
   readonly qualifiedName: string;
   readonly label: string;
+  // From a provider's TreeNode.labelKey: translated when the bundle has it, else `label`.
+  readonly labelKey?: string;
   readonly icon?: string;
   readonly screen?: string;
   // Polymorphic click target (EditorPanel via dispatch) — alternative to

@@ -8,14 +8,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { compileDocumentBodyToHandlebars } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import type { PdfOptions } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
-import { countPdfPages } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
-import type { ClientConfig } from "../../../../packages/renderer-puppeteer-client/src/config";
+import { countPdfPages } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client";
+import type { ClientConfig } from "../../../../packages/bundled-features/src/renderer-puppeteer-client/config";
 import {
   type DocumentPdfRequest,
   PRINT_CSS,
-} from "../../../../packages/renderer-puppeteer-client/src/document-pdf";
-import { printDocumentPdf } from "../../../../packages/renderer-puppeteer-client/src/document-pdf-print";
-import { chromiumRegionHtml } from "../../../../packages/renderer-puppeteer-client/src/document-pdf-style";
+} from "../../../../packages/bundled-features/src/renderer-puppeteer-client/document-pdf";
+import { printDocumentPdf } from "../../../../packages/bundled-features/src/renderer-puppeteer-client/document-pdf-print";
+import { chromiumRegionHtml } from "../../../../packages/bundled-features/src/renderer-puppeteer-client/document-pdf-style";
 import type { ServiceConfig } from "../config";
 import { shutdownBrowser } from "../render";
 import { createApp } from "../server";

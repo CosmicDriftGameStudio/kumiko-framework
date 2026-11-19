@@ -96,6 +96,7 @@ export function RenderList(props: RenderListProps): ReactNode {
     dateRangeFacets,
     onDateRangeChange,
     chromeless,
+    headerTone,
     scrollBody,
     hideCountFooter,
     plainPhoneCards,
@@ -114,8 +115,7 @@ export function RenderList(props: RenderListProps): ReactNode {
   const { DataTable, Button, Dialog, Input, Banner, PageHeader } = usePrimitives();
   const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
   const pageHeaderCompact = usePageHeaderCompact();
-  const pageHeaderOffersCreate =
-    onCreate !== undefined && PageHeader !== undefined && pageHeaderSlotAvailable;
+  const pageHeaderOffersCreate = onCreate !== undefined && pageHeaderSlotAvailable;
   // Compact means below md (not sm): components stay platform-agnostic, so the toolbar button
   // starts at md, and between sm and md the compact header keeps its "+".
   const createInPageHeader =
@@ -160,7 +160,6 @@ export function RenderList(props: RenderListProps): ReactNode {
   // last because it is the most common and prominent CTA.
   const split = splitToolbarActions({
     toolbarActions,
-    pageHeaderAvailable: PageHeader !== undefined,
     pageHeaderSlotAvailable,
     pageHeaderCompact,
     createInPageHeader,
@@ -212,7 +211,6 @@ export function RenderList(props: RenderListProps): ReactNode {
   return (
     <>
       {(headerActions !== undefined || pageHelp !== undefined || split.promotedInOverflowMenu) &&
-        PageHeader !== undefined &&
         renderPageHeader(
           PageHeader,
           headerActions,
@@ -260,6 +258,7 @@ export function RenderList(props: RenderListProps): ReactNode {
         })}
         {...tableLayoutProps({
           chromeless,
+          headerTone,
           scrollBody,
           hideCountFooter,
           isStandIn,

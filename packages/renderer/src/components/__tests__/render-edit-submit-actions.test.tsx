@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import type {
-  EntityDefinition,
-  EntityEditScreenDefinition,
+import {
+  type EntityDefinition,
+  type EntityEditScreenDefinition,
+  translationValueOtherText,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
@@ -10,49 +11,45 @@ import { stubDispatcher } from "../../__tests__/stub-dispatcher.ts";
 import { buildFormSchema } from "../../app/form-schema.ts";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher, DispatcherError, SubmitResult } from "../../headless/index.ts";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
+import {
+  createStaticLocaleResolver,
+  LocaleProvider,
+  type TranslationsByLocale,
+} from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
   type BannerProps,
+  type ButtonProps,
   type CorePrimitives,
+  type FieldProps,
+  type FormProps,
+  type InputProps,
   PrimitivesProvider,
   type SectionProps,
   type TextProps,
 } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RenderEdit, type RenderEditAction, type RenderEditProps } from "../render-edit.tsx";
 
 type Values = { name: string };
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const noop = () => {};
-
 const renderSection: ComponentType<SectionProps> = ({ testId, children }) => (
   <div data-testid={testId}>{children}</div>
 );
 
-const testButton: ComponentType<{
-  children?: ReactNode;
-  onClick?: () => void;
-  testId?: string;
-  type?: "button" | "submit";
-  disabled?: boolean;
-}> = ({ children, onClick, testId, type, disabled }) => (
+const testButton: ComponentType<ButtonProps> = ({ children, onClick, testId, type, disabled }) => (
   <button type={type ?? "button"} data-testid={testId} onClick={onClick} disabled={disabled}>
     {children}
   </button>
 );
 
-const testForm: ComponentType<{
-  children?: ReactNode;
-  actions?: ReactNode;
-  secondaryActions?: ReactNode;
-  onSubmit?: () => void;
-}> = ({ children, actions, secondaryActions, onSubmit }) => (
+const testForm: ComponentType<FormProps> = ({ children, actions, secondaryActions, onSubmit }) => (
   <form
     onSubmit={(e) => {
       e.preventDefault();
-      onSubmit?.();
+      onSubmit();
     }}
   >
     {children}
@@ -61,24 +58,17 @@ const testForm: ComponentType<{
   </form>
 );
 
-const testInput: ComponentType<{
-  name?: string;
-  value?: unknown;
-  onChange?: (v: unknown) => void;
-}> = ({ name = "field", value, onChange }) => (
-  <input
-    aria-label={name}
-    data-testid={`input-${name}`}
-    value={typeof value === "string" ? value : ""}
-    onChange={(e) => onChange?.(e.target.value)}
-  />
-);
+const testInput: ComponentType<InputProps> = (props) =>
+  props.kind === "text" ? (
+    <input
+      aria-label={props.name}
+      data-testid={`input-${props.name}`}
+      value={props.value}
+      onChange={(e) => props.onChange(e.target.value)}
+    />
+  ) : null;
 
-const testField: ComponentType<{
-  id: string;
-  issues?: readonly unknown[];
-  children?: ReactNode;
-}> = ({ id, issues, children }) => (
+const testField: ComponentType<FieldProps> = ({ id, issues, children }) => (
   <div>
     {issues !== undefined && issues.length > 0 ? <span data-testid={`field-issue-${id}`} /> : null}
     {children}
@@ -94,30 +84,23 @@ const testText: ComponentType<TextProps> = ({ children, testId }) => (
 );
 
 function testPrimitives(): CorePrimitives {
-  return {
+  return createStubPrimitives({
     Button: testButton,
     Banner: testBanner,
     Field: testField,
     Input: testInput,
-    DataTable: noop,
     Form: testForm,
     Section: renderSection,
     Card: passChildren,
     Grid: passChildren,
     GridCell: passChildren,
     Text: testText,
-    Heading: noop,
-    Dialog: noop,
-    Modal: noop,
-    Lightbox: noop,
-    ConfigSourceBadge: noop,
-    ConfigCascadeView: noop,
-    Link: noop,
-  } as unknown as CorePrimitives;
+  });
 }
 
 function buildEntity(required = false): EntityDefinition {
   return {
+    name: "submitItem",
     fields: {
       name: {
         type: "text",
@@ -136,11 +119,12 @@ function renderEdit(
   overrides: Partial<RenderEditProps<Values>> = {},
   entity: EntityDefinition = buildEntity(),
   dispatcher: Dispatcher = stubDispatcher().dispatcher,
+  extraBundles: readonly TranslationsByLocale[] = [],
 ) {
   return render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en-US" })}
-      fallbackBundles={[kumikoDefaultTranslations]}
+      fallbackBundles={[...extraBundles, kumikoDefaultTranslations]}
     >
       <DispatcherProvider dispatcher={dispatcher}>
         <PrimitivesProvider value={testPrimitives()}>
@@ -223,7 +207,7 @@ describe("RenderEdit — submit path", () => {
     fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Ferdinand" } });
     fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
 
-    await waitFor(() => expect(rtlScreen.getByTestId("render-edit-form-error")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("render-edit-form-error"));
     // LocaleProvider resolves i18nKey → human copy; pin the error code via onSubmit.
     expect(rtlScreen.getByTestId("render-edit-form-error-key").textContent?.length).toBeGreaterThan(
       0,
@@ -234,6 +218,43 @@ describe("RenderEdit — submit path", () => {
       isSuccess: false,
       error: writeFailure,
     });
+  });
+
+  function unprocessableFailure(reason: string): DispatcherError {
+    return {
+      code: "unprocessable",
+      httpStatus: 422,
+      i18nKey: "errors.unprocessable",
+      message: `unprocessable: ${reason}`,
+      details: { reason },
+    };
+  }
+
+  async function submitFailing(error: DispatcherError): Promise<string | null> {
+    renderEdit(
+      oneFieldScreen,
+      { customSubmit: async () => ({ validationBlocked: false, isSuccess: false, error }) },
+      buildEntity(),
+      stubDispatcher().dispatcher,
+      [{ en: { "contacts.name_taken": "This name is already taken." } }],
+    );
+    fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Ferdinand" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await waitFor(() => rtlScreen.getByTestId("render-edit-form-error-key"));
+    return rtlScreen.getByTestId("render-edit-form-error-key").textContent;
+  }
+
+  test("failed submit with a known unprocessable reason shows the reason text", async () => {
+    expect(await submitFailing(unprocessableFailure("contacts.name_taken"))).toBe(
+      "This name is already taken.",
+    );
+  });
+
+  test("failed submit with an unknown unprocessable reason shows the generic text", async () => {
+    const generic = kumikoDefaultTranslations["en"]?.["errors.unprocessable"];
+    expect(await submitFailing(unprocessableFailure("contacts.other"))).toBe(
+      generic === undefined ? "" : translationValueOtherText(generic),
+    );
   });
 
   test("schema validation blocks customSubmit and notifies validationBlocked", async () => {
@@ -389,10 +410,10 @@ describe("RenderEdit — submit path", () => {
       },
     };
     const { dispatcher } = stubDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: false,
         error: writeFailure,
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     renderEdit(
       oneFieldScreen,
@@ -417,7 +438,7 @@ describe("RenderEdit — submit path", () => {
       entity: "trigger",
       layout: { sections: [] },
     };
-    renderEdit(zeroFieldScreen, {}, { fields: {} });
+    renderEdit(zeroFieldScreen, {}, { name: "emptyItem", fields: {} });
 
     const save = rtlScreen.getByTestId("render-edit-submit") as HTMLButtonElement;
     expect(save.disabled).toBe(false);
@@ -454,7 +475,7 @@ describe("RenderEdit — custom actions", () => {
     renderEdit(oneFieldScreen, { actions });
 
     fireEvent.click(rtlScreen.getByTestId("render-edit-action-boom"));
-    await waitFor(() => expect(rtlScreen.getByTestId("render-edit-action-error")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("render-edit-action-error"));
     expect(rtlScreen.getByTestId("render-edit-action-error").textContent).toContain(
       "action exploded",
     );
@@ -495,10 +516,10 @@ describe("RenderEdit — writeCommand path", () => {
       message: "conflict",
     };
     const { dispatcher } = stubDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: false,
         error: writeFailure,
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     let submitted: SubmitResult<unknown> | undefined;
     renderEdit(
@@ -516,7 +537,7 @@ describe("RenderEdit — writeCommand path", () => {
     fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Ada" } });
     fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
 
-    await waitFor(() => expect(rtlScreen.getByTestId("render-edit-form-error")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("render-edit-form-error"));
     expect(submitted?.isSuccess).toBe(false);
   });
   test("failed writeCommand with field issues suppresses the form-error banner", async () => {
@@ -530,10 +551,10 @@ describe("RenderEdit — writeCommand path", () => {
       },
     };
     const { dispatcher } = stubDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: false,
         error: writeFailure,
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     renderEdit(
       oneFieldScreen,
@@ -574,7 +595,7 @@ describe("RenderEdit — errors clear on user input", () => {
     });
     fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Ada" } });
     fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
-    await waitFor(() => expect(rtlScreen.getByTestId("render-edit-form-error")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("render-edit-form-error"));
     expect(rtlScreen.getAllByTestId(/^field-issue-/)).toHaveLength(1);
   }
 
@@ -592,7 +613,7 @@ describe("RenderEdit — errors clear on user input", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(rtlScreen.getByTestId("render-edit-form-error")).toBeTruthy();
+    rtlScreen.getByTestId("render-edit-form-error");
     expect(rtlScreen.getAllByTestId(/^field-issue-/)).toHaveLength(1);
   });
 
@@ -602,6 +623,6 @@ describe("RenderEdit — errors clear on user input", () => {
     fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "Adal" } });
 
     await waitFor(() => expect(rtlScreen.queryAllByTestId(/^field-issue-/)).toHaveLength(0));
-    expect(rtlScreen.getByTestId("render-edit-form-error")).toBeTruthy();
+    rtlScreen.getByTestId("render-edit-form-error");
   });
 });

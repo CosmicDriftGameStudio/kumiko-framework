@@ -41,11 +41,15 @@ export async function runScriptsCheckStep(
   if (report.knownExtras.length > 0)
     out.log(`    extras (standard): ${report.knownExtras.join(", ")}`);
   if (report.appExtras.length > 0) out.log(`    extras (app): ${report.appExtras.join(", ")}`);
-  if (report.missing.length === 0) {
+  const marker = adopted ? "✗" : "!";
+  for (const error of report.testCommandErrors) out.log(`    ${marker} ${error}`);
+  if (report.missing.length === 0 && report.testCommandErrors.length === 0) {
     out.log("    all standard scripts present");
     return 0;
   }
-  out.log(`    ${adopted ? "✗" : "!"} missing standard scripts: ${report.missing.join(", ")}`);
+  if (report.missing.length > 0) {
+    out.log(`    ${marker} missing standard scripts: ${report.missing.join(", ")}`);
+  }
   if (!adopted) {
     out.log("    kumiko.config.ts does not call defineAppConfig yet, so this is a warning.");
     return 0;

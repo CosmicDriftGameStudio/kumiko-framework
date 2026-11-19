@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { fieldDefinitionAggregateId } from "../aggregate-id.ts";
+import { fieldDefinitionDeletedSchema } from "../events.ts";
 import { createCustomFieldsFeature, resolveFieldDefinitionListRoles } from "../feature.ts";
-import { defineFieldPayloadSchema, deleteFieldPayloadSchema } from "../schemas.ts";
+import {
+  defineFieldPayloadSchema,
+  deleteFieldPayloadSchema,
+  updateFieldPayloadSchema,
+} from "../schemas.ts";
 import { SUPPORTED_FIELD_TYPES } from "../web/constants.ts";
 
 // Unit tests cover feature shape, schema validation, and aggregate-ID determinism.
@@ -9,7 +14,7 @@ import { SUPPORTED_FIELD_TYPES } from "../web/constants.ts";
 // MSP + read pipeline exists; they test the ES loop end to end.
 
 describe("createCustomFieldsFeature shape", () => {
-  test("registers field-definition entity + 6 write-handlers + 1 query-handler", () => {
+  test("registers field-definition entity with its write and query handlers", () => {
     const feature = createCustomFieldsFeature();
 
     expect(Object.keys(feature.entities ?? {})).toContain("field-definition");
@@ -26,7 +31,9 @@ describe("createCustomFieldsFeature shape", () => {
       ]),
     );
 
-    expect(Object.keys(feature.queryHandlers)).toHaveLength(1);
+    expect(Object.keys(feature.queryHandlers)).toEqual(
+      expect.arrayContaining([expect.stringMatching(/field-definition:list/)]),
+    );
   });
 
   test("registers customFields extension-name via extendsRegistrar (B2 wiring opt-in)", () => {
@@ -65,13 +72,39 @@ describe("defineFieldPayloadSchema", () => {
 
   test("accepts all SUPPORTED_FIELD_TYPES", () => {
     for (const type of SUPPORTED_FIELD_TYPES) {
+      // An embedded field is only definable with at least one checkable sub-field.
+      const serializedField =
+        type === "embedded" ? { type, schema: { note: { type: "text" } } } : { type };
       const result = defineFieldPayloadSchema.safeParse({
         entityName: "thing",
         fieldKey: "f",
-        serializedField: { type },
+        serializedField,
       });
       expect(result.success).toBe(true);
     }
+  });
+
+  test("rejects a serializedField with a retention key", () => {
+    const result = defineFieldPayloadSchema.safeParse({
+      entityName: "customer",
+      fieldKey: "internalNumber",
+      serializedField: { type: "text", retention: { keepFor: "P30D", strategy: "delete" } },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  test("update rejects a serializedField with a retention key", () => {
+    const base = {
+      entityName: "customer",
+      fieldKey: "internalNumber",
+      serializedField: { type: "text" },
+    };
+    expect(updateFieldPayloadSchema.safeParse(base).success).toBe(true);
+    const result = updateFieldPayloadSchema.safeParse({
+      ...base,
+      serializedField: { type: "text", retention: { keepFor: "P30D", strategy: "anonymize" } },
+    });
+    expect(result.success).toBe(false);
   });
 
   test("accepts i18n-label", () => {
@@ -257,5 +290,23 @@ describe("resolveFieldDefinitionListRoles", () => {
         fieldDefinitionWriteRoles: ["Admin"],
       }),
     ).toEqual(["Member", "Admin", "TenantAdmin"]);
+  });
+});
+
+describe("fieldDefinitionDeletedSchema", () => {
+  test("rejects a payload without tenantId", () => {
+    expect(
+      fieldDefinitionDeletedSchema.safeParse({ entityName: "property", fieldKey: "color" }).success,
+    ).toBe(false);
+  });
+
+  test("accepts a payload with tenantId", () => {
+    expect(
+      fieldDefinitionDeletedSchema.safeParse({
+        entityName: "property",
+        fieldKey: "color",
+        tenantId: "t1",
+      }).success,
+    ).toBe(true);
   });
 });

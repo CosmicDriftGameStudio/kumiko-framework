@@ -11,7 +11,7 @@
 import { collectTableMetas, type EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
-import { BUNDLED_LISTS } from "../src/bundled-lists";
+import { LIST_DEFAULTS } from "../src/list-defaults";
 import { APP_FEATURES, AUTH_COMPOSE_OPTIONS, VALIDATE_BOOT_OPTIONS } from "../src/run-config";
 
 export { VALIDATE_BOOT_OPTIONS };
@@ -19,7 +19,7 @@ export { VALIDATE_BOOT_OPTIONS };
 export const FEATURES: readonly FeatureDefinition[] = composeFeatures(APP_FEATURES, {
   includeBundled: true,
   authOptions: AUTH_COMPOSE_OPTIONS,
-  bundledLists: BUNDLED_LISTS,
+  listDefaults: LIST_DEFAULTS,
 });
 
 // collectTableMetas erfasst neben entities auch

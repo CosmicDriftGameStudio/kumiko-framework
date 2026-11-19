@@ -21,6 +21,7 @@ import { createEventStoreExecutor } from "../event-store-executor.ts";
 import { buildEntityTable } from "../table-builder.ts";
 
 const docEntity = createEntity({
+  name: "doc",
   table: "read_distinct_on_docs",
   systemRowsReadable: true,
   fields: {
@@ -28,10 +29,10 @@ const docEntity = createEntity({
     revision: createNumberField({ required: true }),
   },
 });
-const docTable = buildEntityTable("doc", docEntity);
+const docTable = buildEntityTable(docEntity);
 
 const distinctFeature = defineFeature("distinct", (r) => {
-  r.entity({ name: "doc", ...docEntity });
+  r.entity(docEntity);
   const executor = createEventStoreExecutor(docTable, docEntity, { entityName: "doc" });
 
   r.writeHandler({

@@ -1,10 +1,10 @@
-import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import type { EntityTableMeta, SchemaTable } from "@cosmicdrift/kumiko-framework/db";
 import { deleteMany, requireEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import type { AnyDb } from "@cosmicdrift/kumiko-framework/internal/stack-support";
 import { withExecutorManagedWritesForTests } from "@cosmicdrift/kumiko-framework/internal/testing";
 
 /** EntityTableMeta, a built table, or a plain table name string. */
-export type ClearableTable = string | { readonly tableName?: string } | unknown;
+export type ClearableTable = string | SchemaTable | EntityTableMeta;
 
 // A full-table wipe (empty where) only needs the table name — give deleteMany
 // a minimal-but-canonical EntityTableMeta so extractTableInfo accepts it

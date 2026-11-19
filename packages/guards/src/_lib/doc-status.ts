@@ -43,6 +43,7 @@ const EXCLUDED_SEGMENTS: readonly string[] = ["templates", "node_modules", "mark
 const GENERATED_PLAN_INDEXES = new Set(["docs/plans/STATUS.md", "docs/plans/ROADMAP.md"]);
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const STALE_ACTIVE_PLAN_DAYS = 90;
 
 function isDocStatus(value: string): value is DocStatus {
   return DOC_STATUSES.some((status) => status === value);
@@ -151,14 +152,38 @@ export function parseStatusFrontmatter(rawContent: string): ParsedFrontmatter {
   };
 }
 
-export function statusDocHygieneWarnings(doc: StatusDoc): readonly string[] {
+function isActiveStatus(status: DocStatus): boolean {
+  return status === "in-progress" || status === "blocked";
+}
+
+function daysSince(isoDate: string, today: Temporal.PlainDate): number | undefined {
+  try {
+    return Temporal.PlainDate.from(isoDate).until(today, { largestUnit: "days" }).days;
+  } catch {
+    // ISO-shaped but not a real date (2026-02-30): skip the warning instead of crashing the guard.
+    return undefined;
+  }
+}
+
+export function statusDocHygieneWarnings(
+  doc: StatusDoc,
+  today: Temporal.PlainDate,
+): readonly string[] {
   const fm = doc.frontmatter;
   if (!fm) return [];
   const warnings: string[] = [];
-  if ((fm.status === "in-progress" || fm.status === "blocked") && !fm.issue?.trim()) {
+  if (isActiveStatus(fm.status) && !fm.issue?.trim()) {
     warnings.push(
       `status '${fm.status}' without issue: an active spec names its issue in the frontmatter`,
     );
+  }
+  if (isActiveStatus(fm.status)) {
+    const age = daysSince(fm.verified, today);
+    if (age !== undefined && age > STALE_ACTIVE_PLAN_DAYS) {
+      warnings.push(
+        `status '${fm.status}' last verified ${fm.verified}, over ${STALE_ACTIVE_PLAN_DAYS} days ago: re-verify it or archive it`,
+      );
+    }
   }
   if (
     (fm.status === "shipped" || fm.status === "superseded") &&

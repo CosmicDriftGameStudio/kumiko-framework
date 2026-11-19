@@ -89,10 +89,15 @@ export interface FieldFormatRegistry {
     readonly locale?: string;
     readonly dateStyle?: "full" | "long" | "medium" | "short";
   };
+  /** A `YYYY-MM` value (text field `format: "month"`) as month and year, "Juni 2026"; anything else stays as stored. */
+  month: { readonly locale?: string };
   /** Telephone number shown as a `tel:` link in list cells, like a read-only `format: "phone"` field. */
   phone: Record<never, never>;
   boolean: { readonly trueLabel?: string; readonly falseLabel?: string };
-  currency: { readonly symbol?: string };
+  /** ISO 4217 code such as "EUR"; the value is an amount in minor units (4250 = 42.50 EUR), formatted with Intl in the UI locale. */
+  currency: { readonly currency: string; readonly locale?: string };
+  /** Money value as the executor reads it, `{ amount, currency }` with the amount in minor units (4250 = 42.50 EUR); formatted with Intl in the value's own currency and the UI locale. */
+  money: { readonly locale?: string };
   priority: { readonly emptyLabel?: string; readonly prefix?: string };
   /** `grouping: false` renders without thousands-separators (e.g. a model
    *  year: "2021", not "2.021"). Default `true`. */
@@ -111,14 +116,21 @@ export interface FieldFormatRegistry {
   // `<feature>:entity:<entity>:field:<field>:option:<value>` — same
   // fallback-to-raw-value rule as buildOptionLabels: an untranslated key
   // renders the raw enum value instead of the literal i18n key.
-  // Prefer fieldOptionLabelKeyPrefix() from @cosmicdrift/kumiko-renderer/headless
-  // over hand-typed prefix strings.
+  // `optionsOf: "<feature>:<entity>.<field>"` names a select or multiSelect field; boot checks
+  // that it exists. `keyPrefix` is for labels outside the field-option convention.
   // `tones` draws the translated label as a status pill in list cells, the
   // way a select field with `optionTones` does on an entityList.
-  enumOption: {
-    readonly keyPrefix: string;
-    readonly tones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
-  };
+  enumOption:
+    | {
+        readonly keyPrefix: string;
+        readonly optionsOf?: never;
+        readonly tones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
+      }
+    | {
+        readonly optionsOf: string;
+        readonly keyPrefix?: never;
+        readonly tones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
+      };
   /** Value is a `DashboardI18nText` (`{ i18nKey, i18nParams }`) a query built
    *  server-side, or a plain i18n key, translated in the user's language. */
   i18nText: Record<never, never>;
@@ -365,8 +377,8 @@ export {
   MAX_BULK_SELECTION,
 } from "./screen-list-bulk.ts";
 export type {
-  BundledListsOptions,
   ListColumnPin,
+  ListDefaultsOptions,
   ListNarrowFacets,
   ListPayloadCapabilities,
   ListTableDensity,

@@ -19,15 +19,18 @@ import { type BunTestDb, createTestDb } from "./query/bun-test-db.ts";
 const text = () => createTextField({ required: true, personal: false, reason: "test_fixture" });
 
 const linkEntity = createEntity({
+  name: "link",
   table: "read_ref_gate_links",
   fields: { customerId: text() },
 });
 const gatedCustomerEntity = createEntity({
+  name: "refGateCustomer",
   table: "read_ref_gate_customers",
   fields: { name: text() },
   readGate: { anyLink: { entity: "refGateLink", field: "customerId" } },
 });
 const plainCustomerEntity = createEntity({
+  name: "refGatePlainCustomer",
   table: "read_ref_gate_plain_customers",
   fields: { name: text() },
 });
@@ -38,6 +41,7 @@ const targets: Readonly<Record<string, EntityDefinition>> = {
 
 function orderEntityFor(table: string, target: string) {
   return createEntity({
+    name: "refGateOrder",
     table,
     fields: {
       note: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
@@ -60,10 +64,10 @@ const referenceFor = (target: string) => ({
 });
 
 const admin = TestUsers.admin;
-const gatedCustomerTable = buildEntityTable("refGateCustomer", gatedCustomerEntity);
-const plainCustomerTable = buildEntityTable("refGatePlainCustomer", plainCustomerEntity);
-const gatedOrderTable = buildEntityTable("refGateOrder", gatedOrderEntity);
-const plainOrderTable = buildEntityTable("refGatePlainOrder", plainOrderEntity);
+const gatedCustomerTable = buildEntityTable(gatedCustomerEntity);
+const plainCustomerTable = buildEntityTable(plainCustomerEntity);
+const gatedOrderTable = buildEntityTable(gatedOrderEntity);
+const plainOrderTable = buildEntityTable({ ...plainOrderEntity, name: "refGatePlainOrder" });
 const gatedOrders = createEventStoreExecutor(gatedOrderTable, gatedOrderEntity, {
   entityName: "refGateOrder",
 });

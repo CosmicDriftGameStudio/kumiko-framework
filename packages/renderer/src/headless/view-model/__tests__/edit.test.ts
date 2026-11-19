@@ -1136,6 +1136,7 @@ describe("computeEditViewModel — declared reference metadata", () => {
 
   test("a select field's optionsAvailabilityQuery reaches the view-model next to its static options", () => {
     const entity: EntityDefinition = {
+      name: "entity",
       fields: {
         plan: {
           type: "select",
@@ -1164,6 +1165,7 @@ describe("computeEditViewModel — declared reference metadata", () => {
 
   test("a multiSelect field's optionsAvailabilityQuery reaches the view-model with an empty payload", () => {
     const entity: EntityDefinition = {
+      name: "entity",
       fields: {
         roles: {
           type: "multiSelect",
@@ -1187,6 +1189,32 @@ describe("computeEditViewModel — declared reference metadata", () => {
       payload: {},
     });
     expect(tags?.selectOptionsAvailabilityQuery).toBeUndefined();
+  });
+
+  test("a multiSelect field's optionsQuery and payload reach the view-model as selectOptionsQuery", () => {
+    const entity: EntityDefinition = {
+      name: "entity",
+      fields: {
+        scopes: {
+          type: "multiSelect",
+          options: [],
+          optionsQuery: "demo:query:x",
+          optionsQueryPayload: { a: "b" },
+        },
+        tags: { type: "multiSelect", options: ["x"] },
+      },
+    };
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ fields: ["scopes", "tags"] }] }),
+      entity,
+      values: {},
+      translate,
+      featureName: "shop",
+    });
+
+    const [scopes, tags] = asFields(vm.sections[0]).fields;
+    expect(scopes?.selectOptionsQuery).toEqual({ query: "demo:query:x", payload: { a: "b" } });
+    expect(tags?.selectOptionsQuery).toBeUndefined();
   });
 
   test("a projectionDetail field without refEntity metadata stays 'text', unchanged", () => {
@@ -1661,5 +1689,34 @@ describe("computeEditViewModel — conditional fields and file cells", () => {
       accept: ["jpg"],
     });
     expect(field?.embeddedListUploadTarget).toMatchObject({ fieldName: "checkpoints" });
+  });
+});
+
+describe("computeEditViewModel — fieldTextEntities", () => {
+  const entity = {
+    fields: { status: { type: "select", options: ["open", "done"] } },
+  } as unknown as EntityDefinition;
+
+  const translateOrderTexts = (key: string) =>
+    key.startsWith("orders:entity:order:") ? `text(${key})` : key;
+
+  test("a field listed in fieldTextEntities takes its label and option labels from that entity", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen(
+        { sections: [{ title: "x", fields: ["status"] }] },
+        { entity: "__action-form__", fieldTextEntities: { status: "order" } },
+      ),
+      entity,
+      values: {},
+      translate: translateOrderTexts,
+      featureName: "orders",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.label).toBe("text(orders:entity:order:field:status)");
+    expect(field?.optionLabels).toEqual({
+      open: "text(orders:entity:order:field:status:option:open)",
+      done: "text(orders:entity:order:field:status:option:done)",
+    });
   });
 });

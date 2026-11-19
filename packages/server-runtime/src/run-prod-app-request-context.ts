@@ -7,11 +7,8 @@ import {
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import { appHookScopedRunner } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createFallbackLogger, setProcessLogger } from "@cosmicdrift/kumiko-framework/logging";
-import {
-  createEntityCache,
-  createEventDedup,
-  createIdempotencyGuard,
-} from "@cosmicdrift/kumiko-framework/pipeline";
+import { createEventDedup, createIdempotencyGuard } from "@cosmicdrift/kumiko-framework/pipeline";
+import { searchAdapterContext } from "./boot-options/search-option.ts";
 import type { RunProdAppDeps, RunProdAppOptions } from "./run-prod-app.ts";
 import {
   addConfigAccessorFactory,
@@ -28,7 +25,7 @@ function buildProdExtraContext(
   connections: ProdConnections,
   deps: RunProdAppDeps,
 ) {
-  const { envSource, bootKms } = config;
+  const { envSource, bootKms, bootOptionWiring } = config;
   const { registry, features, effectiveAuth, bootCrypto, unsubscribeLinks } = composed;
   const resolvedExtraContext =
     typeof options.extraContext === "function"
@@ -65,8 +62,13 @@ function buildProdExtraContext(
     ...(unsubscribeLinks && { unsubscribeLinks }),
     ...(options.appOverrides && { appOverrides: options.appOverrides }),
   });
+  const bootExtraContext: Record<string, unknown> = {
+    ...autoExtraContext,
+    ...searchAdapterContext(bootOptionWiring.searchAdapter, resolvedExtraContext, "runProdApp"),
+    ...resolvedExtraContext,
+  };
   return {
-    ...addConfigAccessorFactory({ ...autoExtraContext, ...resolvedExtraContext }, registry),
+    ...addConfigAccessorFactory(bootExtraContext, registry),
     ...(options.defaultLocale !== undefined && { defaultLocale: options.defaultLocale }),
   };
 }
@@ -105,7 +107,6 @@ export async function buildProdRequestContext(
   // Pipeline pieces — same default config as runDevApp's setupTestStack.
   const idempotency = createIdempotencyGuard(redis, { ttlSeconds: 60 });
   const eventDedup = createEventDedup(redis, { ttlSeconds: 60 });
-  const entityCache = createEntityCache(redis, { ttlSeconds: 60 });
 
   // When no lifecycle is supplied, createApiEntrypoint builds and owns it;
   // the handle exposes it for SIGTERM.
@@ -137,7 +138,6 @@ export async function buildProdRequestContext(
   return {
     idempotency,
     eventDedup,
-    entityCache,
     sseBroker,
     ownedRedisSseBroker,
     extraContext,

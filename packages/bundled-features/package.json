@@ -25,6 +25,7 @@
   },
   "exports": {
     "./agent-tools": "./src/agent-tools/index.ts",
+    "./agent-tools/api-docs": "./src/agent-tools/api-docs/index.ts",
     "./audit": "./src/audit/index.ts",
     "./audit/web": "./src/audit/web/index.ts",
     "./admin-shell": "./src/admin-shell/index.ts",
@@ -45,24 +46,23 @@
     "./cap-counter": "./src/cap-counter/index.ts",
     "./cap-overview": "./src/cap-overview/index.ts",
     "./cap-overview/web": "./src/cap-overview/web/index.ts",
+    "./cap-overview/constants": "./src/cap-overview/web/constants.ts",
     "./metrics": "./src/metrics/index.ts",
     "./custom-fields": "./src/custom-fields/index.ts",
     "./custom-fields/web": "./src/custom-fields/web/index.ts",
     "./tags": "./src/tags/index.ts",
     "./tenant-settings": "./src/tenant-settings/index.ts",
     "./tags/web": "./src/tags/web/index.ts",
+    "./field-approval": "./src/field-approval/index.ts",
     "./folders": "./src/folders/index.ts",
     "./folders/web": "./src/folders/web/index.ts",
     "./notes-history": "./src/notes-history/index.ts",
     "./notes-history/web": "./src/notes-history/web/index.ts",
-    "./notes-history-user-data": "./src/notes-history-user-data/index.ts",
     "./form-draft": "./src/form-draft/index.ts",
-    "./form-draft-user-data": "./src/form-draft-user-data/index.ts",
-    "./template-resolver-user-data": "./src/template-resolver-user-data/index.ts",
-    "./folders-user-data": "./src/folders-user-data/index.ts",
     "./ledger": "./src/ledger/index.ts",
     "./ledger/web": "./src/ledger/web/index.ts",
     "./billing-foundation": "./src/billing-foundation/index.ts",
+    "./billing-foundation/testing": "./src/billing-foundation/testing.ts",
     "./billing-foundation/web": "./src/billing-foundation/web/index.ts",
     "./subscription-stripe": "./src/subscription-stripe/index.ts",
     "./subscription-paddle": "./src/subscription-paddle/index.ts",
@@ -83,7 +83,6 @@
     "./file-provider-inmemory": "./src/file-provider-inmemory/index.ts",
     "./file-derivatives": "./src/file-derivatives/index.ts",
     "./derivatives-sharp": "./src/derivatives-sharp/index.ts",
-    "./files": "./src/files/index.ts",
     "./files-tenant-data": "./src/files-tenant-data/index.ts",
     "./user-data-rights": "./src/user-data-rights/index.ts",
     "./user-data-rights/web": "./src/user-data-rights/web/index.ts",
@@ -110,6 +109,7 @@
     "./auth-email-password/constants": "./src/auth-email-password/web/constants.ts",
     "./auth-email-password/return-path": "./src/auth-email-password/web/return-path.ts",
     "./auth-email-password/static-login": "./src/auth-email-password/web/static-login.ts",
+    "./auth-email-password/static-login-dom": "./src/auth-email-password/web/static-login-dom.ts",
     "./auth-email-password/static-account": "./src/auth-email-password/web/static-account.ts",
     "./auth-email-password/static-client": "./src/auth-email-password/web/static-client.ts",
     "./auth-email-password/email-templates": "./src/auth-email-password/email-templates.ts",
@@ -133,15 +133,14 @@
     "./channel-discord": "./src/channel-discord/index.ts",
     "./channel-teams": "./src/channel-teams/index.ts",
     "./channel-whatsapp": "./src/channel-whatsapp/index.ts",
+    "./channel-whatsapp/testing": "./src/channel-whatsapp/testing.ts",
     "./channel-telegram": "./src/channel-telegram/index.ts",
     "./renderer-pdf": "./src/renderer-pdf/index.ts",
     "./rate-limiting": "./src/rate-limiting/index.ts",
-    "./presets": "./src/presets/index.ts",
     "./secrets": "./src/secrets/index.ts",
     "./sessions": "./src/sessions/index.ts",
     "./sessions/web": "./src/sessions/web/index.ts",
     "./auth-mfa": "./src/auth-mfa/index.ts",
-    "./auth-mfa-user-data": "./src/auth-mfa-user-data/index.ts",
     "./auth-mfa/web": "./src/auth-mfa/web/index.ts",
     "./auth-mfa/testing": "./src/auth-mfa/testing.ts",
     "./sessions/testing": "./src/sessions/testing.ts",
@@ -167,6 +166,10 @@
     "./helpdesk/client": "./src/helpdesk/client/index.ts",
     "./waitlist": "./src/waitlist/index.ts",
     "./waitlist/static-submit": "./src/waitlist/static-submit.ts",
+    "./renderer-mail-html": "./src/renderer-mail-html/index.ts",
+    "./renderer-mail-html/seeding": "./src/renderer-mail-html/seeding.ts",
+    "./renderer-puppeteer-client": "./src/renderer-puppeteer-client/index.ts",
+    "./renderer-puppeteer-client/qualified-names": "./src/renderer-puppeteer-client/web/qualified-names.ts",
     "./signature": "./src/signature/index.ts",
     "./signature/web": "./src/signature/web/index.ts",
     "./document-draft": "./src/document-draft/index.ts",
@@ -175,12 +178,12 @@
     "./handbook-knowledge": "./src/handbook-knowledge/index.ts",
     "./page-render": "./src/page-render/index.ts",
     "./page-render/web": "./src/page-render/web.ts",
+    "./branding": "./src/branding/index.ts",
+    "./branding/web": "./src/branding/web/index.ts",
     "./managed-pages": "./src/managed-pages/index.ts",
     "./managed-pages/web": "./src/managed-pages/web/index.ts",
     "./managed-pages/seeding": "./src/managed-pages/seeding.ts",
-    "./seo": "./src/seo/index.ts",
-    "./step-dispatcher": "./src/step-dispatcher/index.ts",
-    "./workflow-runner": "./src/workflow-runner/index.ts"
+    "./seo": "./src/seo/index.ts"
   },
   "dependencies": {
     "@cosmicdrift/kumiko-framework": "workspace:*",
@@ -206,13 +209,16 @@
     "@types/qrcode": "^1.5.6",
     "clsx": "^2.1.1",
     "happy-dom": "^21.0.4",
+    "handlebars": "^4.7.10",
     "hono": "^4.13.14",
+    "html-to-text": "^10.0.1",
     "imapflow": "^1.7.8",
     "ioredis": "^5.11.1",
     "jose": "^6.2.14",
     "lucide-react": "^1.65.0",
     "mailparser": "^3.14.1",
     "marked": "^18.1.2",
+    "mjml": "^5.4.1",
     "nodemailer": "^10.3.1",
     "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.4",
@@ -233,6 +239,10 @@
       "./agent-tools": {
         "types": "./dist/agent-tools/index.d.ts",
         "default": "./dist/agent-tools/index.js"
+      },
+      "./agent-tools/api-docs": {
+        "types": "./dist/agent-tools/api-docs/index.d.ts",
+        "default": "./dist/agent-tools/api-docs/index.js"
       },
       "./audit": {
         "types": "./dist/audit/index.d.ts",
@@ -310,6 +320,10 @@
         "types": "./dist/cap-overview/index.d.ts",
         "default": "./dist/cap-overview/index.js"
       },
+      "./cap-overview/constants": {
+        "types": "./dist/cap-overview/web/constants.d.ts",
+        "default": "./dist/cap-overview/web/constants.js"
+      },
       "./cap-overview/web": {
         "types": "./dist/cap-overview/web/index.d.ts",
         "default": "./dist/cap-overview/web/index.js"
@@ -338,6 +352,10 @@
         "types": "./dist/tags/web/index.d.ts",
         "default": "./dist/tags/web/index.js"
       },
+      "./field-approval": {
+        "types": "./dist/field-approval/index.d.ts",
+        "default": "./dist/field-approval/index.js"
+      },
       "./folders": {
         "types": "./dist/folders/index.d.ts",
         "default": "./dist/folders/index.js"
@@ -354,25 +372,9 @@
         "types": "./dist/notes-history/web/index.d.ts",
         "default": "./dist/notes-history/web/index.js"
       },
-      "./notes-history-user-data": {
-        "types": "./dist/notes-history-user-data/index.d.ts",
-        "default": "./dist/notes-history-user-data/index.js"
-      },
       "./form-draft": {
         "types": "./dist/form-draft/index.d.ts",
         "default": "./dist/form-draft/index.js"
-      },
-      "./form-draft-user-data": {
-        "types": "./dist/form-draft-user-data/index.d.ts",
-        "default": "./dist/form-draft-user-data/index.js"
-      },
-      "./template-resolver-user-data": {
-        "types": "./dist/template-resolver-user-data/index.d.ts",
-        "default": "./dist/template-resolver-user-data/index.js"
-      },
-      "./folders-user-data": {
-        "types": "./dist/folders-user-data/index.d.ts",
-        "default": "./dist/folders-user-data/index.js"
       },
       "./ledger": {
         "types": "./dist/ledger/index.d.ts",
@@ -385,6 +387,10 @@
       "./billing-foundation": {
         "types": "./dist/billing-foundation/index.d.ts",
         "default": "./dist/billing-foundation/index.js"
+      },
+      "./billing-foundation/testing": {
+        "types": "./dist/billing-foundation/testing.d.ts",
+        "default": "./dist/billing-foundation/testing.js"
       },
       "./billing-foundation/web": {
         "types": "./dist/billing-foundation/web/index.d.ts",
@@ -465,10 +471,6 @@
       "./derivatives-sharp": {
         "types": "./dist/derivatives-sharp/index.d.ts",
         "default": "./dist/derivatives-sharp/index.js"
-      },
-      "./files": {
-        "types": "./dist/files/index.d.ts",
-        "default": "./dist/files/index.js"
       },
       "./files-tenant-data": {
         "types": "./dist/files-tenant-data/index.d.ts",
@@ -578,6 +580,10 @@
         "types": "./dist/auth-email-password/web/static-login.d.ts",
         "default": "./dist/auth-email-password/web/static-login.js"
       },
+      "./auth-email-password/static-login-dom": {
+        "types": "./dist/auth-email-password/web/static-login-dom.d.ts",
+        "default": "./dist/auth-email-password/web/static-login-dom.js"
+      },
       "./auth-email-password/static-account": {
         "types": "./dist/auth-email-password/web/static-account.d.ts",
         "default": "./dist/auth-email-password/web/static-account.js"
@@ -670,6 +676,10 @@
         "types": "./dist/channel-whatsapp/index.d.ts",
         "default": "./dist/channel-whatsapp/index.js"
       },
+      "./channel-whatsapp/testing": {
+        "types": "./dist/channel-whatsapp/testing.d.ts",
+        "default": "./dist/channel-whatsapp/testing.js"
+      },
       "./renderer-pdf": {
         "types": "./dist/renderer-pdf/index.d.ts",
         "default": "./dist/renderer-pdf/index.js"
@@ -677,10 +687,6 @@
       "./rate-limiting": {
         "types": "./dist/rate-limiting/index.d.ts",
         "default": "./dist/rate-limiting/index.js"
-      },
-      "./presets": {
-        "types": "./dist/presets/index.d.ts",
-        "default": "./dist/presets/index.js"
       },
       "./secrets": {
         "types": "./dist/secrets/index.d.ts",
@@ -697,10 +703,6 @@
       "./auth-mfa": {
         "types": "./dist/auth-mfa/index.d.ts",
         "default": "./dist/auth-mfa/index.js"
-      },
-      "./auth-mfa-user-data": {
-        "types": "./dist/auth-mfa-user-data/index.d.ts",
-        "default": "./dist/auth-mfa-user-data/index.js"
       },
       "./auth-mfa/web": {
         "types": "./dist/auth-mfa/web/index.d.ts",
@@ -802,6 +804,22 @@
         "types": "./dist/waitlist/static-submit.d.ts",
         "default": "./dist/waitlist/static-submit.js"
       },
+      "./renderer-mail-html": {
+        "types": "./dist/renderer-mail-html/index.d.ts",
+        "default": "./dist/renderer-mail-html/index.js"
+      },
+      "./renderer-mail-html/seeding": {
+        "types": "./dist/renderer-mail-html/seeding.d.ts",
+        "default": "./dist/renderer-mail-html/seeding.js"
+      },
+      "./renderer-puppeteer-client": {
+        "types": "./dist/renderer-puppeteer-client/index.d.ts",
+        "default": "./dist/renderer-puppeteer-client/index.js"
+      },
+      "./renderer-puppeteer-client/qualified-names": {
+        "types": "./dist/renderer-puppeteer-client/web/qualified-names.d.ts",
+        "default": "./dist/renderer-puppeteer-client/web/qualified-names.js"
+      },
       "./signature": {
         "types": "./dist/signature/index.d.ts",
         "default": "./dist/signature/index.js"
@@ -834,6 +852,14 @@
         "types": "./dist/page-render/web.d.ts",
         "default": "./dist/page-render/web.js"
       },
+      "./branding": {
+        "types": "./dist/branding/index.d.ts",
+        "default": "./dist/branding/index.js"
+      },
+      "./branding/web": {
+        "types": "./dist/branding/web/index.d.ts",
+        "default": "./dist/branding/web/index.js"
+      },
       "./managed-pages": {
         "types": "./dist/managed-pages/index.d.ts",
         "default": "./dist/managed-pages/index.js"
@@ -849,14 +875,6 @@
       "./seo": {
         "types": "./dist/seo/index.d.ts",
         "default": "./dist/seo/index.js"
-      },
-      "./step-dispatcher": {
-        "types": "./dist/step-dispatcher/index.d.ts",
-        "default": "./dist/step-dispatcher/index.js"
-      },
-      "./workflow-runner": {
-        "types": "./dist/workflow-runner/index.d.ts",
-        "default": "./dist/workflow-runner/index.js"
       }
     }
   },
@@ -872,9 +890,10 @@
     "@cosmicdrift/kumiko-locale-es": "workspace:*",
     "@cosmicdrift/kumiko-locale-fr": "workspace:*",
     "@cosmicdrift/kumiko-locale-it": "workspace:*",
-    "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
     "@cosmicdrift/kumiko-testing": "workspace:*",
     "@testing-library/user-event": "^14.6.8",
+    "@types/html-to-text": "^9.0.4",
+    "@types/mjml": "5.4.2",
     "@types/sanitize-html": "^2.16.2",
     "jsqr": "^1.4.0",
     "unpdf": "^1.9.1"

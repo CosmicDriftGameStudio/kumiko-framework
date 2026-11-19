@@ -88,7 +88,7 @@ describe("ResetPasswordScreen returnTo", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Save password" }));
 
-    await waitFor(() => expect(screen.getByText("Password set")).toBeTruthy());
+    await waitFor(() => screen.getByText("Password set"));
     expect(screen.getByRole("link").getAttribute("href")).toBe("/login?next=%2Fa%2Fsettings");
   });
 
@@ -103,7 +103,7 @@ describe("ResetPasswordScreen returnTo", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Save password" }));
 
-    await waitFor(() => expect(screen.getByText("Password set")).toBeTruthy());
+    await waitFor(() => screen.getByText("Password set"));
     expect(screen.getByRole("link").getAttribute("href")).toBe("/login");
   });
 });
@@ -127,7 +127,7 @@ describe("SignupCompleteScreen returnTo", () => {
       target: { value: "validpass1" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Activate account" }));
-    await waitFor(() => expect(screen.getByRole("link", { name: "Continue" })).toBeTruthy());
+    await waitFor(() => screen.getByRole("link", { name: "Continue" }));
   }
 
   test("a safe returnTo wins over the server landing path", async () => {

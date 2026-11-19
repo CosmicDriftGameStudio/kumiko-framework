@@ -42,6 +42,13 @@ export function RenderEditActionConfirmDialog({
   );
 }
 
+// `display: "link"` wins over a plain style; only a danger style keeps its look.
+function actionButtonVariant(action: RenderEditAction) {
+  return action.display === "link" && action.style !== "danger"
+    ? ("link" as const)
+    : (action.style ?? "secondary");
+}
+
 // One header action + its own busy/confirm state — same pattern as
 // render-list.tsx's ToolbarActionView (each RenderEditAction is
 // independently bound by the caller, there is no shared trigger pipeline
@@ -51,6 +58,7 @@ export function RenderEditActionButton({
   iconOnly = false,
   hideIcon = false,
   size,
+  className,
   Button,
   Dialog,
   onError,
@@ -63,6 +71,8 @@ export function RenderEditActionButton({
   readonly hideIcon?: boolean;
   /** Compact buttons for dense rows; an icon-only collapse keeps its own size. */
   readonly size?: "sm";
+  /** Layout extras on the button, merged with the compact-tap classes. */
+  readonly className?: string;
   readonly Button: ReturnType<typeof usePrimitives>["Button"];
   readonly Dialog: ReturnType<typeof usePrimitives>["Dialog"];
   readonly onError: (notice: ErrorNotice | null) => void;
@@ -82,10 +92,14 @@ export function RenderEditActionButton({
     }
   };
 
-  // `display: "link"` wins over a plain style; only a danger style keeps its look.
-  const variant =
-    action.display === "link" && action.style !== "danger" ? "link" : (action.style ?? "secondary");
+  const variant = actionButtonVariant(action);
   const showIconOnly = iconOnly && action.icon !== undefined;
+  const buttonClassName = [
+    !showIconOnly && size !== undefined ? COMPACT_TAP_CLASSES : undefined,
+    className,
+  ]
+    .filter((name) => name !== undefined)
+    .join(" ");
 
   return (
     <>
@@ -94,7 +108,8 @@ export function RenderEditActionButton({
         variant={variant}
         loading={busy}
         {...(action.icon !== undefined && (!hideIcon || showIconOnly) && { icon: action.icon })}
-        {...(!showIconOnly && size !== undefined && { size, className: COMPACT_TAP_CLASSES })}
+        {...(!showIconOnly && size !== undefined && { size })}
+        {...(buttonClassName !== "" && { className: buttonClassName })}
         {...(showIconOnly && {
           size: "icon" as const,
           ariaLabel: action.label,

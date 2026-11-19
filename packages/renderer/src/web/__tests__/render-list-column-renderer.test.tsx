@@ -56,17 +56,20 @@ describe("RenderList — column-renderer registry", () => {
   test("FormatSpec-renderer: currency formatiert Wert + Symbol", () => {
     const screenWithFmt: EntityListScreenDefinition = {
       ...baseScreen,
-      columns: ["title", { field: "color", renderer: { format: "currency", symbol: "€" } }],
+      columns: [
+        "title",
+        { field: "color", renderer: { format: "currency", currency: "EUR", locale: "de-DE" } },
+      ],
     };
     render(
       <RenderList
         screen={screenWithFmt}
         entity={taskEntity}
-        rows={[{ id: "r1", title: "Alpha", color: "42" }]}
+        rows={[{ id: "r1", title: "Alpha", color: "4200" }]}
         featureName="tasks"
       />,
     );
-    expect(screen.getByTestId("cell-r1-color").textContent).toBe("42 €");
+    expect(screen.getByTestId("cell-r1-color").textContent).toBe("42,00\u00a0€");
   });
 
   test("__component-renderer with Provider → Component is mounted, value+row+column are passed in", () => {
@@ -85,7 +88,7 @@ describe("RenderList — column-renderer registry", () => {
         { ColorSwatch },
       ),
     );
-    expect(screen.getByTestId("swatch")).toBeTruthy();
+    screen.getByTestId("swatch");
     expect(screen.getByTestId("swatch-value").textContent).toBe("#abcdef");
     expect(screen.getByTestId("swatch-field").textContent).toBe("color");
     expect(screen.getByTestId("swatch-row-title").textContent).toBe("Alpha");

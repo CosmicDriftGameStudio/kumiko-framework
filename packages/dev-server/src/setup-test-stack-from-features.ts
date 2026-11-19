@@ -24,7 +24,7 @@ export type TestStackPreset = "config" | "template-resolver";
 export type SetupTestStackFromFeaturesOptions = Omit<TestStackOptions, "features"> & {
   readonly includeBundled?: boolean;
   readonly authOptions?: ComposeFeaturesOptions["authOptions"];
-  readonly bundledLists?: ComposeFeaturesOptions["bundledLists"];
+  readonly listDefaults?: ComposeFeaturesOptions["listDefaults"];
   readonly presets?: readonly TestStackPreset[];
 };
 
@@ -76,14 +76,14 @@ export async function setupTestStackFromFeatures(
   const {
     includeBundled = false,
     authOptions,
-    bundledLists,
+    listDefaults,
     presets = [],
     ...stackOptions
   } = options;
   const features = composeFeatures(appFeatures, {
     includeBundled,
     authOptions,
-    ...(bundledLists && { bundledLists }),
+    ...(listDefaults && { listDefaults }),
   });
   const extraContext = mergeExtraContext(stackOptions.extraContext, presets);
 

@@ -56,6 +56,12 @@ export type RuntimeCellLinkItems = (
   row?: Readonly<Record<string, unknown>>,
 ) => readonly CellLinkItem[] | undefined;
 
+/** Runtime-only like RuntimeCellLink: the FileRef a reference cell links instead of its record. */
+export type RuntimeCellFile = (
+  value: unknown,
+  row?: Readonly<Record<string, unknown>>,
+) => string | undefined;
+
 // View-Models — plain data structures produced by computeListViewModel and
 // computeEditViewModel. They flatten the combined [screen-def + entity-def
 // + row-data + user] inputs into a shape the renderer draws directly,
@@ -94,6 +100,8 @@ export type ListColumnViewModel = {
   /** Per-row action link column: a text link right-aligned without header text from sm, a small outline button on cards. */
   readonly rowActionLink?: boolean;
   readonly linkItemsFor?: RuntimeCellLinkItems;
+  /** Reference column to an entity with one file field: the referenced record's file. */
+  readonly referenceFileFor?: RuntimeCellFile;
   readonly sortable: boolean;
   /** Only for `type: "select"` or `type: "multiSelect"` — translated option
    *  labels keyed by raw value. The renderer renders `optionLabels[value]`
@@ -156,6 +164,8 @@ export type ListColumnViewModel = {
   readonly multiline?: true;
   /** Mirrors `ListColumnSpec.cardAbove`. */
   readonly cardAbove?: true;
+  /** Mirrors `ListColumnSpec.cardLabel`. */
+  readonly cardLabel?: true;
   /** Mirrors `ListColumnSpec.emphasis`: medium weight, foreground colour. */
   readonly emphasis?: true;
   /** Mirrors `ListColumnSpec.tone`. */
@@ -279,7 +289,7 @@ export type EditFieldViewModel = {
    *  raw value. Convention key:
    *  `<feature>:entity:<entity>:field:<field>:option:<value>`. */
   readonly optionLabels?: Readonly<Record<string, string>>;
-  /** Set for `type: "select"` when SelectFieldDef.optionsQuery is set: the
+  /** Set for `type: "select"` and `"multiSelect"` when the field def's optionsQuery is set: the
    *  renderer loads the options from this query (`{ rows: { value, label,
    *  description?, group? }[] }`, labels verbatim) instead of `options`. `payload`
    *  is optionsQueryPayload (`{ field }` refs are resolved by the renderer against
@@ -585,6 +595,8 @@ export type EditRelatedListSectionViewModel = {
   readonly pageSize?: number;
   readonly table?: ListTableOptions;
   readonly defaultSort?: ListSortSpec;
+  /** From `EditRelatedListSection.serverSortFields` (derived by buildAppSchema). */
+  readonly serverSortFields?: readonly string[];
   readonly searchable?: boolean;
   readonly facets?: readonly ListFacetSpec[];
   readonly rowClick?: { readonly entity: string; readonly idColumn?: string };

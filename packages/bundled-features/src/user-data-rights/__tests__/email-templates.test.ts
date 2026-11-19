@@ -35,6 +35,18 @@ describe("gdpr mail templates", () => {
     );
   });
 
+  test("deletion-requested: cancel button and text only with a cancelUrl, sign-in text only without", () => {
+    for (const locale of ["en", "de"] as const) {
+      const body = gdprMailLocalizedTemplate("deletionRequested")()[locale]?.body ?? "";
+      expect(body).toMatch(/<p data-if="cancelUrl"><a data-button href="\{\{cancelUrl\}\}">/);
+      expect(body).toContain('<p data-if="signInToCancel">');
+      expect(body.match(/data-if="cancelUrl"/g)).toHaveLength(2);
+    }
+    expect(gdprMailLocalizedTemplate("deletionRequested")()["en"]?.body).toContain(
+      "Cancel deletion",
+    );
+  });
+
   test("a locale without its own subject key gets no template and the sender falls back to en", () => {
     expect(gdprMailTemplateLocale(GdprMailNotificationTypes.exportReady, "de")).toBe("de");
     expect(gdprMailTemplateLocale(GdprMailNotificationTypes.exportReady, "xx")).toBe("en");

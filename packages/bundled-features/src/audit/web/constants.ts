@@ -29,6 +29,7 @@ export const AuditQueries = {
   details: "audit:query:details",
   listAllTenants: "audit:query:list-all-tenants",
   detailsAllTenants: "audit:query:details-all-tenants",
+  accessLog: "audit:query:access-log",
 } as const;
 
 /** Read scope of the audit queries: the caller's own tenant (default) or the system tenant (SystemAdmin only). */

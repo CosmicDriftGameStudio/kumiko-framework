@@ -49,8 +49,8 @@ const PLAIN = "unsub-probe:notify:plain";
 
 const probe = defineFeature("unsub-probe", (r) => {
   r.requires({ features: ["delivery"] });
-  r.notification("news", { unsubscribe: true });
-  r.notification("plain", {});
+  r.notification({ name: "news", unsubscribe: true });
+  r.notification({ name: "plain" });
 });
 
 let stack: TestStack;

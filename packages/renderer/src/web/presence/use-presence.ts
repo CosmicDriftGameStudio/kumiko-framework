@@ -8,6 +8,7 @@ import {
 } from "@cosmicdrift/kumiko-types/presence-types";
 import { useEffect, useRef, useState } from "react";
 import { useDispatcher } from "../../context/dispatcher-context.tsx";
+import { usePageVisibility } from "../../context/page-visibility-context.tsx";
 import { useLiveEvents } from "../../sse/live-events.tsx";
 import { isPermanentPresenceFailure, isPresenceSignalFor } from "./presence-signal.ts";
 
@@ -29,8 +30,8 @@ function stateKey(activity: PresenceActivity, focus: string | undefined): string
 }
 
 /** Announces the user on one record: a heartbeat right away and every 15 s, a leave when the
- *  record closes. Returns the other people on it. Silent when the presence feature is not
- *  mounted or the record is off limits: no error, no retries. */
+ *  record closes; pauses while the page is hidden. Returns the other people on it. Silent when
+ *  the presence feature is not mounted or the record is off limits: no error, no retries. */
 export function usePresence({
   entity,
   id,
@@ -40,6 +41,7 @@ export function usePresence({
 }: UsePresenceOptions): UsePresenceResult {
   const dispatcher = useDispatcher();
   const subscribe = useLiveEvents();
+  const pageVisibility = usePageVisibility();
   const [others, setOthers] = useState<readonly PresenceEntry[]>(NO_ENTRIES);
   const latest = useRef({ activity, focus });
   latest.current = { activity, focus };
@@ -53,6 +55,7 @@ export function usePresence({
     let stopped = false;
     let timer: ReturnType<typeof setInterval> | undefined;
     let latestRequest = 0;
+    const isPageHidden = (): boolean => pageVisibility.getSnapshot() === "hidden";
 
     const stop = (): void => {
       stopped = true;
@@ -60,8 +63,9 @@ export function usePresence({
       setOthers(NO_ENTRIES);
     };
     const send = async (): Promise<void> => {
-      // skip: the record closed or presence gave up after a permanent failure
-      if (stopped) return;
+      // skip: the record closed, presence gave up after a permanent failure, or the page is hidden
+      // (the visibility subscription sends the beat with the latest activity on return)
+      if (stopped || isPageHidden()) return;
       const current = latest.current;
       lastSentKey.current = stateKey(current.activity, current.focus);
       const request = ++latestRequest;
@@ -85,16 +89,18 @@ export function usePresence({
     const unsubscribe = subscribe(PRESENCE_CHANGED_EVENT, (event) => {
       if (isPresenceSignalFor(event.data, entity, id)) void send();
     });
+    const unsubscribeVisibility = pageVisibility.subscribe(() => void send());
 
     return () => {
       const wasStopped = stopped;
       stopped = true;
       if (timer !== undefined) clearInterval(timer);
       unsubscribe();
+      unsubscribeVisibility();
       beat.current = async () => {};
       if (!wasStopped) void dispatcher.write(PRESENCE_WRITES.leave, { entity, id });
     };
-  }, [dispatcher, subscribe, entity, id, enabled]);
+  }, [dispatcher, subscribe, pageVisibility, entity, id, enabled]);
 
   useEffect(() => {
     if (stateKey(activity, focus) !== lastSentKey.current) void beat.current();

@@ -1,6 +1,6 @@
 # puppeteer-service
 
-HTTP-Service für PDF + Image-Rendering via Puppeteer. Wird von `renderer-puppeteer-client` (Plugin in `packages/renderer-puppeteer-client`) konsumiert.
+HTTP-Service für PDF + Image-Rendering via Puppeteer. Wird von `renderer-puppeteer-client` (Plugin in `packages/bundled-features/src/renderer-puppeteer-client`) konsumiert.
 
 **Standalone Bun.serve-App.** Läuft als separates K8s-Deployment, isoliert von Apps (Chrome-Memory-Footprint + crash-recovery).
 

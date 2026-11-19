@@ -19,9 +19,15 @@ import {
   type ButtonProps,
   type CardProps,
   type CorePrimitives,
+  type InputProps,
   PrimitivesProvider,
   type SectionProps,
 } from "../../primitives.tsx";
+import {
+  createMockDispatcher,
+  createStubPrimitives,
+  type MockWriteHandler,
+} from "../../testing.ts";
 import { WriteFormSection } from "../write-form-section.tsx";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
@@ -33,18 +39,15 @@ const testButton: ComponentType<ButtonProps> = ({ children, onClick, testId, dis
   </button>
 );
 
-const testInput: ComponentType<{
-  name?: string;
-  value?: unknown;
-  onChange?: (v: unknown) => void;
-}> = ({ name = "field", value, onChange }) => (
-  <input
-    aria-label={name}
-    data-testid={`input-${name}`}
-    value={typeof value === "string" ? value : ""}
-    onChange={(e) => onChange?.(e.target.value)}
-  />
-);
+const testInput: ComponentType<InputProps> = (props) =>
+  props.kind === "text" ? (
+    <input
+      aria-label={props.name}
+      data-testid={`input-${props.name}`}
+      value={props.value}
+      onChange={(e) => props.onChange(e.target.value)}
+    />
+  ) : null;
 
 const testBanner: ComponentType<BannerProps> = ({ children, testId }) => (
   <div data-testid={testId}>{children}</div>
@@ -90,49 +93,32 @@ const testCard: ComponentType<CardProps> = ({ testId, slots, children }) => (
 );
 
 function testPrimitives(): CorePrimitives {
-  return {
+  return createStubPrimitives({
     Button: testButton,
     Banner: testBanner,
     Field: passChildren,
     Input: testInput,
-    DataTable: noop,
-    Form: noop,
     Section: testSection,
     Card: testCard,
     Grid: passChildren,
     GridCell: passChildren,
-    Text: noop,
-    Heading: noop,
-    Dialog: noop,
-    Modal: noop,
-    Lightbox: noop,
-    ConfigSourceBadge: noop,
-    ConfigCascadeView: noop,
-    Link: noop,
-  } as unknown as CorePrimitives;
+  });
 }
 
-function stubDispatcher(writeImpl?: Dispatcher["write"]): {
+function stubDispatcher(writeImpl?: MockWriteHandler): {
   dispatcher: Dispatcher;
   writes: Array<{ type: string; payload: unknown }>;
 } {
   const writes: Array<{ type: string; payload: unknown }> = [];
-  const dispatcher: Dispatcher = {
-    write: (async (type, payload) => {
+  const dispatcher: Dispatcher = createMockDispatcher({
+    write: async (type, payload) => {
       writes.push({ type, payload });
       if (writeImpl) return writeImpl(type, payload);
       return { isSuccess: true, data: { id: "n1" } };
-    }) as Dispatcher["write"],
-    query: (async () => ({ isSuccess: true, data: {} })) as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    query: async () => ({ isSuccess: true, data: {} }),
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
   return { dispatcher, writes };
 }
 
@@ -212,8 +198,8 @@ describe("WriteFormSection", () => {
     renderWriteForm({ ...untitled, handler: "orders:write:first" }, dispatcher, noop);
     renderWriteForm({ ...untitled, handler: "orders:write:second" }, dispatcher, noop);
 
-    expect(rtlScreen.getByTestId("write-form-orders:write:first")).toBeTruthy();
-    expect(rtlScreen.getByTestId("write-form-orders:write:second")).toBeTruthy();
+    rtlScreen.getByTestId("write-form-orders:write:first");
+    rtlScreen.getByTestId("write-form-orders:write:second");
   });
 
   test("submit dispatches through the section's configured write handler with the entered values", async () => {
@@ -243,7 +229,7 @@ describe("WriteFormSection", () => {
     fireEvent.change(rtlScreen.getByLabelText("note"), { target: { value: "x" } });
     fireEvent.click(rtlScreen.getByTestId("write-form-section-submit"));
 
-    await waitFor(() => expect(rtlScreen.getByTestId("write-form-section-error")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("write-form-section-error"));
     expect(submittedCount).toBe(0);
   });
 
@@ -290,7 +276,7 @@ describe("WriteFormSection", () => {
     fireEvent.change(rtlScreen.getByLabelText("note"), { target: { value: "x" } });
     fireEvent.click(rtlScreen.getByTestId("write-form-section-submit"));
 
-    await waitFor(() => expect(rtlScreen.getByTestId("write-form-section-error")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("write-form-section-error"));
   });
 
   test("typing into a field dismisses the error banner", async () => {
@@ -302,7 +288,7 @@ describe("WriteFormSection", () => {
 
     fireEvent.change(rtlScreen.getByLabelText("note"), { target: { value: "x" } });
     fireEvent.click(rtlScreen.getByTestId("write-form-section-submit"));
-    await waitFor(() => expect(rtlScreen.getByTestId("write-form-section-error")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("write-form-section-error"));
 
     fireEvent.change(rtlScreen.getByLabelText("note"), { target: { value: "xy" } });
 
@@ -420,7 +406,7 @@ describe("WriteFormSection — section.description as subtitle", () => {
       entity: "order",
       layout: { sections: [sectionSpec] },
     };
-    const entity: EntityDefinition = { fields: {} };
+    const entity: EntityDefinition = { name: "emptyItem", fields: {} };
     const viewModel = computeEditViewModel({
       screen,
       entity,

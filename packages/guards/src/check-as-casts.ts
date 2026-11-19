@@ -33,7 +33,7 @@
  *     repo-local files only)
  *   • an unknown or missing `@cast-boundary` reason in a repo-local file
  *   • an unreadable or format-drifted baseline
- * Without a baseline file (e.g. consumer repos) nothing fails: warnings only.
+ * A missing baseline file counts as an empty baseline: every repo-local suspect cast and unknown reason fails until the state is frozen with `--write-baseline`.
  * Sibling checkouts (`../`) never fail.
  * `.kumiko-cast-legit-baseline.json` additionally caps legit-bridge and
  * legit-boundary casts per package (`<package-dir>:<category>`), so a new
@@ -41,8 +41,8 @@
  * than per file, so moving a cast between files does not trip it. Same
  * missing-file behavior (warning only) as the suspect baseline.
  *
- * Reductions (current < baseline) are allowed but do NOT update the baseline
- * automatically — run `--write-baseline` after cleanup commits.
+ * Reductions (current < baseline) fail as a stale baseline: the headroom would let
+ * new casts in unnoticed, so run `--write-baseline` after cleanup commits.
  *
  * Usage:
  *   bun guards/check-as-casts.ts                  # compare against baseline
@@ -211,7 +211,7 @@ const BOUNDARY_MARKER_RE = /\/[/*]\s*@cast-boundary(?:\s+([\w-]+))?/;
 // reasons; extend if needed and rename consumers if applicable.
 export const KNOWN_BOUNDARY_REASONS = [
   // Pipeline / Engine
-  "engine-payload", // dispatch-Result, event.payload, Hook-Context drilling
+  "engine-payload", // dispatch-Result, Hook-Context drilling
   "engine-bridge", // public-API typed fn → erased internal storage (defineFeature builder)
   "error-details", // DispatcherError.details / FieldIssue inspection
   "zod-issue", // ZodIssue-internal shape (path, code, params)
@@ -341,11 +341,22 @@ export function getFileDefaultReason(filePath: string): BoundaryReason | null {
   return null;
 }
 
+const HANDLER_FILE_RE = /\/handlers\/(?:.*\/)?[^/]+\.(?:write|query)\.ts$/;
+const HANDLER_PAYLOAD_SOURCE_RE = /^(?:event|query)\.payload\b/;
+
+// Write/query handlers get a typed payload from their schema; drilling into the raw
+// payload with a boundary cast hides a missing schema field. Projections stay exempt.
+export function isPayloadCastInHandler(cast: AsExpression): boolean {
+  if (extractBoundaryReason(cast) !== "engine-payload") return false;
+  if (!HANDLER_FILE_RE.test(cast.getSourceFile().getFilePath())) return false;
+  return HANDLER_PAYLOAD_SOURCE_RE.test(cast.getExpression().getText());
+}
+
 export function categorize(cast: AsExpression): Category {
   if (isConstAssertion(cast)) return "legit-const";
   if (isBridgeInner(cast) || isBridgeOuter(cast)) return "legit-bridge";
   if (looksLikeBrandConstruction(cast)) return "legit-brand";
-  if (hasBoundaryMarker(cast)) return "legit-boundary";
+  if (hasBoundaryMarker(cast) && !isPayloadCastInHandler(cast)) return "legit-boundary";
   if (isTypingLossMarkerCast(cast)) return "legit-boundary";
   if (getFileDefaultReason(cast.getSourceFile().getFilePath()) !== null) return "legit-boundary";
   if (isParseCast(cast)) return "suspect-parse";
@@ -514,10 +525,9 @@ function isSiblingFile(file: string): boolean {
 
 const BASELINE_FORMAT_VERSION = 2;
 
+// Older files that still carry generated/totalSuspect load fine, the extra fields are ignored.
 type Baseline = {
   format: number;
-  generated: string;
-  totalSuspect: number;
   perFile: Record<string, Record<string, number>>;
 };
 
@@ -580,15 +590,15 @@ export function legitCountsByPackage(all: readonly Site[]): Record<string, numbe
   return counts;
 }
 
-const LEGIT_REMEDIATION =
-  'Avoid the cast (type guard, discriminated union, typing at the source). Only if it is a real system boundary or deliberate bridge: re-freeze with `bun packages/guards/src/cli.ts guards --write-baseline --guard="As-Casts Audit"` and justify it in the PR.';
+// The hint must run from any consumer repo, so it names the installed bin, not a source path.
+const WRITE_BASELINE_COMMAND = 'bun kumiko-guards guards --write-baseline --guard="As-Casts Audit"';
+
+const LEGIT_REMEDIATION = `Avoid the cast (type guard, discriminated union, typing at the source). Only if it is a real system boundary or deliberate bridge: re-freeze with \`${WRITE_BASELINE_COMMAND}\` and justify it in the PR.`;
 
 function writeBaseline(all: readonly Site[]): void {
   const repoLocalSuspects = repoLocal(suspectByFileAndTarget(all));
   const payload: Baseline = {
     format: BASELINE_FORMAT_VERSION,
-    generated: Temporal.Now.instant().toString().slice(0, 10),
-    totalSuspect: totalOf(repoLocalSuspects),
     perFile: Object.fromEntries(
       Object.entries(repoLocalSuspects)
         .sort(([a], [b]) => a.localeCompare(b))
@@ -600,7 +610,7 @@ function writeBaseline(all: readonly Site[]): void {
   };
   writeFileSync(baselinePath, `${JSON.stringify(payload, null, 2)}\n`);
   console.log(`\n  Baseline written: ${baselinePath}`);
-  console.log(`  Total suspect: ${payload.totalSuspect} (repo-local)`);
+  console.log(`  Total suspect: ${totalOf(repoLocalSuspects)} (repo-local)`);
   legitRatchet.write(legitCountsByPackage(all));
 }
 
@@ -641,21 +651,11 @@ export function loadBaseline(file: string): BaselineLoad {
   if (record["format"] !== BASELINE_FORMAT_VERSION) {
     return { kind: "format-drift", format: record["format"] };
   }
-  const { generated, totalSuspect, perFile } = record;
-  if (
-    typeof generated !== "string" ||
-    typeof totalSuspect !== "number" ||
-    !isCountsByFile(perFile)
-  ) {
-    return {
-      kind: "invalid",
-      detail: "expected { format, generated: string, totalSuspect: number, perFile: object }",
-    };
+  const { perFile } = record;
+  if (!isCountsByFile(perFile)) {
+    return { kind: "invalid", detail: "expected { format, perFile: object }" };
   }
-  return {
-    kind: "ok",
-    baseline: { format: BASELINE_FORMAT_VERSION, generated, totalSuspect, perFile },
-  };
+  return { kind: "ok", baseline: { format: BASELINE_FORMAT_VERSION, perFile } };
 }
 
 type CastRegression = { file: string; target: string; baseline: number; current: number };
@@ -663,9 +663,9 @@ type CastRegression = { file: string; target: string; baseline: number; current:
 function compareCastsToBaseline(
   current: Record<string, Record<string, number>>,
   baselinePerFile: Record<string, Record<string, number>>,
-): { regressions: CastRegression[]; reduced: number } {
+): { regressions: CastRegression[]; reductions: CastRegression[] } {
   const regressions: CastRegression[] = [];
-  let reduced = 0;
+  const reductions: CastRegression[] = [];
   const allFiles = new Set([...Object.keys(current), ...Object.keys(baselinePerFile)]);
   for (const file of allFiles) {
     const baselineTargets = baselinePerFile[file] ?? {};
@@ -677,17 +677,17 @@ function compareCastsToBaseline(
       if (count > expected) {
         regressions.push({ file, target, baseline: expected, current: count });
       } else if (count < expected) {
-        reduced += expected - count;
+        reductions.push({ file, target, baseline: expected, current: count });
       }
     }
   }
-  return { regressions, reduced };
+  return { regressions, reductions };
 }
 
 const CAST_OPTIONS_HINT =
   "New casts need a justification. Options: (1) avoid the cast (TypeGuard, Discriminated Union, typing at the source); " +
   "(2) a real system boundary: `// @cast-boundary <reason>` with a reason from KNOWN_BOUNDARY_REASONS; " +
-  "(3) re-freeze with `bun packages/guards/src/check-as-casts.ts --write-baseline`, only with a justification in the PR.";
+  `(3) re-freeze with \`${WRITE_BASELINE_COMMAND}\`, only with a justification in the PR.`;
 
 function printCastRegressions(regressions: readonly CastRegression[]): void {
   console.log(
@@ -717,6 +717,22 @@ function regressionViolation(regression: CastRegression, all: readonly Site[]): 
   };
 }
 
+function staleBaselineViolation(reduction: CastRegression, all: readonly Site[]): GuardViolation {
+  const firstRemaining = all
+    .filter(
+      (s) =>
+        s.file === reduction.file &&
+        s.target === reduction.target &&
+        s.category.startsWith("suspect-"),
+    )
+    .sort((a, b) => a.line - b.line)[0];
+  return {
+    file: reduction.file,
+    line: firstRemaining?.line ?? 1,
+    message: `suspect casts \`as ${reduction.target}\` under baseline: baseline=${reduction.baseline} current=${reduction.current}. The baseline ${path.basename(baselinePath)} has headroom that would let new findings in unnoticed; tighten it with \`${WRITE_BASELINE_COMMAND}\` and commit it.`,
+  };
+}
+
 function unknownReasonViolation(site: Site): GuardViolation {
   const reason = site.boundaryReason || "<missing>";
   return {
@@ -734,19 +750,13 @@ export function reportBaseline(
   const repoLocalTotal = totalOf(repoLocalSuspects);
 
   const loaded = loadBaseline(baselineFile);
-  if (loaded.kind === "missing") {
-    console.log(
-      "\n  No baseline found. Freeze one with `--write-baseline` first — warning, no fail until then.",
-    );
-    return [];
-  }
   if (loaded.kind === "invalid") {
     // A corrupt baseline must not read as "no regressions".
     return [
       {
         file: baselineFile,
         line: 1,
-        message: `Cannot read cast baseline ${baselineFile}: ${loaded.detail}. Fix the file (e.g. resolve merge-conflict markers) or regenerate it with \`bun packages/guards/src/check-as-casts.ts --write-baseline\`.`,
+        message: `Cannot read cast baseline ${baselineFile}: ${loaded.detail}. Fix the file (e.g. resolve merge-conflict markers) or regenerate it with \`${WRITE_BASELINE_COMMAND}\`.`,
       },
     ];
   }
@@ -756,29 +766,26 @@ export function reportBaseline(
       {
         file: baselineFile,
         line: 1,
-        message: `Cast baseline format drift: expected format=${BASELINE_FORMAT_VERSION}, read format=${String(loaded.format ?? "<missing>")}. Regenerate it with \`bun packages/guards/src/check-as-casts.ts --write-baseline\`.`,
+        message: `Cast baseline format drift: expected format=${BASELINE_FORMAT_VERSION}, read format=${String(loaded.format ?? "<missing>")}. Regenerate it with \`${WRITE_BASELINE_COMMAND}\`.`,
       },
     ];
   }
-  const { baseline } = loaded;
+  const baselinePerFile = loaded.kind === "ok" ? loaded.baseline.perFile : {};
+  const baselineTotal = totalOf(baselinePerFile);
 
-  const { regressions, reduced } = compareCastsToBaseline(repoLocalSuspects, baseline.perFile);
+  const { regressions, reductions } = compareCastsToBaseline(repoLocalSuspects, baselinePerFile);
   if (regressions.length > 0) {
     printCastRegressions(regressions);
   }
   const unknownReasons = findUnknownReasons(all).filter((s) => !isSiblingFile(s.file));
   const violations = [
     ...regressions.map((r) => regressionViolation(r, all)),
+    ...reductions.map((r) => staleBaselineViolation(r, all)),
     ...unknownReasons.map(unknownReasonViolation),
   ];
   if (violations.length > 0) return violations;
 
-  console.log(`\n  ✓ Baseline (${baseline.totalSuspect}) — current ${repoLocalTotal}`);
-  if (reduced > 0) {
-    console.log(
-      `  ✓ ${reduced} suspect cast(s) reduced since baseline. Run \`--write-baseline\` if appropriate.`,
-    );
-  }
+  console.log(`\n  ✓ Baseline (${baselineTotal}) — current ${repoLocalTotal}`);
   return [];
 }
 
@@ -790,8 +797,8 @@ function analyseCasts(files: readonly SourceFile[], compareBaseline: boolean): G
     console.log("\n  Baseline comparison skipped (--no-baseline).");
     return { violations: [] };
   }
-  // Fails on regressions, repo-local unknown reasons (both only with a valid
-  // baseline) and an unreadable or drifted baseline; see the module header.
+  // Fails on regressions, repo-local unknown reasons (a missing baseline counts
+  // as empty) and an unreadable or drifted baseline; see the module header.
   return {
     violations: [
       ...reportBaseline(all),

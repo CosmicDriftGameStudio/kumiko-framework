@@ -27,7 +27,11 @@ type RunSchemaCliRowLevelSecurityOption = {
 
 export type RunSchemaCliOptions = RunSchemaCliRowLevelSecurityOption &
   (
-    | { readonly features?: undefined; readonly kmsSlots?: undefined }
+    | {
+        readonly features?: undefined;
+        readonly kmsSlots?: undefined;
+        readonly requireKms?: undefined;
+      }
     | {
         /** Composed app features. When given, `apply` rebuilds the projections whose
          *  tables a freshly applied migration changed (via its `.rebuild.json`
@@ -37,6 +41,8 @@ export type RunSchemaCliOptions = RunSchemaCliRowLevelSecurityOption &
          *  `[]` when the app wires none. This CLI parses no env schema, so the
          *  rebuild's KMS wiring cannot derive them itself. */
         readonly kmsSlots: readonly string[];
+        /** true: `apply` exits 1 before any migration when the KMS env is missing (runProdApp kmsMode "required"). */
+        readonly requireKms?: boolean;
       }
   );
 

@@ -28,19 +28,20 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 // --- Feature ---
 
 const orderEntity = createEntity({
+  name: "mmh-order",
   table: "read_mmh_orders",
   fields: {
     item: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 
-const orderTable = buildEntityTable("mmh-order", orderEntity);
+const orderTable = buildEntityTable(orderEntity);
 
 // Snapshot what each MSP-apply observed via ctx.events.load.
 const confirmLoadCounts: number[] = [];
 
 const mmhFeature = defineFeature("mmh", (r) => {
-  r.entity({ name: "mmh-order", ...orderEntity });
+  r.entity(orderEntity);
 
   const placed = r.defineEvent("placed", z.object({ orderId: z.uuid() }), { piiFields: "none" });
   const confirmed = r.defineEvent("confirmed", z.object({ orderId: z.uuid() }), {
@@ -60,6 +61,7 @@ const mmhFeature = defineFeature("mmh", (r) => {
       if (!created.isSuccess) return created;
       await ctx.events.unsafeAppend({
         aggregateId: String(created.data.id),
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "mmh-order",
         type: placed.name,
         payload: { orderId: String(created.data.id) },
@@ -80,6 +82,7 @@ const mmhFeature = defineFeature("mmh", (r) => {
         confirmLoadCounts.push(history.length);
         await ctx.unsafeAppendEvent({
           aggregateId: event.aggregateId,
+          blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
           aggregateType: "mmh-order",
           type: confirmed.name,
           payload: { orderId: event.aggregateId },
@@ -96,6 +99,7 @@ const mmhFeature = defineFeature("mmh", (r) => {
         if (!ctx) throw new Error("MSP-apply ctx missing — regression of C.2b wiring");
         await ctx.unsafeAppendEvent({
           aggregateId: event.aggregateId,
+          blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
           aggregateType: "mmh-order",
           type: shipped.name,
           payload: { orderId: event.aggregateId },
@@ -132,10 +136,18 @@ async function postWrite(correlationId: string, item: string) {
   });
 }
 
+type EventRow = {
+  readonly id: bigint;
+  readonly aggregateId: string;
+  readonly tenantId: string;
+  readonly type: string;
+  readonly metadata: unknown;
+};
+
 async function drainUntilShipped(aggregateId: string, maxPasses = 10): Promise<void> {
   for (let i = 0; i < maxPasses; i++) {
     await stack.eventDispatcher?.runOnce();
-    const rows = await selectMany(stack.db, eventsTable);
+    const rows = await selectMany<EventRow>(stack.db, eventsTable);
     if (rows.some((r) => r.aggregateId === aggregateId && r.type === "mmh:event:shipped")) return;
   }
   throw new Error(`drainUntilShipped: never saw shipped event for ${aggregateId}`);
@@ -150,7 +162,7 @@ describe("Runde 3 / C.2b — MSP-apply ctx cascades", () => {
 
     await stack.eventDispatcher?.runOnce();
 
-    const rows = await selectMany(stack.db, eventsTable);
+    const rows = await selectMany<EventRow>(stack.db, eventsTable);
     const types = rows.map((r) => r.type).sort();
     // Order: CRUD create, placed, confirmed (hop 1 fired).
     expect(types).toContain("mmh-order.created");
@@ -163,7 +175,7 @@ describe("Runde 3 / C.2b — MSP-apply ctx cascades", () => {
 
     // Find the aggregateId from the first placed event.
     await stack.eventDispatcher?.runOnce();
-    const placedRow = (await selectMany(stack.db, eventsTable)).find(
+    const placedRow = (await selectMany<EventRow>(stack.db, eventsTable)).find(
       (r) => r.type === "mmh:event:placed",
     );
     expect(placedRow).toBeDefined();
@@ -171,7 +183,7 @@ describe("Runde 3 / C.2b — MSP-apply ctx cascades", () => {
 
     await drainUntilShipped(aggregateId);
 
-    const rows = (await selectMany(stack.db, eventsTable))
+    const rows = (await selectMany<EventRow>(stack.db, eventsTable))
       .filter((r) => r.aggregateId === aggregateId)
       .sort((a, b) => Number(a.id - b.id));
 
@@ -223,7 +235,7 @@ describe("Runde 3 / C.2b — MSP-apply ctx cascades", () => {
     await stack.eventDispatcher?.runOnce();
 
     // Every event written on this chain belongs to the admin's tenant.
-    const rows = await selectMany(stack.db, eventsTable);
+    const rows = await selectMany<EventRow>(stack.db, eventsTable);
     for (const row of rows) {
       expect(row.tenantId).toBe(admin.tenantId);
     }

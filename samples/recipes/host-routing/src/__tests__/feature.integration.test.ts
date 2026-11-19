@@ -9,16 +9,14 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   createTenantFeature,
-  tenantEntity,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenant } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
-import { createUserFeature, userEntity } from "@cosmicdrift/kumiko-bundled-features/user";
+import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import { createAnonymousUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { hostDispatch, hostRoutingFeature, routingOptions, storefrontFeature } from "../feature";
@@ -58,8 +56,6 @@ beforeAll(async () => {
     anonymousAccess: {},
     enrichAnonymousAccess: (base, deps) => resolveAnonymousAccessFromRegistry(base, deps),
   });
-  await unsafeCreateEntityTable(stack.db, userEntity);
-  await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
   for (const shop of SHOPS) await seedTenant(stack.db, shop);
 });

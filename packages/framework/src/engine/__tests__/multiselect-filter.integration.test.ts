@@ -20,6 +20,7 @@ import { defineFeature } from "../define-feature.ts";
 import { createEntity, createMultiSelectField, createTextField } from "../factories.ts";
 
 const equipmentEntity = createEntity({
+  name: "equipment",
   table: "ms_filter_equipment",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -33,7 +34,7 @@ const equipmentEntity = createEntity({
 const LIST_QN = "checklist:query:equipment:list";
 
 const checklistFeature = defineFeature("checklist", (r) => {
-  r.crud("equipment", equipmentEntity, {
+  r.crud(equipmentEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });
@@ -162,7 +163,7 @@ describe("multiSelect filterable — jsonb containment, not scalar equality", ()
   // column without going through a screen filter. Same jsonb-array bug,
   // separate WHERE-builder, must be covered independently.
   describe("generic selectMany() query API (db/where-clause.ts buildWhereClause)", () => {
-    const meta = deriveEntityTableMeta("equipment", equipmentEntity);
+    const meta = deriveEntityTableMeta(equipmentEntity);
 
     test("scalar equality uses jsonb containment, not `=`", async () => {
       await seed();

@@ -5,9 +5,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
+  createEmbeddedField,
+  createEmbeddedListField,
   createEntity,
+  createEntityExecutor,
   createTextField,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityUpdateHandler,
   defineFeature,
   type SessionUser,
   type TenantId,
@@ -29,6 +33,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { SYSTEM_TENANT_ID, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-types/identifiers";
+import * as z from "zod";
 import { createConfigFeature } from "../../config/feature.ts";
 import { hashPassword } from "../../shared/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
@@ -42,6 +47,7 @@ import { createAuditFeature } from "../feature.ts";
 import { AUDIT_LOG_SCREEN_ID, AuditQueries, AuditScopes } from "../web/constants.ts";
 
 const widgetEntity = createEntity({
+  name: "widget",
   table: "audit_sec_widgets",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
@@ -49,22 +55,82 @@ const widgetEntity = createEntity({
 });
 
 const widgetFeature = defineFeature("audit-sec-widgets", (r) => {
-  r.entity({ name: "widget", ...widgetEntity });
+  r.entity(widgetEntity);
   r.writeHandler(
-    defineEntityWriteHandler("widget:create", widgetEntity, {
+    defineEntityCreateHandler("widget", widgetEntity, {
       access: { roles: ["Admin", "User", "SystemAdmin", "TenantAdmin"] },
     }),
   );
 });
 
+const dossierEntity = createEntity({
+  name: "dossier",
+  table: "audit_sec_dossiers",
+  fields: {
+    name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
+  },
+  access: { read: { HR: "all" } },
+});
+
+const memoEntity = createEntity({
+  name: "memo",
+  table: "audit_sec_memos",
+  fields: {
+    name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
+    salary: createTextField({
+      personal: false,
+      reason: "technical_reference",
+      access: { read: ["HR"] },
+    }),
+    pin: createTextField({ personal: "tenant", find: "secret", writeOnly: true }),
+    bonus: createEmbeddedField(
+      { amount: { type: "text", access: { read: ["HR"] } } },
+      { personal: false, reason: "technical_reference" },
+    ),
+    reviews: createEmbeddedListField(
+      { note: { type: "text", access: { read: ["HR"] } } },
+      { personal: false, reason: "technical_reference" },
+    ),
+  },
+  verbs: { reviewed: {} },
+});
+
+const restrictedHandlerAccess = { access: { roles: ["HR", "TenantAdmin"] } };
+
+const restrictedFeature = defineFeature("audit-sec-restricted", (r) => {
+  r.entity(dossierEntity);
+  r.entity(memoEntity);
+  r.writeHandler(defineEntityCreateHandler("dossier", dossierEntity, restrictedHandlerAccess));
+  r.writeHandler(defineEntityCreateHandler("memo", memoEntity, restrictedHandlerAccess));
+  r.writeHandler(defineEntityUpdateHandler("memo", memoEntity, restrictedHandlerAccess));
+  const { executor: memoExecutor } = createEntityExecutor(memoEntity);
+  r.writeHandler({
+    name: "memo:review",
+    schema: z.object({ id: z.uuid(), salary: z.string() }),
+    handler: async (event, ctx) =>
+      memoExecutor.update(
+        { id: event.payload.id, changes: { salary: event.payload.salary } },
+        event.user,
+        ctx.db,
+        { skipOptimisticLock: true, verb: "reviewed" },
+      ),
+    ...restrictedHandlerAccess,
+  });
+});
+
 let stack: TestStack;
 let TENANT_ID: TenantId;
 let tenantAdminId: string;
+let hrAdminId: string;
 
 const systemAdmin = TestUsers.systemAdmin;
 
 function tenantAdmin(): SessionUser {
   return { id: tenantAdminId, tenantId: TENANT_ID, roles: ["TenantAdmin"] };
+}
+
+function hrTenantAdmin(): SessionUser {
+  return { id: hrAdminId, tenantId: TENANT_ID, roles: ["TenantAdmin", "HR"] };
 }
 
 function regularUser(): SessionUser {
@@ -78,12 +144,15 @@ beforeAll(async () => {
       createUserFeature(),
       createTenantFeature(),
       widgetFeature,
+      restrictedFeature,
       createAuditFeature(),
     ],
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, widgetEntity);
+  await unsafeCreateEntityTable(stack.db, dossierEntity);
+  await unsafeCreateEntityTable(stack.db, memoEntity);
   await unsafePushTables(stack.db, { tenantMembershipsTable });
 });
 
@@ -93,7 +162,9 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetEventStore(stack);
-  await asRawClient(stack.db).unsafe(`TRUNCATE audit_sec_widgets`);
+  await asRawClient(stack.db).unsafe(
+    `TRUNCATE audit_sec_widgets, audit_sec_dossiers, audit_sec_memos`,
+  );
   TENANT_ID = testTenantId(1);
   await seedTenant(stack.db, { id: TENANT_ID, key: "audit-sec", name: "Audit Sec" });
   ({ id: tenantAdminId } = await seedUser(stack.db, {
@@ -106,6 +177,17 @@ beforeEach(async () => {
     userId: tenantAdminId,
     tenantId: TENANT_ID,
     roles: ["TenantAdmin"],
+  });
+  ({ id: hrAdminId } = await seedUser(stack.db, {
+    email: "hraudit@example.com",
+    displayName: "HRAudit",
+    passwordHash: await hashPassword("pw-audit-1234"),
+    emailVerified: true,
+  }));
+  await seedTenantMembership(stack.db, {
+    userId: hrAdminId,
+    tenantId: TENANT_ID,
+    roles: ["TenantAdmin", "HR"],
   });
 });
 
@@ -203,6 +285,110 @@ describe("audit list filters", () => {
     );
     expect(res.rows.length).toBeGreaterThanOrEqual(1);
     expect(res.rows.every((r) => r.type === "widget.created")).toBe(true);
+  });
+});
+
+describe("audit payload follows entity read rules", () => {
+  type PayloadRow = {
+    id: string;
+    type: string;
+    aggregateId: string;
+    payload: Record<string, unknown> | null;
+  };
+  type PayloadList = { rows: readonly PayloadRow[] };
+
+  async function listFor(aggregateType: string, user: SessionUser): Promise<PayloadList> {
+    return stack.http.queryOk<PayloadList>(AuditQueries.list, { aggregateType }, user);
+  }
+
+  function rowOfType(list: PayloadList, type: string): PayloadRow {
+    const row = list.rows.find((r) => r.type === type);
+    if (!row) throw new Error(`no ${type} row in the audit list`);
+    return row;
+  }
+
+  test("a payload of an entity the caller may not read is null in list and details", async () => {
+    await stack.http.writeOk(
+      "audit-sec-restricted:write:dossier:create",
+      { name: "Confidential" },
+      hrTenantAdmin(),
+    );
+
+    const forTenantAdmin = rowOfType(await listFor("dossier", tenantAdmin()), "dossier.created");
+    expect(forTenantAdmin.payload).toBeNull();
+    const detailsForTenantAdmin = await stack.http.queryOk<PayloadRow>(
+      AuditQueries.details,
+      { id: forTenantAdmin.id },
+      tenantAdmin(),
+    );
+    expect(detailsForTenantAdmin.payload).toBeNull();
+
+    const forHr = rowOfType(await listFor("dossier", hrTenantAdmin()), "dossier.created");
+    expect(forHr.payload).toMatchObject({ name: "Confidential" });
+  });
+
+  test("restricted fields are removed from the snapshot, changes and previous", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "audit-sec-restricted:write:memo:create",
+      { name: "Memo", salary: "100000", pin: "1234" },
+      hrTenantAdmin(),
+    );
+    await stack.http.writeOk(
+      "audit-sec-restricted:write:memo:update",
+      { id: created.id, version: 1, changes: { salary: "120000" } },
+      hrTenantAdmin(),
+    );
+
+    const forTenantAdmin = await listFor("memo", tenantAdmin());
+    const createdPayload = rowOfType(forTenantAdmin, "memo.created").payload;
+    expect(createdPayload).toMatchObject({ name: "Memo" });
+    expect(createdPayload).not.toHaveProperty("salary");
+    expect(createdPayload).not.toHaveProperty("pin");
+    const updatedPayload = rowOfType(forTenantAdmin, "memo.updated").payload;
+    expect(updatedPayload?.["changes"]).not.toHaveProperty("salary");
+    expect(updatedPayload?.["previous"]).not.toHaveProperty("salary");
+
+    const forHr = await listFor("memo", hrTenantAdmin());
+    const hrCreatedPayload = rowOfType(forHr, "memo.created").payload;
+    expect(hrCreatedPayload).toMatchObject({ name: "Memo", salary: "100000" });
+    expect(hrCreatedPayload).not.toHaveProperty("pin");
+  });
+
+  test("embedded fields with a restricted sub-field are removed", async () => {
+    await stack.http.writeOk(
+      "audit-sec-restricted:write:memo:create",
+      { name: "Memo", bonus: { amount: "5000" }, reviews: [{ note: "good" }] },
+      hrTenantAdmin(),
+    );
+
+    const forTenantAdmin = rowOfType(await listFor("memo", tenantAdmin()), "memo.created").payload;
+    expect(forTenantAdmin).toMatchObject({ name: "Memo" });
+    expect(forTenantAdmin).not.toHaveProperty("bonus");
+    expect(forTenantAdmin).not.toHaveProperty("reviews");
+
+    const forHr = rowOfType(await listFor("memo", hrTenantAdmin()), "memo.created").payload;
+    expect(forHr).toMatchObject({ bonus: { amount: "5000" }, reviews: [{ note: "good" }] });
+  });
+
+  test("a declared verb event is stripped like updated instead of withheld", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "audit-sec-restricted:write:memo:create",
+      { name: "Memo", salary: "100000" },
+      hrTenantAdmin(),
+    );
+    await stack.http.writeOk(
+      "audit-sec-restricted:write:memo:review",
+      { id: created.id, salary: "130000" },
+      hrTenantAdmin(),
+    );
+
+    const reviewedPayload = rowOfType(
+      await listFor("memo", tenantAdmin()),
+      "memo.reviewed",
+    ).payload;
+    expect(reviewedPayload).not.toBeNull();
+    expect(reviewedPayload?.["changes"]).not.toHaveProperty("salary");
+    expect(reviewedPayload?.["previous"]).not.toHaveProperty("salary");
   });
 });
 

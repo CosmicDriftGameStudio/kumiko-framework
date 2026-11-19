@@ -5,7 +5,10 @@ import type {
   RenderedPdfAttachmentRef,
 } from "../renderer-foundation/index.ts";
 import { attachmentFileNameSchema } from "../shared/index.ts";
-import { isDocumentResourceKey, templateSlugSchema } from "../template-resolver/index.ts";
+// kumiko-lint-ignore cross-feature-import the template-resolver barrel loads template-preview, which imports the delivery barrel; through it jobs.ts would read this schema before it is initialized
+import { templateSlugSchema } from "../template-resolver/template-meta.ts";
+// kumiko-lint-ignore cross-feature-import same load cycle as templateSlugSchema above
+import { isDocumentResourceKey } from "../template-resolver/web/document-schema.ts";
 
 export type { FileAttachmentRef, InlineAttachmentRef, RenderedPdfAttachmentRef };
 export type EmailAttachmentRef = InlineAttachmentRef | FileAttachmentRef | RenderedPdfAttachmentRef;

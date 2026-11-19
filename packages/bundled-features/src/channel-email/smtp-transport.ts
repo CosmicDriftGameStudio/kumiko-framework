@@ -18,7 +18,12 @@
 // high-volume apps the caller must layer its own implementation with a
 // dedicated queue (BullMQ + retry) on top.
 
-import { sanitizeMailDisplayName } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
+import {
+  isHostAllowlisted,
+  MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
+  readAllowedPrivateMailHostsFromEnv,
+  sanitizeMailDisplayName,
+} from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import { createTransport, type Transporter } from "nodemailer";
 import addressparser from "nodemailer/lib/addressparser";
 import type { EmailAttachment, EmailMessage, EmailTransport } from "./types.ts";
@@ -50,7 +55,25 @@ export type SmtpTransportOptions = {
    *  the wrong name. Unset for the common case where `host` is already the
    *  hostname to validate against. */
   readonly servername?: string;
+  /** Keep up to 5 connections open for reuse. Default true for a transport
+   *  built once at boot; a transport built per send must pass false, or its
+   *  pooled sockets are never closed. */
+  readonly pooled?: boolean;
+  /** Operator-allowlisted private hosts (KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS)
+   *  that may speak plaintext SMTP, like loopback. */
+  readonly allowedPrivateMailHosts?: readonly string[];
 };
+
+const LOOPBACK_IPV4 = /^127(?:\.\d{1,3}){3}$/;
+
+function isLoopbackHost(host: string): boolean {
+  const normalized = host.toLowerCase().replace(/^\[|\]$/g, "");
+  return normalized === "localhost" || normalized === "::1" || LOOPBACK_IPV4.test(normalized);
+}
+
+function isPlaintextAllowedHost(host: string, allowlist: readonly string[]): boolean {
+  return isLoopbackHost(host) || isHostAllowlisted(host, allowlist);
+}
 
 function fromHeader(
   address: string,
@@ -74,13 +97,18 @@ function toNodemailerAttachment(attachment: EmailAttachment) {
 }
 
 export function createSmtpTransport(options: SmtpTransportOptions): EmailTransport {
+  const secure = options.secure ?? false;
   const transporter: Transporter = createTransport({
     host: options.host,
     port: options.port ?? 587,
-    secure: options.secure ?? false,
+    secure,
+    // Without it nodemailer sends mail (and AUTH) in clear text when the server offers no STARTTLS.
+    // Loopback and operator-allowlisted dev catchers (mailpit) have none.
+    requireTLS:
+      !secure && !isPlaintextAllowedHost(options.host, options.allowedPrivateMailHosts ?? []),
     ...(options.auth && { auth: options.auth }),
     ...(options.servername && { servername: options.servername }),
-    pool: true,
+    pool: options.pooled ?? true,
     maxConnections: 5,
   });
 
@@ -111,6 +139,7 @@ export type SmtpEnv = {
   readonly SMTP_USER?: string;
   readonly SMTP_PASS?: string;
   readonly SMTP_FROM?: string;
+  readonly [MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR]?: string;
 };
 
 /**
@@ -137,5 +166,6 @@ export function createSmtpTransportFromEnv(
       ? { auth: { user: env.SMTP_USER, pass: env.SMTP_PASS } }
       : {}),
     from: env.SMTP_FROM ?? opts.fallbackFrom,
+    allowedPrivateMailHosts: readAllowedPrivateMailHostsFromEnv(env),
   });
 }

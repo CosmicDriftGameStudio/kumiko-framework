@@ -9,6 +9,8 @@
 // title, body). Pins:
 //   1. The export hook delivers note rows as a JSON snippet into the export bundle.
 //   2. The delete hook removes note rows during the forget-cleanup cron.
+//   3. An event-sourced entity needs no hand-written loop: forgetOwnRowsDeleteHook forgets
+//      every mute the user set or received, trashed rows included.
 //
 // What is not in the recipe (see samples/apps/user-data-rights-demo
 // for a complete app):
@@ -16,6 +18,7 @@
 //   - HTTP endpoints for create/list
 //   - Compliance profile wiring + cron scheduling
 
+import { forgetOwnRowsDeleteHook } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import {
   deleteMany,
   deriveEntityTableMeta,
@@ -24,6 +27,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
+  createEntityExecutor,
   createTextField,
   defineFeature,
   EXT_USER_DATA,
@@ -32,6 +36,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const noteEntity = createEntity({
+  name: "note",
   table: "store_notes",
   idType: "uuid",
   fields: {
@@ -56,7 +61,35 @@ export const noteEntity = createEntity({
 // Plain EntityTableMeta, NOT a branded EntityTable: store_notes is a deliberate
 // unmanaged direct-write store (r.storeTable below), so the forget hook may
 // updateMany/deleteMany it directly — the meta carries no executor-only brand.
-export const notesTable = deriveEntityTableMeta("note", noteEntity, { source: "unmanaged" });
+export type NoteRow = {
+  readonly id: string;
+  readonly authorId: string | null;
+  readonly title: string;
+  readonly body: string | null;
+};
+
+export const notesTable = deriveEntityTableMeta(noteEntity, { source: "unmanaged" });
+
+export const muteEntity = createEntity({
+  name: "mute",
+  table: "read_udr_recipe_mutes",
+  idType: "uuid",
+  softDelete: true,
+  fields: {
+    userId: createTextField({ personal: "ref", required: true }),
+    mutedUserId: createTextField({ personal: "ref", required: true }),
+  },
+});
+
+export const { table: mutesTable, executor: muteExecutor } = createEntityExecutor(muteEntity);
+
+// A mute names two users; when either is erased the row goes, so no mute points at a missing user.
+export const forgetMutes = forgetOwnRowsDeleteHook({
+  entityName: "mute",
+  table: mutesTable,
+  executor: muteExecutor,
+  ownerFields: ["userId", "mutedUserId"],
+});
 
 export const notesFeature = defineFeature("notes", (r) => {
   r.requires({ features: ["user-data-rights"] });
@@ -70,7 +103,7 @@ export const notesFeature = defineFeature("notes", (r) => {
   });
 
   const exportNotes: UserDataExportHook = async (ctx) => {
-    const rows = await selectMany(ctx.db, notesTable, {
+    const rows = await selectMany<NoteRow>(ctx.db, notesTable, {
       tenantId: ctx.tenantId,
       authorId: ctx.userId,
     });
@@ -78,8 +111,8 @@ export const notesFeature = defineFeature("notes", (r) => {
     return {
       entity: "note",
       rows: rows.map((row) => ({
-        id: String(row.id),
-        title: row.title ?? "",
+        id: row.id,
+        title: row.title,
         body: row.body ?? "",
       })),
     };
@@ -94,8 +127,13 @@ export const notesFeature = defineFeature("notes", (r) => {
     }
   };
 
-  r.useExtension(EXT_USER_DATA, "note", {
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "note",
     export: exportNotes,
     delete: deleteNotes,
   });
+
+  r.entity(muteEntity);
+  r.applyExtension({ name: EXT_USER_DATA, entity: "mute", delete: forgetMutes });
 });

@@ -14,6 +14,7 @@ import {
   ValidationError,
   validationErrorFromZod,
 } from "../errors/index.ts";
+import { reraiseAsKumikoError } from "../errors/write-error-info.ts";
 import { assertNoSecretLeak } from "../secrets/leak-guard.ts";
 
 import { runInDispatchScope } from "./dispatch-scope.ts";
@@ -26,7 +27,7 @@ import {
   runHandlerInstrumented,
   type WriteOrigin,
 } from "./dispatch-shared.ts";
-import type { AfterCommitHook } from "./dispatcher-utils.ts";
+import { type AfterCommitHook, isFailedWriteResult } from "./dispatcher-utils.ts";
 import { handlerAccessError } from "./handler-access-error.ts";
 import { runInMemberReadOnlyTransaction } from "./member-read-only-transaction.ts";
 
@@ -141,6 +142,8 @@ async function runQueryHandler(
     outerNotifySink,
   });
   let result = await handler.handler({ type, payload, user }, handlerContext);
+  // A query answers with its value; a returned failure takes the same path as a thrown error.
+  if (isFailedWriteResult(result)) throw reraiseAsKumikoError(result.error);
 
   // postQuery hooks run BEFORE field-access filtering so they see raw data and can
   // merge custom fields, computed counts, tags, and similar values. Each hook is
@@ -206,8 +209,10 @@ async function runQueryHandler(
     }
   }
 
-  // Field-level read filter — only applies to entity-bound results.
-  const entity = entityName ? registry.getEntity(entityName) : undefined;
+  // Field-level read filter: the handler's mapped entity, or the entity it declares as resultEntity.
+  // entityName alone still feeds the hooks above.
+  const filterEntityName = entityName ?? handler.resultEntity;
+  const entity = filterEntityName ? registry.getEntity(filterEntityName) : undefined;
   if (entity && !isAggregate && result && typeof result === "object") {
     if (Array.isArray(result)) {
       result = result.map((row: Record<string, unknown>) => filterReadFields(entity, row, user));

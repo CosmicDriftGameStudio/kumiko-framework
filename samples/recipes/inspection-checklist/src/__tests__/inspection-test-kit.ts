@@ -10,13 +10,7 @@ import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { inspectionPlanEntity } from "../entities/inspection-plan";
-import { inspectionProtocolEntity } from "../entities/inspection-protocol";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { inspectionChecklistFeature } from "../feature";
 
 export const PROTOCOL_CREATE = "inspection-checklist:write:inspection-protocol:create";
@@ -65,8 +59,6 @@ export function useInspectionStack() {
       ],
       files: { storageProvider: createInMemoryFileProvider() },
     });
-    await unsafeCreateEntityTable(stack.db, inspectionPlanEntity, "inspection-plan");
-    await unsafeCreateEntityTable(stack.db, inspectionProtocolEntity, "inspection-protocol");
   });
 
   afterAll(async () => {

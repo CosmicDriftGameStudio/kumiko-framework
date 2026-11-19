@@ -3,8 +3,8 @@
  * Comment Issue-Ref Guard: a comment that holds only an issue or PR reference or a planning
  * label (`#1234`, `fw#1234`, `Phase 3`, `S2.H1`) and no explanatory word is a violation.
  * The number belongs in the commit message; the comment has to carry the reason. Existing
- * hits are frozen per file in `.kumiko-comment-issue-ref-baseline.json` and may not grow;
- * without a baseline file (consumer repos) the guard only warns.
+ * hits are frozen per file in `.kumiko-comment-issue-ref-baseline.json` and may not grow.
+ * A missing baseline file counts as an empty baseline, so every existing hit fails until it is frozen with `--write-baseline`.
  *
  * Consecutive own-line `//` comments count as one paragraph, so a reference on the last
  * line of an explaining paragraph is not a hit.

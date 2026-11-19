@@ -8,6 +8,7 @@ import { buildEntityTable } from "../table-builder.ts";
 
 function unitEntity() {
   return createEntity({
+    name: "unit",
     table: "read_units",
     fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
   });
@@ -17,7 +18,7 @@ describe("entityTableFromRegistry", () => {
   test("returns the table the registry booted, not one derived from the definition", () => {
     const registry = createRegistry([
       defineFeature("housing", (r) => {
-        r.entity({ name: "unit", ...unitEntity() });
+        r.entity(unitEntity());
       }),
     ]);
 
@@ -38,9 +39,7 @@ describe("entityTableFromRegistry", () => {
 
     const derived = entityTableFromRegistry(registry, "unit", unitEntity());
 
-    expect(extractTableName(derived)).toBe(
-      extractTableName(buildEntityTable("unit", unitEntity())),
-    );
+    expect(extractTableName(derived)).toBe(extractTableName(buildEntityTable(unitEntity())));
   });
 
   // A projection for a different entity must not be handed back: both are
@@ -49,11 +48,12 @@ describe("entityTableFromRegistry", () => {
   test("ignores implicit projections of other entities", () => {
     const registry = createRegistry([
       defineFeature("housing", (r) => {
-        r.entity({ name: "unit", ...unitEntity() });
+        r.entity(unitEntity());
       }),
     ]);
 
     const other = createEntity({
+      name: "other",
       table: "read_tenants",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
     });
@@ -69,7 +69,7 @@ describe("entityTableFromRegistry", () => {
 test("the registry table carries a physical name", () => {
   const registry = createRegistry([
     defineFeature("housing", (r) => {
-      r.entity({ name: "unit", ...unitEntity() });
+      r.entity(unitEntity());
     }),
   ]);
 

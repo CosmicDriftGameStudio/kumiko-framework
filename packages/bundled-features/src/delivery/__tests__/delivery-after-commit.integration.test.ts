@@ -56,7 +56,9 @@ const queuedSends: string[] = [];
 
 const queuedChannelFeature = defineFeature("queued-probe", (r) => {
   r.requires({ features: ["delivery"] });
-  r.useExtension(DELIVERY_CHANNEL_EXTENSION, "queuedProbe", {
+  r.applyExtension({
+    name: DELIVERY_CHANNEL_EXTENSION,
+    entity: "queuedProbe",
     mode: "queued",
     send: async (address) => {
       queuedSends.push(address);
@@ -158,7 +160,9 @@ async function inboxTitlesOf(userId: string, type: string): Promise<string[]> {
 }
 
 async function attemptEventsFor(type: string) {
-  const events = await selectMany(stack.db, eventsTable, { aggregateType: "deliveryAttempt" });
+  const events = await selectMany<{ payload: unknown }>(stack.db, eventsTable, {
+    aggregateType: "deliveryAttempt",
+  });
   return events.filter((event) => JSON.stringify(event.payload).includes(type));
 }
 

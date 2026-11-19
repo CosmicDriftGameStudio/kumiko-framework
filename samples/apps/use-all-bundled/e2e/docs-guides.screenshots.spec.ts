@@ -9,6 +9,7 @@
 import {
   CSRF_COOKIE_NAME,
   captureScreenshot,
+  E2E_TIMEOUT_MS,
   expect,
   pinEnglishLocale,
   boundaryGuardedTest as test,
@@ -122,7 +123,7 @@ test("system check: a real run lists passed and failed checks with a fix link, t
   await page.getByRole("link", { name: "System check" }).click();
   await page.getByRole("button", { name: "Start check" }).click();
   await expect(page.getByRole("row", { name: /Mailbox Invoices/ })).toContainText("OK", {
-    timeout: 30_000,
+    timeout: E2E_TIMEOUT_MS.test,
   });
 
   await scriptMailProvider(page, {
@@ -131,7 +132,7 @@ test("system check: a real run lists passed and failed checks with a fix link, t
   });
   await page.getByRole("button", { name: "Start check" }).click();
   const failedRow = page.getByRole("row", { name: /Mailbox Invoices/ });
-  await expect(failedRow).toContainText("Failed", { timeout: 30_000 });
+  await expect(failedRow).toContainText("Failed", { timeout: E2E_TIMEOUT_MS.test });
   await expect(failedRow.getByRole("link", { name: /rejected the stored login/ })).toHaveAttribute(
     "href",
     /mail-accounts/,

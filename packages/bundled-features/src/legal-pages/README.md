@@ -277,7 +277,8 @@ no DOMPurify dependency needed:
   relative; `javascript:`/`data:` hrefs are neutralised to `#`.
 - **Defense-in-depth headers** on every response (`security-headers.ts`):
   `content-security-policy: script-src 'none'; object-src 'none';
-  base-uri 'none'` (no script can run even if injection slips through),
+  base-uri 'none'; form-action 'self'` (no script can run even if injection
+  slips through, and injected forms cannot post to a foreign origin),
   plus `x-content-type-options`, `x-frame-options`, `referrer-policy`.
   No `default-src`, so inline `<style>` layouts stay unaffected.
 

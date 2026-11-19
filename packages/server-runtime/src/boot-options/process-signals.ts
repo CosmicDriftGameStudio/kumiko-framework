@@ -32,13 +32,23 @@ export function resolveDrainTimeoutMs(
   return explicit ?? fromEnv ?? DEFAULT_DRAIN_TIMEOUT_MS;
 }
 
-// HTTP shutdown, escape-hatch audit flush and DB/Redis close run after the job drain and must fit
-// into the same signal budget, so the job drain gets the budget minus this reserve.
+// stop() closes HTTP first (new requests refused, open SSE force-closed after the grace), then drains jobs,
+// then flushes audits and closes DB/Redis; all three must fit into one signal budget.
 export const SHUTDOWN_TAIL_RESERVE_MS = 5_000;
 const MIN_JOB_DRAIN_MS = 1_000;
+export const SERVER_STOP_GRACE_MS = 5_000;
 
-export function jobDrainBudgetMs(totalBudgetMs: number): number {
-  return Math.max(MIN_JOB_DRAIN_MS, totalBudgetMs - SHUTDOWN_TAIL_RESERVE_MS);
+export type ShutdownBudgets = { readonly serverGraceMs: number; readonly jobDrainMs: number };
+
+export function shutdownBudgetsMs(totalBudgetMs: number): ShutdownBudgets {
+  const serverGraceMs = Math.min(SERVER_STOP_GRACE_MS, Math.floor(totalBudgetMs / 5));
+  return {
+    serverGraceMs,
+    jobDrainMs: Math.max(
+      MIN_JOB_DRAIN_MS,
+      totalBudgetMs - serverGraceMs - SHUTDOWN_TAIL_RESERVE_MS,
+    ),
+  };
 }
 
 export type SignalProcess = {

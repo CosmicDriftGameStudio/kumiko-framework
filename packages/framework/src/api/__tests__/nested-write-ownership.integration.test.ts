@@ -32,6 +32,7 @@ import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 // project2/task2: same-tenant ownership scenario (b/c). ownerId is an
 // ownership-bound field — checkWriteFieldOwnership evaluates it.
 const project2Entity = createEntity({
+  name: "project2",
   table: "nested_own_projects2",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -43,50 +44,57 @@ const project2Entity = createEntity({
     }),
   },
 });
-const project2Table = buildEntityTable("project2", project2Entity);
+const project2Table = buildEntityTable(project2Entity);
 
 const task2Entity = createEntity({
+  name: "task2",
   table: "nested_own_tasks2",
   fields: {
     projectId: createTextField({ personal: false, reason: "test_fixture", required: true }),
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const task2Table = buildEntityTable("task2", task2Entity);
+const task2Table = buildEntityTable(task2Entity);
 
 // project3/task3: cross-tenant scenario (a). Role-only entity, no ownership
 // field — checkWriteFieldOwnership is a no-op here; only the tenant check
 // can catch it.
 const project3Entity = createEntity({
+  name: "project3",
   table: "nested_own_projects3",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const project3Table = buildEntityTable("project3", project3Entity);
+const project3Table = buildEntityTable(project3Entity);
 
 const task3Entity = createEntity({
+  name: "task3",
   table: "nested_own_tasks3",
   fields: {
     projectId: createTextField({ personal: false, reason: "test_fixture", required: true }),
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const task3Table = buildEntityTable("task3", task3Entity);
+const task3Table = buildEntityTable(task3Entity);
 
 const nestedOwnershipFeature = defineFeature("nested-own", (r) => {
-  r.entity({ name: "project2", ...project2Entity });
-  r.entity({ name: "task2", ...task2Entity });
-  r.relation("project2", "tasks", {
+  r.entity(project2Entity);
+  r.entity(task2Entity);
+  r.relation({
+    entity: "project2",
+    name: "tasks",
     type: "hasMany",
     target: "task2",
     foreignKey: "projectId",
     nestedWrite: true,
   });
 
-  r.entity({ name: "project3", ...project3Entity });
-  r.entity({ name: "task3", ...task3Entity });
-  r.relation("project3", "tasks", {
+  r.entity(project3Entity);
+  r.entity(task3Entity);
+  r.relation({
+    entity: "project3",
+    name: "tasks",
     type: "hasMany",
     target: "task3",
     foreignKey: "projectId",
@@ -145,7 +153,7 @@ const nestedOwnershipFeature = defineFeature("nested-own", (r) => {
     name: "project3:create",
     schema: z.object({ name: z.string().min(1), omitTenantId: z.boolean().optional() }),
     handler: async (event, ctx) => {
-      const runner = ctx.db.unsafeRaw();
+      const runner = ctx.db.unsafeRawAllTenants();
       const rows = await executeRawQuery<{
         id: string;
         name: string;
@@ -171,7 +179,10 @@ const nestedOwnershipFeature = defineFeature("nested-own", (r) => {
       return crud.create({ name: event.payload.name }, event.user, ctx.db);
     },
     access: { roles: ["Admin", "User"] },
-    escapeHatch: { reason: "fw#2861 test fixture — simulate cross-tenant find-or-create bug" },
+    escapeHatch: {
+      reason: "fw#2861 test fixture — simulate cross-tenant find-or-create bug",
+      grants: ["unsafeRaw"],
+    },
   });
 
   r.writeHandler({

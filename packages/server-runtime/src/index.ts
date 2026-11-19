@@ -9,6 +9,7 @@ export type {
   DemoAccountRole,
   DemoModeNotice,
   DemoModeOption,
+  DemoModePayload,
 } from "./boot-options/demo-mode.ts";
 export {
   buildDemoModeRoute,

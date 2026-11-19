@@ -49,6 +49,7 @@ const HOST_A = "cross-tenant-a.example.com";
 const publicGadgetIds = new Set<string>();
 let receivedArgs: DerivativePublicPredicateArgs[] = [];
 const gadgetEntity = createEntity({
+  name: "gadget",
   table: "cross_tenant_public_variant_gadgets",
   fields: {
     img: createImageField({ variants: { thumb: { maxEdge: 160, format: "webp" } } }),
@@ -56,18 +57,20 @@ const gadgetEntity = createEntity({
 });
 
 const gadgetPredicateFeature = defineFeature("crosstenantpublicvarianttest", (r) => {
-  r.entity({ name: "gadget", ...gadgetEntity });
+  r.entity(gadgetEntity);
   const adminOnly = { access: { roles: ["Admin"] } } as const;
   r.writeHandler(defineEntityCreateHandler("gadget", gadgetEntity, adminOnly));
   r.writeHandler(defineEntityUpdateHandler("gadget", gadgetEntity, adminOnly));
   r.queryHandler(defineEntityDetailHandler("gadget", gadgetEntity, adminOnly));
-  r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "gadget", {
+  r.applyExtension({
+    name: EXT_DERIVATIVE_PUBLIC_PREDICATE,
+    entity: "gadget",
     isPublic: (args: DerivativePublicPredicateArgs) => {
       receivedArgs.push(args);
       return publicGadgetIds.has(args.entityId);
     },
   });
-  r.useExtension(EXT_DERIVATIVE_RENDERER, "image/*", { render: fakeRender });
+  r.applyExtension({ name: EXT_DERIVATIVE_RENDERER, entity: "image/*", render: fakeRender });
 });
 
 const userA = createTestUser({ id: 1, tenantId: TENANT_A, roles: ["Admin"] });

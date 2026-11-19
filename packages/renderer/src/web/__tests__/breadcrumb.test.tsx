@@ -38,10 +38,10 @@ describe("Breadcrumb", () => {
       </Breadcrumb>,
     );
 
-    expect(screen.getByLabelText("breadcrumb")).toBeTruthy();
+    screen.getByLabelText("breadcrumb");
     expect(screen.getByText("Home").getAttribute("href")).toBe("/");
-    expect(screen.getByText("More")).toBeTruthy();
-    expect(screen.getByTestId("custom-sep")).toBeTruthy();
+    screen.getByText("More");
+    screen.getByTestId("custom-sep");
     expect(screen.getByText("Docs").getAttribute("href")).toBe("/docs");
     const page = screen.getByText("Current");
     expect(page.getAttribute("aria-current")).toBe("page");

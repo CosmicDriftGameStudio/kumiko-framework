@@ -32,7 +32,6 @@ type AggregateUpdateArgs = {
 
 defineStep<AggregateUpdateArgs, SaveContext>({
   kind: "aggregate.update",
-  defaultFailureStrategy: "throw",
   resultKey: (args) => args.name,
   run: async (args, ctx: PipelineCtx) => {
     const id = resolveRequired(args.id, ctx);

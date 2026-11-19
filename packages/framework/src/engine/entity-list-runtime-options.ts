@@ -9,6 +9,7 @@ import type { SchemaTable } from "../db/dialect.ts";
 import type { EagerLoadEntityResolver, EagerLoadViewer } from "../db/eagerload.ts";
 import { resolveTableName } from "../db/entity-table-meta.ts";
 import { labelListAggregateGroups } from "../db/list-aggregate-labels.ts";
+import { isFrameworkSystemUser } from "../db/lock-guard.ts";
 import { buildEntityTable } from "../db/table-builder.ts";
 import { extractTableInfo } from "../db/table-info.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
@@ -45,7 +46,7 @@ function implicitProjectionOf(ctx: HandlerContext, entityName: string) {
 
 function readTableOf(ctx: HandlerContext, entityName: string, entity: EntityDefinition) {
   const implicit = implicitProjectionOf(ctx, entityName);
-  return implicit?.table ?? buildEntityTable(entityName, entity);
+  return implicit?.table ?? buildEntityTable({ ...entity, name: entityName });
 }
 
 const readModelOwnersOf = memoizePerRegistry((registry) => {
@@ -66,6 +67,17 @@ function readTableResolver(ctx: HandlerContext, label: string) {
   };
 }
 
+export function hostRoleAllowsRead(
+  registry: Registry,
+  entityName: string,
+  user: SessionUser,
+): boolean {
+  if (isFrameworkSystemUser(user)) return true;
+  const rules = queryAccessOf(registry).get(entityName);
+  if (rules === undefined || rules.length === 0) return true;
+  return rules.some((rule) => hasAccess(user, rule));
+}
+
 // The join-row and read gates resolve hosts and file owners against the registry, which only
 // exists at request time; the handler check is the one live signals use too.
 export function parentVisibilityFor(
@@ -80,8 +92,26 @@ export function parentVisibilityFor(
       const rule = detailRules.get(name);
       return rule !== undefined && hasAccess(user, rule);
     },
+    canReadHostByRole: (name) => hostRoleAllowsRead(ctx.registry, name, user),
     resolveTable: readTableResolver(ctx, "parentVisibility"),
   };
+}
+
+function searchableChildRelations(ctx: HandlerContext, entityName: string) {
+  const relations: Array<{
+    readonly childEntityName: string;
+    readonly foreignKey: string;
+    readonly searchableFields: readonly string[];
+  }> = [];
+  for (const relation of Object.values(ctx.registry.getRelations(entityName))) {
+    if (relation.type !== "hasMany" || relation.searchable !== true) continue;
+    relations.push({
+      childEntityName: relation.target,
+      foreignKey: relation.foreignKey,
+      searchableFields: ctx.registry.getSearchableFields(relation.target),
+    });
+  }
+  return relations;
 }
 
 // Registry access only exists at request time, so the searchable/sortable-reference
@@ -109,6 +139,7 @@ export function entityListRuntime(
       ...(ctx.onlyDeleted === true && { onlyDeleted: true }),
       referenceSearch: {
         fields: ctx.registry.getSearchableReferences(entityName),
+        childRelations: searchableChildRelations(ctx, entityName),
         resolveEntity,
         resolveTable,
       },

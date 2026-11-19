@@ -257,8 +257,7 @@ function plantPackage(
 /**
  * Hand-rolled canonical-form feature-file with three kinds (entity,
  * writeHandler, nav) so the smoke-test exercises tags + counts across
- * categories. Mirrors `samples/recipes/designer-demo/src/feature.ts`
- * but inlined here so the test stays self-contained.
+ * categories.
  */
 function buildCanonicalMultiKindFeature(featureName: string): string {
   return `// kumiko-feature-version: 1

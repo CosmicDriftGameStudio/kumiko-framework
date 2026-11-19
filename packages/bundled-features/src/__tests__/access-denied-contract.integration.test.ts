@@ -23,14 +23,12 @@ import { createRateLimitingFeature } from "../rate-limiting/index.ts";
 import { createRendererFoundationFeature } from "../renderer-foundation/feature.ts";
 import { createSecretsFeature } from "../secrets/feature.ts";
 import { createSessionsFeature } from "../sessions/index.ts";
-import { createStepDispatcherFeature } from "../step-dispatcher/feature.ts";
 import { createTagsFeature } from "../tags/index.ts";
 import { createTemplateResolverFeature } from "../template-resolver/feature.ts";
 import { createTenantFeature } from "../tenant/index.ts";
 import { createTenantLifecycleFeature } from "../tenant-lifecycle/index.ts";
 import { createTenantSettingsFeature } from "../tenant-settings/feature.ts";
 import { createUserFeature } from "../user/feature.ts";
-import { createWorkflowRunnerFeature } from "../workflow-runner/index.ts";
 import { testAuthMfaOptions } from "./auth-mfa-test-options.ts";
 
 let stack: TestStack;
@@ -51,17 +49,15 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       createFeatureTogglesFeature(),
       createSecretsFeature(),
-      createTagsFeature(),
-      createFoldersFeature(),
+      createTagsFeature({ parents: ["user"] }),
+      createFoldersFeature({ parents: ["user"] }),
       createCapCounterFeature(),
       createDataRetentionFeature(),
       createPersonalAccessTokensFeature({ scopes: {} }),
       createTenantSettingsFeature(),
       createRateLimitingFeature(),
-      createWorkflowRunnerFeature(),
-      createStepDispatcherFeature(),
       createFormDraftFeature(),
-      createNotesHistoryFeature(),
+      createNotesHistoryFeature({ parents: ["user"] }),
       createLedgerFeature(),
       createCustomFieldsFeature(),
       createTemplateResolverFeature(),

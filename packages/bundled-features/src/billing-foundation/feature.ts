@@ -79,6 +79,7 @@ import {
   SUBSCRIPTION_UPDATED_EVENT_SHORT,
   subscriptionEventPayloadSchema,
 } from "./events.ts";
+import { applySubscriptionSnapshotHandler } from "./handlers/apply-subscription-snapshot.write.ts";
 import { createBillingPlansQuery } from "./handlers/billing-plans.query.ts";
 import { createCheckoutSessionHandler } from "./handlers/create-checkout-session.write.ts";
 import { createPortalSessionHandler } from "./handlers/create-portal-session.write.ts";
@@ -90,7 +91,7 @@ import { recordCheckoutOpenedHandler } from "./handlers/record-checkout-opened.w
 import { createStartPlanCheckoutHandler } from "./handlers/start-plan-checkout.write.ts";
 import { createSwitchPlanHandler } from "./handlers/switch-plan.write.ts";
 import { syncSubscriptionHandler } from "./handlers/sync-subscription.write.ts";
-import { BILLING_FOUNDATION_I18N } from "./i18n.ts";
+import { BILLING_FOUNDATION_HANDLER_I18N, BILLING_FOUNDATION_I18N } from "./i18n.ts";
 import {
   applyInvoicePaid,
   applyInvoicePaymentFailed,
@@ -103,6 +104,7 @@ import {
 } from "./projection.ts";
 import { createBillingPlansScreen } from "./screens.ts";
 import { registerScrubRawPayloadHeadersJob } from "./scrub-raw-payload-headers.ts";
+import { registerSyncSubscriptionsJob } from "./sync-subscriptions-job.ts";
 import {
   PAYMENT_TENANT_DESTROY_ARCHIVE_REASON,
   paymentTenantDestroyHook,
@@ -111,11 +113,7 @@ import {
 } from "./tenant-destroy-hook.ts";
 import type { BillingFoundationOptions, ResolvedBillingFoundationOptions } from "./types.ts";
 import { validateOptions } from "./validate-options.ts";
-import {
-  BILLING_FOUNDATION_FEATURE,
-  SUBSCRIPTION_PROVIDER_EXTENSION,
-  SubscriptionFoundationHandlers,
-} from "./web/constants.ts";
+import { BILLING_FOUNDATION_FEATURE, SUBSCRIPTION_PROVIDER_EXTENSION } from "./web/constants.ts";
 
 export function createBillingFoundationFeature<TTier extends string = string>(
   options: BillingFoundationOptions<TTier> = {},
@@ -144,7 +142,7 @@ export function createBillingFoundationFeature<TTier extends string = string>(
     BILLING_FOUNDATION_FEATURE,
     (r) => {
       r.describe(
-        "Plugin host for subscription billing. Manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also manages a separate `read_payments` projection table (one row per one-off-payment) fed by its own `payment-received` event and `billing-foundation:write:process-payment-event` write-handler. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookRoute` factory for the `/api/subscription/webhook/:providerName` extraRoute. `createBillingFoundationFeature({ baseUrl, catalog })` additionally derives a `billing-foundation:query:billing-plans` query, `start-plan-checkout`/`switch-plan` write-handlers, a `plan-switch-preview` query and a dormant billing-plans dashboard screen/panel from the catalog. Several providers can be mounted at once: new checkouts are offered by every enabled provider (enabled means keys set and billingLive on, or simply mounted for plugins without `isBillingEnabled`), the customer picks one in the plan panel and `start-plan-checkout` takes a `providerName`. An existing subscription stays with the provider that stored it, so the plan list and every switch follow that provider. A plan switch is either hosted (`createPlanSwitchSession` answers a url) or in-app (`previewPlanSwitch` shows the proration, `applyPlanSwitch` runs after the customer confirms; `switch-plan` then answers `{ applied: true }` and records the consent). `consumerProtection.providerTexts` overrides the checkout note and the VAT note per provider. Also ships `billing-foundation:write:sync-subscription` (pulls a provider plugin's live subscription state via `retrieveSubscription` and appends drift as a `subscription.updated` event, which catches changes made on the provider's own dashboard that never reached us as a webhook) and the `sync-subscriptions` job (manual-trigger + runOnBoot, perTenant) that dispatches it. Low-level building block: use `subscription-stripe`, `subscription-mollie` or `subscription-paddle` unless you are writing a new payment provider.",
+        "Plugin host for subscription billing. Manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also manages a separate `read_payments` projection table (one row per one-off-payment) fed by its own `payment-received` event and `billing-foundation:write:process-payment-event` write-handler. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookRoute` factory for the `/api/subscription/webhook/:providerName` extraRoute. `createBillingFoundationFeature({ baseUrl, catalog })` additionally derives a `billing-foundation:query:billing-plans` query, `start-plan-checkout`/`switch-plan` write-handlers, a `plan-switch-preview` query and a dormant billing-plans dashboard screen/panel from the catalog. Several providers can be mounted at once: new checkouts are offered by every enabled provider (enabled means keys set and billingLive on, or simply mounted for plugins without `isBillingEnabled`), the customer picks one in the plan panel and `start-plan-checkout` takes a `providerName`. An existing subscription stays with the provider that stored it, so the plan list and every switch follow that provider. A plan switch is either hosted (`createPlanSwitchSession` answers a url) or in-app (`previewPlanSwitch` shows the proration, `applyPlanSwitch` runs after the customer confirms; `switch-plan` then answers `{ applied: true }` and records the consent). `consumerProtection.providerTexts` overrides the checkout note and the VAT note per provider. Also ships `billing-foundation:write:sync-subscription` (pulls a provider plugin's live subscription state via `retrieveSubscription` and appends drift as a `subscription.updated` event, which catches changes made on the provider's own dashboard that never reached us as a webhook) and the `sync-subscriptions` job (daily in the maintenance window, perTenant) that dispatches it. Low-level building block: use `subscription-stripe`, `subscription-mollie` or `subscription-paddle` unless you are writing a new payment provider.",
       );
       r.uiHints({
         displayLabel: "Billing · Foundation",
@@ -230,7 +228,10 @@ export function createBillingFoundationFeature<TTier extends string = string>(
       //     subscription.updated event. Registered unconditionally (not
       //     catalog-gated) — it operates on whatever subscription already
       //     exists for the tenant, independent of the billing-plans catalog.
+      //   - apply-subscription-snapshot: the append half of sync-subscription, so the
+      //     provider call runs outside a transaction and the append under the stream lock.
       r.writeHandler(syncSubscriptionHandler);
+      r.writeHandler(applySubscriptionSnapshotHandler);
 
       // Custom list-query on the subscription-projection (raw drizzle
       // table; no r.entity since writes go through projection-apply).
@@ -240,6 +241,7 @@ export function createBillingFoundationFeature<TTier extends string = string>(
       // fire from create-checkout-session even without a catalog — register
       // unconditionally rather than splitting the i18n surface by option.
       r.translations({ keys: BILLING_FOUNDATION_I18N });
+      r.translations({ keys: BILLING_FOUNDATION_HANDLER_I18N });
       if (widened.consumerProtection) {
         registerConsumerProtection(r, widened, widened.consumerProtection);
       }
@@ -256,40 +258,17 @@ export function createBillingFoundationFeature<TTier extends string = string>(
         r.screen(createBillingPlansScreen(catalog.viewRoles));
       }
 
-      // Backfill job: catches provider-side drift (e.g. a cancel_at set on
-      // the provider's own dashboard) that never reached us as a webhook.
-      // manual-trigger + runOnBoot (not cron) — this is an on-demand/boot
-      // reconciliation pass, not a recurring sweep; an app that wants a
-      // recurring sync can dispatch billing-foundation:job:sync-subscriptions
-      // from its own cron job. perTenant + runOnBoot are compatible (only
-      // bootGate is not). Registered unconditionally, same reasoning as the
-      // sync-subscription write-handler above.
-      r.job({
-        name: "sync-subscriptions",
-        trigger: { manual: true },
-        perTenant: true,
-        runOnBoot: true,
-        handler: async (_payload, ctx) => {
-          const result = await ctx.dispatch.write(
-            SubscriptionFoundationHandlers.syncSubscription,
-            {},
-          );
-          if (!result.isSuccess) {
-            throw new Error(
-              `billing-foundation:sync-subscriptions: sync-subscription write failed: ${JSON.stringify(result.error)}`,
-            );
-          }
-          ctx.obs.log.info(
-            `[billing-foundation:sync-subscriptions] ${JSON.stringify(result.data)}`,
-          );
-        },
-      });
+      registerSyncSubscriptionsJob(r);
       registerScrubRawPayloadHeadersJob(r);
-      r.useExtension(EXT_TENANT_DATA, "subscription", {
+      r.applyExtension({
+        name: EXT_TENANT_DATA,
+        entity: "subscription",
         destroy: subscriptionTenantDestroyHook,
         escapeHatch: { reason: SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON },
       });
-      r.useExtension(EXT_TENANT_DATA, "payment", {
+      r.applyExtension({
+        name: EXT_TENANT_DATA,
+        entity: "payment",
         destroy: paymentTenantDestroyHook,
         escapeHatch: { reason: PAYMENT_TENANT_DESTROY_ARCHIVE_REASON },
       });

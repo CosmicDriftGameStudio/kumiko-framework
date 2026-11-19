@@ -1,6 +1,7 @@
 // setupTestStack checks nav references on the mounted features and, on request, runs the full prod validateBoot.
 import { describe, expect, test } from "bun:test";
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { setupTestStack } from "../test-stack.ts";
 
@@ -31,7 +32,32 @@ const refEntityToUnmountedFeature = defineFeature("ledger", (r) => {
   });
 });
 
+const mailViewEntity = createEntity({
+  name: "mail-view",
+  table: "stack_boot_mail_views",
+  fields: {
+    note: createTextField({ personal: false, reason: "test_fixture", access: { read: ["Admin"] } }),
+  },
+});
+
+const readRuleOnReadModel = defineFeature("mailbox", (r) => {
+  r.defineEvent("mail-received", z.object({}), { piiFields: "none" });
+  r.projection({
+    name: "mail-view",
+    source: "mail-view",
+    table: buildEntityTable(mailViewEntity),
+    entity: mailViewEntity,
+    apply: { "mailbox:event:mail-received": async () => {} },
+  });
+});
+
 describe("setupTestStack boot validation", () => {
+  test("subset check rejects a field read rule on a read-model entity", async () => {
+    await expect(setupTestStack({ features: [readRuleOnReadModel] })).rejects.toThrow(
+      /read-model entity "mail-view" field "note" has a read rule/,
+    );
+  });
+
   test("subset check rejects a nav screen ref that is missing inside a mounted feature", async () => {
     await expect(setupTestStack({ features: [brokenNavInMountedFeature] })).rejects.toThrow(
       /Nav entry "home" references screen "navbroken:screen:missing"/,

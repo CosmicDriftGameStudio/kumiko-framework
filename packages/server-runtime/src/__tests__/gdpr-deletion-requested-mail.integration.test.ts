@@ -19,9 +19,9 @@ import {
   deliveryAttemptsTable,
   notificationPreferencesTable,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
-import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createMailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { seedNotificationTemplates } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
@@ -39,9 +39,9 @@ import {
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -82,7 +82,7 @@ beforeAll(async () => {
       createRendererMailHtmlFeature(),
       createDeliveryFeature(),
       mail.feature,
-      createUserDataRightsFeature(),
+      createUserDataRightsFeature({ mailDefaults: { appName: "Acme" } }),
       localeDe(),
       createUserDataRightsDefaultsFeature(),
     ],

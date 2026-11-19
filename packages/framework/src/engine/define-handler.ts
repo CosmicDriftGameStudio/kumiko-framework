@@ -2,22 +2,31 @@ import type { CursorResult } from "@cosmicdrift/kumiko-types/cursor-types";
 import type { KumikoEventTypeMap } from "@cosmicdrift/kumiko-types/event-type-map";
 import type {
   BeforeTransactionWhenNested,
+  EscapeHatchGrant,
+  SystemScopeHandlerContext,
   WriteEvent,
-  WriteResult,
 } from "@cosmicdrift/kumiko-types/handlers";
 import {
   ENTITY_CONVENTION_QUERY_BRAND,
   ENTITY_CONVENTION_WRITE_BRAND,
+  escapeHatchAllows,
+  hasCrossTenantReads,
 } from "@cosmicdrift/kumiko-types/handlers";
+import type { CrossTenantReads } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type * as z from "zod";
 import type { ZodType } from "zod";
+import { isAgentToolCallScope } from "../api/request-context-scopes.ts";
+import { hasSystemDb } from "../db/tenant-db.ts";
+import { AccessDeniedError, InternalError } from "../errors/index.ts";
+import { isMemberResolutionPrincipal } from "../pipeline/dispatch-context-helpers.ts";
 import type { ContainsSecret } from "../secrets/types.ts";
 import { bootRuleError } from "./boot-validator/boot-rule.ts";
 import { DEFINITION_HANDLER_RULES } from "./boot-validator/definition-handlers-rules.ts";
 import { runPipeline } from "./run-pipeline.ts";
 import type {
   QueryHandlerDefinition,
+  QueryHandlerInput,
   WriteHandlerDefinition,
   WriteHandlerInput,
 } from "./types/define-handler.ts";
@@ -25,6 +34,7 @@ import type { HandlerContext } from "./types/index.ts";
 
 export type {
   QueryHandlerDefinition,
+  QueryHandlerInput,
   StreamHandlerDefinition,
   WriteHandlerDefinition,
   WriteHandlerInput,
@@ -59,6 +69,143 @@ function hasHandlerAndPerform(def: object): boolean {
   );
 }
 
+function assertSingleHandlerForm(def: object & { readonly name: string }): void {
+  if (!hasHandlerAndPerform(def)) return;
+  throw bootRuleError(DEFINITION_HANDLER_RULES.handlerAndPerformBoth, {
+    message:
+      `defineWriteHandler("${def.name}"): both \`handler\` and \`perform\` are set. ` +
+      `Pick one — \`handler\` for the free-form async function, ` +
+      `\`perform: stepsPipeline(...)\` for the step-pipeline form. ` +
+      `(See step-vocabulary.md for which form fits.)`,
+  });
+}
+
+function pickWriteHandlerMetadata<
+  TName extends string,
+  TSchema extends ZodType,
+  TData,
+  TMap extends object,
+  TPrepared,
+  TWhenNested extends BeforeTransactionWhenNested | undefined,
+>(def: WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared, TWhenNested>) {
+  return {
+    name: def.name,
+    schema: def.schema,
+    ...(def.access && { access: def.access }),
+    ...(def.description !== undefined && { description: def.description }),
+    ...(def.agent && { agent: def.agent }),
+    ...(def.excludedFields && { excludedFields: def.excludedFields }),
+    ...(def.rateLimit && { rateLimit: def.rateLimit }),
+    ...(def.additionalRateLimits && { additionalRateLimits: def.additionalRateLimits }),
+    ...(def.rateLimitCost && { rateLimitCost: def.rateLimitCost }),
+  };
+}
+
+function pickWriteHandlerSafetyFlags<
+  TName extends string,
+  TSchema extends ZodType,
+  TData,
+  TMap extends object,
+  TPrepared,
+  TWhenNested extends BeforeTransactionWhenNested | undefined,
+>(def: WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared, TWhenNested>) {
+  return {
+    ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
+    ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
+    ...(def.systemScope === true && { systemScope: true as const }),
+    ...(def.dispatchOnly && { dispatchOnly: true }),
+    ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),
+    ...(def.transaction && { transaction: def.transaction }),
+  };
+}
+
+// The declaration promises ctx.systemDb; a dispatch without it (feature lacks r.systemScope()
+// or no db is wired) fails here, naming the handler, instead of deep inside the handler.
+function systemScopeContext<TMap extends object>(
+  ctx: HandlerContext<TMap>,
+  handlerName: string,
+): SystemScopeHandlerContext<TMap> {
+  if (!hasSystemDb(ctx)) {
+    throw new InternalError({
+      message:
+        `Handler "${handlerName}" declares systemScope: true but ran without ctx.systemDb — ` +
+        "its feature must call r.systemScope() and the app context must wire a db.",
+    });
+  }
+  return ctx;
+}
+
+// Agent tool calls and resolved member principals never receive ctx.crossTenantReads by design
+// (handler-context-db.ts, handler-context-member-resolution.ts), so those are denials; any other
+// absence means the app context wired no db.
+function crossTenantReadsContext<
+  TContext extends Pick<HandlerContext, "crossTenantReads" | "user">,
+>(ctx: TContext, handlerName: string): TContext & { readonly crossTenantReads: CrossTenantReads } {
+  if (hasCrossTenantReads(ctx)) return ctx;
+  if (isAgentToolCallScope()) {
+    throw new AccessDeniedError({
+      message: `Handler "${handlerName}" declares the crossTenantReads grant, which an agent tool call never receives.`,
+    });
+  }
+  if (isMemberResolutionPrincipal(ctx.user)) {
+    throw new AccessDeniedError({
+      message: `Handler "${handlerName}" declares the crossTenantReads grant, which a resolved member principal never receives.`,
+    });
+  }
+  throw new InternalError({
+    message:
+      `Handler "${handlerName}" declares the crossTenantReads grant but ran without ctx.crossTenantReads — ` +
+      "the app context must wire a db.",
+  });
+}
+
+function grantedContext<TContext extends Pick<HandlerContext, "crossTenantReads" | "user">>(
+  ctx: TContext,
+  handlerName: string,
+  readsGranted: boolean,
+): TContext {
+  return readsGranted ? crossTenantReadsContext(ctx, handlerName) : ctx;
+}
+
+function compileWriteHandler<
+  TName extends string,
+  TSchema extends ZodType,
+  TData,
+  TMap extends object,
+  TPrepared,
+  TWhenNested extends BeforeTransactionWhenNested | undefined,
+>(
+  def: WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared, TWhenNested>,
+): WriteHandlerDefinition<TName, TSchema, TData, TMap, TPrepared, TWhenNested>["handler"] {
+  const handlerName = def.name;
+  const readsGranted = escapeHatchAllows(def.escapeHatch, "crossTenantReads");
+  if (def.perform !== undefined) {
+    const performDef = def.perform;
+    const declaresSystemScope = def.systemScope === true;
+    return async (event: WriteEvent<z.infer<TSchema>>, ctx: HandlerContext<TMap>) =>
+      runPipeline<z.infer<TSchema>, TData, TMap>(
+        performDef,
+        event,
+        grantedContext(
+          declaresSystemScope ? systemScopeContext(ctx, handlerName) : ctx,
+          handlerName,
+          readsGranted,
+        ),
+      );
+  }
+  if (def.systemScope === true) {
+    const systemHandler = def.handler;
+    return async (event, ctx) =>
+      systemHandler(
+        event,
+        grantedContext(systemScopeContext(ctx, handlerName), handlerName, readsGranted),
+      );
+  }
+  if (!readsGranted) return def.handler;
+  const grantedHandler = def.handler;
+  return async (event, ctx) => grantedHandler(event, crossTenantReadsContext(ctx, handlerName));
+}
+
 export function defineWriteHandler<
   const TName extends string,
   TSchema extends ZodType,
@@ -66,8 +213,9 @@ export function defineWriteHandler<
   TMap extends object = KumikoEventTypeMap,
   TPrepared = undefined,
   TWhenNested extends BeforeTransactionWhenNested | undefined = undefined,
+  TGrant extends EscapeHatchGrant = EscapeHatchGrant,
 >(
-  def: WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared, TWhenNested>,
+  def: WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared, TWhenNested, TGrant>,
   // R6: a phantom rest-param. When the inferred response `TData` carries a
   // Secret<> anywhere, ContainsSecret<TData> is `true` and this resolves to a
   // 1-tuple the caller can't supply → compile error at the leak site. Clean
@@ -92,55 +240,53 @@ export function defineWriteHandler<
         secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field.",
       ]
     : []
+): WriteHandlerDefinition<TName, TSchema, TData, TMap, TPrepared, TWhenNested>;
+// The implementation sees the grant list as the full EscapeHatchGrant union, so the author's handler
+// takes the plain context types; only the overload above hands callers the grant-typed ctx.
+export function defineWriteHandler<
+  TName extends string,
+  TSchema extends ZodType,
+  TData,
+  TMap extends object,
+  TPrepared,
+  TWhenNested extends BeforeTransactionWhenNested | undefined,
+>(
+  def: WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared, TWhenNested>,
 ): WriteHandlerDefinition<TName, TSchema, TData, TMap, TPrepared, TWhenNested> {
-  // Runtime-guard against accidentally setting BOTH handler+perform.
-  // The discriminated-union type-error
-  //   "Type 'PipelineDef<...>' is not assignable to type 'undefined'."
-  // is functional but cryptic for less TS-experienced users; this throws
-  // a name-and-explanation error message instead.
-  const handlerName = def.name;
-  if (hasHandlerAndPerform(def)) {
-    throw bootRuleError(DEFINITION_HANDLER_RULES.handlerAndPerformBoth, {
-      message:
-        `defineWriteHandler("${handlerName}"): both \`handler\` and \`perform\` are set. ` +
-        `Pick one — \`handler\` for the free-form async function, ` +
-        `\`perform: stepsPipeline(...)\` for the step-pipeline form. ` +
-        `(See step-vocabulary.md for which form fits.)`,
-    });
-  }
-
-  // Conditional spreads (`...(def.access && { access: def.access })`)
-  // mirror the existing convention in entity-handlers.ts /
-  // define-feature.ts — optional fields stay absent rather than being
-  // serialised as `key: undefined`.
-  const base = {
-    name: def.name,
-    schema: def.schema,
-    ...(def.access && { access: def.access }),
-    ...(def.description !== undefined && { description: def.description }),
-    ...(def.agent && { agent: def.agent }),
-    ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
-    ...(def.rateLimit && { rateLimit: def.rateLimit }),
-    ...(def.additionalRateLimits && { additionalRateLimits: def.additionalRateLimits }),
-    ...(def.rateLimitCost && { rateLimitCost: def.rateLimitCost }),
-    ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
+  assertSingleHandlerForm(def);
+  // Optional fields stay absent instead of `key: undefined` (convention of entity-handlers.ts / define-feature.ts).
+  return {
+    ...pickWriteHandlerMetadata(def),
+    ...pickWriteHandlerSafetyFlags(def),
     ...pickPreTransactionPhases(def),
-    ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),
-    ...(def.transaction && { transaction: def.transaction }),
+    handler: compileWriteHandler(def),
+    ...(def.perform !== undefined && { perform: def.perform }),
   };
+}
 
-  if ("perform" in def && def.perform !== undefined) {
-    const performDef = def.perform;
-    const compiledHandler = async (
-      event: WriteEvent<z.infer<TSchema>>,
-      ctx: HandlerContext<TMap>,
-    ): Promise<WriteResult<TData>> => {
-      return runPipeline<z.infer<TSchema>, TData, TMap>(performDef, event, ctx);
+function compileQueryHandler<
+  TName extends string,
+  TSchema extends ZodType,
+  TResult,
+  TMap extends object,
+>(
+  def: QueryHandlerInput<TName, TSchema, TResult, TMap>,
+): QueryHandlerDefinition<TName, TSchema, TResult, TMap> {
+  const readsGranted = escapeHatchAllows(def.escapeHatch, "crossTenantReads");
+  if (def.systemScope === true) {
+    const { handler, name } = def;
+    return {
+      ...def,
+      handler: async (query, ctx) =>
+        handler(query, grantedContext(systemScopeContext(ctx, name), name, readsGranted)),
     };
-    return { ...base, handler: compiledHandler, perform: performDef };
   }
-
-  return { ...base, handler: def.handler };
+  if (!readsGranted) return def;
+  const { handler, name } = def;
+  return {
+    ...def,
+    handler: async (query, ctx) => handler(query, crossTenantReadsContext(ctx, name)),
+  };
 }
 
 export function defineQueryHandler<
@@ -148,8 +294,9 @@ export function defineQueryHandler<
   TSchema extends ZodType,
   TResult = unknown,
   TMap extends object = KumikoEventTypeMap,
+  TGrant extends EscapeHatchGrant = EscapeHatchGrant,
 >(
-  def: QueryHandlerDefinition<TName, TSchema, TResult, TMap>,
+  def: QueryHandlerInput<TName, TSchema, TResult, TMap, TGrant>,
   // R6: phantom rest-param — see defineWriteHandler. Forbids a Secret<> in the
   // inferred query response `TResult` at compile time; `[]` for clean responses.
   // Membership form (556/1) — see defineWriteHandler's comment for why.
@@ -158,8 +305,17 @@ export function defineQueryHandler<
         secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field.",
       ]
     : []
+): QueryHandlerDefinition<TName, TSchema, TResult, TMap>;
+// Implementation signature: see defineWriteHandler.
+export function defineQueryHandler<
+  TName extends string,
+  TSchema extends ZodType,
+  TResult,
+  TMap extends object,
+>(
+  def: QueryHandlerInput<TName, TSchema, TResult, TMap>,
 ): QueryHandlerDefinition<TName, TSchema, TResult, TMap> {
-  return def;
+  return compileQueryHandler(def);
 }
 
 // Runtime marker set only by definePagedQueryHandler. A plain
@@ -217,8 +373,9 @@ export function definePagedQueryHandler<
   TSchema extends ZodType,
   TRow = unknown,
   TMap extends object = KumikoEventTypeMap,
+  TGrant extends EscapeHatchGrant = EscapeHatchGrant,
 >(
-  def: QueryHandlerDefinition<TName, TSchema, CursorResult<TRow>, TMap>,
+  def: QueryHandlerInput<TName, TSchema, CursorResult<TRow>, TMap, TGrant>,
   // R6: phantom rest-param — see defineWriteHandler. CursorResult<TRow> wraps
   // TRow in `rows`, so ContainsSecret recurses through the array element.
   ..._noSecretInResponse: true extends ContainsSecret<CursorResult<TRow>>
@@ -226,6 +383,15 @@ export function definePagedQueryHandler<
         secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field.",
       ]
     : []
+): PagedQueryHandlerDefinition<TName, TSchema, TRow, TMap>;
+// Implementation signature: see defineWriteHandler.
+export function definePagedQueryHandler<
+  TName extends string,
+  TSchema extends ZodType,
+  TRow,
+  TMap extends object,
+>(
+  def: QueryHandlerInput<TName, TSchema, CursorResult<TRow>, TMap>,
 ): PagedQueryHandlerDefinition<TName, TSchema, TRow, TMap> {
-  return { ...def, [PAGED_QUERY_HANDLER_BRAND]: true };
+  return { ...compileQueryHandler(def), [PAGED_QUERY_HANDLER_BRAND]: true };
 }

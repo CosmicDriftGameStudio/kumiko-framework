@@ -4,6 +4,8 @@
 // side (defineFeature, Handler) lives under `.../user-data-rights` and has
 // no React/DOM dependencies.
 
+export type { CancelAccountDeletionScreenProps } from "./cancel-deletion-screen.tsx";
+export { CancelAccountDeletionScreen } from "./cancel-deletion-screen.tsx";
 export { type UserDataRightsClientOptions, userDataRightsClient } from "./client-plugin.tsx";
 export type { ConfirmAccountDeletionScreenProps } from "./confirm-deletion-screen.tsx";
 export { ConfirmAccountDeletionScreen } from "./confirm-deletion-screen.tsx";

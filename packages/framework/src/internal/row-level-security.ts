@@ -13,3 +13,4 @@ export {
   systemTenantReadRunner,
   systemTenantWriteRunner,
 } from "../db/system-tenant-read-db.ts";
+export { type CreateTenantDbOptions, createTenantDb } from "../db/tenant-db.ts";

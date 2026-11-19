@@ -93,5 +93,5 @@ export function createSubmitResultHandlers<TValues extends FormValues, TCtx>({
     else handleSubmitError(result.error);
   }
 
-  return { handleSubmitSuccess, applySubmitFailure };
+  return { handleSubmitSuccess, applySubmitFailure, handleSubmitError };
 }

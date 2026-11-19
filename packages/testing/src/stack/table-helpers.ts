@@ -1,4 +1,6 @@
 // @runtime dev
+
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   schemaTableName,
   truncateTablesRestartIdentity,
@@ -22,7 +24,7 @@ function tableNameOf(table: unknown): string {
  * rebuilding it.
  */
 export async function resetEventStore(
-  stack: { db: unknown; eventDispatcher?: EventDispatcher },
+  stack: { db: DbConnection; eventDispatcher?: EventDispatcher },
   extraTables: readonly (unknown | string)[] = [],
 ): Promise<void> {
   const frameworkTables = [

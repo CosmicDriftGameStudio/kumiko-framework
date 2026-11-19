@@ -1,18 +1,13 @@
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
-import type { TenantId } from "../engine/types/index.ts";
-
+import { ValidationError } from "../errors/index.ts";
 import { rehydrateCompoundTypes } from "./compound-types.ts";
+import type { Table } from "./event-store-executor-context.ts";
+import type { ListSort } from "./event-store-executor-read-sort.ts";
 import { coerceRow } from "./query.ts";
-import type { TableInfo } from "./table-info.ts";
-
-const STREAM_VERSION_ALIAS = "__streamVersion";
-
-export function withStreamVersion(
-  row: Record<string, unknown>,
-  streamVersion: number,
-): Record<string, unknown> {
-  return streamVersion > 0 ? { ...row, version: streamVersion } : row;
-}
+import { quoteIdent } from "./sql-identifier.ts";
+import { physicalColumnName } from "./table-builder.ts";
+import { extractTableInfo, type TableInfo } from "./table-info.ts";
+import { requireEntityTableMeta } from "./table-introspection.ts";
 
 // Coerce BEFORE rehydrate/decrypt: raw SQL rows carry snake_case column names,
 // while compound-type lookups (rehydrateMoney et al.) and the encrypted/pii
@@ -27,28 +22,80 @@ export function coerceAndRehydrateRow(
   return rehydrateCompoundTypes(coerceRow(raw, tableInfo), entity);
 }
 
-// Stream version in the same statement as the rows: a separate read could pair a
-// post-write version with a pre-write row, and update({version}) would then pass
-// the optimistic lock against a state the client never saw (see loadDetailSnapshot).
-export function appendStreamVersionProjection(
-  params: unknown[],
-  tableName: string,
-  streamTenantId: TenantId,
-): string {
-  params.push(streamTenantId);
-  return (
-    `, (SELECT MAX("version") FROM "kumiko_events" ` +
-    `WHERE "aggregate_id" = "${tableName}"."id" AND "tenant_id" = $${params.length}) ` +
-    `AS "${STREAM_VERSION_ALIAS}"`
-  );
+function storedColumnKeys(name: string, info: TableInfo): string[] {
+  return [name, `${name}Currency`, `${name}Utc`, `${name}Tz`].filter((key) => info.hasColumn(key));
 }
 
-// The alias is a query artifact, not a column of this entity — stripped before
-// coercion so it never reaches the caller or the entity cache.
-export function takeStreamVersions(rawRows: readonly Record<string, unknown>[]): number[] {
-  return rawRows.map((r) => {
-    const v = r[STREAM_VERSION_ALIAS];
-    delete r[STREAM_VERSION_ALIAS];
-    return typeof v === "number" ? v : 0;
-  });
+// Money and located timestamps live in companion columns; the sort column is read so the cursor can be built.
+export function listSelectColumns(
+  fields: readonly string[],
+  excludedFields: readonly string[],
+  sort: ListSort,
+  table: Table,
+  entity: EntityDefinition,
+): string {
+  const info = extractTableInfo(table);
+  const columns = new Set<string>([info.columnOf("id"), info.columnOf("version")]);
+  for (const name of fields) {
+    const keys = storedColumnKeys(name, info);
+    if (
+      keys.length === 0 ||
+      excludedFields.includes(name) ||
+      !(name in entity.fields || info.hasColumn(name))
+    ) {
+      throw new ValidationError({
+        fields: [
+          {
+            path: "fields",
+            code: "unknown_field",
+            i18nKey: "errors.validation.invalid_value",
+            params: { field: name },
+          },
+        ],
+      });
+    }
+    for (const key of keys) columns.add(info.columnOf(key));
+  }
+  if (sort.kind !== "unsorted" && sort.kind !== "expression") {
+    columns.add(physicalColumnName(table, sort.field));
+  }
+  return [...columns].map(quoteIdent).join(", ");
+}
+
+export function listColumnsExcluding(
+  excludedFields: readonly string[],
+  sort: ListSort,
+  table: Table,
+): string {
+  const info = extractTableInfo(table);
+  const meta = requireEntityTableMeta(table, "listColumnsExcluding");
+  const excludedColumns = new Set(
+    excludedFields.flatMap((name) => storedColumnKeys(name, info).map((key) => info.columnOf(key))),
+  );
+  const columns = new Set(meta.columns.map((c) => c.name).filter((c) => !excludedColumns.has(c)));
+  // The cursor reads the sort value from the raw row, even when the sort field is excluded.
+  if (sort.kind !== "unsorted" && sort.kind !== "expression") {
+    columns.add(physicalColumnName(table, sort.field));
+  }
+  return [...columns].map(quoteIdent).join(", ");
+}
+
+export function omitListFields(
+  row: Record<string, unknown>,
+  excludedFields: readonly string[],
+): Record<string, unknown> {
+  const kept = { ...row };
+  for (const name of excludedFields) delete kept[name];
+  return kept;
+}
+
+export function pickListFields(
+  row: Record<string, unknown>,
+  fields: readonly string[],
+): Record<string, unknown> {
+  const picked: Record<string, unknown> = {};
+  for (const key of ["id", "version", ...fields]) {
+    if (key in row) picked[key] = row[key];
+  }
+  return picked;
 }

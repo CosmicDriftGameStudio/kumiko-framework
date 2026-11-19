@@ -5,7 +5,7 @@
 // cacheable HTTP response. See APEX_STRUCTURAL_CSS for the CSS contract.
 
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { escapeHtml } from "../format/index.ts";
+import { escapeHtml, isSafeHref } from "../format/index.ts";
 import { APEX_STRUCTURAL_CSS } from "./css.ts";
 import { APEX_LIGHTBOX_HTML, APEX_LIGHTBOX_SCRIPT } from "./lightbox.ts";
 
@@ -31,9 +31,7 @@ export type ApexBrand = {
 export type ApexCtaVariant = "primary" | "secondary" | "link";
 export type ApexCta = {
   readonly label: string;
-  /** App-authored only, no user input — escapeHtml encodes entities but does
-   *  NOT sanitize the URL scheme (a `javascript:`/`data:` URI survives it
-   *  unchanged). Trust boundary is the deploy-time apex config, not runtime. */
+  /** A link with an unsafe scheme (javascript:, data:, ...) renders as "#". */
   readonly href: string;
   /** "link" renders a plain anchor (no .btn). Default "primary". */
   readonly variant?: ApexCtaVariant;
@@ -48,10 +46,8 @@ export type ApexLink = { readonly kind?: "link"; readonly label: string; readonl
 /** One entry inside a dropdown nav menu: icon + title + optional description. */
 export type ApexNavMenuItem = {
   /** Inner SVG markup (paths), wrapped by the standard 24px icon <svg>.
-   *  ponytail: rendered verbatim, no sanitizer — trusted because it's
-   *  app-authored at deploy time, same trust boundary as ApexCta.href. If an
-   *  app ever sources this from tenant/user content, sanitize at that
-   *  construction boundary before it reaches here. */
+   *  Rendered verbatim, app-authored at deploy time; sanitize at the
+   *  construction boundary if it ever comes from tenant/user content. */
   readonly icon?: string;
   readonly title: string;
   readonly desc?: string;
@@ -109,10 +105,8 @@ export type ApexHeroSection = {
 
 export type ApexFeature = {
   /** Inner SVG markup (paths), wrapped by the standard 24px icon <svg>.
-   *  ponytail: rendered verbatim, no sanitizer — trusted because it's
-   *  app-authored at deploy time, same trust boundary as ApexCta.href. If an
-   *  app ever sources this from tenant/user content, sanitize at that
-   *  construction boundary before it reaches here. */
+   *  Rendered verbatim, app-authored at deploy time; sanitize at the
+   *  construction boundary if it ever comes from tenant/user content. */
   readonly icon?: string;
   readonly title: string;
   readonly desc: string;
@@ -222,6 +216,10 @@ function dim(img: ApexImage): string {
   return `${img.width !== undefined ? ` width="${img.width}"` : ""}${img.height !== undefined ? ` height="${img.height}"` : ""}`;
 }
 
+function safeHrefAttr(href: string): string {
+  return escapeHtml(isSafeHref(href) ? href : "#");
+}
+
 function svgIcon(innerHtml: string): string {
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${innerHtml}</svg>`;
 }
@@ -229,7 +227,7 @@ function svgIcon(innerHtml: string): string {
 function renderCta(cta: ApexCta): string {
   const variant = cta.variant ?? "primary";
   const cls = variant === "link" ? "" : ` class="btn btn-${variant}"`;
-  return `<a${cls} href="${escapeHtml(cta.href)}">${escapeHtml(cta.label)}</a>`;
+  return `<a${cls} href="${safeHrefAttr(cta.href)}">${escapeHtml(cta.label)}</a>`;
 }
 
 function renderSectionHead(s: {
@@ -390,7 +388,7 @@ function renderNavMenu(m: ApexNavMenu): string {
   const itemsHtml = m.items
     .map(
       (it) =>
-        `<a class="nav-menu__item" href="${escapeHtml(it.href)}">${
+        `<a class="nav-menu__item" href="${safeHrefAttr(it.href)}">${
           it.icon !== undefined ? `<span class="nav-menu__icon">${svgIcon(it.icon)}</span>` : ""
         }<span class="nav-menu__text"><span class="nav-menu__title">${escapeHtml(it.title)}</span>${
           it.desc !== undefined ? `<span class="nav-menu__desc">${escapeHtml(it.desc)}</span>` : ""
@@ -399,7 +397,7 @@ function renderNavMenu(m: ApexNavMenu): string {
     .join("");
   const footer =
     m.footer !== undefined
-      ? `<div class="nav-menu__sep"></div><a class="nav-menu__more" href="${escapeHtml(m.footer.href)}">${escapeHtml(m.footer.label)}</a>`
+      ? `<div class="nav-menu__sep"></div><a class="nav-menu__more" href="${safeHrefAttr(m.footer.href)}">${escapeHtml(m.footer.label)}</a>`
       : "";
   return `<details class="nav-menu"><summary class="nav-menu__trigger">${escapeHtml(m.label)}<span class="nav-menu__chev">${svgIcon('<path d="m6 9 6 6 6-6"/>')}</span></summary><div class="nav-menu__panel">${itemsHtml}${footer}</div></details>`;
 }
@@ -407,7 +405,7 @@ function renderNavMenu(m: ApexNavMenu): string {
 function renderNavEntry(entry: ApexNavEntry): string {
   return entry.kind === "menu"
     ? renderNavMenu(entry)
-    : `<a href="${escapeHtml(entry.href)}">${escapeHtml(entry.label)}</a>`;
+    : `<a href="${safeHrefAttr(entry.href)}">${escapeHtml(entry.label)}</a>`;
 }
 
 /** Render just the apex header chrome (brand + nav + actions). Exported so a
@@ -420,7 +418,7 @@ export function renderApexHeader(h: ApexHeader): string {
   const actionsHtml = (h.actions ?? []).map(renderCta).join("\n      ");
   return `<header>
     <div class="container nav">
-      <div class="brand"><a href="${escapeHtml(h.brand.href)}">${logo}${escapeHtml(h.brand.label)}</a></div>
+      <div class="brand"><a href="${safeHrefAttr(h.brand.href)}">${logo}${escapeHtml(h.brand.label)}</a></div>
       ${navLinksHtml !== "" ? `<nav class="nav-links">${navLinksHtml}</nav><details class="nav-toggle"><summary class="nav-toggle__trigger" aria-label="${escapeHtml(h.menuLabel ?? "Menu")}">${svgIcon('<path d="M4 6h16M4 12h16M4 18h16"/>')}</summary><nav class="nav-links">${navLinksHtml}</nav></details>` : ""}
       ${actionsHtml !== "" ? `<div class="nav-actions">${actionsHtml}</div>` : ""}
     </div>
@@ -435,7 +433,7 @@ function renderFooter(f: ApexFooter): string {
     .map(
       (c) => `<div class="footer-col">
         <h4>${escapeHtml(c.heading)}</h4>
-        ${c.links.map((l) => `<a href="${escapeHtml(l.href)}">${escapeHtml(l.label)}</a>`).join("\n        ")}
+        ${c.links.map((l) => `<a href="${safeHrefAttr(l.href)}">${escapeHtml(l.label)}</a>`).join("\n        ")}
       </div>`,
     )
     .join("\n      ");

@@ -79,16 +79,16 @@ describe("buildServer — cross-replica fanout warning", () => {
 
 describe("buildServer — file-storage provider guard", () => {
   const fileFieldFeature = defineFeature("needs-files", (r) => {
-    r.entity({
-      name: "doc",
-      ...createEntity({
+    r.entity(
+      createEntity({
+        name: "doc",
         table: "boot_guard_docs",
         fields: {
           title: createTextField({ personal: false, reason: "test_fixture" }),
           attachment: createFileField(),
         },
       }),
-    });
+    );
   });
 
   test("throws when registry declares file fields but no provider is mounted", () => {
@@ -241,26 +241,26 @@ describe("buildServer — feature httpRoute PUT mounting", () => {
 
 describe("buildServer — search-adapter boot warning", () => {
   const searchableFeature = defineFeature("has-search", (r) => {
-    r.entity({
-      name: "note",
-      ...createEntity({
+    r.entity(
+      createEntity({
+        name: "note",
         table: "boot_guard_notes",
         fields: {
           title: createTextField({ personal: false, reason: "test_fixture", searchable: true }),
         },
       }),
-    });
+    );
     r.screen({ id: "note-list", type: "entityList", entity: "note", columns: ["title"] });
   });
 
   const nonSearchableFeature = defineFeature("no-search", (r) => {
-    r.entity({
-      name: "note",
-      ...createEntity({
+    r.entity(
+      createEntity({
+        name: "note",
         table: "boot_guard_plain_notes",
         fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
       }),
-    });
+    );
     r.screen({ id: "note-list", type: "entityList", entity: "note", columns: ["title"] });
   });
 
@@ -269,15 +269,15 @@ describe("buildServer — search-adapter boot warning", () => {
   // field, ignoring that the screen (whitelisted per entity-list-screens.ts
   // SEARCHABLE_FALSE_WHITELIST) never renders the search box.
   const explicitlyNonSearchableScreenFeature = defineFeature("opted-out-search", (r) => {
-    r.entity({
-      name: "download-attempt",
-      ...createEntity({
+    r.entity(
+      createEntity({
+        name: "download-attempt",
         table: "boot_guard_download_attempts",
         fields: {
           title: createTextField({ personal: false, reason: "test_fixture", searchable: true }),
         },
       }),
-    });
+    );
     r.screen({
       id: "download-attempt-list",
       type: "entityList",
@@ -376,7 +376,9 @@ describe("buildServer — auth membershipQuery requires a principalStatus provid
 
   const principalStatusFeature = defineFeature("has-principal-status", (r) => {
     r.extendsRegistrar(EXT_PRINCIPAL_STATUS, {});
-    r.useExtension(EXT_PRINCIPAL_STATUS, "has-principal-status", {
+    r.applyExtension({
+      name: EXT_PRINCIPAL_STATUS,
+      entity: "has-principal-status",
       resolveStatus: async () => "active" as const,
       resolveProfile: async () => ({ globalRoles: [] }),
     });
@@ -395,7 +397,9 @@ describe("buildServer — auth membershipQuery requires a principalStatus provid
 
   test("throws when more than one feature provides principalStatus", () => {
     const secondPrincipalStatusFeature = defineFeature("second-principal-status", (r) => {
-      r.useExtension(EXT_PRINCIPAL_STATUS, "second-principal-status", {
+      r.applyExtension({
+        name: EXT_PRINCIPAL_STATUS,
+        entity: "second-principal-status",
         resolveStatus: async () => "active" as const,
         resolveProfile: async () => ({ globalRoles: [] }),
       });
@@ -441,10 +445,18 @@ describe("buildServer — tenant-lifecycle gate derivation", () => {
   const lifecyclePlugin = { resolveStatus: async () => null };
   const providerFeature = defineFeature("lifecycle-provider", (r) => {
     r.extendsRegistrar(EXT_TENANT_LIFECYCLE_STATUS, {});
-    r.useExtension(EXT_TENANT_LIFECYCLE_STATUS, "lifecycle-provider", lifecyclePlugin);
+    r.applyExtension({
+      name: EXT_TENANT_LIFECYCLE_STATUS,
+      entity: "lifecycle-provider",
+      ...lifecyclePlugin,
+    });
   });
   const secondProviderFeature = defineFeature("lifecycle-provider-2", (r) => {
-    r.useExtension(EXT_TENANT_LIFECYCLE_STATUS, "lifecycle-provider-2", lifecyclePlugin);
+    r.applyExtension({
+      name: EXT_TENANT_LIFECYCLE_STATUS,
+      entity: "lifecycle-provider-2",
+      ...lifecyclePlugin,
+    });
   });
 
   test("throws when a lifecycle provider is mounted but context.db is missing", () => {

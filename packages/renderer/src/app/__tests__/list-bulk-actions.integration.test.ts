@@ -25,6 +25,7 @@ const ARCHIVE_HANDLER = "bulk-tasks:write:task:delete";
 
 // Everyone reads every task, but only the assignee may archive it: the row of another assignee is the one without access.
 const taskEntity = createEntity({
+  name: "task",
   table: "read_bulk_tasks",
   softDelete: true,
   fields: {
@@ -39,7 +40,7 @@ const taskEntity = createEntity({
 
 const bulkTasksFeature = defineFeature("bulk-tasks", (r) => {
   const taskAccess = { access: { roles: ["Admin", "Member"] } } as const;
-  r.crud("task", taskEntity, { write: taskAccess, read: taskAccess });
+  r.crud(taskEntity, { write: taskAccess, read: taskAccess });
 });
 
 const member = createTestUser({

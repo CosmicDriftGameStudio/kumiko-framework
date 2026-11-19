@@ -5,6 +5,7 @@ import { defineEntityCreateHandler, defineEntityDeleteHandler } from "../entity-
 import { createEntity, createTextField } from "../factories.ts";
 
 const taskEntity = createEntity({
+  name: "task",
   fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
 });
 const access = { roles: ["Admin"] };
@@ -30,7 +31,7 @@ describe("entity write handlers leave the transaction phase slots unset", () => 
     const merged = { ...entityConventions, ...typedPhases };
 
     defineFeature("tasks", (r) => {
-      r.entity({ name: "task", ...taskEntity });
+      r.entity(taskEntity);
       r.writeHandler(merged);
     });
 

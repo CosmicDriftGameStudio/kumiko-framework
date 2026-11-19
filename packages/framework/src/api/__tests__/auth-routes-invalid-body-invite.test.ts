@@ -7,6 +7,7 @@ import type { Hono } from "hono";
 import { Hono as HonoCtor } from "hono";
 import type { SessionUser, TenantId } from "../../engine/types/index.ts";
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.ts";
+import { type HandlerType, resolveType } from "../../pipeline/dispatcher-utils.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { PUBLIC_API_PATHS } from "../api-constants.ts";
 import { authMiddleware } from "../auth-middleware.ts";
@@ -158,8 +159,8 @@ describe("POST /auth/invite-accept", () => {
     const tenantId = TestUsers.otherTenant.tenantId as TenantId;
     let receivedUser: SessionUser | undefined;
     const dispatcher = createStubDispatcher({
-      async write(qn, payload, user): Promise<WriteResult> {
-        expect(qn).toBe(INVITE_ACCEPT_QN);
+      async write(qn: HandlerType, payload: unknown, user: SessionUser): Promise<WriteResult> {
+        expect(resolveType(qn)).toBe(INVITE_ACCEPT_QN);
         expect(payload).toEqual({ token: "invite-token-abc" });
         receivedUser = user;
         return {
@@ -219,8 +220,8 @@ describe("POST /auth/invite-accept-with-login — invalid_body + success", () =>
   test("success mints JWT + cookies", async () => {
     const tenantId = TestUsers.otherTenant.tenantId as TenantId;
     const dispatcher = createStubDispatcher({
-      async write(qn, payload): Promise<WriteResult> {
-        expect(qn).toBe(INVITE_LOGIN_QN);
+      async write(qn: HandlerType, payload: unknown): Promise<WriteResult> {
+        expect(resolveType(qn)).toBe(INVITE_LOGIN_QN);
         expect(payload).toEqual({
           token: "invite-t",
           email: "user@example.com",

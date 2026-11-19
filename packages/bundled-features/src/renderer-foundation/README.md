@@ -1,15 +1,11 @@
 # renderer-foundation
 
-Plugin foundation for renderers (HTML email, PDF, image). Plugins (`renderer-mail-html`, `renderer-puppeteer-client`) register via `r.useExtension("renderer", "<name>", { kinds, render })`.
+Plugin foundation for renderers (HTML email, PDF, image). Plugins (`renderer-mail-html`, `renderer-puppeteer-client`) register via `r.applyExtension({ name: "renderer", entity: "<name>", kinds, render })`.
 
 ## Mount
 
 ```typescript
-import {
-  collectRendererPlugins,
-  createRendererFoundationApi,
-  createRendererFoundationFeature,
-} from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 
 const features = [
   createTemplateResolverFeature(),
@@ -17,23 +13,18 @@ const features = [
   createRendererMailHtmlFeature(), // Plugin: kind "mail"
   // more plugins...
 ];
-
-const app = createKumikoApp({
-  features,
-  extraContext: ({ registry }) => ({
-    rendererFoundation: createRendererFoundationApi(collectRendererPlugins(registry)),
-  }),
-});
 ```
 
 ## Consumption
 
 ```typescript
-import { requireRendererFoundation } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import {
+  collectRendererPlugins,
+  selectRendererPlugin,
+} from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 
 async function sendMail(ctx, tenantId) {
-  const foundation = requireRendererFoundation(ctx, "sendMail");
-  const renderer = foundation.createRendererForTenant({ tenantId, kind: "mail" });
+  const renderer = selectRendererPlugin(collectRendererPlugins(ctx.registry), "mail");
   const result = await renderer.render(
     {
       kind: "mail",
@@ -55,10 +46,11 @@ Emails from an `r.notification` are rendered by the delivery itself: `template` 
 
 ## Plugin Selection Order
 
-1. Tenant override (config key `rendererPluginByKind`, for example `{ "mail": "mail-html" }`)
-2. `DEFAULT_PLUGIN_BY_KIND` from constants
-3. First plugin in the pool that handles the kind
-4. `RendererError("no_plugin_for_kind")` if nothing matches
+1. the plugin named in `DEFAULT_PLUGIN_BY_KIND` (mail → mail-html, document-pdf and image-snapshot → puppeteer) when it is mounted
+2. the first mounted plugin that serves the kind
+3. `RendererError("no_plugin_for_kind")`
+
+There is no per-tenant choice. Every kind has one payload contract, so a plugin that serves a kind must accept that kind's payload.
 
 ## Writing a Custom Plugin
 
@@ -67,7 +59,7 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 export const myRendererFeature = defineFeature("renderer-myown", (r) => {
   r.requires({ features: ["renderer-foundation"] });
-  r.useExtension("renderer", "myown", {
+  r.applyExtension({ name: "renderer", entity: "myown",
     kinds: ["document-pdf"],
     // ctx is optional, only use it when service access is required
     render: async (req, ctx) => {

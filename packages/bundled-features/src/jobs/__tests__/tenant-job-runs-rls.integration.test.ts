@@ -28,7 +28,12 @@ import { tenantJobRunsTable } from "../tenant-job-run-table.ts";
 const tenantA = testTenantId(1);
 
 const appFeature = defineFeature("rlsapp", (r) => {
-  r.job("visible", { trigger: { manual: true }, tenantVisibleRun: {} }, async () => {});
+  r.job({
+    name: "visible",
+    trigger: { manual: true },
+    tenantVisibleRun: {},
+    handler: async () => {},
+  });
 });
 
 let testDb: TestDb;

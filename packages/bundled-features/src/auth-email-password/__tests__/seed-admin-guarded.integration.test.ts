@@ -11,9 +11,19 @@ import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { asRawClient, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  asRawClient,
+  createEventStoreExecutor,
+  fetchOne,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
+import {
+  createSystemUser,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
@@ -95,6 +105,22 @@ async function blankBlindIndex(): Promise<void> {
   await asRawClient(stack.db).unsafe(`UPDATE "${userTable.tableName}" SET email_bidx = NULL`);
 }
 
+/** Old data shape: an email stored with upper case and a blind index computed over that raw
+ *  value, as written before emails were normalized. Bypasses seedUser, which now lowercases. */
+async function insertLegacyMixedCaseUser(email: string): Promise<string> {
+  const by = createSystemUser(SYSTEM_TENANT_ID);
+  const tdb = createTenantDb({
+    db: stack.db,
+    tenantId: by.tenantId,
+    mode: "system",
+    reason: "User is tenant-agnostic, the legacy row is written through a system-mode handle",
+  });
+  const executor = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
+  const result = await executor.create({ email, displayName: "Legacy" }, by, tdb);
+  if (!result.isSuccess) throw new Error(`legacy user insert failed: ${result.error.code}`);
+  return String(result.data["id"]);
+}
+
 describe("seedAdminGuarded", () => {
   test("re-seeding twice on an empty DB stays idempotent", async () => {
     const first = await seedAdminGuarded(stack.db, seedOptions);
@@ -165,6 +191,40 @@ describe("seedAdminGuarded", () => {
     expect(await userIds()).toHaveLength(2);
   });
 
+  test("the canonical row's blind index is repaired so the account is findable again", async () => {
+    const first = await seedAdminGuarded(stack.db, seedOptions);
+    await blankBlindIndex();
+    expect(await fetchOne(stack.db, userTable, { email: SYSADMIN_EMAIL })).toBeUndefined();
+
+    await seedAdminGuarded(stack.db, seedOptions);
+
+    const found = await fetchOne(stack.db, userTable, { email: SYSADMIN_EMAIL });
+    expect(found?.["id"]).toBe(first.id);
+  });
+
+  test("an account stored with upper case is found, reused and repaired to lower case", async () => {
+    const legacyId = await insertLegacyMixedCaseUser("SysAdmin@Offlot.App");
+    expect(await fetchOne(stack.db, userTable, { email: SYSADMIN_EMAIL })).toBeUndefined();
+
+    const seeded = await seedAdminGuarded(stack.db, seedOptions);
+
+    expect(seeded.id).toBe(legacyId);
+    expect(await userIds()).toEqual([legacyId]);
+    const found = await fetchOne(stack.db, userTable, { email: SYSADMIN_EMAIL });
+    expect(found?.["id"]).toBe(legacyId);
+  });
+
+  test("re-seeding with a differently cased email reuses the account", async () => {
+    const first = await seedAdminGuarded(stack.db, seedOptions);
+    const second = await seedAdminGuarded(stack.db, {
+      ...seedOptions,
+      email: SYSADMIN_EMAIL.toUpperCase(),
+    });
+
+    expect(second.id).toBe(first.id);
+    expect(await userIds()).toEqual([first.id]);
+  });
+
   test("unrelated single-row accounts are untouched", async () => {
     const unrelated = await seedUser(stack.db, {
       email: "dealer@offlot.app",
@@ -196,17 +256,6 @@ describe("seedAdminGuarded", () => {
     expect(await userIds()).toEqual([first.id]);
     const rows = await selectMany<{ id: string; emailVerified: boolean }>(stack.db, userTable);
     expect(rows.find((r) => r.id === first.id)?.emailVerified).toBe(true);
-  });
-
-  test("the canonical row's blind index is repaired so the account is findable again", async () => {
-    const first = await seedAdminGuarded(stack.db, seedOptions);
-    await blankBlindIndex();
-    expect(await fetchOne(stack.db, userTable, { email: SYSADMIN_EMAIL })).toBeUndefined();
-
-    await seedAdminGuarded(stack.db, seedOptions);
-
-    const found = await fetchOne(stack.db, userTable, { email: SYSADMIN_EMAIL });
-    expect(found?.["id"]).toBe(first.id);
   });
 
   test("a repeated boot seed with an intact blind index appends no further user event", async () => {

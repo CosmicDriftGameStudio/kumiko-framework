@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
-import { useContext } from "react";
+import { createContext, useContext } from "react";
 import type { EditFieldViewModel, FieldIssue } from "../headless/index.ts";
 import { useLocale, useTranslation } from "../i18n.tsx";
 import { type FieldProps, usePrimitives } from "../primitives.tsx";
 import { HideRequiredMarkerContext } from "../required-marker-context.ts";
 import { listPrintsOwnIssues, renderControl } from "./render-field-control.tsx";
-import { inputId } from "./render-field-meta.ts";
+import { inputId, useFieldIdScope } from "./render-field-meta.ts";
 
 // RenderField translates an EditFieldViewModel into a primitives tree.
 // Raw HTML is excluded; all presentation decisions (label position,
@@ -66,6 +66,10 @@ export type RenderFieldProps = {
 };
 
 export const AllFieldsRequiredProvider = HideRequiredMarkerContext.Provider;
+
+// `fieldIcons={false}` on a form drops every prefix icon, derived ones included.
+const FieldIconsHiddenContext = createContext(false);
+export const FieldIconsHiddenProvider = FieldIconsHiddenContext.Provider;
 
 type FieldOptionalPropsInput = Pick<
   RenderFieldProps,
@@ -152,9 +156,11 @@ export function RenderField({
   const appLocale = useLocale().locale();
   const t = useTranslation();
   const allFieldsRequired = useContext(HideRequiredMarkerContext);
+  const iconless = useContext(FieldIconsHiddenContext);
+  const idScope = useFieldIdScope();
   if (!field.visible) return null;
 
-  const id = inputId(field);
+  const id = inputId(field, idScope);
   // An author-declared renderer always wins over the input widget, same as
   // the list-column path (render-list.tsx). Only takes effect once the field
   // is actually readOnly — a FormatSpec/PlatformComponent renderer has no
@@ -178,6 +184,7 @@ export function RenderField({
     featureName,
     allIssues,
     changed,
+    iconless,
     fillDisabled,
     ...(row !== undefined && { row }),
   });

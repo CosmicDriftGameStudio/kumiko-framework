@@ -35,25 +35,28 @@ import {
 import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "handler_xtr_notes",
   fields: { title: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 const noteExecutor = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
 
 const catalogEntity = createEntity({
+  name: "catalog",
   table: "handler_xtr_catalog",
   tenancy: "global",
   systemStream: true,
   fields: { label: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const catalogTable = buildEntityTable("catalog", catalogEntity);
+const catalogTable = buildEntityTable(catalogEntity);
 
 const ledgerEntity = createEntity({
+  name: "ledger",
   table: "handler_xtr_ledger",
   fields: { label: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const ledgerTable = buildEntityTable("ledger", ledgerEntity);
+const ledgerTable = buildEntityTable(ledgerEntity);
 
 const GRANT_REASON = "cross-tenant overview probe — reads notes of every tenant";
 const FEATURE = "handler-xtr";
@@ -63,6 +66,7 @@ type ReadsOutcome = {
   readonly titles?: readonly string[];
   readonly foreignTitle?: string | undefined;
   readonly count?: number;
+  readonly aggregateCount?: number | null;
   readonly foreignEventTenants?: readonly string[];
   readonly unsafeRawCode?: string;
 };
@@ -78,12 +82,13 @@ async function readAcrossTenants(
     tenantId: foreignTenantId,
   });
   const count = await reads.count(noteTable);
+  const [aggregateRow] = await reads.aggregate(noteTable, { measure: { fn: "count" } });
   const events = await reads.selectMany<{ tenantId: string }>(eventsTable, {
     tenantId: foreignTenantId,
   });
   let unsafeRawCode: string | undefined;
   try {
-    ctx.db.unsafeRaw();
+    ctx.db.unsafeRawAllTenants();
   } catch (err) {
     unsafeRawCode = err instanceof Error && "code" in err ? String(err.code) : "unknown";
   }
@@ -92,6 +97,7 @@ async function readAcrossTenants(
     titles: all.map((n) => n.title).sort(),
     foreignTitle: foreign?.title,
     count,
+    aggregateCount: aggregateRow?.value ?? null,
     foreignEventTenants: events.map((e) => e.tenantId),
     ...(unsafeRawCode !== undefined && { unsafeRawCode }),
   };
@@ -110,8 +116,8 @@ const systemProbeFeature = defineFeature("handler-xtr-system", (r) => {
 const GLOBAL_FEATURE = "handler-xtr-global";
 const globalCatalogFeature = defineFeature(GLOBAL_FEATURE, (r) => {
   r.systemScope();
-  r.entity({ name: "catalog", ...catalogEntity });
-  r.entity({ name: "ledger", ...ledgerEntity });
+  r.entity(catalogEntity);
+  r.entity(ledgerEntity);
   r.writeHandler(
     defineEntityCreateHandler("catalog", catalogEntity, { access: { roles: ["Admin"] } }),
   );
@@ -138,7 +144,7 @@ const globalCatalogFeature = defineFeature(GLOBAL_FEATURE, (r) => {
 });
 
 const probeFeature = defineFeature(FEATURE, (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
 
   r.writeHandler({
     name: "add-note",
@@ -182,7 +188,7 @@ const probeFeature = defineFeature(FEATURE, (r) => {
     access: { roles: ["Admin"] },
     escapeHatch: { reason: GRANT_REASON, grants: ["unsafeRaw"] },
     handler: async (_query, ctx) => {
-      ctx.db.unsafeRaw();
+      ctx.db.unsafeRawAllTenants();
       return { reachedRaw: true };
     },
   });
@@ -266,6 +272,7 @@ describe("ctx.crossTenantReads on handlers", () => {
     expect(result.titles).toEqual(["foreign-note", "own-note"]);
     expect(result.foreignTitle).toBe("foreign-note");
     expect(result.count).toBe(2);
+    expect(result.aggregateCount).toBe(2);
     expect(result.unsafeRawCode).toBe("access_denied");
     // Targetless reads dedup inside the report window: one audit event, while the meter counts every call.
     const reads = auditEvents.filter((e) => e.kind === "cross-tenant-read");
@@ -280,7 +287,7 @@ describe("ctx.crossTenantReads on handlers", () => {
       (e) =>
         e.name === "kumiko_escape_hatch_uses_total" && e.labels?.["kind"] === "cross-tenant-read",
     );
-    expect(meteredReads).toHaveLength(4);
+    expect(meteredReads).toHaveLength(5);
   });
 
   test("the events table can be read for a foreign tenant", async () => {

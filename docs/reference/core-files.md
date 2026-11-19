@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-08-30
+verified: 2026-11-17
 evidence: "kumiko-framework#1954; framework#2461/#2475 (derivatives on user-forget); framework#2476 (tenant-destroy → fileRef forget)"
 ---
 
@@ -86,7 +86,7 @@ It is safe only because of three properties, all enforced together:
   that lets a caller hand the server an arbitrary crop/size/format to render.
 - **Default-deny.** Serving requires an `EXT_DERIVATIVE_PUBLIC_PREDICATE`
   registered for the file's `entityType` that explicitly returns `true`
-  (`r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "<entityType>", { isPublic })`).
+  (`r.applyExtension({ name: EXT_DERIVATIVE_PUBLIC_PREDICATE, entity: "<entityType>", isPublic })`).
   No registered predicate, or a predicate that returns `false`, means a 404 —
   never a degraded or partial response. An app opts individual entity types
   into public serving; nothing is public by default.
@@ -121,22 +121,41 @@ proxy, every caller shares one bucket; set too high, a caller can rotate
 ## The MIME extension point
 
 Renderers register against a MIME pattern via
-`r.useExtension(EXT_DERIVATIVE_RENDERER, "<mimePattern>", { render })`
+`r.applyExtension({ name: EXT_DERIVATIVE_RENDERER, entity: "<mimePattern>", render })`
 (`packages/framework/src/engine/extension-names.ts`). Resolution tries an
 exact match first, then falls back to a wildcard (`image/*`, registered by
 the bundled `derivatives-sharp` feature for all raster image types). The
 exact-match slot is there for renderers that don't fit the wildcard's
 shape — a PDF-preview renderer (`application/pdf`, rendering a first-page
 thumbnail) is the obvious next candidate, but nothing has registered that
-slot yet. No feature currently calls `useExtension(EXT_DERIVATIVE_RENDERER,
-"application/pdf", ...)` — a PDF `FileRef` today simply has no matching
+slot yet. No feature currently calls `applyExtension({ name: EXT_DERIVATIVE_RENDERER,
+entity: "application/pdf", ... })` — a PDF `FileRef` today simply has no matching
 renderer, exact or wildcard, so a variant request for it fails.
 
 ## Who sees a file: unbound uploads and binding
 
-A `fileRef` is readable by its uploader and by privileged roles (`Admin`,
-`SystemAdmin`). Everyone else sees it only once it is **bound** to a record
-(`entityType` + `entityId`) and they may read that record. An upload without
+A `fileRef` is readable by its uploader and by privileged roles (`TenantAdmin`,
+`Admin`, `SystemAdmin` by default; the files feature's `privilegedRoles` option
+changes the list). Everyone else sees it only once it is **bound** to a record
+(`entityType` + `entityId`) and they may read that record. When a file field
+of the entity, or an embedded file sub-field, has an `access.read` rule, the
+record's detail query has to return the file in one of its file fields for
+them; the query strips the fields they may not read. The field that holds the
+file now decides, also after a save moved it from one field to another. A save
+may move a file from another field of the record only for a writer who may read
+that field, by its field rule alone, so a privileged role without that rule is
+refused too. The same holds for a file in a list row the writer may not read
+and for an upload bound to the record for a restricted field but not saved
+into it yet, unless the writer uploaded it. List rows have no stable id, so a
+file the writer may not read keeps its row index when its sub-field has a read
+rule; naming another file there is refused (`hidden_row_changed`), and so is moving
+its row, inserting or deleting a row before it. A save that moves that row and changes its
+visible content at once is not detected and leaves the file at its index. A save that shortens
+the list past a row holding such a file is refused (`hidden_row_removed`). An upload bound to an embedded field with such a file
+sub-field can be named only by its uploader, a system save included, because
+`file_refs` records the top-level field only. Privileged roles skip the record and its field rules, so an
+`access.read` rule on a file field binds them only when the entity declares
+`attachedFileAccess: "record-only"`. An upload without
 `entityType`, or a pending upload (`entityType` + `fieldName`, no `entityId`),
 stays private to its uploader until a save binds it.
 
@@ -207,7 +226,7 @@ body limit like an entity field does. The route answers `403` before any byte is
 written when the caller may not submit the form: the screen's `access` (if set)
 and the access of its `handler` must both pass. Anonymous callers get no upload.
 
-Anonymous visitors get `401` on every upload unless the target is an entity file field with `anonymousUpload: true`, sent without `entityId` and `actionForm`: that stores a pending upload the app binds itself.
+Anonymous visitors get `401` on every upload unless the target is an entity file field with `anonymousUpload: true`, sent without `entityId` and `actionForm`: that stores a pending upload the app binds itself. A pending anonymous upload that no record bound within `anonymousUploadGraceHours` (`createFilesFeature` option, default 24) is soft-deleted by the files maintenance job; pending uploads of signed-in users are only swept when `pendingUploadGraceHours` is set.
 An unknown screen, a screen of another type, a missing or non-file field and a
 malformed QN answer `400`.
 
@@ -260,6 +279,16 @@ expiry (`SIGNED_URL_DEFAULT_EXPIRY_SECONDS`,
 trade-off, not an arbitrary default: long enough that a download reliably
 starts, short enough that a leaked URL (browser history, a screenshot, a
 shared clipboard) isn't a long-lived credential.
+
+## Download links issued by a handler
+
+A handler hands out a link with `ctx.services.fileDownloadLinks.issue(fileRefId, { expiresInSeconds? })`. It returns `{ path, expiresAt }`: `path` is `/api/files/link/<token>`, `expiresAt` an ISO instant. The default lifetime is 15 minutes, the maximum 60; a larger or non-integer value, or a `fileRefId` that is not a UUID, throws. The token is an HMAC over tenant, file and expiry, keyed from the server's signing secret (`jwtSecret`, the `signKid` key for a keyring). Rotating `signKid` invalidates open links.
+
+`GET /api/files/link/:token` streams the file without a session, so a browser can use the path directly in an `<a>` or `<img>`. There is no access guard on this route: the issuing handler is the access check and must only issue links for files it released to the caller. A malformed, tampered, expired or deleted link answers `404`, and the file is always read in the tenant the token names. Responses carry `Cache-Control: private, no-store` and `Referrer-Policy: no-referrer`. Use a link instead of returning file bytes as base64 in a handler result.
+
+## Content hash
+
+Every upload stores the hex SHA-256 of the saved bytes as `contentSha256` on the `fileRef`, and the upload response and `CreatedFileRef` carry it. Rows from before this field exist keep `null`.
 
 ## Storage tracking: counted now, enforced later
 

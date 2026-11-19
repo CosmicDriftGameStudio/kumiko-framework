@@ -40,14 +40,17 @@ Sample: `kumiko-framework/samples/apps/admin-console` (port 4177 dev, 4178 E2E).
 
 | Workspace (default id) | `access` | Nav (first → last) |
 |---|---|---|
-| `tenant-admin` | `access.admin` (`TenantAdmin`, `Admin`, `SystemAdmin`) | Overview → Members → Audit log |
-| `platform` | `access.systemAdmin` | Overview → Tenants → Job runs → Tier admin (optional) |
+| `tenant-admin` | `access.admin` (`TenantAdmin`, `Admin`, `SystemAdmin`) | Overview → Members → Audit log, plus every nav with `adminArea: "tenant"` (document templates, optional caps) |
+| `platform` | `access.systemAdmin` | Overview → Job runs → Tenants → Event consumers → Users → Tier admin (optional), plus every nav with `adminArea: "platform"` (export jobs, feature toggles, caps, document templates), sorted by `order` |
+
+Both workspaces use `collectAdminArea`: a nav declares `adminArea: "tenant" | "platform"`, the workspace lists every matching nav of the mounted features after its explicit `nav` list, sorted by `order`.
 
 `createAdminShellFeature({ workspaceIds })` maps URL segments for app conventions
 (Studio `d`/`s`, PublicStatus `admin`/`sysadmin`).
 
 **`registerWorkspaces: false`** — app owns `r.workspace()`; admin-shell registers
-overview screens + nav QNs only. Wire nav into your workspace arrays and mount
+overview screens + nav QNs only. Set `collectAdminArea: "tenant"` or `"platform"` on your
+workspaces instead of listing the standard nav QNs, and mount
 `adminShellClient()` + `tenantClient()`. Studio/PublicStatus use this pattern.
 
 **`useShellUser`:** must pass merged `session.roles` (global + membership) into
@@ -63,12 +66,10 @@ overview screens + nav QNs only. Wire nav into your workspace arrays and mount
 | `delivery` | `delivery-log` | `access.admin` | Tenant-scoped |
 | `feature-toggles` | `toggle-admin` | `SystemAdmin` | Platform nav only |
 | `compliance-profiles` | `profile-picker` | `access.admin` | `crossTenantOverrideDenied` on write |
-| `cap-counter` | `cap-list` | `SystemAdmin` | `entityList` |
 
 ## Overview home (query allowlist)
 
-Attention cards only — no KPI charts. Client helper `overviewQuery()` enforces
-hard-coded allowlists (`overview-allowlist.ts`).
+Attention cards only — no KPI charts. `overview-allowlist.ts` lists the queries the overview panels call; tests check the screens against it. Access is enforced by each query's `access.roles`, not by the list.
 
 | Workspace | Allowed queries |
 |---|---|

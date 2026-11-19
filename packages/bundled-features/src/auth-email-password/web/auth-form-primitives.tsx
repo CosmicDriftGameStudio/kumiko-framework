@@ -12,7 +12,14 @@
 
 import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import { BareFormProvider, cn } from "@cosmicdrift/kumiko-renderer/web";
-import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
+import {
+  type ComponentType,
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 
 // Wraps the centered auth card in its surrounding layout. The default is
 // fullscreen-centered for standalone auth pages. Apex/marketing chrome can
@@ -34,6 +41,13 @@ export function AuthShellProvider({
   readonly children: ReactNode;
 }): ReactNode {
   return <AuthShellContext.Provider value={shell}>{children}</AuthShellContext.Provider>;
+}
+
+// client-plugin.ts has no JSX, so the provider component for its `providers` list lives here.
+export function makeAuthShellProvider(
+  shell: AuthShellRenderer,
+): ComponentType<{ readonly children: ReactNode }> {
+  return ({ children }) => <AuthShellProvider shell={shell}>{children}</AuthShellProvider>;
 }
 
 export function useAuthShell(): AuthShellRenderer | null {

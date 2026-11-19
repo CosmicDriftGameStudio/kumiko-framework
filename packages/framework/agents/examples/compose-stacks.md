@@ -22,8 +22,7 @@ the option.
   itself still comes from the `auth` option or `composeFeatures`.
 - **`composeSecurityStack({ includeSessions })`**: `sessions`,
   `crypto-shredding`, `rate-limiting` and `audit`. Needs a KMS decision
-  (`kmsMode`) and fails with `rateLimit: false`. Replaces
-  `securityBaselineFeatures()`.
+  (`kmsMode`; in production it defaults to `"optional"`) and fails with `rateLimit: false`.
 - **`composeGdprStack({ tenantLifecycle, selfService })`**: `data-retention`
   and `compliance-profiles`, optionally `tenant-lifecycle`. `selfService` adds
   `sessions`, `user-data-rights` and `user-profile` (needs `mail`).
@@ -36,14 +35,14 @@ the option.
 
 ## Boot requirements
 
-| Stack                                                             | Boot option                        | Also satisfied by               |
-| ----------------------------------------------------------------- | ---------------------------------- | ------------------------------- |
-| `composeMailStack`                                                | `mail`                             | a mounted `channel-email`       |
-| `composeFileStack` without providers                              | `fileStorage`                      | a mounted file provider         |
-| `composeGdprStack`                                                | `kmsMode`                          | `kms` or `allowPlaintextPii`    |
-| `composeGdprStack({ selfService })`, `composeUserDataRightsStack` | `mail`                             | a mounted `channel-email`       |
-| `composeSecurityStack`                                            | `kmsMode`, `rateLimit` not `false` | `kms` or `allowPlaintextPii`    |
-| `composeSaasStack({ billing: "stripe" })`                         | `billing` (warning only)           | a mounted subscription provider |
+| Stack                                                             | Boot option                        | Also satisfied by                                                               |
+| ----------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------- |
+| `composeMailStack`                                                | `mail`                             | a mounted `channel-email`                                                       |
+| `composeFileStack` without providers                              | `fileStorage`                      | a mounted file provider                                                         |
+| `composeGdprStack`                                                | `kmsMode`                          | `kms`, `allowPlaintextPii`, or `NODE_ENV=production` (defaults to `"optional"`) |
+| `composeGdprStack({ selfService })`, `composeUserDataRightsStack` | `mail`                             | a mounted `channel-email`                                                       |
+| `composeSecurityStack`                                            | `kmsMode`, `rateLimit` not `false` | `kms`, `allowPlaintextPii`, or `NODE_ENV=production` (defaults to `"optional"`) |
+| `composeSaasStack({ billing: "stripe" })`                         | `billing` (warning only)           | a mounted subscription provider                                                 |
 
 A missing option fails the boot with:
 
@@ -60,8 +59,8 @@ app can go live before its prices exist.
 1. `src/app.ts` lists the stacks and the boot options they need.
 2. The test boots with `KUMIKO_DRY_RUN_ENV=boot`, which runs the whole
    validation and stops before any DB or Redis connection: with the options
-   the boot passes, without `kmsMode` it fails and names the stacks, and
-   without `billing` it warns.
+   the boot passes, without `kmsMode` it fails outside production and names the stacks (in
+   production it boots with `kmsMode: "optional"`), and without `billing` it warns.
 
 ## Tests
 
@@ -94,13 +93,16 @@ const PRODUCTION_BOOT_ENV: Readonly<Record<string, string>> = {
   KUMIKO_BLIND_INDEX_KEY: randomBytes(32).toString("base64"),
 };
 
-async function bootValidate(options: Pick<RunProdAppOptions, "kmsMode" | "billing">) {
+async function bootValidate(
+  options: Pick<RunProdAppOptions, "kmsMode" | "billing">,
+  envOverrides: Readonly<Record<string, string>> = {},
+) {
   const handle = await runProdApp({
     features: appFeatures(),
     envSchema: composeEnvSchema({ features: [] }),
     autoListen: false,
     migrations: false,
-    envSource: { ...PRODUCTION_BOOT_ENV },
+    envSource: { ...PRODUCTION_BOOT_ENV, ...envOverrides },
     ...options,
   });
   await handle.stop();
@@ -135,9 +137,16 @@ describe("compose stacks recipe", () => {
     ).toBe(true);
   });
 
-  test("a missing KMS decision names every stack that needs it", async () => {
+  test("in production a missing KMS decision falls back to kmsMode optional and passes boot validation", async () => {
     const { kmsMode: _kmsMode, ...withoutKms } = bootOptions();
-    const failure = bootValidate(withoutKms);
+    await bootValidate(withoutKms);
+    const lines = logSpy.mock.calls.map((call: unknown[]) => String(call[0]));
+    expect(lines.some((line: string) => line.includes("boot validation OK"))).toBe(true);
+  });
+
+  test("a missing KMS decision outside production names every stack that needs it", async () => {
+    const { kmsMode: _kmsMode, ...withoutKms } = bootOptions();
+    const failure = bootValidate(withoutKms, { NODE_ENV: "development" });
     await expect(failure).rejects.toThrow("composeSecurityStack needs the boot option `kmsMode`");
     await expect(failure).rejects.toThrow("composeGdprStack needs the boot option `kmsMode`");
   });

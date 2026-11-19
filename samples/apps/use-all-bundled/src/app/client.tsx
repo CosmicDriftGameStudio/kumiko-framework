@@ -19,6 +19,7 @@ import { auditClient } from "@cosmicdrift/kumiko-bundled-features/audit/web";
 import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import { authMfaClient, MfaVerifyScreen } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/web";
 import { billingFoundationClient } from "@cosmicdrift/kumiko-bundled-features/billing-foundation/web";
+import { brandingClient } from "@cosmicdrift/kumiko-bundled-features/branding/web";
 import { capOverviewClient } from "@cosmicdrift/kumiko-bundled-features/cap-overview/web";
 import { complianceProfilesClient } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles/web";
 import { configClient } from "@cosmicdrift/kumiko-bundled-features/config/web";
@@ -129,6 +130,8 @@ createKumikoApp({
     // tag-list management screen (TagManager) + TagSection/TagFilter extension
     // slots + tag i18n. Required for the dev-only notesFeature host to render.
     tagsClient(),
+    // Branding settings screen translations.
+    brandingClient(),
     // Document editor of the page-edit body section.
     managedPagesClient(),
     // template-resolver text-block tree + editor under the app-owned "content"

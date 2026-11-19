@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 51,
+  "featureCount": 55,
   "features": {
     "account-security": {
       "samples": [
@@ -83,6 +83,14 @@
       "sampleBlurb": "Stripe webhook handling and tier upgrades in cap-billing-demo — shows how provider events normalize into tier-engine state your handlers read.",
       "screenshot": null
     },
+    "branding": {
+      "samples": [
+        "apps-ui-walkthrough",
+        "recipes-managed-pages"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "Full-stack demo of the Kumiko renderer: `DefaultAppShell` + `LanguageSwitcher` + `ThemeToggle` + `emailPasswordClient` + `TenantSwitcher` + tasks CRUD. Boots via `runDevApp` from `@cosmicdrift/kumiko-dev-server` in auth mode (login screen before access) with two dev tenants so the TenantSwitcher is visible."
+    },
     "cap-counter": {
       "samples": [
         "apps-cap-billing-demo"
@@ -108,7 +116,8 @@
     "channel-email": {
       "samples": [
         "apps-cap-billing-demo",
-        "apps-ui-walkthrough"
+        "apps-ui-walkthrough",
+        "recipes-apex-surface-auth"
       ],
       "hasVisualOutput": true,
       "readmeSummary": "Declarative notifications:: r.notification() declares the mail variables, the default mail text, the subject and the short inApp/push texts in one place.",
@@ -176,6 +185,7 @@
       "samples": [
         "apps-admin-console",
         "apps-ui-walkthrough",
+        "recipes-apex-surface-auth",
         "recipes-chat-channels",
         "recipes-delivery-notifications"
       ],
@@ -191,11 +201,18 @@
         "recipes-documents"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "createDocumentsFeature (@cosmicdrift/kumiko-bundled-features/documents) with categories, linkTargets and access roles. - A capture rule turns a file field into a document source without the entity knowing about the documents feature: every saved contract.file is filed as a document of category contract, titled from the row, and linked to the contract's property. - Visibility follows the linked records: a document is visible to users who may read the linked records and the contract that owns the file. The documents:query:for-record query returns the documents of one record; a property reader sees none for the property because they may not read the contract that owns the file.",
+      "readmeSummary": "createDocumentsFeature (@cosmicdrift/kumiko-bundled-features/documents) with categories, linkTargets and access roles. - A capture rule turns a file field into a document source without the entity knowing about the documents feature: every saved contract.file is filed as a document of category contract, titled from the row, and linked to the contract's property. - Visibility follows the linked records: a document is visible to users who may read the linked records and the contract that owns the file. The documents:query:for-record query returns the documents of one record; a property reader sees none for the property because they may not read the contract that owns the file. - A reference to a filed document links its file: the offer entity references documents:filed-document, and since that entity has exactly one file field, the receipt cell of the offer-list screen shows the document title as a download link with the PDF view in a drawer, like the file column of the documents list. The link comes from the rows of the reference lookup (documents:query:filed-document:list), so a user who may not read the document or its file field gets plain text or nothing.",
       "primarySample": "recipes-documents",
       "whenToUse": "Files must be filed as documents with category and expiry, visible only to whoever can read the linked records and the owner of the file.",
       "sampleBlurb": "Capture contract files as documents linked to contract and property; visibility follows the linked records without a host column.",
       "screenshot": null
+    },
+    "field-approval": {
+      "samples": [
+        "recipes-field-approval"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "access.approve on the field: — the executor refuses a create or update that changes the field by a user without an approve role: 403 with details.reason: \"field_approval_required\". Unchanged values pass, so a form that resubmits the old IBAN still saves. - **Filing the change** — field-approval:query:pending-changes with an entityType also returns gatedFields: the fields the caller may write but must request (entityId: null for a record not created yet). The edit form shows them read-only with \"Request change\"; its drawer files the changed ones as field-approval:write:request-change commands ({ entityType, entityId, fieldName, value }) in one batch, so the form keeps a single Save. The 403 stays as the safety net and shows as a field error. - **Deciding** — field-approval:query:pending-changes lists the open requests with their value; approve-change applies one, reject-change declines it (the requester may withdraw their own). Both pin the request version, so a value re-submitted in between is never approved unseen. Whoever filed a request cannot approve it. - **Mounting** — createFieldApprovalFeature({ parents: [\"contact\"] }) must list every host entity with an approval-gated field; boot validation fails otherwise. - **Encryption** — the requested value of a PII field is stored encrypted under the host record's subject, so forgetting the host makes it unreadable."
     },
     "file-derivatives": {
       "samples": [
@@ -228,13 +245,10 @@
     },
     "files": {
       "samples": [
-        "apps-ui-walkthrough",
-        "apps-user-data-rights-demo",
         "recipes-documents",
-        "recipes-inspection-checklist",
-        "recipes-user-profile"
+        "recipes-inspection-checklist"
       ],
-      "hasVisualOutput": true,
+      "hasVisualOutput": false,
       "readmeSummary": "Sample app showing how a Kumiko app wires **user-data-rights** (DSGVO Art. 15+17+18+20) into a custom domain — here a tiny todo-list. The domain feature only registers an `EXT_USER_DATA` hook per entity; export bundling, forget cleanup, restriction and audit-log come from `user-data-rights` itself.",
       "primarySample": "apps-user-data-rights-demo",
       "whenToUse": "Domain entities reference uploaded blobs via FileRef — the files feature handles metadata, signed URLs, and provider routing per tenant.",
@@ -246,7 +260,7 @@
         "apps-use-all-bundled"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "Zero host changes: — note has no tag column, no wireTagsFor, no tag awareness. Tagging works anyway, because the tags feature owns its own tables. - **tags:write:create-tag** — adds a tag to the tenant's catalog (read_tags). Takes an optional color (rendered as a colored chip by the web UI) and an optional scope (empty = global, or an entity type to restrict it to). Returns the tag's id. - **tags:write:update-tag / delete-tag** — rename / recolor / re-scope a tag (optimistic-locked), or delete it (cascades over its assignments). - **tags:write:assign-tag / remove-tag** — link/unlink a tag and an entity by { tagId, entityType, entityId }. Both are idempotent: re-assigning is a no-op, removing a non-existent link still succeeds. - **Read-layer composition, no JOIN** — \"tags of a note\" lists tag-assignment filtered by entityId; \"notes with a tag\" filters by tagId. The app composes the two reads; there is no relational pivot.",
+      "readmeSummary": "Zero host changes: — note has no tag column, no wireTagsFor, no tag awareness. Tagging works anyway, because the tags feature owns its own tables. - **tags:write:tag:create** — adds a tag to the tenant's catalog (read_tags). Takes an optional color (rendered as a colored chip by the web UI) and an optional scope (empty = global, or an entity type to restrict it to). Returns the tag's id. - **tags:write:tag:update / tag:delete** — rename / recolor / re-scope a tag (optimistic-locked, { id, version, changes }), or delete it (cascades over its assignments). - **tags:write:assign-tag / remove-tag** — link/unlink a tag and an entity by { tagId, entityType, entityId }. Both are idempotent: re-assigning is a no-op, removing a non-existent link still succeeds. - **Read-layer composition, no JOIN** — \"tags of a note\" lists tag-assignment filtered by entityId; \"notes with a tag\" filters by tagId. The app composes the two reads; there is no relational pivot.",
       "primarySample": "recipes-tags-basic",
       "whenToUse": "Records need a hierarchical folder tree without a custom pivot table per entity — mount folders once and file entities via folder-assignment join rows.",
       "sampleBlurb": "Drop-in FolderSection on any entity edit screen — assign, move, and clear folder membership without host schema changes.",
@@ -286,7 +300,7 @@
         "recipes-inbound-mail-triage"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "Consumer pattern: hook your business process onto the foundation's ingest write-handler with r.job({ trigger: { on: InboundMailFoundationHandlers.ingestMessage } }) — the job receives the plaintext normalized mail (PII encryption happens inside the handler, after your trigger payload was captured). - **Idempotency discipline**: the trigger also fires on idempotent replays (duplicate ingest returns success) — key your side-effects by providerMessageId so replays overwrite instead of duplicating. - **Provider swap**: the test drives inbound-provider-inmemory; production mounts inbound-provider-imap (password/app-password, IMAP IDLE) against the same contract — the consumer code does not change."
+      "readmeSummary": "Consumer pattern: hook your business process onto the foundation's stored event with r.job({ trigger: { on: INBOUND_MESSAGE_RECEIVED_EVENT_QN } }) — the job receives the event payload, where from, subject and the other PII fields are ciphertext; read plaintext through InboundMailFoundationQueries.listMessages / messageContent. - **Idempotency discipline**: the event trigger is at-least-once — key your side-effects by the message id (triggerEvent.aggregateId) so a redelivery overwrites instead of duplicating. - **Provider swap**: the test drives inbound-provider-inmemory; production mounts inbound-provider-imap (password/app-password, IMAP IDLE) against the same contract — the consumer code does not change."
     },
     "jobs": {
       "samples": [
@@ -346,7 +360,6 @@
     },
     "managed-pages": {
       "samples": [
-        "apps-ui-walkthrough",
         "recipes-managed-pages"
       ],
       "hasVisualOutput": true,
@@ -392,7 +405,16 @@
     },
     "renderer-foundation": {
       "samples": [
-        "apps-ui-walkthrough"
+        "apps-ui-walkthrough",
+        "recipes-apex-surface-auth"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "Full-stack demo of the Kumiko renderer: `DefaultAppShell` + `LanguageSwitcher` + `ThemeToggle` + `emailPasswordClient` + `TenantSwitcher` + tasks CRUD. Boots via `runDevApp` from `@cosmicdrift/kumiko-dev-server` in auth mode (login screen before access) with two dev tenants so the TenantSwitcher is visible."
+    },
+    "renderer-mail-html": {
+      "samples": [
+        "apps-ui-walkthrough",
+        "recipes-apex-surface-auth"
       ],
       "hasVisualOutput": true,
       "readmeSummary": "Full-stack demo of the Kumiko renderer: `DefaultAppShell` + `LanguageSwitcher` + `ThemeToggle` + `emailPasswordClient` + `TenantSwitcher` + tasks CRUD. Boots via `runDevApp` from `@cosmicdrift/kumiko-dev-server` in auth mode (login screen before access) with two dev tenants so the TenantSwitcher is visible."
@@ -403,6 +425,13 @@
       ],
       "hasVisualOutput": true,
       "readmeSummary": "renderTablePdf (@cosmicdrift/kumiko-bundled-features/renderer-pdf) draws a table document in pure JavaScript: repeating header, weighted columns, page footer. The handler passes ready-formatted strings. - The export is a beforeTransaction handler: it reads the rows (reads work in that phase), renders the PDF and calls uploadFileBytesBeforeTransaction (@cosmicdrift/kumiko-framework/files), which validates the bytes and writes them to the tenant-prefixed storage key. The upload runs before the transaction because storage I/O inside it would hold a pool connection for as long as the upload takes. - The handler itself calls createFileRefFromUploadedBytes(ctx, event.prepared) and creates the file_refs row and the fileRef.created event in the transaction. If the transaction does not commit, the phase's release deletes the uploaded bytes again (only when no row exists for the storage key). A crash between upload and commit leaves the bytes in storage; the hourly files:job:sweep-orphaned-uploads job deletes them once they are older than the grace period (24 hours by default, uploadSweepGraceHours). - The result is a normal FileRef: GET /api/files/:id serves it with Content-Type: application/pdf, other tenants get 404."
+    },
+    "renderer-puppeteer-client": {
+      "samples": [
+        "apps-ui-walkthrough"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "Full-stack demo of the Kumiko renderer: `DefaultAppShell` + `LanguageSwitcher` + `ThemeToggle` + `emailPasswordClient` + `TenantSwitcher` + tasks CRUD. Boots via `runDevApp` from `@cosmicdrift/kumiko-dev-server` in auth mode (login screen before access) with two dev tenants so the TenantSwitcher is visible."
     },
     "secrets": {
       "samples": [
@@ -448,14 +477,14 @@
         "recipes-signature"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "Feature: - createSignatureFeature({ retention, linkSecret, renderHtmlToPdf, deliverLink, signaturePageUrl }). Needs files and user-data-rights (exports and erases signer data); the test mounts user-data-rights with its own dependencies. - **deliverLink** - issue-link hands the signing link to the app (mail) and returns only { signerId, linkSentAt }: whoever may issue a link must not be able to sign with it. - **renderHtmlToPdf** - injected; in an app it is the client of @cosmicdrift/kumiko-renderer-puppeteer-client. - **Test** - setupTestStack and HTTP: request, issue-link, anonymous sign-by-link, sweep job, completed."
+      "readmeSummary": "Feature: - createSignatureFeature({ retention, hostEntities, linkSecret, deliverLink, signaturePageUrl }). Needs files, user-data-rights (exports and erases signer data) and renderer-puppeteer-client (prints the signature page); the test mounts user-data-rights with its own dependencies. - **Host** - every request belongs to a host row (hostType, hostId, one of hostEntities, here a lease); a user sees and works on the request only while they can read that row. - **deliverLink** - issue-link hands the signing link to the app (mail) and returns only { signerId, linkSentAt }: whoever may issue a link must not be able to sign with it. - **Test** - setupTestStack and HTTP: request, issue-link, anonymous sign-by-link, sweep job, completed."
     },
     "tags": {
       "samples": [
         "recipes-tags-basic"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "Zero host changes: — note has no tag column, no wireTagsFor, no tag awareness. Tagging works anyway, because the tags feature owns its own tables. - **tags:write:create-tag** — adds a tag to the tenant's catalog (read_tags). Takes an optional color (rendered as a colored chip by the web UI) and an optional scope (empty = global, or an entity type to restrict it to). Returns the tag's id. - **tags:write:update-tag / delete-tag** — rename / recolor / re-scope a tag (optimistic-locked), or delete it (cascades over its assignments). - **tags:write:assign-tag / remove-tag** — link/unlink a tag and an entity by { tagId, entityType, entityId }. Both are idempotent: re-assigning is a no-op, removing a non-existent link still succeeds. - **Read-layer composition, no JOIN** — \"tags of a note\" lists tag-assignment filtered by entityId; \"notes with a tag\" filters by tagId. The app composes the two reads; there is no relational pivot.",
+      "readmeSummary": "Zero host changes: — note has no tag column, no wireTagsFor, no tag awareness. Tagging works anyway, because the tags feature owns its own tables. - **tags:write:tag:create** — adds a tag to the tenant's catalog (read_tags). Takes an optional color (rendered as a colored chip by the web UI) and an optional scope (empty = global, or an entity type to restrict it to). Returns the tag's id. - **tags:write:tag:update / tag:delete** — rename / recolor / re-scope a tag (optimistic-locked, { id, version, changes }), or delete it (cascades over its assignments). - **tags:write:assign-tag / remove-tag** — link/unlink a tag and an entity by { tagId, entityType, entityId }. Both are idempotent: re-assigning is a no-op, removing a non-existent link still succeeds. - **Read-layer composition, no JOIN** — \"tags of a note\" lists tag-assignment filtered by entityId; \"notes with a tag\" filters by tagId. The app composes the two reads; there is no relational pivot.",
       "primarySample": "recipes-tags-basic",
       "whenToUse": "Users label records with a shared tag vocabulary — mount tags once and attach tag sets to any entity without a custom join table per feature.",
       "sampleBlurb": "Tag a plain note entity with zero host changes — assign/remove handlers, read-layer composition, and optional TagSection UI.",
@@ -464,6 +493,7 @@
     "template-resolver": {
       "samples": [
         "apps-ui-walkthrough",
+        "recipes-apex-surface-auth",
         "recipes-legal-pages"
       ],
       "hasVisualOutput": true,
@@ -548,6 +578,7 @@
     "user-data-rights-defaults": {
       "samples": [
         "apps-user-data-rights-demo",
+        "recipes-user-data-rights",
         "recipes-user-profile"
       ],
       "hasVisualOutput": true,

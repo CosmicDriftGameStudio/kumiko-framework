@@ -32,10 +32,10 @@ const schema: FeatureSchema = { featureName: "shop", entities: {}, screens: [min
 describe("KumikoScreen / secretMint reveal phase with confirm (web primitives)", () => {
   test("renders as one screen form: the reveal sits in the form column above the code field, without any card", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: true,
         data: { token: "kpat_secret" },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -59,7 +59,7 @@ describe("KumikoScreen / secretMint reveal phase with confirm (web primitives)",
       0,
     );
     expect(document.querySelector("[data-slot=card]")).toBeNull();
-    expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
+    screen.getByTestId("render-edit-submit");
   });
 });
 
@@ -81,10 +81,10 @@ describe("KumikoScreen / secretMint submitPrefilled (web primitives)", () => {
   ) {
     const calls: unknown[] = [];
     const dispatcher: Dispatcher = createMockDispatcher({
-      write: (async (_type: string, payload: unknown) => {
+      write: async (_type: string, payload: unknown) => {
         calls.push(payload);
         return { isSuccess: true, data: { token: "kpat_rotated" } };
-      }) as unknown as Dispatcher["write"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -139,7 +139,7 @@ describe("KumikoScreen / secretMint submitPrefilled (web primitives)", () => {
       },
       { id: "abc" },
     );
-    expect(screen.getByDisplayValue("abc")).toBeTruthy();
+    screen.getByDisplayValue("abc");
     const submit = screen.getByTestId("render-edit-submit") as HTMLButtonElement;
     expect(submit.disabled).toBe(false);
     fireEvent.click(submit);

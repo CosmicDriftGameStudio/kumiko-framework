@@ -6,6 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const employeeEntity = createEntity({
+  name: "employee",
   table: "read_sample_employees",
   fields: {
     name: createTextField({ personal: { of: "id" }, find: "none", required: true }),
@@ -24,7 +25,7 @@ export const employeeEntity = createEntity({
 const allRoles = { access: { roles: ["Admin", "Accounting", "Employee"] } } as const;
 
 export const employeeFeature = defineFeature("hr", (r) => {
-  r.crud("employee", employeeEntity, {
+  r.crud(employeeEntity, {
     write: allRoles,
     read: allRoles,
     verbs: { delete: false, list: false, restore: false },

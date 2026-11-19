@@ -65,15 +65,6 @@ const patternIdDefineEventSchema = z
 const patternIdExtendsRegistrarSchema = z
   .object({ kind: z.literal("extendsRegistrar"), extensionName: z.string() })
   .strict();
-const patternIdAiGenerateSchema = z
-  .object({ kind: z.literal("ai.generate"), stepKey: z.string() })
-  .strict();
-const patternIdAiExtractSchema = z
-  .object({ kind: z.literal("ai.extract"), stepKey: z.string() })
-  .strict();
-const patternIdAiClassifySchema = z
-  .object({ kind: z.literal("ai.classify"), stepKey: z.string() })
-  .strict();
 const patternIdRequiresSchema = z.object({ kind: z.literal("requires") }).strict();
 const patternIdOptionalRequiresSchema = z.object({ kind: z.literal("optionalRequires") }).strict();
 const patternIdReadsConfigSchema = z.object({ kind: z.literal("readsConfig") }).strict();
@@ -81,9 +72,6 @@ const patternIdSystemScopeSchema = z.object({ kind: z.literal("systemScope") }).
 const patternIdToggleableSchema = z.object({ kind: z.literal("toggleable") }).strict();
 const patternIdDescribeSchema = z.object({ kind: z.literal("describe") }).strict();
 const patternIdUiHintsSchema = z.object({ kind: z.literal("uiHints") }).strict();
-const patternIdAdoptsBundledListsSchema = z
-  .object({ kind: z.literal("adoptsBundledLists") })
-  .strict();
 const patternIdConfigSchema = z.object({ kind: z.literal("config") }).strict();
 const patternIdTranslationsSchema = z.object({ kind: z.literal("translations") }).strict();
 const patternIdAuthClaimsSchema = z.object({ kind: z.literal("authClaims") }).strict();
@@ -112,9 +100,6 @@ export const PATTERN_ID_SCHEMAS_BY_KIND = {
   multiStreamProjection: patternIdMultiStreamProjectionSchema,
   defineEvent: patternIdDefineEventSchema,
   extendsRegistrar: patternIdExtendsRegistrarSchema,
-  "ai.generate": patternIdAiGenerateSchema,
-  "ai.extract": patternIdAiExtractSchema,
-  "ai.classify": patternIdAiClassifySchema,
   requires: patternIdRequiresSchema,
   optionalRequires: patternIdOptionalRequiresSchema,
   readsConfig: patternIdReadsConfigSchema,
@@ -122,7 +107,6 @@ export const PATTERN_ID_SCHEMAS_BY_KIND = {
   toggleable: patternIdToggleableSchema,
   describe: patternIdDescribeSchema,
   uiHints: patternIdUiHintsSchema,
-  adoptsBundledLists: patternIdAdoptsBundledListsSchema,
   config: patternIdConfigSchema,
   translations: patternIdTranslationsSchema,
   authClaims: patternIdAuthClaimsSchema,
@@ -152,14 +136,10 @@ export const patternIdSchema = z.discriminatedUnion("kind", [
   patternIdMultiStreamProjectionSchema,
   patternIdDefineEventSchema,
   patternIdExtendsRegistrarSchema,
-  patternIdAiGenerateSchema,
-  patternIdAiExtractSchema,
-  patternIdAiClassifySchema,
   patternIdRequiresSchema,
   patternIdOptionalRequiresSchema,
   patternIdReadsConfigSchema,
   patternIdSystemScopeSchema,
-  patternIdAdoptsBundledListsSchema,
   patternIdToggleableSchema,
   patternIdDescribeSchema,
   patternIdUiHintsSchema,

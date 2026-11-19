@@ -6,7 +6,7 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { createJobsFeature, JobQueries } from "@cosmicdrift/kumiko-bundled-features/jobs";
-import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, defineWriteHandler, emitEvent } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
@@ -15,23 +15,34 @@ import { setupTestStackFromFeatures } from "../setup-test-stack-from-features.ts
 const userA = createTestUser({ id: 1, tenantId: testTenantId(1), roles: ["Admin"] });
 
 const appFeature = defineFeature("app", (r) => {
+  const generationRequested = r.defineEvent(
+    "generation-requested",
+    z.object({ campaignId: z.string() }),
+    { piiFields: "none" },
+  );
   r.writeHandler(
     defineWriteHandler({
       name: "generate",
       description: "Test-only: starts a tenant-visible job.",
       schema: z.object({ campaignId: z.string() }),
       access: { roles: ["Admin"] },
-      handler: async (event) => ({ isSuccess: true as const, data: { ...event.payload } }),
+      handler: async (event, ctx) => {
+        await emitEvent(ctx, generationRequested, {
+          aggregateId: crypto.randomUUID(),
+          expectedVersion: 0,
+          aggregateType: "generation-request",
+          payload: { campaignId: event.payload.campaignId },
+        });
+        return { isSuccess: true as const, data: { ...event.payload } };
+      },
     }),
   );
-  r.job(
-    "generateTexts",
-    {
-      trigger: { on: "app:write:generate" },
-      tenantVisibleRun: { subjectFields: ["campaignId"] },
-    },
-    async () => {},
-  );
+  r.job({
+    name: "generateTexts",
+    trigger: { on: "generation-requested" },
+    tenantVisibleRun: { subjectFields: ["campaignId"] },
+    handler: async () => {},
+  });
 });
 
 type RunRow = {
@@ -61,6 +72,8 @@ describe("setupTestStackFromFeatures({ jobs }) tenant-visible run state", () => 
   test("queued right after the write while no worker consumes", async () => {
     stack = await setupTestStackFromFeatures([appFeature, createJobsFeature()], { jobs: {} });
     await stack.http.writeOk("app:write:generate", { campaignId: "c1" }, userA);
+    // The job-trigger event consumer enqueues after the commit; no worker lane runs the job.
+    await stack.eventDispatcher?.runOnce();
 
     const rows = await runsOf(stack);
     expect(rows.map((row) => row.status)).toEqual(["queued"]);

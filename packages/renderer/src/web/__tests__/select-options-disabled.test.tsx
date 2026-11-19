@@ -53,7 +53,7 @@ describe("select primitive with disabled options", () => {
     );
     const pro = screen.getByTestId("radio-list-plan-pro") as HTMLInputElement;
     expect(pro.disabled).toBe(true);
-    expect(screen.getByText("ab Starter")).toBeTruthy();
+    screen.getByText("ab Starter");
     fireEvent.click(pro);
     expect(picked).toEqual([]);
     const free = screen.getByTestId("radio-list-plan-free") as HTMLInputElement;
@@ -73,7 +73,7 @@ describe("select primitive with disabled options", () => {
       />,
     );
     expect((screen.getByTestId("radio-list-plan-max") as HTMLInputElement).disabled).toBe(true);
-    expect(screen.getByText("ab Business")).toBeTruthy();
+    screen.getByText("ab Business");
   });
 
   test("segmented control disables the segment and arrow keys skip it", () => {

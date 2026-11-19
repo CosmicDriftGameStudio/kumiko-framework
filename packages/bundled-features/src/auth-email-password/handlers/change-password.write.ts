@@ -19,6 +19,7 @@ export const changePasswordWrite = defineWriteHandler({
     oldPassword: z.string().min(1),
     newPassword: passwordSchema,
   }),
+  rateLimit: { per: "user+handler", limit: 5, windowSeconds: 300 },
   access: {
     openToAll: {
       reason:
@@ -55,9 +56,7 @@ export const changePasswordWrite = defineWriteHandler({
 
     const newHash = await hashPassword(event.payload.newPassword);
 
-    // The user aggregate is systemStream: its event stream lives on
-    // SYSTEM_TENANT_ID deterministically. Previously scattered streams are moved by the
-    // boot-time stream-tenant backfill (runStreamTenantBackfillOnBoot).
+    // The user aggregate is systemStream: its event stream lives on SYSTEM_TENANT_ID deterministically.
     const writer = createSystemUser(SYSTEM_TENANT_ID);
 
     // Apply via user feature's update handler — writeAs(system) satisfies

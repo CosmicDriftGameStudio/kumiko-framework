@@ -4,10 +4,16 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { ConfigEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
-import type { Dispatcher } from "../../headless/index.ts";
+import type { Dispatcher, QueryResult } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockBatchHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const providerScreen: ConfigEditScreenDefinition = {
   id: "provider",
@@ -23,23 +29,23 @@ const providerScreen: ConfigEditScreenDefinition = {
 };
 const schema: FeatureSchema = { featureName: "demo", entities: {}, screens: [providerScreen] };
 
-const ACCESS_DENIED = {
+const ACCESS_DENIED: QueryResult = {
   isSuccess: false,
   error: { code: "access_denied", httpStatus: 403, i18nKey: "errors.access.denied", message: "" },
 };
 
 describe("KumikoScreen / configEdit without secrets access", () => {
-  async function renderWithSecretsResult(secretsResult: unknown) {
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
-      isSuccess: true as const,
-      results: [],
-    }));
+  async function renderWithSecretsResult(secretsResult: QueryResult) {
+    const batchSpy = mock<MockBatchHandler>(
+      async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+        isSuccess: true as const,
+        results: [],
+      }),
+    );
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (name: string) =>
-        name === "secrets:query:list"
-          ? secretsResult
-          : { isSuccess: true, data: {} }) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      query: async (name: string) =>
+        name === "secrets:query:list" ? secretsResult : { isSuccess: true, data: {} },
+      batch: batchSpy,
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -83,6 +89,6 @@ describe("KumikoScreen / configEdit without secrets access", () => {
     await renderWithSecretsResult({ isSuccess: true, data: [{ key: "demo:secret:password" }] });
 
     await waitFor(() => screen.getByTestId("render-edit-form"));
-    expect(screen.getByTestId("field-password")).toBeTruthy();
+    screen.getByTestId("field-password");
   });
 });

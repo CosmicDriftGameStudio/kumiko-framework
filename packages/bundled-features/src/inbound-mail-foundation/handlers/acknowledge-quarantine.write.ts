@@ -2,7 +2,7 @@
 // the mailbox, or just one when providerMessageId is given) are marked acknowledged; once none is left
 // the supervisor returns the mailbox to active.
 
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
   failNotFound,
@@ -20,11 +20,8 @@ export const acknowledgeQuarantineSchema = z.object({
   providerMessageId: z.string().min(1).max(500).optional(),
 });
 
-export function createAcknowledgeQuarantineHandler({
-  memberRoles,
-  adminRoles,
-}: InboundMailRoles): WriteHandlerDef {
-  return {
+export function createAcknowledgeQuarantineHandler({ memberRoles, adminRoles }: InboundMailRoles) {
+  return defineWriteHandler({
     name: "acknowledge-quarantine",
     schema: acknowledgeQuarantineSchema,
     access: { roles: [...memberRoles] },
@@ -32,7 +29,7 @@ export function createAcknowledgeQuarantineHandler({
     description:
       "Marks the open quarantine entries of a mailbox as acknowledged, all of them or only the one mail named by providerMessageId, i.e. the mails the import could not take have been looked at; the mailbox leaves the interrupted state on the next sync. The owner of a personal mailbox or, for a shared one, an admin may call it. Returns the number of acknowledged entries.",
     handler: async (event, ctx) => {
-      const payload = acknowledgeQuarantineSchema.parse(event.payload);
+      const payload = event.payload;
       const account = await loadCurrentMailAccountPayload(ctx, payload.accountId);
       if (!account) return failNotFound("mail-account", payload.accountId);
       if (!mayManageQuarantine(account.ownerUserId, event.user, adminRoles)) {
@@ -51,5 +48,5 @@ export function createAcknowledgeQuarantineHandler({
       );
       return { isSuccess: true as const, data: { acknowledged: updated.length } };
     },
-  };
+  });
 }

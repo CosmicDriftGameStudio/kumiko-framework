@@ -15,7 +15,6 @@ import {
   asRawClient,
   buildEntityTable,
   createEventStoreExecutor,
-  createTenantDb,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -25,6 +24,7 @@ import {
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
@@ -39,6 +39,7 @@ import { runRetentionCleanup } from "../run-retention-cleanup.ts";
 // Entity A: `personal: { of: "id" }` → recordOwned — the row IS its own
 // subject. hardDelete must erase this key.
 const recordOwnedEntity = createEntity({
+  name: "c9-record-owned",
   table: "read_c9_record_owned",
   fields: {
     note: createTextField({ required: true, personal: { of: "id" }, find: "none" }),
@@ -50,6 +51,7 @@ const recordOwnedEntity = createEntity({
 // the REFERENCED user, not this row. hardDelete of this row must NEVER
 // erase the owner's key (they may own other, still-live rows).
 const userOwnedEntity = createEntity({
+  name: "c9-user-owned",
   table: "read_c9_user_owned",
   fields: {
     ownerUserId: createTextField({
@@ -65,6 +67,7 @@ const userOwnedEntity = createEntity({
 // Entity C: whenAbsent "self" → an ownerless row is keyed on itself (erased by
 // hardDelete), a row with an owner sits under the owner's key (left alone).
 const selfFallbackEntity = createEntity({
+  name: "c9-self-fallback",
   table: "read_c9_self_fallback",
   fields: {
     ownerUserId: createTextField({ personal: "ref" }),
@@ -79,6 +82,7 @@ const selfFallbackEntity = createEntity({
 // Entity D: anonymize strategy over an encrypted PII field. The stored value is ciphertext, so the
 // "already anonymized" diff must compare the decrypted value.
 const anonPiiEntity = createEntity({
+  name: "c9-anon-pii",
   table: "read_c9_anon_pii",
   fields: {
     note: {
@@ -88,16 +92,16 @@ const anonPiiEntity = createEntity({
   },
   retention: { keepFor: "30d", strategy: "anonymize" },
 });
-const anonPiiTable = buildEntityTable("c9-anon-pii", anonPiiEntity);
+const anonPiiTable = buildEntityTable(anonPiiEntity);
 const anonPiiExecutor = createEventStoreExecutor(anonPiiTable, anonPiiEntity, {
   entityName: "c9-anon-pii",
 });
 
 const c9Feature = defineFeature("c9-retention-kms-fixtures", (r) => {
-  r.entity({ name: "c9-anon-pii", ...anonPiiEntity });
-  r.entity({ name: "c9-self-fallback", ...selfFallbackEntity });
-  r.entity({ name: "c9-record-owned", ...recordOwnedEntity });
-  r.entity({ name: "c9-user-owned", ...userOwnedEntity });
+  r.entity(anonPiiEntity);
+  r.entity(selfFallbackEntity);
+  r.entity(recordOwnedEntity);
+  r.entity(userOwnedEntity);
 });
 
 let stack: TestStack;

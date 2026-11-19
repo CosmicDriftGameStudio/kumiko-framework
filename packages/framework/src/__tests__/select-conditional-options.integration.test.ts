@@ -24,6 +24,7 @@ import {
 import { TestUsers } from "../seeding/seed-users.ts";
 
 const monitorEntity = createEntity({
+  name: "monitor",
   table: "conditional_option_monitors",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture" }),
@@ -36,10 +37,10 @@ const monitorEntity = createEntity({
   },
 });
 
-const monitorTable = buildEntityTable("monitor", monitorEntity);
+const monitorTable = buildEntityTable(monitorEntity);
 
 const monitoring = defineFeature("monitoring", (r) => {
-  r.entity({ name: "monitor", ...monitorEntity });
+  r.entity(monitorEntity);
   const executor = createEventStoreExecutor(monitorTable, monitorEntity, {
     entityName: "monitor",
   });

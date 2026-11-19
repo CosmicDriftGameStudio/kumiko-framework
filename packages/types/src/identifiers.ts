@@ -7,6 +7,9 @@
 // without touching call sites.
 export type TenantId = string;
 
+// Daily keyed pseudonym of an HTTP caller (hex HMAC over UTC day, client IP and User-Agent); see HandlerContext.visitorKey.
+export type VisitorKey = string;
+
 // Lowercase UUID (any RFC-4122 variant). Strict enough to keep client-
 // supplied junk (e.g. SQL fragments, path-traversal probes) out of the
 // pipeline; loose enough that v4 / v7 / nil all match. Any caller that

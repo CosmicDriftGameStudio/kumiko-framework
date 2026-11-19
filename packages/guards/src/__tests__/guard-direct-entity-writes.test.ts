@@ -63,17 +63,17 @@ describe("collectEsTables", () => {
   });
 });
 
-// r.entity({ name, ...ent }) and buildEntityTable(name2, ent) are linked through the
+// r.entity({ name, ...ent }) and buildEntityTable(ent) are linked through the
 // shared `fooEntity` symbol, NOT through the name string (here "foo" vs
 // "foo_tbl" — deliberately different, like sessions' "user-session" vs
 // "user_session"). Pins the symbol-based linking.
 const ENTITY_PROJECTION_PRELUDE = `
 declare const t: unknown;
-declare function buildEntityTable(name: string, e: unknown): unknown;
+declare function buildEntityTable(e: unknown, options?: unknown): unknown;
 declare function updateMany(db: unknown, table: unknown, set: unknown, where: unknown): Promise<void>;
 declare function insertOne(db: unknown, table: unknown, row: unknown): Promise<void>;
 export const fooEntity = t;
-export const fooTable = buildEntityTable("foo_tbl", fooEntity);
+export const fooTable = buildEntityTable(fooEntity);
 `;
 
 describe("collectEntityProjectionTables", () => {
@@ -114,6 +114,52 @@ describe("collectEntityProjectionTables", () => {
   });
 });
 
+describe("collectEntityProjectionTables :: r.crud", () => {
+  test("links r.crud(entityDef, options) to the table built from the same entityDef", () => {
+    const project = makeProject({
+      "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
+        function setup(r: { crud: (e: unknown, o?: unknown) => void }) {
+          r.crud(fooEntity, {});
+        }
+        async function bad(ctx: { db: unknown }) {
+          await updateMany(ctx.db, fooTable, {}, {});
+        }
+      `,
+    });
+    const tables = collectEntityProjectionTables(project.getSourceFiles());
+    expect(tables.size).toBe(1);
+    expect([...tables][0]).toContain("fooTable");
+    const hits = scanDirectWrites(project.getSourceFileOrThrow("/repo/foo.ts"), tables);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.kind).toBe("non-tx-receiver");
+  });
+
+  test("an inline entity definition is not statically resolvable and collects nothing", () => {
+    const project = makeProject({
+      "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
+        function setup(r: { crud: (e: unknown, o?: unknown) => void }) {
+          r.crud({ fields: {} }, {});
+        }
+      `,
+    });
+    expect(collectEntityProjectionTables(project.getSourceFiles()).size).toBe(0);
+  });
+});
+
+describe("collectEntityProjectionTables :: r.entity(entityDef)", () => {
+  test("links the one-argument form to the table built from the same entityDef", () => {
+    const project = makeProject({
+      "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
+        function setup(r: { entity: (e: unknown) => void }) {
+          r.entity(fooEntity);
+        }
+      `,
+    });
+    const tables = collectEntityProjectionTables(project.getSourceFiles());
+    expect([...tables]).toEqual(["/repo/foo.ts::fooTable"]);
+  });
+});
+
 describe("entity registration name forms", () => {
   const registrations = {
     "constant name": "r.entity({ name: FOO_NAME, ...fooEntity });",
@@ -132,13 +178,30 @@ describe("entity registration name forms", () => {
     });
   }
 
-  test("ignores an .entity() call without a name property", () => {
+  test("collects the table for an .entity() call without a name property (the entity carries its name)", () => {
     const project = makeProject({
       "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
         function setup(r: { entity: (n: unknown) => void }) { r.entity({ ...fooEntity }); }
       `,
     });
-    expect(collectEntityProjectionTables(project.getSourceFiles()).size).toBe(0);
+    expect([...collectEntityProjectionTables(project.getSourceFiles())]).toEqual([
+      "/repo/foo.ts::fooTable",
+    ]);
+  });
+
+  test("collects the backingTable override of r.entity({ ...def, backingTable }) without a name", () => {
+    const project = makeProject({
+      "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
+        export const fooArchiveTable = t;
+        function setup(r: { entity: (n: unknown) => void }) {
+          r.entity({ ...fooEntity, backingTable: fooArchiveTable });
+        }
+      `,
+    });
+    expect([...collectEntityProjectionTables(project.getSourceFiles())].sort()).toEqual([
+      "/repo/foo.ts::fooArchiveTable",
+      "/repo/foo.ts::fooTable",
+    ]);
   });
 });
 
@@ -644,6 +707,29 @@ describe("scanDirectWrites :: tables imported from another file", () => {
   });
 });
 
+describe("scanDirectWrites :: table argument as property access", () => {
+  test("BLOCK: tables.fooTable resolves through the property symbol", () => {
+    const project = makeProject({
+      "/repo/tables.ts": `${ENTITY_PROJECTION_PRELUDE}
+        function setup(r: { entity: (n: string, e: unknown, o?: unknown) => void }) {
+          r.entity({ name: "foo", ...fooEntity });
+        }
+      `,
+      "/repo/use.ts": `
+        import * as tables from "./tables";
+        declare function updateMany(db: unknown, table: unknown, set: unknown, where: unknown): Promise<void>;
+        async function bad(ctx: { db: unknown }) {
+          await updateMany(ctx.db, tables.fooTable, {}, {});
+        }
+      `,
+    });
+    const esTables = collectEntityProjectionTables(project.getSourceFiles());
+    const hits = scanDirectWrites(project.getSourceFileOrThrow("/repo/use.ts"), esTables);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.table).toBe("fooTable");
+  });
+});
+
 describe("scanDirectWrites :: tables from external packages (catalog)", () => {
   const CATALOG = JSON.stringify([{ module: "t", export: "listedTable" }]);
 
@@ -754,8 +840,8 @@ describe("guard.run :: ES table catalog of the owning repo", () => {
 describe("r.projection tables", () => {
   const PROJECTION_PRELUDE = `
     declare const t: unknown;
-    declare function buildEntityTable(name: string, e: unknown): unknown;
-    export const fooProjectionTable = buildEntityTable("foo", t);
+    declare function buildEntityTable(e: unknown, options?: unknown): unknown;
+    export const fooProjectionTable = buildEntityTable(t);
     declare const r: { projection: (d: unknown) => void };
     r.projection({ name: "foo", table: fooProjectionTable, apply: {} });
   `;

@@ -20,9 +20,18 @@ import {
 } from "../../index.ts";
 import { WebDashboardBody } from "../app/dashboard-body.tsx";
 import { useBrowserNavApi } from "../app/nav.tsx";
-import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  fireEvent,
+  type MockQueryHandler,
+  type MockWriteHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const settingEntity: EntityDefinition = {
+  name: "setting",
   fields: {
     title: {
       type: "text",
@@ -97,14 +106,14 @@ function App({
 describe("returnTo — singleton entityEdit ignores it", () => {
   test("reached with ?returnTo=home, saving stays on the singleton screen", async () => {
     let created = false;
-    const write = mock(async (type: string) => {
+    const write = mock<MockWriteHandler>(async (type: string) => {
       if (type === "settingsfeat:write:setting:create") {
         created = true;
         return { isSuccess: true, data: { id: "s1" } };
       }
       return { isSuccess: true, data: {} };
     });
-    const query = mock(async (type: string) => {
+    const query = mock<MockQueryHandler>(async (type: string) => {
       if (type === "settingsfeat:query:setting:list") {
         return created
           ? { isSuccess: true, data: { rows: [{ id: "s1", title: "Saved title" }] } }
@@ -119,14 +128,14 @@ describe("returnTo — singleton entityEdit ignores it", () => {
       return { isSuccess: true, data: { rows: [], nextCursor: null } };
     });
     const dispatcher = createMockDispatcher({
-      write: write as unknown as Dispatcher["write"],
-      query: query as unknown as Dispatcher["query"],
+      write: write,
+      query: query,
     });
 
     window.history.replaceState(null, "", "/settings-edit?returnTo=home");
     render(<App appSchema={schema} dispatcher={dispatcher} />);
 
-    await waitFor(() => expect(screen.getByTestId("field-title")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-title"));
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     fireEvent.change(titleInput, { target: { value: "Saved title" } });
     await waitFor(() => {

@@ -3,15 +3,10 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { articleEntity, articlesFeature, hookLog, reservedSlots } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { articlesFeature, hookLog, reservedSlots } from "../feature";
 
 let stack: TestStack;
 
@@ -19,8 +14,6 @@ const editor = createTestUser({ roles: ["Admin", "Editor"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [articlesFeature] });
-  await unsafeCreateEntityTable(stack.db, articleEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -31,6 +24,46 @@ beforeEach(() => {
   stack.events.reset();
   hookLog.length = 0;
   reservedSlots.clear();
+});
+
+describe("preSave hook", () => {
+  test("a thrown KumikoError rejects the create with its fields and writes nothing", async () => {
+    const error = await stack.http.writeErr(
+      "blog:write:article:create",
+      { title: "Empty", isPublished: true },
+      editor,
+    );
+
+    expect(error.httpStatus).toBe(422);
+    expectErrorIncludes(error, "published_article_needs_content");
+    expect(error.details).toMatchObject({ fields: [{ path: "content" }] });
+    expect(hookLog.some((entry) => entry.type === "created")).toBe(false);
+  });
+
+  test("an update that publishes a draft without content is rejected", async () => {
+    const draft = await stack.http.writeOk<SaveContext>(
+      "blog:write:article:create",
+      { title: "Draft" },
+      editor,
+    );
+
+    const error = await stack.http.writeErr(
+      "blog:write:article:update",
+      { id: draft.id, version: 1, changes: { isPublished: true } },
+      editor,
+    );
+
+    expect(error.httpStatus).toBe(422);
+    expectErrorIncludes(error, "published_article_needs_content");
+  });
+
+  test("a published article with content passes", async () => {
+    await stack.http.writeOk<SaveContext>(
+      "blog:write:article:create",
+      { title: "Ready", content: "Body", isPublished: true },
+      editor,
+    );
+  });
 });
 
 describe("validation hook: single handler", () => {
@@ -156,7 +189,7 @@ describe("preDelete + postDelete entity hooks", () => {
   test("preDelete blocks delete when the article is still published", async () => {
     const created = await stack.http.writeOk<SaveContext>(
       "blog:write:article:create",
-      { title: "Live Article" },
+      { title: "Live Article", content: "Body" },
       editor,
     );
     await stack.http.writeOk<SaveContext>(

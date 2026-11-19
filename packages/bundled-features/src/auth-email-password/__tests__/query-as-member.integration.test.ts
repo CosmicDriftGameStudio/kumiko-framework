@@ -19,8 +19,8 @@ import type {
 import {
   createEntity,
   createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityListHandler,
   defineFeature,
   from,
   HookPhases,
@@ -74,6 +74,7 @@ import { AuthHandlers } from "../web/constants.ts";
 // ── Test fixture: an owner-scoped entity + probe handlers/hooks/job ────────
 
 const noteEntity = createEntity({
+  name: "note",
   table: "qam_notes",
   fields: {
     ownerId: createTextField({ personal: false, reason: "test_fixture" }),
@@ -88,13 +89,14 @@ const noteEntity = createEntity({
 // Unmanaged store: the runtime ES-write lock would deny a direct write on the
 // event-fed note table before the DB-level READ ONLY guard under test is reached.
 const guardNoteEntity = createEntity({
+  name: "guardNote",
   table: "store_qam_guard_notes",
   fields: {
     body: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
   access: { read: { Admin: "all" }, write: { Admin: "all" } },
 });
-const guardNoteTable = deriveEntityTableMeta("guardNote", guardNoteEntity, {
+const guardNoteTable = deriveEntityTableMeta(guardNoteEntity, {
   source: "unmanaged",
 });
 
@@ -102,10 +104,12 @@ const guardNoteTable = deriveEntityTableMeta("guardNote", guardNoteEntity, {
 let noteTable: SchemaTable;
 
 const hookNoteAEntity = createEntity({
+  name: "hookNoteA",
   table: "qam_hook_note_a",
   fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 const hookNoteBEntity = createEntity({
+  name: "hookNoteB",
   table: "qam_hook_note_b",
   fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
@@ -131,7 +135,6 @@ const TRIES_JOB_RUNNER_QN = "queryasmemberprobe:query:tries-job-runner";
 const PROBE_ENTITY_ID = crypto.randomUUID() as EntityId;
 const TRIES_SEARCH_REMOVE_QN = "queryasmemberprobe:query:tries-search-remove";
 const TRIES_REDIS_WRITE_QN = "queryasmemberprobe:query:tries-redis-write";
-const TRIES_CACHE_WRITE_QN = "queryasmemberprobe:query:tries-cache-write";
 const READS_SEARCH_REDIS_CACHE_QN = "queryasmemberprobe:query:reads-search-redis-cache";
 const TRIES_DB_WRITE_QN = "queryasmemberprobe:query:tries-db-write";
 const TRIES_UNSAFE_RAW_WRITE_QN = "queryasmemberprobe:query:tries-unsafe-raw-write";
@@ -146,15 +149,13 @@ const READ_AS_MEMBER_QUERY_QN = "queryasmemberprobe:query:read-as-member-query";
 const SYSTEM_SCOPE_READ_AS_MEMBER_QN = "queryasmembersystemscope:write:read-as-member";
 
 const probeFeature = defineFeature("queryasmemberprobe", (r) => {
-  r.entity({ name: "note", ...noteEntity });
-  r.entity({ name: "hookNoteA", ...hookNoteAEntity });
-  r.entity({ name: "hookNoteB", ...hookNoteBEntity });
+  r.entity(noteEntity);
+  r.entity(hookNoteAEntity);
+  r.entity(hookNoteBEntity);
 
-  r.writeHandler(
-    defineEntityWriteHandler("note:create", noteEntity, { access: { roles: ["Admin"] } }),
-  );
+  r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access: { roles: ["Admin"] } }));
   r.queryHandler(
-    defineEntityQueryHandler("note:list", noteEntity, { access: { roles: ["Admin", "User"] } }),
+    defineEntityListHandler("note", noteEntity, { access: { roles: ["Admin", "User"] } }),
   );
 
   r.queryHandler({
@@ -185,6 +186,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     handler: async (_query, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "qam-probe",
         type: "queryasmemberprobe:event:nope",
         payload: {},
@@ -239,26 +241,12 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     access: { roles: ["Admin", "User"] },
   });
   r.queryHandler({
-    name: "tries-cache-write",
-    schema: z.object({}),
-    handler: async (query, ctx) => {
-      await ctx.services.entityCache?.del(query.user.tenantId, "note", PROBE_ENTITY_ID);
-      return { ok: true };
-    },
-    access: { roles: ["Admin", "User"] },
-  });
-  r.queryHandler({
     name: "reads-search-redis-cache",
     schema: z.object({}),
     handler: async (query, ctx) => {
       const hits = await ctx.services.searchAdapter?.search(query.user.tenantId, "anything");
       const redisValue = await ctx.services.redis?.get("queryasmemberprobe:absent");
-      const cached = await ctx.services.entityCache?.get(
-        query.user.tenantId,
-        "note",
-        PROBE_ENTITY_ID,
-      );
-      return { hits: hits?.length ?? -1, redisValue: redisValue ?? null, cached: cached ?? null };
+      return { hits: hits?.length ?? -1, redisValue: redisValue ?? null };
     },
     access: { roles: ["Admin", "User"] },
   });
@@ -281,23 +269,25 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     name: "tries-unsafe-raw-write",
     schema: z.object({}),
     handler: async (_query, ctx) => {
-      await asRawClient(ctx.db.unsafeRaw()).unsafe("UPDATE qam_notes SET body = 'tampered'");
+      await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(
+        "UPDATE qam_notes SET body = 'tampered'",
+      );
       return { ok: true };
     },
     access: { roles: ["Admin", "User"] },
-    escapeHatch: { reason: "test: raw write probe" },
+    escapeHatch: { reason: "test: raw write probe", grants: ["unsafeRaw"] },
   });
   r.queryHandler({
     name: "tries-read-write-reset",
     schema: z.object({}),
     handler: async (_query, ctx) => {
-      const raw = asRawClient(ctx.db.unsafeRaw());
+      const raw = asRawClient(ctx.db.unsafeRawAllTenants());
       await raw.unsafe("SET TRANSACTION READ WRITE");
       await raw.unsafe("UPDATE qam_notes SET body = 'tampered'");
       return { ok: true };
     },
     access: { roles: ["Admin", "User"] },
-    escapeHatch: { reason: "test: raw write probe" },
+    escapeHatch: { reason: "test: raw write probe", grants: ["unsafeRaw"] },
   });
   r.queryHandler({
     name: "nested-db-write",
@@ -309,13 +299,13 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     name: "tries-select-for-update",
     schema: z.object({}),
     handler: async (_query, ctx) => {
-      const rows = await asRawClient(ctx.db.unsafeRaw()).unsafe(
+      const rows = await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(
         "SELECT id FROM qam_notes FOR UPDATE",
       );
       return { ok: true, count: Array.isArray(rows) ? rows.length : 0 };
     },
     access: { roles: ["Admin", "User"] },
-    escapeHatch: { reason: "test: select-for-update probe" },
+    escapeHatch: { reason: "test: select-for-update probe", grants: ["unsafeRaw"] },
   });
   // Transaction control, not a write: COMMIT ends the read-only scope, the
   // UPDATE afterwards runs in a fresh, writable implicit transaction.
@@ -323,23 +313,23 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     name: "tries-commit-then-write",
     schema: z.object({}),
     handler: async (_query, ctx) => {
-      const raw = asRawClient(ctx.db.unsafeRaw());
+      const raw = asRawClient(ctx.db.unsafeRawAllTenants());
       await raw.unsafe("COMMIT");
       await raw.unsafe("UPDATE qam_notes SET body = 'tampered'");
       return { ok: true };
     },
     access: { roles: ["Admin", "User"] },
-    escapeHatch: { reason: "test: commit-then-write probe" },
+    escapeHatch: { reason: "test: commit-then-write probe", grants: ["unsafeRaw"] },
   });
   r.queryHandler({
     name: "tries-raw-select",
     schema: z.object({}),
     handler: async (_query, ctx) => {
-      const rows = await asRawClient(ctx.db.unsafeRaw()).unsafe("SELECT 1 AS one");
+      const rows = await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe("SELECT 1 AS one");
       return { ok: true, count: Array.isArray(rows) ? rows.length : 0 };
     },
     access: { roles: ["Admin", "User"] },
-    escapeHatch: { reason: "test: raw select probe" },
+    escapeHatch: { reason: "test: raw select probe", grants: ["unsafeRaw"] },
   });
   r.queryHandler({
     name: "nested-raw-select",
@@ -353,7 +343,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     handler: async (query, ctx) =>
       ctx.dispatch.queryAs({ ...query.user, origin: undefined }, WHOAMI_QN, {}),
     access: { roles: ["Admin", "User"] },
-    escapeHatch: { reason: "test: query-as identity switch probe" },
+    escapeHatch: { reason: "test: query-as identity switch probe", grants: ["systemIdentity"] },
   });
   r.queryHandler({
     name: "read-as-member-query",
@@ -369,7 +359,10 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
         query.payload.payload,
       ),
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test: reads as a stored member via a query caller" },
+    escapeHatch: {
+      reason: "test: reads as a stored member via a query caller",
+      grants: ["systemIdentity"],
+    },
   });
 
   // Caller-facing write handler that reads as a member — WITH and WITHOUT
@@ -390,7 +383,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
       return { isSuccess: true as const, data };
     },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test: reads as a stored member" },
+    escapeHatch: { reason: "test: reads as a stored member", grants: ["systemIdentity"] },
   });
   r.writeHandler({
     name: "read-as-member-no-hatch",
@@ -418,7 +411,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
       return { isSuccess: true as const, data: { ok: true } };
     },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test: cache check" },
+    escapeHatch: { reason: "test: cache check", grants: ["systemIdentity"] },
   });
   r.writeHandler({
     name: "read-as-member-two-users",
@@ -429,7 +422,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
       return { isSuccess: true as const, data: { ok: true } };
     },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test: two-user cache check" },
+    escapeHatch: { reason: "test: two-user cache check", grants: ["systemIdentity"] },
   });
   r.writeHandler({
     name: "read-as-member-then-write",
@@ -446,7 +439,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
       return { isSuccess: true as const, data: { ok: true } };
     },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test: read-then-write probe" },
+    escapeHatch: { reason: "test: read-then-write probe", grants: ["systemIdentity"] },
   });
 
   // authClaims — counter parity with cache + real-login-claims check.
@@ -457,13 +450,13 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
 
   // A hook's own escapeHatch grants independently of the handler it fires on, in both directions.
   r.writeHandler({
-    ...defineEntityWriteHandler("hook-note-a:create", hookNoteAEntity, {
+    ...defineEntityCreateHandler("hook-note-a", hookNoteAEntity, {
       access: { roles: ["Admin"] },
     }),
-    escapeHatch: { reason: "test: handler has its own grant" },
+    escapeHatch: { reason: "test: handler has its own grant", grants: ["systemIdentity"] },
   });
   r.writeHandler(
-    defineEntityWriteHandler("hook-note-b:create", hookNoteBEntity, {
+    defineEntityCreateHandler("hook-note-b", hookNoteBEntity, {
       access: { roles: ["Admin"] },
     }),
   );
@@ -492,14 +485,19 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
       hookWithHatchResults.push(res);
     },
     phase: HookPhases.inTransaction,
-    escapeHatch: { reason: "test: hook needs to read as a member" },
+    escapeHatch: { reason: "test: hook needs to read as a member", grants: ["systemIdentity"] },
   });
 
   // Jobs stay ungated.
-  r.job("noop", { trigger: { manual: true }, retries: 0 }, async () => {});
-  r.job("query-as-member-job", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
-    const result = await ctx.dispatch.queryAsMember(payload["userId"] as string, WHOAMI_QN, {}); // @cast-boundary dynamic-key
-    jobQueryAsMemberResults.push(result);
+  r.job({ name: "noop", trigger: { manual: true }, retries: 0, handler: async () => {} });
+  r.job({
+    name: "query-as-member-job",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      const result = await ctx.dispatch.queryAsMember(payload["userId"] as string, WHOAMI_QN, {}); // @cast-boundary dynamic-key
+      jobQueryAsMemberResults.push(result);
+    },
   });
 });
 
@@ -972,7 +970,6 @@ describe("ctx.dispatch.queryAsMember — the resolved principal is read-only (no
   test.each([
     ["searchAdapter.remove", TRIES_SEARCH_REMOVE_QN],
     ["redis.set", TRIES_REDIS_WRITE_QN],
-    ["entityCache.del", TRIES_CACHE_WRITE_QN],
   ])(
     "target query handler calling write surface %s → denied with member_resolution_read_only",
     async (_label, qn) => {
@@ -986,13 +983,13 @@ describe("ctx.dispatch.queryAsMember — the resolved principal is read-only (no
     },
   );
 
-  test("target query handler can still use searchAdapter.search, redis.get and entityCache.get", async () => {
+  test("target query handler can still use searchAdapter.search and redis.get", async () => {
     await createTenant(TENANT_A);
     const userId = await createUser("readsSurfaces@example.com", "pw-long-enough-15");
     await addMembership(userId, TENANT_A);
 
     const result = await readAsMember(userId, READS_SEARCH_REDIS_CACHE_QN);
-    expect(result).toMatchObject({ hits: 0, redisValue: null, cached: null });
+    expect(result).toMatchObject({ hits: 0, redisValue: null });
   });
 
   test("target query handler calling ctx.events.fetchForWriting(...).appendOne → denied with member_resolution_read_only", async () => {

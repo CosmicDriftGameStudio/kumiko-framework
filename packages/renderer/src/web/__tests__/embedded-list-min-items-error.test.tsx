@@ -31,10 +31,11 @@ const schema: FeatureSchema = { featureName: "demo", entities: {}, screens: [scr
 
 function dispatcherRejecting(paths: readonly string[]): Dispatcher {
   return createMockDispatcher({
-    write: (async () => ({
+    write: async () => ({
       isSuccess: false,
       error: {
         code: "validation_error",
+        httpStatus: 422,
         message: "Validation failed",
         i18nKey: "errors.validation.failed",
         details: {
@@ -46,7 +47,7 @@ function dispatcherRejecting(paths: readonly string[]): Dispatcher {
           })),
         },
       },
-    })) as unknown as Dispatcher["write"],
+    }),
   });
 }
 
@@ -67,7 +68,7 @@ async function submit(dispatcher: Dispatcher, addRow: boolean): Promise<void> {
       </NavProvider>
     </DispatcherProvider>,
   );
-  await waitFor(() => expect(screen.getByTestId("field-lines")).toBeDefined());
+  await waitFor(() => screen.getByTestId("field-lines"));
   if (addRow) {
     const addButton = container.querySelector('[data-testid$="empty-add"]');
     if (addButton === null) throw new Error("no add-row button");

@@ -10,6 +10,8 @@ import { resolveTableName } from "../db/entity-table-meta.ts";
 import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
 import { runInNewTransaction, runnerCanBeginTransaction } from "../db/query.ts";
 import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
+import { quoteIdent } from "../db/sql-identifier.ts";
+import { createTenantDb, type TenantDb } from "../db/tenant-db.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
 import {
   buildSearchDocument,
@@ -46,10 +48,6 @@ export type ReindexEntityOptions = {
   // does not leave it reading and writing in the background.
   readonly signal?: AbortSignal;
 };
-
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
-}
 
 // Read-table state, forward-mapped from entity.fields (fieldName →
 // toSnakeCase(fieldName)). SELECT * + forward-map instead of building an
@@ -89,6 +87,7 @@ async function readBatchWithoutStatementTimeout(
 type BatchContext = {
   readonly db: DbRunner;
   readonly registry: Registry;
+  readonly tenantDb: TenantDb;
   readonly entityName: string;
   readonly tableName: string;
   readonly fieldNames: readonly string[];
@@ -120,7 +119,13 @@ async function buildBatchDocs(
         batch.registry,
       );
       if (hasErasedSearchableSubjectField(batch.entityName, state, batch.registry)) continue;
-      const doc = await buildSearchDocument(batch.entityName, entityId, state, batch.registry);
+      const doc = await buildSearchDocument(
+        batch.entityName,
+        entityId,
+        state,
+        batch.registry,
+        batch.tenantDb,
+      );
       if (doc) docs.push({ entityId, doc });
     } catch (e) {
       failures.push({ entityId, reason: e instanceof Error ? e.message : String(e) });
@@ -266,6 +271,7 @@ export async function reindexEntity(
       const batch: BatchContext = {
         db,
         registry,
+        tenantDb: createTenantDb({ db, tenantId }),
         entityName,
         tableName,
         fieldNames,

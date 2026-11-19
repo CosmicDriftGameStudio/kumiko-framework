@@ -1,12 +1,6 @@
 import type { AccessRule, HandlerContext, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
-import type { RateLimitDeclaration } from "@cosmicdrift/kumiko-types/handlers";
-import type { PdfOptions } from "../renderer-foundation/index.ts";
-import type { SubjectScopeContext } from "../shared/index.ts";
+import type { EventUpcastCtx, RateLimitDeclaration } from "@cosmicdrift/kumiko-types/handlers";
 import type { SignatureRetention } from "./entity.ts";
-
-// Injected by the app (renderer-puppeteer-client's `renderHtmlToPdf`): bundled-features cannot
-// import that package, which itself depends on bundled-features.
-export type RenderSignatureHtmlToPdf = (html: string, options?: PdfOptions) => Promise<Uint8Array>;
 
 export type SignatureLinkDelivery = {
   readonly signerId: string;
@@ -28,22 +22,16 @@ export type DeliverSignatureLink = (
   delivery: SignatureLinkDelivery,
 ) => Promise<void>;
 
-export type SignatureSubject = {
-  readonly subjectType: string;
-  readonly subjectId: string;
-};
+export type SignatureHost = { readonly hostType: string; readonly hostId: string };
 
-export type AuthorizeSignatureSubject = (
-  ctx: SubjectScopeContext,
-  user: SessionUser,
-  subject: SignatureSubject,
-) => Promise<boolean>;
+export type SignatureLegacyHostResolver = (
+  subject: { readonly subjectType: string; readonly subjectId: string },
+  ctx: EventUpcastCtx,
+) => SignatureHost | undefined | Promise<SignatureHost | undefined>;
 
 export type SignatureOptions = {
-  /** How long requests and signers are kept, data-retention keepFor syntax, counted from creation. */
+  /** keepFor: how long requests and signers are kept, counted from creation (hard delete). unfinishedKeepFor (optional, no default; without it nothing is anonymized): signers of declined, expired, failed or cancelled requests are anonymized this long after the request's last change. Both in data-retention keepFor syntax. */
   readonly retention: SignatureRetention;
-  /** Renders the signature page (HTML) to a PDF. An outage leaves the request at `all-signed` and the sweep job retries. */
-  readonly renderHtmlToPdf: RenderSignatureHtmlToPdf;
   /** HMAC secret of the signing links. Without it every link is rejected. */
   readonly linkSecret: string;
   /** Sends a freshly issued link to the signer, e.g. by mail. Runs inside the issue-link transaction, before it commits: enqueue through `ctx.dispatch` so the send commits or rolls back with the new link; a throw fails issue-link and leaves no link sent. */
@@ -52,10 +40,10 @@ export type SignatureOptions = {
   readonly signaturePageUrl: string;
   /** Access rule of the signed-in handlers, queries, screens and nav. Default `{ roles: ["TenantAdmin", "TenantMember"] }`; set it when the app hands out other roles. The link handlers stay anonymous. */
   readonly access?: AccessRule;
-  /** Runs for every signed-in handler and query on the subject of the request, except for `unscopedRoles`. `false` answers like "does not exist". Without it every user with `access` sees every request of the tenant. Needs a non-empty `linkSecret`, which also seals the list cursor. */
-  readonly authorizeSubject?: AuthorizeSignatureSubject;
-  /** Roles that skip `authorizeSubject`, e.g. admins. */
-  readonly unscopedRoles?: readonly string[];
+  /** Entity names a request may belong to (`hostType`). A user sees and works on a request only while its host row is readable to them; the names must be registered entities without their own `parentRef`. */
+  readonly hostEntities: readonly [string, ...string[]];
+  /** Names the host of a request stored before the host gate existed (no `hostType`/`hostId` in its created event); applied when events are replayed, the events stay unchanged. Returning `undefined` leaves the request invisible. */
+  readonly legacyHostOf?: SignatureLegacyHostResolver;
 };
 
 export const LINK_RATE_LIMIT: RateLimitDeclaration = {

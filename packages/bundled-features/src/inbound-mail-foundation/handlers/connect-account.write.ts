@@ -20,7 +20,7 @@ import {
   configuredPiiSubjectKms,
   encryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, type WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import {
   failUnprocessable,
   UnprocessableError,
@@ -77,10 +77,9 @@ export const connectAccountSchema = z
   // trustedAuthservId is deliberately not accepted here: it decides which Authentication-Results header
   // is believed, so it only changes through set-trusted-authserv-id.
   .strict();
-type ConnectAccountPayload = z.infer<typeof connectAccountSchema>;
 
-export function createConnectAccountHandler({ adminRoles }: InboundMailRoles): WriteHandlerDef {
-  return {
+export function createConnectAccountHandler({ adminRoles }: InboundMailRoles) {
+  return defineWriteHandler({
     name: "connect-account",
     schema: connectAccountSchema,
     access: { roles: accessRolesOf(InboundMailFoundationHandlers.connectAccount, adminRoles) },
@@ -88,9 +87,11 @@ export function createConnectAccountHandler({ adminRoles }: InboundMailRoles): W
     agent: { expose: false },
     description:
       "Registers a mailbox for the tenant (provider, auth method, display name, encrypted address, shared or personal) and returns the new accountId that also keys its credential slot; use it to start a mail connection, credentials and the first connection test happen outside this call.",
-    handler: async (event, ctx) => {
-      // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const payload = event.payload as ConnectAccountPayload;
+    handler: async (
+      event,
+      ctx,
+    ): Promise<WriteResult<{ readonly accountId: string; readonly reconnected: boolean }>> => {
+      const payload = event.payload;
       const tenantId = event.user.tenantId;
       const accountId = crypto.randomUUID();
 
@@ -176,9 +177,10 @@ export function createConnectAccountHandler({ adminRoles }: InboundMailRoles): W
         type: MAIL_ACCOUNT_CONNECTED_EVENT_QN,
         payload: eventPayload,
         headers,
+        expectedVersion: 0,
       });
 
       return { isSuccess: true as const, data: { accountId, reconnected: false as const } };
     },
-  };
+  });
 }

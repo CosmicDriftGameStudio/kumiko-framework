@@ -4,14 +4,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { noteEntity, noteFeature, preferenceTable } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { noteFeature, preferenceTable } from "../feature";
 
 let stack: TestStack;
 
@@ -20,8 +15,6 @@ const tenantBAdmin = createTestUser({ id: 2, tenantId: "00000000-0000-4000-8000-
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [noteFeature] });
-  await unsafeCreateEntityTable(stack.db, noteEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -105,19 +98,37 @@ describe("tenant isolation", () => {
 
 describe("ctx.db.upsert", () => {
   const setPreference = (user: typeof tenantBAdmin, key: string, value: string) =>
-    stack.http.writeOk<{ value: string }>("notes:write:preference:set", { key, value }, user);
+    stack.http.writeOk<{ value: string; changes: number }>(
+      "notes:write:preference:set",
+      { key, value },
+      user,
+    );
 
   test("a second upsert with the same key updates the tenant's row instead of inserting", async () => {
     await setPreference(tenantAAdmin, "theme", "light");
     const second = await setPreference(tenantAAdmin, "theme", "dark");
 
     expect(second.value).toBe("dark");
+    expect(second.changes).toBe(2);
     const rows = await selectMany(stack.db, preferenceTable, {
       tenantId: tenantAAdmin.tenantId,
       key: "theme",
     });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["value"]).toBe("dark");
+  });
+
+  test("every set counts once, also in parallel", async () => {
+    await Promise.all(
+      Array.from({ length: 5 }, (_, i) => setPreference(tenantAAdmin, "counter", "v" + i)),
+    );
+
+    const rows = await selectMany(stack.db, preferenceTable, {
+      tenantId: tenantAAdmin.tenantId,
+      key: "counter",
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["changes"]).toBe(5);
   });
 
   test("the same key in another tenant creates a separate row and leaves A's value alone", async () => {

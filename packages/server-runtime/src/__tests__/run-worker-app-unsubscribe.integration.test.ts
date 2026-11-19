@@ -24,6 +24,7 @@ import { createDbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
   defineWriteHandler,
+  emitEvent,
   type NotifyFn,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -56,7 +57,9 @@ const sentMessages: ChannelMessage[] = [];
 
 const captureEmailChannelFeature = defineFeature("channel-email", (r) => {
   r.requires({ features: ["delivery"] });
-  r.useExtension(DELIVERY_CHANNEL_EXTENSION, "email", {
+  r.applyExtension({
+    name: DELIVERY_CHANNEL_EXTENSION,
+    entity: "email",
     mode: "inline",
     send: async (address, message) => {
       sentMessages.push(message);
@@ -67,19 +70,29 @@ const captureEmailChannelFeature = defineFeature("channel-email", (r) => {
 
 const digestFeature = defineFeature("digest-probe", (r) => {
   r.requires({ features: ["delivery"] });
-  r.notification("digest", { unsubscribe: true });
+  r.notification({ name: "digest", unsubscribe: true });
+  const triggered = r.defineEvent("triggered", z.object({}), { piiFields: "none" });
   r.writeHandler(
     defineWriteHandler({
       name: "trigger",
       schema: z.object({}),
       access: { roles: ["SystemAdmin"] },
-      handler: async () => ({ isSuccess: true as const, data: {} }),
+      handler: async (_event, ctx) => {
+        await emitEvent(ctx, triggered, {
+          aggregateId: crypto.randomUUID(),
+          expectedVersion: 0,
+          aggregateType: "digest-request",
+          payload: {},
+        });
+        return { isSuccess: true as const, data: {} };
+      },
     }),
   );
-  r.job(
-    "send-digest",
-    { trigger: { on: "digest-probe:write:trigger" }, runIn: "worker" },
-    async (_payload, ctx) => {
+  r.job({
+    name: "send-digest",
+    trigger: { on: "triggered" },
+    runIn: "worker",
+    handler: async (_payload, ctx) => {
       const notify = ctx.notify as NotifyFn;
       await notify("digest-probe:notify:digest", {
         route: { email: "reader@external.test" },
@@ -87,7 +100,7 @@ const digestFeature = defineFeature("digest-probe", (r) => {
         immediate: true,
       });
     },
-  );
+  });
 });
 
 let handles: WorkerAppHandle[] = [];

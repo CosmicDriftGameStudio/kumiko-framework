@@ -1,15 +1,15 @@
 import { createEntityExecutor } from "@cosmicdrift/kumiko-framework/engine";
-import { KumikoError, reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
+import { KumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   type CapCounterContext,
-  markCapSoftWarned,
+  claimCapSoftWarning,
   readRollingCapUsage,
   resolveCapCounterScope,
 } from "./book-cap-usage.ts";
 import { capCounterEntity } from "./entity.ts";
 
-const { table } = createEntityExecutor("cap-counter", capCounterEntity);
+const { table } = createEntityExecutor(capCounterEntity);
 
 // =============================================================================
 // Cap-Toleranz-Multipliers
@@ -43,6 +43,12 @@ export const CAP_TOLERANCES = {
 
 export type CapToleranceProfileName = keyof typeof CAP_TOLERANCES;
 
+// Tolerances are decimal factors; limit * 1.1 is 110.00000000000001 in binary floating point,
+// which would keep a counter of exactly 110 below the soft threshold. Integer math stays exact.
+function capThreshold(limit: number, factor: number): number {
+  return (limit * Math.round(factor * 100)) / 100;
+}
+
 // =============================================================================
 // Enforcement-Result
 // =============================================================================
@@ -58,6 +64,8 @@ export type EnforceCapResult =
       readonly crossed: boolean;
     };
 
+export type CapScope = "tenant" | "subject";
+
 export function assertBelowHardCap(
   valueSeenByLastUnit: number,
   cap: {
@@ -68,15 +76,18 @@ export function assertBelowHardCap(
     readonly periodStartIso?: string;
     readonly periodEndIso?: string;
     readonly i18nKey?: string;
+    // Set when the cap belongs to one subject instead of the whole tenant; reaches the client as details.scope.
+    readonly scope?: CapScope;
   },
 ): void {
   const tolerance = CAP_TOLERANCES[cap.profile];
   // Validated on every call so a misconfigured period fails deterministically, not only at the limit.
   const resetAt = resolvePeriodEndIso(cap.periodStartIso, cap.periodEndIso);
-  if (valueSeenByLastUnit >= cap.limit * tolerance.hard) {
+  if (valueSeenByLastUnit >= capThreshold(cap.limit, tolerance.hard)) {
     throw new CapExceededError(cap.capName, cap.limit, valueSeenByLastUnit, tolerance, {
       ...(resetAt !== undefined && { resetAt }),
       ...(cap.i18nKey !== undefined && { i18nKey: cap.i18nKey }),
+      ...(cap.scope !== undefined && { scope: cap.scope }),
     });
   }
 }
@@ -135,6 +146,8 @@ export async function enforceCap(
     // Default: end of the calendar month that starts at periodStartIso.
     readonly periodEndIso?: string;
     readonly i18nKey?: string;
+    // Set when the cap belongs to one subject instead of the whole tenant; reaches the client as details.scope.
+    readonly scope?: CapScope;
   },
 ): Promise<EnforceCapResult> {
   const { user, readDb } = resolveCapCounterScope(ctx, false);
@@ -147,7 +160,7 @@ export async function enforceCap(
   }
 
   const tolerance = CAP_TOLERANCES[options.profile];
-  const softThreshold = options.limit * tolerance.soft;
+  const softThreshold = capThreshold(options.limit, tolerance.soft);
 
   const rows = await readDb.selectMany(
     table,
@@ -208,8 +221,8 @@ export async function enforceRollingCap(
   const { user, readDb } = resolveCapCounterScope(ctx, false);
 
   const tolerance = CAP_TOLERANCES[options.profile];
-  const softThreshold = options.limit * tolerance.soft;
-  const hardThreshold = options.limit * tolerance.hard;
+  const softThreshold = capThreshold(options.limit, tolerance.soft);
+  const hardThreshold = capThreshold(options.limit, tolerance.hard);
 
   const value = await readRollingCapUsage(readDb, user.tenantId, {
     capName: options.capName,
@@ -252,6 +265,7 @@ export class CapExceededError extends KumikoError {
     options?: {
       readonly resetAt?: string;
       readonly i18nKey?: string;
+      readonly scope?: CapScope;
       readonly cause?: Error;
       // Deterministic tests only.
       readonly now?: Temporal.Instant;
@@ -269,7 +283,7 @@ export class CapExceededError extends KumikoError {
             ),
           );
     super({
-      message: `Cap "${capName}" exceeded: current=${currentValue}, limit=${limit}, hard-threshold=${limit * tolerance.hard}. Upgrade tier or wait for next period reset.${resetAt === undefined ? "" : ` Resets at ${resetAt}.`}`,
+      message: `Cap "${capName}" exceeded: current=${currentValue}, limit=${limit}, hard-threshold=${capThreshold(limit, tolerance.hard)}. Upgrade tier or wait for next period reset.${resetAt === undefined ? "" : ` Resets at ${resetAt}.`}`,
       i18nKey: options?.i18nKey ?? "errors.cap.exceeded",
       i18nParams: { capName, limit, currentValue, ...(resetAt !== undefined && { resetAt }) },
       details: {
@@ -278,6 +292,7 @@ export class CapExceededError extends KumikoError {
         currentValue,
         tolerance,
         ...(resetAt !== undefined && { resetAt, retryAfterSeconds }),
+        ...(options?.scope !== undefined && { scope: options.scope }),
       },
       ...(retryAfterSeconds !== undefined && { retryAfterSeconds }),
       ...(options?.cause && { cause: options.cause }),
@@ -345,9 +360,9 @@ export type SoftHitNotifier = (info: {
 
 /**
  * Calendar-period enforcement with automatic soft-hit notification.
- * Calls `enforceCap`; when `crossed: true`, it calls the notifier and the
- * `mark-soft-warned` handler, which flips `lastSoftWarnedAt` so that the
- * same period does not trigger another notification.
+ * Calls `enforceCap`; when `crossed: true`, it first claims the soft-warned flag and only the
+ * call that flipped `lastSoftWarnedAt` calls the notifier, so that parallel bookings and the
+ * rest of the period do not notify again.
  *
  * Returns the `EnforceCapResult` unchanged, allowing the caller to branch
  * on the result, such as showing a UI toast in addition to the email
@@ -378,19 +393,20 @@ export async function enforceCapAndMaybeNotify(
   });
 
   if (result.state === "soft-hit" && result.crossed) {
-    await options.notify({
-      capName: options.capName,
-      value: result.value,
-      limit: options.limit,
-      tenantId: resolveCapCounterScope(ctx, false).user.tenantId,
-    });
-    // Flip the soft-warned flag so the same period doesn't re-notify.
-    const marked = await markCapSoftWarned(ctx, {
+    // Claim first: of two parallel bookings only the one that flips the flag notifies.
+    const claimed = await claimCapSoftWarning(ctx, {
       capName: options.capName,
       periodStartIso: options.periodStartIso,
       ...(options.markSoftWarnedOutsideTransaction && { outsideTransaction: true }),
     });
-    if (!marked.isSuccess) throw reraiseAsKumikoError(marked.error);
+    if (claimed) {
+      await options.notify({
+        capName: options.capName,
+        value: result.value,
+        limit: options.limit,
+        tenantId: resolveCapCounterScope(ctx, false).user.tenantId,
+      });
+    }
   }
 
   return result;
@@ -469,7 +485,7 @@ export function enforceStockCap(options: {
   readonly limit: number;
   readonly profile: CapToleranceProfileName;
 }): StockCapResult {
-  const hardThreshold = options.limit * CAP_TOLERANCES[options.profile].hard;
+  const hardThreshold = capThreshold(options.limit, CAP_TOLERANCES[options.profile].hard);
   const state = options.current >= hardThreshold ? "exceeded" : "ok";
   return { state, current: options.current, limit: options.limit };
 }

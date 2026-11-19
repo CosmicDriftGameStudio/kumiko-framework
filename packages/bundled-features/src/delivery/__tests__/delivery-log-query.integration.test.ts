@@ -3,6 +3,7 @@
 // field-mapping the query handler now owns (see log.query.ts).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { encodeCursor } from "@cosmicdrift/kumiko-framework/db";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { seedRows } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -77,6 +78,15 @@ afterAll(async () => {
 });
 
 describe("delivery:query:log — PagedRows contract", () => {
+  test("a cursor without a sort value is rejected with 400", async () => {
+    const err = await stack.http.queryErr(
+      DeliveryQueries.log,
+      { limit: 2, cursor: encodeCursor("00000000-0000-4000-8000-000000000001") },
+      admin,
+    );
+    expect(err.httpStatus).toBe(400);
+  });
+
   test("a full page carries a nextCursor; the following (partial) page does not", async () => {
     const first = await stack.http.queryOk<{
       rows: readonly LogRow[];

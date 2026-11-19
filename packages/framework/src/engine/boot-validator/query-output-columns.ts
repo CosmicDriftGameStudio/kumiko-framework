@@ -82,12 +82,11 @@ function checkPagedHandlerOutputSchemaShape(
 // r.queryHandler/defineQueryHandler feeding a list surface has no paged
 // brand, so declaring the row shape instead of the `{ rows, ... }` envelope
 // would otherwise make every column check below a silent no-op.
-function resolveListRowShape(
-  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+function listRowShapeOf(
+  outputSchema: ZodType | undefined,
   queryQn: string,
   usage: string,
 ): ShapeLookup | undefined {
-  const outputSchema = queryHandlers.get(queryQn)?.outputSchema;
   const rowShape = getZodRowShape(outputSchema);
   if (rowShape !== undefined) return rowShape;
   const envelopeShape = getZodObjectShape(outputSchema);
@@ -96,6 +95,14 @@ function resolveListRowShape(
   throw bootRuleError(QUERY_RULES.listSourceOutputWithoutRows, {
     message: `${usage} uses query "${queryQn}" as a list source, but its outputSchema does not describe the paged envelope { rows: [...], nextCursor, total? } — it has no "rows" field. Did you pass the row schema instead of wrapping it in the envelope?`,
   });
+}
+
+function resolveListRowShape(
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+  queryQn: string,
+  usage: string,
+): ShapeLookup | undefined {
+  return listRowShapeOf(queryHandlers.get(queryQn)?.outputSchema, queryQn, usage);
 }
 
 // Row fields a projectionList may name: its list rows plus the rowDecoration rows. An
@@ -349,6 +356,25 @@ function checkRelatedListToolbarActionFields(
   }
 }
 
+// A panel with resultField reads one field of the answer, so its field checks run against that field's schema.
+function panelOutputSchema(
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+  panel: { readonly query: string; readonly resultField?: string },
+  owner: string,
+): ZodType | undefined {
+  const outputSchema = queryHandlers.get(panel.query)?.outputSchema;
+  const { resultField } = panel;
+  if (resultField === undefined) return outputSchema;
+  const answerShape = getZodObjectShape(outputSchema);
+  checkFieldExists(
+    answerShape,
+    resultField,
+    () =>
+      `${owner} resultField references field "${resultField}" which is not present in query "${panel.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
+  );
+  return answerShape?.[resultField];
+}
+
 // Stat panels' query contract is a flat record (not the paged `{ rows }`
 // envelope) — see DashboardStatPanel's doc in screen.ts — so this checks
 // the handler's outputSchema shape directly, not its row shape.
@@ -358,8 +384,8 @@ function checkDashboardStatPanelFields(
   screenId: string,
   panel: DashboardStatPanel,
 ): void {
-  const recordShape = getZodObjectShape(queryHandlers.get(panel.query)?.outputSchema);
   const prefix = `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}"`;
+  const recordShape = getZodObjectShape(panelOutputSchema(queryHandlers, panel, prefix));
   const checkPanelField = (part: string, field: string | undefined): void => {
     // skip: this stat-panel field slot is optional and wasn't declared — nothing to validate
     if (field === undefined) return;
@@ -419,6 +445,47 @@ function checkRowFieldsAreColumns(
   }
 }
 
+function checkDashboardListPanelFields(
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+  featureName: string,
+  screenId: string,
+  panel: DashboardListPanel,
+): void {
+  const usage = `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}"`;
+  const rowShape = listRowShapeOf(
+    panelOutputSchema(queryHandlers, panel, usage),
+    panel.query,
+    usage,
+  );
+  for (const column of panel.columns) {
+    checkColumnField(
+      rowShape,
+      column,
+      (field) =>
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" column "${field}" is not present in query "${panel.query}"'s outputSchema — check for a typo, or set virtual: true on it to mark it a virtual/computed column.`,
+    );
+  }
+  const { rowLink, narrow } = panel;
+  const rowLinkRefs = [
+    { option: "rowLink.paramField", field: rowLink?.paramField },
+    { option: "rowLink.screenField", field: rowLink?.screenField },
+    { option: "rowLink.paramsField", field: rowLink?.paramsField },
+    { option: "narrow.titleField", field: narrow?.titleField },
+    { option: "narrow.field", field: narrow?.field },
+  ].flatMap(({ option, field }) => (field === undefined ? [] : [{ option, field }]));
+  if (rowShape === undefined) {
+    checkRowFieldsAreColumns(featureName, screenId, panel, rowLinkRefs);
+  }
+  for (const { option, field } of [...listGuidanceFieldRefs(panel), ...rowLinkRefs]) {
+    checkFieldExists(
+      rowShape,
+      field,
+      () =>
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panel.id}" ${option} references field "${field}" which is not present in query "${panel.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
+    );
+  }
+}
+
 function checkDashboardOutputFields(
   queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
   featureName: string,
@@ -440,41 +507,24 @@ function checkDashboardOutputFields(
         checkDashboardStatPanelFields(queryHandlers, featureName, screenId, stat);
       }
     } else if (panel.kind === "list") {
-      const rowShape = resolveListRowShape(
+      checkDashboardListPanelFields(queryHandlers, featureName, screenId, panel);
+    } else if (panel.kind === "chart" || panel.kind === "feed" || panel.kind === "progress-list") {
+      // Fixed query-result contract, no author-declared field names; only resultField is checked.
+      panelOutputSchema(
         queryHandlers,
-        panel.query,
+        panel,
         `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}"`,
       );
-      for (const column of panel.columns) {
-        checkColumnField(
-          rowShape,
-          column,
-          (field) =>
-            `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" column "${field}" is not present in query "${panel.query}"'s outputSchema — check for a typo, or set virtual: true on it to mark it a virtual/computed column.`,
-        );
-      }
-      const { rowLink, narrow } = panel;
-      const rowLinkRefs = [
-        { option: "rowLink.paramField", field: rowLink?.paramField },
-        { option: "rowLink.screenField", field: rowLink?.screenField },
-        { option: "rowLink.paramsField", field: rowLink?.paramsField },
-        { option: "narrow.titleField", field: narrow?.titleField },
-        { option: "narrow.field", field: narrow?.field },
-      ].flatMap(({ option, field }) => (field === undefined ? [] : [{ option, field }]));
-      if (rowShape === undefined) {
-        checkRowFieldsAreColumns(featureName, screenId, panel, rowLinkRefs);
-      }
-      for (const { option, field } of [...listGuidanceFieldRefs(panel), ...rowLinkRefs]) {
-        checkFieldExists(
-          rowShape,
-          field,
-          () =>
-            `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panel.id}" ${option} references field "${field}" which is not present in query "${panel.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
-        );
-      }
+    } else if (panel.kind === "text" && panel.query !== undefined) {
+      panelOutputSchema(
+        queryHandlers,
+        {
+          query: panel.query,
+          ...(panel.resultField !== undefined && { resultField: panel.resultField }),
+        },
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}"`,
+      );
     }
-    // chart/feed/progress-list/custom panels have a fixed query-result
-    // contract with no author-declared field names to check.
   }
 }
 

@@ -23,7 +23,7 @@ import {
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { createFilesFeature, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -40,7 +40,6 @@ import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
 } from "../../data-retention/index.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
@@ -99,7 +98,9 @@ const deleteNotes: UserDataDeleteHook = async (ctx, _strategy) => {
 };
 
 const testNotesFeature = defineFeature("test-notes", (r) => {
-  r.useExtension(EXT_USER_DATA, "note", {
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "note",
     export: exportNotes,
     delete: deleteNotes,
   });

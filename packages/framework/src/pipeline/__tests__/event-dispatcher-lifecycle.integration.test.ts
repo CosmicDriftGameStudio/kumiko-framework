@@ -56,7 +56,7 @@ let slowHandlerDelayMs = 0;
 let slowHandlerInvocations: Array<{ start: number; end: number }> = [];
 
 const wiringFeature = defineFeature("wiring", (r) => {
-  r.entity({ name: "widget", ...sharedWidgetEntity });
+  r.entity(sharedWidgetEntity);
 
   r.multiStreamProjection({
     name: "observer",

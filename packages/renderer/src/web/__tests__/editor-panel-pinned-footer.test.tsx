@@ -42,7 +42,7 @@ describe("EditorPanel hosting a FormScreenLayout resolver", () => {
     expect(host?.className).toContain("min-h-0");
     expect(host?.className).not.toContain("flex-1");
 
-    expect(screen.getByTestId("resolver-editor-actions")).toBeDefined();
+    screen.getByTestId("resolver-editor-actions");
     expect(
       screen
         .getByTestId("resolver-editor-scroll")

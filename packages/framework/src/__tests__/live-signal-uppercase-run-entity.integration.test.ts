@@ -15,15 +15,16 @@ import { TestUsers } from "../seeding/seed-users.ts";
 const ENTITY_NAME = "aiURLCheck";
 
 const urlCheckEntity = createEntity({
+  name: ENTITY_NAME,
   table: "uppercase_run_url_checks",
   fields: {
     url: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const urlCheckTable = buildEntityTable(ENTITY_NAME, urlCheckEntity);
+const urlCheckTable = buildEntityTable(urlCheckEntity);
 
 const feature = defineFeature("urlchecks", (r) => {
-  r.entity({ name: ENTITY_NAME, ...urlCheckEntity });
+  r.entity(urlCheckEntity);
   r.writeHandler({
     name: "check:create",
     schema: z.object({ url: z.string() }),

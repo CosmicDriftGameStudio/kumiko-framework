@@ -24,10 +24,13 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { findSignupHandoverProvider, type SignupHandoverBinding } from "../../shared/index.ts";
+import {
+  findSignupHandoverProvider,
+  resolveHandlerMailLocale,
+  type SignupHandoverBinding,
+} from "../../shared/index.ts";
 import { AUTH_EMAIL_PAYLOAD_RATE_LIMITS } from "../email-rate-limits.ts";
 import type { AuthMailLocale } from "../email-templates.ts";
-import { resolveHandlerMailLocale } from "../magic-link-mail.ts";
 import { AUTH_SELF_REGISTRATION_FEATURE } from "../self-registration-toggle.ts";
 import { issueSignupActivation } from "../signup-activation.ts";
 import { storeSignupHandover, takeOverSignupHandoverForResend } from "../signup-token-store.ts";
@@ -52,12 +55,7 @@ const HANDOVER_GRANT_VERIFY_REASON =
   "verifies a tenant-handover grant against its root row in the source tenant (read-only anchor lookup) before binding it to the signup token";
 
 export type SignupRequestData =
-  | {
-      readonly kind: "signup-requested";
-      readonly email: string;
-      readonly token: string;
-      readonly expiresAt: string;
-    }
+  | { readonly kind: "signup-requested"; readonly expiresAt: string }
   | { readonly kind: "no-op" };
 
 export type SignupRequestOptions = {
@@ -83,6 +81,7 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
     access: { roles: ["anonymous"] },
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
     additionalRateLimits: AUTH_EMAIL_PAYLOAD_RATE_LIMITS,
+    agent: { expose: false },
     description:
       "Starts magic-link self-registration by mailing a fresh activation link to an address and invalidating any link still outstanding for it; the answer looks the same whether or not the address is already registered.",
     escapeHatch: { reason: HANDOVER_GRANT_VERIFY_REASON, grants: ["unsafeRaw"] },
@@ -159,7 +158,7 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
             } else {
               try {
                 const verified = await provider.verifyGrant({
-                  db: ctx.db.unsafeRaw(),
+                  db: ctx.db.unsafeRawAllTenants(),
                   registry: ctx.registry,
                   entityType,
                   token: grantToken,
@@ -188,8 +187,6 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
         isSuccess: true,
         data: {
           kind: "signup-requested",
-          email: issued.email,
-          token: issued.token,
           expiresAt: issued.expiresAt,
         },
       };

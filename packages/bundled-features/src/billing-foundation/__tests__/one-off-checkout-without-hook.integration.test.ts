@@ -32,7 +32,7 @@ const providerFeature = defineFeature("test-no-hook-provider", (r) => {
       providerCheckoutId: `cs_${options.priceId}`,
     }),
   };
-  r.useExtension("subscriptionProvider", "mock", plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: "mock", ...plugin });
 });
 
 let stack: TestStack;

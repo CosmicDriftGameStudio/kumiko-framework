@@ -10,12 +10,13 @@ import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import { type CorePrimitives, PrimitivesProvider } from "../../primitives.tsx";
+import { type InputProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import { SecretsEditBody } from "../secrets-edit-body.tsx";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const testPrimitives = {
+const testPrimitives = createStubPrimitives({
   Banner: ({ children, testId }: { children?: ReactNode; testId?: string }) => (
     <div data-testid={testId}>{children}</div>
   ),
@@ -56,34 +57,20 @@ const testPrimitives = {
     </form>
   ),
   Section: passChildren,
-  Field: ({ children, appendix }: { children?: ReactNode; appendix?: ReactNode }) => (
-    <div>
-      {children}
-      {appendix}
-    </div>
-  ),
-  Input: ({
-    testId,
-    value,
-    onChange,
-    disabled,
-  }: {
-    testId?: string;
-    value?: string;
-    onChange?: (v: string) => void;
-    disabled?: boolean;
-  }) => (
-    <input
-      data-testid={testId}
-      value={value ?? ""}
-      disabled={disabled}
-      onChange={(e) => onChange?.(e.target.value)}
-    />
-  ),
+  Field: passChildren,
+  Input: (props: InputProps) =>
+    props.kind === "password" ? (
+      <input
+        data-testid={props.testId}
+        value={props.value}
+        disabled={props.disabled}
+        onChange={(e) => props.onChange(e.target.value)}
+      />
+    ) : null,
   Text: passChildren,
   Grid: passChildren,
   Dialog: () => null,
-} as unknown as CorePrimitives;
+});
 
 const screenDef: SecretsEditScreenDefinition = {
   id: "secrets",
@@ -97,18 +84,11 @@ function rejectingDispatcher(): Dispatcher {
   const reject = async (): Promise<never> => {
     throw new Error("network down");
   };
-  return {
-    write: reject as unknown as Dispatcher["write"],
-    batch: reject as unknown as Dispatcher["batch"],
-    query: (async () => ({ isSuccess: true, data: [] })) as unknown as Dispatcher["query"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+  return createMockDispatcher({
+    write: reject,
+    batch: reject,
+    query: async () => ({ isSuccess: true, data: [] }),
+  });
 }
 
 describe("SecretsEditBody transport failure", () => {

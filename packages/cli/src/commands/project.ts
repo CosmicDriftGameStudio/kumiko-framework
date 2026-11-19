@@ -1,9 +1,9 @@
-import { join } from "node:path";
 import { getStringFlag, parseArgs } from "@cosmicdrift/kumiko-framework/arg-parser";
 import { wireKmsFromEnv } from "./kms-wiring";
-import { loadAppConfig } from "./load-app-config";
+import { loadAppConfigWithDatabaseUrl } from "./load-app-config";
 import type { CliCommand, CliCommandContext } from "./types";
 
+const PROJECTION_STATE_TABLE = "public.kumiko_projections";
 const PROJECT_SUBCOMMANDS = ["list", "status", "rebuild"] as const;
 type ProjectSubcommand = (typeof PROJECT_SUBCOMMANDS)[number];
 
@@ -34,31 +34,11 @@ export const projectCommand: CliCommand = {
       return 1;
     }
 
-    const configPath = join(ctx.cwd, "kumiko.config.ts");
-    if (!(await Bun.file(configPath).exists())) {
-      ctx.out.err("");
-      ctx.out.err(`  kumiko.config.ts not found at: ${configPath}`);
-      ctx.out.err("");
-      ctx.out.err("  Create a file that exports your features:");
-      ctx.out.err("    // kumiko.config.ts");
-      ctx.out.err('    import { myFeature } from "./src/features/my-feature";');
-      ctx.out.err("    export default { features: [myFeature] };");
-      ctx.out.err("");
-      return 1;
-    }
-
-    const databaseUrl = process.env["DATABASE_URL"];
-    if (!databaseUrl) {
-      ctx.out.err("");
-      ctx.out.err("  DATABASE_URL not set. Run against a configured env.");
-      ctx.out.err("");
-      return 1;
-    }
-
-    const config = await loadAppConfig(ctx, configPath);
-    if (config === null) return 1;
+    const loaded = await loadAppConfigWithDatabaseUrl(ctx);
+    if (loaded === null) return 1;
+    const { config, databaseUrl } = loaded;
     const { createRegistry } = await import("@cosmicdrift/kumiko-framework/engine");
-    const { createDbConnection } = await import("@cosmicdrift/kumiko-framework/db");
+    const { createDbConnection, tableExists } = await import("@cosmicdrift/kumiko-framework/db");
     const {
       listProjectionsWithState,
       getProjectionState,
@@ -81,16 +61,29 @@ export const projectCommand: CliCommand = {
           features: config.features,
           allowPlaintextPii,
         });
+        await createProjectionStateTable(db);
       }
-      await createProjectionStateTable(db);
       return await runInSystemRowLevelSecurityScope(
         "operator projection tool reads and rebuilds projections of every tenant",
         async () => {
           switch (sub) {
             case "list":
-              return await listProjections(ctx, db, registry, listProjectionsWithState);
+              return await listProjections(
+                ctx,
+                db,
+                registry,
+                listProjectionsWithState,
+                await tableExists(db, PROJECTION_STATE_TABLE),
+              );
             case "status":
-              return await showProjectionStatus(ctx, db, arg, registry, getProjectionState);
+              return await showProjectionStatus(
+                ctx,
+                db,
+                arg,
+                registry,
+                getProjectionState,
+                await tableExists(db, PROJECTION_STATE_TABLE),
+              );
             case "rebuild":
               return await rebuildOne(ctx, db, arg, registry, rebuildProjection);
           }
@@ -113,7 +106,16 @@ async function listProjections(
   db: import("@cosmicdrift/kumiko-framework/db").DbConnection,
   registry: ReturnType<typeof import("@cosmicdrift/kumiko-framework/engine").createRegistry>,
   listProjectionsWithState: typeof import("@cosmicdrift/kumiko-framework/pipeline").listProjectionsWithState,
+  stateTableExists: boolean,
 ): Promise<number> {
+  if (!stateTableExists) {
+    ctx.out.log("");
+    ctx.out.log(
+      "  No projection has been rebuilt yet: table kumiko_projections does not exist (the app creates it on boot).",
+    );
+    ctx.out.log("");
+    return 0;
+  }
   const entries = await listProjectionsWithState(db, registry);
   if (entries.length === 0) {
     ctx.out.log("");
@@ -140,6 +142,7 @@ async function showProjectionStatus(
   arg: string | undefined,
   registry: ReturnType<typeof import("@cosmicdrift/kumiko-framework/engine").createRegistry>,
   getProjectionState: typeof import("@cosmicdrift/kumiko-framework/pipeline").getProjectionState,
+  stateTableExists: boolean,
 ): Promise<number> {
   if (!arg) {
     ctx.out.err("");
@@ -147,7 +150,7 @@ async function showProjectionStatus(
     ctx.out.err("");
     return 1;
   }
-  const state = await getProjectionState(db, arg);
+  const state = stateTableExists ? await getProjectionState(db, arg) : null;
   if (!state) {
     const registered = registry.getAllProjections().has(arg);
     if (!registered) {

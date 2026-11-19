@@ -10,7 +10,6 @@
 // deliberately not TestUsers (prod seeds are not test utilities).
 
 import {
-  createTenantDb,
   type DbConnection,
   fetchOne,
   selectMany,
@@ -29,6 +28,7 @@ import {
   getStreamVersion,
   getUnscopedStreamMaxVersionForSeed,
 } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { Dispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
@@ -71,6 +71,71 @@ async function resolveExistingForEventStoreSeed(
     return null;
   }
   return { id, version: streamVersion };
+}
+
+type TemplateRowKey = {
+  readonly tenantId: TenantId;
+  readonly slug: string;
+  readonly kind: string;
+  readonly locale: string;
+};
+
+// Parallel boot pods can both delete an orphan and race on create; the unique key (tenantId, slug, kind, locale)
+// names the winner, and the loser goes through the same skip/update contract as a normal re-seed.
+async function seedTemplateRowByKey(args: {
+  readonly db: DbConnection;
+  readonly tdb: TenantDb;
+  readonly by: SessionUser;
+  readonly key: TemplateRowKey;
+  readonly label: string;
+  readonly ifExists: SeedIfExists | undefined;
+  readonly createFields: Parameters<typeof executor.create>[0];
+  readonly applyUpdate: (
+    row: { id: string; version: number },
+    current: TemplateResourceRow | undefined,
+  ) => Promise<{ id: string }>;
+}): Promise<{ id: string }> {
+  const lookup = async () => {
+    const row = await fetchOne<TemplateResourceRow>(args.db, templateResourcesTable, {
+      ...args.key,
+    });
+    const existing = await resolveExistingForEventStoreSeed(
+      args.db,
+      args.tdb,
+      row ? { id: row.id, version: row.version } : null,
+      args.key.tenantId,
+    );
+    return { row, existing };
+  };
+  const first = await lookup();
+  return runEventStoreSeed({
+    existing: first.existing,
+    ifExists: args.ifExists,
+    create: async () => {
+      const result = await executor.create(args.createFields, args.by, args.tdb);
+      if (result.isSuccess) {
+        const createdId = propertyOf(result.data, "id");
+        if (createdId === undefined) {
+          throw new Error(`${args.label}: executor.create did not return an id`);
+        }
+        return { id: String(createdId) };
+      }
+      if (result.error?.code !== "unique_violation") {
+        throw new Error(`${args.label} create failed: ${JSON.stringify(result)}`);
+      }
+      const again = await lookup();
+      if (again.existing == null) {
+        throw new Error(`${args.label} create unique_violation but row missing`);
+      }
+      return runEventStoreSeed({
+        existing: again.existing,
+        ifExists: args.ifExists,
+        create: () => Promise.reject(new Error(`${args.label}: unreachable create`)),
+        update: (row) => args.applyUpdate(row, again.row),
+      });
+    },
+    update: (row) => args.applyUpdate(row, first.row),
+  });
 }
 
 export type SeedSystemTemplateOptions = {
@@ -159,19 +224,6 @@ export async function seedSystemTemplate(
     );
   }
 
-  const existingRow = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
-    tenantId,
-    slug: opts.slug,
-    kind: opts.kind,
-    locale: opts.locale,
-  });
-  const existing = await resolveExistingForEventStoreSeed(
-    db,
-    tdb,
-    existingRow ? { id: existingRow.id, version: existingRow.version } : null,
-    tenantId,
-  );
-
   const variableSchema = JSON.stringify(opts.variableSchema ?? {});
   const meta = evaluated.metaJson;
   const linkedResources =
@@ -226,57 +278,21 @@ export async function seedSystemTemplate(
     return { id: String(row.id) };
   };
 
-  return runEventStoreSeed({
-    existing,
+  return seedTemplateRowByKey({
+    db,
+    tdb,
+    by,
+    key: { tenantId, slug: opts.slug, kind: opts.kind, locale: opts.locale },
+    label: "seedSystemTemplate",
     ifExists: opts.ifExists,
-    create: async () => {
-      const result = await executor.create(
-        {
-          ...rowFields,
-          ...activeStampChanges(null),
-          draft: null,
-          linkedResources: linkedResources ?? "{}",
-          tenantId,
-        },
-        by,
-        tdb,
-      );
-      if (!result.isSuccess) {
-        // Parallel boot pods can both delete the orphan and race on create —
-        // unique on (tenantId, slug, kind, locale) → resolve winner and update.
-        if (result.error?.code === "unique_violation") {
-          const again = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
-            tenantId,
-            slug: opts.slug,
-            kind: opts.kind,
-            locale: opts.locale,
-          });
-          const resolved = await resolveExistingForEventStoreSeed(
-            db,
-            tdb,
-            again ? { id: again.id, version: again.version } : null,
-            tenantId,
-          );
-          if (resolved == null) {
-            throw new Error(`seedSystemTemplate create unique_violation but row missing`);
-          }
-          // Race loser goes through the same skip/update contract as a normal re-seed.
-          return runEventStoreSeed({
-            existing: resolved,
-            ifExists: opts.ifExists,
-            create: () => Promise.reject(new Error("seedSystemTemplate: unreachable create")),
-            update: (row) => applyUpdate(row, again),
-          });
-        }
-        throw new Error(`seedSystemTemplate create failed: ${JSON.stringify(result)}`);
-      }
-      const createdId = propertyOf(result.data, "id");
-      if (createdId === undefined) {
-        throw new Error("seedSystemTemplate: executor.create did not return an id");
-      }
-      return { id: String(createdId) };
+    createFields: {
+      ...rowFields,
+      ...activeStampChanges(null),
+      draft: null,
+      linkedResources: linkedResources ?? "{}",
+      tenantId,
     },
-    update: (row) => applyUpdate(row, existingRow),
+    applyUpdate,
   });
 }
 
@@ -396,7 +412,7 @@ export async function seedNotificationTemplates(
     const { collectRendererPlugins } = await import("../renderer-foundation/index.ts");
     if (!collectRendererPlugins(registry).some((plugin) => plugin.kinds.includes("mail"))) {
       throw new Error(
-        'Notifications declare a mail template but no renderer plugin for kind "mail" is registered (mount renderer-foundation and @cosmicdrift/kumiko-renderer-mail-html)',
+        'Notifications declare a mail template but no renderer plugin for kind "mail" is registered (mount renderer-foundation and @cosmicdrift/kumiko-bundled-features/renderer-mail-html)',
       );
     }
   }
@@ -546,19 +562,6 @@ export async function seedTextBlock(
     reason: "seeding writes text blocks into an explicitly named tenant",
   });
 
-  const existingRow = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
-    tenantId: opts.tenantId,
-    slug: opts.slug,
-    kind: TEXT_BLOCK_KIND,
-    locale: opts.locale,
-  });
-  const existing = await resolveExistingForEventStoreSeed(
-    db,
-    tdb,
-    existingRow ? { id: existingRow.id, version: existingRow.version } : null,
-    opts.tenantId,
-  );
-
   const fields = {
     slug: opts.slug,
     kind: TEXT_BLOCK_KIND,
@@ -610,51 +613,15 @@ export async function seedTextBlock(
     return { id: String(row.id) };
   };
 
-  return runEventStoreSeed({
-    existing,
+  return seedTemplateRowByKey({
+    db,
+    tdb,
+    by,
+    key: { tenantId: opts.tenantId, slug: opts.slug, kind: TEXT_BLOCK_KIND, locale: opts.locale },
+    label: "seedTextBlock",
     ifExists: opts.ifExists,
-    create: async () => {
-      const result = await executor.create(
-        { ...fields, ...activeStampChanges(null), draft: null, tenantId: opts.tenantId },
-        by,
-        tdb,
-      );
-      if (!result.isSuccess) {
-        if (result.error?.code === "unique_violation") {
-          const again = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
-            tenantId: opts.tenantId,
-            slug: opts.slug,
-            kind: TEXT_BLOCK_KIND,
-            locale: opts.locale,
-          });
-          const resolved = await resolveExistingForEventStoreSeed(
-            db,
-            tdb,
-            again ? { id: again.id, version: again.version } : null,
-            opts.tenantId,
-          );
-          if (resolved == null) {
-            throw new Error("seedTextBlock create unique_violation but row missing");
-          }
-          // Race loser goes through the same skip/no-op/update contract as a normal re-seed.
-          return runEventStoreSeed({
-            existing: resolved,
-            ifExists: opts.ifExists,
-            create: () => Promise.reject(new Error("seedTextBlock: unreachable create")),
-            update: (row) => applyUpdate(row, again),
-          });
-        }
-        throw new Error(`seedTextBlock create failed: ${JSON.stringify(result)}`);
-      }
-      // @cast-boundary db-row — executor.create returns the inserted row from
-      // INSERT/RETURNING; id is guaranteed by the PK in the returning clause.
-      const data = result.data as Partial<TemplateResourceRow>;
-      if (data.id === undefined) {
-        throw new Error("seedTextBlock: executor.create did not return an id");
-      }
-      return { id: String(data.id) };
-    },
-    update: (row) => applyUpdate(row, existingRow),
+    createFields: { ...fields, ...activeStampChanges(null), draft: null, tenantId: opts.tenantId },
+    applyUpdate,
   });
 }
 

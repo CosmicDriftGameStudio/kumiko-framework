@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { describe, mock, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -47,13 +47,13 @@ describe("ComplianceProfileCatalog — profile names follow the locale", () => {
     render(<ComplianceProfileCatalog entityName="__action-form__" entityId={null} />, {
       wrapper: GermanWrapper,
     });
-    expect(screen.getByText("EU — DSGVO Standard")).toBeTruthy();
+    screen.getByText("EU — DSGVO Standard");
   });
 
   test("a profile without an option translation keeps its source label", () => {
     render(<ComplianceProfileCatalog entityName="__action-form__" entityId={null} />, {
       wrapper: GermanWrapper,
     });
-    expect(screen.getByText("Minimal")).toBeTruthy();
+    screen.getByText("Minimal");
   });
 });

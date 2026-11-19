@@ -429,7 +429,7 @@ describe("writeBaseline", () => {
     mkdirSync(join(cwd, ".changeset"), { recursive: true });
     writeFileSync(
       join(cwd, ".changeset/drop.md"),
-      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n${title}\n\n<!-- kumiko-changes\nfeature: ${feature}\ntype: ${type}\ntitle: ${title}\nmigration: ${migration}\n-->\n`,
+      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n${title}\n\n<!-- kumiko-changes\nfeature: ${feature}\ntype: ${type}\ntitle: ${title}\nmigration: ${migration}\n${type === "breaking" ? "affects: all\n" : ""}-->\n`,
     );
   }
 

@@ -162,7 +162,7 @@ const collectionEditor = () => async (page: Page) => {
   // Collection nodes render expanded, so no click on the node itself — that
   // would collapse it and hide the very entries the shot is about.
   const entry = page.getByRole("button", { name: "Order confirmed" });
-  await entry.waitFor({ timeout: 15_000 });
+  await entry.waitFor({ timeout: E2E_TIMEOUT_MS.poll });
   await entry.click();
   await page.getByTestId("text-block-editor").waitFor();
 };

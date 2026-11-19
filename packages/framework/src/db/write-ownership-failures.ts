@@ -1,7 +1,11 @@
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import { checkWriteFieldOwnership } from "../engine/field-access.ts";
-import { userCanCreateFieldRow, userCanWriteFieldRow } from "../engine/ownership.ts";
+import {
+  type OwnershipMap,
+  userCanCreateFieldRow,
+  userCanWriteFieldRow,
+} from "../engine/ownership.ts";
 import type { SessionUser, TenantId } from "../engine/types/index.ts";
 import type { WriteFailure } from "../errors/index.ts";
 import type { DbRow } from "./connection.ts";
@@ -11,6 +15,7 @@ import { ownershipDeniedFailure } from "./event-store-executor-write-steps.ts";
 export function createOwnershipFailure(options: {
   readonly entity: EntityDefinition;
   readonly entityName: string;
+  readonly writeAccess: OwnershipMap | undefined;
   readonly user: SessionUser;
   readonly streamTenantId: TenantId | undefined;
   readonly payloadWithoutId: Record<string, unknown>;
@@ -21,7 +26,7 @@ export function createOwnershipFailure(options: {
     options;
   // H.2 — entity-level write-ownership on create. No oldRow exists, so
   // only the new row is checked. No Straddle concern for creates.
-  if (!userCanCreateFieldRow(ownershipSubject(user, streamTenantId), entity.access?.write, data)) {
+  if (!userCanCreateFieldRow(ownershipSubject(user, streamTenantId), options.writeAccess, data)) {
     return ownershipDeniedFailure({
       scope: "entity",
       entityName,
@@ -61,6 +66,7 @@ export function createOwnershipFailure(options: {
 export function updateOwnershipFailure(options: {
   readonly entity: EntityDefinition;
   readonly entityName: string;
+  readonly writeAccess: OwnershipMap | undefined;
   readonly user: SessionUser;
   readonly streamTenantId: TenantId | undefined;
   readonly id: EntityId;
@@ -88,7 +94,7 @@ export function updateOwnershipFailure(options: {
   if (
     !userCanWriteFieldRow(
       ownershipSubject(user, streamTenantId),
-      entity.access?.write,
+      options.writeAccess,
       previous,
       mergedNew,
     )

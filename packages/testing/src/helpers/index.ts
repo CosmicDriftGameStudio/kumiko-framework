@@ -2,8 +2,10 @@
 // must import nothing from this subpath — the stack builders live in
 // `@cosmicdrift/kumiko-testing/stack`.
 
-// Scope setters for tests that call cross-tenant or tenant functions directly, outside dispatch.
+// Scope setters and the full createTenantDb (system mode, grants) for tests that call cross-tenant or tenant functions directly, outside dispatch.
 export {
+  type CreateTenantDbOptions,
+  createTenantDb,
   runInRowLevelSecurityScope,
   runInSystemRowLevelSecurityScope,
   tenantRowLevelSecurityScope,
@@ -26,6 +28,8 @@ export { withBootValidatorFixture } from "./boot-validator-fixture.ts";
 export { type BurstResult, burst } from "./burst.ts";
 export {
   captureClosedConnectionError,
+  type FakePooledClient,
+  fakePooledClientFailingWith,
   terminateBackendsByApplicationName,
   testDatabaseUrl,
 } from "./closed-connection-error.ts";
@@ -61,6 +65,11 @@ export {
 } from "./http-cookies.ts";
 export { createLateBoundHolder, type LateBoundHolder } from "./late-bound.ts";
 export { createManualClock, type ManualClock } from "./manual-clock.ts";
+export {
+  type LiveMeiliConnection,
+  liveMeiliConnection,
+  meiliAvailable,
+} from "./meili-availability.ts";
 export { buildMultipartBody, patchFileInstanceofForBunTest } from "./multipart-helper.ts";
 export {
   createMutableMasterKeyProvider,
@@ -86,6 +95,6 @@ export { readSseFrames, type SseFrame } from "./sse-frames.ts";
 export { createTestStoredEvent } from "./stored-event-fixture.ts";
 export { sleep } from "./utils.ts";
 export { waitFor } from "./wait-for.ts";
-export { withEnv } from "./with-env.ts";
+export { withEnv, withEnvForEachTest, withEnvForSuite } from "./with-env.ts";
 export { withoutAmbientTemporal } from "./without-ambient-temporal.ts";
 export { zipWithEntries } from "./zip-fixture.ts";

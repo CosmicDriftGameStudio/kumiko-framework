@@ -42,6 +42,7 @@ import type {
   MultiStreamProjectionDefinition,
   ProjectionDefinition,
   ProjectionRowIdOf,
+  SingleStreamApplyFn,
 } from "@cosmicdrift/kumiko-types/projection";
 import type { RelationDefinition } from "@cosmicdrift/kumiko-types/relations";
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-types/screen";
@@ -52,6 +53,8 @@ import { assertBackingTableSuperset, deriveEntityTableMeta } from "../db/entity-
 import { markExecutorManagedTable } from "../db/executor-managed-tables.ts";
 import { asEntityTableMeta } from "../db/query.ts";
 import { buildEntityTable, declareSystemRowsReadable } from "../db/table-builder.ts";
+import { FRAMEWORK_OWNED_EXTENSIONS } from "./extension-names.ts";
+import { isReadRestrictedField } from "./field-access.ts";
 import { type QnType, qualifyEntityName } from "./qualified-name.ts";
 import type { FeatureDefinition } from "./types/index.ts";
 
@@ -101,20 +104,20 @@ export function buildImplicitProjection(
   // collectTableMetas — restoring the invariant (test-push == generate).
   // Validated as a superset of the field-derived columns so a field/table
   // disagreement fails at boot, not as a silent thin-vs-rich row.
-  const drizzleTable =
+  const entityTable =
     backingTable !== undefined
       ? resolveBackingTable(entityName, entity, backingTable)
-      : buildEntityTable(entityName, entity);
+      : buildEntityTable({ ...entity, name: entityName });
   // Push paths read the table's own meta, so the reference-data-derived flag must land there too.
-  if (readsSystemRows) declareSystemRowsReadable(drizzleTable);
-  markExecutorManagedTable(drizzleTable, { entityName, entity });
+  if (readsSystemRows) declareSystemRowsReadable(entityTable);
+  markExecutorManagedTable(entityTable, { entityName, entity });
   // applyEntityEvent returns ApplyResult, but SingleStreamApplyFn expects
   // Promise<void>. The row is irrelevant during rebuild, so we discard it.
   const handler = async (
     event: Parameters<ProjectionDefinition["apply"][string]>[0],
     tx: Parameters<ProjectionDefinition["apply"][string]>[1],
   ): Promise<void> => {
-    await applyEntityEvent(event, drizzleTable, entity, tx);
+    await applyEntityEvent(event, entityTable, entity, tx);
   };
   const apply: Record<string, ProjectionDefinition["apply"][string]> = {
     [`${entityName}.created`]: handler,
@@ -130,6 +133,7 @@ export function buildImplicitProjection(
   if (entity.softDelete) {
     apply[`${entityName}.restored`] = handler;
   }
+  for (const verb of Object.keys(entity.verbs ?? {})) apply[`${entityName}.${verb}`] = handler;
   // r.extendEntityProjection: merge extension applies into the rebuild
   // replay. Collisions with lifecycle applies (or another extension) are
   // authoring bugs — fail at boot, not by silently overwriting a handler.
@@ -150,10 +154,42 @@ export function buildImplicitProjection(
     source: entityName,
     ...(extraSources.length > 0 && { extraSources }),
     ...(Object.keys(extraSourceRowIds).length > 0 && { extraSourceRowIds }),
-    table: drizzleTable,
+    table: entityTable,
     apply,
     isImplicit: true,
   };
+}
+
+// Explicit projections on the entity table run live inline, but the rebuild only
+// replays the implicit projection — without this merge a rebuild loses their
+// columns. Keys of an extendEntityProjection win: apps register those applies twice on purpose.
+export function mergeExplicitProjectionsIntoImplicit(
+  implicit: ProjectionDefinition,
+  entityName: string,
+  explicitOnSameTable: readonly ProjectionDefinition[],
+  extensionApplyKeys: ReadonlySet<string>,
+): ProjectionDefinition {
+  if (explicitOnSameTable.length === 0) return implicit;
+  const apply: Record<string, SingleStreamApplyFn> = { ...implicit.apply };
+  const extraSourceSet = new Set<string>(implicit.extraSources ?? []);
+  for (const explicit of explicitOnSameTable) {
+    for (const [eventType, fn] of Object.entries(explicit.apply)) {
+      if (extensionApplyKeys.has(eventType)) continue;
+      const previous = apply[eventType];
+      apply[eventType] = previous
+        ? async (event, tx, table) => {
+            await previous(event, tx, table);
+            await fn(event, tx, table);
+          }
+        : fn;
+    }
+    const explicitSources = Array.isArray(explicit.source) ? explicit.source : [explicit.source];
+    for (const source of [...explicitSources, ...(explicit.extraSources ?? [])]) {
+      if (source !== entityName) extraSourceSet.add(source);
+    }
+  }
+  const extraSources = [...extraSourceSet];
+  return { ...implicit, apply, ...(extraSources.length > 0 && { extraSources }) };
 }
 
 function assertRowIdOfSources(
@@ -208,7 +244,7 @@ function collectExtensionSources(
 // Validates a r.entity backing table is a superset of the entity's field-
 // derived columns, then hands it back as the projection table. The cast is a
 // system-boundary reconstitution: the table is stored as `unknown` on
-// FeatureDefinition only to keep drizzle out of the plain-data shape, and
+// FeatureDefinition only to keep the table object out of the plain-data shape, and
 // asEntityTableMeta confirms the kumiko-table shape at runtime.
 function resolveBackingTable(
   entityName: string,
@@ -222,7 +258,11 @@ function resolveBackingTable(
         "EntityTableMeta — build it via table() / buildEntityTable.",
     );
   }
-  assertBackingTableSuperset(entityName, deriveEntityTableMeta(entityName, entity), tableMeta);
+  assertBackingTableSuperset(
+    entityName,
+    deriveEntityTableMeta({ ...entity, name: entityName }),
+    tableMeta,
+  );
   return backingTable as ProjectionDefinition["table"];
 }
 
@@ -284,6 +324,7 @@ export type RegistryState = {
   secretNamespaceMap: Map<string, SecretNamespaceDefinition>;
   projectionMap: Map<string, ProjectionDefinition>;
   projectionsBySource: Map<string, ProjectionDefinition[]>;
+  entityProjectionsByExtensionSource: Map<string, ProjectionDefinition[]>;
   multiStreamProjectionMap: Map<string, MultiStreamProjectionDefinition>;
   multiStreamProjectionFeatureMap: Map<string, string>;
   storeTableMap: Map<string, StoreTableDef>;
@@ -341,7 +382,9 @@ export function createInitialState(): RegistryState {
     eventUpcasterMap: new Map(),
     handlerEntityMap: new Map(),
     handlerFeatureMap: new Map(),
-    extensionMap: new Map(),
+    extensionMap: new Map(
+      [...FRAMEWORK_OWNED_EXTENSIONS].map((name): [string, RegistrarExtensionDef] => [name, {}]),
+    ),
     extensionUsages: [],
     extensionSelectorMap: new Map(),
     extensionSelectorPanelsMap: new Map(),
@@ -353,6 +396,7 @@ export function createInitialState(): RegistryState {
     secretNamespaceMap: new Map(),
     projectionMap: new Map(),
     projectionsBySource: new Map(),
+    entityProjectionsByExtensionSource: new Map(),
     multiStreamProjectionMap: new Map(),
     multiStreamProjectionFeatureMap: new Map(),
     storeTableMap: new Map(),
@@ -474,4 +518,11 @@ export function hasFieldAccessRules(feature: FeatureDefinition): boolean {
     }
   }
   return false;
+}
+
+/** True if a field of any entity in the feature is stripped or masked for some readers. */
+export function hasReadRestrictedFields(feature: FeatureDefinition): boolean {
+  return Object.values(feature.entities ?? {}).some((entity) =>
+    Object.values(entity.fields).some(isReadRestrictedField),
+  );
 }

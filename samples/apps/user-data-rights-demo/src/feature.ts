@@ -9,7 +9,7 @@
 //   - r.entity({ name: "todo", ...todoEntity })  → Drizzle table is built
 //   - r.writeHandler({ name: "create", … })      → user creates a todo
 //   - r.queryHandler({ name: "list", … })        → user sees their todos
-//   - r.useExtension(EXT_USER_DATA, "todo")      → forget + export integration
+//   - r.applyExtension({ name: EXT_USER_DATA, entity: "todo" })      → forget + export integration
 //
 // What happens when the user then calls request-export:
 //   1. user-data-rights.request-export.write triggers a job
@@ -48,6 +48,7 @@ import { z } from "zod";
 const FEATURE_NAME = "todos";
 
 export const todoEntity = createEntity({
+  name: "todo",
   table: "store_todos",
   idType: "uuid",
   fields: {
@@ -74,7 +75,7 @@ export const todoEntity = createEntity({
 // Plain EntityTableMeta, NOT a branded EntityTable: store_todos is a deliberate
 // unmanaged direct-write store (r.storeTable below), so the create handler +
 // forget hook write it directly — the meta carries no executor-only brand.
-export const todosTable = deriveEntityTableMeta("todo", todoEntity, { source: "unmanaged" });
+export const todosTable = deriveEntityTableMeta(todoEntity, { source: "unmanaged" });
 
 const createSchema = z.object({
   title: z.string().min(1).max(200),
@@ -170,7 +171,9 @@ export const todosFeature = defineFeature(FEATURE_NAME, (r) => {
     }
   };
 
-  r.useExtension(EXT_USER_DATA, "todo", {
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "todo",
     export: exportTodos,
     delete: deleteTodos,
   });

@@ -91,7 +91,7 @@ describe("compact shell header with a list", () => {
     const panel = screen.getByTestId("shell-header-overflow");
     expect(panel.hidden).toBe(true);
     // Stays mounted while closed so app-registered effects (shortcuts) keep running.
-    expect(within(panel).getByText("Assistent")).toBeTruthy();
+    within(panel).getByText("Assistent");
     expect(screen.queryByRole("button", { name: "Assistent" })).toBeNull();
 
     const trigger = screen.getByTestId("shell-header-overflow-trigger");
@@ -136,7 +136,7 @@ describe("compact shell header with a list", () => {
     expect(create.textContent).toContain("T(");
     expect(create.getAttribute("aria-label")).toBeNull();
     expect(screen.queryByTestId("shell-header-overflow-trigger")).toBeNull();
-    expect(screen.getByRole("button", { name: "Assistent" })).toBeTruthy();
+    screen.getByRole("button", { name: "Assistent" });
   });
 });
 
@@ -174,10 +174,10 @@ describe("compact shell header with a projection detail", () => {
     screens: [detailScreen],
   };
   const dispatcher: Dispatcher = createMockDispatcher({
-    query: (async () => ({
+    query: async () => ({
       isSuccess: true,
       data: { userId: "user-42" },
-    })) as unknown as Dispatcher["query"],
+    }),
   });
 
   function renderDetail(detailSchema: FeatureSchema = schema): void {
@@ -210,7 +210,7 @@ describe("compact shell header with a projection detail", () => {
     const trigger = screen.getByTestId("shell-header-overflow-trigger");
     fireEvent.click(trigger);
     const panel = screen.getByTestId("shell-header-overflow");
-    expect(within(panel).getByTestId("shell-header-overflow-item-duplicate")).toBeTruthy();
+    within(panel).getByTestId("shell-header-overflow-item-duplicate");
 
     fireEvent.click(within(panel).getByTestId("shell-header-overflow-item-archive"));
     await waitFor(() => screen.getByRole("dialog"));
@@ -283,7 +283,7 @@ describe("compact shell header with a projection detail", () => {
     expect(iconButton.getAttribute("title")).toBe("actions.activate");
     expect(screen.queryByTestId("render-edit-action-edit")).toBeNull();
     fireEvent.click(screen.getByTestId("shell-header-overflow-trigger"));
-    expect(screen.getByTestId("shell-header-overflow-item-edit")).toBeTruthy();
+    screen.getByTestId("shell-header-overflow-item-edit");
     fireEvent.click(iconButton);
     await waitFor(() => screen.getByRole("dialog"));
   });
@@ -343,10 +343,10 @@ describe("compact shell header with a projection detail", () => {
     };
     const statusSchema: FeatureSchema = { ...schema, screens: [statusScreen] };
     const statusDispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { userId: "user-42", statusLabel: "Aktiv, Änderungen nicht veröffentlicht" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     function renderStatusDetail(): void {
@@ -370,7 +370,7 @@ describe("compact shell header with a projection detail", () => {
       const row = await waitFor(() =>
         screen.getByTestId("kumiko-screen-projection-detail-title-block"),
       );
-      expect(within(row).getByText("Aktiv, Änderungen nicht veröffentlicht")).toBeTruthy();
+      within(row).getByText("Aktiv, Änderungen nicht veröffentlicht");
       expect(
         within(document.querySelector("header") as HTMLElement).queryByText(
           "Aktiv, Änderungen nicht veröffentlicht",
@@ -384,7 +384,7 @@ describe("compact shell header with a projection detail", () => {
       const titleBlock = await waitFor(() =>
         screen.getByTestId("kumiko-screen-projection-detail-title-block"),
       );
-      expect(within(titleBlock).getByText("Aktiv, Änderungen nicht veröffentlicht")).toBeTruthy();
+      within(titleBlock).getByText("Aktiv, Änderungen nicht veröffentlicht");
       const shellHeader = document.querySelector("header") as HTMLElement;
       expect(within(shellHeader).queryByText("Aktiv, Änderungen nicht veröffentlicht")).toBeNull();
       expect(within(shellHeader).queryByRole("heading", { level: 1 })).toBeNull();
@@ -397,7 +397,7 @@ describe("compact shell header with a projection detail", () => {
     renderDetail();
     await waitFor(() => screen.getByTestId("render-edit-action-edit"));
     expect(screen.getByTestId("render-edit-action-edit").textContent).toBe("actions.edit");
-    expect(screen.getByTestId("kumiko-screen-projection-detail-actions-overflow")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-projection-detail-actions-overflow");
     expect(screen.queryByTestId("shell-header-overflow-trigger")).toBeNull();
   });
 
@@ -414,9 +414,7 @@ describe("compact shell header with a projection detail", () => {
       ctrlKey: false,
       pointerType: "mouse",
     });
-    expect(
-      screen.getByTestId("kumiko-screen-projection-detail-actions-overflow-item-archive"),
-    ).toBeTruthy();
+    screen.getByTestId("kumiko-screen-projection-detail-actions-overflow-item-archive");
     expect(
       screen.queryByTestId("kumiko-screen-projection-detail-actions-overflow-item-duplicate"),
     ).toBeNull();
@@ -450,9 +448,7 @@ describe("compact shell header with a projection detail", () => {
       ctrlKey: false,
       pointerType: "mouse",
     });
-    expect(
-      screen.getByTestId("kumiko-screen-projection-detail-actions-overflow-item-duplicate"),
-    ).toBeTruthy();
+    screen.getByTestId("kumiko-screen-projection-detail-actions-overflow-item-duplicate");
   });
 
   test("desktop keeps a destructive action in the menu even when it is listed inline", async () => {
@@ -463,9 +459,9 @@ describe("compact shell header with a projection detail", () => {
     });
     await waitFor(() => screen.getByTestId("render-edit-action-edit"));
 
-    expect(screen.getByTestId("render-edit-action-duplicate")).toBeTruthy();
+    screen.getByTestId("render-edit-action-duplicate");
     expect(screen.queryByTestId("render-edit-action-archive")).toBeNull();
-    expect(screen.getByTestId("kumiko-screen-projection-detail-actions-overflow")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-projection-detail-actions-overflow");
   });
 });
 
@@ -502,7 +498,7 @@ describe("PageHeader overflowItems", () => {
         fireEvent.click(screen.getByTestId("rerender"));
       });
     }
-    expect(screen.getByTestId("shell-header-overflow-item-item-5")).toBeTruthy();
+    screen.getByTestId("shell-header-overflow-item-item-5");
   });
 
   test("items disappear from the panel when the screen unmounts", () => {
@@ -513,7 +509,7 @@ describe("PageHeader overflowItems", () => {
         <Screen renders={0} />
       </PageHeaderSlotProvider>,
     );
-    expect(screen.getByTestId("shell-header-overflow-item-item-0")).toBeTruthy();
+    screen.getByTestId("shell-header-overflow-item-item-0");
     rerender(
       <PageHeaderSlotProvider>
         <ShellHeader schema={emptySchema} />

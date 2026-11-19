@@ -75,13 +75,15 @@ const EMPTY_FORM: FormValues = {
 // The shared security headers leave framing to SAMEORIGIN; this form must
 // never be framed (clickjacking a "cancel now" button).
 function pageHeaders(): Record<string, string> {
-  const headers = securePageHeaders({
-    "content-type": "text/html; charset=utf-8",
-    "cache-control": "no-store",
-  });
+  const headers = securePageHeaders(
+    {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store",
+    },
+    { "frame-ancestors": "'none'", "form-action": "'self'" },
+  );
   return {
     ...headers,
-    "content-security-policy": `${headers["content-security-policy"] ?? ""}; frame-ancestors 'none'; form-action 'self'`,
     "x-frame-options": "DENY",
     // The revoke link carries its token in the query string.
     "referrer-policy": "no-referrer",

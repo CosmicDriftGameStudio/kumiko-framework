@@ -1,8 +1,9 @@
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
-import { createTenantDb, type DbConnection, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import type { DbConnection, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { ConfigAccessor, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { type FileContext, FileObjectMissingError } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import {
@@ -12,9 +13,9 @@ import {
 } from "../file-foundation/index.ts";
 import {
   collectRendererPlugins,
-  createRendererFoundationApi,
   type MailPayload,
   RendererError,
+  selectRendererPlugin,
 } from "../renderer-foundation/index.ts";
 import { FALLBACK_LOCALE } from "../template-resolver/index.ts";
 import type { EmailAttachmentRef, RenderedPdfAttachmentRef } from "./attachment-ref.ts";
@@ -27,9 +28,7 @@ export function createTemplateMailRenderer(
   config: ConfigAccessor | undefined,
 ): (payload: MailPayload) => Promise<RenderedMail> {
   return async (payload) => {
-    const plugin = createRendererFoundationApi(
-      collectRendererPlugins(registry),
-    ).createRendererForTenant({ tenantId, kind: "mail" });
+    const plugin = selectRendererPlugin(collectRendererPlugins(registry), "mail");
     const response = await plugin.render(
       { kind: "mail", payload },
       { db, registry, tenantId, ...(config !== undefined && { config }) },
@@ -66,9 +65,7 @@ function createPdfRenderer(
   filesForTenant: (tenantId: string) => FileContext | undefined,
 ) {
   return async (ref: RenderedPdfAttachmentRef) => {
-    const plugin = createRendererFoundationApi(
-      collectRendererPlugins(registry),
-    ).createRendererForTenant({ tenantId, kind: "document-pdf" });
+    const plugin = selectRendererPlugin(collectRendererPlugins(registry), "document-pdf");
     const response = await plugin.render(
       {
         kind: "document-pdf",
@@ -158,7 +155,7 @@ export function buildChannelContext(
   idempotencyKey?: string,
 ): ChannelContext {
   return {
-    db: createTenantDb({ db, tenantId }),
+    db: createTenantDb({ db, tenantId, mode: "tenant" }),
     registry,
     sseBroker,
     tenantId,

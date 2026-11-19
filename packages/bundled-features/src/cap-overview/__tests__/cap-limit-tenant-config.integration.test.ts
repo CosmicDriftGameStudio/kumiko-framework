@@ -10,11 +10,14 @@ import {
   createSystemUser,
   createTenantConfig,
   defineFeature,
+  SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { SEARCH_CONSUMER_NAME } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  drainEventConsumers,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
@@ -139,6 +142,11 @@ const adminB = createTestUser({
 
 beforeAll(async () => {
   stack = await setupTestStack({
+    searchConfig: {
+      tenantId: SYSTEM_TENANT_ID,
+      searchableFields: ["name"],
+      rankingFields: ["name"],
+    },
     features: [
       createConfigFeature(),
       seatsFeature,
@@ -313,21 +321,28 @@ describe("tenant-caps:list decrypts only what the request needs", () => {
     expect(row?.["name"]).toBe(`Seats ${row?.tenantId}`);
   });
 
-  test("a name sort has to decrypt every tenant and orders by the plaintext name", async () => {
-    const { list, decryptCalls } = await listWithDecryptCount({ sort: "name", limit: 50 });
-    expect(decryptCalls).toBe(list.total ?? -1);
-    const names = list.rows.map((row) => String(row["name"]));
-    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+  test("a name sort is rejected; a key sort decrypts just the names of the returned page", async () => {
+    const refused = await stack.http.queryErr(
+      CapOverviewQueries.tenantCapsList,
+      { sort: "name" },
+      adminA,
+    );
+    expect(refused.httpStatus).toBe(400);
+    const { list, decryptCalls } = await listWithDecryptCount({ sort: "key", limit: 2 });
+    expect(list.rows).toHaveLength(2);
+    expect(decryptCalls).toBe(2);
+    for (const row of list.rows) expect(row["name"]).toBe(`Seats ${row.tenantId}`);
   });
 
-  test("a search decrypts every tenant and filters by plaintext name", async () => {
+  test("a search goes through the index and decrypts only the hits", async () => {
+    await drainEventConsumers(stack, [SEARCH_CONSUMER_NAME]);
     const { list, decryptCalls } = await listWithDecryptCount({
       sort: "tier",
       search: `Seats ${TENANT_B}`,
       limit: 50,
     });
     expect(list.rows.map((row) => row.tenantId)).toEqual([TENANT_B]);
-    expect(decryptCalls).toBeGreaterThanOrEqual(3);
+    expect(decryptCalls).toBe(1);
   });
 });
 

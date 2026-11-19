@@ -1,7 +1,7 @@
 // Anonymous, email-verified deletion flow (apex, lockout-safe).
 //
 // Step 1 (request-deletion-by-email): anonymous and enumeration-safe; signs an
-// HMAC token and invokes the verification-email callback. Step 2
+// HMAC token and sends the verification mail through delivery. Step 2
 // (confirm-deletion-by-token): anonymous; verifies the token and starts the
 // grace period.
 // Exercises the complete flow through real /api/write calls without auth
@@ -19,18 +19,26 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { createInMemoryTransport } from "../../channel-email/index.ts";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
 } from "../../compliance-profiles/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { createDeliveryTestContext } from "../../delivery/index.ts";
+import { deliveryAttemptsTable } from "../../delivery/tables.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
+import { tenantMembershipEntity } from "../../tenant/membership-table.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { signDeletionToken } from "../deletion-token.ts";
 import { createUserDataRightsFeature } from "../feature.ts";
-import type { SendDeletionVerificationEmailFn } from "../handlers/request-deletion-by-email.write.ts";
+import {
+  deletionMailFeatures,
+  prepareDeletionMailStack,
+  verifyTokenFromMail,
+} from "./deletion-mail-stack.ts";
 
 const REQUEST_BY_EMAIL = "user-data-rights:write:request-deletion-by-email";
 const CONFIRM_BY_TOKEN = "user-data-rights:write:confirm-deletion-by-token";
@@ -42,11 +50,7 @@ const tenantA = testTenantId(1);
 const aliceUser = createTestUser({ id: 42, tenantId: tenantA, roles: ["Member"] });
 const ALICE_EMAIL = "alice.anon@example.com";
 
-type VerifyArgs = Parameters<SendDeletionVerificationEmailFn>[0];
-const verifyCalls: VerifyArgs[] = [];
-const sendDeletionVerificationEmail: SendDeletionVerificationEmailFn = async (args) => {
-  verifyCalls.push(args);
-};
+const transport = createInMemoryTransport();
 
 let stack: TestStack;
 
@@ -61,13 +65,17 @@ beforeAll(async () => {
       createUserDataRightsFeature({
         deletionTokenSecret: DELETION_SECRET,
         deletionVerifyUrl: VERIFY_URL,
-        sendDeletionVerificationEmail,
+        mailDefaults: { appName: "Acme" },
       }),
+      ...deletionMailFeatures(transport),
     ],
+    extraContext: (deps) => createDeliveryTestContext(deps),
     anonymousAccess: { defaultTenantId: tenantA },
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
+  await prepareDeletionMailStack(stack);
 });
 
 afterAll(async () => {
@@ -75,8 +83,13 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  verifyCalls.length = 0;
-  await resetTestTables(stack.db, [userTable, tenantComplianceProfileTable, eventsTable]);
+  transport.sent.length = 0;
+  await resetTestTables(stack.db, [
+    userTable,
+    tenantComplianceProfileTable,
+    eventsTable,
+    deliveryAttemptsTable,
+  ]);
   // request-deletion-by-email/confirm-deletion-by-token are `per: "ip"`
   // rate-limited (10/60s). All calls here go through stack.http.raw with no
   // socket address, so every test in this file lands in the same shared
@@ -113,16 +126,14 @@ async function resetUnknownIpRateLimitBuckets(): Promise<void> {
   );
 }
 
-function tokenFromLastVerifyCall(email?: string): string {
-  const call = email === undefined ? verifyCalls[0] : verifyCalls.find((c) => c.email === email);
-  const url = new URL(call?.verifyUrl ?? "");
-  return new URLSearchParams(url.hash.slice(1)).get("token") ?? "";
+function tokenFromLastVerifyCall(email: string = ALICE_EMAIL): string {
+  const mail = transport.sent.find((m) => m.to === email);
+  if (!mail) throw new Error(`no verify mail sent to ${email}`);
+  return verifyTokenFromMail(mail, VERIFY_URL);
 }
 
 async function statusOf(id: string = aliceUser.id): Promise<string | undefined> {
-  const rows = (await selectMany(stack.db, userTable, { id })) as Array<{
-    status: string;
-  }>;
+  const rows = await selectMany(stack.db, userTable, { id });
   return rows[0]?.status;
 }
 
@@ -137,9 +148,8 @@ describe("anonymous deletion flow", () => {
     expect(res.status).toBe(200);
     expect(((await res.json()) as { isSuccess: boolean }).isSuccess).toBe(true);
 
-    expect(verifyCalls).toHaveLength(1);
-    expect(verifyCalls[0]?.email).toBe(ALICE_EMAIL);
-    expect(verifyCalls[0]?.verifyUrl.startsWith(`${VERIFY_URL}#token=`)).toBe(true);
+    expect(transport.sent).toHaveLength(1);
+    expect(transport.sent[0]?.to).toBe(ALICE_EMAIL);
     expect(tokenFromLastVerifyCall().length).toBeGreaterThan(0);
     // Status remains unchanged until confirm starts the grace period.
     expect(await statusOf()).toBe(USER_STATUS.Active);
@@ -166,10 +176,7 @@ describe("anonymous deletion flow", () => {
     expect(body.data.status).toBe(USER_STATUS.DeletionRequested);
     expect(body.data.gracePeriodEnd.length).toBeGreaterThan(0);
 
-    const rows = (await selectMany(stack.db, userTable, { id: aliceUser.id })) as Array<{
-      status: string;
-      gracePeriodEnd: unknown;
-    }>;
+    const rows = await selectMany(stack.db, userTable, { id: aliceUser.id });
     expect(rows[0]?.status).toBe(USER_STATUS.DeletionRequested);
     expect(rows[0]?.gracePeriodEnd).not.toBeNull();
   });
@@ -307,7 +314,7 @@ describe("anonymous deletion flow", () => {
     expect(await statusOf()).toBe(USER_STATUS.Active);
 
     // A second request assigns requestId R2 to the row and produces token2.
-    verifyCalls.length = 0;
+    transport.sent.length = 0;
     await stack.http.raw("POST", "/api/write", {
       type: REQUEST_BY_EMAIL,
       payload: { email: ALICE_EMAIL },
@@ -341,7 +348,8 @@ describe("anonymous deletion flow", () => {
     });
     expect(res.status).toBe(200);
     expect(((await res.json()) as { isSuccess: boolean }).isSuccess).toBe(true);
-    expect(verifyCalls).toHaveLength(0);
+    expect(transport.sent).toHaveLength(0);
+    expect(await selectMany(stack.db, deliveryAttemptsTable, {})).toHaveLength(0);
   });
 
   test("request-by-email for non-active user → success, NO email", async () => {
@@ -352,7 +360,8 @@ describe("anonymous deletion flow", () => {
     });
     expect(res.status).toBe(200);
     expect(((await res.json()) as { isSuccess: boolean }).isSuccess).toBe(true);
-    expect(verifyCalls).toHaveLength(0);
+    expect(transport.sent).toHaveLength(0);
+    expect(await selectMany(stack.db, deliveryAttemptsTable, {})).toHaveLength(0);
   });
 
   test("confirm with garbage token → 422, status unchanged", async () => {
@@ -391,7 +400,7 @@ describe("anonymous deletion flow", () => {
 
 describe("anonymous deletion flow — not configured (no secret)", () => {
   let bareStack: TestStack;
-  const bareVerifyCalls: VerifyArgs[] = [];
+  const bareTransport = createInMemoryTransport();
 
   beforeAll(async () => {
     bareStack = await setupTestStack({
@@ -401,16 +410,15 @@ describe("anonymous deletion flow — not configured (no secret)", () => {
         createComplianceProfilesFeature(),
         createAuthFoundationFeature(),
         createSessionsFeature(),
-        createUserDataRightsFeature({
-          sendDeletionVerificationEmail: async (args) => {
-            bareVerifyCalls.push(args);
-          },
-        }),
+        createUserDataRightsFeature({ mailDefaults: { appName: "Acme" } }),
+        ...deletionMailFeatures(bareTransport),
       ],
+      extraContext: (deps) => createDeliveryTestContext(deps),
       anonymousAccess: { defaultTenantId: tenantA },
     });
     await unsafeCreateEntityTable(bareStack.db, userEntity);
     await unsafeCreateEntityTable(bareStack.db, tenantComplianceProfileEntity);
+    await prepareDeletionMailStack(bareStack);
     await seedRowViaEventStore(bareStack.db, userTable, {
       id: aliceUser.id,
       email: ALICE_EMAIL,
@@ -435,7 +443,7 @@ describe("anonymous deletion flow — not configured (no secret)", () => {
     });
     expect(res.status).toBe(200);
     expect(((await res.json()) as { isSuccess: boolean }).isSuccess).toBe(true);
-    expect(bareVerifyCalls).toHaveLength(0);
+    expect(bareTransport.sent).toHaveLength(0);
   });
 
   test("confirm without secret → 422", async () => {

@@ -35,7 +35,7 @@ export const bySlugQuery = defineQueryHandler({
       description: row.description,
       ogImage: row.ogImage,
       version: row.version,
-      updatedAt: row.updatedAt,
+      updatedAt: (row.modifiedAt ?? row.insertedAt).toString(),
     };
   },
 });

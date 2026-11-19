@@ -8,14 +8,19 @@ import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-
 import {
   createEntity,
   createLongTextField,
+  createReferenceField,
   createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityDeleteHandler,
+  defineEntityDetailHandler,
+  defineEntityListHandler,
+  defineEntityRestoreHandler,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 export const productEntity = createEntity({
+  name: "product",
   table: "read_sample_products",
   fields: {
     name: createTextField({
@@ -33,6 +38,7 @@ export const productEntity = createEntity({
 
 // A long body is searched like any text field; softDelete gives the trash list and restore.
 export const articleEntity = createEntity({
+  name: "article",
   table: "read_sample_articles",
   softDelete: true,
   fields: {
@@ -41,17 +47,48 @@ export const articleEntity = createEntity({
   },
 });
 
-const productTable = buildEntityTable("product", productEntity);
+// A searchable hasMany relation lets a list search on the article also find it through its comments.
+export const commentEntity = createEntity({
+  name: "comment",
+  table: "read_sample_article_comments",
+  fields: {
+    articleId: createReferenceField({
+      entity: "article",
+      personal: false,
+      reason: "is_system_identifier",
+      required: true,
+    }),
+    text: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      searchable: true,
+    }),
+  },
+});
+
+const productTable = buildEntityTable(productEntity);
 
 export const productFeature = defineFeature("shop", (r) => {
-  r.entity({ name: "product", ...productEntity });
-  r.entity({ name: "article", ...articleEntity });
+  r.entity(productEntity);
+  const article = r.entity(articleEntity);
+  r.entity(commentEntity);
+  r.relation({
+    entity: article,
+    name: "comments",
+    type: "hasMany",
+    target: "comment",
+    foreignKey: "articleId",
+    searchable: true,
+  });
 
   const articleAccess = { access: { roles: ["Admin"] } };
-  for (const verb of ["create", "delete", "restore"] as const) {
-    r.writeHandler(defineEntityWriteHandler(`article:${verb}`, articleEntity, articleAccess));
-  }
-  r.queryHandler(defineEntityQueryHandler("article:list", articleEntity, articleAccess));
+  r.writeHandler(defineEntityCreateHandler("article", articleEntity, articleAccess));
+  r.writeHandler(defineEntityDeleteHandler("article", articleEntity, articleAccess));
+  r.writeHandler(defineEntityRestoreHandler("article", articleEntity, articleAccess));
+  r.queryHandler(defineEntityListHandler("article", articleEntity, articleAccess));
+  r.writeHandler(defineEntityCreateHandler("comment", commentEntity, articleAccess));
+  r.queryHandler(defineEntityDetailHandler("comment", commentEntity, articleAccess));
 
   r.writeHandler({
     name: "product:create",

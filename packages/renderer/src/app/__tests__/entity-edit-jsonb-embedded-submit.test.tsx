@@ -23,12 +23,8 @@ import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import {
-  type CorePrimitives,
-  type FormProps,
-  type InputProps,
-  PrimitivesProvider,
-} from "../../primitives.tsx";
+import { type FormProps, type InputProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider } from "../nav.tsx";
@@ -46,7 +42,7 @@ const captureForm: ComponentType<FormProps> = (props) => {
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: passChildren,
   Field: passChildren,
@@ -65,7 +61,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 let lastWrite: { type: string; payload: unknown } | undefined;
 
@@ -78,25 +74,19 @@ function requireLastWrite(): { type: string; payload: unknown } {
 }
 
 function stubDispatcher(record: Readonly<Record<string, unknown>>): Dispatcher {
-  return {
-    write: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async (type: string, payload: unknown) => {
       lastWrite = { type, payload };
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
-    query: (async () => ({ isSuccess: true, data: record })) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    query: async () => ({ isSuccess: true, data: record }),
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function buildSchema(): FeatureSchema {
   const entity: EntityDefinition = {
+    name: "entity",
     fields: {
       name: {
         type: "text",

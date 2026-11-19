@@ -49,6 +49,7 @@ export type {
   FormSnapshot,
   FormValues,
   SubmitConfig,
+  SubmitOverrides,
   SubmitPayloadMode,
   SubmitResult,
 } from "./form/index.ts";
@@ -58,6 +59,7 @@ export {
   I18N_KEY_PARAM,
   isCurrencyOnlyMoney,
   relevantFieldIssues,
+  snapshotWithPayloadPatch,
   zodErrorToFieldIssues,
 } from "./form/index.ts";
 export {
@@ -69,6 +71,7 @@ export {
   escapeHtml,
   escapeHtmlAttr,
   escapeXml,
+  type FormatMoneyOptions,
   formatDocumentDate,
   formatDocumentMoney,
   formatDocumentPercent,
@@ -77,7 +80,6 @@ export {
   type HtmlValue,
   html,
   isSafeHref,
-  moneyAmountToMinor,
   RawHtml,
   raw,
   resolveSafeMoneyLocale,
@@ -130,6 +132,7 @@ export type {
   ListColumnViewModel,
   ListRowViewModel,
   ListViewModel,
+  RuntimeCellFile,
   RuntimeCellLink,
   RuntimeCellLinkItems,
   RuntimeRenderer,

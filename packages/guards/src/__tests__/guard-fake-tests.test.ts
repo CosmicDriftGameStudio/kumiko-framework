@@ -27,13 +27,13 @@ describe("guard-fake-tests — assertion API methods", () => {
     expect(violations).toHaveLength(0);
   });
 
-  test("waitFor(() => screen.getByTestId(...)) alone is a violation — not treated as an assertion", () => {
+  test("waitFor(() => screen.getByTestId(...)) counts as an assertion — the query throws until it matches", () => {
     const violations = run(`
       test("shows the banner", async () => {
         await waitFor(() => screen.getByTestId("banner"));
       });
     `);
-    expect(violations).toHaveLength(1);
+    expect(violations).toHaveLength(0);
   });
 });
 
@@ -170,5 +170,179 @@ describe("guard-fake-tests — same-file helper resolution", () => {
       });
     `);
     expect(violations).toHaveLength(1);
+  });
+});
+
+describe("guard-fake-tests: test modifiers and self comparisons", () => {
+  test("test.each without expect is a violation", () => {
+    const violations = run(`
+      test.each([1, 2])("case %s", (n) => { doSomething(n); });
+    `);
+    expect(violations).toHaveLength(1);
+  });
+
+  test("it.concurrent without expect is a violation", () => {
+    const violations = run(`
+      it.concurrent("x", async () => { await doSomething(); });
+    `);
+    expect(violations).toHaveLength(1);
+  });
+
+  test("an aliased bun:test import is recognised", () => {
+    const violations = run(`
+      import { test as bunTest } from "bun:test";
+      bunTest.each([1])("x", () => { doSomething(); });
+    `);
+    expect(violations).toHaveLength(1);
+  });
+
+  test("test.each with expect passes", () => {
+    const violations = run(`
+      test.each([1])("x", (n) => { expect(n).toBe(1); });
+    `);
+    expect(violations).toHaveLength(0);
+  });
+
+  test("describe.each is not a test case", () => {
+    const violations = run(`
+      describe.each([1])("group", () => { doSomething(); });
+    `);
+    expect(violations).toHaveLength(0);
+  });
+
+  test("a value compared with itself is a tautology", () => {
+    const violations = run(`
+      test("t", () => { const value = 3; expect(value).toBe(value); });
+    `);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("TAUTOLOGY");
+  });
+
+  test("a determinism check with calls on both sides is allowed", () => {
+    const violations = run(`
+      test("t", () => { expect(stableHash("a")).toBe(stableHash("a")); });
+    `);
+    expect(violations).toHaveLength(0);
+  });
+});
+
+describe("guard-fake-tests — existence-only checks on error results", () => {
+  test("toBeDefined on a writeErr result is reported", () => {
+    const violations = run(`
+      test("t", async () => { const error = await stack.http.writeErr("x", {}, u); expect(error).toBeDefined(); });
+    `);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("ERROR EXISTS ONLY");
+  });
+
+  test("toBeTruthy on a field of a queryErr result is reported", () => {
+    const violations = run(`
+      test("t", async () => { const err = await api.queryErr("x"); expect(err.code).toBeTruthy(); });
+    `);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("ERROR EXISTS ONLY");
+  });
+
+  test("not.toBeNull on a writeErr result is reported", () => {
+    const violations = run(`
+      test("t", async () => { const error = await stack.http.writeErr("x", {}, u); expect(error).not.toBeNull(); });
+    `);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("ERROR EXISTS ONLY");
+  });
+
+  test("an inline awaited writeErr call is reported", () => {
+    const violations = run(`
+      test("t", async () => { expect(await stack.http.writeErr("x", {}, u)).toBeDefined(); });
+    `);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("ERROR EXISTS ONLY");
+  });
+
+  test("asserting the error code is allowed", () => {
+    const violations = run(`
+      test("t", async () => { const error = await stack.http.writeErr("x", {}, u); expect(error.code).toBe("validation_error"); });
+    `);
+    expect(violations).toHaveLength(0);
+  });
+
+  test("a same-named variable from another call is resolved by symbol, not by name", () => {
+    const violations = run(`
+      test("one", async () => { const error = await stack.http.writeErr("x", {}, u); expect(error.code).toBe("x"); });
+      test("two", async () => { const error = await stack.http.queryOk("x", {}, u); expect(error).toBeDefined(); });
+    `);
+    expect(violations).toHaveLength(0);
+  });
+
+  test("an existence check on a non-error result is allowed", () => {
+    const violations = run(`
+      test("t", async () => { const result = await guard.checkStockCap("x"); expect(result).toBeDefined(); });
+    `);
+    expect(violations).toHaveLength(0);
+  });
+});
+
+describe("guard-fake-tests — Testing Library queries", () => {
+  test("a bare getBy query counts as an assertion", () => {
+    const violations = run(`
+      test("t", () => { render(); screen.getByText("Saved"); });
+    `);
+    expect(violations).toHaveLength(0);
+  });
+
+  test("a destructured getBy query and a within(...) query count as assertions", () => {
+    const violations = run(`
+      test("a", () => { const { getByRole } = render(); getByRole("button"); });
+      test("b", () => { within(row).getAllByTestId("cell"); });
+    `);
+    expect(violations).toHaveLength(0);
+  });
+
+  test("an awaited or returned findBy query counts as an assertion", () => {
+    const violations = run(`
+      test("a", async () => { await screen.findByText("Saved"); });
+      test("b", () => { return screen.findByRole("dialog"); });
+      test("c", async () => { await waitFor(() => screen.findAllByTestId("row")); });
+    `);
+    expect(violations).toHaveLength(0);
+  });
+
+  test("a floating findBy query is not an assertion", () => {
+    const violations = run(`
+      test("t", async () => { screen.findByText("Saved"); });
+    `);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("NO EXPECT");
+  });
+
+  test("a bare queryBy query and a repository findById are not assertions", () => {
+    const violations = run(`
+      test("a", () => { screen.queryByTestId("banner"); });
+      test("b", async () => { await repo.findById("x"); });
+    `);
+    expect(violations.map((violation) => violation.message)).toEqual([
+      'NO EXPECT: "a"',
+      'NO EXPECT: "b"',
+    ]);
+  });
+
+  test("toBeTruthy, toBeDefined and not.toBeNull on a query are reported", () => {
+    const violations = run(`
+      test("a", () => { expect(screen.getByText("Saved")).toBeTruthy(); });
+      test("b", async () => { expect(await screen.findByTestId("row")).toBeDefined(); });
+      test("c", () => { expect(screen.getAllByRole("row")).not.toBeNull(); });
+    `);
+    expect(violations).toHaveLength(3);
+    expect(violations.every((violation) => violation.message.includes("QUERY EXISTS ONLY"))).toBe(
+      true,
+    );
+  });
+
+  test("an existence check on a chained query result or a queryBy query is allowed", () => {
+    const violations = run(`
+      test("a", () => { expect(screen.getByTestId("field").querySelector("input")).toBeTruthy(); });
+      test("b", () => { expect(screen.queryByText("Saved")).toBeTruthy(); });
+    `);
+    expect(violations).toHaveLength(0);
   });
 });

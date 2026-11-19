@@ -36,12 +36,6 @@ export type SessionCreator = (user: SessionUser, meta: SessionMetadata) => Promi
 // there's nothing to revoke.
 export type SessionRevoker = (sid: string) => Promise<void>;
 
-// Mass-revoke every live session for a user. Used by password-change and
-// "sign out everywhere" (sessions feature) and by auth-foundation's
-// SessionStore extension point — canonical home so both can re-export
-// the same type instead of restating it.
-export type SessionMassRevoker = (userId: string) => Promise<number>;
-
 // Status reported by the session-store to the auth-middleware. The concrete
 // type lives on auth-middleware to keep the tight coupling visible there;
 // auth-routes just re-uses the alias for the AuthRoutesConfig surface.
@@ -71,7 +65,8 @@ export type AuthRoutesConfig = {
   // errors default to 400. Keeps the framework unaware of concrete auth codes.
   loginErrorStatusMap?: Readonly<Record<string, number>>;
   // Rate-limit for POST /auth/login. Defaults to in-memory 10/5min per
-  // (ip + email) bucket. Pass `null` to disable (tests, trusted networks).
+  // (ip + email) bucket outside production; in production a missing limiter
+  // aborts the boot (pass a Redis-backed one). Pass `null` to disable.
   loginRateLimit?: LoginRateLimiter | null;
   // Rate-limit for POST /auth/session-exchange, bucketed by IP + method and never reset
   // after success. Unset: reuses loginRateLimit. Apps whose methods carry signed tokens
@@ -146,8 +141,8 @@ export type AuthRoutesConfig = {
   // pattern as mfaVerifyErrorStatusMap.
   mfaPreauthConfirmErrorStatusMap?: Readonly<Record<string, number>>;
   // Rate-limit for POST /auth/mfa/preauth-confirm, keyed by client IP. Same
-  // reasoning as mfaVerifyRateLimit — defaults to in-memory 10/5min, pass
-  // `null` to disable.
+  // reasoning as mfaVerifyRateLimit — defaults to in-memory 10/5min outside
+  // production (boot aborts there), pass `null` to disable.
   mfaPreauthConfirmRateLimit?: LoginRateLimiter | null;
   // Session-lifecycle callbacks. When both are wired the JWT carries a `jti`
   // (sid) and the server can revoke individual sessions (logout, compromise,
@@ -303,8 +298,8 @@ export type PreviewLoginConfig = {
 };
 
 export type PasswordResetConfig = {
-  // Qualified name of the request handler (the one that emits either
-  // { kind: "reset-requested", ... } or { kind: "no-op" }). The handler
+  // Qualified name of the request handler (it emits { kind: "reset-requested" }
+  // for every address, known or not). The handler
   // builds the magic-link and sends the mail via delivery (ctx.notify) — the
   // route only dispatches and returns the silent-success envelope.
   requestHandler: string;

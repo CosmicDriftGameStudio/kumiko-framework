@@ -1,8 +1,10 @@
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
-  createEntityExecutor,
   hasAccess,
+  parentRulesFromRegistry,
   type Registry,
+  registeredEntityExecutor,
+  resolveParentWriteAccess,
   type SessionUser,
   toKebab,
   userCanWriteFieldRow,
@@ -38,10 +40,16 @@ export async function canWriteLinkTarget(
   } else if (!hasAccess(user, { roles: Object.keys(entity.access?.write ?? {}) })) {
     return false;
   }
-  const row = await createEntityExecutor(entityType, entity).executor.detail(
-    { id: entityId },
+  const executor = registeredEntityExecutor(registry, entityType);
+  if (executor === undefined) return false;
+  const row = await executor.detail({ id: entityId }, user, db);
+  if (row === null) return false;
+  const writeAccess = await resolveParentWriteAccess({
+    accessMap: entity.access?.write,
     user,
+    rows: [row],
     db,
-  );
-  return row !== null && userCanWriteFieldRow(user, entity.access?.write, row, row);
+    parents: parentRulesFromRegistry(registry, "write"),
+  });
+  return userCanWriteFieldRow(user, writeAccess, row, row);
 }

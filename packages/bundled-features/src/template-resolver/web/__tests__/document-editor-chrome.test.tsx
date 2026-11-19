@@ -175,8 +175,8 @@ function LineEditor({ initial }: { readonly initial: string }): ReactNode {
 describe("PlaceholderLineEditor", () => {
   test("renders placeholders as chips and keeps the plain text value", async () => {
     render(<LineEditor initial="Invoice {{invoiceNumber}} from {{tenantName}}" />);
-    expect(await screen.findByText("Invoice number")).toBeTruthy();
-    expect(screen.getByText("tenantName")).toBeTruthy();
+    await screen.findByText("Invoice number");
+    screen.getByText("tenantName");
     expect(screen.getByTestId("text").textContent).toBe(
       "Invoice {{invoiceNumber}} from {{tenantName}}",
     );

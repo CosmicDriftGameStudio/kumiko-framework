@@ -189,9 +189,7 @@ describe("PwaSupport with the pwa option", () => {
     render(<PwaSupport />);
     const { event, prompt } = fireBeforeInstallPrompt();
     expect(event.defaultPrevented).toBe(true);
-    expect(
-      screen.getByText("Install this app on your device to open it like any other app."),
-    ).toBeTruthy();
+    screen.getByText("Install this app on your device to open it like any other app.");
 
     fireEvent.click(screen.getByRole("button", { name: "Install" }));
 
@@ -226,9 +224,7 @@ describe("PwaSupport with the pwa option", () => {
   test("an iPhone gets the Add to Home Screen hint without an install button", () => {
     stubNavigator("userAgent", IPHONE_UA);
     render(<PwaSupport />);
-    expect(
-      screen.getByText("To install this app, tap Share and then “Add to Home Screen”."),
-    ).toBeTruthy();
+    screen.getByText("To install this app, tap Share and then “Add to Home Screen”.");
     expect(screen.queryByRole("button", { name: "Install" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Not now" }));
     expect(window.localStorage.getItem(PWA_INSTALL_HINT_DISMISSED_KEY)).toBe("1");
@@ -238,9 +234,7 @@ describe("PwaSupport with the pwa option", () => {
     stubNavigator("userAgent", IPAD_DESKTOP_UA);
     stubNavigator("maxTouchPoints", 5);
     render(<PwaSupport />);
-    expect(
-      screen.getByText("To install this app, tap Share and then “Add to Home Screen”."),
-    ).toBeTruthy();
+    screen.getByText("To install this app, tap Share and then “Add to Home Screen”.");
   });
 
   test("a desktop Mac without touch is not treated as iOS", () => {
@@ -276,7 +270,7 @@ describe("PwaSupport with the pwa option", () => {
     try {
       render(<PwaSupport />);
       fireBeforeInstallPrompt();
-      expect(screen.getByRole("status")).toBeTruthy();
+      screen.getByRole("status");
       fireEvent.click(screen.getByRole("button", { name: "Not now" }));
       expect(screen.queryByRole("status")).toBeNull();
     } finally {

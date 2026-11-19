@@ -9,7 +9,12 @@ import { describe, expect, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   DispatcherProvider,
+  type ExtensionFormRegistry,
+  ExtensionFormRegistryProvider,
+  type ExtensionSubmitContext,
+  type ExtensionSubmitResult,
   formatWhen,
+  hasUnsavedInput,
   kumikoDefaultTranslations,
   type LiveEventSubscriber,
   LiveEventsProvider,
@@ -17,13 +22,14 @@ import {
   PrimitivesProvider,
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import {
-  createStore,
-  type Dispatcher,
-  type DispatcherStatus,
-} from "@cosmicdrift/kumiko-renderer/headless";
+  createMockDispatcher,
+  type MockQueryHandler,
+  type MockWriteHandler,
+} from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer/web";
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { NotesHistoryHandlers, NotesHistoryQueries } from "../web/constants.ts";
 import { defaultTranslations } from "../web/i18n.ts";
@@ -94,23 +100,18 @@ const NOTE_ROWS: readonly NoteRowFixture[] = [
 ];
 
 function makeDispatcher(queryPayloads: unknown[] = []): Dispatcher {
-  const statusStore = createStore<DispatcherStatus>("online");
-  const query = (async (type: string, payload: unknown) => {
+  const query: MockQueryHandler = async (type: string, payload: unknown) => {
     queryPayloads.push(payload);
     if (type === NotesHistoryQueries.noteList) {
       return { isSuccess: true, data: { rows: NOTE_ROWS } };
     }
     return { isSuccess: true, data: null };
-  }) as unknown as Dispatcher["query"];
-  return {
-    write: (async () => ({ isSuccess: true, data: null })) as unknown as Dispatcher["write"],
+  };
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: null }),
     query,
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore,
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  } as unknown as Dispatcher; // @cast-boundary test-stub
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function renderSection(queryPayloads: unknown[] = []): ReturnType<typeof render> {
@@ -137,7 +138,7 @@ describe("NotesSection — two-card layout", () => {
   test("filters on entityType and entityId server-side", async () => {
     const queryPayloads: unknown[] = [];
     const view = renderSection(queryPayloads);
-    await waitFor(() => expect(view.getByTestId("notes-section-history")).toBeTruthy());
+    await waitFor(() => view.getByTestId("notes-section-history"));
 
     expect(queryPayloads[0]).toMatchObject({
       filters: [
@@ -149,7 +150,7 @@ describe("NotesSection — two-card layout", () => {
 
   test("renders a 'new note' card and a 'history' card as two separate cards", async () => {
     const view = renderSection();
-    await waitFor(() => expect(view.getByTestId("notes-section-history")).toBeTruthy());
+    await waitFor(() => view.getByTestId("notes-section-history"));
 
     const newNoteCard = view.getByTestId("notes-section-new");
     const historyCard = view.getByTestId("notes-section-history");
@@ -160,7 +161,7 @@ describe("NotesSection — two-card layout", () => {
 
   test("history entries are separated by dividers, not individual borders", async () => {
     const view = renderSection();
-    await waitFor(() => expect(view.getByTestId("notes-section-row-note-1")).toBeTruthy());
+    await waitFor(() => view.getByTestId("notes-section-row-note-1"));
 
     const row = view.getByTestId("notes-section-row-note-1");
     expect(row.className).not.toContain("border");
@@ -251,27 +252,22 @@ function makeWriteCapturingDispatcher(): {
   readonly writes: { readonly type: string; readonly payload: unknown }[];
 } {
   const writes: { type: string; payload: unknown }[] = [];
-  const statusStore = createStore<DispatcherStatus>("online");
-  const query = (async (type: string) => {
+  const query: MockQueryHandler = async (type: string) => {
     if (type === NotesHistoryQueries.noteList) {
       return { isSuccess: true, data: { rows: [] } };
     }
     return { isSuccess: true, data: null };
-  }) as unknown as Dispatcher["query"];
-  const write = (async (type: string, payload: unknown) => {
+  };
+  const write: MockWriteHandler = async (type: string, payload: unknown) => {
     writes.push({ type, payload });
     return { isSuccess: true, data: null };
-  }) as unknown as Dispatcher["write"];
+  };
   return {
-    dispatcher: {
+    dispatcher: createMockDispatcher({
       write,
       query,
-      batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-      statusStore,
-      async *stream() {},
-      pendingWrites: () => [],
-      pendingFiles: () => [],
-    } as unknown as Dispatcher, // @cast-boundary test-stub
+      batch: async () => ({ isSuccess: true, results: [] }),
+    }),
     writes,
   };
 }
@@ -304,7 +300,7 @@ describe("NotesSection — Ctrl/Cmd+Enter submit shortcut", () => {
   test("Ctrl+Enter with a non-empty draft dispatches addNote, same as the button", async () => {
     const { dispatcher, writes } = makeWriteCapturingDispatcher();
     const view = renderSectionWith(dispatcher);
-    await waitFor(() => expect(view.getByTestId("notes-section-add")).toBeTruthy());
+    await waitFor(() => view.getByTestId("notes-section-add"));
 
     const textarea = requireTextarea(view.container);
     fireEvent.change(textarea, { target: { value: "Ctrl+Enter note" } });
@@ -320,7 +316,7 @@ describe("NotesSection — Ctrl/Cmd+Enter submit shortcut", () => {
   test("Cmd+Enter (metaKey) also dispatches addNote", async () => {
     const { dispatcher, writes } = makeWriteCapturingDispatcher();
     const view = renderSectionWith(dispatcher);
-    await waitFor(() => expect(view.getByTestId("notes-section-add")).toBeTruthy());
+    await waitFor(() => view.getByTestId("notes-section-add"));
 
     const textarea = requireTextarea(view.container);
     fireEvent.change(textarea, { target: { value: "Cmd+Enter note" } });
@@ -337,7 +333,7 @@ describe("NotesSection — Ctrl/Cmd+Enter submit shortcut", () => {
   test("Ctrl+Enter with an empty draft does nothing", async () => {
     const { dispatcher, writes } = makeWriteCapturingDispatcher();
     const view = renderSectionWith(dispatcher);
-    await waitFor(() => expect(view.getByTestId("notes-section-add")).toBeTruthy());
+    await waitFor(() => view.getByTestId("notes-section-add"));
 
     const textarea = requireTextarea(view.container);
     fireEvent.keyDown(textarea, { key: "Enter", ctrlKey: true });
@@ -346,5 +342,78 @@ describe("NotesSection — Ctrl/Cmd+Enter submit shortcut", () => {
     // tick, then assert nothing landed.
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(writes).toHaveLength(0);
+  });
+});
+
+describe("NotesSection — inside a form with one Save", () => {
+  type Registration = {
+    readonly dirty: boolean;
+    readonly handler: (ctx: ExtensionSubmitContext) => Promise<ExtensionSubmitResult>;
+  };
+
+  function renderComposed(dispatcher: Dispatcher): {
+    readonly view: ReturnType<typeof render>;
+    readonly latest: () => Registration | undefined;
+  } {
+    let registration: Registration | undefined;
+    const registry: ExtensionFormRegistry = {
+      upsert: (entry) => {
+        registration = entry;
+      },
+      remove: () => {
+        registration = undefined;
+      },
+    };
+    const view = render(
+      <TokensProvider value={stubTokens}>
+        <LocaleProvider
+          resolver={stubResolver}
+          fallbackBundles={[defaultTranslations, kumikoDefaultTranslations]}
+        >
+          <PrimitivesProvider value={defaultPrimitives}>
+            <LiveEventsProvider value={stubLiveEvents}>
+              <DispatcherProvider dispatcher={dispatcher}>
+                <ExtensionFormRegistryProvider value={registry}>
+                  <NotesSection entityName="contact" entityId="contact-1" />
+                </ExtensionFormRegistryProvider>
+              </DispatcherProvider>
+            </LiveEventsProvider>
+          </PrimitivesProvider>
+        </LocaleProvider>
+      </TokensProvider>,
+    );
+    return { view, latest: () => registration };
+  }
+
+  test("a typed note marks the form dirty, has no own add button and is written by the form's Save", async () => {
+    const { dispatcher, writes } = makeWriteCapturingDispatcher();
+    const { view, latest } = renderComposed(dispatcher);
+    await waitFor(() => view.getByTestId("notes-section-new"));
+    expect(view.queryByTestId("notes-section-add")).toBeNull();
+
+    fireEvent.change(requireTextarea(view.container), { target: { value: "Typed, not added" } });
+    await waitFor(() => expect(latest()?.dirty).toBe(true));
+    expect(hasUnsavedInput()).toBe(true);
+
+    const saved = await act(() => latest()?.handler({ entityId: "contact-1" }));
+    expect(saved).toEqual({ isSuccess: true });
+    expect(writes).toEqual([
+      {
+        type: NotesHistoryHandlers.addNote,
+        payload: { entityType: "contact", entityId: "contact-1", body: "Typed, not added" },
+      },
+    ]);
+    expect(hasUnsavedInput()).toBe(false);
+  });
+
+  test("an empty draft writes nothing on the form's Save", async () => {
+    const { dispatcher, writes } = makeWriteCapturingDispatcher();
+    const { view, latest } = renderComposed(dispatcher);
+    await waitFor(() => view.getByTestId("notes-section-new"));
+
+    expect(latest()?.dirty).toBe(false);
+    const saved = await act(() => latest()?.handler({ entityId: "contact-1" }));
+    expect(saved).toEqual({ isSuccess: true });
+    expect(writes).toEqual([]);
   });
 });

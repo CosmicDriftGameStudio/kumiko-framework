@@ -53,7 +53,7 @@ let captureB: CapturedCall[] = [];
 let throwOnEventId: string | null = null;
 
 const testFeature: FeatureDefinition = defineFeature("dispatchertest", (r) => {
-  r.entity({ name: "widget", ...sharedWidgetEntity });
+  r.entity(sharedWidgetEntity);
 
   // MSP A: happy-path observer.
   r.multiStreamProjection({
@@ -209,7 +209,11 @@ describe("event-dispatcher — isolation between consumers", () => {
     // the per-consumer transaction boundary holds.
     // Pre-registered state rows exist from boot (strict Sprint-E mode) — at
     // this point they're at cursor=0 / status=idle for both observers.
-    const state = await selectMany(stack.db, eventConsumerStateTable, { name: qnA });
+    const state = await selectMany<{ readonly lastProcessedEventId: bigint }>(
+      stack.db,
+      eventConsumerStateTable,
+      { name: qnA },
+    );
     expect(state).toHaveLength(1);
     expect(state[0]?.lastProcessedEventId).toBe(0n);
 

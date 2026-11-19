@@ -16,6 +16,7 @@ Tenant-scoped full-text search (Meilisearch / in-memory adapter).
 - Handler reads via `ctx.services.searchAdapter`
 - `createLongTextField({ personal: "tenant", find: "fuzzy" })`: a long body is searchable, decrypted for the index (Meilisearch splits it into pieces)
 - Trash list: `softDelete` entity, list with `onlyDeleted: true`, restore via `article:restore`
+- `r.relation(article, "comments", { type: "hasMany", ..., searchable: true })`: a list search on the article also finds it through a matching comment, only for viewers the comment's detail handler admits, gated like a direct read of the comment
 
 ## Source
 
@@ -23,7 +24,7 @@ Feature entry point: `src/feature.ts`.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/search
@@ -39,14 +40,9 @@ bun test
 // Proves: searchable fields indexed via system hook, search returns matches
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { articleEntity, productEntity, productFeature } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { productFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -54,9 +50,6 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [productFeature] });
-  await unsafeCreateEntityTable(stack.db, productEntity);
-  await unsafeCreateEntityTable(stack.db, articleEntity, "article");
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -190,6 +183,34 @@ describe("longText find: fuzzy and the trash list", () => {
     ]);
   });
 });
+
+describe("searchable hasMany relation", () => {
+  const listArticleIds = async (search: string) =>
+    (
+      await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
+        "shop:query:article:list",
+        { search },
+        admin,
+      )
+    ).rows.map((r) => r["id"]);
+
+  test("a list search finds the parent through a matching child row", async () => {
+    const article = await stack.http.writeOk<{ id: string }>(
+      "shop:write:article:create",
+      { title: "Quarterly report", body: "numbers" },
+      admin,
+    );
+    await stack.http.writeOk(
+      "shop:write:comment:create",
+      { articleId: article.id, text: "zebracomment needs a source" },
+      admin,
+    );
+    await stack.eventDispatcher?.runOnce();
+
+    expect(await listArticleIds("zebracomment")).toEqual([article.id]);
+    expect(await listArticleIds("nomatchanywhere")).toEqual([]);
+  });
+});
 ```
 
 ### src/feature.ts
@@ -205,14 +226,19 @@ import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-
 import {
   createEntity,
   createLongTextField,
+  createReferenceField,
   createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityDeleteHandler,
+  defineEntityDetailHandler,
+  defineEntityListHandler,
+  defineEntityRestoreHandler,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 export const productEntity = createEntity({
+  name: "product",
   table: "read_sample_products",
   fields: {
     name: createTextField({
@@ -230,6 +256,7 @@ export const productEntity = createEntity({
 
 // A long body is searched like any text field; softDelete gives the trash list and restore.
 export const articleEntity = createEntity({
+  name: "article",
   table: "read_sample_articles",
   softDelete: true,
   fields: {
@@ -238,17 +265,48 @@ export const articleEntity = createEntity({
   },
 });
 
-const productTable = buildEntityTable("product", productEntity);
+// A searchable hasMany relation lets a list search on the article also find it through its comments.
+export const commentEntity = createEntity({
+  name: "comment",
+  table: "read_sample_article_comments",
+  fields: {
+    articleId: createReferenceField({
+      entity: "article",
+      personal: false,
+      reason: "is_system_identifier",
+      required: true,
+    }),
+    text: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      searchable: true,
+    }),
+  },
+});
+
+const productTable = buildEntityTable(productEntity);
 
 export const productFeature = defineFeature("shop", (r) => {
-  r.entity({ name: "product", ...productEntity });
-  r.entity({ name: "article", ...articleEntity });
+  r.entity(productEntity);
+  const article = r.entity(articleEntity);
+  r.entity(commentEntity);
+  r.relation({
+    entity: article,
+    name: "comments",
+    type: "hasMany",
+    target: "comment",
+    foreignKey: "articleId",
+    searchable: true,
+  });
 
   const articleAccess = { access: { roles: ["Admin"] } };
-  for (const verb of ["create", "delete", "restore"] as const) {
-    r.writeHandler(defineEntityWriteHandler(`article:${verb}`, articleEntity, articleAccess));
-  }
-  r.queryHandler(defineEntityQueryHandler("article:list", articleEntity, articleAccess));
+  r.writeHandler(defineEntityCreateHandler("article", articleEntity, articleAccess));
+  r.writeHandler(defineEntityDeleteHandler("article", articleEntity, articleAccess));
+  r.writeHandler(defineEntityRestoreHandler("article", articleEntity, articleAccess));
+  r.queryHandler(defineEntityListHandler("article", articleEntity, articleAccess));
+  r.writeHandler(defineEntityCreateHandler("comment", commentEntity, articleAccess));
+  r.queryHandler(defineEntityDetailHandler("comment", commentEntity, articleAccess));
 
   r.writeHandler({
     name: "product:create",

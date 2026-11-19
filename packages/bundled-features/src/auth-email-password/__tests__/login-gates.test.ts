@@ -74,4 +74,20 @@ describe("login.write gates", () => {
     );
     expect(g.session.timezone).toBeUndefined();
   });
+
+  test("gateBuildSession keeps a valid locale in canonical form and drops an invalid one", async () => {
+    const userId = "00000000-0000-4000-8000-000000000001";
+    const tenantId = "00000000-0000-4000-8000-000000000002";
+    const valid = await gateBuildSession(authClaimsCtx, userId, tenantId, ["User"], null, "de-de");
+    expect(valid.session.locale).toBe("de-DE");
+    const invalid = await gateBuildSession(
+      authClaimsCtx,
+      userId,
+      tenantId,
+      ["User"],
+      null,
+      "not a locale!!",
+    );
+    expect(invalid.session.locale).toBeUndefined();
+  });
 });

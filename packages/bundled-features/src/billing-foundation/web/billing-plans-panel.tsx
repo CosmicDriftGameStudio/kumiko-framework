@@ -240,7 +240,7 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
           : shownPrice === null
             ? null
             : {
-                amount: formatMoney(shownPrice.unitAmount, shownPrice.currency, locale),
+                amount: formatMoney(shownPrice.unitAmount, shownPrice.currency, { locale }),
                 ...(fromPrice !== undefined && { prefix: t("billing-foundation.plans.priceFrom") }),
                 ...(result.priceNoteKey !== undefined && { note: t(result.priceNoteKey) }),
                 ...(key !== undefined && {
@@ -293,7 +293,7 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
           title: provider.displayName,
           ...(note !== undefined && { description: note }),
           ...(showPrices &&
-            price && { aside: formatMoney(price.unitAmount, price.currency, locale) }),
+            price && { aside: formatMoney(price.unitAmount, price.currency, { locale }) }),
         };
       }),
     };
@@ -386,7 +386,9 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
           }}
           planName={t(consentPlan.labelKey)}
           price={{
-            amount: formatMoney(consentPlan.price.unitAmount, consentPlan.price.currency, locale),
+            amount: formatMoney(consentPlan.price.unitAmount, consentPlan.price.currency, {
+              locale,
+            }),
             renewalKey: renewalKey(consentPlan.price),
             count: new Intl.NumberFormat(locale).format(consentPlan.price.intervalCount ?? 1),
           }}

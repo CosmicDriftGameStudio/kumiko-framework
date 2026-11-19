@@ -12,12 +12,9 @@
 //   const callbacks = createSessionCallbacks({ db });
 //   const server = buildServer({
 //     registry: buildRegistry([
-//       // Pass the mass-revoker into the sessions feature to wire
-//       // "password-change signs you out everywhere" — the feature registers
-//       // a cross-feature entity-hook on the user entity that runs it.
-//       createSessionsFeature({
-//         autoRevokeOnPasswordChange: callbacks.sessionMassRevoker,
-//       }),
+//       // A password change revokes every session in the same transaction,
+//       // through the auth-foundation credentialRevoker; no wiring needed.
+//       createSessionsFeature(),
 //       // ... other features
 //     ]),
 //     context: { db, ... },

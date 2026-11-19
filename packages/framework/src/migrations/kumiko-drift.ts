@@ -44,6 +44,7 @@ export type MissingColumns = {
 
 export type KumikoDriftReport = {
   readonly ok: boolean;
+  readonly migrationsDirMissing: boolean;
   readonly pending: readonly string[];
   readonly checksumMismatches: readonly ChecksumMismatch[];
   readonly missingTables: readonly string[];
@@ -66,15 +67,13 @@ export async function detectKumikoDrift(
   migrationsDir: string,
   bootedFeatures?: readonly FeatureDefinition[],
 ): Promise<KumikoDriftReport> {
-  // A newer framework version may not have generated `./kumiko/migrations` yet
-  // (for example, a first upgrade or custom schema setup without `kumiko schema
-  // generate`). Treat this as no local migrations and therefore no drift, matching
-  // the status subcommand's `existsSync` guard. Without it, `loadMigrationsFromDir`
-  // calls `readdirSync`, which throws synchronous ENOENT as a plain Error instead
-  // of SchemaDriftError and causes an unhandled boot failure.
+  // A missing dir is drift, not "no migrations": an image that lost kumiko/migrations
+  // would otherwise boot against an unmigrated DB. Apps without migrations pass
+  // `migrations: false`. Reported instead of letting readdirSync throw a bare ENOENT.
   if (!existsSync(migrationsDir)) {
     return {
-      ok: true,
+      ok: false,
+      migrationsDirMissing: true,
       pending: [],
       checksumMismatches: [],
       missingTables: [],
@@ -137,6 +136,7 @@ export async function detectKumikoDrift(
   }
 
   return {
+    migrationsDirMissing: false,
     ok:
       pending.length === 0 &&
       checksumMismatches.length === 0 &&
@@ -154,6 +154,9 @@ export async function detectKumikoDrift(
 export function formatKumikoDriftReport(report: KumikoDriftReport): string {
   if (report.ok) return "Schema is current.";
   const lines: string[] = ["Schema drift detected:"];
+  if (report.migrationsDirMissing) {
+    lines.push("  migrations directory is missing — kumiko/migrations/ must be part of the image.");
+  }
   if (report.pending.length > 0) {
     lines.push(`  ${report.pending.length} unapplied migration(s):`);
     for (const id of report.pending) lines.push(`    - ${id}`);
@@ -191,6 +194,10 @@ export function formatKumikoDriftReport(report: KumikoDriftReport): string {
 // restored by apply.
 function driftRemediationLines(report: KumikoDriftReport): string[] {
   const lines: string[] = [];
+  if (report.migrationsDirMissing) {
+    lines.push("Ship kumiko/migrations/ in the image, point migrations.dir at it, or pass");
+    lines.push("`migrations: false` if the app manages its schema itself.");
+  }
   if (report.pending.length > 0) {
     lines.push("Run 'bun kumiko-schema apply' to apply the pending migration(s).");
   }

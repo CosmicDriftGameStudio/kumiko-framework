@@ -11,7 +11,7 @@ export const DOCUMENT_INGEST_BOOT_RULES = {
     id: "document-ingest-foundation/job-unknown-provider",
     summary:
       "A documentIngest.requested job filters to a provider that some feature registers via EXT_DOCUMENT_INGEST_PROVIDER.",
-    fix: 'Register the provider via r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, "<name>", ...) or fix the provider name.',
+    fix: 'Register the provider via r.applyExtension({ name: EXT_DOCUMENT_INGEST_PROVIDER, entity: "<name>", ... }) or fix the provider name.',
   },
   providerWithoutJob: {
     id: "document-ingest-foundation/provider-without-job",

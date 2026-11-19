@@ -39,16 +39,22 @@ export function serializeTemplateDraft(draft: TemplateDraft): string {
   return JSON.stringify(draft);
 }
 
-export function activeVersionOf(row: TemplateResourceRow): number {
+export function activeVersionOf(
+  row: Pick<TemplateResourceRow, "activeVersion" | "version">,
+): number {
   return row.activeVersion ?? row.version;
 }
 
 // `version` also counts draft saves, so only a row without a served version shows it as its number.
-export function servedVersionOf(row: TemplateResourceRow): number {
+export function servedVersionOf(
+  row: Pick<TemplateResourceRow, "status" | "activeVersion" | "version">,
+): number {
   return row.status === "active" ? activeVersionOf(row) : row.version;
 }
 
-export function activeSinceOf(row: TemplateResourceRow): Temporal.Instant {
+export function activeSinceOf(
+  row: Pick<TemplateResourceRow, "activeSince" | "modifiedAt" | "insertedAt">,
+): Temporal.Instant {
   return row.activeSince ?? row.modifiedAt ?? row.insertedAt;
 }
 
@@ -71,7 +77,7 @@ export function isHiddenSystemDraft(
 
 export function draftViewerTenantId(
   user: { readonly tenantId: string; readonly roles: readonly string[] },
-  row: TemplateResourceRow,
+  row: Pick<TemplateResourceRow, "scope" | "tenantId">,
 ): string {
   return row.scope === "system" && isSystemAdmin(user) ? row.tenantId : user.tenantId;
 }

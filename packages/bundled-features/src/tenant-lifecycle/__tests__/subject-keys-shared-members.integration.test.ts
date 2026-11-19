@@ -97,7 +97,7 @@ describe("tenant-lifecycle :: subject-keys stage with members of several tenants
     await addMember(doomed, soleUser);
     await addMember(survivor, sharedUser);
 
-    await seedDestroyingTenant(stack.db, doomed);
+    await seedDestroyingTenant(stack, doomed);
     expect(await driveDestructionToCompletion(stack, stack.db, doomed)).toBe("destroyed");
 
     expect(await hasUsableKey(sharedUser)).toBe(true);
@@ -114,7 +114,7 @@ describe("tenant-lifecycle :: subject-keys stage with members of several tenants
     await addMember(gone, user);
     await updateTenantViaEventStore(stack.db, gone, { status: "destroyed" });
 
-    await seedDestroyingTenant(stack.db, doomed);
+    await seedDestroyingTenant(stack, doomed);
     expect(await driveDestructionToCompletion(stack, stack.db, doomed)).toBe("destroyed");
 
     await expect(kms.getKey({ kind: "user", userId: user })).rejects.toBeInstanceOf(KeyErasedError);
@@ -126,9 +126,9 @@ describe("tenant-lifecycle :: subject-keys stage with members of several tenants
     const user = crypto.randomUUID();
     await addMember(doomed, user);
     await addMember(alsoDestroying, user);
-    await seedDestroyingTenant(stack.db, alsoDestroying);
+    await seedDestroyingTenant(stack, alsoDestroying);
 
-    await seedDestroyingTenant(stack.db, doomed);
+    await seedDestroyingTenant(stack, doomed);
     expect(await driveDestructionToCompletion(stack, stack.db, doomed)).toBe("destroyed");
 
     await expect(kms.getKey({ kind: "user", userId: user })).rejects.toBeInstanceOf(KeyErasedError);

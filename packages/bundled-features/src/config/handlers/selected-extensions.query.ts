@@ -4,7 +4,7 @@ import {
   isEncryptedAtRest,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { requireConfigResolver, requireSystemDb } from "../feature.ts";
+import { requireConfigResolver } from "../feature.ts";
 import { redactInheritedCascade, shouldRedactInherited } from "../read-redaction.ts";
 import { hasConfigAccess } from "../write-helpers.ts";
 
@@ -31,12 +31,9 @@ export const selectedExtensionsQuery = defineQueryHandler({
       "self-scoped read of the caller's own selector values, hit on every settings page load; " +
       "per-tenant bucket would throttle the whole tenant, L1 IP limit still applies",
   },
+  systemScope: true,
   handler: async (query, ctx) => {
-    const db = requireSystemDb(
-      ctx,
-      "config:query:config-value:selected-extensions",
-      query.user.tenantId,
-    );
+    const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
     const resolver = requireConfigResolver(ctx, "config:query:config-value:selected-extensions");
     const readableSelectors = new Map<string, ConfigKeyDefinition>();
     const extensionBySelectorKey = new Map<string, string>();

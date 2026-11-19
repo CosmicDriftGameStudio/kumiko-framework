@@ -3,6 +3,7 @@
 // helpers: createKumikoApp (react-dom bootstrap), defaultPrimitives (HTML),
 // useBrowserNavApi (window.history), createEventSourceLiveEvents, KumikoLink.
 
+export type { FormatMoneyOptions } from "../headless/index.ts";
 // --- Shared re-exports (Components, Hooks, Types, Contexts) ---
 export type {
   AppPrimitives,
@@ -78,6 +79,7 @@ export {
   synthesizeActionFormScreen,
   TokensProvider,
   UserRolesProvider,
+  useDebouncedValue,
   useDispatcher,
   useDispatcherStatus,
   useForm,
@@ -111,14 +113,8 @@ export { KumikoLink, useBrowserNavApi } from "./app/nav.tsx";
 export { PlainContentEditor } from "./app/plain-content-editor.tsx";
 export { useResolvers } from "./app/resolvers-context.tsx";
 export { clearRememberedListState } from "./app/session-list-state-store.ts";
-export {
-  DrawnFilter,
-  DrawnPanel,
-  DrawnPencil,
-  DrawnSearch,
-  DrawnSparkles,
-  DrawnWand,
-} from "./drawn-icons.ts";
+export { useDemoMode } from "./app/use-demo-mode.ts";
+export { DrawnPencil, DrawnSearch, DrawnSparkles } from "./drawn-icons.ts";
 export type {
   EditorActionTestIds,
   EditorHeaderTestIds,
@@ -147,6 +143,8 @@ export {
 } from "./editor/index.ts";
 export type { NavIconKey } from "./icons.tsx";
 export { Icon } from "./icons.tsx";
+export type { AccentScopeProps } from "./layout/accent-scope.tsx";
+export { AccentScope, accentColorVars } from "./layout/accent-scope.tsx";
 export type { AppLayoutProps } from "./layout/app-layout.tsx";
 export { AppLayout } from "./layout/app-layout.tsx";
 export type { AvatarProps, AvatarShape, AvatarSize } from "./layout/avatar.tsx";
@@ -261,15 +259,23 @@ export type {
   AiTextEndAction,
   AiTextFieldProps,
   BooleanFieldProps,
+  ChartLine,
+  ChartMarker,
+  ChartSeries,
   ComparisonMetric,
   ComposerProps,
   DateFieldProps,
-  DrawerProps,
+  DivergingBarChartProps,
+  DivergingBarRow,
+  DrawerPanelProps,
   FeedRow,
   FileFieldProps,
+  FilePickButtonProps,
   FloatingPanelGeometry,
   FloatingPanelPlacement,
   FloatingPanelProps,
+  HistogramBin,
+  HistogramChartProps,
   InfinityListProps,
   InfinityListSelection,
   MessageAttachment,
@@ -280,6 +286,12 @@ export type {
   MobileTopBarProps,
   ModeSwitchVariant,
   NumberFieldProps,
+  NumericAxis,
+  NumericDomain,
+  NumericLineChartProps,
+  NumericLineSeries,
+  NumericPoint,
+  NumericReferenceLine,
   PdfMatchInfo,
   PdfPreviewProps,
   PdfPreviewSource,
@@ -302,6 +314,10 @@ export type {
   SideBySideTableCell,
   SideBySideTableColumn,
   SideBySideTableRow,
+  SignedBarBucket,
+  SignedBarChartProps,
+  StackedAreaChartProps,
+  StackedAreaRanges,
   StatDelta,
   StatTone,
   StatusBadgeTone,
@@ -340,12 +356,15 @@ export {
   Composer,
   DateField,
   DetailList,
+  DivergingBarChart,
   Drawer,
   EmptyState,
   ErrorState,
   FeedList,
   FileField,
+  FilePickButton,
   FloatingPanel,
+  HistogramChart,
   HtmlMailFrame,
   InfinityList,
   LoadingState,
@@ -356,6 +375,8 @@ export {
   ModeSwitch,
   MoneyField,
   NumberField,
+  NumericLineChart,
+  niceTicks,
   PdfPreview,
   PercentField,
   PhotoSlots,
@@ -373,11 +394,11 @@ export {
   SectionCard,
   SectionNavLayout,
   SelectField,
-  SenderFrame,
-  SenderSheet,
   SideBySideTable,
+  SignedBarChart,
   Sparkline,
   STATUS_TONE_TEXT,
+  StackedAreaChart,
   StatCard,
   StatusBadge,
   StatusBarChart,

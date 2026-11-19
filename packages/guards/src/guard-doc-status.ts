@@ -14,12 +14,17 @@ export const check: RepoCheck = {
   hint: "Frontmatter schema: status + verified (YYYY-MM-DD); shipped → evidence, superseded → superseded-by, in-progress|blocked → next.",
   run(roots) {
     const docs = roots.flatMap((root) => discoverStatusDocs(root));
+    const today = Temporal.Now.plainDateISO();
     return {
       violations: docs.flatMap((doc) =>
         doc.problems.map((message) => ({ file: doc.relPath, line: 1, message })),
       ),
       warnings: docs.flatMap((doc) =>
-        statusDocHygieneWarnings(doc).map((message) => ({ file: doc.relPath, line: 1, message })),
+        statusDocHygieneWarnings(doc, today).map((message) => ({
+          file: doc.relPath,
+          line: 1,
+          message,
+        })),
       ),
       matchedFiles: docs.length,
       notApplicable: docs.length === 0,

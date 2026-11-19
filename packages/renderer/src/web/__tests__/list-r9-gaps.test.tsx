@@ -41,7 +41,7 @@ describe("projectionList value type alignment", () => {
         { field: "total", label: "Total", valueType: "money" },
         { field: "qty", label: "Qty", valueType: "number" },
       ],
-      [{ id: "r1", name: "A", total: { amount: 12.5, currency: "EUR" }, qty: 3 }],
+      [{ id: "r1", name: "A", total: { amount: 1250, currency: "EUR" }, qty: 3 }],
     );
     for (const field of ["total", "qty"]) {
       expect(screen.getByTestId(`column-${field}`).classList.contains("text-right")).toBe(true);

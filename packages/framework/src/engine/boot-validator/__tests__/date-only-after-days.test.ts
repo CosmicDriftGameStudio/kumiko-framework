@@ -26,9 +26,9 @@ type ScreenKind = "entityList" | "projectionList" | "relatedList";
 
 function featureWith(kind: ScreenKind, columns: readonly ListColumnSpec[]) {
   return defineFeature("shop", (r) => {
-    r.entity({
-      name: "item",
-      ...createEntity({
+    r.entity(
+      createEntity({
+        name: "item",
         fields: {
           amount: createNumberField({ personal: false, reason: "test_fixture", sortable: true }),
           pickupAt: createLocatedTimestampField({
@@ -39,7 +39,7 @@ function featureWith(kind: ScreenKind, columns: readonly ListColumnSpec[]) {
           seenAt: createTimestampField({ personal: false, reason: "test_fixture", sortable: true }),
         },
       }),
-    });
+    );
     r.queryHandler({
       name: "item:rows",
       schema: z.object({}),

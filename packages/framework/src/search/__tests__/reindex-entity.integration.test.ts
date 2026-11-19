@@ -14,9 +14,9 @@ import {
   asRawClient,
   buildEntityTable,
   createEventStoreExecutor,
-  createTenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { reindexEntity, type SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -27,6 +27,7 @@ import {
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const widgetEntity = createEntity({
+  name: "widget",
   table: "read_reindex_widgets",
   softDelete: true,
   fields: {
@@ -39,7 +40,7 @@ const widgetEntity = createEntity({
   },
 });
 
-const widgetTable = buildEntityTable("widget", widgetEntity);
+const widgetTable = buildEntityTable(widgetEntity);
 
 // Own table for the drop-column test: Bun.SQL caches prepared statements per
 // pooled connection, and a connection that already ran reindexEntity's
@@ -47,6 +48,7 @@ const widgetTable = buildEntityTable("widget", widgetEntity);
 // after that table loses a column. A table no earlier test has scanned keeps
 // the outcome independent of which pooled connection the scan lands on.
 const gadgetEntity = createEntity({
+  name: "gadget",
   table: "read_reindex_gadgets",
   fields: {
     name: createTextField({
@@ -58,24 +60,25 @@ const gadgetEntity = createEntity({
   },
 });
 
-const gadgetTable = buildEntityTable("gadget", gadgetEntity);
+const gadgetTable = buildEntityTable(gadgetEntity);
 
 const widgetFeature = defineFeature("reindex-test", (r) => {
-  r.entity({ name: "widget", ...widgetEntity });
-  r.entity({ name: "gadget", ...gadgetEntity });
+  r.entity(widgetEntity);
+  r.entity(gadgetEntity);
 });
 
 // pii + searchable — the read-table column holds ciphertext, a
 // naive backfill would index blobs (or resurrect a crypto-shredded row).
 const contactEntity = createEntity({
+  name: "contact",
   table: "read_reindex_contacts",
   fields: {
     label: createTextField({ required: true, maxLength: 100, personal: "self", find: "fuzzy" }),
   },
 });
-const contactTable = buildEntityTable("contact", contactEntity);
+const contactTable = buildEntityTable(contactEntity);
 const contactFeature = defineFeature("reindex-pii-test", (r) => {
-  r.entity({ name: "contact", ...contactEntity });
+  r.entity(contactEntity);
 });
 
 let stack: TestStack;

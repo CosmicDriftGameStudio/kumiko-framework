@@ -5,8 +5,9 @@ import type {
   WhereOperator,
 } from "@cosmicdrift/kumiko-types/where-clause-types";
 import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/blind-index.ts";
-import { quoteIdent } from "../crypto/ciphertext-pattern.ts";
+import { escapeLikePattern } from "../crypto/ciphertext-pattern.ts";
 import { prepareJsonbValue, prepareValue } from "./driver-value-preparation.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import type { TableInfo } from "./table-info.ts";
 
 type WhereColumn = {
@@ -134,6 +135,21 @@ function comparisonEmitter(
   };
 }
 
+function escapedPatternEmitter(
+  key: "contains" | "startsWith",
+  toPattern: (escaped: string) => string,
+): OperatorEmitter {
+  return (target, operator) => {
+    const operand: unknown = operator[key];
+    if (operand === undefined) return undefined;
+    if (typeof operand !== "string") {
+      throw new Error(`where: ${key} on column "${target.column}" needs a string`);
+    }
+    if (target.pgType === "jsonb") return "FALSE";
+    return comparisonCondition(target, "LIKE", toPattern(escapeLikePattern(operand)));
+  };
+}
+
 // Mirrors applyMultiSelectFilter: an array `ne` means "does not contain all of these".
 function jsonbNotEqualCondition(target: WhereColumn, operand: unknown): string | undefined {
   const { column, ref, bind } = target;
@@ -189,8 +205,18 @@ function emitNotIn(target: WhereColumn, operator: WhereOperator): string | undef
   return `${target.ref(target.column)} NOT IN (${valueList(target, operand)})`;
 }
 
+function emitEqualsIgnoreCase(target: WhereColumn, operator: WhereOperator): string | undefined {
+  const operand: unknown = operator.equalsIgnoreCase;
+  if (operand === undefined) return undefined;
+  if (typeof operand !== "string") {
+    throw new Error(`where: equalsIgnoreCase on column "${target.column}" needs a string`);
+  }
+  if (target.pgType === "jsonb") return "FALSE";
+  return `lower(${target.ref(target.column)}) = lower(${target.bind(operand)}::text)`;
+}
+
 // Insertion order is the SQL emission order. jsonText comes first so its "cannot be combined" error wins over any other
-// operator's error; the rest keep the historical order gt, gte, lt, lte, ne, like, in, notIn.
+// operator's error; the rest keep the historical order gt, gte, lt, lte, ne, like, contains, startsWith, equalsIgnoreCase, in, notIn.
 const OPERATOR_EMITTERS: Readonly<Record<keyof WhereOperator, OperatorEmitter>> = {
   jsonText: emitJsonText,
   gt: comparisonEmitter("gt", ">"),
@@ -199,6 +225,9 @@ const OPERATOR_EMITTERS: Readonly<Record<keyof WhereOperator, OperatorEmitter>> 
   lte: comparisonEmitter("lte", "<="),
   ne: emitNotEqual,
   like: comparisonEmitter("like", "LIKE"),
+  contains: escapedPatternEmitter("contains", (escaped) => `%${escaped}%`),
+  startsWith: escapedPatternEmitter("startsWith", (escaped) => `${escaped}%`),
+  equalsIgnoreCase: emitEqualsIgnoreCase,
   in: emitIn,
   notIn: emitNotIn,
 };

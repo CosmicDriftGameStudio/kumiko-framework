@@ -20,7 +20,8 @@ import type { Dispatcher } from "../../headless/index.ts";
 import { REFERENCE_COMBOBOX_LIMIT } from "../../hooks/reference-limits.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import { type CorePrimitives, type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
+import { type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi } from "../nav.tsx";
@@ -38,7 +39,7 @@ const getCapturedProps = (): DataTableProps | undefined => capturedProps;
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: passChildren,
   Field: passChildren,
@@ -57,26 +58,19 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 let queryCalls: Array<{ readonly type: string; readonly payload: unknown }> = [];
 
 function stubDispatcher(): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: {} }),
+    query: async (type: string, payload: unknown) => {
       queryCalls.push({ type, payload });
       return { isSuccess: true, data: { rows: [], nextCursor: null } };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 // Stateful nav so setSearchParams (called by useListUrlState.setFilter)
@@ -136,22 +130,15 @@ function renderScreen(
 function stubDispatcherByType(
   responses: Readonly<Record<string, { rows: readonly Record<string, unknown>[] }>>,
 ): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: {} }),
+    query: async (type: string, payload: unknown) => {
       queryCalls.push({ type, payload });
       const rows = responses[type]?.rows ?? [];
       return { isSuccess: true, data: { rows, nextCursor: null } };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 describe("entityList facets — unchanged after the shared buildFilterFacets/buildFilterPayload extraction", () => {
@@ -159,6 +146,7 @@ describe("entityList facets — unchanged after the shared buildFilterFacets/bui
     queryCalls = [];
     capturedProps = undefined;
     const entity: EntityDefinition = {
+      name: "entity",
       fields: {
         active: { type: "boolean", filterable: true, required: false },
       },
@@ -485,16 +473,15 @@ describe("projectionList filter + facets", () => {
     }
 
     function tenantDispatcher(): Dispatcher {
-      return {
-        ...stubDispatcher(),
-        query: (async (type: string, payload: unknown) => {
+      return createMockDispatcher({
+        query: async (type: string, payload: unknown) => {
           queryCalls.push({ type, payload });
           return {
             isSuccess: true,
             data: type === "ledger:query:tenant:list" ? answerTenantList(payload) : { rows: [] },
           };
-        }) as unknown as Dispatcher["query"],
-      };
+        },
+      });
     }
 
     test("searching finds a row beyond the first page and selecting it filters the list", async () => {
@@ -553,9 +540,8 @@ describe("projectionList filter + facets", () => {
       { id: "a1", label: "Alpha GmbH" },
       { id: "b2", label: "Beta AG" },
     ];
-    const dispatcher: Dispatcher = {
-      ...stubDispatcher(),
-      query: (async (type: string, payload: unknown) => {
+    const dispatcher = createMockDispatcher({
+      query: async (type: string, payload: unknown) => {
         queryCalls.push({ type, payload });
         if (type !== "ledger:query:tenant-options") {
           return { isSuccess: true, data: { rows: [] } };
@@ -567,9 +553,10 @@ describe("projectionList filter + facets", () => {
             (ids === undefined || ids.includes(row.id)),
         );
         return { isSuccess: true, data: { rows } };
-      }) as unknown as Dispatcher["query"],
-    };
+      },
+    });
     const entity: EntityDefinition = {
+      name: "entity",
       fields: {
         tenantId: {
           type: "reference",

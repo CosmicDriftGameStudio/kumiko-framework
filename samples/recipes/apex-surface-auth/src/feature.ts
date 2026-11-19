@@ -59,22 +59,31 @@
 // SERVER-WIRING: the app enables `anonymousAccess` (defaultTenantId = the
 // apex host tenant) so /api/write reaches the anonymous deletion handlers:
 //
-//   runProdApp({ features: composeApexAccountApp({...}), envSchema,
+//   runProdApp({ features: composeApexAccountApp({ ..., mailTransport }), envSchema,
 //                anonymousAccess: { defaultTenantId: APEX_TENANT_ID } })
+//
+// The deletion verify mail is sent by user-data-rights itself through delivery
+// + channel-email (after commit, localized template); the app only supplies the
+// mail transport.
 
 import { createAuthEmailPasswordFeature } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import {
+  createChannelEmailFeature,
+  type EmailTransport,
+} from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
+import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
+import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
+import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
-import {
-  createUserDataRightsFeature,
-  type SendDeletionVerificationEmailFn,
-} from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
+import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 
 export type ApexAccountAppOptions = {
@@ -83,9 +92,8 @@ export type ApexAccountAppOptions = {
   /** Apex route of the confirm screen; the handler appends the token as a
    *  URL fragment (`#token=`). */
   readonly deletionVerifyUrl: string;
-  /** Sending the verify magic link. MUST be non-blocking (enqueue) — a
-   *  synchronous send would open a timing oracle for account enumeration. */
-  readonly sendDeletionVerificationEmail: SendDeletionVerificationEmailFn;
+  /** Transport for the deletion verify mail (SMTP in prod, createInMemoryTransport in tests). */
+  readonly mailTransport: EmailTransport;
 };
 
 // Full feature composition for the public account flows. The
@@ -107,7 +115,12 @@ export function composeApexAccountApp(opts: ApexAccountAppOptions): FeatureDefin
     createUserDataRightsFeature({
       deletionTokenSecret: opts.deletionTokenSecret,
       deletionVerifyUrl: opts.deletionVerifyUrl,
-      sendDeletionVerificationEmail: opts.sendDeletionVerificationEmail,
+      mailDefaults: { appName: "Apex Account" },
     }),
+    createDeliveryFeature(),
+    createChannelEmailFeature({ transport: opts.mailTransport, resolveEmail: async () => null }),
+    createTemplateResolverFeature(),
+    createRendererFoundationFeature(),
+    createRendererMailHtmlFeature(),
   ];
 }

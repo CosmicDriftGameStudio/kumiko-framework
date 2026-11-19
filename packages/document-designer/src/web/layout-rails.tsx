@@ -9,7 +9,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { BRANDING_SCREEN_QN, MANAGED_PAGES_FEATURE_NAME } from "./constants.ts";
+import { BRANDING_FEATURE_NAME, BRANDING_SCREEN_QN } from "./constants.ts";
 import {
   isHexColor,
   LAYOUT_ACCENT_LINES,
@@ -62,7 +62,7 @@ export function BrandingRail({
   const { Link } = usePrimitives();
   const hasBrandingScreen = features.some(
     (feature) =>
-      feature.featureName === MANAGED_PAGES_FEATURE_NAME &&
+      feature.featureName === BRANDING_FEATURE_NAME &&
       feature.screens.some((screen) => screen.id === BRANDING_SCREEN_SHORT_ID),
   );
   const notSet = t("documentDesigner.branding.notSet");

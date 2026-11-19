@@ -1,17 +1,10 @@
 import { requestContext } from "@cosmicdrift/kumiko-framework/api";
-import { updateMany } from "@cosmicdrift/kumiko-framework/db";
-import { access, defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { append } from "@cosmicdrift/kumiko-framework/event-store";
-import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { userSessionTable } from "../schema/user-session.ts";
-import {
-  SESSION_REVOKED_AGGREGATE_TYPE,
-  SESSION_REVOKED_EVENT_QN,
-  sessionRevokedSchema,
-} from "../session-revoked-event.ts";
+import { revokeSessionsAndAnnounce } from "../revoke-sessions.ts";
+import { SESSION_REVOKED_EVENT_QN } from "../session-revoked-event.ts";
 
 const REVOKE_ALL_SESSIONS_REASON =
   "revokes the target user's sessions in every tenant and appends the audit event on the SYSTEM stream";
@@ -49,74 +42,42 @@ export const revokeAllForUserWrite = defineWriteHandler({
     reason: REVOKE_ALL_SESSIONS_REASON,
   },
   handler: async (event, ctx) => {
-    const runner = ctx.db.unsafeRaw();
-    const updated = await updateMany<{ id: string }>(
-      runner,
-      userSessionTable,
-      { revokedAt: Temporal.Now.instant() },
-      {
+    // Raw append() skips the registered-schema check, so eventVersion comes from the registry.
+    const eventDef = ctx.registry.getEvent(SESSION_REVOKED_EVENT_QN);
+    if (!eventDef) {
+      return writeFailure(
+        new UnprocessableError("session_revoked_event_not_registered", {
+          details: { eventQn: SESSION_REVOKED_EVENT_QN },
+        }),
+      );
+    }
+    // SYSTEM stream: the caller's tenant has no relationship to the target user's session tenants.
+    const runner = ctx.db.unsafeRawAllTenants();
+    const reqCtx = requestContext.get();
+    const revokedIds = await revokeSessionsAndAnnounce(runner, {
+      where: {
         userId: event.payload.userId,
-        revokedAt: null,
         ...(event.payload.tenantId !== undefined && { tenantId: event.payload.tenantId }),
         ...(event.payload.exceptSessionId !== undefined && {
           id: { ne: event.payload.exceptSessionId },
         }),
       },
-    );
-
-    // Lightweight append alongside the direct-write above; see revoke.write.ts
-    // for why this isn't a lifecycle event on
-    // store_user_sessions. Uses the low-level append() (not
-    // ctx.events.unsafeAppend) because this handler is deliberately
-    // cross-tenant: the privileged caller's own tenantId (what
-    // ctx.events.unsafeAppend would bind to) has no relationship to the
-    // target user's session tenant(s). Anchored on SYSTEM_TENANT_ID
-    // instead, same as the jobs feature's cross-tenant run-lifecycle
-    // events (job-run-logger.ts) — a fresh aggregate per call, so no
-    // predecessor/version_conflict concerns.
-    //
-    // append() itself does NOT validate against the r.defineEvent-
-    // registered schema (that guarantee only comes from going through
-    // ctx.events.unsafeAppend's dispatcher path). Mirrors job-run-logger.ts:
-    // parse explicitly before the raw append so a shape drift fails loudly
-    // here instead of landing unvalidated on the events table.
-    if (updated.length > 0) {
-      const eventDef = ctx.registry.getEvent(SESSION_REVOKED_EVENT_QN);
-      if (!eventDef) {
-        return writeFailure(
-          new UnprocessableError("session_revoked_event_not_registered", {
-            details: { eventQn: SESSION_REVOKED_EVENT_QN },
-          }),
-        );
-      }
-      const payload = sessionRevokedSchema.parse({
-        userId: event.payload.userId,
-        sessionIds: updated.map((row) => row.id),
-        ...(event.payload.exceptSessionId !== undefined && {
-          keptSessionId: event.payload.exceptSessionId,
-        }),
-      });
-      const reqCtx = requestContext.get();
-      await append(runner, {
-        aggregateId: generateId(),
-        aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
-        tenantId: SYSTEM_TENANT_ID,
-        expectedVersion: 0,
-        type: SESSION_REVOKED_EVENT_QN,
-        eventVersion: eventDef.version,
-        payload,
-        metadata: {
-          userId: event.user.id,
-          ...(reqCtx?.requestId ? { requestId: reqCtx.requestId } : {}),
-          ...(reqCtx?.correlationId ? { correlationId: reqCtx.correlationId } : {}),
-          ...(reqCtx?.causationId ? { causationId: reqCtx.causationId } : {}),
-        },
-      });
-    }
+      revokedAt: Temporal.Now.instant(),
+      ...(event.payload.exceptSessionId !== undefined && {
+        keptSessionId: event.payload.exceptSessionId,
+      }),
+      eventVersion: eventDef.version,
+      metadata: {
+        userId: event.user.id,
+        ...(reqCtx?.requestId ? { requestId: reqCtx.requestId } : {}),
+        ...(reqCtx?.correlationId ? { correlationId: reqCtx.correlationId } : {}),
+        ...(reqCtx?.causationId ? { causationId: reqCtx.causationId } : {}),
+      },
+    });
 
     return {
       isSuccess: true as const,
-      data: { count: updated.length, userId: event.payload.userId },
+      data: { count: revokedIds.length, userId: event.payload.userId },
     };
   },
 });

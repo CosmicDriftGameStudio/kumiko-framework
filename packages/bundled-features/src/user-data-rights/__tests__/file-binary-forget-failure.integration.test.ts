@@ -15,6 +15,7 @@ import { asRawClient, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
+  createFilesFeature,
   createInMemoryFileProvider,
   type FileStorageProvider,
   fileRefsTable,
@@ -40,7 +41,6 @@ import {
   createFileFoundationFeature,
   makeTenantStorageProviderResolver,
 } from "../../file-foundation/index.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
 import { tenantMembershipEntity } from "../../tenant/membership-table.ts";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";

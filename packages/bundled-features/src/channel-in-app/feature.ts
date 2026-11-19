@@ -5,6 +5,7 @@ import { markAllReadWrite } from "./handlers/mark-all-read.write.ts";
 import { markReadWrite } from "./handlers/mark-read.write.ts";
 import { readStateByKeysQuery } from "./handlers/read-state-by-keys.query.ts";
 import { unreadCountQuery } from "./handlers/unread-count.query.ts";
+import { CHANNEL_IN_APP_I18N } from "./i18n.ts";
 import { inAppChannel } from "./in-app-channel.ts";
 import { inAppMessagesTableMeta } from "./tables.ts";
 
@@ -25,8 +26,10 @@ export function createChannelInAppFeature(): FeatureDefinition {
     });
 
     // Register as delivery channel via extension system
-    r.translations({ keys: { "delivery.channel.inApp": { en: "In-app" } } });
-    r.useExtension(DELIVERY_CHANNEL_EXTENSION, "inApp", {
+    r.translations({ keys: CHANNEL_IN_APP_I18N });
+    r.applyExtension({
+      name: DELIVERY_CHANNEL_EXTENSION,
+      entity: "inApp",
       mode: inAppChannel.mode,
       resolve: inAppChannel.resolve,
       send: inAppChannel.send,

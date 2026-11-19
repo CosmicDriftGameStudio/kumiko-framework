@@ -4,6 +4,7 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { defineCreateWithTenantDefaults } from "../tenant-defaults.ts";
 
 const entity = createEntity({
+  name: "entity",
   fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
 });
 

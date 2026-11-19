@@ -14,7 +14,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import type { CapUsageTone, CapUsageWithMeta } from "../../types.ts";
 import { CapCardsPanel } from "../cap-cards-panel.tsx";
-import { CapOverviewQueries } from "../constants.ts";
+import { CapOverviewContracts } from "../constants.ts";
 
 type CapsUsageResponse = { readonly rows: readonly CapUsageWithMeta[] };
 
@@ -161,10 +161,10 @@ describe("CapCardsPanel", () => {
     renderPanel(undefined);
 
     expect(screen.getAllByTestId("cap-card")).toHaveLength(2);
-    expect(screen.getByText("Storage")).toBeTruthy();
-    expect(screen.getByText("Seats")).toBeTruthy();
-    expect(screen.getByText("3 / 10")).toBeTruthy();
-    expect(screen.getByText("7 / 20")).toBeTruthy();
+    screen.getByText("Storage");
+    screen.getByText("Seats");
+    screen.getByText("3 / 10");
+    screen.getByText("7 / 20");
   });
 
   test("maps the default tone to the muted StatusBadge tone", () => {
@@ -205,7 +205,7 @@ describe("CapCardsPanel", () => {
 
     renderPanel(undefined);
 
-    expect(screen.getByTestId("cap-cards-panel-empty")).toBeTruthy();
+    screen.getByTestId("cap-cards-panel-empty");
     expect(screen.queryAllByTestId("cap-card")).toHaveLength(0);
   });
 
@@ -244,7 +244,7 @@ describe("CapCardsPanel", () => {
     const cards = screen.getAllByTestId("cap-card");
     expect(cards).toHaveLength(1);
     expect(cards[0]?.textContent).toContain("Apps");
-    expect(useQuerySpy).toHaveBeenCalledWith(CapOverviewQueries.capsUsage, { tenantId: "t-1" });
+    expect(useQuerySpy).toHaveBeenCalledWith(CapOverviewContracts.capsUsage, { tenantId: "t-1" });
   });
 
   test("a non-array capKeys restricts nothing", () => {
@@ -360,7 +360,7 @@ describe("CapCardsPanel", () => {
   test("a string tenantId in filterParams is passed through to useQuery", () => {
     renderPanel({ tenantId: "t-42" });
 
-    expect(useQuerySpy).toHaveBeenCalledWith(CapOverviewQueries.capsUsage, { tenantId: "t-42" });
+    expect(useQuerySpy).toHaveBeenCalledWith(CapOverviewContracts.capsUsage, { tenantId: "t-42" });
   });
 
   test("missing or non-string tenantId in filterParams omits the tenantId key", () => {
@@ -384,7 +384,7 @@ describe("CapCardsPanel", () => {
     renderPanel(undefined);
 
     expect(screen.getByTestId("cap-card").textContent).toContain("—");
-    expect(screen.getByTestId("cap-usage-not-measured")).toBeTruthy();
+    screen.getByTestId("cap-usage-not-measured");
     expect(screen.queryByTestId("cap-usage-bar")).toBeNull();
     expect(screen.queryByText("null%")).toBeNull();
     expect(screen.queryByText("0%")).toBeNull();
@@ -402,8 +402,8 @@ describe("CapCardsPanel", () => {
     renderPanel(undefined);
 
     expect(screen.getAllByTestId("cap-card")).toHaveLength(2);
-    expect(screen.getByText("3 / 10")).toBeTruthy();
-    expect(screen.getByTestId("cap-usage-not-measured")).toBeTruthy();
+    screen.getByText("3 / 10");
+    screen.getByTestId("cap-usage-not-measured");
     expect(screen.getAllByTestId("cap-usage-bar")).toHaveLength(1);
   });
 
@@ -462,8 +462,8 @@ describe("CapCardsPanel", () => {
     renderPanel(undefined);
 
     expect(screen.getAllByTestId("cap-card")).toHaveLength(2);
-    expect(screen.getByText("3 / 10")).toBeTruthy();
-    expect(screen.getByText("30%")).toBeTruthy();
+    screen.getByText("3 / 10");
+    screen.getByText("30%");
     expect(screen.getAllByTestId("cap-usage-bar")).toHaveLength(1);
     expect(screen.getAllByTestId("cap-card")[1]?.textContent).toContain("165");
     expect(screen.queryByText("165 / null")).toBeNull();
@@ -475,7 +475,7 @@ describe("CapCardsPanel", () => {
 
     renderPanel(undefined);
 
-    expect(screen.getByText("cap-overview.cards.loading")).toBeTruthy();
+    screen.getByText("cap-overview.cards.loading");
     expect(screen.queryByTestId("cap-cards-panel-empty")).toBeNull();
   });
 

@@ -28,9 +28,9 @@ const open = openToAllSignedIn(
 export const vehiclesFeature = defineFeature("vehicles", (r) => {
   r.translations({ keys: toKeyFirst(vehiclesTranslations) });
 
-  r.crud("vehicle", vehicleEntity, { write: open, read: open });
-  r.crud("campaign", campaignEntity, { write: open, read: open });
-  r.crud("campaignPost", campaignPostEntity, { write: open, read: open });
+  r.crud(vehicleEntity, { write: open, read: open });
+  r.crud(campaignEntity, { write: open, read: open });
+  r.crud(campaignPostEntity, { write: open, read: open });
 
   r.writeHandler({
     name: "campaign-post:mark-posted",

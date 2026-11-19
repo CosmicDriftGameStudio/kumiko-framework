@@ -1,4 +1,7 @@
-type LocalizedString = { readonly en: string; readonly de: string };
+import { handlerFieldLabelKey, handlerTitleKey } from "@cosmicdrift/kumiko-framework/engine";
+import { SignatureHandlers as H } from "./web/constants.ts";
+
+type LocalizedString = { readonly en: string; readonly de?: string };
 
 const REQUEST = "signature:entity:signatureRequest:field";
 const SIGNER = "signature:entity:signatureSigner:field";
@@ -50,4 +53,30 @@ export const SIGNATURE_I18N: Readonly<Record<string, LocalizedString>> = {
   [`${REQUEST}:status:option:expired`]: { en: "Expired", de: "Abgelaufen" },
   [`${REQUEST}:status:option:failed`]: { en: "Failed", de: "Fehlgeschlagen" },
   [`${REQUEST}:status:option:cancelled`]: { en: "Cancelled", de: "Abgebrochen" },
+
+  [handlerTitleKey(H.cancel)]: {
+    en: "Cancel signature request",
+    de: "Unterschriftsanfrage abbrechen",
+  },
+  [handlerFieldLabelKey(H.cancel, "requestId")]: { en: "Request", de: "Anfrage" },
+  [handlerTitleKey(H.forgetSigner)]: { en: "Erase signer data", de: "Unterzeichnerdaten löschen" },
+  [handlerFieldLabelKey(H.forgetSigner, "signerId")]: { en: "Signer", de: "Unterzeichner" },
+  [handlerTitleKey(H.issueLink)]: { en: "Send signing link", de: "Unterschriftslink senden" },
+  [handlerFieldLabelKey(H.issueLink, "signerId")]: { en: "Signer", de: "Unterzeichner" },
+  [handlerTitleKey(H.request)]: { en: "Request signatures", de: "Unterschriften anfordern" },
+  [handlerFieldLabelKey(H.request, "documentFileId")]: { en: "Document file", de: "Dokumentdatei" },
+  [handlerFieldLabelKey(H.request, "title")]: { en: "Title", de: "Titel" },
+  [handlerFieldLabelKey(H.request, "level")]: { en: "Level", de: "Stufe" },
+  [handlerFieldLabelKey(H.request, "subjectType")]: { en: "Related to", de: "Gehört zu" },
+  [handlerFieldLabelKey(H.request, "subjectId")]: { en: "Related ID", de: "Zugehörige ID" },
+  [handlerFieldLabelKey(H.request, "hostType")]: { en: "Linked entity", de: "Verknüpfte Entität" },
+  [handlerFieldLabelKey(H.request, "hostId")]: {
+    en: "Linked entity ID",
+    de: "ID der verknüpften Entität",
+  },
+  [handlerFieldLabelKey(H.request, "expiresInDays")]: {
+    en: "Valid for (days)",
+    de: "Gültigkeit in Tagen",
+  },
+  [handlerFieldLabelKey(H.request, "signers")]: { en: "Signers", de: "Unterzeichner" },
 };

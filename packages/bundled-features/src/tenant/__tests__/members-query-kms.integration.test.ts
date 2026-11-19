@@ -34,6 +34,15 @@ import { TenantQueries } from "../web/constants.ts";
 
 const tenantId = testTenantId(1);
 
+class CountingKmsAdapter extends InMemoryKmsAdapter {
+  getKeyCalls = 0;
+
+  override getKey(...args: Parameters<InMemoryKmsAdapter["getKey"]>) {
+    this.getKeyCalls += 1;
+    return super.getKey(...args);
+  }
+}
+
 let stack: TestStack;
 
 function tenantAdmin(userId: string): SessionUser {
@@ -93,5 +102,31 @@ describe("members query — decrypt-on-read with an active KMS", () => {
     const self = members.find((m) => m.userId === userId);
     expect(self?.email).toBe("kms-member@example.com");
     expect(self?.displayName).toBe("KMS Member");
+  });
+
+  test("email and displayName of a member cost one key lookup per user", async () => {
+    const kms = new CountingKmsAdapter();
+    configurePiiSubjectKms(kms);
+    const first = await seedUser(stack.db, {
+      email: "first-member@example.com",
+      displayName: "First Member",
+      emailVerified: true,
+    });
+    const second = await seedUser(stack.db, {
+      email: "second-member@example.com",
+      displayName: "Second Member",
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, { userId: first.id, tenantId, roles: ["User"] });
+    await seedTenantMembership(stack.db, { userId: second.id, tenantId, roles: ["User"] });
+    kms.getKeyCalls = 0;
+
+    const members = await stack.http.queryOk<
+      readonly { userId: string; email: string | null; displayName: string | null }[]
+    >(TenantQueries.members, {}, tenantAdmin(first.id));
+
+    expect(members.find((m) => m.userId === first.id)?.email).toBe("first-member@example.com");
+    expect(members.find((m) => m.userId === second.id)?.displayName).toBe("Second Member");
+    expect(kms.getKeyCalls).toBe(2);
   });
 });

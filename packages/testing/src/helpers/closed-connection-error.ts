@@ -2,6 +2,7 @@
 // the production matcher checks driver-specific codes a fake can't reproduce.
 
 import { isClosedConnectionError } from "@cosmicdrift/kumiko-framework/internal/stack-support";
+import type { RawDbClient } from "@cosmicdrift/kumiko-types/db-connection";
 import { requireEnv } from "../stack/db.ts";
 
 export function testDatabaseUrl(): string {
@@ -53,4 +54,32 @@ export async function captureClosedConnectionError(
   } finally {
     await admin.close({ timeout: 0 });
   }
+}
+
+export type FakePooledClient = RawDbClient & {
+  readonly options: { readonly max: number };
+  readonly calls: readonly {
+    readonly sql: string;
+    readonly params: readonly unknown[] | undefined;
+  }[];
+};
+
+// Pooled (options.max 1, begin without savepoint/release) so unsafeReadRetrying retries it:
+// the first reads throw `failures` in order, every later read answers `[row]`.
+export function fakePooledClientFailingWith(
+  failures: readonly unknown[],
+  row: Record<string, unknown>,
+): FakePooledClient {
+  const remaining = [...failures];
+  const calls: { sql: string; params: readonly unknown[] | undefined }[] = [];
+  return {
+    options: { max: 1 },
+    calls,
+    unsafe: async (sql, params) => {
+      calls.push({ sql, params });
+      if (remaining.length > 0) throw remaining.shift();
+      return [row];
+    },
+    begin: () => Promise.reject(new Error("fakePooledClientFailingWith: begin is not used")),
+  };
 }

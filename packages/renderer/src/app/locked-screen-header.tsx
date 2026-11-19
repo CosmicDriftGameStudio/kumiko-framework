@@ -7,7 +7,7 @@ import { usePrimitives } from "../primitives.tsx";
 function LockedScreenHeader({ standInScreenId }: { readonly standInScreenId?: string }): ReactNode {
   const { PageHeader } = usePrimitives();
   const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
-  if (PageHeader === undefined || !pageHeaderSlotAvailable) return null;
+  if (!pageHeaderSlotAvailable) return null;
   return standInScreenId !== undefined ? (
     <PageHeader hideBreadcrumb breadcrumbScreenId={standInScreenId} />
   ) : (

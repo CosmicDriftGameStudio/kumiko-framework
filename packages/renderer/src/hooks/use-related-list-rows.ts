@@ -1,5 +1,13 @@
-import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
+import {
+  declaredSortNulls,
+  type EntityDefinition,
+  instantSortKey,
+  normalizeListColumn,
+  nullsSortFirst,
+} from "@cosmicdrift/kumiko-framework/ui-types";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { isMoneyValue } from "../app/entity-edit-prefill.ts";
 import type { EditRelatedListSectionViewModel, Translate } from "../headless/index.ts";
 import type { DataTableSort } from "../primitives.tsx";
 import { sortByAccessor } from "../sort-by-accessor.ts";
@@ -16,6 +24,39 @@ type PagedRows = {
 
 const DEFAULT_GROUP_PAGE_SIZE = 50;
 
+const CREATION_ORDER: DataTableSort = { field: "insertedAt", dir: "asc" };
+
+/** The sort the section's query applies itself: the active one when the query
+ *  orders by that column, else creation order where the query offers it, so
+ *  rows with random (v4) ids do not come back shuffled. */
+export function relatedListServerSort(
+  section: EditRelatedListSectionViewModel,
+  sort: DataTableSort | null,
+): DataTableSort | undefined {
+  const serverFields = section.serverSortFields ?? [];
+  if (sort !== null && serverFields.includes(sort.field)) return sort;
+  return serverFields.includes(CREATION_ORDER.field) ? CREATION_ORDER : undefined;
+}
+
+// Mirrors the server's column sort: money by its amount column alone, a
+// locatedTimestamp by its instant, every other value as it is stored.
+function relatedListSortValue(value: unknown): string | number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return value;
+  if (isMoneyValue(value)) return value.amount;
+  const locatedUtc = propertyOf(value, "utc");
+  const text = typeof locatedUtc === "string" ? locatedUtc : String(value);
+  return instantSortKey(text) ?? text;
+}
+
+// The server list's tie order (`ORDER BY <field>, id ASC`); uuid order is its hex text order.
+function compareRowIds(a: Row, b: Row): number {
+  const aId = a["id"];
+  const bId = b["id"];
+  if (typeof aId !== "string" || typeof bId !== "string" || aId === bId) return 0;
+  return aId < bId ? -1 : 1;
+}
+
 // A handler that omits `nextCursor` (or reports a `total` the fetched rows
 // already cover) has no further rows; only a real cursor marks truncation.
 function isTruncatedFetch(data: PagedRows | null): boolean {
@@ -31,16 +72,19 @@ export type RelatedListRows = {
   readonly firstLoad: boolean;
   readonly error: ListAggregates["error"];
   readonly hasData: boolean;
-  /** The one-shot fetch stopped early, so the client-side sort covers part of the set. */
+  /** The one-shot fetch stopped early; the section has no pager for the rest. */
   readonly truncated: boolean;
   readonly aggregates: ListAggregates;
   readonly refetchSelfAndHost: () => Promise<void>;
 };
 
-/** Rows of a relatedList section: one fetch sorted on the client, or the loaded
- *  rows of its server groups in server order when `table.grouping` is active. */
+/** Rows of a relatedList section: one fetch in the query's order, sorted on the
+ *  client only for a column the query cannot order by, or the loaded rows of its
+ *  server groups in server order when `table.grouping` is active. */
 export function useRelatedListRows(args: {
   readonly section: EditRelatedListSectionViewModel;
+  /** Field definitions of the section's columns; a declared `sortNulls` places empty values. */
+  readonly fields: EntityDefinition["fields"];
   readonly payload: Readonly<Record<string, unknown>>;
   readonly groupField: string | undefined;
   readonly sort: DataTableSort | null;
@@ -49,7 +93,7 @@ export function useRelatedListRows(args: {
   readonly onAfterWrite: (() => Promise<void> | void) | undefined;
   readonly translate: Translate;
 }): RelatedListRows {
-  const { section, payload, groupField, sort, locale, refreshToken, onAfterWrite } = args;
+  const { section, fields, payload, groupField, sort, locale, refreshToken, onAfterWrite } = args;
   const aggregates = useListAggregates({
     queryType: section.query,
     payload,
@@ -83,17 +127,25 @@ export function useRelatedListRows(args: {
     const accessors: Record<string, (row: Row) => string | number | null> = {};
     for (const col of section.columns) {
       const field = normalizeListColumn(col).field;
-      accessors[field] = (row) => {
-        const value = row[field];
-        if (value === null || value === undefined) return null;
-        return typeof value === "number" ? value : String(value);
-      };
+      accessors[field] = (row) => relatedListSortValue(row[field]);
     }
     return accessors;
   }, [section.columns]);
+  // A column the query already ordered is not sorted again here: two rules for one order drift.
+  const clientSort =
+    sort !== null &&
+    section.serverSortFields?.includes(sort.field) !== true &&
+    propertyOf(fields[sort.field], "sortable") === true
+      ? sort
+      : null;
   const sortedRows = useMemo(
-    () => sortByAccessor(rowsQuery.data?.rows ?? [], sort, sortAccessors, locale),
-    [rowsQuery.data, sort, sortAccessors, locale],
+    () =>
+      sortByAccessor(rowsQuery.data?.rows ?? [], clientSort, sortAccessors, locale, {
+        nullsFirst: (active) =>
+          nullsSortFirst(active.dir === "desc", declaredSortNulls(fields[active.field])),
+        tieBreaker: compareRowIds,
+      }),
+    [rowsQuery.data, clientSort, sortAccessors, locale, fields],
   );
 
   if (grouped) {

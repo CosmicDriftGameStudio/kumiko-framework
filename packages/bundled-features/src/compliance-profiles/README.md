@@ -46,6 +46,13 @@ Erweiterungen wie `uk-gdpr`, `ca-pipeda`, `ca-quebec-l25`, `us-ccpa`,
   Boot-Validator checkt dass jeder `r.usesApi("compliance.forTenant")`-
   Caller das Feature in `requires/optionalRequires` hat.
 
+### Option `defaultProfile`
+
+`createComplianceProfilesFeature({ defaultProfile: "swiss-dsg" })` erlaubt die
+wählbaren Keys (`eu-dsgvo`, `swiss-dsg`, `de-hr-dsgvo-hgb`). Das Profil wird in
+der Transaktion der Tenant-Anlage als Zeile geschrieben, alle Leser sehen also
+dasselbe. `set-profile` ändert es danach. Die Option braucht das Feature `tenant`.
+
 ## Override-Semantik
 
 `override` wird als JSON-String gespeichert und beim Resolver

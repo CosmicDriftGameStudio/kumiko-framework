@@ -1,10 +1,16 @@
 #!/usr/bin/env bun
 /**
  * Guard: tests must actually assert something. Flags:
- *   (a) Always-true assertions: expect(true).toBe(true), expect(1).toBe(1)
- *   (b) Test bodies with zero expect() calls
+ *   (a) Always-true assertions: expect(true).toBe(true), expect(1).toBe(1),
+ *       or a value compared with itself
+ *   (b) Test bodies without an assertion (expect(), writeOk/writeErr/queryOk/
+ *       queryErr, assertion helpers, Testing Library getBy and findBy queries)
+ *   (c) An existence-only check (toBeDefined/toBeTruthy/not.toBeNull/
+ *       not.toBeUndefined) on a writeErr/queryErr result, which always
+ *       returns an error object, or on a Testing Library getBy or findBy
+ *       query, which throws when nothing matches
  *
- * Both are silent failures — they count as "passing" but prove nothing. In
+ * All are silent failures — they count as "passing" but prove nothing. In
  * integration tests this is particularly toxic, since the whole point is to
  * prove wiring against the real stack.
  *
@@ -15,6 +21,12 @@
 import * as path from "node:path";
 import { type CallExpression, type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import {
+  canonicalCalleeText,
+  declarationBaseCallee,
+  TEST_CASE_CALLEE,
+  testFrameworkAliases,
+} from "./_lib/test-callee";
 
 const ROOT = process.cwd();
 
@@ -24,10 +36,12 @@ const SCAN: ScanSpec = {
   kinds: ["framework", "library", "app"],
 };
 
+type ExistenceViolationKind = "error-existence" | "query-existence";
+
 interface Violation {
   file: string;
   line: number;
-  kind: "tautology" | "no-expect";
+  kind: "tautology" | "no-expect" | ExistenceViolationKind;
   detail: string;
 }
 
@@ -38,10 +52,162 @@ const TAUTOLOGIES = [
   /^expect\(\s*['"]\w+['"]\s*\)\.toBe\(\s*['"]\w+['"]\s*\)$/,
 ];
 
-function isTestCall(call: CallExpression): boolean {
-  const expr = call.getExpression();
-  const text = expr.getText();
-  return text === "it" || text === "test";
+export function isTestCall(call: CallExpression, aliases: ReadonlyMap<string, string>): boolean {
+  return TEST_CASE_CALLEE.test(
+    canonicalCalleeText(declarationBaseCallee(call.getExpression()).getText(), aliases),
+  );
+}
+
+const SELF_COMPARISON_MATCHERS: ReadonlySet<string> = new Set(["toBe", "toEqual", "toStrictEqual"]);
+
+function withoutWhitespace(text: string): string {
+  return text.replace(/\s+/g, "");
+}
+
+function containsCallOrNew(node: Node): boolean {
+  return (
+    node.isKind(SyntaxKind.CallExpression) ||
+    node.isKind(SyntaxKind.NewExpression) ||
+    node.getFirstDescendantByKind(SyntaxKind.CallExpression) !== undefined ||
+    node.getFirstDescendantByKind(SyntaxKind.NewExpression) !== undefined
+  );
+}
+
+// Calls and `new` are excluded so determinism checks like
+// expect(hash(x)).toBe(hash(x)) stay allowed.
+function isSelfComparison(call: CallExpression): boolean {
+  const matcher = call.getExpression();
+  if (!matcher.isKind(SyntaxKind.PropertyAccessExpression)) return false;
+  if (!SELF_COMPARISON_MATCHERS.has(matcher.getName())) return false;
+  const expectCall = matcher.getExpression();
+  if (!expectCall.isKind(SyntaxKind.CallExpression)) return false;
+  if (expectCall.getExpression().getText() !== "expect") return false;
+  const expectArgs = expectCall.getArguments();
+  const matcherArgs = call.getArguments();
+  const actual = expectArgs[0];
+  const expected = matcherArgs[0];
+  if (expectArgs.length !== 1 || matcherArgs.length !== 1) return false;
+  if (actual === undefined || expected === undefined) return false;
+  if (containsCallOrNew(actual)) return false;
+  return withoutWhitespace(actual.getText()) === withoutWhitespace(expected.getText());
+}
+
+const ERROR_RESULT_METHODS: ReadonlySet<string> = new Set(["writeErr", "queryErr"]);
+const EXISTENCE_ONLY_MATCHERS: ReadonlySet<string> = new Set(["toBeDefined", "toBeTruthy"]);
+const NEGATED_EXISTENCE_MATCHERS: ReadonlySet<string> = new Set(["toBeNull", "toBeUndefined"]);
+const ERROR_RESULT_FIELDS: ReadonlySet<string> = new Set([
+  "code",
+  "httpStatus",
+  "message",
+  "i18nKey",
+]);
+
+function isErrorResultCall(node: Node): boolean {
+  const inner = node.isKind(SyntaxKind.AwaitExpression) ? node.getExpression() : node;
+  if (!inner.isKind(SyntaxKind.CallExpression)) return false;
+  const callee = inner.getExpression();
+  return (
+    callee.isKind(SyntaxKind.PropertyAccessExpression) && ERROR_RESULT_METHODS.has(callee.getName())
+  );
+}
+
+// Resolved by symbol, never by name, so a same-named variable from another
+// scope (e.g. `error` from a queryOk call) is not mistaken for an error result.
+function isErrorResultValue(node: Node, sf: SourceFile): boolean {
+  if (isErrorResultCall(node)) return true;
+  if (node.isKind(SyntaxKind.PropertyAccessExpression)) {
+    return ERROR_RESULT_FIELDS.has(node.getName()) && isErrorResultValue(node.getExpression(), sf);
+  }
+  if (!node.isKind(SyntaxKind.Identifier)) return false;
+  return (node.getSymbol()?.getDeclarations() ?? []).some((decl) => {
+    if (decl.getSourceFile() !== sf || !decl.isKind(SyntaxKind.VariableDeclaration)) return false;
+    const init = decl.getInitializer();
+    return init !== undefined && isErrorResultCall(init);
+  });
+}
+
+export function isExpectCall(node: Node): node is CallExpression {
+  return node.isKind(SyntaxKind.CallExpression) && node.getExpression().getText() === "expect";
+}
+
+// The single expect() argument when `call` is an existence-only matcher
+// (toBeDefined/toBeTruthy, not.toBeNull/not.toBeUndefined).
+function existenceCheckSubject(call: CallExpression): Node | undefined {
+  const matcher = call.getExpression();
+  if (!matcher.isKind(SyntaxKind.PropertyAccessExpression)) return undefined;
+  const target = matcher.getExpression();
+  let expectCall: Node;
+  if (EXISTENCE_ONLY_MATCHERS.has(matcher.getName())) {
+    expectCall = target;
+  } else if (
+    NEGATED_EXISTENCE_MATCHERS.has(matcher.getName()) &&
+    target.isKind(SyntaxKind.PropertyAccessExpression) &&
+    target.getName() === "not"
+  ) {
+    expectCall = target.getExpression();
+  } else {
+    return undefined;
+  }
+  if (!isExpectCall(expectCall)) return undefined;
+  const args = expectCall.getArguments();
+  return args.length === 1 ? args[0] : undefined;
+}
+
+// Testing Library queries that throw when nothing matches. queryBy* returns null
+// instead and is deliberately absent; the suffix list keeps repository lookups
+// such as findById out.
+const THROWING_QUERY_NAME =
+  /^(?:get|getAll|find|findAll)By(?:Role|LabelText|PlaceholderText|Text|DisplayValue|AltText|Title|TestId)$/;
+const ASYNC_QUERY_NAME = /^find(?:All)?By/;
+
+function calleeName(call: CallExpression): string | undefined {
+  const callee = call.getExpression();
+  if (callee.isKind(SyntaxKind.Identifier)) return callee.getText();
+  if (callee.isKind(SyntaxKind.PropertyAccessExpression)) return callee.getName();
+  return undefined;
+}
+
+function isThrowingQueryCall(call: CallExpression): boolean {
+  return THROWING_QUERY_NAME.test(calleeName(call) ?? "");
+}
+
+// A findBy* promise only fails the test when something waits for it.
+function isAwaitedOrReturned(call: CallExpression): boolean {
+  let node: Node = call;
+  let parent = node.getParent();
+  while (parent?.isKind(SyntaxKind.ParenthesizedExpression)) {
+    node = parent;
+    parent = node.getParent();
+  }
+  if (parent === undefined) return false;
+  if (parent.isKind(SyntaxKind.AwaitExpression) || parent.isKind(SyntaxKind.ReturnStatement)) {
+    return true;
+  }
+  return parent.isKind(SyntaxKind.ArrowFunction) && parent.getBody() === node;
+}
+
+function isThrowingQueryAssertion(call: CallExpression): boolean {
+  if (!isThrowingQueryCall(call)) return false;
+  return !ASYNC_QUERY_NAME.test(calleeName(call) ?? "") || isAwaitedOrReturned(call);
+}
+
+function isThrowingQueryValue(node: Node): boolean {
+  const inner = node.isKind(SyntaxKind.AwaitExpression) ? node.getExpression() : node;
+  return inner.isKind(SyntaxKind.CallExpression) && isThrowingQueryCall(inner);
+}
+
+// writeErr/queryErr return an error object or throw, and a getBy/findBy query
+// throws when nothing matches, so asserting only that either exists can never fail.
+// Chains such as getByTestId(...).querySelector(...) are real checks and stay allowed.
+function existenceOnlyKind(
+  call: CallExpression,
+  sf: SourceFile,
+): ExistenceViolationKind | undefined {
+  const subject = existenceCheckSubject(call);
+  if (subject === undefined) return undefined;
+  if (isErrorResultValue(subject, sf)) return "error-existence";
+  if (isThrowingQueryValue(subject)) return "query-existence";
+  return undefined;
 }
 
 // Helpers that internally call `expect(...)` and assert something —
@@ -67,11 +233,12 @@ const ASSERTION_API_METHODS = new Set(["writeOk", "writeErr", "queryOk", "queryE
 
 const MAX_HELPER_DEPTH = 3;
 
-function isDirectAssertionCall(call: CallExpression): boolean {
+export function isDirectAssertionCall(call: CallExpression): boolean {
   const expr = call.getExpression();
   const text = expr.getText();
   if (text === "expect" || text.startsWith("expect.")) return true;
   if (ASSERTION_HELPER_NAMES.has(text)) return true;
+  if (isThrowingQueryAssertion(call)) return true;
   if (!expr.isKind(SyntaxKind.PropertyAccessExpression)) return false;
   const name = expr.getName();
   return ASSERTION_API_METHODS.has(name);
@@ -82,7 +249,7 @@ function isDirectAssertionCall(call: CallExpression): boolean {
 // to a declaration in the SAME file (function declaration, or a variable
 // initialized with an arrow/function expression) whose own body asserts —
 // recursively, so a chain of thin wrappers around expect() still counts.
-function resolveSameFileHelper(sf: SourceFile, identifier: Node): Node | undefined {
+export function resolveSameFileHelper(sf: SourceFile, identifier: Node): Node | undefined {
   for (const decl of identifier.getSymbol()?.getDeclarations() ?? []) {
     if (decl.getSourceFile() !== sf) continue;
     if (decl.isKind(SyntaxKind.FunctionDeclaration)) return decl;
@@ -102,7 +269,7 @@ function resolveSameFileHelper(sf: SourceFile, identifier: Node): Node | undefin
 // treated as unproven (violation), a recursive helper never infinite-loops, and
 // a helper first reached at the depth limit is still explored when reached
 // again via a shorter path.
-function bodyHasAssertion(
+export function bodyHasAssertion(
   node: Node,
   sf: SourceFile,
   depth: number,
@@ -125,11 +292,12 @@ function bodyHasAssertion(
 function scanFile(sf: SourceFile): Violation[] {
   const violations: Violation[] = [];
   const calls = sf.getDescendantsOfKind(SyntaxKind.CallExpression);
+  const aliases = testFrameworkAliases(sf);
 
   for (const call of calls) {
     // (a) tautology: full expression text matches a known trivial pattern
     const text = call.getText().replace(/\s+/g, " ").trim();
-    if (TAUTOLOGIES.some((re) => re.test(text))) {
+    if (TAUTOLOGIES.some((re) => re.test(text)) || isSelfComparison(call)) {
       violations.push({
         file: path.relative(ROOT, sf.getFilePath()),
         line: call.getStartLineNumber(),
@@ -139,8 +307,20 @@ function scanFile(sf: SourceFile): Violation[] {
       continue;
     }
 
+    // (c) existence-only check on an error result or a throwing Testing Library query
+    const existenceKind = existenceOnlyKind(call, sf);
+    if (existenceKind !== undefined) {
+      violations.push({
+        file: path.relative(ROOT, sf.getFilePath()),
+        line: call.getStartLineNumber(),
+        kind: existenceKind,
+        detail: text.slice(0, 60),
+      });
+      continue;
+    }
+
     // (b) no-expect: it/test with empty expect count
-    if (!isTestCall(call)) continue;
+    if (!isTestCall(call, aliases)) continue;
     const args = call.getArguments();
     if (args.length < 2) continue;
     const body = args[1];
@@ -162,19 +342,27 @@ function scanFile(sf: SourceFile): Violation[] {
   return violations;
 }
 
+const VIOLATION_LABELS: Record<Violation["kind"], string> = {
+  tautology: "TAUTOLOGY",
+  "error-existence":
+    "ERROR EXISTS ONLY (writeErr/queryErr always return an error; assert its code or details)",
+  "query-existence":
+    "QUERY EXISTS ONLY (getBy*/findBy* throw when nothing matches; call the query without expect or assert its content)",
+  "no-expect": "NO EXPECT",
+};
+
 export const guard: AstGuard = {
   name: "Fake-Test Guard",
   scan: SCAN,
-  hint: "Test without expect() or with a tautology — check real behavior, not existence.",
+  hint: "Test without an assertion, with a tautology, or an existence-only check on a writeErr/queryErr result or a getBy*/findBy* query — check real behavior, not existence.",
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
     for (const sf of files) {
       for (const v of scanFile(sf)) {
-        const label = v.kind === "tautology" ? "TAUTOLOGY" : "NO EXPECT";
         violations.push({
           file: v.file,
           line: v.line,
-          message: `${label}: ${v.detail}`,
+          message: `${VIOLATION_LABELS[v.kind]}: ${v.detail}`,
         });
       }
     }

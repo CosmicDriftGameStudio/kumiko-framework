@@ -23,6 +23,7 @@ export function DefaultMetricBand({
   children,
   testId,
   tiles,
+  splitPart,
 }: MetricBandProps): ReactNode {
   const insideScreenFormColumn = useContext(InsideScreenFormColumnContext);
   const hasMetrics = Children.toArray(children).length > 0;
@@ -31,6 +32,8 @@ export function DefaultMetricBand({
       className={cn(
         "flex shrink-0 flex-col gap-3",
         !insideScreenFormColumn && "px-6 pb-4 pt-3.5 max-sm:px-4",
+        splitPart === "lead" && "pb-0",
+        splitPart === "tiles" && "pt-3",
       )}
       data-testid={testId}
     >

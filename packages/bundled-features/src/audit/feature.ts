@@ -6,7 +6,9 @@ import {
   i18nKey,
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { accessLogTableMeta, pruneExpiredAccessLog } from "./access-log.ts";
 import { escapeHatchUsedSchema } from "./escape-hatch-audit-sink.ts";
+import { accessLogQuery } from "./handlers/access-log.query.ts";
 import { detailsQuery } from "./handlers/details.query.ts";
 import { detailsAllTenantsQuery } from "./handlers/details-all-tenants.query.ts";
 import { listQuery } from "./handlers/list.query.ts";
@@ -34,13 +36,14 @@ import { AUDIT_I18N } from "./web/i18n.ts";
 
 // Audit feature — exposes a filtered read over the framework's event log.
 //
-// Design: the event-store IS the audit trail (every entity write produces
-// an event with who/when/what/where/delta). This feature adds no persistence,
-// no projection, no cursor — it's a single privileged query handler over
-// the existing `events` table. See handlers/list.query.ts for the filter
-// surface.
+// Design: the event-store IS the audit trail for writes (every entity write
+// produces an event with who/when/what/where/delta); the list queries read the
+// existing `events` table, see handlers/list.query.ts for the filter surface.
+// Read accesses are no state change and land in the access log
+// `store_access_log` (recordAccess), pruned per tenant after the compliance
+// profile's auditLog.retention (minimal profile without compliance-profiles).
 //
-// Retention: only `escapeHatchUse` events are pruned (daily job, config key
+// Retention: `escapeHatchUse` events are pruned (daily job, config key
 // `escapeHatchRetentionDays`). All other events stay as the source of truth
 // for state; archive or compress policies are a separate concern (tracked
 // with the snapshot/archive infrastructure that already exists in the
@@ -49,9 +52,8 @@ export function createAuditFeature(): FeatureDefinition {
   return defineFeature(
     "audit",
     (r) => {
-      r.adoptsBundledLists();
       r.describe(
-        "Exposes the framework's event store as a paginated, filterable audit log via the `audit:query:list` handler (accessible to `Admin` and `SystemAdmin` roles). No separate table or projection \u2014 the event store is the audit trail by construction: every entity write already records who, when, what entity, and the event payload with PII stripped. A SystemAdmin can pass `scope: \"system\"` to read the app-instance system events such as `app.started`, and reads the events of every tenant (system tenant excluded) through `audit:query:list-all-tenants` and the `audit-log-all-tenants` screen. Filter by `aggregateType`, `aggregateId`, `eventType`, `userId`, or time range. Also records `audit:event:escape-hatch-used` whenever a handler uses one of the framework's escape hatches (unsafeRaw, acknowledgeCrossTenant, db.global() writes, or a granted identity switch).",
+        "Exposes the framework's event store as a paginated, filterable audit log via the `audit:query:list` handler (accessible to `Admin` and `SystemAdmin` roles). Write history comes from the event store: every entity write already records who, when, what entity, and the event payload with PII stripped. A SystemAdmin can pass `scope: \"system\"` to read the app-instance system events such as `app.started`, and reads the events of every tenant (system tenant excluded) through `audit:query:list-all-tenants` and the `audit-log-all-tenants` screen. Filter by `aggregateType`, `aggregateId`, `eventType`, `userId`, or time range. Also records `audit:event:escape-hatch-used` whenever a handler uses one of the framework's escape hatches (unsafeRaw, acknowledgeCrossTenant, db.global() writes, or a granted identity switch). Read accesses that need proof (e.g. a portal link opened) are recorded with `recordAccess(ctx, { subjectType, subjectId, action, details })` from `@cosmicdrift/kumiko-bundled-features/audit` into the `store_access_log` table outside the caller's transaction, readable by admins through `audit:query:access-log` and pruned per tenant after the compliance profile's audit-log retention (minimal profile without compliance-profiles) by the maintenance job `audit:job:access-log-retention`.",
       );
       r.uiHints({
         displayLabel: "Audit Log",
@@ -67,13 +69,14 @@ export function createAuditFeature(): FeatureDefinition {
       // Registered so ops tools/MSPs can discover the type — escape-hatch-audit-sink.ts appends it via the low-level event-store API.
       r.defineEvent("escape-hatch-used", escapeHatchUsedSchema, { piiFields: "none" });
 
-      r.config(
-        "escapeHatchRetentionDays",
-        createSystemConfig("number", {
-          default: DEFAULT_ESCAPE_HATCH_RETENTION_DAYS,
-          bounds: { min: 1 },
-        }),
-      );
+      r.config({
+        keys: {
+          escapeHatchRetentionDays: createSystemConfig("number", {
+            default: DEFAULT_ESCAPE_HATCH_RETENTION_DAYS,
+            bounds: { min: 1 },
+          }),
+        },
+      }).escapeHatchRetentionDays;
 
       r.job({
         name: "escape-hatch-retention",
@@ -91,7 +94,7 @@ export function createAuditFeature(): FeatureDefinition {
             );
           }
           await runEscapeHatchRetention({
-            db: ctx.db.unsafeRaw(),
+            db: ctx.db.unsafeRawAllTenants(),
             registry: ctx.registry,
             configResolver: ctx.services.configResolver,
             userId: SYSTEM_USER_ID,
@@ -99,7 +102,24 @@ export function createAuditFeature(): FeatureDefinition {
         },
       });
 
+      r.storeTable(accessLogTableMeta, { reason: "audit.access_log_append_only_with_retention" });
+      r.job({
+        name: "access-log-retention",
+        trigger: { maintenance: true },
+        perTenant: true,
+        concurrency: "skip",
+        handler: async (_payload, ctx) => {
+          await pruneExpiredAccessLog({
+            db: ctx.db,
+            registry: ctx.registry,
+            tenantId: ctx.systemUser.tenantId,
+            now: ctx.tz.now(),
+          });
+        },
+      });
+
       const queries = {
+        accessLog: r.queryHandler(accessLogQuery),
         list: r.queryHandler(listQuery),
         details: r.queryHandler(detailsQuery),
         listAllTenants: r.queryHandler(listAllTenantsQuery),
@@ -180,6 +200,7 @@ export function createAuditFeature(): FeatureDefinition {
         icon: "file",
         screen: "audit:screen:audit-log",
         order: 30,
+        adminArea: "tenant",
       });
       r.nav({
         id: AUDIT_LOG_ALL_TENANTS_NAV_ID,
@@ -187,6 +208,7 @@ export function createAuditFeature(): FeatureDefinition {
         icon: "file",
         screen: "audit:screen:audit-log-all-tenants",
         order: 31,
+        adminArea: "platform",
       });
 
       return { queries };

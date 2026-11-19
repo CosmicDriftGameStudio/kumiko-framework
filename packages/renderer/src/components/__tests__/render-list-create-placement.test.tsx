@@ -13,11 +13,11 @@ import {
 } from "../../page-header-slot.ts";
 import {
   type ButtonProps,
-  type CorePrimitives,
   type DataTableProps,
   type PageHeaderProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RenderList } from "../render-list.tsx";
 import { withPlusIconFallback } from "../render-list-toolbar-model.ts";
 
@@ -50,7 +50,7 @@ const toolbarOnlyDataTable: ComponentType<DataTableProps> = ({ toolbarEnd }) => 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: TestButton,
   PageHeader: TestPageHeader,
   Banner: passChildren,
@@ -70,9 +70,10 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 const entity: EntityDefinition = {
+  name: "entity",
   fields: {
     name: {
       type: "text",
@@ -140,12 +141,12 @@ describe("RenderList createPlacement", () => {
   test("toolbar: a compact header keeps the only create button", () => {
     renderList(true, "toolbar");
     expect(rtlScreen.getAllByTestId("render-list-create")).toHaveLength(1);
-    expect(within(rtlScreen.getByRole("banner")).getByTestId("render-list-create")).toBeTruthy();
+    within(rtlScreen.getByRole("banner")).getByTestId("render-list-create");
   });
 
   test("header (default): the create button stays in the header", () => {
     renderList(false, "header");
-    expect(within(rtlScreen.getByRole("banner")).getByTestId("render-list-create")).toBeTruthy();
+    within(rtlScreen.getByRole("banner")).getByTestId("render-list-create");
     expect(
       within(rtlScreen.getByTestId("toolbar-end")).queryByTestId("render-list-create"),
     ).toBeNull();
@@ -164,9 +165,7 @@ describe("RenderList toolbarActionsPlacement", () => {
 
   test("toolbar: below md the action stays in the header", () => {
     renderList(true, "header", { toolbarActionsPlacement: "toolbar" }, true);
-    expect(
-      within(rtlScreen.getByRole("banner")).getByTestId("render-list-toolbar-action-new-contract"),
-    ).toBeTruthy();
+    within(rtlScreen.getByRole("banner")).getByTestId("render-list-toolbar-action-new-contract");
     expect(
       within(rtlScreen.getByTestId("toolbar-end")).queryByTestId(
         "render-list-toolbar-action-new-contract",
@@ -189,8 +188,6 @@ describe("RenderList toolbarActionsPlacement", () => {
 
   test("header (default): a primary action stands in the header", () => {
     renderList(false, "header", {}, true);
-    expect(
-      within(rtlScreen.getByRole("banner")).getByTestId("render-list-toolbar-action-new-contract"),
-    ).toBeTruthy();
+    within(rtlScreen.getByRole("banner")).getByTestId("render-list-toolbar-action-new-contract");
   });
 });

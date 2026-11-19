@@ -35,6 +35,6 @@ describe("ThemeMenuItem", () => {
   test("in dark mode it offers the light mode", async () => {
     renderInOpenMenu("dark", mock());
     await userEvent.setup().click(screen.getByText("open"));
-    expect(screen.getByText("Light theme")).toBeTruthy();
+    screen.getByText("Light theme");
   });
 });

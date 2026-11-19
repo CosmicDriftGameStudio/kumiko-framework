@@ -47,8 +47,9 @@ import {
 } from "../tables.ts";
 import { createDeliveryTestContext } from "../testing.ts";
 import type { DeliveryService } from "../types.ts";
-import { createUnsubscribeRoutes, signAddressUnsubscribeToken } from "../unsubscribe.ts";
-import { DeliveryHandlers } from "../web/public-names.ts";
+import { createUnsubscribeRoutes } from "../unsubscribe.ts";
+import { signAddressUnsubscribeToken } from "../unsubscribe-tokens.ts";
+import { DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT } from "../web/public-names.ts";
 import { createPlainFallbackEmailFeature } from "./plain-email-channel.ts";
 
 const UNSUBSCRIBE_SECRET = "unsubscribe-origin-test-secret-32-chars-min!";
@@ -100,17 +101,18 @@ const rawOptOutJobPayloads: unknown[] = [];
 
 const appFeature = defineFeature("unsub-origin", (r) => {
   r.requires({ features: ["delivery"] });
-  r.notification("news", { unsubscribe: true });
-  r.job(
-    "drop-subscriber",
-    { trigger: { on: DeliveryHandlers.unsubscribeAddress }, runIn: "worker" },
-    async (payload, ctx) => {
+  r.notification({ name: "news", unsubscribe: true });
+  r.job({
+    name: "drop-subscriber",
+    trigger: { on: DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT },
+    runIn: "worker",
+    handler: async (payload, ctx) => {
       const tenantId = ctx.triggeredBy?.tenantId;
       if (tenantId === undefined) throw new Error("opt-out job without a tenant");
       rawOptOutJobPayloads.push(payload);
       optOutsSeenByApp.push({ payload: unsubscribeAddressPayloadSchema.parse(payload), tenantId });
     },
-  );
+  });
 });
 
 let stack: TestStack;
@@ -438,6 +440,7 @@ describe("app hook after an address opt-out", () => {
   test("a job triggered on unsubscribeAddress receives the opt-out with its tenant", async () => {
     const address = "Hook.Reader@external.test";
     const link = await mailNews(address, tenantWithOrigin);
+    await stack.drainJobs();
     optOutsSeenByApp.length = 0;
 
     expect((await oneClick(link)).status).toBe(200);
@@ -473,6 +476,7 @@ describe("app hook after an address opt-out", () => {
 
   test("a forged token opts nobody out and fires no job", async () => {
     const link = await mailNews("forged@external.test", tenantWithoutOrigin);
+    await stack.drainJobs();
     optOutsSeenByApp.length = 0;
     const forged = new URL(link);
     forged.searchParams.set("token", `${tokenOf(link)}x`);

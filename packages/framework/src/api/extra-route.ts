@@ -3,8 +3,10 @@
 // tier (`entry`) up front; buildServer wires the matching guard + deps
 // instead of handing every route a raw db/redis escape hatch.
 
+import type { ContractQuery, ContractWrite } from "@cosmicdrift/kumiko-types/handler-contract";
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
-import type { HttpRouteMethod } from "@cosmicdrift/kumiko-types/http-route";
+import type { HttpRouteMethod, HttpRouteRateLimit } from "@cosmicdrift/kumiko-types/http-route";
+import type { RateLimitDecision } from "@cosmicdrift/kumiko-types/rate-limit-types";
 import type { Context, Hono } from "hono";
 import type { Registry, SessionUser, TenantId } from "../engine/types/index.ts";
 
@@ -22,13 +24,17 @@ export type AnonymousExtraRouteDeps = {
   // biome-ignore lint/suspicious/noExplicitAny: Hono's generic parameter is invisible at the framework boundary
   readonly app: Hono<any, any>;
   readonly registry: Registry;
-  readonly systemQuery: (type: string, payload: unknown, tenantId: TenantId) => Promise<unknown>;
+  readonly systemQuery: ContractQuery<[tenantId: TenantId]>;
   /** Runs as the session the /api chain resolved for this request —
    *  anonymous when no token is sent, the authenticated user otherwise.
    *  Never more than that caller could already do via /api/write: same
    *  user, same request-resolved tenant (never overridable), only under
    *  "/api/" (the only path that populates a session user). */
-  readonly write: (type: string, payload: unknown) => Promise<WriteResult>;
+  readonly write: ContractWrite;
+  /** Same caller and tenant contract as `write`: runs as the session the /api chain
+   *  resolved for this request, so it can read exactly what that caller could read via
+   *  /api/query, nothing more. Only under "/api/". */
+  readonly query: ContractQuery;
   /** Resolved by the server's single trustedProxyHops-aware resolver —
    *  never read X-Forwarded-For yourself. */
   readonly clientIp: string;
@@ -38,6 +44,10 @@ export type AnonymousExtraRoute = {
   readonly method: HttpRouteMethod;
   readonly path: string;
   readonly entry: "anonymous";
+  /** Same option and buckets as r.httpRoute's rateLimit, enforced through the server's shared
+   *  rate-limit store before the body limit, verify() and the handler. Fail-open; skipped
+   *  when the server has no Redis. */
+  readonly rateLimit?: HttpRouteRateLimit;
   readonly handler: (
     // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
     c: Context<any, any>,
@@ -50,14 +60,18 @@ export type UserExtraRouteDeps = {
   readonly app: Hono<any, any>;
   readonly registry: Registry;
   readonly user: SessionUser;
-  readonly query: (type: string, payload: unknown) => Promise<unknown>;
-  readonly write: (type: string, payload: unknown) => Promise<WriteResult>;
+  readonly query: ContractQuery;
+  readonly write: ContractWrite;
 };
 
 export type UserExtraRoute = {
   readonly method: HttpRouteMethod;
   readonly path: string;
   readonly entry: "user";
+  /** Same option and buckets as r.httpRoute's rateLimit, enforced through the server's shared
+   *  rate-limit store before the body limit, verify() and the handler. Fail-open; skipped
+   *  when the server has no Redis. */
+  readonly rateLimit?: HttpRouteRateLimit;
   readonly handler: (
     // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
     c: Context<any, any>,
@@ -94,7 +108,7 @@ export type SignatureExtraRouteDeps = {
   readonly app: Hono<any, any>;
   readonly registry: Registry;
   readonly secrets?: SecretsContext;
-  readonly systemQuery: (type: string, payload: unknown, tenantId: TenantId) => Promise<unknown>;
+  readonly systemQuery: ContractQuery<[tenantId: TenantId]>;
   /** Privilege scope: SystemAdmin of the target tenant, WITHOUT the route's
    *  access check — only reachable because verify() has already proven the
    *  caller's authenticity (signature, HMAC state, etc.). */
@@ -106,10 +120,25 @@ export type SignatureExtraRouteDeps = {
   readonly dispatchWriteAs: (args: RoleDispatchArgs) => Promise<WriteResult>;
 };
 
+export type VerifiedRouteRateLimit<TVerified> = {
+  /** Bucket key from what verify() proved (app id, tenant, account); one bucket per route and key. */
+  readonly key: (verified: TVerified) => string;
+  readonly limit: number;
+  readonly windowSeconds: number;
+  /** JSON body of the 429 (Retry-After and X-RateLimit headers are always set); default is the framework's rate_limited error. */
+  readonly rejectionBody?: (decision: RateLimitDecision) => unknown;
+};
+
 export type SignatureExtraRoute<TVerified> = {
   readonly method: HttpRouteMethod;
   readonly path: string;
   readonly entry: "signature";
+  /** Same option and buckets as r.httpRoute's rateLimit, enforced through the server's shared
+   *  rate-limit store before the body limit, verify() and the handler. Fail-open; skipped
+   *  when the server has no Redis. */
+  readonly rateLimit?: HttpRouteRateLimit;
+  /** Limit keyed by the verified caller, checked after verify() and before the handler through the server's shared rate-limit store. Fail-open; skipped when the server has no Redis. */
+  readonly verifiedRateLimit?: VerifiedRouteRateLimit<TVerified>;
   readonly verify: (
     request: SignatureExtraRouteVerifyRequest,
     deps: SignatureExtraRouteVerifyDeps,

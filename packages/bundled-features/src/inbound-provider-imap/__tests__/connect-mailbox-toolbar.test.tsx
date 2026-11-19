@@ -125,7 +125,7 @@ function renderList(withImap: boolean, qn = MAIL_ACCOUNT_LIST_SCREEN_QN, roles =
 describe("connect mailbox toolbar button", () => {
   test("shows on the mail account list when the IMAP provider is mounted", async () => {
     renderList(true);
-    expect(await screen.findByTestId(CONNECT_BUTTON)).toBeDefined();
+    await screen.findByTestId(CONNECT_BUTTON);
   });
 
   test("is absent without the IMAP provider", async () => {
@@ -138,7 +138,7 @@ describe("connect mailbox toolbar button", () => {
 describe("connect mailbox toolbar button on My mail accounts", () => {
   test("shows for a plain member when the IMAP provider is mounted", async () => {
     renderList(true, MY_MAIL_ACCOUNT_LIST_SCREEN_QN, ["User"]);
-    expect(await screen.findByTestId(CONNECT_BUTTON)).toBeDefined();
+    await screen.findByTestId(CONNECT_BUTTON);
   });
 
   test("is absent without the IMAP provider", async () => {

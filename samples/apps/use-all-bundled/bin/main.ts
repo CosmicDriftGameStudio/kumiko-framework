@@ -8,7 +8,7 @@ import { InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { runProdApp } from "@cosmicdrift/kumiko-server-runtime";
-import { BUNDLED_LISTS } from "../src/bundled-lists";
+import { LIST_DEFAULTS } from "../src/list-defaults";
 import {
   APP_FEATURES,
   AUTH_COMPOSE_OPTIONS,
@@ -28,7 +28,7 @@ await runProdApp({
   featureToggles: true,
   envSchema,
   validateBootOptions: VALIDATE_BOOT_OPTIONS,
-  bundledLists: BUNDLED_LISTS,
+  listDefaults: LIST_DEFAULTS,
   // Smoke-only: exercises the hard PII boot gate + blind-index gate with
   // every bundled feature mounted. Real apps wire createPgKmsAdapter(...).
   kms: new InMemoryKmsAdapter(),

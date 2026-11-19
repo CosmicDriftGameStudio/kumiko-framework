@@ -1,21 +1,24 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { BRANDING_QN } from "@cosmicdrift/kumiko-bundled-features/branding";
 import {
   configValuesTable,
   createConfigAccessorFactory,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import { BRANDING_QN, pageEntity } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import { seedPage } from "@cosmicdrift/kumiko-bundled-features/managed-pages/seeding";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { configFeature, managedPagesCssFeature, managedPagesFeature } from "../feature";
+import {
+  brandingCssFeature,
+  brandingFeature,
+  configFeature,
+  managedPagesFeature,
+} from "../feature";
 
 // Branding writes are tenant-scoped — the admin's tenantId must equal the
 // rendered tenant (SYSTEM_TENANT_ID here), or the config row lands in the wrong
@@ -32,7 +35,7 @@ const render = async (path: string): Promise<string> => {
 beforeAll(async () => {
   const resolver = createConfigResolver();
   stack = await setupTestStack({
-    features: [configFeature, managedPagesFeature, managedPagesCssFeature],
+    features: [configFeature, brandingFeature, managedPagesFeature, brandingCssFeature],
     // Single-tenant: resolveApexTenant returns SYSTEM_TENANT_ID, so the route's
     // X-Tenant header matches this defaultTenantId — no tenant_mismatch.
     anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
@@ -42,9 +45,7 @@ beforeAll(async () => {
       configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     }),
   });
-  await unsafeCreateEntityTable(stack.db, pageEntity);
   await unsafePushTables(stack.db, { configValuesTable });
-  await createEventsTable(stack.db);
 
   await seedPage(stack.db, {
     tenantId: SYSTEM_TENANT_ID,

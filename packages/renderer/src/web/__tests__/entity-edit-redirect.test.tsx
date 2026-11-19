@@ -12,12 +12,12 @@ import type {
   ScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { NavTarget } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";
 
 const productEntity: EntityDefinition = {
+  name: "product",
   fields: {
     name: {
       type: "text",
@@ -55,6 +55,7 @@ function buildSchema(redirect?: string): FeatureSchema {
 // screen is the redirect target, and parentEntity's own field carries the
 // parent id.
 const parentEntity: EntityDefinition = {
+  name: "parent",
   fields: {
     name: {
       type: "text",
@@ -137,10 +138,10 @@ describe("entityEdit redirect", () => {
   test("create: successful save with redirect set carries the newly created entityId along", async () => {
     const navigated: NavTarget[] = [];
     const dispatcher = createMockDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: true,
         data: { id: "new-99" },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -224,10 +225,10 @@ describe("entityEdit redirect", () => {
   test("update: successful save with redirect set navigates there, not to the list", async () => {
     const navigated: NavTarget[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { id: "42", version: 1, name: "Existing" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -251,7 +252,7 @@ describe("entityEdit redirect", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-name"));
     fillNameAndSubmit();
 
     await waitFor(() => expect(navigated).toEqual([{ screenId: "product-detail" }]));
@@ -263,10 +264,10 @@ describe("entityEdit redirect", () => {
     // (kumiko-screen.tsx), separate from the create path's.
     const navigated: NavTarget[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { id: "42", version: 1, name: "Existing" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -290,7 +291,7 @@ describe("entityEdit redirect", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-name"));
     fillNameAndSubmit();
 
     await waitFor(() => expect(navigated).toEqual([{ screenId: "statement-upload-list" }]));
@@ -299,10 +300,10 @@ describe("entityEdit redirect", () => {
   test("update: no redirect set falls back to the entity's list screen", async () => {
     const navigated: NavTarget[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { id: "42", version: 1, name: "Existing" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -322,7 +323,7 @@ describe("entityEdit redirect", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-name"));
     fillNameAndSubmit();
 
     await waitFor(() => expect(navigated).toEqual([{ screenId: "product-list" }]));
@@ -332,10 +333,10 @@ describe("entityEdit redirect", () => {
     const user = userEvent.setup();
     const navigated: NavTarget[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { id: "42", version: 1, name: "Existing" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -359,7 +360,7 @@ describe("entityEdit redirect", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-name"));
     // userEvent instead of fireEvent: the Radix dialog fires async state updates.
     await user.click(screen.getByTestId("render-edit-delete"));
     await user.click(screen.getByTestId("render-edit-delete-dialog-confirm"));
@@ -372,16 +373,16 @@ describe("entityEdit redirect", () => {
   test("update: redirect object form with idFrom falls back to the loaded record when the payload lacks the field", async () => {
     const navigated: NavTarget[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { id: "42", version: 1, name: "Existing", parentId: "parent-1" },
-      })) as unknown as Dispatcher["query"],
+      }),
       // The update handler's success payload reports only its own id
       // (event-store-executor-write.ts) — no "parentId" field.
-      write: (async () => ({
+      write: async () => ({
         isSuccess: true,
         data: { id: "42" },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
 
     render(
@@ -405,7 +406,7 @@ describe("entityEdit redirect", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-name"));
     fillNameAndSubmit();
 
     await waitFor(() =>
@@ -416,14 +417,14 @@ describe("entityEdit redirect", () => {
   test("update: redirect object form with idFrom prefers the payload value over the loaded record", async () => {
     const navigated: NavTarget[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { id: "42", version: 1, name: "Existing", parentId: "record-parent" },
-      })) as unknown as Dispatcher["query"],
-      write: (async () => ({
+      }),
+      write: async () => ({
         isSuccess: true,
         data: { id: "42", parentId: "payload-parent" },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
 
     render(
@@ -447,7 +448,7 @@ describe("entityEdit redirect", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-name"));
     fillNameAndSubmit();
 
     await waitFor(() =>
@@ -458,14 +459,14 @@ describe("entityEdit redirect", () => {
   test("update: redirect object form with idFrom prefers the saved projection over the pre-edit record", async () => {
     const navigated: NavTarget[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { id: "42", version: 1, name: "Existing", parentId: "old-parent" },
-      })) as unknown as Dispatcher["query"],
-      write: (async () => ({
+      }),
+      write: async () => ({
         isSuccess: true,
         data: { kind: "save", id: "42", data: { id: "42", parentId: "new-parent" } },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
 
     render(
@@ -489,7 +490,7 @@ describe("entityEdit redirect", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-name"));
     fillNameAndSubmit();
 
     await waitFor(() =>
@@ -500,10 +501,10 @@ describe("entityEdit redirect", () => {
   test("create: redirect object form with idFrom reads the id from the write handler's payload", async () => {
     const navigated: NavTarget[] = [];
     const dispatcher = createMockDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: true,
         data: { id: "new-1", parentId: "parent-1" },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -536,10 +537,10 @@ describe("entityEdit redirect", () => {
   test("create: redirect object form with idFrom falls back to the submitted form values when the write payload lacks the field", async () => {
     const navigated: NavTarget[] = [];
     const dispatcher = createMockDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: true,
         data: { kind: "created", id: "new-1", data: { id: "new-1", parentId: "parent-1" } },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -568,10 +569,10 @@ describe("entityEdit redirect", () => {
   test("create: redirect object form with idFrom prefers the write handler's payload over the submitted form values", async () => {
     const navigated: NavTarget[] = [];
     const dispatcher = createMockDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: true,
         data: { id: "new-1", parentId: "payload-parent" },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>

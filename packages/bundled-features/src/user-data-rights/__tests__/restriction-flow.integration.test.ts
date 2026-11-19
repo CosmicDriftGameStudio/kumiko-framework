@@ -117,6 +117,7 @@ beforeEach(async () => {
 
 async function seedAliceWithMembership(
   status: string = USER_STATUS.Active,
+  membershipRoles: string[] = ["Member"],
 ): Promise<{ userId: string }> {
   const hash = await hashPassword(ALICE_PW);
   const actor = await withMintedSession(
@@ -134,7 +135,7 @@ async function seedAliceWithMembership(
   await seedTenantMembership(stack.db, {
     userId: created.id,
     tenantId: TENANT,
-    roles: ["Member"],
+    roles: membershipRoles,
   });
   return { userId: created.id };
 }
@@ -152,6 +153,17 @@ function mintActor(user: { id: string; tenantId: TenantId; roles: readonly strin
 
 function reasonOf(err: { details?: unknown }): string | undefined {
   return (err.details as { reason?: string } | undefined)?.reason;
+}
+
+const OTHER_TENANT: TenantId = testTenantId(2);
+
+async function seedMembershipOf(userId: string, tenantId: TenantId, roles: string[]) {
+  await seedTenantMembership(stack.db, { userId, tenantId, roles });
+}
+
+async function statusOf(userId: string): Promise<string | undefined> {
+  const rows = await selectMany(stack.db, userTable, { id: userId });
+  return rows[0]?.status;
 }
 
 describe("S2.U6 :: restrict-account state-transitions", () => {
@@ -184,9 +196,7 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
     expect(result.userId).toBe(userId);
 
     // DB-State: status=Restricted.
-    const userRow = (await selectMany(stack.db, userTable, { id: userId })) as Array<{
-      status: string;
-    }>;
+    const userRow = await selectMany(stack.db, userTable, { id: userId });
     expect(userRow[0]?.status).toBe(USER_STATUS.Restricted);
 
     // Alle Sessions revoked (revokedAt != null).
@@ -207,9 +217,7 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
     expect(err.httpStatus).toBe(403);
     expect(reasonOf(err)).toBe("admin_required_for_other_user");
 
-    const userRow = (await selectMany(stack.db, userTable, { id: targetId })) as Array<{
-      status: string;
-    }>;
+    const userRow = await selectMany(stack.db, userTable, { id: targetId });
     expect(userRow[0]?.status).toBe(USER_STATUS.Active);
   });
 
@@ -225,10 +233,61 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
     expect(err.httpStatus).toBe(403);
     expect(reasonOf(err)).toBe("target_user_not_in_admin_tenant");
 
-    const userRow = (await selectMany(stack.db, userTable, { id: userId })) as Array<{
-      status: string;
-    }>;
+    const userRow = await selectMany(stack.db, userTable, { id: userId });
     expect(userRow[0]?.status).toBe(USER_STATUS.Active);
+  });
+
+  test("TenantAdmin cannot restrict a user who is also a member of another tenant: 403 target_user_in_other_tenants", async () => {
+    const { userId } = await seedAliceWithMembership();
+    await seedMembershipOf(userId, OTHER_TENANT, ["Member"]);
+    const admin = await mintActor(TestUsers.admin);
+
+    const err = await stack.http.writeErr(RESTRICT, { userId }, admin);
+    expect(err.httpStatus).toBe(403);
+    expect(reasonOf(err)).toBe("target_user_in_other_tenants");
+    expect(await statusOf(userId)).toBe(USER_STATUS.Active);
+  });
+
+  test("TenantAdmin cannot restrict a user who outranks them: 403 target_user_outranks_actor", async () => {
+    const { userId } = await seedAliceWithMembership(USER_STATUS.Active, ["TenantAdmin"]);
+    const admin = await mintActor(TestUsers.admin);
+
+    const err = await stack.http.writeErr(RESTRICT, { userId }, admin);
+    expect(err.httpStatus).toBe(403);
+    expect(reasonOf(err)).toBe("target_user_outranks_actor");
+    expect(await statusOf(userId)).toBe(USER_STATUS.Active);
+  });
+
+  test("TenantAdmin cannot restrict a user with a global SystemAdmin role: 403 target_user_outranks_actor", async () => {
+    const { userId } = await seedAliceWithMembership();
+    await updateUserViaEventStore(stack.db, userId, { roles: ["SystemAdmin"] });
+    const admin = await mintActor(TestUsers.admin);
+
+    const err = await stack.http.writeErr(RESTRICT, { userId }, admin);
+    expect(err.httpStatus).toBe(403);
+    expect(reasonOf(err)).toBe("target_user_outranks_actor");
+    expect(await statusOf(userId)).toBe(USER_STATUS.Active);
+  });
+
+  test("TenantAdmin can restrict a user who is a member of their tenant only", async () => {
+    const { userId } = await seedAliceWithMembership();
+    const admin = await mintActor(TestUsers.admin);
+
+    const result = await stack.http.writeOk<{ status: string }>(RESTRICT, { userId }, admin);
+    expect(result.status).toBe(USER_STATUS.Restricted);
+  });
+
+  test("SystemAdmin can restrict a user who is a member of several tenants", async () => {
+    const { userId } = await seedAliceWithMembership();
+    await seedMembershipOf(userId, OTHER_TENANT, ["Member"]);
+    const systemAdmin = await mintActor({
+      id: crypto.randomUUID(),
+      tenantId: TENANT,
+      roles: ["SystemAdmin"],
+    });
+
+    const result = await stack.http.writeOk<{ status: string }>(RESTRICT, { userId }, systemAdmin);
+    expect(result.status).toBe(USER_STATUS.Restricted);
   });
 
   test("SystemAdmin can restrict across tenants (platform-wide operator)", async () => {
@@ -274,9 +333,7 @@ describe("S2.U6 :: restrict-account state-transitions", () => {
     expect(err.httpStatus).toBe(403);
     expect(reasonOf(err)).toBe("target_user_not_in_admin_tenant");
 
-    const userRow = (await selectMany(stack.db, userTable, { id: targetId })) as Array<{
-      status: string;
-    }>;
+    const userRow = await selectMany(stack.db, userTable, { id: targetId });
     expect(userRow[0]?.status).toBe(USER_STATUS.Active);
   });
 
@@ -316,9 +373,7 @@ describe("S2.U6 :: lift-restriction state-transitions", () => {
     const result = await stack.http.writeOk<{ status: string }>(LIFT, { userId }, admin);
     expect(result.status).toBe(USER_STATUS.Active);
 
-    const userRow = (await selectMany(stack.db, userTable, { id: userId })) as Array<{
-      status: string;
-    }>;
+    const userRow = await selectMany(stack.db, userTable, { id: userId });
     expect(userRow[0]?.status).toBe(USER_STATUS.Active);
   });
 
@@ -349,10 +404,42 @@ describe("S2.U6 :: lift-restriction state-transitions", () => {
     expect(err.httpStatus).toBe(403);
     expect(reasonOf(err)).toBe("target_user_not_in_admin_tenant");
 
-    const userRow = (await selectMany(stack.db, userTable, { id: userId })) as Array<{
-      status: string;
-    }>;
+    const userRow = await selectMany(stack.db, userTable, { id: userId });
     expect(userRow[0]?.status).toBe(USER_STATUS.Restricted);
+  });
+
+  test("TenantAdmin cannot lift a restriction of a user who is also a member of another tenant: 403 target_user_in_other_tenants", async () => {
+    const { userId } = await seedAliceWithMembership(USER_STATUS.Restricted);
+    await seedMembershipOf(userId, OTHER_TENANT, ["Member"]);
+    const admin = await mintActor(TestUsers.admin);
+
+    const err = await stack.http.writeErr(LIFT, { userId }, admin);
+    expect(err.httpStatus).toBe(403);
+    expect(reasonOf(err)).toBe("target_user_in_other_tenants");
+    expect(await statusOf(userId)).toBe(USER_STATUS.Restricted);
+  });
+
+  test("TenantAdmin cannot lift a restriction of a user who outranks them: 403 target_user_outranks_actor", async () => {
+    const { userId } = await seedAliceWithMembership(USER_STATUS.Restricted, ["TenantAdmin"]);
+    const admin = await mintActor(TestUsers.admin);
+
+    const err = await stack.http.writeErr(LIFT, { userId }, admin);
+    expect(err.httpStatus).toBe(403);
+    expect(reasonOf(err)).toBe("target_user_outranks_actor");
+    expect(await statusOf(userId)).toBe(USER_STATUS.Restricted);
+  });
+
+  test("SystemAdmin can lift a restriction of a user who is a member of several tenants", async () => {
+    const { userId } = await seedAliceWithMembership(USER_STATUS.Restricted);
+    await seedMembershipOf(userId, OTHER_TENANT, ["Member"]);
+    const systemAdmin = await mintActor({
+      id: crypto.randomUUID(),
+      tenantId: TENANT,
+      roles: ["SystemAdmin"],
+    });
+
+    const result = await stack.http.writeOk<{ status: string }>(LIFT, { userId }, systemAdmin);
+    expect(result.status).toBe(USER_STATUS.Active);
   });
 
   test("SystemAdmin can lift across tenants (platform-wide operator)", async () => {

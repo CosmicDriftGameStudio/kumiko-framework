@@ -13,8 +13,7 @@
 import { computeBlindIndex, configuredBlindIndexKey } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   createEventStoreExecutor,
-  createTenantDb,
-  type DbConnection,
+  type DbRunner,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -22,6 +21,9 @@ import {
   type SessionUser,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import { normalizeEmail } from "../shared/index.ts";
 // kumiko-lint-ignore cross-feature-import shares the postSave-hooks fixture contract with tenant/seeding
 import { fireEntityPostSave, type SeedTenantHooks } from "../tenant/seeding.ts";
 import { userEntity, userTable } from "./schema/user.ts";
@@ -56,7 +58,7 @@ export type SeedUserOptions = {
  * email exists, its ID is returned without a new insert.
  */
 export async function seedUser(
-  db: DbConnection,
+  db: DbRunner,
   options: SeedUserOptions,
   // Optional, append-only — same rationale as tenant/seeding's seedTenant
   // hooks param: fires user's postSave hooks (e.g. a Welcome-
@@ -64,6 +66,7 @@ export async function seedUser(
   // that opt in. Omit to keep today's hook-less behavior.
   hooks?: SeedTenantHooks,
 ): Promise<{ id: string }> {
+  const email = normalizeEmail(options.email);
   const by = options.by ?? createSystemUser(SYSTEM_TENANT_ID);
   // executor.create expects a TenantDb (with an .insert() API). Although
   // User is tenant-agnostic (it has no tenant_id column), the runtime
@@ -75,7 +78,7 @@ export async function seedUser(
     reason: "User is tenant-agnostic, seeding writes it through a system-mode handle",
   });
 
-  const existing = await fetchOne(db, userTable, { email: options.email, isDeleted: false });
+  const existing = await fetchOne(db, userTable, { email, isDeleted: false });
   // @cast-boundary db-row: users.id is a uuid column (string), and fetchOne
   // returns the projection row as Record<string, unknown>.
   if (existing) {
@@ -88,7 +91,7 @@ export async function seedUser(
 
   const result = await userExecutor.create(
     {
-      email: options.email,
+      email,
       displayName: options.displayName,
       ...(options.passwordHash !== undefined && { passwordHash: options.passwordHash }),
       ...(options.locale !== undefined && { locale: options.locale }),
@@ -110,7 +113,7 @@ export async function seedUser(
 // A re-run seed onto a row created before emailVerified flipped to true must
 // still set it — via the executor, so it lands as a real `.updated` event.
 export async function reconcileSeededUserEmailVerified(
-  db: DbConnection,
+  db: DbRunner,
   existingRow: Record<string, unknown>,
   by: SessionUser,
 ): Promise<void> {
@@ -132,7 +135,7 @@ export async function reconcileSeededUserEmailVerified(
   );
   // version_conflict = a concurrent write already changed the row —
   // fine for a seed helper, don't fail the whole seed run over it.
-  if (!result.isSuccess && result.error.code !== "version_conflict") {
+  if (!result.isSuccess && result.error.code !== VERSION_CONFLICT_CODE) {
     throw new Error(
       `reconcileSeededUserEmailVerified failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
     );
@@ -141,10 +144,10 @@ export async function reconcileSeededUserEmailVerified(
 
 // Re-writes `email` through the executor so the PII write pipeline recomputes
 // `email_bidx`. Repairs rows whose blind index is NULL or stale (written before
-// the key existed, key rotated, subject-key erased), which would otherwise stay
-// invisible to every `fetchOne(userTable, { email })` lookup.
+// the key existed, key rotated, subject-key erased, stored with upper case),
+// which would otherwise stay invisible to every `fetchOne(userTable, { email })` lookup.
 export async function rewriteSeededUserEmail(
-  db: DbConnection,
+  db: DbRunner,
   existingRow: Record<string, unknown>,
   email: string,
   by: SessionUser,
@@ -182,7 +185,7 @@ export async function rewriteSeededUserEmail(
   // has to wait for a manual duplicate cleanup.
   if (
     !result.isSuccess &&
-    result.error.code !== "version_conflict" &&
+    result.error.code !== VERSION_CONFLICT_CODE &&
     result.error.code !== "unique_violation"
   ) {
     throw new Error(

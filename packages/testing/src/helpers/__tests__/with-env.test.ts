@@ -1,5 +1,30 @@
 import { describe, expect, test } from "bun:test";
-import { withEnv } from "../with-env.ts";
+import { withEnv, withEnvForEachTest, withEnvForSuite } from "../with-env.ts";
+
+describe("withEnvForSuite / withEnvForEachTest", () => {
+  describe("outer suite", () => {
+    withEnvForSuite({ KUMIKO_TEST_PRESET: "preset" });
+
+    describe("inner each-test", () => {
+      withEnvForEachTest({ KUMIKO_TEST_PRESET: undefined, KUMIKO_TEST_EACH: "on" });
+
+      test("applies the per-test override on top of the suite value", () => {
+        expect(process.env["KUMIKO_TEST_PRESET"]).toBeUndefined();
+        expect(process.env["KUMIKO_TEST_EACH"]).toBe("on");
+      });
+    });
+
+    test("restores the suite value after the inner describe", () => {
+      expect(process.env["KUMIKO_TEST_PRESET"]).toBe("preset");
+      expect(process.env["KUMIKO_TEST_EACH"]).toBeUndefined();
+    });
+  });
+
+  test("restores the original env after the suite", () => {
+    expect(process.env["KUMIKO_TEST_PRESET"]).toBeUndefined();
+    expect(process.env["KUMIKO_TEST_EACH"]).toBeUndefined();
+  });
+});
 
 describe("withEnv", () => {
   test("sets the value inside and restores the previous one afterwards", async () => {

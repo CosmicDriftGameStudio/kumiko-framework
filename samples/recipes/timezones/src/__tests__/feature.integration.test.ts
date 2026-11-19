@@ -5,15 +5,10 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import type { GeoTzProvider } from "@cosmicdrift/kumiko-framework/time";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { deliveryEntity, timezonesFeature } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { timezonesFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -31,8 +26,6 @@ beforeAll(async () => {
     features: [timezonesFeature],
     extraContext: { geoTzProvider: fakeGeoTz },
   });
-  await unsafeCreateEntityTable(stack.db, deliveryEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

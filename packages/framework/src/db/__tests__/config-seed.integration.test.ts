@@ -23,6 +23,7 @@ import { type BunTestDb, createTestDb } from "./query/bun-test-db.ts";
 // Mirrors the config-value entity from bundled-features with a unique
 // table name so it never collides with the real config table.
 const configEntity = createEntity({
+  name: "cfgSeedTest",
   table: "read_cfg_seed_test",
   fields: {
     key: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -37,7 +38,7 @@ const configEntity = createEntity({
     },
   ],
 });
-const configTable = buildEntityTable("cfgSeedTest", configEntity);
+const configTable = buildEntityTable(configEntity);
 
 // --- Registry Stub ---
 const KEY_DEFS = {

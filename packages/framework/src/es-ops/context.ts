@@ -15,7 +15,7 @@ import {
   selectTemplateResources,
   selectUserByEmail,
 } from "../db/queries/seed-context.ts";
-import { createSystemUser, SYSTEM_TENANT_ID } from "../engine/index.ts";
+import { createSystemUser, SYSTEM_TENANT_ID, type TenantId } from "../engine/index.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
 import { parseStringArrayJson } from "../utils/parse-string-array-json.ts";
 import type {
@@ -32,7 +32,7 @@ export type CreateSeedMigrationContextArgs = {
 
 /** Builder that returns a factory function called by the runner for each
  *  migration. dbRunner may be a top-level connection or a transaction—read
- *  helpers use it directly, while systemWriteAs delegates to the dispatcher.
+ *  helpers use it directly, while systemWriteAs and systemQueryAs delegate to the dispatcher.
  *
  *  dispatcher.write does not receive the runner transaction: runBatch opens
  *  a separate transaction on context.db (using a separate pool connection).
@@ -48,15 +48,17 @@ export function createSeedMigrationContext(
   // explicitly provide `tenantIdOverride`—see the documentation in types.ts.
   const defaultSystemUser = createSystemUser(SYSTEM_TENANT_ID);
 
+  // tenantIdOverride creates a system user with the stream tenant ID so that
+  // the event-store executor finds the aggregate in the correct stream.
+  // This prevents the version_conflict failure.
+  const systemExecutorFor = (tenantIdOverride?: TenantId, extraRoles?: readonly string[]) =>
+    tenantIdOverride !== undefined || (extraRoles && extraRoles.length > 0)
+      ? createSystemUser(tenantIdOverride ?? SYSTEM_TENANT_ID, extraRoles)
+      : defaultSystemUser;
+
   return {
     systemWriteAs: async (handlerQualifiedName, payload, tenantIdOverride, extraRoles) => {
-      // tenantIdOverride creates a system user with the stream tenant ID so that
-      // the event-store executor finds the aggregate in the correct stream.
-      // This prevents the version_conflict failure.
-      const executor =
-        tenantIdOverride !== undefined || (extraRoles && extraRoles.length > 0)
-          ? createSystemUser(tenantIdOverride ?? SYSTEM_TENANT_ID, extraRoles)
-          : defaultSystemUser;
+      const executor = systemExecutorFor(tenantIdOverride, extraRoles);
       const result = await args.dispatcher.write(handlerQualifiedName, payload, executor);
       // Without this check, WriteResult{isSuccess: false} would pass silently,
       // causing the marker to be written despite the failed write and the
@@ -71,6 +73,13 @@ export function createSeedMigrationContext(
       }
       return result;
     },
+
+    systemQueryAs: (handlerQualifiedName, payload, tenantIdOverride, extraRoles) =>
+      args.dispatcher.query(
+        handlerQualifiedName,
+        payload,
+        systemExecutorFor(tenantIdOverride, extraRoles),
+      ),
 
     findUserByEmail: async (email) => {
       const row = await selectUserByEmail(args.dbRunner, email);

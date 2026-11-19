@@ -18,6 +18,7 @@ import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/eng
 export const MEMBERSHIP_UNIQUE_INDEX_NAME = "read_tenant_memberships_unique";
 
 export const tenantMembershipEntity = createEntity({
+  name: "tenant-membership",
   table: "read_tenant_memberships",
   fields: {
     userId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
@@ -29,4 +30,4 @@ export const tenantMembershipEntity = createEntity({
   indexes: [{ unique: true, columns: ["userId", "tenantId"], name: MEMBERSHIP_UNIQUE_INDEX_NAME }],
 });
 
-export const tenantMembershipsTable = buildEntityTable("tenant-membership", tenantMembershipEntity);
+export const tenantMembershipsTable = buildEntityTable(tenantMembershipEntity);

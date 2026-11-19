@@ -97,7 +97,7 @@ describe("tenant-lifecycle :: destroy shreds tenant.name", () => {
     expect(isPiiCiphertext(before.projection)).toBe(true);
     expect(await decryptStoredPii(String(before.projection), "name", "test")).toBe(NAME);
 
-    await seedDestroyingTenant(stack.db, tenantId);
+    await seedDestroyingTenant(stack, tenantId);
     const status = await driveDestructionToCompletion(stack, stack.db, tenantId);
 
     expect(status).toBe("destroyed");
@@ -114,7 +114,7 @@ describe("tenant-lifecycle :: destroy shreds tenant.name", () => {
 
   test("the tenant-row stage is idempotent: a second run on a destroyed tenant succeeds", async () => {
     const tenantId = await createTenant();
-    await seedDestroyingTenant(stack.db, tenantId);
+    await seedDestroyingTenant(stack, tenantId);
     expect(await driveDestructionToCompletion(stack, stack.db, tenantId)).toBe("destroyed");
 
     const tenantRow = DESTRUCTION_STAGES.find((stage) => stage.name === "tenant-row");
@@ -166,7 +166,7 @@ describe("tenant-lifecycle :: destroy shreds tenant.name", () => {
       );
     expect(await findName()).toBe(true);
 
-    await seedDestroyingTenant(stack.db, tenantId);
+    await seedDestroyingTenant(stack, tenantId);
     const status = await driveDestructionToCompletion(stack, stack.db, tenantId, stack.search);
 
     expect(status).toBe("destroyed");

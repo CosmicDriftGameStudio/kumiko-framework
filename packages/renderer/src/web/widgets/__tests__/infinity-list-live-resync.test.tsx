@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
 import type { ReactNode } from "react";
-import type { Dispatcher } from "../../../headless/index.ts";
+import type { Dispatcher, QueryResult } from "../../../headless/index.ts";
 import {
   DispatcherProvider,
   LIVE_RESYNC_EVENT_TYPE,
@@ -62,7 +62,7 @@ function renderList(dispatcher: Dispatcher, liveEvents: LiveEventSubscriber): vo
   render(ui);
 }
 
-function pageOf(subject: string) {
+function pageOf(subject: string): QueryResult {
   return { isSuccess: true, data: { rows: [{ id: "m1", subject }], nextCursor: null } };
 }
 
@@ -100,15 +100,15 @@ describe("InfinityList: live resync on the first stream open", () => {
     let backingSubject = "Mail (ungelesen)";
     let queryCount = 0;
     const dispatcher = createMockDispatcher({
-      query: (async () => {
+      query: async () => {
         queryCount += 1;
         return pageOf(backingSubject);
-      }) as unknown as Dispatcher["query"],
+      },
     });
 
     renderList(dispatcher, createEventSourceLiveEvents());
     await flushPromises();
-    expect(screen.getByText("Mail (ungelesen)")).toBeTruthy();
+    screen.getByText("Mail (ungelesen)");
     expect(queryCount).toBe(1);
 
     backingSubject = "Mail (gelesen)";
@@ -118,19 +118,19 @@ describe("InfinityList: live resync on the first stream open", () => {
     await advanceLiveDebounce();
 
     expect(queryCount).toBe(2);
-    expect(screen.getByText("Mail (gelesen)")).toBeTruthy();
+    screen.getByText("Mail (gelesen)");
     expect(screen.queryByText("Mail (ungelesen)")).toBeNull();
   });
 
   // The resync of the first open can arrive while the initial load is still
   // running; that load was issued before the change, so its answer is stale.
   test("a refresh that lands during the initial load wins over the older load", async () => {
-    const resolvers: Array<(res: unknown) => void> = [];
+    const resolvers: Array<(res: QueryResult) => void> = [];
     const dispatcher = createMockDispatcher({
-      query: (() =>
-        new Promise((resolve) => {
+      query: () =>
+        new Promise<QueryResult>((resolve) => {
           resolvers.push(resolve);
-        })) as unknown as Dispatcher["query"],
+        }),
     });
     let emit: ((event: LiveEvent) => void) | undefined;
     const liveEvents: LiveEventSubscriber = (_entity, listener) => {
@@ -157,21 +157,21 @@ describe("InfinityList: live resync on the first stream open", () => {
 
     resolvers[1]?.(pageOf("Frisch"));
     await flushPromises();
-    expect(screen.getByText("Frisch")).toBeTruthy();
+    screen.getByText("Frisch");
 
     resolvers[0]?.(pageOf("Veraltet"));
     await flushPromises();
-    expect(screen.getByText("Frisch")).toBeTruthy();
+    screen.getByText("Frisch");
     expect(screen.queryByText("Veraltet")).toBeNull();
   });
 
   test("a failed refresh during the initial load changes nothing, the load still lands", async () => {
-    const resolvers: Array<(res: unknown) => void> = [];
+    const resolvers: Array<(res: QueryResult) => void> = [];
     const dispatcher = createMockDispatcher({
-      query: (() =>
-        new Promise((resolve) => {
+      query: () =>
+        new Promise<QueryResult>((resolve) => {
           resolvers.push(resolve);
-        })) as unknown as Dispatcher["query"],
+        }),
     });
     let emit: ((event: LiveEvent) => void) | undefined;
     const liveEvents: LiveEventSubscriber = (_entity, listener) => {
@@ -196,12 +196,17 @@ describe("InfinityList: live resync on the first stream open", () => {
 
     resolvers[1]?.({
       isSuccess: false,
-      error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
+      error: {
+        code: "internal",
+        httpStatus: 500,
+        message: "kaputt",
+        i18nKey: "errors.internal",
+      },
     });
     await flushPromises();
     resolvers[0]?.(pageOf("Erste Seite"));
     await flushPromises();
 
-    expect(screen.getByText("Erste Seite")).toBeTruthy();
+    screen.getByText("Erste Seite");
   });
 });

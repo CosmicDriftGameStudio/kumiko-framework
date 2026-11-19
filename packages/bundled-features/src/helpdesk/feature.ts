@@ -83,8 +83,7 @@ export function createHelpdeskFeature(opts: HelpdeskOptions): FeatureDefinition 
     // The feature manifest and reference are built from one mounted instance, so the off
     // default still names Telegram as an optional dependency.
     if (telegram) r.requires({ features: [TELEGRAM_FEATURE] });
-    else r.optionalRequires(TELEGRAM_FEATURE);
-    r.adoptsBundledLists();
+    else r.optionalRequires({ features: [TELEGRAM_FEATURE] });
     r.translations({ keys: createHelpdeskI18n() });
 
     r.config({
@@ -111,33 +110,39 @@ export function createHelpdeskFeature(opts: HelpdeskOptions): FeatureDefinition 
     }
 
     // renamedFrom: preferences and opt-outs stored under the former contact feature keep applying.
-    r.notification("new-request", {
+    r.notification({
+      name: "new-request",
       renamedFrom: ["contact:notify:new-request"],
       variables: HELPDESK_NEW_REQUEST_VARIABLES,
       localizedTemplate: helpdeskNewRequestTemplate,
       ...(telegram && { templates: { telegram: telegramTemplate } }),
     });
-    r.notification("confirmation", {
+    r.notification({
+      name: "confirmation",
       renamedFrom: ["contact:notify:confirmation"],
       variables: HELPDESK_CONFIRMATION_VARIABLES,
       localizedTemplate: helpdeskConfirmationTemplate,
     });
-    r.notification("acknowledgement", {
+    r.notification({
+      name: "acknowledgement",
       renamedFrom: ["contact:notify:acknowledgement"],
       variables: HELPDESK_ACKNOWLEDGEMENT_VARIABLES,
       localizedTemplate: helpdeskAcknowledgementTemplate,
     });
-    r.notification("reply", {
+    r.notification({
+      name: "reply",
       renamedFrom: ["contact:notify:reply"],
       variables: HELPDESK_REPLY_VARIABLES,
       localizedTemplate: helpdeskReplyTemplate,
     });
-    r.notification("reply-in-app", {
+    r.notification({
+      name: "reply-in-app",
       renamedFrom: ["contact:notify:reply-in-app"],
       templates: { inApp: inAppTemplate },
     });
     if (telegram) {
-      r.notification("test", {
+      r.notification({
+        name: "test",
         renamedFrom: ["contact:notify:test"],
         variables: HELPDESK_TEST_VARIABLES,
         localizedTemplate: helpdeskTestTemplate,
@@ -145,8 +150,8 @@ export function createHelpdeskFeature(opts: HelpdeskOptions): FeatureDefinition 
       });
     }
 
-    r.entity({ name: "helpdesk-request", ...requestEntity });
-    r.entity({ name: "helpdesk-reply", ...replyEntity });
+    r.entity({ ...requestEntity, name: "helpdesk-request" });
+    r.entity({ ...replyEntity, name: "helpdesk-reply" });
 
     r.writeHandler(createSubmitHandler(opts, settings));
     r.writeHandler(createReportHandler(opts, settings));
@@ -179,12 +184,16 @@ export function createHelpdeskFeature(opts: HelpdeskOptions): FeatureDefinition 
         }),
     });
 
-    r.useExtension(EXT_USER_DATA, "helpdesk-request", {
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "helpdesk-request",
       export: helpdeskExportHook,
       delete: helpdeskDeleteHook,
     });
     // Requests stored before the rename to helpdesk sit inert under the former aggregate and tables.
-    r.useExtension(EXT_USER_DATA, LEGACY_CONTACT_REQUEST_ENTITY, {
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: LEGACY_CONTACT_REQUEST_ENTITY,
       export: legacyContactExportHook,
       delete: legacyContactDeleteHook,
     });
@@ -212,7 +221,9 @@ export function createHelpdeskFeature(opts: HelpdeskOptions): FeatureDefinition 
       handler: async (_payload, ctx) => runLegacyContactRetention(keepFor, ctx),
     });
     // Replies are exported nested under their request and erased with it (helpdeskDeleteHook).
-    r.useExtension(EXT_USER_DATA, "helpdesk-reply", {
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "helpdesk-reply",
       export: async () => null,
       delete: async () => {},
     });

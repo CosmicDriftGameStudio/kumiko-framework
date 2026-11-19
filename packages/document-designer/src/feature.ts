@@ -34,7 +34,7 @@ export function createDocumentDesignerFeature(
   const editorRoles = [...new Set(["SystemAdmin", ...(options.access?.roles ?? [])])];
   return defineFeature(DOCUMENT_DESIGNER_FEATURE, (r) => {
     r.describe(
-      "Template overview and layout editor: lists the mail, PDF and layout templates of a tenant (platform admins see the system templates and how many tenants customised each) and edits the mail layout and the PDF letterhead in the browser. Mount after template-resolver and, for the branding rail, managed-pages. Client: `documentDesignerClient()`; admin-shell lists the navs with `includeDocumentDesigner`. The tenant overview and the editors are for SystemAdmin only; the `access` option adds roles (normally `templateEditAccess(tenantEditable)` of the template-resolver mount), and the server still enforces per template which of them may save.",
+      "Template overview and layout editor: lists the mail, PDF and layout templates of a tenant (platform admins see the system templates and how many tenants customised each) and edits the mail layout and the PDF letterhead in the browser. Mount after template-resolver and, for the branding rail, mount the branding feature. Client: `documentDesignerClient()`; the navs carry adminArea tenant/platform, so admin-shell and any workspace with collectAdminArea list them. The tenant overview and the editors are for SystemAdmin only; the `access` option adds roles (normally `templateEditAccess(tenantEditable)` of the template-resolver mount), and the server still enforces per template which of them may save.",
     );
     r.uiHints({
       displayLabel: "Documents · Template Designer",
@@ -65,6 +65,7 @@ export function createDocumentDesignerFeature(
       screen: `${DOCUMENT_DESIGNER_FEATURE}:screen:${TEMPLATES_SCREEN_ID}`,
       access: { roles: access.roles(...editorRoles) },
       order: 15,
+      adminArea: "tenant",
     });
 
     r.screen({
@@ -87,6 +88,7 @@ export function createDocumentDesignerFeature(
       screen: `${DOCUMENT_DESIGNER_FEATURE}:screen:${PLATFORM_TEMPLATES_SCREEN_ID}`,
       access: { roles: access.systemAdmin },
       order: 15,
+      adminArea: "platform",
     });
 
     r.screen({

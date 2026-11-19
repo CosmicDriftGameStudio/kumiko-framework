@@ -2,11 +2,11 @@ import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { USER_STATUS, userTable } from "../../user/index.ts";
-import { denyIfTargetOutsideAdminTenant } from "../lib/deny-if-target-outside-admin-tenant.ts";
+import { denyIfTargetBeyondAdminReach } from "../lib/deny-if-target-beyond-admin-reach.ts";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
 
 const LIFT_RESTRICTION_ESCAPE_HATCH_REASON =
-  "checks the target user's membership in the admin's tenant and appends the user lifecycle status change on the SYSTEM_TENANT_ID user stream, both via DbRunner helpers outside the admin's own tenant scope.";
+  "reads the target user's memberships and roles across tenants via crossTenantReads to check them against the admin's reach; the user lifecycle status change is appended on the SYSTEM_TENANT_ID user stream via the raw DbRunner, outside the admin's own tenant scope.";
 
 // POST /api/user/lift-restriction — GDPR Art. 18 Reverse.
 //
@@ -16,11 +16,11 @@ const LIFT_RESTRICTION_ESCAPE_HATCH_REASON =
 // endpoint. There is no self-service path today, so lifting a restriction
 // always targets someone else's account by id.
 //
-// Tenant scope: `access.admin` includes TenantAdmin (tenant-scoped) even though the User-entity is
-// global — see user-data-rights.md "Cross-Tenant Semantics". Without a membership check, a
-// TenantAdmin from tenant A could unrestrict/reactivate a user who has never been a member of
-// tenant A. Only SystemAdmin (platform-wide) skips the check; the target must have a membership row
-// in the acting admin's `event.user.tenantId` (row existence only — no active-status field).
+// Admin reach: `access.admin` includes TenantAdmin (tenant-scoped) even though the User-entity is
+// global — see user-data-rights.md "Cross-Tenant Semantics". Only SystemAdmin (platform-wide) skips
+// the check; otherwise the target must be a member of the acting admin's `event.user.tenantId`
+// only and must not hold a role above the admin's rank there (row existence only — no
+// active-status field).
 //
 // State-Transitions:
 //   Restricted → Active        ✓
@@ -34,16 +34,17 @@ export const liftRestrictionWrite = defineWriteHandler({
   description:
     "Lifts a GDPR Art. 18 processing restriction on the named user and returns the account to active; operator-only, because a restricted user's own session is rejected and cannot reach this endpoint.",
   escapeHatch: {
-    grants: ["unsafeRaw", "globalWrites"],
+    grants: ["crossTenantReads", "unsafeRaw"],
     reason: LIFT_RESTRICTION_ESCAPE_HATCH_REASON,
   },
   handler: async (event, ctx) => {
     const targetUserId = event.payload.userId;
 
-    const outside = await denyIfTargetOutsideAdminTenant(
-      ctx.db.unsafeRaw(),
+    const outside = await denyIfTargetBeyondAdminReach(
+      ctx.crossTenantReads,
       event.user,
       targetUserId,
+      ctx.registry.features.has("user"),
     );
     if (outside) return outside;
 
@@ -68,7 +69,7 @@ export const liftRestrictionWrite = defineWriteHandler({
       );
     }
 
-    await updateUserLifecycle(ctx.db.unsafeRaw(), targetUserId, {
+    await updateUserLifecycle(ctx.db.unsafeRawAllTenants(), targetUserId, {
       status: USER_STATUS.Active,
     });
 

@@ -44,6 +44,7 @@ const probePayload = z.object({
 });
 
 const dossierEntity = createEntity({
+  name: ENTITY,
   table: "bind_probe_dossiers",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture" }),
@@ -53,7 +54,7 @@ const dossierEntity = createEntity({
 });
 
 const probeFeature = defineFeature("bind-probe", (r) => {
-  r.entity({ name: ENTITY, ...dossierEntity });
+  r.entity(dossierEntity);
   r.writeHandler({
     name: "load-pending",
     schema: probePayload,

@@ -1,3 +1,5 @@
+import { handlerTranslationKeys } from "@cosmicdrift/kumiko-framework/engine";
+
 type LocalizedString = { readonly en: string; readonly de: string };
 
 export const WAITLIST_I18N: Readonly<Record<string, LocalizedString>> = {
@@ -44,3 +46,16 @@ export const WAITLIST_I18N: Readonly<Record<string, LocalizedString>> = {
     de: "Eintrag ablehnen? Die Daten bleiben gespeichert.",
   },
 };
+
+export const WAITLIST_HANDLER_I18N = handlerTranslationKeys("waitlist", {
+  writes: {
+    invite: {
+      title: { en: "Invite entry", de: "Eintrag einladen" },
+      fields: { id: { en: "Entry", de: "Eintrag" } },
+    },
+    reject: {
+      title: { en: "Reject entry", de: "Eintrag ablehnen" },
+      fields: { id: { en: "Entry", de: "Eintrag" } },
+    },
+  },
+});

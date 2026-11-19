@@ -47,13 +47,14 @@ const POISON_JS = "poison-js";
 const POISON_SQL = "poison-sql";
 
 const itemEntity = createEntity({
+  name: "poison-item",
   table: "read_poison_items",
   fields: {
     groupId: createTextField({ personal: false, reason: "test_fixture", required: true }),
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const itemTable = buildEntityTable("poison-item", itemEntity);
+const itemTable = buildEntityTable(itemEntity);
 
 const counterTable = pgTable("read_poison_counter", {
   groupId: pgUuid("group_id").primaryKey(),
@@ -74,6 +75,10 @@ async function bump(tx: unknown, tableName: string, groupId: string, tenantId: s
   );
 }
 
+// Executor writes project live since app connections carry the registry; the poison stands for an
+// event a later apply can no longer process, so it only fires on replay.
+let poisonArmed = false;
+
 // Poison by payload marker. POISON_SQL runs a genuinely failing statement so
 // the surrounding tx would be in 25P02 without the savepoint.
 async function applyOrPoison(
@@ -82,8 +87,8 @@ async function applyOrPoison(
   payload: { groupId: string; name: string },
   tenantId: string,
 ): Promise<void> {
-  if (payload.name === POISON_JS) throw new Error("intentional js poison");
-  if (payload.name === POISON_SQL) {
+  if (poisonArmed && payload.name === POISON_JS) throw new Error("intentional js poison");
+  if (poisonArmed && payload.name === POISON_SQL) {
     await asRawClient(tx).unsafe(
       `INSERT INTO "${tableName}" (group_id, tenant_id, item_count) VALUES ('not-a-uuid', $1::uuid, 1)`,
       [tenantId],
@@ -109,7 +114,7 @@ const poisonProjection: ProjectionDefinition = {
 const MSP_EVENT_SHORT = "poison-noted";
 
 const feature = defineFeature("poisontest", (r) => {
-  r.entity({ name: "poison-item", ...itemEntity });
+  r.entity(itemEntity);
   r.projection(poisonProjection);
   const noted = r.defineEvent(MSP_EVENT_SHORT, z.object({ groupId: z.uuid(), name: z.string() }), {
     piiFields: "none",
@@ -154,6 +159,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  poisonArmed = false;
   await asRawClient(stack.db).unsafe(
     `TRUNCATE kumiko_events, read_poison_items, read_poison_counter, read_poison_msp_counter, kumiko_projections RESTART IDENTITY CASCADE`,
   );
@@ -178,6 +184,7 @@ describe("rebuildProjection — poison event, strict default", () => {
     await createItem("good-1");
     await createItem(POISON_JS);
     await createItem("good-2");
+    poisonArmed = true;
 
     await expect(
       rebuildProjection(PROJECTION, { db: stack.db, registry: stack.registry }),
@@ -201,6 +208,7 @@ describe("rebuildProjection — quarantine mode", () => {
     // the whole rebuild tx into 25P02 and every later apply fails too.
     await createItem(POISON_SQL);
     await createItem("good-2");
+    poisonArmed = true;
 
     const result = await rebuildProjection(PROJECTION, {
       db: stack.db,
@@ -256,6 +264,7 @@ describe("rebuildMultiStreamProjection — errorMode.rebuild.skipApplyErrors", (
     await appendMspEvent("good-1", 0);
     await appendMspEvent(POISON_SQL, 1);
     await appendMspEvent("good-2", 2);
+    poisonArmed = true;
 
     const result = await rebuildMultiStreamProjection(MSP, {
       db: stack.db,

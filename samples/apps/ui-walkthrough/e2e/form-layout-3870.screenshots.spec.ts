@@ -4,6 +4,7 @@
 import { readFileSync } from "node:fs";
 import {
   captureScreenshot,
+  E2E_TIMEOUT_MS,
   expect,
   boundaryGuardedTest as test,
 } from "@cosmicdrift/kumiko-testing/e2e";
@@ -52,7 +53,7 @@ test("p8-file-preview-desktop", async ({ page }) => {
   await expect(page.getByText("Beleg-Heizungswartung.png")).toBeVisible();
   await page.getByTestId(`field-value-unterlagen-${pdfId}-preview-toggle`).click();
   await expect(page.getByTestId(`file-preview-${pdfId}`).locator("canvas").first()).toBeVisible({
-    timeout: 30_000,
+    timeout: E2E_TIMEOUT_MS.test,
   });
   await shot(page, "p8-file-preview-desktop");
 });

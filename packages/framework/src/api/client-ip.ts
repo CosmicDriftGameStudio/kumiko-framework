@@ -16,7 +16,8 @@ const log = createFallbackLogger("kumiko");
 //   XFF (e.g. nginx `$proxy_add_x_forwarded_for`), so the real client sits
 //   at `entries[length - hops]`. Anything a client itself prepended lands
 //   further left and is ignored. A chain shorter than `hops` falls back to
-//   `x-real-ip` (no hop-count semantics of its own), then the socket address.
+//   the socket address; `x-real-ip` is never trusted, a client can set it
+//   freely when it bypasses a proxy.
 // A bucket is never skipped: without any usable value the fallback is a
 // fixed "unknown" string, which collapses affected callers into one shared
 // bucket rather than letting them bypass the limit entirely.
@@ -113,8 +114,8 @@ export function createClientIpResolver(
     if (entries.length >= trustedProxyHops) {
       return entries[entries.length - trustedProxyHops] ?? UNKNOWN_CLIENT_IP;
     }
-    const realIp = source.header("x-real-ip")?.trim();
-    if (realIp) return realIp;
+    // A chain shorter than hops means the request did not pass every trusted
+    // proxy, so any header on it may come from the client; only the socket counts.
     return source.socketAddress ?? UNKNOWN_CLIENT_IP;
   }
 

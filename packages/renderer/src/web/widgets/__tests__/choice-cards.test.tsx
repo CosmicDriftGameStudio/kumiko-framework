@@ -11,14 +11,14 @@ const options = [
 describe("ChoiceCards", () => {
   test("checks the selected radio and shares one group name", () => {
     render(<ChoiceCards value="b" options={options} onChange={() => {}} ariaLabel="Wahl" />);
-    expect(screen.getByRole("radiogroup", { name: "Wahl" })).toBeTruthy();
+    screen.getByRole("radiogroup", { name: "Wahl" });
     const a = screen.getByRole("radio", { name: /Anbieter A/ }) as HTMLInputElement;
     const b = screen.getByRole("radio", { name: /Anbieter B/ }) as HTMLInputElement;
     expect(a.checked).toBe(false);
     expect(b.checked).toBe(true);
     expect(a.name).toBe(b.name);
-    expect(screen.getByText("Rechnung von A")).toBeTruthy();
-    expect(screen.getByText("9,00 €")).toBeTruthy();
+    screen.getByText("Rechnung von A");
+    screen.getByText("9,00 €");
   });
 
   test("selecting another card fires onChange with its value", () => {

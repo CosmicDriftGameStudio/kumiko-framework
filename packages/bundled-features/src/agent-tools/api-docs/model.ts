@@ -1,5 +1,6 @@
 import type { AppApiDocsConfig } from "@cosmicdrift/kumiko-framework/config";
 import type { WebhookEntityVerb } from "@cosmicdrift/kumiko-framework/engine";
+import type { TranslationKeys } from "@cosmicdrift/kumiko-types/config";
 import type { PatRateLimit } from "../../personal-access-tokens/index.ts";
 import type { ApiExampleFile, WebhookExampleFile } from "./examples.ts";
 
@@ -76,8 +77,9 @@ export type ApiDocsSource = {
   readonly app: { readonly name: string; readonly version: string };
 };
 
-export type ResolvedApiDocsConfig = AppApiDocsConfig & {
+export type ResolvedApiDocsConfig = Omit<AppApiDocsConfig, "translations"> & {
   readonly locales: readonly string[];
   readonly baseUrl: string;
   readonly appName: string;
+  readonly translations?: TranslationKeys;
 };

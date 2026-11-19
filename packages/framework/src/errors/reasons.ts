@@ -3,8 +3,8 @@
 // gives features a single source of truth when they need to branch on the
 // framework-level reason (e.g. "is this a stale-state race? retry once").
 //
-// Features add their own local Reasons objects (see `samples/errors/` or
-// `packages/bundled-features/src/tenant/web/constants.ts` → TenantErrors). The
+// Features declare their own reasons with `defineFailureReasons` (see
+// `samples/recipes/error-contract`), which also gives each reason its i18n text. The
 // framework deliberately does NOT enforce uniqueness across features — two
 // features may use the same reason string if the semantics match. The
 // convention: snake_case, no spaces, no feature prefix for framework reasons.
@@ -29,6 +29,9 @@ export const FrameworkReasons = {
   // AccessDeniedError: dispatcher's field-level write check blocked a field.
   // Details carry `field` and `handler`.
   fieldAccessDenied: "field_access_denied",
+
+  // AccessDeniedError: executor refused a change to a field with access.approve by a user without an approve role. Details carry `entity` and `fields`; the caller files field-approval:write:request-change instead.
+  fieldApprovalRequired: "field_approval_required",
 
   // ConflictError: cascade-delete guard refused because dependent rows exist.
   // Details carry `blockingEntity`, `entity`, `entityId`.

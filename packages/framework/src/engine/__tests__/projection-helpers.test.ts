@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { StoredEvent } from "../../event-store/event-store.ts";
-import { setFields } from "../projection-helpers.ts";
+import { projectionInsertColumns, setFields } from "../projection-helpers.ts";
 import type { ProjectionTable } from "../types/projection.ts";
 
 // Minimal fake table: an EntityTableMeta (what bun-db introspects for
@@ -16,6 +16,24 @@ const fakeTable = Object.assign(
     columns: [
       { name: "id", pgType: "uuid", notNull: true },
       { name: "status", pgType: "text", notNull: false },
+    ],
+  },
+) as unknown as ProjectionTable;
+
+const fakeStampedTable = Object.assign(
+  { id: { name: "id" } },
+  {
+    tableName: "fake_stamped_table",
+    source: "unmanaged",
+    indexes: [],
+    columns: [
+      { name: "id", pgType: "uuid", notNull: true },
+      { name: "tenant_id", pgType: "uuid", notNull: true },
+      { name: "status", pgType: "text", notNull: false },
+      { name: "inserted_at", pgType: "timestamptz", notNull: true },
+      { name: "inserted_by_id", pgType: "text", notNull: false },
+      { name: "modified_at", pgType: "timestamptz", notNull: false },
+      { name: "modified_by_id", pgType: "text", notNull: false },
     ],
   },
 ) as unknown as ProjectionTable;
@@ -66,6 +84,39 @@ describe("setFields", () => {
     expect(unsafe).toHaveBeenCalledTimes(1);
     const [, params] = unsafe.mock.calls[0]!;
     expect(params).toEqual(["cancelled", "agg-42"]);
+  });
+
+  test("setFields stamps modifiedAt and modifiedById from the event", async () => {
+    const apply = setFields(fakeStampedTable, { status: "sent" });
+    const { fakeTx, unsafe } = makeFakeTx();
+    await apply(makeFakeEvent(), fakeTx, fakeStampedTable);
+    const [sqlText, params] = unsafe.mock.calls[0]!;
+    expect(sqlText).toMatch(
+      /UPDATE "fake_stamped_table" SET "modified_at" = \$1, "modified_by_id" = \$2, "status" = \$3 .*WHERE "id" = \$4/,
+    );
+    expect(String(params[0])).toContain("2026-04-17T00:00:00");
+    expect(params[1]).toBe("u-1");
+    expect(params[2]).toBe("sent");
+    expect(params[3]).toBe("agg-42");
+  });
+
+  test("caller values win over the stamp", async () => {
+    const apply = setFields(fakeStampedTable, { status: "sent", modifiedById: "override" });
+    const { fakeTx, unsafe } = makeFakeTx();
+    await apply(makeFakeEvent(), fakeTx, fakeStampedTable);
+    const [, params] = unsafe.mock.calls[0]!;
+    expect(params).toContain("override");
+    expect(params).not.toContain("u-1");
+  });
+
+  test("projectionInsertColumns returns tenant, insert time and author for declared columns only", () => {
+    const event = makeFakeEvent();
+    expect(projectionInsertColumns(fakeStampedTable, event)).toEqual({
+      tenantId: "tenant-1",
+      insertedAt: event.createdAt,
+      insertedById: "u-1",
+    });
+    expect(projectionInsertColumns(fakeTable, event)).toEqual({});
   });
 
   test("throws at construction time when the table has no 'id' column", () => {

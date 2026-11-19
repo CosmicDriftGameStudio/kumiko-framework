@@ -10,7 +10,7 @@ import { createSecretsFeature } from "../feature.ts";
 // resolve at boot without the config feature present.
 function stripeSecret() {
   return defineFeature("stripe", (r) => {
-    r.secret("apiKey", { label: { en: "Stripe API Key" }, scope: "tenant" });
+    r.secret({ name: "apiKey", label: { en: "Stripe API Key" }, scope: "tenant" });
   });
 }
 

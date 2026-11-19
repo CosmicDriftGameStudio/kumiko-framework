@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderBunfigFiles, TEST_TIMEOUT_MS } from "../bunfig";
-import { renderTestSetup, SCAFFOLD_E2E_PORT, SCAFFOLD_INTEGRATION_PARALLEL } from "../scaffold";
+import { renderTestSetup, SCAFFOLD_INTEGRATION_PARALLEL } from "../scaffold";
 
 const setup = renderTestSetup({ appName: "my-shop", frameworkVersion: "^0.13.0" });
 
@@ -34,6 +34,9 @@ describe("renderTestSetup", () => {
     expect(setup.scripts["test"]).toBe(
       `bun --config=bunfig.toml test --timeout=${TEST_TIMEOUT_MS.unit} --dots`,
     );
+    expect(setup.scripts["test:dom"]).toBe(
+      `bun --config=bunfig.dom.toml test --timeout=${TEST_TIMEOUT_MS.dom} --dots --pass-with-no-tests .test.tsx`,
+    );
     expect(setup.scripts["test:real"]).toBe(
       `KUMIKO_REAL_PROVIDERS=1 bun --config=bunfig.real.toml test --timeout=${TEST_TIMEOUT_MS.real} .real.test.ts`,
     );
@@ -64,12 +67,10 @@ describe("renderTestSetup", () => {
     );
   });
 
-  test("the e2e config and server use the template entry points with the given port and app", () => {
-    expect(setup.files["playwright.config.ts"]).toContain(
-      `defineAppE2eConfig({ port: ${SCAFFOLD_E2E_PORT} })`,
-    );
-    const custom = renderTestSetup({ appName: "my-shop", frameworkVersion: "*", port: 5555 });
-    expect(custom.files["playwright.config.ts"]).toContain("port: 5555");
+  test("the e2e config reads the port from kumiko.config.ts and the server uses the template entry points", () => {
+    const config = setup.files["playwright.config.ts"] ?? "";
+    expect(config).toContain('import appConfig from "./kumiko.config";');
+    expect(config).toContain("defineAppE2eConfig({ port: appConfig.ports.e2e })");
     const server = setup.files["e2e/server.ts"] ?? "";
     expect(server).toContain("createE2eSeedRoutes()");
     expect(server).toContain('"admin@my-shop.local"');
@@ -86,7 +87,7 @@ describe("renderTestSetup", () => {
       "*.integration.test.ts",
       "e2e/*.spec.ts",
       "KUMIKO_REAL_PROVIDERS=1",
-      "@timeout-exception",
+      "kumiko-lint-ignore test-timeouts",
       "seedTenant",
       "bunx --bun playwright",
       "docs/guides/test-failures.md",

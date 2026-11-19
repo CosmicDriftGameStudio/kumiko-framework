@@ -23,8 +23,8 @@
 //
 // **Pattern precedent:** identical to `delivery` + `channel-email`. The
 // delivery feature declares `r.extendsRegistrar("deliveryChannel")`, and
-// channel-email registers via `r.useExtension("deliveryChannel",
-// "email", {...})`. The foundation ↔ provider separation is the same.
+// channel-email registers via `r.applyExtension({ name: "deliveryChannel",
+// entity: "email", ... })`. The foundation ↔ provider separation is the same.
 //
 // **Standalone:** The foundation can be used without tier-engine. Existing
 // `channel-email` (app-wide mail sender via delivery) remains unchanged—an
@@ -90,7 +90,7 @@ export type MailTransportContext = {
 /**
  * Mail-Transport-Plugin contract. Each provider-feature (mail-transport-
  * smtp, mail-transport-brevo-api, ...) registers an implementation via
- * `r.useExtension("mailTransport", "<name>", { build })`.
+ * `r.applyExtension({ name: "mailTransport", entity: "<name>", build })`.
  *
  * `build(ctx, tenantId)` reads the plugin's own config-keys + secrets
  * (the plugin owns its provider-specific config schema) and constructs
@@ -114,7 +114,7 @@ export function isMailTransportPlugin(o: unknown): o is MailTransportPlugin {
   return typeof o === "object" && o !== null && "build" in o && typeof o.build === "function";
 }
 
-// r.useExtension options-shape, co-located since the framework never imports upward.
+// r.applyExtension options-shape, co-located since the framework never imports upward.
 declare module "@cosmicdrift/kumiko-framework/engine" {
   interface KumikoExtensionOptionsMap {
     [MAIL_TRANSPORT_EXTENSION]: MailTransportPlugin;
@@ -149,22 +149,23 @@ export function createMailFoundationFeature() {
       // channel-email uses the app transport, so empty is a valid choice a tenant can
       // return to (reset in the settings mask) and readiness must not flag it.
       // createTransportForTenant still throws on empty.
-      const providerConfigKey = r.config(
-        "provider",
-        createTenantConfig("text", {
-          default: "",
-          // No SystemAdmin: a platform-level provider would be inherited by every tenant,
-          // whose own credentials (tenant secrets) are missing, and break all their mail.
-          write: access.withSystem(access.roles("TenantAdmin")),
-          read: access.roles("TenantAdmin", "SystemAdmin", "User"),
-          mask: {
-            title: "mail-foundation.provider",
-            description: "mail-foundation.provider.description",
-            icon: "mail",
-            order: 1,
-          },
-        }),
-      );
+      const providerConfigKey = r.config({
+        keys: {
+          provider: createTenantConfig("text", {
+            default: "",
+            // No SystemAdmin: a platform-level provider would be inherited by every tenant,
+            // whose own credentials (tenant secrets) are missing, and break all their mail.
+            write: access.withSystem(access.roles("TenantAdmin")),
+            read: access.roles("TenantAdmin", "SystemAdmin", "User"),
+            mask: {
+              title: "mail-foundation.provider",
+              description: "mail-foundation.provider.description",
+              icon: "mail",
+              order: 1,
+            },
+          }),
+        },
+      }).provider;
       // Readiness gating: transport-plugins' required keys/secrets count only
       // while their plugin is the one this key selects.
       r.extensionSelector(MAIL_TRANSPORT_EXTENSION, providerConfigKey);

@@ -21,10 +21,11 @@ import { eventsTable } from "../../event-store/index.ts";
 import { createTestUser, TestUsers, testTenantId } from "../../seeding/seed-users.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "read_fortenant_notes",
   fields: { label: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 const noteExecutor = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
 
 const ownTenantId = testTenantId(1);
@@ -33,7 +34,7 @@ const systemAdmin = TestUsers.systemAdmin;
 const tenantAdmin = createTestUser({ roles: ["TenantAdmin"] });
 
 const fortenantFeature = defineFeature("fortenant", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
 
   r.writeHandler(
     defineWriteHandler({

@@ -1,11 +1,11 @@
 import {
   boolean,
   buildBaseColumns,
-  defineUnmanagedTable,
   type EntityTableMeta,
   index,
   instant,
   table as pgTable,
+  requireEntityTableMeta,
   sql,
   text,
   uniqueIndex,
@@ -60,36 +60,13 @@ export const deliveryAttemptsTable = pgTable(
   ],
 );
 
-// **Unmanaged table** — deliberately has no createEntity because:
-//   - id comes from the aggregate stream (no gen_random_uuid()-DEFAULT)
-//   - no version/inserted_by/modified_by/modified_at: no in-place edits or
-//     audit columns are needed (idempotent-on-replay via PK conflict)
-//   - created_at rather than inserted_at reflects historical naming drift, not
-//     a bug
-// The app is responsible for tenant scoping in queries and replay idempotency.
-// pgTable remains the source of truth for the query API; the pgTable is derived
-// from this metadata.
-export const deliveryAttemptsTableMeta: EntityTableMeta = defineUnmanagedTable({
-  tableName: "store_delivery_attempts",
-  indexes: [
-    { name: DELIVERY_ATTEMPTS_TENANT_CREATED_INDEX, columns: ["tenant_id", "created_at"] },
-    { name: DELIVERY_ATTEMPTS_TENANT_IDEMPOTENCY_INDEX, columns: ["tenant_id", "idempotency_key"] },
-  ],
-  columns: [
-    { name: "id", pgType: "uuid", notNull: true, primaryKey: true },
-    { name: "tenant_id", pgType: "uuid", notNull: true },
-    { name: "notification_type", pgType: "text", notNull: true },
-    { name: "channel", pgType: "text", notNull: true },
-    { name: "recipient_id", pgType: "text", notNull: false },
-    { name: "recipient_address", pgType: "text", notNull: false },
-    { name: "status", pgType: "text", notNull: true },
-    { name: "error", pgType: "text", notNull: false },
-    { name: "confirmed", pgType: "boolean", notNull: false },
-    { name: "priority", pgType: "text", notNull: true, defaultSql: "'normal'" },
-    { name: "created_at", pgType: "timestamptz", notNull: true, defaultSql: "now()" },
-    { name: "idempotency_key", pgType: "text", notNull: false },
-  ],
-});
+// Event projection without an entity: the id comes from the attempt stream and there are no
+// audit or version columns. It is registered via r.storeTable because that is the only register
+// for tables without an entity; the store_ prefix is the deliberate exception here.
+export const deliveryAttemptsTableMeta: EntityTableMeta = requireEntityTableMeta(
+  deliveryAttemptsTable,
+  "deliveryAttemptsTable",
+);
 
 // User-scoped opt-in/opt-out for (notificationType, channel) pairs. Post-ES
 // refactor: each row is a notificationPreference aggregate with
@@ -97,6 +74,7 @@ export const deliveryAttemptsTableMeta: EntityTableMeta = defineUnmanagedTable({
 // event-store executor. The unique index on (tenant, user, type, channel)
 // is the effective natural key; the uuid PK is the aggregate id.
 export const notificationPreferenceEntity = createEntity({
+  name: "notification-preference",
   table: "read_notification_preferences",
   fields: {
     userId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
@@ -105,7 +83,7 @@ export const notificationPreferenceEntity = createEntity({
       personal: false,
       reason: "technical_reference",
     }), // qualified name or "*"
-    channel: createTextField({ required: true, personal: false, reason: "technical_reference" }), // "inApp", "email", "push", or "*"
+    channel: createTextField({ required: true, personal: false, reason: "technical_reference" }), // "inApp", "email", a chat channel, or "*"
     enabled: createBooleanField({ default: true }),
   },
 });
@@ -139,6 +117,7 @@ export const notificationPreferencesTable = pgTable(
 // picks the next id generation (see addressOptOutAggregateId) since the
 // deleted stream can't be revived.
 export const notificationAddressOptOutEntity = createEntity({
+  name: "notification-address-opt-out",
   table: "read_notification_address_opt_outs",
   fields: {
     addressHash: createTextField({ required: true, personal: false, reason: "keyed_hash" }),

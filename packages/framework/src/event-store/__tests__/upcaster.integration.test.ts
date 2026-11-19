@@ -30,18 +30,20 @@ import {
 import type { StoredEvent } from "../../event-store/index.ts";
 import { rebuildProjection } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
+import { EventVersionAheadError } from "../errors.ts";
 import { append } from "../index.ts";
-import { upcastStoredEvent } from "../upcaster.ts";
+import { type EventUpcasters, upcastStoredEvent } from "../upcaster.ts";
 
 // --- Fixture entity + projection table ---
 
 const orderEntity = createEntity({
+  name: "upcast-order",
   table: "read_upcast_orders",
   fields: {
     customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const orderTable = buildEntityTable("upcast-order", orderEntity);
+const orderTable = buildEntityTable(orderEntity);
 
 // Projection stores the UPCAST view: the v3 shape expects `totalCents` (int)
 // even though the earliest writes might have stored `totalEuros` (string).
@@ -55,7 +57,7 @@ const orderSummaryTable = pgTable("read_upcast_order_summary", {
 // --- Feature: version 3 event with v1→v2 and v2→v3 migrations registered ---
 
 const orderFeature = defineFeature("upcastshop", (r) => {
-  r.entity({ name: "upcast-order", ...orderEntity });
+  r.entity(orderEntity);
 
   // v3 shape: { totalCents: int, currency: string }
   const orderPriced = r.defineEvent(
@@ -234,6 +236,84 @@ describe("upcaster: in-memory transform chain", () => {
 
     expect(upcast).toBe(raw);
   });
+
+  test("an event stored above the registered version is rejected", async () => {
+    const upcasters = registry.getEventUpcasters();
+    const raw: StoredEvent = {
+      id: "5",
+      aggregateId: "00000000-0000-4000-8000-000000000005",
+      aggregateType: "upcast-order",
+      tenantId: admin.tenantId,
+      version: 1,
+      type: "upcastshop:event:priced",
+      eventVersion: 4,
+      payload: {},
+      metadata: { userId: admin.id },
+      createdAt: Temporal.Now.instant(),
+      createdBy: admin.id,
+    };
+
+    await expect(
+      upcastStoredEvent(raw, upcasters, { db: testDb.db, tenantId: admin.tenantId }),
+    ).rejects.toThrow(EventVersionAheadError);
+  });
+
+  test("an unregistered event type above version 1 is rejected", async () => {
+    const upcasters = registry.getEventUpcasters();
+    const raw: StoredEvent = {
+      id: "6",
+      aggregateId: "00000000-0000-4000-8000-000000000006",
+      aggregateType: "upcast-order",
+      tenantId: admin.tenantId,
+      version: 1,
+      type: "some:event:never-declared",
+      eventVersion: 2,
+      payload: {},
+      metadata: { userId: admin.id },
+      createdAt: Temporal.Now.instant(),
+      createdBy: admin.id,
+    };
+
+    await expect(
+      upcastStoredEvent(raw, upcasters, { db: testDb.db, tenantId: admin.tenantId }),
+    ).rejects.toThrow(EventVersionAheadError);
+  });
+
+  test("a failing transform propagates its error", async () => {
+    const failing: EventUpcasters = new Map([
+      [
+        "probe.broken",
+        {
+          currentVersion: 2,
+          chain: new Map([
+            [
+              1,
+              async () => {
+                throw new Error("payload malformed: missing required field");
+              },
+            ],
+          ]),
+        },
+      ],
+    ]);
+    const raw: StoredEvent = {
+      id: "7",
+      aggregateId: "00000000-0000-4000-8000-000000000007",
+      aggregateType: "upcast-order",
+      tenantId: admin.tenantId,
+      version: 1,
+      type: "probe.broken",
+      eventVersion: 1,
+      payload: {},
+      metadata: { userId: admin.id },
+      createdAt: Temporal.Now.instant(),
+      createdBy: admin.id,
+    };
+
+    await expect(
+      upcastStoredEvent(raw, failing, { db: testDb.db, tenantId: admin.tenantId }),
+    ).rejects.toThrow(/payload malformed/);
+  });
 });
 
 describe("upcaster: projection rebuild walks the chain on replay", () => {
@@ -288,7 +368,7 @@ describe("upcaster: projection rebuild walks the chain on replay", () => {
     });
     expect(result.eventsProcessed).toBe(3);
 
-    const rows = await selectMany(testDb.db, orderSummaryTable);
+    const rows = await selectMany<{ orderId: string }>(testDb.db, orderSummaryTable);
 
     // Ordered by orderId → ord1 (10€ = 1000¢), ord2 ($25.50 = 2550¢), ord3 (9900¢)
     expect(rows).toHaveLength(3);
@@ -296,6 +376,24 @@ describe("upcaster: projection rebuild walks the chain on replay", () => {
     expect(byId.get(ord1)).toMatchObject({ totalCents: 1000, currency: "EUR" });
     expect(byId.get(ord2)).toMatchObject({ totalCents: 2550, currency: "USD" });
     expect(byId.get(ord3)).toMatchObject({ totalCents: 9900, currency: "CHF" });
+  });
+
+  test("rebuild stops on an event stored above the registered version", async () => {
+    await orderExecutor.create({ customer: "c-ahead" }, admin, tdb);
+    await append(testDb.db, {
+      aggregateId: "00000000-0000-4000-8000-00000000dddd",
+      aggregateType: "upcast-order",
+      tenantId: admin.tenantId,
+      expectedVersion: 0,
+      type: "upcastshop:event:priced",
+      eventVersion: 4,
+      payload: { totalCents: 1, currency: "EUR" },
+      metadata: { userId: admin.id },
+    });
+
+    await expect(
+      rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry }),
+    ).rejects.toThrow(EventVersionAheadError);
   });
 });
 
@@ -321,7 +419,7 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
 
     // Feature with async upcaster v1 → v2: enrich payload with segment from DB.
     const asyncFeature = defineFeature("upcastasync", (r) => {
-      r.entity({ name: "upcast-async-order", ...orderEntity });
+      r.entity({ ...orderEntity, name: "upcast-async-order" });
       const placed = r.defineEvent(
         "placed",
         z.object({ customerId: z.string(), segment: z.string() }),
@@ -397,7 +495,7 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
     });
     expect(result.eventsProcessed).toBe(2);
 
-    const rows = await selectMany(testDb.db, asyncSummary);
+    const rows = await selectMany<{ orderId: string; segment: string }>(testDb.db, asyncSummary);
     expect(rows).toHaveLength(2);
     const byId = new Map(rows.map((r) => [r.orderId, r]));
     // v1 → v2 via async DB lookup → segment from customer_segments.
@@ -410,7 +508,7 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
 describe("upcaster: boot-time validation", () => {
   test("defineEvent with version=N and only partial migrations fails at registry build", () => {
     const incomplete = defineFeature("holes", (r) => {
-      r.entity({ name: "hole-order", ...orderEntity });
+      r.entity({ ...orderEntity, name: "hole-order" });
       // Only 1→2 registered — the 2→3 gap must be rejected.
       r.defineEvent("bad", z.object({ v3: z.string() }), {
         piiFields: "none",
@@ -429,7 +527,7 @@ describe("upcaster: boot-time validation", () => {
 
   test("migration toVersion > defineEvent version → rejected", () => {
     const future = defineFeature("future", (r) => {
-      r.entity({ name: "future-order", ...orderEntity });
+      r.entity({ ...orderEntity, name: "future-order" });
       r.defineEvent("early", z.object({ x: z.number() }), {
         piiFields: "none",
         version: 1,
@@ -441,7 +539,7 @@ describe("upcaster: boot-time validation", () => {
 
   test("non-contiguous (1→2 and 3→4 without 2→3) → rejected", () => {
     const gaps = defineFeature("gaps", (r) => {
-      r.entity({ name: "gap-order", ...orderEntity });
+      r.entity({ ...orderEntity, name: "gap-order" });
       r.defineEvent("jumpy", z.object({ v: z.number() }), {
         piiFields: "none",
         version: 4,
@@ -459,7 +557,7 @@ describe("upcaster: registrar input validation", () => {
   test("defineEvent migrations reject multi-step jumps", () => {
     expect(() =>
       defineFeature("bigstep", (r) => {
-        r.entity({ name: "bigstep-order", ...orderEntity });
+        r.entity({ ...orderEntity, name: "bigstep-order" });
         r.defineEvent("biz", z.object({ x: z.number() }), {
           piiFields: "none",
           version: 3,
@@ -472,7 +570,7 @@ describe("upcaster: registrar input validation", () => {
   test("defineEvent migrations reject duplicate step", () => {
     expect(() =>
       defineFeature("dupestep", (r) => {
-        r.entity({ name: "dup-order", ...orderEntity });
+        r.entity({ ...orderEntity, name: "dup-order" });
         r.defineEvent("dup", z.object({ x: z.number() }), {
           piiFields: "none",
           version: 2,
@@ -488,7 +586,7 @@ describe("upcaster: registrar input validation", () => {
   test("r.defineEvent rejects non-positive version", () => {
     expect(() =>
       defineFeature("badver", (r) => {
-        r.entity({ name: "badver-order", ...orderEntity });
+        r.entity({ ...orderEntity, name: "badver-order" });
         r.defineEvent("neg", z.object({ x: z.number() }), { piiFields: "none", version: 0 });
       }),
     ).toThrow(/positive integer/);

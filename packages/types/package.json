@@ -50,6 +50,10 @@
       "types": "./src/session-cookies.ts",
       "default": "./src/session-cookies.ts"
     },
+    "./demo-mode-types": {
+      "types": "./src/demo-mode-types.ts",
+      "default": "./src/demo-mode-types.ts"
+    },
     "./in-app-notification-types": {
       "types": "./src/in-app-notification-types.ts",
       "default": "./src/in-app-notification-types.ts"
@@ -121,10 +125,6 @@
     "./db-connection": {
       "types": "./src/db-connection.ts",
       "default": "./src/db-connection.ts"
-    },
-    "./entity-cache": {
-      "types": "./src/entity-cache.ts",
-      "default": "./src/entity-cache.ts"
     },
     "./file-handle-types": {
       "types": "./src/file-handle-types.ts",
@@ -205,6 +205,10 @@
     "./fields": {
       "types": "./src/fields.ts",
       "default": "./src/fields.ts"
+    },
+    "./handler-contract": {
+      "types": "./src/handler-contract.ts",
+      "default": "./src/handler-contract.ts"
     },
     "./handlers": {
       "types": "./src/handlers.ts",
@@ -365,6 +369,10 @@
         "types": "./dist/session-cookies.d.ts",
         "default": "./dist/session-cookies.js"
       },
+      "./demo-mode-types": {
+        "types": "./dist/demo-mode-types.d.ts",
+        "default": "./dist/demo-mode-types.js"
+      },
       "./in-app-notification-types": {
         "types": "./dist/in-app-notification-types.d.ts",
         "default": "./dist/in-app-notification-types.js"
@@ -436,10 +444,6 @@
       "./db-connection": {
         "types": "./dist/db-connection.d.ts",
         "default": "./dist/db-connection.js"
-      },
-      "./entity-cache": {
-        "types": "./dist/entity-cache.d.ts",
-        "default": "./dist/entity-cache.js"
       },
       "./file-handle-types": {
         "types": "./dist/file-handle-types.d.ts",
@@ -520,6 +524,10 @@
       "./fields": {
         "types": "./dist/fields.d.ts",
         "default": "./dist/fields.js"
+      },
+      "./handler-contract": {
+        "types": "./dist/handler-contract.d.ts",
+        "default": "./dist/handler-contract.js"
       },
       "./handlers": {
         "types": "./dist/handlers.d.ts",

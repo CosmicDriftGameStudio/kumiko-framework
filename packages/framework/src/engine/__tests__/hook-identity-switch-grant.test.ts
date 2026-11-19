@@ -49,7 +49,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
 
     let caught: unknown;
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      const thing = r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
       const hookFn: PostSaveHookFn = async (_result, ctx) => {
         const asContext = ctx as unknown as { dispatch: { queryAs: QueryAsFn } };
         try {
@@ -88,7 +88,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
 
     let queryAsResult: unknown;
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      const thing = r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
       const hookFn: PostSaveHookFn = async (_result, ctx) => {
         const asContext = ctx as unknown as { dispatch: { queryAs: QueryAsFn } };
         queryAsResult = await asContext.dispatch.queryAs(systemUser, "whoami", {});
@@ -97,7 +97,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
         type: "postSave",
         target: { allOf: thing },
         handler: hookFn,
-        escapeHatch: { reason: "test: allOf hook needs SYSTEM" },
+        escapeHatch: { reason: "test: allOf hook needs SYSTEM", grants: ["systemIdentity"] },
       });
     });
 
@@ -114,12 +114,12 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
   test("registering an { allOf } hook with an empty escapeHatch reason throws at registration", () => {
     expect(() => {
       defineFeature("test", (r) => {
-        const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+        const thing = r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
         r.hook({
           type: "postSave",
           target: { allOf: thing },
           handler: async () => undefined,
-          escapeHatch: { reason: "" },
+          escapeHatch: { reason: "", grants: ["systemIdentity"] },
         });
       });
     }).toThrow(/non-empty/);
@@ -143,7 +143,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
 
     let caught: unknown;
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      const thing = r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
       const hookFn: PostSaveHookFn = async (_result, ctx) => {
         const asContext = ctx as unknown as {
           auth: { resolveActiveMembership: ResolveActiveMembershipFn };
@@ -186,7 +186,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
 
     let caught: unknown;
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      const thing = r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
       const hookFn: PostSaveHookFn = async (_result, ctx) => {
         const asContext = ctx as unknown as {
           auth: { resolveActiveMembership: ResolveActiveMembershipFn };
@@ -201,7 +201,7 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
         type: "postSave",
         target: { allOf: thing },
         handler: hookFn,
-        escapeHatch: { reason: "test: allOf hook needs SYSTEM" },
+        escapeHatch: { reason: "test: allOf hook needs SYSTEM", grants: ["systemIdentity"] },
       });
     });
 

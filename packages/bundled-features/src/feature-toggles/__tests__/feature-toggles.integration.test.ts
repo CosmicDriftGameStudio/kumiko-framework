@@ -48,6 +48,7 @@ import { createRedisToggleSyncSignal, type RedisToggleSyncSignal } from "../togg
 // executor, so the full lifecycle pipeline (postSave hooks + event-log
 // append that the tracker-MSP consumes) actually fires downstream.
 const widgetEntity = createEntity({
+  name: "widget",
   table: "read_widgets",
   fields: {
     name: createTextField({
@@ -59,7 +60,7 @@ const widgetEntity = createEntity({
     active: createBooleanField({ default: true }),
   },
 });
-const widgetTable = buildEntityTable("widget", widgetEntity);
+const widgetTable = buildEntityTable(widgetEntity);
 
 const widgetCrud = createEventStoreExecutor(widgetTable, widgetEntity, {
   entityName: "widget",
@@ -69,7 +70,7 @@ function widgetFeature(): FeatureDefinition {
   return defineFeature("widget", (r) => {
     r.systemScope();
     r.toggleable({ default: true });
-    r.entity({ name: "widget", ...widgetEntity });
+    r.entity(widgetEntity);
 
     // Use the event-store executor so the framework's lifecycle pipeline
     // (postSave hooks, incl. cross-feature ones) actually fires after the
@@ -99,6 +100,7 @@ function widgetFeature(): FeatureDefinition {
 // create-handler MUST keep working. That's the "B hooks on A" test the
 // user explicitly asked for.
 const widgetAuditEntity = createEntity({
+  name: "widget-audit",
   table: "widget_audits",
   fields: {
     widgetName: createTextField({
@@ -109,13 +111,13 @@ const widgetAuditEntity = createEntity({
     }),
   },
 });
-const widgetAuditTable = buildEntityTable("widget-audit", widgetAuditEntity);
+const widgetAuditTable = buildEntityTable(widgetAuditEntity);
 
 function widgetAuditFeature(): FeatureDefinition {
   return defineFeature("widget-audit", (r) => {
     r.systemScope();
     r.toggleable({ default: true });
-    r.entity({ name: "widget-audit", ...widgetAuditEntity });
+    r.entity(widgetAuditEntity);
 
     r.hook({
       type: "postSave",
@@ -267,7 +269,7 @@ async function countAuditRows(): Promise<number> {
 }
 
 async function trackerCount(): Promise<number> {
-  const rows = await selectMany(stack.db, widgetTrackerTable);
+  const rows = await selectMany<{ readonly count: number }>(stack.db, widgetTrackerTable);
   return rows[0]?.count ?? 0;
 }
 
@@ -297,7 +299,21 @@ describe("feature-toggles runtime cache", () => {
     expect(runtime.effectiveFeatures().has("widget")).toBe(true);
   });
 
+  test("effectiveFeatures() is reused until apply() changes the snapshot", () => {
+    runtime.apply("widget", true);
+    const warm = runtime.effectiveFeatures();
+    expect(runtime.effectiveFeatures()).toBe(warm);
+    expect(warm.has("widget-tracker")).toBe(true);
+    runtime.apply("widget", false);
+    const afterFlip = runtime.effectiveFeatures();
+    expect(afterFlip.has("widget")).toBe(false);
+    expect(afterFlip.has("widget-tracker")).toBe(false);
+    runtime.apply("widget", true);
+  });
+
   test("refresh() re-reads the DB snapshot", async () => {
+    runtime.apply("widget", true);
+    expect(runtime.effectiveFeatures().has("widget")).toBe(true);
     await seedRow(
       stack.db,
       globalFeatureStateTable,

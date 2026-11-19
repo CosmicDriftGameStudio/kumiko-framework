@@ -17,7 +17,7 @@
 // NavDefinition, WorkspaceDefinition, JobDefinition-options, MetricOptions,
 // etc. are NOT hand-modeled here — that would fork a second, driftable
 // catalogue of their shape. They're accepted via `z.custom` (plain object,
-// or a RawRefSentinel/AiStepOpaqueArgs — the extractor's own "couldn't
+// or a RawRefSentinel — the extractor's own "couldn't
 // resolve this statically" markers) and, for EntityDefinition only,
 // additionally checked for field-type membership via the shared
 // `findUnknownEntityFieldTypes` helper (kept in sync with `extractEntity`).
@@ -33,7 +33,7 @@ import type {
   TranslationKeys,
 } from "@cosmicdrift/kumiko-types/config";
 import type { MetricOptions, SecretOptions } from "@cosmicdrift/kumiko-types/feature";
-import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+
 import type { AgentRisk, ClaimKeyType, RateLimitPer } from "@cosmicdrift/kumiko-types/handlers";
 import { ESCAPE_HATCH_GRANTS } from "@cosmicdrift/kumiko-types/handlers";
 import type { HookPhase } from "@cosmicdrift/kumiko-types/hook-phase";
@@ -55,7 +55,7 @@ import type {
 } from "./patch.ts";
 import { SYNTHETIC_LOC } from "./patcher.ts";
 import { patternIdSchema } from "./pattern-id-schema.ts";
-import type { FeaturePatternKind } from "./patterns.ts";
+import type { EntityPatternDefinition, FeaturePatternKind } from "./patterns.ts";
 import type { SourceLocation, SourcePosition } from "./source-location.ts";
 
 // Derives an exhaustive literal-value array from a `Record<T, true>` flag
@@ -197,12 +197,14 @@ const mspDeliverySchema = z.enum(
   keysOf<"shared" | "per-instance">({ shared: true, "per-instance": true }),
 );
 
+const escapeHatchGrantSchema = z.enum(ESCAPE_HATCH_GRANTS);
+
 const escapeHatchSchema = z
   .object({
     reason: z.string().refine((s) => s.trim().length > 0, {
       message: "reason must be non-empty",
     }),
-    grants: z.array(z.enum(ESCAPE_HATCH_GRANTS)).min(1).optional(),
+    grants: z.tuple([escapeHatchGrantSchema], escapeHatchGrantSchema),
   })
   .strict();
 
@@ -417,7 +419,7 @@ function requireHandlerBody(
 // Deep-definition passthrough: accepts a plain object OR the extractor's
 // own "couldn't resolve this statically" sentinel (RawRefSentinel), typed
 // as `T` at the boundary — the same "typed lie" the extractors already
-// make (e.g. round2.ts's `definition as EntityDefinition`), because a
+// make (e.g. round2.ts's `definition as EntityPatternDefinition`), because a
 // sentinel-bearing value is never actually shaped like `T` at runtime, but
 // round-trips through `applyChanges`/the renderer unexamined either way.
 function passthroughSchema<T>(): z.ZodType<T> {
@@ -426,15 +428,17 @@ function passthroughSchema<T>(): z.ZodType<T> {
   });
 }
 
-const entityDefinitionSchema = passthroughSchema<EntityDefinition>().superRefine((value, ctx) => {
-  for (const entry of findUnknownEntityFieldTypes(value)) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["fields", entry.fieldName, "type"],
-      message: describeUnknownFieldType(entry),
-    });
-  }
-});
+const entityDefinitionSchema = passthroughSchema<EntityPatternDefinition>().superRefine(
+  (value, ctx) => {
+    for (const entry of findUnknownEntityFieldTypes(value)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["fields", entry.fieldName, "type"],
+        message: describeUnknownFieldType(entry),
+      });
+    }
+  },
+);
 
 const entitySchema = z
   .object({
@@ -443,6 +447,7 @@ const entitySchema = z
     entityName: z.string(),
     definition: entityDefinitionSchema,
     backingTable: passthroughSchema<RawRefSentinel>().optional(),
+    overridesName: z.literal(true).optional(),
   })
   .strict();
 
@@ -524,13 +529,6 @@ const describeSchema = z
     kind: z.literal("describe"),
     source: sourceFieldSchema,
     text: z.string().refine((s) => s.trim().length > 0, { message: "text must be non-empty" }),
-  })
-  .strict();
-
-const adoptsBundledListsSchema = z
-  .object({
-    kind: z.literal("adoptsBundledLists"),
-    source: sourceFieldSchema,
   })
   .strict();
 
@@ -802,69 +800,6 @@ const envSchemaSchema = z
   })
   .strict();
 
-const aiStepOpaqueArgsSchema = z.custom<{ readonly __raw: string }>(isRawRefSentinel, {
-  message: "must be an unresolved reference ({ __raw })",
-});
-
-const aiStepPolicySchema = z
-  .object({
-    enabled: z.boolean(),
-    providerId: z.string().optional(),
-    model: z.string().optional(),
-    params: z.custom<Record<string, unknown>>(isPlainObject, {
-      message: "params must be a plain object",
-    }),
-  })
-  .strict();
-
-const stringOrAiOpaqueSchema = z.union([z.string(), aiStepOpaqueArgsSchema]);
-const aiStepPolicyOrOpaqueSchema = z.union([aiStepPolicySchema, aiStepOpaqueArgsSchema]);
-
-const aiGenerateSchema = z
-  .object({
-    kind: z.literal("ai.generate"),
-    source: sourceFieldSchema,
-    argsSource: aiStepOpaqueArgsSchema.optional(),
-    stepKey: stringOrAiOpaqueSchema.optional(),
-    promptKey: stringOrAiOpaqueSchema.optional(),
-    promptFallback: stringOrAiOpaqueSchema.optional(),
-    defaults: aiStepPolicyOrOpaqueSchema.optional(),
-    paramsSchemaSource: sourceBodySchema.optional(),
-    inputBody: sourceBodySchema.optional(),
-  })
-  .strict();
-
-const aiExtractSchema = z
-  .object({
-    kind: z.literal("ai.extract"),
-    source: sourceFieldSchema,
-    argsSource: aiStepOpaqueArgsSchema.optional(),
-    stepKey: stringOrAiOpaqueSchema.optional(),
-    promptKey: stringOrAiOpaqueSchema.optional(),
-    promptFallback: stringOrAiOpaqueSchema.optional(),
-    defaults: aiStepPolicyOrOpaqueSchema.optional(),
-    paramsSchemaSource: sourceBodySchema.optional(),
-    outputSchemaSource: sourceBodySchema.optional(),
-    instructionsBody: sourceBodySchema.optional(),
-    documentBody: sourceBodySchema.optional(),
-  })
-  .strict();
-
-const aiClassifySchema = z
-  .object({
-    kind: z.literal("ai.classify"),
-    source: sourceFieldSchema,
-    argsSource: aiStepOpaqueArgsSchema.optional(),
-    stepKey: stringOrAiOpaqueSchema.optional(),
-    promptKey: stringOrAiOpaqueSchema.optional(),
-    promptFallback: stringOrAiOpaqueSchema.optional(),
-    defaults: aiStepPolicyOrOpaqueSchema.optional(),
-    paramsSchemaSource: sourceBodySchema.optional(),
-    actions: z.array(z.object({ type: z.string(), description: z.string() }).strict()).optional(),
-    inputBody: sourceBodySchema.optional(),
-  })
-  .strict();
-
 // =============================================================================
 // Catch-all
 // =============================================================================
@@ -896,7 +831,6 @@ export const PATTERN_SCHEMAS_BY_KIND = {
   toggleable: toggleableSchema,
   describe: describeSchema,
   uiHints: uiHintsSchema,
-  adoptsBundledLists: adoptsBundledListsSchema,
   metric: metricSchema,
   secret: secretSchema,
   secretNamespace: secretNamespaceSchema,
@@ -921,9 +855,6 @@ export const PATTERN_SCHEMAS_BY_KIND = {
   defineEvent: defineEventSchema,
   extendsRegistrar: extendsRegistrarSchema,
   envSchema: envSchemaSchema,
-  "ai.generate": aiGenerateSchema,
-  "ai.extract": aiExtractSchema,
-  "ai.classify": aiClassifySchema,
   unknown: unknownPatternSchema,
 } satisfies Record<FeaturePatternKind, z.ZodTypeAny>;
 
@@ -940,7 +871,6 @@ export const patternSchema = z.discriminatedUnion("kind", [
   toggleableSchema,
   describeSchema,
   uiHintsSchema,
-  adoptsBundledListsSchema,
   metricSchema,
   secretSchema,
   secretNamespaceSchema,
@@ -965,9 +895,6 @@ export const patternSchema = z.discriminatedUnion("kind", [
   defineEventSchema,
   extendsRegistrarSchema,
   envSchemaSchema,
-  aiGenerateSchema,
-  aiExtractSchema,
-  aiClassifySchema,
   unknownPatternSchema,
 ]);
 

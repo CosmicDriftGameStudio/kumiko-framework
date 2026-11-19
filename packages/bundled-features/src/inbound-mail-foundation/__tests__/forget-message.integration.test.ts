@@ -2,7 +2,13 @@
 // does not bring it back, and only the people who may see the mailbox can do it.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  configuredPiiSubjectKms,
+  decryptPiiFieldValues,
+  PII_ERASED_SENTINEL,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
@@ -87,6 +93,40 @@ describe("forget-message", () => {
     );
     await createMailSupervisor(env.stack).pollOnce();
     expect(await rowsOf(admin.tenantId, messageId)).toHaveLength(0);
+  });
+
+  test("forgetting a mail makes its text in the event log unreadable, another mail stays readable", async () => {
+    const admin = adminFor(7107);
+    const accountId = await connectInMemoryAccount(env.stack, admin);
+    const forgottenId = await importMailWithAttachment(accountId, "forget-log-1");
+    const keptId = await importMailWithAttachment(accountId, "forget-log-2");
+
+    await env.stack.http.writeOk(
+      InboundMailFoundationHandlers.forgetMessage,
+      { messageId: forgottenId },
+      admin,
+    );
+
+    const kms = configuredPiiSubjectKms();
+    if (!kms) throw new Error("expected a configured PII-subject KMS in this test stack");
+    const readReceived = async (messageId: string) => {
+      const events = await selectMany<{
+        type: string;
+        payload: { from?: string; bodyText?: string };
+      }>(env.stack.db, eventsTable, { aggregateId: messageId });
+      const received = events.find((e) => e.type.endsWith("inbound-message-received"));
+      const { from, bodyText } = received?.payload ?? {};
+      if (!from || !bodyText) throw new Error("expected a received event with from and bodyText");
+      return decryptPiiFieldValues({ from, bodyText }, ["from", "bodyText"], kms, {
+        requestId: `test:forget-read:${messageId}`,
+      });
+    };
+
+    const forgotten = await readReceived(forgottenId);
+    expect(forgotten["from"]).toBe(PII_ERASED_SENTINEL);
+    expect(forgotten["bodyText"]).toBe(PII_ERASED_SENTINEL);
+    const kept = await readReceived(keptId);
+    expect(kept["from"]).toBe("sender@example.com");
   });
 
   test("a mail of another tenant is not found and survives", async () => {

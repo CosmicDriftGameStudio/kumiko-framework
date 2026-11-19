@@ -24,20 +24,22 @@ import { createTestUser, TestUsers } from "../../seeding/seed-users.ts";
 // --- Two aggregate types that feed one MSP ---
 
 const shipmentEntity = createEntity({
+  name: "msp-shipment",
   table: "read_msp_shipments",
   fields: {
     customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const shipmentTable = buildEntityTable("msp-shipment", shipmentEntity);
+const shipmentTable = buildEntityTable(shipmentEntity);
 
 const refundEntity = createEntity({
+  name: "msp-refund",
   table: "read_msp_refunds",
   fields: {
     customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const refundTable = buildEntityTable("msp-refund", refundEntity);
+const refundTable = buildEntityTable(refundEntity);
 
 // Cross-cutting MSP: one row per customer, sums shipments − refunds. Key
 // differences from a single-stream projection:
@@ -52,9 +54,16 @@ const customerBalanceTable = pgTable("read_msp_customer_balance", {
   netCents: pgInteger("net_cents").notNull().default(0),
 });
 
+type BalanceRow = {
+  readonly customer: string;
+  readonly tenantId: string;
+  readonly shipments: number;
+  readonly netCents: number;
+};
+
 const mspFeature = defineFeature("msptest", (r) => {
-  r.entity({ name: "msp-shipment", ...shipmentEntity });
-  r.entity({ name: "msp-refund", ...refundEntity });
+  r.entity(shipmentEntity);
+  r.entity(refundEntity);
 
   const shipmentBilled = r.defineEvent(
     "shipment-billed",
@@ -109,6 +118,7 @@ const mspFeature = defineFeature("msptest", (r) => {
       if (!res.isSuccess) return res;
       await ctx.events.unsafeAppend({
         aggregateId: String(res.data.id),
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "msp-shipment",
         type: shipmentBilled.name,
         payload: { customer: event.payload.customer, cents: event.payload.cents },
@@ -130,6 +140,7 @@ const mspFeature = defineFeature("msptest", (r) => {
       if (!res.isSuccess) return res;
       await ctx.events.unsafeAppend({
         aggregateId: String(res.data.id),
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "msp-refund",
         type: refundIssued.name,
         payload: { customer: event.payload.customer, cents: event.payload.cents },
@@ -190,7 +201,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
     // Drain the dispatcher — MSPs run async.
     await stack.eventDispatcher?.runOnce();
 
-    const rows = await selectMany(stack.db, customerBalanceTable);
+    const rows = await selectMany<BalanceRow>(stack.db, customerBalanceTable);
     const byCustomer = new Map(rows.map((r) => [r.customer, r]));
 
     expect(byCustomer.get(customerA)).toMatchObject({
@@ -219,7 +230,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
     expect(pass2?.byConsumer[mspName]?.processed ?? 0).toBe(0);
 
     // Row state is stable across the no-op pass.
-    const [row] = await selectMany(stack.db, customerBalanceTable, { customer: cust });
+    const [row] = await selectMany<BalanceRow>(stack.db, customerBalanceTable, { customer: cust });
     expect(row?.shipments).toBe(1);
     expect(row?.netCents).toBe(42);
   });
@@ -250,7 +261,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
     );
     await stack.eventDispatcher?.runOnce();
 
-    const rows = await selectMany(stack.db, customerBalanceTable);
+    const rows = await selectMany<BalanceRow>(stack.db, customerBalanceTable);
     const alpha = rows.find((r) => r.customer === customerAlpha);
     const beta = rows.find((r) => r.customer === customerBeta);
 
@@ -272,7 +283,7 @@ describe("r.multiStreamProjection — Marten MultiStreamProjection equivalent", 
 
     // Only the shipment-billed event was folded in; the auto "created"
     // event was silently skipped.
-    const [row] = await selectMany(stack.db, customerBalanceTable, { customer: cust });
+    const [row] = await selectMany<BalanceRow>(stack.db, customerBalanceTable, { customer: cust });
     expect(row?.shipments).toBe(1);
   });
 });
@@ -281,7 +292,7 @@ describe("r.multiStreamProjection — registrar validation", () => {
   test("empty apply map is rejected", () => {
     expect(() =>
       defineFeature("mspbad", (r) => {
-        r.entity({ name: "msp-shipment", ...shipmentEntity });
+        r.entity(shipmentEntity);
         r.multiStreamProjection({
           name: "empty",
           table: customerBalanceTable,
@@ -294,7 +305,7 @@ describe("r.multiStreamProjection — registrar validation", () => {
   test("name collision with single-stream projection is rejected", () => {
     expect(() =>
       defineFeature("mspcollision", (r) => {
-        r.entity({ name: "msp-shipment", ...shipmentEntity });
+        r.entity(shipmentEntity);
         r.projection({
           name: "shared",
           source: "msp-shipment",

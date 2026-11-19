@@ -35,6 +35,7 @@
 //   2. projection ({@link PiiBackfillOptions.resolveOwnerFromProjection}) —
 //      pre-owner-field-addition events don't carry it; read it from the
 //      entity's current projection row instead.
+//      A hard-deleted aggregate falls back to the row stored in its delete event.
 //   2b. whenAbsent — the payload again, now falling back to the tenant key (or
 //      the row's own record key for whenAbsent: "self") for fields that declare it.
 //   3. erase ({@link PiiBackfillOptions.eraseUnresolvableSubjects}) — still
@@ -61,9 +62,8 @@
 // affected projections — applyEntityEvent materializes ciphertext AND the
 // blind-index columns, which keeps equality lookups (login by email) alive.
 
-import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import { type EntityDefinition, isDeclaredEntityVerb } from "@cosmicdrift/kumiko-types/fields";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { quoteIdent } from "../../crypto/ciphertext-pattern.ts";
 import { configuredEventPiiCatalog } from "../../crypto/event-pii.ts";
 import {
   isLocalKeyKmsAdapter,
@@ -85,20 +85,19 @@ import {
 } from "../../crypto/pii-field-encryption.ts";
 import {
   collectPiiEncryptedFields,
-  type ResolveSubjectOptions,
   resolveEventSubject,
-  resolveSubjectForField,
   SubjectResolutionError,
   usableOwnerId,
 } from "../../crypto/subject-resolver.ts";
 import type { Registry, TenantId } from "../../engine/types/index.ts";
-
 import type { DbRunner } from "../connection.ts";
 import { resolveTableName } from "../entity-table-meta.ts";
+import { entityEventName } from "../event-store-executor-context.ts";
 import { asRawClient } from "../query.ts";
 import { tableExists } from "../schema-inspection.ts";
+import { quoteIdent } from "../sql-identifier.ts";
 import { withoutStatementTimeout } from "../statement-timeout.ts";
-import { toSnakeCase } from "../table-builder.ts";
+import { projectionRowToCamel, resolveOwnerSubject } from "./backfill-pii-owner-resolution.ts";
 import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
 
 const LIFECYCLE_VERBS = ["created", "updated", "deleted", "restored", "forgotten"] as const;
@@ -321,6 +320,16 @@ export async function backfillEventPiiEncryptionBatch(
   const scanCache = options.scanCache ?? {};
 
   const { entityTargets, eventCatalog } = collectPiiTargets(registry);
+  const scope: BackfillBatchScope = {
+    db,
+    raw,
+    options,
+    subjectKms,
+    kmsCtx,
+    scanCache,
+    entityTargets,
+    eventCatalog,
+  };
   const aggregateTypes = [...entityTargets.keys()];
   const catalogTypes = [...eventCatalog.keys()];
   const failures: PiiBackfillFailure[] = [];
@@ -349,7 +358,8 @@ export async function backfillEventPiiEncryptionBatch(
   const last = rows[rows.length - 1];
   if (last === undefined) return emptyBatch();
 
-  const projectionOwnersByType = await loadProjectionOwners(rows);
+  const projectionOwnersByType = await loadProjectionOwners(scope, rows);
+  const streamHistories = await loadUpdatedStreamHistories(scope, rows);
   const touchedAggregates = new Set<string>();
   const touchedAggregateTypes = new Set<string>();
   const touchedEventTypes = new Set<string>();
@@ -358,7 +368,12 @@ export async function backfillEventPiiEncryptionBatch(
   for (const row of rows) {
     result.scannedEvents++;
     try {
-      const outcome = await transformEvent(row, projectionOwnersByType.get(row.aggregate_type));
+      const outcome = await transformEvent(
+        scope,
+        row,
+        projectionOwnersByType.get(row.aggregate_type),
+        streamHistories.get(streamHistoryKey(row.tenant_id, row.aggregate_id)),
+      );
       if (outcome === null) continue;
       result.encryptedFields += outcome.encrypted;
       result.erasedFields += outcome.erased;
@@ -398,294 +413,432 @@ export async function backfillEventPiiEncryptionBatch(
     touchedAggregateTypes: [...touchedAggregateTypes],
     touchedEventTypes: [...touchedEventTypes],
   };
+}
 
-  // Full-scan of the store — only paid once a plaintext field actually needs
-  // encrypting, so a catch-up run over already-encrypted events never runs it.
-  async function loadForgottenAggregates(): Promise<ReadonlySet<string>> {
-    if (scanCache.forgottenAggregates) return scanCache.forgottenAggregates;
-    // Pre-KMS forgets left no key tombstone — the *.forgotten event on the
-    // stream is the only durable marker. aggregate_id doubles as the user id
-    // for user-subject lookups.
-    const forgottenRows = await raw.unsafe<{ aggregate_id: string }>(
-      `SELECT DISTINCT "aggregate_id" FROM "kumiko_events" WHERE "type" LIKE '%.forgotten'`,
-    );
-    scanCache.forgottenAggregates = new Set(forgottenRows.map((r) => r.aggregate_id));
-    return scanCache.forgottenAggregates;
+type BackfillBatchScope = {
+  readonly db: DbRunner;
+  readonly raw: ReturnType<typeof asRawClient>;
+  readonly options: PiiBackfillBatchOptions;
+  readonly subjectKms: LocalKeyKmsAdapter;
+  readonly kmsCtx: KmsContext;
+  readonly scanCache: PiiBackfillScanCache;
+  readonly entityTargets: PiiTargets["entityTargets"];
+  readonly eventCatalog: PiiTargets["eventCatalog"];
+};
+
+type EventFieldCounters = {
+  encrypted: number;
+  erased: number;
+  rekeyed: number;
+  ownerFromProjection: number;
+  erasedUnresolvable: number;
+};
+
+type EventTransformScope = {
+  readonly batch: BackfillBatchScope;
+  readonly row: EventRow;
+  readonly tenantId: TenantId;
+  readonly payload: Record<string, unknown>;
+  readonly counters: EventFieldCounters;
+};
+
+// Full-scan of the store — only paid once a plaintext field actually needs
+// encrypting, so a catch-up run over already-encrypted events never runs it.
+async function loadForgottenAggregates(scope: BackfillBatchScope): Promise<ReadonlySet<string>> {
+  const { raw, scanCache } = scope;
+  if (scanCache.forgottenAggregates) return scanCache.forgottenAggregates;
+  // Pre-KMS forgets left no key tombstone — the *.forgotten event on the
+  // stream is the only durable marker. aggregate_id doubles as the user id
+  // for user-subject lookups.
+  const forgottenRows = await raw.unsafe<{ aggregate_id: string }>(
+    `SELECT DISTINCT "aggregate_id" FROM "kumiko_events" WHERE "type" LIKE '%.forgotten'`,
+  );
+  scanCache.forgottenAggregates = new Set(forgottenRows.map((r) => r.aggregate_id));
+  return scanCache.forgottenAggregates;
+}
+
+async function loadProjectionOwners(
+  scope: BackfillBatchScope,
+  rows: readonly EventRow[],
+): Promise<ReadonlyMap<string, ReadonlyMap<string, ProjectionOwner>>> {
+  const { db, raw, options, entityTargets } = scope;
+  const byType = new Map<string, ReadonlyMap<string, ProjectionOwner>>();
+  if (!options.resolveOwnerFromProjection) return byType;
+
+  const idsByType = new Map<string, Set<string>>();
+  for (const row of rows) {
+    if (!entityTargets.has(row.aggregate_type)) continue;
+    const ids = idsByType.get(row.aggregate_type) ?? new Set<string>();
+    ids.add(row.aggregate_id);
+    idsByType.set(row.aggregate_type, ids);
   }
 
-  async function loadProjectionOwners(
-    rows: readonly EventRow[],
-  ): Promise<ReadonlyMap<string, ReadonlyMap<string, ProjectionOwner>>> {
-    const byType = new Map<string, ReadonlyMap<string, ProjectionOwner>>();
-    if (!options.resolveOwnerFromProjection) return byType;
-
-    const idsByType = new Map<string, Set<string>>();
-    for (const row of rows) {
-      if (!entityTargets.has(row.aggregate_type)) continue;
-      const ids = idsByType.get(row.aggregate_type) ?? new Set<string>();
-      ids.add(row.aggregate_id);
-      idsByType.set(row.aggregate_type, ids);
-    }
-
-    for (const [aggregateType, ids] of idsByType) {
-      const target = entityTargets.get(aggregateType);
-      if (!target) continue;
-      const tableName = resolveTableName(aggregateType, target.entity, undefined);
-      const ownersById = new Map<string, ProjectionOwner>();
-      // Existence check instead of catching undefined_table: a caught SQL error
-      // aborts the surrounding transaction (25P02). Entity never mounted/rebuilt
-      // → stage 3 still gets a chance; this batch just contributes no owners.
-      if (await tableExists(db, `public.${tableName}`)) {
-        const projectionRows = await raw.unsafe<Record<string, unknown>>(
-          `SELECT * FROM ${quoteIdent(tableName)} WHERE "id" = ANY($1::uuid[])`,
-          [toPostgresArrayLiteral([...ids])],
-        );
-        for (const projectionRow of projectionRows) {
-          const id = projectionRow["id"];
-          if (typeof id === "string") {
-            const rowTenantId = projectionRow["tenant_id"];
-            ownersById.set(id, {
-              tenantId: typeof rowTenantId === "string" ? rowTenantId : undefined,
-              fields: projectionRowToCamel(target.entity, projectionRow),
-            });
-          }
-        }
-      }
-      byType.set(aggregateType, ownersById);
-    }
-    return byType;
-  }
-
-  async function transformEvent(
-    row: EventRow,
-    projectionOwners: ReadonlyMap<string, ProjectionOwner> | undefined,
-  ): Promise<{
-    payload: Record<string, unknown>;
-    encrypted: number;
-    erased: number;
-    rekeyed: number;
-    ownerFromProjection: number;
-    erasedUnresolvable: number;
-  } | null> {
-    const counters = {
-      encrypted: 0,
-      erased: 0,
-      rekeyed: 0,
-      ownerFromProjection: 0,
-      erasedUnresolvable: 0,
-    };
-    const payload = structuredClone(row.payload);
-    const tenantId: TenantId = row.tenant_id;
-
-    const catalogFields = eventCatalog.get(row.type);
-    if (catalogFields) {
-      for (const [field, spec] of Object.entries(catalogFields)) {
-        let subject: ReturnType<typeof resolveEventSubject>;
-        try {
-          subject = resolveEventSubject(field, spec, payload, {
-            tenantId,
-            aggregateType: row.aggregate_type,
-            aggregateId: row.aggregate_id,
-          });
-        } catch (e) {
-          // Re-thrown as a plain Error: the owner-resolution retry hint added for
-          // SubjectResolutionError only applies to entity events.
-          if (!(e instanceof SubjectResolutionError)) throw e;
-          throw new Error(
-            `catalog event subject unresolvable: ${e.message} (fix aggregate_type/tenant_id or the piiFields declaration)`,
-          );
-        }
-        if (subject === null) continue;
-        const outcome = await encryptField(payload, field, subject);
-        bump(outcome);
-      }
-    } else {
-      const target = entityTargets.get(row.aggregate_type);
-      if (!target || !isLifecycleEventOf(row.type, row.aggregate_type)) return null;
-      const ownerRow = projectionOwnerRowOfTenant(
-        projectionOwners?.get(row.aggregate_id),
-        row.tenant_id,
+  for (const [aggregateType, ids] of idsByType) {
+    const target = entityTargets.get(aggregateType);
+    if (!target) continue;
+    const tableName = resolveTableName(aggregateType, target.entity, undefined);
+    const ownersById = new Map<string, ProjectionOwner>();
+    // Existence check instead of catching undefined_table: a caught SQL error
+    // aborts the surrounding transaction (25P02). Entity never mounted/rebuilt
+    // → stage 3 still gets a chance; this batch just contributes no owners.
+    if (await tableExists(db, `public.${tableName}`)) {
+      const projectionRows = await raw.unsafe<Record<string, unknown>>(
+        `SELECT * FROM ${quoteIdent(tableName)} WHERE "id" = ANY($1::uuid[])`,
+        [toPostgresArrayLiteral([...ids])],
       );
-      await applyEntityLifecycleFields(target, ownerRow);
+      for (const projectionRow of projectionRows) {
+        const id = projectionRow["id"];
+        if (typeof id === "string") {
+          const rowTenantId = projectionRow["tenant_id"];
+          ownersById.set(id, {
+            tenantId: typeof rowTenantId === "string" ? rowTenantId : undefined,
+            fields: projectionRowToCamel(target.entity, projectionRow),
+          });
+        }
+      }
     }
-
-    if (counters.encrypted === 0 && counters.erased === 0 && counters.rekeyed === 0) return null;
-    return { payload, ...counters };
-
-    function bump(outcome: FieldOutcome): void {
-      if (outcome === "encrypted") counters.encrypted++;
-      if (outcome === "erased") counters.erased++;
+    const missingIds = [...ids].filter((id) => !ownersById.has(id));
+    if (missingIds.length > 0) {
+      const deleteRows = await raw.unsafe<{
+        aggregate_id: string;
+        tenant_id: string | null;
+        previous: unknown;
+      }>(
+        `SELECT DISTINCT ON ("aggregate_id") "aggregate_id", "tenant_id", "payload" -> 'previous' AS "previous" FROM "kumiko_events" WHERE "aggregate_type" = $1 AND "type" = $2 AND "aggregate_id" = ANY($3::uuid[]) ORDER BY "aggregate_id", "id" DESC`,
+        [
+          aggregateType,
+          entityEventName(aggregateType, "deleted"),
+          toPostgresArrayLiteral(missingIds),
+        ],
+      );
+      for (const deleteRow of deleteRows) {
+        if (!isRecord(deleteRow.previous)) continue;
+        ownersById.set(deleteRow.aggregate_id, {
+          tenantId: deleteRow.tenant_id ?? undefined,
+          fields: deleteRow.previous,
+        });
+      }
     }
+    byType.set(aggregateType, ownersById);
+  }
+  return byType;
+}
 
-    async function applyEntityLifecycleFields(
-      target: { readonly entity: EntityDefinition; readonly piiFields: readonly string[] },
-      projectionOwnerRow: Record<string, unknown> | undefined,
-    ): Promise<void> {
-      const sections = lifecycleSections(payload);
-      for (const section of sections) {
-        const { subjectSource, ownerFallback } = lifecycleSubjectView(
-          section,
-          payload,
-          row.aggregate_id,
+type StreamHistoryEvent = Pick<EventRow, "id" | "aggregate_id" | "tenant_id" | "type" | "payload">;
+
+function streamHistoryKey(tenantId: string, aggregateId: string): string {
+  return `${tenantId}:${aggregateId}`;
+}
+
+// The streams of the batch's update events, up to the batch's last event. An update's previous
+// carries only the changed keys, so the owner of an older value must come from the stream folded
+// up to that event; the projection row only knows today's owner.
+async function loadUpdatedStreamHistories(
+  scope: BackfillBatchScope,
+  rows: readonly EventRow[],
+): Promise<ReadonlyMap<string, readonly StreamHistoryEvent[]>> {
+  const idsByType = new Map<string, Set<string>>();
+  let lastEventId = 0n;
+  for (const row of rows) {
+    if (!scope.entityTargets.has(row.aggregate_type) || !isRecord(row.payload["changes"])) continue;
+    const ids = idsByType.get(row.aggregate_type) ?? new Set<string>();
+    ids.add(row.aggregate_id);
+    idsByType.set(row.aggregate_type, ids);
+    const rowId = BigInt(row.id);
+    if (rowId > lastEventId) lastEventId = rowId;
+  }
+  const histories = new Map<string, StreamHistoryEvent[]>();
+  for (const [aggregateType, ids] of idsByType) {
+    const events = await scope.raw.unsafe<StreamHistoryEvent>(
+      `SELECT "id", "aggregate_id", "tenant_id", "type", "payload" FROM "kumiko_events" WHERE "aggregate_type" = $1 AND "aggregate_id" = ANY($2::uuid[]) AND "id" <= $3::bigint ORDER BY "id" ASC`,
+      [aggregateType, toPostgresArrayLiteral([...ids]), String(lastEventId)],
+    );
+    for (const event of events) {
+      const key = streamHistoryKey(event.tenant_id, event.aggregate_id);
+      const history = histories.get(key) ?? [];
+      history.push(event);
+      histories.set(key, history);
+    }
+  }
+  return histories;
+}
+
+// The row as the stream had it right before `row`: created sets the fields, every later
+// lifecycle event with changes overlays them.
+function streamStateBefore(
+  history: readonly StreamHistoryEvent[] | undefined,
+  row: EventRow,
+  entity: EntityDefinition,
+): Record<string, unknown> {
+  const createdType = entityEventName(row.aggregate_type, "created");
+  const rowId = BigInt(row.id);
+  let state: Record<string, unknown> = {};
+  for (const event of history ?? []) {
+    if (BigInt(event.id) >= rowId) break;
+    if (!isLifecycleEventOf(event.type, row.aggregate_type, entity)) continue;
+    const changes = event.payload["changes"];
+    if (event.type === createdType) state = { ...event.payload };
+    else if (isRecord(changes)) state = { ...state, ...changes };
+  }
+  return state;
+}
+
+async function transformEvent(
+  scope: BackfillBatchScope,
+  row: EventRow,
+  projectionOwners: ReadonlyMap<string, ProjectionOwner> | undefined,
+  streamHistory: readonly StreamHistoryEvent[] | undefined,
+): Promise<{
+  payload: Record<string, unknown>;
+  encrypted: number;
+  erased: number;
+  rekeyed: number;
+  ownerFromProjection: number;
+  erasedUnresolvable: number;
+} | null> {
+  const counters: EventFieldCounters = {
+    encrypted: 0,
+    erased: 0,
+    rekeyed: 0,
+    ownerFromProjection: 0,
+    erasedUnresolvable: 0,
+  };
+  const payload = structuredClone(row.payload);
+  const tenantId: TenantId = row.tenant_id;
+  const eventScope: EventTransformScope = { batch: scope, row, tenantId, payload, counters };
+
+  const catalogFields = scope.eventCatalog.get(row.type);
+  if (catalogFields) {
+    for (const [field, spec] of Object.entries(catalogFields)) {
+      let subject: ReturnType<typeof resolveEventSubject>;
+      try {
+        subject = resolveEventSubject(field, spec, payload, {
+          tenantId,
+          aggregateType: row.aggregate_type,
+          aggregateId: row.aggregate_id,
+        });
+      } catch (e) {
+        // Re-thrown as a plain Error: the owner-resolution retry hint added for
+        // SubjectResolutionError only applies to entity events.
+        if (!(e instanceof SubjectResolutionError)) throw e;
+        throw new Error(
+          `catalog event subject unresolvable: ${e.message} (fix aggregate_type/tenant_id or the piiFields declaration)`,
         );
-        for (const field of target.piiFields) {
-          const value = section[field];
-          if (value === null || value === undefined) continue;
-          // A jsonb field holds any JSON value; a string that is neither ciphertext nor the
-          // sentinel is a plaintext scalar and gets the JSON format (the v2 text format must
-          // not reach a jsonb column).
-          const isJsonbField = target.entity.fields[field]?.type === "jsonb";
-          if (!isJsonbField && typeof value !== "string") continue;
-          // Already-ciphertext/sentinel fields must never enter the encrypt/erase
-          // owner resolution — an unresolvable owner on an already-handled field
-          // must stay untouched, not get erased by stage 3.
-          if (isPiiCiphertext(value)) {
-            if (options.rekeyTenantKeyedOwnerFields) {
-              await rekeyField(
-                target.entity,
-                section,
-                field,
-                value,
-                subjectSource,
-                ownerFallback,
-                projectionOwnerRow,
-              );
-            }
-            continue;
-          }
-          if (value === PII_ERASED_SENTINEL) continue;
+      }
+      if (subject === null) continue;
+      const outcome = await encryptField(eventScope, payload, field, subject);
+      bump(counters, outcome);
+    }
+  } else {
+    const target = scope.entityTargets.get(row.aggregate_type);
+    if (!target || !isLifecycleEventOf(row.type, row.aggregate_type, target.entity)) return null;
+    const ownerRow = projectionOwnerRowOfTenant(
+      projectionOwners?.get(row.aggregate_id),
+      row.tenant_id,
+    );
+    await applyEntityLifecycleFields(
+      eventScope,
+      target,
+      ownerRow,
+      streamStateBefore(streamHistory, row, target.entity),
+    );
+  }
 
-          const resolution = resolveOwnerSubject(
+  if (counters.encrypted === 0 && counters.erased === 0 && counters.rekeyed === 0) return null;
+  return { payload, ...counters };
+}
+
+function bump(counters: EventFieldCounters, outcome: FieldOutcome): void {
+  if (outcome === "encrypted") counters.encrypted++;
+  if (outcome === "erased") counters.erased++;
+}
+
+async function applyEntityLifecycleFields(
+  scope: EventTransformScope,
+  target: { readonly entity: EntityDefinition; readonly piiFields: readonly string[] },
+  projectionOwnerRow: Record<string, unknown> | undefined,
+  stateBefore: Record<string, unknown>,
+): Promise<void> {
+  const { batch, row, tenantId, payload, counters } = scope;
+  const { options } = batch;
+  const sections = lifecycleSections(payload);
+  for (const section of sections) {
+    const { subjectSource, ownerFallback } = lifecycleSubjectView(
+      section,
+      payload,
+      row.aggregate_id,
+      stateBefore,
+    );
+    for (const field of target.piiFields) {
+      const value = section[field];
+      if (value === null || value === undefined) continue;
+      // A jsonb field holds any JSON value; a string that is neither ciphertext nor the
+      // sentinel is a plaintext scalar and gets the JSON format (the v2 text format must
+      // not reach a jsonb column).
+      const isJsonbField = target.entity.fields[field]?.type === "jsonb";
+      if (!isJsonbField && typeof value !== "string") continue;
+      // Already-ciphertext/sentinel fields must never enter the encrypt/erase
+      // owner resolution — an unresolvable owner on an already-handled field
+      // must stay untouched, not get erased by stage 3.
+      if (isPiiCiphertext(value)) {
+        if (options.rekeyTenantKeyedOwnerFields) {
+          await rekeyField(
+            scope,
             target.entity,
+            section,
             field,
+            value,
             subjectSource,
             ownerFallback,
             projectionOwnerRow,
-            tenantId,
-            row.aggregate_type,
           );
-          if (resolution.kind === "unannotated") continue;
-          if (resolution.kind === "unresolved") {
-            if (options.eraseUnresolvableSubjects) {
-              section[field] = PII_ERASED_SENTINEL;
-              counters.erased++;
-              counters.erasedUnresolvable++;
-              continue;
-            }
-            throw resolution.error;
-          }
-          if (resolution.viaProjection) counters.ownerFromProjection++;
-          const outcome = await encryptField(section, field, resolution.subject, isJsonbField);
-          bump(outcome);
         }
+        continue;
       }
-    }
+      if (value === PII_ERASED_SENTINEL) continue;
 
-    async function rekeyField(
-      entity: EntityDefinition,
-      section: Record<string, unknown>,
-      field: string,
-      ciphertext: string,
-      subjectSource: Record<string, unknown>,
-      ownerFallback: Record<string, unknown> | undefined,
-      projectionOwnerRow: Record<string, unknown> | undefined,
-    ): Promise<void> {
-      const rekey = await rekeyTenantKeyedValue(
-        {
-          subjectKms,
-          kmsCtx,
-          dryRun: options.dryRun === true,
-          isForgottenSubject: (subject) => isForgottenSubject(subject, row.aggregate_id),
-          hasNewerValueOfField: (fieldName) => aggregateHasNewerValueOfField(row, fieldName),
-          predictOutcome: predictEncryptOutcome,
-        },
-        {
-          entity,
-          field,
-          ciphertext,
-          tenantId,
-          aggregateType: row.aggregate_type,
-          subjectSource,
-          ownerFallback,
-          projectionOwnerRow,
-          isSupersededHistory: section === payload["previous"] && isRecord(payload["changes"]),
-        },
+      const resolution = resolveOwnerSubject(
+        target.entity,
+        field,
+        subjectSource,
+        ownerFallback,
+        projectionOwnerRow,
+        tenantId,
+        row.aggregate_type,
       );
-      if (rekey.kind === "rekeyed") {
-        section[field] = rekey.value;
-        counters.rekeyed++;
-      } else if (rekey.kind === "erased") {
-        section[field] = PII_ERASED_SENTINEL;
-        counters.erased++;
-      }
-    }
-
-    async function encryptField(
-      section: Record<string, unknown>,
-      field: string,
-      subject: SubjectId,
-      isJsonbField = false,
-    ): Promise<FieldOutcome> {
-      const value = section[field];
-      if (value === null || value === undefined) return "unchanged";
-      if (!isBackfillCandidate(value, isJsonbField)) return "unchanged";
-      if (await isForgottenSubject(subject, row.aggregate_id)) {
-        section[field] = PII_ERASED_SENTINEL;
-        return "erased";
-      }
-      if (options.dryRun) return predictEncryptOutcome(subject);
-      try {
-        section[field] = await encryptBackfillValue(
-          subjectKms,
-          subject,
-          value,
-          kmsCtx,
-          field,
-          isJsonbField,
-        );
-        return "encrypted";
-      } catch (e) {
-        if (e instanceof KeyErasedError) {
+      if (resolution.kind === "unannotated") continue;
+      if (resolution.kind === "unresolved") {
+        if (options.eraseUnresolvableSubjects) {
           section[field] = PII_ERASED_SENTINEL;
-          return "erased";
+          counters.erased++;
+          counters.erasedUnresolvable++;
+          continue;
         }
-        throw e;
+        throw resolution.error;
       }
-    }
-
-    // getKey alone never mints (unlike getOrCreateDek → createKey on the real
-    // path) — a real run's outcome is fully determined by whether a key
-    // already exists, so probing it read-only predicts the outcome without
-    // writing to the subject-keys store.
-    async function predictEncryptOutcome(subject: SubjectId): Promise<FieldOutcome> {
-      try {
-        await subjectKms.getKey(subject, kmsCtx);
-        return "encrypted";
-      } catch (e) {
-        if (e instanceof KeyErasedError) return "erased";
-        if (e instanceof KeyNotFoundError) return "encrypted";
-        throw e;
-      }
+      if (resolution.viaProjection) counters.ownerFromProjection++;
+      const outcome = await encryptField(scope, section, field, resolution.subject, isJsonbField);
+      bump(counters, outcome);
     }
   }
+}
 
-  async function isForgottenSubject(subject: SubjectId, aggregateId: string): Promise<boolean> {
-    const forgottenAggregates = await loadForgottenAggregates();
-    if (forgottenAggregates.has(aggregateId)) return true;
-    if (subject.kind === "record" && subject.entity === "tenant") {
-      return (await loadDestroyedTenants()).has(subject.id);
-    }
-    return subject.kind === "user" && forgottenAggregates.has(subject.userId);
+async function rekeyField(
+  scope: EventTransformScope,
+  entity: EntityDefinition,
+  section: Record<string, unknown>,
+  field: string,
+  ciphertext: string,
+  subjectSource: Record<string, unknown>,
+  ownerFallback: Record<string, unknown> | undefined,
+  projectionOwnerRow: Record<string, unknown> | undefined,
+): Promise<void> {
+  const { batch, row, tenantId, payload, counters } = scope;
+  const rekey = await rekeyTenantKeyedValue(
+    {
+      subjectKms: batch.subjectKms,
+      kmsCtx: batch.kmsCtx,
+      dryRun: batch.options.dryRun === true,
+      isForgottenSubject: (subject) => isForgottenSubject(batch, subject, row.aggregate_id),
+      hasNewerValueOfField: (fieldName) => aggregateHasNewerValueOfField(batch, row, fieldName),
+      predictOutcome: (subject) => predictEncryptOutcome(batch, subject),
+    },
+    {
+      entity,
+      field,
+      ciphertext,
+      tenantId,
+      aggregateType: row.aggregate_type,
+      subjectSource,
+      ownerFallback,
+      projectionOwnerRow,
+      isSupersededHistory: section === payload["previous"] && isRecord(payload["changes"]),
+    },
+  );
+  if (rekey.kind === "rekeyed") {
+    section[field] = rekey.value;
+    counters.rekeyed++;
+  } else if (rekey.kind === "erased") {
+    section[field] = PII_ERASED_SENTINEL;
+    counters.erased++;
   }
+}
 
-  // A later event that sets the field (`changes`, or the flat payload of a created event). An
-  // explicit null counts: it replaced the value this event carries, so that value is stale.
-  async function aggregateHasNewerValueOfField(
-    event: EventRow,
-    fieldName: string,
-  ): Promise<boolean> {
-    const rows = await raw.unsafe<{ found: number }>(
-      `SELECT 1 AS found FROM "kumiko_events"
+async function encryptField(
+  scope: EventTransformScope,
+  section: Record<string, unknown>,
+  field: string,
+  subject: SubjectId,
+  isJsonbField = false,
+): Promise<FieldOutcome> {
+  const { batch, row } = scope;
+  const value = section[field];
+  if (value === null || value === undefined) return "unchanged";
+  if (!isBackfillCandidate(value, isJsonbField)) return "unchanged";
+  if (await isForgottenSubject(batch, subject, row.aggregate_id)) {
+    section[field] = PII_ERASED_SENTINEL;
+    return "erased";
+  }
+  if (batch.options.dryRun) return predictEncryptOutcome(batch, subject);
+  try {
+    section[field] = await encryptBackfillValue(
+      batch.subjectKms,
+      subject,
+      value,
+      batch.kmsCtx,
+      field,
+      isJsonbField,
+    );
+    return "encrypted";
+  } catch (e) {
+    if (e instanceof KeyErasedError) {
+      section[field] = PII_ERASED_SENTINEL;
+      return "erased";
+    }
+    throw e;
+  }
+}
+
+// getKey alone never mints (unlike getOrCreateDek → createKey on the real
+// path) — a real run's outcome is fully determined by whether a key
+// already exists, so probing it read-only predicts the outcome without
+// writing to the subject-keys store.
+async function predictEncryptOutcome(
+  scope: BackfillBatchScope,
+  subject: SubjectId,
+): Promise<FieldOutcome> {
+  try {
+    await scope.subjectKms.getKey(subject, scope.kmsCtx);
+    return "encrypted";
+  } catch (e) {
+    if (e instanceof KeyErasedError) return "erased";
+    if (e instanceof KeyNotFoundError) return "encrypted";
+    throw e;
+  }
+}
+
+async function isForgottenSubject(
+  scope: BackfillBatchScope,
+  subject: SubjectId,
+  aggregateId: string,
+): Promise<boolean> {
+  const forgottenAggregates = await loadForgottenAggregates(scope);
+  if (forgottenAggregates.has(aggregateId)) return true;
+  if (subject.kind === "record" && subject.entity === "tenant") {
+    return (await loadDestroyedTenants(scope)).has(subject.id);
+  }
+  return subject.kind === "user" && forgottenAggregates.has(subject.userId);
+}
+
+// A later event that sets the field (`changes`, or the flat payload of a created event). An
+// explicit null counts: it replaced the value this event carries, so that value is stale.
+async function aggregateHasNewerValueOfField(
+  scope: BackfillBatchScope,
+  event: EventRow,
+  fieldName: string,
+): Promise<boolean> {
+  const rows = await scope.raw.unsafe<{ found: number }>(
+    `SELECT 1 AS found FROM "kumiko_events"
         WHERE "aggregate_id" = $1 AND "tenant_id" = $2 AND "id" > $3::bigint
           AND (
             jsonb_exists("payload" -> 'changes', $4::text)
@@ -693,22 +846,22 @@ export async function backfillEventPiiEncryptionBatch(
                 AND jsonb_exists("payload", $4::text))
           )
         LIMIT 1`,
-      [event.aggregate_id, event.tenant_id, event.id, fieldName],
-    );
-    return rows.length > 0;
-  }
+    [event.aggregate_id, event.tenant_id, event.id, fieldName],
+  );
+  return rows.length > 0;
+}
 
-  // A tenant destroyed before its name was record-owned never had a record key
-  // to erase, and destroy tombstones the row instead of emitting *.forgotten —
-  // read_tenants.destroyed_at is the only durable marker.
-  async function loadDestroyedTenants(): Promise<ReadonlySet<string>> {
-    if (scanCache.destroyedTenants) return scanCache.destroyedTenants;
-    const rows = await raw.unsafe<{ id: string }>(
-      `SELECT id::text AS id FROM read_tenants WHERE destroyed_at IS NOT NULL`,
-    );
-    scanCache.destroyedTenants = new Set(rows.map((r) => r.id));
-    return scanCache.destroyedTenants;
-  }
+// A tenant destroyed before its name was record-owned never had a record key
+// to erase, and destroy tombstones the row instead of emitting *.forgotten —
+// read_tenants.destroyed_at is the only durable marker.
+async function loadDestroyedTenants(scope: BackfillBatchScope): Promise<ReadonlySet<string>> {
+  const { raw, scanCache } = scope;
+  if (scanCache.destroyedTenants) return scanCache.destroyedTenants;
+  const rows = await raw.unsafe<{ id: string }>(
+    `SELECT id::text AS id FROM read_tenants WHERE destroyed_at IS NOT NULL`,
+  );
+  scanCache.destroyedTenants = new Set(rows.map((r) => r.id));
+  return scanCache.destroyedTenants;
 }
 
 // Text fields only hold strings; a jsonb field holds any JSON value, scalars included.
@@ -901,105 +1054,14 @@ function ciphertextSubjectOrNull(ciphertext: string): SubjectId | null {
   }
 }
 
-type OwnerSubjectResolution =
-  | { readonly kind: "unannotated" }
-  | { readonly kind: "unresolved"; readonly error: SubjectResolutionError }
-  | { readonly kind: "resolved"; readonly subject: SubjectId; readonly viaProjection: boolean };
-
-type SubjectAttempt =
-  | { readonly ok: true; readonly subject: SubjectId | null }
-  | { readonly ok: false; readonly error: SubjectResolutionError };
-
-function attemptResolve(
-  entity: EntityDefinition,
-  field: string,
-  source: Record<string, unknown>,
-  opts: ResolveSubjectOptions,
-): SubjectAttempt {
-  try {
-    return { ok: true, subject: resolveSubjectForField(entity, field, source, opts) };
-  } catch (e) {
-    if (!(e instanceof SubjectResolutionError)) throw e;
-    return { ok: false, error: e };
-  }
-}
-
-// An explicit owner key (even null) means the event itself knows the row had no
-// owner then; only a missing key predates the owner field and may use the
-// projection's current owner.
-function payloadNamesOwnerKey(
-  entity: EntityDefinition,
-  field: string,
-  subjectSource: Record<string, unknown>,
-  ownerFallback: Record<string, unknown> | undefined,
+export function isLifecycleEventOf(
+  eventType: string,
+  aggregateType: string,
+  entity: Pick<EntityDefinition, "verbs"> | undefined,
 ): boolean {
-  const fieldDef = entity.fields[field];
-  if (fieldDef === undefined || !("userOwned" in fieldDef) || !fieldDef.userOwned) return false;
-  const { ownerField } = fieldDef.userOwned;
-  return (
-    Object.hasOwn(subjectSource, ownerField) ||
-    (ownerFallback !== undefined && Object.hasOwn(ownerFallback, ownerField))
-  );
-}
-
-// Stage 1 (payload) and stage 2 (projection row, when supplied) resolve the
-// owner strictly, ignoring whenAbsent — an ownerless payload must not shadow
-// an owner the projection knows. Stage 2b then applies whenAbsent to the
-// payload. Stage 3 (erase) is the caller's call, made from "unresolved".
-function resolveOwnerSubject(
-  entity: EntityDefinition,
-  field: string,
-  subjectSource: Record<string, unknown>,
-  ownerFallback: Record<string, unknown> | undefined,
-  projectionOwnerRow: Record<string, unknown> | undefined,
-  tenantId: TenantId,
-  entityName: string,
-): OwnerSubjectResolution {
-  const baseOpts = { tenantId, entityName, ...(ownerFallback && { ownerFallback }) };
-  const strictOpts = { ...baseOpts, ignoreWhenAbsent: true };
-
-  const payloadAttempt = attemptResolve(entity, field, subjectSource, strictOpts);
-  if (payloadAttempt.ok) {
-    return payloadAttempt.subject === null
-      ? { kind: "unannotated" }
-      : { kind: "resolved", subject: payloadAttempt.subject, viaProjection: false };
-  }
-
-  if (projectionOwnerRow && !payloadNamesOwnerKey(entity, field, subjectSource, ownerFallback)) {
-    const augmented = { ...subjectSource, ...projectionOwnerRow };
-    const projectionAttempt = attemptResolve(entity, field, augmented, strictOpts);
-    if (projectionAttempt.ok && projectionAttempt.subject !== null) {
-      return { kind: "resolved", subject: projectionAttempt.subject, viaProjection: true };
-    }
-  }
-
-  const whenAbsentAttempt = attemptResolve(entity, field, subjectSource, baseOpts);
-  if (whenAbsentAttempt.ok && whenAbsentAttempt.subject !== null) {
-    return { kind: "resolved", subject: whenAbsentAttempt.subject, viaProjection: false };
-  }
-  return { kind: "unresolved", error: payloadAttempt.error };
-}
-
-// Projection columns are snake_case (author_id); event-payload/subject
-// fields are camelCase (authorId) — forward-map from entity.fields like
-// reindexEntity's rowToState, so any owner field resolves generically
-// instead of hand-listing column names per entity.
-function projectionRowToCamel(
-  entity: EntityDefinition,
-  row: Record<string, unknown>,
-): Record<string, unknown> {
-  const camel: Record<string, unknown> = {};
-  for (const fieldName of Object.keys(entity.fields)) {
-    const snake = toSnakeCase(fieldName);
-    if (Object.hasOwn(row, snake)) camel[fieldName] = row[snake];
-  }
-  return camel;
-}
-
-export function isLifecycleEventOf(eventType: string, aggregateType: string): boolean {
   if (!eventType.startsWith(`${aggregateType}.`)) return false;
   const verb = eventType.slice(aggregateType.length + 1);
-  return isOneOf(LIFECYCLE_VERBS, verb);
+  return isOneOf(LIFECYCLE_VERBS, verb) || isDeclaredEntityVerb(entity, verb);
 }
 
 // created events carry the fields flat; updated carries { changes, previous };
@@ -1014,25 +1076,30 @@ export function lifecycleSections(payload: Record<string, unknown>): Record<stri
 }
 
 // Same view the live write path resolves from: changes see the merged row,
-// previous sees the owner the same event sets as fallback. aggregate_id backs
-// the self-subject when a section lacks the id column.
+// previous sees the row before the event with the owner the same event sets as
+// fallback. stateBefore fills the keys a slim previous leaves out. aggregate_id
+// backs the self-subject when a section lacks the id column.
 function lifecycleSubjectView(
   section: Record<string, unknown>,
   payload: Record<string, unknown>,
   aggregateId: string,
+  stateBefore: Record<string, unknown>,
 ): { subjectSource: Record<string, unknown>; ownerFallback: Record<string, unknown> | undefined } {
   const changes = isRecord(payload["changes"]) ? payload["changes"] : undefined;
   const previous = isRecord(payload["previous"]) ? payload["previous"] : undefined;
   if (section === changes) {
     return {
-      subjectSource: { id: aggregateId, ...previous, ...changes },
+      subjectSource: { id: aggregateId, ...stateBefore, ...previous, ...changes },
       ownerFallback: undefined,
     };
   }
-  return {
-    subjectSource: { id: aggregateId, ...section },
-    ownerFallback: section === previous ? changes : undefined,
-  };
+  if (section === previous) {
+    return {
+      subjectSource: { id: aggregateId, ...stateBefore, ...section },
+      ownerFallback: changes,
+    };
+  }
+  return { subjectSource: { id: aggregateId, ...section }, ownerFallback: undefined };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

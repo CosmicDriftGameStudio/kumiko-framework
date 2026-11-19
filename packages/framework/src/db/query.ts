@@ -20,9 +20,10 @@ import type {
   ExecutorManagedWriteCapability,
   WritableTable,
 } from "@cosmicdrift/kumiko-types/executor-brand";
+import type { SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
+import type { TableColumnRow, TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { SelectOptions, WhereObject } from "@cosmicdrift/kumiko-types/where-clause-types";
-import { quoteIdent } from "../crypto/ciphertext-pattern.ts";
 import { InternalError } from "../errors/index.ts";
 import {
   aggregateDimensionSql,
@@ -43,7 +44,9 @@ import { coerceDriverRow } from "./driver-row-coercion.ts";
 import { type PreparedValue, prepareValue } from "./driver-value-preparation.ts";
 import type { EntityTableMeta } from "./entity-table-meta.ts";
 import { executorManagedWriteDenied } from "./executor-managed-tables.ts";
+import type { InnerJoinRow, InnerJoinSpec } from "./inner-join-types.ts";
 import { extractPgError } from "./pg-error.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import { extractTableInfo, type TableInfo } from "./table-info.ts";
 import { asEntityTableMeta, requireEntityTableMeta } from "./table-introspection.ts";
 import {
@@ -115,7 +118,7 @@ export function asRawClient(db: unknown): RawClient {
     throw new Error(
       "asRawClient: received a tenant-scoped TenantDb (ctx.db). Raw SQL helpers do not apply the " +
         "tenant filter — use a ctx.db.<method>, or ctx.db.unsafeRaw() with escapeHatch: " +
-        "{ reason } on the handler/hook (r.systemScope() features: ctx.systemDb.unsafeRaw(reason)).",
+        '{ reason, grants: ["unsafeRaw"] } on the handler/hook (r.systemScope() features: ctx.systemDb.unsafeRaw(reason)).',
     );
   }
   // Wrapper handle: $client = Bun.SQL pool.
@@ -279,17 +282,19 @@ function assertNotTenantScoped(db: unknown, fnName: string): void {
   if (tenantDbDelegate(db) !== undefined) {
     throw new Error(
       `${fnName}: received a tenant-scoped db but this helper does not apply the tenant filter. ` +
-        "Pass ctx.db.unsafeRaw() (with escapeHatch: { reason } on the handler/hook) for an " +
+        'Pass ctx.db.unsafeRaw() (with escapeHatch: { reason, grants: ["unsafeRaw"] } on the handler/hook) for an ' +
         "explicit cross-tenant op, or use a scoped TenantDb method " +
         "(for an upsert: ctx.db.upsert(table, values, { conflictTarget })).",
     );
   }
 }
 
-export type AnyDb = DbRunner | unknown;
+export type AnyDb = DbRunner | TenantDb;
 
-// biome-ignore lint/suspicious/noExplicitAny: opt-in default loosens row type for unannotated test fixtures
-type AnyRow = any;
+type AnyRow = Record<string, unknown>;
+
+// Write helpers also receive the bare capability brand (overload 2); the runtime value is always a runner.
+type WriteDb = AnyDb | ExecutorManagedWriteCapability;
 
 export type {
   JsonTextMatch,
@@ -301,8 +306,7 @@ export type {
 } from "@cosmicdrift/kumiko-types/where-clause-types";
 
 // Accepts EITHER. Both have a tableName and field→column mapping.
-// biome-ignore lint/suspicious/noExplicitAny: legacy drizzle pgTable surface
-export type TableLike = EntityTableMeta | any;
+export type TableLike = SchemaTable | EntityTableMeta;
 
 export function coerceRow<TOut = Record<string, unknown>>(
   row: Record<string, unknown>,
@@ -333,7 +337,7 @@ function unsafeBehindPendingUnits<TRow>(
 }
 
 export async function unsafeLoggingClosedConnection<TRow = unknown>(
-  db: AnyDb,
+  db: WriteDb,
   sqlText: string,
   params: readonly unknown[],
   context: ClosedConnectionContext,
@@ -398,6 +402,18 @@ function selectColumnList(info: TableInfo, fields: readonly string[] | undefined
     .join(", ");
 }
 
+export function selectMany<TTable extends TableLike>(
+  db: AnyDb,
+  table: TTable,
+  where?: WhereObject,
+  options?: SelectOptions & { readonly fields?: undefined },
+): Promise<readonly TableColumnRow<TTable>[]>;
+export function selectMany<TRow = AnyRow>(
+  db: AnyDb,
+  table: TableLike,
+  where?: WhereObject,
+  options?: SelectOptions,
+): Promise<readonly TRow[]>;
 export async function selectMany<TRow = AnyRow>(
   db: AnyDb,
   table: TableLike,
@@ -443,6 +459,16 @@ export async function selectMany<TRow = AnyRow>(
   return coerceRows<TRow>(raw, info);
 }
 
+export function fetchOne<TTable extends TableLike>(
+  db: AnyDb,
+  table: TTable,
+  where: WhereObject,
+): Promise<TableColumnRow<TTable> | undefined>;
+export function fetchOne<TRow = AnyRow>(
+  db: AnyDb,
+  table: TableLike,
+  where: WhereObject,
+): Promise<TRow | undefined>;
 export async function fetchOne<TRow = AnyRow>(
   db: AnyDb,
   table: TableLike,
@@ -451,22 +477,6 @@ export async function fetchOne<TRow = AnyRow>(
   const rows = await selectMany<TRow>(db, table, where, { limit: 1 });
   return rows[0];
 }
-
-export type JoinColumnPair = { readonly left: string; readonly right: string };
-
-export type InnerJoinSpec = {
-  readonly left: TableLike;
-  readonly right: TableLike;
-  readonly on: readonly [JoinColumnPair, ...JoinColumnPair[]];
-  readonly leftWhere?: WhereObject;
-  readonly rightWhere?: WhereObject;
-  /** Fields to return per side; default: all columns of `left`, none of `right`. */
-  readonly leftFields?: readonly string[];
-  readonly rightFields?: readonly string[];
-  readonly limit?: number;
-};
-
-export type InnerJoinRow<TLeft, TRight> = { readonly left: TLeft; readonly right: TRight };
 
 const JOIN_LEFT_ALIAS = "l";
 const JOIN_RIGHT_ALIAS = "r";
@@ -557,8 +567,7 @@ export async function selectInnerJoin<
 }
 
 // Bulk INSERT — same shape as insertOne but takes an array of rows and
-// produces one multi-VALUES statement. Mirrors drizzle's
-// `db.insert(t).values(rows[])`. Empty input is a no-op.
+// produces one multi-VALUES statement. Empty input is a no-op.
 export function insertMany<TRow = AnyRow>(
   db: AnyDb,
   table: WritableTable,
@@ -570,7 +579,7 @@ export function insertMany<TRow = AnyRow>(
   rows: ReadonlyArray<Record<string, unknown>>,
 ): Promise<readonly TRow[]>;
 export async function insertMany<TRow = AnyRow>(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   rows: ReadonlyArray<Record<string, unknown>>,
 ): Promise<readonly TRow[]> {
@@ -581,7 +590,7 @@ export async function insertMany<TRow = AnyRow>(
   const info = extractTableInfo(table);
   // Union of all rows' keys, so a field only a later row sets is not dropped; rows that omit it
   // get DEFAULT, like a single insertOne without that key. Keys that aren't table columns are
-  // filtered out (like drizzle did implicitly).
+  // filtered out.
   const fields = [...new Set(rows.flatMap((row) => Object.keys(row)))].filter((k) =>
     info.hasColumn(k),
   );
@@ -627,7 +636,7 @@ export function insertOne<TRow = AnyRow>(
   values: Record<string, unknown>,
 ): Promise<TRow | undefined>;
 export async function insertOne<TRow = AnyRow>(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   values: Record<string, unknown>,
 ): Promise<TRow | undefined> {
@@ -664,7 +673,7 @@ export function updateMany<TRow = AnyRow>(
   where: WhereObject,
 ): Promise<readonly TRow[]>;
 export async function updateMany<TRow = AnyRow>(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   set: Record<string, unknown>,
   where: WhereObject,
@@ -714,7 +723,7 @@ export function deleteMany(
   where: WhereObject,
 ): Promise<number>;
 export async function deleteMany(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   where: WhereObject,
 ): Promise<number> {
@@ -755,8 +764,8 @@ export function insertEntries(info: TableInfo, values: Record<string, unknown>):
     });
 }
 
-// Exported for the shadow-proof regression test — `table.columns` would be the
-// drizzle handle (not the PK list) when an entity has a field named `columns`.
+// Exported for the shadow-proof regression test: `table.columns` would resolve to the handle of
+// a field named `columns` instead of the PK list.
 export function resolveConflictColumns(
   table: TableLike,
   info: TableInfo,
@@ -909,7 +918,7 @@ export function upsertOnConflict<TRow = AnyRow>(
   options: UpsertOnConflictOptions,
 ): Promise<TRow | undefined>;
 export function upsertOnConflict<TRow = AnyRow>(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   values: Record<string, unknown>,
   options: UpsertOnConflictOptions,
@@ -919,7 +928,7 @@ export function upsertOnConflict<TRow = AnyRow>(
 
 // upsertByPk shares this body; the checks inside gate the write, so it needs no overload pair.
 async function upsertOnConflictChecked<TRow>(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   values: Record<string, unknown>,
   options: UpsertOnConflictOptions,
@@ -963,7 +972,7 @@ export function upsertByPk<TRow = AnyRow>(
   updateOnConflict?: Record<string, unknown>,
 ): Promise<TRow | undefined>;
 export async function upsertByPk<TRow = AnyRow>(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   values: Record<string, unknown>,
   updateOnConflict?: Record<string, unknown>,
@@ -994,7 +1003,7 @@ export function insertOnConflictDoNothing<TRow = AnyRow>(
   options?: InsertOnConflictDoNothingOptions,
 ): Promise<TRow | undefined>;
 export async function insertOnConflictDoNothing<TRow = AnyRow>(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   values: Record<string, unknown>,
   options?: InsertOnConflictDoNothingOptions,
@@ -1038,7 +1047,7 @@ export function incrementCounter<TRow = AnyRow>(
   options?: IncrementCounterOptions,
 ): Promise<TRow | undefined>;
 export async function incrementCounter<TRow = AnyRow>(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   values: Record<string, unknown>,
   increments: Record<string, number>,
@@ -1111,7 +1120,7 @@ export function deleteManyBatched(
   options: DeleteManyBatchedOptions,
 ): Promise<DeleteManyBatchedResult>;
 export async function deleteManyBatched(
-  db: AnyDb,
+  db: WriteDb,
   table: EntityTableMeta,
   where: WhereObject,
   options: DeleteManyBatchedOptions,

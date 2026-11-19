@@ -21,14 +21,8 @@
 //   - Plus worksCouncilApprovalRequired
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { tenantComplianceProfileEntity } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { complianceProfilesDemoFeatures } from "../feature";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";
@@ -54,8 +48,6 @@ const tenantCHrAdmin = createTestUser({
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: complianceProfilesDemoFeatures });
-  await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
-  await createEventsTable(stack.db);
 
   // Onboarding-Setup: jeder Tenant-Admin waehlt sein Profile.
   await stack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, tenantADachAdmin);

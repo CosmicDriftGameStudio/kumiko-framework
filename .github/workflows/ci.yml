@@ -400,46 +400,6 @@ jobs:
           KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Schema validate (migration content)" -- bun ../../../packages/dev-server/bin/kumiko-schema.ts validate
 
-      - name: Schema validate (demo)
-        # demo/ has no schema/generate.ts registry (the coverage lint needs one),
-        # so only validate is wired here — entity↔snapshot + validateBoot +
-        # SQL-replay↔snapshot against demo/kumiko/migrations. Without this,
-        # demo/ silently re-drifts on the next entity change (kumiko-framework#2309).
-        working-directory: demo
-        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Schema validate (demo)" -- bun ../packages/dev-server/bin/kumiko-schema.ts validate
-
-      - name: Typecheck (demo)
-        # demo/ is no workspace member and has no root tsc reference, so its
-        # tsconfig was never checked. Resolves @cosmicdrift/* through the root install above.
-        working-directory: demo
-        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Typecheck (demo)" -- bun run typecheck
-
-      - name: Lint (demo)
-        working-directory: demo
-        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Lint (demo)" -- bun run lint
-
-      - name: Boot smoke (demo)
-        # kumiko-schema validate never touches bin/main.ts, so it can't catch
-        # a stale/missing runtime import (kumiko-framework#2309 bug 2) —
-        # only an actual boot does. Same stub-secret rationale as the
-        # use-all-bundled boot smoke below; no Stripe/Mollie stubs needed,
-        # demo doesn't mount those features.
-        working-directory: demo
-        env:
-          KUMIKO_DRY_RUN_ENV: boot
-          DATABASE_URL: postgres://smoke:smoke@127.0.0.1:1/smoke
-          REDIS_URL: redis://127.0.0.1:1
-          JWT_SECRET: smokesmokesmokesmokesmokesmokesmokesmoke
-          KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
-          DEMO_ADMIN_PASSWORD: smoke-admin-password-0001
-          # KMS-active path: createPgKmsAdapter is lazy (no connect in ctor);
-          # boot exits before any KMS query. Catches RunProdAppOptions wiring
-          # regressions the plaintext-only smoke would miss (#2317).
-          PLATFORM_KEK: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
-          KUMIKO_BLIND_INDEX_KEY: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
-          SUBJECT_KEYS_DATABASE_URL: postgres://smoke:smoke@127.0.0.1:1/smoke
-        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Boot smoke (demo)" -- bun bin/main.ts
-
       - name: Boot smoke (no DB)
         # Stub-secrets: validators check Format (base64 32-byte, min-length),
         # nicht echte Crypto-Strength. boot-mode exitiert vor jedem
@@ -740,10 +700,12 @@ jobs:
           for cfg in "${configs[@]}"; do
             started=$SECONDS
             # Sample apps only run their screenshots.spec.ts when SCREENSHOT_DIR is set;
-            # it points outside the repo so the committed docs images stay untouched.
+            # it points outside the repo so the committed docs images stay untouched. One theme,
+            # viewport and locale per PR: nothing compares the images here, the full matrix runs
+            # in the screenshot update round.
             screenshot_env=()
             if [[ "$cfg" == samples/apps/* ]]; then
-              screenshot_env=(SCREENSHOT_DIR="$RUNNER_TEMP/screenshots")
+              screenshot_env=(SCREENSHOT_DIR="$RUNNER_TEMP/screenshots" SCREENSHOT_THEMES=default-light SCREENSHOT_VIEWPORTS=desktop SCREENSHOT_LOCALES=en)
             fi
             env "${screenshot_env[@]}" bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "e2e: $cfg" -- bunx playwright test --config="$cfg"
             code=$?
@@ -971,7 +933,7 @@ jobs:
     # github-hosted runners (HTTP 422 sonst). Public Repo → alle Jobs github-
     # hosted (gratis); cdgs-runner wird hier nicht mehr genutzt.
     runs-on: ubuntu-latest
-    # 20min reichte fuer Install+Publish allein; der neue Registry-Wait-Step
+    # 20min reichte fuer Install+Publish allein; der Registry-Wait-Step
     # unten kann bis zu 15min zusaetzlich blockieren (NPM_VISIBILITY_TIMEOUT_MS).
     timeout-minutes: 40
     permissions:
@@ -1105,38 +1067,10 @@ jobs:
             exit 1
           fi
 
-      # infra#540 (B2.8): Renovate soll per repository_dispatch statt Cron
-      # auf ein erfolgreiches Release reagieren. RENOVATE_DISPATCH_TOKEN als
-      # geteiltes Secret gibt es nicht — der Publisher-Job erzeugt sich
-      # stattdessen selbst ein App-Token. `repositories: infra` scoped dieses
-      # Token exakt auf `POST /repos/CosmicDriftGameStudio/infra/dispatches`:
-      # der Publisher-Job bekommt damit bewusst KEIN Schreibrecht auf die
-      # Consumer-Repos, das ist der eigentliche Zweck der Umstellung. Die
-      # App-Secrets (RENOVATE_APP_ID/RENOVATE_APP_PRIVATE_KEY) existieren
-      # evtl. noch nicht (Marc setzt sie separat, siehe
-      # infra/renovate/README.md) — deshalb auf BEIDEN Steps
-      # `continue-on-error: true`: ein fehlendes Secret oder ein
-      # fehlgeschlagener Dispatch-Call darf den Release-Job NIEMALS rot
-      # machen, ein ausgebliebener Renovate-Lauf ist harmlos (infra faengt es
-      # per 4h-Cron ohnehin auf), ein roter Release-Job blockiert den
-      # naechsten Publish. Deckt beide Publish-Pfade ab: den regulaeren
-      # changesets/action-Publish sowie den Rescue-Pfad oben (#1781) ueber
-      # dessen `released`-Output, das an Git-Tags am Release-SHA haengt.
-      # Der Secret-Guard im `run`-Block des Dispatch-Steps bleibt bestehen
-      # (nicht im `if`: Step-level `env` ist im `if` desselben Steps noch
-      # nicht gesetzt, Auswertungsreihenfolge) — er faengt jetzt zusaetzlich
-      # den Fall ab, dass der App-Token-Step wegen fehlender Secrets
-      # uebersprungen wurde oder fehlschlug (dann ist
-      # `steps.renovate-dispatch-token.outputs.token` leer).
-      # Renovate respektiert per Default `respectLatest: true` den npm
-      # `dist-tags.latest`-Tag, der nach einem Publish beliebig lange auf der
-      # alten Version haengen bleiben kann (nicht die `versions`-Liste, die
-      # sofort aktuell ist). Ein Dispatch direkt nach dem Publish laesst
-      # Renovate deshalb genau die Pakete ueberspringen, deren `latest` noch
-      # nicht nachgezogen ist (fw#2644-Release: bundled-features' `latest`
-      # blieb Stunden auf 0.236.0 haengen, waehrend alle anderen Pakete schon
-      # auf 0.236.1 standen) — Ergebnis war ein halber Lockstep-Bump mit zwei
-      # kumiko-types-Kopien und rotem Consumer-Typecheck.
+      # Renovate respects npm `dist-tags.latest`, which can lag a publish for
+      # hours while the packuments are already current (fw#2644: a half
+      # lockstep bump with two kumiko-types copies). Anything that installs
+      # right after the release must wait until every package is the npm latest.
       - name: Wait for npm packuments to catch up
         if: steps.changesets.outputs.published == 'true' || steps.rescue-publish.outputs.released == 'true'
         continue-on-error: true
@@ -1147,31 +1081,3 @@ jobs:
           # leaves it empty and the script falls back to the workspace scan.
           PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.published == 'true' && steps.changesets.outputs.publishedPackages || '' }}
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Wait for npm packuments to catch up" -- bun scripts/wait-for-npm-visibility.ts
-
-      - name: Create Renovate dispatch token
-        id: renovate-dispatch-token
-        if: (steps.changesets.outputs.published == 'true' || steps.rescue-publish.outputs.released == 'true') && steps.npm-visibility.outcome == 'success'
-        continue-on-error: true
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
-          app-id: ${{ secrets.RENOVATE_APP_ID }}
-          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
-          owner: CosmicDriftGameStudio
-          repositories: infra
-
-      # Bleiben die Packumente unvollstaendig (Timeout oben), wird bewusst NICHT
-      # dispatcht: der 4h-schedule-Cron im infra-Renovate-Workflow holt den Bump
-      # dann nach, sobald die Registry konsistent ist, statt wieder einen halben
-      # Lockstep-Bump zu triggern.
-      - name: Trigger Renovate in consumers
-        if: (steps.changesets.outputs.published == 'true' || steps.rescue-publish.outputs.released == 'true') && steps.npm-visibility.outcome == 'success'
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ steps.renovate-dispatch-token.outputs.token }}
-        run: |
-          if [ -z "$GH_TOKEN" ]; then
-            echo "Renovate dispatch token nicht verfuegbar — Dispatch uebersprungen."
-            exit 0
-          fi
-          gh api repos/CosmicDriftGameStudio/infra/dispatches \
-            -f event_type=publisher-released

@@ -18,10 +18,10 @@ import {
   createDeliveryTestContext,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import type { TenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import { resolveSeedShortcuts } from "../../boot-options/seed-shortcuts.ts";

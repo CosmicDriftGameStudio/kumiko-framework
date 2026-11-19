@@ -1,15 +1,14 @@
 import type { KumikoEventTypeMap } from "@cosmicdrift/kumiko-types/event-type-map";
 import type { EntityObjectDefinition } from "@cosmicdrift/kumiko-types/feature-registrar";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import { queryContract } from "@cosmicdrift/kumiko-types/handler-contract";
 import type {
-  AccessRule,
   BeforeTransactionWhenNested,
   EntityRef,
-  EscapeHatchDeclaration,
   HandlerRef,
   NameOrRef,
   QueryHandlerFn,
-  RateLimitDeclaration,
+  QueryHandlerRef,
   StreamHandlerFn,
   WriteHandlerFn,
 } from "@cosmicdrift/kumiko-types/handlers";
@@ -18,10 +17,12 @@ import {
   ENTITY_CONVENTION_WRITE_BRAND,
 } from "@cosmicdrift/kumiko-types/handlers";
 import type { RelationDefinition } from "@cosmicdrift/kumiko-types/relations";
+import type { WriteFailure } from "@cosmicdrift/kumiko-types/write-error-info-types";
 import type * as z from "zod";
 import type { ZodType } from "zod";
 import { toTableName } from "../db/table-builder.ts";
 import { bootRuleError } from "./boot-validator/boot-rule.ts";
+import { FEATURE_DEFINITION_RULES } from "./boot-validator/definition-feature-rules.ts";
 import { DEFINITION_HANDLER_RULES } from "./boot-validator/definition-handlers-rules.ts";
 import { HANDLER_ACCESS_RULES } from "./boot-validator/entity-handler-access-rules.ts";
 import {
@@ -38,10 +39,12 @@ import {
   assertEscapeHatchAccessIsSystemAdminOnly,
   registerCrudHandlers,
 } from "./entity-handlers.ts";
+import { assertReason } from "./escape-hatch-reason.ts";
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
 import { agentSlots, transactionPhaseSlots } from "./handler-definition-slots.ts";
 import { resolveName } from "./handler-helpers.ts";
-import { isObjectArgument, requireArgument, throwObjectArgumentRequired } from "./object-form.ts";
+import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.ts";
+import { qualifyQueryName } from "./qualified-name.ts";
 
 import type { PipelineDef } from "./types/step.ts";
 
@@ -69,7 +72,7 @@ function assertHandlerNameFree(
     message:
       `Feature "${featureName}" registers the ${kind} handler "${handlerName}" twice.` +
       (crudShaped
-        ? ` r.crud("${entityName}", ...) already registers that name; use a distinct name or drop the "${verb}" verb from r.crud.`
+        ? ` r.crud() for "${entityName}" already registers that name; use a distinct name or drop the "${verb}" verb from r.crud.`
         : " Use a distinct name."),
   });
 }
@@ -115,18 +118,27 @@ function assertHandlerHasAccess(
   }
 }
 
-function requireInlineHandlerArgs<TSchema, THandler, TOptions extends { access?: unknown }>(
-  kind: string,
-  schema: TSchema | undefined,
-  handler: THandler | undefined,
-  options: TOptions | undefined,
-): { schema: TSchema; handler: THandler; options: TOptions } {
-  if (!schema || !handler || !options?.access) {
-    throw bootRuleError(DEFINITION_HANDLER_RULES.inlineFormIncomplete, {
-      message: `${kind} inline form requires schema + handler + options.access`,
-    });
+function assertQueryHandlerDefinition<TName extends string, TSchema extends ZodType, TResult>(
+  state: FeatureBuilderState,
+  featureName: string,
+  def: QueryHandlerDefinition<TName, TSchema, TResult>,
+): void {
+  assertHandlerHasAccess(featureName, "queryHandler", def.name, def.access);
+  assertHandlerNameFree(state, featureName, "query", def.name);
+  if (def.resultEntity !== undefined && def.unfilteredResult !== undefined) {
+    throw new Error(
+      `queryHandler "${def.name}" in feature "${featureName}" sets both resultEntity and unfilteredResult; pick one.`,
+    );
   }
-  return { schema, handler, options };
+  if (def.unfilteredResult !== undefined) {
+    assertReason(`queryHandler "${def.name}" unfilteredResult`, def.unfilteredResult.reason);
+  }
+  // A generated entity handler checks its escapeHatch when it is built, but a
+  // spread of it can add escapeHatch afterwards; the registered object is
+  // what the dispatcher trusts, so the check runs on it again.
+  if (def.escapeHatch !== undefined && isEntityConventionQueryHandler(def)) {
+    assertEscapeHatchAccessIsSystemAdminOnly(def.name, "query", def.access);
+  }
 }
 
 // Builds entity/relation/writeHandler/queryHandler — the registrar
@@ -138,32 +150,23 @@ export function buildEntityHandlerMethods<TName extends string>(
   const methods = {
     entity(definition: EntityObjectDefinition): EntityRef {
       if (!isObjectArgument(definition)) throwObjectArgumentRequired(name, "entity");
-      const { name: entityName, backingTable, ...entityDefinition } = definition;
+      const { backingTable, ...entityDefinition } = definition;
+      const entityName = entityDefinition.name;
       state.entities[entityName] = entityDefinition;
       if (backingTable !== undefined) state.entityTables[entityName] = backingTable;
       return { name: entityName, table: entityDefinition.table ?? toTableName(entityName) };
     },
-    relation(
-      entityRefOrDefinition:
-        | NameOrRef
-        | ({ readonly entity: NameOrRef; readonly name: string } & RelationDefinition),
-      relationName?: string,
-      definition?: RelationDefinition,
+    relation<TDef extends RelationDefinition>(
+      definition: { readonly entity: NameOrRef; readonly name: string } & TDef,
     ): void {
-      const [entityRef, resolvedRelationName, resolvedDefinition] =
-        typeof entityRefOrDefinition === "object" && "entity" in entityRefOrDefinition
-          ? (() => {
-              const { entity, name: innerName, ...rest } = entityRefOrDefinition;
-              return [entity, innerName, rest] as const;
-            })()
-          : [
-              entityRefOrDefinition,
-              requireArgument(relationName, name, "relation", "relation name"),
-              requireArgument(definition, name, "relation", "definition"),
-            ];
+      const {
+        entity: entityRef,
+        name: relationName,
+        ...relationDefinition
+      }: { readonly entity: NameOrRef; readonly name: string } & RelationDefinition = definition;
       const entityName = resolveName(entityRef);
       if (!state.relations[entityName]) state.relations[entityName] = {};
-      state.relations[entityName][resolvedRelationName] = resolvedDefinition;
+      state.relations[entityName][relationName] = relationDefinition;
     },
     writeHandler<
       TName extends string,
@@ -208,7 +211,9 @@ export function buildEntityHandlerMethods<TName extends string>(
           rateLimitCost: def.rateLimitCost as (payload: unknown) => number, // @cast-boundary engine-bridge
         }),
         ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
+        ...(def.systemScope === true && { systemScope: true as const }),
         ...transactionPhaseSlots(def),
+        ...(def.dispatchOnly && { dispatchOnly: true }),
         ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),
         // Forward the pipeline-build closure so boot-validators and
         // Designer/AI tooling can inspect the step list. Absent on
@@ -223,18 +228,11 @@ export function buildEntityHandlerMethods<TName extends string>(
       tryMapEntity(state, name, def.name);
       return { name: def.name };
     },
-    queryHandler<TName extends string, TSchema extends ZodType>(
-      def: QueryHandlerDefinition<TName, TSchema>,
-    ): HandlerRef {
+    queryHandler<TName extends string, TSchema extends ZodType, TResult = unknown>(
+      def: QueryHandlerDefinition<TName, TSchema, TResult>,
+    ): QueryHandlerRef<z.input<TSchema>, Exclude<TResult, WriteFailure>> {
       if (!isObjectArgument(def)) throwObjectArgumentRequired(name, "queryHandler");
-      assertHandlerHasAccess(name, "queryHandler", def.name, def.access);
-      assertHandlerNameFree(state, name, "query", def.name);
-      // A generated entity handler checks its escapeHatch when it is built, but a
-      // spread of it can add escapeHatch afterwards; the registered object is
-      // what the dispatcher trusts, so the check runs on it again.
-      if (def.escapeHatch !== undefined && isEntityConventionQueryHandler(def)) {
-        assertEscapeHatchAccessIsSystemAdminOnly(def.name, "query", def.access);
-      }
+      assertQueryHandlerDefinition(state, name, def);
       state.queryHandlers[def.name] = {
         name: def.name,
         schema: def.schema,
@@ -245,7 +243,10 @@ export function buildEntityHandlerMethods<TName extends string>(
         ...(def.rateLimit && { rateLimit: def.rateLimit }),
         ...(def.outputSchema && { outputSchema: def.outputSchema }),
         ...(def.liveEntities && { liveEntities: def.liveEntities }),
+        ...(def.resultEntity && { resultEntity: def.resultEntity }),
+        ...(def.unfilteredResult && { unfilteredResult: def.unfilteredResult }),
         ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
+        ...(def.systemScope === true && { systemScope: true as const }),
         // Carry the definePagedQueryHandler brand through — this rebuild
         // drops any field not explicitly listed.
         ...(isPagedQueryHandler(def) && { [PAGED_QUERY_HANDLER_BRAND]: true }),
@@ -254,48 +255,40 @@ export function buildEntityHandlerMethods<TName extends string>(
         }),
       };
       tryMapEntity(state, name, def.name);
-      return { name: def.name };
+      return {
+        name: def.name,
+        ...queryContract<z.input<TSchema>, Exclude<TResult, WriteFailure>>(
+          qualifyQueryName(name, def.name),
+        ),
+      };
     },
     streamHandler<TName extends string, TSchema extends ZodType>(
-      nameOrDef: string | StreamHandlerDefinition<TName, TSchema>,
-      schema?: TSchema,
-      handler?: StreamHandlerFn<z.infer<TSchema>>,
-      options?: {
-        access: AccessRule;
-        rateLimit?: RateLimitDeclaration;
-        escapeHatch?: EscapeHatchDeclaration;
-      },
+      def: StreamHandlerDefinition<TName, TSchema>,
     ): HandlerRef {
-      if (typeof nameOrDef === "object") {
-        const def = nameOrDef;
-        assertHandlerHasAccess(name, "streamHandler", def.name, def.access);
-        state.streamHandlers[def.name] = {
-          name: def.name,
-          schema: def.schema,
-          // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
-          handler: def.handler as StreamHandlerFn, // @cast-boundary engine-bridge
-          access: def.access,
-          ...(def.rateLimit && { rateLimit: def.rateLimit }),
-          ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
-        };
-        return { name: def.name };
-      }
-      const inline = requireInlineHandlerArgs("streamHandler", schema, handler, options);
-      state.streamHandlers[nameOrDef] = {
-        name: nameOrDef,
-        schema: inline.schema,
-        handler: inline.handler as StreamHandlerFn, // @cast-boundary engine-bridge
-        access: inline.options.access,
-        ...(inline.options.rateLimit && { rateLimit: inline.options.rateLimit }),
-        ...(inline.options.escapeHatch && { escapeHatch: inline.options.escapeHatch }),
+      assertHandlerHasAccess(name, "streamHandler", def.name, def.access);
+      state.streamHandlers[def.name] = {
+        name: def.name,
+        schema: def.schema,
+        // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
+        handler: def.handler as StreamHandlerFn, // @cast-boundary engine-bridge
+        access: def.access,
+        ...(def.rateLimit && { rateLimit: def.rateLimit }),
+        ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
       };
-      return { name: nameOrDef };
+      return { name: def.name };
     },
   };
   return {
     ...methods,
-    crud(entityName: string, entity: EntityDefinition, options?: RegisterEntityCrudOptions): void {
-      registerCrudHandlers(methods, entityName, entity, options);
+    crud(entity: EntityDefinition, options?: RegisterEntityCrudOptions): void {
+      // Untyped callers (JS, generated code written for an older framework) still pass the name
+      // first or a nameless entity; both would end in a TypeError deep in the table naming.
+      if (!isObjectArgument(entity) || typeof entity.name !== "string") {
+        throw bootRuleError(FEATURE_DEFINITION_RULES.optionsObjectRequired, {
+          message: `[Feature ${name}] r.crud(entity, options) takes an entity created with createEntity({ name, ... }); the name no longer goes first, \`bun kumiko-upgrade --apply\` moves it into createEntity`,
+        });
+      }
+      registerCrudHandlers(methods, entity, options);
     },
   };
 }

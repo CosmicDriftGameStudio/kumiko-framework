@@ -45,11 +45,12 @@ import { useUserRoles } from "../context/user-roles-context.tsx";
 import { rendererWarn } from "../dev-console.ts";
 import type {
   EditRelatedListSectionViewModel,
+  EditSectionViewModel,
   ListRowViewModel,
   Translate,
 } from "../headless/index.ts";
 import { buildRelatedListParentPayload } from "../hooks/related-list-parent-payload.ts";
-import { useRelatedListRows } from "../hooks/use-related-list-rows.ts";
+import { relatedListServerSort, useRelatedListRows } from "../hooks/use-related-list-rows.ts";
 import { useRelatedListState } from "../hooks/use-related-list-state.ts";
 import { useOptionalLocale, useTranslation } from "../i18n.tsx";
 import { PageHeaderSlotAvailableProvider } from "../page-header-slot.ts";
@@ -88,16 +89,20 @@ const RELATED_LIST_PSEUDO_ENTITY = "__related-list__";
 // relatedList section has no single Zod schema to derive it from. With a
 // declared `entity`, a column naming one of its fields takes that field's
 // definition, so RenderList formats it exactly like an entityList column;
-// only `sortable` stays per-column because the sort runs locally.
+// only `sortable` stays per-column. A reference the query cannot order by its
+// label never sorts: the client would only have its uuid to compare.
 function synthesizeRelatedListEntity(
   columns: EditRelatedListSectionViewModel["columns"],
   sourceEntity: EntityDefinition | undefined,
+  serverSortFields: readonly string[],
 ): Pick<EntityDefinition, "fields" | "derivedFields"> {
   const fields: Record<string, SynthesizedField> = {};
   for (const col of columns) {
     const normalized = normalizeListColumn(col);
-    const sortable = normalized.sortable === true;
     const sourceField = sourceEntity?.fields[normalized.field];
+    const sortable =
+      normalized.sortable === true &&
+      (sourceField?.type !== "reference" || serverSortFields.includes(normalized.field));
     fields[normalized.field] =
       sourceField === undefined
         ? valueTypeField(normalized.valueType, sortable)
@@ -166,9 +171,7 @@ function EmbeddedRelatedListCard({
   const { Card } = usePrimitives();
   return (
     <Card
-      options={{ framed: false, padded: false }}
-      // Trim the default header inset: the host row already pads the area.
-      className="[&>div:first-child]:px-0 [&>div:first-child]:pt-1 [&>div:first-child]:pb-2"
+      options={{ framed: false, padded: false, headerPadding: "flush" }}
       slots={{ title, ...(actions !== undefined && { headerActions: actions }) }}
       testId={testId}
     >
@@ -221,7 +224,7 @@ export function RelatedListSection({
   onAfterWrite,
   refreshToken,
 }: {
-  readonly section: EditRelatedListSectionViewModel;
+  readonly section: EditRelatedListSectionViewModel & Pick<EditSectionViewModel, "titleOnNarrow">;
   readonly parentId: string;
   /** The enclosing projectionDetail's own record (the "Akte") — evaluates
    *  toolbarActions' `visible`/`params` (RelatedListToolbarAction), the same
@@ -260,7 +263,7 @@ export function RelatedListSection({
    *  sort/search/filter state — the host's record changed without a remount. */
   readonly refreshToken?: number;
 }): ReactNode {
-  const { Banner, Section, FillContainer, PhotoGrid } = usePrimitives();
+  const { Banner, Section, FillContainer } = usePrimitives();
   const [emptyStateActionError, setEmptyStateActionError] = useState<ErrorNotice | null>(null);
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
@@ -297,8 +300,9 @@ export function RelatedListSection({
   const listFeatureName = sourceEntity !== undefined ? sourceTarget?.featureName : undefined;
   const listEntityName = sourceEntity !== undefined ? sourceTarget?.entityName : undefined;
   const entity = useMemo(
-    () => synthesizeRelatedListEntity(section.columns, sourceEntity),
-    [section.columns, sourceEntity],
+    () =>
+      synthesizeRelatedListEntity(section.columns, sourceEntity, section.serverSortFields ?? []),
+    [section.columns, sourceEntity, section.serverSortFields],
   );
   const listScreen = useMemo(
     (): EntityListScreenDefinition => ({
@@ -350,6 +354,7 @@ export function RelatedListSection({
     [resolvedFacetSpecs],
   );
 
+  const serverSort = relatedListServerSort(section, sort);
   const payload = useMemo(
     () => ({
       // Kept separate from `filterPayload` (user facets) below so a facet selection can never
@@ -364,6 +369,7 @@ export function RelatedListSection({
       // doesn't accept would 422 the whole section.
       ...(section.searchable === true && search !== "" && { search }),
       ...(section.facets !== undefined && filterPayload.length > 0 && { filters: filterPayload }),
+      ...(serverSort !== undefined && { sort: serverSort.field, sortDirection: serverSort.dir }),
     }),
     [
       section.parentFilter,
@@ -374,11 +380,13 @@ export function RelatedListSection({
       parentId,
       search,
       filterPayload,
+      serverSort,
     ],
   );
 
   const listRows = useRelatedListRows({
     section,
+    fields: entity.fields,
     payload,
     groupField,
     sort,
@@ -519,8 +527,7 @@ export function RelatedListSection({
       />
     ) : undefined;
 
-  // Without a cursor-driven pager the client-side sort covers only the fetched
-  // rows; the banner keeps it from claiming "these are the top N".
+  // The section has no pager; the banner says more rows exist than are shown.
   const content = listRows.firstLoad ? (
     <Banner padded variant="loading" testId="related-list-loading">
       {t("kumiko.widget.loading")}
@@ -545,7 +552,7 @@ export function RelatedListSection({
         </Banner>
       )}
       <ListGroupPageBridges {...aggregates.groupPages} />
-      {section.photoGrid !== undefined && PhotoGrid !== undefined ? (
+      {section.photoGrid !== undefined ? (
         listRows.rows.length === 0 ? (
           emptyStateContent
         ) : (
@@ -597,6 +604,7 @@ export function RelatedListSection({
             {...(hideTitle === true && {
               scrollBody: true,
               chromeless: true,
+              headerTone: "muted" as const,
               hideCountFooter: true,
               plainPhoneCards: true,
             })}
@@ -642,16 +650,12 @@ export function RelatedListSection({
     return (
       <>
         {bridges}
-        {FillContainer !== undefined ? (
-          <FillContainer
-            testId="related-list-card"
-            className="mx-6 my-3 overflow-hidden rounded-[9px] border border-border bg-card max-sm:mx-4 max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent [&_thead_th]:bg-muted"
-          >
-            {content}
-          </FillContainer>
-        ) : (
-          content
-        )}
+        <FillContainer
+          testId="related-list-card"
+          className="mx-6 my-3 overflow-hidden rounded-[9px] border border-border bg-card max-sm:mx-4 max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent"
+        >
+          {content}
+        </FillContainer>
       </>
     );
   }
@@ -661,6 +665,7 @@ export function RelatedListSection({
       {bridges}
       <Section
         {...(omitTitle !== true && { title: section.title })}
+        {...(section.titleOnNarrow === false && { titleOnNarrow: false as const })}
         {...(labelTitle === true && { titleStyle: "label" as const })}
         {...(anchorId !== undefined && { id: anchorId })}
         {...(actions !== undefined && { actions })}

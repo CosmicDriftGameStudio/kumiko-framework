@@ -195,3 +195,19 @@ export function issuesAfterEdit<TIssue>(
   );
   return Object.keys(remaining).length === Object.keys(errors).length ? errors : remaining;
 }
+
+// Mirrors bundled-features/field-approval, which the renderer must not import.
+export const FIELD_APPROVAL_FEATURE = "field-approval";
+export const FIELD_APPROVAL_REQUEST_CHANGE = "field-approval:write:request-change";
+export const FIELD_APPROVAL_PENDING_CHANGES = "field-approval:query:pending-changes";
+export const FIELD_APPROVAL_REJECT_CHANGE = "field-approval:write:reject-change";
+
+// requestedValue is absent when the caller may not read the field; the form then only says
+// that a request is open.
+export type PendingApprovalRequest = {
+  readonly id: string;
+  readonly version: number;
+  readonly fieldName: string;
+  readonly requestedValue?: unknown;
+  readonly filedByCaller: boolean;
+};

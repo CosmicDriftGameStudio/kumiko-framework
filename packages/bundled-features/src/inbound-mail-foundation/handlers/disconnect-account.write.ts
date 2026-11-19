@@ -8,7 +8,7 @@
 // with no second event, making double-clicks and retries safe.
 
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, type WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { InboundMailAccountStatuses, inboundCredentialSecretKey } from "../constants.ts";
@@ -28,10 +28,8 @@ export const disconnectAccountSchema = z.object({
 const CREDENTIAL_DELETE_REASON =
   "the credential secret is deleted on the request transaction so a failed disconnect leaves the secret in place and the account status stays consistent with it";
 
-type DisconnectAccountPayload = z.infer<typeof disconnectAccountSchema>;
-
-export function createDisconnectAccountHandler({ adminRoles }: InboundMailRoles): WriteHandlerDef {
-  return {
+export function createDisconnectAccountHandler({ adminRoles }: InboundMailRoles) {
+  return defineWriteHandler({
     name: "disconnect-account",
     schema: disconnectAccountSchema,
     access: { roles: [...adminRoles] },
@@ -39,10 +37,15 @@ export function createDisconnectAccountHandler({ adminRoles }: InboundMailRoles)
       "Puts a connected mailbox into the final disconnected state so the watch supervisor stops fetching it, keeping the stream for audit and requiring a fresh connect to resume; use it to stop mail ingestion for one mailbox.",
     agent: { risk: "high" },
     escapeHatch: { grants: ["unsafeRaw"], reason: CREDENTIAL_DELETE_REASON },
-    handler: async (event, ctx) => {
-      // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const payload = event.payload as DisconnectAccountPayload;
+    handler: async (
+      event,
+      ctx,
+    ): Promise<
+      WriteResult<{ readonly accountId: string; readonly alreadyDisconnected: boolean }>
+    > => {
+      const payload = event.payload;
 
+      const accountStreamVersion = await ctx.events.streamVersion(payload.accountId);
       const current = await loadCurrentMailAccountPayload(ctx, payload.accountId);
       if (!current) {
         return failNotFound("mail-account", payload.accountId);
@@ -69,6 +72,7 @@ export function createDisconnectAccountHandler({ adminRoles }: InboundMailRoles)
         type: MAIL_ACCOUNT_DISCONNECTED_EVENT_QN,
         payload: eventPayload,
         headers,
+        expectedVersion: accountStreamVersion,
       });
 
       // Tests and apps without a secrets store have no credential to remove.
@@ -77,7 +81,7 @@ export function createDisconnectAccountHandler({ adminRoles }: InboundMailRoles)
           { secrets: ctx.services.secrets, user: ctx.user },
           "disconnect-account",
         )
-          .withRunner(ctx.db.unsafeRaw())
+          .withRunner(ctx.db.unsafeRawAllTenants())
           .delete(event.user.tenantId, inboundCredentialSecretKey(payload.accountId), {
             deletedBy: event.user.id,
           });
@@ -88,5 +92,5 @@ export function createDisconnectAccountHandler({ adminRoles }: InboundMailRoles)
         data: { accountId: payload.accountId, alreadyDisconnected: false as const },
       };
     },
-  };
+  });
 }

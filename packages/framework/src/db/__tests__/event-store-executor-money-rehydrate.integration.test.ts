@@ -32,6 +32,7 @@ const cipher = createTestEnvelopeCipher(TEST_KEY);
 // ownership.kind==="sql" branch (decryptForRead used to run against a still
 // snake_case row and silently skip the field, leaking ciphertext).
 const entity = createEntity({
+  name: "moneyOrder",
   table: "read_money_orders",
   fields: {
     ownerId: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -49,7 +50,7 @@ const entity = createEntity({
   // camelCase and would pass this test even with the bug present.
   access: { read: { Admin: from("user:id", "ownerId") } },
 });
-const table = buildEntityTable("moneyOrder", entity);
+const table = buildEntityTable(entity);
 
 let testDb: BunTestDb;
 let tdb: TenantDb;
@@ -81,7 +82,7 @@ describe("event-store-executor — money column rehydration through raw SQL", ()
     const created = await exec.create(
       {
         ownerId: admin.id,
-        grossTotal: { amount: 136.85, currency: "EUR" },
+        grossTotal: { amount: 13685, currency: "EUR" },
         billingIban: "DE1234567890",
       },
       admin,
@@ -93,10 +94,8 @@ describe("event-store-executor — money column rehydration through raw SQL", ()
     expect(res.rows).toHaveLength(1);
     const row = res.rows[0] as Record<string, unknown>;
     expect(row["grossTotal"]).toEqual({
-      amount: 136.85,
+      amount: 13685,
       currency: "EUR",
-      amountScaled: 13685,
-      amountMinor: 13685,
     });
     expect("grossTotalCurrency" in row).toBe(false);
   });
@@ -105,7 +104,7 @@ describe("event-store-executor — money column rehydration through raw SQL", ()
     const created = await exec.create(
       {
         ownerId: admin.id,
-        grossTotal: { amount: 42.5, currency: "USD" },
+        grossTotal: { amount: 4250, currency: "USD" },
         billingIban: "DE9876543210",
       },
       admin,
@@ -118,10 +117,8 @@ describe("event-store-executor — money column rehydration through raw SQL", ()
     expect(row).not.toBeNull();
     if (!row) return;
     expect(row["grossTotal"]).toEqual({
-      amount: 42.5,
+      amount: 4250,
       currency: "USD",
-      amountScaled: 4250,
-      amountMinor: 4250,
     });
     expect("grossTotalCurrency" in row).toBe(false);
   });
@@ -131,7 +128,7 @@ describe("event-store-executor — money column rehydration through raw SQL", ()
     const created = await exec.create(
       {
         ownerId: admin.id,
-        grossTotal: { amount: 10, currency: "EUR" },
+        grossTotal: { amount: 1000, currency: "EUR" },
         billingIban: plainIban,
       },
       admin,

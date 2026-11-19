@@ -3,14 +3,21 @@ import { type Context, Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { streamSSE } from "hono/streaming";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { hasAccess } from "../engine/access.ts";
+import { isAnonymousSessionUser } from "../engine/system-user.ts";
 import type { SessionUser } from "../engine/types/handlers.ts";
+import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
+import type { Registry } from "../engine/types/index.ts";
 import {
   AccessDeniedError,
   type KumikoError,
+  NotFoundError,
   reraiseAsKumikoError,
+  UnprocessableError,
   ValidationError,
 } from "../errors/index.ts";
 import { serializeError } from "../errors/serialize.ts";
+import { toClientWriteErrorInfo } from "../errors/write-error-info.ts";
 
 import { createFallbackLogger, scrubLogText } from "../logging/index.ts";
 import { scrubLogValue } from "../logging/scrub.ts";
@@ -20,7 +27,8 @@ import { wrapToKumiko } from "../pipeline/dispatcher-utils.ts";
 import { isPlainObject } from "../utils/is-plain-object.ts";
 import { stringifyJson } from "../utils/safe-json.ts";
 import { APP_NOW_HEADER_NAME, Routes } from "./api-constants.ts";
-import { getAuthTokenExpiry, getUser } from "./auth-middleware.ts";
+import { getAuthTokenExpiry, getUser, type MiddlewareRejectCode } from "./auth-middleware.ts";
+import { toContentfulStatus } from "./contentful-status.ts";
 import { patAllows } from "./pat-scope.ts";
 import { requestContext } from "./request-context.ts";
 import { SSE_HEARTBEAT_INTERVAL_MS } from "./sse-route.ts";
@@ -48,7 +56,11 @@ export type ApiRoutesOptions = {
   readonly clock?: Clock;
 };
 
-export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOptions = {}) {
+export function createApiRoutes(
+  dispatcher: Dispatcher,
+  registry: Registry,
+  options: ApiRoutesOptions = {},
+) {
   const heartbeatMs = options.sseHeartbeatMs ?? SSE_HEARTBEAT_INTERVAL_MS;
   const api = new Hono();
 
@@ -68,6 +80,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
     try {
       assertPayloadDepthAllowed(body.payload);
       assertPatAllowed(user, body.type);
+      assertWriteEntryAllowed(registry, user, body.type);
       const result = await dispatcher.write(body.type, body.payload, user, body.requestId);
       if (!result.isSuccess) {
         return writeErrorResponse(c, reraiseAsKumikoError(result.error), body.type);
@@ -112,6 +125,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
       if (user.pat) {
         for (const cmd of commands) assertPatAllowed(user, cmd.type);
       }
+      for (const cmd of commands) assertWriteEntryAllowed(registry, user, cmd.type);
       const result = await dispatcher.batch(commands, user, requestId);
       if (!result.isSuccess) {
         const err = reraiseAsKumikoError(result.error);
@@ -130,9 +144,11 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
             isSuccess: false,
             error,
             failedIndex: result.failedIndex,
-            results: result.results,
+            results: result.results.map((entry) =>
+              entry.isSuccess ? entry : { ...entry, error: toClientWriteErrorInfo(entry.error) },
+            ),
           },
-          err.httpStatus as ContentfulStatusCode, // @cast-boundary engine-payload
+          toContentfulStatus(err.httpStatus),
         );
       }
       return c.json(result);
@@ -163,6 +179,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
     try {
       assertPayloadDepthAllowed(body.payload);
       assertPatAllowed(user, body.type);
+      assertWriteEntryAllowed(registry, user, body.type);
       await dispatcher.command(body.type, body.payload, user);
       return c.json({ ok: true }, 202);
     } catch (e) {
@@ -417,6 +434,28 @@ function assertPatAllowed(user: SessionUser, type: string): void {
   }
 }
 
+// The generic HTTP entry is the trust boundary for client dispatches; server code (auth routes,
+// ctx.dispatch, jobs, extra routes) calls the dispatcher directly and is not gated here.
+function assertWriteEntryAllowed(registry: Registry, user: SessionUser, type: string): void {
+  const handler = registry.getWriteHandler(type);
+  // skip: unknown type, the dispatcher answers with its own 404.
+  if (!handler) return;
+  if (handler.dispatchOnly) throw new NotFoundError("handler", type);
+  // A handler the anonymous role cannot call keeps the dispatcher's 401, which clients key on.
+  const anonymousMayCall = isSystemAnchoredAnonymous(user) && hasAccess(user, handler.access);
+  if (anonymousMayCall && handler.tenantlessAnonymous !== true) {
+    throw new UnprocessableError("tenant_required" satisfies MiddlewareRejectCode, {
+      message: `anonymous write ${type} has no tenant; only tenantlessAnonymous handlers run under the system tenant`,
+      i18nKey: "auth.errors.tenantRequired",
+      details: { handler: type },
+    });
+  }
+}
+
+function isSystemAnchoredAnonymous(user: SessionUser): boolean {
+  return isAnonymousSessionUser(user) && user.tenantId === SYSTEM_TENANT_ID;
+}
+
 // Log levels that silence the 4xx tier. Checked here and not in the logger
 // because this module uses the console fallback, which pino's level never
 // reaches — LOG_LEVEL is the volume knob for client faults.
@@ -511,7 +550,7 @@ function writeErrorResponse(c: Context, err: KumikoError, type?: unknown) {
   logServerFault(err, requestId, type);
   const { error } = serializeError(err, requestId, requestContext.get()?.errorDocs);
   setRetryAfterHeader(c, err);
-  return c.json({ isSuccess: false, error }, err.httpStatus as ContentfulStatusCode); // @cast-boundary engine-payload
+  return c.json({ isSuccess: false, error }, toContentfulStatus(err.httpStatus));
 }
 
 function clientAbortResponse(c: Context, requestId: string | undefined, type?: unknown) {
@@ -529,7 +568,7 @@ export function queryErrorResponse(c: Context, err: KumikoError, type?: unknown)
   logServerFault(err, requestId, type);
   const body = serializeError(err, requestId, requestContext.get()?.errorDocs);
   setRetryAfterHeader(c, err);
-  return c.json(body, err.httpStatus as ContentfulStatusCode); // @cast-boundary engine-payload
+  return c.json(body, toContentfulStatus(err.httpStatus));
 }
 
 // A raw throw under the request signal (signal.throwIfAborted(), an aborted
@@ -552,6 +591,6 @@ export function handleUncaughtRouteError(err: Error, c: Context): Response | Pro
   setRetryAfterHeader(c, kumikoError);
   return c.json(
     serializeError(kumikoError, requestId, requestContext.get()?.errorDocs),
-    kumikoError.httpStatus as ContentfulStatusCode,
-  ); // @cast-boundary engine-payload
+    toContentfulStatus(kumikoError.httpStatus),
+  );
 }

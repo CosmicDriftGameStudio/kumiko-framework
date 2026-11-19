@@ -4,7 +4,6 @@ import {
   definePagedQueryHandler,
   MAX_LIST_LIMIT,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { decryptTenantNames, takeTenantsMatchingDecryptedName } from "../decrypt-tenant-names.ts";
 import { tenantTable } from "../schema/tenant.ts";
@@ -31,22 +30,18 @@ export const tenantDirectoryQuery = definePagedQueryHandler({
     ids: z.array(z.string().min(1)).max(MAX_LIST_LIMIT).optional(),
   }),
   access: { roles: access.admin },
+  systemScope: true,
   description:
     "Lists tenants as id/label pairs for resolving tenant references to display names: the caller's own tenant for an admin, every tenant for a SystemAdmin. A search returns the first `limit` matches in tenant-key order (sorted by label afterwards), not the alphabetically best matches.",
   agent: { expose: false },
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "tenant:query:tenant-directory requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
-      });
-    }
+    const { systemDb } = ctx;
     const { limit, search, ids } = query.payload;
     if (ids?.length === 0) return { rows: [], nextCursor: null };
     const scanLimit = search === undefined ? limit : SEARCH_SCAN_CAP;
     let tenants: readonly { id: unknown; name?: unknown }[];
     if (isSystemAdmin(query.user)) {
-      const db = ctx.systemDb.acknowledgeCrossTenant(
+      const db = systemDb.acknowledgeCrossTenant(
         "SystemAdmin reference labels span every tenant, as tenant:query:tenant:list did",
       );
       tenants = await selectMany(db, tenantTable, ids === undefined ? undefined : { id: ids }, {
@@ -57,7 +52,7 @@ export const tenantDirectoryQuery = definePagedQueryHandler({
         ],
       });
     } else {
-      const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
+      const db = systemDb.assertTenantMatch(query.user.tenantId);
       const row = await fetchOne(db, tenantTable, { id: query.user.tenantId });
       tenants = row && (ids === undefined || ids.includes(query.user.tenantId)) ? [row] : [];
     }

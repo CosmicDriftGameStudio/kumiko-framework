@@ -3,10 +3,11 @@
 
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { Dispatcher, QueryResult } from "../../../headless/index.ts";
+import { createMockDispatcher } from "../../../testing.ts";
 import { postWithDownload } from "../download.ts";
 
 function stubDispatcher(result: QueryResult<{ url?: string }>): Dispatcher {
-  return { query: async () => result } as unknown as Dispatcher;
+  return createMockDispatcher({ query: async () => result });
 }
 
 describe("postWithDownload (happy-dom)", () => {

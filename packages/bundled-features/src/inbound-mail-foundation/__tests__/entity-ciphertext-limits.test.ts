@@ -27,14 +27,11 @@ import {
   INBOUND_MESSAGE_PII_FIELDS,
   inboundMessageEntity,
   MAIL_ACCOUNT_PII_FIELDS,
-  MAIL_THREAD_PII_FIELDS,
   mailAccountEntity,
-  mailThreadEntity,
 } from "../entities.ts";
 import {
   INBOUND_MESSAGE_AGGREGATE_TYPE,
   MAIL_ACCOUNT_AGGREGATE_TYPE,
-  MAIL_THREAD_AGGREGATE_TYPE,
   mailAccountEventPayloadSchema,
 } from "../events.ts";
 import {
@@ -47,11 +44,13 @@ import {
 } from "../normalize-inbound-message.ts";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001";
+const RECORD_ID = "00000000-0000-4000-8000-0000000000aa";
 
 afterEach(() => {
   resetPiiSubjectKmsForTests();
 });
 
+// Inbound message fields are keyed per record ({ of: "id" }), so the row carries an id like the ingest handler's.
 async function encryptedAtLimit(
   entity: EntityDefinition,
   entityName: string,
@@ -64,7 +63,7 @@ async function encryptedAtLimit(
     Object.entries(limits).map(([name, limit]) => [name, "€".repeat(limit)]),
   );
   return encryptPiiFieldValues(
-    { tenantId: TENANT_ID, ...plain },
+    { id: RECORD_ID, tenantId: TENANT_ID, ...plain },
     entity,
     piiFields,
     kms,
@@ -108,19 +107,6 @@ describe("entity field limits for PII ciphertext", () => {
     expect(entityResult?.success).toBe(true);
     const eventResult = mailAccountEventPayloadSchema.shape.address.safeParse(encrypted["address"]);
     expect(eventResult.success).toBe(true);
-  });
-
-  test("thread subject at its plaintext maximum validates", async () => {
-    const encrypted = await encryptedAtLimit(
-      mailThreadEntity,
-      MAIL_THREAD_AGGREGATE_TYPE,
-      MAIL_THREAD_PII_FIELDS,
-      { subject: INBOUND_SUBJECT_MAX_CHARS },
-    );
-    const result = buildInsertSchema(mailThreadEntity).shape["subject"]?.safeParse(
-      encrypted["subject"],
-    );
-    expect(result?.success).toBe(true);
   });
 
   test("billing event provider ids at 200 characters validate", async () => {

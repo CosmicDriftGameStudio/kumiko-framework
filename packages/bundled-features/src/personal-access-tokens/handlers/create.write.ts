@@ -57,6 +57,7 @@ export function createPatCreateHandler(opts: CreatePatOptions = {}) {
       currentPassword: z.string().min(1),
       mfaCode: z.string().optional(),
     }),
+    rateLimit: { per: "user+handler", limit: 5, windowSeconds: 300 },
     access: {
       openToAll: {
         reason:
@@ -65,7 +66,7 @@ export function createPatCreateHandler(opts: CreatePatOptions = {}) {
       },
     },
     escapeHatch: {
-      grants: ["systemIdentity"],
+      grants: ["systemIdentity", "unsafeRaw"],
       reason:
         "Reads the caller's own passwordHash (privileged-only field) via ctx.dispatch.queryAs(SYSTEM, " +
         "user:findForAuth) to re-verify the current password before minting the token. Also " +

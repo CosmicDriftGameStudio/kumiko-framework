@@ -30,7 +30,8 @@ function featureWithNotification(name: string, declaration: TemplateDeclaration)
       access: { roles: ["TenantAdmin"] },
       handler: async () => ({ isSuccess: true as const, data: {} }),
     });
-    r.notification(name, {
+    r.notification({
+      name,
       trigger: { on: "create" },
       recipient: () => null,
       data: () => ({}),
@@ -124,7 +125,7 @@ describe("r.notification template declaration", () => {
 describe("r.notification without trigger", () => {
   function featureWith(declaration: NotificationDeclaration) {
     return defineFeature("mailer", (r) => {
-      r.notification("welcome-mail", declaration);
+      r.notification({ name: "welcome-mail", ...declaration });
     });
   }
 

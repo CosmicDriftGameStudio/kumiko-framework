@@ -16,7 +16,7 @@
 import type { AppSchema } from "@cosmicdrift/kumiko-renderer";
 import { createKumikoApp, KumikoScreen } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
-import { createMockDispatcher } from "./mock-dispatcher";
+import { createInMemoryDispatcher } from "./mock-dispatcher";
 
 const NOTE_EDIT_SCREEN_QN = "note-desk:screen:note-edit";
 const NOTE_DETAIL_SCREEN_QN = "note-desk:screen:note-detail";
@@ -53,7 +53,7 @@ async function boot(): Promise<void> {
 
   createKumikoApp({
     schema,
-    dispatcher: createMockDispatcher(),
+    dispatcher: createInMemoryDispatcher(),
     shell: SideBySideShell,
     screenQn: NOTE_EDIT_SCREEN_QN,
   });

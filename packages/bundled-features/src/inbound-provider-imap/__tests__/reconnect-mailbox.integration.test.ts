@@ -157,7 +157,9 @@ async function statusesOf(admin: Admin): Promise<AccountRow[]> {
 }
 
 const secretsOf = (admin: Admin) =>
-  selectMany(stack.db, tenantSecretsTable, { tenantId: admin.tenantId });
+  selectMany<{ metadata: { redactedPreview: string } }>(stack.db, tenantSecretsTable, {
+    tenantId: admin.tenantId,
+  });
 
 describe("reconnect mailbox form", () => {
   greenmailWithSmtpsTest(

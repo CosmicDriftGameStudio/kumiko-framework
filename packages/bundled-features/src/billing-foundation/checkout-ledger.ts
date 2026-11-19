@@ -43,6 +43,8 @@ export async function appendCheckoutOpened(
       entry.mode === "subscription" ? SUBSCRIPTION_AGGREGATE_TYPE : PAYMENT_AGGREGATE_TYPE,
     type: CHECKOUT_OPENED_EVENT_QN,
     payload: entry,
+    blindAppendReason:
+      "a checkout-opened ledger entry is an independent fact about a provider checkout this server just created; later events on the stream never invalidate it",
   });
 }
 

@@ -4,6 +4,7 @@ import { bootRuleError } from "./boot-rule.ts";
 
 // effect "proposal" lets the agent run the write without an approval card, which is only safe when
 // the result is itself a suggestion a person still approves and the handler is declared low risk.
+// effect "outbound" is the opposite: every call needs approval, so any risk is allowed.
 export function validateAgentProposalEffect(
   featureName: string,
   kind: "write" | "query",
@@ -18,6 +19,8 @@ export function validateAgentProposalEffect(
       message: `${where}, but only write handlers have an effect — drop it.`,
     });
   }
+  // skip: only a proposal skips approval, so only it needs risk "low"
+  if (agent.effect !== "proposal") return;
   if (agent.risk !== "low") {
     throw bootRuleError(AGENT_EFFECT_RULES.proposalNeedsLowRisk, {
       message: `${where} with agent.risk "${agent.risk ?? "mid (default)"}" — a proposal write skips the approval step, so it must declare risk: "low".`,

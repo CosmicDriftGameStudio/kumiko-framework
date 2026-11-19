@@ -32,6 +32,8 @@ export type ChannelWhatsappOptions = {
   readonly senderRateLimits?: readonly WhatsappSenderRateLimit[];
   // Coarse flood guard of the inbound write handlers (per tenant and handler).
   readonly rateLimit?: RateLimitDeclaration;
+  // Opt-in: a daily job erases the record keys of streams older than this many days. Unset: no job.
+  readonly eventRetentionDays?: number;
 };
 
 export type ResolvedWhatsappOptions = {
@@ -44,6 +46,7 @@ export type ResolvedWhatsappOptions = {
   readonly transport: WhatsappTransport | undefined;
   readonly senderRateLimits: readonly WhatsappSenderRateLimit[];
   readonly rateLimit: RateLimitDeclaration;
+  readonly eventRetentionDays: number | undefined;
 };
 
 export const DEFAULT_WHATSAPP_SENDER_RATE_LIMITS: readonly WhatsappSenderRateLimit[] = [
@@ -131,6 +134,9 @@ export function resolveWhatsappOptions(options: ChannelWhatsappOptions): Resolve
   if (!isPositiveInteger(timeoutMs)) {
     throw new Error("channel-whatsapp: timeoutMs must be a positive integer");
   }
+  if (options.eventRetentionDays !== undefined && !isPositiveInteger(options.eventRetentionDays)) {
+    throw new Error("channel-whatsapp: eventRetentionDays must be a positive integer");
+  }
   if (!isPositiveInteger(mediaMaxBytes)) {
     throw new Error("channel-whatsapp: mediaMaxBytes must be a positive integer");
   }
@@ -145,5 +151,6 @@ export function resolveWhatsappOptions(options: ChannelWhatsappOptions): Resolve
     transport: options.transport,
     senderRateLimits,
     rateLimit,
+    eventRetentionDays: options.eventRetentionDays,
   };
 }

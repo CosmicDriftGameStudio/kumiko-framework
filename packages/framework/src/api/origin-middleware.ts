@@ -117,12 +117,17 @@ export function originMiddleware(
     // by the allowlist branch inside isForeignCookieOrigin. The residual is
     // only the no-Origin-yet-Sec-Fetch-Site combo, which no current browser
     // emits for state-changing requests.
-    if (isForeignCookieOrigin(c, allowlist)) {
-      if (options.allowRequestHost === true && isSameHostOrigin(c)) return next();
-      return rejectOrigin(c);
-    }
+    if (isRejectedOrigin(c, allowlist, options.allowRequestHost === true)) return rejectOrigin(c);
     return next();
   };
+}
+
+function isRejectedOrigin(
+  c: Context,
+  allowlist: ReadonlySet<string>,
+  allowRequestHost: boolean,
+): boolean {
+  return isForeignCookieOrigin(c, allowlist) && !(allowRequestHost && isSameHostOrigin(c));
 }
 
 // Fail-closed boot check: a wide cookieDomain shares the JS-readable
@@ -162,20 +167,59 @@ export function assertOriginGuardConfig(
 // An explicit allowlist always wins and is strict. Without one, a known public
 // origin still enables the guard, but only for host-only cookies (no
 // cookieDomain) and never against an explicit opt-out.
-export function resolveOriginGuard(
-  auth:
-    | {
-        cookieDomain?: string;
-        allowedOrigins?: readonly string[];
-        publicOrigin?: string;
-        unsafeSkipOriginCheck?: boolean;
-      }
-    | undefined,
-): ReturnType<typeof originMiddleware> | undefined {
+type OriginGuardAuthConfig = {
+  cookieDomain?: string;
+  allowedOrigins?: readonly string[];
+  publicOrigin?: string;
+  unsafeSkipOriginCheck?: boolean;
+};
+
+type OriginGuardSettings = {
+  readonly allowedOrigins: readonly string[];
+  readonly allowRequestHost: boolean;
+};
+
+function resolveOriginGuardSettings(
+  auth: OriginGuardAuthConfig | undefined,
+): OriginGuardSettings | undefined {
   if (auth?.allowedOrigins && auth.allowedOrigins.length > 0) {
-    return originMiddleware(auth.allowedOrigins);
+    return { allowedOrigins: auth.allowedOrigins, allowRequestHost: false };
   }
   if (auth?.publicOrigin === undefined || auth.unsafeSkipOriginCheck === true) return undefined;
   if (auth.cookieDomain) return undefined;
-  return originMiddleware([auth.publicOrigin], { allowRequestHost: true });
+  return { allowedOrigins: [auth.publicOrigin], allowRequestHost: true };
+}
+
+export function resolveOriginGuard(
+  auth: OriginGuardAuthConfig | undefined,
+): ReturnType<typeof originMiddleware> | undefined {
+  const settings = resolveOriginGuardSettings(auth);
+  return (
+    settings &&
+    originMiddleware(settings.allowedOrigins, { allowRequestHost: settings.allowRequestHost })
+  );
+}
+
+// These routes run before any auth, so the cookie-transport gate of
+// originMiddleware never fires; requests without Origin and without
+// Sec-Fetch-Site: cross-site (native apps, server clients) pass.
+export function sessionMintingOriginMiddleware(
+  allowedOrigins: readonly string[],
+  options: { readonly allowRequestHost?: boolean } = {},
+) {
+  const allowlist: ReadonlySet<string> = new Set(allowedOrigins.map(normalizeOrigin));
+  return async (c: Context, next: Next) =>
+    isRejectedOrigin(c, allowlist, options.allowRequestHost === true) ? rejectOrigin(c) : next();
+}
+
+export function resolveSessionMintingOriginGuard(
+  auth: OriginGuardAuthConfig | undefined,
+): ReturnType<typeof sessionMintingOriginMiddleware> | undefined {
+  const settings = resolveOriginGuardSettings(auth);
+  return (
+    settings &&
+    sessionMintingOriginMiddleware(settings.allowedOrigins, {
+      allowRequestHost: settings.allowRequestHost,
+    })
+  );
 }

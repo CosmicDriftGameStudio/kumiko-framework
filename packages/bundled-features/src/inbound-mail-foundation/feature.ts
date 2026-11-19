@@ -5,11 +5,10 @@
 //
 // **What this foundation provides:**
 //   1. **Plugin API** for providers via r.extendsRegistrar: verify/fetch/oauth?/watch? (types.ts).
-//   2. **3 event-sourced streams** — mail-account (lifecycle),
+//   2. **2 event-sourced streams** — mail-account (lifecycle),
 //      inbound-message (exactly ONE received event per message, deterministic
-//      aggregateId ⇒ exactly-once despite at-least-once ingest),
-//      mail-thread (rollup), fully replayable for later consumers.
-//   3. **Inline projections** into read_mail_accounts/_inbound_messages/_mail_threads (RYOW).
+//      aggregateId ⇒ exactly-once despite at-least-once ingest), fully replayable for later consumers.
+//   3. **Inline projections** into read_mail_accounts/_inbound_messages (RYOW).
 //   4. **Write/query handlers**: connect/update/disconnect-account,
 //      ingest-message (programmatic, SystemAdmin), account:list +
 //      message:list (PII-decrypted; personal mail only for its owner).
@@ -26,7 +25,6 @@ import { INBOUND_MAIL_FOUNDATION_FEATURE, INBOUND_MAIL_PROVIDER_EXTENSION } from
 import {
   createInboundMessageEntity,
   mailAccountEntity,
-  mailThreadEntity,
   seenMessageTable,
   syncCursorTable,
 } from "./entities.ts";
@@ -45,11 +43,7 @@ import {
   MAIL_ACCOUNT_DISCONNECTED_EVENT_SHORT,
   MAIL_ACCOUNT_UPDATED_EVENT_QN,
   MAIL_ACCOUNT_UPDATED_EVENT_SHORT,
-  MAIL_THREAD_AGGREGATE_TYPE,
-  MAIL_THREAD_UPDATED_EVENT_QN,
-  MAIL_THREAD_UPDATED_EVENT_SHORT,
   mailAccountEventPayloadSchema,
-  mailThreadEventPayloadSchema,
 } from "./events.ts";
 import { createAcknowledgeQuarantineHandler } from "./handlers/acknowledge-quarantine.write.ts";
 import { attachMessageContentHandler } from "./handlers/attach-message-content.write.ts";
@@ -74,6 +68,7 @@ import {
   resolveInboundMailRoles,
   roleDedupeOptions,
 } from "./mail-roles.ts";
+import { outboundMailSendsTable } from "./outbound-send-entities.ts";
 import { registerMailboxProbe } from "./probe.ts";
 import {
   applyInboundMessageContentFetched,
@@ -81,10 +76,8 @@ import {
   applyMailAccountConnected,
   applyMailAccountDisconnected,
   applyMailAccountUpdated,
-  applyMailThreadUpdated,
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
-  mailThreadsProjectionTable,
 } from "./projection.ts";
 import { quarantineTable } from "./quarantine-entities.ts";
 import { createMailQuarantineScreen } from "./quarantine-screens.ts";
@@ -94,7 +87,6 @@ import {
   INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON,
   inboundMessageTenantDestroyHook,
   mailAccountTenantDestroyHook,
-  mailThreadTenantDestroyHook,
 } from "./tenant-destroy-hook.ts";
 import { registerMailAccountWakeConsumer } from "./wake-consumer.ts";
 
@@ -103,9 +95,8 @@ export function createInboundMailFoundationFeature(options: InboundMailRoleOptio
   return defineFeature(
     INBOUND_MAIL_FOUNDATION_FEATURE,
     (r) => {
-      r.adoptsBundledLists();
       r.describe(
-        "Plugin host for inbound e-mail (inbox federation) — provider plugins (inbound-provider-imap, later M365 Graph / Gmail REST) register at the `inboundMailProvider` extension point with verify/fetch and optional oauth/watch (live push) and send. `sendMailFromAccount(ctx, { accountId, message })` sends from a connected mailbox through its provider (From = the mailbox address, no fallback to the app sender) and answers typed failures (not configured, login rejected, server unreachable, rejected, invalid message); app write handlers call it from `beforeTransaction` (it sends at once and a rollback cannot recall the mail), it is no endpoint of its own. The foundation owns three event-sourced streams (mail-account lifecycle, inbound-message with exactly-once ingest via deterministic aggregate ids, mail-thread rollup) and their projections `read_mail_accounts`/`read_inbound_messages`/`read_mail_threads`; PII fields are envelope-encrypted per tenant subject key before every append (crypto-shredding on tenant destroy). Wire `createInboundMailConnectRoutes` (OAuth connect + anonymous callback outside /api) and `createInboundMailSupervisor` (IDLE watch with backoff + reconciliation poll) in bin/server.ts. Consume `inbound-mail-foundation:event:inbound-message-received` from app features to attach business processes.",
+        "Plugin host for inbound e-mail (inbox federation) — provider plugins (inbound-provider-imap, later M365 Graph / Gmail REST) register at the `inboundMailProvider` extension point with verify/fetch and optional oauth/watch (live push) and send. `sendMailFromAccount(ctx, { accountId, message })` sends from a connected mailbox through its provider (From = the mailbox address, no fallback to the app sender) and answers typed failures (not configured, login rejected, server unreachable, rejected, invalid message); with an `idempotencyKey` a repeat of a finished send returns the stored result instead of sending again, and a send that started but never finished answers `mail_send_outcome_unknown` (the stored keys live in `store_mail_outbound_sends`); app write handlers call it from `beforeTransaction` (it sends at once and a rollback cannot recall the mail), it is no endpoint of its own. The foundation owns two event-sourced streams (mail-account lifecycle, inbound-message with exactly-once ingest via deterministic aggregate ids) and their projections `read_mail_accounts`/`read_inbound_messages`; PII fields are envelope-encrypted before every append: message fields under a record key per message (erased on forget, retention and tenant destroy), the mailbox address under the tenant subject key. Wire `createInboundMailConnectRoutes` (OAuth connect + anonymous callback outside /api) and `createInboundMailSupervisor` (IDLE watch with backoff + reconciliation poll) in bin/server.ts. Consume `inbound-mail-foundation:event:inbound-message-received` from app features to attach business processes.",
       );
       r.uiHints({
         displayLabel: "Inbound Mail · Foundation",
@@ -115,7 +106,7 @@ export function createInboundMailFoundationFeature(options: InboundMailRoleOptio
       // The EXT_TENANT_DATA hook requires the tenant-lifecycle host.
       r.requires({ features: ["tenant-lifecycle"] });
 
-      // piiFields: "none" — address/subject/snippet are already ciphertext under the tenant subject key before append (see events.ts).
+      // piiFields: "none" — address/subject/snippet are already ciphertext before append (message fields under the message record key, the address under the tenant key; see events.ts).
       // "displayName" stays plaintext (often the mailbox owner's real name for
       // personal accounts); encrypting it would break the entity-projection read
       // path that carries it as `personal: false`.
@@ -190,9 +181,6 @@ export function createInboundMailFoundationFeature(options: InboundMailRoleOptio
           ],
         },
       );
-      r.defineEvent(MAIL_THREAD_UPDATED_EVENT_SHORT, mailThreadEventPayloadSchema, {
-        piiFields: "none",
-      });
 
       r.projection({
         name: "mail-account",
@@ -215,20 +203,11 @@ export function createInboundMailFoundationFeature(options: InboundMailRoleOptio
           [INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN]: applyInboundMessageContentFetched,
         },
       });
-      r.projection({
-        name: "mail-thread",
-        source: MAIL_THREAD_AGGREGATE_TYPE,
-        table: mailThreadsProjectionTable,
-        entity: mailThreadEntity,
-        apply: {
-          [MAIL_THREAD_UPDATED_EVENT_QN]: applyMailThreadUpdated,
-        },
-      });
 
       registerMailAccountWakeConsumer(r);
 
       // Plugin extension point — providers register via
-      // r.useExtension("inboundMailProvider", "<key>", plugin).
+      // r.applyExtension({ name: "inboundMailProvider", entity: "<key>", ...plugin }).
       // Lookup happens at runtime via resolveInboundProviderForKey/-Account.
       r.extendsRegistrar(INBOUND_MAIL_PROVIDER_EXTENSION, {});
 
@@ -242,6 +221,9 @@ export function createInboundMailFoundationFeature(options: InboundMailRoleOptio
         reason: "read_side.mail_seen_messages_direct_write",
       });
 
+      r.storeTable(outboundMailSendsTable, {
+        reason: "read_side.mail_outbound_sends_direct_write",
+      });
       r.storeTable(quarantineTable, {
         reason: "read_side.mail_quarantine_direct_write",
       });
@@ -276,16 +258,16 @@ export function createInboundMailFoundationFeature(options: InboundMailRoleOptio
 
       // Entity-specific GDPR destroy hooks — the gdpr-storage boot validator
       // checks the EXT_TENANT_DATA registration for each tenant-subject entity.
-      r.useExtension(EXT_TENANT_DATA, "mail-account", {
+      r.applyExtension({
+        name: EXT_TENANT_DATA,
+        entity: "mail-account",
         destroy: mailAccountTenantDestroyHook,
         escapeHatch: { reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON },
       });
-      r.useExtension(EXT_TENANT_DATA, "inbound-message", {
+      r.applyExtension({
+        name: EXT_TENANT_DATA,
+        entity: "inbound-message",
         destroy: inboundMessageTenantDestroyHook,
-        escapeHatch: { reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON },
-      });
-      r.useExtension(EXT_TENANT_DATA, "mail-thread", {
-        destroy: mailThreadTenantDestroyHook,
         escapeHatch: { reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON },
       });
 

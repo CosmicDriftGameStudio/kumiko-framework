@@ -93,7 +93,7 @@ function validateBootWithHub(owner: FeatureDefinition): void {
 
 const smtp = defineFeature("mail-smtp", (r) => {
   r.requires({ features: ["mail-foundation"] });
-  r.useExtension("mailTransport", "smtp");
+  r.applyExtension({ name: "mailTransport", entity: "smtp" });
   r.config({
     keys: {
       host: createTenantConfig("text", {

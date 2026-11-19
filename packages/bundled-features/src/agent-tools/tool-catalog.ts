@@ -5,7 +5,7 @@ import type {
   QueryHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { hasAccess, normalizeAccessEntry } from "@cosmicdrift/kumiko-framework/engine";
-import { FILTER_OPS, isRecord } from "./filter-ops.ts";
+import { FILTER_OPS } from "./filter-ops.ts";
 import { assertCatalogMirrorsManifestDenyQns } from "./manifest-deny-qns.ts";
 import type {
   AgentManifest,
@@ -42,8 +42,12 @@ function jsonSchemaTypeForField(
     case "number":
     case "bigInt":
     case "decimal":
-    case "money":
       return { type: "number" };
+    case "money":
+      return {
+        type: "integer",
+        description: "amount in minor units of the currency (cents for EUR)",
+      };
     case "reference":
       return { type: "string", description: `ID referencing "${field.entity}"` };
     default:
@@ -272,26 +276,12 @@ function compareByCodePoint(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
+const VERSION_HINT =
+  " Pass `version` from your latest read of the record; on a version_conflict error, read it again and retry only if the change still applies.";
+
 function schemaRequiresField(schema: Readonly<Record<string, unknown>>, field: string): boolean {
   const required = schema["required"];
   return Array.isArray(required) && required.includes(field);
-}
-
-/** Strips `field` from both `properties` and `required` of a JSON Schema object — used to
- *  remove `version` from a write tool's model-facing input schema when dispatch injects it
- *  itself (read fresh from the paired detail handler right before the optimistic-lock write). */
-function stripFieldFromSchema(
-  schema: Readonly<Record<string, unknown>>,
-  field: string,
-): Readonly<Record<string, unknown>> {
-  const { properties, required, ...rest } = schema;
-  const strippedProperties = isRecord(properties)
-    ? Object.fromEntries(Object.entries(properties).filter(([key]) => key !== field))
-    : properties;
-  const strippedRequired = Array.isArray(required)
-    ? required.filter((entry) => entry !== field)
-    : required;
-  return { ...rest, properties: strippedProperties, required: strippedRequired };
 }
 
 function handlerDescription(handler: AgentManifestHandler): string {
@@ -591,15 +581,13 @@ function addWriteHandlerTools(
 
     const detailQn =
       handler.entity !== undefined ? detailQnByEntity.get(handler.entity) : undefined;
-    const injectsVersion =
-      detailQn !== undefined && schemaRequiresField(handler.inputSchema, "version");
-    const inputSchema = injectsVersion
-      ? stripFieldFromSchema(handler.inputSchema, "version")
-      : handler.inputSchema;
+    const description = schemaRequiresField(handler.inputSchema, "version")
+      ? `${handlerDescription(handler)}${VERSION_HINT}`
+      : handlerDescription(handler);
 
     addTool(
       sink,
-      { name, description: handlerDescription(handler), inputSchema },
+      { name, description, inputSchema: handler.inputSchema },
       {
         kind: "server",
         op: "write",
@@ -608,7 +596,6 @@ function addWriteHandlerTools(
         ...(handler.effect !== undefined && { effect: handler.effect }),
         ...(handler.entity !== undefined && { entity: handler.entity }),
         ...(detailQn !== undefined && { detailQn }),
-        ...(injectsVersion && { injectsVersion: true as const }),
       },
     );
   }

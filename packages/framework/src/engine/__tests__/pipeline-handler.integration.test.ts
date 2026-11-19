@@ -170,10 +170,11 @@ const logHandler = defineWriteHandler({
 // table belongs to an aggregate stream (boot-validator would reject any
 // unsafeProjection.* that targets it).
 const widgetEntity = createEntity({
+  name: "widget",
   table: "pipeline_widget",
   fields: { label: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const widgetTable = buildEntityTable("widget", widgetEntity);
+const widgetTable = buildEntityTable(widgetEntity);
 const widgetExecutor = createEventStoreExecutor(widgetTable, widgetEntity, {
   entityName: "widget",
 });
@@ -210,6 +211,8 @@ const annotateHandler = defineWriteHandler({
     }),
     r.step.aggregate.appendEvent({
       aggregateId: ({ steps }) => (steps["widget"] as { id: string }).id,
+      blindAppendReason:
+        "the step appends an annotation to a stream the same pipeline just created; ordering is not under test",
       aggregateType: "widget",
       // Type below is registered via r.defineEvent in the feature
       // registration further down — keeps the demo feature self-
@@ -454,7 +457,7 @@ const bulkLogHandler = defineWriteHandler({
 
 const demoPipelineFeature = defineFeature("demoPipeline", (r) => {
   r.requires.projection("pipeline_demo_log");
-  r.entity({ name: "widget", ...widgetEntity });
+  r.entity(widgetEntity);
   r.defineEvent("annotated", z.object({ note: z.string() }), { piiFields: "none" });
   r.writeHandler(echoHandler);
   r.writeHandler(explodeHandler);
@@ -596,7 +599,7 @@ describe("defineWriteHandler({ perform: stepsPipeline(...) }) — real dispatche
 
     const rows = await selectMany(stack.db, pipelineDemoLogTable, { correlationId: "corr-2" });
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.message).toBe("v2 — overwritten");
+    expect(rows[0]?.["message"]).toBe("v2 — overwritten");
   });
 
   test("aggregate.create opens a stream via the real event-store and lands the SaveContext under steps.<name>", async () => {
@@ -794,7 +797,7 @@ describe("defineWriteHandler({ perform: stepsPipeline(...) }) — real dispatche
       correlationId: "branch-truthy",
     });
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.message).toBe("real");
+    expect(rows[0]?.["message"]).toBe("real");
   });
 
   test("branch.onTrue is skipped when the condition is falsy (no row written)", async () => {

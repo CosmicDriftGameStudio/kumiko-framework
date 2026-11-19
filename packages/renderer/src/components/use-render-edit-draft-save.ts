@@ -1,5 +1,5 @@
 import { type MutableRefObject, useCallback, useEffect, useRef } from "react";
-import type { FormValues } from "../headless/index.ts";
+import type { DispatcherError, FormValues } from "../headless/index.ts";
 import {
   buildControlsFor,
   deriveChangeState,
@@ -28,6 +28,7 @@ export type RenderEditRefs<TValues extends FormValues> = {
   >;
   readonly wizardNextRef: MutableRefObject<() => void>;
   readonly wizardBackRef: MutableRefObject<() => void>;
+  readonly showSubmitErrorRef: MutableRefObject<(error: DispatcherError) => void>;
   readonly currentStepRef: MutableRefObject<number>;
   readonly draftSaveTimerRef: MutableRefObject<ReturnType<typeof setTimeout> | null>;
 };
@@ -97,6 +98,7 @@ export function useRenderEditDraftSave<TValues extends FormValues, TCtx>(
   );
   const wizardNextRef = useRef<() => void>(() => {});
   const wizardBackRef = useRef<() => void>(() => {});
+  const showSubmitErrorRef = useRef<(error: DispatcherError) => void>(() => {});
   const currentStepRef = useRef(0);
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refs: RenderEditRefs<TValues> = {
@@ -111,6 +113,7 @@ export function useRenderEditDraftSave<TValues extends FormValues, TCtx>(
     handleSubmitRef,
     wizardNextRef,
     wizardBackRef,
+    showSubmitErrorRef,
     currentStepRef,
     draftSaveTimerRef,
   };
@@ -164,6 +167,7 @@ export function useRenderEditDraftSave<TValues extends FormValues, TCtx>(
         handleSubmitRef,
         wizardNextRef,
         wizardBackRef,
+        showSubmitErrorRef,
       }),
     );
     // Dep on boolean presence only — inline-arrow identity must not redeliver.

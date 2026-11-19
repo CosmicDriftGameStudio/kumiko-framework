@@ -1,8 +1,8 @@
 import {
   applyFormatSpec,
-  currencyDecimals,
   type EditFieldViewModel,
   EMPTY_VALUE_PLACEHOLDER,
+  formatMoney,
 } from "../headless/index.ts";
 import {
   locatedValue,
@@ -37,10 +37,9 @@ const numberText: DisplayText = (field, value, appLocale) => {
 
 const moneyText: DisplayText = (field, value, appLocale) => {
   const currency = resolveMoneyCurrency(value, field.currency);
-  const minor = moneyMinorValue(value, currency);
+  const minor = moneyMinorValue(value);
   if (minor === "") return EMPTY_VALUE_PLACEHOLDER;
-  const major = minor / 10 ** currencyDecimals(currency);
-  return new Intl.NumberFormat(appLocale, { style: "currency", currency }).format(major);
+  return formatMoney(minor, currency, { locale: appLocale });
 };
 
 const selectText: DisplayText = (field, value) => {

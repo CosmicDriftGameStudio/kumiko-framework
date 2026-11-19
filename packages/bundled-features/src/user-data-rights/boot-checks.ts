@@ -1,3 +1,4 @@
+import { MAIL_TRANSPORT_EXTENSION } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import {
   bootRuleError,
   collectBootRuleViolations,
@@ -5,8 +6,48 @@ import {
   type FeatureDefinition,
   type ResolvedPiiFlags,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { DELIVERY_CHANNEL_EXTENSION, EMAIL_CHANNEL_NAME } from "../delivery/index.ts";
 import { entitiesOf } from "../shared/index.ts";
 import { USER_DATA_RIGHTS_BOOT_RULES } from "./boot-rules.ts";
+import type { UserDataRightsOptions } from "./options.ts";
+
+// Same mail paths the default mailers probe on the registry at send time.
+function isGdprMailPathMounted(features: readonly FeatureDefinition[]): boolean {
+  return features.some((feature) =>
+    feature.extensionUsages.some(
+      (usage) =>
+        (usage.extensionName === DELIVERY_CHANNEL_EXTENSION &&
+          usage.entityName === EMAIL_CHANNEL_NAME) ||
+        usage.extensionName === MAIL_TRANSPORT_EXTENSION,
+    ),
+  );
+}
+
+function sendsAnyDefaultGdprMail(opts: UserDataRightsOptions): boolean {
+  const anonymousDeletionFlow =
+    opts.deletionTokenSecret !== undefined && opts.deletionVerifyUrl !== undefined;
+  return (
+    anonymousDeletionFlow ||
+    opts.sendExportReadyEmail === undefined ||
+    opts.sendExportFailedEmail === undefined ||
+    opts.sendDeletionRequestedEmail === undefined ||
+    opts.sendDeletionExecutedEmail === undefined
+  );
+}
+
+// Without an app name the default mails went out as "Account — ...", which reads
+// like phishing; a boot error is cheaper than that mail in a user's inbox.
+export function validateGdprMailAppName(
+  features: readonly FeatureDefinition[],
+  opts: UserDataRightsOptions,
+): void {
+  if (opts.mailDefaults !== undefined) return;
+  if (!sendsAnyDefaultGdprMail(opts) || !isGdprMailPathMounted(features)) return;
+  throw bootRuleError(USER_DATA_RIGHTS_BOOT_RULES.mailAppNameMissing, {
+    message:
+      '[kumiko:boot] user-data-rights sends its default GDPR mails (a mail channel or transport is mounted and not every send*Email callback is set) but has no app name for them. Pass createUserDataRightsFeature({ mailDefaults: { appName: "<your app>" } }) so subject and body name the app.',
+  });
+}
 
 // V2: export-without-erase gate. A feature that registers an EXT_USER_DATA
 // export hook without a matching delete hook exports data under Art.20 but
@@ -15,12 +56,9 @@ import { USER_DATA_RIGHTS_BOOT_RULES } from "./boot-rules.ts";
 // only; runtime no-ops (a delete hook that silently skips) are not detectable
 // here — those are covered by the export/forget integration tests.
 //
-// Registered as an `r.bootCheck()` by this feature — EXT_USER_DATA is
-// owned by user-data-rights (r.extendsRegistrar(EXT_USER_DATA, {})), so any
-// r.useExtension(EXT_USER_DATA, ...) usage across the app already requires
-// user-data-rights to be mounted (boot-validator's extension-provider check
-// fails otherwise); running this from user-data-rights' own bootCheck is
-// equivalent to the framework-internal call it replaces.
+// Registered as an `r.bootCheck()` by this feature: EXT_USER_DATA is
+// framework-owned, so hooks may exist without user-data-rights, but they only
+// run (and therefore only need to be complete) when this feature is mounted.
 export function validateGdprHookCompleteness(features: readonly FeatureDefinition[]): void {
   const usages = features.flatMap((feature) =>
     feature.extensionUsages
@@ -80,7 +118,7 @@ export function validateGdprPiiHookCoverage(features: readonly FeatureDefinition
     // skip: an entity without user-subject fields stays out of the pipeline by design
     if (subjectFields.length === 0) return;
     throw bootRuleError(USER_DATA_RIGHTS_BOOT_RULES.missingHook, {
-      message: `[kumiko:boot] Entity "${entityName}" (feature "${feature.name}") has user-subject fields (${subjectFields.join(", ")}) but no feature registers an EXT_USER_DATA hook for it — the data never appears in Art.15/20 exports and is never erased on forget (Art.17 gap). Register r.useExtension(EXT_USER_DATA, "${entityName}", { export, delete }) in the owning feature or a defaults feature. If this entity is intentionally out of the pipeline (e.g. crypto-shredding key-erase covers it), register a no-op hook { export: async () => null, delete: async () => {} } with a comment explaining why.`,
+      message: `[kumiko:boot] Entity "${entityName}" (feature "${feature.name}") has user-subject fields (${subjectFields.join(", ")}) but no feature registers an EXT_USER_DATA hook for it — the data never appears in Art.15/20 exports and is never erased on forget (Art.17 gap). Register r.applyExtension({ name: EXT_USER_DATA, entity: "${entityName}", export, delete }) in the owning feature or a defaults feature. If this entity is intentionally out of the pipeline (e.g. crypto-shredding key-erase covers it), register a no-op hook { export: async () => null, delete: async () => {} } with a comment explaining why.`,
     });
   });
 }

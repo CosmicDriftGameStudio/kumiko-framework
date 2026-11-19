@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { PAT_TOKEN_PREFIX } from "@cosmicdrift/kumiko-framework/api";
 import { fieldOptionLabelKey } from "@cosmicdrift/kumiko-renderer/headless";
-import { EXT_TOKEN_VERIFIER } from "../../auth-foundation/index.ts";
+import { EXT_CREDENTIAL_REVOKER, EXT_TOKEN_VERIFIER } from "../../auth-foundation/index.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createPersonalAccessTokensFeature } from "../feature.ts";
 import { patScopeOptionTranslations } from "../i18n.ts";
 import { patScopesFromFeature } from "../index.ts";
+import { apiTokenTable } from "../schema/api-token.ts";
 import { patGrantOptions } from "../screens.ts";
 import { PAT_MINT_SCREEN_ID, PAT_SCREEN_ID, PatHandlers, PatQueries } from "../web/constants.ts";
 import { expandScopes, type PatScopeConfig, parseGrant } from "../web/scopes.ts";
@@ -47,13 +48,21 @@ describe("createPersonalAccessTokensFeature toggleable-option (tier-gating)", ()
 });
 
 describe("createPersonalAccessTokensFeature — tokenVerifier registration", () => {
-  test('registers via r.useExtension(EXT_TOKEN_VERIFIER, "pat", ...) instead of a patResolver field', () => {
+  test('registers via r.applyExtension({ name: EXT_TOKEN_VERIFIER, entity: "pat", ... }) instead of a patResolver field', () => {
     const feature = createPersonalAccessTokensFeature({ scopes: {} });
-    expect(feature.extensionUsages).toHaveLength(1);
-    const [usage] = feature.extensionUsages;
-    expect(usage?.extensionName).toBe(EXT_TOKEN_VERIFIER);
-    expect(usage?.entityName).toBe("pat");
-    expect(usage?.options).toMatchObject({ shape: { kind: "prefix", prefix: PAT_TOKEN_PREFIX } });
+    expect(feature.extensionUsages).toHaveLength(2);
+    const verifier = feature.extensionUsages.find(
+      (usage) => usage.extensionName === EXT_TOKEN_VERIFIER,
+    );
+    expect(verifier?.entityName).toBe("pat");
+    expect(verifier?.options).toMatchObject({
+      shape: { kind: "prefix", prefix: PAT_TOKEN_PREFIX },
+    });
+    const revoker = feature.extensionUsages.find(
+      (usage) => usage.extensionName === EXT_CREDENTIAL_REVOKER,
+    );
+    expect(revoker?.entityName).toBe("personal-access-tokens");
+    expect(typeof revoker?.options?.["revokeAllForUser"]).toBe("function");
   });
 
   test("requires auth-foundation (owner of EXT_TOKEN_VERIFIER)", () => {
@@ -218,5 +227,13 @@ describe("patScopeOptionTranslations", () => {
     );
     expect(translations[readKey]?.en).toBe("Billing (read)");
     expect(translations[writeKey]?.en).toBe("Billing (read & write)");
+  });
+});
+
+describe("store_api_tokens indexes", () => {
+  test("store_api_tokens indexes userId for per-user lookups", () => {
+    expect(apiTokenTable.indexes).toContainEqual(
+      expect.objectContaining({ name: "store_api_tokens_user_id_idx", columns: ["user_id"] }),
+    );
   });
 });

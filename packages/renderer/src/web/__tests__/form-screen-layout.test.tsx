@@ -59,7 +59,7 @@ describe("FormScreenLayout", () => {
     expect(screen.getByTestId("sec-title").textContent).toContain("Dateien");
     expect(screen.getByTestId("sec-title").querySelector("svg")).not.toBeNull();
     expect(screen.getByTestId("sec-subtitle").textContent).toBe("PDF oder Foto je Beleg");
-    expect(screen.getByText("Belege und Rechnungen hochladen")).toBeDefined();
+    screen.getByText("Belege und Rechnungen hochladen");
     expect(screen.getByTestId("fsl-actions").contains(screen.getByTestId("to-review"))).toBe(true);
     expect(screen.getByTestId("fsl-scroll").contains(screen.getByTestId("fsl-actions"))).toBe(
       false,

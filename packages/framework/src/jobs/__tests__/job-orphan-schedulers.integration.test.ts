@@ -65,7 +65,7 @@ async function withOrphanRunner(
 ): Promise<void> {
   const prefix = uniquePrefix();
   const feature = defineFeature("orphan", (r) => {
-    r.job("kept", { trigger: { cron: "0 0 1 1 *" } }, async () => {});
+    r.job({ name: "kept", trigger: { cron: "0 0 1 1 *" }, handler: async () => {} });
   });
   const workerQueue = rawQueue(prefix, "worker");
   const apiQueue = rawQueue(prefix, "api");
@@ -177,10 +177,10 @@ describe("orphan job schedulers", () => {
   test("a running runner keeps its schedulers alive across a mixed-version restart longer than the grace period", async () => {
     const prefix = uniquePrefix();
     const withKept = defineFeature("orphan", (r) => {
-      r.job("kept", { trigger: { cron: "0 0 1 1 *" } }, async () => {});
+      r.job({ name: "kept", trigger: { cron: "0 0 1 1 *" }, handler: async () => {} });
     });
     const withoutKept = defineFeature("orphan", (r) => {
-      r.job("other", { trigger: { manual: true } }, async () => {});
+      r.job({ name: "other", trigger: { manual: true }, handler: async () => {} });
     });
     const keptId = schedulerIdForJobName("orphan:job:kept");
     const newer = createJobRunner({
@@ -222,7 +222,7 @@ describe("orphan job schedulers", () => {
   test("a failed initial stamp is repaired by the next refresh tick, which re-registers a scheduler removed meanwhile", async () => {
     const prefix = uniquePrefix();
     const feature = defineFeature("orphan", (r) => {
-      r.job("kept", { trigger: { cron: "0 0 1 1 *" } }, async () => {});
+      r.job({ name: "kept", trigger: { cron: "0 0 1 1 *" }, handler: async () => {} });
     });
     const keptId = schedulerIdForJobName("orphan:job:kept");
     const runner = createJobRunner({

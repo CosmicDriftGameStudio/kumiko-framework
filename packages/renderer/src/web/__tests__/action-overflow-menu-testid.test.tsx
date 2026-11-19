@@ -20,7 +20,7 @@ describe("ActionOverflowMenu item testId", () => {
     );
     await userEvent.click(screen.getByTestId("action-overflow-menu-trigger"));
     expect(screen.queryByTestId("action-overflow-menu-item-a")).toBeNull();
-    expect(screen.getByTestId("action-overflow-menu-item-b")).toBeTruthy();
+    screen.getByTestId("action-overflow-menu-item-b");
     await userEvent.click(screen.getByTestId("custom-alpha"));
     expect(onSelect).toHaveBeenCalledTimes(1);
   });

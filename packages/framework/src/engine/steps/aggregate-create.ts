@@ -30,7 +30,6 @@ type AggregateCreateArgs = {
 
 defineStep<AggregateCreateArgs, SaveContext>({
   kind: "aggregate.create",
-  defaultFailureStrategy: "throw",
   resultKey: (args) => args.name,
   run: async (args, ctx: PipelineCtx) => {
     const data = resolveRequired(args.data, ctx);

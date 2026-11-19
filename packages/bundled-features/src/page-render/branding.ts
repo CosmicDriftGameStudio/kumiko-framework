@@ -1,7 +1,7 @@
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
 
-// Tenant-branding tokens resolved at render time (managed-pages reads them
-// from config — see managed-pages/branding.ts). Empty string = "unset, use
+// Tenant-branding tokens resolved at render time (the branding feature reads them
+// from config — see branding/keys.ts). Empty string = "unset, use
 // the base-layout default" (mirrors the publicstatus convention). Every value
 // is tenant-supplied + untrusted, so it is re-validated/escaped HERE before it
 // touches HTML/CSS output — independent of the write-time config `pattern`
@@ -17,7 +17,7 @@ export type BrandingTokens = {
   readonly logoFile: string;
   readonly layoutPreset: string;
   // RAW, untrusted tenant CSS — "" unless the custom-css capability is gated on
-  // (managed-pages allowCustomCss + the per-tenant toggle). It is NOT pre-
+  // (branding allowCustomCss + the per-tenant toggle). It is NOT pre-
   // sanitized here: the layer that emits it MUST run it through
   // sanitizeTenantCss(value, scopeSelector) with its own scope (the default
   // wrapInLayout does). Scoping is a render concern, so sanitization lives at
@@ -39,10 +39,16 @@ export const EMPTY_BRANDING: BrandingTokens = {
 // CSS hex color: #rgb | #rrggbb | #rrggbbaa, anchored. Contains no `;`/`}`/`<`/
 // whitespace, so a value passing this can never break out of `:root{--x:V}`
 // or the surrounding <style>…</style>. Linear → ReDoS-safe on untrusted input.
-const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+const HEX_COLOR_BODY = "#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})";
 // https URL, length-bounded, no whitespace/quote/angle chars. Anchored +
 // linear (no backtracking).
-const HTTPS_URL = /^https:\/\/[^\s"'<>]{1,2000}$/;
+const HTTPS_URL_BODY = "https://[^\\s\"'<>]{1,2000}";
+const HEX_COLOR = new RegExp(`^${HEX_COLOR_BODY}$`);
+const HTTPS_URL = new RegExp(`^${HTTPS_URL_BODY}$`);
+
+// Write-time config patterns: empty means unset, anything else must pass the render-side check.
+export const OPTIONAL_HEX_COLOR_CONFIG_PATTERN = { regex: `^$|^${HEX_COLOR_BODY}$` } as const;
+export const OPTIONAL_HTTPS_URL_CONFIG_PATTERN = { regex: `^$|^${HTTPS_URL_BODY}$` } as const;
 
 export function isSafeHexColor(value: string): boolean {
   return HEX_COLOR.test(value);

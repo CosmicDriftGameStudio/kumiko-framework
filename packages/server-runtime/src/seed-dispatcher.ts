@@ -3,6 +3,7 @@ import {
   type AppContext,
   createSystemUser,
   type Registry,
+  type SessionUser,
   type TenantId,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -14,6 +15,8 @@ import {
   createTenantFileContext,
 } from "@cosmicdrift/kumiko-framework/files";
 import type { Dispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
+import type { HandlerContract } from "@cosmicdrift/kumiko-types/handler-contract";
+import type { HandlerRef } from "@cosmicdrift/kumiko-types/handlers";
 
 export type SeedCreateFileRef = (
   tenantId: TenantId,
@@ -47,12 +50,19 @@ export function makeSeedCreateFileRef(deps: {
 export function withSeedErrorContext<D extends Pick<Dispatcher, "write">>(dispatcher: D): D {
   return {
     ...dispatcher,
-    async write(type, payload, user, requestId) {
+    async write(
+      type: string | HandlerRef | HandlerContract,
+      payload: unknown,
+      user: SessionUser,
+      requestId?: string,
+    ) {
       const result = await dispatcher.write(type, payload, user, requestId);
       if (result.isSuccess || result.error.code !== "internal_error") return result;
       const cause = reraiseAsKumikoError(result.error).cause;
       const causeMessage = cause instanceof Error ? cause.message : undefined;
-      const detail = causeMessage ? `${type}: ${causeMessage}` : type;
+      const handlerName =
+        typeof type === "string" ? type : "kind" in type ? type.qualifiedName : type.name;
+      const detail = causeMessage ? `${handlerName}: ${causeMessage}` : handlerName;
       return {
         isSuccess: false,
         error: { ...result.error, message: `${result.error.message} (${detail})` },

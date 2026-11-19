@@ -5,11 +5,12 @@
 //   • projectSchedule()      — the forecast: a pure projection over a window with
 //                              no transactions required (chart, "does it pay for itself?").
 //   • mergeScheduleActuals() — forecast vs. actual: the projection left-joined
-//                              against posted confirmations (by `reference`), so
-//                              each month is posted | open | forecast.
+//                              against posted confirmations (by the scheduleId +
+//                              period columns), so each month is posted | open | forecast.
 //
 // The confirm-schedule-period handler turns one projected month into one balanced
-// transaction tagged with `scheduleReference(id, period)`. Both functions here are
+// transaction carrying scheduleId + period; a Storno carries reversesTransactionId
+// and copies scheduleId/period. Both functions here are
 // pure—no DB or Date API (windows/asOf are supplied as parameters)—so the forecast
 // remains deterministic and the no-date-api guard stays green.
 
@@ -44,26 +45,20 @@ export type ScheduleMonth = {
 // linesOf helper).
 export type LedgerTxRow = {
   readonly id: string;
-  readonly reference: string | null;
+  readonly scheduleId: string | null;
+  readonly period: string | null;
+  readonly reversesTransactionId: string | null;
   readonly lines: readonly Posting[];
 };
 
-// "schedule:<id>:<period>" — the stable idempotency + merge key on a confirmation.
-export function scheduleReference(scheduleId: string, period: string): string {
-  return `schedule:${scheduleId}:${period}`;
-}
-
-// A Storno mirror carries reference = the reversed tx's id, so any tx whose
-// reference names another tx in the set marks that other tx reversed. Shared
-// by mergeScheduleActuals (below) and confirm-schedule-period.write.ts's
-// idempotency check (684/4) — same detection, kept in one place so a fix
-// can't land in one call-site and drift from the other.
+// A Storno carries reversesTransactionId = the reversed tx's id. Shared by
+// mergeScheduleActuals (below) and confirm-schedule-period.write.ts's
+// idempotency check, kept in one place so a fix can't land in one call-site only.
 export function findReversedIds(
-  rows: readonly { readonly id: string; readonly reference: string | null }[],
+  rows: readonly { readonly reversesTransactionId: string | null }[],
 ): Set<string> {
-  const ids = new Set(rows.map((r) => r.id));
   return new Set(
-    rows.flatMap((r) => (r.reference !== null && ids.has(r.reference) ? [r.reference] : [])),
+    rows.flatMap((r) => (r.reversesTransactionId !== null ? [r.reversesTransactionId] : [])),
   );
 }
 
@@ -110,7 +105,7 @@ export function projectSchedule(
   return periods;
 }
 
-// Planned vs. actual. A month is `posted` when a confirmation for its reference exists
+// Planned vs. actual. A month is `posted` when a confirmation for its scheduleId + period exists
 // AND has not been reversed; a reversed confirmation drops the month back
 // to `open` so it can be re-confirmed. Past/current unbooked months are `open`,
 // future ones `forecast` (asOf is the boundary — month-granular).
@@ -120,12 +115,17 @@ export function mergeScheduleActuals(
   transactions: readonly LedgerTxRow[],
   asOf: string,
 ): ScheduleMonth[] {
-  const reversedTxIds = findReversedIds(transactions);
+  const reversed = findReversedIds(transactions);
   const asOfIndex = monthIndex(isoMonth(asOf));
 
   return projection.map((projected) => {
-    const reference = scheduleReference(scheduleId, projected.period);
-    const active = transactions.find((t) => t.reference === reference && !reversedTxIds.has(t.id));
+    const active = transactions.find(
+      (t) =>
+        t.scheduleId === scheduleId &&
+        t.period === projected.period &&
+        t.reversesTransactionId === null &&
+        !reversed.has(t.id),
+    );
     if (active) {
       return {
         period: projected.period,

@@ -1,9 +1,10 @@
+import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client/qualified-names";
 import { TemplateResolverHandlers } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import type { useDispatcher } from "@cosmicdrift/kumiko-renderer";
 import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { uploadFileRef } from "@cosmicdrift/kumiko-renderer/web";
-import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
 import { describeError, isAlreadyActive } from "./errors.ts";
+import { uniqueResourceKey } from "./mail-draft.ts";
 import {
   type Draft,
   draftFromDetail,
@@ -12,6 +13,7 @@ import {
   snapshotOf,
 } from "./pdf-editor-draft.ts";
 import { serializePdfMeta } from "./pdf-meta.ts";
+import { parseJsonObject } from "./template-rows.ts";
 import {
   DOCUMENT_PDF_KIND,
   type PdfPreviewResult,
@@ -30,6 +32,15 @@ export type PdfActionsInput = {
   readonly dirty: boolean;
   readonly onLocaleChange: ((locale: string) => void) | undefined;
 };
+
+export function resourceUploadPayload(
+  detail: TemplateDetail,
+  fileName: string,
+  sourceFileRefId: string,
+): { readonly templateId: string; readonly key: string; readonly sourceFileRefId: string } {
+  const takenKeys = Object.keys(parseJsonObject(detail.linkedResources));
+  return { templateId: detail.id, key: uniqueResourceKey(fileName, takenKeys), sourceFileRefId };
+}
 
 function draftActions(input: PdfActionsInput) {
   const { s } = input;
@@ -163,10 +174,10 @@ function pdfActions(input: PdfActionsInput) {
 
   async function uploadResource(file: File): Promise<void> {
     const sourceFileRefId = await uploadFileRef(file);
-    const result = await dispatcher.write(TemplateResolverHandlers.resourceUpload, {
-      templateId: detail.id,
-      sourceFileRefId,
-    });
+    const result = await dispatcher.write(
+      TemplateResolverHandlers.resourceUpload,
+      resourceUploadPayload(detail, file.name, sourceFileRefId),
+    );
     if (!result.isSuccess) throw new Error(describeError(t, result.error));
     await detailQuery.refetch();
   }

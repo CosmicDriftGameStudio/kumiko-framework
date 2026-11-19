@@ -118,8 +118,8 @@ describe("Input kind=file — folder picker through the primitive", () => {
         onFilesPicked={(files) => picked.push(files)}
       />,
     );
-    expect(getByText("Choose folder")).toBeTruthy();
-    expect(getByTestId("studio-folder-pick")).toBeTruthy();
+    getByText("Choose folder");
+    getByTestId("studio-folder-pick");
     const input = getByTestId("studio-folder-input");
     expect(input.hasAttribute("webkitdirectory")).toBe(true);
     const file = new File(["x"], "a.txt");
@@ -130,14 +130,84 @@ describe("Input kind=file — folder picker through the primitive", () => {
   });
 });
 
+describe("Input kind=file — pick-only without directory", () => {
+  let fetchSpy: ReturnType<typeof spyOn<typeof globalThis, "fetch">> | undefined;
+
+  afterEach(() => {
+    fetchSpy?.mockRestore();
+  });
+
+  test("onFilesPicked with multiple hands every picked file over and uploads nothing", () => {
+    const Input = defaultPrimitives.Input;
+    const picked: (readonly PickedFile[])[] = [];
+    const spy = spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 500 }));
+    fetchSpy = spy;
+    const { getByTestId } = render(
+      <Input
+        kind="file"
+        id="gallery"
+        name="gallery"
+        value={null}
+        onChange={noop}
+        multiple
+        testId="gallery"
+        onFilesPicked={(files) => picked.push(files)}
+      />,
+    );
+    const input = getByTestId("gallery-input");
+    if (!(input instanceof HTMLInputElement)) throw new Error("expected an input element");
+    expect(input.multiple).toBe(true);
+    expect(input.hasAttribute("webkitdirectory")).toBe(false);
+    fireEvent.change(input, {
+      target: { files: [new File(["a"], "a.jpg"), new File(["b"], "b.jpg")] },
+    });
+    expect(picked[0]?.map((f) => f.name)).toEqual(["a.jpg", "b.jpg"]);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  test("onFilesPicked without multiple picks a single file and uploads nothing", () => {
+    const Input = defaultPrimitives.Input;
+    const picked: (readonly PickedFile[])[] = [];
+    const spy = spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 500 }));
+    fetchSpy = spy;
+    const { getByTestId } = render(
+      <Input
+        kind="image"
+        id="single"
+        name="single"
+        value={null}
+        onChange={noop}
+        testId="single"
+        onFilesPicked={(files) => picked.push(files)}
+      />,
+    );
+    const input = getByTestId("single-input");
+    if (!(input instanceof HTMLInputElement)) throw new Error("expected an input element");
+    expect(input.multiple).toBe(false);
+    fireEvent.change(input, { target: { files: [new File(["a"], "a.jpg")] } });
+    expect(picked[0]?.length).toBe(1);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  test("multiple without onFilesPicked has no effect", () => {
+    const Input = defaultPrimitives.Input;
+    const { getByTestId } = render(
+      <Input kind="file" id="m" name="m" value={null} onChange={noop} multiple testId="m" />,
+    );
+    const input = getByTestId("m-input");
+    if (!(input instanceof HTMLInputElement)) throw new Error("expected an input element");
+    expect(input.multiple).toBe(false);
+  });
+});
+
 describe("FileUploadInput — translated labels", () => {
   test("buttons and the attached hint use the locale strings", () => {
     const { getByRole, getByText } = render(
       <FileUploadInput kind="file" id="doc" value={FILE_ID} onChange={noop} />,
     );
-    expect(getByRole("button", { name: "Change" })).toBeDefined();
-    expect(getByRole("button", { name: "Remove" })).toBeDefined();
-    expect(getByText("File attached")).toBeDefined();
+    getByRole("button", { name: "Change" });
+    getByRole("button", { name: "Remove" });
+    getByText("File attached");
   });
 });
 
@@ -240,7 +310,7 @@ describe("FileUploadInput — upload failure", () => {
     const input = container.querySelector('input[type="file"]');
     if (input === null) throw new Error("file input missing");
     fireEvent.change(input, { target: { files: [new File(["x"], "a.txt")] } });
-    expect(await findByText("File is too large")).toBeDefined();
+    await findByText("File is too large");
     expect(queryByText(rawServerMessage, { exact: false })).toBeNull();
   });
 });

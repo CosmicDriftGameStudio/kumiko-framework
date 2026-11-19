@@ -6,6 +6,11 @@
 import { describe, expect, test } from "bun:test";
 import { act, fireEvent, screen } from "@testing-library/react";
 import { type ReactNode, useEffect } from "react";
+import {
+  createStaticLocaleResolver,
+  kumikoDefaultTranslations,
+  LocaleProvider,
+} from "../../index.ts";
 import { type ToastOptions, ToastProvider, useToast } from "../primitives/toast.tsx";
 import { render } from "./test-utils.tsx";
 
@@ -36,8 +41,8 @@ describe("ToastProvider + useToast", () => {
         <ToastTrigger options={[{ title: "Saved", description: "Changes applied" }]} />
       </ToastProvider>,
     );
-    expect(screen.getByText("Saved")).toBeTruthy();
-    expect(screen.getByText("Changes applied")).toBeTruthy();
+    screen.getByText("Saved");
+    screen.getByText("Changes applied");
   });
 
   test("toast() without description renders only the Title", () => {
@@ -46,7 +51,7 @@ describe("ToastProvider + useToast", () => {
         <ToastTrigger options={[{ title: "Copied" }]} />
       </ToastProvider>,
     );
-    expect(screen.getByText("Copied")).toBeTruthy();
+    screen.getByText("Copied");
   });
 
   test("docsUrl: renders Learn-more link (i18n default) with target=_blank", () => {
@@ -83,7 +88,7 @@ describe("ToastProvider + useToast", () => {
         />
       </ToastProvider>,
     );
-    expect(screen.getByRole("link", { name: /Learn more/i })).toBeTruthy();
+    screen.getByRole("link", { name: /Learn more/i });
   });
 
   test("without docsUrl: no link rendered", () => {
@@ -112,14 +117,29 @@ describe("ToastProvider + useToast", () => {
     expect(node).not.toBeNull();
   });
 
+  test("on a phone the toast starts below the shell header on an opaque surface", () => {
+    render(
+      <ToastProvider>
+        <ToastTrigger options={[{ title: "Submitted", variant: "ok" }]} />
+      </ToastProvider>,
+    );
+    const item = screen.getByText("Submitted").closest("li");
+    const viewport = item?.closest("ol");
+    expect(viewport?.className).toContain("top-(--shell-header-height)");
+    expect(viewport?.className.split(" ")).not.toContain("top-0");
+    // A see-through tint lets the header text show through the toast.
+    expect(item?.className).toContain("bg-status-ok-surface");
+    expect(item?.className).not.toContain("bg-status-ok/10");
+  });
+
   test("two toasts: both entries are in the DOM (stacking)", () => {
     render(
       <ToastProvider>
         <ToastTrigger options={[{ title: "First" }, { title: "Second" }]} />
       </ToastProvider>,
     );
-    expect(screen.getByText("First")).toBeTruthy();
-    expect(screen.getByText("Second")).toBeTruthy();
+    screen.getByText("First");
+    screen.getByText("Second");
   });
 
   test("two toasts in the same tick: separate React keys (counter race regression)", () => {
@@ -189,5 +209,22 @@ describe("ToastProvider + useToast", () => {
       </ToastProvider>,
     );
     expect(screen.queryByTestId("toast-error-reference")).toBeNull();
+  });
+
+  test("the notification region carries the label of the app language", () => {
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "de" })}
+        fallbackBundles={[
+          { de: { "kumiko.toast.viewport-label": "Benachrichtigungen ({hotkey})" } },
+          kumikoDefaultTranslations,
+        ]}
+      >
+        <ToastProvider>
+          <ToastTrigger options={[{ title: "Gespeichert" }]} />
+        </ToastProvider>
+      </LocaleProvider>,
+    );
+    expect(screen.getByRole("region").getAttribute("aria-label")).toBe("Benachrichtigungen (F8)");
   });
 });

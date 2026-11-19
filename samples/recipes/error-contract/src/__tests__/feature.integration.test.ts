@@ -6,18 +6,13 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { updateRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { OrdersLiteReasons, orderEntity, ordersLiteFeature } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { orderEntity, ordersLiteFailures, ordersLiteFeature } from "../feature";
 
 let stack: TestStack;
-const orderTable = buildEntityTable("order", orderEntity);
+const orderTable = buildEntityTable(orderEntity);
 
 const admin = TestUsers.admin;
 const alice = createTestUser({ id: 10, roles: ["User"] });
@@ -25,8 +20,6 @@ const bob = createTestUser({ id: 11, roles: ["User"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [ordersLiteFeature], systemHooks: [] });
-  await unsafeCreateEntityTable(stack.db, orderEntity);
-  await createEventsTable(stack.db);
 });
 afterAll(async () => stack?.cleanup());
 
@@ -82,7 +75,7 @@ describe("writeFailure(AccessDeniedError) → 403", () => {
 
 // --- 4) UnprocessableError with feature reason ---
 
-describe("failUnprocessable(OrdersLiteReasons.X) → 422", () => {
+describe("ordersLiteFailures.fail(name) → 422", () => {
   test("cancelling an already-cancelled order fails with reason=already_cancelled", async () => {
     const order = await stack.http.writeOk<{ id: number }>(
       "orders-lite:write:order:create",
@@ -98,7 +91,10 @@ describe("failUnprocessable(OrdersLiteReasons.X) → 422", () => {
     );
     expect(error.code).toBe("unprocessable");
     expect(error.httpStatus).toBe(422);
-    expect(error.details).toMatchObject({ reason: OrdersLiteReasons.alreadyCancelled });
+    expect(error.details).toMatchObject({
+      reason: ordersLiteFailures.reasonOf("alreadyCancelled"),
+    });
+    expect(error.i18nKey).toBe("orders-lite.errors.alreadyCancelled");
   });
 });
 

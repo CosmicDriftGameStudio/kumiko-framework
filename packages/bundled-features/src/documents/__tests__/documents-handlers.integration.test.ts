@@ -75,13 +75,12 @@ describe("update and delete", () => {
     const changes = { id: doc.id, version: FIRST_VERSION, changes: { title: "Warranty 2" } };
 
     // reads the host, cannot edit it
-    // a throwing preSave hook surfaces as 422, a throwing preDelete hook as the error itself
     const refusedUpdate = await stack.http.writeErr(
       "documents:write:filed-document:update",
       changes,
       users.propertyReader,
     );
-    expect(refusedUpdate.httpStatus).toBe(422);
+    expect(refusedUpdate.httpStatus).toBe(404);
     const refusedDelete = await stack.http.writeErr(
       "documents:write:filed-document:delete",
       { id: doc.id, version: FIRST_VERSION },
@@ -202,6 +201,15 @@ describe("link target without an update handler", () => {
     expect(
       (await stack.http.writeErr("documents:write:link", toCrate, users.admin)).httpStatus,
     ).toBe(404);
+    expect(
+      (
+        await stack.http.writeErr(
+          "documents:write:unlink",
+          { documentId: doc.id, entityType: "not-a-link-target", entityId: ledger.id },
+          users.admin,
+        )
+      ).httpStatus,
+    ).toBe(404);
 
     // later tests count the documents of the shared property
     await stack.http.writeOk(
@@ -266,7 +274,7 @@ describe("a colleague's pending upload", () => {
       { title: "Squatted", category: "id", file: pending },
       users.propertyReader,
     );
-    expect(err.httpStatus).toBe(422);
+    expect(err.httpStatus).toBe(404);
     expect((await visibleDocuments(stack, users.admin)).total).toBe(before);
 
     await stack.http.writeOk(

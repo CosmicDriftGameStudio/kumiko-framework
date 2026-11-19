@@ -4,12 +4,7 @@
 // hardcoded mime allowlist or size cap — providers register via
 // EXT_DOCUMENT_INGEST_PROVIDER (see providers.ts).
 
-import {
-  applyEntityEvent,
-  entityEventName,
-  selectMany,
-  upsertByPk,
-} from "@cosmicdrift/kumiko-framework/db";
+import { applyEntityEvent, entityEventName } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createTenantConfig,
@@ -25,13 +20,10 @@ import { documentExtractEntity, documentExtractsTable } from "./entity.ts";
 import {
   DOCUMENT_EXTRACT_AGGREGATE_TYPE,
   DOCUMENT_INGEST_AGGREGATE_TYPE,
-  DOCUMENT_INGEST_PROGRESS_EVENT_QN,
-  DOCUMENT_INGEST_PROGRESS_EVENT_SHORT,
   DOCUMENT_INGEST_REQUESTED_EVENT_QN,
   DOCUMENT_INGEST_REQUESTED_EVENT_SHORT,
   DOCUMENT_INGEST_SKIPPED_EVENT_QN,
   DOCUMENT_INGEST_SKIPPED_EVENT_SHORT,
-  documentIngestProgressPayloadSchema,
   documentIngestRequestedPayloadSchema,
   documentIngestSkippedPayloadSchema,
 } from "./events.ts";
@@ -45,7 +37,7 @@ import {
   resolveDocumentIngestProviders,
   UNCLAIMED_PROVIDER_SENTINEL,
 } from "./providers.ts";
-import { documentIngestProgressTable, documentIngestProgressTableMeta } from "./tables.ts";
+import { documentIngestProgressTableMeta } from "./tables.ts";
 import { documentExtractTenantDestroyHook } from "./tenant-destroy-hook.ts";
 
 const FEATURE_NAME = "document-ingest-foundation";
@@ -72,6 +64,9 @@ const fileRefIngestFieldsSchema = z.object({
 });
 type FileRefIngestFields = z.infer<typeof fileRefIngestFieldsSchema>;
 
+const INGEST_REQUEST_REASON =
+  "each ingest request or skip is an independent fact about one fileRef event; a delete-then-restore legitimately re-requests on the same stream, and the stream is never read to decide";
+
 // Shared by fileRef.created and fileRef.restored — a restored fileRef goes
 // through the same provider routing/skip logic as a fresh upload, so a
 // delete→restore round-trip re-requests ingest instead of leaving the file
@@ -95,6 +90,7 @@ async function requestIngestForFileRef(
         size: fileRef.size,
         reason,
       },
+      blindAppendReason: INGEST_REQUEST_REASON,
     });
 
   // Boot already refused an invalid/conflicting provider config — a
@@ -128,6 +124,7 @@ async function requestIngestForFileRef(
       size: fileRef.size,
       provider: provider.name,
     },
+    blindAppendReason: INGEST_REQUEST_REASON,
   });
 }
 
@@ -143,12 +140,13 @@ export function createDocumentIngestFoundationFeature() {
         category: "storage",
         recommended: false,
       });
-      // tenant-lifecycle hosts EXT_TENANT_DATA — documentExtract.pages is
-      // tenant-subject ciphertext and needs the destroy hook below.
+      // tenant-lifecycle hosts EXT_TENANT_DATA — the destroy hook below forgets every extract and erases its record key.
       r.requires({ features: ["config", "tenant-lifecycle"] });
 
-      r.entity({ name: "documentExtract", ...documentExtractEntity });
-      r.useExtension(EXT_TENANT_DATA, "documentExtract", {
+      r.entity(documentExtractEntity);
+      r.applyExtension({
+        name: EXT_TENANT_DATA,
+        entity: "documentExtract",
         destroy: documentExtractTenantDestroyHook,
       });
       // The implicit projection listens for "documentExtract.*"; stored events are
@@ -169,30 +167,32 @@ export function createDocumentIngestFoundationFeature() {
       r.extendsRegistrar(EXT_DOCUMENT_INGEST_PROVIDER, {});
       r.bootCheck(({ features }) => validateDocumentIngestProviderWiring(features));
 
-      const ocrLanguageConfigKey = r.config(
-        "ocrLanguage",
-        createTenantConfig("text", {
-          default: "deu+eng",
-          // Tesseract -l argument syntax: one or more 3-letter language codes
-          // joined by "+" (e.g. "deu+eng"). Unconstrained free text here would
-          // reach the OCR provider call unvalidated.
-          pattern: { regex: "^[a-z]{3}(\\+[a-z]{3})*$" },
-          write: access.roles("TenantAdmin", "SystemAdmin"),
-          read: access.roles("TenantAdmin", "SystemAdmin", "User"),
-        }),
-      );
-      const maxPagesPerFileConfigKey = r.config(
-        "maxPagesPerFile",
-        createTenantConfig("number", {
-          default: 50,
-          // Without a bound a tenant could set 0 (silently kills ingest) or an
-          // unbounded value (OCR worker runs per-file for as long as the PDF
-          // has pages — job-queue starvation).
-          bounds: { min: 1, max: 500 },
-          write: access.roles("TenantAdmin", "SystemAdmin"),
-          read: access.roles("TenantAdmin", "SystemAdmin", "User"),
-        }),
-      );
+      const ocrLanguageConfigKey = r.config({
+        keys: {
+          ocrLanguage: createTenantConfig("text", {
+            default: "deu+eng",
+            // Tesseract -l argument syntax: one or more 3-letter language codes
+            // joined by "+" (e.g. "deu+eng"). Unconstrained free text here would
+            // reach the OCR provider call unvalidated.
+            pattern: { regex: "^[a-z]{3}(\\+[a-z]{3})*$" },
+            write: access.roles("TenantAdmin", "SystemAdmin"),
+            read: access.roles("TenantAdmin", "SystemAdmin", "User"),
+          }),
+        },
+      }).ocrLanguage;
+      const maxPagesPerFileConfigKey = r.config({
+        keys: {
+          maxPagesPerFile: createTenantConfig("number", {
+            default: 50,
+            // Without a bound a tenant could set 0 (silently kills ingest) or an
+            // unbounded value (OCR worker runs per-file for as long as the PDF
+            // has pages — job-queue starvation).
+            bounds: { min: 1, max: 500 },
+            write: access.roles("TenantAdmin", "SystemAdmin"),
+            read: access.roles("TenantAdmin", "SystemAdmin", "User"),
+          }),
+        },
+      }).maxPagesPerFile;
 
       // "fileName" can carry a real person's name, but it reaches both events already as the
       // fileRef's own self-subject ciphertext (copied from fileRef.created/restored), which
@@ -215,47 +215,9 @@ export function createDocumentIngestFoundationFeature() {
         piiFields: "none",
       });
 
-      r.defineEvent(DOCUMENT_INGEST_PROGRESS_EVENT_SHORT, documentIngestProgressPayloadSchema, {
-        piiFields: "none",
-      });
-
       r.storeTable(documentIngestProgressTableMeta, {
-        reason: "read_side.document_ingest_progress",
+        reason: "read_side.document_ingest_progress_direct_write",
       });
-      r.projection({
-        name: "ingest-progress",
-        source: DOCUMENT_INGEST_AGGREGATE_TYPE,
-        table: documentIngestProgressTable,
-        apply: {
-          [DOCUMENT_INGEST_PROGRESS_EVENT_QN]: async (event, tx) => {
-            const progress = documentIngestProgressPayloadSchema.parse(event.payload);
-            const [existing] = await selectMany<{ pagesDone: number }>(
-              tx,
-              documentIngestProgressTable,
-              { id: event.aggregateId, tenantId: event.tenantId },
-            );
-            // skip: reports can land out of order, progress only moves forward
-            if (existing !== undefined && existing.pagesDone > progress.pagesDone) return;
-            await upsertByPk(
-              tx,
-              documentIngestProgressTable,
-              {
-                id: event.aggregateId,
-                tenantId: event.tenantId,
-                fileRefId: progress.fileRefId,
-                pagesDone: progress.pagesDone,
-                pagesTotal: progress.pagesTotal,
-              },
-              {
-                pagesDone: progress.pagesDone,
-                pagesTotal: progress.pagesTotal,
-                updatedAt: event.createdAt,
-              },
-            );
-          },
-        },
-      });
-
       r.multiStreamProjection({
         name: "request-ingest",
         apply: {

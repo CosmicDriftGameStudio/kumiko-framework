@@ -42,6 +42,18 @@ afterAll(async () => {
   await testRedis.cleanup();
 });
 
+type JobRunRow = {
+  readonly id: string;
+  readonly jobName: string;
+  readonly status: string;
+  readonly triggeredById: string | null;
+  readonly attempt: number;
+  readonly duration: number | null;
+  readonly error: string | null;
+};
+
+type JobRunLogRow = { readonly level: string };
+
 beforeEach(async () => {
   await resetTestTables(testDb.db, [eventsTable, jobRunsTable, jobRunLogsTable]);
 });
@@ -54,7 +66,7 @@ describe("jobRun direct writes", () => {
       attempt: 1,
     });
 
-    const runs = await selectMany(testDb.db, jobRunsTable, { bullJobId: "bull-42" });
+    const runs = await selectMany<JobRunRow>(testDb.db, jobRunsTable, { bullJobId: "bull-42" });
 
     expect(runs.length).toBe(1);
     const run = runs[0];
@@ -71,12 +83,14 @@ describe("jobRun direct writes", () => {
       { level: "info", message: "done", timestamp: Temporal.Now.instant() },
     ]);
 
-    const runs = await selectMany(testDb.db, jobRunsTable, { bullJobId: "bull-1" });
+    const runs = await selectMany<JobRunRow>(testDb.db, jobRunsTable, { bullJobId: "bull-1" });
     expect(runs.length).toBe(1);
     expect(runs[0]?.status).toBe("completed");
     expect(runs[0]?.duration).toBe(123);
 
-    const logs = await selectMany(testDb.db, jobRunLogsTable, { runId: runs[0]?.id as string });
+    const logs = await selectMany<JobRunLogRow>(testDb.db, jobRunLogsTable, {
+      runId: runs[0]?.id ?? "",
+    });
     expect(logs).toHaveLength(2);
     expect(logs[0]?.level).toBe("info");
   });
@@ -87,12 +101,14 @@ describe("jobRun direct writes", () => {
       { level: "error", message: "kaboom", timestamp: Temporal.Now.instant() },
     ]);
 
-    const runs = await selectMany(testDb.db, jobRunsTable, { bullJobId: "bull-9" });
+    const runs = await selectMany<JobRunRow>(testDb.db, jobRunsTable, { bullJobId: "bull-9" });
     expect(runs.length).toBe(1);
     expect(runs[0]?.status).toBe("failed");
     expect(runs[0]?.error).toBe("boom");
 
-    const logs = await selectMany(testDb.db, jobRunLogsTable, { runId: runs[0]?.id as string });
+    const logs = await selectMany<JobRunLogRow>(testDb.db, jobRunLogsTable, {
+      runId: runs[0]?.id ?? "",
+    });
     expect(logs).toHaveLength(1);
   });
 
@@ -102,7 +118,7 @@ describe("jobRun direct writes", () => {
     // is absolute ns (5e8 = 500ms), not a sub-ms fraction.
     await logger.onJobComplete?.("example:job:timing", "bull-timing", 150.5, []);
 
-    const runs = await selectMany(testDb.db, jobRunsTable, { bullJobId: "bull-timing" });
+    const runs = await selectMany<JobRunRow>(testDb.db, jobRunsTable, { bullJobId: "bull-timing" });
     expect(runs).toHaveLength(1);
     expect(Number.isInteger(runs[0]?.duration)).toBe(true);
     expect(runs[0]?.duration).toBe(151);
@@ -114,7 +130,7 @@ describe("jobRun direct writes", () => {
 
     // Exactly one row for this bullJobId — the complete-callback updated
     // the row onJobStart created, it did not insert a second one.
-    const runs = await selectMany(testDb.db, jobRunsTable, { bullJobId: "bull-99" });
+    const runs = await selectMany<JobRunRow>(testDb.db, jobRunsTable, { bullJobId: "bull-99" });
     expect(runs.length).toBe(1);
     expect(runs[0]?.status).toBe("completed");
   });
@@ -126,7 +142,7 @@ describe("jobRun direct writes", () => {
     await logger.onJobComplete?.("example:job:orphan", "bull-orphan-complete", 50, []);
     await logger.onJobFailed?.("example:job:orphan", "bull-orphan-failed", "boom", []);
 
-    const runs = await selectMany(testDb.db, jobRunsTable);
+    const runs = await selectMany<JobRunRow>(testDb.db, jobRunsTable);
     expect(runs).toHaveLength(0);
   });
 
@@ -135,7 +151,9 @@ describe("jobRun direct writes", () => {
     // gone, but the run-started row still has bull_job_id. A fresh logger
     // must DB-lookup and update the original row — not insert a second one.
     await logger.onJobStart?.("example:job:restart", "bull-restart-1", {});
-    const started = await selectMany(testDb.db, jobRunsTable, { bullJobId: "bull-restart-1" });
+    const started = await selectMany<JobRunRow>(testDb.db, jobRunsTable, {
+      bullJobId: "bull-restart-1",
+    });
     expect(started).toHaveLength(1);
     const originalId = started[0]?.id;
     expect(originalId).toBeTruthy();
@@ -143,7 +161,9 @@ describe("jobRun direct writes", () => {
     const coldLogger = createJobRunLogger({ db: testDb.db, registry });
     await coldLogger.onJobComplete?.("example:job:restart", "bull-restart-1", 42, []);
 
-    const all = await selectMany(testDb.db, jobRunsTable, { bullJobId: "bull-restart-1" });
+    const all = await selectMany<JobRunRow>(testDb.db, jobRunsTable, {
+      bullJobId: "bull-restart-1",
+    });
     expect(all).toHaveLength(1);
     expect(all[0]?.id).toBe(originalId);
     expect(all[0]?.status).toBe("completed");

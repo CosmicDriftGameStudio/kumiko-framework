@@ -39,7 +39,10 @@ export async function appendProvenanceEvent(
       message: `appendProvenanceEvent("${event.type}") — event types must be owner-qualified ("<feature>:<name>"). Unowned types are not allowed here.`,
     });
   }
-  const granted = withUnsafeRawGrant(db, { reason: PROVENANCE_APPEND_REASON });
+  const granted = withUnsafeRawGrant(db, {
+    reason: PROVENANCE_APPEND_REASON,
+    grants: ["unsafeRaw"],
+  });
   const runner = unsafeRawForDeclaredStep(granted, PROVENANCE_APPEND_REASON);
   // Unconditional, including mode "system": crossTenantRebinders keeps the
   // original tenantId and only flips the mode, so a system-scoped db must not

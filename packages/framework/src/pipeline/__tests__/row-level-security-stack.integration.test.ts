@@ -47,7 +47,9 @@ const tenantFeature = defineFeature("rlsstack", (r) => {
     name: "list",
     schema: z.object({}),
     access: { roles: ["Admin"] },
-    handler: async (_query, ctx) => ({ labels: labelsOf(await selectMany(ctx.db, itemsTable)) }),
+    handler: async (_query, ctx) => ({
+      labels: labelsOf(await selectMany<{ label: string }>(ctx.db, itemsTable)),
+    }),
   });
 
   const listAllSchema = z.object({});
@@ -56,7 +58,7 @@ const tenantFeature = defineFeature("rlsstack", (r) => {
       name: "list-all-tenants",
       schema: listAllSchema,
       access: { roles: ["Admin"] },
-      escapeHatch: { reason: CROSS_TENANT_REASON },
+      escapeHatch: { reason: CROSS_TENANT_REASON, grants: ["unsafeRaw"] },
       perform: stepsPipeline<z.infer<typeof listAllSchema>, { labels: string[] }>(({ r: step }) => [
         step.step.read.findMany("items", {
           table: itemsTable,
@@ -70,9 +72,13 @@ const tenantFeature = defineFeature("rlsstack", (r) => {
     }),
   );
 
-  r.job("copy-count", { trigger: { manual: true } }, async (_payload, ctx) => {
-    const seen = await selectMany<{ label: string }>(ctx.db, itemsTable);
-    await ctx.db.insertOne(itemsTable, { label: `job-saw-${seen.length}` });
+  r.job({
+    name: "copy-count",
+    trigger: { manual: true },
+    handler: async (_payload, ctx) => {
+      const seen = await selectMany<{ label: string }>(ctx.db, itemsTable);
+      await ctx.db.insertOne(itemsTable, { label: `job-saw-${seen.length}` });
+    },
   });
 });
 
@@ -116,7 +122,7 @@ describe("test stack with row-level security on", () => {
     expect(rowLevelSecurityModeOf(stack.unscopedDb)).toBe("on");
     await insertOne(stack.db, itemsTable, { tenantId: admin.tenantId, label: "seeded-own" });
     await insertOne(stack.db, itemsTable, { tenantId: otherAdmin.tenantId, label: "seeded-other" });
-    expect(labelsOf(await selectMany(stack.db, itemsTable))).toEqual([
+    expect(labelsOf(await selectMany<{ label: string }>(stack.db, itemsTable))).toEqual([
       "seeded-other",
       "seeded-own",
     ]);

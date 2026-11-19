@@ -7,6 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const messageEntity = createEntity({
+  name: "message",
   table: "read_sample_messages",
   fields: {
     channel: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -20,7 +21,7 @@ const userWrite = { access: { roles: ["Admin", "User"] } } as const;
 const adminWrite = { access: { roles: ["Admin"] } } as const;
 
 export const chatFeature = defineFeature("chat", (r) => {
-  r.crud("message", messageEntity, {
+  r.crud(messageEntity, {
     write: userWrite,
     verbs: { list: false, detail: false, restore: false, delete: false },
   });

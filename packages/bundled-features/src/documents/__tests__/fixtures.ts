@@ -72,11 +72,13 @@ const text = (maxLength: number) =>
   createTextField({ required: true, maxLength, personal: false, reason: "test_fixture" });
 
 export const propertyEntity = createEntity({
+  name: "property",
   table: "doc_t_properties",
   fields: { name: text(64) },
   access: { read: { PropertyReader: "all", TenantAdmin: "all" } },
 });
 export const leaseEntity = createEntity({
+  name: "lease",
   table: "doc_t_leases",
   fields: {
     name: text(64),
@@ -88,6 +90,7 @@ export const leaseEntity = createEntity({
 });
 // Readable by role, but no query handler is registered for it: the handler gate must hide its files.
 export const memoEntity = createEntity({
+  name: "memo",
   table: "doc_t_memos",
   fields: { name: text(64), propertyId: text(64), file: createFileField() },
   access: { read: { MemoReader: "all", TenantAdmin: "all" } },
@@ -96,12 +99,14 @@ export const memoEntity = createEntity({
 // Its detail query is TenantAdmin-only, while an open query names it in liveEntities: only the
 // detail query decides who may open a vault record, and with it the documents it owns.
 export const vaultEntity = createEntity({
+  name: "vault",
   table: "doc_t_vaults",
   fields: { name: text(64), propertyId: text(64), file: createFileField() },
 });
 
 // Link targets without an update handler: ledger declares who writes it, crate declares nothing.
 export const ledgerEntity = createEntity({
+  name: "ledger",
   table: "doc_t_ledgers",
   fields: { name: text(64) },
   access: {
@@ -110,6 +115,7 @@ export const ledgerEntity = createEntity({
   },
 });
 export const crateEntity = createEntity({
+  name: "crate",
   table: "doc_t_crates",
   fields: { name: text(64) },
   access: { read: { LedgerReader: "all", TenantAdmin: "all" } },
@@ -117,6 +123,7 @@ export const crateEntity = createEntity({
 
 // Write rule bound to the row: a LedgerEditor may only link documents to the shelves they own.
 export const shelfEntity = createEntity({
+  name: "shelf",
   table: "doc_t_shelves",
   fields: { name: text(64), ownerId: text(64) },
   access: {
@@ -128,13 +135,13 @@ export const shelfEntity = createEntity({
 const PDF = new TextEncoder().encode("%PDF-1.4 fixture");
 
 export const hostFeature = defineFeature("doc-fixtures", (r) => {
-  r.entity({ name: "property", ...propertyEntity });
-  r.entity({ name: "lease", ...leaseEntity });
-  r.entity({ name: "memo", ...memoEntity });
-  r.entity({ name: "vault", ...vaultEntity });
-  r.entity({ name: "ledger", ...ledgerEntity });
-  r.entity({ name: "crate", ...crateEntity });
-  r.entity({ name: "shelf", ...shelfEntity });
+  r.entity(propertyEntity);
+  r.entity(leaseEntity);
+  r.entity(memoEntity);
+  r.entity(vaultEntity);
+  r.entity(ledgerEntity);
+  r.entity(crateEntity);
+  r.entity(shelfEntity);
   for (const [name, entity] of [
     ["property", propertyEntity],
     ["lease", leaseEntity],
@@ -157,6 +164,9 @@ export const hostFeature = defineFeature("doc-fixtures", (r) => {
       schema: z.object({}),
       access: openToAll,
       liveEntities: ["vault"],
+      unfilteredResult: {
+        reason: "returns an empty object, only names the vault entity for live signals",
+      },
       description: "Test query that names the vault entity in liveEntities without reading it.",
       handler: async () => ({}),
     }),
@@ -175,7 +185,7 @@ export const hostFeature = defineFeature("doc-fixtures", (r) => {
     schema: z.object({ id: z.uuid(), version: z.number(), file: z.uuid() }),
     access: { roles: [SYSTEM_ROLE] },
     handler: async (event, ctx) =>
-      createEntityExecutor("lease", leaseEntity).executor.update(
+      createEntityExecutor(leaseEntity).executor.update(
         {
           id: event.payload.id,
           version: event.payload.version,
@@ -194,85 +204,105 @@ export const hostFeature = defineFeature("doc-fixtures", (r) => {
       return { isSuccess: true as const, data: {} };
     },
   });
-  r.job("archive-document", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
-    const archived = await ctx.dispatch.write("doc-fixtures:write:archive-document", {
-      id: z.uuid().parse(payload["id"]),
-    });
-    if (!archived.isSuccess) throw new Error(archived.error.message);
+  r.job({
+    name: "archive-document",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      const archived = await ctx.dispatch.write("doc-fixtures:write:archive-document", {
+        id: z.uuid().parse(payload["id"]),
+      });
+      if (!archived.isSuccess) throw new Error(archived.error.message);
+    },
   });
-  r.job("import-document", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
-    const id = z.uuid().parse(payload["id"]);
-    const stored = await createFileRefFromBytes(
-      { ...ctx, user: ctx.systemUser },
-      {
-        fileName: "imported.pdf",
-        mimeType: "application/pdf",
-        data: PDF,
-        attachTo: { entityType: "filed-document", entityId: id, fieldName: "file" },
-      },
-    );
-    if (!stored.isSuccess) throw new Error(stored.error.message);
-    const imported = await ctx.dispatch.write("documents:write:import", {
-      id,
-      title: "Imported",
-      category: "contract",
-      ...(typeof payload["validUntil"] === "string" && { validUntil: payload["validUntil"] }),
-      fileRefId: stored.data.id,
-      links: [{ entityType: "property", entityId: z.string().parse(payload["propertyId"]) }],
-      ...(payload["deleted"] === true && { deleted: true }),
-    });
-    if (!imported.isSuccess) throw new Error(imported.error.message);
+  r.job({
+    name: "import-document",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      const id = z.uuid().parse(payload["id"]);
+      const stored = await createFileRefFromBytes(
+        { ...ctx, user: ctx.systemUser },
+        {
+          fileName: "imported.pdf",
+          mimeType: "application/pdf",
+          data: PDF,
+          attachTo: { entityType: "filed-document", entityId: id, fieldName: "file" },
+        },
+      );
+      if (!stored.isSuccess) throw new Error(stored.error.message);
+      const imported = await ctx.dispatch.write("documents:write:import", {
+        id,
+        title: "Imported",
+        category: "contract",
+        ...(typeof payload["validUntil"] === "string" && { validUntil: payload["validUntil"] }),
+        fileRefId: stored.data.id,
+        links: [{ entityType: "property", entityId: z.string().parse(payload["propertyId"]) }],
+        ...(payload["deleted"] === true && { deleted: true }),
+      });
+      if (!imported.isSuccess) throw new Error(imported.error.message);
+    },
   });
   // A generated file bound to a record without any save: the lease field never names it, so only
   // the explicit import brings it in as a document.
-  r.job("bind-and-import", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
-    const leaseId = z.uuid().parse(payload["leaseId"]);
-    const stored = await createFileRefFromBytes(
-      { ...ctx, user: ctx.systemUser },
-      {
-        fileName: "bound.pdf",
-        mimeType: "application/pdf",
-        data: PDF,
-        attachTo: { entityType: "lease", fieldName: "file" },
-      },
-    );
-    if (!stored.isSuccess) throw new Error(stored.error.message);
-    const outcome = await bindPendingFileRef({
-      fileRefId: stored.data.id,
-      entityName: "lease",
-      fieldName: "file",
-      entityId: leaseId,
-      user: ctx.systemUser,
-      db: ctx.db,
-    });
-    if (outcome !== "bound") throw new Error(`bind outcome: ${outcome}`);
-    const imported = await ctx.dispatch.write("documents:write:import", {
-      id: documentIdForFile(ctx.systemUser.tenantId, stored.data.id),
-      title: "Bound",
-      category: "contract",
-      fileRefId: stored.data.id,
-      links: [{ entityType: "lease", entityId: leaseId }],
-    });
-    if (!imported.isSuccess) throw new Error(imported.error.message);
+  r.job({
+    name: "bind-and-import",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      const leaseId = z.uuid().parse(payload["leaseId"]);
+      const stored = await createFileRefFromBytes(
+        { ...ctx, user: ctx.systemUser },
+        {
+          fileName: "bound.pdf",
+          mimeType: "application/pdf",
+          data: PDF,
+          attachTo: { entityType: "lease", fieldName: "file" },
+        },
+      );
+      if (!stored.isSuccess) throw new Error(stored.error.message);
+      const outcome = await bindPendingFileRef({
+        fileRefId: stored.data.id,
+        entityName: "lease",
+        fieldName: "file",
+        entityId: leaseId,
+        user: ctx.systemUser,
+        db: ctx.db,
+      });
+      if (outcome !== "bound") throw new Error(`bind outcome: ${outcome}`);
+      const imported = await ctx.dispatch.write("documents:write:import", {
+        id: documentIdForFile(ctx.systemUser.tenantId, stored.data.id),
+        title: "Bound",
+        category: "contract",
+        fileRefId: stored.data.id,
+        links: [{ entityType: "lease", entityId: leaseId }],
+      });
+      if (!imported.isSuccess) throw new Error(imported.error.message);
+    },
   });
-  r.job("render-lease-pdf", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
-    const leaseId = z.uuid().parse(payload["leaseId"]);
-    const stored = await createFileRefFromBytes(
-      { ...ctx, user: ctx.systemUser },
-      {
-        fileName: "rendered.pdf",
-        mimeType: "application/pdf",
-        data: PDF,
-        attachTo: { entityType: "lease", entityId: leaseId, fieldName: "file" },
-      },
-    );
-    if (!stored.isSuccess) throw new Error(stored.error.message);
-    const written = await ctx.dispatch.write("doc-fixtures:write:lease:set-file", {
-      id: leaseId,
-      version: z.number().parse(payload["version"]),
-      file: stored.data.id,
-    });
-    if (!written.isSuccess) throw new Error(written.error.message);
+  r.job({
+    name: "render-lease-pdf",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      const leaseId = z.uuid().parse(payload["leaseId"]);
+      const stored = await createFileRefFromBytes(
+        { ...ctx, user: ctx.systemUser },
+        {
+          fileName: "rendered.pdf",
+          mimeType: "application/pdf",
+          data: PDF,
+          attachTo: { entityType: "lease", entityId: leaseId, fieldName: "file" },
+        },
+      );
+      if (!stored.isSuccess) throw new Error(stored.error.message);
+      const written = await ctx.dispatch.write("doc-fixtures:write:lease:set-file", {
+        id: leaseId,
+        version: z.number().parse(payload["version"]),
+        file: stored.data.id,
+      });
+      if (!written.isSuccess) throw new Error(written.error.message);
+    },
   });
 });
 

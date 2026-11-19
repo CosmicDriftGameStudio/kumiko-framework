@@ -53,7 +53,7 @@ describe("RenderEdit valueDisplay", () => {
         screen={makeScreen()}
         entity={accountEntity}
         featureName="accounts"
-        initial={{ name: "Ada", active: true, balance: { amount: 12.5 } }}
+        initial={{ name: "Ada", active: true, balance: { amount: 1250 } }}
         customSubmit={noopSubmit}
       />,
     );
@@ -69,7 +69,7 @@ describe("RenderEdit valueDisplay", () => {
         screen={makeScreen()}
         entity={accountEntity}
         featureName="accounts"
-        initial={{ name: "Ada", active: true, balance: { amount: 12.5 } }}
+        initial={{ name: "Ada", active: true, balance: { amount: 1250 } }}
         customSubmit={noopSubmit}
         valueDisplay="text"
       />,
@@ -88,7 +88,7 @@ describe("RenderEdit valueDisplay", () => {
         screen={makeScreen()}
         entity={accountEntity}
         featureName="accounts"
-        initial={{ name: "Ada", active: true, balance: { amount: 12.5 } }}
+        initial={{ name: "Ada", active: true, balance: { amount: 1250 } }}
         customSubmit={noopSubmit}
         valueDisplay="text"
       />,
@@ -105,7 +105,7 @@ describe("RenderEdit valueDisplay", () => {
         screen={makeScreen()}
         entity={accountEntity}
         featureName="accounts"
-        initial={{ name: "Ada", active: true, balance: { amount: 500, currency: "XX!" } }}
+        initial={{ name: "Ada", active: true, balance: { amount: 50000, currency: "XX!" } }}
         customSubmit={noopSubmit}
         valueDisplay="text"
       />,

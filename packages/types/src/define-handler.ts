@@ -7,6 +7,8 @@ import type {
   BeforeTransactionPhase,
   BeforeTransactionWhenNested,
   EscapeHatchDeclaration,
+  EscapeHatchGrant,
+  GrantedHandlerContext,
   HandlerContext,
   PayloadRateLimitOption,
   PreparedOrSkipped,
@@ -14,6 +16,7 @@ import type {
   PreTransactionReservation,
   QueryEvent,
   RateLimitDeclaration,
+  SystemScopeHandlerContext,
   WriteHandlerTransactionMode,
   WriteResult,
 } from "./handlers.ts";
@@ -56,9 +59,11 @@ export type WriteHandlerDefinition<
    *  payload (e.g. `(p) => p.files.length`). Replaces the options' `cost`; results below 1 count as 1. */
   readonly rateLimitCost?: (payload: z.infer<TSchema>) => number;
   readonly escapeHatch?: EscapeHatchDeclaration;
+  readonly systemScope?: true;
   readonly reserveBeforeTransaction?: PreTransactionReservation;
   readonly beforeTransaction?: BeforeTransactionPhase<z.infer<TSchema>, TPrepared>;
   readonly beforeTransactionWhenNested?: TWhenNested;
+  readonly dispatchOnly?: boolean;
   readonly tenantlessAnonymous?: boolean;
   readonly transaction?: WriteHandlerTransactionMode;
   readonly handler: (
@@ -72,6 +77,20 @@ export type WriteHandlerDefinition<
   readonly perform?: PipelineDef<z.infer<TSchema>, TData>;
 };
 
+// The two authoring forms, parameterised over the context the handler receives.
+type WriteHandlerBody<TSchema extends ZodType, TData, TPrepared, TWhenNested, TContext> =
+  | {
+      readonly handler: (
+        event: PreparedWriteEvent<z.infer<TSchema>, PreparedOrSkipped<TPrepared, TWhenNested>>,
+        context: TContext,
+      ) => Promise<WriteResult<TData>>;
+      readonly perform?: never;
+    }
+  | {
+      readonly perform: PipelineDef<z.infer<TSchema>, TData>;
+      readonly handler?: never;
+    };
+
 // Author-facing input — accepts either the free-form `handler` or the
 // pipeline-form `perform`. defineWriteHandler narrows them to the
 // canonical WriteHandlerDefinition shape.
@@ -82,36 +101,43 @@ export type WriteHandlerInput<
   TMap extends object = KumikoEventTypeMap,
   TPrepared = undefined,
   TWhenNested extends BeforeTransactionWhenNested | undefined = undefined,
+  TGrant extends EscapeHatchGrant = EscapeHatchGrant,
 > = {
   readonly name: TName;
   readonly schema: TSchema;
   readonly access: AccessRule;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** See WriteHandlerDefinition.excludedFields. */
+  readonly excludedFields?: readonly string[];
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitDeclaration;
   readonly additionalRateLimits?: readonly PayloadRateLimitOption[];
   /** Tokens each request books on every declared rateLimit bucket, computed from the validated
    *  payload (e.g. `(p) => p.files.length`). Replaces the options' `cost`; results below 1 count as 1. */
   readonly rateLimitCost?: (payload: z.infer<TSchema>) => number;
-  readonly escapeHatch?: EscapeHatchDeclaration;
+  readonly escapeHatch?: EscapeHatchDeclaration<TGrant>;
   readonly reserveBeforeTransaction?: PreTransactionReservation;
   readonly beforeTransaction?: BeforeTransactionPhase<z.infer<TSchema>, TPrepared>;
   readonly beforeTransactionWhenNested?: TWhenNested;
+  readonly dispatchOnly?: boolean;
   readonly tenantlessAnonymous?: boolean;
   readonly transaction?: WriteHandlerTransactionMode;
-} & (
-  | {
-      readonly handler: (
-        event: PreparedWriteEvent<z.infer<TSchema>, PreparedOrSkipped<TPrepared, TWhenNested>>,
-        context: HandlerContext<TMap>,
-      ) => Promise<WriteResult<TData>>;
-      readonly perform?: never;
-    }
-  | {
-      readonly perform: PipelineDef<z.infer<TSchema>, TData>;
-      readonly handler?: never;
-    }
+} & ( // A literal `systemScope: true` switches the handler's context; absent keeps HandlerContext.
+  | ({ readonly systemScope?: undefined } & WriteHandlerBody<
+      TSchema,
+      TData,
+      TPrepared,
+      TWhenNested,
+      GrantedHandlerContext<HandlerContext<TMap>, TGrant>
+    >)
+  | ({ readonly systemScope: true } & WriteHandlerBody<
+      TSchema,
+      TData,
+      TPrepared,
+      TWhenNested,
+      GrantedHandlerContext<SystemScopeHandlerContext<TMap>, TGrant>
+    >)
 );
 
 // --- Query Handler Definition ---
@@ -129,6 +155,7 @@ export type QueryHandlerDefinition<
   readonly agent?: AgentHandlerHints;
   readonly rateLimit?: RateLimitDeclaration;
   readonly escapeHatch?: EscapeHatchDeclaration;
+  readonly systemScope?: true;
   readonly handler: (
     query: QueryEvent<z.infer<TSchema>>,
     context: HandlerContext<TMap>,
@@ -144,7 +171,41 @@ export type QueryHandlerDefinition<
    *  access to this query receive /api/sse change signals (no field values)
    *  for these entities. Every name must be a registered entity. */
   readonly liveEntities?: readonly string[];
+  /** The entity whose field read rules and writeOnly mask apply to the result (a row, an array
+   *  of rows or `{ rows }`). It does not map the handler to the entity: no effect on live
+   *  signals, access or hooks. */
+  readonly resultEntity?: string;
+  /** Marks a query whose result holds no entity rows (options, counts, derived values), so no
+   *  field filter applies. Excludes `resultEntity`. */
+  readonly unfilteredResult?: { readonly reason: string };
 };
+
+// Author-facing input of defineQueryHandler/definePagedQueryHandler.
+export type QueryHandlerInput<
+  TName extends string = string,
+  TSchema extends ZodType = ZodType,
+  TResult = unknown,
+  TMap extends object = KumikoEventTypeMap,
+  TGrant extends EscapeHatchGrant = EscapeHatchGrant,
+> = Omit<
+  QueryHandlerDefinition<TName, TSchema, TResult, TMap>,
+  "handler" | "systemScope" | "escapeHatch"
+> & { readonly escapeHatch?: EscapeHatchDeclaration<TGrant> } & (
+    | {
+        readonly systemScope?: undefined;
+        readonly handler: (
+          query: QueryEvent<z.infer<TSchema>>,
+          context: GrantedHandlerContext<HandlerContext<TMap>, TGrant>,
+        ) => Promise<TResult>;
+      }
+    | {
+        readonly systemScope: true;
+        readonly handler: (
+          query: QueryEvent<z.infer<TSchema>>,
+          context: GrantedHandlerContext<SystemScopeHandlerContext<TMap>, TGrant>,
+        ) => Promise<TResult>;
+      }
+  );
 
 // --- Stream Handler Definition ---
 //

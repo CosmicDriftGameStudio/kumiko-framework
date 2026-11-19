@@ -400,6 +400,32 @@ describe("currentCalendarMonthStartIso", () => {
     const result = currentCalendarMonthStartIso(midMay);
     expect(result).toBe("2026-05-01T00:00:00Z");
   });
+
+  const monthAt = (instant: string) => {
+    const startIso = currentCalendarMonthStartIso(Temporal.Instant.from(instant));
+    return { startIso, endIso: calendarMonthPeriodEndIso(startIso) };
+  };
+
+  test("the last millisecond of a month still belongs to that month", () => {
+    expect(monthAt("2026-11-30T23:59:59.999Z")).toEqual({
+      startIso: "2026-11-01T00:00:00Z",
+      endIso: "2026-12-01T00:00:00Z",
+    });
+  });
+
+  test("the first instant of a month opens the new period", () => {
+    expect(monthAt("2026-12-01T00:00:00Z")).toEqual({
+      startIso: "2026-12-01T00:00:00Z",
+      endIso: "2027-01-01T00:00:00Z",
+    });
+  });
+
+  test("the last millisecond of December ends the period on Jan 1 of the next year", () => {
+    expect(monthAt("2026-12-31T23:59:59.999Z")).toEqual({
+      startIso: "2026-12-01T00:00:00Z",
+      endIso: "2027-01-01T00:00:00Z",
+    });
+  });
 });
 
 // =============================================================================
@@ -505,6 +531,23 @@ describe("CapExceededError reset info", () => {
     );
     expect(() => assertBelowHardCap(1, { ...cap, periodEndIso: "2026-07-01T00:00:00Z" })).toThrow(
       /must be after periodStartIso/,
+    );
+  });
+
+  test("a subject-scoped cap reports its scope in the error details, a tenant cap reports none", () => {
+    const cap = {
+      capName: "c",
+      limit: 1,
+      profile: "hardSlot" as const,
+      periodStartIso: "2026-07-01T00:00:00Z",
+    };
+    expect(() => assertBelowHardCap(1, { ...cap, scope: "subject" })).toThrow(
+      expect.objectContaining({ details: expect.objectContaining({ scope: "subject" }) }),
+    );
+    expect(() => assertBelowHardCap(1, cap)).toThrow(
+      expect.objectContaining({
+        details: expect.not.objectContaining({ scope: expect.anything() }),
+      }),
     );
   });
 

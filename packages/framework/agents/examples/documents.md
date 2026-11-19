@@ -15,6 +15,7 @@ A document register on top of existing records: captured files with a category, 
 - `createDocumentsFeature` (`@cosmicdrift/kumiko-bundled-features/documents`) with `categories`, `linkTargets` and `access` roles.
 - A `capture` rule turns a file field into a document source without the entity knowing about the documents feature: every saved `contract.file` is filed as a document of category `contract`, titled from the row, and linked to the contract's property.
 - Visibility follows the linked records: a document is visible to users who may read the linked records and the contract that owns the file. The `documents:query:for-record` query returns the documents of one record; a property reader sees none for the property because they may not read the contract that owns the file.
+- A reference to a filed document links its file: the `offer` entity references `documents:filed-document`, and since that entity has exactly one file field, the `receipt` cell of the `offer-list` screen shows the document title as a download link with the PDF view in a drawer, like the file column of the documents list. The link comes from the rows of the reference lookup (`documents:query:filed-document:list`), so a user who may not read the document or its file field gets plain text or nothing.
 
 ## Source
 
@@ -25,7 +26,7 @@ Feature entry point: `src/feature.ts`.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/documents
@@ -38,6 +39,7 @@ bun test
 
 ```ts
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { documentIdForFile } from "@cosmicdrift/kumiko-bundled-features/documents";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -115,6 +117,44 @@ describe("documents recipe", () => {
     expect((await forRecord(propertyReader, "property", property.id)).rows).toEqual([]);
   });
 });
+
+describe("offer list: reference to a filed document", () => {
+  // The query a list's reference column loads its labels from; the cell links `file`
+  // from the same rows, since filed-document has exactly one file field.
+  const lookupReceipt = (as: typeof admin, documentId: string) =>
+    stack.http.queryOk<{ rows: readonly Record<string, unknown>[] }>(
+      "documents:query:filed-document:list",
+      { filters: [{ field: "id", op: "in", value: [documentId] }] },
+      as,
+    );
+
+  test("the receipt lookup carries the title and the file for a reader of the document", async () => {
+    const fileId = await uploadContractFile();
+    const property = await stack.http.writeOk<{ id: string }>(
+      "property-management:write:property:create",
+      { name: "Harbour road 7" },
+      admin,
+    );
+    await stack.http.writeOk(
+      "property-management:write:contract:create",
+      { name: "C-2", propertyId: property.id, file: fileId },
+      admin,
+    );
+    const documentId = documentIdForFile(tenant, fileId);
+    await stack.http.writeOk(
+      "property-management:write:offer:create",
+      { name: "Roof repair", receipt: documentId },
+      admin,
+    );
+
+    const forContractReader = await lookupReceipt(contractReader, documentId);
+    expect(forContractReader.rows.map((row) => [row["title"], row["file"]])).toEqual([
+      ["Contract C-2", fileId],
+    ]);
+    // the property reader may not read the contract that owns the file: no label, no file
+    expect((await lookupReceipt(propertyReader, documentId)).rows).toEqual([]);
+  });
+});
 ```
 
 ### src/feature.ts
@@ -127,11 +167,16 @@ describe("documents recipe", () => {
 // documents feature: the capture rule below files every saved contract file as a document of
 // category "contract" and links it to the contract and to its property. Who sees the document
 // follows from who may read the linked records and the contract that owns the file.
+//
+// An `offer` references a filed document. The list cell of that reference links the document's
+// file under the document title, because filed-document has exactly one file field; a user who
+// may not read the document sees neither the title nor the file.
 
 import { createDocumentsFeature } from "@cosmicdrift/kumiko-bundled-features/documents";
 import {
   createEntity,
   createFileField,
+  createReferenceField,
   createTextField,
   defineEntityCreateHandler,
   defineEntityDetailHandler,
@@ -144,32 +189,52 @@ const text = () =>
   createTextField({ personal: false, reason: "is_business_data", required: true, maxLength: 120 });
 
 export const propertyEntity = createEntity({
+  name: "property",
   table: "read_sample_documents_properties",
   fields: { name: text() },
   access: { read: { PropertyReader: "all", TenantAdmin: "all" } },
 });
 
 export const contractEntity = createEntity({
+  name: "contract",
   table: "read_sample_documents_contracts",
   fields: { name: text(), propertyId: text(), file: createFileField() },
   access: { read: { ContractReader: "all", TenantAdmin: "all" } },
+});
+
+export const offerEntity = createEntity({
+  name: "offer",
+  table: "read_sample_documents_offers",
+  fields: {
+    name: text(),
+    receipt: createReferenceField({
+      entity: "documents:filed-document",
+      labelField: "title",
+      personal: false,
+      reason: "is_system_identifier",
+    }),
+  },
+  access: { read: { PropertyReader: "all", ContractReader: "all", TenantAdmin: "all" } },
 });
 
 const access = { roles: ["PropertyReader", "ContractReader", "TenantAdmin"] };
 
 export const propertyManagement = defineFeature("property-management", (r) => {
   r.requires({ features: ["files", "documents"] });
-  r.entity({ name: "property", ...propertyEntity });
-  r.entity({ name: "contract", ...contractEntity });
+  r.entity(propertyEntity);
+  r.entity(contractEntity);
+  r.entity(offerEntity);
   for (const [name, entity] of [
     ["property", propertyEntity],
     ["contract", contractEntity],
+    ["offer", offerEntity],
   ] as const) {
     r.writeHandler(defineEntityCreateHandler(name, entity, { access }));
     r.writeHandler(defineEntityUpdateHandler(name, entity, { access: { roles: ["TenantAdmin"] } }));
     r.queryHandler(defineEntityListHandler(name, entity, { access }));
     r.queryHandler(defineEntityDetailHandler(name, entity, { access }));
   }
+  r.screen({ id: "offer-list", type: "entityList", entity: "offer", columns: ["name", "receipt"] });
 });
 
 export const documents = createDocumentsFeature({

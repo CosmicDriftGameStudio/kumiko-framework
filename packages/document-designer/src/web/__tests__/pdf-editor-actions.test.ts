@@ -1,11 +1,15 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
+import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client/qualified-names";
 import {
   TemplateResolverErrors,
   TemplateResolverHandlers,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import type { DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
-import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
-import { buildPdfActions, type PdfActionsInput } from "../pdf-editor-actions.ts";
+import {
+  buildPdfActions,
+  type PdfActionsInput,
+  resourceUploadPayload,
+} from "../pdf-editor-actions.ts";
 import { type EditorState, SETTLE_MS, snapshotOf } from "../pdf-editor-draft.ts";
 import { EMPTY_PDF_META } from "../pdf-meta.ts";
 import type { TemplateDetail } from "../types.ts";
@@ -232,6 +236,19 @@ describe("generatePdf and printOnce", () => {
     await Promise.resolve();
     expect(run.queries).toHaveLength(1);
     expect(run.autoPrintedFor.current).toBe(snapshotOf(draft));
+  });
+});
+
+describe("resourceUploadPayload", () => {
+  test("names the resource after the file, since the handler rejects an upload without a key", () => {
+    expect(
+      resourceUploadPayload(detailOf({ linkedResources: null }), "Logo Nord.PNG", "ref-1"),
+    ).toEqual({ templateId: "tpl-1", key: "logo-nord", sourceFileRefId: "ref-1" });
+  });
+
+  test("a key the template already links gets a numeric suffix", () => {
+    const detail = detailOf({ linkedResources: JSON.stringify({ logo: { fileRefId: "ref-0" } }) });
+    expect(resourceUploadPayload(detail, "logo.png", "ref-1").key).toBe("logo-2");
   });
 });
 

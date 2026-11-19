@@ -43,6 +43,7 @@ const MAX_FILE_SIZE = "10MB";
 
 export function createHelpdeskRequestEntity(retentionKeepFor: string = DEFAULT_RETENTION_KEEP_FOR) {
   return createEntity({
+    name: "helpdesk-request",
     table: "read_helpdesk_requests",
     description:
       "A message from a website visitor or a signed-in user to the platform operators (question, contact request, bug report or wish), tracked through open, answered and done as SystemAdmins process it; name, email, phone, subject and message are the reporter's personal data.",
@@ -131,6 +132,7 @@ export function createHelpdeskRequestEntity(retentionKeepFor: string = DEFAULT_R
 
 export function createHelpdeskReplyEntity(retentionKeepFor: string = DEFAULT_RETENTION_KEEP_FOR) {
   return createEntity({
+    name: "helpdesk-reply",
     table: "read_helpdesk_replies",
     description:
       "A SystemAdmin's answer to a helpdesk request, with the channels it went out on; the message is the reporter's personal data because it quotes and addresses them.",
@@ -171,5 +173,5 @@ export function createHelpdeskReplyEntity(retentionKeepFor: string = DEFAULT_RET
 
 export const helpdeskRequestEntity = createHelpdeskRequestEntity();
 export const helpdeskReplyEntity = createHelpdeskReplyEntity();
-export const helpdeskRequestTable = buildEntityTable("helpdesk-request", helpdeskRequestEntity);
-export const helpdeskReplyTable = buildEntityTable("helpdesk-reply", helpdeskReplyEntity);
+export const helpdeskRequestTable = buildEntityTable(helpdeskRequestEntity);
+export const helpdeskReplyTable = buildEntityTable(helpdeskReplyEntity);

@@ -48,7 +48,7 @@ const schema: FeatureSchema = {
 
 function makeDispatcher(): Dispatcher {
   return createMockDispatcher({
-    query: (async (type: string) => {
+    query: async (type: string) => {
       if (type === "status:query:monitor:uptime-stat") {
         return {
           isSuccess: true,
@@ -59,7 +59,7 @@ function makeDispatcher(): Dispatcher {
         isSuccess: true,
         data: { rows: [{ id: "i1", name: "API-Ausfall" }], nextCursor: null },
       };
-    }) as unknown as Dispatcher["query"],
+    },
   });
 }
 
@@ -70,7 +70,7 @@ describe("KumikoScreen dashboard", () => {
         <KumikoScreen schema={schema} qn="status:screen:overview" />
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("kumiko-screen-dashboard-placeholder")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-dashboard-placeholder");
   });
 
   test("WebDashboardBody renders Stat and List panels from the queries", async () => {
@@ -82,11 +82,11 @@ describe("KumikoScreen dashboard", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText("99,98 %")).toBeTruthy());
-    expect(screen.getByTestId("dashboard-overview")).toBeTruthy();
-    expect(screen.getByText("status:dashboard:uptime")).toBeTruthy();
-    expect(screen.getByText("letzte 90 Tage")).toBeTruthy();
-    await waitFor(() => expect(screen.getByText("API-Ausfall")).toBeTruthy());
+    await waitFor(() => screen.getByText("99,98 %"));
+    screen.getByTestId("dashboard-overview");
+    screen.getByText("status:dashboard:uptime");
+    screen.getByText("letzte 90 Tage");
+    await waitFor(() => screen.getByText("API-Ausfall"));
   });
 
   test("showUpdatedAt=false hides the updated-at stamp; default shows it", async () => {
@@ -103,12 +103,12 @@ describe("KumikoScreen dashboard", () => {
       </DispatcherProvider>
     );
     const first = render(view(quiet));
-    await waitFor(() => expect(screen.getByText("99,98 %")).toBeTruthy());
+    await waitFor(() => screen.getByText("99,98 %"));
     expect(screen.queryByTestId("dashboard-overview-updated-at")).toBeNull();
     first.unmount();
     render(view(schema));
-    await waitFor(() => expect(screen.getByText("99,98 %")).toBeTruthy());
-    expect(screen.getByTestId("dashboard-overview-updated-at")).toBeTruthy();
+    await waitFor(() => screen.getByText("99,98 %"));
+    screen.getByTestId("dashboard-overview-updated-at");
   });
 });
 
@@ -134,7 +134,7 @@ describe("KumikoScreen dashboard — screen.description", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("dashboard-overview")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-overview"));
     expect(screen.queryByTestId("dashboard-overview-description")).toBeNull();
     expect(screen.queryByText("Live health signals across every monitored service.")).toBeNull();
   });
@@ -177,7 +177,7 @@ describe("KumikoScreen dashboard — screen.description", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("dashboard-overview")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-overview"));
     expect(screen.queryByTestId("dashboard-overview-description")).toBeNull();
   });
 });
@@ -275,12 +275,12 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
 
   test("stat-group rendert Sektions-Titel + genestete Stat-Panels", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         if (type === "widgets:query:metrics:assets") {
           return { isSuccess: true, data: { value: "120.000 €" } };
         }
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -289,13 +289,13 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
         </DashboardBodyProvider>
       </DispatcherProvider>,
     );
-    expect(screen.getByText("widgets:dashboard:net-worth")).toBeTruthy();
-    await waitFor(() => expect(screen.getByText("120.000 €")).toBeTruthy());
+    screen.getByText("widgets:dashboard:net-worth");
+    await waitFor(() => screen.getByText("120.000 €"));
   });
 
   test("feed-Panel rendert primary/trailing-Zeilen", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         if (type === "widgets:query:metrics:upcoming") {
           return {
             isSuccess: true,
@@ -303,7 +303,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
           };
         }
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -312,13 +312,13 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
         </DashboardBodyProvider>
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByText("Zinsanpassung")).toBeTruthy());
-    expect(screen.getByText("Aug 2026")).toBeTruthy();
+    await waitFor(() => screen.getByText("Zinsanpassung"));
+    screen.getByText("Aug 2026");
   });
 
   test("progress-list-Panel rendert Label/Wert + Fortschrittsbalken", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         if (type === "widgets:query:metrics:goal-progress") {
           return {
             isSuccess: true,
@@ -326,7 +326,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
           };
         }
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -335,7 +335,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
         </DashboardBodyProvider>
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByText("Baudarlehen")).toBeTruthy());
+    await waitFor(() => screen.getByText("Baudarlehen"));
     const bar = screen.getByRole("progressbar");
     expect(bar.getAttribute("aria-valuenow")).toBe("71");
   });
@@ -351,7 +351,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
         </ExtensionSectionsProvider>
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByTestId("custom-echo")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("custom-echo"));
     expect(screen.getByTestId("custom-echo").textContent).toBe("rich:none");
   });
 
@@ -384,7 +384,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
         </DispatcherProvider>
       </BrowserNav>,
     );
-    await waitFor(() => expect(screen.getByTestId("custom-echo")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("custom-echo"));
     expect(screen.getByTestId("custom-echo").textContent).toBe("eu");
   });
 
@@ -397,13 +397,13 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
         </DashboardBodyProvider>
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByTestId("dashboard-panel-kpi")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-panel-kpi"));
     expect(screen.queryByTestId("custom-echo")).toBeNull();
   });
 
   test("stat panel: Delta chip renders only when value+direction are provided", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         if (type === "widgets:query:metrics:kpi") {
           return {
             isSuccess: true,
@@ -416,7 +416,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
           };
         }
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -425,18 +425,18 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
         </DashboardBodyProvider>
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByText("92.753 €")).toBeTruthy());
-    expect(screen.getByText("↓23 %")).toBeTruthy();
+    await waitFor(() => screen.getByText("92.753 €"));
+    screen.getByText("↓23 %");
   });
 
   test("stat panel: registered icon renders, unregistered icon renders nothing (no crash)", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         if (type === "widgets:query:metrics:kpi") {
           return { isSuccess: true, data: { value: "92.753 €" } };
         }
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -447,17 +447,17 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
         </ExtensionSectionsProvider>
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByTestId("kpi-icon")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("kpi-icon"));
   });
 
   test("stat panel: unregistered icon renders nothing, does not throw", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         if (type === "widgets:query:metrics:kpi") {
           return { isSuccess: true, data: { value: "92.753 €" } };
         }
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -466,7 +466,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
         </DashboardBodyProvider>
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByText("92.753 €")).toBeTruthy());
+    await waitFor(() => screen.getByText("92.753 €"));
     expect(screen.queryByTestId("kpi-icon")).toBeNull();
     // An unregistered icon must not render an empty, accent-colored
     // chip wrapper either (StatCard gates the span on icon !== undefined).
@@ -476,12 +476,12 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
 
   test("stat panel: missing deltaDirection suppresses the chip (no crash)", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         if (type === "widgets:query:metrics:kpi") {
           return { isSuccess: true, data: { value: "92.753 €" } };
         }
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -490,7 +490,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
         </DashboardBodyProvider>
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByText("92.753 €")).toBeTruthy());
+    await waitFor(() => screen.getByText("92.753 €"));
     expect(screen.queryByText("23 %")).toBeNull();
   });
 
@@ -499,7 +499,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
 
     const calls: { readonly type: string; readonly payload: unknown }[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async (type: string, payload: unknown) => {
+      query: async (type: string, payload: unknown) => {
         calls.push({ type, payload });
         const region = (payload as { readonly region?: string } | undefined)?.region;
         if (type === "widgets:query:metrics:kpi") {
@@ -514,7 +514,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
           };
         }
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     const user = userEvent.setup();
     render(
@@ -526,15 +526,15 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
         </DispatcherProvider>
       </BrowserNav>,
     );
-    await waitFor(() => expect(screen.getByText("92.753 €")).toBeTruthy());
-    await waitFor(() => expect(screen.getByText("EU-Event")).toBeTruthy());
+    await waitFor(() => screen.getByText("92.753 €"));
+    await waitFor(() => screen.getByText("EU-Event"));
 
     await user.click(screen.getByTestId("combobox-dashboard-filter-region"));
     const usOption = await screen.findByText("widgets:dashboard:filter-region-us");
     await user.click(usOption);
 
-    await waitFor(() => expect(screen.getByText("38.120 $")).toBeTruthy());
-    await waitFor(() => expect(screen.getByText("US-Event")).toBeTruthy());
+    await waitFor(() => screen.getByText("38.120 $"));
+    await waitFor(() => screen.getByText("US-Event"));
   });
 
   test("Filter value prefilled from URL search param: Deep link ?tenantId=t-2 lands in the panel query", async () => {
@@ -542,10 +542,10 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
 
     const calls: { readonly type: string; readonly payload: unknown }[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async (type: string, payload: unknown) => {
+      query: async (type: string, payload: unknown) => {
         calls.push({ type, payload });
         return { isSuccess: true, data: { value: "92.753 €" } };
-      }) as unknown as Dispatcher["query"],
+      },
     });
 
     const deepLinkScreen: DashboardScreenDefinition = {
@@ -583,7 +583,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
       </BrowserNav>,
     );
 
-    await waitFor(() => expect(screen.getByText("92.753 €")).toBeTruthy());
+    await waitFor(() => screen.getByText("92.753 €"));
     const kpiCall = calls.find((c) => c.type === "widgets:query:metrics:kpi");
     expect(kpiCall?.payload).toEqual({ tenantId: "t-2" });
   });
@@ -592,13 +592,13 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
     window.history.replaceState(null, "", "/overview?tenantId=t-2");
     const calls: { readonly type: string; readonly payload: unknown }[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async (type: string, payload: unknown) => {
+      query: async (type: string, payload: unknown) => {
         calls.push({ type, payload });
         return {
           isSuccess: true,
           data: { rows: [], nextCursor: null, total: 4 },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     const navSchema: FeatureSchema = {
       featureName: "work",
@@ -644,7 +644,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
       limit: 1,
       totalCount: true,
     });
-    expect(screen.getByText("4")).toBeTruthy();
+    screen.getByText("4");
     const href = link.getAttribute("href") ?? "";
     expect(href).toContain("task-list");
     expect(decodeURIComponent(href)).toContain("task-list.filter=overdue");
@@ -693,10 +693,10 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
     function renderTile(roles: readonly string[]) {
       const calls: string[] = [];
       const dispatcher = createMockDispatcher({
-        query: (async (type: string) => {
+        query: async (type: string) => {
           calls.push(type);
           return { isSuccess: true, data: { total: 3 } };
-        }) as unknown as Dispatcher["query"],
+        },
       });
       render(
         <AppFeaturesProvider features={[targetFeature, tileSchema]}>
@@ -723,7 +723,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
 
     test("is shown for a user with the role", async () => {
       renderTile(["Auditor"]);
-      expect(await screen.findByTestId("dashboard-panel-audit-link")).toBeTruthy();
+      await screen.findByTestId("dashboard-panel-audit-link");
     });
   });
 });
@@ -826,14 +826,19 @@ function renderAccountSecurity(
 ): { readonly queryTypes: string[] } {
   const queryTypes: string[] = [];
   const dispatcher = createMockDispatcher({
-    query: (async (type: string) => {
+    query: async (type: string) => {
       queryTypes.push(type);
       if (type === mfaStatus.query) {
         await options.statusGate;
         if (options.statusFails === true) {
           return {
             isSuccess: false,
-            error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
+            error: {
+              code: "internal",
+              httpStatus: 500,
+              message: "kaputt",
+              i18nKey: "errors.internal",
+            },
           };
         }
         return { isSuccess: true, data: { enabled: mfaEnabled } };
@@ -848,7 +853,7 @@ function renderAccountSecurity(
         isSuccess: true,
         data: { rows: [{ id: "x", userAgent: "ADMIN ROW" }], nextCursor: null },
       };
-    }) as unknown as Dispatcher["query"],
+    },
   });
   render(
     <DispatcherProvider dispatcher={dispatcher}>
@@ -873,36 +878,34 @@ describe("KumikoScreen dashboard — screen panels", () => {
 
   test("embeds a Cross-Feature-projectionList screen together with its label", async () => {
     renderAccountSecurity(false);
-    await waitFor(() => expect(screen.getByText("Firefox on Linux")).toBeTruthy());
-    expect(screen.getByTestId("dashboard-panel-sessions")).toBeTruthy();
-    expect(screen.getByText("account-security:panel:sessions")).toBeTruthy();
+    await waitFor(() => screen.getByText("Firefox on Linux"));
+    screen.getByTestId("dashboard-panel-sessions");
+    screen.getByText("account-security:panel:sessions");
   });
 
   test("visibleWhen shows only the panel matching the query value", async () => {
     renderAccountSecurity(false);
-    await waitFor(() => expect(screen.getByTestId("dashboard-panel-mfa-enable")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-panel-mfa-enable"));
     expect(screen.queryByTestId("dashboard-panel-mfa-disable")).toBeNull();
   });
 
   test("visibleWhen with reversed status shows the other panel", async () => {
     renderAccountSecurity(true);
-    await waitFor(() => expect(screen.getByTestId("dashboard-panel-mfa-disable")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-panel-mfa-disable"));
     expect(screen.queryByTestId("dashboard-panel-mfa-enable")).toBeNull();
   });
 
   test("two panels with the same visibleWhen query trigger the query only once", async () => {
     const { queryTypes } = renderAccountSecurity(false);
-    await waitFor(() => expect(screen.getByTestId("dashboard-panel-mfa-enable")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-panel-mfa-enable"));
     expect(queryTypes.filter((type) => type === mfaStatus.query)).toHaveLength(1);
   });
 
   test("if the visibleWhen query fails, the panel shows an error instead of disappearing", async () => {
     renderAccountSecurity(false, accountSecuritySchema, sessionsSchema, { statusFails: true });
-    await waitFor(() => expect(screen.getByTestId("dashboard-panel-mfa-enable")).toBeTruthy());
-    expect(
-      within(screen.getByTestId("dashboard-panel-mfa-enable")).getByRole("alert"),
-    ).toBeTruthy();
-    expect(screen.getByTestId("dashboard-panel-mfa-disable")).toBeTruthy();
+    await waitFor(() => screen.getByTestId("dashboard-panel-mfa-enable"));
+    within(screen.getByTestId("dashboard-panel-mfa-enable")).getByRole("alert");
+    screen.getByTestId("dashboard-panel-mfa-disable");
   });
 
   describe("fallback", () => {
@@ -927,16 +930,14 @@ describe("KumikoScreen dashboard — screen panels", () => {
 
     test("shows the fallback screen in the panel's place while visibleWhen is unmet", async () => {
       renderAccountSecurity(false, fallbackSchema);
-      await waitFor(() => expect(screen.getByText("Firefox on Linux")).toBeTruthy());
-      expect(
-        within(screen.getByTestId("dashboard-panel-mfa")).getByText("Firefox on Linux"),
-      ).toBeTruthy();
+      await waitFor(() => screen.getByText("Firefox on Linux"));
+      within(screen.getByTestId("dashboard-panel-mfa")).getByText("Firefox on Linux");
       expect(screen.queryByText("mfa.disable.submit")).toBeNull();
     });
 
     test("shows the panel itself once visibleWhen is met", async () => {
       renderAccountSecurity(true, fallbackSchema);
-      await waitFor(() => expect(screen.getByText("mfa.disable.submit")).toBeTruthy());
+      await waitFor(() => screen.getByText("mfa.disable.submit"));
       expect(screen.queryByText("Firefox on Linux")).toBeNull();
     });
 
@@ -959,12 +960,12 @@ describe("KumikoScreen dashboard — screen panels", () => {
       expect(queryTypes).not.toContain("sessions:query:user-session:mine");
 
       openGate();
-      await waitFor(() => expect(screen.getByText("Firefox on Linux")).toBeTruthy());
+      await waitFor(() => screen.getByText("Firefox on Linux"));
     });
 
     test("falls back when the gate query fails instead of showing an error", async () => {
       renderAccountSecurity(true, fallbackSchema, sessionsSchema, { statusFails: true });
-      await waitFor(() => expect(screen.getByText("Firefox on Linux")).toBeTruthy());
+      await waitFor(() => screen.getByText("Firefox on Linux"));
       expect(screen.queryByRole("alert")).toBeNull();
     });
 
@@ -983,7 +984,7 @@ describe("KumikoScreen dashboard — screen panels", () => {
         ),
       };
       renderAccountSecurity(false, chromeless, paddedSessionsSchema);
-      await waitFor(() => expect(screen.getByText("Firefox on Linux")).toBeTruthy());
+      await waitFor(() => screen.getByText("Firefox on Linux"));
       expect(
         screen.getByTestId("dashboard-panel-mfa").querySelector("[data-slot=card]"),
       ).toBeNull();
@@ -992,7 +993,7 @@ describe("KumikoScreen dashboard — screen panels", () => {
 
   test("without access to the target screen, the tile disappears completely (no access banner)", async () => {
     renderAccountSecurity(false);
-    await waitFor(() => expect(screen.getByText("Firefox on Linux")).toBeTruthy());
+    await waitFor(() => screen.getByText("Firefox on Linux"));
     expect(screen.queryByTestId("dashboard-panel-admin-sessions")).toBeNull();
     expect(screen.queryByText("ADMIN ROW")).toBeNull();
     expect(screen.queryByTestId("kumiko-screen-access-denied")).toBeNull();
@@ -1015,16 +1016,16 @@ describe("KumikoScreen dashboard — screen panels", () => {
       ),
     };
     renderAccountSecurity(false, chromelessSchema, paddedSessionsSchema);
-    await waitFor(() => expect(screen.getByText("Firefox on Linux")).toBeTruthy());
+    await waitFor(() => screen.getByText("Firefox on Linux"));
     const panel = screen.getByTestId("dashboard-panel-sessions");
     expect(panel.querySelector("[data-slot=card]")).toBeNull();
     expect(panel.querySelector(".px-4")).toBeNull();
-    expect(screen.getByText("account-security:panel:sessions")).toBeTruthy();
+    screen.getByText("account-security:panel:sessions");
   });
 
   test("list panel without the option keeps card and screen padding", async () => {
     renderAccountSecurity(false, accountSecuritySchema, paddedSessionsSchema);
-    await waitFor(() => expect(screen.getByText("Firefox on Linux")).toBeTruthy());
+    await waitFor(() => screen.getByText("Firefox on Linux"));
     const panel = screen.getByTestId("dashboard-panel-sessions");
     expect(panel.querySelector("[data-slot=card]")).not.toBeNull();
     expect(panel.querySelector(".px-4")).not.toBeNull();

@@ -1,12 +1,15 @@
 import type { RunIn } from "@cosmicdrift/kumiko-types/config";
+import type { ExecutorManagedRunner } from "@cosmicdrift/kumiko-types/executor-brand";
 import type { MultiStreamApplyContext } from "@cosmicdrift/kumiko-types/multi-stream-apply-context-types";
 import type { MultiStreamProjectionDefinition } from "@cosmicdrift/kumiko-types/projection";
-import type { DbConnection } from "../db/connection.ts";
+import type { DbConnection, PgListenClient } from "../db/connection.ts";
+import { runInSavepoint } from "../db/query.ts";
 import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import { createDerivativesContext } from "../derivatives/derivatives-context.ts";
 import { runsInLane } from "../engine/run-in.ts";
 import type { AppContext, Registry } from "../engine/types/index.ts";
 
+import { makeUpcastCtx, upcastStoredEvent } from "../event-store/upcaster.ts";
 import { createTenantFileContext } from "../files/file-handle.ts";
 import type { Lifecycle } from "../lifecycle/index.ts";
 import type { ObservabilityProvider } from "../observability/index.ts";
@@ -62,7 +65,7 @@ export function createServerEventDispatcher(deps: {
   // The dispatcher is built but NOT started here. Production boot code
   // must call `.start()`; test code typically calls `.runOnce()`.
   const { baseDb, searchAdapter } = resolveBaseDbAndSearchAdapter(context, options.registry);
-  const systemConsumers = buildSystemEventConsumers(options, sseBroker, searchAdapter);
+  const systemConsumers = buildSystemEventConsumers(options, sseBroker, searchAdapter, baseDb);
   const mspConsumers = buildMultiStreamProjectionConsumers(options, {
     baseDb,
     context,
@@ -85,9 +88,17 @@ export function createServerEventDispatcher(deps: {
       meter: observability.meter,
       instanceId,
       ...dispatcherTunables,
+      ...(dispatcherTunables.pgClient === undefined && canListen(baseDb)
+        ? { pgClient: baseDb }
+        : {}),
     });
   }
   return { baseDb, consumers, eventDispatcher };
+}
+
+// Bun.SQL holds LISTEN on its own connection; RawDbClient has none.
+function canListen(db: DbConnection): db is DbConnection & PgListenClient {
+  return "listen" in db && typeof db.listen === "function";
 }
 
 export function resolveBaseDbAndSearchAdapter(
@@ -115,6 +126,7 @@ function buildSystemEventConsumers(
   options: Pick<ServerOptions, "registry" | "eventDispatcher" | "dispatcherOptions">,
   sseBroker: SseBroker,
   searchAdapter: SearchAdapter | undefined,
+  baseDb: DbConnection | undefined,
 ): EventConsumer[] {
   const sseConsumerEnabled = options.eventDispatcher?.systemConsumers?.sse ?? true;
   const searchConsumerEnabled = options.eventDispatcher?.systemConsumers?.search ?? true;
@@ -128,8 +140,13 @@ function buildSystemEventConsumers(
   if (searchConsumerEnabled && searchAdapter) {
     systemConsumers.push(createSearchEventConsumer(searchAdapter, options.registry));
   }
-  if (jobTriggerConsumerEnabled && jobRunnerForTriggers) {
-    systemConsumers.push(createJobTriggerEventConsumer(jobRunnerForTriggers, options.registry));
+  if (jobTriggerConsumerEnabled && jobRunnerForTriggers && baseDb) {
+    systemConsumers.push(
+      createJobTriggerEventConsumer(jobRunnerForTriggers, options.registry, {
+        db: baseDb,
+        upcasters: options.registry.getEventUpcasters(),
+      }),
+    );
   }
   // Default ON (global-by-default). Tests that opt out of SSE via
   // systemConsumers.accessInvalidation=false (test-stack mirrors sse off)
@@ -138,7 +155,7 @@ function buildSystemEventConsumers(
   const accessInvalidationEnabled =
     options.eventDispatcher?.systemConsumers?.accessInvalidation ?? true;
   if (accessInvalidationEnabled) {
-    systemConsumers.push(createAccessInvalidationEventConsumer(sseBroker));
+    systemConsumers.push(createAccessInvalidationEventConsumer(sseBroker, options.registry));
   }
   return systemConsumers;
 }
@@ -247,7 +264,7 @@ function buildMultiStreamProjectionConsumer(
     ...(msp.irreversibleWithoutEntryHandler && {
       irreversibleWithoutEntryHandler: msp.irreversibleWithoutEntryHandler,
     }),
-    handler: async (event, ctx) => {
+    handler: async (event, _ctx, turn) => {
       const applyFn = msp.apply[event.type];
       // skip: this MSP doesn't care about this event type — fast path,
       // every event type passes through every MSP consumer exactly once.
@@ -268,28 +285,43 @@ function buildMultiStreamProjectionConsumer(
       const mspFiles = fileProviderResolver
         ? createTenantFileContext(fileProviderResolver, event.tenantId)
         : undefined;
-      const mspDb = withExecutorManagedWrites(baseDb);
-      const applyCtx = createMultiStreamApplyContext({
-        registry,
-        db: mspDb,
-        tenantId: event.tenantId,
-        userId: event.metadata.userId,
-        ...(mspOwner && { callerFeature: mspOwner }),
-        ...(mspFiles && { files: mspFiles }),
-        ...(context.secrets && { secrets: context.secrets }),
-        ...(mspJobs && { jobs: mspJobs }),
-        ...(mspFiles && {
-          derivatives: createDerivativesContext({
-            files: mspFiles,
-            registry,
-            db: baseDb,
-            tenantId: event.tenantId,
+      const applyOn = async (runner: ExecutorManagedRunner): Promise<void> => {
+        // Same as the catch-up job consumer: a cursor behind a deploy delivers events in their
+        // stored schema. Events outside this MSP's apply map returned above, so a broken
+        // upcaster of another type cannot stall this cursor.
+        const upcastEvent = await upcastStoredEvent(
+          event,
+          registry.getEventUpcasters(),
+          makeUpcastCtx(runner, event.tenantId),
+        );
+        const applyCtx = createMultiStreamApplyContext({
+          registry,
+          db: runner,
+          tenantId: event.tenantId,
+          userId: event.metadata.userId,
+          ...(mspOwner && { callerFeature: mspOwner }),
+          ...(mspFiles && { files: mspFiles }),
+          ...(context.secrets && { secrets: context.secrets }),
+          ...(mspJobs && { jobs: mspJobs }),
+          ...(mspFiles && {
+            derivatives: createDerivativesContext({
+              files: mspFiles,
+              registry,
+              db: baseDb,
+              tenantId: event.tenantId,
+            }),
           }),
-        }),
-      });
-      await applyFn(event, mspDb, applyCtx);
-      // Keep ctx reachable to satisfy the EventConsumerHandler signature.
-      void ctx;
+        });
+        await applyFn(upcastEvent, runner, applyCtx);
+      };
+      // Inside the turn tx the apply's writes commit together with the cursor, so a crash between apply and
+      // cursor write cannot apply twice; the savepoint rolls a throwing apply back without aborting the turn tx,
+      // which still has to persist the attempt count.
+      if (turn) {
+        await runInSavepoint(withExecutorManagedWrites(turn.tx), applyOn);
+        return;
+      }
+      await applyOn(withExecutorManagedWrites(baseDb));
     },
   };
 }

@@ -2,7 +2,13 @@ import { describe, expect, mock, test } from "bun:test";
 import type { ReactNode } from "react";
 import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, useMutation } from "../../index.ts";
-import { act, createMockDispatcher, renderHook, waitFor } from "./test-utils.tsx";
+import {
+  act,
+  createMockDispatcher,
+  type MockWriteHandler,
+  renderHook,
+  waitFor,
+} from "./test-utils.tsx";
 
 function wrap(dispatcher: Dispatcher) {
   return ({ children }: { children: ReactNode }) => (
@@ -16,7 +22,7 @@ describe("useMutation", () => {
   // state set by the later-started, earlier-resolving one.
   test("out-of-order resolution: state reflects the most recently started call, not the most recently resolved one", async () => {
     let resolveFirst: (() => void) | undefined;
-    const write = mock(async (_type: string, payload: unknown) => {
+    const write = mock<MockWriteHandler>(async (_type: string, payload: unknown) => {
       if ((payload as { id: string }).id === "row-1") {
         await new Promise<void>((resolve) => {
           resolveFirst = resolve;
@@ -25,7 +31,7 @@ describe("useMutation", () => {
       }
       return { isSuccess: true, data: { id: "row-2" } };
     });
-    const dispatcher = createMockDispatcher({ write: write as unknown as Dispatcher["write"] });
+    const dispatcher = createMockDispatcher({ write: write });
     const { result } = renderHook(() => useMutation("row:update"), {
       wrapper: wrap(dispatcher),
     });
@@ -57,13 +63,13 @@ describe("useMutation", () => {
 
   test("reset() invalidates a still-pending call's late state update", async () => {
     let resolveWrite: (() => void) | undefined;
-    const write = mock(async () => {
+    const write = mock<MockWriteHandler>(async () => {
       await new Promise<void>((resolve) => {
         resolveWrite = resolve;
       });
       return { isSuccess: true, data: { id: "late" } };
     });
-    const dispatcher = createMockDispatcher({ write: write as unknown as Dispatcher["write"] });
+    const dispatcher = createMockDispatcher({ write: write });
     const { result } = renderHook(() => useMutation("row:update"), {
       wrapper: wrap(dispatcher),
     });

@@ -111,12 +111,12 @@ describe("ConfigCascadeView — Scope-Filter (Bug 8)", () => {
     await user.click(screen.getByRole("button", { name: "Show all levels" }));
 
     const panel = within(view.container.querySelector("ul") as HTMLElement);
-    expect(panel.getByText("Tenant")).toBeTruthy();
-    expect(panel.getByText("Default")).toBeTruthy();
+    panel.getByText("Tenant");
+    panel.getByText("Default");
     expect(panel.queryByText("Platform")).toBeNull();
     expect(panel.queryByText("App override")).toBeNull();
     expect(panel.queryByText("Computed")).toBeNull();
-    expect(panel.getByText("fallback")).toBeTruthy();
+    panel.getByText("fallback");
   });
 
   test("screenScope=tenant with active system value: only the default hint, not expandable", async () => {

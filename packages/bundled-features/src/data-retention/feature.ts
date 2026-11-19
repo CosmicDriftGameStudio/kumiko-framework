@@ -1,8 +1,10 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { ConsumerLagError } from "@cosmicdrift/kumiko-framework/pipeline";
 import { findTenantDestructionHoldProvider } from "../shared/index.ts";
 import { policyForQuery } from "./handlers/policy-for.query.ts";
 import { resolveTenantRetentionPreset } from "./resolve-tenant-preset.ts";
 import { runRetentionCleanup } from "./run-retention-cleanup.ts";
+import { runStreamRetention } from "./run-stream-retention.ts";
 import { tenantRetentionOverrideEntity } from "./schema/tenant-retention-override.ts";
 
 export { retentionOverrideSchema } from "./override-schema.ts";
@@ -49,6 +51,8 @@ export {
 //
 // The forget flow consults `retention.policyFor` and anonymizes records instead
 // of hard-deleting them while a mandatory retention period applies.
+//
+// The stream-retention cron prunes the event streams of entities that declare streamRetention.
 export function createDataRetentionFeature(): FeatureDefinition {
   return defineFeature("data-retention", (r) => {
     r.describe(
@@ -59,7 +63,7 @@ export function createDataRetentionFeature(): FeatureDefinition {
       category: "compliance",
       recommended: false,
     });
-    r.entity({ name: "tenant-retention-override", ...tenantRetentionOverrideEntity });
+    r.entity(tenantRetentionOverrideEntity);
 
     // Cross-feature API for the forget flow and cleanup job
     r.exposesApi("retention.policyFor");
@@ -80,14 +84,14 @@ export function createDataRetentionFeature(): FeatureDefinition {
       escapeHatch: {
         reason:
           "retention cleanup runs raw deletes and preset lookups; every statement filters by this run's tenantId",
+        grants: ["unsafeRaw"],
       },
       handler: async (_payload, ctx) => {
         if (!ctx.registry) {
           throw new Error("retention-cleanup: ctx.registry required (JobContext incomplete)");
         }
         const tenantId = ctx.systemUser.tenantId;
-        const cleanupDb =
-          ctx.db.unsafeRaw() as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
+        const cleanupDb = ctx.db.unsafeRawAllTenants();
         const tenantPreset = await resolveTenantRetentionPreset({
           db: cleanupDb,
           registry: ctx.registry,
@@ -120,6 +124,37 @@ export function createDataRetentionFeature(): FeatureDefinition {
           console.warn(
             `[data-retention:retention-cleanup] tenant=${tenantId} skipped=${result.skipped.map((s) => `${s.entityName}:${s.reason}`).join(",")}`,
           );
+        }
+      },
+    });
+
+    // Global, not perTenant: pruneEvents deletes across tenants in one statement and its
+    // consumer-lag check is global. A lag postpones the run instead of failing the job.
+    r.job({
+      name: "stream-retention",
+      trigger: { maintenance: true },
+      concurrency: "skip",
+      escapeHatch: {
+        reason:
+          "prunes event streams and their entity rows of every tenant for entities that declare streamRetention",
+        grants: ["unsafeRaw"],
+      },
+      handler: async (_payload, ctx) => {
+        if (!ctx.registry) {
+          throw new Error("stream-retention: ctx.registry required (JobContext incomplete)");
+        }
+        try {
+          const result = await runStreamRetention({
+            db: ctx.db.unsafeRawAllTenants(),
+            registry: ctx.registry,
+            now: ctx.tz.now(),
+          });
+          ctx.obs.log.info("entity stream retention ran", result);
+        } catch (error) {
+          if (!(error instanceof ConsumerLagError)) throw error;
+          ctx.obs.log.warn("entity stream retention postponed: an event consumer lags", {
+            consumer: error.laggingConsumer,
+          });
         }
       },
     });

@@ -2,9 +2,14 @@
 
 import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const tilesScreen: ProjectionDetailScreenDefinition = {
   id: "check-detail",
@@ -36,7 +41,7 @@ function renderTiles(
   data: Readonly<Record<string, unknown>>,
   detail: ProjectionDetailScreenDefinition = tilesScreen,
 ): void {
-  const query = (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["query"];
+  const query: MockQueryHandler = async () => ({ isSuccess: true, data });
   render(
     <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
       <KumikoScreen

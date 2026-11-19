@@ -18,10 +18,8 @@ import type { ComponentType, ReactNode } from "react";
 import type { CapIconKey, CapUnit, CapUsageTone, CapUsageWithMeta } from "../types.ts";
 import { formatCapAmount, formatCapUsedOfLimit } from "./cap-amount-format.ts";
 import { CapUsageBar } from "./cap-usage-bar.tsx";
-import { CapOverviewQueries, MY_CAPS_SCREEN_ID } from "./constants.ts";
+import { CapOverviewContracts, MY_CAPS_SCREEN_ID } from "./constants.ts";
 import { isCapNotIncluded, isCapUsedWithoutAllowance } from "./usage-math.ts";
-
-type CapsUsageResponse = { readonly rows: readonly CapUsageWithMeta[] };
 
 // caps:usage's wire tone stays "default"/"warn"/"danger" (matches the
 // server-side thresholds literally); mapped here to the renderer's actual
@@ -157,7 +155,7 @@ export function CapCardsPanel({ filterParams }: ExtensionSectionProps): ReactNod
   const { Banner } = usePrimitives();
   const tenantId =
     typeof filterParams?.["tenantId"] === "string" ? filterParams["tenantId"] : undefined;
-  const query = useQuery<CapsUsageResponse | null>(CapOverviewQueries.capsUsage, {
+  const query = useQuery(CapOverviewContracts.capsUsage, {
     ...(tenantId !== undefined && { tenantId }),
   });
 

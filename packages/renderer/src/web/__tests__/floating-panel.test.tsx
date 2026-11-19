@@ -68,7 +68,7 @@ describe("FloatingPanel", () => {
     const labelledBy = dialog.getAttribute("aria-labelledby");
     expect(labelledBy).not.toBeNull();
     expect(document.getElementById(labelledBy ?? "")?.textContent).toBe("Assistant");
-    expect(screen.getByText("Body")).toBeTruthy();
+    screen.getByText("Body");
   });
 
   test("default geometry is 400x560 in the bottom-right corner with a 24px margin", () => {
@@ -313,8 +313,8 @@ describe("FloatingPanel", () => {
       expect(panel().style.left).toBe("");
       expect(screen.queryByRole("separator")).toBeNull();
       expect(screen.queryByRole("button", { name: "Move panel" })).toBeNull();
-      expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
-      expect(screen.getByText("Body")).toBeTruthy();
+      screen.getByRole("button", { name: "Close" });
+      screen.getByText("Body");
     });
 
     test("going back to a wide viewport re-fits a geometry that no longer fits", () => {

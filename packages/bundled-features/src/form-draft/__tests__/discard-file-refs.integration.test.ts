@@ -46,6 +46,7 @@ import { formDraftEntity } from "../entity.ts";
 import { createFormDraftFeature } from "../feature.ts";
 import type { GetDraftResult } from "../handlers/get.query.ts";
 import { FormDraftHandlers, FormDraftQueries } from "../web/constants.ts";
+import { seedUploadedFileRef } from "./seed-uploaded-file-ref.ts";
 
 let stack: TestStack;
 let provider: InMemoryFileProvider;
@@ -91,12 +92,8 @@ function fileRefPointer(storageKey: string) {
 
 // The real file_refs row a genuine POST /files upload would have created —
 // filterOwnedStorageKeys requires this to exist before a release proceeds.
-async function seedFileRef(storageKey: string, ownerUser = owner): Promise<void> {
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO "file_refs" ("tenant_id", "storage_key", "file_name", "mime_type", "size", "inserted_by_id")
-     VALUES ($1, $2, 'photo.jpg', 'image/jpeg', 3, $3)`,
-    [ownerUser.tenantId, storageKey, ownerUser.id],
-  );
+function seedFileRef(storageKey: string, boundToEntityId?: string) {
+  return seedUploadedFileRef(stack.db, storageKey, owner, boundToEntityId);
 }
 
 describe("form-draft discard — FileRef release", () => {
@@ -161,6 +158,22 @@ describe("form-draft discard — FileRef release", () => {
     await discardDraft("wizard:new:abc-123", true);
 
     expect(provider.keys()).not.toContain(key);
+  });
+
+  test("discarding a create-mode draft does NOT release a file_refs row already bound to a saved entity", async () => {
+    const key = tenantKey("vehicle/photo/bound.jpg");
+    await provider.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");
+    await seedFileRef(key, "00000000-0000-4000-8000-000000000001");
+    await saveDraft("wizard:new:bound", { photo: fileRefPointer(key) });
+
+    await discardDraft("wizard:new:bound", true);
+
+    expect(provider.keys()).toContain(key);
+    const rows = await asRawClient(stack.db).unsafe(
+      `SELECT "id" FROM "file_refs" WHERE "storage_key" = $1`,
+      [key],
+    );
+    expect(rows).toHaveLength(1);
   });
 
   test("discarding without releaseFiles leaves the storage binary intact (successful-submit default)", async () => {

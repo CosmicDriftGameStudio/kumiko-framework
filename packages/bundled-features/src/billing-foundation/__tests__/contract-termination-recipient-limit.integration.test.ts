@@ -9,7 +9,6 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { expectSuccess, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -27,6 +26,7 @@ import { createConfigFeature } from "../../config/index.ts";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
 import { notificationPreferenceEntity } from "../../delivery/tables.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { createTemplateResolverApi } from "../../template-resolver/api.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { seedNotificationTemplates } from "../../template-resolver/seeding.ts";
@@ -90,7 +90,7 @@ const mockProviderFeature = defineFeature("test-mock-recipient-limit-provider", 
     priceToTier: { price_starter: "starter", price_pro: "pro" },
     cancelSubscription: async () => {},
   };
-  r.useExtension("subscriptionProvider", PROVIDER, plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: PROVIDER, ...plugin });
 });
 
 let stack: TestStack;

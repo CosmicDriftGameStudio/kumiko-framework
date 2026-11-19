@@ -4,22 +4,8 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
+import { createMockDispatcher } from "../../testing.ts";
 import { useAiTextAction, useCompletion } from "../use-ai-text.ts";
-
-function makeDispatcher(query: Dispatcher["query"]): Dispatcher {
-  return {
-    query,
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
-}
 
 function wrapperFor(dispatcher: Dispatcher) {
   return ({ children }: { readonly children: ReactNode }) => (
@@ -29,14 +15,16 @@ function wrapperFor(dispatcher: Dispatcher) {
 
 describe("useAiTextAction", () => {
   test("success → state='success', result carries the text", async () => {
-    const dispatcher = makeDispatcher((async (_type: string, payload: unknown) => ({
-      isSuccess: true,
-      data: {
-        type: "text",
-        text: `echo:${(payload as { text: string }).text}`,
-        usage: { inputTokens: 1, outputTokens: 1 },
-      },
-    })) as unknown as Dispatcher["query"]);
+    const dispatcher = createMockDispatcher({
+      query: async (_type: string, payload: unknown) => ({
+        isSuccess: true,
+        data: {
+          type: "text",
+          text: `echo:${(payload as { text: string }).text}`,
+          usage: { inputTokens: 1, outputTokens: 1 },
+        },
+      }),
+    });
 
     const { result } = renderHook(() => useAiTextAction(), { wrapper: wrapperFor(dispatcher) });
 
@@ -55,10 +43,12 @@ describe("useAiTextAction", () => {
   });
 
   test("cap_exceeded error → state='cap-exceeded'", async () => {
-    const dispatcher = makeDispatcher((async () => ({
-      isSuccess: false,
-      error: { code: "cap_exceeded", message: "capped", i18nKey: "errors.cap" },
-    })) as unknown as Dispatcher["query"]);
+    const dispatcher = createMockDispatcher({
+      query: async () => ({
+        isSuccess: false,
+        error: { code: "cap_exceeded", httpStatus: 403, message: "capped", i18nKey: "errors.cap" },
+      }),
+    });
 
     const { result } = renderHook(() => useAiTextAction(), { wrapper: wrapperFor(dispatcher) });
 
@@ -71,10 +61,17 @@ describe("useAiTextAction", () => {
   });
 
   test("feature_disabled error → state='unavailable' (graceful degradation)", async () => {
-    const dispatcher = makeDispatcher((async () => ({
-      isSuccess: false,
-      error: { code: "feature_disabled", message: "off", i18nKey: "errors.disabled" },
-    })) as unknown as Dispatcher["query"]);
+    const dispatcher = createMockDispatcher({
+      query: async () => ({
+        isSuccess: false,
+        error: {
+          code: "feature_disabled",
+          httpStatus: 403,
+          message: "off",
+          i18nKey: "errors.disabled",
+        },
+      }),
+    });
 
     const { result } = renderHook(() => useAiTextAction(), { wrapper: wrapperFor(dispatcher) });
 
@@ -86,10 +83,12 @@ describe("useAiTextAction", () => {
   });
 
   test("reset clears state/result/error back to idle", async () => {
-    const dispatcher = makeDispatcher((async () => ({
-      isSuccess: false,
-      error: { code: "conflict", message: "boom", i18nKey: "errors.conflict" },
-    })) as unknown as Dispatcher["query"]);
+    const dispatcher = createMockDispatcher({
+      query: async () => ({
+        isSuccess: false,
+        error: { code: "conflict", httpStatus: 409, message: "boom", i18nKey: "errors.conflict" },
+      }),
+    });
 
     const { result } = renderHook(() => useAiTextAction(), { wrapper: wrapperFor(dispatcher) });
     await act(async () => {
@@ -107,17 +106,19 @@ describe("useAiTextAction", () => {
 describe("useCompletion", () => {
   test("debounces requestCompletion — only the last call within the window fires", async () => {
     let calls = 0;
-    const dispatcher = makeDispatcher((async (_type: string, payload: unknown) => {
-      calls++;
-      return {
-        isSuccess: true,
-        data: {
-          type: "text",
-          text: `suggestion for "${(payload as { text: string }).text}"`,
-          usage: { inputTokens: 1, outputTokens: 1 },
-        },
-      };
-    }) as unknown as Dispatcher["query"]);
+    const dispatcher = createMockDispatcher({
+      query: async (_type: string, payload: unknown) => {
+        calls++;
+        return {
+          isSuccess: true,
+          data: {
+            type: "text",
+            text: `suggestion for "${(payload as { text: string }).text}"`,
+            usage: { inputTokens: 1, outputTokens: 1 },
+          },
+        };
+      },
+    });
 
     const { result } = renderHook(() => useCompletion(20), { wrapper: wrapperFor(dispatcher) });
 
@@ -135,13 +136,15 @@ describe("useCompletion", () => {
 
   test("empty text resets immediately without a request", async () => {
     let calls = 0;
-    const dispatcher = makeDispatcher((async () => {
-      calls++;
-      return {
-        isSuccess: true,
-        data: { type: "text", text: "x", usage: { inputTokens: 1, outputTokens: 1 } },
-      };
-    }) as unknown as Dispatcher["query"]);
+    const dispatcher = createMockDispatcher({
+      query: async () => {
+        calls++;
+        return {
+          isSuccess: true,
+          data: { type: "text", text: "x", usage: { inputTokens: 1, outputTokens: 1 } },
+        };
+      },
+    });
 
     const { result } = renderHook(() => useCompletion(10), { wrapper: wrapperFor(dispatcher) });
 
@@ -157,13 +160,15 @@ describe("useCompletion", () => {
 
   test("clear cancels a pending debounce and resets the suggestion", async () => {
     let calls = 0;
-    const dispatcher = makeDispatcher((async () => {
-      calls++;
-      return {
-        isSuccess: true,
-        data: { type: "text", text: "x", usage: { inputTokens: 1, outputTokens: 1 } },
-      };
-    }) as unknown as Dispatcher["query"]);
+    const dispatcher = createMockDispatcher({
+      query: async () => {
+        calls++;
+        return {
+          isSuccess: true,
+          data: { type: "text", text: "x", usage: { inputTokens: 1, outputTokens: 1 } },
+        };
+      },
+    });
 
     const { result } = renderHook(() => useCompletion(30), { wrapper: wrapperFor(dispatcher) });
 

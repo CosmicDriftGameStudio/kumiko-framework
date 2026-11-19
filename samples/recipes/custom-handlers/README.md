@@ -19,9 +19,19 @@ logic is yours.
 - **Read-modify-write with optimistic locking** — `increment` reads the
   current count, computes the new one, and updates with the version it
   read. Two concurrent increments cannot both succeed.
+- **`createMany` for many rows in one handler** — `create-many` writes all
+  events with one append statement and projects the rows in one savepoint;
+  one invalid row fails the whole batch, nothing is written.
 - **`skipOptimisticLock` for last-writer-wins** — `reset` deliberately
   bypasses the version check because the operation is admin-driven and
   resetting twice is semantically the same as resetting once.
+- **Named verbs** — `verbs` on the entity and `update(..., { verb })` write
+  `counter.archived` or `counter.reset` instead of `counter.updated`. The
+  executor checks the declared transition (`archive` fails with
+  `invalid_transition` unless the status is `open`) and sets the field.
+- **`history` and `listAsOf`** — `history({ id })` returns the lifecycle and
+  verb events of one counter, `listAsOf({ asOf })` folds the events up to an
+  instant into rows.
 - **Custom queries** — `counter:active` passes a server-side `filter`
   (`eq`/`ne`/`lt`/`gt`/`lte`/`gte`/`in`) and `totalCount` to the executor's
   list. Never filter a page in TypeScript: list is paginated, so rows after

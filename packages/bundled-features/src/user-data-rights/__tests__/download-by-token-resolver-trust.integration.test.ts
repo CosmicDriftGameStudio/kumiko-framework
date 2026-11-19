@@ -48,7 +48,11 @@ import { exportJobEntity } from "../schema/export-job.ts";
 
 const jobTenant = testTenantId(1);
 const hostTenant = testTenantId(2);
-const jobTenantAdmin = createTestUser({ id: 99, tenantId: jobTenant, roles: ["TenantAdmin"] });
+const jobTenantAdmin = createTestUser({
+  id: 99,
+  tenantId: jobTenant,
+  roles: ["TenantAdmin", "SystemAdmin"],
+});
 const aliceUser = createTestUser({ id: 42, tenantId: jobTenant, roles: ["Member"] });
 
 const providerPerTenant = new Map<string, ReturnType<typeof createInMemoryFileProvider>>();

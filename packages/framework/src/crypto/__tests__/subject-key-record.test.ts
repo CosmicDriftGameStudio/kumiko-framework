@@ -23,6 +23,7 @@ const UUID_A = "6b2f4a0e-1c9d-4f3a-9d2e-00000000000a";
 const KMS_CTX: KmsContext = { requestId: "test" };
 
 const recordEntity = createEntity({
+  name: "record",
   fields: {
     body: createTextField({ required: true, personal: { of: "id" }, find: "none" }),
   },

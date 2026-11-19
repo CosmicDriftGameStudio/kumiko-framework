@@ -6,13 +6,13 @@ import { createEntity, createTextField } from "../factories.ts";
 describe("validateBoot — detailFor screens", () => {
   test("two screens with the same detailFor fail boot, naming both screen ids", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity({
-        name: "item",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "item",
           table: "Items",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
       r.screen({
         id: "item-detail-a",
         type: "custom",
@@ -40,13 +40,13 @@ describe("validateBoot — detailFor screens", () => {
 
   test("detailFor on an unknown entity fails boot", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity({
-        name: "item",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "item",
           table: "Items",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
       r.screen({
         id: "item-detail",
         type: "custom",
@@ -65,13 +65,13 @@ describe("validateBoot — detailFor screens", () => {
 
   test("a valid detailFor on a custom screen passes boot", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity({
-        name: "item",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "item",
           table: "Items",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
       r.screen({
         id: "item-detail",
         type: "custom",
@@ -90,13 +90,13 @@ describe("validateBoot — detailFor screens", () => {
 
   test("an entity without any detail screen passes boot", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity({
-        name: "item",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "item",
           table: "Items",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
       r.translations({
         keys: { "demo:entity:item:field:name": { de: "Name", en: "Name" } },
       });

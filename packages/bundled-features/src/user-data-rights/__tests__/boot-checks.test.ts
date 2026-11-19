@@ -29,7 +29,8 @@ function projectionProbeTable(name: string): SchemaTable {
 }
 
 import { createFormDraftFeature } from "../../form-draft/index.ts";
-import { createFormDraftUserDataFeature } from "../../form-draft-user-data/index.ts";
+import { createMailFoundationFeature } from "../../mail-foundation/index.ts";
+import { createMailTransportInMemoryFeature } from "../../mail-transport-inmemory/index.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature.ts";
 import { createUserDataRightsFeature } from "../feature.ts";
@@ -76,22 +77,32 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
     expect(() => validateBoot(baseFeatures())).not.toThrow();
   });
 
-  test("form-draft + form-draft-user-data mounted together satisfies V2 and V3 (real feature pair, not synthetic)", () => {
-    expect(() =>
-      validateBoot([...baseFeatures(), createFormDraftFeature(), createFormDraftUserDataFeature()]),
-    ).not.toThrow();
+  test("form-draft registers its own EXT_USER_DATA hooks and satisfies V2 and V3", () => {
+    expect(() => validateBoot([...baseFeatures(), createFormDraftFeature()])).not.toThrow();
   });
 
-  test("form-draft mounted WITHOUT form-draft-user-data → V3 throws (subjectRef ownerId has no EXT_USER_DATA hook)", () => {
-    expect(() => validateBoot([...baseFeatures(), createFormDraftFeature()])).toThrow(
-      /EXT_USER_DATA hook.*Art\.17 gap/,
-    );
+  test("an entity with a subjectRef ownerId and no EXT_USER_DATA hook → V3 throws", () => {
+    const bad = defineFeature("drafts-without-hook", (r) => {
+      r.entity(
+        createEntity({
+          name: "scratch-draft",
+          table: "read_scratch_drafts",
+          fields: {
+            ownerId: createTextField({
+              personal: "ref",
+              required: true,
+            }),
+          },
+        }),
+      );
+    });
+    expect(() => validateBoot([...baseFeatures(), bad])).toThrow(/EXT_USER_DATA hook.*Art\.17 gap/);
   });
 
   test("V2: export hook without delete hook → Art.17 throw", () => {
     const bad = defineFeature("bad-export", (r) => {
       r.requires({ features: ["user-data-rights"] });
-      r.useExtension(EXT_USER_DATA, "badEntity", { export: async () => null });
+      r.applyExtension({ name: EXT_USER_DATA, entity: "badEntity", export: async () => null });
     });
     expect(() => validateBoot([...baseFeatures(), bad])).toThrow(/Art\.17/);
   });
@@ -100,16 +111,16 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
     const untypedName: string = EXT_USER_DATA;
     const bad = defineFeature("bad-empty", (r) => {
       r.requires({ features: ["user-data-rights"] });
-      r.useExtension(untypedName, "badEntity", {});
+      r.applyExtension({ name: untypedName, entity: "badEntity" });
     });
     expect(() => validateBoot([...baseFeatures(), bad])).toThrow(/neither an export nor a delete/);
   });
 
   test("V3: pii entity without any EXT_USER_DATA hook → throws the guard's own message", () => {
     const bad = defineFeature("crm", (r) => {
-      r.entity({
-        name: "contact",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "contact",
           fields: {
             email: createTextField({
               personal: "self",
@@ -117,7 +128,7 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
             }),
           },
         }),
-      });
+      );
     });
     expect(() => validateBoot([...baseFeatures(), bad])).toThrow(/EXT_USER_DATA hook.*Art\.17 gap/);
   });
@@ -132,6 +143,7 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
         table: projectionTable,
         apply: { [contactCreated.name]: async () => {} },
         entity: createEntity({
+          name: "entity",
           fields: {
             email: createTextField({
               personal: "self",
@@ -146,16 +158,16 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
 
   test("V3: subjectRef field (FK to user, no pii/userOwned annotation) without EXT_USER_DATA hook → throws", () => {
     const bad = defineFeature("tasks", (r) => {
-      r.entity({
-        name: "task",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "task",
           fields: {
             assigneeId: createTextField({
               personal: "ref",
             }),
           },
         }),
-      });
+      );
     });
     expect(() => validateBoot([...baseFeatures(), bad])).toThrow(/EXT_USER_DATA hook.*Art\.17 gap/);
   });
@@ -163,17 +175,22 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
   test("V3: subjectRef field WITH EXT_USER_DATA hook registered → no throw", () => {
     const hooked = defineFeature("tasks-hooked", (r) => {
       r.requires({ features: ["user-data-rights"] });
-      r.entity({
-        name: "task",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "task",
           fields: {
             assigneeId: createTextField({
               personal: "ref",
             }),
           },
         }),
+      );
+      r.applyExtension({
+        name: EXT_USER_DATA,
+        entity: "task",
+        export: async () => null,
+        delete: async () => {},
       });
-      r.useExtension(EXT_USER_DATA, "task", { export: async () => null, delete: async () => {} });
     });
     expect(() => validateBoot([...baseFeatures(), hooked])).not.toThrow();
   });
@@ -191,6 +208,7 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
         table: projectionTable,
         apply: { [contactCreated.name]: async () => {} },
         entity: createEntity({
+          name: "entity",
           fields: {
             email: createTextField({
               personal: "self",
@@ -199,7 +217,9 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
           },
         }),
       });
-      r.useExtension(EXT_USER_DATA, "contact-summary", {
+      r.applyExtension({
+        name: EXT_USER_DATA,
+        entity: "contact-summary",
         export: async () => null,
         delete: async () => {},
       });
@@ -209,9 +229,9 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
 
   test("V4: tenantOwned entity without EXT_TENANT_DATA hook, tenant-lifecycle mounted → throws the guard's own message", () => {
     const bad = defineFeature("billing", (r) => {
-      r.entity({
-        name: "subscription",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "subscription",
           fields: {
             providerCustomerId: createTextField({
               personal: "tenant",
@@ -219,7 +239,7 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
             }),
           },
         }),
-      });
+      );
     });
     expect(() => validateBoot([...minimalTenantLifecycleFeatures(), bad])).toThrow(
       /EXT_TENANT_DATA destroy hook/,
@@ -228,9 +248,9 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
 
   test("V4: fires with no user-data-rights* mounted at all — trigger is tenant-lifecycle's own mount", () => {
     const bad = defineFeature("billing", (r) => {
-      r.entity({
-        name: "subscription",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "subscription",
           fields: {
             providerCustomerId: createTextField({
               personal: "tenant",
@@ -238,7 +258,7 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
             }),
           },
         }),
-      });
+      );
     });
     const features = minimalTenantLifecycleFeatures().concat(bad);
     expect(features.some((f) => f.name.startsWith("user-data-rights"))).toBe(false);
@@ -249,7 +269,7 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
     const bad = defineFeature("bad-storage", (r) => {
       r.requires({ features: ["tenant-lifecycle"] });
       // @ts-expect-error destroyTenant is required — simulates a JS plugin or cast slipping past the type check
-      r.useExtension(EXT_STORAGE_PROVIDER, "bad-entity", {});
+      r.applyExtension({ name: EXT_STORAGE_PROVIDER, entity: "bad-entity" });
     });
     expect(() => validateBoot([...minimalTenantLifecycleFeatures(), bad])).toThrow(
       /storageProvider registration for "bad-entity".*no destroyTenant function/,
@@ -258,9 +278,9 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
 
   test("V4: tenant-lifecycle not mounted → tenantOwned entity does not throw", () => {
     const notMounted = defineFeature("billing-standalone", (r) => {
-      r.entity({
-        name: "subscription",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "subscription",
           fields: {
             providerCustomerId: createTextField({
               personal: "tenant",
@@ -268,7 +288,7 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
             }),
           },
         }),
-      });
+      );
     });
     expect(() => validateBoot([...baseFeatures(), notMounted])).not.toThrow();
   });
@@ -276,9 +296,9 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
   test("V4: tenantOwned entity WITH EXT_TENANT_DATA hook registered → no throw", () => {
     const hooked = defineFeature("billing-hooked", (r) => {
       r.requires({ features: ["tenant-lifecycle"] });
-      r.entity({
-        name: "subscription",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "subscription",
           fields: {
             providerCustomerId: createTextField({
               personal: "tenant",
@@ -286,8 +306,8 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
             }),
           },
         }),
-      });
-      r.useExtension(EXT_TENANT_DATA, "subscription", { destroy: async () => {} });
+      );
+      r.applyExtension({ name: EXT_TENANT_DATA, entity: "subscription", destroy: async () => {} });
     });
     expect(() => validateBoot([...minimalTenantLifecycleFeatures(), hooked])).not.toThrow();
   });
@@ -312,9 +332,9 @@ describe("nav-area boot check — bundled dormant screens survive a real app nav
 describe("one validateBoot pass reports independent violations of different rule areas", () => {
   test("pii, i18n, entity-list and user-data-rights violations arrive together", () => {
     const mixed = defineFeature("crm", (r) => {
-      r.entity({
-        name: "contact",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "contact",
           table: "Contacts",
           fields: {
             email: createTextField({
@@ -325,7 +345,7 @@ describe("one validateBoot pass reports independent violations of different rule
             }),
           },
         }),
-      });
+      );
       r.screen({
         id: "contact-list",
         type: "entityList",
@@ -347,5 +367,55 @@ describe("one validateBoot pass reports independent violations of different rule
     expect(ruleIds).toContain("entity-list/default-sort-required");
     expect(ruleIds).toContain("entity-list/searchable-false");
     expect(ruleIds).toContain("user-data-rights/missing-hook");
+  });
+});
+
+describe("anonymous deletion verify mail", () => {
+  test("deletion secret and verify URL require delivery and channel-email", () => {
+    const features = baseFeatures().map((feature) =>
+      feature.name === "user-data-rights"
+        ? createUserDataRightsFeature({
+            deletionTokenSecret: "x".repeat(32),
+            deletionVerifyUrl: "https://app.example.test/delete-account/confirm",
+          })
+        : feature,
+    );
+    expect(() => validateBoot(features)).toThrow(/delivery/);
+  });
+});
+
+describe("default GDPR mail app name", () => {
+  const withUserDataRights = (opts: Parameters<typeof createUserDataRightsFeature>[0]) => [
+    ...baseFeatures().map((feature) =>
+      feature.name === "user-data-rights" ? createUserDataRightsFeature(opts) : feature,
+    ),
+    createMailFoundationFeature(),
+    createMailTransportInMemoryFeature(),
+  ];
+
+  test("a mounted mail transport without mailDefaults.appName fails boot", () => {
+    expect(() => validateBoot(withUserDataRights({}))).toThrow(
+      /mailDefaults: \{ appName: "<your app>" \}/,
+    );
+  });
+
+  test("mailDefaults with an app name boots", () => {
+    expect(() =>
+      validateBoot(withUserDataRights({ mailDefaults: { appName: "Acme" } })),
+    ).not.toThrow();
+  });
+
+  test("every send*Email callback set and no anonymous deletion flow → no default mail, boots", () => {
+    const send = async () => {};
+    expect(() =>
+      validateBoot(
+        withUserDataRights({
+          sendExportReadyEmail: send,
+          sendExportFailedEmail: send,
+          sendDeletionRequestedEmail: send,
+          sendDeletionExecutedEmail: send,
+        }),
+      ),
+    ).not.toThrow();
   });
 });

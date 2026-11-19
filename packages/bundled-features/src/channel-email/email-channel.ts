@@ -204,9 +204,8 @@ function isTenantTransportNotification(ctx: ChannelContext, notificationType: st
 export function createEmailChannel(options: EmailChannelOptions): DeliveryChannel {
   const { transport, resolveEmail, tenantTransport } = options;
 
-  // Render runs in the delivery.render job, decoupled from the SMTP send so
-  // each can retry independently. Extracted so the inline path (no job runner)
-  // can reuse it without going through the channel's own render() indirection.
+  // Render runs in the delivery.send job before the SMTP send. Extracted so the inline
+  // path can reuse it without going through the channel's own render() indirection.
   async function renderMessage(
     message: ChannelMessage,
     ctx: ChannelContext,

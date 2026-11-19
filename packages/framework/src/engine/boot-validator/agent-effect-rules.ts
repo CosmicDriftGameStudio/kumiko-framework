@@ -3,7 +3,7 @@ import type { BootRuleTable } from "./boot-rule.ts";
 export const AGENT_EFFECT_RULES = {
   effectOnWriteOnly: {
     id: "agent-effect/write-only",
-    summary: "Only write handlers declare agent.effect; a query has nothing to approve.",
+    summary: "Only write handlers declare agent.effect; a query has nothing to approve or send.",
     fix: "Drop agent.effect from the query handler.",
   },
   proposalNeedsLowRisk: {

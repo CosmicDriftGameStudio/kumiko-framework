@@ -11,3 +11,6 @@ export const TARGET_TENANT_NOT_ADMIN_TENANT = "target_tenant_not_admin_tenant" a
 export const RECORD_ENTITY_NOT_REGISTERED = "record_entity_not_registered" as const;
 export const TARGET_RECORD_NOT_ADMIN_TENANT = "target_record_not_admin_tenant" as const;
 export const TARGET_RECORD_RETENTION_BLOCK_DELETE = "target_record_retention_block_delete" as const;
+
+export const SUBJECT_KEY_ERASER_PROJECTION_NAME = "subject-key-eraser";
+export const SUBJECT_KEY_ERASER_CONSUMER_NAME = `${CRYPTO_SHREDDING_FEATURE_NAME}:projection:${SUBJECT_KEY_ERASER_PROJECTION_NAME}`;

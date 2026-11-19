@@ -34,7 +34,7 @@ export const cancelDestructionWrite = defineWriteHandler({
   },
   handler: async (event, ctx) => {
     const tenantId = event.user.tenantId;
-    const runner = ctx.db.unsafeRaw();
+    const runner = ctx.db.unsafeRawAllTenants();
     const row = await fetchOne<TenantLifecycleRow>(runner, tenantTable, {
       id: tenantId,
     });
@@ -84,6 +84,8 @@ export const cancelDestructionWrite = defineWriteHandler({
         aggregateType: "tenant",
         type: DESTRUCTION_CANCELLED_EVENT_QN,
         payload: { cancelledBy: event.user.id },
+        blindAppendReason:
+          "records the transition crud.update just performed on this tenant stream in the same transaction; the status check on the tenant row decided it, and that update already moved the stream version",
       },
     );
 

@@ -10,6 +10,7 @@ import type { FieldDefinition } from "../engine/types/fields.ts";
 import type { UnprocessableOpts } from "../errors/classes.ts";
 import {
   VersionConflictError as FrameworkVersionConflict,
+  isKumikoError,
   UnprocessableError,
   ValidationError,
   type WriteFailure,
@@ -34,7 +35,7 @@ export async function projectEntityEvent(
   event: StoredEvent,
 ): Promise<void> {
   const registry = projectionRegistryOf(db);
-  // skip: TenantDb not built by a dispatcher/job runner — nothing bound to project with
+  // skip: runner of a connection never bound to an app registry (CLI tools, a bare createTestDb connection): no custom projections to run
   if (!registry) return;
   // skip: no live projection listens — avoid a SAVEPOINT round trip on every plain write
   if (!hasLiveProjectionsForEvent(event, registry)) return;
@@ -98,10 +99,10 @@ export type PreSaveFn = (
 ) => Promise<Record<string, unknown>>;
 
 // preSave runs before ownership checks: authorization must evaluate the row
-// as it will actually be persisted, including hook-derived fields. A throwing
-// hook is an app-author bug (bad business rule, not a framework fault) — map it
-// to a clean writeFailure instead of letting it propagate as an internal_error
-// 500.
+// as it will actually be persisted, including hook-derived fields. A thrown
+// KumikoError is the hook's answer and reaches the caller unchanged; any other
+// throw is an app-author bug and maps to presave_hook_failed (422) instead of
+// an internal_error 500.
 export async function runPreSave(
   preSave: PreSaveFn | undefined,
   changes: Record<string, unknown>,
@@ -141,6 +142,7 @@ export async function runPreSave(
     }
     return { data: safe as DbRow };
   } catch (e) {
+    if (isKumikoError(e)) return { failure: writeFailure(e) };
     return {
       failure: writeFailure(
         new UnprocessableError("presave_hook_failed", {

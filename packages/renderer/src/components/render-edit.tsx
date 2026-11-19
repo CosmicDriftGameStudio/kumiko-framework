@@ -11,9 +11,11 @@ import {
   resolveRenderEditProps,
 } from "./render-edit-render-model.ts";
 import { createHandleSubmit } from "./render-edit-submit.ts";
+import { createSubmitResultHandlers } from "./render-edit-submit-result.ts";
 import { deriveTitles } from "./render-edit-titles.ts";
 import type { RenderEditProps } from "./render-edit-types.ts";
 import { createWizardNavigation } from "./render-edit-wizard-navigation.ts";
+import { FieldIdScopeProvider, useNestedFieldIdScope } from "./render-field-meta.ts";
 import { useRenderEditControlledSync } from "./use-render-edit-controlled-sync.ts";
 import { useRenderEditDraftSave } from "./use-render-edit-draft-save.ts";
 import { useRenderEditForm } from "./use-render-edit-form.ts";
@@ -38,12 +40,14 @@ function footerSlotName(screen: EntityEditScreenDefinition): string | undefined 
 export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   rawProps: RenderEditProps<TValues, TCtx>,
 ): ReactNode {
+  const fieldIdScope = useNestedFieldIdScope();
   const effectiveSchema = useEffectiveFormSchema(rawProps);
   const props = { ...resolveRenderEditProps(rawProps), schema: effectiveSchema };
   const state = useRenderEditState({
     screen: props.screen,
     entityId: props.entityId,
     translate: props.translate,
+    approvalEnabled: props.customSubmit === undefined && props.writeCommand !== undefined,
   });
   const form = useRenderEditForm(props, state);
   const draft = useRenderEditDraftSave(props, state, form);
@@ -72,6 +76,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   draft.refs.handleSubmitRef.current = handleSubmit;
   draft.refs.wizardNextRef.current = state.isWizard ? nav.handleWizardNext : () => {};
   draft.refs.wizardBackRef.current = state.isWizard ? nav.handleWizardBack : () => {};
+  draft.refs.showSubmitErrorRef.current = createSubmitResultHandlers(base).handleSubmitError;
 
   const engine: RenderEditEngine<TValues, TCtx> = { ...base, handleSubmit };
   const layout = deriveLayoutFlags(engine);
@@ -92,5 +97,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       partial: Readonly<Record<string, unknown>>,
     ) => void,
   };
-  return renderEditLayout(model);
+  return (
+    <FieldIdScopeProvider value={fieldIdScope}>{renderEditLayout(model)}</FieldIdScopeProvider>
+  );
 }

@@ -5,10 +5,10 @@
 
 import {
   access,
+  defineQueryHandler,
+  defineWriteHandler,
   type HandlerContext,
-  type QueryHandlerDef,
   SYSTEM_ROLE,
-  type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
@@ -102,8 +102,8 @@ export const recordUnmatchedContractTerminationSchema = z
 
 export const terminableSubscriptionSchema = z.object({}).strict();
 
-export function createTerminableSubscriptionQuery(): QueryHandlerDef {
-  return {
+export function createTerminableSubscriptionQuery() {
+  return defineQueryHandler({
     name: "terminable-subscription",
     description:
       "Tells whether the caller tenant holds a subscription that is not terminal; the anonymous termination request uses it to pick the tenant a declaration belongs to.",
@@ -116,7 +116,7 @@ export function createTerminableSubscriptionQuery(): QueryHandlerDef {
         terminable: subscription !== null && !isTerminalSubscriptionStatus(subscription.status),
       };
     },
-  };
+  });
 }
 
 type ProviderCancelResult = Pick<
@@ -163,15 +163,14 @@ async function cancelAtProvider(
   };
 }
 
-export function createDeclareContractTerminationHandler(): WriteHandlerDef {
-  return {
+export function createDeclareContractTerminationHandler() {
+  return defineWriteHandler({
     name: "declare-contract-termination",
     agent: { expose: false },
     schema: declareContractTerminationSchema,
     access: { roles: access.system },
     handler: async (event, ctx) => {
-      // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const payload = event.payload as z.infer<typeof declareContractTerminationSchema>;
+      const payload = event.payload;
       const stream = await ctx.events.fetchForWriting({
         aggregateId: subscriptionAggregateId(event.user.tenantId),
         aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
@@ -180,7 +179,7 @@ export function createDeclareContractTerminationHandler(): WriteHandlerDef {
       await stream.appendOne({ type: CONTRACT_TERMINATION_DECLARED_EVENT_QN, payload: declared });
       return { isSuccess: true as const, data: { declared: true } };
     },
-  };
+  });
 }
 
 function revokedRecordResult(receivedAtIso: string) {
@@ -199,15 +198,14 @@ function revokedRecordResult(receivedAtIso: string) {
 export function createRecordContractTerminationHandler(
   options: ResolvedBillingFoundationOptions,
   consumerProtection: ConsumerProtectionOptions,
-): WriteHandlerDef {
-  return {
+) {
+  return defineWriteHandler({
     name: "record-contract-termination",
     agent: { expose: false },
     schema: recordContractTerminationSchema,
     access: { roles: access.system },
     handler: async (event, ctx) => {
-      // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const payload = event.payload as z.infer<typeof recordContractTerminationSchema>;
+      const payload = event.payload;
       const tenantId = event.user.tenantId;
       // The provider cancel/resume and the stream append must not interleave across declarations of the same subscription.
       await ctx.db.advisoryXactLock(
@@ -297,7 +295,7 @@ export function createRecordContractTerminationHandler(
         } satisfies RecordContractTerminationResult,
       };
     },
-  };
+  });
 }
 
 export function findRecordedTermination(
@@ -369,15 +367,14 @@ function findPlugin(ctx: Parameters<typeof resolveProviderPlugin>[0], providerNa
   }
 }
 
-export function createRecordUnmatchedContractTerminationHandler(): WriteHandlerDef {
-  return {
+export function createRecordUnmatchedContractTerminationHandler() {
+  return defineWriteHandler({
     name: "record-unmatched-contract-termination",
     agent: { expose: false },
     schema: recordUnmatchedContractTerminationSchema,
     access: { roles: access.system },
     handler: async (event, ctx) => {
-      // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const payload = event.payload as z.infer<typeof recordUnmatchedContractTerminationSchema>;
+      const payload = event.payload;
       const stream = await ctx.events.fetchForWriting({
         aggregateId: terminationUnmatchedAggregateId(payload.requestId),
         aggregateType: CONTRACT_TERMINATION_UNMATCHED_AGGREGATE_TYPE,
@@ -393,5 +390,5 @@ export function createRecordUnmatchedContractTerminationHandler(): WriteHandlerD
       await stream.appendOne({ type: CONTRACT_TERMINATION_UNMATCHED_EVENT_QN, payload: recorded });
       return { isSuccess: true as const, data: { recorded: true } };
     },
-  };
+  });
 }

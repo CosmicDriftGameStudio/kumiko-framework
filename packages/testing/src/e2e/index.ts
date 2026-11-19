@@ -5,6 +5,7 @@ export {
   REAL_PROVIDERS_ENV,
   requireRealProviders,
 } from "../helpers/real-providers.ts";
+export { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 export {
   apiCommand,
   apiQuery,
@@ -43,6 +44,12 @@ export {
   ISOLATED_E2E_PROJECT_NAME,
   resolveE2eWorkers,
 } from "./define-app-e2e-config";
+export {
+  defineProdBootE2eConfig,
+  type ProdBootE2eConfigInput,
+  prodBootEnvDefaults,
+} from "./define-prod-boot-e2e-config";
+export { expectProdBootSecure } from "./expect-prod-boot-secure";
 export { type MailCaptureOptions, mailCapture } from "./mail-capture";
 export {
   decodeHtmlAttribute,
@@ -88,33 +95,4 @@ export {
   type SeedTenantFixture,
   test,
 } from "./seeded-tenant-fixture";
-export {
-  DEFAULT_TTS_MODEL,
-  defineVideo,
-  type VideoDefinition,
-  type VideoScene,
-  type VideoSceneContext,
-  type VideoTools,
-  type VideoVoice,
-} from "./video/define-video";
-export {
-  type EditorLine,
-  type EditorStageOptions,
-  editorStage,
-} from "./video/editor-stage";
-export type {
-  PreviewBox,
-  PreviewStage,
-  StagePreview,
-  StagePreviewCard,
-} from "./video/preview-pane";
-export { type RunVideosOptions, runVideos } from "./video/run-videos";
-export {
-  type StageOutputLine,
-  type StageTone,
-  type TerminalCommand,
-  type TerminalStageOptions,
-  type TypedStage,
-  terminalStage,
-} from "./video/terminal-stage";
-export { findVideoTextGaps, loadVideoTexts } from "./video/video-texts";
+export { waitForWrite } from "./wait-for-write";

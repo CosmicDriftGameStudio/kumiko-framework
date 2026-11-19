@@ -48,7 +48,7 @@ describe("delivery screens + handler access alignment", () => {
   test("collectChannels fails loud on a registration with invalid options", () => {
     const broken = defineFeature("broken-channel", (r) => {
       // @ts-expect-error resolve/send are required — proves the guard rejects a malformed options bag instead of silently dropping the channel
-      r.useExtension(DELIVERY_CHANNEL_EXTENSION, "bad-entity", { anything: 1 });
+      r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: "bad-entity", anything: 1 });
     });
     const registry = createRegistry([...features, broken]);
     expect(() => collectChannels(registry)).toThrow(
@@ -68,7 +68,7 @@ describe("delivery screens + handler access alignment", () => {
     ] as const) {
       const broken = defineFeature(`broken-${name}`, (r) => {
         // @ts-expect-error deliberately malformed options (JS consumer / cast)
-        r.useExtension(DELIVERY_CHANNEL_EXTENSION, name, options);
+        r.applyExtension({ name: DELIVERY_CHANNEL_EXTENSION, entity: name, ...options });
       });
       const registry = createRegistry([...features, broken]);
       expect(() => collectChannels(registry)).toThrow(

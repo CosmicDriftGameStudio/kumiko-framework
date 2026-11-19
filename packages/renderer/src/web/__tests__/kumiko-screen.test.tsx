@@ -6,7 +6,6 @@ import type {
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
-import type { Dispatcher } from "../../headless/index.ts";
 import { LIVE_REFETCH_COALESCE_MS } from "../../hooks/live-refetch-scheduler.ts";
 import type { FeatureSchema, LiveEventSubscriber, NavApi, NavTarget } from "../../index.ts";
 import {
@@ -29,6 +28,7 @@ import {
 import {
   act,
   fireEvent,
+  type MockQueryHandler,
   makeDispatcher,
   render,
   screen,
@@ -62,7 +62,7 @@ describe("KumikoScreen", () => {
         <KumikoScreen schema={schema} qn="tasks:screen:ghost" />
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("kumiko-screen-not-found")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-not-found");
   });
 
   test("unknown qn → home button from HomeScreenProvider navigates to the start page", () => {
@@ -94,7 +94,7 @@ describe("KumikoScreen", () => {
         <KumikoScreen schema={schema} qn="tasks:screen:task-list-restricted" />
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("kumiko-screen-access-denied")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-access-denied");
   });
 
   test("role-gated screen, user without matching role → access-denied placeholder", () => {
@@ -105,7 +105,7 @@ describe("KumikoScreen", () => {
         </UserRolesProvider>
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("kumiko-screen-access-denied")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-access-denied");
   });
 
   test("role-gated screen, user with matching role → renders normally", async () => {
@@ -118,7 +118,7 @@ describe("KumikoScreen", () => {
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
     expect(screen.queryByTestId("kumiko-screen-access-denied")).toBeNull();
-    expect(screen.getByTestId("render-list-table-toolbar")).toBeTruthy();
+    screen.getByTestId("render-list-table-toolbar");
   });
 
   test("entityEdit → renders RenderEdit form for the screen's entity", () => {
@@ -127,15 +127,15 @@ describe("KumikoScreen", () => {
         <KumikoScreen schema={schema} qn="tasks:screen:task-edit" />
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
-    expect(screen.getByTestId("field-title")).toBeTruthy();
-    expect(screen.getByTestId("field-count")).toBeTruthy();
-    expect(screen.getByTestId("field-done")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
+    screen.getByTestId("field-title");
+    screen.getByTestId("field-count");
+    screen.getByTestId("field-done");
   });
 
   test("entityList → fires useQuery with derived query QN and renders RenderList", async () => {
     const seenTypes: string[] = [];
-    const query = mock(async (type: string) => {
+    const query = mock<MockQueryHandler>(async (type: string) => {
       seenTypes.push(type);
       return {
         isSuccess: true,
@@ -146,7 +146,7 @@ describe("KumikoScreen", () => {
       } as never;
     });
     const dispatcher = makeDispatcher({
-      query: query as unknown as Dispatcher["query"],
+      query: query,
     });
 
     render(
@@ -156,7 +156,7 @@ describe("KumikoScreen", () => {
     );
 
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
-    expect(screen.getByTestId("render-list-table")).toBeTruthy();
+    screen.getByTestId("render-list-table");
     expect(screen.getByTestId("cell-r1-title").textContent).toBe("hello");
     // Derived query QN matches the server-side qualification rule.
     expect(seenTypes).toEqual(["tasks:query:task:list"]);
@@ -256,20 +256,20 @@ describe("KumikoScreen", () => {
         <KumikoScreen schema={brokenSchema} qn="tasks:screen:broken" />
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("kumiko-screen-entity-missing")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-entity-missing");
   });
 
   test("entityEdit with entityId → loads detail, pre-fills form, submits update with {id,version,changes}", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { id: "task-1", version: 7, title: "loaded-title", count: 3, done: false },
-      })) as unknown as Dispatcher["query"],
-      write: (async (type: string, payload: unknown) => {
+      }),
+      write: async (type: string, payload: unknown) => {
         writeCalls.push({ type, payload });
         return { isSuccess: true, data: { id: "task-1" } };
-      }) as unknown as Dispatcher["write"],
+      },
     });
 
     render(
@@ -280,7 +280,7 @@ describe("KumikoScreen", () => {
 
     // First wait for loading to finish, then assert the form contains the loaded values.
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     expect(titleInput.value).toBe("loaded-title");
 
@@ -331,7 +331,7 @@ describe("KumikoScreen", () => {
       // out of the form values (the section must not be in create mode), and the section
       // must receive the stored customFields; otherwise they are write-only and the
       // read-back is empty.
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           id: "task-1",
@@ -341,7 +341,7 @@ describe("KumikoScreen", () => {
           done: false,
           customFields: { vendor: "Hetzner" },
         },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -362,13 +362,13 @@ describe("KumikoScreen", () => {
   test("entityList onRowClick → callback fires with row view model", async () => {
     const clicks: { id: string }[] = [];
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           rows: [{ id: "row-1", title: "hello", count: 3, done: false }],
           nextCursor: null,
         },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -390,14 +390,14 @@ describe("KumikoScreen", () => {
     const user = userEvent.setup();
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { id: "task-1", version: 7, title: "loaded", count: 3, done: false },
-      })) as unknown as Dispatcher["query"],
-      write: (async (type: string, payload: unknown) => {
+      }),
+      write: async (type: string, payload: unknown) => {
         writeCalls.push({ type, payload });
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["write"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -411,7 +411,7 @@ describe("KumikoScreen", () => {
     // (Presence/FocusScope/DismissableLayer); fireEvent would leave them outside act()
     // and produce roughly 26 warnings.
     await user.click(screen.getByTestId("render-edit-delete"));
-    expect(screen.getByTestId("render-edit-delete-dialog")).toBeTruthy();
+    screen.getByTestId("render-edit-delete-dialog");
     expect(writeCalls.length).toBe(0);
 
     await user.click(screen.getByTestId("render-edit-delete-dialog-confirm"));
@@ -429,11 +429,11 @@ describe("KumikoScreen", () => {
     const user = userEvent.setup();
     const onNavigate = mock();
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { id: "task-1", version: 7, title: "loaded", count: 3, done: false },
-      })) as unknown as Dispatcher["query"],
-      write: (async () => ({
+      }),
+      write: async () => ({
         isSuccess: false,
         error: {
           code: "validation_error",
@@ -443,7 +443,7 @@ describe("KumikoScreen", () => {
           message: "Validation failed",
           ...(details !== undefined && { details }),
         },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
     const memoryNav = {
       route: { screenId: "task-edit" },
@@ -540,10 +540,10 @@ describe("KumikoScreen", () => {
     const user = userEvent.setup();
     const onCopyLink = mock(() => Promise.resolve());
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { id: "task-1", version: 1, title: "loaded", count: 3, done: false },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -581,10 +581,10 @@ describe("KumikoScreen", () => {
 
   test("entityEdit update-mode without onCopyLink prop: no Copy-Link button", async () => {
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { id: "task-1", version: 1, title: "loaded", count: 3, done: false },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -598,7 +598,7 @@ describe("KumikoScreen", () => {
   test("entityEdit update-mode: version_conflict → Banner + 'Neu laden' triggert detail-refetch", async () => {
     let detailCalls = 0;
     const dispatcher = makeDispatcher({
-      query: (async () => {
+      query: async () => {
         detailCalls += 1;
         return {
           isSuccess: true,
@@ -610,8 +610,8 @@ describe("KumikoScreen", () => {
             done: false,
           },
         };
-      }) as unknown as Dispatcher["query"],
-      write: (async () => ({
+      },
+      write: async () => ({
         isSuccess: false,
         error: {
           code: "version_conflict",
@@ -619,7 +619,7 @@ describe("KumikoScreen", () => {
           i18nKey: "errors.versionConflict",
           message: "stale",
         },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
 
     render(
@@ -651,7 +651,7 @@ describe("KumikoScreen", () => {
 
   test("entityEdit update-mode: query error shows translated text instead of raw i18nKey", async () => {
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: false,
         error: {
           code: "access_denied",
@@ -659,7 +659,7 @@ describe("KumikoScreen", () => {
           i18nKey: "errors.access.denied",
           message: "",
         },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -676,7 +676,7 @@ describe("KumikoScreen", () => {
 
   test("entityList: query error shows translated text instead of raw i18nKey", async () => {
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: false,
         error: {
           code: "access_denied",
@@ -684,7 +684,7 @@ describe("KumikoScreen", () => {
           i18nKey: "errors.access.denied",
           message: "",
         },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -702,7 +702,7 @@ describe("KumikoScreen", () => {
   test("entityList: a failed live refetch shows the error banner above the rows instead of replacing them", async () => {
     let queryCalls = 0;
     const dispatcher = makeDispatcher({
-      query: (async () => {
+      query: async () => {
         queryCalls += 1;
         if (queryCalls === 1) {
           return {
@@ -717,7 +717,7 @@ describe("KumikoScreen", () => {
           isSuccess: false,
           error: { code: "unknown", httpStatus: 500, i18nKey: "errors.unknown", message: "boom" },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     let emitLive: () => void = () => {};
     const subscribe: LiveEventSubscriber = (entity, listener) => {
@@ -743,7 +743,7 @@ describe("KumikoScreen", () => {
         </DispatcherProvider>,
       );
       await act(async () => {});
-      expect(screen.getByText("Alpha")).toBeTruthy();
+      screen.getByText("Alpha");
       expect(screen.queryByTestId("kumiko-screen-error")).toBeNull();
 
       emitLive();
@@ -751,9 +751,9 @@ describe("KumikoScreen", () => {
         jest.advanceTimersByTime(LIVE_REFETCH_COALESCE_MS);
       });
 
-      expect(screen.getByTestId("kumiko-screen-error")).toBeTruthy();
-      expect(screen.getByTestId("kumiko-screen-retry")).toBeTruthy();
-      expect(screen.getByText("Alpha")).toBeTruthy();
+      screen.getByTestId("kumiko-screen-error");
+      screen.getByTestId("kumiko-screen-retry");
+      screen.getByText("Alpha");
     } finally {
       jest.useRealTimers();
     }
@@ -765,17 +765,17 @@ describe("KumikoScreen", () => {
   test("entityList rowActions: Schema → translate + dispatch wiring", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
           nextCursor: null,
         },
-      })) as unknown as Dispatcher["query"],
-      write: (async (type: string, payload: unknown) => {
+      }),
+      write: async (type: string, payload: unknown) => {
         writeCalls.push({ type, payload });
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["write"],
+      },
     });
 
     const screenWithActions: EntityListScreenDefinition = {
@@ -821,10 +821,10 @@ describe("KumikoScreen", () => {
 
   test("entityList rowActions: display pins an action inline next to the kebab, rowActionMode inline shows all", async () => {
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { rows: [{ id: "r1", title: "Alpha", count: 1, done: false }], nextCursor: null },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const actions = [
       { id: "open", label: "actions.open", handler: "tasks:write:task:open", display: "button" },
@@ -850,13 +850,13 @@ describe("KumikoScreen", () => {
     };
 
     const adaptive = await mount();
-    expect(screen.getByTestId("row-r1-action-open")).toBeTruthy();
+    screen.getByTestId("row-r1-action-open");
     expect(screen.queryByTestId("row-r1-action-archive")).toBeNull();
     adaptive.unmount();
 
     await mount("inline");
-    expect(screen.getByTestId("row-r1-action-archive")).toBeTruthy();
-    expect(screen.getByTestId("row-r1-action-purge")).toBeTruthy();
+    screen.getByTestId("row-r1-action-archive");
+    screen.getByTestId("row-r1-action-purge");
   });
 
   // dispatcher.write does not throw: a failure result was previously discarded, so
@@ -864,14 +864,14 @@ describe("KumikoScreen", () => {
   // now closes and a destructive toast displays the error text.
   test("entityList rowActions writeHandler: failed write → error toast instead of silent dialog close", async () => {
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
           nextCursor: null,
         },
-      })) as unknown as Dispatcher["query"],
-      write: (async () => ({
+      }),
+      write: async () => ({
         isSuccess: false,
         error: {
           code: "conflict",
@@ -881,7 +881,7 @@ describe("KumikoScreen", () => {
           i18nKey: "tasks.errors.delete-conflict",
           message: "Version conflict for entity r1",
         },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
 
     const screenWithDelete: EntityListScreenDefinition = {
@@ -916,13 +916,13 @@ describe("KumikoScreen", () => {
 
     // The danger style requires a confirmation dialog.
     await user.click(screen.getByTestId("row-r1-action-delete"));
-    expect(await screen.findByTestId("row-r1-action-delete-dialog")).toBeTruthy();
+    await screen.findByTestId("row-r1-action-delete-dialog");
 
     await user.click(screen.getByTestId("row-r1-action-delete-dialog-confirm"));
 
     // The dialog closes, but the error text must remain visible.
     await waitFor(() => expect(screen.queryByTestId("row-r1-action-delete-dialog")).toBeNull());
-    expect(await screen.findByText("Version conflict for entity r1")).toBeTruthy();
+    await screen.findByText("Version conflict for entity r1");
   });
 
   // The hit branch of dispatcherErrorText: a known i18nKey with parameters puts the
@@ -930,14 +930,14 @@ describe("KumikoScreen", () => {
   // logic is what justifies the function.
   test("entityList rowActions writeHandler: known i18nKey → translated toast with interpolated params", async () => {
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
           nextCursor: null,
         },
-      })) as unknown as Dispatcher["query"],
-      write: (async () => ({
+      }),
+      write: async () => ({
         isSuccess: false,
         error: {
           code: "validation_error",
@@ -946,7 +946,7 @@ describe("KumikoScreen", () => {
           i18nParams: { min: 5 },
           message: "raw fallback — must NOT appear",
         },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
 
     const screenWithDelete: EntityListScreenDefinition = {
@@ -990,7 +990,7 @@ describe("KumikoScreen", () => {
     await user.click(screen.getByTestId("row-r1-action-delete"));
     await user.click(screen.getByTestId("row-r1-action-delete-dialog-confirm"));
 
-    expect(await screen.findByText("Too short (at least 5 characters).")).toBeTruthy();
+    await screen.findByText("Too short (at least 5 characters).");
     expect(screen.queryByText("raw fallback — must NOT appear")).toBeNull();
   });
 
@@ -1010,13 +1010,13 @@ describe("KumikoScreen", () => {
       setSearchParams: () => undefined,
     };
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
           nextCursor: null,
         },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     const screenWithDangerNav: EntityListScreenDefinition = {
@@ -1081,13 +1081,13 @@ describe("KumikoScreen", () => {
       },
     };
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
           nextCursor: null,
         },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     const screenWithNav: EntityListScreenDefinition = {
@@ -1137,13 +1137,13 @@ describe("KumikoScreen", () => {
     window.history.replaceState(null, "", "/task-list");
 
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
           nextCursor: null,
         },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     const screenWithNav: EntityListScreenDefinition = {
@@ -1198,13 +1198,13 @@ describe("KumikoScreen", () => {
       setSearchParams: (u: Record<string, string | null>) => searchParamUpdates.push(u),
     };
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
           nextCursor: null,
         },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     const screenWithEdit: EntityListScreenDefinition = {
@@ -1261,13 +1261,13 @@ describe("KumikoScreen", () => {
       setSearchParams: () => undefined,
     };
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
           nextCursor: null,
         },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     const screenWithEdit: EntityListScreenDefinition = {
@@ -1318,13 +1318,13 @@ describe("KumikoScreen", () => {
       setSearchParams: () => undefined,
     };
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
           nextCursor: null,
         },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     const actionScreen: ActionFormScreenDefinition = {
@@ -1379,13 +1379,13 @@ describe("KumikoScreen", () => {
       setSearchParams: (u: Record<string, string | null>) => searchParamUpdates.push(u),
     };
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           rows: [{ id: "r1", title: "Alpha", count: 1, done: false }],
           nextCursor: null,
         },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     const screenWithNav: EntityListScreenDefinition = {
@@ -1422,10 +1422,10 @@ describe("KumikoScreen", () => {
   test("entityList toolbarActions navigate-kind: Click → nav.navigate", async () => {
     const navigateCalls: { screenId: string }[] = [];
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { rows: [{ id: "r1", title: "x", count: 0, done: false }], nextCursor: null },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const memoryNav = {
       route: { screenId: "task-list" },
@@ -1471,10 +1471,10 @@ describe("KumikoScreen", () => {
   test("entityList toolbarActions navigate-kind with style=danger: destructive button, navigates immediately without dialog", async () => {
     const navigateCalls: { screenId: string }[] = [];
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { rows: [{ id: "r1", title: "x", count: 0, done: false }], nextCursor: null },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const memoryNav = {
       route: { screenId: "task-list" },
@@ -1527,14 +1527,14 @@ describe("KumikoScreen", () => {
   test("entityList toolbarActions writeHandler-kind: Click → dispatcher.write", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { rows: [{ id: "r1", title: "x", count: 0, done: false }], nextCursor: null },
-      })) as unknown as Dispatcher["query"],
-      write: (async (type: string, payload: unknown) => {
+      }),
+      write: async (type: string, payload: unknown) => {
         writeCalls.push({ type, payload });
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["write"],
+      },
     });
     const screenWithToolbar: EntityListScreenDefinition = {
       id: "task-list",

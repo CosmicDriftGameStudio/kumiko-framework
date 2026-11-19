@@ -1,13 +1,10 @@
+import { buildEntityTable, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
-  buildEntityTable,
-  type EventStoreExecutor,
-  type TenantDb,
-} from "@cosmicdrift/kumiko-framework/db";
-import {
-  createEntityExecutor,
   type EntityDefinition,
+  hostRoleAllowsRead,
   isUuid,
   type Registry,
+  registeredEntityExecutor,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -15,10 +12,6 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-
-// Keyed by definition identity, not by entity name — two test stacks can
-// register different EntityDefinitions under the same entity name.
-const executorsByEntity = new WeakMap<EntityDefinition, EventStoreExecutor>();
 
 // Postgres `serial` is int4; a larger digit string would raise 22003 (numeric
 // out of range) inside the write transaction instead of denying cleanly.
@@ -56,16 +49,11 @@ export async function parentRowIsVisible(
   // the executor.
   if (!idShapeMatchesEntity(entity, entityId)) return false;
 
-  return (await executorFor(entityType, entity).detail({ id: entityId }, user, db)) !== null;
-}
+  if (!hostRoleAllowsRead(registry, entityType, user)) return false;
 
-function executorFor(entityType: string, entity: EntityDefinition): EventStoreExecutor {
-  let executor = executorsByEntity.get(entity);
-  if (!executor) {
-    executor = createEntityExecutor(entityType, entity).executor;
-    executorsByEntity.set(entity, executor);
-  }
-  return executor;
+  const executor = registeredEntityExecutor(registry, entityType);
+  if (!executor) return false;
+  return (await executor.detail({ id: entityId }, user, db)) !== null;
 }
 
 // Batch form of parentRowIsVisible: one list query for all ids instead of one detail lookup each.
@@ -79,9 +67,12 @@ export async function visibleParentRowIds(
 ): Promise<ReadonlySet<string>> {
   const entity = registry.getEntity(entityType);
   if (!entity || entity.parentRef !== undefined) return new Set();
+  if (!hostRoleAllowsRead(registry, entityType, user)) return new Set();
   const wellFormed = entityIds.filter((entityId) => idShapeMatchesEntity(entity, entityId));
   if (wellFormed.length === 0) return new Set();
-  const page = await executorFor(entityType, entity).list(
+  const executor = registeredEntityExecutor(registry, entityType);
+  if (!executor) return new Set();
+  const page = await executor.list(
     { filters: [{ field: "id", op: "in", value: wellFormed }], limit: wellFormed.length },
     user,
     db,
@@ -91,28 +82,30 @@ export async function visibleParentRowIds(
 
 const hostTablesByEntity = new WeakMap<EntityDefinition, ReturnType<typeof buildEntityTable>>();
 
-// True when the host row can never be read again by anyone: its entityType no
-// longer names a registered entity, or the row is hard-deleted / soft-deleted.
-// Deliberately skips the caller's `access.read` ownership (unlike
-// parentRowIsVisible): a row hidden from this caller but alive for another team
-// is NOT gone, and its join row must stay.
-export async function hostRowIsGone(
+// Ids among entityIds whose host row still exists and is not soft-deleted. Deliberately skips the
+// caller's access.read (unlike visibleParentRowIds): a row hidden from this caller but alive for
+// another team is NOT gone. An unregistered entityType or a malformed id counts as gone.
+export async function liveHostRowIds(
   registry: Registry,
   entityType: string,
-  entityId: string,
+  entityIds: readonly string[],
   db: TenantDb,
-): Promise<boolean> {
+): Promise<ReadonlySet<string>> {
   const entity = registry.getEntity(entityType);
-  if (!entity) return true;
-  if (!idShapeMatchesEntity(entity, entityId)) return true;
+  if (!entity) return new Set();
+  const wellFormed = entityIds.filter((entityId) => idShapeMatchesEntity(entity, entityId));
+  if (wellFormed.length === 0) return new Set();
 
   let table = hostTablesByEntity.get(entity);
   if (!table) {
-    table = buildEntityTable(entityType, entity, { relations: registry.getRelations(entityType) });
+    table = buildEntityTable(
+      { ...entity, name: entityType },
+      { relations: registry.getRelations(entityType) },
+    );
     hostTablesByEntity.set(entity, table);
   }
-  const row = await db.fetchOne(table, { id: entityId });
-  return row === undefined || row["isDeleted"] === true;
+  const rows = await db.selectMany<Record<string, unknown>>(table, { id: wellFormed });
+  return new Set(rows.filter((row) => row["isDeleted"] !== true).map((row) => String(row["id"])));
 }
 
 // Write-path half of the parentRef gate. Resolves the join entity's
@@ -134,9 +127,7 @@ export async function joinRowParentIsVisible(
   const entityType = payload[parentRef.entityTypeField];
   const entityId = payload[parentRef.entityIdField];
   if (typeof entityType !== "string" || typeof entityId !== "string") return false;
-  if (parentRef.allowedTypes !== undefined && !parentRef.allowedTypes.includes(entityType)) {
-    return false;
-  }
+  if (!parentRef.allowedTypes.includes(entityType)) return false;
 
   return parentRowIsVisible(registry, entityType, entityId, user, db);
 }

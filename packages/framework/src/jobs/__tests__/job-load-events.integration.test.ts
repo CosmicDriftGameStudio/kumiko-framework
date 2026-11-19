@@ -8,6 +8,7 @@ import { append } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "read_jobload_notes",
   fields: { text: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
@@ -17,7 +18,7 @@ const foreignTenantId = crypto.randomUUID();
 const loaded: { type: string; version: number; payload: unknown }[][] = [];
 
 const jobLoadFeature = defineFeature("jobload", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
   r.defineEvent("noted", z.object({ text: z.string(), length: z.number().int() }), {
     piiFields: "none",
     version: 2,
@@ -33,9 +34,14 @@ const jobLoadFeature = defineFeature("jobload", (r) => {
     ],
   });
 
-  r.job("load-stream", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
-    const events = await ctx.events.load(String(payload["noteId"]));
-    loaded.push(events.map(({ type, version, payload: p }) => ({ type, version, payload: p })));
+  r.job({
+    name: "load-stream",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      const events = await ctx.events.load(String(payload["noteId"]));
+      loaded.push(events.map(({ type, version, payload: p }) => ({ type, version, payload: p })));
+    },
   });
 });
 

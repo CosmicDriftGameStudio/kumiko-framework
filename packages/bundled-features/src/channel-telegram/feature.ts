@@ -22,7 +22,8 @@ export function createChannelTelegramFeature(
     r.requires({ features: ["delivery"] });
     r.requires({ features: ["secrets"] });
 
-    const botToken = r.secret("botToken", {
+    const botToken = r.secret({
+      name: "botToken",
       label: { en: "Telegram bot token" },
       hint: {
         en: 'Token from @BotFather. Used for every Telegram chat the tenant addresses via route: { telegram: "<chat id>" }.',
@@ -34,7 +35,9 @@ export function createChannelTelegramFeature(
 
     const channel = createTelegramChannel(options, botToken.name);
     r.translations({ keys: { "delivery.channel.telegram": { en: "Telegram" } } });
-    r.useExtension(DELIVERY_CHANNEL_EXTENSION, "telegram", {
+    r.applyExtension({
+      name: DELIVERY_CHANNEL_EXTENSION,
+      entity: "telegram",
       mode: channel.mode,
       send: channel.send,
     });

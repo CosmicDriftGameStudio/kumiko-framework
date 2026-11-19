@@ -6,14 +6,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { EntityId, SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { contactEntity } from "../entities/contact";
-import { invoiceEntity } from "../entities/invoice";
-import { productEntity } from "../entities/product";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { embeddedFeature } from "../feature";
 
 let stack: TestStack;
@@ -27,9 +20,6 @@ beforeAll(async () => {
     features: [embeddedFeature],
     systemHooks: [],
   });
-  await unsafeCreateEntityTable(stack.db, contactEntity);
-  await unsafeCreateEntityTable(stack.db, productEntity);
-  await unsafeCreateEntityTable(stack.db, invoiceEntity);
 });
 
 afterAll(async () => {
@@ -121,7 +111,10 @@ describe("embedded validation", () => {
       { name: "No Address" },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: { fields: expect.arrayContaining([expect.objectContaining({ path: "address" })]) },
+    });
   });
 
   test("address with missing required sub-field fails", async () => {
@@ -133,7 +126,12 @@ describe("embedded validation", () => {
       },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: {
+        fields: expect.arrayContaining([expect.objectContaining({ path: "address.zip" })]),
+      },
+    });
   });
 });
 
@@ -228,7 +226,14 @@ describe("embedded list of like-shaped rows", () => {
       },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: {
+        fields: expect.arrayContaining([
+          expect.objectContaining({ path: "phoneNumbers.1.number" }),
+        ]),
+      },
+    });
   });
 
   test("field access is applied per row, the value stays an array", async () => {
@@ -319,7 +324,12 @@ describe("invoice line items with select/reference/derived/totals metadata", () 
       { customer: "Bad Unit", lines: [{ ...validLine, unit: "liters" }] },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: {
+        fields: expect.arrayContaining([expect.objectContaining({ path: "lines.0.unit" })]),
+      },
+    });
   });
 
   test("a line with a non-UUID product reference is rejected", async () => {
@@ -328,7 +338,12 @@ describe("invoice line items with select/reference/derived/totals metadata", () 
       { customer: "Bad Product", lines: [{ ...validLine, product: "not-a-uuid" }] },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: {
+        fields: expect.arrayContaining([expect.objectContaining({ path: "lines.0.product" })]),
+      },
+    });
   });
 
   test("an empty lines array violates minItems and is rejected", async () => {
@@ -337,7 +352,10 @@ describe("invoice line items with select/reference/derived/totals metadata", () 
       { customer: "No Lines", lines: [] },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: { fields: expect.arrayContaining([expect.objectContaining({ path: "lines" })]) },
+    });
   });
 
   test("more than maxItems lines is rejected", async () => {
@@ -347,7 +365,10 @@ describe("invoice line items with select/reference/derived/totals metadata", () 
       { customer: "Too Many Lines", lines: tooManyLines },
       admin,
     );
-    expect(error).toBeDefined();
+    expect(error).toMatchObject({
+      code: "validation_error",
+      details: { fields: expect.arrayContaining([expect.objectContaining({ path: "lines" })]) },
+    });
   });
 });
 
@@ -382,9 +403,9 @@ describe("invoice receive form derives its totals on the server", () => {
     // stack booted, so boot validation accepted the redirect to the invoice list.
     expect(totals).toEqual({
       invoiceNumber: "RE-2026-0042",
-      netTotal: eur(30.05),
-      vatTotal: eur(3.31),
-      grossTotal: eur(33.36),
+      netTotal: eur(3005),
+      vatTotal: eur(331),
+      grossTotal: eur(3336),
     });
   });
 

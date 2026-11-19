@@ -32,7 +32,7 @@ describe("RenderList", () => {
   test("empty state when rows is empty", () => {
     render(<RenderList screen={listScreen} entity={taskEntity} rows={[]} featureName="tasks" />);
     // Default-Primitive appends "-empty" to the DataTable testId.
-    expect(screen.getByTestId("render-list-table-empty")).toBeTruthy();
+    screen.getByTestId("render-list-table-empty");
     expect(screen.queryByTestId("render-list-table")).toBeNull();
   });
 
@@ -46,7 +46,7 @@ describe("RenderList", () => {
         emptyState={<span data-testid="custom-empty">nix da</span>}
       />,
     );
-    expect(screen.getByTestId("custom-empty")).toBeTruthy();
+    screen.getByTestId("custom-empty");
   });
 
   test("renders a thead with one <th> per column, labeled via translate", () => {

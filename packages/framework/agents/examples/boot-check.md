@@ -108,7 +108,7 @@ const promptFields = {
 };
 
 export const promptStoreFeature = defineFeature("prompt-store", (r) => {
-  r.entity({ name: "prompt", ...createEntity({ fields: promptFields }) });
+  r.entity(createEntity({ name: "prompt", fields: promptFields }));
   r.bootCheck(({ features }) => {
     const hasPiiField = Object.values(promptFields).some((field) => field.pii);
     const hasUserDataHook = features.some((f) => f.name === "user-data-hook");

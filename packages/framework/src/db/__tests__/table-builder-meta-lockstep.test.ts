@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createEntity } from "../../engine/factories.ts";
+import { createEntity, createReferenceField, createTextField } from "../../engine/factories.ts";
 import { sql } from "../dialect.ts";
 import type { ColumnMeta, IndexMeta } from "../entity-table-meta.ts";
 import { deriveEntityTableMeta } from "../entity-table-meta.ts";
@@ -14,6 +14,7 @@ import { buildEntityTable } from "../table-builder.ts";
 // the builder path.
 
 const entityWithDefaults = createEntity({
+  name: "lockstepProbe",
   table: "read_lockstep_probe",
   fields: {
     title: { type: "text", required: true, default: "untitled" },
@@ -34,6 +35,7 @@ const entityWithDefaults = createEntity({
     settings: { type: "jsonb" },
     lines: { type: "jsonb", emptyValue: "array" },
   },
+  indexes: [{ columns: ["tenantId", "insertedAt"] }],
 });
 
 function byName<T extends { name: string }>(items: readonly T[]): readonly T[] {
@@ -41,8 +43,8 @@ function byName<T extends { name: string }>(items: readonly T[]): readonly T[] {
 }
 
 describe("buildEntityTable ↔ deriveEntityTableMeta lock-step", () => {
-  const fromBuilder = asEntityTableMeta(buildEntityTable("lockstepProbe", entityWithDefaults));
-  const fromMeta = deriveEntityTableMeta("lockstepProbe", entityWithDefaults);
+  const fromBuilder = asEntityTableMeta(buildEntityTable(entityWithDefaults));
+  const fromMeta = deriveEntityTableMeta(entityWithDefaults);
 
   test("builder table carries an EntityTableMeta", () => {
     expect(fromBuilder).toBeDefined();
@@ -94,6 +96,7 @@ describe("buildEntityTable ↔ deriveEntityTableMeta lock-step", () => {
 // These paths generate additional columns (deleted_at/_by) and index metadata;
 // the defaults probe above did not detect drift in them.
 const entityWithSoftDeleteAndIndexes = createEntity({
+  name: "lockstepProbeSd",
   table: "read_lockstep_probe_sd",
   fields: {
     title: { type: "text", required: true },
@@ -109,10 +112,8 @@ const entityWithSoftDeleteAndIndexes = createEntity({
 });
 
 describe("lock-step — softDelete + explizite Indexes", () => {
-  const fromBuilder = asEntityTableMeta(
-    buildEntityTable("lockstepProbeSd", entityWithSoftDeleteAndIndexes),
-  );
-  const fromMeta = deriveEntityTableMeta("lockstepProbeSd", entityWithSoftDeleteAndIndexes);
+  const fromBuilder = asEntityTableMeta(buildEntityTable(entityWithSoftDeleteAndIndexes));
+  const fromMeta = deriveEntityTableMeta(entityWithSoftDeleteAndIndexes);
 
   test("identical columns inkl. softDelete-Spalten", () => {
     expect(byName<ColumnMeta>(fromBuilder?.columns ?? [])).toEqual(
@@ -150,6 +151,7 @@ describe("lock-step — softDelete + explizite Indexes", () => {
 // Third probe: lookupable field — the bidx column, bidx index, and partial
 // unique counterpart must be generated identically on both paths.
 const entityWithLookupable = createEntity({
+  name: "lockstepProbeBidx",
   table: "read_lockstep_probe_bidx",
   fields: {
     email: { type: "text", required: true, pii: true, lookupable: true },
@@ -159,10 +161,8 @@ const entityWithLookupable = createEntity({
 });
 
 describe("lock-step — lookupable / blind-index", () => {
-  const fromBuilder = asEntityTableMeta(
-    buildEntityTable("lockstepProbeBidx", entityWithLookupable),
-  );
-  const fromMeta = deriveEntityTableMeta("lockstepProbeBidx", entityWithLookupable);
+  const fromBuilder = asEntityTableMeta(buildEntityTable(entityWithLookupable));
+  const fromMeta = deriveEntityTableMeta(entityWithLookupable);
 
   test("identical columns inkl. nullable bidx-Spalte", () => {
     expect(byName<ColumnMeta>(fromBuilder?.columns ?? [])).toEqual(
@@ -198,6 +198,7 @@ describe("lock-step — lookupable / blind-index", () => {
 // must exclude soft-deleted rows from the uniqueness scope, otherwise a
 // soft-deleted row blocks the same value for a new/restored row.
 const entityWithSoftDeleteAndLookupable = createEntity({
+  name: "lockstepProbeBidxSd",
   table: "read_lockstep_probe_bidx_sd",
   fields: {
     email: { type: "text", required: true, pii: true, lookupable: true },
@@ -208,10 +209,8 @@ const entityWithSoftDeleteAndLookupable = createEntity({
 });
 
 describe("lock-step — softDelete + lookupable/blind-index", () => {
-  const fromBuilder = asEntityTableMeta(
-    buildEntityTable("lockstepProbeBidxSd", entityWithSoftDeleteAndLookupable),
-  );
-  const fromMeta = deriveEntityTableMeta("lockstepProbeBidxSd", entityWithSoftDeleteAndLookupable);
+  const fromBuilder = asEntityTableMeta(buildEntityTable(entityWithSoftDeleteAndLookupable));
+  const fromMeta = deriveEntityTableMeta(entityWithSoftDeleteAndLookupable);
 
   test("identical indexes incl. soft-delete-aware bidx partial where", () => {
     expect(byName<IndexMeta>(fromBuilder?.indexes ?? [])).toEqual(
@@ -228,5 +227,33 @@ describe("lock-step — softDelete + lookupable/blind-index", () => {
     );
     expect(plaintext?.unique).toBe(true);
     expect(plaintext?.whereSql).toBe('"is_deleted" = false');
+  });
+});
+
+describe("lock-step — reference field indexes", () => {
+  const entityWithReferences = createEntity({
+    name: "lockstepRefs",
+    table: "read_lockstep_refs",
+    fields: {
+      propertyId: createReferenceField({ entity: "property" }),
+      tagIds: createReferenceField({ entity: "tag", multiple: true }),
+      ownerId: createReferenceField({ entity: "owner" }),
+      title: createTextField({ personal: false, reason: "test_fixture" }),
+    },
+    indexes: [{ columns: ["ownerId", "title"] }],
+  });
+  const fromBuilder = asEntityTableMeta(buildEntityTable(entityWithReferences));
+  const fromMeta = deriveEntityTableMeta(entityWithReferences);
+
+  test("identical indexes", () => {
+    expect(byName<IndexMeta>(fromBuilder?.indexes ?? [])).toEqual(
+      byName<IndexMeta>(fromMeta.indexes),
+    );
+  });
+
+  test("both paths index the single-value reference field", () => {
+    for (const indexes of [fromBuilder?.indexes ?? [], fromMeta.indexes]) {
+      expect(indexes.map((i) => i.name)).toContain("read_lockstep_refs_property_id_idx");
+    }
   });
 });

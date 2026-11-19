@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -28,7 +28,7 @@ describe("MemberStatusCell", () => {
         <MemberStatusCell value="active" row={{ status: "active" }} column={{ field: "status" }} />
       </Wrapper>,
     );
-    expect(screen.getByText("Active")).toBeTruthy();
+    screen.getByText("Active");
   });
 
   test("falls back to the raw value for an unknown status", () => {
@@ -41,6 +41,6 @@ describe("MemberStatusCell", () => {
         />
       </Wrapper>,
     );
-    expect(screen.getByText("app-custom")).toBeTruthy();
+    screen.getByText("app-custom");
   });
 });

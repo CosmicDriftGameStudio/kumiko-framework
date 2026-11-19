@@ -6,7 +6,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   createEventStoreExecutor,
-  createTenantDb,
   type DbRunner,
   selectMany,
   type WhereObject,
@@ -25,6 +24,7 @@ import {
   fileRefsTable,
   listActionFormFileFields,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   collectSingleFileHolders,
   type FileRefPurgeOutcome,

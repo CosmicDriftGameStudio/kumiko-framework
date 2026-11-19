@@ -109,9 +109,9 @@ const TERMS_CHANGED_VARIABLES = {
 export const billingFeature = defineFeature("billing", (r) => {
   r.translations({ keys: toKeyFirst(billingTranslations) });
 
-  r.notification("invoice-issued", { variables: INVOICE_ISSUED_VARIABLES });
-  r.notification("invoice-corrected", { variables: INVOICE_ISSUED_VARIABLES });
-  r.notification("payment-reminder", { variables: PAYMENT_REMINDER_VARIABLES });
+  r.notification({ name: "invoice-issued", variables: INVOICE_ISSUED_VARIABLES });
+  r.notification({ name: "invoice-corrected", variables: INVOICE_ISSUED_VARIABLES });
+  r.notification({ name: "payment-reminder", variables: PAYMENT_REMINDER_VARIABLES });
   // Legal wording the platform owns: tenant admins neither see nor override it.
-  r.notification("terms-changed", { variables: TERMS_CHANGED_VARIABLES, systemOnly: true });
+  r.notification({ name: "terms-changed", variables: TERMS_CHANGED_VARIABLES, systemOnly: true });
 });

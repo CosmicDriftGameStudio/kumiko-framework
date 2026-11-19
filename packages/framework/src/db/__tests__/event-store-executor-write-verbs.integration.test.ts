@@ -4,7 +4,7 @@
 // field-level ownership denials, explicit version conflicts, the forget()
 // verb entirely, and restore()'s two precondition failures.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, expectTypeOf, test } from "bun:test";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
@@ -12,13 +12,12 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
-import { asRawClient, selectMany, transaction } from "../../db/query.ts";
+import { asRawClient, transaction } from "../../db/query.ts";
 import { createEntity, createTextField } from "../../engine/index.ts";
 import { from } from "../../engine/ownership.ts";
 import { createSystemUser } from "../../engine/system-user.ts";
 
 import { append } from "../../event-store/index.ts";
-import type { EntityCache } from "../../pipeline/entity-cache.ts";
 import { createTestUser, TestUsers, testTenantId } from "../../seeding/seed-users.ts";
 import {
   configureEntityFieldEncryption,
@@ -48,6 +47,7 @@ afterAll(async () => {
 // =============================================================================
 
 const restrictedEntity = createEntity({
+  name: "esWriteRestricted",
   table: "read_es_write_restricted",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -55,7 +55,7 @@ const restrictedEntity = createEntity({
   softDelete: true,
   access: { write: { Admin: "all" } },
 });
-const restrictedTable = buildEntityTable("esWriteRestricted", restrictedEntity);
+const restrictedTable = buildEntityTable(restrictedEntity);
 
 describe("event-store-executor write-verbs — entity-level ownership_denied", () => {
   const crud = createEventStoreExecutor(restrictedTable, restrictedEntity, {
@@ -193,12 +193,13 @@ describe("event-store-executor write-verbs — entity-level ownership_denied", (
 // =============================================================================
 
 const hardDeleteEntity = createEntity({
+  name: "esWriteHard",
   table: "read_es_write_hard",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
 });
-const hardDeleteTable = buildEntityTable("esWriteHard", hardDeleteEntity);
+const hardDeleteTable = buildEntityTable(hardDeleteEntity);
 
 describe("event-store-executor write-verbs — restore without softDelete", () => {
   const crud = createEventStoreExecutor(hardDeleteTable, hardDeleteEntity, {
@@ -243,6 +244,7 @@ describe("event-store-executor write-verbs — restore without softDelete", () =
 // =============================================================================
 
 const teamRowEntity = createEntity({
+  name: "esWriteTeamRow",
   table: "read_es_write_team_row",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -250,7 +252,7 @@ const teamRowEntity = createEntity({
   },
   softDelete: true,
 });
-const teamRowTable = buildEntityTable("esWriteTeamRow", teamRowEntity);
+const teamRowTable = buildEntityTable(teamRowEntity);
 
 describe("event-store-executor write-verbs — update on soft-deleted rows", () => {
   const crud = createEventStoreExecutor(teamRowTable, teamRowEntity, {
@@ -272,8 +274,30 @@ describe("event-store-executor write-verbs — update on soft-deleted rows", () 
     if (!created.isSuccess) throw new Error("setup failed");
     const deleted = await crud.delete({ id: created.data.id }, admin, tdb);
     if (!deleted.isSuccess) throw new Error("delete setup failed");
-    return { id: String(created.data.id), version: 2 };
+    return { id: created.data.id, version: 2 };
   }
+
+  test("create, update and restore return the string aggregate id", async () => {
+    const created = await crud.create({ name: "typed", teamId: "team-a" }, admin, tdb);
+    if (!created.isSuccess) throw new Error("create failed");
+    expectTypeOf(created.data.id).toEqualTypeOf<string>();
+    expect((await crud.list({}, admin, tdb)).rows[0]?.id).toBe(created.data.id);
+
+    const updated = await crud.update(
+      { id: created.data.id, version: 1, changes: { teamId: "team-b" } },
+      admin,
+      tdb,
+    );
+    if (!updated.isSuccess) throw new Error("update failed");
+    expectTypeOf(updated.data.id).toEqualTypeOf<string>();
+    expect(updated.data.id).toBe(created.data.id);
+
+    await crud.delete({ id: created.data.id }, admin, tdb);
+    const restored = await crud.restore({ id: created.data.id }, admin, tdb);
+    if (!restored.isSuccess) throw new Error("restore failed");
+    expectTypeOf(restored.data.id).toEqualTypeOf<string>();
+    expect(restored.data.id).toBe(created.data.id);
+  });
 
   test("without the option a soft-deleted row is not found", async () => {
     const row = await createDeletedRow();
@@ -325,6 +349,7 @@ describe("event-store-executor write-verbs — update on soft-deleted rows", () 
 // =============================================================================
 
 const ownedFieldEntity = createEntity({
+  name: "esWriteOwnedField",
   table: "read_es_write_owned_field",
   fields: {
     authorId: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -335,7 +360,7 @@ const ownedFieldEntity = createEntity({
     }),
   },
 });
-const ownedFieldTable = buildEntityTable("esWriteOwnedField", ownedFieldEntity);
+const ownedFieldTable = buildEntityTable(ownedFieldEntity);
 
 describe("event-store-executor write-verbs — field-level ownership_denied", () => {
   const crud = createEventStoreExecutor(ownedFieldTable, ownedFieldEntity, {
@@ -440,12 +465,13 @@ describe("event-store-executor write-verbs — field-level ownership_denied", ()
 // =============================================================================
 
 const versionEntity = createEntity({
+  name: "esWriteVersion",
   table: "read_es_write_version",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
 });
-const versionTable = buildEntityTable("esWriteVersion", versionEntity);
+const versionTable = buildEntityTable(versionEntity);
 
 describe("event-store-executor write-verbs — version_conflict edge cases", () => {
   const crud = createEventStoreExecutor(versionTable, versionEntity, {
@@ -497,6 +523,7 @@ describe("event-store-executor write-verbs — version_conflict edge cases", () 
 // =============================================================================
 
 const expectEntity = createEntity({
+  name: "esWriteExpect",
   table: "read_es_write_expect",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -505,7 +532,7 @@ const expectEntity = createEntity({
     secret: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
   },
 });
-const expectTable = buildEntityTable("esWriteExpect", expectEntity);
+const expectTable = buildEntityTable(expectEntity);
 
 describe("event-store-executor write-verbs — expect precondition", () => {
   const crud = createEventStoreExecutor(expectTable, expectEntity, {
@@ -705,13 +732,14 @@ describe("event-store-executor write-verbs — expect precondition", () => {
 // =============================================================================
 
 const deletedIdEntity = createEntity({
+  name: "esWriteDeletedId",
   table: "read_es_write_deleted_id",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
   softDelete: true,
 });
-const deletedIdTable = buildEntityTable("esWriteDeletedId", deletedIdEntity);
+const deletedIdTable = buildEntityTable(deletedIdEntity);
 
 describe("event-store-executor write-verbs — explicit-id tenant isolation + soft-delete", () => {
   const crud = createEventStoreExecutor(deletedIdTable, deletedIdEntity, {
@@ -778,38 +806,22 @@ describe("event-store-executor write-verbs — explicit-id tenant isolation + so
 });
 
 // =============================================================================
-// Concurrent update race → EventStoreVersionConflict catch + entityCache.del
-// on forget/restore (create/update/delete already exercise cache in the
-// main suite; forget/restore del() stayed uncovered).
+// Concurrent update race → EventStoreVersionConflict catch
 // =============================================================================
 
 const raceEntity = createEntity({
+  name: "esWriteRace",
   table: "read_es_write_race",
   fields: {
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
   softDelete: true,
 });
-const raceTable = buildEntityTable("esWriteRace", raceEntity);
+const raceTable = buildEntityTable(raceEntity);
 
-describe("event-store-executor write-verbs — concurrent version race + cache", () => {
-  const store = new Map<string, Record<string, unknown>>();
-  const entityCache: EntityCache = {
-    get: async (tenantId, name, id) => store.get(`${tenantId}:${name}:${id}`) ?? null,
-    mget: async () => new Map(),
-    set: async (tenantId, name, id, data) => {
-      store.set(`${tenantId}:${name}:${id}`, data);
-    },
-    mset: async (tenantId, name, entries) => {
-      for (const { id, data } of entries) store.set(`${tenantId}:${name}:${id}`, data);
-    },
-    del: async (tenantId, name, id) => {
-      store.delete(`${tenantId}:${name}:${id}`);
-    },
-  };
+describe("event-store-executor write-verbs — concurrent version race", () => {
   const crud = createEventStoreExecutor(raceTable, raceEntity, {
     entityName: "esWriteRace",
-    entityCache,
   });
 
   beforeAll(async () => {
@@ -817,7 +829,6 @@ describe("event-store-executor write-verbs — concurrent version race + cache",
   });
 
   beforeEach(async () => {
-    store.clear();
     await asRawClient(testDb.db).unsafe(
       `TRUNCATE kumiko_events, read_es_write_race RESTART IDENTITY CASCADE`,
     );
@@ -891,118 +902,6 @@ describe("event-store-executor write-verbs — concurrent version race + cache",
     }>;
     expect(healthCheck[0]?.ok).toBe(1);
   });
-
-  test("forget with entityCache clears the cache entry", async () => {
-    const created = await crud.create({ email: "cache-forget@test.de" }, admin, tdb);
-    if (!created.isSuccess) throw new Error("setup failed");
-    const id = created.data.id;
-    const key = `${admin.tenantId}:esWriteRace:${id}`;
-    store.set(key, { email: "poison" });
-
-    const result = await crud.forget({ id }, admin, tdb);
-    expect(result.isSuccess).toBe(true);
-    expect(store.has(key)).toBe(false);
-  });
-
-  test("restore with entityCache clears the cache entry", async () => {
-    const created = await crud.create({ email: "cache-restore@test.de" }, admin, tdb);
-    if (!created.isSuccess) throw new Error("setup failed");
-    const id = created.data.id;
-    await crud.delete({ id }, admin, tdb);
-
-    const key = `${admin.tenantId}:esWriteRace:${id}`;
-    store.set(key, { email: "poison" });
-
-    const result = await crud.restore({ id }, admin, tdb);
-    expect(result.isSuccess).toBe(true);
-    expect(store.has(key)).toBe(false);
-  });
-});
-
-// =============================================================================
-// Degraded (undecryptable) detail reads never reach the entity cache
-// =============================================================================
-
-const degradedEntity = createEntity({
-  table: "read_es_write_degraded",
-  fields: {
-    email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
-    secret: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
-  },
-});
-const degradedTable = buildEntityTable("esWriteDegraded", degradedEntity);
-
-describe("event-store-executor write-verbs — degraded detail vs entity cache", () => {
-  const store = new Map<string, Record<string, unknown>>();
-  const calls = { get: 0, set: 0 };
-  const entityCache: EntityCache = {
-    get: async (tenantId, name, id) => {
-      calls.get += 1;
-      return store.get(`${tenantId}:${name}:${id}`) ?? null;
-    },
-    mget: async () => new Map(),
-    set: async (tenantId, name, id, data) => {
-      calls.set += 1;
-      store.set(`${tenantId}:${name}:${id}`, data);
-    },
-    mset: async () => {},
-    del: async (tenantId, name, id) => {
-      store.delete(`${tenantId}:${name}:${id}`);
-    },
-  };
-  const crud = createEventStoreExecutor(degradedTable, degradedEntity, {
-    entityName: "esWriteDegraded",
-    entityCache,
-  });
-
-  beforeAll(async () => {
-    configureEntityFieldEncryption(
-      createTestEnvelopeCipher(Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64")),
-    );
-    await unsafeCreateEntityTable(testDb.db, degradedEntity, "esWriteDegraded");
-  });
-
-  afterAll(() => {
-    resetEntityFieldEncryptionCacheForTests();
-  });
-
-  beforeEach(async () => {
-    store.clear();
-    calls.get = 0;
-    calls.set = 0;
-    await asRawClient(testDb.db).unsafe(
-      `TRUNCATE kumiko_events, read_es_write_degraded RESTART IDENTITY CASCADE`,
-    );
-  });
-
-  // Test-only corruption/repair of the read model; the typed query API refuses writes to executor-owned tables.
-  async function setStoredSecret(id: EntityId, value: string): Promise<void> {
-    await asRawClient(testDb.db).unsafe(
-      `UPDATE read_es_write_degraded SET secret = $2 WHERE id = $1`,
-      [id, value],
-    );
-  }
-
-  test("every read of a corrupt row misses the cache and hits the DB; after repair detail serves the real value", async () => {
-    const created = await crud.create({ email: "d@test.de", secret: "real" }, admin, tdb);
-    if (!created.isSuccess) throw new Error("setup failed");
-    const id = created.data.id;
-    const goodEnvelope = (await selectMany(testDb.db, degradedTable, { id }))[0]?.["secret"];
-    await setStoredSecret(id, "not-an-envelope");
-
-    const first = await crud.detail({ id }, admin, tdb);
-    const second = await crud.detail({ id }, admin, tdb);
-    expect([first?.["secret"], second?.["secret"]]).toEqual([null, null]);
-    expect(calls).toEqual({ get: 2, set: 0 });
-    expect(store.size).toBe(0);
-
-    // The executor's own update decrypts the stored row first, so a corrupt row is repaired
-    // at the read-model level (rebuild), not through update.
-    await setStoredSecret(id, String(goodEnvelope));
-    const repaired = await crud.detail({ id }, admin, tdb);
-    expect(repaired?.["secret"]).toBe("real");
-    expect(calls.set).toBe(1);
-  });
 });
 
 // =============================================================================
@@ -1011,33 +910,44 @@ describe("event-store-executor write-verbs — degraded detail vs entity cache",
 // =============================================================================
 
 const staleVersionEntity = createEntity({
+  name: "esWriteStaleVersion",
   table: "read_es_write_stale_version",
   fields: {
     secret: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
   },
   softDelete: true,
 });
-const staleVersionTable = buildEntityTable("esWriteStaleVersion", staleVersionEntity);
+const staleVersionTable = buildEntityTable(staleVersionEntity);
 
 describe("event-store-executor write-verbs — version_conflict reports the real stream version", () => {
   const crud = createEventStoreExecutor(staleVersionTable, staleVersionEntity, {
     entityName: "esWriteStaleVersion",
   });
-  let competingAppend: (() => Promise<void>) | undefined;
+  type RaceStep = "encrypt" | "decrypt";
+  let competingAppend: { readonly step: RaceStep; readonly run: () => Promise<void> } | undefined;
+
+  async function runCompetingAppendAt(step: RaceStep): Promise<void> {
+    const race = competingAppend;
+    if (race === undefined || race.step !== step) return;
+    competingAppend = undefined;
+    await race.run();
+  }
 
   beforeAll(async () => {
     await unsafeCreateEntityTable(testDb.db, staleVersionEntity, "esWriteStaleVersion");
     const cipher = createTestEnvelopeCipher(
       Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64"),
     );
-    // The verb encrypts `previous` after reading the stream version and before
-    // appending, so a write landing here is a deterministic lost race.
+    // A write landing between the verb's stream-version read and its append is a deterministic
+    // lost race. Update and restore encrypt `previous` in that window; delete keeps `previous`
+    // in plaintext, so its only crypto call there is the snapshot decrypt.
     configureEntityFieldEncryption({
-      decrypt: (stored, scope) => cipher.decrypt(stored, scope),
+      decrypt: async (stored, scope) => {
+        await runCompetingAppendAt("decrypt");
+        return cipher.decrypt(stored, scope);
+      },
       encrypt: async (plaintext, scope) => {
-        const race = competingAppend;
-        competingAppend = undefined;
-        await race?.();
+        await runCompetingAppendAt("encrypt");
         return cipher.encrypt(plaintext, scope);
       },
     });
@@ -1054,24 +964,27 @@ describe("event-store-executor write-verbs — version_conflict reports the real
     );
   });
 
-  function armCompetingAppend(id: EntityId, predecessorVersion: number): void {
-    competingAppend = async () => {
-      await append(testDb.db, {
-        aggregateId: String(id),
-        aggregateType: "esWriteStaleVersion",
-        tenantId: admin.tenantId,
-        expectedVersion: predecessorVersion,
-        type: "esWriteStaleVersion.competing",
-        payload: {},
-        metadata: buildEventMetadata(admin),
-      });
+  function armCompetingAppend(id: EntityId, predecessorVersion: number, step: RaceStep): void {
+    competingAppend = {
+      step,
+      run: async () => {
+        await append(testDb.db, {
+          aggregateId: String(id),
+          aggregateType: "esWriteStaleVersion",
+          tenantId: admin.tenantId,
+          expectedVersion: predecessorVersion,
+          type: "esWriteStaleVersion.competing",
+          payload: {},
+          metadata: buildEventMetadata(admin),
+        });
+      },
     };
   }
 
   test("update: expected = version read, current = version after the competing append", async () => {
     const created = await crud.create({ secret: "s" }, admin, tdb);
     if (!created.isSuccess) throw new Error("setup failed");
-    armCompetingAppend(created.data.id, 1);
+    armCompetingAppend(created.data.id, 1, "encrypt");
 
     const result = await crud.update(
       { id: created.data.id, version: 1, changes: { secret: "changed" } },
@@ -1087,7 +1000,7 @@ describe("event-store-executor write-verbs — version_conflict reports the real
   test("delete: expected = version read, current = version after the competing append", async () => {
     const created = await crud.create({ secret: "s" }, admin, tdb);
     if (!created.isSuccess) throw new Error("setup failed");
-    armCompetingAppend(created.data.id, 1);
+    armCompetingAppend(created.data.id, 1, "decrypt");
 
     const result = await crud.delete({ id: created.data.id }, admin, tdb);
     expect(result.isSuccess).toBe(false);
@@ -1101,7 +1014,7 @@ describe("event-store-executor write-verbs — version_conflict reports the real
     if (!created.isSuccess) throw new Error("setup failed");
     const deleted = await crud.delete({ id: created.data.id }, admin, tdb);
     if (!deleted.isSuccess) throw new Error("setup failed");
-    armCompetingAppend(created.data.id, 2);
+    armCompetingAppend(created.data.id, 2, "encrypt");
 
     const result = await crud.restore({ id: created.data.id }, admin, tdb);
     expect(result.isSuccess).toBe(false);

@@ -1,10 +1,10 @@
 // Phone layout of two real-world projectionDetail declarations: header block order and pinned footer.
 import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
 import {
   createMockDispatcher,
+  type MockQueryHandler,
   render,
   restoreViewportWidthAfterEach,
   screen,
@@ -13,7 +13,7 @@ import {
 } from "./test-utils.tsx";
 
 function renderScreen(definition: ProjectionDetailScreenDefinition, data: unknown): void {
-  const query = (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["query"];
+  const query: MockQueryHandler = async () => ({ isSuccess: true, data });
   render(
     <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
       <KumikoScreen
@@ -143,7 +143,7 @@ describe("projectionDetail on a phone", () => {
   test("footerActions with a start-aligned one show as buttons, not only the more-menu", async () => {
     setViewportWidth(390);
     renderScreen(footerScreen, { id: "r1", name: "x" });
-    await waitFor(() => expect(screen.getByTestId("render-edit-action-release")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-action-release"));
     const release = screen.getByTestId("render-edit-action-release");
     const discard = screen.getByTestId("render-edit-action-discard");
     const footerRow = release.closest("[class*='h-14']");

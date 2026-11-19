@@ -83,9 +83,13 @@ export const SubscriptionFoundationHandlers = {
   /** Backfill entry-point for the `sync-subscriptions` job (and any
    *  SystemAdmin that wants an on-demand reconciliation). Pulls the live
    *  provider-side state via the plugin's `retrieveSubscription` and
-   *  appends drift as a `subscription.updated` event. `agent.expose: false`
-   *  — programmatic only. */
+   *  appends drift as a `subscription.updated` event. The provider call runs
+   *  outside a transaction and the append goes through `applySubscriptionSnapshot`.
+   *  `agent.expose: false` — programmatic only. */
   syncSubscription: "billing-foundation:write:sync-subscription",
+  /** Appends a provider snapshot fetched by `sync-subscription` when it differs from the stored subscription;
+   *  locks the stream and re-reads the row first. System and SystemAdmin only. */
+  applySubscriptionSnapshot: "billing-foundation:write:apply-subscription-snapshot",
 } as const;
 
 // Qualified query handler names.

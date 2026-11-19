@@ -14,7 +14,6 @@ import {
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import {
   expectSuccess,
   resetTestTables,
@@ -37,6 +36,7 @@ import { createConfigFeature } from "../../config/index.ts";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
 import { notificationPreferenceEntity } from "../../delivery/tables.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { createTemplateResolverApi } from "../../template-resolver/api.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { seedNotificationTemplates } from "../../template-resolver/seeding.ts";
@@ -131,7 +131,7 @@ const mockProviderFeature = defineFeature("test-mock-termination-provider", (r) 
       });
     },
   };
-  r.useExtension("subscriptionProvider", PROVIDER, plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: PROVIDER, ...plugin });
 });
 
 let stack: TestStack;
@@ -409,7 +409,14 @@ describe("public pages", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/html");
     expect(res.headers.get("x-frame-options")).toBe("DENY");
-    expect(res.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+    const csp = res.headers.get("content-security-policy") ?? "";
+    expect(csp).toContain("frame-ancestors 'none'");
+    const directives = csp.split(";").map((d) => d.trim());
+    expect(directives.filter((d) => d.startsWith("form-action"))).toEqual(["form-action 'self'"]);
+    expect(directives.filter((d) => d.startsWith("frame-ancestors"))).toEqual([
+      "frame-ancestors 'none'",
+    ]);
+    expect(csp).toContain("default-src 'none'");
     const html = await res.text();
     expect(html).toContain(title);
     expect(html).toContain('name="email"');

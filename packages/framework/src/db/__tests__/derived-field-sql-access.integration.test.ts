@@ -9,12 +9,12 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import { defineEntityQueryHandler } from "../../engine/entity-handlers.ts";
 import {
   createDateField,
   createDerivedField,
   createEntity,
   createTextField,
-  defineEntityQueryHandler,
   defineFeature,
 } from "../../engine/index.ts";
 import type { SessionUser } from "../../engine/types/index.ts";
@@ -39,6 +39,7 @@ const teamScopedRead: NonNullable<EntityDefinition["access"]> = {
 };
 
 const issueEntity = createEntity({
+  name: "dsqa-issue",
   table: "dsqa_issues",
   fields: {
     unitId: { type: "reference", entity: "dsqa-unit" },
@@ -53,12 +54,14 @@ const issueEntity = createEntity({
 });
 
 const memoEntity = createEntity({
+  name: "dsqa-memo",
   table: "dsqa_memos",
   fields: { unitId: { type: "reference", entity: "dsqa-unit" } },
   indexes: [{ columns: ["unitId"] }],
 });
 
 const unitEntity = createEntity({
+  name: "dsqa-unit",
   table: "dsqa_units",
   fields: {
     name: createTextField({ required: true, ...fixture }),
@@ -129,10 +132,10 @@ const unitEntity = createEntity({
 
 const feature = defineFeature("dsqa", (r) => {
   const access = { roles: ["Admin", "TenantMember"] };
-  r.crud("dsqa-issue", issueEntity, { write: { access }, read: { access } });
-  r.crud("dsqa-unit", unitEntity, { write: { access }, read: { access } });
+  r.crud(issueEntity, { write: { access }, read: { access } });
+  r.crud(unitEntity, { write: { access }, read: { access } });
   // The entity itself carries no read rule, but only Admin has a query handler for it.
-  r.entity({ name: "dsqa-memo", ...memoEntity });
+  r.entity(memoEntity);
   r.queryHandler(
     defineEntityQueryHandler("dsqa-memo:list", memoEntity, { access: { roles: ["Admin"] } }),
   );
@@ -174,7 +177,7 @@ describe("SQL derived fields: what the viewer must not learn", () => {
     const tenantId = admin.tenantId;
     await seedRows(
       stack.db,
-      buildEntityTable("dsqa-unit", unitEntity),
+      buildEntityTable(unitEntity),
       [
         { id: A1, tenantId, name: "Alpha-1", teamId: "a", secretCode: "S1" },
         { id: A2, tenantId, name: "Alpha-2", teamId: "a", secretCode: "S2" },
@@ -184,7 +187,7 @@ describe("SQL derived fields: what the viewer must not learn", () => {
     );
     await seedRows(
       stack.db,
-      buildEntityTable("dsqa-issue", issueEntity),
+      buildEntityTable(issueEntity),
       [
         {
           tenantId,
@@ -218,7 +221,7 @@ describe("SQL derived fields: what the viewer must not learn", () => {
     );
     await seedRows(
       stack.db,
-      buildEntityTable("dsqa-memo", memoEntity),
+      buildEntityTable(memoEntity),
       [
         { tenantId, unitId: A1 },
         { tenantId, unitId: A1 },

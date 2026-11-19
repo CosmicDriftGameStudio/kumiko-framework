@@ -4,11 +4,15 @@ import {
   type EntityListScreenDefinition,
   i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { DEFAULT_TAG_ACCESS, TAGS_EDIT_SCREEN_ID, TAGS_SCREEN_ID } from "./web/constants.ts";
+import {
+  DEFAULT_TAG_ACCESS,
+  TAGS_EDIT_SCREEN_ID,
+  TAGS_SCREEN_ID,
+  TagsHandlers,
+} from "./web/constants.ts";
 
-// Declarative catalog screens. Access matches create/update/
-// delete so createTagsFeature({ access|roles }) stays consistent. TagManager
-// remains for TagPicker/TagSection — only the standalone admin screen moved.
+// Declarative catalog screens. Access matches the catalog write handlers so
+// createTagsFeature({ parents, access|roles }) stays consistent.
 
 export function createTagListScreen(
   access: AccessRule = DEFAULT_TAG_ACCESS,
@@ -32,8 +36,7 @@ export function createTagListScreen(
         kind: "writeHandler",
         id: "delete",
         label: i18nKey("kumiko.actions.delete"),
-        // Convention QN — same cascade body as legacy tags:write:delete-tag.
-        handler: "tags:write:tag:delete",
+        handler: TagsHandlers.deleteTag,
         payload: { pick: ["id"] },
         confirm: i18nKey("kumiko.actions.delete-confirm"),
         style: "danger",

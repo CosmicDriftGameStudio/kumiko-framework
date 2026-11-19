@@ -6,10 +6,12 @@
 //
 // Auth: Bearer token in the Authorization header. /healthz and /metrics are
 // unauthenticated — K8s probes carry no token, the Prometheus scraper runs in
-// the monitoring namespace, allowed via NetworkPolicy.
+// the monitoring namespace, allowed via NetworkPolicy. /render and /rasterize check
+// the token before reading the body.
 
 import { createHash, timingSafeEqual } from "node:crypto";
-import { Hono } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { TimeoutError } from "puppeteer";
 import type { ServiceConfig } from "./config";
 import {
@@ -53,6 +55,31 @@ export function createApp(
     renderDurationMs: [],
   };
   const app = new Hono();
+
+  // Auth runs before the body limit so an unauthenticated caller cannot make the service buffer a body.
+  const requireAuth: MiddlewareHandler = async (c, next) => {
+    if (!isAuthorized(c.req.header("Authorization"), config.authToken)) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+    await next();
+  };
+
+  // Counts bytes while reading, so a request without Content-Length cannot skip the limit.
+  const limitBody = (maxBodyBytes: number, maxBytes: number): MiddlewareHandler =>
+    bodyLimit({
+      maxSize: maxBodyBytes,
+      onError: (c) => {
+        const declaredBytes = Number.parseInt(c.req.header("Content-Length") ?? "", 10);
+        return c.json(
+          {
+            error: "payload_too_large",
+            maxBytes,
+            ...(Number.isFinite(declaredBytes) && { gotBytes: declaredBytes }),
+          },
+          413,
+        );
+      },
+    });
   let rendersInFlight = 0;
 
   const recordDuration = (ms: number) => {
@@ -97,22 +124,8 @@ export function createApp(
     );
   });
 
-  app.post("/render", async (c) => {
-    if (!isAuthorized(c.req.header("Authorization"), config.authToken)) {
-      return c.json({ error: "unauthorized" }, 401);
-    }
-
-    // Content-Length check before JSON parse — we don't want to pull
-    // megabyte-sized HTML into server memory when the tier limit is smaller.
-    const contentLength = Number.parseInt(c.req.header("Content-Length") ?? "0", 10);
-    if (contentLength > config.maxHtmlBytes + 10_000) {
-      // +10k buffer for JSON overhead (kind, options, etc.)
-      return c.json(
-        { error: "payload_too_large", maxBytes: config.maxHtmlBytes, gotBytes: contentLength },
-        413,
-      );
-    }
-
+  // +10k buffer for the JSON envelope (kind, options, etc.).
+  app.post("/render", requireAuth, limitBody(config.maxHtmlBytes + 10_000, config.maxHtmlBytes), async (c) => {
     let body: RenderRequest;
     try {
       const raw = await c.req.json();
@@ -158,32 +171,20 @@ export function createApp(
       });
     } catch (e) {
       metrics.renderErrorsTotal += 1;
-      const message = describe(e);
+      logFailure("render failed", e);
       // TimeoutError is a concrete class from puppeteer (`puppeteer.
       // TimeoutError`). String-matching on message would be fragile across
       // localization or lib updates.
       const status = e instanceof TimeoutError ? 504 : 500;
-      return c.json({ error: "render_failed", details: message }, status);
+      return c.json({ error: "render_failed" }, status);
     } finally {
       rendersInFlight -= 1;
     }
   });
 
-  app.post("/rasterize", async (c) => {
-    if (!isAuthorized(c.req.header("Authorization"), config.authToken)) {
-      return c.json({ error: "unauthorized" }, 401);
-    }
-
-    // Base64 inflates by 4/3; the +10k buffer covers the JSON envelope.
-    const maxBodyBytes = Math.ceil((config.maxPdfBytes * 4) / 3) + 10_000;
-    const contentLength = Number.parseInt(c.req.header("Content-Length") ?? "0", 10);
-    if (contentLength > maxBodyBytes) {
-      return c.json(
-        { error: "payload_too_large", maxBytes: config.maxPdfBytes, gotBytes: contentLength },
-        413,
-      );
-    }
-
+  // Base64 inflates by 4/3; the +10k buffer covers the JSON envelope.
+  const maxRasterizeBodyBytes = Math.ceil((config.maxPdfBytes * 4) / 3) + 10_000;
+  app.post("/rasterize", requireAuth, limitBody(maxRasterizeBodyBytes, config.maxPdfBytes), async (c) => {
     let body: RasterizeRequest;
     try {
       body = rasterizeRequestSchema.parse(await c.req.json());
@@ -220,13 +221,15 @@ export function createApp(
     } catch (e) {
       metrics.renderErrorsTotal += 1;
       if (e instanceof InvalidPdfError) {
-        return c.json({ error: "invalid_pdf", details: describe(e) }, 400);
+        logFailure("invalid pdf", e);
+        return c.json({ error: "invalid_pdf" }, 400);
       }
       if (e instanceof RasterResultTooLargeError) {
         return c.json({ error: "result_too_large", gotBytes: e.gotBytes }, 413);
       }
       const status = e instanceof RasterizeTimeoutError ? 504 : 500;
-      return c.json({ error: "rasterize_failed", details: describe(e) }, status);
+      logFailure("rasterize failed", e);
+      return c.json({ error: "rasterize_failed" }, status);
     } finally {
       rendersInFlight -= 1;
     }
@@ -237,4 +240,11 @@ export function createApp(
 
 function describe(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
+}
+
+// The caller gets only the error code; the cause goes to the pod log as one line.
+function logFailure(label: string, e: unknown): void {
+  process.stderr.write(
+    `[puppeteer-service] ${label}: ${describe(e).replace(/[\r\n]+/g, " ").slice(0, 500)}\n`,
+  );
 }

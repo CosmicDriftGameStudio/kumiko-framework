@@ -1,6 +1,6 @@
 # user-data-rights
 
-GDPR-compliant domain wiring in ~5 lines: `r.useExtension(EXT_USER_DATA, …)`
+GDPR-compliant domain wiring in ~5 lines: `r.applyExtension({ name: EXT_USER_DATA, … })`
 hooks any entity into the forget cron, export ZIP, and magic-link pipeline.
 You write two hooks per entity — the framework runs the rest.
 
@@ -14,7 +14,9 @@ defineFeature("notes", (r) => {
   r.requires({ features: ["user-data-rights"] });
   r.entity({ name: "note", ...noteEntity });
 
-  r.useExtension(EXT_USER_DATA, "note", {
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "note",
     export: async (ctx) => ({
       entity: "note",
       rows: await ctx.db
@@ -54,6 +56,13 @@ defineFeature("notes", (r) => {
 
 The integration test pins both paths.
 
+## Event-sourced entities
+
+For an entity whose rows go through the executor, `forgetOwnRowsDeleteHook` from
+`@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults` replaces the hand-written loop. It
+forgets every row that names the user in one of `ownerFields` (default `userId`), trashed rows
+included, under both strategies. The recipe's `mute` entity uses `userId` and `mutedUserId`.
+
 ## Flow
 
 1. User creates notes → rows stored with `authorId`.
@@ -63,7 +72,7 @@ The integration test pins both paths.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 bun test src/__tests__/feature.integration.test.ts
@@ -74,6 +83,7 @@ Step-by-step proof:
 1. Alice creates 2 notes → export bundle includes note snippet
 2. Deletion + expired grace → `runForgetCleanup` removes all notes
 3. Strategy `anonymize` → `authorId=null`, title/body remain
+4. Deletion + expired grace → every mute Alice set or received is forgotten, other users' mutes and other tenants stay
 
 ## Retention with files
 
@@ -98,6 +108,10 @@ const result = await runRetentionCleanup({
 });
 // result.hardDeleted === 1, bytes and file_refs row gone
 ```
+
+## Stream retention for short-lived state
+
+An entity that holds technical state (previews, run state) declares `streamRetention: { keepFor: "30d" }`. The job `data-retention:job:stream-retention` deletes every stream of that entity whose newest event is older than `keepFor`, together with the rows a rebuild would no longer recreate. Counters belong in an `r.storeTable` written with `ctx.db.upsert(..., { increment })` instead of an event per hit. `src/preview-snapshots.ts` holds the entity and `src/__tests__/stream-retention.integration.test.ts` drives the run with `runStreamRetention`.
 
 ## Full app vs this recipe
 

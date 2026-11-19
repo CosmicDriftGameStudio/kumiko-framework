@@ -1,4 +1,3 @@
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createReferenceField,
@@ -7,6 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const teamEntity = createEntity({
+  name: "team",
   table: "read_sample_teams",
   fields: {
     name: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -14,6 +14,7 @@ export const teamEntity = createEntity({
 });
 
 export const memberEntity = createEntity({
+  name: "member",
   table: "read_sample_members",
   fields: {
     name: createTextField({ personal: { of: "id" }, find: "none", required: true }),
@@ -28,16 +29,13 @@ export const memberEntity = createEntity({
 });
 
 export const taskEntity = createEntity({
+  name: "task",
   table: "read_sample_member_tasks",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
     memberId: createReferenceField({ entity: "member", personal: "ref", required: true }),
   },
 });
-
-export const teamTable = buildEntityTable("team", teamEntity);
-export const memberTable = buildEntityTable("member", memberEntity);
-export const taskTable = buildEntityTable("task", taskEntity);
 
 const adminWrite = { access: { roles: ["Admin"] } } as const;
 const openRead = {
@@ -55,35 +53,43 @@ const createOnly = {
   detail: false,
 } as const;
 
-export const relationsFeature = defineFeature("org", (r) => {
-  const team = r.entity({ name: "team", ...teamEntity });
-  const member = r.entity({ name: "member", ...memberEntity });
+const createAndDelete = { ...createOnly, delete: true } as const;
 
-  r.relation(team, "members", {
+export const relationsFeature = defineFeature("org", (r) => {
+  const team = r.entity(teamEntity);
+  const member = r.entity(memberEntity);
+
+  r.relation({
+    entity: team,
+    name: "members",
     type: "hasMany",
     target: "member",
     foreignKey: "teamId",
     onDelete: "restrict",
   });
 
-  r.relation(member, "tasks", {
+  r.relation({
+    entity: member,
+    name: "tasks",
     type: "hasMany",
     target: "task",
     foreignKey: "memberId",
     onDelete: "cascade",
   });
 
-  r.crud("team", teamEntity, {
+  // onDelete runs automatically in the delete lifecycle: deleting a team is refused while
+  // members exist, deleting a member removes its tasks.
+  r.crud(teamEntity, {
     write: adminWrite,
-    verbs: createOnly,
+    verbs: createAndDelete,
     registerEntity: false,
   });
-  r.crud("member", memberEntity, {
+  r.crud(memberEntity, {
     write: adminWrite,
-    verbs: createOnly,
+    verbs: createAndDelete,
     registerEntity: false,
   });
-  r.crud("task", taskEntity, {
+  r.crud(taskEntity, {
     write: adminWrite,
     read: openRead,
     verbs: { ...createOnly, detail: true },

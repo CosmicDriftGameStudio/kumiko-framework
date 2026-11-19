@@ -21,7 +21,7 @@ Feature entry point: `src/feature.ts`.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/currencies-global
@@ -54,14 +54,7 @@ import { seedReferenceData } from "@cosmicdrift/kumiko-framework/db";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { currencyEntity } from "../entities/currency";
-import { invoiceEntity } from "../entities/invoice";
-import { tenantCurrencyEntity } from "../entities/tenant-currency";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { currenciesGlobalFeature } from "../feature";
 
 // The executor returns the rehydrated read-form: money is the combined
@@ -78,10 +71,6 @@ beforeAll(async () => {
     features: [currenciesGlobalFeature],
     systemHooks: [],
   });
-
-  await unsafeCreateEntityTable(stack.db, currencyEntity);
-  await unsafeCreateEntityTable(stack.db, tenantCurrencyEntity);
-  await unsafeCreateEntityTable(stack.db, invoiceEntity);
 
   // Seed global currency table — same as r.referenceData() does at boot
   await seedReferenceData(currenciesGlobalFeature.referenceData, stack.registry, stack.db);
@@ -340,6 +329,7 @@ import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
 
 export const currencyEntity = createEntity({
+  name: "currency",
   table: "read_sample_currencies",
   systemRowsReadable: true,
   fields: {
@@ -348,7 +338,7 @@ export const currencyEntity = createEntity({
   },
 });
 
-export const currencyTable = buildEntityTable("currency", currencyEntity);
+export const currencyTable = buildEntityTable(currencyEntity);
 ```
 
 ### src/entities/invoice.ts
@@ -362,6 +352,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const invoiceEntity = createEntity({
+  name: "invoice",
   table: "read_sample_invoices",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -371,7 +362,7 @@ export const invoiceEntity = createEntity({
   defaultCurrency: "EUR",
 });
 
-export const invoiceTable = buildEntityTable("invoice", invoiceEntity);
+export const invoiceTable = buildEntityTable(invoiceEntity);
 ```
 
 ### src/entities/tenant-currency.ts
@@ -388,6 +379,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const tenantCurrencyEntity = createEntity({
+  name: "tenant-currency",
   table: "read_sample_tenant_currencies",
   fields: {
     currencyCode: createTextField({ personal: false, reason: "is_reference_data", required: true }),
@@ -395,7 +387,7 @@ export const tenantCurrencyEntity = createEntity({
   },
 });
 
-export const tenantCurrencyTable = buildEntityTable("tenant-currency", tenantCurrencyEntity);
+export const tenantCurrencyTable = buildEntityTable(tenantCurrencyEntity);
 ```
 
 ### src/feature.ts
@@ -452,12 +444,12 @@ const CURRENCY_CATALOG = [
 ] as const;
 
 export const currenciesGlobalFeature = defineFeature("currenciesGlobal", (r) => {
-  const currency = r.entity({ name: "currency", ...currencyEntity });
-  r.entity({ name: "tenant-currency", ...tenantCurrencyEntity });
-  r.entity({ name: "invoice", ...invoiceEntity });
+  const currency = r.entity(currencyEntity);
+  r.entity(tenantCurrencyEntity);
+  r.entity(invoiceEntity);
 
   // Seed global currency table — available for all tenants to pick from
-  r.referenceData(currency, [...CURRENCY_CATALOG], { upsertKey: "code" });
+  r.referenceData({ entity: currency, data: [...CURRENCY_CATALOG], upsertKey: "code" });
 
   r.writeHandler(tenantCurrencyAssign);
   r.writeHandler(invoiceCreate);
@@ -483,9 +475,9 @@ export const invoiceCreate = defineWriteHandler({
   name: "invoice:create",
   schema: z.object({
     title: z.string().min(1),
-    amount: z.number(),
+    amount: z.number().int(),
     amountCurrency: z.string().length(3),
-    shippingCost: z.number().optional(),
+    shippingCost: z.number().int().optional(),
     shippingCostCurrency: z.string().length(3).optional(),
   }),
   access: { roles: ["Admin"] },

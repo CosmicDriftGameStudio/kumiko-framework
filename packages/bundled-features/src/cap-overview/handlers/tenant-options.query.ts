@@ -1,6 +1,5 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { decryptTenantNames, tenantTable } from "../../tenant/index.ts";
 
@@ -12,14 +11,10 @@ export const tenantOptionsQuery = defineQueryHandler({
     "Returns all tenants as id/name option pairs sorted by name; use it to populate the tenant picker of a platform-wide overview.",
   schema: z.object({}),
   access: { roles: ["SystemAdmin"] },
+  systemScope: true,
   handler: async (_query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "cap-overview:query:tenant-options requires ctx.systemDb — is r.systemScope() set?",
-      });
-    }
-    const db = ctx.systemDb.acknowledgeCrossTenant(
+    const { systemDb } = ctx;
+    const db = systemDb.acknowledgeCrossTenant(
       "cap-overview:tenant-options — SystemAdmin dashboard tenant-filter options",
     );
     const tenants = await decryptTenantNames(

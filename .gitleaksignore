@@ -1,0 +1,2 @@
+# Fake JWT test secret in a branch commit; the line no longer carries a literal, the commit stays in the PR range.
+c80c48a590767aa187dc147d413275d638ccfaa5:packages/framework/src/api/__tests__/jwt.test.ts:generic-api-key:249

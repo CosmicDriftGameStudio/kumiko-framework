@@ -2,10 +2,10 @@
 // beside, metric visibility, mobile summary, narrow order, concealed values, iconless banner.
 import { describe, expect, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
 import {
   createMockDispatcher,
+  type MockQueryHandler,
   render,
   restoreViewportWidthAfterEach,
   screen,
@@ -37,10 +37,10 @@ function renderScreen(
   },
   sections: Sections,
 ): void {
-  const query = (async () => ({
+  const query: MockQueryHandler = async () => ({
     isSuccess: true,
     data: record,
-  })) as unknown as Dispatcher["query"];
+  });
   const definition = {
     id: "file",
     type: "projectionDetail",
@@ -214,8 +214,8 @@ describe("groups and section hint of a stacked record page", () => {
       },
     ]);
     await screen.findByText("Golf");
-    expect(screen.getByTestId("section-Data-group-0")).toBeTruthy();
-    expect(screen.getByText("Vehicle")).toBeTruthy();
+    screen.getByTestId("section-Data-group-0");
+    screen.getByText("Vehicle");
     expect(document.querySelector("[data-facts]")).not.toBeNull();
   });
 

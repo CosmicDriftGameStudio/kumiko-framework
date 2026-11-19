@@ -4,7 +4,7 @@
 // needs-profile (compliance-profiles) tells a TenantAdmin they must pick a
 // profile, but stays TenantAdmin-only by design — a SystemAdmin who
 // owns a picker narrowed to access.systemAdmin has no query at all. Kept as
-// a separate feature (mirrors folders-user-data/notes-history-user-data)
+// a separate feature (like the user-data-hooks.ts of folders and notes-history)
 // rather than folded into compliance-profiles: this is the one genuinely
 // cross-tenant capability in the picker's orbit, and it alone needs
 // r.systemScope() + a hard r.requires({ features: ["tenant"] }) — apps that only want the
@@ -18,7 +18,7 @@ export function createComplianceProfilesOpsFeature() {
     "compliance-profiles-ops",
     (r) => {
       r.describe(
-        "Platform-wide SystemAdmin counterpart to `compliance-profiles`' `needs-profile` query (#2089): `tenants-missing-profile` lists every enabled tenant with no row in `tenantComplianceProfile` at all, tenant-wide instead of scoped to the caller's own tenant. Mount alongside `compliance-profiles` and `tenant` when an operator UI needs to see which tenants still silently run on `minimal-no-region`.",
+        "Platform-wide SystemAdmin counterpart to `compliance-profiles`' `needs-profile` query: `tenants-missing-profile` lists every enabled tenant with no row in `tenantComplianceProfile` at all, tenant-wide instead of scoped to the caller's own tenant. Mount alongside `compliance-profiles` and `tenant` when an operator UI needs to see which tenants still silently run on `minimal-no-region`.",
       );
       r.uiHints({
         displayLabel: "Compliance Profiles · Operator Visibility",
@@ -38,3 +38,4 @@ export function createComplianceProfilesOpsFeature() {
     { dedupeOptions: {} },
   );
 }
+export type { TenantsMissingProfileResponse } from "./handlers/tenants-missing-profile.query.ts";

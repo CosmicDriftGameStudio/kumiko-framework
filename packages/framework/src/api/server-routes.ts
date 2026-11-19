@@ -108,7 +108,7 @@ export function mountDispatcherRoutes(
     (tracedRedis ? createRateLimitResolver({ redis: tracedRedis }) : undefined);
   app.route(
     "/api",
-    createApiRoutes(dispatcher, {
+    createApiRoutes(dispatcher, options.registry, {
       ...(options.sseHeartbeatMs !== undefined ? { sseHeartbeatMs: options.sseHeartbeatMs } : {}),
       ...(options.context.clock !== undefined ? { clock: options.context.clock } : {}),
     }),
@@ -130,6 +130,7 @@ export function mountFileRoutes(
     ServerWiring,
     | "options"
     | "dispatcher"
+    | "context"
     | "fileProviderResolver"
     | "rateLimitResolver"
     | "tracedRedis"
@@ -175,6 +176,10 @@ export function mountFileRoutes(
           ? { unclaimedUploadReaders: routeOptions.unclaimedUploadReaders }
           : {}),
         ...(routeOptions.maxUploadSize ? { maxUploadSize: routeOptions.maxUploadSize } : {}),
+        ...(wiring.context._fileDownloadLinkSigner
+          ? { downloadLinkSigner: wiring.context._fileDownloadLinkSigner }
+          : {}),
+        ...(options.context.clock !== undefined ? { clock: options.context.clock } : {}),
       }),
     );
   }

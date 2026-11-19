@@ -22,13 +22,14 @@ import { isStreamArchived, loadAggregate as loadAggregateRaw } from "../../event
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const itemEntity = createEntity({
+  name: "arch-item",
   table: "read_arch_items",
   fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
-const itemTable = buildEntityTable("arch-item", itemEntity);
+const itemTable = buildEntityTable(itemEntity);
 
 const archFeature = defineFeature("archtest", (r) => {
-  r.entity({ name: "arch-item", ...itemEntity });
+  r.entity(itemEntity);
 
   const labelChanged = r.defineEvent("label-changed", z.object({ label: z.string() }), {
     piiFields: "none",
@@ -51,6 +52,7 @@ const archFeature = defineFeature("archtest", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: event.payload.id,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "arch-item",
         type: labelChanged.name,
         payload: { label: event.payload.label },

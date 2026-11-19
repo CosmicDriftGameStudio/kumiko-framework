@@ -29,7 +29,6 @@
 | `dashboard-stats` | Key figures on a dashboard: stat panels backed by one counting query. | `examples/dashboard-stats.md` |
 | `delivery-notifications` | Delivery flows plus notifications. Package tracking, minus the tracking. | `examples/delivery-notifications.md` |
 | `derived-fields-sql` | SQL derived fields on a list: coalesce, related count with a where, related first (text and money), sortable columns and a defaultSort on a derived value. | `examples/derived-fields-sql.md` |
-| `designer-demo` | Kumiko sample feature — scaffolded by `bun kumiko create` | `examples/designer-demo.md` |
 | `documents` | A document register on top of existing records: captured files, expiry dates and per-record visibility. | `examples/documents.md` |
 | `e2e-generator` | generateE2ESpec + withBootValidatorFixture — Registry → JSON-Specs für externen Playwright-Worker. Zeigt die 4 Test-Kinds, Feldtyp→Interaktion-Mapping und welche Feldtypen heute noch nicht generisch unterstützt sind. | `examples/e2e-generator.md` |
 | `embedded` | Embedded fields on entities. Structured JSON without the JSON part. | `examples/embedded.md` |
@@ -40,6 +39,7 @@
 | `event-sourcing` | Production-pattern ES sample: r.defineEvent (versioned + migrations) + ctx.events.append + r.projection + r.multiStreamProjection + ctx.events.load (asOf) + ctx.events.archive + ctx.dispatch.queryProjection. | `examples/event-sourcing.md` |
 | `feature-toggles` | Runtime feature-toggle flip — two toggleable features, one registers a cross-feature hook on the other; disabling either has the documented effect without reboot. | `examples/feature-toggles.md` |
 | `field-access` | Field-level access control. When entity-level roles aren't granular enough. | `examples/field-access.md` |
+| `field-approval` | Four-eyes approval for payment-relevant fields: a second person applies the change. | `examples/field-approval.md` |
 | `files-post-processing` | The three ways to generate an image variant: declarative field variants, imperative ctx.services.derivatives.variant() with region-blur, and the public route behind a default-deny predicate. | `examples/files-post-processing.md` |
 | `golden-path` | The smallest complete feature: entity, write handler, event, projection, screen and an integration test. | `examples/golden-path.md` |
 | `handbook-knowledge` | The handbook-knowledge bundled feature: a fixed handbook JSON served to the AI assistant as list-pages and read-page query tools. | `examples/handbook-knowledge.md` |
@@ -87,7 +87,5 @@
 | `timezones` | Every time-aware field type on one entity, plus the ctx.tz handler API. | `examples/timezones.md` |
 | `user-data-rights` | DSGVO-compliant in 5 LOC: r.useExtension(EXT_USER_DATA, ...) haengt eine Domain an Forget+Export-Pipeline. Forget-Cron, Export-ZIP, Magic-Link kommen alle aus user-data-rights. | `examples/user-data-rights.md` |
 | `user-profile` | user-profile bundled feature — Self-Service-Kontoseite (Passwort/E-Mail ändern, Konto löschen) als App-Screen verdrahten. | `examples/user-profile.md` |
-| `webhook-step` | Tier-2 r.step.webhook.send showcase: deferred webhook dispatch via step-dispatcher subscription, no outbox table. | `examples/webhook-step.md` |
 | `wizard-form` | EditLayout.mode: "wizard" — a multi-step entity form with a review step that reads live form values through an extension section, and draft: true resuming the in-progress form via the bundled form-draft feature. | `examples/wizard-form.md` |
-| `workflow-engine` | M.4 Tier-3 step-vocabulary showcase: defineWorkflow with wait/waitForEvent/retry steps | `examples/workflow-engine.md` |
 | `writeform-section` | A projectionDetail `writeForm` section rendered beside an established entityEdit form on the same page, so the shared form chrome (footer, submit affordance) between the two can be verified side by side. | `examples/writeform-section.md` |

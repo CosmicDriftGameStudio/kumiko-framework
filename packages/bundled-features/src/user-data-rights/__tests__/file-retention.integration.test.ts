@@ -21,11 +21,11 @@ import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-feature
 import {
   asRawClient,
   createEventStoreExecutor,
-  createTenantDb,
   type DbConnection,
 } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { createFilesFeature, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
@@ -41,7 +41,6 @@ import {
   tenantRetentionOverrideEntity,
 } from "../../data-retention/index.ts";
 import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";

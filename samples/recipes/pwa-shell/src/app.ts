@@ -2,6 +2,7 @@ import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumik
 import type { PwaOptions } from "@cosmicdrift/kumiko-server-runtime/pwa";
 
 const noteEntity = createEntity({
+  name: "note",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
   },
@@ -9,7 +10,7 @@ const noteEntity = createEntity({
 });
 
 export const notesFeature = defineFeature("pwa-notes", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
 });
 
 // Icons live in public/ (dist/ after kumiko build); the boot rejects any src that is not a

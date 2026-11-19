@@ -30,6 +30,7 @@ const fakeRender: DerivativeRendererPlugin["render"] = async () => {
 };
 
 const photoEntity = createEntity({
+  name: "photo",
   table: "variant_route_photos",
   fields: {
     avatar: createImageField({
@@ -44,9 +45,9 @@ const photoEntity = createEntity({
 });
 
 const photoFeature = defineFeature("variantroutetest", (r) => {
-  r.entity({ name: "photo", ...photoEntity });
+  r.entity(photoEntity);
   r.extendsRegistrar(EXT_DERIVATIVE_RENDERER, { onRegister: () => {} });
-  r.useExtension(EXT_DERIVATIVE_RENDERER, "image/*", { render: fakeRender });
+  r.applyExtension({ name: EXT_DERIVATIVE_RENDERER, entity: "image/*", render: fakeRender });
 });
 
 let stack: TestStack;

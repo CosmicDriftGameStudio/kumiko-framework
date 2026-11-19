@@ -181,7 +181,7 @@ describe("buildInsertSchema", () => {
       invalid: { born: 12345 },
     },
   ])("$name", ({ fields, valid, invalid }) => {
-    const entity = createEntity({ table: "Test", fields });
+    const entity = createEntity({ name: "entity", table: "Test", fields });
     const schema = buildInsertSchema(entity);
 
     if (valid) {
@@ -194,6 +194,7 @@ describe("buildInsertSchema", () => {
 
   test("combines multiple fields into one schema", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Users",
       fields: {
         email: createTextField({
@@ -231,7 +232,11 @@ describe("buildInsertSchema", () => {
   // asserts the new UUID contract AND explicitly rejects the old number
   // shape, so a regression to z.number() would flip every test red.
   test("file field accepts UUID (fileRefId)", () => {
-    const entity = createEntity({ table: "Test", fields: { contract: createFileField() } });
+    const entity = createEntity({
+      name: "entity",
+      table: "Test",
+      fields: { contract: createFileField() },
+    });
     const schema = buildInsertSchema(entity);
     expect(schema.safeParse({ contract: "00000000-0000-4000-8000-000000000001" }).success).toBe(
       true,
@@ -241,7 +246,11 @@ describe("buildInsertSchema", () => {
   });
 
   test("image field accepts UUID (fileRefId)", () => {
-    const entity = createEntity({ table: "Test", fields: { avatar: createImageField() } });
+    const entity = createEntity({
+      name: "entity",
+      table: "Test",
+      fields: { avatar: createImageField() },
+    });
     const schema = buildInsertSchema(entity);
     expect(schema.safeParse({ avatar: "00000000-0000-4000-8000-000000000002" }).success).toBe(true);
     expect(schema.safeParse({ avatar: 1 }).success).toBe(false);
@@ -249,7 +258,11 @@ describe("buildInsertSchema", () => {
   });
 
   test("files field accepts array of UUIDs", () => {
-    const entity = createEntity({ table: "Test", fields: { docs: createFilesField() } });
+    const entity = createEntity({
+      name: "entity",
+      table: "Test",
+      fields: { docs: createFilesField() },
+    });
     const schema = buildInsertSchema(entity);
     expect(
       schema.safeParse({
@@ -261,7 +274,11 @@ describe("buildInsertSchema", () => {
   });
 
   test("images field accepts array of UUIDs", () => {
-    const entity = createEntity({ table: "Test", fields: { photos: createImagesField() } });
+    const entity = createEntity({
+      name: "entity",
+      table: "Test",
+      fields: { photos: createImagesField() },
+    });
     const schema = buildInsertSchema(entity);
     expect(schema.safeParse({ photos: ["00000000-0000-4000-8000-000000000003"] }).success).toBe(
       true,
@@ -272,17 +289,31 @@ describe("buildInsertSchema", () => {
 
   test("money field accepts { amount, currency } object", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: { price: createMoneyField({ required: true }) },
       defaultCurrency: "EUR",
     });
     const schema = buildInsertSchema(entity);
     expect(schema.safeParse({ price: { amount: 1250, currency: "EUR" } }).success).toBe(true);
-    expect(schema.safeParse({ price: { amount: 99.99, currency: "USD" } }).success).toBe(true);
+    expect(schema.safeParse({ price: { amount: 9999, currency: "USD" } }).success).toBe(true);
+  });
+
+  test("money field rejects a fractional amount, amounts are integer minor units", () => {
+    const entity = createEntity({
+      name: "entity",
+      table: "Test",
+      fields: { price: createMoneyField({ required: true }) },
+      defaultCurrency: "EUR",
+    });
+    const schema = buildInsertSchema(entity);
+    expect(schema.safeParse({ price: { amount: 12.5, currency: "EUR" } }).success).toBe(false);
+    expect(schema.safeParse({ price: { amount: 1250, currency: "EUR" } }).success).toBe(true);
   });
 
   test("money field rejects invalid currency", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: { price: createMoneyField() },
       defaultCurrency: "EUR",
@@ -293,6 +324,7 @@ describe("buildInsertSchema", () => {
 
   test("money field rejects plain number", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: { price: createMoneyField() },
       defaultCurrency: "EUR",
@@ -303,6 +335,7 @@ describe("buildInsertSchema", () => {
 
   test("money field with custom currencies", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: { price: createMoneyField() },
       defaultCurrency: "BHD",
@@ -315,6 +348,7 @@ describe("buildInsertSchema", () => {
 
   test("required text rejects empty string", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -326,6 +360,7 @@ describe("buildInsertSchema", () => {
 
   test("embedded field accepts object matching schema", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         address: createEmbeddedField({
@@ -346,6 +381,7 @@ describe("buildInsertSchema", () => {
 
   test("embedded field rejects missing required sub-field", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         address: createEmbeddedField({
@@ -360,6 +396,7 @@ describe("buildInsertSchema", () => {
 
   test("embedded field rejects wrong sub-field type", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         address: createEmbeddedField({
@@ -374,6 +411,7 @@ describe("buildInsertSchema", () => {
 
   test("embedded field accepts optional sub-fields", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         address: createEmbeddedField({
@@ -388,6 +426,7 @@ describe("buildInsertSchema", () => {
 
   test("optional embedded field can be omitted", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -400,6 +439,7 @@ describe("buildInsertSchema", () => {
 
   test("required embedded field cannot be omitted", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         address: createEmbeddedField({ street: { type: "text" } }, { required: true }),
@@ -411,6 +451,7 @@ describe("buildInsertSchema", () => {
 
   test("embedded-list field validates every row against the schema", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         lines: createEmbeddedListField({
@@ -440,6 +481,7 @@ describe("buildInsertSchema", () => {
 
   test("embedded-list field rejects a bare object", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: { lines: createEmbeddedListField({ accountId: { type: "text", required: true } }) },
     });
@@ -450,6 +492,7 @@ describe("buildInsertSchema", () => {
   test("optional embedded-list accepts an empty list, required one does not", () => {
     const optional = buildInsertSchema(
       createEntity({
+        name: "thing",
         table: "Test",
         fields: { lines: createEmbeddedListField({ accountId: { type: "text" } }) },
       }),
@@ -459,6 +502,7 @@ describe("buildInsertSchema", () => {
 
     const required = buildInsertSchema(
       createEntity({
+        name: "thing",
         table: "Test",
         fields: {
           lines: createEmbeddedListField({ accountId: { type: "text" } }, { required: true }),
@@ -472,6 +516,7 @@ describe("buildInsertSchema", () => {
 
   test("select sub-field accepts a listed option, rejects an unlisted string", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         lines: createEmbeddedListField({
@@ -486,6 +531,7 @@ describe("buildInsertSchema", () => {
 
   test("reference sub-field accepts a UUID, rejects a non-UUID string", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         lines: createEmbeddedListField({
@@ -502,6 +548,7 @@ describe("buildInsertSchema", () => {
 
   test("minItems/maxItems bound an embedded list", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         lines: createEmbeddedListField(
@@ -529,6 +576,7 @@ describe("buildInsertSchema", () => {
 
   test("money sub-field accepts signed integer minor units, rejects fractions", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         lines: createEmbeddedListField({
@@ -549,6 +597,7 @@ describe("buildInsertSchema", () => {
 
   test("decimal sub-field bounds the value to its scale", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         items: createEmbeddedListField({
@@ -570,6 +619,7 @@ describe("buildInsertSchema", () => {
 
   test("tz field validates against the IANA zone list", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: { zone: { type: "tz", required: true } },
     });
@@ -582,6 +632,7 @@ describe("buildInsertSchema", () => {
 
   test("locatedTimestamp validates its tz against the IANA zone list", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: { pickup: createLocatedTimestampField({ required: true }) },
     });
@@ -599,6 +650,7 @@ describe("buildInsertSchema", () => {
   // not reject it as an invalid enum value.
   test("optional select without default accepts empty string as unset (null)", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: { locale: createSelectField({ options: ["de", "en", "fr"] as const }) },
     });
@@ -612,6 +664,7 @@ describe("buildInsertSchema", () => {
 
   test("optional select without default still validates a real value", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: { locale: createSelectField({ options: ["de", "en", "fr"] as const }) },
     });
@@ -622,6 +675,7 @@ describe("buildInsertSchema", () => {
 
   test("required select rejects empty string", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: { locale: createSelectField({ options: ["de", "en"] as const, required: true }) },
     });
@@ -634,6 +688,7 @@ describe("buildInsertSchema", () => {
   // undefined. "" maps to the default (a defaulted field is never unset).
   test("optional select with default accepts empty string and falls back to the default", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         locale: createSelectField({ options: ["de", "en", "fr"] as const, default: "de" }),
@@ -654,6 +709,7 @@ describe("buildInsertSchema", () => {
   // value the way a bare `null` previously was.
   test("optional select with default accepts null and falls back to the default", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         locale: createSelectField({ options: ["de", "en", "fr"] as const, default: "de" }),
@@ -669,6 +725,7 @@ describe("buildInsertSchema", () => {
 
   test("optional select with default still validates a real value", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         locale: createSelectField({ options: ["de", "en"] as const, default: "de" }),
@@ -682,6 +739,7 @@ describe("buildInsertSchema", () => {
   // Pins omitted key + explicit undefined: the ZodPipe/optional path for defaults.
   test("optional select with default applies when key omitted or undefined", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         locale: createSelectField({ options: ["de", "en", "fr"] as const, default: "de" }),
@@ -702,6 +760,7 @@ describe("buildInsertSchema", () => {
 describe("embedded sub-field: timestamp", () => {
   test("accepts a valid ISO datetime, rejects an invalid string", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         lines: createEmbeddedListField({
@@ -723,6 +782,7 @@ describe("embedded sub-field: timestamp", () => {
 describe("totalsMatch", () => {
   function invoiceEntity() {
     return createEntity({
+      name: "thing",
       table: "Invoices",
       fields: {
         total: createMoneyField({ required: true }),
@@ -735,10 +795,10 @@ describe("totalsMatch", () => {
     });
   }
 
-  test("accepts when the sum of line amounts (minor units) equals the sibling total (major units)", () => {
+  test("accepts when the sum of line amounts equals the sibling total (both minor units)", () => {
     const schema = buildInsertSchema(invoiceEntity());
     const result = schema.safeParse({
-      total: { amount: 30, currency: "EUR" },
+      total: { amount: 3000, currency: "EUR" },
       lines: [{ amount: 1000 }, { amount: 2000 }],
     });
     expect(result.success).toBe(true);
@@ -747,7 +807,7 @@ describe("totalsMatch", () => {
   test("rejects when the sum diverges from the sibling total, issue path is the embedded field name", () => {
     const schema = buildInsertSchema(invoiceEntity());
     const result = schema.safeParse({
-      total: { amount: 30, currency: "EUR" },
+      total: { amount: 3000, currency: "EUR" },
       lines: [{ amount: 1000 }, { amount: 1500 }],
     });
     expect(result.success).toBe(false);
@@ -758,17 +818,14 @@ describe("totalsMatch", () => {
 
   test("update payload omitting the embedded list is rejected (totalsMatch pair incomplete)", () => {
     const schema = buildUpdateSchema(invoiceEntity());
-    expect(schema.safeParse({ total: { amount: 30, currency: "EUR" } }).success).toBe(false);
+    expect(schema.safeParse({ total: { amount: 3000, currency: "EUR" } }).success).toBe(false);
   });
 
-  // A round total (30 EUR = 3000 minor) still passes
-  // even if the major/minor conversion is silently skipped, because 30 and
-  // 3000 both "look" plausible under either interpretation. A crooked
-  // amount catches that a round-number fixture wouldn't.
-  test("accepts a crooked total (1234.56 EUR) whose minor-unit line sum matches exactly", () => {
+  // A round total can hide a unit mix-up (3000 vs 30); a crooked amount does not.
+  test("accepts a crooked total (1234.56 EUR) whose line sum matches exactly", () => {
     const schema = buildInsertSchema(invoiceEntity());
     const result = schema.safeParse({
-      total: { amount: 1234.56, currency: "EUR" },
+      total: { amount: 123456, currency: "EUR" },
       lines: [{ amount: 100000 }, { amount: 23456 }],
     });
     expect(result.success).toBe(true);
@@ -798,7 +855,7 @@ describe("totalsMatch", () => {
   test("rejects a sibling total tagged with a currency other than the entity's default, even when the raw minor-unit amounts match", () => {
     const schema = buildInsertSchema(invoiceEntity());
     const result = schema.safeParse({
-      total: { amount: 30, currency: "USD" },
+      total: { amount: 3000, currency: "USD" },
       lines: [{ amount: 1000 }, { amount: 2000 }],
     });
     expect(result.success).toBe(false);
@@ -815,6 +872,7 @@ describe("totalsMatch", () => {
 describe("embedded-list derived cell recomputation", () => {
   function orderEntity() {
     return createEntity({
+      name: "thing",
       table: "Orders",
       fields: {
         lines: createEmbeddedListField(
@@ -858,6 +916,7 @@ describe("embedded-list derived cell recomputation", () => {
 
   test("a missing source for a multiply-derived cell leaves the cell unset rather than 0", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Orders",
       fields: {
         lines: createEmbeddedListField(
@@ -882,6 +941,7 @@ describe("embedded-list derived cell recomputation", () => {
 
   test("an embedded-list field without `derived` leaves a client-sent value untouched", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Orders",
       fields: {
         lines: createEmbeddedListField({
@@ -905,6 +965,7 @@ describe("embedded-list derived cell recomputation", () => {
 
   test("a fractional product on a money target is rounded to whole minor units (commercial rounding)", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Orders",
       fields: {
         lines: createEmbeddedListField(
@@ -931,6 +992,7 @@ describe("embedded-list derived cell recomputation", () => {
 
   test("a negative product exactly on a half-step rounds away from zero, not toward it", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Orders",
       fields: {
         lines: createEmbeddedListField(
@@ -957,6 +1019,7 @@ describe("embedded-list derived cell recomputation", () => {
 
   test("a decimal target rounds correctly through the classic float half-step trap", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Orders",
       fields: {
         lines: createEmbeddedListField(
@@ -983,6 +1046,7 @@ describe("embedded-list derived cell recomputation", () => {
 
   test("totalsMatch validates against the rounded derived values, not the raw fractional products", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Orders",
       fields: {
         total: createMoneyField({ required: true }),
@@ -1006,7 +1070,7 @@ describe("embedded-list derived cell recomputation", () => {
     // Sibling total must equal the sum of the ROUNDED amounts (26.58 EUR),
     // not the sum of the raw fractional products.
     const result = schema.safeParse({
-      total: { amount: 26.58, currency: "EUR" },
+      total: { amount: 2658, currency: "EUR" },
       lines: [
         { qty: 2.5, price: 923 },
         { qty: 3.5, price: 100 },
@@ -1017,6 +1081,7 @@ describe("embedded-list derived cell recomputation", () => {
 
   test("a number-typed derived cell is left unrounded (unit-agnostic pass-through)", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Orders",
       fields: {
         lines: createEmbeddedListField(
@@ -1040,6 +1105,7 @@ describe("embedded-list derived cell recomputation", () => {
 
   test("a sum of scale-3 sources on a scale-2 decimal target is rounded, not rejected as over-scale", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Orders",
       fields: {
         lines: createEmbeddedListField(
@@ -1067,6 +1133,7 @@ describe("embedded-list derived cell recomputation", () => {
 
   test("a subtract landing on a money target rounds to whole minor units", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Orders",
       fields: {
         lines: createEmbeddedListField(
@@ -1095,10 +1162,12 @@ describe("embedded-list derived cell recomputation", () => {
 
 describe("text minLength", () => {
   const optionalCode = createEntity({
+    name: "optionalCode",
     table: "Codes",
     fields: { code: createTextField({ minLength: 6, personal: false, reason: "test_fixture" }) },
   });
   const requiredCode = createEntity({
+    name: "requiredCode",
     table: "Codes",
     fields: {
       code: createTextField({
@@ -1110,6 +1179,7 @@ describe("text minLength", () => {
     },
   });
   const writeOnlyCode = createEntity({
+    name: "writeOnlyCode",
     table: "Codes",
     fields: {
       code: createTextField({
@@ -1143,6 +1213,7 @@ describe("text minLength", () => {
 describe("buildUpdateSchema", () => {
   test("all fields are optional", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Users",
       fields: {
         email: createTextField({
@@ -1170,6 +1241,7 @@ describe("buildUpdateSchema", () => {
 
   test("still validates format on provided fields", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Users",
       fields: {
         email: createTextField({
@@ -1193,6 +1265,7 @@ describe("buildUpdateSchema", () => {
   // changes payload and silently no-op instead of clearing).
   test("optional select accepts empty string as an explicit clear-to-null", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: { locale: createSelectField({ options: ["de", "en"] as const }) },
     });
@@ -1207,6 +1280,7 @@ describe("buildUpdateSchema", () => {
 
   test("omitting an optional select on update leaves it untouched", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: { locale: createSelectField({ options: ["de", "en"] as const }) },
     });
@@ -1226,6 +1300,7 @@ describe("buildUpdateSchema", () => {
   // too, not clobber an existing value to null.
   test("optional select with default on update: empty string falls back to the default", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         locale: createSelectField({ options: ["de", "en"] as const, default: "de" }),
@@ -1242,6 +1317,7 @@ describe("buildUpdateSchema", () => {
 
   test("optional select with default on update: omitting the field leaves it untouched", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         locale: createSelectField({ options: ["de", "en"] as const, default: "de" }),
@@ -1258,6 +1334,7 @@ describe("buildUpdateSchema", () => {
 
   test("required select with default on update: empty string falls back to the default instead of a required-error", () => {
     const entity = createEntity({
+      name: "entity",
       table: "Test",
       fields: {
         locale: createSelectField({
@@ -1278,6 +1355,7 @@ describe("buildUpdateSchema", () => {
 
   describe("null clears an optional stored field", () => {
     const entity = createEntity({
+      name: "entity",
       table: "NullClear",
       fields: {
         endpoint: createTextField({ personal: false, reason: "test_fixture" }),
@@ -1310,6 +1388,7 @@ describe("buildUpdateSchema", () => {
 
     test("optional money rejects null (the currency column would keep its stale value)", () => {
       const moneyEntity = createEntity({
+        name: "money",
         table: "NullClearMoney",
         fields: { price: createMoneyField() },
       });
@@ -1320,6 +1399,7 @@ describe("buildUpdateSchema", () => {
 
 describe("buildInsertSchema caller id", () => {
   const entity = createEntity({
+    name: "entity",
     table: "Test",
     fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
   });
@@ -1338,6 +1418,7 @@ describe("buildInsertSchema caller id", () => {
 
 describe("reference fields", () => {
   const entity = createEntity({
+    name: "entity",
     table: "notes",
     fields: {
       jobId: createReferenceField({ entity: "job", required: true }),
@@ -1361,9 +1442,32 @@ describe("reference fields", () => {
     });
   });
 
+  const SITE_ID = "00000000-0000-4000-8000-000000000001";
+  const visitEntity = createEntity({
+    name: "visit",
+    table: "visits",
+    fields: {
+      contactId: createReferenceField({ entity: "contact" }),
+      siteId: createReferenceField({ entity: "site", required: true }),
+    },
+  });
+
+  test.each([
+    ["insert", buildInsertSchema(visitEntity)],
+    ["update", buildUpdateSchema(visitEntity)],
+  ])("the %s schema reads an empty optional reference as null", (_kind, schema) => {
+    expect(schema.parse({ contactId: "", siteId: SITE_ID })).toMatchObject({ contactId: null });
+    expect(handlerFieldReference(schema, "contactId")?.entity).toBe("contact");
+  });
+
+  test("a required reference still rejects an empty string", () => {
+    expect(buildInsertSchema(visitEntity).safeParse({ siteId: "" }).success).toBe(false);
+  });
+
   test("a cross-feature reference keeps its qualified target", () => {
     const schema = buildInsertSchema(
       createEntity({
+        name: "thing",
         table: "bookings",
         fields: { accountId: createReferenceField({ entity: "ledger:account" }) },
       }),

@@ -50,7 +50,13 @@ function groupByTemplate(users: readonly LayoutUser[]): readonly {
   });
 }
 
-export function LayoutUsageSection({ slug }: { readonly slug: string }): ReactNode {
+export function LayoutUsageSection({
+  slug,
+  dirty,
+}: {
+  readonly slug: string;
+  readonly dirty: boolean;
+}): ReactNode {
   const t = useTranslation();
   const { Button, Banner } = usePrimitives();
   const { publish } = useApplyLayout();
@@ -116,11 +122,12 @@ export function LayoutUsageSection({ slug }: { readonly slug: string }): ReactNo
             </ul>
           </Banner>
         )}
+        {dirty && <RailHint>{t("documentDesigner.usedBy.saveFirst")}</RailHint>}
         {drafts.length > 0 && <RailHint>{t("documentDesigner.usedBy.publishHint")}</RailHint>}
         {drafts.length > 0 && (
           <Button
             size="sm"
-            disabled={publish.pending}
+            disabled={publish.pending || dirty}
             loading={publish.pending}
             onClick={publishDrafts}
             testId="layout-usage-publish"
@@ -133,6 +140,7 @@ export function LayoutUsageSection({ slug }: { readonly slug: string }): ReactNo
         <Button
           variant="secondary"
           size="sm"
+          disabled={dirty}
           onClick={() => setOpen(true)}
           testId="layout-apply-open"
         >

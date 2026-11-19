@@ -47,7 +47,8 @@ const mailer = defineFeature("pipe-mailer", (r) => {
     access: { roles: ["TenantAdmin"] },
     handler: async () => ({ isSuccess: true as const, data: {} }),
   });
-  r.notification("hello", {
+  r.notification({
+    name: "hello",
     trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),

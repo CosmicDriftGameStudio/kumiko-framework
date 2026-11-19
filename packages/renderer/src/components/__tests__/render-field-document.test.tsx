@@ -7,7 +7,8 @@ import type { ComponentType, ReactNode } from "react";
 import { type ContentEditorProps, ContentEditorsProvider } from "../../app/content-editors.tsx";
 import type { EditFieldViewModel } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
-import { type CorePrimitives, PrimitivesProvider, type TextProps } from "../../primitives.tsx";
+import { PrimitivesProvider, type TextProps } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RenderField } from "../render-field.tsx";
 
 const noop = (): ReactNode => null;
@@ -16,7 +17,7 @@ const PlainText: ComponentType<TextProps> = ({ children }) => (
   <span data-testid="plain">{children}</span>
 );
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: noop,
   Field: passChildren,
@@ -35,7 +36,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function ClearingEditor({ onChange }: ContentEditorProps) {
   return (

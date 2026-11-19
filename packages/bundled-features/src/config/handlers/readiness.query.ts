@@ -8,7 +8,7 @@ import {
   toKebab,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { requireConfigResolver, requireSystemDb } from "../feature.ts";
+import { requireConfigResolver } from "../feature.ts";
 import { hasConfigAccess } from "../write-helpers.ts";
 
 export type ReadinessMissingKey = {
@@ -34,7 +34,7 @@ export type RequiredKeyGate = (qualifiedName: string) => boolean;
 // each selector through the config cascade, mark every provider-feature
 // registered under that point as counted/uncounted. Features without a
 // selector-gated registration always count. `db` is the caller's own scoped
-// handle — config's own handlers pass requireSystemDb's result, the plain
+// handle — config's own handlers pass ctx.systemDb's result, the plain
 // tenant-scoped readiness feature passes its own ctx.db. This function makes
 // no scope decision itself; see readiness/handlers/status.query.ts and
 // config/handlers/readiness.query.ts's own handler for the two call sites.
@@ -144,8 +144,9 @@ export const readinessQuery = defineQueryHandler({
       "self-scoped read of the caller's own tenant's config readiness, hit on every page load; " +
       "per-tenant bucket would throttle the whole tenant, L1 IP limit still applies",
   },
+  systemScope: true,
   handler: async (query, ctx) => {
-    const db = requireSystemDb(ctx, "config:query:readiness", query.user.tenantId);
+    const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
     const missing = await collectMissingRequiredConfig(
       ctx,
       "config:query:readiness",

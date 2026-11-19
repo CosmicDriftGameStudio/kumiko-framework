@@ -12,8 +12,7 @@
  *   - current <= baseline per file: PASS
  *   - current >  baseline per file: FAIL
  * Reductions do NOT update the baseline automatically — run `--write-baseline`
- * after refactor commits. Without a baseline file the check stays
- * warning-only (bootstrap: run `--write-baseline` once).
+ * after refactor commits. A missing baseline file counts as an empty baseline, so every existing hit fails until it is frozen with `--write-baseline`.
  * The baseline covers only files of the repo itself; sibling hotspots belong
  * in their own baseline (see localHotspots).
  *
@@ -46,7 +45,7 @@ import {
   runStandalone,
   type ScanSpec,
 } from "./_lib/guard-kit";
-import { hasIgnoreTag, lineHasIgnoreTag } from "./_lib/ignore-tag";
+import { consumeIgnoreTagOnLine, hasIgnoreTag } from "./_lib/ignore-tag";
 import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
 const ROOT = process.cwd();
@@ -112,8 +111,7 @@ function hasBudgetTag(fn: Node): boolean {
   if (hasIgnoreTag(fn, BUDGET_TAG)) return true;
   const jsDocStartLine = fn.getStartLineNumber(true);
   if (jsDocStartLine === fn.getStartLineNumber()) return false;
-  const lines = fn.getSourceFile().getFullText().split("\n");
-  return lineHasIgnoreTag(lines[jsDocStartLine - 2] ?? "", BUDGET_TAG);
+  return consumeIgnoreTagOnLine(fn.getSourceFile(), jsDocStartLine - 1, BUDGET_TAG);
 }
 
 const BRANCH_KINDS: ReadonlySet<SyntaxKind> = new Set([
@@ -326,6 +324,7 @@ export function analyse(
 
 export const guard: AstGuard = {
   name: "Complexity Check",
+  ignoreTag: BUDGET_TAG,
   scan: SCAN,
   // No remediation text here: reportResults appends the hint to EVERY failure,
   // including format drift, where "split the function" would mislead. The

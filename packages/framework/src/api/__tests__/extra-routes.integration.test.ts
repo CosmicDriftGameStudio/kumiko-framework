@@ -5,9 +5,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { createRegistry, defineFeature, type TenantId } from "../../engine/index.ts";
-import { RateLimitError } from "../../errors/index.ts";
+import { isKumikoError, RateLimitError } from "../../errors/index.ts";
+import { createInMemoryFileProvider } from "../../files/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import {
   type AnonymousExtraRoute,
@@ -311,6 +313,108 @@ describe("extraRoutes: entry:anonymous deps.write", () => {
     const body = (await res.json()) as { error: { message: string } };
     expect(body.error.message).toMatch(/mounted\s+under\s+"\/api\/"\s+with\s+anonymousAccess/);
     expect(anonymousWriteStore.get(TENANT_ID)).toBeUndefined();
+  });
+});
+
+const anonymousQueryFeature = defineFeature("anonymous-query-probe", (r) => {
+  r.queryHandler({
+    name: "anon-caller",
+    schema: z.object({}),
+    access: { roles: ["anonymous"] },
+    handler: async (event) => ({ tenantSeen: event.user.tenantId }),
+  });
+  r.queryHandler({
+    name: "anon-gated-query",
+    schema: z.object({}),
+    access: { roles: ["Admin"] },
+    handler: async () => ({ ok: true as const }),
+  });
+});
+
+describe("extraRoutes: entry:anonymous deps.query", () => {
+  const queryAs = (qn: string): AnonymousExtraRoute["handler"] => {
+    // Response.json, not c.json: deps.query yields unknown and KumikoError.httpStatus is a plain
+    // number, neither of which Hono's typed c.json accepts.
+    return async (_c, deps) => {
+      try {
+        return Response.json(await deps.query(qn, {}));
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        return Response.json(
+          { error: { code: errorCodeOf(e), message } },
+          { status: isKumikoError(e) ? e.httpStatus : 500 },
+        );
+      }
+    };
+  };
+  const callerRoute: AnonymousExtraRoute = {
+    method: "POST",
+    path: "/api/anon-query-caller",
+    entry: "anonymous",
+    handler: queryAs("anonymous-query-probe:query:anon-caller"),
+  };
+  const gatedRoute: AnonymousExtraRoute = {
+    method: "POST",
+    path: "/api/anon-query-gated",
+    entry: "anonymous",
+    handler: queryAs("anonymous-query-probe:query:anon-gated-query"),
+  };
+  const outsideApiRoute: AnonymousExtraRoute = {
+    method: "POST",
+    path: "/public/anon-query-probe",
+    entry: "anonymous",
+    handler: queryAs("anonymous-query-probe:query:anon-caller"),
+  };
+
+  let stack: TestStack;
+
+  beforeAll(async () => {
+    stack = await setupTestStack({
+      features: [anonymousQueryFeature],
+      extraRoutes: [callerRoute, gatedRoute, outsideApiRoute],
+      anonymousAccess: { tenantExists: async (id) => id === TENANT_ID },
+    });
+  });
+
+  afterAll(() => stack.cleanup());
+
+  test("without a token, deps.query runs as the anonymous session on the request-resolved tenant", async () => {
+    const res = await stack.app.request("/api/anon-query-caller", {
+      method: "POST",
+      headers: { "X-Tenant": TENANT_ID },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { tenantSeen: string };
+    expect(body.tenantSeen).toBe(TENANT_ID);
+  });
+
+  test("without a token, a role-gated query handler is denied as unauthenticated", async () => {
+    const res = await stack.app.request("/api/anon-query-gated", {
+      method: "POST",
+      headers: { "X-Tenant": TENANT_ID },
+    });
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("unauthenticated");
+  });
+
+  test("with a Bearer admin token, the role-gated query handler succeeds", async () => {
+    const token = await stack.jwt.sign(TestUsers.admin);
+    const res = await stack.app.request("/api/anon-query-gated", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+  });
+
+  test("outside /api/, deps.query throws with a message naming the /api/ + anonymousAccess requirement", async () => {
+    const res = await stack.app.request("/public/anon-query-probe", { method: "POST" });
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { error: { message: string } };
+    expect(body.error.message).toContain("deps.query");
+    expect(body.error.message).toContain('"/api/"');
+    expect(body.error.message).toContain("anonymousAccess");
   });
 });
 
@@ -772,3 +876,75 @@ function _userDepsHaveNoDispatchSystemWrite(): UserExtraRoute {
     },
   };
 }
+
+function hooksUserRoute(): UserExtraRoute {
+  return {
+    method: "GET",
+    path: "/api/hooks/me",
+    entry: "user",
+    handler: async (c) => c.json({}),
+  };
+}
+
+function hooksSignatureRoute(method: "GET" | "POST") {
+  return signatureRoute({
+    method,
+    path: "/api/hooks/:id",
+    entry: "signature",
+    verify: async () => true,
+    handler: async (c) => c.json({}),
+  });
+}
+
+test("extraRoutes: entry:signature route overlapping a user extraRoute throws at boot", () => {
+  const registry = createRegistry([probeFeature]);
+  const overlapMessage = /must not\s+overlap the route "GET \/api\/hooks\/me"/;
+  expect(() =>
+    buildServer({
+      registry,
+      context: {},
+      jwtSecret: JWT_SECRET,
+      extraRoutes: [hooksUserRoute(), hooksSignatureRoute("GET")],
+    }),
+  ).toThrow(overlapMessage);
+  expect(() =>
+    buildServer({
+      registry,
+      context: {},
+      jwtSecret: JWT_SECRET,
+      extraRoutes: [hooksSignatureRoute("GET"), hooksUserRoute()],
+    }),
+  ).toThrow(overlapMessage);
+});
+
+test("extraRoutes: entry:signature route overlapping a mounted framework sub-route throws at boot", async () => {
+  await expect(
+    setupTestStack({
+      features: [probeFeature],
+      files: { storageProvider: createInMemoryFileProvider() },
+      extraRoutes: [
+        signatureRoute({
+          method: "GET",
+          path: "/api/files/:id",
+          entry: "signature",
+          verify: async () => true,
+          handler: async (c) => c.json({}),
+        }),
+      ],
+    }),
+  ).rejects.toThrow(
+    /route "GET \/api\/files\/:id" must not overlap the route "GET \/api\/files\/meta"/,
+  );
+});
+
+test("extraRoutes: a signature route with a different method than the user route boots", () => {
+  const registry = createRegistry([probeFeature]);
+  expect(() =>
+    buildServer({
+      registry,
+      context: {},
+      jwtSecret: JWT_SECRET,
+      extraRoutes: [hooksUserRoute(), hooksSignatureRoute("POST")],
+    }),
+  ).not.toThrow();
+});

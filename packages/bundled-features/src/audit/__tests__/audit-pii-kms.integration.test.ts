@@ -7,7 +7,7 @@ import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-
 import {
   createEntity,
   createTextField,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
@@ -25,6 +25,7 @@ import { createAuditFeature } from "../feature.ts";
 import { AuditQueries } from "../web/constants.ts";
 
 const memberEntity = createEntity({
+  name: "member",
   table: "audit_kms_members",
   fields: {
     ownerRef: createTextField({ personal: false, reason: "technical_reference" }),
@@ -33,9 +34,9 @@ const memberEntity = createEntity({
 });
 
 const memberFeature = defineFeature("auditkms", (r) => {
-  r.entity({ name: "member", ...memberEntity });
+  r.entity(memberEntity);
   r.writeHandler(
-    defineEntityWriteHandler("member:create", memberEntity, {
+    defineEntityCreateHandler("member", memberEntity, {
       access: { roles: ["Admin", "SystemAdmin"] },
     }),
   );

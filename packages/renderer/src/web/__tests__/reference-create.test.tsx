@@ -67,16 +67,16 @@ function makeDispatcher({ returnsId = true }: { readonly returnsId?: boolean } =
   // thus the label of the newly selected value) would stay empty.
   const createdIds: string[] = [];
   const dispatcher = createMockDispatcher({
-    query: (async () => ({
+    query: async () => ({
       isSuccess: true,
       data: { rows: createdIds.map((id) => ({ id })) },
-    })) as unknown as Dispatcher["query"],
-    write: (async (type: string) => {
+    }),
+    write: async (type: string) => {
       writes.push(type);
       const id = `widget-${createdIds.length + 1}`;
       createdIds.push(id);
       return { isSuccess: true, data: returnsId ? { kind: "save", id } : { kind: "save" } };
-    }) as unknown as Dispatcher["write"],
+    },
   });
   return { ...dispatcher, writes };
 }
@@ -180,11 +180,9 @@ describe("Reference-field create-in-place", () => {
 
     await waitFor(() => expect(dispatcher.writes.length).toBe(1));
     await waitFor(() => expect(screen.queryByTestId("field-name")).toBeNull());
-    expect(
-      await screen.findByText(
-        "Record was created but could not be selected automatically. Please select it manually.",
-      ),
-    ).toBeTruthy();
+    await screen.findByText(
+      "Record was created but could not be selected automatically. Please select it manually.",
+    );
     expect(screen.getByTestId("combobox-kumiko-edit-assignee").textContent).not.toContain(
       "widget-1",
     );

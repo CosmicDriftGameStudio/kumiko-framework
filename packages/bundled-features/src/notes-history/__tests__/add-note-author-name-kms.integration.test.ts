@@ -37,11 +37,12 @@ import { noteEntryEntity, noteMentionEntity } from "../entity.ts";
 import { createNotesHistoryFeature } from "../feature.ts";
 import { NotesHistoryHandlers, NotesHistoryQueries } from "../web/constants.ts";
 
-const notesHistoryFeature = createNotesHistoryFeature();
+const notesHistoryFeature = createNotesHistoryFeature({ parents: ["contact"] });
 const tenantId = testTenantId(1);
 
 const CONTACT_TABLE = "notes_kms_test_contacts";
 const contactEntity = createEntity({
+  name: "contact",
   table: CONTACT_TABLE,
   fields: {
     name: createTextField({
@@ -53,7 +54,7 @@ const contactEntity = createEntity({
   },
 });
 const contactFixtureFeature = defineFeature("notes-kms-test-contact-fixture", (r) => {
-  r.entity({ name: "contact", ...contactEntity });
+  r.entity(contactEntity);
 });
 const CONTACT_KMS_AUTHOR = "40000000-0000-4000-8000-000000000001";
 

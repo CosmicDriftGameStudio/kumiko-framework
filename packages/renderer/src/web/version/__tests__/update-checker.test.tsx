@@ -45,10 +45,10 @@ describe("UpdateChecker", () => {
     render(<UpdateChecker />);
 
     await waitFor(() => {
-      expect(screen.getByRole("status")).toBeTruthy();
+      screen.getByRole("status");
     });
-    expect(screen.getByText("A new version is available.")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Reload" })).toBeTruthy();
+    screen.getByText("A new version is available.");
+    screen.getByRole("button", { name: "Reload" });
   });
 
   test("build-info !ok → no banner", async () => {

@@ -1,19 +1,17 @@
 import {
   defineUnmanagedTable,
-  type EntityTableMeta,
-  index,
   instant,
   integer,
   table as pgTable,
   sql,
   text,
+  uniqueIndex,
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
 
-const INGEST_PROGRESS_FILE_REF_INDEX = "store_document_ingest_progress_tenant_id_file_ref_id_idx";
+const INGEST_PROGRESS_FILE_REF_UNIQUE = "store_document_ingest_progress_tenant_file_ref_unique";
 
-// One row per ingest stream (PK = documentIngestAggregateId), upserted by the
-// "ingest-progress" projection on every documentIngest.progress event.
+// One row per ingested file, written directly by reportIngestProgress (no events).
 export const documentIngestProgressTable = pgTable(
   "store_document_ingest_progress",
   {
@@ -24,14 +22,16 @@ export const documentIngestProgressTable = pgTable(
     pagesTotal: integer("pages_total").notNull(),
     updatedAt: instant("updated_at").default(sql`now()`).notNull(),
   },
-  (t) => [index(INGEST_PROGRESS_FILE_REF_INDEX).on(t.tenantId, t.fileRefId)],
+  (t) => [uniqueIndex(INGEST_PROGRESS_FILE_REF_UNIQUE).on(t.tenantId, t.fileRefId)],
 );
 
-// Unmanaged: the id is the event-stream aggregate id and replays are idempotent via the PK upsert,
-// so the managed base columns (version, audit columns) have no use here.
-export const documentIngestProgressTableMeta: EntityTableMeta = defineUnmanagedTable({
+// Unmanaged: a display-only progress row needs no version or audit columns. The unique index
+// is the conflict target of the upsert in reportIngestProgress.
+export const documentIngestProgressTableMeta = defineUnmanagedTable({
   tableName: "store_document_ingest_progress",
-  indexes: [{ name: INGEST_PROGRESS_FILE_REF_INDEX, columns: ["tenant_id", "file_ref_id"] }],
+  indexes: [
+    { name: INGEST_PROGRESS_FILE_REF_UNIQUE, columns: ["tenant_id", "file_ref_id"], unique: true },
+  ],
   columns: [
     { name: "id", pgType: "uuid", notNull: true, primaryKey: true },
     { name: "tenant_id", pgType: "uuid", notNull: true },

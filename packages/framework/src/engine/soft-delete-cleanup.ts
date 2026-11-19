@@ -12,7 +12,7 @@
 
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor.ts";
-import { asEntityTableMeta, selectMany, type WhereObject } from "../db/query.ts";
+import { type AnyDb, asEntityTableMeta, selectMany, type WhereObject } from "../db/query.ts";
 import { hasFieldProperty } from "../db/table-introspection.ts";
 import { reraiseAsKumikoError } from "../errors/index.ts";
 import { purgeExpiredFileRefsWithBytes } from "../files/purge-expired-file-ref-bytes.ts";
@@ -145,7 +145,7 @@ async function purgeExpiredRows(
   where: WhereObject,
   cutoff: Temporal.Instant,
   ctx: Pick<JobContext, "services" | "obs">,
-  readDb: unknown = writer.db,
+  readDb: AnyDb = writer.db,
 ): Promise<void> {
   if (source === FILE_REF_ENTITY_NAME) {
     // The row is the only record of the storageKey, so its bytes go first.
@@ -169,7 +169,7 @@ async function forgetExpiredPages(
   table: PurgeTable,
   where: WhereObject,
   ctx: Pick<JobContext, "obs">,
-  readDb: unknown,
+  readDb: AnyDb,
 ): Promise<void> {
   let afterId: string | undefined;
   for (;;) {
@@ -226,7 +226,7 @@ export const softDeleteCleanupSystemJob: JobHandlerFn = async (_payload, ctx) =>
       where,
       cutoff,
       ctx,
-      isGlobalTenancyTable(proj.table) ? db.unsafeRaw() : db,
+      isGlobalTenancyTable(proj.table) ? db.unsafeRawAllTenants() : db,
     );
   }
 };

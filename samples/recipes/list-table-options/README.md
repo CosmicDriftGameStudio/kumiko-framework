@@ -9,7 +9,10 @@ the `table` block renders and behaves as before.
   leaving and re-entering the list within the browser session.
 - `table.resetAll`: one button resets everything that differs from the defaults.
 - `table.columnPicker`: the view menu lets the user hide and reorder columns;
-  `hidden: true` on a column starts it hidden.
+  `hidden: true` on a column starts it hidden. The hidden `plannedMonth` column is a
+  text field with `format: "month"`: it stores `YYYY-MM` and the list shows it as
+  month and year in the user's locale ("Juni 2026"). A query column without field
+  metadata gets the same with `renderer: { format: "month" }`.
 - `table.density`: row density default and an optional user choice.
 - `table.pinning`: the user pins columns left or right in the view menu;
   `pinned: "left"` on a column starts it pinned.
@@ -25,7 +28,9 @@ the `table` block renders and behaves as before.
   an actionForm once for the whole selection. Its `taskIds` field is a
   `multiSelect` with `display: "count"`, and the `task:set-status` handler
   updates every id in one write, bounded by `.max(MAX_BULK_SELECTION)` and
-  reading each id through the tenant-scoped executor. The form has a `preview`:
+  reading each id through the tenant-scoped executor. `labelEntity: "task"` lets the form's
+  `status` and `note` fields reuse the task entity's label and option texts instead of
+  separate `__action-form__` keys. The form has a `preview`:
   the `task:set-status-preview` query returns the affected tasks with old and
   new status from the same plan function the handler applies. A preview list
   column with `type: "file"` shows a FileRef id as file name and download link.
@@ -52,7 +57,9 @@ the `table` block renders and behaves as before.
 - `hideCountFooter` is not set here: no screen declaration reaches it (relatedList sets it itself).
 - The same block on a `projectionList`, and `task:workload`, a hand-written list
   query that keeps grouping and totals by accepting `aggregate`
-  (`entityListSchema`) and answering it with `answerListAggregate`.
+  (`entityListSchema`) and answering it with `answerListAggregate`. The status column of the
+  workload list names its select field with `optionsOf: "task-board:task.status"`, and boot
+  rejects a field that does not exist.
 
 ## Source
 

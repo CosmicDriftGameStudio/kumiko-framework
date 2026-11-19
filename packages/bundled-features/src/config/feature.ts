@@ -2,10 +2,12 @@ import type { DbConnection, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   type ConfigAccessor,
   type ConfigAccessorFactory,
+  type ConfigKeyDefinition,
   type ConfigKeyHandle,
   type ConfigKeyType,
   type ConfigSecretsReader,
   type ConfigValue,
+  type ConfigValueWithSource,
   defineFeature,
   type FeatureDefinition,
   type HandlerContext,
@@ -45,7 +47,7 @@ export function createConfigFeature(): FeatureDefinition {
     // projection write in one TX. Subscribers that need config-change
     // semantics listen to those auto-events via r.multiStreamProjection
     // (see docs/plans/architecture/event-sourcing-pivot.md §4.7).
-    r.entity({ name: "config-value", ...configValueEntity });
+    r.entity(configValueEntity);
 
     const handlers = {
       set: r.writeHandler(setWrite),
@@ -62,12 +64,28 @@ export function createConfigFeature(): FeatureDefinition {
 
     // KEK-rotation for encrypted values. Manual trigger — ops runs it once
     // after adding a new master key version.
-    r.job("reencrypt", { trigger: { manual: true } }, reencryptJob);
+    r.job({ name: "reencrypt", trigger: { manual: true }, handler: reencryptJob });
 
     r.translations({ keys: CONFIG_FEATURE_I18N });
 
     return { handlers, queries };
   });
+}
+
+// Reads a key the registry does not know (a renamed key whose rows still sit
+// under the old name) and reports where the value came from, which the plain
+// accessor drops.
+export type ConfigSourceReader = (
+  qualifiedKey: string,
+  keyDef: ConfigKeyDefinition,
+) => Promise<ConfigValueWithSource>;
+
+export type SourceReadingConfigAccessor = ConfigAccessor & {
+  readonly readWithSource: ConfigSourceReader;
+};
+
+export function readsWithSource(accessor: ConfigAccessor): accessor is SourceReadingConfigAccessor {
+  return "readWithSource" in accessor && typeof accessor.readWithSource === "function";
 }
 
 export function createConfigAccessor(
@@ -77,7 +95,7 @@ export function createConfigAccessor(
   userId: string,
   db: DbConnection | TenantDb,
   secrets?: ConfigSecretsReader,
-): ConfigAccessor {
+): SourceReadingConfigAccessor {
   async function configAccessor(
     qualifiedKey: string,
   ): Promise<string | number | boolean | undefined>;
@@ -92,7 +110,10 @@ export function createConfigAccessor(
     if (!keyDef) return undefined;
     return resolver.get(qualifiedKey, keyDef, tenantId, userId, db, secrets);
   }
-  return configAccessor;
+  return Object.assign(configAccessor, {
+    readWithSource: (qualifiedKey: string, keyDef: ConfigKeyDefinition) =>
+      resolver.getWithSource(qualifiedKey, keyDef, tenantId, userId, db, secrets),
+  });
 }
 
 // Pass to the test-stack / server-boot as `configAccessorFactory` —
@@ -120,34 +141,6 @@ export function requireConfigResolver(ctx: HandlerContext, handlerName: string):
     });
   }
   return ctx.services.configResolver;
-}
-
-// Config declares r.systemScope() (raw ctx.db is unfiltered across tenants
-// in that mode), so config's own query handlers must go through ctx.systemDb's
-// explicit self-check instead of touching ctx.db directly. Only valid for
-// handlers dispatched as config:query:* — those always run under config's
-// own system-scoped context, so ctx.systemDb is never actually missing here;
-// the throw documents that invariant instead of silently degrading.
-// buildProviderSelectionGate / collectMissingRequiredConfig (readiness.query.ts)
-// are shared with the separate, plain tenant-scoped readiness feature, so they
-// take the already-scoped db as an explicit parameter instead of resolving it
-// themselves — each call site (config's own handler here, readiness's
-// status.query.ts) makes its own scope decision instead of this function
-// guessing from ctx.systemDb's presence.
-export function requireSystemDb(
-  ctx: HandlerContext,
-  handlerName: string,
-  tenantId: TenantId,
-): TenantDb {
-  if (!ctx.systemDb) {
-    throw new InternalError({
-      message:
-        `[${handlerName}] ctx.systemDb missing — only present for r.systemScope() handlers; ` +
-        `the config feature declares r.systemScope() in feature.ts, so this points at a ` +
-        `pipeline wiring bug rather than a missing feature declaration.`,
-    });
-  }
-  return ctx.systemDb.assertTenantMatch(tenantId);
 }
 
 // Mirror of requireConfigResolver for the encryption round-trip side.

@@ -26,6 +26,10 @@ export type ParentVisibilityOption = {
   // (EntityDefinition.readGate) treats a host or file owner without one as unreadable;
   // absent means no entity passes that check.
   readonly canReadEntity?: (entityName: string) => boolean;
+  // A query handler of the host must admit the viewer's roles; row-level rules alone would let a
+  // role without any handler access to the host see its join rows. A host without query handlers
+  // is decided by row rules only.
+  readonly canReadHostByRole?: (entityName: string) => boolean;
   // The table the executor reads the entity from (a backingTable differs from the field-derived one).
   readonly resolveTable?: (entityName: string) => SchemaTable;
   // Readable ids per global host entity, resolved in the system scope before a tenant-scoped
@@ -92,6 +96,12 @@ export type ListRuntimeOptions = {
     readonly resolveEntity: (entityName: string) => EntityDefinition | undefined;
     // The table the executor reads the target from (a backingTable differs from the field-derived one).
     readonly resolveTable?: (entityName: string) => SchemaTable;
+    // hasMany relations declared searchable: a parent matches when a child row matches the term.
+    readonly childRelations?: ReadonlyArray<{
+      readonly childEntityName: string;
+      readonly foreignKey: string;
+      readonly searchableFields: readonly string[];
+    }>;
   };
   // `sortable: true` reference fields order by the target row's
   // labelField instead of the raw FK column. Same request-time registry
@@ -122,7 +132,9 @@ export type ListRuntimeOptions = {
   };
 };
 
-type ListFilterOption = {
+// `value: null` with `eq`/`ne` filters on IS NULL / IS NOT NULL. `filter` and `filters` are
+// AND-joined; there is no OR and no exists filter.
+export type ListFilterOption = {
   readonly field: string;
   readonly op: "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
   readonly value: unknown;
@@ -135,6 +147,52 @@ export type ListAggregateRequest = {
   readonly aggregate: ListAggregatePayload;
 };
 
+// The executor runs uuid aggregates only (event-store-executor-context.ts rejects any other idType), so a save it returns always carries the string aggregate id.
+export type ExecutorSaveContext = SaveContext & { readonly id: string };
+
+export type ExecutorCreateOptions = StreamTenantOption &
+  ParentVisibilityGateOption & { preSave?: PreSaveRunner };
+
+export type ExecutorUpdateOptions = StreamTenantOption &
+  LockGuardOption &
+  ParentVisibilityGateOption & {
+    skipOptimisticLock?: boolean;
+    skipUnchanged?: boolean;
+    // A verb declared in the entity's `verbs`: appended as `<entity>.<verb>` instead of `<entity>.updated`;
+    // a verb with a transition sets its field and checks the current state.
+    verb?: string;
+    // Server-code only (never forwarded by the generic update handler): also
+    // update a soft-deleted row, e.g. to move it with its parent so a later
+    // restore lands consistently. Tenant and ownership checks still apply;
+    // the row stays deleted.
+    includeDeleted?: boolean;
+    preSave?: PreSaveRunner;
+    // Declarative precondition for a "genau einmal"-transition:
+    // field/value pairs the row must still hold at write
+    // time — a `null` expected value matches a null field. Re-read fresh,
+    // atomically with the write's stream version (not the payload's stale
+    // `previous`), so a concurrent writer that already moved the row on is
+    // caught even when it doesn't collide with the stream-version check.
+    // Mismatch fails the whole update with PreconditionFailedError instead
+    // of applying it.
+    // Scalars only (string/number/boolean/null) — the check is `!==`, so an
+    // object/Date/Instant value would compare by reference and silently
+    // never match; a timestamp precondition needs its own scalar mirror
+    // field to check against, not the compound value itself. Also plain
+    // columns only: the check reads raw column values (no decrypt pass),
+    // so a pii/encrypted field can't be used here.
+    expect?: Readonly<Record<string, string | number | boolean | null>>;
+  };
+
+export type EntityHistoryEntry = {
+  readonly version: number;
+  readonly at: Temporal.Instant;
+  readonly by: string;
+  // A lifecycle verb (created, updated, deleted, restored, forgotten) or a verb declared in entity.verbs.
+  readonly verb: string;
+  readonly changes: Readonly<Record<string, unknown>>;
+};
+
 // `Row` is the shape list()/detail() hand back; create/update payloads stay untyped. The default
 // keeps every untyped use compiling, and an executor typed to an entity row stays assignable to it.
 export type EventStoreExecutor<Row extends Record<string, unknown> = Record<string, unknown>> = {
@@ -142,41 +200,36 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
     payload: Record<string, unknown>,
     user: SessionUser,
     db: TenantDb,
-    options?: StreamTenantOption & { preSave?: PreSaveRunner },
-  ) => Promise<WriteResult<SaveContext>>;
+    options?: ExecutorCreateOptions,
+  ) => Promise<WriteResult<ExecutorSaveContext>>;
 
   update: (
     payload: { id: EntityId; version?: number | undefined; changes: Record<string, unknown> },
     user: SessionUser,
     db: TenantDb,
-    options?: StreamTenantOption &
-      LockGuardOption &
-      ParentVisibilityGateOption & {
-        skipOptimisticLock?: boolean;
-        skipUnchanged?: boolean;
-        // Server-code only (never forwarded by the generic update handler): also
-        // update a soft-deleted row, e.g. to move it with its parent so a later
-        // restore lands consistently. Tenant and ownership checks still apply;
-        // the row stays deleted.
-        includeDeleted?: boolean;
-        preSave?: PreSaveRunner;
-        // Declarative precondition for a "genau einmal"-transition:
-        // field/value pairs the row must still hold at write
-        // time — a `null` expected value matches a null field. Re-read fresh,
-        // atomically with the write's stream version (not the payload's stale
-        // `previous`), so a concurrent writer that already moved the row on is
-        // caught even when it doesn't collide with the stream-version check.
-        // Mismatch fails the whole update with PreconditionFailedError instead
-        // of applying it.
-        // Scalars only (string/number/boolean/null) — the check is `!==`, so an
-        // object/Date/Instant value would compare by reference and silently
-        // never match; a timestamp precondition needs its own scalar mirror
-        // field to check against, not the compound value itself. Also plain
-        // columns only: the check reads raw column values (no decrypt pass),
-        // so a pii/encrypted field can't be used here.
-        expect?: Readonly<Record<string, string | number | boolean | null>>;
-      },
-  ) => Promise<WriteResult<SaveContext>>;
+    options?: ExecutorUpdateOptions,
+  ) => Promise<WriteResult<ExecutorSaveContext>>;
+
+  // All or nothing: every row runs the checks of create/update, all events go into the log with one
+  // statement and one optimistic check per stream, and the projection runs in one savepoint. Write hooks
+  // run once for the handler, not per row.
+  createMany: (
+    payloads: readonly Record<string, unknown>[],
+    user: SessionUser,
+    db: TenantDb,
+    options?: ExecutorCreateOptions,
+  ) => Promise<WriteResult<readonly ExecutorSaveContext[]>>;
+
+  updateMany: (
+    payloads: readonly {
+      id: EntityId;
+      version?: number | undefined;
+      changes: Record<string, unknown>;
+    }[],
+    user: SessionUser,
+    db: TenantDb,
+    options?: ExecutorUpdateOptions,
+  ) => Promise<WriteResult<readonly ExecutorSaveContext[]>>;
 
   delete: (
     payload: { id: EntityId },
@@ -207,7 +260,7 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
     user: SessionUser,
     db: TenantDb,
     options?: StreamTenantOption & ParentVisibilityGateOption,
-  ) => Promise<WriteResult<SaveContext>>;
+  ) => Promise<WriteResult<ExecutorSaveContext>>;
 
   list: (
     payload: {
@@ -218,22 +271,14 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
       sortDirection?: "asc" | "desc" | undefined;
       offset?: number | undefined;
       totalCount?: boolean | undefined;
-      filter?:
-        | {
-            readonly field: string;
-            readonly op: "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
-            readonly value: unknown;
-          }
-        | undefined;
+      /** Reads and returns only these fields plus id and version; derived fields are not computed. A name that is no stored field fails with a validation error. */
+      readonly fields?: readonly string[] | undefined;
+      /** Never reads or returns these fields; a `fields` entry naming one fails like an unknown field. */
+      readonly excludeFields?: readonly string[] | undefined;
+      filter?: ListFilterOption | undefined;
       // User-chosen faceted filters (dynamic, additive to the static
       // `filter`). All combined with AND.
-      filters?:
-        | ReadonlyArray<{
-            readonly field: string;
-            readonly op: "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
-            readonly value: unknown;
-          }>
-        | undefined;
+      filters?: readonly ListFilterOption[] | undefined;
     },
     user: SessionUser,
     db: TenantDb,
@@ -260,4 +305,19 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
     db: TenantDb,
     options?: { readonly parentVisibility?: ParentVisibilityOption },
   ) => Promise<Row | null>;
+
+  history: (
+    payload: { id: EntityId },
+    user: SessionUser,
+    db: TenantDb,
+    options?: StreamTenantOption & ParentVisibilityGateOption,
+  ) => Promise<readonly EntityHistoryEntry[] | null>;
+
+  /** `ids` limits the fold to these aggregates; an empty list returns no rows. */
+  listAsOf: (
+    payload: { asOf: Temporal.Instant; ids?: readonly EntityId[] | undefined },
+    user: SessionUser,
+    db: TenantDb,
+    options?: StreamTenantOption,
+  ) => Promise<readonly Readonly<Record<string, unknown>>[]>;
 };

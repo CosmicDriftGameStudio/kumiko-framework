@@ -73,7 +73,7 @@ describe("computeListViewModel", () => {
   });
 
   test("object-form column carries renderer through to the view model", () => {
-    const fmt = { format: "currency" as const, symbol: "€" };
+    const fmt = { format: "currency" as const, currency: "EUR" };
     const vm = computeListViewModel({
       screen: listScreen([{ field: "title", renderer: fmt }]),
       entity: taskEntity,
@@ -232,7 +232,7 @@ describe("computeListViewModel", () => {
   });
 
   test("a derived money column is typed money and keeps the stored money row value", () => {
-    const rent = { amount: 1200.5, currency: "EUR", amountScaled: 120050, amountMinor: 120050 };
+    const rent = { amount: 120050, currency: "EUR" };
     const vm = computeListViewModel({
       screen: listScreen(["currentRent"]),
       entity: taskEntity,
@@ -258,7 +258,7 @@ describe("computeListViewModel", () => {
   });
 
   test("derived columns accept an object-form renderer like stored columns", () => {
-    const fmt = { format: "currency" as const, symbol: "€" };
+    const fmt = { format: "currency" as const, currency: "EUR" };
     const vm = computeListViewModel({
       screen: listScreen([{ field: "ageDays", renderer: fmt }]),
       entity: taskEntity,
@@ -303,7 +303,7 @@ describe("computeListViewModel", () => {
   // Table-driven over LIST_ROW_META_COLUMNS itself (not one-off cases) — a
   // row-meta column (id/tenantId/version/insertedAt/...) is a base-table
   // column, never a declared entity field (a SystemAdmin cross-tenant list
-  // picks tenantId as a column this way). Together with boot-validator.test.ts
+  // picks tenantId as a column this way). Together with boot-validator/__tests__/entity-list-columns.test.ts
   // (both boot validators accept the same set) and list-row-meta-drift.test.ts
   // (LIST_ROW_META_COLUMNS key-set drift guard), this pins "whatever boot
   // accepts as a row-meta column, the renderer can actually draw" and prevents
@@ -443,7 +443,7 @@ describe("computeListViewModel", () => {
   });
 
   test("row-meta column: explicit label + renderer are passed through unchanged", () => {
-    const fmt = { format: "currency" as const, symbol: "€" };
+    const fmt = { format: "currency" as const, currency: "EUR" };
     const vm = computeListViewModel({
       screen: listScreen([{ field: "insertedAt", label: "custom.created", renderer: fmt }]),
       entity: taskEntity,
@@ -507,5 +507,35 @@ describe("computeListViewModel writeOnly columns", () => {
 
     expect(vm.rows.map((r) => r.values["apiKey"])).toEqual(["kumiko.field.writeOnly.set", null]);
     expect(vm.rows.map((r) => r.values["name"])).toEqual(["A", "B"]);
+  });
+});
+
+describe("computeListViewModel — month text fields", () => {
+  test("a text field with format month gets the month renderer unless the column sets one", () => {
+    const entity = {
+      fields: {
+        period: { type: "text", format: "month" },
+        dueMonth: { type: "text", format: "month" },
+        note: { type: "text" },
+      },
+    } as unknown as EntityDefinition;
+    const screen: EntityListScreenDefinition = {
+      id: "charge-list",
+      type: "entityList",
+      entity: "charge",
+      columns: ["period", { field: "dueMonth", renderer: { format: "date" } }, "note"],
+    };
+    const vm = computeListViewModel({
+      screen,
+      entity,
+      rows: [],
+      translate: (k) => k,
+      featureName: "hausgeld",
+    });
+    expect(vm.columns.map((c) => c.renderer)).toEqual([
+      { format: "month" },
+      { format: "date" },
+      undefined,
+    ]);
   });
 });

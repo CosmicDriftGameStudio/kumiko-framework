@@ -138,13 +138,13 @@ describe("PdfViewer", () => {
   test("renders toolbar, thumbnail rail and one slot per page without rendering any page yet", async () => {
     const document = fakeDocument();
     renderViewer(<PdfViewer document={document} />);
-    expect(await screen.findByTestId("pdf-toolbar")).toBeTruthy();
-    expect(screen.getByLabelText("Page number")).toBeTruthy();
-    expect(screen.getByText("of 3")).toBeTruthy();
+    await screen.findByTestId("pdf-toolbar");
+    screen.getByLabelText("Page number");
+    screen.getByText("of 3");
     expect(screen.getByTestId("pdf-zoom").textContent).toBe("100 %");
-    expect(screen.getByRole("navigation", { name: "Pages" })).toBeTruthy();
-    expect(screen.getByTestId("pdf-thumbnail-3")).toBeTruthy();
-    expect(screen.getByTestId("pdf-page-2")).toBeTruthy();
+    screen.getByRole("navigation", { name: "Pages" });
+    screen.getByTestId("pdf-thumbnail-3");
+    screen.getByTestId("pdf-page-2");
     expect(screen.getByTestId("pdf-page-2").querySelector("canvas")).toBeNull();
   });
 
@@ -259,7 +259,7 @@ describe("PdfViewer", () => {
         pagesOnly
       />,
     );
-    expect(await screen.findByTestId("pdf-page-3")).toBeTruthy();
+    await screen.findByTestId("pdf-page-3");
     await waitFor(() => expect(onMatchesChange).toHaveBeenCalledWith({ count: 1, index: 0 }));
     expect(scrolledPages).toContain("3");
     expect(screen.queryByTestId("pdf-toolbar")).toBeNull();

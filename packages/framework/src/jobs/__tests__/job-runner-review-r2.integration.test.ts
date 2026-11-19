@@ -2,7 +2,7 @@
 // worker and real Redis.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   createTestRedis,
@@ -20,6 +20,8 @@ import { createPrometheusMeter } from "../../observability/index.ts";
 import { createDistributedLock } from "../../pipeline/distributed-lock.ts";
 import { RedisKeys } from "../../pipeline/redis-keys.ts";
 import { createJobRunner, type JobOutcomeMeta } from "../job-runner.ts";
+import { purgeRawRedisKeys } from "./purge-raw-redis-keys.ts";
+import { waitForNoPendingJobs } from "./wait-for-no-pending-jobs.ts";
 
 let testRedis: TestRedis;
 let testDb: TestDb;
@@ -41,8 +43,7 @@ function uniquePrefix(tag: string): string {
 }
 
 async function purgeWorkerKeys(queueNamePrefix: string): Promise<void> {
-  const keys = await testRedis.redis.keys(`bull:${queueNamePrefix}-worker:*`);
-  if (keys.length > 0) await testRedis.redis.del(...keys);
+  await purgeRawRedisKeys(testRedis.redisUrl, `bull:${queueNamePrefix}-worker:*`);
 }
 
 describe("job runner without a db connection", () => {
@@ -50,9 +51,13 @@ describe("job runner without a db connection", () => {
     let handlerRan = false;
     const failures: string[] = [];
     const feature = defineFeature("nodbjob", (r) => {
-      r.job("needsDb", { trigger: { manual: true } }, async (_payload, ctx) => {
-        handlerRan = true;
-        void ctx.db.unsafeRaw;
+      r.job({
+        name: "needsDb",
+        trigger: { manual: true },
+        handler: async (_payload, ctx) => {
+          handlerRan = true;
+          void ctx.db.unsafeRaw;
+        },
       });
     });
     const queueNamePrefix = uniquePrefix("nodb");
@@ -92,7 +97,13 @@ describe("perTenant job on a runner without a db connection", () => {
       });
     });
     const fanOutFeature = defineFeature("nodbfanout", (r) => {
-      r.job("fanOut", { trigger: { manual: true }, perTenant: true, retries: 0 }, async () => {});
+      r.job({
+        name: "fanOut",
+        trigger: { manual: true },
+        perTenant: true,
+        retries: 0,
+        handler: async () => {},
+      });
     });
     const queueNamePrefix = uniquePrefix("nodbtenant");
     const runner = createJobRunner({
@@ -122,7 +133,7 @@ describe("job-last-success metric", () => {
   test("a meter nobody registered standard metrics on does not turn a success into a failure", async () => {
     const failures: string[] = [];
     const feature = defineFeature("unregmeter", (r) => {
-      r.job("ok", { trigger: { manual: true } }, async () => {});
+      r.job({ name: "ok", trigger: { manual: true }, handler: async () => {} });
     });
     const meter = createPrometheusMeter();
     const queueNamePrefix = uniquePrefix("meter");
@@ -159,17 +170,15 @@ describe("tenantVisibleFailure subject config error", () => {
     const started: string[] = [];
     const failed: Array<{ error: string; outcome: JobOutcomeMeta | undefined }> = [];
     const feature = defineFeature("subjectcfg", (r) => {
-      r.job(
-        "tracked",
-        {
-          trigger: { manual: true },
-          retries: 2,
-          tenantVisibleFailure: { messageKey: "app:errors.failed", subjectFields: ["docId"] },
-        },
-        async () => {
+      r.job({
+        name: "tracked",
+        trigger: { manual: true },
+        retries: 2,
+        tenantVisibleFailure: { messageKey: "app:errors.failed", subjectFields: ["docId"] },
+        handler: async () => {
           handlerCalls += 1;
         },
-      );
+      });
     });
     const queueNamePrefix = uniquePrefix("subject");
     const runner = createJobRunner({
@@ -189,7 +198,7 @@ describe("tenantVisibleFailure subject config error", () => {
     try {
       await runner.dispatch("subjectcfg:job:tracked", { docId: { nested: true } });
       await waitFor(() => failed.length > 0);
-      await sleep(500);
+      await waitForNoPendingJobs(runner);
       expect(started).toEqual(["subjectcfg:job:tracked"]);
       expect(failed).toHaveLength(1);
       expect(failed[0]?.error).toContain('subjectFields["docId"] must be a primitive');
@@ -206,8 +215,12 @@ describe("event attribution of job runs", () => {
   test("a job stamps the feature's raw name, same as write-handlers do", async () => {
     const seen: Array<string | undefined> = [];
     const feature = defineFeature("pubSubOrders", (r) => {
-      r.job("stamp", { trigger: { manual: true } }, async () => {
-        seen.push(requestContext.get()?.feature);
+      r.job({
+        name: "stamp",
+        trigger: { manual: true },
+        handler: async () => {
+          seen.push(requestContext.get()?.feature);
+        },
       });
     });
     const registry = createRegistry([feature]);
@@ -238,19 +251,17 @@ describe("sequential lock conflict on a retry attempt", () => {
     let handlerCalls = 0;
     const finalFlags: Array<boolean | undefined> = [];
     const feature = defineFeature("priorattempts", (r) => {
-      r.job(
-        "flaky",
-        {
-          trigger: { manual: true },
-          concurrency: "sequential",
-          retries: 1,
-          backoff: { type: "fixed", delayMs: 800 },
-        },
-        async () => {
+      r.job({
+        name: "flaky",
+        trigger: { manual: true },
+        concurrency: "sequential",
+        retries: 1,
+        backoff: { type: "fixed", delayMs: 800 },
+        handler: async () => {
           handlerCalls += 1;
           throw new Error("always fails");
         },
-      );
+      });
     });
     const queueNamePrefix = uniquePrefix("prior");
     const runner = createJobRunner({
@@ -303,7 +314,7 @@ describe("sequential lock conflict on a retry attempt", () => {
       await waitFor(() => finalFlags.length >= 2);
       expect(finalFlags[1]).toBe(true);
 
-      await sleep(800);
+      await waitForNoPendingJobs(runner);
       expect(handlerCalls).toBe(2);
     } finally {
       await rawQueue.close();

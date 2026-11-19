@@ -34,7 +34,6 @@ export type {
   PasswordResetConfig,
   SessionChecker,
   SessionCreator,
-  SessionMassRevoker,
   SessionMetadata,
   SessionRevoker,
   SignupConfig,

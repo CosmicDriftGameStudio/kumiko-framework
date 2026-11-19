@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runInitDeployCli } from "../init-deploy-cli.ts";
@@ -97,6 +97,7 @@ describe("runInitDeployCli", () => {
     });
     expect(missingCode).toBe(1);
     expect(errsMissing.some((e) => e.includes("missing"))).toBe(true);
+    expect(existsSync(join(tmp, "deploy"))).toBe(false);
 
     await runInitDeployCli({ argv: ["--app", "myapp"], cwd: tmp, out: makeOut().out });
     writeFileSync(join(tmp, "deploy", "Dockerfile"), "# stale");

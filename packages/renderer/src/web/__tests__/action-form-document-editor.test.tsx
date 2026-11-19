@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import type { ActionFormScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import {
   type ContentEditorProps,
   ContentEditorsProvider,
@@ -62,10 +61,10 @@ function renderForm(
   editors: { readonly document?: typeof FakeDocumentEditor } = {},
 ) {
   const dispatcher = createMockDispatcher({
-    query: (async () => ({
+    query: async () => ({
       isSuccess: true,
       data: { count: 3 },
-    })) as unknown as Dispatcher["query"],
+    }),
   });
   return render(
     <DispatcherProvider dispatcher={dispatcher}>
@@ -84,7 +83,7 @@ function renderForm(
 describe("actionForm field editor document", () => {
   test("renders the registered document editor instead of a textarea", () => {
     renderForm(form, { document: FakeDocumentEditor });
-    expect(screen.getByTestId("fake-document-editor")).toBeTruthy();
+    screen.getByTestId("fake-document-editor");
     expect(document.querySelector("textarea")).toBeNull();
   });
 
@@ -122,10 +121,10 @@ describe("document field with aiAssist", () => {
   test("shows the assist chips and writes the result as html paragraphs into the editor", async () => {
     seen.length = 0;
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { message: "Dear <you>,\n\nsecond\nline" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const assistForm: ActionFormScreenDefinition = {
       ...form,
@@ -162,7 +161,7 @@ describe("document field with aiAssist", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("fake-document-editor")).toBeTruthy();
+    screen.getByTestId("fake-document-editor");
     fireEvent.click(screen.getByTestId("field-ai-chip-body-0"));
     await waitFor(() => expect(seen.at(-1)).toBe("<p>Dear &lt;you&gt;,</p><p>second<br>line</p>"));
   });
@@ -210,13 +209,13 @@ describe("document field as aiAssist context", () => {
   test("another document field named in contextFields is sent as plain text", async () => {
     const payloads: unknown[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async (type: string, payload: unknown) => {
+      query: async (type: string, payload: unknown) => {
         if (type === "mail:query:load") {
           return { isSuccess: true, data: { quote: "<p>Hi <strong>Anna</strong></p>", body: "" } };
         }
         payloads.push(payload);
         return { isSuccess: true, data: { message: "ok" } };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     const contextForm: ActionFormScreenDefinition = {
       id: "new-message",

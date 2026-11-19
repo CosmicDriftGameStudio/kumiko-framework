@@ -5,7 +5,6 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ReactNode, useCallback, useState } from "react";
 import * as z from "zod";
-import type { Dispatcher } from "../../headless/index.ts";
 import {
   DispatcherProvider,
   ExtensionSectionsProvider,
@@ -20,7 +19,7 @@ import {
   orderEntity,
   type TestValues,
 } from "./_render-edit-helpers.tsx";
-import { act, fireEvent, render, screen } from "./test-utils.tsx";
+import { act, fireEvent, type MockWriteHandler, render, screen } from "./test-utils.tsx";
 
 // Controlled mode. onChange reports values out, onControlsReady
 // hands the caller patch()/validate()/getValues() bound to this instance —
@@ -284,7 +283,7 @@ describe("RenderEdit — controlled mode", () => {
   });
 
   test("controls.validate() reports field errors on the field, never as a summary banner, and writes nothing", () => {
-    const write = mock(async () => ({ isSuccess: true, data: { id: "1" } }) as never);
+    const write = mock<MockWriteHandler>(async () => ({ isSuccess: true, data: { id: "1" } }));
     const schema = z.object({
       title: z.string().min(1),
       count: z.number().optional(),
@@ -320,7 +319,7 @@ describe("RenderEdit — controlled mode", () => {
     expect(write).not.toHaveBeenCalled();
     // Field-level error, not a form-wide summary banner.
     expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
-    expect(screen.getByTestId("field-title-errors")).toBeTruthy();
+    screen.getByTestId("field-title-errors");
   });
 
   test("without onChange/onControlsReady, existing single-field-per-keystroke behaviour is unchanged", () => {
@@ -473,7 +472,7 @@ describe("RenderEdit — FieldConditions react to extension patch()", () => {
     };
   }
 
-  function renderVehicleForm(writeFn?: Dispatcher["write"], schema?: z.ZodType): void {
+  function renderVehicleForm(writeFn?: MockWriteHandler, schema?: z.ZodType): void {
     render(
       <DispatcherProvider dispatcher={makeDispatcher(writeFn)}>
         <ExtensionSectionsProvider value={{ VinDecodeSection }}>
@@ -536,7 +535,7 @@ describe("RenderEdit — FieldConditions react to extension patch()", () => {
     act(() => {
       fireEvent.click(screen.getByTestId("decode-hit"));
     });
-    expect(screen.getByTestId("field-trim")).toBeTruthy();
+    screen.getByTestId("field-trim");
     expect(isDisabled("field-vin")).toBe(true);
 
     act(() => {
@@ -557,7 +556,7 @@ describe("RenderEdit — FieldConditions react to extension patch()", () => {
   // RenderEdit tests in this file — RenderEdit itself takes `schema` as a
   // prop and does not derive one from the layout on its own.
   test("clearing trim after a decode-hit blocks submit — the required condition is enforced, not just displayed", async () => {
-    const write = mock(async () => ({ isSuccess: true, data: { id: "1" } }) as never);
+    const write = mock<MockWriteHandler>(async () => ({ isSuccess: true, data: { id: "1" } }));
     const schema = z
       .object({ title: z.string().min(1) })
       .passthrough()
@@ -567,7 +566,7 @@ describe("RenderEdit — FieldConditions react to extension patch()", () => {
           ctx.addIssue({ code: "custom", path: ["trim"], message: '"trim" is required.' });
         }
       });
-    renderVehicleForm(write as unknown as Dispatcher["write"], schema);
+    renderVehicleForm(write, schema);
 
     act(() => {
       fireEvent.click(screen.getByTestId("decode-hit"));
@@ -583,7 +582,7 @@ describe("RenderEdit — FieldConditions react to extension patch()", () => {
     });
 
     expect(write).not.toHaveBeenCalled();
-    expect(screen.getByTestId("field-trim-errors")).toBeTruthy();
+    screen.getByTestId("field-trim-errors");
   });
 });
 
@@ -653,17 +652,17 @@ describe("RenderEdit wizard mode", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("field-title")).toBeTruthy();
+    screen.getByTestId("field-title");
     expect(screen.getByTestId("field-count").closest("[hidden]")).not.toBeNull();
     expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("1");
   });
 
   test("a hideActions host steps with controls.next()/back() and controls.submit() saves on an intermediate step", async () => {
     const writes: { type: string; payload: unknown }[] = [];
-    const dispatcher = makeDispatcher((async (type: string, payload: unknown) => {
+    const dispatcher = makeDispatcher(async (type: string, payload: unknown) => {
       writes.push({ type, payload });
       return { isSuccess: true, data: { id: "1" } };
-    }) as Dispatcher["write"]);
+    });
     let controls: RenderEditControls<TestValues> | undefined;
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -722,8 +721,8 @@ describe("RenderEdit wizard mode", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByTestId("field-title-errors")).toBeTruthy();
-    expect(screen.getByTestId("field-title")).toBeTruthy();
+    screen.getByTestId("field-title-errors");
+    screen.getByTestId("field-title");
     expect(screen.getByTestId("field-count").closest("[hidden]")).not.toBeNull();
   });
 
@@ -757,8 +756,8 @@ describe("RenderEdit wizard mode", () => {
     });
 
     expect(screen.getByTestId("field-title").closest("[hidden]")).not.toBeNull();
-    expect(screen.getByTestId("field-count")).toBeTruthy();
-    expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
+    screen.getByTestId("field-count");
+    screen.getByTestId("render-edit-submit");
     expect(screen.queryByTestId("render-edit-wizard-next")).toBeNull();
   });
 
@@ -790,7 +789,7 @@ describe("RenderEdit wizard mode", () => {
       fireEvent.submit(form);
       await Promise.resolve();
     });
-    expect(screen.getByTestId("field-count")).toBeTruthy();
+    screen.getByTestId("field-count");
 
     fireEvent.click(screen.getByTestId("render-edit-wizard-back"));
 
@@ -862,7 +861,7 @@ describe("RenderEdit wizard mode", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByTestId("field-count")).toBeTruthy();
+    screen.getByTestId("field-count");
     expect(screen.queryByTestId("render-edit-wizard-next")).toBeNull();
   });
 
@@ -910,7 +909,7 @@ describe("RenderEdit wizard mode", () => {
     });
 
     // Landed directly on Details, skipping the hidden "Company-only" step.
-    expect(screen.getByTestId("field-count")).toBeTruthy();
+    screen.getByTestId("field-count");
     expect(screen.queryByTestId("render-edit-wizard-next")).toBeNull();
   });
 
@@ -920,7 +919,7 @@ describe("RenderEdit wizard mode", () => {
   // (field issues exist) while the field itself was invisible on the
   // current step, silently hiding the error entirely.
   test("a server field error for a step that's not currently shown jumps the wizard there and shows the field error", async () => {
-    const write = mock(
+    const write = mock<MockWriteHandler>(
       async () =>
         ({
           isSuccess: false,
@@ -960,8 +959,8 @@ describe("RenderEdit wizard mode", () => {
     });
 
     // Jumped back to the step that owns `title`, where the server error lives.
-    expect(screen.getByTestId("field-title")).toBeTruthy();
-    expect(screen.getByTestId("field-title-errors")).toBeTruthy();
+    screen.getByTestId("field-title");
+    screen.getByTestId("field-title-errors");
     expect(screen.getByTestId("field-count").closest("[hidden]")).not.toBeNull();
     // The field itself shows the error — no redundant top-level banner.
     expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
@@ -971,7 +970,7 @@ describe("RenderEdit wizard mode", () => {
   // to — it must NOT be silently suppressed just because `details.fields`
   // is non-empty.
   test("a root-level server error with no matching field is not suppressed — the banner shows", async () => {
-    const write = mock(
+    const write = mock<MockWriteHandler>(
       async () =>
         ({
           isSuccess: false,
@@ -1009,11 +1008,11 @@ describe("RenderEdit wizard mode", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByTestId("render-edit-form-error")).toBeTruthy();
+    screen.getByTestId("render-edit-form-error");
   });
 
   test("a server root issue without a field shows once, in the banner", async () => {
-    const write = mock(
+    const write = mock<MockWriteHandler>(
       async () =>
         ({
           isSuccess: false,
@@ -1102,10 +1101,10 @@ describe("RenderEdit wizard mode", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("composed-cf")).toBeTruthy();
+    screen.getByTestId("composed-cf");
 
     fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
-    expect(screen.getByTestId("field-title")).toBeTruthy();
+    screen.getByTestId("field-title");
     // Step 1's extension section stayed mounted (hidden), not unmounted.
     expect(screen.getByTestId("composed-cf").closest("[hidden]")).not.toBeNull();
 

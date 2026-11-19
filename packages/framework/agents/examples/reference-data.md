@@ -21,7 +21,7 @@ Feature entry point: `src/feature.ts`.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/reference-data
@@ -41,18 +41,13 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { seedReferenceData, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { ReferenceDataDef } from "@cosmicdrift/kumiko-framework/engine";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { categoryEntity, categoryFeature, categoryTable } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { categoryFeature, categoryTable } from "../feature";
 
 let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [categoryFeature] });
-  await unsafeCreateEntityTable(stack.db, categoryEntity, "category");
 });
 
 afterAll(async () => {
@@ -127,6 +122,7 @@ import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 export const categoryEntity = createEntity({
+  name: "category",
   table: "read_sample_categories",
   fields: {
     code: createTextField({ personal: false, reason: "is_reference_data", required: true }),
@@ -136,21 +132,21 @@ export const categoryEntity = createEntity({
 });
 
 // Read-model table for direct DB queries in tests
-export const categoryTable = buildEntityTable("category", categoryEntity);
+export const categoryTable = buildEntityTable(categoryEntity);
 
 export const categoryFeature = defineFeature("catalog", (r) => {
-  r.entity({ name: "category", ...categoryEntity });
+  r.entity(categoryEntity);
 
   // Static reference data — seeded on boot, upserted on changes
-  r.referenceData(
-    "category",
-    [
+  r.referenceData({
+    entity: "category",
+    data: [
       { code: "electronics", name: "Electronics", description: "Phones, laptops, tablets" },
       { code: "clothing", name: "Clothing", description: "Shirts, pants, shoes" },
       { code: "books", name: "Books", description: "Fiction and non-fiction" },
       { code: "food", name: "Food & Drinks", description: "Groceries and beverages" },
     ],
-    { upsertKey: "code" },
-  );
+    upsertKey: "code",
+  });
 });
 ```

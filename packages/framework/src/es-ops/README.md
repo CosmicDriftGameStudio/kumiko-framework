@@ -44,14 +44,14 @@ export default {
 
 Rule of thumb: **if the target aggregate was created via a tenant user, you need the override.**
 
-| Aggregate type                | Stream tenant                                                                                                                                   | `tenantIdOverride`                                                  |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| config-values (system scope)  | SYSTEM_TENANT                                                                                                                                   | omit                                                                |
-| system text-content           | SYSTEM_TENANT                                                                                                                                   | omit                                                                |
-| tenant-membership             | Payload tenant (after `backfillTenantStreamTenants`: `streamTenantId = tenantId`); older streams may still use the tenant of the creating admin | ✅ `m.streamTenantId` (NOT `m.tenantId` until the backfill has run) |
-| App entity (orders, tasks, …) | Tenant stream                                                                                                                                   | ✅ Tenant ID from the lookup                                        |
+| Aggregate type                | Stream tenant                                                                                                             | `tenantIdOverride`                       |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| config-values (system scope)  | SYSTEM_TENANT                                                                                                             | omit                                     |
+| system text-content           | SYSTEM_TENANT                                                                                                             | omit                                     |
+| tenant-membership             | Payload tenant; streams written before the 2026-10 stream-tenant migration may still use the tenant of the creating admin | ✅ `m.streamTenantId` (NOT `m.tenantId`) |
+| App entity (orders, tasks, …) | Tenant stream                                                                                                             | ✅ Tenant ID from the lookup             |
 
-**Why not `m.tenantId`?** `read_tenant_memberships.tenant_id` is the payload tenant (logical membership target), while `kumiko_events.tenant_id` in the v1 row is the stream tenant (where the aggregate physically lives). Before the `backfillTenantStreamTenants` backfill, the two differed for memberships created by an admin from another tenant (`seedTenantMembership` now forces the stream tenant to the payload tenant). The `findMembershipsOfUser` helper returns both separately so seeds can choose the correct one.
+**Why not `m.tenantId`?** `read_tenant_memberships.tenant_id` is the payload tenant (logical membership target), while `kumiko_events.tenant_id` in the v1 row is the stream tenant (where the aggregate physically lives). Before the stream-tenant migration of 2026-10, the two differed for memberships created by an admin from another tenant (`seedTenantMembership` now forces the stream tenant to the payload tenant). The `findMembershipsOfUser` helper returns both separately so seeds can choose the correct one.
 
 Without `tenantIdOverride`, the executor looks for the stream against SYSTEM_TENANT → `version_conflict`. Memory: `feedback_event_store_tenant_consistency.md`.
 
@@ -92,7 +92,7 @@ for (let i = 0; i < 5; i++) {
 
 ### Multi-replica boot
 
-`pg_advisory_xact_lock` serializes parallel pod boots. The lock key is global (`0x65736f70` / “esop”), not migration-specific → with N pending migrations, they run sequentially N times, not in parallel. For the typical seed migration workload, this is fast enough; for very long migrations (>30s) on a multi-replica stack: run them manually first as a CLI step (`bunx kumiko ops seed:apply`), then roll out the pods.
+`pg_advisory_xact_lock` serializes parallel pod boots. The lock key is global (`0x65736f70` / “esop”), not migration-specific → with N pending migrations, they run sequentially N times, not in parallel. For the typical seed migration workload, this is fast enough; for very long migrations (>30s) on a multi-replica stack: roll out one replica first and scale up once it has applied them.
 
 ### Local smoke test before pushing
 
@@ -103,7 +103,6 @@ Required pattern: before pushing seeds to main, run the boot loop once locally a
 ```bash
 bunx kumiko ops seed:new <slug>    # scaffold seeds/<date>-<slug>.ts
 bunx kumiko ops seed:status        # what was applied, what is pending
-bunx kumiko ops seed:apply [--dry-run]  # apply pending seeds (CLI path in Phase 1.5)
 ```
 
 ## Guarantees

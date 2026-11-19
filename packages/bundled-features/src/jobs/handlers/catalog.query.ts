@@ -1,6 +1,6 @@
 import { defineQueryHandler, type JobDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { isManualTrigger } from "../is-manual-trigger.ts";
+import { isOperatorStartableTrigger } from "../is-operator-startable-trigger.ts";
 
 export type ManualJobCatalogEntry = {
   readonly jobName: string;
@@ -23,13 +23,13 @@ function payloadSchemaJson(job: JobDefinition): Record<string, unknown> | null {
 export const catalogQuery = defineQueryHandler({
   name: "catalog",
   description:
-    "Lists the jobs that may be started manually, each with its per-tenant flag and payload JSON Schema; use it to find out which job can be triggered and what payload it expects.",
+    "Lists the jobs that may be started manually (manual and maintenance jobs), each with its per-tenant flag and payload JSON Schema; use it to find out which job can be triggered and what payload it expects.",
   schema: z.object({}),
   access: { roles: ["SystemAdmin"] },
   handler: async (_query, ctx): Promise<{ rows: readonly ManualJobCatalogEntry[] }> => {
     const rows: ManualJobCatalogEntry[] = [];
     for (const [jobName, job] of ctx.registry.getAllJobs()) {
-      if (!isManualTrigger(job.trigger)) continue;
+      if (!isOperatorStartableTrigger(job.trigger)) continue;
       rows.push({
         jobName,
         perTenant: job.perTenant === true,

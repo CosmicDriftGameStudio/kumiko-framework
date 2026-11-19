@@ -7,7 +7,7 @@ import {
   createEntity,
   createRegistry,
   createTextField,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEsOperationsTable, esOperationsTable } from "@cosmicdrift/kumiko-framework/es-ops";
@@ -32,6 +32,7 @@ const TABLE = "read_boot_reindex_notes";
 
 function noteEntityWith(noteSearchable: boolean) {
   return createEntity({
+    name: "note",
     table: TABLE,
     fields: {
       title: createTextField({
@@ -52,10 +53,8 @@ function noteEntityWith(noteSearchable: boolean) {
 function featureWith(noteSearchable: boolean) {
   const entity = noteEntityWith(noteSearchable);
   return defineFeature("bootreindex", (r) => {
-    r.entity({ name: "note", ...entity });
-    r.writeHandler(
-      defineEntityWriteHandler("note:create", entity, { access: { roles: ["Admin"] } }),
-    );
+    r.entity(entity);
+    r.writeHandler(defineEntityCreateHandler("note", entity, { access: { roles: ["Admin"] } }));
   });
 }
 

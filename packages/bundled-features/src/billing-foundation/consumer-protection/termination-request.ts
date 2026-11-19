@@ -6,9 +6,9 @@
 import {
   createSystemUser,
   declareEscapeHatch,
+  defineWriteHandler,
   type HandlerContext,
   SYSTEM_TENANT_ID,
-  type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
@@ -158,6 +158,7 @@ async function findTerminableTenantIds(
   declareEscapeHatch({
     reason:
       "anonymous declarant has no session — finds the contract by email via user:find-for-auth and tenant:memberships as a system user; the calling handler declares its own escapeHatch",
+    grants: ["systemIdentity"],
   });
   const user = authUserRowSchema.safeParse(
     await ctx.dispatch.queryAs(createSystemUser(requestTenantId), UserQueries.findForAuth, {
@@ -196,8 +197,8 @@ async function findTerminableTenantIds(
 export function createRequestContractTerminationHandler(
   options: ResolvedBillingFoundationOptions,
   consumerProtection: ConsumerProtectionOptions,
-): WriteHandlerDef {
-  return {
+) {
+  return defineWriteHandler({
     name: "request-contract-termination",
     description:
       "Public § 312k declaration: terminates or withdraws from the contract of the account behind the entered email; the answer and the receipt mail never reveal whether the email matched.",
@@ -208,10 +209,10 @@ export function createRequestContractTerminationHandler(
     escapeHatch: {
       reason:
         "Anonymous declarant has no session — finds the contract by email via ctx.dispatch.queryAs(system, user:find-for-auth) and tenant:memberships; the tenant written to comes only from those lookups.",
+      grants: ["systemIdentity"],
     },
     handler: async (event, ctx) => {
-      // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const payload = event.payload as z.infer<typeof requestContractTerminationSchema>;
+      const payload = event.payload;
       const requestId = generateId();
       const receivedAtIso = options.now().toString();
       const { declarationType, terminationKind } = payload;
@@ -295,14 +296,14 @@ export function createRequestContractTerminationHandler(
         data: { requestId, receivedAtIso } satisfies RequestContractTerminationResult,
       };
     },
-  };
+  });
 }
 
 export function createTerminateContractHandler(
   options: ResolvedBillingFoundationOptions,
   consumerProtection: ConsumerProtectionOptions,
-): WriteHandlerDef {
-  return {
+) {
+  return defineWriteHandler({
     name: "terminate-contract",
     description:
       "Terminates the tenant's subscription at the end of the billing period, or withdraws from the contract and cancels it immediately within the 14-day withdrawal period (at period end after it); sends a receipt to the caller's email.",
@@ -311,10 +312,10 @@ export function createTerminateContractHandler(
     escapeHatch: {
       reason:
         "reads the calling admin's own email via UserQueries.findForAuth as a system user; the receipt goes only to that address",
+      grants: ["systemIdentity"],
     },
     handler: async (event, ctx) => {
-      // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const payload = event.payload as z.infer<typeof terminateContractSchema>;
+      const payload = event.payload;
       const tenantId = event.user.tenantId;
       const requestId = generateId();
       const { declarationType, terminationKind } = payload;
@@ -382,5 +383,5 @@ export function createTerminateContractHandler(
         } satisfies TerminateContractResult,
       };
     },
-  };
+  });
 }

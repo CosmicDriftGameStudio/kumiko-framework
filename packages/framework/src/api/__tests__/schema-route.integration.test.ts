@@ -18,7 +18,7 @@ const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const SCHEMA_PATH = `/api${Routes.schema}`;
 
 const schemaRouteFeature = defineFeature("schema-route-fixture", (r) => {
-  r.entity({ name: "widget", ...createEntity({ fields: {} }) });
+  r.entity(createEntity({ name: "widget", fields: {} }));
   r.screen({
     id: "widget-list",
     type: "entityList",

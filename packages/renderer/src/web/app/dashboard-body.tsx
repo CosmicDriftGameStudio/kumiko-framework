@@ -321,7 +321,7 @@ export function WebDashboardBody({
     );
   }
 
-  const usesPageHeaderSlot = headerSlotAvailable && primitives.PageHeader !== undefined;
+  const usesPageHeaderSlot = headerSlotAvailable;
   const model: DashboardHeaderModel = {
     screen,
     t,

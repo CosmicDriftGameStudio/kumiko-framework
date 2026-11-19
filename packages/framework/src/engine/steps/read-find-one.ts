@@ -19,7 +19,7 @@
 // fine for "find by uuid", a footgun for "find by tenantId". No
 // runtime check; reviewer responsibility.
 
-import { selectMany, type WhereObject } from "../../db/query.ts";
+import { selectMany, type TableLike, type WhereObject } from "../../db/query.ts";
 import { defineStep } from "../define-step.ts";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.ts";
 import { readSourceFor, warnOnNarrowedForeignTenantFilter } from "./_read-source.ts";
@@ -27,14 +27,13 @@ import { resolveRequired } from "./_resolver-utils.ts";
 
 type ReadFindOneArgs = {
   readonly name: string;
-  readonly table: unknown;
+  readonly table: TableLike;
   readonly where: StepResolver<WhereObject | undefined>;
   readonly unsafeAllTenants?: { readonly reason: string };
 };
 
 defineStep<ReadFindOneArgs, Record<string, unknown> | null>({
   kind: "read.findOne",
-  defaultFailureStrategy: "throw",
   resultKey: (args) => args.name,
   run: async (args, ctx: PipelineCtx) => {
     const where = resolveRequired(args.where, ctx);
@@ -48,7 +47,7 @@ defineStep<ReadFindOneArgs, Record<string, unknown> | null>({
 export function buildReadFindOneStep(
   name: string,
   opts: {
-    readonly table: unknown;
+    readonly table: TableLike;
     readonly where: StepResolver<WhereObject | undefined>;
     readonly unsafeAllTenants?: { readonly reason: string };
   },

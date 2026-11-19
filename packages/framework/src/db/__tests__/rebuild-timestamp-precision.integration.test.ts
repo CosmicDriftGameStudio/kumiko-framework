@@ -23,6 +23,7 @@ import { createTenantDb } from "../tenant-db.ts";
 import { type BunTestDb, createTestDb } from "./query/bun-test-db.ts";
 
 const deliveryEntity = createEntity({
+  name: "delivery",
   table: "read_precision_deliveries",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture" }),
@@ -30,9 +31,9 @@ const deliveryEntity = createEntity({
   },
 });
 const deliveryFeature = defineFeature("precision", (r) => {
-  r.entity({ name: "delivery", ...deliveryEntity });
+  r.entity(deliveryEntity);
 });
-const deliveryTable = buildEntityTable("delivery", deliveryEntity);
+const deliveryTable = buildEntityTable(deliveryEntity);
 const INSTANT_WITH_MICROSECONDS = "2026-10-24T17:13:19.104362Z";
 
 let testDb: BunTestDb;

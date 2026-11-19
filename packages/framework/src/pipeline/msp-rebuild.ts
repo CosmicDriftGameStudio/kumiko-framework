@@ -7,21 +7,29 @@ import {
   selectSnapshotXmax,
   updateConsumerRebuildCursor,
 } from "../db/queries/event-consumer.ts";
+import { selectEventsForMultiStreamRebuild } from "../db/queries/projection-rebuild.ts";
 import { assertRebuildableRowLevelSecurity } from "../db/queries/rebuild-rls-guard.ts";
 import {
   assertLiveColumnsMatchMeta,
+  assertReplayWroteOnlyShadow,
   buildShadowTable,
+  captureLiveRelationWriteCounts,
   ensureRebuildSchema,
   rebuildMetaOrThrow,
   swapShadowIntoLive,
 } from "../db/queries/shadow-swap.ts";
-import { runInSavepoint, selectMany } from "../db/query.ts";
+import { coerceRow, runInSavepoint } from "../db/query.ts";
 import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import { withoutStatementTimeout } from "../db/statement-timeout.ts";
+import { extractTableInfo } from "../db/table-info.ts";
 import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
-import { loadAggregate, loadAggregateAsOf } from "../event-store/event-store.ts";
+import {
+  type EventMetadata,
+  loadAggregate,
+  loadAggregateAsOf,
+} from "../event-store/event-store.ts";
 import { eventsTable, type StoredEvent, upcastStoredEvent } from "../event-store/index.ts";
 import {
   createRebuildDeadLetterTable,
@@ -38,7 +46,7 @@ import {
   mergeContiguousGapRanges,
   subtractSortedIdsFromRanges,
 } from "./pending-gap-ranges.ts";
-import type { RebuildResult } from "./projection-rebuild.ts";
+import { REBUILD_BATCH_SIZE, type RebuildResult } from "./projection-rebuild.ts";
 
 // Rebuild a multi-stream projection (MSP) from the event log. Symmetric to
 // `rebuildProjection` for single-stream projections — same single-TX online
@@ -66,8 +74,10 @@ import type { RebuildResult } from "./projection-rebuild.ts";
 // During the rebuild TX:
 //   - FOR UPDATE lock on the consumer row blocks concurrent live passes
 //     (SKIP LOCKED from the dispatcher backs off silently).
-//   - Build the shadow table; replay events matching apply-keys into it via
-//     apply(event, tx, ctx) with search_path pointed at the shadow schema.
+//   - Build the shadow table; replay events matching apply-keys into it in
+//     keyset batches of REBUILD_BATCH_SIZE (one transaction, so memory stays
+//     bounded by one batch) via apply(event, tx, ctx) with search_path
+//     pointed at the shadow schema.
 //   - Advance cursor to last processed event id, status=idle.
 //   - Swap the shadow into public (brief ACCESS EXCLUSIVE, not the replay).
 //
@@ -93,11 +103,24 @@ import type { RebuildResult } from "./projection-rebuild.ts";
 // so writes to the primary table land in the shadow — but a write to ANY OTHER
 // table (e.g. a saga side-effect on a second read-model) falls through to
 // `public`, i.e. the LIVE table, and runs concurrently with the live pipeline's
-// incremental applies to that same table → double-write corruption. The old
-// TRUNCATE path held ACCESS EXCLUSIVE and narrowed (not closed) this window; the
-// shadow-swap removes that brake entirely. Multi-table apply is not statically
-// detectable here (apply is an opaque callback), so this is enforced by
-// contract, not by a guard. See db/queries/shadow-swap.ts "Boundary".
+// incremental applies to that same table → double-write corruption. apply is an
+// opaque callback, so the rule is enforced after the replay: the rebuild
+// aborts if pg_stat_xact_user_tables shows a write outside the shadow schema
+// (assertReplayWroteOnlyShadow). See db/queries/shadow-swap.ts "Boundary".
+
+type MspRebuildEventRow = {
+  id: bigint;
+  aggregateId: string;
+  aggregateType: string;
+  tenantId: TenantId;
+  version: number;
+  type: string;
+  eventVersion: number;
+  payload: Record<string, unknown>;
+  metadata: EventMetadata;
+  createdAt: Temporal.Instant;
+  createdBy: string;
+};
 
 export type MspRebuildDeps = {
   readonly db: DbConnection;
@@ -112,7 +135,7 @@ export type MspRebuildDeps = {
   // so the live consumer is intact; an automatic background rebuild passes false
   // to not park it as dead and logs the failure itself.
   readonly markDeadOnFailure?: boolean;
-  // Checked per replayed event: the replay holds one tx and the consumer-row
+  // Checked per batch and per replayed event: the replay holds one tx and the consumer-row
   // FOR UPDATE lock, so a shutdown must abort (rolling everything back)
   // instead of blocking the live dispatcher until the pod is killed.
   readonly signal?: AbortSignal;
@@ -190,7 +213,6 @@ async function replayMultiStreamProjectionIntoShadow(
     // Outside the rebuild tx, like the schema: idempotent DDL colliding
     // inside the tx would roll the whole replay back.
     if (skipApplyErrors) await createRebuildDeadLetterTable(db);
-    const replayedIds: bigint[] = [];
     await db.begin(async (tx: DbTx) => {
       await assertRebuildableRowLevelSecurity(tx, meta);
       await resetConsumerForMspRebuild(tx, mspName, SHARED_INSTANCE_SENTINEL);
@@ -200,89 +222,97 @@ async function replayMultiStreamProjectionIntoShadow(
 
       await assertLiveColumnsMatchMeta(tx, meta, mspName);
       await buildShadowTable(tx, meta);
+      const liveWritesBefore = await captureLiveRelationWriteCounts(tx);
 
+      let remainingGaps = seededGaps;
       const subscribedTypes = Object.keys(msp.apply);
       if (subscribedTypes.length > 0) {
-        type EventRow = {
-          id: bigint;
-          aggregateId: string;
-          aggregateType: string;
-          tenantId: TenantId;
-          version: number;
-          type: string;
-          eventVersion: number;
-          payload: Record<string, unknown>;
-          metadata: import("../event-store/event-store.ts").EventMetadata;
-          createdAt: Temporal.Instant;
-          createdBy: string;
-        };
         // Events past `horizon` are the live dispatcher's to deliver via
         // `id > cursor` — bounding the replay here is what keeps the two
         // paths from ever double-applying the same event.
-        const events = await selectMany<EventRow>(
-          tx,
-          eventsTable,
-          { type: [...subscribedTypes], id: { lte: horizon } },
-          { orderBy: { col: "id", direction: "asc" } },
-        );
-
+        const eventsInfo = extractTableInfo(eventsTable);
         const upcasters = registry.getEventUpcasters();
         const applyTx = withExecutorManagedWrites(tx);
-        for (const row of events) {
+        let afterId = 0n;
+        // Replays one keyset batch and carves its ids out of the seeded gaps;
+        // returns the batch size.
+        const replayNextBatch = async (): Promise<number> => {
           deps.signal?.throwIfAborted();
-          const raw: StoredEvent = {
-            id: String(row.id),
-            aggregateId: row.aggregateId,
-            aggregateType: row.aggregateType,
-            tenantId: row.tenantId,
-            version: row.version,
-            type: row.type,
-            eventVersion: row.eventVersion,
-            payload: row.payload,
-            metadata: row.metadata,
-            createdAt: row.createdAt,
-            createdBy: row.createdBy,
-          };
-          const storedEvent = await upcastStoredEvent(raw, upcasters, {
-            db: tx,
-            tenantId: row.tenantId,
-          });
-          replayedIds.push(row.id);
-          const applyFn = msp.apply[row.type];
-          if (!applyFn) continue;
-          if (skipApplyErrors) {
-            // Driver-native savepoint: a throwing SQL statement would
-            // otherwise poison the rebuild tx (25P02) AND make the driver
-            // reject the whole begin() even after a caught error. Apply +
-            // ctx run on the savepoint-scoped handle.
-            try {
-              await runInSavepoint(applyTx, async (sp) => {
-                const rebuildCtx = createRebuildCtx(registry, sp, row.tenantId);
-                await applyFn(storedEvent, sp, rebuildCtx);
-              });
-            } catch (e) {
-              skipped.push({ event: storedEvent, error: e });
+          const batch = (
+            await selectEventsForMultiStreamRebuild(
+              tx,
+              subscribedTypes,
+              afterId,
+              horizon,
+              REBUILD_BATCH_SIZE,
+            )
+          ).map((raw) => coerceRow<MspRebuildEventRow>(raw, eventsInfo));
+          const batchIds: bigint[] = [];
+          for (const row of batch) {
+            deps.signal?.throwIfAborted();
+            const raw: StoredEvent = {
+              id: String(row.id),
+              aggregateId: row.aggregateId,
+              aggregateType: row.aggregateType,
+              tenantId: row.tenantId,
+              version: row.version,
+              type: row.type,
+              eventVersion: row.eventVersion,
+              payload: row.payload,
+              metadata: row.metadata,
+              createdAt: row.createdAt,
+              createdBy: row.createdBy,
+            };
+            const storedEvent = await upcastStoredEvent(raw, upcasters, {
+              db: tx,
+              tenantId: row.tenantId,
+            });
+            batchIds.push(row.id);
+            const applyFn = msp.apply[row.type];
+            if (!applyFn) continue;
+            if (skipApplyErrors) {
+              // Driver-native savepoint: a throwing SQL statement would
+              // otherwise poison the rebuild tx (25P02) AND make the driver
+              // reject the whole begin() even after a caught error. Apply +
+              // ctx run on the savepoint-scoped handle.
+              try {
+                await runInSavepoint(applyTx, async (sp) => {
+                  const rebuildCtx = createRebuildCtx(registry, sp, row.tenantId);
+                  await applyFn(storedEvent, sp, rebuildCtx);
+                });
+              } catch (e) {
+                skipped.push({ event: storedEvent, error: e });
+              }
+            } else {
+              const rebuildCtx = createRebuildCtx(registry, applyTx, row.tenantId);
+              await applyFn(storedEvent, applyTx, rebuildCtx);
             }
-          } else {
-            const rebuildCtx = createRebuildCtx(registry, applyTx, row.tenantId);
-            await applyFn(storedEvent, applyTx, rebuildCtx);
+            eventsProcessed++;
+            lastProcessedEventId = row.id;
           }
-          eventsProcessed++;
-          lastProcessedEventId = row.id;
-        }
+          remainingGaps = subtractSortedIdsFromRanges(remainingGaps, batchIds);
+          const lastRow = batch.at(-1);
+          if (lastRow !== undefined) afterId = lastRow.id;
+          return batch.length;
+        };
+        let batchSize: number;
+        do {
+          batchSize = await replayNextBatch();
+        } while (batchSize === REBUILD_BATCH_SIZE);
       }
+
+      await assertReplayWroteOnlyShadow(tx, liveWritesBefore, mspName);
 
       if (skipped.length > 0) {
         await recordRebuildDeadLetters(tx, mspName, skipped);
       }
-      // Every id actually read this replay (applied or skip-applied) is
-      // resolved — a live pass must never redeliver it. Anything surviving
-      // that subtraction is capped below the written cursor: a gap at or
+      // Every id read this replay (applied or skip-applied) was already carved
+      // out of the seeded gaps batch by batch — a live pass must never
+      // redeliver it. Anything surviving is capped below the written cursor: a gap at or
       // above it is the live dispatcher's own `id > cursor` territory, not
       // pending_gaps'. No events replayed (cursor stays 0) means no gap can
       // sit below it either.
-      const survivingGaps = subtractSortedIdsFromRanges(seededGaps, replayedIds);
-      const cappedGaps = capPendingGapsBelowCursor(survivingGaps, lastProcessedEventId);
+      const cappedGaps = capPendingGapsBelowCursor(remainingGaps, lastProcessedEventId);
       const postReplayXmax = cappedGaps.length > 0 ? await selectSnapshotXmax(tx) : null;
       const pendingGaps = mergeContiguousGapRanges(
         postReplayXmax === null

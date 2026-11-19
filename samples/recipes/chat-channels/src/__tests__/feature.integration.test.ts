@@ -23,18 +23,16 @@ import {
 import {
   createTenantFeature,
   TenantQueries,
-  tenantEntity,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { createTestEnvelopeCipher, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { OPS_ANNOUNCEMENT_TYPE, opsFeature } from "../feature";
@@ -83,9 +81,11 @@ beforeAll(async () => {
         masterKeyProvider,
         registry: deps.registry,
       });
+      // Without an address cipher the delivery service sends queued channels inline, not via the job.
+      const cipher = createTestEnvelopeCipher();
       jobRunner = createJobRunner({
         registry: deps.registry,
-        context: { db: deps.db, secrets },
+        context: { db: deps.db, secrets, configEncryption: cipher },
         redisUrl,
         consumerLane: "worker",
         queueNamePrefix: `kumiko-chat-recipe-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -95,6 +95,7 @@ beforeAll(async () => {
         ...createDeliveryTestContext(deps, {
           tenantUserIdsQuery: TenantQueries.resolveUserIds,
           jobRunner,
+          addressCipher: cipher,
         }),
       };
     },
@@ -104,7 +105,6 @@ beforeAll(async () => {
     tenantMembershipsTable,
     tenant_secrets: tenantSecretsTable,
   });
-  await unsafeCreateEntityTable(stack.db, tenantEntity, "tenant");
   await jobRunner.start();
 });
 

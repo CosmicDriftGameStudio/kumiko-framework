@@ -13,6 +13,7 @@ import type { SearchAdapter } from "../../search/types.ts";
 import { createSearchEventConsumer } from "../system-hooks.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "no_db_search_notes",
   fields: {
     label: createTextField({
@@ -56,7 +57,7 @@ function eventOf(id: string, type: string, tenantId: TenantId, aggregateId: stri
 const noteRegistry = () =>
   createRegistry([
     defineFeature("nodb", (r) => {
-      r.entity({ name: "note", ...noteEntity });
+      r.entity(noteEntity);
     }),
   ]);
 

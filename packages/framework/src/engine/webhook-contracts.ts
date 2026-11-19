@@ -1,5 +1,9 @@
 import type { WebhookEntityVerb, WebhookEventContract } from "@cosmicdrift/kumiko-types/feature";
-import type { EntityDefinition, FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
+import {
+  type EntityDefinition,
+  type FieldDefinition,
+  isDeclaredEntityVerb,
+} from "@cosmicdrift/kumiko-types/fields";
 import * as z from "zod";
 import { DEFAULT_CURRENCIES } from "./field-helpers.ts";
 import { personalFieldNames } from "./personal-data-fields.ts";
@@ -92,10 +96,9 @@ function fieldShape(
   );
 }
 
-// The executor appends `changes` and `previous` (the whole pre-update row, which always has `id`)
-// on update and `{ previous }` on delete; create appends the flat fields without `id`. Receivers
-// need the id, so the contract carries it on the top level; `toEntityWebhookPayload` takes it from
-// the event's aggregate id.
+// Update carries `changes` and the old values of the changed keys; delete carries the row's plaintext columns;
+// create appends the flat fields without `id`. Receivers need the id, so the contract carries it
+// on the top level; `toEntityWebhookPayload` takes it from the event's aggregate id.
 function payloadFor(
   verb: WebhookEntityVerb,
   fields: readonly (readonly [string, FieldDefinition])[],
@@ -106,7 +109,7 @@ function payloadFor(
     return z.object({
       id: z.uuid(),
       changes: z.object(fieldShape(fields, "optional")),
-      previous: row,
+      previous: z.object(fieldShape(fields, "optional")),
     });
   return z.object({ id: z.uuid(), previous: row });
 }
@@ -160,6 +163,19 @@ function entityVerbOf(
   return verb === undefined ? undefined : { entity: qualifiedName.slice(0, dot), verb };
 }
 
+function declaredVerbOf(
+  qualifiedName: string,
+  entities: ReadonlyMap<string, EntityDefinition>,
+): { entity: string; verb: string } | undefined {
+  const dot = qualifiedName.lastIndexOf(".");
+  if (dot <= 0) return undefined;
+  const entityName = qualifiedName.slice(0, dot);
+  const verb = qualifiedName.slice(dot + 1);
+  return isDeclaredEntityVerb(entities.get(entityName), verb)
+    ? { entity: entityName, verb }
+    : undefined;
+}
+
 export type WebhookContractResolver = {
   /** Declared contract, or one derived from an entity lifecycle event (`entity.verb`). */
   get(qualifiedName: string): WebhookEventContract | undefined;
@@ -189,17 +205,41 @@ export function createWebhookContractResolver(
       if (!derived.has(qualifiedName)) {
         const target = entityVerbOf(qualifiedName);
         const entity = target === undefined ? undefined : entities.get(target.entity);
-        derived.set(
-          qualifiedName,
-          target === undefined || entity === undefined || entity.webhookEvents !== true
-            ? undefined
-            : entityContract(
-                target.entity,
-                target.verb,
-                entity,
-                excluded.get(target.entity) ?? new Set(),
-              ),
-        );
+        if (target !== undefined) {
+          derived.set(
+            qualifiedName,
+            entity === undefined || entity.webhookEvents !== true
+              ? undefined
+              : entityContract(
+                  target.entity,
+                  target.verb,
+                  entity,
+                  excluded.get(target.entity) ?? new Set(),
+                ),
+          );
+        } else {
+          const declaredVerb = declaredVerbOf(qualifiedName, entities);
+          const verbEntity =
+            declaredVerb === undefined ? undefined : entities.get(declaredVerb.entity);
+          derived.set(
+            qualifiedName,
+            declaredVerb === undefined ||
+              verbEntity === undefined ||
+              verbEntity.webhookEvents !== true
+              ? undefined
+              : {
+                  ...entityContract(
+                    declaredVerb.entity,
+                    "updated",
+                    verbEntity,
+                    excluded.get(declaredVerb.entity) ?? new Set(),
+                  ),
+                  qn: qualifiedName,
+                  wireName: qualifiedName,
+                  description: `A ${declaredVerb.entity} was ${declaredVerb.verb}.`,
+                },
+          );
+        }
       }
       return derived.get(qualifiedName);
     },

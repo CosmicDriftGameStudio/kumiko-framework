@@ -5,10 +5,11 @@ import {
   type UserDataExportHook,
   type UserDataHookCtx,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
 import {
   collectErasureFailure,
   decryptStoredPii,
-  mapWithConcurrency,
+  KMS_POOL_CONCURRENCY,
   throwIfErasureFailed,
 } from "../../shared/index.ts";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/index.ts";
@@ -37,11 +38,6 @@ const crud = createEventStoreExecutor(tenantInvitationsTable, tenantInvitationEn
 });
 
 const INVITED_BY_ANONYMIZED = "anonymized";
-
-// Bounded, not Promise.all — each decrypt hits the KMS adapter's own small
-// dedicated pool (PgKmsAdapter default max: 4). Same reasoning as
-// tenant/handlers/invitations.query.ts's KMS_POOL_CONCURRENCY.
-const KMS_POOL_CONCURRENCY = 4;
 
 async function resolveUserEmail(ctx: UserDataHookCtx): Promise<string | null> {
   if (ctx.userEmailBeforeDelete) return ctx.userEmailBeforeDelete.toLowerCase();

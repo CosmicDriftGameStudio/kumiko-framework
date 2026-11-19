@@ -22,10 +22,11 @@ import { buildEntityTable } from "../table-builder.ts";
 import { createProjectingTenantDb } from "../tenant-db.ts";
 
 const ledgerEntity = createEntity({
+  name: "ledger",
   table: "read_poolatomic_ledgers",
   fields: { title: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
-const ledgerTable = buildEntityTable("ledger", ledgerEntity);
+const ledgerTable = buildEntityTable(ledgerEntity);
 const ledgerExecutor = createEventStoreExecutor(ledgerTable, ledgerEntity, {
   entityName: "ledger",
 });
@@ -58,7 +59,7 @@ async function projectLedgerEvent(
 }
 
 const poolAtomicFeature = defineFeature("poolatomic", (r) => {
-  r.entity({ name: "ledger", ...ledgerEntity });
+  r.entity(ledgerEntity);
   r.projection({
     name: "ledger-log",
     source: "ledger",
@@ -167,6 +168,34 @@ describe("executor writes on a pool runner are atomic", () => {
 
     const rows = await selectMany(stack.db, ledgerTable);
     expect(rows).toHaveLength(1);
-    expect(await getStreamVersion(stack.db, String(id), admin.tenantId)).toBe(rows[0]?.["version"]);
+    expect(rows[0]?.version).toBe(await getStreamVersion(stack.db, String(id), admin.tenantId));
+  });
+
+  test("update with skipOptimisticLock fails with version_conflict when another writer commits after the row was loaded", async () => {
+    const id = await createLedger("start");
+
+    const result = await ledgerExecutor.update(
+      { id, version: 1, changes: { title: "outer" } },
+      admin,
+      poolDb(),
+      {
+        skipOptimisticLock: true,
+        preSave: async (changes) => {
+          const inner = await ledgerExecutor.update(
+            { id, version: 1, changes: { title: "inner" } },
+            admin,
+            poolDb(),
+          );
+          expect(inner.isSuccess).toBe(true);
+          return changes;
+        },
+      },
+    );
+
+    expect(result.isSuccess).toBe(false);
+    if (!result.isSuccess) expect(result.error.code).toBe("version_conflict");
+    expect(await getStreamVersion(stack.db, String(id), admin.tenantId)).toBe(2);
+    const rows = await selectMany(stack.db, ledgerTable);
+    expect(rows.map((row) => row["title"])).toEqual(["inner"]);
   });
 });

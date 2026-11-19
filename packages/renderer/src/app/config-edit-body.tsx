@@ -10,12 +10,13 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { type ComponentProps, type ReactNode, useCallback, useMemo } from "react";
+import { type ComponentProps, type ReactNode, useCallback, useMemo, useRef } from "react";
 import {
   QueryOptionLabel,
   resolveOptionsQueryPayload,
 } from "../components/query-options-select.tsx";
 import { RenderEdit } from "../components/render-edit.tsx";
+import type { RenderEditControls } from "../components/render-edit-types.ts";
 import { useDispatcher } from "../context/dispatcher-context.tsx";
 import type {
   Command,
@@ -190,6 +191,16 @@ function isEmptyNumericFormValue(value: unknown): boolean {
   return typeof value === "number" && !Number.isFinite(value);
 }
 
+// Config values are string|number|boolean; the form state expects the field's native type.
+function configFormValue(fieldDef: unknown, stored: string | number | boolean): unknown {
+  const ftype = propertyOf(fieldDef, "type");
+  if (ftype === "number" || ftype === "money") {
+    return typeof stored === "number" ? stored : Number(stored);
+  }
+  if (ftype === "boolean") return typeof stored === "boolean" ? stored : stored === "true";
+  return typeof stored === "string" ? stored : String(stored);
+}
+
 // Same wire shape as a writeOnly config field: null removes, a string replaces.
 function secretChangeCommand(
   secretKey: string,
@@ -265,7 +276,7 @@ export function ConfigEditBody({
   readonly screen: ConfigEditScreenDefinition;
   readonly translate?: Translate;
 }): ReactNode {
-  const { ConfigCascadeView } = usePrimitives();
+  const { ConfigCascadeView, FillContainer } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const dispatcher = useDispatcher();
@@ -299,7 +310,12 @@ export function ConfigEditBody({
   const secretKeys = secretsDenied ? undefined : declaredScreen.secretKeys;
 
   const synthEntity = useMemo(() => synthesizeConfigEditEntity(screen.fields), [screen.fields]);
-  const synthScreen = useMemo(() => synthesizeConfigEditScreen(screen), [screen]);
+  const synthScreen = useMemo(() => {
+    const synthesized = synthesizeConfigEditScreen(screen);
+    return screen.compact === true
+      ? { ...synthesized, layout: { ...synthesized.layout, width: "settings" as const } }
+      : synthesized;
+  }, [screen]);
   const boundsSchema = useMemo(() => buildConfigEditSchema(screen.fields), [screen.fields]);
 
   // Initial values: per field name, fetch the value from `values[qualifiedKey]`.
@@ -337,20 +353,8 @@ export function ConfigEditBody({
         out[shortName] = ownedByThisScope && hasStoredValue(stored) ? true : null;
         continue;
       }
-      if (stored === undefined) {
-        out[shortName] = defaults[shortName];
-        continue;
-      }
-      const ftype = propertyOf(fieldDef, "type");
-      // Field type coercion: config values are string|number|boolean, but the
-      // form state expects the matching native field type.
-      if (ftype === "number" || ftype === "money") {
-        out[shortName] = typeof stored === "number" ? stored : Number(stored);
-      } else if (ftype === "boolean") {
-        out[shortName] = typeof stored === "boolean" ? stored : stored === "true";
-      } else {
-        out[shortName] = typeof stored === "string" ? stored : String(stored);
-      }
+      out[shortName] =
+        stored === undefined ? defaults[shortName] : configFormValue(fieldDef, stored);
     }
     return out;
   }, [
@@ -387,13 +391,62 @@ export function ConfigEditBody({
   // commits all N, but the browser connection pool sporadically returns
   // "Failed to fetch" for individual responses, customSubmit returns failure
   // although the write went through, and the form stays dirty.
+  const formControlsRef = useRef<RenderEditControls<FormValues> | null>(null);
+  // Field name -> the inherited value a reset put into the form. Save sends the reset only while
+  // the field still holds that value; typing over it saves the typed value instead.
+  const pendingResetsRef = useRef(new Map<string, unknown>());
+  const markReset = (fieldName: string): void => {
+    const levels = cascades[fieldName]?.levels ?? [];
+    const activeIndex = levels.findIndex((level) => level.isActive);
+    const inheritedValue = levels.slice(activeIndex + 1).find((level) => level.hasValue)?.value;
+    const fieldDef = screen.fields[fieldName];
+    const formValue = isWriteOnlyTextField(fieldDef)
+      ? null
+      : inheritedValue === undefined
+        ? buildConfigEditDefaults(screen.fields)[fieldName]
+        : configFormValue(fieldDef, inheritedValue);
+    formControlsRef.current?.patch({ [fieldName]: formValue });
+    const qualified = screen.configKeys[fieldName];
+    // An override equal to the inherited value leaves the form unchanged, so Save would never
+    // send a staged reset; nothing visible changes either, so writing it now hides no edit.
+    if (qualified !== undefined && Object.is(initial?.[fieldName], formValue)) {
+      void dispatcher
+        .write("config:write:reset", { key: qualified, scope: screen.scope })
+        .then((result) => {
+          if (!result.isSuccess) {
+            formControlsRef.current?.showSubmitError(
+              mapFailedConfigCommandIssuesToField(result.error, 0, [fieldName]),
+            );
+            return;
+          }
+          return cascadeQuery.refetch?.();
+        });
+      return;
+    }
+    pendingResetsRef.current.set(fieldName, formValue);
+  };
+
   const customSubmit = useCallback(
     async (snapshot: FormSnapshot<FormValues>): Promise<SubmitResult<unknown>> => {
       const commands: Command[] = [];
       const commandFieldNames: string[] = [];
       const hiddenFieldNames = hiddenLayoutFieldNames(synthScreen, snapshot.values);
+      const pendingResets = pendingResetsRef.current;
       for (const [shortName, value] of Object.entries(snapshot.changes)) {
         if (hiddenFieldNames.has(shortName)) continue;
+        const qualified = screen.configKeys[shortName];
+        if (
+          qualified !== undefined &&
+          pendingResets.has(shortName) &&
+          Object.is(pendingResets.get(shortName), value)
+        ) {
+          commandFieldNames.push(shortName);
+          commands.push({
+            type: "config:write:reset",
+            payload: { key: qualified, scope: screen.scope },
+          });
+          continue;
+        }
         const command = configChangeCommand({
           shortName,
           value,
@@ -409,6 +462,7 @@ export function ConfigEditBody({
         return { validationBlocked: false, isSuccess: true, data: undefined };
       }
       const result = await dispatcher.batch(commands);
+      if (result.isSuccess) pendingResets.clear();
       if (!result.isSuccess) {
         return {
           validationBlocked: false,
@@ -449,7 +503,7 @@ export function ConfigEditBody({
     : secretsQuery.error && !secretsDenied
       ? secretsQuery
       : null;
-  if (failedQuery?.error) {
+  if (failedQuery?.error && failedQuery.data === null) {
     return (
       <QueryErrorBanner
         error={failedQuery.error}
@@ -458,6 +512,14 @@ export function ConfigEditBody({
       />
     );
   }
+  // A failed refetch keeps the last good values on screen; only a first load without data blocks the form.
+  const refetchErrorBanner = failedQuery?.error ? (
+    <QueryErrorBanner
+      error={failedQuery.error}
+      translate={effectiveTranslate}
+      onRetry={failedQuery.refetch}
+    />
+  ) : null;
   if (initial === null) return <QueryLoadingBanner />;
   // Cascade values of a select show the option label the select itself shows,
   // not the stored value (a UUID for optionsQuery selects).
@@ -488,13 +550,24 @@ export function ConfigEditBody({
       initial={initial}
       schema={boundsSchema}
       customSubmit={customSubmit}
+      onControlsReady={(controls) => {
+        formControlsRef.current = controls;
+      }}
+      onDirtyChange={(dirty) => {
+        // A discarded or typed-back form drops its reset marks, so a later Save cannot turn a
+        // typed inherited value into a reset.
+        if (!dirty) pendingResetsRef.current.clear();
+      }}
       dirtyFooter
       validateOnChange
       {...(screenFillsHeight(screen) && { fillScreenHeight: true })}
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
       fieldAppendixPlacement="below-control"
-      {...(compact && { recordSections: { labelTitles: true as const } })}
+      {...(compact && {
+        recordSections: { labelTitles: true as const },
+        fieldIcons: false as const,
+      })}
       {...(!compact && {
         fieldAccent: (fieldName: string) =>
           cascades[fieldName]?.levels.find((level) => level.isActive)?.source ===
@@ -521,26 +594,24 @@ export function ConfigEditBody({
             required={screen.requiredFields?.includes(fieldName) ?? false}
             {...(renderValue !== undefined && { renderValue })}
             {...(!readOnlyFields.has(fieldName) && {
-              onReset: async (key: string, scope: ConfigScope) => {
-                await dispatcher.write("config:write:reset", { key, scope });
-                await Promise.allSettled([valuesQuery.refetch?.(), cascadeQuery.refetch?.()]);
-              },
+              onReset: () => markReset(fieldName),
             })}
           />
         );
       }}
     />
   );
-  return compact ? (
-    // The prefix icon of a field is dropped together with the padding it reserved. The column cap sits
-    // on the form shell only, so the pinned save bar stays full width at the page bottom like on a record page.
-    <div
-      data-testid="config-edit-compact"
-      className="h-full min-h-0 [&>form>div:first-child]:mx-0 [&>form>div:first-child]:max-w-[940px] [&_.relative>input]:pl-3 [&_.relative>svg.pointer-events-none]:hidden"
-    >
+  const body = compact ? (
+    <FillContainer testId="config-edit-compact" className="h-full min-h-0">
       {form}
-    </div>
+    </FillContainer>
   ) : (
     form
+  );
+  return (
+    <>
+      {refetchErrorBanner}
+      {body}
+    </>
   );
 }

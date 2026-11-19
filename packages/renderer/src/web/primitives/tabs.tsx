@@ -37,6 +37,23 @@ function edgeFadeMaskImage(start: boolean, end: boolean): string | undefined {
   return undefined;
 }
 
+function scrollActiveTabIntoView(scroller: HTMLElement): void {
+  // Radix marks the active trigger via aria-selected — reading it back
+  // through the DOM avoids threading a ref through the vendored
+  // TabsTrigger wrapper for every item.
+  const trigger = scroller.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+  if (trigger === null) return;
+  const triggerStart = trigger.offsetLeft;
+  const triggerEnd = triggerStart + trigger.offsetWidth;
+  // scrollIntoView would also scroll the page vertically to reveal the
+  // trigger — setting scrollLeft directly touches only this strip.
+  if (triggerStart < scroller.scrollLeft) {
+    scroller.scrollLeft = triggerStart;
+  } else if (triggerEnd > scroller.scrollLeft + scroller.clientWidth) {
+    scroller.scrollLeft = triggerEnd - scroller.clientWidth;
+  }
+}
+
 export function DefaultTabs({
   items,
   activeId,
@@ -72,27 +89,13 @@ export function DefaultTabs({
   // by the scroll listener's own setScrollStart/End below — so scrolling the
   // strip by hand immediately snapped it back to the active tab, making it
   // impossible to reach any other tab by scrolling (fw#follow-up). Only a
-  // mount or an actual activeId change should force the active tab back
-  // into view.
+  // mount, an actual activeId change or a resize (observer below) should
+  // force the active tab back into view.
   // biome-ignore lint/correctness/useExhaustiveDependencies: activeId is the intended re-run trigger even though the DOM query below doesn't reference it directly; updateScrollEdges is a stable useCallback([]) ref and doesn't need to be listed.
   useLayoutEffect(() => {
     const el = scrollerRef.current;
     if (el === null) return;
-    // Radix marks the active trigger via aria-selected — reading it back
-    // through the DOM avoids threading a ref through the vendored
-    // TabsTrigger wrapper for every item.
-    const trigger = el.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
-    if (trigger !== null) {
-      const triggerStart = trigger.offsetLeft;
-      const triggerEnd = triggerStart + trigger.offsetWidth;
-      // scrollIntoView would also scroll the page vertically to reveal the
-      // trigger — setting scrollLeft directly touches only this strip.
-      if (triggerStart < el.scrollLeft) {
-        el.scrollLeft = triggerStart;
-      } else if (triggerEnd > el.scrollLeft + el.clientWidth) {
-        el.scrollLeft = triggerEnd - el.clientWidth;
-      }
-    }
+    scrollActiveTabIntoView(el);
     updateScrollEdges();
   }, [activeId]);
 
@@ -114,8 +117,11 @@ export function DefaultTabs({
     }
     // Observes both the scroller and the list: a growing TabsList (e.g. a
     // count badge finishing a load) can change scrollWidth without the
-    // scroller's own box ever resizing.
-    const observer = new ResizeObserver(updateScrollEdges);
+    // scroller's own box ever resizing, and pushes the active tab out of view.
+    const observer = new ResizeObserver(() => {
+      scrollActiveTabIntoView(el);
+      updateScrollEdges();
+    });
     observer.observe(el);
     const list = el.firstElementChild;
     if (list !== null) observer.observe(list);

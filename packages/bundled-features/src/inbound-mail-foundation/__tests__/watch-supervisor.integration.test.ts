@@ -14,11 +14,13 @@ import {
 import type { DbConnection, EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { createDistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
+import {
+  createDistributedLock,
+  type DistributedLock,
+} from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   resetPiiSubjectKmsForTests,
-  sleep,
   updateRows,
   waitFor,
 } from "@cosmicdrift/kumiko-testing/helpers";
@@ -35,6 +37,7 @@ import { createConfigFeature } from "../../config/index.ts";
 import {
   emitWatchError,
   failNextFetchWith,
+  fetchCountOf,
   isWatching,
   resetInboundInMemory,
   seedInboundMessage,
@@ -209,6 +212,10 @@ describe("watch-supervisor — undecryptable account", () => {
       mailAccountsProjectionTable,
       { address: numericAddress },
       { id: brokenAccountId },
+      {
+        projectionOnly:
+          "corrupts the address ciphertext on the projection to exercise the skip path",
+      },
     );
     await seedInboundMessage(healthyAccountId, rawMsg({ providerMessageId: "healthy-1" }));
     const lines: string[] = [];
@@ -253,6 +260,10 @@ describe("watch-supervisor — undecryptable account", () => {
       mailAccountsProjectionTable,
       { address: wrongFieldCiphertext },
       { id: brokenAccountId },
+      {
+        projectionOnly:
+          "corrupts the address ciphertext on the projection to exercise the skip path",
+      },
     );
     await seedInboundMessage(healthyAccountId, rawMsg({ providerMessageId: "healthy-2" }));
     const lines: string[] = [];
@@ -700,10 +711,21 @@ describe("watch-supervisor — multi-worker watch coordination", () => {
         expect(isWatching(accountId)).toBe(true);
       });
 
-      // 2.5x the 1s TTL: long enough that a dead heartbeat guarantees the
-      // key expired (1.5x left this indistinguishable from Redis's
-      // second-granularity EX not having rolled over yet).
-      await sleep(2500);
+      // Each heartbeat renew resets the key's PTTL upward. Three observed
+      // resets span more than the 1s TTL, so a dead heartbeat would have let
+      // the key expire before the count is reached.
+      const leaseKey = `test-watch-lease-renew:${accountId}`;
+      let previousPttlMs = -1;
+      let observedRenewals = 0;
+      await waitFor(
+        async () => {
+          const pttlMs = await stack.redis.redis.pttl(leaseKey);
+          if (previousPttlMs >= 0 && pttlMs > previousPttlMs) observedRenewals++;
+          previousPttlMs = pttlMs;
+          expect(observedRenewals).toBeGreaterThanOrEqual(3);
+        },
+        { delays: Array.from({ length: 80 }, () => 50) },
+      );
 
       // Direct probe of the invariant: the lease itself must still be held,
       // independent of B's behavior below (which only infers it indirectly).
@@ -780,6 +802,87 @@ describe("watch-supervisor — multi-worker watch coordination", () => {
     } finally {
       await supervisorA.stop();
       await supervisorB.stop();
+    }
+  });
+});
+
+describe("watch-supervisor — poll lease", () => {
+  const dispatchWrite = ({
+    handlerQn,
+    payload,
+    tenantId,
+  }: {
+    handlerQn: string;
+    payload: unknown;
+    tenantId: string;
+  }) =>
+    stack.dispatcher.write(
+      handlerQn,
+      payload,
+      createSystemUser(tenantId as TenantId, [ROLES.SystemAdmin]),
+    );
+
+  function supervisorWith(lock: DistributedLock) {
+    return createInboundMailSupervisor({
+      providerCtx: { registry: stack.registry },
+      db: stack.unscopedDb,
+      dispatchWrite,
+      lock,
+      pollIntervalMs: 60_000,
+    });
+  }
+
+  test("two workers poll a mailbox once per tick, an explicit poll and a restart still poll", async () => {
+    const accountId = await connectSharedAccount(adminFor(4251));
+    const redisLock = createDistributedLock(stack.redis.redis, "test-poll-lease:");
+    const lock: DistributedLock = {
+      // No watch lease for this mailbox: a watcher's catch-up fetch would blur the poll count.
+      acquire: async (key, options) => (key === accountId ? null : redisLock.acquire(key, options)),
+      release: (key, token) => redisLock.release(key, token),
+      renew: (key, token, ttlSeconds) => redisLock.renew(key, token, ttlSeconds),
+    };
+    const supervisorA = supervisorWith(lock);
+    const supervisorB = supervisorWith(lock);
+    const supervisorC = supervisorWith(lock);
+
+    try {
+      await supervisorA.start();
+      expect(fetchCountOf(accountId)).toBe(1);
+
+      await supervisorB.start();
+      expect(fetchCountOf(accountId)).toBe(1);
+
+      await supervisorB.pollOnce();
+      expect(fetchCountOf(accountId)).toBe(2);
+
+      await supervisorA.stop();
+      await supervisorC.start();
+      expect(fetchCountOf(accountId)).toBe(3);
+    } finally {
+      await supervisorA.stop();
+      await supervisorB.stop();
+      await supervisorC.stop();
+    }
+  });
+
+  test("a lock outage still polls", async () => {
+    const accountId = await connectSharedAccount(adminFor(4252));
+    const lock: DistributedLock = {
+      acquire: async (key) => {
+        if (key === accountId) return null;
+        if (key === `${accountId}:poll`) throw new Error("redis unavailable");
+        return `foreign-${key}`;
+      },
+      release: async () => true,
+      renew: async () => true,
+    };
+    const supervisor = supervisorWith(lock);
+
+    try {
+      await supervisor.start();
+      expect(fetchCountOf(accountId)).toBe(1);
+    } finally {
+      await supervisor.stop();
     }
   });
 });

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { SignupScreen } from "../signup-screen.tsx";
 import { renderWithProviders } from "./test-utils.tsx";
@@ -24,9 +25,9 @@ function fillEmail(value: string): void {
 describe("SignupScreen", () => {
   test("rendert title + email-input + submit-button (de)", () => {
     renderWithProviders(<SignupScreen />);
-    expect(screen.getByText("Create account")).toBeTruthy();
+    screen.getByText("Create account");
     expect(document.getElementById("signup-email")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Send activation link" })).toBeTruthy();
+    screen.getByRole("button", { name: "Send activation link" });
   });
 
   test("submit calls /api/auth/signup-request with the email", async () => {
@@ -54,9 +55,9 @@ describe("SignupScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send activation link" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Email sent")).toBeTruthy();
+      screen.getByText("Email sent");
     });
-    expect(screen.getByRole("button", { name: /Send email again/i })).toBeTruthy();
+    screen.getByRole("button", { name: /Send email again/i });
   });
 
   test("rate_limited with retryAfterSeconds → interpolated minutes", async () => {
@@ -95,22 +96,22 @@ describe("SignupScreen", () => {
 
 describe("SignupScreen registration status", () => {
   function statusDispatcher(enabled: boolean): Dispatcher {
-    return { query: async () => ({ isSuccess: true, data: { enabled } }) } as unknown as Dispatcher;
+    return createMockDispatcher({ query: async () => ({ isSuccess: true, data: { enabled } }) });
   }
 
   test("enabled: the form shows", async () => {
     renderWithProviders(<SignupScreen />, { dispatcher: statusDispatcher(true) });
-    expect(await screen.findByRole("button", { name: "Send activation link" })).toBeTruthy();
+    await screen.findByRole("button", { name: "Send activation link" });
   });
 
   test("disabled: closed notice and login link, no form, nothing is sent", async () => {
     const fetchMock = mock(async () => new Response(null, { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     renderWithProviders(<SignupScreen />, { dispatcher: statusDispatcher(false) });
-    expect(await screen.findByText("Sign-up is currently by invitation only.")).toBeTruthy();
+    await screen.findByText("Sign-up is currently by invitation only.");
     expect(document.getElementById("signup-email")).toBeNull();
     expect(screen.queryByRole("button", { name: "Send activation link" })).toBeNull();
-    expect(screen.getByRole("link", { name: /Already have an account/ })).toBeTruthy();
+    screen.getByRole("link", { name: /Already have an account/ });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

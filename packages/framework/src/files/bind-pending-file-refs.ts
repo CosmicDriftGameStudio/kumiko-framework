@@ -10,6 +10,7 @@ import {
   InternalError,
   reraiseAsKumikoError,
   UnprocessableError,
+  VERSION_CONFLICT_CODE,
   type WriteErrorInfo,
 } from "../errors/index.ts";
 import { getFileRefExecutor } from "./create-file-ref.ts";
@@ -237,7 +238,7 @@ export function assertRowFitsFileField(row: FileRefRow, fieldDef: AnyFileFieldDe
 
 export type BindPendingFileRefOutcome = "bound" | "not-pending" | "version-conflict";
 
-const CONCURRENT_BIND_ERROR_CODES: readonly string[] = ["version_conflict", "unique_violation"];
+const CONCURRENT_BIND_ERROR_CODES: readonly string[] = [VERSION_CONFLICT_CODE, "unique_violation"];
 
 /**
  * Binds one of the caller's own pending uploads to a record from a custom handler, with the

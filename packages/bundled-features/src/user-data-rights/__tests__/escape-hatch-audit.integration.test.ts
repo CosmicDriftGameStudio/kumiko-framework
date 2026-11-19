@@ -10,7 +10,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
-import { asRawClient, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineFeature,
@@ -19,6 +19,8 @@ import {
   type JobContext,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import { createTzContext } from "@cosmicdrift/kumiko-framework/time";
 import {
   setupTestStack,
   type TestStack,
@@ -43,14 +45,16 @@ const AUDITED_REASON =
   "fw#2914 test: declared escapeHatch on the real run-forget-cleanup job path — must be audited, not <unattributed>";
 
 const auditedHook: UserDataDeleteHook = async (ctx) => {
-  await asRawClient(ctx.db.unsafeRaw()).unsafe(
+  await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe(
     `DELETE FROM test_audited_entity WHERE tenant_id = $1`,
     [ctx.tenantId],
   );
 };
 
 const auditedFeature = defineFeature("test-audited-entity", (r) => {
-  r.useExtension(EXT_USER_DATA, "audited-entity", {
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "audited-entity",
     export: async () => null,
     delete: auditedHook,
     escapeHatch: { reason: AUDITED_REASON },
@@ -116,11 +120,15 @@ describe("escape-hatch audit :: real run-forget-cleanup job forwards _escapeHatc
         tenantId: TENANT_A,
         mode: "tenant",
         grants: {
-          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+          unsafeRaw: {
+            reason: "executes overdue Art.17 forget requests across every tenant",
+            grants: ["unsafeRaw"],
+          },
         },
       }),
       registry: stack.registry,
       systemUser,
+      tz: createTzContext(),
       lifecycle: {},
       obs: { log: noopLog },
       services: {

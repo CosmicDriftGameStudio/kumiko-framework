@@ -1,13 +1,10 @@
-import {
-  buildEntityTable,
-  createEventStoreExecutor,
-  fetchOne,
-} from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { requireForTenant } from "../../shared/index.ts";
 import { tierAssignmentAggregateId } from "../aggregate-id.ts";
 import { type TierAssignmentRow, tierAssignmentEntity } from "../entity.ts";
+import { tierAssignmentTable } from "../table.ts";
 import { type TierAssignmentSource, TierAssignmentSources } from "../web/constants.ts";
 
 // A SystemAdmin can set the tier of ANY tenant as a manual grant without
@@ -29,7 +26,6 @@ import { type TierAssignmentSource, TierAssignmentSources } from "../web/constan
 // feature.ts uses it to update its cache and notify the other processes; in
 // storage-only mode without a tierMap it is a no-op.
 
-const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 const executor = createEventStoreExecutor(tierAssignmentTable, tierAssignmentEntity, {
   entityName: "tier-assignment",
 });

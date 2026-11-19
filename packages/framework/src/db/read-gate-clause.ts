@@ -13,7 +13,9 @@ import type { SessionUser } from "../engine/types/index.ts";
 import { FILE_REF_ENTITY_NAME } from "../files/types.ts";
 import type { Table } from "./event-store-executor-context.ts";
 import { isFrameworkSystemUser } from "./lock-guard.ts";
+import { parentRulesFromOption } from "./parent-ownership.ts";
 import { buildParentRefClause } from "./parent-ref-clause.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";
@@ -54,19 +56,21 @@ class GateSql {
 }
 
 function tableOf(option: ParentVisibilityOption, name: string, entity: EntityDefinition): Table {
-  return option.resolveTable?.(name) ?? buildEntityTable(name, entity);
+  return option.resolveTable?.(name) ?? buildEntityTable({ ...entity, name: name });
 }
 
 function tenantScopeSql(sql: GateSql, db: TenantDb, table: Table, alias: string): string[] {
   if (table["tenantId"] === undefined || db.mode !== "tenant") return [];
   const first = sql.bind(db.tenantId);
   const second = sql.bind(SYSTEM_TENANT_ID);
-  return [`"${alias}"."${physicalColumnName(table, "tenantId")}" IN (${first}, ${second})`];
+  return [
+    `${quoteIdent(alias)}.${quoteIdent(physicalColumnName(table, "tenantId"))} IN (${first}, ${second})`,
+  ];
 }
 
 function liveRowSql(entity: EntityDefinition, table: Table, alias: string): string[] {
   if (entity.softDelete !== true || table["isDeleted"] === undefined) return [];
-  return [`"${alias}"."${physicalColumnName(table, "isDeleted")}" = FALSE`];
+  return [`${quoteIdent(alias)}.${quoteIdent(physicalColumnName(table, "isDeleted"))} = FALSE`];
 }
 
 function isRoleExempt(gate: NonNullable<EntityDefinition["readGate"]>, user: SessionUser): boolean {
@@ -84,7 +88,14 @@ function linkClause(input: GateInput, link: GateLink, mode: "any" | "all"): Owne
   const linkTable = tableOf(option, link.entity, linkEntity);
   const linkTableName = String(schemaTableName(linkTable));
   const linkOwnership = combineClauses(
-    buildOwnershipClause(user, linkEntity.access?.read, linkTable, 1, LINK_ALIAS),
+    buildOwnershipClause(
+      user,
+      linkEntity.access?.read,
+      linkTable,
+      1,
+      LINK_ALIAS,
+      parentRulesFromOption(option, "read"),
+    ),
     buildParentRefClause(linkEntity, linkTable, LINK_ALIAS, user, db, option, {
       includeDeleted: false,
       requireReadHandler: true,
@@ -94,12 +105,12 @@ function linkClause(input: GateInput, link: GateLink, mode: "any" | "all"): Owne
 
   const sql = new GateSql();
   const linkRowsOfThisRow = () => [
-    `"${LINK_ALIAS}"."${physicalColumnName(linkTable, link.field)}"::text = "${tableName}"."${physicalColumnName(input.table, "id")}"::text`,
+    `${quoteIdent(LINK_ALIAS)}.${quoteIdent(physicalColumnName(linkTable, link.field))}::text = ${quoteIdent(tableName)}.${quoteIdent(physicalColumnName(input.table, "id"))}::text`,
     ...tenantScopeSql(sql, db, linkTable, LINK_ALIAS),
     ...liveRowSql(linkEntity, linkTable, LINK_ALIAS),
   ];
   const existsLink = (conditions: readonly string[]) =>
-    `EXISTS (SELECT 1 FROM "${linkTableName}" AS "${LINK_ALIAS}" WHERE ${conditions.join(" AND ")})`;
+    `EXISTS (SELECT 1 FROM ${quoteIdent(linkTableName)} AS ${quoteIdent(LINK_ALIAS)} WHERE ${conditions.join(" AND ")})`;
 
   const readable = linkRowsOfThisRow();
   if (linkOwnership.kind === "sql") readable.push(sql.embed(linkOwnership));
@@ -181,6 +192,7 @@ function ownerBranch(
     ownerTable,
     1,
     ownerTableName,
+    parentRulesFromOption(input.option, "read"),
   );
   if (ownership.kind === "empty") return undefined;
 
@@ -200,9 +212,9 @@ function ownerBranch(
   }
   if (readableAnywhere.length === 0 && fieldArms.length === 0) return undefined;
 
-  const typeSql = `"${FILE_ALIAS}"."${physicalColumnName(refTable, "entityType")}" = ${sql.bind(owner.name)}`;
-  const fieldCol = `"${FILE_ALIAS}"."${physicalColumnName(refTable, "fieldName")}"`;
-  const idCol = `"${FILE_ALIAS}"."${physicalColumnName(refTable, "entityId")}"`;
+  const typeSql = `${quoteIdent(FILE_ALIAS)}.${quoteIdent(physicalColumnName(refTable, "entityType"))} = ${sql.bind(owner.name)}`;
+  const fieldCol = `${quoteIdent(FILE_ALIAS)}.${quoteIdent(physicalColumnName(refTable, "fieldName"))}`;
+  const idCol = `${quoteIdent(FILE_ALIAS)}.${quoteIdent(physicalColumnName(refTable, "entityId"))}`;
   const uuidPattern = sql.bind(UUID_SHAPE_PATTERN);
 
   const arms: string[] = [];
@@ -214,13 +226,13 @@ function ownerBranch(
     arms.push(`(${fieldCol} = ${sql.bind(arm.field)} AND ${sql.embed(arm.clause)})`);
   }
   const conditions = [
-    `"${ownerTableName}"."${physicalColumnName(ownerTable, "id")}" = (CASE WHEN ${idCol} ~ ${uuidPattern} THEN ${idCol} END)::uuid`,
+    `${quoteIdent(ownerTableName)}.${quoteIdent(physicalColumnName(ownerTable, "id"))} = (CASE WHEN ${idCol} ~ ${uuidPattern} THEN ${idCol} END)::uuid`,
     ...tenantScopeSql(sql, db, ownerTable, ownerTableName),
     ...liveRowSql(owner.entity, ownerTable, ownerTableName),
   ];
   if (ownership.kind === "sql") conditions.push(sql.embed(ownership));
   conditions.push(`(${arms.join(" OR ")})`);
-  return `(${typeSql} AND EXISTS (SELECT 1 FROM "${ownerTableName}" WHERE ${conditions.join(" AND ")}))`;
+  return `(${typeSql} AND EXISTS (SELECT 1 FROM ${quoteIdent(ownerTableName)} WHERE ${conditions.join(" AND ")}))`;
 }
 
 function fileOwnerClause(input: GateInput, field: string): OwnershipClause {
@@ -239,7 +251,7 @@ function fileOwnerClause(input: GateInput, field: string): OwnershipClause {
   if (selfName !== undefined) {
     const selfType = sql.bind(selfName);
     branches.push(
-      `("${FILE_ALIAS}"."${physicalColumnName(refTable, "entityType")}" = ${selfType} AND "${FILE_ALIAS}"."${physicalColumnName(refTable, "entityId")}" = "${tableName}"."${physicalColumnName(table, "id")}"::text)`,
+      `(${quoteIdent(FILE_ALIAS)}.${quoteIdent(physicalColumnName(refTable, "entityType"))} = ${selfType} AND ${quoteIdent(FILE_ALIAS)}.${quoteIdent(physicalColumnName(refTable, "entityId"))} = ${quoteIdent(tableName)}.${quoteIdent(physicalColumnName(table, "id"))}::text)`,
     );
   }
   for (const owner of ownerCandidates(input, selfName)) {
@@ -249,14 +261,14 @@ function fileOwnerClause(input: GateInput, field: string): OwnershipClause {
   if (branches.length === 0) return EMPTY;
 
   const conditions = [
-    `"${FILE_ALIAS}"."${physicalColumnName(refTable, "id")}" = "${tableName}"."${physicalColumnName(table, field)}"`,
+    `${quoteIdent(FILE_ALIAS)}.${quoteIdent(physicalColumnName(refTable, "id"))} = ${quoteIdent(tableName)}.${quoteIdent(physicalColumnName(table, field))}`,
     ...tenantScopeSql(sql, db, refTable, FILE_ALIAS),
     ...liveRowSql(refEntity, refTable, FILE_ALIAS),
     `(${branches.join(" OR ")})`,
   ];
   return {
     kind: "sql",
-    sqlText: `EXISTS (SELECT 1 FROM "${refTableName}" AS "${FILE_ALIAS}" WHERE ${conditions.join(" AND ")})`,
+    sqlText: `EXISTS (SELECT 1 FROM ${quoteIdent(refTableName)} AS ${quoteIdent(FILE_ALIAS)} WHERE ${conditions.join(" AND ")})`,
     params: sql.params,
   };
 }

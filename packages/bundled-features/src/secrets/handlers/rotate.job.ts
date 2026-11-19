@@ -19,12 +19,12 @@
 
 import {
   createEventStoreExecutor,
-  createTenantDb,
   type DbConnection,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   decodeStoredEnvelope,
   encodeStoredEnvelope,
@@ -135,7 +135,7 @@ export async function rotateJob(
     // rotation worker) beat us — the row is already in a valid state,
     // potentially even past target.
     if (!result.isSuccess) {
-      if (result.error.code === "version_conflict") return "skipped";
+      if (result.error.code === VERSION_CONFLICT_CODE) return "skipped";
       ctx.obs.log?.warn?.(`[secrets:rotate] executor rejected row ${row.id}`, {
         code: result.error.code,
       });

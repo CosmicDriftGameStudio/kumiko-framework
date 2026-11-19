@@ -48,10 +48,10 @@ export default {
 };
 `;
 
-function setup(): string {
+function setup(config = CONFIG): string {
   const dir = mkdtempSync(join(tmpdir(), "kumiko-api-docs-"));
   tmpDirs.push(dir);
-  writeFileSync(join(dir, "kumiko.config.ts"), CONFIG);
+  writeFileSync(join(dir, "kumiko.config.ts"), config);
   return dir;
 }
 
@@ -107,6 +107,46 @@ describe("kumiko api-docs", () => {
     const result = await run(dir, ["--out", "docs/api"]);
     expect(result.code).toBe(1);
     expect(existsSync(join(dir, "docs/api/en"))).toBe(false);
+  });
+
+  test("loads apiDocs.translations lazily", async () => {
+    const dir = setup(
+      CONFIG.replace(
+        'apiDocs: { baseUrl: "https://api.example.test", appName: "Helpdesk" }',
+        'apiDocs: { baseUrl: "https://api.example.test", appName: "Helpdesk", locales: ["en", "de"], translations: async () => ({ "ticketing:write:ticket:close:description": { de: "Schließt ein Ticket." } }) }',
+      ),
+    );
+    const result = await run(dir, ["--out", "docs/api"]);
+    expect(result.code).toBe(0);
+    const index = JSON.parse(readFileSync(join(dir, "docs/api/index.json"), "utf8")) as {
+      pages: { path: string; locale: string }[];
+    };
+    const germanPages = index.pages.filter((page) => page.locale === "de");
+    expect(germanPages.length).toBeGreaterThan(0);
+    expect(
+      germanPages.some((page) =>
+        readFileSync(join(dir, "docs/api", page.path), "utf8").includes("Schließt ein Ticket."),
+      ),
+    ).toBe(true);
+    expect(
+      result.lines.some((line) =>
+        line.includes("descriptionTranslationMissing] ticketing:write:ticket:close"),
+      ),
+    ).toBe(false);
+  });
+
+  test("a failing apiDocs.translations is reported", async () => {
+    const dir = setup(
+      CONFIG.replace(
+        'apiDocs: { baseUrl: "https://api.example.test", appName: "Helpdesk" }',
+        'apiDocs: { baseUrl: "https://api.example.test", appName: "Helpdesk", translations: async () => { throw new Error("texts missing"); } }',
+      ),
+    );
+    const result = await run(dir, ["--out", "docs/api"]);
+    expect(result.code).toBe(1);
+    expect(result.lines.some((line) => line.includes("apiDocs.translations: texts missing"))).toBe(
+      true,
+    );
   });
 
   test("rejects unsupported locales and invalid recordings", async () => {

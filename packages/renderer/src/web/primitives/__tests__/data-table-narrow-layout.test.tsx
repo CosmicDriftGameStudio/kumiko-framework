@@ -62,7 +62,7 @@ describe("DataTable narrow layout parts", () => {
         />,
       );
       expect(screen.queryByTestId("t-filter-toggle")).toBeNull();
-      expect(screen.getByTestId("facet-status-open")).toBeDefined();
+      screen.getByTestId("facet-status-open");
       expect(screen.getByTestId("t-sort-label").textContent).toBe("Sorted by: Urgency");
     });
   });
@@ -86,7 +86,7 @@ describe("DataTable narrow layout parts", () => {
       expect(screen.queryByTestId("facet-status-open")).toBeNull();
       fireEvent.click(toggle);
       expect(toggle.getAttribute("aria-expanded")).toBe("true");
-      expect(screen.getByTestId("facet-status-open")).toBeDefined();
+      screen.getByTestId("facet-status-open");
     });
   });
 
@@ -144,7 +144,7 @@ describe("DataTable narrow layout parts", () => {
       expect(header.closest("li")).not.toBeNull();
       fireEvent.click(header);
       expect(onToggle).toHaveBeenCalledWith("open");
-      expect(within(screen.getByTestId("t-cards")).getByTestId("list-totals-amount")).toBeDefined();
+      within(screen.getByTestId("t-cards")).getByTestId("list-totals-amount");
     });
   });
 });

@@ -5,6 +5,7 @@
 
 import type { ClientActionHandler, TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
+import { type AuthShellRenderer, makeAuthShellProvider } from "./auth-form-primitives.tsx";
 import {
   type AuthGateOptions,
   type MfaSetupComponentProps,
@@ -12,7 +13,10 @@ import {
   makeSessionAuthGate,
 } from "./auth-gate.tsx";
 import { emailPasswordClientActions } from "./client-actions.ts";
-import { DefaultAuthPagesGate } from "./default-auth-pages-gate.tsx";
+import {
+  type DefaultAuthPagesOptions,
+  makeDefaultAuthPagesGate,
+} from "./default-auth-pages-gate.tsx";
 import { defaultTranslations, mergeTranslations } from "./i18n.ts";
 import type { LoginScreenProps } from "./login-screen.tsx";
 
@@ -45,11 +49,13 @@ export type EmailPasswordClientOptions = {
    *  Use this for branding ("Sign in" → "Login to Acme") or to add
    *  further languages (`fr`, `es`, …). */
   readonly translations?: TranslationsByLocale;
-  /** Serve the forgot-password, reset-password and unlock-account pages at
-   *  their convention paths for signed-out visitors. Apps with their own
-   *  screens at those paths either register an earlier gate (it wins) or
-   *  set this to false. Default: true. */
-  readonly defaultAuthPages?: boolean;
+  /** Serve forgot-password, reset-password, unlock-account, verify-email, signup,
+   *  signup/complete and invite/accept for signed-out visitors at the paths from
+   *  `paths` (pass the same object as the server's auth.mail.paths). An earlier
+   *  app gate still wins. false turns it off. Default: on with the convention paths. */
+  readonly defaultAuthPages?: false | DefaultAuthPagesOptions;
+  /** Wraps every auth card (login, signup, reset, …) in the app's shell, e.g. a branded background. */
+  readonly authShell?: AuthShellRenderer;
 };
 
 // Structurally identical to the renderer/web ClientFeatureDefinition, but
@@ -69,9 +75,11 @@ export function emailPasswordClient(
   const translations = mergeTranslations(defaultTranslations, options.translations ?? {});
   return {
     name: "auth-email-password",
-    providers: [],
+    providers: options.authShell ? [makeAuthShellProvider(options.authShell)] : [],
     gates: [
-      ...(options.defaultAuthPages === false ? [] : [DefaultAuthPagesGate]),
+      ...(options.defaultAuthPages === false
+        ? []
+        : [makeDefaultAuthPagesGate(options.defaultAuthPages ?? {})]),
       makeSessionAuthGate({
         loginScreen: options.loginScreen,
         loginScreenProps: options.loginScreenProps,

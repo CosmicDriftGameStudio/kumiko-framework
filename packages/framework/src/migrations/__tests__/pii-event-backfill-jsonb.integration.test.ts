@@ -1,6 +1,6 @@
 // Legacy events carry a jsonb personal field as a plaintext object (written before the
 // annotation or before a KMS existed). The backfill serializes and encrypts it under the
-// owner's key, in created, updated and the `previous` of delete events alike.
+// owner's key, in created and updated events.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
@@ -22,6 +22,7 @@ import {
   createTextField,
   defineFeature,
 } from "../../engine/index.ts";
+import { append } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { runPiiEventBackfill } from "../pii-event-backfill.ts";
 
@@ -31,6 +32,7 @@ const OWNER_ID = "11111111-1111-4111-8111-111111111111";
 const BLOB = { values: { name: "Zebulon Quaxford" }, stepIndex: 2 };
 
 const draftEntity = createEntity({
+  name: "draft",
   table: TABLE,
   fields: {
     ownerId: createTextField({ personal: "ref", required: true }),
@@ -38,12 +40,12 @@ const draftEntity = createEntity({
   },
 });
 
-const draftTable = buildEntityTable("draft", draftEntity);
+const draftTable = buildEntityTable(draftEntity);
 const draftExecutor = createEventStoreExecutor(draftTable, draftEntity, { entityName: "draft" });
 
 const feature = defineFeature("jbf", (r) => {
-  r.entity({ name: "draft", ...draftEntity });
-  r.crud("draft", draftEntity, {
+  r.entity(draftEntity);
+  r.crud(draftEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });
@@ -103,7 +105,7 @@ async function decryptBlob(value: unknown): Promise<unknown> {
 }
 
 describe("runPiiEventBackfill with a jsonb personal field", () => {
-  test("legacy plaintext objects in created, updated and delete-previous events are encrypted under the owner key", async () => {
+  test("legacy plaintext objects in created and updated events are encrypted under the owner key; the delete event carries no blob", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       "jbf:write:draft:create",
       { ownerId: OWNER_ID, blob: BLOB },
@@ -133,8 +135,40 @@ describe("runPiiEventBackfill with a jsonb personal field", () => {
     expect(await decryptBlob(createdBlob)).toEqual(BLOB);
     const updatedChanges = byType.get("draft.updated")?.["changes"] as Record<string, unknown>;
     expect(await decryptBlob(updatedChanges?.["blob"])).toEqual(updated);
-    const previous = byType.get("draft.deleted")?.["previous"] as Record<string, unknown>;
-    expect(await decryptBlob(previous?.["blob"])).toEqual(updated);
+    expect(byType.get("draft.deleted")?.["previous"]).not.toHaveProperty("blob");
+  });
+
+  test("legacy delete events with a plaintext previous.blob (written before slim delete events) are encrypted under the owner key", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "jbf:write:draft:create",
+      { ownerId: OWNER_ID, blob: BLOB },
+      admin,
+    );
+    // Legacy shape: old releases wrote personal fields in plaintext into the delete event's previous.
+    await append(stack.db, {
+      aggregateId: created.id,
+      aggregateType: "draft",
+      tenantId: admin.tenantId,
+      expectedVersion: 1,
+      type: "draft.deleted",
+      payload: { previous: { ownerId: OWNER_ID, blob: BLOB } },
+      metadata: { userId: admin.id },
+    });
+    expect(JSON.stringify(await readEvents())).toContain("Zebulon Quaxford");
+
+    configureBlindIndexKey(Buffer.alloc(32, 7).toString("base64"));
+    configurePiiSubjectKms(kms);
+    const result = await runPiiEventBackfill(stack.db, stack.registry);
+    expect(result.status).toBe("ran");
+    if (result.status === "ran") expect(result.failures).toEqual([]);
+
+    const events = await readEvents();
+    expect(JSON.stringify(events)).not.toContain("Zebulon Quaxford");
+    const previous = events.find((event) => event.type === "draft.deleted")?.payload["previous"] as
+      | Record<string, unknown>
+      | undefined;
+    expect(isPiiCiphertext(previous?.["blob"])).toBe(true);
+    expect(await decryptBlob(previous?.["blob"])).toEqual(BLOB);
   });
 
   test("a second full pass (new transform version, state dropped) leaves already encrypted events untouched", async () => {

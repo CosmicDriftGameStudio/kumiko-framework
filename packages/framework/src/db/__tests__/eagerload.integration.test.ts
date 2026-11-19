@@ -44,10 +44,12 @@ import { buildEntityTable } from "../table-builder.ts";
 import { createTenantDb } from "../tenant-db.ts";
 
 const authorEntity = createEntity({
+  name: "author",
   table: "el_authors",
   fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 const postEntity = createEntity({
+  name: "post",
   table: "el_posts",
   fields: {
     title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -55,12 +57,13 @@ const postEntity = createEntity({
     tags: { type: "reference", entity: "author", multiple: true },
   },
 });
-const authorTable = buildEntityTable("author", authorEntity);
+const authorTable = buildEntityTable(authorEntity);
 
 // Eager-loaded _refs bypassed PII/entity-field decryption entirely —
 // a raw selectMany read the referenced row straight from the table, so
 // piiCiphertextResponseGuard 500'd on the leaked ciphertext.
 const contactEntity = createEntity({
+  name: "contact",
   table: "el_contacts",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -74,6 +77,7 @@ const contactEntity = createEntity({
   },
 });
 const leadEntity = createEntity({
+  name: "lead",
   table: "el_leads",
   fields: {
     title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -82,12 +86,13 @@ const leadEntity = createEntity({
     unrestrictedContact: { type: "reference", entity: "unrestrictedContact" },
   },
 });
-const contactTable = buildEntityTable("contact", contactEntity);
+const contactTable = buildEntityTable(contactEntity);
 
 // Ownership-scoped ref entity — eagerload has no SessionUser to
 // evaluate access.read against, so PII/encrypted fields must be stripped
 // entirely rather than decrypted (fail closed, not a same-tenant PII leak).
 const ownedContactEntity = createEntity({
+  name: "ownedContact",
   table: "el_owned_contacts",
   fields: {
     ownerId: createTextField({ personal: false, reason: "technical_reference" }),
@@ -110,12 +115,13 @@ const ownedContactEntity = createEntity({
   },
   access: { read: { admin: from("user:id", "ownerId") } },
 });
-const ownedContactTable = buildEntityTable("ownedContact", ownedContactEntity);
+const ownedContactTable = buildEntityTable(ownedContactEntity);
 
 // access.read present but every role is "all" (unrestricted) — must NOT
 // trigger the strip path, or the decrypt would silently regress for
 // every entity that merely declares an access.read map without narrowing it.
 const unrestrictedContactEntity = createEntity({
+  name: "unrestrictedContact",
   table: "el_unrestricted_contacts",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -123,7 +129,7 @@ const unrestrictedContactEntity = createEntity({
   },
   access: { read: { admin: "all", member: "all" } },
 });
-const unrestrictedContactTable = buildEntityTable("unrestrictedContact", unrestrictedContactEntity);
+const unrestrictedContactTable = buildEntityTable(unrestrictedContactEntity);
 
 const resolve = (name: string): EntityDefinition | undefined => {
   if (name === "author") return authorEntity;
@@ -292,6 +298,7 @@ async function enrichA(row: Record<string, unknown>): Promise<EagerloadedRow | u
 describe("collectReferenceFields", () => {
   test("extrahiert reference-Felder, parst cross-feature-Prefix, flaggt multiple", () => {
     const e = createEntity({
+      name: "e",
       table: "x",
       fields: {
         title: createTextField({ personal: false, reason: "test_fixture" }),

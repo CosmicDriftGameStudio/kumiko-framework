@@ -3,8 +3,12 @@ import {
   defineWriteHandler,
   type KumikoEventTypeMap,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { SubjectScope } from "../../shared/index.ts";
-import { documentDraftExecutor } from "../entity.ts";
+import {
+  type RenderedPdfUpload,
+  renderPdfBeforeTransaction,
+  storeRenderedPdf,
+} from "../../renderer-puppeteer-client/index.ts";
+import type { DocumentDraftExecutor } from "../entity.ts";
 import {
   checkOpenAtBase,
   draftNotFound,
@@ -12,7 +16,6 @@ import {
   pdfMetaOf,
   recordOrEmpty,
 } from "../lib.ts";
-import type { DocumentDraftPdf } from "../options.ts";
 import { DraftBaseSchema } from "../payloads.ts";
 import { DOCUMENT_DRAFT_STATUS } from "../web/constants.ts";
 
@@ -25,19 +28,18 @@ type FinalizeData = {
 
 export const FINALIZE_RATE_LIMIT = { per: "user+handler", limit: 10, windowSeconds: 60 } as const;
 
-// Printing takes seconds, so it runs before the transaction opens. The subject scope is checked
+// Printing takes seconds, so it runs before the transaction opens. The subject row is checked
 // first, so a caller who may not see the draft gets NotFound without status hints and without a print.
-export function createFinalizeHandler<TUpload>(
+export function createFinalizeHandler(
   access: AccessRule,
-  scope: SubjectScope,
-  pdf: DocumentDraftPdf<TUpload>,
+  documentDraftExecutor: DocumentDraftExecutor,
 ) {
   return defineWriteHandler<
     "finalize",
     typeof DraftBaseSchema,
     FinalizeData,
     KumikoEventTypeMap,
-    { readonly upload: TUpload }
+    { readonly upload: RenderedPdfUpload }
   >({
     name: "finalize",
     schema: DraftBaseSchema,
@@ -48,11 +50,11 @@ export function createFinalizeHandler<TUpload>(
       "Prints an open document draft to a PDF with the values frozen at creation and stores it: the draft becomes finalized and carries the file (fileRefId, fileName). base is the draft version from the blocks query. Further edits need revise first. Returns the draft id, the file and the revision.",
     beforeTransaction: async (event, ctx) => {
       const { id, base } = event.payload;
-      const draft = await loadScopedDraft(ctx, event.user, scope, id);
+      const draft = await loadScopedDraft(documentDraftExecutor, ctx, event.user, id);
       if (draft === null) return draftNotFound(id);
       const notOpenAtBase = checkOpenAtBase(draft, id, base);
       if (notOpenAtBase !== null) return notOpenAtBase;
-      const rendered = await pdf.render(ctx, {
+      const rendered = await renderPdfBeforeTransaction(ctx, {
         slug: String(draft.templateSlug),
         ...(typeof draft.templateVariant === "string" && { variant: draft.templateVariant }),
         locale: String(draft.locale),
@@ -68,11 +70,11 @@ export function createFinalizeHandler<TUpload>(
     handler: async (event, ctx) => {
       const { id, base } = event.payload;
       const user = event.user;
-      const draft = await loadScopedDraft(ctx, user, scope, id);
+      const draft = await loadScopedDraft(documentDraftExecutor, ctx, user, id);
       if (draft === null) return draftNotFound(id);
       const notOpenAtBase = checkOpenAtBase(draft, id, base);
       if (notOpenAtBase !== null) return notOpenAtBase;
-      const stored = await pdf.store(ctx, event.prepared.upload);
+      const stored = await storeRenderedPdf(ctx, event.prepared.upload);
       if (!stored.isSuccess) return stored;
       const updated = await documentDraftExecutor.update(
         {

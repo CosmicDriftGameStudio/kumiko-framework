@@ -28,7 +28,9 @@ const MAIL_PROVIDER_KEY = "mail-foundation:config:provider";
 
 const failingMail = defineFeature("probe-failing-mail", (r) => {
   r.requires({ features: ["mail-foundation"] });
-  r.useExtension(MAIL_TRANSPORT_EXTENSION, "failing", {
+  r.applyExtension({
+    name: MAIL_TRANSPORT_EXTENSION,
+    entity: "failing",
     selectableInSettings: false,
     build: async () => ({
       send: async () => {

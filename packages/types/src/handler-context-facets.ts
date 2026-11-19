@@ -2,6 +2,12 @@
 import type { KumikoEventTypeMap } from "./event-type-map.ts";
 import type { HandlerLifecycle } from "./handler-context-services.ts";
 import type {
+  ContractQuery,
+  ContractQueryAs,
+  ContractWrite,
+  ContractWriteAs,
+} from "./handler-contract.ts";
+import type {
   ActiveMembershipResult,
   AggregateStreamHandle,
   AppendEventFn,
@@ -11,12 +17,11 @@ import type {
   SessionUser,
   TryAppendEventFn,
   UnsafeAppendEventFn,
-  WriteResult,
 } from "./handlers.ts";
 import type { TenantId } from "./identifiers.ts";
 import type { Logger } from "./logger.ts";
 import type { Meter, MetricsHandle, Tracer } from "./observability/index.ts";
-import type { TenantDb, UncheckedSystemDb } from "./tenant-db-types.ts";
+import type { TenantDb } from "./tenant-db-types.ts";
 
 /**
  * `ctx.db` plus `outsideTransaction`: the same tenant scoping, but never bound to the handler's
@@ -34,12 +39,14 @@ export type HandlerEvents<TMap extends object = KumikoEventTypeMap> = {
   /**
    * Default append: a typed domain event on one aggregate stream in the current tx. The runtime
    * bumps the stream version and fires matching projections in the same transaction. A version
-   * conflict throws and poisons the transaction.
+   * conflict throws and poisons the transaction. Pass `expectedVersion` (read `streamVersion`
+   * BEFORE reading any state; v+1 for follow-up appends, 0 for a freshly created id) or a concrete
+   * `blindAppendReason`; with neither the append throws.
    */
   readonly append: AppendEventFn<TMap>;
   /**
-   * Untyped append (`payload: unknown`) with the same runtime as `append`. Only for
-   * migrations and upcasters, where the event type is not knowable at compile time.
+   * Untyped payload for runtime-pluggable events; same checks and the same concurrency contract
+   * as `append`. Typed alternative: `emitEvent(ctx, eventDef, …)`.
    */
   readonly unsafeAppend: UnsafeAppendEventFn;
   /**
@@ -59,6 +66,7 @@ export type HandlerEvents<TMap extends object = KumikoEventTypeMap> = {
   // they were written. `options.asOf` restricts to events whose createdAt is
   // ≤ the given timestamp (point-in-time query); `options.atVersion` reads only
   // the event at that stream version (upcast, tenant-scoped).
+  // `options.aggregateType` keeps only that type's events when another aggregate type shares the id.
   readonly load: (
     aggregateId: string,
     options?:
@@ -66,11 +74,13 @@ export type HandlerEvents<TMap extends object = KumikoEventTypeMap> = {
           readonly asOf?: Temporal.Instant;
           readonly atVersion?: never;
           readonly includeArchived?: boolean;
+          readonly aggregateType?: string;
         }
       | {
           readonly atVersion?: number;
           readonly asOf?: never;
           readonly includeArchived?: boolean;
+          readonly aggregateType?: string;
         },
   ) => Promise<readonly import("./event-store-types.ts").StoredEvent[]>;
   // Events of several aggregates filtered by event type in ONE query (tenant-scoped, upcasted,
@@ -92,6 +102,10 @@ export type HandlerEvents<TMap extends object = KumikoEventTypeMap> = {
   ) => Promise<void>;
   readonly restore: (aggregateId: string) => Promise<void>;
   readonly isArchived: (aggregateId: string) => Promise<boolean>;
+  // Highest stored version of the stream in the caller's tenant, 0 when no event exists. One
+  // indexed MAX query instead of loading events. Unlike load it ignores archiving: an archived
+  // stream still reports its version, so a reused id stays visible.
+  readonly streamVersion: (aggregateId: string) => Promise<number>;
   // Cache the current state of an aggregate as a snapshot, alongside the version it reflects.
   // The snapshot policy (every N events, every M minutes, on-demand) stays with the feature —
   // or pass { snapshotEvery } to loadWithSnapshot for the common case. Snapshots are a perf
@@ -120,12 +134,13 @@ export type HandlerEvents<TMap extends object = KumikoEventTypeMap> = {
  * Cross-feature bridge: `query`/`write` run the target handler AS THE CURRENT USER, sharing the
  * active tx + afterCommit queue. `queryAs`/`writeAs` switch identity; any target other than the
  * caller itself (or a subset of its roles) needs r.systemScope(), a job, or an escapeHatch.
+ * A typed result across features: ctx.dispatch.query(ref, payload) with the ref r.queryHandler returns, or a queryContract.
  */
 export type HandlerDispatch = {
-  readonly query: (qn: string, payload: unknown) => Promise<unknown>;
-  readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
-  readonly write: (qn: string, payload: unknown) => Promise<WriteResult>;
-  readonly writeAs: (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
+  readonly query: ContractQuery;
+  readonly queryAs: ContractQueryAs;
+  readonly write: ContractWrite;
+  readonly writeAs: ContractWriteAs;
   // Read-only principal without `sid`; needs the same grant as a SYSTEM queryAs
   // (membership is resolved as SYSTEM), cached per handler invocation or job run.
   readonly queryAsMember: MemberReader;
@@ -167,9 +182,13 @@ export type HandlerObservability = {
 // handler-only so job contexts built by consumers (probes, boot seeding) need no new member.
 export type JobEvents = Pick<HandlerEvents, "append" | "load">;
 
-// `write` runs as the job's systemUser; `writeAs`/`queryAs` take an explicit identity. They throw
-// until JobRunner.attachDispatcher() has run. `queryAsMember`'s tenant is the job's resolved tenant.
-export type JobDispatch = Pick<HandlerDispatch, "write" | "writeAs" | "queryAs" | "queryAsMember">;
+// `write` and `query` run as the job's systemUser (SYSTEM_ROLE plus the roles of `runAs`);
+// `writeAs`/`queryAs` take an explicit identity. They throw until JobRunner.attachDispatcher()
+// has run. `queryAsMember`'s tenant is the job's resolved tenant.
+export type JobDispatch = Pick<
+  HandlerDispatch,
+  "write" | "query" | "writeAs" | "queryAs" | "queryAsMember"
+>;
 
 export type JobObservability = Pick<HandlerObservability, "log" | "metricsFor" | "meter">;
 
@@ -187,14 +206,8 @@ export type ReservationContext<TMap extends object = KumikoEventTypeMap> = Omit<
   readonly lifecycle: Omit<HandlerLifecycle, "afterCommit" | "afterRollback">;
 };
 
-/** ctx of `beforeTransaction`: external I/O and reads only, so the outside-transaction handles are gone too.
- *  A long external call that must also write (metering, provenance) belongs in `transaction: "perCommand"`. */
-export type BeforeTransactionContext<TMap extends object = KumikoEventTypeMap> = Omit<
-  ReservationContext<TMap>,
-  "db" | "systemDb"
-> & {
-  readonly db: TenantDb & { readonly outsideTransaction: undefined };
-  readonly systemDb?: Omit<UncheckedSystemDb, "outsideTransaction"> & {
-    readonly outsideTransaction: undefined;
-  };
-};
+/** ctx of `beforeTransaction`: external I/O and reads, same surface as the reservation phase.
+ *  `ctx.db` stays read-only. Writes that must survive a failing request (metering, provenance,
+ *  idempotency records) go through `ctx.db.outsideTransaction`. */
+export type BeforeTransactionContext<TMap extends object = KumikoEventTypeMap> =
+  ReservationContext<TMap>;

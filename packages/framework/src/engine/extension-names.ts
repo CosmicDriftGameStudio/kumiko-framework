@@ -14,7 +14,7 @@ import { TENANT_TIER_RESOLVER_EXT, type TierResolverPlugin } from "./tier-resolv
 //   r.extendsRegistrar(EXT_USER_DATA, { hooks: { ... } });
 //
 // Other features attach to them via:
-//   r.useExtension(EXT_USER_DATA, "myEntity", { ...hookImpls });
+//   r.applyExtension({ name: EXT_USER_DATA, entity: "myEntity", ...hookImpls });
 //
 // Background: magic strings drift between bundled features (for example,
 // text-content uses "Admin" as a role, while tenant-handler uses
@@ -38,10 +38,14 @@ import { TENANT_TIER_RESOLVER_EXT, type TierResolverPlugin } from "./tier-resolv
  *   - `export(userId, ctx) => Promise<UserDataExport>`
  *   - `delete(userId, strategy: "delete" | "anonymize", ctx) => Promise<void>`
  *
- * Registered by: `user-data-rights`.
+ * Defined by the framework (FRAMEWORK_OWNED_EXTENSIONS); run by `user-data-rights` when it is mounted.
  * Used by: every feature with user references (tasks, comments, files, ...).
  */
 export const EXT_USER_DATA = "userData" as const;
+
+// Extensions the framework itself defines: any feature may use them without requiring a provider,
+// and a feature calling r.extendsRegistrar() for one of them fails with "Duplicate registrar extension".
+export const FRAMEWORK_OWNED_EXTENSIONS: ReadonlySet<string> = new Set([EXT_USER_DATA]);
 
 // Ordering bands for EXT_USER_DATA hooks (forget pipeline). The contract was
 // implicit across two packages (-100 in custom-fields, 0 in
@@ -77,7 +81,7 @@ export const EXT_STORAGE_PROVIDER = "storageProvider" as const;
  * `fileProvider` — file-storage provider plugin selection (file-foundation).
  *
  * Provider features (file-provider-s3, -inmemory, -s3-env) register an
- * implementation via `r.useExtension(EXT_FILE_PROVIDER, "<name>", { build })`;
+ * implementation via `r.applyExtension({ name: EXT_FILE_PROVIDER, entity: "<name>", build })`;
  * the per-tenant config key `provider` selects one at runtime. The framework
  * resolver (`createFileProviderForTenant`) reads it so upload routes,
  * `ctx.services.files`, and GDPR jobs all use the same store.
@@ -108,7 +112,7 @@ export const FILE_STORAGE_PROVIDER_BOOT_SENTINEL = "configured" as const;
  * (file-derivatives).
  *
  * Renderer-Features (a future `derivatives-*` feature) register via
- * `r.useExtension(EXT_DERIVATIVE_RENDERER, "<mimePattern>", { render })`,
+ * `r.applyExtension({ name: EXT_DERIVATIVE_RENDERER, entity: "<mimePattern>", render })`,
  * where `<mimePattern>` is an exact MIME type (`application/pdf`) or a
  * type-wildcard (`image/*`). `ctx.services.derivatives.variant(...)` resolves the
  * renderer for a FileRef's MIME type at call time — exact match first,
@@ -125,7 +129,7 @@ export const EXT_DERIVATIVE_RENDERER = "derivativeRenderer" as const;
  * publicly readable?" gate for the anonymous variant route (file-derivatives).
  *
  * Apps register via
- * `r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "<entityType>", { isPublic:
+ * `r.applyExtension({ name: EXT_DERIVATIVE_PUBLIC_PREDICATE, entity: "<entityType>", isPublic:
  * (args, ctx) => boolean | Promise<boolean> })`, where `<entityType>` is the
  * `entityType` string a FileRef carries from upload (e.g. "vehicle", "event").
  * No registration for a given entityType is default-deny — the public route
@@ -141,8 +145,8 @@ export const EXT_DERIVATIVE_PUBLIC_PREDICATE = "derivativePublicPredicate" as co
  * dataToken to its real value" contract for `file-derivatives`' overlay
  * compositing (QR codes on a public variant).
  *
- * Apps register via `r.useExtension(EXT_DERIVATIVE_OVERLAY_RESOLVER,
- * "<entityType>", { resolve: (args) => string | Promise<string> })`. Missing
+ * Apps register via `r.applyExtension({ name: EXT_DERIVATIVE_OVERLAY_RESOLVER,
+ * entity: "<entityType>", resolve: (args) => string | Promise<string> })`. Missing
  * registration, or a resolve() returning an empty string, both throw —
  * unlike `derivativePublicPredicate`, there is no default-deny answer here:
  * an image silently rendered without its QR would look correct while being
@@ -197,7 +201,7 @@ export const EXT_TENANT_LIFECYCLE_STATUS = "tenantLifecycleStatus" as const;
 
 /**
  * `assignableRole` — an app declares a membership role as assignable:
- * `r.useExtension(EXT_ASSIGNABLE_ROLE, "<RoleName>", { assignableFrom? })`
+ * `r.applyExtension({ name: EXT_ASSIGNABLE_ROLE, entity: "<RoleName>", assignableFrom? })`
  * (`assignableFrom` defaults to "Admin").
  * Provider is the bundled `tenant` feature; consumers are the membership-role guards.
  */
@@ -213,7 +217,7 @@ export type TenantResourceExtensionName =
   | typeof EXT_EXTERNAL_RESOURCE
   | typeof EXT_INFRA_RESOURCE;
 
-// r.useExtension options-shape for framework-owned extension points; app/bundled-features-owned
+// r.applyExtension options-shape for framework-owned extension points; app/bundled-features-owned
 // points augment co-located with their owner, since the framework never imports upward.
 declare module "@cosmicdrift/kumiko-framework/engine" {
   interface KumikoExtensionOptionsMap {

@@ -5,12 +5,9 @@
 // Deduplication in the ingest handler makes watch/poll overlap idempotent:
 // the poll is the correctness anchor, while watch only reduces latency.
 //
-// **Documented deviation:** the poll was originally intended as an `r.job`
-// cron trigger. JobContext previously had no dispatcher (see
-// run-export-jobs.ts), but now has one (`ctx.dispatch.write`/`ctx.dispatch.queryAs`,
-// job-runner.ts). Converting the poll to a cron job is a separate migration
-// because it changes the concurrency model, so this dispatcher contract
-// remains in place. The app owner wires the supervisor in bin/server.ts:
+// The poll stays in the supervisor and is no `r.job` cron, because storeBody, the provider secrets
+// and dispatchWrite are wired by the app inside the process and the watchers run per process anyway
+// (decisions.md 2026-11-17). The app owner wires the supervisor in bin/server.ts:
 //
 //   const supervisor = createInboundMailSupervisor({
 //     providerCtx: { registry: deps.registry, secrets, metricsFor: deps.metricsFor },
@@ -29,10 +26,11 @@
 // Backoff restart on onError, clean shutdown of every watcher, and the poll
 // covering every gap mitigate this risk.
 //
-// **Multi-worker coordination:** the reconciliation poll remains deliberately
-// N-fold: every worker polls every active account, which is idempotent and
-// cheap. Only `plugin.watch()` holds a long-lived connection, and only one
-// worker may hold it per account. `ensureWatcher` claims a
+// **Multi-worker coordination:** every scheduled tick claims the poll lease
+// `<accountId>:poll` per mailbox for one interval. A worker without the lease
+// skips the fetch but still checks its watcher. A lock outage polls anyway.
+// pollOnce(), wake and syncAccountNow take no lease. Only `plugin.watch()`
+// holds a long-lived connection, and only one worker may hold it per account. `ensureWatcher` claims a
 // TTL lease (`lock.acquire`) before connecting; a worker that fails to claim
 // it leaves the account to its current holder, while the poll still covers
 // it. The holder renews the lease via heartbeat (`lock.renew`, every ttl/3)
@@ -46,7 +44,7 @@ import {
   systemScopedRunner,
   tenantScopedSecrets,
 } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
-import { mapWithConcurrency } from "../shared/index.ts";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
 import { createAccountHealth } from "./account-health.ts";
 import { createAccountPoller } from "./account-poll.ts";
 import { pollScheduleOf, withPollDeadline } from "./account-poll-schedule.ts";
@@ -55,6 +53,7 @@ import { InboundMailAccountStatuses, InboundMailFoundationHandlers } from "./con
 import { describeError } from "./describe-error.ts";
 import { currentCountBucket } from "./ingest-failures.ts";
 import { createOAuthAccessTokenManager, usesFoundationManagedOAuth } from "./oauth-access-token.ts";
+import { createPollLease } from "./poll-lease.ts";
 import {
   isInboundAuthError,
   isInboundCursorInvalidError,
@@ -217,6 +216,7 @@ export function createInboundMailSupervisor(
   }
 
   const inFlightSyncs: InFlightSyncs = new Map();
+  const pollLease = createPollLease({ lock: deps.lock, pollIntervalMs, log });
 
   const pollAccountWithDeadline = withPollDeadline(pollAccount, {
     ms: accountPollDeadlineMs,
@@ -231,10 +231,13 @@ export function createInboundMailSupervisor(
   async function pollAccountOfTick(
     account: SyncableAccount,
     plugin: InboundMailProviderPlugin,
+    claimPollLease: boolean,
   ): Promise<void> {
     // Joining would hang this tick on the same stuck sync; wake and syncAccountNow still join.
     if (inFlightSyncs.has(account.id)) {
       log(`inbound-mail: account ${account.id} is still syncing, skipped this tick`);
+    } else if (claimPollLease && !(await pollLease.claim(account.id))) {
+      // skip: a peer worker holds this mailbox's poll lease for the current interval.
     } else {
       await runExclusivePerAccount(inFlightSyncs, account.id, async () => {
         await pollAccountWithDeadline(account, plugin, {
@@ -245,13 +248,13 @@ export function createInboundMailSupervisor(
     if (running) await ensureWatcher(account, plugin);
   }
 
-  async function pollOnce(): Promise<void> {
+  async function pollTick(claimPollLease: boolean): Promise<void> {
     const accounts = await listSyncableAccounts(systemDb, log, { health });
     // One account failing must not abort the others, and mapWithConcurrency would reject on the first error.
     await mapWithConcurrency(accounts, Math.max(1, pollConcurrency), async (account) => {
       try {
         const plugin = resolvePluginOrLog(account);
-        if (plugin) await pollAccountOfTick(account, plugin);
+        if (plugin) await pollAccountOfTick(account, plugin, claimPollLease);
       } catch (err) {
         log(`inbound-mail: account ${account.id} tick failed: ${describeError(err)}`);
       }
@@ -452,7 +455,7 @@ export function createInboundMailSupervisor(
     if (!running) return;
     pollTimer = setTimeout(() => {
       pollTimer = null;
-      pollInFlight = pollOnce()
+      pollInFlight = pollTick(true)
         .catch((err) => log(`inbound-mail: poll tick failed: ${describeError(err)}`))
         .finally(() => {
           pollInFlight = null;
@@ -471,10 +474,10 @@ export function createInboundMailSupervisor(
           log(`inbound-mail: wake sync for account ${accountId} failed: ${describeError(err)}`),
         );
       });
-      await pollOnce();
+      await pollTick(true);
       scheduleNextPoll();
     },
-    pollOnce,
+    pollOnce: () => pollTick(false),
     syncAccountNow,
     async stop() {
       running = false;
@@ -489,6 +492,7 @@ export function createInboundMailSupervisor(
       for (const accountId of [...watchers.keys()]) {
         await stopWatcher(accountId);
       }
+      await pollLease.releaseAll();
     },
   };
 }

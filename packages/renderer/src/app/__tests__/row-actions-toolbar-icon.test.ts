@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { RelatedListToolbarAction } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
+import { createMockDispatcher } from "../../testing.ts";
 import type { NavApi } from "../nav.tsx";
 import { buildProjectionToolbarActions } from "../row-actions.ts";
 
@@ -14,9 +14,9 @@ const nav: NavApi = {
 };
 
 // Only built, never triggered: the stub just has to exist so writeHandler actions are not skipped.
-const noopDispatcher = {
+const noopDispatcher = createMockDispatcher({
   write: async () => ({ isSuccess: true, data: {} }),
-} as unknown as Dispatcher;
+});
 
 function iconOf(action: RelatedListToolbarAction): string | undefined {
   const buttons = buildProjectionToolbarActions({

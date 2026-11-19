@@ -4,122 +4,37 @@
 // projectionDetail as a panel, hides a toolbar button behind a capability query, and picks its
 // fallback screen by the reason the gate closed.
 
-import {
-  createEntity,
-  createEntityExecutor,
-  createSelectField,
-  createTextField,
-  defineFeature,
-} from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { readerRoles } from "./access";
+import { ticketCapabilitiesQuery } from "./handlers/ticket-capabilities.query";
+import { ticketCardQuery } from "./handlers/ticket-card.query";
+import { ticketOverviewQuery } from "./handlers/ticket-overview.query";
+import { ticketQuotaQuery } from "./handlers/ticket-quota.query";
+import { ticketRecentQuery } from "./handlers/ticket-recent.query";
+import { ticketRowsQuery } from "./handlers/ticket-rows.query";
+import { ticketStatsQuery } from "./handlers/ticket-stats.query";
+import { ticketEntity } from "./schema/ticket";
 
-export const TICKET_STATUSES = ["open", "closed"] as const;
-
-export const ticketEntity = createEntity({
-  table: "read_sample_tickets",
-  fields: {
-    title: createTextField({ personal: false, reason: "is_business_data", required: true }),
-    status: createSelectField({ options: TICKET_STATUSES, default: "open", required: true }),
-  },
-  // Defined once: the queue list and the dashboard tile both read it.
-  namedFilters: {
-    "open-work": { filters: () => [{ field: "status", op: "eq", value: "open" }] },
-  },
-});
+export { TICKET_STATUSES, ticketEntity } from "./schema/ticket";
 
 export const TICKET_STATS_QUERY = "tickets:query:ticket:stats";
+export const TICKET_OVERVIEW_QUERY = "tickets:query:ticket:overview";
 export const TICKET_CAPABILITIES_QUERY = "tickets:query:ticket:capabilities";
 export const TICKET_LIST_QUERY = "tickets:query:ticket:list";
 
-const readerRoles = { roles: ["Admin", "User"] } as const;
-
 export const ticketFeature = defineFeature("tickets", (r) => {
-  const { executor: ticketExecutor } = createEntityExecutor("ticket", ticketEntity);
-
-  r.crud("ticket", ticketEntity, {
+  r.crud(ticketEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: readerRoles },
   });
 
-  // Flat result: each dashboard stat reads one field via its valueField.
-  // limit: 1 keeps the page tiny; totalCount counts over the whole WHERE in
-  // the database, so no rows are loaded just to be counted.
-  r.queryHandler({
-    name: "ticket:stats",
-    schema: z.object({}),
-    handler: async (query, ctx) => {
-      const countWithStatus = async (status: (typeof TICKET_STATUSES)[number]): Promise<number> => {
-        const page = await ticketExecutor.list(
-          { filter: { field: "status", op: "eq", value: status }, limit: 1, totalCount: true },
-          query.user,
-          ctx.db,
-        );
-        return page.total ?? 0;
-      };
-      const [open, closed] = await Promise.all([
-        countWithStatus("open"),
-        countWithStatus("closed"),
-      ]);
-      return { open, closed, total: open + closed };
-    },
-    access: readerRoles,
-  });
-
-  // Gate for the screens below: a flat answer with one boolean the screens test with `eq`.
-  r.queryHandler({
-    name: "ticket:capabilities",
-    schema: z.object({}),
-    outputSchema: z.object({ canClose: z.boolean() }),
-    handler: async (query) => ({ canClose: query.user.roles.includes("Admin") }),
-    access: readerRoles,
-  });
-
-  r.queryHandler({
-    name: "ticket:card",
-    schema: z.object({ id: z.string() }),
-    handler: async (query, ctx) => {
-      const page = await ticketExecutor.list(
-        { filter: { field: "id", op: "eq", value: query.payload.id }, limit: 1 },
-        query.user,
-        ctx.db,
-      );
-      const ticket = page.rows[0];
-      return { id: query.payload.id, title: ticket?.title ?? "", status: ticket?.status ?? "" };
-    },
-    access: readerRoles,
-  });
-
-  r.queryHandler({
-    name: "ticket:rows",
-    schema: z.object({}),
-    handler: async (query, ctx) => {
-      const page = await ticketExecutor.list({ limit: 50 }, query.user, ctx.db);
-      return { rows: page.rows, nextCursor: null };
-    },
-    access: readerRoles,
-  });
-
-  // Three newest rows plus the total, so the panel can say how many more exist.
-  r.queryHandler({
-    name: "ticket:recent",
-    schema: z.object({}),
-    handler: async (query, ctx) => {
-      const page = await ticketExecutor.list({ limit: 3, totalCount: true }, query.user, ctx.db);
-      return { rows: page.rows, nextCursor: null, total: page.total ?? page.rows.length };
-    },
-    access: readerRoles,
-  });
-
-  r.queryHandler({
-    name: "ticket:quota",
-    schema: z.object({}),
-    handler: async () => ({
-      month: "November",
-      period: "01.11. - 30.11.",
-      rows: [{ label: "Tickets handled", used: 18, limit: 25, sub: "7 left" }],
-    }),
-    access: readerRoles,
-  });
+  r.queryHandler(ticketStatsQuery);
+  r.queryHandler(ticketCapabilitiesQuery);
+  r.queryHandler(ticketCardQuery);
+  r.queryHandler(ticketRowsQuery);
+  r.queryHandler(ticketRecentQuery);
+  r.queryHandler(ticketQuotaQuery);
+  r.queryHandler(ticketOverviewQuery);
 
   r.translations({
     keys: {
@@ -128,6 +43,7 @@ export const ticketFeature = defineFeature("tickets", (r) => {
       "tickets.dashboard.quota": { en: "Quota {month}" },
       "screen:ticket-list.title": { en: "Tickets" },
       "screen:ticket-card.title": { en: "Ticket" },
+      "screen:ticket-overview.title": { en: "Ticket overview (one query)" },
       "screen:ticket-record-dashboard.title": { en: "Ticket overview" },
       "entity:ticket:field:title": { en: "Title" },
       "entity:ticket:field:status": { en: "Status" },
@@ -208,6 +124,45 @@ export const ticketFeature = defineFeature("tickets", (r) => {
         labelParams: { month: "month" },
         subtitleField: "period",
         query: "tickets:query:ticket:quota",
+      },
+    ],
+    access: readerRoles,
+  });
+
+  r.screen({
+    id: "ticket-overview",
+    type: "dashboard",
+    panels: [
+      {
+        kind: "stat-group",
+        id: "by-status",
+        label: "tickets.dashboard.group",
+        stats: [
+          {
+            kind: "stat",
+            id: "open",
+            label: "tickets.dashboard.open",
+            query: TICKET_OVERVIEW_QUERY,
+            resultField: "stats",
+            valueField: "open",
+          },
+          {
+            kind: "stat",
+            id: "closed",
+            label: "tickets.dashboard.closed",
+            query: TICKET_OVERVIEW_QUERY,
+            resultField: "stats",
+            valueField: "closed",
+          },
+        ],
+      },
+      {
+        kind: "list",
+        id: "recent",
+        label: "tickets.dashboard.recent",
+        query: TICKET_OVERVIEW_QUERY,
+        resultField: "recent",
+        columns: ["title", "status"],
       },
     ],
     access: readerRoles,

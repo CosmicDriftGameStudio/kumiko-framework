@@ -15,7 +15,7 @@ import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx"
 
 function makeDispatcher(): Dispatcher {
   return createMockDispatcher({
-    query: (async () => ({ isSuccess: true, data: [] })) as Dispatcher["query"],
+    query: async () => ({ isSuccess: true, data: [] }),
   });
 }
 
@@ -78,7 +78,7 @@ describe("SecretsEditBody — screen.description as form subtitle", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("secrets-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("secrets-edit-form"));
     expect(screen.queryByTestId("secrets-edit-form-subtitle")).toBeNull();
   });
 });

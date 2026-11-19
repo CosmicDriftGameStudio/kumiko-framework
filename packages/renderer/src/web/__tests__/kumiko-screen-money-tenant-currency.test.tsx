@@ -13,7 +13,13 @@ import userEvent from "@testing-library/user-event";
 import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockDispatcherOptions,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 // `price` opts into the tenant-settings currency; `cost`/`fee` don't and
 // keep today's entity.defaultCurrency ("EUR") fallback.
@@ -43,9 +49,9 @@ const TENANT_CURRENCY_VALUES = {
   "tenant-settings:config:currency": { value: "GBP", scope: "tenant", source: "tenant-row" },
 };
 
-function makeDispatcher(overrides: Partial<Dispatcher> = {}): Dispatcher {
-  const base = createMockDispatcher({
-    query: (async (type: string) => {
+function makeDispatcher(overrides: MockDispatcherOptions = {}): Dispatcher {
+  return createMockDispatcher({
+    query: async (type: string) => {
       if (type === "billing:query:invoice:detail") {
         return {
           isSuccess: true,
@@ -53,7 +59,7 @@ function makeDispatcher(overrides: Partial<Dispatcher> = {}): Dispatcher {
             id: "inv-1",
             version: 4,
             price: null,
-            cost: { amount: 50, currency: "EUR" },
+            cost: { amount: 5000, currency: "EUR" },
             fee: null,
           },
         };
@@ -62,9 +68,9 @@ function makeDispatcher(overrides: Partial<Dispatcher> = {}): Dispatcher {
         return { isSuccess: true, data: TENANT_CURRENCY_VALUES };
       }
       return { isSuccess: true, data: { rows: [], nextCursor: null } };
-    }) as unknown as Dispatcher["query"],
+    },
+    ...overrides,
   });
-  return { ...base, ...overrides };
 }
 
 async function typeMoney(testId: string, amount: string): Promise<void> {
@@ -79,10 +85,10 @@ describe("money field currency: { kind: 'tenant' }", () => {
   test("update: empty tenant-declared field uses the tenant currency; stored value keeps its own currency; undeclared empty field keeps entity.defaultCurrency", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
-      write: (async (type: string, payload: unknown) => {
+      write: async (type: string, payload: unknown) => {
         writeCalls.push({ type, payload });
         return { isSuccess: true, data: { id: "inv-1" } };
-      }) as unknown as Dispatcher["write"],
+      },
     });
 
     render(
@@ -97,7 +103,7 @@ describe("money field currency: { kind: 'tenant' }", () => {
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull(), {
       timeout: 3000,
     });
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
 
     await typeMoney("field-price", "10.00");
     await typeMoney("field-cost", "75.00");
@@ -111,9 +117,9 @@ describe("money field currency: { kind: 'tenant' }", () => {
       id: "inv-1",
       version: 4,
       changes: {
-        price: { amount: 10, currency: "GBP" },
-        cost: { amount: 75, currency: "EUR" },
-        fee: { amount: 5, currency: "EUR" },
+        price: { amount: 1000, currency: "GBP" },
+        cost: { amount: 7500, currency: "EUR" },
+        fee: { amount: 500, currency: "EUR" },
       },
     });
   });
@@ -121,10 +127,10 @@ describe("money field currency: { kind: 'tenant' }", () => {
   test("create: a typed tenant-declared field submits with the tenant currency, not EUR; untouched money stays out of the payload", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
-      write: (async (type: string, payload: unknown) => {
+      write: async (type: string, payload: unknown) => {
         writeCalls.push({ type, payload });
         return { isSuccess: true, data: { id: "inv-2" } };
-      }) as unknown as Dispatcher["write"],
+      },
     });
 
     render(
@@ -144,8 +150,8 @@ describe("money field currency: { kind: 'tenant' }", () => {
     const [call] = writeCalls;
     expect(call?.type).toBe("billing:write:invoice:create");
     const payload = call?.payload as { price?: unknown; cost?: unknown; fee?: unknown };
-    expect(payload.price).toEqual({ amount: 10, currency: "GBP" });
-    expect(payload.cost).toEqual({ amount: 20, currency: "EUR" });
+    expect(payload.price).toEqual({ amount: 1000, currency: "GBP" });
+    expect(payload.cost).toEqual({ amount: 2000, currency: "EUR" });
     expect(payload.fee).toBeUndefined();
   });
 
@@ -154,7 +160,15 @@ describe("money field currency: { kind: 'tenant' }", () => {
   for (const [label, configResult] of [
     [
       "config query fails",
-      { isSuccess: false, error: { code: "internal", i18nKey: "errors.internal" } },
+      {
+        isSuccess: false,
+        error: {
+          code: "internal",
+          httpStatus: 500,
+          i18nKey: "errors.internal",
+          message: "internal error",
+        },
+      },
     ],
     ["config key absent (tenant-settings not installed)", { isSuccess: true, data: {} }],
     [
@@ -168,14 +182,14 @@ describe("money field currency: { kind: 'tenant' }", () => {
     test(`create: ${label} → form renders and tenant-declared field falls back to EUR`, async () => {
       const writeCalls: { type: string; payload: unknown }[] = [];
       const dispatcher = makeDispatcher({
-        query: (async (type: string) => {
+        query: async (type: string) => {
           if (type === "config:query:values") return configResult;
           return { isSuccess: true, data: { rows: [], nextCursor: null } };
-        }) as unknown as Dispatcher["query"],
-        write: (async (type: string, payload: unknown) => {
+        },
+        write: async (type: string, payload: unknown) => {
           writeCalls.push({ type, payload });
           return { isSuccess: true, data: { id: "inv-3" } };
-        }) as unknown as Dispatcher["write"],
+        },
       });
 
       render(
@@ -192,7 +206,7 @@ describe("money field currency: { kind: 'tenant' }", () => {
 
       await waitFor(() => expect(writeCalls.length).toBe(1));
       const payload = writeCalls[0]?.payload as { price?: unknown };
-      expect(payload.price).toEqual({ amount: 7, currency: "EUR" });
+      expect(payload.price).toEqual({ amount: 700, currency: "EUR" });
     });
   }
 
@@ -214,10 +228,10 @@ describe("money field currency: { kind: 'tenant' }", () => {
     };
     const queriedTypes: string[] = [];
     const dispatcher = makeDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         queriedTypes.push(type);
         return { isSuccess: true, data: { rows: [], nextCursor: null } };
-      }) as unknown as Dispatcher["query"],
+      },
     });
 
     render(
@@ -226,7 +240,7 @@ describe("money field currency: { kind: 'tenant' }", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     expect(queriedTypes).not.toContain("config:query:values");
   });
 });

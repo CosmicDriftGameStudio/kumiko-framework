@@ -10,7 +10,7 @@ next: Siehe kumiko-framework#275 — r.configKey-Extension-Pattern; docs/pattern
 
 ## Verifikations-Stand (2026-06-07)
 
-Erledigt seit Sweep 2026-05-22: bundled-features-Rename, identity-v3-hash, channel-push, r.screen/r.nav-Primitiven.
+Erledigt seit Sweep 2026-05-22: bundled-features-Rename, channel-push, r.screen/r.nav-Primitiven.
 
 Noch offen:
 - ❌ r.configKey-Extension-Pattern (0 Treffer im Framework, nur r.config-Workaround)
@@ -163,22 +163,7 @@ Event-Payload für `*.created` = Command minus `id`, `applyDefaults` +
 Mapper muss strip-id selbst replizieren — `aggregateId` lebt am Event-Row,
 nicht im Payload.
 
-**2. ✅ Identity-V3-Hash-Verifier in `auth-email-password` (erledigt 2026-04-25)**
-
-`verifyPassword` sniff-routet zwischen argon2id (Standard) und ASP.NET
-Core Identity V3 (PBKDF2-HMAC-SHA256/HMACSHA512, 16-byte Salt, 32-byte
-Subkey). Migrierte Legacy-Hashes 1:1 in `user.passwordHash` →
-`/api/auth/login` funktioniert ohne Reset-Flow.
-
-Files: `packages/bundled-features/src/auth-email-password/identity-v3-hash.ts`,
-Unit-Tests in `__tests__/identity-v3-hash.test.ts` (12 Tests:
-Format-Sniff, BMC-Profile HMAC256/10k, HMAC512-Variante, malformed
-Inputs), End-to-End-Login-Beweis in `__tests__/identity-v3-login.integration.ts`
-(2 Tests: korrektes Password → 200 + JWT, falsches → 401).
-
-Nicht als primärer Hasher — nur Verifier. Neue Hashes bleiben argon2id.
-Auto-Rehash auf Login (V3 → argon2id) ist absichtlich nicht eingebaut;
-nächste change-password / reset-password schreibt sowieso argon2id.
+Identity-V3-Verifier am 2026-11-17 entfernt: die BMC-Migration ist nicht mehr geplant; ein Import bringt ein eigenes Werkzeug mit Rehash auf argon2id.
 
 **3. ❌ `core:config` akzeptiert Feature-Extension-Keys (Stand 2026-05-22: offen)**
 

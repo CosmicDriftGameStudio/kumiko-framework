@@ -1,22 +1,5 @@
 // kumiko-feature-version: 1
-//
-// file-provider-s3 — concrete S3 implementation for the
-// file-foundation plugin API.
-//
-// **What this feature provides:**
-//   1. Provider-specific tenant config (bucket/region/endpoint/
-//      forcePathStyle/accessKeyId) and secret (s3.secretAccessKey).
-//      Self-contained — file-foundation does not know about these.
-//   2. Plugin registration via `r.useExtension("fileProvider", "s3",
-//      { build })`. file-foundation's factory finds the plugin through
-//      the registry.
-//   3. build(ctx, tenantId) reads the config and secret, then calls
-//      `createS3Provider` from ./lib. This is the plugin's only
-//      cross-feature import, intentionally kept local.
-//
-// **Pattern reference:** mirrors mail-transport-smtp.
-//
-// **Boot dependencies:** config + secrets + file-foundation.
+// Per-tenant S3 config and secret; build() reads both on every call.
 
 import type {
   FileProviderContext,
@@ -35,9 +18,6 @@ import { createS3Provider } from "./lib/s3-provider.ts";
 
 const FEATURE_NAME = "file-provider-s3";
 
-// =============================================================================
-// Feature-definition
-// =============================================================================
 function createTenantConfigFileProviderS3Feature() {
   return defineFeature(
     FEATURE_NAME,
@@ -54,7 +34,8 @@ function createTenantConfigFileProviderS3Feature() {
       r.requires({ features: ["secrets"] });
       r.requires({ features: ["file-foundation"] });
 
-      const secretAccessKey = r.secret("s3.secretAccessKey", {
+      const secretAccessKey = r.secret({
+        name: "s3.secretAccessKey",
         label: { en: "S3 secret access key" },
         hint: {
           en: "Private half of the S3 key pair. Hetzner calls it 'Secret Key', AWS calls it 'Secret Access Key'.",
@@ -83,14 +64,16 @@ function createTenantConfigFileProviderS3Feature() {
             write: access.roles("TenantAdmin", "SystemAdmin"),
             read: access.roles("TenantAdmin", "SystemAdmin"),
           }),
+          // SystemAdmin-only: the server connects to this endpoint with the stored credentials,
+          // so a tenant-chosen host would be an SSRF vector.
           endpoint: createTenantConfig("text", {
             default: "",
-            write: access.roles("TenantAdmin", "SystemAdmin"),
+            write: access.roles("SystemAdmin"),
             read: access.roles("TenantAdmin", "SystemAdmin"),
           }),
           forcePathStyle: createTenantConfig("boolean", {
             default: false,
-            write: access.roles("TenantAdmin", "SystemAdmin"),
+            write: access.roles("SystemAdmin"),
           }),
           accessKeyId: createTenantConfig("text", {
             required: true,
@@ -106,7 +89,7 @@ function createTenantConfigFileProviderS3Feature() {
       const plugin: FileProviderPlugin = {
         build: async (ctx: FileProviderContext, tenantId: string) => buildS3Provider(ctx, tenantId),
       };
-      r.useExtension("fileProvider", "s3", plugin);
+      r.applyExtension({ name: "fileProvider", entity: "s3", ...plugin });
 
       return { configKeys, secretAccessKey };
     },
@@ -141,10 +124,6 @@ const tenantConfigFeature = createTenantConfigFileProviderS3Feature();
 
 /** Typed handle for the S3 secret-access-key. */
 export const S3_SECRET_ACCESS_KEY = tenantConfigFeature.exports.secretAccessKey;
-
-// =============================================================================
-// Internal: build the FileStorageProvider from tenant config + secret
-// =============================================================================
 
 async function buildS3Provider(
   ctx: FileProviderContext,

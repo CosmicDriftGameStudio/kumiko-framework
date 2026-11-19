@@ -29,7 +29,7 @@ describe("isComponentRendererRef", () => {
 describe("applyFormatSpec", () => {
   test("null/undefined/empty → empty string (priority renders emptyLabel instead)", () => {
     expect(applyFormatSpec({ format: "boolean" }, null)).toBe("");
-    expect(applyFormatSpec({ format: "currency", symbol: "€" }, undefined)).toBe("");
+    expect(applyFormatSpec({ format: "currency", currency: "EUR" }, undefined)).toBe("");
     expect(applyFormatSpec({ format: "priority" }, "")).toBe("—");
   });
 
@@ -47,12 +47,13 @@ describe("applyFormatSpec", () => {
     ).toBe("Hidden");
   });
 
-  test("currency: value + Leerzeichen + symbol", () => {
-    expect(applyFormatSpec({ format: "currency", symbol: "€" }, 42)).toBe("42 €");
-    expect(applyFormatSpec({ format: "currency", symbol: "$" }, "99.90")).toBe("99.90 $");
+  test("currency: Intl amount in the locale", () => {
+    expect(applyFormatSpec({ format: "currency", currency: "EUR", locale: "de-DE" }, 4200)).toBe(
+      "42,00\u00a0€",
+    );
   });
 
-  test("currency: no symbol → plain value", () => {
+  test("currency without a currency code → plain value", () => {
     expect(applyFormatSpec({ format: "currency" }, 42)).toBe("42");
   });
 
@@ -126,7 +127,7 @@ describe("applyFormatSpec", () => {
 
 describe("defaultCellRender", () => {
   test("a money cell formats amount and currency from the row value", () => {
-    const rent = { amount: 1200.5, currency: "EUR", amountScaled: 120050, amountMinor: 120050 };
+    const rent = { amount: 120050, currency: "EUR" };
     const shown = defaultCellRender(rent, "money", undefined, "de-DE");
 
     expect(shown).toContain("1.200,50");
@@ -273,7 +274,7 @@ describe("defaultCellRender", () => {
   });
 
   test("money → { amount, currency } formatted, not [object Object]", () => {
-    const result = defaultCellRender({ amount: 450, currency: "EUR" }, "money");
+    const result = defaultCellRender({ amount: 45000, currency: "EUR" }, "money");
     expect(result).not.toBe("[object Object]");
     expect(result.replace(/[^0-9]/g, "")).toBe("45000");
   });
@@ -290,22 +291,18 @@ describe("defaultCellRender", () => {
     expect(result).not.toMatch(/[.,]\d\d$/);
   });
 
-  test("money → rehydrated { amount major, amountMinor } derives minor units from amount + currencyDecimals", () => {
-    // rehydrateMoney: amount is major units, amountMinor is a flat
-    // ×100 scale that disagrees with currencyDecimals for non-2-decimal
-    // currencies — defaultCellRender ignores amountMinor and derives minor
-    // units from `amount` instead (see index.tsx).
-    const result = defaultCellRender({ amount: 119, currency: "EUR", amountMinor: 11900 }, "money");
+  test("money → { amount minor, currency } is scaled by the currency decimals", () => {
+    const result = defaultCellRender({ amount: 11900, currency: "EUR" }, "money");
     expect(result.replace(/[^0-9]/g, "")).toBe("11900");
   });
 
-  test("money → zero-decimal currency (JPY) ignores amountMinor's mismatched flat scale", () => {
-    const result = defaultCellRender({ amount: 500, currency: "JPY", amountMinor: 50000 }, "money");
+  test("money → zero-decimal currency (JPY) shows the amount as is", () => {
+    const result = defaultCellRender({ amount: 500, currency: "JPY" }, "money");
     expect(result.replace(/[^0-9]/g, "")).toBe("500");
   });
 
-  test("money → three-decimal currency (BHD) ignores amountMinor's mismatched flat scale", () => {
-    const result = defaultCellRender({ amount: 1.5, currency: "BHD", amountMinor: 150 }, "money");
+  test("money → three-decimal currency (BHD) divides by 1000", () => {
+    const result = defaultCellRender({ amount: 1500, currency: "BHD" }, "money");
     expect(result.replace(/[^0-9]/g, "")).toBe("1500");
   });
 
@@ -319,7 +316,7 @@ describe("defaultCellRender", () => {
   });
 
   test("money → explicit locale param wins over guessLocale's navigator fallback", () => {
-    const value = { amount: 1234.5, currency: "EUR" };
+    const value = { amount: 123450, currency: "EUR" };
     const de = defaultCellRender(value, "money", undefined, "de-DE");
     const en = defaultCellRender(value, "money", undefined, "en-US");
     // Same amount, two locales → two different strings, not just "locale is accepted".

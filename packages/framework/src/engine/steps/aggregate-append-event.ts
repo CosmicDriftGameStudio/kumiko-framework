@@ -22,6 +22,7 @@
 // need it during the same handler call).
 
 import { defineStep } from "../define-step.ts";
+import type { AppendConcurrency } from "../types/handlers.ts";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.ts";
 import { resolveOptional, resolveRequired } from "./_resolver-utils.ts";
 
@@ -31,21 +32,29 @@ type AggregateAppendEventArgs = {
   readonly type: string;
   readonly payload: StepResolver<unknown>;
   readonly headers?: StepResolver<Readonly<Record<string, string | number | boolean>>>;
-};
+} & (
+  | { readonly expectedVersion: StepResolver<number>; readonly blindAppendReason?: never }
+  | { readonly blindAppendReason: string; readonly expectedVersion?: never }
+);
 
 defineStep<AggregateAppendEventArgs, void>({
   kind: "aggregate.appendEvent",
-  defaultFailureStrategy: "throw",
   run: async (args, ctx: PipelineCtx) => {
     const aggregateId = resolveRequired(args.aggregateId, ctx);
     const payload = resolveRequired(args.payload, ctx);
     const headers = resolveOptional(args.headers, ctx);
+
+    const concurrency: AppendConcurrency =
+      args.expectedVersion !== undefined
+        ? { expectedVersion: resolveRequired(args.expectedVersion, ctx) }
+        : { blindAppendReason: args.blindAppendReason };
 
     await ctx.events.unsafeAppend({
       aggregateId,
       aggregateType: args.aggregateType,
       type: args.type,
       payload,
+      ...concurrency,
       ...(headers !== undefined && { headers }),
     });
   },

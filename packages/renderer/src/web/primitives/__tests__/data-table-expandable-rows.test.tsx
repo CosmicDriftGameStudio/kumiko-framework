@@ -65,14 +65,14 @@ describe("DataTable expandable rows (table layout)", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     expect(toggle.getAttribute("aria-controls")).toBe(expansion.id);
     expect(expansion.querySelector("td")?.getAttribute("colspan")).toBe("3");
-    expect(screen.getByTestId("content-r1")).toBeDefined();
+    screen.getByTestId("content-r1");
     expect(screen.queryByTestId("row-r2-expansion")).toBeNull();
   });
 
   test("several rows can be open at once", () => {
     renderTable({ expandedRowIds: new Set(["r1", "r2"]) });
-    expect(screen.getByTestId("row-r1-expansion")).toBeDefined();
-    expect(screen.getByTestId("row-r2-expansion")).toBeDefined();
+    screen.getByTestId("row-r1-expansion");
+    screen.getByTestId("row-r2-expansion");
   });
 
   test("toggling or clicking inside the expansion does not trigger the row click", () => {

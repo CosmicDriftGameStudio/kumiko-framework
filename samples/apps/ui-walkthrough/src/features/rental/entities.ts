@@ -16,6 +16,7 @@ export const RECEIPT_ACCEPT = ["pdf", "png", "jpg"] as const;
 export const LEASE_STATUSES = ["active", "terminated"] as const;
 
 export const leaseEntity = createEntity({
+  name: "lease",
   table: "read_ui_walkthrough_leases",
   fields: {
     mieter: createTextField({ ...DEMO_DATA, required: true, searchable: true, sortable: true }),
@@ -40,6 +41,7 @@ export const leaseEntity = createEntity({
 });
 
 export const leasePositionEntity = createEntity({
+  name: "leasePosition",
   table: "read_ui_walkthrough_lease_positions",
   fields: {
     lease: { type: "reference", entity: "lease", required: true, filterable: true },
@@ -53,6 +55,7 @@ export const leasePositionEntity = createEntity({
 });
 
 export const leasePartyEntity = createEntity({
+  name: "leaseParty",
   table: "read_ui_walkthrough_lease_parties",
   fields: {
     lease: { type: "reference", entity: "lease", required: true, filterable: true },
@@ -63,6 +66,7 @@ export const leasePartyEntity = createEntity({
 
 // A receipt keeps the uploaded file as its own record; dateiname is a copy for the success list.
 export const receiptEntity = createEntity({
+  name: "receipt",
   table: "read_ui_walkthrough_receipts",
   fields: {
     datei: createFileField({
@@ -76,6 +80,7 @@ export const receiptEntity = createEntity({
 });
 
 export const managementProfileEntity = createEntity({
+  name: "managementProfile",
   table: "read_ui_walkthrough_management_profiles",
   fields: {
     name: createTextField({ ...DEMO_DATA, required: true }),

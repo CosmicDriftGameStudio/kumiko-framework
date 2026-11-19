@@ -57,6 +57,7 @@ const workerWriteFeature = defineFeature("workerWrite", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "worker-note",
         type: noted.name,
         payload: { note: event.payload.note },
@@ -93,18 +94,21 @@ const fileJobFeature = defineFeature("fileJob", (r) => {
   });
   // Stands in for file-foundation, which this package cannot import.
   r.extendsRegistrar("fileProvider", { onRegister: () => undefined });
-  r.useExtension("fileProvider", "spy", {
+  r.applyExtension({
+    name: "fileProvider",
+    entity: "spy",
     build: async () => {
       throw new Error("no provider is built in this test — presence of the resolver is the point");
     },
   });
-  r.job(
-    "read-bytes",
-    { trigger: { on: requested.name }, runIn: "worker" },
-    async (_payload, ctx) => {
+  r.job({
+    name: "read-bytes",
+    trigger: { on: requested.name },
+    runIn: "worker",
+    handler: async (_payload, ctx) => {
       jobSawFilesRef.push(typeof ctx.services.files?.ref);
     },
-  );
+  });
   // Worker mode refuses to boot without a consumer to drain.
   r.multiStreamProjection({ name: "noop", apply: { [requested.name]: async () => {} } });
 });
@@ -431,11 +435,16 @@ describe("runIn lane-filtering (Welle 2.6.b)", () => {
 // enqueue fine, nothing runs".
 
 const apiJobFeature = defineFeature("api-jobs", (r) => {
-  r.job("local-cleanup", { trigger: { manual: true }, runIn: "api" }, async () => {});
+  r.job({
+    name: "local-cleanup",
+    trigger: { manual: true },
+    runIn: "api",
+    handler: async () => {},
+  });
 });
 
 const workerJobFeature = defineFeature("worker-jobs", (r) => {
-  r.job("heavy", { trigger: { manual: true }, runIn: "worker" }, async () => {});
+  r.job({ name: "heavy", trigger: { manual: true }, runIn: "worker", handler: async () => {} });
 });
 
 describe("createApiEntrypoint boot-validation (Welle 2.6.c)", () => {

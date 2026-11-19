@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { entityListSchema } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -6,6 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { mockModuleForFile } from "@cosmicdrift/kumiko-testing/helpers/mock-module";
+import type { ListAggregateGroup } from "@cosmicdrift/kumiko-types/list-aggregate-types";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { TagsHandlers, TagsQueries } from "../constants.ts";
@@ -13,10 +15,9 @@ import { defaultTranslations } from "../i18n.ts";
 import { TagManager } from "../tag-manager.tsx";
 
 type TagRow = { id: string; name: string; color?: string; scope?: string; version: number };
-type AssignmentRow = { tagId: string };
 
 let catalogRows: readonly TagRow[] = [];
-let assignmentRows: readonly AssignmentRow[] = [];
+let usageGroups: readonly ListAggregateGroup[] = [];
 let catalogLoading = false;
 let catalogData: { rows: readonly TagRow[] } | null = { rows: catalogRows };
 let catalogError: { i18nKey: string; i18nParams?: Record<string, unknown> } | null = null;
@@ -24,7 +25,7 @@ let assignmentError: { i18nKey: string; i18nParams?: Record<string, unknown> } |
 
 beforeEach(() => {
   catalogRows = [{ id: "t1", name: "urgent", color: "#ef4444", version: 1 }];
-  assignmentRows = [{ tagId: "t1" }, { tagId: "t1" }];
+  usageGroups = [{ key: "t1", count: 2, measures: [] }];
   catalogLoading = false;
   catalogData = { rows: catalogRows };
   catalogError = null;
@@ -43,7 +44,7 @@ const dispatchSpy = mock(async (type: string) =>
 const catalogRefetch = mock(async () => {});
 const assignmentsRefetch = mock(async () => {});
 
-const useQuerySpy = mock((type: string) => {
+const useQuerySpy = mock((type: string, _payload?: unknown) => {
   if (type === TagsQueries.tagList) {
     return {
       data: catalogData,
@@ -53,7 +54,7 @@ const useQuerySpy = mock((type: string) => {
     };
   }
   return {
-    data: { rows: assignmentRows },
+    data: { groups: usageGroups },
     loading: false,
     error: assignmentError,
     refetch: assignmentsRefetch,
@@ -82,7 +83,7 @@ describe("TagManager — loading and errors", () => {
         <TagManager />
       </Wrapper>,
     );
-    expect(screen.getByTestId("tag-manager-loading")).toBeTruthy();
+    screen.getByTestId("tag-manager-loading");
   });
 
   test("shows error banner when catalog query fails", () => {
@@ -92,8 +93,8 @@ describe("TagManager — loading and errors", () => {
         <TagManager />
       </Wrapper>,
     );
-    expect(screen.getByTestId("tag-manager-error")).toBeTruthy();
-    expect(screen.getByText("No tags found.")).toBeTruthy();
+    screen.getByTestId("tag-manager-error");
+    screen.getByText("No tags found.");
   });
 
   test("shows empty banner when catalog has no rows", () => {
@@ -104,7 +105,7 @@ describe("TagManager — loading and errors", () => {
         <TagManager />
       </Wrapper>,
     );
-    expect(screen.getByTestId("tag-manager-empty")).toBeTruthy();
+    screen.getByTestId("tag-manager-empty");
   });
 });
 
@@ -112,15 +113,43 @@ describe("TagManager — catalog CRUD", () => {
   test("renders tag row with scope label and usage count", () => {
     catalogRows = [{ id: "t2", name: "note-tag", color: "#22c55e", scope: "note", version: 1 }];
     catalogData = { rows: catalogRows };
-    assignmentRows = [{ tagId: "t2" }];
+    usageGroups = [{ key: "t2", count: 1, measures: [] }];
     render(
       <Wrapper>
         <TagManager />
       </Wrapper>,
     );
-    expect(screen.getByTestId("tag-manager-row-t2")).toBeTruthy();
-    expect(screen.getByText("@note")).toBeTruthy();
-    expect(screen.getByText("1×")).toBeTruthy();
+    screen.getByTestId("tag-manager-row-t2");
+    screen.getByText("@note");
+    screen.getByText("1×");
+  });
+
+  test("usage count comes from the server group, not from counting loaded rows", () => {
+    usageGroups = [{ key: "t1", count: 120, measures: [] }];
+    render(
+      <Wrapper>
+        <TagManager />
+      </Wrapper>,
+    );
+    screen.getByText("120×");
+  });
+
+  test("catalog and usage payloads pass the entity list schema", () => {
+    render(
+      <Wrapper>
+        <TagManager />
+      </Wrapper>,
+    );
+    const usagePayload = useQuerySpy.mock.calls.find(
+      ([type]) => type === TagsQueries.assignmentList,
+    )?.[1];
+    const catalogPayload = useQuerySpy.mock.calls.find(
+      ([type]) => type === TagsQueries.tagList,
+    )?.[1];
+    expect(entityListSchema.safeParse(usagePayload).success).toBe(true);
+    expect(usagePayload).toEqual({ aggregate: { groupBy: "tagId", measures: [] } });
+    expect(entityListSchema.safeParse(catalogPayload).success).toBe(true);
+    expect(catalogPayload).toEqual({ limit: 200 });
   });
 
   test("create dispatches write with trimmed name/color/scope and refetches", async () => {
@@ -170,7 +199,7 @@ describe("TagManager — catalog CRUD", () => {
       </Wrapper>,
     );
     fireEvent.click(screen.getByTestId("tag-manager-edit-btn-t1"));
-    expect(screen.getByTestId("tag-manager-edit-t1")).toBeTruthy();
+    screen.getByTestId("tag-manager-edit-t1");
 
     fireEvent.change(document.getElementById("tag-edit-name-t1") as HTMLInputElement, {
       target: { value: "renamed" },
@@ -182,9 +211,7 @@ describe("TagManager — catalog CRUD", () => {
       expect(dispatchSpy).toHaveBeenCalledWith(TagsHandlers.updateTag, {
         id: "t1",
         version: 1,
-        name: "renamed",
-        color: "#3b82f6",
-        scope: "",
+        changes: { name: "renamed", color: "#3b82f6", scope: "" },
       }),
     );
     await waitFor(() => expect(screen.queryByTestId("tag-manager-edit-t1")).toBeNull());
@@ -209,7 +236,7 @@ describe("TagManager — catalog CRUD", () => {
       </Wrapper>,
     );
     fireEvent.click(screen.getByTestId("tag-manager-delete-btn-t1"));
-    expect(screen.getByTestId("tag-manager-delete-dialog")).toBeTruthy();
+    screen.getByTestId("tag-manager-delete-dialog");
     fireEvent.click(screen.getByTestId("tag-manager-delete-dialog-confirm"));
 
     await waitFor(() =>
@@ -237,7 +264,7 @@ describe("TagManager — catalog CRUD", () => {
     });
     fireEvent.click(screen.getByTestId("tag-manager-create"));
 
-    await waitFor(() => expect(screen.getByTestId("tag-manager-action-error")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("tag-manager-action-error"));
   });
 });
 
@@ -290,8 +317,8 @@ describe("TagManager — selection mode", () => {
       </Wrapper>,
     );
 
-    expect(screen.getByTestId("tag-manager-row-t1")).toBeTruthy();
-    expect(screen.getByTestId("tag-manager-row-t2")).toBeTruthy();
+    screen.getByTestId("tag-manager-row-t1");
+    screen.getByTestId("tag-manager-row-t2");
     expect(screen.queryByTestId("tag-manager-row-t3")).toBeNull();
     expect(screen.queryByTestId("tag-manager-new-scope")).toBeNull();
 

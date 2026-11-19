@@ -13,7 +13,6 @@ import {
   createDbConnection,
   createEventStoreExecutor,
   createSystemDbView,
-  createTenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   bridgeStub,
@@ -22,6 +21,7 @@ import {
   defineFeature,
   type JobContext,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { testDatabaseUrl } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -38,6 +38,7 @@ import { reindexEntityJob } from "../handlers/reindex-entity.job.ts";
 const REINDEX_ENTITY_JOB = "jobs:job:reindex-entity";
 
 const widgetEntity = createEntity({
+  name: "widget",
   table: "read_reindex_job_widgets",
   fields: {
     name: createTextField({
@@ -49,9 +50,10 @@ const widgetEntity = createEntity({
   },
 });
 
-const widgetTable = buildEntityTable("widget", widgetEntity);
+const widgetTable = buildEntityTable(widgetEntity);
 
 const slowWidgetEntity = createEntity({
+  name: "slow-widget",
   table: "read_reindex_job_slow_widgets",
   fields: {
     name: createTextField({
@@ -63,11 +65,11 @@ const slowWidgetEntity = createEntity({
   },
 });
 
-const slowWidgetTable = buildEntityTable("slow-widget", slowWidgetEntity);
+const slowWidgetTable = buildEntityTable(slowWidgetEntity);
 
 const widgetFeature = defineFeature("reindex-job-test", (r) => {
-  r.entity({ name: "slow-widget", ...slowWidgetEntity });
-  r.entity({ name: "widget", ...widgetEntity });
+  r.entity(slowWidgetEntity);
+  r.entity(widgetEntity);
 });
 
 let stack: TestStack;
@@ -131,7 +133,10 @@ describe("reindexEntityJob", () => {
           mode: "system",
           reason: "test seeds and inspects entity rows across tenants for the reindex job",
           grants: {
-            unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+            unsafeRaw: {
+              reason: "test: job context mirrors systemScope() grant",
+              grants: ["unsafeRaw"],
+            },
           },
         }),
       ),
@@ -189,7 +194,10 @@ describe("reindexEntityJob", () => {
           mode: "system",
           reason: "test seeds and inspects entity rows across tenants for the reindex job",
           grants: {
-            unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+            unsafeRaw: {
+              reason: "test: job context mirrors systemScope() grant",
+              grants: ["unsafeRaw"],
+            },
           },
         }),
       ),
@@ -331,7 +339,10 @@ describe("reindexEntityJob under a server statement_timeout", () => {
             mode: "system",
             reason: "test seeds and inspects entity rows across tenants for the reindex job",
             grants: {
-              unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+              unsafeRaw: {
+                reason: "test: job context mirrors systemScope() grant",
+                grants: ["unsafeRaw"],
+              },
               projectionRegistry: stack.registry,
             },
           }),

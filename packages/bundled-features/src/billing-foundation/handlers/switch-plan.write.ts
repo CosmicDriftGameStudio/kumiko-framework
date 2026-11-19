@@ -4,7 +4,11 @@
 // apply) applies the switch right here and answers `{ applied: true }`.
 // Only registered when `createBillingFoundationFeature` gets a `catalog`.
 
-import type { HandlerContext, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineWriteHandler,
+  type HandlerContext,
+  type WriteResult,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { assertRedirectOrigins, isNonEmptyStringArray, joinBaseUrl } from "../checkout-core.ts";
@@ -22,7 +26,7 @@ import type { BillingPlanCatalog, ResolvedBillingFoundationOptions } from "../ty
 export function createSwitchPlanHandler(
   options: ResolvedBillingFoundationOptions,
   catalog: BillingPlanCatalog,
-): WriteHandlerDef {
+) {
   const plans = catalog.plans;
   if (!isNonEmptyStringArray(plans)) {
     throw new Error("switch-plan: catalog.plans must not be empty");
@@ -35,15 +39,17 @@ export function createSwitchPlanHandler(
       : tierSchema
   ).strict();
 
-  return {
+  return defineWriteHandler({
     name: "switch-plan",
     description:
       "Switches the existing subscription to another plan tier: opens the provider's confirmation page (answers { url }), or applies the switch in-app for providers that preview and apply themselves (answers { applied: true }; send consent when consumer protection is configured).",
     schema,
     access: { roles: purchaseRolesOf(catalog) },
-    handler: async (event, ctx) => {
-      // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const payload = event.payload as { tier: string; consent?: ConsentPayload };
+    handler: async (
+      event,
+      ctx,
+    ): Promise<WriteResult<{ readonly url: string } | { readonly applied: true }>> => {
+      const payload = event.payload;
       const prepared = await preparePlanSwitch(ctx, catalog, payload.tier, "switch-plan");
       const { plugin } = prepared.provider;
 
@@ -62,7 +68,7 @@ export function createSwitchPlanHandler(
 
       return applyInApp(prepared, payload, ctx, options);
     },
-  };
+  });
 }
 
 // Consent and the pending marker are recorded before the provider call, and a failing apply rolls

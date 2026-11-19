@@ -25,7 +25,7 @@ export async function unsafeCreateEntityTable(
   entity: EntityDefinition,
   entityName?: string,
 ): Promise<void> {
-  const table = buildEntityTable(entityName ?? "entity", entity);
+  const table = buildEntityTable({ ...entity, name: entityName ?? "entity" });
   await unsafePushTables(db, { [entityName ?? "entity"]: table });
 }
 

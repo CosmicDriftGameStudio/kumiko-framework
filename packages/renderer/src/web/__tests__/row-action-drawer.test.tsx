@@ -10,6 +10,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import type { Dispatcher } from "../../headless/index.ts";
+import { isRecord } from "../../headless/is-record.ts";
 import type { FeatureSchema, NavTarget } from "../../index.ts";
 import {
   createStaticLocaleResolver,
@@ -63,14 +64,14 @@ type WriteCall = { readonly type: string; readonly payload: unknown };
 
 function makeDispatcher(writeCalls: WriteCall[] = []): Dispatcher {
   return createMockDispatcher({
-    query: (async () => ({
+    query: async () => ({
       isSuccess: true,
       data: { rows: [{ id: "r1", title: "Alpha" }], nextCursor: null },
-    })) as unknown as Dispatcher["query"],
-    write: (async (type: string, payload: unknown) => {
+    }),
+    write: async (type: string, payload: unknown) => {
       writeCalls.push({ type, payload });
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
+    },
   });
 }
 
@@ -83,7 +84,7 @@ async function openDrawer(schema: FeatureSchema, dispatcher: Dispatcher) {
   );
   await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
   await user.click(screen.getByTestId("row-r1-action-add-note"));
-  await waitFor(() => expect(screen.getByTestId(DRAWER_TEST_ID)).toBeTruthy());
+  await waitFor(() => screen.getByTestId(DRAWER_TEST_ID));
   return user;
 }
 
@@ -109,8 +110,8 @@ describe("rowActions kind:'drawer'", () => {
   test("opens the drawer with the form while the list stays mounted behind it", async () => {
     await openDrawer(drawerSchema, makeDispatcher());
 
-    expect(screen.getByTestId("row-r1")).toBeTruthy();
-    expect(drawer().getByTestId("field-note")).toBeTruthy();
+    screen.getByTestId("row-r1");
+    drawer().getByTestId("field-note");
   });
 
   test("header, scrolling body and footer are siblings; the form has no title of its own", async () => {
@@ -127,11 +128,11 @@ describe("rowActions kind:'drawer'", () => {
     expect(scroll.contains(footer)).toBe(false);
     expect(scroll.className).toContain("overflow-y-auto");
     expect(footer.className).not.toContain("overflow");
-    expect(within(header).getByText("actions.addNote")).toBeTruthy();
+    within(header).getByText("actions.addNote");
     expect(screen.queryByTestId("render-edit-form-title")).toBeNull();
-    expect(within(scroll).getByTestId("render-edit-form-subtitle")).toBeTruthy();
+    within(scroll).getByTestId("render-edit-form-subtitle");
     expect(within(footer).queryByTestId("render-edit-cancel")).toBeNull();
-    expect(within(footer).getByTestId("render-edit-submit")).toBeTruthy();
+    within(footer).getByTestId("render-edit-submit");
   });
 
   test("title and subtitle override the label and interpolate {param} from the row prefill", async () => {
@@ -156,10 +157,10 @@ describe("rowActions kind:'drawer'", () => {
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
     await user.click(screen.getByTestId("row-r1-action-add-note"));
-    await waitFor(() => expect(screen.getByTestId(DRAWER_TEST_ID)).toBeTruthy());
+    await waitFor(() => screen.getByTestId(DRAWER_TEST_ID));
 
     const header = screen.getByTestId(`${DRAWER_TEST_ID}-header`);
-    expect(within(header).getByText("Note for Alpha")).toBeTruthy();
+    within(header).getByText("Note for Alpha");
     expect(within(header).queryByText("actions.addNote")).toBeNull();
     expect(screen.getByTestId(`${DRAWER_TEST_ID}-subtitle`).textContent).toBe("Row Alpha selected");
   });
@@ -198,14 +199,14 @@ describe("rowActions kind:'drawer'", () => {
       await close(user);
 
       const dialog = await screen.findByTestId("drawer-discard-dialog");
-      expect(within(dialog).getByText("Discard changes?")).toBeTruthy();
-      expect(within(dialog).getByText("Your input in this form will be lost.")).toBeTruthy();
+      within(dialog).getByText("Discard changes?");
+      within(dialog).getByText("Your input in this form will be lost.");
       expect(document.activeElement).toBe(screen.getByTestId("drawer-discard-dialog-cancel"));
 
       await user.click(within(dialog).getByText("Keep editing"));
 
       await waitFor(() => expect(screen.queryByTestId("drawer-discard-dialog")).toBeNull());
-      expect(screen.getByTestId(DRAWER_TEST_ID)).toBeTruthy();
+      screen.getByTestId(DRAWER_TEST_ID);
       expect(readNote()).toBe("draft text");
     });
   }
@@ -233,7 +234,7 @@ describe("rowActions kind:'drawer'", () => {
     await waitFor(() => expect(screen.queryByTestId(DRAWER_TEST_ID)).toBeNull());
 
     await user.click(screen.getByTestId("row-r1-action-add-note"));
-    await waitFor(() => expect(screen.getByTestId(DRAWER_TEST_ID)).toBeTruthy());
+    await waitFor(() => screen.getByTestId(DRAWER_TEST_ID));
     await user.click(drawer().getByLabelText("Close"));
 
     await waitFor(() => expect(screen.queryByTestId(DRAWER_TEST_ID)).toBeNull());
@@ -279,18 +280,32 @@ describe("facet counts after a drawer write", () => {
       screens: [listScreen, noteForm],
     };
     const dispatcher = createMockDispatcher({
-      query: (async (_type: string, payload: { filters?: { value: string[] }[] }) => {
-        const chipValue = payload.filters?.[0]?.value[0];
-        const total = chipValue === "done" && !written ? 0 : 1;
+      query: async (_type: string, payload: unknown) => {
+        const aggregate = isRecord(payload) ? payload["aggregate"] : undefined;
+        if (isRecord(aggregate) && aggregate["groupBy"] === "status") {
+          return {
+            isSuccess: true,
+            data: {
+              groups: [
+                { key: "open", count: 1, measures: [] },
+                ...(written ? [{ key: "done", count: 1, measures: [] }] : []),
+              ],
+            },
+          };
+        }
         return {
           isSuccess: true,
-          data: { rows: [{ id: "r1", title: "Alpha", status: "open" }], nextCursor: null, total },
+          data: {
+            rows: [{ id: "r1", title: "Alpha", status: "open" }],
+            nextCursor: null,
+            total: 1,
+          },
         };
-      }) as unknown as Dispatcher["query"],
-      write: (async () => {
+      },
+      write: async () => {
         written = true;
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["write"],
+      },
     });
 
     const user = await openDrawer(schema, dispatcher);
@@ -335,7 +350,7 @@ describe("rowActions without kind:'drawer'", () => {
         </DispatcherProvider>
       </NavProvider>,
     );
-    await waitFor(() => expect(screen.getByTestId("row-r1-action-add-note")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("row-r1-action-add-note"));
 
     await user.click(screen.getByTestId("row-r1-action-add-note"));
 
@@ -359,7 +374,7 @@ describe("rowActions without kind:'drawer'", () => {
         />
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByTestId("row-r1-action-add-note")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("row-r1-action-add-note"));
 
     await user.click(screen.getByTestId("row-r1-action-add-note"));
 

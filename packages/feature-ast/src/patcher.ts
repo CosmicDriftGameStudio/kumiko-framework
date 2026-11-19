@@ -25,7 +25,6 @@ import type {
   ClaimKeyType,
   ConfigKeyDefinition,
   ConfigKeyType,
-  EntityDefinition,
   EscapeHatchDeclaration,
   JobDefinition,
   LifecycleHookType,
@@ -51,7 +50,7 @@ import {
   removePattern,
   replacePattern,
 } from "./patch.ts";
-import type { FeaturePattern, OpaquePropMap } from "./patterns.ts";
+import type { EntityPatternDefinition, FeaturePattern, OpaquePropMap } from "./patterns.ts";
 import type { SourceLocation } from "./source-location.ts";
 
 // =============================================================================
@@ -80,7 +79,7 @@ export function rawLoc(raw: string): SourceLocation {
 
 export type AddEntityArgs = {
   readonly name: string;
-  readonly definition: EntityDefinition;
+  readonly definition: EntityPatternDefinition;
 };
 
 export type AddRelationArgs = {

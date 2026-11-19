@@ -7,13 +7,15 @@ import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import { type CardProps, type CorePrimitives, PrimitivesProvider } from "../../primitives.tsx";
+import { type CardProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RenderEdit } from "../render-edit.tsx";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
 const entity: EntityDefinition = {
+  name: "entity",
   fields: {
     name: {
       type: "text",
@@ -45,7 +47,7 @@ function renderTabsMode(description: string | undefined): void {
       ],
     },
   };
-  const primitives = {
+  const primitives = createStubPrimitives({
     Button: noop,
     Banner: noop,
     Field: passChildren,
@@ -64,7 +66,7 @@ function renderTabsMode(description: string | undefined): void {
     ConfigSourceBadge: noop,
     ConfigCascadeView: noop,
     Link: noop,
-  } as unknown as CorePrimitives;
+  });
   render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en-US" })}
@@ -93,7 +95,7 @@ describe("RenderEdit tabs mode — section description", () => {
 
   test("a section without description renders no subtitle", () => {
     renderTabsMode(undefined);
-    expect(screen.getByTestId("section-Basics")).toBeTruthy();
+    screen.getByTestId("section-Basics");
     expect(screen.queryByTestId("section-Basics-subtitle")).toBeNull();
   });
 });

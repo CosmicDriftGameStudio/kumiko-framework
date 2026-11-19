@@ -9,39 +9,45 @@ completes it. Level `simple` only: a drawn image plus the audit values, not a qu
 
 ```typescript
 import { createSignatureFeature } from "@cosmicdrift/kumiko-bundled-features/signature";
-import { renderHtmlToPdf } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 
 createSignatureFeature({
-  retention: { keepFor: "10y" },
+  retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
+  hostEntities: ["lease"],
   linkSecret: process.env.SIGNATURE_LINK_SECRET,
-  renderHtmlToPdf,
 });
 ```
 
-`bundled-features` never imports the print client; the app injects `renderHtmlToPdf`. Requires
+Requires the renderer-puppeteer-client feature; an outage leaves all-signed, the job retries. Also requires
 the `files` feature. Order of signatures is free.
 
 ## Options
 
-| Option             | Default                                      | Effect                                                                                                                                                                    |
-| ------------------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `retention`        | required                                     | `{ keepFor }`, counted from creation, hard delete                                                                                                                         |
-| `renderHtmlToPdf`  | required                                     | Renders the signature page; an outage leaves `all-signed`, the job retries                                                                                                |
-| `linkSecret`       | required                                     | HMAC secret of the links; empty rejects every link                                                                                                                        |
-| `deliverLink`      | required                                     | `(ctx, delivery)`: sends the link to the signer (mail) inside `issue-link`'s transaction; `delivery.issuedBy` is the issuing user. The token is never in a handler result |
-| `signaturePageUrl` | required                                     | URL of the app's signature page; the token is appended as `#<token>`                                                                                                      |
-| `access`           | `{ roles: ["TenantAdmin", "TenantMember"] }` | `AccessRule` of the signed-in handlers, queries, screens and nav; set it when the app hands out other roles. Link handlers stay anonymous                                 |
+| Option             | Default                                      | Effect                                                                                                                                                                                             |
+| ------------------ | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `retention`        | required                                     | `{ keepFor, unfinishedKeepFor? }`; keepFor counts from creation, `unfinishedKeepFor` is opt-in, see below                                                                                          |
+| `hostEntities`     | required                                     | Entity names a request may belong to (`hostType`); registered entities without their own `parentRef`. A user sees a request only while its host row is readable to them                            |
+| `linkSecret`       | required                                     | HMAC secret of the links; empty rejects every link                                                                                                                                                 |
+| `deliverLink`      | required                                     | `(ctx, delivery)`: sends the link to the signer (mail) inside `issue-link`'s transaction; `delivery.issuedBy` is the issuing user. The token is never in a handler result                          |
+| `signaturePageUrl` | required                                     | URL of the app's signature page; the token is appended as `#<token>`                                                                                                                               |
+| `access`           | `{ roles: ["TenantAdmin", "TenantMember"] }` | `AccessRule` of the signed-in handlers, queries, screens and nav; set it when the app hands out other roles. Link handlers stay anonymous                                                          |
+| `legacyHostOf`     | none                                         | `({ subjectType, subjectId }, ctx)`: names the `{ hostType, hostId }` of requests stored before the host gate existed; `undefined` leaves them invisible. Applied on replay, events stay unchanged |
 
-Subject scope: `authorizeSubject(ctx, user, { subjectType, subjectId })` limits requests to the
-subjects a user may see. It runs for every signed-in handler and query; `false` answers like a missing
-record. `unscopedRoles` (e.g. `["TenantAdmin"]`) skip it. For a scoped user `signatureRequest:list` keeps only the
-rows of allowed subjects, reading up to ten base pages per answer (it can still hold fewer rows than `limit`), and has no `total`; screens
-and nav stay at `access`. `signatureSigner:list` needs a `requestId` eq filter, otherwise 403. `request` also
-refuses a document the caller cannot open through `GET /files/:id`. The list cursor of a scoped user is sealed with a key derived from `linkSecret`, so `authorizeSubject` throws at startup without a non-empty `linkSecret`.
+Host gate: every request names a host row, `hostType` (one of `hostEntities`) and `hostId` in the
+`request` payload. `signatureRequest` declares a `parentRef` on it, so the list and detail filter in SQL
+and the write handlers (`request`, `sign-in-person`, `issue-link`, `revoke-link`, `cancel`) answer 404
+like a missing record. Who sees what is decided by `access.read` of the host entity. `signatureSigner:list`
+needs exactly one `requestId` eq filter, otherwise 403; a request whose host the user cannot read gives an
+empty page. `subjectType`/`subjectId` are a free label, e.g. the purpose of the document. `request` also
+refuses a document the caller cannot open through `GET /files/:id`.
+
+## Retention
+
+`keepFor` counts from creation and hard-deletes requests and signers. `unfinishedKeepFor` (optional; without it the job is not registered and nothing is anonymized): the signers of declined, expired, failed or cancelled requests are anonymized this long after the request's last change, by the job `erase-unfinished-signers` (daily). Completed requests keep `keepFor`.
 
 ## Handlers
 
 Signed in: `request`, `sign-in-person`, `issue-link`, `revoke-link`, `cancel`.
+`forget-signer`: a TenantAdmin or DataProtectionOfficer erases one signer without an account (row, image, record key) and cancels an open or all-signed request. The signer's data is exported through the query `signature-signer:list`.
 Anonymous (rate limited): `open-by-link`, `sign-by-link`, `decline-by-link`. Signing is never an
 agent tool. `request`, `issue-link` and `cancel` are agent tools with `risk: "mid"`.
 
@@ -56,7 +62,7 @@ all get the same 422. Of two simultaneous `sign-by-link` calls exactly one wins.
 
 `signature:event:completed`, `signature:event:declined`, `signature:event:expired`, `signature:event:failed`, each with
 request id, subject type and id (and the file id, signer id or failure reason). A cron job (`signature:job:sweep`, every
-5 minutes, per tenant) expires requests, completes `all-signed` ones (a changed or missing original or signature image ends them as `failed`) and re-checks races.
+5 minutes, per tenant) expires requests, completes `all-signed` ones (a changed or missing original, a missing signature image or a signature page above the renderer's size limit ends them as `failed`) and re-checks races.
 
 ## Client
 

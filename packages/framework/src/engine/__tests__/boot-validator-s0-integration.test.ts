@@ -6,8 +6,8 @@
 //
 // Mini feature set:
 //   compliance-profiles  exposesApi("compliance.forTenant")
-//   user-data-rights     usesApi + extendsRegistrar(EXT_USER_DATA)
-//   tenant               useExtension(EXT_USER_DATA, "user", ...)
+//   user-data-rights     usesApi (EXT_USER_DATA is framework-owned)
+//   tenant               applyExtension({ name: EXT_USER_DATA, entity: "user", ... })
 //                        + entity with pii / userOwned / tenantOwned fields
 //                        + retention.blockDelete + anonymize function
 //                        + handler access with ROLES.TenantAdmin
@@ -50,17 +50,14 @@ describe("S0 Integration — full surface stack", () => {
     const userDataRights = defineFeature("user-data-rights", (r) => {
       r.requires({ features: ["compliance-profiles"] });
       r.usesApi("compliance.forTenant");
-      r.extendsRegistrar(EXT_USER_DATA, {
-        hooks: {},
-      });
     });
 
     const tenantFeature = defineFeature("tenant-app", (r) => {
       r.requires({ features: ["user-data-rights", "compliance-profiles"] });
 
-      r.entity({
-        name: "user",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "user",
           fields: {
             email: createTextField({
               personal: "self",
@@ -80,11 +77,11 @@ describe("S0 Integration — full surface stack", () => {
             reference: "createdAt",
           },
         }),
-      });
+      );
 
-      r.entity({
-        name: "comment",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "comment",
           fields: {
             body: createLongTextField({
               personal: { of: "authorId", whenAbsent: "tenant" },
@@ -94,7 +91,7 @@ describe("S0 Integration — full surface stack", () => {
             authorId: { type: "reference", entity: "user" },
           },
         }),
-      });
+      );
 
       r.queryHandler({
         name: "user:list",
@@ -103,8 +100,8 @@ describe("S0 Integration — full surface stack", () => {
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
 
-      r.useExtension(EXT_USER_DATA, "user", { export: async () => null });
-      r.useExtension(EXT_USER_DATA, "comment", { export: async () => null });
+      r.applyExtension({ name: EXT_USER_DATA, entity: "user", export: async () => null });
+      r.applyExtension({ name: EXT_USER_DATA, entity: "comment", export: async () => null });
 
       r.writeHandler({
         name: "user:rename",
@@ -134,9 +131,9 @@ describe("S0 Integration — full surface stack", () => {
 
   test("retention.reference pointing to non-existent field throws even with valid PII annotations", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({
-        name: "user",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "user",
           fields: {
             email: createTextField({
               personal: "self",
@@ -149,7 +146,7 @@ describe("S0 Integration — full surface stack", () => {
             reference: "notARealField",
           },
         }),
-      });
+      );
     });
     expect(() => validateBoot([feature])).toThrow(
       /retention\.reference "notARealField" does not exist/,
@@ -158,7 +155,7 @@ describe("S0 Integration — full surface stack", () => {
 
   test("ROLES.TenantAdmin works as handler-access role string (no Admin/TenantAdmin drift)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "thing", ...createEntity({ fields: { ts: createTimestampField() } }) });
+      r.entity(createEntity({ name: "thing", fields: { ts: createTimestampField() } }));
       r.writeHandler({
         name: "thing:create",
         schema: z.object({}),

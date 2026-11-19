@@ -22,19 +22,23 @@
 import { isUuid, parseTenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import type { ProjectionRowIdOf } from "@cosmicdrift/kumiko-types/projection";
 import { configuredBlindIndexKey } from "../../crypto/index.ts";
+import { SYSTEM_TENANT_ID } from "../../engine/types/identifiers.ts";
+import { InternalError } from "../../errors/index.ts";
 import type { DbConnection, DbTx } from "../connection.ts";
 import type { EntityTableMeta } from "../entity-table-meta.ts";
 import { extractPgError } from "../pg-error.ts";
 import { type AnyDb, asEntityTableMeta, asRawClient } from "../query.ts";
 import { renderTableDdl } from "../render-ddl.ts";
+import { runInSystemRowLevelSecurityScope } from "../row-level-security-scope.ts";
 import { columnNamesOf, tableExists } from "../schema-inspection.ts";
+import { quoteIdent } from "../sql-identifier.ts";
 import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
+import { executeRawQuery, executeRawQueryRead } from "./raw-sql.ts";
 import { readRowLevelSecurityState, restoreRowLevelSecurityState } from "./rls-catalog.ts";
-import { quoteTableIdent } from "./table-ops.ts";
 
 export const PROJECTION_REBUILD_SCHEMA = "kumiko_rebuild";
 
-const SCHEMA_IDENT = quoteTableIdent(PROJECTION_REBUILD_SCHEMA);
+const SCHEMA_IDENT = quoteIdent(PROJECTION_REBUILD_SCHEMA);
 
 function isDuplicateSchemaError(e: unknown): boolean {
   const code = extractPgError(e)?.code;
@@ -121,15 +125,67 @@ export async function assertLiveColumnsMatchMeta(
 // Boundary: an apply that writes to a table OTHER than its own projection (e.g.
 // an MSP saga touching a second read-model) writes UNQUALIFIED → resolves to
 // public, i.e. the live secondary table, not a shadow of it. Online rebuild is
-// safe for self-table-only apply (the common case); a multi-table apply would
-// mutate live state during replay.
+// safe for self-table-only apply (the common case); assertReplayWroteOnlyShadow
+// enforces that after the replay by comparing transaction-level write counters.
 export async function buildShadowTable(tx: AnyDb, meta: EntityTableMeta): Promise<void> {
   const raw = asRawClient(tx);
   await raw.unsafe(`SET LOCAL search_path TO ${SCHEMA_IDENT}, public`);
-  await raw.unsafe(`DROP TABLE IF EXISTS ${SCHEMA_IDENT}.${quoteTableIdent(meta.tableName)}`);
+  await raw.unsafe(`DROP TABLE IF EXISTS ${SCHEMA_IDENT}.${quoteIdent(meta.tableName)}`);
   for (const stmt of renderTableDdl(meta)) {
     await raw.unsafe(stmt);
   }
+}
+
+function isLiveRelationWriteRow(
+  row: Record<string, unknown>,
+): row is { schemaname: string; relname: string; writes: string | number | bigint } {
+  return (
+    typeof row["schemaname"] === "string" &&
+    typeof row["relname"] === "string" &&
+    (typeof row["writes"] === "string" ||
+      typeof row["writes"] === "number" ||
+      typeof row["writes"] === "bigint")
+  );
+}
+
+// Writes of THIS transaction per relation outside the rebuild schema (pg_stat_xact_*
+// counters are per transaction, so concurrent live writers do not show up).
+export async function captureLiveRelationWriteCounts(
+  tx: DbTx,
+): Promise<ReadonlyMap<string, number>> {
+  const rows = await executeRawQueryRead(
+    tx,
+    `SELECT schemaname, relname, (n_tup_ins + n_tup_upd + n_tup_del) AS writes
+       FROM pg_stat_xact_user_tables
+      WHERE schemaname <> $1 AND schemaname NOT LIKE 'pg_temp%'`,
+    [PROJECTION_REBUILD_SCHEMA],
+  );
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    if (!isLiveRelationWriteRow(row)) {
+      throw new InternalError({
+        message: "projection-rebuild: unexpected pg_stat_xact_user_tables row shape",
+      });
+    }
+    counts.set(`${row.schemaname}.${row.relname}`, Number(row.writes));
+  }
+  return counts;
+}
+
+// The shadow only protects the projection's own table; any other write in the
+// replay resolved to a live table and ran beside the live pipeline.
+export async function assertReplayWroteOnlyShadow(
+  tx: DbTx,
+  before: ReadonlyMap<string, number>,
+  projectionName: string,
+): Promise<void> {
+  const after = await captureLiveRelationWriteCounts(tx);
+  const written = [...after].filter(([relation, writes]) => writes > (before.get(relation) ?? 0));
+  if (written.length === 0) return;
+  const list = written.map(([relation]) => relation).join(", ");
+  throw new InternalError({
+    message: `projection-rebuild "${projectionName}": apply wrote to live table(s) ${list}; a rebuild apply may only write its own projection table`,
+  });
 }
 
 // Fence the live table before the cutover: take ACCESS EXCLUSIVE on
@@ -152,7 +208,7 @@ export async function fenceLiveTable(
   }
   const raw = asRawClient(tx);
   await raw.unsafe(`SET LOCAL lock_timeout = ${Math.trunc(lockTimeoutMs)}`);
-  await raw.unsafe(`LOCK TABLE public.${quoteTableIdent(tableName)} IN ACCESS EXCLUSIVE MODE`);
+  await raw.unsafe(`LOCK TABLE public.${quoteIdent(tableName)} IN ACCESS EXCLUSIVE MODE`);
 }
 
 // Ids reported when the swap is aborted — enough to locate the ghost rows
@@ -256,7 +312,7 @@ export async function assertNoUnreachableLiveRows(
   // of a subscription-less projection swaps an empty shadow (handled upstream).
   if (aggregateTypes.length === 0) return;
   const raw = asRawClient(tx);
-  const t = quoteTableIdent(tableName);
+  const t = quoteIdent(tableName);
   const derivedTypes = aggregateTypes.filter((type) => derivedRowIds[type] !== undefined);
   const directTypes = aggregateTypes.filter((type) => derivedRowIds[type] === undefined);
   if (derivedTypes.length > 0) {
@@ -328,7 +384,7 @@ async function assertBlindIndexKeyMatchesLive(
 ): Promise<void> {
   const differs = bidxCols
     .map((c) => {
-      const col = quoteTableIdent(c.name);
+      const col = quoteIdent(c.name);
       return `(l.${col} IS NOT NULL AND s.${col} IS NOT NULL AND l.${col} IS DISTINCT FROM s.${col})`;
     })
     .join(" OR ");
@@ -365,14 +421,14 @@ export async function assertNoBlindIndexLoss(
   const bidxCols = meta.columns.filter((c) => c.name.endsWith("_bidx"));
   // skip: no blind-index column on this table — nothing the rebuild could lose
   if (bidxCols.length === 0) return;
-  const t = quoteTableIdent(tableName);
+  const t = quoteIdent(tableName);
   const raw = asRawClient(tx);
   if (configuredBlindIndexKey() !== undefined) {
     await assertBlindIndexKeyMatchesLive(raw, tableName, t, bidxCols, projectionName);
     // skip: a configured key is verified against live rows above, the null-count check below is for keyless boots
     return;
   }
-  const where = bidxCols.map((c) => `${quoteTableIdent(c.name)} IS NOT NULL`).join(" OR ");
+  const where = bidxCols.map((c) => `${quoteIdent(c.name)} IS NOT NULL`).join(" OR ");
   const rows = await raw.unsafe<{ total: string }>(
     `SELECT count(*)::text AS total FROM public.${t} WHERE ${where}`,
   );
@@ -435,7 +491,7 @@ export async function countColumnDrift(
   const comparable = meta.columns.filter((c) => c.primaryKey !== true && !c.name.endsWith("_bidx"));
   // skip: nothing to compare (id-only or all-bidx table) — no drift is possible
   if (comparable.length === 0) return { rowCount: 0, sample: [] };
-  const t = quoteTableIdent(tableName);
+  const t = quoteIdent(tableName);
   const raw = asRawClient(tx);
   const driftCte = `WITH drifted AS (
      SELECT l."id" AS id, string_agg(diff.col, ',') AS drifted_columns
@@ -444,8 +500,7 @@ export async function countColumnDrift(
      CROSS JOIN LATERAL (
        VALUES ${comparable
          .map(
-           (c) =>
-             `('${c.name}', l.${quoteTableIdent(c.name)} IS DISTINCT FROM s.${quoteTableIdent(c.name)})`,
+           (c) => `('${c.name}', l.${quoteIdent(c.name)} IS DISTINCT FROM s.${quoteIdent(c.name)})`,
          )
          .join(", ")}
      ) AS diff(col, differs)
@@ -477,7 +532,7 @@ export async function countColumnDrift(
 // rolls back, leaving the old table untouched.
 export async function swapShadowIntoLive(tx: DbTx, tableName: string): Promise<void> {
   const raw = asRawClient(tx);
-  const ident = quoteTableIdent(tableName);
+  const ident = quoteIdent(tableName);
   // Held before the catalog read so a concurrent ENABLE ROW LEVEL SECURITY / CREATE POLICY either
   // commits first (and is carried over) or waits behind the DROP.
   await raw.unsafe(`LOCK TABLE public.${ident} IN ACCESS EXCLUSIVE MODE`);
@@ -488,4 +543,41 @@ export async function swapShadowIntoLive(tx: DbTx, tableName: string): Promise<v
   await raw.unsafe(`DROP TABLE public.${ident}`);
   await raw.unsafe(`ALTER TABLE ${SCHEMA_IDENT}.${ident} SET SCHEMA public`);
   await restoreRowLevelSecurityState(tx, tableName, live);
+}
+
+// Reads kumiko_events in a CTE ahead of the UPDATE: the statement writes only the shadow table.
+// Domain events are not replayed into an entity shadow, so the replayed rows still hold the version
+// of their last lifecycle event; live, every domain event on the stream moved it further.
+export async function alignShadowRowVersionsWithStreams(
+  tx: AnyDb,
+  tableName: string,
+  aggregateTypes: readonly string[],
+  systemStream: boolean,
+): Promise<void> {
+  // skip: no source streams, nothing to align
+  if (aggregateTypes.length === 0) return;
+  const tenantMatch = systemStream ? "$2" : 's."tenant_id"';
+  const params: readonly unknown[] = systemStream
+    ? [toPostgresArrayLiteral(aggregateTypes), SYSTEM_TENANT_ID]
+    : [toPostgresArrayLiteral(aggregateTypes)];
+  await runInSystemRowLevelSecurityScope(
+    "rebuild aligns shadow row versions with the event streams without a tenant scope",
+    () =>
+      executeRawQuery(
+        tx,
+        `WITH "stream_versions" AS (
+           SELECT "tenant_id", "aggregate_id", MAX("version") AS "stream_version"
+             FROM "kumiko_events"
+            WHERE "aggregate_type" = ANY($1::text[])
+            GROUP BY "tenant_id", "aggregate_id"
+         )
+         UPDATE ${SCHEMA_IDENT}.${quoteIdent(tableName)} AS s
+            SET "version" = e."stream_version"
+           FROM "stream_versions" AS e
+          WHERE e."aggregate_id" = s."id"
+            AND e."tenant_id" = ${tenantMatch}
+            AND s."version" < e."stream_version"`,
+        params,
+      ),
+  );
 }

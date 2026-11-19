@@ -7,10 +7,12 @@
 //
 // The check is unconditional (default-on, no opt-in): entityType must name a
 // registered entity, and the host row must be visible through that entity's own
-// read path (tenant scope plus its `access.read` ownership).
+// read path (tenant scope plus its `access.read` ownership). tag:delete applies the
+// same visibility rule to its cascade and refuses while a record the caller cannot
+// see carries the tag.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -18,11 +20,13 @@ import {
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { deleteRowViaEventStore, seedRowsViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { tagAssignmentEntity, tagEntity } from "../entity.ts";
 import { createTagsFeature } from "../feature.ts";
 import { TagsHandlers } from "../web/constants.ts";
@@ -44,6 +48,7 @@ const projectOwnership: NonNullable<EntityDefinition["access"]> = {
 };
 
 const projectEntity = createEntity({
+  name: "project",
   table: PROJECT_TABLE,
   fields: {
     teamId: createTextField({
@@ -62,8 +67,10 @@ const projectEntity = createEntity({
   access: projectOwnership,
 });
 
+const projectTable = buildEntityTable(projectEntity);
+
 const hostFixturesFeature = defineFeature("tags-pv-test-fixtures", (r) => {
-  r.entity({ name: "project", ...projectEntity });
+  r.entity(projectEntity);
 });
 
 type TestUser = ReturnType<typeof createTestUser>;
@@ -86,6 +93,9 @@ const PROJECT_A = "b0000000-0000-4000-8000-000000000001";
 const PROJECT_A2 = "b0000000-0000-4000-8000-000000000002";
 // Never assigned anything — the "no assignment" half of the oracle check.
 const PROJECT_A3 = "b0000000-0000-4000-8000-000000000003";
+const PROJECT_B = "b0000000-0000-4000-8000-000000000011";
+const PROJECT_B_GONE = "b0000000-0000-4000-8000-000000000012";
+const PROJECT_A_DEL = "b0000000-0000-4000-8000-000000000013";
 
 let stack: TestStack;
 let tagId: string;
@@ -94,6 +104,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createTagsFeature({
+        parents: ["project"],
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       }),
       hostFixturesFeature,
@@ -102,13 +113,15 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tagEntity);
   await unsafeCreateEntityTable(stack.db, tagAssignmentEntity);
   await unsafeCreateEntityTable(stack.db, projectEntity);
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id, name) VALUES
-       ($1, $2, 'team-a', 'Project A'),
-       ($3, $2, 'team-a', 'Project A2'),
-       ($4, $2, 'team-a', 'Project A3')`,
-    [PROJECT_A, userA.tenantId, PROJECT_A2, PROJECT_A3],
-  );
+  const { tenantId } = userA;
+  await seedRowsViaEventStore(stack.db, projectTable, [
+    { id: PROJECT_A, tenantId, teamId: "team-a", name: "Project A" },
+    { id: PROJECT_A2, tenantId, teamId: "team-a", name: "Project A2" },
+    { id: PROJECT_A3, tenantId, teamId: "team-a", name: "Project A3" },
+    { id: PROJECT_B, tenantId, teamId: "team-b", name: "Project B" },
+    { id: PROJECT_B_GONE, tenantId, teamId: "team-b", name: "Project B gone" },
+    { id: PROJECT_A_DEL, tenantId, teamId: "team-a", name: "Project A del" },
+  ]);
 
   const tag = await stack.http.writeOk<{ id: string }>(
     TagsHandlers.createTag,
@@ -128,6 +141,39 @@ async function activeAssignmentsFor(entityId: string): Promise<number> {
     [entityId],
   );
   return rows[0]?.n ?? 0;
+}
+
+async function createTagAs(name: string, user: TestUser): Promise<string> {
+  const created = await stack.http.writeOk<{ id: string }>(TagsHandlers.createTag, { name }, user);
+  return created.id;
+}
+
+function assignTagTo(tag: string, entityId: string, user: TestUser) {
+  return stack.http.writeOk<{ id: string }>(
+    TagsHandlers.assignTag,
+    { tagId: tag, entityType: "project", entityId },
+    user,
+  );
+}
+
+async function activeAssignmentsOfTag(tag: string): Promise<number> {
+  const rows = await asRawClient(stack.db).unsafe<{ n: number }>(
+    "SELECT count(*)::int AS n FROM read_tag_assignments WHERE tag_id = $1 AND is_deleted = FALSE",
+    [tag],
+  );
+  return rows[0]?.n ?? 0;
+}
+
+async function tagExists(tag: string): Promise<boolean> {
+  const rows = await asRawClient(stack.db).unsafe<{ n: number }>(
+    "SELECT count(*)::int AS n FROM read_tags WHERE id = $1",
+    [tag],
+  );
+  return (rows[0]?.n ?? 0) > 0;
+}
+
+function reasonOf(err: { details?: unknown }): unknown {
+  return isPlainObject(err.details) ? err.details["reason"] : undefined;
 }
 
 function assign(entityType: string, entityId: string, user: TestUser) {
@@ -228,5 +274,48 @@ describe("tags integration — remove-tag parent-visibility", () => {
     const err = await removeErr("totally-unknown-entity", PROJECT_A, userA);
     expect(err.code).toBe("not_found");
     expect(err.httpStatus).toBe(404);
+  });
+});
+
+describe("tags integration — tag:delete never detaches a tag from records the caller cannot see", () => {
+  test("a member cannot delete a tag that a record of another team carries; nothing is detached", async () => {
+    const tag = await createTagAs("Shared", userA);
+    await assignTagTo(tag, PROJECT_A_DEL, userA);
+    await assignTagTo(tag, PROJECT_B, userB);
+
+    const err = await stack.http.writeErr(TagsHandlers.deleteTag, { id: tag }, userA);
+    expect(err.httpStatus).toBe(422);
+    expect(reasonOf(err)).toBe("tag_in_use_on_hidden_records");
+    expect(await activeAssignmentsOfTag(tag)).toBe(2);
+    expect(await tagExists(tag)).toBe(true);
+
+    const errB = await stack.http.writeErr(TagsHandlers.deleteTag, { id: tag }, userB);
+    expect(errB.httpStatus).toBe(422);
+    expect(await activeAssignmentsOfTag(tag)).toBe(2);
+  });
+
+  test("once only visible records carry the tag, the member deletes it with the cascade", async () => {
+    const tag = await createTagAs("Team B only", userB);
+    await assignTagTo(tag, PROJECT_B, userB);
+
+    await stack.http.writeOk(TagsHandlers.deleteTag, { id: tag }, userB);
+    expect(await activeAssignmentsOfTag(tag)).toBe(0);
+    expect(await tagExists(tag)).toBe(false);
+  });
+
+  test("an assignment on a deleted record of another team does not block the delete and is removed", async () => {
+    const tag = await createTagAs("Orphan", userA);
+    await assignTagTo(tag, PROJECT_A_DEL, userA);
+    await assignTagTo(tag, PROJECT_B_GONE, userB);
+    await deleteRowViaEventStore(
+      stack.db,
+      { table: projectTable, entity: projectEntity, entityName: "project" },
+      { id: PROJECT_B_GONE },
+      { tenantId: userB.tenantId },
+    );
+
+    await stack.http.writeOk(TagsHandlers.deleteTag, { id: tag }, userA);
+    expect(await activeAssignmentsOfTag(tag)).toBe(0);
+    expect(await tagExists(tag)).toBe(false);
   });
 });

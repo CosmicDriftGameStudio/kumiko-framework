@@ -12,6 +12,7 @@ import { getAuthTokenExpiry, getStaleCredentialCode, getUser } from "./auth-midd
 import { clearSessionCookies, getSessionCookies } from "./session-cookies.ts";
 import { accessInvalidationCredentialFor, type SseBroker, type SseEvent } from "./sse-broker.ts";
 import { scheduleTokenExpiry } from "./token-expiry-timer.ts";
+import { createWebSocketConnectionLimiter } from "./websocket-route.ts";
 
 /**
  * Heartbeat cadence for SSE streams.
@@ -55,6 +56,8 @@ export const SSE_STALLED_CLIENT_TIMEOUT_MS = SSE_HEARTBEAT_INTERVAL_MS;
 
 // Memory backstop only: a client that still makes progress but queues this many frames is dropped.
 export const SSE_MAX_PENDING_WRITES_PER_CLIENT = 10_000;
+
+export const SSE_MAX_CONNECTIONS_PER_USER = 10;
 
 export type SseRouteOptions = {
   readonly anonymousLiveEntities: ReadonlySet<string>;
@@ -166,6 +169,8 @@ function decideWireFrame(
 export function createSseRoute(broker: SseBroker, options: SseRouteOptions) {
   const now = options.now ?? Date.now;
   const route = new Hono();
+  // ponytail: per-process count, so the cap is per pod; a cluster-wide cap needs a shared counter (Redis).
+  const connectionLimiter = createWebSocketConnectionLimiter();
 
   route.get(Routes.sse, async (c) => {
     const user = getUser(c);
@@ -179,98 +184,120 @@ export function createSseRoute(broker: SseBroker, options: SseRouteOptions) {
     // JS cannot remove the HttpOnly auth cookie, so the response does.
     if (staleCredentialCode !== undefined) clearSessionCookies(c, getSessionCookies(c));
 
-    return streamSSE(c, async (stream) => {
-      if (staleCredentialCode !== undefined) {
-        await stream.writeSSE({
-          event: SESSION_ENDED_SSE_EVENT,
-          data: JSON.stringify({ code: staleCredentialCode }),
-        });
-      }
-      let resolveEnded!: () => void;
-      const ended = new Promise<void>((resolve) => {
-        resolveEnded = resolve;
-      });
-      const closeStream = () => {
-        resolveEnded();
-        void stream.close();
-      };
-
-      let pendingWrites = 0;
-      let lastProgressAt = now();
-      const isStalled = () =>
-        pendingWrites > 0 && now() - lastProgressAt > SSE_STALLED_CLIENT_TIMEOUT_MS;
-      // Pings go through the same accounting: an awaited ping would block on a client that
-      // stopped reading, and the stall check below would never run again.
-      const writeTracked = (event: string, data: string): void => {
-        if (pendingWrites === 0) lastProgressAt = now();
-        pendingWrites += 1;
-        stream
-          .writeSSE({ event, data })
-          .catch(closeStream)
-          .finally(() => {
-            pendingWrites -= 1;
-            lastProgressAt = now();
-          });
-      };
-      const clientId = broker.addClient(
-        channel,
-        (event) => {
-          // skip: the stream is already being torn down
-          if (stream.aborted || stream.closed) return;
-          // The broker loops over all clients synchronously: one bad client must not stop the others.
-          try {
-            const frame = decideWireFrame(event, user, options);
-            // skip: decideWireFrame withholds frames this user must not see
-            if (!frame) return;
-            if (pendingWrites >= SSE_MAX_PENDING_WRITES_PER_CLIENT || isStalled()) {
-              // abort (not close) cancels the pending writes; close would queue behind them
-              stream.abort();
-              // skip: this client is gone, the frame has no audience
-              return;
-            }
-            writeTracked(frame.name, JSON.stringify(frame.data));
-          } catch {
-            // skip: an unserializable frame ends this client's stream, not the broadcast
-            closeStream();
-          }
+    // Anonymous viewers all share one user id, so a per-user cap would throttle every public viewer of a
+    // tenant together; their limit belongs to the ingress.
+    const releaseConnectionSlot = isAnonymousSessionUser(user)
+      ? () => {}
+      : connectionLimiter.tryAcquire(`${user.tenantId}\n${user.id}`, SSE_MAX_CONNECTIONS_PER_USER);
+    if (!releaseConnectionSlot) {
+      return c.json(
+        {
+          error: {
+            code: "sse_connection_limit",
+            httpStatus: 429,
+            message: "too many open SSE connections for this user",
+          },
         },
-        closeStream,
+        429,
       );
-      const unsubscribeAccessInvalidation = broker.subscribeAccessInvalidation(
-        user.id,
-        closeStream,
-        accessInvalidationCredentialFor(user),
-      );
+    }
 
-      const expiryTimer = scheduleTokenExpiry(tokenExpiresAtSec, closeStream);
-
-      let released = false;
-      const release = () => {
-        // skip: onAbort and the finally block both release, the second call is a no-op
-        if (released) return;
-        released = true;
-        // A client disconnect must also wake the heartbeat sleep, not only a server close.
-        resolveEnded();
-        clearTimeout(expiryTimer);
-        broker.removeClient(channel, clientId);
-        unsubscribeAccessInvalidation();
-      };
-
-      stream.onAbort(release);
-
-      // Keep the connection alive with a heartbeat — see SSE_HEARTBEAT_INTERVAL_MS
-      // for the layer-by-layer rationale for the 15 s cadence.
+    return streamSSE(c, async (stream) => {
       try {
-        while (!stream.closed && !stream.aborted) {
-          if (isStalled()) {
-            stream.abort();
-            break;
+        if (staleCredentialCode !== undefined) {
+          await stream.writeSSE({
+            event: SESSION_ENDED_SSE_EVENT,
+            data: JSON.stringify({ code: staleCredentialCode }),
+          });
+        }
+        let resolveEnded!: () => void;
+        const ended = new Promise<void>((resolve) => {
+          resolveEnded = resolve;
+        });
+        const closeStream = () => {
+          resolveEnded();
+          void stream.close();
+        };
+
+        let pendingWrites = 0;
+        let lastProgressAt = now();
+        const isStalled = () =>
+          pendingWrites > 0 && now() - lastProgressAt > SSE_STALLED_CLIENT_TIMEOUT_MS;
+        // Pings go through the same accounting: an awaited ping would block on a client that
+        // stopped reading, and the stall check below would never run again.
+        const writeTracked = (event: string, data: string): void => {
+          if (pendingWrites === 0) lastProgressAt = now();
+          pendingWrites += 1;
+          stream
+            .writeSSE({ event, data })
+            .catch(closeStream)
+            .finally(() => {
+              pendingWrites -= 1;
+              lastProgressAt = now();
+            });
+        };
+        const clientId = broker.addClient(
+          channel,
+          (event) => {
+            // skip: the stream is already being torn down
+            if (stream.aborted || stream.closed) return;
+            // The broker loops over all clients synchronously: one bad client must not stop the others.
+            try {
+              const frame = decideWireFrame(event, user, options);
+              // skip: decideWireFrame withholds frames this user must not see
+              if (!frame) return;
+              if (pendingWrites >= SSE_MAX_PENDING_WRITES_PER_CLIENT || isStalled()) {
+                // abort (not close) cancels the pending writes; close would queue behind them
+                stream.abort();
+                // skip: this client is gone, the frame has no audience
+                return;
+              }
+              writeTracked(frame.name, JSON.stringify(frame.data));
+            } catch {
+              // skip: an unserializable frame ends this client's stream, not the broadcast
+              closeStream();
+            }
+          },
+          closeStream,
+        );
+        const unsubscribeAccessInvalidation = broker.subscribeAccessInvalidation(
+          user.id,
+          closeStream,
+          accessInvalidationCredentialFor(user),
+        );
+
+        const expiryTimer = scheduleTokenExpiry(tokenExpiresAtSec, closeStream);
+
+        let released = false;
+        const release = () => {
+          // skip: onAbort and the finally block both release, the second call is a no-op
+          if (released) return;
+          released = true;
+          // A client disconnect must also wake the heartbeat sleep, not only a server close.
+          resolveEnded();
+          clearTimeout(expiryTimer);
+          broker.removeClient(channel, clientId);
+          unsubscribeAccessInvalidation();
+        };
+
+        stream.onAbort(release);
+
+        // Keep the connection alive with a heartbeat — see SSE_HEARTBEAT_INTERVAL_MS
+        // for the layer-by-layer rationale for the 15 s cadence.
+        try {
+          while (!stream.closed && !stream.aborted) {
+            if (isStalled()) {
+              stream.abort();
+              break;
+            }
+            writeTracked("ping", "");
+            await Promise.race([stream.sleep(SSE_HEARTBEAT_INTERVAL_MS), ended]);
           }
-          writeTracked("ping", "");
-          await Promise.race([stream.sleep(SSE_HEARTBEAT_INTERVAL_MS), ended]);
+        } finally {
+          release();
         }
       } finally {
-        release();
+        releaseConnectionSlot();
       }
     });
   });

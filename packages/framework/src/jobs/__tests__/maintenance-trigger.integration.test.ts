@@ -27,7 +27,7 @@ afterAll(async () => {
 });
 
 const feature = defineFeature("tidy", (r) => {
-  r.job("sweep", { trigger: { maintenance: true } }, async () => {});
+  r.job({ name: "sweep", trigger: { maintenance: true }, handler: async () => {} });
 });
 
 function startRunner(queueNamePrefix: string, maintenanceWindow?: MaintenanceWindow) {

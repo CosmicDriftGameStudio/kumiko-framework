@@ -18,12 +18,12 @@ export function formatDocumentMoney(
   locale: string,
 ): string {
   if (typeof value === "number" && Number.isFinite(value)) {
-    return formatMoney(value, tenantCurrency, locale);
+    return formatMoney(value, tenantCurrency, { locale });
   }
   if (isPlainRecord(value)) {
     const { amount, currency } = value;
     if (typeof amount === "number" && Number.isFinite(amount) && typeof currency === "string") {
-      return formatMoney(amount, currency, locale);
+      return formatMoney(amount, currency, { locale });
     }
   }
   return value === undefined || value === null ? "" : String(value);

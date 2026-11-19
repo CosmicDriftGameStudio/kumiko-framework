@@ -146,16 +146,15 @@ describe("kumiko-drift boot-gate", () => {
     );
   });
 
-  test("missing migrations dir → ok (no migrations to validate)", async () => {
-    // Regression: an existing-app upgrade without
-    // ./kumiko/migrations must not throw a raw ENOENT (which would produce a
-    // plain Error instead of SchemaDriftError and omit the remediation hint from
-    // the boot log).
+  test("missing migrations dir → drift (SchemaDriftError, not a raw ENOENT)", async () => {
     rmSync(dir, { recursive: true, force: true });
     const report = await detectKumikoDrift(testDb.db, dir);
-    expect(report.ok).toBe(true);
+    expect(report.ok).toBe(false);
+    expect(report.migrationsDirMissing).toBe(true);
     expect(report.pending).toEqual([]);
-    await expect(assertKumikoSchemaCurrent(testDb.db, dir)).resolves.toBeUndefined();
+    const error = await assertKumikoSchemaCurrent(testDb.db, dir).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(SchemaDriftError);
+    expect(String(error instanceof Error ? error.message : error)).toContain("migrations: false");
   });
 
   test("mixed-case snapshot tableName resolves via quote_ident round-trip", async () => {
@@ -199,12 +198,13 @@ describe("kumiko-drift boot-gate", () => {
 describe("kumiko-drift end-to-end (generate → apply → gate)", () => {
   test("generate from entity metas → apply → gate ok (the local-verify proof)", async () => {
     const entity = createEntity({
+      name: "kdriftGen",
       table: "kdrift_gen",
       fields: {
         name: createTextField({ personal: false, reason: "test_fixture", required: true }),
       },
     });
-    const meta = deriveEntityTableMeta("kdriftGen", entity);
+    const meta = deriveEntityTableMeta(entity);
     const result = generateMigration({
       metas: [meta],
       prevSnapshot: null,
@@ -243,6 +243,7 @@ describe("kumiko-drift end-to-end (generate → apply → gate)", () => {
 describe("kumiko-drift booted-tables layer", () => {
   function bootedEntity(table: string) {
     return createEntity({
+      name: "kdriftBooted",
       table,
       fields: {
         name: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -252,13 +253,13 @@ describe("kumiko-drift booted-tables layer", () => {
 
   function bootedFeature(table: string) {
     return defineFeature("kdrift-booted", (r) => {
-      r.entity({ name: "kdriftBooted", ...bootedEntity(table) });
+      r.entity(bootedEntity(table));
     });
   }
 
   async function applyInit(table: string): Promise<void> {
     const result = generateMigration({
-      metas: [deriveEntityTableMeta("kdriftBooted", bootedEntity(table))],
+      metas: [deriveEntityTableMeta(bootedEntity(table))],
       prevSnapshot: null,
       name: "init",
       sequenceNumber: 1,

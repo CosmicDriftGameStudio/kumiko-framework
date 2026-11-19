@@ -149,7 +149,7 @@ for (const mode of MODES) {
       await expect(page).toHaveURL(new RegExp(`${id}\\.f\\.amount\\.min=100`));
       await expect(page).toHaveURL(new RegExp(`${id}\\.f\\.amount\\.max=150`));
       const kept = (row: (typeof EXPENSE_ROWS)[number]): boolean =>
-        row.amount.amount >= 100 && row.amount.amount <= 150;
+        row.amount.amount >= 10_000 && row.amount.amount <= 15_000;
       await expect(page.getByTestId("list-totals-amount")).toContainText(euro(expenseSum(kept)));
       await expect(page.locator("tbody tr")).toHaveCount(EXPENSE_ROWS.filter(kept).length);
     });

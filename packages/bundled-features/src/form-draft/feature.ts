@@ -4,14 +4,19 @@
 // round-trips { values, stepIndex, savedAt } through save/discard/get. See
 // entity.ts for the ownership + uniqueness model.
 
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature, type FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineFeature,
+  EXT_USER_DATA,
+  type FeatureRegistrar,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { formDraftEntity } from "./entity.ts";
 import { cleanupDraftsJob, formDraftRetentionDaysConfig } from "./handlers/cleanup.job.ts";
 import { discardDraftWrite } from "./handlers/discard.write.ts";
 import { getDraftQuery } from "./handlers/get.query.ts";
 import { listDraftsQuery } from "./handlers/list.query.ts";
 import { saveDraftWrite } from "./handlers/save.write.ts";
+import { FORM_DRAFT_I18N } from "./i18n.ts";
+import { formDraftDeleteHook, formDraftExportHook } from "./user-data-hooks.ts";
 import { FORM_DRAFT_FEATURE_NAME } from "./web/constants.ts";
 
 const CLEANUP_ESCAPE_HATCH_REASON = "purges stale drafts of every tenant";
@@ -32,8 +37,15 @@ function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>):
   // (see handlers/cleanup.job.ts). A hard r.requires({ features: ["config"] }) would break
   // every app that mounts form-draft without config, which is a breaking
   // change no minor/patch release should introduce silently.
-  r.optionalRequires("config");
-  r.entity({ name: "form-draft", ...formDraftEntity });
+  r.optionalRequires({ features: ["config"] });
+  r.translations({ keys: FORM_DRAFT_I18N });
+  r.entity(formDraftEntity);
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "form-draft",
+    export: formDraftExportHook,
+    delete: formDraftDeleteHook,
+  });
 
   r.writeHandler(saveDraftWrite);
   r.writeHandler(discardDraftWrite);
@@ -46,13 +58,8 @@ function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>):
     trigger: { maintenance: true },
     irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
     concurrency: "skip",
-    escapeHatch: { reason: CLEANUP_ESCAPE_HATCH_REASON },
-    handler: (payload, ctx) =>
-      cleanupDraftsJob(
-        payload,
-        ctx,
-        ctx.db.unsafeRaw() as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
-      ),
+    escapeHatch: { reason: CLEANUP_ESCAPE_HATCH_REASON, grants: ["unsafeRaw"] },
+    handler: (payload, ctx) => cleanupDraftsJob(payload, ctx, ctx.db.unsafeRawAllTenants()),
   });
 }
 

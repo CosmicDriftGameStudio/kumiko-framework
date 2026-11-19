@@ -6,15 +6,10 @@
 // upload route appends it via the raw event-store executor, not a write-handler
 // dispatch.
 //
-// Not covered here: a job triggered on a write/query-handler QN still
-// firing exactly once (unaffected by the new consumer). The full suite
-// stays green (e.g. the lane-routing sample), but that's not a positive
-// test of the partition guard — no stored event's `type` is ever a
-// handler QN in practice (entity events are "entity.verb"; custom
-// write-handlers like lane-routing's don't append to the store at all),
-// so `getWriteHandler`/`getQueryHandler` in the new consumer's handler is
-// defense-in-depth for an input shape the framework doesn't currently
-// produce, not something exercised end-to-end by any test today.
+// Also covered: every `trigger.on` job runs through this consumer, so a job on
+// an entity lifecycle event (`item.created`) runs once with its row id, and a
+// redelivered event enqueues no second run (deterministic job id per job and
+// event).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
@@ -25,10 +20,17 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { entityEventName } from "../../db/index.ts";
-import { defineFeature, type JobContext } from "../../engine/index.ts";
-import { loadAggregate } from "../../event-store/index.ts";
+import {
+  createEntity,
+  createTextField,
+  defineFeature,
+  type JobContext,
+} from "../../engine/index.ts";
+import { append, loadAggregate } from "../../event-store/index.ts";
 import { createInMemoryFileProvider, type InMemoryFileProvider } from "../../files/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
+import { generateId } from "../../utils/index.ts";
+import { createJobTriggerEventConsumer } from "../job-trigger-consumer.ts";
 
 const ITEM_REQUESTED_EVENT_QN = "job-trigger-fixture:event:item-requested";
 const FILE_REF_CREATED = entityEventName("fileRef", "created");
@@ -38,6 +40,21 @@ const processedItems: Array<{
   readonly fileRefId: string;
   readonly triggerEvent: JobContext["triggerEvent"];
   readonly rawDataKeys: readonly string[];
+}> = [];
+
+const versionedNotes: string[] = [];
+
+const itemEntity = createEntity({
+  name: "item",
+  table: "read_job_trigger_consumer_items",
+  fields: {
+    title: createTextField({ personal: false, reason: "is_business_data", required: true }),
+  },
+});
+
+const itemRuns: Array<{
+  readonly triggerName: string | undefined;
+  readonly aggregateId: string | undefined;
 }> = [];
 
 const jobTriggerFixtureFeature = defineFeature("job-trigger-fixture", (r) => {
@@ -55,6 +72,7 @@ const jobTriggerFixtureFeature = defineFeature("job-trigger-fixture", (r) => {
       [FILE_REF_CREATED]: async (event, _tx, ctx) => {
         await ctx.unsafeAppendEvent({
           aggregateId: event.aggregateId,
+          blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
           aggregateType: "job-trigger-fixture-request",
           type: ITEM_REQUESTED_EVENT_QN,
           payload: { fileRefId: event.aggregateId },
@@ -64,19 +82,63 @@ const jobTriggerFixtureFeature = defineFeature("job-trigger-fixture", (r) => {
     },
   });
 
+  r.crud(itemEntity, {
+    write: { access: { roles: ["Admin"] } },
+    read: { access: { roles: ["Admin"] } },
+  });
+  r.job({
+    name: "count-item",
+    trigger: { on: "item.created" },
+    runIn: "worker",
+    handler: async (_payload, ctx) => {
+      itemRuns.push({ triggerName: ctx.triggerName, aggregateId: ctx.triggerEvent?.aggregateId });
+    },
+  });
+
   // Under test: only reachable via createJobTriggerEventConsumer, since
   // ITEM_REQUESTED_EVENT_QN is an r.defineEvent QN, not a handler QN.
-  r.job(
-    "process-item",
-    { trigger: { on: ITEM_REQUESTED_EVENT_QN }, runIn: "worker" },
-    async (payload, ctx) => {
+  r.job({
+    name: "process-item",
+    trigger: { on: ITEM_REQUESTED_EVENT_QN },
+    runIn: "worker",
+    handler: async (payload, ctx) => {
       processedItems.push({
         fileRefId: payload["fileRefId"] as string,
         triggerEvent: ctx.triggerEvent,
         rawDataKeys: Object.keys(payload),
       });
     },
-  );
+  });
+
+  // Stored v1 events must reach the job in the current schema.
+  const versionedRequested = r.defineEvent("versioned-requested", z.object({ note: z.string() }), {
+    piiFields: "none",
+    version: 2,
+    migrations: [{ fromVersion: 1, toVersion: 2, transform: { default: { note: "from-v1" } } }],
+  });
+  r.job({
+    name: "versioned-job",
+    trigger: { on: versionedRequested.name },
+    runIn: "worker",
+    handler: async (payload) => {
+      versionedNotes.push(payload["note"] as string);
+    },
+  });
+
+  // Its upcaster always throws and no job listens to it: it must not stall the consumer.
+  r.defineEvent("poison", z.object({ id: z.uuid() }), {
+    piiFields: "none",
+    version: 2,
+    migrations: [
+      {
+        fromVersion: 1,
+        toVersion: 2,
+        transform: () => {
+          throw new Error("poison upcaster must not run for the job-trigger consumer");
+        },
+      },
+    ],
+  });
 });
 
 // trigger.where partition fixture — two jobs share one broad QN, each
@@ -103,6 +165,7 @@ const jobTriggerWhereFixtureFeature = defineFeature("job-trigger-where-fixture",
           typeof fileName === "string" && fileName.startsWith("alpha-") ? "alpha" : "beta";
         await ctx.unsafeAppendEvent({
           aggregateId: event.aggregateId,
+          blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
           aggregateType: "job-trigger-where-fixture-request",
           type: WHERE_ITEM_REQUESTED_EVENT_QN,
           payload: { fileRefId: event.aggregateId, kind },
@@ -113,20 +176,22 @@ const jobTriggerWhereFixtureFeature = defineFeature("job-trigger-where-fixture",
 
   // Under test: both jobs trigger on the SAME QN; only the one whose
   // `where` matches the appended payload's `kind` may run.
-  r.job(
-    "process-alpha",
-    { trigger: { on: WHERE_ITEM_REQUESTED_EVENT_QN, where: { kind: "alpha" } }, runIn: "worker" },
-    async (payload) => {
+  r.job({
+    name: "process-alpha",
+    trigger: { on: WHERE_ITEM_REQUESTED_EVENT_QN, where: { kind: "alpha" } },
+    runIn: "worker",
+    handler: async (payload) => {
       alphaProcessed.push({ fileRefId: payload["fileRefId"] as string });
     },
-  );
-  r.job(
-    "process-beta",
-    { trigger: { on: WHERE_ITEM_REQUESTED_EVENT_QN, where: { kind: "beta" } }, runIn: "worker" },
-    async (payload) => {
+  });
+  r.job({
+    name: "process-beta",
+    trigger: { on: WHERE_ITEM_REQUESTED_EVENT_QN, where: { kind: "beta" } },
+    runIn: "worker",
+    handler: async (payload) => {
       betaProcessed.push({ fileRefId: payload["fileRefId"] as string });
     },
-  );
+  });
 });
 
 let stack: TestStack;
@@ -165,6 +230,8 @@ afterAll(async () => {
 
 beforeEach(() => {
   processedItems.length = 0;
+  versionedNotes.length = 0;
+  itemRuns.length = 0;
   provider.clear();
   alphaProcessed.length = 0;
   betaProcessed.length = 0;
@@ -204,10 +271,79 @@ describe("job-trigger event consumer", () => {
     // triggerEvent carries the stored event's own id and headers through to
     // the job — the idempotency-key surface at-least-once delivery needs.
     expect(processed?.triggerEvent?.id).toBe(itemRequested?.id);
+    expect(processed?.triggerEvent?.aggregateId).toBe(fileRefId);
     expect(processed?.triggerEvent?.headers[PROVIDER_EVENT_ID_HEADER]).toBe("provider-evt-42");
 
     // Reserved keys never leak into the payload the handler receives.
     expect(processed?.rawDataKeys).not.toContain("_triggerEvent");
+  });
+
+  test("event-triggered job sees the upcast payload of a stored v1 event", async () => {
+    const poisonId = generateId();
+    await append(stack.db, {
+      aggregateId: poisonId,
+      aggregateType: "poison",
+      tenantId: TestUsers.admin.tenantId,
+      expectedVersion: 0,
+      type: "job-trigger-fixture:event:poison",
+      eventVersion: 1,
+      payload: { id: poisonId },
+      metadata: { userId: TestUsers.admin.id },
+    });
+    const versionedId = generateId();
+    await append(stack.db, {
+      aggregateId: versionedId,
+      aggregateType: "versioned-request",
+      tenantId: TestUsers.admin.tenantId,
+      expectedVersion: 0,
+      type: "job-trigger-fixture:event:versioned-requested",
+      eventVersion: 1,
+      payload: {},
+      metadata: { userId: TestUsers.admin.id },
+    });
+
+    await waitFor(async () => {
+      await stack.eventDispatcher?.runOnce();
+      await stack.drainJobs();
+      expect(versionedNotes).toEqual(["from-v1"]);
+    });
+  });
+});
+
+describe("job-trigger event consumer — entity lifecycle events and redelivery", () => {
+  test("a job on <entity>.created runs once with the row id and the event name", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "job-trigger-fixture:write:item:create",
+      { title: "a" },
+      TestUsers.admin,
+    );
+    await stack.drainJobs();
+
+    expect(itemRuns).toEqual([{ triggerName: "item.created", aggregateId: created.id }]);
+  });
+
+  test("a redelivered event enqueues the job once", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "job-trigger-fixture:write:item:create",
+      { title: "b" },
+      TestUsers.admin,
+    );
+    await stack.drainJobs();
+    expect(itemRuns).toHaveLength(1);
+
+    const stored = await loadAggregate(stack.db, created.id, TestUsers.admin.tenantId);
+    const itemCreated = stored.find((e) => e.type === "item.created");
+    if (itemCreated === undefined) throw new Error("item.created event was not stored");
+    if (stack.jobRunner === undefined) throw new Error("test stack has no jobRunner");
+
+    const consumer = createJobTriggerEventConsumer(stack.jobRunner, stack.registry, {
+      db: stack.db,
+      upcasters: stack.registry.getEventUpcasters(),
+    });
+    await consumer.handler(itemCreated, stack.context);
+    await stack.drainJobs();
+
+    expect(itemRuns).toHaveLength(1);
   });
 });
 

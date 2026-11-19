@@ -5,16 +5,11 @@ import type { ComponentType, ReactNode } from "react";
 import { stubDispatcher } from "../../__tests__/stub-dispatcher.ts";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import { UserRolesProvider } from "../../context/user-roles-context.tsx";
-import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { PageHeaderSlotAvailableProvider } from "../../page-header-slot.ts";
-import {
-  type CorePrimitives,
-  type FormProps,
-  type PageHeaderProps,
-  PrimitivesProvider,
-} from "../../primitives.tsx";
+import { type FormProps, type PageHeaderProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { AppFeaturesProvider } from "../app-features-context.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
@@ -36,7 +31,7 @@ const TestPageHeader: ComponentType<PageHeaderProps> = ({ title }) => (
   <h1 data-testid="page-header-title">{title}</h1>
 );
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: passChildren,
   Field: passChildren,
@@ -56,13 +51,13 @@ const testPrimitives: CorePrimitives = {
   ConfigCascadeView: noop,
   Link: noop,
   PageHeader: TestPageHeader,
-};
+});
 
 const { dispatcher } = stubDispatcher({
-  query: (async () => ({
+  query: async () => ({
     isSuccess: true,
     data: { id: "r1", name: "Release 1.2" },
-  })) as unknown as Dispatcher["query"],
+  }),
 });
 
 function renderDetail(recordTitleField: string | undefined): ReturnType<typeof render> {
@@ -112,7 +107,7 @@ function renderDetail(recordTitleField: string | undefined): ReturnType<typeof r
 describe("projectionDetail recordTitleField through the real screen path", () => {
   test("the record title shows once in the page header and no type-title block precedes the form", async () => {
     const { getByTestId, queryByTestId, getAllByTestId } = renderDetail("name");
-    await waitFor(() => expect(getByTestId("form-body")).toBeTruthy());
+    await waitFor(() => getByTestId("form-body"));
     expect(getAllByTestId("page-header-title")).toHaveLength(1);
     expect(getByTestId("page-header-title").textContent).toBe("Release 1.2");
     expect(queryByTestId("form-title")).toBeNull();
@@ -120,7 +115,7 @@ describe("projectionDetail recordTitleField through the real screen path", () =>
 
   test("without recordTitleField the page header shows the screen title as before", async () => {
     const { getByTestId } = renderDetail(undefined);
-    await waitFor(() => expect(getByTestId("page-header-title")).toBeTruthy());
+    await waitFor(() => getByTestId("page-header-title"));
     expect(getByTestId("page-header-title").textContent).toBe("release-detail");
   });
 });

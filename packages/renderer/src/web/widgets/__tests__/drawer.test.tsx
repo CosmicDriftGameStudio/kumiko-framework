@@ -9,8 +9,8 @@ describe("Drawer", () => {
         <div>Body</div>
       </Drawer>,
     );
-    expect(screen.getByText("Mail")).toBeTruthy();
-    expect(screen.getByText("Body")).toBeTruthy();
+    screen.getByText("Mail");
+    screen.getByText("Body");
   });
 
   test("footer wraps (flex-wrap) so many actions do not run past the panel edge", () => {
@@ -58,7 +58,7 @@ describe("Drawer", () => {
           <div>Body</div>
         </Drawer>,
       );
-      expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
+      screen.getByRole("button", { name: "Close" });
     });
 
     test("false: no Close button, title and maximize remain", () => {
@@ -75,8 +75,8 @@ describe("Drawer", () => {
         </Drawer>,
       );
       expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
-      expect(screen.getByText("Mail")).toBeTruthy();
-      expect(screen.getByRole("button", { name: /maximize drawer width/i })).toBeTruthy();
+      screen.getByText("Mail");
+      screen.getByRole("button", { name: /maximize drawer width/i });
     });
   });
 
@@ -787,7 +787,7 @@ describe("Drawer", () => {
       );
       const content = screen.getByTestId("drawer");
       expect(content.style.width).toBe("400px");
-      expect(screen.getByRole("separator")).toBeTruthy();
+      screen.getByRole("separator");
     });
   });
 
@@ -831,7 +831,7 @@ describe("Drawer", () => {
         </Drawer>,
       );
       expect(queryOverlay()).toBeNull();
-      expect(screen.getByText("Body")).toBeTruthy();
+      screen.getByText("Body");
       // The overlay element is only half of it — what actually stops the
       // text behind the drawer from being selected and copied is Radix
       // locking the body's pointer events, so assert the lock is absent

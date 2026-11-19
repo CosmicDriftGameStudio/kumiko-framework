@@ -8,8 +8,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
-import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetTestTables,
+  seedRowViaEventStore,
+  waitFor,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -30,6 +33,7 @@ import { configValuesTable } from "../../config/table.ts";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
 import { notificationPreferenceEntity } from "../../delivery/tables.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { createTemplateResolverApi } from "../../template-resolver/api.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { seedNotificationTemplates } from "../../template-resolver/seeding.ts";
@@ -74,6 +78,11 @@ const BUYER_EMAIL = "buyer@example.com";
 const DEFAULT_VAT_NOTE = "Prices include VAT.";
 const IN_APP_VAT_NOTE = "VAT is invoiced by the in-app provider.";
 const IN_APP_CHECKOUT_NOTE = "The in-app provider is the merchant of record.";
+// The fixed code passes for any value; the window only lets the pre-fix code (separate locks)
+// finish its webhook, so the test fails without the fix.
+const WEBHOOK_OBSERVATION_WINDOW_MS = 300;
+
+let holdApplyPlanSwitch: Promise<void> | undefined;
 
 const consumerProtection: ConsumerProtectionOptions = {
   termsTextBlock: TERMS_SLUG,
@@ -170,10 +179,10 @@ const hostedFeature = defineFeature("test-mock-multi-hosted", (r) => {
   r.translations({
     keys: { "plan.starter.label": { en: "Starter" }, "plan.pro.label": { en: "Pro plan" } },
   });
-  r.useExtension(
-    "subscriptionProvider",
-    HOSTED,
-    plugin(
+  r.applyExtension({
+    name: "subscriptionProvider",
+    entity: HOSTED,
+    ...plugin(
       HOSTED,
       "Hosted Pay",
       [price("hosted_starter", 900), price("hosted_pro", 1900)],
@@ -185,15 +194,15 @@ const hostedFeature = defineFeature("test-mock-multi-hosted", (r) => {
         },
       },
     ),
-  );
+  });
 });
 
 const inAppFeature = defineFeature("test-mock-multi-in-app", (r) => {
   r.requires({ features: ["billing-foundation"] });
-  r.useExtension(
-    "subscriptionProvider",
-    IN_APP,
-    plugin(
+  r.applyExtension({
+    name: "subscriptionProvider",
+    entity: IN_APP,
+    ...plugin(
       IN_APP,
       "In-App Pay",
       [price("inapp_starter", 990), price("inapp_pro", 2990)],
@@ -211,10 +220,11 @@ const inAppFeature = defineFeature("test-mock-multi-in-app", (r) => {
             targetPriceId: options.targetPriceId,
             tenantId: options.tenantId,
           });
+          await holdApplyPlanSwitch;
         },
       },
     ),
-  );
+  });
 });
 
 const emailTransport = createInMemoryTransport();
@@ -555,6 +565,64 @@ describe("switching plans follows the subscription's provider", () => {
       admin.tenantId as never,
       { includeArchived: true },
     );
+    const updated = stored.filter((e) => e.type === SUBSCRIPTION_UPDATED_EVENT_QN);
+    expect(updated.at(-1)?.payload).toMatchObject({ tier: "pro", consentId });
+  });
+
+  test("a provider webhook during the in-app switch waits for it and still carries the consent", async () => {
+    const admin = adminFor(8325);
+    await createSubscription(admin.tenantId, IN_APP);
+    const { promise: released, resolve: release } = Promise.withResolvers<void>();
+    holdApplyPlanSwitch = released;
+    try {
+      const switching = stack.http.writeOk(
+        SubscriptionFoundationHandlers.switchPlan,
+        { tier: "pro", consent: consent() },
+        admin,
+      );
+      await waitFor(() => calls.applies.some((apply) => apply.tenantId === admin.tenantId));
+
+      const update: SubscriptionEvent = {
+        providerEventId: "evt_8325_switch",
+        providerName: IN_APP,
+        type: SubscriptionEventTypes.updated,
+        tenantId: admin.tenantId,
+        providerCustomerId: `cus_${admin.tenantId}`,
+        providerSubscriptionId: `sub_${admin.tenantId}`,
+        status: SubscriptionStatuses.active,
+        tier: "pro",
+        currentPeriodEnd: "2026-06-01T00:00:00Z",
+      };
+      let webhookSettled = false;
+      const webhook = Promise.resolve(
+        stack.app.request(`/api/subscription/webhook/${IN_APP}`, {
+          method: "POST",
+          body: JSON.stringify(update),
+          headers: { "stripe-signature": "test_sig" },
+        }),
+      ).then((res) => {
+        webhookSettled = true;
+        return res;
+      });
+      await Bun.sleep(WEBHOOK_OBSERVATION_WINDOW_MS);
+      expect(webhookSettled).toBe(false);
+
+      release();
+      expect(await switching).toEqual({ applied: true });
+      expect((await webhook).status).toBe(200);
+    } finally {
+      holdApplyPlanSwitch = undefined;
+      release();
+    }
+
+    const stored = await loadAggregate(
+      stack.db,
+      subscriptionAggregateId(admin.tenantId),
+      admin.tenantId as never,
+      { includeArchived: true },
+    );
+    const consentEvent = stored.find((e) => e.type === CHECKOUT_CONSENT_RECORDED_EVENT_QN);
+    const consentId = propertyOf(consentEvent?.payload, "consentId");
     const updated = stored.filter((e) => e.type === SUBSCRIPTION_UPDATED_EVENT_QN);
     expect(updated.at(-1)?.payload).toMatchObject({ tier: "pro", consentId });
   });

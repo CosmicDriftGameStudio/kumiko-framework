@@ -38,6 +38,7 @@ import { SYSTEM_TENANT_ID } from "../types/identifiers.ts";
 // "SystemAdmin" is tenant-scoped — the explicit cross-tenant grant must satisfy
 // this entity-level rule for a foreign row.
 const thingEntity = createEntity({
+  name: "thing",
   table: "ctwrite_things",
   fields: {
     label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -45,11 +46,12 @@ const thingEntity = createEntity({
   softDelete: true,
   access: { write: { Admin: "all", SystemAdmin: from("user:tenantId", "tenantId") } },
 });
-const thingTable = buildEntityTable("thing", thingEntity);
+const thingTable = buildEntityTable(thingEntity);
 
 // systemStream entity: its stream lives on SYSTEM_TENANT_ID, so the acting
 // tenant must NOT be rewritten to a row tenant.
 const globalThingEntity = createEntity({
+  name: "globalthing",
   table: "ctwrite_global_things",
   tenancy: "global",
   systemStream: true,
@@ -74,7 +76,7 @@ function crossTenantOptionsFor(mode: CrossTenantMode) {
 
 function buildFeature(mode: CrossTenantMode) {
   return defineFeature("ctwrite", (r) => {
-    r.entity({ name: "thing", ...thingEntity });
+    r.entity(thingEntity);
     r.writeHandler(
       // create always writes into the acting tenant, so it never carries the cross-tenant option
       defineEntityCreateHandler("thing", thingEntity, {
@@ -99,7 +101,7 @@ function buildFeature(mode: CrossTenantMode) {
         ...crossTenantOptionsFor(mode),
       }),
     );
-    r.entity({ name: "globalthing", ...globalThingEntity });
+    r.entity(globalThingEntity);
     r.writeHandler(
       defineEntityCreateHandler("globalthing", globalThingEntity, {
         access: { roles: ["Admin", "SystemAdmin"] },

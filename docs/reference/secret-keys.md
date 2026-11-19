@@ -25,7 +25,7 @@ The qualified name is `<feature>:secret:<kebab-short-name>`, here `billing:secre
 
 ## Runtime-named keys: `r.secretNamespace`
 
-Use a namespace when a tenant picks the name, for example one auth token per webhook. Inside a feature named `step-dispatcher`:
+Use a namespace when a tenant picks the name, for example one auth token per webhook. Inside a feature named `webhooks-demo`:
 
 ```ts illustration
 const webhookAuth = r.secretNamespace("webhook-auth", {
@@ -35,8 +35,8 @@ const webhookAuth = r.secretNamespace("webhook-auth", {
   nameSchema: z.string().regex(/^[a-z0-9-]+$/).max(60),
 });
 
-webhookAuth.prefix; // "step-dispatcher:webhook-auth."
-webhookAuth.keyFor("crm"); // "step-dispatcher:webhook-auth.crm"
+webhookAuth.prefix; // "webhooks-demo:webhook-auth."
+webhookAuth.keyFor("crm"); // "webhooks-demo:webhook-auth.crm"
 ```
 
 - The prefix is `<kebab-feature>:<kebab-name>.` and has to be unique across all features. A second feature declaring the same prefix fails at boot.

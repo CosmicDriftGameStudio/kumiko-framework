@@ -125,7 +125,14 @@ export function createTemplateResolverApi(
     },
 
     resolveTemplate: async ({ tenantId, slug, kind, locale }) => {
-      // Fallback-Chain — finde erste passende Variante
+      // Fallback chain: the first served, active, delivered candidate wins.
+      // Shadow check needs every system row of the slug (any locale, any status), so both tenants load.
+      const rows = await selectMany<TemplateResourceRow>(db, templateResourcesTable, {
+        tenantId: { in: [...new Set([tenantId, SYSTEM_TENANT_ID])] },
+        slug,
+        kind,
+      });
+      const systemTemplateStored = rows.some((r) => r.tenantId === SYSTEM_TENANT_ID);
       const candidates: ReadonlyArray<{ tid: string; loc: string }> = [
         { tid: tenantId, loc: locale },
         { tid: SYSTEM_TENANT_ID, loc: locale },
@@ -138,21 +145,31 @@ export function createTemplateResolverApi(
       ];
       for (const c of candidates) {
         if (!isRowServed(deliveryPolicy, { tenantId: c.tid, kind, slug })) continue;
-        const row = await fetchTemplate(db, c.tid, slug, kind, c.loc);
-        if (row && row.status === "active" && (await isServed(row))) return toPublic(row);
+        const row = rows.find((r) => r.tenantId === c.tid && r.locale === c.loc);
+        if (
+          row &&
+          row.status === "active" &&
+          isRowDeliveredGiven(deliveryPolicy, row, systemTemplateStored)
+        ) {
+          return toPublic(row);
+        }
       }
       throw new TemplateNotFoundError({ slug, kind, locale });
     },
 
     resolveLayout: async ({ tenantId, slug, kind, locale, working = false }) => {
+      const rows = await selectMany<TemplateResourceRow>(db, templateResourcesTable, {
+        tenantId: { in: [...new Set([tenantId, SYSTEM_TENANT_ID])] },
+        slug,
+        kind,
+      });
       for (const tid of [tenantId, SYSTEM_TENANT_ID]) {
         if (!isRowServed(deliveryPolicy, { tenantId: tid, kind, slug })) continue;
-        const rows = await selectMany<TemplateResourceRow>(db, templateResourcesTable, {
-          tenantId: tid,
-          slug,
-          kind,
-        });
-        const row = pickLayoutRow(rows, locale, working && tid !== SYSTEM_TENANT_ID ? tid : null);
+        const row = pickLayoutRow(
+          rows.filter((r) => r.tenantId === tid),
+          locale,
+          working && tid !== SYSTEM_TENANT_ID ? tid : null,
+        );
         if (row !== null) return toPublic(row);
       }
       throw new TemplateNotFoundError({ slug, kind, locale });
@@ -160,7 +177,7 @@ export function createTemplateResolverApi(
   };
 }
 
-type DeliveredRowKey = Pick<TemplateResourceRow, "tenantId" | "kind" | "slug"> & {
+export type DeliveredRowKey = Pick<TemplateResourceRow, "tenantId" | "kind" | "slug"> & {
   readonly meta?: string | null;
 };
 
@@ -171,9 +188,24 @@ export async function isRowDelivered(
   policy: TemplateDeliveryPolicy,
   row: DeliveredRowKey,
 ): Promise<boolean> {
-  if (!isRowServed(policy, row)) return false;
-  if (row.tenantId === SYSTEM_TENANT_ID || !isServedByCollectionOnly(policy, row)) return true;
-  return !(await systemTemplateExists(db, row.kind, row.slug));
+  const shadowable = isShadowableRow(policy, row);
+  return isRowDeliveredGiven(
+    policy,
+    row,
+    shadowable && (await systemTemplateExists(db, row.kind, row.slug)),
+  );
+}
+
+export function isShadowableRow(policy: TemplateDeliveryPolicy, row: DeliveredRowKey): boolean {
+  return row.tenantId !== SYSTEM_TENANT_ID && isServedByCollectionOnly(policy, row);
+}
+
+export function isRowDeliveredGiven(
+  policy: TemplateDeliveryPolicy,
+  row: DeliveredRowKey,
+  systemTemplateStored: boolean,
+): boolean {
+  return isRowServed(policy, row) && !(isShadowableRow(policy, row) && systemTemplateStored);
 }
 
 export async function isRowDeliveredTo(
@@ -186,17 +218,15 @@ export async function isRowDeliveredTo(
 }
 
 // One system-slug lookup per kind instead of one query per row, because by-tenant is anonymous.
-export async function filterDeliveredTo(
+export async function filterDeliveredTo<TRow extends DeliveredRowKey>(
   db: DbRunner | TenantDb,
   policy: TemplateDeliveryPolicy,
   user: { readonly roles: readonly string[] },
-  rows: readonly TemplateResourceRow[],
-): Promise<TemplateResourceRow[]> {
+  rows: readonly TRow[],
+): Promise<TRow[]> {
   if (isSystemAdmin(user)) return [...rows];
   const served = rows.filter((row) => isRowServed(policy, row));
-  const shadowable = served.filter(
-    (row) => row.tenantId !== SYSTEM_TENANT_ID && isServedByCollectionOnly(policy, row),
-  );
+  const shadowable = served.filter((row) => isShadowableRow(policy, row));
   const slugsByKind = new Map<string, Set<string>>();
   for (const row of shadowable) {
     const slugs = slugsByKind.get(row.kind) ?? new Set<string>();
@@ -205,11 +235,12 @@ export async function filterDeliveredTo(
   }
   const systemKeys = new Set<string>();
   for (const [kind, slugs] of slugsByKind) {
-    const systemRows = await selectMany<TemplateResourceRow>(db, templateResourcesTable, {
-      tenantId: SYSTEM_TENANT_ID,
-      kind,
-      slug: [...slugs],
-    });
+    const systemRows = await selectMany<Pick<TemplateResourceRow, "slug">>(
+      db,
+      templateResourcesTable,
+      { tenantId: SYSTEM_TENANT_ID, kind, slug: [...slugs] },
+      { fields: ["slug"] },
+    );
     for (const systemRow of systemRows) systemKeys.add(`${kind}|${systemRow.slug}`);
   }
   return served.filter(
@@ -270,15 +301,14 @@ async function fetchTemplate(
     { tenantId, slug, kind, locale },
     { limit: 1 },
   );
-  // @cast-boundary db-row — db.select returnt unbenanntes unknown[],
-  // The row shape is guaranteed by templateResourcesTable + buildBaseColumns.
+  // @cast-boundary db-row — selectMany returns untyped rows;
+  // the row shape is guaranteed by templateResourcesTable + buildBaseColumns.
   return (rows[0] as TemplateResourceRow | undefined) ?? null;
 }
 
 function toPublic(row: TemplateResourceRow): TemplateResource {
-  // @cast-boundary db-row — Drizzle-Schema typisiert kind/contentFormat/
-  // scope/status as generic text. Database CHECK constraints restrict
-  // them to the union types; the cast asserts that schema knowledge.
+  // @cast-boundary db-row — the table schema types kind/contentFormat/scope/status as plain text.
+  // Database CHECK constraints restrict them to the union types; the cast asserts that schema knowledge.
   const kind = row.kind as TemplateKind;
   // @cast-boundary db-row — see kind.
   const contentFormat = row.contentFormat as ContentFormat;
@@ -324,8 +354,8 @@ function parseJson(raw: string | null): Record<string, unknown> {
   if (!raw) return {};
   try {
     const parsed = JSON.parse(raw);
-    // @cast-boundary engine-payload — JSON.parse returnt unknown, typeof-Guard
-    // narrows it to object; Record<string, unknown> is the minimal common shape.
+    // @cast-boundary engine-payload — JSON.parse returns unknown, the typeof guard narrows it to object;
+    // Record<string, unknown> is the minimal common shape.
     return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : {};
   } catch {
     return {};

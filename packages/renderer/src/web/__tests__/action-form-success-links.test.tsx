@@ -48,13 +48,19 @@ type WriteResult =
 
 function dispatcherReturning(result: WriteResult): Dispatcher {
   return createMockDispatcher({
-    write: (async () =>
+    write: async () =>
       result.isSuccess
         ? result
         : {
             isSuccess: false,
-            error: { code: "handler_failed", message: "Handler said no", details: {} },
-          }) as unknown as Dispatcher["write"],
+            error: {
+              code: "handler_failed",
+              httpStatus: 500,
+              i18nKey: "errors.internal",
+              message: "Handler said no",
+              details: {},
+            },
+          },
   });
 }
 
@@ -107,11 +113,11 @@ describe("actionForm successLinks", () => {
       isSuccess: true,
       data: { customerId: "c-1", orderId: "o-1" },
     });
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
 
     await typeNameAndSubmit();
 
-    await waitFor(() => expect(screen.getByTestId("action-form-success")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("action-form-success"));
     const box = screen.getByTestId("action-form-success");
     expect(box.textContent).toContain("kumiko.actionForm.success");
     expect(screen.getByTestId("action-form-success-link-0").textContent).toBe("Open customer");
@@ -126,9 +132,9 @@ describe("actionForm successLinks", () => {
       { isSuccess: true, data: { customerId: "c-1", orderId: "o-1" } },
       navigate,
     );
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     await typeNameAndSubmit();
-    await waitFor(() => expect(screen.getByTestId("action-form-success-link-1")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("action-form-success-link-1"));
 
     await userEvent.setup().click(screen.getByTestId("action-form-success-link-1"));
 
@@ -138,9 +144,9 @@ describe("actionForm successLinks", () => {
   test("a link to a list screen without idFrom is shown and navigates without an id", async () => {
     const navigate = mock(() => {});
     renderScreen(CREATE_PAIR, { isSuccess: true, data: {} }, navigate);
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     await typeNameAndSubmit();
-    await waitFor(() => expect(screen.getByTestId("action-form-success-link-2")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("action-form-success-link-2"));
 
     await userEvent.setup().click(screen.getByTestId("action-form-success-link-2"));
 
@@ -149,13 +155,13 @@ describe("actionForm successLinks", () => {
 
   test("hides a link to a record screen when the payload carries no string id", async () => {
     renderScreen(CREATE_PAIR, { isSuccess: true, data: { customerId: "c-1" } });
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
 
     await typeNameAndSubmit();
 
-    await waitFor(() => expect(screen.getByTestId("action-form-success-link-0")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("action-form-success-link-0"));
     expect(screen.queryByTestId("action-form-success-link-1")).toBeNull();
-    expect(screen.getByTestId("action-form-success-link-2")).toBeTruthy();
+    screen.getByTestId("action-form-success-link-2");
   });
 
   test("a link to a custom screen carries search params from the payload", async () => {
@@ -167,9 +173,9 @@ describe("actionForm successLinks", () => {
     } as unknown as ActionFormScreenDefinition;
     const navigate = mock(() => {});
     renderScreen(withCockpitLink, { isSuccess: true, data: { duplicateOfId: "m-7" } }, navigate);
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     await typeNameAndSubmit();
-    await waitFor(() => expect(screen.getByTestId("action-form-success-link-0")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("action-form-success-link-0"));
 
     await userEvent.setup().click(screen.getByTestId("action-form-success-link-0"));
 
@@ -188,7 +194,7 @@ describe("actionForm successLinks", () => {
       successMessage: "demo.saved",
     } as unknown as ActionFormScreenDefinition;
     renderScreen(withCockpitLink, { isSuccess: true, data: {} });
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     await typeNameAndSubmit();
 
     await waitFor(() =>
@@ -202,7 +208,7 @@ describe("actionForm successLinks", () => {
       isSuccess: true,
       data: { customerId: "c-1", orderId: "o-1" },
     });
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
 
     await typeNameAndSubmit();
 
@@ -216,9 +222,9 @@ describe("actionForm successLinks", () => {
       isSuccess: true,
       data: { customerId: "c-1", orderId: "o-1" },
     });
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     await typeNameAndSubmit();
-    await waitFor(() => expect(screen.getByTestId("action-form-success")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("action-form-success"));
 
     await userEvent.setup().type(nameInput(), "x");
 
@@ -229,11 +235,11 @@ describe("actionForm successLinks", () => {
     renderScreen({ ...CREATE_PAIR, resetOnSuccess: true } as ActionFormScreenDefinition, {
       isSuccess: false,
     });
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
 
     await typeNameAndSubmit();
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-form-error")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form-error"));
     expect(nameInput().value).toBe("Ada");
     expect(screen.queryByTestId("action-form-success")).toBeNull();
   });
@@ -248,11 +254,11 @@ describe("actionForm resetOnSuccess", () => {
 
   test("clears the typed values after a successful submit and keeps the success box", async () => {
     renderScreen(RESETTING, { isSuccess: true, data: {} });
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
 
     await typeNameAndSubmit();
 
-    await waitFor(() => expect(screen.getByTestId("action-form-success")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("action-form-success"));
     expect(nameInput().value).toBe("");
   });
 
@@ -265,11 +271,11 @@ describe("actionForm resetOnSuccess", () => {
       } as ActionFormScreenDefinition,
       { isSuccess: true, data: {} },
     );
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
 
     await typeNameAndSubmit();
 
-    await waitFor(() => expect(screen.getByTestId("action-form-success")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("action-form-success"));
     expect(nameInput().value).toBe("Ada");
   });
 });
@@ -278,14 +284,14 @@ describe("actionForm resetOnSuccess with load", () => {
   test("reseeds the form from the record as saved, not from the stale loaded copy", async () => {
     let storedNote = "old";
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { name: "Ada", note: storedNote },
-      })) as unknown as Dispatcher["query"],
-      write: (async () => {
+      }),
+      write: async () => {
         storedNote = "saved";
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["write"],
+      },
     });
     const loadingReset = {
       ...CREATE_PAIR,
@@ -325,7 +331,7 @@ describe("actionForm resetOnSuccess with load", () => {
     await user.click(screen.getByTestId("render-edit-submit"));
 
     await waitFor(() => expect(noteInput().value).toBe("saved"));
-    expect(screen.getByTestId("action-form-success")).toBeTruthy();
+    screen.getByTestId("action-form-success");
   });
 });
 
@@ -344,7 +350,7 @@ describe("field placeholder", () => {
       } as unknown as ActionFormScreenDefinition,
       { isSuccess: true, data: {} },
     );
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
 
     expect(nameInput().getAttribute("placeholder")).toBe("Full name");
     const noteInput = screen.getByTestId("field-note").querySelector("input");

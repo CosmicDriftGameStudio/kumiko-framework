@@ -12,6 +12,7 @@ export {
 } from "./ai-text-field.tsx";
 export { AttachmentCard } from "./attachment-card.tsx";
 export { AttachmentChip } from "./attachment-chip.tsx";
+export { niceTicks } from "./chart-scale.ts";
 export type {
   StackedAreaDateFormat,
   StackedAreaInitialWindow,
@@ -20,6 +21,7 @@ export type {
   StackedAreaWindowSelection,
 } from "./chart-window.ts";
 export {
+  type ChartLine,
   type ChartMarker,
   type ChartSeries,
   type ChartTone,
@@ -43,8 +45,14 @@ export { CollapsibleSection } from "./collapsible-section.tsx";
 export { Composer, type ComposerProps } from "./composer.tsx";
 export { type DashboardListColumn, DashboardListTable } from "./dashboard-list.tsx";
 export { DetailList } from "./detail-list.tsx";
-export { Drawer, type DrawerProps } from "./drawer.tsx";
+export {
+  DivergingBarChart,
+  type DivergingBarChartProps,
+  type DivergingBarRow,
+} from "./diverging-bar-chart.tsx";
+export { Drawer, type DrawerPanelProps } from "./drawer.tsx";
 export { FeedList, type FeedRow } from "./feed-list.tsx";
+export { FilePickButton, type FilePickButtonProps } from "./file-pick-button.tsx";
 export {
   FloatingPanel,
   type FloatingPanelGeometry,
@@ -90,6 +98,21 @@ export {
 export { MobileTopBar, type MobileTopBarProps } from "./mobile-top-bar.tsx";
 export { ModeSwitch, type ModeSwitchVariant } from "./mode-switch.tsx";
 export {
+  type HistogramBin,
+  HistogramChart,
+  type HistogramChartProps,
+  type NumericAxis,
+  type NumericDomain,
+  NumericLineChart,
+  type NumericLineChartProps,
+  type NumericLineSeries,
+  type NumericPoint,
+  type NumericReferenceLine,
+  type SignedBarBucket,
+  SignedBarChart,
+  type SignedBarChartProps,
+} from "./numeric-charts.tsx";
+export {
   type PdfMatchInfo,
   PdfPreview,
   type PdfPreviewProps,
@@ -125,6 +148,7 @@ export {
   type SideBySideTableColumn,
   type SideBySideTableRow,
 } from "./side-by-side-table.tsx";
+export type { StackedAreaChartProps } from "./stacked-area-props.ts";
 export {
   MiniStat,
   Sparkline,
@@ -153,6 +177,6 @@ export {
   type StepStatus,
   type StepTag,
 } from "./step-list.tsx";
-export { AiSurface, SenderFrame, SenderSheet } from "./surfaces.tsx";
+export { AiSurface } from "./surfaces.tsx";
 export { UploadZone, type UploadZoneProps } from "./upload-zone.tsx";
 export { useDraft } from "./use-draft.ts";

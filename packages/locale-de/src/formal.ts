@@ -8,6 +8,10 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
     "Sie sehen Daten aller Mandanten. Mandantenübergreifende Abfragen werden im Ereignisprotokoll vermerkt.",
   "config.secret.channel-whatsapp.verify-token.hint":
     "Beliebiger Text, den Sie auch in den Meta-Webhook-Einstellungen eintragen; beantwortet den Abonnement-Handshake von Meta.",
+  "errors.validation.hidden_row_changed":
+    "Diese Liste enthält Angaben, die Sie nicht sehen dürfen. Zeilen mit solchen Angaben können Sie nicht verschieben, und die Angaben können Sie nicht ändern.",
+  "errors.validation.hidden_row_removed":
+    "Eine Zeile enthält Inhalte, die Sie nicht sehen dürfen, und kann daher nicht entfernt werden.",
   "kumiko.screen.forbidden": "Sie haben keinen Zugriff auf diese Seite.",
   "managed-pages:body.lossy.warning":
     "Diese Seite wurde in Markdown geschrieben. Bei der Umwandlung in den Editor gehen verloren: {features}. Prüfen Sie das Ergebnis vor dem Speichern.",
@@ -184,10 +188,16 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
     "Ihr {app}-Konto und die zugehörigen personenbezogenen Daten wurden am {when} gelöscht. Diese Aktion ist endgültig.",
   "gdpr.mail.deletionExecuted.subject": "{app} — Ihr Konto wurde gelöscht",
   "gdpr.mail.deletionRequested.cancel":
+    "Falls Sie das nicht angefordert haben, brechen Sie die Löschung mit dem Button unten ab, bevor die Frist abläuft.",
+  "gdpr.mail.deletionRequested.cancelSignIn":
     "Falls Sie das nicht angefordert haben, melden Sie sich an und brechen Sie die Löschung in den Kontoeinstellungen ab, bevor die Frist abläuft.",
   "gdpr.mail.deletionRequested.intro":
     "wir haben Ihren Antrag zur Löschung Ihres {app}-Kontos erhalten. Ihr Konto und die zugehörigen Daten werden am {when} endgültig gelöscht.",
   "gdpr.mail.deletionRequested.subject": "{app} — Löschung Ihres Kontos angefordert",
+  "gdpr.mail.deletionVerification.ignore":
+    "Falls Sie das nicht angefordert haben, ignorieren Sie diese E-Mail. Ihr Konto bleibt bestehen.",
+  "gdpr.mail.deletionVerification.intro":
+    "wir haben eine Anfrage erhalten, Ihr {app}-Konto zu löschen. Wenn sie von Ihnen kommt, bestätigen Sie sie mit dem Button unten.",
   "gdpr.mail.exportFailed.intro":
     "Ihr angeforderter Datenexport für {app} konnte leider nicht erstellt werden. Bitte fordern Sie den Export erneut an.",
   "gdpr.mail.exportFailed.subject": "{app} — Ihr Datenexport ist fehlgeschlagen",
@@ -233,14 +243,20 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "profile.email.success": "E-Mail geändert. Bitte bestätigen Sie Ihre neue Adresse.",
   "profile.errors.emailUnchanged": "Das ist bereits Ihre E-Mail-Adresse.",
   "tags.section.createMode": "Speichern Sie zuerst den Eintrag, um Tags zu setzen.",
+  "userDataRights.deletion.cancel.intro":
+    "Mit dem Abbrechen wird die geplante Löschung gestoppt und Ihr Konto bleibt bestehen.",
+  "userDataRights.deletion.cancel.missingToken":
+    "Kein Token im Link gefunden. Bitte öffnen Sie den Link aus der E-Mail erneut.",
+  "userDataRights.deletion.cancel.successBody":
+    "Ihr Konto bleibt bestehen. Sie können sich wieder anmelden.",
   "userDataRights.deletion.confirm.intro":
-    "Mit dem Bestätigen startet die Lösch-Frist. Bis sie abläuft können Sie die Löschung im eingeloggten Account wieder abbrechen.",
+    "Mit dem Bestätigen startet die Lösch-Frist. Bis sie abläuft können Sie die Löschung über den Link in der Bestätigungs-E-Mail abbrechen.",
   "userDataRights.deletion.confirm.invalidToken":
     "Der Link ist ungültig oder abgelaufen. Bitte fordern Sie einen neuen an.",
   "userDataRights.deletion.confirm.missingToken":
     "Kein Token im Link gefunden. Bitte öffnen Sie den Link aus der E-Mail erneut.",
   "userDataRights.deletion.confirm.successBody":
-    "Ihr Account wird nach Ablauf der Frist gelöscht. Sie können die Löschung bis dahin im eingeloggten Account abbrechen.",
+    "Ihr Account wird nach Ablauf der Frist gelöscht. Bis dahin können Sie die Löschung über den Link in der Bestätigungs-E-Mail abbrechen.",
   "userDataRights.deletion.request.intro":
     "Geben Sie die E-Mail-Adresse Ihres Kontos ein. Falls ein Konto existiert, schicken wir Ihnen einen Bestätigungs-Link zum Löschen.",
   "userDataRights.deletion.request.successBody":
@@ -308,6 +324,8 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
     "Der Postausgangsserver ist nicht erreichbar. Versuchen Sie es später noch einmal.",
   "inboundMail.send.errors.rejected":
     "Der Postausgangsserver hat die Mail abgelehnt. Prüfen Sie die Empfängeradresse.",
+  "inboundMail.send.errors.outcomeUnknown":
+    "Unklar, ob diese Mail gesendet wurde. Sehen Sie im Ordner Gesendet des Postfachs nach, bevor Sie sie noch einmal senden.",
   "helpdesk:report.summary":
     "Die Antwort kommt per Mail an die Adresse Ihres Kontos, meist am selben Werktag.",
   "helpdesk:report.section": "Ihre Meldung",

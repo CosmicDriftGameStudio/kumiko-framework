@@ -35,6 +35,7 @@ export {
 export {
   CAP_TOLERANCES,
   CapExceededError,
+  type CapScope,
   type CapToleranceProfile,
   type CapToleranceProfileName,
   calendarMonthPeriodEndIso,

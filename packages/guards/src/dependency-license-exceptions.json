@@ -48,6 +48,46 @@
       "reason": "Transitive dep via mermaid (docs). npm metadata reports license=null; package LICENSE is MIT.",
       "reviewedBy": "Marc, 2026-07-06",
       "expires": "2027-07-06"
+    },
+    {
+      "package": "caniuse-lite",
+      "version": "*",
+      "license": "CC-BY-4.0",
+      "reason": "Browserslist database, transitive dependency via mjml/cssnano in renderer-mail-html. Pure data set (browser compatibility), no code. CC-BY-4.0 allows free use with attribution; we do not redistribute the data.",
+      "reviewedBy": "Marc, 2026-10-15",
+      "expires": "2027-10-15"
+    },
+    {
+      "package": "slick",
+      "version": "*",
+      "license": "MIT http://mootools.net/license.txt",
+      "reason": "Transitive dependency via juice (CSS inliner in renderer-mail-html). The npm license field uses the obsolete pre-SPDX format 'MIT <url>'; MIT is declared, the linked MooTools license is MIT; the package ships no LICENSE file.",
+      "reviewedBy": "Marc, 2026-10-15",
+      "expires": "2027-10-15"
+    },
+    {
+      "package": "@fontsource-variable/*",
+      "version": "*",
+      "license": "OFL-1.1",
+      "reason": "SIL Open Font License. Standard for web fonts, safe to use in web apps.",
+      "reviewedBy": "Marc, 2026-05-12",
+      "expires": "2027-05-12"
+    },
+    {
+      "package": "@img/sharp-libvips-*",
+      "version": "*",
+      "license": "LGPL-3.0-or-later",
+      "reason": "Native binaries for Sharp. LGPL-3.0 only affects the library itself; our use via Sharp is safe.",
+      "reviewedBy": "Marc, 2026-05-12",
+      "expires": "2027-05-12"
+    },
+    {
+      "package": "@fontsource/*",
+      "version": "*",
+      "license": "OFL-1.1",
+      "reason": "Metrically compatible free substitute fonts (Arimo, Tinos, Cousine, Carlito, Caladea) for the PDF reproduction of uploaded templates. OFL-1.1 allows bundling, embedding and redistribution with the software; only selling the font on its own and the Reserved Font Names are restricted. Used unmodified.",
+      "reviewedBy": "Marc, 2026-11-10",
+      "expires": "2027-11-10"
     }
   ]
 }

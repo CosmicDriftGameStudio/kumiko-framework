@@ -8,8 +8,8 @@
 
 import { describe, expect, spyOn, test } from "bun:test";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
-import { securityBaselineFeatures } from "@cosmicdrift/kumiko-bundled-features/presets";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import {
@@ -17,7 +17,6 @@ import {
   EXT_ASSIGNABLE_ROLE,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { composeFeatures } from "../compose-features.ts";
 
 const noopFeature = defineFeature("noop-app", () => {});
@@ -81,8 +80,12 @@ describe("composeFeatures", () => {
   test("includeBundled threads app-declared assignable roles into the tenant screens", () => {
     const appWithRole = defineFeature("role-app", (r) => {
       r.requires({ features: ["tenant"] });
-      r.useExtension(EXT_ASSIGNABLE_ROLE, "PropertyManager");
-      r.useExtension(EXT_ASSIGNABLE_ROLE, "Auditor", { assignableFrom: "TenantAdmin" });
+      r.applyExtension({ name: EXT_ASSIGNABLE_ROLE, entity: "PropertyManager" });
+      r.applyExtension({
+        name: EXT_ASSIGNABLE_ROLE,
+        entity: "Auditor",
+        assignableFrom: "TenantAdmin",
+      });
     });
     const features = composeFeatures([appWithRole], {
       includeBundled: true,
@@ -294,14 +297,13 @@ describe("composeFeatures", () => {
     expect(Object.keys(auth.writeHandlers)).toContain("login");
   });
 
-  test("includeBundled=false → sessions mounted via preset + standalone collapses to one entry", () => {
-    const sessionsInstances = securityBaselineFeatures();
-    const standaloneSessions = createSessionsFeature();
-    const features = composeFeatures([...sessionsInstances, standaloneSessions], {
+  test("includeBundled=false → two identical sessions instances collapse to the first one", () => {
+    const firstSessions = createSessionsFeature();
+    const features = composeFeatures([firstSessions, createSessionsFeature()], {
       includeBundled: false,
     });
     const sessionsEntries = features.filter((f) => f.name === "sessions");
     expect(sessionsEntries).toHaveLength(1);
-    expect(sessionsEntries[0]).toBe(sessionsInstances[0]);
+    expect(sessionsEntries[0]).toBe(firstSessions);
   });
 });

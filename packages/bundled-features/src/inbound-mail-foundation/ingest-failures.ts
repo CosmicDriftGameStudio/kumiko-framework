@@ -29,6 +29,7 @@ const technicalReference = {
 } as const;
 
 export const ingestFailureEntity = createEntity({
+  name: "mail-ingest-failure",
   table: "store_mail_ingest_failures",
   softDelete: false,
   indexes: [{ unique: true, columns: ["tenantId", "accountId", "providerMessageId"] }],
@@ -42,11 +43,9 @@ export const ingestFailureEntity = createEntity({
   },
 });
 
-export const ingestFailureTable = deriveEntityTableMeta(
-  "mail-ingest-failure",
-  ingestFailureEntity,
-  { source: "unmanaged" },
-);
+export const ingestFailureTable = deriveEntityTableMeta(ingestFailureEntity, {
+  source: "unmanaged",
+});
 
 export type IngestFailureTarget = {
   readonly tenantId: string;

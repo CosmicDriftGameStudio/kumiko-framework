@@ -7,6 +7,7 @@ import {
   createSelectField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { deriveTransactionSystemLinks } from "./transaction-event-upcast.ts";
 import { ACCOUNT_TYPES, SCHEDULE_INTERVALS, TRANSACTION_STATUS } from "./web/constants.ts";
 
 // account — a node in the chart of accounts. Event-sourced (create/update/list/
@@ -16,6 +17,7 @@ import { ACCOUNT_TYPES, SCHEDULE_INTERVALS, TRANSACTION_STATUS } from "./web/con
 // money column — balances are DERIVED from postings, never stored.
 // tenantId is a base column set by the framework → each tenant has its own books.
 export const accountEntity = createEntity({
+  name: "account",
   table: "read_ledger_accounts",
   description:
     "One node of a tenant's chart of accounts: a name, an asset/liability/equity/income/expense type that decides how reports read its balance, an optional account code and an optional parent account forming the account tree; balances are derived from postings, never stored here.",
@@ -57,9 +59,12 @@ export const accountEntity = createEntity({
 // posted entry is a fact; corrections are reverse-transaction entries.
 // `status` carries draft|posted.
 export const transactionEntity = createEntity({
+  name: "transaction",
   table: "read_ledger_transactions",
+  eventVersion: 2,
+  eventMigrations: [deriveTransactionSystemLinks],
   description:
-    "One journal entry: a booking date, a narration, an optional reference (a reversal points at the entry it corrects), a draft/posted status and the embedded posting lines of accountId plus signed minor-unit amount that must sum to zero; posted entries are immutable and corrected only by a reversing entry.",
+    "One journal entry: a booking date, a narration, an optional display reference, system links to the reversed entry (reversesTransactionId) and to a schedule period (scheduleId, period), an optional period for manual bookings, an optional caller key (sourceRef) unique per tenant, a draft/posted status and the embedded posting lines of accountId plus signed minor-unit amount that must sum to zero; posted entries are immutable and corrected only by a reversing entry.",
   fields: {
     date: createDateField({ required: true }),
     // Journal narration ("Miete Januar", "Storno: …") is accounting data, not
@@ -70,8 +75,7 @@ export const transactionEntity = createEntity({
       personal: false,
       reason: "is_business_data",
     }),
-    // Free-text memo (a reversal or confirmed schedule period overwrites it with
-    // a system-generated id, but a manual entry can carry caller-supplied text).
+    // Display-only memo. The system neither writes nor reads it; reversal and schedule links live in their own columns.
     reference: createTextField({
       maxLength: 120,
       personal: false,
@@ -107,10 +111,54 @@ export const transactionEntity = createEntity({
       reason: "technical_reference",
       filterable: true,
     }),
+    // Caller-assigned key that books an entry at most once per tenant; it stays with the entry after a Storno.
+    sourceRef: createTextField({
+      maxLength: 128,
+      personal: false,
+      reason: "technical_reference",
+      filterable: true,
+    }),
+    // System-written link: set only by reverse-transaction on the Storno entry; never caller input.
+    reversesTransactionId: createTextField({
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+      filterable: true,
+    }),
+    // System-written by confirm-schedule-period; copied onto its Storno so the pair nets out per schedule period.
+    scheduleId: createTextField({
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+      filterable: true,
+    }),
+    // Accounting period YYYY-MM. Set by confirm-schedule-period, optionally by create-transaction; copied onto a Storno.
+    period: createTextField({
+      minLength: 7,
+      maxLength: 7,
+      personal: false,
+      reason: "technical_reference",
+      filterable: true,
+    }),
   },
-  // Subject ids are only unique within their type, so lookups filter on both
-  // columns; a subjectId-only filter would not be served by this index.
-  indexes: [{ columns: ["tenantId", "subjectType", "subjectId"] }],
+  // Subject ids are only unique within their type, so subject lookups filter on
+  // type + id (+ period); a subjectId-only filter would not be served by this index.
+  indexes: [
+    { columns: ["tenantId", "subjectType", "subjectId", "period"] },
+    { columns: ["tenantId", "scheduleId", "period"] },
+    {
+      columns: ["tenantId", "reversesTransactionId"],
+      unique: true,
+      where: sql`"reverses_transaction_id" IS NOT NULL`,
+      name: "read_ledger_transactions_tenant_id_reverses_transaction_id_uidx",
+    },
+    {
+      columns: ["tenantId", "sourceRef"],
+      unique: true,
+      where: sql`"source_ref" IS NOT NULL`,
+      name: "read_ledger_transactions_tenant_id_source_ref_uidx",
+    },
+  ],
 });
 
 // schedule — a recurring booking template (Dauerauftrag): "book `amount` from
@@ -118,9 +166,10 @@ export const transactionEntity = createEntity({
 // (create/update/list/detail); the framework projects `read_ledger_schedules`. It
 // holds NO bookings — the Soll (forecast) is a pure projection (projectSchedule)
 // and the Ist is materialised one period at a time by confirm-schedule-period,
-// which books a balanced transaction referencing scheduleReference(id, period).
+// which books a balanced transaction; confirmed periods carry scheduleId + period on the transaction.
 // amount is stored positive (minor units); the confirm handler assigns the signs.
 export const scheduleEntity = createEntity({
+  name: "schedule",
   table: "read_ledger_schedules",
   description:
     "One recurring booking template: book a positive minor-unit amount from a debit account to a credit account each interval between a start date and an optional open end; it holds no bookings itself, periods become real entries only when confirmed.",

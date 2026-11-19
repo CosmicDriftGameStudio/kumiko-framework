@@ -4,14 +4,14 @@ import {
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import type { SubjectScope } from "../../shared/index.ts";
-import { signerExecutor } from "../entity.ts";
+import { type SignatureRequestExecutor, signerExecutor } from "../entity.ts";
 import { discardGeneratedFile } from "../files.ts";
 import {
   advanceIfAllSigned,
   isOpenRequest,
   isUnsignedSigner,
   loadRequestOfSigner,
+  requestHostIsVisible,
 } from "../lib.ts";
 import { SignInPersonSchema } from "../payloads.ts";
 import {
@@ -24,7 +24,10 @@ import { SIGNATURE_METHOD, SIGNATURE_REQUEST_STATUS } from "../web/constants.ts"
 
 export type SignInPersonData = { readonly requestStatus: string };
 
-export function createSignInPersonHandler(access: AccessRule, scope: SubjectScope) {
+export function createSignInPersonHandler(
+  access: AccessRule,
+  requestExecutor: SignatureRequestExecutor,
+) {
   return defineWriteHandler<"sign-in-person", typeof SignInPersonSchema, SignInPersonData>({
     name: "sign-in-person",
     schema: SignInPersonSchema,
@@ -36,8 +39,8 @@ export function createSignInPersonHandler(access: AccessRule, scope: SubjectScop
       const user = event.user;
       const signer = await signerExecutor.detail({ id: event.payload.signerId }, user, ctx.db);
       if (signer === null) return writeFailure(new NotFoundError("signer", event.payload.signerId));
-      const request = await loadRequestOfSigner(ctx, user, signer);
-      if (request !== null && !(await scope.allowsRequest(ctx, user, request))) {
+      const request = await loadRequestOfSigner(requestExecutor, ctx, user, signer);
+      if (request !== null && !(await requestHostIsVisible(ctx, user, request))) {
         return writeFailure(new NotFoundError("signer", event.payload.signerId));
       }
       const now = ctx.tz.now();
@@ -59,7 +62,7 @@ export function createSignInPersonHandler(access: AccessRule, scope: SubjectScop
         return recorded;
       }
 
-      const allSigned = await advanceIfAllSigned(ctx, user, request.id);
+      const allSigned = await advanceIfAllSigned(requestExecutor, ctx, user, request.id);
       return {
         isSuccess: true,
         data: {

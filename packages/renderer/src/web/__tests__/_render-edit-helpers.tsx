@@ -4,7 +4,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "../../headless/index.ts";
 import { defaultPrimitives } from "../primitives/index.tsx";
-import { createMockDispatcher } from "./test-utils.tsx";
+import { createMockDispatcher, type MockWriteHandler } from "./test-utils.tsx";
 
 export const orderEntity = {
   fields: {
@@ -43,10 +43,9 @@ export function makeScreen(): EntityEditScreenDefinition {
   };
 }
 
-export function makeDispatcher(writeFn?: Dispatcher["write"]): Dispatcher {
+export function makeDispatcher(writeFn?: MockWriteHandler): Dispatcher {
   return createMockDispatcher({
-    write:
-      writeFn ?? ((async () => ({ isSuccess: true, data: { id: "1" } })) as Dispatcher["write"]),
+    write: writeFn ?? (async () => ({ isSuccess: true, data: { id: "1" } })),
   });
 }
 

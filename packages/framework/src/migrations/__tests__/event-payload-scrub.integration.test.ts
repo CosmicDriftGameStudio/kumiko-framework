@@ -31,6 +31,7 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 import { scrubEventPayloadFields } from "../event-payload-scrub.ts";
 
 const contactEntity = createEntity({
+  name: "contact",
   table: "scrub_contacts",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -39,9 +40,11 @@ const contactEntity = createEntity({
     birthday: createDateField({ personal: false, reason: "test_fixture" }),
     manager: createReferenceField({ entity: "contact", personal: false, reason: "test_fixture" }),
   },
+  verbs: { flagged: {} },
 });
 
 const appointmentEntity = createEntity({
+  name: "appointment",
   table: "scrub_appointments",
   fields: { day: createDateField({ required: true, personal: false, reason: "test_fixture" }) },
 });
@@ -64,11 +67,11 @@ const contactFeature = defineFeature("scrub", (r) => {
       },
     },
   });
-  r.crud("appointment", appointmentEntity, {
+  r.crud(appointmentEntity, {
     write: { access: { roles: ["User"] } },
     read: { access: { roles: ["User"] } },
   });
-  r.crud("contact", contactEntity, {
+  r.crud(contactEntity, {
     write: { access: { roles: ["User"] } },
     read: { access: { roles: ["User"] } },
   });
@@ -171,6 +174,31 @@ describe("scrubEventPayloadFields", () => {
     expect(updated?.["changes"]).toMatchObject({ note: PII_ERASED_SENTINEL });
     expect(updated?.["previous"]).toMatchObject({ note: "first note" });
     expect(await listedNote(contact.id)).toBe(PII_ERASED_SENTINEL);
+  });
+
+  test("a declared verb event is scrubbed in changes, previous stays", async () => {
+    const aggregateId = crypto.randomUUID();
+    await append(stack.db, {
+      aggregateId,
+      aggregateType: "contact",
+      tenantId: TestUsers.user.tenantId,
+      expectedVersion: 0,
+      type: "contact.flagged",
+      payload: { changes: { note: "leak: x" }, previous: { note: "kept" } },
+      metadata: { userId: TestUsers.user.id },
+    });
+
+    const result = await scrubEventPayloadFields(stack.db, stack.registry, {
+      eventType: "contact.flagged",
+      fields: ["note"],
+      reason: REASON,
+      shouldScrub: (value) => typeof value === "string" && value.startsWith("leak"),
+    });
+
+    expect(result.scrubbedEvents).toBe(1);
+    const flagged = (await storedPayloads(aggregateId))[0];
+    expect(flagged?.["changes"]).toMatchObject({ note: PII_ERASED_SENTINEL });
+    expect(flagged?.["previous"]).toMatchObject({ note: "kept" });
   });
 
   test("dryRun counts the matches and writes nothing", async () => {

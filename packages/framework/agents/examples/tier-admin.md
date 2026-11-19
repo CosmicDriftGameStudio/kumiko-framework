@@ -66,7 +66,7 @@ exactly this reason.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 bun test src/__tests__/feature.integration.test.ts
@@ -110,21 +110,18 @@ import {
   createConfigFeature,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import { createTenantFeature, tenantEntity } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import {
   TierEngineHandlers,
   TierEngineQueries,
-  tierAssignmentEntity,
 } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { findTierResolverUsage, isTierResolverPlugin } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { appTierMap, NOTES_EXPORT_FEATURE, notesExportFeature, tierEngineForApp } from "../feature";
@@ -144,10 +141,7 @@ beforeAll(async () => {
     features: recipeFeatures,
     extraContext: { configResolver, configEncryption: encryption },
   });
-  await unsafeCreateEntityTable(stack.db, tenantEntity);
-  await unsafeCreateEntityTable(stack.db, tierAssignmentEntity);
   await unsafePushTables(stack.db, { configValuesTable });
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

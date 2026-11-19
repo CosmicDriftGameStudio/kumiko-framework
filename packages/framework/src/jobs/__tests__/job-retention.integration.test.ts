@@ -5,8 +5,8 @@
 // enqueue path, plus the runOnBoot marker and the perTenant invariant that
 // keeps the sweep from breaking wrapper-retry child dedup.
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
+import { afterAll, beforeAll, describe, expect, setSystemTime, test } from "bun:test";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestRedis,
   type TestRedis,
@@ -18,6 +18,18 @@ import { createRegistry, defineFeature } from "../../engine/index.ts";
 import type { AppContext, TenantId } from "../../engine/types/index.ts";
 import { bootJobIdForJobName, createJobRunner } from "../job-runner.ts";
 import { purgeRawRedisKeys } from "./purge-raw-redis-keys.ts";
+
+// BullMQ stamps finishedOn and the age-sweep cutoff with this process's
+// Date.now(), so moving the clock past jobRetention ages earlier jobs
+// without waiting out the real second.
+async function pastRetentionAge<T>(run: () => Promise<T>): Promise<T> {
+  setSystemTime(new Date(Date.now() + 2000));
+  try {
+    return await run();
+  } finally {
+    setSystemTime();
+  }
+}
 
 let testRedis: TestRedis;
 let redisUrl: string;
@@ -58,11 +70,16 @@ describe("bounded job retention", () => {
 
     const feature = defineFeature("retention", (r) => {
       const someEvent = r.defineEvent("some-event", z.object({}), { piiFields: "none" });
-      r.job("tick", { trigger: { manual: true } }, async () => {});
-      r.job("onEvent", { trigger: { on: someEvent.name } }, async () => {});
-      r.job("fanout", { trigger: { manual: true }, perTenant: true }, async () => {});
-      r.job("cronJob", { trigger: { cron: "* * * * * *" } }, async () => {});
-      r.job("sweeper", { trigger: { manual: true } }, async () => {});
+      r.job({ name: "tick", trigger: { manual: true }, handler: async () => {} });
+      r.job({ name: "onEvent", trigger: { on: someEvent.name }, handler: async () => {} });
+      r.job({
+        name: "fanout",
+        trigger: { manual: true },
+        perTenant: true,
+        handler: async () => {},
+      });
+      r.job({ name: "cronJob", trigger: { cron: "* * * * * *" }, handler: async () => {} });
+      r.job({ name: "sweeper", trigger: { manual: true }, handler: async () => {} });
     });
 
     const registry = createRegistry([feature]);
@@ -100,11 +117,11 @@ describe("bounded job retention", () => {
         .filter((c) => c.name === "retention:job:fanout")
         .map((c) => c.jobId);
 
-      await sleep(1200);
-
-      await runner.dispatch("retention:job:sweeper");
-      await waitFor(() => {
-        expect(completed.some((c) => c.name === "retention:job:sweeper")).toBe(true);
+      await pastRetentionAge(async () => {
+        await runner.dispatch("retention:job:sweeper");
+        await waitFor(() => {
+          expect(completed.some((c) => c.name === "retention:job:sweeper")).toBe(true);
+        });
       });
 
       const idsToCheck = [tickId, wrapperId, eventId, cronId, ...childIds].filter(
@@ -127,8 +144,12 @@ describe("bounded job retention", () => {
     const failed: Array<{ name: string; jobId: string }> = [];
 
     const feature = defineFeature("retentionfail", (r) => {
-      r.job("boom", { trigger: { manual: true } }, async () => {
-        throw new Error("always fails");
+      r.job({
+        name: "boom",
+        trigger: { manual: true },
+        handler: async () => {
+          throw new Error("always fails");
+        },
       });
     });
 
@@ -154,11 +175,11 @@ describe("bounded job retention", () => {
         expect(failed.some((f) => f.jobId === firstId)).toBe(true);
       });
 
-      await sleep(1200);
-
-      const secondId = await runner.dispatch("retentionfail:job:boom");
-      await waitFor(() => {
-        expect(failed.some((f) => f.jobId === secondId)).toBe(true);
+      await pastRetentionAge(async () => {
+        const id = await runner.dispatch("retentionfail:job:boom");
+        await waitFor(() => {
+          expect(failed.some((f) => f.jobId === id)).toBe(true);
+        });
       });
 
       await waitFor(async () => {
@@ -177,11 +198,20 @@ describe("bounded job retention", () => {
     let tickRuns = 0;
 
     const feature = defineFeature("retentionboot", (r) => {
-      r.job("boot", { trigger: { manual: true }, runOnBoot: true }, async () => {
-        bootRuns += 1;
+      r.job({
+        name: "boot",
+        trigger: { manual: true },
+        runOnBoot: true,
+        handler: async () => {
+          bootRuns += 1;
+        },
       });
-      r.job("tick", { trigger: { manual: true } }, async () => {
-        tickRuns += 1;
+      r.job({
+        name: "tick",
+        trigger: { manual: true },
+        handler: async () => {
+          tickRuns += 1;
+        },
       });
     });
 
@@ -204,10 +234,11 @@ describe("bounded job retention", () => {
         expect(bootRuns).toBe(1);
       });
 
-      await sleep(1200);
-      await runner1.dispatch("retentionboot:job:tick");
-      await waitFor(() => {
-        expect(tickRuns).toBe(1);
+      await pastRetentionAge(async () => {
+        await runner1.dispatch("retentionboot:job:tick");
+        await waitFor(() => {
+          expect(tickRuns).toBe(1);
+        });
       });
 
       // Proves the sweep actually ran — without it this assertion (and the
@@ -234,7 +265,7 @@ describe("bounded job retention", () => {
         expect(await rawQueue.getJob(bootJobId)).toBeUndefined();
         const rawClient = await rawQueue.client;
         expect(await rawClient.hexists(rawQueue.toKey("kumiko-boot-enqueued"), bootJobId)).toBe(1);
-        await sleep(300);
+        expect(await runner2.countPendingJobs()).toBe(0);
         expect(bootRuns).toBe(1);
       } finally {
         await runner2.stop();
@@ -247,16 +278,14 @@ describe("bounded job retention", () => {
 
   test("createJobRunner throws for a perTenant job whose retry window reaches the completed retention", () => {
     const feature = defineFeature("retentioninvariant", (r) => {
-      r.job(
-        "risky",
-        {
-          trigger: { manual: true },
-          perTenant: true,
-          retries: 2,
-          backoff: { type: "fixed", delayMs: 1000 },
-        },
-        async () => {},
-      );
+      r.job({
+        name: "risky",
+        trigger: { manual: true },
+        perTenant: true,
+        retries: 2,
+        backoff: { type: "fixed", delayMs: 1000 },
+        handler: async () => {},
+      });
     });
     const registry = createRegistry([feature]);
     expect(() =>
@@ -273,11 +302,13 @@ describe("bounded job retention", () => {
 
   test("createJobRunner does not throw for a non-perTenant job with the same retry config", async () => {
     const feature = defineFeature("retentionnonpertenant", (r) => {
-      r.job(
-        "risky",
-        { trigger: { manual: true }, retries: 2, backoff: { type: "fixed", delayMs: 1000 } },
-        async () => {},
-      );
+      r.job({
+        name: "risky",
+        trigger: { manual: true },
+        retries: 2,
+        backoff: { type: "fixed", delayMs: 1000 },
+        handler: async () => {},
+      });
     });
     const registry = createRegistry([feature]);
     const queueNamePrefix = uniquePrefix("nonpertenant");
@@ -314,7 +345,7 @@ describe("bounded job retention", () => {
     ["failedAgeSec", Number.NaN],
   ] as const)("createJobRunner throws for jobRetention.%s = %p", (field, value) => {
     const feature = defineFeature("retentionbadvalue", (r) => {
-      r.job("noop", { trigger: { manual: true } }, async () => {});
+      r.job({ name: "noop", trigger: { manual: true }, handler: async () => {} });
     });
     const registry = createRegistry([feature]);
     expect(() =>

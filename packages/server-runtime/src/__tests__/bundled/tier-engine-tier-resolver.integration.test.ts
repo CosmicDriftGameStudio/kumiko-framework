@@ -8,6 +8,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { configValuesTable } from "@cosmicdrift/kumiko-bundled-features/config";
 import { tenantSecretsTable } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { tenantMembershipsTable, tenantTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { seedTenant } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
 import {
   createTierEngineFeature,
   createTierResolver,
@@ -58,7 +59,7 @@ const features = composeFeatures([createTierEngineFeature(), resolverProbeFeatur
 
 // Same underlying table createTierResolver builds internally — pushed here
 // so the schema exists before the write-handler + resolver read it.
-const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
+const tierAssignmentTable = buildEntityTable(tierAssignmentEntity);
 
 let stack: TestStack;
 const tenantA = "00000000-0000-4000-8000-0000000000c1" as TenantId;
@@ -90,7 +91,7 @@ function tenantAdminOnlyFor(tenantId: TenantId) {
   return createTestUser({ id: `admin-${tenantId}`, tenantId, roles: ["TenantAdmin"] });
 }
 
-async function assignTier(tenantId: TenantId, tier: TestTier): Promise<void> {
+async function assignTier(tenantId: TenantId, tier: TestTier | "enterprise"): Promise<void> {
   await stack.http.writeOk(
     "tier-engine:write:tier-assignment:create",
     { tier },
@@ -135,5 +136,82 @@ describe("createTierResolver — resolveTier/resolveTierCaps", () => {
       tenantAdminOnlyFor(tenantB),
     );
     expect(capsB).toEqual({ maxItems: 1 });
+  });
+});
+
+describe("createTierResolver — trial", () => {
+  const tenantTrial = "00000000-0000-4000-8000-0000000000c3" as TenantId;
+  const tenantAssigned = "00000000-0000-4000-8000-0000000000c4" as TenantId;
+  const tenantWithoutRow = "00000000-0000-4000-8000-0000000000c5" as TenantId;
+  const tenantOutsideOrder = "00000000-0000-4000-8000-0000000000c6" as TenantId;
+
+  const baseDeps = { capsForTier, isTierName: isTestTierName, defaultTier: "free" } as const;
+  const trialResolver = createTierResolver<TestTier, TestCaps>({
+    ...baseDeps,
+    trial: { tier: "pro", durationHours: 720, tierOrder: ["free", "pro"] },
+  });
+  const expiredResolver = createTierResolver<TestTier, TestCaps>({
+    ...baseDeps,
+    trial: { tier: "pro", durationHours: 0, tierOrder: ["free", "pro"] },
+  });
+
+  const dbFor = (tenantId: TenantId) => createTenantDb({ db: stack.db, tenantId });
+
+  test("a freshly seeded tenant without an assignment is lifted to the trial tier", async () => {
+    await seedTenant(stack.db, { id: tenantTrial, key: "trial-c3", name: "trial-c3" });
+
+    const state = await trialResolver.resolveTierState(dbFor(tenantTrial));
+    expect(state.tier).toBe("pro");
+    expect(state.storedTier).toBe("free");
+    expect(state.trialEndsAtEpochMs).toBeGreaterThan(Date.now());
+    expect(await trialResolver.resolveTierCaps(dbFor(tenantTrial))).toEqual({ maxItems: 5 });
+  });
+
+  test("an expired trial keeps the stored tier", async () => {
+    await seedTenant(stack.db, { id: tenantTrial, key: "trial-c3", name: "trial-c3" });
+
+    const state = await expiredResolver.resolveTierState(dbFor(tenantTrial));
+    expect(state.tier).toBe("free");
+    expect(state.trialEndsAtEpochMs).toBeNull();
+  });
+
+  test("a tenant already on the trial tier is not lifted", async () => {
+    await seedTenant(stack.db, { id: tenantAssigned, key: "trial-c4", name: "trial-c4" });
+    await assignTier(tenantAssigned, "pro");
+
+    const state = await trialResolver.resolveTierState(dbFor(tenantAssigned));
+    expect(state.tier).toBe("pro");
+    expect(state.trialEndsAtEpochMs).toBeNull();
+  });
+
+  test("a stored tier outside tierOrder is not lifted, so the trial cannot downgrade it", async () => {
+    type WideTier = TestTier | "enterprise";
+    const outsideOrderResolver = createTierResolver<WideTier, TestCaps>({
+      capsForTier: (tier) => (tier === "enterprise" ? { maxItems: 50 } : capsForTier(tier)),
+      isTierName: (value): value is WideTier => isTestTierName(value) || value === "enterprise",
+      defaultTier: "free",
+      trial: { tier: "pro", durationHours: 720, tierOrder: ["free", "pro"] },
+    });
+    await seedTenant(stack.db, { id: tenantOutsideOrder, key: "trial-c6", name: "trial-c6" });
+    await assignTier(tenantOutsideOrder, "enterprise");
+
+    const state = await outsideOrderResolver.resolveTierState(dbFor(tenantOutsideOrder));
+    expect(state.tier).toBe("enterprise");
+    expect(state.trialEndsAtEpochMs).toBeNull();
+  });
+
+  test("a tenant without a tenant row stays on the default tier", async () => {
+    const state = await trialResolver.resolveTierState(dbFor(tenantWithoutRow));
+    expect(state.tier).toBe("free");
+    expect(state.trialEndsAtEpochMs).toBeNull();
+  });
+
+  test("a trial tier missing from tierOrder throws", () => {
+    expect(() =>
+      createTierResolver<TestTier, TestCaps>({
+        ...baseDeps,
+        trial: { tier: "pro", durationHours: 1, tierOrder: ["free"] },
+      }),
+    ).toThrow("is not in trial.tierOrder");
   });
 });

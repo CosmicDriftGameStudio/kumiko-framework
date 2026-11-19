@@ -6,12 +6,12 @@
 
 import type { ScaffoldFeatureEntry, ScaffoldStarter } from "@cosmicdrift/kumiko-dev-server";
 import { resolveDeps } from "./dep-resolver";
-import { FEATURE_CONSTRUCTORS } from "./feature-constructors";
+import { FEATURE_CONSTRUCTORS, scaffoldEntryFor } from "./feature-constructors";
 import { loadManifest, type Manifest } from "./manifest";
 import { buildChoices, runPicker } from "./picker";
 
 const USAGE =
-  "Usage: bun create kumiko-app <name> [--yes] [--blank] [--print-manifest] [-h | --help]";
+  "Usage: bun create kumiko-app <name> [--dest <dir>] [--yes] [--blank] [--print-manifest] [-h | --help]";
 
 export type CliArgs = {
   /** App name (kebab-case). Required for `scaffold` mode. */
@@ -22,6 +22,8 @@ export type CliArgs = {
   readonly yes?: boolean;
   /** `blank` scaffolds no demo tasks and no seeded password; the creator sets one via password reset. */
   readonly starter?: ScaffoldStarter;
+  /** Target dir (absolute or relative to cwd); default ./<name>. */
+  readonly dest?: string;
   /** Print usage and exit 0 without scaffolding. */
   readonly help?: boolean;
   /** Override cwd for scaffoldApp (mostly for the smoke test). */
@@ -43,7 +45,8 @@ export async function runCreate(args: CliArgs): Promise<number> {
     return 0;
   }
 
-  if (!args.name) {
+  const appName = args.name;
+  if (!appName) {
     log(USAGE);
     return 1;
   }
@@ -56,7 +59,7 @@ export async function runCreate(args: CliArgs): Promise<number> {
 
   const resolved = resolveDeps(selected, manifest);
   const features = resolved.featureNames
-    .map((name) => FEATURE_CONSTRUCTORS[name])
+    .map((featureName) => scaffoldEntryFor(featureName, appName))
     .filter((entry): entry is ScaffoldFeatureEntry => entry !== undefined);
 
   // config/user/tenant/auth-email-password are auto-mounted by
@@ -80,6 +83,7 @@ export async function runCreate(args: CliArgs): Promise<number> {
   const result = await scaffoldApp({
     name: args.name,
     cwd: args.cwd,
+    ...(args.dest !== undefined && { destination: args.dest }),
     features,
     testSetup: renderTestSetup,
     ...(args.starter !== undefined && { starter: args.starter }),
@@ -89,7 +93,7 @@ export async function runCreate(args: CliArgs): Promise<number> {
   log(`✓ ${result.appName} scaffolded → ${result.destination}`);
   log("");
   log("Next steps:");
-  log(`  cd ${args.name}`);
+  log(`  cd ${args.dest ?? args.name}`);
   log("  bun install");
   log("  cp .env.example .env  # set JWT_SECRET + KUMIKO_SECRETS_MASTER_KEY_V1");
   log("  docker compose up -d   # if you don't have Postgres + Redis running yet");
@@ -109,8 +113,14 @@ function defaultSelection(manifest: Manifest): readonly string[] {
 
 export function parseArgv(argv: readonly string[]): CliArgs {
   const out: { -readonly [K in keyof CliArgs]?: CliArgs[K] } = {};
-  for (const arg of argv) {
-    if (arg === "--print-manifest") out.printManifest = true;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === undefined) continue;
+    if (arg === "--dest") {
+      const value = argv[i + 1];
+      if (value !== undefined) out.dest = value;
+      i++;
+    } else if (arg === "--print-manifest") out.printManifest = true;
     else if (arg === "--yes" || arg === "-y") out.yes = true;
     else if (arg === "--blank") out.starter = "blank";
     else if (arg === "--help" || arg === "-h") out.help = true;

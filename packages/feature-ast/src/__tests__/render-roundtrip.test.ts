@@ -11,7 +11,7 @@
 import { describe, expect, test } from "bun:test";
 import { Project } from "ts-morph";
 import { parseSourceFile } from "../parse.ts";
-import { indent, renderFeatureFile, renderPattern } from "../render.ts";
+import { renderFeatureFile, renderPattern } from "../render.ts";
 import {
   DEFINE_EVENT_WITH_MIGRATIONS_FEATURE,
   parse,
@@ -199,13 +199,16 @@ describe("render → parse roundtrip — mixed patterns (header data + opaque bo
 // guarantee than parse → render → parse, because it pins that the renderer
 // never depends on the input file's whitespace — its output is deterministic
 // from the parsed FeaturePattern shape alone.
+const EVENT_ENTITY_DECLARATION = `const eventEntity = createEntity({
+  name: "event",
+  fields: { name: { type: "text", required: true } },
+});`;
+
 const RAW_REF_FEATURE = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { chatCompleteHandler } from "./handlers";
 
-const eventEntity = {
-  fields: { name: { type: "text", required: true } },
-};
+${EVENT_ENTITY_DECLARATION}
 
 function buildFields() {
   return { title: { type: "text" } };
@@ -272,9 +275,39 @@ describe("render → parse roundtrip — unresolved references (raw-ref sentinel
       featureName: initial.featureName ?? "",
       patterns: initial.patterns,
     });
-    const reparsed = parse(rendered);
+    // The renderer emits patterns only; the entity's name lives in its createEntity declaration.
+    const reparsed = parse(`${EVENT_ENTITY_DECLARATION}\n${rendered}`);
     expect(reparsed.patterns.map(stripLocations)).toEqual(initial.patterns.map(stripLocations));
   });
+});
+
+describe("render → parse roundtrip — `{ ...ref, name }` entity override", () => {
+  const cases = [
+    { label: "name only", spread: `{ ...eventEntity, name: "other" }` },
+    {
+      label: "name and backingTable",
+      spread: `{ ...eventEntity, name: "other", backingTable: t }`,
+    },
+  ];
+
+  for (const { label, spread } of cases) {
+    test(`${label} renders as the same form and parses back identically`, () => {
+      const source = `${EVENT_ENTITY_DECLARATION}
+defineFeature("f", (r) => {
+  r.entity(${spread});
+});
+`;
+      const initial = parse(source);
+      expect(initial.patterns[0]).toMatchObject({ kind: "entity", overridesName: true });
+      const rendered = renderFeatureFile({
+        featureName: initial.featureName ?? "",
+        patterns: initial.patterns,
+      });
+      expect(rendered).toContain(`r.entity(${spread});`);
+      const reparsed = parse(`${EVENT_ENTITY_DECLARATION}\n${rendered}`);
+      expect(reparsed.patterns.map(stripLocations)).toEqual(initial.patterns.map(stripLocations));
+    });
+  }
 });
 
 describe("render idempotence", () => {
@@ -336,7 +369,7 @@ describe("renderPattern — single-pattern shape", () => {
       extensionNameRaw: "EXT_TENANT_DATA",
       entityName: "document",
     });
-    expect(out).toBe('r.useExtension(EXT_TENANT_DATA, "document");');
+    expect(out).toBe('r.applyExtension({ name: EXT_TENANT_DATA, entity: "document" });');
   });
 
   test("useExtension pattern falls back to the resolved literal when extensionNameRaw is absent", () => {
@@ -346,7 +379,7 @@ describe("renderPattern — single-pattern shape", () => {
       extensionName: "tenant-data",
       entityName: "document",
     });
-    expect(out).toBe('r.useExtension({ name: "tenant-data", entity: "document" });');
+    expect(out).toBe('r.applyExtension({ name: "tenant-data", entity: "document" });');
   });
 
   test("useExtension pattern with extensionNameRaw indents a multi-line options object correctly", () => {
@@ -363,15 +396,9 @@ describe("renderPattern — single-pattern shape", () => {
         exportable: true,
       },
     });
-    expect(out).toBe(
-      [
-        'r.useExtension(EXT_TENANT_DATA, "document", {',
-        '  description: "a fairly long description that pushes this object past eighty characters wide",',
-        '  scope: "tenant",',
-        "  exportable: true,",
-        "});",
-      ].join("\n"),
-    );
+    expect(out).toContain('r.applyExtension({ name: EXT_TENANT_DATA, entity: "document", ');
+    expect(out).toContain('scope: "tenant"');
+    expect(out).toContain("exportable: true");
   });
 
   test("extendsRegistrar pattern re-emits extensionNameRaw verbatim over the resolved literal", () => {
@@ -413,7 +440,7 @@ describe("renderPattern — single-pattern shape", () => {
 });
 
 // Registrar-call names authored as an imported/local constant
-// (`r.useExtension(EXT_TENANT_DATA, ...)`) must not get inlined into their
+// (`r.applyExtension({ name: EXT_TENANT_DATA, ... })`) must not get inlined into their
 // resolved string literal on a render → parse round-trip — the framework's own
 // bundled-features rely on the identifier reference surviving edits made
 // through the Designer to unrelated fields on the same pattern.
@@ -426,7 +453,7 @@ const DOC_INGESTED_EVENT = "docIngested" as const;
 
 defineFeature("user-data-rights", (r) => {
   r.extendsRegistrar(EXT_TENANT_DATA, { onRegister: () => {} });
-  r.useExtension(EXT_TENANT_DATA, "document", { description: "org-scoped" });
+  r.applyExtension({ name: EXT_TENANT_DATA, entity: "document", description: "org-scoped" });
   r.defineEvent(DOC_INGESTED_EVENT, z.object({ id: z.string() }), { piiFields: "none" });
 });
 `;
@@ -456,7 +483,7 @@ describe("render → parse roundtrip — imported-constant registrar-call names"
       patterns: initial.patterns,
     });
     expect(rendered).toContain("r.extendsRegistrar(EXT_TENANT_DATA,");
-    expect(rendered).toContain("r.useExtension(EXT_TENANT_DATA,");
+    expect(rendered).toContain("r.applyExtension({ name: EXT_TENANT_DATA,");
     expect(rendered).toContain("r.defineEvent(DOC_INGESTED_EVENT,");
     expect(rendered).not.toContain('"tenant-data"');
     expect(rendered).not.toContain('"docIngested"');
@@ -475,7 +502,7 @@ describe("render → parse roundtrip — imported-constant registrar-call names"
       featureName: initial.featureName ?? "",
       patterns: edited,
     });
-    expect(rendered).toContain("r.useExtension(EXT_TENANT_DATA,");
+    expect(rendered).toContain("r.applyExtension({ name: EXT_TENANT_DATA,");
     expect(rendered).toContain("tenant-scoped");
   });
 
@@ -592,7 +619,7 @@ import { z } from "zod";
 
 defineFeature("mailer", (r) => {
   r.defineEvent("attempt", z.object({ recipientId: z.string(), recipientAddress: z.string() }), {
-    piiFields: { recipientAddress: { subjectField: "recipientId" } },
+    piiFields: { recipientAddress: { personal: { of: "recipientId" } } },
   });
 });
 `;
@@ -615,7 +642,9 @@ describe("render → parse roundtrip — r.defineEvent piiFields stance", () => 
       featureName: initial.featureName ?? "",
       patterns: initial.patterns,
     });
-    expect(rendered).toContain('piiFields: { recipientAddress: { subjectField: "recipientId" } }');
+    expect(rendered).toContain(
+      'piiFields: { recipientAddress: { personal: { of: "recipientId" } } }',
+    );
     const reparsed = parse(rendered);
     expect(reparsed.patterns.map(stripLocations)).toEqual(initial.patterns.map(stripLocations));
 
@@ -630,7 +659,8 @@ describe("render → parse roundtrip — r.defineEvent piiFields stance", () => 
 describe("render → parse roundtrip — secretNamespace", () => {
   const SOURCE = `
 defineFeature("hooks", (r) => {
-  r.secretNamespace("webhook-auth", {
+  r.secretNamespace({
+    name: "webhook-auth",
     label: { en: "Webhook auth" },
     scope: "tenant",
     writeRoles: ["TenantAdmin"],
@@ -661,12 +691,13 @@ defineFeature("hooks", (r) => {
   test("nameSchema (Zod expression) and identifier options survive render verbatim", () => {
     const initial = parse(`
 defineFeature("hooks", (r) => {
-  r.secretNamespace("webhook-auth", {
+  r.secretNamespace({
+    name: "webhook-auth",
     label: { en: "x" },
     scope: "tenant",
     nameSchema: z.string().min(3),
   });
-  r.secretNamespace("other", OTHER_OPTIONS);
+  r.secretNamespace({ name: "other", ...OTHER_OPTIONS });
 });
 `);
     expect(initial.patterns.map((p) => p.kind)).toEqual(["secretNamespace", "secretNamespace"]);
@@ -675,7 +706,7 @@ defineFeature("hooks", (r) => {
       patterns: initial.patterns,
     });
     expect(rendered).toContain("nameSchema: z.string().min(3)");
-    expect(rendered).toContain('r.secretNamespace("other", OTHER_OPTIONS);');
+    expect(rendered).toContain('r.secretNamespace({ name: "other", ...OTHER_OPTIONS });');
   });
 });
 
@@ -683,9 +714,9 @@ describe("render — empty writeRoles on secrets", () => {
   test("r.secret and r.secretNamespace render without an empty writeRoles list", () => {
     const initial = parse(`
 defineFeature("hooks", (r) => {
-  r.secret("api-key", { label: { en: "Key" }, scope: "tenant", writeRoles: [] });
-  r.secretNamespace("webhook-auth", { label: { en: "Auth" }, scope: "tenant", writeRoles: [] });
-  r.secretNamespace("kept", { label: { en: "Kept" }, scope: "tenant", writeRoles: ["TenantAdmin"] });
+  r.secret({ name: "api-key", label: { en: "Key" }, scope: "tenant", writeRoles: [] });
+  r.secretNamespace({ name: "webhook-auth", label: { en: "Auth" }, scope: "tenant", writeRoles: [] });
+  r.secretNamespace({ name: "kept", label: { en: "Kept" }, scope: "tenant", writeRoles: ["TenantAdmin"] });
 });
 `);
     const rendered = renderFeatureFile({
@@ -695,74 +726,6 @@ defineFeature("hooks", (r) => {
     expect(rendered.match(/writeRoles/g)).toHaveLength(1);
     expect(rendered).toContain('writeRoles: ["TenantAdmin"]');
     expect(rendered).toContain('r.secret({ name: "api-key"');
-  });
-});
-
-const AI_PIPELINE_FEATURE = `
-import { defineFeature, defineWorkflow, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
-
-const paramsSchema = z.object({ maxTokens: z.number().optional() });
-
-const generateSpec = {
-  stepKey: "generate",
-  promptKey: "demo:generate",
-  promptFallback: "Write a summary.",
-  paramsSchema,
-  defaults: { enabled: true, params: {} },
-  input: (ctx) => ctx.event.label,
-};
-
-defineFeature("ai-demo", (r) => {
-  defineWorkflow({
-    name: "demo",
-    steps: stepsPipeline(() => [
-      aiExtractStep({
-        stepKey: "extract",
-        promptKey: "demo:extract",
-        promptFallback: "Extract fields.",
-        paramsSchema,
-        defaults: { enabled: true, params: {} },
-        outputSchema: z.object({ title: z.string() }),
-        instructions: () => "Extract the title.",
-      }),
-      aiClassifyStep({
-        stepKey: "classify",
-        promptKey: "demo:classify",
-        promptFallback: "Classify the input.",
-        paramsSchema,
-        defaults: { enabled: true, params: {} },
-        actions: [{ type: "approve", description: "Approve" }],
-        input: (ctx) => ctx.event.label,
-      }),
-      aiGenerateStep(generateSpec),
-    ]),
-  });
-});
-`;
-
-describe("render → parse roundtrip — AI pipeline steps", () => {
-  const initial = parse(AI_PIPELINE_FEATURE);
-
-  test("inline + const-ref ai steps round-trip structurally", () => {
-    const aiPatterns = initial.patterns.filter((p) => p.kind.startsWith("ai."));
-    const stepCalls = aiPatterns.map((p) => `${indent(renderPattern(p), "      ")},`).join("\n");
-    const wrapped = `
-import { defineFeature, defineWorkflow, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
-
-defineFeature("${initial.featureName ?? "ai-demo"}", (r) => {
-  defineWorkflow({
-    name: "demo",
-    trigger: { kind: "event", eventType: "demo.run" },
-    steps: stepsPipeline(() => [
-${stepCalls}
-    ]),
-  });
-});
-`;
-    const reparsed = parse(wrapped);
-    expect(reparsed.patterns.map(stripLocations)).toEqual(aiPatterns.map(stripLocations));
   });
 });
 

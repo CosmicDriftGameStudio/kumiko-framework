@@ -23,12 +23,6 @@
 
 import { isRawRefSentinel } from "./extractors/shared.ts";
 import type {
-  AdoptsBundledListsPattern,
-  AiClassifyPattern,
-  AiExtractPattern,
-  AiGeneratePattern,
-  AiStepOpaqueArgs,
-  AiStepPolicy,
   AuthClaimsPattern,
   ClaimKeyPattern,
   ConfigPattern,
@@ -96,7 +90,6 @@ const PATTERN_RENDERERS: PatternRenderers = {
   toggleable: renderToggleable,
   describe: renderDescribe,
   uiHints: renderUiHints,
-  adoptsBundledLists: renderAdoptsBundledLists,
   entity: renderEntity,
   relation: renderRelation,
   nav: renderNav,
@@ -126,9 +119,6 @@ const PATTERN_RENDERERS: PatternRenderers = {
   exposesApi: renderExposesApi,
   treeActions: renderTreeActions,
   envSchema: renderEnvSchema,
-  "ai.generate": renderAiGenerate,
-  "ai.extract": renderAiExtract,
-  "ai.classify": renderAiClassify,
   unknown: renderUnknown,
 };
 
@@ -222,10 +212,6 @@ function renderSystemScope(_p: SystemScopePattern): string {
   return "r.systemScope();";
 }
 
-function renderAdoptsBundledLists(_p: AdoptsBundledListsPattern): string {
-  return "r.adoptsBundledLists();";
-}
-
 function renderToggleable(p: ToggleablePattern): string {
   return `r.toggleable({ default: ${p.default} });`;
 }
@@ -235,12 +221,14 @@ function renderDescribe(p: DescribePattern): string {
 }
 
 function renderEntity(p: EntityPattern): string {
-  // A whole-value raw-ref (`eventEntity`) can't go through renderValue without
-  // losing `name` to the sentinel shortcut — spread the reference verbatim
-  // next to the name instead.
+  // A whole-value raw-ref (`eventEntity`) is an entity that already carries its name.
   if (isRawRefSentinel(p.definition)) {
     const backingTable = p.backingTable ? `, backingTable: ${p.backingTable.__raw}` : "";
-    return `r.entity({ name: ${JSON.stringify(p.entityName)}, ...${p.definition.__raw}${backingTable} });`;
+    if (p.overridesName) {
+      return `r.entity({ ...${p.definition.__raw}, name: ${JSON.stringify(p.entityName)}${backingTable} });`;
+    }
+    if (!p.backingTable) return `r.entity(${p.definition.__raw});`;
+    return `r.entity({ ...${p.definition.__raw}${backingTable} });`;
   }
   const merged = { name: p.entityName, ...p.definition };
   return `r.entity(${renderValue(merged)});`;
@@ -248,7 +236,7 @@ function renderEntity(p: EntityPattern): string {
 
 function renderRelation(p: RelationPattern): string {
   if (isRawRefSentinel(p.definition)) {
-    return `r.relation(${JSON.stringify(p.entityName)}, ${JSON.stringify(p.relationName)}, ${p.definition.__raw});`;
+    return `r.relation({ entity: ${JSON.stringify(p.entityName)}, name: ${JSON.stringify(p.relationName)}, ...${p.definition.__raw} });`;
   }
   const merged = { entity: p.entityName, name: p.relationName, ...p.definition };
   return `r.relation(${renderValue(merged)});`;
@@ -272,7 +260,7 @@ function renderTranslations(p: TranslationsPattern): string {
 
 function renderMetric(p: MetricPattern): string {
   if (isRawRefSentinel(p.options)) {
-    return `r.metric(${JSON.stringify(p.shortName)}, ${p.options.__raw});`;
+    return `r.metric({ name: ${JSON.stringify(p.shortName)}, ...${p.options.__raw} });`;
   }
   const merged = { name: p.shortName, ...p.options };
   return `r.metric(${renderValue(merged)});`;
@@ -290,7 +278,7 @@ function dropEmptyWriteRoles<T extends { readonly writeRoles?: readonly string[]
 
 function renderSecret(p: SecretPattern): string {
   if (isRawRefSentinel(p.options)) {
-    return `r.secret(${JSON.stringify(p.shortName)}, ${p.options.__raw});`;
+    return `r.secret({ name: ${JSON.stringify(p.shortName)}, ...${p.options.__raw} });`;
   }
   const merged = { name: p.shortName, ...dropEmptyWriteRoles(p.options) };
   return `r.secret(${renderValue(merged)});`;
@@ -298,7 +286,7 @@ function renderSecret(p: SecretPattern): string {
 
 function renderSecretNamespace(p: SecretNamespacePattern): string {
   if (isRawRefSentinel(p.options)) {
-    return `r.secretNamespace(${JSON.stringify(p.shortName)}, ${p.options.__raw});`;
+    return `r.secretNamespace({ name: ${JSON.stringify(p.shortName)}, ...${p.options.__raw} });`;
   }
   const merged = { name: p.shortName, ...dropEmptyWriteRoles(p.options) };
   return `r.secretNamespace(${renderValue(merged)});`;
@@ -319,22 +307,17 @@ function renderReferenceData(p: ReferenceDataPattern): string {
 
 function renderUseExtension(p: UseExtensionPattern): string {
   const nameLiteral = p.extensionNameRaw ?? JSON.stringify(p.extensionName);
-  if (isRawRefSentinel(p.options)) {
-    return `r.useExtension(${nameLiteral}, ${JSON.stringify(p.entityName)}, ${p.options.__raw});`;
+  const head = `name: ${nameLiteral}, entity: ${JSON.stringify(p.entityName)}`;
+  if (isRawRefSentinel(p.options)) return `r.applyExtension({ ${head}, ...${p.options.__raw} });`;
+  if (p.options === undefined || Object.keys(p.options).length === 0) {
+    return `r.applyExtension({ ${head} });`;
   }
-  if (p.extensionNameRaw !== undefined) {
-    // A raw-ref name can't be spread into the merged Object-Form without
-    // losing it to renderValue's plain-string serialization — fall back
-    // to positional form, which keeps the reference verbatim.
-    const optionsArg = p.options !== undefined ? `, ${renderValue(p.options)}` : "";
-    return `r.useExtension(${nameLiteral}, ${JSON.stringify(p.entityName)}${optionsArg});`;
-  }
-  const merged: Record<string, unknown> = {
-    name: p.extensionName,
-    entity: p.entityName,
-    ...(p.options ?? {}),
-  };
-  return `r.useExtension(${renderValue(merged)});`;
+  // renderValue serializes a raw-ref name as a plain string, so the head is spliced in as text.
+  const optionsBody = renderValue(p.options)
+    .trim()
+    .replace(/^\{\s*/, "")
+    .replace(/\s*\}$/, "");
+  return `r.applyExtension({ ${head}, ${optionsBody} });`;
 }
 
 // =============================================================================
@@ -454,66 +437,6 @@ function renderHook(p: HookPattern): string {
   if (p.phase !== undefined) lines.push(`  phase: ${JSON.stringify(p.phase)},`);
   if (p.escapeHatch !== undefined) lines.push(`  escapeHatch: ${renderValue(p.escapeHatch)},`);
   lines.push("});");
-  return lines.join("\n");
-}
-
-function renderEditableString(value: string | AiStepOpaqueArgs): string {
-  return typeof value === "string" ? JSON.stringify(value) : value.__raw;
-}
-
-function renderEditableDefaults(value: AiStepPolicy | AiStepOpaqueArgs): string {
-  if (isRawRefSentinel(value)) return value.__raw;
-  return renderValue(value);
-}
-
-function renderAiStepCommonFields(
-  lines: string[],
-  p: AiGeneratePattern | AiExtractPattern | AiClassifyPattern,
-): void {
-  if (p.stepKey !== undefined) lines.push(`  stepKey: ${renderEditableString(p.stepKey)},`);
-  if (p.promptKey !== undefined) lines.push(`  promptKey: ${renderEditableString(p.promptKey)},`);
-  if (p.promptFallback !== undefined) {
-    lines.push(`  promptFallback: ${renderEditableString(p.promptFallback)},`);
-  }
-  if (p.paramsSchemaSource !== undefined) {
-    lines.push(`  paramsSchema: ${p.paramsSchemaSource.raw},`);
-  }
-  if (p.defaults !== undefined) {
-    lines.push(`  defaults: ${renderEditableDefaults(p.defaults)},`);
-  }
-}
-
-function renderAiGenerate(p: AiGeneratePattern): string {
-  if (p.argsSource) return `aiGenerateStep(${p.argsSource.__raw})`;
-  const lines: string[] = ["aiGenerateStep({"];
-  renderAiStepCommonFields(lines, p);
-  if (p.inputBody !== undefined) lines.push(`  input: ${p.inputBody.raw},`);
-  lines.push("})");
-  return lines.join("\n");
-}
-
-function renderAiExtract(p: AiExtractPattern): string {
-  if (p.argsSource) return `aiExtractStep(${p.argsSource.__raw})`;
-  const lines: string[] = ["aiExtractStep({"];
-  renderAiStepCommonFields(lines, p);
-  if (p.outputSchemaSource !== undefined) {
-    lines.push(`  outputSchema: ${p.outputSchemaSource.raw},`);
-  }
-  if (p.instructionsBody !== undefined) {
-    lines.push(`  instructions: ${p.instructionsBody.raw},`);
-  }
-  if (p.documentBody !== undefined) lines.push(`  document: ${p.documentBody.raw},`);
-  lines.push("})");
-  return lines.join("\n");
-}
-
-function renderAiClassify(p: AiClassifyPattern): string {
-  if (p.argsSource) return `aiClassifyStep(${p.argsSource.__raw})`;
-  const lines: string[] = ["aiClassifyStep({"];
-  renderAiStepCommonFields(lines, p);
-  if (p.actions !== undefined) lines.push(`  actions: ${renderValue(p.actions)},`);
-  if (p.inputBody !== undefined) lines.push(`  input: ${p.inputBody.raw},`);
-  lines.push("})");
   return lines.join("\n");
 }
 

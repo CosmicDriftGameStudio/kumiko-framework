@@ -5,6 +5,7 @@ import { useCallback, useMemo } from "react";
 import type { DataTableRangeBound, DataTableRangeFacet } from "../data-table-aggregate-types.ts";
 import { fieldLabelKey, type Translate } from "../headless/index.ts";
 import type { ListUrlStateApi } from "../hooks/use-list-url-state.ts";
+import { useTenantCurrency } from "./entity-edit-prefill.ts";
 
 const RANGE_FIELD_TYPES: ReadonlySet<string> = new Set(["number", "decimal", "money", "bigInt"]);
 
@@ -12,7 +13,13 @@ type RangeFacetSpec = {
   readonly field: string;
   readonly label: string;
   readonly money: boolean;
+  readonly usesTenantCurrency: boolean;
   readonly unit?: string;
+};
+
+type RangeCurrencies = {
+  readonly defaultCurrency: string;
+  readonly tenantCurrency: string | undefined;
 };
 
 export type RangeFilter = {
@@ -45,16 +52,24 @@ function resolveRangeSpecs(
     const def = fields[field];
     const type = propertyOf(def, "type");
     if (typeof type !== "string" || !RANGE_FIELD_TYPES.has(type)) return [];
-    const unit = type === "money" ? literalCurrencyOf(def) : undefined;
+    const money = type === "money";
+    const unit = money ? literalCurrencyOf(def) : undefined;
     return [
       {
         field,
         label: translate(fieldLabelKey(featureName, entityName, field)),
-        money: type === "money",
+        money,
+        usesTenantCurrency: money && propertyOf(propertyOf(def, "currency"), "kind") === "tenant",
         ...(unit !== undefined && { unit }),
       },
     ];
   });
+}
+
+// Same currency an empty value of the field gets in the edit form.
+function scaleCurrencyOf(spec: RangeFacetSpec, currencies: RangeCurrencies): string | undefined {
+  if (spec.unit !== undefined) return spec.unit;
+  return spec.usesTenantCurrency ? currencies.tenantCurrency : currencies.defaultCurrency;
 }
 
 function boundOf(
@@ -68,16 +83,20 @@ function boundOf(
 function rangeFiltersOf(
   specs: readonly RangeFacetSpec[],
   urlFilters: Readonly<Record<string, readonly string[]>>,
+  currencies: RangeCurrencies,
 ): RangeFilter[] {
-  return specs.flatMap((spec) =>
-    (["min", "max"] as const).flatMap((bound): RangeFilter[] => {
+  return specs.flatMap((spec) => {
+    const currency = spec.money ? scaleCurrencyOf(spec, currencies) : undefined;
+    // skip: the tenant currency is still loading, a guessed scale would filter wrong rows
+    if (spec.money && currency === undefined) return [];
+    return (["min", "max"] as const).flatMap((bound): RangeFilter[] => {
       const typed = boundOf(urlFilters, spec.field, bound);
       const amount = Number(typed);
       if (typed === "" || !Number.isFinite(amount)) return [];
-      const value = spec.money ? toMinorUnits(amount) : amount;
+      const value = currency === undefined ? amount : toMinorUnits(amount, currency);
       return [{ field: spec.field, op: bound === "min" ? "gte" : "lte", value }];
-    }),
-  );
+    });
+  });
 }
 
 export type EntityRangeFacets = {
@@ -93,12 +112,15 @@ export function useEntityRangeFacets({
   fields,
   screen,
   featureName,
+  defaultCurrency,
   translate,
   urlState,
 }: {
   readonly fields: Readonly<Record<string, unknown>>;
   readonly screen: EntityListScreenDefinition;
   readonly featureName: string;
+  /** Currency of money fields without their own `currency` source. */
+  readonly defaultCurrency: string;
   readonly translate: Translate;
   readonly urlState: Pick<ListUrlStateApi, "filters" | "setFilter">;
 }): EntityRangeFacets {
@@ -118,7 +140,16 @@ export function useEntityRangeFacets({
       })),
     [specs, urlFilters],
   );
-  const rangeFilters = useMemo(() => rangeFiltersOf(specs, urlFilters), [specs, urlFilters]);
+  const tenantCurrencyResolution = useTenantCurrency(
+    specs.some((spec) => spec.usesTenantCurrency),
+    defaultCurrency,
+  );
+  const tenantCurrency =
+    tenantCurrencyResolution.status === "ready" ? tenantCurrencyResolution.currency : undefined;
+  const rangeFilters = useMemo(
+    () => rangeFiltersOf(specs, urlFilters, { defaultCurrency, tenantCurrency }),
+    [specs, urlFilters, defaultCurrency, tenantCurrency],
+  );
   const rangeFields = useMemo(() => specs.map((spec) => spec.field), [specs]);
   const onRangeChange = useCallback(
     (field: string, bound: DataTableRangeBound, value: string) =>

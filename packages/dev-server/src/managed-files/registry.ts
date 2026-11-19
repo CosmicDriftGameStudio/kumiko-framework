@@ -17,7 +17,7 @@ import {
   render,
   renderDeployFiles,
 } from "../scaffold-deploy.ts";
-import { findBundledListsWiringErrors } from "./bundled-lists-wiring.ts";
+import { findListDefaultsWiringErrors } from "./list-defaults-wiring.ts";
 import { addManagedMarker, type MarkerCommentStyle } from "./marker.ts";
 import { findKumikoPinErrors } from "./pins.ts";
 
@@ -40,11 +40,15 @@ export type ManagedAppFacts = {
   readonly deploy: KumikoReleaseTarget;
 };
 
-/** Ref used in the workflow templates while `kumiko.deploy.infraRef` is unset. */
-export const DEFAULT_INFRA_REF = "main";
+/** Infra tag the managed workflows pin while kumiko.deploy.infraRef is unset; Renovate keeps it current via the reusables-v* rule. */
+export const CURRENT_INFRA_REF = "reusables-v2.4.5";
 
-/** Infra tag a new app is scaffolded with; Renovate keeps it current via the reusables-v* rule. */
-export const CURRENT_INFRA_REF = "reusables-v2.0.0";
+// The image build writes packages with inherited secrets, so a moved tag must not reach it.
+// ponytail: Renovate does not follow this pin; bump sha and tag together, an older build workflow stays valid.
+export const INFRA_BUILD_PIN = {
+  sha: "4226f110fbee6931fdaa7c24a234720007548de5",
+  tag: "reusables-v2.4.5",
+} as const;
 
 /** Byte-compared after the marker lines are stripped. */
 export type ManagedTemplateFile = {
@@ -120,15 +124,8 @@ function readPackageJsonOrEmpty(appRoot: string): unknown {
 /** Findings that fail `kumiko check managed` whether or not the app adopted kumiko.config.ts. */
 export function listManagedErrors(facts: ManagedAppFacts): readonly string[] {
   const errors: string[] = [];
-  if (facts.deploy.visibility === "private" && facts.deploy.infraRef === undefined) {
-    errors.push(
-      "package.json#kumiko.deploy.infraRef is not set. Set kumiko.deploy.infraRef to an infra tag (reusables-vX.Y.Z); ci.yml and release.yml would otherwise call the infra workflows at @" +
-        DEFAULT_INFRA_REF +
-        ".",
-    );
-  }
   errors.push(...findKumikoPinErrors(readPackageJsonOrEmpty(facts.appRoot)));
-  errors.push(...findBundledListsWiringErrors(facts.appRoot));
+  errors.push(...findListDefaultsWiringErrors(facts.appRoot));
   return errors;
 }
 
@@ -145,6 +142,8 @@ function renderCiWorkflow(facts: ManagedAppFacts): string {
   const infra = facts.config.kind === "defined" ? facts.config.ports.infra : undefined;
   const minio = infra?.s3 !== undefined;
   const meilisearch = infra?.meilisearch !== undefined;
+  const e2eSharded = facts.deploy.e2eShards > 1;
+  const { e2eChromiumFull } = facts.deploy;
   if (facts.deploy.visibility === "public") {
     return render(
       readTemplate("ci-public.yml.template"),
@@ -157,12 +156,16 @@ function renderCiWorkflow(facts: ManagedAppFacts): string {
     {
       appName: facts.appName,
       uiGuards: String(facts.hasUi),
-      infraRef: facts.deploy.infraRef ?? DEFAULT_INFRA_REF,
+      infraRef: facts.deploy.infraRef ?? CURRENT_INFRA_REF,
+      buildRef: facts.deploy.infraRef ?? `${INFRA_BUILD_PIN.sha} # ${INFRA_BUILD_PIN.tag}`,
+      e2eShards: String(facts.deploy.e2eShards),
     },
     {
       minio,
       meilisearch,
-      e2eInputs: minio || meilisearch,
+      e2eInputs: minio || meilisearch || e2eSharded || e2eChromiumFull,
+      e2eSharded,
+      e2eChromiumFull,
       docStatusGuardOff: !facts.deploy.docStatusGuard,
     },
   );
@@ -176,7 +179,7 @@ function renderReleaseWorkflow(facts: ManagedAppFacts): string {
       appName: facts.appName,
       namespace,
       deployment,
-      infraRef: infraRef ?? DEFAULT_INFRA_REF,
+      infraRef: infraRef ?? CURRENT_INFRA_REF,
     },
     { privateDeploy: visibility === "private", publicRollout: visibility === "public" },
   );
@@ -202,6 +205,7 @@ export function renderManagedTemplates(facts: ManagedAppFacts): readonly Managed
     marked(".github/workflows/release.yml", renderReleaseWorkflow(facts), "#"),
     marked(".github/workflows/ci.yml", renderCiWorkflow(facts), "#"),
     marked("kumiko/schema.ts", readTemplate("kumiko-schema.ts.template"), "//"),
+    marked("bin/kumiko.ts", readTemplate("bin-kumiko.ts.template"), "//"),
   ];
 }
 

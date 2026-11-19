@@ -8,6 +8,7 @@ import { isPerCurrencyMeasure } from "./aggregate-sql.ts";
 import type { ExecutorContext } from "./event-store-executor-context.ts";
 import { bindShiftedClause, type ListWhere } from "./event-store-executor-read-filter.ts";
 import { executeRawQueryRead } from "./queries/raw-sql.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";
 import { tenantDbRunnerForTable } from "./tenant-db-runner.ts";
@@ -48,7 +49,7 @@ export async function loadMeasureCurrencies(
     const currencySql = where.colSql(currencyColumnOf(m.field));
     const rows = await executeRawQueryRead<{ readonly cur: unknown }>(
       tenantDbRunnerForTable(db, ctx.table),
-      `SELECT DISTINCT ${currencySql} AS cur FROM "${tableName}" WHERE ${conditions.join(" AND ")} AND ${currencySql} IS NOT NULL ORDER BY 1 LIMIT ${MAX_AGGREGATE_CURRENCIES}`,
+      `SELECT DISTINCT ${currencySql} AS cur FROM ${quoteIdent(tableName)} WHERE ${conditions.join(" AND ")} AND ${currencySql} IS NOT NULL ORDER BY 1 LIMIT ${MAX_AGGREGATE_CURRENCIES}`,
       params,
     );
     byField.set(

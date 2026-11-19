@@ -158,5 +158,7 @@ export const esApiDocsTexts = {
     filters: "Varios filtros de campo, cada uno con `field`, `op` y `value`. `op` es uno de {ops}.",
     namedFilter: "Nombre de un filtro predefinido de la entidad, por ejemplo una cola de trabajo.",
     aggregate: "Devuelve valores agregados en lugar de filas.",
+    fields:
+      "Devuelve solo estos campos almacenados. Las filas contienen entonces `id`, `version` y los campos indicados; los campos derivados no se calculan. Un nombre desconocido falla con `unknown_field`.",
   },
 } as const satisfies ApiDocsTexts;

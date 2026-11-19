@@ -17,6 +17,7 @@ import {
   PrimitivesProvider,
   type TextProps,
 } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RelatedListSection } from "../related-list-section.tsx";
 
 const noop = () => {};
@@ -34,26 +35,17 @@ const testButton = (props: ButtonProps) => (
 const testText = ({ children }: TextProps) => <span>{children}</span>;
 
 function testPrimitives(): CorePrimitives {
-  return {
+  return createStubPrimitives({
     Button: testButton,
     Banner: passChildren,
     Field: passChildren,
-    Input: noop,
     DataTable: testDataTable,
-    Form: noop,
     Section: passChildren,
     Card: passChildren,
     Grid: passChildren,
     GridCell: passChildren,
     Text: testText,
-    Heading: noop,
-    Dialog: noop,
-    Modal: noop,
-    Lightbox: noop,
-    ConfigSourceBadge: noop,
-    ConfigCascadeView: noop,
-    Link: noop,
-  } as unknown as CorePrimitives;
+  });
 }
 
 const baseSection: EditRelatedListSectionViewModel = {
@@ -136,7 +128,7 @@ describe("RelatedListSection emptyState", () => {
     renderEmpty(section, (type, payload) => writes.push({ type, payload }));
 
     await waitFor(() => rtlScreen.getByText("No notifications yet"));
-    expect(rtlScreen.getByText("New ones show up here.")).toBeTruthy();
+    rtlScreen.getByText("New ones show up here.");
 
     fireEvent.click(rtlScreen.getByTestId("render-edit-action-seed"));
     await waitFor(() => expect(writes.length).toBe(1));

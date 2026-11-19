@@ -12,7 +12,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestEnvelopeCipher,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -89,7 +92,10 @@ async function buildStack(jobs: StackJobs, stub: ProviderStub): Promise<TestStac
         masterKeyProvider,
         registry: deps.registry,
       });
-      return { secrets, ...createDeliveryTestContext(deps, { secrets }) };
+      return {
+        secrets,
+        ...createDeliveryTestContext(deps, { secrets, addressCipher: createTestEnvelopeCipher() }),
+      };
     },
   });
   await unsafePushTables(stack.db, {
@@ -221,15 +227,5 @@ describe("createDeliveryNotifyFactory", () => {
     const { service, dispatchersSeen } = recordingService();
     await createDeliveryNotifyFactory(service)(user, user.tenantId, dispatcher)("x:notify:y", {});
     expect(dispatchersSeen).toEqual([dispatcher]);
-  });
-
-  test("deliverQueuedInline drops the dispatcher", async () => {
-    const { service, dispatchersSeen } = recordingService();
-    await createDeliveryNotifyFactory(service, { deliverQueuedInline: true })(
-      user,
-      user.tenantId,
-      dispatcher,
-    )("x:notify:y", {});
-    expect(dispatchersSeen).toEqual([undefined]);
   });
 });

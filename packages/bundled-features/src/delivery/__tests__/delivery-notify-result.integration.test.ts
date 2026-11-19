@@ -3,6 +3,7 @@
 // HTTP stub stands in for Slack.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import { createChannelSlackFeature } from "../../channel-slack/feature.ts";
 import { DeliveryJobs } from "../constants.ts";
 import { collectChannels, createDeliveryService } from "../delivery-service.ts";
@@ -48,6 +49,8 @@ function recordingDispatcher(): {
   };
 }
 
+const cipher = createTestEnvelopeCipher();
+
 function serviceWith(options: {
   withSecrets: boolean;
   jobRunner?: ReturnType<typeof recordingDispatcher>;
@@ -56,6 +59,7 @@ function serviceWith(options: {
     db: harness.stack.db,
     registry: harness.stack.registry,
     channels: collectChannels(harness.stack.registry),
+    addressCipher: cipher,
     ...(options.withSecrets && { secrets: harness.secrets }),
     ...(options.jobRunner && { jobRunner: options.jobRunner }),
   });

@@ -117,6 +117,27 @@ describe("scenario 1: create + me", () => {
     expect(me["locale"]).toBe("de-AT");
   });
 
+  test("create stores the email in lowercase", async () => {
+    const created = await seedUser({
+      email: "Max.Muster@Firma.DE",
+      displayName: "Max Muster",
+    });
+
+    const signedIn = createTestUser({ id: created.id, roles: ["User"] });
+    const me = await stack.http.queryOk<Record<string, unknown>>(UserQueries.me, {}, signedIn);
+    expect(me["email"]).toBe("max.muster@firma.de");
+  });
+
+  test("duplicate email in another case is rejected", async () => {
+    await seedUser({ email: "dup@firma.de", displayName: "First" });
+    const error = await stack.http.writeErr(
+      UserHandlers.create,
+      { email: "DUP@Firma.de", displayName: "Second" },
+      systemAdmin,
+    );
+    expectErrorIncludes(error, UserErrors.emailAlreadyExists);
+  });
+
   test("normal user cannot create another user", async () => {
     const normal = createTestUser({ id: 42, roles: ["User"] });
     const error = await stack.http.writeErr(

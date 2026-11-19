@@ -35,18 +35,20 @@ function validateWith(
   childIndexes: EntityDefinition["indexes"] = [],
 ): void {
   const unit: EntityDefinition = createEntity({
+    name: "unit",
     table: "units",
     fields: { name: text(), nickname: text(), floor: createNumberField() },
     derivedFields,
   });
   const child: EntityDefinition = createEntity({
+    name: "child",
     table: "children",
     fields: childFields,
     indexes: childIndexes,
   });
   const feature = defineFeature("demo", (r) => {
-    r.entity({ name: "unit", ...unit });
-    r.entity({ name: "child", ...child });
+    r.entity(unit);
+    r.entity(child);
   });
   validateSqlDerivedFields([feature]);
 }
@@ -338,9 +340,9 @@ describe("validateSqlDerivedFields", () => {
 describe("entityList defaultSort over derived fields", () => {
   const featureSortingBy = (field: string) =>
     defineFeature("demo", (r) => {
-      r.entity({
-        name: "item",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "item",
           table: "Items",
           fields: { name: text(), nickname: text() },
           derivedFields: {
@@ -352,7 +354,7 @@ describe("entityList defaultSort over derived fields", () => {
             plain: createDerivedField({ valueType: "text", derive: () => "x" }),
           },
         }),
-      });
+      );
       r.screen({
         id: "item-list",
         type: "entityList",

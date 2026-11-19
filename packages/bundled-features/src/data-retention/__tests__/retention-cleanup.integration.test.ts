@@ -14,7 +14,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
-import { asRawClient, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   bridgeStub,
@@ -22,6 +22,7 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -34,6 +35,7 @@ import { runRetentionCleanup } from "../run-retention-cleanup.ts";
 
 // hardDelete, default-reference (createdAt → alias insertedAt → Spalte inserted_at).
 const widgetEntity = createEntity({
+  name: "c7-widget",
   table: "read_c7_widget",
   fields: {
     label: createTextField({ required: true, personal: false, reason: "is_business_data" }),
@@ -45,6 +47,7 @@ const widgetEntity = createEntity({
 
 // softDelete strategy → sets is_deleted/deleted_at (the entity uses softDelete).
 const gadgetEntity = createEntity({
+  name: "c7-gadget",
   table: "read_c7_gadget",
   softDelete: true,
   fields: {
@@ -57,6 +60,7 @@ const gadgetEntity = createEntity({
 
 // No policy → must never be touched.
 const plainEntity = createEntity({
+  name: "c7-plain",
   table: "read_c7_plain",
   fields: {
     label: createTextField({ required: true, personal: false, reason: "is_business_data" }),
@@ -66,6 +70,7 @@ const plainEntity = createEntity({
 // reference="lastSeenAt" is valid at boot (Framework timestamp allowlist), but
 // the column does not exist on this entity → the guard must skip it.
 const staleEntity = createEntity({
+  name: "c7-stale",
   table: "read_c7_stale",
   fields: {
     label: createTextField({ required: true, personal: false, reason: "is_business_data" }),
@@ -78,6 +83,7 @@ const staleEntity = createEntity({
 // violate the retention requirement); AFTER expiry, anonymize field functions
 // run while the row remains and its link to a person is removed (fields.ts).
 const retainedEntity = createEntity({
+  name: "c7-retained",
   table: "read_c7_retained",
   fields: {
     // No subject flag on the old fixture either — anonymize alone has no
@@ -94,6 +100,7 @@ const retainedEntity = createEntity({
 // anonymize strategy: label is overwritten after expiry, while note has no
 // anonymize function and must remain untouched (business data).
 const anonEntity = createEntity({
+  name: "c7-anon",
   table: "read_c7_anon",
   fields: {
     label: {
@@ -113,6 +120,7 @@ const anonEntity = createEntity({
 // anonymize strategy WITHOUT anonymize fields — the runner cannot act and
 // must report this as skipped rather than silently doing nothing.
 const bareEntity = createEntity({
+  name: "c7-bare",
   table: "read_c7_bare",
   fields: {
     label: createTextField({ required: true, personal: false, reason: "is_business_data" }),
@@ -123,6 +131,7 @@ const bareEntity = createEntity({
 // blockDelete without anonymize fields is a pure legal hold: nothing falls due
 // after expiry, so no skipped entry (it would add log noise every cron run).
 const bareHoldEntity = createEntity({
+  name: "c7-barehold",
   table: "read_c7_barehold",
   fields: {
     label: createTextField({ required: true, personal: false, reason: "is_business_data" }),
@@ -133,6 +142,7 @@ const bareHoldEntity = createEntity({
 // blockDelete on an entity with a personal field but NO anonymize function:
 // the person data would outlive the hold, so the cron must keep reporting it.
 const personalHoldEntity = createEntity({
+  name: "c7-personalhold",
   table: "read_c7_personalhold",
   fields: {
     label: createTextField({ personal: "self", find: "none", default: "" }),
@@ -143,6 +153,7 @@ const personalHoldEntity = createEntity({
 // blockDelete on an entity whose only person link is a subjectRef: the field cannot carry
 // anonymize (the user-data forget hook cuts it), so it is a pure hold, not a skip.
 const subjectRefHoldEntity = createEntity({
+  name: "c7-holdsubjectref",
   table: "read_c7_holdsubjectref",
   fields: {
     label: createTextField({ personal: "ref" }),
@@ -151,16 +162,16 @@ const subjectRefHoldEntity = createEntity({
 });
 
 const c7Feature = defineFeature("c7-retention-fixtures", (r) => {
-  r.entity({ name: "c7-widget", ...widgetEntity });
-  r.entity({ name: "c7-gadget", ...gadgetEntity });
-  r.entity({ name: "c7-plain", ...plainEntity });
-  r.entity({ name: "c7-stale", ...staleEntity });
-  r.entity({ name: "c7-retained", ...retainedEntity });
-  r.entity({ name: "c7-anon", ...anonEntity });
-  r.entity({ name: "c7-bare", ...bareEntity });
-  r.entity({ name: "c7-barehold", ...bareHoldEntity });
-  r.entity({ name: "c7-personalhold", ...personalHoldEntity });
-  r.entity({ name: "c7-holdsubjectref", ...subjectRefHoldEntity });
+  r.entity(widgetEntity);
+  r.entity(gadgetEntity);
+  r.entity(plainEntity);
+  r.entity(staleEntity);
+  r.entity(retainedEntity);
+  r.entity(anonEntity);
+  r.entity(bareEntity);
+  r.entity(bareHoldEntity);
+  r.entity(personalHoldEntity);
+  r.entity(subjectRefHoldEntity);
 });
 
 const noopLogger: JobContext["obs"]["log"] = {
@@ -335,7 +346,10 @@ describe("runRetentionCleanup :: real postgres", () => {
         tenantId: T1,
         mode: "tenant",
         grants: {
-          unsafeRaw: { reason: "per-tenant fan-out cleanup using raw helpers" },
+          unsafeRaw: {
+            reason: "per-tenant fan-out cleanup using raw helpers",
+            grants: ["unsafeRaw"],
+          },
         },
       }),
       registry: stack.registry,

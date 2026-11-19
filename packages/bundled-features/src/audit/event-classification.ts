@@ -2,7 +2,6 @@
 // audit stance: a label key for the log, or "technical" to hide them behind the facet.
 // The boot-registry test fails for a bundled event type that has neither.
 
-import { WORKFLOW_SYSTEM_EVENT_DEFS } from "@cosmicdrift/kumiko-framework/engine";
 import { ESCAPE_HATCH_USED_EVENT } from "./escape-hatch-audit-sink.ts";
 
 export const TECHNICAL_EVENT = "technical" as const;
@@ -15,15 +14,14 @@ export const AUDIT_EVENT_STANCES: Readonly<Record<string, AuditEventStance>> = {
   [ESCAPE_HATCH_USED_EVENT]: TECHNICAL_EVENT,
   "delivery:event:attempt": TECHNICAL_EVENT,
   "delivery:event:attempt-address-erased": TECHNICAL_EVENT,
+  "delivery:event:address-unsubscribed": TECHNICAL_EVENT,
   "cap-counter:event:rolling-incremented": TECHNICAL_EVENT,
   "cap-counter:event:rolling-released": TECHNICAL_EVENT,
   "inbound-mail-foundation:event:inbound-message-received": TECHNICAL_EVENT,
   "inbound-mail-foundation:event:inbound-message-content-fetched": TECHNICAL_EVENT,
-  "inbound-mail-foundation:event:mail-thread-updated": TECHNICAL_EVENT,
   "channel-whatsapp:event:message-received": TECHNICAL_EVENT,
   "channel-whatsapp:event:status-updated": TECHNICAL_EVENT,
   "channel-whatsapp:event:throttled": TECHNICAL_EVENT,
-  "document-ingest-foundation:event:document-ingest-progress": TECHNICAL_EVENT,
   "document-ingest-foundation:event:document-ingest-requested": TECHNICAL_EVENT,
   "document-ingest-foundation:event:document-ingest-skipped": TECHNICAL_EVENT,
   "tenant-lifecycle:event:tenant-destruction-stage-started": TECHNICAL_EVENT,
@@ -78,19 +76,29 @@ export const AUDIT_EVENT_STANCES: Readonly<Record<string, AuditEventStance>> = {
 // own. Below SystemAdmin the audit log leaves these streams out entirely.
 export const SYSTEM_ADMIN_ONLY_AGGREGATE_TYPES: readonly string[] = ["probe-run"];
 
-// Framework system events (kumiko:system:*) are engine plumbing, never audit-worthy on their own.
-export const FRAMEWORK_SYSTEM_EVENT_TYPES: readonly string[] = [
-  ...WORKFLOW_SYSTEM_EVENT_DEFS.keys(),
-];
+// Event types that are no longer registered, but whose events stay in the append-only log. Without
+// a stance they would surface unlabelled in the default audit list. Entries here must not be
+// registered anymore (see event-classification.test.ts); a still-registered type belongs above.
+export const RETIRED_EVENT_STANCES: Readonly<Record<string, AuditEventStance>> = {
+  "inbound-mail-foundation:event:mail-thread-updated": TECHNICAL_EVENT,
+  "document-ingest-foundation:event:document-ingest-progress": TECHNICAL_EVENT,
+  "kumiko:system:workflow.run-started": TECHNICAL_EVENT,
+  "kumiko:system:workflow.run-completed": TECHNICAL_EVENT,
+  "kumiko:system:workflow.run-failed": TECHNICAL_EVENT,
+  "kumiko:system:workflow.step.waiting": TECHNICAL_EVENT,
+  "kumiko:system:workflow.step.waiting-for-event": TECHNICAL_EVENT,
+  "kumiko:system:workflow.step.resumed": TECHNICAL_EVENT,
+  "kumiko:system:workflow.retry.scheduled": TECHNICAL_EVENT,
+};
 
 export const TECHNICAL_EVENT_TYPES: readonly string[] = [
-  ...Object.entries(AUDIT_EVENT_STANCES)
-    .filter(([, stance]) => stance === TECHNICAL_EVENT)
-    .map(([type]) => type),
-  ...FRAMEWORK_SYSTEM_EVENT_TYPES,
-];
+  ...Object.entries(AUDIT_EVENT_STANCES),
+  ...Object.entries(RETIRED_EVENT_STANCES),
+]
+  .filter(([, stance]) => stance === TECHNICAL_EVENT)
+  .map(([type]) => type);
 
 export function eventLabelKeyOf(type: string): string | null {
-  const stance = AUDIT_EVENT_STANCES[type];
+  const stance = AUDIT_EVENT_STANCES[type] ?? RETIRED_EVENT_STANCES[type];
   return stance === undefined || stance === TECHNICAL_EVENT ? null : stance.labelKey;
 }

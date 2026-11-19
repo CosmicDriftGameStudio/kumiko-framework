@@ -3,7 +3,6 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import {
   setupTestStack,
   type TestStack,
@@ -19,6 +18,7 @@ import { deliveryAttemptsTable, notificationPreferencesTable } from "../../deliv
 import { createMailFoundationFeature } from "../../mail-foundation/feature.ts";
 import { createMailTransportInMemoryFeature } from "../../mail-transport-inmemory/index.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";

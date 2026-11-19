@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-11
+verified: 2026-11-17
 ---
 
 # Crypto-shredding: the "record" (row) subject
@@ -156,8 +156,8 @@ against: the backfill changes a field's *representation*
 Replay stays deterministic — `applyEntityEvent` materializes the same
 ciphertext plus its blind-index column, which is why a backfill run must be
 followed by a projection rebuild. The framework already has a more invasive
-precedent for in-place event mutation (fw#762, `stream-tenant-backfill.ts`,
-renumbers `version` and rewrites `tenant_id` to merge split streams) —
+precedent for in-place event mutation (fw#762, the since removed stream-tenant backfill, which renumbered
+`version` and rewrote `tenant_id` to merge split streams) —
 representation-only re-encryption is the milder case of the same category.
 Refusing it in the name of append-only purity would leave stream deletion as
 the only Art. 17 remedy for the backlog, which destroys far more of the log
@@ -264,3 +264,16 @@ production path.
    `forget-denied`) audit event is the system's proof; log the external
    request (ticket/authority reference) against the same `subjectKey`
    outside the system per your own Art. 17 record-keeping duty.
+
+## Forgetting the row with its subject: `forgetWithSubject`
+
+Some rows exist only for their subject: an email subscriber, a share recipient, a contact link. An entity opts in with `forgetWithSubject: true`, and `crypto-shredding:write:forget-subject` then forgets the entity's own row together with the subject's keys. A `record:<entity>:<id>` subject names exactly that row. A `user:<id>` subject names the row with `id = <id>` when the entity has a `personal: "self"` field.
+
+The row goes through the executor's `forget`, so the forgotten event, child projections and the stream close happen like any forget. A tenant's `blockDelete` retention keeps the row, and the key erase still shreds its PII. Boot rejects `forgetWithSubject` on an entity without a `personal: "self"` or record-keyed field, and on one with `retention.strategy: "blockDelete"`. The key is erased only after the forget's transaction commits, by the consumer `crypto-shredding:projection:subject-key-eraser`.
+
+```ts illustration
+const subscriberEntity = createEntity({
+  forgetWithSubject: true,
+  fields: { email: createTextField({ personal: "self", find: "exact", format: "email" }) },
+});
+```

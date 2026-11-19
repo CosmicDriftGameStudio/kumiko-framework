@@ -13,11 +13,12 @@ import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
   type ButtonProps,
   type CardProps,
-  type CorePrimitives,
   type FormProps,
+  type InputProps,
   PrimitivesProvider,
   type SectionProps,
 } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import { AppFeaturesProvider } from "../app-features-context.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
@@ -44,17 +45,14 @@ const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId, dis
   </button>
 );
 
-const TestInput: ComponentType<{
-  name?: string;
-  value?: unknown;
-  onChange?: (v: unknown) => void;
-}> = ({ name = "field", value, onChange }) => (
-  <input
-    aria-label={name}
-    value={typeof value === "string" ? value : ""}
-    onChange={(e) => onChange?.(e.target.value)}
-  />
-);
+const TestInput: ComponentType<InputProps> = (props) =>
+  props.kind === "text" ? (
+    <input
+      aria-label={props.name}
+      value={props.value}
+      onChange={(e) => props.onChange(e.target.value)}
+    />
+  ) : null;
 
 // Section testId already carries the section title, so the two writeForm
 // submit buttons are reachable through their own section.
@@ -65,7 +63,7 @@ const TestSection: ComponentType<SectionProps> = ({ testId, children, actions })
   </div>
 );
 
-const testPrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: TestButton,
   Banner: noop,
   Field: passChildren,
@@ -84,7 +82,7 @@ const testPrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-} as unknown as CorePrimitives;
+});
 
 const DETAIL_QUERY = "app:query:order-detail";
 const NOTES_QUERY = "app:query:order-notes";
@@ -139,28 +137,21 @@ type Calls = {
 };
 
 function stubDispatcher(calls: Calls, state: { name: string }): Dispatcher {
-  return {
-    write: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async (type: string, payload: unknown) => {
       calls.writes.push({ type, payload });
       state.name = "Renamed";
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
-    query: (async (type: string, payload: unknown) => {
+    },
+    query: async (type: string, payload: unknown) => {
       calls.queries.push({ type, payload });
       if (type === NOTES_QUERY) {
         return { isSuccess: true, data: { rows: [], nextCursor: null } };
       }
       return { isSuccess: true, data: { id: "o1", name: state.name } };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 async function renderOrderScreen(calls: Calls, state: { name: string }): Promise<void> {

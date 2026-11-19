@@ -20,17 +20,12 @@ import {
 } from "./detail-race-screens";
 import { TestIdentityProvider } from "./identity-provider";
 import { InboxPaneScreen } from "./inbox-pane-screen";
-import { createMockDispatcher } from "./mock-dispatcher";
+import { createInMemoryDispatcher } from "./mock-dispatcher";
 import { MoneyTestPage } from "./money-page";
 import { BOOM_SCREEN_ID, e2eSchema, INBOX_PANE_SCREEN_ID } from "./schema";
 
-// Write controls a spec sets with addInitScript before boot and reads back afterwards.
-type WriteControlWindow = Window & {
-  __E2E_REJECT_WRITE_IDS__?: readonly string[];
-  __E2E_HOLD_WRITES__?: boolean;
-  __E2E_WRITE_LOG__?: readonly string[];
-  __E2E_RELEASE_WRITES__?: () => void;
-};
+// Write log a spec reads back after boot.
+type WriteLogWindow = Window & { __E2E_WRITE_LOG__?: readonly string[] };
 
 function mountReact(node: ReactNode): void {
   const root = document.getElementById("root");
@@ -91,12 +86,8 @@ async function boot(): Promise<void> {
     return;
   }
 
-  const controlWindow: WriteControlWindow = window;
-  const dispatcher = createMockDispatcher({
-    ...(controlWindow.__E2E_REJECT_WRITE_IDS__ !== undefined && {
-      rejectWriteIds: controlWindow.__E2E_REJECT_WRITE_IDS__,
-    }),
-    holdWrites: controlWindow.__E2E_HOLD_WRITES__ === true,
+  const controlWindow: WriteLogWindow = window;
+  const dispatcher = createInMemoryDispatcher({
     // Test pages can feed pre-data via window.__E2E_SEED__ before boot;
     // without a seed every test starts with an empty in-memory DB.
     seed: ((globalThis as { __E2E_SEED__?: Record<string, unknown[]> }).__E2E_SEED__ ??
@@ -104,7 +95,6 @@ async function boot(): Promise<void> {
   });
 
   controlWindow.__E2E_WRITE_LOG__ = dispatcher.writeLog;
-  controlWindow.__E2E_RELEASE_WRITES__ = dispatcher.releaseWrites;
 
   createKumikoApp({
     schema: e2eSchema,

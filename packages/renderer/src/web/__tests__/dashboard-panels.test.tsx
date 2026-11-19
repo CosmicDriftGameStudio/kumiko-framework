@@ -2,7 +2,8 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { type Dispatcher, EMPTY_VALUE_PLACEHOLDER } from "../../headless/index.ts";
+import { EMPTY_VALUE_PLACEHOLDER, type QueryResult } from "../../headless/index.ts";
+import { isRecord } from "../../headless/is-record.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -30,7 +31,7 @@ import {
   within,
 } from "./test-utils.tsx";
 
-type Handler = (payload: Readonly<Record<string, unknown>>) => unknown | Promise<unknown>;
+type Handler = (payload: Readonly<Record<string, unknown>>) => QueryResult | Promise<QueryResult>;
 
 const FEATURE = "demo";
 
@@ -59,13 +60,14 @@ function renderDashboard(
 ): { readonly calls: { readonly type: string; readonly payload: Record<string, unknown> }[] } {
   const calls: { readonly type: string; readonly payload: Record<string, unknown> }[] = [];
   const dispatcher = createMockDispatcher({
-    query: (async (type: string, payload: Record<string, unknown> = {}) => {
+    query: async (type: string, rawPayload: unknown) => {
+      const payload = isRecord(rawPayload) ? rawPayload : {};
       calls.push({ type, payload });
       const handler = handlers[type];
       if (handler === undefined) return { isSuccess: true, data: {} };
       const result = await handler(payload);
       return result;
-    }) as unknown as Dispatcher["query"],
+    },
   });
   const schema: FeatureSchema = { featureName: FEATURE, entities: {}, screens: [dashboard] };
   const screenNode = (
@@ -99,10 +101,15 @@ function renderDashboard(
   return { calls };
 }
 
-const ok = (data: unknown) => ({ isSuccess: true, data });
-const failure = {
+const ok = (data: unknown): QueryResult => ({ isSuccess: true, data });
+const failure: QueryResult = {
   isSuccess: false,
-  error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
+  error: {
+    code: "internal",
+    httpStatus: 500,
+    message: "kaputt",
+    i18nKey: "errors.internal",
+  },
 };
 
 const DAY = 86_400_000;
@@ -151,11 +158,11 @@ describe("dashboard chart kinds", () => {
           ],
         }),
     });
-    await waitFor(() => expect(screen.getByTestId("dashboard-chart-main")).toBeTruthy());
-    expect(screen.getByText("Today")).toBeTruthy();
-    expect(screen.getByText("demo:chart-subtitle")).toBeTruthy();
-    expect(within(screen.getByTestId("chart-legend-ok")).getByText("12")).toBeTruthy();
-    expect(within(screen.getByTestId("chart-legend-fail")).getByText("3")).toBeTruthy();
+    await waitFor(() => screen.getByTestId("dashboard-chart-main"));
+    screen.getByText("Today");
+    screen.getByText("demo:chart-subtitle");
+    within(screen.getByTestId("chart-legend-ok")).getByText("12");
+    within(screen.getByTestId("chart-legend-fail")).getByText("3");
     expect(screen.getAllByTestId("chart-bar-segment-ok")).toHaveLength(3);
     // zero-value segments draw nothing
     expect(screen.getAllByTestId("chart-bar-segment-fail")).toHaveLength(2);
@@ -166,8 +173,8 @@ describe("dashboard chart kinds", () => {
       "demo:query:metric:chart": () =>
         ok({ windowStartMs: day1, windowEndMs, points: dayPoints([2, 6]), series: [] }),
     });
-    await waitFor(() => expect(screen.getByTestId("chart-legend-value")).toBeTruthy());
-    expect(within(screen.getByTestId("chart-legend-value")).getByText("8")).toBeTruthy();
+    await waitFor(() => screen.getByTestId("chart-legend-value"));
+    within(screen.getByTestId("chart-legend-value")).getByText("8");
   });
 
   test("segment-bars: one stacked bar per row, row total and legend totals", async () => {
@@ -193,11 +200,11 @@ describe("dashboard chart kinds", () => {
           ],
         }),
     });
-    await waitFor(() => expect(screen.getByTestId("chart-row-mail")).toBeTruthy());
-    expect(within(screen.getByTestId("chart-row-mail")).getByText("10")).toBeTruthy();
-    expect(within(screen.getByTestId("chart-row-sms")).getByText("4")).toBeTruthy();
-    expect(within(screen.getByTestId("chart-legend-sent")).getByText("11")).toBeTruthy();
-    expect(within(screen.getByTestId("chart-legend-bounced")).getByText("3")).toBeTruthy();
+    await waitFor(() => screen.getByTestId("chart-row-mail"));
+    within(screen.getByTestId("chart-row-mail")).getByText("10");
+    within(screen.getByTestId("chart-row-sms")).getByText("4");
+    within(screen.getByTestId("chart-legend-sent")).getByText("11");
+    within(screen.getByTestId("chart-legend-bounced")).getByText("3");
   });
 
   const areaPayload = {
@@ -217,9 +224,9 @@ describe("dashboard chart kinds", () => {
     renderDashboard(chartScreen("stacked-area"), {
       "demo:query:metric:chart": () => ok({ ...areaPayload, todayMs: day2 }),
     });
-    await waitFor(() => expect(screen.getByTestId("chart-forecast-region")).toBeTruthy());
-    expect(screen.getByTestId("chart-today-line")).toBeTruthy();
-    expect(within(screen.getByTestId("chart-today-label")).getByText("Today")).toBeTruthy();
+    await waitFor(() => screen.getByTestId("chart-forecast-region"));
+    screen.getByTestId("chart-today-line");
+    within(screen.getByTestId("chart-today-label")).getByText("Today");
     const items = screen.getAllByTestId("chart-marker-item");
     expect(items.map((li) => li.textContent?.slice(0, 1))).toEqual(["1", "2"]);
     expect(items[0]?.textContent).toContain("First event");
@@ -230,7 +237,7 @@ describe("dashboard chart kinds", () => {
     renderDashboard(chartScreen("stacked-area"), {
       "demo:query:metric:chart": () => ok(areaPayload),
     });
-    await waitFor(() => expect(screen.getByTestId("dashboard-chart-main")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-chart-main"));
     expect(screen.queryByTestId("chart-forecast-region")).toBeNull();
     expect(screen.queryByTestId("chart-today-line")).toBeNull();
   });
@@ -245,7 +252,7 @@ describe("dashboard chart kinds", () => {
           markers: [{ atMs: day2, label: "Deploy" }],
         }),
     });
-    await waitFor(() => expect(screen.getByTestId("chart-marker-item")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("chart-marker-item"));
     expect(screen.getByTestId("chart-marker-item").textContent).toContain("Deploy");
     expect(screen.getAllByTestId("chart-marker-pin")).toHaveLength(1);
   });
@@ -266,7 +273,7 @@ describe("dashboard panel states", () => {
       "demo:query:feed:broken": () => new Promise(() => {}),
       "demo:query:feed:healthy": () => new Promise(() => {}),
     });
-    expect(screen.getByText("demo:broken")).toBeTruthy();
+    screen.getByText("demo:broken");
     expect(screen.getAllByLabelText("Loading…").length).toBeGreaterThan(0);
   });
 
@@ -363,9 +370,9 @@ describe("dashboard panel states", () => {
         "demo:query:goals": () => ok({ rows: [] }),
       },
     );
-    await waitFor(() => expect(screen.getByText("demo:jobs-empty")).toBeTruthy());
-    expect(screen.getByText("demo:jobs-empty-hint")).toBeTruthy();
-    expect(screen.getByText("No entries.")).toBeTruthy();
+    await waitFor(() => screen.getByText("demo:jobs-empty"));
+    screen.getByText("demo:jobs-empty-hint");
+    screen.getByText("No entries.");
   });
 
   test("error: message, retry refetches, a failing panel does not affect its sibling", async () => {
@@ -377,13 +384,13 @@ describe("dashboard panel states", () => {
       },
       "demo:query:feed:healthy": () => ok({ rows: [{ primary: "Still here" }] }),
     });
-    await waitFor(() => expect(screen.getByText("demo:broken could not be loaded")).toBeTruthy());
-    expect(screen.getByText("The other panels are not affected.")).toBeTruthy();
-    expect(screen.getByText("Still here")).toBeTruthy();
+    await waitFor(() => screen.getByText("demo:broken could not be loaded"));
+    screen.getByText("The other panels are not affected.");
+    screen.getByText("Still here");
 
     const before = calls.filter((c) => c.type === "demo:query:feed:broken").length;
     await userEvent.setup().click(screen.getByRole("button", { name: "Try again" }));
-    await waitFor(() => expect(screen.getByText("Recovered")).toBeTruthy());
+    await waitFor(() => screen.getByText("Recovered"));
     expect(calls.filter((c) => c.type === "demo:query:feed:broken").length).toBeGreaterThan(before);
     expect(screen.queryByText("The other panels are not affected.")).toBeNull();
   });
@@ -400,13 +407,13 @@ describe("dashboard panel states", () => {
         },
         "demo:query:feed:healthy": () => ok({ rows: [{ primary: "Still here" }] }),
       });
-      await waitFor(() => expect(screen.getByText("demo:broken could not be loaded")).toBeTruthy());
+      await waitFor(() => screen.getByText("demo:broken could not be loaded"));
       const stampTestId = `dashboard-${twoPanels.id}-updated-at`;
       const stampAtRender = screen.getByTestId(stampTestId).textContent;
 
       clock.mockReturnValue(Date.UTC(2026, 0, 2, 14, 30, 0));
       await userEvent.setup().click(screen.getByRole("button", { name: "Try again" }));
-      await waitFor(() => expect(screen.getByText("Recovered")).toBeTruthy());
+      await waitFor(() => screen.getByText("Recovered"));
       await waitFor(() =>
         expect(screen.getByTestId(stampTestId).textContent).not.toBe(stampAtRender),
       );
@@ -465,8 +472,8 @@ describe("dashboard timeRange, filter and scope", () => {
   test("default range is merged into every panel; ignoreScreenFilter drops only the filter", async () => {
     window.history.replaceState(null, "", "/ranged?region=eu");
     const { calls } = renderDashboard(rangeScreen, kpiHandlers);
-    await waitFor(() => expect(screen.getByText("scoped-7d")).toBeTruthy());
-    await waitFor(() => expect(screen.getByText("global-7d")).toBeTruthy());
+    await waitFor(() => screen.getByText("scoped-7d"));
+    await waitFor(() => screen.getByText("global-7d"));
     expect(calls.find((c) => c.type === "demo:query:kpi:scoped")?.payload).toEqual({
       region: "eu",
       range: "7d",
@@ -482,14 +489,14 @@ describe("dashboard timeRange, filter and scope", () => {
   test("switching the range updates the URL param and re-queries with the new value", async () => {
     window.history.replaceState(null, "", "/ranged");
     renderDashboard(rangeScreen, kpiHandlers);
-    await waitFor(() => expect(screen.getByText("scoped-7d")).toBeTruthy());
+    await waitFor(() => screen.getByText("scoped-7d"));
     const group = screen.getByTestId("dashboard-time-range-range");
     expect(group.getAttribute("role")).toBe("group");
     expect(within(group).getByText("demo:range-7d").getAttribute("aria-pressed")).toBe("true");
 
     await userEvent.setup().click(within(group).getByText("demo:range-30d"));
-    await waitFor(() => expect(screen.getByText("scoped-30d")).toBeTruthy());
-    await waitFor(() => expect(screen.getByText("global-30d")).toBeTruthy());
+    await waitFor(() => screen.getByText("scoped-30d"));
+    await waitFor(() => screen.getByText("global-30d"));
     expect(window.location.search).toContain("range=30d");
     expect(within(group).getByText("demo:range-30d").getAttribute("aria-pressed")).toBe("true");
   });
@@ -497,12 +504,12 @@ describe("dashboard timeRange, filter and scope", () => {
   test("an unknown range in the URL falls back to the default", async () => {
     window.history.replaceState(null, "", "/ranged?range=bogus");
     renderDashboard(rangeScreen, kpiHandlers);
-    await waitFor(() => expect(screen.getByText("scoped-7d")).toBeTruthy());
+    await waitFor(() => screen.getByText("scoped-7d"));
   });
 
   test("scope badge, notice and the 'as of' stamp render in the header", async () => {
     renderDashboard(rangeScreen, kpiHandlers);
-    await waitFor(() => expect(screen.getByTestId("dashboard-ranged-scope")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-ranged-scope"));
     expect(screen.getByTestId("dashboard-ranged-scope").textContent).toContain("demo:scope-badge");
     expect(screen.getByTestId("dashboard-ranged-scope-notice").textContent).toContain(
       "demo:scope-notice",
@@ -539,7 +546,7 @@ describe("dashboard stat panels", () => {
       },
       { locale: "de" },
     );
-    await waitFor(() => expect(screen.getByText("3.140")).toBeTruthy());
+    await waitFor(() => screen.getByText("3.140"));
     const card = screen.getByTestId("dashboard-panel-volume");
     expect(card.querySelector("svg path")).not.toBeNull();
     expect(card.querySelector(".text-status-bad")).not.toBeNull();
@@ -549,7 +556,7 @@ describe("dashboard stat panels", () => {
     renderDashboard(statScreen, {
       "demo:query:kpi:volume": () => ok({ value: "1.200", tone: "ok", points: dayPoints([1, 2]) }),
     });
-    await waitFor(() => expect(screen.getByText("1.200")).toBeTruthy());
+    await waitFor(() => screen.getByText("1.200"));
     const card = screen.getByTestId("dashboard-panel-volume");
     expect(card.querySelector(".text-status-ok")).not.toBeNull();
     expect(card.querySelector(".text-primary")).toBeNull();
@@ -582,8 +589,8 @@ describe("dashboard stat panels", () => {
         "demo:query:kpi:text": () => ok({ value: "99,98 %" }),
       },
     );
-    await waitFor(() => expect(screen.getByText("2.5")).toBeTruthy());
-    expect(screen.getByText("99,98 %")).toBeTruthy();
+    await waitFor(() => screen.getByText("2.5"));
+    screen.getByText("99,98 %");
   });
 
   test("stat-group without label renders a flat KPI strip with sparkline, no section title", async () => {
@@ -620,10 +627,10 @@ describe("dashboard stat panels", () => {
         "demo:query:kpi:failed": () => ok({ value: 7 }),
       },
     );
-    await waitFor(() => expect(screen.getByText("1,200")).toBeTruthy());
+    await waitFor(() => screen.getByText("1,200"));
     const strip = screen.getByTestId("dashboard-panel-kpis");
-    expect(within(strip).getByText("demo:sent")).toBeTruthy();
-    expect(within(strip).getByText("7")).toBeTruthy();
+    within(strip).getByText("demo:sent");
+    within(strip).getByText("7");
     expect(strip.querySelector("svg path")).not.toBeNull();
     expect(screen.queryByRole("heading")).toBeNull();
   });
@@ -664,9 +671,9 @@ describe("dashboard list columns", () => {
           }),
       },
     );
-    await waitFor(() => expect(screen.getByText("Nightly")).toBeTruthy());
+    await waitFor(() => screen.getByText("Nightly"));
     expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("50");
-    expect(screen.getByText("50%")).toBeTruthy();
+    screen.getByText("50%");
     const badge = screen.getByText("Failed");
     expect(badge.className).toContain("bg-status-bad-surface");
   });
@@ -695,7 +702,7 @@ describe("dashboard list columns", () => {
           ok({ rows: [{ id: "n1", name: "Nightly", note: "", other: "" }], nextCursor: null }),
       },
     );
-    await waitFor(() => expect(screen.getByText("Nightly")).toBeTruthy());
+    await waitFor(() => screen.getByText("Nightly"));
     const placeholders = screen.getAllByText(EMPTY_VALUE_PLACEHOLDER);
     expect(placeholders).toHaveLength(1);
   });
@@ -741,7 +748,7 @@ describe("dashboard list columns", () => {
           }),
       },
     );
-    await waitFor(() => expect(screen.getByText("Invoice 1")).toBeTruthy());
+    await waitFor(() => screen.getByText("Invoice 1"));
     const link = screen.getByRole("link", { name: "Remind" });
     for (const token of LINK_BUTTON_CLASS.split(" ")) expect(link.className).toContain(token);
     expect(screen.queryByRole("columnheader")).toBeNull();
@@ -809,9 +816,9 @@ describe("dashboard list columns", () => {
           }),
       },
     );
-    await waitFor(() => expect(screen.getByText("Nightly")).toBeTruthy());
+    await waitFor(() => screen.getByText("Nightly"));
     expect(screen.queryByText("2026-10-01T12:34:56.789Z")).toBeNull();
-    expect(screen.getByText(/Oct 1, 2026/)).toBeTruthy();
+    screen.getByText(/Oct 1, 2026/);
     expect(screen.queryByText("not-a-date")).toBeNull();
   });
 
@@ -845,7 +852,7 @@ describe("dashboard list columns", () => {
           ok({ rows: [{ id: "p-123", name: "Boiler house" }], nextCursor: null }),
       },
     );
-    await waitFor(() => expect(screen.getByText("Boiler house")).toBeTruthy());
+    await waitFor(() => screen.getByText("Boiler house"));
     expect(screen.queryByText("p-123")).toBeNull();
   });
 
@@ -917,9 +924,9 @@ describe("dashboard list columns", () => {
       },
       { locale: "en" },
     );
-    await waitFor(() => expect(screen.getByText("plain text")).toBeTruthy());
+    await waitFor(() => screen.getByText("plain text"));
     expect(screen.queryByText("kumiko.actions.create")).toBeNull();
-    expect(screen.getByText("sessions:job:cleanup")).toBeTruthy();
+    screen.getByText("sessions:job:cleanup");
   });
 });
 
@@ -969,8 +976,8 @@ describe("dashboard translatable panel texts", () => {
       },
       i18nOptions,
     );
-    await waitFor(() => expect(screen.getByText("99 %")).toBeTruthy());
-    expect(screen.getByText("4 open")).toBeTruthy();
+    await waitFor(() => screen.getByText("99 %"));
+    screen.getByText("4 open");
   });
 
   test("a stat value can be an i18n object", async () => {
@@ -991,7 +998,7 @@ describe("dashboard translatable panel texts", () => {
       { "demo:query:kpi:dur": () => ok({ value: duration }) },
       i18nOptions,
     );
-    await waitFor(() => expect(screen.getByText("1 year 3 months")).toBeTruthy());
+    await waitFor(() => screen.getByText("1 year 3 months"));
   });
 
   test("nested plural params and money/date params resolve before translation", async () => {
@@ -1021,11 +1028,9 @@ describe("dashboard translatable panel texts", () => {
       },
       i18nOptions,
     );
-    await waitFor(() =>
-      expect(screen.getByText("Price €1,234.56 since Jan 15, 2026")).toBeTruthy(),
-    );
-    expect(screen.getByText("1 year 3 months")).toBeTruthy();
-    expect(screen.getByText("Plain row")).toBeTruthy();
+    await waitFor(() => screen.getByText("Price €1,234.56 since Jan 15, 2026"));
+    screen.getByText("1 year 3 months");
+    screen.getByText("Plain row");
   });
 
   test("progress-list label and value are translated", async () => {
@@ -1051,8 +1056,8 @@ describe("dashboard translatable panel texts", () => {
       },
       i18nOptions,
     );
-    await waitFor(() => expect(screen.getByText("Task A")).toBeTruthy());
-    expect(screen.getByText("1 year 3 months")).toBeTruthy();
+    await waitFor(() => screen.getByText("Task A"));
+    screen.getByText("1 year 3 months");
   });
 
   test("progress-list title takes its labelParams from fields of the query answer", async () => {
@@ -1076,7 +1081,7 @@ describe("dashboard translatable panel texts", () => {
       },
       i18nOptions,
     );
-    await waitFor(() => expect(screen.getByText("Quota November")).toBeTruthy());
+    await waitFor(() => screen.getByText("Quota November"));
   });
 
   test("an unknown object falls back to a placeholder instead of crashing", async () => {
@@ -1089,7 +1094,7 @@ describe("dashboard translatable panel texts", () => {
       { "demo:query:feed:rows": () => ok({ rows: [{ primary: { nonsense: true } }] }) },
       i18nOptions,
     );
-    await waitFor(() => expect(screen.getByText("—")).toBeTruthy());
+    await waitFor(() => screen.getByText("—"));
   });
 
   test("marker labels are translated in stacked-area and timeseries", async () => {
@@ -1107,7 +1112,7 @@ describe("dashboard translatable panel texts", () => {
       },
       i18nOptions,
     );
-    await waitFor(() => expect(screen.getByTestId("chart-marker-item")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("chart-marker-item"));
     expect(screen.getByTestId("chart-marker-item").textContent).toContain("Deploy prod");
   });
 
@@ -1127,7 +1132,7 @@ describe("dashboard translatable panel texts", () => {
       },
       i18nOptions,
     );
-    await waitFor(() => expect(screen.getByTestId("chart-marker-item")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("chart-marker-item"));
     expect(screen.getByTestId("chart-marker-item").textContent).toContain("Deploy stage");
   });
 });
@@ -1154,7 +1159,7 @@ describe("dashboard currency valueFormat and scrollable charts", () => {
       { "demo:query:kpi:revenue": () => ok({ value: 123456 }) },
       { locale: "en" },
     );
-    await waitFor(() => expect(screen.getByText("€1,234.56")).toBeTruthy());
+    await waitFor(() => screen.getByText("€1,234.56"));
   });
 
   test("chart legend totals and y ticks use the currency format; fractionDigits trims decimals", async () => {
@@ -1170,8 +1175,8 @@ describe("dashboard currency valueFormat and scrollable charts", () => {
       },
       { locale: "en" },
     );
-    await waitFor(() => expect(screen.getByTestId("chart-legend-ok")).toBeTruthy());
-    expect(within(screen.getByTestId("chart-legend-ok")).getByText("€1,000")).toBeTruthy();
+    await waitFor(() => screen.getByTestId("chart-legend-ok"));
+    within(screen.getByTestId("chart-legend-ok")).getByText("€1,000");
     expect(screen.getByTestId("dashboard-chart-main").textContent).toContain("€500");
   });
 
@@ -1190,18 +1195,18 @@ describe("dashboard currency valueFormat and scrollable charts", () => {
     renderDashboard(chartScreen("stacked-area", { scrollable: true }), {
       "demo:query:metric:chart": () => ok(wideArea),
     });
-    await waitFor(() => expect(screen.getByTestId("chart-scroll-container")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("chart-scroll-container"));
     const content = screen.getByTestId("chart-scroll-content");
     expect(content.style.minWidth).toBe("100%");
     expect(Number.parseInt(content.style.width, 10)).toBeGreaterThan(300);
-    expect(screen.getByTestId("chart-today-line")).toBeTruthy();
+    screen.getByTestId("chart-today-line");
   });
 
   test("a stacked-area chart without scrollable has no scroll container", async () => {
     renderDashboard(chartScreen("stacked-area"), {
       "demo:query:metric:chart": () => ok(wideArea),
     });
-    await waitFor(() => expect(screen.getByTestId("dashboard-chart-main")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-chart-main"));
     expect(screen.queryByTestId("chart-scroll-container")).toBeNull();
   });
 });
@@ -1290,7 +1295,7 @@ describe("dashboard panel gates (visibleWhen)", () => {
       ...panelHandlers,
       "demo:query:portfolio:state": () => ok({ state: "empty" }),
     });
-    await waitFor(() => expect(screen.getByText("always-value")).toBeTruthy());
+    await waitFor(() => screen.getByText("always-value"));
     await waitFor(() =>
       expect(calls.filter((c) => c.type === "demo:query:portfolio:state").length).toBeGreaterThan(
         1,
@@ -1323,7 +1328,7 @@ describe("dashboard panel gates (visibleWhen)", () => {
       "event-row",
       "progress-row",
     ]) {
-      await waitFor(() => expect(screen.getByText(text)).toBeTruthy());
+      await waitFor(() => screen.getByText(text));
     }
   });
 
@@ -1338,7 +1343,7 @@ describe("dashboard panel gates (visibleWhen)", () => {
     });
     const cell = await waitFor(() => screen.getByTestId("dashboard-panel-events"));
     await userEvent.click(within(cell).getByRole("button"));
-    await waitFor(() => expect(screen.getByText("event-row")).toBeTruthy());
+    await waitFor(() => screen.getByText("event-row"));
   });
 
   test("a failing gate query shows the error in the panel's cell instead of dropping it", async () => {
@@ -1346,9 +1351,7 @@ describe("dashboard panel gates (visibleWhen)", () => {
       ...panelHandlers,
       "demo:query:portfolio:state": () => failure,
     });
-    await waitFor(() =>
-      expect(within(screen.getByTestId("dashboard-panel-events")).getByRole("alert")).toBeTruthy(),
-    );
+    await waitFor(() => within(screen.getByTestId("dashboard-panel-events")).getByRole("alert"));
     expect(screen.queryByText("event-row")).toBeNull();
   });
 });
@@ -1383,10 +1386,8 @@ describe("dashboard stat-group subtitle, strip icons and progress sub line", () 
       },
       { "demo:query:kpi:assets": () => ok({ value: "120.000 €" }) },
     );
-    await waitFor(() => expect(screen.getByText("120.000 €")).toBeTruthy());
-    expect(
-      within(screen.getByTestId("dashboard-panel-net-worth")).getByText("demo:net-worth-sub"),
-    ).toBeTruthy();
+    await waitFor(() => screen.getByText("120.000 €"));
+    within(screen.getByTestId("dashboard-panel-net-worth")).getByText("demo:net-worth-sub");
   });
 
   function labeledGroup(id: string, valueCount: number, span?: "half" | "full") {
@@ -1461,10 +1462,10 @@ describe("dashboard stat-group subtitle, strip icons and progress sub line", () 
       { "demo:query:kpi:debt": () => ok({ value: "90.000 €" }) },
       { extensionSections: { "kpi-icon": KpiIcon } },
     );
-    await waitFor(() => expect(screen.getByTestId("kpi-icon")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("kpi-icon"));
     const chip = screen.getByTestId("kpi-icon").parentElement;
     expect(chip?.getAttribute("style") ?? "").toContain("#123456");
-    expect(within(screen.getByTestId("dashboard-panel-debt")).getByText("demo:debt")).toBeTruthy();
+    within(screen.getByTestId("dashboard-panel-debt")).getByText("demo:debt");
   });
 
   test("a progress row sub line is translated", async () => {
@@ -1491,7 +1492,7 @@ describe("dashboard stat-group subtitle, strip icons and progress sub line", () 
       },
       { locale: "en", translations: { en: { "demo.paid": "{pct} % paid off" } } },
     );
-    await waitFor(() => expect(screen.getByText("40 % paid off")).toBeTruthy());
+    await waitFor(() => screen.getByText("40 % paid off"));
   });
 
   describe("progress-list used/limit rows", () => {
@@ -1527,7 +1528,7 @@ describe("dashboard stat-group subtitle, strip icons and progress sub line", () 
 
     test("limit null shows unlimited and renders no bar", async () => {
       renderProgressRows([{ label: "Users", used: 12, limit: null }]);
-      expect(await screen.findByText("12 / unlimited")).toBeTruthy();
+      await screen.findByText("12 / unlimited");
       expect(screen.queryByRole("progressbar")).toBeNull();
     });
 
@@ -1569,7 +1570,7 @@ describe("dashboard stat-group subtitle, strip icons and progress sub line", () 
 
     test("a half-filled used/limit pair falls back to fraction mode", async () => {
       renderProgressRows([{ label: "Loan", value: "x", fraction: 0.5, used: 3 }]);
-      expect(await screen.findByText("x")).toBeTruthy();
+      await screen.findByText("x");
     });
   });
 });
@@ -1605,7 +1606,7 @@ describe("dashboard stacked-area lines, marker kinds and ranges", () => {
       }),
       { "demo:query:metric:chart": () => ok(planPayload) },
     );
-    await waitFor(() => expect(screen.getByTestId("chart-line-rent")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("chart-line-rent"));
     expect(screen.getByTestId("chart-line-rent").getAttribute("stroke")).toBe("var(--color-rent)");
     expect(screen.getByTestId("chart-line-rent-min").getAttribute("stroke-dasharray")).toBe("6 4");
     expect(screen.getByTestId("chart-legend-line-rent").textContent).toBe("demo:rent");
@@ -1631,7 +1632,7 @@ describe("dashboard stacked-area lines, marker kinds and ranges", () => {
       }),
       { "demo:query:metric:chart": () => ok(planPayload) },
     );
-    await waitFor(() => expect(screen.getByTestId("chart-line-rent")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("chart-line-rent"));
     const rangeSwitch = screen.getByTestId("dashboard-chart-range-main");
     expect(rangeSwitch.closest("header")).not.toBeNull();
     expect(screen.getAllByTestId("chart-marker-pin")).toHaveLength(2);
@@ -1690,7 +1691,7 @@ describe("dashboard stacked-area lines, marker kinds and ranges", () => {
       "demo:query:kpi:scoped": () => ok({ value: "scoped-value" }),
       "demo:query:kpi:global": () => ok({ value: "global-value" }),
     });
-    await waitFor(() => expect(screen.getByTestId("chart-line-rent")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("chart-line-rent"));
     const rangeSwitch = screen.getByTestId("dashboard-chart-range-main");
     const max = within(rangeSwitch).getByRole("button", { name: "demo:range-max" });
     await userEvent.click(max);
@@ -1703,7 +1704,7 @@ describe("dashboard stacked-area lines, marker kinds and ranges", () => {
     await waitFor(() =>
       expect(calls.some((c) => c.type === gate.query && c.payload["region"] === "eu")).toBe(true),
     );
-    await waitFor(() => expect(screen.getByText("scoped-value")).toBeTruthy());
+    await waitFor(() => screen.getByText("scoped-value"));
     expect(
       within(screen.getByTestId("dashboard-chart-range-main"))
         .getByRole("button", { name: "demo:range-max" })
@@ -1725,7 +1726,7 @@ describe("dashboard stacked-area lines, marker kinds and ranges", () => {
       }),
       { "demo:query:metric:chart": () => ok(planPayload) },
     );
-    await waitFor(() => expect(screen.getByTestId("dashboard-chart-main-brush")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-chart-main-brush"));
     const rangeSwitch = screen.getByTestId("dashboard-chart-range-main");
     expect(rangeSwitch.closest("header")).not.toBeNull();
     expect(screen.getByTestId("dashboard-chart-main").contains(rangeSwitch)).toBe(false);
@@ -1743,7 +1744,7 @@ describe("dashboard stacked-area lines, marker kinds and ranges", () => {
     renderDashboard(chartScreen("stacked-area", { brush: true }), {
       "demo:query:metric:chart": () => ok({ ...planPayload, todayMs: monthAt(12) }),
     });
-    await waitFor(() => expect(screen.getByTestId("dashboard-chart-main-brush")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-chart-main-brush"));
     expect(screen.queryByTestId("dashboard-chart-range-main")).toBeNull();
     expect(screen.getAllByRole("slider")[0]?.getAttribute("aria-valuenow")).toBe("12");
   });
@@ -1761,7 +1762,7 @@ describe("dashboard stacked-area lines, marker kinds and ranges", () => {
       chartScreen("stacked-area", { ranges: yearRanges, initialWindow: "from-today" }),
       { "demo:query:metric:chart": () => ok({ ...planPayload, todayMs: monthAt(12) }) },
     );
-    await waitFor(() => expect(screen.getByTestId("chart-line-rent")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("chart-line-rent"));
     const rangeSwitch = screen.getByTestId("dashboard-chart-range-main");
     for (const button of within(rangeSwitch).getAllByRole("button")) {
       expect(button.getAttribute("aria-pressed")).toBe("false");
@@ -1788,7 +1789,7 @@ describe("dashboard stacked-area lines, marker kinds and ranges", () => {
       }),
       { "demo:query:metric:chart": () => ok(planPayload) },
     );
-    await waitFor(() => expect(screen.getByTestId("chart-line-rent")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("chart-line-rent"));
     expect(screen.queryAllByTestId("chart-marker-item")).toHaveLength(0);
     const entries = screen.getAllByTestId(/^chart-legend-marker-/);
     expect(entries.map((entry) => entry.textContent)).toEqual([
@@ -1805,7 +1806,7 @@ describe("dashboard stacked-area lines, marker kinds and ranges", () => {
     renderDashboard(chartScreen("stacked-area", { ranges: yearRanges }), {
       "demo:query:metric:chart": () => ok(planPayload),
     });
-    await waitFor(() => expect(screen.getByTestId("chart-line-rent")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("chart-line-rent"));
     expect(screen.getByTestId("dashboard-chart-main").textContent).not.toContain("2027");
   });
 
@@ -1813,7 +1814,7 @@ describe("dashboard stacked-area lines, marker kinds and ranges", () => {
     renderDashboard(chartScreen("stacked-area", { ranges: yearRanges, dateFormat: "month" }), {
       "demo:query:metric:chart": () => ok(planPayload),
     });
-    await waitFor(() => expect(screen.getByTestId("chart-line-rent")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("chart-line-rent"));
     expect(screen.getByTestId("dashboard-chart-main").textContent).toContain("2027");
   });
 });
@@ -1854,8 +1855,8 @@ describe("dashboard stacked-area panel header and axes", () => {
       { locale: "de-DE" },
     );
     const tick = await screen.findByText(/^1,5\sMio\.\s€$/);
-    expect(screen.getByText(/^750\.000\s€$/)).toBeTruthy();
-    expect(screen.getByText(/^0\s€$/)).toBeTruthy();
+    screen.getByText(/^750\.000\s€$/);
+    screen.getByText(/^0\s€$/);
     expect(tick.parentElement?.textContent).not.toContain("1.500.000,00");
   });
 
@@ -1886,7 +1887,7 @@ describe("dashboard stacked-area panel header and axes", () => {
       ({ left: 0, top: 0, width: 400, height: 100, right: 400, bottom: 100 }) as DOMRect;
     fireEvent.pointerMove(overlay, { pointerType: "mouse", clientX: 200 });
     const card = screen.getByTestId("chart-tooltip");
-    expect(within(card).getByText(/^299\.000\s€$/)).toBeTruthy();
+    within(card).getByText(/^299\.000\s€$/);
   });
 
   test("stacked-bars and timeseries y axes use compact currency while legend totals stay exact", async () => {
@@ -1903,11 +1904,9 @@ describe("dashboard stacked-area panel header and axes", () => {
       },
       { locale: "de-DE" },
     );
-    await waitFor(() => expect(screen.getByTestId("chart-legend-ok")).toBeTruthy());
-    expect(await screen.findByText(/^2\sMio\.\s€$/)).toBeTruthy();
-    expect(
-      within(screen.getByTestId("chart-legend-ok")).getByText(/^1\.500\.000,00\s€$/),
-    ).toBeTruthy();
+    await waitFor(() => screen.getByTestId("chart-legend-ok"));
+    await screen.findByText(/^2\sMio\.\s€$/);
+    within(screen.getByTestId("chart-legend-ok")).getByText(/^1\.500\.000,00\s€$/);
   });
 
   test("timeseries y axis uses compact currency", async () => {
@@ -1923,7 +1922,7 @@ describe("dashboard stacked-area panel header and axes", () => {
       },
       { locale: "de-DE" },
     );
-    await waitFor(() => expect(screen.getByTestId("dashboard-chart-main")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-chart-main"));
     expect(screen.getByTestId("dashboard-chart-main").textContent).toMatch(/Mio\./);
     expect(screen.getByTestId("dashboard-chart-main").textContent).not.toContain("1.500.000,00");
   });
@@ -2072,8 +2071,8 @@ describe("dashboard text panel", () => {
   test("renders every block kind with translated text and the code verbatim", async () => {
     renderDashboard(textDashboard(), {}, { locale: "en", translations });
     const panel = await screen.findByTestId("dashboard-panel-intro");
-    expect(within(panel).getByText("Getting started")).toBeTruthy();
-    expect(within(panel).getByRole("heading", { name: "Step one" })).toBeTruthy();
+    within(panel).getByText("Getting started");
+    within(panel).getByRole("heading", { name: "Step one" });
     const paragraphs = [...panel.querySelectorAll("[data-block=paragraph]")];
     expect(paragraphs.map((p) => p.textContent)).toEqual(["Create a key.", "Keep it secret."]);
     expect(paragraphs[0]?.className).toContain("text-muted-foreground");
@@ -2093,7 +2092,7 @@ describe("dashboard text panel", () => {
     renderDashboard(textDashboard({ label: undefined }), {}, { locale: "en", translations });
     const panel = await screen.findByTestId("dashboard-panel-intro");
     expect(panel.querySelector("h2")).toBeNull();
-    expect(within(panel).getByText("Create a key.")).toBeTruthy();
+    within(panel).getByText("Create a key.");
   });
 
   test.each([
@@ -2107,7 +2106,7 @@ describe("dashboard text panel", () => {
     );
     await waitFor(() => expect(calls.some((c) => c.type === "demo:query:gate")).toBe(true));
     if (visible) {
-      expect(await screen.findByTestId("dashboard-panel-intro")).toBeTruthy();
+      await screen.findByTestId("dashboard-panel-intro");
     } else {
       await act(async () => {
         await Promise.resolve();
@@ -2146,7 +2145,7 @@ describe("dashboard feed showTotal", () => {
       { "demo:query:feed:dates": () => ok({ ...rows, total: 7 }) },
       { locale: "en", translations: { en: { "demo:count": "{total}" } } },
     );
-    expect(await screen.findByText("7")).toBeTruthy();
+    await screen.findByText("7");
   });
 });
 
@@ -2188,7 +2187,7 @@ describe("dashboard list showTotal, footer link and stat-group link", () => {
       "demo:query:jobs:list": () => ok({ rows: [{ name: "A" }, { name: "B" }], total: 5 }),
       "demo:query:kpi:late": () => ok({ value: "3" }),
     });
-    await waitFor(() => expect(screen.getByTestId("dashboard-list-more")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-list-more"));
     expect(screen.getByTestId("dashboard-list-more").textContent).toContain("3");
     expect(screen.getByTestId("dashboard-list-footer-link").textContent).toBe("demo:all-jobs");
     expect(screen.getByTestId("dashboard-stat-group-link").textContent).toContain("demo:open-jobs");
@@ -2199,7 +2198,7 @@ describe("dashboard list showTotal, footer link and stat-group link", () => {
       "demo:query:jobs:list": () => ok({ rows: [{ name: "A" }] }),
       "demo:query:kpi:late": () => ok({ value: "3" }),
     });
-    await waitFor(() => expect(screen.getByTestId("dashboard-list-footer-link")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-list-footer-link"));
     expect(screen.queryByTestId("dashboard-list-more")).toBeNull();
   });
 
@@ -2211,7 +2210,7 @@ describe("dashboard list showTotal, footer link and stat-group link", () => {
       { ...listScreen, panels: [{ ...listPanel, footerLink: { screen: "jobs" } }] },
       { "demo:query:jobs:list": () => ok({ rows: [{ name: "A" }, { name: "B" }], total: 5 }) },
     );
-    await waitFor(() => expect(screen.getByTestId("dashboard-list-more")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-list-more"));
     expect(screen.getByTestId("dashboard-list-more").textContent).toContain("3");
     expect(screen.queryByTestId("dashboard-list-footer-link")).toBeNull();
   });
@@ -2231,7 +2230,7 @@ describe("dashboard board gaps: cards layout, subtitle fallback, gated tiles", (
       },
       { "demo:query:kpi:a": () => ok({ v: "7" }) },
     );
-    await waitFor(() => expect(screen.getByText("7")).toBeTruthy());
+    await waitFor(() => screen.getByText("7"));
     const panel = screen.getByTestId("dashboard-panel-plain");
     expect(panel.querySelector("h2")).toBeNull();
     expect(panel.querySelector("section.grid")?.className).toContain("auto-fit");
@@ -2256,7 +2255,7 @@ describe("dashboard board gaps: cards layout, subtitle fallback, gated tiles", (
       },
       { "demo:query:jobs:list": () => new Promise(() => {}) },
     );
-    await waitFor(() => expect(screen.getByText("demo:now-sub")).toBeTruthy());
+    await waitFor(() => screen.getByText("demo:now-sub"));
     expect(screen.queryByTestId("dashboard-list-footer-link")).toBeNull();
   });
 
@@ -2298,7 +2297,7 @@ describe("dashboard board gaps: cards layout, subtitle fallback, gated tiles", (
       { "demo:query:kpi:a": () => ok({ v: "7" }) },
       { appFeatures: [gated] },
     );
-    await waitFor(() => expect(screen.getByTestId("dashboard-panel-open")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-panel-open"));
     expect(screen.queryByTestId("dashboard-panel-locked")).toBeNull();
   });
 });
@@ -2351,7 +2350,7 @@ describe("dashboard titled stat strip with a gated tile", () => {
       { appFeatures: [gated] },
     );
     const group = await screen.findByTestId("dashboard-panel-counts");
-    await waitFor(() => expect(within(group).getByText("demo:open")).toBeTruthy());
+    await waitFor(() => within(group).getByText("demo:open"));
     expect(within(group).queryByText("demo:locked")).toBeNull();
     const cells = group.querySelectorAll(".items-stretch > div");
     expect(cells).toHaveLength(1);
@@ -2399,7 +2398,55 @@ describe("dashboard stat-group strip with a group link and a navigating tile", (
     const group = screen.getByTestId("dashboard-panel-counts");
     const raised = group.querySelectorAll(".max-sm\\:z-10");
     expect(raised).toHaveLength(1);
-    expect(within(raised[0] as HTMLElement).getByText("demo:late")).toBeTruthy();
+    within(raised[0] as HTMLElement).getByText("demo:late");
     expect(within(raised[0] as HTMLElement).queryByText("demo:open")).toBeNull();
+  });
+});
+
+describe("dashboard resultField", () => {
+  const OVERVIEW_QUERY = "demo:query:overview:today";
+  const overviewScreen: DashboardScreenDefinition = {
+    id: "overview",
+    type: "dashboard",
+    panels: [
+      {
+        kind: "stat",
+        id: "open",
+        label: "demo:open",
+        query: OVERVIEW_QUERY,
+        resultField: "stats",
+        valueField: "open",
+      },
+      {
+        kind: "stat",
+        id: "closed",
+        label: "demo:closed",
+        query: OVERVIEW_QUERY,
+        resultField: "stats",
+        valueField: "closed",
+      },
+      {
+        kind: "list",
+        id: "recent",
+        label: "demo:recent",
+        query: OVERVIEW_QUERY,
+        resultField: "recent",
+        columns: ["title"],
+      },
+    ],
+  };
+
+  test("panels on one query share one request and each reads its own field", async () => {
+    const { calls } = renderDashboard(overviewScreen, {
+      [OVERVIEW_QUERY]: () =>
+        ok({
+          stats: { open: 3, closed: 8 },
+          recent: { rows: [{ title: "Printer broken" }], nextCursor: null, total: 1 },
+        }),
+    });
+    await waitFor(() => screen.getByText("Printer broken"));
+    expect(screen.getByTestId("dashboard-panel-open").textContent).toContain("3");
+    expect(screen.getByTestId("dashboard-panel-closed").textContent).toContain("8");
+    expect(calls.filter((call) => call.type === OVERVIEW_QUERY)).toHaveLength(1);
   });
 });

@@ -7,12 +7,8 @@ import { render } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import type { EditFieldViewModel } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
-import {
-  type CorePrimitives,
-  type InputProps,
-  PrimitivesProvider,
-  type TextProps,
-} from "../../primitives.tsx";
+import { type InputProps, PrimitivesProvider, type TextProps } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RenderField } from "../render-field.tsx";
 
 let capturedInput: InputProps | undefined;
@@ -28,7 +24,7 @@ const captureText: ComponentType<TextProps> = (props) => {
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: noop,
   Field: passChildren,
@@ -47,7 +43,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function textField(overrides: Partial<EditFieldViewModel> = {}): EditFieldViewModel {
   return {

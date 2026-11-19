@@ -32,7 +32,7 @@ import {
   type ScanSpec,
 } from "./_lib/guard-kit";
 import { resolveRepoRoots } from "./_lib/roots";
-import { TEST_FILE_RE } from "./_lib/test-file";
+import { isTestFilePath } from "./_lib/test-file";
 
 const SCAN: ScanSpec = {
   kinds: ALL_REPO_KINDS,
@@ -48,10 +48,6 @@ const ASSIGNMENT = String.raw`"?kumiko\.[\w.]+"?\s*(?:=|TO\s+['"$\d])`;
 const SESSION_SET_RE = new RegExp(String.raw`\bSET\s+(?:SESSION\s+)?${ASSIGNMENT}`, "i");
 const LOCAL_SET_RE = new RegExp(String.raw`\bSET\s+LOCAL\s+${ASSIGNMENT}`, "i");
 const SET_CONFIG_CALL_RE = /\bset_config\s*\(/gi;
-
-function isTestFile(rel: string): boolean {
-  return rel.split("/").includes("__tests__") || TEST_FILE_RE.test(rel);
-}
 
 const QUOTES = "'\"`";
 const OPENERS = "([{";
@@ -122,7 +118,7 @@ function setConfigMessages(text: string, isScopeWriter: boolean, isTest: boolean
 
 function violationsInText(text: string, rel: string): string[] {
   const isScopeWriter = isAllowlisted(rel, SCOPE_WRITER);
-  const isTest = isTestFile(rel);
+  const isTest = isTestFilePath(rel);
   const messages: string[] = [];
   if (SESSION_SET_RE.test(text)) {
     messages.push("SET / SET SESSION on a kumiko.* setting is session-level; use SET LOCAL");

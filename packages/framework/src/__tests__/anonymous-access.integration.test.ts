@@ -35,25 +35,27 @@ const OTHER_TENANT_ID = "00000000-0000-4000-8000-000000000002" as TenantId;
 // --- Feature ---
 
 const productEntity = createEntity({
+  name: "product",
   table: "anon_products",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const productTable = buildEntityTable("product", productEntity);
+const productTable = buildEntityTable(productEntity);
 
 const orderEntity = createEntity({
+  name: "order",
   table: "anon_orders",
   fields: {
     productName: createTextField({ personal: false, reason: "test_fixture", required: true }),
     placedBy: createTextField({ personal: false, reason: "test_fixture", default: "" }),
   },
 });
-const orderTable = buildEntityTable("order", orderEntity);
+const orderTable = buildEntityTable(orderEntity);
 
 const shopFeature = defineFeature("anonshop", (r) => {
-  r.entity({ name: "product", ...productEntity });
-  r.entity({ name: "order", ...orderEntity });
+  r.entity(productEntity);
+  r.entity(orderEntity);
 
   // Public listing — anonymous + authenticated customers see it.
   r.queryHandler({
@@ -333,11 +335,13 @@ describe("anonymous access — header-supplied tenant", () => {
       { "X-Tenant": "not-a-uuid" },
     );
     expect(res.status).toBe(400);
-    const body = (await res.json()) as {
+    const text = await res.text();
+    expect(text).not.toContain("not-a-uuid");
+    const body = JSON.parse(text) as {
       error: { code: string; details: { source: string } };
     };
     expect(body.error.code).toBe("invalid_tenant_format");
-    expect(body.error.details.source).toBe("X-Tenant header");
+    expect(body.error.details).toEqual({ source: "X-Tenant header" });
   });
 
   test("missing tenant → 400 tenant_required", async () => {

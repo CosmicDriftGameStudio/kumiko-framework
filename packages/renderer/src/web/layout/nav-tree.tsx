@@ -88,9 +88,9 @@ const EMPTY_BADGES: ReadonlyMap<string, ReactNode> = new Map();
 const NavBadgesContext = createContext<ReadonlyMap<string, ReactNode>>(EMPTY_BADGES);
 
 // The filter is inactive when `q` is empty (`matches` accepts everything).
-// `matches` receives the raw label (i18n key or literal text) and translates it
-// internally, so the search field filters visible text rather than the key.
-type NavFilter = { readonly q: string; readonly matches: (rawLabel: string) => boolean };
+// `matches` resolves the node's label the way the tree shows it, so the search
+// field filters visible text rather than the key.
+type NavFilter = { readonly q: string; readonly matches: (node: NavNode) => boolean };
 const NavFilterContext = createContext<NavFilter>({ q: "", matches: () => true });
 
 // Which nav node should highlight for the current route. `exact` means the
@@ -130,8 +130,8 @@ function containerPathToScreen(
 // sufficient. ponytail: a provider that is still NOT loaded during filtering
 // (because the user collapsed it) is expanded via the force-expand in
 // useNavNodeState, then loaded and filtered.
-function subtreeMatches(node: NavNode, matches: (rawLabel: string) => boolean): boolean {
-  return matches(node.label) || node.children.some((c) => subtreeMatches(c, matches));
+function subtreeMatches(node: NavNode, matches: (node: NavNode) => boolean): boolean {
+  return matches(node) || node.children.some((c) => subtreeMatches(c, matches));
 }
 
 export function NavTree({
@@ -185,6 +185,18 @@ export function NavTree({
     if (path !== undefined) revealOnScreenChange(revealScreenId, path);
   }, [revealScreenId, revealOnScreenChange]);
 
+  // Runs after every commit because the reveal above only renders a collapsed path's entry in the
+  // next commit; the ref keeps a later collapse elsewhere from pulling the list back.
+  const treeElementRef = useRef<HTMLDivElement>(null);
+  const scrolledScreenIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (revealScreenId === undefined || scrolledScreenIdRef.current === revealScreenId) return;
+    const activeEntry = treeElementRef.current?.querySelector('[data-active="true"]');
+    if (activeEntry === null || activeEntry === undefined) return;
+    scrolledScreenIdRef.current = revealScreenId;
+    activeEntry.scrollIntoView({ block: "nearest" });
+  });
+
   const t = useTranslation();
   const plain = useShellNavStyle() === "plain";
   const { state: sidebarState } = useSidebar();
@@ -197,8 +209,8 @@ export function NavTree({
   }, [sidebarState]);
   const q = filter.trim().toLowerCase();
   const matches = useCallback(
-    (raw: string): boolean => {
-      return navLabel(t, raw).toLowerCase().includes(q);
+    (node: NavNode): boolean => {
+      return resolveNavLabel(t, node).toLowerCase().includes(q);
     },
     [t, q],
   );
@@ -209,6 +221,7 @@ export function NavTree({
       <NavFilterContext.Provider value={navFilter}>
         <NavBadgesContext.Provider value={navBadges ?? EMPTY_BADGES}>
           <div
+            ref={treeElementRef}
             data-testid={testId}
             data-kumiko-layout="nav-tree"
             className="flex w-full flex-col gap-3"
@@ -340,8 +353,16 @@ function navLabel(t: ReturnType<typeof useTranslation>, raw: string): string {
   return raw.includes(".") ? t(raw) : raw;
 }
 
+function resolveNavLabel(t: ReturnType<typeof useTranslation>, node: NavNode): string {
+  if (node.labelKey !== undefined) {
+    const translated = t(node.labelKey);
+    if (translated !== node.labelKey) return translated;
+  }
+  return navLabel(t, node.label);
+}
+
 function useLabel(node: NavNode): string {
-  return navLabel(useTranslation(), node.label);
+  return resolveNavLabel(useTranslation(), node);
 }
 
 // Without an icon only the collapsed rail shows the initial letter; expanded,
@@ -426,6 +447,7 @@ function treeNodeToNavNode(tn: TreeNode, parentQn: string, idx: number): NavNode
   return {
     qualifiedName,
     label: tn.label,
+    ...(tn.labelKey !== undefined && { labelKey: tn.labelKey }),
     order: idx,
     children,
     ...(tn.icon !== undefined && { icon: tn.icon }),
@@ -561,7 +583,7 @@ function useNavNodeState(node: NavNode, collapsed: ReadonlySet<string>): NavNode
     childNodes: visibleChildNodes,
     // A filtered node is hidden only when neither it nor a visible child matches;
     // otherwise an empty folder header would remain.
-    hidden: filterActive && !matches(node.label) && visibleChildNodes.length === 0,
+    hidden: filterActive && !matches(node) && visibleChildNodes.length === 0,
     providerLoading: node.provider === true && isExpanded && providerChildren === null,
     providerError,
     workspaceId: nav.route?.workspaceId,
@@ -745,7 +767,7 @@ function NavSection({ node, collapsed, onToggle }: NavSubProps): ReactNode {
   // hides itself.
   if (
     q !== "" &&
-    !matches(node.label) &&
+    !matches(node) &&
     !node.children.some((c) => c.provider === true || subtreeMatches(c, matches))
   ) {
     return null;

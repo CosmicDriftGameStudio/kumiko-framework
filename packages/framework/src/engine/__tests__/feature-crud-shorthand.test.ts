@@ -4,6 +4,7 @@ import { defineFeature } from "../define-feature.ts";
 import { createEntity, createTextField } from "../factories.ts";
 
 const taskEntity = createEntity({
+  name: "task",
   table: "crud_shorthand_tasks",
   fields: { title: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
   softDelete: true,
@@ -17,7 +18,7 @@ describe("r.crud", () => {
     } as const;
 
     const feature = defineFeature("via-crud", (r) => {
-      r.crud("task", taskEntity, { write, read });
+      r.crud(taskEntity, { write, read });
     });
 
     expect(Object.keys(feature.entities ?? {})).toEqual(["task"]);
@@ -36,7 +37,7 @@ describe("r.crud", () => {
     } as const;
 
     const feature = defineFeature("via-crud-no-verb-access", (r) => {
-      r.crud("task", taskEntity, { write, read });
+      r.crud(taskEntity, { write, read });
     });
 
     for (const verb of ["create", "update", "delete", "restore"] as const) {
@@ -57,7 +58,7 @@ describe("r.crud", () => {
     const listAccess = { roles: ["Auditor"] } as const;
 
     const feature = defineFeature("via-crud-verb-access", (r) => {
-      r.crud("task", taskEntity, {
+      r.crud(taskEntity, {
         write,
         read,
         verbAccess: { delete: deleteAccess, restore: restoreAccess, list: listAccess },
@@ -80,7 +81,7 @@ describe("duplicate handler names inside one feature", () => {
   test("a custom query named like an r.crud handler throws and names the cause", () => {
     expect(() =>
       defineFeature("dup-crud", (r) => {
-        r.crud("task", taskEntity, crudAccess);
+        r.crud(taskEntity, crudAccess);
         r.queryHandler({
           name: "task:detail",
           schema: z.object({}),
@@ -89,21 +90,21 @@ describe("duplicate handler names inside one feature", () => {
         });
       }),
     ).toThrow(
-      /Feature "dup-crud" registers the query handler "task:detail" twice\. r\.crud\("task", \.\.\.\) already registers that name; use a distinct name or drop the "detail" verb from r\.crud\./,
+      /Feature "dup-crud" registers the query handler "task:detail" twice\. r\.crud\(\) for "task" already registers that name; use a distinct name or drop the "detail" verb from r\.crud\./,
     );
   });
 
   test("the order does not matter: r.crud after the custom handler throws too", () => {
     expect(() =>
       defineFeature("dup-crud-after", (r) => {
-        r.entity({ name: "task", ...taskEntity });
+        r.entity(taskEntity);
         r.writeHandler({
           name: "task:create",
           schema: z.object({}),
           handler: async () => ({ isSuccess: true, data: {} }),
           access: { roles: ["Admin"] },
         });
-        r.crud("task", taskEntity, crudAccess);
+        r.crud(taskEntity, crudAccess);
       }),
     ).toThrow(/registers the write handler "task:create" twice/);
   });

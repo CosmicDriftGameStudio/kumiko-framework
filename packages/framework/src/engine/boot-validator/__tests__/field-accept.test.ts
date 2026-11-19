@@ -10,23 +10,23 @@ import { validateFieldConditions } from "../field-conditions.ts";
 
 function featureWithImage(accept: readonly string[]) {
   return defineFeature("docs", (r) => {
-    r.entity({
-      name: "doc",
-      ...createEntity({
+    r.entity(
+      createEntity({
+        name: "doc",
         fields: { cover: createImageField({ accept, personal: false, reason: "x" }) },
       }),
-    });
+    );
   });
 }
 
 function featureWithEmbeddedFiles(accept: readonly string[]) {
   return defineFeature("docs", (r) => {
-    r.entity({
-      name: "doc",
-      ...createEntity({
+    r.entity(
+      createEntity({
+        name: "doc",
         fields: { rows: createEmbeddedListField({ scans: { type: "files", accept } }) },
       }),
-    });
+    );
   });
 }
 
@@ -57,10 +57,12 @@ describe("validateFieldConditions — file accept entries", () => {
 
   test("files fields are checked", () => {
     const feature = defineFeature("docs", (r) => {
-      r.entity({
-        name: "doc",
-        ...createEntity({ fields: { attachments: createFilesField({ accept: ["*.pdf"] }) } }),
-      });
+      r.entity(
+        createEntity({
+          name: "doc",
+          fields: { attachments: createFilesField({ accept: ["*.pdf"] }) },
+        }),
+      );
     });
     expect(() => validateFieldConditions(feature)).toThrow(/accept entry "\*\.pdf"/);
   });

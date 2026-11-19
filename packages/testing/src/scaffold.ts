@@ -17,12 +17,8 @@ export type ScaffoldTestSetup = {
 export type RenderTestSetupInput = {
   readonly appName: string;
   readonly frameworkVersion: string;
-  readonly port?: number;
   readonly starter?: ScaffoldTestStarter;
 };
-
-// One above the scaffold's `bun dev` default (4173) so both can run side by side.
-export const SCAFFOLD_E2E_PORT = 4174;
 
 export const SCAFFOLD_INTEGRATION_PARALLEL = 4;
 
@@ -43,7 +39,7 @@ const RULES_MARKDOWN = [
   "- Three classes, told apart by file name: `*.test.ts` (unit, no services), `*.integration.test.ts` (real Postgres/Redis stack), `e2e/*.spec.ts` (Playwright against a booted app).",
   "- Run them with `bun run test`, `bun run test:integration` and `bun run e2e`. Integration and e2e need `docker compose up -d` and a `.env` (copy `.env.example`).",
   `- Real-provider tests only run with \`${REAL_PROVIDERS_ENV}=1\`, via \`bun run test:real\` / \`bun run e2e:real\`, locally and never in CI.`,
-  "- Tests run in parallel by default. Timeouts, retries and workers live in the scripts, the bunfig files and `playwright.config.ts`; never raise them inside a test. The only exception carries a marker: `// @timeout-exception: #<issue> <reason>`.",
+  "- Tests run in parallel by default. Timeouts, retries and workers live in the scripts, the bunfig files and `playwright.config.ts`; never raise them inside a test. The only exception carries a marker: `// kumiko-lint-ignore test-timeouts #<issue> <reason>`.",
   "- Every flow seeds its own tenant: `seedTenant(stack)` in integration tests, the `seedTenant` fixture in e2e. No shared tenant, no widened seed helper.",
   "- Red or flaky? Diagnose the cause first (https://github.com/CosmicDriftGameStudio/kumiko-framework/blob/main/docs/guides/test-failures.md). A longer timeout, a retry or `serial` is not a fix.",
   "- Why the setup looks this way, and the old-pattern → new-pattern table: https://github.com/CosmicDriftGameStudio/kumiko-framework/blob/main/docs/guides/testing-standard.md.",
@@ -52,12 +48,13 @@ const RULES_MARKDOWN = [
   "",
 ].join("\n");
 
-function renderPlaywrightConfig(port: number): string {
+function renderPlaywrightConfig(): string {
   return [
     TEST_RUNTIME_DIRECTIVE,
     'import { defineAppE2eConfig } from "@cosmicdrift/kumiko-testing/e2e";',
+    'import appConfig from "./kumiko.config";',
     "",
-    `export default defineAppE2eConfig({ port: ${port} });`,
+    "export default defineAppE2eConfig({ port: appConfig.ports.e2e });",
     "",
   ].join("\n");
 }
@@ -160,8 +157,8 @@ function renderUnitTest(): string {
     "    const features = composeFeatures([...APP_FEATURES], { includeBundled: HAS_AUTH });",
     "    validateBoot(features);",
     "    const registry = createRegistry(features);",
-    `    expect(registry.getWriteHandler(${JSON.stringify(TASK_CREATE)})).toBeDefined();`,
-    `    expect(registry.getQueryHandler(${JSON.stringify(TASK_LIST)})).toBeDefined();`,
+    `    expect([...registry.getAllWriteHandlers().keys()]).toContain(${JSON.stringify(TASK_CREATE)});`,
+    `    expect([...registry.getAllQueryHandlers().keys()]).toContain(${JSON.stringify(TASK_LIST)});`,
     "  });",
     "});",
     "",
@@ -208,7 +205,7 @@ function renderIntegrationTest(): string {
 }
 
 export function renderTestSetup(input: RenderTestSetupInput): ScaffoldTestSetup {
-  const { appName, frameworkVersion, port = SCAFFOLD_E2E_PORT, starter = "demo" } = input;
+  const { appName, frameworkVersion, starter = "demo" } = input;
   const isBlank = starter === "blank";
   const playwrightRun = `bunx --bun playwright test${isBlank ? ` ${BLANK_E2E_PLAYWRIGHT_FLAG}` : ""}`;
   const unitTestScript = `bun --config=${BUNFIG_FILES.unit} test --timeout=${TEST_TIMEOUT_MS.unit} --dots`;
@@ -216,7 +213,7 @@ export function renderTestSetup(input: RenderTestSetupInput): ScaffoldTestSetup 
   return {
     files: {
       ...renderBunfigFiles({ install: { linker: "hoisted" }, dom: true }),
-      "playwright.config.ts": renderPlaywrightConfig(port),
+      "playwright.config.ts": renderPlaywrightConfig(),
       "e2e/server.ts": renderE2eServer(appName),
       ...(isBlank
         ? BLANK_TEST_FILES
@@ -233,7 +230,7 @@ export function renderTestSetup(input: RenderTestSetupInput): ScaffoldTestSetup 
       "test:unit": unitTestScript,
       "test:integration": integrationTestScript,
       "test:integration:ci": integrationTestScript,
-      "test:dom": `bun --config=${BUNFIG_FILES.dom} test --timeout=${TEST_TIMEOUT_MS.unit} --dots --pass-with-no-tests .test.tsx`,
+      "test:dom": `bun --config=${BUNFIG_FILES.dom} test --timeout=${TEST_TIMEOUT_MS.dom} --dots --pass-with-no-tests .test.tsx`,
       // bunfig.real.toml's pathIgnorePatterns can only blacklist (no "!" negation,
       // verified against bun 1.4), so it can't express "match only *.real.test.ts"
       // on its own — every *.test.ts file matches bun's default test glob too,

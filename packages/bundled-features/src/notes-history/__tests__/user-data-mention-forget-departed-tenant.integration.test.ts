@@ -1,0 +1,254 @@
+// A user mentioned in tenant T who LEFT T before requesting forget must still
+// have the mention-bearing notes in T shredded: the forget run reaches tenants
+// from membership history, not only live memberships.
+
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+
+import {
+  configurePiiSubjectKms,
+  InMemoryKmsAdapter,
+  PII_ERASED_SENTINEL,
+} from "@cosmicdrift/kumiko-framework/crypto";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEntity,
+  createTextField,
+  defineFeature,
+  EXT_USER_DATA,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import {
+  resetPiiSubjectKmsForTests,
+  resetTestTables,
+  seedRowViaEventStore,
+} from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-testing/stack";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
+import { createConfigFeature } from "../../config/index.ts";
+import { configValueEntity } from "../../config/table.ts";
+import {
+  createDataRetentionFeature,
+  tenantRetentionOverrideEntity,
+} from "../../data-retention/index.ts";
+import {
+  createNotesHistoryFeature,
+  NotesHistoryHandlers,
+  noteEntryEntity,
+  noteEntryExecutor,
+  noteMentionEntity,
+} from "../../notes-history/index.ts";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
+import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantInvitationEntity } from "../../tenant/invitation-table.ts";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
+import { tenantEntity } from "../../tenant/schema/tenant.ts";
+import { seedTenantMembership } from "../../tenant/seeding.ts";
+import { TenantHandlers } from "../../tenant/web/constants.ts";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
+import { createUserDataRightsFeature, runForgetCleanup } from "../../user-data-rights/index.ts";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.ts";
+
+const CONTACT_TABLE = "notes_departed_tenant_test_contacts";
+const contactEntity = createEntity({
+  name: "contact",
+  table: CONTACT_TABLE,
+  fields: {
+    name: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      required: true,
+      maxLength: 64,
+    }),
+  },
+});
+const contactFixtureFeature = defineFeature("notes-departed-tenant-test-contact-fixture", (r) => {
+  r.entity(contactEntity);
+});
+
+const hookTenantCalls: TenantId[] = [];
+const hookProbeFeature = defineFeature("notes-departed-tenant-test-hook-probe", (r) => {
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "contact",
+    export: async () => null,
+    delete: async (ctx) => {
+      hookTenantCalls.push(ctx.tenantId);
+    },
+  });
+});
+
+const TENANT_T = testTenantId(11);
+const TENANT_U = testTenantId(12);
+const TENANT_V = testTenantId(13);
+const SUBJECT_X = "50000000-0000-4000-8000-0000000000ff";
+const OTHER_USER = "50000000-0000-4000-8000-0000000000ee";
+const CONTACT_T = "50000000-0000-4000-8000-000000000001";
+const CONTACT_V = "50000000-0000-4000-8000-000000000002";
+
+const noteAuthorInT = createTestUser({ id: 1, tenantId: TENANT_T, roles: ["TenantMember"] });
+const noteAuthorInV = createTestUser({ id: 2, tenantId: TENANT_V, roles: ["TenantMember"] });
+
+let stack: TestStack;
+
+beforeAll(async () => {
+  stack = await setupTestStack({
+    features: [
+      createConfigFeature(),
+      createUserFeature(),
+      createTenantFeature(),
+      createAuthFoundationFeature(),
+      createSessionsFeature(),
+      createDataRetentionFeature(),
+      createComplianceProfilesFeature(),
+      createFilesFeature(),
+      createUserDataRightsFeature(),
+      createUserDataRightsDefaultsFeature(),
+      createNotesHistoryFeature({ parents: ["contact"] }),
+      contactFixtureFeature,
+      hookProbeFeature,
+    ],
+  });
+  await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, userSessionEntity);
+  await unsafeCreateEntityTable(stack.db, configValueEntity);
+  await unsafeCreateEntityTable(stack.db, tenantEntity);
+  await unsafeCreateEntityTable(stack.db, tenantInvitationEntity);
+  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity, "tenant-membership");
+  await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
+  await unsafeCreateEntityTable(stack.db, noteEntryEntity, "note-entry");
+  await unsafeCreateEntityTable(stack.db, noteMentionEntity, "note-mention");
+  await unsafeCreateEntityTable(stack.db, contactEntity);
+  for (const [id, tenantId] of [
+    [CONTACT_T, TENANT_T],
+    [CONTACT_V, TENANT_V],
+  ] as const) {
+    await asRawClient(stack.db).unsafe(
+      `INSERT INTO ${CONTACT_TABLE} (id, tenant_id, name) VALUES ($1, $2, 'Contact')
+       ON CONFLICT (id) DO NOTHING`,
+      [id, tenantId],
+    );
+  }
+});
+
+afterAll(async () => {
+  await stack.cleanup();
+});
+
+beforeEach(async () => {
+  await resetEventStore(stack);
+  await resetTestTables(stack.db, [userTable]);
+  hookTenantCalls.length = 0;
+  configurePiiSubjectKms(new InMemoryKmsAdapter());
+});
+
+afterEach(() => {
+  resetPiiSubjectKmsForTests();
+});
+
+async function seedForgottenSubject(): Promise<void> {
+  await seedRowViaEventStore(stack.db, userTable, {
+    id: SUBJECT_X,
+    email: "subject-x@example.com",
+    passwordHash: "hashed",
+    displayName: "Subject X",
+    locale: "de",
+    emailVerified: true,
+    roles: '["Member"]',
+    status: USER_STATUS.DeletionRequested,
+    gracePeriodEnd: getTemporal().Instant.fromEpochMilliseconds(Date.now() - 60_000),
+  });
+}
+
+const forgetNow = () =>
+  runForgetCleanup({
+    db: stack.db,
+    registry: stack.registry,
+    now: getTemporal().Now.instant(),
+  });
+
+describe("forget reaches tenants the user already left", () => {
+  test("a note mentioning X in departed tenant T is shredded; unrelated tenant V is untouched", async () => {
+    await seedForgottenSubject();
+    await seedTenantMembership(stack.db, {
+      userId: SUBJECT_X,
+      tenantId: TENANT_T,
+      roles: ["User"],
+    });
+    await seedTenantMembership(stack.db, {
+      userId: SUBJECT_X,
+      tenantId: TENANT_U,
+      roles: ["User"],
+    });
+    await seedTenantMembership(stack.db, {
+      userId: OTHER_USER,
+      tenantId: TENANT_V,
+      roles: ["User"],
+    });
+
+    const mentionInT = await stack.http.writeOk<{ id: string }>(
+      NotesHistoryHandlers.addNote,
+      { entityType: "contact", entityId: CONTACT_T, body: "about X", mentions: [SUBJECT_X] },
+      noteAuthorInT,
+    );
+    const noteInV = await stack.http.writeOk<{ id: string }>(
+      NotesHistoryHandlers.addNote,
+      { entityType: "contact", entityId: CONTACT_V, body: "unrelated to X" },
+      noteAuthorInV,
+    );
+
+    await stack.http.writeOk(
+      TenantHandlers.removeMember,
+      { userId: SUBJECT_X, tenantId: TENANT_T },
+      TestUsers.systemAdmin,
+    );
+    const liveInT = await selectMany(stack.db, tenantMembershipsTable, {
+      tenantId: TENANT_T,
+      userId: SUBJECT_X,
+    });
+    expect(liveInT.length).toBe(0);
+
+    const result = await forgetNow();
+    expect(result.errors).toEqual([]);
+    expect(result.processedUserIds).toContain(SUBJECT_X);
+
+    const shredded = await noteEntryExecutor.detail(
+      { id: mentionInT.id },
+      noteAuthorInT,
+      createTenantDb({
+        db: stack.db,
+        tenantId: TENANT_T,
+        mode: "system",
+        reason: "test inspects mention rows of a departed tenant",
+      }),
+    );
+    expect(shredded?.["body"]).toBe(PII_ERASED_SENTINEL);
+
+    const untouched = await noteEntryExecutor.detail(
+      { id: noteInV.id },
+      noteAuthorInV,
+      createTenantDb({
+        db: stack.db,
+        tenantId: TENANT_V,
+        mode: "system",
+        reason: "test inspects mention rows of a departed tenant",
+      }),
+    );
+    expect(untouched?.["body"]).toBe("unrelated to X");
+
+    // U is both a live membership and in history: still exactly one pass.
+    expect([...hookTenantCalls].sort()).toEqual([TENANT_T, TENANT_U].sort());
+    expect(result.hookCallsAttempted).toBe(
+      stack.registry.getExtensionUsages(EXT_USER_DATA).length * 2,
+    );
+  });
+});

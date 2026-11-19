@@ -31,6 +31,6 @@ describe("record page board look", () => {
     );
     expect(screen.queryByTestId("s-count")).toBeNull();
     expect(screen.getByTestId("record-step-a-more-actions-label").textContent).toBe("Or");
-    expect(screen.getByTestId("record-step-a-more-actions")).toBeTruthy();
+    screen.getByTestId("record-step-a-more-actions");
   });
 });

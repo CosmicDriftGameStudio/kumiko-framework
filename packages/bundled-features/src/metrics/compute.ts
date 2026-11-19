@@ -2,6 +2,7 @@ import type { WhereObject } from "@cosmicdrift/kumiko-framework/db";
 import type {
   AggregateDimension,
   AggregateKey,
+  AggregateMeasure,
   AggregateRow,
 } from "@cosmicdrift/kumiko-types/aggregate-types";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -33,6 +34,13 @@ export type MetricRunParams = {
 };
 
 const NULL_KEY_TEXT = "—";
+
+// Mirrors SQL over zero rows: COUNT is 0 and SUM coalesces to 0; every other measure is NULL.
+function emptyBucketValue(measure: AggregateMeasure): number | null {
+  const zeroOverNoRows =
+    measure.fn === "count" || measure.fn === "countDistinct" || measure.fn === "sum";
+  return zeroOverNoRows ? 0 : null;
+}
 
 function keyText(key: AggregateKey | undefined): string {
   return key === null || key === undefined ? NULL_KEY_TEXT : String(key);
@@ -223,7 +231,7 @@ export async function runMetric(
   const value = aggregates.total[0]?.value ?? null;
   const previousValue = aggregates.previous?.[0]?.value ?? null;
   const labelOf = (key: string): string => metric.groupLabels?.[key] ?? key;
-  const gapValue = metric.measure.fn === "avg" ? null : 0;
+  const gapValue = emptyBucketValue(metric.measure);
 
   const bucketStarts =
     window !== undefined && bucket !== undefined

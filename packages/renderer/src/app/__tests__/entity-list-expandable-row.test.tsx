@@ -14,14 +14,11 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
+import { isRecord } from "../../headless/is-record.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import {
-  type ButtonProps,
-  type CorePrimitives,
-  type DataTableProps,
-  PrimitivesProvider,
-} from "../../primitives.tsx";
+import { type ButtonProps, type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider } from "../nav.tsx";
@@ -29,7 +26,7 @@ import { NavProvider } from "../nav.tsx";
 const PARENT_QN = "campaigns:query:campaign:list";
 const CHILD_QN = "campaigns:query:campaign-post:list";
 
-type QueryCall = { readonly qn: string; readonly payload: Record<string, unknown> };
+type QueryCall = { readonly qn: string; readonly payload: Readonly<Record<string, unknown>> };
 
 let queryCalls: QueryCall[] = [];
 let writeIsSuccess = true;
@@ -38,14 +35,14 @@ function callsFor(qn: string): readonly QueryCall[] {
   return queryCalls.filter((c) => c.qn === qn);
 }
 
-function parentIdOf(payload: Record<string, unknown>): string {
+function parentIdOf(payload: Readonly<Record<string, unknown>>): string {
   const filter = payload["filter"] as { readonly value?: unknown } | undefined;
   return String(filter?.value ?? "");
 }
 
 function stubDispatcher(): Dispatcher {
-  return {
-    write: (async () => {
+  return createMockDispatcher({
+    write: async () => {
       if (!writeIsSuccess) {
         return {
           isSuccess: false,
@@ -58,8 +55,9 @@ function stubDispatcher(): Dispatcher {
         };
       }
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
-    query: (async (qn: string, payload: Record<string, unknown>) => {
+    },
+    query: async (qn: string, payload: unknown) => {
+      if (!isRecord(payload)) throw new Error("expected a record payload");
       queryCalls.push({ qn, payload });
       if (qn === CHILD_QN) {
         const parent = parentIdOf(payload);
@@ -83,16 +81,9 @@ function stubDispatcher(): Dispatcher {
           total: 2,
         },
       };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 // Mirrors the web table's contract: a toggle per row, the expansion rendered
@@ -135,7 +126,7 @@ const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId }) =
   </button>
 );
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: TestButton,
   Banner: passChildren,
   Field: passChildren,
@@ -154,10 +145,11 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function buildSchema(withExpandableRow: boolean): FeatureSchema {
   const entity: EntityDefinition = {
+    name: "item",
     fields: {
       name: {
         type: "text",
@@ -230,7 +222,7 @@ function renderListScreen(withExpandableRow = true): void {
 
 async function mountedParentList(): Promise<void> {
   await waitFor(() => {
-    expect(screen.getByTestId("row-campaign-1")).toBeDefined();
+    screen.getByTestId("row-campaign-1");
   });
 }
 
@@ -256,7 +248,7 @@ describe("entityList expandableRow", () => {
     fireEvent.click(screen.getByTestId("toggle-campaign-1"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("action-post-of-campaign-1-mark-posted")).toBeDefined();
+      screen.getByTestId("action-post-of-campaign-1-mark-posted");
     });
     expect(callsFor(CHILD_QN)).toHaveLength(1);
     expect(parentIdOf(callsFor(CHILD_QN)[0]?.payload ?? {})).toBe("campaign-1");
@@ -271,13 +263,13 @@ describe("entityList expandableRow", () => {
     fireEvent.click(screen.getByTestId("toggle-campaign-1"));
     fireEvent.click(screen.getByTestId("toggle-campaign-2"));
     await waitFor(() => {
-      expect(screen.getByTestId("action-post-of-campaign-2-mark-posted")).toBeDefined();
+      screen.getByTestId("action-post-of-campaign-2-mark-posted");
     });
-    expect(screen.getByTestId("expansion-campaign-1")).toBeDefined();
+    screen.getByTestId("expansion-campaign-1");
 
     fireEvent.click(screen.getByTestId("toggle-campaign-1"));
     expect(screen.queryByTestId("expansion-campaign-1")).toBeNull();
-    expect(screen.getByTestId("expansion-campaign-2")).toBeDefined();
+    screen.getByTestId("expansion-campaign-2");
   });
 
   test("a successful sub-list write refetches the sub-list and the parent list", async () => {

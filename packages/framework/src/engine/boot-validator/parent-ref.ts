@@ -73,7 +73,12 @@ function assertAllowedTypeHosts(
   entityName: string,
   parentRef: ParentRef,
 ): void {
-  for (const hostName of parentRef.allowedTypes ?? []) {
+  if (parentRef.allowedTypes.length === 0) {
+    throw bootRuleError(ENTITY_DECLARATION_RULES.parentRefAllowedTypesEmpty, {
+      message: `[Kumiko ParentRef] entity "${entityName}".parentRef.allowedTypes is empty (feature: "${feature.name}") — no row could ever be attached. Fix: list at least one registered host entity.`,
+    });
+  }
+  for (const hostName of parentRef.allowedTypes) {
     const host = findEntity(featureMap, hostName);
     if (host === undefined) {
       throw bootRuleError(ENTITY_DECLARATION_RULES.parentRefAllowedTypeUnregistered, {
@@ -112,7 +117,7 @@ function assertConventionQueryHandlers(
           `ENTITY_CONVENTION_QUERY_BRAND, but entity "${entityName}" declares a parentRef ` +
           `(feature: "${feature.name}"). A hand-written handler bypasses the parent-ref ` +
           `read-gate unless it explicitly wires parentVisibility. Fix: register "${handlerName}" ` +
-          `via defineEntityListHandler/defineEntityDetailHandler (or defineEntityQueryHandler), ` +
+          `via defineEntityListHandler/defineEntityDetailHandler, ` +
           `or pass { parentVisibility: { entities: ctx.registry.getAllEntities() } } to ` +
           `executor.${verb} yourself.`,
       });
@@ -137,8 +142,9 @@ function assertConventionWriteHandlers(
           `ENTITY_CONVENTION_WRITE_BRAND, but entity "${entityName}" declares a parentRef ` +
           `(feature: "${feature.name}"). A hand-written handler bypasses the parent visibility ` +
           `gate unless it explicitly wires parentVisibility. Fix: register "${handlerName}" ` +
-          `via defineEntityWriteHandler, or pass parentVisibility: ` +
-          `parentVisibilityFor(ctx, event.user) to executor.${verb} yourself.`,
+          `via defineEntityUpdateHandler/defineEntityDeleteHandler/defineEntityRestoreHandler, ` +
+          `or pass parentVisibility: parentVisibilityFor(ctx, event.user) to ` +
+          `executor.${verb} yourself.`,
       });
     }
   }

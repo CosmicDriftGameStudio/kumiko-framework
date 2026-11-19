@@ -16,7 +16,8 @@ import { extractTableInfo } from "../../table-info.ts";
 
 describe("extractTableInfo — EntityTableMeta discriminator is shadow-proof", () => {
   test("an entity field named `source` does not shadow the discriminator", () => {
-    const table = buildEntityTable("patternFile", {
+    const table = buildEntityTable({
+      name: "patternFile",
       fields: {
         path: {
           type: "text",
@@ -41,7 +42,8 @@ describe("extractTableInfo — EntityTableMeta discriminator is shadow-proof", (
   test.each(["columns", "tableName", "indexes"])(
     "an entity field named `%s` (another meta key) also does not shadow it",
     (fieldName) => {
-      const table = buildEntityTable("thing", {
+      const table = buildEntityTable({
+        name: "thing",
         fields: {
           [fieldName]: {
             type: "text",
@@ -56,7 +58,8 @@ describe("extractTableInfo — EntityTableMeta discriminator is shadow-proof", (
   );
 
   test("control entity without a colliding field is unaffected", () => {
-    const table = buildEntityTable("note", {
+    const table = buildEntityTable({
+      name: "note",
       fields: {
         title: {
           type: "text",
@@ -72,7 +75,8 @@ describe("extractTableInfo — EntityTableMeta discriminator is shadow-proof", (
 
 describe("resolveConflictColumns — shadow-proof PK inference", () => {
   test("an entity field named `columns` does not shadow the inferred primary key", () => {
-    const table = buildEntityTable("thing", {
+    const table = buildEntityTable({
+      name: "thing",
       fields: {
         columns: {
           type: "text",
@@ -89,7 +93,8 @@ describe("resolveConflictColumns — shadow-proof PK inference", () => {
   });
 
   test("explicit conflictKeys are mapped through columnOf (control)", () => {
-    const table = buildEntityTable("thing", {
+    const table = buildEntityTable({
+      name: "thing",
       fields: {
         slug: {
           type: "text",

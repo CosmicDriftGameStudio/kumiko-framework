@@ -1,8 +1,9 @@
 import { isUuid } from "@cosmicdrift/kumiko-types/identifiers";
-import { ImageIcon } from "lucide-react";
+import { DownloadIcon, ImageIcon } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { fileIdsOf } from "../../file-ids-of.ts";
 import type { ListColumnFileDisplay } from "../../headless/index.ts";
+import { useTranslation } from "../../i18n.tsx";
 import { cn } from "../lib/cn.ts";
 
 // Stored values are untrusted: only UUIDs reach a request, and path segments are
@@ -200,21 +201,56 @@ export function FileNameLink({
   fileId,
   fallbackLabel,
   className,
+  asDownload = false,
 }: {
   readonly fileId: string;
   readonly fallbackLabel: string;
   readonly className?: string;
+  /** List cells: a bare underlined name does not read as a file to fetch. */
+  readonly asDownload?: boolean;
 }): ReactNode {
   const fileName = useFileMeta(fileId)?.fileName ?? null;
   if (!isUuid(fileId)) return <span className={cn("text-sm", className)}>{fallbackLabel}</span>;
+  return (
+    <FileDownloadLink
+      fileId={fileId}
+      name={fileName ?? fallbackLabel}
+      asDownload={asDownload}
+      {...(className !== undefined && { className })}
+    />
+  );
+}
+
+/** A link to the stored file under a caller-given name; FileNameLink fetches the file's own name. */
+export function FileDownloadLink({
+  fileId,
+  name,
+  className,
+  asDownload = false,
+}: {
+  readonly fileId: string;
+  readonly name: string;
+  readonly className?: string;
+  readonly asDownload?: boolean;
+}): ReactNode {
+  const t = useTranslation();
+  const downloadLabel = asDownload
+    ? t("kumiko.field.file-list.downloadNamed", { name })
+    : undefined;
   return (
     <a
       href={fileOriginalUrl(fileId)}
       target="_blank"
       rel="noreferrer"
-      className={cn("text-sm underline underline-offset-2", className)}
+      className={cn(
+        "text-sm underline underline-offset-2",
+        asDownload && "inline-flex items-center gap-1",
+        className,
+      )}
+      {...(downloadLabel !== undefined && { "aria-label": downloadLabel, title: downloadLabel })}
     >
-      {fileName ?? fallbackLabel}
+      {asDownload && <DownloadIcon aria-hidden className="size-3.5 shrink-0" />}
+      {name}
     </a>
   );
 }
@@ -268,7 +304,7 @@ export function FileDisplayCell({
           {...(display.variant !== undefined && { variant: display.variant })}
         />
       ) : (
-        <FileNameLink fileId={first} fallbackLabel={fallbackLabel} />
+        <FileNameLink fileId={first} fallbackLabel={fallbackLabel} asDownload />
       )}
       {rest.length > 0 && <span className="text-muted-foreground text-xs">+{rest.length}</span>}
     </span>

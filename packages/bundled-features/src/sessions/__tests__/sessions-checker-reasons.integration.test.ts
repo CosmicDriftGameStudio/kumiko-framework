@@ -12,6 +12,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/helpers";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { deleteMembershipViaEventStore } from "../../tenant/testing.ts";
 import { USER_STATUS } from "../../user/schema/user.ts";
 import { SessionQueries } from "../constants.ts";
 import { userSessionTable } from "../schema/user-session.ts";
@@ -164,6 +165,20 @@ describe("sessions feature — locked accounts blocked on a live session", () =>
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error?: { details?: { reason?: string } } };
     expect(body.error?.details?.reason).toBe("blocked");
+  });
+
+  test("membership removed after login → 401 reason=not_a_member (fail closed)", async () => {
+    const { userId } = await h.seedUser("evicted@example.com", "pw-long-enough");
+    const { token } = await h.login("evicted@example.com", "pw-long-enough");
+    await deleteMembershipViaEventStore(stack.db, { userId, tenantId: TENANT });
+
+    const res = await h.authedPost("/api/query", token, {
+      type: "user:query:user:me",
+      payload: {},
+    });
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error?: { details?: { reason?: string } } };
+    expect(body.error?.details?.reason).toBe("not_a_member");
   });
 
   test("deletionRequested keeps its session live — reversible grace period", async () => {

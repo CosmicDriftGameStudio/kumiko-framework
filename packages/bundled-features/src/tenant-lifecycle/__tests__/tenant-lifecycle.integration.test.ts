@@ -172,17 +172,15 @@ describe("tenant-lifecycle :: request / cancel / 410 gate", () => {
     expect(err.httpStatus).toBe(403);
   });
 
-  test("a TenantAdmin without Admin cannot request or cancel destruction, an Admin can", async () => {
+  test("a TenantAdmin without Admin can request and cancel destruction", async () => {
     await seedTenant();
     const tenantAdminOnly = createTestUser({
       id: 98,
       tenantId: tenantAdmin.tenantId,
       roles: ["TenantAdmin"],
     });
-    expect((await stack.http.writeErr(REQUEST, {}, tenantAdminOnly)).httpStatus).toBe(403);
-    await stack.http.writeOk(REQUEST, {}, tenantAdmin);
-    expect((await stack.http.writeErr(CANCEL, {}, tenantAdminOnly)).httpStatus).toBe(403);
-    const cancelled = await stack.http.writeOk<{ status: string }>(CANCEL, {}, tenantAdmin);
+    await stack.http.writeOk(REQUEST, {}, tenantAdminOnly);
+    const cancelled = await stack.http.writeOk<{ status: string }>(CANCEL, {}, tenantAdminOnly);
     expect(cancelled.status).toBe("active");
   });
 
@@ -195,7 +193,9 @@ describe("tenant-lifecycle :: request / cancel / 410 gate", () => {
 function createPoisonTenantDataFeature() {
   return defineFeature("test-poison-tenant-data", (r) => {
     r.requires({ features: ["tenant-lifecycle"] });
-    r.useExtension(EXT_TENANT_DATA, "poison-pill", {
+    r.applyExtension({
+      name: EXT_TENANT_DATA,
+      entity: "poison-pill",
       destroy: async () => {
         throw new Error("poison-pill");
       },
@@ -416,7 +416,9 @@ function createSelectivePoisonTenantDataFeature() {
     r.requires({ features: ["tenant-lifecycle"] });
     // EXT_EXTERNAL_RESOURCE — the pipeline's FIRST stage — so the poison
     // fires on the very first sweep tick instead of several stages in.
-    r.useExtension(EXT_EXTERNAL_RESOURCE, "selective-poison-pill", {
+    r.applyExtension({
+      name: EXT_EXTERNAL_RESOURCE,
+      entity: "selective-poison-pill",
       destroyTenant: async (tenantId: TenantId, hookCtx) => {
         if (hookCtx.deadlineAt !== undefined) {
           deadlinesSeenByHook.push({ deadlineAt: hookCtx.deadlineAt, calledAt: Date.now() });
@@ -740,7 +742,9 @@ describe("tenant-lifecycle :: resumable stages (done:false continuation)", () =>
 
   const resumableFeature = defineFeature("test-resumable-tenant-data", (r) => {
     r.requires({ features: ["tenant-lifecycle"] });
-    r.useExtension(EXT_TENANT_DATA, "resumable", {
+    r.applyExtension({
+      name: EXT_TENANT_DATA,
+      entity: "resumable",
       destroy: async (hookCtx: TenantDataHookCtx) => {
         hookCalls++;
         seenDeadlines.push(hookCtx.deadlineAt);
@@ -850,7 +854,9 @@ describe("tenant-lifecycle :: stage tick without progress", () => {
 
   const stuckFeature = defineFeature("test-stuck-tenant-data", (r) => {
     r.requires({ features: ["tenant-lifecycle"] });
-    r.useExtension(EXT_TENANT_DATA, "stuck", {
+    r.applyExtension({
+      name: EXT_TENANT_DATA,
+      entity: "stuck",
       destroy: async () => {
         hookCalls++;
         return { done: false, processed: 0 };

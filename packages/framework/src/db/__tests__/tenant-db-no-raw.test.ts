@@ -51,7 +51,7 @@ describe("tenantDbRunner", () => {
   test("withUnsafeRawGrant rebinds also resolve to the original runner", () => {
     const runner = fakeRunner();
     const tdb = createTenantDb({ db: runner, tenantId });
-    const regranted = withUnsafeRawGrant(tdb, { reason: "test grant" });
+    const regranted = withUnsafeRawGrant(tdb, { reason: "test grant", grants: ["unsafeRaw"] });
     expect(regranted).not.toBe(tdb);
     expect(unscopedRunnerOf(tenantDbRunner(regranted))).toBe(runner);
   });

@@ -2,10 +2,10 @@ import type { TokenVerifier } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { resolveLiveTenantRoles } from "../tenant/index.ts";
 import { isExpiredAt } from "./expiry.ts";
 import { hashPatToken } from "./hash.ts";
 import { parseScopeNames } from "./parse-scope-names.ts";
-import { resolvePatRoles } from "./roles.ts";
 import { apiTokenTable } from "./schema/api-token.ts";
 import { expandScopes, type PatScopeConfig } from "./web/scopes.ts";
 
@@ -31,14 +31,15 @@ export function createPatResolver(opts: {
     if (!row) return null;
     if (row.revokedAt !== null) return null;
     if (isExpiredAt(row.expiresAt)) return null;
-    const roles = await resolvePatRoles(db, row.userId, row.tenantId);
-    if (!roles) return null;
+    const live = await resolveLiveTenantRoles(db, row.userId, row.tenantId);
+    // Blocked, removed and unknown principals all get the same 401 as an unknown token: no status oracle.
+    if (live.kind !== "active") return null;
     const granted = parseScopeNames(row.scopes);
     return {
       id: row.userId,
       // @cast-boundary db-row → branded id: stored from a valid SessionUser.tenantId at create
       tenantId: row.tenantId as TenantId,
-      roles,
+      roles: live.roles,
       pat: { tokenId: row.id, scopes: granted, allowedQns: expandScopes(scopes, granted) },
     };
   };

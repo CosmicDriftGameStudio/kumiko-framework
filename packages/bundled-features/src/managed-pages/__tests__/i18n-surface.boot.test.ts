@@ -1,29 +1,22 @@
 import { describe, expect, test } from "bun:test";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { createBrandingFeature } from "../../branding/index.ts";
 import { createConfigFeature } from "../../config/feature.ts";
 import { createManagedPagesFeature } from "../feature.ts";
 
-// Completeness gate: managed-pages now calls r.translations, so the boot validator
+// Completeness gate: managed-pages calls r.translations, so the boot validator
 // enforces the complete required surface-key set (screen:*.title,
 // entity:*:field:*, section headers, and rowAction labels/confirms) in de+en. If a
-// single key is missing, validateBoot throws. Both allowCustomCss variants must boot;
-// when true, the two customCss keys are also required.
+// single key is missing, validateBoot throws. Branding comes from the branding feature.
 
 const resolveApexTenant = () => null;
 
 describe("managed-pages i18n surface completeness", () => {
-  test("boot-validates with allowCustomCss: false", () => {
+  test("boot-validates alongside the branding feature", () => {
     const features = [
       createConfigFeature(),
-      createManagedPagesFeature({ resolveApexTenant, allowCustomCss: false }),
-    ];
-    expect(() => validateBoot(features)).not.toThrow();
-  });
-
-  test("boot-validates with allowCustomCss: true (customCss keys required)", () => {
-    const features = [
-      createConfigFeature(),
-      createManagedPagesFeature({ resolveApexTenant, allowCustomCss: true }),
+      createBrandingFeature(),
+      createManagedPagesFeature({ resolveApexTenant }),
     ];
     expect(() => validateBoot(features)).not.toThrow();
   });

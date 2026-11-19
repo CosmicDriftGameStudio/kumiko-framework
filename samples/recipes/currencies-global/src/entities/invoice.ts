@@ -6,6 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const invoiceEntity = createEntity({
+  name: "invoice",
   table: "read_sample_invoices",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -15,4 +16,4 @@ export const invoiceEntity = createEntity({
   defaultCurrency: "EUR",
 });
 
-export const invoiceTable = buildEntityTable("invoice", invoiceEntity);
+export const invoiceTable = buildEntityTable(invoiceEntity);

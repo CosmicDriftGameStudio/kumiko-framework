@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-11-08
+verified: 2026-11-16
 evidence: "kumiko-framework#4239; packages/bundled-features/src/channel-whatsapp; packages/bundled-features/src/channel-whatsapp/__tests__/whatsapp.integration.test.ts"
 ---
 
@@ -59,4 +59,4 @@ A worker-run job triggered by `message-received` attaches the business process (
 
 ## Testing
 
-`createInMemoryMeta()` is a Meta stand-in for tests: pass its `transport` as the `transport` option, feed signed webhooks with `deliverMetaWebhook` and `requestMetaVerification` over the real HTTP stack, read every send from `meta.sent` and serve media with `meta.seedMedia`. The production path has no test code; the transport is an app option. See `packages/bundled-features/src/channel-whatsapp/__tests__/whatsapp.integration.test.ts` for a complete stack.
+`createInMemoryMeta()` is a Meta stand-in for tests: pass its `transport` as the `transport` option, feed signed webhooks with `deliverMetaWebhook` and `requestMetaVerification` over the real HTTP stack, read every send from `meta.sent` and serve media with `meta.seedMedia`. Import it from `@cosmicdrift/kumiko-bundled-features/channel-whatsapp/testing`, not from the main entry point. The production path has no test code; the transport is an app option. See `packages/bundled-features/src/channel-whatsapp/__tests__/whatsapp.integration.test.ts` for a complete stack.

@@ -1,5 +1,5 @@
 import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/db";
-import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.ts";
@@ -24,7 +24,7 @@ export const listDownloadAttemptsQuery = defineQueryHandler({
     .refine((v) => !v.from || !v.to || v.from <= v.to, {
       message: "`from` must be less than or equal to `to`",
     }),
-  access: { roles: ["Admin", "SystemAdmin"] },
+  access: { roles: access.admin },
   description:
     "Lists invalid export-download attempts inside the caller's own tenant, filterable by failure result, source IP and time range, for a data protection officer triaging brute-force probing of download links.",
   // Source IPs of the probing attempts.

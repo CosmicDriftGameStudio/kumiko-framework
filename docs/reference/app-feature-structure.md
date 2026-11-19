@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-09-24
+verified: 2026-11-17
 evidence: "kumiko-platform#353 (App-Mounting 2.0); Scaffold: kumiko add feature (dev-server); framework#2509 (boot-validator outputSchema); framework#2501 (projectionDetail header/metrics/tabs)"
 ---
 
@@ -18,9 +18,9 @@ src/features/<name>/
   index.ts         # Server-Exports (Feature + Public-Types)
   constants.ts     # nur Server-Konstanten; geteilte (auch im Browser genutzte)
                    # Konstanten und Translation-Keys liegen unter web/
-  handlers/        # eine Datei pro Handler: <thema>.query.ts / <thema>.write.ts
-                   # (defineQueryHandler / defineWriteHandler)
-  schema/          # Entity- + Table-Definitionen, index.ts re-exportiert
+  handlers/        # eine Datei pro handgeschriebenem Handler oder Job: <thema>.query.ts / <thema>.write.ts / <thema>.job.ts
+                   # (defineQueryHandler / defineWriteHandler); Standard-CRUD per r.crud in feature.ts
+  schema/          # Entity- + Table-Definitionen (<name>.ts, entity.ts, <name>.entity.ts)
   lib/             # reine Domain-Logik: pure Funktionen mit Test
                    # (ohne r.*-Abhängigkeit)
   web/             # client-sicherer Einstieg: index.ts (ClientFeatureDefinition),
@@ -39,6 +39,8 @@ dem Pfad, ein `// @runtime client`-Marker ist unnötig und wird von
 `guard-app-feature-structure` gemeldet. Bestehende Apps ziehen mit
 `bun kumiko-upgrade --apply` oder `bun kumiko codemod feature-layout . --write` um
 (`--check` listet Reste).
+
+`guard-handler-definitions` friert Handler-Definitionen außerhalb von `handlers/`, mehrere Handler in einer Datei, falsche `.write`/`.query`-Endungen und als `WriteHandlerDef`/`QueryHandlerDef` getypte Literale pro Datei in einer Baseline ein; neue Funde scheitern. `bun kumiko codemod feature-layout . --write` verschiebt `<name>.write.ts`/`.query.ts`/`.job.ts` aus dem Feature-Root nach `handlers/`, `entity.ts`/`<name>.entity.ts` nach `schema/` und eine `client.ts` mit `ClientFeatureDefinition` nach `web/index.ts`; ein `write.ts`/`queries.ts` mit mehreren Handlern meldet er zum Aufteilen; `--check` schlägt fehl, solange etwas offen ist. `guard-feature-import-cycles` friert Laufzeit-Import-Zyklen zwischen Features ein; `import type` zählt nicht.
 
 ## Regeln
 
@@ -109,7 +111,9 @@ dem Pfad, ein `// @runtime client`-Marker ist unnötig und wird von
   (`guard-no-logic-in-views`). Jede exportierte `lib/`-Funktion braucht einen
   Test, der aus dem Modul importiert und sie namentlich referenziert
   (`guard-lib-test-coverage`). Begründete Ausnahme:
-  `// kumiko-lint-ignore no-logic-in-views <Grund>` bzw. `lib-test-coverage`.
+  `// kumiko-lint-ignore no-logic-in-views <Grund>` bzw. `lib-test-coverage`. Für eine ganze Datei steht
+  `// kumiko-lint-ignore-file lib-test-coverage integration-covered via <pfad/zu/x.test.ts>`
+  im Kopf-Kommentar vor dem ersten Statement (der zitierte Test muss existieren).
 
 ## Warum
 

@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
 import type { ReactNode } from "react";
-import type { Dispatcher } from "../../../headless/index.ts";
+import type { Dispatcher, QueryResult } from "../../../headless/index.ts";
+import { isRecord } from "../../../headless/is-record.ts";
 import {
   DispatcherProvider,
   type LiveEvent,
@@ -119,10 +120,10 @@ describe("InfinityList", () => {
     ];
     let call = 0;
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: pages[call++],
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const view = (query: string) => (
       <InfinityList<Page, Row>
@@ -137,7 +138,7 @@ describe("InfinityList", () => {
       />
     );
     const { rerender } = renderWithDispatcher(view("inbox:query:message:list"), dispatcher);
-    await waitFor(() => expect(screen.getByText("Hallo")).toBeTruthy());
+    await waitFor(() => screen.getByText("Hallo"));
     const hint = screen.getByText("Nicht gefunden?");
     expect(screen.getByTestId("inbox").lastElementChild).toBe(hint);
     rerender(
@@ -145,25 +146,25 @@ describe("InfinityList", () => {
         {view("inbox:query:message:search")}
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByText("Leer")).toBeTruthy());
+    await waitFor(() => screen.getByText("Leer"));
     expect(screen.queryByText("Nicht gefunden?")).toBeNull();
   });
 
   test("rendert die erste Seite", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { rows: [{ id: "m1", subject: "Hallo" }], nextCursor: null },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     renderWithDispatcher(list("inbox:query:message:list"), dispatcher);
-    await waitFor(() => expect(screen.getByText("Hallo")).toBeTruthy());
+    await waitFor(() => screen.getByText("Hallo"));
   });
 
   test("loads the next page as soon as the sentinel becomes visible", async () => {
     let calls = 0;
     const dispatcher = createMockDispatcher({
-      query: (async () => {
+      query: async () => {
         calls += 1;
         if (calls === 1) {
           return {
@@ -175,20 +176,20 @@ describe("InfinityList", () => {
           isSuccess: true,
           data: { rows: [{ id: "m2", subject: "Zweite" }], nextCursor: null },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     renderWithDispatcher(list("inbox:query:message:list"), dispatcher);
-    await waitFor(() => expect(screen.getByText("Erste")).toBeTruthy());
+    await waitFor(() => screen.getByText("Erste"));
     await fireIntersect();
-    await waitFor(() => expect(screen.getByText("Zweite")).toBeTruthy());
-    expect(screen.getByText("Erste")).toBeTruthy();
+    await waitFor(() => screen.getByText("Zweite"));
+    screen.getByText("Erste");
     expect(calls).toBe(2);
   });
 
   test("deduplicates by rowId when appending — a row that reappears on page 2 is not rendered twice", async () => {
     let calls = 0;
     const dispatcher = createMockDispatcher({
-      query: (async () => {
+      query: async () => {
         calls += 1;
         if (calls === 1) {
           return {
@@ -214,45 +215,50 @@ describe("InfinityList", () => {
             nextCursor: null,
           },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     renderWithDispatcher(list("inbox:query:message:list"), dispatcher);
-    await waitFor(() => expect(screen.getByText("Zweite")).toBeTruthy());
+    await waitFor(() => screen.getByText("Zweite"));
     await fireIntersect();
-    await waitFor(() => expect(screen.getByText("Dritte")).toBeTruthy());
+    await waitFor(() => screen.getByText("Dritte"));
     expect(screen.getAllByText("Zweite")).toHaveLength(1);
   });
 
   test("Error → ErrorState, Retry reloads", async () => {
     let calls = 0;
     const dispatcher = createMockDispatcher({
-      query: (async () => {
+      query: async () => {
         calls += 1;
         if (calls === 1) {
           return {
             isSuccess: false,
-            error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
+            error: {
+              code: "internal",
+              httpStatus: 500,
+              message: "kaputt",
+              i18nKey: "errors.internal",
+            },
           };
         }
         return {
           isSuccess: true,
           data: { rows: [{ id: "m1", subject: "Hallo" }], nextCursor: null },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     renderWithDispatcher(list("inbox:query:message:list"), dispatcher);
-    await waitFor(() => expect(screen.getByRole("button")).toBeTruthy());
+    await waitFor(() => screen.getByRole("button"));
     fireEvent.click(screen.getByRole("button"));
-    await waitFor(() => expect(screen.getByText("Hallo")).toBeTruthy());
+    await waitFor(() => screen.getByText("Hallo"));
     expect(calls).toBe(2);
   });
 
   test("leeres Result rendert Empty-State", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { rows: [], nextCursor: null },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     renderWithDispatcher(
       <InfinityList<Page, Row>
@@ -265,7 +271,7 @@ describe("InfinityList", () => {
       />,
       dispatcher,
     );
-    await waitFor(() => expect(screen.getByText("Keine Nachrichten")).toBeTruthy());
+    await waitFor(() => screen.getByText("Keine Nachrichten"));
   });
 
   // A fast payload change (e.g. two keystrokes in a search field)
@@ -273,12 +279,12 @@ describe("InfinityList", () => {
   // a slow first response landing after a faster second one clobbers it —
   // the displayed rows end up out of sync with the current payload.
   test("discards an outdated response when an earlier request resolves later", async () => {
-    const resolvers: Array<(res: unknown) => void> = [];
+    const resolvers: Array<(res: QueryResult) => void> = [];
     const dispatcher = createMockDispatcher({
-      query: (() =>
-        new Promise((resolve) => {
+      query: () =>
+        new Promise<QueryResult>((resolve) => {
           resolvers.push(resolve);
-        })) as unknown as Dispatcher["query"],
+        }),
     });
 
     const { rerender } = renderWithDispatcher(<SearchList search="Bo" />, dispatcher);
@@ -296,7 +302,7 @@ describe("InfinityList", () => {
       isSuccess: true,
       data: { rows: [{ id: "m2", subject: "Bob-Treffer" }], nextCursor: null },
     });
-    await waitFor(() => expect(screen.getByText("Bob-Treffer")).toBeTruthy());
+    await waitFor(() => screen.getByText("Bob-Treffer"));
 
     // "Bo" (first, slower) resolves late — must be discarded, not overwrite the display.
     resolvers[0]?.({
@@ -305,7 +311,7 @@ describe("InfinityList", () => {
     });
     await waitFor(() => {
       expect(screen.queryByText("Bo-Treffer")).toBeNull();
-      expect(screen.getByText("Bob-Treffer")).toBeTruthy();
+      screen.getByText("Bob-Treffer");
     });
   });
 
@@ -318,7 +324,8 @@ describe("InfinityList", () => {
     test("SSE event merges only the first page, already loaded subsequent pages remain intact", async () => {
       const calls: Array<Readonly<Record<string, unknown>>> = [];
       const dispatcher = createMockDispatcher({
-        query: ((_type: string, payload: Readonly<Record<string, unknown>>) => {
+        query: (_type: string, payload: unknown) => {
+          if (!isRecord(payload)) throw new Error("expected a record payload");
           calls.push(payload);
           if (calls.length === 1) {
             return Promise.resolve({
@@ -343,7 +350,7 @@ describe("InfinityList", () => {
               nextCursor: "c1",
             },
           });
-        }) as unknown as Dispatcher["query"],
+        },
       });
       const fake = makeFakeLiveEvents();
 
@@ -362,9 +369,9 @@ describe("InfinityList", () => {
         fake.subscriber,
       );
 
-      await waitFor(() => expect(screen.getByText("Alt-1")).toBeTruthy());
+      await waitFor(() => screen.getByText("Alt-1"));
       await fireIntersect();
-      await waitFor(() => expect(screen.getByText("Alt-2")).toBeTruthy());
+      await waitFor(() => screen.getByText("Alt-2"));
       expect(calls.length).toBe(2);
 
       act(() => {
@@ -377,9 +384,9 @@ describe("InfinityList", () => {
         });
       });
 
-      await waitFor(() => expect(screen.getByText("Neu")).toBeTruthy(), liveWait);
-      expect(screen.getByText("Alt-1")).toBeTruthy();
-      expect(screen.getByText("Alt-2")).toBeTruthy();
+      await waitFor(() => screen.getByText("Neu"), liveWait);
+      screen.getByText("Alt-1");
+      screen.getByText("Alt-2");
       expect(screen.getAllByText("Alt-1").length).toBe(1);
 
       // The live refresh only requests the first page — no cursor in the payload.
@@ -392,7 +399,8 @@ describe("InfinityList", () => {
     test("Row deleted from page 1 → disappears after refresh", async () => {
       const calls: Array<Readonly<Record<string, unknown>>> = [];
       const dispatcher = createMockDispatcher({
-        query: ((_type: string, payload: Readonly<Record<string, unknown>>) => {
+        query: (_type: string, payload: unknown) => {
+          if (!isRecord(payload)) throw new Error("expected a record payload");
           calls.push(payload);
           if (calls.length === 1) {
             return Promise.resolve({
@@ -411,14 +419,14 @@ describe("InfinityList", () => {
             isSuccess: true,
             data: { rows: [{ id: "m2", subject: "Zweite" }], nextCursor: null },
           });
-        }) as unknown as Dispatcher["query"],
+        },
       });
       const fake = makeFakeLiveEvents();
 
       renderWithLive(list("inbox:query:message:list", true), dispatcher, fake.subscriber);
 
-      await waitFor(() => expect(screen.getByText("Erste")).toBeTruthy());
-      expect(screen.getByText("Zweite")).toBeTruthy();
+      await waitFor(() => screen.getByText("Erste"));
+      screen.getByText("Zweite");
 
       act(() => {
         fake.inject("message.deleted", {
@@ -431,7 +439,7 @@ describe("InfinityList", () => {
       });
 
       await waitFor(() => expect(screen.queryByText("Erste")).toBeNull(), liveWait);
-      expect(screen.getByText("Zweite")).toBeTruthy();
+      screen.getByText("Zweite");
     });
 
     // A row that was never part of page 1 (it lives on an already-loaded
@@ -441,7 +449,8 @@ describe("InfinityList", () => {
     test("Row from page 2 remains after a page-1 refresh", async () => {
       const calls: Array<Readonly<Record<string, unknown>>> = [];
       const dispatcher = createMockDispatcher({
-        query: ((_type: string, payload: Readonly<Record<string, unknown>>) => {
+        query: (_type: string, payload: unknown) => {
+          if (!isRecord(payload)) throw new Error("expected a record payload");
           calls.push(payload);
           if (calls.length === 1) {
             return Promise.resolve({
@@ -461,7 +470,7 @@ describe("InfinityList", () => {
             isSuccess: true,
             data: { rows: [{ id: "m3", subject: "Neu" }], nextCursor: null },
           });
-        }) as unknown as Dispatcher["query"],
+        },
       });
       const fake = makeFakeLiveEvents();
 
@@ -480,9 +489,9 @@ describe("InfinityList", () => {
         fake.subscriber,
       );
 
-      await waitFor(() => expect(screen.getByText("Erste")).toBeTruthy());
+      await waitFor(() => screen.getByText("Erste"));
       await fireIntersect();
-      await waitFor(() => expect(screen.getByText("Zweite")).toBeTruthy());
+      await waitFor(() => screen.getByText("Zweite"));
       expect(calls.length).toBe(2);
 
       act(() => {
@@ -495,9 +504,9 @@ describe("InfinityList", () => {
         });
       });
 
-      await waitFor(() => expect(screen.getByText("Neu")).toBeTruthy(), liveWait);
+      await waitFor(() => screen.getByText("Neu"), liveWait);
       expect(screen.queryByText("Erste")).toBeNull();
-      expect(screen.getByText("Zweite")).toBeTruthy();
+      screen.getByText("Zweite");
     });
 
     function messageEvent(
@@ -509,25 +518,25 @@ describe("InfinityList", () => {
     test("a burst of rapid SSE events triggers exactly one refresh query", async () => {
       let calls = 0;
       const dispatcher = createMockDispatcher({
-        query: (() => {
+        query: () => {
           calls += 1;
           const subject = calls === 1 ? "Alt" : "Neu";
           return Promise.resolve({
             isSuccess: true,
             data: { rows: [{ id: "m1", subject }], nextCursor: null },
           });
-        }) as unknown as Dispatcher["query"],
+        },
       });
       const fake = makeFakeLiveEvents();
       renderWithLive(list("inbox:query:message:list", true), dispatcher, fake.subscriber);
-      await waitFor(() => expect(screen.getByText("Alt")).toBeTruthy());
+      await waitFor(() => screen.getByText("Alt"));
 
       act(() => {
         for (const id of ["a", "b", "c", "d", "e"])
           fake.inject("message.updated", messageEvent(id));
       });
 
-      await waitFor(() => expect(screen.getByText("Neu")).toBeTruthy(), liveWait);
+      await waitFor(() => screen.getByText("Neu"), liveWait);
       expect(calls).toBe(2);
     });
 
@@ -535,22 +544,22 @@ describe("InfinityList", () => {
       let calls = 0;
       let releaseRefresh: () => void = () => {};
       const dispatcher = createMockDispatcher({
-        query: (() => {
+        query: () => {
           calls += 1;
           const subject = `v${calls}`;
-          const result = {
+          const result: QueryResult = {
             isSuccess: true,
             data: { rows: [{ id: "m1", subject }], nextCursor: null },
           };
           if (calls !== 2) return Promise.resolve(result);
-          return new Promise((resolve) => {
+          return new Promise<QueryResult>((resolve) => {
             releaseRefresh = () => resolve(result);
           });
-        }) as unknown as Dispatcher["query"],
+        },
       });
       const fake = makeFakeLiveEvents();
       renderWithLive(list("inbox:query:message:list", true), dispatcher, fake.subscriber);
-      await waitFor(() => expect(screen.getByText("v1")).toBeTruthy());
+      await waitFor(() => screen.getByText("v1"));
 
       act(() => fake.inject("message.updated", messageEvent("a")));
       await waitFor(() => expect(calls).toBe(2), liveWait);
@@ -558,20 +567,20 @@ describe("InfinityList", () => {
       act(() => fake.inject("message.updated", messageEvent("b")));
       act(() => releaseRefresh());
 
-      await waitFor(() => expect(screen.getByText("v3")).toBeTruthy(), liveWait);
+      await waitFor(() => screen.getByText("v3"), liveWait);
       expect(calls).toBe(3);
     });
 
     test("live=false: SSE event is ignored, no refetch", async () => {
       let calls = 0;
       const dispatcher = createMockDispatcher({
-        query: (() => {
+        query: () => {
           calls += 1;
           return Promise.resolve({
             isSuccess: true,
             data: { rows: [{ id: "m1", subject: "Hallo" }], nextCursor: null },
           });
-        }) as unknown as Dispatcher["query"],
+        },
       });
       const fake = makeFakeLiveEvents();
 
@@ -589,7 +598,7 @@ describe("InfinityList", () => {
         fake.subscriber,
       );
 
-      await waitFor(() => expect(screen.getByText("Hallo")).toBeTruthy());
+      await waitFor(() => screen.getByText("Hallo"));
 
       fake.inject("message.created", {
         id: "m2",
@@ -607,13 +616,13 @@ describe("InfinityList", () => {
     test("only events for the query entity trigger the refresh", async () => {
       let calls = 0;
       const dispatcher = createMockDispatcher({
-        query: (() => {
+        query: () => {
           calls += 1;
           return Promise.resolve({
             isSuccess: true,
             data: { rows: [{ id: "m1", subject: "Hallo" }], nextCursor: null },
           });
-        }) as unknown as Dispatcher["query"],
+        },
       });
       const fake = makeFakeLiveEvents();
 
@@ -631,7 +640,7 @@ describe("InfinityList", () => {
         fake.subscriber,
       );
 
-      await waitFor(() => expect(screen.getByText("Hallo")).toBeTruthy());
+      await waitFor(() => screen.getByText("Hallo"));
 
       fake.inject("note.created", {
         id: "n1",
@@ -650,12 +659,12 @@ describe("InfinityList", () => {
     // discard that fetch — it's the normal case for a screen that mounts while
     // writes are already streaming in.
     test("SSE event during the initial loading phase still lets the mount request complete", async () => {
-      const resolvers: Array<(res: unknown) => void> = [];
+      const resolvers: Array<(res: QueryResult) => void> = [];
       const dispatcher = createMockDispatcher({
-        query: (() =>
-          new Promise((resolve) => {
+        query: () =>
+          new Promise<QueryResult>((resolve) => {
             resolvers.push(resolve);
-          })) as unknown as Dispatcher["query"],
+          }),
       });
       const fake = makeFakeLiveEvents();
 
@@ -687,14 +696,14 @@ describe("InfinityList", () => {
         });
       });
 
-      await waitFor(() => expect(screen.getByText("Hallo")).toBeTruthy());
+      await waitFor(() => screen.getByText("Hallo"));
     });
   });
 });
 
 describe("InfinityList selection position", () => {
   const threeRows = createMockDispatcher({
-    query: (async () => ({
+    query: async () => ({
       isSuccess: true,
       data: {
         rows: [
@@ -704,7 +713,7 @@ describe("InfinityList selection position", () => {
         ],
         nextCursor: null,
       },
-    })) as unknown as Dispatcher["query"],
+    }),
   });
 
   function selectionList(selectedId: string | null, seen: InfinityListSelection[]): ReactNode {
@@ -749,7 +758,7 @@ describe("InfinityList selection position", () => {
   test("stays silent without a selection or for a row that is not loaded", async () => {
     const seen: InfinityListSelection[] = [];
     const view = renderWithDispatcher(selectionList(null, seen), threeRows);
-    await waitFor(() => expect(screen.getByText("Drei")).toBeTruthy());
+    await waitFor(() => screen.getByText("Drei"));
     view.rerender(
       <DispatcherProvider dispatcher={threeRows}>
         {selectionList("missing", seen)}

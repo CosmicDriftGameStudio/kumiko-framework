@@ -1,0 +1,12 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-field-approval",
+  "description": "Four-eyes approval for payment-relevant fields: a second person applies the change.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
+  }
+}

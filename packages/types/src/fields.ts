@@ -49,6 +49,8 @@ export { isSqlDerivedField } from "./fields-derived.ts";
 export type FieldAccess = {
   readonly read?: OwnershipMap | readonly string[];
   readonly write?: OwnershipMap | readonly string[];
+  // Roles that may change this field directly; anyone else with write access must file a field-approval request that a different approver applies.
+  readonly approve?: readonly string[];
 };
 
 // `sensitive: true` — the field's value is excluded from caller-facing event
@@ -228,6 +230,15 @@ export type RetentionDef = {
   readonly keepFor: string;
   readonly strategy: "hardDelete" | "softDelete" | "anonymize" | "blockDelete";
   readonly reference?: string;
+};
+
+/** Event-log retention for an entity that holds short-lived technical state. The data-retention
+ *  job `stream-retention` deletes every stream of the entity whose newest event is older than
+ *  `keepFor` (`<number><h|d|w|m|y>`), with all its events, and then the entity rows whose stream
+ *  is gone. High-frequency counters belong in an `r.storeTable` written with
+ *  `ctx.db.upsert(..., { increment })` instead. */
+export type StreamRetentionDef = {
+  readonly keepFor: string;
 };
 
 /** Where rows without a value sort in a list, in both directions. Without it Postgres decides:
@@ -454,6 +465,13 @@ export type MultiSelectFieldDef<TOptions extends readonly string[] = readonly st
    *  `hint` is ignored. Static `options` stay authoritative and the write path must
    *  enforce the same rule, the renderer only mirrors it. Called with an empty payload. */
   readonly optionsAvailabilityQuery?: string;
+  /** Options from a query handler instead of static `options` (rows `{ value, label, description? }`;
+   *  `default` is ignored). Only on actionForm/configEdit screen fields with `options: []`; entity
+   *  fields reject it at boot because the stored values would not be checked against the result.
+   *  The write handler must check every submitted value against the same source itself. */
+  readonly optionsQuery?: string;
+  /** Sent with every optionsQuery call; `{ field }` takes the current value of a sibling form field. */
+  readonly optionsQueryPayload?: OptionsQueryPayload;
 } & PiiAndFieldState;
 
 /**
@@ -555,6 +573,7 @@ export type MoneyCurrencySource =
  *  without a runtime-only import. */
 export const TENANT_CURRENCY_CONFIG_KEY = "tenant-settings:config:currency";
 
+/** The value is `{ amount, currency }` with amount as an integer in the currency's minor unit (cents for EUR, yen for JPY). */
 export type MoneyFieldDef = {
   readonly type: "money";
   readonly description?: string;
@@ -1044,6 +1063,23 @@ export const NO_WIDGET_FIELD_TYPES: readonly FieldDefinition["type"][] = ["jsonb
 
 export type TransitionMap = Readonly<Record<string, readonly string[]>>;
 
+/** A named update event of an entity: `executor.update(..., { verb })` appends `<entity>.<verb>`
+ *  with the `updated` payload. A transition sets `field` to `to` and requires the current value in `from`. */
+export type EntityVerbDef = {
+  readonly transition?: {
+    readonly field: string;
+    readonly from: readonly string[];
+    readonly to: string;
+  };
+};
+
+export function isDeclaredEntityVerb(
+  entity: Pick<EntityDefinition, "verbs"> | undefined,
+  verb: string,
+): boolean {
+  return entity?.verbs !== undefined && Object.hasOwn(entity.verbs, verb);
+}
+
 /** Composite index on an entity. Columns are referenced by field name
  *  (camelCase). `buildEntityTable` maps them to snake_case column names and
  *  names the index by convention:
@@ -1113,6 +1149,8 @@ export type EntityDefinition<
   F extends FieldsMap = FieldsMap,
   T extends EntityTenancy = EntityTenancy,
 > = {
+  /** Feature-local entity name; the table, the event stream and the handler names derive from it. */
+  readonly name: string;
   readonly table?: string;
   readonly fields: F;
   readonly softDelete?: boolean;
@@ -1146,6 +1184,8 @@ export type EntityDefinition<
   readonly lockedWhen?: FieldCondition;
   /** Allowed state transitions per field. Boot validates against select options. */
   readonly transitions?: Readonly<Record<string, TransitionMap>>;
+  /** Named update events, keyed by the event verb (`<entity>.<verb>`). Boot rejects lifecycle names. */
+  readonly verbs?: Readonly<Record<string, EntityVerbDef>>;
   /** Composite indexes over multiple fields. Single-column foreign-key indexes
    *  and the tenant_id index are still created automatically by
    *  `buildEntityTable`; this list is only for custom indexes explicitly
@@ -1208,6 +1248,14 @@ export type EntityDefinition<
    * See docs/plans/features/core-data-retention.md.
    */
   readonly retention?: RetentionDef;
+  /** Prunes whole event streams of this entity once their newest event is older than keepFor.
+   *  See StreamRetentionDef. Excludes `retention`, `systemStream`, `idType: "serial"`, file fields
+   *  and foreign table-bearing projections of this entity's events (boot rules retention/stream-retention-*). */
+  readonly streamRetention?: StreamRetentionDef;
+  /** crypto-shredding:write:forget-subject forgets this entity's row, through the executor, when the row's own
+   *  subject is forgotten: `record:<entity>:<id>`, or `user:<id>` when the entity has a `personal: "self"` field.
+   *  Needs a `personal: "self"` or record-keyed field; cannot be combined with `retention.strategy: "blockDelete"`. */
+  readonly forgetWithSubject?: true;
   /**
    * Read-time computed fields, keyed by name. Not stored, not a DB column,
    * not writable — appended to each row by the list/detail query handler and

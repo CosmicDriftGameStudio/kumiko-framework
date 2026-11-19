@@ -8,9 +8,8 @@ import {
   decryptPiiFieldValues,
   InMemoryKmsAdapter,
   PII_ERASED_SENTINEL,
-  subjectIdToKey,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { buildEntityTable, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -21,15 +20,16 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError } from "@cosmicdrift/kumiko-framework/errors";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  drainEventConsumers,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants.ts";
+import { SUBJECT_FORGOTTEN_EVENT_NAME, SUBJECT_KEY_ERASER_CONSUMER_NAME } from "../constants.ts";
 import { createCryptoShreddingFeature } from "../feature.ts";
 import { subjectForgetAfterDeleteHook } from "../subject-forget-after-delete-hook.ts";
 
@@ -48,31 +48,20 @@ const foreignOwner = {
 };
 
 const probeEntity = createEntity({
+  name: ENTITY,
   table: "read_after_delete_probe",
   fields: {
     body: createTextField({ required: true, maxLength: 200, personal: { of: "id" }, find: "none" }),
   },
 });
-const probeTable = buildEntityTable(ENTITY, probeEntity);
+const probeTable = buildEntityTable(probeEntity);
 const access = { roles: ["Owner"] };
 
 let rejectDelete = false;
 let trailingSubjectIds: readonly string[] = [];
 
-class FailingEraseKmsAdapter extends InMemoryKmsAdapter {
-  readonly failingRecordIds = new Set<string>();
-
-  override async eraseKey(...args: Parameters<InMemoryKmsAdapter["eraseKey"]>): Promise<void> {
-    const [subject] = args;
-    if (subject.kind === "record" && this.failingRecordIds.has(subject.id)) {
-      throw new Error("kms unavailable for this subject");
-    }
-    await super.eraseKey(...args);
-  }
-}
-
 const probeFeature = defineFeature("after-delete-probe", (r) => {
-  const probe = r.entity({ name: ENTITY, ...probeEntity });
+  const probe = r.entity(probeEntity);
   r.writeHandler(defineEntityCreateHandler(ENTITY, probeEntity, { access }));
   r.writeHandler(defineEntityDeleteHandler(ENTITY, probeEntity, { access }));
   r.hook(
@@ -97,7 +86,7 @@ const probeFeature = defineFeature("after-delete-probe", (r) => {
 });
 
 let stack: TestStack;
-let kms: FailingEraseKmsAdapter;
+let kms: InMemoryKmsAdapter;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [createCryptoShreddingFeature(), probeFeature] });
@@ -110,7 +99,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetTestTables(stack.db, [probeTable, eventsTable]);
-  kms = new FailingEraseKmsAdapter();
+  kms = new InMemoryKmsAdapter();
   configurePiiSubjectKms(kms);
   rejectDelete = false;
   trailingSubjectIds = [];
@@ -158,6 +147,7 @@ describe("crypto-shredding :: subjectForgetAfterDeleteHook", () => {
     await stack.http.writeOk(DELETE, { id }, owner);
 
     expect(await rowCount(id)).toBe(0);
+    await drainEventConsumers(stack, [SUBJECT_KEY_ERASER_CONSUMER_NAME]);
     expect(await rawBodyOf(id)).toBe(PII_ERASED_SENTINEL);
   });
 
@@ -172,28 +162,6 @@ describe("crypto-shredding :: subjectForgetAfterDeleteHook", () => {
     expect(await rawBodyOf(id)).toBe(PLAINTEXT);
   });
 
-  test("a failing second subject rolls the delete back but keeps the audit event of the erased first subject", async () => {
-    const id = await createProbe();
-    const failingSubjectId = generateId();
-    trailingSubjectIds = [failingSubjectId];
-    kms.failingRecordIds.add(failingSubjectId);
-
-    const response = await stack.http.write(DELETE, { id }, owner);
-
-    // forget-subject's own key-store error reaches the caller instead of an anonymous internal error.
-    expect(response.status).toBe(503);
-    expect(await rowCount(id)).toBe(1);
-    // The first key is gone for good, so its audit trail must outlive the rolled-back delete.
-    expect(await rawBodyOf(id)).toBe(PII_ERASED_SENTINEL);
-    const audit = (await selectMany(stack.db, eventsTable, {
-      type: SUBJECT_FORGOTTEN_EVENT_NAME,
-    })) as Array<{ payload: { subjectKey: string } }>;
-    expect(audit).toHaveLength(1);
-    expect(audit[0]?.payload.subjectKey).toBe(
-      subjectIdToKey({ kind: "record", entity: ENTITY, id }),
-    );
-  });
-
   test("a refused forget surfaces as its own error, not as an anonymous internal error", async () => {
     const id = await createProbe();
     trailingSubjectIds = ["not-a-uuid"];
@@ -203,6 +171,10 @@ describe("crypto-shredding :: subjectForgetAfterDeleteHook", () => {
     expect(error.httpStatus).toBe(400);
     expect(error.code).toBe("validation_error");
     expect(await rowCount(id)).toBe(1);
+    await drainEventConsumers(stack, [SUBJECT_KEY_ERASER_CONSUMER_NAME]);
+    expect(await rawBodyOf(id)).toBe(PLAINTEXT);
+    const audit = await selectMany(stack.db, eventsTable, { type: SUBJECT_FORGOTTEN_EVENT_NAME });
+    expect(audit).toHaveLength(0);
   });
 
   test("a delete of another tenant's row is refused and never reaches the key erase", async () => {

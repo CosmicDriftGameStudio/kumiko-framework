@@ -15,20 +15,22 @@ import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const probeEntity = createEntity({
+  name: "probe",
   table: "idempotency_transient_probes",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const probeTable = buildEntityTable("probe", probeEntity);
+const probeTable = buildEntityTable(probeEntity);
 
 const batchItemEntity = createEntity({
+  name: "batchItem",
   table: "idempotency_transient_batch_items",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const batchItemTable = buildEntityTable("batchItem", batchItemEntity);
+const batchItemTable = buildEntityTable(batchItemEntity);
 
 // Reset per test — counts real handler invocations so a cached replay
 // (no re-invocation) is distinguishable from a genuine retry.
@@ -38,8 +40,8 @@ let batchTransientCallCount = 0;
 let commitFailureCallCount = 0;
 
 const transientFailureFeature = defineFeature("idempotencytransient", (r) => {
-  r.entity({ name: "probe", ...probeEntity });
-  r.entity({ name: "batchItem", ...batchItemEntity });
+  r.entity(probeEntity);
+  r.entity(batchItemEntity);
 
   // Inserts via ctx.db, then throws on its first invocation only — the
   // insert lands inside the (later rolled-back) transaction, so a retry

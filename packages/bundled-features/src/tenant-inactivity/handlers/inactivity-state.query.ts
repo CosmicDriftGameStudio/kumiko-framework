@@ -1,6 +1,7 @@
-import { createTenantDb, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler, parseTenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import * as z from "zod";
 import { TENANT_KEEP_ACCOUNT_ROLES } from "../constants.ts";
 import { describeOutlook, foldActivity } from "../inactivity-plan.ts";
@@ -30,7 +31,7 @@ export function createInactivityStateQuery<TTier extends string>(
         if (!query.user.roles.includes("SystemAdmin")) throw new AccessDeniedError();
         const tenantId = parseTenantId(requested);
         if (tenantId === null) throw new UnprocessableError("invalid_tenant_id");
-        db = createTenantDb({ db: ctx.db.unsafeRaw(), tenantId });
+        db = createTenantDb({ db: ctx.db.unsafeRawAllTenants(), tenantId });
       }
       const rule = await resolveInactivityRule(options, db);
       const stored = await loadInactivityState(db);

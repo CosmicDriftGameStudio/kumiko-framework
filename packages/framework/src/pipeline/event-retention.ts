@@ -2,6 +2,7 @@
 
 import type { DbConnection } from "../db/connection.ts";
 import { lockEventConsumersShareMode } from "../db/queries/event-consumer.ts";
+import { selectExpiredStreamEventIds } from "../db/queries/event-store.ts";
 import { deleteMany, selectMany, transaction } from "../db/query.ts";
 import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import { eventsTable } from "../event-store/index.ts";
@@ -16,6 +17,10 @@ import { eventConsumerStateTable } from "./event-consumer-state.ts";
 // legal/compliance retention has elapsed, or drops a specific aggregate
 // type that's been deprecated and replaced.
 //
+// Only whole streams are pruned: a stream (tenant, aggregate id) goes when its newest event is
+// older than the cutoff, and then with all of its events, so rebuilds never see a stream
+// without its created event.
+//
 // Safety guard: before deleting, we check every row in
 // `kumiko_event_consumers`. If the minimum `lastProcessedEventId` across
 // non-disabled consumers is below the largest event id we'd delete, we
@@ -29,7 +34,7 @@ import { eventConsumerStateTable } from "./event-consumer-state.ts";
 // retention and lets ops reason about timing alongside existing jobs.
 
 export type PruneEventsOptions = {
-  // Delete events whose createdAt is strictly older than this.
+  // Delete all events of streams whose newest event is strictly older than this.
   // Pass EITHER olderThan (explicit Temporal.Instant) OR olderThanDays.
   readonly olderThan?: Temporal.Instant;
   readonly olderThanDays?: number;
@@ -41,8 +46,9 @@ export type PruneEventsOptions = {
   readonly aggregateIds?: readonly string[];
   // Dry-run: compute what would be deleted, return count, delete nothing.
   readonly dryRun?: boolean;
-  // Delete at most this many events (lowest ids first) per call. Callers with a large backlog
-  // loop until deletedCount < batchSize, so each batch is its own short transaction.
+  // Delete at most this many whole streams (lowest first event id first) per call. deletedCount
+  // counts events and can exceed batchSize. Callers with a large backlog loop until
+  // deletedCount < batchSize, which terminates because deletedCount >= number of streams.
   readonly batchSize?: number;
 };
 
@@ -120,28 +126,22 @@ export async function pruneEvents(
         // a silent data-loss bug.
         await lockEventConsumersShareMode(tx);
 
-        // Step 1 — collect candidate event ids.
-        const candidates = await selectMany<{ id: bigint }>(
-          tx,
-          eventsTable,
-          {
-            aggregateType: [...aggregateTypes],
-            ...(aggregateIds ? { aggregateId: [...aggregateIds] } : {}),
-            createdAt: { lt: cutoff },
-          },
-          options.batchSize === undefined
-            ? undefined
-            : { orderBy: { col: "id", direction: "asc" }, limit: options.batchSize },
-        );
+        // Step 1 — collect candidate event ids of fully expired streams.
+        const candidateIds = await selectExpiredStreamEventIds(tx, {
+          aggregateTypes,
+          ...(aggregateIds ? { aggregateIds } : {}),
+          cutoff,
+          ...(options.batchSize === undefined ? {} : { streamLimit: options.batchSize }),
+        });
 
-        if (candidates.length === 0) {
+        if (candidateIds.length === 0) {
           return { deletedCount: 0, cutoff, aggregateTypes, dryRun };
         }
 
-        const maxCandidateId = candidates.reduce(
+        const maxCandidateId = candidateIds.reduce(
           // biome-ignore lint/complexity/useMathMinMax: ids are bigint, Math.max throws a TypeError on BigInt
-          (acc, row) => (row.id > acc ? row.id : acc),
-          candidates[0]?.id ?? 0n,
+          (acc, id) => (id > acc ? id : acc),
+          candidateIds[0] ?? 0n,
         );
 
         // Step 2 — safety guard: check every ACTIVE consumer has moved past
@@ -166,11 +166,10 @@ export async function pruneEvents(
         }
 
         if (dryRun) {
-          return { deletedCount: candidates.length, cutoff, aggregateTypes, dryRun: true };
+          return { deletedCount: candidateIds.length, cutoff, aggregateTypes, dryRun: true };
         }
 
         // Step 3 — actual delete, bounded to the candidate set.
-        const candidateIds = candidates.map((c) => c.id);
         await deleteMany(tx, eventsTable, { id: candidateIds });
 
         return { deletedCount: candidateIds.length, cutoff, aggregateTypes, dryRun: false };

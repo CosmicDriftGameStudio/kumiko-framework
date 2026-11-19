@@ -21,6 +21,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
+  createTestEnvelopeCipher,
   runInRowLevelSecurityScope,
   tenantRowLevelSecurityScope,
   waitFor,
@@ -70,7 +71,7 @@ const brokenProviderFeature = defineFeature("mail-transport-broken", (r) => {
       throw new Error("provider build failed");
     },
   };
-  r.useExtension(MAIL_TRANSPORT_EXTENSION, "broken", plugin);
+  r.applyExtension({ name: MAIL_TRANSPORT_EXTENSION, entity: "broken", ...plugin });
 });
 
 // Stands in for an SMTP password: the transport a tenant gets is the one its secret selects.
@@ -86,7 +87,7 @@ function transportForSecret(secret: string) {
 const keyedProviderFeature = defineFeature("mail-transport-keyed", (r) => {
   r.requires({ features: ["mail-foundation"] });
   r.requires({ features: ["secrets"] });
-  const apiKey = r.secret("api.key", { label: { en: "API key" }, scope: "tenant" });
+  const apiKey = r.secret({ name: "api.key", label: { en: "API key" }, scope: "tenant" });
   const plugin: MailTransportPlugin = {
     build: async (ctx, tenantId) => {
       if (!ctx.secrets) throw new Error("keyed provider: no secrets context");
@@ -95,7 +96,7 @@ const keyedProviderFeature = defineFeature("mail-transport-keyed", (r) => {
       return transportForSecret(secret.reveal());
     },
   };
-  r.useExtension(MAIL_TRANSPORT_EXTENSION, "keyed", plugin);
+  r.applyExtension({ name: MAIL_TRANSPORT_EXTENSION, entity: "keyed", ...plugin });
   return { apiKey };
 });
 
@@ -112,9 +113,9 @@ const TENANT_ROUTED_NOTIFICATIONS = [
 ] as const;
 
 const appNotificationsFeature = defineFeature("app", (r) => {
-  for (const name of TENANT_ROUTED_NOTIFICATIONS) r.notification(name, { tenantTransport: true });
-  r.notification("password-reset", {});
-  r.notification("guest-placeholder", {});
+  for (const name of TENANT_ROUTED_NOTIFICATIONS) r.notification({ name, tenantTransport: true });
+  r.notification({ name: "password-reset" });
+  r.notification({ name: "guest-placeholder" });
 });
 
 const tenantA: TenantId = testTenantId(601);
@@ -242,12 +243,19 @@ async function attemptStatuses(type: string): Promise<string[]> {
   return rows.map((row) => row.status);
 }
 
+const cipher = createTestEnvelopeCipher();
+
 async function notifyThroughJobs(tenantId: TenantId, to: string, type: string) {
   const redisUrl = process.env["REDIS_URL"];
   if (!redisUrl) throw new Error("REDIS_URL required for the async delivery test");
   const jobRunner = createJobRunner({
     registry: stack.registry,
-    context: { db: stack.db, secrets, configAccessorFactory: accessorFactory },
+    context: {
+      db: stack.db,
+      secrets,
+      configAccessorFactory: accessorFactory,
+      configEncryption: cipher,
+    },
     redisUrl,
     consumerLane: "worker",
     queueNamePrefix: testRunQueueNamePrefix("kumiko-email-tenant-transport"),
@@ -259,6 +267,7 @@ async function notifyThroughJobs(tenantId: TenantId, to: string, type: string) {
       registry: stack.registry,
       channels: collectChannels(stack.registry),
       jobRunner,
+      addressCipher: cipher,
       tenantConfigFor: (id) => configFor(id),
     });
     await queuedService.notify(

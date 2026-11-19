@@ -53,8 +53,8 @@ const adminUser = TestUsers.admin;
 let testDb: TestDb;
 let testRedis: TestRedis;
 
-const orderTable = buildEntityTable("order", orderEntity);
-const fulfillmentTable = buildEntityTable("fulfillment", fulfillmentEntity);
+const orderTable = buildEntityTable(orderEntity);
+const fulfillmentTable = buildEntityTable(fulfillmentEntity);
 
 beforeAll(async () => {
   [testDb, testRedis] = await Promise.all([createTestDb(), createTestRedis()]);
@@ -82,7 +82,7 @@ async function writeOrder(
   api: Awaited<ReturnType<typeof createApiEntrypoint>>,
   customerName: string,
   amount: number,
-): Promise<boolean> {
+): Promise<string | undefined> {
   const token = await api.jwt.sign(adminUser);
   const res = await api.app.request("/api/write", {
     method: "POST",
@@ -95,8 +95,8 @@ async function writeOrder(
       payload: { customerName, amount },
     }),
   });
-  const result = (await res.json()) as { isSuccess: boolean };
-  return result.isSuccess;
+  const result = (await res.json()) as { isSuccess: boolean; data?: { id: string } };
+  return result.isSuccess ? result.data?.id : undefined;
 }
 
 describe("api-worker-split", () => {
@@ -111,7 +111,7 @@ describe("api-worker-split", () => {
     });
     await api.start();
     try {
-      expect(await writeOrder(api, "Acme GmbH", 499)).toBe(true);
+      expect(await writeOrder(api, "Acme GmbH", 499)).toBeDefined();
 
       // Entity rows are written synchronously by the event-store executor —
       // present even in split mode.
@@ -153,14 +153,15 @@ describe("api-worker-split", () => {
 
     await Promise.all([api.start(), worker.start()]);
     try {
-      expect(await writeOrder(api, "Globex Ltd", 1299)).toBe(true);
+      const orderId = await writeOrder(api, "Globex Ltd", 1299);
+      expect(orderId).toBeDefined();
 
       // Worker's dispatcher applied the projection the API skipped…
       await waitFor(async () => {
         const activity = await selectMany<{ orderKey: string }>(testDb.db, orderActivityTable, {
           tenantId: adminUser.tenantId,
         });
-        expect(activity.some((row) => row.orderKey === "Globex Ltd")).toBe(true);
+        expect(activity.some((row) => row.orderKey === orderId)).toBe(true);
       });
 
       // …and the job wrote the fulfillment back through the WORKER's
@@ -173,7 +174,7 @@ describe("api-worker-split", () => {
           fulfillmentTable,
           { tenantId: adminUser.tenantId },
         );
-        expect(fulfillments.some((row) => row.orderKey === "Globex Ltd")).toBe(true);
+        expect(fulfillments.some((row) => row.orderKey === orderId)).toBe(true);
         expect(fulfillments[0]?.carrier).toBe("DHL");
       });
     } finally {
@@ -207,12 +208,13 @@ describe("api-worker-split", () => {
 
     await Promise.all([api.start(), worker.start()]);
     try {
-      expect(await writeOrder(api, "Initech AG", 250)).toBe(true);
+      const orderId = await writeOrder(api, "Initech AG", 250);
+      expect(orderId).toBeDefined();
       await waitFor(async () => {
         const fulfillments = await selectMany<{ orderKey: string }>(testDb.db, fulfillmentTable, {
           tenantId: adminUser.tenantId,
         });
-        expect(fulfillments.some((row) => row.orderKey === "Initech AG")).toBe(true);
+        expect(fulfillments.some((row) => row.orderKey === orderId)).toBe(true);
       });
       expect(busyChecks).toBe(2);
     } finally {

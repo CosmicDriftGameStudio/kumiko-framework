@@ -61,13 +61,14 @@ const { withTierOptionGate } = createTierOptionGate<Tier, Caps>({
 });
 
 const siteEntity = createEntity({
+  name: "site",
   table: "gated_sites",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture" }),
     layout: createSelectField({ options: ["basic", "wide", "custom"] }),
   },
 });
-const { table: siteTable } = createEntityExecutor("site", siteEntity);
+const { table: siteTable } = createEntityExecutor(siteEntity);
 
 const layoutSpec = {
   field: "layout",
@@ -94,7 +95,7 @@ const countedCreate = withCapEnforcement(
 );
 
 const siteFeature = defineFeature("gated-site", (r) => {
-  r.entity({ name: "site", ...siteEntity });
+  r.entity(siteEntity);
   r.writeHandler(
     withTierOptionGate(defineEntityCreateHandler("site", siteEntity, access), layoutSpec),
   );
@@ -128,7 +129,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, tierAssignmentEntity);
   await unsafeCreateEntityTable(stack.db, capCounterEntity);
-  await unsafeCreateEntityTable(stack.db, siteEntity, "site");
+  await unsafeCreateEntityTable(stack.db, siteEntity);
   await unsafePushTables(stack.db, { configValuesTable });
 });
 

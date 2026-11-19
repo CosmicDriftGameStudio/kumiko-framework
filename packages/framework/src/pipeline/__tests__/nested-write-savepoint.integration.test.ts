@@ -29,30 +29,33 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 // inner write must still be undone, and the outer tx must stay usable.
 
 const outerEntity = createEntity({
+  name: "outer",
   table: "nws_outers",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const outerTable = buildEntityTable("outer", outerEntity);
+const outerTable = buildEntityTable(outerEntity);
 
 const innerEntity = createEntity({
+  name: "inner",
   table: "nws_inners",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const innerTable = buildEntityTable("inner", innerEntity);
+const innerTable = buildEntityTable(innerEntity);
 
 const innerCrud = createEventStoreExecutor(innerTable, innerEntity, { entityName: "inner" });
 
 const midEntity = createEntity({
+  name: "mid",
   table: "nws_mids",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const midTable = buildEntityTable("mid", midEntity);
+const midTable = buildEntityTable(midEntity);
 const midCrud = createEventStoreExecutor(midTable, midEntity, { entityName: "mid" });
 
 // Inner hook rejects any label carrying this marker; tests isolate themselves by unique label prefixes.
@@ -68,9 +71,9 @@ let lastParallelResults: { rejected: WriteResult; kept: WriteResult } | undefine
 
 const nestedFeature = defineFeature("nws", (r) => {
   r.requires.step("callFeature");
-  const inner = r.entity({ name: "inner", ...innerEntity });
-  const mid = r.entity({ name: "mid", ...midEntity });
-  r.entity({ name: "outer", ...outerEntity });
+  const inner = r.entity(innerEntity);
+  const mid = r.entity(midEntity);
+  r.entity(outerEntity);
 
   r.writeHandler({
     name: "inner:create",
@@ -91,11 +94,14 @@ const nestedFeature = defineFeature("nws", (r) => {
     schema: z.object({ label: z.string() }),
     handler: async (event, ctx) => {
       await innerCrud.create(event.payload, event.user, ctx.db);
-      await asRawClient(ctx.db.unsafeRaw()).unsafe("SELECT 1 FROM nws_no_such_table");
+      await asRawClient(ctx.db.unsafeRawAllTenants()).unsafe("SELECT 1 FROM nws_no_such_table");
       return { isSuccess: true as const, data: {} };
     },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test fixture: provoke a SQL error inside a nested write" },
+    escapeHatch: {
+      reason: "test fixture: provoke a SQL error inside a nested write",
+      grants: ["unsafeRaw"],
+    },
   });
 
   r.writeHandler({
@@ -129,7 +135,10 @@ const nestedFeature = defineFeature("nws", (r) => {
       return crud.create({ label: event.payload.label }, event.user, ctx.db);
     },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test fixture: write as system inside a nested savepoint" },
+    escapeHatch: {
+      reason: "test fixture: write as system inside a nested savepoint",
+      grants: ["systemIdentity"],
+    },
   });
 
   // The workflow step variant: callFeature throws on a failed inner write.
@@ -220,8 +229,8 @@ async function labelsOf(
   table: typeof outerTable | typeof innerTable | typeof midTable,
   prefix: string,
 ): Promise<string[]> {
-  const rows = await selectMany(stack.db, table);
-  return (rows as Array<Record<string, unknown>>)
+  const rows = await selectMany<Record<string, unknown>>(stack.db, table);
+  return rows
     .map((row) => String(row["label"]))
     .filter((label) => label.startsWith(prefix))
     .sort();

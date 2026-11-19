@@ -24,6 +24,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const bookEntity = createEntity({
+  name: "book",
   table: "read_books",
   fields: {
     title: createTextField({
@@ -46,7 +47,7 @@ export const bookEntity = createEntity({
 export function createBookshopFeature(): FeatureDefinition {
   return defineFeature("bookshop", (r) => {
     r.systemScope();
-    r.entity({ name: "book", ...bookEntity });
+    r.entity(bookEntity);
 
     // entityList — columns carry string shorthand and the object form
     // side by side; the framework normalizes both through
@@ -55,15 +56,7 @@ export function createBookshopFeature(): FeatureDefinition {
       id: "book-list",
       type: "entityList",
       entity: "book",
-      columns: [
-        "title",
-        "author",
-        {
-          field: "price",
-          renderer: { format: "currency", symbol: "€" },
-        },
-        "published",
-      ],
+      columns: ["title", "author", "price", "published"],
     });
 
     // entityEdit — sections + spans + declarative conditionals + slots.

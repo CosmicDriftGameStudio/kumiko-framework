@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-10-26
-evidence: "packages/types/src/handlers.ts, packages/types/src/handler-context-facets.ts, packages/types/src/handler-context-services.ts, packages/feature-ast/src/scripts/codemod/ctx-namespaces-mapping.ts"
+verified: 2026-11-17
+evidence: "packages/framework/src/db/tenant-db-system-db.ts, packages/framework/src/engine/define-handler.ts, packages/types/src/handlers.ts, packages/types/src/handler-context-facets.ts, packages/types/src/handler-context-services.ts, packages/types/src/config.ts"
 ---
 
 # Handler context and embedded fields
@@ -33,28 +33,37 @@ flowchart LR
 | Namespace | Members | Use it for |
 |---|---|---|
 | `ctx.db` | TenantDb methods, `outsideTransaction` | rows of the caller's tenant, inside or outside the handler transaction |
-| `ctx.systemDb` | `assertTenantMatch`, `assertRowsTenant`, `acknowledgeCrossTenant`, `unsafeRaw` | `r.systemScope()` features only |
+| `ctx.systemDb` | `scopedTo`, `assertTenantMatch`, `assertRowsTenant`, `acknowledgeCrossTenant`, `unsafeRaw` | `r.systemScope()` features only |
 | `ctx.crossTenantReads` | `selectMany`, `fetchOne`, `count` | read-only access to other tenants, only with an `escapeHatch` grant |
-| `ctx.events` | `append`, `unsafeAppend`, `tryAppend`, `fetchForWriting`, `load`, `loadWithSnapshot`, `snapshot`, `archive`, `restore`, `isArchived` | event streams of the feature |
+| `ctx.events` | `append`, `unsafeAppend`, `tryAppend`, `fetchForWriting`, `load`, `loadWithSnapshot`, `snapshot`, `archive`, `restore`, `isArchived`, `streamVersion` | event streams of the feature |
 | `ctx.dispatch` | `query`, `write`, `queryAs`, `writeAs`, `queryAsMember`, `queryProjection` | calling other handlers |
 | `ctx.lifecycle` | `afterCommit`, `afterRollback`, `signal`, `runPreSave` | work after commit or rollback, cancellation |
 | `ctx.obs` | `log`, `tracer`, `metrics`, `metricsFor`, `meter` | logging, traces and metrics |
-| `ctx.services` | `redis`, `cacheSync`, `jobRunner`, `searchAdapter`, `entityCache`, `secrets`, `kms`, `files`, `derivatives`, `configResolver`, `configEncryption`, `rateLimit`, `effectiveFeatures`, `masterKeyProvider`, `extensions` | injected infrastructure; unknown `extraContext` keys of the app land in `extensions` |
+| `ctx.services` | `redis`, `cacheSync`, `jobRunner`, `searchAdapter`, `secrets`, `kms`, `files`, `derivatives`, `configResolver`, `configEncryption`, `rateLimit`, `effectiveFeatures`, `masterKeyProvider`, `extensions` | injected infrastructure; unknown `extraContext` keys of the app land in `extensions` |
 | `ctx.tenants` | `config(tenantId)`, `writeTarget(tenantId)` | config of a tenant, writes into another tenant's stream |
 | `ctx.auth` | `resolveClaims`, `resolveActiveMembership` | auth features |
 
-A job context carries subsets: `events.append`, `dispatch.write`, `writeAs`,
+A job context carries subsets: `events.append`, `dispatch.write`, `query`, `writeAs`,
 `queryAs` and `queryAsMember`, `obs.log`, `metricsFor` and `meter`,
-`lifecycle.signal` and the same `services`. The flat names (`ctx.appendEvent`,
+`lifecycle.signal` and the same `services`. `dispatch.write` and `dispatch.query` run as
+`ctx.systemUser`, which carries the roles the job lists in `r.job({ runAs: { roles } })`. The flat names (`ctx.appendEvent`,
 `ctx.write`, `ctx.log`, `ctx.scheduleAfterCommit`, `ctx.configFor`, …) are gone
 without aliases; `kumiko-upgrade --apply` rewrites them, see
 [Upgrading to 0.392](upgrading-to-0-392.md).
 
 ```ts illustration
 handler: async (event, ctx) => {
+  const streamVersion = await ctx.events.streamVersion(event.payload.id); // before reading state
   const invoice = await ctx.db.fetchOne(invoiceTable, { id: event.payload.id });
   if (!invoice) throw new NotFoundError("invoice");
-  await ctx.events.append({ type: "invoice:sent", aggregateId: invoice.id, aggregateType: "invoice", payload: {} });
+  // expectedVersion: 0 instead when the invoice is created in this same handler
+  await ctx.events.append({
+    type: "invoice:sent",
+    aggregateId: invoice.id,
+    aggregateType: "invoice",
+    payload: {},
+    expectedVersion: streamVersion,
+  });
   ctx.lifecycle.afterCommit?.(() => ctx.obs.log.info("invoice sent", { id: invoice.id }));
   return { isSuccess: true, data: { id: invoice.id } };
 },
@@ -125,8 +134,6 @@ In the reservation phase the same surfaces are blocked as in `beforeTransaction`
 
 No connection is held across the handler, so capped requests cannot exhaust the pool, and the counter stream is not locked while the handler runs. A reservation covers one top-level command. A capped handler reached through a nested `ctx.dispatch.write`, `ctx.dispatch.writeAs` or a second run of the same type finds the reservation spent and fails with an `InternalError`. Book the nested work from the top-level handler instead, or make the capped handler the top-level command. If a commit fails with an unknown outcome, the release can under-count, so a wrapped handler must not book the same counter itself.
 
-`withRollingCapEnforcement` is unchanged: it checks inside the handler and books through the SystemAdmin-only `increment-rolling` handler, with no reservation.
-
 ## External calls run before the transaction
 
 A call to a slow external service (the PDF print service, later AI providers) must not run inside the handler transaction, because the transaction holds a pool connection for as long as the call takes. A write handler declares a `beforeTransaction` phase for it. The dispatcher runs the phases in a fixed order: pre-handler gates, then `reserveBeforeTransaction` (if any), then `beforeTransaction`, then the transaction with the handler.
@@ -182,18 +189,29 @@ work (platform admin screens, cross-tenant jobs) but is easy to get wrong —
 a handler that forgets its own tenant self-check silently reads or writes
 another tenant's rows.
 
-`HandlerContext.systemDb?: UncheckedSystemDb` exists to make that self-check
-explicit instead of optional convention. It is populated whenever
-`r.systemScope()` is set on the calling feature; check for `undefined` before
-use, since a handler on a tenant-scoped feature never receives it. It offers
-four methods. `assertTenantMatch` and `acknowledgeCrossTenant` return the same
-`TenantDb` that `ctx.db` would give you, so the query calls after them are
-unchanged; `assertRowsTenant` returns the rows it checked, and `unsafeRaw`
-returns a raw runner:
+`HandlerContext.systemDb?: UncheckedSystemDb` makes that self-check explicit
+instead of convention. The field is set when the calling feature sets
+`r.systemScope()`. A handler that declares `systemScope: true` with
+`defineWriteHandler`/`defineQueryHandler` gets a `SystemScopeHandlerContext`,
+where `ctx.systemDb` is not optional. Boot rejects the marker in a feature
+without `r.systemScope()`. If the handler runs without `systemDb` (no db
+wired), the dispatch throws with the handler name. Jobs, hooks and helpers that
+take a general `HandlerContext` keep checking with
+`requireSystemDb(ctx, name)`. `systemDb` offers
+five methods. `scopedTo` returns a tenant-mode `TenantDb`; `assertTenantMatch`
+and `acknowledgeCrossTenant` return the unfiltered system-mode `TenantDb`;
+`assertRowsTenant` returns the rows it checked, and `unsafeRaw` returns a raw
+runner:
 
+- **`scopedTo(tenantId)`** throws `AccessDeniedError` like `assertTenantMatch`,
+  then returns a tenant-mode `TenantDb` for that tenant on the same
+  transaction: reads are filtered to the own tenant plus system rows, writes
+  are pinned to the tenant, and there is no `unsafeRaw` or `global()`. This is
+  the default for handlers that only work inside the caller's own tenant.
 - **`assertTenantMatch(tenantId)`** — throws `AccessDeniedError` unless
-  `tenantId` is exactly the caller's own tenant, then returns the checked
-  `TenantDb`. Pass the tenant id the handler is about to touch: a
+  `tenantId` is exactly the caller's own tenant, then returns the unfiltered
+  system-mode `TenantDb` (only needed for writes with a foreign or system
+  tenant id). Pass the tenant id the handler is about to touch: a
   client-supplied or looked-up target (rejects a cross-tenant attempt), or —
   when the handler only ever operates on the caller's own scope — the
   caller's own tenant id from the session, which routes the handler through
@@ -223,9 +241,7 @@ two-branch shape: a `SystemAdmin` update is cross-tenant by design, while a
 tenant-scoped `Admin` must be checked against the row being edited.
 
 ```ts illustration
-if (!ctx.systemDb) {
-  throw new InternalError({ message: "requires ctx.systemDb — is r.systemScope() set?" });
-}
+// handler declared with systemScope: true, so ctx.systemDb is present
 
 if (event.user.roles.includes("SystemAdmin")) {
   const db = ctx.systemDb.acknowledgeCrossTenant("SystemAdmin is platform-wide by design");

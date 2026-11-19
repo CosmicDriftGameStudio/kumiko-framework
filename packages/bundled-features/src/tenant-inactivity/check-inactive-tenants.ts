@@ -94,19 +94,24 @@ async function loadOwners(ctx: JobContext): Promise<readonly OwnerRecipient[]> {
     tenantMembershipsTable,
     {},
   );
-  const owners: OwnerRecipient[] = [];
+  const ownerIds: string[] = [];
   const seen = new Set<string>();
   for (const membership of memberships) {
     if (seen.has(membership.userId)) continue;
     const roles = parseRoles(membership.roles);
     if (!TENANT_KEEP_ACCOUNT_ROLES.some((role) => roles.includes(role))) continue;
     seen.add(membership.userId);
-    const user = await ctx.db
-      .global(userTable)
-      .fetchOne<{ locale: string | null }>({ id: membership.userId });
-    owners.push({ userId: membership.userId, locale: user?.locale ?? null });
+    ownerIds.push(membership.userId);
   }
-  return owners;
+  if (ownerIds.length === 0) return [];
+  const users = await ctx.db
+    .global(userTable)
+    .selectMany<{ id: string; locale: string | null }>(
+      { id: ownerIds },
+      { fields: ["id", "locale"] },
+    );
+  const localeById = new Map(users.map((user) => [user.id, user.locale]));
+  return ownerIds.map((userId) => ({ userId, locale: localeById.get(userId) ?? null }));
 }
 
 function mailLocaleFor(userLocale: string | null): string {
@@ -116,7 +121,7 @@ function mailLocaleFor(userLocale: string | null): string {
 }
 
 async function readTenantName(ctx: JobContext, tenantId: TenantId): Promise<string> {
-  const row = await fetchOne<{ name?: unknown }>(ctx.db.unsafeRaw(), tenantTable, {
+  const row = await fetchOne<{ name?: unknown }>(ctx.db.unsafeRawAllTenants(), tenantTable, {
     id: tenantId,
   });
   const [named] = await decryptTenantNames(row ? [row] : [], tenantId);
@@ -190,7 +195,7 @@ async function requestDestructionUnlessKept(
   now: Temporal.Instant,
 ): Promise<boolean> {
   return runInOwnTransaction(ctx.db, async (txDb) => {
-    const runner = txDb.unsafeRaw();
+    const runner = txDb.unsafeRawAllTenants();
     await lockInactivityCycle(runner, tenantId);
     if (stored !== null && !(await isInactivityCycleCurrent(txDb, stored.cycleId))) return false;
     const result = await requestTenantDestruction({
@@ -263,7 +268,7 @@ export async function checkTenantInactivity(
   const tenantId = ctx.systemUser.tenantId;
   const now = ctx.tz.now();
   const tenant = await fetchOne<{ status: TenantLifecycleStatus }>(
-    ctx.db.unsafeRaw(),
+    ctx.db.unsafeRawAllTenants(),
     tenantTable,
     { id: tenantId },
   );

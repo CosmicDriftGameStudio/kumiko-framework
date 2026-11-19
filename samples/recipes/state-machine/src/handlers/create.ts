@@ -3,8 +3,8 @@
 // stream, and inserts the projection row with status="draft" (entity-default).
 //
 // Schema is hand-written (not buildInsertSchema) because the public API
-// keeps amount + amountCurrency flat, while the entity stores them as a
-// money pair.
+// keeps amount + amountCurrency flat; the handler wraps them into the
+// { amount, currency } money pair (amount in minor units) the executor takes.
 
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
@@ -19,9 +19,16 @@ export const invoiceCreate = defineWriteHandler({
   name: "invoice:create",
   schema: z.object({
     title: z.string().min(1),
-    amount: z.number(),
+    amount: z.number().int(),
     amountCurrency: z.string().length(3),
   }),
   access: { roles: ["Admin"] },
-  handler: async (event, ctx) => invoiceExecutor.create(event.payload, event.user, ctx.db),
+  handler: async (event, ctx) => {
+    const { title, amount, amountCurrency } = event.payload;
+    return invoiceExecutor.create(
+      { title, amount: { amount, currency: amountCurrency } },
+      event.user,
+      ctx.db,
+    );
+  },
 });

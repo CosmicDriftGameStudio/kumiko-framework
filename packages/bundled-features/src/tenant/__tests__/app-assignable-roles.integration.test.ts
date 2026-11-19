@@ -28,8 +28,8 @@ import { TenantHandlers, TenantQueries } from "../web/constants.ts";
 // Declares one role with the default (Admin) and one raised to TenantAdmin.
 const appFeature = defineFeature("assignable-roles-app", (r) => {
   r.requires({ features: ["tenant"] });
-  r.useExtension(EXT_ASSIGNABLE_ROLE, "PropertyManager");
-  r.useExtension(EXT_ASSIGNABLE_ROLE, "Auditor", { assignableFrom: "TenantAdmin" });
+  r.applyExtension({ name: EXT_ASSIGNABLE_ROLE, entity: "PropertyManager" });
+  r.applyExtension({ name: EXT_ASSIGNABLE_ROLE, entity: "Auditor", assignableFrom: "TenantAdmin" });
 });
 
 let stack: TestStack;

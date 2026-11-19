@@ -4,7 +4,8 @@ import { render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
-import { type CorePrimitives, type FieldProps, PrimitivesProvider } from "../../primitives.tsx";
+import { type FieldProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { createMockDispatcher } from "../../web/__tests__/test-utils.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
@@ -13,7 +14,7 @@ import { NavProvider } from "../nav.tsx";
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const primitives: CorePrimitives = {
+const primitives = createStubPrimitives({
   Button: ({ children }) => <button type="button">{children}</button>,
   Banner: passChildren,
   Field: ({ children, testId }: FieldProps) => <div data-testid={testId}>{children}</div>,
@@ -32,7 +33,7 @@ const primitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 describe("configEdit actions", () => {
   test("the action row sits directly after its afterField", async () => {

@@ -28,8 +28,8 @@ describe("PlainContentEditor", () => {
         readOnly={false}
       />,
     );
-    expect(screen.getByRole("textbox")).toBeTruthy();
-    expect(screen.getByText("{{name}}")).toBeTruthy();
+    screen.getByRole("textbox");
+    screen.getByText("{{name}}");
   });
 
   test("no variables → no chips", () => {

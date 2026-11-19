@@ -27,6 +27,7 @@ import { type TierAssignmentSource, TierAssignmentSources } from "./web/constant
 //     instead of replacing a JSON array.
 //   - Cap values: per-tier cap definitions belong in the app's TierMap.
 export const tierAssignmentEntity = createEntity({
+  name: "tier-assignment",
   table: "read_tier_assignments",
   description:
     "The pricing tier currently assigned to a tenant, plus where the assignment came from (manual grant, billing sync or signup default) — one row per tenant.",

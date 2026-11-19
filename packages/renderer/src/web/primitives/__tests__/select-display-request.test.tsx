@@ -60,7 +60,7 @@ describe("DefaultInput select — explicit display request", () => {
       display: "radio",
       value: "Realtime Event Stream",
     });
-    expect(screen.getByRole("radiogroup", { name: "Area" })).toBeTruthy();
+    screen.getByRole("radiogroup", { name: "Area" });
     expect(
       screen.getByRole("radio", { name: "Realtime Event Stream" }).getAttribute("aria-checked"),
     ).toBe("true");
@@ -81,18 +81,18 @@ describe("DefaultInput select — explicit display request", () => {
   test('display: "dropdown" keeps the dropdown where the heuristic says radio group', () => {
     renderSelect(HEURISTIC_ACCEPTS, { display: "dropdown" });
     expect(screen.queryByRole("radiogroup")).toBeNull();
-    expect(screen.getByTestId("combobox-area")).toBeTruthy();
+    screen.getByTestId("combobox-area");
   });
 
   test("no display stated: the heuristic still decides", () => {
     renderSelect(HEURISTIC_REJECTS);
-    expect(screen.getByTestId("combobox-area")).toBeTruthy();
+    screen.getByTestId("combobox-area");
   });
 
   test('display: "radio" without options falls back to the dropdown, not an empty group', () => {
     renderSelect([], { display: "radio" });
     expect(screen.queryByRole("radiogroup")).toBeNull();
-    expect(screen.getByTestId("combobox-area")).toBeTruthy();
+    screen.getByTestId("combobox-area");
   });
 
   test("labelled options render their label and report their value", () => {

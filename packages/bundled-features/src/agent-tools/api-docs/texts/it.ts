@@ -161,5 +161,7 @@ export const itApiDocsTexts = {
     filters: "Più filtri di campo, ciascuno con `field`, `op` e `value`. `op` è uno tra {ops}.",
     namedFilter: "Nome di un filtro predefinito dell'entità, per esempio una coda di lavoro.",
     aggregate: "Restituisce valori aggregati invece di righe.",
+    fields:
+      "Restituisce solo questi campi memorizzati. Le righe contengono allora `id`, `version` e i campi indicati; i campi derivati non vengono calcolati. Un nome sconosciuto fallisce con `unknown_field`.",
   },
 } as const satisfies ApiDocsTexts;

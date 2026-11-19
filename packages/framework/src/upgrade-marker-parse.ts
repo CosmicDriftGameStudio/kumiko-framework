@@ -4,6 +4,7 @@ import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 // A canary marker carries its prerelease suffix (0.425.0-next-<datetime>-<sha>).
 export const SEMVER_RE = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const MANUAL_ID_HASH_LENGTH = 8;
+export const MAX_RESOLVE_REASON_LENGTH = 500;
 
 export type UpgradeMarkerCodemod = {
   readonly version: string;

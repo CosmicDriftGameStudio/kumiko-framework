@@ -5,7 +5,10 @@ import { runnerCanBeginTransaction } from "./query.ts";
 import { isBoundTenantDb, tenantDbRunner, tenantDbWritesDeniedReason } from "./tenant-db-runner.ts";
 import { runInOwnSavepoint, runInOwnTransaction } from "./tenant-db-scoped-rebind.ts";
 
-type WriteVerbs = Pick<EventStoreExecutor, "create" | "update" | "delete" | "forget" | "restore">;
+type WriteVerbs = Pick<
+  EventStoreExecutor,
+  "create" | "update" | "delete" | "forget" | "restore" | "createMany" | "updateMany"
+>;
 
 // Aborts the surrounding transaction when a verb returns a failure instead of throwing.
 class RollbackOnFailure extends Error {}
@@ -45,6 +48,10 @@ export function withOwnTransactionOnPool(verbs: WriteVerbs): WriteVerbs {
       runVerbAtomically(db, (txDb) => verbs.create(payload, user, txDb, options)),
     update: (payload, user, db, options) =>
       runVerbAtomically(db, (txDb) => verbs.update(payload, user, txDb, options)),
+    createMany: (payloads, user, db, options) =>
+      runVerbAtomically(db, (txDb) => verbs.createMany(payloads, user, txDb, options)),
+    updateMany: (payloads, user, db, options) =>
+      runVerbAtomically(db, (txDb) => verbs.updateMany(payloads, user, txDb, options)),
     delete: (payload, user, db, options) =>
       runVerbAtomically(db, (txDb) => verbs.delete(payload, user, txDb, options)),
     forget: (payload, user, db, options) =>

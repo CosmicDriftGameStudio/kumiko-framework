@@ -1,9 +1,5 @@
 import { defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  InternalError,
-  UnprocessableError,
-  writeFailure,
-} from "@cosmicdrift/kumiko-framework/errors";
+import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import {
   type ConsumerRecoveryState,
   ConsumerStatuses,
@@ -46,15 +42,12 @@ function defineConsumerWrite(
     description,
     schema: consumerTargetSchema,
     access: { roles: ["SystemAdmin"] },
+    systemScope: true,
     // Operator recovery for people only; skip drops an event for good.
     agent: { expose: false },
     handler: async (event, ctx) => {
-      if (!ctx.systemDb) {
-        throw new InternalError({
-          message: `jobs:write:${name} requires ctx.systemDb (feature must declare r.systemScope())`,
-        });
-      }
-      const db = ctx.systemDb.unsafeRaw(CONSUMER_STATE_REASON);
+      const { systemDb } = ctx;
+      const db = systemDb.unsafeRaw(CONSUMER_STATE_REASON);
       let next: Awaited<ReturnType<ConsumerTransition>>;
       try {
         next = await transition(db, event.payload.name, event.payload.instanceId);
@@ -90,6 +83,8 @@ function defineConsumerWrite(
           skippedEventId,
           actor: event.user.id,
         },
+        blindAppendReason:
+          "audit fact on the shared jobs stream; the consumer transition is guarded by its own status check in the consumer table, and stream order carries no decision",
       });
       return {
         isSuccess: true,

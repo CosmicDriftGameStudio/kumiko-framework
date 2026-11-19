@@ -1,5 +1,5 @@
 import type { AccessRule, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
-import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
+import { AccessDeniedError, NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { isAnySignedInGranted } from "@cosmicdrift/kumiko-types/handlers";
 import type { TestStack } from "../stack/test-stack.ts";
@@ -31,24 +31,41 @@ function isRoleRestricted(access: AccessRule | undefined): boolean {
   );
 }
 
-async function deniedOutcome(res: Response): Promise<string | undefined> {
+type DeniedAnswer = { status: number; code: string };
+
+async function deniedOutcome(
+  res: Response,
+  expected: DeniedAnswer = ACCESS_DENIED,
+): Promise<string | undefined> {
   const rawBody = await res.json().catch(() => undefined);
   const body = rawBody as { error?: { code?: unknown } | string } | undefined; // @cast-boundary engine-bridge
   const code =
     typeof body?.error === "object" && typeof body.error.code === "string"
       ? body.error.code
       : undefined;
-  if (res.status === 403 && code === ACCESS_DENIED_CODE) return undefined;
+  if (res.status === expected.status && code === expected.code) return undefined;
   return `HTTP ${res.status} ${code ?? "ok"}`;
 }
 
-const ACCESS_DENIED_CODE = new AccessDeniedError().code;
+const accessDeniedError = new AccessDeniedError();
+const ACCESS_DENIED_CODE = accessDeniedError.code;
+const ACCESS_DENIED: DeniedAnswer = {
+  status: accessDeniedError.httpStatus,
+  code: ACCESS_DENIED_CODE,
+};
+const unknownHandlerError = new NotFoundError("handler");
+// The HTTP entry answers a dispatchOnly handler like an unknown one, before any role check.
+const DISPATCH_ONLY_UNREACHABLE: DeniedAnswer = {
+  status: unknownHandlerError.httpStatus,
+  code: unknownHandlerError.code,
+};
 
 /**
  * Contract test: every role-restricted write/query handler in the stack rejects
  * a signed-in caller who holds none of its roles with 403 access_denied, over
  * real HTTP. Roles are checked centrally before payload parsing (pre-handler
- * gates / dispatch-query), so an empty payload is enough. openToAll and
+ * gates / dispatch-query), so an empty payload is enough. A dispatchOnly write handler
+ * must answer 404 not_found instead, proving HTTP cannot reach it at all. openToAll and
  * anySignedIn handlers and handlers without access are skipped. Throws once with all deviations;
  * `minimumHandlerCount` guards against an empty registry walk passing silently.
  */
@@ -65,7 +82,10 @@ export async function expectRoleRestrictedHandlersDenyForeignRole(
   for (const [handlerName, handler] of stack.registry.getAllWriteHandlers()) {
     if (!isRoleRestricted(handler.access)) continue;
     checkedWriteHandlers++;
-    const outcome = await deniedOutcome(await stack.http.write(handlerName, {}, probe));
+    const outcome = await deniedOutcome(
+      await stack.http.write(handlerName, {}, probe),
+      handler.dispatchOnly ? DISPATCH_ONLY_UNREACHABLE : ACCESS_DENIED,
+    );
     if (outcome) deviations.push(`write ${handlerName}: ${outcome}`);
   }
   for (const [handlerName, handler] of stack.registry.getAllQueryHandlers()) {
@@ -83,7 +103,7 @@ export async function expectRoleRestrictedHandlersDenyForeignRole(
   }
   if (deviations.length > 0) {
     throw new Error(
-      `${deviations.length} role-restricted handler(s) did not answer 403 ${ACCESS_DENIED_CODE}:\n${deviations.join("\n")}`,
+      `${deviations.length} role-restricted handler(s) did not answer 403 ${ACCESS_DENIED_CODE} (dispatchOnly: 404 ${unknownHandlerError.code}):\n${deviations.join("\n")}`,
     );
   }
   return { checkedWriteHandlers, checkedQueryHandlers };

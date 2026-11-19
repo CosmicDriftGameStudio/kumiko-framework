@@ -96,9 +96,9 @@ describe("EmbeddedListInput — header + rows", () => {
     ];
     renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
     const desktop = within(screen.getByTestId("lines-desktop"));
-    expect(desktop.getByText("Description")).toBeTruthy();
-    expect(desktop.getByText("Qty")).toBeTruthy();
-    expect(desktop.getByText("Amount")).toBeTruthy();
+    desktop.getByText("Description");
+    desktop.getByText("Qty");
+    desktop.getByText("Amount");
 
     const row0 = within(desktop.getByTestId("lines-row-0"));
     expect((row0.getByDisplayValue("Widget A") as HTMLInputElement).value).toBe("Widget A");
@@ -114,7 +114,7 @@ describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts", (
 
   test("desktop viewport mounts only the table, not the card layout", () => {
     renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
-    expect(screen.getByTestId("lines-desktop")).toBeTruthy();
+    screen.getByTestId("lines-desktop");
     expect(screen.queryByTestId("lines-mobile")).toBeNull();
     expect(document.querySelectorAll('[data-cell-id="lines-0-amount"]').length).toBe(1);
   });
@@ -124,7 +124,7 @@ describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts", (
     setViewportWidth(500);
     try {
       renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
-      expect(screen.getByTestId("lines-mobile")).toBeTruthy();
+      screen.getByTestId("lines-mobile");
       expect(screen.queryByTestId("lines-desktop")).toBeNull();
       expect(document.querySelectorAll('[data-cell-id="lines-0-amount"]').length).toBe(1);
     } finally {
@@ -145,7 +145,7 @@ describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts", (
     const createElementSpy = spyOn(document, "createElement");
     try {
       renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
-      expect(screen.getByTestId("lines-mobile")).toBeTruthy();
+      screen.getByTestId("lines-mobile");
       expect(screen.queryByTestId("lines-desktop")).toBeNull();
       expect(createElementSpy.mock.calls.some(([tag]) => tag === "table")).toBe(false);
     } finally {
@@ -158,7 +158,7 @@ describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts", (
     const originalWidth = window.innerWidth;
     try {
       renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
-      expect(screen.getByTestId("lines-desktop")).toBeTruthy();
+      screen.getByTestId("lines-desktop");
 
       await act(async () => {
         setViewportWidth(500);
@@ -166,7 +166,7 @@ describe("EmbeddedListInput — desktop/mobile are mutually exclusive mounts", (
       });
 
       expect(screen.queryByTestId("lines-desktop")).toBeNull();
-      expect(screen.getByTestId("lines-mobile")).toBeTruthy();
+      screen.getByTestId("lines-mobile");
       expect(document.querySelectorAll('[data-cell-id="lines-0-amount"]').length).toBe(1);
     } finally {
       setViewportWidth(originalWidth);
@@ -272,9 +272,7 @@ describe("EmbeddedListInput — issue rendering", () => {
       />,
     );
     const desktop = within(screen.getByTestId("lines-desktop"));
-    expect(
-      within(desktop.getByTestId("lines-cell-0-description-errors")).getByText("Required"),
-    ).toBeTruthy();
+    within(desktop.getByTestId("lines-cell-0-description-errors")).getByText("Required");
   });
 
   // A long validation message in a narrow cell must wrap instead of
@@ -314,9 +312,7 @@ describe("EmbeddedListInput — issue rendering", () => {
       />,
     );
     const desktop = within(screen.getByTestId("lines-desktop"));
-    expect(
-      within(desktop.getByTestId("lines-row-0-issues")).getByText("Row incomplete"),
-    ).toBeTruthy();
+    within(desktop.getByTestId("lines-row-0-issues")).getByText("Row incomplete");
   });
 
   test("listIssues render at the list level", () => {
@@ -330,9 +326,7 @@ describe("EmbeddedListInput — issue rendering", () => {
       />,
     );
     const desktop = within(screen.getByTestId("lines-desktop"));
-    expect(
-      within(desktop.getByTestId("lines-list-issues")).getByText("Too few lines"),
-    ).toBeTruthy();
+    within(desktop.getByTestId("lines-list-issues")).getByText("Too few lines");
   });
 });
 
@@ -340,9 +334,9 @@ describe("EmbeddedListInput — empty state", () => {
   test("shows emptyLabel + CTA button, click fires onAddRow", () => {
     const onAddRow = mock(() => {});
     renderWithLocale(<EmbeddedListInput {...baseProps({ rows: [], onAddRow })} />);
-    expect(screen.getByText("No lines yet")).toBeTruthy();
+    screen.getByText("No lines yet");
     const cta = screen.getByTestId("lines-empty-add");
-    expect(within(cta).getByText("Add first line")).toBeTruthy();
+    within(cta).getByText("Add first line");
     fireEvent.click(cta);
     expect(onAddRow).toHaveBeenCalledTimes(1);
   });
@@ -361,7 +355,7 @@ describe("EmbeddedListInput — totals", () => {
     );
     const desktop = within(screen.getByTestId("lines-desktop"));
     const totals = desktop.getByTestId("lines-totals");
-    expect(within(totals).getByText("Grand total")).toBeTruthy();
+    within(totals).getByText("Grand total");
     // Money total formats via Intl.NumberFormat (EUR) — assert the digits
     // it must contain rather than pinning the exact locale/space glyphs.
     expect(totals.textContent).toContain("12");
@@ -390,7 +384,7 @@ describe("EmbeddedListInput — totals", () => {
     );
     const desktop = within(screen.getByTestId("lines-desktop"));
     const totals = desktop.getByTestId("lines-totals");
-    expect(within(totals).getByText("7")).toBeTruthy();
+    within(totals).getByText("7");
   });
 });
 
@@ -982,14 +976,14 @@ describe("EmbeddedListInput — accessible names", () => {
   const ROWS = [{ text: "x" }];
 
   function expectEveryCellControlNamed(container: HTMLElement): void {
-    expect(within(container).getByRole("textbox", { name: "Description, row 1" })).toBeDefined();
-    expect(within(container).getByRole("textbox", { name: "Qty, row 1" })).toBeDefined();
-    expect(within(container).getByRole("checkbox", { name: "Billable, row 1" })).toBeDefined();
-    expect(within(container).getByRole("textbox", { name: "Day, row 1" })).toBeDefined();
-    expect(within(container).getByRole("textbox", { name: "Starts, row 1" })).toBeDefined();
-    expect(within(container).getByRole("textbox", { name: "Amount, row 1" })).toBeDefined();
-    expect(within(container).getByRole("button", { name: "Kind, row 1" })).toBeDefined();
-    expect(within(container).getByRole("button", { name: "Owner, row 1" })).toBeDefined();
+    within(container).getByRole("textbox", { name: "Description, row 1" });
+    within(container).getByRole("textbox", { name: "Qty, row 1" });
+    within(container).getByRole("checkbox", { name: "Billable, row 1" });
+    within(container).getByRole("textbox", { name: "Day, row 1" });
+    within(container).getByRole("textbox", { name: "Starts, row 1" });
+    within(container).getByRole("textbox", { name: "Amount, row 1" });
+    within(container).getByRole("button", { name: "Kind, row 1" });
+    within(container).getByRole("button", { name: "Owner, row 1" });
   }
 
   test("every desktop cell control carries the column label and row number as its name", () => {
@@ -1016,9 +1010,7 @@ describe("EmbeddedListInput — accessible names", () => {
     renderWithLocale(
       <EmbeddedListInput {...baseProps({ rows: ROWS, actionsLabel: "Aktionen" })} />,
     );
-    expect(
-      within(screen.getByTestId("lines-desktop")).getByRole("columnheader", { name: "Aktionen" }),
-    ).toBeDefined();
+    within(screen.getByTestId("lines-desktop")).getByRole("columnheader", { name: "Aktionen" });
   });
 });
 
@@ -1052,7 +1044,7 @@ describe("EmbeddedListInput — read-only cells, fixed rows, segmented select", 
     );
     const row = within(screen.getByTestId("lines-desktop")).getByTestId("lines-row-0");
     expect(within(row).queryByDisplayValue("Brakes")).toBeNull();
-    expect(within(row).getByText("Brakes")).toBeTruthy();
+    within(row).getByText("Brakes");
     const note = row.querySelector('[data-cell-id="lines-0-note"]') as HTMLInputElement;
     expect(note.disabled).toBe(false);
   });

@@ -12,7 +12,7 @@ import {
 export type FileStorageProviderName = "s3-env" | "inmemory";
 
 /** Mounts the file provider feature(s) for `file-foundation` and makes the
- *  chosen one the default (`FILE_STORAGE_PROVIDER`, an explicit env value wins).
+ *  chosen one the default (`FILE_STORAGE_PROVIDER`, an explicit env value wins, except `inmemory` with `NODE_ENV=production`).
  *  - `"s3-env"`: one bucket from `S3_BUCKET` / `S3_REGION` / `S3_ACCESS_KEY` /
  *    `S3_SECRET_KEY` (optional `S3_ENDPOINT`, `S3_FORCE_PATH_STYLE`); missing
  *    values abort the boot.
@@ -106,6 +106,35 @@ function buildProviderFeature(provider: FileStorageProviderName): FeatureDefinit
     : createFileProviderInMemoryFeature();
 }
 
+function pickPrimaryProvider(
+  configured: FileStorageBootOption["provider"],
+  missingS3: readonly string[],
+  isProduction: boolean,
+): FileStorageProviderName {
+  if (configured !== "auto") return configured;
+  if (missingS3.length === 0) return "s3-env";
+  if (isProduction) {
+    throw new Error(
+      `[runProdApp] fileStorage "auto" with NODE_ENV=production needs S3, missing: ${missingS3.join(", ")}.`,
+    );
+  }
+  return "inmemory";
+}
+
+function assertNamedProvidersConfigured(
+  envSource: Record<string, string | undefined>,
+  named: readonly NamedS3FileProvider[],
+): void {
+  for (const entry of named) {
+    const missing = entry.lazy ? [] : missingEnvKeys(envSource, s3KeysOf(entry.envPrefix));
+    if (missing.length > 0) {
+      throw new Error(
+        `[runProdApp] fileStorage provider "${entry.name}" is missing: ${missing.join(", ")}.`,
+      );
+    }
+  }
+}
+
 export function resolveFileStorageOption(
   fileStorage: FileStorageBootOption,
   deps: {
@@ -119,20 +148,7 @@ export function resolveFileStorageOption(
   readonly envDefaults: Readonly<Record<string, string>>;
 } {
   const missingS3 = missingEnvKeys(deps.envSource, S3_REQUIRED_ENV_KEYS);
-  let provider: FileStorageProviderName;
-  if (fileStorage.provider === "auto") {
-    if (missingS3.length === 0) {
-      provider = "s3-env";
-    } else if (deps.isProduction) {
-      throw new Error(
-        `[runProdApp] fileStorage "auto" with NODE_ENV=production needs S3, missing: ${missingS3.join(", ")}.`,
-      );
-    } else {
-      provider = "inmemory";
-    }
-  } else {
-    provider = fileStorage.provider;
-  }
+  const provider = pickPrimaryProvider(fileStorage.provider, missingS3, deps.isProduction);
   const additional = fileStorage.providers ?? [];
   const wanted = new Set<FileStorageProviderName>([
     provider,
@@ -148,20 +164,18 @@ export function resolveFileStorageOption(
       '[runProdApp] fileStorage "inmemory" loses every file on restart — not allowed with NODE_ENV=production.',
     );
   }
+  if (deps.isProduction && deps.envSource[FILE_STORAGE_PROVIDER_ENV] === "inmemory") {
+    throw new Error(
+      `[runProdApp] ${FILE_STORAGE_PROVIDER_ENV}=inmemory loses every file on restart — not allowed with NODE_ENV=production.`,
+    );
+  }
   const named = additional.filter(isNamedS3FileProvider);
   assertNamedProviderNames(named);
   assertEndpointsAcceptable(deps.envSource, deps.isProduction, [
     ...(wanted.has("s3-env") ? [{ label: '"s3-env"', envPrefix: "S3_" }] : []),
     ...named.map((entry) => ({ label: `provider "${entry.name}"`, envPrefix: entry.envPrefix })),
   ]);
-  for (const entry of named) {
-    const missing = entry.lazy ? [] : missingEnvKeys(deps.envSource, s3KeysOf(entry.envPrefix));
-    if (missing.length > 0) {
-      throw new Error(
-        `[runProdApp] fileStorage provider "${entry.name}" is missing: ${missing.join(", ")}.`,
-      );
-    }
-  }
+  assertNamedProvidersConfigured(deps.envSource, named);
   const features = [
     ...[...wanted]
       .filter((name) => !deps.mountedFeatureNames.has(PROVIDER_FEATURE_NAMES[name]))

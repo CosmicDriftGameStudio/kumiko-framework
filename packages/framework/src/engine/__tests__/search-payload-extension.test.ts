@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { consoleCallsMentioning } from "@cosmicdrift/kumiko-testing/helpers";
 import type { SearchPayloadContributorFn } from "@cosmicdrift/kumiko-types/hooks";
+import type { DbRunner } from "../../db/connection.ts";
+import { createTenantDb } from "../../db/tenant-db.ts";
 import { buildSearchDocument } from "../../pipeline/system-hooks.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../index.ts";
 
 // Search-Payload-Extension registers per-entity contributors that
@@ -14,12 +17,25 @@ import { createEntity, createRegistry, createTextField, defineFeature } from "..
 //   6. Boot-validation rejects typo'd entity-names (sibling-guard to
 //      entity-hooks boot-validation)
 
+function fakeRunner(): DbRunner {
+  return {
+    unsafe: async () => {
+      throw new Error("search-payload-extension tests must not reach the DB");
+    },
+    begin: async () => {
+      throw new Error("search-payload-extension tests must not reach the DB");
+    },
+  } as unknown as DbRunner;
+}
+
+const searchDb = createTenantDb({ db: fakeRunner(), tenantId: testTenantId(1) });
+
 const noop: SearchPayloadContributorFn = () => ({});
 
 describe("searchPayloadExtension registration", () => {
   test("r.searchPayloadExtension(entity, fn) lands in feature.searchPayloadExtensions", () => {
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      const thing = r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
       r.searchPayloadExtension(thing, noop);
     });
 
@@ -32,7 +48,7 @@ describe("searchPayloadExtension registration", () => {
     const c2: SearchPayloadContributorFn = () => ({ b: 2 });
 
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      const thing = r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
       r.searchPayloadExtension(thing, c1);
       r.searchPayloadExtension(thing, c2);
     });
@@ -46,7 +62,7 @@ describe("Registry getter", () => {
     const fn: SearchPayloadContributorFn = ({ state }) => ({ extra: state["id"] });
 
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      const thing = r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
       r.searchPayloadExtension(thing, fn);
     });
 
@@ -58,7 +74,7 @@ describe("Registry getter", () => {
 
   test("getSearchPayloadExtensions empty for unknown entity", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
     });
 
     const registry = createRegistry([feature]);
@@ -77,7 +93,7 @@ describe("Contributor-Function-Signature", () => {
     });
 
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      const thing = r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
       r.searchPayloadExtension(thing, contributor);
     });
 
@@ -87,6 +103,7 @@ describe("Contributor-Function-Signature", () => {
       entityName: "thing",
       entityId: "t1",
       state: { id: "t1", tags: ["a", "b"] },
+      db: searchDb,
     });
     expect(result).toEqual({ _entityName: "thing", _entityId: "t1", flatTags: "a,b" });
   });
@@ -98,7 +115,7 @@ describe("effectiveFeatures filtering", () => {
     const fnB: SearchPayloadContributorFn = () => ({ b: 2 });
 
     const featureA = defineFeature("bundleA", (r) => {
-      r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
       r.searchPayloadExtension("thing", fnA);
     });
     const featureB = defineFeature("bundleB", (r) => {
@@ -128,15 +145,15 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
 
   function registryWith(contributor: SearchPayloadContributorFn) {
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity({
-        name: "thing",
-        ...createEntity({
+      const thing = r.entity(
+        createEntity({
+          name: "thing",
           table: "things",
           fields: {
             title: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      });
+      );
       r.searchPayloadExtension(thing, contributor);
     });
     return createRegistry([feature]);
@@ -144,16 +161,38 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
 
   test("a contributor cannot overwrite an indexed Stammfield value", async () => {
     const registry = registryWith(() => ({ title: "from-contributor" }));
-    const doc = await buildSearchDocument("thing", "t1", { title: "real-value" }, registry);
+    const doc = await buildSearchDocument(
+      "thing",
+      "t1",
+      { title: "real-value" },
+      registry,
+      searchDb,
+    );
     expect(doc?.fields["title"]).toBe("real-value");
     expect(consoleCallsMentioning(warnSpy, "[kumiko:search] searchPayloadExtension")).toHaveLength(
       1,
     );
   });
 
+  test("contributor receives the tenant-scoped db of the document's tenant", async () => {
+    let seenTenantId: unknown;
+    const registry = registryWith((args) => {
+      seenTenantId = args.db.tenantId;
+      return {};
+    });
+    await buildSearchDocument("thing", "t1", { title: "real-value" }, registry, searchDb);
+    expect(seenTenantId).toBe(testTenantId(1));
+  });
+
   test("a non-colliding contributor key is still merged in", async () => {
     const registry = registryWith(() => ({ flatTags: "a,b" }));
-    const doc = await buildSearchDocument("thing", "t1", { title: "real-value" }, registry);
+    const doc = await buildSearchDocument(
+      "thing",
+      "t1",
+      { title: "real-value" },
+      registry,
+      searchDb,
+    );
     expect(doc?.fields).toMatchObject({ title: "real-value", flatTags: "a,b" });
     expect(consoleCallsMentioning(warnSpy, "[kumiko:search] searchPayloadExtension")).toHaveLength(
       0,
@@ -162,20 +201,20 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
 
   test("collision dedup — same collision warns exactly once across calls", async () => {
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity({
-        name: "thing-dedup",
-        ...createEntity({
+      const thing = r.entity(
+        createEntity({
+          name: "thing-dedup",
           table: "things_dedup",
           fields: {
             title: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      });
+      );
       r.searchPayloadExtension(thing, () => ({ title: "from-contributor" }));
     });
     const registry = createRegistry([feature]);
-    await buildSearchDocument("thing-dedup", "t1", { title: "real-value" }, registry);
-    await buildSearchDocument("thing-dedup", "t1", { title: "real-value" }, registry);
+    await buildSearchDocument("thing-dedup", "t1", { title: "real-value" }, registry, searchDb);
+    await buildSearchDocument("thing-dedup", "t1", { title: "real-value" }, registry, searchDb);
     expect(consoleCallsMentioning(warnSpy, "[kumiko:search] searchPayloadExtension")).toHaveLength(
       1,
     );
@@ -187,8 +226,8 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
     // (and leak across tests); per-registry scoping must warn once for EACH.
     const r1 = registryWith(() => ({ title: "from-contributor" }));
     const r2 = registryWith(() => ({ title: "from-contributor" }));
-    await buildSearchDocument("thing", "t1", { title: "real-value" }, r1);
-    await buildSearchDocument("thing", "t1", { title: "real-value" }, r2);
+    await buildSearchDocument("thing", "t1", { title: "real-value" }, r1, searchDb);
+    await buildSearchDocument("thing", "t1", { title: "real-value" }, r2, searchDb);
     expect(consoleCallsMentioning(warnSpy, "[kumiko:search] searchPayloadExtension")).toHaveLength(
       2,
     );
@@ -196,21 +235,27 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
 
   test("contributor-vs-contributor collision warns with the right message", async () => {
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity({
-        name: "thing",
-        ...createEntity({
+      const thing = r.entity(
+        createEntity({
+          name: "thing",
           table: "things",
           fields: {
             title: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      });
+      );
       r.searchPayloadExtension(thing, () => ({ overlap: "first" }));
       r.searchPayloadExtension(thing, () => ({ overlap: "second" }));
     });
     const registry = createRegistry([feature]);
 
-    const doc = await buildSearchDocument("thing", "t1", { title: "real-value" }, registry);
+    const doc = await buildSearchDocument(
+      "thing",
+      "t1",
+      { title: "real-value" },
+      registry,
+      searchDb,
+    );
     // Stammfield title → no collision. overlap is NOT a Stammfield, so the
     // second contributor's "overlap" collides with the first one's → "earlier contributor key".
     expect(doc?.fields["title"]).toBe("real-value");
@@ -224,9 +269,9 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
 describe("buildSearchDocument — searchable embedded sub-fields", () => {
   function registryWithLines(multiple: boolean) {
     const feature = defineFeature("test", (r) => {
-      r.entity({
-        name: "invoice",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "invoice",
           table: "invoices",
           fields: {
             lines: {
@@ -236,7 +281,7 @@ describe("buildSearchDocument — searchable embedded sub-fields", () => {
             },
           },
         }),
-      });
+      );
     });
     return createRegistry([feature]);
   }
@@ -247,12 +292,19 @@ describe("buildSearchDocument — searchable embedded sub-fields", () => {
       "i1",
       { lines: [{ description: "Kaltmiete" }, { description: "Stellplatz" }] },
       registryWithLines(true),
+      searchDb,
     );
     expect(doc?.fields["lines_description"]).toEqual(["Kaltmiete", "Stellplatz"]);
   });
 
   test("an empty list contributes no indexed value", async () => {
-    const doc = await buildSearchDocument("invoice", "i1", { lines: [] }, registryWithLines(true));
+    const doc = await buildSearchDocument(
+      "invoice",
+      "i1",
+      { lines: [] },
+      registryWithLines(true),
+      searchDb,
+    );
     expect(doc?.fields["lines_description"]).toBeUndefined();
   });
 
@@ -262,6 +314,7 @@ describe("buildSearchDocument — searchable embedded sub-fields", () => {
       "i1",
       { lines: { description: "Kaltmiete" } },
       registryWithLines(false),
+      searchDb,
     );
     expect(doc?.fields["lines_description"]).toBe("Kaltmiete");
   });
@@ -271,7 +324,7 @@ describe("Boot-Validation", () => {
   test("rejects searchPayloadExtension on unknown entity-name (sibling to entity-hooks)", () => {
     expect(() =>
       defineFeature("test", (r) => {
-        r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+        r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
         // Typo: "propery" doesn't exist
         r.searchPayloadExtension("propery", noop);
       }),
@@ -279,7 +332,7 @@ describe("Boot-Validation", () => {
 
     expect(() => {
       const feature = defineFeature("test", (r) => {
-        r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+        r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
         r.searchPayloadExtension("propery", noop);
       });
       createRegistry([feature]);
@@ -288,7 +341,7 @@ describe("Boot-Validation", () => {
 
   test("error message calls a searchPayloadExtension an 'extension', not a 'hook'", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
       r.searchPayloadExtension("propery", noop);
     });
     let message = "";

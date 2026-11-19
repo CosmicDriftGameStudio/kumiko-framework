@@ -89,14 +89,14 @@ runProdApp({
   features: composeApexAccountApp({
     deletionTokenSecret: process.env.DELETION_TOKEN_SECRET!,
     deletionVerifyUrl: "https://app.example.com/delete-account/confirm",
-    sendDeletionVerificationEmail: async ({ email, verifyUrl }) => {
-      // Must be non-blocking (enqueue) — synchronous send enables timing oracle.
-      await delivery.notify("account.deletion.verify", { email, verifyUrl });
-    },
+    mailTransport: createSmtpTransport({ host: "smtp.example.com", from: "noreply@example.com" }),
   }),
   anonymousAccess: { defaultTenantId: APEX_TENANT_ID },
 });
 ```
+
+`user-data-rights` sends the verify mail itself through delivery after commit;
+the response does not wait for it.
 
 ## Why deletion is anonymous
 
@@ -107,7 +107,7 @@ email-verified (magic link), not login-gated. The HMAC token carries `userId`
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 bun test src/__tests__/feature.integration.test.ts
@@ -115,7 +115,7 @@ bun test src/__tests__/feature.integration.test.ts
 
 Proves end-to-end over real `/api/write` without auth:
 
-1. `request-deletion-by-email` → verification email enqueued
+1. `request-deletion-by-email` → verification mail sent through delivery
 2. `confirm-deletion-by-token` → user status `DeletionRequested`
 3. Unknown email → same 200 response, no mail (enumeration-safe)
 
@@ -136,20 +136,24 @@ Proves end-to-end over real `/api/write` without auth:
 // runs end to end through /api/write WITHOUT auth (anonymousAccess).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { createInMemoryTransport } from "@cosmicdrift/kumiko-bundled-features/channel-email";
+import { tenantComplianceProfileTable } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
+import { configValuesTable } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
-  tenantComplianceProfileEntity,
-  tenantComplianceProfileTable,
-} from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
-import { USER_STATUS, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
-import type { SendDeletionVerificationEmailFn } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
+  createDeliveryTestContext,
+  deliveryAttemptsTable,
+  notificationPreferencesTable,
+} from "@cosmicdrift/kumiko-bundled-features/delivery";
+import { seedNotificationTemplates } from "@cosmicdrift/kumiko-bundled-features/template-resolver/testing";
+import { USER_STATUS, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { composeApexAccountApp } from "../feature";
 
@@ -162,10 +166,13 @@ const tenant = testTenantId(1);
 const user = createTestUser({ id: 7, tenantId: tenant, roles: ["Member"] });
 const EMAIL = "user@example.com";
 
-const verifyCalls: Parameters<SendDeletionVerificationEmailFn>[0][] = [];
-const sendDeletionVerificationEmail: SendDeletionVerificationEmailFn = async (args) => {
-  verifyCalls.push(args);
-};
+const transport = createInMemoryTransport();
+
+// The text part carries the plain link; the HTML part is entity-encoded.
+function verifyTokenOf(text: string | undefined): string {
+  const link = /https?:\/\/\S+#token=[^\s)\]>"]+/.exec(text ?? "")?.[0] ?? "";
+  return new URLSearchParams(new URL(link).hash.slice(1)).get("token") ?? "";
+}
 
 let stack: TestStack;
 
@@ -174,13 +181,17 @@ beforeAll(async () => {
     features: composeApexAccountApp({
       deletionTokenSecret: SECRET,
       deletionVerifyUrl: VERIFY_URL,
-      sendDeletionVerificationEmail,
+      mailTransport: transport,
     }),
+    extraContext: (deps) => createDeliveryTestContext(deps),
     anonymousAccess: { defaultTenantId: tenant },
   });
-  await unsafeCreateEntityTable(stack.db, userEntity);
-  await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
-  await createEventsTable(stack.db);
+  await unsafePushTables(stack.db, {
+    configValuesTable,
+    notificationPreferencesTable,
+    deliveryAttemptsTable,
+  });
+  await seedNotificationTemplates(stack.db, stack.registry);
 });
 
 afterAll(async () => {
@@ -188,7 +199,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  verifyCalls.length = 0;
+  transport.sent.length = 0;
   await resetTestTables(stack.db, [userTable, tenantComplianceProfileTable, eventsTable]);
   await seedRowViaEventStore(stack.db, userTable, {
     id: user.id,
@@ -210,10 +221,11 @@ describe("apex-surface-auth recipe", () => {
       payload: { email: EMAIL },
     });
     expect(reqRes.status).toBe(200);
-    expect(verifyCalls).toHaveLength(1);
+    expect(transport.sent).toHaveLength(1);
+    expect(transport.sent[0]?.to).toBe(EMAIL);
+    expect(transport.sent[0]?.text).toContain(`${VERIFY_URL}#token=`);
 
-    const verifyUrl = new URL(verifyCalls[0]?.verifyUrl ?? "");
-    const token = new URLSearchParams(verifyUrl.hash.slice(1)).get("token") ?? "";
+    const token = verifyTokenOf(transport.sent[0]?.text);
     expect(token.length).toBeGreaterThan(0);
 
     const confirmRes = await stack.http.raw("POST", "/api/write", {
@@ -222,9 +234,9 @@ describe("apex-surface-auth recipe", () => {
     });
     expect(confirmRes.status).toBe(200);
 
-    const rows = (await selectMany(stack.db, userTable, { id: user.id })) as Array<{
-      status: string;
-    }>;
+    const rows = await selectMany<{ readonly status: string }>(stack.db, userTable, {
+      id: user.id,
+    });
     expect(rows[0]?.status).toBe(USER_STATUS.DeletionRequested);
   });
 
@@ -234,7 +246,7 @@ describe("apex-surface-auth recipe", () => {
       payload: { email: "nobody@example.com" },
     });
     expect(res.status).toBe(200);
-    expect(verifyCalls).toHaveLength(0);
+    expect(transport.sent).toHaveLength(0);
   });
 });
 ```
@@ -303,22 +315,31 @@ describe("apex-surface-auth recipe", () => {
 // SERVER-WIRING: the app enables `anonymousAccess` (defaultTenantId = the
 // apex host tenant) so /api/write reaches the anonymous deletion handlers:
 //
-//   runProdApp({ features: composeApexAccountApp({...}), envSchema,
+//   runProdApp({ features: composeApexAccountApp({ ..., mailTransport }), envSchema,
 //                anonymousAccess: { defaultTenantId: APEX_TENANT_ID } })
+//
+// The deletion verify mail is sent by user-data-rights itself through delivery
+// + channel-email (after commit, localized template); the app only supplies the
+// mail transport.
 
 import { createAuthEmailPasswordFeature } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import {
+  createChannelEmailFeature,
+  type EmailTransport,
+} from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
+import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
+import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
+import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
-import {
-  createUserDataRightsFeature,
-  type SendDeletionVerificationEmailFn,
-} from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
+import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 
 export type ApexAccountAppOptions = {
@@ -327,9 +348,8 @@ export type ApexAccountAppOptions = {
   /** Apex route of the confirm screen; the handler appends the token as a
    *  URL fragment (`#token=`). */
   readonly deletionVerifyUrl: string;
-  /** Sending the verify magic link. MUST be non-blocking (enqueue) — a
-   *  synchronous send would open a timing oracle for account enumeration. */
-  readonly sendDeletionVerificationEmail: SendDeletionVerificationEmailFn;
+  /** Transport for the deletion verify mail (SMTP in prod, createInMemoryTransport in tests). */
+  readonly mailTransport: EmailTransport;
 };
 
 // Full feature composition for the public account flows. The
@@ -351,8 +371,13 @@ export function composeApexAccountApp(opts: ApexAccountAppOptions): FeatureDefin
     createUserDataRightsFeature({
       deletionTokenSecret: opts.deletionTokenSecret,
       deletionVerifyUrl: opts.deletionVerifyUrl,
-      sendDeletionVerificationEmail: opts.sendDeletionVerificationEmail,
+      mailDefaults: { appName: "Apex Account" },
     }),
+    createDeliveryFeature(),
+    createChannelEmailFeature({ transport: opts.mailTransport, resolveEmail: async () => null }),
+    createTemplateResolverFeature(),
+    createRendererFoundationFeature(),
+    createRendererMailHtmlFeature(),
   ];
 }
 ```

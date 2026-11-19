@@ -40,12 +40,13 @@ const TAE_AGGREGATE_TYPE = "taeDoc";
 // in the same handler/transaction. Its row landing (regardless of whether
 // the append won or lost the race) is the non-poisoning proof.
 const markerEntity = createEntity({
+  name: "taeMarker",
   table: "tae_markers",
   fields: {
     note: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const markerTable = buildEntityTable("taeMarker", markerEntity);
+const markerTable = buildEntityTable(markerEntity);
 const markerExecutor = createEventStoreExecutor(markerTable, markerEntity, {
   entityName: "taeMarker",
 });
@@ -54,7 +55,7 @@ let stack: TestStack;
 const admin = TestUsers.admin;
 
 const tryAppendFeature = defineFeature("tae", (r) => {
-  r.entity({ name: "taeMarker", ...markerEntity });
+  r.entity(markerEntity);
   const appended = r.defineEvent("appended", z.object({ note: z.string() }), {
     piiFields: "none",
   });
@@ -65,6 +66,8 @@ const tryAppendFeature = defineFeature("tae", (r) => {
     handler: async (event, ctx) => {
       const result = await ctx.events.tryAppend({
         aggregateId: event.payload.aggregateId,
+        blindAppendReason:
+          "the test races blind writers on purpose to prove a lost append does not poison the transaction",
         aggregateType: TAE_AGGREGATE_TYPE,
         type: appended.name,
         payload: { note: event.payload.note },

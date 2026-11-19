@@ -18,7 +18,6 @@
 // when !committed, the burn is released so a legitimate retry is not blocked
 // by a stale marker, as with reset/verify.
 
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineWriteHandler,
@@ -39,6 +38,7 @@ import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import {
   findSignupHandoverProvider,
+  mintAuthSession,
   registrationLocaleFromRequest,
   SIGNUP_HANDOVER_BENIGN_CLAIM_REJECTION_CODE,
   type SignupHandoverBinding,
@@ -47,7 +47,6 @@ import {
 import { tenantTable } from "../../tenant/schema/tenant.ts";
 import { invalidSignupToken, signupEmailAlreadyRegistered } from "../errors.ts";
 import { passwordSchema } from "../password-policy.ts";
-// kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers
 import { INITIAL_SIGNUP_ROLES, provisionSignupAccount } from "../seeding.ts";
 import {
   burnSignupToken,
@@ -169,9 +168,7 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
         // Tenant key: a two-word slug from framework/random, with a DB conflict
         // check against tenants.key. 22,500 default combinations plus a
         // suffix fallback in case of collision (see generateUniqueName).
-        // @cast-boundary db-runner — helpers use only the query API that
-        // DbConnection and DbTx share.
-        const dbConn = ctx.db.unsafeRaw() as DbConnection;
+        const dbConn = ctx.db.unsafeRawAllTenants();
 
         const tenantKey = await generateUniqueName({
           isAvailable: async (slug) => {
@@ -219,12 +216,12 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
         // so the database write (provisionSignupAccount) and session claim share
         // one source; otherwise two hardcoded "TenantAdmin" values could drift
         // during a refactor and create a role mismatch between the DB and JWT.
-        const session: SessionUser = {
-          id: provisioned.userId,
+        const session = await mintAuthSession(ctx, {
+          userId: provisioned.userId,
           tenantId: provisioned.tenantId,
           roles: [...INITIAL_SIGNUP_ROLES],
-          ...registrationLocale,
-        };
+          locale: registrationLocale.locale,
+        });
 
         // Claim BEFORE spending the signup token or the binding below and
         // before `committed` flips: if the claim throws, the `finally` still

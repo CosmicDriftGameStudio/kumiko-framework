@@ -1,6 +1,7 @@
 export const TENANT_LIFECYCLE_FEATURE = "tenant-lifecycle" as const;
 
-export const TENANT_ACCOUNT_CLOSE_ROLES = ["Admin"] as const;
+// No SystemAdmin: request-destruction destroys the caller's own tenant.
+export const TENANT_ACCOUNT_CLOSE_ROLES = ["TenantAdmin", "Admin"] as const;
 
 export const TENANT_AGGREGATE_TYPE = "tenant" as const;
 

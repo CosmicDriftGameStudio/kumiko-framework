@@ -16,14 +16,14 @@ describe("ResetPasswordScreen", () => {
   test("without a token in the URL and without the token prop → missing-token page", () => {
     // jsdom default location is "about:blank" → search = ""
     renderWithProviders(<ResetPasswordScreen />);
-    expect(screen.getByText(/missing a token/i)).toBeTruthy();
+    screen.getByText(/missing a token/i);
   });
 
   test("with token prop → form renders", () => {
     renderWithProviders(<ResetPasswordScreen token="abc-token" />);
-    expect(screen.getByLabelText(/^New password/)).toBeTruthy();
-    expect(screen.getByLabelText(/^Confirm password/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Save password" })).toBeTruthy();
+    screen.getByLabelText(/^New password/);
+    screen.getByLabelText(/^Confirm password/);
+    screen.getByRole("button", { name: "Save password" });
   });
 
   test("Password < 8 characters → client-side error, no fetch call", async () => {
@@ -77,7 +77,7 @@ describe("ResetPasswordScreen", () => {
           body: JSON.stringify({ token: "abc-token", newPassword: "validpass1" }),
         }),
       );
-      expect(screen.getByText("Password set")).toBeTruthy();
+      screen.getByText("Password set");
     });
   });
 

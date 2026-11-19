@@ -170,3 +170,56 @@ describe("L3 — cost per payload element (bulk-upload)", () => {
     expect(body.error.code).toBe("rate_limited");
   });
 });
+
+describe("ctx.visitorKey — daily pseudonym of the HTTP caller", () => {
+  let visitorStack: TestStack;
+
+  beforeAll(async () => {
+    visitorStack = await setupTestStack({
+      features: [createRateLimitShowcaseFeature()],
+      trustedProxyHops: 1,
+      now: "2026-11-17T23:30:00Z",
+    });
+  });
+
+  afterAll(async () => {
+    await visitorStack.cleanup();
+  });
+
+  async function visitorKeyFor(headers: Record<string, string>): Promise<string | null> {
+    const res = await visitorStack.http.queryWithHeaders(
+      "rl-showcase:query:visitor-key",
+      {},
+      admin,
+      headers,
+    );
+    expect(res.status).toBe(200);
+    return ((await res.json()) as { data: { visitorKey: string | null } }).data.visitorKey;
+  }
+
+  const browser = { "x-forwarded-for": "10.77.0.1", "user-agent": "RecipeBrowser/1" };
+
+  test("same IP and User-Agent get the same key, which never contains the IP", async () => {
+    const first = await visitorKeyFor(browser);
+    const second = await visitorKeyFor(browser);
+    expect(first).toBe(second);
+    expect(first).toMatch(/^[0-9a-f]{64}$/);
+    expect(first).not.toContain("10.77.0.1");
+  });
+
+  test("another IP or another User-Agent gets another key", async () => {
+    const base = await visitorKeyFor(browser);
+    expect(await visitorKeyFor({ ...browser, "x-forwarded-for": "10.77.0.2" })).not.toBe(base);
+    expect(await visitorKeyFor({ ...browser, "user-agent": "RecipeBrowser/2" })).not.toBe(base);
+  });
+
+  test("the key changes at midnight UTC", async () => {
+    const before = await visitorKeyFor(browser);
+    visitorStack.clock?.advance({ hours: 1 });
+    expect(await visitorKeyFor(browser)).not.toBe(before);
+  });
+
+  test("without a resolvable client IP there is no key", async () => {
+    expect(await visitorKeyFor({ "user-agent": "RecipeBrowser/1" })).toBeNull();
+  });
+});

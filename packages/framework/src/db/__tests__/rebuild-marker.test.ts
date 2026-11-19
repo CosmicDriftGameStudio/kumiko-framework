@@ -206,16 +206,17 @@ describe("write/read marker", () => {
 
 describe("plural file field added to an existing managed entity", () => {
   const textField = createTextField({ personal: false, reason: "test_fixture" });
-  const before = createEntity({ table: "albums", fields: { title: textField } });
+  const before = createEntity({ name: "albums", table: "albums", fields: { title: textField } });
   const after = createEntity({
+    name: "albums",
     table: "albums",
     fields: { title: textField, photos: createImagesField() },
   });
 
   test("is an in-place ADD COLUMN with a '[]' default and no rebuild marker", () => {
     const diff = diffSnapshots(
-      snapshotFromMetas([deriveEntityTableMeta("albums", before)]),
-      snapshotFromMetas([deriveEntityTableMeta("albums", after)]),
+      snapshotFromMetas([deriveEntityTableMeta(before)]),
+      snapshotFromMetas([deriveEntityTableMeta(after)]),
     );
 
     expect(rebuildTablesFromDiff(diff)).toEqual([]);

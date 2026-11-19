@@ -33,6 +33,7 @@ describe("isValidIban", () => {
 
 describe("text field format iban", () => {
   const entity = createEntity({
+    name: "entity",
     table: "bank_account",
     fields: {
       iban: createTextField({ format: "iban", personal: false, reason: "test_fixture" }),

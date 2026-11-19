@@ -5,6 +5,7 @@
 
 import {
   isTierAssignmentSource,
+  TIER_ENGINE_FEATURE,
   type TierAssignmentSource,
   TierAssignmentSources,
   TierEngineHandlers,
@@ -15,12 +16,42 @@ import type {
   ExtraRouteDefinition,
   SignatureExtraRouteDeps,
 } from "@cosmicdrift/kumiko-framework/api";
-import type { TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineFeature,
+  type FeatureDefinition,
+  SYSTEM_ROLE,
+  type TenantId,
+  type WriteResult,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError, VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import * as z from "zod";
 import { subscriptionAggregateId } from "./aggregate-id.ts";
+import {
+  INVOICE_PAID_EVENT_QN,
+  INVOICE_PAYMENT_FAILED_EVENT_QN,
+  SUBSCRIPTION_CANCELED_EVENT_QN,
+  SUBSCRIPTION_CREATED_EVENT_QN,
+  SUBSCRIPTION_UPDATED_EVENT_QN,
+} from "./events.ts";
 import type { PaymentEvent, SubscriptionEvent } from "./types.ts";
-import { SubscriptionFoundationQueries, SubscriptionStatuses } from "./web/constants.ts";
+import {
+  BILLING_FOUNDATION_FEATURE,
+  SubscriptionFoundationQueries,
+  SubscriptionStatuses,
+} from "./web/constants.ts";
 import { createSubscriptionWebhookRoute } from "./webhook-handler.ts";
+
+const SUBSCRIPTION_TIER_SYNC_FEATURE = "subscription-tier-sync";
+const SYNC_TIER_HANDLER_QN = `${SUBSCRIPTION_TIER_SYNC_FEATURE}:write:sync-tier`;
+// Every event that can change the subscription's effective tier.
+const TIER_RELEVANT_EVENT_QNS = [
+  SUBSCRIPTION_CREATED_EVENT_QN,
+  SUBSCRIPTION_UPDATED_EVENT_QN,
+  SUBSCRIPTION_CANCELED_EVENT_QN,
+  INVOICE_PAID_EVENT_QN,
+  INVOICE_PAYMENT_FAILED_EVENT_QN,
+] as const;
 
 // Outside /api — signature routes carry their own auth (verify()) and are
 // not JWT-guarded, so provider dashboards (Stripe, PayPal, ...) point here.
@@ -115,10 +146,31 @@ function findTierAssignment(
 export function createSubscriptionTierSync<TTier extends string>(
   deps: SubscriptionTierSyncDeps<TTier>,
 ) {
+  // Two syncs of one tenant can run at once: the webhook's own sync and the event job, or the
+  // jobs of two subscription events. A version_conflict on the assignment write means the other
+  // one wrote first; one fresh read decides again (unchanged, manual grant kept, or a write on
+  // the current version). This is optimistic concurrency, not a retry of a failed call.
   async function runTierSync(
     tenantId: TenantId,
     routeDeps: Pick<SignatureExtraRouteDeps, "dispatchSystemQuery" | "dispatchSystemWrite">,
+    afterVersionConflict = false,
   ): Promise<SyncOutcome<TTier>> {
+    const decidesAgain = (code: string | undefined): boolean =>
+      code === VERSION_CONFLICT_CODE && !afterVersionConflict;
+    const settleWrite = (
+      written: { readonly isSuccess: boolean; readonly error?: { readonly code?: string } },
+      action: string,
+      effective: TTier,
+    ): Promise<SyncOutcome<TTier>> | SyncOutcome<TTier> => {
+      if (written.isSuccess) return { error: null, applied: { tier: effective, changed: true } };
+      if (decidesAgain(written.error?.code)) return runTierSync(tenantId, routeDeps, true);
+      return {
+        error: {
+          code: "tier_sync_failed",
+          message: `tier-engine ${action} "${effective}" failed: ${written.error?.code ?? "unknown"}`,
+        },
+      };
+    };
     try {
       const subscriptionId = subscriptionAggregateId(tenantId);
       const subscriptionRows = asRows(
@@ -156,15 +208,7 @@ export function createSubscriptionTierSync<TTier extends string>(
           },
           tenantId,
         });
-        if (!created.isSuccess) {
-          return {
-            error: {
-              code: "tier_sync_failed",
-              message: `tier-engine create with "${effective}" failed: ${created.error?.code ?? "unknown"}`,
-            },
-          };
-        }
-        return { error: null, applied: { tier: effective, changed: true } };
+        return settleWrite(created, "create with", effective);
       }
       if (assignment.tier === effective) {
         return { error: null, applied: { tier: effective, changed: false } };
@@ -187,15 +231,7 @@ export function createSubscriptionTierSync<TTier extends string>(
         },
         tenantId,
       });
-      if (!result.isSuccess) {
-        return {
-          error: {
-            code: "tier_sync_failed",
-            message: `tier-engine update to "${effective}" failed: ${result.error?.code ?? "unknown"}`,
-          },
-        };
-      }
-      return { error: null, applied: { tier: effective, changed: true } };
+      return settleWrite(result, "update to", effective);
     } catch (error) {
       // dispatchSystemQuery throws (AccessDenied/NotFound/Validation) rather
       // than returning an error envelope — e.g. a consumer that mounts
@@ -238,7 +274,58 @@ export function createSubscriptionTierSync<TTier extends string>(
     }
   }
 
+  function createFeature(): FeatureDefinition {
+    return defineFeature(SUBSCRIPTION_TIER_SYNC_FEATURE, (r) => {
+      r.describe(
+        "Keeps the tenant's tier-engine assignment in line with its subscription. An event-triggered job on the five subscription events runs the tier sync through `subscription-tier-sync:write:sync-tier`, so a change from a webhook and one found by the daily `sync-subscriptions` drift sync both reach the tier-engine. A manual tier grant is kept. Mounted by the `billing` boot option; apps that call `createSubscriptionTierSync()` themselves add `createFeature()` next to `createWebhookRoute()`.",
+      );
+      r.requires({ features: [BILLING_FOUNDATION_FEATURE, TIER_ENGINE_FEATURE] });
+      r.writeHandler({
+        name: "sync-tier",
+        agent: { expose: false },
+        schema: z.object({}).strict(),
+        access: { roles: [SYSTEM_ROLE] },
+        handler: async (event, ctx) => {
+          // ctx is already scoped to the tenant, so the adapter ignores the tenantId argument.
+          const outcome = await runTierSync(event.user.tenantId, {
+            dispatchSystemQuery: ({ handlerQn, payload }) => ctx.dispatch.query(handlerQn, payload),
+            dispatchSystemWrite: ({ handlerQn, payload }) => ctx.dispatch.write(handlerQn, payload),
+          });
+          if (outcome.error !== null) {
+            if (outcome.error.code === TIER_SYNC_MANUAL_GRANT_SKIPPED) {
+              ctx.obs.log.warn(`[subscription-tier-sync] ${outcome.error.message}`);
+              return {
+                isSuccess: true as const,
+                data: { skipped: TIER_SYNC_MANUAL_GRANT_SKIPPED },
+              };
+            }
+            throw new InternalError({
+              message: `${outcome.error.code}: ${outcome.error.message}`,
+            });
+          }
+          return {
+            isSuccess: true as const,
+            data: outcome.applied ?? { tier: null, changed: false },
+          };
+        },
+      });
+      r.job({
+        name: "sync-tier",
+        trigger: { on: TIER_RELEVANT_EVENT_QNS },
+        runIn: "worker",
+        handler: async (_payload, ctx) => {
+          const result = await ctx.dispatch.write(SYNC_TIER_HANDLER_QN, {});
+          if (!result.isSuccess) {
+            throw new Error(`${SYNC_TIER_HANDLER_QN} failed: ${JSON.stringify(result.error)}`);
+          }
+        },
+      });
+    });
+  }
+
   // `path` must keep the `:providerName` param the webhook route resolves the provider from.
+  // The webhook keeps its synchronous sync for `fail-webhook` and `afterSync`; the job then
+  // finds nothing to change.
   function createWebhookRoute(options: { readonly path?: string } = {}): ExtraRouteDefinition {
     return createSubscriptionWebhookRoute({
       path: options.path ?? SUBSCRIPTION_WEBHOOK_PATH,
@@ -274,5 +361,5 @@ export function createSubscriptionTierSync<TTier extends string>(
     });
   }
 
-  return { createWebhookRoute, syncTierFromSubscription, syncAndNotify };
+  return { createFeature, createWebhookRoute, syncTierFromSubscription, syncAndNotify };
 }

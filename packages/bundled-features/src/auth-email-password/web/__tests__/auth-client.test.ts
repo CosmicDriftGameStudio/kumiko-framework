@@ -316,6 +316,16 @@ for (const { name, fn, url, bodyKey } of tokenEndpoints) {
 
       expect(res).toEqual({ ok: false, error: { reason: "unknown" } });
     });
+
+    test("network failure → { ok: false, reason: network } instead of throwing", async () => {
+      globalThis.fetch = mock(async () => {
+        throw new TypeError("Failed to fetch");
+      }) as unknown as typeof fetch;
+
+      const res = await fn(bodyKey === "email" ? "user@test.com" : "token-1");
+
+      expect(res).toEqual({ ok: false, error: { reason: "network" } });
+    });
   });
 }
 
@@ -358,6 +368,17 @@ describe("confirmSignup", () => {
     const res = await confirmSignup("bad-tok", "password123");
 
     expect(res).toEqual({ ok: false, error: { reason: "invalid_signup_token" } });
+  });
+
+  test("network failure returns a typed failure", async () => {
+    globalThis.fetch = mock(async () => {
+      throw new TypeError("Failed to fetch");
+    }) as unknown as typeof fetch;
+
+    expect(await confirmSignup("tok", "pw-12345678")).toEqual({
+      ok: false,
+      error: { reason: "network" },
+    });
   });
 });
 

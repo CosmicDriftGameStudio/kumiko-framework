@@ -13,6 +13,7 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 let pinnedIds: string[] = [];
 
 const ticketEntity = createEntity({
+  name: "ticket",
   table: "nlf_tickets",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -39,7 +40,7 @@ const ticketEntity = createEntity({
 });
 
 const ticketFeature = defineFeature("nlf", (r) => {
-  r.crud("ticket", ticketEntity, {
+  r.crud(ticketEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });

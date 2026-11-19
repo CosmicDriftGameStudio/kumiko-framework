@@ -9,13 +9,17 @@ import {
   createLongTextField,
   createRegistry,
   createTextField,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { createMeilisearchAdapter } from "@cosmicdrift/kumiko-framework/search/meilisearch";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  liveMeiliConnection,
+  meiliAvailable,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -23,24 +27,13 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { runSearchReindexOnBoot } from "../search-reindex-on-boot";
 
-const MEILI_URL = process.env["MEILI_URL"] ?? "http://localhost:17700";
-const MEILI_KEY = process.env["MEILI_MASTER_KEY"] ?? "kumiko-dev-key";
-
-async function meiliAvailable(): Promise<boolean> {
-  try {
-    return (await fetch(`${MEILI_URL}/health`, { signal: AbortSignal.timeout(2000) })).ok;
-  } catch {
-    return false;
-  }
-}
+const { url: MEILI_URL, masterKey: MEILI_KEY } = liveMeiliConnection();
 
 const MEILI_UP = await meiliAvailable();
-if (!MEILI_UP && process.env["REQUIRE_MEILI"] === "1") {
-  throw new Error(`REQUIRE_MEILI=1 but Meilisearch not reachable at ${MEILI_URL}`);
-}
 
 function memoEntityWith(bodyFind: "none" | "fuzzy") {
   return createEntity({
+    name: "memo",
     table: "read_find_change_memos",
     fields: {
       title: createTextField({
@@ -57,10 +50,8 @@ function memoEntityWith(bodyFind: "none" | "fuzzy") {
 function featureWith(bodyFind: "none" | "fuzzy") {
   const entity = memoEntityWith(bodyFind);
   return defineFeature("findchange", (r) => {
-    r.entity({ name: "memo", ...entity });
-    r.writeHandler(
-      defineEntityWriteHandler("memo:create", entity, { access: { roles: ["Admin"] } }),
-    );
+    r.entity(entity);
+    r.writeHandler(defineEntityCreateHandler("memo", entity, { access: { roles: ["Admin"] } }));
   });
 }
 

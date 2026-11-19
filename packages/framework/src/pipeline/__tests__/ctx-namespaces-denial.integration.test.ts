@@ -19,10 +19,11 @@ import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "ctx_ns_deny_notes",
   fields: { title: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 const noteExecutor = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
 
 const FEATURE = "ctxnsdeny";
@@ -66,7 +67,7 @@ async function callWritingMember(
 }
 
 const denyFeature = defineFeature(FEATURE, (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
 
   r.writeHandler({
     name: "reserve-denied",
@@ -183,14 +184,14 @@ describe("denied writing members name their namespaced path", () => {
     },
   );
 
-  test("db.outsideTransaction exists in the reservation and is gone in beforeTransaction", async () => {
+  test("db.outsideTransaction exists in the reservation and in beforeTransaction", async () => {
     const target = { namespace: "events", member: "append" } as const;
     await stack.http.writeErr(`${FEATURE}:write:reserve-denied`, target, admin);
     await stack.http.writeErr(`${FEATURE}:write:before-denied`, target, admin);
 
     expect(outsideShapes).toEqual([
       { phase: "reservation", outsideDefined: true },
-      { phase: "beforeTransaction", outsideDefined: false },
+      { phase: "beforeTransaction", outsideDefined: true },
     ]);
   });
 

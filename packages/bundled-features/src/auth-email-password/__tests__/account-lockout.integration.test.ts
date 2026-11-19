@@ -302,14 +302,14 @@ describe("account-lockout — enumeration through the lock answer", () => {
 });
 
 describe("account-lockout — differently cased spelling", () => {
-  test("failures under another spelling never lock the registered address's answer", async () => {
+  test("failures under another spelling count toward the registered address's lockout", async () => {
     await seedLoginUser("casevictim@example.com", "right-pw");
     for (let i = 0; i <= MAX_ATTEMPTS; i++) {
       await loginAttempt("CaseVictim@example.com", `wrong-${i}`);
     }
     const res = await loginAttempt("casevictim@example.com", "wrong-probe");
     const body = await res.json();
-    expect(body.error?.details?.reason).toBe(AuthErrors.invalidCredentials);
+    expect(body.error?.details?.reason).toBe(AuthErrors.accountLocked);
   });
 });
 

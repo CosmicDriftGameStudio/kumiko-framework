@@ -64,7 +64,7 @@ describe("Test-ES-Row-Writes Guard :: seedRow", () => {
     'import { buildEntityTable, table } from "@cosmicdrift/kumiko-framework/db";\n' +
     'import { importedTable } from "./schema";\n' +
     "declare const db: never;\n" +
-    'const noteTable = buildEntityTable("note", {} as never);\n' +
+    "const noteTable = buildEntityTable({} as never);\n" +
     'const plainTable = table("store_plain", {});\n';
 
   test("flags seedRow on an entity table built in the file", () => {
@@ -88,7 +88,7 @@ describe("Test-ES-Row-Writes Guard :: raw SQL", () => {
     'import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";\n' +
     'import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";\n' +
     "declare const client: { unsafe(sql: string): Promise<void> };\n" +
-    'const noteTable = buildEntityTable("note", {} as never);\n' +
+    "const noteTable = buildEntityTable({} as never);\n" +
     "declare const otherTable: { tableName: string };\n";
 
   test("flags DELETE and UPDATE literals on read_ tables and DELETE on kumiko_events", () => {

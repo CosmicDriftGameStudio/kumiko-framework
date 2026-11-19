@@ -1,4 +1,4 @@
-import { fetchOne } from "../db/query.ts";
+import { fetchOne, type TableLike } from "../db/query.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
 import { NotFoundError } from "../errors/index.ts";
 import type { DbConnection } from "./connection.ts";
@@ -22,8 +22,7 @@ function isTenantDb(db: DbConnection | TenantDb): db is TenantDb {
  */
 export async function assertExistsIn(
   db: DbConnection | TenantDb,
-  // biome-ignore lint/suspicious/noExplicitAny: Drizzle table types are dynamic
-  entity: any,
+  entity: TableLike,
   options: {
     field: string;
     value: unknown;

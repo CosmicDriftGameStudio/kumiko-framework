@@ -8,8 +8,8 @@
 //      and secret (smtp.password). Self-contained — mail-foundation does not
 //      know these keys; when an app owner switches between SMTP and the Brevo
 //      API, each plugin has its own independent config sets.
-//   2. **Plugin registration** via `r.useExtension("mailTransport",
-//      "smtp", { build })`. At boot, mail-foundation's factory lookup maps
+//   2. **Plugin registration** via `r.applyExtension({ name: "mailTransport",
+//      entity: "smtp", build })`. At boot, mail-foundation's factory lookup maps
 //      the name "smtp" to the build function.
 //   3. `build(ctx, tenantId)` reads the config keys and secret, then calls
 //      `createSmtpTransport()` from channel-email. This is the plugin's
@@ -96,7 +96,8 @@ export function createMailTransportSmtpFeature() {
       r.envSchema(mailTransportSmtpEnvSchema);
 
       // Provider-secret. Sensitive: redact-helper for admin-UI display.
-      const password = r.secret("smtp.password", {
+      const password = r.secret({
+        name: "smtp.password",
         label: { en: "SMTP password" },
         hint: {
           en: "Login password at the SMTP server. Brevo/Postmark/SES call it 'API key' or 'SMTP credentials'.",
@@ -120,7 +121,7 @@ export function createMailTransportSmtpFeature() {
         build: async (ctx: MailTransportContext, tenantId: string) =>
           buildSmtpTransport(ctx, tenantId),
       };
-      r.useExtension(MAIL_TRANSPORT_EXTENSION, "smtp", plugin);
+      r.applyExtension({ name: MAIL_TRANSPORT_EXTENSION, entity: "smtp", ...plugin });
 
       return {
         /** Config-key-handles — typed reads via `ctx.config(...)` in
@@ -200,9 +201,10 @@ async function buildSmtpTransport(
       : { user: authUser, pass: await readPassword(ctx, tenantId) };
 
   let target: MailConnectTarget;
+  const allowedPrivateMailHosts = readAllowedPrivateMailHostsFromEnv();
   try {
     target = await resolveMailConnectTarget(host, {
-      allowedPrivateMailHosts: readAllowedPrivateMailHostsFromEnv(),
+      allowedPrivateMailHosts,
       lookupFn: mailHostLookup,
     });
   } catch (err) {
@@ -228,6 +230,8 @@ async function buildSmtpTransport(
     from,
     ...(auth && { auth }),
     ...(target.servername && { servername: target.servername }),
+    pooled: false,
+    allowedPrivateMailHosts,
   });
 }
 

@@ -50,22 +50,35 @@ const jobExecutions: Array<{ name: string; payload: Record<string, unknown> }> =
 // Test feature with jobs
 const appFeature = defineFeature("app", (r) => {
   // A job that succeeds and logs
-  r.job("syncData", { trigger: { manual: true } }, async (payload, ctx) => {
-    ctx.obs.log?.info("Starting sync...");
-    jobExecutions.push({ name: "app:job:sync-data", payload });
-    ctx.obs.log?.info(`Synced ${Object.keys(payload).length} fields`);
-    ctx.obs.log?.info("Sync complete");
+  r.job({
+    name: "syncData",
+    trigger: { manual: true },
+    handler: async (payload, ctx) => {
+      ctx.obs.log?.info("Starting sync...");
+      jobExecutions.push({ name: "app:job:sync-data", payload });
+      ctx.obs.log?.info(`Synced ${Object.keys(payload).length} fields`);
+      ctx.obs.log?.info("Sync complete");
+    },
   });
 
   // A job that fails
-  r.job("failingImport", { trigger: { manual: true } }, async (_payload, ctx) => {
-    ctx.obs.log?.info("Connecting to import source...");
-    throw new Error("import source unreachable");
+  r.job({
+    name: "failingImport",
+    trigger: { manual: true },
+    handler: async (_payload, ctx) => {
+      ctx.obs.log?.info("Connecting to import source...");
+      throw new Error("import source unreachable");
+    },
   });
 
   // A boot job
-  r.job("warmCache", { trigger: { manual: true }, runOnBoot: true }, async (payload) => {
-    jobExecutions.push({ name: "app:job:warm-cache", payload });
+  r.job({
+    name: "warmCache",
+    trigger: { manual: true },
+    runOnBoot: true,
+    handler: async (payload) => {
+      jobExecutions.push({ name: "app:job:warm-cache", payload });
+    },
   });
 });
 

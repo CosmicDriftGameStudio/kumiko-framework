@@ -17,7 +17,6 @@ import {
 } from "../db/queries/event-consumer.ts";
 import {
   type PendingIdRange,
-  selectEventsHeadId,
   selectPendingAndNewEventRows,
   selectTenantIdsInRangesAbove,
 } from "../db/queries/event-store.ts";
@@ -40,7 +39,7 @@ import {
   type PendingGapEntry,
   SHARED_INSTANCE_SENTINEL,
 } from "./event-consumer-state.ts";
-import type { BatchTurnControl, EventConsumer } from "./event-dispatcher.ts";
+import type { BatchTurnControl, ConsumerTurn, EventConsumer } from "./event-dispatcher.ts";
 import { parseWriteOrigin } from "./write-origin.ts";
 
 // Fails closed without throwing: a throw would poison the event for every consumer.
@@ -344,6 +343,7 @@ export async function deliverEvents(
   context: AppContext,
   maxAttempts: number,
   state: ConsumerStateRow,
+  turn?: ConsumerTurn,
 ): Promise<DeliveryOutcome> {
   const startCursor = state.lastProcessedEventId;
   let cursor = startCursor;
@@ -374,7 +374,7 @@ export async function deliverEvents(
 
   for (const row of events) {
     try {
-      await applyEvent(consumer, row, context);
+      await applyEvent(consumer, row, context, turn);
       resolve(row.id);
       processed += 1;
     } catch (e) {
@@ -482,7 +482,7 @@ export async function deliverConsumerTurn(input: ConsumerTurnInput): Promise<{
   const deliverable = intakePaused ? withheld.filter((event) => event.id <= cursor) : withheld;
   const delivered: DeliveryOutcome =
     deliverable.length > 0
-      ? await deliverEvents(consumer, deliverable, context, maxAttempts, state)
+      ? await deliverEvents(consumer, deliverable, context, maxAttempts, state, { tx })
       : {
           cursor,
           attempts: state.attempts,
@@ -577,10 +577,11 @@ async function applyEvent(
   consumer: EventConsumer,
   row: StoredEventRow,
   context: AppContext,
+  turn?: ConsumerTurn,
 ): Promise<void> {
   const stored = rowToStoredEvent(row);
   await requestContext.run(buildConsumerRequestScope(consumer, stored), async () => {
-    await consumer.handler(stored, context);
+    await consumer.handler(stored, context, turn);
   });
 }
 
@@ -681,18 +682,16 @@ export async function persistConsumerOutcome(
   await updateConsumerDeliveryOutcome(tx, name, instanceId, outcome);
 }
 
-// Emit the lag gauge inside the consumer pass's tx so ops sees a snapshot
-// consistent with the cursor we just advanced to. `MAX(id)` on the events
-// table is an O(1) reverse-index scan — cheap even under load.
-export async function emitLagFromTx(
-  tx: DbTx,
+// Emitted inside the consumer pass's tx so ops sees a snapshot consistent with the cursor we
+// just advanced to; the head is read once per dispatcher pass by the caller.
+export function emitConsumerLagMetrics(
+  meter: Meter,
   consumerName: string,
   instanceId: string,
   cursor: bigint,
-  meter: Meter,
+  head: bigint,
   pendingGapRanges: number,
-): Promise<void> {
-  const head = await selectEventsHeadId(tx);
+): void {
   const lag = head > cursor ? Number(head - cursor) : 0;
   emitEventConsumerLag(meter, { consumer: consumerName, instanceId }, lag);
   emitEventConsumerPendingGaps(meter, { consumer: consumerName, instanceId }, pendingGapRanges);

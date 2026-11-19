@@ -17,6 +17,7 @@ import {
   type AuditEventAction,
   INCLUDE_TECHNICAL_FILTER,
 } from "../web/constants.ts";
+import type { AuditPayloadFilter } from "./audit-payload-visibility.ts";
 
 const MAX_LIMIT = 100;
 
@@ -77,10 +78,6 @@ function buildDateRange(
   return range;
 }
 
-function escapeLikePattern(value: string): string {
-  return value.replace(/[\\%_]/g, (m) => `\\${m}`);
-}
-
 export type AuditListFilters = {
   aggregateType?: string | undefined;
   aggregateId?: string | undefined;
@@ -120,7 +117,7 @@ export function buildAuditWhere(
   if (p.eventType) where["type"] = p.eventType;
   else if (p.search || !p.includeTechnical) {
     where["type"] = {
-      ...(p.search && { like: `%${escapeLikePattern(p.search)}%` }),
+      ...(p.search && { contains: p.search }),
       ...(!p.includeTechnical && { notIn: TECHNICAL_EVENT_TYPES }),
     };
   }
@@ -169,7 +166,12 @@ export function createEntityNounKeyResolver(registry: Registry | undefined): Ent
   };
 }
 
-export function serializeAuditEvent(r: AuditEventRow, nounKeyOf: EntityNounKeyResolver) {
+export function serializeAuditEvent(
+  r: AuditEventRow,
+  nounKeyOf: EntityNounKeyResolver,
+  visiblePayload: AuditPayloadFilter,
+) {
+  const payload = visiblePayload(r.aggregateType, r.type, r.payload);
   return {
     id: String(r.id),
     tenantId: r.tenantId,
@@ -180,7 +182,7 @@ export function serializeAuditEvent(r: AuditEventRow, nounKeyOf: EntityNounKeyRe
     eventAction: eventActionOf(r.type),
     eventLabelKey: eventLabelKeyOf(r.type),
     entityNounKey: nounKeyOf(r.aggregateType),
-    payload: redactPiiCiphertext(r.payload),
+    payload: payload === null ? null : redactPiiCiphertext(payload),
     metadata: redactPiiCiphertext(r.metadata),
     createdAt: r.createdAt,
     createdBy: r.createdBy,
@@ -191,10 +193,11 @@ export async function loadAuditEvent(
   db: TenantDb,
   where: WhereObject,
   nounKeyOf: EntityNounKeyResolver,
+  visiblePayload: AuditPayloadFilter,
 ) {
   const rows = await selectMany<AuditEventRow>(db, eventsTable, where, { limit: 1 });
   const row = rows[0];
-  return row === undefined ? null : serializeAuditEvent(row, nounKeyOf);
+  return row === undefined ? null : serializeAuditEvent(row, nounKeyOf, visiblePayload);
 }
 
 export async function listAuditEvents(
@@ -203,6 +206,7 @@ export async function listAuditEvents(
   p: { limit: number; sort?: "createdAt" | "type" | undefined },
   direction: "asc" | "desc",
   nounKeyOf: EntityNounKeyResolver,
+  visiblePayload: AuditPayloadFilter,
 ) {
   const rows = await selectMany<AuditEventRow>(db, eventsTable, where, {
     // The id cursor only resumes an id-ordered listing. created_at comes from the
@@ -217,7 +221,7 @@ export async function listAuditEvents(
         : [{ col: "id", direction }],
     limit: p.limit,
   });
-  const serialised = rows.map((row) => serializeAuditEvent(row, nounKeyOf));
+  const serialised = rows.map((row) => serializeAuditEvent(row, nounKeyOf, visiblePayload));
   const last = serialised[serialised.length - 1];
   // An id cursor cannot resume a type-ordered listing, so that sort is one page.
   const nextId = serialised.length === p.limit && last && p.sort !== "type" ? last.id : null;

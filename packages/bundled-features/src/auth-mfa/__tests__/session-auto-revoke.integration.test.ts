@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient, configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
-import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestUser, testUserId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createTestEnvelopeCipher, expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -12,6 +13,7 @@ import {
 import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
+import { createSessionsFeature } from "../../sessions/feature.ts";
 import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session.ts";
 import { createSessionCallbacks } from "../../sessions/session-callbacks.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
@@ -19,7 +21,6 @@ import { createUserFeature } from "../../user/feature.ts";
 import { userEntity } from "../../user/schema/user.ts";
 import { base32Decode } from "../base32.ts";
 import { createAuthMfaFeature } from "../feature.ts";
-import { bindMfaRevokeAllOtherSessionsFromFeature } from "../feature-exports.ts";
 import { userMfaEntity } from "../schema/user-mfa.ts";
 import { currentTotpCode } from "../totp.ts";
 import { AuthMfaHandlers } from "../web/constants.ts";
@@ -55,14 +56,18 @@ beforeAll(async () => {
     challengeTokenSecret: "test-mfa-challenge-secret-at-least-32-bytes!!",
   });
   stack = await setupTestStack({
-    features: [createConfigFeature(), createUserFeature(), createTenantFeature(), mfaFeature],
+    features: [
+      createConfigFeature(),
+      createUserFeature(),
+      createTenantFeature(),
+      createAuthFoundationFeature(),
+      createSessionsFeature(),
+      mfaFeature,
+    ],
     extraContext: { configResolver: resolver, configEncryption: encryption },
   });
 
   sessionCallbacks = createSessionCallbacks({ db: stack.db });
-  const bind = bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature);
-  if (!bind) throw new Error("auth-mfa did not export bindRevokeAllOtherSessions");
-  bind(sessionCallbacks.sessionRevokeAllOthers);
 
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, userMfaEntity);
@@ -80,7 +85,7 @@ beforeEach(async () => {
 
 describe("session auto-revoke on MFA state changes", () => {
   test("enable-confirm revokes every OTHER session but keeps the caller's", async () => {
-    const userId = "revoke-enable-1";
+    const userId = testUserId(901);
     const currentSid = await sessionCallbacks.sessionCreator(createTestUser({ id: userId }), {
       ip: "127.0.0.1",
       userAgent: "test",
@@ -109,7 +114,7 @@ describe("session auto-revoke on MFA state changes", () => {
   });
 
   test("disable revokes every OTHER session but keeps the caller's", async () => {
-    const userId = "revoke-disable-1";
+    const userId = testUserId(902);
     const setupUser = createTestUser({ id: userId });
     const start = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
       AuthMfaHandlers.enableStart,
@@ -144,8 +149,44 @@ describe("session auto-revoke on MFA state changes", () => {
     expect(await checkerStatus(sessionCallbacks, otherSid, userId)).toBe("revoked");
   });
 
+  test("regenerate-recovery revokes every OTHER session but keeps the caller's", async () => {
+    const userId = testUserId(903);
+    const setupUser = createTestUser({ id: userId });
+    const start = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
+      AuthMfaHandlers.enableStart,
+      { accountLabel: `${userId}@example.com` },
+      setupUser,
+    );
+    const secretParam = new URLSearchParams(start.otpauthUri.split("?")[1]).get("secret") ?? "";
+    const secret = base32Decode(secretParam);
+    await stack.http.writeOk(
+      AuthMfaHandlers.enableConfirm,
+      { setupToken: start.setupToken, code: currentTotpCode(secret) },
+      setupUser,
+    );
+
+    const currentSid = await sessionCallbacks.sessionCreator(setupUser, {
+      ip: "127.0.0.1",
+      userAgent: "test",
+    });
+    const otherSid = await sessionCallbacks.sessionCreator(setupUser, {
+      ip: "127.0.0.1",
+      userAgent: "test",
+    });
+
+    const caller = createTestUser({ id: userId, sid: currentSid });
+    await stack.http.writeOk<{ recoveryCodes: string[] }>(
+      AuthMfaHandlers.regenerateRecovery,
+      { code: currentTotpCode(secret) },
+      caller,
+    );
+
+    expect(await checkerStatus(sessionCallbacks, currentSid, userId)).toBe("live");
+    expect(await checkerStatus(sessionCallbacks, otherSid, userId)).toBe("revoked");
+  });
+
   test("a failed disable attempt does NOT revoke any session", async () => {
-    const userId = "revoke-fail-1";
+    const userId = testUserId(904);
     const setupUser = createTestUser({ id: userId });
     const start = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
       AuthMfaHandlers.enableStart,

@@ -21,7 +21,7 @@ Feature entry point: `src/feature.ts`.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/files-post-processing
@@ -62,13 +62,9 @@ import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import sharp from "sharp";
-import { coverOrder, filesPostProcessingFeature, photoEntity, publishedPhotoIds } from "../feature";
+import { coverOrder, filesPostProcessingFeature, publishedPhotoIds } from "../feature";
 
 const HOST = "photos.example.com";
 const HOST_B = "photos-b.example.com";
@@ -110,7 +106,6 @@ beforeAll(async () => {
     ],
     files: { storageProvider: provider },
   });
-  await unsafeCreateEntityTable(stack.db, photoEntity, "photo");
 });
 
 async function createPhoto(asUser: typeof user = user): Promise<string> {
@@ -319,6 +314,7 @@ import { z } from "zod";
 // share the name `thumb` but are a completely separate spec — same label,
 // different whitelist, different actual pixels.
 export const photoEntity = createEntity({
+  name: "photo",
   table: "files_post_processing_photos",
   fields: {
     original: createImageField({
@@ -343,7 +339,7 @@ export const coverOrder: string[] = [];
 
 export const filesPostProcessingFeature = defineFeature("files-post-processing", (r) => {
   r.requires({ features: ["file-derivatives"] });
-  r.entity({ name: "photo", ...photoEntity });
+  r.entity(photoEntity);
 
   // Uploading a file to a photo's field needs the same rights as saving the
   // photo, so the photo must exist and the uploader needs update access.
@@ -422,7 +418,9 @@ export const filesPostProcessingFeature = defineFeature("files-post-processing",
   // Entry point 3 — default-deny. No registration here means every entityId
   // 404s; a registration that returns false does the same. Only an explicit
   // `true` serves bytes.
-  r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "photo", {
+  r.applyExtension({
+    name: EXT_DERIVATIVE_PUBLIC_PREDICATE,
+    entity: "photo",
     isPublic: ({ entityId, tenantId }: DerivativePublicPredicateArgs) =>
       publishedPhotoIds.has(`${tenantId}:${entityId}`),
   });

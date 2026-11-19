@@ -3,8 +3,11 @@ import { createCipheriv, randomBytes } from "node:crypto";
 import { createEntity, createTextField } from "../../engine/factories.ts";
 import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.ts";
 import {
+  KeyErasedError,
   KeyNotFoundError,
   type KmsContext,
+  type SubjectDek,
+  type SubjectId,
   subjectIdFromKey,
   subjectIdToKey,
 } from "../kms-adapter.ts";
@@ -16,8 +19,10 @@ import {
 import {
   decryptPiiFieldValues,
   decryptPiiValueForSubject,
+  decryptPiiValues,
   encryptPiiFieldValues,
   encryptPiiValueForSubject,
+  encryptPiiValuesForSubject,
   isPiiCiphertext,
   PII_CIPHERTEXT_PREFIX,
   PII_ERASED_SENTINEL,
@@ -30,6 +35,7 @@ const KMS_CTX: KmsContext = { requestId: "test" };
 const ENTITY_NAME = "pii-entity";
 
 const userLikeEntity = createEntity({
+  name: "userLike",
   fields: {
     email: createTextField({ required: true, personal: "self", find: "none" }),
     role: createTextField({ personal: false, reason: "test_fixture" }),
@@ -38,6 +44,7 @@ const userLikeEntity = createEntity({
 });
 
 const commentEntity = createEntity({
+  name: "comment",
   fields: {
     body: createTextField({
       personal: { of: "authorId" },
@@ -49,6 +56,7 @@ const commentEntity = createEntity({
 });
 
 const brandingEntity = createEntity({
+  name: "branding",
   fields: {
     brandColor: createTextField({
       personal: "tenant",
@@ -272,6 +280,7 @@ describe("tenant-owned field encryption", () => {
   test("tenant-owned field round-trips through the subject-KMS pipeline", async () => {
     const kms = new InMemoryKmsAdapter();
     const brandingWithAccess = createEntity({
+      name: "brandingWithAccess",
       fields: {
         iban: createTextField({
           personal: "tenant",
@@ -298,6 +307,7 @@ describe("tenant-owned field encryption", () => {
   test("tenant-annotated field becomes unreadable after subject erasure (Art. 17)", async () => {
     const kms = new InMemoryKmsAdapter();
     const brandingWithAccess = createEntity({
+      name: "brandingWithAccess",
       fields: {
         iban: createTextField({ personal: "tenant", find: "none" }),
       },
@@ -494,5 +504,125 @@ describe("corrupt PII ciphertext", () => {
     );
 
     await expect(attempt).rejects.toBeInstanceOf(KeyNotFoundError);
+  });
+});
+
+class CountingKmsAdapter extends InMemoryKmsAdapter {
+  getKeyCalls = 0;
+
+  override async getKey(subject: SubjectId): Promise<SubjectDek> {
+    this.getKeyCalls += 1;
+    return super.getKey(subject);
+  }
+}
+
+describe("encryptPiiValuesForSubject / decryptPiiValues", () => {
+  const subjectA: SubjectId = { kind: "user", userId: UUID_A };
+  const subjectB: SubjectId = { kind: "user", userId: UUID_B };
+  const plainValues = ["one", "two", "three", "four", "five"];
+
+  test("encrypts a batch with one key lookup and decrypts it in input order", async () => {
+    const kms = new CountingKmsAdapter();
+    await kms.createKey(subjectA);
+    kms.getKeyCalls = 0;
+
+    const stored = await encryptPiiValuesForSubject(kms, subjectA, plainValues, KMS_CTX, "note");
+    expect(kms.getKeyCalls).toBe(1);
+    expect(stored.every(isPiiCiphertext)).toBe(true);
+
+    const back = await decryptPiiValues(kms, [...stored, "plain"], KMS_CTX, "note");
+    expect(back).toEqual([...plainValues, "plain"]);
+    expect(kms.getKeyCalls).toBe(2);
+  });
+
+  test("decrypts ciphertexts of two subjects with one lookup per subject", async () => {
+    const kms = new CountingKmsAdapter();
+    const [a1, a2] = await encryptPiiValuesForSubject(kms, subjectA, ["a1", "a2"], KMS_CTX, "note");
+    const [b1] = await encryptPiiValuesForSubject(kms, subjectB, ["b1"], KMS_CTX, "note");
+    kms.getKeyCalls = 0;
+
+    const back = await decryptPiiValues(kms, [a1 ?? "", b1 ?? "", a2 ?? ""], KMS_CTX, "note");
+    expect(back).toEqual(["a1", "b1", "a2"]);
+    expect(kms.getKeyCalls).toBe(2);
+  });
+
+  test("an erased subject throws on encrypt and yields the sentinel on decrypt", async () => {
+    const kms = new CountingKmsAdapter();
+    const [stored] = await encryptPiiValuesForSubject(kms, subjectA, ["secret"], KMS_CTX, "note");
+    await kms.eraseKey(subjectA);
+
+    await expect(
+      encryptPiiValuesForSubject(kms, subjectA, ["fresh"], KMS_CTX, "note"),
+    ).rejects.toBeInstanceOf(KeyErasedError);
+    expect(await decryptPiiValues(kms, [stored ?? "", "plain"], KMS_CTX, "note")).toEqual([
+      PII_ERASED_SENTINEL,
+      "plain",
+    ]);
+  });
+
+  test("ciphertext and sentinel only: no key lookup, values pass through", async () => {
+    const kms = new CountingKmsAdapter();
+    const [stored] = await encryptPiiValuesForSubject(kms, subjectA, ["secret"], KMS_CTX, "note");
+    kms.getKeyCalls = 0;
+    const input = [stored ?? "", PII_ERASED_SENTINEL];
+
+    expect(await encryptPiiValuesForSubject(kms, subjectA, input, KMS_CTX, "note")).toEqual(input);
+    expect(kms.getKeyCalls).toBe(0);
+  });
+});
+
+describe("decryptPiiFieldValues key lookups", () => {
+  const subjectA: SubjectId = { kind: "user", userId: UUID_A };
+  const subjectB: SubjectId = { kind: "user", userId: UUID_B };
+
+  async function storedRow(
+    kms: CountingKmsAdapter,
+    emailSubject: SubjectId,
+    displayNameSubject: SubjectId,
+  ): Promise<Record<string, unknown>> {
+    return {
+      email: await encryptPiiValueForSubject(kms, emailSubject, "a@example.com", KMS_CTX, "email"),
+      displayName: await encryptPiiValueForSubject(
+        kms,
+        displayNameSubject,
+        "Ada",
+        KMS_CTX,
+        "displayName",
+      ),
+    };
+  }
+
+  test("decryptPiiFieldValues looks the key up once per subject across fields", async () => {
+    const kms = new CountingKmsAdapter();
+    const row = await storedRow(kms, subjectA, subjectA);
+    kms.getKeyCalls = 0;
+
+    const read = await decryptPiiFieldValues(row, ["email", "displayName"], kms, KMS_CTX);
+
+    expect(read).toEqual({ email: "a@example.com", displayName: "Ada" });
+    expect(kms.getKeyCalls).toBe(1);
+  });
+
+  test("two subjects mean two lookups", async () => {
+    const kms = new CountingKmsAdapter();
+    const row = await storedRow(kms, subjectA, subjectB);
+    kms.getKeyCalls = 0;
+
+    const read = await decryptPiiFieldValues(row, ["email", "displayName"], kms, KMS_CTX);
+
+    expect(read).toEqual({ email: "a@example.com", displayName: "Ada" });
+    expect(kms.getKeyCalls).toBe(2);
+  });
+
+  test("an erased subject yields the sentinel for every field of that subject with one lookup", async () => {
+    const kms = new CountingKmsAdapter();
+    const row = await storedRow(kms, subjectA, subjectA);
+    await kms.eraseKey(subjectA);
+    kms.getKeyCalls = 0;
+
+    const read = await decryptPiiFieldValues(row, ["email", "displayName"], kms, KMS_CTX);
+
+    expect(read).toEqual({ email: PII_ERASED_SENTINEL, displayName: PII_ERASED_SENTINEL });
+    expect(kms.getKeyCalls).toBe(1);
   });
 });

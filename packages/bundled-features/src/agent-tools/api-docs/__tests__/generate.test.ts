@@ -187,6 +187,48 @@ describe("generateApiDocs", () => {
     expect(spec.servers).toEqual([{ url: fixtureConfig.baseUrl }]);
   });
 
+  test("apiDocs.translations fill a locale the registry lacks", () => {
+    const filled = generateApiDocs(
+      fixtureInput({
+        config: {
+          ...fixtureConfig,
+          translations: {
+            "ticketing:write:ticket:create:description": { de: "Legt ein Ticket an." },
+          },
+        },
+      }),
+    );
+    expect(
+      filled.problems.some(
+        (p) =>
+          p.kind === "descriptionTranslationMissing" &&
+          p.qn === "ticketing:write:ticket:create" &&
+          p.locale === "de",
+      ),
+    ).toBe(false);
+    expect(
+      [...filled.files].some(
+        ([path, content]) => path.startsWith("de/") && content.includes("Legt ein Ticket an."),
+      ),
+    ).toBe(true);
+  });
+
+  test("the registry wins over apiDocs.translations for a locale it defines", () => {
+    const overridden = generateApiDocs(
+      fixtureInput({
+        config: {
+          ...fixtureConfig,
+          translations: {
+            "ticketing:write:ticket:close:title": { de: "Anderer Titel", es: "Cerrar ticket" },
+          },
+        },
+      }),
+    );
+    const page = overridden.files.get("de/reference/tickets.md") ?? "";
+    expect(page).toContain("**Ticket schließen**");
+    expect(page).not.toContain("Anderer Titel");
+  });
+
   test("deterministic: feature order does not change a single byte", () => {
     const reversed = generateApiDocs(fixtureInput({ reverse: true }));
     expect([...reversed.files]).toEqual([...files]);

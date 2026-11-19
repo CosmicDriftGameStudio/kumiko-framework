@@ -1,6 +1,5 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler, isUuid } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { userEntity, userTable } from "../schema/user.ts";
 
@@ -27,10 +26,8 @@ export const meQuery = defineQueryHandler({
   },
   description:
     "Returns the signed-in caller's own identity record, with the password hash stripped by field-level read access; use it whenever the current user's own profile data is needed.",
+  systemScope: true,
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({ message: "user:me requires r.systemScope()" });
-    }
     const db = ctx.systemDb.acknowledgeCrossTenant(
       "user rows are tenant-agnostic identity records; self-lookup by id needs no tenant filter",
     );

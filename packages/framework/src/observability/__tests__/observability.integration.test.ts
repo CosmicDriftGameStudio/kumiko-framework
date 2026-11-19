@@ -27,10 +27,7 @@ import { createLogger } from "../../logging/pino-logger.ts";
 // pipeline hooks) plus the feature-level r.metric() path.
 
 const productFeature = defineFeature("product", (r) => {
-  r.metric("tracked_total", {
-    type: "counter",
-    labels: ["kind"],
-  });
+  r.metric({ name: "tracked_total", type: "counter", labels: ["kind"] });
 
   r.writeHandler({
     name: "track",
@@ -65,6 +62,7 @@ const errorFeature = defineFeature("err", (r) => {
 // column with an integer one; the insert then got a UUID-string and Postgres
 // failed the cast, surfacing as internal_error.
 const todoEntity = {
+  name: "todo",
   table: "store_todos",
   fields: {
     title: {
@@ -77,8 +75,8 @@ const todoEntity = {
 
 let postSaveInvocations = 0;
 const todoFeature = defineFeature("todo", (r) => {
-  const todoTable = deriveEntityTableMeta("todo", todoEntity, { source: "unmanaged" });
-  r.entity({ name: "todo", ...todoEntity });
+  const todoTable = deriveEntityTableMeta(todoEntity, { source: "unmanaged" });
+  r.entity(todoEntity);
 
   r.writeHandler({
     name: "create",
@@ -448,8 +446,12 @@ describe("Observability (integration) — Jobs cross-process trace", () => {
   let jobRanWith: Record<string, unknown> | undefined;
 
   const jobFeature = defineFeature("jobs-trace", (r) => {
-    r.job("record", { trigger: { manual: true } }, async (payload) => {
-      jobRanWith = payload;
+    r.job({
+      name: "record",
+      trigger: { manual: true },
+      handler: async (payload) => {
+        jobRanWith = payload;
+      },
     });
   });
 
@@ -582,7 +584,7 @@ function recordSharedCall(ctx: {
 }
 
 const sharedLibFeature = defineFeature("shared-lib", (r) => {
-  r.metric("call_total", { type: "counter" });
+  r.metric({ name: "call_total", type: "counter" });
 });
 
 const consumerAFeature = defineFeature("consumer-a", (r) => {
@@ -656,14 +658,18 @@ describe("Observability (integration) — job ctx.obs.metricsFor", () => {
   let jobDone = false;
 
   const jobMetricsLibFeature = defineFeature("job-metrics-lib", (r) => {
-    r.metric("job_call_total", { type: "counter" });
+    r.metric({ name: "job_call_total", type: "counter" });
   });
 
   const jobMetricsConsumerFeature = defineFeature("job-metrics-consumer", (r) => {
-    r.job("record", { trigger: { manual: true } }, async (_payload, ctx) => {
-      ctx.obs.metricsFor("job-metrics-lib").inc("job_call_total");
-      ctx.obs.metricsFor("unregistered-lib").inc("never_total");
-      jobDone = true;
+    r.job({
+      name: "record",
+      trigger: { manual: true },
+      handler: async (_payload, ctx) => {
+        ctx.obs.metricsFor("job-metrics-lib").inc("job_call_total");
+        ctx.obs.metricsFor("unregistered-lib").inc("never_total");
+        jobDone = true;
+      },
     });
   });
 

@@ -1,4 +1,4 @@
-export { acknowledgedSystemDb } from "./acknowledged-system-db.ts";
+export { acknowledgedSystemDb, requireSystemDb } from "./acknowledged-system-db.ts";
 export { assertBillingLive, isBillingLive } from "./assert-billing-live.ts";
 export { collectErasureFailure, throwIfErasureFailed } from "./assert-erased.ts";
 export { assertNoWhereRuleInOwnershipWrite } from "./assert-no-where-rule-in-ownership-write.ts";
@@ -18,15 +18,22 @@ export {
   type StoredEnvelopeClassification,
 } from "./classify-stored-envelope.ts";
 export { collectExtensionOptions } from "./collect-extension-options.ts";
-export { decryptStoredPii, decryptStoredUserEmail } from "./decrypt-stored-pii.ts";
+export {
+  decryptStoredPii,
+  decryptStoredPiiFields,
+  decryptStoredPiiValues,
+  decryptStoredUserEmail,
+  KMS_POOL_CONCURRENCY,
+} from "./decrypt-stored-pii.ts";
 export { encryptForDirectWrite } from "./encrypt-for-direct-write.ts";
 export { entitiesOf } from "./entities-of.ts";
+export { eraseSubjectData } from "./erase-subject-data.ts";
 export { isWithinGracePeriod } from "./grace-period.ts";
+export { resolveHandlerMailLocale } from "./handler-mail-locale.ts";
 export { hmacSignatureMatches, signHmacSha256Base64Url } from "./hmac-signature.ts";
 export { isIdentityV3Hash, verifyIdentityV3Hash } from "./identity-v3-hash.ts";
 export { isTenantDb } from "./is-tenant-db.ts";
 export { isUniqueConstraintFailure } from "./is-unique-constraint-failure.ts";
-export { createLateBoundSlot, type LateBoundSlot } from "./late-bound-slot.ts";
 export { createLockoutCounter, type LockoutCounterState } from "./lockout-counter.ts";
 export { createMailLocaleTemplates } from "./mail-locale-templates.ts";
 export {
@@ -35,12 +42,12 @@ export {
   mailParagraphWithLink,
   mailRepeatedRows,
 } from "./mail-template-body.ts";
-export { mapWithConcurrency } from "./map-with-concurrency.ts";
+export { type AuthSessionInput, mintAuthSession } from "./mint-auth-session.ts";
 export { normalizeEmail } from "./normalize-email.ts";
 export {
   denyUnlessJoinRowParentVisible,
-  hostRowIsGone,
   joinRowParentIsVisible,
+  liveHostRowIds,
   parentRowIsVisible,
   visibleParentRowIds,
 } from "./parent-visibility.ts";
@@ -75,7 +82,6 @@ export {
   redactUrls,
 } from "./redact.ts";
 export { REDACTED_PII_PLACEHOLDER, redactPiiCiphertext } from "./redact-pii-ciphertext.ts";
-export { registerUserDataHooks } from "./register-user-data-hooks.ts";
 export { requireBootstrapExtension } from "./require-bootstrap-extension.ts";
 export { requireForTenant } from "./require-for-tenant.ts";
 export { resolveFeatureAccess } from "./resolve-feature-access.ts";
@@ -91,6 +97,8 @@ export {
   type RowBoundGrantResult,
   redeemRowBoundGrant,
   signRowBoundGrant,
+  type VerifiedRowBoundGrant,
+  verifyRowBoundGrant,
 } from "./row-bound-grant.ts";
 export { runInSubTransaction } from "./run-in-sub-transaction.ts";
 export { runBestEffort, sendBestEffort } from "./send-best-effort.ts";
@@ -98,7 +106,6 @@ export { registrationLocaleFromRequest, sessionLocaleField } from "./session-loc
 export { sessionTimezoneField } from "./session-timezone-field.ts";
 export { assertNotSvg, MAX_INPUT_PIXELS, SHARP_INPUT_OPTIONS } from "./sharp-input-limits.ts";
 export {
-  peekTokenSubject,
   signToken,
   TokenPurpose,
   type VerifyResult,
@@ -128,13 +135,11 @@ export {
   type StreamBackfillStepFailure,
   stepFailures,
 } from "./stream-tenant-derived-state.ts";
-export {
-  createSubjectScope,
-  type SubjectScope,
-  type SubjectScopeContext,
-  type SubjectScopeOptions,
-} from "./subject-scope.ts";
 export type { SystemQueryFn } from "./system-query.ts";
+export {
+  registerTenantCreatedSeedHook,
+  type TenantCreatedSeedArgs,
+} from "./tenant-created-seed-hook.ts";
 export { createTenantDbCache } from "./tenant-db-cache.ts";
 export {
   EXT_TENANT_DESTRUCTION_HOLD,
@@ -143,7 +148,6 @@ export {
 } from "./tenant-destruction-hold.ts";
 export {
   parseTenantScopedSubject,
-  peekTenantScopedSubject,
   type TenantScopedSubject,
   tenantScopedSubject,
 } from "./tenant-scoped-subject.ts";

@@ -1,0 +1,123 @@
+import {
+  type ConfigEditScreenDefinition,
+  createImageField,
+  createSelectField,
+  createTextField,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { BRANDING_QN, LAYOUT_PRESETS } from "../constants.ts";
+
+// Tenant self-service branding editor. A `configEdit` screen (no entity
+// table) — the renderer loads config:query:values, maps the form fields via
+// `configKeys` to the qualified config keys, and submits config:write:set per
+// key on save (where the keyDef.pattern gate runs). scope:tenant → writes land
+// on the acting admin's tenant. Nav/workspace placement stays App-Sache, like
+// the page screens; without an `r.nav` pointing here the screen is dormant.
+//
+// Roles include "Admin" (App-Repos like publicstatus) alongside "TenantAdmin"
+// (bundled-features) — the access.admin config preset writes both, so editing
+// works in either role world (Role-Naming-Drift).
+const ADMIN_ROLES = ["TenantAdmin", "Admin", "SystemAdmin"] as const;
+
+// Factory so the raw-CSS field/key only exist when the app opted into
+// allowCustomCss (fail-closed: no CSS editor when the capability is off). The
+// CSS lands in `custom-css` (registered conditionally by the feature);
+// the write-time pattern only caps length, the render-time sanitizer is the
+// allowlist gate.
+export function createBrandingSettingsScreen(opts: {
+  readonly allowCustomCss: boolean;
+}): ConfigEditScreenDefinition {
+  const base: ConfigEditScreenDefinition = {
+    id: "branding-settings",
+    type: "configEdit",
+    scope: "tenant",
+    configKeys: {
+      title: BRANDING_QN.title,
+      description: BRANDING_QN.description,
+      siteUrl: BRANDING_QN.siteUrl,
+      accentColor: BRANDING_QN.accentColor,
+      logoUrl: BRANDING_QN.logoUrl,
+      logoFile: BRANDING_QN.logoFile,
+      layoutPreset: BRANDING_QN.layoutPreset,
+    },
+    fields: {
+      title: createTextField({ maxLength: 200, personal: false, reason: "is_business_data" }),
+      description: createTextField({
+        maxLength: 500,
+        multiline: { rows: 3 },
+        personal: false,
+        reason: "is_business_data",
+      }),
+      siteUrl: createTextField({
+        maxLength: 2000,
+        format: "url",
+        personal: false,
+        reason: "is_business_data",
+      }),
+      accentColor: createTextField({
+        maxLength: 9,
+        personal: false,
+        reason: "is_business_data",
+      }),
+      logoUrl: createTextField({
+        maxLength: 2000,
+        format: "url",
+        personal: false,
+        reason: "is_business_data",
+      }),
+      logoFile: createImageField({
+        accept: ["png", "jpg", "jpeg", "webp"],
+        personal: false,
+        reason: "is_business_data",
+      }),
+      layoutPreset: createSelectField({ options: LAYOUT_PRESETS }),
+    },
+    layout: {
+      sections: [
+        {
+          title: "branding:section.identity",
+          columns: 2,
+          fields: [
+            { field: "title", span: 1 },
+            { field: "layoutPreset", span: 1 },
+            { field: "description", span: 2 },
+            { field: "siteUrl", span: 1 },
+            { field: "logoUrl", span: 1 },
+            { field: "logoFile", span: 1 },
+            { field: "accentColor", span: 1 },
+          ],
+        },
+      ],
+    },
+    access: { roles: ADMIN_ROLES },
+    // See file header: nav placement is app-specific, so this opts out of
+    // the boot-validator's nav-area check.
+    dormant: true,
+  };
+  if (!opts.allowCustomCss) return base;
+  return {
+    ...base,
+    configKeys: { ...base.configKeys, customCss: BRANDING_QN.customCss },
+    fields: {
+      ...base.fields,
+      // Tenant-admin-authored branding CSS (raw-CSS gated behind
+      // allowCustomCss), not end-user input — same category as the other
+      // branding fields above.
+      customCss: createTextField({
+        maxLength: 8000,
+        multiline: { rows: 12 },
+        personal: false,
+        reason: "is_business_data",
+      }),
+    },
+    layout: {
+      sections: [
+        ...base.layout.sections,
+        {
+          title: "branding:section.custom-css",
+          columns: 1,
+          fields: [{ field: "customCss", span: 1 }],
+        },
+      ],
+    },
+  };
+}

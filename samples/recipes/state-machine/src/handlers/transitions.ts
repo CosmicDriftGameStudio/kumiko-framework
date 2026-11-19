@@ -50,6 +50,9 @@ export function createInvoiceTransitionHandlers(events: InvoiceEvents) {
     schema: z.object({ id: z.uuid() }),
     access: { roles: ["Accounting"] },
     handler: async (event, ctx) => {
+      // Read the stream version BEFORE the state: the append below only lands if nobody appended
+      // since this read, so the decision stays valid.
+      const streamVersion = await ctx.events.streamVersion(event.payload.id);
       const state = await loadInvoiceState(ctx, event.payload.id);
       if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
 
@@ -63,6 +66,7 @@ export function createInvoiceTransitionHandlers(events: InvoiceEvents) {
         aggregateId: event.payload.id,
         aggregateType: ENTITY_NAME,
         payload: {},
+        expectedVersion: streamVersion,
       });
 
       return successResult(event.payload.id, "paid", state.status);
@@ -93,6 +97,7 @@ export function createInvoiceTransitionHandlers(events: InvoiceEvents) {
     access: adminOnly,
     // No skipTransitionGuard — pipeline auto-guards.
     handler: async (event, ctx) => {
+      const streamVersion = await ctx.events.streamVersion(event.payload.id);
       const state = await loadInvoiceState(ctx, event.payload.id);
       if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
 
@@ -101,6 +106,7 @@ export function createInvoiceTransitionHandlers(events: InvoiceEvents) {
         aggregateId: event.payload.id,
         aggregateType: ENTITY_NAME,
         payload: {},
+        expectedVersion: streamVersion,
       });
 
       return successResult(event.payload.id, target, state.status);
@@ -120,6 +126,7 @@ export function createInvoiceTransitionHandlers(events: InvoiceEvents) {
     access: adminOnly,
     unsafeSkipTransitionGuard: true,
     handler: async (event, ctx) => {
+      const streamVersion = await ctx.events.streamVersion(event.payload.id);
       const state = await loadInvoiceState(ctx, event.payload.id);
       if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
 
@@ -127,6 +134,7 @@ export function createInvoiceTransitionHandlers(events: InvoiceEvents) {
         aggregateId: event.payload.id,
         aggregateType: ENTITY_NAME,
         payload: { newStatus: event.payload.status, fromStatus: state.status as InvoiceStatus },
+        expectedVersion: streamVersion,
       });
 
       return successResult(event.payload.id, event.payload.status, state.status);

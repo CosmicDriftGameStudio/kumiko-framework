@@ -101,7 +101,7 @@ export function ResultTable<Row>({
                 key={col.header}
                 className={cn(
                   "py-1.5 font-medium",
-                  card === true && "px-3",
+                  card === true ? "px-3" : "px-2",
                   compactHeader === true && COMPACT_HEADER_CLASS,
                   col.align === "right" && "text-right",
                 )}
@@ -119,7 +119,7 @@ export function ResultTable<Row>({
                   key={col.header}
                   className={cn(
                     "py-1.5",
-                    card === true && "px-3",
+                    card === true ? "px-3" : "px-2",
                     col.align === "right" && "text-right tabular-nums",
                   )}
                 >
@@ -137,7 +137,7 @@ export function ResultTable<Row>({
                 colSpan={columns.length > 1 ? Math.max(columns.length - 1, 1) : undefined}
                 className={cn(
                   "py-1.5 text-muted-foreground",
-                  card === true && "px-3",
+                  card === true ? "px-3" : "px-2",
                   row.emphasize === true && "text-foreground",
                   columns.length === 1 && "flex items-center justify-between gap-4",
                 )}
@@ -155,7 +155,9 @@ export function ResultTable<Row>({
                 )}
               </td>
               {columns.length > 1 && (
-                <td className={cn("py-1.5 text-right tabular-nums", card === true && "px-3")}>
+                <td
+                  className={cn("py-1.5 text-right tabular-nums", card === true ? "px-3" : "px-2")}
+                >
                   {row.value}
                 </td>
               )}
@@ -208,11 +210,13 @@ export function ComparisonTable<Col>({
       <table data-testid={testId} className={cn("w-full min-w-[24rem] text-sm", className)}>
         <thead className={cn(card === true && "bg-muted")}>
           <tr className="border-b text-left text-muted-foreground">
-            <th className={cn("py-1.5 font-medium", card === true && "px-3")}>{metricLabel}</th>
+            <th className={cn("py-1.5 font-medium", card === true ? "px-3" : "px-2")}>
+              {metricLabel}
+            </th>
             {columns.map((col, i) => (
               <th
                 key={columnKey(col, i)}
-                className={cn("py-1.5 text-right font-medium", card === true && "px-3")}
+                className={cn("py-1.5 text-right font-medium", card === true ? "px-3" : "px-2")}
               >
                 {columnHeader(col, i)}
               </th>
@@ -224,13 +228,16 @@ export function ComparisonTable<Col>({
             const best = metric.bestIndex !== undefined ? metric.bestIndex(columns) : -1;
             return (
               <tr key={metric.label} className="border-b last:border-0">
-                <td className={cn("py-1.5 text-muted-foreground", card === true && "px-3")}>
+                <td className={cn("py-1.5 text-muted-foreground", card === true ? "px-3" : "px-2")}>
                   {metric.label}
                 </td>
                 {columns.map((col, i) => (
                   <td
                     key={columnKey(col, i)}
-                    className={cn("py-1.5 text-right tabular-nums", card === true && "px-3")}
+                    className={cn(
+                      "py-1.5 text-right tabular-nums",
+                      card === true ? "px-3" : "px-2",
+                    )}
                   >
                     {i === best ? (
                       <span className="inline-block rounded bg-primary/10 px-2 py-0.5 font-semibold text-primary">

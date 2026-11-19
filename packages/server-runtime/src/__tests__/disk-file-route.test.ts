@@ -41,6 +41,9 @@ describe("diskFileRoute", () => {
       write: async () => {
         throw new Error("unused");
       },
+      query: async () => {
+        throw new Error("unused");
+      },
       clientIp: "127.0.0.1",
     };
     app.get(route.path, (c) => route.handler(c, deps));

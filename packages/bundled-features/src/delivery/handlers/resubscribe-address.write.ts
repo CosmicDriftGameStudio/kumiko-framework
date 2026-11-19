@@ -1,5 +1,4 @@
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { removeAddressOptOut } from "../address-opt-out.ts";
 import { currentNotificationType, notificationTypeNames } from "../notification-type-aliases.ts";
@@ -20,17 +19,13 @@ export const resubscribeAddressWrite = defineWriteHandler({
   agent: { expose: false, risk: "high" },
   description:
     "Removes a no-account address opt-out for one notificationType/channel combination; dispatched by the signed resubscribe route, not meant for UI callers.",
+  systemScope: true,
   handler: async (event, ctx) => {
     const { addressHash, channel } = event.payload;
     const notificationType = currentNotificationType(ctx.registry, event.payload.notificationType);
     const { tenantId } = event.user;
 
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message: "resubscribeAddress: ctx.systemDb missing on a system-scoped handler",
-      });
-    }
-    const db = ctx.systemDb.assertTenantMatch(tenantId);
+    const db = ctx.systemDb.scopedTo(tenantId);
 
     for (const name of notificationTypeNames(ctx.registry, notificationType)) {
       const result = await removeAddressOptOut(db, event.user, {

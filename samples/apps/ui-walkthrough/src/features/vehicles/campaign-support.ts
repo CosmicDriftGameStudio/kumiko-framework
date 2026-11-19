@@ -2,11 +2,8 @@ import { createEntityExecutor } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { campaignEntity, campaignPostEntity } from "./entities";
 
-export const { executor: campaignExecutor } = createEntityExecutor("campaign", campaignEntity);
-export const { executor: campaignPostExecutor } = createEntityExecutor(
-  "campaignPost",
-  campaignPostEntity,
-);
+export const { executor: campaignExecutor } = createEntityExecutor(campaignEntity);
+export const { executor: campaignPostExecutor } = createEntityExecutor(campaignPostEntity);
 
 export const markPostedPayloadSchema = z.object({ id: z.uuid() });
 

@@ -59,9 +59,9 @@ describe("EntityTags", () => {
       </Wrapper>,
     );
 
-    expect(screen.getByTestId("entity-tags")).toBeTruthy();
-    expect(screen.getByText("important")).toBeTruthy();
-    expect(screen.getByText("project-x")).toBeTruthy();
+    screen.getByTestId("entity-tags");
+    screen.getByText("important");
+    screen.getByText("project-x");
   });
 
   test("renders nothing when the entity has no assignments", () => {

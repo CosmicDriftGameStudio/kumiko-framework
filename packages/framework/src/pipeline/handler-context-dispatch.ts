@@ -11,6 +11,7 @@ import {
   afterRollbackHooksOf,
   carrySavepointRollbackHooks,
 } from "./after-rollback-sink.ts";
+import { bindContractQuery, bindContractWrite } from "./contract-dispatch.ts";
 import { runBatch, unwrapSingle } from "./dispatch-batch.ts";
 import { executeQuery } from "./dispatch-query.ts";
 import type { HandlerTransactionScope } from "./dispatch-shared.ts";
@@ -152,10 +153,13 @@ export function buildDispatchFacet(
   return {
     dispatch: {
       ...readers,
-      query: (targetType: string, payload: unknown) =>
+      query: bindContractQuery((targetType: string, payload: unknown) =>
         executeQuery(ctx, targetType, payload, user, origin, tx, sinks.notifyCommitSink),
+      ),
       queryAs: identitySwitch.queryAs,
-      write: (targetType: string, payload: unknown) => writeAsUser(user, targetType, payload),
+      write: bindContractWrite((targetType: string, payload: unknown) =>
+        writeAsUser(user, targetType, payload),
+      ),
       writeAs: identitySwitch.writeAs,
     } satisfies HandlerDispatch,
     commitHooks: {

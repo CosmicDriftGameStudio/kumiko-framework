@@ -28,7 +28,18 @@ export function isPrincipalRowBlocked(row: {
   return row.isDeleted || isPrincipalBlocked(row.status);
 }
 
-// Registered via r.useExtension(EXT_PRINCIPAL_STATUS, "user", principalStatusPlugin)
+// New sign-ins also refuse deletionRequested: the grace period keeps an existing
+// session alive for cancel-deletion, but must not open a new one.
+const NEW_AUTH_BLOCKED_STATUSES: ReadonlySet<string> = new Set<string>([
+  ...BLOCKED_STATUSES,
+  USER_STATUS.DeletionRequested,
+]);
+
+export function isPrincipalBlockedForNewAuth(status: unknown): boolean {
+  return typeof status === "string" && NEW_AUTH_BLOCKED_STATUSES.has(status);
+}
+
+// Registered via r.applyExtension({ name: EXT_PRINCIPAL_STATUS, entity: "user", ...principalStatusPlugin })
 // so resolveActiveMembershipFn can reject a blocked principal without knowing about `user`'s table.
 export const principalStatusPlugin: PrincipalStatusPlugin = {
   async resolveStatus(userId, { db }): Promise<PrincipalStatus> {

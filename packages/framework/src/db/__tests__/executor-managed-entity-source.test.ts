@@ -6,9 +6,10 @@ import { asEntityTableMeta } from "../table-introspection.ts";
 
 describe("executorManagedEntitySourceOf", () => {
   const entity = createEntity({
+    name: "seedProbe",
     fields: { title: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
   });
-  const table = buildEntityTable("seedProbe", entity);
+  const table = buildEntityTable(entity);
 
   test("resolves the entity source from the table", () => {
     expect(executorManagedEntitySourceOf(table)?.entityName).toBe("seedProbe");

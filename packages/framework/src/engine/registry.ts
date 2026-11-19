@@ -1,5 +1,6 @@
 import { validateExtensionPreSaveWiring } from "./boot-validator/entity-handler.ts";
 import { dedupeFeatures } from "./dedupe-features.ts";
+import { applyExtensionUsages } from "./registry-extension-usages.ts";
 import { buildRegistryFacade } from "./registry-facade.ts";
 import {
   populateClaimsAndAuth,
@@ -13,13 +14,11 @@ import {
   populateMetricsAndSecrets,
   populateProjectionsAndTables,
   populateScreensNavWorkspaces,
-  populateSystemEvents,
   populateTranslations,
 } from "./registry-ingest.ts";
 import { populateReadModelEntities } from "./registry-read-models.ts";
 import { createInitialState } from "./registry-state.ts";
 import {
-  applyExtensionUsages,
   autoWireSoftDeleteJobs,
   buildEntityEventUpcasterChains,
   buildEventUpcasterChains,
@@ -33,12 +32,12 @@ import {
   resolveJobTriggers,
   resolveNotificationTriggersAndRegisterHooks,
   validateBootGates,
+  validateCrossTenantFileReadWithExtensionFields,
   validateEntityHookTargets,
   validateEventMigrationVersions,
   validateExtensionSelectors,
   validateExtensionUsageTargets,
   validateFieldAccessHandlersAreEntityMapped,
-  validateIncludeSystemTenantJobs,
   validateJobBackoff,
   validateLifecycleHookTargets,
   validateLiveEntities,
@@ -46,6 +45,7 @@ import {
   validateMaxPerTenant,
   validateNotificationRecordMappings,
   validateNotificationRenamedFrom,
+  validatePerTenantJobOptions,
   validateProjectionApplyKeys,
   validateRelationTargetsExist,
   validateRequiredFeatures,
@@ -74,7 +74,6 @@ export function createRegistry(rawFeatures: readonly FeatureDefinition[]): Regis
     populateScreensNavWorkspaces(state, feature);
   }
 
-  populateSystemEvents(state);
   finalizeWorkspaceNavMembership(state);
   populateHandlerEntityMappings(state, features);
   validateExtensionSelectors(state);
@@ -84,6 +83,7 @@ export function createRegistry(rawFeatures: readonly FeatureDefinition[]): Regis
   populateReadModelEntities(state);
   buildIncomingRelations(state);
   validateFieldAccessHandlersAreEntityMapped(state, features);
+  validateCrossTenantFileReadWithExtensionFields(state, features);
   validateExtensionPreSaveWiring(features);
   validateRelationTargetsExist(state);
   validateEventMigrationVersions(state, features);
@@ -98,7 +98,7 @@ export function createRegistry(rawFeatures: readonly FeatureDefinition[]): Regis
   validateEntityHookTargets(state, features);
   resolveJobTriggers(state);
   validateBootGates(state);
-  validateIncludeSystemTenantJobs(state);
+  validatePerTenantJobOptions(state);
   validateLiveEntities(state);
   validateJobBackoff(state);
   validateMaxDefers(state);

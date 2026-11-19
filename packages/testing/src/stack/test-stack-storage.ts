@@ -17,6 +17,7 @@ import {
   unsafePushTables,
   validateNavBootSubset,
   validateOwnershipBoot,
+  validateReadModelFieldReadRules,
 } from "@cosmicdrift/kumiko-framework/internal/stack-support";
 import {
   createTestDb,
@@ -169,6 +170,8 @@ export async function validateStackFeatures(
   // columns) and before the ephemeral DB/Redis exist, so a throw can't leak
   // a database that nothing will clean up.
   validateOwnershipBoot(options.features);
+  // Feature-local and fail closed, so a stack slice answers it like the prod boot.
+  for (const feature of options.features) validateReadModelFieldReadRules(feature);
   // Nav/workspace refs fail the prod boot too; the subset check tolerates refs into unmounted features.
   validateNavBootSubset(options.features);
   if (options.validateBoot === "full") validateBoot(options.features);

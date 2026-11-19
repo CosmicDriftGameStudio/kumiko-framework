@@ -49,6 +49,28 @@ describe("mergeChunkLookups", () => {
     expect(merged?.pending).toBe(true);
   });
 
+  test("the file ids of every chunk are merged, also while a newer id set loads", () => {
+    const withFile = (ids: readonly string[]): PublishedReferenceChunk => ({
+      ...chunkFor(ids),
+      fileIds: new Map(ids.map((id) => [id, `file-${id}`])),
+    });
+
+    const merged = mergeChunkLookups([["a"], ["b"]], { 0: withFile(["a"]), 1: withFile(["b"]) });
+    expect([...(merged?.fileIds ?? [])]).toEqual([
+      ["a", "file-a"],
+      ["b", "file-b"],
+    ]);
+
+    const pending = mergeChunkLookups([["a", "new"]], { 0: withFile(["a", "old"]) });
+    expect(pending?.pending).toBe(true);
+    expect(pending?.fileIds?.get("a")).toBe("file-a");
+  });
+
+  test("chunks without a file field publish no file ids", () => {
+    const merged = mergeChunkLookups([["a"], ["b"]], { 0: chunkFor(["a"]), 1: chunkFor(["b"]) });
+    expect(merged?.fileIds).toBeUndefined();
+  });
+
   test("nothing resolved yet publishes no lookup", () => {
     expect(mergeChunkLookups([["a"]], undefined)).toBeUndefined();
   });

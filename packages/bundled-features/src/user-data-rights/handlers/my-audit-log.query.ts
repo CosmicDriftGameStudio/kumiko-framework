@@ -65,7 +65,7 @@ export const myAuditLogQuery = defineQueryHandler({
       type: string;
       payload: Record<string, unknown>;
       created_at: unknown;
-    }>(ctx.db.unsafeRaw(), eventsTable, where, {
+    }>(ctx.db.unsafeRawAllTenants(), eventsTable, where, {
       orderBy: { col: "id", direction: "desc" },
       limit: p.limit,
     });

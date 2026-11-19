@@ -5,12 +5,9 @@ import type { EntityDefinition } from "./fields.ts";
 import type { MultiStreamApplyContext } from "./multi-stream-apply-context-types.ts";
 import type { SchemaTable } from "./schema-table-types.ts";
 
-// Drizzle pgTable shape — projections hand their table through to apply() so
-// user code writes upserts/updates directly instead of going through a
-// framework-managed state reducer. Using the native dialect's `SchemaTable`
-// (drizzle-compat surface) keeps typing honest: typed paths work inside
-// apply(), but the column union is erased so framework code doesn't need
-// to know the schema shape of every user table.
+// Projections hand their table to apply() so user code writes upserts/updates directly
+// instead of through a framework-managed reducer. SchemaTable keeps typed paths inside
+// apply() but erases the column union, so framework code needs no schema shape per user table.
 export type ProjectionTable = SchemaTable;
 
 // Single-stream projection apply: runs inline in the write-TX of the event
@@ -64,7 +61,7 @@ export type ProjectionDefinition = {
   // its events. The rebuild's ghost-row guard counts a live row as backed when
   // its id is the derived id of a source event of that type.
   readonly extraSourceRowIds?: Readonly<Record<string, ProjectionRowIdOf>>;
-  // Drizzle-table the projection materializes into. User owns the schema —
+  // Table the projection materializes into. User owns the schema —
   // framework just guarantees the TX and event delivery.
   readonly table: ProjectionTable;
   // Optional: the EntityDefinition the table was built from, for projections
@@ -80,7 +77,8 @@ export type ProjectionDefinition = {
   // the EventStoreExecutor directly — firing the implicit apply inline
   // would double-write into the same table. The inline-projection-runner
   // skips entries with this flag; rebuildProjection treats them
-  // identically to explicit projections.
+  // identically to explicit projections. Explicit r.projection definitions on the
+  // same table are merged in at registry build so the rebuild replays their columns.
   readonly isImplicit?: boolean;
 };
 
@@ -90,6 +88,10 @@ export type ProjectionDefinition = {
 // replay — without it, a rebuild resets everything the extension wrote.
 // Live delivery stays with the extension's own MSP: implicit projections are
 // skipped by the inline runner, so the apply here runs ONLY during rebuild.
+// Every extension apply must be idempotent: applying the same event again must set the same
+// state (assign, never add or append). Live delivery runs through the extension's own MSP with
+// its own cursor, so an event the entity rebuild replays before the fence can still be applied
+// once more by that MSP onto the swapped-in table.
 export type EntityProjectionExtension = {
   // Aggregate-types beyond the entity's own stream whose events the rebuild
   // must scan (e.g. "field-definition"). Omit when all extension events are
@@ -131,8 +133,9 @@ export type MspErrorMode = {
 // Marten-style MultiStreamProjection: aggregates events from many streams
 // into one cross-cutting read-model. Unlike ProjectionDefinition (single-
 // source, inline in the write-TX), an MSP is ASYNC — the event-dispatcher
-// picks events off the log via its own cursor. Handlers MUST be idempotent
-// because the dispatcher guarantees at-least-once delivery.
+// picks events off the log via its own cursor. DB writes through the apply
+// runner commit atomically with the cursor; side effects outside it (jobs,
+// external calls, derivatives) are at-least-once and must be idempotent.
 //
 // Use for Sagas / process managers, customer-centric views that span
 // multiple aggregate types, cross-feature aggregations, audit logs. With
@@ -159,8 +162,9 @@ export type MultiStreamProjectionDefinition = {
   readonly runIn?: RunIn;
   // Delivery semantics across multi-instance deploys:
   //   "shared"       (default) — one cursor across all dispatcher instances,
-  //                   SKIP LOCKED serialises; each event delivered exactly
-  //                   once globally. The right choice for side-effects with
+  //                   SKIP LOCKED serialises to one consumer turn at a time;
+  //                   apply's DB writes commit with the cursor, side effects are
+  //                   at-least-once. The right choice for side-effects with
   //                   any downstream state: notifications, external APIs,
   //                   projection tables, audit rows.
   //   "per-instance" — one cursor PER dispatcher instance, so every process

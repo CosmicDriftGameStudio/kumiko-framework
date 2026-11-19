@@ -21,7 +21,6 @@ export const RETURN_RESULT_KEY = "__return";
 
 defineStep<ReturnStepArgs, WriteResult<unknown>>({
   kind: "return",
-  defaultFailureStrategy: "throw",
   resultKey: () => RETURN_RESULT_KEY,
   run: (args, ctx: PipelineCtx) => resolveRequired(args.resolver, ctx),
 });

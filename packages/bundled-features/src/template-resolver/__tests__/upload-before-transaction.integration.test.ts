@@ -7,7 +7,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 
 import {
   createEventStoreExecutor,
-  createTenantDb,
   executeRawQuery,
   table as pgTable,
   selectMany,
@@ -27,6 +26,7 @@ import {
   fileRefsTable,
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   buildMultipartBody,

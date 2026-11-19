@@ -149,7 +149,7 @@ const mockProviderFeature = defineFeature("test-mock-consent-provider", (r) => {
       };
     },
   };
-  r.useExtension("subscriptionProvider", "mock-consent-provider", plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: "mock-consent-provider", ...plugin });
 });
 
 // A provider that can open checkouts but cannot report live prices.
@@ -166,7 +166,7 @@ const mockProviderWithoutPricesFeature = defineFeature("test-mock-consent-no-pri
       };
     },
   };
-  r.useExtension("subscriptionProvider", "mock-consent-no-prices", plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: "mock-consent-no-prices", ...plugin });
 });
 
 let stack: TestStack;

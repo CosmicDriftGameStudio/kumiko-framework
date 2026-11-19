@@ -8,6 +8,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 
 | Name | Description |
 | --- | --- |
+| `AccentScope` |  |
 | `ActionMenu` |  |
 | `AiSurface` | Light blue area that marks content as AI-generated. |
 | `AiTextArea` | Multi-line variant of {@link AiTextField}. |
@@ -28,13 +29,11 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `DefaultAppShell` |  |
 | `DetailList` | Read-only key-value list for detail views (dimmed label on the left, value on the right). |
 | `DispatcherProvider` |  |
+| `DivergingBarChart` | Signed horizontal bars around a centre line, largest absolute value first (tornado chart). |
 | `Drawer` | Slide-in panel beside a list (e.g. mail reader next to the inbox) — thin wrapper over the Sheet primitive with header/body/footer slots so screens skip per-route Radix boilerplate. |
-| `DrawnFilter` |  |
-| `DrawnPanel` |  |
 | `DrawnPencil` |  |
 | `DrawnSearch` |  |
 | `DrawnSparkles` |  |
-| `DrawnWand` |  |
 | `DropdownMenu` |  |
 | `DropdownMenuCheckboxItem` |  |
 | `DropdownMenuContent` |  |
@@ -57,11 +56,13 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `ErrorState` | Error state based on the Banner primitive, with a retry button. |
 | `FeedList` | Non-tabular compact list (e.g. "upcoming appointments") — primary text plus an optional right-aligned trailing value for each row. |
 | `FileField` | File upload = Field + Input(kind:"file"\|"image"), based on FileRef. |
+| `FilePickButton` | Button that opens the file picker and hands the picked files over without uploading them. |
 | `FileViewAction` | "View" action for a stored file: renders only for PDFs and opens the viewer in a drawer. |
 | `FloatingPanel` | Non-modal panel floating above the page: draggable by its header, resizable from all edges and corners, clamped to the viewport, geometry optionally remembered. |
 | `FormScreenShell` |  |
 | `HeaderActionGroup` |  |
 | `HeaderActionPinned` | Marks an app header action (e.g. the assistant trigger) that stays in the bar on a phone, next to the bell; the rest of `headerActions` folds into the "…" menu. |
+| `HistogramChart` | Bars over numeric bins: each bar spans its start..end on the x axis. |
 | `HtmlMailFrame` | Renders server-sanitized mail HTML in a script-free sandboxed iframe that grows to its content. |
 | `Icon` |  |
 | `InfinityList` | Cursor-paginated scroll list (mail inbox, activity feeds) — loads the next page when the end sentinel becomes visible (IntersectionObserver), instead of a pager bar like QueryTable/entityList. |
@@ -81,6 +82,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `NavProvider` |  |
 | `NavTree` |  |
 | `NumberField` | Number field = Field + Input(kind:"number"); avoids repeating the id/name/value/onChange wiring at each screen. |
+| `NumericLineChart` | Lines over a numeric x axis (e.g. years) with y ticks, reference lines and a hover tooltip. |
 | `PageSection` |  |
 | `PdfPreview` | PDF pages rendered with pdf.js; pages render lazily as they scroll into view. |
 | `PercentField` |  |
@@ -94,7 +96,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `PrimitivesProvider` |  |
 | `ProfileMenu` |  |
 | `ProgressBar` | Progress bar, `value` 0..1 (clamped). |
-| `ProgressList` | Label/value header and progress bar for each entry (for example, loan repayment progress). |
+| `ProgressList` | Label/value header with its progress bar right below, per entry (for example, loan repayment progress). |
 | `PublicShell` | One header and footer for anonymous pages; `focus` narrows to a task column, `card` centers a single card (sign-in). |
 | `QueryTable` |  |
 | `RailField` |  |
@@ -114,8 +116,6 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `SectionCard` | Section with a title and optional action slot (range switcher, filter) — replaces repeated `<section className={CARD}>…<h2>` blocks in custom screens. |
 | `SectionNavLayout` | Content column plus an "On this page" navigation in a right column (from xl), for custom screens. |
 | `SelectField` | Select field = Field + Input(kind:"select"). |
-| `SenderFrame` | Sand frame with one white sheet inside, for content that mimics a letter or mail. |
-| `SenderSheet` | The white sheet alone, for a frame that holds several sheets (PDF pages, thumbnails). |
 | `SideBySideTable` | Small read-only grid with real table semantics (`th scope`) whose cells are arbitrary React nodes — for side-by-side comparisons like "from the document" vs. |
 | `Sidebar` |  |
 | `SidebarBrand` |  |
@@ -125,8 +125,10 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `SidebarPanel` | Renders its children into the second sidebar column when the shell offers one. |
 | `SidebarProvider` |  |
 | `SidebarUser` |  |
+| `SignedBarChart` | Stacked bars per bucket: positive values rise from the zero line, negative ones hang below. |
 | `Sparkline` |  |
 | `Stack` |  |
+| `StackedAreaChart` | Stacked bands over time. |
 | `StatCard` | Icon-bearing metric tile with an optional delta chip, trend line, and sparkline. |
 | `StatusBadge` | Pill badge with a status dot. |
 | `StatusBarChart` | Status bar strip (e.g. 90-day uptime): variable-height bars with gradient fade + tick line on top; the last entry gets a "now" accent stripe. |
@@ -151,6 +153,8 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | --- | --- |
 | `useBrowserNavApi` | React hook that builds a NavApi from browser history. |
 | `useBrowserTokensApi` | Builds a TokensApi for the browser. |
+| `useDebouncedValue` | Returns `value` once it has stopped changing for `delayMs`. |
+| `useDemoMode` |  |
 | `useDispatchTarget` | Recommended production dispatch. |
 | `useDispatcher` |  |
 | `useDispatcherStatus` |  |
@@ -162,7 +166,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `useLiveEvents` | Hook for a useQuery-like consumer. |
 | `useLocale` | Provides the current LocaleResolver and automatically subscribes to locale changes — the calling component re-renders when the language changes. |
 | `useNav` |  |
-| `usePresence` | Announces the user on one record: a heartbeat right away and every 15 s, a leave when the record closes. |
+| `usePresence` | Announces the user on one record: a heartbeat right away and every 15 s, a leave when the record closes; pauses while the page is hidden. |
 | `usePresenceList` | Who else is on each of the given rows, for badges in a list. |
 | `usePrimitives` |  |
 | `useQuery` |  |
@@ -180,6 +184,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 
 | Name | Description |
 | --- | --- |
+| `accentColorVars` | Theme variables that tint a subtree with `color`; undefined unless `color` is a hex color. |
 | `applyTokensToCssVars` | Historically wrote tokens to :root as CSS variables. |
 | `buildFileUploadFormData` |  |
 | `buildNavRegistrySlice` |  |
@@ -201,6 +206,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `formatMoney` |  |
 | `formatPath` |  |
 | `formatRelativeWhen` |  |
+| `niceTicks` | Evenly spaced round tick values covering min..max; the outer ticks may lie beyond the data. |
 | `parsePath` |  |
 | `parseTargetFromSearchParams` | Parses the current search parameters back into a TargetRef. |
 | `postWithDownload` |  |

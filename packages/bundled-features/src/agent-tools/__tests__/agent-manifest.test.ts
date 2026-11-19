@@ -14,6 +14,7 @@ import { buildAgentManifest } from "../agent-manifest.ts";
 import { buildToolCatalog } from "../tool-catalog.ts";
 
 const gatedEntity = createEntity({
+  name: "widget",
   fields: {
     status: createSelectField({ options: ["draft", "active"] as const, filterable: true }),
     ownerId: { type: "reference", entity: "user" } satisfies ReferenceFieldDef,
@@ -26,7 +27,7 @@ const gatedEntity = createEntity({
 
 function buildTestFeature() {
   return defineFeature("agent-manifest-test", (r) => {
-    r.entity({ name: "widget", ...gatedEntity });
+    r.entity(gatedEntity);
 
     r.queryHandler({
       name: "widget:lookup",
@@ -62,6 +63,7 @@ function buildTestFeature() {
 }
 
 const otherEntity = createEntity({
+  name: "other",
   fields: {
     label: createTextField({ searchable: true, personal: false, reason: "technical_reference" }),
   },
@@ -71,7 +73,7 @@ const otherEntity = createEntity({
 // sort order provably diverge in the determinism test below.
 function buildOtherFeature() {
   return defineFeature("aa-other-feature", (r) => {
-    r.entity({ name: "other", ...otherEntity });
+    r.entity(otherEntity);
 
     r.queryHandler({
       name: "other:lookup",
@@ -123,7 +125,7 @@ describe("buildAgentManifest", () => {
 
   test("object-form handlers forward description and agent hints into the manifest", () => {
     const feature = defineFeature("agent-object-form", (r) => {
-      r.entity({ name: "widget", ...gatedEntity });
+      r.entity(gatedEntity);
       r.writeHandler(
         defineWriteHandler({
           name: "widget:purge",
@@ -191,6 +193,22 @@ describe("buildAgentManifest", () => {
     expect(admin.handlers.some((h) => h.qn.endsWith(":oddschema"))).toBe(false);
     expect(admin.handlers.some((h) => h.qn.endsWith(":lookup"))).toBe(true);
     expect(admin.handlers.some((h) => h.qn.endsWith(":archive"))).toBe(true);
+  });
+
+  test("the handler input schema is computed once per handler def and reused across manifest builds", () => {
+    const registry = createRegistry([buildTestFeature()]);
+    const options = { locale: "en", roles: ["admin"] };
+    const first = buildAgentManifest(registry, options);
+    const second = buildAgentManifest(registry, options);
+    const archiveQn = "agent-manifest-test:write:widget:archive";
+    const oddQn = "agent-manifest-test:query:widget:oddschema";
+
+    const firstArchive = first.handlers.find((h) => h.qn === archiveQn);
+    const secondArchive = second.handlers.find((h) => h.qn === archiveQn);
+    expect(firstArchive).toBeDefined();
+    expect(secondArchive?.inputSchema).toBe(firstArchive?.inputSchema);
+    expect(first.handlers.some((h) => h.qn === oddQn)).toBe(false);
+    expect(second.handlers.some((h) => h.qn === oddQn)).toBe(false);
   });
 
   test("PII field carries only the marker, never a value", () => {
@@ -371,7 +389,7 @@ describe("buildAgentManifest", () => {
 
   test("entity and field labels resolve via suffix match, first registered key wins", () => {
     const feature = defineFeature("label-suffix-test", (r) => {
-      r.entity({ name: "widget", ...gatedEntity });
+      r.entity(gatedEntity);
       r.queryHandler({
         name: "widget:lookup",
         schema: z.object({ id: z.string() }),
@@ -424,13 +442,14 @@ describe("screen titles with a shared short id", () => {
 
 describe("buildAgentManifest: excludeFields of generic create/update handlers", () => {
   const ticketEntity = createEntity({
+    name: "ticket",
     fields: {
       title: createTextField({ personal: false, reason: "technical_reference" }),
       status: createTextField({ personal: false, reason: "technical_reference" }),
     },
   });
   const feature = defineFeature("agent-exclude-fields", (r) => {
-    r.crud("ticket", ticketEntity, {
+    r.crud(ticketEntity, {
       write: { access: { roles: ["admin"] } },
       excludeFields: { update: ["status"] },
       descriptions: {
@@ -465,12 +484,13 @@ describe("buildAgentManifest features and entities follow the role", () => {
     personal: false,
     reason: "technical_reference",
   });
-  const customerEntity = createEntity({ fields: { name: textField } });
+  const customerEntity = createEntity({ name: "customer", fields: { name: textField } });
   const invoiceEntity = createEntity({
+    name: "invoice",
     fields: { number: textField, customerId: { type: "reference", entity: "rf-billing:customer" } },
   });
-  const noteEntity = createEntity({ fields: { body: textField } });
-  const orphanEntity = createEntity({ fields: { label: textField } });
+  const noteEntity = createEntity({ name: "note", fields: { body: textField } });
+  const orphanEntity = createEntity({ name: "orphan", fields: { label: textField } });
 
   const lookup = (name: string, roles: string[]) => ({
     name,
@@ -481,13 +501,13 @@ describe("buildAgentManifest features and entities follow the role", () => {
   });
 
   const billing = defineFeature("rf-billing", (r) => {
-    r.entity({ name: "customer", ...customerEntity });
-    r.entity({ name: "invoice", ...invoiceEntity });
-    r.entity({ name: "orphan", ...orphanEntity });
+    r.entity(customerEntity);
+    r.entity(invoiceEntity);
+    r.entity(orphanEntity);
     r.queryHandler(lookup("invoice:lookup", ["admin"]));
   });
   const notes = defineFeature("rf-notes", (r) => {
-    r.entity({ name: "note", ...noteEntity });
+    r.entity(noteEntity);
     r.queryHandler(lookup("note:lookup", ["admin", "viewer"]));
   });
   const settings = defineFeature("rf-settings", (r) => {
@@ -532,7 +552,7 @@ describe("buildAgentManifest features and entities follow the role", () => {
 
 describe("buildAgentManifest labels and empty fields", () => {
   const feature = defineFeature("label-locale-test", (r) => {
-    r.entity({ name: "gadget", ...gatedEntity });
+    r.entity({ ...gatedEntity, name: "gadget" });
     r.queryHandler({
       name: "gadget:lookup",
       schema: z.object({ id: z.string() }),
@@ -669,7 +689,7 @@ describe("buildAgentManifest feature descriptions", () => {
 
 describe("buildAgentManifest entity and feature reachability branches", () => {
   const textField = createTextField({ personal: false, reason: "technical_reference" });
-  const entityOf = () => createEntity({ fields: { name: textField } });
+  const entityOf = () => createEntity({ name: "hidden", fields: { name: textField } });
   const handler = (name: string, extra: Record<string, unknown> = {}) => ({
     name,
     schema: z.object({ id: z.string() }),
@@ -680,11 +700,11 @@ describe("buildAgentManifest entity and feature reachability branches", () => {
   });
 
   const branches = defineFeature("rf-branches", (r) => {
-    r.entity({ name: "hidden", ...entityOf() });
+    r.entity(entityOf());
     r.queryHandler(handler("hidden:lookup", { agent: { expose: false } }));
-    r.entity({ name: "listed", ...entityOf() });
+    r.entity({ ...entityOf(), name: "listed" });
     r.screen({ id: "listed-list", type: "entityList", entity: "listed", columns: ["name"] });
-    r.entity({ name: "detailed", ...entityOf() });
+    r.entity({ ...entityOf(), name: "detailed" });
     r.screen({
       id: "detailed-view",
       type: "projectionDetail",
@@ -692,7 +712,7 @@ describe("buildAgentManifest entity and feature reachability branches", () => {
       detailFor: "detailed",
       layout: { sections: [{ fields: ["name"] }] },
     });
-    r.entity({ name: "written", ...entityOf() });
+    r.entity({ ...entityOf(), name: "written" });
     r.writeHandler({
       ...handler("written:archive"),
       handler: async () => ({ isSuccess: true, data: {} }),
@@ -729,19 +749,23 @@ describe("buildAgentManifest entity and feature reachability branches", () => {
 
 describe("manifest entities cover every registry-derived entity tool", () => {
   const entity = createEntity({
+    name: "open-item",
     fields: {
       label: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
     },
   });
   const feature = defineFeature("rf-crud", (r) => {
-    r.crud("open-item", entity, {
+    r.crud(entity, {
       read: { access: { roles: ["admin", "viewer"] } },
       write: { access: { roles: ["admin"] } },
     });
-    r.crud("admin-item", entity, {
-      read: { access: { roles: ["admin"] } },
-      write: { access: { roles: ["admin"] } },
-    });
+    r.crud(
+      { ...entity, name: "admin-item" },
+      {
+        read: { access: { roles: ["admin"] } },
+        write: { access: { roles: ["admin"] } },
+      },
+    );
   });
   const registry = createRegistry([feature]);
 

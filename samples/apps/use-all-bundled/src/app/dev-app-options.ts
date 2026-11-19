@@ -10,6 +10,15 @@
 // user-list, tier-admin, GDPR inspector). anonymousAccess + extraContext.text
 // content: the public legal-pages routes (/legal/*).
 
+import {
+  createFoldersFeature,
+  FOLDERS_FEATURE_NAME,
+} from "@cosmicdrift/kumiko-bundled-features/folders";
+import {
+  createNotesHistoryFeature,
+  NOTES_HISTORY_FEATURE_NAME,
+} from "@cosmicdrift/kumiko-bundled-features/notes-history";
+import { createTagsFeature, TAGS_FEATURE_NAME } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import type { RunDevAppOptions } from "@cosmicdrift/kumiko-dev-server";
 import {
@@ -17,8 +26,14 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { BUNDLED_LISTS } from "../bundled-lists";
-import { AUTH_COMPOSE_OPTIONS, BOOT_FEATURES, VALIDATE_BOOT_OPTIONS } from "../run-config";
+import { LIST_DEFAULTS } from "../list-defaults";
+import {
+  AUTH_COMPOSE_OPTIONS,
+  BOOT_FEATURES,
+  BUNDLED_JOIN_HOSTS,
+  TAGS_NOTES_ROLES,
+  VALIDATE_BOOT_OPTIONS,
+} from "../run-config";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
 import { invoiceReportsFeature } from "./invoice-reports-feature";
 import { notesFeature } from "./notes-feature";
@@ -30,10 +45,27 @@ import { seedScreenshotData } from "./seed";
 // would activate the resolver on every write (incl. login) and needs
 // per-tenant tier assignments — disproportionate for a preview screenshot.
 
+// The dev-only note entity is a host for tags, folders and notes, so these three are remounted
+// with it added to their parents.
+const DEV_HOST_FEATURES: ReadonlySet<string> = new Set([
+  TAGS_FEATURE_NAME,
+  FOLDERS_FEATURE_NAME,
+  NOTES_HISTORY_FEATURE_NAME,
+]);
+const DEV_JOIN_HOSTS = [...BUNDLED_JOIN_HOSTS, "note"];
+
 export const devAppOptions = {
   // notesFeature is dev-only (app-owned tag host) — see notes-feature.ts for why
   // it stays out of APP_FEATURES. appScreensFeature places the user-profile screen.
-  features: [...BOOT_FEATURES, appScreensFeature, notesFeature, invoiceReportsFeature],
+  features: [
+    ...BOOT_FEATURES.filter((feature) => !DEV_HOST_FEATURES.has(feature.name)),
+    createTagsFeature({ roles: TAGS_NOTES_ROLES, parents: DEV_JOIN_HOSTS }),
+    createNotesHistoryFeature({ roles: TAGS_NOTES_ROLES, parents: DEV_JOIN_HOSTS }),
+    createFoldersFeature({ parents: DEV_JOIN_HOSTS }),
+    appScreensFeature,
+    notesFeature,
+    invoiceReportsFeature,
+  ],
   featureToggles: true,
   // documents has a file field, so the boot gate wants a storage provider; the seeded
   // file-foundation config selects the real one, so only the validation env names it.
@@ -41,7 +73,7 @@ export const devAppOptions = {
     ...VALIDATE_BOOT_OPTIONS,
     env: { [FILE_STORAGE_PROVIDER_ENV]: "inmemory", ...process.env },
   },
-  bundledLists: BUNDLED_LISTS,
+  listDefaults: LIST_DEFAULTS,
   port: Number.parseInt(process.env["PORT"] ?? "4186", 10),
   clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",

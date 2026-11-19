@@ -38,10 +38,7 @@ const failingBootCheck = (featureName: string, text: string) =>
   });
 
 const fileFeature = defineFeature("docs", (r) => {
-  r.entity({
-    name: "doc",
-    ...createEntity({ table: "Docs", fields: { contract: { type: "file" } } }),
-  });
+  r.entity(createEntity({ name: "doc", table: "Docs", fields: { contract: { type: "file" } } }));
 });
 
 const ENV_WITHOUT_FILE_PROVIDER = {};
@@ -82,14 +79,14 @@ describe("validateBoot collects violations", () => {
     });
     const consumer = defineFeature("money-horse", (r) => {
       r.requires({ features: ["cap-ext"] });
-      r.entity({
-        name: "credit",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "credit",
           table: "Credits",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
-      r.useExtension("credit-cap", "credit");
+      );
+      r.applyExtension({ name: "credit-cap", entity: "credit" });
     });
     const violations = violationsOf(() => validateBoot([ext, consumer]));
     expect(
@@ -130,12 +127,12 @@ describe("validateBoot collects violations", () => {
 
   test("a wiring violation suppresses validateScreens for the same feature only", () => {
     const wired = defineFeature("shop", (r) => {
-      r.entity({
-        name: "product",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "product",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
       r.screen({
         id: "product-list",
         type: "entityList",

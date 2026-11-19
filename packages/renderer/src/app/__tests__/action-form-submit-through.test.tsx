@@ -7,17 +7,17 @@ import type { ActionFormScreenDefinition } from "@cosmicdrift/kumiko-framework/u
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { type ComponentType, type ReactNode, useState } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
-import type { Dispatcher } from "../../headless/index.ts";
+import type { Dispatcher, WriteResult } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
   type ButtonProps,
-  type CorePrimitives,
   type FieldProps,
   type FormProps,
   type InputProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { type NavApi, NavProvider, type NavTarget, useNavigateWithInitialValues } from "../nav.tsx";
@@ -55,7 +55,7 @@ const PlainButton: ComponentType<ButtonProps> = ({ children, type }) => (
   <button type={type ?? "button"}>{children}</button>
 );
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: PlainButton,
   Banner: passChildren,
   Field: FieldWithIssues,
@@ -75,7 +75,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 const screen: ActionFormScreenDefinition = {
   id: "compose",
@@ -89,27 +89,20 @@ type Write = { readonly type: string; readonly payload: unknown };
 
 function makeDispatcher(
   writes: Write[],
-  respond: () => unknown,
+  respond: () => WriteResult,
   queries: Write[] = [],
 ): Dispatcher {
-  return {
-    write: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async (type: string, payload: unknown) => {
       writes.push({ type, payload });
       return respond();
-    }) as unknown as Dispatcher["write"],
-    query: (async (type: string, payload: unknown) => {
+    },
+    query: async (type: string, payload: unknown) => {
       queries.push({ type, payload });
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  } satisfies Dispatcher;
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  }) satisfies Dispatcher;
 }
 
 type Opener = {
@@ -180,7 +173,7 @@ function App({
 }
 
 function mount(
-  respond: () => unknown = () => ({ isSuccess: true, data: {} }),
+  respond: () => WriteResult = () => ({ isSuccess: true, data: {} }),
   screenDef: ActionFormScreenDefinition = screen,
   initialValues: Record<string, string> = { subject: "Hello" },
 ): {
@@ -271,7 +264,10 @@ describe("actionForm submitThrough", () => {
 });
 
 describe("actionForm submitThrough response data", () => {
-  const wrapperResponse = { isSuccess: true, data: { id: "rec-7", count: 917, actionId: "a1" } };
+  const wrapperResponse: WriteResult = {
+    isSuccess: true,
+    data: { id: "rec-7", count: 917, actionId: "a1" },
+  };
 
   test("the redirect reads its id from the wrapper handler's data", async () => {
     const { opener, view } = mount(() => wrapperResponse, {

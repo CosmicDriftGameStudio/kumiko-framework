@@ -40,6 +40,13 @@ export const INVOICE_PAID_EVENT_QN =
 export const INVOICE_PAYMENT_FAILED_EVENT_QN =
   `${BILLING_FOUNDATION_FEATURE}:event:${INVOICE_PAYMENT_FAILED_EVENT_SHORT}` as const;
 
+// Events that set the subscription's state; late-event and pending-switch detection both stop at the newest one.
+export const SUBSCRIPTION_STATE_EVENT_QNS: ReadonlySet<string> = new Set([
+  SUBSCRIPTION_CREATED_EVENT_QN,
+  SUBSCRIPTION_UPDATED_EVENT_QN,
+  SUBSCRIPTION_CANCELED_EVENT_QN,
+]);
+
 // Status enum for event payloads (= the provider's subscription-state snapshot).
 const statusEnum = z.enum([
   SubscriptionStatuses.active,

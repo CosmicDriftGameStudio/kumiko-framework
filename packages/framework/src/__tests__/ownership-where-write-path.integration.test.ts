@@ -18,13 +18,8 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { OwnershipRule } from "@cosmicdrift/kumiko-types/ownership";
 import { asRawClient } from "../db/query.ts";
-import {
-  createEntity,
-  createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
-  defineFeature,
-} from "../engine/index.ts";
+import { defineEntityQueryHandler, defineEntityWriteHandler } from "../engine/entity-handlers.ts";
+import { createEntity, createTextField, defineFeature } from "../engine/index.ts";
 import type { SessionUser, WhereRule } from "../engine/types/index.ts";
 
 import { createTestUser, TestUsers, testTenantId } from "../seeding/seed-users.ts";
@@ -42,6 +37,7 @@ const ownerWhereRule: WhereRule = {
 const memoWriteAccess: Record<string, OwnershipRule> = { Admin: "all", Member: "all" };
 
 const memoEntity = createEntity({
+  name: "memo",
   table: "fw2626_memos",
   softDelete: true,
   fields: {
@@ -55,7 +51,7 @@ const memoEntity = createEntity({
 });
 
 const memosFeature = defineFeature("fw2626memos", (r) => {
-  r.entity({ name: "memo", ...memoEntity });
+  r.entity(memoEntity);
   for (const verb of ["create", "update", "delete"] as const) {
     r.writeHandler(
       defineEntityWriteHandler(`memo:${verb}`, memoEntity, {

@@ -1,12 +1,12 @@
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEventStoreExecutor,
-  createTenantDb,
   selectMany,
   type WritePurpose,
 } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 
 // Lifecycle mutations of the user entity MUST be emitted as `user.updated` events.
@@ -56,8 +56,7 @@ export async function updateUserLifecycle(
 ): Promise<{ readonly applied: boolean }> {
   // The user is a system stream: the executor choke point always addresses the
   // stream through SYSTEM_TENANT_ID; rescoping to row-tenant_id would have no
-  // effect. Use "system" mode so loadById also finds legacy rows whose tenant_id
-  // predates the backfill rebuild.
+  // effect. Use "system" mode so loadById finds the row whatever its tenant_id column holds.
   // skipOptimisticLock: every caller is a server-side business transition
   // (restrict/lift-restriction/grace-period/cancel/forget) that holds no row
   // version to pass as `payload.version`, which update() requires otherwise.
@@ -84,7 +83,7 @@ export async function updateUserLifecycle(
 
   if (
     options?.expect &&
-    (result.error.code === "precondition_failed" || result.error.code === "version_conflict")
+    (result.error.code === "precondition_failed" || result.error.code === VERSION_CONFLICT_CODE)
   ) {
     return { applied: false };
   }

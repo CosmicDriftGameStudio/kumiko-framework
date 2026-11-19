@@ -9,7 +9,7 @@ export const ENTITY_LIST_RULES = {
   defaultSortRequired: {
     id: "entity-list/default-sort-required",
     summary: "A list with active search or filterable fields declares a defaultSort.",
-    fix: "Set defaultSort: { field, direction } on the screen.",
+    fix: "Set defaultSort: { field, dir } on the screen.",
   },
   defaultSortNotListed: {
     id: "entity-list/default-sort-not-listed",

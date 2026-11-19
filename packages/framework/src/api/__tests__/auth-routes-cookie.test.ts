@@ -11,6 +11,7 @@ import type { Hono } from "hono";
 import { Hono as HonoCtor } from "hono";
 import type { SessionUser } from "../../engine/types/index.ts";
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.ts";
+import { type HandlerType, resolveType } from "../../pipeline/dispatcher-utils.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { PUBLIC_API_PATHS } from "../api-constants.ts";
 import { authMiddleware } from "../auth-middleware.ts";
@@ -201,9 +202,16 @@ describe("auth-routes cookie behaviour on /auth/logout", () => {
 });
 
 describe("auth-routes cookie behaviour on /auth/switch-tenant", () => {
-  test("a non-string or missing tenantId is a 400 invalid_tenant, not a membership lookup", async () => {
+  test("a missing or malformed tenantId is a 400 invalid_tenant, not a membership lookup", async () => {
     const { app, validToken } = await buildApp({}, createStubDispatcher({}));
-    for (const body of [{}, { tenantId: null }, { tenantId: { x: 1 } }, { tenantId: "" }]) {
+    for (const body of [
+      {},
+      { tenantId: null },
+      { tenantId: { x: 1 } },
+      { tenantId: "" },
+      { tenantId: "not-a-uuid" },
+      { tenantId: "'; select 1 --" },
+    ]) {
       const res = await app.request("/api/auth/switch-tenant", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${validToken}` },
@@ -217,8 +225,8 @@ describe("auth-routes cookie behaviour on /auth/switch-tenant", () => {
   test("switch-tenant rotates both cookies", async () => {
     const otherTenant = TestUsers.otherTenant;
     const dispatcher = createStubDispatcher({
-      async query(type: string, _payload: unknown, _user: SessionUser): Promise<unknown> {
-        if (type === "tenant:query:memberships") {
+      async query(type: HandlerType, _payload: unknown, _user: SessionUser): Promise<unknown> {
+        if (resolveType(type) === "tenant:query:memberships") {
           return [
             {
               userId: TestUsers.user.id,
@@ -303,8 +311,8 @@ describe("auth-routes cookieDomain", () => {
   test("switch-tenant: rotated cookies carry the Domain attribute", async () => {
     const otherTenant = TestUsers.otherTenant;
     const dispatcher = createStubDispatcher({
-      async query(type: string, _payload: unknown, _user: SessionUser): Promise<unknown> {
-        if (type === "tenant:query:memberships") {
+      async query(type: HandlerType, _payload: unknown, _user: SessionUser): Promise<unknown> {
+        if (resolveType(type) === "tenant:query:memberships") {
           return [
             {
               userId: TestUsers.user.id,

@@ -3,11 +3,15 @@ import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/
 import * as z from "zod";
 import { USER_STATUS, userTable } from "../../user/index.ts";
 import { redeemDeletionToken } from "../deletion-token.ts";
-import { resolveGracePeriod, startDeletionGracePeriod } from "./deletion-grace-period.ts";
+import {
+  type DeletionRequestedMailOptions,
+  resolveDeletionGracePeriod,
+  type StartGracePeriodResult,
+  sendDeletionRequestedNotification,
+  startDeletionGracePeriod,
+} from "./deletion-grace-period.ts";
 
-export type ConfirmDeletionByTokenOptions = {
-  readonly deletionTokenSecret?: string;
-};
+export type ConfirmDeletionByTokenOptions = DeletionRequestedMailOptions;
 
 // Use the same generic 422 for every token-error path (malformed / bad_signature /
 // expired / missing secret) so callers cannot determine whether a token belongs to a user.
@@ -61,16 +65,18 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
       anySignedIn: true,
     },
     escapeHatch: {
+      grants: ["systemIdentity", "unsafeRaw"],
       reason:
-        "resolveGracePeriod reads the tenant compliance profile via ctx.dispatch.queryAs(SYSTEM, " +
+        "resolveDeletionGracePeriod reads the tenant compliance profiles via ctx.dispatch.queryAs(SYSTEM, " +
         "...) to compute the grace period end — the anonymous token holder has no read access " +
         "to that tenant-config projection. startDeletionGracePeriod also appends the user " +
         "lifecycle event on the SYSTEM_TENANT_ID user stream.",
     },
     agent: { expose: false },
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
+    tenantlessAnonymous: true,
     handler: async (event, ctx) => {
-      let gracePeriodEndIso: string | undefined;
+      let started: Extract<StartGracePeriodResult, { ok: true }> | undefined;
 
       // The row's requestId is part of the verify key, so a token from a
       // cancelled or superseded cycle fails. Every error path ends in the same
@@ -82,25 +88,41 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
         secret: opts.deletionTokenSecret,
         loadPendingRequestId: (userId) => readPendingDeletionRequestId(ctx, userId),
         commitDeletion: async (userId, requestId) => {
+          const runner = ctx.db.unsafeRawAllTenants();
           const res = await startDeletionGracePeriod(
             ctx,
             userId,
-            () => resolveGracePeriod(ctx, event.user.tenantId),
-            ctx.db.unsafeRaw(),
+            () => resolveDeletionGracePeriod(ctx, userId, event.user.tenantId, runner),
+            runner,
             { pendingDeletionRequestId: requestId },
           );
           if (!res.ok) return false;
-          gracePeriodEndIso = res.gracePeriodEnd.toString();
+          started = res;
           return true;
         },
       });
-      if (!verified.ok || gracePeriodEndIso === undefined) return writeFailure(invalidToken());
+      if (!verified.ok || started === undefined) return writeFailure(invalidToken());
+
+      // The anonymous flow never sent the deletion-requested mail, so a user
+      // who confirmed by link had no cancel path at all.
+      await sendDeletionRequestedNotification(
+        ctx,
+        opts,
+        {
+          userId: verified.subject,
+          userEmail: started.userEmail,
+          userLocale: started.userLocale,
+          tenantId: event.user.tenantId,
+          gracePeriodEnd: started.gracePeriodEnd,
+        },
+        "confirm-deletion-by-token",
+      );
 
       return {
         isSuccess: true as const,
         data: {
           status: USER_STATUS.DeletionRequested,
-          gracePeriodEnd: gracePeriodEndIso,
+          gracePeriodEnd: started.gracePeriodEnd.toString(),
         },
       };
     },

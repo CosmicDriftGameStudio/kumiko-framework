@@ -4,7 +4,12 @@ import { BUNFIG_FILES, TEST_TIMEOUT_MS } from "./bunfig";
 import { withEnv } from "./helpers/with-env";
 import { SERVICE_ENV_DEFAULTS } from "./preload/service-env-defaults-values";
 
+export const BUILD_INTEGRATION_TEST_SUFFIX = ".build.integration.test.ts";
+
+export type IntegrationTestClass = "integration" | "build";
+
 export type IntegrationRunOptions = {
+  readonly testClass?: IntegrationTestClass;
   readonly files: readonly string[];
   readonly parallel?: number;
   readonly timings?: string;
@@ -27,9 +32,13 @@ export function listIntegrationTestFiles(cwd: string, relativeDir = ""): string[
   });
 }
 
-export function selectIntegrationFiles(paths: readonly string[]): string[] {
+export function selectIntegrationFiles(
+  paths: readonly string[],
+  testClass: IntegrationTestClass = "integration",
+): string[] {
   return paths
     .filter((path) => path.endsWith(".integration.test.ts"))
+    .filter((path) => path.endsWith(BUILD_INTEGRATION_TEST_SUFFIX) === (testClass === "build"))
     .filter((path) => !path.split("/").some((segment) => EXCLUDED_SEGMENTS.has(segment)))
     .sort();
 }
@@ -51,6 +60,7 @@ export function resolveRequestedIntegrationFiles(
   positionals: readonly string[],
   exists: (path: string) => boolean = existsSync,
   listDirectory: (path: string) => string[] | undefined = listDirectoryFiles,
+  testClass: IntegrationTestClass = "integration",
 ): string[] {
   return positionals.flatMap((arg) => {
     const resolved = resolve(cwd, arg);
@@ -61,7 +71,7 @@ export function resolveRequestedIntegrationFiles(
     const directoryFiles = listDirectory(resolved);
     return directoryFiles === undefined
       ? [resolved]
-      : selectIntegrationFiles(directoryFiles).map((entry) => join(resolved, entry));
+      : selectIntegrationFiles(directoryFiles, testClass).map((entry) => join(resolved, entry));
   });
 }
 
@@ -77,7 +87,7 @@ export function buildIntegrationTestArgs(opts: IntegrationRunOptions): string[] 
   return [
     "test",
     `--config=${BUNFIG_FILES.integration}`,
-    `--timeout=${TEST_TIMEOUT_MS.integration}`,
+    `--timeout=${TEST_TIMEOUT_MS[opts.testClass === "build" ? "build" : "integration"]}`,
     // bun 1.4.0's --parallel implies --isolate, which leaks native memory per test file
     // (~40-60 MB with bundled-features) until the workers blow the CI runner's limit.
     // Tests isolate through data (seedTenant per flow, queue prefix per stack), not processes.

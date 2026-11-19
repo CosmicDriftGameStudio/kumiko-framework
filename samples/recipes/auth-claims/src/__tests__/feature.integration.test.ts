@@ -161,7 +161,7 @@ describe("scenario 3: drift-warning when a hook returns an undeclared key", () =
 describe("scenario 4: auto-prefix prevents cross-feature collisions on same inner key", () => {
   test("two features returning the SAME inner key `teamId` coexist under separate prefixes", async () => {
     const billingWithTeamId = defineFeature("billing", (r) => {
-      const teamId = r.claimKey("teamId", { type: "string" });
+      const teamId = r.claimKey({ name: "teamId", type: "string" });
       r.authClaims(async (user) => (user.id === userAlice ? { teamId: "billing-A" } : {}));
       return { Claims: { teamId } as const };
     });

@@ -37,6 +37,7 @@ import { z } from "zod";
 // nowhere to land the values.
 
 export const propertyEntity = createEntity({
+  name: "property",
   table: "read_sample_cf_properties",
   fields: {
     name: createTextField({
@@ -49,7 +50,7 @@ export const propertyEntity = createEntity({
   },
 });
 
-export const propertyTable = buildEntityTable("property", propertyEntity);
+export const propertyTable = buildEntityTable(propertyEntity);
 
 function propertyExecutor() {
   return createEventStoreExecutor(propertyTable, propertyEntity, { entityName: "property" });

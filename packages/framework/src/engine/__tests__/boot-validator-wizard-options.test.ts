@@ -14,10 +14,7 @@ const textField = () => createTextField({ personal: false, reason: "test_fixture
 
 function featureWith(layout: EditLayout) {
   return defineFeature("shop", (r) => {
-    r.entity({
-      name: "product",
-      ...createEntity({ fields: { name: textField(), note: textField() } }),
-    });
+    r.entity(createEntity({ name: "product", fields: { name: textField(), note: textField() } }));
     r.screen({ id: "product-edit", type: "entityEdit", entity: "product", layout });
   });
 }

@@ -23,6 +23,12 @@ export const retiredFrameworkTables: readonly RetiredFrameworkTable[] = [
     explanation:
       "replaced by store_job_runs; the job run history was not migrated (operational data, not a system of record)",
   },
+  {
+    tableName: "read_mail_threads",
+    sinceVersion: "0.425.0",
+    explanation:
+      "the inbound-mail thread rollup had no reader; threadKey stays on read_inbound_messages and the rollup counts were derived data",
+  },
 ];
 
 type TableLifecycleState = "created" | "commented-drop" | "dropped";

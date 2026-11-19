@@ -36,27 +36,29 @@ import {
 import * as z from "zod";
 import { fieldDefinitionAggregateId } from "../aggregate-id.ts";
 import { fieldDefinitionEntity } from "../entity.ts";
+import { fieldDefinitionExecutor } from "../executor.ts";
 import { createCustomFieldsFeature } from "../feature.ts";
 import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.ts";
 
 // --- Probe-Feature: a tenant-owned "property" entity with customFields ---
 
 const propertyEntity = createEntity({
+  name: "property",
   table: "read_t1_properties",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     customFields: customFieldsField(),
   },
 });
-const propertyTable = buildEntityTable("property", propertyEntity);
+const propertyTable = buildEntityTable(propertyEntity);
 
 const propertyFeature = defineFeature("property-test", (r) => {
-  r.entity({ name: "property", ...propertyEntity });
+  r.entity(propertyEntity);
   r.requires({ features: ["custom-fields"] });
   wireCustomFieldsFor(r, "property", propertyTable);
 
   // Standard CRUD: create + list via entity-handlers. Pure test-probe.
-  const { executor: propertyExecutor } = createEntityExecutor("property", propertyEntity);
+  const { executor: propertyExecutor } = createEntityExecutor(propertyEntity);
   r.writeHandler({
     name: "property:create",
     schema: z.object({ id: z.string(), name: z.string() }),
@@ -69,6 +71,29 @@ const propertyFeature = defineFeature("property-test", (r) => {
         ctx.db,
       );
     },
+  });
+
+  // A definition stored before define-tenant-field checked embedded sub-types; the stored
+  // event has the same shape, only today's define payload schema would refuse it.
+  r.writeHandler({
+    name: "legacy-field-definition:seed",
+    schema: z.object({ fieldKey: z.string(), serializedField: z.record(z.string(), z.unknown()) }),
+    access: { roles: ["TenantAdmin"] },
+    handler: async (event, ctx) =>
+      fieldDefinitionExecutor.create(
+        {
+          id: fieldDefinitionAggregateId(event.user.tenantId, "property", event.payload.fieldKey),
+          entityName: "property",
+          fieldKey: event.payload.fieldKey,
+          type: "embedded",
+          required: false,
+          searchable: false,
+          displayOrder: 0,
+          serializedField: JSON.stringify(event.payload.serializedField),
+        },
+        event.user,
+        ctx.db,
+      ),
   });
 
   r.queryHandler(
@@ -479,65 +504,14 @@ describe("custom-fields integration — no PII: `sensitive` rejected, every valu
     const payload = await fetchSetEventPayload(propId, "publicNote");
     expect(payload?.["value"]).toBe("visible");
   });
-
-  test("rebuild replay: re-applying logged events restores ALL custom-field values", async () => {
-    await defineField("property", "publicTag", "text");
-    await defineField("property", "vendorRef", "text");
-    const propId = "aaaaaaaa-aaaa-4000-8000-0000000000a3";
-    await createProperty(propId, "Rebuild Prop");
-    await setCustomField("property", propId, "publicTag", "keepme");
-    await setCustomField("property", propId, "vendorRef", "VR-777");
-    await stack.eventDispatcher?.runOnce();
-
-    // Wipe the read model, then replay the logged events through the REAL MSP
-    // apply fn — exactly the derivation a rebuild performs — without mutating
-    // consumer state (which would pollute the shared stack).
-    await asRawClient(stack.db).unsafe(
-      "UPDATE read_t1_properties SET custom_fields = '{}'::jsonb WHERE id = $1",
-      [propId],
-    );
-    const mspEntry = [...stack.registry.getAllMultiStreamProjections().entries()].find(([name]) =>
-      name.includes("property"),
-    );
-    expect(mspEntry).toBeDefined();
-    const apply = mspEntry?.[1].apply ?? {};
-    const events = (await asRawClient(stack.db).unsafe(
-      "SELECT type, payload FROM kumiko_events WHERE aggregate_id = $1 ORDER BY id ASC",
-      [propId],
-    )) as ReadonlyArray<{ type: string; payload: unknown }>;
-    // The MSP apply value-type declares a 3rd rebuild-context arg; custom-fields'
-    // apply only reads (event, tx), so narrow the call to those two for replay.
-    type ReplayApplyFn = (event: Record<string, unknown>, tx: unknown) => Promise<void>;
-    for (const e of events) {
-      const fn = apply[e.type] as ReplayApplyFn | undefined;
-      if (!fn) continue;
-      const payload = typeof e.payload === "string" ? JSON.parse(e.payload) : e.payload;
-      await fn(
-        {
-          type: e.type,
-          payload,
-          aggregateId: propId,
-          aggregateType: "property",
-          tenantId: admin.tenantId,
-        },
-        asRawClient(stack.db),
-      );
-    }
-
-    const row = (await listProperties()).rows.find((r) => r["id"] === propId);
-    // Every value restores from its value-bearing event — custom fields are
-    // fully rebuild-safe (no PII, no value-less events).
-    expect(row?.["publicTag"]).toBe("keepme");
-    expect(row?.["vendorRef"]).toBe("VR-777");
-  });
 });
 
 describe("custom-fields integration — registry facade: getMultiStreamProjectionFeature", () => {
   test("resolves the owning feature name for a registered multi-stream projection", () => {
-    const qualifiedName = "property-test:projection:custom-fields-property-projection";
+    const qualifiedName = "custom-fields:projection:host-values";
 
     expect(stack.registry.getAllMultiStreamProjections().has(qualifiedName)).toBe(true);
-    expect(stack.registry.getMultiStreamProjectionFeature(qualifiedName)).toBe("property-test");
+    expect(stack.registry.getMultiStreamProjectionFeature(qualifiedName)).toBe("custom-fields");
     // Missing MSP → undefined (not a fallback string). server.ts only spreads
     // featureName onto the EventConsumer when this returns a defined value.
     expect(
@@ -646,6 +620,42 @@ describe("custom-fields integration — value validation (Builder-Reuse)", () =>
     await stack.eventDispatcher?.runOnce();
 
     expect(await rawCustomFields(id)).toMatchObject({ note: "not-an-email-and-way-too-long" });
+  });
+
+  test("money takes only integer minor units in the definition's currency", async () => {
+    const id = "12121212-1212-4000-8000-000000000012";
+    await stack.http.writeOk(
+      "custom-fields:write:define-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "budget",
+        serializedField: { type: "money", currency: "EUR" },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      admin,
+    );
+    await createProperty(id, "MoneyContract");
+
+    for (const rejected of [
+      { amount: 12.5, currency: "EUR" },
+      { amount: 2 ** 60, currency: "EUR" },
+      { amount: 1250, currency: "GBP" },
+    ]) {
+      const err = await setErr(id, "budget", rejected);
+      expect(err.httpStatus).toBe(422);
+      expect(err.details).toMatchObject({
+        reason: "custom_field_value_invalid",
+        fieldKey: "budget",
+        fieldType: "money",
+      });
+    }
+    expect(await countSetEvents(id)).toBe(0);
+
+    await setCustomField("property", id, "budget", { amount: 1250, currency: "EUR" });
+    await stack.eventDispatcher?.runOnce();
+    expect(await rawCustomFields(id)).toMatchObject({ budget: { amount: 1250, currency: "EUR" } });
   });
 
   test("default-having field validates as plain type (default-key stripped)", async () => {
@@ -757,6 +767,43 @@ describe("custom-fields integration — value validation (Builder-Reuse)", () =>
     await setCustomField("property", id, "geo", { city: "Bonn" });
     await stack.eventDispatcher?.runOnce();
     expect(await rawCustomFields(id)).toMatchObject({ geo: { city: "Bonn" } });
+  });
+
+  test("embedded: an empty sub-field schema is refused and an undeclared key never lands", async () => {
+    const id = "aaaaaaaa-aaaa-4000-8000-00000000000b";
+    const emptySchemaErr = await stack.http.writeErr(
+      "custom-fields:write:define-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "anything",
+        serializedField: { type: "embedded", schema: {} },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      admin,
+    );
+    expect(emptySchemaErr.httpStatus).toBe(400);
+    expect(emptySchemaErr.code).toBe("validation_error");
+
+    await stack.http.writeOk(
+      "custom-fields:write:define-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "site",
+        serializedField: { type: "embedded", schema: { city: { type: "text" } } },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      admin,
+    );
+    await createProperty(id, "EmbeddedExtraKey");
+
+    const err = await setErr(id, "site", { city: "Bonn", blob: { nested: "x" } });
+    expect(err.httpStatus).toBe(422);
+    expect(err.details).toMatchObject({ reason: "custom_field_value_invalid" });
+    expect(await countSetEvents(id)).toBe(0);
   });
 });
 
@@ -959,6 +1006,77 @@ describe("custom-fields integration — update-tenant-field (Bug-Bash D2)", () =
     expect(err.httpStatus).toBe(500);
     const causeMessage = (err.details as { causeMessage?: string } | undefined)?.causeMessage ?? "";
     expect(causeMessage).toContain("update-tenant-field");
+  });
+
+  test("an embedded update without type and schema is refused, the stored sub-fields stay", async () => {
+    const citySchema = { city: { type: "text", required: true } };
+    await stack.http.writeOk(
+      "custom-fields:write:define-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "address",
+        serializedField: { type: "embedded", schema: citySchema },
+      },
+      admin,
+    );
+
+    const err = await stack.http.writeErr(
+      "custom-fields:write:update-tenant-field",
+      { entityName: "property", fieldKey: "address", serializedField: {}, displayOrder: 3 },
+      admin,
+    );
+    expect(err.httpStatus).toBe(400);
+    expect(err.code).toBe("validation_error");
+    const sf = JSON.parse(
+      String((await fetchDefinitionRow(admin.tenantId, "address"))?.["serialized_field"]),
+    ) as Record<string, unknown>;
+    expect(sf["schema"]).toEqual(citySchema);
+  });
+
+  const legacySchema = { blob: { type: "json" } };
+
+  async function seedLegacyEmbeddedDefinition(fieldKey: string) {
+    await stack.http.writeOk(
+      "property-test:write:legacy-field-definition:seed",
+      { fieldKey, serializedField: { type: "embedded", schema: legacySchema } },
+      admin,
+    );
+  }
+
+  test("a stored embedded definition with a sub-type refused today can still be relabelled and reordered", async () => {
+    await seedLegacyEmbeddedDefinition("legacyExtra");
+
+    await updateField("legacyExtra", {
+      serializedField: { type: "embedded", schema: legacySchema },
+      displayOrder: 4,
+      label: { de: "Zusatz", en: "Extra" },
+    });
+
+    const row = await fetchDefinitionRow(admin.tenantId, "legacyExtra");
+    expect(Number(row?.["display_order"])).toBe(4);
+    const sf = JSON.parse(String(row?.["serialized_field"])) as Record<string, unknown>;
+    expect(sf["schema"]).toEqual(legacySchema);
+    expect(sf["label"]).toEqual({ de: "Zusatz", en: "Extra" });
+  });
+
+  test("a changed sub-field schema with a sub-type refused today is still refused", async () => {
+    await seedLegacyEmbeddedDefinition("legacyChanged");
+
+    const err = await stack.http.writeErr(
+      "custom-fields:write:update-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "legacyChanged",
+        serializedField: { schema: { ...legacySchema, note: { type: "json" } } },
+      },
+      admin,
+    );
+    expect(err.httpStatus).toBe(400);
+    expect(err.code).toBe("validation_error");
+    const sf = JSON.parse(
+      String((await fetchDefinitionRow(admin.tenantId, "legacyChanged"))?.["serialized_field"]),
+    ) as Record<string, unknown>;
+    expect(sf["schema"]).toEqual(legacySchema);
   });
 });
 

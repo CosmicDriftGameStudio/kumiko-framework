@@ -24,6 +24,7 @@ import {
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const sysItemEntity = createEntity({
+  name: "sysproj-item",
   table: "read_sysproj_items",
   fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
@@ -40,7 +41,7 @@ const auditTable = pgTable("read_sysproj_item_audit", {
 
 const sysProjFeature = defineFeature("sysproj", (r) => {
   r.systemScope();
-  r.entity({ name: "sysproj-item", ...sysItemEntity });
+  r.entity(sysItemEntity);
 
   r.projection({
     name: "item-audit",

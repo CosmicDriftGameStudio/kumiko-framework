@@ -13,6 +13,7 @@ import { type ComposedEnvSchema, readKumikoMeta } from "@cosmicdrift/kumiko-fram
 import * as z from "zod";
 import { isNamedS3FileProvider, s3KeysOf } from "./file-storage-option.ts";
 import { type BootOptionFields, isSeedFnList } from "./resolve-boot-options.ts";
+import { meiliEnvSchema, searchProviderOf } from "./search-option.ts";
 import type { ProdSeedsConfig } from "./seed-shortcuts.ts";
 
 type OptionEnvBlock = {
@@ -28,6 +29,12 @@ type OptionEnvBlock = {
 const SMTP_HOST_REQUIRED_DESCRIPTION = 'SMTP host; required with mail transport "smtp-env".';
 
 const S3_REQUIRED_KEYS = ["S3_BUCKET", "S3_REGION", "S3_ACCESS_KEY", "S3_SECRET_KEY"] as const;
+
+const KMS_REQUIRED_KEYS = [
+  "PLATFORM_KEK",
+  "SUBJECT_KEYS_DATABASE_URL",
+  "KUMIKO_BLIND_INDEX_KEY",
+] as const;
 
 // `.unwrap()` drops what sits on the optional wrapper: the description and the
 // kumiko meta (pulumi secret, kms), both of which the dry run reports.
@@ -129,10 +136,21 @@ function collectOptionEnvBlocks(options: BootOptionFields): OptionEnvBlock[] {
     });
   }
   blocks.push(...fileStorageEnvBlocks(options.fileStorage));
-  // The trio stays optional even under "required": each KMS slot may arrive
-  // as its *_CIPHERTEXT twin instead, which resolveKmsMode checks after decryption.
+  if (searchProviderOf(options.search)?.provider === "meili-env") {
+    blocks.push({
+      source: "runProdApp.search",
+      shape: meiliEnvSchema.shape,
+      required: ["MEILI_URL", "MEILI_MASTER_KEY"],
+    });
+  }
+  // A KMS slot delivered as its *_CIPHERTEXT twin still passes: the env check
+  // relaxes a required kms slot whose twin is set.
   if (options.kmsMode === "required" || options.kmsMode === "optional") {
-    blocks.push({ source: "runProdApp.kmsMode", shape: kmsEnvSchema.shape, required: [] });
+    blocks.push({
+      source: "runProdApp.kmsMode",
+      shape: kmsEnvSchema.shape,
+      required: options.kmsMode === "required" ? KMS_REQUIRED_KEYS : [],
+    });
   }
   if (options.billing) {
     blocks.push({

@@ -2,10 +2,9 @@ import { extractPgError } from "../pg-error.ts";
 import type { AnyDb } from "../query.ts";
 import { asRawClient } from "../query.ts";
 import { outsideRowLevelSecurityScope } from "../row-level-security-scope.ts";
-import { quoteLiteral } from "../sql-identifier.ts";
+import { quoteIdent, quoteLiteral } from "../sql-identifier.ts";
 import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
 import { PROJECTION_REBUILD_SCHEMA } from "./shadow-swap.ts";
-import { quoteTableIdent } from "./table-ops.ts";
 
 // Re-exported for back-compat — the generic DDL helpers moved to ./ddl so
 // the prod-boot path (db/table-push.ts, pipeline/event-consumer-state.ts)
@@ -16,7 +15,7 @@ export async function truncateTablesRestartIdentity(
   db: AnyDb,
   tableNames: readonly string[],
 ): Promise<void> {
-  const quoted = tableNames.map((name) => quoteTableIdent(name)).join(", ");
+  const quoted = tableNames.map((name) => quoteIdent(name)).join(", ");
   await asRawClient(db).unsafe(`TRUNCATE ${quoted} RESTART IDENTITY CASCADE`);
 }
 
@@ -34,12 +33,11 @@ export async function createDatabase(
   templateDbName?: string,
   owner?: string,
 ): Promise<void> {
-  const template =
-    templateDbName === undefined ? "" : ` TEMPLATE ${quoteTableIdent(templateDbName)}`;
-  const ownerClause = owner === undefined ? "" : ` OWNER ${quoteTableIdent(owner)}`;
+  const template = templateDbName === undefined ? "" : ` TEMPLATE ${quoteIdent(templateDbName)}`;
+  const ownerClause = owner === undefined ? "" : ` OWNER ${quoteIdent(owner)}`;
   // CREATE/ALTER DATABASE cannot run inside the transaction an enforced pool wraps statements in.
   await outsideRowLevelSecurityScope(() =>
-    asRawClient(db).unsafe(`CREATE DATABASE ${quoteTableIdent(dbName)}${template}${ownerClause}`),
+    asRawClient(db).unsafe(`CREATE DATABASE ${quoteIdent(dbName)}${template}${ownerClause}`),
   );
 }
 
@@ -82,8 +80,8 @@ export async function createApplicationRole(
   // An earlier run may have created the role with another password, so an existing role is realigned.
   const statement =
     existing.length > 0
-      ? `ALTER ROLE ${quoteTableIdent(role)} ${attributes}`
-      : `CREATE ROLE ${quoteTableIdent(role)} ${attributes}`;
+      ? `ALTER ROLE ${quoteIdent(role)} ${attributes}`
+      : `CREATE ROLE ${quoteIdent(role)} ${attributes}`;
   try {
     await raw.unsafe(statement);
   } catch (error) {
@@ -97,9 +95,7 @@ export async function transferDatabaseOwnership(
   owner: string,
 ): Promise<void> {
   await outsideRowLevelSecurityScope(() =>
-    asRawClient(admin).unsafe(
-      `ALTER DATABASE ${quoteTableIdent(dbName)} OWNER TO ${quoteTableIdent(owner)}`,
-    ),
+    asRawClient(admin).unsafe(`ALTER DATABASE ${quoteIdent(dbName)} OWNER TO ${quoteIdent(owner)}`),
   );
 }
 
@@ -123,7 +119,7 @@ export async function transferPublicSchemaOwnership(db: AnyDb, owner: string): P
   ]);
   if (rebuildSchema.length > 0) {
     await raw.unsafe(
-      `ALTER SCHEMA ${quoteTableIdent(PROJECTION_REBUILD_SCHEMA)} OWNER TO ${quoteTableIdent(owner)}`,
+      `ALTER SCHEMA ${quoteIdent(PROJECTION_REBUILD_SCHEMA)} OWNER TO ${quoteIdent(owner)}`,
     );
   }
   const relations = await raw.unsafe<{ nspname: string; relname: string; relkind: string }>(
@@ -139,7 +135,7 @@ export async function transferPublicSchemaOwnership(db: AnyDb, owner: string): P
     const kind = OWNED_RELATION_KINDS[relkind];
     if (kind === undefined) continue;
     await raw.unsafe(
-      `ALTER ${kind} ${quoteTableIdent(nspname)}.${quoteTableIdent(relname)} OWNER TO ${quoteTableIdent(owner)}`,
+      `ALTER ${kind} ${quoteIdent(nspname)}.${quoteIdent(relname)} OWNER TO ${quoteIdent(owner)}`,
     );
   }
 }
@@ -147,7 +143,7 @@ export async function transferPublicSchemaOwnership(db: AnyDb, owner: string): P
 export async function renameDatabase(db: AnyDb, fromName: string, toName: string): Promise<void> {
   await outsideRowLevelSecurityScope(() =>
     asRawClient(db).unsafe(
-      `ALTER DATABASE ${quoteTableIdent(fromName)} RENAME TO ${quoteTableIdent(toName)}`,
+      `ALTER DATABASE ${quoteIdent(fromName)} RENAME TO ${quoteIdent(toName)}`,
     ),
   );
 }
@@ -171,6 +167,6 @@ export async function acquireSessionAdvisoryLock(db: AnyDb, key: string): Promis
 
 export async function dropDatabaseIfExists(db: AnyDb, dbName: string): Promise<void> {
   await outsideRowLevelSecurityScope(() =>
-    asRawClient(db).unsafe(`DROP DATABASE IF EXISTS ${quoteTableIdent(dbName)}`),
+    asRawClient(db).unsafe(`DROP DATABASE IF EXISTS ${quoteIdent(dbName)}`),
   );
 }

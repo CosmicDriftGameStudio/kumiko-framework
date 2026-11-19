@@ -1,8 +1,8 @@
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
-  createEntityExecutor,
   defineWriteHandler,
   type HandlerEvents,
+  registeredEntityExecutor,
   type SessionUser,
   SYSTEM_ROLE,
   type WriteHandlerDef,
@@ -11,6 +11,7 @@ import {
   ConflictError,
   NotFoundError,
   ValidationError,
+  VERSION_CONFLICT_CODE,
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
@@ -32,13 +33,9 @@ async function fileRefExists(
   user: SessionUser,
   db: TenantDb,
 ): Promise<boolean> {
-  const entity = registry.getEntity(FILE_REF_ENTITY_NAME);
-  if (entity === undefined) return false;
-  const row = await createEntityExecutor(FILE_REF_ENTITY_NAME, entity).executor.detail(
-    { id: fileRefId },
-    user,
-    db,
-  );
+  const executor = registeredEntityExecutor(registry, FILE_REF_ENTITY_NAME);
+  if (executor === undefined) return false;
+  const row = await executor.detail({ id: fileRefId }, user, db);
   return row !== null;
 }
 
@@ -74,7 +71,7 @@ async function createUnlessImported(
       db,
     );
     if (created.isSuccess) return undefined;
-    if (created.error.code !== "version_conflict") return created;
+    if (created.error.code !== VERSION_CONFLICT_CODE) return created;
   }
   // Stream ids are unique per tenant across aggregate types: an existing stream is the retry of
   // this import only when it is a document, otherwise linking would point at nothing.

@@ -22,7 +22,6 @@ import {
   asRawClient,
   buildEntityTable,
   createEventStoreExecutor,
-  createTenantDb,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -33,9 +32,11 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { FrameworkReasons } from "@cosmicdrift/kumiko-framework/errors";
 import { append, eventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  drainEventConsumers,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
@@ -53,6 +54,7 @@ import {
   RECORD_ENTITY_NOT_REGISTERED,
   SUBJECT_FORGET_DENIED_EVENT_NAME,
   SUBJECT_FORGOTTEN_EVENT_NAME,
+  SUBJECT_KEY_ERASER_CONSUMER_NAME,
   TARGET_RECORD_NOT_ADMIN_TENANT,
   TARGET_RECORD_RETENTION_BLOCK_DELETE,
 } from "../constants.ts";
@@ -64,6 +66,7 @@ const UPDATE_PROBE = `forget-subject-record-probe:write:record-probe:update`;
 const REASON = "authority request #2786 (Art. 17 row-subject)";
 
 const recordProbeEntity = createEntity({
+  name: "forgetSubjectRecordProbe",
   table: "read_forget_subject_record_probe",
   fields: {
     body: createTextField({
@@ -74,12 +77,15 @@ const recordProbeEntity = createEntity({
     }),
   },
 });
-const recordProbeTable = buildEntityTable("forgetSubjectRecordProbe", recordProbeEntity);
+const recordProbeTable = buildEntityTable(recordProbeEntity);
 const recordProbeFeature = defineFeature("forget-subject-record-probe", (r) => {
-  r.crud(RECORD_PROBE_ENTITY_NAME, recordProbeEntity, {
-    verbs: { create: false, delete: false, detail: false, list: false },
-    write: { access: { roles: ["DataProtectionOfficer"] } },
-  });
+  r.crud(
+    { ...recordProbeEntity, name: RECORD_PROBE_ENTITY_NAME },
+    {
+      verbs: { create: false, delete: false, detail: false, list: false },
+      write: { access: { roles: ["DataProtectionOfficer"] } },
+    },
+  );
 });
 
 function recordProbeExecutor() {
@@ -162,6 +168,7 @@ describe("crypto-shredding :: forget-subject (record subject)", () => {
     );
     expect(result.subjectKey).toBe(`record:${RECORD_PROBE_ENTITY_NAME}:${rowId}`);
 
+    await drainEventConsumers(stack, [SUBJECT_KEY_ERASER_CONSUMER_NAME]);
     const afterShred = await recordProbeExecutor().detail({ id: rowId }, dpoUser, tenantDb);
     expect(afterShred?.["body"]).toBe(PII_ERASED_SENTINEL);
 
@@ -228,7 +235,9 @@ describe("crypto-shredding :: forget-subject (record subject)", () => {
       dpoUser,
     );
 
-    // The stream version is authoritative and forget-subject appended its own event to it.
+    await drainEventConsumers(stack, [SUBJECT_KEY_ERASER_CONSUMER_NAME]);
+
+    // Read the current stream version, so the 409 comes from the erased key and not a stale version.
     const streamEvents = (await selectMany(stack.db, eventsTable, {
       aggregateId: rowId,
     })) as Array<{ version: number }>;
@@ -462,6 +471,7 @@ describe("crypto-shredding :: forget-subject (record subject) tenant gate", () =
 const BLOCK_DELETE_PROBE_ENTITY_NAME = "blockDeleteProbe";
 
 const blockDeleteProbeEntity = createEntity({
+  name: "forgetSubjectBlockDeleteProbe",
   table: "read_forget_subject_blockdelete_probe",
   retention: { keepFor: "10y", strategy: "blockDelete" },
   fields: {
@@ -473,12 +483,9 @@ const blockDeleteProbeEntity = createEntity({
     }),
   },
 });
-const blockDeleteProbeTable = buildEntityTable(
-  "forgetSubjectBlockDeleteProbe",
-  blockDeleteProbeEntity,
-);
+const blockDeleteProbeTable = buildEntityTable(blockDeleteProbeEntity);
 const blockDeleteProbeFeature = defineFeature("forget-subject-blockdelete-probe", (r) => {
-  r.entity({ name: BLOCK_DELETE_PROBE_ENTITY_NAME, ...blockDeleteProbeEntity });
+  r.entity({ ...blockDeleteProbeEntity, name: BLOCK_DELETE_PROBE_ENTITY_NAME });
 });
 
 function blockDeleteProbeExecutor() {
@@ -622,6 +629,7 @@ describe("crypto-shredding :: forget-subject (record subject) retention gate", (
 // data-retention policy (override here) is blockDelete.
 const OVERRIDE_PROBE_ENTITY_NAME = "overrideProbe";
 const overrideProbeEntity = createEntity({
+  name: "forgetSubjectOverrideProbe",
   table: "read_forget_subject_override_probe",
   fields: {
     body: createTextField({
@@ -632,9 +640,9 @@ const overrideProbeEntity = createEntity({
     }),
   },
 });
-const overrideProbeTable = buildEntityTable("forgetSubjectOverrideProbe", overrideProbeEntity);
+const overrideProbeTable = buildEntityTable(overrideProbeEntity);
 const overrideProbeFeature = defineFeature("forget-subject-override-probe", (r) => {
-  r.entity({ name: OVERRIDE_PROBE_ENTITY_NAME, ...overrideProbeEntity });
+  r.entity({ ...overrideProbeEntity, name: OVERRIDE_PROBE_ENTITY_NAME });
 });
 
 describe("crypto-shredding :: forget-subject (record subject) tenant retention policy", () => {

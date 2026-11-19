@@ -5,7 +5,6 @@ import { describe, expect, test } from "bun:test";
 import { getSetCookies } from "@cosmicdrift/kumiko-testing/helpers";
 import type { Hono } from "hono";
 import { Hono as HonoCtor } from "hono";
-import type { SessionUser } from "../../engine/types/index.ts";
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { PUBLIC_API_PATHS } from "../api-constants.ts";
@@ -25,8 +24,8 @@ type WriteCall = { qn: string; payload: unknown };
 
 function createStubDispatcher(respond: () => WriteResult, calls: WriteCall[]): Dispatcher {
   const merged: Dispatcher = {
-    async write(qn: string, payload: unknown, _user: SessionUser): Promise<WriteResult> {
-      calls.push({ qn, payload });
+    async write(target: unknown, payload: unknown): Promise<WriteResult> {
+      calls.push({ qn: String(target), payload });
       return respond();
     },
     async query(): Promise<unknown> {
@@ -181,6 +180,15 @@ describe("POST /auth/session-exchange", () => {
     const app = buildApp(sessionResult, [], { sessionExchangeHandlers: undefined });
     const res = await exchange(app, { method: "apple", payload: {} });
     expect(res.status).toBe(404);
+  });
+
+  test("mfaVerifyHandler together with sessionExchangeHandlers refuses to build the routes", () => {
+    expect(() =>
+      buildApp(sessionResult, [], {
+        mfaVerifyHandler: "auth-mfa:write:verify",
+        switchTenantMfaGateHandler: "auth:write:switch-tenant-mfa-gate",
+      }),
+    ).toThrow("would mint sessions without the second factor");
   });
 
   test("path is public (bypasses the JWT guard)", () => {

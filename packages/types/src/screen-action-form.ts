@@ -92,6 +92,12 @@ export type ActionFormScreenDefinition = {
   /** Per-field label i18n key override, same type/semantics as
    *  `EntityEditScreenDefinition.fieldLabels`. Falls back to the convention when absent. */
   readonly fieldLabels?: Readonly<Record<string, FieldTextRef>>;
+  /** Entity of the same feature whose field texts this form reuses: a form field the entity
+   *  also declares takes its label and option labels from `<feature>:entity:<labelEntity>:field:<name>`.
+   *  An entry in `fieldLabels` still wins; a field the entity lacks keeps the `__action-form__` keys. */
+  readonly labelEntity?: string;
+  /** Derived by buildAppSchema: the form fields `labelEntity` declares. An authored value is overwritten. */
+  readonly labelEntityFields?: readonly string[];
   /** i18n key for the submit button. Default: the renderer's i18n default
    *  (typically "actions.submit"). */
   readonly submitLabel?: string;
@@ -249,8 +255,8 @@ export type ActionFormLoad = {
 };
 
 /** How a preview value or success fact is formatted, by the same formatters a list cell uses.
- *  `number`: a number. `money`: a money object `{ amount, currency }` with `amount` in major units
- *  (12.5 is 12.50 EUR), not minor units. `date` and `timestamp`: an ISO date or timestamp string.
+ *  `number`: a number. `money`: a money object `{ amount, currency }` with `amount` in minor units
+ *  (1250 is 12.50 EUR). `date` and `timestamp`: an ISO date or timestamp string.
  *  `text` (default) shows the value as it is. */
 export type ActionFormValueType = "text" | "number" | "money" | "date" | "timestamp";
 

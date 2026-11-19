@@ -39,7 +39,7 @@ const heatingSteps: readonly StepListItem[] = [
 describe("StepList", () => {
   test("progress counts done steps and leaves rejected ones out of the total", () => {
     render(<StepList title="Vorschlag der KI" steps={heatingSteps} />);
-    expect(screen.getByText("1 of 3 done")).toBeTruthy();
+    screen.getByText("1 of 3 done");
     const bar = screen.getByRole("progressbar");
     expect(bar.getAttribute("aria-valuenow")).toBe("33");
     expect(bar.getAttribute("aria-valuemin")).toBe("0");
@@ -51,7 +51,7 @@ describe("StepList", () => {
     expect(screen.queryByText("Nie sichtbar")).toBeNull();
     fireEvent.click(screen.getByText("Prüfen"));
     expect(onReview).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("Ablehnen")).toBeTruthy();
+    screen.getByText("Ablehnen");
   });
 
   test("locked step shows the waiting tag and names its icon after the reason", () => {
@@ -106,15 +106,15 @@ describe("StepList", () => {
     expect(screen.getByText("Öffnen").closest("a")?.getAttribute("href")).toBe(
       "/cases/heizungsausfall",
     );
-    expect(screen.getByText("Angelegt von dir, Mo 09:05")).toBeTruthy();
-    expect(screen.getByText("Sendet eine Mail")).toBeTruthy();
+    screen.getByText("Angelegt von dir, Mo 09:05");
+    screen.getByText("Sendet eine Mail");
   });
 
   test("collapsedAfter hides the rest behind a 'more steps' button that expands", () => {
     render(<StepList title="Vorschlag der KI" steps={heatingSteps} collapsedAfter={2} />);
     expect(screen.queryByTestId("step-reply")).toBeNull();
     fireEvent.click(screen.getByText("and 2 more steps"));
-    expect(screen.getByTestId("step-reply")).toBeTruthy();
+    screen.getByTestId("step-reply");
     expect(screen.queryByText("and 2 more steps")).toBeNull();
   });
 
@@ -154,7 +154,7 @@ describe("StepList", () => {
           collapseWhen="overflow"
         />,
       );
-      expect(screen.getByTestId("step-old")).toBeTruthy();
+      screen.getByTestId("step-old");
       expect(screen.queryByTestId("step-list-more")).toBeNull();
     });
 
@@ -169,10 +169,10 @@ describe("StepList", () => {
           collapseWhen="overflow"
         />,
       );
-      expect(screen.getByTestId("step-case")).toBeTruthy();
-      expect(screen.getByTestId("step-order")).toBeTruthy();
+      screen.getByTestId("step-case");
+      screen.getByTestId("step-order");
       expect(screen.queryByTestId("step-reply")).toBeNull();
-      expect(screen.getByText("and 2 more steps")).toBeTruthy();
+      screen.getByText("and 2 more steps");
     });
   });
 
@@ -190,13 +190,13 @@ describe("StepList", () => {
     );
     fireEvent.click(screen.getByText("Alle ablehnen"));
     expect(onRejectAll).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("Nächsten prüfen")).toBeTruthy();
+    screen.getByText("Nächsten prüfen");
   });
 
   test("empty plan shows the empty content and 0 of 0", () => {
     render(<StepList title="Vorschlag der KI" steps={[]} emptyContent={<p>Kein Vorschlag</p>} />);
-    expect(screen.getByText("Kein Vorschlag")).toBeTruthy();
-    expect(screen.getByText("0 of 0 done")).toBeTruthy();
+    screen.getByText("Kein Vorschlag");
+    screen.getByText("0 of 0 done");
   });
 });
 
@@ -243,7 +243,7 @@ describe("StepList source links and highlight", () => {
     expect(within(done).getByText("Öffnen").closest("a")?.getAttribute("href")).toBe(
       "/cases/heizungsausfall",
     );
-    expect(within(done).getByText("Angelegt von dir, Mo 09:05")).toBeTruthy();
+    within(done).getByText("Angelegt von dir, Mo 09:05");
   });
 
   test("a link placed below sits in the text column and fires, a trailing one stays outside", () => {
@@ -323,7 +323,7 @@ describe("StepList source links and highlight", () => {
 
   test("progress count keeps only the count, none hides count and bar", () => {
     const { rerender } = render(<StepList title="Plan" steps={heatingSteps} />);
-    expect(screen.getByTestId("step-list-progress")).toBeTruthy();
+    screen.getByTestId("step-list-progress");
     expect(screen.queryByRole("progressbar")).not.toBeNull();
     rerender(<StepList title="Plan" steps={heatingSteps} progress="count" />);
     expect(screen.getByTestId("step-list-progress").textContent).toBe("1 of 3 done");
@@ -372,16 +372,14 @@ describe("StepList selection", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Select “Antwort”" }));
     const order = screen.getByRole("checkbox", { name: "Select “Auftrag”" });
     expect(order.getAttribute("aria-checked")).toBe("true");
-    expect(
-      within(screen.getByTestId("step-order")).getByText("Also selected: needed for Antwort"),
-    ).toBeTruthy();
-    expect(screen.getByText("2 selected, 1 waiting for input")).toBeTruthy();
+    within(screen.getByTestId("step-order")).getByText("Also selected: needed for Antwort");
+    screen.getByText("2 selected, 1 waiting for input");
   });
 
   test("a single selected step reads in the singular", () => {
     render(<Controlled />);
     fireEvent.click(screen.getByRole("checkbox", { name: "Select “Auftrag”" }));
-    expect(screen.getByText("1 selected, 1 waiting for input")).toBeTruthy();
+    screen.getByText("1 selected, 1 waiting for input");
   });
 
   test("a step missing input has a disabled checkbox and the tag", () => {
@@ -389,7 +387,7 @@ describe("StepList selection", () => {
     const checkbox = screen.getByRole("checkbox", { name: "Select “Überweisung”" });
     expect(checkbox.hasAttribute("disabled")).toBe(true);
     expect(checkbox.getAttribute("title")).toBe("IBAN fehlt");
-    expect(within(screen.getByTestId("step-iban")).getByText("Input missing")).toBeTruthy();
+    within(screen.getByTestId("step-iban")).getByText("Input missing");
   });
 
   test("steps that cannot be selected get no checkbox", () => {
@@ -400,8 +398,8 @@ describe("StepList selection", () => {
 
   test("shows the empty count text before anything is selected", () => {
     render(<Controlled />);
-    expect(screen.getByText("Nothing selected, 1 waiting for input")).toBeTruthy();
-    expect(screen.getByText("Alles prüfen")).toBeTruthy();
+    screen.getByText("Nothing selected, 1 waiting for input");
+    screen.getByText("Alles prüfen");
   });
 
   test("footer shows the selection actions with the count and passes ids in list order", () => {
@@ -416,9 +414,9 @@ describe("StepList selection", () => {
     render(<Controlled />);
     const all = screen.getByRole("checkbox", { name: "Select all" });
     fireEvent.click(all);
-    expect(screen.getByText("Ausgewählte übernehmen (2)")).toBeTruthy();
+    screen.getByText("Ausgewählte übernehmen (2)");
     fireEvent.click(screen.getByRole("checkbox", { name: "Select all" }));
-    expect(screen.getByText("Alles prüfen")).toBeTruthy();
+    screen.getByText("Alles prüfen");
   });
 
   test("without selection no checkbox renders", () => {
@@ -478,8 +476,8 @@ describe("StepList compact selection", () => {
     expect(screen.queryByTestId("step-list-select-all")).toBeNull();
     const row = screen.getByTestId("step-case");
     expect(within(row).queryByRole("img")).toBeNull();
-    expect(within(row).getByRole("checkbox")).toBeTruthy();
-    expect(within(screen.getByTestId("step-done")).getByRole("img")).toBeTruthy();
+    within(row).getByRole("checkbox");
+    within(screen.getByTestId("step-done")).getByRole("img");
   });
 
   test("selection actions stay visible at 0 and a labelForCount action is disabled there", () => {
@@ -508,8 +506,8 @@ describe("StepList compact selection", () => {
   test("a side tag sits in the right column above the trailing link; the header shows the step total and the note closes the card", () => {
     render(<CompactPlan onReviewEach={() => {}} />);
     const side = screen.getByTestId("step-order-side");
-    expect(within(side).getByText("mittel")).toBeTruthy();
-    expect(within(side).getByText("Vorschau")).toBeTruthy();
+    within(side).getByText("mittel");
+    within(side).getByText("Vorschau");
     expect(within(screen.getByTestId("step-order")).getAllByText("mittel")).toHaveLength(1);
     expect(screen.getByTestId("step-list-progress").textContent).toBe("3 steps");
     expect(screen.getByTestId("step-list-note").textContent).toBe(

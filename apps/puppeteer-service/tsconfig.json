@@ -13,7 +13,7 @@
   ],
   "references": [
     {
-      "path": "../../packages/renderer-puppeteer-client"
+      "path": "../../packages/bundled-features"
     }
   ]
 }

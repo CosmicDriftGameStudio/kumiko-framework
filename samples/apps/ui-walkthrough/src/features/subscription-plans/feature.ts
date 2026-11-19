@@ -94,7 +94,7 @@ export const subscriptionPlansFeature = defineFeature("subscription-plans", (r) 
   r.describe("Plan overview of the tenant admin: nav entry, plan labels and the mock provider.");
   r.requires({ features: ["billing-foundation"] });
   r.translations({ keys: toKeyFirst(subscriptionPlansTranslations) });
-  r.useExtension("subscriptionProvider", PLAN_PROVIDER, mockProvider);
+  r.applyExtension({ name: "subscriptionProvider", entity: PLAN_PROVIDER, ...mockProvider });
   r.nav({
     id: "subscription-plans",
     label: i18nKey("subscription-plans.nav.plans"),

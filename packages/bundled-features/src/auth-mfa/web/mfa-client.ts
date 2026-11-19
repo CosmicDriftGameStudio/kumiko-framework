@@ -6,7 +6,6 @@
 // false, error}) because auth-routes.ts uses mintSessionAndRespond() for both
 // routes.
 
-// kumiko-lint-ignore cross-feature-import client-only types, the feature's server barrel has no web/ re-export
 import {
   failureFromErrorField,
   type LoginFailure,

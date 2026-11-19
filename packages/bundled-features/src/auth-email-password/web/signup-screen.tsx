@@ -6,8 +6,8 @@
 // is already registered (the server then sends the same email with the
 // existing token from Redis, making the request idempotent).
 //
-// The app is responsible for mounting the screen at a URL (e.g.
-// /signup) and making it anonymously reachable (AuthPathGate before
+// DefaultAuthPagesGate serves this screen at /signup; apps without that gate
+// mount it themselves and make it anonymously reachable (AuthPathGate before
 // AuthGate). An apex marketing site can route its "Start for free" link to
 // the /signup path.
 
@@ -23,6 +23,7 @@ import { retryAfterMinutes } from "./auth-form-logic.ts";
 import { AuthCard } from "./auth-form-primitives.tsx";
 import { resolveReturnTo } from "./auth-redirect.ts";
 import { AuthQueries } from "./constants.ts";
+import { hasLikelyAuthSession } from "./session.tsx";
 
 export type SignupScreenProps = {
   readonly title?: string;
@@ -164,6 +165,40 @@ function SignupScreenWithQueriedStatus(props: SignupScreenProps): ReactNode {
   const { data, loading } = useQuery<RegistrationStatus>(AuthQueries.signupRegistrationStatus, {});
   const registrationOpen = loading && data === null ? "unknown" : data?.enabled !== false;
   return <SignupScreenBody {...props} registrationOpen={registrationOpen} />;
+}
+
+function DefaultSignupRouteWithStatus({
+  loginHref,
+  children,
+}: {
+  readonly loginHref: string;
+  readonly children: ReactNode;
+}): ReactNode {
+  const { data, loading, error } = useQuery<RegistrationStatus>(
+    AuthQueries.signupRegistrationStatus,
+    {},
+  );
+  // The query exists only when the server mounts signup; without it /signup does not belong to the FW.
+  if (error !== null) return <>{children}</>;
+  if (loading && data === null) return null;
+  return <SignupScreenBody loginHref={loginHref} registrationOpen={data?.enabled !== false} />;
+}
+
+// /signup route of the default auth pages: signed-in visitors land in the app,
+// and an app whose server has no signup keeps its own /signup.
+export function DefaultSignupRoute({
+  loginHref,
+  children,
+}: {
+  readonly loginHref: string;
+  readonly children: ReactNode;
+}): ReactNode {
+  const dispatcher = useOptionalDispatcher();
+  if (hasLikelyAuthSession()) return <>{children}</>;
+  if (dispatcher === undefined) return <SignupScreenBody loginHref={loginHref} registrationOpen />;
+  return (
+    <DefaultSignupRouteWithStatus loginHref={loginHref}>{children}</DefaultSignupRouteWithStatus>
+  );
 }
 
 // Without a mounted dispatcher (standalone mounts, tests) the status is not asked and the form shows.

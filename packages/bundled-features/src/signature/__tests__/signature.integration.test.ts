@@ -1,13 +1,9 @@
 // Real stack over HTTP: the signed-in handlers run as a tenant user, the link handlers as an
-// anonymous caller in the default tenant. The print function is an injected stand-in that returns a
-// real PDF and records the HTML it was given; the HTTP client behind the real one has its own test.
+// anonymous caller in the default tenant. The print service is a real local HTTP stub that returns a
+// real PDF and records the HTML it was given.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import {
-  createEventStoreExecutor,
-  createTenantDb,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { createEventStoreExecutor, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createEntityExecutor,
@@ -26,27 +22,48 @@ import {
 } from "@cosmicdrift/kumiko-framework/files";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createRecordingProvider,
+  createTenantDb,
+  resetTestTables,
+  seedRowViaEventStore,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { PDFDocument } from "pdf-lib";
 import * as z from "zod";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
+import {
+  configValuesTable,
+  createConfigAccessorFactory,
+  createConfigFeature,
+  createConfigResolver,
+} from "../../config/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { createRendererFoundationFeature } from "../../renderer-foundation/index.ts";
+import { renderedPdfEntity } from "../../renderer-puppeteer-client/entity.ts";
+import { createRendererPuppeteerClientFeature } from "../../renderer-puppeteer-client/feature.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
+import {
+  createTemplateResolverFeature,
+  templateResourceEntity,
+} from "../../template-resolver/index.ts";
+import { createTenantFeature, tenantEntity, tenantMembershipsTable } from "../../tenant/index.ts";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { createUserDataRightsFeature } from "../../user-data-rights/feature.ts";
 import {
-  requestExecutor,
   signatureRequestEntity,
   signatureRequestTable,
   signatureSignerEntity,
   signatureSignerTable,
+  signerExecutor,
+  ungatedRequestExecutor,
 } from "../entity.ts";
 import { createSignatureFeature } from "../feature.ts";
 import { signSignatureLinkToken } from "../grant.ts";
@@ -57,10 +74,13 @@ import {
   SIGNATURE_MAX_LINK_OPENS,
   SIGNATURE_REQUEST_ENTITY,
   SIGNATURE_SIGNER_ENTITY,
+  SIGNATURE_SIGNER_STATUS,
   SignatureEvents,
   SignatureHandlers,
+  SignatureInternalHandlers,
   SignatureJobs,
 } from "../web/constants.ts";
+import { leaseHostFeature, seedLease } from "./lease-host.ts";
 import { makePng, toBase64 } from "./png-fixture.ts";
 
 const LINK_SECRET = "signature-test-link-secret-0123456789";
@@ -70,13 +90,22 @@ const SIGNATURE = toBase64(makePng());
 const NON_WIN_ANSI_NAME = "Žofia Şahin 山田";
 
 const provider = createInMemoryFileProvider();
+const recorder = createRecordingProvider();
 let stack: TestStack;
 let printerDown = false;
+let printerRejectsSize = false;
 let whilePrinting: (() => Promise<void>) | null = null;
 const deliveredLinks = new Map<string, string>();
 const deliveredBy = new Map<string, { readonly issuerId: string }>();
 const failDeliveryFor = new Set<string>();
 const stubRequests: Array<{ html: string }> = [];
+const SERVICE_TOKEN = "signature-test-service-token";
+const ENV_KEYS = [
+  "PUPPETEER_SERVICE_URL",
+  "PUPPETEER_AUTH_TOKEN",
+  "PUPPETEER_CLIENT_MAX_RETRIES",
+] as const;
+const savedEnv = new Map<string, string | undefined>();
 let ipCounter = 0;
 
 const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
@@ -84,20 +113,19 @@ const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
 });
 
 const deliveryOutboxEntity = createEntity({
+  name: "deliveryOutbox",
   table: "signature_test_delivery_outbox",
   fields: {
     signerId: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const { executor: deliveryOutboxExecutor, table: deliveryOutboxTable } = createEntityExecutor(
-  "deliveryOutbox",
-  deliveryOutboxEntity,
-);
+const { executor: deliveryOutboxExecutor, table: deliveryOutboxTable } =
+  createEntityExecutor(deliveryOutboxEntity);
 const DELIVERY_OUTBOX_ENQUEUE = "delivery-outbox-test:write:enqueue";
 
 // Stands in for the app's own mail write that deliverLink dispatches.
 const deliveryOutboxFeature = defineFeature("delivery-outbox-test", (r) => {
-  r.entity({ name: "deliveryOutbox", ...deliveryOutboxEntity });
+  r.entity(deliveryOutboxEntity);
   r.writeHandler({
     name: "enqueue",
     schema: z.object({ signerId: z.string() }),
@@ -117,11 +145,38 @@ async function onePagePdf(): Promise<Uint8Array> {
   return pdf.save();
 }
 
+const stubService = Bun.serve({
+  port: 0,
+  async fetch(request) {
+    const { pathname } = new URL(request.url);
+    if (
+      pathname !== "/render" ||
+      request.headers.get("Authorization") !== `Bearer ${SERVICE_TOKEN}`
+    ) {
+      return new Response("unauthorized", { status: 401 });
+    }
+    if (printerRejectsSize) {
+      return Response.json({ error: "signature page above the service limit" }, { status: 413 });
+    }
+    if (printerDown) {
+      return Response.json({ error: "print service unavailable" }, { status: 503 });
+    }
+    const body: { html: string } = await request.json();
+    stubRequests.push({ html: body.html });
+    await whilePrinting?.();
+    return new Response((await onePagePdf()).slice(), {
+      headers: { "Content-Type": "application/pdf" },
+    });
+  },
+});
+const STUB_URL = `http://127.0.0.1:${stubService.port}`;
+
 function printedHtml(): string[] {
   return stubRequests.map((request) => request.html);
 }
 
 beforeAll(async () => {
+  const resolver = createConfigResolver();
   stack = await setupTestStack({
     features: [
       createUserFeature(),
@@ -132,15 +187,16 @@ beforeAll(async () => {
       createUserDataRightsFeature(),
       createFilesFeature(),
       deliveryOutboxFeature,
+      leaseHostFeature,
+      createConfigFeature(),
+      createTenantFeature(),
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      createRendererPuppeteerClientFeature(),
       createSignatureFeature({
-        retention: { keepFor: "10y" },
+        hostEntities: ["lease"],
+        retention: { keepFor: "10y", unfinishedKeepFor: "0h" },
         linkSecret: LINK_SECRET,
-        renderHtmlToPdf: async (html) => {
-          if (printerDown) throw new Error("print service unavailable");
-          stubRequests.push({ html });
-          await whilePrinting?.();
-          return onePagePdf();
-        },
         signaturePageUrl: "https://app.example/sign",
         deliverLink: async (ctx, { signerId, url, issuedBy }) => {
           deliveredLinks.set(signerId, url);
@@ -152,11 +208,20 @@ beforeAll(async () => {
       }),
     ],
     files: { storageProvider: provider },
+    extraContext: (deps) => ({
+      configResolver: resolver,
+      configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
+    }),
     jobs: { consumerLane: "worker", getActiveTenantIds: async () => [TENANT] },
     anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
     trustedProxyHops: 1,
+    observability: recorder,
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, templateResourceEntity, "template-resource");
+  await unsafeCreateEntityTable(stack.db, tenantEntity, "tenant");
+  await unsafeCreateEntityTable(stack.db, renderedPdfEntity, "rendered-pdf");
+  await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
   await unsafeCreateEntityTable(stack.db, deliveryOutboxEntity, "deliveryOutbox");
   await unsafeCreateEntityTable(stack.db, signatureRequestEntity, SIGNATURE_REQUEST_ENTITY);
   await unsafeCreateEntityTable(stack.db, signatureSignerEntity, SIGNATURE_SIGNER_ENTITY);
@@ -164,10 +229,25 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await stack.cleanup();
+  await stubService.stop(true);
+});
+
+afterEach(() => {
+  for (const key of ENV_KEYS) {
+    const saved = savedEnv.get(key);
+    if (saved === undefined) delete process.env[key];
+    else process.env[key] = saved;
+  }
 });
 
 beforeEach(async () => {
+  for (const key of ENV_KEYS) savedEnv.set(key, process.env[key]);
+  process.env["PUPPETEER_SERVICE_URL"] = STUB_URL;
+  process.env["PUPPETEER_AUTH_TOKEN"] = SERVICE_TOKEN;
+  process.env["PUPPETEER_CLIENT_MAX_RETRIES"] = "0";
+  recorder.reset();
   printerDown = false;
+  printerRejectsSize = false;
   whilePrinting = null;
   stubRequests.length = 0;
   deliveredLinks.clear();
@@ -233,6 +313,8 @@ async function requestSignatures(signerNames: readonly string[]): Promise<Reques
       title: "Rental agreement",
       subjectType: "lease",
       subjectId: "lease-1",
+      hostType: "lease",
+      hostId: await seedLease(stack.db, TENANT, USER),
       signers: signerNames.map((name, index) => ({ name, email: `signer${index}@example.test` })),
     },
     USER,
@@ -293,6 +375,35 @@ async function runSweep(): Promise<void> {
   if (!runner) throw new Error("setupTestStack({ jobs }) did not wire a jobRunner");
   await runner.dispatch(SignatureJobs.sweep, { tenantId: TENANT });
   await stack.drainJobs();
+}
+
+async function runEraseUnfinished(): Promise<void> {
+  const runner = stack.jobRunner;
+  if (!runner) throw new Error("setupTestStack({ jobs }) did not wire a jobRunner");
+  await runner.dispatch(SignatureJobs.eraseUnfinishedSigners, { tenantId: TENANT });
+  await stack.drainJobs();
+}
+
+function reconcileSpanCount(): number {
+  return recorder
+    .spansByName("kumiko.dispatcher.handler")
+    .filter((span) => span.attributes["kumiko.handler"] === SignatureInternalHandlers.reconcile)
+    .length;
+}
+
+async function markSignedOutsideTheSignHandler(signerId: string): Promise<void> {
+  const result = await signerExecutor.update(
+    { id: signerId, changes: { status: SIGNATURE_SIGNER_STATUS.Signed } },
+    createSystemUser(TENANT),
+    createTenantDb({
+      db: stack.db,
+      tenantId: TENANT,
+      mode: "system",
+      reason: "test signs without the sign handler, so only the sweep can advance the request",
+    }),
+    { skipOptimisticLock: true },
+  );
+  expect(result.isSuccess).toBe(true);
 }
 
 async function signInPerson(signerId: string) {
@@ -407,6 +518,22 @@ describe("signature :: request to completed document", () => {
 });
 
 describe("signature :: unrecoverable finalisation", () => {
+  test("a signature page above the renderer limit ends the request as failed, once", async () => {
+    const { requestId, signerIds } = await requestSignatures(["Ada"]);
+    await signInPerson(signerIds[0] as string);
+    expect((await requestRow(requestId))["status"]).toBe("all-signed");
+
+    printerRejectsSize = true;
+    await runSweep();
+    await runSweep();
+
+    expect((await requestRow(requestId))["status"]).toBe("failed");
+    const failed = await eventsOfType(SignatureEvents.failed);
+    expect(failed).toHaveLength(1);
+    expect(failed[0]?.["payload"]).toMatchObject({ reason: "signature-page-too-large" });
+    expect(await eventsOfType(SignatureEvents.completed)).toHaveLength(0);
+  });
+
   test("a changed original ends the all-signed request as failed, once", async () => {
     const { requestId, signerIds } = await requestSignatures(["Ada"]);
     await signInPerson(signerIds[0] as string);
@@ -456,7 +583,7 @@ describe("signature :: unrecoverable finalisation", () => {
 });
 
 describe("signature :: links", () => {
-  test("every rejection answers the same: forged, revoked, expired, used up, already signed", async () => {
+  test("every rejection answers the same: forged, signed with another secret, revoked, expired, used up, already signed", async () => {
     const { signerIds } = await requestSignatures(["Ada", "Grace", "Alan", "Linus"]);
     const [forgedFor, revokedFor, signedFor, expiredFor] = signerIds as [
       string,
@@ -475,6 +602,14 @@ describe("signature :: links", () => {
         imagePngBase64: SIGNATURE,
       }),
     );
+    await issueLink(forgedFor);
+    const foreignSecretToken = signSignatureLinkToken({
+      tenantId: TENANT,
+      signerId: forgedFor,
+      linkAnchor: String((await signerRow(forgedFor))["linkAnchor"]),
+      secret: "another-signature-link-secret-0123456789",
+      now: Temporal.Now.instant(),
+    }).token;
     await issueLink(expiredFor);
     const expiredAnchor = String((await signerRow(expiredFor))["linkAnchor"]);
     const expiredToken = signSignatureLinkToken({
@@ -486,7 +621,14 @@ describe("signature :: links", () => {
     }).token;
 
     const answers: Answer[] = [];
-    for (const token of [forged, revokedToken, signedToken, expiredToken, "garbage"]) {
+    for (const token of [
+      forged,
+      foreignSecretToken,
+      revokedToken,
+      signedToken,
+      expiredToken,
+      "garbage",
+    ]) {
       answers.push(await answer(await anonymous(SignatureHandlers.openByLink, { token })));
       answers.push(
         await answer(
@@ -503,6 +645,9 @@ describe("signature :: links", () => {
         key === "requestId" || key === "timestamp" ? undefined : value,
       );
     for (const each of answers) expect(withoutTrace(each)).toBe(withoutTrace(first));
+    // Only the contract "same answer, no effect" is shown here; that the check precedes the tenant
+    // switch is covered by the unit tests in shared/row-bound-grant.test.ts.
+    expect((await signerRow(forgedFor))["viewCount"]).toBe(0);
   });
 
   test("a failing deliverLink rolls back its own write and the new link anchor", async () => {
@@ -647,7 +792,7 @@ describe("signature :: outcomes", () => {
       mode: "system",
       reason: "test moves the deadline into the past",
     });
-    const moved = await requestExecutor.update(
+    const moved = await ungatedRequestExecutor.update(
       { id: requestId, changes: { expiresAt: Temporal.Now.instant().subtract({ hours: 1 }) } },
       createSystemUser(TENANT),
       db,
@@ -662,6 +807,22 @@ describe("signature :: outcomes", () => {
     expect(await eventsOfType(SignatureEvents.expired)).toHaveLength(1);
     const opened = await answer(await anonymous(SignatureHandlers.openByLink, { token }));
     expect(opened.status).toBe(422);
+  });
+
+  test("the sweep reconciles an open request only once every signer has signed", async () => {
+    const { requestId, signerIds } = await requestSignatures(["Ada", "Bob"]);
+    await markSignedOutsideTheSignHandler(signerIds[0] as string);
+    recorder.reset();
+    await runSweep();
+    expect(reconcileSpanCount()).toBe(0);
+    expect((await requestRow(requestId))["status"]).toBe("open");
+
+    await markSignedOutsideTheSignHandler(signerIds[1] as string);
+    recorder.reset();
+    await runSweep();
+    expect(reconcileSpanCount()).toBe(1);
+    // No signature images were stored, so the finalize step of the same sweep fails the request.
+    expect((await requestRow(requestId))["status"]).toBe("failed");
   });
 });
 
@@ -720,6 +881,8 @@ describe("signature :: boundaries", () => {
         title: "Notes",
         subjectType: "lease",
         subjectId: "lease-1",
+        hostType: "lease",
+        hostId: await seedLease(stack.db, TENANT, USER),
         signers: [{ name: "Ada" }],
       },
       USER,
@@ -735,6 +898,8 @@ describe("signature :: boundaries", () => {
         title: "Locked",
         subjectType: "lease",
         subjectId: "lease-1",
+        hostType: "lease",
+        hostId: await seedLease(stack.db, TENANT, USER),
         signers: [{ name: "Ada" }],
       },
       USER,
@@ -796,6 +961,8 @@ describe("signature :: user data rights", () => {
         title: "Rental agreement",
         subjectType: "lease",
         subjectId: "lease-1",
+        hostType: "lease",
+        hostId: await seedLease(stack.db, TENANT, USER),
         signers: [
           { name: "Ada", email: "Ada@Example.test" },
           { name: "Grace", email: "grace@example.test" },
@@ -803,7 +970,7 @@ describe("signature :: user data rights", () => {
       },
       USER,
     );
-    const [ada, grace] = signerIds as [string, string];
+    const [ada, grace] = twoSignerIds({ requestId, signerIds });
     await signInPerson(ada);
     return { requestId, ada, grace };
   }
@@ -885,3 +1052,76 @@ describe("signature :: user data rights", () => {
     expect(printedHtml()).toHaveLength(0);
   });
 });
+
+describe("signature :: signers without an account", () => {
+  async function imageIsDeleted(imageFileId: string): Promise<boolean> {
+    const [ref] = await selectMany<{ isDeleted: boolean }>(stack.db, fileRefsTable, {
+      id: imageFileId,
+    });
+    return ref?.isDeleted ?? true;
+  }
+
+  test("the retention job anonymizes the signers of a cancelled request and leaves an open one alone", async () => {
+    const cancelled = await requestSignatures(["Ada", "Grace"]);
+    const [ada, grace] = twoSignerIds(cancelled);
+    await signInPerson(ada);
+    const imageFileId = String((await signerRow(ada))["imageFileId"]);
+    await stack.http.writeOk(SignatureHandlers.cancel, { requestId: cancelled.requestId }, USER);
+    const open = await requestSignatures(["Linus"]);
+
+    await runEraseUnfinished();
+
+    const anonymized = await signerRow(ada);
+    expect(anonymized["name"]).toBe("anonymized");
+    expect(anonymized["imageFileId"]).toBeNull();
+    expect(anonymized["signedFromIp"]).toBeNull();
+    expect(anonymized["status"]).toBe("signed");
+    expect((await signerRow(grace))["name"]).toBe("anonymized");
+    expect(await imageIsDeleted(imageFileId)).toBe(true);
+    expect((await signerRow(firstSignerId(open)))["name"]).toBe("Linus");
+    expect((await requestRow(cancelled.requestId))["status"]).toBe("cancelled");
+
+    const updates = (await eventsOfType(`${SIGNATURE_SIGNER_ENTITY}.updated`)).length;
+    await runEraseUnfinished();
+    expect((await eventsOfType(`${SIGNATURE_SIGNER_ENTITY}.updated`)).length).toBe(updates);
+  });
+
+  test("a TenantAdmin forgets a signer without an account: row, image and the open request", async () => {
+    const { requestId, signerIds } = await requestSignatures(["Ada", "Grace"]);
+    const [ada, grace] = twoSignerIds({ requestId, signerIds });
+    await signInPerson(ada);
+    const imageFileId = String((await signerRow(ada))["imageFileId"]);
+
+    await stack.http.writeOk(SignatureHandlers.forgetSigner, { signerId: ada }, USER);
+
+    expect(await selectMany(stack.db, signatureSignerTable, { id: ada })).toHaveLength(0);
+    expect(await imageIsDeleted(imageFileId)).toBe(true);
+    expect((await requestRow(requestId))["status"]).toBe("cancelled");
+    expect((await signerRow(grace))["name"]).toBe("Grace");
+  });
+
+  test("a TenantMember cannot forget a signer", async () => {
+    const member = createTestUser({ id: 2, tenantId: TENANT, roles: ["TenantMember"] });
+    const {
+      signerIds: [signerId],
+    } = await requestSignatures(["Ada"]);
+    if (signerId === undefined) throw new Error("request created no signer");
+
+    const error = await stack.http.writeErr(SignatureHandlers.forgetSigner, { signerId }, member);
+
+    expect(error.httpStatus).toBe(403);
+    expect((await signerRow(signerId))["name"]).toBe("Ada");
+  });
+});
+
+function firstSignerId(data: RequestData): string {
+  const [first] = data.signerIds;
+  if (first === undefined) throw new Error("request created no signer");
+  return first;
+}
+
+function twoSignerIds(data: RequestData): [string, string] {
+  const [first, second] = data.signerIds;
+  if (first === undefined || second === undefined) throw new Error("request needs two signers");
+  return [first, second];
+}

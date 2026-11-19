@@ -7,7 +7,9 @@ import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityDeleteHandler,
+  defineEntityUpdateHandler,
   defineFeature,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -29,6 +31,7 @@ import { createAuditFeature } from "../feature.ts";
 import { AUDIT_LOG_SCREEN_ID, AuditQueries } from "../web/constants.ts";
 
 const widgetEntity = createEntity({
+  name: "widget",
   table: "audit_widgets",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
@@ -37,14 +40,11 @@ const widgetEntity = createEntity({
 });
 
 const widgetFeature = defineFeature("widgets", (r) => {
-  r.entity({ name: "widget", ...widgetEntity });
-  for (const verb of ["create", "update", "delete"] as const) {
-    r.writeHandler(
-      defineEntityWriteHandler(`widget:${verb}`, widgetEntity, {
-        access: { roles: ["Admin", "User", "SystemAdmin"] },
-      }),
-    );
-  }
+  r.entity(widgetEntity);
+  const widgetAccess = { access: { roles: ["Admin", "User", "SystemAdmin"] } };
+  r.writeHandler(defineEntityCreateHandler("widget", widgetEntity, widgetAccess));
+  r.writeHandler(defineEntityUpdateHandler("widget", widgetEntity, widgetAccess));
+  r.writeHandler(defineEntityDeleteHandler("widget", widgetEntity, widgetAccess));
 });
 
 let stack: TestStack;
@@ -442,11 +442,11 @@ describe("audit: list query", () => {
     // metadata carries the actor (userId) for the write.
     expect(created?.metadata).toMatchObject({ userId: admin.id });
 
-    // updated: payload is { changes, previous } — both halves matter for audit.
+    // updated: payload is { changes, previous }; previous holds only the old values of the changed keys.
     expect(updated?.type).toBe("widget.updated");
     expect(updated?.payload).toMatchObject({
       changes: { color: "yellow" },
-      previous: expect.objectContaining({ color: "green", name: "Auditable" }),
+      previous: { color: "green" },
     });
     expect(updated?.metadata).toMatchObject({ userId: admin.id });
   });

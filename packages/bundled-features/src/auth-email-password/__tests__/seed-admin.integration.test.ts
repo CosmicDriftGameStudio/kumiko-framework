@@ -13,7 +13,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable, type StoredEvent } from "@cosmicdrift/kumiko-framework/event-store";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -171,7 +171,7 @@ describe("seedAdmin", () => {
     expect(memberships).toHaveLength(1);
 
     // Exactly one .created event per aggregate type.
-    const events = await selectMany(stack.db, eventsTable);
+    const events = await selectMany<StoredEvent>(stack.db, eventsTable);
     const createdByType = events
       .filter((e) => e.type.endsWith(".created"))
       .reduce<Record<string, number>>((acc, e) => {

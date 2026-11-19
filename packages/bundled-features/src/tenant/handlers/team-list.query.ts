@@ -4,21 +4,16 @@ import {
   definePagedQueryHandler,
   MAX_LIST_LIMIT,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
+import { mapWithConcurrency, parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { userSessionTable } from "../../sessions/index.ts";
-import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.ts";
+import { decryptStoredPii, KMS_POOL_CONCURRENCY } from "../../shared/index.ts";
 import { userTable } from "../../user/index.ts";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.ts";
 import { tenantMembershipsTable } from "../membership-table.ts";
-import {
-  decryptMemberUsers,
-  KMS_POOL_CONCURRENCY,
-  type MemberUserRow,
-} from "./decrypt-member-users.ts";
+import { decryptMemberUsers, type MemberUserRow } from "./decrypt-member-users.ts";
 
 type TeamStatus = "active" | "pending";
 
@@ -103,16 +98,12 @@ export const teamListQuery = definePagedQueryHandler({
       .optional(),
   }),
   access: { roles: access.admin },
+  systemScope: true,
   description:
     "Pages through the caller's tenant team as one list of active members and pending invitations, with email, display name, roles, last-seen time and a status of active or pending, sortable and filterable by status.",
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "tenant:query:team:list requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
-      });
-    }
-    const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
+    const { systemDb } = ctx;
+    const db = systemDb.assertTenantMatch(query.user.tenantId);
     const tenantId = query.user.tenantId;
 
     const membershipRows = await selectMany(db, tenantMembershipsTable, { tenantId });
@@ -126,15 +117,18 @@ export const teamListQuery = definePagedQueryHandler({
         const sessions = await selectMany<{ userId: unknown; lastSeenAt: unknown }>(
           db,
           userSessionTable,
-          { tenantId, userId: userIds },
+          { tenantId, userId: userIds, lastSeenAt: { ne: null } },
+          {
+            fields: ["userId", "lastSeenAt"],
+            distinctOn: ["userId"],
+            // NULL sorts first on DESC in Postgres, hence the ne: null filter above.
+            orderBy: [{ col: "userId" }, { col: "lastSeenAt", direction: "desc" }],
+          },
         );
         for (const session of sessions) {
           const value = session["lastSeenAt"];
-          if (!(value instanceof Temporal.Instant)) continue;
-          const userId = String(session["userId"]);
-          const current = lastSeenByUserId.get(userId);
-          if (current === undefined || Temporal.Instant.compare(value, current) > 0) {
-            lastSeenByUserId.set(userId, value);
+          if (value instanceof Temporal.Instant) {
+            lastSeenByUserId.set(String(session["userId"]), value);
           }
         }
       } catch (err) {
@@ -216,7 +210,7 @@ export const teamListQuery = definePagedQueryHandler({
     // sync by both tenant-membership and tenant-invitation events), not a
     // cursor bolted onto this merge. Upgrade path: r.multiStreamProjection({
     // name, apply }) — see custom-fields/wire-for-entity.ts,
-    // feature-toggles/feature.ts, step-dispatcher/feature.ts.
+    // feature-toggles/feature.ts.
     const search = query.payload.search?.trim().toLowerCase();
     const merged = [...memberRows, ...invitationRows].filter((row) => {
       if (search === undefined || search === "") return true;

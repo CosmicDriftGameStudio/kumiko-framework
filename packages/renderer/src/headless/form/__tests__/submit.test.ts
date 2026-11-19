@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import * as z from "zod";
+import { createMockDispatcher, type MockWriteHandler } from "../../../testing.ts";
 import type { Dispatcher, WriteResult } from "../../dispatcher/index.ts";
-import { createStore } from "../../store/index.ts";
 import { createFormController } from "../form-controller.ts";
 
 // Fake dispatcher scoped to this test file — same shape as contract.test.ts
@@ -9,22 +9,16 @@ import { createFormController } from "../form-controller.ts";
 function makeDispatcher(response?: WriteResult): Dispatcher & {
   readonly writeSpy: ReturnType<typeof mock>;
 } {
-  const writeSpy = mock(
+  const writeSpy = mock<MockWriteHandler>(
     async () => response ?? ({ isSuccess: true, data: { id: "srv-1" } } as WriteResult),
   );
   return {
+    ...createMockDispatcher({
+      write: writeSpy,
+      query: async () => ({ isSuccess: true, data: null }),
+      batch: async () => ({ isSuccess: true, results: [] }),
+    }),
     writeSpy,
-    write: writeSpy as unknown as Dispatcher["write"],
-    async query<TData>() {
-      return { isSuccess: true, data: null } as unknown as { isSuccess: true; data: TData };
-    },
-    async batch() {
-      return { isSuccess: true, results: [] };
-    },
-    async *stream() {},
-    statusStore: createStore("online"),
-    pendingWrites: () => [],
-    pendingFiles: () => [],
   };
 }
 
@@ -428,19 +422,11 @@ describe("createFormController — submit()", () => {
     const slowResponse = new Promise<WriteResult>((r) => {
       resolve = r;
     });
-    const disp: Dispatcher = {
-      write: (async () => slowResponse) as unknown as Dispatcher["write"],
-      async query<TData>() {
-        return { isSuccess: true, data: null } as unknown as { isSuccess: true; data: TData };
-      },
-      async batch() {
-        return { isSuccess: true as const, results: [] };
-      },
-      statusStore: createStore("online"),
-      async *stream() {},
-      pendingWrites: () => [],
-      pendingFiles: () => [],
-    };
+    const disp: Dispatcher = createMockDispatcher({
+      write: async () => slowResponse,
+      query: async () => ({ isSuccess: true, data: null }),
+      batch: async () => ({ isSuccess: true, results: [] }),
+    });
 
     const form = createFormController({
       initial: { title: "" },
@@ -536,19 +522,11 @@ describe("createFormController — submit()", () => {
     const slow = new Promise<WriteResult>((r) => {
       resolve = r;
     });
-    const disp: Dispatcher = {
-      write: mock(async () => slow) as unknown as Dispatcher["write"],
-      async query<TData>() {
-        return { isSuccess: true, data: null } as unknown as { isSuccess: true; data: TData };
-      },
-      async batch() {
-        return { isSuccess: true as const, results: [] };
-      },
-      statusStore: createStore("online"),
-      async *stream() {},
-      pendingWrites: () => [],
-      pendingFiles: () => [],
-    };
+    const disp: Dispatcher = createMockDispatcher({
+      write: mock<MockWriteHandler>(async () => slow),
+      query: async () => ({ isSuccess: true, data: null }),
+      batch: async () => ({ isSuccess: true, results: [] }),
+    });
 
     let buildCalls = 0;
     const form = createFormController({

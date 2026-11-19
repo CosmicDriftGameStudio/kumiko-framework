@@ -49,10 +49,10 @@ const listScreen: EntityListScreenDefinition = {
 
 function makeDispatcher(): Dispatcher {
   return createMockDispatcher({
-    query: (async () => ({
+    query: async () => ({
       isSuccess: true,
       data: { rows: [], nextCursor: null },
-    })) as unknown as Dispatcher["query"],
+    }),
   });
 }
 
@@ -174,8 +174,8 @@ describe("createKumikoApp", () => {
     mountRoot();
     await mountApp({ schema: baseSchema, dispatcher: makeDispatcher() });
     // First screen is entityEdit → form with the title field.
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
-    expect(screen.getByTestId("field-title")).toBeTruthy();
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    screen.getByTestId("field-title");
   });
 
   test("screenWidth option reaches the form shell; without it the shell keeps max-w-4xl", async () => {
@@ -189,7 +189,7 @@ describe("createKumikoApp", () => {
 
     mountRoot();
     await mountApp({ schema: cardSchema, dispatcher: makeDispatcher(), screenWidth: "full" });
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     expect(shellOf().className).toContain("max-w-full");
     expect(shellOf().className).not.toContain("max-w-4xl");
 
@@ -201,7 +201,7 @@ describe("createKumikoApp", () => {
 
     mountRoot();
     await mountApp({ schema: cardSchema, dispatcher: makeDispatcher() });
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     expect(shellOf().className).toContain("max-w-4xl");
   });
 
@@ -214,7 +214,7 @@ describe("createKumikoApp", () => {
     });
     // findBy* retries for the default timeout — lets the async useQuery
     // settle without us fishing for intermediate loading state.
-    expect(await screen.findByTestId("render-list-table-empty")).toBeTruthy();
+    await screen.findByTestId("render-list-table-empty");
   });
 
   // Per-role projected schemas can legitimately omit
@@ -227,7 +227,7 @@ describe("createKumikoApp", () => {
       dispatcher: makeDispatcher(),
       screenQn: "tasks:screen:does-not-exist",
     });
-    expect(await screen.findByTestId("kumiko-screen-not-found")).toBeTruthy();
+    await screen.findByTestId("kumiko-screen-not-found");
     expect(screen.queryByText(/does-not-exist/)).toBeNull();
   });
 
@@ -249,7 +249,7 @@ describe("createKumikoApp", () => {
         dispatcher: makeDispatcher(),
         navAdapter: () => memoryNav,
       });
-      expect(await screen.findByTestId("kumiko-screen-not-found")).toBeTruthy();
+      await screen.findByTestId("kumiko-screen-not-found");
       expect(screen.queryByText(/Screen not found/)).toBeNull();
       expect(screen.queryByText(/tasks:screen:releases/)).toBeNull();
       const warnings = warn.mock.calls.map((call) => String(call[0]));
@@ -271,7 +271,7 @@ describe("createKumikoApp", () => {
       rootId: "custom-root",
       dispatcher: makeDispatcher(),
     });
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     // And the default #root doesn't pick anything up.
     expect(document.getElementById("root")).toBeNull();
   });
@@ -303,7 +303,7 @@ describe("createKumikoApp", () => {
     await mountApp({ schema, dispatcher: makeDispatcher() });
     // Landing on user-list (SystemAdmin-only) would show an access-denied
     // banner instead — the tasks:task-edit form must win instead.
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
   });
 
   test("fallback screen: an openToAll screen counts as accessible", async () => {
@@ -326,7 +326,7 @@ describe("createKumikoApp", () => {
     };
     const schema: AppSchema = { features: [restrictedFeature, openFeature] };
     await mountApp({ schema, dispatcher: makeDispatcher() });
-    expect(await screen.findByTestId("render-list-table-empty")).toBeTruthy();
+    await screen.findByTestId("render-list-table-empty");
   });
 
   test("all screens access-restricted → throws (no accessible fallback)", () => {
@@ -399,7 +399,7 @@ describe("createKumikoApp", () => {
       clientFeatures: [{ name: "delivery", components: { "delivery-log": DeliveryLog } }],
     });
 
-    expect(await screen.findByTestId("delivery-log-mounted")).toBeTruthy();
+    await screen.findByTestId("delivery-log-mounted");
     expect(errorSpy).not.toHaveBeenCalledWith(expect.stringContaining("delivery:delivery-log"));
 
     errorSpy.mockRestore();
@@ -463,10 +463,10 @@ describe("createKumikoApp", () => {
     await mountApp({
       schema: conflictSchema,
       dispatcher: createMockDispatcher({
-        query: (async () => ({
+        query: async () => ({
           isSuccess: true,
           data: { rows: [{ id: "r1", color: "#ddd" }], nextCursor: null },
-        })) as unknown as Dispatcher["query"],
+        }),
       }),
       clientFeatures: [
         { name: "first", columnRenderers: { Swatch: FirstSwatch } },
@@ -475,7 +475,7 @@ describe("createKumikoApp", () => {
     });
 
     // Last wins: SecondSwatch is mounted, while FirstSwatch is not.
-    expect(await screen.findByTestId("ca-second")).toBeTruthy();
+    await screen.findByTestId("ca-second");
     expect(screen.queryByTestId("ca-first")).toBeNull();
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining('columnRenderer "Swatch" defined by multiple clientFeatures'),
@@ -503,10 +503,10 @@ describe("createKumikoApp", () => {
       ],
     };
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { rows: [{ id: "r1", title: "Alpha", color: "#a1b2c3" }], nextCursor: null },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const clientFeature: ClientFeatureDefinition = {
       name: "tasks",
@@ -520,7 +520,7 @@ describe("createKumikoApp", () => {
       clientFeatures: [clientFeature],
     });
 
-    expect(await screen.findByTestId("ca-swatch")).toBeTruthy();
+    await screen.findByTestId("ca-swatch");
     expect(screen.getByTestId("ca-swatch-value").textContent).toBe("#a1b2c3");
     expect(screen.getByTestId("ca-swatch-field").textContent).toBe("color");
   });
@@ -551,7 +551,7 @@ describe("createKumikoApp", () => {
       clientFeatures: [clientFeature],
     });
 
-    expect(await screen.findByTestId("ca-document-editor")).toBeTruthy();
+    await screen.findByTestId("ca-document-editor");
     expect(screen.getByTestId("ca-document-editor").textContent).toBe("hello");
   });
 
@@ -588,10 +588,10 @@ describe("createKumikoApp", () => {
       },
     };
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { value: "3" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     mountRoot();
@@ -601,7 +601,7 @@ describe("createKumikoApp", () => {
       locale: createStaticLocaleResolver({ locale: "en" }),
     });
 
-    await waitFor(() => expect(screen.getByText("Caps")).toBeTruthy());
+    await waitFor(() => screen.getByText("Caps"));
     expect(screen.queryByText("cap-counter:nav.cap-list")).toBeNull();
   });
 
@@ -638,10 +638,10 @@ describe("createKumikoApp", () => {
       },
     };
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { value: "3" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const override: ClientFeatureDefinition = {
       name: "cap-counter-app-override",
@@ -658,7 +658,7 @@ describe("createKumikoApp", () => {
       locale: createStaticLocaleResolver({ locale: "en" }),
     });
 
-    await waitFor(() => expect(screen.getByText("Quota")).toBeTruthy());
+    await waitFor(() => screen.getByText("Quota"));
     expect(screen.queryByText("Caps")).toBeNull();
   });
 
@@ -686,7 +686,7 @@ describe("createKumikoApp", () => {
       dispatcher: makeDispatcher(),
       navAdapter: () => memoryNav,
     });
-    expect(await screen.findByTestId("render-list-table-empty")).toBeTruthy();
+    await screen.findByTestId("render-list-table-empty");
     // And definitely not the edit screen, which would be the default landing.
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
   });
@@ -705,10 +705,10 @@ describe("createKumikoApp", () => {
 
     function makeRowDispatcher(): Dispatcher {
       return createMockDispatcher({
-        query: (async () => ({
+        query: async () => ({
           isSuccess: true,
           data: { rows: [{ id: "r1", title: "Alpha" }], nextCursor: null },
-        })) as unknown as Dispatcher["query"],
+        }),
       });
     }
 
@@ -726,12 +726,12 @@ describe("createKumikoApp", () => {
         screenQn: "tasks:screen:task-list",
         clientFeatures: [{ name: "tasks", components: { "task-detail": TaskDetailStub } }],
       });
-      await waitFor(() => expect(screen.getByTestId("row-r1")).toBeTruthy());
+      await waitFor(() => screen.getByTestId("row-r1"));
 
       fireEvent.click(screen.getByTestId("row-r1"));
 
       await waitFor(() => expect(window.location.pathname).toBe("/task-detail/r1"));
-      expect(await screen.findByTestId("task-detail-mounted")).toBeTruthy();
+      await screen.findByTestId("task-detail-mounted");
       expect(new URLSearchParams(window.location.search).get("returnTo")).toBe("task-list");
     });
 
@@ -743,7 +743,7 @@ describe("createKumikoApp", () => {
         dispatcher: makeRowDispatcher(),
         screenQn: "tasks:screen:task-list",
       });
-      await waitFor(() => expect(screen.getByTestId("row-r1")).toBeTruthy());
+      await waitFor(() => screen.getByTestId("row-r1"));
 
       fireEvent.click(screen.getByTestId("row-r1"));
 
@@ -768,7 +768,7 @@ describe("createKumikoApp", () => {
         onRowClick,
         clientFeatures: [{ name: "tasks", components: { "task-detail": TaskDetailStub } }],
       });
-      await waitFor(() => expect(screen.getByTestId("row-r1")).toBeTruthy());
+      await waitFor(() => screen.getByTestId("row-r1"));
 
       fireEvent.click(screen.getByTestId("row-r1"));
 
@@ -792,7 +792,7 @@ describe("createKumikoApp", () => {
         dispatcher: makeRowDispatcher(),
         screenQn: "tasks:screen:task-list",
       });
-      await waitFor(() => expect(screen.getByTestId("row-r1")).toBeTruthy());
+      await waitFor(() => screen.getByTestId("row-r1"));
 
       const row = screen.getByTestId("row-r1");
       expect(row.className).not.toContain("cursor-pointer");
@@ -811,7 +811,7 @@ describe("createKumikoApp", () => {
         dispatcher: makeRowDispatcher(),
         screenQn: "tasks:screen:task-list",
       });
-      await waitFor(() => expect(screen.getByTestId("row-r1")).toBeTruthy());
+      await waitFor(() => screen.getByTestId("row-r1"));
 
       expect(screen.getByTestId("row-r1").className).toContain("cursor-pointer");
     });
@@ -854,7 +854,7 @@ describe("createKumikoApp", () => {
       mountRoot();
       mockFetch(() => new Response(JSON.stringify(toAppSchema(baseSchema)), { status: 200 }));
       await mountApp({ schema: baseSchema, dispatcher: makeDispatcher() });
-      await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+      await waitFor(() => screen.getByTestId("render-edit-form"));
       expect(schemaCalls().length).toBe(0);
     });
 
@@ -862,7 +862,7 @@ describe("createKumikoApp", () => {
       mountRoot();
       mockFetch(() => new Response(JSON.stringify(toAppSchema(baseSchema)), { status: 200 }));
       await mountApp({ dispatcher: makeDispatcher() });
-      await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+      await waitFor(() => screen.getByTestId("render-edit-form"));
       expect(schemaCalls().length).toBe(1);
       expect(schemaCalls()[0]?.url).toBe(APP_SCHEMA_API_PATH);
       expect(schemaCalls()[0]?.init?.credentials).toBe("same-origin");
@@ -873,7 +873,7 @@ describe("createKumikoApp", () => {
       mockFetch(() => new Response(JSON.stringify(toAppSchema(baseSchema)), { status: 200 }));
       const schemaUrl = `https://api.example.com${APP_SCHEMA_API_PATH}`;
       await mountApp({ dispatcher: makeDispatcher(), schemaUrl });
-      await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+      await waitFor(() => screen.getByTestId("render-edit-form"));
       expect(schemaCalls().length).toBe(1);
       expect(schemaCalls()[0]?.url).toBe(schemaUrl);
       expect(schemaCalls()[0]?.init?.credentials).toBe("include");
@@ -883,9 +883,7 @@ describe("createKumikoApp", () => {
       mountRoot();
       mockFetch(() => new Response(null, { status: 401 }));
       await mountApp({ dispatcher: makeDispatcher() });
-      await waitFor(() =>
-        expect(screen.getByText("You need to sign in to see this.")).toBeTruthy(),
-      );
+      await waitFor(() => screen.getByText("You need to sign in to see this."));
       expect(schemaCalls().length).toBe(1);
       // A later, unrelated update must not re-trigger the fetch (no
       // accidental retry loop from an effect keyed on the wrong deps).
@@ -902,14 +900,14 @@ describe("createKumikoApp", () => {
         return new Response(JSON.stringify(toAppSchema(baseSchema)), { status: 200 });
       });
       await mountApp({ dispatcher: makeDispatcher() });
-      await waitFor(() => expect(screen.getByText(/Couldn't load the app/)).toBeTruthy());
+      await waitFor(() => screen.getByText(/Couldn't load the app/));
       expect(schemaCalls().length).toBe(1);
 
       await act(async () => {
         fireEvent.click(screen.getByText("Reload"));
       });
 
-      await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+      await waitFor(() => screen.getByTestId("render-edit-form"));
       expect(schemaCalls().length).toBe(2);
     });
 
@@ -917,7 +915,7 @@ describe("createKumikoApp", () => {
       mountRoot();
       mockFetch(() => new Response("{}", { status: 200 }));
       await mountApp({ dispatcher: makeDispatcher() });
-      await waitFor(() => expect(screen.getByText(/Couldn't load the app/)).toBeTruthy());
+      await waitFor(() => screen.getByText(/Couldn't load the app/));
     });
 
     test("200 with a schema that has no open screen → no-open-screen error, not a throw", async () => {
@@ -934,9 +932,7 @@ describe("createKumikoApp", () => {
       mockFetch(() => new Response(JSON.stringify(restrictedOnly), { status: 200 }));
       await mountApp({ dispatcher: makeDispatcher() });
       await waitFor(() =>
-        expect(
-          screen.getByText("This app has no screen that's accessible without a role restriction."),
-        ).toBeTruthy(),
+        screen.getByText("This app has no screen that's accessible without a role restriction."),
       );
     });
 
@@ -966,7 +962,7 @@ describe("createKumikoApp", () => {
         dispatcher: makeDispatcher(),
         clientFeatures: [{ name: "role-stub", providers: [SystemAdminRoleProvider] }],
       });
-      expect(await screen.findByTestId("render-list-table-empty")).toBeTruthy();
+      await screen.findByTestId("render-list-table-empty");
       expect(
         screen.queryByText("This app has no screen that's accessible without a role restriction."),
       ).toBeNull();
@@ -979,7 +975,7 @@ describe("createKumikoApp", () => {
         dispatcher: makeDispatcher(),
         clientFeatures: [{ name: "auth-stub", gates: [LoginPlaceholderGate] }],
       });
-      expect(await screen.findByTestId("login-placeholder")).toBeTruthy();
+      await screen.findByTestId("login-placeholder");
       expect(schemaCalls().length).toBe(0);
     });
 
@@ -1012,18 +1008,18 @@ describe("createKumikoApp", () => {
         dispatcher: makeDispatcher(),
         clientFeatures: [{ name: "toggle-stub", gates: [ToggleableGate] }],
       });
-      await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+      await waitFor(() => screen.getByTestId("render-edit-form"));
       expect(schemaCalls().length).toBe(1);
 
       await act(async () => {
         gateStore.setAllowed(false);
       });
-      expect(screen.getByTestId("gate-closed")).toBeTruthy();
+      screen.getByTestId("gate-closed");
 
       await act(async () => {
         gateStore.setAllowed(true);
       });
-      await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+      await waitFor(() => screen.getByTestId("render-edit-form"));
       expect(schemaCalls().length).toBe(2);
     });
   });

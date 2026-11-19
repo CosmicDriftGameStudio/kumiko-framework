@@ -18,6 +18,7 @@ import {
 } from "./engine/index.ts";
 
 import { ensureTemporalPolyfill } from "./time/index.ts";
+import { autoResolveUnaffected } from "./upgrade-affects.ts";
 import {
   mergeUpgradeSection,
   syncResolvedManualStatuses,
@@ -31,6 +32,7 @@ import {
 } from "./upgrade-cli-internals.ts";
 import {
   dedupeManualById,
+  MAX_RESOLVE_REASON_LENGTH,
   type ManualResolution,
   type MarkerCarry,
   manualEntryId,
@@ -338,8 +340,6 @@ type UpgradeMarker = {
   readonly resolvedManual?: readonly UpgradeMarkerResolvedManual[];
 };
 
-const MAX_RESOLVE_REASON_LENGTH = 500;
-
 // Breaking entries that need hand work carry the id `kumiko-upgrade --resolve` takes.
 function manualIdOf(entry: ChangelogEntry): string | undefined {
   return entry.type === "breaking" && needsManualMigration(entry)
@@ -574,7 +574,14 @@ async function applyCodemods(
         : "  ✓ No breaking changes pending.",
     );
     if (!dryRun) {
-      const carried = carryOverManual(previous, manualEntries.map(toMarkerManual));
+      const afterAffectsScan = autoResolveUnaffected(
+        out,
+        targetDir,
+        manualEntries,
+        previous,
+        Temporal.Now.instant().toString(),
+      );
+      const carried = carryOverManual(afterAffectsScan, manualEntries.map(toMarkerManual));
       writeUpgradeMarker(targetDir, {
         version: markerVersion,
         appliedAt: Temporal.Now.instant().toString(),
@@ -587,7 +594,7 @@ async function applyCodemods(
         pending,
         manualEntries,
         ran: [],
-        previous,
+        previous: afterAffectsScan,
       });
       out.log(`  ✓ Applied 0 codemod(s). Wrote ${join(targetDir, ".kumiko/upgrade-state.json")}`);
       logOpenManual(out, carried.pendingManual ?? [], manualDetails);
@@ -632,7 +639,14 @@ async function applyCodemods(
     return 0;
   }
 
-  const carried = carryOverManual(previous, manualEntries.map(toMarkerManual));
+  const afterAffectsScan = autoResolveUnaffected(
+    out,
+    targetDir,
+    manualEntries,
+    previous,
+    Temporal.Now.instant().toString(),
+  );
+  const carried = carryOverManual(afterAffectsScan, manualEntries.map(toMarkerManual));
   writeUpgradeMarker(targetDir, {
     version: markerVersion,
     appliedAt: Temporal.Now.instant().toString(),
@@ -645,7 +659,7 @@ async function applyCodemods(
     pending,
     manualEntries,
     ran,
-    previous,
+    previous: afterAffectsScan,
   });
   out.log(
     `  ✓ Applied ${ran.length} codemod(s). Wrote ${join(targetDir, ".kumiko/upgrade-state.json")}`,

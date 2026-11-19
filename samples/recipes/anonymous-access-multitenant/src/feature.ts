@@ -25,16 +25,17 @@ import {
 import { z } from "zod";
 
 export const productEntity = createEntity({
+  name: "product",
   table: "mt_products",
   fields: {
     name: createTextField({ personal: false, reason: "is_business_data", required: true }),
   },
 });
 
-export const productTable = buildEntityTable("product", productEntity);
+export const productTable = buildEntityTable(productEntity);
 
 export const multiTenantShopFeature = defineFeature("mtshop", (r) => {
-  r.entity({ name: "product", ...productEntity });
+  r.entity(productEntity);
 
   // Public listing — every tenant has its own products, scoped by tenantId
   // automatically via the framework's tenant-isolation. Anonymous visitors

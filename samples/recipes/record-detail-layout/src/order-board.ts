@@ -5,6 +5,10 @@ import { z } from "zod";
 
 export const ORDER_DETAIL_SCREEN_QN = "order-desk:screen:order-detail";
 
+export const accessRoles = { roles: ["Support", "Admin"] } as const;
+
+export const ORDER_LIST_QUERY = "order-desk:query:order:list";
+
 export const NAMED_FILTER_IDS = ["action-needed", "reminder-due", "ending-soon"] as const;
 export type OrderNamedFilterId = (typeof NAMED_FILTER_IDS)[number];
 

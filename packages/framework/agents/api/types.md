@@ -10,7 +10,7 @@ Types that appear in the signatures of the entry points but are not exported by 
 type SetupTestStackFromFeaturesOptions = Omit<TestStackOptions, "features"> & {
   includeBundled?: boolean;
   authOptions?: ComposeFeaturesOptions["authOptions"];
-  bundledLists?: ComposeFeaturesOptions["bundledLists"];
+  listDefaults?: ComposeFeaturesOptions["listDefaults"];
   presets?: TestStackPreset[];
 };
 type TestStackPreset = "config" | "template-resolver";
@@ -27,7 +27,7 @@ type AuthSessionCheckResult =
   }
 ;
 type AuthSessionChecker = (sid: string, expectedUserId: string) => Promise<AuthSessionCheckResult>;
-type AuthSessionStatus = "live" | "revoked" | "expired" | "missing" | "blocked";
+type AuthSessionStatus = "live" | "revoked" | "expired" | "missing" | "blocked" | "not_a_member";
 type TokenVerifier = (rawToken: string) => Promise<SessionUser | null>;
 ```
 
@@ -133,13 +133,15 @@ type AnonymousExtraRoute = {
   method: HttpRouteMethod;
   path: string;
   entry: "anonymous";
+  rateLimit?: HttpRouteRateLimit; // Same option and buckets as r.httpRoute's rateLimit, enforced through the server's shared rate-limit store before the body limit, verify() and the handler.
   handler: (c: Context<any, any>, deps: AnonymousExtraRouteDeps) => Response | Promise<Response>;
 };
 type AnonymousExtraRouteDeps = {
   app: Hono<any, any>;
   registry: Registry;
-  systemQuery: (type: string, payload: unknown, tenantId: TenantId) => Promise<unknown>;
-  write: (type: string, payload: unknown) => Promise<WriteResult>; // Runs as the session the /api chain resolved for this request — anonymous when no token is sent, the authenticated user otherwise.
+  systemQuery: ContractQuery<[ tenantId: TenantId ]>;
+  write: ContractWrite; // Runs as the session the /api chain resolved for this request — anonymous when no token is sent, the authenticated user otherwise.
+  query: ContractQuery; // Same caller and tenant contract as `write`: runs as the session the /api chain resolved for this request, so it can read exactly what that caller could read via /api/query, nothing more.
   clientIp: string; // Resolved by the server's single trustedProxyHops-aware resolver — never read X-Forwarded-For yourself.
 };
 type ExtraRouteDefinition = AnonymousExtraRoute | UserExtraRoute | SignatureExtraRoute<unknown>;
@@ -150,6 +152,8 @@ type SignatureExtraRoute<TVerified> = {
   method: HttpRouteMethod;
   path: string;
   entry: "signature";
+  rateLimit?: HttpRouteRateLimit; // Same option and buckets as r.httpRoute's rateLimit, enforced through the server's shared rate-limit store before the body limit, verify() and the handler.
+  verifiedRateLimit?: VerifiedRouteRateLimit<TVerified>; // Limit keyed by the verified caller, checked after verify() and before the handler through the server's shared rate-limit store.
   verify: (request: SignatureExtraRouteVerifyRequest, deps: SignatureExtraRouteVerifyDeps) => Promise<TVerified>;
   handler: (c: Context<any, any>, verified: TVerified, deps: SignatureExtraRouteDeps) => Response | Promise<Response>;
 };
@@ -157,7 +161,7 @@ type SignatureExtraRouteDeps = {
   app: Hono<any, any>;
   registry: Registry;
   secrets?: SecretsContext;
-  systemQuery: (type: string, payload: unknown, tenantId: TenantId) => Promise<unknown>;
+  systemQuery: ContractQuery<[ tenantId: TenantId ]>;
   dispatchSystemWrite: (args: SystemDispatchArgs) => Promise<WriteResult>; // Privilege scope: SystemAdmin of the target tenant, WITHOUT the route's access check — only reachable because verify() has already proven the caller's authenticity (signature, HMAC state, etc.).
   dispatchSystemQuery: (args: SystemDispatchArgs) => Promise<unknown>;
   dispatchWriteAs: (args: RoleDispatchArgs) => Promise<WriteResult>; // Same trust as dispatchSystemWrite, but runs as the tenant's system user with the "system" role plus exactly `roles` (no SystemAdmin), so the write passes app-role access checks.
@@ -181,14 +185,21 @@ type UserExtraRoute = {
   method: HttpRouteMethod;
   path: string;
   entry: "user";
+  rateLimit?: HttpRouteRateLimit; // Same option and buckets as r.httpRoute's rateLimit, enforced through the server's shared rate-limit store before the body limit, verify() and the handler.
   handler: (c: Context<any, any>, deps: UserExtraRouteDeps) => Response | Promise<Response>;
 };
 type UserExtraRouteDeps = {
   app: Hono<any, any>;
   registry: Registry;
   user: SessionUser;
-  query: (type: string, payload: unknown) => Promise<unknown>;
-  write: (type: string, payload: unknown) => Promise<WriteResult>;
+  query: ContractQuery;
+  write: ContractWrite;
+};
+type VerifiedRouteRateLimit<TVerified> = {
+  key: (verified: TVerified) => string; // Bucket key from what verify() proved (app id, tenant, account); one bucket per route and key.
+  limit: number;
+  windowSeconds: number;
+  rejectionBody?: (decision: RateLimitDecision) => unknown; // JSON body of the 429 (Retry-After and X-RateLimit headers are always set); default is the framework's rate_limited error.
 };
 ```
 
@@ -398,7 +409,6 @@ type Table = TableColumns;
 type EventStoreExecutorOptions = {
   searchAdapter?: SearchAdapter;
   entityName: string;
-  entityCache?: EntityCache;
   encryption?: EnvelopeCipher; // Override the boot-injected cipher for fields marked `encrypted: true`.
   kms?: LocalKeyKmsAdapter; // Override the boot-injected subject KMS for pii-annotated fields.
 };
@@ -410,6 +420,29 @@ type EventStoreExecutorOptions = {
 type FeatureTableSource = {
   table: unknown;
   origin: string;
+};
+```
+
+## packages/framework/src/db/inner-join-types.ts
+
+```ts
+type InnerJoinRow<TLeft, TRight> = {
+  left: TLeft;
+  right: TRight;
+};
+type InnerJoinSpec = {
+  left: TableLike;
+  right: TableLike;
+  on: [ JoinColumnPair, ...JoinColumnPair[] ];
+  leftWhere?: WhereObject;
+  rightWhere?: WhereObject;
+  leftFields?: string[]; // Fields to return per side; default: all columns of `left`, none of `right`.
+  rightFields?: string[];
+  limit?: number;
+};
+type JoinColumnPair = {
+  left: string;
+  right: string;
 };
 ```
 
@@ -491,6 +524,7 @@ type GenerateMigrationOutput = {
   diff: SchemaDiff;
   retiredDrops: RetiredFrameworkTable[];
   rowLevelSecurityChanges: RowLevelSecurityChange[];
+  unversionedEntityRenames: UnversionedEntityRename[];
 };
 const SNAPSHOT_VERSION: 1;
 type SchemaDiff = {
@@ -514,6 +548,11 @@ type TableDiff = {
   changedIndexes: IndexChange[];
   primaryKeyChanged?: PrimaryKeyChange;
   nextMeta: EntityTableMeta;
+};
+type UnversionedEntityRename = {
+  tableName: string;
+  droppedColumns: string[];
+  newColumns: string[];
 };
 ```
 
@@ -557,6 +596,12 @@ type ApplyResult = {
 };
 ```
 
+## packages/framework/src/db/parent-ownership.ts
+
+```ts
+type AccessSide = "read" | "write";
+```
+
 ## packages/framework/src/db/pg-error.ts
 
 ```ts
@@ -564,6 +609,14 @@ type PgErrorInfo = {
   code: string | undefined;
   constraint_name: string | undefined;
 };
+```
+
+## packages/framework/src/db/projected-entity-row.ts
+
+```ts
+type ClearableOptionalFields<Row> = { [K in keyof Row]: undefined extends Row[K] ? Row[K] | null : Row[K]; };
+const PROJECTED_ROW_META_KEYS: ["id", "tenantId", "version", "insertedAt", "insertedById", "modifiedAt", "modifiedById"];
+type ProjectedRowMetaKey = (typeof PROJECTED_ROW_META_KEYS)[number];
 ```
 
 ## packages/framework/src/db/queries/backfill-pii.ts
@@ -642,8 +695,8 @@ type TryAdvisoryLockResult<T> =
 ## packages/framework/src/db/query.ts
 
 ```ts
-type AnyDb = DbRunner | unknown;
-type AnyRow = any;
+type AnyDb = DbRunner | TenantDb;
+type AnyRow = Record<string, unknown>;
 type DeleteManyBatchedOptions = {
   limit: number;
   maxBatches?: number;
@@ -657,26 +710,8 @@ type IncrementCounterOptions = {
   conflictKeys?: string[];
   set?: Record<string, unknown>; // Extra SET clauses on conflict (e.g. lastUpdatedAt: sql\`NOW()\`).
 };
-type InnerJoinRow<TLeft, TRight> = {
-  left: TLeft;
-  right: TRight;
-};
-type InnerJoinSpec = {
-  left: TableLike;
-  right: TableLike;
-  on: [ JoinColumnPair, ...JoinColumnPair[] ];
-  leftWhere?: WhereObject;
-  rightWhere?: WhereObject;
-  leftFields?: string[]; // Fields to return per side; default: all columns of `left`, none of `right`.
-  rightFields?: string[];
-  limit?: number;
-};
 type InsertOnConflictDoNothingOptions = {
   conflictKeys?: string[];
-};
-type JoinColumnPair = {
-  left: string;
-  right: string;
 };
 type RawClient = {
   unsafe: <TRow = unknown>(sql: string, params?: unknown[]) => Promise<TRow[]>;
@@ -689,7 +724,7 @@ type ReservedClient = {
   unsafe: RawClient["unsafe"];
   release: () => unknown;
 };
-type TableLike = EntityTableMeta | any;
+type TableLike = SchemaTable | EntityTableMeta;
 type UpsertOnConflictOptions = {
   conflictKeys: string[];
   update?: Record<string, unknown>; // Columns to set on conflict.
@@ -759,11 +794,12 @@ type Col<T> = ColumnHandle & {
   __notNull: true;
   __value?: T;
 };
+type ColumnRowForField<K extends string, F extends FieldDefinition> = [ ValueColumnsForField<K, F> ] extends [ never ] ? { [P in K]: unknown; } : RowOfColumns<ValueColumnsForField<K, F>>;
+type ColumnRowForFields<F extends FieldsMap> = UnionToIntersection<{ [K in keyof F & string]: ColumnRowForField<K, F[K]>; }[keyof F & string]>;
 type ColumnValue<C> = C extends { __notNull: true; __value?: infer T; } ? T : C extends { __notNull: false; __value?: infer T; } ? T | null : unknown;
 type ColumnsForEntity<F extends FieldsMap> = UnionToIntersection<{ [K in keyof F & string]: ColumnsForField<K, F[K]>; }[keyof F & string]>;
 type ColumnsForField<K extends string, F extends FieldDefinition> = ValueColumnsForField<K, F> & BlindIndexColumnForField<K, F>;
 type CompoundRowField<K extends string, V, F> = F extends { required: true; } ? { [P in K]: V; } : { [P in K]?: V; };
-type EntityRow<E extends EntityDefinition = EntityDefinition> = string extends keyof E["fields"] ? Record<string, unknown> : Flatten<RowOfColumns<BaseColumnsType<E>> & SoftDeleteRow<E> & RowForFields<E["fields"]>>; // The row `executor.list()` / `executor.detail()` return for entity `E`.
 type EntityTableTenancy<E extends EntityDefinition> = [ NonNullable<E["tenancy"]> ] extends [ never ] ? "tenant" : [ NonNullable<E["tenancy"]> ] extends [ "global" ] ? "global" : "tenant";
 type Flatten<T> = { [K in keyof T]: T[K]; } & {
 };
@@ -784,17 +820,9 @@ type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) exten
 type ValueColumnsForField<K extends string, F extends FieldDefinition> = F extends { type: "text" | "longText" | "select" | "tz"; } ? F extends { required: true; } ? { [P in K]: Col<string>; } : { [P in K]: NullCol<string>; } : F extends { type: "boolean"; } ? F extends { default: boolean; } | { required: true; } ? { [P in K]: Col<boolean>; } : { [P in K]: NullCol<boolean>; } : F extends { type: "multiSelect"; } ? { [P in K]: Col<string[]>; } : F extends { type: "number"; } ? F extends { required: true; } ? { [P in K]: Col<number>; } : { [P in K]…;
 ```
 
-## packages/framework/src/db/tenant-db.ts
+## packages/framework/src/db/tenant-db-runner-binding.ts
 
 ```ts
-type CreateTenantDbOptions = ({ mode?: "tenant"; reason?: undefined; } | { mode: "system"; reason: string; }) & {
-  db: DbRunner;
-  tenantId: TenantId;
-  tracer?: Tracer;
-  meter?: Meter;
-  signal?: AbortSignal;
-  grants?: TenantDbGrants;
-};
 type PersonalDataGate = (tableName: string, keys: string[], entity?: EntityDefinition) => void;
 type TenantDbGrants = {
   globalWrites?: EscapeHatchDeclaration;
@@ -890,34 +918,6 @@ type DefineFeatureSettings = {
 
 ```ts
 type RoleMap<T extends string[]> = { [K in T[number]]: K; };
-```
-
-## packages/framework/src/engine/define-workflow.ts
-
-```ts
-type WorkflowInput<TPayload = unknown, TData = unknown, TAwaits extends Record<string, string> = Record<string, string>> = { // Input shape for defineWorkflow() — the user-facing API.
-  name: string;
-  trigger: WorkflowTrigger;
-  awaits?: TAwaits;
-  steps: PipelineDef<TPayload, TData, { [K in keyof TAwaits]: AwaitedEventType; }>;
-  idempotencyKey?: string | ((event: WriteEvent<TPayload>) => string);
-  onError?: PipelineDef<unknown>;
-};
-type WorkflowTrigger = // Trigger configuration for a workflow.
-  | {
-    kind: "event";
-    eventType: string;
-    filter?: (event: WriteEvent) => boolean;
-  }
-  | {
-    kind: "cron";
-    schedule: string;
-  }
-  | {
-    kind: "webhook";
-    path: string;
-  }
-;
 ```
 
 ## packages/framework/src/engine/embedded-derived.ts
@@ -1055,6 +1055,12 @@ type PagedListRequest<TSortField extends string> = {
 type PagedListRowValue = string | number | boolean | null;
 ```
 
+## packages/framework/src/engine/projection-helpers.ts
+
+```ts
+type ProjectionEvent = Parameters<SingleStreamApplyFn>[0];
+```
+
 ## packages/framework/src/engine/qualified-name.ts
 
 ```ts
@@ -1082,10 +1088,6 @@ type StepListOutcome =
     result: WriteResult<unknown>;
   }
   | {
-    kind: "suspended";
-    stepIndex: number;
-  }
-  | {
     kind: "exhausted";
   }
 ;
@@ -1108,6 +1110,12 @@ type UnavailableSelectOption = {
   value: string;
   allowed: string[];
 };
+```
+
+## packages/framework/src/engine/stored-event-payload-schema.ts
+
+```ts
+type StoredPiiFieldSchema<TField extends z.core.$ZodType> = undefined extends z.input<TField> ? null extends z.input<TField> ? z.ZodOptional<z.ZodNullable<z.ZodString>> : z.ZodOptional<z.ZodString> : null extends z.input<TField> ? z.ZodNullable<z.ZodString> : z.ZodString;
 ```
 
 ## packages/framework/src/errors/classes.ts
@@ -1140,6 +1148,14 @@ type VersionConflictDetails = {
   entityId: number | string;
   expectedVersion: number;
   currentVersion: number;
+};
+```
+
+## packages/framework/src/errors/failure-reasons.ts
+
+```ts
+type FailureDetails = Readonly<Record<string, unknown>> & {
+  reason?: never;
 };
 ```
 
@@ -1228,6 +1244,7 @@ type TransferAggregateStreamsArgs = {
 
 ```ts
 type EventUpcasters = ReadonlyMap<string, { currentVersion: number; chain: ReadonlyMap<number, EventUpcastFn>; }>;
+type UpcastBaseCtx = Pick<EventUpcastCtx, "db" | "tenantId">;
 ```
 
 ## packages/framework/src/files/provider-resolver.ts
@@ -1407,14 +1424,16 @@ type StreamOptions = {
 ## packages/framework/src/pipeline/dispatcher-utils.ts
 
 ```ts
-type HandlerType = string | HandlerRef;
+type HandlerType = string | HandlerRef | HandlerContract;
 ```
 
 ## packages/framework/src/pipeline/dispatcher.ts
 
 ```ts
 type Dispatcher = {
+  write<TPayload, TData>(contract: WriteContract<TPayload, TData>, payload: NoInfer<TPayload>, user: SessionUser, requestId?: string): Promise<WriteResult<TData>>;
   write(type: HandlerType, payload: unknown, user: SessionUser, requestId?: string): Promise<WriteResult>;
+  query<TPayload, TResult>(contract: QueryContract<TPayload, TResult>, payload: NoInfer<TPayload>, user: SessionUser): Promise<TResult>;
   query(type: HandlerType, payload: unknown, user: SessionUser): Promise<unknown>;
   stream(type: HandlerType, payload: unknown, user: SessionUser, options?: StreamOptions): AsyncGenerator<unknown>;
   command(type: HandlerType, payload: unknown, user: SessionUser): Promise<void>;
@@ -1430,6 +1449,9 @@ type Dispatcher = {
 ```ts
 type BatchTurnControl = {
   holdForRetry: (eventIds: string[], reason: string, options?: { stillBackingOff?: boolean; }) => void;
+};
+type ConsumerTurn = {
+  tx: DbTx;
 };
 type DispatcherPassResult = {
   processed: number;
@@ -1452,7 +1474,7 @@ type EventConsumerErrorPolicy = {
   maxAttempts?: number;
   isTransientError?: (error: unknown) => boolean;
 };
-type EventConsumerHandler = (event: StoredEvent, ctx: AppContext) => Promise<void>;
+type EventConsumerHandler = (event: StoredEvent, ctx: AppContext, turn?: ConsumerTurn) => Promise<void>;
 type EventDispatcher = {
   start(): Promise<void>;
   stop(): Promise<void>;
@@ -1705,6 +1727,7 @@ type CardOptions = { // Card-Options — Verhalten/Optik, ebenfalls additiv erwe
   screenBody?: boolean; // The card is the whole screen body (secretMint reveal and done phase): no frame, the shared screen insets and width of form screens, children stacked with a gap.
   headerLayout?: "stacked" | "inline"; // "inline": title and subtitle on one baseline row at 16px inset, compact padding (the board's side panel).
   titleStyle?: "heading" | "label"; // "label": the title is a small uppercase muted label.
+  headerPadding?: "default" | "flush"; // flush: px-0 pt-1 pb-2 (embedded list header).
 };
 ```
 
@@ -2147,7 +2170,7 @@ type FormController<TValues extends FormValues> = {
   rebaseFields(fields: string[]): void;
   seedField(field: string, value: unknown): void;
   setCtx(ctx: unknown): void;
-  submit<TData = unknown>(): Promise<SubmitResult<TData>>;
+  submit<TData = unknown>(overrides?: SubmitOverrides<TValues>): Promise<SubmitResult<TData>>;
 };
 type FormControllerOptions<TValues extends FormValues, TCtx = unknown> = {
   initial: TValues;
@@ -2176,6 +2199,10 @@ type SubmitConfig<TValues extends FormValues = FormValues> = {
   buildPayload?: (snapshot: FormSnapshot<TValues>, shapedValues: unknown) => unknown;
   serverFieldPathPrefix?: string;
   validateScope?: string[]; // Restricts submit()'s internal validate() call to these field names — same contract as validate()'s `scope` param.
+};
+type SubmitOverrides<TValues extends FormValues> = { // Applies to one submit only.
+  payloadPatch?: Partial<TValues> | undefined;
+  omitFields?: string[];
 };
 type SubmitPayloadMode = "values" | "changes";
 type SubmitResult<TData = unknown> =
@@ -2232,7 +2259,7 @@ type EditFieldViewModel = {
   selectOptionsQuery?: {
     query: string;
     payload: OptionsQueryPayload;
-  }; // Set for `type: "select"` when SelectFieldDef.optionsQuery is set: the renderer loads the options from this query (`{ rows: { value, label, description?, group?
+  }; // Set for `type: "select"` and `"multiSelect"` when the field def's optionsQuery is set: the renderer loads the options from this query (`{ rows: { value, label, description?, group?
   selectOptionsAvailabilityQuery?: {
     query: string;
     payload: OptionsQueryPayload;
@@ -2347,6 +2374,7 @@ type ListColumnViewModel = {
   linkFor?: RuntimeCellLink;
   rowActionLink?: boolean; // Per-row action link column: a text link right-aligned without header text from sm, a small outline button on cards.
   linkItemsFor?: RuntimeCellLinkItems;
+  referenceFileFor?: RuntimeCellFile; // Reference column to an entity with one file field: the referenced record's file.
   sortable: boolean;
   optionLabels?: Readonly<Record<string, string>>; // Only for `type: "select"` or `type: "multiSelect"` — translated option labels keyed by raw value.
   optionTones?: Readonly<Partial<Record<string, SelectOptionTone>>>; // Only for `type: "select"` — declared tone per raw option value.
@@ -2372,6 +2400,7 @@ type ListColumnViewModel = {
   ellipsis?: true; // Mirrors `ListColumnSpec.ellipsis`: one line, cut with an ellipsis.
   multiline?: true; // Mirrors `ListColumnSpec.multiline`: `\n` in the value breaks the line.
   cardAbove?: true; // Mirrors `ListColumnSpec.cardAbove`.
+  cardLabel?: true; // Mirrors `ListColumnSpec.cardLabel`.
   emphasis?: true; // Mirrors `ListColumnSpec.emphasis`: medium weight, foreground colour.
   tone?: "muted"; // Mirrors `ListColumnSpec.tone`.
   cardBadge?: true; // Mirrors `ListColumnSpec.cardBadge`.
@@ -2381,6 +2410,7 @@ type ListRowViewModel = {
   id: string;
   values: Readonly<Record<string, unknown>>;
 };
+type RuntimeCellFile = (value: unknown, row?: Readonly<Record<string, unknown>>) => string | undefined; // Runtime-only like RuntimeCellLink: the FileRef a reference cell links instead of its record.
 type RuntimeCellLink = (value: unknown, row?: Readonly<Record<string, unknown>>) => CellLink | undefined; // Runtime-only like RuntimeRenderer; undefined means the cell stays plain text.
 type RuntimeCellLinkItems = (value: unknown, row?: Readonly<Record<string, unknown>>) => CellLinkItem[] | undefined; // Runtime-only like RuntimeCellLink; undefined means the cell uses its single renderer.
 type RuntimeRenderer = (value: unknown, row?: Readonly<Record<string, unknown>>) => string;
@@ -2402,6 +2432,7 @@ type MetricBandProps = { // Band above the tabs of a record detail: optional sub
   children: ReactNode;
   tiles?: boolean; // The children are KPI tiles, laid out as a tile grid instead of a definition list.
   testId?: string;
+  splitPart?: "lead" | "tiles"; // One half of a band split for the narrow order: lead drops the bottom padding, tiles uses pt-3.
 };
 type MetricProps = { // Compact label/value tile (record-detail metrics band).
   label: string;
@@ -2545,7 +2576,7 @@ type ButtonBaseProps = {
   onClick?: () => void | Promise<void>;
   disabled?: boolean;
   loading?: boolean; // Render a spinner instead of the children.
-  variant?: "primary" | "secondary" | "danger" | "link" | "danger-ghost" | "ghost"; // Semantic class — default="primary".
+  variant?: "primary" | "secondary" | "danger" | "link" | "danger-ghost" | "ghost" | "plain"; // Semantic class — default="primary".
   size?: "sm" | "md" | "icon"; // Size—default="md".
   ariaLabel?: string; // Accessible label—required for icon-only buttons (when children contain only an icon or character), otherwise the button has no accessible name.
   title?: string; // Tooltip — rendered as the `title` attribute.
@@ -2635,6 +2666,7 @@ type FillContainerProps = { // Chromeless flex-fill layout host — no title, no
   testId?: string;
   className?: string; // Layout extras, merged via cn().
   grow?: boolean; // Claims the remaining height of the flex chain (`flex-1`) instead of sizing to its content, so a footer inside the child sits at the bottom edge even with few rows.
+  dataAttributes?: DataAttributes; // Extra `data-*` attributes on the container.
 };
 type FormSectionNavItem = { // One entry of a form's "on this page" navigation: `id` matches the `SectionProps.id` of the section it scrolls to.
   id: string;
@@ -2673,6 +2705,7 @@ type LinkProps = { // Navigation link.
   variant?: "default" | "button" | "muted";
   target?: "_blank" | "_self" | "_parent" | "_top"; // `_blank` makes the web impl set `rel="noopener noreferrer"` unless `rel` is set explicitly.
   rel?: string;
+  download?: string; // Saves the target as a file under this name instead of navigating (empty = name chosen by the browser) and then also allows `blob:` and `data:image/` hrefs.
   onPress?: () => void; // Plain left-click handler (SPA navigation); `href` stays set for modifier/middle clicks, which the browser handles itself.
   className?: string; // Layout extras (self-center, text-xs), merged via cn().
   children: ReactNode;
@@ -2872,6 +2905,14 @@ type ToastApi = {
 };
 ```
 
+## packages/renderer/src/web/react-css-custom-properties.ts
+
+```ts
+interface CSSProperties {
+  [customProperty: `--${string}`]: string | number | undefined;
+}
+```
+
 ## packages/renderer/src/web/sse/live-events.ts
 
 ```ts
@@ -2912,12 +2953,35 @@ interface AiTextFieldBaseProps {
 ## packages/renderer/src/web/widgets/chart-data.ts
 
 ```ts
-type ChartMarker = {
-  atMs: number;
-  label: string;
-  color?: string; // Colors the pin and, on StackedAreaChart, draws a dashed guide line in the plot.
-  legendLabel?: string; // Translated by the caller.
+type ChartTone = "positive" | "negative" | "active" | "neutral";
+type ColorMap = Readonly<Record<string, string>>; // Key -> raw CSS color; wins over the tone map.
+type ToneMap = Readonly<Record<string, ChartTone>>;
+```
+
+## packages/renderer/src/web/widgets/chart-window.ts
+
+```ts
+type StackedAreaDateFormat = "day" | "month";
+type StackedAreaInitialWindow = "default-range" | "from-today";
+type StackedAreaRangeOption = {
+  value: string;
+  label: string; // Translated by the caller.
+  months?: number; // Window length in months; omitted shows the full window.
 };
+type StackedAreaWindowSelection =
+  | {
+    kind: "range";
+    value: string;
+  }
+  | {
+    kind: "brush";
+    startMs: number;
+    endMs: number;
+  }
+  | {
+    kind: "from-today";
+  }
+;
 ```
 
 ## packages/renderer/src/web/widgets/form-fields.tsx
@@ -3051,6 +3115,12 @@ type ReadSseFramesOptions = {
 };
 ```
 
+## packages/testing/src/helpers/with-env.ts
+
+```ts
+type EnvOverrides = Readonly<Record<string, string | undefined>>;
+```
+
 ## packages/testing/src/seed-tenant.ts
 
 ```ts
@@ -3174,8 +3244,13 @@ type AggregateMeasure =
     fn: "count";
   }
   | {
-    fn: "countDistinct" | "sum" | "avg";
+    fn: "countDistinct" | "sum" | "avg" | "min" | "max";
     field: string;
+  }
+  | {
+    fn: "percentile";
+    field: string;
+    fraction: number; // Continuous percentile (percentile_cont) between 0 and 1, e.g. 0.95 for p95.
   }
 ;
 type AggregateRow = {
@@ -3275,7 +3350,7 @@ type ExtensionSelectorDef = {
   panels?: ExtensionSelectorPanel[];
 };
 type ExtensionSelectorPanel = DashboardCustomPanel | Omit<DashboardScreenPanel, "label">;
-const IRREVERSIBLE_WITHOUT_ENTRY_HANDLER_CASES: ["rebuildable-derived-data", "high-risk-or-cron-pipeline", "per-dispatch-record-key"];
+const IRREVERSIBLE_WITHOUT_ENTRY_HANDLER_CASES: ["rebuildable-derived-data", "high-risk-or-cron-pipeline"];
 type IrreversibleWithoutEntryHandler = (typeof IRREVERSIBLE_WITHOUT_ENTRY_HANDLER_CASES)[number];
 type JobBackoff =
   | JobBackoffStrategy
@@ -3377,6 +3452,23 @@ type StreamHandlerDefinition<TName extends string = string, TSchema extends ZodT
   escapeHatch?: EscapeHatchDeclaration;
   handler: (query: QueryEvent<z.infer<TSchema>>, context: HandlerContext<TMap>) => AsyncGenerator<TChunk>;
 };
+type WriteHandlerBody<TSchema extends ZodType, TData, TPrepared, TWhenNested, TContext> =
+  | {
+    handler: (event: PreparedWriteEvent<z.infer<TSchema>, PreparedOrSkipped<TPrepared, TWhenNested>>, context: TContext) => Promise<WriteResult<TData>>;
+    perform?: never;
+  }
+  | {
+    perform: PipelineDef<z.infer<TSchema>, TData>;
+    handler?: never;
+  }
+;
+```
+
+## packages/types/src/demo-mode-types.ts
+
+```ts
+type DemoModePayload = z.infer<typeof demoModePayloadSchema>;
+const demoModePayloadSchema;
 ```
 
 ## packages/types/src/derivatives-types.ts
@@ -3425,18 +3517,6 @@ type VariantSpec = {
 };
 ```
 
-## packages/types/src/entity-cache.ts
-
-```ts
-type EntityCache = {
-  get(tenantId: TenantId, entityName: string, id: EntityId): Promise<Record<string, unknown> | null>; // Get a single cached entity.
-  mget(tenantId: TenantId, entityName: string, ids: EntityId[]): Promise<Map<EntityId, Record<string, unknown>>>; // Get multiple cached entities.
-  set(tenantId: TenantId, entityName: string, id: EntityId, data: Record<string, unknown>): Promise<void>; // Cache a single entity.
-  mset(tenantId: TenantId, entityName: string, entries: ReadonlyArray<{ id: EntityId; data: Record<string, unknown>; }>): Promise<void>; // Cache multiple entities at once.
-  del(tenantId: TenantId, entityName: string, id: EntityId): Promise<void>; // Invalidate a single cached entity.
-};
-```
-
 ## packages/types/src/entity-handlers.ts
 
 ```ts
@@ -3444,11 +3524,17 @@ type EntityCrudHandlerDefaults = Omit<EntityHandlerOptions, "access"> & {
   access?: AccessRule;
 };
 type EntityCrudVerb = "create" | "update" | "delete" | "restore" | "list" | "detail";
+type EntityHandlerEscapeHatch = { // Reason-only: it lifts the tenant filter of one convention handler and grants none of the escape-hatch rights.
+  reason: string;
+};
 type EntityHandlerOptions = {
   access: AccessRule;
   description?: string;
   agent?: AgentHandlerHints;
-  escapeHatch?: EscapeHatchDeclaration; // Lifts row filtering for this ONE handler across every tenant instead of the caller's own — for a SystemAdmin-only operator handler over an otherwise tenant-scoped entity.
+  escapeHatch?: EntityHandlerEscapeHatch; // Lifts row filtering for this ONE handler across every tenant instead of the caller's own — for a SystemAdmin-only operator handler over an otherwise tenant-scoped entity.
+};
+type EntityListHandlerOptions = EntityQueryHandlerOptions & { // Options for the generic list handler.
+  excludeFields?: string[]; // Fields the list never reads or returns, e.g. long texts only the detail view shows.
 };
 type EntityQueryHandlerOptions = EntityHandlerOptions;
 type EntityWriteHandlerOptions = EntityHandlerOptions & { // Options for the generic create/update handlers.
@@ -3472,7 +3558,7 @@ type RegisterEntityCrudOptions = {
 type ParentRefDef = {
   entityTypeField: string; // Field holding the name of the host entity this row hangs off.
   entityIdField: string; // Field holding the host row's id.
-  allowedTypes?: string[]; // Narrow which registered entities may act as host.
+  allowedTypes: string[]; // Registered entities that may act as host.
 };
 type ReadGateDef = {
   anyLink?: {
@@ -3532,6 +3618,27 @@ type EnvelopeCipher = {
 ## packages/types/src/event-store-executor-types.ts
 
 ```ts
+type EntityHistoryEntry = {
+  version: number;
+  at: Temporal.Instant;
+  by: string;
+  verb: string;
+  changes: Readonly<Record<string, unknown>>;
+};
+type ExecutorCreateOptions = StreamTenantOption & ParentVisibilityGateOption & {
+  preSave?: PreSaveRunner;
+};
+type ExecutorSaveContext = SaveContext & {
+  id: string;
+};
+type ExecutorUpdateOptions = StreamTenantOption & LockGuardOption & ParentVisibilityGateOption & {
+  skipOptimisticLock?: boolean;
+  skipUnchanged?: boolean;
+  verb?: string;
+  includeDeleted?: boolean;
+  preSave?: PreSaveRunner;
+  expect?: Readonly<Record<string, string | number | boolean | null>>;
+};
 type ListAggregateRequest = {
   search?: string | undefined;
   filter?: ListFilterOption | undefined;
@@ -3551,6 +3658,7 @@ type ListRuntimeOptions = {
     fields: ReadonlyArray<{ fieldName: string; targetEntityName: string; labelField: string; }>;
     resolveEntity: (entityName: string) => EntityDefinition | undefined;
     resolveTable?: (entityName: string) => SchemaTable;
+    childRelations?: ReadonlyArray<{ childEntityName: string; foreignKey: string; searchableFields: string[]; }>;
   };
   referenceSort?: {
     fields: ReadonlyArray<{ fieldName: string; targetEntityName: string; labelField: string; }>;
@@ -3577,6 +3685,7 @@ type ParentVisibilityOption = {
   entities: ReadonlyMap<string, EntityDefinition>;
   readModelEntities?: ReadonlyMap<string, { entity: EntityDefinition; table: SchemaTable; }>;
   canReadEntity?: (entityName: string) => boolean;
+  canReadHostByRole?: (entityName: string) => boolean;
   resolveTable?: (entityName: string) => SchemaTable;
   globalHostIds?: ReadonlyMap<string, string[]>;
 };
@@ -3608,11 +3717,18 @@ interface Writable {
 }
 ```
 
+## packages/types/src/extension-options-map.ts
+
+```ts
+type ExtensionEscapeHatchDeclaration = {
+  reason: string;
+};
+```
+
 ## packages/types/src/feature-registrar.ts
 
 ```ts
 type EntityObjectDefinition = EntityDefinition & {
-  name: string;
   backingTable?: unknown;
 };
 type HookDefinition =
@@ -3891,9 +4007,17 @@ type EntityIndexDef = { // Composite index on an entity.
 };
 type EntityLongTextFieldDef = LongTextFieldDef & ResolvedPiiStance;
 type EntityTextFieldDef = TextFieldDef & ResolvedPiiStance;
+type EntityVerbDef = { // A named update event of an entity: `executor.update(..., { verb })` appends `<entity>.<verb>` with the `updated` payload.
+  transition?: {
+    field: string;
+    from: string[];
+    to: string;
+  };
+};
 type FieldAccess = {
   read?: OwnershipMap | string[];
   write?: OwnershipMap | string[];
+  approve?: string[];
 };
 type FieldsMap = Readonly<Record<string, EntityFieldDefinition>>;
 type FileFieldDef = PiiAndFieldState & {
@@ -3975,7 +4099,7 @@ type MoneyCurrencySource = // Where a money field's currency comes from.
     code: string;
   }
 ;
-type MoneyFieldDef = FieldStateConditions & {
+type MoneyFieldDef = FieldStateConditions & { // The value is `{ amount, currency }` with amount as an integer in the currency's minor unit (cents for EUR, yen for JPY).
   type: "money";
   description?: string;
   required?: boolean;
@@ -3999,6 +4123,8 @@ type MultiSelectFieldDef<TOptions extends string[] = string[]> = PiiAndFieldStat
   columns?: 1 | 2 | 3 | 4; // Renderer metadata: column count for the `"checkboxes"` grid at the widest breakpoint; narrow viewports always collapse to one column.
   maxRows?: number; // Renderer metadata: how many grid rows stay visible before the `"checkboxes"` grid becomes scrollable.
   optionsAvailabilityQuery?: string; // Query returning `{ rows: { value, disabled?, hint?
+  optionsQuery?: string; // Options from a query handler instead of static `options` (rows `{ value, label, description?
+  optionsQueryPayload?: OptionsQueryPayload; // Sent with every optionsQuery call; `{ field }` takes the current value of a sibling form field.
 };
 type NumberFieldDef = PiiAndFieldState & { // Storage: `integer` flag decides the Postgres column type, not just Zod validation.
   type: "number";
@@ -4085,6 +4211,9 @@ type SelectFieldDef<TOptions extends string[] = string[]> = PiiAndFieldState & {
   conditionalOptions?: SelectConditionalOptions<TOptions[number]>[]; // Options that are only available while `when` holds for the row values; options in no rule are always available.
 };
 type SortNulls = "first" | "last"; // Where rows without a value sort in a list, in both directions.
+type StreamRetentionDef = { // Event-log retention for an entity that holds short-lived technical state.
+  keepFor: string;
+};
 type TimestampFieldDef = PiiAndFieldState & {
   type: "timestamp";
   description?: string;
@@ -4119,6 +4248,22 @@ type FileContext = {
   list(prefix: string): Promise<string[]>;
   writeUploadBytes(key: string, data: Uint8Array, mimeType: string): Promise<void>;
   forgetUploadBytes(key: string): Promise<void>;
+};
+type FileDownloadLink = {
+  path: string;
+  expiresAt: string;
+};
+type FileDownloadLinkClaims = {
+  tenantId: TenantId;
+  fileRefId: string;
+  expiresAtMs: number;
+};
+type FileDownloadLinkSigner = {
+  sign: (claims: FileDownloadLinkClaims) => string;
+  verify: (token: string, now: Temporal.Instant) => FileDownloadLinkClaims | undefined;
+};
+type FileDownloadLinks = {
+  issue: (fileRefId: string, options?: { expiresInSeconds?: number; }) => FileDownloadLink;
 };
 type FileHandle = {
   key: string;
@@ -4199,10 +4344,10 @@ type ContextServices = { // Infrastructure the app wired at boot, as the handler
   userLiveSignals?: UserLiveSignals;
   jobRunner?: JobRunnerRef;
   searchAdapter?: SearchAdapter;
-  entityCache?: EntityCache;
   secrets?: SecretsContext;
   kms?: KmsAdapter;
   files?: FileContext;
+  fileDownloadLinks?: FileDownloadLinks;
   derivatives?: DerivativesContext;
   configResolver?: ConfigResolver;
   configEncryption?: EnvelopeCipher;
@@ -4233,33 +4378,66 @@ type UserLiveSignals = { // Addressed live signal: the SSE frame reaches only th
 };
 ```
 
-## packages/types/src/handlers.ts
+## packages/types/src/handler-contract.ts
 
 ```ts
-type ActiveMembership = {
-  tenantId: TenantId;
-  roles: string[];
-  tenantName?: string;
-  tenantKey?: string;
+type ContractQuery<Rest extends unknown[] = [ ]> = {
+  <TPayload, TResult>(contract: QueryContract<TPayload, TResult>, payload: NoInfer<TPayload>, ...rest: Rest): Promise<TResult>;
+  (qualifiedName: string, payload: unknown, ...rest: Rest): Promise<unknown>;
 };
-type ActiveMembershipRejection = "not_a_member" | "principal_blocked" | "tenant_teardown";
-type ActiveMembershipResult =
-  | {
-    kind: "active";
-    membership: ActiveMembership;
-  }
-  | {
-    kind: "rejected";
-    reason: ActiveMembershipRejection;
-  }
-;
+type ContractQueryAs = {
+  <TPayload, TResult>(user: SessionUser, contract: QueryContract<TPayload, TResult>, payload: NoInfer<TPayload>): Promise<TResult>;
+  (user: SessionUser, qualifiedName: string, payload: unknown): Promise<unknown>;
+};
+type ContractWrite<Rest extends unknown[] = [ ]> = {
+  <TPayload, TData>(contract: WriteContract<TPayload, TData>, payload: NoInfer<TPayload>, ...rest: Rest): Promise<WriteResult<TData>>;
+  (qualifiedName: string, payload: unknown, ...rest: Rest): Promise<WriteResult>;
+};
+type ContractWriteAs = {
+  <TPayload, TData>(user: SessionUser, contract: WriteContract<TPayload, TData>, payload: NoInfer<TPayload>): Promise<WriteResult<TData>>;
+  (user: SessionUser, qualifiedName: string, payload: unknown): Promise<WriteResult>;
+};
+type HandlerContract = QueryContract<unknown, unknown> | WriteContract<unknown, unknown>;
+type QueryContract<TPayload, TResult> = {
+  kind: "query";
+  qualifiedName: QueryQualifiedName;
+  [handlerContractTypes]?: {
+    payload: TPayload;
+    result: TResult;
+  };
+};
+type QueryQualifiedName = `${string}:query:${string}`;
+type WriteContract<TPayload, TData> = {
+  kind: "write";
+  qualifiedName: WriteQualifiedName;
+  [handlerContractTypes]?: {
+    payload: TPayload;
+    result: TData;
+  };
+};
+type WriteQualifiedName = `${string}:write:${string}`;
+```
+
+## packages/types/src/handler-event-types.ts
+
+```ts
 type AggregateStreamHandle = {
   events: StoredEvent[];
   version: number;
   appendOne: (args: { type: string; payload: unknown; }) => Promise<void>;
   hasEvent: (type: string) => boolean;
 };
-type AppendEventArgs = {
+type AppendConcurrency =
+  | {
+    expectedVersion: number;
+    blindAppendReason?: never;
+  }
+  | {
+    blindAppendReason: string;
+    expectedVersion?: never;
+  }
+;
+type AppendEventArgs = AppendConcurrency & {
   aggregateId: string;
   aggregateType: string;
   type: string;
@@ -4267,47 +4445,13 @@ type AppendEventArgs = {
   headers?: Readonly<Record<string, string | number | boolean>>;
 };
 type AppendEventFn<TMap extends object = KumikoEventTypeMap> = <K extends keyof TMap>(args: TypedAppendEventArgs<TMap, K>) => Promise<void>;
-type AuthClaimsFn = (user: SessionUser, ctx: AuthClaimsContext) => Promise<Record<string, unknown>>;
-type AuthClaimsHookDef = {
-  featureName: string;
-  fn: AuthClaimsFn;
-  declaredKeys?: ReadonlySet<string>;
-};
-type BeforeTransactionPhase<TPayload = unknown, TPrepared = unknown> = (event: WriteEvent<TPayload>, ctx: BeforeTransactionContext) => Promise<BeforeTransactionResult<TPrepared>>;
-type BeforeTransactionWhenNested = "skip"; // `skip`: run as a nested write without the `beforeTransaction` phase.
 type CamelToKebab<S extends string> = CamelToKebabImpl<S, "start", "">; // Compile-time mirror of `engine/qualified-name.ts:toKebab` for camelCase → kebab-case.
 type CamelToKebabImpl<S extends string, Prev extends "start" | "upper" | "post-letter", Acc extends string> = S extends `${infer C}${infer Rest}` ? CharKind<C> extends "upper" ? Prev extends "start" ? CamelToKebabImpl<Rest, "upper", `${Acc}${Lowercase<C>}`> : Prev extends "post-letter" ? CamelToKebabImpl<Rest, "upper", `${Acc}-${Lowercase<C>}`> : Rest extends `${infer Next}${string}` ? CharKind<Next> extends "lower" ? CamelToKebabImpl<Rest, "upper", `${Acc}-${Lowercase<C>}`> : CamelToKebabImpl<Rest, "upper", `${Acc}${Lowercase<C>}`> : `${Acc}${Lowercase<C>}` : CharKind<C> extends "l…;
 type CharKind<C extends string> = C extends Lowercase<C> ? (C extends Uppercase<C> ? "non-letter" : "lower") : "upper"; // Three-way classification used by `CamelToKebab`: - "lower" — a lowercase letter (a-z and Unicode lowercase) - "upper" — an uppercase letter (A-Z and Unicode uppercase) - "non-letter" — digit, dot, dash, etc.
-type ClaimKeyDefinition = {
-  shortName: string;
-  qualifiedName: string;
-  type: ClaimKeyType;
-};
-type ClaimKeyHandle<T extends ClaimKeyType = ClaimKeyType> = {
-  name: string;
-  type: T;
-};
-type ClaimKeyJsType<T extends ClaimKeyType> = T extends "string" ? string : T extends "number" ? number : T extends "boolean" ? boolean : T extends "string[]" ? string[] : T extends "object" ? Readonly<Record<string, unknown>> : never;
 type DeclarativeEventMigration = {
   rename?: Readonly<Record<string, string>>;
   default?: Readonly<Record<string, unknown>>;
   map?: Readonly<Record<string, (value: unknown) => unknown>>;
-};
-type DispatchWriteRef = {
-  write: (user: SessionUser, qn: string, payload: unknown, inheritedOrigin?: WriteOrigin) => Promise<WriteResult>;
-  queryAs: (user: SessionUser, qn: string, payload: unknown, inheritedOrigin?: WriteOrigin) => Promise<unknown>;
-  createMemberReader: (tenantId: TenantId) => MemberReader;
-};
-const ESCAPE_HATCH_GRANTS: ["systemIdentity", "globalWrites", "unsafeRaw", "crossTenantReads"];
-type EntityRef = {
-  name: string;
-  table: string;
-};
-type EscapeHatchGrant = (typeof ESCAPE_HATCH_GRANTS)[number];
-type EscapeHatchReporter = (kind: EscapeHatchKind, reason: string, target?: EscapeHatchTarget) => void;
-type EscapeHatchTarget = {
-  id: string;
-  tenantId: TenantId;
 };
 type EventMigrationDef = {
   eventName: string;
@@ -4331,13 +4475,12 @@ type EventPiiSubject =
   | {
     personal: "self";
   }
-  | {
-    subjectField: string;
-  }
 ;
 type EventUpcastCtx = {
   db: DbRunner;
   tenantId: TenantId;
+  aggregateId: string;
+  aggregateType: string;
 };
 type EventUpcastFn = (payload: unknown, ctx: EventUpcastCtx) => unknown | Promise<unknown>;
 type FetchForWritingArgs = {
@@ -4345,6 +4488,83 @@ type FetchForWritingArgs = {
   aggregateType: string;
   expectedVersion?: number;
 };
+type QualifiedEventName<TFeature extends string, TInner extends string> = `${CamelToKebab<TFeature>}:event:${CamelToKebab<TInner>}`; // Builds the qualified event-name from feature + inner-name in the same shape the runtime emits via `qn(toKebab(feature), "event", toKebab(inner))`.
+type TryAppendEventFn = (args: AppendEventArgs) => Promise<TryAppendEventResult>;
+type TryAppendEventResult =
+  | {
+    ok: true;
+    event: StoredEvent;
+  }
+  | {
+    ok: false;
+    conflict: VersionConflict;
+  }
+;
+type TypedAppendEventArgs<TMap extends object, K extends keyof TMap> = AppendConcurrency & {
+  aggregateId: string;
+  aggregateType: string;
+  type: K;
+  payload: TMap[K];
+  headers?: Readonly<Record<string, string | number | boolean>>;
+};
+type UnsafeAppendEventFn = (args: AppendEventArgs) => Promise<void>;
+```
+
+## packages/types/src/handlers.ts
+
+```ts
+type ActiveMembership = {
+  tenantId: TenantId;
+  roles: string[];
+  tenantName?: string;
+  tenantKey?: string;
+};
+type ActiveMembershipRejection = "not_a_member" | "principal_blocked" | "tenant_teardown";
+type ActiveMembershipResult =
+  | {
+    kind: "active";
+    membership: ActiveMembership;
+  }
+  | {
+    kind: "rejected";
+    reason: ActiveMembershipRejection;
+  }
+;
+type AuthClaimsFn = (user: SessionUser, ctx: AuthClaimsContext) => Promise<Record<string, unknown>>;
+type AuthClaimsHookDef = {
+  featureName: string;
+  fn: AuthClaimsFn;
+  declaredKeys?: ReadonlySet<string>;
+};
+type BeforeTransactionPhase<TPayload = unknown, TPrepared = unknown> = (event: WriteEvent<TPayload>, ctx: BeforeTransactionContext) => Promise<BeforeTransactionResult<TPrepared>>;
+type BeforeTransactionWhenNested = "skip"; // `skip`: run as a nested write without the `beforeTransaction` phase.
+type ClaimKeyDefinition = {
+  shortName: string;
+  qualifiedName: string;
+  type: ClaimKeyType;
+};
+type ClaimKeyHandle<T extends ClaimKeyType = ClaimKeyType> = {
+  name: string;
+  type: T;
+};
+type ClaimKeyJsType<T extends ClaimKeyType> = T extends "string" ? string : T extends "number" ? number : T extends "boolean" ? boolean : T extends "string[]" ? string[] : T extends "object" ? Readonly<Record<string, unknown>> : never;
+type DispatchWriteRef = {
+  write: (user: SessionUser, qn: string, payload: unknown, inheritedOrigin?: WriteOrigin) => Promise<WriteResult>;
+  queryAs: (user: SessionUser, qn: string, payload: unknown, inheritedOrigin?: WriteOrigin) => Promise<unknown>;
+  createMemberReader: (tenantId: TenantId) => MemberReader;
+};
+const ESCAPE_HATCH_GRANTS: ["systemIdentity", "globalWrites", "unsafeRaw", "crossTenantReads"];
+type EntityRef = {
+  name: string;
+  table: string;
+};
+type EscapeHatchGrant = (typeof ESCAPE_HATCH_GRANTS)[number];
+type EscapeHatchReporter = (kind: EscapeHatchKind, reason: string, target?: EscapeHatchTarget) => void;
+type EscapeHatchTarget = {
+  id: string;
+  tenantId: TenantId;
+};
+type GrantedHandlerContext<TContext extends { crossTenantReads?: CrossTenantReads; }, TGrant extends EscapeHatchGrant> = [ EscapeHatchGrant ] extends [ TGrant ] ? TContext : [ "crossTenantReads" ] extends [ TGrant ] ? TContext & { crossTenantReads: CrossTenantReads; } : TContext;
 type HandlerRef = {
   name: string;
 };
@@ -4356,6 +4576,7 @@ type JobRunnerRef = {
 };
 type JobTriggerEvent = {
   id: string;
+  aggregateId: string;
   headers: NonNullable<EventMetadata["headers"]>;
 };
 type MemberReader = (userId: string, qn: string, payload: unknown) => Promise<unknown>;
@@ -4387,7 +4608,6 @@ type PayloadRateLimitOption = {
 type PreTransactionReservation = (event: WriteEvent, ctx: ReservationContext) => Promise<ReservationRelease | ReservationHandle | undefined>; // Runs in the dispatcher after every pre-handler gate (feature, rate limit, access, schema, validation, field roles) passed but before the handler transaction opens, so it must commit its own short write instead of holding a second connection while the transaction is open.
 type PreparedOrSkipped<TPrepared, TWhenNested> = [ TWhenNested ] extends [ BeforeTransactionWhenNested ] ? TPrepared | undefined : TPrepared; // The `prepared` type a handler sees: with `beforeTransactionWhenNested: "skip"` a nested run leaves it undefined.
 type PreparedWriteEvent<TPayload = unknown, TPrepared = unknown> = WriteEvent<TPayload> & ([ TPrepared ] extends [ undefined ] ? { prepared?: undefined; } : { prepared: TPrepared; }); // What a handler sees when its `beforeTransaction` phase ran: the phase's `data` as `prepared`; absent for handlers without the phase.
-type QualifiedEventName<TFeature extends string, TInner extends string> = `${CamelToKebab<TFeature>}:event:${CamelToKebab<TInner>}`; // Builds the qualified event-name from feature + inner-name in the same shape the runtime emits via `qn(toKebab(feature), "event", toKebab(inner))`.
 type QueryHandlerFn<TPayload = unknown, TResult = unknown> = (query: QueryEvent<TPayload>, context: HandlerContext) => Promise<TResult>;
 const RATE_LIMIT_PERS: ["user", "tenant", "ip", "user+handler", "tenant+handler", "ip+handler"];
 type RateLimitDeclaration = RateLimitOption | RateLimitOptions | RateLimitDisabled;
@@ -4428,11 +4648,13 @@ type SharedContextFields = {
   configEncryption?: EnvelopeCipher;
   rateLimit?: RateLimitResolver;
   _rateLimitPayloadDigest?: (value: string) => string;
+  _visitorKeyDigest?: (value: string) => string;
   searchAdapter?: SearchAdapter;
   files?: FileContext;
+  fileDownloadLinks?: FileDownloadLinks;
+  _fileDownloadLinkSigner?: FileDownloadLinkSigner;
   derivatives?: DerivativesContext;
   _fileProviderResolver?: FileProviderResolver;
-  entityCache?: EntityCache;
   notify?: NotifyFn;
   _notifyFactory?: NotifyFactory;
   _notifyInTransactionFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
@@ -4451,25 +4673,6 @@ type SharedContextFields = {
   scheduleAfterRollback?: (hook: () => Promise<void>) => void; // Becomes `ctx.lifecycle.afterRollback`.
 };
 type StreamHandlerFn<TPayload = unknown, TChunk = unknown> = (query: QueryEvent<TPayload>, context: HandlerContext) => AsyncGenerator<TChunk>;
-type TryAppendEventFn = (args: AppendEventArgs) => Promise<TryAppendEventResult>;
-type TryAppendEventResult =
-  | {
-    ok: true;
-    event: StoredEvent;
-  }
-  | {
-    ok: false;
-    conflict: VersionConflict;
-  }
-;
-type TypedAppendEventArgs<TMap extends object, K extends keyof TMap> = {
-  aggregateId: string;
-  aggregateType: string;
-  type: K;
-  payload: TMap[K];
-  headers?: Readonly<Record<string, string | number | boolean>>;
-};
-type UnsafeAppendEventFn = (args: AppendEventArgs) => Promise<void>;
 type WriteHandlerTransactionMode = "perCommand"; // `perCommand`: the handler runs without a transaction of its own.
 ```
 
@@ -4510,7 +4713,7 @@ type PhasedHook<TFn> = HookOwner & {
 type PostDeleteBatchHookFn = (payloads: DeleteContext[], context: HandlerContext) => Promise<void>;
 type PostQueryHookFn = (result: { entityName: string | undefined; rows: ReadonlyArray<Record<string, unknown>>; }, context: HandlerContext) => Promise<{ rows: ReadonlyArray<Record<string, unknown>>; }>;
 type PostSaveBatchHookFn = (results: SaveContext[], context: HandlerContext) => Promise<void>;
-type SearchPayloadContributorFn = (args: { entityName: string; entityId: EntityId; state: Record<string, unknown>; }) => Record<string, unknown> | Promise<Record<string, unknown>>;
+type SearchPayloadContributorFn = (args: { entityName: string; entityId: EntityId; state: Record<string, unknown>; db: TenantDb; }) => Record<string, unknown> | Promise<Record<string, unknown>>;
 ```
 
 ## packages/types/src/http-route.ts
@@ -4526,7 +4729,8 @@ type HttpRouteDefinition = {
 type HttpRouteHandler = (c: Context<any, any>, deps: HttpRouteHandlerDeps) => Response | Promise<Response>;
 type HttpRouteHandlerDeps = { // Dependencies provided to the handler by the framework.
   app: Hono<any, any>; // The Hono app — the handler can use app.fetch(...) to call internal routes (e.g. /api/query with the full auth/anonymous chain).
-  systemQuery: (type: string, payload: unknown, tenantId: TenantId) => Promise<unknown>; // Run a query handler in-process, forcing a SPECIFIC tenant — WITHOUT going through the public /api/query HTTP layer (no header parsing, no anonymousAccess tenant resolution).
+  systemQuery: ContractQuery<[ tenantId: TenantId ]>; // Run a query handler in-process, forcing a SPECIFIC tenant — WITHOUT going through the public /api/query HTTP layer (no header parsing, no anonymousAccess tenant resolution).
+  hostTenantId: () => Promise<TenantId | null>; // The tenant the server's own anonymous host resolution maps this request to: `anonymousAccess.defaultTenantId`, else the registered tenant resolver (e.g. host-routing) checked against `tenantExists`; null when it maps to none.
   clientIp: string; // Caller IP resolved via the server's configured, trustedProxyHops-aware resolver (same one requestIdMiddleware uses for `/api/*`) — a route handler needing the caller's IP (rate limiting, audit) should read this instead of parsing X-Forwarded-For itself, which trusts whichever hop count the deployment actually has in front of it.
 };
 type HttpRouteMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS"; // Subset of HTTP methods actively supported.
@@ -4630,7 +4834,7 @@ type Logger = {
 ```ts
 type MultiStreamApplyContext<TMap extends object = KumikoEventTypeMap> = {
   appendEvent: AppendEventFn<TMap>;
-  unsafeAppendEvent: (args: Parameters<UnsafeAppendEventFn>[0] & { expectedVersion?: number; }) => Promise<void>;
+  unsafeAppendEvent: (args: Parameters<UnsafeAppendEventFn>[0]) => Promise<void>;
   loadAggregate: (aggregateId: string, options?: { asOf?: Temporal.Instant; }) => Promise<StoredEvent[]>;
   registry: Registry;
   files?: FileContext;
@@ -4806,7 +5010,12 @@ type FromRule = {
 };
 type FromRuleKind = "user" | "claim";
 type OwnershipRef = string;
-type OwnershipRule = "all" | FromRule | WhereRule;
+type OwnershipRule = "all" | FromRule | WhereRule | ParentRule;
+type ParentRule = {
+  kind: "parent";
+  field: string;
+  entity: string;
+};
 type SqlFragment = {
   sqlText: string;
   params: unknown[];
@@ -4961,6 +5170,7 @@ type HasManyRelation = {
   foreignKey: string;
   onDelete?: OnDeleteStrategy;
   nestedWrite?: boolean;
+  searchable?: boolean;
 };
 type ManyToManyRelation = {
   type: "manyToMany";
@@ -5343,78 +5553,24 @@ interface SecretsContext {
 ## packages/types/src/step.ts
 
 ```ts
-type EventMatch = {
-  version: 1;
-  expr: EventMatchExpr;
-};
-type EventMatchExpr =
-  | {
-    kind: "and";
-    nodes: EventMatchExpr[];
-  }
-  | {
-    kind: "or";
-    nodes: EventMatchExpr[];
-  }
-  | {
-    kind: "atom";
-    path: string[];
-    op: EventMatchOp;
-  }
-;
-type EventMatchOp =
-  | {
-    kind: "eq";
-    value: EventMatchValue;
-  }
-  | {
-    kind: "ne";
-    value: EventMatchValue;
-  }
-  | {
-    kind: "in";
-    values: EventMatchValue[];
-  }
-  | {
-    kind: "gt";
-    value: number | string;
-  }
-  | {
-    kind: "gte";
-    value: number | string;
-  }
-  | {
-    kind: "lt";
-    value: number | string;
-  }
-  | {
-    kind: "lte";
-    value: number | string;
-  }
-;
-type EventMatchValue = string | number | boolean | null;
-type PipelineBuildCtx<TPayload = unknown, TAwaits extends Record<string, AwaitedEventType> = Record<string, AwaitedEventType>> = { // Argument bundle passed to the closure inside `stepsPipeline(closure)`.
+type PipelineBuildCtx<TPayload = unknown> = { // Argument bundle passed to the closure inside `stepsPipeline(closure)`.
   event: WriteEvent<TPayload>;
   r: StepBuilder;
-  awaits: TAwaits;
 };
-type PipelineDef<TPayload = unknown, _TData = unknown, TAwaits extends Record<string, AwaitedEventType> = Record<string, AwaitedEventType>> = { // What `stepsPipeline(closure)` returns.
+type PipelineDef<TPayload = unknown, _TData = unknown> = { // What `stepsPipeline(closure)` returns.
   __kind: "pipeline";
-  awaits?: Readonly<Record<string, string>>;
-  build: (ctx: PipelineBuildCtx<TPayload, TAwaits>) => StepInstance[];
+  build: (ctx: PipelineBuildCtx<TPayload>) => StepInstance[];
 };
 type StepBuilder = { // Step-builder namespace handed to the pipeline closure.
   step: StepNamespace;
 };
 type StepDef<TArgs = unknown, TResult = unknown> = {
   kind: StepKind;
-  defaultFailureStrategy: StepFailureStrategy;
   resultKey?: (args: TArgs) => string | undefined;
   subPaths?: string[];
-  tier?: 1 | 2 | 3;
+  tier?: 1 | 2;
   run: (args: TArgs, ctx: PipelineCtx) => Promise<TResult> | TResult;
 };
-type StepFailureStrategy = "throw"; // Per-step error strategy.
 type StepKind = string; // The kind discriminator for a step instance — matches the step's registration name in the step-registry (e.g. "return", "compute", "aggregate.create").
 type StepNamespace = { // The collection of step factory functions.
   return: <TData>(resolver: StepResolver<WriteResult<TData>>) => StepInstance;
@@ -5422,26 +5578,17 @@ type StepNamespace = { // The collection of step factory functions.
   unsafeProjectionUpsert: (args: { table: unknown; on: string[]; row: StepResolver<Record<string, unknown>>; }) => StepInstance;
   unsafeProjectionDelete: (args: { table: unknown; where: StepResolver<WhereObject>; }) => StepInstance;
   read: {
-    findOne: (name: string, opts: { table: unknown; where: StepResolver<WhereObject | undefined>; unsafeAllTenants?: { reason: string; }; }) => StepInstance;
-    findMany: (name: string, opts: { table: unknown; where?: StepResolver<WhereObject | undefined>; limit?: number; unsafeAllTenants?: { reason: string; }; }) => StepInstance;
+    findOne: (name: string, opts: { table: SchemaTable | EntityTableMeta; where: StepResolver<WhereObject | undefined>; unsafeAllTenants?: { reason: string; }; }) => StepInstance;
+    findMany: (name: string, opts: { table: SchemaTable | EntityTableMeta; where?: StepResolver<WhereObject | undefined>; limit?: number; unsafeAllTenants?: { reason: string; }; }) => StepInstance;
   };
   aggregate: {
     create: (name: string, opts: { executor: EventStoreExecutor; data: StepResolver<Record<string, unknown>>; }) => StepInstance;
     update: (name: string, opts: { executor: EventStoreExecutor; id: StepResolver<EntityId>; changes: StepResolver<Record<string, unknown>>; version?: StepResolver<number | undefined>; skipOptimisticLock?: boolean; }) => StepInstance;
-    appendEvent: (args: { aggregateId: StepResolver<string>; aggregateType: string; type: string; payload: StepResolver<unknown>; headers?: StepResolver<Readonly<Record<string, string | number | boolean>>>; }) => StepInstance;
+    appendEvent: (args: { aggregateId: StepResolver<string>; aggregateType: string; type: string; payload: StepResolver<unknown>; headers?: StepResolver<Readonly<Record<string, string | number | boolean>>>; } & ({ expectedVersion: StepResolver<number>; bli…;
   };
   branch: (args: { if: StepResolver<boolean>; onTrue: StepInstance[]; onFalse?: StepInstance[]; }) => StepInstance;
   forEach: <TItem = unknown>(args: { over: StepResolver<TItem[]>; as: string; do: StepInstance[]; concurrency?: 1; }) => StepInstance;
-  webhook: {
-    send: (args: { url: StepResolver<string>; method?: "POST" | "PUT" | "PATCH"; headers?: StepResolver<Readonly<Record<string, string>>>; body?: StepResolver<unknown>; auth?: { kind: "bearer"; secret: string; } | { kind: "header"; name: string; sec…;
-  };
-  mail: {
-    send: (args: { to: StepResolver<string | string[]>; subject: StepResolver<string>; body: StepResolver<string>; from?: StepResolver<string>; mode: "deferred"; }) => StepInstance;
-  };
   callFeature: (name: string, opts: { handler: string; payload: StepResolver<unknown>; as?: SessionUser; }) => StepInstance;
-  wait: (args: { for: StepResolver<string>; }) => StepInstance;
-  waitForEvent: (args: { event: AwaitedEventType; match?: StepResolver<EventMatch>; timeout: StepResolver<string>; }) => StepInstance;
-  retry: (args: { times: number; backoff: "exponential" | "linear"; do: StepInstance[]; }) => StepInstance;
 };
 ```
 
@@ -5463,7 +5610,7 @@ interface TenancyBrand<T extends EntityTenancy> {
 ## packages/types/src/tenant-db-types.ts
 
 ```ts
-type CrossTenantReads = Pick<TenantDb, "selectMany" | "fetchOne" | "count">;
+type CrossTenantReads = Pick<TenantDb, "selectMany" | "fetchOne" | "count" | "aggregate">;
 type GlobalReads = {
   selectMany<T = Record<string, unknown>>(where?: WhereObject, options?: SelectOptions): Promise<T[]>;
   fetchOne<T = Record<string, unknown>>(where: WhereObject): Promise<T | undefined>;
@@ -5474,13 +5621,17 @@ type GlobalWrites = {
   updateMany<T = Record<string, unknown>>(set: Record<string, unknown>, where: WhereObject): Promise<T[]>;
   deleteMany(where: WhereObject): Promise<void>;
 };
+type TableColumnRow<TTable> = TTable extends { __columnRow?: infer R; } ? unknown extends R ? Record<string, unknown> : NonNullable<R> : Record<string, unknown>;
 type TenantDbMode = "tenant" | "system"; // TenantDb scope modes: - "tenant" (default): SELECT/UPDATE/DELETE filtered by tenantId + reference data (tenantId=SYSTEM_TENANT_ID).
 type TenantDbNonWrites = {
   tenantId: TenantId;
   mode: TenantDbMode;
-  unsafeRaw(): DbRunner; // Unfiltered DbRunner escape hatch for handlers/hooks that declare `escapeHatch: { reason }`.
+  unsafeRaw(): DbRunner; // Raw runner in this TenantDb's own row level security scope (tenant scope in tenant mode, system scope in system mode); needs `escapeHatch: { reason }` (grant `unsafeRaw`), audited.
+  unsafeRawAllTenants(): DbRunner; // Raw runner in the system scope that reads and writes every tenant; same `unsafeRaw` grant and audit.
   global<TTable extends (SchemaTable | EntityTableMeta) & TenancyBrand<"global">>(table: TTable): GlobalTableDb<TTable>; // Reach a "global" table with the tenant filter lifted — reads always work; writes reject unless the write handler declared `escapeHatch: { reason }`.
+  selectMany<TTable extends SchemaTable | EntityTableMeta>(table: TTable, where?: WhereObject, options?: SelectOptions & { fields?: undefined; }): Promise<TableColumnRow<TTable>[]>;
   selectMany<T = Record<string, unknown>>(table: SchemaTable | EntityTableMeta, where?: WhereObject, options?: SelectOptions): Promise<T[]>;
+  fetchOne<TTable extends SchemaTable | EntityTableMeta>(table: TTable, where: WhereObject): Promise<TableColumnRow<TTable> | undefined>;
   fetchOne<T = Record<string, unknown>>(table: SchemaTable | EntityTableMeta, where: WhereObject): Promise<T | undefined>;
   count(table: SchemaTable | EntityTableMeta, where?: WhereObject): Promise<number>;
   advisoryXactLock(namespace: number, key: string): Promise<void>; // Transaction-scoped advisory lock keyed on (namespace, this handle's tenantId + key); released at commit or rollback.
@@ -5491,6 +5642,7 @@ type TenantDbNonWrites = {
 type TenantDbUpsertOptions = {
   conflictTarget: string[];
   update?: Record<string, unknown>;
+  increment?: Readonly<Record<string, number>>;
 };
 type TenantDbWrites<TTable> = {
   insertOne<T = Record<string, unknown>>(table: TTable, values: Record<string, unknown>): Promise<T | undefined>;
@@ -5583,7 +5735,10 @@ type WhereOperator = {
   ne?: unknown;
   in?: unknown[];
   notIn?: unknown[]; // Not for jsonb columns; an empty list matches every row.
-  like?: string;
+  like?: string; // Raw LIKE pattern: % and _ are wildcards; use contains or startsWith for user input.
+  contains?: string; // Substring match; %, _ and \ in the value match literally.
+  startsWith?: string; // Prefix match; %, _ and \ in the value match literally.
+  equalsIgnoreCase?: string; // Case-insensitive equality, lower() on both sides; %, _ and \ have no wildcard meaning.
   jsonText?: JsonTextMatch | JsonTextMatch[]; // jsonb columns only; cannot be combined with other operators in the same object.
 };
 type WherePrimitive = string | number | boolean | bigint | Date | null | undefined;

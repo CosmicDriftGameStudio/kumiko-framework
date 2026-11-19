@@ -16,10 +16,13 @@ import {
   createRegistry,
   defineFeature,
   defineWriteHandler,
+  emitEvent,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
+import { createEventConsumerStateTable } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -50,52 +53,70 @@ const userA = createTestUser({ id: 1, tenantId: tenantA, roles: ["Admin"] });
 const userB = createTestUser({ id: 2, tenantId: tenantB, roles: ["Admin"] });
 const systemAdmin = createTestUser({ id: 3, tenantId: tenantA, roles: ["SystemAdmin"] });
 
-const generateWrite = defineWriteHandler({
-  name: "generate",
-  description: "Test-only: starts the text generation for one campaign.",
-  schema: z.object({ campaignId: z.string(), mode: z.enum(["fail", "budget", "succeed"]) }),
-  access: { roles: ["Admin"] },
-  handler: async (event) => ({ isSuccess: true as const, data: { ...event.payload } }),
-});
-
-const retryWrite = defineWriteHandler({
-  name: "startFlaky",
-  description: "Test-only: starts a job that fails on every attempt.",
-  schema: z.object({}),
-  access: { roles: ["Admin"] },
-  handler: async () => ({ isSuccess: true as const, data: {} }),
-});
-
 const appFeature = defineFeature("app", (r) => {
-  r.writeHandler(generateWrite);
-  r.writeHandler(retryWrite);
+  const generationRequested = r.defineEvent(
+    "generation-requested",
+    z.object({ campaignId: z.string(), mode: z.enum(["fail", "budget", "succeed"]) }),
+    { piiFields: "none" },
+  );
+  const flakyRequested = r.defineEvent("flaky-requested", z.object({}), { piiFields: "none" });
+  r.writeHandler(
+    defineWriteHandler({
+      name: "generate",
+      description: "Test-only: starts the text generation for one campaign.",
+      schema: z.object({ campaignId: z.string(), mode: z.enum(["fail", "budget", "succeed"]) }),
+      access: { roles: ["Admin"] },
+      handler: async (event, ctx) => {
+        await emitEvent(ctx, generationRequested, {
+          aggregateId: crypto.randomUUID(),
+          aggregateType: "generation-requested",
+          expectedVersion: 0,
+          payload: { campaignId: event.payload.campaignId, mode: event.payload.mode },
+        });
+        return { isSuccess: true as const, data: { ...event.payload } };
+      },
+    }),
+  );
+  r.writeHandler(
+    defineWriteHandler({
+      name: "startFlaky",
+      description: "Test-only: starts a job that fails on every attempt.",
+      schema: z.object({}),
+      access: { roles: ["Admin"] },
+      handler: async (_event, ctx) => {
+        await emitEvent(ctx, flakyRequested, {
+          aggregateId: crypto.randomUUID(),
+          aggregateType: "flaky-requested",
+          expectedVersion: 0,
+          payload: {},
+        });
+        return { isSuccess: true as const, data: {} };
+      },
+    }),
+  );
 
-  r.job(
-    "generateTexts",
-    {
-      trigger: { on: "app:write:generate" },
-      tenantVisibleFailure: { messageKey: DECLARED_KEY, subjectFields: ["campaignId"] },
-    },
-    async (payload) => {
+  r.job({
+    name: "generateTexts",
+    trigger: { on: "generation-requested" },
+    tenantVisibleFailure: { messageKey: DECLARED_KEY, subjectFields: ["campaignId"] },
+    handler: async (payload) => {
       if (payload["mode"] === "budget") {
         throw new UnprocessableError("budget_exceeded", { i18nKey: BUDGET_KEY });
       }
       if (payload["mode"] === "fail") throw new Error(PROVIDER_MESSAGE);
     },
-  );
+  });
 
   // retries: 1 — two attempts, both failing. Only the last one may record.
-  r.job(
-    "flaky",
-    {
-      trigger: { on: "app:write:start-flaky" },
-      retries: 1,
-      tenantVisibleFailure: { messageKey: DECLARED_KEY },
-    },
-    async () => {
+  r.job({
+    name: "flaky",
+    trigger: { on: "flaky-requested" },
+    retries: 1,
+    tenantVisibleFailure: { messageKey: DECLARED_KEY },
+    handler: async () => {
       throw new Error(PROVIDER_MESSAGE);
     },
-  );
+  });
 });
 
 let testDb: TestDb;
@@ -104,6 +125,7 @@ let db: DbConnection;
 let app: Hono;
 let jwt: JwtHelper;
 let jobRunner: JobRunner;
+let eventDispatcher: Awaited<ReturnType<typeof buildServer>>["eventDispatcher"];
 
 beforeAll(async () => {
   testDb = await createTestDb();
@@ -111,6 +133,8 @@ beforeAll(async () => {
   db = testDb.db;
 
   const registry = createRegistry([appFeature, createJobsFeature()]);
+  await createEventsTable(db);
+  await createEventConsumerStateTable(db);
   await unsafePushTables(db, { jobRunsTable, jobRunLogsTable, tenantJobFailuresTable });
 
   const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
@@ -127,12 +151,14 @@ beforeAll(async () => {
     registry,
     context: { db, registry, jobRunner },
     jwtSecret: JWT_SECRET,
-    // Event-triggered jobs enqueue from dispatch-write's afterCommit hooks,
-    // which read the runner off the dispatcher — not off the AppContext.
+    // The job-trigger event consumer reads the runner off the dispatcher
+    // options — not off the AppContext.
     dispatcherOptions: { jobRunner },
   });
   app = server.app;
   jwt = server.jwt;
+  eventDispatcher = server.eventDispatcher;
+  await eventDispatcher?.ensureRegistered();
 
   await jobRunner.start();
 });
@@ -168,6 +194,7 @@ async function generate(
     payload: { campaignId, mode },
   });
   expect((await res.json()).isSuccess).toBe(true);
+  await eventDispatcher?.runOnce();
 }
 
 async function failures(user: SessionUser, payload: unknown = {}): Promise<FailureRow[]> {
@@ -229,6 +256,7 @@ describe("jobs:query:failures", () => {
   test("only the final attempt records — a retried job leaves one record", async () => {
     const res = await post("/api/write", userB, { type: "app:write:start-flaky", payload: {} });
     expect((await res.json()).isSuccess).toBe(true);
+    await eventDispatcher?.runOnce();
 
     await waitFor(async () => {
       expect(await failures(userB, { jobName: "app:job:flaky" })).toHaveLength(1);

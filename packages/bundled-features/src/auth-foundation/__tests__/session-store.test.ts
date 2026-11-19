@@ -1,5 +1,5 @@
 // resolveSessionStore + the sessionStore multiplicity boot-check.
-// Mock providers registered via r.useExtension(EXT_SESSION_STORE, ...) in
+// Mock providers registered via r.applyExtension({ name: EXT_SESSION_STORE, ... }) in
 // throwaway test-features — no real sessions provider exists yet.
 
 import { describe, expect, test } from "bun:test";
@@ -16,15 +16,13 @@ function mockStore(): SessionStore {
     creator: async () => "sid-1",
     revoker: async () => undefined,
     checker: async () => "live",
-    massRevoker: async () => 0,
-    revokeAllOthers: async () => 0,
   };
 }
 
 function storeProvider(entityName = "mock-store"): ReturnType<typeof defineFeature> {
   const plugin: SessionStoreProvider = { build: () => mockStore() };
   return defineFeature(`mock-${entityName}`, (r) => {
-    r.useExtension(EXT_SESSION_STORE, entityName, plugin);
+    r.applyExtension({ name: EXT_SESSION_STORE, entity: entityName, ...plugin });
   });
 }
 
@@ -68,7 +66,7 @@ describe("validateSessionStoreMultiplicity", () => {
   test("malformed registration (no build) → throws a malformed-plugin error", () => {
     const broken = defineFeature("mock-broken", (r) => {
       // @ts-expect-error malformed plugin (no build) — proves the runtime guard rejects it too.
-      r.useExtension(EXT_SESSION_STORE, "broken", {});
+      r.applyExtension({ name: EXT_SESSION_STORE, entity: "broken" });
     });
     const registry = createRegistry([createAuthFoundationFeature(), broken]);
     expect(() => validateSessionStoreMultiplicity([...registry.features.values()])).toThrow(

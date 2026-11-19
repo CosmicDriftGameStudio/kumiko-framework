@@ -10,6 +10,7 @@ const isMeasurement = { field: "kind", eq: "measurement" } as const;
 const isNotOk = { field: "result", eq: "not_ok" } as const;
 
 export const inspectionProtocolEntity = createEntity({
+  name: "inspection-protocol",
   table: "read_sample_inspection_protocols",
   fields: {
     measuringDevice: createTextField({ personal: false, reason: "is_business_data" }),
@@ -66,7 +67,4 @@ export const inspectionProtocolEntity = createEntity({
   },
 });
 
-export const inspectionProtocolTable = buildEntityTable(
-  "inspection-protocol",
-  inspectionProtocolEntity,
-);
+export const inspectionProtocolTable = buildEntityTable(inspectionProtocolEntity);

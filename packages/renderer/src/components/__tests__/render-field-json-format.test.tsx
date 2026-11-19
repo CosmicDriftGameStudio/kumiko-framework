@@ -21,6 +21,7 @@ import {
   PrimitivesProvider,
   type TextProps,
 } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RenderField } from "../render-field.tsx";
 
 let capturedJsonView: JsonViewProps | undefined;
@@ -38,7 +39,7 @@ const captureText: ComponentType<TextProps> = (props) => {
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const basePrimitives: Omit<CorePrimitives, "Text" | "JsonView"> = {
+const basePrimitives: Partial<CorePrimitives> = {
   Button: noop,
   // Passes children through (not noop): the "unsupported jsonb" fallback
   // path wraps its Text/JsonView content in <Banner>, so a Banner that
@@ -62,16 +63,11 @@ const basePrimitives: Omit<CorePrimitives, "Text" | "JsonView"> = {
   Link: noop,
 };
 
-const primitivesWithJsonView: CorePrimitives = {
+const primitivesWithJsonView = createStubPrimitives({
   ...basePrimitives,
   Text: captureText,
   JsonView: captureJsonView,
-};
-
-const primitivesWithoutJsonView: CorePrimitives = {
-  ...basePrimitives,
-  Text: captureText,
-};
+});
 
 function payloadField(
   value: unknown,
@@ -118,7 +114,7 @@ function renderPayload(primitives: CorePrimitives, field: EditFieldViewModel): v
 }
 
 describe("RenderField — format: json", () => {
-  test("with a registered JsonView, it receives the raw, structured value — not a flat string", () => {
+  test("it receives the raw, structured value — not a flat string", () => {
     const value = { user: { id: 1, roles: ["admin", "billing"] } };
     renderPayload(primitivesWithJsonView, payloadField(value));
     expect(capturedJsonView?.value).toBe(value);
@@ -131,13 +127,6 @@ describe("RenderField — format: json", () => {
     expect(capturedJsonView?.indent).toBe(4);
   });
 
-  test("without a registered JsonView, it falls back to Text with the string formatted by applyFormatSpec", () => {
-    const value = { a: 1 };
-    renderPayload(primitivesWithoutJsonView, payloadField(value));
-    expect(capturedJsonView).toBeUndefined();
-    expect(capturedText?.children).toBe(JSON.stringify(value, null, 2));
-  });
-
   test("a circular value reaches JsonView unchanged — preparing it is the responsibility of the primitive implementation, not RenderField", () => {
     const circular: Record<string, unknown> = { name: "job-1" };
     circular["self"] = circular;
@@ -147,18 +136,10 @@ describe("RenderField — format: json", () => {
 });
 
 describe("RenderField — unsupported jsonb/embedded/files/images fallback banner", () => {
-  test("with a registered JsonView, the banner displays the value in structured form instead of as a JSON.stringify one-liner", () => {
+  test("the banner displays the value in structured form instead of as a JSON.stringify one-liner", () => {
     const value = { assignee: "user-1", tags: ["a", "b"] };
     renderPayload(primitivesWithJsonView, unrenderedJsonbField(value));
     expect(capturedJsonView?.value).toBe(value);
     expect(capturedText).toBeUndefined();
-  });
-
-  test("without a registered JsonView, the banner falls back to Text variant=code with the old one-liner", () => {
-    const value = { assignee: "user-1" };
-    renderPayload(primitivesWithoutJsonView, unrenderedJsonbField(value));
-    expect(capturedJsonView).toBeUndefined();
-    expect(capturedText?.children).toBe(JSON.stringify(value));
-    expect(capturedText?.variant).toBe("code");
   });
 });

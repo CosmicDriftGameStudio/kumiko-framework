@@ -13,6 +13,7 @@ import {
   renderTabStrip,
   renderWizardProgress,
 } from "./render-edit-banners.tsx";
+import { renderFieldApprovalDrawer } from "./render-edit-field-approval.tsx";
 import { renderFormActions } from "./render-edit-form-actions.tsx";
 import {
   buildHeaderActions,
@@ -22,7 +23,7 @@ import {
 import type { RenderEditModel } from "./render-edit-render-model.ts";
 import { renderEditSections } from "./render-edit-section-kinds.tsx";
 import { deriveWizardRail } from "./render-edit-wizard-rail.ts";
-import { AllFieldsRequiredProvider } from "./render-field.tsx";
+import { AllFieldsRequiredProvider, FieldIconsHiddenProvider } from "./render-field.tsx";
 
 function renderPageHeader<TValues extends FormValues, TCtx>(
   { engine: { state }, layout, titles }: RenderEditModel<TValues, TCtx>,
@@ -31,15 +32,13 @@ function renderPageHeader<TValues extends FormValues, TCtx>(
   const { PageHeader, ActionOverflowMenu } = state.primitives;
   const { pageHeaderCompact } = state;
   return (
-    layout.titleInShell &&
-    PageHeader !== undefined && (
+    layout.titleInShell && (
       <PageHeader
         title={titles.formTitle}
         {...(titles.recordTitle !== undefined && { recordTitle: titles.recordTitle })}
         {...(headerMenuItems.length > 0 && pageHeaderCompact && { overflowItems: headerMenuItems })}
         {...(headerMenuItems.length > 0 &&
-          !pageHeaderCompact &&
-          ActionOverflowMenu !== undefined && {
+          !pageHeaderCompact && {
             actions: (
               <ActionOverflowMenu
                 label={state.translate("kumiko.list.row-actions.more")}
@@ -60,7 +59,6 @@ function renderWizardSideRail<TValues extends FormValues, TCtx>(
   const { state, steps, sections, nav } = engine;
   const { StepBar } = state.primitives;
   const { translate } = state;
-  if (StepBar === undefined) return undefined;
   const { description, subtitles, upNext } = deriveWizardRail(model);
   return (
     <StepBar
@@ -177,6 +175,7 @@ export function renderEditLayout<TValues extends FormValues, TCtx>(
     <ExtensionFormRegistryProvider value={state.extensionFormRegistry}>
       <FormUploadTrackerProvider value={state.trackUpload}>
         {state.menuActionConfirmDialog}
+        {renderFieldApprovalDrawer(model)}
         {renderPageHeader(model, header)}
         <Form
           onSubmit={() => void handleSubmit()}
@@ -187,27 +186,31 @@ export function renderEditLayout<TValues extends FormValues, TCtx>(
           stickyActions={state.isWizard || props.fillScreenHeight === true}
           {...buildFormChromeProps(model, header)}
         >
-          <AllFieldsRequiredProvider
-            value={sections.showsAllRequiredHint || props.screen.layout.hideRequiredMarker === true}
-          >
-            {showsIntroBox(model) && renderIntroBox(model)}
-            {props.leadContent}
-            {sections.showsAllRequiredHint &&
-              !state.insideDrawer &&
-              !showsIntroBox(model) &&
-              renderAllRequiredHint(model)}
-            {renderDraftPicker(model)}
-            {renderWizardProgress(model)}
-            {state.isTabs && state.isStepped && renderTabStrip(model)}
-            {renderEditSections(model)}
-            {props.belowSections?.(form.snapshot.values)}
-            {renderAfterFormSlot(model)}
-            {props.formErrorOnTop !== true && renderFormErrorBanner(model)}
-            {renderRootIssueBanners(model)}
-            {renderExtensionErrorBanner(model)}
-            {renderActionErrorBanner(model)}
-            {renderDeleteDialog(model)}
-          </AllFieldsRequiredProvider>
+          <FieldIconsHiddenProvider value={props.fieldIcons === false}>
+            <AllFieldsRequiredProvider
+              value={
+                sections.showsAllRequiredHint || props.screen.layout.hideRequiredMarker === true
+              }
+            >
+              {showsIntroBox(model) && renderIntroBox(model)}
+              {props.leadContent}
+              {sections.showsAllRequiredHint &&
+                !state.insideDrawer &&
+                !showsIntroBox(model) &&
+                renderAllRequiredHint(model)}
+              {renderDraftPicker(model)}
+              {renderWizardProgress(model)}
+              {state.isTabs && state.isStepped && renderTabStrip(model)}
+              {renderEditSections(model)}
+              {props.belowSections?.(form.snapshot.values)}
+              {renderAfterFormSlot(model)}
+              {props.formErrorOnTop !== true && renderFormErrorBanner(model)}
+              {renderRootIssueBanners(model)}
+              {renderExtensionErrorBanner(model)}
+              {renderActionErrorBanner(model)}
+              {renderDeleteDialog(model)}
+            </AllFieldsRequiredProvider>
+          </FieldIconsHiddenProvider>
         </Form>
       </FormUploadTrackerProvider>
     </ExtensionFormRegistryProvider>

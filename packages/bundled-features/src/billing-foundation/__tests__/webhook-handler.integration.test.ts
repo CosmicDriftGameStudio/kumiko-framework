@@ -64,9 +64,9 @@ const afterDispatchCalls: string[] = [];
 // behavior without touching the wired extraRoute.
 const mockProviderFeature = defineFeature("test-mock-webhook-provider", (r) => {
   r.requires({ features: ["billing-foundation"] });
-  r.useExtension("subscriptionProvider", "stripe", stripeLikePlugin);
-  r.useExtension("subscriptionProvider", "paypal", paypalLikePlugin);
-  r.useExtension("subscriptionProvider", "redelivering", redeliveringPlugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: "stripe", ...stripeLikePlugin });
+  r.applyExtension({ name: "subscriptionProvider", entity: "paypal", ...paypalLikePlugin });
+  r.applyExtension({ name: "subscriptionProvider", entity: "redelivering", ...redeliveringPlugin });
 });
 
 let stack: TestStack;
@@ -196,10 +196,11 @@ describe("webhook-handler — error paths", () => {
       ),
     );
     expect(res.status).toBe(500);
-    const body = (await res.json()) as {
-      error: { code: string; message: string; details: unknown };
-    };
-    expect(body.error.code).toBe("subscription_webhook_processing_failed");
+    const body = (await res.json()) as { error: Record<string, unknown> };
+    expect(body.error).toEqual({
+      code: "subscription_webhook_processing_failed",
+      message: "Internal error processing subscription event",
+    });
   });
 });
 

@@ -14,7 +14,6 @@ import {
   withResponseData,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  InternalError,
   NotFoundError,
   type WriteFailure,
   writeFailure,
@@ -76,19 +75,13 @@ export const removeMemberWrite = defineWriteHandler({
   name: "removeMember",
   schema: z.object({ userId: z.string(), tenantId: z.string() }),
   access: { roles: ["SystemAdmin"] },
+  systemScope: true,
   description:
     "Removes a user's membership in a tenant and signs their sessions in that tenant out, refusing to strip the tenant's last TenantAdmin; use it when someone should lose access to a workspace.",
   agent: { risk: "high" },
   handler: async (event, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "tenant:write:removeMember requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
-      });
-    }
-    const db = ctx.systemDb.acknowledgeCrossTenant(
-      "SystemAdmin manages memberships across tenants",
-    );
+    const { systemDb } = ctx;
+    const db = systemDb.acknowledgeCrossTenant("SystemAdmin manages memberships across tenants");
     const streamTenantId = parseTenantId(event.payload.tenantId);
     const existing =
       streamTenantId === null
@@ -110,7 +103,7 @@ export const removeMemberWrite = defineWriteHandler({
     if (currentRoles.includes("TenantAdmin")) {
       // assertNotLastTenantAdmin issues raw SQL, so it needs the raw runner, not
       // the tenant-scoped `db` — the count is filtered by the explicit tenantId.
-      const lockRunner = ctx.systemDb.unsafeRaw(
+      const lockRunner = systemDb.unsafeRaw(
         "tenant:write:removeMember last-TenantAdmin advisory lock + membership count",
       );
       const lastAdmin = await assertNotLastTenantAdmin(

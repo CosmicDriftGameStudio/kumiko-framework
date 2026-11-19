@@ -8,6 +8,7 @@ import type { DashboardPanelVisibility } from "../types/screen.ts";
 const OPEN_ACCESS = { openToAll: { reason: "test handler callable by any signed-in test user" } };
 
 const itemEntity = createEntity({
+  name: "item",
   table: "toolbar_gate_items",
   fields: {
     name: createTextField({
@@ -25,7 +26,7 @@ function listFeature(
   gateSchema: z.ZodType = z.object({}),
 ) {
   return defineFeature("shop", (r) => {
-    r.entity({ name: "item", ...itemEntity });
+    r.entity(itemEntity);
     r.queryHandler({
       name: "item:rows",
       schema: z.object({}),

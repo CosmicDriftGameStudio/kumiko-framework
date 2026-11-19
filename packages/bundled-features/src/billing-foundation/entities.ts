@@ -38,6 +38,7 @@ import {
 // stream — there is NO separate `subscription-event` table (= ES is the
 // audit source of truth and can be replayed through upcasters).
 export const subscriptionEntity = createEntity({
+  name: "subscription",
   table: "read_subscriptions",
   fields: {
     providerName: createTextField({
@@ -103,6 +104,7 @@ export const SUBSCRIPTION_PII_FIELDS = collectPiiSubjectFields(subscriptionEntit
 // aggregate-id = paymentAggregateId(tenantId) — one stream per tenant
 // collecting all of that tenant's payment-received events.
 export const paymentEntity = createEntity({
+  name: "payment",
   table: "read_payments",
   fields: {
     providerName: createTextField({

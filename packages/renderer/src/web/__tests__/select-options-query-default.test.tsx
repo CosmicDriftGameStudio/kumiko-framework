@@ -51,14 +51,14 @@ const modelForm: ActionFormScreenDefinition = {
 function renderForm(searchParams: Record<string, string>) {
   const writes: unknown[] = [];
   const dispatcher: Dispatcher = createMockDispatcher({
-    query: (async (_qn: string, payload: unknown) => {
+    query: async (_qn: string, payload: unknown) => {
       const provider = (payload as { provider?: string }).provider ?? "";
       return { isSuccess: true, data: { rows: ROWS_BY_PROVIDER[provider] ?? [] } };
-    }) as unknown as Dispatcher["query"],
-    write: (async (_type: string, payload: unknown) => {
+    },
+    write: async (_type: string, payload: unknown) => {
       writes.push(payload);
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
+    },
   });
   render(
     <DispatcherProvider dispatcher={dispatcher}>

@@ -110,7 +110,7 @@ function validateOneProjectionListScreen(
   const sortActive = schemaAccepts(schema, "sort");
   if ((searchActive || sortActive) && screen.defaultSort === undefined) {
     throw bootRuleError(LIST_QUERY_RULES.defaultSortRequired, {
-      message: `${prefix}: defaultSort required when search or sort is active. Set defaultSort: { field, direction }.`,
+      message: `${prefix}: defaultSort required when search or sort is active. Set defaultSort: { field, dir }.`,
     });
   }
 

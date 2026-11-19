@@ -23,6 +23,7 @@ import { TestUsers } from "../seeding/seed-users.ts";
 // the cache, and the other entity would be validated against the wrong map.
 
 const invoiceEntity = createEntity({
+  name: "invoice",
   table: "tg_invoices",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -42,6 +43,7 @@ const invoiceEntity = createEntity({
 });
 
 const orderEntity = createEntity({
+  name: "order",
   table: "tg_orders",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -61,6 +63,7 @@ const orderEntity = createEntity({
 
 // A soft-deletable entity to verify the auto-guard skips isDeleted rows.
 const ticketEntity = createEntity({
+  name: "ticket",
   table: "tg_tickets",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -76,14 +79,14 @@ const ticketEntity = createEntity({
   },
 });
 
-const invoiceTable = buildEntityTable("invoice", invoiceEntity);
-const orderTable = buildEntityTable("order", orderEntity);
-const ticketTable = buildEntityTable("ticket", ticketEntity);
+const invoiceTable = buildEntityTable(invoiceEntity);
+const orderTable = buildEntityTable(orderEntity);
+const ticketTable = buildEntityTable(ticketEntity);
 
 const feature = defineFeature("txguard", (r) => {
-  r.entity({ name: "invoice", ...invoiceEntity });
-  r.entity({ name: "order", ...orderEntity });
-  r.entity({ name: "ticket", ...ticketEntity });
+  r.entity(invoiceEntity);
+  r.entity(orderEntity);
+  r.entity(ticketEntity);
 
   r.writeHandler({
     name: "invoice:create",

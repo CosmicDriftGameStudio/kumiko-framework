@@ -109,18 +109,10 @@ The feature is ~80 lines (`src/feature.ts`). The integration test is
 // projection-hook + entity-postQuery flattening all line up.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import {
-  createCustomFieldsFeature,
-  fieldDefinitionEntity,
-} from "@cosmicdrift/kumiko-bundled-features/custom-fields";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createCustomFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { propertyEntity, propertyFeature } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { propertyFeature } from "../feature";
 
 // Each test runs in its own tenant, so rows from other tests never show up.
 let admin = createTestUser({ roles: ["TenantAdmin"], tenantId: testTenantId(1) });
@@ -131,9 +123,6 @@ let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [customFields, propertyFeature] });
-  await unsafeCreateEntityTable(stack.db, fieldDefinitionEntity);
-  await unsafeCreateEntityTable(stack.db, propertyEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -252,6 +241,7 @@ import { z } from "zod";
 // nowhere to land the values.
 
 export const propertyEntity = createEntity({
+  name: "property",
   table: "read_sample_cf_properties",
   fields: {
     name: createTextField({
@@ -264,7 +254,7 @@ export const propertyEntity = createEntity({
   },
 });
 
-export const propertyTable = buildEntityTable("property", propertyEntity);
+export const propertyTable = buildEntityTable(propertyEntity);
 
 function propertyExecutor() {
   return createEventStoreExecutor(propertyTable, propertyEntity, { entityName: "property" });

@@ -45,6 +45,10 @@ query and the fields to read, the query does the counting.
   `open-work` stat counts through the list's own query with `params.namedFilter`
   and `navigate`. A click opens the queue filtered by the same rule, so tile and
   list cannot drift.
+- **`resultField` shares one query across panels**: `ticket-overview` answers
+  `{ stats, recent }` from one query, and each panel reads its part with
+  `resultField`. Panels with the same query and params load with one request;
+  boot validation checks `valueField` and `columns` against the schema of that field.
 
 ## When to reach for it
 
@@ -73,18 +77,13 @@ bun kumiko test integration samples/dashboard-stats
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import {
   TICKET_CAPABILITIES_QUERY,
   TICKET_LIST_QUERY,
+  TICKET_OVERVIEW_QUERY,
   TICKET_STATS_QUERY,
-  ticketEntity,
   ticketFeature,
 } from "../feature";
 
@@ -94,8 +93,6 @@ const admin = createTestUser({ roles: ["Admin"], tenantId: testTenantId(31) });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [ticketFeature] });
-  await unsafeCreateEntityTable(stack.db, ticketEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -137,6 +134,34 @@ describe("ticket:stats", () => {
     const result = await stack.http.queryOk<Record<string, unknown>>(TICKET_STATS_QUERY, {}, admin);
 
     expect(result).toEqual({ open: 3, closed: 2, total: 5 });
+  });
+});
+
+describe("overview dashboard", () => {
+  test("overview: every panel's resultField is a field of the one overview answer over HTTP", async () => {
+    const screen = ticketFeature.screens["ticket-overview"];
+    if (screen?.type !== "dashboard") throw new Error("ticket-overview is not a dashboard screen");
+    await stack.http.writeOk<SaveContext>(
+      "tickets:write:ticket:create",
+      { title: "overview", status: "open" },
+      admin,
+    );
+
+    const result = await stack.http.queryOk<Record<string, { open?: number }>>(
+      TICKET_OVERVIEW_QUERY,
+      {},
+      admin,
+    );
+    const panels = screen.panels.flatMap((panel) =>
+      panel.kind === "stat-group" ? [...panel.stats] : [panel],
+    );
+    for (const panel of panels) {
+      expect(panel.kind === "custom" || panel.kind === "screen").toBe(false);
+      if (panel.kind === "custom" || panel.kind === "screen") continue;
+      expect(panel.query).toBe(TICKET_OVERVIEW_QUERY);
+      expect(result).toHaveProperty(panel.resultField ?? "");
+    }
+    expect(result["stats"]?.open).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -199,6 +224,12 @@ describe("named filter shared by the dashboard tile and the list", () => {
 });
 ```
 
+### src/access.ts
+
+```ts
+export const readerRoles = { roles: ["Admin", "User"] } as const;
+```
+
 ### src/feature.ts
 
 ```ts
@@ -208,122 +239,37 @@ describe("named filter shared by the dashboard tile and the list", () => {
 // projectionDetail as a panel, hides a toolbar button behind a capability query, and picks its
 // fallback screen by the reason the gate closed.
 
-import {
-  createEntity,
-  createEntityExecutor,
-  createSelectField,
-  createTextField,
-  defineFeature,
-} from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { readerRoles } from "./access";
+import { ticketCapabilitiesQuery } from "./handlers/ticket-capabilities.query";
+import { ticketCardQuery } from "./handlers/ticket-card.query";
+import { ticketOverviewQuery } from "./handlers/ticket-overview.query";
+import { ticketQuotaQuery } from "./handlers/ticket-quota.query";
+import { ticketRecentQuery } from "./handlers/ticket-recent.query";
+import { ticketRowsQuery } from "./handlers/ticket-rows.query";
+import { ticketStatsQuery } from "./handlers/ticket-stats.query";
+import { ticketEntity } from "./schema/ticket";
 
-export const TICKET_STATUSES = ["open", "closed"] as const;
-
-export const ticketEntity = createEntity({
-  table: "read_sample_tickets",
-  fields: {
-    title: createTextField({ personal: false, reason: "is_business_data", required: true }),
-    status: createSelectField({ options: TICKET_STATUSES, default: "open", required: true }),
-  },
-  // Defined once: the queue list and the dashboard tile both read it.
-  namedFilters: {
-    "open-work": { filters: () => [{ field: "status", op: "eq", value: "open" }] },
-  },
-});
+export { TICKET_STATUSES, ticketEntity } from "./schema/ticket";
 
 export const TICKET_STATS_QUERY = "tickets:query:ticket:stats";
+export const TICKET_OVERVIEW_QUERY = "tickets:query:ticket:overview";
 export const TICKET_CAPABILITIES_QUERY = "tickets:query:ticket:capabilities";
 export const TICKET_LIST_QUERY = "tickets:query:ticket:list";
 
-const readerRoles = { roles: ["Admin", "User"] } as const;
-
 export const ticketFeature = defineFeature("tickets", (r) => {
-  const { executor: ticketExecutor } = createEntityExecutor("ticket", ticketEntity);
-
-  r.crud("ticket", ticketEntity, {
+  r.crud(ticketEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: readerRoles },
   });
 
-  // Flat result: each dashboard stat reads one field via its valueField.
-  // limit: 1 keeps the page tiny; totalCount counts over the whole WHERE in
-  // the database, so no rows are loaded just to be counted.
-  r.queryHandler({
-    name: "ticket:stats",
-    schema: z.object({}),
-    handler: async (query, ctx) => {
-      const countWithStatus = async (status: (typeof TICKET_STATUSES)[number]): Promise<number> => {
-        const page = await ticketExecutor.list(
-          { filter: { field: "status", op: "eq", value: status }, limit: 1, totalCount: true },
-          query.user,
-          ctx.db,
-        );
-        return page.total ?? 0;
-      };
-      const [open, closed] = await Promise.all([
-        countWithStatus("open"),
-        countWithStatus("closed"),
-      ]);
-      return { open, closed, total: open + closed };
-    },
-    access: readerRoles,
-  });
-
-  // Gate for the screens below: a flat answer with one boolean the screens test with `eq`.
-  r.queryHandler({
-    name: "ticket:capabilities",
-    schema: z.object({}),
-    outputSchema: z.object({ canClose: z.boolean() }),
-    handler: async (query) => ({ canClose: query.user.roles.includes("Admin") }),
-    access: readerRoles,
-  });
-
-  r.queryHandler({
-    name: "ticket:card",
-    schema: z.object({ id: z.string() }),
-    handler: async (query, ctx) => {
-      const page = await ticketExecutor.list(
-        { filter: { field: "id", op: "eq", value: query.payload.id }, limit: 1 },
-        query.user,
-        ctx.db,
-      );
-      const ticket = page.rows[0];
-      return { id: query.payload.id, title: ticket?.title ?? "", status: ticket?.status ?? "" };
-    },
-    access: readerRoles,
-  });
-
-  r.queryHandler({
-    name: "ticket:rows",
-    schema: z.object({}),
-    handler: async (query, ctx) => {
-      const page = await ticketExecutor.list({ limit: 50 }, query.user, ctx.db);
-      return { rows: page.rows, nextCursor: null };
-    },
-    access: readerRoles,
-  });
-
-  // Three newest rows plus the total, so the panel can say how many more exist.
-  r.queryHandler({
-    name: "ticket:recent",
-    schema: z.object({}),
-    handler: async (query, ctx) => {
-      const page = await ticketExecutor.list({ limit: 3, totalCount: true }, query.user, ctx.db);
-      return { rows: page.rows, nextCursor: null, total: page.total ?? page.rows.length };
-    },
-    access: readerRoles,
-  });
-
-  r.queryHandler({
-    name: "ticket:quota",
-    schema: z.object({}),
-    handler: async () => ({
-      month: "November",
-      period: "01.11. - 30.11.",
-      rows: [{ label: "Tickets handled", used: 18, limit: 25, sub: "7 left" }],
-    }),
-    access: readerRoles,
-  });
+  r.queryHandler(ticketStatsQuery);
+  r.queryHandler(ticketCapabilitiesQuery);
+  r.queryHandler(ticketCardQuery);
+  r.queryHandler(ticketRowsQuery);
+  r.queryHandler(ticketRecentQuery);
+  r.queryHandler(ticketQuotaQuery);
+  r.queryHandler(ticketOverviewQuery);
 
   r.translations({
     keys: {
@@ -332,6 +278,7 @@ export const ticketFeature = defineFeature("tickets", (r) => {
       "tickets.dashboard.quota": { en: "Quota {month}" },
       "screen:ticket-list.title": { en: "Tickets" },
       "screen:ticket-card.title": { en: "Ticket" },
+      "screen:ticket-overview.title": { en: "Ticket overview (one query)" },
       "screen:ticket-record-dashboard.title": { en: "Ticket overview" },
       "entity:ticket:field:title": { en: "Title" },
       "entity:ticket:field:status": { en: "Status" },
@@ -417,6 +364,45 @@ export const ticketFeature = defineFeature("tickets", (r) => {
     access: readerRoles,
   });
 
+  r.screen({
+    id: "ticket-overview",
+    type: "dashboard",
+    panels: [
+      {
+        kind: "stat-group",
+        id: "by-status",
+        label: "tickets.dashboard.group",
+        stats: [
+          {
+            kind: "stat",
+            id: "open",
+            label: "tickets.dashboard.open",
+            query: TICKET_OVERVIEW_QUERY,
+            resultField: "stats",
+            valueField: "open",
+          },
+          {
+            kind: "stat",
+            id: "closed",
+            label: "tickets.dashboard.closed",
+            query: TICKET_OVERVIEW_QUERY,
+            resultField: "stats",
+            valueField: "closed",
+          },
+        ],
+      },
+      {
+        kind: "list",
+        id: "recent",
+        label: "tickets.dashboard.recent",
+        query: TICKET_OVERVIEW_QUERY,
+        resultField: "recent",
+        columns: ["title", "status"],
+      },
+    ],
+    access: readerRoles,
+  });
+
   // Three additions: a projectionDetail embedded in a record-bound dashboard, a gated toolbar
   // button, and a fallback chosen by reason.
   const gate = { query: TICKET_CAPABILITIES_QUERY, field: "canClose", eq: true } as const;
@@ -470,4 +456,222 @@ export const ticketFeature = defineFeature("tickets", (r) => {
     access: readerRoles,
   });
 });
+```
+
+### src/handlers/ticket-capabilities.query.ts
+
+```ts
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+import { readerRoles } from "../access";
+
+// Gate for the screens: a flat answer with one boolean the screens test with `eq`.
+export const ticketCapabilitiesQuery = defineQueryHandler({
+  name: "ticket:capabilities",
+  schema: z.object({}),
+  outputSchema: z.object({ canClose: z.boolean() }),
+  handler: async (query) => ({ canClose: query.user.roles.includes("Admin") }),
+  access: readerRoles,
+});
+```
+
+### src/handlers/ticket-card.query.ts
+
+```ts
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+import { readerRoles } from "../access";
+import { ticketExecutor } from "../schema/ticket";
+
+export const ticketCardQuery = defineQueryHandler({
+  name: "ticket:card",
+  schema: z.object({ id: z.string() }),
+  handler: async (query, ctx) => {
+    const page = await ticketExecutor.list(
+      { filter: { field: "id", op: "eq", value: query.payload.id }, limit: 1 },
+      query.user,
+      ctx.db,
+    );
+    const ticket = page.rows[0];
+    return { id: query.payload.id, title: ticket?.title ?? "", status: ticket?.status ?? "" };
+  },
+  access: readerRoles,
+});
+```
+
+### src/handlers/ticket-overview.query.ts
+
+```ts
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+import { readerRoles } from "../access";
+import { countTicketsWithStatus } from "../lib/count-tickets-with-status";
+import { ticketExecutor } from "../schema/ticket";
+
+// One query feeds every panel of the overview screen: each panel reads one field through
+// `resultField`, so the screen loads with one request.
+export const ticketOverviewQuery = defineQueryHandler({
+  name: "ticket:overview",
+  schema: z.object({}),
+  outputSchema: z.object({
+    stats: z.object({ open: z.number(), closed: z.number(), total: z.number() }),
+    recent: z.object({
+      rows: z.array(z.object({ id: z.string(), title: z.string(), status: z.string() })),
+      nextCursor: z.null(),
+      total: z.number(),
+    }),
+  }),
+  handler: async (query, ctx) => {
+    const [open, closed, recent] = await Promise.all([
+      countTicketsWithStatus("open", query.user, ctx.db),
+      countTicketsWithStatus("closed", query.user, ctx.db),
+      ticketExecutor.list({ limit: 3, totalCount: true }, query.user, ctx.db),
+    ]);
+    return {
+      stats: { open, closed, total: open + closed },
+      recent: {
+        rows: recent.rows.map((row) => ({
+          id: String(row.id),
+          title: String(row.title),
+          status: String(row.status),
+        })),
+        nextCursor: null,
+        total: recent.total ?? recent.rows.length,
+      },
+    };
+  },
+  access: readerRoles,
+});
+```
+
+### src/handlers/ticket-quota.query.ts
+
+```ts
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+import { readerRoles } from "../access";
+
+export const ticketQuotaQuery = defineQueryHandler({
+  name: "ticket:quota",
+  schema: z.object({}),
+  handler: async () => ({
+    month: "November",
+    period: "01.11. - 30.11.",
+    rows: [{ label: "Tickets handled", used: 18, limit: 25, sub: "7 left" }],
+  }),
+  access: readerRoles,
+});
+```
+
+### src/handlers/ticket-recent.query.ts
+
+```ts
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+import { readerRoles } from "../access";
+import { ticketExecutor } from "../schema/ticket";
+
+// Three newest rows plus the total, so the panel can say how many more exist.
+export const ticketRecentQuery = defineQueryHandler({
+  name: "ticket:recent",
+  schema: z.object({}),
+  handler: async (query, ctx) => {
+    const page = await ticketExecutor.list({ limit: 3, totalCount: true }, query.user, ctx.db);
+    return { rows: page.rows, nextCursor: null, total: page.total ?? page.rows.length };
+  },
+  access: readerRoles,
+});
+```
+
+### src/handlers/ticket-rows.query.ts
+
+```ts
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+import { readerRoles } from "../access";
+import { ticketExecutor } from "../schema/ticket";
+
+export const ticketRowsQuery = defineQueryHandler({
+  name: "ticket:rows",
+  schema: z.object({}),
+  handler: async (query, ctx) => {
+    const page = await ticketExecutor.list({ limit: 50 }, query.user, ctx.db);
+    return { rows: page.rows, nextCursor: null };
+  },
+  access: readerRoles,
+});
+```
+
+### src/handlers/ticket-stats.query.ts
+
+```ts
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+import { readerRoles } from "../access";
+import { countTicketsWithStatus } from "../lib/count-tickets-with-status";
+
+// Flat result: each dashboard stat reads one field via its valueField.
+// limit: 1 keeps the page tiny; totalCount counts over the whole WHERE in
+// the database, so no rows are loaded just to be counted.
+export const ticketStatsQuery = defineQueryHandler({
+  name: "ticket:stats",
+  schema: z.object({}),
+  handler: async (query, ctx) => {
+    const [open, closed] = await Promise.all([
+      countTicketsWithStatus("open", query.user, ctx.db),
+      countTicketsWithStatus("closed", query.user, ctx.db),
+    ]);
+    return { open, closed, total: open + closed };
+  },
+  access: readerRoles,
+});
+```
+
+### src/lib/count-tickets-with-status.ts
+
+```ts
+import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { type TICKET_STATUSES, ticketExecutor } from "../schema/ticket";
+
+export async function countTicketsWithStatus(
+  status: (typeof TICKET_STATUSES)[number],
+  user: SessionUser,
+  db: TenantDb,
+): Promise<number> {
+  const page = await ticketExecutor.list(
+    { filter: { field: "status", op: "eq", value: status }, limit: 1, totalCount: true },
+    user,
+    db,
+  );
+  return page.total ?? 0;
+}
+```
+
+### src/schema/ticket.ts
+
+```ts
+import {
+  createEntity,
+  createEntityExecutor,
+  createSelectField,
+  createTextField,
+} from "@cosmicdrift/kumiko-framework/engine";
+
+export const TICKET_STATUSES = ["open", "closed"] as const;
+
+export const ticketEntity = createEntity({
+  name: "ticket",
+  table: "read_sample_tickets",
+  fields: {
+    title: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    status: createSelectField({ options: TICKET_STATUSES, default: "open", required: true }),
+  },
+  // Defined once: the queue list and the dashboard tile both read it.
+  namedFilters: {
+    "open-work": { filters: () => [{ field: "status", op: "eq", value: "open" }] },
+  },
+});
+
+export const { executor: ticketExecutor } = createEntityExecutor(ticketEntity);
 ```

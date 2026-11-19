@@ -3,7 +3,7 @@
 // `waitFor` polling on a specific job's side effect.
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { defineFeature, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, emitEvent, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
 import { DEFAULT_EVENT_DISPATCHER_BATCH_SIZE } from "@cosmicdrift/kumiko-framework/pipeline";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import * as z from "zod";
@@ -21,10 +21,20 @@ const chainFeature = defineFeature("draintestchain", (r) => {
     piiFields: "none",
   });
 
+  const started = r.defineEvent("started", z.object({ value: z.string() }), { piiFields: "none" });
+
   r.writeHandler({
     name: "start",
     schema: z.object({ value: z.string() }),
-    handler: async () => ({ isSuccess: true as const, data: {} }),
+    handler: async (event, ctx) => {
+      await emitEvent(ctx, started, {
+        aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
+        aggregateType: "draintestchain",
+        payload: { value: event.payload.value },
+      });
+      return { isSuccess: true as const, data: {} };
+    },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
@@ -34,6 +44,7 @@ const chainFeature = defineFeature("draintestchain", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "draintestchain",
         type: relayed.name,
         payload: { value: event.payload.value },
@@ -54,6 +65,7 @@ const chainFeature = defineFeature("draintestchain", (r) => {
       for (let index = 0; index < event.payload.fillerCount; index++) {
         await ctx.events.unsafeAppend({
           aggregateId: crypto.randomUUID(),
+          expectedVersion: 0,
           aggregateType: "draintestchain",
           type: filler.name,
           payload: { index },
@@ -61,6 +73,7 @@ const chainFeature = defineFeature("draintestchain", (r) => {
       }
       await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "draintestchain",
         type: relayed.name,
         payload: { value: event.payload.value },
@@ -70,16 +83,22 @@ const chainFeature = defineFeature("draintestchain", (r) => {
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
-  r.job(
-    "job-a",
-    { trigger: { on: "draintestchain:write:start" }, retries: 0 },
-    async (payload, ctx) => {
+  r.job({
+    name: "job-a",
+    trigger: { on: "draintestchain:event:started" },
+    retries: 0,
+    handler: async (payload, ctx) => {
       await ctx.dispatch.write("draintestchain:write:emit-relayed", { value: payload["value"] });
     },
-  );
+  });
 
-  r.job("job-b", { trigger: { on: relayed.name }, retries: 0 }, async (payload) => {
-    chainResults.push({ value: payload["value"] as string }); // @cast-boundary test-fixture
+  r.job({
+    name: "job-b",
+    trigger: { on: relayed.name },
+    retries: 0,
+    handler: async (payload) => {
+      chainResults.push({ value: payload["value"] as string }); // @cast-boundary test-fixture
+    },
   });
 });
 
@@ -87,25 +106,38 @@ const alwaysFailsRuns: string[] = [];
 const retrySucceedsAttempts: number[] = [];
 
 const failureFeature = defineFeature("draintestfailure", (r) => {
-  r.job("always-fails", { trigger: { manual: true }, retries: 0 }, async () => {
-    alwaysFailsRuns.push("ran");
-    throw new Error("job-c always fails");
+  r.job({
+    name: "always-fails",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async () => {
+      alwaysFailsRuns.push("ran");
+      throw new Error("job-c always fails");
+    },
   });
 
-  r.job(
-    "retry-succeeds",
-    { trigger: { manual: true }, retries: 1, backoff: { type: "fixed", delayMs: 10 } },
-    async () => {
+  r.job({
+    name: "retry-succeeds",
+    trigger: { manual: true },
+    retries: 1,
+    backoff: { type: "fixed", delayMs: 10 },
+    handler: async () => {
       retrySucceedsAttempts.push(Date.now());
       if (retrySucceedsAttempts.length === 1) throw new Error("first attempt fails on purpose");
     },
-  );
+  });
 });
 
 // No tenant feature mounted, so the fan-out wrapper cannot resolve tenants and
 // throws before the job's own run starts.
 const fanOutFeature = defineFeature("draintestfanout", (r) => {
-  r.job("fan-out", { trigger: { manual: true }, perTenant: true, retries: 0 }, async () => {});
+  r.job({
+    name: "fan-out",
+    trigger: { manual: true },
+    perTenant: true,
+    retries: 0,
+    handler: async () => {},
+  });
 });
 
 let stack: TestStack | undefined;

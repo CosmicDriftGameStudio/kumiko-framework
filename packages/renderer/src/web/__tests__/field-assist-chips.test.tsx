@@ -6,10 +6,16 @@ import type {
 
 import userEvent from "@testing-library/user-event";
 import { RelatedPhotoGrid } from "../../components/related-photo-grid.tsx";
-import type { Dispatcher } from "../../headless/index.ts";
+import type { QueryResult } from "../../headless/index.ts";
 import { DispatcherProvider, RenderEdit } from "../../index.ts";
 import { DefaultRecordSummary } from "../primitives/record-summary.tsx";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const entity = {
   fields: {
@@ -17,6 +23,7 @@ const entity = {
     price: { type: "money" },
     seats: { type: "number" },
     suggestions: { type: "jsonb" },
+    priceSuggestions: { type: "jsonb" },
   },
 } as unknown as EntityDefinition;
 
@@ -30,6 +37,7 @@ const SCREEN: EntityEditScreenDefinition = {
         title: "Offer",
         fields: [
           { field: "suggestions", visible: false },
+          { field: "priceSuggestions", visible: false },
           {
             field: "note",
             aiAssist: {
@@ -42,7 +50,7 @@ const SCREEN: EntityEditScreenDefinition = {
               prompt: { param: "instruction", placeholder: "Tell the AI" },
             },
           },
-          { field: "price", valueChips: { from: "suggestions" } },
+          { field: "price", valueChips: { from: "priceSuggestions" } },
           { field: "seats", suffix: "seats", valueChips: { from: "suggestions" } },
         ],
       },
@@ -50,7 +58,7 @@ const SCREEN: EntityEditScreenDefinition = {
   },
 };
 
-function renderOffer(query: Dispatcher["query"] | undefined) {
+function renderOffer(query: MockQueryHandler | undefined) {
   const dispatcher = createMockDispatcher(query === undefined ? {} : { query });
   return render(
     <DispatcherProvider dispatcher={dispatcher}>
@@ -58,19 +66,25 @@ function renderOffer(query: Dispatcher["query"] | undefined) {
         screen={SCREEN}
         entity={entity}
         featureName="demo"
-        initial={{ note: "hi there", price: null, seats: null, suggestions: [3, 5] }}
+        initial={{
+          note: "hi there",
+          price: null,
+          seats: null,
+          suggestions: [3, 5],
+          priceSuggestions: [300, 500],
+        }}
         writeCommand="offer:create"
       />
     </DispatcherProvider>,
   );
 }
 
-function recordingQuery(result: unknown = { isSuccess: true, data: { message: "Drafted" } }) {
+function recordingQuery(result: QueryResult = { isSuccess: true, data: { message: "Drafted" } }) {
   const calls: { type: string; payload: unknown }[] = [];
-  const query = (async (type: string, payload: unknown) => {
+  const query: MockQueryHandler = async (type: string, payload: unknown) => {
     calls.push({ type, payload });
     return result;
-  }) as unknown as Dispatcher["query"];
+  };
   return { query, calls };
 }
 
@@ -113,14 +127,14 @@ describe("aiAssist", () => {
   });
 
   test("a rejecting query shows the error banner and enables the chips again", async () => {
-    const query = (async () => {
+    const query: MockQueryHandler = async () => {
       throw new Error("network");
-    }) as unknown as Dispatcher["query"];
+    };
     renderOffer(query);
 
     await userEvent.setup().click(screen.getByTestId("field-ai-chip-note-0"));
 
-    await waitFor(() => expect(screen.getByTestId("field-ai-error-note")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-ai-error-note"));
     expect(screen.getByTestId("field-ai-chip-note-0").hasAttribute("disabled")).toBe(false);
     expect(noteInput().value).toBe("hi there");
   });
@@ -128,13 +142,19 @@ describe("aiAssist", () => {
   test("a failing query shows the error banner and keeps the text", async () => {
     const { query } = recordingQuery({
       isSuccess: false,
-      error: { code: "boom", message: "x", details: {} },
+      error: {
+        code: "boom",
+        httpStatus: 500,
+        i18nKey: "errors.internal",
+        message: "x",
+        details: {},
+      },
     });
     renderOffer(query);
 
     await userEvent.setup().click(screen.getByTestId("field-ai-chip-note-0"));
 
-    await waitFor(() => expect(screen.getByTestId("field-ai-error-note")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-ai-error-note"));
     expect(noteInput().value).toBe("hi there");
   });
 });
@@ -149,7 +169,7 @@ describe("valueChips", () => {
       expect(screen.getByTestId("field-seats").querySelector("input")?.value).toBe("5"),
     );
 
-    await user.click(screen.getByTestId("field-value-chip-price-3"));
+    await user.click(screen.getByTestId("field-value-chip-price-300"));
     await waitFor(() =>
       expect(screen.getByTestId("field-price").querySelector("input")?.value).toMatch(/3/),
     );
@@ -162,16 +182,16 @@ describe("valueChips", () => {
 
   test("chip text follows the field type and the chip equal to the value is pressed with a check", async () => {
     renderOffer(undefined);
-    const priceChip = screen.getByTestId("field-value-chip-price-3");
+    const priceChip = screen.getByTestId("field-value-chip-price-300");
     expect(priceChip.textContent).toMatch(/3/);
     expect(priceChip.textContent).toMatch(/\$|€|USD|EUR/);
     expect(priceChip.getAttribute("aria-pressed")).toBe("false");
 
     await userEvent.setup().click(priceChip);
-    const pressedChip = () => screen.getByTestId("field-value-chip-price-3");
+    const pressedChip = () => screen.getByTestId("field-value-chip-price-300");
     await waitFor(() => expect(pressedChip().getAttribute("aria-pressed")).toBe("true"));
     expect(pressedChip().textContent).toContain("✓");
-    expect(screen.getByTestId("field-value-chip-price-5").getAttribute("aria-pressed")).toBe(
+    expect(screen.getByTestId("field-value-chip-price-500").getAttribute("aria-pressed")).toBe(
       "false",
     );
   });
@@ -212,8 +232,8 @@ describe("RelatedPhotoGrid", () => {
         testId="grid"
       />,
     );
-    expect(screen.getByText("Front")).toBeTruthy();
-    expect(screen.getByText("Back")).toBeTruthy();
+    screen.getByText("Front");
+    screen.getByText("Back");
     expect(screen.getAllByRole("button", { name: "Remove" })).toHaveLength(1);
     await userEvent.setup().click(screen.getByRole("button", { name: "Remove" }));
     expect(triggered).toEqual(["a"]);

@@ -106,7 +106,7 @@ describe("CapUsageBar", () => {
       </Wrapper>,
     );
 
-    expect(screen.getByTestId("cap-usage-not-measured")).toBeTruthy();
+    screen.getByTestId("cap-usage-not-measured");
     expect(screen.queryByTestId("cap-usage-unlimited")).toBeNull();
   });
 
@@ -147,7 +147,7 @@ describe("CapUsageBar", () => {
         <CapUsageBar usage={{ used: 1536, limit: 102400, fraction: 0.015, unit: "mb" }} />
       </Wrapper>,
     );
-    expect(screen.getByText(/1\.5.GB \/ 100.GB/)).toBeTruthy();
+    screen.getByText(/1\.5.GB \/ 100.GB/);
     unmount();
 
     render(
@@ -155,6 +155,6 @@ describe("CapUsageBar", () => {
         <CapUsageBar usage={{ used: 1500, limit: 150000, fraction: 0.01, unit: "count" }} />
       </Wrapper>,
     );
-    expect(screen.getByText(/1,500 \/ 150,000/)).toBeTruthy();
+    screen.getByText(/1,500 \/ 150,000/);
   });
 });

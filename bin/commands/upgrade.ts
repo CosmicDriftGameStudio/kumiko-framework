@@ -1,7 +1,6 @@
 // `kumiko upgrade` — thin wrapper: delegates to the shared `runUpgradeCli`
 // core (@cosmicdrift/kumiko-framework/upgrade-cli), which is the SAME core
-// the published `kumiko-upgrade` bin (in @cosmicdrift/kumiko-cli and
-// dev-server) uses — apps and the dev CLI share one implementation.
+// the published `kumiko-upgrade` bin (in @cosmicdrift/kumiko-cli) uses — apps and the dev CLI share one implementation.
 // upgrade-help.test.ts keeps the flag list below in sync with that core.
 
 import { defineCommand } from "./registry";

@@ -28,6 +28,7 @@ import { z } from "zod";
 export const AccessControlRoles = defineRoles(["Admin"] as const);
 
 export const projectEntity = createEntity({
+  name: "project",
   table: "read_ac_projects",
   fields: {
     name: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -36,6 +37,7 @@ export const projectEntity = createEntity({
 });
 
 export const taskEntity = createEntity({
+  name: "task",
   table: "read_ac_tasks",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -56,17 +58,17 @@ export const taskRelations = {
 
 // Relations flow into buildEntityTable — every belongsTo FK gets its own
 // index on this table.
-export const projectTable = buildEntityTable("project", projectEntity, {
+export const projectTable = buildEntityTable(projectEntity, {
   relations: projectRelations,
 });
-export const taskTable = buildEntityTable("task", taskEntity, {
+export const taskTable = buildEntityTable(taskEntity, {
   relations: taskRelations,
 });
 
 export const accessControlFeature = defineFeature("access-control", (r) => {
-  r.entity({ name: "project", ...projectEntity });
-  r.entity({ name: "task", ...taskEntity });
-  r.relation("task", "project", taskRelations.project);
+  r.entity(projectEntity);
+  r.entity(taskEntity);
+  r.relation({ entity: "task", name: "project", ...taskRelations.project });
 
   // Admin-only: standard create — no business logic, helper handles schema +
   // executor + handler-body.

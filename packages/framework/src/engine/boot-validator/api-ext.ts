@@ -1,10 +1,9 @@
-import { createFallbackLogger } from "../../logging/utils.ts";
+import { FRAMEWORK_OWNED_EXTENSIONS } from "../extension-names.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { API_EXT_RULES } from "./api-ext-rules.ts";
 import { collectBootRuleViolations } from "./boot-report.ts";
 import { bootRuleError } from "./boot-rule.ts";
-
-const log = createFallbackLogger("kumiko:boot");
+import type { BootWarningSink } from "./boot-warning.ts";
 
 // --- Cross-feature API exposure / usage matching ---
 //
@@ -22,6 +21,7 @@ export function validateApiExposureMatching(
   feature: FeatureDefinition,
   allExposedApis: ReadonlyMap<string, string>,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
+  warn: BootWarningSink,
 ): void {
   collectBootRuleViolations(feature.usedApis, (apiName) => {
     const providerFeature = allExposedApis.get(apiName);
@@ -33,9 +33,11 @@ export function validateApiExposureMatching(
     }
 
     if (providerFeature === feature.name) {
-      log.warn(
-        `[Feature ${feature.name}] r.usesApi("${apiName}") on its own r.exposesApi — typically a refactor leftover. Call the impl directly instead.`,
-      );
+      warn({
+        kind: "api/self-use",
+        feature: feature.name,
+        message: `[Feature ${feature.name}] r.usesApi("${apiName}") on its own r.exposesApi — typically a refactor leftover. Call the impl directly instead.`,
+      });
       return;
     }
 
@@ -64,6 +66,7 @@ export function validateExtensionUsages(
   extensionProviders: ReadonlyMap<string, string>,
 ): void {
   collectBootRuleViolations(feature.extensionUsages, (usage) => {
+    if (FRAMEWORK_OWNED_EXTENSIONS.has(usage.extensionName)) return; // skip: framework-owned extension, no provider feature to require
     const providerFeature = extensionProviders.get(usage.extensionName);
     if (!providerFeature) {
       throw bootRuleError(API_EXT_RULES.unknownExtension, {

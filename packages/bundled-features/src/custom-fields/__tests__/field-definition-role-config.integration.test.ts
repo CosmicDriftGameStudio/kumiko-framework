@@ -7,6 +7,8 @@
 // override can still list what they defined.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
@@ -17,6 +19,23 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { fieldDefinitionEntity } from "../entity.ts";
 import { createCustomFieldsFeature } from "../feature.ts";
+import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.ts";
+
+const customerEntity = createEntity({
+  name: "customer",
+  table: "read_cf_role_config_customers",
+  fields: {
+    name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
+    customFields: customFieldsField(),
+  },
+});
+const customerTable = buildEntityTable(customerEntity);
+
+const customerHostFeature = defineFeature("customer-host", (r) => {
+  r.entity(customerEntity);
+  r.requires({ features: ["custom-fields"] });
+  wireCustomFieldsFor(r, "customer", customerTable);
+});
 
 const admin = createTestUser({ roles: ["TenantAdmin"] });
 const customRoleUser = createTestUser({ roles: ["Admin"] });
@@ -37,9 +56,13 @@ describe("custom-fields fieldDefinitionWriteRoles", () => {
 
   beforeAll(async () => {
     stack = await setupTestStack({
-      features: [createCustomFieldsFeature({ fieldDefinitionWriteRoles: ["Admin"] })],
+      features: [
+        createCustomFieldsFeature({ fieldDefinitionWriteRoles: ["Admin"] }),
+        customerHostFeature,
+      ],
     });
     await unsafeCreateEntityTable(stack.db, fieldDefinitionEntity);
+    await unsafeCreateEntityTable(stack.db, customerEntity);
   });
 
   afterAll(async () => {

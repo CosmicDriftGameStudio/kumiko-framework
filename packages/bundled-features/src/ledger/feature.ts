@@ -25,12 +25,18 @@ import { resolveFeatureAccess } from "../shared/index.ts";
 import { accountEntity, scheduleEntity, transactionEntity } from "./entity.ts";
 import { createConfirmSchedulePeriodHandler } from "./handlers/confirm-schedule-period.write.ts";
 import { createCreateTransactionHandler } from "./handlers/create-transaction.write.ts";
+import { createEnsureAccountsHandler } from "./handlers/ensure-accounts.write.ts";
 import {
   createBalanceSheetHandler,
   createBalancesReportHandler,
   createIncomeStatementHandler,
 } from "./handlers/reports.query.ts";
 import { createReverseTransactionHandler } from "./handlers/reverse-transaction.write.ts";
+import {
+  createScheduleActualsHandler,
+  createSubjectTotalsHandler,
+} from "./handlers/totals.query.ts";
+import { LEDGER_I18N } from "./i18n.ts";
 import { requireScheduleSubjectPair } from "./schedule-subject-pair.ts";
 import { DEFAULT_LEDGER_ACCESS, LEDGER_FEATURE_NAME } from "./web/constants.ts";
 
@@ -45,19 +51,20 @@ function registerLedger(
   toggleable: LedgerToggleable | undefined,
 ): void {
   r.describe(
-    "Double-entry bookkeeping primitive. Owns two event-sourced entities — the per-tenant `account` chart of accounts (`read_ledger_accounts`, self-referential via parentId, typed asset/liability/equity/income/expense) and immutable `transaction` journal entries (`read_ledger_transactions`) whose balanced posting lines are embedded as jsonb (Σ amount = 0, signed integer minor units). The account catalog uses the generic entity handlers (create, update, list, detail); create-transaction books a balanced entry (Σ=0 and ≥2 distinct accounts enforced at the command boundary, referential integrity against accounts checked) and reverse-transaction books its Storno mirror — there is deliberately NO transaction update/delete, so a posted entry is an immutable fact and the audit trail stays intact. Recurring schedules (`read_ledger_schedules`) layer Dauerauftrag templates on top — a schedule names debit/credit accounts, an amount, a monthly interval and an optional caller-assigned `sourceRef` key (filterable, to find a schedule again), from which the Soll (forecast) is a pure projection (projectSchedule) needing no bookings, and confirm-schedule-period materialises one period as an idempotent, reversal-aware balanced entry referencing scheduleReference(id, period); only confirming writes. Balances and reports (balance sheet, P&L, cashflow) derive as pure queries over the postings. Everything financial — banking, accounting, rent cashflow, credits, invoices — models as accounts + balanced transactions on top. Pin roles with createLedgerFeature({ roles }) or adopt the host model with { access }; pass { toggleable: { default: false } } to tier-gate the whole feature.",
+    "Double-entry bookkeeping primitive. Owns two event-sourced entities — the per-tenant `account` chart of accounts (`read_ledger_accounts`, self-referential via parentId, typed asset/liability/equity/income/expense) and immutable `transaction` journal entries (`read_ledger_transactions`) whose balanced posting lines are embedded as jsonb (Σ amount = 0, signed integer minor units). The account catalog uses the generic entity handlers (create, update, list, detail); create-transaction books a balanced entry (Σ=0 and ≥2 distinct accounts enforced at the command boundary, referential integrity against accounts checked) and reverse-transaction books its Storno mirror — there is deliberately NO transaction update/delete, so a posted entry is an immutable fact and the audit trail stays intact. Recurring schedules (`read_ledger_schedules`) layer Dauerauftrag templates on top — a schedule names debit/credit accounts, an amount, a monthly interval and an optional caller-assigned `sourceRef` key (filterable, to find a schedule again), from which the Soll (forecast) is a pure projection (projectSchedule) needing no bookings, and confirm-schedule-period materialises one period as an idempotent, reversal-aware balanced entry carrying the scheduleId/period columns on the transaction; only confirming writes. ensure-accounts idempotently creates missing chart entries by code and returns their ids. report:subject-totals returns net posting totals per subject, account and optionally period, and schedule-actuals returns the posted (and Storno) entries of given schedules shaped for mergeScheduleActuals. Balances and reports (balance sheet, P&L, cashflow) derive as pure queries over the postings. Everything financial — banking, accounting, rent cashflow, credits, invoices — models as accounts + balanced transactions on top. Pin roles with createLedgerFeature({ roles }) or adopt the host model with { access }; pass { toggleable: { default: false } } to tier-gate the whole feature.",
   );
   r.uiHints({
     displayLabel: "Ledger",
     category: "data",
     recommended: false,
   });
+  r.translations({ keys: LEDGER_I18N });
 
   if (toggleable !== undefined) r.toggleable(toggleable);
 
-  r.entity({ name: "account", ...accountEntity });
-  r.entity({ name: "transaction", ...transactionEntity });
-  r.entity({ name: "schedule", ...scheduleEntity });
+  r.entity(accountEntity);
+  r.entity(transactionEntity);
+  r.entity(scheduleEntity);
 
   // Chart of accounts — plain CRUD, no custom logic. No delete in v1: removing an
   // account that has postings would orphan them; a posting-aware guard lands with
@@ -76,6 +83,7 @@ function registerLedger(
         "Changes an existing chart-of-accounts entry's name, type, code or parent; use it to rename or re-file an account, its balance is derived from postings and never edited here.",
     }),
   );
+  r.writeHandler(createEnsureAccountsHandler(access));
   r.queryHandler(
     defineEntityListHandler("account", accountEntity, {
       access,
@@ -99,7 +107,7 @@ function registerLedger(
     defineEntityListHandler("transaction", transactionEntity, {
       access,
       description:
-        "Lists the tenant's journal entries with date, description, reference, status and their embedded posting lines; use it to browse the books or to find the entry a reversal should target.",
+        "Lists the tenant's journal entries with date, description, display reference, reversal and schedule links, status and their embedded posting lines; use it to browse the books or to find the entry a reversal should target.",
     }),
   );
   r.queryHandler(
@@ -150,6 +158,8 @@ function registerLedger(
   r.queryHandler(createBalancesReportHandler(access));
   r.queryHandler(createIncomeStatementHandler(access));
   r.queryHandler(createBalanceSheetHandler(access));
+  r.queryHandler(createSubjectTotalsHandler(access));
+  r.queryHandler(createScheduleActualsHandler(access));
 }
 
 const defaultLedgerFeature = defineFeature(LEDGER_FEATURE_NAME, (r) =>

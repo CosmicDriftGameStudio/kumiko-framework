@@ -14,7 +14,6 @@ export {
   type ScheduleDef,
   type ScheduleMonth,
   type ScheduleMonthStatus,
-  scheduleReference,
 } from "../recurring.ts";
 export {
   type ConfirmSchedulePeriodPayload,

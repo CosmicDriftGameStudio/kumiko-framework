@@ -22,7 +22,8 @@ import {
   type TranslationsByLocale,
 } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import { type CorePrimitives, type FormProps, PrimitivesProvider } from "../../primitives.tsx";
+import { type FormProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RenderEdit } from "../render-edit.tsx";
 
 const noop = (): ReactNode => null;
@@ -30,6 +31,7 @@ const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNod
 
 function buildEntity(): EntityDefinition {
   return {
+    name: "describedItem",
     fields: {
       name: {
         type: "text",
@@ -56,7 +58,7 @@ function renderEditCapturingForm(
     captured = props;
     return props.children;
   };
-  const primitives: CorePrimitives = {
+  const primitives = createStubPrimitives({
     Button: noop,
     Banner: noop,
     Field: passChildren,
@@ -75,7 +77,7 @@ function renderEditCapturingForm(
     ConfigSourceBadge: noop,
     ConfigCascadeView: noop,
     Link: noop,
-  };
+  });
   render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en-US" })}

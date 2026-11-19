@@ -29,7 +29,7 @@ const noopSave: PostSaveHookFn = async () => undefined;
 describe("HookPhases defaults", () => {
   test("postSave hook without options defaults to afterCommit phase", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
       r.writeHandler({
         name: "thing:create",
         schema: z.object({}),
@@ -46,7 +46,7 @@ describe("HookPhases defaults", () => {
 
   test("postSave hook respects explicit phase option", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
       r.writeHandler({
         name: "thing:create",
         schema: z.object({}),
@@ -67,7 +67,7 @@ describe("HookPhases defaults", () => {
 
   test("preDelete hook is always inTransaction (no option)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
       r.writeHandler({
         name: "thing:delete",
         schema: z.object({ id: z.uuid() }),
@@ -86,7 +86,7 @@ describe("HookPhases defaults", () => {
 
   test("hook({allOf}) postSave defaults to afterCommit, preDelete is forced inTransaction", () => {
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      const thing = r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
       r.hook({ type: "postSave", target: { allOf: thing }, handler: noopSave });
       r.hook({ type: "preDelete", target: { allOf: thing }, handler: async () => undefined });
     });
@@ -108,7 +108,7 @@ describe("Registry phase filtering", () => {
     };
 
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
       r.writeHandler({
         name: "thing:create",
         schema: z.object({}),
@@ -148,7 +148,7 @@ describe("Registry phase filtering", () => {
 
   test("getPostSaveHooks returns empty array when no hooks for handler", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
       r.writeHandler({
         name: "thing:create",
         schema: z.object({}),
@@ -175,7 +175,7 @@ describe("Registry phase filtering", () => {
     };
 
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
+      const thing = r.entity(createEntity({ name: "thing", table: "things", fields: {} }));
       r.hook({
         type: "postSave",
         target: { allOf: thing },

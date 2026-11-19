@@ -132,7 +132,7 @@ const mockPlanProviderFeature = defineFeature("test-mock-plan-provider", (r) => 
       return { url: `https://mock.example/portal/switch/${options.targetPriceId}` };
     },
   };
-  r.useExtension("subscriptionProvider", "mock-plan-provider", plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: "mock-plan-provider", ...plugin });
 });
 
 // Second registered provider — exists only so a subscription can be created
@@ -149,7 +149,7 @@ const mockOtherProviderFeature = defineFeature("test-mock-other-provider", (r) =
     verifyAndParseWebhook: async () => null,
     priceToTier: OTHER_PRICE_TO_TIER,
   };
-  r.useExtension("subscriptionProvider", "mock-other-provider", plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: "mock-other-provider", ...plugin });
 });
 
 /** Same shape as `BillingInfoQueryDeps.resolveTier` (spec): reads the

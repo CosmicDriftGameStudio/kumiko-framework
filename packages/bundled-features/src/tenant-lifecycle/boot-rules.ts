@@ -5,7 +5,7 @@ export const TENANT_LIFECYCLE_BOOT_RULES = {
     id: "tenant-lifecycle/tenant-subject-without-destroy-hook",
     summary:
       "An entity with tenant-subject fields has an EXT_TENANT_DATA destroy hook, so tenant destroy erases its data.",
-    fix: 'Register r.useExtension(EXT_TENANT_DATA, "<entity>", { destroy }) or a documented no-op if crypto-shredding covers it.',
+    fix: 'Register r.applyExtension({ name: EXT_TENANT_DATA, entity: "<entity>", destroy }) or a documented no-op if crypto-shredding covers it.',
   },
   destroyFunctionMissing: {
     id: "tenant-lifecycle/destroy-function-missing",

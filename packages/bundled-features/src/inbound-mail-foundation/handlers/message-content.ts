@@ -197,7 +197,7 @@ export async function storeInboundMessageContent(
   };
 }
 
-// 'inmc': serializes ingest and content attachment per message; disjoint from the thread-rollup namespace.
+// 'inmc': serializes ingest and content attachment per message.
 export const MESSAGE_LOCK_NAMESPACE = 0x696e6d63;
 
 // Encrypts a single message PII field outside the batch encryption of ingest-message.
@@ -209,7 +209,7 @@ export async function encryptMessageBodyText(
   const piiKms = configuredPiiSubjectKms();
   if (!piiKms) return bodyText;
   const encrypted = await encryptPiiFieldValues(
-    { tenantId, bodyText },
+    { id: messageAggId, tenantId, bodyText },
     inboundMessageEntity,
     INBOUND_MESSAGE_PII_FIELDS,
     piiKms,
@@ -228,7 +228,7 @@ export async function encryptMessageBodyHtml(
   const piiKms = configuredPiiSubjectKms();
   if (!piiKms || bodyHtml === null) return bodyHtml;
   const encrypted = await encryptPiiFieldValues(
-    { tenantId, bodyHtml },
+    { id: messageAggId, tenantId, bodyHtml },
     inboundMessageEntity,
     INBOUND_MESSAGE_PII_FIELDS,
     piiKms,

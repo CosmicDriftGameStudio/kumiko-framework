@@ -755,9 +755,9 @@ describe("Dialog", () => {
         testId="confirm"
       />,
     );
-    expect(screen.getByText("Wirklich löschen?")).toBeTruthy();
-    expect(screen.getByTestId("confirm-confirm")).toBeTruthy();
-    expect(screen.getByTestId("confirm-cancel")).toBeTruthy();
+    screen.getByText("Wirklich löschen?");
+    screen.getByTestId("confirm-confirm");
+    screen.getByTestId("confirm-cancel");
   });
 
   test("open=false renders nothing (empty portal)", () => {
@@ -882,7 +882,7 @@ describe("Card", () => {
     for (const chrome of ["border", "bg-card", "shadow", "rounded"]) {
       expect(className).not.toContain(chrome);
     }
-    expect(screen.getByText("Title")).toBeDefined();
+    screen.getByText("Title");
     expect(screen.getByTestId("c").innerHTML).toContain("pb-[var(--card-padding)]");
   });
 
@@ -899,8 +899,8 @@ describe("Card", () => {
 
   test("slots.title/subtitle render a default header", () => {
     render(<Card testId="c" slots={{ title: "Title", subtitle: "Subtitle" }} />);
-    expect(screen.getByText("Title")).toBeTruthy();
-    expect(screen.getByText("Subtitle")).toBeTruthy();
+    screen.getByText("Title");
+    screen.getByText("Subtitle");
   });
 
   test("no header slots → no header row rendered", () => {
@@ -1047,7 +1047,7 @@ describe("PageSection", () => {
       </PageSection>,
     );
     expect(screen.getByTestId("p").className).toContain("px-4");
-    expect(screen.getByTestId("child")).toBeDefined();
+    screen.getByTestId("child");
   });
 
   test("renders the same padding classes as FormScreenShell", () => {

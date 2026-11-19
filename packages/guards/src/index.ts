@@ -32,6 +32,7 @@ export {
   type SecurityBaselineLoad,
 } from "./_lib/security-baseline";
 export { writeSecurityBaselines } from "./_lib/security-baseline-cli";
+export { BIOME_PRESET_FIX, repoExtendsFrameworkPreset } from "./guard-biome-preset";
 export { GUARD_FLAGS, GUARDS, runGuardsCli } from "./run-guards";
 export { REPO_CHECK_FLAGS, REPO_CHECKS, runRepoChecksCli } from "./run-repo-checks";
 export { runUiGuardsCli, UI_GUARD_FLAGS, UI_GUARDS } from "./run-ui-guards";

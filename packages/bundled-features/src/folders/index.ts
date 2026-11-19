@@ -1,11 +1,12 @@
 export { folderAssignmentAggregateId } from "./aggregate-id.ts";
 export { folderAssignmentEntity, folderEntity } from "./entity.ts";
+export { createFolderAssignmentExecutor, type FolderAssignmentExecutor } from "./executor.ts";
 export {
   createFoldersFeature,
   type FoldersFeatureOptions,
 } from "./feature.ts";
-export { clearFolderHandler, createClearFolderHandler } from "./handlers/clear-folder.write.ts";
-export { createSetFolderHandler, setFolderHandler } from "./handlers/set-folder.write.ts";
+export { createClearFolderHandler } from "./handlers/clear-folder.write.ts";
+export { createSetFolderHandler } from "./handlers/set-folder.write.ts";
 export {
   type ClearFolderPayload,
   clearFolderPayloadSchema,
@@ -20,3 +21,4 @@ export {
   FoldersHandlers,
   FoldersQueries,
 } from "./web/constants.ts";
+export { buildFolderTree, type FolderNode, type FolderRow, folderPath } from "./web/tree.ts";

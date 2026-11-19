@@ -16,6 +16,8 @@ import {
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import { defineFeature } from "../../engine/index.ts";
+import { type MetricEvent, RecordingMeter } from "../../observability/index.ts";
+import { registerStandardMetrics } from "../../observability/standard-metrics.ts";
 import { type EventDispatcher, getConsumerState } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import type { EventConsumer } from "../event-dispatcher.ts";
@@ -26,7 +28,7 @@ const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity,
 });
 
 const feature = defineFeature("perconsumerturns", (r) => {
-  r.entity({ name: "widget", ...sharedWidgetEntity });
+  r.entity(sharedWidgetEntity);
 });
 
 const admin = TestUsers.admin;
@@ -127,5 +129,41 @@ describe("event-dispatcher — per-consumer turns", () => {
       releaseA?.();
       await dispatcher.stop();
     }
+  });
+
+  test("lag gauges of all consumers in one pass use the pass head", async () => {
+    const events: MetricEvent[] = [];
+    const meter = new RecordingMeter((e) => events.push(e));
+    registerStandardMetrics(meter);
+    const names = ["perconsumerturns:lag-a", "perconsumerturns:lag-b"];
+    const consumers: EventConsumer[] = names.map((name) => ({ name, handler: async () => {} }));
+    const dispatcher = createEventDispatcher({
+      db: stack.db,
+      consumers,
+      context: { db: stack.db, redis: stack.redis.redis, registry: stack.registry },
+      batchSize: 1,
+      pollIntervalMs: 30,
+      meter,
+    });
+    await dispatcher.ensureRegistered();
+    await appendWidget("one");
+    await appendWidget("two");
+    await appendWidget("three");
+
+    function lastLagPerConsumer(): Map<string, number> {
+      const last = new Map<string, number>();
+      for (const ev of events) {
+        if (ev.type !== "gauge.set" || ev.name !== "kumiko_event_consumer_lag_events") continue;
+        last.set(String(ev.labels?.["consumer"]), ev.value);
+      }
+      return last;
+    }
+
+    await dispatcher.runOnce();
+    for (const name of names) expect(lastLagPerConsumer().get(name)).toBe(2);
+
+    await dispatcher.runOnce();
+    await dispatcher.runOnce();
+    for (const name of names) expect(lastLagPerConsumer().get(name)).toBe(0);
   });
 });

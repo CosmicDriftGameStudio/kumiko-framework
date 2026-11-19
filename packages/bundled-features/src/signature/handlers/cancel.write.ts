@@ -1,14 +1,13 @@
 import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import type { SubjectScope } from "../../shared/index.ts";
-import { requestExecutor, signerExecutor } from "../entity.ts";
-import { isUnsignedSigner, listSigners, setRequestStatus } from "../lib.ts";
+import { type SignatureRequestExecutor, signerExecutor } from "../entity.ts";
+import { isUnsignedSigner, listSigners, requestHostIsVisible, setRequestStatus } from "../lib.ts";
 import { RequestIdSchema } from "../payloads.ts";
 import { SIGNATURE_REQUEST_ENTITY, SIGNATURE_REQUEST_STATUS } from "../web/constants.ts";
 
 // Cancelling moves the request out of `open`, which already makes every link of it fail; the
 // anchors are cleared as well so no token verifies against a cancelled request.
-export function createCancelHandler(access: AccessRule, scope: SubjectScope) {
+export function createCancelHandler(access: AccessRule, requestExecutor: SignatureRequestExecutor) {
   return defineWriteHandler<"cancel", typeof RequestIdSchema, { readonly cancelled: true }>({
     name: "cancel",
     schema: RequestIdSchema,
@@ -18,13 +17,12 @@ export function createCancelHandler(access: AccessRule, scope: SubjectScope) {
       "Cancels an open signature request; all its signing links stop working. Signatures already given stay on record.",
     handler: async (event, ctx) => {
       const user = event.user;
-      if (scope.isScoped(user)) {
-        const request = await requestExecutor.detail({ id: event.payload.requestId }, user, ctx.db);
-        if (request === null || !(await scope.allowsRequest(ctx, user, request))) {
-          return writeFailure(new NotFoundError(SIGNATURE_REQUEST_ENTITY, event.payload.requestId));
-        }
+      const request = await requestExecutor.detail({ id: event.payload.requestId }, user, ctx.db);
+      if (request === null || !(await requestHostIsVisible(ctx, user, request))) {
+        return writeFailure(new NotFoundError(SIGNATURE_REQUEST_ENTITY, event.payload.requestId));
       }
       const moved = await setRequestStatus(
+        requestExecutor,
         ctx,
         user,
         event.payload.requestId,

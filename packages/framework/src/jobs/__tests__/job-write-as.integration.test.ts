@@ -64,6 +64,7 @@ const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
         aggregateType: "write-as-probe-note",
         type: noted.name,
         payload: { note: event.payload.note },
@@ -80,11 +81,16 @@ const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
     access: { roles: ["system"] },
   });
 
-  r.job("writeAsSystem", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
-    const result = await ctx.dispatch.write("write-as-probe:write:admin-note", {
-      note: payload["note"] as string, // @cast-boundary dynamic-key
-    });
-    recordOutcome(writeOutcomes, result);
+  r.job({
+    name: "writeAsSystem",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      const result = await ctx.dispatch.write("write-as-probe:write:admin-note", {
+        note: payload["note"] as string, // @cast-boundary dynamic-key
+      });
+      recordOutcome(writeOutcomes, result);
+    },
   });
 
   const queryAsSystemWhoamiJob: JobHandlerFn = async (_payload, ctx) => {
@@ -101,16 +107,19 @@ const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
     }
   };
 
-  r.job("queryAsSystemWhoami", { trigger: { manual: true }, retries: 0 }, queryAsSystemWhoamiJob);
-  r.job(
-    "queryAsSystemWhoamiEscapeHatch",
-    {
-      trigger: { manual: true },
-      retries: 0,
-      escapeHatch: { reason: "test job reads as the system identity" },
-    },
-    queryAsSystemWhoamiJob,
-  );
+  r.job({
+    name: "queryAsSystemWhoami",
+    trigger: { manual: true },
+    retries: 0,
+    handler: queryAsSystemWhoamiJob,
+  });
+  r.job({
+    name: "queryAsSystemWhoamiEscapeHatch",
+    trigger: { manual: true },
+    retries: 0,
+    escapeHatch: { reason: "test job reads as the system identity", grants: ["systemIdentity"] },
+    handler: queryAsSystemWhoamiJob,
+  });
 
   const writeAsActorJob: JobHandlerFn = async (payload, ctx) => {
     const actor: SessionUser = {
@@ -129,27 +138,38 @@ const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
     }
   };
 
-  r.job(
-    "writeAsActor",
-    {
-      trigger: { manual: true },
-      retries: 0,
-      escapeHatch: { reason: "test job acts as a tenant admin to reach a role-gated handler" },
+  r.job({
+    name: "writeAsActor",
+    trigger: { manual: true },
+    retries: 0,
+    escapeHatch: {
+      reason: "test job acts as a tenant admin to reach a role-gated handler",
+      grants: ["systemIdentity"],
     },
-    writeAsActorJob,
-  );
-  r.job("writeAsActorNoGrant", { trigger: { manual: true }, retries: 0 }, writeAsActorJob);
+    handler: writeAsActorJob,
+  });
+  r.job({
+    name: "writeAsActorNoGrant",
+    trigger: { manual: true },
+    retries: 0,
+    handler: writeAsActorJob,
+  });
 });
 
 const queryAsSystemScopeProbeFeature = defineFeature("queryAsSystemScopeProbe", (r) => {
   r.systemScope();
-  r.job("whoami", { trigger: { manual: true }, retries: 0 }, async (_payload, ctx) => {
-    const result = (await ctx.dispatch.queryAs(
-      createSystemUser(ctx.systemUser.tenantId),
-      "write-as-probe:query:whoami",
-      {},
-    )) as { roles: readonly string[] }; // @cast-boundary engine-payload
-    jobQueryAsSystemResults.push(result);
+  r.job({
+    name: "whoami",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (_payload, ctx) => {
+      const result = (await ctx.dispatch.queryAs(
+        createSystemUser(ctx.systemUser.tenantId),
+        "write-as-probe:query:whoami",
+        {},
+      )) as { roles: readonly string[] }; // @cast-boundary engine-payload
+      jobQueryAsSystemResults.push(result);
+    },
   });
 });
 

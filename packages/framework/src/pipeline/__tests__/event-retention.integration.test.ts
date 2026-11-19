@@ -8,7 +8,8 @@
 //      before a big prune).
 //   3. Dry-run: reports the count, deletes nothing.
 //   4. olderThanDays / olderThan convenience: both resolve to the same
-//      cutoff semantics (createdAt < cutoff).
+//      cutoff semantics (a stream goes when its newest event is older than the cutoff).
+//   5. Only whole streams are deleted; batchSize counts streams.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { sharedWidgetEntity, sharedWidgetTable } from "@cosmicdrift/kumiko-testing/helpers";
@@ -39,7 +40,7 @@ const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity,
 });
 
 const retentionFeature = defineFeature("retention", (r) => {
-  r.entity({ name: "widget", ...sharedWidgetEntity });
+  r.entity(sharedWidgetEntity);
   // A single MSP so the events-table writes but no consumer has advanced
   // cursor by default (we drive cursor via runOnce in tests that care about
   // the lag guard).
@@ -130,10 +131,38 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
     expect(result.deletedCount).toBe(1);
     expect(result.aggregateTypes).toEqual(["obsolete"]);
 
-    const remaining = await selectMany(stack.db, eventsTable);
+    const remaining = await selectMany<{ id: bigint }>(stack.db, eventsTable);
     const ids = remaining.map((r) => r.id);
     expect(ids).toContain(widgetId);
     expect(ids).not.toContain(obsoleteId);
+  });
+
+  // One stream can carry two aggregate types: the unique key is (tenant, aggregate id, version).
+  test("events of another type on the same aggregate id survive", async () => {
+    const tenDaysAgo = Temporal.Now.instant().subtract({ hours: 240 });
+    const sharedAggregateId = generateId();
+    const appendAged = (aggregateType: string, expectedVersion: number) =>
+      runSeedWritesAt(tenDaysAgo, () =>
+        append(stack.db, {
+          aggregateId: sharedAggregateId,
+          aggregateType,
+          tenantId: admin.tenantId,
+          expectedVersion,
+          type: `${aggregateType}.legacy`,
+          payload: {},
+          metadata: { userId: admin.id },
+        }),
+      );
+    const obsolete = await appendAged("obsolete", 0);
+    const widget = await appendAged("widget", 1);
+    await disableConsumer(stack.db, observerQn);
+
+    const result = await pruneEvents(stack.db, { olderThanDays: 7, aggregateTypes: ["obsolete"] });
+
+    expect(result.deletedCount).toBe(1);
+    const ids = (await selectMany<{ id: bigint }>(stack.db, eventsTable)).map((r) => r.id);
+    expect(ids).toContain(BigInt(widget.id));
+    expect(ids).not.toContain(BigInt(obsolete.id));
   });
 
   test("named aggregate-type events older than the cutoff are deleted; fresh ones stay", async () => {
@@ -155,7 +184,7 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
     });
     expect(result.deletedCount).toBe(1);
 
-    const remaining = await selectMany(stack.db, eventsTable);
+    const remaining = await selectMany<{ id: bigint }>(stack.db, eventsTable);
     const ids = remaining.map((r) => r.id).sort();
     expect(ids).toEqual([freshId]);
     expect(ids.includes(staleId)).toBe(false);
@@ -179,6 +208,70 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
   });
 });
 
+describe("whole-stream pruning", () => {
+  async function createWidgetAt(createdAt: Temporal.Instant, name: string): Promise<string> {
+    const created = await runSeedWritesAt(createdAt, () => executor.create({ name }, admin, tdb));
+    if (!created.isSuccess) throw new Error("create failed");
+    return String(created.data.id);
+  }
+
+  async function updateWidgetAt(
+    createdAt: Temporal.Instant,
+    id: string,
+    name: string,
+  ): Promise<void> {
+    const updated = await runSeedWritesAt(createdAt, () =>
+      executor.update({ id, changes: { name } }, admin, tdb, { skipOptimisticLock: true }),
+    );
+    if (!updated.isSuccess) throw new Error("update failed");
+  }
+
+  async function eventCountOf(aggregateId: string): Promise<number> {
+    return (await selectMany(stack.db, eventsTable, { aggregateId })).length;
+  }
+
+  test("keeps every event of a stream that has an event newer than the cutoff", async () => {
+    const tenDaysAgo = Temporal.Now.instant().subtract({ hours: 240 });
+    const activeId = await createWidgetAt(tenDaysAgo, "active");
+    await updateWidgetAt(Temporal.Now.instant(), activeId, "active-renamed");
+    const staleId = await createWidgetAt(tenDaysAgo, "stale");
+    await disableConsumer(stack.db, observerQn);
+
+    const result = await pruneEvents(stack.db, { olderThanDays: 5, aggregateTypes: ["widget"] });
+
+    expect(result.deletedCount).toBe(1);
+    expect(await eventCountOf(activeId)).toBe(2);
+    expect(await eventCountOf(staleId)).toBe(0);
+  });
+
+  test("batchSize never splits a stream", async () => {
+    const tenDaysAgo = Temporal.Now.instant().subtract({ hours: 240 });
+    const longId = await createWidgetAt(tenDaysAgo, "long");
+    await updateWidgetAt(tenDaysAgo, longId, "long-1");
+    await updateWidgetAt(tenDaysAgo, longId, "long-2");
+    const shortId = await createWidgetAt(tenDaysAgo, "short");
+    await disableConsumer(stack.db, observerQn);
+
+    // The stream with the lowest first event id (long) goes first, completely.
+    const first = await pruneEvents(stack.db, {
+      olderThanDays: 5,
+      aggregateTypes: ["widget"],
+      batchSize: 1,
+    });
+    expect(first.deletedCount).toBe(3);
+    expect(await eventCountOf(longId)).toBe(0);
+    expect(await eventCountOf(shortId)).toBe(1);
+
+    const second = await pruneEvents(stack.db, {
+      olderThanDays: 5,
+      aggregateTypes: ["widget"],
+      batchSize: 1,
+    });
+    expect(second.deletedCount).toBe(1);
+    expect(await eventCountOf(shortId)).toBe(0);
+  });
+});
+
 describe("aggregateIds filter", () => {
   test("only the named aggregate ids lose events", async () => {
     const tenDaysAgo = Temporal.Now.instant().subtract({ hours: 240 });
@@ -196,7 +289,7 @@ describe("aggregateIds filter", () => {
     });
     expect(result.deletedCount).toBe(1);
 
-    const ids = (await selectMany(stack.db, eventsTable)).map((r) => r.id);
+    const ids = (await selectMany<{ id: bigint }>(stack.db, eventsTable)).map((r) => r.id);
     expect(ids).not.toContain(aId);
     expect(ids).toContain(bId);
   });

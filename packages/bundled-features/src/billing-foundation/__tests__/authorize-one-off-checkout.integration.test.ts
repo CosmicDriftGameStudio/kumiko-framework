@@ -46,7 +46,7 @@ const providerFeature = defineFeature("test-one-off-provider", (r) => {
       };
     },
   };
-  r.useExtension("subscriptionProvider", "mock", plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: "mock", ...plugin });
 });
 
 let stack: TestStack;

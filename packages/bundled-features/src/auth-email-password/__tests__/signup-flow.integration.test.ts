@@ -49,8 +49,6 @@ import { notificationPreferencesTable } from "../../delivery/tables.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
-// kumiko-lint-ignore cross-feature-import the test proves seedTenant fires tier-engine's
-// entity postSave hook on self-signup, not just on the TenantHandlers.create HTTP path.
 import { tierAssignmentEntity } from "../../tier-engine/entity.ts";
 import { createTierEngineFeature } from "../../tier-engine/feature.ts";
 import { createUserFeature } from "../../user/feature.ts";
@@ -59,7 +57,7 @@ import { createAuthEmailPasswordFeature } from "../feature.ts";
 import { AuthErrors, AuthHandlers } from "../web/constants.ts";
 import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
 
-const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
+const tierAssignmentTable = buildEntityTable(tierAssignmentEntity);
 
 // Regression-proof: provisionSignupAccount only threaded `hooks`
 // into seedTenant, leaving seedUserWithPassword's `user`-entity and
@@ -102,6 +100,11 @@ const tenantMembershipHookVendorFeature = defineFeature(
   },
 );
 
+// The claim echoes the minted session's tenant, so it proves the hook saw the new account.
+const claimsProbeFeature = defineFeature("claims-probe", (r) => {
+  r.authClaims(async (user) => ({ tenant: user.tenantId }));
+});
+
 const APP_ACTIVATION_URL = "https://app.example.com/signup/complete";
 
 registerMailTranslations("de", localeDeBundle);
@@ -138,6 +141,7 @@ beforeAll(async () => {
       }),
       userHookVendorFeature,
       tenantMembershipHookVendorFeature,
+      claimsProbeFeature,
     ],
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
@@ -193,8 +197,7 @@ beforeEach(async () => {
   tenantMembershipPostSaveFired.count = 0;
   tenantMembershipPostSaveFired.seenTenantIds = [];
   // Clear Redis so resend tests do not leak state.
-  const allKeys = await stack.redis.redis.keys("signup:*");
-  if (allKeys.length > 0) await stack.redis.redis.del(...allKeys);
+  await stack.redis.flushNamespace();
 });
 
 async function postSignupRequest(
@@ -405,6 +408,18 @@ describe("POST /api/auth/signup-confirm", () => {
     expect(payload.locale).toBe("de-DE");
     const rows = await selectMany(stack.db, userTable, { email });
     expect(rows[0]?.["locale"]).toBe("de-DE");
+  });
+
+  test("the first JWT carries the app's auth claims for the new tenant", async () => {
+    const token = await requestSignup("claims@example.com");
+
+    const res = await postSignupConfirm(token, "fresh-secure-pw-1234");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { token: string };
+
+    const payload = await stack.jwt.verify(body.token);
+    expect(payload.tenantId).toBeTruthy();
+    expect(payload.claims).toEqual({ "claims-probe:tenant": payload.tenantId });
   });
 
   test("a confirm request without a locale signal leaves the locale unset", async () => {

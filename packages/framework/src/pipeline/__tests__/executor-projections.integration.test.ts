@@ -11,9 +11,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
+import * as z from "zod";
 import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/dialect.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
-import { insertOne, selectMany } from "../../db/query.ts";
+import { insertOne, selectMany, transaction } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { createTenantDb } from "../../db/tenant-db.ts";
 import {
@@ -27,23 +28,33 @@ import { createSystemUser } from "../../engine/system-user.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const orderEntity = createEntity({
+  name: "order",
   table: "read_exproj_orders",
   fields: { title: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 const memoEntity = createEntity({
+  name: "memo",
   table: "read_exproj_memos",
   fields: { text: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 const auditEntity = createEntity({
+  name: "audit",
   table: "read_exproj_audits",
   fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
-const auditTable = buildEntityTable("audit", auditEntity);
+const auditTable = buildEntityTable(auditEntity);
+
+const auditExecutor = createEventStoreExecutor(auditTable, auditEntity, { entityName: "audit" });
 
 const auditLogTable = pgTable("read_exproj_audit_log", {
   auditId: pgUuid("audit_id").primaryKey(),
   tenantId: pgUuid("tenant_id").notNull(),
   label: pgText("label").notNull(),
+});
+
+const mspMarksTable = pgTable("read_exproj_msp_marks", {
+  id: pgUuid("id").primaryKey(),
+  tenantId: pgUuid("tenant_id").notNull(),
 });
 
 function isTenantDb(db: unknown): db is TenantDb {
@@ -55,9 +66,9 @@ const FAILING_LABEL = "projection-explodes";
 const projectionCalls: string[] = [];
 
 const exprojFeature = defineFeature("exproj", (r) => {
-  r.entity({ name: "order", ...orderEntity });
-  r.entity({ name: "audit", ...auditEntity });
-  r.entity({ name: "memo", ...memoEntity });
+  r.entity(orderEntity);
+  r.entity(auditEntity);
+  r.entity(memoEntity);
 
   r.projection({
     name: "audit-log",
@@ -77,11 +88,49 @@ const exprojFeature = defineFeature("exproj", (r) => {
     },
   });
 
+  const markRaised = r.defineEvent("mark-raised", z.object({}), { piiFields: "none" });
+
+  r.multiStreamProjection({
+    name: "exproj-msp",
+    table: mspMarksTable,
+    apply: {
+      [markRaised.name]: async (event, tx) => {
+        const tenantDb = createTenantDb({
+          db: tx,
+          tenantId: event.tenantId,
+          mode: "system",
+          reason: "test: msp writes a second aggregate through the executor",
+        });
+        const outcome = await auditExecutor.create(
+          { label: "from-msp" },
+          createSystemUser(event.tenantId),
+          tenantDb,
+        );
+        if (!outcome.isSuccess) throw new Error("msp audit write failed");
+      },
+    },
+  });
+
+  r.writeHandler({
+    name: "mark:raise",
+    schema: z.object({}),
+    handler: async (_event, ctx) => {
+      const id = crypto.randomUUID();
+      await ctx.events.unsafeAppend({
+        aggregateId: id,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
+        aggregateType: "audit",
+        type: markRaised.name,
+        payload: {},
+      });
+      return { isSuccess: true, data: { id } };
+    },
+    access: { roles: ["Admin"] },
+  });
+
   r.writeHandler(defineEntityCreateHandler("order", orderEntity, { access: { roles: ["Admin"] } }));
   r.writeHandler(defineEntityCreateHandler("audit", auditEntity, { access: { roles: ["Admin"] } }));
   r.writeHandler(defineEntityCreateHandler("memo", memoEntity, { access: { roles: ["Admin"] } }));
-
-  const auditExecutor = createEventStoreExecutor(auditTable, auditEntity, { entityName: "audit" });
 
   // The second aggregate is written straight through the executor, as apps do.
   r.hook({
@@ -104,7 +153,10 @@ const exprojFeature = defineFeature("exproj", (r) => {
     target: { allOf: "memo" },
     handler: async (result, ctx) => {
       if (!isTenantDb(ctx.db)) throw new Error("hook ctx.db is not a TenantDb");
-      const ownTenantDb = createTenantDb({ db: ctx.db.unsafeRaw(), tenantId: admin.tenantId });
+      const ownTenantDb = createTenantDb({
+        db: ctx.db.unsafeRawAllTenants(),
+        tenantId: admin.tenantId,
+      });
       const outcome = await auditExecutor.create(
         { label: String(result.data["text"]) },
         createSystemUser(admin.tenantId),
@@ -113,35 +165,44 @@ const exprojFeature = defineFeature("exproj", (r) => {
       if (!outcome.isSuccess) throw new Error("hook audit write via unsafeRaw failed");
     },
     phase: HookPhases.inTransaction,
-    escapeHatch: { reason: "test: TenantDb rebuilt from unsafeRaw" },
+    escapeHatch: {
+      reason: "test: TenantDb rebuilt from unsafeRaw",
+      grants: ["systemIdentity", "unsafeRaw"],
+    },
   });
 
   // A job dispatched without a write origin builds its TenantDb without a personal-data gate;
   // a TenantDb rebuilt from its unsafeRaw() grant must still run the custom projections.
-  r.job(
-    "make-audit-via-unsafe-raw",
-    {
-      trigger: { manual: true },
-      retries: 0,
-      escapeHatch: { reason: "test: TenantDb rebuilt from unsafeRaw inside a job" },
+  r.job({
+    name: "make-audit-via-unsafe-raw",
+    trigger: { manual: true },
+    retries: 0,
+    escapeHatch: {
+      reason: "test: TenantDb rebuilt from unsafeRaw inside a job",
+      grants: ["unsafeRaw"],
     },
-    async (payload, ctx) => {
+    handler: async (payload, ctx) => {
       const label = payload["label"];
       if (typeof label !== "string") throw new Error("make-audit-via-unsafe-raw needs a label");
       const ownTenantDb = createTenantDb({
-        db: ctx.db.unsafeRaw(),
+        db: ctx.db.unsafeRawAllTenants(),
         tenantId: ctx.systemUser.tenantId,
       });
       const outcome = await auditExecutor.create({ label }, ctx.systemUser, ownTenantDb);
       if (!outcome.isSuccess) throw new Error("job audit write via unsafeRaw failed");
     },
-  );
+  });
 
-  r.job("make-audit", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
-    const label = payload["label"];
-    if (typeof label !== "string") throw new Error("make-audit needs a label");
-    const outcome = await auditExecutor.create({ label }, ctx.systemUser, ctx.db);
-    if (!outcome.isSuccess) throw new Error("job audit write failed");
+  r.job({
+    name: "make-audit",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async (payload, ctx) => {
+      const label = payload["label"];
+      if (typeof label !== "string") throw new Error("make-audit needs a label");
+      const outcome = await auditExecutor.create({ label }, ctx.systemUser, ctx.db);
+      if (!outcome.isSuccess) throw new Error("job audit write failed");
+    },
   });
 });
 
@@ -165,11 +226,12 @@ afterEach(async () => {
     "read_exproj_audits",
     "read_exproj_memos",
     "read_exproj_audit_log",
+    "read_exproj_msp_marks",
   ]);
 });
 
 async function logRows(): Promise<readonly { label: string }[]> {
-  return selectMany(stack.db, auditLogTable);
+  return selectMany<{ label: string }>(stack.db, auditLogTable);
 }
 
 describe("executor writes run custom projections", () => {
@@ -195,6 +257,29 @@ describe("executor writes run custom projections", () => {
     expect(projectionCalls).toHaveLength(1);
   });
 
+  test("an executor write on a TenantDb built over a raw transaction projects exactly once", async () => {
+    await transaction(stack.db, async (tx) => {
+      const tenantDb = createTenantDb({ db: tx, tenantId: admin.tenantId });
+      const outcome = await auditExecutor.create(
+        { label: "raw-tx" },
+        createSystemUser(admin.tenantId),
+        tenantDb,
+      );
+      expect(outcome.isSuccess).toBe(true);
+    });
+
+    expect((await logRows()).map((row) => row.label)).toEqual(["raw-tx"]);
+    expect(projectionCalls).toHaveLength(1);
+  });
+
+  test("a multi-stream projection apply that writes through the executor projects", async () => {
+    await stack.http.writeOk("exproj:write:mark:raise", {}, admin);
+    await stack.eventDispatcher?.runOnce();
+
+    expect((await logRows()).map((row) => row.label)).toContain("from-msp");
+    expect(projectionCalls).toHaveLength(1);
+  });
+
   test("a throwing projection fails the hook write: neither aggregate is persisted", async () => {
     const res = await stack.http.write(
       "exproj:write:order:create",
@@ -203,7 +288,7 @@ describe("executor writes run custom projections", () => {
     );
     expect(res.status).toBeGreaterThanOrEqual(400);
 
-    expect(await selectMany(stack.db, buildEntityTable("order", orderEntity))).toHaveLength(0);
+    expect(await selectMany(stack.db, buildEntityTable(orderEntity))).toHaveLength(0);
     expect(await selectMany(stack.db, auditTable)).toHaveLength(0);
     expect(await logRows()).toHaveLength(0);
   });

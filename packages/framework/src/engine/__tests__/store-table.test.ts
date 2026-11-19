@@ -64,10 +64,11 @@ describe("r.storeTable — declaration", () => {
 
   test("rejects an EntityTableMeta whose source is not 'unmanaged'", () => {
     const managedEntity = createEntity({
+      name: "rt-probe-managed",
       table: "rt_probe_managed",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
     });
-    const managedMeta = deriveEntityTableMeta("rt-probe-managed", managedEntity);
+    const managedMeta = deriveEntityTableMeta(managedEntity);
     expect(() =>
       defineFeature("probe", (r) => {
         r.storeTable(managedMeta, { reason: "test" });
@@ -173,6 +174,7 @@ describe("createRegistry — storeTable aggregation", () => {
     // default would carry read_, which r.storeTable now rejects outright, so the
     // collision case needs a table name storeTable can actually register.
     const widget = createEntity({
+      name: "widget",
       table: "shop_widgets",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
     });
@@ -183,7 +185,7 @@ describe("createRegistry — storeTable aggregation", () => {
       columns: [{ name: "id", pgType: "text", notNull: true, primaryKey: true }],
     });
     const entityFeature = defineFeature("shop", (r) => {
-      r.entity({ name: "widget", ...widget });
+      r.entity(widget);
     });
     const tableFeature = defineFeature("other", (r) => {
       r.storeTable(clashing, { reason: "clash" });
@@ -205,14 +207,14 @@ describe("createRegistry — entity physical-table collisions use the DDL table 
   const textField = () => createTextField({ personal: false, reason: "test_fixture" });
 
   test("an explicit tableName equal to another feature's derived table name is rejected", () => {
-    const widget = createEntity({ fields: { name: textField() } });
+    const widget = createEntity({ name: "widget", fields: { name: textField() } });
     const derived = resolveTableName("widget", widget, undefined);
-    const gadget = createEntity({ table: derived, fields: { name: textField() } });
+    const gadget = createEntity({ name: "gadget", table: derived, fields: { name: textField() } });
     const shop = defineFeature("shop", (r) => {
-      r.entity({ name: "widget", ...widget });
+      r.entity(widget);
     });
     const other = defineFeature("other", (r) => {
-      r.entity({ name: "gadget", ...gadget });
+      r.entity(gadget);
     });
 
     expect(() => createRegistry([shop, other])).toThrow(
@@ -223,13 +225,21 @@ describe("createRegistry — entity physical-table collisions use the DDL table 
   });
 
   test("the same explicit tableName in two features is rejected", () => {
-    const first = createEntity({ table: "shared_things", fields: { name: textField() } });
-    const second = createEntity({ table: "shared_things", fields: { name: textField() } });
+    const first = createEntity({
+      name: "firstThing",
+      table: "shared_things",
+      fields: { name: textField() },
+    });
+    const second = createEntity({
+      name: "secondThing",
+      table: "shared_things",
+      fields: { name: textField() },
+    });
     const featA = defineFeature("a", (r) => {
-      r.entity({ name: "firstThing", ...first });
+      r.entity(first);
     });
     const featB = defineFeature("b", (r) => {
-      r.entity({ name: "secondThing", ...second });
+      r.entity(second);
     });
 
     expect(() => createRegistry([featA, featB])).toThrow(
@@ -238,13 +248,13 @@ describe("createRegistry — entity physical-table collisions use the DDL table 
   });
 
   test("distinct table names across features still register", () => {
-    const first = createEntity({ fields: { name: textField() } });
-    const second = createEntity({ fields: { name: textField() } });
+    const first = createEntity({ name: "firstThing", fields: { name: textField() } });
+    const second = createEntity({ name: "secondThing", fields: { name: textField() } });
     const featA = defineFeature("a", (r) => {
-      r.entity({ name: "firstThing", ...first });
+      r.entity(first);
     });
     const featB = defineFeature("b", (r) => {
-      r.entity({ name: "secondThing", ...second });
+      r.entity(second);
     });
 
     expect(() => createRegistry([featA, featB])).not.toThrow();
@@ -253,6 +263,7 @@ describe("createRegistry — entity physical-table collisions use the DDL table 
 
 describe("createRegistry — store tables with PII-annotated fields", () => {
   const piiEntity = createEntity({
+    name: "rt-pii-probe",
     table: "rt_pii_probe",
     fields: {
       userId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -262,7 +273,7 @@ describe("createRegistry — store tables with PII-annotated fields", () => {
       }),
     },
   });
-  const piiMeta = deriveEntityTableMeta("rt-pii-probe", piiEntity, { source: "unmanaged" });
+  const piiMeta = deriveEntityTableMeta(piiEntity, { source: "unmanaged" });
 
   test("deriveEntityTableMeta records the subject-annotated field names", () => {
     expect(piiMeta.piiSubjectFields).toEqual(["ip"]);

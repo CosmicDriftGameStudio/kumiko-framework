@@ -6,7 +6,15 @@ import type {
 import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { act, createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  act,
+  createMockDispatcher,
+  fireEvent,
+  type MockDispatcherOptions,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const taskEntity = {
   fields: {
@@ -34,20 +42,20 @@ const schema: FeatureSchema = {
   screens: [tabsEditScreen],
 };
 
-function makeDispatcher(overrides: Partial<Dispatcher> = {}): Dispatcher {
-  const base = createMockDispatcher({
-    query: (async () => ({
+function makeDispatcher(overrides: MockDispatcherOptions = {}): Dispatcher {
+  return createMockDispatcher({
+    query: async () => ({
       isSuccess: true,
       data: { id: "task-1", version: 1, title: "loaded", count: 0 },
-    })) as unknown as Dispatcher["query"],
+    }),
+    ...overrides,
   });
-  return { ...base, ...overrides };
 }
 
 describe("KumikoScreen: entityEdit tabs mode — server validation error on an unopened tab", () => {
   test("server error on a field of the details tab activates that tab and shows the inline error, no generic banner", async () => {
     const dispatcher = makeDispatcher({
-      write: (async () => ({
+      write: async () => ({
         isSuccess: false,
         error: {
           code: "validation_error",
@@ -60,7 +68,7 @@ describe("KumikoScreen: entityEdit tabs mode — server validation error on an u
             ],
           },
         },
-      })) as unknown as Dispatcher["write"],
+      }),
     });
 
     render(
@@ -70,7 +78,7 @@ describe("KumikoScreen: entityEdit tabs mode — server validation error on an u
     );
 
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
     expect(screen.getByTestId("field-count").closest("[hidden]")).not.toBeNull();
 
     await act(async () => {
@@ -79,7 +87,7 @@ describe("KumikoScreen: entityEdit tabs mode — server validation error on an u
     });
 
     expect(screen.getByTestId("field-count").closest("[hidden]")).toBeNull();
-    expect(screen.getByTestId("field-count-errors")).toBeTruthy();
+    screen.getByTestId("field-count-errors");
     expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
   });
 });

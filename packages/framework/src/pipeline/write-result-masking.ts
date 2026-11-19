@@ -1,7 +1,8 @@
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { maskWriteOnlyFields } from "../engine/field-access.ts";
+import { filterReadFields } from "../engine/field-access.ts";
+import type { SessionUser } from "../engine/types/index.ts";
 
 import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared.ts";
 import { isLifecycleResult } from "./dispatcher-utils.ts";
@@ -31,26 +32,45 @@ function stripNestedEchoedEvents(value: unknown, depth = 0): unknown {
   return changed ? Object.fromEntries(entries) : value;
 }
 
-// The echoed event carries plaintext entity data; only hooks and projections may read it.
-function maskLifecycleOrRow(entity: EntityDefinition | undefined, data: unknown): unknown {
+// The echoed event carries plaintext entity data; only hooks and projections may read it. The rest
+// is filtered like a query answer, so a save cannot read back a field the writer may not read.
+function maskLifecycleOrRow(
+  entity: EntityDefinition | undefined,
+  data: unknown,
+  user: SessionUser,
+): unknown {
   if (typeof data !== "object" || data === null || Array.isArray(data)) {
     return stripNestedEchoedEvents(data);
   }
   if (!isLifecycleResult(data)) {
     const row = stripNestedEchoedEvents(data);
-    return entity && isPlainObject(row) ? maskWriteOnlyFields(entity, row) : row;
+    return entity && isPlainObject(row) ? filterReadFields(entity, row, user) : row;
   }
   const { event: _event, ...lifecycle } = data;
   if (!entity) return lifecycle;
   if (lifecycle.kind === "save") {
     return {
       ...lifecycle,
-      data: maskWriteOnlyFields(entity, lifecycle.data),
-      changes: maskWriteOnlyFields(entity, lifecycle.changes),
-      previous: maskWriteOnlyFields(entity, lifecycle.previous),
+      data: filterReadFields(entity, lifecycle.data, user),
+      changes: filterReadFields(entity, lifecycle.changes, user, lifecycle.data),
+      previous: filterReadFields(entity, lifecycle.previous, user),
     };
   }
-  return { ...lifecycle, data: maskWriteOnlyFields(entity, lifecycle.data) };
+  return { ...lifecycle, data: filterReadFields(entity, lifecycle.data, user) };
+}
+
+// An executor result names its entity; a handler may return one of another entity, or carry no
+// entity in its name at all.
+function resultEntity(
+  registry: EntityLookup,
+  handlerType: string,
+  data: unknown,
+): EntityDefinition | undefined {
+  const ownEntityName = isLifecycleResult(data) ? data.entityName : undefined;
+  const ownEntity = ownEntityName ? registry.getEntity(ownEntityName) : undefined;
+  if (ownEntity) return ownEntity;
+  const handlerEntityName = registry.getHandlerEntity(handlerType);
+  return handlerEntityName ? registry.getEntity(handlerEntityName) : undefined;
 }
 
 // Copy-on-mask: the original results still feed postSaveBatch hooks, which
@@ -59,12 +79,12 @@ export function maskWriteResultForClient(
   registry: EntityLookup,
   handlerType: string,
   result: WriteResult,
+  user: SessionUser,
 ): WriteResult {
   if (!result.isSuccess) return result;
   const { lifecycle, ...clientResult } = result;
-  const entityName = registry.getHandlerEntity(handlerType);
-  const entity = entityName ? registry.getEntity(entityName) : undefined;
-  const data = maskLifecycleOrRow(entity, result.data);
+  const entity = resultEntity(registry, handlerType, result.data);
+  const data = maskLifecycleOrRow(entity, result.data, user);
   return data === result.data && lifecycle === undefined ? result : { ...clientResult, data };
 }
 
@@ -72,10 +92,11 @@ export function maskBatchResultForClient(
   registry: EntityLookup,
   commands: readonly BatchCommand[],
   batch: BatchResult,
+  user: SessionUser,
 ): BatchResult {
   const results = batch.results.map((result, index) => {
     const command = commands[index];
-    return command ? maskWriteResultForClient(registry, command.type, result) : result;
+    return command ? maskWriteResultForClient(registry, command.type, result, user) : result;
   });
   return { ...batch, results };
 }

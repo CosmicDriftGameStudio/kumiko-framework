@@ -2,30 +2,10 @@
 // Proves: hasMany relations, cascade delete, restrict delete
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
-import {
-  attachOutsideTransaction,
-  bridgeStub,
-  type HandlerContext,
-  type SaveContext,
-} from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { createCascadeDeleteHook } from "@cosmicdrift/kumiko-framework/pipeline";
+import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { createTestStoredEvent } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import {
-  memberEntity,
-  memberTable,
-  relationsFeature,
-  taskEntity,
-  taskTable,
-  teamEntity,
-} from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { relationsFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -33,10 +13,6 @@ const admin = TestUsers.admin;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [relationsFeature] });
-  await unsafeCreateEntityTable(stack.db, teamEntity);
-  await unsafeCreateEntityTable(stack.db, memberEntity);
-  await unsafeCreateEntityTable(stack.db, taskEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -46,16 +22,6 @@ afterAll(async () => {
 beforeEach(() => {
   stack.events.reset();
 });
-
-// The cascade hook runs against the same tenant-scoped db a dispatcher would hand it.
-function hookContext(): HandlerContext {
-  const db = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
-  return {
-    ...bridgeStub({ user: admin }),
-    registry: stack.registry,
-    db: attachOutsideTransaction(db, undefined),
-  };
-}
 
 describe("restrict: team cannot be deleted with members", () => {
   test("delete team with members fails", async () => {
@@ -73,21 +39,8 @@ describe("restrict: team cannot be deleted with members", () => {
       admin,
     );
 
-    // Cascade hook would block this — test via hook directly
-    const cascadeHook = createCascadeDeleteHook(stack.registry, new Map([["member", memberTable]]));
-
-    await expect(
-      cascadeHook.fn(
-        {
-          kind: "delete",
-          id: team.id,
-          data: { tenantId: "00000000-0000-4000-8000-000000000001" },
-          entityName: "team",
-          event: createTestStoredEvent(),
-        },
-        hookContext(),
-      ),
-    ).rejects.toMatchObject({ code: "conflict", details: { reason: "delete_restricted" } });
+    const err = await stack.http.writeErr("org:write:team:delete", { id: team.id }, admin);
+    expect(err).toMatchObject({ code: "conflict", details: { reason: "delete_restricted" } });
   });
 
   test("delete empty team succeeds", async () => {
@@ -97,20 +50,7 @@ describe("restrict: team cannot be deleted with members", () => {
       admin,
     );
 
-    const cascadeHook = createCascadeDeleteHook(stack.registry, new Map([["member", memberTable]]));
-
-    await expect(
-      cascadeHook.fn(
-        {
-          kind: "delete",
-          id: team.id,
-          data: { tenantId: "00000000-0000-4000-8000-000000000001" },
-          entityName: "team",
-          event: createTestStoredEvent(),
-        },
-        hookContext(),
-      ),
-    ).resolves.toBeUndefined();
+    await stack.http.writeOk("org:write:team:delete", { id: team.id }, admin);
   });
 });
 
@@ -147,21 +87,8 @@ describe("cascade: deleting member removes tasks", () => {
       admin,
     );
 
-    // Run cascade hook
-    const cascadeHook = createCascadeDeleteHook(stack.registry, new Map([["task", taskTable]]));
+    await stack.http.writeOk("org:write:member:delete", { id: member.id }, admin);
 
-    await cascadeHook.fn(
-      {
-        kind: "delete",
-        id: member.id,
-        data: { tenantId: "00000000-0000-4000-8000-000000000001" },
-        entityName: "member",
-        event: createTestStoredEvent(),
-      },
-      hookContext(),
-    );
-
-    // Tasks should be gone
     const detail1 = await stack.http.queryOk<null>(
       "org:query:task:detail",
       { id: task1.id },

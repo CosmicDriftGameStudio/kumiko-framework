@@ -4,7 +4,6 @@
 
 import {
   createEventStoreExecutor,
-  createTenantDb,
   type DbConnection,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
@@ -13,6 +12,7 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
 
 import { type BodyFormat, DEFAULT_BODY_FORMAT } from "./constants.ts";
@@ -85,8 +85,8 @@ export async function seedPage(db: DbConnection, opts: SeedPageOptions): Promise
       if (!result.isSuccess) {
         throw new Error(`seedPage create failed: ${JSON.stringify(result)}`);
       }
-      // @cast-boundary db-row: executor.create result.data is the inserted
-      // Drizzle row (Record<string, unknown>), projected from RETURNING.
+      // @cast-boundary db-row: executor.create result.data is the
+      // inserted row (Record<string, unknown>), projected from RETURNING.
       const data = result.data as Partial<PageRow>;
       if (data.id === undefined) {
         throw new Error("seedPage: executor.create did not return an id");

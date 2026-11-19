@@ -33,21 +33,19 @@ import {
   assertKumikoSchemaCurrent,
   SchemaDriftError,
 } from "@cosmicdrift/kumiko-framework/migrations";
-import {
-  createEntityCache,
-  createEventDedup,
-  createIdempotencyGuard,
-} from "@cosmicdrift/kumiko-framework/pipeline";
+import { createEventDedup, createIdempotencyGuard } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createRedisCacheSyncBus,
   redisClientOptionsFromEnv,
   redisNamespaceFromEnv,
 } from "@cosmicdrift/kumiko-framework/redis";
+import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import type { EnvelopeCipher, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { Redis } from "ioredis";
 import type { FeatureTogglesWiring } from "../boot-options/feature-toggles-option.ts";
 import { readShutdownDrainTimeoutMs } from "../boot-options/process-signals.ts";
+import { searchAdapterContext } from "../boot-options/search-option.ts";
 import { composeFeatures } from "../compose-features.ts";
 import { assertPiiBootInvariants } from "../pii-boot-gate.ts";
 import { readEnv, requireEnv } from "../require-env.ts";
@@ -83,6 +81,8 @@ export type WorkerBootProfile = {
   readonly deliverQueuedInline?: boolean;
   /** Set by runWorkerApp when `featureToggles` mounted the feature; bound once the database exists. */
   readonly featureToggles?: FeatureTogglesWiring;
+  /** Built by the `search` boot option; joins the extraContext. */
+  readonly searchAdapter?: SearchAdapter;
 };
 
 export type BootedWorkerProcess = {
@@ -184,7 +184,7 @@ export async function bootWorkerProcess(
   const features = composeFeatures(options.features, {
     includeBundled,
     ...(profile.authOptions && { authOptions: profile.authOptions }),
-    ...(options.bundledLists && { bundledLists: options.bundledLists }),
+    ...(options.listDefaults && { listDefaults: options.listDefaults }),
   });
   const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
   validateBootAndWarnTz(features, {
@@ -223,6 +223,7 @@ export async function bootWorkerProcess(
     databaseUrl,
     envSource,
     rowLevelSecurity,
+    registry,
   );
   const redis = new Redis(redisUrl, {
     maxRetriesPerRequest: null,
@@ -283,7 +284,6 @@ export async function bootWorkerProcess(
 
   const idempotency = createIdempotencyGuard(redis, { ttlSeconds: 60 });
   const eventDedup = createEventDedup(redis, { ttlSeconds: 60 });
-  const entityCache = createEntityCache(redis, { ttlSeconds: 60 });
 
   // Same crypto wiring as the API, otherwise this process writes
   // rows the API can no longer read (different cipher, missing blind index).
@@ -319,10 +319,12 @@ export async function bootWorkerProcess(
     ...(bootLogger && { log: bootLogger }),
     ...(unsubscribeLinks && { unsubscribeLinks }),
   });
-  const extraContext = addConfigAccessorFactory(
-    { ...autoExtraContext, ...resolvedExtraContext },
-    registry,
-  );
+  const bootExtraContext: Record<string, unknown> = {
+    ...autoExtraContext,
+    ...searchAdapterContext(profile.searchAdapter, resolvedExtraContext, processName),
+    ...resolvedExtraContext,
+  };
+  const extraContext = addConfigAccessorFactory(bootExtraContext, registry);
 
   const jobLogger = jobRunLoggerCallbacks(registry, db);
   const { sseBroker, ownedRedisSseBroker } = createDefaultSseBroker(envSource);
@@ -330,7 +332,7 @@ export async function bootWorkerProcess(
     sseBroker,
     registry,
     rowLevelSecurity,
-    context: { db, redis, entityCache, registry, ...extraContext },
+    context: { db, redis, registry, ...extraContext },
     jwtSecret: jwtSecretOrKeyring,
     dispatcherOptions: {
       idempotency,

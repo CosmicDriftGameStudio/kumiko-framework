@@ -20,11 +20,8 @@ import {
   PrimitivesProvider,
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import {
-  createStore,
-  type Dispatcher,
-  type DispatcherStatus,
-} from "@cosmicdrift/kumiko-renderer/headless";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import { createMockDispatcher, type MockWriteHandler } from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
@@ -41,20 +38,15 @@ const stubTokens = {
 const stubResolver = createStaticLocaleResolver();
 
 function makeDispatcher(writes: Array<{ type: string; payload: unknown }>): Dispatcher {
-  const statusStore = createStore<DispatcherStatus>("online");
-  const write = (async (type: string, payload: unknown) => {
+  const write: MockWriteHandler = async (type: string, payload: unknown) => {
     writes.push({ type, payload });
     return { isSuccess: true, data: {} };
-  }) as unknown as Dispatcher["write"];
-  return {
+  };
+  return createMockDispatcher({
     write,
-    query: (async () => ({ isSuccess: true, data: null })) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore,
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  } as unknown as Dispatcher; // @cast-boundary test-stub
+    query: async () => ({ isSuccess: true, data: null }),
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function withProviders(writes: Array<{ type: string; payload: unknown }>) {

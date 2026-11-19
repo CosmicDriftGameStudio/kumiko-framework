@@ -1,5 +1,4 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { currentNotificationType } from "../notification-type-aliases.ts";
 import { upsertPreference } from "../upsert-preference.ts";
@@ -16,11 +15,12 @@ export const setPreferenceWrite = defineWriteHandler({
     openToAll: {
       reason:
         "each signed-in user changes only their own notification preferences; the " +
-        "write is scoped to the caller's own tenantId and userId via assertTenantMatch",
+        "write is scoped to the caller's own tenantId and userId via ctx.systemDb.scopedTo",
     },
   },
   description:
     "Enables or disables one notification type and channel combination for the calling user, where either side may be the wildcard * as a catch-all; use it when a user changes their own notification settings.",
+  systemScope: true,
   handler: async (event, ctx) => {
     const { channel, enabled } = event.payload;
     const notificationType = currentNotificationType(ctx.registry, event.payload.notificationType);
@@ -28,13 +28,8 @@ export const setPreferenceWrite = defineWriteHandler({
 
     // delivery runs in system-scope (feature.ts r.systemScope()) — ctx.systemDb
     // is guaranteed there. No client-supplied userId exists on this payload;
-    // assertTenantMatch is the enforcement path that keeps it that way.
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message: "setPreference: ctx.systemDb missing on a system-scoped handler",
-      });
-    }
-    const db = ctx.systemDb.assertTenantMatch(tenantId);
+    // scopedTo is the enforcement path that keeps it that way.
+    const db = ctx.systemDb.scopedTo(tenantId);
 
     const result = await upsertPreference(db, event.user, {
       tenantId,

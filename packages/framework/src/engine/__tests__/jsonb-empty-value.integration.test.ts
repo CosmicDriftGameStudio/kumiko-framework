@@ -10,6 +10,7 @@ import { defineFeature } from "../define-feature.ts";
 import { createEntity, createJsonbField, createTextField } from "../factories.ts";
 
 const decodeEntity = createEntity({
+  name: "decode",
   table: "jsonb_empty_value_decodes",
   fields: {
     vin: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -19,7 +20,7 @@ const decodeEntity = createEntity({
 });
 
 const decodeFeature = defineFeature("jsonb-empty", (r) => {
-  r.crud("decode", decodeEntity, {
+  r.crud(decodeEntity, {
     write: { access: { roles: ["User"] } },
     read: { access: { roles: ["User"] } },
   });

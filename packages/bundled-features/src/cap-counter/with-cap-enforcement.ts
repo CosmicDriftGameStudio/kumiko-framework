@@ -25,10 +25,14 @@
 // (enforce-cap.ts).
 
 import type {
+  KumikoEventTypeMap,
   ReservationContext,
   WriteEvent,
   WriteHandlerDef,
+  WriteHandlerDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { BeforeTransactionWhenNested } from "@cosmicdrift/kumiko-types/handlers";
+import type { ZodType } from "zod";
 import { reserveEnforcedCalendarCap } from "./calendar-cap-usage-reservation.ts";
 import { releaseExpiredCapReservations, reserveRollingCap } from "./cap-reservation.ts";
 import {
@@ -70,6 +74,28 @@ export type CalendarCapResolver = (
   ctx: ReservationContext,
 ) => Promise<CalendarCapDef> | CalendarCapDef;
 
+// A defineWriteHandler result keeps its literal name, schema and result type through the wrapper.
+type CapEnforcementWrapper<TResolver> = {
+  (handler: WriteHandlerDef, capResolver: TResolver): WriteHandlerDef;
+  <
+    TName extends string,
+    TSchema extends ZodType,
+    TData,
+    TPrepared,
+    TWhenNested extends BeforeTransactionWhenNested | undefined,
+  >(
+    handler: WriteHandlerDefinition<
+      TName,
+      TSchema,
+      TData,
+      KumikoEventTypeMap,
+      TPrepared,
+      TWhenNested
+    >,
+    capResolver: TResolver,
+  ): WriteHandlerDefinition<TName, TSchema, TData, KumikoEventTypeMap, TPrepared, TWhenNested>;
+};
+
 /**
  * Wrap a write-handler with calendar-period cap-enforcement.
  *
@@ -80,21 +106,19 @@ export type CalendarCapResolver = (
  *   3. reserve `amount` (hard-cap check + increment in one short, immediately committed write)
  *   4. the returned release gives the amount back if the transaction does not commit
  */
-export function withCapEnforcement(
+export const withCapEnforcement: CapEnforcementWrapper<CalendarCapResolver> = (
   handler: WriteHandlerDef,
   capResolver: CalendarCapResolver,
-): WriteHandlerDef {
-  return {
-    ...handler,
-    reserveBeforeTransaction: chainReservations(
-      handler.reserveBeforeTransaction,
-      async (event, ctx) => {
-        const cap = await capResolver(event, ctx);
-        return reserveEnforcedCalendarCap(ctx, { ...cap, amount: cap.amount ?? 1 });
-      },
-    ),
-  };
-}
+) => ({
+  ...handler,
+  reserveBeforeTransaction: chainReservations(
+    handler.reserveBeforeTransaction,
+    async (event, ctx) => {
+      const cap = await capResolver(event, ctx);
+      return reserveEnforcedCalendarCap(ctx, { ...cap, amount: cap.amount ?? 1 });
+    },
+  ),
+});
 
 // =============================================================================
 // Rolling-Window-Wrapper
@@ -124,34 +148,32 @@ export type RollingCapResolver = (
  * Rolling counters track no lastSoftWarnedAt, so the notifier fires on every call while usage
  * sits in the soft range; throttle inside the notify callback (e.g. a per-capName TTL cache).
  */
-export function withRollingCapEnforcement(
+export const withRollingCapEnforcement: CapEnforcementWrapper<RollingCapResolver> = (
   handler: WriteHandlerDef,
   capResolver: RollingCapResolver,
-): WriteHandlerDef {
-  return {
-    ...handler,
-    reserveBeforeTransaction: chainReservations(
-      handler.reserveBeforeTransaction,
-      async (event, ctx) => {
-        const cap = await capResolver(event, ctx);
+) => ({
+  ...handler,
+  reserveBeforeTransaction: chainReservations(
+    handler.reserveBeforeTransaction,
+    async (event, ctx) => {
+      const cap = await capResolver(event, ctx);
 
-        await releaseExpiredCapReservations(ctx, cap.capName);
-        await enforceRollingCapAndMaybeNotify(ctx, {
-          capName: cap.capName,
-          windowDays: cap.windowDays,
-          limit: cap.limit,
-          profile: cap.profile,
-          notify: cap.notify,
-        });
+      await releaseExpiredCapReservations(ctx, cap.capName);
+      await enforceRollingCapAndMaybeNotify(ctx, {
+        capName: cap.capName,
+        windowDays: cap.windowDays,
+        limit: cap.limit,
+        profile: cap.profile,
+        notify: cap.notify,
+      });
 
-        const amount = cap.amount ?? 1;
-        return reserveRollingCap(ctx, {
-          capName: cap.capName,
-          windowDays: cap.windowDays,
-          amount,
-          guardCurrentValue: (usage) => assertBelowHardCap(usage + amount - 1, cap),
-        });
-      },
-    ),
-  };
-}
+      const amount = cap.amount ?? 1;
+      return reserveRollingCap(ctx, {
+        capName: cap.capName,
+        windowDays: cap.windowDays,
+        amount,
+        guardCurrentValue: (usage) => assertBelowHardCap(usage + amount - 1, cap),
+      });
+    },
+  ),
+});

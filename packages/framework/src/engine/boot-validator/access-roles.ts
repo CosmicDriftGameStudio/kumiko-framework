@@ -1,8 +1,6 @@
-import { createFallbackLogger } from "../../logging/utils.ts";
 import { normalizeAccessEntry } from "../ownership.ts";
 import type { FeatureDefinition } from "../types/index.ts";
-
-const log = createFallbackLogger("kumiko:boot");
+import type { BootWarningSink } from "./boot-warning.ts";
 
 const BUILTIN_ROLES = new Set(["all", "system"]);
 
@@ -62,7 +60,10 @@ function addEntityFieldRoles(roleHandlers: Map<string, Set<string>>, f: FeatureD
 // elsewhere (configKeys / entity+field access), a false positive in the
 // other direction. This is why this stays opt-in rather than a
 // default-on prod warning.
-export function warnOnUniqueAccessRoles(features: readonly FeatureDefinition[]): void {
+export function warnOnUniqueAccessRoles(
+  warn: BootWarningSink,
+  features: readonly FeatureDefinition[],
+): void {
   // role → set of distinct identifiers using it, across every access
   // surface — write/query/stream handlers, config-key access, and
   // entity/field-level access rules.
@@ -78,10 +79,12 @@ export function warnOnUniqueAccessRoles(features: readonly FeatureDefinition[]):
     if (BUILTIN_ROLES.has(role)) continue;
     if (handlers.size !== 1) continue;
     const [identifier] = handlers;
-    log.warn(
-      `Access role "${role}" is only used by one handler (${identifier}). ` +
+    warn({
+      kind: "access/unique-role",
+      message:
+        `Access role "${role}" is only used by one handler (${identifier}). ` +
         `This is often a typo — the role is unknown to every other handler in the boot scan. ` +
         `If this is intentional, ignore this warning.`,
-    );
+    });
   }
 }

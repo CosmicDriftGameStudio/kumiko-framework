@@ -6,6 +6,7 @@
 import { readFileSync } from "node:fs";
 import {
   captureScreenshot,
+  E2E_TIMEOUT_MS,
   expect,
   boundaryGuardedTest as test,
 } from "@cosmicdrift/kumiko-testing/e2e";
@@ -58,7 +59,7 @@ test("p11-record-images-rendered", async ({ page }) => {
   await page.goto(`/lease-unterlagen/${fileRefId}`);
   await page.getByTestId(`field-value-unterlagen-${fileRefId}-preview-toggle`).click();
   await expect(page.getByTestId(`file-preview-${fileRefId}`).locator("canvas").first()).toBeVisible(
-    { timeout: 30_000 },
+    { timeout: E2E_TIMEOUT_MS.test },
   );
   await page.evaluate(() => document.fonts.ready);
   await captureScreenshot(page, "p11-record-images-rendered");

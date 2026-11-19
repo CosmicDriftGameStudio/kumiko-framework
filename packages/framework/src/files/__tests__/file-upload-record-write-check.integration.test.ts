@@ -46,6 +46,7 @@ const PNG_BYTES = new Uint8Array([
 ]);
 
 const dossierEntity = createEntity({
+  name: "dossier",
   table: "upload_check_dossiers",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -56,6 +57,7 @@ const dossierEntity = createEntity({
 });
 
 const ownedEntity = createEntity({
+  name: "owned",
   table: "upload_check_owned",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -69,8 +71,8 @@ const ADMIN_ONLY = { access: { roles: ["Admin"] } } as const;
 const READERS = { access: { roles: ["Admin", "User"] } } as const;
 
 const uploadFeature = defineFeature("uploadcheck", (r) => {
-  r.entity({ name: "dossier", ...dossierEntity });
-  r.entity({ name: "owned", ...ownedEntity });
+  r.entity(dossierEntity);
+  r.entity(ownedEntity);
   r.writeHandler(defineEntityCreateHandler("dossier", dossierEntity, ADMIN_ONLY));
   r.writeHandler(defineEntityUpdateHandler("dossier", dossierEntity, ADMIN_ONLY));
   r.queryHandler(defineEntityDetailHandler("dossier", dossierEntity, READERS));

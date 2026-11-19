@@ -15,7 +15,6 @@ import {
 import {
   AuthMfaHandlers,
   base32Decode,
-  bindMfaRevokeAllOtherSessionsFromFeature,
   userMfaEntity,
   userMfaTable,
 } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
@@ -187,7 +186,6 @@ beforeAll(async () => {
 
   const sessionCallbacks = createSessionCallbacks({ db: stack.db });
   callbacks.set(sessionCallbacks);
-  bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(sessionCallbacks.sessionRevokeAllOthers);
 
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
@@ -219,10 +217,7 @@ beforeEach(async () => {
     eventsTable,
   ]);
   emailTransport.sent.length = 0;
-  for (const pattern of ["signup:*", "invite:*"] as const) {
-    const keys = await stack.redis.redis.keys(pattern);
-    if (keys.length > 0) await stack.redis.redis.del(...keys);
-  }
+  await stack.redis.flushNamespace();
 });
 
 describe("saas-identity-wire", () => {

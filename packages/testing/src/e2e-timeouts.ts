@@ -9,6 +9,7 @@ export const E2E_TIMEOUT_MS = {
   navigation: 10_000,
   poll: 15_000,
   webServer: 90_000,
+  webServerShutdown: 10_000,
   real: 240_000,
   // Selector wait of a real-provider scenario; below `real` so the locator error
   // (selector, scenario) fires before the generic test timeout swallows it.

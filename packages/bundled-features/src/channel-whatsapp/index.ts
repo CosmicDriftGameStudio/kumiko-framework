@@ -33,20 +33,6 @@ export {
   type WhatsappTemplateInput,
   type WhatsappTextInput,
 } from "./graph-client.ts";
-export {
-  createInMemoryMeta,
-  deliverMetaWebhook,
-  type InMemoryMeta,
-  type InMemoryMetaRejection,
-  type InMemoryMetaRequest,
-  type InMemoryMetaSentMessage,
-  metaButtonReplyMessage,
-  metaMediaMessage,
-  metaStatus,
-  metaTextMessage,
-  metaWebhookPayload,
-  requestMetaVerification,
-} from "./in-memory-meta.ts";
 export { signMetaBody } from "./meta-signature.ts";
 export {
   type ChannelWhatsappOptions,

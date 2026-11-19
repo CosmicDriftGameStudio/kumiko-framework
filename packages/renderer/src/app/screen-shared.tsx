@@ -11,7 +11,7 @@ import { type ReactNode, useCallback, useEffect, useMemo } from "react";
 import { extractIdField } from "../components/reference-create-dialog.tsx";
 import { rendererWarn } from "../dev-console.ts";
 import type { Dispatcher, Translate } from "../headless/index.ts";
-import { applyFormatSpec } from "../headless/index.ts";
+import { applyFormatSpec, formatMoneyValue } from "../headless/index.ts";
 import { REFERENCE_LIST_LOOKUP_LIMIT } from "../hooks/reference-limits.ts";
 import { type ListSort, PAGE_SIZE_OPTIONS } from "../hooks/use-list-url-state.ts";
 import { referenceLookupSource, referenceRowsByIdsPayload } from "../hooks/use-reference-lookup.ts";
@@ -64,24 +64,15 @@ function NotAvailableState({
   readonly actions?: ReactNode;
   readonly testId: string;
 }): ReactNode {
-  const { EmptyState, Card, Text } = usePrimitives();
-  if (EmptyState !== undefined) {
-    return (
-      <EmptyState
-        icon={icon}
-        title={title}
-        description={description}
-        actions={actions}
-        testId={testId}
-      />
-    );
-  }
+  const { EmptyState } = usePrimitives();
   return (
-    <Card options={{ padded: true }} testId={testId}>
-      <Text testId={`${testId}-title`}>{title}</Text>
-      {description}
-      {actions}
-    </Card>
+    <EmptyState
+      icon={icon}
+      title={title}
+      description={description}
+      actions={actions}
+      testId={testId}
+    />
   );
 }
 
@@ -260,9 +251,7 @@ export function useNavigateToCreateFor(
 
 function formatSummaryValue(value: unknown, locale: string): string {
   if (isMoneyValue(value)) {
-    return new Intl.NumberFormat(locale, { style: "currency", currency: value.currency }).format(
-      value.amount,
-    );
+    return formatMoneyValue(value, { locale });
   }
   if (typeof value === "number") return applyFormatSpec({ format: "number", locale }, value);
   if (typeof value === "string" && ISO_DATE_PATTERN.test(value)) {

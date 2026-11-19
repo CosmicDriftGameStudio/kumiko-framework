@@ -1,6 +1,6 @@
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import type { DbTx } from "../db/connection.ts";
-import { maskWriteOnlyFields } from "../engine/field-access.ts";
+import { filterReadFields } from "../engine/field-access.ts";
 import type { SessionUser } from "../engine/types/index.ts";
 import { InternalError, ValidationError, writeFailure } from "../errors/index.ts";
 import type { DispatchContext, WriteOrigin } from "./dispatch-shared.ts";
@@ -102,7 +102,7 @@ async function writeNestedChildren(
     const subEntityName = registry.getHandlerEntity(spec.subType);
     const subEntity = subEntityName ? registry.getEntity(subEntityName) : undefined;
     // parentRow is returned to the client; the child's own SaveContext keeps the plaintext.
-    subRows.push(subEntity ? maskWriteOnlyFields(subEntity, subRow) : subRow);
+    subRows.push(subEntity ? filterReadFields(subEntity, subRow, user) : subRow);
   }
   return { kind: "written", rows: subRows };
 }

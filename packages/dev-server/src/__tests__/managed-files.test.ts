@@ -11,14 +11,17 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  CURRENT_INFRA_REF,
   checkAppScripts,
   checkManagedFiles,
   findKumikoPinErrors,
+  INFRA_BUILD_PIN,
   isManagedDrift,
   type ManagedAppFacts,
   type ManagedFileReport,
   PREPARE_SCRIPT,
   readManagedMarker,
+  renderManagedTemplates,
   resolveManagedAppFacts,
   STANDARD_APP_SCRIPTS,
   syncManagedFiles,
@@ -135,8 +138,18 @@ describe("kumiko check managed", () => {
     syncAll();
     const ci = readFileSync(join(appRoot, ".github/workflows/ci.yml"), "utf-8");
     expect(ci).toMatch(
-      /\n {2}test:\n {4}permissions:\n {6}contents: read\n {6}packages: read\n {6}pull-requests: read\n {4}uses: /,
+      /\n {2}test:\n {4}if: contains\(fromJSON\('\["pull_request","merge_group"\]'\), github\.event_name\)\n {4}permissions:\n {6}contents: read\n {6}packages: read\n {6}pull-requests: read\n {4}uses: /,
     );
+  });
+});
+
+describe("bin/kumiko.ts template", () => {
+  test("bin/kumiko.ts is a managed template running the standalone CLI", () => {
+    const entry = renderManagedTemplates(facts()).find((file) => file.path === "bin/kumiko.ts");
+    if (entry === undefined) throw new Error("no bin/kumiko.ts template");
+    expect(entry.content).toContain("runStandaloneCli");
+    expect(entry.content).toContain("requireKms");
+    expect(readManagedMarker(entry.content).kind).toBe("managed");
   });
 });
 
@@ -245,18 +258,16 @@ describe("infraRef, visibility and app jobs", () => {
     expect(checkManagedFiles(facts()).errors).toEqual([]);
   });
 
-  test("a missing infraRef on a private app is an error that names the fix", () => {
+  test("without infraRef the workflows pin the framework's infra tag and the check passes", () => {
     syncAll();
-    expect(read(".github/workflows/ci.yml")).toContain("@main");
-    expect(read(".github/workflows/release.yml")).toContain("_app-deploy.yml@main");
-    const result = checkManagedFiles(facts());
-    expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]).toContain(
-      "Set kumiko.deploy.infraRef to an infra tag (reusables-vX.Y.Z)",
+    const ci = read(".github/workflows/ci.yml");
+    expect(ci).toContain(`_app-test.yml@${CURRENT_INFRA_REF}`);
+    expect(ci).toContain(
+      `_docker-build-push.yml@${INFRA_BUILD_PIN.sha} # ${INFRA_BUILD_PIN.tag}\n`,
     );
-    expect(result.files.filter(isManagedDrift).map((file) => file.path)).not.toContain(
-      ".github/workflows/ci.yml",
-    );
+    expect(ci).not.toContain("@main");
+    expect(read(".github/workflows/release.yml")).toContain(`_app-deploy.yml@${CURRENT_INFRA_REF}`);
+    expect(checkManagedFiles(facts()).errors).toEqual([]);
   });
 
   test("an infraRef that could inject into a workflow is rejected", () => {
@@ -292,6 +303,46 @@ describe("infraRef, visibility and app jobs", () => {
     setDeploy({ docStatusGuard: false });
     syncAll();
     expect(read(".github/workflows/ci.yml")).toContain("doc-status-guard: false");
+  });
+
+  test("checks run on pull requests only and the build does not wait for them", () => {
+    syncAll();
+    const ci = read(".github/workflows/ci.yml");
+    expect(ci).toMatch(
+      /\n {2}integration:\n {4}if: contains\(fromJSON\('\["pull_request","merge_group"\]'\), github\.event_name\)\n/,
+    );
+    expect(ci).not.toMatch(/^\s+needs:/m);
+  });
+
+  test("e2eShards and e2eChromiumFull render the e2e inputs, the defaults do not", () => {
+    syncAll();
+    expect(read(".github/workflows/ci.yml")).not.toContain("shards:");
+    expect(read(".github/workflows/ci.yml")).not.toContain("chromium-full");
+    setDeploy({ e2eShards: 4, e2eChromiumFull: true });
+    syncAll();
+    const ci = read(".github/workflows/ci.yml");
+    expect(ci).toContain("      shards: 4\n");
+    expect(ci).toContain("      chromium-full: true\n");
+  });
+
+  test("e2eShards 1 renders no shards input", () => {
+    setDeploy({ e2eShards: 1 });
+    syncAll();
+    expect(read(".github/workflows/ci.yml")).not.toContain("shards:");
+  });
+
+  test("an e2eShards below 1 is rejected", () => {
+    setDeploy({ e2eShards: 0 });
+    expect(() => syncManagedFiles(facts(), { write: false, adopt: false })).toThrow();
+  });
+
+  test("public ci.yml caches the install and runs comment-lang and agent lint", () => {
+    setDeploy({ visibility: "public" });
+    syncAll();
+    const ci = read(".github/workflows/ci.yml");
+    expect(ci).toContain("path: ~/.bun/install/cache");
+    expect(ci).toContain("run: bun kumiko-guards comment-lang");
+    expect(ci).toContain("run: bun kumiko agent lint");
   });
 
   const APP_JOB =
@@ -352,6 +403,50 @@ describe("script standard", () => {
     expect(report.missing).toEqual(["screenshots"]);
     expect(report.knownExtras).toEqual(["shots"]);
     expect(report.appExtras).toEqual(["eval:triage"]);
+  });
+
+  describe("test command timeouts", () => {
+    const GOOD = {
+      test: "bun test --dots",
+      "test:dom": "bun test --dots --config=bunfig.dom.toml .test.tsx",
+      "test:real": "bun --config=bunfig.real.toml test --timeout=240000 real.test.ts",
+      "test:integration": "bun kumiko-testing integration",
+      "test:e2e": "bunx --bun playwright test",
+      check: "bun run test && bun run lint",
+    };
+    const errorsOf = (scripts: Record<string, string>): readonly string[] =>
+      checkAppScripts(scripts, { hasUi: true }).testCommandErrors;
+
+    test("accepts commands that match their class", () => {
+      expect(errorsOf(GOOD)).toEqual([]);
+    });
+
+    test("flags a dom script with a raised timeout", () => {
+      const errors = errorsOf({
+        ...GOOD,
+        "test:dom": "bun test --dots --config=bunfig.dom.toml --timeout=15000 .test.tsx",
+      });
+      expect(errors).toEqual([expect.stringContaining("--timeout=5000 (TEST_TIMEOUT_MS.dom)")]);
+    });
+
+    test("flags a real script without --timeout", () => {
+      const errors = errorsOf({ ...GOOD, "test:real": "bun --config=bunfig.real.toml test" });
+      expect(errors).toEqual([expect.stringContaining("TEST_TIMEOUT_MS.real")]);
+    });
+
+    test("flags integration tests that bypass kumiko-testing", () => {
+      const errors = errorsOf({
+        ...GOOD,
+        "test:integration": "bun test --config=bunfig.integration.toml",
+      });
+      expect(errors).toContainEqual(expect.stringContaining("must delegate to"));
+    });
+
+    test("skips configs it does not know", () => {
+      expect(
+        errorsOf({ ...GOOD, "test:lib-coverage": "bun test src --config=bunfig.coverage.toml" }),
+      ).toEqual([]);
+    });
   });
 
   test("test:dom is only required with uiRoots", () => {

@@ -12,13 +12,13 @@ import { currencyDecimals, formatMoney, MoneyInput, parseLocaleNumber } from "..
 
 describe("formatMoney", () => {
   test("formats a normal amount with the currency symbol", () => {
-    expect(formatMoney(199_99, "USD", "en-US")).toBe("$199.99");
+    expect(formatMoney(199_99, "USD", { locale: "en-US" })).toBe("$199.99");
   });
 
-  test("falls back to the raw amount instead of throwing on an invalid currency", () => {
-    expect(formatMoney(100, "", "en-US")).toBe("100");
-    expect(formatMoney(100, "EU", "en-US")).toBe("100");
-    expect(formatMoney(100, "€", "en-US")).toBe("100");
+  test("falls back to a plain decimal instead of throwing on an invalid currency", () => {
+    expect(formatMoney(100, "", { locale: "en-US" })).toBe("1.00");
+    expect(formatMoney(100, "EU", { locale: "en-US" })).toBe("1.00");
+    expect(formatMoney(100, "€", { locale: "en-US" })).toBe("1.00");
   });
 });
 

@@ -16,6 +16,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "custom-fields.form.empty": 'No custom fields defined for "{entityName}".',
     "custom-fields.form.save": "Save custom fields",
     "custom-fields.form.saving": "Saving…",
+    "custom-fields.form.moneyStoredInOtherCurrency":
+      "Stored: {stored}. The field now uses {currency}; a new amount is saved in {currency}.",
     "custom-fields.errors.saveFailed": "Save failed.",
   },
 };

@@ -13,8 +13,6 @@
     "@cosmicdrift/kumiko-document-designer": "workspace:*",
     "@cosmicdrift/kumiko-renderer": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
-    "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
-    "@cosmicdrift/kumiko-renderer-puppeteer-client": "workspace:*",
     "@cosmicdrift/kumiko-server-runtime": "workspace:*",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

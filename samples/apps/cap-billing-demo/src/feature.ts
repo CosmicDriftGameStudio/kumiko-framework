@@ -46,8 +46,8 @@ import {
   access,
   createTenantConfig,
   defineFeature,
+  defineWriteHandler,
   type ReservationContext,
-  type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { DEMO_TIER_MAP, TIER_NAMES, type TierName } from "./tier-map";
@@ -78,12 +78,12 @@ const sendSchema = z.object({
   html: z.string().min(1),
 });
 
-const innerSendHandler: WriteHandlerDef = {
+const innerSendHandler = defineWriteHandler({
   name: "send",
   schema: sendSchema,
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   handler: async (event, ctx) => {
-    const payload = event.payload as z.infer<typeof sendSchema>;
+    const payload = event.payload;
     const transport = await createTransportForTenant(
       mailContextOf(ctx),
       event.user.tenantId,
@@ -96,7 +96,7 @@ const innerSendHandler: WriteHandlerDef = {
     });
     return { isSuccess: true as const, data: { sent: true } };
   },
-};
+});
 
 // =============================================================================
 // Tier-Lookup + Cap-Resolver
@@ -203,15 +203,16 @@ export const newsletterFeature = defineFeature(FEATURE_NAME, (r) => {
   r.requires({ features: [BILLING_FOUNDATION_FEATURE] });
 
   // Tier-config-key. Tenant-Admin setzt's; default "free".
-  r.config(
-    "tier",
-    createTenantConfig("select", {
-      default: "free",
-      options: TIER_NAMES,
-      write: access.roles("TenantAdmin", "SystemAdmin"),
-      read: access.roles("TenantAdmin", "SystemAdmin", "User"),
-    }),
-  );
+  r.config({
+    keys: {
+      tier: createTenantConfig("select", {
+        default: "free",
+        options: TIER_NAMES,
+        write: access.roles("TenantAdmin", "SystemAdmin"),
+        read: access.roles("TenantAdmin", "SystemAdmin", "User"),
+      }),
+    },
+  }).tier;
 
   r.writeHandler(wrappedSendHandler);
 });

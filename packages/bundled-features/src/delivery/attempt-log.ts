@@ -1,6 +1,6 @@
 // Shared delivery-attempt event writer. Used both synchronously by the
-// delivery-service (inline channels, skips) and asynchronously by the
-// delivery.render / delivery.send job handlers — keeping the append +
+// delivery-service (inline channels, skips) and asynchronously by
+// the delivery.send job handler — keeping the append +
 // inline-projection logic in one place so both paths produce identical rows.
 
 import type { DbConnection, DbRunner } from "@cosmicdrift/kumiko-framework/db";

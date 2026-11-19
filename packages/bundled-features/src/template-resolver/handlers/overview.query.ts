@@ -35,6 +35,30 @@ import { storedRecord } from "./template-gates.ts";
 import { tenantOverrideCountsResultSchema } from "./tenant-override-counts.query.ts";
 import { defaultPdfLayoutSlug } from "./tenant-settings.ts";
 
+// What overview and usage read; bodies (content, variableSchema, linkedResources) stay in the database.
+export const TEMPLATE_LISTING_FIELDS = [
+  "id",
+  "version",
+  "tenantId",
+  "slug",
+  "kind",
+  "locale",
+  "title",
+  "meta",
+  "scope",
+  "status",
+  "draft",
+  "activeVersion",
+  "activeSince",
+  "insertedAt",
+  "modifiedAt",
+] as const satisfies readonly (keyof TemplateResourceRow)[];
+
+export type TemplateListingRow = Pick<
+  TemplateResourceRow,
+  (typeof TEMPLATE_LISTING_FIELDS)[number]
+>;
+
 const OVERVIEW_KINDS = ["mail", "document-pdf", "mail-layout", "pdf-layout"] as const;
 type OverviewKind = (typeof OVERVIEW_KINDS)[number];
 
@@ -111,16 +135,16 @@ function isTemplateStatus(status: string): status is TemplateStatus {
   return status === "draft" || status === "active" || status === "archived";
 }
 
-export function ownLayoutSlugOf(row: TemplateResourceRow): string | null {
+export function ownLayoutSlugOf(row: TemplateListingRow): string | null {
   const layoutSlug = storedRecord(row.meta)["layoutSlug"];
   return typeof layoutSlug === "string" ? layoutSlug : null;
 }
 
-function layoutSlugOf(row: TemplateResourceRow, fallback = DEFAULT_MAIL_LAYOUT_SLUG): string {
+function layoutSlugOf(row: TemplateListingRow, fallback = DEFAULT_MAIL_LAYOUT_SLUG): string {
   return ownLayoutSlugOf(row) ?? fallback;
 }
 
-function preferredRow(rows: readonly TemplateResourceRow[]): TemplateResourceRow | undefined {
+function preferredRow(rows: readonly TemplateListingRow[]): TemplateListingRow | undefined {
   return (
     rows.find((row) => row.locale === FALLBACK_LOCALE) ??
     [...rows].sort((a, b) => a.locale.localeCompare(b.locale))[0]
@@ -129,19 +153,19 @@ function preferredRow(rows: readonly TemplateResourceRow[]): TemplateResourceRow
 
 type EffectiveRows = {
   readonly origin: OverviewOrigin;
-  readonly rows: TemplateResourceRow[];
+  readonly rows: TemplateListingRow[];
   readonly lockedOverride: boolean;
   readonly lockedOverrideId: string | null;
 };
 
 // A tenant row of a template that is not unlocked is not delivered, so the system version is the effective one.
 export function effectiveRowsOf(
-  rows: readonly TemplateResourceRow[],
+  rows: readonly TemplateListingRow[],
   policy: TemplateDeliveryPolicy,
 ): EffectiveRows | null {
   const tenantRows = rows.filter((row) => row.scope === "tenant");
   const systemRows = rows.filter((row) => row.scope === "system");
-  const live = (list: TemplateResourceRow[]) => list.filter((row) => row.status !== "archived");
+  const live = (list: TemplateListingRow[]) => list.filter((row) => row.status !== "archived");
   const liveTenant = live(tenantRows);
   const tenantServed = tenantRows.every((row) => isTenantOverrideServed(policy, row));
   if (!tenantServed && liveTenant.length > 0) {
@@ -176,7 +200,7 @@ export function isRowVisibleToCaller(
   policy: TemplateEditPolicy,
   user: Parameters<typeof isHiddenSystemDraft>[0],
   registry: Parameters<typeof isSystemOnlyTemplateHiddenFrom>[1],
-  row: TemplateResourceRow,
+  row: TemplateListingRow,
 ): boolean {
   return (
     !isHiddenSystemDraft(user, row) &&
@@ -186,10 +210,10 @@ export function isRowVisibleToCaller(
 }
 
 export function effectiveMailLayoutSlugs(
-  rows: readonly TemplateResourceRow[],
+  rows: readonly TemplateListingRow[],
   policy: TemplateDeliveryPolicy,
 ): EffectiveMailLayoutSlugs {
-  const byLocale = new Map<string, TemplateResourceRow[]>();
+  const byLocale = new Map<string, TemplateListingRow[]>();
   for (const row of rows) {
     if (row.kind !== "mail") continue;
     const key = `${row.slug}\u0000${row.locale}`;
@@ -210,7 +234,7 @@ export function effectiveMailLayoutSlugs(
   return bySlug;
 }
 
-function modifiedAtOf(row: TemplateResourceRow): string {
+function modifiedAtOf(row: TemplateListingRow): string {
   return (row.modifiedAt ?? row.insertedAt).toString();
 }
 
@@ -245,9 +269,9 @@ type OverviewFilter = {
 };
 
 function groupBySlugAndKind(
-  rows: readonly TemplateResourceRow[],
-): Map<string, TemplateResourceRow[]> {
-  const groups = new Map<string, TemplateResourceRow[]>();
+  rows: readonly TemplateListingRow[],
+): Map<string, TemplateListingRow[]> {
+  const groups = new Map<string, TemplateListingRow[]>();
   for (const row of rows) {
     if (!isOverviewKind(row.kind)) continue;
     const key = `${row.kind}|${row.slug}`;
@@ -259,7 +283,7 @@ function groupBySlugAndKind(
 // Another tenant's draft, including a system draft seen by a tenant, is never announced.
 function draftVersionFor(
   user: { readonly tenantId: string; readonly roles: readonly string[] },
-  row: TemplateResourceRow,
+  row: TemplateListingRow,
 ): number | null {
   const isOwnRow = row.tenantId === draftViewerTenantId(user, row);
   return isOwnRow && parseTemplateDraft(row.draft) !== null ? row.version : null;
@@ -268,8 +292,8 @@ function draftVersionFor(
 // Version columns of one overview row: the served version, a waiting draft and the system version it overrides.
 function versionFieldsOf(
   user: { readonly tenantId: string; readonly roles: readonly string[] },
-  preferred: TemplateResourceRow,
-  groupRows: readonly TemplateResourceRow[],
+  preferred: TemplateListingRow,
+  groupRows: readonly TemplateListingRow[],
 ): Pick<OverviewDraft, "version" | "draftVersion" | "activeSince" | "systemVersion"> {
   const isActive = preferred.status === "active";
   const systemSameLocale = groupRows.find(
@@ -284,7 +308,7 @@ function versionFieldsOf(
 }
 
 function variantFieldsOf(
-  preferred: TemplateResourceRow,
+  preferred: TemplateListingRow,
   variantBaseSlugs: ReadonlySet<string>,
 ): Pick<OverviewRow, "locale" | "variantOf" | "variantsEnabled"> {
   const isPdf = preferred.kind === VARIANT_KIND;
@@ -296,7 +320,7 @@ function variantFieldsOf(
 }
 
 function buildDrafts(
-  groups: ReadonlyMap<string, readonly TemplateResourceRow[]>,
+  groups: ReadonlyMap<string, readonly TemplateListingRow[]>,
   user: { readonly tenantId: string; readonly roles: readonly string[] },
   policy: TemplateDeliveryPolicy,
   defaultPdfLayoutSlug: string,
@@ -453,11 +477,15 @@ export function makeOverviewQuery(policy: TemplateEditPolicy) {
       "Lists mail, PDF and layout templates as one row per slug and kind for the caller's tenant (optionally only the mails and PDFs using one layout slug): where the effective version comes from (own override or system), its locales, status and version (the served one; `draftVersion` is set when an unpublished draft waits beside it, `activeSince` says since when the served version applies), the system version it overrides, the layout it uses and which notifications or templates use it; templates of notifications registered with `systemOnly` are listed for SystemAdmins only, and a TenantAdmin sees only the templates the app lists in tenantEditable; a tenant override of a template that is not listed is not delivered, so the row shows the system version with `lockedOverride` true (SystemAdmin only); use it to browse and filter all templates at a glance.",
     handler: async (query, ctx) => {
       const payload = query.payload;
-      const fetchedRows = await selectMany<TemplateResourceRow>(
+      const fetchedRows = await selectMany<TemplateListingRow>(
         ctx.db,
         templateResourcesTable,
         { kind: { in: [...OVERVIEW_KINDS] } },
-        { orderBy: { col: "id", direction: "asc" }, limit: OVERVIEW_ROW_LIMIT + 1 },
+        {
+          fields: TEMPLATE_LISTING_FIELDS,
+          orderBy: { col: "id", direction: "asc" },
+          limit: OVERVIEW_ROW_LIMIT + 1,
+        },
       );
       const truncated = fetchedRows.length > OVERVIEW_ROW_LIMIT;
       const rows = truncated ? fetchedRows.slice(0, OVERVIEW_ROW_LIMIT) : fetchedRows;

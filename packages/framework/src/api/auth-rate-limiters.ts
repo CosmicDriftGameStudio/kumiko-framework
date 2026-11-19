@@ -1,15 +1,12 @@
 import type { Redis } from "ioredis";
-import { createFallbackLogger } from "../logging/index.ts";
 import type { LoginRateLimiter } from "./auth-routes-types.ts";
 
-let warnedInMemoryLimiterInProduction = false;
-
-// Without Redis-backed limiters each replica counts on its own, so the effective limit scales with replica count.
+// Production fails closed: per-replica counts plus FIFO eviction of the bounded
+// map let an attacker reset a target's bucket. runProdApp wires Redis limiters.
 export function inMemoryLoginRateLimiterFallback(): LoginRateLimiter {
-  if (process.env["NODE_ENV"] === "production" && !warnedInMemoryLimiterInProduction) {
-    warnedInMemoryLimiterInProduction = true;
-    createFallbackLogger("auth-routes").warn(
-      "login/MFA rate limiter falls back to in-memory; limits are per replica",
+  if (process.env["NODE_ENV"] === "production") {
+    throw new Error(
+      "[kumiko:boot] login/MFA rate limiter would fall back to in-memory in production: limits would be per replica and the bounded map evicts the oldest buckets, so an attacker can reset a target's bucket. Pass a Redis-backed limiter (createRedisLoginRateLimiter) for loginRateLimit and the MFA rate limits, or null to disable one explicitly.",
     );
   }
   return createInMemoryLoginRateLimiter();

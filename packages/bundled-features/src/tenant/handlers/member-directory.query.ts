@@ -6,16 +6,12 @@ import {
   isUuid,
   MAX_LIST_LIMIT,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.ts";
+import { decryptStoredPii, KMS_POOL_CONCURRENCY } from "../../shared/index.ts";
 import { userTable } from "../../user/index.ts";
 import { tenantMembershipsTable } from "../membership-table.ts";
 import { isSystemAdmin } from "./is-system-admin.ts";
-
-// Shares the KMS adapter's small dedicated pool, same rationale as
-// members.query.ts.
-const KMS_POOL_CONCURRENCY = 4;
 
 // Display names are encrypted PII, so a search cannot run in SQL: candidates
 // are decrypted and filtered in memory. The cap keeps a SystemAdmin's global
@@ -55,16 +51,12 @@ export const memberDirectoryQuery = definePagedQueryHandler({
     ids: z.array(z.string().min(1)).max(MAX_LIST_LIMIT).optional(),
   }),
   access: { roles: access.admin },
+  systemScope: true,
   description:
     "Lists users as id/label pairs for resolving user references to display names: the caller's own tenant members for an admin, every user for a SystemAdmin; carries no email or role data.",
   agent: { expose: false },
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "tenant:query:member-directory requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
-      });
-    }
+    const { systemDb } = ctx;
     const { limit, search, ids } = query.payload;
     if (ids?.length === 0) return { rows: [], nextCursor: null };
     // Without a search the first `limit` rows are enough; with one, every
@@ -72,7 +64,7 @@ export const memberDirectoryQuery = definePagedQueryHandler({
     const scanLimit = search === undefined ? limit : SEARCH_SCAN_CAP;
     let users: readonly { id: unknown; displayName?: unknown }[];
     if (isSystemAdmin(query.user)) {
-      const db = ctx.systemDb.acknowledgeCrossTenant(
+      const db = systemDb.acknowledgeCrossTenant(
         "SystemAdmin reference labels span every tenant, as user:query:user:list did",
       );
       // Audit actors can be non-uuid ("anonymous"); binding them to the uuid column would fail the query.
@@ -85,7 +77,7 @@ export const memberDirectoryQuery = definePagedQueryHandler({
               orderBy: { col: "id", direction: "asc" },
             });
     } else {
-      const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
+      const db = systemDb.assertTenantMatch(query.user.tenantId);
       const requestedIds = ids === undefined ? undefined : new Set(ids);
       const userIds = (await loadMemberUserIds(db, query.user.tenantId))
         .filter((id) => requestedIds === undefined || requestedIds.has(id))

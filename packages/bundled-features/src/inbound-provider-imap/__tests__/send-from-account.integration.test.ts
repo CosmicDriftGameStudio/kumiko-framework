@@ -14,6 +14,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import { randomBytes } from "node:crypto";
 import type { lookup } from "node:dns/promises";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import { insertOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFileRefFromBytes,
@@ -29,6 +30,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { simpleParser } from "mailparser";
 import * as z from "zod";
 import {
@@ -45,6 +47,8 @@ import {
   MAIL_SEND_ERRORS,
   type OutboundMailSent,
   outboundMailMessageSchema,
+  outboundMailSendEntity,
+  outboundMailSendsTable,
   quarantineEntity,
   seenMessageEntity,
   sendMailFromAccount,
@@ -72,6 +76,7 @@ const PASSWORD = "testpass";
 const ADDRESS = "testuser@example.com";
 const RECIPIENT = "kunde@example.org";
 const SEND_HANDLER = "send-from-account-test:write:send";
+const SEND_BEFORE_TRANSACTION_HANDLER = "send-from-account-test:write:send-before-transaction";
 const STORE_FILE_HANDLER = "send-from-account-test:write:store-file";
 const PDF_BYTES = Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n");
 const SENDER_LOGIN = { host: HOST, port: IMAPS_PORT, user: USER, password: PASSWORD };
@@ -103,6 +108,20 @@ const sendTestFeature = defineFeature("send-from-account-test", (r) => {
     schema: z.object({ accountId: z.string(), message: outboundMailMessageSchema }),
     access: { roles: ["TenantAdmin"] },
     handler: async (event, ctx) => sendMailFromAccount(ctx, event.payload),
+  });
+  r.writeHandler({
+    name: "send-before-transaction",
+    description:
+      "Sends a mail from a connected mailbox in beforeTransaction, as an app's own handler would.",
+    agent: { expose: false },
+    schema: z.object({
+      accountId: z.string(),
+      message: outboundMailMessageSchema,
+      idempotencyKey: z.string().optional(),
+    }),
+    access: { roles: ["TenantAdmin"] },
+    beforeTransaction: async (event, ctx) => sendMailFromAccount(ctx, event.payload),
+    handler: async (event) => ({ isSuccess: true, data: event.prepared }),
   });
   r.writeHandler({
     name: "store-file",
@@ -163,6 +182,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
   await unsafeCreateEntityTable(stack.db, quarantineEntity);
   await unsafeCreateEntityTable(stack.db, ingestFailureEntity);
+  await unsafeCreateEntityTable(stack.db, outboundMailSendEntity);
   await unsafePushTables(stack.db, { tenant_secrets: tenantSecretsTable });
   configurePiiSubjectKms(new InMemoryKmsAdapter());
   process.env[TLS_VERIFY_ENV_VAR] = "0";
@@ -493,6 +513,29 @@ describe("sendMailFromAccount", () => {
     expect(error.i18nKey).toBe(MAIL_SEND_ERRORS.notConfigured.i18nKey);
   });
 
+  test("sendMailFromAccount runs from beforeTransaction with its ctx as is", async () => {
+    const admin = freshAdmin();
+    const { accountId } = await stack.http.writeOk<{ accountId: string }>(
+      InboundMailFoundationHandlers.connectAccount,
+      {
+        provider: "imap",
+        authMethod: "password",
+        displayName: "Office",
+        address: ADDRESS,
+        scope: "shared",
+      },
+      admin,
+    );
+
+    const error = await stack.http.writeErr(
+      SEND_BEFORE_TRANSACTION_HANDLER,
+      { accountId, message: { to: [RECIPIENT], subject: "Hallo", text: "Test" } },
+      admin,
+    );
+
+    expect(error.i18nKey).toBe(MAIL_SEND_ERRORS.notConfigured.i18nKey);
+  });
+
   test("a mailbox stored without an outgoing server answers not configured", async () => {
     const admin = freshAdmin();
     const { accountId } = await stack.http.writeOk<{ accountId: string }>(
@@ -526,5 +569,120 @@ describe("sendMailFromAccount", () => {
     );
 
     expect(error.i18nKey).toBe(MAIL_SEND_ERRORS.notConfigured.i18nKey);
+  });
+
+  greenmailTest(
+    "the same idempotency key sends one mail and returns the stored result",
+    async () => {
+      const admin = freshAdmin();
+      const accountId = await connectMailbox(admin);
+      const subject = `Keyed ${crypto.randomUUID()}`;
+      const payload = {
+        accountId,
+        idempotencyKey: "reply-4711",
+        message: { to: [RECIPIENT], subject, text: "Einmal." },
+      };
+
+      const first = await stack.http.writeOk<OutboundMailSent>(
+        SEND_BEFORE_TRANSACTION_HANDLER,
+        payload,
+        admin,
+      );
+      const second = await stack.http.writeOk<OutboundMailSent>(
+        SEND_BEFORE_TRANSACTION_HANDLER,
+        payload,
+        admin,
+      );
+
+      expect(second.messageIdHeader).toBe(first.messageIdHeader);
+      const subjects = await recipientSubjects();
+      expect(subjects.filter((s) => s === subject)).toHaveLength(1);
+    },
+  );
+
+  test("a recorded key for a mailbox the caller cannot see answers not found", async () => {
+    const admin = freshAdmin();
+    const accountId = crypto.randomUUID();
+    await insertOne(stack.db, outboundMailSendsTable, {
+      id: crypto.randomUUID(),
+      tenantId: admin.tenantId,
+      idempotencyKey: "crashed-send",
+      accountId,
+      userId: admin.id,
+      status: "sending",
+      attachmentFileIds: [],
+      claimedAt: Temporal.Now.instant().toString(),
+    });
+
+    const error = await stack.http.writeErr(
+      SEND_BEFORE_TRANSACTION_HANDLER,
+      {
+        accountId,
+        idempotencyKey: "crashed-send",
+        message: { to: [RECIPIENT], subject: "Hallo", text: "Test" },
+      },
+      admin,
+    );
+
+    expect(error.httpStatus).toBe(404);
+  });
+
+  greenmailTest(
+    "a key recorded by another user for the same mailbox does not block the send",
+    async () => {
+      const admin = freshAdmin();
+      const accountId = await connectMailbox(admin);
+      await insertOne(stack.db, outboundMailSendsTable, {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        idempotencyKey: "shared-key",
+        accountId,
+        userId: crypto.randomUUID(),
+        status: "sending",
+        attachmentFileIds: [],
+        claimedAt: Temporal.Now.instant().toString(),
+      });
+      const subject = `Other user key ${crypto.randomUUID()}`;
+
+      await stack.http.writeOk<OutboundMailSent>(
+        SEND_BEFORE_TRANSACTION_HANDLER,
+        {
+          accountId,
+          idempotencyKey: "shared-key",
+          message: { to: [RECIPIENT], subject, text: "Geht raus." },
+        },
+        admin,
+      );
+
+      const subjects = await recipientSubjects();
+      expect(subjects.filter((s) => s === subject)).toHaveLength(1);
+    },
+  );
+
+  greenmailTest("the caller's own pending key on that mailbox answers outcomeUnknown", async () => {
+    const admin = freshAdmin();
+    const accountId = await connectMailbox(admin);
+    await insertOne(stack.db, outboundMailSendsTable, {
+      id: crypto.randomUUID(),
+      tenantId: admin.tenantId,
+      idempotencyKey: "own-pending-key",
+      accountId,
+      userId: admin.id,
+      status: "sending",
+      attachmentFileIds: [],
+      claimedAt: Temporal.Now.instant().toString(),
+    });
+
+    const error = await stack.http.writeErr(
+      SEND_BEFORE_TRANSACTION_HANDLER,
+      {
+        accountId,
+        idempotencyKey: "own-pending-key",
+        message: { to: [RECIPIENT], subject: "Hallo", text: "Test" },
+      },
+      admin,
+    );
+
+    expect(error.i18nKey).toBe(MAIL_SEND_ERRORS.outcomeUnknown.i18nKey);
   });
 });

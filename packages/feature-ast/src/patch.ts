@@ -89,9 +89,6 @@ export type PatternId =
   | { readonly kind: "multiStreamProjection"; readonly name: string }
   | { readonly kind: "defineEvent"; readonly eventName: string }
   | { readonly kind: "extendsRegistrar"; readonly extensionName: string }
-  | { readonly kind: "ai.generate"; readonly stepKey: string }
-  | { readonly kind: "ai.extract"; readonly stepKey: string }
-  | { readonly kind: "ai.classify"; readonly stepKey: string }
   // Singleton patterns — only one per feature, kind alone identifies them.
   | { readonly kind: "requires" }
   | { readonly kind: "optionalRequires" }
@@ -100,7 +97,6 @@ export type PatternId =
   | { readonly kind: "toggleable" }
   | { readonly kind: "describe" }
   | { readonly kind: "uiHints" }
-  | { readonly kind: "adoptsBundledLists" }
   | { readonly kind: "config" }
   | { readonly kind: "translations" }
   | { readonly kind: "authClaims" }
@@ -205,11 +201,6 @@ export function applyChanges(sourceFile: SourceFile, changes: readonly PatternCh
  * biome-stable formatting that matches the renderFeatureFile output.
  */
 export function addPattern(sourceFile: SourceFile, pattern: FeaturePattern): void {
-  if (isAiStepId(pattern)) {
-    throw new Error(
-      `addPattern: ${pattern.kind} steps must be inserted into a defineWorkflow steps array, not the setup body`,
-    );
-  }
   const setup = findSetupCallback(sourceFile);
   if (!setup) {
     throw new Error("addPattern: no defineFeature(name, (r) => { ... }) call found");
@@ -255,12 +246,10 @@ export function replacePattern(
   // Whole call-statement spans from the CallExpression's start through
   // its enclosing ExpressionStatement (which carries the trailing `;`).
   const enclosingStatement = call.getFirstAncestorByKind(SyntaxKind.ExpressionStatement);
-  const startNode = isAiStepId(id) ? call : (enclosingStatement ?? call);
+  const startNode = enclosingStatement ?? call;
 
   const startPos = startNode.getStart();
-  // AI steps live in array literals — replace only the CallExpression so the
-  // surrounding comma stays (comma-eating belongs to removePattern alone).
-  const endPos = isAiStepId(id) ? call.getEnd() : startNode.getEnd();
+  const endPos = startNode.getEnd();
 
   // Detect column of the original call's first non-whitespace character;
   // the rendered pattern starts at column 0 and gets indented to match.
@@ -288,25 +277,20 @@ export function removePattern(sourceFile: SourceFile, id: PatternId): void {
   if (!call) {
     throw new Error(`removePattern: no call found for ${describeId(id)}`);
   }
-  if (isAiStepId(id)) {
-    const { start, end } = aiStepPatchSpan(sourceFile, call);
-    sourceFile.replaceText([start, end], "");
-  } else {
-    const enclosingStatement = call.getFirstAncestorByKind(SyntaxKind.ExpressionStatement);
-    const target = enclosingStatement ?? call;
+  const enclosingStatement = call.getFirstAncestorByKind(SyntaxKind.ExpressionStatement);
+  const target = enclosingStatement ?? call;
 
-    // Erase from the start of the line containing the statement (so leading
-    // indentation goes with it) through the trailing newline, including the
-    // *leading* blank line that addPattern emits — keeps blank-line counts
-    // stable under add → remove cycles. We don't touch leading comments.
-    const startPos = lineStart(sourceFile, target.getStart());
-    const endPos = lineEnd(sourceFile, target.getEnd());
+  // Erase from the start of the line containing the statement (so leading
+  // indentation goes with it) through the trailing newline, including the
+  // *leading* blank line that addPattern emits — keeps blank-line counts
+  // stable under add → remove cycles. We don't touch leading comments.
+  const startPos = lineStart(sourceFile, target.getStart());
+  const endPos = lineEnd(sourceFile, target.getEnd());
 
-    // Collapse a preceding blank line if there is one (avoids a double
-    // blank line between the now-adjacent statements).
-    const collapseStart = collapsePrecedingBlankLine(sourceFile, startPos);
-    sourceFile.replaceText([collapseStart, endPos + 1], "");
-  }
+  // Collapse a preceding blank line if there is one (avoids a double
+  // blank line between the now-adjacent statements).
+  const collapseStart = collapsePrecedingBlankLine(sourceFile, startPos);
+  sourceFile.replaceText([collapseStart, endPos + 1], "");
 }
 
 // =============================================================================
@@ -616,32 +600,6 @@ function applyEditsDescending(sourceFile: SourceFile, edits: readonly TextEdit[]
 // Lookup
 // =============================================================================
 
-type AiStepKind = "ai.generate" | "ai.extract" | "ai.classify";
-
-function isAiStepId<T extends PatternId | FeaturePattern>(
-  idOrPattern: T,
-): idOrPattern is Extract<T, { kind: AiStepKind }> {
-  return (
-    idOrPattern.kind === "ai.generate" ||
-    idOrPattern.kind === "ai.extract" ||
-    idOrPattern.kind === "ai.classify"
-  );
-}
-
-function aiStepPatchSpan(
-  sourceFile: SourceFile,
-  call: CallExpression,
-): { start: number; end: number } {
-  const start = call.getStart();
-  let end = call.getEnd();
-  const text = sourceFile.getFullText();
-  while (end < text.length && (text[end] === " " || text[end] === "	")) end++;
-  if (text[end] === ",") end++;
-  while (end < text.length && (text[end] === " " || text[end] === "	")) end++;
-  if (end < text.length && text[end] === "\n") end++;
-  return { start, end };
-}
-
 function findSetupCallback(
   sourceFile: SourceFile,
 ): { call: CallExpression; body: Node } | undefined {
@@ -675,7 +633,6 @@ export const SINGLETON_KINDS: ReadonlySet<PatternId["kind"]> = new Set([
   "toggleable",
   "describe",
   "uiHints",
-  "adoptsBundledLists",
   "config",
   "translations",
   "authClaims",
@@ -696,10 +653,12 @@ export const SINGLETON_KINDS: ReadonlySet<PatternId["kind"]> = new Set([
  * silently win; we'd rather throw so Designer/AI surfacing the corrupt
  * feature can fix it explicitly.
  */
+// The pattern kind `useExtension` is stored by Studio, so it keeps its name while the verb is applyExtension.
+function registrarMethodOf(kind: PatternId["kind"]): string {
+  return kind === "useExtension" ? "applyExtension" : kind;
+}
+
 function findCallForId(sourceFile: SourceFile, id: PatternId): CallExpression | undefined {
-  if (isAiStepId(id)) {
-    return findAiStepCall(sourceFile, id);
-  }
   const setup = findSetupCallback(sourceFile);
   if (!setup) return undefined;
   const registrarParam = setup.call
@@ -714,37 +673,13 @@ function findCallForId(sourceFile: SourceFile, id: PatternId): CallExpression | 
     const propAccess = call.getExpression().asKind(SyntaxKind.PropertyAccessExpression);
     if (!propAccess) continue;
     if (propAccess.getExpression().getText() !== registrarParam) continue;
-    if (propAccess.getName() !== id.kind) continue;
+    if (propAccess.getName() !== registrarMethodOf(id.kind)) continue;
     if (callMatchesId(call, id)) matches.push(call);
   }
 
   if (SINGLETON_KINDS.has(id.kind) && matches.length > 1) {
     throw new Error(
       `findCallForId: ${id.kind} is a singleton but ${matches.length} calls were found — feature file is corrupt`,
-    );
-  }
-  return matches[0];
-}
-
-const AI_STEP_FACTORY: Readonly<Record<"ai.generate" | "ai.extract" | "ai.classify", string>> = {
-  "ai.generate": "aiGenerateStep",
-  "ai.extract": "aiExtractStep",
-  "ai.classify": "aiClassifyStep",
-};
-
-function findAiStepCall(sourceFile: SourceFile, id: PatternId): CallExpression | undefined {
-  if (!isAiStepId(id)) return undefined;
-  const factory = AI_STEP_FACTORY[id.kind];
-  const matches: CallExpression[] = [];
-  for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-    if (call.getExpression().getText() !== factory) continue;
-    if (callMatchesId(call, id)) matches.push(call);
-  }
-  if (matches.length > 1) {
-    throw new Error(
-      `findAiStepCall: ambiguous ${id.kind} stepKey=${JSON.stringify(
-        "stepKey" in id ? id.stepKey : undefined,
-      )} — ${matches.length} matches; disambiguate or include workflowName in PatternId`,
     );
   }
   return matches[0];

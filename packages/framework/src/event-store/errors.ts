@@ -89,3 +89,22 @@ export class ArchivedStreamError extends Error {
     this.aggregateId = aggregateId;
   }
 }
+
+// Thrown instead of handing an event of an unknown newer schema to code written for an older one,
+// e.g. on a pod still running the previous release.
+export class EventVersionAheadError extends Error {
+  public readonly eventType: string;
+  public readonly eventId: string;
+  public readonly eventVersion: number;
+  public readonly knownVersion: number;
+  constructor(eventType: string, eventId: string, eventVersion: number, knownVersion: number) {
+    super(
+      `Event "${eventType}" (id ${eventId}) is stored at eventVersion ${eventVersion}, but this code knows only up to v${knownVersion}. Deploy the code that defines v${eventVersion} before this event is read.`,
+    );
+    this.name = "EventVersionAheadError";
+    this.eventType = eventType;
+    this.eventId = eventId;
+    this.eventVersion = eventVersion;
+    this.knownVersion = knownVersion;
+  }
+}

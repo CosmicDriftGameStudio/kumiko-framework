@@ -1,10 +1,17 @@
-import type { HttpRouteDefinition, HttpRouteMethod } from "@cosmicdrift/kumiko-types/http-route";
-import type { Hono, MiddlewareHandler } from "hono";
+import type { ContractQuery } from "@cosmicdrift/kumiko-types/handler-contract";
+import type {
+  HttpRouteDefinition,
+  HttpRouteMethod,
+  HttpRouteRateLimit,
+} from "@cosmicdrift/kumiko-types/http-route";
+import type { Context, Hono, MiddlewareHandler } from "hono";
 import { createAnonymousUser } from "../engine/system-user.ts";
 import type { TenantId } from "../engine/types/index.ts";
+import { bindContractQuery } from "../pipeline/contract-dispatch.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
 import { httpRouteRateLimit } from "../rate-limit/index.ts";
 import { assertUnreachable } from "../utils/index.ts";
+import type { AnonymousAccessResolved } from "./auth-middleware.ts";
 import { type ClientIpResolver, clientIpSourceFromHonoContext } from "./client-ip.ts";
 import { requestContext } from "./request-context.ts";
 import { buildRequestContextData } from "./request-id-middleware.ts";
@@ -39,11 +46,11 @@ function mountFeatureHttpRoute(
   route: HttpRouteDefinition,
   wiring: Pick<
     ServerWiring,
-    "dispatcher" | "clientIpResolver" | "rateLimitResolver" | "observability"
+    "options" | "dispatcher" | "clientIpResolver" | "rateLimitResolver" | "observability"
   >,
   sessionOnlyHttpRouteGuards: readonly MiddlewareHandler[],
 ): void {
-  const { dispatcher, clientIpResolver, rateLimitResolver, observability } = wiring;
+  const { dispatcher, clientIpResolver } = wiring;
   const honoHandler = async (c: import("hono").Context): Promise<Response> =>
     route.handler(c, {
       app,
@@ -58,27 +65,39 @@ function mountFeatureHttpRoute(
       // comes from bypassing the HTTP layer entirely; no elevated
       // role is needed or wanted on top of that.
       systemQuery: makeSystemQuery(c, dispatcher, clientIpResolver),
+      hostTenantId: makeHostTenantId(c, wiring.options.anonymousAccess),
       clientIp: clientIpResolver.resolve(clientIpSourceFromHonoContext(c)),
     });
-  // Without a resolver (no Redis in the context — dev/test stacks) the
-  // declared limit is skipped rather than failing the boot of every app
-  // that mounts a bundled feature whose routes carry a default limit.
-  const routeLimit =
-    route.rateLimit && rateLimitResolver
-      ? [
-          httpRouteRateLimit({
-            resolver: rateLimitResolver,
-            rateLimit: route.rateLimit,
-            routeKey: `${route.method} ${route.path}`,
-            clientIpResolver,
-            meter: observability.meter,
-          }),
-        ]
-      : [];
   mountHonoRoute(app, route.method, route.path, honoHandler, [
-    ...routeLimit,
+    ...buildRouteRateLimitGuards(route, wiring),
     ...(route.anonymous ? [] : sessionOnlyHttpRouteGuards),
   ]);
+}
+
+type RateLimitedRoute = {
+  readonly method: HttpRouteMethod;
+  readonly path: string;
+  readonly rateLimit?: HttpRouteRateLimit;
+};
+
+// Without a resolver (no Redis in the context — dev/test stacks) the
+// declared limit is skipped rather than failing the boot of every app
+// that mounts a bundled feature whose routes carry a default limit.
+export function buildRouteRateLimitGuards(
+  route: RateLimitedRoute,
+  wiring: Pick<ServerWiring, "clientIpResolver" | "rateLimitResolver" | "observability">,
+): readonly MiddlewareHandler[] {
+  const { rateLimitResolver, clientIpResolver, observability } = wiring;
+  if (route.rateLimit === undefined || rateLimitResolver === undefined) return [];
+  return [
+    httpRouteRateLimit({
+      resolver: rateLimitResolver,
+      rateLimit: route.rateLimit,
+      routeKey: `${route.method} ${route.path}`,
+      clientIpResolver,
+      meter: observability.meter,
+    }),
+  ];
 }
 
 // Method-switch shared by r.httpRoute and extraRoutes — one place to keep
@@ -138,9 +157,30 @@ export function makeSystemQuery(
   c: import("hono").Context<any, any>,
   dispatcher: Dispatcher,
   clientIpResolver?: ClientIpResolver,
-): (type: string, payload: unknown, tenantId: TenantId) => Promise<unknown> {
-  return (type, payload, tenantId) =>
+): ContractQuery<[tenantId: TenantId]> {
+  return bindContractQuery<[tenantId: TenantId]>((type, payload, tenantId) =>
     requestContext.run(requestContext.get() ?? buildRequestContextData(c, clientIpResolver), () =>
       dispatcher.query(type, payload, createAnonymousUser(tenantId)),
-    );
+    ),
+  );
+}
+
+// Header and cookie stay out: on a public page the visitor must not choose the tenant.
+export function makeHostTenantId(
+  c: Context,
+  anonymousAccess: AnonymousAccessResolved | undefined,
+): () => Promise<TenantId | null> {
+  return async () => {
+    if (anonymousAccess === undefined) return null;
+    if (anonymousAccess.defaultTenantId !== undefined) return anonymousAccess.defaultTenantId;
+    const resolved = (await anonymousAccess.tenantResolver?.(c)) ?? null;
+    if (resolved === null) return null;
+    if (
+      anonymousAccess.tenantExists !== undefined &&
+      !(await anonymousAccess.tenantExists(resolved))
+    ) {
+      return null;
+    }
+    return resolved;
+  };
 }

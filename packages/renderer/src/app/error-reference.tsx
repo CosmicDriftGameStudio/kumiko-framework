@@ -32,15 +32,13 @@ export function ErrorReference({
       <Text variant="small" testId={`${testId}-id`}>
         {t("kumiko.error.reference", { id: requestId })}
       </Text>
-      {CopyButton !== undefined && (
-        <CopyButton
-          text={requestId}
-          label={t("kumiko.error.copyReference")}
-          copiedLabel={t("kumiko.error.referenceCopied")}
-          className="min-h-0 h-7"
-          testId={`${testId}-copy`}
-        />
-      )}
+      <CopyButton
+        text={requestId}
+        label={t("kumiko.error.copyReference")}
+        copiedLabel={t("kumiko.error.referenceCopied")}
+        className="min-h-0 h-7"
+        testId={`${testId}-copy`}
+      />
     </Grid>
   );
 }

@@ -17,7 +17,7 @@ import { useDrawerResizeHandle, useDrawerResizeState } from "./use-drawer-resize
 const DRAWER_FOOTER_CLASS =
   "flex-row flex-wrap items-center justify-end border-t bg-background px-[var(--card-padding)] py-4";
 
-export type DrawerProps = {
+export type DrawerPanelProps = {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly side?: "left" | "right" | "top" | "bottom";
@@ -138,7 +138,7 @@ export function Drawer({
   modal = true,
   panelClassName,
   fillBody = false,
-}: DrawerProps): ReactNode {
+}: DrawerPanelProps): ReactNode {
   const t = useTranslation();
   const narrow = useIsNarrowViewport();
   const canResize = resize !== undefined && (side === "left" || side === "right");

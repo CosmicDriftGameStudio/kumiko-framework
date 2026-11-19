@@ -15,7 +15,7 @@ function createTestRedis(opts?: CreateTestRedisOptions): Promise<TestRedis>;
 function drainEventConsumers(stack: Pick<TestStack, "db" | "eventDispatcher">, consumerNames: [ string, ...string[] ], options?: { maxPasses?: number; }): Promise<void>;
 function dropTestDb(baseUrl: string, dbName: string): Promise<void>;
 function pushEntityProjectionTables(stack: DbHolder, registry: Registry): Promise<void>; // Push all implicit-projection tables — one per `r.entity()` — that the registry knows about.
-function resetEventStore(stack: { db: unknown; eventDispatcher?: EventDispatcher; }, extraTables?: (unknown | string)[]): Promise<void>; // Wipes event store + framework-state + the given feature read-models in one TRUNCATE, then re-registers the event-consumer state rows.
+function resetEventStore(stack: { db: DbConnection; eventDispatcher?: EventDispatcher; }, extraTables?: (unknown | string)[]): Promise<void>; // Wipes event store + framework-state + the given feature read-models in one TRUNCATE, then re-registers the event-consumer state rows.
 function setupTestStack(options: TestStackOptions): Promise<TestStack>;
 function testRunQueueNamePrefix(label: string): string; // Queue-name prefix for a JobRunner a test builds itself (`jobs.queueNamePrefix`, `createJobRunner`): it sits in the test run's namespace, so the run sweep removes its BullMQ keys even when the test never cleans them up.
 function unsafeCreateEntityTable(db: DbConnection, entity: EntityDefinition, entityName?: string): Promise<void>; // Bypass: creates an entity-table directly without going through the full registry.

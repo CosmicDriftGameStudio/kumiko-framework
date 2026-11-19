@@ -7,10 +7,12 @@
 // Apex transitions (the verification link) are full-page loads, not client-router
 // transitions.
 //
-// confirmPath MUST match the path of the server-side deletionVerifyUrl —
-// ConfirmScreen reads the ?token from that URL.
+// confirmPath and cancelPath MUST match the paths of the server-side
+// deletionVerifyUrl and deletionCancelUrl —
+// the screens read the token from that URL.
 
 import type { ComponentType, ReactNode } from "react";
+import { CancelAccountDeletionScreen } from "./cancel-deletion-screen.tsx";
 import { ConfirmAccountDeletionScreen } from "./confirm-deletion-screen.tsx";
 import { RequestAccountDeletionScreen } from "./request-deletion-screen.tsx";
 
@@ -19,6 +21,8 @@ export type PublicDeletionRoutes = {
   readonly requestPath: string;
   /** Login-free route for token confirmation; path of deletionVerifyUrl. */
   readonly confirmPath: string;
+  /** Login-free route for the cancel-by-token screen; path of deletionCancelUrl. */
+  readonly cancelPath?: string;
   /** Shell around the screen card. Default: full-screen centered (like the auth-
    *  defaultShell). Apps can provide their own shell (e.g. a marketing header). */
   readonly shell?: (screen: ReactNode) => ReactNode;
@@ -37,6 +41,9 @@ export function makePublicDeletionGate(
     const path = window.location.pathname;
     if (path === routes.requestPath) return shell(<RequestAccountDeletionScreen />);
     if (path === routes.confirmPath) return shell(<ConfirmAccountDeletionScreen />);
+    if (routes.cancelPath !== undefined && path === routes.cancelPath) {
+      return shell(<CancelAccountDeletionScreen />);
+    }
     return <>{children}</>;
   }
   return PublicDeletionGate;

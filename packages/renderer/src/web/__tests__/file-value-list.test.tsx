@@ -47,7 +47,7 @@ describe("FileValueList", () => {
     expect(getByTestId(`files-${PNG_ID}-download`).getAttribute("href")).toBe(
       `/api/files/${PNG_ID}`,
     );
-    expect(getByTestId(`files-${PDF_ID}-preview-toggle`)).toBeDefined();
+    getByTestId(`files-${PDF_ID}-preview-toggle`);
     expect(queryByTestId(`files-${PNG_ID}-preview-toggle`)).toBeNull();
   });
 
@@ -60,7 +60,7 @@ describe("FileValueList", () => {
     await act(async () => {
       fireEvent.click(toggle);
     });
-    expect(getByTestId(`file-preview-${PDF_ID}`)).toBeDefined();
+    getByTestId(`file-preview-${PDF_ID}`);
     await act(async () => {
       fireEvent.click(toggle);
     });
@@ -72,7 +72,7 @@ describe("FileValueList", () => {
       <FileValueList fileIds={[PDF_ID, NEWER_PDF_ID]} previewOpenByDefault testId="files" />,
     );
     await findByTestId(`file-preview-${NEWER_PDF_ID}`);
-    expect(getByTestId(`files-${PDF_ID}-preview-toggle`)).toBeDefined();
+    getByTestId(`files-${PDF_ID}-preview-toggle`);
     expect(queryByTestId(`file-preview-${PDF_ID}`)).toBeNull();
   });
 
@@ -91,7 +91,7 @@ describe("FileValueList", () => {
       return new Response("{}");
     }) as unknown as typeof fetch;
     const { getByText, container } = render(<FileValueList fileIds={["../x"]} />);
-    expect(getByText("../x")).toBeDefined();
+    getByText("../x");
     expect(container.querySelector("a")).toBeNull();
     expect(requests).toBe(0);
   });
@@ -127,7 +127,7 @@ describe("renderer format file on read-only fields", () => {
       </DispatcherProvider>,
     );
     await findByText("Rechnung-Oktober.pdf");
-    expect(getByTestId(`field-value-exposeFiles-${PDF_ID}-download`)).toBeDefined();
+    getByTestId(`field-value-exposeFiles-${PDF_ID}-download`);
     expect(queryByText(PDF_ID)).toBeNull();
   });
 
@@ -157,7 +157,7 @@ describe("renderer format file on read-only fields", () => {
       </DispatcherProvider>,
     );
     await findByText("Beleg-Foto.png");
-    expect(getByTestId(`field-value-docs-${PNG_ID}-download`)).toBeDefined();
+    getByTestId(`field-value-docs-${PNG_ID}-download`);
     expect(queryByText(PNG_ID)).toBeNull();
   });
 });

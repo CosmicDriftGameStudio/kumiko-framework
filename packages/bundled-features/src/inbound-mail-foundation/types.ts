@@ -168,8 +168,8 @@ export type InboundFetchResult = {
 /**
  * Inbound-mail provider plugin contract. Each provider feature
  * (inbound-provider-imap, -m365-graph, -gmail-rest) registers an
- * implementation via `r.useExtension(INBOUND_MAIL_PROVIDER_EXTENSION,
- * "<key>", plugin)`.
+ * implementation via `r.applyExtension({ name: INBOUND_MAIL_PROVIDER_EXTENSION,
+ * entity: "<key>", ...plugin })`.
  */
 export type InboundMailProviderPlugin = {
   /** Credential/reachability check during the connect flow — throws a
@@ -258,7 +258,7 @@ export function isInboundMailProviderPlugin(o: unknown): o is InboundMailProvide
   );
 }
 
-// r.useExtension options-shape, co-located since the framework never imports upward.
+// r.applyExtension options-shape, co-located since the framework never imports upward.
 declare module "@cosmicdrift/kumiko-framework/engine" {
   interface KumikoExtensionOptionsMap {
     [INBOUND_MAIL_PROVIDER_EXTENSION]: InboundMailProviderPlugin;

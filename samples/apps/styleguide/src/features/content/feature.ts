@@ -1,6 +1,7 @@
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 export const pageEntity = createEntity({
+  name: "page",
   table: "read_content_pages",
   fields: {
     slug: createTextField({ personal: false, reason: "is_system_identifier", required: true }),
@@ -18,7 +19,7 @@ const open = {
 } as const;
 
 export const contentFeature = defineFeature("content", (r) => {
-  r.crud("page", pageEntity, {
+  r.crud(pageEntity, {
     write: open,
     read: open,
     verbs: { update: false, delete: false, restore: false },

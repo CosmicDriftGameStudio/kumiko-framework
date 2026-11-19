@@ -32,6 +32,7 @@ import { createFilesFeature } from "../feature.ts";
 import { createLocalProvider } from "../local-provider.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "tenant_check_notes",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -43,7 +44,7 @@ const noteEntity = createEntity({
 const ROLES = { access: { roles: ["Admin", "User", "SystemAdmin"] } } as const;
 
 const noteFeature = defineFeature("tenant-check-notes", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
   r.writeHandler(defineEntityCreateHandler("note", noteEntity, ROLES));
   r.writeHandler(defineEntityUpdateHandler("note", noteEntity, ROLES));
   r.queryHandler(defineEntityDetailHandler("note", noteEntity, ROLES));

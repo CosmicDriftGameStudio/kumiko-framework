@@ -26,7 +26,11 @@ import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
 import { notificationPreferencesTable } from "../../delivery/tables.ts";
-import { createSessionsFeature, userSessionTable } from "../../sessions/index.ts";
+import {
+  createSessionCallbacks,
+  createSessionsFeature,
+  userSessionTable,
+} from "../../sessions/index.ts";
 import { hashPassword, verifyPassword } from "../../shared/index.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
@@ -46,11 +50,6 @@ import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-sta
 const emailTransport = createInMemoryTransport();
 
 registerMailTranslations("de", localeDeBundle);
-
-// Records the userId every time the sessions feature's auto-revoke hook
-// fires after a password change. The session-revoke tests assert on this
-// list — we don't need a full session store, just proof the hook fired.
-const autoRevokeCalls: string[] = [];
 
 let stack: TestStack;
 const systemAdmin = TestUsers.systemAdmin;
@@ -78,17 +77,10 @@ beforeAll(async () => {
       createAuthEmailPasswordFeature({
         passwordReset: { hmacSecret: resetSecret, tokenTtlMinutes: 15, appUrl: appResetUrl },
       }),
-      // Sessions feature wires the cross-feature entityHook on
-      // "user.postSave" that triggers autoRevokeOnPasswordChange whenever
-      // the passwordHash delta is present. Integration-test proves the
-      // reset-flow's changes.passwordHash triggers the same hook.
+      // The user feature's postSave hook revokes through the sessions credentialRevoker
+      // whenever the passwordHash delta is present; the reset flow writes that delta too.
       createAuthFoundationFeature(),
-      createSessionsFeature({
-        autoRevokeOnPasswordChange: async (userId) => {
-          autoRevokeCalls.push(userId);
-          return 0; // no real session store behind this spy
-        },
-      }),
+      createSessionsFeature(),
     ],
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
@@ -128,7 +120,6 @@ beforeEach(async () => {
     eventsTable,
   ]);
   emailTransport.sent.length = 0;
-  autoRevokeCalls.length = 0;
 });
 
 async function seedUser(opts: {
@@ -155,6 +146,19 @@ async function seedUser(opts: {
     roles: ["User"],
   });
   return { id: created.id, tenantId };
+}
+
+async function createLiveSession(userId: string, tenantId: TenantId): Promise<string> {
+  const { sessionCreator } = createSessionCallbacks({ db: stack.db });
+  return sessionCreator(
+    { id: userId, tenantId, roles: ["User"] },
+    { ip: "127.0.0.1", userAgent: "test" },
+  );
+}
+
+async function revokedAtOfSession(sid: string): Promise<unknown> {
+  const rows = await selectMany(stack.db, userSessionTable, { id: sid });
+  return rows[0]?.["revokedAt"];
 }
 
 async function post(
@@ -532,6 +536,7 @@ describe("reset-password triggers session auto-revoke", () => {
       email: "revokeme@example.com",
       password: "hack-exposed-1234",
     });
+    const sid = await createLiveSession(seed.id, seed.tenantId);
     const { token } = signResetToken(seed.id, 15, resetSecret);
 
     const res = await post("/api/auth/reset-password", {
@@ -540,11 +545,9 @@ describe("reset-password triggers session auto-revoke", () => {
     });
     expect(res.status).toBe(200);
 
-    // The sessions feature registered r.entityHook("postSave", "user", ...)
-    // with autoRevokeOnPasswordChange. Reset writes changes.passwordHash
-    // through user:update → hook fires → spy records the userId. Without
-    // this assertion the commit's "session revocation" claim is unverified.
-    expect(autoRevokeCalls).toEqual([seed.id]);
+    // Reset writes changes.passwordHash through user:update → the user feature's
+    // postSave hook revokes the user's sessions in the same transaction.
+    expect(await revokedAtOfSession(sid)).not.toBeNull();
   });
 
   test("failed reset (invalid token) does NOT trigger auto-revoke", async () => {
@@ -552,6 +555,7 @@ describe("reset-password triggers session auto-revoke", () => {
       email: "keepme@example.com",
       password: "still-mine-1234",
     });
+    const sid = await createLiveSession(seed.id, seed.tenantId);
 
     const res = await post("/api/auth/reset-password", {
       token: "fake.1234567890.whatever",
@@ -560,7 +564,6 @@ describe("reset-password triggers session auto-revoke", () => {
     expect(res.status).toBe(422);
     // No passwordHash write → no hook → no revoke. Otherwise a garbage-
     // token spammer could log everyone out.
-    expect(autoRevokeCalls).toEqual([]);
-    expect(seed.id).toBeTruthy(); // silence lint on unused var
+    expect(await revokedAtOfSession(sid)).toBeNull();
   });
 });

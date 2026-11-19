@@ -36,10 +36,6 @@ function makeFakeLiveEvents(): {
   };
 }
 
-function makeDispatcher(queryFn: Dispatcher["query"]): Dispatcher {
-  return createMockDispatcher({ query: queryFn });
-}
-
 function Probe({ live }: { readonly live: boolean }): React.ReactElement {
   const q = useQuery<{ count: number }>("tasks:query:task:list", {}, { live });
   return <div data-testid="probe">{q.data?.count ?? "loading"}</div>;
@@ -64,10 +60,12 @@ function Wrapper({
 describe("useQuery live-mode", () => {
   test("live=true: injected event triggert refetch", async () => {
     let calls = 0;
-    const dispatcher = makeDispatcher((async () => {
-      calls += 1;
-      return { isSuccess: true, data: { count: calls } };
-    }) as unknown as Dispatcher["query"]);
+    const dispatcher = createMockDispatcher({
+      query: async () => {
+        calls += 1;
+        return { isSuccess: true, data: { count: calls } };
+      },
+    });
     const fake = makeFakeLiveEvents();
 
     const { getByTestId } = render(
@@ -93,10 +91,12 @@ describe("useQuery live-mode", () => {
 
   test("live=false: injected event is ignored, no refetch", async () => {
     let calls = 0;
-    const dispatcher = makeDispatcher((async () => {
-      calls += 1;
-      return { isSuccess: true, data: { count: calls } };
-    }) as unknown as Dispatcher["query"]);
+    const dispatcher = createMockDispatcher({
+      query: async () => {
+        calls += 1;
+        return { isSuccess: true, data: { count: calls } };
+      },
+    });
     const fake = makeFakeLiveEvents();
 
     const { getByTestId } = render(
@@ -123,10 +123,12 @@ describe("useQuery live-mode", () => {
 
   test("live=true: only events for the query entity trigger refetch", async () => {
     let calls = 0;
-    const dispatcher = makeDispatcher((async () => {
-      calls += 1;
-      return { isSuccess: true, data: { count: calls } };
-    }) as unknown as Dispatcher["query"]);
+    const dispatcher = createMockDispatcher({
+      query: async () => {
+        calls += 1;
+        return { isSuccess: true, data: { count: calls } };
+      },
+    });
     const fake = makeFakeLiveEvents();
 
     const { getByTestId } = render(

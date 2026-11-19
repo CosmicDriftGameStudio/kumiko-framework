@@ -121,10 +121,9 @@ describe("scenario 3: tenant.update", () => {
     expect(data!["isNew"]).toBe(false);
   });
 
-  test("update handler requires Admin or SystemAdmin role", async () => {
+  test("update handler requires TenantAdmin, Admin or SystemAdmin role", async () => {
     expect(rolesOf(stack.registry.getWriteHandler(TenantHandlers.update)?.access)).toEqual([
-      "Admin",
-      "SystemAdmin",
+      ...access.admin,
     ]);
   });
 });
@@ -383,8 +382,7 @@ describe("scenario 7: access rules on handlers", () => {
       "SystemAdmin",
     ]);
     expect(rolesOf(stack.registry.getWriteHandler(TenantHandlers.update)?.access)).toEqual([
-      "Admin",
-      "SystemAdmin",
+      ...access.admin,
     ]);
     expect(rolesOf(stack.registry.getWriteHandler(TenantHandlers.disable)?.access)).toEqual([
       "SystemAdmin",

@@ -27,16 +27,28 @@ const text = () =>
   });
 
 const linkEntity = createEntity({
+  name: "link",
   table: "read_gate_links",
   fields: { documentId: text(), entityType: text(), entityId: text() },
-  parentRef: { entityTypeField: "entityType", entityIdField: "entityId" },
+  parentRef: {
+    entityTypeField: "entityType",
+    entityIdField: "entityId",
+    allowedTypes: ["host", "folder"],
+  },
 });
 const hostEntity = createEntity({
+  name: "host",
   table: "read_gate_hosts",
   fields: { name: text(), scan: createFileField() },
   access: { read: { Reader: "all" } },
 });
+const folderEntity = createEntity({
+  name: "folder",
+  table: "read_gate_folders",
+  fields: { name: text() },
+});
 const gatedEntity = createEntity({
+  name: "document",
   table: "read_gate_docs",
   fields: { title: text(), file: createFileField() },
   readGate: {
@@ -50,9 +62,10 @@ const entities = new Map<string, EntityDefinition>([
   ["document", gatedEntity],
   ["link", linkEntity],
   ["host", hostEntity],
+  ["folder", folderEntity],
   ["fileRef", fileRefEntity],
 ]);
-const gatedTable = buildEntityTable("document", gatedEntity);
+const gatedTable = buildEntityTable(gatedEntity);
 
 function build(who: SessionUser, canReadEntity: (name: string) => boolean = () => true) {
   return buildReadGateClause(gatedEntity, gatedTable, "docs_alias", who, tenantDb, {
@@ -111,6 +124,16 @@ describe("buildReadGateClause", () => {
     const { sqlText } = sqlOf(build(admin));
     expect(sqlText).not.toContain("gate_link");
     expect(sqlText).toContain("gate_file");
+  });
+
+  test("quotes the caller's table alias as an SQL identifier", () => {
+    const clause = buildReadGateClause(gatedEntity, gatedTable, 'docs"alias', user, tenantDb, {
+      entities,
+      canReadEntity: () => true,
+    });
+    const { sqlText } = sqlOf(clause);
+    expect(sqlText).toContain('"docs""alias"');
+    expect(sqlText).not.toContain('"docs"alias"');
   });
 
   test("an owner entity without a readable query handler contributes no branch", () => {

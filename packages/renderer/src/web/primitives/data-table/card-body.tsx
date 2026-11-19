@@ -18,6 +18,7 @@ import {
 } from "../data-table-cell.tsx";
 import { CardLeadingImage } from "../file-thumbnail.tsx";
 import { columnCellPresentationProps } from "./data-cell-props.ts";
+import { isDateColumn } from "./table-data-cell.tsx";
 import { showFullTextOnHover } from "./table-footer.tsx";
 import type { DataTableModel } from "./use-data-table-state.ts";
 
@@ -82,9 +83,9 @@ function cellTestIdOf(m: DataTableModel, row: ListRowViewModel, field: string): 
 }
 
 function hasCardLink(row: ListRowViewModel, col: ListColumnViewModel): boolean {
-  return (
-    !isEmptyCellValue(row.values[col.field]) && cellLinkProp(col, row, true).link !== undefined
-  );
+  if (isEmptyCellValue(row.values[col.field])) return false;
+  const { link, referenceFileId } = cellLinkProp(col, row, true);
+  return link !== undefined || referenceFileId !== undefined;
 }
 
 function needsControlOutsideOpener(row: ListRowViewModel, col: ListColumnViewModel): boolean {
@@ -138,20 +139,45 @@ function renderMetaCell(
   m: DataTableModel,
   row: ListRowViewModel,
   col: ListColumnViewModel,
+  inheritLineHeight = false,
 ): ReactNode {
   return (
     <div
       key={col.field}
       data-testid={cellTestIdOf(m, row, col.field)}
-      className={`min-w-0 max-w-full leading-5 ${col.ellipsis === true ? "truncate" : "break-words"}${col.multiline === true ? " whitespace-pre-line" : ""}${col.emphasis === true ? " font-semibold text-foreground" : ""}`}
+      className={`min-w-0 max-w-full ${inheritLineHeight ? "leading-[inherit]" : "leading-5"} ${col.ellipsis === true ? "truncate" : "break-words"}${col.multiline === true ? " whitespace-pre-line" : ""}${col.emphasis === true ? " font-semibold text-foreground" : ""}`}
       onPointerEnter={showFullTextOnHover}
     >
       {isBadgeColumn(col) ? (
         <span className="inline-flex align-middle">{cardCell(m, row, col)}</span>
+      ) : col.cardLabel === true ? (
+        <>
+          {`${col.label}: `}
+          {/* A date breaks below its label as one piece, never between date and time. */}
+          <span
+            className={cn(
+              "inline-block max-w-full break-words align-top text-foreground",
+              isDateColumn(col) && "whitespace-nowrap",
+            )}
+          >
+            {cardCell(m, row, col)}
+          </span>
+        </>
       ) : (
         cardCell(m, row, col)
       )}
     </div>
+  );
+}
+
+function isDateRangeLine(
+  line: readonly ListColumnViewModel[],
+  placement: "above" | "below",
+): boolean {
+  return (
+    placement === "above" &&
+    line.length === 2 &&
+    line.every((col) => isDateColumn(col) && col.cardLabel !== true)
   );
 }
 
@@ -177,15 +203,28 @@ function renderCardMeta(
               data-testid={`card-vals-${row.id}-${line[0].field}`}
               className={cn(
                 "mt-1 flex min-w-0 max-w-full flex-wrap items-center gap-y-0.5 text-[12.5px] leading-5",
-                plain ? "gap-x-0" : "gap-x-3",
+                plain ? (isDateRangeLine(line, placement) ? "gap-x-0" : "gap-x-1") : "gap-x-3",
               )}
             >
-              {line.map((col, colIndex) => (
-                <Fragment key={col.field}>
-                  {plain && colIndex > 0 && <span aria-hidden="true">,&nbsp;</span>}
-                  {renderMetaCell(m, row, col)}
-                </Fragment>
-              ))}
+              {line.map((col, colIndex) => {
+                const isRange = isDateRangeLine(line, placement);
+                // The comma rides inside the front value's item, so a wider column gap set by
+                // the app lands after it, never on both sides.
+                const commaAfter = plain && !isRange && colIndex < line.length - 1;
+                return (
+                  <Fragment key={col.field}>
+                    {colIndex > 0 && isRange && <span>–</span>}
+                    {commaAfter ? (
+                      <div className="flex min-w-0 max-w-full items-baseline">
+                        {renderMetaCell(m, row, col, true)}
+                        <span aria-hidden="true">,</span>
+                      </div>
+                    ) : (
+                      renderMetaCell(m, row, col)
+                    )}
+                  </Fragment>
+                );
+              })}
             </div>
           ) : (
             <div
@@ -264,11 +303,11 @@ function renderCardHeading(m: DataTableModel, row: ListRowViewModel, roles: Card
   const showStatus =
     cardStatusColumn !== undefined && !isEmptyCellValue(row.values[cardStatusColumn.field]);
   return (
-    <div className="flex min-w-0 items-start justify-between gap-2">
+    <div className="flex w-full min-w-0 flex-wrap items-start justify-between gap-x-2 gap-y-1">
       {cardTitleColumn !== undefined && (
         <span
           data-testid={cellTestIdOf(m, row, cardTitleColumn.field)}
-          className="min-w-0 truncate text-[14.5px] font-semibold text-foreground"
+          className="min-w-0 max-w-full truncate text-[14.5px] font-semibold text-foreground"
           onPointerEnter={showFullTextOnHover}
         >
           {cardCell(m, row, cardTitleColumn)}
@@ -279,19 +318,49 @@ function renderCardHeading(m: DataTableModel, row: ListRowViewModel, roles: Card
   );
 }
 
+function isBlankCardValue(value: unknown): boolean {
+  return isEmptyCellValue(value) || (Array.isArray(value) && value.length === 0);
+}
+
+export type CardBodyParts = {
+  readonly top: ReactNode;
+  readonly heading: ReactNode;
+  readonly meta: ReactNode;
+};
+
+export function cardBodyParts(
+  m: DataTableModel,
+  row: ListRowViewModel,
+  roles: CardRoles,
+): CardBodyParts {
+  const shownMeta = roles.meta.filter(
+    (col) =>
+      !isBlankCardValue(row.values[col.field]) &&
+      !isUnlabeledFalse(col.type, row.values[col.field], col.renderer),
+  );
+  const aboveColumns = shownMeta.filter((col) => col.cardAbove === true);
+  const metaColumns = shownMeta.filter((col) => col.cardAbove !== true);
+  const lead = renderCardLead(m, row, roles.lead);
+  return {
+    top:
+      lead === null && aboveColumns.length === 0 ? null : (
+        <>
+          {lead}
+          {aboveColumns.length > 0 && renderCardMeta(m, row, aboveColumns, "above")}
+        </>
+      ),
+    heading: renderCardHeading(m, row, roles),
+    meta: metaColumns.length > 0 ? renderCardMeta(m, row, metaColumns) : null,
+  };
+}
+
 export function renderCardBody(
   m: DataTableModel,
   row: ListRowViewModel,
   roles: CardRoles,
 ): ReactNode {
-  const { image: cardImageColumn, meta: cardMetaColumns } = roles;
-  const shownMeta = cardMetaColumns.filter(
-    (col) =>
-      !isEmptyCellValue(row.values[col.field]) &&
-      !isUnlabeledFalse(col.type, row.values[col.field], col.renderer),
-  );
-  const aboveColumns = shownMeta.filter((col) => col.cardAbove === true);
-  const metaColumns = shownMeta.filter((col) => col.cardAbove !== true);
+  const { image: cardImageColumn } = roles;
+  const { top, heading, meta } = cardBodyParts(m, row, roles);
   return (
     <>
       {cardImageColumn?.fileDisplay !== undefined && (
@@ -303,10 +372,9 @@ export function renderCardBody(
         </div>
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        {renderCardLead(m, row, roles.lead)}
-        {aboveColumns.length > 0 && renderCardMeta(m, row, aboveColumns, "above")}
-        {renderCardHeading(m, row, roles)}
-        {metaColumns.length > 0 && renderCardMeta(m, row, metaColumns)}
+        {top}
+        {heading}
+        {meta}
       </div>
     </>
   );

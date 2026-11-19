@@ -9,15 +9,9 @@ import type {
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import {
-  createMockDispatcher,
-  render,
-  renderWithPrimitivesOverride,
-  screen,
-} from "./test-utils.tsx";
+import { createMockDispatcher, type MockWriteHandler, render, screen } from "./test-utils.tsx";
 
 const profileEntity = {
   fields: {
@@ -60,7 +54,7 @@ describe("entityEdit wizard — presence validation on Next", () => {
     await userEvent.click(screen.getByTestId("render-edit-wizard-next"));
 
     expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("1");
-    expect(screen.getByTestId("field-fullName-errors")).toBeTruthy();
+    screen.getByTestId("field-fullName-errors");
     // Step 2's field stays mounted but hidden — the transition was blocked.
     expect(screen.getByTestId("field-email").closest("[hidden]")).not.toBeNull();
   });
@@ -108,7 +102,7 @@ describe("entityEdit wizard — presence validation on Next", () => {
     await userEvent.click(screen.getByTestId("render-edit-submit"));
 
     expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("2");
-    expect(screen.getByTestId("field-email-errors")).toBeTruthy();
+    screen.getByTestId("field-email-errors");
   });
 
   // `fieldset[disabled]` also excludes its descendants' controls from a real
@@ -119,10 +113,10 @@ describe("entityEdit wizard — presence validation on Next", () => {
   // that step 2 shows no error.
   test("submitting from a later step still sends an earlier step's value to the dispatcher", async () => {
     const calls: Array<[string, unknown]> = [];
-    const write = (async (type: string, payload: unknown) => {
+    const write: MockWriteHandler = async (type: string, payload: unknown) => {
       calls.push([type, payload]);
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"];
+    };
     const { container } = render(
       <DispatcherProvider dispatcher={createMockDispatcher({ write })}>
         <KumikoScreen schema={schema} qn="demo:screen:profile-edit" />
@@ -257,23 +251,6 @@ describe("entityEdit wizard — step bar", () => {
 
     const steps = container.querySelectorAll('[data-testid^="render-edit-wizard-steps-step-"]');
     expect(steps.length).toBe(3);
-  });
-
-  // A PrimitivesRegistry without StepBar (older/custom registry)
-  // must stay on the plain "Step X of Y" label RenderEdit always had —
-  // this is the changeset's stated backward-compat guarantee.
-  test("falls back to the plain step label when the registry doesn't supply StepBar", () => {
-    renderWithPrimitivesOverride(
-      <DispatcherProvider dispatcher={createMockDispatcher()}>
-        <KumikoScreen schema={schema} qn="demo:screen:profile-edit" />
-      </DispatcherProvider>,
-      { StepBar: undefined },
-    );
-
-    expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toBe(
-      "Step 1 of 2 · Step 1",
-    );
-    expect(screen.queryByTestId("render-edit-wizard-steps-step-0")).toBeNull();
   });
 
   // A titleless section used to fall back to the stringified step

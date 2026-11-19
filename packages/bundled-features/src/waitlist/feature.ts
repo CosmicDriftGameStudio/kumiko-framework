@@ -10,7 +10,7 @@ import { createInviteHandler } from "./handlers/invite.write.ts";
 import { listQuery } from "./handlers/list.query.ts";
 import { rejectHandler } from "./handlers/reject.write.ts";
 import { createSubmitHandler } from "./handlers/submit.write.ts";
-import { WAITLIST_I18N } from "./i18n.ts";
+import { WAITLIST_HANDLER_I18N, WAITLIST_I18N } from "./i18n.ts";
 import { adminAccess } from "./lib.ts";
 import { linkWaitlistOnSignup, WAITLIST_MEMBERSHIP_CREATED_EVENT } from "./link-on-signup.ts";
 import {
@@ -32,7 +32,6 @@ import {
 
 export function createWaitlistFeature(opts: WaitlistOptions = {}): FeatureDefinition {
   return defineFeature(WAITLIST_FEATURE, (r) => {
-    r.adoptsBundledLists();
     r.describe(
       "Public waitlist: an anonymous, rate-limited `submit` handler collects name, email and optional company, portfolio and message (a honeypot field and per-email dedupe keep bots and repeat submits out, and the response body is identical whether or not an address was already listed), and mails the submitter a confirmation. SystemAdmins review entries in a list screen and invite or reject them; an invite creates the entrant's own tenant (or joins one shared tenant) and mails an accept link with the configured membership role, never a global role. Entries are platform-wide, their personal data is crypto-shredding-ready, and the EXT_USER_DATA hooks export and erase entries matching a user's email.",
     );
@@ -40,18 +39,21 @@ export function createWaitlistFeature(opts: WaitlistOptions = {}): FeatureDefini
     r.systemScope();
     r.requires({ features: ["tenant", "auth-email-password", "user-data-rights"] });
     r.translations({ keys: WAITLIST_I18N });
+    r.translations({ keys: WAITLIST_HANDLER_I18N });
 
-    r.notification("confirmation", {
+    r.notification({
+      name: "confirmation",
       variables: WAITLIST_CONFIRMATION_VARIABLES,
       localizedTemplate: waitlistConfirmationTemplate,
     });
-    r.notification("admin-notice", {
+    r.notification({
+      name: "admin-notice",
       variables: WAITLIST_ADMIN_NOTICE_VARIABLES,
       record: WAITLIST_ADMIN_NOTICE_RECORD,
       localizedTemplate: waitlistAdminNoticeTemplate,
     });
 
-    r.entity({ name: "waitlistEntry", ...waitlistEntryEntity });
+    r.entity(waitlistEntryEntity);
     r.writeHandler(createSubmitHandler(opts));
     r.writeHandler(createInviteHandler(opts.invite));
     r.writeHandler(rejectHandler);
@@ -81,7 +83,9 @@ export function createWaitlistFeature(opts: WaitlistOptions = {}): FeatureDefini
       access: adminAccess,
     });
 
-    r.useExtension(EXT_USER_DATA, "waitlistEntry", {
+    r.applyExtension({
+      name: EXT_USER_DATA,
+      entity: "waitlistEntry",
       export: waitlistEntryExportHook,
       delete: waitlistEntryDeleteHook,
     });

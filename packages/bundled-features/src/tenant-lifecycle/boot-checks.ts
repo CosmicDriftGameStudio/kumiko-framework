@@ -49,7 +49,7 @@ export function validateTenantDataHookCoverage(features: readonly FeatureDefinit
         .map(([name]) => name);
       if (tenantSubjectFields.length === 0) continue;
       throw bootRuleError(TENANT_LIFECYCLE_BOOT_RULES.tenantSubjectWithoutDestroyHook, {
-        message: `[kumiko:boot] Entity "${entityName}" (feature "${feature.name}") has tenant-subject fields (${tenantSubjectFields.join(", ")}) but no feature registers an EXT_TENANT_DATA destroy hook for it — tenant destroy never erases this data. Register r.useExtension(EXT_TENANT_DATA, "${entityName}", { destroy }) or a documented no-op if crypto-shredding covers it.`,
+        message: `[kumiko:boot] Entity "${entityName}" (feature "${feature.name}") has tenant-subject fields (${tenantSubjectFields.join(", ")}) but no feature registers an EXT_TENANT_DATA destroy hook for it — tenant destroy never erases this data. Register r.applyExtension({ name: EXT_TENANT_DATA, entity: "${entityName}", destroy }) or a documented no-op if crypto-shredding covers it.`,
       });
     }
   }

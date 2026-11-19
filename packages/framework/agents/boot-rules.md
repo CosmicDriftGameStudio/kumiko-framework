@@ -19,7 +19,7 @@
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
 | <a id="agent-effect-proposal-needs-low-risk"></a>`agent-effect/proposal-needs-low-risk` | A write handler with agent.effect "proposal" declares agent.risk "low". | Set agent.risk to "low", or drop agent.effect so the agent asks for approval. | `packages/framework/src/engine/boot-validator/agent-effect-rules.ts` |
-| <a id="agent-effect-write-only"></a>`agent-effect/write-only` | Only write handlers declare agent.effect; a query has nothing to approve. | Drop agent.effect from the query handler. | `packages/framework/src/engine/boot-validator/agent-effect-rules.ts` |
+| <a id="agent-effect-write-only"></a>`agent-effect/write-only` | Only write handlers declare agent.effect; a query has nothing to approve or send. | Drop agent.effect from the query handler. | `packages/framework/src/engine/boot-validator/agent-effect-rules.ts` |
 
 ## api
 
@@ -62,23 +62,20 @@
 | --- | --- | --- | --- |
 | <a id="boot-check-failed"></a>`boot-check/failed` | A feature's r.bootCheck invariant holds for the mounted feature set. | Satisfy the invariant named in the message or unmount the feature that declares it. | `packages/framework/src/engine/boot-validator/boot-check-rules.ts` |
 
-## bundled-lists
-
-| Rule | Summary | Fix | Source |
-| --- | --- | --- | --- |
-| <a id="bundled-lists-not-object"></a>`bundled-lists/not-object` | The bundledLists option is an object. | Write bundledLists as an object such as { table: { columnPicker: true } }. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
-| <a id="bundled-lists-pin-first-column-not-boolean"></a>`bundled-lists/pin-first-column-not-boolean` | bundledLists.pinFirstColumn is a boolean. | Set pinFirstColumn to true or false. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
-| <a id="bundled-lists-pin-first-column-without-pinning"></a>`bundled-lists/pin-first-column-without-pinning` | bundledLists.pinFirstColumn needs bundledLists.table.pinning. | Set bundledLists.table.pinning: true or remove pinFirstColumn. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
-| <a id="bundled-lists-screen-only-table-key"></a>`bundled-lists/screen-only-table-key` | bundledLists.table leaves out grouping, totals and summaryRow, which depend on one list's fields or query. | Set grouping, totals and summaryRow in the table block of the individual screen. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
-| <a id="bundled-lists-table-not-object"></a>`bundled-lists/table-not-object` | bundledLists.table is an object. | Write bundledLists.table as an object such as { columnPicker: true }. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
-| <a id="bundled-lists-unknown-key"></a>`bundled-lists/unknown-key` | bundledLists uses only the allowed keys. | Remove the unknown keys or rename them to one of the allowed keys. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
-
 ## cap-overview
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
 | <a id="cap-overview-empty-caps"></a>`cap-overview/empty-caps` | createCapOverviewFeature receives at least one cap. | Pass a non-empty caps list. | `packages/bundled-features/src/cap-overview/boot-rules.ts` |
 | <a id="cap-overview-unknown-list-cap"></a>`cap-overview/unknown-list-cap` | listCaps only references cap ids declared in caps. | Use ids from caps in listCaps. | `packages/bundled-features/src/cap-overview/boot-rules.ts` |
+
+## child-search
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="child-search-no-searchable-field"></a>`child-search/no-searchable-field` | A searchable hasMany relation targets an entity with at least one searchable field. | Mark a field of the target entity searchable or drop searchable from the relation. | `packages/framework/src/engine/boot-validator/child-search-rules.ts` |
+| <a id="child-search-unknown-entity"></a>`child-search/unknown-entity` | A searchable hasMany relation targets an entity that some feature registers. | Point the relation target at a registered entity or drop searchable. | `packages/framework/src/engine/boot-validator/child-search-rules.ts` |
+| <a id="child-search-unknown-foreign-key"></a>`child-search/unknown-foreign-key` | A searchable hasMany relation names a foreignKey that is a field of the target entity. | Use a field of the target entity as the foreignKey. | `packages/framework/src/engine/boot-validator/child-search-rules.ts` |
 
 ## claim
 
@@ -252,7 +249,7 @@
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
-| <a id="document-ingest-foundation-job-unknown-provider"></a>`document-ingest-foundation/job-unknown-provider` | A documentIngest.requested job filters to a provider that some feature registers via EXT_DOCUMENT_INGEST_PROVIDER. | Register the provider via r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, "<name>", ...) or fix the provider name. | `packages/bundled-features/src/document-ingest-foundation/boot-rules.ts` |
+| <a id="document-ingest-foundation-job-unknown-provider"></a>`document-ingest-foundation/job-unknown-provider` | A documentIngest.requested job filters to a provider that some feature registers via EXT_DOCUMENT_INGEST_PROVIDER. | Register the provider via r.applyExtension({ name: EXT_DOCUMENT_INGEST_PROVIDER, entity: "<name>", ... }) or fix the provider name. | `packages/bundled-features/src/document-ingest-foundation/boot-rules.ts` |
 | <a id="document-ingest-foundation-job-without-provider-filter"></a>`document-ingest-foundation/job-without-provider-filter` | A job triggered by documentIngest.requested filters to one provider, so it does not fire for every provider's uploads. | Use trigger: documentIngestProviderTrigger("<name>"). | `packages/bundled-features/src/document-ingest-foundation/boot-rules.ts` |
 | <a id="document-ingest-foundation-provider-without-job"></a>`document-ingest-foundation/provider-without-job` | A registered document-ingest provider has a job triggered by documentIngestProviderTrigger, otherwise requested files are never processed. | Add an r.job with that trigger, or unmount the provider. | `packages/bundled-features/src/document-ingest-foundation/boot-rules.ts` |
 
@@ -335,7 +332,7 @@
 | <a id="entity-list-cross-feature-edit-needs-entity-id"></a>`entity-list/cross-feature-edit-needs-entity-id` | A rowAction navigating to a cross-feature entityEdit screen sets entityId. | Set entityId to the row field naming the target entity's id. | `packages/framework/src/engine/boot-validator/screens-kind-rules.ts` |
 | <a id="entity-list-default-sort-not-listed"></a>`entity-list/default-sort-not-listed` | defaultSort.field is one of the listed columns. | Pick a field from columns or add it there. | `packages/framework/src/engine/boot-validator/entity-list-screens-rules.ts` |
 | <a id="entity-list-default-sort-not-sortable"></a>`entity-list/default-sort-not-sortable` | The defaultSort column is sortable. | Mark the field sortable or pick another defaultSort field. | `packages/framework/src/engine/boot-validator/entity-list-screens-rules.ts` |
-| <a id="entity-list-default-sort-required"></a>`entity-list/default-sort-required` | A list with active search or filterable fields declares a defaultSort. | Set defaultSort: { field, direction } on the screen. | `packages/framework/src/engine/boot-validator/entity-list-screens-rules.ts` |
+| <a id="entity-list-default-sort-required"></a>`entity-list/default-sort-required` | A list with active search or filterable fields declares a defaultSort. | Set defaultSort: { field, dir } on the screen. | `packages/framework/src/engine/boot-validator/entity-list-screens-rules.ts` |
 | <a id="entity-list-default-sort-unknown-field"></a>`entity-list/default-sort-unknown-field` | defaultSort.field is a field of the entity. | Name an existing entity field. | `packages/framework/src/engine/boot-validator/screens-kind-rules.ts` |
 | <a id="entity-list-detail-without-navigate"></a>`entity-list/detail-without-navigate` | A list whose entity has a detail screen offers a navigate row action. | Add a navigate rowAction with id "view" or "edit". | `packages/framework/src/engine/boot-validator/entity-list-screens-rules.ts` |
 | <a id="entity-list-filter-field-not-allowed"></a>`entity-list/filter-field-not-allowed` | A screen filter does not target an encrypted, personal or secret field the list handler rejects. | Drop the filter or filter on another field; personal fields only allow op eq with find exact or fuzzy. | `packages/framework/src/engine/boot-validator/screens-kind-rules.ts` |
@@ -347,6 +344,15 @@
 | <a id="entity-list-toolbar-sort-without-sort-options"></a>`entity-list/toolbar-sort-without-sort-options` | toolbarSort draws the sortOptions as a select in the filter row, so it needs sortOptions. | Declare sortOptions or remove toolbarSort. | `packages/framework/src/engine/boot-validator/screens-kind-rules.ts` |
 | <a id="entity-list-unknown-column"></a>`entity-list/unknown-column` | Every column without a label names an entity field, derived field or row-meta column. | Fix the column field name or give the column a label. | `packages/framework/src/engine/boot-validator/entity-list-screens-rules.ts` |
 | <a id="entity-list-unknown-named-filter"></a>`entity-list/unknown-named-filter` | Every screen namedFilters id is declared in the entity's namedFilters. | Declare the rule in EntityDefinition.namedFilters or remove the id from the screen. | `packages/framework/src/engine/boot-validator/entity-list-screens-rules.ts` |
+
+## entity-verb
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="entity-verb-invalid-name"></a>`entity-verb/invalid-name` | A declared entity verb is a camelCase word without dots or colons. | Rename the verb to match ^[a-z][a-zA-Z0-9]*$. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-verb-reserved-name"></a>`entity-verb/reserved-name` | A declared entity verb is not a lifecycle verb (created, updated, deleted, restored, forgotten). | Rename the verb. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-verb-transition-field"></a>`entity-verb/transition-field` | A verb transition names a select field of the entity. | Point the transition at a select field. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-verb-transition-state"></a>`entity-verb/transition-state` | A verb transition uses options of the field, a non-empty from list, and only pairs the entity's transitions allow. | Use existing options and keep from/to inside entity.transitions. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
 
 ## env-schema
 
@@ -375,10 +381,10 @@
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
+| <a id="extension-apply-escape-hatch-invalid"></a>`extension/apply-escape-hatch-invalid` | r.applyExtension() escapeHatch carries a valid reason. | Pass escapeHatch as { reason: "<explanation>" }. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
 | <a id="extension-presave-without-mapped-write"></a>`extension/presave-without-mapped-write` | An extension with preSave is used only on entities that have an entity-mapped write handler. | Use create/update/delete on a matching entity or name the handler "entity:verb". | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
 | <a id="extension-provider-not-required"></a>`extension/provider-not-required` | A feature using an extension lists the defining feature in requires or optionalRequires. | Add the defining feature via r.requires({ features: [...] }). | `packages/framework/src/engine/boot-validator/api-ext-rules.ts` |
 | <a id="extension-unknown-extension"></a>`extension/unknown-extension` | Every extension a feature uses is defined by some mounted feature. | Register the feature that defines the extension or fix the extension name. | `packages/framework/src/engine/boot-validator/api-ext-rules.ts` |
-| <a id="extension-use-escape-hatch-invalid"></a>`extension/use-escape-hatch-invalid` | r.useExtension() escapeHatch carries a valid reason and grants. | Pass escapeHatch as { reason: "<explanation>" } with valid grants. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
 
 ## extension-selector
 
@@ -408,6 +414,19 @@
 | <a id="field-decimal-precision-scale-invalid"></a>`field/decimal-precision-scale-invalid` | Decimal precision is at least 1 and scale lies between 0 and precision. | Use integers with 1 <= precision and 0 <= scale <= precision. | `packages/framework/src/engine/boot-validator/definition-field-factories-rules.ts` |
 | <a id="field-personal-record-owner-when-absent"></a>`field/personal-record-owner-when-absent` | personal: { of: "id" } sets no whenAbsent. | Remove whenAbsent from the record-owned stance. | `packages/framework/src/engine/boot-validator/definition-field-factories-rules.ts` |
 | <a id="field-user-reference-not-personal"></a>`field/user-reference-not-personal` | A reference to the user entity is personal data. | Drop personal: false or use { personal: "ref" }. | `packages/framework/src/engine/boot-validator/definition-field-factories-rules.ts` |
+
+## field-approval
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="field-approval-approve-outside-write"></a>`field-approval/approve-outside-write` | Every approve role may write the field. | Add the role to access.write or drop it from approve. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="field-approval-approve-roles-empty"></a>`field-approval/approve-roles-empty` | access.approve lists at least one role. | List the approver roles or drop approve. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="field-approval-embedded-sub-field"></a>`field-approval/embedded-sub-field` | access.approve is set on top-level fields only. | Move approve to a top-level field. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="field-approval-empty-parents-allowlist"></a>`field-approval/empty-parents-allowlist` | The parents allowlist names at least one host entity. | List at least one host entity in parents. | `packages/bundled-features/src/field-approval/boot-rules.ts` |
+| <a id="field-approval-field-type"></a>`field-approval/field-type` | access.approve is set on a scalar field (text, longText, number, bigInt, decimal, select, boolean, date, reference). | Move approve to a scalar field. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="field-approval-needs-feature"></a>`field-approval/needs-feature` | A field with access.approve needs the field-approval feature mounted with its entity among the parents. | Mount createFieldApprovalFeature({ parents: [...] }) and list the entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="field-approval-needs-write"></a>`field-approval/needs-write` | A field with access.approve declares access.write. | List the roles that may change the field in access.write, including the approve roles. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="field-approval-secret-field"></a>`field-approval/secret-field` | access.approve is not set on an encrypted or writeOnly field that is not encrypted under a data subject. | Annotate the field with a personal subject so the pending value is sealed, or drop approve. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 
 ## field-condition
 
@@ -448,12 +467,14 @@
 | --- | --- | --- | --- |
 | <a id="files-cross-tenant-read-query-unregistered"></a>`files/cross-tenant-read-query-unregistered` | crossTenantFileRead.query names a registered query handler. | Use the qualified name of a query handler (<feature>:query:<name>) and register it. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="files-cross-tenant-read-reason-missing"></a>`files/cross-tenant-read-reason-missing` | crossTenantFileRead declares a non-empty reason. | State why files of this entity are readable across tenants. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="files-cross-tenant-read-restricted-file-field"></a>`files/cross-tenant-read-restricted-file-field` | An entity with crossTenantFileRead has no file field or embedded file sub-field with an access.read rule, because the cross-tenant check asks only whether the declared query returns the record. | Drop the field's access.read, or move the restricted file into an entity without crossTenantFileRead. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="files-cross-tenant-read-unseen-projection-entity"></a>`files/cross-tenant-read-unseen-projection-entity` | crossTenantFileRead on a projection entity sits on a read model with one source stream that no r.entity registers, because the file check finds projection entities only by that stream. | Declare crossTenantFileRead on the r.entity of the stream, or give the read model its own single source stream. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 
 ## folders
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
-| <a id="folders-empty-parents-allowlist"></a>`folders/empty-parents-allowlist` | The parents allowlist is omitted or non-empty. | Omit parents or list at least one entity. | `packages/bundled-features/src/folders/boot-rules.ts` |
+| <a id="folders-empty-parents-allowlist"></a>`folders/empty-parents-allowlist` | The parents allowlist names at least one host entity. | List at least one host entity in parents. | `packages/bundled-features/src/folders/boot-rules.ts` |
 
 ## form
 
@@ -491,6 +512,7 @@
 | <a id="form-fill-action-sensitive-field"></a>`form/fill-action-sensitive-field` | fillAction does not target a sensitive, writeOnly or password field. | Remove fillAction. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
 | <a id="form-fill-action-unknown-field"></a>`form/fill-action-unknown-field` | fillAction.params read fields of the same form. | Name fields of the same form in pick or map. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
 | <a id="form-handler-empty"></a>`form/handler-empty` | An inline form's handler is a non-empty string. | Set handler to a non-empty handler name. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
+| <a id="form-label-entity-unknown"></a>`form/label-entity-unknown` | actionForm labelEntity names an entity of the same feature. | Name an entity the feature registers or remove labelEntity. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
 | <a id="form-layout-unknown-field"></a>`form/layout-unknown-field` | Layout fields name fields of the form. | Name an existing field of the form. | `packages/framework/src/engine/boot-validator/screens-forms-layout-rules.ts` |
 | <a id="form-load-singleton-with-id-param"></a>`form/load-singleton-with-id-param` | A singleton actionForm load has no idParam. | Remove idParam. | `packages/framework/src/engine/boot-validator/screens-forms-layout-rules.ts` |
 | <a id="form-money-currency-literal-code"></a>`form/money-currency-literal-code` | A literal money currency has a non-empty string code. | Pass the ISO code, for example { kind: "literal", code: "EUR" }. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
@@ -509,8 +531,8 @@
 | <a id="form-section-fields-and-groups"></a>`form/section-fields-and-groups` | A section declares fields or groups, not both. | Remove `fields: []` when using groups. | `packages/framework/src/engine/boot-validator/screens-forms-layout-rules.ts` |
 | <a id="form-sections-empty"></a>`form/sections-empty` | An inline form layout declares at least one section. | Declare at least one section. | `packages/framework/src/engine/boot-validator/screens-forms-layout-rules.ts` |
 | <a id="form-select-conditional-options"></a>`form/select-conditional-options` | Inline form select fields do not declare conditionalOptions. | Remove conditionalOptions from the field. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
-| <a id="form-select-options-and-query"></a>`form/select-options-and-query` | A select field declares static options or optionsQuery, not both. | Pick one of options and optionsQuery. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
-| <a id="form-select-options-query-empty"></a>`form/select-options-query-empty` | A select field's optionsQuery is non-empty when set. | Set it to a query name or remove it. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
+| <a id="form-select-options-and-query"></a>`form/select-options-and-query` | A select or multiSelect field declares static options or optionsQuery, not both. | Pick one of options and optionsQuery. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
+| <a id="form-select-options-query-empty"></a>`form/select-options-query-empty` | A select or multiSelect field's optionsQuery is non-empty when set. | Set it to a query name or remove it. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
 | <a id="form-select-query-and-availability"></a>`form/select-query-and-availability` | optionsAvailabilityQuery is not combined with optionsQuery. | Remove optionsAvailabilityQuery or use static options. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
 | <a id="form-step-list-section-unsupported"></a>`form/step-list-section-unsupported` | Inline form layouts have no stepList sections. | Move the section to a projectionDetail screen or remove it. | `packages/framework/src/engine/boot-validator/screens-forms-layout-rules.ts` |
 | <a id="form-success-facts-with-redirect"></a>`form/success-facts-with-redirect` | An actionForm sets either redirect or successFacts. | Use one of them. | `packages/framework/src/engine/boot-validator/screens-forms-layout-rules.ts` |
@@ -562,13 +584,15 @@
 | <a id="handler-anonymous-personal-data-undeclared"></a>`handler/anonymous-personal-data-undeclared` | A write handler that allows anonymous callers and accepts personal-data fields declares access.personalData "public-intake". | Declare access: { roles: [..., "anonymous"], personalData: "public-intake" }. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
 | <a id="handler-any-signed-in-invalid"></a>`handler/any-signed-in-invalid` | access.anySignedIn is true when set and appears only next to the anonymous role, on endpoints that are public anyway. | Add "anonymous" to access.roles, or use { openToAll: { reason } } for every signed-in user without anonymous callers. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
 | <a id="handler-crud-access-unresolved"></a>`handler/crud-access-unresolved` | r.crud() resolves an access rule for every verb it registers. | Set write.access, read.access or verbAccess.<verb> in the r.crud options. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
+| <a id="handler-dispatch-only-agent-exposed"></a>`handler/dispatch-only-agent-exposed` | A dispatchOnly handler does not declare agent.expose: true. | Drop agent.expose, or drop dispatchOnly if clients and the agent may call the handler. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
+| <a id="handler-dispatch-only-tenantless"></a>`handler/dispatch-only-tenantless` | A dispatchOnly handler is not tenantlessAnonymous. | Drop one of the two flags; tenantlessAnonymous only matters for the HTTP entry dispatchOnly closes. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
 | <a id="handler-escape-hatch-grants-invalid"></a>`handler/escape-hatch-grants-invalid` | An escapeHatch declares valid grants. | Correct the escapeHatch grants as named in the error message. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
 | <a id="handler-escape-hatch-not-system-admin"></a>`handler/escape-hatch-not-system-admin` | A handler with escapeHatch is restricted to SystemAdmin. | Set access to { roles: [SystemAdmin] }. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
 | <a id="handler-escape-hatch-reason-invalid"></a>`handler/escape-hatch-reason-invalid` | An escapeHatch carries a valid reason. | Write an escapeHatch reason that explains the bypass. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
 | <a id="handler-exclude-fields-required-without-default"></a>`handler/exclude-fields-required-without-default` | excludeFields on create does not exclude required fields without a default. | Give the field a default or keep it writable. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
 | <a id="handler-exclude-fields-totals-pair"></a>`handler/exclude-fields-totals-pair` | excludeFields leaves totalsMatch pairs together. | Keep both fields of the pair writable. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
 | <a id="handler-exclude-fields-unknown-field"></a>`handler/exclude-fields-unknown-field` | excludeFields names fields of the entity. | Name an existing field or remove the entry. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
-| <a id="handler-exclude-fields-verb-unsupported"></a>`handler/exclude-fields-verb-unsupported` | excludeFields is used on create and update handlers only. | Remove excludeFields from this handler. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
+| <a id="handler-exclude-fields-verb-unsupported"></a>`handler/exclude-fields-verb-unsupported` | excludeFields is used on create, update and list handlers only. | Remove excludeFields from this handler. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
 | <a id="handler-handler-and-perform-both"></a>`handler/handler-and-perform-both` | A write handler sets handler or perform, not both. | Keep either the free-form handler or the perform pipeline. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
 | <a id="handler-inline-form-incomplete"></a>`handler/inline-form-incomplete` | The inline handler form provides schema, handler and options.access. | Pass schema, handler and options with access. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
 | <a id="handler-input-schema-not-introspectable"></a>`handler/input-schema-not-introspectable` | A write handler's input schema is a Zod shape whose keys boot can collect. | Use an object schema the boot validator can walk, as named in the error message. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
@@ -585,6 +609,7 @@
 | <a id="handler-public-intake-rate-limit-disabled"></a>`handler/public-intake-rate-limit-disabled` | A handler with access.personalData "public-intake" keeps its rateLimit enabled, because it is the only protection for anonymous personal-data writes. | Declare rateLimit: { per: "ip" or "ip+handler", ... } instead of disabling it. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
 | <a id="handler-public-intake-without-anonymous"></a>`handler/public-intake-without-anonymous` | A handler with access.personalData "public-intake" allows the anonymous role. | Add the anonymous role to access.roles or remove personalData. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
 | <a id="handler-restore-without-soft-delete"></a>`handler/restore-without-soft-delete` | Restore handlers exist only for entities with softDelete. | Declare softDelete: true on the entity or drop the restore verb. | `packages/framework/src/engine/boot-validator/definition-handlers-rules.ts` |
+| <a id="handler-system-scope-without-feature-system-scope"></a>`handler/system-scope-without-feature-system-scope` | A handler that declares systemScope: true belongs to a feature that calls r.systemScope(). | Call r.systemScope() in the owning feature or remove systemScope from the handler. | `packages/framework/src/engine/boot-validator/handler-declaration-rules.ts` |
 | <a id="handler-tenantless-anonymous-access"></a>`handler/tenantless-anonymous-access` | A tenantlessAnonymous handler allows exactly the anonymous role. | Set access to { roles: ["anonymous"] } or remove tenantlessAnonymous. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
 | <a id="handler-tenantless-anonymous-rate-limit-per"></a>`handler/tenantless-anonymous-rate-limit-per` | A tenantlessAnonymous handler rate-limits per ip or ip+handler. | Use per "ip" or "ip+handler". | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
 | <a id="handler-tenantless-anonymous-without-rate-limit"></a>`handler/tenantless-anonymous-without-rate-limit` | A tenantlessAnonymous handler declares an active rateLimit. | Set rateLimit: { per: "ip", ... }; disabled does not count. | `packages/framework/src/engine/boot-validator/entity-handler-access-rules.ts` |
@@ -662,6 +687,8 @@
 | <a id="job-cron-timezone-invalid"></a>`job/cron-timezone-invalid` | A cron trigger tz is an IANA time zone name. | Use a zone name such as "Europe/Berlin". | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
 | <a id="job-escape-hatch-invalid"></a>`job/escape-hatch-invalid` | A job escapeHatch carries a valid reason and grants. | Fix the escapeHatch reason or grants as the message describes. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
 | <a id="job-maintenance-trigger-invalid"></a>`job/maintenance-trigger-invalid` | A job maintenance trigger has the value true. | Use trigger { maintenance: true }. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
+| <a id="job-run-as-invalid"></a>`job/run-as-invalid` | A job runAs lists at least one role and neither the system nor the anonymous role. | List the app roles the job needs, or omit runAs. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
+| <a id="job-run-as-system-admin-ungranted"></a>`job/run-as-system-admin-ungranted` | A job that runs as SystemAdmin declares the systemIdentity escape hatch or sits in an r.systemScope() feature. | Add escapeHatch: { reason, grants: ["systemIdentity"] } to the job, or run it with a tenant role. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
 | <a id="job-wakes-sleeping-app-invalid"></a>`job/wakes-sleeping-app-invalid` | wakesSleepingApp is false and only on cron or maintenance triggers. | Use wakesSleepingApp: false on a cron or maintenance trigger, or omit it. | `packages/framework/src/engine/boot-validator/definition-config-events-jobs-rules.ts` |
 
 ## jobs
@@ -757,6 +784,17 @@
 | <a id="list-bulk-row-action-undeclared"></a>`list-bulk/row-action-undeclared` | A bulk action's rowAction is declared in the list's rowActions. | Declare the row action in rowActions or point rowAction at a declared one. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
 | <a id="list-bulk-unknown-key"></a>`list-bulk/unknown-key` | A bulk action uses only the allowed keys. | Remove the unknown keys. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
 
+## list-defaults
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="list-defaults-not-object"></a>`list-defaults/not-object` | The listDefaults option is an object. | Write listDefaults as an object such as { table: { columnPicker: true } }. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-defaults-pin-first-column-not-boolean"></a>`list-defaults/pin-first-column-not-boolean` | listDefaults.pinFirstColumn is a boolean. | Set pinFirstColumn to true or false. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-defaults-pin-first-column-without-pinning"></a>`list-defaults/pin-first-column-without-pinning` | listDefaults.pinFirstColumn needs listDefaults.table.pinning. | Set listDefaults.table.pinning: true or remove pinFirstColumn. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-defaults-screen-only-table-key"></a>`list-defaults/screen-only-table-key` | listDefaults.table leaves out grouping, totals and summaryRow, which depend on one list's fields or query. | Set grouping, totals and summaryRow in the table block of the individual screen. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-defaults-table-not-object"></a>`list-defaults/table-not-object` | listDefaults.table is an object. | Write listDefaults.table as an object such as { columnPicker: true }. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-defaults-unknown-key"></a>`list-defaults/unknown-key` | listDefaults uses only the allowed keys. | Remove the unknown keys or rename them to one of the allowed keys. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+
 ## list-query
 
 | Rule | Summary | Fix | Source |
@@ -768,7 +806,7 @@
 | <a id="list-query-date-range-param-reused"></a>`list-query/date-range-param-reused` | Each dateRange facet on a screen uses its own param names. | Give each dateRange facet its own param names. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
 | <a id="list-query-date-range-reserved-param"></a>`list-query/date-range-reserved-param` | A dateRange facet bound does not use a reserved list-payload key. | Pick the query's own time-bound param names. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
 | <a id="list-query-date-range-same-param"></a>`list-query/date-range-same-param` | A dateRange facet names different params for its from and to bounds. | Use two different param names for from and to. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
-| <a id="list-query-default-sort-required"></a>`list-query/default-sort-required` | A projectionList with active search or sort declares a defaultSort. | Set defaultSort: { field, direction } on the screen. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
+| <a id="list-query-default-sort-required"></a>`list-query/default-sort-required` | A projectionList with active search or sort declares a defaultSort. | Set defaultSort: { field, dir } on the screen. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
 | <a id="list-query-derived-flag-hand-authored"></a>`list-query/derived-flag-hand-authored` | A projectionList sets neither sortable nor paginated, both come from the query's Zod schema. | Remove sortable and paginated from the screen. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
 | <a id="list-query-facets-without-filters-param"></a>`list-query/facets-without-filters-param` | A list that declares facets sent as filters binds a query with a "filters" parameter. | Add a filters parameter to the handler's schema, or reuse entityListSchema's shape. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
 | <a id="list-query-filter-param-missing"></a>`list-query/filter-param-missing` | A projectionList that declares filter binds a query with a "filter" parameter. | Add a filter parameter to the handler's schema, or reuse entityListSchema's shape. | `packages/framework/src/engine/boot-validator/list-query-rules.ts` |
@@ -792,6 +830,7 @@
 | <a id="list-table-column-pinned-without-pinning"></a>`list-table/column-pinned-without-pinning` | A pinned column needs table.pinning, otherwise the pin has no effect. | Set table: { pinning: true } or remove pinned from the column. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
 | <a id="list-table-column-width-invalid"></a>`list-table/column-width-invalid` | A column's width and minWidth are finite pixel counts greater than 0 and at most 2000. | Set a positive finite number up to 2000 or remove the option. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
 | <a id="list-table-column-width-without-resizing"></a>`list-table/column-width-without-resizing` | A column's width or minWidth needs table.resizing, otherwise it has no effect; a hint column is exempt. | Set table: { resizing: true } or remove width and minWidth from the column. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-count-facet-not-groupable"></a>`list-table/count-facet-not-groupable` | A chips facet with showCounts or hideEmpty is on a select, boolean or single reference field that is not encrypted, personal or secret. | Drop showCounts and hideEmpty, or put the chips on a groupable field. | `packages/framework/src/engine/boot-validator/list-table-aggregate-rules.ts` |
 | <a id="list-table-density-default-invalid"></a>`list-table/density-default-invalid` | table.density.default is one of the known densities. | Use one of the listed density values. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
 | <a id="list-table-density-empty"></a>`list-table/density-empty` | table.density sets default and/or userChoice. | Set default and/or userChoice, or remove table.density. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
 | <a id="list-table-density-not-object"></a>`list-table/density-not-object` | table.density is an object. | Write table.density as { default: "compact", userChoice: true }. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
@@ -883,7 +922,7 @@
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
-| <a id="notes-history-empty-parents-allowlist"></a>`notes-history/empty-parents-allowlist` | The parents allowlist is omitted or non-empty. | Omit parents or list at least one entity. | `packages/bundled-features/src/notes-history/boot-rules.ts` |
+| <a id="notes-history-empty-parents-allowlist"></a>`notes-history/empty-parents-allowlist` | The parents allowlist names at least one host entity. | List at least one host entity in parents. | `packages/bundled-features/src/notes-history/boot-rules.ts` |
 
 ## ownership
 
@@ -894,6 +933,11 @@
 | <a id="ownership-from-ref-without-colon"></a>`ownership/from-ref-without-colon` | from() refs have the form "user:<field>" or "claim:<feature>:<key>". | Add the prefix and colon to the ref. | `packages/framework/src/engine/boot-validator/definition-ownership-from-rules.ts` |
 | <a id="ownership-from-user-column-missing"></a>`ownership/from-user-column-missing` | from() with a user ref names the column explicitly. | Pass a column, e.g. from("user:id", "assigneeId"). | `packages/framework/src/engine/boot-validator/definition-ownership-from-rules.ts` |
 | <a id="ownership-from-user-ref-unsupported"></a>`ownership/from-user-ref-unsupported` | from() user refs are "user:id" or "user:tenantId". | Use one of the two supported user refs. | `packages/framework/src/engine/boot-validator/definition-ownership-from-rules.ts` |
+| <a id="ownership-parent-cycle"></a>`ownership/parent-cycle` | Following fromParent rules of one role never returns to an entity already visited. | Break the cycle: give one entity in the chain a from rule or all. | `packages/framework/src/engine/boot-validator/ownership-rules.ts` |
+| <a id="ownership-parent-field-not-reference"></a>`ownership/parent-field-not-reference` | A fromParent(field, entity) rule names a reference field that points at that entity. | Name a reference field of this entity whose target is the given parent entity. | `packages/framework/src/engine/boot-validator/ownership-rules.ts` |
+| <a id="ownership-parent-global-entity"></a>`ownership/parent-global-entity` | A fromParent rule joins tenant-bound entities, never one with tenancy global. | Use fromParent only between tenant-bound child and parent entities. | `packages/framework/src/engine/boot-validator/ownership-rules.ts` |
+| <a id="ownership-parent-on-field-access"></a>`ownership/parent-on-field-access` | A fromParent(...) rule appears only in an entity-level access map, not in field access. | Move the rule to the entity access map or use a from rule on the field. | `packages/framework/src/engine/boot-validator/ownership-rules.ts` |
+| <a id="ownership-parent-unknown-entity"></a>`ownership/parent-unknown-entity` | A fromParent(field, entity) rule names an entity that some feature registers. | Name a registered parent entity. | `packages/framework/src/engine/boot-validator/ownership-rules.ts` |
 | <a id="ownership-unknown-claim"></a>`ownership/unknown-claim` | A from(...) ownership rule references only claims declared via r.claimKey. | Declare it via r.claimKey("...", { type: "..." }) in the owning feature. | `packages/framework/src/engine/boot-validator/ownership-rules.ts` |
 | <a id="ownership-unknown-column"></a>`ownership/unknown-column` | A from(...) ownership rule references only columns that exist on the entity. | Use one of the entity's columns. | `packages/framework/src/engine/boot-validator/ownership-rules.ts` |
 | <a id="ownership-unknown-role"></a>`ownership/unknown-role` | An access map names only roles that some feature defines. | Use a defined role name or declare the role. | `packages/framework/src/engine/boot-validator/ownership-rules.ts` |
@@ -914,10 +958,11 @@
 | --- | --- | --- | --- |
 | <a id="parent-ref-allowed-type-has-parent-ref"></a>`parent-ref/allowed-type-has-parent-ref` | A parentRef host entity does not itself declare a parentRef (no recursive gating). | Remove the host from allowedTypes, or drop its own parentRef. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="parent-ref-allowed-type-unregistered"></a>`parent-ref/allowed-type-unregistered` | parentRef.allowedTypes names only registered entities. | Remove the name from allowedTypes, or register the entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="parent-ref-allowed-types-empty"></a>`parent-ref/allowed-types-empty` | parentRef.allowedTypes names at least one host entity. | List at least one registered host entity in allowedTypes. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="parent-ref-entity-id-field-unknown"></a>`parent-ref/entity-id-field-unknown` | parentRef.entityIdField names a declared field of the entity. | Point entityIdField at a real field on the entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="parent-ref-entity-type-field-unknown"></a>`parent-ref/entity-type-field-unknown` | parentRef.entityTypeField names a declared field of the entity. | Point entityTypeField at a real field on the entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="parent-ref-hand-written-query-handler"></a>`parent-ref/hand-written-query-handler` | Query handlers on an entity with parentRef carry the entity-convention brand, so the parent-ref read-gate applies. | Register the handler via defineEntityListHandler/defineEntityDetailHandler, or pass parentVisibility to the executor. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
-| <a id="parent-ref-hand-written-write-handler"></a>`parent-ref/hand-written-write-handler` | Update/delete/restore handlers on an entity with parentRef carry the entity-convention brand, so the parent visibility gate applies. | Register the handler via defineEntityWriteHandler, or pass parentVisibility: parentVisibilityFor(ctx, event.user) to the executor. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="parent-ref-hand-written-write-handler"></a>`parent-ref/hand-written-write-handler` | Update/delete/restore handlers on an entity with parentRef carry the entity-convention brand, so the parent visibility gate applies. | Register the handler via defineEntityUpdateHandler, defineEntityDeleteHandler or defineEntityRestoreHandler, or pass parentVisibility: parentVisibilityFor(ctx, event.user) to the executor. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 
 ## personal-access-tokens
 
@@ -930,6 +975,8 @@
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
+| <a id="pii-forget-with-subject-block-delete"></a>`pii/forget-with-subject-block-delete` | An entity with forgetWithSubject: true does not declare retention.strategy "blockDelete". | Remove forgetWithSubject, or choose a retention strategy that allows deleting the row. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="pii-forget-with-subject-without-subject-field"></a>`pii/forget-with-subject-without-subject-field` | An entity with forgetWithSubject: true has a personal: "self" or record-keyed field, so a forget can name its row as a subject. | Give the entity a personal: "self" or personal: { of: "id" } field, or remove forgetWithSubject. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="pii-lookupable-non-text"></a>`pii/lookupable-non-text` | Blind-index lookups apply to text fields only. | Use a text field or set find: "none". | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
 | <a id="pii-lookupable-without-subject"></a>`pii/lookupable-without-subject` | A blind-index lookup requires a subject annotation on the field. | Add a personal annotation or set find: "none". | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
 | <a id="pii-multiple-subject-annotations"></a>`pii/multiple-subject-annotations` | A field carries at most one subject-key annotation. | Keep a single personal annotation on the field. | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
@@ -942,6 +989,7 @@
 | <a id="pii-personal-of-owner-type"></a>`pii/personal-of-owner-type` | The owner field named by personal: { of } is a reference or text field. | Use a reference or text field as owner. | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
 | <a id="pii-personal-of-unknown-owner"></a>`pii/personal-of-unknown-owner` | The owner field named by personal: { of } exists on the entity. | Point personal.of at an existing field of the entity. | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
 | <a id="pii-plaintext-user-reference"></a>`pii/plaintext-user-reference` | A reference to the user entity is never plaintext. | Use the default reference field or personal: "ref" instead of personal: false. | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
+| <a id="pii-record-key-one-owner"></a>`pii/record-key-one-owner` | An entity with whenAbsent: "self" fields names one owner field for all of them and has no recordOwned field, because forgetting that owner erases the record key. | Give the owner-keyed fields whenAbsent: "tenant", use one owner field, or keep the record's own data on a separate entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="pii-record-owned-serial-id"></a>`pii/record-owned-serial-id` | A recordOwned (or whenAbsent: "self") field lives only on entities with idType "uuid", because forgetSubject validates the record id as a UUID. | Set idType: "uuid" on the entity, or give the field a different personal stance. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="pii-sensitive-searchable"></a>`pii/sensitive-searchable` | A sensitive field is never searchable. | Drop searchable, or add writeOnly to never return the value. | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
 | <a id="pii-sensitive-without-ciphertext"></a>`pii/sensitive-without-ciphertext` | A sensitive field is stored as ciphertext at rest. | Add a subject annotation or encrypted: true. | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
@@ -976,6 +1024,7 @@
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
+| <a id="projection-entity-field-read-rule"></a>`projection/entity-field-read-rule` | A field of a read-model entity (projection entity) has no access.read, no writeOnly and no embedded sub-field with access.read, because read-model queries return rows without field filtering. | Restrict the read model's query access instead, or move the field into an r.entity whose queries the framework filters. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="projection-extend-without-apply"></a>`projection/extend-without-apply` | extendEntityProjection declares at least one apply handler. | Declare at least one event type to apply. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
 | <a id="projection-multi-stream-name-duplicate"></a>`projection/multi-stream-name-duplicate` | r.projection and r.multiStreamProjection share one name space per feature. | Pick a unique short name. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
 | <a id="projection-multi-stream-name-not-kebab"></a>`projection/multi-stream-name-not-kebab` | Multi-stream projection names are kebab-case. | Rename the projection to lowercase letters, digits and dashes. | `packages/framework/src/engine/boot-validator/definition-ui-extensions-rules.ts` |
@@ -1080,7 +1129,6 @@
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
-| <a id="registrar-argument-missing"></a>`registrar/argument-missing` | Every registrar method receives all its required arguments. | Pass the missing argument named in the message. | `packages/framework/src/engine/boot-validator/definition-feature-rules.ts` |
 | <a id="registrar-options-object-required"></a>`registrar/options-object-required` | Object-form registrar methods take one options object. | Pass a single options object such as r.entity({ name: ... }). | `packages/framework/src/engine/boot-validator/definition-feature-rules.ts` |
 
 ## related-list
@@ -1096,6 +1144,11 @@
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
+| <a id="retention-stream-retention-file-field"></a>`retention/stream-retention-file-field` | An entity with streamRetention has no file or image fields. | Use retention with strategy "hardDelete", which deletes the file bytes with the row, or move the file to another entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="retention-stream-retention-foreign-reader"></a>`retention/stream-retention-foreign-reader` | No table-bearing r.projection or r.multiStreamProjection reads the events of an entity with streamRetention. | Remove streamRetention, or build the other read model without this entity's events. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="retention-stream-retention-keep-for"></a>`retention/stream-retention-keep-for` | streamRetention.keepFor has the form <number><h\|d\|w\|m\|y>. | Write keepFor like "30d", "12w" or "1y". | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="retention-stream-retention-stream-shape"></a>`retention/stream-retention-stream-shape` | An entity with streamRetention has per-tenant streams and uuid ids (no systemStream, no idType "serial"). | Remove streamRetention, or drop systemStream and idType "serial" from the entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="retention-stream-retention-with-row-retention"></a>`retention/stream-retention-with-row-retention` | An entity declares retention or streamRetention, not both. | Keep retention for rows with a legal or business keep period; use streamRetention only for technical state without one. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="retention-unknown-reference"></a>`retention/unknown-reference` | retention.reference names an existing field or a framework timestamp. | Point retention.reference at an existing field or a framework-managed timestamp. | `packages/framework/src/engine/boot-validator/pii-retention-rules.ts` |
 
 ## role
@@ -1117,7 +1170,7 @@
 | <a id="screen-action-form-success-items-redirect"></a>`screen/action-form-success-items-redirect` | An actionForm shows successItems or redirects after submit, not both. | Drop redirect to show the successItems on the screen, or drop successItems to leave it. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
 | <a id="screen-action-icon"></a>`screen/action-icon` | Every screen action resolves to a registered icon. | Set icon to a registered NAV_ICONS key or use an action id that resolves one via the default icon map. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
 | <a id="screen-action-unknown-field-ref"></a>`screen/action-unknown-field-ref` | Action payload and params extractors reference existing entity fields. | Name a known field in the pick/map extractor. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
-| <a id="screen-action-visible-unknown-field"></a>`screen/action-visible-unknown-field` | An action's visible.field references an existing entity field. | Point visible.field at a known field. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
+| <a id="screen-action-visible-unknown-field"></a>`screen/action-visible-unknown-field` | An action's visible.field names a field the row carries: an entity field, a derived field or a row meta column. | Point visible.field at an entity field, a derivedFields key or a row meta column. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
 | <a id="screen-client-action-name"></a>`screen/client-action-name` | A clientAction names its handler as <feature>:<kebab-name>. | Use a name like "auth-email-password:request-password-reset". | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
 | <a id="screen-columns-empty"></a>`screen/columns-empty` | A list screen declares at least one column. | Declare at least one column. | `packages/framework/src/engine/boot-validator/screens-kind-rules.ts` |
 | <a id="screen-custom-no-component"></a>`screen/custom-no-component` | A custom screen renderer declares a react or native component. | Set react or native on the renderer. | `packages/framework/src/engine/boot-validator/screens-rules.ts` |
@@ -1128,6 +1181,7 @@
 | <a id="screen-drawer-target-unresolved"></a>`screen/drawer-target-unresolved` | A drawer action targets a registered screen of the same feature. | Point screen at a screen declared in the same feature. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
 | <a id="screen-edit-field-condition-function"></a>`screen/edit-field-condition-function` | Edit field visible, readOnly and required are FieldConditions, not functions. | Use a FieldCondition (boolean or { field, eq/ne/in/notIn }). | `packages/framework/src/engine/boot-validator/screens-rules.ts` |
 | <a id="screen-entity-not-declared"></a>`screen/entity-not-declared` | A screen's entity is declared in its feature. | Declare the entity in this feature or fix the name. | `packages/framework/src/engine/boot-validator/screens-kind-rules.ts` |
+| <a id="screen-enum-option-label-source-invalid"></a>`screen/enum-option-label-source-invalid` | An enumOption format sets exactly one of keyPrefix or optionsOf, and optionsOf names a select or multiSelect field of a mounted feature's entity. | Set keyPrefix or optionsOf: "<feature>:<entity>.<field>" pointing at a select or multiSelect field. | `packages/framework/src/engine/boot-validator/screens-rules.ts` |
 | <a id="screen-fallback-has-visible-when"></a>`screen/fallback-has-visible-when` | A fallback target has no visibleWhen of its own. | Point fallback at a screen without visibleWhen. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
 | <a id="screen-fallback-map-empty"></a>`screen/fallback-map-empty` | A fallback map names at least one reason. | Set at least one fallback reason or use a screen id string. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
 | <a id="screen-fallback-self"></a>`screen/fallback-self` | A screen's fallback points at a different screen. | Point fallback at a different screen. | `packages/framework/src/engine/boot-validator/screens-actions-rules.ts` |
@@ -1204,7 +1258,7 @@
 | <a id="select-conditional-when-unknown-field"></a>`select/conditional-when-unknown-field` | A conditionalOptions when.field is a field of the entity. | Use an existing field of the entity. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
 | <a id="select-conditional-when-value-not-option"></a>`select/conditional-when-value-not-option` | A conditionalOptions when compares only against options of the condition field. | Compare against an option of the condition field. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
 | <a id="select-option-tone-invalid"></a>`select/option-tone-invalid` | Every select optionTones value is a known tone. | Use one of the listed tones. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
-| <a id="select-options-query-unsupported"></a>`select/options-query-unsupported` | An entity select field has static options, no optionsQuery. | Use static options, or a reference field. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
+| <a id="select-options-query-unsupported"></a>`select/options-query-unsupported` | An entity select or multiSelect field has static options, no optionsQuery. | Use static options, or a reference field. | `packages/framework/src/engine/boot-validator/entity-select-image-rules.ts` |
 
 ## shared
 
@@ -1234,7 +1288,7 @@
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
-| <a id="tags-empty-parents-allowlist"></a>`tags/empty-parents-allowlist` | The parents allowlist is omitted or non-empty. | Omit parents or list at least one entity. | `packages/bundled-features/src/tags/boot-rules.ts` |
+| <a id="tags-empty-parents-allowlist"></a>`tags/empty-parents-allowlist` | The parents allowlist names at least one host entity. | List at least one host entity in parents. | `packages/bundled-features/src/tags/boot-rules.ts` |
 
 ## template-resolver
 
@@ -1256,13 +1310,15 @@
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
 | <a id="tenant-lifecycle-destroy-function-missing"></a>`tenant-lifecycle/destroy-function-missing` | A tenant data or tenant resource extension registration provides its destroy function, otherwise tenant destroy fails at that stage. | Provide destroy (EXT_TENANT_DATA) or destroyTenant (tenant resource extensions) in the registration options. | `packages/bundled-features/src/tenant-lifecycle/boot-rules.ts` |
-| <a id="tenant-lifecycle-tenant-subject-without-destroy-hook"></a>`tenant-lifecycle/tenant-subject-without-destroy-hook` | An entity with tenant-subject fields has an EXT_TENANT_DATA destroy hook, so tenant destroy erases its data. | Register r.useExtension(EXT_TENANT_DATA, "<entity>", { destroy }) or a documented no-op if crypto-shredding covers it. | `packages/bundled-features/src/tenant-lifecycle/boot-rules.ts` |
+| <a id="tenant-lifecycle-tenant-subject-without-destroy-hook"></a>`tenant-lifecycle/tenant-subject-without-destroy-hook` | An entity with tenant-subject fields has an EXT_TENANT_DATA destroy hook, so tenant destroy erases its data. | Register r.applyExtension({ name: EXT_TENANT_DATA, entity: "<entity>", destroy }) or a documented no-op if crypto-shredding covers it. | `packages/bundled-features/src/tenant-lifecycle/boot-rules.ts` |
 
 ## transfer
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
+| <a id="transfer-custom-projection"></a>`transfer/custom-projection` | An r.projection fed by a transferable entity writes into that entity's own table, since tenant-handover moves only the entity table rows. | Move the projected columns into the entity, or drop transferable from the source entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="transfer-graph-too-deep"></a>`transfer/graph-too-deep` | The tenant-handover transfer graph is not deeper than the maximum depth. | Flatten the chain, or mark a reference field that should not move with its host `handover: "stay"`. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="transfer-multi-stream-projection"></a>`transfer/multi-stream-projection` | A multi-stream projection with a table applies no events of a transferable entity, since tenant-handover moves only the entity table rows. | Move the projected columns into the entity, drop the projection's table (side effects only), or drop transferable from the source entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="transfer-multiple-reference-field"></a>`transfer/multiple-reference-field` | A transferable entity declares no multiple reference field to another transferable entity, since the transfer graph cannot match jsonb array rows. | Model the link as a single reference on the owning side, or drop transferable from the entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 
 ## transition
@@ -1286,7 +1342,8 @@
 | --- | --- | --- | --- |
 | <a id="user-data-rights-empty-hook"></a>`user-data-rights/empty-hook` | An EXT_USER_DATA registration declares at least one of an export or a delete hook. | Register at least one hook. | `packages/bundled-features/src/user-data-rights/boot-rules.ts` |
 | <a id="user-data-rights-export-without-delete"></a>`user-data-rights/export-without-delete` | An entity exported via EXT_USER_DATA also registers a delete hook. | Add a delete hook, or a documented no-op delete if erasure is handled elsewhere. | `packages/bundled-features/src/user-data-rights/boot-rules.ts` |
-| <a id="user-data-rights-missing-hook"></a>`user-data-rights/missing-hook` | An entity with user-subject fields registers an EXT_USER_DATA hook. | Register r.useExtension(EXT_USER_DATA, ...) for the entity, or a documented no-op hook if it is covered elsewhere. | `packages/bundled-features/src/user-data-rights/boot-rules.ts` |
+| <a id="user-data-rights-mail-app-name-missing"></a>`user-data-rights/mail-app-name-missing` | When the default GDPR mails can go out, mailDefaults.appName names the app in their subject and body. | Pass createUserDataRightsFeature({ mailDefaults: { appName: "<your app>" } }), or set every send*Email callback and leave the anonymous deletion flow off. | `packages/bundled-features/src/user-data-rights/boot-rules.ts` |
+| <a id="user-data-rights-missing-hook"></a>`user-data-rights/missing-hook` | An entity with user-subject fields registers an EXT_USER_DATA hook. | Register r.applyExtension({ name: EXT_USER_DATA, ... }) for the entity, or a documented no-op hook if it is covered elsewhere. | `packages/bundled-features/src/user-data-rights/boot-rules.ts` |
 
 ## webhook-event
 

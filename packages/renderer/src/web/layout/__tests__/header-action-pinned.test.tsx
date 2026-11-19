@@ -54,7 +54,7 @@ describe("HeaderActionPinned", () => {
         <button type="button">AI</button>
       </HeaderActionPinned>,
     );
-    expect(screen.getByText("AI")).toBeTruthy();
+    screen.getByText("AI");
     unmount();
     render(
       <HeaderOverflowMenuContext.Provider value={true}>

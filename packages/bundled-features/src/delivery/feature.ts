@@ -1,4 +1,3 @@
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { updateMany, upsertByPk } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
@@ -31,7 +30,10 @@ import { preferencesQuery } from "./handlers/preferences.query.ts";
 import { resubscribeAddressWrite } from "./handlers/resubscribe-address.write.ts";
 import { resubscribeUserWrite } from "./handlers/resubscribe-user.write.ts";
 import { setPreferenceWrite } from "./handlers/set-preference.write.ts";
-import { unsubscribeAddressWrite } from "./handlers/unsubscribe-address.write.ts";
+import {
+  unsubscribeAddressPayloadSchema,
+  unsubscribeAddressWrite,
+} from "./handlers/unsubscribe-address.write.ts";
 import { unsubscribePageChromeQuery } from "./handlers/unsubscribe-page-chrome.query.ts";
 import { unsubscribeUserWrite } from "./handlers/unsubscribe-user.write.ts";
 import { DELIVERY_I18N } from "./i18n.ts";
@@ -51,11 +53,11 @@ const ATTEMPT_LOG_RETENTION_ESCAPE_HATCH_REASON =
 
 export function createDeliveryFeature(options?: DeliveryFeatureOptions): FeatureDefinition {
   const resolvedAccess = options?.access ?? access.admin;
+  const deliveryLogAdminArea = options?.adminArea;
   const attemptLogRetentionDays = resolveAttemptLogRetentionDays(options?.attemptLogRetentionDays);
   return defineFeature("delivery", (r) => {
-    r.adoptsBundledLists();
     r.describe(
-      "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). Inside a write handler the delivery runs after the write has committed (the call returns `{ kind: \"deferred\" }`, a rolled-back write sends nothing); `immediate: true` delivers synchronously and returns `{ kind: \"dispatched\", deliveries }`. It stores per-user channel preferences in the `notification-preference` entity, opt-outs for no-account recipient addresses in `notification-address-opt-out` (keyed by a blind-index hash, never the plaintext address), logs every attempt to `store_delivery_attempts`, and enforces idempotency and rate-limiting \u2014 add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything. Unsubscribe/resubscribe links are served by `createUnsubscribeRoutes({ secret })` mounted via the app's `extraRoutes` at `/api/delivery/unsubscribe` and `/api/delivery/resubscribe`: `GET /unsubscribe?token=` renders a confirmation page (no write), `POST /unsubscribe` performs the opt-out (RFC 8058 one-click, token from the form body or query), `POST /resubscribe` undoes it (JSON `{token}` or form body only, never the query — reachable by a mail-client link prefetcher) — sign links with `signUnsubscribeToken` / `signAddressUnsubscribeToken` using the same secret. `channel-email` sets `List-Unsubscribe` / `List-Unsubscribe-Post` automatically when a message's `data.unsubscribeUrl` points at the unsubscribe route. A notification declared with `unsubscribe: true` gets that link from delivery itself when the service has `unsubscribeLinks` (the `runProdApp` and `runDevApp` option `unsubscribe: { secret }` mounts the routes and wires it; base URL from `auth.publicOrigin`, `auth.mail.baseUrl` or `APP_BASE_URL`): user recipients get a user token, `route` recipients an address token (needs a blind-index key, otherwise no link); a `data.unsubscribeUrl` from the caller wins. `unsubscribe.tenantOrigin: (ctx) => origin | null` points the link at the tenant's own host (subdomain or custom domain, must serve this app's `/api`); null, a throw or a non-https value fall back to the app origin. The token carries the mail's locale, so the confirmation and result pages render in the mail's language. An app serving its own (e.g. legacy) unsubscribe links renders the same result page with `renderUnsubscribeResultPage({ kind, locale })`. To react to a no-account opt-out (e.g. remove the app's own subscriber row), declare `r.job(name, { trigger: { on: DeliveryHandlers.unsubscribeAddress } }, handler)` on a lane the app consumes: it runs after each committed opt-out, also an idempotent repeat, with `unsubscribeAddressPayloadSchema` (`addressHash`, `notificationType`, `channel`) as payload and the tenant in `ctx.triggeredBy.tenantId`; match the subscriber via `hashUnsubscribeAddress(email)`. Declare `unsubscribeUrl` as an optional template variable if the mail body shows it. A job that sends an opt-in notification (e.g. a daily digest) reads the members who switched it on from the job-only query `delivery:query:opted-in-user-ids` (`{ notificationType, channel }` answers `{ userIds }`).",
+      "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, Slack, Discord, Teams). Inside a write handler the delivery runs after the write has committed (the call returns `{ kind: \"deferred\" }`, a rolled-back write sends nothing); `immediate: true` delivers synchronously and returns `{ kind: \"dispatched\", deliveries }`. It stores per-user channel preferences in the `notification-preference` entity, opt-outs for no-account recipient addresses in `notification-address-opt-out` (keyed by a blind-index hash, never the plaintext address), logs every attempt to `store_delivery_attempts`, and enforces idempotency and rate-limiting \u2014 add `channel-email`, `channel-in-app` or a chat channel on top to actually send anything. Unsubscribe/resubscribe links are served by `createUnsubscribeRoutes({ secret })` mounted via the app's `extraRoutes` at `/api/delivery/unsubscribe` and `/api/delivery/resubscribe`: `GET /unsubscribe?token=` renders a confirmation page (no write), `POST /unsubscribe` performs the opt-out (RFC 8058 one-click, token from the form body or query), `POST /resubscribe` undoes it (JSON `{token}` or form body only, never the query — reachable by a mail-client link prefetcher) — sign links with `signUnsubscribeToken` / `signAddressUnsubscribeToken` using the same secret. `channel-email` sets `List-Unsubscribe` / `List-Unsubscribe-Post` automatically when a message's `data.unsubscribeUrl` points at the unsubscribe route. A notification declared with `unsubscribe: true` gets that link from delivery itself when the service has `unsubscribeLinks` (the `runProdApp` and `runDevApp` option `unsubscribe: { secret }` mounts the routes and wires it; base URL from `auth.publicOrigin`, `auth.mail.baseUrl` or `APP_BASE_URL`): user recipients get a user token, `route` recipients an address token (needs a blind-index key, otherwise no link); a `data.unsubscribeUrl` from the caller wins. `unsubscribe.tenantOrigin: (ctx) => origin | null` points the link at the tenant's own host (subdomain or custom domain, must serve this app's `/api`); null, a throw or a non-https value fall back to the app origin. The token carries the mail's locale, so the confirmation and result pages render in the mail's language. An app serving its own (e.g. legacy) unsubscribe links renders the same result page with `renderUnsubscribeResultPage({ kind, locale })`. To react to a no-account opt-out (e.g. remove the app's own subscriber row), declare `r.job({ name, trigger: { on: DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT }, handler })` on a lane the app consumes: it runs after each committed opt-out, also an idempotent repeat, with `unsubscribeAddressPayloadSchema` (`addressHash`, `notificationType`, `channel`) as payload and the tenant in `ctx.triggeredBy.tenantId`; match the subscriber via `hashUnsubscribeAddress(email)`. Declare `unsubscribeUrl` as an optional template variable if the mail body shows it. A job that sends an opt-in notification (e.g. a daily digest) reads the members who switched it on from the job-only query `delivery:query:opted-in-user-ids` (`{ notificationType, channel }` answers `{ userIds }`).",
     );
     r.uiHints({
       displayLabel: "Notifications \u00b7 Dispatch Core",
@@ -68,21 +70,14 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
     // Backing table: the (tenant,user,type,channel) uniqueIndex lives only on
     // the physical table, not on the entity fields, so the generator would
     // otherwise omit it → duplicate preference rows on concurrent upserts.
-    r.entity({
-      name: "notification-preference",
-      ...notificationPreferenceEntity,
-      backingTable: notificationPreferencesTable,
-    });
+    r.entity({ ...notificationPreferenceEntity, backingTable: notificationPreferencesTable });
     // Same ride-along reason as notification-preference above: the
     // (tenant,addressHash,type,channel) uniqueIndex lives only on the
     // physical table.
-    r.entity({
-      name: "notification-address-opt-out",
-      ...notificationAddressOptOutEntity,
-      backingTable: notificationAddressOptOutsTable,
-    });
+    r.entity({ ...notificationAddressOptOutEntity, backingTable: notificationAddressOptOutsTable });
+    // Projection of the deliveryAttempt stream without r.entity, hence storeTable instead of a read_ entity table.
     r.storeTable(deliveryAttemptsTableMeta, {
-      reason: "read_side.delivery_attempt_log",
+      reason: "read_side.delivery_attempt_log_entityless_projection",
     });
 
     // Events-only projection source: "deliveryAttempt" is the aggregate-
@@ -107,6 +102,11 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
       piiFields: "none",
     });
 
+    // addressHash is the blind-index hash, never the plaintext address, so the payload carries no PII.
+    r.defineEvent("address-unsubscribed", unsubscribeAddressPayloadSchema, {
+      piiFields: "none",
+    });
+
     // Inline projection that materialises every delivery attempt into
     // deliveryAttemptsTable. Runs in the SAME transaction as the low-level
     // append(), so callers see their write immediately — no dispatcher
@@ -121,6 +121,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
       apply: {
         [DELIVERY_ATTEMPT_EVENT]: async (event, tx) => {
           const p = event.payload as z.infer<typeof deliveryAttemptSchema>; // @cast-boundary engine-payload
+          // Events written before write-time masking carry the full address; mask on rebuild.
           const projectedAddress = projectedAttemptAddress(
             connectionNameChannels,
             p.channel,
@@ -171,29 +172,33 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
         rememberConnectionNameChannel(connectionNameChannels, channelName, channelOptions),
     });
 
-    // Async delivery pipeline for queued-mode channels. render decouples the
-    // expensive template step (own worker, own retry) and dispatches send;
-    // channels without a render() go straight to send. Dispatched explicitly
-    // from the delivery-service, hence manual trigger.
-    r.job(
-      DeliveryJobNames.render,
-      { trigger: { manual: true }, retries: 3, backoff: "exponential" },
-      deliveryRenderJob,
-    );
-    r.job(
-      DeliveryJobNames.send,
-      { trigger: { manual: true }, retries: 3, backoff: "exponential" },
-      deliverySendJob,
-    );
+    // Only drains render jobs queued before the single send job existed; nothing dispatches it anymore.
+    r.job({
+      name: DeliveryJobNames.render,
+      trigger: { manual: true },
+      retries: 3,
+      backoff: "exponential",
+      handler: deliveryRenderJob,
+    });
+
+    // One job for queued-mode channels: it renders (when the channel has render()) and sends.
+    // Dispatched explicitly from the delivery-service, hence manual trigger.
+    r.job({
+      name: DeliveryJobNames.send,
+      trigger: { manual: true },
+      retries: 3,
+      backoff: "exponential",
+      handler: deliverySendJob,
+    });
 
     if (attemptLogRetentionDays !== undefined) {
       r.job({
         name: DeliveryJobNames.attemptLogRetention,
         trigger: { maintenance: true },
         concurrency: "skip",
-        escapeHatch: { reason: ATTEMPT_LOG_RETENTION_ESCAPE_HATCH_REASON },
+        escapeHatch: { reason: ATTEMPT_LOG_RETENTION_ESCAPE_HATCH_REASON, grants: ["unsafeRaw"] },
         handler: async (_payload, ctx) => {
-          const db = ctx.db.unsafeRaw() as DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
+          const db = ctx.db.unsafeRawAllTenants();
           try {
             const pruned = await runAttemptLogRetention(db, {
               olderThanDays: attemptLogRetentionDays,
@@ -281,6 +286,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
       icon: "send",
       screen: "delivery:screen:delivery-log",
       order: 40,
+      adminArea: deliveryLogAdminArea,
     });
 
     r.translations({ keys: DELIVERY_I18N });

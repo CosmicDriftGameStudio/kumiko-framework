@@ -14,10 +14,11 @@ import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "batch_hook_notes",
   fields: { title: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 
 type BatchHookObservation = {
   readonly userId: string;
@@ -30,7 +31,7 @@ type BatchHookObservation = {
 const observations: BatchHookObservation[] = [];
 
 const noteFeature = defineFeature("batchhook", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
   r.writeHandler({
     name: "note:create",
     schema: z.object({ title: z.string().min(1) }),

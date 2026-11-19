@@ -187,9 +187,12 @@ function checkTernaryLogicalExpressions(sf: SourceFile, violations: GuardViolati
     if (inner === undefined || !isTernaryOrLogical(inner)) continue;
     const attr = jsxExpr.getParentIfKind(SyntaxKind.JsxAttribute);
     if (attr !== undefined && !LABEL_PROPS.has(attr.getNameNode().getText())) continue;
+    const humanPieces = collectTernaryLogicText(inner).filter((piece) =>
+      HUMAN_TEXT.test(piece.text),
+    );
+    if (humanPieces.length === 0) continue;
     if (hasIgnoreTag(jsxExpr, IGNORE_TAG)) continue;
-    for (const piece of collectTernaryLogicText(inner)) {
-      if (!HUMAN_TEXT.test(piece.text)) continue;
+    for (const piece of humanPieces) {
       const shown = `${piece.text.slice(0, 40)}${piece.text.length > 40 ? "…" : ""}`;
       violations.push({
         file: sf.getFilePath(),
@@ -244,6 +247,7 @@ function checkRegistrarLabelProperties(sf: SourceFile, violations: GuardViolatio
 
 export const guard: AstGuard = {
   name: "i18n-UI-Strings Guard (App-Repos)",
+  ignoreTag: IGNORE_TAG,
   scan: SCAN,
   hint:
     'UI text belongs in i18n bundles + t("feature:key") — not as a literal in JSX. ' +

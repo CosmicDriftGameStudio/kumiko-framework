@@ -29,6 +29,10 @@
       "types": "./src/headless/dispatcher/index.ts",
       "default": "./src/headless/dispatcher/index.ts"
     },
+    "./testing": {
+      "types": "./src/testing.ts",
+      "default": "./src/testing.ts"
+    },
     "./headless/locale-routing": {
       "types": "./src/headless/locale-routing/index.ts",
       "default": "./src/headless/locale-routing/index.ts"
@@ -121,6 +125,10 @@
       "./headless/dispatcher": {
         "types": "./dist/headless/dispatcher/index.d.ts",
         "default": "./dist/headless/dispatcher/index.js"
+      },
+      "./testing": {
+        "types": "./dist/testing.d.ts",
+        "default": "./dist/testing.js"
       },
       "./headless/locale-routing": {
         "types": "./dist/headless/locale-routing/index.d.ts",

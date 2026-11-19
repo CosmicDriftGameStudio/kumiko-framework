@@ -11,6 +11,7 @@ describe("tags — boot guard rejects a where-rule in ownership.write", () => {
   test("createTagsFeature throws instead of shipping a deny-only ownership map", () => {
     expect(() =>
       createTagsFeature({
+        parents: ["project"],
         ownership: {
           write: {
             TenantMember: { kind: "where", where: () => ({ sqlText: "1=1", params: [] }) },

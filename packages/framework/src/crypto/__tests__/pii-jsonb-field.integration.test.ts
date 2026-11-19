@@ -25,6 +25,7 @@ import {
 const admin = TestUsers.admin;
 
 const goldenEntity = createEntity({
+  name: "golden",
   table: "pii_jsonb_goldens",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -33,8 +34,8 @@ const goldenEntity = createEntity({
 });
 
 const feature = defineFeature("jsonbpii", (r) => {
-  r.entity({ name: "golden", ...goldenEntity });
-  r.crud("golden", goldenEntity, {
+  r.entity(goldenEntity);
+  r.crud(goldenEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });

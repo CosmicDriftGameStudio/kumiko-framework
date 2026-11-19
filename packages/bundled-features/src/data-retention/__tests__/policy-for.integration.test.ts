@@ -3,11 +3,8 @@
 // in the DB, run the query, and verify that the resolver uses the override.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import {
-  createEventStoreExecutor,
-  createTenantDb,
-  type DbConnection,
-} from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,

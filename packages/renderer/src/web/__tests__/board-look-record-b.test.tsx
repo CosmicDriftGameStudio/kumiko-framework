@@ -81,11 +81,11 @@ describe("header actions", () => {
   test("a destructive action is an item of the overflow menu, not a head button", async () => {
     render(<Bar />);
     expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Approve" })).toBeTruthy();
+    screen.getByRole("button", { name: "Approve" });
     await userEvent
       .setup()
       .click(screen.getByTestId("kumiko-screen-projection-detail-actions-overflow"));
-    expect(await screen.findByText("Delete")).toBeTruthy();
+    await screen.findByText("Delete");
   });
 });
 
@@ -121,18 +121,19 @@ const compactScreen: ConfigEditScreenDefinition = {
   type: "configEdit",
   scope: "tenant",
   compact: true,
-  configKeys: { siteName: "demo:config:site-name" },
+  configKeys: { siteName: "demo:config:site-name", supportEmail: "demo:config:support-email" },
   fields: {
     siteName: { type: "text" },
+    supportEmail: { type: "text" },
     // @cast-boundary inline schema-author shape — FieldDefinition union too narrow
   } as ConfigEditScreenDefinition["fields"],
-  layout: { sections: [{ title: "Basics", fields: ["siteName"] }] },
+  layout: { sections: [{ title: "Basics", fields: ["siteName", "supportEmail"] }] },
 };
 
 describe("configEdit compact", () => {
   test("caps the column and draws no origin line or accent bar", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (type: string) => ({
+      query: async (type: string) => ({
         isSuccess: true,
         data:
           type === "config:query:cascade"
@@ -142,7 +143,7 @@ describe("configEdit compact", () => {
                 },
               }
             : { "demo:config:site-name": { value: "Acme", scope: "tenant" } },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -154,12 +155,19 @@ describe("configEdit compact", () => {
     );
     await waitFor(() => screen.getByTestId("render-edit-form"));
     const compact = screen.getByTestId("config-edit-compact");
-    expect(compact.className).toContain("max-w-[940px]");
+    const cappedColumn = screen
+      .getByTestId("render-edit-form")
+      .querySelector('[class~="max-w-[940px]"]');
+    expect(cappedColumn).not.toBeNull();
+    expect(cappedColumn?.className).toContain("mx-0");
+    expect(cappedColumn?.textContent).toContain("Basics");
+    expect(compact.querySelector("svg.pointer-events-none")).toBeNull();
     expect(compact.className).toContain("h-full");
     // The save bar is pinned below the capped column: full width, separator line, not inside the cap.
     const bar = screen.getByTestId("render-edit-form-unsaved").closest(".border-t");
     expect(bar).not.toBeNull();
     expect(bar?.closest("form")?.firstElementChild?.contains(bar as Node)).toBe(false);
+    expect(cappedColumn?.contains(bar)).toBe(false);
     expect(screen.queryByTestId("config-cascade")).toBeNull();
     expect(document.querySelector("[data-testid$='-accent']")).toBeNull();
   });

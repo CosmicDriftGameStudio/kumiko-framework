@@ -24,14 +24,16 @@ const billing = defineFeature("billing-ov", (r) => {
     access: { roles: ["TenantAdmin"] },
     handler: async () => ({ isSuccess: true as const, data: {} }),
   });
-  r.notification("invoice-issued", {
+  r.notification({
+    name: "invoice-issued",
     trigger: { on: "issue" },
     recipient: () => null,
     data: () => ({}),
     template: { de: { body: "<p>Rechnung</p>" } },
     meta: { de: { subject: "Rechnung" } },
   });
-  r.notification("payment-reminder", {
+  r.notification({
+    name: "payment-reminder",
     trigger: { on: "issue" },
     recipient: () => null,
     data: () => ({}),

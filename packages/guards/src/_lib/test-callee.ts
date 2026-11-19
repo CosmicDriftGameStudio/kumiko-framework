@@ -2,8 +2,11 @@ import { Node, type SourceFile } from "ts-morph";
 
 const TEST_FRAMEWORK_MODULES: ReadonlySet<string> = new Set(["bun:test", "@playwright/test"]);
 
-export const TEST_DECLARATION_CALLEE =
-  /^(test|it|describe)(\.(skip|only|todo|if|each|failing|concurrent|serial|skipIf|runIf|todoIf))*$/;
+const TEST_CALLEE_MODIFIERS =
+  "(\\.(skip|only|todo|if|each|failing|concurrent|serial|skipIf|runIf|todoIf))*";
+
+export const TEST_DECLARATION_CALLEE = new RegExp(`^(test|it|describe)${TEST_CALLEE_MODIFIERS}$`);
+export const TEST_CASE_CALLEE = new RegExp(`^(test|it)${TEST_CALLEE_MODIFIERS}$`);
 
 // Maps local names imported from the test framework to their exported name;
 // "" marks a namespace import (`import * as bt`), whose member access is stripped.

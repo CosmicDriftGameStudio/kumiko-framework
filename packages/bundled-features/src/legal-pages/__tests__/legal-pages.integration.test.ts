@@ -207,7 +207,10 @@ describe("legal-pages :: cache-control", () => {
 describe("legal-pages :: security headers", () => {
   test("server-gerenderte Pages tragen CSP + Hardening-Header", async () => {
     const res = await stack.app.request("/legal/impressum");
-    expect(res.headers.get("content-security-policy")).toContain("script-src 'none'");
+    const csp = res.headers.get("content-security-policy");
+    expect(csp).toContain("script-src 'none'");
+    expect(csp).toContain("default-src 'none'");
+    expect(csp).toContain("form-action 'none'");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     expect(res.headers.get("x-frame-options")).toBe("SAMEORIGIN");
     expect(res.headers.get("referrer-policy")).toBe("strict-origin-when-cross-origin");

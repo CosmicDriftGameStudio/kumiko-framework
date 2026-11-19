@@ -37,6 +37,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const teamMembershipEntity = createEntity({
+  name: "team-membership",
   table: "read_sample_auth_team_memberships",
   fields: {
     userId: createTextField({ personal: "ref", required: true }),
@@ -45,6 +46,7 @@ export const teamMembershipEntity = createEntity({
 });
 
 export const betaFlagsEntity = createEntity({
+  name: "beta-flag",
   table: "read_sample_auth_beta_flags",
   fields: {
     userId: createTextField({ personal: "ref", required: true }),
@@ -64,7 +66,7 @@ export type BetaFlagStore = Map<string, readonly string[]>;
 // without knowing or re-typing the qualified name.
 export function makeTeamsFeature(store: TeamStore) {
   return defineFeature("teams", (r) => {
-    const teamId = r.claimKey("teamId", { type: "string" });
+    const teamId = r.claimKey({ name: "teamId", type: "string" });
 
     r.authClaims(async (user: SessionUser) => {
       const value = store.get(user.id);
@@ -79,7 +81,7 @@ export function makeTeamsFeature(store: TeamStore) {
 // narrowing for non-scalar values.
 export function makeBetaFlagsFeature(store: BetaFlagStore) {
   return defineFeature("betaFlags", (r) => {
-    const flags = r.claimKey("flags", { type: "string[]" });
+    const flags = r.claimKey({ name: "flags", type: "string[]" });
 
     r.authClaims(async (user: SessionUser) => {
       const value = store.get(user.id);
@@ -106,7 +108,7 @@ export function makeBrokenFeature() {
 // warn for `rouge` but still merges both into the JWT (best-effort).
 export function makeDriftFeature(shouldFire: { value: boolean }) {
   return defineFeature("drift", (r) => {
-    r.claimKey("teamId", { type: "string" });
+    r.claimKey({ name: "teamId", type: "string" });
 
     r.authClaims(async () => {
       if (!shouldFire.value) return {};

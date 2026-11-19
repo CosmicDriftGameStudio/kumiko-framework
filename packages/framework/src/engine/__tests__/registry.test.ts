@@ -64,19 +64,21 @@ describe("createRegistry slot robustness", () => {
 describe("getAllQueryHandlers", () => {
   test("returns every registered query handler, qualified, across multiple features", () => {
     const taskEntity = createEntity({
+      name: "task",
       table: "registry_test_tasks",
       fields: {
         title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
       },
     });
     const noteEntity = createEntity({
+      name: "note",
       table: "registry_test_notes",
       fields: {
         body: createTextField({ required: true, personal: false, reason: "test_fixture" }),
       },
     });
     const taskFeature = defineFeature("registry-test-task", (r) => {
-      r.crud("task", taskEntity, {
+      r.crud(taskEntity, {
         write: { access: { roles: ["Admin"] } },
         read: {
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -84,7 +86,7 @@ describe("getAllQueryHandlers", () => {
       });
     });
     const noteFeature = defineFeature("registry-test-note", (r) => {
-      r.crud("note", noteEntity, {
+      r.crud(noteEntity, {
         write: { access: { roles: ["Admin"] } },
         read: {
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -112,12 +114,18 @@ describe("getAllQueryHandlers", () => {
 describe("getAllStreamHandlers", () => {
   test("returns every registered stream handler, qualified, across multiple features", () => {
     const aiFeature = defineFeature("registry-test-ai", (r) => {
-      r.streamHandler("chat:complete", z.object({ prompt: z.string() }), async function* () {}, {
+      r.streamHandler({
+        name: "chat:complete",
+        schema: z.object({ prompt: z.string() }),
+        handler: async function* () {},
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
     const otherFeature = defineFeature("registry-test-other", (r) => {
-      r.streamHandler("chat:complete", z.object({ prompt: z.string() }), async function* () {}, {
+      r.streamHandler({
+        name: "chat:complete",
+        schema: z.object({ prompt: z.string() }),
+        handler: async function* () {},
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
@@ -140,12 +148,18 @@ describe("getAllStreamHandlers", () => {
 
   test("duplicate stream-handler short-name across features qualifies independently, no collision", () => {
     const aiFeature = defineFeature("registry-test-dup-a", (r) => {
-      r.streamHandler("chat:complete", z.object({}), async function* () {}, {
+      r.streamHandler({
+        name: "chat:complete",
+        schema: z.object({}),
+        handler: async function* () {},
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
     const otherFeature = defineFeature("registry-test-dup-b", (r) => {
-      r.streamHandler("chat:complete", z.object({}), async function* () {}, {
+      r.streamHandler({
+        name: "chat:complete",
+        schema: z.object({}),
+        handler: async function* () {},
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
@@ -157,12 +171,18 @@ describe("getAllStreamHandlers", () => {
     // feature.name values (so the earlier Duplicate-feature guard doesn't
     // fire) but toKebab() collapses both to the same qualified name.
     const featureA = defineFeature("registry-test-kebab-dup", (r) => {
-      r.streamHandler("chat:complete", z.object({}), async function* () {}, {
+      r.streamHandler({
+        name: "chat:complete",
+        schema: z.object({}),
+        handler: async function* () {},
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
     const featureB = defineFeature("registryTestKebabDup", (r) => {
-      r.streamHandler("chat:complete", z.object({}), async function* () {}, {
+      r.streamHandler({
+        name: "chat:complete",
+        schema: z.object({}),
+        handler: async function* () {},
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
@@ -196,17 +216,17 @@ describe("getAllStreamHandlers", () => {
 });
 
 describe("double-qualified handler names", () => {
-  test("createRegistry throws at boot when a query handler's short name is already fully-qualified", () => {
-    const feature = defineFeature("registry-test-ai-orch", (r) => {
-      r.queryHandler({
-        name: "registry-test-ai-orch:query:duplicate-candidates",
-        schema: z.object({}),
-        handler: async () => ({}),
-        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-      });
-    });
-
-    expect(() => createRegistry([feature])).toThrow(/double-qualification/);
+  test("a query handler whose short name is already fully-qualified throws at definition", () => {
+    expect(() =>
+      defineFeature("registry-test-ai-orch", (r) => {
+        r.queryHandler({
+          name: "registry-test-ai-orch:query:duplicate-candidates",
+          schema: z.object({}),
+          handler: async () => ({}),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
+      }),
+    ).toThrow(/double-qualification/);
   });
 
   test("createRegistry allows a sub-structured short name whose entity prefix merely resembles the feature name", () => {
@@ -244,7 +264,7 @@ describe("extensionSelector boot-validation", () => {
 
   test("usages carry the owning featureName after merge", () => {
     const provider = defineFeature("probe-smtp", (r) => {
-      r.useExtension("probeTransport", "smtp");
+      r.applyExtension({ name: "probeTransport", entity: "smtp" });
     });
     const registry = createRegistry([foundationFeature(), provider]);
     const usage = registry.getExtensionUsages("probeTransport")[0];
@@ -307,20 +327,20 @@ describe("extensionSelector boot-validation", () => {
     });
     const consumer = defineFeature("money-horse", (r) => {
       r.requires({ features: ["cap-ext"] });
-      r.entity({
-        name: "credit",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "credit",
           table: "Credits",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
       r.writeHandler({
         name: "doSomething",
         schema: z.object({}),
         handler: async () => ({ isSuccess: true as const, data: {} }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.useExtension("credit-cap", "credit");
+      r.applyExtension({ name: "credit-cap", entity: "credit" });
     });
     expect(() => createRegistry([ext, consumer])).toThrow(
       /no write handler is entity-mapped to "credit"/i,
@@ -331,7 +351,7 @@ describe("extensionSelector boot-validation", () => {
 describe("createRegistry secret namespaces", () => {
   const namespaceFeature = () =>
     defineFeature("billing", (r) => {
-      r.secretNamespace("hooks", { label: { en: "Hooks" }, scope: "tenant" });
+      r.secretNamespace({ name: "hooks", label: { en: "Hooks" }, scope: "tenant" });
     });
 
   test("findSecretNamespace resolves a key under the declared prefix", () => {

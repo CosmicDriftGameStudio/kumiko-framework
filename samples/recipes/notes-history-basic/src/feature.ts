@@ -27,6 +27,7 @@ import { z } from "zod";
 // the feature's promise: any entity can carry a note history as-is.
 
 export const taskEntity = createEntity({
+  name: "task",
   table: "read_sample_notes_history_tasks",
   fields: {
     title: createTextField({
@@ -38,7 +39,7 @@ export const taskEntity = createEntity({
   },
 });
 
-const taskTable = buildEntityTable("task", taskEntity);
+const taskTable = buildEntityTable(taskEntity);
 
 const taskExecutor = createEventStoreExecutor(taskTable, taskEntity, { entityName: "task" });
 
@@ -50,7 +51,7 @@ export const taskFeature = defineFeature("task-management", (r) => {
   // declares the dependency so the bundle is mounted.
   r.requires({ features: ["notes-history"] });
 
-  r.entity({ name: "task", ...taskEntity });
+  r.entity(taskEntity);
 
   r.writeHandler({
     name: "task:create",

@@ -12,10 +12,19 @@
 // or silently be served to every agent.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import {
+  configuredPiiSubjectKms,
+  configurePiiSubjectKms,
+  InMemoryKmsAdapter,
+  PII_ERASED_SENTINEL,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { createAnonymousUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createAnonymousUser,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -287,7 +296,7 @@ describe("system level :: cross-tenant override", () => {
   test("a non-SystemAdmin listing with an override gets a 403 naming the reason", async () => {
     const error = await stack.http.queryErr(
       SIGNATURES_LIST,
-      { tenantIdOverride: otherTenantId },
+      { tenantIdOverride: SYSTEM_TENANT_ID },
       agentA,
     );
     expect(error.httpStatus).toBe(403);
@@ -354,6 +363,7 @@ describe("with a PII key service :: the owner reads their entry back as plaintex
     slug: "encrypted",
     locale: "de",
     title: "Verschlüsselt",
+    folder: "kunden",
     content: "<p>Viele Grüße, A</p>",
     contentFormat: "html" as const,
   };
@@ -367,29 +377,56 @@ describe("with a PII key service :: the owner reads their entry back as plaintex
     resetPiiSubjectKmsForTests();
   });
 
-  test("the stored column holds ciphertext", async () => {
+  test("the stored title, folder and content hold ciphertext", async () => {
     const rows = await selectMany<UserContentEntryRow>(db, userContentEntriesTable, {
       ownerId: agentA.id,
       slug: "encrypted",
     });
     expect(rows.length).toBe(1);
+    expect(rows[0]?.title).not.toBe(encryptedSignature.title);
+    expect(rows[0]?.folder).not.toBe(encryptedSignature.folder);
     expect(rows[0]?.content).not.toBe(encryptedSignature.content);
   });
 
-  test("list and item return the decrypted content", async () => {
-    const list = await stack.http.queryOk<{ blocks: readonly { slug: string; content: string }[] }>(
-      SIGNATURES_LIST,
-      {},
-      agentA,
+  test("list and item return the decrypted title, folder and content", async () => {
+    const list = await stack.http.queryOk<{
+      blocks: readonly { slug: string; title: string; folder: string | null; content: string }[];
+    }>(SIGNATURES_LIST, {}, agentA);
+    expect(list.blocks.find((b) => b.slug === "encrypted")).toMatchObject({
+      title: encryptedSignature.title,
+      folder: encryptedSignature.folder,
+      content: encryptedSignature.content,
+    });
+    const item = await stack.http.queryOk<{
+      title: string;
+      folder: string | null;
+      content: string;
+    }>(SIGNATURES_ITEM, { slug: "encrypted", locale: "de" }, agentA);
+    expect(item).toMatchObject({
+      title: encryptedSignature.title,
+      folder: encryptedSignature.folder,
+      content: encryptedSignature.content,
+    });
+  });
+
+  test("after the owner's key is erased, title, folder and content read as erased", async () => {
+    const leaver = createTestUser({ id: 17, roles: ["Agent"] });
+    await stack.http.writeOk(
+      SIGNATURES_SET,
+      { ...encryptedSignature, slug: "leaver", title: "Signatur Dr. Weber", folder: "weber" },
+      leaver,
     );
-    expect(list.blocks.find((b) => b.slug === "encrypted")?.content).toBe(
-      encryptedSignature.content,
+    await configuredPiiSubjectKms()?.eraseKey(
+      { kind: "user", userId: leaver.id },
+      { requestId: "collection-ownership-erase", userId: leaver.id, eraseReason: "test" },
     );
-    const item = await stack.http.queryOk<{ content: string }>(
-      SIGNATURES_ITEM,
-      { slug: "encrypted", locale: "de" },
-      agentA,
-    );
-    expect(item.content).toBe(encryptedSignature.content);
+    const list = await stack.http.queryOk<{
+      blocks: readonly { slug: string; title: string; folder: string | null; content: string }[];
+    }>(SIGNATURES_LIST, {}, leaver);
+    expect(list.blocks.find((b) => b.slug === "leaver")).toMatchObject({
+      title: PII_ERASED_SENTINEL,
+      folder: PII_ERASED_SENTINEL,
+      content: PII_ERASED_SENTINEL,
+    });
   });
 });

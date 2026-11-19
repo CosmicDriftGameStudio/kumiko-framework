@@ -37,6 +37,10 @@ query and the fields to read, the query does the counting.
   `open-work` stat counts through the list's own query with `params.namedFilter`
   and `navigate`. A click opens the queue filtered by the same rule, so tile and
   list cannot drift.
+- **`resultField` shares one query across panels**: `ticket-overview` answers
+  `{ stats, recent }` from one query, and each panel reads its part with
+  `resultField`. Panels with the same query and params load with one request;
+  boot validation checks `valueField` and `columns` against the schema of that field.
 
 ## When to reach for it
 

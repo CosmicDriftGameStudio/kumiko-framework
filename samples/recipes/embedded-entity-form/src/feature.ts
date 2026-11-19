@@ -50,15 +50,15 @@ export const prospectsFeature = defineFeature("prospects", (r) => {
   // an admin set `{ status: "accepted" }` directly, skipping that path
   // entirely and leaving an "accepted" suggestion with no matching
   // prospect (see entities/suggestion.ts).
-  r.crud("suggestion", suggestionEntity, {
+  r.crud(suggestionEntity, {
     write: adminWrite,
     read: openRead,
     verbs: { update: false },
   });
-  r.entity({ name: "prospect", ...prospectEntity });
+  r.entity(prospectEntity);
 
-  const { executor: suggestionExecutor } = createEntityExecutor("suggestion", suggestionEntity);
-  const { executor: prospectExecutor } = createEntityExecutor("prospect", prospectEntity);
+  const { executor: suggestionExecutor } = createEntityExecutor(suggestionEntity);
+  const { executor: prospectExecutor } = createEntityExecutor(prospectEntity);
 
   // Custom handler: the client only ever sends the fields the user actually
   // edited (RenderEdit's onChange `changes`, same delta the controlled mode

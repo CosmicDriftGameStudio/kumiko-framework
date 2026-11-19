@@ -10,9 +10,11 @@ import {
   access,
   createSystemUser,
   type HandlerContext,
+  listAllPages,
   type SessionUser,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   acknowledgedSystemDb,
@@ -61,20 +63,6 @@ export const replyExecutor = createEventStoreExecutor(helpdeskReplyTable, helpde
   entityName: HELPDESK_REPLY_ENTITY,
 });
 
-// Equals the executor's MAX_LIST_LIMIT, so every page is filled until the last one.
-const LIST_PAGE_SIZE = 200;
-
-export async function listAllPages<Row>(
-  fetchPage: (page: { limit: number; offset: number }) => Promise<{ rows: readonly Row[] }>,
-): Promise<Row[]> {
-  const all: Row[] = [];
-  for (;;) {
-    const { rows } = await fetchPage({ limit: LIST_PAGE_SIZE, offset: all.length });
-    all.push(...rows);
-    if (rows.length < LIST_PAGE_SIZE) return all;
-  }
-}
-
 export function listRepliesOf(db: TenantDb, requestId: string) {
   return listAllPages((page) =>
     replyExecutor.list(
@@ -113,12 +101,32 @@ export type UserLabel = { readonly name: string; readonly email: string | null }
 
 type UserLabelRow = { readonly displayName: string; readonly email: string };
 
+// Shares the KMS adapter's small dedicated pool, like user/resolve-display-names.ts.
+const USER_LABEL_DECRYPT_CONCURRENCY = 4;
+
+export async function loadUserLabels(
+  db: TenantDb,
+  userIds: readonly string[],
+): Promise<ReadonlyMap<string, UserLabel>> {
+  const labels = new Map<string, UserLabel>();
+  const uniqueIds = [...new Set(userIds)];
+  if (uniqueIds.length === 0) return labels;
+  const rows = await selectMany<UserLabelRow & { readonly id: string }>(
+    db,
+    userTable,
+    { id: uniqueIds, isDeleted: false },
+    { fields: ["id", "displayName", "email"] },
+  );
+  await mapWithConcurrency(rows, USER_LABEL_DECRYPT_CONCURRENCY, async (row) => {
+    const email = await decryptStoredPii(row.email, "email", PII_DECRYPT_REASON);
+    const name = await decryptStoredPii(row.displayName, "displayName", PII_DECRYPT_REASON);
+    labels.set(row.id, { name, email });
+  });
+  return labels;
+}
+
 export async function loadUserLabel(db: TenantDb, userId: string): Promise<UserLabel | null> {
-  const row = await fetchOne<UserLabelRow>(db, userTable, { id: userId, isDeleted: false });
-  if (!row) return null;
-  const email = await decryptStoredPii(row.email, "email", PII_DECRYPT_REASON);
-  const name = await decryptStoredPii(row.displayName, "displayName", PII_DECRYPT_REASON);
-  return { name, email };
+  return (await loadUserLabels(db, [userId])).get(userId) ?? null;
 }
 
 export async function sendBestEffort(

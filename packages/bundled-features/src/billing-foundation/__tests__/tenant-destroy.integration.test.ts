@@ -53,7 +53,9 @@ const DESTROY_PROVIDER = "mock-destroy-provider";
 
 const mockProviderFeature = defineFeature("test-mock-destroy-provider", (r) => {
   r.requires({ features: ["billing-foundation"] });
-  r.useExtension("subscriptionProvider", DESTROY_PROVIDER, {
+  r.applyExtension({
+    name: "subscriptionProvider",
+    entity: DESTROY_PROVIDER,
     verifyAndParseWebhook: async () => null,
     oneOffPriceIds: ["price_topup"],
     priceToTier: { price_pro: "pro" },
@@ -212,7 +214,7 @@ describe("billing-foundation :: tenant destroy", () => {
     await seedPayment(tenantA, "a");
     await seedPayment(tenantB, "b");
 
-    await seedDestroyingTenant(db, tenantA.tenantId);
+    await seedDestroyingTenant(stack, tenantA.tenantId);
 
     const finalStatus = await driveDestructionToCompletion(stack, db, tenantA.tenantId);
     expect(finalStatus).toBe("destroyed");
@@ -249,7 +251,7 @@ describe("billing-foundation :: tenant destroy", () => {
     await seedSubscription(tenantHgb, "c");
     await seedPayment(tenantHgb, "c");
 
-    await seedDestroyingTenant(db, tenantHgb.tenantId);
+    await seedDestroyingTenant(stack, tenantHgb.tenantId);
 
     const finalStatus = await driveDestructionToCompletion(stack, db, tenantHgb.tenantId);
     expect(finalStatus).toBe("destroyed");
@@ -300,7 +302,7 @@ describe("billing-foundation :: tenant destroy", () => {
     const before = await loadAggregate(db, paymentStream, tenant.tenantId);
     expect(before.filter((e) => e.type === CHECKOUT_CONSENT_RECORDED_EVENT_QN)).toHaveLength(1);
 
-    await seedDestroyingTenant(db, tenant.tenantId);
+    await seedDestroyingTenant(stack, tenant.tenantId);
     expect(await driveDestructionToCompletion(stack, db, tenant.tenantId)).toBe("destroyed");
 
     expect(await isStreamArchived(db, tenant.tenantId, paymentStream)).toBe(true);

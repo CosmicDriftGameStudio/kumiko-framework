@@ -10,7 +10,7 @@
 // over the result, where unbounded arrays would be the bug. Set
 // `limit` explicitly when the row-count could grow without bound.
 
-import { selectMany, type WhereObject } from "../../db/query.ts";
+import { selectMany, type TableLike, type WhereObject } from "../../db/query.ts";
 import { defineStep } from "../define-step.ts";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.ts";
 import { readSourceFor, warnOnNarrowedForeignTenantFilter } from "./_read-source.ts";
@@ -18,7 +18,7 @@ import { resolveOptional } from "./_resolver-utils.ts";
 
 type ReadFindManyArgs = {
   readonly name: string;
-  readonly table: unknown;
+  readonly table: TableLike;
   readonly where?: StepResolver<WhereObject | undefined>;
   readonly limit?: number;
   readonly unsafeAllTenants?: { readonly reason: string };
@@ -26,7 +26,6 @@ type ReadFindManyArgs = {
 
 defineStep<ReadFindManyArgs, readonly Record<string, unknown>[]>({
   kind: "read.findMany",
-  defaultFailureStrategy: "throw",
   resultKey: (args) => args.name,
   run: async (args, ctx: PipelineCtx) => {
     const where = resolveOptional(args.where, ctx);
@@ -51,7 +50,7 @@ defineStep<ReadFindManyArgs, readonly Record<string, unknown>[]>({
 export function buildReadFindManyStep(
   name: string,
   opts: {
-    readonly table: unknown;
+    readonly table: TableLike;
     readonly where?: StepResolver<WhereObject | undefined>;
     readonly limit?: number;
     readonly unsafeAllTenants?: { readonly reason: string };

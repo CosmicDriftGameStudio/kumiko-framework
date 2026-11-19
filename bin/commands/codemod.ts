@@ -2,26 +2,15 @@ import { resolve as resolvePath } from "node:path";
 import { parseArgs, getFlag, getStringFlag } from "./arg-parser";
 import { defineCommand } from "./registry";
 
-export const codemodCommand = defineCommand({
-  id: "codemod",
-  label: "codemod",
-  description: "Run code migrations — kumiko codemod pipeline [--dry-run] [--verbose] [--dir <path>]",
-  help: "Subcommand:\n  pipeline   Convert free-form write-handlers → pipeline form\n\nFlags:\n  --dry-run   Preview changes\n  --verbose   Per-file details\n  --dir       Target dir (default: cwd)",
+export const codemodPipelineCommand = defineCommand({
+  id: "codemod:pipeline",
+  label: "codemod:pipeline",
+  description: "Convert free-form write handlers to pipeline form — kumiko codemod:pipeline [--dry-run] [--verbose] [--dir <path>]",
+  help: "Flags:\n  --dry-run   Preview changes\n  --verbose   Per-file details\n  --dir       Target dir (default: cwd)",
   category: "code",
   roles: ["maintainer"],
   run: async (ctx) => {
-    const sub = ctx.argv[0];
-    if (sub !== "pipeline") {
-      ctx.out.log("");
-      ctx.out.log("  Usage: kumiko codemod pipeline [--dry-run] [--verbose] [--dir <path>]");
-      ctx.out.log("    --dry-run    Preview changes without writing");
-      ctx.out.log("    --verbose    Show per-file conversion details");
-      ctx.out.log("    --dir        Target directory (default: current directory)");
-      ctx.out.log("");
-      return sub ? 1 : 0;
-    }
-
-    const args = parseArgs(ctx.argv.slice(1));
+    const args = parseArgs(ctx.argv);
     const dryRun = getFlag(args, "dry-run");
     const verbose = getFlag(args, "verbose");
     const dirFlag = getStringFlag(args, "dir");

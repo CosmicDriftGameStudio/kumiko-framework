@@ -1,4 +1,3 @@
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFileProviderForTenant,
@@ -20,15 +19,16 @@ export function registerInboundMailRetentionJob(r: FeatureRegistrar<"inbound-mai
     name: "inbound-mail-retention",
     trigger: { maintenance: true },
     perTenant: true,
+    // The purge removes rows, original bodies and attachments; record keys stay (eraseRecordKeys is opt-in).
+    irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
     concurrency: "skip",
-    escapeHatch: { reason: INBOUND_MAIL_RETENTION_REASON },
+    escapeHatch: { reason: INBOUND_MAIL_RETENTION_REASON, grants: ["unsafeRaw"] },
     handler: async (_payload, ctx) => {
       if (!ctx.registry) {
         throw new Error("inbound-mail-retention: ctx.registry required (JobContext incomplete)");
       }
       const tenantId = ctx.systemUser.tenantId;
-      const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
-      const retentionDb = ctx.db.unsafeRaw() as DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
+      const retentionDb = ctx.db.unsafeRawAllTenants();
 
       // Original (.eml/.html) objects live in file-foundation; the provider is lazy and
       // memoized so a tenant without purgeable mails never builds it.
@@ -59,7 +59,7 @@ export function registerInboundMailRetentionJob(r: FeatureRegistrar<"inbound-mai
       const report = await runInboundMailRetention({
         db: retentionDb,
         tenantId,
-        now: T.Now.instant(),
+        now: ctx.tz.now(),
         deleteBodyObject,
         ...(deleteAttachments ? { deleteAttachments } : {}),
       });

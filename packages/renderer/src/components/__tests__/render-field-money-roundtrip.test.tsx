@@ -1,6 +1,6 @@
-// Money didn't round-trip on the auto-wired entityEdit path — create sent a bare number against the server's
-// `{amount, currency}` schema, update rendered the rehydrated read value as
-// NaN, and a naive fix would have been 100x off (minor vs. major units).
+// Money must round-trip on the auto-wired entityEdit path: create and update
+// carry the same `{amount, currency}` minor-unit integer the server schema
+// expects, and the rehydrated read value renders as a real number, not NaN.
 //
 // This test walks the whole chain with real functions, no mocks:
 // computeEditViewModel (headless) → RenderField → simulated widget
@@ -22,7 +22,8 @@ import type { ComponentType, ReactNode } from "react";
 import { buildInitialValues } from "../../app/entity-edit-prefill.ts";
 import { computeEditViewModel, type EditFieldViewModel } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
-import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives.tsx";
+import { type InputProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RenderField } from "../render-field.tsx";
 
 let captured: InputProps | undefined;
@@ -33,7 +34,7 @@ const captureInput: ComponentType<InputProps> = (props) => {
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: noop,
   Field: passChildren,
@@ -52,15 +53,16 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function buildEntity(defaultCurrency: string): EntityDefinition {
   return {
+    name: "priceItem",
     fields: {
       price: { type: "money", required: true },
     },
     defaultCurrency,
-  } as EntityDefinition;
+  };
 }
 
 function buildScreen(): EntityEditScreenDefinition {
@@ -139,7 +141,7 @@ describe("RenderField money round-trip", () => {
     if (field.kind !== "money") return;
     expect(field.value).toBe(""); // untouched — empty widget state, not NaN/0
     field.onChange(1299); // widget emits minor units: 12.99 USD
-    expect(payload).toEqual({ amount: 12.99, currency: "USD" });
+    expect(payload).toEqual({ amount: 1299, currency: "USD" });
     const result = buildInsertSchema(entity).safeParse({ price: payload });
     expect(result.success).toBe(true);
   });
@@ -165,18 +167,15 @@ describe("RenderField money round-trip", () => {
     });
     if (field.kind !== "money") throw new Error("expected money kind");
     field.onChange(1500); // user edits to 15.00
-    expect(payload).toEqual({ amount: 15, currency: "USD" });
+    expect(payload).toEqual({ amount: 1500, currency: "USD" });
     const result = buildUpdateSchema(entity).safeParse({ price: payload });
     expect(result.success).toBe(true);
   });
 
-  test("JPY (zero-decimal currency): amountMinor is not read, so the widget value is not 100x off", () => {
+  test("JPY (zero-decimal currency): the amount is stored and shown as is, not scaled by 100", () => {
     const entity = buildEntity("JPY");
-    // DB stores minor units at the framework's flat MINOR_UNIT_SCALE=100,
-    // so ¥500 is row-stored as 50000 — rehydrateMoney's amountMinor mirrors
-    // that scale, which disagrees with JPY's real 0 decimal places. Reading
-    // amountMinor here would render 50000 instead of 500.
-    const row = { price: 50000, priceCurrency: "JPY" };
+    // JPY has 0 decimal places: minor unit and yen are the same number.
+    const row = { price: 500, priceCurrency: "JPY" };
     const record = rehydrateMoney(row, entity);
     let payload: unknown;
     const field = renderMoneyField(entity, record, (v) => {
@@ -205,12 +204,12 @@ describe("RenderField money round-trip", () => {
     expect(payload).toEqual({ amount: 500, currency: "JPY" });
   });
 
-  test("server schema strips an unexpected amountMinor key instead of rejecting the payload", () => {
+  test("server schema strips an unexpected extra key instead of rejecting the payload", () => {
     const entity = buildEntity("USD");
     const result = buildUpdateSchema(entity).safeParse({
-      price: { amount: 12.99, currency: "USD", amountMinor: 1299 },
+      price: { amount: 1299, currency: "USD", unexpected: 1 },
     });
     expect(result.success).toBe(true);
-    expect(result.data?.["price"]).toEqual({ amount: 12.99, currency: "USD" });
+    expect(result.data?.["price"]).toEqual({ amount: 1299, currency: "USD" });
   });
 });

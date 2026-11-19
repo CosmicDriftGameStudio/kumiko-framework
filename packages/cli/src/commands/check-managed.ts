@@ -19,7 +19,7 @@ function describeReport(report: ManagedFileReport): string {
         ? "matches but has no kumiko-managed marker"
         : "no kumiko-managed marker and differs from the template (- template, + repo)";
     case "local":
-      return `local: ${report.reason}`;
+      return `local, excluded from sync-managed and the drift check: ${report.reason}`;
     case "invalid":
       return report.message;
   }

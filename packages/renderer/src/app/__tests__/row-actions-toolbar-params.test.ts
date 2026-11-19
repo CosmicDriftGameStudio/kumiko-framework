@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { RelatedListToolbarAction } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "../../headless/index.ts";
+import { createMockDispatcher } from "../../testing.ts";
 import type { NavApi } from "../nav.tsx";
 import { buildProjectionToolbarActions } from "../row-actions.ts";
 
@@ -36,12 +37,12 @@ type WriteCall = { type: string; payload: unknown };
 
 function recordingDispatcher(): { dispatcher: Dispatcher; writes: WriteCall[] } {
   const writes: WriteCall[] = [];
-  const dispatcher = {
+  const dispatcher = createMockDispatcher({
     write: async (type: string, payload: unknown) => {
       writes.push({ type, payload });
       return { isSuccess: true, data: {} };
     },
-  } as unknown as Dispatcher;
+  });
   return { dispatcher, writes };
 }
 

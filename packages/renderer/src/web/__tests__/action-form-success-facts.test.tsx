@@ -34,7 +34,7 @@ const LABELS: Readonly<Record<string, string>> = {
 
 function dispatcherReturning(data: Record<string, unknown>): Dispatcher {
   return createMockDispatcher({
-    write: (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["write"],
+    write: async () => ({ isSuccess: true, data }),
   });
 }
 
@@ -62,14 +62,14 @@ describe("actionForm successFacts", () => {
         </NavProvider>
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     const input = screen.getByTestId("field-name").querySelector("input");
     if (!input) throw new Error("expected a name input");
     const user = userEvent.setup();
     await user.type(input, "x");
     await user.click(screen.getByTestId("render-edit-submit"));
 
-    await waitFor(() => expect(screen.getByTestId("action-form-success-fact-0")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("action-form-success-fact-0"));
     expect(screen.getByTestId("action-form-success-fact-0").textContent).toBe("Charged: 12");
     // The message and each fact are separate elements, several lines become one element each.
     expect(screen.getByTestId("action-form-success-text").textContent).toBe("Done.");

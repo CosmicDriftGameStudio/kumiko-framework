@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { createTenantDb, deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { type SessionUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { seedRow, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
@@ -575,5 +576,25 @@ describe("legacy waitlist migration", () => {
     } as const;
     expect(await importWaitlistEntry(db, entry)).toBe("created");
     expect(await importWaitlistEntry(db, entry)).toBe("skipped");
+  });
+
+  test("importWaitlistEntry refuses an entry above a submit field limit", async () => {
+    const db = createTenantDb({
+      db: stack.db,
+      tenantId: SYSTEM_TENANT_ID,
+      mode: "system",
+      reason: "test reads system-tenant waitlist rows",
+    });
+    const entry = {
+      sourceKey: `x:${crypto.randomUUID()}`,
+      name: "N",
+      email: "n@example.com",
+      locale: "en",
+      status: WAITLIST_STATUS.Pending,
+      submittedAt: Temporal.Instant.from("2026-01-01T00:00:00Z"),
+      message: "m".repeat(WAITLIST_FIELD_LIMITS.message + 1),
+    } as const;
+    await expect(importWaitlistEntry(db, entry)).rejects.toThrow("exceeds a field length limit");
+    expect(await rowsOf(stack)).toEqual([]);
   });
 });

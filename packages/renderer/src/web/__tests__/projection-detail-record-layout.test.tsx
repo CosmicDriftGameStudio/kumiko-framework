@@ -22,8 +22,8 @@ import { ShellHeader } from "../layout/shell-header.tsx";
 import { defaultPrimitives } from "../primitives/index.tsx";
 import {
   createMockDispatcher,
+  type MockQueryHandler,
   render,
-  renderWithPrimitivesOverride,
   renderWithSidebar,
   screen,
   waitFor,
@@ -56,11 +56,11 @@ function dispatcherReturning(
   data: Readonly<Record<string, unknown>>,
 ): Dispatcher & { readonly calls: { readonly type: string; readonly payload: unknown }[] } {
   const calls: { type: string; payload: unknown }[] = [];
-  const query = (async (type: string, payload: unknown) => {
+  const query: MockQueryHandler = async (type: string, payload: unknown) => {
     calls.push({ type, payload });
     if (type === "rentals:query:rent:detail") return { isSuccess: true, data };
     return { isSuccess: true, data: { rows: [], nextCursor: null } };
-  }) as unknown as Dispatcher["query"];
+  };
   const dispatcher = createMockDispatcher({ query });
   return Object.assign(dispatcher, { calls });
 }
@@ -693,7 +693,7 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
     );
 
     const form = await waitFor(() => screen.getByTestId("render-edit-form"));
-    expect(screen.getByTestId("render-edit-form-scroll")).toBeTruthy();
+    screen.getByTestId("render-edit-form-scroll");
     // The head card (headerRegion) stays; only the form-level card is gone.
     expect(form.closest("[data-slot=card]")).toBeNull();
     expect(screen.queryByText(/unsaved/i)).toBeNull();
@@ -904,31 +904,10 @@ describe("KumikoScreen / projectionDetail — metric tiles render through the Me
     // Only the Metric primitive assigns a testid to the tile itself — the
     // naked-Text fallback below only labels the -label/-value nodes. This
     // is red against the pre-fix code (naked Text, no tile testid).
-    expect(screen.getByTestId("kumiko-screen-projection-detail-metric-balance")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-projection-detail-metric-balance");
     expect(
       screen.getByTestId("kumiko-screen-projection-detail-metric-balance-value").textContent,
     ).toBe("120");
-  });
-
-  test("falls back to plain label/value Text when no Metric primitive is registered", async () => {
-    const dispatcher = dispatcherReturning(rowData);
-
-    renderWithPrimitivesOverride(
-      <DispatcherProvider dispatcher={dispatcher}>
-        <KumikoScreen
-          schema={schemaFor(metricsScreen)}
-          qn="rentals:screen:rent-detail"
-          entityId="rent-1"
-        />
-      </DispatcherProvider>,
-      { Metric: undefined },
-    );
-
-    await waitFor(() => screen.getByTestId("render-edit-form"));
-    expect(
-      screen.getByTestId("kumiko-screen-projection-detail-metric-balance-value").textContent,
-    ).toBe("120");
-    expect(screen.queryByTestId("kumiko-screen-projection-detail-metric-balance")).toBeNull();
   });
 });
 
@@ -1171,34 +1150,6 @@ describe("KumikoScreen / projectionDetail — layout.mode: 'tabs'", () => {
     // draws its own card frame, so a second nested Card would double it up.
     expect(screen.queryByTestId("related-list-Payments")).toBeNull();
   });
-
-  test("without a Tabs primitive, falls back to the stacked all-sections layout instead of truncating to the first section", async () => {
-    const dispatcher = dispatcherReturning(rowData);
-    const { navApi } = navWithTab(undefined);
-
-    renderWithPrimitivesOverride(
-      <NavProvider value={navApi}>
-        <DispatcherProvider dispatcher={dispatcher}>
-          <KumikoScreen
-            schema={schemaFor(tabsScreen)}
-            qn="rentals:screen:rent-detail"
-            entityId="rent-1"
-          />
-        </DispatcherProvider>
-      </NavProvider>,
-      { Tabs: undefined },
-    );
-
-    await waitFor(() => screen.getByTestId("field-description"));
-    // Pre-fix: activeSection stayed truncated to sections[0] even without a
-    // Tabs primitive to switch away from it — payments/invoices content was
-    // permanently unreachable, with no tab strip to reach it either.
-    await waitFor(() =>
-      expect(dispatcher.calls.some((c) => c.type === "rentals:query:rent:payments")).toBe(true),
-    );
-    expect(dispatcher.calls.some((c) => c.type === "rentals:query:rent:invoices")).toBe(true);
-    expect(screen.queryByTestId("kumiko-screen-projection-detail-tabs")).toBeNull();
-  });
 });
 
 // Only guard against a solon-shaped screen (relatedList-heavy) silently regressing.
@@ -1247,11 +1198,11 @@ describe("KumikoScreen / projectionDetail — unchanged for a solon-shaped scree
     expect(screen.queryByTestId("kumiko-screen-projection-detail-tabs")).toBeNull();
     // Contrast for the tabs-mode "form title suppressed" test above — outside
     // tabs mode (hideSectionTitles unset) the form's own title still renders.
-    expect(screen.getByTestId("render-edit-form-title")).toBeTruthy();
+    screen.getByTestId("render-edit-form-title");
     // Contrast for the tabs-mode "no Section wrapper" test above — a stacked
     // (non-tabs) relatedList section has a visible title, so it keeps its
     // own Section card.
-    expect(screen.getByTestId("related-list-Payments")).toBeTruthy();
+    screen.getByTestId("related-list-Payments");
   });
 });
 
@@ -1261,13 +1212,13 @@ describe("KumikoScreen / projectionDetail — switching records remounts the bod
       "rent-1": { description: "Loft 4B" },
       "rent-2": { description: "Warehouse 9" },
     };
-    const query = (async (type: string, payload: unknown) => {
+    const query: MockQueryHandler = async (type: string, payload: unknown) => {
       if (type === "rentals:query:rent:detail") {
         const id = (payload as { id?: string }).id ?? "";
         return { isSuccess: true, data: dataById[id] ?? {} };
       }
       return { isSuccess: true, data: { rows: [], nextCursor: null } };
-    }) as unknown as Dispatcher["query"];
+    };
     const dispatcher = createMockDispatcher({ query });
 
     const { rerender } = render(
@@ -1302,7 +1253,7 @@ describe("KumikoScreen / projectionDetail — switching records remounts the bod
   });
 });
 
-describe("KumikoScreen / projectionDetail — PageHeader without MetricBand", () => {
+describe("KumikoScreen / projectionDetail — PageHeader subtitle", () => {
   test.each([
     ["without metrics", undefined],
     ["with metrics", [{ field: "balance", label: "rentals.detail.metric.balance" }]],
@@ -1314,7 +1265,7 @@ describe("KumikoScreen / projectionDetail — PageHeader without MetricBand", ()
     };
 
     renderWithSidebar(
-      <PrimitivesProvider value={{ ...defaultPrimitives, MetricBand: undefined }}>
+      <PrimitivesProvider value={defaultPrimitives}>
         <DispatcherProvider dispatcher={dispatcherReturning(rowData)}>
           <PageHeaderSlotProvider>
             <ShellHeader schema={{ features: [schemaFor(screenDef)] }} />

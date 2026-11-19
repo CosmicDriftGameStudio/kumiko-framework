@@ -34,6 +34,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.wizard.step-with-title": "Step {current} of {total} · {title}",
 
     "kumiko.version.update-available": "A new version is available.",
+    "kumiko.network.offline": "No connection to the server. The data shown may be out of date.",
 
     "kumiko.pwa.dismiss": "Not now",
     "kumiko.pwa.install": "Install",
@@ -41,6 +42,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.pwa.install-hint-ios": "To install this app, tap Share and then “Add to Home Screen”.",
 
     "kumiko.toast.learn-more": "Learn more",
+    // Radix fills in {hotkey} (F8).
+    "kumiko.toast.viewport-label": "Notifications ({hotkey})",
 
     "kumiko.field.open-calendar": "Open calendar",
     "kumiko.field.dateField.placeholderYear": "Y",
@@ -53,6 +56,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
       "Record was created but could not be selected automatically. Please select it manually.",
     "kumiko.field.unsupported": "This field type can't be edited here yet.",
     "kumiko.field.file-list.download": "Download",
+    "kumiko.field.file-list.downloadNamed": "Download: {name}",
     "kumiko.field.file-list.hidePreview": "Hide preview",
     "kumiko.field.file-list.preview": "Preview",
     "kumiko.field.file-list.view": "View",
@@ -178,6 +182,17 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.pager.status": "{from}–{to} of {total}",
     "kumiko.pager.statusEmpty": "0 of 0",
     "kumiko.form.all-required": "All fields are required.",
+    "kumiko.form.fieldApproval.requestChange": "Request change",
+    "kumiko.form.fieldApproval.drawerHint": "Changed fields apply once an approver approves them.",
+    "kumiko.form.fieldApproval.withdraw": "Withdraw request",
+    "kumiko.form.fieldApproval.withdrawn": "Request withdrawn",
+    "kumiko.form.fieldApproval.afterCreate": "Request a value once the record is saved",
+    "kumiko.form.fieldApproval.submitted": "Submitted for approval",
+    "kumiko.form.fieldApproval.submit": "Submit for approval",
+    "kumiko.form.fieldApproval.pending": "Awaiting approval",
+    "kumiko.form.fieldApproval.pendingValue": "Requested: {value} · awaiting approval",
+    "kumiko.form.fieldApproval.pendingByOther":
+      "A change request for this field is awaiting approval",
     "kumiko.pager.pageSize": "{size} per page",
     "kumiko.pager.pageOf": "Page {page} of {total}",
     "kumiko.time.justNow": "just now",
@@ -507,6 +522,10 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "errors.validation.invalid_key": "Invalid key.",
     "errors.validation.invalid_element": "Invalid entry.",
     "errors.validation.invalid_value": "Invalid choice.",
+    "errors.validation.hidden_row_changed":
+      "This list holds details you may not see. Rows with such details cannot be moved, and the details cannot be changed.",
+    "errors.validation.hidden_row_removed":
+      "A row holds content you may not see, so it cannot be removed.",
     "errors.validation.custom": "Invalid value.",
     "errors.validation.onlyDeleted": "The trash list is not available here.",
     "errors.validation.unexpected_field": "Unknown field.",
@@ -516,6 +535,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
 
     "errors.feature.disabled": "This feature is currently unavailable.",
     "errors.access.denied": "You don't have permission to do this.",
+    "errors.access.fieldApprovalRequired": "This change needs approval.",
     "errors.demoReadOnly": "This live demo is read-only.",
     "errors.notFound": "Not found.",
     "errors.conflict": "Conflict — the operation could not be completed.",

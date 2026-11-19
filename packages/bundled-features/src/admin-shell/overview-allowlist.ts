@@ -1,5 +1,6 @@
-// Hard-coded query allowlists for overview-home screens — security boundary
-// against privilege escalation via accidental cross-workspace fetches.
+// The queries each overview-home panel set is expected to call, checked by the
+// admin-shell tests. Not enforced at runtime: the security boundary is each
+// query's own access.roles.
 
 import { CapOverviewQueries } from "../cap-overview/index.ts";
 import { JobQueries } from "../jobs/index.ts";
@@ -7,7 +8,7 @@ import { METRICS_FEATURE, METRICS_SYSTEM_FEATURE } from "../metrics/index.ts";
 
 export type OverviewWorkspaceKind = "tenant" | "platform";
 
-/** Tenant workspace overview may only call these queries. */
+/** Queries the tenant workspace overview panels call. */
 export const TENANT_OVERVIEW_ALLOWED_QUERIES = [
   JobQueries.failures,
   CapOverviewQueries.capsUsage,
@@ -20,7 +21,7 @@ const METRIC_QUERY_PREFIX: Readonly<Record<OverviewWorkspaceKind, string>> = {
   platform: `${METRICS_SYSTEM_FEATURE}:query:`,
 };
 
-/** Platform workspace overview may only call these queries. */
+/** Queries the platform workspace overview panels call. */
 export const PLATFORM_OVERVIEW_ALLOWED_QUERIES = [
   JobQueries.list,
   CapOverviewQueries.tenantOptions,

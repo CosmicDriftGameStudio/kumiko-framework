@@ -1,9 +1,12 @@
-import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type AccessRule,
+  defineWriteHandler,
+  type WriteResult,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
 import { folderAssignmentAggregateId } from "../aggregate-id.ts";
-import { folderAssignmentExecutor } from "../executor.ts";
-import { type ClearFolderPayload, clearFolderPayloadSchema } from "../schemas.ts";
-import { DEFAULT_FOLDER_ACCESS } from "../web/constants.ts";
+import type { FolderAssignmentExecutor } from "../executor.ts";
+import { clearFolderPayloadSchema } from "../schemas.ts";
 
 // clear-folder — removes a host entity from its folder (back to "unfiled").
 // Idempotent: clearing an entity that isn't in any folder is already the
@@ -13,16 +16,17 @@ import { DEFAULT_FOLDER_ACCESS } from "../web/constants.ts";
 // able to see the host row before unfiling it — see
 // shared/parent-visibility.ts.
 export function createClearFolderHandler(
-  access: AccessRule = DEFAULT_FOLDER_ACCESS,
-): WriteHandlerDef {
-  return {
+  access: AccessRule,
+  assignmentExecutor: FolderAssignmentExecutor,
+) {
+  return defineWriteHandler({
     name: "clear-folder",
     schema: clearFolderPayloadSchema,
     access,
     description:
       "Unfiles a host entity so it sits in no folder at all, reporting success when it was already unfiled; use it to take an entity out of its folder without touching the folder itself.",
-    handler: async (event, ctx) => {
-      const payload = event.payload as ClearFolderPayload; // @cast-boundary engine-payload
+    handler: async (event, ctx): Promise<WriteResult<unknown>> => {
+      const payload = event.payload;
       const denied = await denyUnlessJoinRowParentVisible(
         ctx.registry,
         "folder-assignment",
@@ -38,14 +42,12 @@ export function createClearFolderHandler(
         payload.entityId,
       );
 
-      const existing = await folderAssignmentExecutor.detail({ id }, event.user, ctx.db);
+      const existing = await assignmentExecutor.detail({ id }, event.user, ctx.db);
       if (!existing) {
         return { isSuccess: true as const, data: { id } };
       }
 
-      return folderAssignmentExecutor.delete({ id }, event.user, ctx.db);
+      return assignmentExecutor.delete({ id }, event.user, ctx.db);
     },
-  };
+  });
 }
-
-export const clearFolderHandler: WriteHandlerDef = createClearFolderHandler();

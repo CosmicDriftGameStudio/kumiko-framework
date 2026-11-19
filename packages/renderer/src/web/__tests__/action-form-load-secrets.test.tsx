@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { ActionFormScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
 import { useBrowserNavApi } from "../app/nav.tsx";
@@ -35,10 +34,10 @@ describe("actionForm load never fills secret fields", () => {
   test("a loaded record fills the plain field but not password or sensitive ones", async () => {
     window.history.replaceState(null, "", "/edit-credentials?id=c-1");
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { id: "c-1", label: "Prod", apiToken: "tok-123", webhookSecret: "whsec-9" },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     render(
       <BrowserNav>

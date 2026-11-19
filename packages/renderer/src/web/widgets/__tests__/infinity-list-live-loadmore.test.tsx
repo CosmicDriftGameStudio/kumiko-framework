@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
-import type { Dispatcher } from "../../../headless/index.ts";
+import type { QueryResult } from "../../../headless/index.ts";
+import { isRecord } from "../../../headless/is-record.ts";
 import {
   DispatcherProvider,
   type LiveEvent,
@@ -30,7 +31,7 @@ globalThis.IntersectionObserver = class {
   }
 } as unknown as typeof IntersectionObserver;
 
-function success(rows: readonly Row[], nextCursor: string | null) {
+function success(rows: readonly Row[], nextCursor: string | null): QueryResult {
   return { isSuccess: true, data: { rows, nextCursor } };
 }
 
@@ -48,12 +49,12 @@ describe("InfinityList: live refresh racing a load-more", () => {
   });
 
   test("a page-1 change whose refresh is superseded by a load-more shows up without another event", async () => {
-    const resolvers: Array<(res: unknown) => void> = [];
+    const resolvers: Array<(res: QueryResult) => void> = [];
     const dispatcher = createMockDispatcher({
-      query: (() =>
-        new Promise((resolve) => {
+      query: () =>
+        new Promise<QueryResult>((resolve) => {
           resolvers.push(resolve);
-        })) as unknown as Dispatcher["query"],
+        }),
     });
     let emit: ((event: LiveEvent) => void) | undefined;
     const liveEvents: LiveEventSubscriber = (_entity, listener) => {
@@ -78,7 +79,7 @@ describe("InfinityList: live refresh racing a load-more", () => {
     await flushPromises();
     resolvers[0]?.(success([{ id: "m1", subject: "Mail (ungelesen)" }], "c1"));
     await flushPromises();
-    expect(screen.getByText("Mail (ungelesen)")).toBeTruthy();
+    screen.getByText("Mail (ungelesen)");
 
     act(() =>
       emit?.({
@@ -110,18 +111,18 @@ describe("InfinityList: live refresh racing a load-more", () => {
     resolvers[3]?.(success([{ id: "m1", subject: "Mail (gelesen)" }], "c1"));
     await flushPromises();
 
-    expect(screen.getByText("Older mail")).toBeTruthy();
-    expect(screen.getByText("Mail (gelesen)")).toBeTruthy();
+    screen.getByText("Older mail");
+    screen.getByText("Mail (gelesen)");
     expect(screen.queryByText("Mail (ungelesen)")).toBeNull();
   });
 
   test("a live refresh overtaken by a payload change does not re-query the old payload", async () => {
-    const calls: Array<{ resolve: (res: unknown) => void; search: unknown }> = [];
+    const calls: Array<{ resolve: (res: QueryResult) => void; search: unknown }> = [];
     const dispatcher = createMockDispatcher({
-      query: ((_type: string, payload: { readonly search: string }) =>
-        new Promise((resolve) => {
-          calls.push({ resolve, search: payload.search });
-        })) as unknown as Dispatcher["query"],
+      query: (_type: string, payload: unknown) =>
+        new Promise<QueryResult>((resolve) => {
+          calls.push({ resolve, search: isRecord(payload) ? payload["search"] : undefined });
+        }),
     });
     let emit: ((event: LiveEvent) => void) | undefined;
     const liveEvents: LiveEventSubscriber = (_entity, listener) => {
@@ -174,16 +175,16 @@ describe("InfinityList: live refresh racing a load-more", () => {
     calls[2]?.resolve(success([{ id: "m2", subject: "New filter row" }], null));
     await flushPromises();
     expect(screen.queryByText("Old filter row")).toBeNull();
-    expect(screen.getByText("New filter row")).toBeTruthy();
+    screen.getByText("New filter row");
   });
 
   test("a live event of the new payload that arrives while the old payload's refresh is running is refreshed right away instead of parked behind it", async () => {
-    const calls: Array<{ resolve: (res: unknown) => void; search: unknown }> = [];
+    const calls: Array<{ resolve: (res: QueryResult) => void; search: unknown }> = [];
     const dispatcher = createMockDispatcher({
-      query: ((_type: string, payload: { readonly search: string }) =>
-        new Promise((resolve) => {
-          calls.push({ resolve, search: payload.search });
-        })) as unknown as Dispatcher["query"],
+      query: (_type: string, payload: unknown) =>
+        new Promise<QueryResult>((resolve) => {
+          calls.push({ resolve, search: isRecord(payload) ? payload["search"] : undefined });
+        }),
     });
     let emit: ((event: LiveEvent) => void) | undefined;
     const liveEvents: LiveEventSubscriber = (_entity, listener) => {
@@ -238,6 +239,6 @@ describe("InfinityList: live refresh racing a load-more", () => {
     expect(screen.queryByText("Old filter row")).toBeNull();
     calls[3]?.resolve(success([{ id: "m1", subject: "New filter row (live)" }], null));
     await flushPromises();
-    expect(screen.getByText("New filter row (live)")).toBeTruthy();
+    screen.getByText("New filter row (live)");
   });
 });

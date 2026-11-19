@@ -10,7 +10,8 @@ import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
-import { type CorePrimitives, type FormProps, PrimitivesProvider } from "../../primitives.tsx";
+import { type FormProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider } from "../nav.tsx";
@@ -19,22 +20,16 @@ const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
 function stubDispatcher(): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: {} }),
+    query: async () => ({ isSuccess: true, data: {} }),
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function buildSchema(fillHeight?: boolean): FeatureSchema {
   const entity: EntityDefinition = {
+    name: "entity",
     fields: {
       name: {
         type: "text",
@@ -66,7 +61,7 @@ function captureFormProps(fillHeight?: boolean): FormProps {
     captured = props;
     return null;
   };
-  const primitives: CorePrimitives = {
+  const primitives = createStubPrimitives({
     Button: noop,
     Banner: passChildren,
     Field: passChildren,
@@ -85,7 +80,7 @@ function captureFormProps(fillHeight?: boolean): FormProps {
     ConfigSourceBadge: noop,
     ConfigCascadeView: noop,
     Link: noop,
-  };
+  });
   render(
     <LocaleProvider resolver={createStaticLocaleResolver({ locale: "de-DE" })}>
       <DispatcherProvider dispatcher={stubDispatcher()}>

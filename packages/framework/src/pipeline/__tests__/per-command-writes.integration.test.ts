@@ -25,10 +25,11 @@ import { eventsTable } from "../../event-store/index.ts";
 import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "per_command_notes",
   fields: { title: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 const noteExecutor = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
 
 const plainTable = defineUnmanagedTable({
@@ -62,7 +63,7 @@ let failAlwaysCalls = 0;
 const titlePayload = z.object({ title: z.string() });
 
 const feature = defineFeature(FEATURE, (r) => {
-  const note = r.entity({ name: "note", ...noteEntity });
+  const note = r.entity(noteEntity);
 
   r.hook({
     type: "postSave",
@@ -243,22 +244,22 @@ const feature = defineFeature(FEATURE, (r) => {
     }),
   );
 
-  r.streamHandler(
-    "stream-user-write",
-    titlePayload,
-    async function* (query, ctx) {
+  r.streamHandler({
+    name: "stream-user-write",
+    schema: titlePayload,
+    handler: async function* (query, ctx) {
       const res = await ctx.dispatch.write(type("write", "create-note"), {
         title: query.payload.title,
       });
       yield res.isSuccess ? "written" : `rejected:${res.error.code}`;
     },
-    { access: { roles: ["User"] } },
-  );
+    access: { roles: ["User"] },
+  });
 
-  r.streamHandler(
-    "stream-write-as-other",
-    titlePayload,
-    async function* (query, ctx) {
+  r.streamHandler({
+    name: "stream-write-as-other",
+    schema: titlePayload,
+    handler: async function* (query, ctx) {
       try {
         const res = await ctx.dispatch.writeAs(otherAdmin, type("write", "create-note"), {
           title: query.payload.title,
@@ -268,20 +269,20 @@ const feature = defineFeature(FEATURE, (r) => {
         yield `threw:${error instanceof Error ? error.message : "unknown"}`;
       }
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.streamHandler(
-    "stream-write-per-command",
-    titlePayload,
-    async function* (query, ctx) {
+  r.streamHandler({
+    name: "stream-write-per-command",
+    schema: titlePayload,
+    handler: async function* (query, ctx) {
       const res = await ctx.dispatch.write(type("write", "orchestrate"), {
         title: query.payload.title,
       });
       yield res.isSuccess ? "written" : "write-failed";
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   r.queryHandler({
     name: "query-user-write",
@@ -291,52 +292,53 @@ const feature = defineFeature(FEATURE, (r) => {
     access: { roles: ["User"] },
   });
 
-  r.streamHandler(
-    "stream-write",
-    titlePayload,
-    async function* (query, ctx) {
+  r.streamHandler({
+    name: "stream-write",
+    schema: titlePayload,
+    handler: async function* (query, ctx) {
       const res = await ctx.dispatch.write(type("write", "create-note"), {
         title: query.payload.title,
       });
       yield res.isSuccess ? "written" : "write-failed";
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.streamHandler(
-    "stream-db-write",
-    titlePayload,
-    async function* (query, ctx) {
+  r.streamHandler({
+    name: "stream-db-write",
+    schema: titlePayload,
+    handler: async function* (query, ctx) {
       await noteExecutor.create({ title: query.payload.title }, ctx.user, ctx.db);
       yield "written";
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.streamHandler(
-    "stream-insert-one",
-    titlePayload,
-    async function* (query, ctx) {
+  r.streamHandler({
+    name: "stream-insert-one",
+    schema: titlePayload,
+    handler: async function* (query, ctx) {
       await ctx.db.insertOne(plainTable, { title: query.payload.title });
       yield "written";
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.streamHandler(
-    "stream-append",
-    titlePayload,
-    async function* (_query, ctx) {
+  r.streamHandler({
+    name: "stream-append",
+    schema: titlePayload,
+    handler: async function* (_query, ctx) {
       await ctx.events.unsafeAppend({
         aggregateId: "00000000-0000-4000-8000-000000000002",
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "note",
         type: "note.created",
         payload: { title: "sneaky" },
       });
       yield "appended";
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   r.queryHandler({
     name: "query-write",
@@ -362,6 +364,7 @@ const feature = defineFeature(FEATURE, (r) => {
     handler: async (_query, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: "00000000-0000-4000-8000-000000000003",
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "note",
         type: "note.created",
         payload: { title: "sneaky" },

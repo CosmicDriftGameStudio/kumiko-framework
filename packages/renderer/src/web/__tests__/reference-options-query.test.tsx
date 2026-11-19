@@ -44,7 +44,7 @@ const depositScreen: EntityEditScreenDefinition = {
 function makeDispatcher(): Dispatcher & { readonly queried: string[] } {
   const queried: string[] = [];
   const dispatcher = createMockDispatcher({
-    query: (async (qn: string) => {
+    query: async (qn: string) => {
       queried.push(qn);
       if (qn === "deposits:query:lease:options") {
         return {
@@ -53,7 +53,7 @@ function makeDispatcher(): Dispatcher & { readonly queried: string[] } {
         };
       }
       return { isSuccess: true, data: { rows: [{ id: LEASE_ID, startDate: "2026-09-01" }] } };
-    }) as unknown as Dispatcher["query"],
+    },
   });
   return { ...dispatcher, queried };
 }
@@ -84,7 +84,7 @@ describe("reference optionsQuery", () => {
     await waitFor(() => screen.getByTestId("render-edit-form"));
     await user.click(screen.getByTestId("combobox-kumiko-edit-leaseId"));
 
-    expect(await screen.findByText("Max Nachmieter · WE-12 · Haus Ahornweg")).toBeDefined();
+    await screen.findByText("Max Nachmieter · WE-12 · Haus Ahornweg");
     // The entity's own list handler is never asked for this field — that is
     // the whole point, its rows have no readable column.
     expect(dispatcher.queried).not.toContain("deposits:query:lease:list");
@@ -159,7 +159,7 @@ describe("reference optionsQuery", () => {
     });
     await user.click(cell);
 
-    expect(await screen.findByText("Max Nachmieter · WE-12 · Haus Ahornweg")).toBeDefined();
+    await screen.findByText("Max Nachmieter · WE-12 · Haus Ahornweg");
     expect(dispatcher.queried).toContain("deposits:query:lease:options");
     expect(dispatcher.queried).not.toContain("deposits:query:lease:list");
   });

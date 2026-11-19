@@ -38,6 +38,7 @@ const TEST_KEY_B64 = Buffer.alloc(32, 7).toString("base64");
 const TEST_KEY = decodeBlindIndexKey(TEST_KEY_B64);
 
 const personEntity = createEntity({
+  name: "person",
   table: "read_bidx_persons",
   fields: {
     email: createTextField({ required: true, personal: "self", find: "exact" }),
@@ -45,25 +46,27 @@ const personEntity = createEntity({
   },
 });
 const personFeature = defineFeature("bidxtest", (r) => {
-  r.entity({ name: "person", ...personEntity });
+  r.entity(personEntity);
 });
-const personTable = buildEntityTable("person", personEntity);
+const personTable = buildEntityTable(personEntity);
 
 // Lookupable entity whose read table is deliberately never created — used to
 // prove the forget sweep skips missing relations.
 const ghostEntity = createEntity({
+  name: "ghost",
   table: "read_bidx_ghosts_missing",
   fields: {
     email: createTextField({ required: true, personal: "self", find: "exact" }),
   },
 });
 const ghostFeature = defineFeature("bidxghost", (r) => {
-  r.entity({ name: "ghost", ...ghostEntity });
+  r.entity(ghostEntity);
 });
 
 // Migrated table that predates the `phone` lookupable field: `phone` and
 // `phone_bidx` are physically missing (feature version without migration).
 const driftEntity = createEntity({
+  name: "drift",
   table: "read_bidx_drift",
   fields: {
     email: createTextField({ required: true, personal: "self", find: "exact" }),
@@ -71,12 +74,13 @@ const driftEntity = createEntity({
   },
 });
 const driftFeature = defineFeature("bidxdrift", (r) => {
-  r.entity({ name: "drift", ...driftEntity });
+  r.entity(driftEntity);
 });
 
 // Self-PII entity with a serial id: a uuid subject id can never match it, and
 // probing it would throw "invalid input syntax for type integer".
 const serialEntity = createEntity({
+  name: "serialrow",
   table: "read_bidx_serial",
   idType: "serial",
   fields: {
@@ -84,7 +88,7 @@ const serialEntity = createEntity({
   },
 });
 const serialFeature = defineFeature("bidxserial", (r) => {
-  r.entity({ name: "serialrow", ...serialEntity });
+  r.entity(serialEntity);
 });
 
 let testDb: TestDb;

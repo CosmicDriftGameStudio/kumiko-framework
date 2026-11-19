@@ -7,7 +7,6 @@ import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-
 import {
   buildEntityTable,
   createEventStoreExecutor,
-  createTenantDb,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -21,10 +20,12 @@ import {
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   buildStorageKey,
+  createFilesFeature,
   createInMemoryFileProvider,
   fileRefEntity,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
@@ -53,7 +54,6 @@ import {
   tenantRetentionOverrideTable,
 } from "../../data-retention/index.ts";
 import { resolveTenantRetentionPreset } from "../../data-retention/resolve-tenant-preset.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createFilesTenantDataFeature } from "../../files-tenant-data/index.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
 import { userSessionTable } from "../../sessions/schema/user-session.ts";
@@ -74,6 +74,7 @@ const tenantAdmin = TestUsers.admin;
 const tenantId = tenantAdmin.tenantId;
 
 const ledgerEntity = createEntity({
+  name: "ledger",
   table: "read_hold_files_ledger",
   fields: {
     amount: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -83,13 +84,14 @@ const ledgerEntity = createEntity({
 });
 // No entity-level retention: it is held only through a per-tenant override.
 const contractEntity = createEntity({
+  name: "contract",
   table: "read_hold_files_contract",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
   },
 });
-const ledgerTable = buildEntityTable("ledger", ledgerEntity);
-const contractTable = buildEntityTable("contract", contractEntity);
+const ledgerTable = buildEntityTable(ledgerEntity);
+const contractTable = buildEntityTable(contractEntity);
 const ledgerCrud = createEventStoreExecutor(ledgerTable, ledgerEntity, { entityName: "ledger" });
 const contractCrud = createEventStoreExecutor(contractTable, contractEntity, {
   entityName: "contract",
@@ -105,8 +107,8 @@ const overrideCrud = createEventStoreExecutor(
 
 const holdFixturesFeature = defineFeature("hold-files-fixtures", (r) => {
   r.requires({ features: ["tenant-lifecycle"] });
-  r.entity({ name: "ledger", ...ledgerEntity });
-  r.entity({ name: "contract", ...contractEntity });
+  r.entity(ledgerEntity);
+  r.entity(contractEntity);
   r.writeHandler({
     name: "ledger-create",
     schema: z.object({ amount: z.string(), receipt: z.string() }),

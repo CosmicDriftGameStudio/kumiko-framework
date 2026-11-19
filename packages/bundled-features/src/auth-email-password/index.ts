@@ -1,12 +1,24 @@
 // Convention paths for the auth pages (reset/verify/signup/invite); apps build
 // their magic-link appUrls from these. All mail now goes through delivery.
 
-export { normalizeEmail } from "../shared/index.ts";
 // Kept as a public re-export (not just internal call sites) — this feature's
 // barrel is where consumers of the published package have always found
 // hashPassword/verifyPassword; removing it is a breaking change that needs
 // its own changeset + deliberate deprecation window, not a silent drop.
-export { hashPassword, verifyPassword } from "../shared/password-hashing.ts";
+// Generic HMAC-signed single-purpose token helpers. Re-exported so
+// app-specific out-of-band flows (subscriber-confirm, magic-links,
+// invite-tokens) can use the same battle-tested signer/verifier
+// instead of duplicating HMAC logic. The purpose string prevents
+// cross-replay between flows.
+export {
+  hashPassword,
+  normalizeEmail,
+  signToken,
+  TokenPurpose,
+  type VerifyResult,
+  verifyPassword,
+  verifyToken,
+} from "../shared/index.ts";
 export type {
   BootstrapConfigValue,
   BootstrapDeps,
@@ -40,12 +52,6 @@ export {
   AUTH_SELF_REGISTRATION_FEATURE,
   createAuthSelfRegistrationToggleFeature,
 } from "./self-registration-toggle.ts";
-// Generic HMAC-signed single-purpose token helpers. Re-exported so
-// app-specific out-of-band flows (subscriber-confirm, magic-links,
-// invite-tokens) can use the same battle-tested signer/verifier
-// instead of duplicating HMAC logic. The purpose string prevents
-// cross-replay between flows.
-export { signToken, TokenPurpose, type VerifyResult, verifyToken } from "./signed-token.ts";
 export {
   type IssuedSignupActivation,
   type IssueSignupActivationArgs,

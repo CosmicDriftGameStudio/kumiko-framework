@@ -10,11 +10,11 @@ import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
-  type CorePrimitives,
   type EmbeddedListInputProps,
   type InputProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import { NavProvider } from "../nav.tsx";
@@ -32,7 +32,7 @@ const captureList: ComponentType<EmbeddedListInputProps> = (props) => {
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: passChildren,
   Field: passChildren,
@@ -52,7 +52,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 const euro = { kind: "literal", code: "EUR" } as const;
 
@@ -91,18 +91,11 @@ const screen: ActionFormScreenDefinition = {
   },
 };
 
-const dispatcher = {
-  write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-  query: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["query"],
-  batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-  statusStore: {
-    getState: () => "online",
-    subscribe: () => () => {},
-  } as unknown as Dispatcher["statusStore"],
-  async *stream() {},
-  pendingWrites: () => [],
-  pendingFiles: () => [],
-} satisfies Dispatcher;
+const dispatcher = createMockDispatcher({
+  write: async () => ({ isSuccess: true, data: {} }),
+  query: async () => ({ isSuccess: true, data: {} }),
+  batch: async () => ({ isSuccess: true, results: [] }),
+}) satisfies Dispatcher;
 
 function mountForm(): void {
   for (const key of Object.keys(capturedInputs)) delete capturedInputs[key];

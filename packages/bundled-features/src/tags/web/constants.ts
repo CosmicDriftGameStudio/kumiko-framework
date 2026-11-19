@@ -32,9 +32,9 @@ export const TAGS_EDIT_SCREEN_ID = "tag-edit";
 // Qualified handler names (QN format: scope:type:name). Clients reference the
 // object instead of magic strings (mirror custom-fields' Handlers/Queries).
 export const TagsHandlers = {
-  createTag: "tags:write:create-tag",
-  updateTag: "tags:write:update-tag",
-  deleteTag: "tags:write:delete-tag",
+  createTag: "tags:write:tag:create",
+  updateTag: "tags:write:tag:update",
+  deleteTag: "tags:write:tag:delete",
   assignTag: "tags:write:assign-tag",
   removeTag: "tags:write:remove-tag",
 } as const;
@@ -48,13 +48,13 @@ export const TagsQueries = {
 
 // Default RBAC for every tag write/read path. Tags are a low-sensitivity
 // collaboration tool, so both tenant roles may use them. Apps with their own
-// role vocabulary (e.g. "Admin"/"Editor") override via createTagsFeature({ roles }),
-// or adopt the host's whole access model with createTagsFeature({ access }) —
+// role vocabulary (e.g. "Admin"/"Editor") override via createTagsFeature({ parents, roles }),
+// or adopt the host's whole access model with createTagsFeature({ parents, access }) —
 // otherwise the hard-wired QNs are access_denied for their users.
 export const DEFAULT_TAG_ROLES = ["TenantAdmin", "TenantMember"] as const;
 
 // The default access rule applied to every tag handler when the app passes
-// neither `access` nor `roles`. createTagsFeature({ access: { openToAll: { reason } } })
+// neither `access` nor `roles`. createTagsFeature({ parents, access: { openToAll: { reason } } })
 // makes tagging reachable for any authenticated tenant user — matching apps
 // whose other handlers are openToAll rather than role-gated.
 export const DEFAULT_TAG_ACCESS: AccessRule = { roles: DEFAULT_TAG_ROLES };
@@ -62,3 +62,9 @@ export const DEFAULT_TAG_ACCESS: AccessRule = { roles: DEFAULT_TAG_ROLES };
 // Advisory-lock namespace serialising assign-tag against delete-tag per tag id
 // (no FK in the event-sourced catalog, so the DB cannot guard the orphan race).
 export const TAG_LOCK_NAMESPACE = 0x74_61_67_73; // 'tags'
+
+// Mirrors the framework's MAX_LIST_LIMIT (entity list schema rejects anything above it); web code
+// takes no value imports from framework/engine, the DOM tests validate the payloads against the real schema.
+export const TAGS_QUERY_LIMIT = 200;
+
+export const TAG_CATALOG_QUERY = { limit: TAGS_QUERY_LIMIT } as const;

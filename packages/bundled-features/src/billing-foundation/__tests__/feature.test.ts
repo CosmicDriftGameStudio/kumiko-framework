@@ -2,6 +2,13 @@
 
 import { describe, expect, test } from "bun:test";
 import { paymentAggregateId, paymentRowId, subscriptionAggregateId } from "../aggregate-id.ts";
+import {
+  INVOICE_PAID_EVENT_QN,
+  INVOICE_PAYMENT_FAILED_EVENT_QN,
+  SUBSCRIPTION_CANCELED_EVENT_QN,
+  SUBSCRIPTION_CREATED_EVENT_QN,
+  SUBSCRIPTION_UPDATED_EVENT_QN,
+} from "../events.ts";
 import { createBillingFoundationFeature } from "../feature.ts";
 import type { BillingPlanCatalog } from "../types.ts";
 import {
@@ -9,7 +16,6 @@ import {
   BILLING_PLANS_SCREEN_ID,
   SUBSCRIPTION_PROVIDER_EXTENSION,
   SubscriptionEventTypes,
-  SubscriptionFoundationHandlers,
   SubscriptionStatuses,
 } from "../web/constants.ts";
 
@@ -74,18 +80,23 @@ describe("billingFoundationFeature — events + projection + handlers registered
     expect(events["invoice-payment-failed"]).toBeDefined();
   });
 
-  test("subscription-projection registered with 5 apply keys", () => {
+  test("subscription-projection applies every subscription and invoice event", () => {
     const proj = createBillingFoundationFeature().projections["subscription"];
     expect(proj).toBeDefined();
     const applyKeys = Object.keys(proj?.apply ?? {});
-    expect(applyKeys).toHaveLength(5);
+    expect(applyKeys).toEqual(
+      expect.arrayContaining([
+        SUBSCRIPTION_CREATED_EVENT_QN,
+        SUBSCRIPTION_UPDATED_EVENT_QN,
+        SUBSCRIPTION_CANCELED_EVENT_QN,
+        INVOICE_PAID_EVENT_QN,
+        INVOICE_PAYMENT_FAILED_EVENT_QN,
+      ]),
+    );
   });
 
-  test("process-event write-handler registered with expected QN", () => {
+  test("process-event write-handler is registered", () => {
     expect(createBillingFoundationFeature().writeHandlers["process-event"]).toBeDefined();
-    expect(SubscriptionFoundationHandlers.processEvent).toBe(
-      "billing-foundation:write:process-event",
-    );
   });
 
   test("process-event is SystemAdmin-only (programmatic-only entry-point)", () => {

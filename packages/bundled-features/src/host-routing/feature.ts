@@ -5,7 +5,6 @@ import {
   isSystemTenant,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import {
   EXT_TENANT_EXISTENCE,
@@ -116,13 +115,10 @@ const tenantKeyExistsQuery = defineQueryHandler({
   agent: { expose: false },
   description:
     "Anonymous existence check for a tenant key, backing the unknown-tenant 404 of the host-routing hostDispatch. Returns only { exists }.",
+  systemScope: true,
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message: "host-routing:query:tenant-key-exists requires ctx.systemDb (r.systemScope())",
-      });
-    }
-    const db = ctx.systemDb.acknowledgeCrossTenant(
+    const { systemDb } = ctx;
+    const db = systemDb.acknowledgeCrossTenant(
       "tenant-key existence check for the host-routing 404 — publicly observable via the 404 itself",
     );
     return { exists: (await servingTenantIdByKey(db, query.payload.key)) !== null };
@@ -139,15 +135,12 @@ function hostTenantExistsQueryFor(options: HostRoutingOptions) {
     agent: { expose: false },
     description:
       "Anonymous host check backing the unknown-host 404 of the host-routing hostDispatch in tenantBy resolver mode. Returns only { exists }.",
+    systemScope: true,
     handler: async (query, ctx) => {
-      if (!ctx.systemDb) {
-        throw new InternalError({
-          message: "host-routing:query:host-tenant-exists requires ctx.systemDb (r.systemScope())",
-        });
-      }
+      const { systemDb } = ctx;
       const hostname = normalizeHostname(query.payload.host);
       if (hostname === null) return { exists: false };
-      const db = ctx.systemDb.acknowledgeCrossTenant(
+      const db = systemDb.acknowledgeCrossTenant(
         "host existence check for the host-routing 404 — publicly observable via the 404 itself",
       );
       return { exists: (await servingTenantIdByResolver(options, db, hostname)) !== null };
@@ -212,8 +205,7 @@ export function createHostRoutingFeature(options: HostRoutingOptions): FeatureDe
 
     const resolver = tenantResolverFor(options);
     if (resolver !== undefined) {
-      // biome-ignore lint/correctness/useHookAtTopLevel: r.useExtension is a registrar method, not a React hook; path mode without an apex tenant must leave the resolver slot free.
-      r.useExtension(EXT_TENANT_RESOLVER, "host", resolver);
+      r.applyExtension({ name: EXT_TENANT_RESOLVER, entity: "host", ...resolver });
     }
 
     const existence: TenantExistenceProvider = {
@@ -222,6 +214,6 @@ export function createHostRoutingFeature(options: HostRoutingOptions): FeatureDe
         (tenantId: string) =>
           isSystemTenant(tenantId) ? true : isTenantServing(db, tenantId),
     };
-    r.useExtension(EXT_TENANT_EXISTENCE, "active-tenant", existence);
+    r.applyExtension({ name: EXT_TENANT_EXISTENCE, entity: "active-tenant", ...existence });
   });
 }

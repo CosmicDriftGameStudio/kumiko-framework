@@ -12,13 +12,13 @@ import {
 } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { notesFeature } from "./src/app/notes-feature";
 import { appScreensFeature } from "./src/app/screens-feature";
-import { BUNDLED_LISTS } from "./src/bundled-lists";
+import { LIST_DEFAULTS } from "./src/list-defaults";
 import { APP_FEATURES, AUTH_COMPOSE_OPTIONS } from "./src/run-config";
 
 export default {
   features: composeFeatures([...APP_FEATURES, appScreensFeature, notesFeature], {
     includeBundled: true,
-    bundledLists: BUNDLED_LISTS,
+    listDefaults: LIST_DEFAULTS,
     ...(buildComposeAuthOptions(AUTH_COMPOSE_OPTIONS) !== undefined && {
       authOptions: buildComposeAuthOptions(AUTH_COMPOSE_OPTIONS),
     }),

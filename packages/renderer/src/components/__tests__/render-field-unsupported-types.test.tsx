@@ -15,12 +15,8 @@ import type { ComponentType, ReactNode } from "react";
 import type { EditFieldViewModel } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import {
-  type BannerProps,
-  type CorePrimitives,
-  type InputProps,
-  PrimitivesProvider,
-} from "../../primitives.tsx";
+import { type BannerProps, type InputProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { RenderField } from "../render-field.tsx";
 
 let capturedInput: InputProps | undefined;
@@ -36,7 +32,7 @@ const captureBanner: ComponentType<BannerProps> = (props) => {
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: captureBanner,
   Field: passChildren,
@@ -55,7 +51,7 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 function baseField(overrides: Partial<EditFieldViewModel>): EditFieldViewModel {
   return {
@@ -106,9 +102,9 @@ describe.each([
     const children = capturedBanner?.children;
     const childArray = Array.isArray(children) ? children : [children];
     expect(childArray[0]).toBe("This field type can't be edited here yet.");
-    const valuePreview = childArray[1] as { props: { children: unknown } } | false | undefined;
+    const valuePreview = childArray[1] as { props: { value: unknown } } | false | undefined;
     if (!valuePreview) throw new Error("expected a value-preview element");
-    expect(valuePreview.props.children).toBe(JSON.stringify(field.value));
+    expect(valuePreview.props.value).toBe(field.value);
   });
 });
 

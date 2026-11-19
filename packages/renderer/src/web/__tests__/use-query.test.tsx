@@ -2,11 +2,13 @@ import { describe, expect, mock, test } from "bun:test";
 import type { ReactNode } from "react";
 import type { Dispatcher, DispatcherError } from "../../headless/index.ts";
 import { DispatcherProvider, useQuery } from "../../index.ts";
-import { act, createMockDispatcher, renderHook, waitFor } from "./test-utils.tsx";
-
-function makeDispatcher(queryFn?: Dispatcher["query"]): Dispatcher {
-  return createMockDispatcher({ query: queryFn });
-}
+import {
+  act,
+  createMockDispatcher,
+  type MockQueryHandler,
+  renderHook,
+  waitFor,
+} from "./test-utils.tsx";
 
 function wrap(dispatcher: Dispatcher) {
   return ({ children }: { children: ReactNode }) => (
@@ -16,10 +18,10 @@ function wrap(dispatcher: Dispatcher) {
 
 describe("useQuery", () => {
   test("loads on mount; populates data, flips loading to false", async () => {
-    const query = mock(
+    const query = mock<MockQueryHandler>(
       async () => ({ isSuccess: true, data: [{ id: "1" }, { id: "2" }] }) as never,
     );
-    const dispatcher = makeDispatcher(query as unknown as Dispatcher["query"]);
+    const dispatcher = createMockDispatcher({ query: query });
     const { result } = renderHook(() => useQuery("task:list", {}), {
       wrapper: wrap(dispatcher),
     });
@@ -41,9 +43,9 @@ describe("useQuery", () => {
       i18nKey: "errors.not_found",
       message: "no",
     };
-    const query = mock(async () => ({ isSuccess: false, error: err }) as never);
+    const query = mock<MockQueryHandler>(async () => ({ isSuccess: false, error: err }));
     const { result } = renderHook(() => useQuery("task:list", {}), {
-      wrapper: wrap(makeDispatcher(query as unknown as Dispatcher["query"])),
+      wrapper: wrap(createMockDispatcher({ query: query })),
     });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -52,9 +54,9 @@ describe("useQuery", () => {
   });
 
   test("enabled:false skips the auto-fetch until refetch is called", async () => {
-    const query = mock(async () => ({ isSuccess: true, data: ["hi"] }) as never);
+    const query = mock<MockQueryHandler>(async () => ({ isSuccess: true, data: ["hi"] }));
     const { result } = renderHook(() => useQuery("task:list", {}, { enabled: false }), {
-      wrapper: wrap(makeDispatcher(query as unknown as Dispatcher["query"])),
+      wrapper: wrap(createMockDispatcher({ query: query })),
     });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -70,12 +72,12 @@ describe("useQuery", () => {
 
   test("refetch re-runs and replaces data (after-mutation reload pattern)", async () => {
     let callCount = 0;
-    const query = mock(async () => {
+    const query = mock<MockQueryHandler>(async () => {
       callCount += 1;
       return { isSuccess: true, data: [callCount] } as never;
     });
     const { result } = renderHook(() => useQuery<number[]>("task:list", {}), {
-      wrapper: wrap(makeDispatcher(query as unknown as Dispatcher["query"])),
+      wrapper: wrap(createMockDispatcher({ query: query })),
     });
 
     await waitFor(() => expect(result.current.data).toEqual([1]));

@@ -148,8 +148,8 @@ describe("appendRaw — single event", () => {
     );
 
     const rows = await selectMany(testDb.db, eventsTable, { aggregateId });
-    expect(rows[0]?.payload).toEqual(payload);
-    expect(rows[0]?.metadata).toEqual(metadata);
+    expect(rows[0]?.["payload"]).toEqual(payload);
+    expect(rows[0]?.["metadata"]).toEqual(metadata);
   });
 
   test("does NOT fire pg_notify on EVENTS_PUBSUB_CHANNEL — contrast with append", async () => {

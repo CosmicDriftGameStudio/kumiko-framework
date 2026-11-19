@@ -75,6 +75,7 @@ describe("stack boot requirements", () => {
     readonly stack: string;
     readonly option: string;
     readonly features: () => readonly FeatureDefinition[];
+    readonly envSource?: Record<string, string>;
   }> = [
     {
       stack: "composeMailStack",
@@ -82,22 +83,36 @@ describe("stack boot requirements", () => {
       features: () => composeMailStack({ transports: ["smtp"] }),
     },
     { stack: "composeFileStack", option: "fileStorage", features: () => composeFileStack() },
-    { stack: "composeGdprStack", option: "kmsMode", features: () => composeGdprStack() },
+    {
+      stack: "composeGdprStack",
+      option: "kmsMode",
+      features: () => composeGdprStack(),
+      envSource: { ...BOOT_ENV, NODE_ENV: "development" },
+    },
     {
       stack: "composeUserDataRightsStack",
       option: "mail",
       features: () => composeUserDataRightsStack(),
     },
-    { stack: "composeSecurityStack", option: "kmsMode", features: () => composeSecurityStack() },
+    {
+      stack: "composeSecurityStack",
+      option: "kmsMode",
+      features: () => composeSecurityStack(),
+      envSource: { ...BOOT_ENV, NODE_ENV: "development" },
+    },
   ];
 
-  for (const { stack, option, features } of missingOptionCases) {
+  for (const { stack, option, features, envSource } of missingOptionCases) {
     test(`${stack} without \`${option}\` names the stack and the option`, async () => {
-      await expect(bootValidate(features())).rejects.toThrow(
+      await expect(bootValidate(features(), envSource ? { envSource } : {})).rejects.toThrow(
         `${stack} needs the boot option \`${option}\``,
       );
     });
   }
+
+  test("the production default kmsMode satisfies the composeGdprStack requirement", async () => {
+    await expect(bootValidate(composeGdprStack())).resolves.toBeUndefined();
+  });
 
   test("composeSecurityStack with rateLimit: false names the rateLimit option", async () => {
     await expect(

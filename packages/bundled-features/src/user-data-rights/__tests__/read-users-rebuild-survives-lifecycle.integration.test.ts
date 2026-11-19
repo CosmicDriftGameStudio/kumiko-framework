@@ -139,6 +139,9 @@ function mintActor(user: { id: string; tenantId: TenantId; roles: readonly strin
   return withMintedSession((u, meta) => callbacks.get().sessionCreator(u, meta), user);
 }
 
+const LEGACY_RAW_WRITE =
+  "reproduces the legacy state: a status written to the row without an event";
+
 describe("read_users rebuild preserves lifecycle state", () => {
   test("Restricted status survives a projection rebuild (T_create != T_active)", async () => {
     // Discriminating premise: user.created lands on systemAdmin.tenantId
@@ -163,9 +166,7 @@ describe("read_users rebuild preserves lifecycle state", () => {
     const restricted = await stack.http.writeOk<{ status: string }>(RESTRICT, {}, aliceActive);
     expect(restricted.status).toBe(USER_STATUS.Restricted);
 
-    const before = (await selectMany(stack.db, userTable, { id: created.id })) as Array<{
-      status: string;
-    }>;
+    const before = await selectMany(stack.db, userTable, { id: created.id });
     expect(before[0]?.status).toBe(USER_STATUS.Restricted);
 
     // A real rebuild of the read_users projection from the event log.
@@ -174,9 +175,7 @@ describe("read_users rebuild preserves lifecycle state", () => {
     // Before the lifecycle handlers were rescoped to the user's stream, restrict
     // wrote directly without an event, so the rebuild replayed only user.created
     // and reset the status to Active.
-    const after = (await selectMany(stack.db, userTable, { id: created.id })) as Array<{
-      status: string;
-    }>;
+    const after = await selectMany(stack.db, userTable, { id: created.id });
     expect(after[0]?.status).toBe(USER_STATUS.Restricted);
   });
 
@@ -199,10 +198,7 @@ describe("read_users rebuild preserves lifecycle state", () => {
 
     await rebuildProjection(USER_PROJECTION, { db: stack.db, registry });
 
-    const after = (await selectMany(stack.db, userTable, { id: created.id })) as Array<{
-      status: string;
-      gracePeriodEnd: typeof gracePeriodEnd | null;
-    }>;
+    const after = await selectMany(stack.db, userTable, { id: created.id });
     expect(after[0]?.status).toBe(USER_STATUS.DeletionRequested);
     // gracePeriodEnd must survive replay with its exact value, not merely remain
     // non-null: a timezone or round-trip error can produce a non-null but wrong
@@ -223,27 +219,39 @@ describe("read_users rebuild preserves lifecycle state", () => {
     );
 
     // Prae-Fix-Zustand simulieren: roher Write OHNE Event.
-    await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: created.id });
+    await updateRows(
+      stack.db,
+      userTable,
+      { status: USER_STATUS.Restricted },
+      { id: created.id },
+      {
+        projectionOnly: LEGACY_RAW_WRITE,
+      },
+    );
 
     // Without the backfill, the rebuild replays only user.created and erases the status.
     await rebuildProjection(USER_PROJECTION, { db: stack.db, registry });
-    const wiped = (await selectMany(stack.db, userTable, { id: created.id })) as Array<{
-      status: string;
-    }>;
+    const wiped = await selectMany(stack.db, userTable, { id: created.id });
     expect(wiped[0]?.status).toBe(USER_STATUS.Active);
 
     // Restore the divergent live state (the rebuild set it to Active) before running
     // reconciliation.
-    await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: created.id });
+    await updateRows(
+      stack.db,
+      userTable,
+      { status: USER_STATUS.Restricted },
+      { id: created.id },
+      {
+        projectionOnly: LEGACY_RAW_WRITE,
+      },
+    );
     const { backfilled, failed } = await backfillUserLifecycleEvents(stack.db);
     expect(backfilled).toBeGreaterThanOrEqual(1);
     expect(failed).toEqual([]);
 
     // The event log now contains the state, so the rebuild preserves it.
     await rebuildProjection(USER_PROJECTION, { db: stack.db, registry });
-    const survived = (await selectMany(stack.db, userTable, { id: created.id })) as Array<{
-      status: string;
-    }>;
+    const survived = await selectMany(stack.db, userTable, { id: created.id });
     expect(survived[0]?.status).toBe(USER_STATUS.Restricted);
   });
 
@@ -259,14 +267,30 @@ describe("read_users rebuild preserves lifecycle state", () => {
       { email: "healthy.rebuild@example.com", passwordHash: hash, displayName: "Healthy" },
       await mintActor(TestUsers.systemAdmin),
     );
-    await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: goodRow.id });
+    await updateRows(
+      stack.db,
+      userTable,
+      { status: USER_STATUS.Restricted },
+      { id: goodRow.id },
+      {
+        projectionOnly: LEGACY_RAW_WRITE,
+      },
+    );
 
     const badRow = await stack.http.writeOk<{ id: string }>(
       UserHandlers.create,
       { email: "corrupt.rebuild@example.com", passwordHash: hash, displayName: "Corrupt" },
       await mintActor(TestUsers.systemAdmin),
     );
-    await updateRows(stack.db, userTable, { status: USER_STATUS.Restricted }, { id: badRow.id });
+    await updateRows(
+      stack.db,
+      userTable,
+      { status: USER_STATUS.Restricted },
+      { id: badRow.id },
+      {
+        projectionOnly: LEGACY_RAW_WRITE,
+      },
+    );
     // userEntity is systemStream:true (schema/user.ts) — its event stream
     // lives on SYSTEM_TENANT_ID regardless of the creating tenant. Archiving
     // under any other tenant would be a silent no-op against assertStreamWritable.
@@ -289,10 +313,7 @@ describe("read_users rebuild preserves lifecycle state", () => {
     // rather than merely resetting to Active. That is why the failed report is
     // the operator alert; recovery is restoreStream + Backfill re-run, THEN rebuild.
     await rebuildProjection(USER_PROJECTION, { db: stack.db, registry });
-    const rows = (await selectMany(stack.db, userTable, {})) as Array<{
-      id: string;
-      status: string;
-    }>;
+    const rows = await selectMany(stack.db, userTable, {});
     const good = rows.find((r) => r.id === goodRow.id);
     const bad = rows.find((r) => r.id === badRow.id);
     expect(good?.status).toBe(USER_STATUS.Restricted);

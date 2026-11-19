@@ -38,6 +38,7 @@ import {
 // boundaries (audit events for the DPO, possible re-issue paths).
 
 export const exportDownloadTokenEntity = createEntity({
+  name: "export-download-token",
   table: "read_export_download_tokens",
   idType: "uuid",
 
@@ -111,7 +112,4 @@ export const exportDownloadTokenEntity = createEntity({
   ],
 });
 
-export const exportDownloadTokensTable = buildEntityTable(
-  "exportDownloadToken",
-  exportDownloadTokenEntity,
-);
+export const exportDownloadTokensTable = buildEntityTable(exportDownloadTokenEntity);

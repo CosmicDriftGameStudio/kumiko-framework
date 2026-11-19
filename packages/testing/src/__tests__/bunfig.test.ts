@@ -522,7 +522,13 @@ describe("bunfig.real.toml + the test:real positional filter", () => {
 });
 
 describe("TEST_TIMEOUT_MS", () => {
-  test("unit keeps the bun default, integration and dom keep the repo budget", () => {
-    expect(TEST_TIMEOUT_MS).toEqual({ unit: 5000, integration: 15000, dom: 15000, real: 240000 });
+  test("unit and dom keep the bun default, integration keeps the repo budget", () => {
+    expect(TEST_TIMEOUT_MS).toEqual({
+      unit: 5000,
+      integration: 15000,
+      build: 180000,
+      dom: 5000,
+      real: 240000,
+    });
   });
 });

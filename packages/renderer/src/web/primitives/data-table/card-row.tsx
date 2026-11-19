@@ -4,7 +4,13 @@ import type { DataTableRowAction } from "../../../index.ts";
 import { cn } from "../../lib/cn.ts";
 import { cardToneClass } from "../data-table-cell.tsx";
 import { RowActionsCell } from "../row-actions.tsx";
-import { type CardRoles, renderCardBody, renderCardLinks, splitLinkColumns } from "./card-body.tsx";
+import {
+  type CardRoles,
+  cardBodyParts,
+  renderCardBody,
+  renderCardLinks,
+  splitLinkColumns,
+} from "./card-body.tsx";
 import {
   ASSISTANT_FOCUS_CARD_CLASS,
   CARD_SURFACE_CLASS,
@@ -33,9 +39,12 @@ function renderCardMenu(
   m: DataTableModel,
   row: ListRowViewModel,
   menuActions: NonNullable<DataTableModel["menuActions"]>,
+  besideTitle: boolean,
 ): ReactNode {
+  // Beside the title the phone's 44px tap target overlaps the card padding instead of
+  // making the title line taller than the title.
   return renderStopPropagation(
-    "shrink-0",
+    cn("shrink-0", besideTitle && "max-md:-my-3"),
     undefined,
     <RowActionsCell
       row={row}
@@ -155,14 +164,58 @@ function renderCardContent(
   );
 }
 
+type CardSectionsInput = {
+  readonly bodyRoles: CardRoles;
+  readonly openRow: (() => void) | undefined;
+  readonly buttonActions: ReturnType<typeof splitCardActions>["buttonActions"];
+  readonly linkColumns: ReturnType<typeof splitLinkColumns>["linkColumns"];
+  readonly menuBesideTitle: boolean;
+};
+
+// With the menu beside the title line only, the lines above and below the title keep the
+// full card width instead of sharing it with the menu.
+function cardSections(
+  m: DataTableModel,
+  row: ListRowViewModel,
+  input: CardSectionsInput,
+): { readonly top: ReactNode; readonly content: ReactNode; readonly below: ReactNode } {
+  const { bodyRoles, openRow, buttonActions, linkColumns } = input;
+  const withOpener = (body: ReactNode): ReactNode =>
+    openRow !== undefined ? renderCardOpenButton(openRow, body) : body;
+  if (!input.menuBesideTitle) {
+    const main = withOpener(renderCardBody(m, row, bodyRoles));
+    return {
+      top: null,
+      content: renderCardContent(m, row, main, buttonActions, linkColumns),
+      below: null,
+    };
+  }
+  const parts = cardBodyParts(m, row, bodyRoles);
+  const below = renderCardContent(m, row, parts.meta, buttonActions, linkColumns);
+  return {
+    top: parts.top !== null && (
+      <div className="flex min-w-0 basis-full flex-col gap-1">{parts.top}</div>
+    ),
+    content: <div className="flex min-w-0 flex-1">{withOpener(parts.heading)}</div>,
+    below: below !== null && <div className="flex min-w-0 basis-full">{below}</div>,
+  };
+}
+
 export function renderCard(m: DataTableModel, row: ListRowViewModel, roles: CardRoles): ReactNode {
   const { rowTone } = m;
   const openRow = m.rowOpener(row);
   const { buttonActions, menuActions } = splitCardActions(m, row, openRow !== undefined);
   const hasMenu = menuActions.length > 0;
   const { bodyRoles, linkColumns } = splitLinkColumns(m, row, roles);
-  const body = renderCardBody(m, row, bodyRoles);
-  const main = openRow !== undefined ? renderCardOpenButton(openRow, body) : body;
+  const leadingControls = m.expansion !== undefined || m.selection.active;
+  const menuBesideTitle = hasMenu && bodyRoles.image?.fileDisplay === undefined && !leadingControls;
+  const sections = cardSections(m, row, {
+    bodyRoles,
+    openRow,
+    buttonActions,
+    linkColumns,
+    menuBesideTitle,
+  });
   // In a list with row tones every card carries a stripe (neutral = grey) so the cards align.
   const toneClass = cardToneClass(rowTone === undefined ? undefined : (rowTone(row) ?? "neutral"));
   const toned = toneClass !== "";
@@ -173,19 +226,22 @@ export function renderCard(m: DataTableModel, row: ListRowViewModel, roles: Card
       data-tone={rowTone?.(row)}
       className={cn(
         cardRowBaseClass(m),
+        menuBesideTitle && "flex-wrap gap-y-1",
         toneClass,
         m.focusedRowId === row.id && ASSISTANT_FOCUS_CARD_CLASS,
         // A toned card already pads past its inner 4px stripe (see cardToneClass); a later pl-* would override it.
-        !toned && cardLeftPadding(m.expansion !== undefined || m.selection.active),
+        !toned && cardLeftPadding(leadingControls),
         hasMenu ? "pr-2" : "pr-4",
         m.density.card,
       )}
       {...(openRow !== undefined && { onClick: rowClickHandler(openRow) })}
     >
+      {sections.top}
       {m.selection.cardCheckbox(row)}
       {renderExpandToggle(m, row)}
-      {renderCardContent(m, row, main, buttonActions, linkColumns)}
-      {hasMenu && renderCardMenu(m, row, menuActions)}
+      {sections.content}
+      {hasMenu && renderCardMenu(m, row, menuActions, menuBesideTitle)}
+      {sections.below}
     </li>
   );
   if (m.expansion === undefined) return rowItem;

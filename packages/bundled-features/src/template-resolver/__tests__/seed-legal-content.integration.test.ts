@@ -105,7 +105,9 @@ describe("seedLegalContentFromJson", () => {
     ]);
     const before = await read("healthy-block", "de");
     expect(before).not.toBeNull();
-    const eventsBefore = await selectMany(db, eventsTable, { aggregateId: String(before!.id) });
+    const eventsBefore = await selectMany<{ readonly type: string }>(db, eventsTable, {
+      aggregateId: String(before!.id),
+    });
     expect(eventsBefore.map((e) => e.type)).toEqual(["template-resource.created"]);
 
     await seedLegalContentFromJson(db, [
@@ -117,7 +119,9 @@ describe("seedLegalContentFromJson", () => {
     expect(after!.id).toBe(before!.id);
     expect(after).toMatchObject({ content: "v2" });
 
-    const eventsAfter = await selectMany(db, eventsTable, { aggregateId: String(before!.id) });
+    const eventsAfter = await selectMany<{ readonly type: string }>(db, eventsTable, {
+      aggregateId: String(before!.id),
+    });
     expect(eventsAfter.filter((e) => e.type === "template-resource.created")).toHaveLength(1);
     expect(eventsAfter.filter((e) => e.type === "template-resource.updated")).toHaveLength(1);
     expect(eventsAfter).toHaveLength(2);
@@ -144,7 +148,9 @@ describe("seedLegalContentFromJson", () => {
     ]);
     const after = await read("orphan-privacy", "de");
     expect(after).toMatchObject({ content: "new from template", title: "DS" });
-    const events = await selectMany(db, eventsTable, { aggregateId: String(after!.id) });
+    const events = await selectMany<{ readonly type: string }>(db, eventsTable, {
+      aggregateId: String(after!.id),
+    });
     expect(events.length).toBeGreaterThan(0);
     expect(events.some((e) => e.type === "template-resource.created")).toBe(true);
   });
@@ -169,7 +175,9 @@ describe("seedLegalContentFromJson", () => {
     await seedSystemTemplate(db, { ...opts, content: "new from template" });
     const after = await readSystemTemplate(opts.slug, opts.locale, opts.kind);
     expect(after).toMatchObject({ content: "new from template" });
-    const events2 = await selectMany(db, eventsTable, { aggregateId: String(after!.id) });
+    const events2 = await selectMany<{ readonly type: string }>(db, eventsTable, {
+      aggregateId: String(after!.id),
+    });
     expect(events2.length).toBeGreaterThan(0);
     expect(events2.some((e) => e.type === "template-resource.created")).toBe(true);
   });
@@ -190,7 +198,9 @@ describe("seedLegalContentFromJson", () => {
     expect(after.content).toBe("stable");
     expect(after.modifiedAt).toEqual(before.modifiedAt);
 
-    const events = await selectMany(db, eventsTable, { aggregateId: String(before.id) });
+    const events = await selectMany<{ readonly type: string }>(db, eventsTable, {
+      aggregateId: String(before.id),
+    });
     expect(events.map((e) => e.type)).toEqual(["template-resource.created"]);
   });
 });

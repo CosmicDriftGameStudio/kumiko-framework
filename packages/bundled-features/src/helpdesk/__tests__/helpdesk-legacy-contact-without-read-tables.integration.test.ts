@@ -12,11 +12,11 @@ import {
 import {
   buildEntityTable,
   createEventStoreExecutor,
-  createTenantDb,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
 import { type SessionUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { isStreamArchived } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
@@ -52,10 +52,18 @@ const LEGACY_RETENTION_JOB = "helpdesk:job:legacy-contact-retention";
 const DAY_HOURS = 24;
 const REPORTER_EMAIL = "gone@example.com";
 
-const scratchRequestEntity = { ...helpdeskRequestEntity, table: "scratch_contact_requests" };
-const scratchReplyEntity = { ...helpdeskReplyEntity, table: "scratch_contact_replies" };
-const scratchRequestTable = buildEntityTable(LEGACY_REQUEST, scratchRequestEntity);
-const scratchReplyTable = buildEntityTable(LEGACY_REPLY, scratchReplyEntity);
+const scratchRequestEntity = {
+  ...helpdeskRequestEntity,
+  table: "scratch_contact_requests",
+  name: LEGACY_REQUEST,
+};
+const scratchReplyEntity = {
+  ...helpdeskReplyEntity,
+  table: "scratch_contact_replies",
+  name: LEGACY_REPLY,
+};
+const scratchRequestTable = buildEntityTable(scratchRequestEntity);
+const scratchReplyTable = buildEntityTable(scratchReplyEntity);
 const legacyRequestExecutor = createEventStoreExecutor(scratchRequestTable, scratchRequestEntity, {
   entityName: LEGACY_REQUEST,
 });

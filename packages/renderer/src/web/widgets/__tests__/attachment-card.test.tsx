@@ -6,8 +6,8 @@ import { AttachmentCard } from "../attachment-card.tsx";
 describe("AttachmentCard", () => {
   test("shows name and meta", () => {
     render(<AttachmentCard name="vertrag.pdf" meta="PDF, 4 Seiten" kind="pdf" testId="card" />);
-    expect(screen.getByText("vertrag.pdf")).toBeTruthy();
-    expect(screen.getByText("PDF, 4 Seiten")).toBeTruthy();
+    screen.getByText("vertrag.pdf");
+    screen.getByText("PDF, 4 Seiten");
   });
 
   test("href renders a new-tab anchor", () => {

@@ -25,6 +25,7 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 import { buildEntityTable } from "../table-builder.ts";
 
 const vaultEntity = createEntity({
+  name: "entry",
   table: "fs_vault_entries",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -33,13 +34,13 @@ const vaultEntity = createEntity({
   },
 });
 
-const vaultTable = buildEntityTable("entry", vaultEntity);
+const vaultTable = buildEntityTable(vaultEntity);
 
 const CREATE = "vault:write:entry:create";
 const LIST = "vault:query:entry:list";
 
 const vaultFeature = defineFeature("vault", (r) => {
-  r.crud("entry", vaultEntity, {
+  r.crud(vaultEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });

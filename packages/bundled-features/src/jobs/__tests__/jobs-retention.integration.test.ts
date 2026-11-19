@@ -89,7 +89,7 @@ describe("jobs:job:retention-cleanup", () => {
 
     await dispatchAndWaitForRunCount(1);
 
-    const remaining = await selectMany(currentStack().db, jobRunsTable);
+    const remaining = await selectMany<{ readonly id: string }>(currentStack().db, jobRunsTable);
     expect(remaining[0]?.id).toBe("22222222-2222-4222-8222-222222222222");
   });
 
@@ -119,7 +119,7 @@ describe("jobs:job:retention-cleanup", () => {
 
     await dispatchAndWaitForRunCount(1);
 
-    const remaining = await selectMany(currentStack().db, jobRunsTable);
+    const remaining = await selectMany<{ readonly id: string }>(currentStack().db, jobRunsTable);
     expect(remaining[0]?.id).toBe("55555555-5555-4555-8555-555555555555");
   });
 });

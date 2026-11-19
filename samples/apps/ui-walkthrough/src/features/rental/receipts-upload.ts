@@ -2,7 +2,6 @@ import { createEntityExecutor, type WriteHandlerFn } from "@cosmicdrift/kumiko-f
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import {
   bindPendingFileRef,
-  FILE_REF_ENTITY_NAME,
   fileRefEntity,
   loadPendingFileRef,
 } from "@cosmicdrift/kumiko-framework/files";
@@ -12,8 +11,8 @@ import { receiptEntity } from "./entities";
 const UPLOAD_SCREEN_QN = "rental:screen:upload-standard-layout";
 const UPLOAD_FIELD = "belege";
 
-const { executor: receiptExecutor } = createEntityExecutor("receipt", receiptEntity);
-const { executor: fileRefExecutor } = createEntityExecutor(FILE_REF_ENTITY_NAME, fileRefEntity);
+const { executor: receiptExecutor } = createEntityExecutor(receiptEntity);
+const { executor: fileRefExecutor } = createEntityExecutor(fileRefEntity);
 
 export const receiptsUploadPayloadSchema = z.object({
   belege: z.array(z.uuid()).min(1).max(10),

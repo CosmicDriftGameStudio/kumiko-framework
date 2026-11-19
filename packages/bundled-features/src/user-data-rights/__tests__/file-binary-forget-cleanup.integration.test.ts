@@ -6,15 +6,17 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { bridgeStub, type JobContext, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
+  createFilesFeature,
   createInMemoryFileProvider,
   type FileStorageProvider,
   fileRefsTable,
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -35,7 +37,6 @@ import {
   createFileFoundationFeature,
   makeTenantStorageProviderResolver,
 } from "../../file-foundation/index.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
 import { tenantMembershipEntity } from "../../tenant/membership-table.ts";
 import { createUserFeature, userEntity, userTable } from "../../user/index.ts";
@@ -210,7 +211,10 @@ describe("run-forget-cleanup :: registered cron actually erases binaries (not ju
         tenantId: TENANT,
         mode: "tenant",
         grants: {
-          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+          unsafeRaw: {
+            reason: "executes overdue Art.17 forget requests across every tenant",
+            grants: ["unsafeRaw"],
+          },
         },
       }),
       registry: stack.registry,

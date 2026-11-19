@@ -3,13 +3,11 @@ import {
   createTextField,
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { ParentRefDef } from "@cosmicdrift/kumiko-types/fields";
 
-// folder — per-tenant hierarchical catalog. Event-sourced (create/update/delete
-// via the standard executor); the framework projects `read_folders` from its own
-// CRUD events. `parentId` null → root folder; otherwise it points at another
-// folder's id, forming a tree. tenantId is a base column set by the framework →
-// tenant-scoped.
+// folder — per-tenant hierarchical catalog, event-sourced; `parentId` null marks a root folder.
 export const folderEntity = createEntity({
+  name: "folder",
   table: "read_folders",
   description:
     "One folder of a tenant's hierarchical catalog: a name plus an optional parentId pointing at another folder, so the rows together form a tree whose roots have no parent.",
@@ -39,13 +37,9 @@ export const folderEntity = createEntity({
 // A hard delete would force the next set to create() at version 0 onto that
 // existing stream → version_conflict. With softDelete the set handler resurrects
 // the stream via restore(); the list query filters isDeleted.
-//
-// Cross-entity views compose in the read-layer (no JOIN):
-//   - folder of an entity  → list assignments filter { field: "entityId", op: "eq" }
-//   - entities in a folder  → list assignments filter { field: "folderId", op: "eq" }
-export function createFolderAssignmentEntity(
-  access?: EntityDefinition["access"],
-  parents?: readonly string[],
+function buildFolderAssignmentEntity(
+  access: EntityDefinition["access"] | undefined,
+  parentRef: ParentRefDef | undefined,
 ) {
   return createEntity({
     table: "read_folder_assignments",
@@ -53,13 +47,7 @@ export function createFolderAssignmentEntity(
       "The membership row recording which folder one host entity, addressed by entityType and entityId, is filed in. At most one row exists per entity, so filing it elsewhere changes this row's folderId rather than adding a second.",
     softDelete: true,
     access,
-    // Declared unconditionally: the host-visibility gate is the default for
-    // both paths, and `parents` only narrows which hosts are admissible.
-    parentRef: {
-      entityTypeField: "entityType",
-      entityIdField: "entityId",
-      ...(parents !== undefined && { allowedTypes: parents }),
-    },
+    ...(parentRef !== undefined && { parentRef }),
     fields: {
       folderId: createTextField({
         required: true,
@@ -81,7 +69,25 @@ export function createFolderAssignmentEntity(
         reason: "technical_reference",
       }),
     },
+    // A host's folder is read by (entityType, entityId); folder contents and delete-folder by folderId.
+    indexes: [
+      { columns: ["tenantId", "entityType", "entityId"] },
+      { columns: ["tenantId", "folderId"] },
+    ],
+    name: "folder-assignment",
   });
 }
 
-export const folderAssignmentEntity = createFolderAssignmentEntity();
+export function createFolderAssignmentEntity(
+  access: EntityDefinition["access"] | undefined,
+  parents: readonly string[],
+) {
+  return buildFolderAssignmentEntity(access, {
+    entityTypeField: "entityType",
+    entityIdField: "entityId",
+    allowedTypes: parents,
+  });
+}
+
+// Table shape without the host gate; the mounted entity and its handler executors carry parentRef with the mount's parents.
+export const folderAssignmentEntity = buildFolderAssignmentEntity(undefined, undefined);

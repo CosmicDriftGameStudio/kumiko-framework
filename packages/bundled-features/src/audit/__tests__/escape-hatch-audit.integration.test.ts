@@ -24,11 +24,11 @@ const probeFeature = defineFeature("escape-hatch-audit-sink-probe", (r) => {
     name: "unsafe-raw-write",
     schema: z.object({}),
     handler: async (_event, ctx) => {
-      ctx.db.unsafeRaw();
+      ctx.db.unsafeRawAllTenants();
       return { isSuccess: true as const, data: { ok: true } };
     },
     access: { roles: ["User"] },
-    escapeHatch: { reason: UNSAFE_RAW_REASON },
+    escapeHatch: { reason: UNSAFE_RAW_REASON, grants: ["unsafeRaw"] },
   });
 });
 
@@ -37,11 +37,11 @@ const failingProbeFeature = defineFeature("escape-hatch-audit-failing-probe", (r
     name: "unsafe-raw-then-fail",
     schema: z.object({}),
     handler: async (_event, ctx) => {
-      ctx.db.unsafeRaw();
+      ctx.db.unsafeRawAllTenants();
       return writeFailure(new UnprocessableError("handler_rejected"));
     },
     access: { roles: ["User"] },
-    escapeHatch: { reason: UNSAFE_RAW_REASON },
+    escapeHatch: { reason: UNSAFE_RAW_REASON, grants: ["unsafeRaw"] },
   });
 });
 

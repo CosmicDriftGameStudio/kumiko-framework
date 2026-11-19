@@ -40,21 +40,21 @@ import { ensureTemporalPolyfill } from "../time/polyfill.ts";
 const feature = defineFeature("kmsslotstest", () => {});
 
 const GUARD_PROBE_TABLE = "kms_slots_guard_probe";
+const KMS_PROBE_TABLE = "kms_slots_kms_probe";
 const BIDX_TABLE = "read_kms_slots_persons";
 const personEntity = createEntity({
+  name: "person",
   table: BIDX_TABLE,
   fields: {
     email: createTextField({ required: true, personal: "self", find: "exact" }),
   },
 });
 const personFeature = defineFeature("kmsslotsbidx", (r) => {
-  r.entity({ name: "person", ...personEntity });
+  r.entity(personEntity);
 });
-const personExecutor = createEventStoreExecutor(
-  buildEntityTable("person", personEntity),
-  personEntity,
-  { entityName: "person" },
-);
+const personExecutor = createEventStoreExecutor(buildEntityTable(personEntity), personEntity, {
+  entityName: "person",
+});
 
 const PLATFORM_KEK_PLAINTEXT = Buffer.alloc(32, 1).toString("base64");
 const BLIND_INDEX_PLAINTEXT = Buffer.alloc(32, 2).toString("base64");
@@ -88,7 +88,7 @@ function mockDecryptFetch(
     requestedCiphertexts?.push(body.ciphertext);
     const plaintext = ciphertextToPlaintext[body.ciphertext];
     if (plaintext === undefined) {
-      throw new Error(`mockDecryptFetch: no plaintext mapped for ciphertext "${body.ciphertext}"`);
+      return new Response(JSON.stringify({ message: "not found" }), { status: 404 });
     }
     return new Response(JSON.stringify({ plaintext }), { status: 200 });
   }) as typeof fetch;
@@ -246,6 +246,47 @@ describe("runSchemaCli apply — kmsSlots", () => {
     expect(cap.err.join("\n")).toContain("kmsSlots");
     expect(fetchCalls).toEqual([]);
     expect(await tableExists(testDb.db, GUARD_PROBE_TABLE)).toBe(false);
+  });
+
+  test("a Key Manager failure exits 1 before applying any migration", async () => {
+    process.env["PLATFORM_KEK_CIPHERTEXT"] = PLATFORM_KEK_CIPHERTEXT;
+    process.env["PLATFORM_KEK_KMS_KEY_ID"] = "key-1";
+    process.env["PLATFORM_KEK_KMS_TOKEN"] = "token-1";
+    const fetchCalls: string[] = [];
+    globalThis.fetch = mockDecryptFetch({}, fetchCalls);
+
+    const appCwd = writeAppWithTrivialMigration("0003_kms_probe");
+    writeFileSync(
+      join(appCwd, "kumiko/migrations/0003_kms_probe.sql"),
+      `CREATE TABLE ${KMS_PROBE_TABLE} (id integer);\n`,
+    );
+    const cap = captureOut();
+    const code = await runSchemaCli(["apply"], appCwd, cap.out, {
+      features: [feature],
+      kmsSlots: ["PLATFORM_KEK"],
+    });
+
+    expect(code).toBe(1);
+    expect(fetchCalls).toEqual([PLATFORM_KEK_CIPHERTEXT]);
+    expect(await tableExists(testDb.db, KMS_PROBE_TABLE)).toBe(false);
+  });
+
+  test("requireKms without the KMS env exits 1 before applying any migration", async () => {
+    const appCwd = writeAppWithTrivialMigration("0004_kms_required_probe");
+    writeFileSync(
+      join(appCwd, "kumiko/migrations/0004_kms_required_probe.sql"),
+      `CREATE TABLE ${KMS_PROBE_TABLE} (id integer);\n`,
+    );
+    const cap = captureOut();
+    const code = await runSchemaCli(["apply"], appCwd, cap.out, {
+      features: [feature],
+      kmsSlots: [],
+      requireKms: true,
+    });
+
+    expect(code).toBe(1);
+    expect(cap.err.length).toBeGreaterThan(0);
+    expect(await tableExists(testDb.db, KMS_PROBE_TABLE)).toBe(false);
   });
 });
 

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client/qualified-names";
 import {
   TemplateResolverHandlers,
   TemplateResolverQueries,
@@ -21,14 +22,18 @@ import {
   UserRolesProvider,
   useScreenFocus,
 } from "@cosmicdrift/kumiko-renderer";
-import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import type { Dispatcher, QueryResult } from "@cosmicdrift/kumiko-renderer/headless";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  type MockWriteHandler,
+} from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
-import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { documentDesignerClient } from "../client-plugin.tsx";
 import {
+  BRANDING_FEATURE_NAME,
   BRANDING_QUERY_QN,
-  MANAGED_PAGES_FEATURE_NAME,
   TEMPLATE_IMPORT_CLIENT_ACTION,
 } from "../constants.ts";
 import { PdfTemplateEditor } from "../pdf-template-editor.tsx";
@@ -117,7 +122,7 @@ function createFakeDispatcher(options: FakeOptions): {
 } {
   const writes: Call[] = [];
   const queries: string[] = [];
-  const failure = {
+  const failure: QueryResult = {
     isSuccess: false,
     error: {
       code: "unknown_query",
@@ -126,7 +131,7 @@ function createFakeDispatcher(options: FakeOptions): {
       message: "unknown query",
     },
   };
-  const query = async (type: string, payload: unknown) => {
+  const query: MockQueryHandler = async (type, payload) => {
     queries.push(type);
     switch (type) {
       case TemplateResolverQueries.list: {
@@ -201,19 +206,15 @@ function createFakeDispatcher(options: FakeOptions): {
         return failure;
     }
   };
-  const write = async (type: string, payload: unknown) => {
+  const write: MockWriteHandler = async (type, payload) => {
     writes.push({ type, payload });
     return { isSuccess: true, data: { id: "saved", slug: SLUG, isNew: false } };
   };
-  const dispatcher = {
+  const dispatcher = createMockDispatcher({
     query,
     write,
-    batch: async () => ({ isSuccess: true, data: [] }),
-    statusStore: { getState: () => "online", subscribe: () => () => {} },
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  } as unknown as Dispatcher;
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
   return { dispatcher, writes, queries };
 }
 
@@ -316,16 +317,16 @@ describe("PdfTemplateEditor", () => {
     for (const button of buttonsNamed("Generate PDF")) expect(button.disabled).toBe(true);
   });
 
-  test("without managed-pages the editor never asks for branding", async () => {
+  test("without the branding feature the editor never asks for branding", async () => {
     const { queries } = renderEditor({ puppeteer: "available" });
     await ready();
     expect(queries).toContain(TemplateResolverQueries.validate);
     expect(queries).not.toContain(BRANDING_QUERY_QN);
   });
 
-  test("with managed-pages mounted the editor asks for branding", async () => {
-    const managedPages: FeatureSchema = {
-      featureName: MANAGED_PAGES_FEATURE_NAME,
+  test("with the branding feature mounted the editor asks for branding", async () => {
+    const brandingFeature: FeatureSchema = {
+      featureName: BRANDING_FEATURE_NAME,
       entities: {},
       screens: [],
     };
@@ -333,7 +334,7 @@ describe("PdfTemplateEditor", () => {
       { puppeteer: "available" },
       undefined,
       ["TenantAdmin"],
-      [managedPages],
+      [brandingFeature],
     );
     await ready();
     await waitFor(() => expect(queries).toContain(BRANDING_QUERY_QN));
@@ -435,9 +436,7 @@ describe("PdfTemplateEditor", () => {
     renderEditor({ puppeteer: "available", singleOverride: true }, undefined, ["SystemAdmin"]);
     await ready();
 
-    expect(
-      await screen.findByText(/1 of 12 tenants has its own version and does not receive/),
-    ).toBeTruthy();
+    await screen.findByText(/1 of 12 tenants has its own version and does not receive/);
     fireEvent.click(await screen.findByText("Show tenant customisations"));
     const drawer = await screen.findByTestId("document-designer-overrides-drawer");
     await waitFor(() => expect(drawer.textContent).toContain("1 tenant has its own version"));

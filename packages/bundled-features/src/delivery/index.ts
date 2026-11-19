@@ -28,8 +28,10 @@ export {
 } from "./channel-context.ts";
 export {
   type ChatWebhookChannelOptions,
+  type ChatWebhookFeatureSpec,
   chatMessageText,
   createChatWebhookChannel,
+  registerChatWebhookChannel,
   resolveChatWebhookTarget,
   toChannelResult,
 } from "./chat-webhook-channel.ts";
@@ -48,6 +50,7 @@ export {
 } from "./chat-webhook-sender.ts";
 export type { DeliveryStatusValue } from "./constants.ts";
 export {
+  DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT,
   DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT,
   DELIVERY_CHANNEL_EXTENSION,
   DELIVERY_FEATURE,
@@ -60,12 +63,12 @@ export {
   DeliveryStatus,
   EMAIL_CHANNEL_NAME,
 } from "./constants.ts";
+export type { RateLimitConfig } from "./delivery-rate-limit.ts";
 export {
   collectChannels,
   createDeliveryService,
   type DeliveryServiceOptions,
   type KillSwitchResolver,
-  type RateLimitConfig,
 } from "./delivery-service.ts";
 export { createDeliveryFeature } from "./feature.ts";
 export {
@@ -102,17 +105,19 @@ export {
   type RenderedMessage,
 } from "./types.ts";
 export {
-  type AddressUnsubscribeTokenPayload,
   createUnsubscribePageChromeReader,
   createUnsubscribeRoutes,
-  DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE,
   renderUnsubscribeResultPage,
-  signAddressUnsubscribeToken,
-  signUnsubscribeToken,
   type UnsubscribePageChromeReader,
   type UnsubscribeResultPage,
-  type UnsubscribeRouteOptions,
-  type UnsubscribeTokenPayload,
 } from "./unsubscribe.ts";
 export type { UnsubscribeLinkConfig } from "./unsubscribe-link.ts";
 export { UNSUBSCRIBE_PAGE_EN } from "./unsubscribe-page-strings.ts";
+export {
+  type AddressUnsubscribeTokenPayload,
+  DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE,
+  signAddressUnsubscribeToken,
+  signUnsubscribeToken,
+  type UnsubscribeRouteOptions,
+  type UnsubscribeTokenPayload,
+} from "./unsubscribe-tokens.ts";

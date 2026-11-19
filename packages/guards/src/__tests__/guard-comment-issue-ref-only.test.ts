@@ -38,7 +38,7 @@ describe("comment-issue-ref-only guard", () => {
     "// see round2.ts",
     "// load phase1.sql",
     "// see dir/S2.H1",
-    "// @timeout-exception: #3118 paces repeated dispatch attempts, nothing to poll for",
+    "// kumiko-lint-ignore test-timeouts #3118 paces repeated dispatch attempts, nothing to poll for",
   ])("leaves a comment with an explanation or without a reference alone: %s", (comment) => {
     expect(isIssueRefOnlyComment(comment)).toBe(false);
   });

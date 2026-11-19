@@ -8,7 +8,7 @@ const interval = createSelectField({
   conditionalOptions: [{ options: ["3600"], when: { field: "kind", eq: "heartbeat" } }],
 });
 const kind = createSelectField({ options: ["http", "heartbeat"], default: "http" });
-const { fields } = createEntity({ table: "monitors", fields: { kind, interval } });
+const { fields } = createEntity({ name: "monitor", table: "monitors", fields: { kind, interval } });
 
 describe("availableSelectOptions", () => {
   test("hides a conditional option while its condition does not hold", () => {

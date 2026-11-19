@@ -155,5 +155,7 @@ export const enApiDocsTexts = {
     filters: "Several field filters, each with `field`, `op` and `value`. `op` is one of {ops}.",
     namedFilter: "Name of a predefined filter of the entity, for example a work queue.",
     aggregate: "Returns aggregated values instead of rows.",
+    fields:
+      "Return only these stored fields. Rows then carry `id`, `version` and the named fields; derived fields are not computed. An unknown name fails with `unknown_field`.",
   },
 } as const satisfies ApiDocsTexts;

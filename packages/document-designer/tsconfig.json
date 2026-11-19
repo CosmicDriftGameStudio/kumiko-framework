@@ -12,7 +12,6 @@
     { "path": "../framework" },
     { "path": "../types" },
     { "path": "../renderer" },
-    { "path": "../bundled-features" },
-    { "path": "../renderer-puppeteer-client" }
+    { "path": "../bundled-features" }
   ]
 }

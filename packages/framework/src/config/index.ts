@@ -2,7 +2,8 @@
 // loadable by tooling (kumiko check, agent lint, port registry) without
 // pulling the engine runtime.
 
-import type { BundledListsOptions } from "@cosmicdrift/kumiko-types/screen";
+import type { TranslationKeys } from "@cosmicdrift/kumiko-types/config";
+import type { ListDefaultsOptions } from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { ROW_LEVEL_SECURITY_MODES, type RowLevelSecurityMode } from "../db/render-rls-ddl.ts";
 import type { ValidateBootOptions } from "../engine/boot-validator.ts";
@@ -52,6 +53,8 @@ export type AppApiDocsConfig = {
   readonly uiOnlyWrites?: readonly { readonly pattern: string; readonly reason: string }[];
   /** Paragraph overrides per locale and text key; the page structure stays fixed. */
   readonly texts?: Readonly<Record<string, Readonly<Record<string, string>>>>;
+  /** Texts only the API docs need (handler titles, descriptions, field labels, webhook texts), loaded lazily so they stay out of the server boot. Full translation keys as in r.translations; per key and locale they only fill what the registry does not define. */
+  readonly translations?: () => Promise<TranslationKeys>;
   /** Directory of recorded request/response examples; default `api-examples`. */
   readonly examplesDir?: string;
 };
@@ -69,8 +72,8 @@ export type AppConfig = {
   readonly ports: AppPorts;
   /** Passed to validateBoot by `kumiko check` and, via the app's bin files, by the runners. */
   readonly validateBootOptions?: AppValidateBootOptions;
-  /** One table block for every list of the bundled features. kumiko/schema.ts passes it to composeFeatures; the app's bin files pass it to the runners, like validateBootOptions. */
-  readonly bundledLists?: BundledListsOptions;
+  /** One table block for every list of all composed features. kumiko/schema.ts passes it to composeFeatures; the app's bin files pass it to the runners, like validateBootOptions. */
+  readonly listDefaults?: ListDefaultsOptions;
   /** "on" enforces tenant isolation in Postgres via row level security; schema tooling and every runner read this one value. Default "on". */
   readonly rowLevelSecurity?: RowLevelSecurityMode;
   readonly apiDocs?: AppApiDocsConfig;

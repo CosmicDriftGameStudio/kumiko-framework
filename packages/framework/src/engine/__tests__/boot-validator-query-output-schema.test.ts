@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
-import type { RecordHeaderSubtitlePart } from "@cosmicdrift/kumiko-types/screen";
+import type {
+  DashboardScreenDefinition,
+  RecordHeaderSubtitlePart,
+} from "@cosmicdrift/kumiko-types/screen";
 import * as z from "zod";
 import { validateBoot as validateBootRaw } from "../boot-validator.ts";
 import { defineFeature } from "../define-feature.ts";
@@ -418,12 +421,12 @@ describe("validateBoot query output schema column refs", () => {
       readonly subtitleHref?: string;
     }) {
       return defineFeature("app", (r) => {
-        r.entity({
-          name: "unit",
-          ...createEntity({
+        r.entity(
+          createEntity({
+            name: "unit",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        });
+        );
         r.queryHandler({
           name: "unit:detail",
           schema: z.object({}),
@@ -645,6 +648,86 @@ describe("validateBoot query output schema column refs", () => {
     expect(() => validateBoot([feature])).toThrow(
       /panel "open" valueField references field "ghost-value" which is not present in query "demo:query:open-count"'s outputSchema/,
     );
+  });
+
+  describe("dashboard panel resultField", () => {
+    function overviewFeature(
+      outputSchema: z.ZodType,
+      panel: DashboardScreenDefinition["panels"][number],
+    ) {
+      return defineFeature("demo", (r) => {
+        r.queryHandler({
+          name: "overview",
+          schema: z.object({}),
+          handler: async () => ({}),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          outputSchema,
+        });
+        r.screen({
+          id: "overview",
+          type: "dashboard",
+          panels: [panel],
+        });
+        r.translations({ keys: { "demo:dashboard:panel:p": { de: "P", en: "P" } } });
+      });
+    }
+
+    const base = {
+      id: "p",
+      label: "demo:dashboard:panel:p",
+      query: "demo:query:overview",
+    } as const;
+    const statsSchema = z.object({ stats: z.object({ open: z.number() }) });
+
+    test("stat panel reads valueField from the schema of its resultField", () => {
+      const feature = overviewFeature(statsSchema, {
+        ...base,
+        kind: "stat",
+        valueField: "open",
+        resultField: "stats",
+      });
+      expect(() => validateBoot([feature])).not.toThrow();
+    });
+
+    test("resultField missing from the outputSchema throws", () => {
+      const feature = overviewFeature(statsSchema, {
+        ...base,
+        kind: "stat",
+        valueField: "open",
+        resultField: "ghost",
+      });
+      expect(() => validateBoot([feature])).toThrow(/resultField references field "ghost"/);
+    });
+
+    test("valueField missing from the schema of resultField throws", () => {
+      const feature = overviewFeature(statsSchema, {
+        ...base,
+        kind: "stat",
+        valueField: "closed",
+        resultField: "stats",
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /valueField references field "closed" which is not present/,
+      );
+    });
+
+    test("list panel checks columns against the paged schema of its resultField", () => {
+      const schema = z.object({ recent: pagedSchema });
+      const broken = overviewFeature(schema, {
+        ...base,
+        kind: "list",
+        columns: ["ghost-name"],
+        resultField: "recent",
+      });
+      expect(() => validateBoot([broken])).toThrow(/column "ghost-name"/);
+      const valid = overviewFeature(schema, {
+        ...base,
+        kind: "list",
+        columns: ["name"],
+        resultField: "recent",
+      });
+      expect(() => validateBoot([valid])).not.toThrow();
+    });
   });
 
   test("dashboard stat-group child deltaField referencing an unknown field throws", () => {

@@ -134,7 +134,6 @@ export function registerVersionRoute(app: Hono): void {
     c.json({
       version,
       buildTime,
-      node: process.env["NODE_ENV"] ?? "development",
     }),
   );
 }

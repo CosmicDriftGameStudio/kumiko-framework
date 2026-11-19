@@ -5,6 +5,7 @@ import { validateApiExposureMatching, validateExtensionUsages } from "./api-ext.
 import type { BootContext } from "./boot-context.ts";
 import { collectExposedApis } from "./boot-context.ts";
 import type { BootReport } from "./boot-report.ts";
+import { validateChildSearchRelations } from "./child-search.ts";
 import {
   validateCircularDeps,
   validateConfigKeyBacking,
@@ -21,7 +22,7 @@ import {
   validateDerivedFieldCollisions,
   validateEmbeddedFields,
   validateEncryptedFields,
-  validateEntityIndexes,
+  validateEntityVerbs,
   validateExtendSchemaCollisions,
   validateFileFields,
   validateHandlerAccess,
@@ -33,23 +34,34 @@ import {
   validateTransitions,
 } from "./entity-handler.ts";
 import { validateImageVariants } from "./entity-image-variants.ts";
+import { validateEntityIndexes } from "./entity-indexes.ts";
 import {
   validateEntitySelectAvailabilityQuery,
   validateEntitySelectConditionalOptions,
   validateEntitySelectOptionsQuery,
   validateMultiSelectFields,
 } from "./entity-select.ts";
+import { validateFieldApproval } from "./field-approval.ts";
 import { validateFieldConditions } from "./field-conditions.ts";
 import { validateHandlerFieldReferences } from "./handler-field-references.ts";
+import { validateHandlerSystemScope } from "./handler-system-scope.ts";
+import { validateJobRunAs } from "./job-run-as.ts";
 import { validateNavs } from "./nav.ts";
 import { validateOwnershipRules } from "./ownership.ts";
+import { validateParentOwnershipRules } from "./parent-ownership.ts";
 import { validateParentRefs } from "./parent-ref.ts";
 import { validatePiiAndRetention } from "./pii-retention.ts";
 import { validateQueryRefs } from "./query-refs.ts";
 import { validateReadGates } from "./read-gate.ts";
-import { validateRecordOwnedSubjects } from "./record-owned.ts";
+import { validateReadModelFieldReadRules } from "./read-model-field-access.ts";
+import {
+  validateForgetWithSubject,
+  validateRecordKeyHeldByOneOwner,
+  validateRecordOwnedSubjects,
+} from "./record-owned.ts";
 import { validateScreenShortIdCollisions, validateScreens } from "./screens.ts";
 import { validateSortNulls } from "./sort-nulls.ts";
+import { validateStreamRetention } from "./stream-retention.ts";
 import { validateTransferGraph } from "./transfer-graph.ts";
 import { validateWorkspaces } from "./workspaces.ts";
 
@@ -84,6 +96,14 @@ const STRUCTURE_FEATURE_CHECKS: readonly FeatureCheck[] = [
     run: (f, c) => validateReferenceFields(f, c.featureMap, c.queryHandlerQns),
   },
   { check: "validateParentRefs", run: (f, c) => validateParentRefs(f, c.featureMap) },
+  {
+    check: "validateParentOwnershipRules",
+    run: (f, c) => validateParentOwnershipRules(f, c.featureMap),
+  },
+  {
+    check: "validateChildSearchRelations",
+    run: (f, c) => validateChildSearchRelations(f, c.featureMap),
+  },
 ];
 
 type DetailForScreens = ReturnType<typeof collectDetailForScreens>;
@@ -107,7 +127,7 @@ export function runStructurePhase(report: BootReport, ctx: BootContext): DetailF
     const apis = built.exposedApis;
     if (apis !== undefined) {
       report.check("validateApiExposureMatching", feature.name, () =>
-        validateApiExposureMatching(feature, apis, featureMap),
+        validateApiExposureMatching(feature, apis, featureMap, ctx.warn),
       );
     }
     runFeatureChecks(report, STRUCTURE_FEATURE_CHECKS, feature, ctx);
@@ -118,8 +138,11 @@ export function runStructurePhase(report: BootReport, ctx: BootContext): DetailF
 
 const FEATURE_CHECKS: readonly FeatureCheck[] = [
   { check: "validateSearchableFieldReadAccess", run: (f) => validateSearchableFieldReadAccess(f) },
-  { check: "validatePiiAndRetention", run: (f) => validatePiiAndRetention(f) },
+  { check: "validatePiiAndRetention", run: (f, c) => validatePiiAndRetention(f, c.warn) },
   { check: "validateRecordOwnedSubjects", run: (f) => validateRecordOwnedSubjects(f) },
+  { check: "validateRecordKeyHeldByOneOwner", run: (f) => validateRecordKeyHeldByOneOwner(f) },
+  { check: "validateForgetWithSubject", run: (f) => validateForgetWithSubject(f) },
+  { check: "validateStreamRetention", run: (f, c) => validateStreamRetention(f, c.features) },
   { check: "validateEntitySelectOptionsQuery", run: (f) => validateEntitySelectOptionsQuery(f) },
   {
     check: "validateEntitySelectAvailabilityQuery",
@@ -141,6 +164,7 @@ const FEATURE_CHECKS: readonly FeatureCheck[] = [
   },
   { check: "validateSortNulls", run: (f) => validateSortNulls(f) },
   { check: "validateTransitions", run: (f) => validateTransitions(f) },
+  { check: "validateEntityVerbs", run: (f) => validateEntityVerbs(f) },
   { check: "validateLockedWhen", run: (f) => validateLockedWhen(f) },
   { check: "validateFieldConditions", run: (f) => validateFieldConditions(f) },
   { check: "validateExtendSchemaCollisions", run: (f) => validateExtendSchemaCollisions(f) },
@@ -159,10 +183,22 @@ const FEATURE_CHECKS: readonly FeatureCheck[] = [
     check: "validateOwnershipRules",
     run: (f, c) => validateOwnershipRules(f, c.allClaimKeys, c.knownRoles),
   },
+  { check: "validateJobRunAs", run: (f, c) => validateJobRunAs(f, c.knownRoles) },
+  { check: "validateHandlerSystemScope", run: (f) => validateHandlerSystemScope(f) },
   { check: "validateReadGates", run: (f, c) => validateReadGates(f, c.featureMap) },
   {
+    check: "validateFieldApproval",
+    run: (f, c) => validateFieldApproval(f, c.featureMap, c.knownRoles),
+  },
+  { check: "validateReadModelFieldReadRules", run: (f) => validateReadModelFieldReadRules(f) },
+  {
     check: "validateCrossTenantFileRead",
-    run: (f, c) => validateCrossTenantFileRead(f, c.queryHandlerQns),
+    run: (f, c) =>
+      validateCrossTenantFileRead(
+        f,
+        c.queryHandlerQns,
+        new Set(c.features.flatMap((feature) => Object.keys(feature.entities ?? {}))),
+      ),
   },
   { check: "validateTransferGraph", run: (f, c) => validateTransferGraph(f, c.featureMap) },
   { check: "validateMultiStreamProjections", run: (f) => validateMultiStreamProjections(f) },

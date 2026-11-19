@@ -55,12 +55,13 @@ describe("createBigIntField factory", () => {
 describe("buildEntityTable — bigInt-Mapping", () => {
   test("bigInt column is DISTINCT from number column (number=integer/32-bit, bigInt=bigint/64-bit)", () => {
     const entity = createEntity({
+      name: "counters",
       fields: {
         smallCount: createNumberField({}),
         bigCount: createBigIntField({}),
       },
     });
-    const table = buildEntityTable("counters", entity);
+    const table = buildEntityTable(entity);
 
     const small = colByName(table, "small_count");
     const big = colByName(table, "big_count");
@@ -73,12 +74,13 @@ describe("buildEntityTable — bigInt-Mapping", () => {
 
   test("required bigInt becomes NOT NULL", () => {
     const entity = createEntity({
+      name: "t",
       fields: {
         requiredBig: createBigIntField({ required: true }),
         optionalBig: createBigIntField({}),
       },
     });
-    const table = buildEntityTable("t", entity);
+    const table = buildEntityTable(entity);
     expect(colByName(table, "required_big").notNull).toBe(true);
     expect(colByName(table, "optional_big").notNull).toBe(false);
   });
@@ -87,6 +89,7 @@ describe("buildEntityTable — bigInt-Mapping", () => {
 describe("buildInsertSchema — bigInt-Validation", () => {
   test("accepts safe-integer values including >2^31", () => {
     const entity = createEntity({
+      name: "entity",
       fields: { bytesWritten: createBigIntField({ required: true }) },
     });
     const schema = buildInsertSchema(entity);
@@ -103,6 +106,7 @@ describe("buildInsertSchema — bigInt-Validation", () => {
 
   test("lehnt Float ab (silent-Truncation-Schutz)", () => {
     const entity = createEntity({
+      name: "entity",
       fields: { count: createBigIntField({ required: true }) },
     });
     const schema = buildInsertSchema(entity);
@@ -111,6 +115,7 @@ describe("buildInsertSchema — bigInt-Validation", () => {
 
   test("lehnt non-safe-integer ab (>2^53)", () => {
     const entity = createEntity({
+      name: "entity",
       fields: { count: createBigIntField({ required: true }) },
     });
     const schema = buildInsertSchema(entity);
@@ -122,6 +127,7 @@ describe("buildInsertSchema — bigInt-Validation", () => {
 
   test("default-Wert reist in Zod-Schema durch", () => {
     const entity = createEntity({
+      name: "entity",
       fields: { count: createBigIntField({ default: 100 }) },
     });
     const schema = buildInsertSchema(entity);

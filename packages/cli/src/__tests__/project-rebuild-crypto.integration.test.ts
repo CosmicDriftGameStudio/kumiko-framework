@@ -78,9 +78,7 @@ describe("kumiko project rebuild wires the blind-index key (real DB)", () => {
       metadata: { userId: "system" },
     });
 
-    const all = await listProjectionsWithState(testDb.db, createRegistry(backfillApp.features), {
-      includeImplicit: true,
-    });
+    const all = await listProjectionsWithState(testDb.db, createRegistry(backfillApp.features));
     const entityProjection = all.find((p) => p.sources.includes("clibfcontact"));
     if (!entityProjection) throw new Error("entity projection missing");
     projectionName = entityProjection.name;

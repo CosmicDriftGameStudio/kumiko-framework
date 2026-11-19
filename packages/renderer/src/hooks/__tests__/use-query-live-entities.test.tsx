@@ -4,12 +4,12 @@ import type { ReactNode } from "react";
 import { AppFeaturesProvider } from "../../app/app-features-context.tsx";
 import type { FeatureSchema } from "../../app/feature-schema.ts";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
-import type { Dispatcher } from "../../headless/index.ts";
 import {
   LIVE_RESYNC_EVENT_TYPE,
   type LiveEventSubscriber,
   LiveEventsProvider,
 } from "../../index.ts";
+import { createMockDispatcher } from "../../testing.ts";
 import { LIVE_REFETCH_COALESCE_MS } from "../live-refetch-scheduler.ts";
 import { useQuery } from "../use-query.ts";
 
@@ -41,13 +41,12 @@ function createLiveFeed(): { subscribe: LiveEventSubscriber; emit: (entity: stri
 
 function renderLiveQuery(features: readonly FeatureSchema[] | undefined) {
   let calls = 0;
-  const dispatcher = {
+  const dispatcher = createMockDispatcher({
     query: async () => {
       calls += 1;
       return { isSuccess: true, data: { calls } };
     },
-    statusStore: { getState: () => "online", subscribe: () => () => {} },
-  } as unknown as Dispatcher;
+  });
   const feed = createLiveFeed();
   const wrapper = ({ children }: { readonly children: ReactNode }) => {
     const live = <LiveEventsProvider value={feed.subscribe}>{children}</LiveEventsProvider>;

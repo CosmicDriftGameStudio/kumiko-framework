@@ -1,9 +1,11 @@
-import { createTenantDb, type DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   type EscapeHatchAuditSink,
   EXT_USER_DATA,
+  type Registry,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
 import {
   createEscapeHatchReporter,
@@ -18,6 +20,7 @@ export function buildHookDb(
     readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
     readonly escapeHatchAuditLog?: Logger;
     readonly actor?: string;
+    readonly registry: Registry;
   },
 ) {
   const report = createEscapeHatchReporter({
@@ -33,8 +36,11 @@ export function buildHookDb(
     mode: "tenant",
     grants: {
       unsafeRaw:
-        entry.escapeHatchReason !== undefined ? { reason: entry.escapeHatchReason } : undefined,
+        entry.escapeHatchReason !== undefined
+          ? { reason: entry.escapeHatchReason, grants: ["unsafeRaw"] }
+          : undefined,
       report,
+      projectionRegistry: args.registry,
     },
   });
 }

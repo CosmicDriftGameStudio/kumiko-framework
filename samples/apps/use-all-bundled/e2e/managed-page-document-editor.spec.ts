@@ -3,7 +3,8 @@
 // page opens in the document editor, an edit is saved, and the public page
 // serves the typed text as a document.
 
-import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
+import { PAGE_UPDATE_HANDLER } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
+import { expect, boundaryGuardedTest as test, waitForWrite } from "@cosmicdrift/kumiko-testing/e2e";
 import { loginAsAdmin } from "./_helpers/login";
 
 const TYPED_TEXT = "Typed in the document editor.";
@@ -29,11 +30,9 @@ test("TenantAdmin edits the Markdown about page and the public page serves the n
   await page.keyboard.press("Control+End");
   await page.keyboard.type(` ${TYPED_TEXT}`);
 
-  const saved = page.waitForResponse(
-    (response) => response.url().includes("/api/write") && response.request().method() === "POST",
-  );
+  const saved = waitForWrite(page, PAGE_UPDATE_HANDLER);
   await page.getByTestId("editor-save").last().click();
-  expect((await saved).ok()).toBe(true);
+  await saved;
 
   const publicPage = await page.request.get("/p/about");
   expect(publicPage.ok()).toBe(true);

@@ -81,17 +81,17 @@ describe("list bulk form action", () => {
   test("three selected rows open the form with three ids and submit calls the handler once", async () => {
     const calls: { type: string; payload: unknown }[] = [];
     const dispatcher = createMockDispatcher({
-      write: (async (type: string, payload: unknown) => {
+      write: async (type: string, payload: unknown) => {
         calls.push({ type, payload });
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["write"],
+      },
     });
     render(<ListThenForm dispatcher={dispatcher} />);
 
     for (const id of ["p1", "p2", "p4"]) fireEvent.click(screen.getByTestId(`row-${id}-select`));
     fireEvent.click(screen.getByTestId("bulk-action-swap-company"));
 
-    await waitFor(() => expect(screen.getByTestId("kumiko-edit-propertyIds-count")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("kumiko-edit-propertyIds-count"));
     expect(screen.getByTestId("kumiko-edit-propertyIds-count").textContent).toBe("3 selected");
 
     fireEvent.change(document.querySelector("#kumiko-edit-company") as HTMLInputElement, {

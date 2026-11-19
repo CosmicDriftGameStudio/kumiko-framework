@@ -26,6 +26,12 @@ import { seedUser } from "../seeding.ts";
 
 let stack: TestStack;
 
+type EventRow = {
+  readonly type: string;
+  readonly aggregateId: string;
+  readonly payload: Record<string, unknown>;
+};
+
 beforeAll(async () => {
   const resolver = createConfigResolver();
   stack = await setupTestStack({
@@ -65,7 +71,7 @@ describe("seedUser", () => {
       email: "bob@example.com",
       displayName: "Bob",
     });
-    const events = await selectMany(stack.db, eventsTable, { aggregateType: "user" });
+    const events = await selectMany<EventRow>(stack.db, eventsTable, { aggregateType: "user" });
     const created = events.filter((e) => e.type === "user.created");
     expect(created).toHaveLength(1);
     expect(created[0]?.aggregateId).toBe(userId);
@@ -90,7 +96,7 @@ describe("seedUser", () => {
     // The original displayName remains — the second call was skipped, so no update occurred.
     expect(rows[0]?.["displayName"]).toBe("Carol");
 
-    const created = await selectMany(stack.db, eventsTable, { aggregateType: "user" });
+    const created = await selectMany<EventRow>(stack.db, eventsTable, { aggregateType: "user" });
     expect(created.filter((e) => e.type === "user.created")).toHaveLength(1);
   });
 
@@ -121,7 +127,7 @@ describe("seedUser", () => {
     const [rowAfter] = await selectMany(stack.db, userTable, { id: first.id });
     expect(rowAfter?.["emailVerified"]).toBe(true);
 
-    const updated = await selectMany(stack.db, eventsTable, {
+    const updated = await selectMany<EventRow>(stack.db, eventsTable, {
       aggregateType: "user",
       type: "user.updated",
     });

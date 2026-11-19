@@ -1,31 +1,30 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  createTestRedis,
-  type TestRedis,
-  testRunQueueNamePrefix,
-} from "@cosmicdrift/kumiko-testing/stack";
-import type { Hono } from "hono";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { buildServer, type JwtHelper } from "../../api/index.ts";
-import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
-import { createRegistry, defineFeature, type SessionUser } from "../../engine/index.ts";
+import { defineFeature, emitEvent } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
-import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
-import { createJobRunner, type JobRunner } from "../job-runner.ts";
 
 // --- Track job executions ---
 
 const jobExecutions: Array<{ name: string; payload: Record<string, unknown> }> = [];
 
+const orderPlacedSchema = z.object({ product: z.string(), amount: z.number() });
+
 // --- Features ---
 
-// Feature A: has a write handler "orders:create"
+// Feature A: a write handler that appends the "order-placed" event
 const ordersFeature = defineFeature("orders", (r) => {
+  const orderPlaced = r.defineEvent("order-placed", orderPlacedSchema, { piiFields: "none" });
   r.writeHandler({
     name: "orders:create",
-    schema: z.object({ product: z.string(), amount: z.number() }),
-    handler: async (event) => {
+    schema: orderPlacedSchema,
+    handler: async (event, ctx) => {
+      await emitEvent(ctx, orderPlaced, {
+        aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
+        aggregateType: "order",
+        payload: { product: event.payload.product, amount: event.payload.amount },
+      });
       return {
         isSuccess: true,
         data: { id: 1, product: event.payload.product, amount: event.payload.amount },
@@ -35,135 +34,97 @@ const ordersFeature = defineFeature("orders", (r) => {
   });
 
   // Short trigger name, qualified at boot against the job's own feature.
-  r.job("auditOrder", { trigger: { on: "orders:create" } }, async (payload) => {
-    jobExecutions.push({ name: "orders:job:audit-order", payload });
+  r.job({
+    name: "auditOrder",
+    trigger: { on: "order-placed" },
+    handler: async (payload) => {
+      jobExecutions.push({ name: "orders:job:audit-order", payload });
+    },
   });
 });
 
-// Feature B: has a job that triggers on "orders:write:orders:create" (prefixed)
+// Feature B: has a job that triggers on the qualified "orders:event:order-placed"
 const notificationsFeature = defineFeature("notifications", (r) => {
-  r.job(
-    "sendOrderConfirmation",
-    { trigger: { on: "orders:write:orders:create" } },
-    async (payload) => {
+  r.job({
+    name: "sendOrderConfirmation",
+    trigger: { on: "orders:event:order-placed" },
+    handler: async (payload) => {
       jobExecutions.push({ name: "notifications:job:send-order-confirmation", payload });
     },
-  );
+  });
 });
 
 // Feature C: has ANOTHER job on the same event — both should fire
 const analyticsFeature = defineFeature("analytics", (r) => {
-  // Dummy handler so the trackUser job trigger has a valid target
-  r.writeHandler({
-    name: "users:create",
-    schema: z.object({}),
-    handler: async () => ({
-      isSuccess: true as const,
-      data: null,
-    }),
-    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  // Event nobody appends in these tests, so the trackUser job has a valid target
+  r.defineEvent("user-created", z.object({}), { piiFields: "none" });
+
+  r.job({
+    name: "trackOrder",
+    trigger: { on: "orders:event:order-placed" },
+    handler: async (payload) => {
+      jobExecutions.push({ name: "analytics:job:track-order", payload });
+    },
   });
 
-  r.job("trackOrder", { trigger: { on: "orders:write:orders:create" } }, async (payload) => {
-    jobExecutions.push({ name: "analytics:job:track-order", payload });
-  });
-
-  // Job on a different event — should NOT fire on orders.create
-  r.job("trackUser", { trigger: { on: "analytics:write:users:create" } }, async (payload) => {
-    jobExecutions.push({ name: "analytics:job:track-user", payload });
+  // Job on a different event — should NOT fire on order-placed
+  r.job({
+    name: "trackUser",
+    trigger: { on: "analytics:event:user-created" },
+    handler: async (payload) => {
+      jobExecutions.push({ name: "analytics:job:track-user", payload });
+    },
   });
 });
 
 // --- Setup ---
 
-let testDb: BunTestDb;
-let testRedis: TestRedis;
-let app: Hono;
-let jwt: JwtHelper;
-let jobRunner: JobRunner;
+let stack: TestStack;
 
 const adminUser = TestUsers.admin;
-const JWT_SECRET = "event-trigger-test-secret-minimum-32-chars!!";
 
 beforeAll(async () => {
-  await ensureTemporalPolyfill();
-  testDb = await createTestDb();
-  testRedis = await createTestRedis();
-
-  const registry = createRegistry([ordersFeature, notificationsFeature, analyticsFeature]);
-  const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
-
-  jobRunner = createJobRunner({
-    registry,
-    context: {},
-    redisUrl,
-    consumerLane: "worker",
-    queueNamePrefix: testRunQueueNamePrefix("kumiko-event-trigger-test"),
+  stack = await setupTestStack({
+    features: [ordersFeature, notificationsFeature, analyticsFeature],
+    jobs: { consumerLane: "worker" },
   });
-
-  const server = buildServer({
-    registry,
-    context: {},
-    jwtSecret: JWT_SECRET,
-    dispatcherOptions: { jobRunner },
-  });
-  app = server.app;
-  jwt = server.jwt;
-
-  await jobRunner.start();
 });
 
 afterAll(async () => {
-  await jobRunner.stop();
-  await testDb.cleanup();
-  await testRedis.cleanup();
+  await stack.cleanup();
 });
-
-// --- Helpers ---
-
-async function writeApi(user: SessionUser, type: string, payload: unknown) {
-  const token = await jwt.sign(user);
-  const res = await app.request("/api/write", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ type, payload }),
-  });
-  return res.json();
-}
 
 // --- Tests ---
 
-describe("event trigger: write handler fires matching jobs", () => {
-  test("orders.create triggers the notification, analytics and short-name audit jobs", async () => {
+describe("event trigger: an appended event fires matching jobs", () => {
+  test("orders:create triggers the notification, analytics and short-name audit jobs", async () => {
     jobExecutions.length = 0;
 
-    const result = await writeApi(adminUser, "orders:write:orders:create", {
-      product: "Widget",
-      amount: 3,
-    });
-    expect(result.isSuccess).toBe(true);
+    await stack.http.writeOk(
+      "orders:write:orders:create",
+      { product: "Widget", amount: 3 },
+      adminUser,
+    );
+    await stack.drainJobs();
 
-    // Wait for BullMQ to process
-    await waitFor(() => {
-      const notification = jobExecutions.find(
-        (e) => e.name === "notifications:job:send-order-confirmation",
-      );
-      const analytics = jobExecutions.find((e) => e.name === "analytics:job:track-order");
-      const audit = jobExecutions.find((e) => e.name === "orders:job:audit-order");
+    const notification = jobExecutions.find(
+      (e) => e.name === "notifications:job:send-order-confirmation",
+    );
+    const analytics = jobExecutions.find((e) => e.name === "analytics:job:track-order");
+    const audit = jobExecutions.find((e) => e.name === "orders:job:audit-order");
 
-      expect(notification).toBeDefined();
-      expect(notification?.payload["product"]).toBe("Widget");
-      expect(notification?.payload["amount"]).toBe(3);
+    expect(notification).toBeDefined();
+    expect(notification?.payload["product"]).toBe("Widget");
+    expect(notification?.payload["amount"]).toBe(3);
 
-      expect(analytics).toBeDefined();
-      expect(analytics?.payload["product"]).toBe("Widget");
+    expect(analytics).toBeDefined();
+    expect(analytics?.payload["product"]).toBe("Widget");
 
-      expect(audit?.payload["product"]).toBe("Widget");
-    });
+    expect(audit?.payload["product"]).toBe("Widget");
   });
 
   test("unrelated jobs do NOT fire", async () => {
-    // analytics.trackUser listens on "users:create", not "orders:create"
+    // analytics.trackUser listens on "user-created", not "order-placed"
     const trackUser = jobExecutions.find((e) => e.name === "analytics:job:track-user");
     expect(trackUser).toBeUndefined();
   });
@@ -171,18 +132,17 @@ describe("event trigger: write handler fires matching jobs", () => {
   test("multiple orders each trigger jobs independently", async () => {
     jobExecutions.length = 0;
 
-    await writeApi(adminUser, "orders:write:orders:create", { product: "A", amount: 1 });
-    await writeApi(adminUser, "orders:write:orders:create", { product: "B", amount: 2 });
+    await stack.http.writeOk("orders:write:orders:create", { product: "A", amount: 1 }, adminUser);
+    await stack.http.writeOk("orders:write:orders:create", { product: "B", amount: 2 }, adminUser);
+    await stack.drainJobs();
 
-    await waitFor(() => {
-      const notifications = jobExecutions.filter(
-        (e) => e.name === "notifications:job:send-order-confirmation",
-      );
-      expect(notifications.length).toBe(2);
+    const notifications = jobExecutions.filter(
+      (e) => e.name === "notifications:job:send-order-confirmation",
+    );
+    expect(notifications.length).toBe(2);
 
-      const products = notifications.map((e) => e.payload["product"]);
-      expect(products).toContain("A");
-      expect(products).toContain("B");
-    });
+    const products = notifications.map((e) => e.payload["product"]);
+    expect(products).toContain("A");
+    expect(products).toContain("B");
   });
 });

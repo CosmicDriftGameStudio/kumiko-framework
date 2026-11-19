@@ -51,7 +51,7 @@ describe("unsafeRawForDeclaredStep", () => {
       tenantId,
       mode: "tenant",
       grants: {
-        unsafeRaw: { reason: "handler declared unsafeRaw" },
+        unsafeRaw: { reason: "handler declared unsafeRaw", grants: ["unsafeRaw"] },
         report: (kind, reason) => {
           reports.push({ kind, reason });
         },
@@ -68,7 +68,7 @@ describe("unsafeRawForDeclaredStep", () => {
       tenantId,
       mode: "tenant",
       grants: {
-        unsafeRaw: { reason: "handler declared unsafeRaw" },
+        unsafeRaw: { reason: "handler declared unsafeRaw", grants: ["unsafeRaw"] },
       },
     });
 
@@ -122,10 +122,10 @@ describe("unsafeRawForDeclaredStep", () => {
       tenantId,
       mode: "tenant",
       grants: {
-        unsafeRaw: { reason: "original grant" },
+        unsafeRaw: { reason: "original grant", grants: ["unsafeRaw"] },
       },
     });
-    const regranted = withUnsafeRawGrant(tdb, { reason: "rebind grant" });
+    const regranted = withUnsafeRawGrant(tdb, { reason: "rebind grant", grants: ["unsafeRaw"] });
 
     expect(unscopedRunner(unsafeRawForDeclaredStep(regranted, REASON))).toBe(runner);
   });
@@ -138,7 +138,7 @@ describe("memberReadOnly grant", () => {
       tenantId,
       mode: "tenant",
       grants: {
-        unsafeRaw: { reason: "handler declared unsafeRaw" },
+        unsafeRaw: { reason: "handler declared unsafeRaw", grants: ["unsafeRaw"] },
         memberReadOnly: true,
         ...(report && { report }),
       },
@@ -164,18 +164,20 @@ describe("memberReadOnly grant", () => {
       reports.push({ kind, reason });
     });
 
-    expect(deniedReason(() => tdb.unsafeRaw())).toBe(FrameworkReasons.memberResolutionReadOnly);
+    expect(deniedReason(() => tdb.unsafeRawAllTenants())).toBe(
+      FrameworkReasons.memberResolutionReadOnly,
+    );
     expect(reports).toEqual([]);
   });
 
   test("denies the declared-step path and survives a withUnsafeRawGrant rebind", () => {
     const tdb = memberReadOnlyDb();
-    const regranted = withUnsafeRawGrant(tdb, { reason: "hook re-grant" });
+    const regranted = withUnsafeRawGrant(tdb, { reason: "hook re-grant", grants: ["unsafeRaw"] });
 
     expect(deniedReason(() => unsafeRawForDeclaredStep(tdb, REASON))).toBe(
       FrameworkReasons.memberResolutionReadOnly,
     );
-    expect(deniedReason(() => regranted.unsafeRaw())).toBe(
+    expect(deniedReason(() => regranted.unsafeRawAllTenants())).toBe(
       FrameworkReasons.memberResolutionReadOnly,
     );
     expect(deniedReason(() => unsafeRawForDeclaredStep(regranted, REASON))).toBe(
@@ -186,7 +188,7 @@ describe("memberReadOnly grant", () => {
   test("survives the acknowledgeConventionCrossTenant rebind", () => {
     const crossTenant = acknowledgeConventionCrossTenant(memberReadOnlyDb(), "test: cross-tenant");
 
-    expect(deniedReason(() => crossTenant.unsafeRaw())).toBe(
+    expect(deniedReason(() => crossTenant.unsafeRawAllTenants())).toBe(
       FrameworkReasons.memberResolutionReadOnly,
     );
   });

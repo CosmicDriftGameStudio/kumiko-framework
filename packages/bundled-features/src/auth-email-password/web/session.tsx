@@ -11,6 +11,7 @@
 import {
   type CurrentUser,
   CurrentUserProvider,
+  hasUnsavedInput,
   useSessionEndedSignal,
 } from "@cosmicdrift/kumiko-renderer";
 import { readCsrfToken } from "@cosmicdrift/kumiko-renderer/live";
@@ -22,6 +23,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -63,6 +65,10 @@ export type SessionState = {
    *  expired) so the login screen can explain why it appeared. Optional so
    *  SessionApi values apps build themselves (test doubles) stay valid. */
   readonly signedOutReason?: "session-ended" | null;
+  /** True after a session end that kept the app mounted because a form held
+   *  unsaved input; the gate then shows the login over the app. Optional so
+   *  SessionApi values apps build themselves stay valid. */
+  readonly inputKeptOnSessionEnd?: boolean;
 };
 
 export type SessionApi = SessionState & {
@@ -87,6 +93,7 @@ export const UNAUTHENTICATED: SessionState = {
   roles: [],
   bootstrapFailure: null,
   signedOutReason: null,
+  inputKeptOnSessionEnd: false,
 };
 
 const INITIAL: SessionState = {
@@ -97,6 +104,7 @@ const INITIAL: SessionState = {
   roles: [],
   bootstrapFailure: null,
   signedOutReason: null,
+  inputKeptOnSessionEnd: false,
 };
 
 // kumiko_auth is HttpOnly; kumiko_csrf is set together with it at login.
@@ -150,6 +158,7 @@ async function refresh(): Promise<SessionState> {
     roles: computeActiveRoles(user, tenants.activeTenantId, tenants.tenants),
     bootstrapFailure: null,
     signedOutReason: null,
+    inputKeptOnSessionEnd: false,
   };
 }
 
@@ -174,11 +183,27 @@ export function SessionProvider({
   readonly postLogoutUrl?: string;
 }): ReactNode {
   const [state, setState] = useState<SessionState>(INITIAL);
+  // Identity whose session ended while its app stayed mounted behind the login.
+  const keptIdentityRef = useRef<{
+    readonly userId: string | null;
+    readonly activeTenantId: string | null;
+  } | null>(null);
 
   // Never rejects, so bootstrap can't strand the UI on "loading" forever.
   const doRefresh = useCallback(async () => {
     try {
       const next = await refresh();
+      const kept = keptIdentityRef.current;
+      if (kept !== null && next.status === "authenticated") {
+        keptIdentityRef.current = null;
+        const sameIdentity =
+          next.user?.id === kept.userId && next.activeTenantId === kept.activeTenantId;
+        // The kept tree's caches and input belong to the old identity.
+        if (!sameIdentity && typeof window !== "undefined") {
+          window.location.reload();
+          return;
+        }
+      }
       setState(next);
     } catch (err) {
       setState({ ...UNAUTHENTICATED, status: "error", bootstrapFailure: toBootstrapFailure(err) });
@@ -196,11 +221,21 @@ export function SessionProvider({
   // biome-ignore lint/plugin: not yet converted to the framework hook set
   useEffect(() => {
     return sessionEndedSignal?.subscribe(() => {
-      setState((prev) =>
-        prev.status === "authenticated"
-          ? { ...UNAUTHENTICATED, signedOutReason: "session-ended" }
-          : prev,
-      );
+      setState((prev) => {
+        if (prev.status !== "authenticated") return prev;
+        if (!hasUnsavedInput()) return { ...UNAUTHENTICATED, signedOutReason: "session-ended" };
+        keptIdentityRef.current = {
+          userId: prev.user?.id ?? null,
+          activeTenantId: prev.activeTenantId,
+        };
+        // Keep user, tenant and roles: a new CurrentUser would re-seed forms and drop the input.
+        return {
+          ...prev,
+          status: "unauthenticated",
+          signedOutReason: "session-ended",
+          inputKeptOnSessionEnd: true,
+        };
+      });
     });
   }, [sessionEndedSignal]);
 

@@ -146,7 +146,7 @@ function buildJobContext(
 ): { jobContext: Omit<JobContext, "tz">; config: ConfigAccessor | undefined } {
   const { jobName, bullJob, token, rawData, tenantId, triggeredById, attempt, finalAttempt } =
     input;
-  const systemUser = createSystemUser(tenantId);
+  const systemUser = createSystemUser(tenantId, input.jobDef.runAs?.roles ?? []);
   const facetInput: JobFacetInput = {
     input,
     systemUser,

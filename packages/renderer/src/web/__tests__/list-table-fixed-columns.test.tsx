@@ -37,7 +37,7 @@ describe("a list without columnPicker and a hidden column", () => {
         <ListWithoutColumnPicker />
       </NavProvider>,
     );
-    expect(screen.getByTestId("cell-r1-name")).toBeTruthy();
+    screen.getByTestId("cell-r1-name");
     expect(screen.queryByTestId("cell-r1-intent")).toBeNull();
     expect(screen.queryByText("buy")).toBeNull();
     expect(screen.queryByTestId("list-view-menu")).toBeNull();

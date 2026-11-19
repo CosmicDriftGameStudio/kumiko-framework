@@ -3,13 +3,10 @@
 // feature stored them, with every column including the NULL ones.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import {
-  createEventStoreExecutor,
-  createTenantDb,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { type SessionUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { configValueEntity, configValuesTable } from "../../config/index.ts";

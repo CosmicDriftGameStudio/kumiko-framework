@@ -16,7 +16,6 @@ import type {
 } from "@cosmicdrift/kumiko-framework/compliance";
 import {
   createEventStoreExecutor,
-  createTenantDb,
   type DbConnection,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
@@ -25,6 +24,7 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
 
 import {

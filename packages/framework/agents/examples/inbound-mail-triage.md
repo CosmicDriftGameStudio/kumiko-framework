@@ -12,8 +12,8 @@ Attach a business process to inbound e-mail: `inbound-mail-foundation` owns tran
 
 ## What you learn here
 
-- **Consumer pattern**: hook your business process onto the foundation's ingest write-handler with `r.job({ trigger: { on: InboundMailFoundationHandlers.ingestMessage } })` — the job receives the plaintext normalized mail (PII encryption happens inside the handler, after your trigger payload was captured).
-- **Idempotency discipline**: the trigger also fires on idempotent replays (duplicate ingest returns success) — key your side-effects by `providerMessageId` so replays overwrite instead of duplicating.
+- **Consumer pattern**: hook your business process onto the foundation's stored event with `r.job({ trigger: { on: INBOUND_MESSAGE_RECEIVED_EVENT_QN } })` — the job receives the event payload, where `from`, `subject` and the other PII fields are ciphertext; read plaintext through `InboundMailFoundationQueries.listMessages` / `messageContent`.
+- **Idempotency discipline**: the event trigger is at-least-once — key your side-effects by the message id (`triggerEvent.aggregateId`) so a redelivery overwrites instead of duplicating.
 - **Provider swap**: the test drives `inbound-provider-inmemory`; production mounts `inbound-provider-imap` (password/app-password, IMAP IDLE) against the same contract — the consumer code does not change.
 
 ## Feature composition
@@ -29,7 +29,7 @@ mail-triage  ← this sample                                  (the app-side cons
 
 1. `connect-account` creates a mail account (shared mailbox, `ownerUserId = null`).
 2. A mail is ingested — in production the watch-supervisor (IMAP IDLE push) or the reconciliation poll dispatches `ingest-message`; the inline projection materializes `read_inbound_messages` in the same transaction.
-3. The handler-trigger fans the write out to the worker lane; the triage job records `{ from, subject, scope, threadHint }`.
+3. The job-trigger event consumer fans the received event out to the worker lane; the triage job records `{ messageId, accountId, scope, threadHint }`.
 4. A replay of the same `providerMessageId` reports `duplicate: true`, creates no second row — and the keyed triage store stays at one item.
 
 ## Sign-in errors
@@ -62,8 +62,8 @@ A disconnected mailbox keeps its account id: `reactivate-account` (or connecting
 //      projection row).
 //   2. ingest-message lands on the HTTP surface (in production the
 //      watch-supervisor dispatches it), the inline projection
-//      materializes read_inbound_messages, and the handler-trigger
-//      fires the worker-lane triage job with the plaintext payload.
+//      materializes read_inbound_messages, and the received event
+//      triggers the worker-lane triage job.
 //   3. An idempotent replay (same providerMessageId) does NOT create a
 //      second message row — and the keyed triage store keeps exactly
 //      one item even though the trigger fires again.
@@ -80,7 +80,6 @@ import {
   inboundMessageEntity,
   ingestFailureEntity,
   mailAccountEntity,
-  mailThreadEntity,
   quarantineEntity,
   seenMessageEntity,
   syncCursorEntity,
@@ -123,7 +122,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(testDb.db, mailAccountEntity);
   await unsafeCreateEntityTable(testDb.db, inboundMessageEntity);
-  await unsafeCreateEntityTable(testDb.db, mailThreadEntity);
   await unsafeCreateEntityTable(testDb.db, syncCursorEntity);
   await unsafeCreateEntityTable(testDb.db, seenMessageEntity);
   await unsafeCreateEntityTable(testDb.db, quarantineEntity);
@@ -226,15 +224,15 @@ describe("inbound-mail triage sample", () => {
       await waitFor(() => {
         expect(triageInbox.size).toBe(1);
       });
-      const item = triageInbox.get("uid-triage-1");
-      expect(item?.from).toContain("mieterin@example.com");
-      expect(item?.subject).toBe("Heizung defekt");
+      const item = [...triageInbox.values()][0];
+      expect(item?.accountId).toBe(accountId);
+      expect(item?.messageId).toBeDefined();
       expect(item?.scope).toBe("inbox");
       expect(item?.threadHint).toBe("triage-1@example.com");
 
       // 4. Replay (IDLE-Doppel-Notify / Cursor-Overlap): Handler meldet
-      //    duplicate, Trigger feuert erneut — der keyed Store bleibt
-      //    bei genau einem Item.
+      //    duplicate, es entsteht kein zweites Event — der keyed Store
+      //    bleibt bei genau einem Item.
       const replayRes = await entry.app.request("/api/write", {
         method: "POST",
         headers,
@@ -275,22 +273,23 @@ describe("inbound-mail triage sample", () => {
 //   inbound-provider-inmemory — scriptable provider (tests/demos)
 //   mail-triage (this file)   — the app-side consumer
 //
-// The trigger fires AFTER every successful ingest-message write — that
-// includes idempotent replays (duplicate ingest returns success). The
-// triage store is therefore keyed by providerMessageId: replays
-// overwrite instead of duplicating. Key your side-effects the same way.
+// The job triggers on the stored inbound-message-received event, which the
+// foundation appends exactly once per message (deterministic aggregate id),
+// so an idempotent replay of the ingest creates no second event. The triage
+// store is keyed by the message id (the event's aggregate id) all the same:
+// the trigger is at-least-once, so key your side-effects the same way.
 
 import {
-  InboundMailFoundationHandlers,
-  type RawInboundMessage,
+  INBOUND_MESSAGE_RECEIVED_EVENT_QN,
+  inboundMessageEventPayloadSchema,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 
 export type TriageItem = {
-  readonly from: string;
-  readonly subject: string;
+  readonly messageId: string;
+  readonly accountId: string;
   readonly scope: string;
-  readonly threadHint: string | null;
+  readonly threadHint: string;
 };
 
 // In-memory store so the integration-test can assert the job ran with
@@ -301,32 +300,30 @@ export const triageInbox = new Map<string, TriageItem>();
 export function createMailTriageFeature(): FeatureDefinition {
   return defineFeature("mail-triage", (r) => {
     r.describe(
-      "Sample consumer for inbound-mail-foundation: a worker-lane job triggered by the ingest-message write-handler turns every inbound mail into a triage item.",
+      "Sample consumer for inbound-mail-foundation: a worker-lane job triggered by the inbound-message-received event turns every inbound mail into a triage item.",
     );
     r.requires({ features: ["inbound-mail-foundation"] });
 
-    // The job receives the dispatcher-validated ingest payload — i.e.
-    // the PLAINTEXT normalized mail (PII encryption happens inside the
-    // handler right before the event append, so consumers on the
-    // handler-trigger path never deal with ciphertext).
-    r.job(
-      "triage-inbound",
-      {
-        trigger: { on: InboundMailFoundationHandlers.ingestMessage },
-        runIn: "worker",
-      },
-      async (rawPayload) => {
-        // Dispatcher-validated ingest payload — one cast at the job boundary
-        // to the foundation's own message shape instead of per-field casts.
-        const payload = rawPayload as unknown as RawInboundMessage;
-        triageInbox.set(payload.providerMessageId, {
-          from: payload.from,
-          subject: payload.subject,
+    // from and subject are PII ciphertext in the event payload. Plaintext is read through
+    // InboundMailFoundationQueries.listMessages / messageContent, so the triage item keeps ids only.
+    r.job({
+      name: "triage-inbound",
+      trigger: { on: INBOUND_MESSAGE_RECEIVED_EVENT_QN },
+      runIn: "worker",
+      handler: async (rawPayload, context) => {
+        const messageId = context.triggerEvent?.aggregateId;
+        if (messageId === undefined) {
+          throw new Error("triage-inbound: job context has no triggerEvent.aggregateId");
+        }
+        const payload = inboundMessageEventPayloadSchema.parse(rawPayload);
+        triageInbox.set(messageId, {
+          messageId,
+          accountId: payload.accountId,
           scope: payload.scope,
           threadHint: payload.messageIdHeader,
         });
       },
-    );
+    });
   });
 }
 ```

@@ -4,5 +4,5 @@ import { ENTITY_ITEM, EXT_TENANT_DATA } from "./constants";
 declare function defineFeature(name: string, setup: (r: any) => void): void;
 
 defineFeature("cross-file-patch-const", (r) => {
-  r.useExtension(EXT_TENANT_DATA, ENTITY_ITEM);
+  r.applyExtension({ name: EXT_TENANT_DATA, entity: ENTITY_ITEM });
 });

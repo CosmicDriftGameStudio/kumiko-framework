@@ -5,7 +5,7 @@ import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { MAX_LIST_LIMIT, type QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineQueryHandler, MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { inboundMessageAggregateId } from "../aggregate-id.ts";
 import { INBOUND_MESSAGE_PII_FIELDS } from "../entities.ts";
@@ -26,11 +26,8 @@ function textOrNull(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
-export function createListQuarantineQuery({
-  memberRoles,
-  adminRoles,
-}: InboundMailRoles): QueryHandlerDef {
-  return {
+export function createListQuarantineQuery({ memberRoles, adminRoles }: InboundMailRoles) {
+  return defineQueryHandler({
     name: "quarantine:list",
     schema: listQuarantineSchema,
     access: { roles: [...memberRoles] },
@@ -38,7 +35,7 @@ export function createListQuarantineQuery({
     description:
       "Lists the open quarantine entries (mails the import could not take) of the mailboxes the caller may manage, newest first, with reason, retry state and the sender and subject of the header-only import when there is one; use it to review and retry quarantined mails.",
     handler: async (query, ctx) => {
-      const { accountId, limit } = listQuarantineSchema.parse(query.payload);
+      const { accountId, limit } = query.payload;
       const accounts = await ctx.db.selectMany(mailAccountsProjectionTable, {
         tenantId: ctx.user.tenantId,
       });
@@ -102,5 +99,5 @@ export function createListQuarantineQuery({
         }),
       };
     },
-  };
+  });
 }

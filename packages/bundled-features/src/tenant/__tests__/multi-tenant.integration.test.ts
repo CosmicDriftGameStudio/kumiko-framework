@@ -1,10 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { buildServer, type JwtHelper } from "@cosmicdrift/kumiko-framework/api";
-import {
-  createSystemDbView,
-  createTenantDb,
-  type DbConnection,
-} from "@cosmicdrift/kumiko-framework/db";
+import { createSystemDbView, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   attachOutsideTransaction,
   bridgeStub,
@@ -14,6 +10,7 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
@@ -44,9 +41,14 @@ const jobExecutions: Array<{ name: string; tenantId: TenantId }> = [];
 // --- Feature with perTenant job ---
 
 const billingFeature = defineFeature("billing", (r) => {
-  r.job("monthlyReport", { trigger: { manual: true }, perTenant: true }, async (_payload, ctx) => {
-    const systemUser = ctx["systemUser"] as SessionUser;
-    jobExecutions.push({ name: "billing:job:monthly-report", tenantId: systemUser.tenantId });
+  r.job({
+    name: "monthlyReport",
+    trigger: { manual: true },
+    perTenant: true,
+    handler: async (_payload, ctx) => {
+      const systemUser = ctx["systemUser"] as SessionUser;
+      jobExecutions.push({ name: "billing:job:monthly-report", tenantId: systemUser.tenantId });
+    },
   });
 });
 

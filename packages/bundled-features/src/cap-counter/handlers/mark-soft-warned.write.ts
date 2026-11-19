@@ -1,4 +1,4 @@
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { markCapSoftWarned } from "../book-cap-usage.ts";
 
@@ -14,16 +14,16 @@ const markSoftWarnedSchema = z.object({
   periodStartIso: z.string().min(1),
 });
 
-export const markSoftWarnedHandler: WriteHandlerDef = {
+export const markSoftWarnedHandler = defineWriteHandler({
   name: "mark-soft-warned",
   agent: { expose: false },
   schema: markSoftWarnedSchema,
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
-    const payload = event.payload as z.infer<typeof markSoftWarnedSchema>; // @cast-boundary engine-payload
+    const payload = event.payload;
     return markCapSoftWarned(ctx, {
       capName: payload.capName,
       periodStartIso: payload.periodStartIso,
     });
   },
-};
+});

@@ -19,6 +19,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { DbConnection, DbRunner } from "./connection.ts";
+import { isLockNotAvailable } from "./pg-error.ts";
 import { applyRowLevelSecurityScope } from "./queries/rls-scope.ts";
 import {
   asRawClient,
@@ -48,6 +49,28 @@ export type ApplyResult = {
 // Advisory-lock key (random 32-bit integer, stable). Prevents two Pods
 // booting at the same time from both running migrate apply (the second
 // blocks until the first finishes).
+// A migration that waits longer for a table lock (a long query or open transaction on the
+// table) fails instead of hanging the deploy; statement_timeout is 0 for the runner.
+export const DEFAULT_MIGRATION_LOCK_TIMEOUT_MS = 10_000;
+
+export type RunMigrationsOptions = { readonly lockTimeoutMs?: number };
+
+export class MigrationLockTimeoutError extends Error {
+  constructor(
+    public readonly migrationId: string,
+    public readonly lockTimeoutMs: number,
+    cause: unknown,
+  ) {
+    super(
+      `Migration "${migrationId}" could not get a table lock within ${lockTimeoutMs}ms. ` +
+        `Another session holds a conflicting lock (long query or open transaction); ` +
+        `retry once it finished.`,
+      { cause },
+    );
+    this.name = "MigrationLockTimeoutError";
+  }
+}
+
 export const MIGRATION_ADVISORY_LOCK_KEY = 0x6b756d69; // "kumi" in ASCII
 
 const MIGRATIONS_TABLE_DDL = `
@@ -291,7 +314,15 @@ export class MigrationChecksumMismatchError extends Error {
 export async function runMigrations(
   db: DbConnection,
   migrations: readonly Migration[],
+  options: RunMigrationsOptions = {},
 ): Promise<ApplyResult> {
+  const lockTimeoutMs = options.lockTimeoutMs ?? DEFAULT_MIGRATION_LOCK_TIMEOUT_MS;
+  // lock_timeout 0 means "wait forever" in Postgres, the opposite of a bound.
+  if (!Number.isFinite(lockTimeoutMs) || lockTimeoutMs < 1) {
+    throw new RangeError(
+      `runMigrations: lockTimeoutMs must be a finite number of at least 1, got ${lockTimeoutMs}`,
+    );
+  }
   // Session-level advisory lock and per-migration BEGIN/COMMIT must share one
   // session. Pool calls may land on different connections (the pool round-robins),
   // which would leave the lock held on a session nobody unlocks.
@@ -323,6 +354,7 @@ export async function runMigrations(
         // apply remains stuck in the books.
         await conn.unsafe("BEGIN");
         try {
+          await conn.unsafe(`SET LOCAL lock_timeout = '${Math.trunc(lockTimeoutMs)}ms'`);
           // Transaction-local, so the next migration's BEGIN starts clean; migrations rewrite every tenant's rows.
           await applyRowLevelSecurityScope(conn, systemRowLevelSecurityScope("migration run"));
           for (const stmt of m.statements) {
@@ -336,7 +368,7 @@ export async function runMigrations(
         } catch (e) {
           // A failed ROLLBACK means the session is gone (its lock and tx with it); keep the migration error.
           await conn.unsafe("ROLLBACK").catch(() => undefined);
-          throw e;
+          throw isLockNotAvailable(e) ? new MigrationLockTimeoutError(m.id, lockTimeoutMs, e) : e;
         }
         appliedIds.push(m.id);
       }

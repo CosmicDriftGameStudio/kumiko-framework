@@ -29,6 +29,7 @@ import {
   FILES_TENANT_DATA_FEATURE,
 } from "@cosmicdrift/kumiko-bundled-features/files-tenant-data";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import {
   collectAssignableAppRoles,
@@ -37,13 +38,12 @@ import {
 import { TENANT_LIFECYCLE_FEATURE } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
-  type BundledListsOptions,
   dedupeFeatures,
   type FeatureDefinition,
+  type ListDefaultsOptions,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { FILES_FEATURE } from "@cosmicdrift/kumiko-framework/files";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
-import { applyBundledListsTable } from "./bundled-lists-table.ts";
+import { applyListDefaults } from "./list-defaults.ts";
 
 export { type AuthOptionsCarrier, buildComposeAuthOptions } from "./compose-auth-options.ts";
 
@@ -59,8 +59,8 @@ export type ComposeFeaturesOptions = {
    *  auth-routes.ts but no handler dispatches). Goes hand-in-hand with the
    *  passwordReset block in RunProdAppAuthOptions / RunDevAppAuthOptions. */
   readonly authOptions?: AuthEmailPasswordOptions;
-  /** One table block for every list screen and relatedList of the bundled features; screen-own keys win. */
-  readonly bundledLists?: BundledListsOptions;
+  /** One table block for every list screen and relatedList of all composed features; screen-own keys win. */
+  readonly listDefaults?: ListDefaultsOptions;
 };
 
 // Output of a first composeFeatures pass comes back as app features when a caller composes twice (the app
@@ -78,7 +78,7 @@ export function composeFeatures(
   // bypasses MFA. Upgrade if this trips someone: warn here when appFeatures
   // contains AUTH_MFA_FEATURE but includeBundled is false.
   if (!options.includeBundled)
-    return applyBundledListsTable(dedupeFeatures(appFeatures), options.bundledLists);
+    return applyListDefaults(dedupeFeatures(appFeatures), options.listDefaults);
 
   // Bundled foundation goes first so its instances carry the runDevApp /
   // runProdApp `authOptions` (passwordReset wiring etc.). App-features that
@@ -121,8 +121,34 @@ export function composeFeatures(
   ];
   for (const f of bundled) composedBundledInstances.add(f);
   const bundledNames = new Set(bundled.map((f) => f.name));
+  const filteredApp = dropBundledDuplicates(dedupedAppFeatures, bundledNames);
+  const names = new Set(filteredApp.map((f) => f.name));
+  // Without it, tenant destroy leaves fileRef rows and stored binaries behind.
+  const needsFilesTenantData =
+    names.has(FILES_FEATURE) &&
+    names.has(TENANT_LIFECYCLE_FEATURE) &&
+    !names.has(FILES_TENANT_DATA_FEATURE);
+  const composed = applyListDefaults(
+    [
+      ...bundled,
+      ...missingAuthMailStack(names),
+      ...filteredApp,
+      ...(needsFilesTenantData ? [createFilesTenantDataFeature()] : []),
+    ],
+    options.listDefaults,
+  );
+  // applyListDefaults copies every feature, so the copies of the bundled ones are registered again.
+  for (const feature of composed)
+    if (bundledNames.has(feature.name)) composedBundledInstances.add(feature);
+  return composed;
+}
+
+function dropBundledDuplicates(
+  appFeatures: readonly FeatureDefinition[],
+  bundledNames: ReadonlySet<string>,
+): FeatureDefinition[] {
   const filteredApp: FeatureDefinition[] = [];
-  for (const f of dedupedAppFeatures) {
+  for (const f of appFeatures) {
     if (bundledNames.has(f.name)) {
       // The toggle takes no options, so the app copy is identical. Apps still
       // need it in APP_FEATURES: the schema CLI and tests compose without
@@ -137,21 +163,7 @@ export function composeFeatures(
     }
     filteredApp.push(f);
   }
-  const names = new Set(filteredApp.map((f) => f.name));
-  // Without it, tenant destroy leaves fileRef rows and stored binaries behind.
-  const needsFilesTenantData =
-    names.has(FILES_FEATURE) &&
-    names.has(TENANT_LIFECYCLE_FEATURE) &&
-    !names.has(FILES_TENANT_DATA_FEATURE);
-  return applyBundledListsTable(
-    [
-      ...bundled,
-      ...missingAuthMailStack(names),
-      ...filteredApp,
-      ...(needsFilesTenantData ? [createFilesTenantDataFeature()] : []),
-    ],
-    options.bundledLists,
-  );
+  return filteredApp;
 }
 
 // auth-email-password declares its mails as stored templates, and the boot seed

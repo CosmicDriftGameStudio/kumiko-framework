@@ -94,7 +94,7 @@ type SelectedEvent = {
 // by TCP round-trip instead of pollIntervalMs.
 export const EVENTS_PUBSUB_CHANNEL = "kumiko_events_new";
 
-export async function append(db: DbRunner, event: EventToAppend): Promise<StoredEvent> {
+export async function prepareEventForStore(event: EventToAppend): Promise<EventToAppend> {
   // Event-PII: stored payload AND returned echo carry ciphertext, so
   // inline projections and rebuilds materialize identical rows.
   const payload = await encryptEventPayloadPii(event.type, event.payload, {
@@ -102,7 +102,11 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
     aggregateType: event.aggregateType,
     aggregateId: event.aggregateId,
   });
-  const toStore = stampOrigin(payload === event.payload ? event : { ...event, payload });
+  return stampOrigin(payload === event.payload ? event : { ...event, payload });
+}
+
+export async function append(db: DbRunner, event: EventToAppend): Promise<StoredEvent> {
+  const toStore = await prepareEventForStore(event);
   const seedCreatedAt = currentSeedCreatedAt();
   const newVersion = toStore.expectedVersion + 1;
   const eventVersion = toStore.eventVersion ?? 1;
@@ -129,22 +133,24 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
 
     return buildStoredEvent(toStore, newVersion, eventVersion, row);
   } catch (e) {
-    if (isUniqueViolation(e)) {
-      // The version index normally never throws (ON CONFLICT DO NOTHING); it
-      // only lands here for an unknown or renamed constraint.
-      // Two unique constraints on this table: events_aggregate_version_uq
-      // (tenant_id, aggregate_id, version) — a concurrent writer won the
-      // race to the next version — and events_idempotency_uq (tenant_id,
-      // metadata->>'idempotencyKey') — the caller reused an idempotency key.
-      // constraintOf() tells them apart; unknown/renamed constraint falls
-      // back to VersionConflictError, the pre-existing behaviour.
-      if (constraintOf(e) === "events_idempotency_uq" && event.metadata.idempotencyKey) {
-        throw new IdempotentAppendConflictError(event.tenantId, event.metadata.idempotencyKey);
-      }
-      throw new VersionConflictError(event.aggregateId, event.expectedVersion);
-    }
+    if (isUniqueViolation(e)) throw mapAppendUniqueViolation(e, event);
     throw e;
   }
+}
+
+export function mapAppendUniqueViolation(error: unknown, event: EventToAppend): unknown {
+  // The version index normally never throws (ON CONFLICT DO NOTHING); it
+  // only lands here for an unknown or renamed constraint.
+  // Two unique constraints on this table: events_aggregate_version_uq
+  // (tenant_id, aggregate_id, version) — a concurrent writer won the
+  // race to the next version — and events_idempotency_uq (tenant_id,
+  // metadata->>'idempotencyKey') — the caller reused an idempotency key.
+  // constraintOf() tells them apart; unknown/renamed constraint falls
+  // back to VersionConflictError, the pre-existing behaviour.
+  if (constraintOf(error) === "events_idempotency_uq" && event.metadata.idempotencyKey) {
+    return new IdempotentAppendConflictError(event.tenantId, event.metadata.idempotencyKey);
+  }
+  return new VersionConflictError(event.aggregateId, event.expectedVersion);
 }
 
 // Attribution is derived from the execution scope, never taken from
@@ -189,7 +195,7 @@ async function assertSeedTimeNotBeforePredecessor(
   }
 }
 
-type InsertReturn = { id: bigint; createdAt: Temporal.Instant };
+export type InsertReturn = { id: bigint; createdAt: Temporal.Instant };
 
 async function insertFirstEvent(
   db: DbRunner,
@@ -242,7 +248,7 @@ async function insertSubsequentEvent(
   return insertReturnOf(row);
 }
 
-function insertReturnOf(row: SubsequentEventInsertRow): InsertReturn {
+export function insertReturnOf(row: SubsequentEventInsertRow): InsertReturn {
   const createdAt =
     row.created_at instanceof Date
       ? Temporal.Instant.fromEpochMilliseconds(row.created_at.getTime())
@@ -263,7 +269,7 @@ async function versionConflictWithCurrentVersion(
   return new VersionConflictError(event.aggregateId, event.expectedVersion, currentVersion);
 }
 
-function buildStoredEvent(
+export function buildStoredEvent(
   event: EventToAppend,
   newVersion: number,
   eventVersion: number,
@@ -398,14 +404,17 @@ export async function loadAggregateForWriting(
 
 // Load events up to a point in time. Used for asOf queries that reconstruct
 // historical state. Includes events whose created_at is <= asOf. Same
-// archive semantics as loadAggregate.
+// archive and aggregateType semantics as loadAggregate.
 export async function loadAggregateAsOf(
   db: DbRunner,
   aggregateId: string,
   tenantId: TenantId,
   asOf: Temporal.Instant,
-  options?: { readonly includeArchived?: boolean },
+  options?: { readonly includeArchived?: boolean; readonly aggregateType?: string },
 ): Promise<readonly StoredEvent[]> {
+  if (options?.aggregateType === "") {
+    throw new Error("loadAggregateAsOf: aggregateType must be a non-empty string when provided");
+  }
   return inEventStreamScope(tenantId, async () => {
     if (!options?.includeArchived) {
       const archived = await isStreamArchived(db, tenantId, aggregateId);
@@ -414,8 +423,47 @@ export async function loadAggregateAsOf(
     const rows = await selectMany<SelectedEvent>(
       db,
       eventsTable,
-      { aggregateId, tenantId, createdAt: { lte: asOf } },
+      {
+        aggregateId,
+        tenantId,
+        createdAt: { lte: asOf },
+        ...(options?.aggregateType !== undefined && { aggregateType: options.aggregateType }),
+      },
       { orderBy: { col: "version", direction: "asc" } },
+    );
+    return rows.map(toStoredEvent);
+  });
+}
+
+// Every stream of one aggregate type up to a point in time, for asOf reads of a whole entity.
+// ponytail: archived streams are included; filter them when an archive-aware asOf read is needed.
+export async function loadAggregateTypeAsOf(
+  db: DbRunner,
+  aggregateType: string,
+  tenantId: TenantId,
+  asOf: Temporal.Instant,
+  options?: { readonly aggregateIds?: readonly string[] | undefined },
+): Promise<readonly StoredEvent[]> {
+  if (aggregateType === "") {
+    throw new Error("loadAggregateTypeAsOf: aggregateType must be a non-empty string");
+  }
+  const aggregateIds = options?.aggregateIds;
+  return inEventStreamScope(tenantId, async () => {
+    const rows = await selectMany<SelectedEvent>(
+      db,
+      eventsTable,
+      {
+        tenantId,
+        aggregateType,
+        createdAt: { lte: asOf },
+        ...(aggregateIds !== undefined && { aggregateId: { in: aggregateIds } }),
+      },
+      {
+        orderBy: [
+          { col: "aggregateId", direction: "asc" },
+          { col: "version", direction: "asc" },
+        ],
+      },
     );
     return rows.map(toStoredEvent);
   });
@@ -455,10 +503,6 @@ export async function getUnscopedAggregateStreamMaxVersion(
   return selectAggregateMaxVersion(db, aggregateId);
 }
 
-// Global high-water-mark = MAX(events.id). Marten/Wolverine standard for
-// projection/consumer lag math: lag = HWM - cursor. Single-row aggregate over
-// the bigserial PK index — sub-millisecond cost. Returns 0n on an empty log
-// (boot, fresh tenant, post-archive).
 /** Seed/orphan helper — prefer this over importing the restricted existence-oracle by name. */
 export async function getUnscopedStreamMaxVersionForSeed(
   ...args: Parameters<typeof getUnscopedAggregateStreamMaxVersion>
@@ -466,6 +510,10 @@ export async function getUnscopedStreamMaxVersionForSeed(
   return getUnscopedAggregateStreamMaxVersion(...args);
 }
 
+// Global high-water-mark = MAX(events.id). Marten/Wolverine standard for
+// projection/consumer lag math: lag = HWM - cursor. Single-row aggregate over
+// the bigserial PK index — sub-millisecond cost. Returns 0n on an empty log
+// (boot, fresh tenant, post-archive).
 export async function getEventsHighWaterMark(db: DbRunner): Promise<bigint> {
   return selectEventsHighWaterMark(db);
 }
@@ -479,13 +527,15 @@ export async function loadEventsAfterVersion(
   tenantId: TenantId,
   afterVersion: number,
 ): Promise<readonly StoredEvent[]> {
-  const rows = await selectMany<SelectedEvent>(
-    db,
-    eventsTable,
-    { aggregateId, tenantId, version: { gt: afterVersion } },
-    { orderBy: { col: "version", direction: "asc" } },
-  );
-  return rows.map(toStoredEvent);
+  return inEventStreamScope(tenantId, async () => {
+    const rows = await selectMany<SelectedEvent>(
+      db,
+      eventsTable,
+      { aggregateId, tenantId, version: { gt: afterVersion } },
+      { orderBy: { col: "version", direction: "asc" } },
+    );
+    return rows.map(toStoredEvent);
+  });
 }
 
 // Stream every event for an aggregate_type across all tenants, batchwise

@@ -35,6 +35,7 @@ export function useReferenceColumnLookups(
         const current = prev[field]?.[chunkIndex];
         const unchanged =
           current?.map === lookup.map &&
+          current.fileIds === lookup.fileIds &&
           current.complete === lookup.complete &&
           current.idsKey === lookup.idsKey;
         if (unchanged) return prev;

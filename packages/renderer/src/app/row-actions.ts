@@ -764,6 +764,7 @@ function buildWriteHandlerRecordAction(
     readonly discardChanges: DiscardChanges | undefined;
     readonly writeForms: WriteFormRegistry | undefined;
     readonly submitWithIds: ReadonlySet<string> | undefined;
+    readonly dirtyWriteForms: ReadonlySet<string> | undefined;
   },
 ): RenderEditAction {
   const {
@@ -774,10 +775,16 @@ function buildWriteHandlerRecordAction(
     onWriteSuccess,
     defaultWritePayloadId,
     onRecordLeft,
-    discardChanges,
     writeForms,
     submitWithIds,
+    dirtyWriteForms,
   } = options;
+  // An action that submits a writeForm sends that form's typed input, so it asks only when another
+  // writeForm on the page holds input the reload would drop.
+  const sendsAllDirtyInput =
+    submitWithIds?.has(action.id) === true &&
+    [...(dirtyWriteForms ?? [])].every((formKey) => formKey === action.id);
+  const discardChanges = sendsAllDirtyInput ? undefined : options.discardChanges;
   const shownRecordId = defaultWritePayloadId ?? record["id"];
   const confirm = withDiscardHint(
     action.confirm !== undefined ? translate(action.confirm) : undefined,
@@ -885,6 +892,8 @@ export function buildRecordActions(options: {
   readonly writeForms?: WriteFormRegistry;
   /** Ids of the actions that a writeForm section submits (`submitWith`). */
   readonly submitWithIds?: ReadonlySet<string>;
+  /** Keys of the writeForm sections holding unsaved input; a `submitWith` form reports its action id. */
+  readonly dirtyWriteForms?: ReadonlySet<string>;
 }): readonly RenderEditAction[] | undefined {
   const {
     actions,
@@ -903,6 +912,7 @@ export function buildRecordActions(options: {
     clientActions,
     writeForms,
     submitWithIds,
+    dirtyWriteForms,
   } = options;
   const out: RenderEditAction[] = [];
   for (const action of actions) {
@@ -961,6 +971,7 @@ export function buildRecordActions(options: {
         discardChanges,
         writeForms,
         submitWithIds,
+        dirtyWriteForms,
       }),
     );
   }

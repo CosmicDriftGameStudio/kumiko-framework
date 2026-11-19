@@ -19,7 +19,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
 import { useDispatchedWrites } from "../../shared/web/index.ts";
-import { FoldersHandlers, FoldersQueries } from "./constants.ts";
+import { FOLDER_LIST_LIMIT, FoldersHandlers, FoldersQueries } from "./constants.ts";
 import { type FolderRow, folderPath } from "./tree.ts";
 
 type AssignmentRow = {
@@ -27,12 +27,47 @@ type AssignmentRow = {
   readonly entityType: string;
   readonly entityId: string;
 };
-type FolderListResponse = { readonly rows: readonly FolderRow[] };
+type FolderListResponse = {
+  readonly rows: readonly FolderRow[];
+  readonly nextCursor?: string | null;
+};
 type AssignmentListResponse = { readonly rows: readonly AssignmentRow[] };
 
 // Sentinel for the "no folder" combobox option — selecting it clears the
 // assignment. Empty string can't collide with a folder id (uuid).
 const NO_FOLDER = "";
+
+type QueryBlocker = {
+  readonly variant: "loading" | "error";
+  readonly testId: string;
+  readonly i18nKey: string;
+  readonly i18nParams?: Parameters<ReturnType<typeof useTranslation>>[1];
+};
+
+type QueryState = Pick<ReturnType<typeof useQuery>, "loading" | "data" | "error">;
+
+function queryBlocker(catalog: QueryState, assignments: QueryState): QueryBlocker | null {
+  if (
+    (catalog.loading && catalog.data === null) ||
+    (assignments.loading && assignments.data === null)
+  ) {
+    return {
+      variant: "loading",
+      testId: "folder-section-loading",
+      i18nKey: "folders.section.loading",
+    };
+  }
+  const queryError = catalog.error ?? assignments.error;
+  if (queryError) {
+    return {
+      variant: "error",
+      testId: "folder-section-error",
+      i18nKey: queryError.i18nKey,
+      i18nParams: queryError.i18nParams,
+    };
+  }
+  return null;
+}
 
 export function FolderSection({
   entityName,
@@ -45,7 +80,11 @@ export function FolderSection({
   const t = useTranslation();
   const dispatcher = useDispatcher();
   const enabled = entityId !== null;
-  const catalog = useQuery<FolderListResponse>(FoldersQueries.folderList, {}, { enabled });
+  const catalog = useQuery<FolderListResponse>(
+    FoldersQueries.folderList,
+    { limit: FOLDER_LIST_LIMIT },
+    { enabled },
+  );
   const assignments = useQuery<AssignmentListResponse>(
     FoldersQueries.assignmentList,
     {
@@ -71,26 +110,17 @@ export function FolderSection({
       </Banner>
     );
   }
-  if (
-    (catalog.loading && catalog.data === null) ||
-    (assignments.loading && assignments.data === null)
-  ) {
+  const blocker = queryBlocker(catalog, assignments);
+  if (blocker !== null) {
     return (
-      <Banner variant="loading" testId="folder-section-loading">
-        <Text>{t("folders.section.loading")}</Text>
-      </Banner>
-    );
-  }
-  const queryError = catalog.error ?? assignments.error;
-  if (queryError) {
-    return (
-      <Banner variant="error" testId="folder-section-error">
-        <Text>{t(queryError.i18nKey, queryError.i18nParams)}</Text>
+      <Banner variant={blocker.variant} testId={blocker.testId}>
+        <Text>{t(blocker.i18nKey, blocker.i18nParams)}</Text>
       </Banner>
     );
   }
 
   const folders = catalog.data?.rows ?? [];
+  const truncated = typeof catalog.data?.nextCursor === "string" && catalog.data.nextCursor !== "";
   const currentFolderId =
     (assignments.data?.rows ?? []).find((r) => r.entityType === entityName)?.folderId ?? NO_FOLDER;
   const options = [
@@ -134,6 +164,11 @@ export function FolderSection({
 
   return (
     <div data-testid="folder-section" className="flex flex-col gap-4">
+      {truncated && (
+        <Banner variant="warning" testId="folder-section-truncated">
+          <Text>{t("folders.list.truncated", { limit: FOLDER_LIST_LIMIT })}</Text>
+        </Banner>
+      )}
       <Field id="folder-section-select" label={t("folders.section.label")}>
         <Input
           kind="combobox"

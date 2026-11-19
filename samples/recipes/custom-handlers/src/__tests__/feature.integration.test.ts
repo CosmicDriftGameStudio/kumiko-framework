@@ -3,15 +3,10 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { counterEntity, counterFeature } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { counterFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -20,8 +15,6 @@ const user = createTestUser({ id: 2, roles: ["User"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [counterFeature] });
-  await unsafeCreateEntityTable(stack.db, counterEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -115,6 +108,45 @@ describe("custom write handler: increment", () => {
       user,
     );
     expect(error.code).toBe("not_found");
+  });
+});
+
+describe("custom write handler: create-many", () => {
+  test("creates every row with count 0", async () => {
+    const { ids } = await stack.http.writeOk<{ ids: string[] }>(
+      "counters:write:counter:create-many",
+      { names: ["batch-a", "batch-b", "batch-c"] },
+      admin,
+    );
+    expect(ids).toHaveLength(3);
+
+    const names: unknown[] = [];
+    for (const id of ids) {
+      const row = await stack.http.queryOk<Record<string, unknown>>(
+        "counters:query:counter:detail",
+        { id },
+        admin,
+      );
+      expect(row["count"]).toBe(0);
+      names.push(row["name"]);
+    }
+    expect(names).toEqual(["batch-a", "batch-b", "batch-c"]);
+  });
+
+  test("an invalid name fails the whole batch and writes no row", async () => {
+    const error = await stack.http.writeErr(
+      "counters:write:counter:create-many",
+      { names: ["ok", ""] },
+      admin,
+    );
+    expectErrorIncludes(error, "validation");
+
+    const active = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
+      "counters:query:counter:active",
+      { minCount: 0 },
+      admin,
+    );
+    expect(active.rows.map((row) => row["name"])).not.toContain("ok");
   });
 });
 
@@ -244,5 +276,71 @@ describe("custom query handler: active counters", () => {
     expect(result.rows).toHaveLength(3);
     expect(result.total).toBe(3);
     expect(result.nextCursor).toBeNull();
+  });
+});
+
+describe("named verbs and history", () => {
+  type HistoryEntry = { verb: string; at: string };
+
+  async function createCounter(name: string): Promise<string> {
+    const created = await stack.http.writeOk<SaveContext>(
+      "counters:write:counter:create",
+      { name },
+      admin,
+    );
+    return String(created.id);
+  }
+
+  function historyOf(id: string): Promise<HistoryEntry[] | null> {
+    return stack.http.queryOk<HistoryEntry[] | null>(
+      "counters:query:counter:history",
+      { id },
+      admin,
+    );
+  }
+
+  test("history lists lifecycle and verb events in order", async () => {
+    const id = await createCounter("verb-history");
+    await stack.http.writeOk("counters:write:counter:increment", { id, amount: 1 }, admin);
+    await stack.http.writeOk("counters:write:counter:archive", { id }, admin);
+
+    expect((await historyOf(id))?.map((entry) => entry.verb)).toEqual([
+      "created",
+      "updated",
+      "archived",
+    ]);
+  });
+
+  test("archiving twice is an invalid transition", async () => {
+    const id = await createCounter("archive-twice");
+    await stack.http.writeOk("counters:write:counter:archive", { id }, admin);
+
+    const error = await stack.http.writeErr("counters:write:counter:archive", { id }, admin);
+
+    expectErrorIncludes(error, "invalid_transition");
+  });
+
+  test("reset writes the reset verb", async () => {
+    const id = await createCounter("verb-reset");
+    await stack.http.writeOk("counters:write:counter:reset", { id }, admin);
+
+    expect((await historyOf(id))?.map((entry) => entry.verb)).toEqual(["created", "reset"]);
+  });
+
+  test("as-of the created event shows the counter as it was", async () => {
+    const id = await createCounter("as-of");
+    await stack.http.writeOk("counters:write:counter:increment", { id, amount: 7 }, admin);
+    const createdAt = (await historyOf(id))?.find((entry) => entry.verb === "created")?.at;
+    if (createdAt === undefined) throw new Error("expected a created entry");
+
+    const rows = await stack.http.queryOk<Record<string, unknown>[]>(
+      "counters:query:counter:as-of",
+      { asOf: createdAt },
+      admin,
+    );
+
+    const row = rows.find((candidate) => candidate["id"] === id);
+    expect(row?.["count"]).toBe(0);
+    expect(row?.["status"]).toBe("open");
   });
 });

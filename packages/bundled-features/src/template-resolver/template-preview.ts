@@ -24,10 +24,10 @@ import { createEmailAttachmentReader, createTemplateMailRenderer } from "../deli
 import { fileContextForTenant } from "../file-foundation/index.ts";
 import {
   collectRendererPlugins,
-  createRendererFoundationApi,
   type MailAttachmentRef,
   RendererError,
   type RendererPlugin,
+  selectRendererPlugin,
 } from "../renderer-foundation/index.ts";
 import {
   createTemplateResolverApi,
@@ -42,11 +42,11 @@ import { validateTemplateDraft } from "./handlers/validate.query.ts";
 import {
   type LayoutRegions,
   readLayoutRegions,
-  sanitizeLayoutHtml,
   type TemplateWriteScope,
 } from "./layout-regions.ts";
 import { type LinkedResourceEntry, parseLinkedResourceEntries } from "./linked-resources.ts";
 import { buildDisplayHtml } from "./preview-display-html.ts";
+import { resolveTrustedLayout } from "./stored-template-body.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
 import { deliveryPolicyOf } from "./template-delivery-policy.ts";
 import {
@@ -59,7 +59,6 @@ import {
 import {
   DEFAULT_MAIL_LAYOUT_SLUG,
   MAIL_PREVIEW_MAX_BYTES,
-  SYSTEM_TENANT_ID,
   type TemplateScope,
 } from "./web/constants.ts";
 import { TemplateResolverErrors } from "./web/qualified-names.ts";
@@ -360,34 +359,22 @@ async function resolvePdfLayout(
   working = false,
 ): Promise<PreviewLayout | null> {
   const api = createTemplateResolverApi(ctx.db, ctx.registry);
-  const find = async (tenantId: string): Promise<TemplateResource | null> => {
-    if (resolvedForCaller !== null && tenantId === user.tenantId) return resolvedForCaller;
-    try {
-      return await api.resolveLayout({
-        tenantId,
-        slug,
-        kind: "pdf-layout",
-        locale,
-        working,
-      });
-    } catch (e) {
-      if (e instanceof TemplateNotFoundError) return null;
-      throw e;
-    }
-  };
-  let layout = await find(user.tenantId);
-  let html = layout?.content ?? "";
-  if (layout !== null && layout.scope !== "system") {
-    // Re-checked like the mail renderer does: a tenant row that predates the write gate must not pass.
-    const sanitized = sanitizeLayoutHtml(html);
-    if (sanitized.ok) html = sanitized.html;
-    else {
-      layout = await find(SYSTEM_TENANT_ID);
-      html = layout?.content ?? "";
-    }
+  try {
+    const layout = await resolveTrustedLayout(
+      api,
+      { tenantId: user.tenantId, slug, kind: "pdf-layout", locale, working },
+      resolvedForCaller ?? undefined,
+    );
+    return {
+      slug,
+      scope: layout.scope,
+      html: layout.content,
+      regions: readLayoutRegions(layout.content),
+    };
+  } catch (e) {
+    if (e instanceof TemplateNotFoundError) return null;
+    throw e;
   }
-  if (layout === null) return null;
-  return { slug, scope: layout.scope, html, regions: readLayoutRegions(html) };
 }
 
 async function resolvePreviewPdfLayout(
@@ -440,11 +427,9 @@ type DocumentPreviewArgs = {
 
 // Only a plugin that prints documents can show the filled-in page; without one the editor
 // still gets the body and the raw layout, just without placeholder values.
-function documentPreviewPlugin(ctx: HandlerContext, tenantId: string): RendererPlugin | null {
+function documentPreviewPlugin(ctx: HandlerContext): RendererPlugin | null {
   try {
-    const plugin = createRendererFoundationApi(
-      collectRendererPlugins(ctx.registry),
-    ).createRendererForTenant({ tenantId, kind: "document-pdf" });
+    const plugin = selectRendererPlugin(collectRendererPlugins(ctx.registry), "document-pdf");
     return plugin.previewDocument === undefined ? null : plugin;
   } catch (e) {
     if (e instanceof RendererError && e.code === "no_plugin_for_kind") return null;
@@ -460,7 +445,7 @@ async function renderDocumentPreview(
   const { input, content, meta, validation, sampleValues } = args;
   const pdfMeta = meta.ok ? readPdfTemplateMeta(meta.meta) : null;
   const requiredCheck = requiredPlaceholdersCheck(validation.missingRequired);
-  const plugin = documentPreviewPlugin(ctx, user.tenantId);
+  const plugin = documentPreviewPlugin(ctx);
 
   if (plugin?.previewDocument === undefined) {
     return {

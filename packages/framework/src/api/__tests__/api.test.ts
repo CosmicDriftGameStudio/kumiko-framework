@@ -29,13 +29,13 @@ function parseSseFrames(text: string): { event: string; data: string }[] {
 const JWT_SECRET = "test-secret-at-least-32-chars-long!!";
 
 const testFeature = defineFeature("test", (r) => {
-  r.entity({
-    name: "item",
-    ...createEntity({
+  r.entity(
+    createEntity({
+      name: "item",
       table: "Items",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
     }),
-  });
+  );
 
   r.writeHandler({
     name: "item:create",
@@ -51,37 +51,37 @@ const testFeature = defineFeature("test", (r) => {
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
-  r.streamHandler(
-    "item:tail",
-    z.object({ count: z.number().int().min(0) }),
-    async function* (query) {
+  r.streamHandler({
+    name: "item:tail",
+    schema: z.object({ count: z.number().int().min(0) }),
+    handler: async function* (query) {
       for (let i = 0; i < query.payload.count; i++) {
         yield { i };
       }
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.streamHandler(
-    "item:tail-fail-mid",
-    z.object({}),
-    async function* () {
+  r.streamHandler({
+    name: "item:tail-fail-mid",
+    schema: z.object({}),
+    handler: async function* () {
       yield { i: 0 };
       yield { i: 1 };
       throw new Error("boom");
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.streamHandler(
-    "item:tail-fail-first",
-    z.object({}),
-    // biome-ignore lint/correctness/useYield: deliberately throws before any yield — tests the pre-pull failure path
-    async function* () {
-      throw new Error("boom");
-    },
-    { access: { roles: ["Admin"] } },
-  );
+  r.streamHandler({
+    name: "item:tail-fail-first",
+    schema: z.object({}),
+    handler: // biome-ignore lint/correctness/useYield: deliberately throws before any yield — tests the pre-pull failure path
+      async function* () {
+        throw new Error("boom");
+      },
+    access: { roles: ["Admin"] },
+  });
 });
 
 const registry = createRegistry([testFeature]);
@@ -666,7 +666,7 @@ describe("POST /api/stream pre-pull race", () => {
       c.set("pipelineUser", user);
       await next();
     });
-    app.route("/api", createApiRoutes(dispatcher, { sseHeartbeatMs }));
+    app.route("/api", createApiRoutes(dispatcher, createRegistry([]), { sseHeartbeatMs }));
     return app;
   }
 
@@ -753,13 +753,13 @@ describe("feature-declared HTTP routes (r.httpRoute)", () => {
   // → Hono-app.{get,post}(path) → Response. deps.app allows internal calls
   // to /api/* (the same auth path as a real HTTP call).
   const routeFeature = defineFeature("routes", (r) => {
-    r.entity({
-      name: "item",
-      ...createEntity({
+    r.entity(
+      createEntity({
+        name: "item",
         table: "Items",
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
       }),
-    });
+    );
     r.queryHandler({
       name: "item:list",
       schema: z.object({}),
@@ -812,13 +812,13 @@ describe("feature-declared HTTP routes (r.httpRoute)", () => {
     // defaultTenantId enables the inner call without a Bearer token;
     // pins that deps.app.fetch behaves identically to a real HTTP call.
     const inner = defineFeature("inner", (r) => {
-      r.entity({
-        name: "item",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "item",
           table: "Items",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
       // Deliberately "anonymous" — openToAll explicitly excludes anonymous users
       // (see access.ts), so enabling anonymousAccess does not accidentally
       // make every openToAll handler public.

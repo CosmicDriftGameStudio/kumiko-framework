@@ -32,9 +32,9 @@ function boundarySite(file: string, line: number, boundaryReason?: string): Test
   };
 }
 
-function castIn(code: string) {
+function castIn(code: string, filePath = "packages/framework/src/x/cast.ts") {
   const project = new Project({ useInMemoryFileSystem: true });
-  const sf = project.createSourceFile("packages/framework/src/x/cast.ts", code);
+  const sf = project.createSourceFile(filePath, code);
   return sf.getFirstDescendantByKindOrThrow(SyntaxKind.AsExpression);
 }
 
@@ -57,6 +57,29 @@ describe("As-Casts Audit", () => {
   });
 });
 
+describe("engine-payload casts in handlers", () => {
+  const code =
+    "declare const event: { payload: unknown };\n// @cast-boundary engine-payload\nexport const y = event.payload as { a: string };";
+
+  test("event.payload drilling in a *.write.ts handler is a violation", () => {
+    const cast = castIn(code, "packages/x/src/features/t/handlers/save.write.ts");
+    expect(categorize(cast)).toBe("suspect-general");
+  });
+
+  test("query.payload drilling in a *.query.ts handler is a violation", () => {
+    const cast = castIn(
+      code.replaceAll("event", "query"),
+      "packages/x/src/features/t/handlers/list.query.ts",
+    );
+    expect(categorize(cast)).toBe("suspect-general");
+  });
+
+  test("the same cast in a projection stays a legit boundary", () => {
+    const cast = castIn(code, "packages/x/src/features/t/projections/p.ts");
+    expect(categorize(cast)).toBe("legit-boundary");
+  });
+});
+
 describe("cast baseline file", () => {
   let dir: string;
   let file: string;
@@ -72,6 +95,9 @@ describe("cast baseline file", () => {
     expect(violations).toHaveLength(1);
     expect(violations[0]?.file).toBe(file);
     expect(violations[0]?.message).toContain(`Cannot read cast baseline ${file}`);
+    expect(violations[0]?.message).toContain(
+      '`bun kumiko-guards guards --write-baseline --guard="As-Casts Audit"`',
+    );
   });
 
   test("a baseline with a wrongly shaped perFile is invalid", () => {
@@ -92,8 +118,12 @@ describe("cast baseline file", () => {
     expect(reportBaseline([], file)).toEqual([]);
   });
 
-  test("a missing baseline is still only a warning", () => {
-    expect(reportBaseline([suspectSite("a.ts", 1)], file)).toEqual([]);
+  test("a missing baseline counts as empty: a suspect cast is a violation", () => {
+    expect(reportBaseline([suspectSite("a.ts", 1)], file)).toHaveLength(1);
+  });
+
+  test("a sibling-path cast stays green without a baseline", () => {
+    expect(reportBaseline([suspectSite("../sibling/src/a.ts", 4)], file)).toEqual([]);
   });
 
   function writeValidBaseline(perFile: Record<string, Record<string, number>>): void {
@@ -112,11 +142,29 @@ describe("cast baseline file", () => {
     expect(violations[0]?.message).toContain("as string");
     expect(violations[0]?.message).toContain("baseline=1, current=2");
     expect(violations[0]?.message).toContain("@cast-boundary");
-    expect(violations[0]?.message).toContain("--write-baseline");
+    expect(violations[0]?.message).toContain(
+      '`bun kumiko-guards guards --write-baseline --guard="As-Casts Audit"`',
+    );
+    expect(violations[0]?.message).not.toContain("packages/guards/src");
   });
 
-  test("fewer suspect casts than the baseline is no violation", () => {
+  test("fewer suspect casts than the baseline is a stale-baseline violation", () => {
     writeValidBaseline({ "src/a.ts": { string: 3 } });
+    const violations = reportBaseline([suspectSite("src/a.ts", 5)], file);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.file).toBe("src/a.ts");
+    expect(violations[0]?.line).toBe(5);
+    expect(violations[0]?.message).toContain("under baseline");
+    expect(violations[0]?.message).toContain("baseline=3 current=1");
+    expect(violations[0]?.message).toContain(
+      '`bun kumiko-guards guards --write-baseline --guard="As-Casts Audit"`',
+    );
+    expect(violations[0]?.message).not.toContain("packages/guards/src");
+  });
+
+  test("a baseline without generated and totalSuspect loads", () => {
+    writeFileSync(file, JSON.stringify({ format: 2, perFile: { "src/a.ts": { string: 1 } } }));
+    expect(loadBaseline(file).kind).toBe("ok");
     expect(reportBaseline([suspectSite("src/a.ts", 5)], file)).toEqual([]);
   });
 
@@ -165,8 +213,10 @@ describe("cast baseline file", () => {
     expect(reportBaseline([suspectSite("../sibling/src/a.ts", 4)], file)).toEqual([]);
   });
 
-  test("an unknown boundary reason without a baseline is only a warning", () => {
-    expect(reportBaseline([boundarySite("src/a.ts", 4, "made-up")], file)).toEqual([]);
+  test("an unknown boundary reason without a baseline is a violation", () => {
+    const violations = reportBaseline([boundarySite("src/a.ts", 4, "made-up")], file);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("Unknown @cast-boundary reason");
   });
 
   test("a baseline with an outdated format is a violation, not a silent pass", () => {

@@ -12,8 +12,8 @@
 //
 // Scope: folder catalog CRUD (create/update[=rename]/delete/list/detail via the
 // generic entity handlers), set-folder (put/move), clear-folder (unfile).
-// Deferred: reparenting with cycle-check (folder:update CAN change parentId, but
-// no UI exposes it in v1 — folders-view guards cycles defensively).
+// folder:update can reparent; folder-parent-guard.ts rejects unknown parents and cycles,
+// and folder:delete refuses a folder that still has child folders or live assignments.
 
 import {
   type AccessRule,
@@ -24,14 +24,25 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
   type EntityDefinition,
+  EXT_USER_DATA,
+  type FeatureDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { assertNoWhereRuleInOwnershipWrite, resolveFeatureAccess } from "../shared/index.ts";
 import { FOLDERS_BOOT_RULES } from "./boot-rules.ts";
 import { createFolderAssignmentEntity, folderEntity } from "./entity.ts";
+import { createFolderAssignmentExecutor } from "./executor.ts";
+import { rejectInvalidFolderParent } from "./folder-parent-guard.ts";
 import { createClearFolderHandler } from "./handlers/clear-folder.write.ts";
 import { createDeleteFolderHandler } from "./handlers/delete-folder.write.ts";
 import { createSetFolderHandler } from "./handlers/set-folder.write.ts";
+import { FOLDERS_I18N } from "./i18n.ts";
+import {
+  folderAssignmentDeleteHook,
+  folderAssignmentExportHook,
+  folderDeleteHook,
+  folderExportHook,
+} from "./user-data-hooks.ts";
 import { DEFAULT_FOLDER_ACCESS, FOLDERS_FEATURE_NAME } from "./web/constants.ts";
 
 // Opt-in tier-gating: when set, the feature declares itself r.toggleable so the
@@ -46,25 +57,39 @@ function registerFolders(
   access: AccessRule,
   toggleable: FoldersToggleable | undefined,
   ownership: EntityDefinition["access"] | undefined,
-  parents: readonly string[] | undefined,
+  parents: readonly string[],
 ): void {
   r.describe(
-    "Generic, host-agnostic hierarchical folders for any entity. Owns two event-sourced entities — the per-tenant `folder` tree (`read_folders`, self-referential via parentId) and SINGLE-membership `folder-assignment` rows keyed by (entityType, entityId) (`read_folder_assignments`) — so filing an entity adds NO column to the host and needs no relational pivot or JOIN. The folder catalog uses the generic entity handlers (create, update [= rename, optimistic-locked], delete, list, detail); set-folder puts/moves an entity into a folder (one folder per entity) and clear-folder unfiles it (both idempotent). Read which folder an entity is in, or which entities a folder holds, by listing `folder-assignment` filtered on `entityId` or `folderId`. Every path uses one access rule — adopt the host's model with createFoldersFeature({ access: { openToAll: { reason } } }) or pin roles. Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
+    "Generic, host-agnostic hierarchical folders for any entity. Owns two event-sourced entities — the per-tenant `folder` tree (`read_folders`, self-referential via parentId) and SINGLE-membership `folder-assignment` rows keyed by (entityType, entityId) (`read_folder_assignments`) — so filing an entity adds NO column to the host and needs no relational pivot or JOIN. The folder catalog uses the generic entity handlers (create, update [= rename, optimistic-locked], delete, list, detail); set-folder puts/moves an entity into a folder (one folder per entity) and clear-folder unfiles it (both idempotent). Read which folder an entity is in, or which entities a folder holds, by listing `folder-assignment` filtered on `entityId` or `folderId`. Every path uses one access rule — adopt the host's model with createFoldersFeature({ access: { openToAll: { reason } } }) or pin roles. Mount with createFoldersFeature({ parents: [<host entities>] }). Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
   );
   r.uiHints({
     displayLabel: "Folders",
     category: "data",
     recommended: false,
   });
+  r.translations({ keys: FOLDERS_I18N });
 
   if (toggleable !== undefined) r.toggleable(toggleable);
 
   const folderAssignmentEntity = createFolderAssignmentEntity(ownership, parents);
-  r.entity({ name: "folder", ...folderEntity });
-  r.entity({ name: "folder-assignment", ...folderAssignmentEntity });
+  r.entity(folderEntity);
+  r.entity(folderAssignmentEntity);
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "folder",
+    export: folderExportHook,
+    delete: folderDeleteHook,
+  });
+  r.applyExtension({
+    name: EXT_USER_DATA,
+    entity: "folder-assignment",
+    export: folderAssignmentExportHook,
+    delete: folderAssignmentDeleteHook,
+  });
+  const assignmentExecutor = createFolderAssignmentExecutor(ownership, parents);
 
-  // Folder catalog — plain CRUD, no custom logic. update is rename (and, in a
-  // later stage, reparent: it accepts changes.parentId, optimistic-locked).
+  // Folder catalog — generic CRUD. update renames or reparents (optimistic-locked); the
+  // preSave guard below checks the parent.
   r.writeHandler(
     defineEntityCreateHandler("folder", folderEntity, {
       access,
@@ -79,9 +104,11 @@ function registerFolders(
         "Renames a folder or moves it under a different parent folder; use it to reorganise the catalog itself, which leaves the entities filed in that folder where they are.",
     }),
   );
+  r.hook({ type: "preSave", target: "folder:create", handler: rejectInvalidFolderParent });
+  r.hook({ type: "preSave", target: "folder:update", handler: rejectInvalidFolderParent });
   // Custom, not defineEntityDeleteHandler: blocks the delete when folder-
   // assignments still point at this folder (658/1) — see delete-folder.write.ts.
-  r.writeHandler(createDeleteFolderHandler(access));
+  r.writeHandler(createDeleteFolderHandler(access, assignmentExecutor));
   r.queryHandler(
     defineEntityListHandler("folder", folderEntity, {
       access,
@@ -98,8 +125,8 @@ function registerFolders(
   );
 
   // Single-membership assignment — hand-written (deterministic id + move/restore).
-  r.writeHandler(createSetFolderHandler(access));
-  r.writeHandler(createClearFolderHandler(access));
+  r.writeHandler(createSetFolderHandler(access, assignmentExecutor));
+  r.writeHandler(createClearFolderHandler(access, assignmentExecutor));
   r.queryHandler(
     defineEntityListHandler("folder-assignment", folderAssignmentEntity, {
       access,
@@ -108,10 +135,6 @@ function registerFolders(
     }),
   );
 }
-
-const defaultFoldersFeature = defineFeature(FOLDERS_FEATURE_NAME, (r) =>
-  registerFolders(r, DEFAULT_FOLDER_ACCESS, undefined, undefined, undefined),
-);
 
 export type FoldersFeatureOptions = {
   /** Access rule for all folder write/read paths. Default { roles: ["TenantAdmin","TenantMember"] }.
@@ -142,36 +165,19 @@ export type FoldersFeatureOptions = {
    *  instead of crypto-shredding — a silent Art.17 failure, not a thrown error.
    *  Make sure any `ownership.write` you set covers that role, or leave it unset. */
   readonly ownership?: EntityDefinition["access"];
-  /** Allowlist narrowing which registered entities may be filed into a folder.
-   *  Not what turns host-checking on — set/clear and the assignment list always
-   *  verify that entityType names a registered entity whose row the caller can
-   *  see. Setting it narrows further, and shrinks the read gate's SQL, which
-   *  otherwise considers every registered entity as a candidate host. */
-  readonly parents?: readonly string[];
+  /** Registered entities a row may hang off (entityType). Required and non-empty: the read gate
+   *  builds one SQL branch per host. Every path still checks that the host row is visible to the
+   *  caller through the host's own read path. */
+  readonly parents: readonly string[];
 };
 
-// Options wrapper. Without options returns the module-level singleton (no
-// rebuild). access/roles/toggleable build a fresh feature-definition.
-export function createFoldersFeature(
-  opts: FoldersFeatureOptions = {},
-): typeof defaultFoldersFeature {
-  if (
-    opts.access === undefined &&
-    opts.roles === undefined &&
-    opts.toggleable === undefined &&
-    opts.ownership === undefined &&
-    opts.parents === undefined
-  ) {
-    return defaultFoldersFeature;
-  }
+export function createFoldersFeature(opts: FoldersFeatureOptions): FeatureDefinition {
   assertNoWhereRuleInOwnershipWrite("createFoldersFeature", opts.ownership?.write);
-  if (opts.parents !== undefined && opts.parents.length === 0) {
+  if (opts.parents.length === 0) {
     throw bootRuleError(FOLDERS_BOOT_RULES.emptyParentsAllowlist, {
       message:
         "createFoldersFeature({ parents }): parents must not be an empty array — " +
-        "an empty allowlist rejects every set-folder call and hides every " +
-        "assignment row. Omit `parents` to keep every registered entity " +
-        "admissible as a host instead.",
+        "an empty allowlist rejects every assignment. List at least one host entity.",
     });
   }
   const access = resolveFeatureAccess(opts, DEFAULT_FOLDER_ACCESS);

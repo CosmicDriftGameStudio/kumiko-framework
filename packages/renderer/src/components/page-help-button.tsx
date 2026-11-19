@@ -50,18 +50,12 @@ function StatusLegend({
     const label = translate(fieldOptionLabelKey(featureName, entityName, fieldName, value));
     const tone = statusToneForOption(value, field.optionTones) ?? "muted";
     return [
-      StatusBadge !== undefined ? (
-        <StatusBadge
-          key={`badge-${value}`}
-          value={label}
-          tone={tone}
-          testId={`page-help-badge-${value}`}
-        />
-      ) : (
-        <Text key={`badge-${value}`} testId={`page-help-badge-${value}`}>
-          {label}
-        </Text>
-      ),
+      <StatusBadge
+        key={`badge-${value}`}
+        value={label}
+        tone={tone}
+        testId={`page-help-badge-${value}`}
+      />,
       <Text key={`text-${value}`} testId={`page-help-text-${value}`}>
         {translate(fieldOptionHelpKey(featureName, entityName, fieldName, value))}
       </Text>,
@@ -103,15 +97,11 @@ function PageHelpBody({ sections, translate }: PageHelpButtonProps): ReactNode {
       )}
     </Section>
   ));
-  return FillContainer !== undefined ? (
-    <FillContainer className={SECTION_STACK_CLASS}>{cards}</FillContainer>
-  ) : (
-    cards
-  );
+  return <FillContainer className={SECTION_STACK_CLASS}>{cards}</FillContainer>;
 }
 
 export function PageHelpButton({ sections, translate }: PageHelpButtonProps): ReactNode {
-  const { Button, Dialog, Drawer } = usePrimitives();
+  const { Button, Drawer } = usePrimitives();
   const [open, setOpen] = useState(false);
   const title = translate("kumiko.pageHelp.button");
   const body = <PageHelpBody sections={sections} translate={translate} />;
@@ -128,24 +118,9 @@ export function PageHelpButton({ sections, translate }: PageHelpButtonProps): Re
       >
         {translate("kumiko.pageHelp.buttonLabel")}
       </Button>
-      {Drawer !== undefined ? (
-        <Drawer open={open} onOpenChange={setOpen} title={title} testId="page-help-drawer">
-          {body}
-        </Drawer>
-      ) : (
-        <Dialog
-          open={open}
-          onOpenChange={setOpen}
-          title={title}
-          confirmLabel={translate("kumiko.dialog.close")}
-          hideCancel
-          initialFocus="confirm"
-          onConfirm={() => undefined}
-          testId="page-help-drawer"
-        >
-          {body}
-        </Dialog>
-      )}
+      <Drawer open={open} onOpenChange={setOpen} title={title} testId="page-help-drawer">
+        {body}
+      </Drawer>
     </>
   );
 }

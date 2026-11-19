@@ -21,17 +21,19 @@ import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
   encryptPiiFieldValues,
+  encryptPiiValueForSubject,
   InMemoryKmsAdapter,
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import {
-  asRawClient,
-  createEventStoreExecutor,
-  createTenantDb,
-} from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type UserDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import {
+  createFilesFeature,
+  fileRefEntity,
+  fileRefsTable,
+} from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   expectSuccess,
@@ -49,7 +51,6 @@ import {
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import { configValueEntity, createConfigFeature } from "../../config/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
 import {
   createTenantFeature,
@@ -589,5 +590,61 @@ describe("runUserExport :: fileRef PII export via the fileRefs side-channel", ()
     expect(ref?.zipPath).toContain("alice-cv");
     expect(ref?.zipPath).not.toContain("kumiko-pii");
     expect(JSON.stringify(bundle)).not.toContain("kumiko-pii:");
+  });
+});
+
+describe("runUserExport :: KMS decrypt concurrency", () => {
+  // The KMS client pool holds 4 connections.
+  const KMS_POOL_SIZE = 4;
+
+  class ConcurrencyTrackingKms extends InMemoryKmsAdapter {
+    inFlight = 0;
+    peakInFlight = 0;
+
+    override async getKey(...args: Parameters<InMemoryKmsAdapter["getKey"]>) {
+      this.inFlight += 1;
+      this.peakInFlight = Math.max(this.peakInFlight, this.inFlight);
+      try {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        return await super.getKey(...args);
+      } finally {
+        this.inFlight -= 1;
+      }
+    }
+  }
+
+  test("many encrypted fileRef names are decrypted without exceeding the KMS pool size", async () => {
+    const kms = new ConcurrencyTrackingKms();
+    configurePiiSubjectKms(kms);
+    try {
+      await seedUser(ALICE_ID, { email: "alice.pool@example.com" });
+      await seedMembership(ALICE_ID, TENANT_A);
+      const fileRefCount = KMS_POOL_SIZE * 3;
+      for (let n = 0; n < fileRefCount; n++) {
+        const fileRefId = uuid(300 + n);
+        const encryptedName = await encryptPiiValueForSubject(
+          kms,
+          { kind: "user", userId: fileRefId },
+          `pool-${n}.pdf`,
+          { requestId: "test" },
+          "fileName",
+        );
+        await seedFileRef(fileRefId, TENANT_A, ALICE_ID, encryptedName);
+      }
+      kms.peakInFlight = 0;
+
+      const bundle = await runUserExport({
+        db: stack.db,
+        registry: stack.registry,
+        userId: ALICE_ID,
+        now: NOW(),
+      });
+
+      expect(JSON.stringify(bundle)).toContain("pool-0.pdf");
+      expect(kms.peakInFlight).toBeGreaterThan(0);
+      expect(kms.peakInFlight).toBeLessThanOrEqual(KMS_POOL_SIZE);
+    } finally {
+      resetPiiSubjectKmsForTests();
+    }
   });
 });

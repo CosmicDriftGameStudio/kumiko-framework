@@ -39,6 +39,7 @@ const LIVE_TABLE = "read_rebuild_rls_per_group";
 const MIXED_ROLE = '"Kumiko RLS Mixed Role"';
 
 const itemEntity = createEntity({
+  name: "rebuild-rls-item",
   table: "read_rebuild_rls_items",
   fields: {
     groupId: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -46,7 +47,7 @@ const itemEntity = createEntity({
   },
   softDelete: true,
 });
-const itemTable = buildEntityTable("rebuild-rls-item", itemEntity);
+const itemTable = buildEntityTable(itemEntity);
 
 const perGroupTable = pgTable(LIVE_TABLE, {
   groupId: uuid("group_id").primaryKey(),
@@ -71,7 +72,7 @@ const perGroupProjection: ProjectionDefinition = {
 };
 
 const feature = defineFeature("rebuildrls", (r) => {
-  r.entity({ name: "rebuild-rls-item", ...itemEntity });
+  r.entity(itemEntity);
   r.projection(perGroupProjection);
 });
 

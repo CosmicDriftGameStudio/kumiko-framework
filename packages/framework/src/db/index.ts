@@ -3,9 +3,11 @@ export { applyEntityEvent } from "./apply-entity-event.ts";
 export { assertExistsIn } from "./assert-exists-in.ts";
 export {
   nullBlindIndexesForSubject,
+  type OwnedRecordSubject,
   recordEventsOwnedExclusivelyByTenant,
   recordRowExistsInTenant,
   recordRowOwningTenantId,
+  recordSubjectsOwnedByUser,
   subjectRowExistsInTenant,
 } from "./blind-index-cleanup.ts";
 export { BUN_SQL_CONNECTION_ERROR_CODES } from "./bun-sql-connection-codes.ts";
@@ -27,6 +29,7 @@ export {
 export { decodeCursor, decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "./cursor.ts";
 export type { SchemaTable } from "./dialect.ts";
 export {
+  bigint,
   boolean,
   extractTableName,
   index,
@@ -82,6 +85,13 @@ export {
   isUndefinedTable,
   isUniqueViolation,
 } from "./pg-error.ts";
+export {
+  insertProjectedEntityRow,
+  type ProjectedEntityTarget,
+  type ProjectedEntityValues,
+  patchProjectedEntityRow,
+} from "./projected-entity-row.ts";
+export { createTenantDb, type PublicCreateTenantDbOptions } from "./public-tenant-db.ts";
 export { acquireNamespacedAdvisoryLock } from "./queries/advisory-lock.ts";
 export { queryDatabaseNow, readDatabaseNow } from "./queries/database-now.ts";
 export { listEventTenantIds } from "./queries/event-tenants.ts";
@@ -133,11 +143,13 @@ export {
   outsideRowLevelSecurityScope,
 } from "./row-level-security-scope.ts";
 export { tableExists } from "./schema-inspection.ts";
-export { scopeTenantDbToTenant } from "./scope-tenant-db-to-tenant.ts";
 export {
   buildBaseColumns,
   buildEntityTable,
   declareGlobalTenancy,
+  type EntityColumnRow,
+  type EntityExecutorOf,
+  type EntityRow,
   type EntityTable,
   type ExecutorManagedRunner,
   physicalColumnName,
@@ -147,14 +159,21 @@ export {
 export { extractTableInfo, type TableInfo } from "./table-info.ts";
 export { isSchemaTable } from "./table-introspection.ts";
 export type {
+  ConnectionTenantDb,
   ExecutorManagedTenantDb,
+  OutsideTransactionContext,
   TenantDb,
   UncheckedSystemDb,
 } from "./tenant-db.ts";
 export {
+  bindAppProjectionRegistry,
   castTenantRows,
   createSystemDbView,
   createTenantDataDestroyDb,
-  createTenantDb,
+  hasOutsideTransactionDb,
+  hasSystemDb,
+  requireOutsideTransactionDb,
+  requireSystemDb,
+  scopeTenantDbToTenant,
 } from "./tenant-db.ts";
 export { runInOwnTransaction } from "./tenant-db-scoped-rebind.ts";

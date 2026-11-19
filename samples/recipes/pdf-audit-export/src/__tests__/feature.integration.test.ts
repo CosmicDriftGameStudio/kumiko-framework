@@ -11,14 +11,10 @@ import {
   createInMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { extractText, getDocumentProxy } from "unpdf";
 import * as z from "zod";
-import { inspectionEntity, pdfAuditExportFeature } from "../feature";
+import { pdfAuditExportFeature } from "../feature";
 
 const EXPORT_AUDIT = "pdf-audit-export:write:export-audit";
 
@@ -43,7 +39,6 @@ beforeAll(async () => {
     features: [createFilesFeature(), pdfAuditExportFeature, nestedExportFeature],
     files: { storageProvider: createInMemoryFileProvider() },
   });
-  await unsafeCreateEntityTable(stack.db, inspectionEntity);
 });
 
 afterAll(async () => {

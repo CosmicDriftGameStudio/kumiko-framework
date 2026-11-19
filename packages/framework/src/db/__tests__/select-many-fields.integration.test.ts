@@ -18,13 +18,14 @@ import { buildEntityTable } from "../table-builder.ts";
 import { createTenantDb, type TenantDb } from "../tenant-db.ts";
 
 const contactEntity = createEntity({
+  name: "contact",
   table: "read_select_fields_contacts",
   fields: {
     email: createTextField({ required: true, personal: "self", find: "none" }),
     label: createTextField({ personal: false, reason: "test_fixture" }),
   },
 });
-const contactTable = buildEntityTable("contact", contactEntity);
+const contactTable = buildEntityTable(contactEntity);
 
 let testDb: TestDb;
 let tdb: TenantDb;

@@ -1,4 +1,4 @@
-// @no-server-stack: The seed runner is boot-time code, not an HTTP route.
+// kumiko-lint-ignore-file test-stack-drift The seed runner is boot-time code, not an HTTP route.
 // setupTestStack/buildServer would create a Hono app that we do not need:
 // the seed runner calls dispatcher.write directly before entrypoint.start().
 // This matches the run-prod-app.ts integration, where createDispatcher is
@@ -36,19 +36,23 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import * as z from "zod";
 import { createConfigFeature } from "../config/feature.ts";
 import { createConfigResolver } from "../config/resolver.ts";
 import { configValuesTable } from "../config/table.ts";
 import { createTenantFeature } from "../tenant/feature.ts";
 import { tenantMembershipsTable } from "../tenant/membership-table.ts";
 import { tenantEntity } from "../tenant/schema/tenant.ts";
-import { TenantHandlers } from "../tenant/web/constants.ts";
+import { TenantHandlers, TenantQueries } from "../tenant/web/constants.ts";
 
 let testDb: TestDb;
 let dispatcher: Dispatcher;
 let registry: ReturnType<typeof createRegistry>;
 
 const systemAdmin = TestUsers.systemAdmin;
+const membershipRowsSchema = z.array(
+  z.object({ tenantId: z.string(), roles: z.array(z.string()) }),
+);
 // Demo-Tenant — NOT SYSTEM_TENANT. This reflects the real app, where
 // publicstatus stores its memberships in Demo-Tenants `...0001` / `...0002`.
 const demoTenantId = "00000000-0000-4000-8000-000000000001" as TenantId;
@@ -65,7 +69,6 @@ beforeAll(async () => {
   dispatcher = createDispatcher(registry, {
     db: testDb.db,
     redis: undefined as never,
-    entityCache: undefined as never,
     registry,
     configResolver: resolver,
   });
@@ -144,7 +147,7 @@ describe("es-ops E2E against real stack", () => {
       // Verify (a) marker
       const markers = await selectMany(testDb.db, esOperationsTable);
       expect(markers).toHaveLength(1);
-      expect(markers[0]?.id).toBe("2026-05-21-add-tenant-admin");
+      expect(markers[0]?.["id"]).toBe("2026-05-21-add-tenant-admin");
 
       // Verify (b): event in the store with tenant-membership.updated
       const events = (await asRawClient(testDb.db).unsafe(
@@ -200,6 +203,97 @@ describe("es-ops E2E against real stack", () => {
         // phrase "dry-run found ... unknown handler-QN" and the QN in the body.
         /dry-run found.*unknown handler-QN/,
       );
+
+      const markers = await selectMany(testDb.db, esOperationsTable);
+      expect(markers).toHaveLength(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("seed-migration reads through systemQueryAs and acts on the result", async () => {
+    const tenantRes = await dispatcher.write(
+      TenantHandlers.create,
+      { id: demoTenantId, key: "demo", name: "Demo Tenant" },
+      { ...systemAdmin, tenantId: demoTenantId },
+    );
+    expect(tenantRes.isSuccess).toBe(true);
+
+    const addRes = await dispatcher.write(
+      TenantHandlers.addMember,
+      { userId: adminUserId, tenantId: demoTenantId, roles: ["Admin"] },
+      { ...systemAdmin, tenantId: demoTenantId },
+    );
+    expect(addRes.isSuccess).toBe(true);
+
+    const dir = makeTempSeedsDir([
+      {
+        name: "2026-05-22-add-tenant-admin-via-query.ts",
+        content: `
+          export default {
+            description: "ergänze TenantAdmin über systemQueryAs",
+            run: async (ctx) => {
+              const memberships = await ctx.systemQueryAs("tenant:query:memberships", { userId: "${adminUserId}" });
+              for (const m of memberships) {
+                if (m.roles.includes("TenantAdmin")) continue;
+                await ctx.systemWriteAs(
+                  "tenant:write:update-member-roles",
+                  { userId: "${adminUserId}", tenantId: m.tenantId, roles: [...m.roles, "TenantAdmin"] },
+                  m.tenantId,
+                );
+              }
+            },
+          };
+        `,
+      },
+    ]);
+
+    try {
+      const result = await runPendingSeedMigrations({
+        db: testDb.db,
+        seedsDir: dir,
+        appliedBy: "boot",
+        registry,
+        createContext: (dbRunner) => createSeedMigrationContext({ dispatcher, dbRunner }),
+        logger: () => {},
+      });
+      expect(result.appliedIds).toEqual(["2026-05-22-add-tenant-admin-via-query"]);
+
+      const memberships = membershipRowsSchema.parse(
+        await dispatcher.query(TenantQueries.memberships, { userId: adminUserId }, systemAdmin),
+      );
+      const demoMembership = memberships.find((m) => m.tenantId === demoTenantId);
+      expect(demoMembership?.roles).toEqual(["Admin", "TenantAdmin"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("seed-migration with query-QN-typo fails in dry-run", async () => {
+    const dir = makeTempSeedsDir([
+      {
+        name: "2026-05-22-bad-query-qn.ts",
+        content: `
+          export default {
+            description: "uses a typo for a query handler-QN",
+            run: async (ctx) => {
+              await ctx.systemQueryAs("tenant:query:membershipz", { userId: "x" });
+            },
+          };
+        `,
+      },
+    ]);
+    try {
+      await expect(
+        runPendingSeedMigrations({
+          db: testDb.db,
+          seedsDir: dir,
+          appliedBy: "boot",
+          registry,
+          createContext: (dbRunner) => createSeedMigrationContext({ dispatcher, dbRunner }),
+          logger: () => {},
+        }),
+      ).rejects.toThrow(/dry-run found 1 unknown handler-QN/);
 
       const markers = await selectMany(testDb.db, esOperationsTable);
       expect(markers).toHaveLength(0);

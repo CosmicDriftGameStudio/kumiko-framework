@@ -16,6 +16,7 @@ import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/e
 import { z } from "zod";
 
 export const ticketEntity = createEntity({
+  name: "ticket",
   table: "read_api_docs_tickets",
   webhookEvents: true,
   description: "A support request with a title, a priority and an open or closed status.",
@@ -29,12 +30,9 @@ export const ticketEntity = createEntity({
 const ticketAccess = { roles: ["Admin", "User"] } as const;
 
 export const ticketingFeature = defineFeature("ticketing", (r) => {
-  const { table: ticketTable, executor: ticketExecutor } = createEntityExecutor(
-    "ticket",
-    ticketEntity,
-  );
+  const { table: ticketTable, executor: ticketExecutor } = createEntityExecutor(ticketEntity);
 
-  r.crud("ticket", ticketEntity, {
+  r.crud(ticketEntity, {
     write: { access: ticketAccess },
     read: { access: ticketAccess },
     verbs: { delete: false },
@@ -67,6 +65,7 @@ export const ticketingFeature = defineFeature("ticketing", (r) => {
     schema: z.object({ id: z.uuid(), resolution: z.string().min(1) }),
     access: ticketAccess,
     handler: async (event, ctx) => {
+      const streamVersion = await ctx.events.streamVersion(event.payload.id);
       const ticket = await ticketExecutor.detail({ id: event.payload.id }, event.user, ctx.db);
       if (!ticket) return failNotFound("ticket", event.payload.id);
       if (ticket["status"] === "closed") return failUnprocessable("ticket_already_closed");
@@ -74,6 +73,7 @@ export const ticketingFeature = defineFeature("ticketing", (r) => {
         aggregateId: event.payload.id,
         aggregateType: "ticket",
         payload: { resolution: event.payload.resolution },
+        expectedVersion: streamVersion,
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },

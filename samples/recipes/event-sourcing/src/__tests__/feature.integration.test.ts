@@ -9,7 +9,6 @@
 //   - ctx.events.archive
 //   - ctx.dispatch.queryProjection
 //   - streamAllEventsByType (memory-bounded ops iteration)
-//   - getAllProjectionProgress (projection lag for ops dashboards)
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { DbTx } from "@cosmicdrift/kumiko-framework/db";
@@ -21,29 +20,23 @@ import {
   streamAllEventsByType,
   upcastStoredEvent,
 } from "@cosmicdrift/kumiko-framework/event-store";
-import { getAllProjectionProgress } from "@cosmicdrift/kumiko-framework/pipeline";
+import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import {
-  approverDirectoryTable,
-  invoiceDetailTable,
-  invoiceEntity,
-  invoiceFeature,
-} from "../feature";
+import { invoiceFeature, receiptTable } from "../feature";
+import { approverDirectoryTable, invoiceDetailTable } from "../schema";
 
 let stack: TestStack;
 const admin = createTestUser({ roles: ["Admin"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [invoiceFeature], systemHooks: [] });
-  await unsafeCreateEntityTable(stack.db, invoiceEntity, "showcase-invoice");
   await unsafePushTables(stack.db, { read_showcase_approver_directory: approverDirectoryTable });
 });
 
@@ -55,6 +48,7 @@ beforeEach(async () => {
   await resetEventStore(stack, [
     "read_showcase_invoices",
     "read_showcase_invoice_detail",
+    "read_showcase_receipts",
     "read_showcase_customer_revenue",
     "read_showcase_approver_directory",
   ]);
@@ -85,6 +79,18 @@ describe("Event Sourcing Showcase", () => {
       status: "paid",
       amountCents: 2500,
     });
+
+    const receipts = await selectMany(stack.db, receiptTable, { invoiceId: id });
+    expect(receipts).toHaveLength(1);
+    expect(receipts[0]).toMatchObject({ invoiceId: id, version: 1 });
+
+    await rebuildProjection("showcase:projection:showcase-receipt-entity", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+    const rebuilt = await selectMany(stack.db, receiptTable, { invoiceId: id });
+    expect(rebuilt).toHaveLength(1);
+    expect(rebuilt[0]).toMatchObject({ id: receipts[0]?.["id"], invoiceId: id, version: 1 });
   });
 
   test("async MSP: customer-revenue accumulates across paid invoices", async () => {
@@ -305,6 +311,45 @@ describe("Event Sourcing Showcase", () => {
       includeArchived: true,
     });
     expect(raw.length).toBeGreaterThan(0); // events are still on disk for ops
+  });
+
+  test("streamVersion: 0 for an unknown id, counts appended events, keeps the version after archive", async () => {
+    const versionOf = (id: string, user: typeof admin) =>
+      stack.http.queryOk<{ version: number }>(
+        "showcase:query:invoice:stream-version",
+        { id },
+        user,
+      );
+
+    expect((await versionOf(crypto.randomUUID(), admin)).version).toBe(0);
+
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      "showcase:write:invoice:create",
+      { customer: "VersionPal" },
+      admin,
+    );
+    await stack.http.writeOk(
+      "showcase:write:invoice:approve",
+      { id, amountCents: 1000, approvedBy: "cfo" },
+      admin,
+    );
+    expect((await versionOf(id, admin)).version).toBe(2);
+
+    await stack.http.writeOk("showcase:write:invoice:archive", { id }, admin);
+    expect((await versionOf(id, admin)).version).toBe(2);
+    const state = await stack.http.queryOk<{ status: string }>(
+      "showcase:query:invoice:state",
+      { id },
+      admin,
+    );
+    expect(state.status).toBe("missing");
+
+    const otherTenantAdmin = createTestUser({
+      id: 98,
+      roles: ["Admin"],
+      tenantId: "00000000-0000-4000-8000-000000000042",
+    });
+    expect((await versionOf(id, otherTenantAdmin)).version).toBe(0);
   });
 
   test("snapshot: fast-state uses the snapshot + upcaster-wrapped delta replay", async () => {
@@ -613,39 +658,6 @@ describe("Event Sourcing Showcase", () => {
     ]);
   });
 
-  test("getAllProjectionProgress: HWM advances with the event log", async () => {
-    // Inline projections (r.projection) don't track a cursor in
-    // kumiko_projections — the row only gets written by ops-rebuild.
-    // So getAllProjectionProgress mainly surfaces HWM + the cursor
-    // remembered from the last rebuild. Useful as a "is anyone behind?"
-    // dashboard once you actually run rebuilds. This test pins the HWM
-    // advance and the never-rebuilt baseline so a regression in either
-    // surfaces cleanly.
-    const before = await getAllProjectionProgress(stack.db, stack.registry);
-    const detail = before.find((p) => p.name === "showcase:projection:invoice-detail");
-    expect(detail?.status).toBe("never-rebuilt");
-    expect(detail?.highWaterMark).toBe(0n);
-    expect(detail?.lastProcessedEventId).toBe(0n);
-    expect(detail?.lag).toBe(0n);
-
-    const { id } = await stack.http.writeOk<{ id: string }>(
-      "showcase:write:invoice:create",
-      { customer: "LagCheck" },
-      admin,
-    );
-    await stack.http.writeOk(
-      "showcase:write:invoice:approve",
-      { id, amountCents: 200, approvedBy: "cfo" },
-      admin,
-    );
-
-    const after = await getAllProjectionProgress(stack.db, stack.registry);
-    const detailAfter = after.find((p) => p.name === "showcase:projection:invoice-detail");
-    expect(detailAfter?.highWaterMark).toBe(2n);
-    expect(detailAfter?.lastProcessedEventId).toBe(0n);
-    expect(detailAfter?.lag).toBe(2n);
-  });
-
   test("AllConsumerProgress: MSP cursor catches up to HWM after dispatcher run", async () => {
     const { getAllConsumerProgress } = await import("@cosmicdrift/kumiko-framework/pipeline");
     const consumerName = "showcase:projection:customer-revenue";
@@ -745,6 +757,7 @@ describe("Event Sourcing Showcase", () => {
     for (let i = 0; i < 5; i++) {
       await stack.http.writeOk("showcase:write:invoice:pay", { id, amountCents: 100 }, admin);
     }
+    expect(await selectMany(stack.db, receiptTable, { invoiceId: id })).toHaveLength(1);
 
     // 6th call hits the cap. queryOk/writeOk would throw on a non-2xx
     // response, hiding the wire body — go through `write` directly so

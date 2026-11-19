@@ -3,6 +3,7 @@ import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumik
 export const BACKFILL_CONTACT_TABLE = "read_clibf_contacts";
 
 export const backfillContactEntity = createEntity({
+  name: "backfillContact",
   table: BACKFILL_CONTACT_TABLE,
   fields: {
     email: createTextField({ required: true, personal: "self", find: "exact" }),
@@ -13,7 +14,7 @@ export const backfillContactEntity = createEntity({
 export default {
   features: [
     defineFeature("clibf", (r) => {
-      r.entity({ name: "clibfcontact", ...backfillContactEntity });
+      r.entity({ ...backfillContactEntity, name: "clibfcontact" });
     }),
   ],
 };

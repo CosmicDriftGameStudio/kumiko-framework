@@ -1,9 +1,13 @@
 import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useCallback, useState } from "react";
 import { pageHelpButtonOf } from "../components/page-help-button.tsx";
 import { RenderEdit } from "../components/render-edit.tsx";
 import type { WriteFormRegistry } from "../components/write-form-registry.ts";
-import { WriteFormRegistryProvider } from "../components/write-form-registry.ts";
+import {
+  type WriteFormDirtyReporter,
+  WriteFormDirtyReporterProvider,
+  WriteFormRegistryProvider,
+} from "../components/write-form-registry.ts";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
 import type { Translate } from "../headless/index.ts";
@@ -86,7 +90,7 @@ export function ProjectionDetailBody({
     detailQuery,
     reloadNonce,
     reloadDetail,
-  } = useProjectionDetailData({ screen, Tabs: primitives.Tabs, nav, effectiveEntityId });
+  } = useProjectionDetailData({ screen, nav, effectiveEntityId });
 
   // Header actions render directly via RenderEditActionButton
   // headerActions moved out of RenderEdit's footer — this component owns
@@ -94,6 +98,16 @@ export function ProjectionDetailBody({
   const [actionError, setActionError] = useState<ErrorNotice | null>(null);
   // writeForm sections register here so an action with `submitWith` can send their values.
   const [writeForms] = useState<WriteFormRegistry>(() => new Map());
+  const [dirtyWriteForms, setDirtyWriteForms] = useState<ReadonlySet<string>>(() => new Set());
+  const reportWriteFormDirty = useCallback<WriteFormDirtyReporter>((formKey, dirty) => {
+    setDirtyWriteForms((current) => {
+      if (current.has(formKey) === dirty) return current;
+      const next = new Set(current);
+      if (dirty) next.add(formKey);
+      else next.delete(formKey);
+      return next;
+    });
+  }, []);
 
   const appFeatures = useAppFeatures();
   const userRoles = useUserRoles();
@@ -124,6 +138,7 @@ export function ProjectionDetailBody({
       reloadDetail,
       activeTabId: activeSection?.id,
       writeForms,
+      dirtyWriteForms,
     });
   const pageHelp = detailPageHelpOf(
     screen,
@@ -196,53 +211,60 @@ export function ProjectionDetailBody({
     renderDetailHeaderContent(regionModel, regionPieces, headerSlot);
   return (
     <WriteFormRegistryProvider value={writeForms}>
-      {refetchErrorBanner}
-      <RenderEdit
-        key={entityId}
-        refreshToken={reloadNonce}
-        screen={renderedDetailScreen}
-        entity={entity}
-        featureName={schema.featureName}
-        initial={record}
-        entityId={effectiveEntityId}
-        customSubmit={async () => ({ isSuccess: true, validationBlocked: false, data: undefined })}
-        onReload={reloadDetail}
-        onRelatedListDrawerAction={openDrawer}
-        {...(translate !== undefined && { translate })}
-        {...(hasTabs && activeSection !== undefined && { activeTabId: activeSection.id })}
-        {...(screen.footerHint !== undefined && {
-          footerHint: effectiveTranslate(screen.footerHint),
+      <WriteFormDirtyReporterProvider value={reportWriteFormDirty}>
+        {refetchErrorBanner}
+        <RenderEdit
+          key={entityId}
+          refreshToken={reloadNonce}
+          screen={renderedDetailScreen}
+          entity={entity}
+          featureName={schema.featureName}
+          initial={record}
+          entityId={effectiveEntityId}
+          customSubmit={async () => ({
+            isSuccess: true,
+            validationBlocked: false,
+            data: undefined,
+          })}
+          onReload={reloadDetail}
+          onRelatedListDrawerAction={openDrawer}
+          {...(translate !== undefined && { translate })}
+          {...(hasTabs && activeSection !== undefined && { activeTabId: activeSection.id })}
+          {...(screen.footerHint !== undefined && {
+            footerHint: effectiveTranslate(screen.footerHint),
+          })}
+          {...(hasTabs &&
+            activeSections.length === 1 &&
+            screen.layout.narrowTabs !== false && { hideSectionTitles: true })}
+          recordSections={{
+            labelTitles: true,
+            ...(hasTabs &&
+              activeSections.length > 1 &&
+              activeSections[0]?.tabLabel === undefined && { omitFirstTitle: true as const }),
+            ...(screen.pageNavigation === false && { pageNavigation: false as const }),
+            ...(screen.photosBeside === true && { photosBeside: true as const }),
+          }}
+          {...(screenFillsHeight(screen) && { fillScreenHeight: true })}
+          {...((hasHeaderCard ||
+            hasTabs ||
+            hasRecordGuidance(screen) ||
+            screen.slots?.header !== undefined ||
+            screen.recordTitleField !== undefined) && {
+            headerRegion: renderHeaderContent,
+          })}
+          {...(footerActions !== undefined &&
+            footerActions.length > 0 && { actions: footerActions })}
+          buildSectionActions={buildSectionActions}
+          valueDisplay={screen.valueDisplay ?? "text"}
+        />
+        {renderProjectionDrawerHost({
+          schema,
+          translate,
+          userRoles,
+          drawer,
+          refreshRows: reloadDetail,
         })}
-        {...(hasTabs &&
-          activeSections.length === 1 &&
-          screen.layout.narrowTabs !== false && { hideSectionTitles: true })}
-        recordSections={{
-          labelTitles: true,
-          ...(hasTabs &&
-            activeSections.length > 1 &&
-            activeSections[0]?.tabLabel === undefined && { omitFirstTitle: true as const }),
-          ...(screen.pageNavigation === false && { pageNavigation: false as const }),
-          ...(screen.photosBeside === true && { photosBeside: true as const }),
-        }}
-        {...(screenFillsHeight(screen) && { fillScreenHeight: true })}
-        {...((hasHeaderCard ||
-          hasTabs ||
-          hasRecordGuidance(screen) ||
-          screen.slots?.header !== undefined ||
-          screen.recordTitleField !== undefined) && {
-          headerRegion: renderHeaderContent,
-        })}
-        {...(footerActions !== undefined && footerActions.length > 0 && { actions: footerActions })}
-        buildSectionActions={buildSectionActions}
-        valueDisplay={screen.valueDisplay ?? "text"}
-      />
-      {renderProjectionDrawerHost({
-        schema,
-        translate,
-        userRoles,
-        drawer,
-        refreshRows: reloadDetail,
-      })}
+      </WriteFormDirtyReporterProvider>
     </WriteFormRegistryProvider>
   );
 }

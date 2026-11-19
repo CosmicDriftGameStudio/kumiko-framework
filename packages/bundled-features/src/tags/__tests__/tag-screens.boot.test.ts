@@ -1,17 +1,37 @@
 import { describe, expect, test } from "bun:test";
-import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createTextField,
+  defineFeature,
+  validateBoot,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createTagsFeature } from "../feature.ts";
 import { TAGS_EDIT_SCREEN_ID, TAGS_SCREEN_ID } from "../web/constants.ts";
 
 // QN convention: entityList loads tags:query:tag:list; entityEdit loads
 // tags:query:tag:detail and saves via tags:write:tag:{create,update,delete}.
-// Legacy create-tag/update-tag/delete-tag stay registered for TagManager.
+
+const noteEntity = createEntity({
+  name: "note",
+  table: "tag_screens_test_notes",
+  fields: {
+    title: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
+});
+const noteFixtureFeature = defineFeature("tag-screens-test-note-fixture", (r) => {
+  r.entity(noteEntity);
+});
 
 describe("tags catalog screens (entityList + entityEdit)", () => {
-  const feature = createTagsFeature();
+  const feature = createTagsFeature({ parents: ["note"] });
 
   test("boot-validates with declarative tag-list + tag-edit", () => {
-    expect(() => validateBoot([feature])).not.toThrow();
+    expect(() => validateBoot([noteFixtureFeature, feature])).not.toThrow();
   });
 
   test("tag-list is entityList gated by default tag roles", () => {
@@ -26,24 +46,20 @@ describe("tags catalog screens (entityList + entityEdit)", () => {
     expect(edit?.access).toEqual({ roles: ["TenantAdmin", "TenantMember"] });
   });
 
-  test("convention handlers sit beside legacy create-tag/update-tag/delete-tag", () => {
+  test("catalog writes run only through the convention handlers", () => {
     expect(Object.keys(feature.writeHandlers)).toEqual(
-      expect.arrayContaining([
-        "create-tag",
-        "update-tag",
-        "delete-tag",
-        "tag:create",
-        "tag:update",
-        "tag:delete",
-      ]),
+      expect.arrayContaining(["tag:create", "tag:update", "tag:delete"]),
     );
+    expect(Object.keys(feature.writeHandlers)).not.toContain("create-tag");
+    expect(Object.keys(feature.writeHandlers)).not.toContain("update-tag");
+    expect(Object.keys(feature.writeHandlers)).not.toContain("delete-tag");
     expect(Object.keys(feature.queryHandlers)).toEqual(
       expect.arrayContaining(["tag:list", "tag:detail", "tag-assignment:list"]),
     );
   });
 
-  test("createTagsFeature({ roles }) threads access onto both screens", () => {
-    const custom = createTagsFeature({ roles: ["Admin"] });
+  test("createTagsFeature({ parents, roles }) threads access onto both screens", () => {
+    const custom = createTagsFeature({ parents: ["note"], roles: ["Admin"] });
     expect(custom.screens[TAGS_SCREEN_ID]?.access).toEqual({ roles: ["Admin"] });
     expect(custom.screens[TAGS_EDIT_SCREEN_ID]?.access).toEqual({ roles: ["Admin"] });
     expect(custom.writeHandlers["tag:delete"]?.access).toEqual({ roles: ["Admin"] });

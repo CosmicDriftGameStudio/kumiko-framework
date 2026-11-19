@@ -8,16 +8,19 @@
 //
 // Providers register no routes of their own — their oauth block is
 // resolved via resolveInboundProviderForKey. The callback trusts ONLY the
-// HMAC-verified state (CSRF-/foreign-claiming lock, see oauth-state.ts).
+// HMAC-verified state plus the browser-binding cookie set by the connect route
+// (CSRF-/foreign-claiming lock, see oauth-state.ts).
 
+import { randomBytes } from "node:crypto";
 import type {
   ExtraRouteDefinition,
   SignatureExtraRouteDeps,
   UserExtraRouteDeps,
 } from "@cosmicdrift/kumiko-framework/api";
-import { signatureRoute } from "@cosmicdrift/kumiko-framework/api";
+import { getSessionCookies, signatureRoute } from "@cosmicdrift/kumiko-framework/api";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Context } from "hono";
+import { getCookie, setCookie } from "hono/cookie";
 import {
   refreshTokenOrRefusal,
   type VerifiedCallback,
@@ -36,7 +39,11 @@ import {
   type OAuthAccessTokenManager,
   storeOAuthCallbackCredential,
 } from "./oauth-access-token.ts";
-import { signOAuthState } from "./oauth-state.ts";
+import {
+  OAUTH_BROWSER_BINDING_COOKIE,
+  oauthBrowserBinding,
+  signOAuthState,
+} from "./oauth-state.ts";
 import { resolveInboundProviderForKey } from "./provider-factory.ts";
 import type { InboundMailContext } from "./types.ts";
 
@@ -88,6 +95,49 @@ function connectRoleRefusal(
   return undefined;
 }
 
+function browserBindingRefusal(c: Context, expectedBinding: string): Response | undefined {
+  const bindingCookie = getCookie(c, OAUTH_BROWSER_BINDING_COOKIE);
+  if (bindingCookie !== undefined && oauthBrowserBinding(bindingCookie) === expectedBinding) {
+    return undefined;
+  }
+  return errorJson(
+    c,
+    403,
+    "state_browser_mismatch",
+    `${INBOUND_MAIL_FOUNDATION_FEATURE}: this connect flow was started in another browser; start it again here`,
+  );
+}
+
+type OAuthFlow = NonNullable<ReturnType<typeof resolveInboundProviderForKey>["oauth"]>;
+
+function oauthFlowOrRefusal(
+  c: Context,
+  providerCtx: InboundMailContext,
+  providerKey: string,
+): OAuthFlow | Response {
+  let plugin: ReturnType<typeof resolveInboundProviderForKey>;
+  try {
+    plugin = resolveInboundProviderForKey(providerCtx, providerKey);
+  } catch (e) {
+    return errorJson(c, 404, "provider_not_registered", e instanceof Error ? e.message : String(e));
+  }
+  if (!plugin.oauth) return errorJson(c, 400, "provider_has_no_oauth_flow", providerKey);
+  return plugin.oauth;
+}
+
+function connectSuccessResponse(
+  c: Context,
+  successRedirectUrl: string | undefined,
+  accountId: string,
+): Response {
+  if (successRedirectUrl) {
+    const target = new URL(successRedirectUrl);
+    target.searchParams.set("accountId", accountId);
+    return c.redirect(target.toString(), 302);
+  }
+  return c.json({ connected: true, accountId }, 200);
+}
+
 export type InboundMailConnectRoutesOptions = {
   /** HMAC-secret for the state param (deploy-time env — `scope:"system"`
    *  secrets don't exist in secrets-v1). */
@@ -119,6 +169,7 @@ export function createInboundMailConnectRoutes(
   options: InboundMailConnectRoutesOptions,
 ): readonly ExtraRouteDefinition[] {
   const ttl = options.stateTtlMinutes ?? DEFAULT_STATE_TTL_MINUTES;
+  const callbackPath = options.callbackPath ?? DEFAULT_CALLBACK_PATH;
 
   const connectRoute: ExtraRouteDefinition = {
     method: "GET",
@@ -160,12 +211,23 @@ export function createInboundMailConnectRoutes(
         );
       }
 
+      const bindingValue = randomBytes(32).toString("base64url");
+      // ponytail: one cookie per browser, so a second connect started in parallel replaces the first flow's binding and that flow's callback is refused; key the cookie per state if parallel flows matter.
+      setCookie(c, OAUTH_BROWSER_BINDING_COOKIE, bindingValue, {
+        httpOnly: true,
+        // Lax still sends the cookie on the provider's top-level redirect back to the callback.
+        sameSite: "Lax",
+        secure: getSessionCookies(c).secure,
+        path: callbackPath,
+        maxAge: ttl * 60,
+      });
       const state = signOAuthState(
         {
           tenantId: deps.user.tenantId,
           ownerUserId: scope === "user" ? deps.user.id : null,
           providerKey,
           mailbox,
+          browserBinding: oauthBrowserBinding(bindingValue),
         },
         ttl,
         options.stateSecret,
@@ -180,7 +242,7 @@ export function createInboundMailConnectRoutes(
 
   const callbackRoute = signatureRoute<VerifiedCallback>({
     method: "GET",
-    path: options.callbackPath ?? DEFAULT_CALLBACK_PATH,
+    path: callbackPath,
     entry: "signature",
     verify: async (request) => verifyCallbackRequest(request, options.stateSecret),
     handler: async (
@@ -189,6 +251,8 @@ export function createInboundMailConnectRoutes(
       deps: SignatureExtraRouteDeps,
     ): Promise<Response> => {
       const { code, state } = verified;
+      const bindingRefusal = browserBindingRefusal(c, state.browserBinding);
+      if (bindingRefusal) return bindingRefusal;
       // Checked before exchangeCode/connectAccount: the code is single-use and
       // an account created without a persistable refresh token is an orphan.
       // `deps.secrets` is optional on SignatureExtraRouteDeps.
@@ -207,24 +271,12 @@ export function createInboundMailConnectRoutes(
         ...(options.metricsFor && { metricsFor: options.metricsFor }),
       };
 
-      let plugin: ReturnType<typeof resolveInboundProviderForKey>;
-      try {
-        plugin = resolveInboundProviderForKey(providerCtx, state.providerKey);
-      } catch (e) {
-        return errorJson(
-          c,
-          404,
-          "provider_not_registered",
-          e instanceof Error ? e.message : String(e),
-        );
-      }
-      if (!plugin.oauth) {
-        return errorJson(c, 400, "provider_has_no_oauth_flow", state.providerKey);
-      }
+      const oauth = oauthFlowOrRefusal(c, providerCtx, state.providerKey);
+      if (oauth instanceof Response) return oauth;
 
-      let tokens: Awaited<ReturnType<NonNullable<typeof plugin.oauth>["exchangeCode"]>>;
+      let tokens: Awaited<ReturnType<OAuthFlow["exchangeCode"]>>;
       try {
-        tokens = await plugin.oauth.exchangeCode(providerCtx, {
+        tokens = await oauth.exchangeCode(providerCtx, {
           code,
           redirectUri: options.callbackUrl,
         });
@@ -248,7 +300,8 @@ export function createInboundMailConnectRoutes(
         payload: {
           provider: state.providerKey,
           authMethod: InboundMailAuthMethods.oauth,
-          displayName: state.mailbox,
+          // The address is PII ciphertext in the event; displayName is stored in plaintext, so it must not repeat it.
+          displayName: "",
           address: state.mailbox,
           scope: state.ownerUserId ? "user" : "shared",
           ownerUserIdOverride: state.ownerUserId,
@@ -296,12 +349,7 @@ export function createInboundMailConnectRoutes(
         payload: { accountId },
       });
 
-      if (options.successRedirectUrl) {
-        const target = new URL(options.successRedirectUrl);
-        target.searchParams.set("accountId", accountId);
-        return c.redirect(target.toString(), 302);
-      }
-      return c.json({ connected: true, accountId }, 200);
+      return connectSuccessResponse(c, options.successRedirectUrl, accountId);
     },
   });
 

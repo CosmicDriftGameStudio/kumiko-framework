@@ -171,6 +171,6 @@ export function createSubscriptionMollieFeature(
       // see plugin-methods.ts for why.
       priceToTier: options.priceToTier,
     };
-    r.useExtension("subscriptionProvider", MOLLIE_PROVIDER_NAME, plugin);
+    r.applyExtension({ name: "subscriptionProvider", entity: MOLLIE_PROVIDER_NAME, ...plugin });
   });
 }

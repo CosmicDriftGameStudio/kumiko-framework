@@ -5,11 +5,12 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { createFilesFeature, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import { createTzContext, getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -36,7 +37,6 @@ import {
 } from "../../data-retention/index.ts";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../../delivery/tables.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createMailFoundationFeature, tenantMailTransport } from "../../mail-foundation/index.ts";
 import {
   clearInbox,
@@ -87,7 +87,7 @@ beforeAll(async () => {
         tenantTransport: tenantMailTransport,
         resolveEmail: async () => null,
       }),
-      createUserDataRightsFeature(),
+      createUserDataRightsFeature({ mailDefaults: { appName: "Acme" } }),
       localeDe(),
       createUserDataRightsDefaultsFeature(),
     ],
@@ -154,13 +154,17 @@ describe("deletion-executed default mail through the email channel", () => {
         tenantId: TENANT_WITHOUT_PROVIDER,
         mode: "tenant",
         grants: {
-          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+          unsafeRaw: {
+            reason: "executes overdue Art.17 forget requests across every tenant",
+            grants: ["unsafeRaw"],
+          },
         },
       }),
       registry: stack.registry,
       services: { configResolver, extensions: {} },
       lifecycle: {},
       systemUser: createSystemUser(TENANT_WITHOUT_PROVIDER),
+      tz: createTzContext(),
       obs: {
         log: {
           info() {},

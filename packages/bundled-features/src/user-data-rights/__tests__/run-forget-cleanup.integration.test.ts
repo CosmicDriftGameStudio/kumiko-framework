@@ -23,12 +23,13 @@ import {
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { asRawClient, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { createFilesFeature, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { createTzContext, getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   resetPiiSubjectKmsForTests,
   resetTestTables,
@@ -46,7 +47,6 @@ import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
 } from "../../data-retention/index.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import {
@@ -328,7 +328,10 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
         tenantId: TENANT_A,
         mode: "tenant",
         grants: {
-          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+          unsafeRaw: {
+            reason: "executes overdue Art.17 forget requests across every tenant",
+            grants: ["unsafeRaw"],
+          },
         },
       }),
       registry: stack.registry,
@@ -336,6 +339,7 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
       lifecycle: {},
       obs: { log },
       systemUser: createSystemUser(TENANT_A),
+      tz: createTzContext(),
     };
     await job?.handler({}, jobCtx as unknown as JobContext);
 
@@ -404,11 +408,15 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
           tenantId: TENANT_A,
           mode: "tenant",
           grants: {
-            unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+            unsafeRaw: {
+              reason: "executes overdue Art.17 forget requests across every tenant",
+              grants: ["unsafeRaw"],
+            },
           },
         }),
         registry: stack.registry,
         systemUser: createSystemUser(TENANT_A),
+        tz: createTzContext(),
         services: { extensions: {} },
         lifecycle: {},
         obs: { log },
@@ -1159,8 +1167,8 @@ describe("run-forget-cleanup write handler (manual, risk high) via configuredPii
   });
 });
 
-// user.updated carries the pre-update row in `previous`. With a subject KMS the
-// executor encrypts it under the user's key, so the forget run's eraseKey must
+// user.updated carries the old values of the changed keys in `previous`. With a subject KMS the
+// executor encrypts them under the user's key, so the forget run's eraseKey must
 // shred every historical copy of the address, including the one an earlier
 // email change left behind.
 describe("forget shreds user.updated.previous (email change before deletion)", () => {
@@ -1225,7 +1233,7 @@ describe("forget shreds user.updated.previous (email change before deletion)", (
 
     const payloads = await loadUserUpdatedPayloads(userId);
     const emails = [...emailsIn(payloads, "changes"), ...emailsIn(payloads, "previous")];
-    // Email change `previous`, lifecycle update `previous` and anonymization `changes` are ciphertexts.
+    // Email change `changes` and `previous` plus the anonymization `previous` (the old email) are ciphertexts.
     expect(emails.filter((email) => isPiiCiphertext(email)).length).toBeGreaterThanOrEqual(3);
     await expectEmailsShredded(emails, getKms(), userId);
   });

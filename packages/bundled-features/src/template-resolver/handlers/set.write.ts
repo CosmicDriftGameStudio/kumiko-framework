@@ -1,12 +1,16 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineWriteHandler,
+  type Registry,
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { requireForTenant } from "../../shared/index.ts";
+import { documentViolationsToFieldIssues } from "../document-sanitizer.ts";
+import { sanitizeTemplateWriteBody } from "../layout-regions.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import {
   refuseReservedSystemLayoutSlug,
@@ -19,6 +23,54 @@ import { TEMPLATE_KINDS, TEXT_BLOCK_KIND, UPSERT_KINDS } from "../web/constants.
 import { contentFormatSchema, executor, folderSchema, localeSchema, slugSchema } from "./shared.ts";
 import { parseStoredJson, storedRecord } from "./template-gates.ts";
 import { gateTemplateWrite } from "./template-write.ts";
+
+type SetContentInput = Pick<
+  Parameters<typeof sanitizeTemplateWriteBody>[0],
+  "kind" | "scope" | "contentFormat" | "content"
+> & {
+  readonly slug: string;
+  readonly existing: TemplateResourceRow | undefined;
+  readonly registry: Registry;
+};
+
+function gateSetContent(input: SetContentInput) {
+  const { kind, scope, contentFormat, content } = input;
+  if (isOneOf(UPSERT_KINDS, kind)) {
+    const gated = gateTemplateWrite(
+      {
+        kind,
+        scope,
+        contentFormat,
+        content,
+        rawMeta: parseStoredJson(input.existing?.meta ?? null),
+        variables: resolveTemplateVariables(
+          input.registry,
+          input.slug,
+          storedRecord(input.existing?.variableSchema ?? null),
+        ),
+      },
+      "active",
+    );
+    if (!gated.ok) return { ok: false as const, failure: gated.failure };
+    return { ok: true as const, content: gated.evaluated.content };
+  }
+  const body = sanitizeTemplateWriteBody({
+    kind,
+    scope,
+    contentFormat,
+    content,
+    alwaysSanitizeHtml: true,
+  });
+  if (!body.ok) {
+    return {
+      ok: false as const,
+      failure: writeFailure(
+        new ValidationError({ fields: documentViolationsToFieldIssues(body.violations) }),
+      ),
+    };
+  }
+  return { ok: true as const, content: body.content };
+}
 
 // Upsert of a single resource, one operation per (tenantId, slug, kind,
 // locale). This is the content-tree authoring path: unlike upsertTenant it
@@ -85,26 +137,17 @@ export function makeSetWrite(policy: TemplateEditPolicy) {
         "slug",
       );
       if (reserved !== null) return reserved;
-      let content = event.payload.content;
-      if (isOneOf(UPSERT_KINDS, kind)) {
-        const gated = gateTemplateWrite(
-          {
-            kind,
-            scope,
-            contentFormat: event.payload.contentFormat,
-            content,
-            rawMeta: parseStoredJson(existing?.meta ?? null),
-            variables: resolveTemplateVariables(
-              ctx.registry,
-              event.payload.slug,
-              storedRecord(existing?.variableSchema ?? null),
-            ),
-          },
-          "active",
-        );
-        if (!gated.ok) return gated.failure;
-        content = gated.evaluated.content;
-      }
+      const gated = gateSetContent({
+        kind,
+        scope,
+        contentFormat: event.payload.contentFormat,
+        content: event.payload.content,
+        slug: event.payload.slug,
+        existing,
+        registry: ctx.registry,
+      });
+      if (!gated.ok) return gated.failure;
+      const content = gated.content;
 
       const fields = {
         slug: event.payload.slug,

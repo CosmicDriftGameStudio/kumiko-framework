@@ -31,9 +31,9 @@ type AccessMaps = { readonly read?: OwnershipMap; readonly write?: OwnershipMap 
 
 function featureWith(entityAccess: AccessMaps, fieldAccess?: AccessMaps): FeatureDefinition {
   return defineFeature("memos", (r) => {
-    r.entity({
-      name: "memo",
-      ...createEntity({
+    r.entity(
+      createEntity({
+        name: "memo",
         table: "fw2626_guard_memos",
         fields: {
           ownerId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -41,7 +41,7 @@ function featureWith(entityAccess: AccessMaps, fieldAccess?: AccessMaps): Featur
         },
         access: entityAccess,
       }),
-    });
+    );
   });
 }
 
@@ -91,22 +91,22 @@ describe("validateOwnershipRules — probe renders the rule with the runtime tab
       },
     };
     const feature = defineFeature("memos", (r) => {
-      r.entity({
-        name: "user-mfa",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "user-mfa",
           fields: {
             ownerId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
           },
           access: { read: { Member: recordingWhere } },
         }),
-      });
+      );
     });
 
     validate(feature);
 
     const entity = feature.entities?.["user-mfa"];
     if (entity === undefined) throw new Error("fixture entity missing");
-    expect(seen).toEqual([tableNameOf(buildEntityTable("user-mfa", entity))]);
+    expect(seen).toEqual([tableNameOf(buildEntityTable({ ...entity, name: "user-mfa" }))]);
     expect(seen[0]).not.toBe("user-mfa");
   });
 });
@@ -124,9 +124,9 @@ describe("validateOwnershipRules — where-rules on access.read", () => {
 
   test("an embedded sub-field with a where-rule on access.read fails the boot", () => {
     const feature = defineFeature("memos", (r) => {
-      r.entity({
-        name: "memo",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "memo",
           fields: {
             detail: createEmbeddedField(
               {
@@ -140,7 +140,7 @@ describe("validateOwnershipRules — where-rules on access.read", () => {
             ),
           },
         }),
-      });
+      );
     });
     expect(() => validate(feature)).toThrow(/memo\.detail\.note\.access\.read/);
   });
@@ -149,6 +149,7 @@ describe("validateOwnershipRules — where-rules on access.read", () => {
 describe("validateOwnershipRules — read-model entities", () => {
   const readModelEntity = (read: OwnershipMap) =>
     createEntity({
+      name: "owner-view",
       table: "fw_readmodel_owners",
       fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
       access: { read },
@@ -160,7 +161,7 @@ describe("validateOwnershipRules — read-model entities", () => {
       r.projection({
         name: "owner-view",
         source: "owner-view",
-        table: buildEntityTable("owner-view", entity),
+        table: buildEntityTable(entity),
         entity,
         apply: {},
       });

@@ -1,10 +1,15 @@
 import type { ParentVisibilityOption } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
-import { buildOwnershipClause, type OwnershipClause } from "../engine/ownership.ts";
+import {
+  buildOwnershipClause,
+  type OwnershipClause,
+  type ParentRuleResolver,
+} from "../engine/ownership.ts";
 import { SYSTEM_TENANT_ID, UUID_SHAPE_PATTERN } from "../engine/types/identifiers.ts";
 import type { SessionUser } from "../engine/types/index.ts";
 
 import type { Table } from "./event-store-executor-context.ts";
+import { parentRulesFromOption } from "./parent-ownership.ts";
 import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
 import { asEntityTableMeta, schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";
@@ -33,7 +38,7 @@ function candidateStaticsFor(
   if (resolveTable !== undefined) return staticsOf(resolveTable(candidateName));
   const cached = candidateStaticsCache.get(candidate);
   if (cached) return cached;
-  const statics = staticsOf(buildEntityTable(candidateName, candidate));
+  const statics = staticsOf(buildEntityTable({ ...candidate, name: candidateName }));
   candidateStaticsCache.set(candidate, statics);
   return statics;
 }
@@ -60,7 +65,7 @@ function selectCandidates(
 ): ReadonlyArray<readonly [string, EntityDefinition]> {
   const candidates: Array<readonly [string, EntityDefinition]> = [];
   for (const [name, candidate] of option.entities) {
-    if (parentRef.allowedTypes && !parentRef.allowedTypes.includes(name)) continue;
+    if (!parentRef.allowedTypes.includes(name)) continue;
     if (narrowTypes && !narrowTypes.has(name)) continue;
     // No recursive gating — a host that is itself a join-row entity would
     // need its own visibility resolved first, which this function doesn't do.
@@ -68,6 +73,7 @@ function selectCandidates(
     // A readGate host would need its own gate resolved first; unreadable beats a widened read.
     if (candidate.readGate !== undefined) continue;
     if (requireReadHandler && option.canReadEntity?.(name) !== true) continue;
+    if (option.canReadHostByRole !== undefined && !option.canReadHostByRole(name)) continue;
     // event-store-executor-context.ts rejects non-uuid idType at executor
     // build time, so there is no read path to check such a candidate against.
     if (candidate.idType !== undefined && candidate.idType !== "uuid") continue;
@@ -208,6 +214,7 @@ function collectGateBranches(
       // positional binding of the branches after it.
       typeParamIdx: params.length + (pendingShared?.values.length ?? 0) + 1,
       resolveTable: gate.option.resolveTable,
+      parents: parentRulesFromOption(gate.option, "read"),
     };
     const branch = resolvesHostIds
       ? buildResolvedHostBranch(gate.option.globalHostIds?.get(candidateName), branchContext)
@@ -264,7 +271,7 @@ function hostReadRuleNeedsRowLevelSecurity(
   });
   return (
     !applicable.includes("all") &&
-    applicable.some((rule) => rule !== "all" && rule.kind === "where")
+    applicable.some((rule) => rule !== "all" && (rule.kind === "where" || rule.kind === "parent"))
   );
 }
 
@@ -306,6 +313,7 @@ type BranchContext = {
   readonly includeDeleted: boolean;
   readonly typeParamIdx: number;
   readonly resolveTable: ParentVisibilityOption["resolveTable"];
+  readonly parents: ParentRuleResolver | undefined;
 };
 
 // One `entity_type = $n AND EXISTS (...)` arm, or undefined when the host's own
@@ -323,6 +331,8 @@ function buildCandidateBranch(
     candidate.access?.read,
     statics.table,
     ctx.typeParamIdx + 1,
+    undefined,
+    ctx.parents,
   );
   if (ownership.kind === "empty") return undefined;
 

@@ -129,6 +129,8 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  above-control; below-control keeps the inputs of neighbouring fields
    *  on one line when an appendix expands. */
   readonly fieldAppendixPlacement?: "above-control" | "below-control";
+  /** `false` drops the prefix icon of every field, derived ones included. */
+  readonly fieldIcons?: false;
   /** Renders the form-error banner above the sections instead of below them. */
   readonly formErrorOnTop?: boolean;
   /** Per-field help text rendered under the label (translated by the caller). */
@@ -333,4 +335,7 @@ export type RenderEditControls<TValues extends FormValues> = {
   readonly next: () => void;
   /** Wizard only (no-op elsewhere): goes back one step without validating. */
   readonly back: () => void;
+  /** Shows the failure of a write the host ran outside `submit` the way a failed save shows:
+   *  field issues at their fields, anything else in the form's error banner. */
+  readonly showSubmitError: (error: DispatcherError) => void;
 };

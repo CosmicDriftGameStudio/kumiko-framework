@@ -2,61 +2,32 @@ import type {
   AuthSessionCheckResult,
   SessionChecker,
   SessionCreator,
-  SessionMassRevoker,
   SessionMetadata,
   SessionRevoker,
 } from "@cosmicdrift/kumiko-framework/api";
 
-export type { SessionMassRevoker } from "@cosmicdrift/kumiko-framework/api";
-
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne, insertOne, transaction, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { buildSessionRoles, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { append } from "@cosmicdrift/kumiko-framework/event-store";
-import { generateId, parseRoles } from "@cosmicdrift/kumiko-framework/utils";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Clock } from "@cosmicdrift/kumiko-types/tz-context";
 import { encryptForDirectWrite } from "../shared/index.ts";
-import { tenantMembershipsTable } from "../tenant/index.ts";
-import { isPrincipalRowBlocked, type UserStatus, userTable } from "../user/index.ts";
+import { resolveLiveTenantRoles } from "../tenant/index.ts";
 import {
   DEFAULT_SESSION_EXPIRY_MS,
   LAST_SEEN_REFRESH_MS,
   USER_SESSION_ENTITY_NAME,
 } from "./constants.ts";
+import { revokeSessionsAndAnnounce } from "./revoke-sessions.ts";
 import { userSessionEntity, userSessionTable } from "./schema/user-session.ts";
-import {
-  SESSION_REVOKED_AGGREGATE_TYPE,
-  SESSION_REVOKED_EVENT_QN,
-  sessionRevokedSchema,
-} from "./session-revoked-event.ts";
 
 const realClock: Clock = { now: () => Temporal.Now.instant() };
-
-type SettledLookup<T> = { readonly ok: true; readonly value: T } | { readonly ok: false };
-
-function settleLookup<T>(lookup: Promise<T>): Promise<SettledLookup<T>> {
-  return lookup.then(
-    (value): SettledLookup<T> => ({ ok: true, value }),
-    (): SettledLookup<T> => ({ ok: false }),
-  );
-}
 
 // Why the callbacks live at the raw-DB level rather than going through the
 // dispatcher: session-create/revoke/check run on the hot path of every
 // login and every request. The (createdAt/revokedAt/ip/userAgent) columns
 // already are the audit trail — a dispatcher roundtrip buys nothing.
-
-// "Sign out everywhere else, keep this one" — used both by the user-facing
-// revoke-all-others handler and by other features (auth-mfa) that need the
-// same effect from a raw callback instead of a dispatcher round-trip.
-// currentSid undefined (stateless-JWT / no sid claim) revokes everything —
-// there is no "current" row to spare.
-export type SessionAllOthersRevoker = (
-  userId: string,
-  currentSid: string | undefined,
-) => Promise<number>;
 
 export type SessionCallbacksOptions = {
   readonly db: DbConnection;
@@ -71,8 +42,6 @@ export type SessionCallbacks = {
   sessionCreator: SessionCreator;
   sessionRevoker: SessionRevoker;
   sessionChecker: SessionChecker;
-  sessionMassRevoker: SessionMassRevoker;
-  sessionRevokeAllOthers: SessionAllOthersRevoker;
 };
 
 export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCallbacks {
@@ -108,58 +77,18 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
     },
 
     async sessionRevoker(sid: string): Promise<void> {
-      // Audit-preserving: `isNull(revokedAt)` in WHERE means a second call
-      // on an already-revoked sid is a no-op instead of overwriting the
-      // original timestamp. Double-revoke races land here via logout +
-      // switch-tenant on the same sid. (Password-change uses a different
-      // callback — sessionMassRevoker — and isn't in scope for this guard.)
-      // One transaction: if the append failed after the update committed, a
-      // retried logout would match no live row (revokedAt IS NULL) and never
-      // emit the event, leaving the SSE stream of this sid open until JWT expiry.
-      await transaction(db, async (tx) => {
-        const result = await updateMany<{ userId: string }>(
-          tx,
-          userSessionTable,
-          { revokedAt: clock.now() },
-          { id: sid, revokedAt: null },
-        );
-
-        // This is the ONLY caller of sessionRevoker — logout and tenant-switch
-        // — so it's also the only source of streamScope: "revoked-sessions".
-        // Without this append, a live SSE stream on this exact sid outlives its
-        // own logout because the access-invalidation consumer never hears
-        // about it — same gap sessionMassRevoker closed for
-        // password-change.
-        const revoked = result[0];
-        if (revoked) {
-          const payload = sessionRevokedSchema.parse({
-            userId: revoked.userId,
-            sessionIds: [sid],
-            streamScope: "revoked-sessions",
-          });
-          await append(tx, {
-            aggregateId: generateId(),
-            aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
-            tenantId: SYSTEM_TENANT_ID,
-            expectedVersion: 0,
-            type: SESSION_REVOKED_EVENT_QN,
-            payload,
-            metadata: { userId: revoked.userId },
-          });
-        }
-      });
-    },
-
-    // kumiko-lint-ignore complexity-budget session check + lastSeen refresh on hot path
-    async sessionChecker(sid: string, expectedUserId: string): Promise<AuthSessionCheckResult> {
-      // The user lookup is keyed by the JWT's userId, not the session row, so it
-      // overlaps the session read. Settled eagerly: a throwing session read must
-      // not leave this promise as an unhandled rejection.
-      const userLookup = settleLookup(
-        fetchOne<{ status: UserStatus; isDeleted: boolean; roles: string | null }>(db, userTable, {
-          id: expectedUserId,
+      // Only caller is logout/tenant-switch, hence the only source of streamScope "revoked-sessions":
+      // without the event a live SSE stream on this sid would outlive its own logout.
+      await transaction(db, (tx) =>
+        revokeSessionsAndAnnounce(tx, {
+          where: { id: sid },
+          revokedAt: clock.now(),
+          streamScope: "revoked-sessions",
         }),
       );
+    },
+
+    async sessionChecker(sid: string, expectedUserId: string): Promise<AuthSessionCheckResult> {
       const row = await fetchOne<{
         userId: string;
         tenantId: TenantId;
@@ -180,137 +109,39 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
         return "expired";
       }
 
-      // Membership is keyed by the session's tenantId, so it can only start now;
-      // it overlaps the user lookup and the lastSeen refresh.
-      const membershipLookup = settleLookup(
-        fetchOne<{ roles: string | null }>(db, tenantMembershipsTable, {
-          userId: expectedUserId,
-          tenantId: row.tenantId,
-        }),
-      );
-
       // Hourly, not per-request: this check runs on every authenticated
       // request, so a write here has to stay off the hot path.
-      const nowMs = clock.now().epochMilliseconds;
-      if (!row.lastSeenAt || row.lastSeenAt.epochMilliseconds + LAST_SEEN_REFRESH_MS <= nowMs) {
+      const refreshLastSeen = async (): Promise<void> => {
+        const nowMs = clock.now().epochMilliseconds;
+        if (row.lastSeenAt && row.lastSeenAt.epochMilliseconds + LAST_SEEN_REFRESH_MS > nowMs) {
+          return;
+        }
         try {
           await updateMany(db, userSessionTable, { lastSeenAt: clock.now() }, { id: sid });
         } catch {
           // fail-open: a refresh failure must not block the session check
         }
+      };
+
+      // Lookup errors propagate like an error on the session read above: a 5xx beats serving
+      // the JWT's frozen roles while the DB cannot confirm them.
+      const [live] = await Promise.all([
+        resolveLiveTenantRoles(db, expectedUserId, row.tenantId),
+        refreshLastSeen(),
+      ]);
+
+      switch (live.kind) {
+        case "active":
+          return { status: "live", roles: live.roles } as const;
+        // Bootstrap/system actors have no user row (rows are only soft-deleted): keep the JWT roles.
+        case "unknown_principal":
+          return "live";
+        case "blocked":
+          return "blocked";
+        // Every mint path requires a membership, so a missing row means it was revoked.
+        case "not_a_member":
+          return "not_a_member";
       }
-
-      // Defense-in-depth: status flips (Art. 18 restrict, forget) revoke
-      // sessions, but a missed revoke must not keep a locked account alive on
-      // a stale sid. Fail-OPEN on a lookup miss — this is the second layer,
-      // revocation is primary; never turn a user-row miss into a global
-      // lockout. (+1 PK read on read_users per authenticated request.)
-      //
-      // Fail-open covers a THROW *and* a null-miss, not just a throw: this
-      // read sits on the hot path of every authenticated request, and a
-      // missing row here means we have no DB-confirmed roles to derive from
-      // (e.g. a bootstrap/system actor with no persisted user row) — that is
-      // a different situation from tenantMembershipsTable below, where a
-      // missing row is a legitimate "no tenant roles" outcome. Both branches
-      // return the bare "live" string (no re-derived roles) — the middleware
-      // falls back to the JWT's frozen roles claim.
-      const userResult = await userLookup;
-      if (!userResult.ok) return "live";
-      const user = userResult.value;
-      if (!user) return "live";
-      if (isPrincipalRowBlocked(user)) return "blocked";
-
-      // Same fail-open reasoning as the userTable lookup above — a transient
-      // DB error on the membership read must not lock the user out. A
-      // missing row (not a throw) is a valid outcome: the user genuinely has
-      // no tenant-scoped roles for row.tenantId, so membershipRoles is [].
-      const membershipResult = await membershipLookup;
-      if (!membershipResult.ok) return "live";
-      const membershipRoles = membershipResult.value
-        ? parseRoles(membershipResult.value.roles)
-        : [];
-
-      const globalRoles = parseRoles(user.roles);
-      const roles = buildSessionRoles(globalRoles, membershipRoles);
-      return { status: "live", roles } as const;
-    },
-
-    async sessionMassRevoker(userId: string): Promise<number> {
-      // Count is accurate because we only touch live rows — a previously
-      // revoked row stays in its state and isn't double-counted.
-      // One transaction, same reason as sessionRevoker: a failed append must
-      // not leave sessions revoked without the event.
-      return transaction(db, async (tx) => {
-        const result = await updateMany(
-          tx,
-          userSessionTable,
-          { revokedAt: clock.now() },
-          { userId, revokedAt: null },
-        );
-
-        // Lightweight append alongside the direct-write above, same pattern
-        // as revoke.write.ts — this callback is the password-change
-        // auto-revoke path (sessions/feature.ts postSave hook) and has no
-        // dispatcher ctx to call unsafeAppendEvent from, so it uses the raw
-        // append() like revoke-all-for-user.write.ts does. Without this, the
-        // access-invalidation consumer never hears about a password
-        // change and an already-open SSE stream survives it — the exact
-        // "stale JWT mid-stream" gap this feature exists to close.
-        if (result.length > 0) {
-          const payload = sessionRevokedSchema.parse({
-            userId,
-            sessionIds: result.map((row: { id: string }) => row.id),
-          });
-          await append(tx, {
-            aggregateId: generateId(),
-            aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
-            tenantId: SYSTEM_TENANT_ID,
-            expectedVersion: 0,
-            type: SESSION_REVOKED_EVENT_QN,
-            payload,
-            metadata: { userId },
-          });
-        }
-
-        return result.length;
-      });
-    },
-
-    async sessionRevokeAllOthers(userId: string, currentSid: string | undefined): Promise<number> {
-      return transaction(db, async (tx) => {
-        const result = await updateMany(
-          tx,
-          userSessionTable,
-          { revokedAt: clock.now() },
-          currentSid
-            ? { userId, revokedAt: null, id: { ne: currentSid } }
-            : { userId, revokedAt: null },
-        );
-
-        // Same reasoning as sessionMassRevoker above — this raw callback
-        // (used by auth-mfa and other internal callers, distinct from the
-        // user-facing revoke-all-others.write.ts handler which already
-        // appends this event) needs its own append so callers reached
-        // through here also cut open SSE streams.
-        if (result.length > 0) {
-          const payload = sessionRevokedSchema.parse({
-            userId,
-            sessionIds: result.map((row: { id: string }) => row.id),
-            keptSessionId: currentSid,
-          });
-          await append(tx, {
-            aggregateId: generateId(),
-            aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
-            tenantId: SYSTEM_TENANT_ID,
-            expectedVersion: 0,
-            type: SESSION_REVOKED_EVENT_QN,
-            payload,
-            metadata: { userId },
-          });
-        }
-
-        return result.length;
-      });
     },
   };
 }

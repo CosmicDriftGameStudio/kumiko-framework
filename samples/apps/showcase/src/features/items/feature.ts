@@ -43,7 +43,7 @@ function keyFirst(byLocale: TranslationsByLocale): Record<string, Record<string,
 
 export const itemsFeature = defineFeature("showcase", (r) => {
   r.translations({ keys: keyFirst(itemsTranslations) });
-  r.crud("item", itemEntity, {
+  r.crud(itemEntity, {
     write: open,
     read: open,
     descriptions: {

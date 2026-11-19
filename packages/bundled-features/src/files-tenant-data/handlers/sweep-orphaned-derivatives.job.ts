@@ -18,8 +18,7 @@
 // candidates into a flat queue so the shared deadline/circuit-breaker/signal
 // handling still applies per-key.
 
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { type DbRunner, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { parseDerivativeKey } from "@cosmicdrift/kumiko-framework/derivatives";
 import type { JobContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -53,7 +52,7 @@ type DerivativeCandidate = {
 export async function sweepOrphanedDerivativesJob(
   rawPayload: Record<string, unknown>,
   ctx: JobContext,
-  db: DbConnection,
+  db: DbRunner,
 ): Promise<void> {
   const payload = sweepOrphanedDerivativesPayloadSchema.parse(rawPayload ?? {});
   const maybeResolver = ctx.services._fileProviderResolver;

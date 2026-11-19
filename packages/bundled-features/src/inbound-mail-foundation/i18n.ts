@@ -1,6 +1,8 @@
+import { handlerFieldLabelKey, handlerTitleKey } from "@cosmicdrift/kumiko-framework/engine";
 import { ACTION_FORM_ENTITY } from "@cosmicdrift/kumiko-framework/ui-types";
 import { fieldLabelKey } from "@cosmicdrift/kumiko-renderer/headless";
 import {
+  InboundMailFoundationHandlers as H,
   INBOUND_MAIL_FOUNDATION_FEATURE,
   InboundMailAccountStatuses,
   InboundMailConnectErrors,
@@ -24,6 +26,11 @@ const formFieldKey = (field: string): string =>
 
 export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en: string }>> = {
   ...INBOUND_PROBE_I18N,
+  [handlerTitleKey(H.disconnectAccount)]: { en: "Disconnect mailbox" },
+  [handlerFieldLabelKey(H.disconnectAccount, "accountId")]: { en: "Mailbox" },
+  [handlerFieldLabelKey(H.disconnectAccount, "reason")]: { en: "Reason" },
+  [handlerTitleKey(H.forgetMessage)]: { en: "Delete imported mail" },
+  [handlerFieldLabelKey(H.forgetMessage, "messageId")]: { en: "Mail" },
   [`screen:${MAIL_ACCOUNT_LIST_SCREEN_ID}.title`]: { en: "Mailboxes" },
   [`screen:${MY_MAIL_ACCOUNT_LIST_SCREEN_ID}.title`]: { en: "Your mailboxes" },
   [`screen:${MAIL_ACCOUNT_EDIT_SCREEN_ID}.title`]: { en: "Edit mailbox" },
@@ -130,6 +137,9 @@ export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en
   [MAIL_SEND_ERRORS.rejected.i18nKey]: {
     en: "The outgoing mail server refused the mail. Check the recipient address.",
   },
+  [MAIL_SEND_ERRORS.outcomeUnknown.i18nKey]: {
+    en: "It is unclear whether this mail was sent. Check the mailbox's sent folder before you send it again.",
+  },
   [MAIL_SEND_ERRORS.invalidMessage.i18nKey]: {
     en: "The mail was not sent: a recipient, the subject or the reply reference is invalid.",
   },
@@ -139,4 +149,5 @@ export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en
   [MAIL_SEND_ERRORS.attachmentsTooLarge.i18nKey]: {
     en: "The mail was not sent: the attachments together are larger than 18 MB.",
   },
+  "inboundMail.errors.invalidCursor": { en: "The pagination cursor is invalid." },
 };

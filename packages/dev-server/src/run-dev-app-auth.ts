@@ -6,20 +6,12 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import {
   AUTH_MFA_FEATURE,
-  bindMfaRevokeAllOtherSessionsFromFeature,
   bindMfaTokenSecretsFromFeature,
-  bindRevokeAllPatTokensFromFeature,
 } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import {
-  bindPatAutoRevokeOnPasswordChangeFromFeature,
   PAT_FEATURE,
   patRateLimitFromFeature,
-  revokeAllPatTokensForUser,
 } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
-import {
-  bindAutoRevokeFromFeature,
-  SESSIONS_FEATURE,
-} from "@cosmicdrift/kumiko-bundled-features/sessions";
 import type { SessionMetadata, TokenVerifier } from "@cosmicdrift/kumiko-framework/api";
 import { createInMemoryLoginRateLimiter } from "@cosmicdrift/kumiko-framework/api";
 import type {
@@ -159,15 +151,6 @@ export function wireDevAuth(
   return { patFeature, mfaFeature, sessionAuthFragment, patAuthFragment };
 }
 
-// Binds a late-bound revoker and records its unbind for when the app stops.
-function bindReleasable<Revoker>(
-  bind: ((revoker: Revoker) => () => void) | undefined,
-  revoker: Revoker,
-  resets: Array<() => void>,
-): void {
-  if (bind) resets.push(bind(revoker));
-}
-
 export type DevAfterSetupContext = {
   readonly config: DevBootConfig;
   readonly bootCrypto: ReturnType<typeof resolveBootCrypto>;
@@ -176,53 +159,17 @@ export type DevAfterSetupContext = {
 };
 
 async function bindDevSessionStore(stack: TestStack, ctx: DevAfterSetupContext): Promise<void> {
-  const { config, auth, lateBindings } = ctx;
-  const { patFeature, mfaFeature } = auth;
-  // Secure-by-default: resolve sessionStore provider; bind
-  // password-change mass-revoke + MFA revokeAllOthers.
+  const { lateBindings } = ctx;
   const store = await resolveSessionStore({
     db: stack.db,
     registry: stack.registry,
   });
-  const sessionsFeature = config.features.find((f) => f.name === SESSIONS_FEATURE);
-  if (sessionsFeature) {
-    bindReleasable(
-      bindAutoRevokeFromFeature(sessionsFeature),
-      store.massRevoker,
-      lateBindings.resets,
-    );
-  }
-  if (mfaFeature) {
-    bindReleasable(
-      bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature),
-      store.revokeAllOthers,
-      lateBindings.resets,
-    );
-  }
-  if (mfaFeature && patFeature) {
-    bindReleasable(
-      bindRevokeAllPatTokensFromFeature(mfaFeature),
-      (userId) => revokeAllPatTokensForUser(stack.db, userId),
-      lateBindings.resets,
-    );
-  }
   lateBindings.sessionStore = store;
 }
 
-function bindDevPatVerifier(
-  stack: TestStack,
-  patFeature: FeatureDefinition,
-  lateBindings: DevLateBindings,
-): void {
+function bindDevPatVerifier(stack: TestStack, lateBindings: DevLateBindings): void {
   lateBindings.tokenVerifier = (rawToken) =>
     resolveTokenVerifier({ db: stack.db, registry: stack.registry }, rawToken);
-  // Password-change → PAT-revoke: independent of sessions/MFA being
-  // mounted, so wired unconditionally here whenever PAT itself is.
-  bindReleasable(
-    bindPatAutoRevokeOnPasswordChangeFromFeature(patFeature),
-    (userId) => revokeAllPatTokensForUser(stack.db, userId),
-    lateBindings.resets,
-  );
 }
 
 export async function runDevAfterSetup(stack: TestStack, ctx: DevAfterSetupContext): Promise<void> {
@@ -242,7 +189,7 @@ export async function runDevAfterSetup(stack: TestStack, ctx: DevAfterSetupConte
     await bindDevSessionStore(stack, ctx);
   }
   if (auth.patFeature) {
-    bindDevPatVerifier(stack, auth.patFeature, lateBindings);
+    bindDevPatVerifier(stack, lateBindings);
   }
   // Apply r.config({ seeds }) declared by any registered feature.
   // Runs before user-supplied seed callbacks so those can read /

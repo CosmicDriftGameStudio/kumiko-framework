@@ -109,35 +109,35 @@ export const LIST_TABLE_RULES = {
     summary: "A column's minWidth is not greater than its width.",
     fix: "Lower minWidth or raise width.",
   },
-  bundledListsNotObject: {
-    id: "bundled-lists/not-object",
-    summary: "The bundledLists option is an object.",
-    fix: "Write bundledLists as an object such as { table: { columnPicker: true } }.",
+  listDefaultsNotObject: {
+    id: "list-defaults/not-object",
+    summary: "The listDefaults option is an object.",
+    fix: "Write listDefaults as an object such as { table: { columnPicker: true } }.",
   },
-  bundledListsUnknownKey: {
-    id: "bundled-lists/unknown-key",
-    summary: "bundledLists uses only the allowed keys.",
+  listDefaultsUnknownKey: {
+    id: "list-defaults/unknown-key",
+    summary: "listDefaults uses only the allowed keys.",
     fix: "Remove the unknown keys or rename them to one of the allowed keys.",
   },
-  bundledListsTableNotObject: {
-    id: "bundled-lists/table-not-object",
-    summary: "bundledLists.table is an object.",
-    fix: "Write bundledLists.table as an object such as { columnPicker: true }.",
+  listDefaultsTableNotObject: {
+    id: "list-defaults/table-not-object",
+    summary: "listDefaults.table is an object.",
+    fix: "Write listDefaults.table as an object such as { columnPicker: true }.",
   },
-  bundledListsScreenOnlyKey: {
-    id: "bundled-lists/screen-only-table-key",
+  listDefaultsScreenOnlyKey: {
+    id: "list-defaults/screen-only-table-key",
     summary:
-      "bundledLists.table leaves out grouping, totals and summaryRow, which depend on one list's fields or query.",
+      "listDefaults.table leaves out grouping, totals and summaryRow, which depend on one list's fields or query.",
     fix: "Set grouping, totals and summaryRow in the table block of the individual screen.",
   },
-  bundledListsPinFirstColumnNotBoolean: {
-    id: "bundled-lists/pin-first-column-not-boolean",
-    summary: "bundledLists.pinFirstColumn is a boolean.",
+  listDefaultsPinFirstColumnNotBoolean: {
+    id: "list-defaults/pin-first-column-not-boolean",
+    summary: "listDefaults.pinFirstColumn is a boolean.",
     fix: "Set pinFirstColumn to true or false.",
   },
-  bundledListsPinFirstColumnWithoutPinning: {
-    id: "bundled-lists/pin-first-column-without-pinning",
-    summary: "bundledLists.pinFirstColumn needs bundledLists.table.pinning.",
-    fix: "Set bundledLists.table.pinning: true or remove pinFirstColumn.",
+  listDefaultsPinFirstColumnWithoutPinning: {
+    id: "list-defaults/pin-first-column-without-pinning",
+    summary: "listDefaults.pinFirstColumn needs listDefaults.table.pinning.",
+    fix: "Set listDefaults.table.pinning: true or remove pinFirstColumn.",
   },
 } as const satisfies BootRuleTable;

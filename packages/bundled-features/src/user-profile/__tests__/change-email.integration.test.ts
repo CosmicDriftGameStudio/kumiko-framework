@@ -8,6 +8,7 @@ import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-feature
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { expectErrorIncludes, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -26,7 +27,6 @@ import {
 import { createConfigFeature } from "../../config/index.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
 import { hashPassword } from "../../shared/index.ts";
 import { createTenantFeature } from "../../tenant/index.ts";

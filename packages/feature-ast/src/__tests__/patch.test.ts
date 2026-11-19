@@ -368,8 +368,8 @@ defineFeature("dup", (r) => {
   });
 });
 
-describe("legacy positional → canonical Object-Form on replace", () => {
-  test("a positional-form r.entity call is replaced with object-form", () => {
+describe("legacy name-only entity → canonical Object-Form on replace", () => {
+  test("a name-only r.entity call is replaced with the canonical object form", () => {
     const legacyFile = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
@@ -399,36 +399,27 @@ describe("addPattern — error paths", () => {
     const sf = makeSourceFile("export const x = 1;");
     expect(() => addPattern(sf, newSecretPattern)).toThrow(/no defineFeature/);
   });
-
-  test("throws for ai.* kinds (must target a workflow steps array)", () => {
-    const sf = makeSourceFile(`
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-defineFeature("ai-host", (r) => {});
-`);
-    expect(() =>
-      addPattern(sf, { kind: "ai.generate", stepKey: "generate" } as FeaturePattern),
-    ).toThrow(/ai\.generate steps must be inserted into a defineWorkflow/);
-  });
 });
 
-describe("callMatchesId — positional and object-form lookups", () => {
+describe("callMatchesId — lookups in a mixed feature", () => {
   const LEGACY = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("legacy", (r) => {
-  r.relation("task", "owner", { kind: "belongsTo", to: "user" });
+  r.relation({ entity: "task", name: "owner", kind: "belongsTo", to: "user" });
 
   r.hook({ type: "postSave", target: "task", handler: () => {} });
 
   r.hook({ type: "preDelete", target: { allOf: "task" }, handler: () => {} });
 
-  r.job("nightly", { trigger: { cron: "0 0 * * *" } }, async () => {});
+  r.job({ name: "nightly", trigger: { cron: "0 0 * * *" }, handler: async () => {} });
 
   r.writeHandler({ name: "task:create", schema: z.object({}), handler: async () => ({}) });
 
   r.queryHandler({ name: "task:list", schema: z.object({}), handler: async () => [] });
 
-  r.notification("taskCreated", {
+  r.notification({
+    name: "taskCreated",
     trigger: { on: "task" },
     recipient: () => ({}),
     data: () => ({}),
@@ -436,7 +427,7 @@ defineFeature("legacy", (r) => {
 });
 `;
 
-  test("removePattern finds a positional relation by entity+name", () => {
+  test("removePattern finds a relation by entity+name", () => {
     const sf = makeSourceFile(LEGACY);
     removePattern(sf, { kind: "relation", entityName: "task", relationName: "owner" });
     expect(parseSourceFile(sf).patterns.find((p) => p.kind === "relation")).toBeUndefined();
@@ -454,7 +445,7 @@ defineFeature("legacy", (r) => {
     expect(parseSourceFile(sf).patterns.filter((p) => p.kind === "hook")).toHaveLength(1);
   });
 
-  test("removePattern finds a positional job by name", () => {
+  test("removePattern finds a job by name", () => {
     const sf = makeSourceFile(LEGACY);
     removePattern(sf, { kind: "job", jobName: "nightly" });
     expect(parseSourceFile(sf).patterns.find((p) => p.kind === "job")).toBeUndefined();
@@ -472,7 +463,7 @@ defineFeature("legacy", (r) => {
     expect(parseSourceFile(sf).patterns.find((p) => p.kind === "queryHandler")).toBeUndefined();
   });
 
-  test("removePattern finds a positional notification by name", () => {
+  test("removePattern finds a notification by name", () => {
     const sf = makeSourceFile(LEGACY);
     removePattern(sf, { kind: "notification", notificationName: "taskCreated" });
     expect(parseSourceFile(sf).patterns.find((p) => p.kind === "notification")).toBeUndefined();
@@ -524,7 +515,7 @@ defineFeature("object", (r) => {
 
   r.job({ name: "nightly", trigger: { cron: "0 0 * * *" }, handler: async () => {} });
 
-  r.useExtension({ name: "audit", entity: "task" });
+  r.applyExtension({ name: "audit", entity: "task" });
 
   r.writeHandler({
     name: "task:create",
@@ -575,8 +566,8 @@ defineFeature("object", (r) => {
 // findCallForId only accepted a StringLiteral first argument, so
 // it couldn't locate calls authored with an imported/local constant name
 // (the dominant style in the framework's own bundled-features, as seen
-// on the parser side). Covers both the single-arg case (matchFirstArgString)
-// and the two-arg case (relation/hook/useExtension's second positional arg),
+// on the parser side). Covers both the single-arg case (readNameLiteral)
+// and the object-property case (relation entity, hook target, applyExtension entity),
 // same-file and genuinely cross-file via a real filesystem Project.
 describe("findCallForId resolves identifier-authored names", () => {
   function loadFixture(relPath: string): SourceFile {
@@ -642,7 +633,7 @@ defineFeature("inventory", (r) => {
     expect(reparsed.patterns).toEqual([]);
   });
 
-  test("removePattern resolves both positional args when authored as cross-file imported constants", () => {
+  test("removePattern resolves both names when authored as cross-file imported constants", () => {
     const sf = loadFixture("fixtures/cross-file-patch-const/feature.ts");
     removePattern(sf, {
       kind: "useExtension",
@@ -659,7 +650,7 @@ defineFeature("inventory", (r) => {
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("inventory", (r) => {
-  r.useExtension({ name: "audit", entity: { name: "item" } });
+  r.applyExtension({ name: "audit", entity: { name: "item" } });
 });
 `);
     removePattern(sf, { kind: "useExtension", extensionName: "audit", entityName: "item" });
@@ -669,30 +660,9 @@ defineFeature("inventory", (r) => {
   });
 });
 
-// matchArgString (shared by relation's second positional arg,
-// hook's target, and useExtension's entity) only accepted a string literal
-// or a name-resolving identifier. The parser itself is more permissive at
-// two of those positions: useExtension's entity (round3.ts:445) and hook's
-// target (hooks.ts:75) both additionally accept an inline `{ name: "..." }`
-// object ref, so findCallForId couldn't locate a call authored that way.
-// relation's second positional arg stays narrow on purpose: round2.ts:170
-// parses it via readNameLiteral, not readNameOrRef, so widening it would
-// exceed what the parser accepts.
-describe("callMatchesId — positional inline-ref args", () => {
-  test("removePattern finds a positional useExtension whose entity is an inline { name } ref", () => {
-    const sf = makeSourceFile(`
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-
-defineFeature("inventory", (r) => {
-  r.useExtension("audit", { name: "item" });
-});
-`);
-    removePattern(sf, { kind: "useExtension", extensionName: "audit", entityName: "item" });
-    const reparsed = parseSourceFile(sf);
-    expect(reparsed.errors).toEqual([]);
-    expect(reparsed.patterns).toEqual([]);
-  });
-
+// The parser accepts an inline `{ name: "..." }` object ref for applyExtension's entity and
+// hook's target, so findCallForId has to locate a call authored that way.
+describe("callMatchesId — inline-ref args", () => {
   test("removePattern finds an object-form hook whose target is an inline { name } ref", () => {
     const sf = makeSourceFile(`
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
@@ -706,111 +676,35 @@ defineFeature("hooks", (r) => {
     expect(reparsed.errors).toEqual([]);
     expect(reparsed.patterns).toEqual([]);
   });
-
-  // Boundary, not a gap left open by this fix: readDataLiteralNode (used by
-  // readNameOrRef's object-literal branch) keeps a nested Identifier as a
-  // RawRefSentinel instead of resolving it — same as the parser side, which
-  // is why this call fails to extract too (not just to patch-match).
-  test("does not resolve an identifier nested inside an inline-ref positional arg", () => {
-    const sf = makeSourceFile(`
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-
-const ENTITY_NAME = "item";
-
-defineFeature("inventory", (r) => {
-  r.useExtension("audit", { name: ENTITY_NAME });
 });
-`);
-    expect(() =>
-      removePattern(sf, { kind: "useExtension", extensionName: "audit", entityName: "item" }),
-    ).toThrow(/no call found/);
-  });
-});
-describe("ai step patterns — shorthand stepKey", () => {
-  const AI_STEP_FIXTURE = `
-import { defineFeature, defineWorkflow, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
-
-const paramsSchema = z.object({});
-const stepKey = "generate";
-
-defineFeature("ai-demo", (r) => {
-  defineWorkflow({
-    name: "demo",
-    steps: stepsPipeline(() => [
-      aiGenerateStep({
-        stepKey,
-        promptKey: "demo:generate",
-        promptFallback: "Write.",
-        paramsSchema,
-        defaults: { enabled: true, params: {} },
-        input: (ctx) => ctx.event.label,
-      }),
-    ]),
-  });
-});
-`;
-
-  test("removePattern finds ai.generate with shorthand stepKey", () => {
-    const sf = makeSourceFile(AI_STEP_FIXTURE);
-    removePattern(sf, { kind: "ai.generate", stepKey: "generate" });
-    const reparsed = parseSourceFile(sf);
-    expect(reparsed.errors).toEqual([]);
-    expect(reparsed.patterns.filter((p) => p.kind.startsWith("ai."))).toEqual([]);
-  });
-
-  test("replacePattern finds ai.generate with shorthand stepKey", () => {
-    const sf = makeSourceFile(AI_STEP_FIXTURE);
-    const replacement: FeaturePattern = {
-      kind: "ai.generate",
-      source: SAMPLE_LOC,
-      stepKey: "generate",
-      promptKey: "demo:generate",
-      promptFallback: "Updated.",
-      defaults: { enabled: true, params: {} },
-      paramsSchemaSource: { ...SAMPLE_LOC, raw: "paramsSchema" },
-      inputBody: { ...SAMPLE_LOC, raw: "(ctx) => ctx.event.label" },
-    };
-    replacePattern(sf, { kind: "ai.generate", stepKey: "generate" }, replacement);
-    const reparsed = parseSourceFile(sf);
-    expect(reparsed.errors).toEqual([]);
-    expect(reparsed.patterns).toContainEqual(
-      expect.objectContaining({
-        kind: "ai.generate",
-        stepKey: "generate",
-        promptFallback: "Updated.",
-      }),
-    );
-    expect(sf.getFullText()).toContain("defineWorkflow");
-  });
-});
-
-describe("callMatchesId — positional hooks, referenceData and literal stepKey", () => {
-  test("removePattern picks the positional hook whose string target matches", () => {
+describe("callMatchesId — hooks, referenceData and literal stepKey", () => {
+  test("removePattern picks the hook whose string target matches", () => {
     const sf = makeSourceFile(`
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("hooks", (r) => {
-  r.hook("postSave", "task", () => {});
-  r.hook("postSave", "note", () => {});
+  r.hook({ type: "postSave", target: "task", handler: () => {} });
+  r.hook({ type: "postSave", target: "note", handler: () => {} });
 });
 `);
     removePattern(sf, { kind: "hook", hookType: "postSave", target: "note" });
-    expect(sf.getFullText()).toContain('r.hook("postSave", "task", () => {});');
+    expect(sf.getFullText()).toContain('target: "task"');
     expect(sf.getFullText()).not.toContain('"note"');
   });
 
-  test("removePattern picks the positional hook whose allOf target matches", () => {
+  test("removePattern picks the hook whose allOf target matches", () => {
     const sf = makeSourceFile(`
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("hooks", (r) => {
-  r.hook("preDelete", { allOf: "task" }, () => {});
-  r.hook("preDelete", { allOf: "note" }, () => {});
+  r.hook({ type: "preDelete", target: { allOf: "task" }, handler: () => {} });
+  r.hook({ type: "preDelete", target: { allOf: "note" }, handler: () => {} });
 });
 `);
     removePattern(sf, { kind: "hook", hookType: "preDelete", target: { allOf: "note" } });
-    expect(sf.getFullText()).toContain('r.hook("preDelete", { allOf: "task" }, () => {});');
+    expect(sf.getFullText()).toContain(
+      'r.hook({ type: "preDelete", target: { allOf: "task" }, handler: () => {} });',
+    );
     expect(sf.getFullText()).not.toContain('"note"');
   });
 
@@ -818,12 +712,12 @@ defineFeature("hooks", (r) => {
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("geo", (r) => {
-  r.referenceData("country", { data: [{ code: "DE" }] });
+  r.referenceData({ entity: "country", data: [{ code: "DE" }] });
   r.referenceData({ entity: "currency", data: [{ code: "EUR" }] });
 });
 `;
 
-  test("removePattern finds a positional referenceData by entity", () => {
+  test("removePattern finds a referenceData by entity", () => {
     const sf = makeSourceFile(REFERENCE_DATA);
     removePattern(sf, { kind: "referenceData", entityName: "country" });
     expect(sf.getFullText()).not.toContain('"country"');
@@ -834,25 +728,6 @@ defineFeature("geo", (r) => {
     const sf = makeSourceFile(REFERENCE_DATA);
     removePattern(sf, { kind: "referenceData", entityName: "currency" });
     expect(sf.getFullText()).not.toContain('"currency"');
-    expect(sf.getFullText()).toContain('r.referenceData("country"');
-  });
-
-  test("removePattern finds ai.generate by a string-literal stepKey", () => {
-    const sf = makeSourceFile(`
-import { defineFeature, defineWorkflow, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
-
-defineFeature("ai-demo", (r) => {
-  defineWorkflow({
-    name: "demo",
-    steps: stepsPipeline(() => [
-      aiGenerateStep({ stepKey: "summary", promptKey: "demo:summary" }),
-      aiGenerateStep({ stepKey: "title", promptKey: "demo:title" }),
-    ]),
-  });
-});
-`);
-    removePattern(sf, { kind: "ai.generate", stepKey: "title" });
-    expect(sf.getFullText()).toContain('stepKey: "summary"');
-    expect(sf.getFullText()).not.toContain('stepKey: "title"');
+    expect(sf.getFullText()).toContain('entity: "country"');
   });
 });

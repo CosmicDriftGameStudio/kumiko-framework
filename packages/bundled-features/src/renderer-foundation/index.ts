@@ -1,9 +1,5 @@
 export { attachmentFileNameSchema } from "../shared/index.ts";
-export {
-  createRendererFoundationApi,
-  type RendererFoundationApi,
-  requireRendererFoundation,
-} from "./api.ts";
+export { selectRendererPlugin } from "./api.ts";
 export {
   CONTENT_FORMATS,
   type ContentFormat,
@@ -34,6 +30,7 @@ export {
   type RenderedTemplateRef,
   type RendererContext,
   RendererError,
+  type RendererPayloadLimits,
   type RendererPlugin,
   type RendererRegistrationPlugin,
   type RenderProvenance,

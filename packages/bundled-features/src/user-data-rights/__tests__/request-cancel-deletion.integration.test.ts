@@ -25,6 +25,7 @@ import {
 } from "../../compliance-profiles/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
+import { tenantMembershipEntity } from "../../tenant/membership-table.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { createUserDataRightsFeature } from "../feature.ts";
@@ -61,6 +62,7 @@ const features = [
 beforeAll(async () => {
   stack = await setupTestStack({ features });
   await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
 });
 
@@ -104,10 +106,10 @@ async function fetchAlice(): Promise<{
   status: string;
   gracePeriodEnd: Instant | null;
 } | null> {
-  const rows = (await selectMany(stack.db, userTable, { id: aliceUser.id })) as Array<{
+  const rows = await selectMany<{
     status: string;
     gracePeriodEnd: Instant | null;
-  }>;
+  }>(stack.db, userTable, { id: aliceUser.id });
   return rows[0] ?? null;
 }
 
@@ -171,13 +173,13 @@ describe("POST request-deletion :: happy path", () => {
 
   // Verify that addDurationSpec handles both `{days}` and `{hours}` overrides
   // instead of silently falling back to 30 days when `days` is absent.
-  test("Profile override {hours: 6} → ~6h grace period (no 30d fallback)", async () => {
+  test("Profile override {hours: 240} → ~240h grace period (no 30d fallback)", async () => {
     await seedAlice();
     await stack.http.writeOk(
       SET_PROFILE,
       {
         profileKey: "eu-dsgvo",
-        override: JSON.stringify({ userRights: { gracePeriod: { hours: 6 } } }),
+        override: JSON.stringify({ userRights: { gracePeriod: { hours: 240 } } }),
       },
       tenantAdmin,
     );
@@ -187,10 +189,10 @@ describe("POST request-deletion :: happy path", () => {
       {},
       aliceUser,
     );
-    // Tolerance window: +5h to +7h; the previous silent fallback was about 720h.
+    // Tolerance window: +239h to +241h; the previous silent fallback was about 720h. 240h is above the 7-day floor.
     const graceMs = new Date(result.gracePeriodEnd).getTime() - Date.now();
-    expect(graceMs).toBeGreaterThan(5 * 60 * 60 * 1000);
-    expect(graceMs).toBeLessThan(7 * 60 * 60 * 1000);
+    expect(graceMs).toBeGreaterThan(239 * 60 * 60 * 1000);
+    expect(graceMs).toBeLessThan(241 * 60 * 60 * 1000);
   });
 });
 

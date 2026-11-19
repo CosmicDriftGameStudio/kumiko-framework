@@ -7,7 +7,7 @@ import {
   InMemoryKmsAdapter,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { asRawClient, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -15,6 +15,7 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
@@ -34,6 +35,7 @@ import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../fe
 import { runRetentionCleanup } from "../run-retention-cleanup.ts";
 
 const scopedEntity = createEntity({
+  name: "notes-retention-scoped-doc",
   table: "read_notes_retention_scoped_docs",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -41,6 +43,7 @@ const scopedEntity = createEntity({
   retention: { keepFor: "30d", strategy: "hardDelete" },
 });
 const globalEntity = createEntity({
+  name: "notes-retention-global-doc",
   table: "read_notes_retention_global_docs",
   tenancy: "global",
   systemStream: true,
@@ -50,8 +53,8 @@ const globalEntity = createEntity({
   retention: { keepFor: "30d", strategy: "hardDelete" },
 });
 const fixtureFeature = defineFeature("notes-retention-fixtures", (r) => {
-  r.entity({ name: "notes-retention-scoped-doc", ...scopedEntity });
-  r.entity({ name: "notes-retention-global-doc", ...globalEntity });
+  r.entity(scopedEntity);
+  r.entity(globalEntity);
 });
 
 const writer = createTestUser({ id: 1, roles: ["TenantMember", "SystemAdmin"] });
@@ -61,7 +64,13 @@ let now: ReturnType<ReturnType<typeof getTemporal>["Now"]["instant"]>;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [createDataRetentionFeature(), createNotesHistoryFeature(), fixtureFeature],
+    features: [
+      createDataRetentionFeature(),
+      createNotesHistoryFeature({
+        parents: ["notes-retention-scoped-doc", "notes-retention-global-doc"],
+      }),
+      fixtureFeature,
+    ],
   });
   for (const entity of [tenantRetentionOverrideEntity, scopedEntity, globalEntity]) {
     await unsafeCreateEntityTable(stack.db, entity);

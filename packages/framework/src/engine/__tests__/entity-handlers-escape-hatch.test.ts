@@ -6,11 +6,13 @@ import {
   defineEntityDetailHandler,
   defineEntityListHandler,
   defineEntityUpdateHandler,
+  defineProjectionQueryHandler,
 } from "../entity-handlers.ts";
 import { CODEMOD_PLACEHOLDER_REASON_MARKER } from "../escape-hatch-reason.ts";
 import { createEntity, createTextField } from "../factories.ts";
 
 const thingEntity = createEntity({
+  name: "thing",
   table: "escape_hatch_things",
   fields: {
     label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -149,8 +151,11 @@ describe("entity convention query handlers: escapeHatch added by a spread", () =
     });
     expect(() =>
       defineFeature("spread-hatch", (r) => {
-        r.entity({ name: "thing", ...thingEntity });
-        r.queryHandler({ ...generated, escapeHatch: { reason: "tier lookup on the list" } });
+        r.entity(thingEntity);
+        r.queryHandler({
+          ...generated,
+          escapeHatch: { reason: "tier lookup on the list", grants: ["crossTenantReads"] },
+        });
       }),
     ).toThrow(/escapeHatch reaches across every tenant, so its access must be SystemAdmin-only/);
   });
@@ -159,9 +164,25 @@ describe("entity convention query handlers: escapeHatch added by a spread", () =
     const generated = defineEntityListHandler("thing", thingEntity, sysadminAccess);
     expect(() =>
       defineFeature("spread-hatch-admin", (r) => {
-        r.entity({ name: "thing", ...thingEntity });
-        r.queryHandler({ ...generated, escapeHatch: { reason: "operator cross-tenant list" } });
+        r.entity(thingEntity);
+        r.queryHandler({
+          ...generated,
+          escapeHatch: { reason: "operator cross-tenant list", grants: ["crossTenantReads"] },
+        });
       }),
     ).not.toThrow();
+  });
+});
+
+describe("defineProjectionQueryHandler: unsafeAllTenants object form", () => {
+  test("unsafeAllTenants { reason } carries grants ['systemIdentity']", () => {
+    const def = defineProjectionQueryHandler("all-things", "test:projection:things", {
+      ...sysadminAccess,
+      unsafeAllTenants: { reason: "operator overview across tenants" },
+    });
+    expect(def.escapeHatch).toEqual({
+      reason: "operator overview across tenants",
+      grants: ["systemIdentity"],
+    });
   });
 });

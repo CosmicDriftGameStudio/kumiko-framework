@@ -1,4 +1,4 @@
-// `kumiko init-deploy` scaffolding helper.
+// Deploy-file rendering: managed deploy/ files and the compose self-hosting migrate step.
 //
 // Generates `deploy/Dockerfile`, `deploy/Dockerfile.dockerignore`, and
 // `deploy/migrate-step.sh` in the target app from canonical templates
@@ -287,6 +287,10 @@ const kumikoDeployConfigSchema = z
     visibility: z.enum(DEPLOY_VISIBILITIES).optional(),
     /** `false` turns the doc-status guard off in ci.yml; default on. */
     docStatusGuard: z.boolean().optional(),
+    /** Playwright shards of the e2e job; default 1. */
+    e2eShards: z.number().int().min(1).optional(),
+    /** `true` runs e2e in full Chromium instead of the headless shell (Document-PiP, fake media devices); default false. */
+    e2eChromiumFull: z.boolean().optional(),
     // "directory" is the only behaviour left; the key stays valid so existing
     // package.json files keep scaffolding.
     stackNetwork: z
@@ -326,9 +330,11 @@ export type KumikoReleaseTarget = {
   readonly namespace: string;
   readonly deployment: string;
   readonly visibility: DeployVisibility;
-  /** Unset until the app pins an infra tag; templates render `main` then. */
+  /** Unset unless the app pins its own infra tag; the templates render CURRENT_INFRA_REF then. */
   readonly infraRef: string | undefined;
   readonly docStatusGuard: boolean;
+  readonly e2eShards: number;
+  readonly e2eChromiumFull: boolean;
 };
 
 /** Release target from `package.json#kumiko.deploy`; throws on an invalid deploy config. */
@@ -356,6 +362,8 @@ export function readReleaseTarget(sourceDir: string, appName: string): KumikoRel
     visibility: config.visibility ?? "private",
     infraRef: config.infraRef,
     docStatusGuard: config.docStatusGuard ?? true,
+    e2eShards: config.e2eShards ?? 1,
+    e2eChromiumFull: config.e2eChromiumFull ?? false,
   };
 }
 

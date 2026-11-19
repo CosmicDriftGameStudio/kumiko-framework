@@ -34,10 +34,11 @@ import {
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const widgetEntity = createEntity({
+  name: "qp-widget",
   table: "read_qp_widgets",
   fields: { name: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
-const widgetTable = buildEntityTable("qp-widget", widgetEntity);
+const widgetTable = buildEntityTable(widgetEntity);
 
 // Tenant-scoped projection — auto-filter by tenant_id.
 const tenantScopedTable = pgTable("read_qp_widget_count_tenant", {
@@ -68,7 +69,7 @@ const UNSAFE_ALL_TENANTS_REASON = "fw#2913 test — cross-tenant widget sweep";
 const OBJECT_FORM_REASON = "object-form unsafeAllTenants test — cross-tenant widget sweep";
 
 const qpFeature = defineFeature("qp", (r) => {
-  r.entity({ name: "qp-widget", ...widgetEntity });
+  r.entity(widgetEntity);
 
   r.projection({
     name: "widget-count-tenant",
@@ -161,7 +162,7 @@ const qpFeature = defineFeature("qp", (r) => {
     handler: async (_query, ctx) =>
       ctx.dispatch.queryProjection("qp:projection:widget-count-tenant", { unsafeAllTenants: true }),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-    escapeHatch: { reason: UNSAFE_ALL_TENANTS_REASON },
+    escapeHatch: { reason: UNSAFE_ALL_TENANTS_REASON, grants: ["systemIdentity"] },
   });
 
   r.queryHandler(

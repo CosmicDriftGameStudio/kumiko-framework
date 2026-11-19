@@ -134,7 +134,8 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { inventoryFeature, lowStockAlertsTable, productTable } from "../feature";
+import { inventoryFeature } from "../feature";
+import { lowStockAlertsTable, productTable } from "../schema";
 
 let stack: TestStack;
 const admin = createTestUser({ roles: ["Admin"] });
@@ -387,59 +388,19 @@ describe("Pipeline Basics — Inventory", () => {
 // `unsafe`-prefix is designed for: framework-author opting into
 // raw projection-writes after seeing the prefix at every call site.
 
-import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
-import {
-  buildEntityTable,
-  createEventStoreExecutor,
-  integer,
-  selectMany,
-  table,
-  text,
-  updateMany,
-  uuid,
-} from "@cosmicdrift/kumiko-framework/db";
-import type { PipelineCtx } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  createEntity,
-  createNumberField,
-  createTextField,
-  defineFeature,
-  defineWriteHandler,
-  stepsPipeline,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-
-const LOW_STOCK_THRESHOLD = 10;
-
-export const productEntity = createEntity({
-  table: "read_inventory_products",
-  fields: {
-    sku: createTextField({ personal: false, reason: "is_business_data", required: true }),
-    name: createTextField({ personal: false, reason: "is_business_data", required: true }),
-    currentStock: createNumberField({ default: 0 }),
-  },
-});
-
-// Custom non-aggregate projection. The boot-validator allows direct
-// upsert/delete only because `r.requires.projection(...)` is declared
-// inside the feature below — without that line, boot fails fast.
-export const lowStockAlertsTable: EntityTableMeta = table("read_inventory_low_stock_alerts", {
-  productId: uuid("product_id").primaryKey(),
-  sku: text("sku").notNull(),
-  currentStock: integer("current_stock").notNull(),
-  threshold: integer("threshold").notNull(),
-});
-
-// Module-level drizzle-table + executor — the steps below capture
-// `productExecutor` from this scope, and the integration test
-// imports `productTable` for raw selects.
-export const productTable = buildEntityTable("product", productEntity);
-const productExecutor = createEventStoreExecutor(productTable, productEntity, {
-  entityName: "product",
-});
+import { createProductAdjustStockWrite } from "./handlers/product-adjust-stock.write";
+import { createProductArchiveWrite } from "./handlers/product-archive.write";
+import { productBulkAdjustWrite } from "./handlers/product-bulk-adjust.write";
+import { productCreateWrite } from "./handlers/product-create.write";
+import { productRenameWrite } from "./handlers/product-rename.write";
+import { createReportArchiveLowStockProductsWrite } from "./handlers/report-archive-low-stock-products.write";
+import { lowStockAlertsTable, productEntity, productTable } from "./schema";
 
 export const inventoryFeature = defineFeature("inventory", (r) => {
-  r.entity({ name: "product", ...productEntity });
+  r.entity(productEntity);
   r.requires.projection("read_inventory_low_stock_alerts");
 
   // Domain-events on the product stream (alongside the auto-CRUD
@@ -485,294 +446,12 @@ export const inventoryFeature = defineFeature("inventory", (r) => {
     },
   });
 
-  // -------------------------------------------------------------
-  // 1. inventory:product:create — straight aggregate.create.
-  //    Simplest pipeline form: one mutating step + return.
-  // -------------------------------------------------------------
-  r.writeHandler(
-    defineWriteHandler({
-      name: "product:create",
-      schema: z.object({
-        sku: z.string().min(1),
-        name: z.string().min(1),
-        initialStock: z.number().int().min(0).default(0),
-      }),
-      access: { roles: ["Admin"] },
-      perform: stepsPipeline<{ sku: string; name: string; initialStock: number }, { id: string }>(
-        ({ event, r }) => [
-          r.step.aggregate.create("product", {
-            executor: productExecutor,
-            data: () => ({
-              sku: event.payload.sku,
-              name: event.payload.name,
-              currentStock: event.payload.initialStock,
-            }),
-          }),
-          r.step.return(({ steps }) => ({
-            isSuccess: true as const,
-            data: { id: (steps["product"] as { id: string }).id },
-          })),
-        ],
-      ),
-    }),
-  );
-
-  // -------------------------------------------------------------
-  // 2. inventory:product:rename — read + branch (skip-if-noop).
-  //    Demonstrates the read-then-conditional-write pattern.
-  //    The aggregate.update inside `onTrue` only runs when the
-  //    name actually changed — saves an event + a projection
-  //    write per redundant rename.
-  // -------------------------------------------------------------
-  r.writeHandler(
-    defineWriteHandler({
-      name: "product:rename",
-      schema: z.object({ id: z.uuid(), name: z.string().min(1) }),
-      access: { roles: ["Admin"] },
-      perform: stepsPipeline<{ id: string; name: string }, { id: string; renamed: boolean }>(
-        ({ event, r }) => [
-          r.step.read.findOne("current", {
-            table: productTable,
-            where: () => ({ id: event.payload.id }),
-          }),
-          r.step.branch({
-            if: ({ steps }) => {
-              const cur = steps["current"] as { name: string } | null;
-              return cur !== null && cur.name !== event.payload.name;
-            },
-            onTrue: [
-              r.step.aggregate.update("product", {
-                executor: productExecutor,
-                id: () => event.payload.id,
-                version: ({ steps }) => (steps["current"] as { version?: number } | null)?.version,
-                changes: () => ({ name: event.payload.name }),
-              }),
-            ],
-          }),
-          r.step.return(({ steps }) => ({
-            isSuccess: true as const,
-            data: {
-              id: event.payload.id,
-              // Truthy iff the aggregate.update step actually ran —
-              // the executor lands its SaveContext under steps.product.
-              renamed: steps["product"] !== undefined,
-            },
-          })),
-        ],
-      ),
-    }),
-  );
-
-  // -------------------------------------------------------------
-  // 3. inventory:product:adjust-stock — every Tier-1 step in one
-  //    handler. Production-realistic: read aggregate, compute new
-  //    stock, persist update, append a domain-event for the
-  //    audit-trail, then upsert OR delete the low-stock-alert
-  //    based on whether the new stock crosses the threshold.
-  // -------------------------------------------------------------
-  r.writeHandler(
-    defineWriteHandler({
-      name: "product:adjust-stock",
-      schema: z.object({
-        id: z.uuid(),
-        delta: z.number().int(),
-        reason: z.string().min(1),
-      }),
-      access: { roles: ["Admin", "User"] },
-      perform: stepsPipeline<
-        { id: string; delta: number; reason: string },
-        { id: string; newStock: number }
-      >(({ event, r }) => [
-        r.step.read.findOne("current", {
-          table: productTable,
-          where: () => ({ id: event.payload.id }),
-        }),
-        r.step.compute("newStock", ({ steps }) => {
-          const cur = steps["current"] as { currentStock: number } | null;
-          if (!cur) {
-            throw new Error(`product not found: ${event.payload.id}`);
-          }
-          return cur.currentStock + event.payload.delta;
-        }),
-        // Pure-ES: emit the domain event; the inline `product-stock-counter`
-        // projection above replays it onto the product row in the same TX.
-        // No aggregate.update here — see the projection's comment for why
-        // the split is intentional.
-        r.step.aggregate.appendEvent({
-          aggregateId: () => event.payload.id,
-          aggregateType: "product",
-          type: stockAdjusted.name,
-          // Explicit ctx-type: payload's resolver is StepResolver<unknown>,
-          // which prevents TS from inferring `ctx.steps` shape via the
-          // destructure. Followup #4 (TData-Inference) tracks the DX-fix.
-          payload: ({ steps }: PipelineCtx) => ({
-            delta: event.payload.delta,
-            reason: event.payload.reason,
-            newStock: steps["newStock"] as number,
-          }),
-        }),
-        // Inline projection-maintenance: cross the threshold in
-        // either direction in the same TX as the aggregate write.
-        // Async multi-stream projections would lag here — this is
-        // the use-case for inline unsafeProjection.*.
-        r.step.branch({
-          if: ({ steps }) => (steps["newStock"] as number) < LOW_STOCK_THRESHOLD,
-          onTrue: [
-            r.step.unsafeProjectionUpsert({
-              table: lowStockAlertsTable,
-              on: ["productId"],
-              row: ({ steps }) => {
-                const cur = steps["current"] as { sku: string };
-                return {
-                  productId: event.payload.id,
-                  sku: cur.sku,
-                  currentStock: steps["newStock"] as number,
-                  threshold: LOW_STOCK_THRESHOLD,
-                };
-              },
-            }),
-          ],
-          onFalse: [
-            r.step.unsafeProjectionDelete({
-              table: lowStockAlertsTable,
-              where: () => ({ productId: event.payload.id }),
-            }),
-          ],
-        }),
-        r.step.return(({ steps }) => ({
-          isSuccess: true as const,
-          data: {
-            id: event.payload.id,
-            newStock: steps["newStock"] as number,
-          },
-        })),
-      ]),
-    }),
-  );
-
-  // -------------------------------------------------------------
-  // 4. inventory:product:bulk-adjust — forEach over a list of
-  //    adjustments. Each iteration is its own read+update mini-
-  //    pipeline; `scope.adj` is the per-iteration item.
-  //    Sequential by design (concurrency=1 in M.1.6).
-  // -------------------------------------------------------------
-  r.writeHandler(
-    defineWriteHandler({
-      name: "product:bulk-adjust",
-      schema: z.object({
-        adjustments: z.array(z.object({ id: z.uuid(), delta: z.number().int() })).min(1),
-      }),
-      access: { roles: ["Admin"] },
-      perform: stepsPipeline<
-        { adjustments: ReadonlyArray<{ id: string; delta: number }> },
-        { processed: number }
-      >(({ event, r }) => [
-        r.step.forEach({
-          over: () => event.payload.adjustments,
-          as: "adj",
-          do: [
-            r.step.read.findOne("current", {
-              table: productTable,
-              where: ({ scope }) => ({ id: (scope["adj"] as { id: string }).id }),
-            }),
-            r.step.compute("newStock", ({ steps, scope }) => {
-              const cur = steps["current"] as { currentStock: number } | null;
-              const adj = scope["adj"] as { delta: number };
-              if (!cur) throw new Error("product not found in bulk-adjust");
-              return cur.currentStock + adj.delta;
-            }),
-            r.step.aggregate.update("product", {
-              executor: productExecutor,
-              id: ({ scope }) => (scope["adj"] as { id: string }).id,
-              version: ({ steps }) => (steps["current"] as { version?: number } | null)?.version,
-              changes: ({ steps }) => ({ currentStock: steps["newStock"] as number }),
-              // Pure update path inside forEach — no appendEvent
-              // alongside, so optimistic-locking stays meaningful.
-            }),
-          ],
-        }),
-        r.step.return(() => ({
-          isSuccess: true as const,
-          data: { processed: event.payload.adjustments.length },
-        })),
-      ]),
-    }),
-  );
-
-  // -------------------------------------------------------------
-  // 5. inventory:product:archive — domain-event + projection
-  //    cleanup. The aggregate is preserved (event-sourced!), the
-  //    side-projection row gets purged in the same TX. Reads
-  //    against archived products still work via loadAggregate;
-  //    list-views skip them by filtering on the archived event.
-  // -------------------------------------------------------------
-  r.writeHandler(
-    defineWriteHandler({
-      name: "product:archive",
-      schema: z.object({ id: z.uuid(), reason: z.string().min(1) }),
-      access: { roles: ["Admin"] },
-      perform: stepsPipeline<{ id: string; reason: string }, { id: string }>(({ event, r }) => [
-        r.step.aggregate.appendEvent({
-          aggregateId: () => event.payload.id,
-          aggregateType: "product",
-          type: archived.name,
-          payload: () => ({ reason: event.payload.reason }),
-        }),
-        r.step.unsafeProjectionDelete({
-          table: lowStockAlertsTable,
-          where: () => ({ productId: event.payload.id }),
-        }),
-        r.step.return(() => ({
-          isSuccess: true as const,
-          data: { id: event.payload.id },
-        })),
-      ]),
-    }),
-  );
-
-  // -------------------------------------------------------------
-  // 6. inventory:report:bulk-archive-stale — forEach + read.findMany.
-  //    Demonstrates the read-list-then-loop pattern: pull a slice
-  //    of low-stock alerts via read.findMany, archive each. Used
-  //    by the integration test to prove findMany lands rows under
-  //    steps.<name> as an array.
-  // -------------------------------------------------------------
-  r.writeHandler(
-    defineWriteHandler({
-      name: "report:archive-low-stock-products",
-      schema: z.object({ reason: z.string().min(1) }),
-      access: { roles: ["Admin"] },
-      perform: stepsPipeline<{ reason: string }, { archivedCount: number }>(({ event, r }) => [
-        r.step.read.findMany("alerts", {
-          table: lowStockAlertsTable,
-        }),
-        r.step.forEach<{ productId: string }>({
-          over: ({ steps }) => (steps["alerts"] as ReadonlyArray<{ productId: string }>) ?? [],
-          as: "alert",
-          do: [
-            r.step.aggregate.appendEvent({
-              aggregateId: ({ scope }) => (scope["alert"] as { productId: string }).productId,
-              aggregateType: "product",
-              type: archived.name,
-              payload: () => ({ reason: event.payload.reason }),
-            }),
-            r.step.unsafeProjectionDelete({
-              table: lowStockAlertsTable,
-              where: ({ scope }) => ({
-                productId: (scope["alert"] as { productId: string }).productId,
-              }),
-            }),
-          ],
-        }),
-        r.step.return(({ steps }) => ({
-          isSuccess: true as const,
-          data: {
-            archivedCount: (steps["alerts"] as ReadonlyArray<unknown>).length,
-          },
-        })),
-      ]),
-    }),
-  );
+  r.writeHandler(productCreateWrite);
+  r.writeHandler(productRenameWrite);
+  r.writeHandler(createProductAdjustStockWrite(stockAdjusted.name));
+  r.writeHandler(productBulkAdjustWrite);
+  r.writeHandler(createProductArchiveWrite(archived.name));
+  r.writeHandler(createReportArchiveLowStockProductsWrite(archived.name));
 
   // -------------------------------------------------------------
   // Query handlers — free-form. M.1's pipeline-engine is write-
@@ -788,5 +467,396 @@ export const inventoryFeature = defineFeature("inventory", (r) => {
     },
     access: { roles: ["Admin"] },
   });
+});
+```
+
+### src/handlers/product-adjust-stock.write.ts
+
+```ts
+import {
+  defineWriteHandler,
+  type PipelineCtx,
+  stepsPipeline,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+import { LOW_STOCK_THRESHOLD, lowStockAlertsTable, productTable } from "../schema";
+
+// -------------------------------------------------------------
+// 3. inventory:product:adjust-stock — every Tier-1 step in one
+//    handler. Production-realistic: read aggregate, compute new
+//    stock, persist update, append a domain-event for the
+//    audit-trail, then upsert OR delete the low-stock-alert
+//    based on whether the new stock crosses the threshold.
+// -------------------------------------------------------------
+export function createProductAdjustStockWrite(stockAdjustedEventName: string) {
+  return defineWriteHandler({
+    name: "product:adjust-stock",
+    schema: z.object({
+      id: z.uuid(),
+      delta: z.number().int(),
+      reason: z.string().min(1),
+    }),
+    access: { roles: ["Admin", "User"] },
+    perform: stepsPipeline<
+      { id: string; delta: number; reason: string },
+      { id: string; newStock: number }
+    >(({ event, r }) => [
+      // Read before the row: newStock below is decided on this read, so the append is pinned to it.
+      r.step.compute("streamVersion", ({ events }) => events.streamVersion(event.payload.id)),
+      r.step.read.findOne("current", {
+        table: productTable,
+        where: () => ({ id: event.payload.id }),
+      }),
+      r.step.compute("newStock", ({ steps }) => {
+        const cur = steps["current"] as { currentStock: number } | null;
+        if (!cur) {
+          throw new Error(`product not found: ${event.payload.id}`);
+        }
+        return cur.currentStock + event.payload.delta;
+      }),
+      // Pure-ES: emit the domain event; the inline `product-stock-counter`
+      // projection in feature.ts replays it onto the product row in the same TX.
+      // No aggregate.update here — see the projection's comment for why
+      // the split is intentional.
+      r.step.aggregate.appendEvent({
+        aggregateId: () => event.payload.id,
+        aggregateType: "product",
+        type: stockAdjustedEventName,
+        expectedVersion: ({ steps }: PipelineCtx) => steps["streamVersion"] as number,
+        // Explicit ctx-type: payload's resolver is StepResolver<unknown>,
+        // which prevents TS from inferring `ctx.steps` shape via the
+        // destructure. Followup #4 (TData-Inference) tracks the DX-fix.
+        payload: ({ steps }: PipelineCtx) => ({
+          delta: event.payload.delta,
+          reason: event.payload.reason,
+          newStock: steps["newStock"] as number,
+        }),
+      }),
+      // Inline projection-maintenance: cross the threshold in
+      // either direction in the same TX as the aggregate write.
+      // Async multi-stream projections would lag here — this is
+      // the use-case for inline unsafeProjection.*.
+      r.step.branch({
+        if: ({ steps }) => (steps["newStock"] as number) < LOW_STOCK_THRESHOLD,
+        onTrue: [
+          r.step.unsafeProjectionUpsert({
+            table: lowStockAlertsTable,
+            on: ["productId"],
+            row: ({ steps }) => {
+              const cur = steps["current"] as { sku: string };
+              return {
+                productId: event.payload.id,
+                sku: cur.sku,
+                currentStock: steps["newStock"] as number,
+                threshold: LOW_STOCK_THRESHOLD,
+              };
+            },
+          }),
+        ],
+        onFalse: [
+          r.step.unsafeProjectionDelete({
+            table: lowStockAlertsTable,
+            where: () => ({ productId: event.payload.id }),
+          }),
+        ],
+      }),
+      r.step.return(({ steps }) => ({
+        isSuccess: true as const,
+        data: {
+          id: event.payload.id,
+          newStock: steps["newStock"] as number,
+        },
+      })),
+    ]),
+  });
+}
+```
+
+### src/handlers/product-archive.write.ts
+
+```ts
+import { defineWriteHandler, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+import { lowStockAlertsTable } from "../schema";
+
+// -------------------------------------------------------------
+// 5. inventory:product:archive — domain-event + projection
+//    cleanup. The aggregate is preserved (event-sourced!), the
+//    side-projection row gets purged in the same TX. Reads
+//    against archived products still work via loadAggregate;
+//    list-views skip them by filtering on the archived event.
+// -------------------------------------------------------------
+export function createProductArchiveWrite(archivedEventName: string) {
+  return defineWriteHandler({
+    name: "product:archive",
+    schema: z.object({ id: z.uuid(), reason: z.string().min(1) }),
+    access: { roles: ["Admin"] },
+    perform: stepsPipeline<{ id: string; reason: string }, { id: string }>(({ event, r }) => [
+      r.step.aggregate.appendEvent({
+        aggregateId: () => event.payload.id,
+        aggregateType: "product",
+        type: archivedEventName,
+        payload: () => ({ reason: event.payload.reason }),
+        blindAppendReason:
+          "archiving is decided by the caller, not by the product state on the stream",
+      }),
+      r.step.unsafeProjectionDelete({
+        table: lowStockAlertsTable,
+        where: () => ({ productId: event.payload.id }),
+      }),
+      r.step.return(() => ({
+        isSuccess: true as const,
+        data: { id: event.payload.id },
+      })),
+    ]),
+  });
+}
+```
+
+### src/handlers/product-bulk-adjust.write.ts
+
+```ts
+import { defineWriteHandler, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+import { productExecutor, productTable } from "../schema";
+
+// -------------------------------------------------------------
+// 4. inventory:product:bulk-adjust — forEach over a list of
+//    adjustments. Each iteration is its own read+update mini-
+//    pipeline; `scope.adj` is the per-iteration item.
+//    Sequential by design (concurrency=1 in M.1.6).
+// -------------------------------------------------------------
+export const productBulkAdjustWrite = defineWriteHandler({
+  name: "product:bulk-adjust",
+  schema: z.object({
+    adjustments: z.array(z.object({ id: z.uuid(), delta: z.number().int() })).min(1),
+  }),
+  access: { roles: ["Admin"] },
+  perform: stepsPipeline<
+    { adjustments: ReadonlyArray<{ id: string; delta: number }> },
+    { processed: number }
+  >(({ event, r }) => [
+    r.step.forEach({
+      over: () => event.payload.adjustments,
+      as: "adj",
+      do: [
+        r.step.read.findOne("current", {
+          table: productTable,
+          where: ({ scope }) => ({ id: (scope["adj"] as { id: string }).id }),
+        }),
+        r.step.compute("newStock", ({ steps, scope }) => {
+          const cur = steps["current"] as { currentStock: number } | null;
+          const adj = scope["adj"] as { delta: number };
+          if (!cur) throw new Error("product not found in bulk-adjust");
+          return cur.currentStock + adj.delta;
+        }),
+        r.step.aggregate.update("product", {
+          executor: productExecutor,
+          id: ({ scope }) => (scope["adj"] as { id: string }).id,
+          version: ({ steps }) => (steps["current"] as { version?: number } | null)?.version,
+          changes: ({ steps }) => ({ currentStock: steps["newStock"] as number }),
+          // Pure update path inside forEach — no appendEvent
+          // alongside, so optimistic-locking stays meaningful.
+        }),
+      ],
+    }),
+    r.step.return(() => ({
+      isSuccess: true as const,
+      data: { processed: event.payload.adjustments.length },
+    })),
+  ]),
+});
+```
+
+### src/handlers/product-create.write.ts
+
+```ts
+import { defineWriteHandler, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+import { productExecutor } from "../schema";
+
+// -------------------------------------------------------------
+// 1. inventory:product:create — straight aggregate.create.
+//    Simplest pipeline form: one mutating step + return.
+// -------------------------------------------------------------
+export const productCreateWrite = defineWriteHandler({
+  name: "product:create",
+  schema: z.object({
+    sku: z.string().min(1),
+    name: z.string().min(1),
+    initialStock: z.number().int().min(0).default(0),
+  }),
+  access: { roles: ["Admin"] },
+  perform: stepsPipeline<{ sku: string; name: string; initialStock: number }, { id: string }>(
+    ({ event, r }) => [
+      r.step.aggregate.create("product", {
+        executor: productExecutor,
+        data: () => ({
+          sku: event.payload.sku,
+          name: event.payload.name,
+          currentStock: event.payload.initialStock,
+        }),
+      }),
+      r.step.return(({ steps }) => ({
+        isSuccess: true as const,
+        data: { id: (steps["product"] as { id: string }).id },
+      })),
+    ],
+  ),
+});
+```
+
+### src/handlers/product-rename.write.ts
+
+```ts
+import { defineWriteHandler, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+import { productExecutor, productTable } from "../schema";
+
+// -------------------------------------------------------------
+// 2. inventory:product:rename — read + branch (skip-if-noop).
+//    Demonstrates the read-then-conditional-write pattern.
+//    The aggregate.update inside `onTrue` only runs when the
+//    name actually changed — saves an event + a projection
+//    write per redundant rename.
+// -------------------------------------------------------------
+export const productRenameWrite = defineWriteHandler({
+  name: "product:rename",
+  schema: z.object({ id: z.uuid(), name: z.string().min(1) }),
+  access: { roles: ["Admin"] },
+  perform: stepsPipeline<{ id: string; name: string }, { id: string; renamed: boolean }>(
+    ({ event, r }) => [
+      r.step.read.findOne("current", {
+        table: productTable,
+        where: () => ({ id: event.payload.id }),
+      }),
+      r.step.branch({
+        if: ({ steps }) => {
+          const cur = steps["current"] as { name: string } | null;
+          return cur !== null && cur.name !== event.payload.name;
+        },
+        onTrue: [
+          r.step.aggregate.update("product", {
+            executor: productExecutor,
+            id: () => event.payload.id,
+            version: ({ steps }) => (steps["current"] as { version?: number } | null)?.version,
+            changes: () => ({ name: event.payload.name }),
+          }),
+        ],
+      }),
+      r.step.return(({ steps }) => ({
+        isSuccess: true as const,
+        data: {
+          id: event.payload.id,
+          // Truthy iff the aggregate.update step actually ran —
+          // the executor lands its SaveContext under steps.product.
+          renamed: steps["product"] !== undefined,
+        },
+      })),
+    ],
+  ),
+});
+```
+
+### src/handlers/report-archive-low-stock-products.write.ts
+
+```ts
+import { defineWriteHandler, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+import { lowStockAlertsTable } from "../schema";
+
+// -------------------------------------------------------------
+// 6. inventory:report:bulk-archive-stale — forEach + read.findMany.
+//    Demonstrates the read-list-then-loop pattern: pull a slice
+//    of low-stock alerts via read.findMany, archive each. Used
+//    by the integration test to prove findMany lands rows under
+//    steps.<name> as an array.
+// -------------------------------------------------------------
+export function createReportArchiveLowStockProductsWrite(archivedEventName: string) {
+  return defineWriteHandler({
+    name: "report:archive-low-stock-products",
+    schema: z.object({ reason: z.string().min(1) }),
+    access: { roles: ["Admin"] },
+    perform: stepsPipeline<{ reason: string }, { archivedCount: number }>(({ event, r }) => [
+      r.step.read.findMany("alerts", {
+        table: lowStockAlertsTable,
+      }),
+      r.step.forEach<{ productId: string }>({
+        over: ({ steps }) => (steps["alerts"] as ReadonlyArray<{ productId: string }>) ?? [],
+        as: "alert",
+        do: [
+          r.step.aggregate.appendEvent({
+            aggregateId: ({ scope }) => (scope["alert"] as { productId: string }).productId,
+            aggregateType: "product",
+            type: archivedEventName,
+            payload: () => ({ reason: event.payload.reason }),
+            blindAppendReason:
+              "archiving is decided by the low-stock alert row, not by the product state on the stream",
+          }),
+          r.step.unsafeProjectionDelete({
+            table: lowStockAlertsTable,
+            where: ({ scope }) => ({
+              productId: (scope["alert"] as { productId: string }).productId,
+            }),
+          }),
+        ],
+      }),
+      r.step.return(({ steps }) => ({
+        isSuccess: true as const,
+        data: {
+          archivedCount: (steps["alerts"] as ReadonlyArray<unknown>).length,
+        },
+      })),
+    ]),
+  });
+}
+```
+
+### src/schema/index.ts
+
+```ts
+import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import {
+  buildEntityTable,
+  createEventStoreExecutor,
+  integer,
+  table,
+  text,
+  uuid,
+} from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEntity,
+  createNumberField,
+  createTextField,
+} from "@cosmicdrift/kumiko-framework/engine";
+
+export const LOW_STOCK_THRESHOLD = 10;
+
+export const productEntity = createEntity({
+  name: "product",
+  table: "read_inventory_products",
+  fields: {
+    sku: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    name: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    currentStock: createNumberField({ default: 0 }),
+  },
+});
+
+// Custom non-aggregate projection. The boot-validator allows direct
+// upsert/delete only because `r.requires.projection(...)` is declared
+// in feature.ts — without that line, boot fails fast.
+export const lowStockAlertsTable: EntityTableMeta = table("read_inventory_low_stock_alerts", {
+  productId: uuid("product_id").primaryKey(),
+  sku: text("sku").notNull(),
+  currentStock: integer("current_stock").notNull(),
+  threshold: integer("threshold").notNull(),
+});
+
+// Module-level drizzle-table + executor — the handler steps capture
+// `productExecutor` from this scope, and the integration test
+// imports `productTable` for raw selects.
+export const productTable = buildEntityTable(productEntity);
+export const productExecutor = createEventStoreExecutor(productTable, productEntity, {
+  entityName: "product",
 });
 ```

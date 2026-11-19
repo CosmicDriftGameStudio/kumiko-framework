@@ -1,7 +1,14 @@
 import { describe, expect, test } from "bun:test";
+import * as z from "zod";
+import { defineFeature } from "../../engine/define-feature.ts";
+import { createRegistry } from "../../engine/registry.ts";
 import type { FeatureDefinition } from "../../engine/types";
 import {
   booleanFacetOptionKeys,
+  handlerDescriptionKey,
+  handlerFieldLabelKey,
+  handlerTitleKey,
+  handlerTranslationKeys,
   requiredKeysFromFeature,
   requiredKeysFromScreen,
   selectFacetOptionKey,
@@ -365,5 +372,47 @@ describe("requiredKeysFromScreen — board-gap labels", () => {
     expect(keys).toContain("shop:today:now-sub");
     expect(keys).toContain("shop:today:all");
     expect(keys).toContain("shop:today:inbox-link");
+  });
+});
+
+describe("handlerTranslationKeys", () => {
+  const feature = defineFeature("orderDesk", (r) => {
+    r.writeHandler({
+      name: "order:approve",
+      schema: z.object({ id: z.string(), note: z.string() }),
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+      access: { roles: ["Admin"] },
+    });
+    r.queryHandler({
+      name: "order:summary",
+      schema: z.object({}),
+      handler: async () => ({}),
+      access: { roles: ["Admin"] },
+    });
+  });
+
+  test("keys match the QNs the registry gives the handlers", () => {
+    const registry = createRegistry([feature]);
+    const [writeQn] = [...registry.getAllWriteHandlers().keys()];
+    const [queryQn] = [...registry.getAllQueryHandlers().keys()];
+    if (writeQn === undefined || queryQn === undefined) throw new Error("handlers not registered");
+
+    const keys = handlerTranslationKeys("orderDesk", {
+      writes: {
+        "order:approve": {
+          title: { en: "Approve order" },
+          description: { en: "Approves it." },
+          fields: { note: { en: "Note" } },
+        },
+      },
+      queries: { "order:summary": { title: { en: "Order summary" } } },
+    });
+
+    expect(keys[handlerTitleKey(writeQn)]).toEqual({ en: "Approve order" });
+    expect(keys[handlerTitleKey(queryQn)]).toEqual({ en: "Order summary" });
+    expect(keys[handlerFieldLabelKey(writeQn, "note")]).toEqual({ en: "Note" });
+    expect(keys[handlerDescriptionKey(writeQn)]).toEqual({ en: "Approves it." });
+    expect(keys[handlerDescriptionKey(queryQn)]).toBeUndefined();
+    expect(Object.keys(keys)).toHaveLength(4);
   });
 });

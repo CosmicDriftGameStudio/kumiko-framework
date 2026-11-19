@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-24
+verified: 2026-11-17
 ---
 
 # The test standard
@@ -19,9 +19,13 @@ those steps.
 | Class | Files | Command | Budget |
 |---|---|---|---|
 | Unit | `*.test.ts` | `bun run test` | 5 s per test |
+| DOM | `*.test.tsx` | `bun run test:dom` | 5 s per test |
 | Integration | `*.integration.test.ts` | `bun run test:integration` (files run in parallel) | 15 s per test |
+| Build | `*.build.integration.test.ts` | `bun run test:build` (`bun kumiko-testing integration --build`), own CI job | 180 s per test |
 | E2E | `e2e/*.spec.ts` | `bun run e2e` | fixed in `defineAppE2eConfig` |
 | Real provider | `*.real.test.ts`, `*.real.spec.ts` | `bun run test:real`, `bun run e2e:real` | 240 s per test |
+
+Tests that run `bun install`, a build or a Docker image in a subprocess are build tests. `test:integration` skips them; the app runs them in its own `app-<name>` CI job, which only runs when the affected feature changes or nightly.
 
 Unit tests carry no services and stay fast enough to run on every save.
 Integration tests hit a real Postgres/Redis stack and prove the app's own
@@ -228,8 +232,8 @@ same flags; DOM steps stay serial. Perf gates run serially.
 `--no-isolate` is required: bun's `--parallel` implies `--isolate`, which
 leaks native memory per test file and can OOM-kill a small CI runner. It is
 safe because the template isolates through data (`seedTenant` per flow, a
-queue prefix per stack), not through OS processes. The integration guard
-also blocks `mock.module`, the one way files could leak state into each other.
+queue prefix per stack), not through OS processes. The `guard-integration-mocks`
+check (part of `kumiko check`) also ratchets `mock.module`, the one way files could leak state into each other.
 
 The CI Postgres runs with `fsync=off`, `synchronous_commit=off` and
 `full_page_writes=off`: `DROP DATABASE` in `stack.cleanup()` forces a
@@ -251,7 +255,7 @@ not mounted is skipped, because tests usually mount a subset; a reference into a
 mounted feature that does not resolve throws. Screen and ref-entity checks span
 features and run only with `setupTestStack({ validateBoot: "full" })`. Every app
 should have one boot test that mounts the prod feature composition with
-`validateBoot: "full"`, so a broken screen fails in CI instead of at deploy.
+`validateBoot: "full"`, so a broken screen fails in CI instead of at deploy. `validateBoot` returns the boot warnings it logs (`{ warnings }`, each with `kind`, optional `feature` and `message`); a boot test asserts on that result instead of spying on the console.
 
 ## Timeouts and retries belong to the template
 
@@ -261,8 +265,9 @@ what makes the budget in the table above mean something — a timeout an app
 can silently raise is not a budget, it's a suggestion. When a test is
 actually slow or flaky, the fix is almost never the timeout: see
 [`test-failures.md`](/en/guides/test-failures/#diagnosis-order) for the diagnosis
-order and the `@timeout-exception: #<issue> <reason>` marker for the rare
-case that needs one.
+order and the `// kumiko-lint-ignore test-timeouts #<issue> <reason>` marker for the rare
+case that needs one. Every guard opt-out uses this one marker syntax; for a whole file the
+form `// kumiko-lint-ignore-file <slug> <reason>` goes in the leading comment before the first statement.
 
 ## Screenshots: one runner, not a local copy
 
@@ -296,7 +301,7 @@ improvement ships to every app, including third-party ones, through an
 ordinary version bump of `@cosmicdrift/kumiko-testing` — no coordinated
 find-and-replace across repos. The `test-template-drift` guard enforces this:
 a config-level `viewport` or a `deviceScaleFactor` anywhere is flagged, and a
-`// @template-drift-exception: #<issue> <reason>` marker directly above it
+`// kumiko-lint-ignore test-template-drift #<issue> <reason>` marker directly above it
 suppresses the finding.
 A spec's own `test.use({ viewport })` is not flagged — the template defaults
 to a 1920px desktop viewport, and a spec asserting a layout that only exists
@@ -310,7 +315,7 @@ per-spec case, so it stays template-owned everywhere.
 |---|---|
 | `workers: 1` / `fullyParallel: false` in `playwright.config.ts` | `defineAppE2eConfig({ port, serverEntry, ... })` — parallel by default, tenant per flow |
 | Hand-rolled `defineConfig` with a custom viewport/DPR | `defineAppE2eConfig` (viewport/DPR are template-owned) |
-| `test.setTimeout(n)` / a raised project timeout | Diagnose first ([`test-failures.md`](/en/guides/test-failures/)); `@timeout-exception` marker only for a genuine no-condition wait |
+| `test.setTimeout(n)` / a raised project timeout | Diagnose first ([`test-failures.md`](/en/guides/test-failures/)); `kumiko-lint-ignore test-timeouts` marker only for a genuine no-condition wait |
 | A real-provider test that runs whenever an API key is present | `*.real.test.ts` / `*.real.spec.ts` + `requireRealProviders()`, gated by `KUMIKO_REAL_PROVIDERS=1`, hard-stopped in CI |
 | A local `page.screenshot()` helper for docs images | `runScreenshots` / `runMatrix` with `SCREENSHOT_DIR` set |
 | A shared/global test user across flows | `seedTenant()` per flow |

@@ -4,6 +4,7 @@ import {
   type FeatureRegistrar,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
 import type { BootCheckContext } from "@cosmicdrift/kumiko-types/feature";
 import { documentIdForFile } from "./aggregate-id.ts";
 import type { DOCUMENTS_FEATURE_NAME } from "./constants.ts";
@@ -43,7 +44,7 @@ async function captureFile(
   );
   // version_conflict: the stream exists already, so the file was captured before (and a document
   // deleted since stays deleted).
-  if (!created.isSuccess && created.error.code !== "version_conflict") {
+  if (!created.isSuccess && created.error.code !== VERSION_CONFLICT_CODE) {
     throw new Error(
       `documents capture failed for ${rule.entity}.${rule.field}: ${created.error.code}`,
     );

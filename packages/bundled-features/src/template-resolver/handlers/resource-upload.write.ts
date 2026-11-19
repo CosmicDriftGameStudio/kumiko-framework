@@ -50,35 +50,26 @@ function attachmentTargetOf(input: {
   return parsedName.success ? { templateId, key, fileName: parsedName.data } : null;
 }
 
-// Purpose "image": stores a re-encoded image as a FileRef and, with templateId + key, links it into
-// the template; without templateId it only creates the FileRef (the branding logo upload path).
+// Purpose "image": stores a re-encoded image as a FileRef and links it into the template under key.
 // Purpose "attachment": stores the file as uploaded and links it as a mail attachment.
 export function makeResourceUploadWrite(policy: TemplateEditPolicy) {
   return defineWriteHandler({
     name: "resource-upload",
-    schema: z
-      .object({
-        templateId: z.string().min(1).optional(),
-        key: resourceKeySchema.optional(),
-        /** An unclaimed upload of the caller (POST /api/files without entityType). */
-        sourceFileRefId: z.uuid(),
-        /** Cross-tenant target — SystemAdmin only. */
-        tenantIdOverride: z.string().min(1).optional(),
-        /** "attachment" links a PDF/PNG/JPEG as a file attached to every mail of the template. */
-        purpose: z.enum(RESOURCE_PURPOSES).default("image"),
-        /** Name the recipient sees; required for purpose "attachment". */
-        fileName: z.string().optional(),
-      })
-      .refine(
-        (p) => p.purpose === "attachment" || (p.templateId === undefined) === (p.key === undefined),
-        {
-          message: "templateId and key must be given together",
-          path: ["key"],
-        },
-      ),
+    schema: z.object({
+      templateId: z.string().min(1),
+      key: resourceKeySchema,
+      /** An unclaimed upload of the caller (POST /api/files without entityType). */
+      sourceFileRefId: z.uuid(),
+      /** Cross-tenant target — SystemAdmin only. */
+      tenantIdOverride: z.string().min(1).optional(),
+      /** "attachment" links a PDF/PNG/JPEG as a file attached to every mail of the template. */
+      purpose: z.enum(RESOURCE_PURPOSES).default("image"),
+      /** Name the recipient sees; required for purpose "attachment". */
+      fileName: z.string().optional(),
+    }),
     access: templateEditAccess(policy.tenantEditable),
     description:
-      "Turns a file uploaded via POST /api/files (multipart, no entityType) into a template resource. With purpose image (default) the upload is checked against the resource-max-bytes cap, re-encoded to a supported image format and stored as a new file; with templateId and key it is linked into that template under the key, without them only the file is created. With purpose attachment, templateId, key and fileName are required: a PDF, PNG or JPEG is stored unchanged and linked into a mail template as a file attached to every mail sent from it, at most 10 per template. A cap above the files route's maxUploadSize has no effect. Only a SystemAdmin and the roles of the templates the app lists in tenantEditable may use it; such a role may link only into those templates.",
+      "Turns a file uploaded via POST /api/files (multipart, no entityType) into a template resource. With purpose image (default) the upload is checked against the resource-max-bytes cap, re-encoded to a supported image format and stored as a new file, and linked into the template given by templateId under key. With purpose attachment, fileName is required as well: a PDF, PNG or JPEG is stored unchanged and linked into a mail template as a file attached to every mail sent from it, at most 10 per template. A cap above the files route's maxUploadSize has no effect. Only a SystemAdmin and the roles of the templates the app lists in tenantEditable may use it; such a role may link only into those templates.",
     beforeTransaction: async (
       event,
       ctx,
@@ -94,16 +85,14 @@ export function makeResourceUploadWrite(policy: TemplateEditPolicy) {
           }),
         );
       }
-      if (templateId !== undefined) {
-        const refused = await refuseTemplateEditById(
-          ctx.db,
-          policy,
-          event.user,
-          resourceTargetTenantId(event.payload.tenantIdOverride, event.user.tenantId),
-          templateId,
-        );
-        if (refused !== null) return refused;
-      }
+      const refused = await refuseTemplateEditById(
+        ctx.db,
+        policy,
+        event.user,
+        resourceTargetTenantId(event.payload.tenantIdOverride, event.user.tenantId),
+        templateId,
+      );
+      if (refused !== null) return refused;
       const maxBytes = await readTemplateResourceMaxBytes(ctx.config, ctx.registry);
 
       // The source is read from the session tenant only: with tenantIdOverride the upload
@@ -151,8 +140,8 @@ export function makeResourceUploadWrite(policy: TemplateEditPolicy) {
         tenantId,
         bytes: source.content,
         maxBytes,
-        ...(templateId !== undefined && { templateId }),
-        ...(key !== undefined && { key }),
+        templateId,
+        key,
       });
     },
     handler: async (
@@ -163,15 +152,6 @@ export function makeResourceUploadWrite(policy: TemplateEditPolicy) {
       const tenantId = resourceTargetTenantId(event.payload.tenantIdOverride, event.user.tenantId);
       const { prepared } = event;
       if (prepared.kind === "attachment") {
-        // The phase accepts attachments only with a complete target, so these are set.
-        if (templateId === undefined || key === undefined) {
-          return writeFailure(
-            new UnprocessableError(TemplateResolverErrors.attachmentInvalid, {
-              i18nKey: "templateResolver.errors.attachment.invalid",
-              details: { code: "target_required" },
-            }),
-          );
-        }
         return storePreparedTemplateAttachment({
           ctx,
           user: event.user,
@@ -186,8 +166,8 @@ export function makeResourceUploadWrite(policy: TemplateEditPolicy) {
         user: event.user,
         tenantId,
         prepared,
-        ...(templateId !== undefined && { templateId }),
-        ...(key !== undefined && { key }),
+        templateId,
+        key,
       });
     },
   });

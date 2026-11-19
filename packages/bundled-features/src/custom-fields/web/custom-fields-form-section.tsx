@@ -12,10 +12,13 @@ import {
   type ExtensionSubmitResult,
   useDispatcher,
   useExtensionFormSubmit,
+  useLocale,
   usePrimitives,
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import { formatMoney } from "@cosmicdrift/kumiko-renderer/headless";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useState } from "react";
 import { CustomFieldsHandlers, CustomFieldsQueries } from "./constants.ts";
 
@@ -26,7 +29,11 @@ type FieldDefinitionRow = {
   readonly type: string;
   readonly required: boolean;
   readonly displayOrder: number;
+  readonly serializedField?: string;
 };
+
+// The renderer's money inputs fall back to EUR the same way.
+const FALLBACK_MONEY_CURRENCY = "EUR";
 
 type FieldDefinitionListResponse = {
   readonly rows: readonly FieldDefinitionRow[];
@@ -47,6 +54,7 @@ export function CustomFieldsFormSection({
 }): ReactNode {
   const { Banner, Button, Field, Input, Text } = usePrimitives();
   const t = useTranslation();
+  const appLocale = useLocale().locale();
   const dispatcher = useDispatcher();
   const query = useQuery<FieldDefinitionListResponse>(
     CustomFieldsQueries.fieldDefinitionList,
@@ -67,10 +75,17 @@ export function CustomFieldsFormSection({
     .slice()
     .sort((a, b) => a.displayOrder - b.displayOrder);
   const initialDisplay = (field: (typeof matchingFields)[number]): string =>
-    displayValue(field.type, initialValues?.[field.fieldKey]);
+    staleMoneyOf(field, initialValues?.[field.fieldKey]) === null
+      ? displayValue(field.type, initialValues?.[field.fieldKey])
+      : "";
+  // A stale money value starts as an empty input, so any touch is a change:
+  // typing replaces it, typing and emptying clears it.
   const changedFields = matchingFields.filter((field) => {
     const raw = pending[field.fieldKey];
-    return raw !== undefined && raw !== initialDisplay(field);
+    if (raw === undefined) return false;
+    return (
+      raw !== initialDisplay(field) || staleMoneyOf(field, initialValues?.[field.fieldKey]) !== null
+    );
   });
   const dirty = changedFields.length > 0;
 
@@ -92,7 +107,11 @@ export function CustomFieldsFormSection({
               entityName,
               entityId: targetEntityId,
               fieldKey: field.fieldKey,
-              value: coerceValue(field.type, raw),
+              value: coerceValue(
+                field.type,
+                raw,
+                moneyCurrencyOf(field, initialValues?.[field.fieldKey]),
+              ),
             });
       if (!result.isSuccess) {
         return {
@@ -157,20 +176,27 @@ export function CustomFieldsFormSection({
 
   return (
     <div data-testid="custom-fields-form-section">
-      {matchingFields.map((field) => (
-        <Field
-          key={field.id}
-          id={`custom-field-${field.fieldKey}`}
-          label={field.fieldKey}
-          required={field.required}
-        >
-          {renderInputFor(
-            field,
-            pending[field.fieldKey] ?? displayValue(field.type, initialValues?.[field.fieldKey]),
-            (v) => setPending((p) => ({ ...p, [field.fieldKey]: v })),
-          )}
-        </Field>
-      ))}
+      {matchingFields.map((field) => {
+        const staleMoney = staleMoneyOf(field, initialValues?.[field.fieldKey]);
+        return (
+          <Field
+            key={field.id}
+            id={`custom-field-${field.fieldKey}`}
+            label={field.fieldKey}
+            required={field.required}
+            {...(staleMoney !== null && {
+              description: t("custom-fields.form.moneyStoredInOtherCurrency", {
+                stored: formatMoney(staleMoney.amount, staleMoney.currency, { locale: appLocale }),
+                currency: staleMoney.definitionCurrency,
+              }),
+            })}
+          >
+            {renderInputFor(field, pending[field.fieldKey] ?? initialDisplay(field), (v) =>
+              setPending((p) => ({ ...p, [field.fieldKey]: v })),
+            )}
+          </Field>
+        );
+      })}
       {!composed && (
         <Button
           variant="primary"
@@ -223,24 +249,83 @@ export function CustomFieldsFormSection({
         <Input kind="date" id={id} name={name} value={raw} onChange={(v) => onChange(v ?? "")} />
       );
     }
+    if (field.type === "money") {
+      return (
+        <Input
+          kind="money"
+          id={id}
+          name={name}
+          value={raw === "" ? "" : Number(raw)}
+          onChange={(v) => onChange(v === undefined ? "" : String(v))}
+          currency={moneyCurrencyOf(field, initialValues?.[field.fieldKey])}
+          locale={appLocale}
+        />
+      );
+    }
     return <Input kind="text" id={id} name={name} value={raw} onChange={onChange} />;
   }
 }
 
-function coerceValue(type: string, raw: string): unknown {
+// set-custom-field accepts only the definition's currency when it declares one
+// (value-schema.ts), and any default currency otherwise, so only then does a
+// stored value keep its own.
+function moneyCurrencyOf(field: FieldDefinitionRow, stored: unknown): string {
+  const storedCurrency = propertyOf(stored, "currency");
+  return (
+    declaredCurrencyOf(field.serializedField) ??
+    (typeof storedCurrency === "string" ? storedCurrency : FALLBACK_MONEY_CURRENCY)
+  );
+}
+
+type StaleMoney = {
+  readonly amount: number;
+  readonly currency: string;
+  readonly definitionCurrency: string;
+};
+
+// A value written before the definition's currency changed: 12.50 GBP must not
+// turn into 12.50 EUR, so it is shown as stored and only a new entry replaces it.
+function staleMoneyOf(field: FieldDefinitionRow, stored: unknown): StaleMoney | null {
+  if (field.type !== "money") return null;
+  const definitionCurrency = declaredCurrencyOf(field.serializedField);
+  const amount = propertyOf(stored, "amount");
+  const currency = propertyOf(stored, "currency");
+  if (definitionCurrency === undefined || typeof amount !== "number") return null;
+  if (typeof currency !== "string" || currency === definitionCurrency) return null;
+  return { amount, currency, definitionCurrency };
+}
+
+function declaredCurrencyOf(serializedField: string | undefined): string | undefined {
+  if (serializedField === undefined) return undefined;
+  try {
+    const currency = propertyOf(JSON.parse(serializedField), "currency");
+    return typeof currency === "string" ? currency : undefined;
+  } catch {
+    // skip: an unparseable definition falls back like one without a currency
+    return undefined;
+  }
+}
+
+// Money travels as minor units, the same as built-in money fields.
+function coerceValue(type: string, raw: string, moneyCurrency: string): unknown {
   if (type === "number") {
     const n = Number(raw);
     return Number.isNaN(n) ? raw : n;
   }
   if (type === "boolean") return raw === "true";
+  if (type === "money") return { amount: Number(raw), currency: moneyCurrency };
   return raw;
 }
 
 // Inverse of coerceValue: converts a stored jsonb value to the string form
 // expected by the input. number/boolean/date/text are represented as their
-// inputs expect; missing values become "".
+// inputs expect; money as its minor-unit amount; missing values become "".
 function displayValue(type: string, value: unknown): string {
   if (value === undefined || value === null) return "";
   if (type === "boolean") return value === true ? "true" : "false";
+  if (type === "money") {
+    const amount = propertyOf(value, "amount");
+    return typeof amount === "number" ? String(amount) : "";
+  }
   return String(value);
 }

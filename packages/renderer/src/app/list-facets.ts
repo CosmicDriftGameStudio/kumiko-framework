@@ -6,6 +6,7 @@ import { parseRefTarget } from "@cosmicdrift/kumiko-framework/ui-types";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Translate } from "../headless/index.ts";
 import type { DataTableFacet, DataTableFacetChip } from "../primitives.tsx";
+import { type FacetValueCounts, facetChipCount } from "./facet-value-counts.ts";
 import type { ReferenceFacetState } from "./reference-facet-bridge.tsx";
 
 // One resolved facet, independent of where the type info came from — an
@@ -101,7 +102,7 @@ export function buildEntityFilterFacets(
   specs: readonly ResolvedFacetSpec[],
   configs: FacetConfigByField | undefined,
   translate: Translate,
-  counts: Readonly<Record<string, number>>,
+  valueCounts: Readonly<Record<string, FacetValueCounts>>,
 ): DataTableFacet[] {
   const out: DataTableFacet[] = [];
   for (const spec of specs) {
@@ -115,12 +116,16 @@ export function buildEntityFilterFacets(
       out.push(base);
       continue;
     }
+    const fieldCounts = Object.hasOwn(valueCounts, spec.field)
+      ? valueCounts[spec.field]
+      : undefined;
     out.push({
       ...base,
-      chips: buildFacetChips(spec, config, translate).map((chip) => {
-        const count = counts[facetCountKey(spec.field, chip.id)];
-        return count === undefined ? chip : { ...chip, count };
-      }),
+      chips: buildFacetChips(spec, config, translate).map((chip) =>
+        fieldCounts === undefined
+          ? chip
+          : { ...chip, count: facetChipCount(fieldCounts, chip.values) },
+      ),
       ...(config.showCounts === true && { showCounts: true }),
       ...(config.hideEmpty === true && { hideEmpty: true }),
     });
@@ -128,34 +133,22 @@ export function buildEntityFilterFacets(
   return out;
 }
 
-export function facetCountKey(field: string, chipId: string): string {
-  return `${field}\u0000${chipId}`;
-}
-
-export type FacetCountRequest = {
-  readonly key: string;
-  readonly field: string;
-  readonly values: readonly string[];
-};
-
-// One count request per chip of a facet that shows counts or hides empty
-// chips. The chip's own values replace that facet's selection; other facets
-// keep theirs.
-export function buildFacetCountRequests(
+// One field, one grouped count; the field's own selection stays out, the other facets apply.
+export function countedFacetFields(
   specs: readonly ResolvedFacetSpec[],
   configs: FacetConfigByField | undefined,
-  translate: Translate,
-): FacetCountRequest[] {
-  const out: FacetCountRequest[] = [];
-  for (const spec of specs) {
-    const config = configs?.[spec.field];
-    if (config === undefined || config === false || config.display !== "chips") continue;
-    if (config.showCounts !== true && config.hideEmpty !== true) continue;
-    for (const chip of buildFacetChips(spec, config, translate)) {
-      out.push({ key: facetCountKey(spec.field, chip.id), field: spec.field, values: chip.values });
-    }
-  }
-  return out;
+): string[] {
+  return specs
+    .filter((spec) => {
+      const config = configs?.[spec.field];
+      return (
+        config !== undefined &&
+        config !== false &&
+        config.display === "chips" &&
+        (config.showCounts === true || config.hideEmpty === true)
+      );
+    })
+    .map((spec) => spec.field);
 }
 
 // `defaultFilters` values are option values or a boolean; the URL-state shape

@@ -32,6 +32,7 @@ const NOTE_FIELDS = {
 };
 
 const noteEntity = createEntity({
+  name: "note",
   table: "read_sample_writeform_notes",
   fields: NOTE_FIELDS,
 });
@@ -78,7 +79,7 @@ export const noteDeskFeature = defineFeature("note-desk", (r) => {
     },
   });
 
-  r.crud("note", noteEntity, { write: open, read: open });
+  r.crud(noteEntity, { write: open, read: open });
 
   r.screen({
     id: "note-edit",

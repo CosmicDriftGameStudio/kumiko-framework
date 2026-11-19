@@ -30,6 +30,7 @@ const FRAMEWORK_PACKAGE_JSON_REL = "packages/framework/package.json";
 const FRAMEWORK_PACKAGE_NAME = "@cosmicdrift/kumiko-framework";
 const AGENTS_MD_REL = "packages/framework/AGENTS.md";
 const AGENTS_REF_RE = /`agents\/([A-Za-z0-9._/-]+\.md)`/g;
+const DOCS_REF_RE = /`(docs\/[^`\s]+)`/g;
 const REGENERATE_HINT = "run `bun run gen:agent-docs` and commit the result";
 
 function isFrameworkRepo(root: RepoRoot): boolean {
@@ -74,6 +75,13 @@ function agentsMdReferenceViolations(
         file: AGENTS_MD_REL,
         line: index + 1,
         message: `references agents/${key}, which is not generated. Fix the reference or add the source (an example needs samples/recipes/<slug>/package.json).`,
+      });
+    }
+    for (const match of text.matchAll(DOCS_REF_RE)) {
+      violations.push({
+        file: AGENTS_MD_REL,
+        line: index + 1,
+        message: `references ${match[1]}, which the npm package does not ship, so app agents cannot open it. Link a generated agents/ file or state the fact inline.`,
       });
     }
   });

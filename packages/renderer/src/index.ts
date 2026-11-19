@@ -226,8 +226,11 @@ export type {
   ListUrlStateApi,
 } from "./hooks/use-list-url-state.ts";
 export { listFilterUrlKey, useListUrlState } from "./hooks/use-list-url-state.ts";
+export type { UseLiveRefetchOptions } from "./hooks/use-live-refetch.ts";
+export { useLiveRefetch } from "./hooks/use-live-refetch.ts";
 export type { UseMutationResult } from "./hooks/use-mutation.ts";
 export { useMutation } from "./hooks/use-mutation.ts";
+export { useNow } from "./hooks/use-now.ts";
 export type { UseQueryOptions, UseQueryResult } from "./hooks/use-query.ts";
 export { entityFromQueryType, useQuery } from "./hooks/use-query.ts";
 export { useReportStepComplete } from "./hooks/use-report-step-complete.ts";

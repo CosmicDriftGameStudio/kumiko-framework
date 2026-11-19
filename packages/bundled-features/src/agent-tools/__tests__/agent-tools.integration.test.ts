@@ -26,6 +26,7 @@ import { dispatchToolCall } from "../tool-dispatch.ts";
 const FEATURE_NAME = "agent-tools-int-test";
 
 const widgetEntity = createEntity({
+  name: "widget",
   table: "agent_tools_int_test_widgets",
   fields: {
     name: createTextField({
@@ -40,7 +41,7 @@ const widgetEntity = createEntity({
 });
 
 const widgetFeature = defineFeature(FEATURE_NAME, (r) => {
-  r.crud("widget", widgetEntity, {
+  r.crud(widgetEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin", "Reader"] } },
   });
@@ -130,16 +131,14 @@ describe("agent tools over real HTTP", () => {
       admin,
     );
 
-    // Built for Admin so the approve tool descriptor exists — the reader is denied by
-    // dispatcher.write's own access check, not by a catalog lookup miss. The reader still
-    // has read access (["Admin", "Reader"]), so the injectsVersion pre-read through the
-    // detail handler succeeds and the write call is what actually gets rejected.
+    // The catalog is built for Admin so the descriptor exists; the reader is rejected by the
+    // access check of the write pipeline.
     const catalog = catalogFor(["Admin"]);
     const result = await dispatchToolCall({
       dispatcher: buildHttpDispatcher(),
       user: reader,
       toolName: APPROVE_TOOL_NAME,
-      input: { id: created.id },
+      input: { id: created.id, version: created.data.version },
       dispatchTable: catalog.dispatchTable,
       runId: "run-denied",
       toolCallId: "call-1",
@@ -172,7 +171,7 @@ describe("agent tools over real HTTP", () => {
       dispatcher: buildHttpDispatcher(),
       user: admin,
       toolName: APPROVE_TOOL_NAME,
-      input: { id: created.id },
+      input: { id: created.id, version: created.data.version },
       dispatchTable: catalog.dispatchTable,
       runId: "run-allowed",
       toolCallId: "call-1",
@@ -187,6 +186,42 @@ describe("agent tools over real HTTP", () => {
     );
     expect(updated.status).toBe("approved");
     expect(updated.version).toBeGreaterThan(created.data.version);
+  });
+
+  test("a write tool call on a stale version is rejected with version_conflict and changes nothing", async () => {
+    const created = await stack.http.writeOk<{ id: string; data: { version: number } }>(
+      WIDGET_CREATE_QN,
+      { name: "Widget D", status: "pending" },
+      admin,
+    );
+    await stack.http.writeOk(
+      `${FEATURE_NAME}:write:widget:update`,
+      { id: created.id, version: created.data.version, changes: { name: "Widget D2" } },
+      admin,
+    );
+
+    const catalog = catalogFor(["Admin"]);
+    const result = await dispatchToolCall({
+      dispatcher: buildHttpDispatcher(),
+      user: admin,
+      toolName: APPROVE_TOOL_NAME,
+      input: { id: created.id, version: created.data.version },
+      dispatchTable: catalog.dispatchTable,
+      runId: "run-stale",
+      toolCallId: "call-1",
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("unreachable");
+    expect(result.code).toBe("version_conflict");
+
+    const unchanged = await stack.http.queryOk<{ status: string; name: string }>(
+      WIDGET_DETAIL_QN,
+      { id: created.id },
+      admin,
+    );
+    expect(unchanged.status).toBe("pending");
+    expect(unchanged.name).toBe("Widget D2");
   });
 
   test("list_widget returns a numeric total", async () => {

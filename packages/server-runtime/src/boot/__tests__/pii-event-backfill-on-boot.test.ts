@@ -11,13 +11,13 @@ import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers"
 import { SKIP_PII_BACKFILL_ENV, startPiiEventBackfillOnBoot } from "../pii-event-backfill-on-boot";
 
 const piiFeature = defineFeature("backfill-boot-pii", (r) => {
-  r.entity({
-    name: "person",
-    ...createEntity({
+  r.entity(
+    createEntity({
+      name: "person",
       table: "read_backfill_boot_persons",
       fields: { email: createTextField({ required: true, personal: "self", find: "exact" }) },
     }),
-  });
+  );
 });
 const registry = createRegistry([piiFeature]);
 

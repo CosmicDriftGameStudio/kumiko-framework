@@ -6,8 +6,8 @@
 //     path AND the privileged, cross-tenant revoke-all-for-user (DSGVO
 //     Art.18 account-freeze, appended anchored on SYSTEM_TENANT_ID).
 //   - tenant-membership.updated / .deleted (role change / member removal),
-//     where userId is read from the previous-snapshot rather than
-//     payload.changes.
+//     where userId is read from the membership row (updated) or the
+//     previous-snapshot (deleted) rather than payload.changes.
 //
 // Asserted directly against stack.sseBroker.subscribeAccessInvalidation —
 // no real SSE connection or HTTP-stream needed, mirrors how sse-broker.test.ts
@@ -22,7 +22,10 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import {
+  createAuthFoundationFeature,
+  revokeAllUserCredentials,
+} from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import type { SessionCreator } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
@@ -46,7 +49,6 @@ import { createConfigFeature } from "../config/index.ts";
 import { createConfigResolver } from "../config/resolver.ts";
 import { configValuesTable } from "../config/table.ts";
 import { createPersonalAccessTokensFeature } from "../personal-access-tokens/feature.ts";
-import { revokeAllPatTokensForUser } from "../personal-access-tokens/revoke-for-user.ts";
 import { apiTokenEntity, apiTokenTable } from "../personal-access-tokens/schema/api-token.ts";
 import { PatHandlers } from "../personal-access-tokens/web/constants.ts";
 import type { PatScopeConfig } from "../personal-access-tokens/web/scopes.ts";
@@ -99,11 +101,8 @@ beforeAll(async () => {
       createTenantFeature(),
       createAuthEmailPasswordFeature(),
       createAuthFoundationFeature(),
-      createSessionsFeature({ autoRevokeOnPasswordChange: bound.asMassRevoker() }),
-      createPersonalAccessTokensFeature({
-        scopes: PAT_SCOPES,
-        autoRevokeOnPasswordChange: (userId) => revokeAllPatTokensForUser(stack.db, userId),
-      }),
+      createSessionsFeature(),
+      createPersonalAccessTokensFeature({ scopes: PAT_SCOPES }),
     ],
     extraContext: { configResolver: resolver, configEncryption: encryption },
     authConfig: {
@@ -187,7 +186,7 @@ describe("access-invalidation event consumer", () => {
     expect(invalidated).toEqual([userId]);
   });
 
-  test("tenant-membership.updated (role change) reads userId from the previous snapshot and invalidates", async () => {
+  test("tenant-membership.updated (role change) reads userId from the membership row and invalidates", async () => {
     const { userId } = await h.seedUser("rolechange@example.com", "pw-long-enough");
     trackInvalidation(userId);
 
@@ -248,17 +247,17 @@ describe("access-invalidation event consumer", () => {
     expect(invalidated).toEqual([]);
   });
 
-  test("password change (sessionMassRevoker) pushes an invalidation for that user", async () => {
+  test("password change pushes an invalidation for that user", async () => {
     const { userId } = await h.seedUser("pwchange@example.com", "old-pw-long-enough");
     const { token } = await h.login("pwchange@example.com", "old-pw-long-enough");
     trackInvalidation(userId);
 
     // The industry-standard "password change signs you out everywhere" flow
-    // — goes through the sessionMassRevoker callback (feature.ts's postSave
+    // — goes through the credentialRevoker (the user feature's postSave
     // hook on passwordHash changes), NOT one of the *.write.ts handlers.
-    // This is exactly the gap a security review caught: that
-    // callback did a raw updateMany with no event, so an already-open SSE
-    // stream survived a password change.
+    // This is exactly the gap a security review caught: the revoke did a raw
+    // updateMany with no event, so an already-open SSE stream survived a
+    // password change.
     const res = await h.authedPost("/api/write", token, {
       type: AuthHandlers.changePassword,
       payload: { oldPassword: "old-pw-long-enough", newPassword: "new-pw-long-enough" },
@@ -270,15 +269,15 @@ describe("access-invalidation event consumer", () => {
     expect(invalidated).toEqual([userId]);
   });
 
-  test("sessionRevokeAllOthers callback (used by auth-mfa, distinct from the revoke-all-others.write.ts handler) pushes an invalidation", async () => {
+  test("revokeAllUserCredentials pushes a session invalidation", async () => {
     const { userId } = await h.seedUser("mfarevoke@example.com", "pw-long-enough");
     await h.login("mfarevoke@example.com", "pw-long-enough");
     trackInvalidation(userId);
 
-    // currentSid undefined → revokes every live session, mirrors how
-    // auth-mfa calls this callback directly (no dispatcher ctx available).
-    const revoked = await callbacks.get().sessionRevokeAllOthers(userId, undefined);
-    expect(revoked).toBeGreaterThan(0);
+    // No keepSessionId → revokes every live session, as auth-mfa's enable-confirm-preauth does.
+    await revokeAllUserCredentials(stack.registry, stack.db, userId, {});
+    const liveRows = await selectMany(stack.db, userSessionTable, { userId, revokedAt: null });
+    expect(liveRows).toHaveLength(0);
 
     await stack.eventDispatcher?.runOnce();
 
@@ -404,8 +403,8 @@ describe("access-invalidation event consumer", () => {
 
     await stack.eventDispatcher?.runOnce();
 
-    // A password change fires both sessionMassRevoker (userwide,
-    // session-revoked) and this suite's PAT autoRevokeOnPasswordChange
+    // A password change fires both the sessions revoke (userwide,
+    // session-revoked) and the PAT revoke
     // (pat-tokens-scoped, pat-revoked) — the broad listener here (no
     // credential passed) fires once per publish, so twice for the same user.
     expect(invalidated).toEqual([userId, userId]);

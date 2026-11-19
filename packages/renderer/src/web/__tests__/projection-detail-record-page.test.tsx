@@ -4,17 +4,24 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
-import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
 import { PageHeaderSlotProvider, usePageHeaderSlot } from "../layout/page-header-slot.tsx";
-import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  fireEvent,
+  type MockQueryHandler,
+  type MockWriteHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 function renderScreen(
   definition: ProjectionDetailScreenDefinition,
   data: unknown,
-  write?: Dispatcher["write"],
+  write?: MockWriteHandler,
 ): void {
-  const query = (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["query"];
+  const query: MockQueryHandler = async () => ({ isSuccess: true, data });
   render(
     <DispatcherProvider dispatcher={createMockDispatcher({ query, ...(write && { write }) })}>
       <PageHeaderSlotProvider>
@@ -106,10 +113,10 @@ describe("writeForm submitWith", () => {
   });
 
   test("the action writes its payload plus the form values once, after validation", async () => {
-    const write = mock(async () => ({
+    const write = mock<MockWriteHandler>(async () => ({
       isSuccess: true,
       data: {},
-    })) as unknown as Dispatcher["write"];
+    }));
     renderScreen(approval, record, write);
     const approve = await screen.findByText("Approve");
     fireEvent.click(approve);
@@ -126,7 +133,7 @@ describe("writeForm submitWith", () => {
 
 describe("writeForm submitWith payload", () => {
   test("an untouched optional empty field is left out of the write, like on a normal submit", async () => {
-    const w = mock(async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"];
+    const w = mock<MockWriteHandler>(async () => ({ isSuccess: true, data: {} }));
     const withOptional = {
       ...approval,
       layout: {
@@ -157,7 +164,7 @@ describe("writeForm submitWith payload", () => {
 
 describe("writeForm hint and badge from the record", () => {
   test("a hintField and a badge field that the form does not hold show their record text and are not submitted", async () => {
-    const w = mock(async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"];
+    const w = mock<MockWriteHandler>(async () => ({ isSuccess: true, data: {} }));
     const withHint = {
       ...approval,
       layout: {
@@ -183,7 +190,7 @@ describe("writeForm hint and badge from the record", () => {
       { ...record, ownCarHint: "Skoda Octavia", mileageHint: "Mileage open" },
       w,
     );
-    expect(await screen.findByText("Skoda Octavia")).not.toBeNull();
+    await screen.findByText("Skoda Octavia");
     expect(screen.getByTestId("field-badge-reason").textContent).toContain("Mileage open");
     const input = screen.getByTestId("field-reason").querySelector("input") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "ok" } });
@@ -218,8 +225,7 @@ describe("narrowTabs: false with a hideOnNarrow section of another tab", () => {
 });
 
 describe("writeForm submitWith with a form that is not usable", () => {
-  const write = () =>
-    mock(async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"];
+  const write = () => mock<MockWriteHandler>(async () => ({ isSuccess: true, data: {} }));
 
   test("a form hidden for the phone still blocks the write with a named field", async () => {
     const hidden: ProjectionDetailScreenDefinition = {
@@ -235,7 +241,7 @@ describe("writeForm submitWith with a form that is not usable", () => {
     const w = write();
     renderScreen(hidden, record, w);
     fireEvent.click(await screen.findByText("Approve"));
-    expect(await screen.findByText(/Please check: .*reason/i)).toBeTruthy();
+    await screen.findByText(/Please check: .*reason/i);
     expect(w).not.toHaveBeenCalled();
   });
 });
@@ -270,9 +276,9 @@ describe("narrow-only presentation", () => {
     };
     expect(inSection("Wide only").closest("[class*='max-sm:hidden']")).not.toBeNull();
     expect(inSection("Phone only").closest("[class*='sm:hidden']")).not.toBeNull();
-    expect(
-      inSection("Untitled on phone").closest("[class*='data-section-title']:not(section)"),
-    ).not.toBeNull();
+    expect(inSection("Untitled on phone").closest("[data-section-title]")?.className).toContain(
+      "max-sm:hidden",
+    );
     expect(screen.getByText("Long text").className).toContain("max-sm:hidden");
     expect(screen.getByText("Short text").className).toContain("sm:hidden");
     expect(screen.getByText("Ulm").closest("[class*='max-sm:hidden']")).toBeNull();
@@ -304,7 +310,7 @@ describe("mobileSummary", () => {
 
 describe("photoGrid badgeFirst", () => {
   function renderPhotos(badgeFirst: boolean): void {
-    const query = (async (type: string) =>
+    const query: MockQueryHandler = async (type: string) =>
       type === "shop:query:photos"
         ? {
             isSuccess: true,
@@ -317,7 +323,7 @@ describe("photoGrid badgeFirst", () => {
               nextCursor: null,
             },
           }
-        : { isSuccess: true, data: { id: "r1" } }) as unknown as Dispatcher["query"];
+        : { isSuccess: true, data: { id: "r1" } };
     render(
       <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
         <KumikoScreen
@@ -387,10 +393,10 @@ function SlotReader(): ReactNode {
 
 describe("header.narrowTitle", () => {
   test("reaches the page-header slot translated, next to the record title", async () => {
-    const query = (async () => ({
+    const query: MockQueryHandler = async () => ({
       isSuccess: true,
       data: { id: "r1", title: "Long request title" },
-    })) as unknown as Dispatcher["query"];
+    });
     render(
       <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
         <PageHeaderSlotProvider>

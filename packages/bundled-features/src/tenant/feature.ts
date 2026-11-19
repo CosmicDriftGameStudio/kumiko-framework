@@ -33,7 +33,7 @@ import { tenantDirectoryQuery } from "./handlers/tenant-directory.query.ts";
 import { disableWrite, enableWrite } from "./handlers/toggle-enabled.write.ts";
 import { updateWrite } from "./handlers/update.write.ts";
 import { updateMemberRolesWrite } from "./handlers/update-member-roles.write.ts";
-import { TENANT_I18N } from "./i18n.ts";
+import { TENANT_HANDLER_I18N, TENANT_I18N } from "./i18n.ts";
 import { tenantInvitationEntity } from "./invitation-table.ts";
 import { tenantMembershipEntity } from "./membership-table.ts";
 import { tenantEntity } from "./schema/tenant.ts";
@@ -74,7 +74,6 @@ export function collectAssignableAppRoles(
 
 export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefinition {
   return defineFeature("tenant", (r) => {
-    r.adoptsBundledLists();
     r.describe(
       "Registers the three core multi-tenancy entities \u2014 `tenant`, `tenant-membership`, and `tenant-invitation` (DB tables `read_tenants`, `read_tenant_memberships`, and `read_tenant_invitations`) \u2014 along with write handlers for create/update/disable/enable/addMember/removeMember/updateMemberRoles and the matching queries. It also declares a set of per-tenant config keys (companyName, timezone, locale, SMTP credentials) and system-only keys (priceModel, maxUsers) via `r.config({ keys: { ... } })`. Use this feature in every multi-tenant app; membership resolution and invitation flows depend on it, and `auth-email-password` requires it.",
     );
@@ -96,9 +95,9 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
         });
       }
     });
-    r.entity({ name: "tenant", ...tenantEntity });
-    r.entity({ name: "tenant-membership", ...tenantMembershipEntity });
-    r.entity({ name: "tenant-invitation", ...tenantInvitationEntity });
+    r.entity(tenantEntity);
+    r.entity(tenantMembershipEntity);
+    r.entity(tenantInvitationEntity);
 
     r.config({
       keys: {
@@ -227,9 +226,11 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
       icon: "users",
       screen: "tenant:screen:members",
       order: 20,
+      adminArea: "tenant",
     });
 
     r.translations({ keys: TENANT_I18N });
+    r.translations({ keys: TENANT_HANDLER_I18N });
 
     return { handlers, queries };
   });

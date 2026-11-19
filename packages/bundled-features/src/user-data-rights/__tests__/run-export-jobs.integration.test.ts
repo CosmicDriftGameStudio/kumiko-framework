@@ -187,7 +187,7 @@ describe("runExportJobs :: happy path", () => {
     expect(result.completedJobIds).toContain(jobId);
     expect(result.errors).toEqual([]);
 
-    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as ReadonlyArray<{
       status: string;
       downloadStorageKey: string | null;
       expiresAt: { toString(): string } | null;
@@ -238,6 +238,80 @@ describe("runExportJobs :: happy path", () => {
   });
 });
 
+describe("runExportJobs :: per-run tenant cache", () => {
+  test("two pending jobs of one tenant build the storage provider once per run", async () => {
+    // request-export allows one open job per user, so the second job needs a second user.
+    const bobUser = createTestUser({ id: 43, tenantId: tenantA, roles: ["Member"] });
+    await seedRowViaEventStore(stack.db, userTable, {
+      id: String(bobUser.id),
+      email: "bob@example.com",
+      passwordHash: "hashed",
+      displayName: "Bob",
+      locale: "de",
+      emailVerified: true,
+      roles: '["Member"]',
+      status: USER_STATUS.Active,
+    });
+    const jobA = await seedPendingJob();
+    const jobB = await seedPendingJob({ user: bobUser });
+
+    let providerBuilds = 0;
+    const countingProvider = (tenantId: string): Promise<FileStorageProvider> => {
+      providerBuilds++;
+      return buildProvider(tenantId);
+    };
+
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: countingProvider,
+      now: NOW(),
+    });
+
+    expect(result.completedJobIds).toContain(jobA);
+    expect(result.completedJobIds).toContain(jobB);
+    expect(result.errors).toEqual([]);
+    expect(providerBuilds).toBe(1);
+  });
+});
+
+describe("runExportJobs :: a failing pre-claim check", () => {
+  test("a job whose erased check throws is skipped; the next job and the cleanup pass still run", async () => {
+    const bobUser = createTestUser({ id: 43, tenantId: tenantA, roles: ["Member"] });
+    await seedRowViaEventStore(stack.db, userTable, {
+      id: String(bobUser.id),
+      email: "bob@example.com",
+      passwordHash: "hashed",
+      displayName: "Bob",
+      locale: "de",
+      emailVerified: true,
+      roles: '["Member"]',
+      status: USER_STATUS.Active,
+    });
+    const brokenJob = await seedPendingJob();
+    const healthyJob = await seedPendingJob({ user: bobUser });
+    // A user id that is no uuid makes the user-table lookup of the erased check fail in Postgres.
+    await changeExportJob(stack.db, brokenJob, { userId: "not-a-uuid" }, tenantA);
+    const metrics = createRecordingMetricsHandle();
+
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: buildProvider,
+      now: NOW(),
+      metrics,
+    });
+
+    expect(result.completedJobIds).toEqual([healthyJob]);
+    expect(result.failedJobIds).toEqual([]);
+    expect(metrics.values.has(EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC)).toBe(true);
+    const [brokenRow] = await selectMany<{ status: string }>(stack.db, exportJobsTable, {
+      id: brokenJob,
+    });
+    expect(brokenRow?.status).toBe(EXPORT_JOB_STATUS.Pending);
+  });
+});
+
 describe("runExportJobs :: stale-detection", () => {
   test("running job with startedAt > exportStaleTimeoutMinutes → failed", async () => {
     // Seed through the real path so the event stream exists, then directly update
@@ -261,7 +335,7 @@ describe("runExportJobs :: stale-detection", () => {
 
     expect(result.staleFailedJobIds).toContain(jobId);
 
-    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as ReadonlyArray<{
       status: string;
       errorMessage: string | null;
     }>;
@@ -288,7 +362,7 @@ describe("runExportJobs :: stale-detection", () => {
     });
 
     expect(result.staleFailedJobIds).not.toContain(jobId);
-    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as ReadonlyArray<{
       status: string;
     }>;
     expect(row?.status).toBe(EXPORT_JOB_STATUS.Running);
@@ -328,7 +402,7 @@ describe("runExportJobs :: stale-detection", () => {
     expect(result.cleanedJobIds).toContain(jobId);
     expect(await provider.exists(storageKey)).toBe(false);
 
-    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as ReadonlyArray<{
       status: string;
       downloadStorageKey: string | null;
     }>;
@@ -371,7 +445,7 @@ describe("runExportJobs :: storage-cleanup", () => {
     expect(result.cleanedJobIds).toContain(jobId);
     expect(await provider.exists(storageKey)).toBe(false);
 
-    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as ReadonlyArray<{
       status: string;
       downloadStorageKey: string | null;
     }>;
@@ -446,7 +520,7 @@ describe("runExportJobs :: storage-cleanup", () => {
 
     expect(result.cleanedJobIds).not.toContain(jobId);
     expect(await provider.exists(storageKey)).toBe(true);
-    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as ReadonlyArray<{
       downloadStorageKey: string | null;
     }>;
     expect(row?.downloadStorageKey).toBe(storageKey);
@@ -618,7 +692,7 @@ describe("runExportJobs :: concurrency", () => {
     // Keine doppelten failures
     expect([...resultA.failedJobIds, ...resultB.failedJobIds]).toEqual([]);
 
-    const rows = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+    const rows = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as ReadonlyArray<{
       status: string;
       downloadStorageKey: string | null;
     }>;
@@ -655,7 +729,7 @@ describe("runExportJobs :: stale-detection profile-driven cutoff", () => {
     });
 
     expect(result.staleFailedJobIds).toContain(jobId);
-    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as ReadonlyArray<{
       status: string;
     }>;
     expect(row?.status).toBe(EXPORT_JOB_STATUS.Failed);
@@ -680,7 +754,9 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(plainToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
 
     // Hash in DB matched plain via hashDownloadToken roundtrip
-    const tokenRows = (await selectMany(stack.db, exportDownloadTokensTable, { jobId })) as Array<{
+    const tokenRows = (await selectMany(stack.db, exportDownloadTokensTable, {
+      jobId,
+    })) as ReadonlyArray<{
       jobId: string;
       tokenHash: string;
       issuedAt: { toString(): string };
@@ -696,7 +772,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(tokenRows[0]?.useCount).toBe(0);
 
     // expiresAt im Token = job.expiresAt (denormalized)
-    const [jobRow] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+    const [jobRow] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as ReadonlyArray<{
       expiresAt: { toString(): string } | null;
     }>;
     expect(tokenRows[0]?.expiresAt.toString()).toBe(jobRow?.expiresAt?.toString());
@@ -715,7 +791,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
 
     const events = (await asRawClient(stack.db).unsafe(
       `SELECT type FROM kumiko_events WHERE type LIKE 'export-download-token.%'`,
-    )) as unknown as Array<{ type: string }>;
+    )) as unknown as ReadonlyArray<{ type: string }>;
     expect(events.some((e) => e.type === "export-download-token.created")).toBe(true);
   });
 
@@ -756,7 +832,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
 
     const [tokenBefore] = (await selectMany(stack.db, exportDownloadTokensTable, {
       jobId,
-    })) as Array<{ id: string }>;
+    })) as ReadonlyArray<{ id: string }>;
 
     // Operator recovery after an email failure flips only the job back to pending;
     // the existing token row remains. Creating a second aggregate for the same
@@ -777,7 +853,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     // Exactly one row, the same aggregate, a fresh hash, and reset audit fields.
     const tokenRows = (await selectMany(stack.db, exportDownloadTokensTable, {
       jobId,
-    })) as Array<{
+    })) as ReadonlyArray<{
       id: string;
       tokenHash: string;
       useCount: number | null;
@@ -793,7 +869,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     // from colliding during replay.
     const events = (await asRawClient(stack.db).unsafe(
       `SELECT type FROM kumiko_events WHERE aggregate_type = 'export-download-token'`,
-    )) as unknown as Array<{ type: string }>;
+    )) as unknown as ReadonlyArray<{ type: string }>;
     expect(events.filter((e) => e.type === "export-download-token.created")).toHaveLength(1);
     expect(events.some((e) => e.type === "export-download-token.updated")).toBe(true);
   });
@@ -835,7 +911,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(result.completedJobIds).not.toContain(jobId);
     expect(result.failedJobIds).toContain(jobId);
 
-    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as ReadonlyArray<{
       status: string;
       errorMessage: string | null;
     }>;
@@ -990,7 +1066,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(result.cleanedJobIds).toContain(jobId);
     expect(await provider.exists(storageKey)).toBe(false);
 
-    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as ReadonlyArray<{
       downloadStorageKey: string | null;
     }>;
     expect(row?.downloadStorageKey).toBeNull();
@@ -1026,7 +1102,9 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
   beforeAll(async () => {
     const { defineFeature, EXT_USER_DATA } = await import("@cosmicdrift/kumiko-framework/engine");
     const testFileExporter = defineFeature("test-file-exporter", (r) => {
-      r.useExtension(EXT_USER_DATA, "test-file", {
+      r.applyExtension({
+        name: EXT_USER_DATA,
+        entity: "test-file",
         export: async (ctx: { tenantId: string; userId: string }) => ({
           entity: "test-file",
           rows: [{ id: "f1", name: currentTestFileName }],
@@ -1183,7 +1261,9 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
     expect(result.failedJobIds).toContain(jobId);
     expect(result.errors[0]?.message).toMatch(/in-memory file not found/);
 
-    const [row] = (await selectMany(localStack.db, exportJobsTable, { id: jobId })) as Array<{
+    const [row] = (await selectMany(localStack.db, exportJobsTable, {
+      id: jobId,
+    })) as ReadonlyArray<{
       status: string;
       errorMessage: string | null;
     }>;
@@ -1319,7 +1399,7 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
         },
         // appExportDownloadUrl is intentionally omitted
       }),
-    ).rejects.toThrow(/appExportDownloadUrl fehlt/);
+    ).rejects.toThrow(/appExportDownloadUrl is missing/);
   });
 
   test("user without email → callback skipped + console.warn (no throw)", async () => {
@@ -1341,7 +1421,7 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
     expect(callbackInvoked).toBe(false);
     // The job is still done because notification is best-effort; the token DB row
     // provides the audit trail.
-    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as Array<{
+    const [row] = (await selectMany(stack.db, exportJobsTable, { id: jobId })) as ReadonlyArray<{
       status: string;
     }>;
     expect(row?.status).toBe("done");
@@ -1396,7 +1476,7 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
 
     // Both database rows are actually done because Job A's status was committed
     // before the email was sent; the throw cannot change it.
-    const rows = (await selectMany(stack.db, exportJobsTable, {})) as Array<{
+    const rows = (await selectMany(stack.db, exportJobsTable, {})) as ReadonlyArray<{
       id: string;
       status: string;
     }>;

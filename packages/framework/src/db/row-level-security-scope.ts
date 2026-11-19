@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { assertReason } from "../engine/escape-hatch-reason.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
 import { InternalError } from "../errors/index.ts";
 import type { RowLevelSecurityMode } from "./render-rls-ddl.ts";
@@ -74,6 +75,7 @@ export type TenantDbModeOptions =
 // Untyped JS callers can still omit the reason; fail at construction, not on the first query.
 export function systemModeOptions(reason: string | undefined): TenantDbModeOptions {
   systemRowLevelSecurityScope(reason ?? "");
+  assertReason('createTenantDb({ mode: "system" })', reason ?? "");
   return { mode: "system", reason: reason ?? "" };
 }
 
@@ -108,6 +110,8 @@ export function unscopedRunnerOf(runner: object): object {
   return scopedRunnerInners.get(runner) ?? runner;
 }
 
+export function innerOfScopedRunner<T extends object>(runner: T): T | undefined;
+export function innerOfScopedRunner(runner: unknown): object | undefined;
 export function innerOfScopedRunner(runner: unknown): object | undefined {
   if (typeof runner !== "object" && typeof runner !== "function") return undefined;
   return runner === null ? undefined : scopedRunnerInners.get(runner);

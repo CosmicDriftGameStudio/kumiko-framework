@@ -1,17 +1,8 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { aggregateWhere } from "@cosmicdrift/kumiko-framework/db";
+import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
-import {
-  loadEnabledTenantIds,
-  pickBestRowPerTenant,
-  TENANT_OVERRIDES_REASON,
-} from "./tenant-override-selection.ts";
-
-type OverrideCountRow = Pick<
-  TemplateResourceRow,
-  "tenantId" | "slug" | "kind" | "status" | "version"
->;
+import { templateResourcesTable } from "../table.ts";
+import { loadEnabledTenantIds, TENANT_OVERRIDES_REASON } from "./tenant-override-selection.ts";
 
 export const tenantOverrideCountsResultSchema = z.object({
   totalTenants: z.number().nullable(),
@@ -26,31 +17,26 @@ export const tenantOverrideCountsQuery = defineQueryHandler({
     "Counts, per template slug and kind, the enabled tenants that override it with an active version, next to the number of enabled tenants; one query for the whole template overview instead of one tenant-overrides call per row.",
   escapeHatch: { grants: ["unsafeRaw"], reason: TENANT_OVERRIDES_REASON },
   handler: async (_query, ctx) => {
-    const found = await selectMany<OverrideCountRow>(
-      ctx.db.unsafeRaw(),
-      templateResourcesTable,
-      { scope: "tenant" },
-      { fields: ["tenantId", "slug", "kind", "status", "version"] },
-    );
     const enabledTenantIds = await loadEnabledTenantIds(ctx);
-
-    const rowsBySlugAndKind = new Map<
-      string,
-      { slug: string; kind: string; rows: OverrideCountRow[] }
-    >();
-    for (const row of found) {
-      const key = `${row.kind}|${row.slug}`;
-      const group = rowsBySlugAndKind.get(key) ?? { slug: row.slug, kind: row.kind, rows: [] };
-      group.rows.push(row);
-      rowsBySlugAndKind.set(key, group);
-    }
-    const counts = [...rowsBySlugAndKind.values()].map(({ slug, kind, rows }) => ({
-      slug,
-      kind,
-      activeOverrides: [...pickBestRowPerTenant(rows, enabledTenantIds).values()].filter(
-        (row) => row.status === "active",
-      ).length,
-    }));
+    // Same rule as pickBestRowPerTenant: a tenant counts once when any of its enabled, non-SYSTEM overrides is active.
+    const tenantFilter =
+      enabledTenantIds === null
+        ? { ne: SYSTEM_TENANT_ID }
+        : { in: [...enabledTenantIds].filter((id) => id !== SYSTEM_TENANT_ID) };
+    const groups = await aggregateWhere(
+      ctx.db.unsafeRawAllTenants(),
+      templateResourcesTable,
+      {
+        measure: { fn: "countDistinct", field: "tenantId" },
+        groupBy: [{ field: "kind" }, { field: "slug" }],
+      },
+      { scope: "tenant", status: "active", tenantId: tenantFilter },
+    );
+    const counts = groups.flatMap(({ keys: [kind, slug], value }) =>
+      typeof kind === "string" && typeof slug === "string"
+        ? [{ slug, kind, activeOverrides: value ?? 0 }]
+        : [],
+    );
 
     return { totalTenants: enabledTenantIds === null ? null : enabledTenantIds.size, counts };
   },

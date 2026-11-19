@@ -4,7 +4,6 @@ import type {
   ConfigKeyType,
   ConfigSeedDef,
   JobDefinition,
-  JobHandlerFn,
   NotificationDataFn,
   NotificationLocalizedTemplate,
   NotificationRecipientFn,
@@ -43,9 +42,17 @@ import { reasonProblem } from "./escape-hatch-reason.ts";
 import { createEventDef } from "./event-def.ts";
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
 import { resolveName } from "./handler-helpers.ts";
-import { requireArgument, splitNamedDefinition, unwrapArrayForm } from "./object-form.ts";
 import { QnTypes, qn, toKebab } from "./qualified-name.ts";
+import { ANONYMOUS_ROLE, SYSTEM_ROLE } from "./system-user.ts";
 import type { EventPiiStance } from "./types/index.ts";
+
+function jobRunAsProblem(runAs: JobDefinition["runAs"]): string | undefined {
+  if (runAs === undefined) return undefined;
+  if (runAs.roles.length === 0) return "roles is empty; omit runAs instead";
+  const reserved = runAs.roles.find((role) => role === SYSTEM_ROLE || role === ANONYMOUS_ROLE);
+  if (reserved !== undefined) return `"${reserved}" is reserved and cannot be a job role`;
+  return undefined;
+}
 
 function assertScheduleTrigger(
   featureName: string,
@@ -83,38 +90,16 @@ export function buildConfigEventsJobsMethods<TName extends string>(
   state: FeatureBuilderState,
   name: TName,
 ) {
-  // Overloaded: (keyName, def) for the single-key case, ({keys, seeds}) for
-  // the multi-key case — both funnel through the same qualify/register loop
-  // below, so a single-key call is byte-identical to what
-  // `{keys:{name:def}}` would have produced.
-  function config<T extends ConfigKeyType>(
-    keyName: string,
-    def: ConfigKeyDefinition<T>,
-  ): ConfigKeyHandle<T>;
   function config<
     TKeys extends Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>,
   >(definition: {
     readonly keys: TKeys;
     readonly seeds?: Readonly<Record<string, ConfigSeedDef>>;
   }): { readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]> };
-  function config(
-    arg1:
-      | string
-      | {
-          readonly keys: Record<string, ConfigKeyDefinition<ConfigKeyType>>;
-          readonly seeds?: Readonly<Record<string, ConfigSeedDef>>;
-        },
-    arg2?: ConfigKeyDefinition<ConfigKeyType>,
-  ): unknown {
-    // arg2 is always defined here — the two public overloads above guarantee
-    // it whenever arg1 is a string; the impl signature just has to widen it
-    // to optional to satisfy both call shapes.
-    const definition = typeof arg1 === "string" && arg2 ? { keys: { [arg1]: arg2 } } : arg1;
-    if (typeof definition === "string") {
-      throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.configSingleKeyNeedsDefinition, {
-        message: "config(): single-key form requires a definition as the second argument",
-      });
-    }
+  function config(definition: {
+    readonly keys: Record<string, ConfigKeyDefinition<ConfigKeyType>>;
+    readonly seeds?: Readonly<Record<string, ConfigSeedDef>>;
+  }): unknown {
     // Qualify eagerly (same as defineEvent) so the handle name matches what
     // the registry stores — lazy qualification would break compile-time
     // autocomplete and hand-built test registries.
@@ -142,8 +127,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         });
       }
     }
-    // Single-key call unwraps its own handle; multi-key returns the record.
-    return typeof arg1 === "string" ? handles[arg1] : handles;
+    return handles;
   }
 
   // Shared by defineEvent's `migrations` option — each entry registers a
@@ -182,22 +166,8 @@ export function buildConfigEventsJobsMethods<TName extends string>(
 
   return {
     config,
-    job(
-      jobNameOrDefinition: string | JobDefinition,
-      options?: Omit<JobDefinition, "name" | "handler">,
-      handler?: JobHandlerFn,
-    ): void {
-      const [jobName, jobOptions, jobHandler] =
-        typeof jobNameOrDefinition === "string"
-          ? [
-              jobNameOrDefinition,
-              requireArgument(options, name, "job", "options"),
-              requireArgument(handler, name, "job", "handler"),
-            ]
-          : (() => {
-              const { name: definedJobName, handler: h, ...rest } = jobNameOrDefinition;
-              return [definedJobName, rest, h] as const;
-            })();
+    job(definition: JobDefinition): void {
+      const { name: jobName, handler: jobHandler, ...jobOptions } = definition;
       const jobReasonProblem =
         jobOptions.escapeHatch !== undefined
           ? reasonProblem(jobOptions.escapeHatch.reason)
@@ -212,6 +182,12 @@ export function buildConfigEventsJobsMethods<TName extends string>(
       if (jobGrantsProblem) {
         throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.jobEscapeHatchInvalid, {
           message: `[Feature ${name}] r.job("${jobName}") declares an invalid escapeHatch — ${jobGrantsProblem}`,
+        });
+      }
+      const runAsProblem = jobRunAsProblem(jobOptions.runAs);
+      if (runAsProblem !== undefined) {
+        throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.jobRunAsInvalid, {
+          message: `[Feature ${name}] r.job("${jobName}") declares an invalid runAs — ${runAsProblem}`,
         });
       }
       assertScheduleTrigger(name, jobName, jobOptions.trigger);
@@ -235,24 +211,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
       state.jobs[jobName] = { ...jobOptions, trigger, name: jobName, handler: jobHandler };
     },
     notification(
-      notificationNameOrDefinition:
-        | string
-        | ({ readonly name: string } & {
-            readonly trigger?: { readonly on: NameOrRef };
-            readonly recipient?: NotificationRecipientFn;
-            readonly data?: NotificationDataFn;
-            readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
-            readonly variables?: TemplateVariables;
-            readonly record?: NotificationRecordMapping;
-            readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
-            readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
-            readonly localizedTemplate?: () => NotificationLocalizedTemplate;
-            readonly renamedFrom?: readonly string[];
-            readonly systemOnly?: boolean;
-            readonly unsubscribe?: boolean;
-            readonly tenantTransport?: boolean;
-          }),
-      definition?: {
+      definition: { readonly name: string } & {
         readonly trigger?: { readonly on: NameOrRef };
         readonly recipient?: NotificationRecipientFn;
         readonly data?: NotificationDataFn;
@@ -268,13 +227,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         readonly tenantTransport?: boolean;
       },
     ): void {
-      const [notificationName, resolvedDefinition] =
-        typeof notificationNameOrDefinition === "string"
-          ? [
-              notificationNameOrDefinition,
-              requireArgument(definition, name, "notification", "definition"),
-            ]
-          : splitNamedDefinition(notificationNameOrDefinition);
+      const { name: notificationName, ...resolvedDefinition } = definition;
       state.notifications[notificationName] = {
         name: notificationName,
         ...(resolvedDefinition.trigger !== undefined
@@ -338,19 +291,11 @@ export function buildConfigEventsJobsMethods<TName extends string>(
       }
       return def;
     },
-    readsConfig(
-      ...args: readonly [{ readonly keys: readonly string[] }] | readonly string[]
-    ): void {
-      state.configReads.push(...unwrapArrayForm(args, "keys"));
+    readsConfig(options: { readonly keys: readonly string[] }): void {
+      state.configReads.push(...options.keys);
     },
-    metric(
-      shortNameOrDefinition: string | ({ readonly name: string } & MetricOptions),
-      options?: MetricOptions,
-    ): void {
-      const [shortName, metricOptions] =
-        typeof shortNameOrDefinition === "string"
-          ? [shortNameOrDefinition, requireArgument(options, name, "metric", "options")]
-          : splitNamedDefinition(shortNameOrDefinition);
+    metric(definition: { readonly name: string } & MetricOptions): void {
+      const { name: shortName, ...metricOptions } = definition;
       if (state.metrics[shortName]) {
         throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.metricDuplicate, {
           message:
@@ -369,14 +314,8 @@ export function buildConfigEventsJobsMethods<TName extends string>(
       }
       state.envSchema = schema;
     },
-    secret(
-      shortNameOrDefinition: string | ({ readonly name: string } & SecretOptions),
-      options?: SecretOptions,
-    ): SecretKeyHandle {
-      const [shortName, secretOptions] =
-        typeof shortNameOrDefinition === "string"
-          ? [shortNameOrDefinition, requireArgument(options, name, "secret", "options")]
-          : splitNamedDefinition(shortNameOrDefinition);
+    secret(definition: { readonly name: string } & SecretOptions): SecretKeyHandle {
+      const { name: shortName, ...secretOptions } = definition;
       if (state.secretKeys[shortName]) {
         throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.secretDuplicate, {
           message:
@@ -405,13 +344,9 @@ export function buildConfigEventsJobsMethods<TName extends string>(
       return { name: qualifiedName };
     },
     secretNamespace(
-      shortNameOrDefinition: string | ({ readonly name: string } & SecretNamespaceOptions),
-      options?: SecretNamespaceOptions,
+      definition: { readonly name: string } & SecretNamespaceOptions,
     ): SecretNamespaceHandle {
-      const [shortName, namespaceOptions] =
-        typeof shortNameOrDefinition === "string"
-          ? [shortNameOrDefinition, requireArgument(options, name, "secretNamespace", "options")]
-          : splitNamedDefinition(shortNameOrDefinition);
+      const { name: shortName, ...namespaceOptions } = definition;
       if (state.secretNamespaces[shortName]) {
         throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.secretNamespaceDuplicate, {
           message:
@@ -430,18 +365,11 @@ export function buildConfigEventsJobsMethods<TName extends string>(
       state.secretNamespaces[shortName] = { shortName, qualifiedPrefix, ...namespaceOptions };
       return { prefix: qualifiedPrefix, keyFor: (suffix) => `${qualifiedPrefix}${suffix}` };
     },
-    claimKey<T extends ClaimKeyType>(
-      shortNameOrDefinition: string | { readonly name: string; readonly type: T },
-      options?: { readonly type: T },
-    ): ClaimKeyHandle<T> {
-      const shortName =
-        typeof shortNameOrDefinition === "string"
-          ? shortNameOrDefinition
-          : shortNameOrDefinition.name;
-      const claimType: T =
-        typeof shortNameOrDefinition === "string"
-          ? requireArgument(options, name, "claimKey", "options").type
-          : shortNameOrDefinition.type;
+    claimKey<T extends ClaimKeyType>(definition: {
+      readonly name: string;
+      readonly type: T;
+    }): ClaimKeyHandle<T> {
+      const { name: shortName, type: claimType } = definition;
       if (state.claimKeys[shortName]) {
         throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.claimKeyDuplicate, {
           message:

@@ -59,6 +59,7 @@ const TENANT_EDITABLE = tenantEditableTemplates(
 );
 
 const noteEntity = createEntity({
+  name: "note",
   table: "resource_test_notes",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -67,7 +68,7 @@ const noteEntity = createEntity({
 });
 
 const noteFeature = defineFeature("resource-test-notes", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
   r.writeHandler(
     defineEntityCreateHandler("note", noteEntity, {
       access: { roles: ["TenantAdmin", "SystemAdmin"] },
@@ -242,16 +243,14 @@ describe("template-resolver :: resource-upload", () => {
     expect(meta.width).toBe(1200);
   });
 
-  test("without templateId only the file is created", async () => {
+  test("without templateId the upload is a validation error", async () => {
     const sourceFileRefId = await uploadPng(tenantA_Admin, await png(16));
-    const result = await stack.http.writeOk<UploadResult>(
+    const err = await stack.http.writeErr(
       TemplateResolverHandlers.resourceUpload,
       { sourceFileRefId },
       tenantA_Admin,
     );
-    expect(result.fileRefId).toBeString();
-    expect(result.key).toBeUndefined();
-    expect((await storedBytes(result.fileRefId)).tenantId).toBe(tenantA_Admin.tenantId);
+    expectErrorIncludes(err, "validation_error");
   });
 
   test("templateId without key is a validation error", async () => {
@@ -471,7 +470,12 @@ describe("template-resolver :: resource-remove and upserts", () => {
     const foreignFileRefId = (
       await stack.http.writeOk<UploadResult>(
         TemplateResolverHandlers.resourceUpload,
-        { sourceFileRefId: await uploadPng(systemAdmin, await png(16)) },
+        {
+          sourceFileRefId: await uploadPng(systemAdmin, await png(16)),
+          templateId: await createSystemTemplate("res-upsert-foreign"),
+          key: "logo",
+          tenantIdOverride: SYSTEM_TENANT_ID,
+        },
         systemAdmin,
       )
     ).fileRefId;

@@ -20,6 +20,7 @@ const TRANSITION_CONFIG = {
 export const INVOICE_TRANSITIONS = defineTransitions(TRANSITION_CONFIG);
 
 export const invoiceEntity = createEntity({
+  name: "invoice",
   table: "read_sample_sm_invoices",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -32,4 +33,4 @@ export const invoiceEntity = createEntity({
   },
 });
 
-export const invoiceTable = buildEntityTable("invoice", invoiceEntity);
+export const invoiceTable = buildEntityTable(invoiceEntity);

@@ -4,7 +4,7 @@
 // and docs promise. If you change the contract, this is the file that moves.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, withEnv } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -23,6 +23,7 @@ import {
 import {
   AccessDeniedError,
   ConflictError,
+  InternalError,
   NotFoundError,
   UnprocessableError,
   writeFailure,
@@ -33,16 +34,17 @@ import { createTestUser, TestUsers } from "../seeding/seed-users.ts";
 // --- Entity + handlers that deliberately raise each Kumiko error class ---
 
 const itemEntity = createEntity({
+  name: "item",
   table: "errctr_items",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
     stock: createNumberField({ default: 0 }),
   },
 });
-const itemTable = buildEntityTable("item", itemEntity);
+const itemTable = buildEntityTable(itemEntity);
 
 const errorFeature = defineFeature("errctr", (r) => {
-  r.entity({ name: "item", ...itemEntity });
+  r.entity(itemEntity);
 
   // CRUD create to prep update/delete scenarios (NotFound, VersionConflict).
   r.writeHandler({
@@ -164,6 +166,19 @@ const errorFeature = defineFeature("errctr", (r) => {
     handler: async () => {
       throw new TypeError("cannot_read_prop");
     },
+    access: { roles: ["Admin"] },
+  });
+
+  r.writeHandler({
+    name: "item:internal-failure",
+    schema: z.object({}),
+    handler: async () =>
+      writeFailure(
+        new InternalError({
+          message: "ledger_config_key_missing",
+          i18nParams: { configKey: "ledger_config_key_missing" },
+        }),
+      ),
     access: { roles: ["Admin"] },
   });
 
@@ -384,6 +399,19 @@ describe("error contract: wire format per class", () => {
       if (prevEnv === undefined) delete process.env["NODE_ENV"];
       else process.env["NODE_ENV"] = prevEnv;
     }
+  });
+
+  test("InternalError in a /batch command → prod hides its text in error and in results", async () => {
+    await withEnv({ NODE_ENV: "production" }, async () => {
+      const res = await stack.http.batch(
+        [{ type: "errctr:write:item:internal-failure", payload: {} }],
+        admin,
+      );
+      const bodyText = await res.text();
+      expect(res.status).toBe(500);
+      expect(bodyText).toContain("internal_error");
+      expect(bodyText).not.toContain("ledger_config_key_missing");
+    });
   });
 });
 

@@ -187,7 +187,7 @@ function formatTypedFact(
   locale: string,
 ): string | undefined {
   if (type === "money" && isMoneyValue(entry)) {
-    return formatMoneyValue(entry, locale);
+    return formatMoneyValue(entry, { locale });
   }
   if ((type === "date" || type === "timestamp") && typeof entry === "string") {
     return applyFormatSpec({ format: type, locale }, entry);
@@ -284,7 +284,6 @@ export function ActionFormFacts({
   return facts.map((fact) => {
     const factTestId = `${testIdPrefix}-${fact.key}`;
     if (fact.fileIds !== undefined) {
-      if (FileValueList === undefined) return null;
       return (
         <Grid key={fact.key} columns={1} testId={factTestId}>
           <Text>{fact.label}:</Text>

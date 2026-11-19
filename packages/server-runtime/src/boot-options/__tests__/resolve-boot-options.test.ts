@@ -111,6 +111,32 @@ describe("fileStorage option", () => {
     ).toThrow(/S3_REGION, S3_ACCESS_KEY, S3_SECRET_KEY/);
   });
 
+  test("FILE_STORAGE_PROVIDER=inmemory aborts a production boot", () => {
+    expect(() =>
+      resolveFileStorageOption(
+        { provider: "s3-env" },
+        {
+          ...base,
+          isProduction: true,
+          envSource: { ...S3_ENV, FILE_STORAGE_PROVIDER: "inmemory" },
+        },
+      ),
+    ).toThrow(/FILE_STORAGE_PROVIDER=inmemory/);
+  });
+
+  test("FILE_STORAGE_PROVIDER=inmemory is accepted outside production", () => {
+    expect(
+      resolveFileStorageOption(
+        { provider: "s3-env" },
+        {
+          ...base,
+          isProduction: false,
+          envSource: { ...S3_ENV, FILE_STORAGE_PROVIDER: "inmemory" },
+        },
+      ).provider,
+    ).toBe("s3-env");
+  });
+
   test('"auto" outside production falls back to inmemory', () => {
     const resolved = resolveFileStorageOption(
       { provider: "auto" },
@@ -196,9 +222,12 @@ describe("fileStorage option", () => {
 describe("billing option", () => {
   const billing = { stripe: { priceToTier: { price_pro: "pro" } }, defaultTier: "free" };
 
-  test("mounts subscription-stripe and the tier-sync webhook on the default path", () => {
+  test("mounts subscription-stripe, the tier-sync feature and the tier-sync webhook on the default path", () => {
     const resolved = resolveBillingOption(billing, {});
-    expect(resolved.features.map((feature) => feature.name)).toEqual(["subscription-stripe"]);
+    expect(resolved.features.map((feature) => feature.name)).toEqual([
+      "subscription-stripe",
+      "subscription-tier-sync",
+    ]);
     expect(resolved.route.path).toBe(SUBSCRIPTION_WEBHOOK_PATH);
     expect(resolved.route.method).toBe("POST");
   });
@@ -234,7 +263,10 @@ describe("billing option", () => {
       { paddle: { priceToTier: { pri_pro: "pro" } }, defaultTier: "free" },
       {},
     );
-    expect(resolved.features.map((feature) => feature.name)).toEqual(["subscription-paddle"]);
+    expect(resolved.features.map((feature) => feature.name)).toEqual([
+      "subscription-paddle",
+      "subscription-tier-sync",
+    ]);
     expect(resolved.route.path).toBe(SUBSCRIPTION_WEBHOOK_PATH);
   });
 
@@ -246,6 +278,7 @@ describe("billing option", () => {
     expect(resolved.features.map((feature) => feature.name)).toEqual([
       "subscription-stripe",
       "subscription-paddle",
+      "subscription-tier-sync",
     ]);
     expect(resolved.route.path).toBe(SUBSCRIPTION_WEBHOOK_PATH);
   });
@@ -256,13 +289,13 @@ describe("billing option", () => {
 
   test("webhookPath moves the route", () => {
     const resolved = resolveBillingOption(
-      { ...billing, stripe: { ...billing.stripe, webhookPath: "/api/billing/:providerName" } },
+      { ...billing, webhookPath: "/api/billing/:providerName" },
       {},
     );
     expect(resolved.route.path).toBe("/api/billing/:providerName");
   });
 
-  test("billing.webhookPath moves the route for a paddle-only setup and wins over the stripe fallback", () => {
+  test("billing.webhookPath moves the route for a paddle-only setup", () => {
     const paddleOnly = resolveBillingOption(
       {
         paddle: { priceToTier: { pri_pro: "pro" } },
@@ -272,24 +305,11 @@ describe("billing option", () => {
       {},
     );
     expect(paddleOnly.route.path).toBe("/api/billing/:providerName");
-
-    const both = resolveBillingOption(
-      {
-        ...billing,
-        webhookPath: "/api/new/:providerName",
-        stripe: { ...billing.stripe, webhookPath: "/api/old/:providerName" },
-      },
-      {},
-    );
-    expect(both.route.path).toBe("/api/new/:providerName");
   });
 
   test("a webhookPath without :providerName is refused", () => {
     expect(() =>
-      resolveBillingOption(
-        { ...billing, stripe: { ...billing.stripe, webhookPath: "/api/billing/stripe" } },
-        {},
-      ),
+      resolveBillingOption({ ...billing, webhookPath: "/api/billing/stripe" }, {}),
     ).toThrow(/:providerName/);
   });
 });
@@ -323,6 +343,23 @@ describe("resolveBootOptionWiring feature checks", () => {
         {},
       ),
     ).rejects.toThrow(/mounts channel-email itself/);
+  });
+
+  test("search meili-env puts the adapter into the wiring", async () => {
+    const wiring = await resolveBootOptionWiring(
+      { features: [], search: { provider: "meili-env" } },
+      { MEILI_URL: "http://127.0.0.1:1", MEILI_MASTER_KEY: "test-key" },
+    );
+    expect(wiring.searchAdapter).toBeDefined();
+  });
+
+  test("search meili-env without MEILI_URL is refused", async () => {
+    await expect(
+      resolveBootOptionWiring(
+        { features: [], search: { provider: "meili-env" } },
+        { MEILI_MASTER_KEY: "test-key" },
+      ),
+    ).rejects.toThrow(/search "meili-env" is missing: MEILI_URL/);
   });
 
   test("fileStorage without file-foundation is refused", async () => {

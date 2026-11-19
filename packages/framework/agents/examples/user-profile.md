@@ -170,7 +170,6 @@ import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-feature
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
-import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
@@ -179,6 +178,7 @@ import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-feature
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import { createUserProfileFeature } from "@cosmicdrift/kumiko-bundled-features/user-profile";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 
 export function createAccountFeature(): FeatureDefinition {
   return defineFeature("account", (r) => {

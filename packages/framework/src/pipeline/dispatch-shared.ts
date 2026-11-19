@@ -82,7 +82,6 @@ import { applyMemberResolutionReadOnly } from "./handler-context-member-resoluti
 import { buildNotifyFacet } from "./handler-context-notify.ts";
 import { buildObservabilityFacet } from "./handler-context-observability.ts";
 import {
-  applyBeforeTransactionReadOnly,
   denyEventStoreSurfaces,
   denyTransactionBoundSurfaces,
   withoutTransactionDenied,
@@ -94,6 +93,7 @@ import {
   buildRuntimeServices,
   resolveHandlerContextScope,
 } from "./handler-context-scope.ts";
+import { resolveVisitorKey } from "./handler-context-visitor-key.ts";
 import type { IdempotencyGuard } from "./idempotency.ts";
 import type { LifecycleHooks } from "./lifecycle-pipeline.ts";
 import { createGatedIdentitySwitch, isSystemIdentity } from "./system-identity-switch.ts";
@@ -237,6 +237,7 @@ export async function buildHandlerContext(
   });
   const tz = await resolveHandlerTz(scope, configFacet.config);
   const locale = resolveHandlerLocale(scope);
+  const visitorKey = resolveVisitorKey(scope, tz.now());
 
   const { _rateLimitPayloadDigest: payloadDigest } = scope.context;
   // The final context (after the phase wrappers below) is what preSave hooks must see.
@@ -262,7 +263,7 @@ export async function buildHandlerContext(
     ...(configFacet.config && { config: configFacet.config }),
     services: buildContextServices(scope.context, {
       ...fileFragment,
-      ...buildRuntimeServices(scope),
+      ...buildRuntimeServices(scope, sinks.notifyCommitSink),
       ...notifyFacet.factoryServices,
     }),
     lifecycle: {
@@ -276,6 +277,7 @@ export async function buildHandlerContext(
     },
     tz,
     locale,
+    ...(visitorKey !== undefined && { visitorKey }),
     // ctx.user as a convenience alias for event.user. Identity switches still use queryAs/writeAs.
     user,
     ...(includeDeleted && { includeDeleted: true }),
@@ -286,6 +288,17 @@ export async function buildHandlerContext(
     hasFeature: authFacet.hasFeature,
   } as HandlerContext; // @cast-boundary engine-bridge
 
+  const phasedContext = restrictHandlerContext(handlerContext, transactionScope, user, phase);
+  finalContext.current = phasedContext;
+  return phasedContext;
+}
+
+function restrictHandlerContext(
+  handlerContext: HandlerContext,
+  transactionScope: HandlerTransactionScope,
+  user: SessionUser,
+  phase: HandlerPhase,
+): HandlerContext {
   const scopedContext =
     transactionScope === "withoutTransaction"
       ? denyEventStoreSurfaces(handlerContext, withoutTransactionDenied)
@@ -295,14 +308,9 @@ export async function buildHandlerContext(
   const memberSafeContext = isMemberResolutionPrincipal(user)
     ? applyMemberResolutionReadOnly(scopedContext)
     : scopedContext;
-  const phasedContext =
-    phase === "reservation"
-      ? denyTransactionBoundSurfaces(memberSafeContext)
-      : phase === "beforeTransaction"
-        ? applyBeforeTransactionReadOnly(memberSafeContext)
-        : memberSafeContext;
-  finalContext.current = phasedContext;
-  return phasedContext;
+  return phase === "reservation" || phase === "beforeTransaction"
+    ? denyTransactionBoundSurfaces(memberSafeContext)
+    : memberSafeContext;
 }
 
 // The handler-name prefix keeps a handler from reproducing the digests the
@@ -350,6 +358,7 @@ export async function runHandlerInstrumented<T>(
   inner: () => Promise<T>,
 ): Promise<T> {
   const { tracer: dispatcherTracer, meter: dispatcherMeter, registry } = ctx;
+  const handlerFeature = registry.getHandlerFeature(type);
   const start = performance.now();
   // Outcome recorded inside the withSpan callback, emitted in finally so
   // success/failure/throw all hit a single metric-emit path.
@@ -360,12 +369,7 @@ export async function runHandlerInstrumented<T>(
     return await dispatcherTracer.withSpan(
       "kumiko.dispatcher.handler",
       {
-        attributes: dispatcherSpanAttributes(
-          type,
-          operation,
-          user,
-          registry.getHandlerFeature(type),
-        ),
+        attributes: dispatcherSpanAttributes(type, operation, user, handlerFeature),
       },
       async (span) => {
         try {
@@ -374,7 +378,7 @@ export async function runHandlerInstrumented<T>(
           const result = await runWithOrigin(
             {
               handler: type,
-              feature: registry.getHandlerFeature(type),
+              feature: handlerFeature,
               entryHandler: { qn: type, risk: resolveEntryHandlerRisk(registry, type, operation) },
             },
             inner,
@@ -430,8 +434,9 @@ export async function* runStreamInstrumented<T>(
   // completion.
   let completedNormally = false;
   let errorClass: string | undefined;
+  const handlerFeature = registry.getHandlerFeature(type);
   const span = dispatcherTracer.startSpan("kumiko.dispatcher.handler", {
-    attributes: dispatcherSpanAttributes(type, "stream", user, registry.getHandlerFeature(type)),
+    attributes: dispatcherSpanAttributes(type, "stream", user, handlerFeature),
   });
   const it = inner();
   // Each pull re-enters both scopes: AsyncLocalStorage does not survive a
@@ -441,7 +446,7 @@ export async function* runStreamInstrumented<T>(
     runWithOrigin(
       {
         handler: type,
-        feature: registry.getHandlerFeature(type),
+        feature: handlerFeature,
         entryHandler: { qn: type, risk: resolveEntryHandlerRisk(registry, type, "stream") },
       },
       () => observabilityContext.run({ activeSpan: span }, fn),

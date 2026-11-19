@@ -2,6 +2,7 @@ import type { StoredEvent } from "./event-store-types.ts";
 import type { HandlerContext } from "./handlers.ts";
 import type { HookPhase } from "./hook-phase.ts";
 import type { EntityId } from "./identifiers.ts";
+import type { TenantDb } from "./tenant-db-types.ts";
 
 // --- Validation ---
 
@@ -40,15 +41,19 @@ export type DeleteContext = {
   // See SaveContext.event — same semantics.
   readonly event: StoredEvent;
   // The executor skipped the record-lock guard for this delete (unsafeSkipLockGuard,
-  // framework system write with a writePurpose, forget). Cascade handling of locked
-  // children follows the same exemption.
+  // framework system write with a writePurpose, forget). A cascaded child carries the root
+  // delete's value; cascade handling of locked children follows the same exemption.
   readonly lockGuardBypassed?: boolean | undefined;
+  // Set when this delete was triggered by an onDelete cascade of the named parent. Entity hooks of
+  // the child use it to skip work the parent delete already covers.
+  readonly cascadedFrom?: { readonly entityName: string; readonly id: EntityId } | undefined;
 };
 
 export type LifecycleResult = SaveContext | DeleteContext;
 
 // --- Lifecycle Hooks ---
 
+// Throw a KumikoError to reject the write with exactly that error; any other throw becomes presave_hook_failed.
 export type PreSaveHookFn = (
   changes: Record<string, unknown>,
   context: HandlerContext & {
@@ -157,6 +162,10 @@ export type EntityHookMap = {
 // into index), tags-bundle (project tags-array as searchable), computed-
 // fields (denormalize related-counts).
 //
+// The contributor receives a read handle scoped to the tenant of the
+// document (plus system-tenant reference data), so it may e.g. read
+// definition rows.
+//
 // IMPORTANT: contributor must be deterministic per (entityName, entityId,
 // state). Async-allowed for future-proofing but discouraged — the
 // indexing path runs once per entity-write, sync extension is
@@ -165,4 +174,5 @@ export type SearchPayloadContributorFn = (args: {
   readonly entityName: string;
   readonly entityId: EntityId;
   readonly state: Record<string, unknown>;
+  readonly db: TenantDb;
 }) => Record<string, unknown> | Promise<Record<string, unknown>>;

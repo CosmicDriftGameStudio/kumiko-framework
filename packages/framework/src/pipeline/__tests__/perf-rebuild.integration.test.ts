@@ -56,12 +56,13 @@ const taskCountProjection: ProjectionDefinition = {
 };
 
 const taskEntity = createEntity({
+  name: "task",
   table: "perf_rebuild_tasks",
   fields: { title: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 
 const feature = defineFeature("perfrebuild", (r) => {
-  r.entity({ name: "task", ...taskEntity });
+  r.entity(taskEntity);
   r.projection(taskCountProjection);
 });
 

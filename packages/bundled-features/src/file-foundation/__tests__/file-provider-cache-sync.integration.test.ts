@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { defineFeature, FILE_PROVIDER_CONFIG_KEY } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  createFilesFeature,
   createInMemoryFileProvider,
   fileRefsTable,
   type InMemoryFileProvider,
@@ -25,14 +26,13 @@ import {
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createDeclaredKeysFeature } from "../../secrets/__tests__/declared-keys-feature.ts";
 import { createSecretsFeature } from "../../secrets/feature.ts";
 import { createSecretsContext } from "../../secrets/secrets-context.ts";
 import { tenantSecretsTable } from "../../secrets/table.ts";
 import { createFileFoundationFeature } from "../feature.ts";
 
-const admin = createTestUser({ id: 31, roles: ["TenantAdmin"] });
+const admin = createTestUser({ id: 31, roles: ["TenantAdmin", "SystemAdmin"] });
 
 type CountingProvider = {
   readonly store: InMemoryFileProvider;
@@ -45,7 +45,9 @@ function createCountingProvider(name: string): CountingProvider {
   let buildCount = 0;
   const feature = defineFeature(`test-file-provider-${name}`, (r) => {
     r.requires({ features: ["file-foundation"] });
-    r.useExtension("fileProvider", name, {
+    r.applyExtension({
+      name: "fileProvider",
+      entity: name,
       build: async () => {
         buildCount += 1;
         return store;

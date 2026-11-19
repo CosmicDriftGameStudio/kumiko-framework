@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-29
-evidence: "samples/recipes/inspection-checklist/src/__tests__/feature.integration.test.ts, samples/recipes/inspection-checklist/src/__tests__/photos.integration.test.ts, packages/framework/src/engine/boot-validator/__tests__/field-conditions.test.ts, packages/framework/src/engine/__tests__/embedded-derived.test.ts, packages/framework/src/files/__tests__/file-field-slots.test.ts"
+evidence: "samples/recipes/inspection-checklist/src/__tests__/feature.integration.test.ts, samples/recipes/inspection-checklist/src/__tests__/photos.integration.test.ts, packages/framework/src/engine/boot-validator/__tests__/field-conditions.test.ts, packages/framework/src/engine/__tests__/embedded-derived.test.ts, packages/framework/src/files/__tests__/file-field-slots.test.ts, packages/framework/src/db/__tests__/embedded-hidden-sub-field-save.integration.test.ts"
 ---
 
 # Embedded-Liste als Checkliste
@@ -74,6 +74,20 @@ Wert ist ein Array von FileRef-IDs.
   Index verglichen, eine geänderte, geleerte oder entfernte Zelle ohne Recht ergibt
   `ownership_denied` mit dem Feldpfad `checkpoints.approvedBy`. Besitzregeln werden gegen die
   Zeile ausgewertet, wie beim Lesefilter.
+- Ein Sub-Feld mit `access.read`, das der Schreiber nicht lesen darf, behält beim Speichern je
+  Zeilenindex den bisherigen Wert, wenn er dort nichts schickt (bei einem Datei-Sub-Feld auch
+  dieselben Datei-Ids). Schickt er einen Wert, auch den gleichen, kommt `validation_error` (400)
+  mit `hidden_row_changed`, damit ein Speichern keinen geratenen Wert bestätigt; ebenso wenn der
+  Wert in einer Zeile landen würde, die er lesen darf. Entfernt sein Speichern eine Zeile mit so
+  einem Wert, kommt `validation_error` (400) mit `hidden_row_removed`. Weil Zeilen keine feste Id
+  haben, bleibt der verborgene Wert am Index. Verschiebt ein Schreiber ohne Leserecht eine Zeile
+  mit so einem Wert, fügt er eine davor ein oder löscht er eine davor, kommt ebenfalls
+  `hidden_row_changed`; eine Liste ohne verborgenen Wert sortiert er frei um. Nicht erkannt wird,
+  wenn er dieselbe Zeile im selben Speichern verschiebt und ihren sichtbaren Inhalt ändert: Dann
+  hängt der Wert an der Zeile, die jetzt an seinem Index steht. Abgeleitete Zellen rechnet der
+  Server nach dem Halten neu, auch aus verborgenen Quellen; eine verborgene abgeleitete Zelle
+  allein hält keine Zeile fest.
+  Aufbewahrung und Löschung als System-User mit `writePurpose` ändern das Sub-Feld wie jeder Leser.
 - `file_refs.fieldName` bleibt der Name des Embedded-Felds. Bindung beim Speichern,
   Mandanten-Check, Aufräumen entfernter Fotos, Lesezugriff über das Recht am Datensatz,
   DSGVO-Löschung (PII-Angabe des Embedded-Felds) und Retention laufen dadurch wie bei einem

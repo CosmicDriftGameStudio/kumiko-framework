@@ -33,9 +33,9 @@ describe("DataTable rowActionMode menu with a row opener", () => {
         />,
       );
     });
-    expect(screen.getByTestId("row-r2-actions-menu")).toBeTruthy();
+    screen.getByTestId("row-r2-actions-menu");
     await user.click(screen.getByTestId("row-r1-actions-menu"));
-    expect(await screen.findByTestId("row-r1-action-open")).toBeTruthy();
+    await screen.findByTestId("row-r1-action-open");
   });
 
   test("adaptive: the opener stays out of the row actions", () => {
@@ -91,8 +91,8 @@ describe("DataTable frame card", () => {
       const frame = screen.getByTestId("dt-frame");
       expect(frame.classList.contains("rounded-lg")).toBe(true);
       expect(frame.classList.contains("border")).toBe(true);
-      expect(within(frame).getByTestId("dt")).toBeTruthy();
-      expect(within(frame).getByTestId("dt-pager")).toBeTruthy();
+      within(frame).getByTestId("dt");
+      within(frame).getByTestId("dt-pager");
     });
   });
 
@@ -100,8 +100,8 @@ describe("DataTable frame card", () => {
     atViewportWidth(1280, () => {
       render(<DataTable {...props} frame="card" />);
       const frame = screen.getByTestId("dt-frame");
-      expect(within(frame).getByTestId("dt")).toBeTruthy();
-      expect(within(frame).getByTestId("dt-pager")).toBeTruthy();
+      within(frame).getByTestId("dt");
+      within(frame).getByTestId("dt-pager");
     });
   });
 

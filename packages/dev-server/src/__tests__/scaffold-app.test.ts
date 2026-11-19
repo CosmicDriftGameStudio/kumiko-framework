@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:tes
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { CURRENT_INFRA_REF, findKumikoPinErrors } from "../managed-files/index.ts";
+import { findKumikoPinErrors } from "../managed-files/index.ts";
 import { FRAMEWORK_AGENTS_IMPORT } from "../scaffold-agent-docs.ts";
 import { type ScaffoldTestSetup, scaffoldApp } from "../scaffold-app.ts";
 
@@ -85,12 +85,12 @@ describe("scaffoldApp", () => {
     expect(pkg.kumiko.deploy.infraRef).toBe("infra-v1");
   });
 
-  test("without an infraRef option the package.json sets the current infra tag", async () => {
+  test("without an infraRef option the package.json has no kumiko.deploy", async () => {
     const dest = join(tmp, "my-shop");
     await scaffoldApp({ name: "my-shop", destination: dest });
 
     const pkg = JSON.parse(readFileSync(join(dest, "package.json"), "utf-8"));
-    expect(pkg.kumiko.deploy.infraRef).toBe(CURRENT_INFRA_REF);
+    expect(pkg.kumiko).toBeUndefined();
   });
 
   test("package.json requires the Bun version whose built-in check runs the typecheck script", async () => {
@@ -121,7 +121,7 @@ describe("scaffoldApp", () => {
       features: [
         {
           name: "files",
-          importPath: "@cosmicdrift/kumiko-bundled-features/files",
+          importPath: "@cosmicdrift/kumiko-framework/files",
           exportName: "createFilesFeature",
           callExpression: "createFilesFeature()",
         },
@@ -356,22 +356,22 @@ describe("scaffoldApp", () => {
     }
 
     const kumikoBin = readFileSync(join(dest, "bin/kumiko.ts"), "utf-8");
-    expect(kumikoBin).toContain("runSchemaCli");
-    expect(kumikoBin).toContain("runConsumerCli");
-    expect(kumikoBin).toContain("runEventsCli");
-    expect(kumikoBin).toContain('if (cmd === "events")');
+    expect(kumikoBin).toContain(
+      'import { runStandaloneCli } from "@cosmicdrift/kumiko-server-runtime/standalone-cli";',
+    );
     expect(kumikoBin).toContain('import { FEATURES } from "../kumiko/schema";');
     expect(kumikoBin).not.toContain("allAppFeatures");
-    expect(kumikoBin).toContain("kmsSlotsOf(envSchema.schema)");
-    expect(kumikoBin).toContain("kmsSlotsOf(kmsEnvSchema)");
-    expect(kumikoBin).toContain(
-      'import { kmsEnvSchema } from "@cosmicdrift/kumiko-bundled-features/crypto-shredding/env";',
-    );
     expect(kumikoBin).toContain("features: FEATURES,");
+    expect(kumikoBin).toContain("  envSchema,");
+    expect(kumikoBin).toContain("process.exitCode = await runStandaloneCli(");
+    expect(kumikoBin).not.toContain("process.exit(");
     // schema apply must heal the mode runProdApp boots with; the prod image ships no kumiko/schema.ts.
     expect(kumikoBin).toContain(
       "...(appConfig.rowLevelSecurity && { rowLevelSecurity: appConfig.rowLevelSecurity }),",
     );
+    expect(kumikoBin.split("\n")[0]).toBe("#!/usr/bin/env bun");
+    expect(kumikoBin.split("\n")[1]).toBe("// kumiko-managed");
+    expect(kumikoBin).toContain('requireKms: process.env["NODE_ENV"] === "production",');
   });
 
   test("framework-owned files carry the kumiko-managed marker", async () => {

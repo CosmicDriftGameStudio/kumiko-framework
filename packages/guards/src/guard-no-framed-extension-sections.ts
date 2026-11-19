@@ -382,6 +382,7 @@ function analyse(files: readonly SourceFile[]): {
 
 export const guard: AstGuard = {
   name: "No-Framed-Extension-Sections Guard",
+  ignoreTag: IGNORE_TAG,
   scan: SCAN,
   hint:
     "An extension-section component registered via extensionSectionComponents is mounted inside the host's own Section/Card frame — it must not render a second Card/SectionCard/CollapsibleSection around its own content, directly or through a delegated child component. " +

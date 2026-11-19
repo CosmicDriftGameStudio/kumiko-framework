@@ -28,7 +28,6 @@ export function RelatedPhotoGrid({
 }): ReactNode {
   const t = useTranslation();
   const { PhotoGrid, Button, Dialog } = usePrimitives();
-  if (PhotoGrid === undefined) return null;
   const { imageField, captionField, badgeField } = photoGrid;
   const leadsOnNarrow = (row: (typeof rows)[number]): boolean => {
     if (photoGrid.badgeFirst !== true || badgeField === undefined) return false;

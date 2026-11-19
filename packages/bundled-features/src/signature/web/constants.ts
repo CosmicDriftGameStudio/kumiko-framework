@@ -46,6 +46,7 @@ export const SignatureHandlers = {
   issueLink: `${SIGNATURE_FEATURE}:write:issue-link`,
   revokeLink: `${SIGNATURE_FEATURE}:write:revoke-link`,
   cancel: `${SIGNATURE_FEATURE}:write:cancel`,
+  forgetSigner: `${SIGNATURE_FEATURE}:write:forget-signer`,
   openByLink: `${SIGNATURE_FEATURE}:write:open-by-link`,
   signByLink: `${SIGNATURE_FEATURE}:write:sign-by-link`,
   declineByLink: `${SIGNATURE_FEATURE}:write:decline-by-link`,
@@ -59,6 +60,7 @@ export const SignatureQueries = {
 
 export const SignatureJobs = {
   sweep: `${SIGNATURE_FEATURE}:job:sweep`,
+  eraseUnfinishedSigners: `${SIGNATURE_FEATURE}:job:erase-unfinished-signers`,
 } as const;
 
 export const SIGNATURE_EVENT_SHORT = {
@@ -71,6 +73,7 @@ export const SIGNATURE_EVENT_SHORT = {
 export const SIGNATURE_FAILURE_REASON = {
   DocumentChanged: "document-changed",
   SignatureImageMissing: "signature-image-missing",
+  SignaturePageTooLarge: "signature-page-too-large",
 } as const;
 
 export type SignatureFailureReason =

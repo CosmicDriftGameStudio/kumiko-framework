@@ -13,14 +13,13 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Glob } from "bun";
 import { gitEnv } from "@cosmicdrift/kumiko-guards";
 import {
   compareVersions,
   parseFeatureChangelog,
   validateChangelog,
 } from "../packages/framework/src/engine/feature-changelog";
-import { resolveFeatureTarget } from "../bin/commands/changes";
+import { findChangesFiles, resolveFeatureTarget } from "../bin/commands/changes";
 import { parseChangesetChanges, type PendingChange } from "../packages/framework/src/engine/changeset-changes";
 import { parseChangesetBumps } from "./guard-no-major-gt-zero";
 
@@ -295,12 +294,6 @@ export function findChangesetViolations(
     }
   }
   return violations;
-}
-
-export function findChangesFiles(repoRoot: string): string[] {
-  return Array.from(new Glob("packages/**/changes.json").scanSync({ cwd: repoRoot }))
-    .filter((rel) => !rel.split("/").some((segment) => segment === "node_modules" || segment === "dist"))
-    .sort();
 }
 
 export function findChangelogViolations(

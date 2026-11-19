@@ -27,18 +27,19 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 // --- Fixture entity ---
 
 const invoiceEntity = createEntity({
+  name: "asof-invoice",
   table: "read_asof_invoices",
   fields: {
     customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
     status: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const invoiceTable = buildEntityTable("asof-invoice", invoiceEntity);
+const invoiceTable = buildEntityTable(invoiceEntity);
 
 // --- Feature ---
 
 const asOfFeature = defineFeature("asoftest", (r) => {
-  r.entity({ name: "asof-invoice", ...invoiceEntity });
+  r.entity(invoiceEntity);
 
   // Two domain events at different versions. v1→v2 migration bumps the
   // "amount" field from string to integer cents, following the same pattern.
@@ -81,6 +82,7 @@ const asOfFeature = defineFeature("asoftest", (r) => {
     handler: async (event, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: event.payload.id,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "asof-invoice",
         type: approved.name,
         payload: { amount: event.payload.amount, approvedBy: event.payload.approvedBy },

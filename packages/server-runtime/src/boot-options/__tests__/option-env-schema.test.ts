@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { classifyField, composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
+import { classifyField, composeEnvSchema, inspectEnv } from "@cosmicdrift/kumiko-framework/env";
 import * as z from "zod";
 import { withBootOptionEnvBlocks } from "../option-env-schema.ts";
 
@@ -67,7 +67,7 @@ describe("withBootOptionEnvBlocks", () => {
       kmsMode: "required",
       billing: { stripe: { priceToTier: {} }, defaultTier: "free" },
     });
-    expect(kindOf(wired, "PLATFORM_KEK")).toBe("optional");
+    expect(kindOf(wired, "PLATFORM_KEK")).toBe("required");
     expect(wired.sources["PLATFORM_KEK"]).toBe("runProdApp.kmsMode");
     expect(wired.sources["STRIPE_API_KEY"]).toBe("runProdApp.billing");
 
@@ -76,6 +76,37 @@ describe("withBootOptionEnvBlocks", () => {
       kmsMode: { plaintextReason: "test" },
     });
     expect(kindOf(plaintext, "PLATFORM_KEK")).toBe("absent");
+  });
+
+  test('kmsMode "required" lists the KMS trio as required; a ciphertext twin stands in for its slot', () => {
+    const KMS_TRIO = ["PLATFORM_KEK", "SUBJECT_KEYS_DATABASE_URL", "KUMIKO_BLIND_INDEX_KEY"];
+    const wired = withBootOptionEnvBlocks(appSchema(), { features: [], kmsMode: "required" });
+    const statusOf = (env: Record<string, string>) =>
+      Object.fromEntries(
+        inspectEnv(wired.schema, env, { sources: wired.sources })
+          .filter((row) => KMS_TRIO.includes(row.name))
+          .map((row) => [row.name, row.status]),
+      );
+
+    expect(statusOf({})).toEqual({
+      PLATFORM_KEK: "missing",
+      SUBJECT_KEYS_DATABASE_URL: "missing",
+      KUMIKO_BLIND_INDEX_KEY: "missing",
+    });
+    expect(
+      statusOf({
+        PLATFORM_KEK_CIPHERTEXT: "wrapped",
+        KUMIKO_BLIND_INDEX_KEY_CIPHERTEXT: "wrapped",
+        SUBJECT_KEYS_DATABASE_URL: "postgres://keys",
+      }),
+    ).toEqual({
+      PLATFORM_KEK: "unset",
+      SUBJECT_KEYS_DATABASE_URL: "set",
+      KUMIKO_BLIND_INDEX_KEY: "unset",
+    });
+
+    const optional = withBootOptionEnvBlocks(appSchema(), { features: [], kmsMode: "optional" });
+    for (const key of KMS_TRIO) expect(kindOf(optional, key)).toBe("optional");
   });
 
   test("seed shortcuts require only the accounts and tenant id they seed", () => {

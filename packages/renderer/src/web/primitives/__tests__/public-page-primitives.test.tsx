@@ -23,7 +23,7 @@ describe("StickyActionBar", () => {
     const back = screen.getByRole("button", { name: "Zurück" });
     fireEvent.click(back);
     expect(onBack).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("button", { name: "Weiter" })).toBeTruthy();
+    screen.getByRole("button", { name: "Weiter" });
   });
 
   test("pins to the bottom on narrow viewports with the safe-area inset as bottom padding", () => {
@@ -70,7 +70,7 @@ describe("CopyButton", () => {
     });
 
     expect(written).toEqual(["Zeile 1\nZeile 2"]);
-    expect(screen.getByRole("button", { name: "Kopiert" })).toBeTruthy();
+    screen.getByRole("button", { name: "Kopiert" });
   });
 
   test("a rejected clipboard write keeps the original label", async () => {
@@ -84,7 +84,7 @@ describe("CopyButton", () => {
     });
 
     expect(screen.queryByRole("button", { name: "Kopiert" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Text kopieren" })).toBeTruthy();
+    screen.getByRole("button", { name: "Text kopieren" });
   });
 
   // Runs after the stubbing tests above; proves afterEach restored the pre-suite descriptor.
@@ -158,9 +158,7 @@ describe("PromoPanel", () => {
     const panel = screen.getByTestId("promo");
     expect(panel.className).toContain("bg-promo");
     expect(panel.className).not.toContain("bg-muted");
-    expect(
-      screen.getByRole("heading", { name: "Mit Konto erreicht dieser Octavia alle Kanäle." }),
-    ).toBeTruthy();
+    screen.getByRole("heading", { name: "Mit Konto erreicht dieser Octavia alle Kanäle." });
     expect(panel.textContent).toContain("Das war ein Kanal");
     expect(panel.textContent).toContain("Kampagne über bis zu 60 Tage.");
     expect(screen.getByTestId("promo-cta").getAttribute("href")).toBe("/signup");

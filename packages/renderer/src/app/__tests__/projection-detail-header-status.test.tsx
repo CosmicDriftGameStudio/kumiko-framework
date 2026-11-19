@@ -5,16 +5,15 @@ import type { ReactNode } from "react";
 import { stubDispatcher } from "../../__tests__/stub-dispatcher.ts";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import { UserRolesProvider } from "../../context/user-roles-context.tsx";
-import type { Dispatcher } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import { PageHeaderSlotAvailableProvider } from "../../page-header-slot.ts";
 import {
-  type CorePrimitives,
   type PageHeaderProps,
   PrimitivesProvider,
   type StatusBadgeProps,
 } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { AppFeaturesProvider } from "../app-features-context.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
@@ -37,7 +36,7 @@ const TestStatusBadge = ({ value, tone, testId }: StatusBadgeProps): ReactNode =
   </span>
 );
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: passChildren,
   Field: passChildren,
@@ -53,6 +52,13 @@ const testPrimitives: CorePrimitives = {
   Card: passChildren,
   Grid: passChildren,
   GridCell: passChildren,
+  Metric: ({ label, value, testId }) => (
+    <div>
+      <span>{label}</span>
+      <span data-testid={`${testId}-value`}>{value}</span>
+    </div>
+  ),
+  MetricBand: passChildren,
   Text: ({ children, testId }) => <span data-testid={testId}>{children}</span>,
   Heading: noop,
   Dialog: noop,
@@ -63,13 +69,13 @@ const testPrimitives: CorePrimitives = {
   Link: noop,
   PageHeader: TestPageHeader,
   StatusBadge: TestStatusBadge,
-};
+});
 
 const { dispatcher } = stubDispatcher({
-  query: (async () => ({
+  query: async () => ({
     isSuccess: true,
     data: { id: "r1", name: "Release 1.2", state: "in_review", due: "2026-11-05" },
-  })) as unknown as Dispatcher["query"],
+  }),
 });
 
 const METRIC_VALUE_ID = "kumiko-screen-projection-detail-metric-due-value";

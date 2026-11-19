@@ -21,10 +21,10 @@ const archiveForm: ActionFormScreenDefinition = {
 function renderForm(definition: ActionFormScreenDefinition, searchParams: Record<string, string>) {
   const calls: unknown[] = [];
   const dispatcher: Dispatcher = createMockDispatcher({
-    write: (async (_type: string, payload: unknown) => {
+    write: async (_type: string, payload: unknown) => {
       calls.push(payload);
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
+    },
   });
   render(
     <DispatcherProvider dispatcher={dispatcher}>

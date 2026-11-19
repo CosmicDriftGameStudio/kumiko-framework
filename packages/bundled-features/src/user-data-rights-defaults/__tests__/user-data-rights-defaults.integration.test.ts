@@ -24,6 +24,7 @@ import {
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  createFilesFeature,
   createInMemoryFileProvider,
   deriveKey,
   fileRefsTable,
@@ -40,7 +41,6 @@ import { createComplianceProfilesFeature } from "../../compliance-profiles/index
 import { createConfigFeature } from "../../config/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
 import { createFileFoundationFeature } from "../../file-foundation/index.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
 import {
   createUserFeature,
@@ -63,6 +63,7 @@ let stack: TestStack;
 // remaining personal shapes: userOwned (`of: <owner field>`) and recordOwned
 // (`of: "id"`) hard-delete; tenantOwned and subjectRef only sever the link.
 const vehicleEntity = createEntity({
+  name: "vehicle",
   table: "test_vehicles",
   fields: {
     dealerPhoto: createImageField({
@@ -80,7 +81,7 @@ const vehicleEntity = createEntity({
 });
 
 const vehicleFeature = defineFeature("testVehicleFileFields", (r) => {
-  r.entity({ name: "vehicle", ...vehicleEntity });
+  r.entity(vehicleEntity);
   r.writeHandler({
     name: "submit-intake",
     schema: z.object({}),
@@ -105,7 +106,11 @@ const vehicleFeature = defineFeature("testVehicleFileFields", (r) => {
 const bootGuardFileProvider = createInMemoryFileProvider();
 const testFileProviderFeature = defineFeature("testFileProviderBootGuard", (r) => {
   r.requires({ features: ["file-foundation"] });
-  r.useExtension("fileProvider", "test", { build: async () => bootGuardFileProvider });
+  r.applyExtension({
+    name: "fileProvider",
+    entity: "test",
+    build: async () => bootGuardFileProvider,
+  });
 });
 
 const features = [

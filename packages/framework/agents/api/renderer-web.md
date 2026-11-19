@@ -7,6 +7,7 @@ Import from `@cosmicdrift/kumiko-renderer/web`. Types used here but not exported
 ## Functions
 
 ```ts
+function AccentScope(props: AccentScopeProps): ReactElement;
 function ActionMenu(props: ActionMenuProps): ReactNode;
 function AiSurface(props: { children: ReactNode; title?: string; label?: string; testId?: string; as?: "section" | "aside" | "div"; }): ReactNode; // Light blue area that marks content as AI-generated.
 function AiTextArea(props: AiTextAreaProps): ReactNode; // Multi-line variant of {@link AiTextField}.
@@ -27,7 +28,8 @@ function DateField(props: DateFieldProps): ReactNode; // Date field = Field + In
 function DefaultAppShell(props: DefaultAppShellProps): ReactNode;
 function DetailList(props: { valueWeight?: "medium" | "normal"; layout?: "default" | "sidebar"; rows: { id?: string; label: string; value: ReactNode; emphasize?: boolean; }[]; testId?: string; }): ReactNode; // Read-only key-value list for detail views (dimmed label on the left, value on the right).
 function DispatcherProvider(props: DispatcherProviderProps): ReactNode;
-function Drawer(props: DrawerProps): ReactNode; // Slide-in panel beside a list (e.g. mail reader next to the inbox) — thin wrapper over the Sheet primitive with header/body/footer slots so screens skip per-route Radix boilerplate.
+function DivergingBarChart(props: DivergingBarChartProps): ReactNode; // Signed horizontal bars around a centre line, largest absolute value first (tornado chart).
+function Drawer(props: DrawerPanelProps): ReactNode; // Slide-in panel beside a list (e.g. mail reader next to the inbox) — thin wrapper over the Sheet primitive with header/body/footer slots so screens skip per-route Radix boilerplate.
 function DropdownMenuCheckboxItem(props: ComponentPropsWithoutRef<typeof Primitive.CheckboxItem>): ReactNode;
 function DropdownMenuContent(props: ComponentPropsWithoutRef<typeof Primitive.Content> & { portalContainer?: HTMLElement | null; }): ReactNode;
 function DropdownMenuItem(props: ComponentPropsWithoutRef<typeof Primitive.Item>): ReactNode;
@@ -47,11 +49,13 @@ function EmptyState(props: { icon?: ReactNode; title: string; description?: stri
 function ErrorState(props: { error: DispatcherError; onRetry?: () => void; testId?: string; }): ReactNode; // Error state based on the Banner primitive, with a retry button.
 function FeedList(props: { rows: FeedRow[]; emptyContent?: ReactNode; testId?: string; }): ReactNode; // Non-tabular compact list (e.g. "upcoming appointments") — primary text plus an optional right-aligned trailing value for each row.
 function FileField(props: FileFieldProps): ReactNode; // File upload = Field + Input(kind:"file"|"image"), based on FileRef.
+function FilePickButton(props: FilePickButtonProps): ReactNode; // Button that opens the file picker and hands the picked files over without uploading them.
 function FileViewAction(props: { fileId: string; }): ReactNode; // "View" action for a stored file: renders only for PDFs and opens the viewer in a drawer.
 function FloatingPanel(props: FloatingPanelProps): ReactNode; // Non-modal panel floating above the page: draggable by its header, resizable from all edges and corners, clamped to the viewport, geometry optionally remembered.
 function FormScreenShell(props: { children: ReactNode; className?: string; testId?: string; maxWidth?: FormScreenShellWidth; fillHeight?: boolean; }): ReactNode;
 function HeaderActionGroup(props: HeaderActionGroupProps): ReactNode;
 function HeaderActionPinned(props: { children: ReactNode; hideOnListScreens?: boolean; }): ReactNode; // Marks an app header action (e.g. the assistant trigger) that stays in the bar on a phone, next to the bell; the rest of `headerActions` folds into the "…" menu.
+function HistogramChart(props: HistogramChartProps): ReactNode; // Bars over numeric bins: each bar spans its start..end on the x axis.
 function HtmlMailFrame(props: { html: string; title: string; allowRemoteImages: boolean; testId?: string; }): ReactNode; // Renders server-sanitized mail HTML in a script-free sandboxed iframe that grows to its content.
 function Icon(props: { name: NavIconKey; className?: string; }): ReactNode;
 function InfinityList<TData = unknown, TRow = Readonly<Record<string, unknown>>>(props: InfinityListProps<TData, TRow>): ReactNode; // Cursor-paginated scroll list (mail inbox, activity feeds) — loads the next page when the end sentinel becomes visible (IntersectionObserver), instead of a pager bar like QueryTable/entityList.
@@ -70,6 +74,7 @@ function ModeSwitch<T extends string>(props: { value: T | null; options: { value
 function NavProvider(props: NavProviderProps): ReactNode;
 function NavTree(props: NavTreeProps): ReactNode;
 function NumberField(props: NumberFieldProps): ReactNode; // Number field = Field + Input(kind:"number"); avoids repeating the id/name/value/onChange wiring at each screen.
+function NumericLineChart(props: NumericLineChartProps): ReactNode; // Lines over a numeric x axis (e.g. years) with y ticks, reference lines and a hover tooltip.
 function PageSection(props: PageSectionProps): ReactNode;
 function PdfPreview(props: PdfPreviewProps): ReactNode; // PDF pages rendered with pdf.js; pages render lazily as they scroll into view.
 function PhotoSlots(props: PhotoSlotsProps): ReactNode; // Guided photo capture: one tile per requested shot in a two-column grid, each its own camera/gallery picker, filled tiles show the thumbnail.
@@ -82,7 +87,7 @@ function PreviewWidthFrame(props: { device: PreviewDevice; children: ReactNode; 
 function PrimitivesProvider(props: PrimitivesProviderProps): ReactNode;
 function ProfileMenu(props: ProfileMenuProps): ReactNode;
 function ProgressBar(props: { value: number; tone?: ProgressTone; size?: "default" | "thin"; ariaLabel?: string; className?: string; testId?: string; }): ReactNode; // Progress bar, `value` 0..1 (clamped).
-function ProgressList(props: { rows: ProgressListRow[]; emptyContent?: ReactNode; testId?: string; }): ReactNode; // Label/value header and progress bar for each entry (for example, loan repayment progress).
+function ProgressList(props: { rows: ProgressListRow[]; emptyContent?: ReactNode; testId?: string; }): ReactNode; // Label/value header with its progress bar right below, per entry (for example, loan repayment progress).
 function PublicShell(props: PublicShellProps): ReactNode; // One header and footer for anonymous pages; `focus` narrows to a task column, `card` centers a single card (sign-in).
 function QueryTable<TData = unknown>(props: QueryTableProps<TData>): ReactNode;
 function RailField(props: { children: ReactNode; }): ReactNode;
@@ -102,8 +107,6 @@ function ScreenWidthProvider(props: { width: FormWidth | undefined; children: Re
 function SectionCard(props: { title?: string; subtitle?: string; action?: ReactNode; footer?: ReactNode; children: ReactNode; testId?: string; }): ReactNode; // Section with a title and optional action slot (range switcher, filter) — replaces repeated `<section className={CARD}>…<h2>` blocks in custom screens.
 function SectionNavLayout(props: SectionNavLayoutProps): ReactNode; // Content column plus an "On this page" navigation in a right column (from xl), for custom screens.
 function SelectField(props: SelectFieldProps): ReactNode; // Select field = Field + Input(kind:"select").
-function SenderFrame(props: { children: ReactNode; label?: string; testId?: string; }): ReactNode; // Sand frame with one white sheet inside, for content that mimics a letter or mail.
-function SenderSheet(props: { children: ReactNode; testId?: string; compact?: boolean; }): ReactNode; // The white sheet alone, for a frame that holds several sheets (PDF pages, thumbnails).
 function SideBySideTable(props: { caption: string; rowHeaderLabel: string; columns: SideBySideTableColumn[]; rows: SideBySideTableRow[]; rowHeaderWidth?: number; rowHeaderTone?: "muted" | "foreground"; testId?: string; }): ReactNode; // Small read-only grid with real table semantics (`th scope`) whose cells are arbitrary React nodes — for side-by-side comparisons like "from the document" vs.
 function Sidebar(props: SidebarProps): ReactNode;
 function SidebarBrand(props: SidebarBrandProps): ReactNode;
@@ -113,8 +116,10 @@ function SidebarMenuItem(props: React.ComponentProps<"li">): React.JSX.Element;
 function SidebarPanel(props: SidebarPanelProps): ReactNode; // Renders its children into the second sidebar column when the shell offers one.
 function SidebarProvider(props: React.ComponentProps<"div"> & { defaultOpen?: boolean; open?: boolean; onOpenChange?: (open: boolean) => void; }): React.JSX.Element;
 function SidebarUser(props: SidebarUserProps): ReactNode;
+function SignedBarChart(props: SignedBarChartProps): ReactNode; // Stacked bars per bucket: positive values rise from the zero line, negative ones hang below.
 function Sparkline(props: { points: number[]; className?: string; }): ReactNode;
 function Stack(props: StackProps): ReactNode;
+function StackedAreaChart(rawProps: StackedAreaChartProps): ReactNode; // Stacked bands over time.
 function StatCard(props: { icon?: ReactNode; label: string; value: string; sub?: string; tone?: StatTone; accentColor?: string; delta?: StatDelta; trend?: string; spark?: number[]; testId?: string; link?: StatLink; navigable?: boolean; inset?: boolean; subBelow?: boolean; boardPadding?: boolean; children?: ReactNode; }): ReactNode; // Icon-bearing metric tile with an optional delta chip, trend line, and sparkline.
 function StatusBadge(props: { tone: StatusBadgeTone; dot?: boolean; children: ReactNode; className?: string; testId?: string; }): ReactNode; // Pill badge with a status dot.
 function StatusBarChart(props: { entries: StatusBarEntry[]; ariaLabel: string; startLabel?: string; endLabel?: string; highlightLast?: boolean; dense?: boolean; testId?: string; }): ReactNode; // Status bar strip (e.g. 90-day uptime): variable-height bars with gradient fade + tick line on top; the last entry gets a "now" accent stripe.
@@ -132,6 +137,7 @@ function UploadZone(props: UploadZoneProps): ReactNode; // Drop zone + multi-fil
 function UserRolesProvider(props: UserRolesProviderProps): ReactNode;
 function WorkspaceShell(props: WorkspaceShellProps): ReactNode;
 function WorkspaceSwitcher(props: WorkspaceSwitcherProps): ReactNode; // Requires an ancestor `SidebarProvider` (see `../ui/sidebar`) — this component renders `SidebarMenuButton`, which calls `useSidebar()` internally and throws ("useSidebar must be used within a SidebarProvider.") when rendered outside one.
+function accentColorVars(color: string): CSSProperties | undefined; // Theme variables that tint a subtree with `color`; undefined unless `color` is a hex color.
 function applyTokensToCssVars(_tokens: Tokens): void; // Historically wrote tokens to :root as CSS variables.
 function buildFileUploadFormData(input: FileUploadFormDataInput): FormData;
 function buildNavRegistrySlice(schema: FeatureSchema, allowedNavQns?: ReadonlySet<string>): NavRegistrySlice;
@@ -150,9 +156,10 @@ function fetchFileRefBlob(fileRefId: string): Promise<{ blob: Blob; fileName: st
 function fileNameFromContentDisposition(header: string | null): string | undefined;
 function filterAppSchemaNavsByAllowlist(schema: AppSchema, allowedNavQns: ReadonlySet<string>, reparentOverrides?: ReadonlyMap<string, NavReparentOverride>): AppSchema;
 function filterByAccess(workspaces: WorkspaceSchema[], userRoles: string[] | undefined): WorkspaceSchema[];
-function formatMoney(amountMinor: number, currency: string, locale?: string, fractionDigits?: number): string;
+function formatMoney(amountMinor: number, currency: string, options?: FormatMoneyOptions): string;
 function formatPath(target: ScreenTarget): string;
 function formatRelativeWhen(value: string, now?: number): string;
+function niceTicks(min: number, max: number, tickCount: number): number[]; // Evenly spaced round tick values covering min..max; the outer ticks may lie beyond the data.
 function parsePath(pathname: string, hasWorkspaces?: boolean): NavRoute | undefined;
 function parseTargetFromSearchParams(params: Readonly<Record<string, string>>): TargetRef | undefined; // Parses the current search parameters back into a TargetRef.
 function postWithDownload(dispatcher: Dispatcher, type: string, payload: unknown): Promise<DispatcherError | null>;
@@ -167,10 +174,12 @@ function synthesizeActionFormScreen(screen: ActionFormScreenDefinition | SecretM
 function uploadFileRef(file: Blob, target?: FileRefTarget): Promise<string>; // Posts one file to the stack's file endpoint (double-submit CSRF) and returns the new FileRef id, or the claim handle when the server issued one (anonymous uploads), which a save must submit.
 function useBrowserNavApi(options?: { hasWorkspaces?: boolean; basePath?: string; features?: FeatureSchema[]; }): NavApi; // React hook that builds a NavApi from browser history.
 function useBrowserTokensApi(): TokensApi; // Builds a TokensApi for the browser.
+function useDebouncedValue<T>(value: T, delayMs: number): T; // Returns `value` once it has stopped changing for `delayMs`.
+function useDemoMode(): DemoModePayload | null;
 function useDispatchTarget(): (target: TargetRef) => void; // Recommended production dispatch.
 function useDispatcher(): Dispatcher;
 function useDispatcherStatus(): DispatcherStatus;
-function useDraft<T extends object>(defaults: T, options?: { idPrefix?: string; }): { draft: T; patch: (changes: Partial<T>) => void; reset: () => void; field: <K extends keyof T>(name: K) => { id: string; name: string; value: T[K]; onChange: (v: T[K]) => void; }; }; // Form state for calculator screens: a draft object plus `patch` for partial updates, and `field(name)` that provides `{ id, name, value, onChange }` props ready for field widgets (NumberField/MoneyField/PercentField).
+function useDraft<T extends object>(defaults: T, options?: { idPrefix?: string; initialFrom?: { key: string | null; values: T | undefined; }; }): { draft: T; loadedKey: string | null; patch: (changes: Partial<T>) => void; reset: () => void; field: <K extends keyof T>(name: K) => { id: string; name: string; value: T[K]; onChange: (v: T[K]) => void; }; }; // Form state for calculator screens: a draft object plus `patch` for partial updates, and `field(name)` that provides `{ id, name, value, onChange }` props ready for field widgets (NumberField/MoneyField/PercentField).
 function useFileMeta(fileId: string): FileMeta | null;
 function useForm<TValues extends FormValues, TCtx = unknown>(options: UseFormOptions<TValues, TCtx>): UseFormResult<TValues>;
 function useIsNarrowViewport(): boolean;
@@ -178,9 +187,14 @@ function useIsViewportBelow(breakpointPx: number): boolean;
 function useLiveEvents(): LiveEventSubscriber; // Hook for a useQuery-like consumer.
 function useLocale(): LocaleResolver; // Provides the current LocaleResolver and automatically subscribes to locale changes — the calling component re-renders when the language changes.
 function useNav(): NavApi;
-function usePresence(props: UsePresenceOptions): UsePresenceResult; // Announces the user on one record: a heartbeat right away and every 15 s, a leave when the record closes.
+function usePresence(props: UsePresenceOptions): UsePresenceResult; // Announces the user on one record: a heartbeat right away and every 15 s, a leave when the record closes; pauses while the page is hidden.
 function usePresenceList(props: UsePresenceListOptions): UsePresenceListResult; // Who else is on each of the given rows, for badges in a list.
 function usePrimitives(): PrimitivesRegistry;
+function useQuery<TPayload, TResult>(contract: QueryContract<TPayload, TResult>, payload: NoInfer<TPayload>, options?: UseQueryOptions): UseQueryResult<TResult>;
+function useQuery<TData = unknown>(type: string, payload: unknown, options?: UseQueryOptions): UseQueryResult<TData>;
+function useQuery<TPayload, TResult>(contract: QueryContract<TPayload, TResult>, payload: NoInfer<TPayload>, options?: UseQueryOptions): UseQueryResult<TResult>;
+function useQuery<TData = unknown>(type: string, payload: unknown, options?: UseQueryOptions): UseQueryResult<TData>;
+function useQuery<TPayload, TResult>(contract: QueryContract<TPayload, TResult>, payload: NoInfer<TPayload>, options?: UseQueryOptions): UseQueryResult<TResult>;
 function useQuery<TData = unknown>(type: string, payload: unknown, options?: UseQueryOptions): UseQueryResult<TData>;
 function useResolvers(): ReadonlyMap<string, ResolverComponent>;
 function useShellFocusMode(): void; // Screen side: call while the screen is mounted to get the focused shell.
@@ -197,12 +211,9 @@ function useUserRoles(): string[] | undefined;
 
 ```ts
 const BROWSER_LOCALE_STORAGE_KEY: "kumiko:locale";
-const DrawnFilter: LucideIcon;
-const DrawnPanel: LucideIcon;
 const DrawnPencil: LucideIcon;
 const DrawnSearch: LucideIcon;
 const DrawnSparkles: LucideIcon;
-const DrawnWand: LucideIcon;
 const DropdownMenu: FC<Primitive.DropdownMenuProps>;
 const DropdownMenuPortal: FC<Primitive.DropdownMenuPortalProps>;
 const DropdownMenuTrigger: ForwardRefExoticComponent<Primitive.DropdownMenuTriggerProps & RefAttributes<HTMLButtonElement>>;
@@ -229,6 +240,12 @@ class FileUploadFailedError extends Error { // Carries the server's own `error` 
 ## Types
 
 ```ts
+type AccentScopeProps = {
+  color: string; // Tenant accent as #rgb, #rrggbb or #rrggbbaa; any other value keeps the theme colors.
+  className?: string;
+  testId?: string;
+  children: ReactNode;
+};
 type ActionMenuProps = {
   trigger: ReactNode; // Free-form Trigger-Component — Avatar, IconButton, Pill, Custom.
   triggerLabel?: string; // aria-label for the trigger wrapper.
@@ -292,6 +309,20 @@ type CardProps = { // Generic card chrome (border/background/radius/shadow plus 
   testId?: string;
   dataAttributes?: DataAttributes;
 };
+type ChartLine = ChartSeries & { // Unstacked line drawn over a StackedAreaChart on the same y scale.
+  dashed?: boolean;
+};
+type ChartMarker = {
+  atMs: number;
+  label: string;
+  color?: string; // Colors the pin and, on StackedAreaChart, draws a dashed guide line in the plot.
+  legendLabel?: string; // Translated by the caller.
+};
+type ChartSeries = {
+  key: string;
+  label: string; // Translated by the caller.
+  points: TimeseriesPoint[];
+};
 type ClientFeatureDefinition = {
   name: string;
   providers?: ComponentType<{ children: ReactNode; }>[]; // Context providers wrapped around the complete renderer tree.
@@ -351,7 +382,7 @@ type CorePrimitives = {
   Field: ComponentType<FieldProps>;
   Input: ComponentType<InputProps>;
   DataTable: ComponentType<DataTableProps>;
-  EmbeddedListInput?: ComponentType<EmbeddedListInputProps>; // Optional (unlike the other Core-Primitives) so existing partial CorePrimitives mocks in tests keep compiling — additive rollout of a new primitive shouldn't force every test double to grow a stub.
+  EmbeddedListInput: ComponentType<EmbeddedListInputProps>;
   Form: ComponentType<FormProps>;
   Section: ComponentType<SectionProps>;
   Card: ComponentType<CardProps>;
@@ -361,34 +392,34 @@ type CorePrimitives = {
   Heading: ComponentType<HeadingProps>;
   Dialog: ComponentType<DialogProps>;
   Modal: ComponentType<ModalProps>;
-  Drawer?: ComponentType<DrawerProps>; // Optional (unlike the other Core-Primitives) so existing partial CorePrimitives mocks in tests keep compiling — additive rollout of a new primitive shouldn't force every test double to grow a stub.
+  Drawer: ComponentType<DrawerProps>;
   Lightbox: ComponentType<LightboxProps>;
   ConfigSourceBadge: ComponentType<ConfigSourceBadgeProps>;
   ConfigCascadeView: ComponentType<ConfigCascadeViewProps>;
   Link: ComponentType<LinkProps>;
-  Progress?: ComponentType<ProgressProps>; // Optional (unlike the other Core-Primitives) so existing partial CorePrimitives mocks in tests keep compiling — additive rollout of a new primitive shouldn't force every test double to grow a stub.
-  StepBar?: ComponentType<StepBarProps>; // Optional (unlike the other Core-Primitives) so existing partial CorePrimitives mocks in tests keep compiling — additive rollout of a new primitive shouldn't force every test double to grow a stub.
-  WizardStepGroup?: ComponentType<WizardStepGroupProps>; // Optional (unlike the other Core-Primitives) so existing partial CorePrimitives mocks in tests keep compiling — additive rollout of a new primitive shouldn't force every test double to grow a stub.
-  Tabs?: ComponentType<TabsProps>; // Optional (unlike the other Core-Primitives) so existing partial CorePrimitives mocks in tests keep compiling — additive rollout of a new primitive shouldn't force every test double to grow a stub.
-  StatusBadge?: ComponentType<StatusBadgeProps>; // Optional (unlike the other Core-Primitives) so existing partial CorePrimitives mocks in tests keep compiling — additive rollout of a new primitive shouldn't force every test double to grow a stub.
-  Metric?: ComponentType<MetricProps>; // Optional (unlike the other Core-Primitives) so existing partial CorePrimitives mocks in tests keep compiling — additive rollout of a new primitive shouldn't force every test double to grow a stub.
-  JsonView?: ComponentType<JsonViewProps>; // Optional (unlike the other Core-Primitives) so existing partial CorePrimitives mocks in tests keep compiling — additive rollout of a new primitive shouldn't force every test double to grow a stub.
-  FileValueList?: ComponentType<FileValueListProps>; // Optional (unlike the other Core-Primitives) so existing partial CorePrimitives mocks in tests keep compiling — additive rollout of a new primitive shouldn't force every test double to grow a stub.
-  FillContainer?: ComponentType<FillContainerProps>; // Optional (unlike the other Core-Primitives) so existing partial CorePrimitives mocks in tests keep compiling — additive rollout of a new primitive shouldn't force every test double to grow a stub.
-  PageHeader?: ComponentType<PageHeaderProps>; // Optional — additive rollout, see StickyActionBar.
-  MetricBand?: ComponentType<MetricBandProps>; // Optional — additive rollout, see StickyActionBar.
-  RecordBreadcrumb?: ComponentType<RecordBreadcrumbProps>; // Optional — without it the detail screen renders the path as plain links.
-  RecordSummary?: ComponentType<RecordSummaryProps>; // Optional — without it the summary renders as plain text.
-  PhotoGrid?: ComponentType<PhotoGridProps>; // Optional — without it a relatedList with `photoGrid` falls back to its table.
-  StepList?: ComponentType<StepListProps>; // Optional — without it a stepList section renders nothing.
-  RecordSteps?: ComponentType<RecordStepsProps>; // Optional — without it the steps render as a plain card.
-  ActionOverflowMenu?: ComponentType<ActionOverflowMenuProps>; // Optional: without an implementation, callers with >2 header/row actions fall back to today's all-buttons-inline rendering.
-  SecretReveal?: ComponentType<SecretRevealProps>; // Optional (unlike the other Core-Primitives) so existing partial CorePrimitives mocks in tests keep compiling — additive rollout of a new primitive shouldn't force every test double to grow a stub.
-  StickyActionBar?: ComponentType<StickyActionBarProps>; // Optional (unlike the other Core-Primitives) so existing partial CorePrimitives mocks in tests keep compiling — additive rollout of a new primitive shouldn't force every test double to grow a stub.
-  CopyButton?: ComponentType<CopyButtonProps>; // Optional — additive rollout, see StickyActionBar.
-  ShareButton?: ComponentType<ShareButtonProps>; // Optional — additive rollout, see StickyActionBar.
-  PromoPanel?: ComponentType<PromoPanelProps>; // Optional — additive rollout, see StickyActionBar.
-  EmptyState?: ComponentType<EmptyStateProps>; // Optional — additive rollout, see StickyActionBar.
+  Progress: ComponentType<ProgressProps>;
+  StepBar: ComponentType<StepBarProps>;
+  WizardStepGroup: ComponentType<WizardStepGroupProps>;
+  Tabs: ComponentType<TabsProps>;
+  StatusBadge: ComponentType<StatusBadgeProps>;
+  Metric: ComponentType<MetricProps>;
+  JsonView: ComponentType<JsonViewProps>;
+  FileValueList: ComponentType<FileValueListProps>;
+  FillContainer: ComponentType<FillContainerProps>;
+  PageHeader: ComponentType<PageHeaderProps>;
+  MetricBand: ComponentType<MetricBandProps>;
+  RecordBreadcrumb: ComponentType<RecordBreadcrumbProps>;
+  RecordSummary: ComponentType<RecordSummaryProps>;
+  PhotoGrid: ComponentType<PhotoGridProps>;
+  StepList: ComponentType<StepListProps>;
+  RecordSteps: ComponentType<RecordStepsProps>;
+  ActionOverflowMenu: ComponentType<ActionOverflowMenuProps>;
+  SecretReveal: ComponentType<SecretRevealProps>;
+  StickyActionBar: ComponentType<StickyActionBarProps>;
+  CopyButton: ComponentType<CopyButtonProps>;
+  ShareButton: ComponentType<ShareButtonProps>;
+  PromoPanel: ComponentType<PromoPanelProps>;
+  EmptyState: ComponentType<EmptyStateProps>;
 };
 type CoreTokens = {
   color: ColorTokens;
@@ -412,6 +443,7 @@ type CreateEventSourceLiveEventsOptions = {
   stallTimers?: LiveEventTimers; // Stall-watchdog timer seam; defaults to the global setTimeout/clearTimeout.
   random?: () => number; // Jitter source in [0, 1); defaults to Math.random.
   now?: () => number; // Clock for synthetic resync events; defaults to Date.now.
+  networkOnline?: (listener: () => void) => () => void; // Fires when the device reports it is back online; defaults to the window `online` event.
 };
 type CreateKumikoAppOptions = {
   onError?: BoundaryErrorHandler; // Called when the screen or root error boundary catches an error, after it was logged with console.error — attach telemetry here.
@@ -484,6 +516,7 @@ type DataTableProps = DataTableTableBlock & {
   getRowTestId?: (row: ListRowViewModel) => string; // Overrides the row `data-testid` (default `row-${row.id}`) — for a screen that already has its own DOM-test/e2e naming scheme.
   getCellTestId?: (row: ListRowViewModel, field: string) => string; // Overrides the cell `data-testid` (default `cell-${row.id}-${field}`).
   chromeless?: boolean; // Drops the table's own rounded/border/card background — for a host that already provides the surrounding boundary (a tab panel) and would otherwise show a card nested inside that boundary.
+  headerTone?: "muted"; // "muted": the header row gets the muted background (tabs-mode related list).
   scrollBody?: boolean; // Fills the available height of its flex container and scrolls rows internally instead of growing with row count — for a host that would otherwise have a long table stretch the whole page, or a short table leave dead space below it (a tab panel).
   hideCountFooter?: boolean; // Drops the "n entries" footer of a `scrollBody` table (a pager stays).
   plainPhoneCards?: boolean; // Phone cards as a plain feed: no sort line, the above-title meta joined with commas, the last meta line in the text colour.
@@ -514,7 +547,20 @@ type DispatcherProviderProps = {
   dispatcher: Dispatcher;
   children: ReactNode;
 };
-type DrawerProps = {
+type DivergingBarChartProps = {
+  rows: DivergingBarRow[];
+  formatValue?: (value: number) => string;
+  positiveTone?: ChartTone; // Default: "positive".
+  negativeTone?: ChartTone; // Default: "negative".
+  ariaLabel: string;
+  testId?: string;
+};
+type DivergingBarRow = {
+  key: string;
+  label: string; // Translated by the caller.
+  value: number;
+};
+type DrawerPanelProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   side?: "left" | "right" | "top" | "bottom";
@@ -618,6 +664,19 @@ type FileMeta = {
   fileName: string;
   mimeType: string | undefined;
 };
+type FilePickButtonProps = {
+  onFilesPicked: (files: File[]) => void;
+  children: ReactNode;
+  accept?: string[];
+  multiple?: boolean;
+  capture?: "environment" | "user";
+  disabled?: boolean;
+  loading?: boolean;
+  variant?: ButtonProps["variant"];
+  size?: "sm" | "md";
+  icon?: NavIconKey;
+  testId?: string;
+};
 type FileRefTarget = Pick<FileUploadFormDataInput, "entityType" | "entityId" | "fieldName" | "subField" | "actionForm">;
 type FloatingPanelGeometry = {
   x: number;
@@ -683,6 +742,13 @@ type FormProps = { // Submit wrapper.
   sectionNav?: FormSectionNavItem[]; // Titled sections for the "on this page" navigation next to a `screenForm`.
   sideRail?: ReactNode; // Leading column next to the scroll surface of a `screenForm` (wizard step navigation).
 };
+type FormatMoneyOptions = {
+  locale?: string;
+  minimumFractionDigits?: number;
+  maximumFractionDigits?: number;
+  signDisplay?: "auto" | "negative" | "always" | "exceptZero" | "never";
+  notation?: "standard" | "compact";
+};
 type GridCellProps = { // Span wrapper for a child within a grid.
   span?: number;
   width?: FieldCellWidth; // Only read inside a `flow` grid.
@@ -709,6 +775,22 @@ type HeaderActionGroupProps = {
 type HeadingProps = { // Heading with three roles: `page` is a page title (web: h1), `section` is a group subheading (web: h2 with uppercase and muted styling) and `group` is a plain 16px semibold sub-title (web: h2, normal case).
   variant?: "page" | "section" | "group";
   children: ReactNode;
+  testId?: string;
+};
+type HistogramBin = {
+  id: string;
+  start: number;
+  end: number;
+  count: number;
+};
+type HistogramChartProps = {
+  bins: HistogramBin[];
+  xAxis: NumericAxis;
+  yAxis: NumericAxis;
+  referenceLines?: { value: number; label?: string; }[]; // Vertical dashed lines, e.g. a breakeven value.
+  color?: string;
+  ariaLabel: string;
+  height?: number; // Plot height in px.
   testId?: string;
 };
 type InfinityListProps<TData = unknown, TRow = Readonly<Record<string, unknown>>> = {
@@ -872,7 +954,8 @@ type InputProps =
     fieldName?: string;
     imageVariant?: string; // Only for kind:"image" — variant name for the preview (`/api/files/:id/variant/:name`).
     capture?: "environment" | "user"; // Only for kind:"image" — forwarded to the file input's `capture` attribute so a phone opens the camera instead of the file picker.
-    directory?: boolean; // Web-only folder picker: the picked files (with `webkitRelativePath`) go to `onFilesPicked` and nothing is uploaded.
+    directory?: boolean; // Pick-only: with `onFilesPicked` set, the picked files go to the callback and nothing is uploaded.
+    multiple?: boolean;
     onFilesPicked?: (files: PickedFile[]) => void;
     pickLabel?: string; // Translated label of the pick button; absent → the upload/change default.
     testId?: string; // Hidden file input gets `${testId}-input`, the pick button `${testId}-pick`.
@@ -1162,6 +1245,41 @@ interface NumberFieldProps {
   testId?: string;
   grouping?: boolean; // `false` renders without thousands separators (e.g. a year).
 }
+type NumericAxis = {
+  ticks: number;
+  format?: (value: number) => string;
+};
+type NumericDomain = {
+  min: number;
+  max: number;
+};
+type NumericLineChartProps = {
+  series: NumericLineSeries[];
+  xAxis: NumericAxis & { domain?: NumericDomain; };
+  yAxis: NumericAxis;
+  referenceLines?: NumericReferenceLine[];
+  colors?: ColorMap;
+  renderTooltip?: (x: number) => ReactNode; // Content of the hover box for the x value nearest to the pointer.
+  ariaLabel: string;
+  height?: number; // Plot height in px.
+  testId?: string;
+};
+type NumericLineSeries = {
+  key: string;
+  label: string;
+  points: NumericPoint[];
+  dashed?: boolean;
+};
+type NumericPoint = {
+  x: number;
+  y: number;
+};
+type NumericReferenceLine = {
+  axis: "x" | "y";
+  value: number;
+  label?: string;
+  dashed?: boolean;
+};
 type PdfMatchInfo = {
   count: number;
   index: number; // 0-based index of the active match.
@@ -1322,6 +1440,7 @@ type RenderEditControls<TValues extends FormValues> = {
   submit: () => Promise<void>; // Runs the same pipeline the built-in save button runs: validation, `customSubmit`/`writeCommand`, extension-section persistence, draft discard, state rebase.
   next: () => void; // Wizard only (no-op elsewhere): validates the current step and advances, like the built-in Next button.
   back: () => void; // Wizard only (no-op elsewhere): goes back one step without validating.
+  showSubmitError: (error: DispatcherError) => void; // Shows the failure of a write the host ran outside `submit` the way a failed save shows: field issues at their fields, anything else in the form's error banner.
 };
 type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   screen: EntityEditScreenDefinition;
@@ -1361,6 +1480,7 @@ type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   labelAppendix?: (fieldName: string) => ReactNode | undefined; // Per-field extra content inline after the label (e.g. ConfigSourceBadge).
   fieldAppendix?: (fieldName: string) => ReactNode | undefined; // Per-field extra content below the input (e.g. ConfigCascadeView).
   fieldAppendixPlacement?: "above-control" | "below-control"; // Placement of every `fieldAppendix` relative to its control.
+  fieldIcons?: false; // `false` drops the prefix icon of every field, derived ones included.
   formErrorOnTop?: boolean; // Renders the form-error banner above the sections instead of below them.
   fieldDescription?: (fieldName: string, values: Readonly<Record<string, unknown>>) => ReactNode | undefined; // Per-field help text rendered under the label (translated by the caller).
   rowAfterField?: (fieldName: string, state: { dirty: boolean; }) => ReactNode | undefined; // Extra full-width row drawn right after a field's cell (configEdit actions).
@@ -1458,6 +1578,7 @@ type RenderListProps = DataTableTableBlockProps & {
   dateRangeFacets?: DataTableDateRangeFacet[]; // Time-range filters — forwarded to the DataTable.
   onDateRangeChange?: (field: string, bound: "from" | "to", value: string) => void; // One bound changed (set URL state + refetch).
   chromeless?: boolean; // Forwarded to `DataTableProps.chromeless` — drops the table's own card frame for a host that already provides one (relatedList in a tabs-mode section).
+  headerTone?: "muted"; // Forwarded to `DataTableProps.headerTone`.
   scrollBody?: boolean; // Forwarded to `DataTableProps.scrollBody` — bounds the table height and scrolls rows internally instead of growing the page (relatedList in a tabs-mode section).
   hideCountFooter?: boolean; // Forwarded to `DataTableProps.hideCountFooter` (relatedList: the tab label already says how many).
   plainPhoneCards?: boolean; // Forwarded to `DataTableProps.plainPhoneCards` (relatedList: a history reads as a plain feed on the phone).
@@ -1483,6 +1604,7 @@ type SectionProps = { // Titled group of fields.
   title?: string; // Optional; without a title, the Section renders only the grouping and no header.
   subtitle?: ReactNode; // Optional muted subtitle below the title, providing section context rather than only a label (analogous to `FormProps.subtitle`).
   subtitleBelowLgOnly?: boolean; // Shows the subtitle only below the `lg` breakpoint: a wizard's step rail carries the same text from `lg` up.
+  titleOnNarrow?: false; // false hides the title below `sm`.
   children: ReactNode;
   actions?: ReactNode; // Rendered top-right in the title row — never a footer.
   layout?: "stacked" | "settings-list"; // "settings-list": title + subtitle form a left header column and the children (field rows) the right one on `md:` and up.
@@ -1536,8 +1658,62 @@ type SidebarUserProps = {
   email?: string;
   avatar?: string; // Avatar URL.
 };
+type SignedBarBucket = {
+  x: number;
+  values: Readonly<Record<string, number>>;
+};
+type SignedBarChartProps = {
+  buckets: SignedBarBucket[];
+  series: { key: string; label: string; }[];
+  xAxis: {
+    format: (x: number) => string;
+  };
+  yAxis: NumericAxis;
+  colors?: ColorMap;
+  formatValue?: (value: number) => string;
+  ariaLabel: string;
+  height?: number; // Plot height in px.
+  testId?: string;
+};
 type SpacingTokens = {
   card: string;
+};
+type StackedAreaChartProps = {
+  series: ChartSeries[];
+  windowStartMs: number;
+  windowEndMs: number;
+  todayMs?: number;
+  tones?: ToneMap;
+  colors?: ColorMap;
+  markers?: ChartMarker[];
+  lines?: ChartLine[]; // Drawn over the bands, not stacked.
+  ranges?: StackedAreaRanges; // Range presets anchored at today; uncontrolled, the widget renders the switch itself.
+  initialWindow?: StackedAreaInitialWindow; // Uncontrolled start window; "from-today" ignores the default range and starts at today.
+  brush?: boolean; // Scrubber under the plot to drag the visible window; starts at today without `ranges`.
+  windowSelection?: StackedAreaWindowSelection;
+  onWindowSelectionChange?: (selection: StackedAreaWindowSelection) => void; // Makes the window controlled: no own range switch, `windowSelection` is the only source.
+  brushLabels?: {
+    start: string;
+    end: string;
+  }; // aria-labels of the two brush handles.
+  ariaLabel: string;
+  todayLabel: string;
+  formatBucketLabel: (atMs: number, format: StackedAreaDateFormat) => string;
+  formatValue?: (value: number) => string;
+  formatAxisValue?: (value: number) => string; // y-axis tick labels only (legend and totals keep `formatValue`); defaults to `formatValue`.
+  formatMarkerTime?: (atMs: number, format: StackedAreaDateFormat) => string;
+  dateFormat?: StackedAreaDateFormat; // Overrides the automatic format (month and year once the visible window spans 18 months).
+  timeZone?: string; // Zone the x-axis ticks align to; must match the zone `formatBucketLabel` formats in.
+  markerLegend?: "list" | "legend"; // "legend": unnumbered pins with tooltip, one dashed legend entry per marker label and color.
+  markerLabels?: boolean; // Writes each marker label vertically next to its guide line on wide containers; narrow ones keep the pins.
+  scrollable?: boolean; // Fixed width per bucket; the plot scrolls horizontally, y ticks stay put.
+  showLegendTotals?: boolean;
+  emptyContent?: ReactNode;
+  testId?: string;
+};
+type StackedAreaRanges = {
+  options: StackedAreaRangeOption[];
+  default: string;
 };
 type StatDelta = {
   value: string;
@@ -1651,6 +1827,7 @@ type TextProps = { // Semantic text.
   decorative?: boolean; // Pure ornament (e.g. a separator glyph): hidden from assistive tech.
   concealed?: boolean; // A value the viewer may not see: drawn muted with a lock icon before it.
   narrow?: string; // Phone wording: `children` show from `sm` up, this text below it.
+  announce?: boolean; // Screen readers announce the text when it appears or changes (web: `role="status"`).
   children: ReactNode;
   testId?: string;
 };
@@ -1792,6 +1969,7 @@ type UseQueryOptions = {
   live?: boolean;
   refetchIntervalMs?: number;
   concurrency?: number;
+  resultField?: string;
 };
 type UseQueryResult<TData> = {
   data: TData | null;

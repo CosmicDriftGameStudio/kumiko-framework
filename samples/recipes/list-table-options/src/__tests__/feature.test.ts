@@ -7,7 +7,8 @@ import {
 import type { ListTableOptions } from "@cosmicdrift/kumiko-framework/ui-types";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import * as z from "zod";
-import { createTaskBoardFeature, openAccess, taskEntity } from "../feature";
+import { openAccess } from "../access";
+import { createTaskBoardFeature, taskEntity } from "../feature";
 
 // The boot validator is the net for blocks the type system never sees (JS, generated features).
 function featureWithBlock(block: object) {
@@ -56,7 +57,7 @@ describe("list-table-options recipe", () => {
   test("the form bulk action boots and a missing count field is rejected", () => {
     expect(() => validateBoot([createTaskBoardFeature()])).not.toThrow();
     const feature = defineFeature("bulk-form-bad", (r) => {
-      r.crud("task", taskEntity, { write: openAccess, read: openAccess });
+      r.crud(taskEntity, { write: openAccess, read: openAccess });
       r.screen({
         id: "task-list",
         type: "entityList",
@@ -112,7 +113,7 @@ describe("list-table-options recipe", () => {
 
   test("a bulk action that points at a navigate row action is rejected", () => {
     const feature = defineFeature("bulk-on-navigate", (r) => {
-      r.crud("task", taskEntity, { write: openAccess, read: openAccess });
+      r.crud(taskEntity, { write: openAccess, read: openAccess });
       r.screen({
         id: "task-list",
         type: "entityList",
@@ -150,7 +151,7 @@ describe("list-table-options recipe", () => {
   // own hidden estimateHours column does not trip the rule; a plain hidden column does.
   test("a hidden column without a facet needs the column picker", () => {
     const feature = defineFeature("task-board", (r) => {
-      r.crud("task", taskEntity, { write: openAccess, read: openAccess });
+      r.crud(taskEntity, { write: openAccess, read: openAccess });
       r.screen({
         id: "task-list",
         type: "entityList",
@@ -176,5 +177,17 @@ describe("list-table-options recipe", () => {
         featureWithBlock({ columnPicker: true, export: { xlsx: true, maxRows: 100001 } }),
       ]),
     ).toThrow(/table\.export\.maxRows is 100001 .* at most 100000/);
+  });
+});
+
+describe("list-table-options month column", () => {
+  // The renderer derives `{ format: "month" }` for this column from the field format.
+  test("the planned month is a month-format text field listed without its own renderer", () => {
+    expect(taskEntity.fields.plannedMonth.format).toBe("month");
+    const screen = createRegistry([createTaskBoardFeature()]).getScreen(
+      "task-board:screen:task-list",
+    );
+    const columns = screen?.type === "entityList" ? screen.columns : [];
+    expect(columns).toContainEqual({ field: "plannedMonth", hidden: true, hideOnNarrow: true });
   });
 });

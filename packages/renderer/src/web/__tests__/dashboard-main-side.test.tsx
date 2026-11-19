@@ -2,7 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
-import type { Dispatcher } from "../../headless/index.ts";
+import type { QueryResult } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -40,13 +40,13 @@ function PanelIcon(_props: ExtensionSectionProps): ReactNode {
 
 function renderDashboard(
   dashboard: DashboardScreenDefinition,
-  handlers: Readonly<Record<string, () => unknown>> = {},
+  handlers: Readonly<Record<string, () => QueryResult | Promise<QueryResult>>> = {},
 ): void {
   const dispatcher = createMockDispatcher({
-    query: (async (type: string) => {
+    query: async (type: string) => {
       const handler = handlers[type];
       return handler === undefined ? { isSuccess: true, data: {} } : handler();
-    }) as unknown as Dispatcher["query"],
+    },
   });
   const schema: FeatureSchema = { featureName: "demo", entities: {}, screens: [dashboard] };
   render(
@@ -64,7 +64,7 @@ function renderDashboard(
   );
 }
 
-const ok = (data: unknown) => ({ isSuccess: true, data });
+const ok = (data: unknown): QueryResult => ({ isSuccess: true, data });
 
 const textPanel = (id: string, extra: Record<string, unknown> = {}) => ({
   kind: "text",
@@ -93,11 +93,11 @@ describe("dashboard layout main-side", () => {
     renderDashboard(dashboard);
     const main = await screen.findByTestId("dashboard-column-main");
     const side = screen.getByTestId("dashboard-column-side");
-    expect(within(main).getByTestId("dashboard-panel-a")).toBeTruthy();
-    expect(within(main).getByTestId("dashboard-panel-b")).toBeTruthy();
+    within(main).getByTestId("dashboard-panel-a");
+    within(main).getByTestId("dashboard-panel-b");
     expect(within(main).queryByTestId("dashboard-panel-s1")).toBeNull();
-    expect(within(side).getByTestId("dashboard-panel-s1")).toBeTruthy();
-    expect(within(side).getByTestId("dashboard-panel-s2")).toBeTruthy();
+    within(side).getByTestId("dashboard-panel-s1");
+    within(side).getByTestId("dashboard-panel-s2");
   });
 
   test("desktop puts top panels above both columns, in declared order", async () => {
@@ -119,7 +119,7 @@ describe("dashboard layout main-side", () => {
     expect(topIds).toEqual(["dashboard-panel-t1", "dashboard-panel-t2"]);
     expect(within(main).queryByTestId("dashboard-panel-t1")).toBeNull();
     expect(within(side).queryByTestId("dashboard-panel-t1")).toBeNull();
-    expect(within(main).getByTestId("dashboard-panel-a")).toBeTruthy();
+    within(main).getByTestId("dashboard-panel-a");
   });
 
   test("without top panels there is no top container", async () => {
@@ -132,7 +132,7 @@ describe("dashboard layout main-side", () => {
   test("a phone shows one column in narrowOrder", async () => {
     setViewportWidth(PHONE_WIDTH);
     renderDashboard(dashboard);
-    await waitFor(() => expect(screen.getByTestId("dashboard-panel-a")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-panel-a"));
     expect(screen.queryByTestId("dashboard-column-side")).toBeNull();
     const ids = screen
       .getAllByTestId(/^dashboard-panel-/)
@@ -231,7 +231,7 @@ describe("stat-group child with hideOnNarrow", () => {
       { id: "board", type: "dashboard", panels: [group] } as unknown as DashboardScreenDefinition,
       handlers,
     );
-    await waitFor(() => expect(screen.getByTestId("dashboard-panel-open")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-panel-open"));
     expect(screen.queryByTestId("dashboard-panel-done")).toBeNull();
   });
 
@@ -241,7 +241,7 @@ describe("stat-group child with hideOnNarrow", () => {
       { id: "board", type: "dashboard", panels: [group] } as unknown as DashboardScreenDefinition,
       handlers,
     );
-    await waitFor(() => expect(screen.getByTestId("dashboard-panel-done")).toBeTruthy());
-    expect(screen.getByTestId("dashboard-panel-open")).toBeTruthy();
+    await waitFor(() => screen.getByTestId("dashboard-panel-done"));
+    screen.getByTestId("dashboard-panel-open");
   });
 });

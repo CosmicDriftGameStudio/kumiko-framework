@@ -1,5 +1,5 @@
 // resolveTokenVerifier + the tokenVerifier multiplicity boot-check.
-// Mock providers registered via r.useExtension(EXT_TOKEN_VERIFIER, ...) in
+// Mock providers registered via r.applyExtension({ name: EXT_TOKEN_VERIFIER, ... }) in
 // throwaway test-features — no real JWT/PAT provider exists yet.
 
 import { describe, expect, test } from "bun:test";
@@ -30,7 +30,7 @@ function prefixProvider(entityName: string, prefix: string): ReturnType<typeof d
     build: () => async (rawToken) => (rawToken === `${prefix}valid` ? jwtLikeUser() : null),
   };
   return defineFeature(`mock-${entityName}`, (r) => {
-    r.useExtension(EXT_TOKEN_VERIFIER, entityName, plugin);
+    r.applyExtension({ name: EXT_TOKEN_VERIFIER, entity: entityName, ...plugin });
   });
 }
 
@@ -40,7 +40,7 @@ function jwtProvider(entityName = "jwt-mock"): ReturnType<typeof defineFeature> 
     build: () => async () => jwtLikeUser(),
   };
   return defineFeature(`mock-${entityName}`, (r) => {
-    r.useExtension(EXT_TOKEN_VERIFIER, entityName, plugin);
+    r.applyExtension({ name: EXT_TOKEN_VERIFIER, entity: entityName, ...plugin });
   });
 }
 
@@ -49,15 +49,13 @@ function mockStore(): SessionStore {
     creator: async () => "sid-1",
     revoker: async () => undefined,
     checker: async () => "live",
-    massRevoker: async () => 0,
-    revokeAllOthers: async () => 0,
   };
 }
 
 function storeProvider(entityName = "mock-store"): ReturnType<typeof defineFeature> {
   const plugin: SessionStoreProvider = { build: () => mockStore() };
   return defineFeature(`mock-${entityName}`, (r) => {
-    r.useExtension(EXT_SESSION_STORE, entityName, plugin);
+    r.applyExtension({ name: EXT_SESSION_STORE, entity: entityName, ...plugin });
   });
 }
 
@@ -137,7 +135,7 @@ describe("validateTokenVerifierMultiplicity", () => {
   test("wrong-shape registration → throws a malformed-plugin error", () => {
     const broken = defineFeature("mock-broken", (r) => {
       // @ts-expect-error malformed plugin (no build) — proves the runtime guard rejects it too.
-      r.useExtension(EXT_TOKEN_VERIFIER, "broken", { shape: { kind: "prefix" } });
+      r.applyExtension({ name: EXT_TOKEN_VERIFIER, entity: "broken", shape: { kind: "prefix" } });
     });
     const registry = createRegistry([createAuthFoundationFeature(), broken]);
     expect(() => validateTokenVerifierMultiplicity([...registry.features.values()])).toThrow(
@@ -147,8 +145,9 @@ describe("validateTokenVerifierMultiplicity", () => {
 
   test("malformed shape (build present, prefix missing) → throws a malformed-plugin error", () => {
     const broken = defineFeature("mock-broken-shape", (r) => {
-      r.useExtension(EXT_TOKEN_VERIFIER, "broken-shape", {
-        // @ts-expect-error malformed shape (prefix missing) — proves the runtime guard rejects it too.
+      r.applyExtension({
+        name: EXT_TOKEN_VERIFIER,
+        entity: "broken-shape", // @ts-expect-error malformed shape (prefix missing) — proves the runtime guard rejects it too.
         shape: { kind: "prefix" },
         build: () => async () => null,
       });

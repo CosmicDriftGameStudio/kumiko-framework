@@ -16,6 +16,12 @@ describe("textToDocumentHtml", () => {
     );
   });
 
+  test("quotes are escaped and come back unchanged in the text form", () => {
+    const text = 'Say "hi" & <go>';
+    expect(textToDocumentHtml(text)).toBe("<p>Say &quot;hi&quot; &amp; &lt;go&gt;</p>");
+    expect(documentHtmlToText(textToDocumentHtml(text))).toBe(text);
+  });
+
   test("round trips through the text form", () => {
     const text = "One\n\nTwo\nthree";
     expect(documentHtmlToText(textToDocumentHtml(text))).toBe(text);

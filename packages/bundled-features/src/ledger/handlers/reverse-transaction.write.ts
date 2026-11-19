@@ -1,4 +1,4 @@
-import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import {
   ConflictError,
   NotFoundError,
@@ -8,27 +8,28 @@ import {
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { transactionExecutor, transactionTable } from "../executor.ts";
 import { normalizeLines } from "../reports.ts";
-import { type ReverseTransactionPayload, reverseTransactionPayloadSchema } from "../schemas.ts";
+import { reverseTransactionPayloadSchema } from "../schemas.ts";
 import { readSubjectReference } from "../subject-reference.ts";
 import { DEFAULT_LEDGER_ACCESS } from "../web/constants.ts";
 
+// Keyed by the original transaction id; own namespace, distinct from the confirm-period lock.
+const REVERSE_TRANSACTION_LOCK_NAMESPACE = 0x6c_72_74_78; // 'lrtx'
+
 // reverse-transaction (Storno) — the ONLY correction path for a posted entry.
 // Books the mirror image (every amount negated) as a new posted entry that
-// references the original, leaving the original untouched. This is why
+// points at the original via reversesTransactionId, leaving the original untouched. This is why
 // transactions need no update/delete: the audit trail stays intact and the
 // mirror entry still satisfies Σ=0 (negating a zero-sum set stays zero-sum).
-export function createReverseTransactionHandler(
-  access: AccessRule = DEFAULT_LEDGER_ACCESS,
-): WriteHandlerDef {
-  return {
+export function createReverseTransactionHandler(access: AccessRule = DEFAULT_LEDGER_ACCESS) {
+  return defineWriteHandler({
     name: "reverse-transaction",
     schema: reverseTransactionPayloadSchema,
     access,
     description:
-      "Books the mirror image of a posted journal entry as a new entry referencing the original, refusing entries that are not posted or already reversed; use it as the only way to correct a booking, since entries themselves are immutable.",
+      "Books the mirror image of a posted journal entry as a new entry linked to the original via reversesTransactionId, refusing entries that are not posted or already reversed; use it as the only way to correct a booking, since entries themselves are immutable.",
     agent: { risk: "high" },
     handler: async (event, ctx) => {
-      const payload = event.payload as ReverseTransactionPayload; // @cast-boundary engine-payload
+      const payload = event.payload;
 
       const original = await transactionExecutor.detail({ id: payload.id }, event.user, ctx.db);
       if (!original) return writeFailure(new NotFoundError("transaction", payload.id));
@@ -45,14 +46,24 @@ export function createReverseTransactionHandler(
         );
       }
 
+      // A Storno is never reversed itself; that would leave its period inconsistent.
+      if (original["reversesTransactionId"] != null) {
+        return writeFailure(
+          new UnprocessableError("transaction_is_reversal", { details: { id: payload.id } }),
+        );
+      }
+
       // Dedup guard: two reverse() calls on the same original would each book
       // an independently-balanced Storno (the global trial balance stays 0
       // either way, masking the bug), doubling the per-account effect. The
-      // reference column ties a Storno back to its original 1:1.
-      const alreadyReversed = await ctx.db.selectMany(transactionTable, {
-        tenantId: event.user.tenantId,
-        reference: payload.id,
-      });
+      // reversesTransactionId column ties a Storno back to its original 1:1
+      // (unique index as backstop).
+      await ctx.db.advisoryXactLock(REVERSE_TRANSACTION_LOCK_NAMESPACE, payload.id);
+      const alreadyReversed = await ctx.db.selectMany(
+        transactionTable,
+        { tenantId: event.user.tenantId, reversesTransactionId: payload.id },
+        { limit: 1 },
+      );
       if (alreadyReversed.length > 0) {
         return writeFailure(
           new ConflictError({
@@ -69,8 +80,8 @@ export function createReverseTransactionHandler(
         amount: -l.amount,
       }));
 
-      // The reversal shares its subject with the original so filtering by
-      // subjectId still finds the Storno; unset on the original stays unset.
+      // The reversal copies subject, scheduleId and period from the original so
+      // the pair nets out in every grouping; unset on the original stays unset.
       const { subjectType, subjectId } = readSubjectReference(original);
 
       return transactionExecutor.create(
@@ -80,7 +91,10 @@ export function createReverseTransactionHandler(
           // unknown>, so no guess at the projection's date runtime type.
           date: payload.date ?? original["date"],
           description: payload.description ?? `Storno: ${String(original["description"])}`,
-          reference: payload.id,
+          reference: null,
+          reversesTransactionId: payload.id,
+          scheduleId: original["scheduleId"] == null ? null : String(original["scheduleId"]),
+          period: original["period"] == null ? null : String(original["period"]),
           status: "posted",
           lines,
           subjectType,
@@ -90,7 +104,7 @@ export function createReverseTransactionHandler(
         ctx.db,
       );
     },
-  };
+  });
 }
 
-export const reverseTransactionHandler: WriteHandlerDef = createReverseTransactionHandler();
+export const reverseTransactionHandler = createReverseTransactionHandler();

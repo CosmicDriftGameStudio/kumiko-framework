@@ -17,11 +17,12 @@ import {
   PrimitivesProvider,
   TokensProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import {
-  createStore,
-  type Dispatcher,
-  type DispatcherStatus,
-} from "@cosmicdrift/kumiko-renderer/headless";
+  createMockDispatcher,
+  type MockQueryHandler,
+  type MockWriteHandler,
+} from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
@@ -57,8 +58,7 @@ function makeDispatcher(
   writes: Array<{ type: string; payload: unknown }>,
   queries: Array<{ type: string; payload: unknown }> = [],
 ): Dispatcher {
-  const statusStore = createStore<DispatcherStatus>("online");
-  const query = (async (type: string, payload: unknown) => {
+  const query: MockQueryHandler = async (type: string, payload: unknown) => {
     queries.push({ type, payload });
     if (type === UserDataRightsQueries.exportStatus) {
       return { isSuccess: true, data: responses.exportStatus ?? { hasJob: false } };
@@ -73,20 +73,16 @@ function makeDispatcher(
       return { isSuccess: true, data: { url: responses.downloadUrl } };
     }
     return { isSuccess: true, data: null };
-  }) as unknown as Dispatcher["query"];
-  const write = (async (type: string, payload: unknown) => {
+  };
+  const write: MockWriteHandler = async (type: string, payload: unknown) => {
     writes.push({ type, payload });
     return { isSuccess: true, data: {} };
-  }) as unknown as Dispatcher["write"];
-  return {
+  };
+  return createMockDispatcher({
     write,
     query,
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore,
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  } as unknown as Dispatcher; // @cast-boundary test-stub
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function renderExportSection(responses: QueryResponses): {
@@ -155,7 +151,7 @@ describe("ExportSection", () => {
   test("idle: Intro + Request button, translated text (no raw keys)", async () => {
     const { view } = renderExportSection({});
     await waitForMount(view);
-    expect(view.getByTestId("privacy-export-request")).toBeTruthy();
+    view.getByTestId("privacy-export-request");
     expect(view.container.textContent).not.toContain("userDataRights.privacyCenter");
   });
 
@@ -167,7 +163,7 @@ describe("ExportSection", () => {
       },
     });
     await waitForDownloadReady(view);
-    expect(view.getByTestId("privacy-export-download")).toBeTruthy();
+    view.getByTestId("privacy-export-download");
     const ready = view.getByTestId("privacy-export-ready");
     expect(ready.textContent).toContain("2026-07-11");
     expect(ready.textContent).not.toContain("T00:00");
@@ -178,8 +174,8 @@ describe("ExportSection", () => {
       exportStatus: { hasJob: true, job: { id: "job-9", status: EXPORT_JOB_STATUS.Failed } },
     });
     await waitForTestId(view, "privacy-export-failed");
-    expect(view.getByTestId("privacy-export-failed")).toBeTruthy();
-    expect(view.getByTestId("privacy-export-request")).toBeTruthy();
+    view.getByTestId("privacy-export-failed");
+    view.getByTestId("privacy-export-request");
   });
 
   test("export pending: in-progress banner, no request button", async () => {
@@ -187,7 +183,7 @@ describe("ExportSection", () => {
       exportStatus: { hasJob: true, job: { id: "job-1", status: EXPORT_JOB_STATUS.Pending } },
     });
     await waitForTestId(view, "privacy-export-pending");
-    expect(view.getByTestId("privacy-export-pending")).toBeTruthy();
+    view.getByTestId("privacy-export-pending");
     expect(view.queryByTestId("privacy-export-request")).toBeNull();
   });
 

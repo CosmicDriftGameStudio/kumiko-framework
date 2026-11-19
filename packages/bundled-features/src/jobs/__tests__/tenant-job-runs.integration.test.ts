@@ -14,13 +14,16 @@ import {
   createRegistry,
   defineFeature,
   defineWriteHandler,
+  emitEvent,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createJobRunner,
   type JobRunner,
   serializeJobSubject,
 } from "@cosmicdrift/kumiko-framework/jobs";
+import { createEventConsumerStateTable } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -62,65 +65,83 @@ function deferred(): Deferred {
 const handlerStarted = deferred();
 const handlerRelease = deferred();
 
-const generateWrite = defineWriteHandler({
-  name: "generate",
-  description: "Test-only: starts the text generation for one campaign.",
-  schema: z.object({ campaignId: z.string(), mode: z.enum(["fail", "hold", "succeed"]) }),
-  access: { roles: ["Admin"] },
-  handler: async (event) => ({ isSuccess: true as const, data: { ...event.payload } }),
-});
-
-const plainWrite = defineWriteHandler({
-  name: "plain",
-  description: "Test-only: starts a job without tenantVisibleRun.",
-  schema: z.object({ campaignId: z.string() }),
-  access: { roles: ["Admin"] },
-  handler: async (event) => ({ isSuccess: true as const, data: { ...event.payload } }),
-});
-
 const appFeature = defineFeature("app", (r) => {
-  r.writeHandler(generateWrite);
-  r.writeHandler(plainWrite);
+  const generationRequested = r.defineEvent(
+    "generation-requested",
+    z.object({ campaignId: z.string(), mode: z.enum(["fail", "hold", "succeed"]) }),
+    { piiFields: "none" },
+  );
+  const plainRequested = r.defineEvent("plain-requested", z.object({ campaignId: z.string() }), {
+    piiFields: "none",
+  });
+  r.writeHandler(
+    defineWriteHandler({
+      name: "generate",
+      description: "Test-only: starts the text generation for one campaign.",
+      schema: z.object({ campaignId: z.string(), mode: z.enum(["fail", "hold", "succeed"]) }),
+      access: { roles: ["Admin"] },
+      handler: async (event, ctx) => {
+        await emitEvent(ctx, generationRequested, {
+          aggregateId: crypto.randomUUID(),
+          aggregateType: "generation-requested",
+          expectedVersion: 0,
+          payload: { campaignId: event.payload.campaignId, mode: event.payload.mode },
+        });
+        return { isSuccess: true as const, data: { ...event.payload } };
+      },
+    }),
+  );
+  r.writeHandler(
+    defineWriteHandler({
+      name: "plain",
+      description: "Test-only: starts a job without tenantVisibleRun.",
+      schema: z.object({ campaignId: z.string() }),
+      access: { roles: ["Admin"] },
+      handler: async (event, ctx) => {
+        await emitEvent(ctx, plainRequested, {
+          aggregateId: crypto.randomUUID(),
+          aggregateType: "plain-requested",
+          expectedVersion: 0,
+          payload: { campaignId: event.payload.campaignId },
+        });
+        return { isSuccess: true as const, data: { ...event.payload } };
+      },
+    }),
+  );
 
-  r.job(
-    "generateTexts",
-    {
-      trigger: { on: "app:write:generate" },
-      tenantVisibleRun: { subjectFields: ["campaignId"] },
-    },
-    async (payload) => {
+  r.job({
+    name: "generateTexts",
+    trigger: { on: "generation-requested" },
+    tenantVisibleRun: { subjectFields: ["campaignId"] },
+    handler: async (payload) => {
       if (payload["mode"] === "fail") throw new Error(PROVIDER_MESSAGE);
       if (payload["mode"] === "hold") {
         handlerStarted.resolve();
         await handlerRelease.promise;
       }
     },
-  );
+  });
 
-  r.job("plainJob", { trigger: { on: "app:write:plain" } }, async () => {});
+  r.job({ name: "plainJob", trigger: { on: "plain-requested" }, handler: async () => {} });
 
-  r.job(
-    "unrecoverable",
-    {
-      trigger: { manual: true },
-      retries: 2,
-      tenantVisibleRun: {},
-      tenantVisibleFailure: { messageKey: "app:errors.unrecoverable" },
-    },
-    async () => {
+  r.job({
+    name: "unrecoverable",
+    trigger: { manual: true },
+    retries: 2,
+    tenantVisibleRun: {},
+    tenantVisibleFailure: { messageKey: "app:errors.unrecoverable" },
+    handler: async () => {
       throw new UnrecoverableError("no retry");
     },
-  );
+  });
 
-  r.job(
-    "replacing",
-    {
-      trigger: { manual: true },
-      concurrency: "replace",
-      tenantVisibleRun: { subjectFields: ["campaignId"] },
-    },
-    async () => {},
-  );
+  r.job({
+    name: "replacing",
+    trigger: { manual: true },
+    concurrency: "replace",
+    tenantVisibleRun: { subjectFields: ["campaignId"] },
+    handler: async () => {},
+  });
 });
 
 let testDb: TestDb;
@@ -130,6 +151,7 @@ let app: Hono;
 let jwt: JwtHelper;
 let enqueuer: JobRunner;
 let worker: JobRunner;
+let eventDispatcher: Awaited<ReturnType<typeof buildServer>>["eventDispatcher"];
 
 beforeAll(async () => {
   testDb = await createTestDb();
@@ -137,6 +159,8 @@ beforeAll(async () => {
   db = testDb.db;
 
   const registry = createRegistry([appFeature, createJobsFeature()]);
+  await createEventsTable(db);
+  await createEventConsumerStateTable(db);
   await unsafePushTables(db, {
     jobRunsTable,
     jobRunLogsTable,
@@ -170,6 +194,8 @@ beforeAll(async () => {
   });
   app = server.app;
   jwt = server.jwt;
+  eventDispatcher = server.eventDispatcher;
+  await eventDispatcher?.ensureRegistered();
 
   await enqueuer.start();
 });
@@ -189,6 +215,13 @@ async function post(path: string, user: SessionUser, body: unknown): Promise<Res
     body: JSON.stringify(body),
   });
 }
+
+type StoredRunRow = {
+  readonly jobName: string;
+  readonly status: string;
+  readonly bullJobId: string;
+  readonly finishedAt: Temporal.Instant | null;
+};
 
 type RunRow = {
   readonly jobName: string;
@@ -220,6 +253,8 @@ async function generate(
     payload: { campaignId, mode },
   });
   expect((await res.json()).isSuccess).toBe(true);
+  // The job-trigger event consumer enqueues the job from the stored event.
+  await eventDispatcher?.runOnce();
 }
 
 describe("jobs:query:tenant-runs", () => {
@@ -247,10 +282,11 @@ describe("jobs:query:tenant-runs", () => {
       payload: { campaignId: "c1" },
     });
     expect((await res.json()).isSuccess).toBe(true);
+    await eventDispatcher?.runOnce();
     expect(await runs(userA, { jobName: "app:job:plain-job" })).toHaveLength(0);
     expect(
-      (await selectMany(db, tenantJobRunsTable, {})).filter(
-        (row: { jobName: string }) => row.jobName === "app:job:plain-job",
+      (await selectMany<StoredRunRow>(db, tenantJobRunsTable, {})).filter(
+        (row) => row.jobName === "app:job:plain-job",
       ),
     ).toHaveLength(0);
   });
@@ -726,9 +762,15 @@ describe("tenant run outcome under concurrency", () => {
     const outcome = { tenantId: tenantA, finalAttempt: true, tenantVisibleRun: { subject } };
 
     await onJobComplete(jobName, "order-a", 1, [], outcome);
-    const [first] = await selectMany(db, tenantJobRunsTable, { tenantId: tenantA, subject });
+    const [first] = await selectMany<StoredRunRow>(db, tenantJobRunsTable, {
+      tenantId: tenantA,
+      subject,
+    });
     await onJobFailed(jobName, "order-b", "boom", [], outcome);
-    const rows = await selectMany(db, tenantJobRunsTable, { tenantId: tenantA, subject });
+    const rows = await selectMany<StoredRunRow>(db, tenantJobRunsTable, {
+      tenantId: tenantA,
+      subject,
+    });
 
     expect(rows).toHaveLength(1);
     expect(rows[0]?.status).toBe("failed");

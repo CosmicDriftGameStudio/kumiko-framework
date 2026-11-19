@@ -24,6 +24,7 @@ import {
   createProjectionStateTable,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { unsafeEnsureEntityTable, unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
+import { AUTH_COOKIE_BASE, sessionCookieName } from "@cosmicdrift/kumiko-types/session-cookies";
 import { type ProdAppHandle, type RunProdAppOptions, runProdApp } from "../run-prod-app.ts";
 
 const TEST_DB = `kumiko_runprod_bootopts_${Date.now().toString(36)}`;
@@ -183,5 +184,38 @@ describe("runProdApp boot options (integration)", () => {
     handle = await authBoot({ signals: false });
     await handle.listen(0);
     expect(process.listenerCount("SIGTERM")).toBe(before);
+  });
+
+  test("runProdApp writes __Host- session cookies by default (duplicate auth cookie gets cleared)", async () => {
+    handle = await authBoot({});
+    const hostCookie = sessionCookieName(AUTH_COOKIE_BASE, { secure: true });
+
+    const res = await handle.fetch(
+      new Request("http://test/api/schema", {
+        headers: { Cookie: `${hostCookie}=a; ${hostCookie}=b` },
+      }),
+    );
+
+    const cleared = res.headers
+      .getSetCookie()
+      .filter((cookie) => cookie.startsWith(`${hostCookie}=`));
+    expect(cleared.some((cookie) => /Max-Age=0/i.test(cookie))).toBe(true);
+  });
+
+  test("secureCookies:false keeps the plain cookie names", async () => {
+    handle = await authBoot({
+      auth: { allowedOrigins: ["https://app.example.eu"], secureCookies: false },
+    });
+    const hostCookie = sessionCookieName(AUTH_COOKIE_BASE, { secure: true });
+
+    const res = await handle.fetch(
+      new Request("http://test/api/schema", {
+        headers: { Cookie: `${hostCookie}=a; ${hostCookie}=b` },
+      }),
+    );
+
+    expect(res.headers.getSetCookie().some((cookie) => cookie.startsWith(`${hostCookie}=`))).toBe(
+      false,
+    );
   });
 });

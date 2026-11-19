@@ -40,6 +40,7 @@ const ACL_PASSWORD = "namespace-test-pw";
 const noAppEnvSchema = composeEnvSchema({ features: [] });
 
 const noteEntity = createEntity({
+  name: "note",
   fields: { title: createTextField({ personal: false, reason: "test_fixture", required: true }) },
   table: "ns_probe_notes",
 });
@@ -58,7 +59,7 @@ function newGate(): Gate {
 }
 
 const nsProbeFeature = defineFeature("nsprobe", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
   r.writeHandler(
     defineEntityCreateHandler("note", noteEntity, { access: { roles: ["SystemAdmin"] } }),
   );
@@ -66,15 +67,31 @@ const nsProbeFeature = defineFeature("nsprobe", (r) => {
     defineEntityListHandler("note", noteEntity, { access: { roles: ["TenantAdmin"] } }),
   );
   // Sequential: takes the Redis lock held by the runner's lockRedis.
-  r.job("held", { trigger: { manual: true }, retries: 0, concurrency: "sequential" }, async () => {
-    gate?.started.resolve();
-    await gate?.release.promise;
-    heldJobFinished = true;
+  r.job({
+    name: "held",
+    trigger: { manual: true },
+    retries: 0,
+    concurrency: "sequential",
+    handler: async () => {
+      gate?.started.resolve();
+      await gate?.release.promise;
+      heldJobFinished = true;
+    },
   });
-  r.job("extra", { trigger: { manual: true }, retries: 0 }, async () => {
-    extraJobRuns += 1;
+  r.job({
+    name: "extra",
+    trigger: { manual: true },
+    retries: 0,
+    handler: async () => {
+      extraJobRuns += 1;
+    },
   });
-  r.job("scheduled", { trigger: { cron: "0 0 1 1 *" }, runIn: "worker" }, async () => {});
+  r.job({
+    name: "scheduled",
+    trigger: { cron: "0 0 1 1 *" },
+    runIn: "worker",
+    handler: async () => {},
+  });
 });
 
 let admin: Redis;

@@ -20,7 +20,7 @@
 //      before writing — loadById() for update/delete/forget, db.fetchOne() for
 //      restore — so the aggregateId is already tenant-validated on arrival.
 //   2. create sets tenantId explicitly from event.tenantId, never derived from
-import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import { type EntityDefinition, isDeclaredEntityVerb } from "@cosmicdrift/kumiko-types/fields";
 
 //      the TenantDb wrapper default.
 // The missing TenantDb wrapper in this function is therefore not a hole.
@@ -34,6 +34,7 @@ import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 //                        via executor.forget(). Rebuild replays created→forgotten
 //                        → the row is gone, making this rebuild-safe (unlike a
 //                        direct deleteMany).
+// A verb declared in entity.verbs (<entity>.<verb>) is applied like updated.
 //
 // Domain events (r.defineEvent) on the same aggregate are NOT handled here —
 // they never went through the Executor in the live path and must be handled by
@@ -58,11 +59,13 @@ import {
   PII_ERASED_SENTINEL,
 } from "../crypto/pii-field-encryption.ts";
 import { collectPiiFileReferenceFields } from "../crypto/subject-resolver.ts";
-import { deleteMany, insertOne, updateMany } from "../db/query.ts";
+import { deleteMany, insertMany, insertOne, updateMany } from "../db/query.ts";
+import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
 import { InternalError } from "../errors/index.ts";
 import type { StoredEvent } from "../event-store/index.ts";
 import type { DbRow } from "./connection.ts";
 import type { TableColumns } from "./dialect.ts";
+import { executorManagedEntitySourceOf } from "./executor-managed-tables.ts";
 import {
   activeRowLevelSecurityScope,
   runInSystemRowLevelSecurityScope,
@@ -79,13 +82,17 @@ export type ApplyResult =
   | { readonly kind: "applied"; readonly verb: AutoVerb; readonly row: DbRow | null }
   | { readonly kind: "skipped" };
 
-/** Parses event.type into an AutoVerb when the event is an auto-verb
- *  for the given aggregate; otherwise returns null (a domain event). */
-export function parseAutoVerb(event: StoredEvent): AutoVerb | null {
+/** Parses event.type into an AutoVerb for the given aggregate. A verb declared in entity.verbs
+ *  maps to "updated" (same payload and apply); anything else returns null (a domain event). */
+export function parseAutoVerb(
+  event: StoredEvent,
+  entity: EntityDefinition | undefined,
+): AutoVerb | null {
   const prefix = `${event.aggregateType}.`;
   if (!event.type.startsWith(prefix)) return null;
   const verb = event.type.slice(prefix.length);
-  return isOneOf(AUTO_VERBS, verb) ? verb : null;
+  if (isOneOf(AUTO_VERBS, verb)) return verb;
+  return isDeclaredEntityVerb(entity, verb) ? "updated" : null;
 }
 
 // Events written by the old PII backfill can hold ciphertext in file/image uuid
@@ -132,11 +139,125 @@ export function applyEntityEvent(
   );
 }
 
+// A domain event on an entity row's stream moves the stream without changing the row; the row still
+// takes the stream's version, so list, detail and their callers read row.version alone.
+export async function applyStreamVersionToEntityRow(
+  event: StoredEvent,
+  table: Table,
+  tx: ExecutorManagedRunner,
+): Promise<void> {
+  // The tenant match of alignShadowRowVersionsWithStreams: a stream moves only its own tenant's row.
+  const systemStream = executorManagedEntitySourceOf(table)?.entity.systemStream === true;
+  if (systemStream && event.tenantId !== SYSTEM_TENANT_ID) return;
+  const rowOfStream = systemStream
+    ? { id: event.aggregateId }
+    : { id: event.aggregateId, tenantId: event.tenantId };
+  const bump = async (): Promise<void> => {
+    await updateMany(
+      tx,
+      table,
+      { version: event.version },
+      { ...rowOfStream, version: { lt: event.version } },
+    );
+  };
+  if (keepsAmbientTenantScope(table)) return bump();
+  return runInSystemRowLevelSecurityScope(
+    "replay, rebuild and global-table projection writes carry no tenant scope of their own",
+    bump,
+  );
+}
+
 function keepsAmbientTenantScope(table: Table): boolean {
   return (
     activeRowLevelSecurityScope()?.kind === "tenant" &&
     asEntityTableMeta(table)?.tenancy !== "global"
   );
+}
+
+async function createdRowFor(
+  event: StoredEvent,
+  entity: EntityDefinition,
+): Promise<Record<string, unknown>> {
+  // Resolve tenantId explicitly rather than through spread order:
+  // the live path uses tx=tenantDbRunner(db) (with no TenantDb wrapper
+  // auto-injection), and replay has no wrapper either. The default is
+  // event.tenantId; the payload wins ONLY when it is a non-empty string
+  // (seedTenantMembership path: the operator writes in the target tenant,
+  // while the event belongs to the operator tenant).
+  //
+  // Fail loudly when payload.tenantId is set but invalid (empty/null/
+  // non-string): this is critical for tenant isolation. Silently falling
+  // back to event.tenantId would write a bad payload into the operator
+  // tenant and cause cross-tenant data drift.
+  const payloadTenantId = event.payload["tenantId"];
+  let tenantId: string;
+  if (payloadTenantId === undefined) {
+    tenantId = event.tenantId;
+  } else if (typeof payloadTenantId === "string" && payloadTenantId.length > 0) {
+    tenantId = payloadTenantId;
+  } else {
+    throw new InternalError({
+      message: `applyEntityEvent: payload.tenantId set but invalid (${JSON.stringify(payloadTenantId)}). Tenant-isolation-kritisch: silent fallback auf event.tenantId würde Cross-Tenant-Drift erzeugen.`,
+    });
+  }
+  return {
+    ...(await decryptFileReferenceCiphertext(entity, event.payload)),
+    // Compute blind-index columns from the payload value (ciphertext → decrypt →
+    // HMAC, plaintext → HMAC, erased → NULL). This is done here rather
+    // than in the Executor so live writes and rebuilds produce the same
+    // value and the deterministic HMAC never enters the event log.
+    ...(await computeBlindIndexValues(event.payload, collectLookupableFields(entity))),
+    tenantId,
+    id: event.aggregateId,
+    version: event.version,
+    insertedAt: event.createdAt,
+    insertedById: event.createdBy,
+  };
+}
+
+// Postgres caps a statement at 65535 bind parameters; 500 rows leave room for about 130 columns.
+const CREATED_ROWS_PER_INSERT = 500;
+
+export function applyCreatedEntityEvents(
+  events: readonly StoredEvent[],
+  table: Table,
+  entity: EntityDefinition,
+  tx: ExecutorManagedRunner,
+): Promise<readonly DbRow[]> {
+  if (keepsAmbientTenantScope(table)) return insertCreatedRows(events, table, entity, tx);
+  return runInSystemRowLevelSecurityScope(
+    "replay, rebuild and global-table projection writes carry no tenant scope of their own",
+    () => insertCreatedRows(events, table, entity, tx),
+  );
+}
+
+async function insertCreatedRows(
+  events: readonly StoredEvent[],
+  table: Table,
+  entity: EntityDefinition,
+  tx: ExecutorManagedRunner,
+): Promise<readonly DbRow[]> {
+  const rowsToInsert = await Promise.all(events.map((event) => createdRowFor(event, entity)));
+  const inserted: DbRow[] = [];
+  for (let start = 0; start < rowsToInsert.length; start += CREATED_ROWS_PER_INSERT) {
+    inserted.push(
+      ...(await insertMany<DbRow>(
+        tx,
+        table,
+        rowsToInsert.slice(start, start + CREATED_ROWS_PER_INSERT),
+      )),
+    );
+  }
+  const byId = new Map(inserted.map((row) => [String(row["id"]), row]));
+  return events.map((event) => {
+    const row = byId.get(event.aggregateId);
+    if (row === undefined) {
+      throw new InternalError({
+        message: `applyCreatedEntityEvents: insert returned no row for ${event.aggregateId}`,
+      });
+    }
+    return row;
+  });
 }
 
 async function applyEntityEventInScope(
@@ -145,47 +266,13 @@ async function applyEntityEventInScope(
   entity: EntityDefinition,
   tx: ExecutorManagedRunner,
 ): Promise<ApplyResult> {
-  const verb = parseAutoVerb(event);
+  const verb = parseAutoVerb(event, entity);
   if (verb === null) return { kind: "skipped" };
   const softDelete = entity.softDelete ?? false;
 
   switch (verb) {
     case "created": {
-      // Resolve tenantId explicitly rather than through spread order:
-      // the live path uses tx=tenantDbRunner(db) (with no TenantDb wrapper
-      // auto-injection), and replay has no wrapper either. The default is
-      // event.tenantId; the payload wins ONLY when it is a non-empty string
-      // (seedTenantMembership path: the operator writes in the target tenant,
-      // while the event belongs to the operator tenant).
-      //
-      // Fail loudly when payload.tenantId is set but invalid (empty/null/
-      // non-string): this is critical for tenant isolation. Silently falling
-      // back to event.tenantId would write a bad payload into the operator
-      // tenant and cause cross-tenant data drift.
-      const payloadTenantId = event.payload["tenantId"];
-      let tenantId: string;
-      if (payloadTenantId === undefined) {
-        tenantId = event.tenantId;
-      } else if (typeof payloadTenantId === "string" && payloadTenantId.length > 0) {
-        tenantId = payloadTenantId;
-      } else {
-        throw new InternalError({
-          message: `applyEntityEvent: payload.tenantId set but invalid (${JSON.stringify(payloadTenantId)}). Tenant-isolation-kritisch: silent fallback auf event.tenantId würde Cross-Tenant-Drift erzeugen.`,
-        });
-      }
-      const row = await insertOne<DbRow>(tx, table, {
-        ...(await decryptFileReferenceCiphertext(entity, event.payload)),
-        // Compute blind-index columns from the payload value (ciphertext → decrypt →
-        // HMAC, plaintext → HMAC, erased → NULL). This is done here rather
-        // than in the Executor so live writes and rebuilds produce the same
-        // value and the deterministic HMAC never enters the event log.
-        ...(await computeBlindIndexValues(event.payload, collectLookupableFields(entity))),
-        tenantId,
-        id: event.aggregateId,
-        version: event.version,
-        insertedAt: event.createdAt,
-        insertedById: event.createdBy,
-      });
+      const row = await insertOne<DbRow>(tx, table, await createdRowFor(event, entity));
       return { kind: "applied", verb, row: row ?? null };
     }
 

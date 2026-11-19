@@ -31,6 +31,7 @@ import {
 } from "../index.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "can_read_notes",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -39,7 +40,7 @@ const noteEntity = createEntity({
 });
 
 const feature = defineFeature("can-read", (r) => {
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(noteEntity);
   r.writeHandler(
     defineEntityCreateHandler("note", noteEntity, {
       access: { roles: ["Admin", "User", "Clerk", "SystemAdmin"] },

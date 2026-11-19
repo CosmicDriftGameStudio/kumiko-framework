@@ -1,4 +1,4 @@
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildSessionRoles,
   createSystemUser,
@@ -6,12 +6,15 @@ import {
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { burnToken, sessionLocaleField, sessionTimezoneField } from "../../shared/index.ts";
-import { USER_STATUS, UserQueries } from "../../user/index.ts";
+import { revokeAllUserCredentials } from "../../auth-foundation/index.ts";
+import { burnToken, mintAuthSession } from "../../shared/index.ts";
+import { isPrincipalBlockedForNewAuth, UserQueries } from "../../user/index.ts";
 import { base32Decode } from "../base32.ts";
+import { MFA_CREDENTIAL_REVOKE_REASON } from "../credential-revoke-reason.ts";
 import { findUserMfaRow } from "../db/queries.ts";
 import {
   invalidSetupToken,
@@ -35,16 +38,6 @@ export type EnableConfirmPreauthOptions = {
   readonly setupTokenSecret: string;
   readonly maxAttempts?: number;
   readonly lockoutMinutes?: number;
-  // Wired late by run-prod-app, same shared callback as enable-confirm and
-  // enable-start's session-authed siblings.
-  readonly revokeAllOtherSessions?: (
-    userId: string,
-    currentSid: string | undefined,
-  ) => Promise<number>;
-  // Wired late by run-prod-app once the personal-access-tokens feature (if
-  // mounted) is concrete. Absent when PAT isn't mounted: enabling MFA just
-  // doesn't revoke PAT tokens.
-  readonly revokeAllPatTokens?: (userId: string) => Promise<number>;
 };
 
 const executor = createEventStoreExecutor(userMfaTable, userMfaEntity, {
@@ -76,7 +69,8 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
         "Pre-auth MFA enrollment step has no session yet — re-checks status via ctx.dispatch.queryAs(SYSTEM, " +
         "user:findForAuth) and membership via ctx.auth.resolveActiveMembership for the setup token's user. " +
         "Also reads the MFA enrollment of the tenant named in the signed login/setup token, not the " +
-        "guest dispatch tenant.",
+        "guest dispatch tenant. On success " +
+        MFA_CREDENTIAL_REVOKE_REASON,
     },
     description:
       "Completes the enrollment that unblocks a sign-in forced into two-factor setup: verifies the code against the pre-auth setup token, stores the factor and derives the session the blocked login never got.",
@@ -140,7 +134,7 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       // "system" mode: no session exists yet, tenantId comes from the
       // verified token, mirroring enable-start-preauth.write.ts.
       const scopedDb = createTenantDb({
-        db: ctx.db.unsafeRaw(),
+        db: ctx.db.unsafeRawAllTenants(),
         tenantId,
         mode: "system",
         reason: "pre-auth MFA setup has no session, the tenant comes from the verified setup token",
@@ -173,16 +167,9 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
         locale?: string | null;
       } | null; // @cast-boundary engine-payload
 
-      if (!userRow) return invalidSetupToken();
-      if (
-        userRow?.status === USER_STATUS.Restricted ||
-        userRow?.status === USER_STATUS.DeletionRequested ||
-        userRow?.status === USER_STATUS.Deleted
-      ) {
-        return invalidSetupToken();
-      }
+      if (!userRow || isPrincipalBlockedForNewAuth(userRow.status)) return invalidSetupToken();
 
-      const globalRoles = parseRoles(userRow?.roles ?? null);
+      const globalRoles = parseRoles(userRow.roles ?? null);
 
       const active = await ctx.auth.resolveActiveMembership(userId, tenantId);
       if (active.kind === "rejected") return invalidSetupToken();
@@ -213,20 +200,13 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       // verify.write.ts.
       const mergedRoles = buildSessionRoles(globalRoles, active.membership.roles);
 
-      const baseSession: SessionUser = {
-        id: userId,
+      const session = await mintAuthSession(ctx, {
+        userId,
         tenantId,
         roles: mergedRoles,
-        // This endpoint logs the user in directly, so a stored
-        // timezone must survive the preauth-MFA-enrollment login just like
-        // a plain password login does — same helper as verify.write.ts /
-        // invite-accept-with-login.write.ts.
-        ...sessionTimezoneField(userRow?.timezone),
-        ...sessionLocaleField(userRow?.locale),
-      };
-      const claims = await ctx.auth.resolveClaims(baseSession);
-      const session: SessionUser =
-        Object.keys(claims).length > 0 ? { ...baseSession, claims } : baseSession;
+        timezone: userRow.timezone,
+        locale: userRow.locale,
+      });
 
       // Last step before returning success: every gate above (status,
       // membership, entity-write) has passed, so this is the point of no
@@ -234,12 +214,7 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       // means a rejected confirm never touches the user's other sessions.
       // No currentSid to exclude — this is the first session for this
       // login, not a follow-up on an already-running one.
-      if (opts.revokeAllOtherSessions) {
-        await opts.revokeAllOtherSessions(userId, undefined);
-      }
-      if (opts.revokeAllPatTokens) {
-        await opts.revokeAllPatTokens(userId);
-      }
+      await revokeAllUserCredentials(ctx.registry, ctx.db.unsafeRawAllTenants(), userId, {});
 
       return { isSuccess: true, data: { kind: "mfa-preauth-confirm-success", session } };
     },

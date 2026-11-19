@@ -69,8 +69,6 @@ export type {
 export { buildFewShotCorpus, pathToId } from "./few-shot-corpus.ts";
 export { resolveFrameworkVersion } from "./framework-version.ts";
 export { type ToDevHostDispatchOptions, toDevHostDispatch } from "./host-dispatch-adapter.ts";
-export type { CliOutput, RunInitDeployCliOptions } from "./init-deploy-cli.ts";
-export { runInitDeployCli } from "./init-deploy-cli.ts";
 export type { RunDevAppAuthOptions, RunDevAppOptions, SeedFn } from "./run-dev-app.ts";
 export { runDevApp } from "./run-dev-app.ts";
 export type {
@@ -99,9 +97,4 @@ export type {
 export { checkDeployDrift, renderDeployFiles, scaffoldDeploy } from "./scaffold-deploy.ts";
 export type { ScaffoldFeatureOptions, ScaffoldFeatureResult } from "./scaffold-feature.ts";
 export { scaffoldFeature } from "./scaffold-feature.ts";
-export {
-  type SetupTestStackFromFeaturesOptions,
-  setupTestStackFromFeatures,
-  type TestStackPreset,
-} from "./setup-test-stack-from-features.ts";
 export { renderWelcomeBanner, type WelcomeBannerInput } from "./welcome-banner.ts";

@@ -1,5 +1,6 @@
 import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
+import type { QueryContract, WriteContract } from "@cosmicdrift/kumiko-types/handler-contract";
 import type {
   ActiveMembershipResult,
   DispatchWriteRef,
@@ -95,12 +96,23 @@ export type DispatcherOptions = {
 };
 
 export type Dispatcher = {
+  write<TPayload, TData>(
+    contract: WriteContract<TPayload, TData>,
+    payload: NoInfer<TPayload>,
+    user: SessionUser,
+    requestId?: string,
+  ): Promise<WriteResult<TData>>;
   write(
     type: HandlerType,
     payload: unknown,
     user: SessionUser,
     requestId?: string,
   ): Promise<WriteResult>;
+  query<TPayload, TResult>(
+    contract: QueryContract<TPayload, TResult>,
+    payload: NoInfer<TPayload>,
+    user: SessionUser,
+  ): Promise<TResult>;
   query(type: HandlerType, payload: unknown, user: SessionUser): Promise<unknown>;
   // AsyncGenerator, not Promise — gates (feature/rate-limit/access/
   // validation) fire on the consumer's first `.next()` pull, not on this
@@ -260,26 +272,53 @@ export function createDispatcher(
     outsideTransactionDb: options.outsideTransactionDb,
   };
 
+  function write<TPayload, TData>(
+    contract: WriteContract<TPayload, TData>,
+    payload: NoInfer<TPayload>,
+    user: SessionUser,
+    requestId?: string,
+  ): Promise<WriteResult<TData>>;
+  function write(
+    type: HandlerType,
+    payload: unknown,
+    user: SessionUser,
+    requestId?: string,
+  ): Promise<WriteResult>;
+  async function write(
+    typeOrRef: HandlerType,
+    payload: unknown,
+    user: SessionUser,
+    requestId?: string,
+  ): Promise<WriteResult> {
+    const type = resolveType(typeOrRef);
+    // Idempotency handled inside runBatch (caches BatchResult under requestId).
+    const batchResult = await withEscapeHatchAuditScope(() =>
+      runBatch(ctx, [{ type, payload }], user, requestId),
+    );
+    return unwrapSingle(batchResult);
+  }
+
+  function query<TPayload, TResult>(
+    contract: QueryContract<TPayload, TResult>,
+    payload: NoInfer<TPayload>,
+    user: SessionUser,
+  ): Promise<TResult>;
+  function query(type: HandlerType, payload: unknown, user: SessionUser): Promise<unknown>;
+  function query(typeOrRef: HandlerType, payload: unknown, user: SessionUser): Promise<unknown> {
+    const type = resolveType(typeOrRef);
+    const origin = rootWriteOrigin(registry, type, user);
+    return withEscapeHatchAuditScope(() =>
+      runWithWriteOrigin(origin, () => executeQuery(ctx, type, payload, user, origin)),
+    );
+  }
+
   const dispatcher: Dispatcher = {
-    async write(typeOrRef, payload, user, requestId?) {
-      const type = resolveType(typeOrRef);
-      // Idempotency handled inside runBatch (caches BatchResult under requestId).
-      const batchResult = await withEscapeHatchAuditScope(() =>
-        runBatch(ctx, [{ type, payload }], user, requestId),
-      );
-      return unwrapSingle(batchResult);
-    },
+    write,
 
     batch: (commands, user, requestId?) =>
       withEscapeHatchAuditScope(() => runBatch(ctx, commands, user, requestId)),
 
-    query: (typeOrRef, payload, user) => {
-      const type = resolveType(typeOrRef);
-      const origin = rootWriteOrigin(registry, type, user);
-      return withEscapeHatchAuditScope(() =>
-        runWithWriteOrigin(origin, () => executeQuery(ctx, type, payload, user, origin)),
-      );
-    },
+    query,
 
     stream: (typeOrRef, payload, user, options) => {
       const type = resolveType(typeOrRef);

@@ -22,11 +22,13 @@ import { createDbConnection } from "../../db/connection.ts";
 import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/dialect.ts";
 import { asRawClient } from "../../db/query.ts";
 import {
+  defineEntityQueryHandler,
+  defineEntityWriteHandler,
+} from "../../engine/entity-handlers.ts";
+import {
   createEntity,
   createRegistry,
   createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
   defineFeature,
 } from "../../engine/index.ts";
 import type { Registry, TenantId } from "../../engine/types/index.ts";
@@ -61,6 +63,7 @@ let failMspApply = false;
 
 function buildContactEntity(phoneIsPii: boolean): EntityDefinition {
   return createEntity({
+    name: "contact",
     table: CONTACT_TABLE,
     fields: {
       email: createTextField({ required: true, personal: "self", find: "exact" }),
@@ -73,7 +76,7 @@ function buildContactEntity(phoneIsPii: boolean): EntityDefinition {
 
 function buildCrmFeature(entity: EntityDefinition) {
   return defineFeature("crm", (r) => {
-    r.entity({ name: "contact", ...entity });
+    r.entity({ ...entity, name: "contact" });
     r.writeHandler(
       defineEntityWriteHandler("contact:create", entity, { access: { roles: ["Admin"] } }),
     );

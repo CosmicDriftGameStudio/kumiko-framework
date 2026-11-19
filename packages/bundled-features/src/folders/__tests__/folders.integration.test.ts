@@ -17,9 +17,10 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
-import { asRawClient, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -27,16 +28,18 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { v5 as uuidv5 } from "uuid";
-import { folderAssignmentDeleteHook, folderDeleteHook } from "../../folders-user-data/hooks.ts";
 import { folderAssignmentEntity, folderEntity } from "../entity.ts";
 import { createFoldersFeature } from "../feature.ts";
+import { folderAssignmentDeleteHook, folderDeleteHook } from "../user-data-hooks.ts";
 import { FoldersHandlers, FoldersQueries } from "../web/constants.ts";
 
-const foldersFeature = createFoldersFeature();
+const foldersFeature = createFoldersFeature({ parents: ["credit"] });
 
 const CREDIT_TABLE = "folders_test_credits";
 const creditEntity = createEntity({
+  name: "credit",
   table: CREDIT_TABLE,
   fields: {
     name: createTextField({
@@ -48,7 +51,7 @@ const creditEntity = createEntity({
   },
 });
 const hostFixturesFeature = defineFeature("folders-test-host-fixtures", (r) => {
-  r.entity({ name: "credit", ...creditEntity });
+  r.entity(creditEntity);
 });
 
 // The parent entity's ids are uuid-shaped, but the readable labels below carry
@@ -118,6 +121,10 @@ async function createFolder(name: string, parentId?: string, user = admin): Prom
     user,
   );
   return folder.id;
+}
+
+async function folderRow(id: string) {
+  return (await listFolders()).find((row) => row["id"] === id);
 }
 
 async function setFolder(folderId: string, entityId: string, user = admin) {
@@ -337,6 +344,7 @@ describe("folders integration — openToAll access model", () => {
     openStack = await setupTestStack({
       features: [
         createFoldersFeature({
+          parents: ["credit"],
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         }),
         hostFixturesFeature,
@@ -440,5 +448,74 @@ describe("folders-user-data — tenantScopedDelete hooks", () => {
     await folderAssignmentDeleteHook(ctx, "delete");
     expect(await listFolders()).toHaveLength(0);
     expect(await countAssignments(admin.tenantId)).toBe(0);
+  });
+});
+
+describe("folders integration — parent integrity", () => {
+  test("create with an unknown parentId is rejected", async () => {
+    const err = await stack.http.writeErr(
+      FoldersHandlers.createFolder,
+      { name: "lost", parentId: "00000000-0000-4000-8000-00000000beef" },
+      admin,
+    );
+    expect(err.httpStatus).toBe(422);
+    expect(propertyOf(err.details, "reason")).toBe("folder_parent_not_found");
+    expect(await listFolders()).toHaveLength(0);
+  });
+
+  test("moving a folder under its own child is rejected", async () => {
+    const a = await createFolder("A");
+    const b = await createFolder("B", a);
+    const version = (await folderRow(a))?.["version"];
+
+    const err = await stack.http.writeErr(
+      FoldersHandlers.updateFolder,
+      { id: a, version, changes: { parentId: b } },
+      admin,
+    );
+    expect(err.httpStatus).toBe(422);
+    expect(propertyOf(err.details, "reason")).toBe("folder_parent_cycle");
+    expect((await folderRow(a))?.["parentId"]).toBeNull();
+  });
+
+  test("a folder cannot become its own parent", async () => {
+    const a = await createFolder("A");
+    const version = (await folderRow(a))?.["version"];
+
+    const err = await stack.http.writeErr(
+      FoldersHandlers.updateFolder,
+      { id: a, version, changes: { parentId: a } },
+      admin,
+    );
+    expect(err.httpStatus).toBe(422);
+    expect(propertyOf(err.details, "reason")).toBe("folder_parent_cycle");
+  });
+
+  test("moving a folder under another folder works", async () => {
+    const a = await createFolder("A");
+    const b = await createFolder("B");
+    const version = (await folderRow(b))?.["version"];
+
+    await stack.http.writeOk(
+      FoldersHandlers.updateFolder,
+      { id: b, version, changes: { parentId: a } },
+      admin,
+    );
+    expect((await folderRow(b))?.["parentId"]).toBe(a);
+  });
+
+  test("deleting a folder with a child folder is rejected until the child is gone", async () => {
+    const p = await createFolder("P");
+    const c = await createFolder("C", p);
+
+    const err = await stack.http.writeErr(FoldersHandlers.deleteFolder, { id: p }, admin);
+    expect(err.httpStatus).toBe(422);
+    expect(propertyOf(err.details, "reason")).toBe("folder_has_children");
+    expect(await folderRow(p)).toBeDefined();
+    expect(await folderRow(c)).toBeDefined();
+
+    await stack.http.writeOk(FoldersHandlers.deleteFolder, { id: c }, admin);
+    await stack.http.writeOk(FoldersHandlers.deleteFolder, { id: p }, admin);
+    expect(await folderRow(p)).toBeUndefined();
   });
 });

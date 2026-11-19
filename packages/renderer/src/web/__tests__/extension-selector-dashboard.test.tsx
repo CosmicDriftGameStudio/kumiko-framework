@@ -2,9 +2,6 @@
 // generator output (buildConfigFeatureSchema) — one form for the provider and every
 // provider's settings and secrets, shown for the provider picked in the form. The
 // chromeless dashboard panel is what an owner with extra panels embeds that form in.
-//
-// `as unknown as Dispatcher[...]`: each mock lambda implements only the overload
-// the test exercises.
 
 import { describe, expect, mock, test } from "bun:test";
 import {
@@ -29,7 +26,13 @@ import {
 } from "../../index.ts";
 import { WebDashboardBody } from "../app/dashboard-body.tsx";
 import { useBrowserNavApi } from "../app/nav.tsx";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockQueryHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const TENANT_ADMIN_WRITE = access.roles("TenantAdmin");
 
@@ -58,7 +61,7 @@ const mailFoundation = defineFeature("mail-foundation", (r) => {
 });
 
 const smtp = defineFeature("mail-smtp", (r) => {
-  r.useExtension("mailTransport", "smtp");
+  r.applyExtension({ name: "mailTransport", entity: "smtp" });
   r.config({
     keys: {
       host: createTenantConfig("text", {
@@ -68,11 +71,11 @@ const smtp = defineFeature("mail-smtp", (r) => {
       }),
     },
   });
-  r.secret("password", { label: { en: "SMTP password" }, scope: "tenant", required: true });
+  r.secret({ name: "password", label: { en: "SMTP password" }, scope: "tenant", required: true });
 });
 
 const inmemory = defineFeature("mail-inmemory", (r) => {
-  r.useExtension("mailTransport", "inmemory");
+  r.applyExtension({ name: "mailTransport", entity: "inmemory" });
   r.config({
     keys: {
       capture: createTenantConfig("boolean", {
@@ -139,8 +142,8 @@ type HubState = { readonly provider?: string; readonly passwordStored?: boolean 
 
 const SMTP_PASSWORD_KEY = "mail-smtp:secret:password";
 
-function hubQuery(state: HubState): Dispatcher["query"] {
-  return (async (type: string) => {
+function hubQuery(state: HubState): MockQueryHandler {
+  return async (type: string) => {
     if (type === "config:query:values") {
       return {
         isSuccess: true,
@@ -163,7 +166,7 @@ function hubQuery(state: HubState): Dispatcher["query"] {
       };
     }
     return { isSuccess: true, data: {} };
-  }) as unknown as Dispatcher["query"];
+  };
 }
 
 function batchSpy() {
@@ -184,7 +187,7 @@ describe("generated extension-selector dashboard", () => {
     renderHub(createMockDispatcher({ query: hubQuery({ provider: "smtp" }) }));
 
     await waitFor(() => screen.getByTestId("field-mail-smtp-host"));
-    expect(screen.getByTestId("field-mail-smtp-password")).toBeTruthy();
+    screen.getByTestId("field-mail-smtp-password");
     expect(screen.queryByTestId("field-mail-inmemory-capture")).toBeNull();
     expect(screen.queryByTestId("dashboard-panel-mail-smtp-config")).toBeNull();
   });
@@ -223,7 +226,7 @@ describe("generated extension-selector dashboard", () => {
     renderHub(
       createMockDispatcher({
         query: hubQuery({}),
-        batch: batch as unknown as Dispatcher["batch"],
+        batch: batch,
       }),
     );
     const user = userEvent.setup();
@@ -255,7 +258,7 @@ describe("generated extension-selector dashboard", () => {
     renderHub(
       createMockDispatcher({
         query: hubQuery({}),
-        batch: batch as unknown as Dispatcher["batch"],
+        batch: batch,
       }),
     );
     const user = userEvent.setup();
@@ -279,11 +282,11 @@ describe("generated extension-selector dashboard", () => {
     renderHub(
       createMockDispatcher({
         query: hubQuery({ provider: "smtp", passwordStored: true }),
-        batch: batch as unknown as Dispatcher["batch"],
+        batch: batch,
       }),
     );
     await waitFor(() => screen.getByTestId("field-mail-smtp-password"));
-    expect(screen.getByText("•••••••••• set")).toBeTruthy();
+    screen.getByText("•••••••••• set");
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Replace" }));

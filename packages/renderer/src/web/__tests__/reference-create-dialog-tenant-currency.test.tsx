@@ -32,7 +32,7 @@ describe("ReferenceCreateDialog — tenant-declared money currency", () => {
   test("typed tenant-declared field submits with the tenant currency, not EUR", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (type: string) =>
+      query: async (type: string) =>
         type === "config:query:values"
           ? {
               isSuccess: true,
@@ -47,11 +47,11 @@ describe("ReferenceCreateDialog — tenant-declared money currency", () => {
           : {
               isSuccess: true,
               data: { rows: [], nextCursor: null },
-            }) as unknown as Dispatcher["query"],
-      write: (async (type: string, payload: unknown) => {
+            },
+      write: async (type: string, payload: unknown) => {
         writeCalls.push({ type, payload });
         return { isSuccess: true, data: { id: "inv-1" } };
-      }) as unknown as Dispatcher["write"],
+      },
     });
 
     render(
@@ -67,7 +67,7 @@ describe("ReferenceCreateDialog — tenant-declared money currency", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy(), {
+    await waitFor(() => screen.getByTestId("render-edit-form"), {
       timeout: 3000,
     });
     const costInput = screen.getByTestId("field-cost").querySelector("input");
@@ -83,7 +83,7 @@ describe("ReferenceCreateDialog — tenant-declared money currency", () => {
 
     await waitFor(() => expect(writeCalls.length).toBe(1));
     const payload = writeCalls[0]?.payload as { price?: unknown; cost?: unknown };
-    expect(payload.price).toEqual({ amount: 10, currency: "GBP" });
-    expect(payload.cost).toEqual({ amount: 20, currency: "EUR" });
+    expect(payload.price).toEqual({ amount: 1000, currency: "GBP" });
+    expect(payload.cost).toEqual({ amount: 2000, currency: "EUR" });
   });
 });

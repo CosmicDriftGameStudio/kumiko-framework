@@ -13,6 +13,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
+  createFilesFeature,
   createInMemoryFileProvider,
   fileRefsTable,
   type InMemoryFileProvider,
@@ -34,7 +35,6 @@ import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
 } from "../../data-retention/index.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.ts";
 import { tenantMembershipEntity } from "../../tenant/membership-table.ts";
 import { createUserFeature, userEntity, userTable } from "../../user/index.ts";
@@ -44,6 +44,7 @@ import { runForgetCleanup } from "../run-forget-cleanup.ts";
 import { createForgetSeeders, type ForgetSeeders, nowInstant } from "./forget-test-helpers.ts";
 
 const ownedDocEntity = createEntity({
+  name: "owned-doc",
   table: "read_ffc_owned_doc",
   fields: {
     ownerId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
@@ -52,7 +53,7 @@ const ownedDocEntity = createEntity({
 });
 
 const ownedDocFeature = defineFeature("ffc-probe", (r) => {
-  r.entity({ name: "owned-doc", ...ownedDocEntity });
+  r.entity(ownedDocEntity);
   r.writeHandler(
     defineEntityCreateHandler("owned-doc", ownedDocEntity, { access: { roles: ["Admin"] } }),
   );

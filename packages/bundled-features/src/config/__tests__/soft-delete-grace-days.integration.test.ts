@@ -25,16 +25,17 @@ const GRACE_DAYS_KEY = "soft-delete:config:grace-days";
 const CLEANUP_JOB = "soft-delete:job:cleanup";
 
 const thingEntity = createEntity({
+  name: "thing",
   table: "sdgd_things",
   softDelete: true,
   fields: {
     label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
 });
-const thingTable = buildEntityTable("thing", thingEntity);
+const thingTable = buildEntityTable(thingEntity);
 
 const feature = defineFeature("sdgd", (r) => {
-  r.entity({ name: "thing", ...thingEntity });
+  r.entity(thingEntity);
   r.writeHandler(defineEntityCreateHandler("thing", thingEntity, { access: { roles: ["Admin"] } }));
   r.writeHandler(defineEntityDeleteHandler("thing", thingEntity, { access: { roles: ["Admin"] } }));
 });

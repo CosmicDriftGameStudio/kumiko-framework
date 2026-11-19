@@ -20,13 +20,13 @@ const openToAllAccess = {
 describe("validateBoot refEntity targets", () => {
   test("projectionList column with a typo'd refEntity throws", () => {
     const feature = defineFeature("ledger", (r) => {
-      r.entity({
-        name: "tenant",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "tenant",
           table: "Tenants",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
       r.queryHandler({
         name: "schedule:list",
         schema: z.object({}),
@@ -67,13 +67,13 @@ describe("validateBoot refEntity targets", () => {
 
   test("projectionList column refEntity typo on a mounted feature lists that feature's entities", () => {
     const owners = defineFeature("owners", (r) => {
-      r.entity({
-        name: "owner",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "owner",
           table: "Owners",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
     });
     const feature = defineFeature("ledger", (r) => {
       r.queryHandler({
@@ -159,22 +159,22 @@ describe("validateBoot refEntity targets", () => {
 
   test("same-feature shorthand and cross-feature refEntity targets pass boot", () => {
     const owners = defineFeature("owners", (r) => {
-      r.entity({
-        name: "owner",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "owner",
           table: "Owners",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
     });
     const feature = defineFeature("ledger", (r) => {
-      r.entity({
-        name: "tenant",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "tenant",
           table: "Tenants",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
       r.queryHandler({
         name: "schedule:list",
         schema: z.object({}),
@@ -196,15 +196,15 @@ describe("validateBoot refEntity targets", () => {
 
   test("entityList column with a typo'd refEntity throws", () => {
     const feature = defineFeature("ledger", (r) => {
-      r.entity({
-        name: "tenant",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "tenant",
           table: "Tenants",
           fields: {
             ownerId: createTextField({ personal: false, reason: "test_fixture" }),
           },
         }),
-      });
+      );
       r.screen({
         id: "tenant-list",
         type: "entityList",
@@ -220,13 +220,13 @@ describe("validateBoot refEntity targets", () => {
   test("dashboard list-panel column with a typo'd refEntity throws, a valid one boots", () => {
     const build = (refEntity: string) =>
       defineFeature("ledger", (r) => {
-        r.entity({
-          name: "tenant",
-          ...createEntity({
+        r.entity(
+          createEntity({
+            name: "tenant",
             table: "Tenants",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        });
+        );
         r.queryHandler({
           name: "schedule:list",
           schema: z.object({}),

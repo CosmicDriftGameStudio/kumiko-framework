@@ -69,6 +69,7 @@ const teamOwnership: NonNullable<EntityDefinition["access"]> = {
 // entirely on the note-entry side (teamOwnership above).
 const PROJECT_TABLE = "notes_ownership_test_projects";
 const projectEntity: EntityDefinition = createEntity({
+  name: "project",
   table: PROJECT_TABLE,
   fields: {
     name: createTextField({
@@ -80,7 +81,7 @@ const projectEntity: EntityDefinition = createEntity({
   },
 });
 const projectFixtureFeature = defineFeature("notes-ownership-test-project-fixture", (r) => {
-  r.entity({ name: "project", ...projectEntity });
+  r.entity(projectEntity);
 });
 
 const PROJ_1 = "20000000-0000-4000-8000-000000000001";
@@ -121,9 +122,12 @@ async function insertProjects(
 
 beforeAll(async () => {
   scopedStack = await setupTestStack({
-    features: [createNotesHistoryFeature({ ownership: teamOwnership }), projectFixtureFeature],
+    features: [
+      createNotesHistoryFeature({ parents: ["project"], ownership: teamOwnership }),
+      projectFixtureFeature,
+    ],
   });
-  await unsafeCreateEntityTable(scopedStack.db, createNoteEntryEntity(teamOwnership));
+  await unsafeCreateEntityTable(scopedStack.db, createNoteEntryEntity(teamOwnership, ["project"]));
   await unsafeCreateEntityTable(scopedStack.db, noteMentionEntity);
   await unsafeCreateEntityTable(scopedStack.db, projectEntity);
   await asRawClient(scopedStack.db).unsafe(
@@ -136,7 +140,7 @@ beforeAll(async () => {
   // used to prove the 0-rows result below is the ownership rule doing real
   // work, not an empty table or a broken query.
   defaultStack = await setupTestStack({
-    features: [createNotesHistoryFeature(), projectFixtureFeature],
+    features: [createNotesHistoryFeature({ parents: ["project"] }), projectFixtureFeature],
   });
   await unsafeCreateEntityTable(defaultStack.db, noteEntryEntity);
   await unsafeCreateEntityTable(defaultStack.db, noteMentionEntity);
@@ -280,11 +284,14 @@ describe("unqualified where-rule fails closed, not open", () => {
     // stays focused on the note-entry ownership rule.
     unqualifiedStack = await setupTestStack({
       features: [
-        createNotesHistoryFeature({ ownership: unqualifiedOwnership }),
+        createNotesHistoryFeature({ parents: ["project"], ownership: unqualifiedOwnership }),
         projectFixtureFeature,
       ],
     });
-    await unsafeCreateEntityTable(unqualifiedStack.db, createNoteEntryEntity(unqualifiedOwnership));
+    await unsafeCreateEntityTable(
+      unqualifiedStack.db,
+      createNoteEntryEntity(unqualifiedOwnership, ["project"]),
+    );
     await unsafeCreateEntityTable(unqualifiedStack.db, noteMentionEntity);
     await unsafeCreateEntityTable(unqualifiedStack.db, projectEntity);
     await asRawClient(unqualifiedStack.db).unsafe(
@@ -327,6 +334,7 @@ describe("notes-history — boot guard rejects a where-rule in ownership.write",
   test("createNotesHistoryFeature throws instead of shipping a deny-only ownership map", () => {
     expect(() =>
       createNotesHistoryFeature({
+        parents: ["project"],
         ownership: {
           write: {
             TenantMember: { kind: "where", where: () => ({ sqlText: "1=1", params: [] }) },

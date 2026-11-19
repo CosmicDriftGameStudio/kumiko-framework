@@ -1,8 +1,8 @@
 // Translations for the GDPR notification mails (the templates in
 // mail-notifications.ts are built from them). English ships here; other
 // languages register via @cosmicdrift/kumiko-locale-* (localeDe() /
-// localeEs() call registerMailTranslations). Apps that want their own
-// branding pass send*Email callbacks and these defaults do not run.
+// localeEs() call registerMailTranslations). Apps change wording and
+// branding through template overrides or mailDefaults.
 
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -32,10 +32,20 @@ export const GDPR_MAIL_EN: Readonly<Record<string, string>> = {
   "gdpr.mail.deletionRequested.intro":
     "we received your request to delete your {app} account. Your account and associated data will be permanently deleted on {when}.",
   "gdpr.mail.deletionRequested.cancel":
+    "If you didn't request this, cancel the deletion with the button below before the deadline.",
+  "gdpr.mail.deletionRequested.cancelButton": "Cancel deletion",
+  "gdpr.mail.deletionRequested.cancelSignIn":
     "If you didn't request this, sign in and cancel the deletion in your account settings before the deadline.",
   "gdpr.mail.deletionExecuted.subject": "{app} — Your account has been deleted",
   "gdpr.mail.deletionExecuted.intro":
     "your {app} account and the associated personal data were deleted on {when}. This action is permanent.",
+  "gdpr.mail.deletionVerification.subject": "{app} — Confirm your account deletion",
+  "gdpr.mail.deletionVerification.intro":
+    "we received a request to delete your {app} account. If it came from you, confirm it with the button below.",
+  "gdpr.mail.deletionVerification.button": "Confirm deletion",
+  "gdpr.mail.deletionVerification.expiry": "The link expires on {when}.",
+  "gdpr.mail.deletionVerification.ignore":
+    "If you didn't request this, ignore this email. Your account stays as it is.",
 };
 
 registerMailTranslations("en", GDPR_MAIL_EN);

@@ -36,8 +36,9 @@ export const SCREEN_ACTION_RULES = {
   },
   actionVisibleUnknownField: {
     id: "screen/action-visible-unknown-field",
-    summary: "An action's visible.field references an existing entity field.",
-    fix: "Point visible.field at a known field.",
+    summary:
+      "An action's visible.field names a field the row carries: an entity field, a derived field or a row meta column.",
+    fix: "Point visible.field at an entity field, a derivedFields key or a row meta column.",
   },
   actionEntityIdUnknownField: {
     id: "screen/action-entity-id-unknown-field",

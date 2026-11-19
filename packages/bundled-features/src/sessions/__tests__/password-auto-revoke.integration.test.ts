@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
@@ -42,10 +42,6 @@ let stack: TestStack;
 let h: ReturnType<typeof makeSessionHelpers>;
 const callbacks = createLateBoundHolder<SessionCallbacks>("session-callbacks");
 
-// vi.fn spy for the revoker — lets us assert exact call counts and arguments
-// per test without leaking module-level mutable state across suites.
-const massRevokeSpy = mock<(userId: string) => Promise<number>>();
-
 const encryptionKey = randomBytes(32).toString("base64");
 
 // Align with TestUsers.systemAdmin.tenantId so seed + change-password write
@@ -57,11 +53,6 @@ beforeAll(async () => {
   const encryption = createTestEnvelopeCipher(encryptionKey);
   const resolver = createConfigResolver({ cipher: encryption });
   const bound = sessionCallbacksFromLateBound(callbacks);
-  const baseRevoker = bound.asMassRevoker();
-
-  // Wire the spy as the revoker passed to the feature; it forwards to the
-  // real one so the DB stays in sync, but also records the call.
-  massRevokeSpy.mockImplementation((userId) => baseRevoker(userId));
 
   stack = await setupTestStack({
     features: [
@@ -70,9 +61,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createAuthEmailPasswordFeature(),
       createAuthFoundationFeature(),
-      createSessionsFeature({
-        autoRevokeOnPasswordChange: massRevokeSpy,
-      }),
+      createSessionsFeature(),
     ],
     extraContext: { configResolver: resolver, configEncryption: encryption },
     authConfig: {
@@ -101,7 +90,6 @@ beforeEach(async () => {
     userSessionTable,
     eventsTable,
   ]);
-  massRevokeSpy.mockClear();
 });
 
 describe("password change mass-revokes every live session", () => {
@@ -133,10 +121,10 @@ describe("password change mass-revokes every live session", () => {
     });
     expect(change.status).toBe(200);
 
-    // Revoker was called exactly once; the return-value reports the 3 live
-    // sessions it revoked (a + b + c, all for the same user).
-    expect(massRevokeSpy).toHaveBeenCalledTimes(1);
-    expect(await massRevokeSpy.mock.results[0]?.value).toBe(3);
+    // The hook revoked the 3 live sessions (a + b + c) in the change's transaction.
+    const revokedRows = await selectMany(stack.db, userSessionTable, { userId });
+    expect(revokedRows).toHaveLength(3);
+    expect(revokedRows.every((r) => r["revokedAt"] !== null)).toBe(true);
 
     // Every previously-live session — INCLUDING b — is now revoked
     expect(
@@ -167,10 +155,12 @@ describe("password change mass-revokes every live session", () => {
 
   test("user:create does NOT trigger mass-revoke (isNew guard)", async () => {
     // seedUser does a user:create — the hook fires, but the isNew guard
-    // should short-circuit before the mass-revoker runs. A future refactor
-    // that drops the guard would make the spy show a call here.
-    await h.seedUser("fresh@example.com", "pw-long-enough");
-    expect(massRevokeSpy).not.toHaveBeenCalled();
+    // short-circuits it. Sessions created right after stay live.
+    const { userId } = await h.seedUser("fresh@example.com", "pw-long-enough");
+    await h.login("fresh@example.com", "pw-long-enough");
+    const rows = await selectMany(stack.db, userSessionTable, { userId });
+    expect(rows).toHaveLength(1);
+    expect(rows.every((r) => r["revokedAt"] === null)).toBe(true);
   });
 
   test("editing a non-password field does NOT trigger mass-revoke", async () => {
@@ -198,9 +188,9 @@ describe("password change mass-revokes every live session", () => {
     });
     expect(update.status).toBe(200);
 
-    // Revoker not called — the isNew guard + passwordHash guard both must
-    // have held off.
-    expect(massRevokeSpy).not.toHaveBeenCalled();
+    // The isNew guard + passwordHash guard both must have held off.
+    const rows = await selectMany(stack.db, userSessionTable, { userId });
+    expect(rows.every((r) => r["revokedAt"] === null)).toBe(true);
 
     // Same JWT still works
     const after = await h.authedPost("/api/query", a.token, {

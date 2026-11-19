@@ -17,7 +17,6 @@ type CallFeatureArgs = {
 defineStep<CallFeatureArgs, unknown>({
   kind: "callFeature",
   tier: 2,
-  defaultFailureStrategy: "throw",
   resultKey: (args) => args.name,
   run: async (args, ctx: PipelineCtx) => {
     const payload = resolveRequired(args.payload, ctx);

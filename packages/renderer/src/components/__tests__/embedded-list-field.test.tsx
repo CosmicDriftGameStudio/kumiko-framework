@@ -21,6 +21,7 @@ import {
   type EmbeddedListInputProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import { EmbeddedListField } from "../embedded-list-field.tsx";
 import { RenderField, type RenderFieldProps } from "../render-field.tsx";
 
@@ -44,7 +45,7 @@ const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
 function testPrimitives(): CorePrimitives {
-  return {
+  return createStubPrimitives({
     Button: noop,
     Banner: noop,
     Field: passChildren,
@@ -64,7 +65,7 @@ function testPrimitives(): CorePrimitives {
     ConfigSourceBadge: noop,
     ConfigCascadeView: noop,
     Link: noop,
-  };
+  });
 }
 
 type ProductRow = { readonly id: string; readonly name: string };
@@ -84,9 +85,9 @@ function productPage(productRows: readonly ProductRow[], payload: unknown): read
 }
 
 function stubDispatcher(productRows: readonly ProductRow[] = []): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: {} }),
+    query: async (type: string, payload: unknown) => {
       if (type === "invoices:query:product:list") {
         // The real list handler validates `limit` with `.max(MAX_LIST_LIMIT)`.
         if ((payload as { limit: number }).limit > REFERENCE_LIST_LOOKUP_LIMIT) {
@@ -98,16 +99,9 @@ function stubDispatcher(productRows: readonly ProductRow[] = []): Dispatcher {
         return { isSuccess: true, data: { rows: productPage(productRows, payload) } };
       }
       return { isSuccess: true, data: { rows: [] } };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function invoiceLinesField(overrides: Partial<EditFieldViewModel> = {}): EditFieldViewModel {

@@ -3,7 +3,6 @@ import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
-  PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -16,13 +15,13 @@ import {
   seedRow,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
+  drainEventConsumers,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/feature.ts";
@@ -34,7 +33,7 @@ import { seedTenantMembership } from "../../tenant/seeding.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { seedUser } from "../../user/seeding.ts";
-import { SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants.ts";
+import { SUBJECT_FORGOTTEN_EVENT_NAME, SUBJECT_KEY_ERASER_CONSUMER_NAME } from "../constants.ts";
 import { createCryptoShreddingFeature } from "../feature.ts";
 
 const FORGET = "crypto-shredding:write:forget-subject";
@@ -91,11 +90,13 @@ async function expectForgotten(userId: string, kms: InMemoryKmsAdapter) {
   expect(result.status).toBe(200);
   expect(result.body.isSuccess).toBe(true);
   expect(result.userStatus).toBe(USER_STATUS.Deleted);
+  await drainEventConsumers(stack, [SUBJECT_KEY_ERASER_CONSUMER_NAME]);
   await expect(kms.getKey({ kind: "user", userId })).rejects.toThrow("Subject key erased");
-  const audit = await selectMany(stack.db, eventsTable, {
-    type: SUBJECT_FORGOTTEN_EVENT_NAME,
-    aggregateId: userId,
-  });
+  const audit = (
+    (await selectMany(stack.db, eventsTable, {
+      type: SUBJECT_FORGOTTEN_EVENT_NAME,
+    })) as Array<{ payload: Record<string, unknown> }>
+  ).filter((e) => e.payload["subjectKey"] === `user:${userId}`);
   expect(audit.length).toBeGreaterThanOrEqual(1);
 }
 
@@ -143,7 +144,7 @@ describe("forget-subject for users stored before the KMS or without an event str
 });
 
 describe("forget-subject closes the login door of a pre-KMS user after the key is erased", () => {
-  test("user is Deleted, PATs are revoked and the update event carries the erased sentinel", async () => {
+  test("user is Deleted, PATs are revoked and the update events carry no plaintext email", async () => {
     const { id } = await seedUser(stack.db, { email: "legacy-pat@example.com", displayName: "P" });
     await seedRow(stack.db, apiTokenTable, {
       id: crypto.randomUUID(),
@@ -167,10 +168,9 @@ describe("forget-subject closes the login door of a pre-KMS user after the key i
       aggregateId: id,
       type: "user.updated",
     });
-    const previousEmails = updates.map((event) => {
-      const previous = event.payload["previous"];
-      return isPlainObject(previous) ? previous["email"] : undefined;
-    });
-    expect(previousEmails).toContain(PII_ERASED_SENTINEL);
+    expect(updates.length).toBeGreaterThan(0);
+    expect(JSON.stringify(updates.map((event) => event.payload))).not.toContain(
+      "legacy-pat@example.com",
+    );
   });
 });

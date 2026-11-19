@@ -8,10 +8,13 @@
  *   - A file inside feature A may not import from feature B's internals.
  *   - Allowed cross-feature imports: the barrel (`from "../B"`, or
  *     `"../B/index"` / `"../B/index.ts"`), the client barrel (`"../B/web"`,
- *     `"../B/web/index"`), and two side-effect-free public surface modules,
- *     `"../B/contract"` and `"../B/schema/entity"` (with or without
- *     extension). Anything else — `from "../B/types"`,
+ *     `"../B/web/index"`), and the side-effect-free public surface modules
+ *     `"../B/contract"`, `"../B/server-contract"` and `"../B/schema/entity"`
+ *     (with or without extension). Anything else — `from "../B/types"`,
  *     `from "../B/handlers/foo"`, `from "../B/feature"` — is rejected.
+ *   - Re-exports with a module specifier (`export { x } from "../B/types"`,
+ *     `export * from "../B/feature"`) are checked like imports; dynamic
+ *     `import()` stays unchecked.
  *   - Same-feature relative imports (`./x`, `../sibling-in-same-feature`)
  *     stay unrestricted.
  *   - Non-relative imports (`@cosmicdrift/kumiko-framework`, `drizzle-orm`, `zod`)
@@ -43,9 +46,9 @@
  */
 
 import * as path from "node:path";
-import type { SourceFile } from "ts-morph";
+import type { ExportDeclaration, ImportDeclaration, SourceFile } from "ts-morph";
 import { type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
-import { lineHasIgnoreTag } from "./_lib/ignore-tag";
+import { consumeIgnoreTagOnLine } from "./_lib/ignore-tag";
 
 const ROOT = process.cwd();
 
@@ -82,7 +85,7 @@ type FeatureLocation = {
 // Identifies the feature a file belongs to. Returns null for files that
 // live outside any feature boundary (single-feature sample roots,
 // framework-internal helpers reached via the same scan).
-function locateFeature(absPath: string): FeatureLocation | null {
+export function locateFeature(absPath: string): FeatureLocation | null {
   const rel = path.relative(ROOT, absPath);
 
   const coreMatch = rel.match(/^(packages\/bundled-features\/src\/([^/]+))\//);
@@ -138,6 +141,9 @@ const PUBLIC_SURFACE_MODULES = new Set([
   "contract",
   "contract.ts",
   "contract.tsx",
+  // Server-only twin of contract: re-exports entities and readers a browser bundle must not load.
+  "server-contract",
+  "server-contract.ts",
   "schema/entity",
   "schema/entity.ts",
   "schema/entity.tsx",
@@ -171,13 +177,12 @@ function isDeepImport(resolvedAbs: string, featureRoot: string): boolean {
 // Resolve a relative import to its absolute on-disk path. ts-morph's
 // SourceFile.getModuleSpecifierSourceFile() walks the same resolution the
 // compiler uses; we use it so the guard agrees with TS exactly.
-function resolveImport(sf: SourceFile, specifier: string): string | null {
-  if (!specifier.startsWith(".")) return null;
-  const importDecl = sf
-    .getImportDeclarations()
-    .find((d) => d.getModuleSpecifierValue() === specifier);
-  if (!importDecl) return null;
-  const target = importDecl.getModuleSpecifierSourceFile();
+function resolveModuleSpecifier(
+  sf: SourceFile,
+  decl: ImportDeclaration | ExportDeclaration,
+  specifier: string,
+): string {
+  const target = decl.getModuleSpecifierSourceFile();
   if (target) return target.getFilePath();
   // The import may resolve to a barrel directory whose index.ts ts-morph
   // didn't add to the project. Fall back to a manual join + .ts probe.
@@ -185,12 +190,9 @@ function resolveImport(sf: SourceFile, specifier: string): string | null {
 }
 
 function isIgnored(sf: SourceFile, importLine: number): boolean {
-  const text = sf.getFullText();
-  const lines = text.split("\n");
-  const onLine = lines[importLine - 1] ?? "";
-  if (lineHasIgnoreTag(onLine, IGNORE_TAG)) return true;
-  const above = lines[importLine - 2] ?? "";
-  return above.trim().startsWith("//") && lineHasIgnoreTag(above, IGNORE_TAG);
+  if (consumeIgnoreTagOnLine(sf, importLine, IGNORE_TAG)) return true;
+  const above = sf.getFullText().split("\n")[importLine - 2] ?? "";
+  return above.trim().startsWith("//") && consumeIgnoreTagOnLine(sf, importLine - 1, IGNORE_TAG);
 }
 
 function findCrossFeatureViolations(sf: SourceFile): Omit<Violation, "file">[] {
@@ -199,12 +201,11 @@ function findCrossFeatureViolations(sf: SourceFile): Omit<Violation, "file">[] {
 
   const violations: Omit<Violation, "file">[] = [];
 
-  for (const importDecl of sf.getImportDeclarations()) {
-    const specifier = importDecl.getModuleSpecifierValue();
-    if (!specifier.startsWith(".")) continue;
+  for (const decl of [...sf.getImportDeclarations(), ...sf.getExportDeclarations()]) {
+    const specifier = decl.getModuleSpecifierValue();
+    if (specifier === undefined || !specifier.startsWith(".")) continue;
 
-    const resolved = resolveImport(sf, specifier);
-    if (!resolved) continue;
+    const resolved = resolveModuleSpecifier(sf, decl, specifier);
 
     const importedFeature = locateFeature(resolved);
     if (!importedFeature) continue;
@@ -212,7 +213,7 @@ function findCrossFeatureViolations(sf: SourceFile): Omit<Violation, "file">[] {
 
     if (!isDeepImport(resolved, importedFeature.root)) continue;
 
-    const line = importDecl.getStartLineNumber();
+    const line = decl.getStartLineNumber();
     if (isIgnored(sf, line)) continue;
 
     violations.push({
@@ -228,6 +229,7 @@ function findCrossFeatureViolations(sf: SourceFile): Omit<Violation, "file">[] {
 
 export const guard: AstGuard = {
   name: "Cross-Feature-Import Guard",
+  ignoreTag: IGNORE_TAG,
   scan: SCAN,
   hint: `Import from the feature's barrel ("../<feature>") instead of its internals. Escape hatch: "// ${IGNORE_TAG} <reason>" on the import line.`,
   run(files) {

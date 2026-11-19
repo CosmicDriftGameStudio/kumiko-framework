@@ -6,13 +6,13 @@
 // makes the payload unreadable ([[erased]]) without touching the row.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-
 import {
   configurePiiSubjectKms,
   decryptPiiFieldValues,
   InMemoryKmsAdapter,
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
+  type SubjectId,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { fetchOne, selectMany, sql } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -39,6 +39,7 @@ import {
   testRunQueueNamePrefix,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import * as z from "zod";
 import { markStaleJobRunsFailed, STALE_JOB_RUN_ERROR } from "../db/queries/stale-run-sweep.ts";
 import { createJobsFeature } from "../feature.ts";
 import { createJobRunLogger } from "../job-run-logger.ts";
@@ -50,6 +51,15 @@ let testDb: TestDb;
 let testRedis: TestRedis;
 let logger: ReturnType<typeof createJobRunLogger>;
 let kms: InMemoryKmsAdapter;
+
+class CountingKmsAdapter extends InMemoryKmsAdapter {
+  getKeyCalls = 0;
+
+  override getKey(subject: SubjectId): ReturnType<InMemoryKmsAdapter["getKey"]> {
+    this.getKeyCalls += 1;
+    return super.getKey(subject);
+  }
+}
 
 const USER_ID = "u-pii-9";
 const SYSTEM_TENANT_SUBJECT = `tenant:${SYSTEM_TENANT_ID}`;
@@ -208,6 +218,33 @@ describe("jobs run-completed/-failed log messages under KMS", () => {
       requestId: "t",
     });
     expect(back["message"]).toBe(SECRET_LOG);
+  });
+
+  test("onJobComplete: 25 log lines are encrypted with one key lookup", async () => {
+    const countingKms = new CountingKmsAdapter();
+    configurePiiSubjectKms(countingKms);
+    await logger.onJobStart?.("app:job:export", "bull-c-batch", {
+      triggeredById: USER_ID,
+      payload: SECRET_PAYLOAD,
+    });
+    countingKms.getKeyCalls = 0;
+    await logger.onJobComplete?.(
+      "app:job:export",
+      "bull-c-batch",
+      25,
+      Array.from({ length: 25 }, (_, index) => ({
+        level: "info",
+        message: `${SECRET_LOG} #${index}`,
+        timestamp: Temporal.Now.instant(),
+      })),
+    );
+
+    expect(countingKms.getKeyCalls).toBe(1);
+    const logs = await selectMany(testDb.db, jobRunLogsTable, {
+      runId: await runIdFor("bull-c-batch"),
+    });
+    expect(logs).toHaveLength(25);
+    expect(logs.every((log) => isPiiCiphertext(log["message"]))).toBe(true);
   });
 
   test("erase subject key after write → completed log message decrypts to [[erased]]", async () => {
@@ -519,6 +556,30 @@ describe("jobs:query:details decrypts log messages and error end-to-end", () => 
     expect(result.logs[0]?.message).toBe(SECRET_DETAIL_LOG);
   });
 
+  test("jobs:query:details returns 25 plaintext log messages in insertion order", async () => {
+    const messages = Array.from({ length: 25 }, (_, index) => `${SECRET_DETAIL_LOG} #${index}`);
+    await detailLogger.onJobStart?.("app:job:export", "bull-detail-25", {
+      triggeredById: DETAIL_USER_ID,
+    });
+    await detailLogger.onJobComplete?.(
+      "app:job:export",
+      "bull-detail-25",
+      25,
+      messages.map((message) => ({
+        level: "info",
+        message,
+        timestamp: Temporal.Now.instant(),
+      })),
+    );
+
+    const row = await fetchOne(detailStack.db, jobRunsTable, { bullJobId: "bull-detail-25" });
+    const result = await detailStack.http.queryOk<{
+      logs: readonly { message: string }[];
+    }>(JobQueries.details, { runId: String(row?.["id"]) }, TestUsers.systemAdmin);
+
+    expect(result.logs.map((log) => log.message)).toEqual(messages);
+  });
+
   test("jobs:query:details returns plaintext error even though the stored row is ciphertext", async () => {
     const SECRET_DETAIL_ERROR = "export failed for iban DE89370400440532013000";
     await detailLogger.onJobStart?.("app:job:export", "bull-detail-2", {
@@ -608,11 +669,33 @@ describe("jobs:write:retry decrypts payload before dispatch", () => {
   const RETRY_JOB_NAME = "retryapp:job:capture-import";
   const capturedPayloads: Record<string, unknown>[] = [];
   const capturedTriggeredBy: (string | null)[] = [];
+  const fanOutRuns: Record<string, unknown>[] = [];
+  const eventRuns: Record<string, unknown>[] = [];
 
   const retryAppFeature = defineFeature("retryapp", (r) => {
-    r.job("captureImport", { trigger: { manual: true } }, async (payload, ctx) => {
-      capturedPayloads.push(payload);
-      capturedTriggeredBy.push(ctx.triggeredBy?.id ?? null);
+    r.defineEvent("pinged", z.object({}), { piiFields: "none" });
+    r.job({
+      name: "captureImport",
+      trigger: { manual: true },
+      handler: async (payload, ctx) => {
+        capturedPayloads.push(payload);
+        capturedTriggeredBy.push(ctx.triggeredBy?.id ?? null);
+      },
+    });
+    r.job({
+      name: "fanOut",
+      trigger: { manual: true },
+      perTenant: true,
+      handler: async (payload) => {
+        fanOutRuns.push(payload);
+      },
+    });
+    r.job({
+      name: "onPing",
+      trigger: { on: "pinged" },
+      handler: async (payload) => {
+        eventRuns.push(payload);
+      },
     });
   });
 
@@ -635,6 +718,8 @@ describe("jobs:write:retry decrypts payload before dispatch", () => {
   beforeEach(() => {
     capturedPayloads.length = 0;
     capturedTriggeredBy.length = 0;
+    fanOutRuns.length = 0;
+    eventRuns.length = 0;
     retryKms = new InMemoryKmsAdapter();
     configurePiiSubjectKms(retryKms);
   });
@@ -770,5 +855,49 @@ describe("jobs:write:retry decrypts payload before dispatch", () => {
     );
     expect(errInfo.code).toBe("unprocessable");
     expect(errInfo.details).toMatchObject({ reason: "job_payload_erased" });
+  });
+
+  async function failedRunIdOf(jobName: string, bullJobId: string): Promise<unknown> {
+    await retryLogger.onJobStart?.(jobName, bullJobId, { triggeredById: RETRY_USER_ID });
+    await retryLogger.onJobFailed?.(jobName, bullJobId, "boom", []);
+    const row = await fetchOne(retryStack.db, jobRunsTable, { bullJobId });
+    return row?.["id"];
+  }
+
+  test("retry of a perTenant job run is refused instead of fanning out to every tenant", async () => {
+    const runId = await failedRunIdOf("retryapp:job:fan-out", "bull-retry-fanout");
+
+    const errInfo = await retryStack.http.writeErr(
+      JobHandlers.retry,
+      { runId },
+      TestUsers.systemAdmin,
+    );
+    expect(errInfo.code).toBe("unprocessable");
+    expect(errInfo.details).toMatchObject({ reason: "job_not_retryable" });
+    expect(fanOutRuns).toHaveLength(0);
+  });
+
+  test("retry of an event-triggered job run is refused instead of running with an empty payload", async () => {
+    const runId = await failedRunIdOf("retryapp:job:on-ping", "bull-retry-event");
+
+    const errInfo = await retryStack.http.writeErr(
+      JobHandlers.retry,
+      { runId },
+      TestUsers.systemAdmin,
+    );
+    expect(errInfo.code).toBe("unprocessable");
+    expect(errInfo.details).toMatchObject({ reason: "job_not_retryable" });
+    expect(eventRuns).toHaveLength(0);
+  });
+
+  test("retry of a run whose job is no longer registered is a not_found, not a 500", async () => {
+    const runId = await failedRunIdOf("retryapp:job:removed", "bull-retry-removed");
+
+    const errInfo = await retryStack.http.writeErr(
+      JobHandlers.retry,
+      { runId },
+      TestUsers.systemAdmin,
+    );
+    expect(errInfo.code).toBe("not_found");
   });
 });

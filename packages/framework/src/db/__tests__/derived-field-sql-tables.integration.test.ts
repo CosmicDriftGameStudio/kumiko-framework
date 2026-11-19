@@ -8,11 +8,11 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { defineEntityQueryHandler } from "../../engine/entity-handlers.ts";
 import {
   createDerivedField,
   createEntity,
   createTextField,
-  defineEntityQueryHandler,
   defineFeature,
 } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
@@ -22,13 +22,15 @@ const fixture = { personal: false, reason: "test_fixture" } as const;
 
 // The entity's own `table` names a table that does not exist: rows live in the backing table.
 const personEntity = createEntity({
+  name: "person",
   table: "dsqb_people",
   fields: { name: createTextField({ required: true, ...fixture }) },
 });
-const personBacking = { ...personEntity, table: "dsqb_people_backing" };
-const personTable = buildEntityTable("person", personBacking);
+const personBacking = { ...personEntity, table: "dsqb_people_backing", name: "person" };
+const personTable = buildEntityTable(personBacking);
 
 const jobEntity = createEntity({
+  name: "job",
   table: "dsqb_jobs",
   fields: {
     crewId: { type: "reference", entity: "crew" },
@@ -42,10 +44,11 @@ const jobEntity = createEntity({
   },
   indexes: [{ columns: ["crewId"] }],
 });
-const jobBacking = { ...jobEntity, table: "dsqb_jobs_backing" };
-const jobTable = buildEntityTable("job", jobBacking);
+const jobBacking = { ...jobEntity, table: "dsqb_jobs_backing", name: "job" };
+const jobTable = buildEntityTable(jobBacking);
 
 const crewEntity = createEntity({
+  name: "crew",
   table: "dsqb_crews",
   fields: {
     name: createTextField({ required: true, ...fixture }),
@@ -87,9 +90,9 @@ const crewEntity = createEntity({
 
 const feature = defineFeature("dsqb", (r) => {
   const access = { roles: ["Admin"] };
-  r.entity({ name: "person", ...personEntity, backingTable: personTable });
-  r.entity({ name: "job", ...jobEntity, backingTable: jobTable });
-  r.entity({ name: "crew", ...crewEntity });
+  r.entity({ ...personEntity, backingTable: personTable });
+  r.entity({ ...jobEntity, backingTable: jobTable });
+  r.entity(crewEntity);
   for (const [name, entity] of [
     ["person", personBacking],
     ["job", jobBacking],
@@ -136,7 +139,7 @@ describe("derived fields over backing tables and self-relations", () => {
     );
     await seedRows(
       stack.db,
-      buildEntityTable("crew", crewEntity),
+      buildEntityTable(crewEntity),
       [
         { id: C1, tenantId, name: "Crew 1", parentCrewId: null },
         { id: C2, tenantId, name: "Crew 2", parentCrewId: C1 },

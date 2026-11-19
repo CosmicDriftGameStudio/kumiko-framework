@@ -489,7 +489,7 @@ defineFeature("f", (r) => {
     schema: z.object({}),
     handler: async function* () { yield "token"; },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "r" },
+    escapeHatch: { reason: "r", grants: ["systemIdentity"] },
   });
 });
 `;
@@ -498,7 +498,7 @@ defineFeature("f", (r) => {
   test("escapeHatch is kept as a structured value", () => {
     expect(result.errors).toEqual([]);
     const pattern = findPattern(result.patterns, "streamHandler");
-    expect(pattern).toMatchObject({ escapeHatch: { reason: "r" } });
+    expect(pattern).toMatchObject({ escapeHatch: { reason: "r", grants: ["systemIdentity"] } });
   });
 
   test("render → parse roundtrip keeps escapeHatch", () => {
@@ -506,11 +506,13 @@ defineFeature("f", (r) => {
       featureName: result.featureName ?? "",
       patterns: result.patterns,
     });
-    expect(rendered).toContain('escapeHatch: { reason: "r" },');
+    expect(rendered).toContain('escapeHatch: { reason: "r", grants: ["systemIdentity"] },');
     const reparsed = parse(rendered);
     expect(reparsed.errors).toEqual([]);
     const reparsedPattern = findPattern(reparsed.patterns, "streamHandler");
-    expect(reparsedPattern).toMatchObject({ escapeHatch: { reason: "r" } });
+    expect(reparsedPattern).toMatchObject({
+      escapeHatch: { reason: "r", grants: ["systemIdentity"] },
+    });
   });
 });
 

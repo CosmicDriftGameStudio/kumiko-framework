@@ -3,6 +3,7 @@ import {
   type ConfigKeyDefinition,
   createTenantConfig,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { OPTIONAL_HTTPS_URL_CONFIG_PATTERN } from "../page-render/index.ts";
 
 export const SEO_FEATURE = "seo" as const;
 
@@ -20,7 +21,6 @@ export const SEO_DEFAULT_PATHS = {
 // pages' resolveApexTenant pattern), so a single seo mount works correctly
 // across multiple apex hosts without a static site-url config drifting.
 const TEXT_PATTERN = { regex: "^[\\s\\S]{0,500}$" } as const;
-const HTTPS_PATTERN = { regex: "^$|^https://[^\\s\"'<>]{1,2000}$" } as const;
 const SEO_WRITE = access.withSystem(access.admin);
 
 export const SEO_CONFIG_KEYS = {
@@ -31,7 +31,7 @@ export const SEO_CONFIG_KEYS = {
   }),
   seoOrganizationLogoUrl: createTenantConfig("text", {
     default: "",
-    pattern: HTTPS_PATTERN,
+    pattern: OPTIONAL_HTTPS_URL_CONFIG_PATTERN,
     write: SEO_WRITE,
   }),
   seoTwitterSite: createTenantConfig("text", {
@@ -46,7 +46,7 @@ export const SEO_CONFIG_KEYS = {
   }),
   seoDefaultOgImage: createTenantConfig("text", {
     default: "",
-    pattern: HTTPS_PATTERN,
+    pattern: OPTIONAL_HTTPS_URL_CONFIG_PATTERN,
     write: SEO_WRITE,
   }),
 } satisfies Record<string, ConfigKeyDefinition>;

@@ -18,6 +18,7 @@ import {
 } from "../factories.ts";
 
 const carEntity = createEntity({
+  name: "car",
   table: "exclude_fields_cars",
   fields: {
     vin: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -27,7 +28,7 @@ const carEntity = createEntity({
 });
 
 const carFeature = defineFeature("exclude-fields", (r) => {
-  r.crud("car", carEntity, {
+  r.crud(carEntity, {
     write: { access: { roles: ["User"] } },
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
     excludeFields: { create: ["internalNote"], update: ["vin"] },
@@ -35,6 +36,7 @@ const carFeature = defineFeature("exclude-fields", (r) => {
 });
 
 const defaultedEntity = createEntity({
+  name: "thing",
   table: "exclude_fields_defaulted",
   fields: {
     label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -48,7 +50,7 @@ const defaultedEntity = createEntity({
 });
 
 const defaultedFeature = defineFeature("exclude-defaulted", (r) => {
-  r.entity({ name: "thing", ...defaultedEntity });
+  r.entity(defaultedEntity);
   r.writeHandler(
     defineEntityWriteHandler("thing:create", defaultedEntity, {
       access: { roles: ["User"] },
@@ -170,6 +172,7 @@ describe("excludeFields on a required field with a default", () => {
 describe("excludeFields definition-time checks", () => {
   test("rejects excluding a field that is part of a totalsMatch pair", () => {
     const invoiceEntity = createEntity({
+      name: "invoice",
       table: "exclude_fields_invoices",
       fields: {
         total: createMoneyField({ required: true }),

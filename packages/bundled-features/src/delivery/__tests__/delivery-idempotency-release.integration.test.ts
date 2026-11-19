@@ -13,6 +13,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -37,14 +38,18 @@ let queuedAttempts = 0;
 
 const idemProbeFeature = defineFeature("idem-probe", (r) => {
   r.requires({ features: ["delivery"] });
-  r.useExtension(DELIVERY_CHANNEL_EXTENSION, "idem-inline-ok", {
+  r.applyExtension({
+    name: DELIVERY_CHANNEL_EXTENSION,
+    entity: "idem-inline-ok",
     mode: "inline",
     send: async (address) => {
       sentTo.push(address);
       return { status: "sent" };
     },
   });
-  r.useExtension(DELIVERY_CHANNEL_EXTENSION, "idem-inline-flaky", {
+  r.applyExtension({
+    name: DELIVERY_CHANNEL_EXTENSION,
+    entity: "idem-inline-flaky",
     mode: "inline",
     send: async (address) => {
       if (failFlakyInline) throw new Error("transport down");
@@ -52,7 +57,9 @@ const idemProbeFeature = defineFeature("idem-probe", (r) => {
       return { status: "sent" };
     },
   });
-  r.useExtension(DELIVERY_CHANNEL_EXTENSION, "idem-queued", {
+  r.applyExtension({
+    name: DELIVERY_CHANNEL_EXTENSION,
+    entity: "idem-queued",
     mode: "queued",
     send: async (address) => {
       queuedAttempts++;
@@ -61,7 +68,9 @@ const idemProbeFeature = defineFeature("idem-probe", (r) => {
       return { status: "sent" };
     },
   });
-  r.useExtension(DELIVERY_CHANNEL_EXTENSION, "idem-queued-soft", {
+  r.applyExtension({
+    name: DELIVERY_CHANNEL_EXTENSION,
+    entity: "idem-queued-soft",
     mode: "queued",
     send: async (address) => {
       if (softFailQueued) return { status: "failed", error: "send_failed" };
@@ -106,7 +115,11 @@ async function buildStack(withJobs: boolean): Promise<TestStack> {
       idemProbeFeature,
     ],
     ...(withJobs && { jobs: { consumerLane: "worker" } }),
-    extraContext: (deps) => createDeliveryTestContext(deps, { idempotencyRedis: deps.redis }),
+    extraContext: (deps) =>
+      createDeliveryTestContext(deps, {
+        idempotencyRedis: deps.redis,
+        addressCipher: createTestEnvelopeCipher(),
+      }),
   });
   await unsafePushTables(stack.db, { deliveryAttemptsTable });
   return stack;
@@ -220,6 +233,7 @@ describe("inline path (no job runner)", () => {
       channels: collectChannels(stack.registry),
       idempotencyRedis: stack.redis.redis,
       log: throwingErrorLogger,
+      addressCipher: createTestEnvelopeCipher(),
     });
     const brokenQueue: NotifyJobDispatcher = {
       dispatch: async () => {

@@ -15,8 +15,9 @@
 // consistency rules remain in effect.
 
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { tokenCrud } from "./run-export-jobs.ts";
 import { downloadAttemptEntity, downloadAttemptsTable } from "./schema/download-attempt.ts";
@@ -82,7 +83,7 @@ export async function recordDownloadUse(args: RecordDownloadUseArgs): Promise<vo
     });
 }
 
-// extractCallerIp lives in feature.ts (extractAuditMeta) — query handlers
+// extractCallerIp lives in export-download-routes.ts (extractAuditMeta) — query handlers
 // have no direct header access because they are transport-agnostic. The
 // httpRoute wrapper extracts it and places it in payload.auditMeta.
 

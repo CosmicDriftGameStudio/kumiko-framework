@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -9,6 +9,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { revokeAllUserCredentials } from "../../auth-foundation/credential-revoker.ts";
+import { type CredentialRevoker, EXT_CREDENTIAL_REVOKER } from "../../auth-foundation/types.ts";
+import { revokeSessionsAndAnnounce } from "../revoke-sessions.ts";
 import { userSessionEntity, userSessionTable } from "../schema/user-session.ts";
 import { createSessionCallbacks } from "../session-callbacks.ts";
 import { SESSION_REVOKED_EVENT_QN } from "../session-revoked-event.ts";
@@ -81,8 +84,6 @@ async function withRejectingEventAppend(fn: () => Promise<void>): Promise<void> 
   }
 }
 
-const USER_ID = "00000000-0000-4000-8000-0000000000a1";
-
 describe("sessionRevoker atomicity", () => {
   test("a failing event append leaves the session live so a retry still revokes and emits", async () => {
     const { sessionRevoker } = createSessionCallbacks({ db: testDb.db });
@@ -99,36 +100,111 @@ describe("sessionRevoker atomicity", () => {
     expect(await revokedAtOfSession()).not.toBeNull();
     expect(await revokedEventCount()).toBe(1);
   });
+});
 
-  test("sessionMassRevoker: a failing event append leaves sessions live so a retry still revokes and emits", async () => {
-    const { sessionMassRevoker } = createSessionCallbacks({ db: testDb.db });
+const USER_ID = "00000000-0000-4000-8000-0000000000a1";
+const OTHER_SID = "00000000-0000-4000-8000-000000000002";
+
+function registryWith(
+  ...revokers: readonly CredentialRevoker[]
+): Pick<Registry, "getExtensionUsages"> {
+  return {
+    getExtensionUsages: () =>
+      revokers.map((revoker, index) => ({
+        extensionName: EXT_CREDENTIAL_REVOKER,
+        entityName: `revoker-${index}`,
+        featureName: "test",
+        options: revoker,
+      })),
+  };
+}
+
+const sessionsRevoker: CredentialRevoker = {
+  revokeAllForUser: async (runner, userId, { keepSessionId }) =>
+    (
+      await revokeSessionsAndAnnounce(runner, {
+        where: keepSessionId !== undefined ? { userId, id: { ne: keepSessionId } } : { userId },
+        revokedAt: Temporal.Now.instant(),
+        ...(keepSessionId !== undefined && { keptSessionId: keepSessionId }),
+      })
+    ).length,
+};
+
+async function seedSecondSession(): Promise<void> {
+  const now = Temporal.Now.instant();
+  await seedRow(testDb.db, userSessionTable, {
+    id: OTHER_SID,
+    tenantId: TENANT,
+    userId: USER_ID,
+    createdAt: now,
+    expiresAt: now.add({ milliseconds: 3_600_000 }),
+    ip: "1.2.3.5",
+    userAgent: "test-agent",
+  });
+}
+
+async function liveSessionCount(): Promise<number> {
+  const [row] = await asRawClient(testDb.db).unsafe<{ count: number }>(
+    "SELECT count(*)::int AS count FROM store_user_sessions WHERE revoked_at IS NULL",
+  );
+  return row?.count ?? 0;
+}
+
+describe("revokeAllUserCredentials atomicity", () => {
+  test("a failing event append leaves all sessions live so a retry still revokes and emits", async () => {
+    await seedSecondSession();
+    const registry = registryWith(sessionsRevoker);
 
     await withRejectingEventAppend(async () => {
-      await expect(sessionMassRevoker(USER_ID)).rejects.toThrow();
+      await expect(revokeAllUserCredentials(registry, testDb.db, USER_ID, {})).rejects.toThrow();
     });
 
-    expect(await revokedAtOfSession()).toBeNull();
+    expect(await liveSessionCount()).toBe(2);
     expect(await revokedEventCount()).toBe(0);
 
-    expect(await sessionMassRevoker(USER_ID)).toBe(1);
+    await revokeAllUserCredentials(registry, testDb.db, USER_ID, {});
 
-    expect(await revokedAtOfSession()).not.toBeNull();
+    expect(await liveSessionCount()).toBe(0);
     expect(await revokedEventCount()).toBe(1);
   });
 
-  test("sessionRevokeAllOthers: a failing event append leaves sessions live so a retry still revokes and emits", async () => {
-    const { sessionRevokeAllOthers } = createSessionCallbacks({ db: testDb.db });
+  test("keepSessionId: a failing event append leaves the other sessions live, a retry keeps the kept one", async () => {
+    await seedSecondSession();
+    const registry = registryWith(sessionsRevoker);
 
     await withRejectingEventAppend(async () => {
-      await expect(sessionRevokeAllOthers(USER_ID, undefined)).rejects.toThrow();
+      await expect(
+        revokeAllUserCredentials(registry, testDb.db, USER_ID, { keepSessionId: SID }),
+      ).rejects.toThrow();
     });
+
+    expect(await liveSessionCount()).toBe(2);
+    expect(await revokedEventCount()).toBe(0);
+
+    await revokeAllUserCredentials(registry, testDb.db, USER_ID, { keepSessionId: SID });
+
+    expect(await liveSessionCount()).toBe(1);
+    expect(await revokedAtOfSession()).toBeNull();
+    expect(await revokedEventCount()).toBe(1);
+  });
+
+  test("a later revoker that throws rolls back the sessions revoke of the same call", async () => {
+    const failingRevoker: CredentialRevoker = {
+      revokeAllForUser: async () => {
+        throw new Error("second revoker failed");
+      },
+    };
+
+    await expect(
+      revokeAllUserCredentials(
+        registryWith(sessionsRevoker, failingRevoker),
+        testDb.db,
+        USER_ID,
+        {},
+      ),
+    ).rejects.toThrow("second revoker failed");
 
     expect(await revokedAtOfSession()).toBeNull();
     expect(await revokedEventCount()).toBe(0);
-
-    expect(await sessionRevokeAllOthers(USER_ID, undefined)).toBe(1);
-
-    expect(await revokedAtOfSession()).not.toBeNull();
-    expect(await revokedEventCount()).toBe(1);
   });
 });

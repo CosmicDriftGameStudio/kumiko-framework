@@ -19,7 +19,7 @@ The production wiring shape: mount `createAuthMfaFeature()` next to `createAuthE
 1. `createAuthMfaFeature({ setupTokenSecret, challengeTokenSecret, issuer })` builds the feature; `mfaStatusCheckerFromFeature(mfaFeature)` reads its login-status callback back off.
 2. That callback goes into `createAuthEmailPasswordFeature({ mfaStatusChecker: ... })` — `login.write.ts` calls it after the password check to decide whether to mint a JWT or a challenge.
 3. `buildServer({ auth: { mfaVerifyHandler: AuthMfaHandlers.verify, switchTenantMfaGateHandler: AuthHandlers.switchTenantMfaGate } })` (the gate is required with `mfaVerifyHandler`, so a tenant switch asks for the second factor too) mounts `POST /auth/mfa/verify`, a framework route (not a dispatcher write-handler) with its own rate limiter, since it runs before a JWT exists.
-4. If `sessions` is mounted too, `bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(sessionCallbacks.sessionRevokeAllOthers)` wires "enable/disable/regenerate signs out every other session."
+4. If `sessions` (and `personal-access-tokens`) are mounted, enable/disable/regenerate sign out every other session and revoke access tokens automatically through the auth-foundation credentialRevoker; no wiring needed.
 
 ## What to copy into your app
 
@@ -30,16 +30,14 @@ const mfaFeature = createAuthMfaFeature({
   issuer: "Your App",
 });
 const sessionCallbacks = createSessionCallbacks({ db });
-bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(sessionCallbacks.sessionRevokeAllOthers);
 
 const server = buildServer({
   registry: buildRegistry([
     createAuthEmailPasswordFeature({
       mfaStatusChecker: mfaStatusCheckerFromFeature(mfaFeature),
     }),
-    createSessionsFeature({
-      autoRevokeOnPasswordChange: sessionCallbacks.sessionMassRevoker,
-    }),
+    createAuthFoundationFeature(),
+    createSessionsFeature(),
     mfaFeature,
     // ... other features
   ]),
@@ -57,7 +55,7 @@ const server = buildServer({
 });
 ```
 
-Apps built via `runDevApp`/`runProdApp` (the dev-server bootstrap used by `create-kumiko-app`) get all of this automatically — just add `createAuthMfaFeature(...)` to `APP_FEATURES`. `composeFeatures` threads the status-checker and the bootstrap wires the session-revoke bind and the verify route for you. This sample shows the raw contract those helpers implement.
+Apps built via `runDevApp`/`runProdApp` (the dev-server bootstrap used by `create-kumiko-app`) get all of this automatically — just add `createAuthMfaFeature(...)` to `APP_FEATURES`. `composeFeatures` threads the status-checker and the bootstrap wires the verify route for you. This sample shows the raw contract those helpers implement.
 
 ## Self-service screen
 
@@ -167,15 +165,10 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   createTenantFeature,
-  tenantEntity,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
-import {
-  createUserFeature,
-  UserHandlers,
-  userEntity,
-} from "@cosmicdrift/kumiko-bundled-features/user";
+import { createUserFeature, UserHandlers } from "@cosmicdrift/kumiko-bundled-features/user";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
@@ -183,7 +176,6 @@ import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import {
@@ -192,7 +184,6 @@ import {
   createAuthMfaFeature,
   currentTotpCode,
   mfaStatusCheckerFromFeature,
-  userMfaEntity,
 } from "../feature";
 
 const TENANT: TenantId = testTenantId(1);
@@ -228,9 +219,6 @@ beforeAll(async () => {
     },
   });
 
-  await unsafeCreateEntityTable(stack.db, userEntity);
-  await unsafeCreateEntityTable(stack.db, userMfaEntity);
-  await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 
@@ -313,12 +301,12 @@ describe("auth-mfa sample wiring", () => {
 // Auth MFA (TOTP/2FA) Sample
 //
 // Shows the production-wiring shape: mount `createAuthMfaFeature()` next to
-// `createAuthEmailPasswordFeature()`, thread its status-checker into the
-// login handler, and (if `sessions` is mounted) bind its revoke-all-other-
-// sessions callback. From there the framework handles the rest — login
+// `createAuthEmailPasswordFeature()` and thread its status-checker into the
+// login handler. From there the framework handles the rest — login
 // returns a challenge instead of a JWT when MFA is enabled, POST
 // /auth/mfa/verify completes it, and every OTHER live session gets signed
-// out whenever the account's MFA state changes (enable/disable/regenerate).
+// out whenever the account's MFA state changes (enable/disable/regenerate),
+// through the auth-foundation credentialRevoker when `sessions` is mounted.
 //
 // What to copy into your own app:
 //
@@ -328,18 +316,14 @@ describe("auth-mfa sample wiring", () => {
 //     issuer: "Your App",
 //   });
 //   const sessionCallbacks = createSessionCallbacks({ db });
-//   bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(
-//     sessionCallbacks.sessionRevokeAllOthers,
-//   );
 //
 //   const server = buildServer({
 //     registry: buildRegistry([
 //       createAuthEmailPasswordFeature({
 //         mfaStatusChecker: mfaStatusCheckerFromFeature(mfaFeature),
 //       }),
-//       createSessionsFeature({
-//         autoRevokeOnPasswordChange: sessionCallbacks.sessionMassRevoker,
-//       }),
+//       createAuthFoundationFeature(),
+//       createSessionsFeature(),
 //       mfaFeature,
 //       // ... other features
 //     ]),
@@ -359,7 +343,7 @@ describe("auth-mfa sample wiring", () => {
 // Apps built via runDevApp/runProdApp (the dev-server bootstrap) get all of
 // this for free just by adding `createAuthMfaFeature(...)` to APP_FEATURES —
 // composeFeatures threads the status-checker and the bootstrap wraps the
-// session-revoke bind and the /auth/mfa/verify route automatically. This
+// /auth/mfa/verify route automatically. This
 // sample shows the raw wiring contract those helpers implement.
 //
 // Design rules the sample demonstrates:
@@ -384,7 +368,6 @@ export {
 export {
   AuthMfaHandlers,
   base32Decode,
-  bindMfaRevokeAllOtherSessionsFromFeature,
   createAuthMfaFeature,
   mfaStatusCheckerFromFeature,
   userMfaEntity,
@@ -439,7 +422,7 @@ describe("ConfirmationCodeStep", () => {
     const onConfirm = mock(async (_code: string) => false);
     renderStep(onConfirm);
     type("123456");
-    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    await waitFor(() => screen.getByRole("alert"));
     expect(screen.getByRole("alert").textContent).toContain("That code is not valid");
     const input = screen.getByTestId("confirmation-code");
     expect(input).toHaveProperty("value", "");
@@ -453,7 +436,7 @@ describe("ConfirmationCodeStep", () => {
     });
     renderStep(onConfirm);
     type("123456");
-    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    await waitFor(() => screen.getByRole("alert"));
     expect(screen.getByRole("alert").textContent).toContain("Could not verify the code");
     expect(screen.queryByText(/not valid/)).toBeNull();
     const input = screen.getByTestId("confirmation-code");

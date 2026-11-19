@@ -59,6 +59,7 @@ const cipher = createTestEnvelopeCipher(
 );
 
 const shapeEntity = createEntity({
+  name: "shape",
   table: "read_row_shapes",
   softDelete: true,
   fields: {
@@ -100,6 +101,7 @@ const shapeEntity = createEntity({
 type ShapeRow = EntityRow<typeof shapeEntity>;
 
 const plainEntity = createEntity({
+  name: "plain",
   table: "read_row_shapes_plain",
   fields: { title: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
@@ -125,7 +127,7 @@ afterAll(async () => {
 });
 
 describe("executor.detail()/list() row shape", () => {
-  const executor = createEventStoreExecutor(buildEntityTable("shape", shapeEntity), shapeEntity, {
+  const executor = createEventStoreExecutor(buildEntityTable(shapeEntity), shapeEntity, {
     entityName: "shape",
   });
 
@@ -144,7 +146,7 @@ describe("executor.detail()/list() row shape", () => {
         qty: 3,
         rate: 1.25,
         big: 9,
-        price: { amount: 1.5, currency: "EUR" },
+        price: { amount: 150, currency: "EUR" },
         day: Temporal.PlainDate.from("2026-01-02"),
         at: Temporal.Instant.from("2026-01-02T03:04:05Z"),
         seen: { at: "2026-01-02T03:04:05", tz: "Europe/Berlin" },
@@ -214,12 +216,7 @@ describe("executor.detail()/list() row shape", () => {
 
   test("money and locatedTimestamp are one object key; the column pair does not leak", async () => {
     const row = await createRow();
-    expect(row.price).toEqual({
-      amount: 1.5,
-      currency: "EUR",
-      amountScaled: 150,
-      amountMinor: 150,
-    });
+    expect(row.price).toEqual({ amount: 150, currency: "EUR" });
     expect(row.seen).toEqual({
       at: "2026-01-02T03:04:05",
       tz: "Europe/Berlin",
@@ -288,7 +285,7 @@ describe("executor.detail()/list() row shape", () => {
 
 describe("EntityRow<E> and the executor signature", () => {
   test("a typed executor is assignable to the untyped EventStoreExecutor", () => {
-    const typed = createEventStoreExecutor(buildEntityTable("plain", plainEntity), plainEntity, {
+    const typed = createEventStoreExecutor(buildEntityTable(plainEntity), plainEntity, {
       entityName: "plain",
     });
     expectTypeOf(typed.detail).returns.resolves.toEqualTypeOf<EntityRow<

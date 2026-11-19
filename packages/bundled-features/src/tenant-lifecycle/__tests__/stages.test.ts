@@ -32,8 +32,9 @@ function stageNamed(name: string) {
 describe("tenant-lifecycle stages", () => {
   test("app-data stage fails loud when a tenantData registration has no destroy function", async () => {
     const broken = defineFeature("broken-tenant-data", (r) => {
-      r.useExtension(EXT_TENANT_DATA, "bad-entity", {
-        // @ts-expect-error destroy must be a function — proves the guard rejects a non-function value instead of silently skipping it
+      r.applyExtension({
+        name: EXT_TENANT_DATA,
+        entity: "bad-entity", // @ts-expect-error destroy must be a function — proves the guard rejects a non-function value instead of silently skipping it
         destroy: "x",
       });
     });
@@ -52,7 +53,7 @@ describe("tenant-lifecycle stages", () => {
   test("files stage fails loud when a storageProvider registration has no destroyTenant function", async () => {
     const broken = defineFeature("broken-storage-provider", (r) => {
       // @ts-expect-error destroyTenant is required — proves the guard rejects an empty options bag instead of silently skipping it
-      r.useExtension(EXT_STORAGE_PROVIDER, "bad-entity", {});
+      r.applyExtension({ name: EXT_STORAGE_PROVIDER, entity: "bad-entity" });
     });
     const registry = createRegistry([declares(EXT_STORAGE_PROVIDER), broken]);
     await expect(
@@ -70,9 +71,11 @@ describe("tenant-lifecycle stages", () => {
 
   test("app-data stage denies unsafeRaw for a destroy hook without a declared escapeHatch", async () => {
     const undeclared = defineFeature("undeclared-escape-hatch", (r) => {
-      r.useExtension(EXT_TENANT_DATA, "leaky-entity", {
+      r.applyExtension({
+        name: EXT_TENANT_DATA,
+        entity: "leaky-entity",
         destroy: async (hookCtx) => {
-          hookCtx.db.unsafeRaw();
+          hookCtx.db.unsafeRawAllTenants();
         },
       });
     });
@@ -91,9 +94,11 @@ describe("tenant-lifecycle stages", () => {
   test("app-data stage audits a declared escapeHatch attributed to the destruction actor", async () => {
     const reason = "declared on the registration, wipes a cross-tenant table";
     const declared = defineFeature("declared-escape-hatch", (r) => {
-      r.useExtension(EXT_TENANT_DATA, "wiping-entity", {
+      r.applyExtension({
+        name: EXT_TENANT_DATA,
+        entity: "wiping-entity",
         destroy: async (hookCtx) => {
-          hookCtx.db.unsafeRaw();
+          hookCtx.db.unsafeRawAllTenants();
         },
         escapeHatch: { reason },
       });
@@ -118,12 +123,16 @@ describe("tenant-lifecycle stages", () => {
 
   test("files stage reports a stuck hook as no progress even when another hook is pending", async () => {
     const pendingProvider = defineFeature("pending-storage-provider", (r) => {
-      r.useExtension(EXT_STORAGE_PROVIDER, "pending-entity", {
+      r.applyExtension({
+        name: EXT_STORAGE_PROVIDER,
+        entity: "pending-entity",
         destroyTenant: async () => ({ done: false, processed: 0, pending: true }),
       });
     });
     const stuckProvider = defineFeature("stuck-storage-provider", (r) => {
-      r.useExtension(EXT_STORAGE_PROVIDER, "stuck-entity", {
+      r.applyExtension({
+        name: EXT_STORAGE_PROVIDER,
+        entity: "stuck-entity",
         destroyTenant: async () => ({ done: false, processed: 0 }),
       });
     });
@@ -144,7 +153,9 @@ describe("tenant-lifecycle stages", () => {
 
   test("files stage stays pending when the only unfinished hook is pending", async () => {
     const pendingProvider = defineFeature("pending-only-storage-provider", (r) => {
-      r.useExtension(EXT_STORAGE_PROVIDER, "pending-entity", {
+      r.applyExtension({
+        name: EXT_STORAGE_PROVIDER,
+        entity: "pending-entity",
         destroyTenant: async () => ({ done: false, processed: 0, pending: true }),
       });
     });

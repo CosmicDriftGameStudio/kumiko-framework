@@ -3,6 +3,7 @@ import type { EditFieldViewModel, FormValues } from "../headless/index.ts";
 import type { StatusBadgeProps } from "../primitives.tsx";
 import { statusToneForOptionTone } from "../status-tone.ts";
 import { fieldCellWidth, GridCellForField } from "./grid-cell-for-field.tsx";
+import { fieldApprovalAppendix, isApprovalLockedField } from "./render-edit-field-approval.tsx";
 import type {
   FieldsSection,
   RenderEditModel,
@@ -21,9 +22,9 @@ function nonEmptyText(value: unknown): string | undefined {
 function declaredBadge(
   field: EditFieldViewModel,
   values: Readonly<Record<string, unknown>>,
-  StatusBadge: ComponentType<StatusBadgeProps> | undefined,
+  StatusBadge: ComponentType<StatusBadgeProps>,
 ): ReactNode {
-  if (field.badge === undefined || StatusBadge === undefined) return undefined;
+  if (field.badge === undefined) return undefined;
   const text = "label" in field.badge ? field.badge.label : nonEmptyText(values[field.badge.field]);
   if (text === undefined) return undefined;
   return (
@@ -39,7 +40,7 @@ export function appendixCellProps(
   props: AppendixProps,
   field: EditFieldViewModel,
   values: Readonly<Record<string, unknown>>,
-  StatusBadge: ComponentType<StatusBadgeProps> | undefined,
+  StatusBadge: ComponentType<StatusBadgeProps>,
 ) {
   const { labelAppendix, fieldAppendix, fieldAppendixPlacement, fieldDescription } = props;
   const fieldName = field.field;
@@ -85,10 +86,12 @@ function createFieldCellRenderer<TValues extends FormValues, TCtx>(
   };
   return (rawField) => {
     const field = facts ? spanLongValue(rawField, columns) : rawField;
+    const appendix = appendixCellProps(props, field, snapshot.values, state.primitives.StatusBadge);
+    const approvalAppendix = fieldApprovalAppendix(model, field);
     return (
       <GridCellForField
         key={field.field}
-        field={disabled ? { ...field, readOnly: true } : field}
+        {...lockedFieldCellProps(model, field, disabled)}
         columns={columns}
         {...(!isSettingsList && flows && { flow: true })}
         {...(isSettingsList && {
@@ -108,7 +111,16 @@ function createFieldCellRenderer<TValues extends FormValues, TCtx>(
         })}
         GridCell={GridCell}
         featureName={props.featureName}
-        {...appendixCellProps(props, field, snapshot.values, state.primitives.StatusBadge)}
+        {...appendix}
+        {...(approvalAppendix !== undefined && {
+          fieldAppendix: (
+            <>
+              {appendix.fieldAppendix}
+              {approvalAppendix}
+            </>
+          ),
+          appendixPlacement: "below-control" as const,
+        })}
         allIssues={snapshot.errors}
         valueDisplay={props.valueDisplay}
         row={snapshot.values}
@@ -119,6 +131,18 @@ function createFieldCellRenderer<TValues extends FormValues, TCtx>(
       />
     );
   };
+}
+
+// A field locked only by a pending approval keeps the cell it has while editable; a disabled form
+// shows every field read-only.
+function lockedFieldCellProps<TValues extends FormValues, TCtx>(
+  model: RenderEditModel<TValues, TCtx>,
+  field: EditFieldViewModel,
+  disabled: boolean,
+): { readonly field: EditFieldViewModel; readonly keepsEditableWidth?: true } {
+  if (disabled) return { field: { ...field, readOnly: true } };
+  if (field.readOnly || !isApprovalLockedField(model, field.field)) return { field };
+  return { field: { ...field, readOnly: true }, keepsEditableWidth: true };
 }
 
 // The flow layout sizes each field by its type and ignores `columns`; a section opts out with

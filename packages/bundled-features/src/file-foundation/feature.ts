@@ -57,15 +57,16 @@ export function createFileFoundationFeature() {
       // Registry stores the usage, factory looks it up at request-time.
       r.extendsRegistrar(EXT_FILE_PROVIDER, {});
 
-      const providerConfigKey = r.config(
-        "provider",
-        createTenantConfig("text", {
-          default: "",
-          env: FILE_STORAGE_PROVIDER_ENV,
-          write: access.roles("TenantAdmin", "SystemAdmin"),
-          read: access.roles("TenantAdmin", "SystemAdmin", "User"),
-        }),
-      );
+      const providerConfigKey = r.config({
+        keys: {
+          provider: createTenantConfig("text", {
+            default: "",
+            env: FILE_STORAGE_PROVIDER_ENV,
+            write: access.roles("SystemAdmin"),
+            read: access.roles("TenantAdmin", "SystemAdmin", "User"),
+          }),
+        },
+      }).provider;
       // Readiness gating: provider-plugins' required keys/secrets count only
       // while their plugin is the one this key selects.
       r.extensionSelector(EXT_FILE_PROVIDER, providerConfigKey);

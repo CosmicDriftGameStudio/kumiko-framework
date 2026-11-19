@@ -2,14 +2,16 @@ import * as z from "zod";
 import { createAnonymousUser } from "../engine/system-user.ts";
 import type { SessionUser } from "../engine/types/index.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
+import { toClientWriteErrorInfo } from "../errors/write-error-info.ts";
 import { Routes } from "./api-constants.ts";
 import type { AuthRouteContext } from "./auth-routes-context.ts";
-import type { PendingMfaStep, PublicAuthErrorStatus } from "./auth-routes-shared.ts";
+import type { PendingMfaStep } from "./auth-routes-shared.ts";
 import {
   pendingMfaStepResponse,
   registerTokenRequestRoute,
   SignupRequestBody,
 } from "./auth-routes-shared.ts";
+import { toContentfulStatus } from "./contentful-status.ts";
 
 const SignupConfirmBody = z.object({
   token: z.string().min(1),
@@ -52,9 +54,8 @@ export function registerSignupRoutes(ctx: AuthRouteContext): void {
 
       if (!result.isSuccess) {
         // 422 for invalid_signup_token (handler-level UnprocessableError).
-        // @cast-boundary engine-payload — KumikoError.httpStatus narrows to the http-status union
-        const status = result.error.httpStatus as PublicAuthErrorStatus;
-        return c.json({ isSuccess: false, error: result.error }, status);
+        const status = toContentfulStatus(result.error.httpStatus);
+        return c.json({ isSuccess: false, error: toClientWriteErrorInfo(result.error) }, status);
       }
 
       // @cast-boundary engine-payload — generic dispatcher.write result for signup-confirm

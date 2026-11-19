@@ -23,7 +23,7 @@ import { fetchCounterValue } from "./read-counter.ts";
 type Caps = { readonly maxRetentionDays: number };
 
 const { withValueCap } = createValueCapGuard<Caps>(async () => ({ maxRetentionDays: 30 }));
-const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
+const { table: capCounterTable } = createEntityExecutor(capCounterEntity);
 
 const retentionSpec = {
   field: "retentionDays",

@@ -55,3 +55,24 @@ describe("validateHandlerAccess — agent effect proposal", () => {
     expect(() => validateHandlerAccess(feature)).toThrow(/only write handlers have an effect/);
   });
 });
+
+describe("validateHandlerAccess — agent effect outbound", () => {
+  test("an outbound write with risk mid boots, only a proposal needs risk low", () => {
+    expect(() =>
+      validateHandlerAccess(featureWithWriteAgent({ risk: "mid", effect: "outbound" })),
+    ).not.toThrow();
+  });
+
+  test("a query handler with effect outbound is rejected", () => {
+    const feature = defineFeature("proposals", (r) => {
+      r.queryHandler({
+        name: "plan",
+        schema: z.object({}),
+        access: { roles: ["Admin"] },
+        agent: { effect: "outbound" },
+        handler: async () => ({}),
+      });
+    });
+    expect(() => validateHandlerAccess(feature)).toThrow(/only write handlers have an effect/);
+  });
+});

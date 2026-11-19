@@ -9,7 +9,7 @@ import type {
   ListAggregateMeasureKind,
   ListAggregateValue,
 } from "@cosmicdrift/kumiko-types/list-aggregate-types";
-import { quoteIdent } from "../crypto/ciphertext-pattern.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import type { TableInfo } from "./table-info.ts";
 
 const AGGREGATE_BUCKET_UNITS: readonly AggregateTimeBucket[] = ["hour", "day"];
@@ -24,6 +24,16 @@ function requireAggregateColumn(info: TableInfo, field: string, role: string): s
 
 export function isTimestamptzType(pgType: string | undefined): boolean {
   return pgType === "timestamptz" || pgType === "timestamptz(3)";
+}
+
+export function isNumericColumnType(pgType: string | undefined): boolean {
+  return (
+    pgType !== undefined &&
+    (pgType === "integer" ||
+      pgType === "bigint" ||
+      pgType === "double precision" ||
+      pgType.startsWith("numeric"))
+  );
 }
 
 export function aggregateKeyOf(raw: unknown): AggregateKey {
@@ -63,12 +73,26 @@ export function aggregateFunctionSql(
   }
 }
 
+// The fraction is inlined: the measure has no parameter list and sits after the bucket time-zone parameters.
+function percentileSql(columnSql: string, fraction: number): string {
+  if (!Number.isFinite(fraction) || fraction < 0 || fraction > 1) {
+    throw new Error(`aggregateWhere: percentile fraction must be between 0 and 1, got ${fraction}`);
+  }
+  return `percentile_cont(${fraction}) WITHIN GROUP (ORDER BY ${columnSql}::float8)`;
+}
+
 export function aggregateMeasureSql(info: TableInfo, measure: AggregateSpec["measure"]): string {
   if (measure.fn === "count") return aggregateFunctionSql("count", undefined);
-  return aggregateFunctionSql(
-    measure.fn,
-    requireAggregateColumn(info, measure.field, "measure field"),
-  );
+  const columnSql = requireAggregateColumn(info, measure.field, "measure field");
+  if (measure.fn === "countDistinct") return aggregateFunctionSql("countDistinct", columnSql);
+  const pgType = info.pgTypeOf(info.columnOf(measure.field));
+  if (!isNumericColumnType(pgType)) {
+    throw new Error(
+      `aggregateWhere: ${measure.fn} needs a numeric column, "${measure.field}" is ${pgType}`,
+    );
+  }
+  if (measure.fn === "percentile") return percentileSql(columnSql, measure.fraction);
+  return aggregateFunctionSql(measure.fn, columnSql);
 }
 
 type FieldType = FieldDefinition["type"];

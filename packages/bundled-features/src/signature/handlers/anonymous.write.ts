@@ -5,34 +5,36 @@ import {
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { RateLimitDeclaration } from "@cosmicdrift/kumiko-types/handlers";
-import { peekSignatureLinkSubject } from "../grant.ts";
+import { verifySignatureLinkSubject } from "../grant.ts";
 import { invalidLink } from "../lib.ts";
 import { DeclineByLinkSchema, OpenByLinkSchema, SignByLinkSchema } from "../payloads.ts";
 import { decodeSignatureImage, invalidImage } from "../signing.ts";
 import { SignatureInternalHandlers } from "../web/constants.ts";
 
 const TENANT_SWITCH_REASON =
-  "the link holder arrives anonymously in the default tenant while the signer lives in the request's tenant; the tenant comes from the signed link subject and the internal handler verifies the grant there via ctx.dispatch.writeAs";
+  "the link holder arrives anonymously in the default tenant while the signer lives in the request's tenant; the tenant comes from the link subject after this handler verified its signature, and the internal handler checks the link's anchor there via ctx.dispatch.writeAs";
 
 // One answer for every rejection, so a caller cannot tell forged from expired, revoked, used up or already signed.
 async function forwardIntoLinkTenant(
-  ctx: Pick<HandlerContext, "dispatch">,
+  ctx: Pick<HandlerContext, "dispatch" | "tz">,
+  linkSecret: string,
   token: string,
   qn: string,
   payload: unknown,
 ): Promise<WriteResult> {
-  const subject = peekSignatureLinkSubject(token);
+  const subject = verifySignatureLinkSubject({ token, secret: linkSecret, now: ctx.tz.now() });
   if (subject === null) return invalidLink();
   const result = await ctx.dispatch.writeAs(createSystemUser(subject.tenantId), qn, payload);
   return result.isSuccess ? result : invalidLink();
 }
 
-export function createAnonymousLinkHandlers(rateLimit: RateLimitDeclaration) {
+export function createAnonymousLinkHandlers(rateLimit: RateLimitDeclaration, linkSecret: string) {
   const openByLink = defineWriteHandler({
     name: "open-by-link",
     schema: OpenByLinkSchema,
     access: { roles: ["anonymous"], anySignedIn: true },
     rateLimit,
+    tenantlessAnonymous: true,
     escapeHatch: { grants: ["systemIdentity"], reason: TENANT_SWITCH_REASON },
     agent: { expose: false },
     description:
@@ -40,6 +42,7 @@ export function createAnonymousLinkHandlers(rateLimit: RateLimitDeclaration) {
     handler: (event, ctx) =>
       forwardIntoLinkTenant(
         ctx,
+        linkSecret,
         event.payload.token,
         SignatureInternalHandlers.linkOpen,
         event.payload,
@@ -51,6 +54,7 @@ export function createAnonymousLinkHandlers(rateLimit: RateLimitDeclaration) {
     schema: SignByLinkSchema,
     access: { roles: ["anonymous"], personalData: "public-intake", anySignedIn: true },
     rateLimit,
+    tenantlessAnonymous: true,
     escapeHatch: { grants: ["systemIdentity"], reason: TENANT_SWITCH_REASON },
     agent: { expose: false },
     description:
@@ -59,6 +63,7 @@ export function createAnonymousLinkHandlers(rateLimit: RateLimitDeclaration) {
       if (decodeSignatureImage(event.payload.imagePngBase64) === null) return invalidImage();
       return forwardIntoLinkTenant(
         ctx,
+        linkSecret,
         event.payload.token,
         SignatureInternalHandlers.linkSign,
         event.payload,
@@ -71,6 +76,7 @@ export function createAnonymousLinkHandlers(rateLimit: RateLimitDeclaration) {
     schema: DeclineByLinkSchema,
     access: { roles: ["anonymous"], personalData: "public-intake", anySignedIn: true },
     rateLimit,
+    tenantlessAnonymous: true,
     escapeHatch: { grants: ["systemIdentity"], reason: TENANT_SWITCH_REASON },
     agent: { expose: false },
     description:
@@ -78,6 +84,7 @@ export function createAnonymousLinkHandlers(rateLimit: RateLimitDeclaration) {
     handler: (event, ctx) =>
       forwardIntoLinkTenant(
         ctx,
+        linkSecret,
         event.payload.token,
         SignatureInternalHandlers.linkDecline,
         event.payload,

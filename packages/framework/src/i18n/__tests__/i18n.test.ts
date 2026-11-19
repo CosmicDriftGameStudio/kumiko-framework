@@ -9,13 +9,13 @@ import { createI18n } from "../index.ts";
 
 describe("createI18n", () => {
   const adminFeature = defineFeature("adminUsers", (r) => {
-    r.entity({
-      name: "user",
-      ...createEntity({
+    r.entity(
+      createEntity({
+        name: "user",
         table: "Users",
         fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
       }),
-    });
+    );
     r.translations({
       keys: {
         "nav.title": { de: "Benutzer", en: "Users" },
@@ -39,6 +39,20 @@ describe("createI18n", () => {
     // Keys are prefixed: featureName:key
     expect(i18n.t("adminUsers:nav.title", "de")).toBe("Benutzer");
     expect(i18n.t("adminUsers:nav.title", "en")).toBe("Users");
+  });
+
+  test("a region tag falls back to its base language before the default locale", () => {
+    const registry = createRegistry([adminFeature]);
+    const i18n = createI18n(registry, { defaultLocale: "de" });
+
+    expect(i18n.t("adminUsers:nav.title", "en-US")).toBe("Users");
+  });
+
+  test("a region tag without a base-language text falls back to the default locale", () => {
+    const registry = createRegistry([adminFeature]);
+    const i18n = createI18n(registry, { defaultLocale: "de" });
+
+    expect(i18n.t("adminUsers:nav.title", "fr-CA")).toBe("Benutzer");
   });
 
   test("falls back to default locale", () => {

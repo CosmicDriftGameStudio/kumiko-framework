@@ -89,6 +89,8 @@ export type ListColumnSpec =
       readonly multiline?: true;
       /** Phone card: the column's line stands above the title (muted, e.g. "date, channel") instead of below it. Consecutive `narrowInline` columns share the line. */
       readonly cardAbove?: true;
+      /** Phone card: the line starts with the column label ("Current value: …"), and the value moves below the label as a whole before it breaks inside. The table shows the label in the header only. */
+      readonly cardLabel?: true;
       /** Cell text in medium weight and foreground colour, like the title column of a board. */
       readonly emphasis?: true;
       /** `"muted"` draws every cell of the column in the muted text colour (e.g. a free-text message beside primary columns). */
@@ -567,8 +569,9 @@ export type EntityListFacetConfig = {
    *  number, decimal, money or bigInt field, sent as `gte`/`lte`. */
   readonly display?: "select" | "chips" | "range";
   /** Chips show how many rows each option matches (other facets and the
-   *  search apply). Counts come from the list query itself, one `limit: 1`
-   *  count request per chip. */
+   *  search apply). Counts come from one grouped list query per facet
+   *  (`aggregate.groupBy`); needs a select, boolean or single reference field
+   *  that is not encrypted, personal or secret. */
   readonly showCounts?: boolean;
   /** Chips with zero matching rows are not shown. Needs counts; implies
    *  `showCounts`'s requests even when the number itself is not shown. */

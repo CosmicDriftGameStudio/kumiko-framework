@@ -97,12 +97,22 @@ export function withCellStyleColumns(
   return columns.map((col) => {
     const spec = specs.get(col.field);
     if (spec === undefined) return col;
-    const { ellipsis, multiline, cardAbove, emphasis, dateOnlyAfterDays, tone, cardBadge } = spec;
+    const {
+      ellipsis,
+      multiline,
+      cardAbove,
+      cardLabel,
+      emphasis,
+      dateOnlyAfterDays,
+      tone,
+      cardBadge,
+    } = spec;
     return {
       ...col,
       ...(ellipsis !== undefined && { ellipsis }),
       ...(multiline !== undefined && { multiline }),
       ...(cardAbove !== undefined && { cardAbove }),
+      ...(cardLabel !== undefined && { cardLabel }),
       ...(emphasis !== undefined && { emphasis }),
       ...(dateOnlyAfterDays !== undefined && { dateOnlyAfterDays }),
       ...(tone !== undefined && { tone }),

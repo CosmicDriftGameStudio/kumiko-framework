@@ -21,7 +21,7 @@ const projectedTable = pgTable("read_echo_event_projected", {
 });
 
 const feature = defineFeature("echo-event", (r) => {
-  r.entity({ name: "item", ...sharedItemEntity });
+  r.entity(sharedItemEntity);
   const executor = () =>
     createEventStoreExecutor(sharedItemTable, sharedItemEntity, { entityName: "item" });
 

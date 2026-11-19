@@ -50,14 +50,9 @@ bun test src/__tests__/feature.integration.test.ts
 ```ts
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { publicShareTokenFeature, shareLinkEntity } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { publicShareTokenFeature } from "../feature";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 
@@ -70,8 +65,6 @@ beforeAll(async () => {
     features: [publicShareTokenFeature],
     anonymousAccess: { defaultTenantId: TENANT_ID },
   });
-  await unsafeCreateEntityTable(stack.db, shareLinkEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -180,6 +173,7 @@ const SHARE_BY_TOKEN_REASON =
   "resolves the share link by token hash for callers whose dispatch tenant is not the link owner's";
 
 export const shareLinkEntity = createEntity({
+  name: "share-link",
   table: "read_public_share_links",
   idType: "uuid",
   fields: {
@@ -208,7 +202,7 @@ export const shareLinkEntity = createEntity({
   ],
 });
 
-const { executor, table } = createEntityExecutor("share-link", shareLinkEntity);
+const { executor, table } = createEntityExecutor(shareLinkEntity);
 
 async function hashToken(plain: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(plain));
@@ -286,7 +280,7 @@ export const shareLinkRevokeWrite = defineWriteHandler({
       { limit: 1 },
     );
     const row = rows[0];
-    const ownerId = String(row?.["insertedById"] ?? row?.["inserted_by_id"] ?? "");
+    const ownerId = String(row?.insertedById ?? "");
     if (!row || ownerId !== event.user.id) {
       throw new NotFoundError("share-link");
     }
@@ -322,7 +316,7 @@ export const shareByTokenQuery = defineQueryHandler({
   },
   handler: async (query, ctx) => {
     const hash = await hashToken(query.payload.token);
-    const row = await fetchOne<ShareLinkRow>(ctx.db.unsafeRaw(), table, {
+    const row = await fetchOne<ShareLinkRow>(ctx.db.unsafeRawAllTenants(), table, {
       tokenHash: hash,
     });
 
@@ -343,7 +337,7 @@ export const shareByTokenQuery = defineQueryHandler({
 });
 
 export const publicShareTokenFeature = defineFeature("public-share", (r) => {
-  r.entity({ name: "share-link", ...shareLinkEntity });
+  r.entity(shareLinkEntity);
   r.writeHandler(shareLinkCreateWrite);
   r.writeHandler(shareLinkRevokeWrite);
   r.queryHandler(shareByTokenQuery);

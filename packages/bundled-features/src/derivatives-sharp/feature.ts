@@ -21,7 +21,7 @@ export function createDerivativesSharpFeature() {
       r.requires({ features: ["file-derivatives"] });
 
       const plugin: DerivativeRendererPlugin = { render: renderImage };
-      r.useExtension(EXT_DERIVATIVE_RENDERER, "image/*", plugin);
+      r.applyExtension({ name: EXT_DERIVATIVE_RENDERER, entity: "image/*", ...plugin });
     },
     { dedupeOptions: {} },
   );

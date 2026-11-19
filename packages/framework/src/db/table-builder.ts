@@ -1,5 +1,6 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
+import type { EventStoreExecutor } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 import type {
   EntityDefinition,
   FieldDefinition,
@@ -10,7 +11,7 @@ import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types
 import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 
 import { toSnakeCase } from "../utils/case.ts";
-import { buildEntityIndexes } from "./entity-table-indexes.ts";
+import { autoIndexedReferenceFieldNames, buildEntityIndexes } from "./entity-table-indexes.ts";
 import { markExecutorManagedTable } from "./executor-managed-tables.ts";
 import type { LocatedTimestampRead } from "./located-timestamp.ts";
 import type { MoneyRead } from "./money.ts";
@@ -273,29 +274,15 @@ export function toTableName(entityName: string): string {
   return `${READ_MODEL_PREFIX}${plural}`;
 }
 
-// Drizzle's PgTableWithColumns<any> inherits a `[k: string]: any` index
-// signature that, in strict mode (noUncheckedIndexedAccess + TS4111), forces
-// consumers to use bracket notation even for known columns. Because the
-// table is built dynamically from EntityDefinition, TypeScript cannot provide
-// Drizzle's full column inference. Instead, we mirror the `fieldToColumns`
-// logic in the type system: each field type maps to a concrete data type, and
-// ColumnsForEntity builds the complete property bag.
-//
-// With a concretely inferred `F` (via createEntity({ fields: { ... } })),
-// Drizzle's full data typing reaches `eq()`/`select()`/`row.x` at the call
-// site. The old `EntityDefinition` without a generic parameter falls back to
-// `FieldsMap` for backwards compatibility; without known field types, the
-// mapping collapses to `AnyPgColumn`.
-//
-// Every branch here must match the runtime decision in fieldToColumns. Type
-// tests against representative entities in db/__tests__/drizzle-table-types.test.ts
-// catch drift.
+// The table is built at runtime from the EntityDefinition, so its columns cannot be inferred
+// from the builder; the types below mirror fieldToColumns (each field type maps to a concrete
+// data type, ColumnsForEntity builds the bag). A concretely inferred `F` types column access at
+// the call site; a plain EntityDefinition falls back to FieldsMap. Every branch must match
+// fieldToColumns; db/__tests__/entity-table-types.test.ts catches drift.
 
-// Single column handle with concrete data + nullability phantom. After the
-// drizzle removal the runtime carries only the snake_case name + pg type
-// (see ColumnHandle); the phantom-typed wrapper preserves the existing
-// generic-inference call-sites without recreating drizzle's full column
-// brand graph.
+// Single column handle with concrete data + nullability phantom.
+// The runtime column carries only the snake_case name and pg type (ColumnHandle); the
+// phantom-typed wrapper adds value type and nullability.
 //
 // `__value` carries the TS value type of the column (optional phantom, never present at runtime).
 // It is the one place the field → TS-type mapping lives: EntityRow reads it back out of the
@@ -402,7 +389,7 @@ type ColumnsForEntity<F extends FieldsMap> = UnionToIntersection<
 
 // Base columns from buildBaseColumns — `idType: "serial"` returns number;
 // otherwise, UUID-as-string. `insertedAt` has `default(now())`, so it is
-// structurally non-null (Drizzle's `notNull` flag matches this).
+// structurally non-null.
 type BaseColumnsType<E extends EntityDefinition> = {
   readonly id: E extends { idType: "serial" } ? Col<number> : Col<string>;
   readonly tenantId: Col<string>;
@@ -473,6 +460,28 @@ export type EntityRow<E extends EntityDefinition = EntityDefinition> =
     ? Record<string, unknown>
     : Flatten<RowOfColumns<BaseColumnsType<E>> & SoftDeleteRow<E> & RowForFields<E["fields"]>>;
 
+export type EntityExecutorOf<E extends EntityDefinition> = EventStoreExecutor<EntityRow<E>>;
+
+type ColumnRowForField<K extends string, F extends FieldDefinition> = [
+  ValueColumnsForField<K, F>,
+] extends [never]
+  ? { readonly [P in K]: unknown }
+  : RowOfColumns<ValueColumnsForField<K, F>>;
+
+type ColumnRowForFields<F extends FieldsMap> = UnionToIntersection<
+  {
+    [K in keyof F & string]: ColumnRowForField<K, F[K]>;
+  }[keyof F & string]
+>;
+
+// The row ctx.db.selectMany/fetchOne return: money and locatedTimestamp stay column pairs, values are not decrypted; a wide EntityDefinition yields Record<string, unknown>.
+export type EntityColumnRow<E extends EntityDefinition = EntityDefinition> =
+  string extends keyof E["fields"]
+    ? Record<string, unknown>
+    : Flatten<
+        RowOfColumns<BaseColumnsType<E>> & SoftDeleteRow<E> & ColumnRowForFields<E["fields"]>
+      >;
+
 // ── ES-write brand ──────────────────────────────────────────────────────
 export type {
   ExecutorManagedRunner,
@@ -498,7 +507,10 @@ export type EntityTable<E extends EntityDefinition = EntityDefinition> = TableCo
   BaseColumnsType<E> &
   SoftDeleteColumnsType &
   ColumnsForEntity<E["fields"]> &
-  TenancyBrand<EntityTableTenancy<E>>;
+  TenancyBrand<EntityTableTenancy<E>> & {
+    // Optional phantom, never present at runtime, read by TenantDb.selectMany/fetchOne.
+    readonly __columnRow?: EntityColumnRow<E>;
+  };
 
 export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" = "uuid") {
   const idColumn =
@@ -510,13 +522,7 @@ export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" 
     id: idColumn,
     tenantId: uuid("tenant_id").notNull(),
     version: integer("version").default(1).notNull(),
-    // Temporal.Instant is used throughout (see instant() in dialect.ts).
-    // Previously the default mode was "date", which was inconsistent with
-    // user-defined timestamp fields (mode "string"). A single mode is now
-    // used for all timestamps.
-    // customType doesn't expose Drizzle's `defaultNow()` shortcut — use raw
-    // SQL so PG sets the value on insert and callers need not pass an
-    // Instant for every row creation.
+    // now() in SQL so PG sets inserted_at and callers need not pass an Instant.
     insertedAt: instant("inserted_at").default(sql`now()`).notNull(),
     modifiedAt: instant("modified_at"),
     // User-IDs are stringified UUIDs post-ES migration. Text (not uuid) so the
@@ -631,7 +637,8 @@ function entityTableName(
 //  (b) belongsTo relations declared via r.relation() — the FK column is the
 //      parent-side lookup key; without an index every child join scans the
 //      full table.
-// `Set` keeps the list deduplicated when (a) and (b) name the same column.
+//  (c) single-value reference fields that no declared index already leads with.
+// `Set` keeps the list deduplicated when the sources name the same column.
 function foreignKeyFieldNames(
   entity: EntityDefinition,
   relations: EntityRelations | undefined,
@@ -640,6 +647,7 @@ function foreignKeyFieldNames(
   for (const [name, field] of Object.entries(entity.fields)) {
     if (field.type === "file" || field.type === "image") names.add(name);
   }
+  for (const name of autoIndexedReferenceFieldNames(entity)) names.add(name);
   for (const rel of Object.values(relations ?? {})) {
     if (rel.type === "belongsTo") names.add(rel.foreignKey);
   }
@@ -647,7 +655,6 @@ function foreignKeyFieldNames(
 }
 
 export function buildEntityTable<E extends EntityDefinition>(
-  entityName: string,
   entity: E,
   options?: BuildEntityTableOptions,
 ): EntityTable<E> {
@@ -657,6 +664,7 @@ export function buildEntityTable<E extends EntityDefinition>(
     Object.assign(fieldColumns, fieldToColumns(name, field, entity));
   }
 
+  const entityName = entity.name;
   const tableName = entityTableName(entityName, entity, options?.featureName);
   const foreignKeyFields = foreignKeyFieldNames(entity, options?.relations);
 

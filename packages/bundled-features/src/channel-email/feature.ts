@@ -26,10 +26,14 @@ export function createChannelEmailFeature(options: EmailChannelOptions) {
 
     r.translations({ keys: { "delivery.channel.email": { en: "Email" } } });
     r.extendsRegistrar(EMAIL_APP_TRANSPORT_EXTENSION, {});
-    r.useExtension(EMAIL_APP_TRANSPORT_EXTENSION, EMAIL_APP_TRANSPORT_USAGE, {
+    r.applyExtension({
+      name: EMAIL_APP_TRANSPORT_EXTENSION,
+      entity: EMAIL_APP_TRANSPORT_USAGE,
       transport: appTransport,
     });
-    r.useExtension(DELIVERY_CHANNEL_EXTENSION, EMAIL_CHANNEL_NAME, {
+    r.applyExtension({
+      name: DELIVERY_CHANNEL_EXTENSION,
+      entity: EMAIL_CHANNEL_NAME,
       mode: channel.mode,
       resolve: channel.resolve,
       render: channel.render,

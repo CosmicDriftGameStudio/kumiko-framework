@@ -63,9 +63,9 @@ function presentOnly(fields: Record<string, unknown>): Record<string, unknown> {
 }
 
 // Writes through the entity executor, so events and projection match a live submit; subject
-// encryption applies only when the caller configured a PII KMS (the CLI wires it from env
-// and aborts without one). No mail, no rate limit, no duplicate-by-email
-// check: the source row is the truth and the id makes the call idempotent.
+// encryption applies only when the caller's db carries a PII KMS (an app seed runs with the
+// app's key service). No mail, no rate limit, no duplicate-by-email check: the source row is
+// the truth and the id makes the call idempotent.
 export async function importWaitlistEntry(
   db: TenantDb,
   entry: WaitlistImportEntry,

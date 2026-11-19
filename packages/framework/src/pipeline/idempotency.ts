@@ -20,6 +20,8 @@ export type IdempotencyGuard = {
     result: unknown,
   ): Promise<void>;
   release(tenantId: string, userId: string, requestId: string, token: string): Promise<void>;
+  // Keeps the pending lock alive while the owner's handler runs; returns an idempotent stop function.
+  keepPendingAlive(tenantId: string, userId: string, requestId: string, token: string): () => void;
 };
 
 // Sentinel prefix stored under the key while the handler is running. Each
@@ -38,10 +40,8 @@ export function createIdempotencyGuard(
   } = {},
 ): IdempotencyGuard {
   const ttl = options.ttlSeconds ?? 300;
-  // Max time a single handler is allowed to hold the in-progress lock before
-  // a parallel retry is allowed to try again. Short enough that a crashed
-  // handler doesn't permanently block retries, long enough to cover normal
-  // batch durations.
+  // Bounds how long the lock outlives a crashed owner. A running handler renews
+  // it (keepPendingAlive), so slow batches no longer let a retry run past it.
   const pendingTtl = options.pendingTtlSeconds ?? 30;
   // Must stay comfortably above pendingTtl: a wait shorter than the lock's
   // own TTL makes a retry give up and re-run the handler while the original
@@ -70,6 +70,15 @@ export function createIdempotencyGuard(
   const releaseScript = `
     if redis.call("get", KEYS[1]) == ARGV[1] then
       return redis.call("del", KEYS[1])
+    else
+      return 0
+    end
+  `;
+
+  // Same CAS guard: extend the lock only while we still own it.
+  const renewScript = `
+    if redis.call("get", KEYS[1]) == ARGV[1] then
+      return redis.call("expire", KEYS[1], ARGV[2])
     else
       return 0
     end
@@ -153,6 +162,24 @@ export function createIdempotencyGuard(
     async release(tenantId, userId, requestId, token) {
       const key = `${prefix}${tenantId}:${userId}:${requestId}`;
       await redis.eval(releaseScript, 1, key, token);
+    },
+
+    keepPendingAlive(tenantId, userId, requestId, token) {
+      const key = `${prefix}${tenantId}:${userId}:${requestId}`;
+      const renewEveryMs = Math.max(100, Math.floor((pendingTtl * 1000) / 3));
+      const timer = setInterval(() => {
+        redis
+          .eval(renewScript, 1, key, token, pendingTtl)
+          .then((renewed) => {
+            // 0: result already stored, lock released or taken over — nothing left to hold.
+            if (renewed !== 1) clearInterval(timer);
+          })
+          .catch(() => {
+            // skip: a failed renewal lets the lock expire on its TTL, same as without renewal
+          });
+      }, renewEveryMs);
+      timer.unref?.();
+      return () => clearInterval(timer);
     },
   };
 }

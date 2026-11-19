@@ -27,23 +27,6 @@ export function SenderSheet({
   );
 }
 
-/** Sand frame with one white sheet inside, for content that mimics a letter or mail. */
-export function SenderFrame({
-  children,
-  label,
-  testId,
-}: {
-  readonly children: ReactNode;
-  readonly label?: string;
-  readonly testId?: string;
-}): ReactNode {
-  return (
-    <section aria-label={label} data-testid={testId} className={`${SENDER_FRAME_CLASS} p-4`}>
-      <SenderSheet>{children}</SenderSheet>
-    </section>
-  );
-}
-
 /** Light blue area that marks content as AI-generated. */
 export function AiSurface({
   children,

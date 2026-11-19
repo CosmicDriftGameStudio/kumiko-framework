@@ -30,6 +30,7 @@ import { TEMPLATE_KINDS } from "../web/constants.ts";
 
 // Stored v1 events say kind "mail-html"; the v2 definition must read them as "mail".
 const entityV1 = createEntity({
+  name: "entityV1",
   table: "read_template_resources",
   fields: {
     ...templateResourceEntity.fields,

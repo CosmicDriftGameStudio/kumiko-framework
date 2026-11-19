@@ -1,13 +1,15 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { definePagedQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { mapWithConcurrency } from "@cosmicdrift/kumiko-framework/utils";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { decryptStoredPii } from "../../shared/index.ts";
+import { decryptStoredPii, KMS_POOL_CONCURRENCY } from "../../shared/index.ts";
 import { userSessionTable } from "../schema/user-session.ts";
 import { formatDeviceLabel, parsedDeviceSchema, parseUserAgent } from "../web/user-agent.ts";
 
 // "My live sessions" — the backing data for a devices/sessions UI. Returns
 // ONLY the current user's own, currently-live sessions, ordered by most-
-// recently-used first. Revoked rows excluded (revokedAt IS NULL). Paged
+// recently-used first. Revoked and expired rows excluded. Paged
 // envelope so the self-service projectionList screen can bind to it; a user's
 // live-session count is small, so there is a single page (nextCursor null).
 export const mineQuery = definePagedQueryHandler({
@@ -47,30 +49,28 @@ export const mineQuery = definePagedQueryHandler({
     }>(
       ctx.db,
       userSessionTable,
-      { userId: query.user.id, revokedAt: null },
+      { userId: query.user.id, revokedAt: null, expiresAt: { gt: Temporal.Now.instant() } },
       {
         orderBy: { col: "createdAt", direction: "desc" },
       },
     );
     const currentSid = query.user.sid;
-    const decryptedRows = await Promise.all(
-      rows.map(async (r) => {
-        const userAgent = r.userAgent
-          ? await decryptStoredPii(r.userAgent, "userAgent", "sessions:mine")
-          : r.userAgent;
-        const device = parseUserAgent(userAgent);
-        return {
-          id: r.id,
-          createdAt: r.createdAt,
-          expiresAt: r.expiresAt,
-          ip: r.ip ? await decryptStoredPii(r.ip, "ip", "sessions:mine") : r.ip,
-          userAgent,
-          device,
-          deviceLabel: formatDeviceLabel(device),
-          current: currentSid === r.id,
-        };
-      }),
-    );
+    const decryptedRows = await mapWithConcurrency(rows, KMS_POOL_CONCURRENCY, async (r) => {
+      const userAgent = r.userAgent
+        ? await decryptStoredPii(r.userAgent, "userAgent", "sessions:mine")
+        : r.userAgent;
+      const device = parseUserAgent(userAgent);
+      return {
+        id: r.id,
+        createdAt: r.createdAt,
+        expiresAt: r.expiresAt,
+        ip: r.ip ? await decryptStoredPii(r.ip, "ip", "sessions:mine") : r.ip,
+        userAgent,
+        device,
+        deviceLabel: formatDeviceLabel(device),
+        current: currentSid === r.id,
+      };
+    });
     return { rows: decryptedRows, nextCursor: null };
   },
 });

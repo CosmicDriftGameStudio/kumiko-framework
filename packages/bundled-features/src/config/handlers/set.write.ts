@@ -18,7 +18,7 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { requireConfigEncryption, requireConfigResolver, requireSystemDb } from "../feature.ts";
+import { requireConfigEncryption, requireConfigResolver } from "../feature.ts";
 import { MASKED } from "../read-redaction.ts";
 import { configValueEntity, configValuesTable } from "../table.ts";
 import {
@@ -32,6 +32,8 @@ import {
   validateType,
 } from "../write-helpers.ts";
 
+const CONFIG_SET_LOCK_NAMESPACE = 0x63_66_67_73; // 'cfgs'
+
 const scopeEnum = z.enum([ConfigScopes.system, ConfigScopes.tenant, ConfigScopes.user]);
 
 const executor = createEventStoreExecutor(configValuesTable, configValueEntity, {
@@ -40,6 +42,7 @@ const executor = createEventStoreExecutor(configValuesTable, configValueEntity, 
 
 export const setWrite = defineWriteHandler({
   name: "set",
+  agent: { risk: "high" },
   description:
     "Stores a config value for one key at the requested scope (user, tenant or system) after type, bounds, pattern and the key's own validator, encrypting it when the key declares that; use it to change a setting.",
   schema: z.object({
@@ -55,8 +58,9 @@ export const setWrite = defineWriteHandler({
         "write access rule before any value is stored",
     },
   },
+  systemScope: true,
   handler: async (event, ctx) => {
-    const db = requireSystemDb(ctx, "config:write:set", event.user.tenantId);
+    const db = ctx.systemDb.assertTenantMatch(event.user.tenantId);
 
     const prep = prepareConfigWrite({
       registry: ctx.registry,
@@ -202,6 +206,12 @@ export const setWrite = defineWriteHandler({
         event.payload.key,
       );
     }
+
+    // The unique index does not cover a NULL userId, so serialise find-then-create per row identity.
+    await db.advisoryXactLock(
+      CONFIG_SET_LOCK_NAMESPACE,
+      `${event.payload.key}|${tenantId}|${userId ?? ""}`,
+    );
 
     const existing = await findConfigRow(db, event.payload.key, tenantId, userId);
 

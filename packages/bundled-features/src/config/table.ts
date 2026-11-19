@@ -17,6 +17,7 @@ import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/eng
 // declared via entity.indexes. The plural re-export `configValuesTable`
 // provides handlers (`reset.write.ts` etc.) with a typed Drizzle table ref.
 export const configValueEntity = createEntity({
+  name: "config-value",
   table: "read_config_values",
   systemRowsReadable: true,
   fields: {
@@ -38,4 +39,4 @@ export const configValueEntity = createEntity({
   ],
 });
 
-export const configValuesTable = buildEntityTable("config-value", configValueEntity);
+export const configValuesTable = buildEntityTable(configValueEntity);

@@ -32,6 +32,7 @@ import {
 import { screenshotSpecsIgnore } from "../e2e/screenshot-dir";
 import { E2E_TIMEOUT_MS } from "../e2e-timeouts";
 import { REAL_PROVIDERS_ENV } from "../helpers/real-providers.ts";
+import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 
 const TOUCHED_ENV = [
   SEED_TOKEN_ENV,
@@ -44,6 +45,17 @@ const TOUCHED_ENV = [
   "SCREENSHOT_DIR",
   "MEILI_URL",
   "MEILI_MASTER_KEY",
+  "MINIO_ENDPOINT",
+  "MINIO_ACCESS_KEY",
+  "MINIO_SECRET_KEY",
+  "MINIO_BUCKET",
+  "MINIO_REGION",
+  "S3_ENDPOINT",
+  "S3_ACCESS_KEY",
+  "S3_SECRET_KEY",
+  "S3_BUCKET",
+  "S3_REGION",
+  "S3_FORCE_PATH_STYLE",
 ] as const;
 let saved: Record<string, string | undefined> = {};
 
@@ -184,6 +196,15 @@ describe("defineAppE2eConfig defaults", () => {
     expect(server.command).toBe("bun run e2e/server.ts");
     expect(server.url).toBe("http://localhost:4321");
     expect(server.timeout).toBe(E2E_TIMEOUT_MS.webServer);
+  });
+
+  test("stops the server with SIGTERM so the dev server's stop() removes its job queues", () => {
+    const server = defineAppE2eConfig({ port: 4321 }).webServer;
+    if (Array.isArray(server) || server === undefined) throw new Error("expected one webServer");
+    expect(server.gracefulShutdown).toEqual({
+      signal: "SIGTERM",
+      timeout: E2E_TIMEOUT_MS.webServerShutdown,
+    });
   });
 
   test("screenshot specs only run when SCREENSHOT_DIR is set", () => {
@@ -450,6 +471,56 @@ describe("defineAppE2eConfig defaults", () => {
     expect(ciServer.env?.["MEILI_MASTER_KEY"]).toBe("ci-key");
   });
 
+  describe("S3 env for the s3-env provider", () => {
+    function webServerEnvIn(appDir: string): Record<string, string> | undefined {
+      const originalCwd = process.cwd();
+      try {
+        process.chdir(appDir);
+        const server = defineAppE2eConfig({ port: 1 }).webServer;
+        if (Array.isArray(server) || server === undefined) {
+          throw new Error("expected one webServer");
+        }
+        return server.env;
+      } finally {
+        process.chdir(originalCwd);
+      }
+    }
+
+    function withAppDir<T>(dotenv: string | undefined, run: (appDir: string) => T): T {
+      const appDir = mkdtempSync(join(tmpdir(), "e2e-config-s3-"));
+      if (dotenv !== undefined) writeFileSync(join(appDir, ".env"), dotenv);
+      try {
+        return run(appDir);
+      } finally {
+        rmSync(appDir, { recursive: true, force: true });
+      }
+    }
+
+    test("defaults to the local MinIO values and path-style addressing", () => {
+      const env = withAppDir(undefined, webServerEnvIn);
+
+      expect(env?.["S3_ENDPOINT"]).toBe(SERVICE_ENV_DEFAULTS.MINIO_ENDPOINT);
+      expect(env?.["S3_ACCESS_KEY"]).toBe(SERVICE_ENV_DEFAULTS.MINIO_ACCESS_KEY);
+      expect(env?.["S3_SECRET_KEY"]).toBe(SERVICE_ENV_DEFAULTS.MINIO_SECRET_KEY);
+      expect(env?.["S3_BUCKET"]).toBe(SERVICE_ENV_DEFAULTS.MINIO_BUCKET);
+      expect(env?.["S3_REGION"]).toBe(SERVICE_ENV_DEFAULTS.MINIO_REGION);
+      expect(env?.["S3_FORCE_PATH_STYLE"]).toBe("true");
+    });
+
+    test("follows a MINIO_BUCKET set in the shell", () => {
+      process.env["MINIO_BUCKET"] = "ci-bucket";
+
+      expect(withAppDir(undefined, webServerEnvIn)?.["S3_BUCKET"]).toBe("ci-bucket");
+    });
+
+    test("leaves S3_BUCKET to the app's .env when it defines it", () => {
+      const env = withAppDir('S3_BUCKET="app-bucket"\n', webServerEnvIn);
+
+      expect(env).not.toHaveProperty("S3_BUCKET");
+      expect(env?.["S3_REGION"]).toBe(SERVICE_ENV_DEFAULTS.MINIO_REGION);
+    });
+  });
+
   test("forbidOnly follows CI", () => {
     expect(defineAppE2eConfig({ port: 1 }).forbidOnly).toBe(false);
     process.env["CI"] = "true";
@@ -568,6 +639,25 @@ describe("resolveE2eWorkers", () => {
 
   test("an empty override falls back to the default", () => {
     expect(resolveE2eWorkers({ [E2E_WORKERS_ENV]: "" }, 8)).toBe(4);
+  });
+
+  // pdfjs replaced globalThis.navigator under Bun, availableParallelism() returned NaN
+  // and Playwright hung on "NaN workers".
+  test.each([Number.NaN, 0, -2, 1.5])(
+    "an unusable availableParallelism() (%p) falls back to os.cpus().length",
+    (broken) => {
+      expect(resolveE2eWorkers({}, broken, () => 6)).toBe(3);
+    },
+  );
+
+  test("throws a clear error when neither CPU source yields a positive integer", () => {
+    expect(() => resolveE2eWorkers({}, Number.NaN, () => 0)).toThrow(
+      /cannot determine the CPU count.*KUMIKO_E2E_WORKERS/,
+    );
+  });
+
+  test("a valid override needs no CPU count at all", () => {
+    expect(resolveE2eWorkers({ [E2E_WORKERS_ENV]: "2" }, Number.NaN, () => Number.NaN)).toBe(2);
   });
 
   test("defineAppE2eConfig applies the override", () => {

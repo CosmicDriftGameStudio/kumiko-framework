@@ -18,15 +18,16 @@ import { buildEntityTable } from "../table-builder.ts";
 import { createTenantDb, type TenantDb } from "../tenant-db.ts";
 
 const noteEntity = createEntity({
+  name: "removed-note",
   table: "read_removed_column_notes",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const noteTable = buildEntityTable("removed-note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 
 const feature = defineFeature("removedcol", (r) => {
-  r.entity({ name: "removed-note", ...noteEntity });
+  r.entity(noteEntity);
 });
 
 const admin = TestUsers.admin;

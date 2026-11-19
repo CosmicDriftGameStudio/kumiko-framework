@@ -1,10 +1,17 @@
 // Server-side, boot-validated i18n keys — screen titles/descriptions the
-// engine requires every registered r.screen to declare. Distinct from
+// engine requires every registered r.screen to declare, plus the title and
+// field labels agent lint requires for exposed write handlers. Distinct from
 // web/i18n.ts (the client's free-form UI-string bundle) — see
 // personal-access-tokens/i18n.ts for the same split.
+import { handlerFieldLabelKey, handlerTitleKey } from "@cosmicdrift/kumiko-framework/engine";
+import { AuthMfaHandlers as H } from "./web/constants.ts";
+
 type LocalizedString = { readonly en: string };
 
 export const AUTH_MFA_FEATURE_I18N: Readonly<Record<string, LocalizedString>> = {
+  [handlerTitleKey(H.enableConfirm)]: { en: "Confirm two-factor setup" },
+  [handlerFieldLabelKey(H.enableConfirm, "setupToken")]: { en: "Setup token" },
+  [handlerFieldLabelKey(H.enableConfirm, "code")]: { en: "Code" },
   "screen:auth-mfa-enable.title": {
     en: "Two-factor authentication",
   },

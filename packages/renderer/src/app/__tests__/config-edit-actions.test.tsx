@@ -3,21 +3,16 @@ import type { ConfigEditAction } from "@cosmicdrift/kumiko-framework/ui-types";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
-import type { Dispatcher } from "../../headless/index.ts";
 import { LocaleProvider } from "../../i18n.tsx";
-import {
-  type ButtonProps,
-  type CorePrimitives,
-  type FieldProps,
-  PrimitivesProvider,
-} from "../../primitives.tsx";
-import { createMockDispatcher } from "../../web/__tests__/test-utils.tsx";
+import { type ButtonProps, type FieldProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
+import { createMockDispatcher, type MockWriteHandler } from "../../web/__tests__/test-utils.tsx";
 import { ConfigEditActionRow } from "../config-edit-action-row.tsx";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const primitives: CorePrimitives = {
+const primitives = createStubPrimitives({
   Button: ({ children, disabled, onClick, testId, title }: ButtonProps) => (
     <button type="button" disabled={disabled} onClick={onClick} data-testid={testId} title={title}>
       {children}
@@ -46,7 +41,7 @@ const primitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 const action: ConfigEditAction = {
   id: "send-test",
@@ -73,12 +68,12 @@ const resolver = {
   subscribe: () => () => {},
 };
 
-function renderRow(dirty: boolean, write: (...args: unknown[]) => Promise<unknown>) {
+function renderRow(dirty: boolean, write: MockWriteHandler) {
   return render(
     <LocaleProvider resolver={resolver}>
       <DispatcherProvider
         dispatcher={createMockDispatcher({
-          write: write as unknown as Dispatcher["write"],
+          write: write,
         })}
       >
         <PrimitivesProvider value={primitives}>
@@ -91,7 +86,10 @@ function renderRow(dirty: boolean, write: (...args: unknown[]) => Promise<unknow
 
 describe("ConfigEditActionRow", () => {
   test("a click calls the handler with an empty payload and shows the success message", async () => {
-    const write = mock(async (..._args: unknown[]) => ({ isSuccess: true, data: {} }));
+    const write = mock<MockWriteHandler>(async (..._args: unknown[]) => ({
+      isSuccess: true,
+      data: {},
+    }));
     const view = renderRow(false, write);
     fireEvent.click(view.getByTestId("config-edit-action-send-test-button"));
     await waitFor(() =>
@@ -103,7 +101,7 @@ describe("ConfigEditActionRow", () => {
   });
 
   test("a failing handler shows the translated error text", async () => {
-    const write = mock(async (..._args: unknown[]) => ({
+    const write = mock<MockWriteHandler>(async (..._args: unknown[]) => ({
       isSuccess: false,
       error: {
         code: "unprocessable",
@@ -122,7 +120,10 @@ describe("ConfigEditActionRow", () => {
   });
 
   test("the button is disabled with a save-first hint while the form is dirty", () => {
-    const write = mock(async (..._args: unknown[]) => ({ isSuccess: true, data: {} }));
+    const write = mock<MockWriteHandler>(async (..._args: unknown[]) => ({
+      isSuccess: true,
+      data: {},
+    }));
     const view = renderRow(true, write);
     const button = view.getByTestId("config-edit-action-send-test-button") as HTMLButtonElement;
     expect(button.disabled).toBe(true);

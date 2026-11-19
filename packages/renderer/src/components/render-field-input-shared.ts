@@ -19,6 +19,8 @@ export type RenderInputArgs = {
   readonly t: ReturnType<typeof useTranslation>;
   readonly row?: Readonly<Record<string, unknown>>;
   readonly fill?: InputFillAction;
+  /** Form-wide `fieldIcons: false`: no prefix icon, declared or derived. */
+  readonly iconless?: boolean;
 };
 
 export type SharedInputProps = {

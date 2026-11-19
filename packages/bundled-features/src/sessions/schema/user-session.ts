@@ -18,9 +18,9 @@ import { USER_SESSION_ENTITY_NAME } from "../constants.ts";
 // mutate them via ctx.db inside a transaction, but no user request can bypass
 // the revocation flow by poking the column directly.
 export const userSessionEntity = createEntity({
-  // The entity key is "user-session"; snake-casing it would produce
-  // "read_user-sessions", which is invalid SQL without quoting. Use an explicit
-  // override with a valid read_-prefixed table name.
+  // The entity key is "user-session"; an explicit store_-prefixed table name keeps it a valid,
+  // unquoted SQL identifier.
+  name: USER_SESSION_ENTITY_NAME,
   table: "store_user_sessions",
   // sid-as-PK: the sessionCreator callback generates the UUID, returns it to
   // the framework; the framework stamps it as `jti`; here the same value is
@@ -78,13 +78,14 @@ export const userSessionEntity = createEntity({
       find: "none",
     }),
   },
-  indexes: [{ columns: ["tenantId", "lastSeenAt"] }],
+  // userId: device list, logout-everywhere and the cross-tenant mass revokes filter by user.
+  indexes: [{ columns: ["tenantId", "lastSeenAt"] }, { columns: ["userId"] }],
 });
 
 // Unmanaged direct-write store (r.storeTable in feature.ts, no event stream —
 // revocation is a column write, not an aggregate). Handlers write via ctx.db;
 // source: "unmanaged" makes the meta Writable so those writes compile. See
 // feature.ts for the rebuild-exclusion rationale.
-export const userSessionTable = deriveEntityTableMeta(USER_SESSION_ENTITY_NAME, userSessionEntity, {
+export const userSessionTable = deriveEntityTableMeta(userSessionEntity, {
   source: "unmanaged",
 });

@@ -41,7 +41,7 @@ const neighborFeature = defineFeature("neighbor", (r) => {
 });
 
 const emitterFeature = defineFeature("emitter", (r) => {
-  r.entity({ name: "widget", ...sharedWidgetEntity });
+  r.entity(sharedWidgetEntity);
 
   const welcome = r.defineEvent("user.welcomed", z.object({ userId: z.uuid(), email: z.email() }), {
     piiFields: "none",
@@ -54,6 +54,7 @@ const emitterFeature = defineFeature("emitter", (r) => {
     handler: async (cmd, ctx) => {
       await ctx.events.unsafeAppend({
         aggregateId: cmd.payload.userId,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "user",
         type: welcome.name,
         payload: cmd.payload,
@@ -71,6 +72,7 @@ const emitterFeature = defineFeature("emitter", (r) => {
       // was never registered. ctx.events.append must reject at the append site.
       await ctx.events.unsafeAppend({
         aggregateId: cmd.payload.userId,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "user",
         type: "emitter:event:not-registered",
         payload: { userId: cmd.payload.userId },
@@ -87,6 +89,7 @@ const emitterFeature = defineFeature("emitter", (r) => {
       // System events skip schema validation, so only the object-shape guard stands between an array and the log.
       await ctx.events.unsafeAppend({
         aggregateId: cmd.payload.userId,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "user",
         type: "kumiko:system:test-array-payload",
         payload: [cmd.payload.userId],
@@ -103,6 +106,7 @@ const emitterFeature = defineFeature("emitter", (r) => {
       // userId is correct but email is missing / not an email string.
       await ctx.events.unsafeAppend({
         aggregateId: cmd.payload.userId,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "user",
         type: welcome.name,
         payload: { userId: cmd.payload.userId, email: "not-an-email" },
@@ -121,6 +125,7 @@ const emitterFeature = defineFeature("emitter", (r) => {
       // at emit-site — cross-feature emission silently breaks encapsulation.
       await ctx.events.unsafeAppend({
         aggregateId: cmd.payload.userId,
+        blindAppendReason: "test fixture appends an independent fact; ordering is not under test",
         aggregateType: "user",
         type: foreignEventName,
         payload: { userId: cmd.payload.userId },
@@ -130,6 +135,13 @@ const emitterFeature = defineFeature("emitter", (r) => {
     access: { roles: ["Admin"] },
   });
 });
+
+type StoredEventRow = {
+  readonly payload: Record<string, unknown>;
+  readonly aggregateType: string;
+  readonly aggregateId: string;
+  readonly version: number;
+};
 
 const admin = TestUsers.admin;
 let stack: TestStack;
@@ -169,7 +181,9 @@ describe("E.3 — ctx.events.append strict validation", () => {
     );
     expect(res.status).toBe(200);
 
-    const stored = await selectMany(stack.db, eventsTable, { type: welcomeEventName });
+    const stored = await selectMany<StoredEventRow>(stack.db, eventsTable, {
+      type: welcomeEventName,
+    });
     expect(stored).toHaveLength(1);
     expect(stored[0]?.payload).toEqual({ userId, email: "welcome@test.de" });
     expect(stored[0]?.aggregateType).toBe("user");
@@ -184,7 +198,7 @@ describe("E.3 — ctx.events.append strict validation", () => {
     // Non-Kumiko throw inside a handler → wrapped as InternalError → 500.
     expect(res.status).toBe(500);
 
-    const stored = await selectMany(stack.db, eventsTable);
+    const stored = await selectMany<StoredEventRow>(stack.db, eventsTable);
     // TX rolled back: no event landed.
     expect(stored).toHaveLength(0);
   });
@@ -195,7 +209,9 @@ describe("E.3 — ctx.events.append strict validation", () => {
     // ValidationError is a first-class Kumiko error → 400.
     expect(res.status).toBe(400);
 
-    const stored = await selectMany(stack.db, eventsTable, { type: welcomeEventName });
+    const stored = await selectMany<StoredEventRow>(stack.db, eventsTable, {
+      type: welcomeEventName,
+    });
     expect(stored).toHaveLength(0);
   });
 });
@@ -206,7 +222,7 @@ describe("E.3 — payload shape guard", () => {
     const res = await stack.http.write("emitter:write:emit:array-payload", { userId }, admin);
     expect(res.status).toBe(500);
 
-    const stored = await selectMany(stack.db, eventsTable);
+    const stored = await selectMany<StoredEventRow>(stack.db, eventsTable);
     expect(stored).toHaveLength(0);
   });
 });
@@ -221,7 +237,9 @@ describe("E.3 — cross-feature ownership guard", () => {
     const res = await stack.http.write("emitter:write:emit:foreign-event", { userId }, admin);
     expect(res.status).toBe(500);
 
-    const stored = await selectMany(stack.db, eventsTable, { type: foreignEventName });
+    const stored = await selectMany<StoredEventRow>(stack.db, eventsTable, {
+      type: foreignEventName,
+    });
     expect(stored).toHaveLength(0);
   });
 });

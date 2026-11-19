@@ -7,7 +7,6 @@ import type {
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { ExtensionSectionProps, FeatureSchema } from "../../index.ts";
 import {
   DispatcherProvider,
@@ -92,7 +91,7 @@ const existingRecord = {
 
 async function renderEditWizard(record: Record<string, unknown> = existingRecord) {
   const dispatcher = createMockDispatcher({
-    query: (async () => ({ isSuccess: true, data: record })) as unknown as Dispatcher["query"],
+    query: async () => ({ isSuccess: true, data: record }),
   });
   render(
     <DispatcherProvider dispatcher={dispatcher}>
@@ -101,7 +100,7 @@ async function renderEditWizard(record: Record<string, unknown> = existingRecord
       </ExtensionSectionsProvider>
     </DispatcherProvider>,
   );
-  await waitFor(() => expect(screen.getByTestId("render-edit-wizard-steps-step-0")).toBeTruthy());
+  await waitFor(() => screen.getByTestId("render-edit-wizard-steps-step-0"));
 }
 
 function chip(index: number): HTMLElement {
@@ -183,7 +182,7 @@ describe("entityEdit wizard on an existing record: jumping", () => {
     await userEvent.click(chip(2));
 
     expect(currentChipIndex()).toBe(0);
-    expect(screen.getByTestId("field-fullName-errors")).toBeTruthy();
+    screen.getByTestId("field-fullName-errors");
   });
 
   test("a forward jump from a valid step succeeds", async () => {
@@ -218,7 +217,7 @@ describe("entityEdit wizard on an existing record: jumping", () => {
     await userEvent.click(toggle);
     await userEvent.click(screen.getByTestId("render-edit-wizard-step-label-step-2"));
     expect(currentChipIndex()).toBe(0);
-    expect(screen.getByTestId("field-fullName-errors")).toBeTruthy();
+    screen.getByTestId("field-fullName-errors");
   });
 });
 

@@ -6,7 +6,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { requireSystemDb } from "../feature.ts";
 import { configValueEntity, configValuesTable } from "../table.ts";
 import { findConfigRow, prepareConfigWrite } from "../write-helpers.ts";
 
@@ -33,8 +32,9 @@ export const resetWrite = defineWriteHandler({
         "write access rule before any value is touched",
     },
   },
+  systemScope: true,
   handler: async (event, ctx) => {
-    const db = requireSystemDb(ctx, "config:write:reset", event.user.tenantId);
+    const db = ctx.systemDb.assertTenantMatch(event.user.tenantId);
 
     const prep = prepareConfigWrite({
       registry: ctx.registry,

@@ -18,7 +18,7 @@ export async function tagFlow(client: TagClient, noteId: string) {
   //    `color` (rendered as a colored chip by the web UI) and an optional
   //    `scope`: empty = global (offer on every entity), or an entity type to
   //    restrict it — here "note", so the picker only suggests it on notes.
-  const { id: tagId } = await client.write<{ id: string }>("tags:write:create-tag", {
+  const { id: tagId } = await client.write<{ id: string }>("tags:write:tag:create", {
     name: "important",
     color: "#2563eb",
     scope: "note",

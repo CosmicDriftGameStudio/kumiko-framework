@@ -34,6 +34,7 @@ import {
 const PDF_BYTES = new TextEncoder().encode("%PDF-1.4 mail attachment");
 
 const documentEntity = createEntity({
+  name: "document",
   table: "mail_gate_documents",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture" }),
@@ -41,10 +42,10 @@ const documentEntity = createEntity({
   },
   readGate: { fileOwner: { field: "file" } },
 });
-const documentTable = buildEntityTable("document", documentEntity);
+const documentTable = buildEntityTable(documentEntity);
 
 const documentFeature = defineFeature("mailgate", (r) => {
-  r.crud("document", documentEntity, {
+  r.crud(documentEntity, {
     write: { access: { roles: ["SystemAdmin"] } },
     read: { access: { roles: ["User", "TenantAdmin", "SystemAdmin"] } },
   });

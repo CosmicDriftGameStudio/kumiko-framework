@@ -96,12 +96,14 @@ const WRITE_HANDLER_KEY_KINDS: Record<keyof WriteHandlerDef, KeyClassification> 
   additionalRateLimits: "modeled",
   rateLimitCost: "opaque",
   escapeHatch: "modeled",
+  dispatchOnly: "opaque",
   tenantlessAnonymous: "opaque",
   reserveBeforeTransaction: "opaque",
   beforeTransaction: "opaque",
   beforeTransactionWhenNested: "opaque",
   transaction: "opaque",
   perform: "opaque",
+  systemScope: "opaque",
 };
 
 const QUERY_HANDLER_KEY_KINDS: Record<keyof QueryHandlerDef, KeyClassification> = {
@@ -115,7 +117,10 @@ const QUERY_HANDLER_KEY_KINDS: Record<keyof QueryHandlerDef, KeyClassification> 
   rateLimit: "modeled",
   outputSchema: "opaque",
   liveEntities: "opaque",
+  resultEntity: "opaque",
+  unfilteredResult: "opaque",
   escapeHatch: "modeled",
+  systemScope: "opaque",
 };
 
 const STREAM_HANDLER_KEY_KINDS: Record<keyof StreamHandlerDef, KeyClassification> = {
@@ -137,7 +142,7 @@ function lookupClassification<T extends Record<string, KeyClassification>>(
   map: T,
   key: string,
 ): KeyClassification | undefined {
-  return key in map ? map[key as keyof T] : undefined;
+  return Object.hasOwn(map, key) ? map[key as keyof T] : undefined;
 }
 
 function isStaticStringNode(node: Node): boolean {

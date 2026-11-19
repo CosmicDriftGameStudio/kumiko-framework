@@ -4,10 +4,17 @@ import type {
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
 import { DataTable } from "./_primitives-helpers.tsx";
-import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  fireEvent,
+  type MockQueryHandler,
+  type MockWriteHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const listScreen: ProjectionListScreenDefinition = {
   id: "orders",
@@ -18,10 +25,10 @@ const listScreen: ProjectionListScreenDefinition = {
 };
 
 function renderList(rows: readonly Record<string, unknown>[]): void {
-  const query = (async () => ({
+  const query: MockQueryHandler = async () => ({
     isSuccess: true,
     data: { rows, nextCursor: null },
-  })) as unknown as Dispatcher["query"];
+  });
   render(
     <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
       <KumikoScreen
@@ -37,11 +44,11 @@ describe("projectionList row guidance", () => {
     renderList([
       { id: "o1", name: "Order 1", next: "Call customer", due: "today", why: "Late", tone: "bad" },
     ]);
-    await waitFor(() => expect(screen.getByText("Order 1")).toBeTruthy());
+    await waitFor(() => screen.getByText("Order 1"));
     expect(screen.getByText("Order 1").closest("tr")?.className).toContain("--color-status-bad");
     const sentence = screen.getByText("Call customer");
     expect(sentence.closest("[data-hint-tone]")?.getAttribute("data-hint-tone")).toBe("bad");
-    expect(screen.getByText("today")).toBeTruthy();
+    screen.getByText("today");
   });
 
   test("an empty hint shows the translated empty label and the Why toggle opens the reason", async () => {
@@ -49,10 +56,10 @@ describe("projectionList row guidance", () => {
       { id: "o1", name: "Order 1", next: "", why: "x", tone: "ok" },
       { id: "o2", name: "Order 2", next: "Ship it", why: "Paid already", tone: "ok" },
     ]);
-    await waitFor(() => expect(screen.getByText("Nothing open")).toBeTruthy());
+    await waitFor(() => screen.getByText("Nothing open"));
     expect(screen.queryByText("Paid already")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Why?" }));
-    expect(screen.getByText("Paid already")).toBeTruthy();
+    screen.getByText("Paid already");
   });
 
   test("an empty hint in the row-open first cell stays a button that opens the row", () => {
@@ -104,7 +111,7 @@ describe("projectionList row guidance", () => {
     fireEvent.click(sentence);
     expect(onRowClick).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Why?" }));
-    expect(screen.getByText("Paid already")).toBeTruthy();
+    screen.getByText("Paid already");
     expect(onRowClick).toHaveBeenCalledTimes(1);
   });
 });
@@ -133,13 +140,13 @@ const detailScreen: ProjectionDetailScreenDefinition = {
 
 function renderDetail(
   data: Record<string, unknown>,
-  write?: Dispatcher["write"],
+  write?: MockWriteHandler,
   definition: ProjectionDetailScreenDefinition = detailScreen,
 ): void {
-  const query = (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["query"];
+  const query: MockQueryHandler = async () => ({ isSuccess: true, data });
   render(
     <DispatcherProvider
-      dispatcher={{ ...createMockDispatcher({ query }), ...(write !== undefined && { write }) }}
+      dispatcher={createMockDispatcher({ query, ...(write !== undefined && { write }) })}
     >
       <KumikoScreen
         schema={{ featureName: "shop", entities: {}, screens: [definition] }}
@@ -166,7 +173,7 @@ const FULL = {
 describe("projectionDetail record guidance blocks", () => {
   test("renders breadcrumb, summary, banner and steps from the record", async () => {
     renderDetail(FULL);
-    await waitFor(() => expect(screen.getByText("Waiting for payment")).toBeTruthy());
+    await waitFor(() => screen.getByText("Waiting for payment"));
     expect(screen.getByTestId("kumiko-screen-projection-detail-breadcrumb").textContent).toContain(
       "Orders",
     );
@@ -176,22 +183,25 @@ describe("projectionDetail record guidance blocks", () => {
     const banner = screen.getByTestId("kumiko-screen-projection-detail-banner");
     expect(banner.textContent).toContain("Overdue");
     expect(banner.textContent).toContain("14 days late");
-    expect(screen.getByText("Send reminder")).toBeTruthy();
-    expect(screen.getByText("Escalate")).toBeTruthy();
+    screen.getByText("Send reminder");
+    screen.getByText("Escalate");
   });
 
   test("the steps reason sits behind a toggle", async () => {
     renderDetail(FULL);
-    await waitFor(() => expect(screen.getByText("Send reminder")).toBeTruthy());
+    await waitFor(() => screen.getByText("Send reminder"));
     expect(screen.queryByText("No payment yet")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Why?" }));
-    expect(screen.getByText("No payment yet")).toBeTruthy();
+    screen.getByText("No payment yet");
   });
 
   test("banner and steps actions dispatch their handler with the shown record id", async () => {
-    const write = mock(async (_type: string, _payload: unknown) => ({ isSuccess: true, data: {} }));
-    renderDetail(FULL, write as unknown as Dispatcher["write"]);
-    await waitFor(() => expect(screen.getByText("Send reminder")).toBeTruthy());
+    const write = mock<MockWriteHandler>(async (_type: string, _payload: unknown) => ({
+      isSuccess: true,
+      data: {},
+    }));
+    renderDetail(FULL, write);
+    await waitFor(() => screen.getByText("Send reminder"));
     fireEvent.click(screen.getAllByRole("button", { name: "Close it" })[0] as HTMLElement);
     await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
     expect(write.mock.calls[0]?.[0]).toBe("shop:write:order:archive");
@@ -199,29 +209,30 @@ describe("projectionDetail record guidance blocks", () => {
   });
 
   test("a singleton detail whose row has no id offers no payload-less step action, so no step key is sent as id", async () => {
-    const write = mock(async (_type: string, _payload: unknown) => ({ isSuccess: true, data: {} }));
+    const write = mock<MockWriteHandler>(async (_type: string, _payload: unknown) => ({
+      isSuccess: true,
+      data: {},
+    }));
     const { id: _omitted, ...rowWithoutId } = FULL;
-    renderDetail(rowWithoutId, write as unknown as Dispatcher["write"], {
+    renderDetail(rowWithoutId, write, {
       ...detailScreen,
       singleton: true,
     });
-    await waitFor(() => expect(screen.getByText("Send reminder")).toBeTruthy());
+    await waitFor(() => screen.getByText("Send reminder"));
     expect(screen.queryByRole("button", { name: "Close it" })).toBeNull();
     expect(write).not.toHaveBeenCalled();
   });
 
   test("a notice tone outside SelectOptionTone falls back to the info banner", async () => {
     renderDetail({ ...FULL, notice: { title: "Overdue", tone: "loud" } });
-    await waitFor(() =>
-      expect(screen.getByTestId("kumiko-screen-projection-detail-banner")).toBeTruthy(),
-    );
+    await waitFor(() => screen.getByTestId("kumiko-screen-projection-detail-banner"));
     const banner = screen.getByTestId("kumiko-screen-projection-detail-banner");
     expect(banner.getAttribute("data-variant")).toBe("info");
   });
 
   test("a step without a title is dropped", async () => {
     renderDetail({ ...FULL, steps: [{ id: "s0", title: "", tone: "bad" }, ...FULL.steps] });
-    await waitFor(() => expect(screen.getByText("Send reminder")).toBeTruthy());
+    await waitFor(() => screen.getByText("Send reminder"));
     const steps = screen.getByTestId("kumiko-screen-projection-detail-steps");
     expect(steps.querySelector("[data-tone='bad']")).toBeNull();
     expect(steps.textContent).toContain("Escalate");
@@ -229,11 +240,11 @@ describe("projectionDetail record guidance blocks", () => {
 
   test("null banner, empty summary and empty path drop their blocks; empty steps show the empty label", async () => {
     renderDetail({ ...FULL, notice: null, line: "", path: [], steps: [] });
-    await waitFor(() => expect(screen.getByText("Order 1")).toBeTruthy());
+    await waitFor(() => screen.getByText("Order 1"));
     expect(screen.queryByTestId("kumiko-screen-projection-detail-banner")).toBeNull();
     expect(screen.queryByTestId("kumiko-screen-projection-detail-summary")).toBeNull();
     expect(screen.queryByTestId("kumiko-screen-projection-detail-breadcrumb")).toBeNull();
-    expect(screen.getByTestId("kumiko-screen-projection-detail-steps")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-projection-detail-steps");
   });
 
   const CHAIN = {
@@ -247,8 +258,8 @@ describe("projectionDetail record guidance blocks", () => {
 
   test("progress chains render one step bar each with heading, done steps and the current step up next", async () => {
     renderDetail({ ...FULL, progress: [CHAIN, { ...CHAIN, title: "Fulfilment" }] });
-    await waitFor(() => expect(screen.getByTestId("record-progress-0")).toBeTruthy());
-    expect(screen.getByTestId("record-progress-1")).toBeTruthy();
+    await waitFor(() => screen.getByTestId("record-progress-0"));
+    screen.getByTestId("record-progress-1");
     expect(screen.getByTestId("record-progress-0").textContent).toContain("Order to cash");
     const bar = screen.getByTestId("record-progress-0-bar");
     expect(bar.textContent).toContain("DonePlaced");
@@ -257,18 +268,18 @@ describe("projectionDetail record guidance blocks", () => {
     expect(upNext.textContent).toContain("Up next");
     expect(upNext.textContent).toContain("Paid");
     expect(upNext.textContent).toContain("312 EUR open");
-    expect(screen.getByText("Fulfilment")).toBeTruthy();
+    screen.getByText("Fulfilment");
   });
 
   test("an empty progress array drops the block", async () => {
     renderDetail({ ...FULL, progress: [] });
-    await waitFor(() => expect(screen.getByText("Waiting for payment")).toBeTruthy());
+    await waitFor(() => screen.getByText("Waiting for payment"));
     expect(screen.queryByTestId("record-progress-0")).toBeNull();
   });
 
   test("a progress value that is not a chain list drops the block", async () => {
     renderDetail({ ...FULL, progress: "not a list" });
-    await waitFor(() => expect(screen.getByText("Waiting for payment")).toBeTruthy());
+    await waitFor(() => screen.getByText("Waiting for payment"));
     expect(screen.queryByTestId("record-progress-0")).toBeNull();
   });
 });

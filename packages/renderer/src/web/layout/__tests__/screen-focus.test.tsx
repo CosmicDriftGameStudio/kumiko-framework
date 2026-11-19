@@ -83,7 +83,7 @@ describe("declarative screen focus", () => {
       expect(screen.getByRole("banner").className).toContain("max-md:hidden");
       fireEvent.click(screen.getByTestId("mobile-top-bar-back"));
       expect(navigate).toHaveBeenCalledWith({ screenId: "client-list" });
-      expect(screen.getByTestId("mobile-top-bar-actions")).toBeTruthy();
+      screen.getByTestId("mobile-top-bar-actions");
     });
   });
 
@@ -91,8 +91,8 @@ describe("declarative screen focus", () => {
     window.localStorage.setItem("kumiko.sidebar.open", "false");
     setViewportWidth(1200);
     render(<Harness screenDef={detailScreen} />);
-    expect(screen.getByRole("banner")).toBeTruthy();
-    expect(screen.getByText("Global action")).toBeTruthy();
+    screen.getByRole("banner");
+    screen.getByText("Global action");
     expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).not.toBeNull();
   });
 
@@ -108,8 +108,8 @@ describe("declarative screen focus", () => {
     atViewportWidth(500, () => {
       render(<Harness screenDef={detailScreen} />);
       const bar = screen.getByTestId("mobile-top-bar");
-      expect(within(bar).getByText("Global action")).toBeTruthy();
-      expect(within(bar).getByTestId("mobile-top-bar-actions")).toBeTruthy();
+      within(bar).getByText("Global action");
+      within(bar).getByTestId("mobile-top-bar-actions");
     });
   });
 

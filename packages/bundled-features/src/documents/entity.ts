@@ -71,11 +71,13 @@ export function createDocumentEntity(options: DocumentEntityOptions) {
         where: sql`"is_deleted" = false`,
       },
     ],
+    name: "filed-document",
   });
 }
 
 export function createDocumentLinkEntity(linkTargets: readonly string[]) {
   return createEntity({
+    name: "filed-document-link",
     table: "read_filed_document_links",
     softDelete: true,
     description:
@@ -105,5 +107,11 @@ export function createDocumentLinkEntity(linkTargets: readonly string[]) {
         reason: "technical_reference",
       }),
     },
+    // The read gate's EXISTS finds a document's links by documentId; for-record and the
+    // parentRef gate look links up by host (entityType, entityId).
+    indexes: [
+      { columns: ["tenantId", "documentId"] },
+      { columns: ["tenantId", "entityType", "entityId"] },
+    ],
   });
 }

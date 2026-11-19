@@ -91,7 +91,6 @@ export function EditorHeader({
 }): ReactNode {
   const t = useTranslation();
   const { Button, PageHeader } = usePrimitives();
-  if (PageHeader === undefined) return null;
   const onPublish = actions?.onPublish;
   return (
     <PageHeader

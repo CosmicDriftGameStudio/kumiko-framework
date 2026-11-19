@@ -70,6 +70,7 @@ export function DefaultSection({
   title,
   subtitle,
   subtitleBelowLgOnly,
+  titleOnNarrow,
   children,
   actions,
   variant = "default",
@@ -101,6 +102,7 @@ export function DefaultSection({
             data-testid={testId !== undefined ? `${testId}-title` : undefined}
             className={cn(
               "flex items-center gap-2",
+              titleOnNarrow === false && "max-sm:hidden",
               labelTitle
                 ? "text-[12.5px] font-semibold uppercase leading-none tracking-[0.06em] text-muted-foreground"
                 : "text-base font-semibold leading-none tracking-tight",
@@ -197,6 +199,7 @@ export function DefaultFillContainer({
   testId,
   grow,
   className,
+  dataAttributes,
 }: FillContainerProps): ReactNode {
   // flex-1 only on request (`grow`, set under fillScreenHeight): without it the
   // container sizes to its content and only shrinks (min-h-0), so a two-row
@@ -204,6 +207,7 @@ export function DefaultFillContainer({
   return (
     <div
       data-testid={testId}
+      {...dataAttributes}
       className={cn("flex min-h-0 flex-col", grow === true && "flex-1", className)}
     >
       {children}
@@ -413,14 +417,17 @@ export function DefaultText({
   decorative,
   concealed,
   narrow,
+  announce,
   children,
   testId,
 }: TextProps): ReactNode {
   if (narrow !== undefined) return <NarrowText text={children} narrow={narrow} />;
+  const live = announce === true ? { role: "status" } : undefined;
   if (concealed === true) {
     return (
       <span
         data-testid={testId}
+        {...live}
         data-concealed=""
         className="inline-flex items-center gap-1.5 text-muted-foreground"
       >
@@ -434,6 +441,7 @@ export function DefaultText({
       return (
         <code
           data-testid={testId}
+          {...live}
           className="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm"
         >
           {children}
@@ -441,13 +449,13 @@ export function DefaultText({
       );
     case "small":
       return (
-        <small data-testid={testId} className="text-xs text-muted-foreground">
+        <small data-testid={testId} {...live} className="text-xs text-muted-foreground">
           {children}
         </small>
       );
     case "required-mark":
       return (
-        <span data-testid={testId} data-required className="text-destructive">
+        <span data-testid={testId} {...live} data-required className="text-destructive">
           {children}
         </span>
       );
@@ -455,6 +463,7 @@ export function DefaultText({
       return (
         <span
           data-testid={testId}
+          {...live}
           {...(decorative === true && { "aria-hidden": true })}
           className="text-sm text-muted-foreground"
         >
@@ -462,7 +471,11 @@ export function DefaultText({
         </span>
       );
     default:
-      return <span data-testid={testId}>{children}</span>;
+      return (
+        <span data-testid={testId} {...live}>
+          {children}
+        </span>
+      );
   }
 }
 
@@ -481,11 +494,18 @@ export function isPlainPrimaryClick(event: MouseEvent): boolean {
   return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 }
 
+// A download never navigates, so blob and inline image URLs are safe there. text/calendar is
+// matched as the exact media type: browsers never execute it, a look-alike subtype could be.
+function isSafeDownloadHref(href: string): boolean {
+  return isSafeHref(href) || /^(?:blob:|data:image\/|data:text\/calendar[;,])/i.test(href.trim());
+}
+
 export function DefaultLink({
   href,
   variant = "default",
   target,
   rel,
+  download,
   onPress,
   className,
   children,
@@ -498,9 +518,11 @@ export function DefaultLink({
       : variant === "muted"
         ? "text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
         : "text-primary underline-offset-4 hover:underline";
+  const hrefIsSafe = download === undefined ? isSafeHref(href) : isSafeDownloadHref(href);
   return (
     <a
-      href={isSafeHref(href) ? href : "#"}
+      href={hrefIsSafe ? href : "#"}
+      {...(download !== undefined && { download })}
       target={target}
       rel={rel ?? (target === "_blank" ? "noopener noreferrer" : undefined)}
       {...dataAttributes}

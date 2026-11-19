@@ -1,27 +1,25 @@
-import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { tagExecutor } from "../executor.ts";
-import { type CreateTagPayload, createTagPayloadSchema } from "../schemas.ts";
+import { createTagPayloadSchema } from "../schemas.ts";
 import { DEFAULT_TAG_ACCESS } from "../web/constants.ts";
 
-// create-tag — adds a tag to the tenant's catalog. The framework mints a fresh
+// tag:create — adds a tag to the tenant's catalog. The framework mints a fresh
 // UUIDv7 id (no explicit id passed). Tag names are not unique by design: the
 // catalog is a free list and dedup is a UI concern (autocomplete from existing
-// tags). Editing is update-tag.write.ts; delete (with cascade) is delete-tag.write.ts.
+// tags). Editing is tag:update; delete (with cascade) is delete-tag.write.ts.
 export function createCreateTagHandler(
   access: AccessRule = DEFAULT_TAG_ACCESS,
-  name = "create-tag",
-): WriteHandlerDef {
-  return {
+  name = "tag:create",
+) {
+  return defineWriteHandler({
     name,
     schema: createTagPayloadSchema,
     access,
     description:
-      "Adds a tag to the caller's tenant tag catalog from a flat payload and mints its id; this is the legacy name the TagManager and TagPicker widgets dispatch, and it does not attach the new tag to anything.",
+      "Adds a tag to the caller's tenant tag catalog from a flat payload and mints its id; it does not attach the new tag to anything.",
     handler: async (event, ctx) => {
-      const payload = event.payload as CreateTagPayload; // @cast-boundary engine-payload
+      const payload = event.payload;
       return tagExecutor.create(payload, event.user, ctx.db);
     },
-  };
+  });
 }
-
-export const createTagHandler: WriteHandlerDef = createCreateTagHandler();

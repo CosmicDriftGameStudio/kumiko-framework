@@ -12,6 +12,7 @@ describe("folders boot rules", () => {
   test("a where rule in ownership.write violates where-rule-in-ownership-write", () => {
     const error = bootRuleViolationOf(() =>
       createFoldersFeature({
+        parents: ["project"],
         ownership: {
           write: { TenantMember: { kind: "where", where: () => ({ sqlText: "1=1", params: [] }) } },
         },

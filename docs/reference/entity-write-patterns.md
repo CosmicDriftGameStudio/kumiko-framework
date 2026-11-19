@@ -48,7 +48,7 @@ same prefix at registration.
 
 Unmanaged direct-write stores should use an unambiguous name — convention:
 `store_` (e.g. `store_user_sessions`). The guard only bans `read_`; it does not
-mandate `store_` — a plain unprefixed name (e.g. `in_app_messages`) is still
+mandate `store_` — a plain unprefixed name is still
 legal. `store_` is the recommended default.
 
 Use `deriveEntityTableMeta` to turn an EntityDefinition into DDL meta (defaults
@@ -101,9 +101,27 @@ projection pass after the handler sees the already-projected event and skips it.
 A `TenantDb` built outside the dispatcher or job runner has no registry bound
 and skips custom projections.
 
+## Named verbs and history
+
+An entity declares named update events in `verbs`, optionally with a checked transition:
+
+```ts
+const ticketEntity = createEntity({
+  name: "ticket",
+  fields: { status: createSelectField({ options: ["open", "archived"], default: "open" }) },
+  verbs: { archived: { transition: { field: "status", from: ["open"], to: "archived" } } },
+});
+
+executor.update({ id, changes: {} }, user, db, { verb: "archived" });
+```
+
+The executor appends `ticket.archived` with the `updated` payload (`{ changes, previous }`). A transition sets its field itself and rejects a row whose current state is not in `from` with 422 `invalid_transition`. The implicit projection, rebuild, upcasters, job triggers, derived webhook contracts and the audit filter treat the verb like `updated`. This replaces a `defineEvent` plus `extendEntityProjection` per status change.
+
+`executor.history({ id })` returns `{ version, at, by, verb, changes }` per lifecycle or verb event, upcast and decrypted. Fields follow the audit rule: a field whose read rule grants none of the caller's roles `"all"` is removed, because ownership rules cannot be checked against a past event. `executor.listAsOf({ asOf, ids? })` folds the entity's events up to the instant in memory and refuses entities with `parentRef`, `readGate` or a SQL read ownership for the same reason. `ids` limits the fold to those aggregates in SQL; an empty list returns no rows. A personal field whose subject key was erased reads as `PII_ERASED_SENTINEL`, like in `list` and `detail`, so a caller can tell an erased value from content.
+
 ## Versions after `ctx.events.append`
 
-`list` and `detail` of the event-store executor return the stream version as `version`, so a domain event appended via `ctx.events.append` does not stale the optimistic-lock base a client sends back on update. Custom queries that read the entity table directly see `row.version`, which lags behind after domain events; use the executor's `list`/`detail` or `getStreamVersion(s)` there.
+`row.version` follows the stream. A domain event appended via `ctx.events.append`, `appendOne` or a job sets the row's `version` in the same transaction, and the rebuild of the implicit projection restores it (decisions.md 2026-11-17). Only an event-store `append` or `appendEventInTenantDb` without `registry` leaves the row alone; read `getStreamVersion` there.
 
 ## CI guard
 
@@ -135,16 +153,16 @@ only; explicit projections and `r.storeTable` are out of scope.
 when its `id` equals the `aggregate_id` of a source event. An
 `r.extendEntityProjection` extension whose applies write a different id for events
 on its `sources` declares that derivation as `rowIdOf`; the guard then matches live
-rows against `rowIdOf` of the source events instead. Typical case: workflow-run
-events, whose aggregate id does not include the tenant, feeding a table with a
+rows against `rowIdOf` of the source events instead. Typical case: events whose
+aggregate id does not include the tenant, feeding a table with a
 single-column `id` primary key through a tenant-salted id:
 
 ```ts
-r.extendEntityProjection("wf-run-view", {
-  sources: [WORKFLOW_AGGREGATE_TYPE],
-  rowIdOf: ({ tenantId, aggregateId }) => uuidv5(`${tenantId}|${aggregateId}`, RUN_VIEW_NS),
+r.extendEntityProjection("order-view", {
+  sources: ["order"],
+  rowIdOf: ({ tenantId, aggregateId }) => uuidv5(`${tenantId}|${aggregateId}`, ORDER_VIEW_NS),
   apply: {
-    [WORKFLOW_RUN_STARTED_TYPE]: async (event, tx) => {
+    "shop:event:order.placed": async (event, tx) => {
       // inserts the row with id = the same uuidv5(tenantId|aggregateId)
     },
   },

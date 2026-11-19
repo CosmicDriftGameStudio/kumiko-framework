@@ -6,7 +6,14 @@ import type {
 import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  fireEvent,
+  type MockWriteHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 // `writeHandler` row and toolbar actions on projectionList now use the same
 // dispatch path as entityList instead of only navigating.
@@ -41,30 +48,28 @@ const schema: FeatureSchema = {
   screens: [projectionScreen],
 };
 
-function makeDispatcher(write: Dispatcher["write"]): Dispatcher {
-  return {
-    ...createMockDispatcher({
-      query: (async () => ({
-        isSuccess: true,
-        data: { rows: [{ id: "m1", name: "DB-Upgrade" }], nextCursor: null },
-      })) as unknown as Dispatcher["query"],
+function makeDispatcher(write: MockWriteHandler): Dispatcher {
+  return createMockDispatcher({
+    query: async () => ({
+      isSuccess: true,
+      data: { rows: [{ id: "m1", name: "DB-Upgrade" }], nextCursor: null },
     }),
     write,
-  };
+  });
 }
 
 describe("projectionList writeHandler-Actions", () => {
   test("Row-Action dispatches the handler with the default payload {id}", async () => {
-    const write = mock(async (_type: string, _payload: unknown) => ({
+    const write = mock<MockWriteHandler>(async (_type: string, _payload: unknown) => ({
       isSuccess: true,
       data: {},
     }));
     render(
-      <DispatcherProvider dispatcher={makeDispatcher(write as unknown as Dispatcher["write"])}>
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
         <KumikoScreen schema={schema} qn="status:screen:maintenance-list" />
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByText("DB-Upgrade")).toBeTruthy());
+    await waitFor(() => screen.getByText("DB-Upgrade"));
 
     fireEvent.click(screen.getByRole("button", { name: "status:action:start" }));
     await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
@@ -73,16 +78,16 @@ describe("projectionList writeHandler-Actions", () => {
   });
 
   test("Toolbar-Action dispatches the handler with the declared payload", async () => {
-    const write = mock(async (_type: string, _payload: unknown) => ({
+    const write = mock<MockWriteHandler>(async (_type: string, _payload: unknown) => ({
       isSuccess: true,
       data: {},
     }));
     render(
-      <DispatcherProvider dispatcher={makeDispatcher(write as unknown as Dispatcher["write"])}>
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
         <KumikoScreen schema={schema} qn="status:screen:maintenance-list" />
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByText("DB-Upgrade")).toBeTruthy());
+    await waitFor(() => screen.getByText("DB-Upgrade"));
 
     fireEvent.click(screen.getByRole("button", { name: "status:action:sync" }));
     await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
@@ -94,41 +99,51 @@ describe("projectionList writeHandler-Actions", () => {
   // "nothing happened". Row and toolbar actions on projectionList must use the
   // same error-surfacing path as entityList (a toast instead of a silent no-op).
   test("Row-Action error is surfaced as a toast, not swallowed", async () => {
-    const write = mock(async (_type: string, _payload: unknown) => ({
+    const write = mock<MockWriteHandler>(async (_type: string, _payload: unknown) => ({
       isSuccess: false,
-      error: { code: "internal_error", httpStatus: 500, message: "maintenance start failed" },
+      error: {
+        code: "internal_error",
+        httpStatus: 500,
+        i18nKey: "status.errors.maintenance-start-failed",
+        message: "maintenance start failed",
+      },
     }));
     const { ToastProvider } = await import("../primitives/toast.tsx");
     render(
       <ToastProvider>
-        <DispatcherProvider dispatcher={makeDispatcher(write as unknown as Dispatcher["write"])}>
+        <DispatcherProvider dispatcher={makeDispatcher(write)}>
           <KumikoScreen schema={schema} qn="status:screen:maintenance-list" />
         </DispatcherProvider>
       </ToastProvider>,
     );
-    await waitFor(() => expect(screen.getByText("DB-Upgrade")).toBeTruthy());
+    await waitFor(() => screen.getByText("DB-Upgrade"));
 
     fireEvent.click(screen.getByRole("button", { name: "status:action:start" }));
-    expect(await screen.findByText("maintenance start failed")).toBeTruthy();
+    await screen.findByText("maintenance start failed");
   });
 
   test("Toolbar-Action error is surfaced as a toast, not swallowed", async () => {
-    const write = mock(async (_type: string, _payload: unknown) => ({
+    const write = mock<MockWriteHandler>(async (_type: string, _payload: unknown) => ({
       isSuccess: false,
-      error: { code: "internal_error", httpStatus: 500, message: "maintenance sync failed" },
+      error: {
+        code: "internal_error",
+        httpStatus: 500,
+        i18nKey: "status.errors.maintenance-sync-failed",
+        message: "maintenance sync failed",
+      },
     }));
     const { ToastProvider } = await import("../primitives/toast.tsx");
     render(
       <ToastProvider>
-        <DispatcherProvider dispatcher={makeDispatcher(write as unknown as Dispatcher["write"])}>
+        <DispatcherProvider dispatcher={makeDispatcher(write)}>
           <KumikoScreen schema={schema} qn="status:screen:maintenance-list" />
         </DispatcherProvider>
       </ToastProvider>,
     );
-    await waitFor(() => expect(screen.getByText("DB-Upgrade")).toBeTruthy());
+    await waitFor(() => screen.getByText("DB-Upgrade"));
 
     fireEvent.click(screen.getByRole("button", { name: "status:action:sync" }));
-    expect(await screen.findByText("maintenance sync failed")).toBeTruthy();
+    await screen.findByText("maintenance sync failed");
   });
 });
 
@@ -161,32 +176,30 @@ describe("projectionList toolbarActions drawer-kind", () => {
 
   test("Click opens the Drawer; submit dispatches the handler, closes the Drawer, and reloads the list", async () => {
     let queryCallCount = 0;
-    const write = mock(async (_type: string, _payload: unknown) => ({
+    const write = mock<MockWriteHandler>(async (_type: string, _payload: unknown) => ({
       isSuccess: true,
       data: {},
     }));
-    const dispatcher: Dispatcher = {
-      ...createMockDispatcher({
-        query: (async () => {
-          queryCallCount += 1;
-          return {
-            isSuccess: true,
-            data: { rows: [{ id: "m1", name: "DB-Upgrade" }], nextCursor: null },
-          };
-        }) as unknown as Dispatcher["query"],
-      }),
-      write: write as unknown as Dispatcher["write"],
-    };
+    const dispatcher = createMockDispatcher({
+      query: async () => {
+        queryCallCount += 1;
+        return {
+          isSuccess: true,
+          data: { rows: [{ id: "m1", name: "DB-Upgrade" }], nextCursor: null },
+        };
+      },
+      write,
+    });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
         <KumikoScreen schema={drawerSchema} qn="status:screen:maintenance-list" />
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByText("DB-Upgrade")).toBeTruthy());
+    await waitFor(() => screen.getByText("DB-Upgrade"));
     expect(screen.queryByTestId("field-note")).toBeNull();
 
     fireEvent.click(screen.getByTestId("render-list-toolbar-action-add-note"));
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
     const queryCallsBeforeSubmit = queryCallCount;
 
     const noteInput = screen.getByTestId("field-note").querySelector("input");
@@ -232,32 +245,30 @@ describe("projectionList rowActions drawer-kind", () => {
 
   test("Click opens the Drawer prefilled from the row; submit dispatches, closes without navigating, and reloads the list", async () => {
     let queryCallCount = 0;
-    const write = mock(async (_type: string, _payload: unknown) => ({
+    const write = mock<MockWriteHandler>(async (_type: string, _payload: unknown) => ({
       isSuccess: true,
       data: {},
     }));
-    const dispatcher: Dispatcher = {
-      ...createMockDispatcher({
-        query: (async () => {
-          queryCallCount += 1;
-          return {
-            isSuccess: true,
-            data: { rows: [{ id: "m1", name: "DB-Upgrade" }], nextCursor: null },
-          };
-        }) as unknown as Dispatcher["query"],
-      }),
-      write: write as unknown as Dispatcher["write"],
-    };
+    const dispatcher = createMockDispatcher({
+      query: async () => {
+        queryCallCount += 1;
+        return {
+          isSuccess: true,
+          data: { rows: [{ id: "m1", name: "DB-Upgrade" }], nextCursor: null },
+        };
+      },
+      write,
+    });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
         <KumikoScreen schema={drawerSchema} qn="status:screen:maintenance-list" />
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByText("DB-Upgrade")).toBeTruthy());
+    await waitFor(() => screen.getByText("DB-Upgrade"));
     expect(screen.queryByTestId("field-name")).toBeNull();
 
     fireEvent.click(screen.getByTestId("row-m1-action-add-note"));
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
     const nameInput = screen.getByTestId("field-name").querySelector("input");
     if (nameInput === null) throw new Error("expected an <input> inside field-name");
     expect(nameInput.value).toBe("DB-Upgrade");

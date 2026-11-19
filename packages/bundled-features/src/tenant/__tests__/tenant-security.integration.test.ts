@@ -56,6 +56,12 @@ import { seedTenant, seedTenantMembership } from "../seeding.ts";
 import { updateInvitationViaEventStore } from "../testing.ts";
 import { MEMBERS_SCREEN_ID, TenantHandlers, TenantQueries } from "../web/constants.ts";
 
+type SessionRow = { readonly revokedAt: unknown };
+type MembershipEventRow = {
+  readonly type: string;
+  readonly tenantId: string;
+  readonly payload: unknown;
+};
 const emailTransport = createInMemoryTransport();
 const APP_ACCEPT_URL = "https://app.example.com/invite/accept";
 const FORBIDDEN_ROLES = ["SystemAdmin", "system", "all", "anonymous"] as const;
@@ -141,8 +147,7 @@ beforeEach(async () => {
     eventsTable,
   ]);
   emailTransport.sent.length = 0;
-  const keys = await stack.redis.redis.keys("invite:*");
-  if (keys.length > 0) await stack.redis.redis.del(...keys);
+  await stack.redis.flushNamespace();
 
   TENANT_A_ID = newTenantId();
   TENANT_B_ID = newTenantId();
@@ -693,6 +698,41 @@ describe("tenant:query:team:list — combined members + pending invitations (§2
     expect(withoutSession?.lastSeenAt).toBeNull();
     expect(invitee?.lastSeenAt).toBeNull();
   });
+
+  test("lastSeenAt is the newest session of a member with several sessions", async () => {
+    const { id: userId } = await seedUser(stack.db, {
+      email: "many-sessions@example.com",
+      displayName: "Many Sessions",
+      passwordHash: await hashPassword("pw-many-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, { userId, tenantId: TENANT_A_ID, roles: ["User"] });
+    const newestLastSeen = Temporal.Now.instant().subtract({ minutes: 5 });
+    for (const lastSeenAt of [
+      Temporal.Now.instant().subtract({ hours: 2 }),
+      newestLastSeen,
+      null,
+    ]) {
+      await seedRow(stack.db, userSessionTable, {
+        id: crypto.randomUUID(),
+        userId,
+        tenantId: TENANT_A_ID,
+        createdAt: Temporal.Now.instant().subtract({ hours: 3 }),
+        expiresAt: Temporal.Now.instant().add({ hours: 1 }),
+        lastSeenAt,
+      });
+    }
+
+    const rows = await queryTeamList({}, tenantAdminA());
+    const member = rows.find((r) => r.email === "many-sessions@example.com");
+
+    expect(member?.lastSeenAt).not.toBeNull();
+    const driftMs = Math.abs(
+      Temporal.Instant.from(member?.lastSeenAt as string).epochMilliseconds -
+        newestLastSeen.epochMilliseconds,
+    );
+    expect(driftMs).toBeLessThan(1_000);
+  });
 });
 
 describe("cancel-invitation on the /members surface genuinely cancels", () => {
@@ -1165,20 +1205,22 @@ describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates
     );
     expect(res).toMatchObject({ userId: memberUserId, tenantId: TENANT_A_ID, roles: ["Admin"] });
 
-    const [s1] = await selectMany(stack.db, userSessionTable, { id: sessionTarget1Id });
-    const [s2] = await selectMany(stack.db, userSessionTable, { id: sessionTarget2Id });
+    const [s1] = await selectMany<SessionRow>(stack.db, userSessionTable, { id: sessionTarget1Id });
+    const [s2] = await selectMany<SessionRow>(stack.db, userSessionTable, { id: sessionTarget2Id });
     expect(s1).toBeDefined();
     expect(s2).toBeDefined();
     expect(s1!.revokedAt).not.toBeNull();
     expect(s2!.revokedAt).not.toBeNull();
 
-    const [sAdmin] = await selectMany(stack.db, userSessionTable, { id: sessionAdminId });
+    const [sAdmin] = await selectMany<SessionRow>(stack.db, userSessionTable, {
+      id: sessionAdminId,
+    });
     expect(sAdmin).toBeDefined();
     expect(sAdmin!.revokedAt).toBeNull();
 
     // Event-store actor is createSystemUser (handler rewrites via system
     // stream), so filter by type + tenant — not the HTTP caller's user id.
-    const membershipEvents = await selectMany(stack.db, eventsTable, {
+    const membershipEvents = await selectMany<MembershipEventRow>(stack.db, eventsTable, {
       aggregateType: "tenant-membership",
     });
     const updateEvent = membershipEvents.find(

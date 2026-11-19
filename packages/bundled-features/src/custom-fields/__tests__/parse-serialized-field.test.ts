@@ -3,10 +3,8 @@ import { isFieldDefinitionRow, parseSerializedField } from "../lib/parse-seriali
 
 describe("parseSerializedField", () => {
   test("parses a valid JSON string into the typed shape", () => {
-    const parsed = parseSerializedField(
-      '{"type":"text","retention":{"keepFor":"30d","strategy":"delete"}}',
-    );
-    expect(parsed).toEqual({ type: "text", retention: { keepFor: "30d", strategy: "delete" } });
+    const parsed = parseSerializedField('{"type":"text","fieldAccess":{"read":["TenantAdmin"]}}');
+    expect(parsed).toEqual({ type: "text", fieldAccess: { read: ["TenantAdmin"] } });
   });
 
   test("throws on a stored definition with the removed `sensitive` key", () => {

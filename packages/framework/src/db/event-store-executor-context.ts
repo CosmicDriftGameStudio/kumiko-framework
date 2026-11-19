@@ -1,5 +1,5 @@
 import type { ParentVisibilityOption } from "@cosmicdrift/kumiko-types/event-store-executor-types";
-import type { EntityDefinition, FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import { requestContext } from "../api/request-context.ts";
 import {
@@ -16,6 +16,7 @@ import { personalFieldsRekeyedOnOwnerTransition } from "../crypto/owner-transiti
 import type { ErasedSubjectHandling } from "../crypto/pii-field-encryption.ts";
 import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
 import type { WhereObject } from "../db/query.ts";
+import { scalarFieldDefault } from "../engine/field-approval.ts";
 import { shiftParams } from "../engine/ownership.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.ts";
 import type { SessionUser, TenantId } from "../engine/types/index.ts";
@@ -29,14 +30,11 @@ import {
   writeFailure,
 } from "../errors/index.ts";
 import { ArchivedStreamError } from "../event-store/errors.ts";
-import { type EventMetadata, isStreamArchived } from "../event-store/index.ts";
+import { type EventMetadata, getStreamVersion, isStreamArchived } from "../event-store/index.ts";
 
-import type { EntityCache } from "../pipeline/entity-cache.ts";
 import type { SearchAdapter } from "../search/types.ts";
 import type { EnvelopeCipher } from "../secrets/envelope-cipher.ts";
 import { assertUnreachable } from "../utils/index.ts";
-import { rehydrateCompoundTypes } from "./compound-types.ts";
-import type { DbRow } from "./connection.ts";
 import type { TableColumns } from "./dialect.ts";
 import {
   collectEncryptedFieldNames,
@@ -46,13 +44,17 @@ import {
   resolveEntityFieldEncryption,
 } from "./entity-field-encryption.ts";
 import type { EventStoreExecutorOptions } from "./event-store-executor.ts";
+import { coerceAndRehydrateRow } from "./event-store-executor-read-rows.ts";
+import { isFrameworkSystemUser } from "./lock-guard.ts";
 import { withGlobalParentHosts } from "./parent-ref-global-hosts.ts";
 import { constraintOf, isUniqueViolation } from "./pg-error.ts";
 import { resolveReadOwnership } from "./read-ownership.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import { toSnakeCase } from "./table-builder.ts";
+import { extractTableInfo } from "./table-info.ts";
 import { columnHandleName, schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";
-import { tenantDbRunnerForTable } from "./tenant-db-runner.ts";
+import { isGlobalTenancyTable, tenantDbRunnerForTable } from "./tenant-db-runner.ts";
 
 // Shared context-building for the event-store-executor CRUD verbs (create/
 // update/delete/forget/restore/list/detail — see event-store-executor-write.ts
@@ -119,19 +121,6 @@ export function isForeignTenantOnGlobalEntity(
   return tenantIdValue !== undefined && tenantIdValue !== SYSTEM_TENANT_ID;
 }
 
-function scalarDefault(field: FieldDefinition): unknown {
-  switch (field.type) {
-    case "text":
-    case "longText":
-    case "number":
-    case "boolean":
-    case "select":
-      return field.default;
-    default:
-      return undefined;
-  }
-}
-
 // Maps PG-23505 (unique-violation) caught from applyEntityEvent
 // (create and update paths) to WriteFailure(UniqueViolationError 409).
 // Other errors propagate via re-throw. Extracted because this pattern
@@ -186,11 +175,19 @@ export type DecryptForReadOptions = {
   readonly degradeUndecryptable?: (field: string) => void;
 };
 
+export type WriteSnapshot =
+  | { readonly row: null }
+  | {
+      readonly row: Record<string, unknown>;
+      readonly rawRow: Record<string, unknown>;
+      readonly streamVersion: number;
+      readonly archived: boolean;
+    };
+
 export type ExecutorContext = {
   readonly table: Table;
   readonly entity: EntityDefinition;
   readonly entityName: string;
-  readonly entityCache?: EntityCache;
   readonly searchAdapter?: SearchAdapter;
   readonly softDelete: boolean;
   readonly streamTenantCreateFailure: (
@@ -205,41 +202,33 @@ export type ExecutorContext = {
     requestedStreamTenantId: TenantId | undefined,
   ) => WriteFailure | undefined;
   readonly idFilter: (id: EntityId) => WhereObject;
-  readonly loadById: (
-    id: EntityId,
-    db: TenantDb,
-    options?: { readonly includeDeleted?: boolean },
-  ) => Promise<Record<string, unknown> | null>;
   readonly assertStreamWritable: (db: TenantDb, id: EntityId, tenantId: TenantId) => Promise<void>;
-  readonly probeOwnershipWithStreamVersion: (
-    db: TenantDb,
-    idWhere: WhereObject,
-    ownership: { kind: "sql"; sqlText: string; params: readonly unknown[] },
-    streamTenantId: TenantId,
-    aggregateId: string,
-  ) => Promise<{ readonly owned: boolean; readonly streamVersion: number }>;
   readonly isRowReadable: (
     id: EntityId,
     user: SessionUser,
     db: TenantDb,
     parentVisibility: ParentVisibilityOption | undefined,
   ) => Promise<boolean>;
-  readonly loadDetailSnapshot: (
+  readonly loadDetailRow: (
     db: TenantDb,
     idWhere: WhereObject,
     ownership:
       | { kind: "pass" }
       | { kind: "empty" }
       | { kind: "sql"; sqlText: string; params: readonly unknown[] },
-    streamTenantId: TenantId,
-    aggregateId: string,
-  ) => Promise<{ readonly row: Record<string, unknown> | null; readonly streamVersion: number }>;
-  readonly loadExpectSnapshot: (
+  ) => Promise<Record<string, unknown> | null>;
+  readonly loadWriteSnapshot: (
     db: TenantDb,
     id: EntityId,
-    streamTenantId: TenantId,
-    expectKeys: readonly string[],
-  ) => Promise<{ readonly row: Record<string, unknown> | null; readonly streamVersion: number }>;
+    user: SessionUser,
+    options: {
+      readonly includeDeleted?: boolean;
+      readonly streamTenant: TenantId;
+      readonly parentVisibility?: ParentVisibilityOption | undefined;
+    },
+  ) => Promise<WriteSnapshot>;
+  readonly assertExpectKeysComparable: (expectKeys: readonly string[]) => void;
+  readonly expectColumnOf: (field: string) => string;
   readonly encryptForStorage: (
     row: Record<string, unknown>,
     user: SessionUser,
@@ -271,7 +260,7 @@ export function buildExecutorContext(
   entity: EntityDefinition,
   options: EventStoreExecutorOptions,
 ): ExecutorContext {
-  const { searchAdapter, entityName, entityCache } = options;
+  const { searchAdapter, entityName } = options;
   const softDelete = entity.softDelete ?? false;
 
   // Without systemStream: true, a "global" entity would silently fork one event stream per creating tenant.
@@ -347,7 +336,7 @@ export function buildExecutorContext(
   // Pre-compute defaults once so create() doesn't loop the entity every call.
   const fieldDefaults: Record<string, unknown> = {};
   for (const [name, field] of Object.entries(entity.fields)) {
-    const def = scalarDefault(field);
+    const def = scalarFieldDefault(field);
     if (def !== undefined) fieldDefaults[name] = def;
   }
 
@@ -508,17 +497,6 @@ export function buildExecutorContext(
     return filter;
   }
 
-  async function loadById(
-    id: EntityId,
-    db: TenantDb,
-    options?: { readonly includeDeleted?: boolean },
-  ): Promise<Record<string, unknown> | null> {
-    // Only the soft-delete predicate is relaxed; the tenant filter of db.fetchOne stays.
-    const row = await db.fetchOne(table, options?.includeDeleted ? { id } : idFilter(id));
-    if (!row) return null;
-    return await decryptForRead(rehydrateCompoundTypes(row as DbRow, entity));
-  }
-
   // Archive guard for the CRUD write paths. Archived streams are read-only —
   // ctx.events.append (append-event-core) already enforces this, but the
   // executor appends directly via append() and getStreamVersion() ignores
@@ -548,7 +526,7 @@ export function buildExecutorContext(
     ownership: { kind: "pass" } | { kind: "sql"; sqlText: string; params: readonly unknown[] },
   ): { whereParts: string[]; params: unknown[] } {
     const colSql = (field: string): string =>
-      `"${columnHandleName(table, field) ?? toSnakeCase(field)}"`;
+      quoteIdent(columnHandleName(table, field) ?? toSnakeCase(field));
     const whereParts: string[] = [];
     const params: unknown[] = [];
     if (table["tenantId"] !== undefined && db.mode === "tenant") {
@@ -578,30 +556,24 @@ export function buildExecutorContext(
     );
   }
 
-  // Cache-hit revalidation: ownership predicate and live stream version in ONE
-  // statement, so a cache hit costs the same single roundtrip as the cold path.
-  async function probeOwnershipWithStreamVersion(
+  async function resolveRowOwnership(
+    id: EntityId,
+    user: SessionUser,
     db: TenantDb,
-    idWhere: WhereObject,
-    ownership: { kind: "sql"; sqlText: string; params: readonly unknown[] },
-    streamTenantId: TenantId,
-    aggregateId: string,
-  ): Promise<{ readonly owned: boolean; readonly streamVersion: number }> {
-    const tableName = String(schemaTableName(table));
-    const { whereParts, params } = buildRawIdWhere(db, idWhere, ownership);
-    params.push(aggregateId, streamTenantId);
-    const sqlText =
-      `SELECT 1 AS "__owned", ${streamVersionSubquerySql(params.length - 1, params.length)} ` +
-      `FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
-    const rows = await executeRawQueryRead<Record<string, unknown>>(
-      tenantDbRunnerForTable(db, table),
-      sqlText,
-      params,
+    parentVisibility: ParentVisibilityOption | undefined,
+  ) {
+    const gate = { includeDeleted: false, narrowTypes: undefined };
+    return resolveReadOwnership(
+      { entity, table },
+      String(schemaTableName(table)),
+      user,
+      db,
+      await withGlobalParentHosts({ entity, table }, user, db, parentVisibility, gate, {
+        kind: "row",
+        rowId: id,
+      }),
+      gate,
     );
-    const first = rows[0];
-    if (!first) return { owned: false, streamVersion: 0 };
-    const version = first["__streamVersion"];
-    return { owned: true, streamVersion: typeof version === "number" ? version : 0 };
   }
 
   // Same read predicate detail applies (access.read plus the parent-ref gate), evaluated
@@ -614,77 +586,46 @@ export function buildExecutorContext(
     db: TenantDb,
     parentVisibility: ParentVisibilityOption | undefined,
   ): Promise<boolean> {
-    const gate = { includeDeleted: false, narrowTypes: undefined };
     const tableName = String(schemaTableName(table));
-    const ownership = resolveReadOwnership(
-      { entity, table },
-      tableName,
-      user,
-      db,
-      await withGlobalParentHosts({ entity, table }, user, db, parentVisibility, gate, {
-        kind: "row",
-        rowId: id,
-      }),
-      gate,
-    );
+    const ownership = await resolveRowOwnership(id, user, db, parentVisibility);
     if (ownership.kind === "pass") return true;
     if (ownership.kind === "empty") return false;
     const { whereParts, params } = buildRawIdWhere(db, { id }, ownership);
     const rows = await executeRawQueryRead<Record<string, unknown>>(
       tenantDbRunnerForTable(db, table),
-      `SELECT 1 AS "__readable" FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`,
+      `SELECT 1 AS "__readable" FROM ${quoteIdent(tableName)} WHERE ${whereParts.join(" AND ")} LIMIT 1`,
       params,
     );
     return rows.length > 0;
   }
 
-  // Row and MAX(version) in ONE statement: two reads can pair a post-write
-  // version with a pre-write row, and update({version: detail.version}) would
-  // then pass the optimistic lock and overwrite the newer write (lost update).
-  async function loadDetailSnapshot(
+  // One row read; row.version follows the stream, unlike the write snapshot, which also covers rows seeded without events.
+  async function loadDetailRow(
     db: TenantDb,
     idWhere: WhereObject,
     ownership:
       | { kind: "pass" }
       | { kind: "empty" }
       | { kind: "sql"; sqlText: string; params: readonly unknown[] },
-    streamTenantId: TenantId,
-    aggregateId: string,
-  ): Promise<{ readonly row: Record<string, unknown> | null; readonly streamVersion: number }> {
-    if (ownership.kind === "empty") return { row: null, streamVersion: 0 };
+  ): Promise<Record<string, unknown> | null> {
+    if (ownership.kind === "empty") return null;
     const tableName = String(schemaTableName(table));
     const { whereParts, params } = buildRawIdWhere(db, idWhere, ownership);
-    params.push(aggregateId, streamTenantId);
-    const sqlText =
-      `SELECT *, ${streamVersionSubquerySql(params.length - 1, params.length)} ` +
-      `FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
+    const sqlText = `SELECT * FROM ${quoteIdent(tableName)} WHERE ${whereParts.join(" AND ")} LIMIT 1`;
     const rows = await executeRawQueryRead<Record<string, unknown>>(
       tenantDbRunnerForTable(db, table),
       sqlText,
       params,
     );
-    const first = rows[0];
-    if (!first) return { row: null, streamVersion: 0 };
-    const { __streamVersion, ...row } = first;
-    return {
-      row,
-      streamVersion: typeof __streamVersion === "number" ? __streamVersion : 0,
-    };
+    return rows[0] ?? null;
   }
 
-  // Reads the `expect:` fields and the aggregate's MAX(version) in ONE statement:
-  // projection rows are written after their event commits, so two reads can
-  // pair a post-write version with a pre-write row.
-  // row.version can't stand in for MAX(version) — raw-seeded/legacy rows carry
-  // a default version with no matching events, so the append would target a
-  // non-existent predecessor.
-  // Raw column values, no decrypt pass: plain (non-pii, non-encrypted) columns only.
-  async function loadExpectSnapshot(
-    db: TenantDb,
-    id: EntityId,
-    streamTenantId: TenantId,
-    expectKeys: readonly string[],
-  ): Promise<{ readonly row: Record<string, unknown> | null; readonly streamVersion: number }> {
+  function expectColumnOf(field: string): string {
+    return columnHandleName(table, field) ?? toSnakeCase(field);
+  }
+
+  // expect: compares raw column values, so encrypted/PII columns would compare ciphertext.
+  function assertExpectKeysComparable(expectKeys: readonly string[]): void {
     for (const key of expectKeys) {
       if (table[key] === undefined) {
         throw new InternalError({
@@ -697,58 +638,86 @@ export function buildExecutorContext(
         });
       }
     }
-    const quote = (name: string): string => `"${name.replace(/"/g, '""')}"`;
-    const columnOf = (field: string): string =>
-      quote(columnHandleName(table, field) ?? toSnakeCase(field));
-    const tableName = String(schemaTableName(table));
+  }
 
-    const selectCols = expectKeys.map((key) => `${columnOf(key)} AS ${quote(key)}`);
-    const whereParts: string[] = [`${columnOf("id")} = $1`];
-    const params: unknown[] = [id];
-    if (table["tenantId"] !== undefined && db.mode === "tenant") {
-      params.push(db.tenantId, SYSTEM_TENANT_ID);
-      whereParts.push(`${columnOf("tenantId")} IN ($${params.length - 1}, $${params.length})`);
+  // Row, MAX(version) and the archive flag in ONE statement: separate reads let a writer
+  // commit in between, so the append would run on a stale row and a version read after
+  // preSave. row.version can't stand in for MAX(version) — raw-seeded/legacy rows carry a
+  // default version with no matching events.
+  async function loadWriteSnapshot(
+    db: TenantDb,
+    id: EntityId,
+    user: SessionUser,
+    options: {
+      readonly includeDeleted?: boolean;
+      readonly streamTenant: TenantId;
+      readonly parentVisibility?: ParentVisibilityOption | undefined;
+    },
+  ): Promise<WriteSnapshot> {
+    let ownership: Awaited<ReturnType<typeof resolveRowOwnership>> = { kind: "pass" };
+    if (!isFrameworkSystemUser(user)) {
+      ownership = await resolveRowOwnership(id, user, db, options.parentVisibility);
+      if (ownership.kind === "empty") return { row: null };
     }
-    params.push(String(id), streamTenantId);
-    const streamAggregateIdx = params.length - 1;
-    const streamTenantIdx = params.length;
-
-    const sqlText =
-      `SELECT ${selectCols.join(", ")}, ` +
-      `${streamVersionSubquerySql(streamAggregateIdx, streamTenantIdx)} ` +
-      `FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
-
+    const runner = tenantDbRunnerForTable(db, table);
+    const tableName = String(schemaTableName(table));
+    const { whereParts, params } = buildRawIdWhere(
+      db,
+      options.includeDeleted ? { id } : idFilter(id),
+      ownership,
+    );
+    // kumiko_events has no system-read policy: a tenant-scope statement cannot see the
+    // system-tenant events of a systemStream entity on a non-global table.
+    const inlineStreamState = !(entity.systemStream === true && !isGlobalTenancyTable(table));
+    let selectList = "*";
+    if (inlineStreamState) {
+      params.push(String(id), options.streamTenant);
+      const aggregateIdx = params.length - 1;
+      const tenantIdx = params.length;
+      selectList =
+        `*, ${streamVersionSubquerySql(aggregateIdx, tenantIdx)}, ` +
+        `EXISTS(SELECT 1 FROM "kumiko_archived_streams" a WHERE a."tenant_id" = $${tenantIdx} ` +
+        `AND a."aggregate_id" = $${aggregateIdx}) AS "__streamArchived"`;
+    }
     const rows = await executeRawQueryRead<Record<string, unknown>>(
-      tenantDbRunnerForTable(db, table),
-      sqlText,
+      runner,
+      `SELECT ${selectList} FROM ${quoteIdent(tableName)} WHERE ${whereParts.join(" AND ")} LIMIT 1`,
       params,
     );
-    const row = rows[0];
-    if (!row) return { row: null, streamVersion: 0 };
-    const { __streamVersion, ...fields } = row;
-    return {
-      row: fields,
-      streamVersion: typeof __streamVersion === "number" ? __streamVersion : 0,
-    };
+    const first = rows[0];
+    if (!first) return { row: null };
+    const { __streamVersion, __streamArchived, ...rawRow } = first;
+    let streamVersion: number;
+    let archived: boolean;
+    if (inlineStreamState) {
+      streamVersion = Number(__streamVersion ?? 0);
+      archived = typeof __streamArchived === "boolean" ? __streamArchived : false;
+    } else {
+      streamVersion = await getStreamVersion(runner, String(id), options.streamTenant);
+      archived = await isStreamArchived(runner, options.streamTenant, String(id));
+    }
+    const row = await decryptForRead(
+      coerceAndRehydrateRow(rawRow, extractTableInfo(table), entity),
+    );
+    return { row, rawRow, streamVersion, archived };
   }
 
   return {
     table,
     entity,
     entityName,
-    entityCache,
     searchAdapter,
     softDelete,
     streamTenantFor,
     streamTenantOverrideFailure,
     streamTenantCreateFailure,
     idFilter,
-    loadById,
     assertStreamWritable,
-    probeOwnershipWithStreamVersion,
     isRowReadable,
-    loadDetailSnapshot,
-    loadExpectSnapshot,
+    loadDetailRow,
+    loadWriteSnapshot,
+    assertExpectKeysComparable,
+    expectColumnOf,
     encryptForStorage,
     decryptForRead,
     ownerTransitionRekeys,

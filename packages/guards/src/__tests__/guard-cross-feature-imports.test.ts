@@ -51,6 +51,19 @@ describe("Cross-Feature-Import Guard", () => {
     expect(guard.run(sfs).violations).toHaveLength(0);
   });
 
+  test("allows importing the server-contract module (public surface)", () => {
+    const sfs = files({
+      ...featureB,
+      "packages/bundled-features/src/b/server-contract.ts":
+        'export { entity } from "./schema/entity";',
+      "packages/bundled-features/src/a/feature.ts": `
+					import { entity } from "../b/server-contract";
+					export const a = entity;
+				`,
+    });
+    expect(guard.run(sfs).violations).toHaveLength(0);
+  });
+
   test("allows importing schema/entity (public surface)", () => {
     const sfs = files({
       ...featureB,
@@ -117,6 +130,53 @@ describe("Cross-Feature-Import Guard", () => {
 					import { z } from "zod";
 					export const a = z;
 				`,
+    });
+    expect(guard.run(sfs).violations).toHaveLength(0);
+  });
+
+  test("blocks a named re-export of another feature's internals", () => {
+    const sfs = files({
+      ...featureB,
+      "packages/bundled-features/src/a/feature.ts": 'export { sync } from "../b/lib/sync";',
+    });
+    const violations = guard.run(sfs).violations;
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain('feature "a" → "b" (../b/lib/sync)');
+  });
+
+  test("blocks `export *` from another feature's registration module", () => {
+    const sfs = files({
+      ...featureB,
+      "packages/bundled-features/src/a/feature.ts": 'export * from "../b/feature";',
+    });
+    expect(guard.run(sfs).violations).toHaveLength(1);
+  });
+
+  test("allows re-exporting the barrel and the contract", () => {
+    const sfs = files({
+      ...featureB,
+      "packages/bundled-features/src/a/feature.ts": `
+					export { barrel } from "../b";
+					export type { Contract } from "../b/contract";
+				`,
+    });
+    expect(guard.run(sfs).violations).toHaveLength(0);
+  });
+
+  test("honours the ignore tag on a re-export", () => {
+    const sfs = files({
+      ...featureB,
+      "packages/bundled-features/src/a/feature.ts": `
+// kumiko-lint-ignore cross-feature-import re-export kept for the public api
+export { sync } from "../b/lib/sync";
+`,
+    });
+    expect(guard.run(sfs).violations).toHaveLength(0);
+  });
+
+  test("a local export without a module specifier is not checked", () => {
+    const sfs = files({
+      "packages/bundled-features/src/a/feature.ts": "const x = 1; export { x };",
     });
     expect(guard.run(sfs).violations).toHaveLength(0);
   });

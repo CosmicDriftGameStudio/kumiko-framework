@@ -17,15 +17,10 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   createTenantFeature,
-  tenantEntity,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
-import {
-  createUserFeature,
-  UserHandlers,
-  userEntity,
-} from "@cosmicdrift/kumiko-bundled-features/user";
+import { createUserFeature, UserHandlers } from "@cosmicdrift/kumiko-bundled-features/user";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
@@ -33,7 +28,6 @@ import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import {
@@ -42,7 +36,6 @@ import {
   createAuthMfaFeature,
   currentTotpCode,
   mfaStatusCheckerFromFeature,
-  userMfaEntity,
 } from "../feature";
 
 const TENANT: TenantId = testTenantId(1);
@@ -78,9 +71,6 @@ beforeAll(async () => {
     },
   });
 
-  await unsafeCreateEntityTable(stack.db, userEntity);
-  await unsafeCreateEntityTable(stack.db, userMfaEntity);
-  await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 

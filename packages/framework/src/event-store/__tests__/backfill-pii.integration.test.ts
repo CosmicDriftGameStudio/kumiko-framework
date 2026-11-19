@@ -50,16 +50,17 @@ const TENANT = "00000000-0000-4000-8000-000000000001" as TenantId;
 const BIDX_KEY = Buffer.alloc(32, 5).toString("base64");
 
 const contactEntity = createEntity({
+  name: "contact",
   fields: {
     email: createTextField({ required: true, personal: "self", find: "exact" }),
     displayName: createTextField({ personal: false, reason: "test_fixture" }),
     avatar: createFileField({ personal: "self" }),
   },
 });
-const contactTable = buildEntityTable("contact", contactEntity);
+const contactTable = buildEntityTable(contactEntity);
 
 const crmFeature = defineFeature("crm", (r) => {
-  r.entity({ name: "contact", ...contactEntity });
+  r.entity(contactEntity);
 });
 
 // Qualified event-type strings are kebab-case (qn/toKebab, feature-config-
@@ -100,44 +101,48 @@ const signalsFeature = defineFeature("signals", (r) => {
 // personal: { of } (not "self") — the named owner field can legitimately be
 // absent from an old event's payload, unlike contact.email (self-subject via row id).
 const noteEntity = createEntity({
+  name: "note",
   fields: {
     authorId: createTextField({ personal: false, reason: "test_fixture" }),
     body: createTextField({ personal: { of: "authorId" }, find: "none" }),
   },
 });
-const noteTable = buildEntityTable("note", noteEntity);
+const noteTable = buildEntityTable(noteEntity);
 
 const memoEntity = createEntity({
+  name: "memo",
   fields: {
     ownerId: createTextField({ personal: "ref" }),
     body: createTextField({ personal: { of: "ownerId", whenAbsent: "tenant" }, find: "none" }),
   },
 });
-const memoTable = buildEntityTable("memo", memoEntity);
+const memoTable = buildEntityTable(memoEntity);
 
 // whenAbsent: "self" — an ownerless row is keyed on the record itself.
 const slipEntity = createEntity({
+  name: "slip",
   fields: {
     ownerId: createTextField({ personal: "ref" }),
     body: createTextField({ personal: { of: "ownerId", whenAbsent: "self" }, find: "none" }),
   },
 });
-const slipTable = buildEntityTable("slip", slipEntity);
+const slipTable = buildEntityTable(slipEntity);
 
 // The field is its own owner, like tenant-invitation.invitedBy.
 const inviteEntity = createEntity({
+  name: "invite",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture" }),
     invitedBy: createTextField({ personal: { of: "invitedBy" }, find: "none" }),
   },
 });
-const inviteTable = buildEntityTable("invite", inviteEntity);
+const inviteTable = buildEntityTable(inviteEntity);
 
 const notesFeature = defineFeature("notes", (r) => {
-  r.entity({ name: "invite", ...inviteEntity });
-  r.entity({ name: "note", ...noteEntity });
-  r.entity({ name: "memo", ...memoEntity });
-  r.entity({ name: "slip", ...slipEntity });
+  r.entity(inviteEntity);
+  r.entity(noteEntity);
+  r.entity(memoEntity);
+  r.entity(slipEntity);
 });
 
 // personal: { of: "id" } → recordOwned: the row
@@ -145,13 +150,14 @@ const notesFeature = defineFeature("notes", (r) => {
 // This fixture proves the pre-existing generic backfill already covers the
 // record subject kind for lifecycle events, no new code needed.
 const surveyEntity = createEntity({
+  name: "survey",
   fields: {
     answer: createTextField({ personal: { of: "id" }, find: "none" }),
   },
 });
-const surveyTable = buildEntityTable("survey", surveyEntity);
+const surveyTable = buildEntityTable(surveyEntity);
 const surveyFeature = defineFeature("survey", (r) => {
-  r.entity({ name: "survey", ...surveyEntity });
+  r.entity(surveyEntity);
 });
 
 let testDb: TestDb;
@@ -853,350 +859,6 @@ describe("backfillEventPiiEncryption: explicit null owner is not a missing owner
       unknown
     >;
     expect(String(created["body"])).toContain(`tenant:${TENANT}`);
-  });
-});
-
-describe("backfillEventPiiEncryption: owner re-key", () => {
-  const REKEY = { resolveOwnerFromProjection: true, rekeyTenantKeyedOwnerFields: true } as const;
-  const OTHER_TENANT = "00000000-0000-4000-8000-0000000000aa" as TenantId;
-
-  async function createdBody(id: string): Promise<string> {
-    const events = await loadAggregate(testDb.db, id, TENANT);
-    return String((events[0]?.payload as Record<string, unknown> | undefined)?.["body"]);
-  }
-
-  // The state this stage exists for: created while ownerless (tenant key), owner known later.
-  async function seedTenantKeyedMemo(projectionOwner: string | null): Promise<string> {
-    const memoId = generateId();
-    await appendPlain(memoId, "memo", "memo.created", { id: memoId, body: "Alice" });
-    armKms();
-    const first = await backfillEventPiiEncryption(testDb.db, registry);
-    expect(first.failures).toEqual([]);
-    expect(await createdBody(memoId)).toContain(`tenant:${TENANT}`);
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
-      [memoId, TENANT, projectionOwner, "projection-row-body"],
-    );
-    return memoId;
-  }
-
-  test("tenant-keyed value moves under the projection owner and still decrypts", async () => {
-    const user = generateId();
-    const memoId = await seedTenantKeyedMemo(user);
-
-    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
-
-    expect(result.failures).toEqual([]);
-    expect(result.rekeyedFields).toBe(1);
-    expect(result.updatedEvents).toBe(1);
-    const body = await createdBody(memoId);
-    expect(body).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${user}:`);
-    expect(await decryptPiiValueForSubject(kms, body, { requestId: "test" }, "body")).toBe("Alice");
-  });
-
-  test("projection owner null: the value stays tenant-keyed", async () => {
-    const memoId = await seedTenantKeyedMemo(null);
-
-    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
-
-    expect(result.rekeyedFields).toBe(0);
-    expect(await createdBody(memoId)).toContain(`tenant:${TENANT}`);
-  });
-
-  test("a projection row of another tenant with the same id names no owner", async () => {
-    const memoId = await seedTenantKeyedMemo(null);
-    await asRawClient(testDb.db).unsafe(
-      `UPDATE "${memoTable.tableName}" SET "tenant_id" = $1, "owner_id" = $2 WHERE id = $3`,
-      [OTHER_TENANT, generateId(), memoId],
-    );
-
-    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
-
-    expect(result.rekeyedFields).toBe(0);
-    expect(await createdBody(memoId)).toContain(`tenant:${TENANT}`);
-  });
-
-  test("ciphertext keyed under another tenant is untouched", async () => {
-    armKms();
-    const user = generateId();
-    const memoId = generateId();
-    const foreign = await encryptPiiValueForSubject(
-      kms,
-      { kind: "tenant", tenantId: OTHER_TENANT },
-      "Alice",
-      { requestId: "test" },
-      "body",
-    );
-    await appendPlain(memoId, "memo", "memo.created", { id: memoId, body: foreign });
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
-      [memoId, TENANT, user, "projection-row-body"],
-    );
-
-    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
-
-    expect(result.rekeyedFields).toBe(0);
-    expect(await createdBody(memoId)).toBe(foreign);
-  });
-
-  test("owner forgotten: the value becomes the erased sentinel", async () => {
-    const user = generateId();
-    const memoId = await seedTenantKeyedMemo(user);
-    await kms.createKey({ kind: "user", userId: user });
-    await kms.eraseKey({ kind: "user", userId: user });
-
-    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
-
-    expect(result.failures).toEqual([]);
-    expect(result.rekeyedFields).toBe(0);
-    expect(result.erasedFields).toBe(1);
-    expect(await createdBody(memoId)).toBe(PII_ERASED_SENTINEL);
-  });
-
-  test("dryRun predicts the re-key and writes nothing", async () => {
-    const user = generateId();
-    const memoId = await seedTenantKeyedMemo(user);
-    const before = await createdBody(memoId);
-
-    const result = await backfillEventPiiEncryption(testDb.db, registry, {
-      ...REKEY,
-      dryRun: true,
-    });
-
-    expect(result.rekeyedFields).toBe(1);
-    expect(await createdBody(memoId)).toBe(before);
-  });
-
-  test("without the option the tenant-keyed value is untouched", async () => {
-    const memoId = await seedTenantKeyedMemo(generateId());
-    const before = await createdBody(memoId);
-
-    const result = await backfillEventPiiEncryption(testDb.db, registry, {
-      resolveOwnerFromProjection: true,
-    });
-
-    expect(result.rekeyedFields).toBe(0);
-    expect(result.updatedEvents).toBe(0);
-    expect(await createdBody(memoId)).toBe(before);
-  });
-
-  test("a second run changes nothing", async () => {
-    const memoId = await seedTenantKeyedMemo(generateId());
-    await backfillEventPiiEncryption(testDb.db, registry, REKEY);
-    const afterFirst = await createdBody(memoId);
-
-    const second = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
-
-    expect(second.updatedEvents).toBe(0);
-    expect(second.rekeyedFields).toBe(0);
-    expect(await createdBody(memoId)).toBe(afterFirst);
-  });
-
-  test("owner changed X to Y before owner transitions re-keyed: the value moves under Y, Y's forget erases it", async () => {
-    const userX = generateId();
-    const userY = generateId();
-    const memoId = generateId();
-    await appendPlain(memoId, "memo", "memo.created", {
-      id: memoId,
-      ownerId: userX,
-      body: "Alice",
-    });
-    await appendPlain(
-      memoId,
-      "memo",
-      "memo.updated",
-      { changes: { ownerId: userY }, previous: { id: memoId, ownerId: userX } },
-      1,
-    );
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
-      [memoId, TENANT, userY, "projection-row-body"],
-    );
-    armKms();
-    const first = await backfillEventPiiEncryption(testDb.db, registry, {
-      resolveOwnerFromProjection: true,
-    });
-    expect(first.failures).toEqual([]);
-    expect(await createdBody(memoId)).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${userX}:`);
-
-    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
-
-    expect(result.failures).toEqual([]);
-    expect(result.rekeyedFields).toBe(1);
-    const body = await createdBody(memoId);
-    expect(body).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${userY}:`);
-    expect(await decryptPiiValueForSubject(kms, body, { requestId: "test" }, "body")).toBe("Alice");
-    await kms.eraseKey({ kind: "user", userId: userY });
-    expect(await decryptPiiValueForSubject(kms, body, { requestId: "test" }, "body")).toBe(
-      PII_ERASED_SENTINEL,
-    );
-  });
-
-  test("owner changed X to Y by the live path (newer event holds a Y copy): the older X value stays X-keyed, X's forget erases it", async () => {
-    const userX = generateId();
-    const userY = generateId();
-    const memoId = generateId();
-    await appendPlain(memoId, "memo", "memo.created", {
-      id: memoId,
-      ownerId: userX,
-      body: "Alice",
-    });
-    armKms();
-    await backfillEventPiiEncryption(testDb.db, registry);
-    const copyUnderY = await encryptPiiValueForSubject(
-      kms,
-      { kind: "user", userId: userY },
-      "Alice",
-      { requestId: "test" },
-      "body",
-    );
-    await appendPlain(
-      memoId,
-      "memo",
-      "memo.updated",
-      { changes: { ownerId: userY, body: copyUnderY }, previous: { id: memoId, ownerId: userX } },
-      1,
-    );
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
-      [memoId, TENANT, userY, "projection-row-body"],
-    );
-
-    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
-
-    expect(result.failures).toEqual([]);
-    expect(result.rekeyedFields).toBe(0);
-    const body = await createdBody(memoId);
-    expect(body).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${userX}:`);
-    await kms.eraseKey({ kind: "user", userId: userX });
-    expect(await decryptPiiValueForSubject(kms, body, { requestId: "test" }, "body")).toBe(
-      PII_ERASED_SENTINEL,
-    );
-  });
-
-  test("owner changed X to Y and a newer event cleared the field to null: the older X value is not re-keyed onto Y", async () => {
-    const userX = generateId();
-    const userY = generateId();
-    const memoId = generateId();
-    await appendPlain(memoId, "memo", "memo.created", {
-      id: memoId,
-      ownerId: userX,
-      body: "Alice",
-    });
-    armKms();
-    await backfillEventPiiEncryption(testDb.db, registry);
-    await appendPlain(
-      memoId,
-      "memo",
-      "memo.updated",
-      { changes: { ownerId: userY, body: null }, previous: { id: memoId, ownerId: userX } },
-      1,
-    );
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
-      [memoId, TENANT, userY, null],
-    );
-
-    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
-
-    expect(result.failures).toEqual([]);
-    expect(result.rekeyedFields).toBe(0);
-    expect(await createdBody(memoId)).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${userX}:`);
-  });
-
-  test("user-keyed value whose key is already erased becomes the erased sentinel", async () => {
-    const userX = generateId();
-    const memoId = generateId();
-    await appendPlain(memoId, "memo", "memo.created", {
-      id: memoId,
-      ownerId: userX,
-      body: "Alice",
-    });
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
-      [memoId, TENANT, generateId(), "projection-row-body"],
-    );
-    armKms();
-    await backfillEventPiiEncryption(testDb.db, registry);
-    await kms.eraseKey({ kind: "user", userId: userX });
-
-    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
-
-    expect(result.failures).toEqual([]);
-    expect(result.rekeyedFields).toBe(0);
-    expect(result.erasedFields).toBe(1);
-    expect(await createdBody(memoId)).toBe(PII_ERASED_SENTINEL);
-  });
-
-  test("ownerless, then owned, then ownerless again: stays tenant-keyed (the live path would keep the last owner)", async () => {
-    const userX = generateId();
-    const memoId = generateId();
-    await appendPlain(memoId, "memo", "memo.created", { id: memoId, body: "Alice" });
-    await appendPlain(
-      memoId,
-      "memo",
-      "memo.updated",
-      { changes: { ownerId: userX }, previous: { id: memoId } },
-      1,
-    );
-    await appendPlain(
-      memoId,
-      "memo",
-      "memo.updated",
-      { changes: { ownerId: null }, previous: { id: memoId, ownerId: userX } },
-      2,
-    );
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
-      [memoId, TENANT, null, "projection-row-body"],
-    );
-    armKms();
-
-    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
-
-    expect(result.failures).toEqual([]);
-    expect(result.rekeyedFields).toBe(0);
-    expect(await createdBody(memoId)).toContain(`tenant:${TENANT}`);
-  });
-
-  test("follow-ups that omit the owner key (ownerless, owned, ownerless): the created value stays tenant-keyed", async () => {
-    const userX = generateId();
-    const memoId = generateId();
-    await appendPlain(memoId, "memo", "memo.created", { id: memoId, body: "Alice" });
-    await appendPlain(
-      memoId,
-      "memo",
-      "memo.updated",
-      { changes: { body: "Bob" }, previous: { id: memoId, body: "Alice" } },
-      1,
-    );
-    await appendPlain(
-      memoId,
-      "memo",
-      "memo.updated",
-      { changes: { ownerId: userX }, previous: { id: memoId, body: "Bob" } },
-      2,
-    );
-    await appendPlain(
-      memoId,
-      "memo",
-      "memo.updated",
-      { changes: { body: "Carol" }, previous: { id: memoId, body: "Bob", ownerId: userX } },
-      3,
-    );
-    await asRawClient(testDb.db).unsafe(
-      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
-      [memoId, TENANT, null, "projection-row-body"],
-    );
-    armKms();
-
-    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
-
-    expect(result.failures).toEqual([]);
-    expect(result.rekeyedFields).toBe(0);
-    // Documented rebuild-vs-live deviation: a rebuild keeps the value tenant-keyed, the live path
-    // would have re-keyed it under X when the owner arrived.
-    expect(await createdBody(memoId)).toContain(`tenant:${TENANT}`);
   });
 });
 

@@ -26,6 +26,11 @@ export {
   runRetentionCleanup,
 } from "./run-retention-cleanup.ts";
 export {
+  type RunStreamRetentionArgs,
+  type RunStreamRetentionResult,
+  runStreamRetention,
+} from "./run-stream-retention.ts";
+export {
   type DestructionHold,
   holdBlockDeleteRowsForDestruction,
   tenantHasBlockDeleteRows,

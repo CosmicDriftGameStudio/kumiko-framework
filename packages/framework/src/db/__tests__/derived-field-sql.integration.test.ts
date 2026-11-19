@@ -23,11 +23,13 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 import { buildEntityTable } from "../table-builder.ts";
 
 const contactEntity = createEntity({
+  name: "dsql-contact",
   table: "dsql_contacts",
   fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 
 const issueEntity = createEntity({
+  name: "dsql-issue",
   table: "dsql_issues",
   softDelete: true,
   fields: {
@@ -41,6 +43,7 @@ const issueEntity = createEntity({
 });
 
 const leaseEntity = createEntity({
+  name: "dsql-lease",
   table: "dsql_leases",
   fields: {
     unitRef: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -52,6 +55,7 @@ const leaseEntity = createEntity({
 });
 
 const noteEntity = createEntity({
+  name: "dsql-note",
   table: "dsql_notes",
   fields: {
     unitId: { type: "reference", entity: "dsql-unit" },
@@ -68,6 +72,7 @@ const noteEntity = createEntity({
 
 // Readable by Admin only: a User must see NULL for every field measured on it.
 const adminOnlyRemarkEntity = createEntity({
+  name: "dsql-remark",
   table: "dsql_remarks",
   fields: { unitId: { type: "reference", entity: "dsql-unit" } },
   access: { read: { Admin: "all" } },
@@ -75,6 +80,7 @@ const adminOnlyRemarkEntity = createEntity({
 });
 
 const unitEntity = createEntity({
+  name: "dsql-unit",
   table: "dsql_units",
   fields: {
     name: createTextField({
@@ -159,12 +165,12 @@ const unitEntity = createEntity({
 
 const feature = defineFeature("dsql", (r) => {
   const access = { roles: ["Admin", "User"] };
-  r.crud("dsql-contact", contactEntity, { write: { access }, read: { access } });
-  r.crud("dsql-issue", issueEntity, { write: { access }, read: { access } });
-  r.crud("dsql-lease", leaseEntity, { write: { access }, read: { access } });
-  r.crud("dsql-note", noteEntity, { write: { access }, read: { access } });
-  r.crud("dsql-remark", adminOnlyRemarkEntity, { write: { access }, read: { access } });
-  r.crud("dsql-unit", unitEntity, { write: { access }, read: { access } });
+  r.crud(contactEntity, { write: { access }, read: { access } });
+  r.crud(issueEntity, { write: { access }, read: { access } });
+  r.crud(leaseEntity, { write: { access }, read: { access } });
+  r.crud(noteEntity, { write: { access }, read: { access } });
+  r.crud(adminOnlyRemarkEntity, { write: { access }, read: { access } });
+  r.crud(unitEntity, { write: { access }, read: { access } });
 });
 
 const LIST = "dsql:query:dsql-unit:list";
@@ -219,7 +225,7 @@ describe("SQL derived fields (related)", () => {
     const tenantId = admin.tenantId;
     await seedRows(
       stack.db,
-      buildEntityTable("dsql-contact", contactEntity),
+      buildEntityTable(contactEntity),
       [
         { id: ANNA, tenantId, name: "Anna" },
         { id: MIKE, tenantId, name: "Mike" },
@@ -229,7 +235,7 @@ describe("SQL derived fields (related)", () => {
     );
     await seedRows(
       stack.db,
-      buildEntityTable("dsql-unit", unitEntity),
+      buildEntityTable(unitEntity),
       [
         { id: U1, tenantId, name: "Alpha", region: "N" },
         { id: U2, tenantId, name: "Beta", region: "N" },
@@ -257,7 +263,7 @@ describe("SQL derived fields (related)", () => {
     }
     await seedRows(
       stack.db,
-      buildEntityTable("dsql-issue", issueEntity),
+      buildEntityTable(issueEntity),
       [
         { tenantId, unitId: U1, status: "open", openedOn: "2026-01-01", assigneeId: MIKE },
         { tenantId, unitId: U1, status: "wip", openedOn: "2026-02-01", assigneeId: ANNA },
@@ -287,7 +293,7 @@ describe("SQL derived fields (related)", () => {
     );
     await seedRows(
       stack.db,
-      buildEntityTable("dsql-lease", leaseEntity),
+      buildEntityTable(leaseEntity),
       [
         { tenantId, unitRef: U1, tenantName: "A", startsOn: "2026-01-01", endsOn: null },
         { tenantId, unitRef: U1, tenantName: "A", startsOn: "2026-03-01", endsOn: null },
@@ -300,7 +306,7 @@ describe("SQL derived fields (related)", () => {
     );
     await seedRows(
       stack.db,
-      buildEntityTable("dsql-note", noteEntity),
+      buildEntityTable(noteEntity),
       [
         { tenantId, unitId: U1, body: "Alfa", writtenAt: "2026-01-01T00:00:00Z" },
         { tenantId, unitId: U1, body: "Yankee", writtenAt: "2026-03-01T00:00:00Z" },
@@ -310,7 +316,7 @@ describe("SQL derived fields (related)", () => {
     );
     await seedRows(
       stack.db,
-      buildEntityTable("dsql-remark", adminOnlyRemarkEntity),
+      buildEntityTable(adminOnlyRemarkEntity),
       [
         { tenantId, unitId: U1 },
         { tenantId, unitId: U1 },

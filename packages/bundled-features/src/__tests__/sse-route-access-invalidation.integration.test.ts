@@ -60,7 +60,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createAuthEmailPasswordFeature(),
       createAuthFoundationFeature(),
-      createSessionsFeature({ autoRevokeOnPasswordChange: bound.asMassRevoker() }),
+      createSessionsFeature(),
     ],
     extraContext: { configResolver: resolver, configEncryption: encryption },
     authConfig: {

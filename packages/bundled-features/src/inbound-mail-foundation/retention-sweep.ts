@@ -32,11 +32,9 @@
 // fileRef executor; the generic soft-delete cleanup removes the bytes). A failure keeps the Row
 // for the next sweep, like a failed body delete.
 //
-// LIMITATION: the PII in the message events remains decryptable under the
-// TENANT subject key—per-Row retention does not shred a key. Actual Art.-17
-// erasure of event payloads happens only during tenant-destroy (key erasure).
-// The read Row and body file are gone after the sweep; the event log is
-// append-only by design.
+// With eraseRecordKeys the purge also erases the record key of each mail, so the PII in its
+// archived events is unreadable afterwards; tenant destroy erases the remaining keys. The event log
+// stays append-only.
 
 import { type DbRunner, deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -74,6 +72,8 @@ export interface InboundRetentionArgs {
   readonly deleteBodyObject?: (bodyRef: string) => Promise<void>;
   /** Removes the fileRefs bound to an expired mail (its attachments); wired by the job. */
   readonly deleteAttachments?: (messageId: string) => Promise<void>;
+  /** Opt-in, default off: also erases each purged mail's record key. */
+  readonly eraseRecordKeys?: boolean;
 }
 
 export interface InboundRetentionReport {
@@ -162,6 +162,7 @@ async function purgeExpiredMessages(
         }),
       deleteBodyObject: args.deleteBodyObject,
       deleteAttachments: args.deleteAttachments,
+      eraseRecordKey: args.eraseRecordKeys === true,
     });
     messagesPurged += purged.purgedIds.length;
     bodyObjectsDeleted += purged.bodyObjectsDeleted;

@@ -25,9 +25,12 @@ import { guard as complexity } from "./check-complexity";
 import { guard as appFeatureStructure } from "./guard-app-feature-structure";
 import { guard as commentIssueRefOnly } from "./guard-comment-issue-ref-only";
 import { guard as crossFeatureImports } from "./guard-cross-feature-imports";
+import { guard as dataTestid } from "./guard-data-testid";
 import { guard as directEntityWrites } from "./guard-direct-entity-writes";
 import { guard as fakeTests } from "./guard-fake-tests";
+import { guard as featureImportCycles } from "./guard-feature-import-cycles";
 import { guard as fileSize } from "./guard-file-size";
+import { guard as handlerDefinitions } from "./guard-handler-definitions";
 import { guard as htmlEscape } from "./guard-html-escape";
 import { guard as i18nKeys } from "./guard-i18n-keys";
 import { guard as i18nLocaleMount } from "./guard-i18n-locale-mount";
@@ -39,10 +42,13 @@ import { guard as noLogicInViews } from "./guard-no-logic-in-views";
 import { guard as rlsSessionSettings } from "./guard-rls-session-settings";
 import { guard as screenConventions } from "./guard-screen-conventions";
 import { guard as securityPluginSuppression } from "./guard-security-plugin-suppression";
+import { guard as seedRuntimeImports } from "./guard-seed-runtime-imports";
 import { guard as tenantEscalation } from "./guard-tenant-escalation";
+import { guard as testEnvWrites } from "./guard-test-env-writes";
 import { guard as testEsRowWrites } from "./guard-test-es-row-writes";
 import { guard as testTemplateDrift } from "./guard-test-template-drift";
 import { guard as testTimeouts } from "./guard-test-timeouts";
+import { guard as weakAssertions } from "./guard-weak-assertions";
 import { guard as writeHandlerQns } from "./guard-write-handler-qns";
 
 export const GUARDS = [
@@ -64,12 +70,18 @@ export const GUARDS = [
   appFeatureStructure,
   libTestCoverage,
   testTimeouts,
+  testEnvWrites,
+  seedRuntimeImports,
   testEsRowWrites,
   testTemplateDrift,
   fileSize,
+  dataTestid,
   commentIssueRefOnly,
   ignoreTagReason,
   securityPluginSuppression,
+  handlerDefinitions,
+  featureImportCycles,
+  weakAssertions,
 ];
 
 export const GUARD_FLAGS = [

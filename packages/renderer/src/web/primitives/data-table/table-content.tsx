@@ -60,11 +60,15 @@ export function renderTableContent(m: DataTableModel): ReactNode {
 
   // With scrollBody the footer (pager, else the entry count) sits OUTSIDE the
   // scroll surface so it stays put at any row count; the infinite sentinel
-  // stays INSIDE, or it would never intersect the scrollport.
+  // stays INSIDE, or it would never intersect the scrollport. `relative`: absolutely placed
+  // sr-only cell labels would otherwise escape the scrollport and widen the whole page.
   const content = m.fillsHeight ? (
     <div
       data-testid={testId !== undefined ? `${testId}-scroll` : "render-list-scroll"}
-      className={cn("min-h-0 flex-1 overflow-auto bg-card", !framed && "border-t border-border")}
+      className={cn(
+        "relative min-h-0 flex-1 overflow-auto bg-card",
+        !framed && "border-t border-border",
+      )}
     >
       {tableContent}
       {sentinelElement}

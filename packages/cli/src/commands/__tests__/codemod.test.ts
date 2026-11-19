@@ -34,6 +34,7 @@ describe("kumiko codemod", () => {
     const code = await runCli({ argv: ["codemod"], cwd: appDir, out });
     expect(code).toBe(0);
     expect(lines.join("\n")).toContain("import-extensions");
+    expect(lines.join("\n")).toContain("feature-layout");
   });
 
   test("an unknown name fails and lists the codemods", async () => {

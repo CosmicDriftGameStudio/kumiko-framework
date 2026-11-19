@@ -16,21 +16,13 @@ import {
   configValuesTable,
   createConfigFeature,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import {
-  apiTokenEntity,
-  PatHandlers,
-} from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
+import { PatHandlers } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import {
   createTenantFeature,
-  tenantEntity,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
-import {
-  createUserFeature,
-  UserHandlers,
-  userEntity,
-} from "@cosmicdrift/kumiko-bundled-features/user";
+import { createUserFeature, UserHandlers } from "@cosmicdrift/kumiko-bundled-features/user";
 import { entityEventName, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   formatWebhookPayloadIssues,
@@ -44,7 +36,6 @@ import { recordApiExample, recordWebhookExample } from "@cosmicdrift/kumiko-test
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { z } from "zod";
@@ -83,9 +74,6 @@ beforeAll(async () => {
         resolveTokenVerifier({ db: stack.db, registry: stack.registry }, raw),
     },
   });
-  await unsafeCreateEntityTable(stack.db, userEntity);
-  await unsafeCreateEntityTable(stack.db, tenantEntity);
-  await unsafeCreateEntityTable(stack.db, apiTokenEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 
   const created = await stack.http.writeOk<{ id: string }>(

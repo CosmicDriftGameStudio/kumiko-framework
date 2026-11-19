@@ -40,6 +40,7 @@ export const TENANT_MODEL_CONFIG_KEY = "user-data-rights:config:tenant-model" as
 
 export const UserDataRightsJobs = {
   runExportJobs: "user-data-rights:job:run-export-jobs",
+  runRequestedExport: "user-data-rights:job:run-requested-export",
   runForgetCleanup: "user-data-rights:job:run-forget-cleanup",
 } as const;
 
@@ -54,6 +55,7 @@ export const UserDataRightsHandlers = {
   requestDeletionByEmail: "user-data-rights:write:request-deletion-by-email",
   confirmDeletionByToken: "user-data-rights:write:confirm-deletion-by-token",
   cancelDeletion: "user-data-rights:write:cancel-deletion",
+  cancelDeletionByToken: "user-data-rights:write:cancel-deletion-by-token",
   restrictAccount: "user-data-rights:write:restrict-account",
   liftRestriction: "user-data-rights:write:lift-restriction",
   runForgetCleanup: "user-data-rights:write:run-forget-cleanup",

@@ -46,15 +46,16 @@ afterEach(() => {
 // One entity per test: a rebuild replays every event of its aggregate type.
 async function setupFixture(name: string) {
   const entity = createEntity({
+    name,
     table: `read_${name}`,
     fields: { attachment: createFileField({ personal: "self" }) },
   });
   const feature = defineFeature(`${name}feature`, (r) => {
-    r.entity({ name, ...entity });
+    r.entity(entity);
   });
   await unsafeCreateEntityTable(testDb.db, entity, name);
   return {
-    table: buildEntityTable(name, entity),
+    table: buildEntityTable(entity),
     registry: createRegistry([feature]),
     projection: `${name}feature:projection:${name}-entity`,
   };

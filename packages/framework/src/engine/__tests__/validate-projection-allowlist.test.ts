@@ -49,15 +49,15 @@ describe("validateProjectionAllowlist", () => {
   it("rejects unsafeProjectionUpsert on an aggregate-table (registered via r.entity)", () => {
     // Feature A registers `widget` as an aggregate (with table "widgets").
     const ownerFeature = defineFeature("vproj-owner", (r) => {
-      r.entity({
-        name: "widget",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "widget",
           table: "widgets",
           fields: {
             label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      });
+      );
     });
 
     // Feature B tries to upsert directly into the widgets table — bypassing
@@ -96,15 +96,15 @@ describe("validateProjectionAllowlist", () => {
     // too — without this test, a future kind-set narrowing could break
     // delete's protection silently.
     const ownerFeature = defineFeature("vproj-delete-owner", (r) => {
-      r.entity({
-        name: "widget",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "widget",
           table: "widgets-delete",
           fields: {
             label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      });
+      );
     });
 
     const trespasserFeature = defineFeature("vproj-delete-trespasser", (r) => {
@@ -304,7 +304,6 @@ describe("validateProjectionAllowlist", () => {
     const futureKind = `test:future-builder:${randomUUID()}`;
     defineStep({
       kind: futureKind,
-      defaultFailureStrategy: "throw",
       subPaths: ["children"],
       run: () => undefined,
     });
@@ -353,7 +352,6 @@ describe("validateProjectionAllowlist", () => {
       const kind = `test:sub-walker:${randomUUID()}`;
       defineStep({
         kind,
-        defaultFailureStrategy: "throw",
         subPaths: ["children"],
         run: () => undefined,
       });
@@ -478,79 +476,30 @@ describe("validateProjectionAllowlist", () => {
     // unsafeProjection error against that table would name the WRONG
     // feature as owner. Surfacing the collision here names both parties.
     const featureA = defineFeature("dup-aggregate-a", (r) => {
-      r.entity({
-        name: "thing",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "thing",
           table: "shared_table",
           fields: {
             label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      });
+      );
     });
     const featureB = defineFeature("dup-aggregate-b", (r) => {
-      r.entity({
-        name: "thing",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "thing",
           table: "shared_table",
           fields: {
             label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      });
+      );
     });
 
     expect(() => validateProjectionAllowlist([featureA, featureB])).toThrow(
       /both feature "dup-aggregate-a" and feature "dup-aggregate-b"/,
-    );
-  });
-
-  it("rejects use of a tier-2 step without r.requires.step(...) declaration (Q9)", () => {
-    const sneakyFeature = defineFeature("step-discovery-missing", (r) => {
-      // Note: NO r.requires.step("webhook.send")
-      r.writeHandler(
-        defineWriteHandler({
-          name: "sneak",
-          schema: z.object({}),
-          access: { roles: ["Admin"] },
-          perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
-            r.step.webhook.send({
-              url: "https://hooks.example/sneak",
-              mode: "deferred",
-              body: () => ({}),
-            }),
-            r.step.return({ isSuccess: true as const, data: { ok: true } }),
-          ]),
-        }),
-      );
-    });
-
-    expect(() => validateProjectionAllowlist([sneakyFeature])).toThrow(
-      /did not declare it via r\.requires\.step\("webhook\.send"\)/,
-    );
-  });
-
-  it("rejects mail.send without r.requires.step(...) declaration", () => {
-    const sneakyMail = defineFeature("step-discovery-mail-missing", (r) => {
-      r.writeHandler(
-        defineWriteHandler({
-          name: "sneak",
-          schema: z.object({}),
-          access: { roles: ["Admin"] },
-          perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
-            r.step.mail.send({
-              to: "x@y.com",
-              subject: "hi",
-              body: "hello",
-              mode: "deferred",
-            }),
-            r.step.return({ isSuccess: true as const, data: { ok: true } }),
-          ]),
-        }),
-      );
-    });
-    expect(() => validateProjectionAllowlist([sneakyMail])).toThrow(
-      /did not declare it via r\.requires\.step\("mail\.send"\)/,
     );
   });
 
@@ -578,17 +527,16 @@ describe("validateProjectionAllowlist", () => {
 
   it("accepts a tier-2 step when r.requires.step(...) is declared", () => {
     const happyFeature = defineFeature("step-discovery-happy", (r) => {
-      r.requires.step("webhook.send");
+      r.requires.step("callFeature");
       r.writeHandler(
         defineWriteHandler({
           name: "ok",
           schema: z.object({}),
           access: { roles: ["Admin"] },
           perform: stepsPipeline<Record<string, never>, { ok: true }>(({ r }) => [
-            r.step.webhook.send({
-              url: "https://hooks.example/ok",
-              mode: "deferred",
-              body: () => ({}),
+            r.step.callFeature("subResult", {
+              handler: "other:write:do",
+              payload: () => ({}),
             }),
             r.step.return({ isSuccess: true as const, data: { ok: true } }),
           ]),
@@ -629,7 +577,7 @@ describe("validateProjectionAllowlist", () => {
 
     it("rejects unsafeProjectionUpsert on the derived table of an entity without `table`", () => {
       const ownerFeature = defineFeature("vproj-derived-owner", (r) => {
-        r.entity({ name: "widget", ...createEntity({ fields: widgetFields }) });
+        r.entity(createEntity({ name: "widget", fields: widgetFields }));
       });
       const trespasserFeature = defineFeature("vproj-derived-trespasser", (r) => {
         r.requires.projection(physical);
@@ -661,10 +609,10 @@ describe("validateProjectionAllowlist", () => {
 
     it("rejects a derived table colliding with an explicit table of another feature", () => {
       const derivedFeature = defineFeature("vproj-collide-derived", (r) => {
-        r.entity({ name: "widget", ...createEntity({ fields: widgetFields }) });
+        r.entity(createEntity({ name: "widget", fields: widgetFields }));
       });
       const explicitFeature = defineFeature("vproj-collide-explicit", (r) => {
-        r.entity({ name: "gadget", ...createEntity({ table: physical, fields: widgetFields }) });
+        r.entity(createEntity({ name: "gadget", table: physical, fields: widgetFields }));
       });
 
       expect(() => validateProjectionAllowlist([derivedFeature, explicitFeature])).toThrow(

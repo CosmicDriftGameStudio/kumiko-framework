@@ -68,7 +68,7 @@ const probeFeature = defineFeature("probe", (r) => {
   r.writeHandler(overrideProbe);
 });
 
-const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
+const { table: capCounterTable } = createEntityExecutor(capCounterEntity);
 
 let stack: TestStack;
 

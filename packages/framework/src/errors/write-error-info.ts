@@ -1,11 +1,17 @@
+import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import type {
   WriteErrorInfo,
   WriteFailure,
 } from "@cosmicdrift/kumiko-types/write-error-info-types";
 import { NotFoundError, UnprocessableError } from "./classes.ts";
+import { VERSION_CONFLICT_CODE } from "./error-codes.ts";
 import { KumikoError } from "./kumiko-error.ts";
 import { FrameworkReasons } from "./reasons.ts";
-import { exposesCauseDetails } from "./serialize.ts";
+import {
+  exposesCauseDetails,
+  GENERIC_INTERNAL_ERROR_MESSAGE,
+  hidesInternalErrorText,
+} from "./serialize.ts";
 import { buildInvalidTransitionDetails } from "./transition-details.ts";
 
 // Re-exported so a caller importing this module directly (instead of via
@@ -20,6 +26,12 @@ export type { WriteErrorInfo, WriteFailure };
 // and the CrudExecutor don't need to spell out the shape each time.
 export function writeFailure(err: KumikoError): WriteFailure {
   return { isSuccess: false, error: toWriteErrorInfo(err) };
+}
+
+// A failed WriteResult carries WriteErrorInfo, not the VersionConflictError instance, so the
+// code is the only marker left; callers retry or re-check on it instead of comparing strings.
+export function isVersionConflict<TData>(result: WriteResult<TData>): result is WriteFailure {
+  return !result.isSuccess && result.error.code === VERSION_CONFLICT_CODE;
 }
 
 // Focused convenience for the two most common handler failures: "X not found"
@@ -95,6 +107,17 @@ export function toWriteErrorInfo(err: KumikoError): WriteErrorInfo {
   };
   if (err.cause instanceof Error) causeByWriteErrorInfo.set(info, err.cause);
   return info;
+}
+
+export function toClientWriteErrorInfo(info: WriteErrorInfo): WriteErrorInfo {
+  if (!hidesInternalErrorText(info.code)) return info;
+  return {
+    code: info.code,
+    httpStatus: info.httpStatus,
+    i18nKey: info.i18nKey,
+    message: GENERIC_INTERNAL_ERROR_MESSAGE,
+    ...(info.retryAfterSeconds !== undefined && { retryAfterSeconds: info.retryAfterSeconds }),
+  };
 }
 
 // Reconstitutes an error from WriteErrorInfo so command() (throw-based) can

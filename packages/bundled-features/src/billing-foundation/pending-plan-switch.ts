@@ -9,21 +9,12 @@ import {
   type PlanSwitchRequestedPayload,
   planSwitchRequestedPayloadSchema,
   SUBSCRIPTION_AGGREGATE_TYPE,
-  SUBSCRIPTION_CANCELED_EVENT_QN,
-  SUBSCRIPTION_CREATED_EVENT_QN,
-  SUBSCRIPTION_UPDATED_EVENT_QN,
+  SUBSCRIPTION_STATE_EVENT_QNS,
 } from "./events.ts";
+import { lockAndLoadSubscriptionStream } from "./handlers/process-event.write.ts";
 
 // A webhook that never arrives must not block switching forever.
 const PENDING_PLAN_SWITCH_WINDOW_SECONDS = 30 * 60;
-// 'bfps': serializes the pending check and the append per tenant.
-const PLAN_SWITCH_LOCK_NAMESPACE = 0x62667073;
-
-const STATE_EVENT_QNS: ReadonlySet<string> = new Set([
-  SUBSCRIPTION_CREATED_EVENT_QN,
-  SUBSCRIPTION_UPDATED_EVENT_QN,
-  SUBSCRIPTION_CANCELED_EVENT_QN,
-]);
 
 export function pendingPlanSwitchOf(
   storedEvents: readonly { readonly type: string; readonly payload: unknown }[],
@@ -32,7 +23,7 @@ export function pendingPlanSwitchOf(
   for (let index = storedEvents.length - 1; index >= 0; index--) {
     const stored = storedEvents[index];
     if (stored === undefined) continue;
-    if (STATE_EVENT_QNS.has(stored.type)) return undefined;
+    if (SUBSCRIPTION_STATE_EVENT_QNS.has(stored.type)) return undefined;
     if (stored.type !== PLAN_SWITCH_REQUESTED_EVENT_QN) continue;
     const parsed = planSwitchRequestedPayloadSchema.safeParse(stored.payload);
     if (!parsed.success) continue;
@@ -48,10 +39,10 @@ export async function assertNoPendingPlanSwitch(
   ctx: HandlerContext,
   now: Temporal.Instant,
 ): Promise<void> {
-  const tenantId = ctx.user.tenantId;
-  await ctx.db.advisoryXactLock(PLAN_SWITCH_LOCK_NAMESPACE, tenantId);
+  // Same lock as process-event: a webhook arriving during the provider call waits for this switch's commit
+  // and so sees the pending switch and its consent.
   const pending = pendingPlanSwitchOf(
-    await ctx.events.load(subscriptionAggregateId(tenantId)),
+    await lockAndLoadSubscriptionStream(ctx, subscriptionAggregateId(ctx.user.tenantId)),
     now,
   );
   if (pending !== undefined) {
@@ -76,5 +67,7 @@ export async function recordPlanSwitchRequested(
     aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
     type: PLAN_SWITCH_REQUESTED_EVENT_QN,
     payload,
+    blindAppendReason:
+      "assertNoPendingPlanSwitch holds the subscription stream lock until commit, so no locked writer interleaves; unlocked facts (consent, checkout ledger) do not affect a switch request",
   });
 }

@@ -29,13 +29,13 @@ export function createI18n(registry: Registry, options: I18nOptions): I18n {
       if (!entry) return key;
 
       const requestedLocale = locale ?? defaultLocale;
-      // Plural category selection needs the locale the value actually came
-      // from, not the requested one — falling back to defaultLocale must
-      // apply defaultLocale's plural rules to that defaultLocale text.
-      const hitLocale = entry[requestedLocale] !== undefined ? requestedLocale : defaultLocale;
-      const value = entry[hitLocale];
-      if (value === undefined) return key;
-      return resolveTranslationValue(value, hitLocale, params);
+      // Request locales arrive canonical ("en-US"); an "en" text must win over the default locale. Plural rules follow the locale the value came from.
+      const baseLanguage = requestedLocale.split("-")[0] ?? requestedLocale;
+      for (const candidate of [requestedLocale, baseLanguage, defaultLocale]) {
+        const value = entry[candidate];
+        if (value !== undefined) return resolveTranslationValue(value, candidate, params);
+      }
+      return key;
     },
 
     getAllKeys(): string[] {

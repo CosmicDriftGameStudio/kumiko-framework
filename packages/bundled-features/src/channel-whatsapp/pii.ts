@@ -2,13 +2,15 @@ import {
   configuredPiiSubjectKms,
   decryptPiiValueForSubject,
   encryptPiiValueForSubject,
+  type SubjectId,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+import type { WHATSAPP_MESSAGE_AGGREGATE_TYPE, WHATSAPP_STATUS_AGGREGATE_TYPE } from "./events.ts";
 
-// The sender has no user account, so the tenant key is the subject (as for inbound mail):
-// destroying the tenant shreds the key and every stored number, text and payload with it.
-// The field name is part of the ciphertext's AAD and must match between encrypt and decrypt.
+// Each stream (message or status) has its own record key: the retention job erases it after
+// WHATSAPP_EVENT_RETENTION_DAYS, tenant destroy erases all of them. The field name is part of the
+// ciphertext's AAD and must match between encrypt and decrypt.
 export const WhatsappPiiFields = {
   receivedFrom: "channel-whatsapp.message-received.from",
   receivedText: "channel-whatsapp.message-received.text",
@@ -19,9 +21,21 @@ export const WhatsappPiiFields = {
 
 export type WhatsappPiiField = (typeof WhatsappPiiFields)[keyof typeof WhatsappPiiFields];
 
+export type WhatsappStreamSubject = {
+  readonly aggregateType:
+    | typeof WHATSAPP_MESSAGE_AGGREGATE_TYPE
+    | typeof WHATSAPP_STATUS_AGGREGATE_TYPE;
+  readonly aggregateId: string;
+};
+
+export function whatsappStreamKeySubject(stream: WhatsappStreamSubject): SubjectId {
+  return { kind: "record", entity: stream.aggregateType, id: stream.aggregateId };
+}
+
 /** Without a configured PII KMS the value passes through, like every other event-sourced inbound path. */
 export async function encryptWhatsappPii(
   tenantId: TenantId,
+  stream: WhatsappStreamSubject,
   field: WhatsappPiiField,
   value: string,
   requestId: string,
@@ -30,7 +44,7 @@ export async function encryptWhatsappPii(
   if (!kms) return value;
   return encryptPiiValueForSubject(
     kms,
-    { kind: "tenant", tenantId },
+    whatsappStreamKeySubject(stream),
     value,
     { requestId, tenantId },
     field,

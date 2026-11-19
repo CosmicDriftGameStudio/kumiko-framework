@@ -16,6 +16,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "folders.section.create": "Create & file",
     "folders.section.working": "Saving…",
 
+    "folders.list.truncated": "Only the first {limit} folders are shown.",
+
     "folders.manager.loading": "Loading…",
     "folders.manager.newRoot": "New folder",
     "folders.manager.add": "Create",

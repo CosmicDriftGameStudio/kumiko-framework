@@ -335,3 +335,52 @@ describe("auth-mfa KEK-rotation job — unrecognized values are not silently ski
     expect(afterRow.recoveryCodes).toBe(garbage);
   });
 });
+
+describe("auth-mfa KEK-rotation job — keyset paging", () => {
+  test("a batch size smaller than the row count still rotates every enrollment", async () => {
+    mutableProvider.replace(
+      createEnvMasterKeyProvider({
+        env: {
+          KUMIKO_SECRETS_MASTER_KEY_V1: v1Key,
+          KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
+        },
+      }),
+    );
+
+    async function enableMfaFor(user: ReturnType<typeof createTestUser>): Promise<void> {
+      const start = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
+        AuthMfaHandlers.enableStart,
+        { accountLabel: `user-${user.id}@example.com` },
+        user,
+      );
+      const secretParam = new URLSearchParams(start.otpauthUri.split("?")[1]).get("secret") ?? "";
+      await stack.http.writeOk(
+        AuthMfaHandlers.enableConfirm,
+        { setupToken: start.setupToken, code: currentTotpCode(base32Decode(secretParam)) },
+        user,
+      );
+    }
+
+    const first = createTestUser({ id: 4, roles: ["User"] });
+    const second = createTestUser({ id: 5, roles: ["User"] });
+    await enableMfaFor(first);
+    await enableMfaFor(second);
+
+    mutableProvider.replace(
+      createEnvMasterKeyProvider({
+        env: {
+          KUMIKO_SECRETS_MASTER_KEY_V1: v1Key,
+          KUMIKO_SECRETS_MASTER_KEY_V2: v2Key,
+          KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "2",
+        },
+      }),
+    );
+
+    // maxFailures is generous: the shared stack still holds the garbage rows of the tests above.
+    await mfaReencryptJob({ batchSize: 1, maxFailures: 100 }, jobCtx(), stack.db);
+
+    for (const user of [first, second]) {
+      expect(JSON.parse((await readRawRow(user.id)).totpSecret).kekVersion).toBe(2);
+    }
+  });
+});

@@ -11,6 +11,7 @@ import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/e
 import { z } from "zod";
 
 export const ticketEntity = createEntity({
+  name: "ticket",
   table: "read_golden_path_tickets",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -19,12 +20,9 @@ export const ticketEntity = createEntity({
 });
 
 export const ticketingFeature = defineFeature("ticketing", (r) => {
-  const { table: ticketTable, executor: ticketExecutor } = createEntityExecutor(
-    "ticket",
-    ticketEntity,
-  );
+  const { table: ticketTable, executor: ticketExecutor } = createEntityExecutor(ticketEntity);
 
-  r.crud("ticket", ticketEntity, {
+  r.crud(ticketEntity, {
     write: { access: { roles: ["Admin", "User"] } },
     read: { access: { roles: ["Admin", "User"] } },
     verbs: { update: false, delete: false },
@@ -39,6 +37,7 @@ export const ticketingFeature = defineFeature("ticketing", (r) => {
     schema: z.object({ id: z.uuid(), resolution: z.string().min(1) }),
     access: { roles: ["Admin"] },
     handler: async (event, ctx) => {
+      const streamVersion = await ctx.events.streamVersion(event.payload.id);
       const ticket = await ticketExecutor.detail({ id: event.payload.id }, event.user, ctx.db);
       if (!ticket) {
         return failNotFound("ticket", event.payload.id);
@@ -48,6 +47,7 @@ export const ticketingFeature = defineFeature("ticketing", (r) => {
         aggregateId: event.payload.id,
         aggregateType: "ticket",
         payload: { resolution: event.payload.resolution },
+        expectedVersion: streamVersion,
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },

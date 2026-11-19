@@ -39,7 +39,7 @@ import { fetchCounterValue } from "./read-counter.ts";
 
 const PERIOD = "2026-09-01T00:00:00Z";
 
-const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
+const { table: capCounterTable } = createEntityExecutor(capCounterEntity);
 
 const reservePayload = z.object({
   capName: z.string(),

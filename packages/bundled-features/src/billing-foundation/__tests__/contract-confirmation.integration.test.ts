@@ -8,7 +8,6 @@ import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import {
   expectError,
   expectSuccess,
@@ -36,6 +35,7 @@ import { configValuesTable } from "../../config/table.ts";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
 import { notificationPreferenceEntity } from "../../delivery/tables.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { createTemplateResolverApi } from "../../template-resolver/api.ts";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
 import { TemplateResolverHandlers } from "../../template-resolver/index.ts";
@@ -171,7 +171,7 @@ const mockProviderFeature = defineFeature("test-mock-confirm-provider", (r) => {
     }),
     applyPlanSwitch: async () => {},
   };
-  r.useExtension("subscriptionProvider", PROVIDER, plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: PROVIDER, ...plugin });
 });
 
 let stack: TestStack;

@@ -9,7 +9,7 @@
 // not what turns the check on.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -17,14 +17,16 @@ import {
   type EntityDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import * as z from "zod";
 import { createNoteEntryEntity, noteMentionEntity } from "../entity.ts";
 import { createNotesHistoryFeature } from "../feature.ts";
-import { NotesHistoryHandlers } from "../web/constants.ts";
+import { NotesHistoryHandlers, NotesHistoryQueries } from "../web/constants.ts";
 
 const PROJECT_TABLE = "notes_pv_test_projects";
 
@@ -44,6 +46,7 @@ const projectOwnership: NonNullable<EntityDefinition["access"]> = {
 
 function createProjectEntity(access?: EntityDefinition["access"]): EntityDefinition {
   return createEntity({
+    name: "project",
     table: PROJECT_TABLE,
     fields: {
       teamId: createTextField({
@@ -69,7 +72,23 @@ const guardedProjectEntity = createProjectEntity(projectOwnership);
 // allowlist below — proves the allowlist rejects a real, registered entity
 // too, not just made-up names.
 const contactEntity = createEntity({
+  name: "contact",
   table: "notes_pv_test_contacts",
+  fields: {
+    name: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
+});
+
+// Host with a query handler restricted to TenantAdmin: its row rules admit every
+// member, so only the handler roles keep TenantMember away from its join rows.
+const budgetEntity = createEntity({
+  name: "budget",
+  table: "notes_pv_test_budgets",
   fields: {
     name: createTextField({
       required: true,
@@ -83,6 +102,7 @@ const contactEntity = createEntity({
 // Integer-id host: exercises the `idType: "serial"` branch of the id-shape gate
 // (rejects before any query, so no table is needed).
 const ticketEntity = createEntity({
+  name: "ticket",
   table: "notes_pv_test_tickets",
   idType: "serial",
   fields: {
@@ -96,9 +116,16 @@ const ticketEntity = createEntity({
 });
 
 const fixturesFeature = defineFeature("notes-pv-test-fixtures", (r) => {
-  r.entity({ name: "project", ...guardedProjectEntity });
-  r.entity({ name: "contact", ...contactEntity });
-  r.entity({ name: "ticket", ...ticketEntity });
+  r.entity(guardedProjectEntity);
+  r.entity(contactEntity);
+  r.entity(ticketEntity);
+  r.entity(budgetEntity);
+  r.queryHandler({
+    name: "budget:list",
+    schema: z.object({}),
+    access: { roles: ["TenantAdmin"] },
+    handler: async () => ({ rows: [], nextCursor: null }),
+  });
 });
 
 type TestUser = ReturnType<typeof createTestUser>;
@@ -115,6 +142,11 @@ const userB: TestUser = createTestUser({
   claims: { team: "team-b" },
 });
 
+const adminUser: TestUser = createTestUser({
+  id: 43,
+  roles: ["TenantAdmin", "TenantMember"],
+});
+
 const userOtherTenant: TestUser = createTestUser({
   id: 42,
   tenantId: testTenantId(4242),
@@ -129,6 +161,7 @@ const PROJECT_A2 = "a0000000-0000-4000-8000-000000000002";
 // openStack-only team-a project row — never reused as PROJECT_A2 so the two
 // stacks' tests stay order-independent.
 const PROJECT_OPEN = "a0000000-0000-4000-8000-000000000009";
+const BUDGET_ID = "b0000000-0000-4000-8000-000000000001";
 
 let guardedStack: TestStack;
 let openStack: TestStack;
@@ -138,7 +171,7 @@ beforeAll(async () => {
     features: [createNotesHistoryFeature({ parents: ["project"] }), fixturesFeature],
   });
   await unsafeCreateEntityTable(guardedStack.db, guardedProjectEntity);
-  await unsafeCreateEntityTable(guardedStack.db, createNoteEntryEntity());
+  await unsafeCreateEntityTable(guardedStack.db, createNoteEntryEntity(undefined, ["project"]));
   await unsafeCreateEntityTable(guardedStack.db, noteMentionEntity);
   await asRawClient(guardedStack.db).unsafe(
     `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id, name) VALUES
@@ -147,19 +180,30 @@ beforeAll(async () => {
     [PROJECT_A, userA.tenantId, PROJECT_A2],
   );
 
-  // Unguarded mount: the SAME feature with no `parents` at all — proves the
-  // parent-visibility check itself is default-on, not something `parents`
-  // switches on.
+  // Wider mount: the same feature listing every fixture host — proves the
+  // parent-visibility check still runs per host, not only on a narrow allowlist.
   openStack = await setupTestStack({
-    features: [createNotesHistoryFeature(), fixturesFeature],
+    features: [
+      createNotesHistoryFeature({ parents: ["project", "contact", "ticket", "budget"] }),
+      fixturesFeature,
+    ],
   });
   await unsafeCreateEntityTable(openStack.db, guardedProjectEntity);
-  await unsafeCreateEntityTable(openStack.db, createNoteEntryEntity());
+  await unsafeCreateEntityTable(
+    openStack.db,
+    createNoteEntryEntity(undefined, ["project", "contact", "ticket", "budget"]),
+  );
   await unsafeCreateEntityTable(openStack.db, noteMentionEntity);
   await asRawClient(openStack.db).unsafe(
     `INSERT INTO ${PROJECT_TABLE} (id, tenant_id, team_id, name) VALUES ($1, $2, 'team-a', 'Project Open')`,
     [PROJECT_OPEN, userA.tenantId],
   );
+  await unsafeCreateEntityTable(openStack.db, budgetEntity);
+  await seedRowViaEventStore(openStack.db, buildEntityTable(budgetEntity), {
+    id: BUDGET_ID,
+    tenantId: userA.tenantId,
+    name: "Budget",
+  });
 });
 
 afterAll(async () => {
@@ -244,18 +288,18 @@ describe("notes-history integration — add-note parent-visibility (parents opti
     expect(result.id).toBeTruthy();
   });
 
-  test("on an unguarded mount (no `parents`), an unregistered entityType is still denied — the check is default-on", async () => {
+  test("on a wide mount, an unregistered entityType is still denied", async () => {
     const err = await addNoteErr(openStack, "totally-unknown-entity", "y", userA);
     expect(err.code).toBe("not_found");
   });
 
-  test("on an unguarded mount, a registered and visible parent still succeeds", async () => {
+  test("on a wide mount, a registered and visible parent still succeeds", async () => {
     const result = await addNote(openStack, "project", PROJECT_OPEN, userA);
     expect(result.id).toBeTruthy();
     expect(await noteCountFor(openStack, PROJECT_OPEN)).toBe(1);
   });
 
-  test("on an unguarded mount, a registered parent from a foreign team is still denied", async () => {
+  test("on a wide mount, a registered parent from a foreign team is still denied", async () => {
     const err = await addNoteErr(openStack, "project", PROJECT_OPEN, userB);
     expect(err.code).toBe("not_found");
     expect(err.httpStatus).toBe(404);
@@ -276,5 +320,33 @@ describe("notes-history integration — add-note parent-visibility (parents opti
     const err = await addNoteErr(openStack, "project", PROJECT_OPEN, userOtherTenant);
     expect(err.code).toBe("not_found");
     expect(err.httpStatus).toBe(404);
+  });
+
+  test("a role without access to the host's query handlers cannot note it, although its row rules would allow it", async () => {
+    const err = await addNoteErr(openStack, "budget", BUDGET_ID, userA);
+    expect(err.code).toBe("not_found");
+    expect(err.httpStatus).toBe(404);
+  });
+
+  test("a role the host's query handler admits may note it", async () => {
+    const result = await addNote(openStack, "budget", BUDGET_ID, adminUser);
+    expect(result.id).toBeTruthy();
+  });
+
+  test("notes on a host stay hidden from a role without access to the host's query handlers", async () => {
+    await addNote(openStack, "budget", BUDGET_ID, adminUser);
+    const asAdmin = await openStack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+      NotesHistoryQueries.noteList,
+      {},
+      adminUser,
+    );
+    expect(asAdmin.rows.some((row) => row["entityId"] === BUDGET_ID)).toBe(true);
+
+    const asMember = await openStack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+      NotesHistoryQueries.noteList,
+      {},
+      userA,
+    );
+    expect(asMember.rows.some((row) => row["entityId"] === BUDGET_ID)).toBe(false);
   });
 });

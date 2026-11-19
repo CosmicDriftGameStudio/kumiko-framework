@@ -55,7 +55,8 @@ const mailLocaleTemplates = createMailLocaleTemplates({
 export const inactivityMailTemplateLocale = mailLocaleTemplates.templateLocale;
 
 export function registerInactivityMails(r: FeatureRegistrar): void {
-  r.notification(WARNING_MAIL_NAME, {
+  r.notification({
+    name: WARNING_MAIL_NAME,
     variables: WARNING_VARIABLES,
     localizedTemplate: mailLocaleTemplates.localizedTemplate(WARNING_MAIL_NAME),
   });

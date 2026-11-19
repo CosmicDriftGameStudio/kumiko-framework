@@ -17,12 +17,12 @@ import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
   type BannerProps,
   type ButtonProps,
-  type CorePrimitives,
   type DialogProps,
   type FormProps,
   type InputProps,
   PrimitivesProvider,
 } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import { AppFeaturesProvider } from "../app-features-context.tsx";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
@@ -76,7 +76,7 @@ const TestDialog = (props: DialogProps): ReactNode => {
   return null;
 };
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: TestButton,
   Banner: TestBanner,
   Field: passChildren,
@@ -100,29 +100,22 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 type Calls = { writes: number; detailQueries: number };
 
 function stubDispatcher(calls: Calls): Dispatcher {
-  return {
-    write: (async () => {
+  return createMockDispatcher({
+    write: async () => {
       calls.writes += 1;
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
-    query: (async () => {
+    },
+    query: async () => {
       calls.detailQueries += 1;
       return { isSuccess: true, data: { id: "rent-1", version: 1, name: "April" } };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 const archiveAction = {
@@ -140,6 +133,7 @@ const drawerAction = {
 } as const;
 
 const entity: EntityDefinition = {
+  name: "entity",
   fields: {
     name: {
       type: "text",

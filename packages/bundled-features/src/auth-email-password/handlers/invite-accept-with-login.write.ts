@@ -22,27 +22,13 @@
 // one round trip.
 
 import {
-  createEventStoreExecutor,
-  createTenantDb,
-  fetchOne,
-} from "@cosmicdrift/kumiko-framework/db";
-import {
   buildSessionRoles,
-  createSystemUser,
   defineWriteHandler,
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { decryptStoredPii, sessionLocaleField, sessionTimezoneField } from "../../shared/index.ts";
-// kumiko-lint-ignore cross-feature-import the handler loads the pending invitation and marks it accepted
-import {
-  INVITATION_STATUS,
-  tenantInvitationEntity,
-  tenantInvitationsTable,
-} from "../../tenant/invitation-table.ts";
+import { mintAuthSession } from "../../shared/index.ts";
 // kumiko-lint-ignore cross-feature-import membership grant for a privileged cross-tenant add
 import { grantInvitedMembershipRole } from "../../tenant/invited-membership.ts";
 // kumiko-lint-ignore cross-feature-import global roles granted on invite accept live on the user row
@@ -52,13 +38,8 @@ import {
 } from "../../user/invited-global-roles.ts";
 // kumiko-lint-ignore cross-feature-import the handler verifies the invited email password against the user row, like login
 import { userTable } from "../../user/schema/user.ts";
-import { invalidCredentials, invalidInviteToken, inviteEmailMismatch } from "../errors.ts";
-import {
-  burnInviteToken,
-  deleteInviteToken,
-  getInvitationIdForToken,
-  unburnInviteToken,
-} from "../invite-token-store.ts";
+import { invalidCredentials, inviteEmailMismatch } from "../errors.ts";
+import { consumeInviteToken, markInvitationAccepted } from "../invite-consumption.ts";
 import { passwordSchema } from "../password-policy.ts";
 import {
   AUTH_LOCKOUT_DEFAULT_DURATION_MINUTES,
@@ -99,11 +80,14 @@ export type InviteAcceptWithLoginOptions = {
   readonly strictEmailVerification?: boolean;
 };
 
-const invitationExecutor = createEventStoreExecutor(
-  tenantInvitationsTable,
-  tenantInvitationEntity,
-  { entityName: "tenant-invitation" },
-);
+type UserAuthRow = {
+  readonly id: string;
+  readonly passwordHash: string | null;
+  readonly timezone?: string | null;
+  readonly locale?: string | null;
+  readonly emailVerified?: boolean | null;
+  readonly status?: string | null;
+};
 
 export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOptions = {}) {
   const strictVerification = opts.strictEmailVerification === true;
@@ -131,177 +115,113 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
         "enrollment of that tenant via the mfaStatusChecker callback.",
     },
     agent: { expose: false },
-    // kumiko-lint-ignore complexity-budget reuses login.write.ts's gate chain (lockout/password/email/status/membership/mfa) plus invite-specific branches (email match, already-member check, invitation update, unburn-on-failure) — splitting would scatter gate order across functions without reducing risk
-    handler: async (event, ctx) => {
-      if (!ctx.services.redis) {
-        return writeFailure(
-          new InternalError({ message: "invite-accept-with-login requires ctx.services.redis" }),
-        );
-      }
+    handler: async (event, ctx) =>
+      consumeInviteToken<InviteAcceptWithLoginData>(
+        ctx,
+        {
+          token: event.payload.token,
+          handlerName: "invite-accept-with-login",
+          piiReason: "auth:invite-accept-with-login",
+        },
+        async (invitation, dbConn) => {
+          // Email match from user input (not from session — user is anon)
+          if (event.payload.email.toLowerCase() !== invitation.email) {
+            return inviteEmailMismatch();
+          }
 
-      const invitationId = await getInvitationIdForToken(ctx.services.redis, event.payload.token);
-      if (!invitationId) return invalidInviteToken();
+          // Password check against userTable, through the same gates
+          // login.write.ts runs (see login-gates.test.ts for the gate contracts).
+          // Email uniqueness is partial on live rows — without
+          // this filter the lookup can resolve a soft-deleted row.
+          const userRow = await ctx.db.global(userTable).fetchOne<UserAuthRow>({
+            email: invitation.email,
+            isDeleted: false,
+          });
+          // No enumeration risk: reaching here already required a valid, open
+          // invite token plus the matching invitation email.
+          if (!userRow?.passwordHash) return invalidCredentials();
 
-      const burn = await burnInviteToken(ctx.services.redis, event.payload.token);
-      if (burn === "already-used") return invalidInviteToken();
+          const lockoutGate = await gateEnforceLockout(ctx, userRow.id);
+          if (!lockoutGate.ok) return lockoutGate.result;
 
-      type InvitationRow = {
-        readonly status: string;
-        readonly tenantId: TenantId;
-        readonly email: string;
-        readonly role: string;
-        readonly globalRoles: unknown;
-        readonly version: number;
-        readonly membershipVersion: number | null;
-        readonly insertedAt: Temporal.Instant;
-        readonly modifiedAt: Temporal.Instant | null;
-      };
-      type UserAuthRow = {
-        readonly id: string;
-        readonly passwordHash: string | null;
-        readonly timezone?: string | null;
-        readonly locale?: string | null;
-        readonly emailVerified?: boolean | null;
-        readonly status?: string | null;
-      };
+          const passwordGate = await gateVerifyPassword(
+            ctx,
+            { id: userRow.id, passwordHash: userRow.passwordHash },
+            event.payload.password,
+            maxFailedAttempts,
+            lockoutDurationMinutes,
+          );
+          if (!passwordGate.ok) return invalidCredentials();
 
-      let committed = false;
-      try {
-        const invitation = await fetchOne<InvitationRow>(
-          ctx.db.unsafeRaw(),
-          tenantInvitationsTable,
-          { id: invitationId },
-        );
-        if (!invitation || invitation.status !== INVITATION_STATUS.pending)
-          return invalidInviteToken();
+          const emailGate = gateEnforceEmailVerified(
+            { id: userRow.id, emailVerified: userRow.emailVerified },
+            strictVerification,
+          );
+          if (!emailGate.ok) return emailGate.result;
 
-        const invitationTenantId = invitation.tenantId;
-        const invitationEmail = await decryptStoredPii(
-          invitation.email,
-          "email",
-          "auth:invite-accept-with-login",
-        );
-        const invitationRole = invitation.role;
-        const invitationVersion = invitation.version;
+          const statusGate = gateEnforceAccountStatus({
+            id: userRow.id,
+            status: userRow.status,
+          });
+          if (!statusGate.ok) return statusGate.result;
 
-        // Email match from user input (not from session — user is anon)
-        if (event.payload.email.toLowerCase() !== invitationEmail) {
-          return inviteEmailMismatch();
-        }
+          const userId = userRow.id;
 
-        // Password check against userTable, through the same gates
-        // login.write.ts runs (see login-gates.test.ts for the gate contracts).
-        // Email uniqueness is partial on live rows — without
-        // this filter the lookup can resolve a soft-deleted row.
-        const userRow = await ctx.db.global(userTable).fetchOne<UserAuthRow>({
-          email: invitationEmail,
-          isDeleted: false,
-        });
-        // No enumeration risk: reaching here already required a valid, open
-        // invite token plus the matching invitation email.
-        if (!userRow?.passwordHash) return invalidCredentials();
+          const grant = await grantInvitedMembershipRole(dbConn, {
+            userId,
+            tenantId: invitation.tenantId,
+            role: invitation.role,
+            invitation,
+          });
+          if (!grant.isSuccess) return grant;
 
-        const lockoutGate = await gateEnforceLockout(ctx, userRow.id);
-        if (!lockoutGate.ok) return lockoutGate.result;
+          const globalGrant = await grantInvitedGlobalRoles(dbConn, {
+            userId,
+            globalRoles: parseInvitedGlobalRoles(invitation.globalRoles),
+          });
+          if (!globalGrant.isSuccess) return globalGrant;
 
-        const passwordGate = await gateVerifyPassword(
-          ctx,
-          { id: userRow.id, passwordHash: userRow.passwordHash },
-          event.payload.password,
-          maxFailedAttempts,
-          lockoutDurationMinutes,
-        );
-        if (!passwordGate.ok) return invalidCredentials();
+          const updateResult = await markInvitationAccepted(dbConn, invitation);
+          if (!updateResult.isSuccess) return updateResult;
 
-        const emailGate = gateEnforceEmailVerified(userRow, strictVerification);
-        if (!emailGate.ok) return emailGate.result;
+          // buildSessionRoles calls stripForbiddenMembershipRoles internally —
+          // a reserved role on an existing membership must never reach the session.
+          const mergedRoles = buildSessionRoles(globalGrant.data.roles, grant.data.roles);
 
-        const statusGate = gateEnforceAccountStatus(userRow);
-        if (!statusGate.ok) return statusGate.result;
+          // The MFA gate runs before the token is deleted, so a throwing check
+          // leaves the link usable again; a challenge halts the session mint,
+          // not the invite acceptance itself.
+          const mfaGate = await gateEnforceMfa(
+            ctx,
+            { mfaStatusChecker: opts.mfaStatusChecker },
+            userId,
+            invitation.tenantId,
+            mergedRoles,
+          );
+          if (mfaGate !== undefined) {
+            return { isSuccess: true, data: mfaGate };
+          }
 
-        const userId = userRow.id;
+          // SessionUser for the JWT mint in the invited tenant. Roles =
+          // mergedRoles (Admin/Editor/User depending on the invite).
+          const session = await mintAuthSession(ctx, {
+            userId,
+            tenantId: invitation.tenantId,
+            roles: mergedRoles,
+            timezone: userRow.timezone,
+            locale: userRow.locale,
+          });
 
-        const dbConn = ctx.db.unsafeRaw();
-
-        const grant = await grantInvitedMembershipRole(dbConn, {
-          userId,
-          tenantId: invitationTenantId,
-          role: invitationRole,
-          invitation,
-        });
-        if (!grant.isSuccess) return grant;
-
-        const globalGrant = await grantInvitedGlobalRoles(dbConn, {
-          userId,
-          globalRoles: parseInvitedGlobalRoles(invitation.globalRoles),
-        });
-        if (!globalGrant.isSuccess) return globalGrant;
-
-        // Invitation → accepted: TenantDb for the invitation's tenant.
-        const invitationTdb = createTenantDb({
-          db: dbConn,
-          tenantId: invitationTenantId,
-          mode: "system",
-          reason:
-            "invitation tenant differs from the caller's tenant, the accept step updates the invitation row there",
-        });
-        const updateResult = await invitationExecutor.update(
-          {
-            id: invitationId,
-            version: invitationVersion,
-            changes: { status: INVITATION_STATUS.accepted },
-          },
-          createSystemUser(invitationTenantId),
-          invitationTdb,
-        );
-        if (!updateResult.isSuccess) return updateResult;
-
-        await deleteInviteToken(ctx.services.redis, { invitationId, token: event.payload.token });
-
-        // buildSessionRoles calls stripForbiddenMembershipRoles internally —
-        // a reserved role on an existing membership must never reach the session.
-        const mergedRoles = buildSessionRoles(globalGrant.data.roles, grant.data.roles);
-
-        // MFA gate runs after membership is granted (mirrors login.write.ts's
-        // own order: membership resolution before MFA) — a challenge halts
-        // the session mint, not the invite acceptance itself.
-        const mfaGate = await gateEnforceMfa(
-          ctx,
-          { mfaStatusChecker: opts.mfaStatusChecker },
-          userId,
-          invitationTenantId,
-          mergedRoles,
-        );
-        if (mfaGate !== undefined) {
-          committed = true;
-          return { isSuccess: true, data: mfaGate };
-        }
-
-        // SessionUser for the JWT mint in the invited tenant. Roles =
-        // mergedRoles (Admin/Editor/User depending on the invite).
-        const session: SessionUser = {
-          id: userId,
-          tenantId: invitationTenantId,
-          roles: mergedRoles,
-          ...sessionTimezoneField(userRow.timezone),
-          ...sessionLocaleField(userRow.locale),
-        };
-
-        committed = true;
-        return {
-          isSuccess: true,
-          data: {
-            kind: "auth-session",
-            session,
-            tenantId: invitationTenantId,
-            role: invitationRole,
-          },
-        };
-      } finally {
-        if (!committed && ctx.services.redis) {
-          await unburnInviteToken(ctx.services.redis, event.payload.token);
-        }
-      }
-    },
+          return {
+            isSuccess: true,
+            data: {
+              kind: "auth-session",
+              session,
+              tenantId: invitation.tenantId,
+              role: invitation.role,
+            },
+          };
+        },
+      ),
   });
 }

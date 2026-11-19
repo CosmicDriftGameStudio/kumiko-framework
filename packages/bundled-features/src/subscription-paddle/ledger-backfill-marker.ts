@@ -2,7 +2,7 @@
 // recorded as an event on a fixed system-tenant stream, so every worker and every
 // restart agrees on when the takeover window began.
 
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, type WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import { v5 as uuidv5 } from "uuid";
 import * as z from "zod";
 import { SUBSCRIPTION_PADDLE_FEATURE } from "./constants.ts";
@@ -23,7 +23,6 @@ export const LEDGER_BACKFILL_AGGREGATE_ID = uuidv5(
 export const ledgerBackfillPayloadSchema = z.object({ completedAt: z.string().min(1) });
 
 export const ledgerBackfillMarkerPayloadSchema = z.object({ markCompleted: z.boolean() });
-type LedgerBackfillMarkerPayload = z.infer<typeof ledgerBackfillMarkerPayloadSchema>;
 
 export type LedgerBackfillMarkerResult = { readonly completedAt: string | null };
 
@@ -32,14 +31,13 @@ export const LEDGER_BACKFILL_MARKER_HANDLER_QN =
 
 // Reads the marker; with markCompleted it also writes it when absent. One handler
 // for both, so the job never reads an event stream itself.
-export const ledgerBackfillMarkerHandler: WriteHandlerDef = {
+export const ledgerBackfillMarkerHandler = defineWriteHandler({
   name: "ledger-backfill-marker",
   agent: { expose: false },
   schema: ledgerBackfillMarkerPayloadSchema,
   access: { roles: ["system"] },
-  handler: async (event, ctx) => {
-    // @cast-boundary engine-payload — dispatcher-zod-validated payload
-    const { markCompleted } = event.payload as LedgerBackfillMarkerPayload;
+  handler: async (event, ctx): Promise<WriteResult<LedgerBackfillMarkerResult>> => {
+    const { markCompleted } = event.payload;
     const stored = await ctx.events.load(LEDGER_BACKFILL_AGGREGATE_ID);
     const marker = stored.find((entry) => entry.type === LEDGER_BACKFILL_EVENT_QN);
     if (marker) {
@@ -61,10 +59,12 @@ export const ledgerBackfillMarkerHandler: WriteHandlerDef = {
       aggregateType: LEDGER_BACKFILL_AGGREGATE_TYPE,
       type: LEDGER_BACKFILL_EVENT_QN,
       payload: { completedAt },
+      blindAppendReason:
+        "the marker is written only when the stream has no marker event yet; a concurrent duplicate is harmless because readers take the first marker",
     });
     return {
       isSuccess: true as const,
       data: { completedAt } satisfies LedgerBackfillMarkerResult,
     };
   },
-};
+});

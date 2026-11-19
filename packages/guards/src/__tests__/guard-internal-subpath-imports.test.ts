@@ -68,6 +68,17 @@ describe("Internal-Subpath-Imports Guard: rule 2 (test-only scope helpers)", () 
     expect(run({ "/fx/app/src/a.integration.test.ts": source })).toHaveLength(0);
   });
 
+  test("flags the full createTenantDb from helpers in production files only", () => {
+    const fullSource = `import { createTenantDb } from "${HELPERS}";\ncreateTenantDb({ db, tenantId, mode: "system", reason: "seed" });`;
+    expect(run({ "/fx/app/src/a.ts": fullSource })).toHaveLength(1);
+    expect(run({ "/fx/app/src/__tests__/a.ts": fullSource })).toHaveLength(0);
+  });
+
+  test("the public tenant-only createTenantDb stays allowed", () => {
+    const publicSource = `import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";\ncreateTenantDb({ db, tenantId });`;
+    expect(run({ "/fx/app/src/a.ts": publicSource })).toHaveLength(0);
+  });
+
   test("other helpers from the same subpath stay allowed", () => {
     const violations = run({
       "/fx/app/src/a.ts": `import { waitFor } from "${HELPERS}";\nvoid waitFor;`,

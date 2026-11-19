@@ -17,6 +17,7 @@ function ReferenceLookupBridge({
   ids,
   refEntity,
   labelField,
+  fileField,
   featureName,
   onMap,
 }: {
@@ -25,10 +26,11 @@ function ReferenceLookupBridge({
   readonly ids: readonly string[];
   readonly refEntity: string;
   readonly labelField: string;
+  readonly fileField: string | undefined;
   readonly featureName: string;
   readonly onMap: ReferenceChunkPublisher;
 }): null {
-  const lookup = useReferenceLookup(featureName, refEntity, labelField, ids);
+  const lookup = useReferenceLookup(featureName, refEntity, labelField, ids, fileField);
   // Use an effect rather than calling directly so setState runs outside the
   // render path; otherwise React warns about updating one component while
   // rendering another.
@@ -40,8 +42,14 @@ function ReferenceLookupBridge({
   // The parent keys this bridge by its ids, so a changed id set remounts it and
   // useQuery starts loading instead of handing back the previous ids' rows.
   useEffect(() => {
-    if (resolved) onMap(field, chunkIndex, { map: lookup.map, complete: lookup.complete, idsKey });
-  }, [field, chunkIndex, idsKey, lookup.map, lookup.complete, resolved, onMap]);
+    if (!resolved) return;
+    onMap(field, chunkIndex, {
+      map: lookup.map,
+      ...(lookup.fileIds !== undefined && { fileIds: lookup.fileIds }),
+      complete: lookup.complete,
+      idsKey,
+    });
+  }, [field, chunkIndex, idsKey, lookup.map, lookup.fileIds, lookup.complete, resolved, onMap]);
   return null;
 }
 
@@ -64,6 +72,7 @@ export function renderReferenceLookupBridges(
         ids={ids}
         refEntity={request.refEntity}
         labelField={request.labelField}
+        fileField={request.fileField}
         featureName={request.refFeature}
         onMap={onMap}
       />

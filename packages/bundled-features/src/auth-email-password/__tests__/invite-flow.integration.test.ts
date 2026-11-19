@@ -78,8 +78,13 @@ const emailTransport = createInMemoryTransport();
 // Declares one role Admin may grant (default) and one only TenantAdmin may grant.
 const assignableRolesAppFeature = defineFeature("invite-assignable-roles-app", (r) => {
   r.requires({ features: ["tenant"] });
-  r.useExtension(EXT_ASSIGNABLE_ROLE, "PropertyManager");
-  r.useExtension(EXT_ASSIGNABLE_ROLE, "Auditor", { assignableFrom: "TenantAdmin" });
+  r.applyExtension({ name: EXT_ASSIGNABLE_ROLE, entity: "PropertyManager" });
+  r.applyExtension({ name: EXT_ASSIGNABLE_ROLE, entity: "Auditor", assignableFrom: "TenantAdmin" });
+});
+
+// The claim echoes the minted session's tenant, so it proves the hook saw the invited tenant.
+const claimsProbeFeature = defineFeature("claims-probe", (r) => {
+  r.authClaims(async (user) => ({ tenant: user.tenantId }));
 });
 
 let stack: TestStack;
@@ -123,6 +128,7 @@ beforeAll(async () => {
         invite: { tokenTtlMinutes: 60, appUrl: APP_ACCEPT_URL },
       }),
       assignableRolesAppFeature,
+      claimsProbeFeature,
     ],
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
@@ -356,6 +362,23 @@ describe("invite-accept (Branch 1: logged-in)", () => {
     // Invitation status = accepted
     const inv = await selectMany(stack.db, tenantInvitationsTable, { email: BOB_EMAIL });
     expect(inv[0]?.["status"]).toBe("accepted");
+  });
+
+  test("replaying an accepted invite token is rejected and changes no membership", async () => {
+    const token = await inviteEmail(BOB_EMAIL, "Admin");
+    await stack.http.writeOk(AuthHandlers.inviteAccept, { token }, bobSession());
+    const membershipsBefore = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: bobId,
+    });
+
+    const replay = await authedRaw("POST", "/api/auth/invite-accept", { token }, bobSession());
+    const body = (await replay.json()) as { error?: { details?: { reason?: string } } };
+    expect(body.error?.details?.reason).toBe(AuthErrors.invalidInviteToken);
+
+    const membershipsAfter = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: bobId,
+    });
+    expect(membershipsAfter).toEqual(membershipsBefore);
   });
 
   test("Email-Mismatch: Bob klickt Carol's Invite-Link → inviteEmailMismatch", async () => {
@@ -655,6 +678,22 @@ describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {
     }
   });
 
+  test("Bob accepts with login → JWT carries the app's auth claims for the invited tenant", async () => {
+    const token = await inviteEmail(BOB_EMAIL, "Editor");
+
+    const res = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
+      token,
+      email: BOB_EMAIL,
+      password: BOB_PASSWORD,
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { token?: string };
+    if (!body.token) throw new Error("invite acceptance did not return a token");
+
+    const payload = await stack.jwt.verify(body.token);
+    expect(payload.claims).toEqual({ "claims-probe:tenant": TENANT_A_ID });
+  });
+
   test("Bob accepts with a timezone → JWT retains the timezone", async () => {
     await updateUserViaEventStore(stack.db, bobId, { timezone: "Europe/Berlin" });
     try {
@@ -770,6 +809,21 @@ describe("invite-signup-complete (Branch 3: anon + new email)", () => {
     expect(payload.locale).toBe("de-DE");
     const rows = await selectMany(stack.db, userTable, { email: "dora-locale@example.com" });
     expect(rows[0]?.["locale"]).toBe("de-DE");
+  });
+
+  test("Carol registers → the first JWT carries the app's auth claims for the invited tenant", async () => {
+    const token = await inviteEmail(CAROL_EMAIL, "Admin");
+
+    const res = await stack.http.raw("POST", "/api/auth/invite-signup-complete", {
+      token,
+      password: CAROL_PASSWORD,
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { token?: string };
+    if (!body.token) throw new Error("invite signup did not return a token");
+
+    const payload = await stack.jwt.verify(body.token);
+    expect(payload.claims).toEqual({ "claims-probe:tenant": TENANT_A_ID });
   });
 
   test("common password → 400 (schema rejects breach-list password)", async () => {
@@ -1145,6 +1199,28 @@ describe("privilege escalation via invite role", () => {
       expect(rows).toHaveLength(0);
       expect(emailTransport.sent).toHaveLength(0);
     }
+  });
+
+  test("system-invite-create over HTTP is rejected with 403 for a tenant admin", async () => {
+    const err = await stack.http.writeErr(
+      AuthHandlers.systemInviteCreate,
+      { email: CAROL_EMAIL, role: "User" },
+      aliceSession(),
+    );
+    expect(err.httpStatus).toBe(403);
+    expect(await selectMany(stack.db, tenantInvitationsTable, { email: CAROL_EMAIL })).toEqual([]);
+    expect(emailTransport.sent).toHaveLength(0);
+  });
+
+  test("a SystemAdmin session cannot call system-invite-create either (403)", async () => {
+    const err = await stack.http.writeErr(
+      AuthHandlers.systemInviteCreate,
+      { email: CAROL_EMAIL, role: "User" },
+      { id: aliceId, tenantId: TENANT_A_ID, roles: ["SystemAdmin", "Admin"] },
+    );
+    expect(err.httpStatus).toBe(403);
+    expect(await selectMany(stack.db, tenantInvitationsTable, { email: CAROL_EMAIL })).toEqual([]);
+    expect(emailTransport.sent).toHaveLength(0);
   });
 
   test("legitimate tenant role still issues an invitation", async () => {

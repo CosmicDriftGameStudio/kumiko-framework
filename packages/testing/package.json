@@ -101,6 +101,10 @@
     "./e2e/seed-route": {
       "types": "./src/e2e/seed-route.ts",
       "default": "./src/e2e/seed-route.ts"
+    },
+    "./video": {
+      "types": "./src/e2e/video/index.ts",
+      "default": "./src/e2e/video/index.ts"
     }
   },
   "bin": {

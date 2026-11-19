@@ -23,7 +23,7 @@ Feature entry point: `src/feature.ts`.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/lane-routing
@@ -40,8 +40,8 @@ bun test
 // What we're proving (via createAllInOneEntrypoint + BullMQ + Hono — no
 // framework-internal shortcuts):
 //   1. A write lands on the HTTP surface.
-//   2. The command-dispatcher fires `jobRunner.handleEvent` as an
-//      afterCommit-hook (welle-2.5-gap fix, auto-wired by the entrypoint).
+//   2. The handler appends the "order-placed" event; the job-trigger event
+//      consumer (auto-wired by the entrypoint) enqueues both jobs after the commit.
 //   3. Both `runIn: "worker"` jobs fan out onto the `kumiko-jobs-worker`
 //      queue and execute — the worker-side BullMQ worker picks them up,
 //      the api-side one does not (even in all-in-one, the lane-scoped
@@ -64,6 +64,7 @@ import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   createTestRedis,
+  pushEntityProjectionTables,
   type TestDb,
   type TestRedis,
 } from "@cosmicdrift/kumiko-testing/stack";
@@ -100,6 +101,7 @@ afterEach(() => {
 describe("lane-routing sample", () => {
   test("order.create fans out to render-receipt + send-confirmation on the worker lane", async () => {
     const registry = createRegistry([createLaneRoutingFeature()]);
+    await pushEntityProjectionTables(testDb, registry);
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
     const entry = createAllInOneEntrypoint({
       rowLevelSecurity: "off",
@@ -123,8 +125,9 @@ describe("lane-routing sample", () => {
           payload: { customerName: "Acme GmbH", amount: 299 },
         }),
       });
-      const result = (await res.json()) as { isSuccess: boolean };
+      const result = (await res.json()) as { isSuccess: boolean; data: { id: string } };
       expect(result.isSuccess).toBe(true);
+      const orderId = result.data.id;
 
       // Both jobs are declared runIn:"worker" — they enqueue into
       // kumiko-jobs-worker-*, and the all-in-one worker runner consumes
@@ -133,7 +136,7 @@ describe("lane-routing sample", () => {
       await waitFor(() => {
         expect(renderedReceipts).toHaveLength(1);
         expect(sentConfirmations).toHaveLength(1);
-        expect(renderedReceipts[0]?.customerName).toBe("Acme GmbH");
+        expect(renderedReceipts[0]?.orderId).toBe(orderId);
         expect(sentConfirmations[0]?.amount).toBe(299);
       });
     } finally {
@@ -189,6 +192,7 @@ import {
   createNumberField,
   createTextField,
   defineFeature,
+  emitEvent,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
@@ -197,16 +201,16 @@ import { z } from "zod";
 // and got the right payload. A real app would do DB writes, HTTP calls,
 // PDF rendering, mail sending — whatever the side-effect is, it's
 // opaque to the framework.
-export const renderedReceipts: Array<{ customerName: string; amount: number }> = [];
-export const sentConfirmations: Array<{ customerName: string; amount: number }> = [];
+export const renderedReceipts: Array<{ orderId: string; amount: number }> = [];
+export const sentConfirmations: Array<{ orderId: string; amount: number }> = [];
 export const pruneRuns: number[] = [];
 
 // The entity declaration secures the qualified-name prefix "orders:write:order:create"
-// for the write handler below and thereby the job trigger on this event.
-// Persistence does not happen in the custom handler (id is hardcoded for the
-// sample test) — in a real app an entityWriteHandler would write to the
-// DB.
+// for the write handler below. The handler does not persist the entity — it
+// appends the "order-placed" event the jobs trigger on; in a real app an
+// entityWriteHandler would write to the DB.
 const orderEntity = createEntity({
+  name: "order",
   table: "read_orders",
   fields: {
     customerName: createTextField({ personal: { of: "id" }, find: "none", required: true }),
@@ -216,25 +220,42 @@ const orderEntity = createEntity({
 
 export function createLaneRoutingFeature(): FeatureDefinition {
   return defineFeature("orders", (r) => {
-    r.entity({ name: "order", ...orderEntity });
+    r.entity(orderEntity);
+
+    // The event both jobs trigger on. No PII: customerName stays out of it.
+    const orderPlaced = r.defineEvent(
+      "order-placed",
+      z.object({ orderId: z.string(), amount: z.number() }),
+      {
+        piiFields: "none",
+      },
+    );
 
     // Write handler — runs in the API process (or wherever the command
-    // lands). Event "orders:write:order:create" is the auto-generated
-    // write-event both jobs trigger on.
+    // lands) and appends the event the jobs consume.
     r.writeHandler({
       name: "order:create",
       schema: z.object({
         customerName: z.string().min(1),
         amount: z.number().positive(),
       }),
-      handler: async (event) => ({
-        isSuccess: true as const,
-        data: {
-          id: 1,
-          customerName: event.payload.customerName,
-          amount: event.payload.amount,
-        },
-      }),
+      handler: async (event, ctx) => {
+        const orderId = crypto.randomUUID();
+        await emitEvent(ctx, orderPlaced, {
+          aggregateId: orderId,
+          aggregateType: "order",
+          payload: { orderId, amount: event.payload.amount },
+          expectedVersion: 0,
+        });
+        return {
+          isSuccess: true as const,
+          data: {
+            id: orderId,
+            customerName: event.payload.customerName,
+            amount: event.payload.amount,
+          },
+        };
+      },
       access: {
         openToAll: {
           reason:
@@ -247,51 +268,53 @@ export function createLaneRoutingFeature(): FeatureDefinition {
     // BullMQ consumer on the API process never picks it up — even if the
     // API happens to run runLocalJobs for something else. `runIn` is the
     // Welle-2.6 contract that makes this stable across deploy shapes.
-    r.job(
-      "render-receipt",
-      {
-        trigger: { on: "orders:write:order:create" },
-        runIn: "worker",
-      },
-      async (payload) => {
+    r.job({
+      name: "render-receipt",
+      trigger: { on: "order-placed" },
+      runIn: "worker",
+      handler: async (payload) => {
         renderedReceipts.push({
-          customerName: payload["customerName"] as string,
+          orderId: payload["orderId"] as string,
           amount: payload["amount"] as number,
         });
       },
-    );
+    });
 
     // Confirmation-mail: external I/O. Also worker-lane. Both jobs fan
     // out from the same event in parallel — BullMQ handles their order
     // independently.
-    r.job(
-      "send-confirmation",
-      {
-        trigger: { on: "orders:write:order:create" },
-        runIn: "worker",
-      },
-      async (payload) => {
+    r.job({
+      name: "send-confirmation",
+      trigger: { on: "order-placed" },
+      runIn: "worker",
+      handler: async (payload) => {
         sentConfirmations.push({
-          customerName: payload["customerName"] as string,
+          orderId: payload["orderId"] as string,
           amount: payload["amount"] as number,
         });
       },
-    );
+    });
 
     // Housekeeping: `maintenance` runs once a day in the app's maintenance window
     // (KUMIKO_MAINTENANCE_WINDOW, UTC, default 03:00) instead of a cron time of its own, so a
     // sleeping app wakes once a day for all its cleanup jobs.
-    r.job("prune-old-receipts", { trigger: { maintenance: true }, runIn: "worker" }, async () => {
-      pruneRuns.push(Date.now());
+    r.job({
+      name: "prune-old-receipts",
+      trigger: { maintenance: true },
+      runIn: "worker",
+      handler: async () => {
+        pruneRuns.push(Date.now());
+      },
     });
 
     // Optional upkeep: `wakesSleepingApp: false` keeps a sleeping shared app asleep when a run is
     // due; the run happens on the next wake instead.
-    r.job(
-      "warm-receipt-cache",
-      { trigger: { cron: "*/15 * * * *", wakesSleepingApp: false }, runIn: "worker" },
-      async () => {},
-    );
+    r.job({
+      name: "warm-receipt-cache",
+      trigger: { cron: "*/15 * * * *", wakesSleepingApp: false },
+      runIn: "worker",
+      handler: async () => {},
+    });
   });
 }
 ```

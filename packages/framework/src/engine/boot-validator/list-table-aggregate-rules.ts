@@ -83,4 +83,10 @@ export const LIST_TABLE_AGGREGATE_RULES = {
       'A facet with display "range" is on a filterable field that is not encrypted, personal or secret.',
     fix: "Set filterable: true on the field or drop the range facet.",
   },
+  countFacetNotGroupable: {
+    id: "list-table/count-facet-not-groupable",
+    summary:
+      "A chips facet with showCounts or hideEmpty is on a select, boolean or single reference field that is not encrypted, personal or secret.",
+    fix: "Drop showCounts and hideEmpty, or put the chips on a groupable field.",
+  },
 } as const satisfies BootRuleTable;

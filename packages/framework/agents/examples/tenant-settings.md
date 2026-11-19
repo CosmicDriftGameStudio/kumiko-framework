@@ -66,7 +66,7 @@ role vocabulary overrides those instead of forking the feature.
 
 `buildInsertSchema` always makes `currency` required _inside_ a money field's
 value object, even when the field itself is optional — a caller literally
-cannot submit `{ amount: 1000 }` against the plain `defineEntityCreateHandler`.
+cannot submit `{ amount: 1000 }` (1000 minor units, 10.00 EUR) against the plain `defineEntityCreateHandler`.
 `defineCreateWithTenantDefaults` swaps in its own schema (`.extend()` over the
 same `buildInsertSchema` output, with just the declared `currencyFields`
 relaxed) so the caller _can_ omit `currency`, then fills it from
@@ -93,7 +93,7 @@ changes them from **Settings → Tenant → Default Currency / Default Locale**.
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 bun test src/__tests__/feature.integration.test.ts
@@ -136,16 +136,14 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createTenantSettingsFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-settings";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   pushEntityProjectionTables,
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { invoiceEntity, invoiceFeature } from "../feature";
+import { invoiceFeature } from "../feature";
 
 const tenantId = testTenantId(1);
 const admin: SessionUser = { id: "admin-1", tenantId, roles: ["Admin"] };
@@ -162,8 +160,6 @@ beforeAll(async () => {
     }),
   });
   await unsafePushTables(stack.db, { configValuesTable });
-  await unsafeCreateEntityTable(stack.db, invoiceEntity);
-  await createEventsTable(stack.db);
   await pushEntityProjectionTables(stack, stack.registry);
 });
 
@@ -174,15 +170,13 @@ afterAll(async () => {
 test("no tenant override yet — new invoice gets the feature's own default (EUR/en)", async () => {
   const invoice = await stack.http.writeOk<{
     data: {
-      amount: { amount: number; currency: string; amountScaled: number; amountMinor: number };
+      amount: { amount: number; currency: string };
       language: string;
     };
   }>("invoice:write:invoice:create", { title: "Invoice 1", amount: { amount: 1000 } }, admin);
   expect(invoice.data.amount).toEqual({
     amount: 1000,
     currency: "EUR",
-    amountScaled: 100_000,
-    amountMinor: 100_000,
   });
   expect(invoice.data.language).toBe("en");
 });
@@ -201,7 +195,7 @@ test("tenant sets CHF/de — a new invoice without explicit values picks up the 
 
   const invoice = await stack.http.writeOk<{
     data: {
-      amount: { amount: number; currency: string; amountScaled: number; amountMinor: number };
+      amount: { amount: number; currency: string };
       language: string;
     };
   }>("invoice:write:invoice:create", { title: "Invoice 2", amount: { amount: 2000 } }, admin);
@@ -209,8 +203,6 @@ test("tenant sets CHF/de — a new invoice without explicit values picks up the 
   expect(invoice.data.amount).toEqual({
     amount: 2000,
     currency: "CHF",
-    amountScaled: 200_000,
-    amountMinor: 200_000,
   });
   expect(invoice.data.language).toBe("de");
 });
@@ -218,7 +210,7 @@ test("tenant sets CHF/de — a new invoice without explicit values picks up the 
 test("an explicit value in the payload wins over the tenant setting", async () => {
   const invoice = await stack.http.writeOk<{
     data: {
-      amount: { amount: number; currency: string; amountScaled: number; amountMinor: number };
+      amount: { amount: number; currency: string };
     };
   }>(
     "invoice:write:invoice:create",
@@ -228,8 +220,6 @@ test("an explicit value in the payload wins over the tenant setting", async () =
   expect(invoice.data.amount).toEqual({
     amount: 3000,
     currency: "USD",
-    amountScaled: 300_000,
-    amountMinor: 300_000,
   });
 });
 ```
@@ -252,6 +242,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const invoiceEntity = createEntity({
+  name: "invoice",
   table: "read_invoices",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -263,7 +254,7 @@ export const invoiceEntity = createEntity({
 const ACCESS = { roles: ["Admin"] } as const;
 
 export const invoiceFeature = defineFeature("invoice", (r) => {
-  r.entity({ name: "invoice", ...invoiceEntity });
+  r.entity(invoiceEntity);
   r.writeHandler(
     defineCreateWithTenantDefaults("invoice", invoiceEntity, {
       access: ACCESS,

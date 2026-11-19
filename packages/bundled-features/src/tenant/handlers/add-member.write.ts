@@ -8,7 +8,6 @@ import {
 import {
   AccessDeniedError,
   ConflictError,
-  InternalError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
@@ -34,18 +33,12 @@ export const addMemberWrite = defineWriteHandler({
     roles: z.array(z.string()).min(1),
   }),
   access: { roles: [SYSTEM_ROLE, "SystemAdmin"] },
+  systemScope: true,
   description:
     "Grants an existing user membership in a tenant with the given roles, refusing reserved role names and a user who is already a member; use it to add someone to a workspace without going through an invitation.",
   handler: async (event, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "tenant:write:addMember requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
-      });
-    }
-    const db = ctx.systemDb.acknowledgeCrossTenant(
-      "SystemAdmin manages memberships across tenants",
-    );
+    const { systemDb } = ctx;
+    const db = systemDb.acknowledgeCrossTenant("SystemAdmin manages memberships across tenants");
     if (!isFrameworkSystemUser(event.user) && event.payload.tenantId !== event.user.tenantId) {
       return writeFailure(
         new AccessDeniedError({

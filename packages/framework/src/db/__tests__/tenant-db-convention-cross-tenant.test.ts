@@ -68,7 +68,10 @@ describe("acknowledgeConventionCrossTenant", () => {
   test("still resolves after withUnsafeRawGrant rebinds the TenantDb", () => {
     const runner = fakeRunner();
     const tdb = createTenantDb({ db: runner, tenantId });
-    const regranted = withUnsafeRawGrant(tdb, { reason: "unrelated unsafeRaw grant" });
+    const regranted = withUnsafeRawGrant(tdb, {
+      reason: "unrelated unsafeRaw grant",
+      grants: ["unsafeRaw"],
+    });
     const result = acknowledgeConventionCrossTenant(regranted, REASON);
     expect(result.mode).toBe("system");
     expect(unscopedRunnerOf(tenantDbRunner(result))).toBe(runner);

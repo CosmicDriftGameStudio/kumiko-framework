@@ -13,7 +13,7 @@ import {
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { render, within } from "@testing-library/react";
 import type { ReactNode } from "react";
@@ -21,9 +21,9 @@ import { defaultTranslations } from "../default-translations.ts";
 import { makePublicDeletionGate } from "../public-deletion-gate.tsx";
 
 const resolver = createStaticLocaleResolver({ locale: "en" });
-const stubDispatcher = {
+const stubDispatcher = createMockDispatcher({
   write: async () => ({ isSuccess: true, data: {} }),
-} as unknown as Dispatcher;
+});
 
 const ROUTES = { requestPath: "/account/delete", confirmPath: "/account/delete/confirm" };
 
@@ -57,7 +57,7 @@ describe("makePublicDeletionGate", () => {
         <div data-testid="app">APP</div>
       </Gate>,
     );
-    expect(ui.getByText(/Request account deletion/)).toBeTruthy();
+    ui.getByText(/Request account deletion/);
     expect(ui.queryByTestId("app")).toBeNull();
   });
 
@@ -69,8 +69,31 @@ describe("makePublicDeletionGate", () => {
         <div data-testid="app">APP</div>
       </Gate>,
     );
-    expect(ui.getByText(/Confirm account deletion/)).toBeTruthy();
+    ui.getByText(/Confirm account deletion/);
     expect(ui.queryByTestId("app")).toBeNull();
+  });
+
+  test("cancelPath → cancel screen, children short-circuited", () => {
+    const Gate = makePublicDeletionGate({ ...ROUTES, cancelPath: "/account/delete/cancel" });
+    const ui = renderGate(
+      "/account/delete/cancel",
+      <Gate>
+        <div data-testid="app">APP</div>
+      </Gate>,
+    );
+    ui.getByText(/Cancel account deletion/);
+    expect(ui.queryByTestId("app")).toBeNull();
+  });
+
+  test("cancel path without a configured cancelPath → children pass through", () => {
+    const Gate = makePublicDeletionGate(ROUTES);
+    const ui = renderGate(
+      "/account/delete/cancel",
+      <Gate>
+        <div data-testid="app">APP</div>
+      </Gate>,
+    );
+    ui.getByTestId("app");
   });
 
   test("other path → children pass through, no deletion screen", () => {
@@ -81,7 +104,7 @@ describe("makePublicDeletionGate", () => {
         <div data-testid="app">APP</div>
       </Gate>,
     );
-    expect(ui.getByTestId("app")).toBeTruthy();
+    ui.getByTestId("app");
     expect(ui.queryByText(/Request account deletion/)).toBeNull();
   });
 
@@ -97,6 +120,6 @@ describe("makePublicDeletionGate", () => {
       </Gate>,
     );
     const shell = ui.getByTestId("shell");
-    expect(within(shell).getByText(/Request account deletion/)).toBeTruthy();
+    within(shell).getByText(/Request account deletion/);
   });
 });

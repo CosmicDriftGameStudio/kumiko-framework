@@ -88,6 +88,7 @@ List handlers end in `:list` and accept these fields:
 | `filters` | array of object | Several field filters, each with `field`, `op` and `value`. `op` is one of `eq`, `ne`, `lt`, `gt`, `lte`, `gte`, `in`. |
 | `namedFilter` | string | Name of a predefined filter of the entity, for example a work queue. |
 | `aggregate` | object | Returns aggregated values instead of rows. |
+| `fields` | array of string | Return only these stored fields. Rows then carry `id`, `version` and the named fields; derived fields are not computed. An unknown name fails with `unknown_field`. |
 
 The response contains `rows` and `nextCursor`. For the next page send `nextCursor` as `cursor`. On the last page `nextCursor` is `null`.
 

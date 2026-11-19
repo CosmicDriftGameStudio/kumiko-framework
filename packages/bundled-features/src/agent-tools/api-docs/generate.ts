@@ -1,3 +1,4 @@
+import type { TranslationEntry, TranslationKeys } from "@cosmicdrift/kumiko-types/config";
 import { findApiDocHandlerGaps, findDescriptionTranslationGaps } from "../agent-doc-lint.ts";
 import type { RegistryManifestView } from "../types.ts";
 import { anchorsForPage, slugify } from "./anchors.ts";
@@ -42,10 +43,25 @@ export type ApiDocsResult = {
   readonly problems: readonly ApiDocsProblem[];
 };
 
+/** Layers apiDocs.translations under the registry's texts: a locale the registry defines for a key wins, the doc texts fill the rest. */
+function withDocTranslations(
+  registry: RegistryManifestView,
+  docTranslations: TranslationKeys | undefined,
+): RegistryManifestView {
+  if (docTranslations === undefined) return registry;
+  const registryTranslations = registry.getAllTranslations();
+  const merged: Record<string, TranslationEntry> = { ...registryTranslations };
+  for (const [key, byLocale] of Object.entries(docTranslations)) {
+    merged[key] = { ...byLocale, ...registryTranslations[key] };
+  }
+  return { ...registry, getAllTranslations: () => merged };
+}
+
 /** Pure: registry in, files and problems out. No I/O, clock or environment, so the
  *  same input always yields byte-identical files. */
 export function generateApiDocs(input: ApiDocsInput): ApiDocsResult {
-  const { registry, config } = input;
+  const { config } = input;
+  const registry = withDocTranslations(input.registry, config.translations);
   const { locales } = config;
   if (locales.length === 0) throw new Error("apiDocs needs at least one locale.");
   const unsupported = locales.filter((locale) => !isApiDocsLocale(locale));

@@ -93,12 +93,8 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { invoicedOrderIds, orderEntity, pubsubOrderFeature } from "../feature";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { invoicedOrderIds, pubsubOrderFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -109,7 +105,6 @@ beforeAll(async () => {
     features: [pubsubOrderFeature],
     jobs: { consumerLane: "worker", queueNamePrefix: `cross-feature-events-${generateId()}` },
   });
-  await unsafeCreateEntityTable(stack.db, orderEntity);
 });
 
 afterAll(async () => {
@@ -165,13 +160,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  resetEventStore,
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { capturedEvents, orderEntity, pubsubOrderFeature } from "../feature";
+import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { capturedEvents, pubsubOrderFeature } from "../feature";
 
 let stack: TestStack;
 
@@ -179,7 +169,6 @@ const customer = createTestUser({ roles: ["Customer"] });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [pubsubOrderFeature] });
-  await unsafeCreateEntityTable(stack.db, orderEntity);
 });
 
 afterAll(async () => {
@@ -205,7 +194,12 @@ describe("cross-feature reactions via ctx.events.append + r.multiStreamProjectio
     // The event row is committed alongside the order row. It lives on the
     // order's OWN stream now — aggregateType "pubsub-order", version 2
     // (auto "created" is v1, domain "order-placed" is v2).
-    const domainEvents = await selectMany(stack.db, eventsTable, {
+    const domainEvents = await selectMany<{
+      readonly aggregateId: string;
+      readonly version: number;
+      readonly payload: Record<string, unknown>;
+      readonly tenantId: string;
+    }>(stack.db, eventsTable, {
       aggregateType: "pubsub-order",
       type: "pubsub-orders:event:order-placed",
     });
@@ -309,6 +303,7 @@ import { z } from "zod";
 // --- Entity ---
 
 export const orderEntity = createEntity({
+  name: "pubsub-order",
   table: "read_sample_pubsub_orders",
   fields: {
     customer: createTextField({ personal: { of: "id" }, find: "none", required: true }),
@@ -333,7 +328,7 @@ export const invoicedOrderIds: string[] = [];
 // --- Feature ---
 
 export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
-  r.entity({ name: "pubsub-order", ...orderEntity });
+  r.entity(orderEntity);
 
   // Define the event shape once. The returned `.name` is the qualified
   // name ("pubsub-orders:event:order-placed") — pass it to ctx.events.append.
@@ -343,7 +338,7 @@ export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
     { piiFields: "none" },
   );
 
-  const { executor: orderExecutor } = createEntityExecutor("pubsub-order", orderEntity);
+  const { executor: orderExecutor } = createEntityExecutor(orderEntity);
 
   r.writeHandler({
     name: "order:place",
@@ -356,7 +351,8 @@ export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
         // error, not a runtime Zod reject. The event lands on the order's
         // OWN stream (aggregateType "pubsub-order"), with the correct
         // version bumped automatically. Schema validation still runs at
-        // append-time; a mismatch rolls back the whole write.
+        // append-time; a mismatch rolls back the whole write. The create already put version 1 on
+        // the stream, so the follow-up event is pinned to result.data.event.version.
         await emitEvent(ctx, orderPlaced, {
           aggregateId: String(result.data.id),
           aggregateType: "pubsub-order",
@@ -365,6 +361,7 @@ export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
             customer: event.payload.customer,
             product: event.payload.product,
           },
+          expectedVersion: result.data.event.version,
         });
       }
       return result;
@@ -376,14 +373,15 @@ export const pubsubOrderFeature = defineFeature("pubsubOrders", (r) => {
   // consumer cursor that starts at the beginning of the event store, so a job
   // added to a running app also processes the orders placed before it existed.
   // Without catchUp the job only sees events appended after its deploy.
-  r.job(
-    "invoice-order",
-    { trigger: { on: orderPlaced.name, catchUp: true }, runIn: "worker" },
-    async (payload) => {
+  r.job({
+    name: "invoice-order",
+    trigger: { on: orderPlaced.name, catchUp: true },
+    runIn: "worker",
+    handler: async (payload) => {
       const order = orderPlaced.schema.parse(payload);
       invoicedOrderIds.push(order.id);
     },
-  );
+  });
 
   // Async consumer — Marten-style. Fires after commit, via the event-
   // dispatcher. No `table` means this MSP is pure side-effect (no state

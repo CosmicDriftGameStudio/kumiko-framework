@@ -6,6 +6,8 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { DbTx } from "@cosmicdrift/kumiko-types/db-connection";
+import type { EscapeHatchDeclaration } from "@cosmicdrift/kumiko-types/handlers";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import { createRegistry } from "../../engine/registry.ts";
 import { AccessDeniedError } from "../../errors/index.ts";
@@ -33,10 +35,11 @@ import {
 } from "../tenant-db.ts";
 
 const entity = createEntity({
+  name: "managedLockItem",
   table: "read_managed_lock_items",
   fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
 });
-const managedTable = buildEntityTable("managedLockItem", entity);
+const managedTable = buildEntityTable(entity);
 // Deliberate bypass: brandWritable erases the compile-time lock, only the runtime lock is left.
 const erasedManagedTable = brandWritable(managedTable);
 
@@ -77,7 +80,14 @@ const globalManagedTable = defineUnmanagedTable({
 markExecutorManagedTable(globalManagedTable);
 
 const tenantId = TestUsers.admin.tenantId;
-const grant = { reason: "executor-managed-write-lock test" };
+const globalWritesGrant: EscapeHatchDeclaration = {
+  reason: "executor-managed-write-lock test",
+  grants: ["globalWrites"],
+};
+const unsafeRawGrant: EscapeHatchDeclaration = {
+  reason: "executor-managed-write-lock test",
+  grants: ["unsafeRaw"],
+};
 let testDb: TestDb;
 
 beforeAll(async () => {
@@ -139,7 +149,11 @@ describe("executor-managed write lock: TenantDb", () => {
   });
 
   test("db.global() writes reject a managed global table even with the escape hatch", async () => {
-    const tdb = createTenantDb({ db: testDb.db, tenantId, grants: { globalWrites: grant } });
+    const tdb = createTenantDb({
+      db: testDb.db,
+      tenantId,
+      grants: { globalWrites: globalWritesGrant },
+    });
     const globalDb = tdb.global(globalManagedTable);
     await expectDenied(globalDb.insertOne({ label: "x" }));
     await expectDenied(globalDb.updateMany({ label: "y" }, { label: "x" }));
@@ -147,17 +161,21 @@ describe("executor-managed write lock: TenantDb", () => {
   });
 
   test("unsafeRaw does not unlock a managed table", async () => {
-    const tdb = createTenantDb({ db: testDb.db, tenantId, grants: { unsafeRaw: grant } });
-    await expectDenied(async () => insertOne(tdb.unsafeRaw(), erasedManagedTable, { name: "x" }));
+    const tdb = createTenantDb({ db: testDb.db, tenantId, grants: { unsafeRaw: unsafeRawGrant } });
+    await expectDenied(async () =>
+      insertOne(tdb.unsafeRawAllTenants(), erasedManagedTable, { name: "x" }),
+    );
   });
 
   test("unsafeRaw on a TenantDb over a capable runner still does not unlock", async () => {
     const tdb = createTenantDb({
       db: withExecutorManagedWrites(testDb.db),
       tenantId,
-      grants: { unsafeRaw: grant },
+      grants: { unsafeRaw: unsafeRawGrant },
     });
-    await expectDenied(async () => insertOne(tdb.unsafeRaw(), erasedManagedTable, { name: "x" }));
+    await expectDenied(async () =>
+      insertOne(tdb.unsafeRawAllTenants(), erasedManagedTable, { name: "x" }),
+    );
     // the TenantDb itself still sits on the capable runner
     const row = await tdb.insertOne<{ id: string }>(erasedManagedTable, { name: "cap" });
     expect(row?.id).toBeDefined();
@@ -179,7 +197,7 @@ describe("executor-managed write lock: r.projection tables", () => {
     expect(isExecutorManagedTable(projectionTable)).toBe(false);
     createRegistry([
       defineFeature("managedlock", (r) => {
-        r.entity({ name: "managedLockItem", ...entity });
+        r.entity(entity);
         r.projection({
           name: "item-label",
           source: "managedLockItem",
@@ -238,8 +256,8 @@ describe("executor-managed write lock: unmanaged tables", () => {
   });
 });
 
-async function asTransaction(runner: unknown, fn: (tx: unknown) => Promise<void>): Promise<void> {
-  const begin = (runner as { begin: (cb: (tx: unknown) => Promise<void>) => Promise<void> }).begin;
+async function asTransaction(runner: unknown, fn: (tx: DbTx) => Promise<void>): Promise<void> {
+  const begin = (runner as { begin: (cb: (tx: DbTx) => Promise<void>) => Promise<void> }).begin;
   await begin.call(runner, fn);
 }
 
@@ -263,7 +281,7 @@ describe("createTenantDataDestroyDb", () => {
     const destroyDb = createTenantDataDestroyDb({
       db: testDb.db,
       tenantId,
-      grants: { unsafeRaw: grant },
+      grants: { unsafeRaw: unsafeRawGrant },
     });
     await deleteMany(destroyDb, erasedManagedTable, {
       name: { in: ["destroy-own", "destroy-foreign"] },
@@ -275,7 +293,7 @@ describe("createTenantDataDestroyDb", () => {
     expect(remaining.map((row) => row.name)).toEqual(["destroy-foreign"]);
 
     await expectDenied(async () =>
-      insertOne(destroyDb.unsafeRaw(), erasedManagedTable, { name: "x" }),
+      insertOne(destroyDb.unsafeRawAllTenants(), erasedManagedTable, { name: "x" }),
     );
   });
 });

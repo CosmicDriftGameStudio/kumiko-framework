@@ -23,7 +23,7 @@ import type { DbConnection, DbTx } from "../../db/connection.ts";
 import { integer, table as pgTable, uuid } from "../../db/dialect.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { fenceLiveTable, swapShadowIntoLive } from "../../db/queries/shadow-swap.ts";
-import { asRawClient, selectMany } from "../../db/query.ts";
+import { asRawClient, insertOne, selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
 import {
@@ -47,6 +47,7 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 // --- Test fixtures ---
 
 const itemEntity = createEntity({
+  name: "rebuild-item",
   table: "read_rebuild_items",
   fields: {
     groupId: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -54,7 +55,7 @@ const itemEntity = createEntity({
   },
   softDelete: true,
 });
-const itemTable = buildEntityTable("rebuild-item", itemEntity);
+const itemTable = buildEntityTable(itemEntity);
 
 const itemsPerGroupTable = pgTable("read_rebuild_items_per_group", {
   groupId: uuid("group_id").primaryKey(),
@@ -89,10 +90,42 @@ const itemsPerGroupProjection: ProjectionDefinition = {
   },
 };
 
+// Violates the single-table contract: the apply also writes a second table, which
+// resolves to the live table during an online rebuild.
+const doubleWriterTable = pgTable("read_rebuild_dw_primary", {
+  id: uuid("id").primaryKey(),
+  tenantId: uuid("tenant_id").notNull(),
+});
+const doubleWriterSideTable = pgTable("read_rebuild_dw_side", {
+  id: uuid("id").primaryKey(),
+  tenantId: uuid("tenant_id").notNull(),
+});
+
+const doubleWriterProjection: ProjectionDefinition = {
+  name: "items-double-writer",
+  source: "rebuild-item",
+  table: doubleWriterTable,
+  apply: {
+    "rebuild-item.created": defineApply<ItemCreated>(async (event, tx) => {
+      await insertOne(tx, doubleWriterTable, { id: crypto.randomUUID(), tenantId: event.tenantId });
+      await insertOne(tx, doubleWriterSideTable, {
+        id: crypto.randomUUID(),
+        tenantId: event.tenantId,
+      });
+    }),
+  },
+};
+
 const feature = defineFeature("rebuildtest", (r) => {
-  r.entity({ name: "rebuild-item", ...itemEntity });
+  r.entity(itemEntity);
   r.projection(itemsPerGroupProjection);
 });
+
+// Separate feature and registry: the projection-listing tests above count the main registry's projections.
+const doubleWriterFeature = defineFeature("rebuildguard", (r) => {
+  r.projection(doubleWriterProjection);
+});
+const doubleWriterRegistry = createRegistry([feature, doubleWriterFeature]);
 
 const admin = TestUsers.admin;
 let testDb: TestDb;
@@ -107,7 +140,11 @@ beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, itemEntity, "rebuild-item");
   await createProjectionStateTable(testDb.db);
-  await unsafePushTables(testDb.db, { rebuildItemsPerGroup: itemsPerGroupTable });
+  await unsafePushTables(testDb.db, {
+    rebuildItemsPerGroup: itemsPerGroupTable,
+    rebuildDoubleWriter: doubleWriterTable,
+    rebuildDoubleWriterSide: doubleWriterSideTable,
+  });
   tdb = createTenantDb({ db: testDb.db, tenantId: admin.tenantId });
 });
 
@@ -117,7 +154,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await asRawClient(testDb.db).unsafe(
-    `TRUNCATE kumiko_events, read_rebuild_items, read_rebuild_items_per_group, kumiko_projections, kumiko_archived_streams RESTART IDENTITY CASCADE`,
+    `TRUNCATE kumiko_events, read_rebuild_items, read_rebuild_items_per_group, read_rebuild_dw_primary, read_rebuild_dw_side, kumiko_projections, kumiko_archived_streams RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -133,7 +170,9 @@ async function appendCreatedEvent(groupId: string, name: string): Promise<void> 
 }
 
 async function getCount(groupId: string): Promise<number | undefined> {
-  const [row] = await selectMany(testDb.db, itemsPerGroupTable, { groupId: groupId });
+  const [row] = await selectMany<{ itemCount: number }>(testDb.db, itemsPerGroupTable, {
+    groupId: groupId,
+  });
   return row?.itemCount;
 }
 
@@ -242,6 +281,24 @@ describe("rebuildProjection — happy path", () => {
   });
 });
 
+describe("rebuildProjection — single-table guard", () => {
+  test("an apply that also writes a second table fails the rebuild and names the table", async () => {
+    await appendCreatedEvent("00000000-0000-4000-8000-000000000030", "one");
+    const liveRow = { id: crypto.randomUUID(), tenantId: admin.tenantId };
+    await seedRow(testDb.db, doubleWriterTable, liveRow);
+
+    await expect(
+      rebuildProjection("rebuildguard:projection:items-double-writer", {
+        db: testDb.db,
+        registry: doubleWriterRegistry,
+      }),
+    ).rejects.toThrow(/read_rebuild_dw_side/);
+
+    expect(await selectMany(testDb.db, doubleWriterTable)).toEqual([liveRow]);
+    expect(await selectMany(testDb.db, doubleWriterSideTable)).toHaveLength(0);
+  });
+});
+
 describe("rebuildProjection — state table lifecycle", () => {
   test("writes state row with status=idle + lastRebuildAt after success", async () => {
     const group = "00000000-0000-4000-8000-000000000020";
@@ -289,7 +346,7 @@ describe("rebuildProjection — error path", () => {
 
     // Construct a broken registry where apply("rebuild-item.created") throws.
     const brokenFeature = defineFeature("brokentest", (r) => {
-      r.entity({ name: "rebuild-item", ...itemEntity });
+      r.entity(itemEntity);
       r.projection({
         ...itemsPerGroupProjection,
         name: "items-per-group",
@@ -331,7 +388,7 @@ describe("rebuildProjection — error path", () => {
 
     // Now attempt a rebuild with a broken apply under the SAME projection name.
     const brokenFeature = defineFeature("rebuildtest", (r) => {
-      r.entity({ name: "rebuild-item", ...itemEntity });
+      r.entity(itemEntity);
       r.projection({
         ...itemsPerGroupProjection,
         apply: {
@@ -367,30 +424,40 @@ describe("rebuildProjection — error path", () => {
 });
 
 describe("listProjectionsWithState", () => {
-  test("lists every registered projection with combined state info", async () => {
+  test("lists every registered projection, implicit entity projections included, with combined state info", async () => {
+    const implicitName = "rebuildtest:projection:rebuild-item-entity";
     // Before any rebuild: state field indicates never-rebuilt.
     const before = await listProjectionsWithState(testDb.db, registry);
-    expect(before).toHaveLength(1);
-    expect(before[0]?.name).toBe(qualifiedProjectionName);
-    expect(before[0]?.status).toBe("never-rebuilt");
-    expect(before[0]?.sources).toEqual(["rebuild-item"]);
+    expect(before.map((p) => p.name).sort()).toEqual(
+      [qualifiedProjectionName, implicitName].sort(),
+    );
+    const explicitBefore = before.find((p) => p.name === qualifiedProjectionName);
+    expect(explicitBefore?.status).toBe("never-rebuilt");
+    expect(explicitBefore?.sources).toEqual(["rebuild-item"]);
+    expect(before.find((p) => p.name === implicitName)?.status).toBe("never-rebuilt");
 
     // After rebuild: status reflects DB state.
     await appendCreatedEvent("00000000-0000-4000-8000-000000000040", "x");
     await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
 
     const after = await listProjectionsWithState(testDb.db, registry);
-    expect(after[0]?.status).toBe("idle");
-    expect(after[0]?.lastRebuildAt).not.toBeNull();
+    const explicitAfter = after.find((p) => p.name === qualifiedProjectionName);
+    expect(explicitAfter?.status).toBe("idle");
+    expect(explicitAfter?.lastRebuildAt).not.toBeNull();
   });
 });
 
 describe("getAllProjectionProgress", () => {
+  const progressOf = async () =>
+    (await getAllProjectionProgress(testDb.db, registry)).find(
+      (p) => p.name === qualifiedProjectionName,
+    );
+
   test("computes lag = highWaterMark - cursor for caught-up projection", async () => {
     // Empty event-log → HWM=0n, lag=0n, projection never-rebuilt → cursor=0n.
-    const empty = await getAllProjectionProgress(testDb.db, registry);
-    expect(empty[0]?.highWaterMark).toBe(0n);
-    expect(empty[0]?.lag).toBe(0n);
+    const empty = await progressOf();
+    expect(empty?.highWaterMark).toBe(0n);
+    expect(empty?.lag).toBe(0n);
 
     // Seed some events but skip rebuild → HWM advances, cursor stays 0n,
     // lag = HWM. This is the "behind" state an ops dashboard sees before
@@ -399,17 +466,17 @@ describe("getAllProjectionProgress", () => {
     await appendCreatedEvent("00000000-0000-4000-8000-000000000061", "b");
     await appendCreatedEvent("00000000-0000-4000-8000-000000000062", "c");
 
-    const behind = await getAllProjectionProgress(testDb.db, registry);
-    expect(behind[0]?.highWaterMark).toBe(3n);
-    expect(behind[0]?.lastProcessedEventId).toBe(0n);
-    expect(behind[0]?.lag).toBe(3n);
+    const behind = await progressOf();
+    expect(behind?.highWaterMark).toBe(3n);
+    expect(behind?.lastProcessedEventId).toBe(0n);
+    expect(behind?.lag).toBe(3n);
 
     // After rebuild: the cursor equals the HWM, so lag is 0.
     await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
-    const caughtUp = await getAllProjectionProgress(testDb.db, registry);
-    expect(caughtUp[0]?.highWaterMark).toBe(3n);
-    expect(caughtUp[0]?.lastProcessedEventId).toBe(3n);
-    expect(caughtUp[0]?.lag).toBe(0n);
+    const caughtUp = await progressOf();
+    expect(caughtUp?.highWaterMark).toBe(3n);
+    expect(caughtUp?.lastProcessedEventId).toBe(3n);
+    expect(caughtUp?.lag).toBe(0n);
   });
 });
 
@@ -492,7 +559,7 @@ describe("rebuildProjection — meter emission", () => {
     await appendCreatedEvent(group, "a");
 
     const brokenFeature = defineFeature("failmeter", (r) => {
-      r.entity({ name: "rebuild-item", ...itemEntity });
+      r.entity(itemEntity);
       r.projection({
         ...itemsPerGroupProjection,
         apply: {
@@ -585,10 +652,11 @@ describe("rebuildProjection — online shadow-swap mechanics", () => {
   // Self-contained fixtures: a separate projection so the count-sensitive
   // list/progress tests above keep seeing exactly one registered projection.
   const swapEntity = createEntity({
+    name: "swap-indexed",
     table: "read_swap_indexed",
     fields: { label: createTextField({ personal: false, reason: "test_fixture", required: true }) },
   });
-  const swapTable = buildEntityTable("swap-indexed", swapEntity);
+  const swapTable = buildEntityTable(swapEntity);
   // Empty apply: a 0-event rebuild still builds the shadow + swaps it in, so
   // this exercises the table-recreation + swap path without wiring events.
   const swapProjection: ProjectionDefinition = {
@@ -598,7 +666,7 @@ describe("rebuildProjection — online shadow-swap mechanics", () => {
     apply: {},
   };
   const swapFeature = defineFeature("swaptest", (r) => {
-    r.entity({ name: "swap-indexed", ...swapEntity });
+    r.entity(swapEntity);
     r.projection(swapProjection);
   });
   const swapRegistry = createRegistry([swapFeature]);
@@ -658,7 +726,7 @@ describe("rebuildProjection — online shadow-swap mechanics", () => {
     // live table unlocked, so it returns the pre-swap rows promptly.
     let liveDuringReplay: number | undefined = -1;
     const probeFeature = defineFeature("probetest", (r) => {
-      r.entity({ name: "rebuild-item", ...itemEntity });
+      r.entity(itemEntity);
       r.projection({
         ...itemsPerGroupProjection,
         apply: {

@@ -4,6 +4,9 @@ import { constants } from "node:os";
 /** Shared docker-compose probe budget — cold Docker Desktop often exceeds this. */
 export const DOCKER_PROBE_TIMEOUT_MS = 2000;
 
+// One path for the three commands that spawn the step pipeline.
+export const CHECK_PIPELINE_BIN = "bin/check-pipeline.ts";
+
 // A worktree hook also exports GIT_COMMON_DIR; left in place it points a temp repo's refs and
 // objects at the hook's repo.
 export const GIT_LOCATION_ENV = [

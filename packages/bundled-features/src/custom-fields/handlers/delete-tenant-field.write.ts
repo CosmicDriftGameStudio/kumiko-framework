@@ -1,8 +1,8 @@
-import { isSystemTenant, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, isSystemTenant } from "@cosmicdrift/kumiko-framework/engine";
 import { fieldDefinitionAggregateId } from "../aggregate-id.ts";
 import { fieldDefinitionExecutor } from "../executor.ts";
 import { createCustomFieldsFeature } from "../feature.ts";
-import { type DeleteFieldPayload, deleteFieldPayloadSchema } from "../schemas.ts";
+import { deleteFieldPayloadSchema } from "../schemas.ts";
 import {
   DEFAULT_FIELD_DEFINITION_WRITE_ROLES,
   FIELD_DEFINITION_AGGREGATE_TYPE,
@@ -23,10 +23,8 @@ export interface DeleteTenantFieldOptions {
   readonly roles?: readonly string[];
 }
 
-export function createDeleteTenantFieldHandler(
-  opts: DeleteTenantFieldOptions = {},
-): WriteHandlerDef {
-  return {
+export function createDeleteTenantFieldHandler(opts: DeleteTenantFieldOptions = {}) {
+  return defineWriteHandler({
     name: "delete-tenant-field",
     schema: deleteFieldPayloadSchema,
     access: { roles: opts.roles ?? DEFAULT_FIELD_DEFINITION_WRITE_ROLES },
@@ -34,7 +32,7 @@ export function createDeleteTenantFieldHandler(
       "Deletes one of the caller's own tenant's custom-field definitions and cascades an event that strips its orphaned values out of that tenant's host rows; use it to retire a field this tenant defined itself.",
     agent: { risk: "high" },
     handler: async (event, ctx) => {
-      const payload = event.payload as DeleteFieldPayload; // @cast-boundary engine-payload
+      const payload = event.payload;
       const tenantId = event.user.tenantId;
 
       if (isSystemTenant(tenantId)) {
@@ -51,23 +49,22 @@ export function createDeleteTenantFieldHandler(
 
       const result = await fieldDefinitionExecutor.delete({ id: aggregateId }, event.user, ctx.db);
 
-      // Emit the cascade-cleanup event after a successful delete. Host-entity MSPs
-      // registered via wireCustomFieldsFor consume it and remove orphaned values
-      // from their customFields jsonb. The same transaction makes cleanup atomic.
+      // Emit the cascade-cleanup event after a successful delete. The custom-fields
+      // values projection consumes it for every host wired via wireCustomFieldsFor
+      // and removes orphaned values from their customFields jsonb. The same
+      // transaction makes cleanup atomic.
       if (result.isSuccess) {
         await ctx.events.unsafeAppend({
           aggregateId,
           aggregateType: FIELD_DEFINITION_AGGREGATE_TYPE,
           type: createCustomFieldsFeature().exports.fieldDefinitionDeletedEvent.name,
           payload: { entityName: payload.entityName, fieldKey: payload.fieldKey, tenantId },
+          blindAppendReason:
+            "cascade event right after the executor delete in this transaction, which already pinned the definition stream's version; it only announces the delete that just happened",
         });
       }
 
       return result;
     },
-  };
+  });
 }
-
-// Backwards-compat: existing imports of `deleteTenantFieldHandler` keep
-// working — identical to createDeleteTenantFieldHandler() with default roles.
-export const deleteTenantFieldHandler: WriteHandlerDef = createDeleteTenantFieldHandler();

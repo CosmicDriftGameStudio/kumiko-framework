@@ -20,7 +20,7 @@ import * as z from "zod";
 import { capCounterEntity } from "../entity.ts";
 import { createStockCapGuard } from "../stock-cap-guard.ts";
 
-const { executor, table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
+const { executor, table: capCounterTable } = createEntityExecutor(capCounterEntity);
 
 const CAP_CODE = "stock_reservation_exceeded";
 const CAP_NAME = "reservation-item";

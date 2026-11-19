@@ -106,6 +106,71 @@ describe("check.run — RepoCheck seam", () => {
     }
   });
 
+  test("flags a lowercase JSX tag whose opening ends the line", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "renderer-boundaries-guard-"));
+    try {
+      const rendererSrc = join(dir, "packages/renderer/src");
+      mkdirSync(rendererSrc, { recursive: true });
+      writeFileSync(
+        join(rendererSrc, "view.tsx"),
+        'export const v = () => {\n  return (\n    <div\n      className="x"\n    >\n      y\n    </div>\n  );\n};\n',
+      );
+      const root = fixtureRoot("kumiko-framework", dir, {
+        kind: "framework",
+        sourceRoots: ["packages/*/src"],
+        testGlobs: ["packages/*/src/**/*.test.ts"],
+      });
+      const outcome = await check.run([root]);
+      expect(outcome.violations.map((v) => `${v.line}:${v.message}`)).toEqual([
+        expect.stringContaining("forbidden-jsx-tag (<div>)"),
+      ]);
+      expect(outcome.violations[0]?.line).toBe(3);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("flags an arbitrary selector variant in app/", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "renderer-boundaries-guard-"));
+    try {
+      const appDir = join(dir, "packages/renderer/src/app");
+      mkdirSync(appDir, { recursive: true });
+      writeFileSync(join(appDir, "body.ts"), 'export const cls = "[&>*]:pb-0";\n');
+      const root = fixtureRoot("kumiko-framework", dir, {
+        kind: "framework",
+        sourceRoots: ["packages/*/src"],
+        testGlobs: ["packages/*/src/**/*.test.ts"],
+      });
+      const outcome = await check.run([root]);
+      expect(outcome.violations).toHaveLength(1);
+      expect(outcome.violations[0]?.file).toBe("packages/renderer/src/app/body.ts");
+      expect(outcome.violations[0]?.message).toContain("arbitrary-selector-variant");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("allows the selector variant under web/ and inside a comment", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "renderer-boundaries-guard-"));
+    try {
+      const webDir = join(dir, "packages/renderer/src/web");
+      const appDir = join(dir, "packages/renderer/src/app");
+      mkdirSync(webDir, { recursive: true });
+      mkdirSync(appDir, { recursive: true });
+      writeFileSync(join(webDir, "style.ts"), 'export const cls = "[&>*]:pb-0";\n');
+      writeFileSync(join(appDir, "note.ts"), "// [&>*] stays a web concern\nexport const a = 1;\n");
+      const root = fixtureRoot("kumiko-framework", dir, {
+        kind: "framework",
+        sourceRoots: ["packages/*/src"],
+        testGlobs: ["packages/*/src/**/*.test.ts"],
+      });
+      const outcome = await check.run([root]);
+      expect(outcome.violations).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("headless and live subtrees only get the import rules", async () => {
     const dir = mkdtempSync(join(tmpdir(), "renderer-boundaries-guard-"));
     try {

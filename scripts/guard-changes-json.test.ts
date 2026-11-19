@@ -339,7 +339,7 @@ describe("findChangesetViolations", () => {
         const blocks = types
           .map(
             (type, index) =>
-              `<!-- kumiko-changes\nfeature: framework\ntype: ${type}\ntitle: Change ${index}\n${type === "breaking" ? "migration: Use the new call\n" : ""}-->\n`,
+              `<!-- kumiko-changes\nfeature: framework\ntype: ${type}\ntitle: Change ${index}\n${type === "breaking" ? "migration: Use the new call\naffects: all\n" : ""}-->\n`,
           )
           .join("\n");
         writeFileSync(

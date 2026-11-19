@@ -26,6 +26,7 @@ import { rebuildProjection } from "../pipeline/index.ts";
 const refField = { personal: false, reason: "is_reference_data" } as const;
 
 const countryEntity = createEntity({
+  name: "country",
   table: "ref_countries",
   fields: {
     code: createTextField({ ...refField, required: true }),
@@ -34,6 +35,7 @@ const countryEntity = createEntity({
   },
 });
 const statusEntity = createEntity({
+  name: "status",
   table: "ref_statuses",
   fields: {
     slug: createTextField({ ...refField, required: true }),
@@ -42,18 +44,19 @@ const statusEntity = createEntity({
   },
 });
 const tagEntity = createEntity({
+  name: "tag",
   table: "ref_tags",
   fields: { slug: createTextField({ ...refField, required: true }) },
   softDelete: true,
 });
-const tagTable = buildEntityTable("tag", tagEntity);
-const countryTable = buildEntityTable("country", countryEntity);
-const statusTable = buildEntityTable("status", statusEntity);
+const tagTable = buildEntityTable(tagEntity);
+const countryTable = buildEntityTable(countryEntity);
+const statusTable = buildEntityTable(statusEntity);
 
 const feature = defineFeature("refdata", (r) => {
-  r.entity({ name: "country", ...countryEntity });
-  r.entity({ name: "status", ...statusEntity });
-  r.entity({ name: "tag", ...tagEntity });
+  r.entity(countryEntity);
+  r.entity(statusEntity);
+  r.entity(tagEntity);
 });
 
 let stack: TestStack;

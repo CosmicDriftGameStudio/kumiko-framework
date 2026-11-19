@@ -19,6 +19,7 @@ import {
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const secretNoteEntity = createEntity({
+  name: "note",
   table: "agg_hook_notes",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -37,8 +38,8 @@ const addMarker: PostQueryHookFn = async ({ rows }) => ({
 const openToAll = { openToAll: { reason: "test handler callable by any signed-in test user" } };
 
 const feature = defineFeature("agghook", (r) => {
-  const note = r.entity({ name: "note", ...secretNoteEntity });
-  r.crud("note", secretNoteEntity, {
+  const note = r.entity(secretNoteEntity);
+  r.crud(secretNoteEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: openToAll },
   });

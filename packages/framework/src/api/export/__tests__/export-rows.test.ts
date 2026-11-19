@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { SessionUser } from "../../../engine/types/index.ts";
 import { InternalError } from "../../../errors/index.ts";
+import type { HandlerType } from "../../../pipeline/dispatcher-utils.ts";
 import { TestUsers } from "../../../seeding/seed-users.ts";
 import { isPlainObject } from "../../../utils/is-plain-object.ts";
 import { readExportRows, sanitizeExportPayload } from "../export-rows.ts";
@@ -21,7 +22,7 @@ function fakeDispatcher(respond: (payload: Call, call: number) => unknown) {
   const calls: Call[] = [];
   return {
     calls,
-    query: async (_type: string, payload: unknown) => {
+    query: async (_type: HandlerType, payload: unknown) => {
       const call = isPlainObject(payload) ? payload : {};
       calls.push(call);
       return respond(call, calls.length - 1);

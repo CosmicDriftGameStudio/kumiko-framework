@@ -36,6 +36,7 @@ import {
 //   - `createdAt/updatedAt/createdBy/updatedBy` — automatic through base
 //     columns and events.
 export const fieldDefinitionEntity = createEntity({
+  name: "field-definition",
   table: "read_custom_field_definitions",
   systemRowsReadable: true,
   description:

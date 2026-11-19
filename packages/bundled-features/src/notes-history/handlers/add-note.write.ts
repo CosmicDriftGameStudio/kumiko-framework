@@ -1,12 +1,11 @@
 import { fetchOne, runInSavepointIfSupported } from "@cosmicdrift/kumiko-framework/db";
-import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { decryptStoredPii, denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
 import { tenantMembershipsTable } from "../../tenant/index.ts";
 import { userTable } from "../../user/index.ts";
-import { noteEntryExecutor, noteMentionExecutor } from "../executor.ts";
-import { type AddNotePayload, addNotePayloadSchema } from "../schemas.ts";
-import { DEFAULT_NOTES_HISTORY_ACCESS } from "../web/constants.ts";
+import { type noteEntryExecutor, noteMentionExecutor } from "../executor.ts";
+import { addNotePayloadSchema } from "../schemas.ts";
 
 const READ_AUTHOR_DISPLAY_NAME_REASON =
   "reads the author's displayName from the global users table inside a savepoint so a missing user feature cannot poison the note transaction";
@@ -20,14 +19,11 @@ const READ_AUTHOR_DISPLAY_NAME_REASON =
 // entityType/entityId are never trusted client input: entityType must name a
 // registered entity, and the row must be visible to the caller through that
 // entity's own read path (tenant scope plus its `access.read` ownership).
-// Both the field names and the optional `parents` allowlist come from the
+// Both the field names and the `parents` allowlist come from the
 // entity's own `parentRef` declaration, which the read gate reads too —
 // see shared/parent-visibility.ts.
-export function createAddNoteHandler(
-  access: AccessRule = DEFAULT_NOTES_HISTORY_ACCESS,
-  entryExecutor: typeof noteEntryExecutor = noteEntryExecutor,
-): WriteHandlerDef {
-  return {
+export function createAddNoteHandler(access: AccessRule, entryExecutor: typeof noteEntryExecutor) {
+  return defineWriteHandler({
     name: "add-note",
     schema: addNotePayloadSchema,
     access,
@@ -38,7 +34,7 @@ export function createAddNoteHandler(
       reason: READ_AUTHOR_DISPLAY_NAME_REASON,
     },
     handler: async (event, ctx) => {
-      const payload = event.payload as AddNotePayload; // @cast-boundary engine-payload
+      const payload = event.payload;
 
       const denied = await denyUnlessJoinRowParentVisible(
         ctx.registry,
@@ -72,7 +68,7 @@ export function createAddNoteHandler(
         // Postgres aborts the whole tx after any error inside it, even one that's
         // caught — so the lookup runs in a savepoint where available, otherwise directly
         // (pool statements are their own units).
-        authorName = await runInSavepointIfSupported(ctx.db.unsafeRaw(), async (sp) => {
+        authorName = await runInSavepointIfSupported(ctx.db.unsafeRawAllTenants(), async (sp) => {
           const userRow = await fetchOne<{ displayName: string | null }>(sp, userTable, {
             id: event.user.id,
           });
@@ -109,7 +105,5 @@ export function createAddNoteHandler(
 
       return created;
     },
-  };
+  });
 }
-
-export const addNoteHandler: WriteHandlerDef = createAddNoteHandler();

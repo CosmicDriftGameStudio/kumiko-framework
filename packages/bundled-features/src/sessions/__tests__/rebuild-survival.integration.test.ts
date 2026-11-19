@@ -103,6 +103,6 @@ describe("sessions / store_user_sessions survives projection rebuild", () => {
 
     const rows = await selectMany(testDb.db, userSessionTable, {});
     expect(rows.length).toBe(1);
-    expect(rows[0]?.revokedAt).not.toBeNull();
+    expect(rows[0]?.["revokedAt"]).not.toBeNull();
   });
 });

@@ -31,6 +31,16 @@ import { createDeliveryFeature } from "../feature.ts";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables.ts";
 import type { DeliveryService } from "../types.ts";
 
+type EventRow = {
+  readonly type: string;
+  readonly aggregateType: string;
+  readonly aggregateId: string;
+  readonly tenantId: string;
+  readonly version: number;
+  readonly payload: unknown;
+};
+type AttemptRow = { readonly notificationType: string };
+
 let stack: TestStack;
 let db: DbConnection;
 let deliveryService: DeliveryService;
@@ -87,7 +97,9 @@ describe("delivery event shape", () => {
       admin.tenantId,
     );
 
-    const events = await selectMany(db, eventsTable, { aggregateType: "deliveryAttempt" });
+    const events = await selectMany<EventRow>(db, eventsTable, {
+      aggregateType: "deliveryAttempt",
+    });
 
     // One channel registered (in-app) → one delivery attempt → one event.
     expect(events).toHaveLength(1);
@@ -116,7 +128,9 @@ describe("delivery event shape", () => {
       admin.tenantId,
     );
 
-    const [event] = await selectMany(db, eventsTable, { aggregateType: "deliveryAttempt" });
+    const [event] = await selectMany<EventRow>(db, eventsTable, {
+      aggregateType: "deliveryAttempt",
+    });
     if (!event) throw new Error("expected one event");
 
     // The service schema-parses before append (see logDelivery), but we
@@ -137,7 +151,9 @@ describe("delivery event shape", () => {
       admin.tenantId,
     );
 
-    const [event] = await selectMany(db, eventsTable, { aggregateType: "deliveryAttempt" });
+    const [event] = await selectMany<EventRow>(db, eventsTable, {
+      aggregateType: "deliveryAttempt",
+    });
     if (!event) throw new Error("expected one event");
 
     // PK is unique — a matching row on `id === aggregateId` is already the
@@ -145,7 +161,9 @@ describe("delivery event shape", () => {
     // + tenantSecretsTable: projection-row PK IS the event aggregateId, so
     // a replay of the same event conflicts on the PK rather than
     // duplicating the log row.
-    const [row] = await selectMany(db, deliveryAttemptsTable, { id: event.aggregateId });
+    const [row] = await selectMany<AttemptRow>(db, deliveryAttemptsTable, {
+      id: event.aggregateId,
+    });
     expect(row).toBeDefined();
     expect(row?.notificationType).toBe("example:notify:pk-link");
   });

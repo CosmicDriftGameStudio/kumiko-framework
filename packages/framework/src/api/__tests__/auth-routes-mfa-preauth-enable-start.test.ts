@@ -9,6 +9,7 @@ import type { Hono } from "hono";
 import { Hono as HonoCtor } from "hono";
 import { InternalError, UnprocessableError } from "../../errors/index.ts";
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.ts";
+import { type HandlerType, resolveType } from "../../pipeline/dispatcher-utils.ts";
 import { PUBLIC_API_PATHS } from "../api-constants.ts";
 import { authMiddleware } from "../auth-middleware.ts";
 import {
@@ -123,8 +124,8 @@ describe("POST /auth/mfa/preauth-enable-start", () => {
   test("on success: dispatches to the handler, returns setupToken/otpauthUri/recoveryCodes, mints NO session", async () => {
     let receivedBody: unknown;
     const dispatcher = createStubDispatcher({
-      async write(qn, payload): Promise<WriteResult> {
-        expect(qn).toBe(PREAUTH_ENABLE_START_QN);
+      async write(qn: HandlerType, payload: unknown): Promise<WriteResult> {
+        expect(resolveType(qn)).toBe(PREAUTH_ENABLE_START_QN);
         receivedBody = payload;
         return {
           isSuccess: true,

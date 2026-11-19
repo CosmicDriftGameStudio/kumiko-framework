@@ -1,13 +1,12 @@
 import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import type { SubjectScope } from "../../shared/index.ts";
 import {
   applyDocumentOps,
   type DocumentOp,
   parseDocumentJson,
   serializeDocumentJson,
 } from "../../template-resolver/index.ts";
-import { documentDraftExecutor } from "../entity.ts";
+import type { DocumentDraftExecutor } from "../entity.ts";
 import { draftNotFound, loadScopedDraft, notInStatus, recordOrEmpty } from "../lib.ts";
 import { PatchDraftSchema } from "../payloads.ts";
 import {
@@ -25,7 +24,10 @@ const REFUSED_DRAFT_OPS: ReadonlySet<DocumentOp["op"]> = new Set([
   "setResource",
 ]);
 
-export function createPatchHandler(access: AccessRule, scope: SubjectScope) {
+export function createPatchHandler(
+  access: AccessRule,
+  documentDraftExecutor: DocumentDraftExecutor,
+) {
   return defineWriteHandler<"patch", typeof PatchDraftSchema, PatchData>({
     name: "patch",
     schema: PatchDraftSchema,
@@ -36,7 +38,7 @@ export function createPatchHandler(access: AccessRule, scope: SubjectScope) {
     handler: async (event, ctx) => {
       const { id, base, ops } = event.payload;
       const user = event.user;
-      const draft = await loadScopedDraft(ctx, user, scope, id);
+      const draft = await loadScopedDraft(documentDraftExecutor, ctx, user, id);
       if (draft === null) return draftNotFound(id);
       if (draft.status !== DOCUMENT_DRAFT_STATUS.Open)
         return notInStatus(DOCUMENT_DRAFT_STATUS.Open);

@@ -7,11 +7,14 @@ Import from `@cosmicdrift/kumiko-framework/errors`. Types used here but not expo
 ## Functions
 
 ```ts
+function defineFailureReasons<const TTable extends Readonly<Record<string, TranslationEntry>>>(featureName: string, table: TTable): FailureReasons<keyof TTable & string>;
 function failNotFound(entity: string, id?: number | string): WriteFailure;
 function failTransition(from: string, to: string, allowed: string[]): WriteFailure; // Convenience for state-transition rejects: produces a WriteFailure with reason="invalid_transition", a structured `from`/`to`/`allowed` detail block, and a readable message.
 function failUnprocessable(reason: string, details?: Readonly<Record<string, unknown>> & { reason?: never; }): WriteFailure;
 function isKumikoError(e: unknown): e is KumikoError;
+function isVersionConflict<TData>(result: WriteResult<TData>): result is WriteFailure;
 function reraiseAsKumikoError(info: WriteErrorInfo): KumikoError;
+function retryOnVersionConflict<T>(attempt: () => Promise<WriteResult<T>>, options?: { maxAttempts?: number; }): Promise<WriteResult<T>>;
 function subjectErasedConflict(cause?: unknown): ConflictError;
 function validationErrorFromZod(error: ZodError): ValidationError;
 function writeFailure(err: KumikoError): WriteFailure;
@@ -20,7 +23,8 @@ function writeFailure(err: KumikoError): WriteFailure;
 ## Constants
 
 ```ts
-const FrameworkReasons: { staleState; invalidTransition; fieldAccessDenied; deleteRestricted; featureDisabled; systemIdentitySwitchDenied; identitySwitchDenied; tenantOverrideRequiresSystemAdmin; notifyForeignTenantBroadcast; unsafeAllTenantsDenied; memberResolutionDenied; memberResolutionReadOnly; publicIntakeRequired; irreversibleOperationRequiresHighRisk; instructionFieldWriteRequiresHighRisk; irreversibleOperationWithoutEntryHandler; subjectErased; fileRejected; fileViolatesBindTarget };
+const FrameworkReasons: { staleState; invalidTransition; fieldAccessDenied; fieldApprovalRequired; deleteRestricted; featureDisabled; systemIdentitySwitchDenied; identitySwitchDenied; tenantOverrideRequiresSystemAdmin; notifyForeignTenantBroadcast; unsafeAllTenantsDenied; memberResolutionDenied; memberResolutionReadOnly; publicIntakeRequired; irreversibleOperationRequiresHighRisk; instructionFieldWriteRequiresHighRisk; irreversibleOperationWithoutEntryHandler; subjectErased; fileRejected; fileViolatesBindTarget };
+const VERSION_CONFLICT_CODE: "version_conflict";
 const frameworkErrorHttpStatus: { validation_error; feature_disabled; access_denied; unauthenticated; not_found; conflict; version_conflict; precondition_failed; record_locked; idempotent_replay; unique_violation; unprocessable; unconfigured; internal_error; member_read_timeout; rate_limited; rate_limit_unavailable };
 ```
 
@@ -97,6 +101,11 @@ class VersionConflictError extends ConflictError {
 type ErrorDocsConfig = { // Links an app's own error reasons to its own docs; uncovered reasons fall back to the framework page of the error code.
   baseUrl: string;
   reasons?: string[] | "all";
+};
+type FailureReasons<TName extends string> = {
+  reasonOf(name: TName): string; // The `details.reason` slug a client compares against: `alreadyPaid` → `already_paid`.
+  translationKeys: TranslationKeys; // `<feature>.errors.<name>` → texts; register with `r.translations({ keys })` and ship to the client bundle.
+  fail(name: TName, details?: FailureDetails, i18nParams?: Readonly<Record<string, unknown>>): WriteFailure;
 };
 type FieldIssue = {
   path: string;

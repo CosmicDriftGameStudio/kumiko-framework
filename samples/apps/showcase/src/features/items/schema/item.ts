@@ -1,58 +1,55 @@
-// Items-Feature — Schema (beidseitig importierbar). Entity-Fields plus
-// Edit/List-Screen-Definitionen. KEIN Server-Code (keine Drizzle-,
-// kein Handler-Import) — feature.ts (Server) UND client.ts (Client)
-// importieren das hier.
-//
-// Kitchen-Sink: deckt alle Field-Types ab die DefaultInput rendert
-// (text, number, boolean, date, select), plus Layout-Features
-// (Section, columns, span, conditional visibility/required, custom
-// column renderer).
-
+import {
+  createBooleanField,
+  createDateField,
+  createEntity,
+  createNumberField,
+  createReferenceField,
+  createSelectField,
+  createTextField,
+} from "@cosmicdrift/kumiko-framework/engine";
 import type {
   ActionFormScreenDefinition,
-  EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
-export const itemEntity = {
+export const itemEntity = createEntity({
+  name: "item",
   description:
     "A showcase task item carrying a title, free-text notes, a numeric priority, a done flag, a due date and a draft/active/blocked/done status, plus an optional parent item and a list of related items.",
   fields: {
-    title: {
-      type: "text",
+    title: createTextField({
+      personal: false,
+      reason: "is_business_data",
       required: true,
       sortable: true,
       searchable: true,
-      allowPlaintext: "is_business_data",
-    },
-    notes: { type: "text", multiline: { rows: 4 }, allowPlaintext: "is_business_data" },
-    priority: { type: "number", default: 1, sortable: true, filterable: true },
-    isDone: { type: "boolean", default: false, sortable: true, filterable: true },
-    dueDate: { type: "date", sortable: true, filterable: true },
-    status: {
-      type: "select",
+    }),
+    notes: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      multiline: { rows: 4 },
+    }),
+    priority: createNumberField({ default: 1, sortable: true, filterable: true }),
+    isDone: createBooleanField({ default: false, sortable: true, filterable: true }),
+    dueDate: createDateField({ sortable: true, filterable: true }),
+    status: createSelectField({
       options: ["draft", "active", "blocked", "done"],
       default: "draft",
       sortable: true,
       filterable: true,
-    },
+    }),
     // Tier 2.7e-3 Demo — Self-Reference: jedes Item kann optional ein
     // anderes Item als "parent task" referenzieren. Renderer zeigt im
     // Edit-Form ein Combobox-Dropdown mit Search (Tier 2.1c), List-
     // Spalte resolvet die UUID via Bulk-Lookup zum title.
-    parentId: { type: "reference", entity: "item", labelField: "title" },
+    parentId: createReferenceField({ entity: "item", labelField: "title" }),
     // Tier 2.7e-Multi Demo — Multi-Reference: ein Item kann mehrere
     // verwandte Items haben. Storage als jsonb-Array<uuid>. UI rendert
     // Multi-Combobox mit Tag-Anzeige.
-    relatedIds: {
-      type: "reference",
-      entity: "item",
-      labelField: "title",
-      multiple: true,
-    },
+    relatedIds: createReferenceField({ entity: "item", labelField: "title", multiple: true }),
   },
-} as unknown as EntityDefinition;
+});
 
 export const itemEditScreen: EntityEditScreenDefinition = {
   id: "item-edit",

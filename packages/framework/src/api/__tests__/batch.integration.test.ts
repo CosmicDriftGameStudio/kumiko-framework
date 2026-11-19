@@ -26,6 +26,7 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 
 // Entity: a simple "item" with name + counter
 const itemEntity = createEntity({
+  name: "item",
   table: "batch_items",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -33,18 +34,19 @@ const itemEntity = createEntity({
   },
 });
 
-const itemTable = buildEntityTable("item", itemEntity);
+const itemTable = buildEntityTable(itemEntity);
 
 // Second entity used by an inTransaction hook to prove that hook DB writes
 // roll back with the main transaction.
 const auditEntity = createEntity({
+  name: "audit",
   table: "batch_audit",
   fields: {
     action: createTextField({ personal: false, reason: "test_fixture", required: true }),
     itemId: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const auditTable = deriveEntityTableMeta("audit", auditEntity, { source: "unmanaged" });
+const auditTable = deriveEntityTableMeta(auditEntity, { source: "unmanaged" });
 
 // Hook invocation logs — reset per test. Captures which phase each hook saw.
 const inTxHookLog: Array<{ id: EntityId; name: string }> = [];
@@ -58,7 +60,7 @@ const afterCommitThirdHookRan: string[] = [];
 let slowHandlerDelayMs = 0;
 
 const itemFeature = defineFeature("batch", (r) => {
-  const item = r.entity({ name: "item", ...itemEntity });
+  const item = r.entity(itemEntity);
 
   r.writeHandler({
     name: "item:create",

@@ -93,6 +93,7 @@ export type {
   NotifyPriority,
   NotifyResult,
   QueryHandlerDef,
+  QueryHandlerRef,
   RateLimitPer,
   RoleAccessPersonalData,
   RoleAccessRule,
@@ -120,8 +121,9 @@ export type {
   ValidationError,
   ValidationHookFn,
 } from "@cosmicdrift/kumiko-types/hooks";
-export type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
+export type { EntityId, VisitorKey } from "@cosmicdrift/kumiko-types/identifiers";
 export type {
+  AdminNavArea,
   ContentCollectionDefinition,
   NavDefinition,
   NavIconKey,
@@ -145,7 +147,6 @@ export type {
 export type { RelationDefinition } from "@cosmicdrift/kumiko-types/relations";
 export type {
   ActionFormScreenDefinition,
-  BundledListsOptions,
   ConfigEditScreenDefinition,
   DashboardCustomPanel,
   DashboardI18nText,
@@ -157,6 +158,7 @@ export type {
   FieldCondition,
   FieldFormatRegistry,
   ListColumnSpec,
+  ListDefaultsOptions,
   ListFacetSpec,
   ListTableOptions,
   MetricNavigate,
@@ -178,10 +180,16 @@ export type {
 } from "@cosmicdrift/kumiko-types/tree-node";
 export type { WorkspaceDefinition } from "@cosmicdrift/kumiko-types/workspace";
 export { DEFAULT_LIST_LIMIT } from "../db/event-store-executor-read-paging.ts";
+export { parentRulesFromRegistry, resolveParentWriteAccess } from "../db/parent-ownership.ts";
+export type {
+  HandlerTranslations,
+  HandlerTranslationTexts,
+} from "../i18n/required-surface-keys.ts";
 export {
   handlerDescriptionKey,
   handlerFieldLabelKey,
   handlerTitleKey,
+  handlerTranslationKeys,
   webhookEventDescriptionKey,
   webhookEventFieldKey,
 } from "../i18n/required-surface-keys.ts";
@@ -202,14 +210,17 @@ export {
   type BootViolation,
   bootRuleError,
 } from "./boot-validator/boot-rule.ts";
-export { validateBundledListsOptions } from "./boot-validator/bundled-lists-table.ts";
 export {
   PII_DIRECT_NAME_HINTS,
   PII_USER_OWNED_NAME_HINTS,
   PII_USER_REFERENCE_NAME_HINTS,
 } from "./boot-validator/entity-handler.ts";
+export { validateListDefaultsOptions } from "./boot-validator/list-defaults.ts";
 export { entityHasAnonymizableSubjectField } from "./boot-validator/pii-retention.ts";
 export {
+  type BootValidationResult,
+  type BootWarning,
+  type BootWarningKind,
   collectCardMetaOverflow,
   collectWriteHandlerQns,
   MAX_TRANSFER_DEPTH,
@@ -248,6 +259,7 @@ export { defineFeature } from "./define-feature.ts";
 export type {
   PagedQueryHandlerDefinition,
   QueryHandlerDefinition,
+  QueryHandlerInput,
   WriteHandlerDefinition,
   WriteHandlerInput,
 } from "./define-handler.ts";
@@ -258,8 +270,6 @@ export {
 } from "./define-handler.ts";
 export { defineRoles } from "./define-roles.ts";
 export { defineStep, getStep } from "./define-step.ts";
-export type { WorkflowDefinition } from "./define-workflow.ts";
-export { computeDefinitionFingerprint, defineWorkflow } from "./define-workflow.ts";
 export type { ToggleReader } from "./effective-features.ts";
 export { computeEffectiveFeatures, isToggleableFeature } from "./effective-features.ts";
 export {
@@ -268,18 +278,17 @@ export {
   defineEntityDeleteHandler,
   defineEntityDetailHandler,
   defineEntityListHandler,
-  // Legacy single-fn-with-verb-string API. Backwards compatibility — new
-  // apps use the verb-specific wrappers above. Existing callers (integration
-  // tests, old bundled-features) remain runnable without changes.
-  defineEntityQueryHandler,
   defineEntityRestoreHandler,
   defineEntityUpdateHandler,
-  defineEntityWriteHandler,
   defineProjectionQueryHandler,
   entityListSchema,
   MAX_LIST_LIMIT,
 } from "./entity-handlers.ts";
-export { parentVisibilityFor, referenceGroupLabels } from "./entity-list-runtime-options.ts";
+export {
+  hostRoleAllowsRead,
+  parentVisibilityFor,
+  referenceGroupLabels,
+} from "./entity-list-runtime-options.ts";
 export { declareEscapeHatch } from "./escape-hatch-declaration.ts";
 export { CODEMOD_PLACEHOLDER_REASON_MARKER } from "./escape-hatch-reason.ts";
 export { emitEvent, typedPayload } from "./event-helpers.ts";
@@ -380,12 +389,26 @@ export {
   filterReadFields,
   maskWriteOnlyFields,
 } from "./field-access.ts";
+export {
+  FIELD_CHANGE_REQUEST_ENTITY_NAME,
+  fieldApproveRoles,
+  fieldsAwaitingApproval,
+  fieldsRequiringApprovalRequest,
+  userCanApproveField,
+} from "./field-approval.ts";
 export { DEFAULT_CURRENCIES, DEFAULT_LOCALES } from "./field-helpers.ts";
 export { findEntity } from "./find-entity.ts";
 export { handlerFieldReference } from "./handler-field-references.ts";
 export { withResponseData } from "./handler-helpers.ts";
 export { HookPhases } from "./hook-helpers.ts";
 export { i18nKey } from "./i18n-key.ts";
+export type { ListAllPagesOptions, ListPage, ListPageRequest } from "./list-all-pages.ts";
+export {
+  forEachPage,
+  LIST_ALL_PAGES_DEFAULT_MAX_PAGES,
+  listAllPages,
+  toListPage,
+} from "./list-all-pages.ts";
 // findForbiddenMembershipRole/isForbiddenMembershipRole/
 // stripForbiddenMembershipRoles/buildSessionRoles are Public API for host
 // apps that build their own membership handlers. FORBIDDEN_MEMBERSHIP_ROLES
@@ -396,10 +419,12 @@ export {
   buildSessionRoles,
   findForbiddenMembershipRole,
 } from "./membership-roles.ts";
-export type { OwnershipMap } from "./ownership.ts";
+export type { OwnershipMap, ParentRuleResolver, ParentRuleTarget } from "./ownership.ts";
 export {
   from,
+  fromParent,
   normalizeAccessEntry,
+  userCanReadFieldRow,
   userCanWriteFieldRow,
 } from "./ownership.ts";
 export {
@@ -410,9 +435,16 @@ export { parseRefTarget, parseRefTargetEntityName } from "./parse-ref-target.ts"
 export { buildPipelineSteps, stepsPipeline } from "./pipeline.ts";
 export { ProbeFailure } from "./probe-failure.ts";
 export { projectAppSchemaForRoles } from "./project-app-schema-for-roles.ts";
-export { defineApply, defineMspApply, setFields } from "./projection-helpers.ts";
+export {
+  defineApply,
+  defineMspApply,
+  projectionInsertColumns,
+  projectionUpdateColumns,
+  setFields,
+} from "./projection-helpers.ts";
 export { isValidQn, parseQn, QnTypes, qn, toKebab } from "./qualified-name.ts";
 export { readClaim } from "./read-claim.ts";
+export { registeredEntityExecutor } from "./registered-entity-executor.ts";
 export { createRegistry } from "./registry.ts";
 export { resolveNamedListFilters } from "./resolve-named-list-filters.ts";
 export type { AssignableAppRoles } from "./role-assignment.ts";
@@ -447,24 +479,10 @@ export {
 } from "./soft-delete-cleanup.ts";
 export type { TransitionGraph } from "./state-machine.ts";
 export { defineTransitions, guardTransition } from "./state-machine.ts";
-export { evaluateEventMatch } from "./steps/_event-match.ts";
 export {
-  STEP_DISPATCH_AGGREGATE_TYPE,
-  STEP_DISPATCH_FAILED_TYPE,
-  STEP_DISPATCH_REQUESTED_TYPE,
-  STEP_DISPATCHED_TYPE,
-  WORKFLOW_AGGREGATE_TYPE,
-  WORKFLOW_RESUMED_TYPE,
-  WORKFLOW_RETRY_SCHEDULED_TYPE,
-  WORKFLOW_RUN_COMPLETED_TYPE,
-  WORKFLOW_RUN_FAILED_TYPE,
-  WORKFLOW_RUN_STARTED_TYPE,
-  WORKFLOW_WAITING_FOR_EVENT_TYPE,
-  WORKFLOW_WAITING_TYPE,
-} from "./steps/_step-dispatch-constants.ts";
-export { describeWorkflowStepError } from "./steps/describe-workflow-step-error.ts";
-export { unwrapWorkflowStepError, WorkflowStepError } from "./steps/workflow-step-error.ts";
-export { WORKFLOW_SYSTEM_EVENT_DEFS } from "./steps/workflow-system-events.ts";
+  type StoredEventPayloadShape,
+  storedEventPayloadSchema,
+} from "./stored-event-payload-schema.ts";
 export {
   ANONYMOUS_ROLE,
   ANONYMOUS_USER_ID,
@@ -494,6 +512,7 @@ export {
   type TransferEdge,
   type TransferEdgeLink,
 } from "./transfer-adjacency.ts";
+export { type TriggeredEvent, triggeredEventOf } from "./triggered-event.ts";
 export { isSystemTenant, isUuid, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers.ts";
 // Types
 export type {
@@ -513,10 +532,10 @@ export type {
   Registry,
   ReservationContext,
   SessionUser,
+  SystemScopeHandlerContext,
   TenantId,
 } from "./types/index.ts";
 export type {
-  AwaitedEventType,
   PipelineCtx,
   StepInstance,
   StepResolver,

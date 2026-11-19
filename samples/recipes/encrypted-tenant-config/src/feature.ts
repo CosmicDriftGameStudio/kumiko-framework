@@ -81,7 +81,7 @@ const chargeHandler = defineWriteHandler({
 
 export const billingFeature = defineFeature(FEATURE, (r) => {
   r.requires({ features: ["config"] });
-  r.config("stripe-api-key", stripeApiKeyDef);
+  r.config({ keys: { "stripe-api-key": stripeApiKeyDef } });
   r.writeHandler(chargeHandler);
   // No r.screen/r.nav: the `mask` entry on the key lets
   // buildConfigFeatureSchema derive the configEdit screen (••••••-masked,

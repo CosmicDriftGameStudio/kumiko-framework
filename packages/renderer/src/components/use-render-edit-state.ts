@@ -1,16 +1,24 @@
 import type { EntityEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useAppFeatures } from "../app/app-features-context.tsx";
+import { useClientActionRuntime } from "../app/client-actions.tsx";
 import type { ErrorNotice } from "../app/error-reference.tsx";
 import { useExtensionFormHost } from "../app/extension-form-submit.tsx";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useDraftStorage } from "../context/draft-storage-context.tsx";
-import type { DispatcherError, FieldIssue, Translate } from "../headless/index.ts";
+import { rendererWarn } from "../dev-console.ts";
+import type { Dispatcher, DispatcherError, FieldIssue, Translate } from "../headless/index.ts";
 import { useLocale, useTranslation } from "../i18n.tsx";
 import { useInsideDrawer } from "../inside-drawer.ts";
 import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
 import { useFormPendingUploadsHost } from "./form-pending-uploads.tsx";
 import type { FormErrorSource } from "./render-edit-helpers.tsx";
+import {
+  FIELD_APPROVAL_FEATURE,
+  FIELD_APPROVAL_PENDING_CHANGES,
+  type PendingApprovalRequest,
+} from "./render-edit-logic.ts";
 import { useActionMenuItems } from "./use-action-menu-items.tsx";
 import { useWizardFormDraftState } from "./use-wizard-form-draft.ts";
 
@@ -111,6 +119,89 @@ function useExtensionComposition() {
   };
 }
 
+type PendingChangesAnswer = {
+  readonly rows?: readonly {
+    readonly id?: unknown;
+    readonly version?: unknown;
+    readonly fieldName?: unknown;
+    readonly value?: unknown;
+    readonly filedByCaller?: unknown;
+  }[];
+  readonly gatedFields?: readonly unknown[];
+};
+
+function toPendingApprovalRequests(
+  rows: NonNullable<PendingChangesAnswer["rows"]>,
+): readonly PendingApprovalRequest[] {
+  return rows.flatMap((row) =>
+    typeof row.fieldName === "string" &&
+    typeof row.id === "string" &&
+    typeof row.version === "number"
+      ? [
+          {
+            id: row.id,
+            version: row.version,
+            fieldName: row.fieldName,
+            filedByCaller: row.filedByCaller === true,
+            ...(row.value !== undefined && { requestedValue: row.value }),
+          },
+        ]
+      : [],
+  );
+}
+
+type FieldApprovalAnswer = {
+  readonly gatedFields: readonly string[];
+  readonly requests: readonly PendingApprovalRequest[];
+};
+
+const NO_FIELD_APPROVAL: FieldApprovalAnswer = { gatedFields: [], requests: [] };
+
+// The server knows which fields the caller must request (the client schema carries no access)
+// and which requests are open, so the hint survives a reload and shows a request filed elsewhere.
+function useFieldApproval(
+  dispatcher: Dispatcher | undefined,
+  entityType: string,
+  entityId: string | null | undefined,
+  enabled: boolean,
+) {
+  const [answer, setAnswer] = useState<FieldApprovalAnswer>(NO_FIELD_APPROVAL);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const savedEntityId = isCreateModeEntityId(entityId) ? null : entityId;
+  const loadAnswer = useCallback(
+    async (isSuperseded: () => boolean): Promise<void> => {
+      // skip: no field-approval, or no server to ask
+      if (!enabled || dispatcher === undefined) return;
+      try {
+        const result = await dispatcher.query<PendingChangesAnswer>(
+          FIELD_APPROVAL_PENDING_CHANGES,
+          { entityType, entityId: savedEntityId ?? null },
+        );
+        // skip: superseded, or the caller may not ask; the form then edits like without the feature
+        if (isSuperseded() || !result.isSuccess) return;
+        setAnswer({
+          gatedFields: (result.data.gatedFields ?? []).filter(
+            (name): name is string => typeof name === "string",
+          ),
+          requests: toPendingApprovalRequests(result.data.rows ?? []),
+        });
+      } catch (err: unknown) {
+        rendererWarn("render-edit: field approval query failed", err);
+      }
+    },
+    [dispatcher, entityType, savedEntityId, enabled],
+  );
+  const reload = useCallback(() => void loadAnswer(() => false), [loadAnswer]);
+  useEffect(() => {
+    let cancelled = false;
+    void loadAnswer(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [loadAnswer]);
+  return { ...answer, reload, drawerOpen, setDrawerOpen };
+}
+
 export function isCreateModeEntityId(entityId: string | null | undefined): boolean {
   return entityId === undefined || entityId === null || entityId === "";
 }
@@ -119,10 +210,13 @@ export function useRenderEditState({
   screen,
   entityId,
   translate: translateProp,
+  approvalEnabled,
 }: {
   readonly screen: EntityEditScreenDefinition;
   readonly entityId: string | null | undefined;
   readonly translate: Translate | undefined;
+  // Forms with their own submit (drawer, configEdit, projectionDetail) do not ask.
+  readonly approvalEnabled: boolean;
 }) {
   // Translate fallback: when the caller does not provide a translate function,
   // consume the i18next context directly. Otherwise field labels would remain raw
@@ -133,6 +227,10 @@ export function useRenderEditState({
   const appLocale = useLocale().locale();
   const translate = translateProp ?? t;
   const dispatcher = useOptionalDispatcher();
+  const fieldApprovalMounted = useAppFeatures().some(
+    (feature) => feature.featureName === FIELD_APPROVAL_FEATURE,
+  );
+  const notifyAction = useClientActionRuntime().notify;
 
   const isWizard = screen.layout.mode === "wizard";
   // Tabs reuse the wizard's step machinery: one section visible at a time,
@@ -144,6 +242,12 @@ export function useRenderEditState({
   const isCreateMode = isCreateModeEntityId(entityId);
   const draftStorage = useDraftStorage();
   const feedback = useSubmitFeedbackState();
+  const fieldApproval = useFieldApproval(
+    dispatcher,
+    screen.entity,
+    entityId,
+    fieldApprovalMounted && approvalEnabled,
+  );
   const stepState = useStepState();
   const draftState = useWizardFormDraftState({
     screenId: screen.id,
@@ -160,18 +264,14 @@ export function useRenderEditState({
   const pageHeaderCompact = usePageHeaderCompact();
   const insideDrawer = useInsideDrawer();
 
-  // Both stepped layouts show one section at a time and keep the rest mounted
-  // but inert. A tabs layout on a host without the Tabs primitive has no strip
-  // to switch with, so it falls back to rendering every section stacked rather
-  // than stranding the user on section 0. Same fallback when the
-  // WizardStepGroup wrapper is missing.
-  const isStepped =
-    isWizard ||
-    (isTabs && primitives.Tabs !== undefined && primitives.WizardStepGroup !== undefined);
+  // Both stepped layouts show one section at a time and keep the rest mounted but inert.
+  const isStepped = isWizard || isTabs;
   return {
     translate,
     appLocale,
     dispatcher,
+    fieldApproval,
+    notifyAction,
     isWizard,
     isTabs,
     draftEnabled,

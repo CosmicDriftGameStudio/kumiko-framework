@@ -15,6 +15,8 @@ import {
 const SAVE_DRAFT_COUNT_REASON =
   "COUNT(*) of the caller's own drafts without loading 64KB value blobs";
 
+const FORM_DRAFT_OWNER_LOCK_NAMESPACE = 0x66_64_72_66; // 'fdrf'
+
 /**
  * save is an upsert keyed on (tenantId, ownerId, draftKey) — same
  * lookup-then-create|update-with-race-retry idiom as
@@ -52,7 +54,13 @@ export const saveDraftWrite = defineWriteHandler({
     // Cap check only on the create path — an update never grows the number
     // of drafts this owner has, so a user already at the limit can still
     // keep saving their existing drafts.
-    const draftCount = await countDraftsByOwner(ctx.db.unsafeRaw(), event.user.tenantId, ownerId);
+    // Parallel creates with different draftKeys would each pass the count and overshoot the cap.
+    await ctx.db.advisoryXactLock(FORM_DRAFT_OWNER_LOCK_NAMESPACE, ownerId);
+    const draftCount = await countDraftsByOwner(
+      ctx.db.unsafeRawAllTenants(),
+      event.user.tenantId,
+      ownerId,
+    );
     if (draftCount >= FORM_DRAFT_MAX_PER_OWNER) {
       return failUnprocessable("draft_limit_reached", { limit: FORM_DRAFT_MAX_PER_OWNER });
     }

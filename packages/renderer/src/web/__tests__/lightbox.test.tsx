@@ -18,7 +18,7 @@ describe("Lightbox", () => {
     );
     const img = screen.getByRole("img", { name: "Product screenshot" });
     expect(img.getAttribute("src")).toBe("/demo.png");
-    expect(screen.getByTestId("lb")).toBeTruthy();
+    screen.getByTestId("lb");
   });
 
   test("open=false renders nothing", () => {
@@ -69,7 +69,7 @@ describe("Lightbox navigation", () => {
   test("shows the current image and a position counter", () => {
     renderGallery(1);
     expect(screen.getByRole("img", { name: "Second" }).getAttribute("src")).toBe("/b.png");
-    expect(screen.getByText("2 / 3")).toBeTruthy();
+    screen.getByText("2 / 3");
   });
 
   test("next click advances the index", async () => {
@@ -101,7 +101,7 @@ describe("Lightbox navigation", () => {
 
   test("an out-of-range index is clamped when rendering", () => {
     renderGallery(9);
-    expect(screen.getByRole("img", { name: "Third" })).toBeTruthy();
+    screen.getByRole("img", { name: "Third" });
   });
 
   test("a single image shows no navigation", () => {
@@ -156,7 +156,7 @@ describe("Lightbox actions and position", () => {
         actions={<a href="/demo.png">Download</a>}
       />,
     );
-    expect(screen.getByRole("link", { name: "Download" })).toBeTruthy();
+    screen.getByRole("link", { name: "Download" });
   });
 
   test("showPosition={false} hides the counter but keeps the navigation", () => {
@@ -171,6 +171,6 @@ describe("Lightbox actions and position", () => {
       />,
     );
     expect(screen.queryByText("1 / 2")).toBeNull();
-    expect(screen.getByLabelText("Next image")).toBeTruthy();
+    screen.getByLabelText("Next image");
   });
 });

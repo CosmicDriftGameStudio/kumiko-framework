@@ -78,8 +78,12 @@ function freshUsers() {
   };
 }
 
-const start = (user: ReturnType<typeof createTestUser>) =>
-  stack.http.writeOk<Started>(ReadinessWrites.runProbes, {}, user);
+// Job triggers run in the event dispatcher, which the test stack only advances on runOnce.
+async function start(user: ReturnType<typeof createTestUser>): Promise<Started> {
+  const started = await stack.http.writeOk<Started>(ReadinessWrites.runProbes, {}, user);
+  await stack.eventDispatcher?.runOnce();
+  return started;
+}
 
 function runResultsEmptyTitleFor(run: Readonly<Record<string, unknown>>): string | undefined {
   const results = systemCheckRunScreen.layout.sections.find(

@@ -11,13 +11,16 @@ import {
   ComparisonTable,
   DateField,
   DetailList,
+  DivergingBarChart,
   Drawer,
   EmptyState,
   FloatingPanel,
+  HistogramChart,
   InfinityList,
   MiniStat,
   ModeSwitch,
   MoneyField,
+  NumericLineChart,
   PercentField,
   PlanCard,
   PlanGrid,
@@ -30,6 +33,7 @@ import {
   ResultTable,
   SectionCard,
   SelectField,
+  SignedBarChart,
   StatCard,
   StatusBadge,
   StatusBarChart,
@@ -332,7 +336,79 @@ export function Widgets(): ReactNode {
       <PlanCatalogDemo />
       <VariantsDemo />
       <VariantsRoundTwoDemo />
+      <NumericChartsDemo />
     </div>
+  );
+}
+
+const WEALTH_YEARS = Array.from({ length: 21 }, (_, year) => year);
+const PROPERTY_WEALTH = WEALTH_YEARS.map((x) => ({
+  x,
+  y: Math.round(60_000 + x * 14_000 + x * x * 450),
+}));
+const ETF_WEALTH = WEALTH_YEARS.map((x) => ({ x, y: Math.round(60_000 * 1.065 ** x + x * 3_600) }));
+const CASHFLOW_YEARS = Array.from({ length: 10 }, (_, i) => 2026 + i);
+const CASHFLOW_BUCKETS = CASHFLOW_YEARS.map((x, i) => ({
+  x,
+  values: { subsidy: i < 4 ? -(2_400 - i * 500) : 0, surplus: i < 2 ? 0 : 600 + i * 450 },
+}));
+const NET_RESULT_BINS = [
+  { id: "b1", start: -60_000, end: -30_000, count: 6 },
+  { id: "b2", start: -30_000, end: 0, count: 21 },
+  { id: "b3", start: 0, end: 30_000, count: 48 },
+  { id: "b4", start: 30_000, end: 60_000, count: 37 },
+  { id: "b5", start: 60_000, end: 90_000, count: 15 },
+  { id: "b6", start: 90_000, end: 120_000, count: 5 },
+];
+const DRIVER_CORRELATIONS = [
+  { key: "rent", label: "Net rent", value: 0.71 },
+  { key: "vacancy", label: "Vacancy", value: -0.54 },
+  { key: "interest", label: "Interest rate", value: -0.43 },
+  { key: "price", label: "Purchase price", value: -0.31 },
+  { key: "growth", label: "Rent growth", value: 0.22 },
+];
+
+function NumericChartsDemo(): ReactNode {
+  const locale = useLocale().locale();
+  return (
+    <SectionCard title="Numeric charts" subtitle="Static sample data">
+      <div className="flex flex-col gap-8">
+        <NumericLineChart
+          ariaLabel="Wealth: property versus ETF"
+          series={[
+            { key: "property", label: "Property", points: PROPERTY_WEALTH },
+            { key: "etf", label: "ETF", points: ETF_WEALTH, dashed: true },
+          ]}
+          xAxis={{ ticks: 5, format: (year) => `${year} y` }}
+          yAxis={{ ticks: 5, format: (value) => euro(value, locale) }}
+          referenceLines={[{ axis: "x", value: 12, label: "Sale", dashed: true }]}
+          renderTooltip={(year) => <span>{`Year ${year}`}</span>}
+        />
+        <SignedBarChart
+          ariaLabel="Yearly cashflow: subsidy and surplus"
+          buckets={CASHFLOW_BUCKETS}
+          series={[
+            { key: "subsidy", label: "Subsidy" },
+            { key: "surplus", label: "Surplus" },
+          ]}
+          xAxis={{ format: (year) => String(year) }}
+          yAxis={{ ticks: 5, format: (value) => euro(value, locale) }}
+          formatValue={(value) => euro(value, locale)}
+        />
+        <HistogramChart
+          ariaLabel="Distribution of the net result"
+          bins={NET_RESULT_BINS}
+          xAxis={{ ticks: 5, format: (value) => euro(value, locale) }}
+          yAxis={{ ticks: 4 }}
+          referenceLines={[{ value: 0, label: "Breakeven" }]}
+        />
+        <DivergingBarChart
+          ariaLabel="Correlation of drivers with the net result"
+          rows={DRIVER_CORRELATIONS}
+          formatValue={(value) => value.toFixed(2)}
+        />
+      </div>
+    </SectionCard>
   );
 }
 

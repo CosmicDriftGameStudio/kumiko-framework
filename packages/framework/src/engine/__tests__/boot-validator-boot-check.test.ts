@@ -36,7 +36,7 @@ const promptStore = () =>
         find: "none",
       }),
     };
-    r.entity({ name: "prompt", ...createEntity({ fields: promptFields }) });
+    r.entity(createEntity({ name: "prompt", fields: promptFields }));
     r.bootCheck(({ features }) => {
       // Conditional on this feature's own shape (has a pii field), closed
       // over from setup — r.requires({ features: ["user-data-hook"] }) can't express that.
@@ -81,7 +81,7 @@ describe("r.bootCheck / validateFeatureBootChecks", () => {
   test("no PII field → boot succeeds even without the companion", () => {
     const noPiiFields = { text: createTextField({ personal: false, reason: "test_fixture" }) };
     const noPii = defineFeature("prompt-store-no-pii", (r) => {
-      r.entity({ name: "note", ...createEntity({ fields: noPiiFields }) });
+      r.entity(createEntity({ name: "note", fields: noPiiFields }));
       r.bootCheck(({ features }) => {
         const hasPiiField = Object.values(noPiiFields).some((field) => field.pii);
         if (hasPiiField && !requiresUserDataHook(features)) {

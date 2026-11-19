@@ -220,8 +220,13 @@ describe("template-resolver :: mail attachments", () => {
   test("an attachment needs template, key and a plain file name", async () => {
     const templateId = await createTemplate(tenantA, "att-invalid");
     const sourceFileRefId = await uploadPdf(tenantA);
-    for (const payload of [
+    const missingTemplate = await stack.http.writeErr(
+      TemplateResolverHandlers.resourceUpload,
       { sourceFileRefId, purpose: "attachment", fileName: "a.pdf" },
+      tenantA,
+    );
+    expectErrorIncludes(missingTemplate, '"path":"templateId"');
+    for (const payload of [
       { sourceFileRefId, templateId, key: "offer", purpose: "attachment" },
       { sourceFileRefId, templateId, key: "offer", purpose: "attachment", fileName: "../a.pdf" },
     ]) {

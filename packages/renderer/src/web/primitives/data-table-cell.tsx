@@ -12,6 +12,7 @@ import type {
   ListColumnFileDisplay,
   ListColumnHintViewModel,
   ListRowViewModel,
+  RuntimeCellFile,
   RuntimeCellLink,
   RuntimeCellLinkItems,
 } from "../../headless/index.ts";
@@ -35,7 +36,7 @@ import { Badge } from "../ui/badge.tsx";
 import { buttonVariants } from "../ui/button.tsx";
 import { StatusBadge, type StatusBadgeTone } from "../widgets/status-badge.tsx";
 import { HintCell } from "./data-table/hint-cell.tsx";
-import { FileDisplayCell } from "./file-thumbnail.tsx";
+import { FileDisplayCell, FileDownloadLink } from "./file-thumbnail.tsx";
 import { FileViewAction } from "./file-view-action.tsx";
 import "../react-css-custom-properties.ts";
 import { useOptionalTranslation } from "../../index.ts";
@@ -200,8 +201,6 @@ export function isComponentRendererRef(renderer: unknown): { readonly name: stri
 type MoneyCellValue = {
   amount: number;
   currency: string;
-  /** Exact integer cents from rehydrateMoney; preferred for display. */
-  amountMinor?: number;
 };
 
 function isMoneyValue(value: unknown): value is MoneyCellValue {
@@ -263,7 +262,7 @@ export function defaultCellRender(
   }
   if (type === "money") {
     if (!isMoneyValue(value)) return String(value);
-    return formatMoneyValue(value, locale);
+    return formatMoneyValue(value, { locale });
   }
   if (type === "select" || type === "multiSelect") {
     const values = Array.isArray(value) ? value : [value];
@@ -308,7 +307,7 @@ export function selectPill(
   optionLabels: Readonly<Record<string, string>> | undefined,
   optionTones: Readonly<Partial<Record<string, SelectOptionTone>>> | undefined,
   locale: string | undefined,
-  RegisteredStatusBadge: PrimitivesRegistry["StatusBadge"],
+  RegisteredStatusBadge: PrimitivesRegistry["StatusBadge"] | undefined,
 ): ReactNode {
   const label = defaultCellRender(value, "select", optionLabels, locale);
   const declaredTone =
@@ -364,6 +363,8 @@ type DataTableCellProps = {
   readonly compactFile?: boolean;
   readonly link?: CellLink;
   readonly linkItems?: readonly CellLinkItem[];
+  /** A reference cell links this file under its label instead of the referenced record. */
+  readonly referenceFileId?: string;
   readonly hint?: ListColumnHintViewModel;
   readonly display?: ListColumnCellDisplay;
   readonly badgeToneField?: string;
@@ -454,16 +455,23 @@ export function cellLinkProp(
     readonly field: string;
     readonly linkFor?: RuntimeCellLink | undefined;
     readonly linkItemsFor?: RuntimeCellLinkItems | undefined;
+    readonly referenceFileFor?: RuntimeCellFile | undefined;
   },
   row: ListRowViewModel,
   allowed: boolean,
-): { readonly link?: CellLink; readonly linkItems?: readonly CellLinkItem[] } {
+): {
+  readonly link?: CellLink;
+  readonly linkItems?: readonly CellLinkItem[];
+  readonly referenceFileId?: string;
+} {
   if (!allowed) return {};
   const link = col.linkFor?.(row.values[col.field], row.values);
   const linkItems = col.linkItemsFor?.(row.values[col.field], row.values);
+  const referenceFileId = col.referenceFileFor?.(row.values[col.field], row.values);
   return {
     ...(link !== undefined && { link }),
     ...(linkItems !== undefined && { linkItems }),
+    ...(referenceFileId !== undefined && { referenceFileId }),
   };
 }
 
@@ -663,6 +671,22 @@ function renderFileCell({
   );
 }
 
+// The same download link and PDF drawer action as a `viewInDrawer` file column, under the reference label.
+function ReferenceFileCell({
+  fileId,
+  label,
+}: {
+  readonly fileId: string;
+  readonly label: string;
+}): ReactNode {
+  return (
+    <span className="inline-flex items-center gap-3">
+      <FileDownloadLink fileId={fileId} name={label} asDownload />
+      <FileViewAction fileId={fileId} />
+    </span>
+  );
+}
+
 // Cell renderer as a component (instead of a plain function) so the
 // useColumnRenderer hook can read from the provider. The four paths:
 //   1. FormatSpec (`{ format: "timestamp" }` etc.) -> applyFormatSpec.
@@ -718,6 +742,7 @@ function DataTableCellBody({
   compactFile = false,
   link,
   linkItems,
+  referenceFileId,
   hint,
   display,
   badgeToneField,
@@ -792,6 +817,20 @@ function DataTableCellBody({
     return <BooleanCell value={value} translate={translate} />;
   }
   if (isUnlabeledFalse(type, value, renderer)) return <EmptyCell placeholder={emptyPlaceholder} />;
+  if (referenceFileId !== undefined) {
+    const label = plainCellText({
+      value,
+      row,
+      type,
+      renderer,
+      optionLabels,
+      locale,
+      field,
+      grouping,
+      translate,
+    });
+    return <ReferenceFileCell fileId={referenceFileId} label={label} />;
+  }
   if (fileDisplay !== undefined) {
     return renderFileCell({ value, fileDisplay, compactFile, translate });
   }
@@ -844,7 +883,7 @@ function renderFormatSpecCell({
   translate: DataTableCellProps["translate"];
   locale: string | undefined;
   link: DataTableCellProps["link"];
-  RegisteredStatusBadge: PrimitivesRegistry["StatusBadge"];
+  RegisteredStatusBadge: PrimitivesRegistry["StatusBadge"] | undefined;
 }): ReactNode {
   const text = applyFormatSpec(
     { ...renderer, locale: renderer.locale ?? locale },
@@ -954,7 +993,7 @@ function renderSelectTypeCell({
   optionLabels: DataTableCellProps["optionLabels"];
   optionTones: DataTableCellProps["optionTones"];
   locale: string | undefined;
-  RegisteredStatusBadge: PrimitivesRegistry["StatusBadge"];
+  RegisteredStatusBadge: PrimitivesRegistry["StatusBadge"] | undefined;
 }): ReactNode | undefined {
   if (type === "select" && value !== null && value !== undefined && value !== "") {
     return selectPill(value, optionLabels, optionTones, locale, RegisteredStatusBadge);

@@ -13,7 +13,10 @@ import {
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestEnvelopeCipher,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -116,7 +119,10 @@ beforeAll(async () => {
         masterKeyProvider,
         registry: deps.registry,
       });
-      return { secrets, ...createDeliveryTestContext(deps, { secrets }) };
+      return {
+        secrets,
+        ...createDeliveryTestContext(deps, { secrets, addressCipher: createTestEnvelopeCipher() }),
+      };
     },
   });
   await unsafePushTables(stack.db, {
@@ -152,7 +158,11 @@ describe("confirmed on the attempt row", () => {
     expect(row?.confirmed).toBe(false);
     // The live worker lane may finish the job before a "queued" row could be
     // observed, so the job path is proven by the attempt's event stream.
-    const events = await selectMany(stack.db, eventsTable, { aggregateId: row?.id ?? "" });
+    const events = await selectMany<{ version: number; payload: Record<string, unknown> }>(
+      stack.db,
+      eventsTable,
+      { aggregateId: row?.id ?? "" },
+    );
     expect(
       events.toSorted((a, b) => a.version - b.version).map((e) => e.payload["status"]),
     ).toEqual(["queued", "sent"]);

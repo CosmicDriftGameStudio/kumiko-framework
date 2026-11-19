@@ -198,7 +198,7 @@ describe("DataTable column resizing", () => {
     const table = screen.getByTestId("t");
     expect(table.style.tableLayout).toBe("");
     expect(table.querySelector("colgroup")).toBeNull();
-    expect(screen.getByTestId("column-resize-name")).toBeTruthy();
+    screen.getByTestId("column-resize-name");
     const firstCell = screen.getByTestId("cell-r1-name").className.split(/\s+/);
     expect(firstCell).toContain("max-w-md");
     expect(firstCell).toContain("truncate");

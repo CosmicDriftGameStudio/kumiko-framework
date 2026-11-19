@@ -1,10 +1,13 @@
 // Pure format utilities — no web or platform dependencies.
 // Shared between renderer/web and server-side tests.
 
+import { parseFieldOptionsRef } from "@cosmicdrift/kumiko-framework/ui-types";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { isOneOf, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { rendererWarn } from "../../dev-console.ts";
 import { serverNowMs } from "../../server-clock.ts";
+import { fieldOptionLabelKeyPrefix } from "../view-model/list.ts";
+import { formatMoney, isCurrencyCode } from "./money.ts";
 import { formatRelativeTime } from "./relative-time.ts";
 
 export const EMPTY_VALUE_PLACEHOLDER = "—";
@@ -170,9 +173,9 @@ export { escapeHtml, escapeHtmlAttr, escapeXml, isSafeHref, stripControlChars } 
 export { type HtmlValue, html, RawHtml, raw } from "./html-template.ts";
 export {
   currencyDecimals,
+  type FormatMoneyOptions,
   formatMoney,
   formatMoneyValue,
-  moneyAmountToMinor,
   resolveSafeMoneyLocale,
 } from "./money.ts";
 export { telHref } from "./phone.ts";
@@ -287,8 +290,33 @@ function formatBooleanCell(spec: CellFormatSpec, value: unknown, translate: Cell
 }
 
 function formatCurrencyCell(spec: CellFormatSpec, value: unknown): string {
-  const sym = stringSpec(spec, "symbol") ?? "";
-  return sym.length > 0 ? `${value} ${sym}` : String(value);
+  const currency = stringSpec(spec, "currency");
+  const amount =
+    typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
+  if (currency === undefined || !isCurrencyCode(currency) || !Number.isFinite(amount)) {
+    return String(value);
+  }
+  return formatMoney(amount, currency.toUpperCase(), {
+    locale: stringSpec(spec, "locale"),
+    ...fractionDigitsSpec(spec),
+  });
+}
+
+function formatMoneyCell(spec: CellFormatSpec, value: unknown): string {
+  const amount = propertyOf(value, "amount");
+  const currency = propertyOf(value, "currency");
+  if (
+    typeof amount !== "number" ||
+    !Number.isFinite(amount) ||
+    typeof currency !== "string" ||
+    !isCurrencyCode(currency)
+  ) {
+    return typeof value === "string" || typeof value === "number" ? String(value) : "";
+  }
+  return formatMoney(amount, currency.toUpperCase(), {
+    locale: stringSpec(spec, "locale"),
+    ...fractionDigitsSpec(spec),
+  });
 }
 
 function formatNumericCell(spec: CellFormatSpec, value: unknown): string {
@@ -316,12 +344,22 @@ function formatPriorityCell(spec: CellFormatSpec, value: unknown): string {
   return `${prefix}${value}`;
 }
 
+function enumOptionKeyPrefix(spec: CellFormatSpec): string | undefined {
+  const keyPrefix = stringSpec(spec, "keyPrefix");
+  if (keyPrefix !== undefined) return keyPrefix;
+  const optionsOf = stringSpec(spec, "optionsOf");
+  const ref = optionsOf === undefined ? undefined : parseFieldOptionsRef(optionsOf);
+  return ref === undefined
+    ? undefined
+    : fieldOptionLabelKeyPrefix(ref.featureName, ref.entityName, ref.fieldName);
+}
+
 function formatEnumOptionCell(
   spec: CellFormatSpec,
   value: unknown,
   translate: CellTranslate,
 ): string {
-  const keyPrefix = stringSpec(spec, "keyPrefix");
+  const keyPrefix = enumOptionKeyPrefix(spec);
   const labelFor = (item: unknown): string => {
     const raw = typeof item === "string" ? item : String(item);
     if (keyPrefix === undefined || translate === undefined) return raw;
@@ -368,6 +406,17 @@ function formatJsonCell(spec: CellFormatSpec, value: unknown): string {
   return stringifyJsonOrString(value, typeof spec["indent"] === "number" ? spec["indent"] : 2);
 }
 
+const YEAR_MONTH_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
+
+function formatMonthCell(spec: CellFormatSpec, value: unknown): string {
+  if (typeof value !== "string" || !YEAR_MONTH_RE.test(value)) return String(value);
+  // A PlainDate, not a PlainYearMonth: the latter throws for a locale whose calendar is not iso8601.
+  return Temporal.PlainDate.from(`${value}-01`).toLocaleString(stringSpec(spec, "locale"), {
+    month: "long",
+    year: "numeric",
+  });
+}
+
 const RELATIVE_TIME_STYLES = ["long", "short", "narrow"] as const;
 
 function formatRelativeTimeCell(
@@ -393,8 +442,10 @@ function formatRelativeTimeCell(
 const CELL_FORMATTERS = {
   timestamp: formatTemporalCell,
   date: formatTemporalCell,
+  month: formatMonthCell,
   boolean: formatBooleanCell,
   currency: formatCurrencyCell,
+  money: formatMoneyCell,
   number: formatNumericCell,
   decimal: formatNumericCell,
   bigInt: formatNumericCell,

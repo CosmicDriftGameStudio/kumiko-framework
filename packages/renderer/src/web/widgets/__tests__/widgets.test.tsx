@@ -443,7 +443,7 @@ describe("ModeSwitch", () => {
         onChange={() => {}}
       />,
     );
-    expect(screen.getByRole("group")).toBeTruthy();
+    screen.getByRole("group");
   });
 });
 
@@ -489,9 +489,9 @@ describe("SectionCard", () => {
         <span>Body</span>
       </SectionCard>,
     );
-    expect(screen.getByText("Verlauf")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Range" })).toBeTruthy();
-    expect(screen.getByText("Body")).toBeTruthy();
+    screen.getByText("Verlauf");
+    screen.getByRole("button", { name: "Range" });
+    screen.getByText("Body");
   });
 });
 
@@ -505,10 +505,10 @@ describe("StatCard", () => {
         delta={{ value: "2,1 %", direction: "down" }}
       />,
     );
-    expect(screen.getByText("Restschuld")).toBeTruthy();
-    expect(screen.getByText("123.456 €")).toBeTruthy();
-    expect(screen.getByText(/2,1 %/)).toBeTruthy();
-    expect(screen.getByText("nach 10 Jahren")).toBeTruthy();
+    screen.getByText("Restschuld");
+    screen.getByText("123.456 €");
+    screen.getByText(/2,1 %/);
+    screen.getByText("nach 10 Jahren");
   });
 
   test("long labels wrap to two lines and the delta badge keeps its size", () => {
@@ -585,8 +585,8 @@ describe("EmptyState", () => {
         action={<button type="button">Neu</button>}
       />,
     );
-    expect(screen.getByText("Noch keine Monitore")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Neu" })).toBeTruthy();
+    screen.getByText("Noch keine Monitore");
+    screen.getByRole("button", { name: "Neu" });
   });
 });
 
@@ -621,10 +621,10 @@ describe("StatusBarChart", () => {
         endLabel="heute"
       />,
     );
-    expect(screen.getByRole("img", { name: "Uptime 90 Tage" })).toBeTruthy();
+    screen.getByRole("img", { name: "Uptime 90 Tage" });
     // 2 Entries × (Gradient-Bar + Tick) + 1 Last-Highlight-Stripe = 5 rects
     expect(container.querySelectorAll("rect").length).toBe(5);
-    expect(screen.getByText("heute")).toBeTruthy();
+    screen.getByText("heute");
   });
 
   test("dense: fixed-size flat bars without tick/gradient, aria-label + tooltips remain", () => {
@@ -639,7 +639,7 @@ describe("StatusBarChart", () => {
       />,
     );
     const svg = container.querySelector("svg");
-    expect(screen.getByRole("img", { name: "Zahlungsmonate" })).toBeTruthy();
+    screen.getByRole("img", { name: "Zahlungsmonate" });
     expect(svg?.getAttribute("class")).not.toContain("w-full");
     expect(svg?.getAttribute("width")).not.toBeNull();
     expect(container.querySelectorAll("linearGradient").length).toBe(0);
@@ -855,7 +855,7 @@ describe("TimeseriesChart", () => {
         emptyContent={<span>Noch keine Messdaten</span>}
       />,
     );
-    expect(screen.getByText("Noch keine Messdaten")).toBeTruthy();
+    screen.getByText("Noch keine Messdaten");
     expect(container.querySelector("svg")).toBeNull();
   });
 
@@ -873,9 +873,9 @@ describe("TimeseriesChart", () => {
         axisLabels={{ start: "vor 24h", end: "jetzt" }}
       />,
     );
-    expect(screen.getByRole("img", { name: "Antwortzeit" })).toBeTruthy();
+    screen.getByRole("img", { name: "Antwortzeit" });
     expect(container.querySelectorAll("path").length).toBe(2);
-    expect(screen.getByText("jetzt")).toBeTruthy();
+    screen.getByText("jetzt");
   });
 
   const flatSeries = (max: number) => [
@@ -989,7 +989,7 @@ describe("StackedAreaChart", () => {
         emptyContent={<span>Keine Daten</span>}
       />,
     );
-    expect(screen.getByText("Keine Daten")).toBeTruthy();
+    screen.getByText("Keine Daten");
     expect(container.querySelector("svg")).toBeNull();
   });
 
@@ -1028,7 +1028,7 @@ describe("StackedAreaChart", () => {
         emptyContent={<span>Keine Daten</span>}
       />,
     );
-    expect(screen.getByText("Keine Daten")).toBeTruthy();
+    screen.getByText("Keine Daten");
     expect(container.querySelector("svg")).toBeNull();
   });
 
@@ -1060,7 +1060,7 @@ describe("StackedAreaChart", () => {
     expect(rent.getAttribute("d")?.match(/M /g)).toHaveLength(2);
     expect(rent.getAttribute("stroke-dasharray")).toBeNull();
     expect(screen.getByTestId("chart-line-rent-min").getAttribute("stroke-dasharray")).toBe("6 4");
-    expect(screen.getByText("100")).toBeTruthy();
+    screen.getByText("100");
     const legend = screen.getByTestId("chart-legend-line-rent");
     expect(legend.textContent).toBe("Miete");
   });

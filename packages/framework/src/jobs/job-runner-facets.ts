@@ -10,7 +10,7 @@ import type {
 import { crossTenantReadsGrantFor, escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
 import type { DbConnection, DbRow } from "../db/connection.ts";
 import { createCrossTenantReads } from "../db/cross-tenant-reads.ts";
-import type { TenantDb } from "../db/tenant-db.ts";
+import type { ConnectionTenantDb, TenantDb } from "../db/tenant-db.ts";
 import { createTenantDb, createUncheckedSystemDb } from "../db/tenant-db.ts";
 import { createDerivativesContext } from "../derivatives/derivatives-context.ts";
 import type { JobDispatch, SessionUser } from "../engine/types/index.ts";
@@ -19,6 +19,7 @@ import { InternalError } from "../errors/index.ts";
 import { createTenantFileContext } from "../files/file-handle.ts";
 import { createEscapeHatchReporter } from "../observability/escape-hatch-report.ts";
 import { configAccessorFactoryOf } from "../pipeline/config-accessor-factory.ts";
+import { bindContractQuery, bindContractWrite } from "../pipeline/contract-dispatch.ts";
 import { createGatedIdentitySwitch } from "../pipeline/system-identity-switch.ts";
 import { buildPersonalDataGate } from "../pipeline/write-origin.ts";
 import { isScheduledTrigger } from "./cron-repeat-options.ts";
@@ -78,7 +79,7 @@ export function buildJobDbFacets(
   facetInput: JobFacetInput,
 ): {
   tenantScopedDb: TenantDb | undefined;
-  jobDb: TenantDb | undefined;
+  jobDb: ConnectionTenantDb | undefined;
   systemDb: ReturnType<typeof createUncheckedSystemDb> | undefined;
   crossTenantReads: ReturnType<typeof createCrossTenantReads> | undefined;
 } {
@@ -219,8 +220,12 @@ export function buildJobDispatchFacets(
     { reason: identitySwitchGrantReason, report: reportEscapeHatch },
   );
   return {
-    write: (qn: string, payload: unknown) =>
+    write: bindContractWrite((qn: string, payload: unknown) =>
       requireDispatchRef(scope, "write").write(systemUser, qn, payload, writeOrigin),
+    ),
+    query: bindContractQuery((qn: string, payload: unknown) =>
+      requireDispatchRef(scope, "query").queryAs(systemUser, qn, payload, writeOrigin),
+    ),
     writeAs: gatedIdentitySwitch.writeAs,
     queryAs: gatedIdentitySwitch.queryAs,
     queryAsMember: (userId: string, qn: string, payload: unknown) => {

@@ -1,5 +1,6 @@
 import { warnOnUniqueAccessRoles } from "./access-roles.ts";
 import type { BootContext } from "./boot-context.ts";
+import { warnOnUnreachableHiddenFileColumns } from "./card-meta-overflow.ts";
 import { warnOnToggleableDependencies } from "./config-deps.ts";
 import { warnOnNavAccessInversion, warnOnUnreachableNavScreens } from "./nav.ts";
 import { warnOnMissingSecurityBaseline } from "./security-baseline.ts";
@@ -9,7 +10,7 @@ import { resolveNavAllowlist } from "./workspaces.ts";
 // validation phase passed.
 export function emitBootWarnings(ctx: BootContext): void {
   const { features, options, allNavQns, allWorkspaceQns } = ctx;
-  warnOnNavAccessInversion(allNavQns);
+  warnOnNavAccessInversion(ctx.warn, allNavQns);
   const effectiveNavAllowlist = resolveNavAllowlist(
     options?.navAllowlist,
     allNavQns,
@@ -17,15 +18,17 @@ export function emitBootWarnings(ctx: BootContext): void {
   );
   if (effectiveNavAllowlist !== undefined) {
     warnOnUnreachableNavScreens(
+      ctx.warn,
       allNavQns,
       effectiveNavAllowlist,
       options?.navAllowlistExempt,
       options?.navAllowlist === undefined ? "workspaces" : "explicit",
     );
   }
-  warnOnToggleableDependencies(features, ctx.featureMap);
-  warnOnMissingSecurityBaseline(features);
+  warnOnToggleableDependencies(ctx.warn, features, ctx.featureMap);
+  warnOnMissingSecurityBaseline(ctx.warn, features);
+  warnOnUnreachableHiddenFileColumns(ctx.warn, features);
   if (options?.warnOnUniqueAccessRoles === true) {
-    warnOnUniqueAccessRoles(features);
+    warnOnUniqueAccessRoles(ctx.warn, features);
   }
 }

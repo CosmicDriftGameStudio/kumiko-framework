@@ -17,7 +17,9 @@ export function createChannelPushFeature(options: PushChannelOptions): FeatureDe
     r.requires({ features: ["delivery"] });
 
     r.translations({ keys: { "delivery.channel.push": { en: "Push" } } });
-    r.useExtension(DELIVERY_CHANNEL_EXTENSION, "push", {
+    r.applyExtension({
+      name: DELIVERY_CHANNEL_EXTENSION,
+      entity: "push",
       mode: channel.mode,
       resolve: channel.resolve,
       send: channel.send,

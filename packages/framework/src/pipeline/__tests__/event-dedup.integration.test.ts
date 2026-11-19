@@ -18,7 +18,7 @@ import { createEventDedup } from "../event-dedup.ts";
 const postSaveLog: SaveContext[] = [];
 
 const dedupFeature = defineFeature("dedup", (r) => {
-  r.entity({ name: "item", ...sharedItemEntity });
+  r.entity(sharedItemEntity);
 
   r.writeHandler({
     name: "item:create",

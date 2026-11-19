@@ -15,6 +15,7 @@ const openAccess = {
 } as const;
 
 export const ticketEntity = createEntity({
+  name: "ticket",
   table: "read_derived_sql_tickets",
   fields: {
     buildingId: { type: "reference", entity: "building" },
@@ -28,6 +29,7 @@ export const ticketEntity = createEntity({
 });
 
 export const buildingEntity = createEntity({
+  name: "building",
   table: "read_derived_sql_buildings",
   fields: {
     name: createTextField({
@@ -83,8 +85,8 @@ export const buildingEntity = createEntity({
 export const buildingListSort = { field: "openTickets", dir: "desc" } as const;
 
 export const derivedFieldsSqlFeature = defineFeature("derived-fields-sql", (r) => {
-  r.crud("ticket", ticketEntity, { write: openAccess, read: openAccess });
-  r.crud("building", buildingEntity, { write: openAccess, read: openAccess });
+  r.crud(ticketEntity, { write: openAccess, read: openAccess });
+  r.crud(buildingEntity, { write: openAccess, read: openAccess });
 
   r.screen({
     id: "building-list",

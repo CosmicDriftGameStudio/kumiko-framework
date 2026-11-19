@@ -11,6 +11,7 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 
 function rentEntity() {
   return createEntity({
+    name: "rent",
     fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
   });
 }
@@ -18,7 +19,7 @@ function rentEntity() {
 describe("validateBoot — entityEdit actions", () => {
   test("navigate action with rowClick: true throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity({ name: "rent", ...rentEntity() });
+      r.entity(rentEntity());
       r.screen({
         id: "rent-edit",
         type: "entityEdit",
@@ -35,7 +36,7 @@ describe("validateBoot — entityEdit actions", () => {
 
   test("writeHandler action referencing an unregistered handler throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity({ name: "rent", ...rentEntity() });
+      r.entity(rentEntity());
       r.screen({
         id: "rent-edit",
         type: "entityEdit",
@@ -56,7 +57,7 @@ describe("validateBoot — entityEdit actions", () => {
 
   test("valid navigate + writeHandler actions boot cleanly", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity({ name: "rent", ...rentEntity() });
+      r.entity(rentEntity());
       r.writeHandler({
         name: "archive",
         schema: z.object({ id: z.string() }),

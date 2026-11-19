@@ -21,14 +21,27 @@ const apexTranslations: TranslationsByLocale = {
     "userDataRights.deletion.request.successBody":
       "If the email exists in our system, a message with a confirmation link is on its way. Please check your inbox.",
     "userDataRights.deletion.request.error": "Something went wrong. Please try again.",
+    "userDataRights.deletion.cancel.error": "Something went wrong. Please try again.",
+    "userDataRights.deletion.cancel.intro":
+      "Cancelling stops the pending deletion and your account stays active.",
+    "userDataRights.deletion.cancel.invalidToken":
+      "The link is invalid or expired, or the deletion was already cancelled.",
+    "userDataRights.deletion.cancel.missingToken":
+      "No token found in the link. Please open the link from the email again.",
+    "userDataRights.deletion.cancel.submit": "Cancel deletion",
+    "userDataRights.deletion.cancel.submitting": "…",
+    "userDataRights.deletion.cancel.successBody":
+      "Your account stays active. You can sign in again.",
+    "userDataRights.deletion.cancel.successTitle": "Deletion cancelled",
+    "userDataRights.deletion.cancel.title": "Cancel account deletion",
     "userDataRights.deletion.confirm.title": "Confirm account deletion",
     "userDataRights.deletion.confirm.intro":
-      "Confirming starts the deletion grace period. Until it ends you can cancel the deletion from your logged-in account.",
+      "Confirming starts the deletion grace period. Until it ends you can cancel the deletion via the link in the confirmation email.",
     "userDataRights.deletion.confirm.submit": "Confirm deletion",
     "userDataRights.deletion.confirm.submitting": "…",
     "userDataRights.deletion.confirm.successTitle": "Deletion scheduled",
     "userDataRights.deletion.confirm.successBody":
-      "Your account will be deleted after the grace period. You can cancel the deletion from your logged-in account until then.",
+      "Your account will be deleted after the grace period. Until then you can cancel the deletion via the link in the confirmation email.",
     "userDataRights.deletion.confirm.invalidToken":
       "The link is invalid or expired. Please request a new one.",
     "userDataRights.deletion.confirm.missingToken":

@@ -3,10 +3,18 @@ import {
   type EntityEditScreenDefinition,
   translationValueOtherText,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, kumikoDefaultTranslations } from "../../index.ts";
-import { fireEvent, makeDispatcher, render, screen, taskEntity, waitFor } from "./test-utils.tsx";
+import {
+  fireEvent,
+  type MockQueryHandler,
+  type MockWriteHandler,
+  makeDispatcher,
+  render,
+  screen,
+  taskEntity,
+  waitFor,
+} from "./test-utils.tsx";
 
 // Split out of kumiko-screen.test.tsx: the create->update submit
 // test below fires fireEvent.change immediately followed by fireEvent.click
@@ -43,10 +51,10 @@ describe("KumikoScreen: singleton entityEdit", () => {
   test("no existing record → renders empty Create form", async () => {
     const queryCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
-      query: (async (type: string, payload: unknown) => {
+      query: async (type: string, payload: unknown) => {
         queryCalls.push({ type, payload });
         return { isSuccess: true, data: { rows: [], nextCursor: null } };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -54,7 +62,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
       </DispatcherProvider>,
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     expect(titleInput.value).toBe("");
     expect(queryCalls).toEqual([{ type: "tasks:query:task:list", payload: { limit: 1 } }]);
@@ -63,7 +71,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
   test("existing record → loads it (Update form, prefilled) instead of Create", async () => {
     const queryCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
-      query: (async (type: string, payload: unknown) => {
+      query: async (type: string, payload: unknown) => {
         queryCalls.push({ type, payload });
         if (type.endsWith(":list")) {
           return {
@@ -75,7 +83,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
           isSuccess: true,
           data: { id: "task-1", version: 1, title: "loaded-title", count: 0, done: false },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -88,7 +96,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull(), {
       timeout: 5000,
     });
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     expect(titleInput.value).toBe("loaded-title");
     // Anchor: the id resolved from list(limit:1) reaches the detail query —
@@ -106,10 +114,10 @@ describe("KumikoScreen: singleton entityEdit", () => {
       screens: [{ ...singletonEdit, allowCreate: false }],
     };
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { rows: [], nextCursor: null },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -117,7 +125,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
       </DispatcherProvider>,
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
-    expect(screen.getByTestId("kumiko-screen-create-disabled")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-create-disabled");
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
   });
 
@@ -127,7 +135,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
   // flips to an error banner instead. No test caught that regression.
   test("list query fails → error banner instead of Create form", async () => {
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: false,
         error: {
           code: "access_denied",
@@ -135,7 +143,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
           i18nKey: "errors.access.denied",
           message: "",
         },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -160,14 +168,14 @@ describe("KumikoScreen: singleton entityEdit", () => {
   // update form of the newly created record.
   test("successful Create with empty table switches to Update form for the new record (no second Create possible)", async () => {
     let created = false;
-    const write = mock(async (type: string) => {
+    const write = mock<MockWriteHandler>(async (type: string) => {
       if (type === "tasks:write:task:create") {
         created = true;
         return { isSuccess: true, data: { id: "task-1" } };
       }
       return { isSuccess: true, data: {} };
     });
-    const query = mock(async (type: string) => {
+    const query = mock<MockQueryHandler>(async (type: string) => {
       if (type === "tasks:query:task:list") {
         return created
           ? { isSuccess: true, data: { rows: [{ id: "task-1", title: "Created title" }] } }
@@ -182,8 +190,8 @@ describe("KumikoScreen: singleton entityEdit", () => {
       return { isSuccess: true, data: { rows: [], nextCursor: null } };
     });
     const dispatcher = makeDispatcher({
-      write: write as unknown as Dispatcher["write"],
-      query: query as unknown as Dispatcher["query"],
+      write: write,
+      query: query,
     });
 
     render(
@@ -192,7 +200,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
       </DispatcherProvider>,
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
-    await waitFor(() => expect(screen.getByTestId("field-title")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-title"));
 
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     fireEvent.change(titleInput, { target: { value: "Created title" } });

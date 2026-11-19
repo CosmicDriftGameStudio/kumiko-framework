@@ -16,11 +16,7 @@
 // automatically.
 //
 // The user aggregate uses systemStream: its event stream lives on
-// SYSTEM_TENANT_ID deterministically, so the write targets exactly one
-// stream. The former membership-probing (`tryWriteAcrossTenants`) existed
-// for scattered streams; those need the one-time
-// backfillUserStreamTenants migration — probing them stopped working
-// the moment the executor's stream choke-point landed anyway.
+// SYSTEM_TENANT_ID deterministically, so the write targets exactly one stream.
 
 import {
   createSystemUser,
@@ -30,7 +26,11 @@ import {
   SYSTEM_TENANT_ID,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  InternalError,
+  VERSION_CONFLICT_CODE,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import type { Redis } from "ioredis";
 import { burnToken, unburnToken } from "../../shared/index.ts";
 import { UserHandlers, UserQueries } from "../../user/index.ts";
@@ -73,6 +73,7 @@ export async function runConfirmTokenFlow<TSuccessData>(
   declareEscapeHatch({
     reason:
       "writes the confirming user's row via UserHandlers.update on the caller's handler context, using a SYSTEM_TENANT-scoped identity; the calling handler declares its own escapeHatch",
+    grants: ["systemIdentity"],
   });
   if (!ctx.services.redis) {
     return writeFailure(new InternalError({ message: spec.redisRequiredMessage }));
@@ -111,7 +112,7 @@ export async function runConfirmTokenFlow<TSuccessData>(
     // version_conflict = concurrent modification (or an un-migrated
     // stream) → token-level failure. Anything else (DB down,
     // access denied) bubbles unchanged so ops sees the real failure class.
-    if (writeRes.error.code === "version_conflict") return spec.invalidToken();
+    if (writeRes.error.code === VERSION_CONFLICT_CODE) return spec.invalidToken();
     return writeRes;
   } finally {
     // committed===false covers EVERY failure path — including branches a
@@ -139,6 +140,7 @@ async function loadValidatedUser(
   declareEscapeHatch({
     reason:
       "reads the confirming user's row via UserQueries.findForAuth on the caller's handler context, using a SYSTEM_TENANT-scoped identity; the calling handler declares its own escapeHatch",
+    grants: ["systemIdentity"],
   });
   const me = parseAuthUserRow(
     await ctx.dispatch.queryAs(systemUser, UserQueries.findForAuth, { id: userId }),

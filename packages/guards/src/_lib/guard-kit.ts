@@ -13,9 +13,10 @@
  */
 
 import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
-import { relative as pathRelative, resolve, sep } from "node:path";
+import { basename, relative as pathRelative, resolve, sep } from "node:path";
 import { Project, type SourceFile } from "ts-morph";
 import { type BaselineRegression, compareToBaseline, findRepoRootFor } from "./baseline-compare";
+import { resetIgnoreTagUses } from "./ignore-tag";
 import {
   explainRepoRoots,
   findLocalRepo,
@@ -30,6 +31,11 @@ import {
   loadSecurityBaseline,
   type SecurityBaselineLoad,
 } from "./security-baseline";
+import {
+  type CheckedIgnoreTag,
+  UNUSED_IGNORE_TAGS_CHECK,
+  unusedIgnoreTagViolations,
+} from "./unused-ignore-tags";
 
 export { type BaselineRegression, compareToBaseline, findRepoRootFor } from "./baseline-compare";
 export { ALL_REPO_KINDS, type ScanExtension, type ScanScope, type ScanSpec } from "./scan-scope";
@@ -53,6 +59,9 @@ export type AstGuard = {
   readonly hint?: string;
   /** Security guards fail on every finding not frozen in the per-repo security baseline — no skip flag. */
   readonly security?: boolean;
+  /** The full `kumiko-lint-ignore <slug>` tag this guard honours. runGuards then reports every marker
+   *  of that slug in the guard's files that suppressed nothing in this run. */
+  readonly ignoreTag?: string;
   /** `roots` are the same roots `runGuards` scanned `files` with — a guard classifying paths against repo roots (`relFromRepoRoot`) must use these, not re-derive its own single-repo `resolveRepoRoots()`, or a multi-root caller's roots never reach it. */
   run(files: readonly SourceFile[], roots?: readonly RepoRoot[]): GuardOutcome;
   /** Ratchet guards only: freeze the current findings into that guard's own baseline file. */
@@ -188,10 +197,10 @@ export function isLocalFinding<T extends { readonly file: string }>(item: T): bo
   return !item.file.startsWith("../");
 }
 
+// No generated/total fields: parallel PRs that freeze different files must not collide on them.
+// Older files that still carry them load fine, the extra fields are ignored.
 type BaselinePayload = {
   readonly format: number;
-  readonly generated: string;
-  readonly total: number;
   readonly perFile: Record<string, number>;
 };
 
@@ -199,8 +208,6 @@ export function baselineRatchet(args: {
   readonly file: string;
   readonly formatVersion: number;
   readonly unit: string;
-  /** A missing baseline file counts as an empty baseline (every current entry is a regression) instead of a warning. For guards whose suppression must not hold without a frozen file. */
-  readonly failClosed?: boolean;
 }): {
   write(current: Readonly<Record<string, number>>): void;
   check(
@@ -218,12 +225,7 @@ export function baselineRatchet(args: {
       Object.entries(current).sort(([a], [b]) => a.localeCompare(b)),
     );
     const total = Object.values(perFile).reduce((sum, count) => sum + count, 0);
-    const payload: BaselinePayload = {
-      format: args.formatVersion,
-      generated: Temporal.Now.instant().toString().slice(0, 10),
-      total,
-      perFile,
-    };
+    const payload: BaselinePayload = { format: args.formatVersion, perFile };
     writeFileSync(args.file, `${JSON.stringify(payload, null, 2)}\n`);
     console.log(`  Baseline written: ${args.file} (total ${total})`);
   };
@@ -253,22 +255,13 @@ export function baselineRatchet(args: {
     current: Readonly<Record<string, number>>,
     remediation: string,
     resolveLine: ((file: string) => number) | undefined,
-  ): GuardViolation[] => {
-    if (args.failClosed === true) {
-      return regressionViolations(
-        compareToBaseline(current, {}).regressions,
-        (regression) =>
-          `${args.unit} without a baseline file (${args.file}): ${regression.current} not frozen. ${remediation}`,
-        resolveLine,
-      );
-    }
-    // Nothing to freeze: a missing baseline is equivalent to an empty one.
-    if (Object.values(current).every((count) => count === 0)) return [];
-    console.log(
-      `  No baseline found (${args.file}). Freeze it first with \`--write-baseline\` — warning until then, no fail.`,
+  ): GuardViolation[] =>
+    regressionViolations(
+      compareToBaseline(current, {}).regressions,
+      (regression) =>
+        `${args.unit} without a baseline file (${args.file}): ${regression.current} not frozen. Freeze the current state once with \`--write-baseline\`. ${remediation}`,
+      resolveLine,
     );
-    return [];
-  };
   const check = (
     current: Readonly<Record<string, number>>,
     remediation: string,
@@ -292,19 +285,27 @@ export function baselineRatchet(args: {
     const drift = driftMessage(raw, driftHint);
     if (drift !== undefined) return baselineProblem(drift);
     const baseline = raw as BaselinePayload;
-    const { regressions, reduced } = compareToBaseline(current, baseline.perFile);
-    if (regressions.length === 0) {
+    const { regressions, reductions } = compareToBaseline(current, baseline.perFile);
+    const violations = [
+      ...regressionViolations(
+        regressions,
+        (regression) =>
+          `${args.unit} over baseline: baseline=${regression.baseline} current=${regression.current} (+${regression.current - regression.baseline}). ${remediation}`,
+        opts?.resolveLine,
+      ),
+      ...regressionViolations(
+        reductions,
+        (reduction) =>
+          `${args.unit} under baseline: baseline=${reduction.baseline} current=${reduction.current}. The baseline ${basename(args.file)} has headroom that would let new findings in unnoticed; tighten it with \`--write-baseline\` and commit it.`,
+        opts?.resolveLine,
+      ),
+    ];
+    if (violations.length === 0) {
+      const frozen = Object.values(baseline.perFile).reduce((sum, count) => sum + count, 0);
       const total = Object.values(current).reduce((sum, count) => sum + count, 0);
-      console.log(`  ✓ Baseline (${baseline.total}) — current ${total}`);
-      if (reduced > 0) console.log(`  ✓ ${reduced} ${args.unit} reduced since baseline.`);
-      return [];
+      console.log(`  ✓ Baseline (${frozen}) — current ${total}`);
     }
-    return regressionViolations(
-      regressions,
-      (regression) =>
-        `${args.unit} over baseline: baseline=${regression.baseline} current=${regression.current} (+${regression.current - regression.baseline}). ${remediation}`,
-      opts?.resolveLine,
-    );
+    return violations;
   };
 
   const handleCli = (current: Readonly<Record<string, number>>): boolean => {
@@ -409,7 +410,7 @@ function runOneGuard(
   scan: (guard: AstGuard, roots: readonly RepoRoot[]) => readonly RootScan[],
   deps: RunGuardsDeps,
   start: number,
-): RunResult {
+): { readonly result: RunResult; readonly files: readonly SourceFile[] } {
   const scans = scan(guard, roots);
   const paths = [...new Set(scans.flatMap((s) => s.files))].sort();
   const files = paths.map((p) => project.getSourceFile(p) ?? project.addSourceFileAtPath(p));
@@ -420,7 +421,7 @@ function runOneGuard(
     : outcome;
   const { violatingRoots } = checkRootFloor(guard, scans);
   const notApplicable = scans.length === 0;
-  return {
+  const result: RunResult = {
     name: guard.name,
     ok: effectiveOutcome.violations.length === 0 && violatingRoots.length === 0,
     ms: Math.round(performance.now() - start),
@@ -438,6 +439,7 @@ function runOneGuard(
     frozenFindings: securityResult?.frozen,
     security: securityResult !== undefined ? true : undefined,
   };
+  return { result, files };
 }
 
 // `project` is injectable so the run/catch wiring can be unit-tested with an
@@ -454,11 +456,15 @@ export function runGuards(
     ((guard: AstGuard, roots: readonly RepoRoot[]) =>
       scanRoots(guard.scan, roots, scanOptionsFor(guard)));
   const roots = deps.roots ?? resolveRepoRoots();
+  resetIgnoreTagUses();
+  const checkedTags: CheckedIgnoreTag[] = [];
 
   for (const guard of guards) {
     const start = performance.now();
     try {
-      results.push(runOneGuard(guard, project, roots, scan, deps, start));
+      const { result, files } = runOneGuard(guard, project, roots, scan, deps, start);
+      results.push(result);
+      if (guard.ignoreTag !== undefined) checkedTags.push({ tag: guard.ignoreTag, files });
     } catch (e) {
       results.push({
         name: guard.name,
@@ -467,6 +473,18 @@ export function runGuards(
         error: errorText(e),
       });
     }
+  }
+  if (guards.some((g) => g.ignoreTag !== undefined)) {
+    const start = performance.now();
+    const violations = unusedIgnoreTagViolations(checkedTags);
+    results.push({
+      name: UNUSED_IGNORE_TAGS_CHECK,
+      ok: violations.length === 0,
+      ms: Math.round(performance.now() - start),
+      outcome: { violations },
+      hint: "Delete markers that suppress nothing: a kumiko-lint-ignore marker only belongs where its guard would report a finding.",
+      matchedFiles: new Set(checkedTags.flatMap((c) => c.files)).size,
+    });
   }
   return results;
 }

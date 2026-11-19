@@ -4,7 +4,7 @@
 // context.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
@@ -15,6 +15,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/index.ts";
 import { formDraftEntity } from "../entity.ts";
+import { formDraftTable } from "../executor.ts";
 import { createFormDraftFeature } from "../feature.ts";
 import {
   FORM_DRAFT_MAX_PER_OWNER,
@@ -84,6 +85,20 @@ describe("form-draft — drafts-per-owner cap", () => {
       [String(owner.id)],
     );
     expect((rows as Array<{ n: number }>)[0]?.n).toBe(FORM_DRAFT_MAX_PER_OWNER);
+  });
+
+  test("parallel creates at the cap boundary admit exactly one more draft", async () => {
+    for (let i = 0; i < FORM_DRAFT_MAX_PER_OWNER - 1; i++) {
+      expect((await saveDraft(`wizard:draft-${i}`, { note: "x" })).status).toBe(200);
+    }
+    const responses = await Promise.all(
+      ["a", "b", "c", "d", "e"].map((suffix) => saveDraft(`wizard:race-${suffix}`, { note: "x" })),
+    );
+    const statuses = responses.map((res) => res.status);
+    expect(statuses.filter((s) => s === 200)).toHaveLength(1);
+    expect(statuses.filter((s) => s === 422)).toHaveLength(4);
+    const rows = await selectMany(stack.db, formDraftTable, { ownerId: String(owner.id) });
+    expect(rows).toHaveLength(FORM_DRAFT_MAX_PER_OWNER);
   });
 
   test("updating an existing draft is never blocked by the cap, even at the limit", async () => {

@@ -6,7 +6,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   createEventStoreExecutor,
-  createTenantDb,
   entityEventName,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
@@ -21,6 +20,8 @@ import {
   archiveStream,
   eventsTable,
 } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -120,7 +121,14 @@ async function membershipStreamIds(): Promise<string[]> {
   return [...new Set(events.map((e) => e.aggregateId))].sort();
 }
 
-function rebuildMemberships() {
+async function rebuildMemberships(): Promise<void> {
+  await rebuildProjection("tenant:projection:tenant-membership-entity", {
+    db: stack.db,
+    registry: stack.registry,
+  });
+}
+
+function backfillMemberships() {
   return backfillTenantStreamTenants({ db: stack.db, registry: stack.registry, derived: "always" });
 }
 
@@ -134,7 +142,7 @@ describe("membership streams a replay must not see", () => {
     await deleteMembershipStream(removed, OTHER_TENANT);
     const readded = await createMembershipStream(TestUsers.user.id, OTHER_TENANT);
 
-    const result = await rebuildMemberships();
+    const result = await backfillMemberships();
 
     expect(result.failures).toEqual([]);
     expect(result.membershipStreamsArchived).toEqual([
@@ -142,7 +150,7 @@ describe("membership streams a replay must not see", () => {
     ]);
     expect(await liveMembershipIds()).toEqual([newer, readded].sort());
 
-    const second = await rebuildMemberships();
+    const second = await backfillMemberships();
     expect(second.failures).toEqual([]);
     expect(second.membershipStreamsArchived).toEqual([]);
     expect(await liveMembershipIds()).toEqual([newer, readded].sort());
@@ -161,7 +169,7 @@ describe("membership streams a replay must not see", () => {
       reason: "superseded duplicate user",
     });
 
-    const result = await rebuildMemberships();
+    const result = await backfillMemberships();
 
     expect(result.failures).toEqual([]);
     expect(result.membershipStreamsArchived.map((s) => [s.aggregateId, s.reason]).sort()).toEqual(
@@ -192,13 +200,15 @@ describe("membership streams a replay must not see", () => {
     });
     const kept = await createMembershipStream(ARCHIVED_USER_ID, MEMBER_TENANT);
 
-    const result = await rebuildMemberships();
+    const result = await backfillMemberships();
 
     expect(result.failures).toEqual([]);
     expect(result.membershipStreamsArchived).toEqual([]);
     expect(await liveMembershipIds()).toEqual([kept]);
   });
+});
 
+describe("seedTenantMembership against the membership event log", () => {
   test("seedTenantMembership reuses the live stream of a pair whose row was lost", async () => {
     const first = await seedTenantMembership(stack.db, {
       userId: TestUsers.user.id,
@@ -217,8 +227,7 @@ describe("membership streams a replay must not see", () => {
     expect(again.id).toBe(first.id);
     expect(again.rowMissing).toBe(true);
     expect(await membershipStreamIds()).toEqual([first.id]);
-    const result = await rebuildMemberships();
-    expect(result.failures).toEqual([]);
+    await rebuildMemberships();
     expect(await liveMembershipIds()).toEqual([first.id]);
   });
 

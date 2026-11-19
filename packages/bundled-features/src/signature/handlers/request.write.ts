@@ -16,8 +16,8 @@ import {
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import { PDFDocument } from "pdf-lib";
-import type { SubjectScope } from "../../shared/index.ts";
-import { requestExecutor, signerExecutor } from "../entity.ts";
+import { joinRowParentIsVisible } from "../../shared/index.ts";
+import { type SignatureRequestExecutor, signerExecutor } from "../entity.ts";
 import { readTenantFile, sha256Hex } from "../files.ts";
 import { RequestSignatureSchema } from "../payloads.ts";
 import {
@@ -56,7 +56,10 @@ async function isReadableTenantFile(ctx: HandlerContext, fileRefId: string): Pro
   return fileRef !== undefined && (await canCallerReadFileRef(ctx, fileRef));
 }
 
-export function createRequestHandler(access: AccessRule, scope: SubjectScope) {
+export function createRequestHandler(
+  access: AccessRule,
+  requestExecutor: SignatureRequestExecutor,
+) {
   return defineWriteHandler<"request", typeof RequestSignatureSchema, RequestSignatureData>({
     name: "request",
     schema: RequestSignatureSchema,
@@ -67,7 +70,15 @@ export function createRequestHandler(access: AccessRule, scope: SubjectScope) {
     handler: async (event, ctx) => {
       const payload = event.payload;
       const user = event.user;
-      if (!(await scope.allows(ctx, user, payload.subjectType, payload.subjectId))) {
+      if (
+        !(await joinRowParentIsVisible(
+          ctx.registry,
+          SIGNATURE_REQUEST_ENTITY,
+          payload,
+          user,
+          ctx.db,
+        ))
+      ) {
         return writeFailure(new NotFoundError(SIGNATURE_REQUEST_ENTITY));
       }
       if (!(await isReadableTenantFile(ctx, payload.documentFileId))) {
@@ -87,6 +98,8 @@ export function createRequestHandler(access: AccessRule, scope: SubjectScope) {
           level: payload.level,
           subjectType: payload.subjectType,
           subjectId: payload.subjectId,
+          hostType: payload.hostType,
+          hostId: payload.hostId,
           status: SIGNATURE_REQUEST_STATUS.Open,
           expiresAt: now.add({ milliseconds: validityDays * MS_PER_DAY }),
         },

@@ -13,7 +13,7 @@ export function CapUsageBar({
   // value — the bar's own label would just repeat it there.
   readonly showLabel?: boolean;
 }): ReactNode {
-  const { Progress, Text, Banner } = usePrimitives();
+  const { Progress, Text } = usePrimitives();
   const t = useTranslation();
   const locale = useLocale().locale();
 
@@ -53,21 +53,7 @@ export function CapUsageBar({
 
   return (
     <div className="flex flex-col gap-1">
-      {Progress ? (
-        <Progress
-          value={usage.fraction}
-          tone={computeTone(usage.fraction)}
-          testId="cap-usage-bar"
-        />
-      ) : (
-        // Progress is typed optional only so partial CorePrimitives test
-        // doubles keep compiling — production always registers it via
-        // defaultPrimitives. If it's ever missing, say so instead of
-        // silently dropping the bar (it's the requested content, not decoration).
-        <Banner variant="error" testId="cap-usage-bar-missing-primitive">
-          {t("cap-overview.errors.progressPrimitiveMissing")}
-        </Banner>
-      )}
+      <Progress value={usage.fraction} tone={computeTone(usage.fraction)} testId="cap-usage-bar" />
       {showLabel && (
         <Text variant="small">
           {formatCapUsedOfLimit(usage.used, usage.limit, usage.unit, locale)}

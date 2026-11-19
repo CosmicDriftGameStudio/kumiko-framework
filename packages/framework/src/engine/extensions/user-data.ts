@@ -1,6 +1,6 @@
 // Hook signature types for the EXT_USER_DATA extension (GDPR Art. 15+17+20).
 //
-// The boot validator does not check useExtension(EXT_USER_DATA, "X", { export: ... })
+// The boot validator does not check applyExtension({ name: EXT_USER_DATA, entity: "X", export: ... })
 // hook shapes against an expected signature — these types are the canonical
 // schema view; app authors get compile-time hints only, no runtime validation.
 //
@@ -46,7 +46,7 @@ export type TenantUserModel = "single-user" | "multi-user";
 /**
  * `db` is a tenant-filtered `TenantDb`, bound to `tenantId`
  * (or the per-user sub-tx in the forget path). Unfiltered access needs
- * `escapeHatch: { reason }` on the `r.useExtension(...)` registration,
+ * `escapeHatch: { reason }` on the `r.applyExtension(...)` registration,
  * then `ctx.db.unsafeRaw()`.
  */
 /**
@@ -67,14 +67,9 @@ export interface UserDataStorageProvider {
 export interface UserDataHookCtx {
   readonly db: TenantDb;
   /**
-   * The app registry. A forget hook that must erase CHILD read-model rows past
-   * the entity's own row — m:n join projections, per-parent detail projections —
-   * uses it to run those custom projections for the executor's
-   * `<entity>.forgotten` event: `runProjectionsForEvent(result.data.event,
-   * ctx.registry, ctx.db)`. `executor.forget` purges only its OWN projection,
-   * and the dispatcher's post-command projection pass does not fire in the forget
-   * pipeline (a job, not a dispatched command), so the hook must trigger the
-   * cascade itself. Live-erase + rebuild `<parent>.forgotten`-apply converge.
+   * The app registry, for read access. `executor.forget(id, user, ctx.db)` in the
+   * hook already runs the custom projections for `<entity>.forgotten` itself,
+   * child projections included.
    */
   readonly registry: Registry;
   readonly tenantId: TenantId;
@@ -129,7 +124,7 @@ export interface UserDataExportSnippet {
  * can be called multiple times without side effects.
  *
  * The data-rights runner invokes this by iterating over all
- * `r.useExtension(EXT_USER_DATA, ...)` registrations.
+ * `r.applyExtension({ name: EXT_USER_DATA, ... })` registrations.
  */
 export type UserDataExportHook = (ctx: UserDataHookCtx) => Promise<UserDataExportSnippet | null>;
 

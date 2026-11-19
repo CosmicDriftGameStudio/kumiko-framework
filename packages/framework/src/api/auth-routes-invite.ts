@@ -1,16 +1,15 @@
-import type { ContentfulStatusCode } from "hono/utils/http-status";
 import * as z from "zod";
 import { createAnonymousUser } from "../engine/system-user.ts";
 import type { SessionUser, TenantId } from "../engine/types/index.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { toKumikoError } from "../errors/to-kumiko-error.ts";
-import { toWriteErrorInfo } from "../errors/write-error-info.ts";
+import { toClientWriteErrorInfo, toWriteErrorInfo } from "../errors/write-error-info.ts";
 
 import { Routes } from "./api-constants.ts";
 import { getUser } from "./auth-middleware.ts";
 import type { AuthRouteContext } from "./auth-routes-context.ts";
-import type { PublicAuthErrorStatus } from "./auth-routes-shared.ts";
 import { pendingMfaStepResponse } from "./auth-routes-shared.ts";
+import { toContentfulStatus } from "./contentful-status.ts";
 
 const InviteAcceptBody = z.object({
   token: z.string().min(1),
@@ -51,9 +50,8 @@ export function registerInviteRoutes(ctx: AuthRouteContext): void {
       }
       const result = await dispatcher.write(inv.acceptHandler, parsed.data, user);
       if (!result.isSuccess) {
-        // @cast-boundary engine-payload — KumikoError.httpStatus
-        const status = result.error.httpStatus as PublicAuthErrorStatus;
-        return c.json({ isSuccess: false, error: result.error }, status);
+        const status = toContentfulStatus(result.error.httpStatus);
+        return c.json({ isSuccess: false, error: toClientWriteErrorInfo(result.error) }, status);
       }
       // @cast-boundary engine-payload — generic dispatcher.write result
       const data = result.data as {
@@ -90,8 +88,8 @@ export function registerInviteRoutes(ctx: AuthRouteContext): void {
         createAnonymousUser(SYSTEM_TENANT_ID),
       );
       if (!result.isSuccess) {
-        const status = result.error.httpStatus as PublicAuthErrorStatus; // @cast-boundary engine-payload
-        return c.json({ isSuccess: false, error: result.error }, status);
+        const status = toContentfulStatus(result.error.httpStatus);
+        return c.json({ isSuccess: false, error: toClientWriteErrorInfo(result.error) }, status);
       }
       // @cast-boundary engine-payload — same three-shape union as /auth/login
       // (see gateEnforceMfa): a straight session, an MFA challenge, or a
@@ -148,8 +146,8 @@ export function registerInviteRoutes(ctx: AuthRouteContext): void {
         createAnonymousUser(SYSTEM_TENANT_ID),
       );
       if (!result.isSuccess) {
-        const status = result.error.httpStatus as PublicAuthErrorStatus; // @cast-boundary engine-payload
-        return c.json({ isSuccess: false, error: result.error }, status);
+        const status = toContentfulStatus(result.error.httpStatus);
+        return c.json({ isSuccess: false, error: toClientWriteErrorInfo(result.error) }, status);
       }
       // @cast-boundary engine-payload — same three-shape union as invite-accept-with-login
       const data = result.data as
@@ -205,8 +203,8 @@ export function registerInviteRoutes(ctx: AuthRouteContext): void {
           // so there's no WriteResult to read `.error` off; toWriteErrorInfo
           // builds the equivalent shape directly from the caught error.
           return c.json(
-            { isSuccess: false, error: toWriteErrorInfo(err) },
-            err.httpStatus as ContentfulStatusCode, // @cast-boundary engine-payload
+            { isSuccess: false, error: toClientWriteErrorInfo(toWriteErrorInfo(err)) },
+            toContentfulStatus(err.httpStatus),
           );
         }
       });

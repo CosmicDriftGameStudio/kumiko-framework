@@ -4,6 +4,7 @@ import { instantToTimestamptzParam } from "../../driver-value-preparation.ts";
 import type { EntityTableMeta } from "../../entity-table-meta.ts";
 import { selectMany } from "../../query.ts";
 import { brandWritable } from "../../table-introspection.ts";
+import { isDbRunner } from "../../tenant-db-runner.ts";
 
 const meta = brandWritable<EntityTableMeta>({
   source: "unmanaged",
@@ -21,12 +22,13 @@ const meta = brandWritable<EntityTableMeta>({
 // values is observable without a database.
 async function boundParam(where: Record<string, unknown>): Promise<unknown> {
   let captured: readonly unknown[] = [];
-  const db = {
+  const db: unknown = {
     unsafe: async (_sql: string, params: readonly unknown[]) => {
       captured = params;
       return [];
     },
   };
+  if (!isDbRunner(db)) throw new Error("fake db lacks unsafe");
   await selectMany(db, meta, where as never);
   return captured[0];
 }

@@ -46,6 +46,8 @@ export const TRUSTED_PROXY_HOPS_ENV = "KUMIKO_TRUSTED_PROXY_HOPS";
 // duplicated for the same Node/Bun-toolchain reason.
 export const MEILI_INDEX_PREFIX_ENV = "KUMIKO_MEILI_INDEX_PREFIX";
 export const E2E_MEILI_RUN_PREFIX_ENV = "KUMIKO_E2E_MEILI_RUN_PREFIX";
+// Every run prefix starts with this, so a teardown can also sweep indexes of runs that never tore down.
+export const E2E_MEILI_INDEX_PREFIX = "e2e_";
 
 // Same literals as kumiko-bundled-features' AuthMfaHandlers (enableStart, enableConfirm),
 // duplicated so the e2e kit has no bundled-features import; e2e-mfa-parity.test.ts pins them.

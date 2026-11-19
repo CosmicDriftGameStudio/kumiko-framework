@@ -18,6 +18,7 @@
 // ready to drop into an access map.
 
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import { quoteIdent } from "../db/sql-identifier.ts";
 import { toSnakeCase } from "../db/table-builder.ts";
 import { columnSqlNameOf, schemaTableName } from "../db/table-introspection.ts";
 import { bootRuleError } from "./boot-validator/boot-rule.ts";
@@ -34,6 +35,7 @@ export type {
   OwnershipMap,
   OwnershipRef,
   OwnershipRule,
+  ParentRule,
   SqlFragment,
   WhereRule,
   WhereRuleContext,
@@ -45,8 +47,16 @@ import type {
   OwnershipMap,
   OwnershipRef,
   OwnershipRule,
+  ParentRule,
   SqlFragment,
 } from "./types/ownership.ts";
+
+export type ParentRuleTarget = {
+  readonly accessMap: OwnershipMap | undefined;
+  readonly table: unknown;
+  readonly tableName: string;
+};
+export type ParentRuleResolver = (entityName: string) => ParentRuleTarget | undefined;
 
 // Parse an OwnershipRef into kind + resolved path + default column.
 // Throws on malformed input so the error surfaces at `from()`-call-site (in
@@ -123,6 +133,11 @@ export function matchesRule(
       "where-rules can only be evaluated at the SQL layer (buildOwnershipClause); they are rejected on access.write at boot.",
     );
   }
+  if (rule.kind === "parent") {
+    throw new Error(
+      "parent-rules need the parent row; they are resolved by resolveParentWriteAccess or buildOwnershipClause, never in memory.",
+    );
+  }
 
   // FromRule — resolve the user-side value, compare to the row's column.
   const userValue = resolveUserValue(rule, user);
@@ -164,7 +179,7 @@ export function userCanReadFieldRow(
     // The boot validator rejects them on field maps, so this only fails closed
     // for maps that bypassed boot validation.
     // skip: where-rules are SQL-layer only — fail closed instead of throwing.
-    if (rule !== "all" && rule.kind === "where") continue;
+    if (rule !== "all" && (rule.kind === "where" || rule.kind === "parent")) continue;
     if (matchesRule(rule, user, row)) return true;
   }
   return false;
@@ -188,10 +203,16 @@ export function userCanWriteFieldRow(
     if (!rule) continue;
     if (rule === "all") return true;
     // skip: where-rules are SQL-layer only — fail closed instead of throwing.
-    if (rule.kind === "where") continue;
+    if (rule.kind === "where" || rule.kind === "parent") continue;
     if (matchesRule(rule, user, oldRow) && matchesRule(rule, user, newRow)) return true;
   }
   return false;
+}
+
+// Grants a role the child rows whose `field` references a parent row that same role may
+// read (read path) or write (write path) under the parent entity's own access map.
+export function fromParent(field: string, entity: string): ParentRule {
+  return { kind: "parent", field, entity };
 }
 
 // Normalize legacy `readonly string[]` field-access into the OwnershipMap
@@ -229,7 +250,7 @@ export function userCanCreateFieldRow(
     // skip: where-rules are SQL-layer only — fail closed instead of throwing.
     // Mirrors userCanWriteFieldRow; a create has no row to run SQL against
     // at all, so the boot-validator rejects the shape on access.write.
-    if (rule.kind === "where") continue;
+    if (rule.kind === "where" || rule.kind === "parent") continue;
     if (matchesRule(rule, user, newRow)) return true;
   }
   return false;
@@ -243,17 +264,13 @@ export function tableNameOf(table: unknown): string {
 }
 
 // Resolve a JS-field name on the table to its underlying SQL column name.
-function columnSqlName(table: unknown, field: string): string | null {
+export function columnSqlName(table: unknown, field: string): string | null {
   if (table === null || typeof table !== "object") return null;
   const handleName = columnSqlNameOf(table, field);
   if (handleName !== undefined) return handleName;
   // Field may already be the SQL column name on plain objects (tests, etc.).
   if (isPlainObject(table) && table[field] !== undefined) return toSnakeCase(field);
   return null;
-}
-
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
 }
 
 // Shift `$N` placeholder numbers in an embedded fragment so they line up
@@ -291,6 +308,7 @@ export function buildOwnershipClause(
   table: unknown,
   paramStart = 1,
   tableNameOverride?: string,
+  parents?: ParentRuleResolver,
 ): OwnershipClause {
   if (!accessMap || Object.keys(accessMap).length === 0) return PASS_CLAUSE;
 
@@ -304,7 +322,15 @@ export function buildOwnershipClause(
     if (!rule) continue;
     anyRoleMatched = true;
     if (rule === "all") return PASS_CLAUSE;
-    const resolved = ruleToFragment(rule, user, table, nextParamIdx, tableNameOverride);
+    const resolved = ruleToFragment(
+      rule,
+      user,
+      table,
+      nextParamIdx,
+      tableNameOverride,
+      role,
+      parents,
+    );
     if (resolved.kind === "sql") {
       clauses.push({ sqlText: resolved.sqlText, params: resolved.params });
       nextParamIdx += resolved.params.length;
@@ -358,15 +384,73 @@ function cachedTableColumnSqlNames(table: unknown): ReadonlySet<string> {
   return names;
 }
 
+// The rule a role holds on the parent entity; an entity without an access map is open to every role.
+export function parentRuleOfRole(
+  accessMap: OwnershipMap | undefined,
+  role: string,
+): OwnershipRule | undefined {
+  if (!accessMap || Object.keys(accessMap).length === 0) return "all";
+  return accessMap[role];
+}
+
+function parentRuleToFragment(
+  rule: ParentRule,
+  user: SessionUser,
+  table: unknown,
+  paramStart: number,
+  tableNameOverride: string | undefined,
+  role: string,
+  parents: ParentRuleResolver | undefined,
+): RuleFragmentResult {
+  const target = parents?.(rule.entity);
+  if (!target) return { kind: "empty" };
+  const childColumn = columnSqlName(table, rule.field);
+  if (!childColumn) return { kind: "empty" };
+  const innerRule = parentRuleOfRole(target.accessMap, role);
+  if (!innerRule) return { kind: "empty" };
+  const inner = ruleToFragment(
+    innerRule,
+    user,
+    target.table,
+    paramStart,
+    target.tableName,
+    role,
+    parents,
+  );
+  if (inner.kind === "empty") return { kind: "empty" };
+
+  const outer = tableNameOverride ?? tableNameOf(table);
+  const parentTable = quoteIdent(target.tableName);
+  const outerTable = quoteIdent(outer);
+  const parentTenant = columnSqlName(target.table, "tenantId");
+  const childTenant = columnSqlName(table, "tenantId");
+  const tenantEquality =
+    parentTenant && childTenant
+      ? ` AND ${parentTable}.${quoteIdent(parentTenant)} = ${outerTable}.${quoteIdent(childTenant)}`
+      : "";
+  return {
+    kind: "sql",
+    sqlText:
+      `EXISTS (SELECT 1 FROM ${parentTable} WHERE ${parentTable}."id" = ${outerTable}.${quoteIdent(childColumn)}` +
+      `${tenantEquality} AND (${inner.sqlText}))`,
+    params: inner.params,
+  };
+}
+
 function ruleToFragment(
   rule: OwnershipRule,
   user: SessionUser,
   table: unknown,
   paramStart: number,
   tableNameOverride: string | undefined,
+  role: string,
+  parents: ParentRuleResolver | undefined,
 ): RuleFragmentResult {
   if (rule === "all") {
     return { kind: "sql", sqlText: "TRUE", params: [] };
+  }
+  if (rule.kind === "parent") {
+    return parentRuleToFragment(rule, user, table, paramStart, tableNameOverride, role, parents);
   }
   if (rule.kind === "where") {
     const tableName = tableNameOverride ?? tableNameOf(table);

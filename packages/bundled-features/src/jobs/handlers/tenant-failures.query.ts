@@ -1,6 +1,5 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { scopeTenantDbToTenant, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { serializeJobSubject } from "@cosmicdrift/kumiko-framework/jobs";
 import * as z from "zod";
 import { parseSubject } from "../parse-subject.ts";
@@ -31,18 +30,17 @@ export function createTenantFailuresQuery(readRoles: readonly string[]) {
     access: {
       roles: [...new Set([...access.roles("User", "Editor", ...access.admin), ...readRoles])],
     },
+    systemScope: true,
     handler: async (query, ctx) => {
-      if (!ctx.systemDb) {
-        throw new InternalError({
-          message:
-            "jobs:query:failures requires ctx.systemDb (feature must declare r.systemScope())",
-        });
-      }
-      // assertTenantMatch is a self-check on the caller and returns the same
-      // unfiltered system-mode db (tenant-db.ts) — the explicit tenantId below
-      // is the filter, assertRowsTenant the second net. There is no
-      // cross-tenant mode here: SystemAdmin reads runs via jobs:query:list.
-      const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
+      const { systemDb } = ctx;
+      // Tenant-mode db so filter and RLS are restricted to the caller's tenant;
+      // the explicit tenantId filter below also excludes SYSTEM_TENANT_ID rows,
+      // which tenant-mode reads let through. There is no cross-tenant mode
+      // here: SystemAdmin reads runs via jobs:query:list.
+      const db = scopeTenantDbToTenant(
+        systemDb.assertTenantMatch(query.user.tenantId),
+        query.user.tenantId,
+      );
       const where: Record<string, unknown> = { tenantId: [query.user.tenantId] };
       if (query.payload.jobName) where["jobName"] = query.payload.jobName;
       if (query.payload.subject) where["subject"] = serializeJobSubject(query.payload.subject);
@@ -51,7 +49,7 @@ export function createTenantFailuresQuery(readRoles: readonly string[]) {
         limit: query.payload.limit ?? DEFAULT_LIMIT,
       });
       return {
-        rows: ctx.systemDb.assertRowsTenant(rows, "tenantId").map((row) => ({
+        rows: rows.map((row) => ({
           jobName: row.jobName,
           subject: parseSubject(row.subject),
           messageKey: row.messageKey,

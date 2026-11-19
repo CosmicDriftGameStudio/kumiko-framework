@@ -149,11 +149,9 @@ export async function emptyCompanyData(
     ...companyPlaceholdersIn(input.body),
     ...companyPlaceholdersIn(layoutHtml),
   ]);
-  const empty: string[] = [];
-  for (const name of COMPANY_PLACEHOLDERS) {
-    if (!used.has(name)) continue;
-    const value = await readTenantConfigText(ctx, companyConfigKey(name));
-    if (value.trim() === "") empty.push(name);
-  }
-  return empty;
+  const usedNames = COMPANY_PLACEHOLDERS.filter((name) => used.has(name));
+  const values = await Promise.all(
+    usedNames.map((name) => readTenantConfigText(ctx, companyConfigKey(name))),
+  );
+  return usedNames.filter((_, i) => values[i]?.trim() === "");
 }

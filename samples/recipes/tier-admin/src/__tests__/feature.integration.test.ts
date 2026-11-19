@@ -16,21 +16,18 @@ import {
   createConfigFeature,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import { createTenantFeature, tenantEntity } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import {
   TierEngineHandlers,
   TierEngineQueries,
-  tierAssignmentEntity,
 } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { findTierResolverUsage, isTierResolverPlugin } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { appTierMap, NOTES_EXPORT_FEATURE, notesExportFeature, tierEngineForApp } from "../feature";
@@ -50,10 +47,7 @@ beforeAll(async () => {
     features: recipeFeatures,
     extraContext: { configResolver, configEncryption: encryption },
   });
-  await unsafeCreateEntityTable(stack.db, tenantEntity);
-  await unsafeCreateEntityTable(stack.db, tierAssignmentEntity);
   await unsafePushTables(stack.db, { configValuesTable });
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {

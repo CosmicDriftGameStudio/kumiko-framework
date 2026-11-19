@@ -24,12 +24,7 @@ import { escapeHtml } from "@cosmicdrift/kumiko-renderer/headless";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { resolveFrameworkVersion } from "./framework-version.ts";
 import { isKebabSegment } from "./kebab.ts";
-import {
-  CURRENT_INFRA_REF,
-  PREPARE_SCRIPT,
-  resolveManagedAppFacts,
-  syncManagedFiles,
-} from "./managed-files/index.ts";
+import { PREPARE_SCRIPT, resolveManagedAppFacts, syncManagedFiles } from "./managed-files/index.ts";
 import { renderAgentsMd, renderClaudeMd, renderMountedFeatureList } from "./scaffold-agent-docs.ts";
 import {
   BLANK_ENV_EXAMPLE_ADMIN_BLOCK,
@@ -61,7 +56,7 @@ import {
 export { SCAFFOLD_STARTERS, type ScaffoldStarter } from "./scaffold-blank-starter.ts";
 
 // Single bundled-feature entry the scaffolder mounts into run-config.ts.
-// importPath is the from-spec ("@cosmicdrift/kumiko-bundled-features/files"),
+// importPath is the from-spec ("@cosmicdrift/kumiko-bundled-features/jobs"),
 // exportName the named import, callExpression the form that lands in the
 // APP_FEATURES array literal — `${exportName}()` for factory-style features.
 export type ScaffoldFeatureEntry = {
@@ -121,7 +116,7 @@ export type ScaffoldAppOptions = {
    *  @cosmicdrift/kumiko-testing/scaffold. Without it the app gets the managed
    *  bunfigs but no example tests and fewer standard scripts. */
   readonly testSetup?: ScaffoldTestSetupFactory;
-  /** Infra tag written to `package.json#kumiko.deploy.infraRef`. Default: CURRENT_INFRA_REF. */
+  /** Infra tag written to `package.json#kumiko.deploy.infraRef`; without it the managed workflows use CURRENT_INFRA_REF of the installed framework. */
   readonly infraRef?: string;
   /** "demo" (default): demo tasks feature, admin seeded from DEMO_ADMIN_PASSWORD.
    *  "blank": no demo; the creator is seeded from KUMIKO_BOOTSTRAP_ADMIN_EMAIL without a password. */
@@ -172,8 +167,6 @@ function writeBinFiles(
     isBlank ? renderBlankEnvSchema() : renderEnvSchema(appName),
   );
   files.push("bin/env-schema.ts");
-  write(join(destination, "bin", "kumiko.ts"), renderBinKumiko());
-  files.push("bin/kumiko.ts");
 }
 
 function resolveScaffoldTarget(options: ScaffoldAppOptions): {
@@ -215,7 +208,7 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
 
   write(
     join(destination, "package.json"),
-    renderPackageJson(options.name, version, testSetup, options.infraRef ?? CURRENT_INFRA_REF),
+    renderPackageJson(options.name, version, testSetup, options.infraRef),
   );
   files.push("package.json");
 
@@ -315,7 +308,7 @@ function renderPackageJson(
   name: string,
   version: string,
   testSetup: ScaffoldTestSetup | undefined,
-  infraRef: string,
+  infraRef: string | undefined,
 ): string {
   return `${JSON.stringify(
     {
@@ -325,7 +318,7 @@ function renderPackageJson(
       type: "module",
       // `bun check` is built in from 1.4.4; older Bun resolves it to the app's `check` script.
       engines: { bun: ">=1.4.4" },
-      kumiko: { deploy: { infraRef } },
+      ...(infraRef !== undefined && { kumiko: { deploy: { infraRef } } }),
       scripts: appScripts(testSetup),
       dependencies: {
         "@cosmicdrift/kumiko-bundled-features": version,
@@ -449,7 +442,7 @@ export const HAS_AUTH = true;
 `;
 }
 
-// Ports match runDevApp's default and kumiko-testing's SCAFFOLD_E2E_PORT.
+// dev matches runDevApp's default; e2e sits one above so both runs fit side by side.
 const SCAFFOLD_DEV_PORT = 4173;
 const SCAFFOLD_E2E_PORT = 4174;
 
@@ -806,13 +799,13 @@ bun run schema:generate <name>
 
 ## Deploy
 
-\`deploy/Dockerfile\` + \`deploy/migrate-step.sh\` are scaffolded for container
+\`deploy/Dockerfile\` and \`deploy/Dockerfile.dockerignore\` are managed files for container
 deploys. Build context = app repo root; migrations ship in \`kumiko/migrations/\`.
 
 ## Managed files
 
 Files whose first line reads \`kumiko-managed\` (deploy/, .github/workflows/,
-.husky/pre-push, the bunfigs, kumiko/schema.ts) belong to the framework.
+.husky/pre-push, the bunfigs, kumiko/schema.ts, bin/kumiko.ts) belong to the framework.
 \`bun run check\` reports drift against the installed version;
 \`bunx kumiko sync-managed --write\` restores them. To keep a local change, add
 \`# kumiko-managed: local <reason>\` as line 2.
@@ -825,7 +818,7 @@ ${copy.demoArchitectureLines}- \`kumiko.config.ts\` — the composed feature lis
 - \`bin/server.ts\` — dev-server entry (\`bun dev\`).
 - \`bin/env-schema.ts\` — env contract of the production processes.
 - \`bin/main.ts\` — production-bootstrap (\`bun run start\`).
-- \`bin/kumiko.ts\` — schema + consumer-ops CLI bundled into \`dist-server/kumiko.js\`.
+- \`bin/kumiko.ts\` — schema, consumer and events CLI (\`runStandaloneCli\`) bundled into \`dist-server/kumiko.js\`.
 - \`docker-compose.yml\` — local Postgres + Redis for \`bun dev\`.
 
 For full docs see https://docs.kumiko.rocks.
@@ -874,61 +867,6 @@ function renderKumikoManifest(): string {
     null,
     2,
   )}\n`;
-}
-
-function renderBinKumiko(): string {
-  return [
-    "#!/usr/bin/env bun",
-    "",
-    "// Standalone kumiko CLI for the production bundle. The deploy migrate-step",
-    "// runs `bun /app/kumiko.js schema apply`; ops runs `bun /app/kumiko.js",
-    "// consumer status|restart <name>` to recover a dead event consumer without",
-    "// ad-hoc SQL, and `events prune --aggregate-type <type> [--apply]` removes retired",
-    "// aggregate types from the event log. kumiko-build bundles this file to dist-server/kumiko.js.",
-    "",
-    'import { kmsEnvSchema } from "@cosmicdrift/kumiko-bundled-features/crypto-shredding/env";',
-    'import { runConsumerCli } from "@cosmicdrift/kumiko-framework/consumer-cli";',
-    'import { kmsSlotsOf } from "@cosmicdrift/kumiko-framework/env";',
-    'import { runEventsCli } from "@cosmicdrift/kumiko-framework/events-cli";',
-    'import { runSchemaCli } from "@cosmicdrift/kumiko-framework/schema-cli";',
-    'import { FEATURES } from "../kumiko/schema";',
-    'import appConfig from "../kumiko.config";',
-    'import { envSchema } from "./env-schema";',
-    "",
-    "const [, , cmd, ...rest] = Bun.argv;",
-    "const out = { log: (l: string) => console.log(l), err: (l: string) => console.error(l) };",
-    "",
-    'if (cmd === "schema") {',
-    "  // bin/main.ts boots with kmsMode, which resolves the slots of kmsEnvSchema; the migrate step needs the same keys.",
-    "  const kmsSlots = [...new Set([...kmsSlotsOf(envSchema.schema), ...kmsSlotsOf(kmsEnvSchema)])];",
-    "  process.exit(",
-    "    await runSchemaCli(rest, process.env.INIT_CWD ?? process.cwd(), out, {",
-    "      features: FEATURES,",
-    "      kmsSlots,",
-    "      ...(appConfig.rowLevelSecurity && { rowLevelSecurity: appConfig.rowLevelSecurity }),",
-    "    }),",
-    "  );",
-    "}",
-    "",
-    'if (cmd === "consumer") {',
-    "  process.exit(await runConsumerCli(rest, out));",
-    "}",
-    "",
-    'if (cmd === "events") {',
-    "  process.exit(",
-    "    await runEventsCli(rest, out, {",
-    "      features: FEATURES,",
-    "      ...(appConfig.rowLevelSecurity && { rowLevelSecurity: appConfig.rowLevelSecurity }),",
-    "    }),",
-    "  );",
-    "}",
-    "",
-    "console.error(",
-    `  \`\\n  Unknown: kumiko \${cmd ?? ""} — the standalone bundle only runs 'kumiko schema', 'kumiko consumer' and 'kumiko events'.\\n\`,`,
-    ");",
-    "process.exit(1);",
-    "",
-  ].join("\n");
 }
 
 async function instantiateScaffoldFeatures(

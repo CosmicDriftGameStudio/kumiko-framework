@@ -63,6 +63,7 @@ export type ToastProviderProps = {
 };
 
 export function ToastProvider({ children }: ToastProviderProps): ReactNode {
+  const t = useTranslation();
   const [entries, setEntries] = useState<readonly ToastEntry[]>([]);
   // A monotonically increasing useRef counter avoids a closure bug: two
   // toast() calls in the same tick would read the same stale useState value
@@ -94,8 +95,9 @@ export function ToastProvider({ children }: ToastProviderProps): ReactNode {
           />
         ))}
         <Primitive.Viewport
+          label={t("kumiko.toast.viewport-label")}
           className={cn(
-            "fixed top-0 right-0 z-[100] flex max-h-screen w-full flex-col-reverse gap-2 p-4",
+            "fixed top-(--shell-header-height) right-0 z-[100] flex max-h-screen w-full flex-col-reverse gap-2 p-4",
             "sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]",
           )}
         />
@@ -114,10 +116,10 @@ const rootClass =
   "data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full";
 
 const TONE_CLASS: Record<StatusTone, string> = {
-  ok: "border-status-ok/30 bg-status-ok/10 text-status-ok",
-  warn: "border-status-warn/30 bg-status-warn/10 text-status-warn",
-  bad: "border-status-bad/30 bg-status-bad/10 text-status-bad",
-  critical: "border-status-critical/40 bg-status-critical/15 text-status-critical",
+  ok: "border-status-ok/30 bg-status-ok-surface text-status-ok",
+  warn: "border-status-warn/30 bg-status-warn-surface text-status-warn",
+  bad: "border-status-bad/30 bg-status-bad-surface text-status-bad",
+  critical: "border-status-critical/40 bg-status-critical-surface text-status-critical",
   muted: "border bg-background text-foreground",
 };
 

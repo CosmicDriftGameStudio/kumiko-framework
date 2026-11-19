@@ -1,9 +1,27 @@
 import type { FieldIconKey } from "@cosmicdrift/kumiko-framework/ui-types";
+import { createContext, useContext, useId } from "react";
 import { toKebab } from "../app/qn.ts";
 import type { EditFieldViewModel } from "../headless/index.ts";
 
-export function inputId(field: EditFieldViewModel): string {
-  return `kumiko-edit-${field.field}`;
+// null outside any form, "" in a top-level form. A form rendered inside another one (approval
+// drawer, create-reference dialog) gets a scope of its own: with the outer form's ids its labels
+// would point at the outer controls. Top-level ids stay unscoped because apps select them.
+const FieldIdScopeContext = createContext<string | null>(null);
+
+export const FieldIdScopeProvider = FieldIdScopeContext.Provider;
+
+export function useFieldIdScope(): string {
+  return useContext(FieldIdScopeContext) ?? "";
+}
+
+export function useNestedFieldIdScope(): string {
+  const outerScope = useContext(FieldIdScopeContext);
+  const nestedScope = useId().replace(/[^A-Za-z0-9_-]/g, "");
+  return outerScope === null ? "" : nestedScope;
+}
+
+export function inputId(field: EditFieldViewModel, scope = ""): string {
+  return scope === "" ? `kumiko-edit-${field.field}` : `kumiko-edit-${scope}-${field.field}`;
 }
 
 // Field types whose read display already isn't a boxed "disabled input" look
@@ -50,7 +68,11 @@ function kebabLastSegment(value: string): string {
 // Derives a prefix icon when the field declares none: field.icon wins, then
 // the field name. Deliberately no type-based fallback — a hash in front of a
 // number field restates what the field already shows and reads as noise.
-export function resolveFieldIcon(field: EditFieldViewModel): FieldIconKey | undefined {
+export function resolveFieldIcon(
+  field: EditFieldViewModel,
+  iconless?: boolean,
+): FieldIconKey | undefined {
+  if (iconless === true) return undefined;
   if (field.icon !== undefined) return field.icon;
   const byName =
     FIELD_ICON_BY_NAME[field.field.toLowerCase()] ??

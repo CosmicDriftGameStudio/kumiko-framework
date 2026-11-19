@@ -1,7 +1,6 @@
 import {
   acquireNamespacedAdvisoryLock,
   createSystemDbView,
-  createTenantDb,
   runInSavepointIfSupported,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -10,7 +9,7 @@ import {
   type TenantId,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { normalizeEmail, sendBestEffort } from "../../shared/index.ts";
 import { platformActor, waitlistDb, waitlistExecutor } from "../lib.ts";
@@ -108,7 +107,10 @@ export function createSubmitHandler(opts: WaitlistOptions) {
     name: "submit",
     schema: WaitlistSubmitSchema,
     access: { roles: ["anonymous"], personalData: "public-intake", anySignedIn: true },
+    systemScope: true,
     rateLimit: opts.rateLimit ?? DEFAULT_SUBMIT_RATE_LIMIT,
+    agent: { expose: false },
+    tenantlessAnonymous: true,
     // An empty array means "disabled"; boot validation rejects an empty additionalRateLimits.
     ...(emailRateLimits.length > 0 && { additionalRateLimits: emailRateLimits }),
     description:
@@ -119,19 +121,10 @@ export function createSubmitHandler(opts: WaitlistOptions) {
       if (isHoneypotFilled(payload)) return SUBMITTED;
 
       const email = normalizeEmail(payload.email);
-      if (!ctx.systemDb) {
-        throw new InternalError({
-          message: "waitlist:submit requires ctx.systemDb — is r.systemScope() set?",
-        });
-      }
-      const adminRecipient = await resolveAdminRecipient(
-        opts,
-        ctx,
-        ctx.systemDb,
-        event.user.tenantId,
-      );
+      const { systemDb } = ctx;
+      const adminRecipient = await resolveAdminRecipient(opts, ctx, systemDb, event.user.tenantId);
       await acquireNamespacedAdvisoryLock(
-        ctx.systemDb.unsafeRaw(SUBMIT_LOCK_REASON),
+        systemDb.unsafeRaw(SUBMIT_LOCK_REASON),
         SUBMIT_LOCK_NAMESPACE,
         email,
       );

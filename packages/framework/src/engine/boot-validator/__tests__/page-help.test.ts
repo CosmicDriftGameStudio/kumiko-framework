@@ -30,15 +30,15 @@ function pageHelpFeature(
   helpTexts: Record<string, Record<string, string>>,
 ) {
   return defineFeature("docs", (r) => {
-    r.entity({
-      name: "doc",
-      ...createEntity({
+    r.entity(
+      createEntity({
+        name: "doc",
         fields: {
           title: createTextField({ ...PII, sortable: true }),
           status: createSelectField({ ...PII, options: ["draft", "checked"] as const }),
         },
       }),
-    });
+    );
     r.screen({
       id: "doc-list",
       type: "entityList",
@@ -176,10 +176,12 @@ describe("pageHelp boot rules", () => {
 
   test("a relatedList pageHelp on an entityEdit is rejected, it would never be shown", () => {
     const feature = defineFeature("docs", (r) => {
-      r.entity({
-        name: "doc",
-        ...createEntity({ fields: { title: createTextField({ ...PII, sortable: true }) } }),
-      });
+      r.entity(
+        createEntity({
+          name: "doc",
+          fields: { title: createTextField({ ...PII, sortable: true }) },
+        }),
+      );
       r.queryHandler({
         name: "related",
         schema: z.object({}),

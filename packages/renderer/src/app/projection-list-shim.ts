@@ -58,7 +58,7 @@ export function valueTypeField(
 export function synthesizeProjectionEntity(
   columns: readonly ListColumnSpec[],
   sortable: boolean,
-): Pick<EntityDefinition, "fields"> {
+): EntityDefinition {
   const fields: Record<string, SynthesizedField> = {};
   for (const col of columns) {
     const normalized = normalizeListColumn(col);
@@ -67,7 +67,7 @@ export function synthesizeProjectionEntity(
       sortable && normalized.sortable !== false,
     );
   }
-  return { fields };
+  return { name: PROJECTION_PSEUDO_ENTITY, fields };
 }
 
 function rowPresentation(

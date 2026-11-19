@@ -27,10 +27,17 @@
 // (r.toggleable) via stripDisabledFeaturesFromAppSchema.
 
 import { isSqlDerivedField } from "@cosmicdrift/kumiko-types/fields";
-import type { EntityWriteExcludedFields } from "@cosmicdrift/kumiko-types/screen";
+import type {
+  EditLayout,
+  EditRelatedListSection,
+  EntityListExpandableRow,
+  EntityWriteExcludedFields,
+} from "@cosmicdrift/kumiko-types/screen";
 import { ZodObject, type ZodType } from "zod";
+import { isListSortAllowed, isSensitiveLabelField } from "../db/entity-field-encryption.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import type {
+  ActionFormScreenDefinition,
   AppSchema,
   ConfigEditScreenDefinition,
   EntityDefinition,
@@ -39,17 +46,24 @@ import type {
   ScreenDefinition,
   WorkspaceSchema,
 } from "../ui-types/index.ts";
+import { LIST_ROW_META_COLUMNS } from "../ui-types/list-row-meta.ts";
 import { collectUrlPrefillFieldsByScreenQn } from "./boot-validator/url-prefill-fields.ts";
+import { getZodObjectShape, getZodStringLiterals } from "./boot-validator/zod-shape.ts";
 import {
   buildConfigFeatureSchema,
   type ConfigFeatureSchema,
   SETTINGS_HUB_FEATURE,
 } from "./build-config-feature-schema.ts";
 import { isEncryptedAtRest } from "./config-helpers.ts";
-import { isListQueryWithoutSearchableFields } from "./entity-list-searchability.ts";
+import {
+  isListQueryWithoutSearchableFields,
+  resolveEntityBehindListQuery,
+} from "./entity-list-searchability.ts";
 import { projectNamedFilterRoles } from "./named-filter-roles.ts";
+import { parseRefTargetEntityName } from "./parse-ref-target.ts";
 import { projectQueryLiveEntities } from "./project-query-live-entities.ts";
 import { QnTypes, qualifyEntityName } from "./qualified-name.ts";
+import { normalizeListColumn } from "./screen-helpers.ts";
 import type { Registry } from "./types/feature.ts";
 import type {
   ClientDerivedFieldDef,
@@ -362,15 +376,22 @@ function projectScreens(
     if (screen.type === "configEdit") return projectConfigEditScreen(screen, encryptedConfigKeyQns);
     if (screen.type === "projectionList") return projectProjectionListScreen(screen, registry);
     if (screen.type === "entityList") {
-      return projectNamedFilterRoles(
+      const projected = projectNamedFilterRoles(
         screen,
         registry.features.get(featureName)?.entities?.[screen.entity]?.namedFilters,
       );
+      return projected.expandableRow === undefined
+        ? projected
+        : { ...projected, expandableRow: withServerSortFields(projected.expandableRow, registry) };
+    }
+    if (screen.type === "projectionDetail") {
+      return { ...screen, layout: withRelatedListServerSort(screen.layout, registry) };
     }
     if (screen.type === "entityEdit") {
       const { writeExcludedFields: _authoredExclusions, ...authoredScreen } = screen;
       return {
         ...authoredScreen,
+        layout: withRelatedListServerSort(screen.layout, registry),
         urlPrefillFields: sortedUrlPrefillFields(
           urlPrefillFieldsByScreenQn.get(qualifyEntityName(featureName, "screen", shortId)),
         ),
@@ -378,14 +399,25 @@ function projectScreens(
       };
     }
     if (screen.type === "actionForm") {
-      const { writeExcludedFields: _authoredExclusions, ...authoredScreen } = screen;
+      const {
+        writeExcludedFields: _authoredExclusions,
+        labelEntityFields: _authoredLabelEntityFields,
+        ...authoredScreen
+      } = screen;
       const excluded = registry.getWriteHandler(screen.handler)?.excludedFields;
+      const labelEntityFields = actionFormLabelEntityFields(
+        screen,
+        screen.labelEntity === undefined
+          ? undefined
+          : registry.features.get(featureName)?.entities?.[screen.labelEntity],
+      );
       return {
         ...authoredScreen,
         urlPrefillFields: sortedUrlPrefillFields(
           urlPrefillFieldsByScreenQn.get(qualifyEntityName(featureName, "screen", shortId)),
         ),
         ...(excluded !== undefined && { writeExcludedFields: excluded }),
+        ...(labelEntityFields.length > 0 && { labelEntityFields }),
       };
     }
     if (screen.type === "secretMint") {
@@ -398,6 +430,14 @@ function projectScreens(
     }
     return screen;
   });
+}
+
+function actionFormLabelEntityFields(
+  screen: ActionFormScreenDefinition,
+  labelEntity: EntityDefinition | undefined,
+): string[] {
+  if (labelEntity === undefined) return [];
+  return Object.keys(screen.fields).filter((field) => Object.hasOwn(labelEntity.fields, field));
 }
 
 function sortedUrlPrefillFields(declared: ReadonlySet<string> | undefined): string[] {
@@ -488,6 +528,92 @@ function deriveProjectionListCapabilities(schema: ZodType | undefined): {
   };
 }
 
+const CREATION_ORDER_FIELD = "insertedAt";
+
+function withRelatedListServerSort(layout: EditLayout, registry: Registry): EditLayout {
+  return {
+    ...layout,
+    sections: layout.sections.map((section) =>
+      section.kind === "relatedList" ? withServerSortFields(section, registry) : section,
+    ),
+  };
+}
+
+function withServerSortFields(s: EditRelatedListSection, r: Registry): EditRelatedListSection;
+function withServerSortFields(s: EntityListExpandableRow, r: Registry): EntityListExpandableRow;
+function withServerSortFields(
+  section: EditRelatedListSection | EntityListExpandableRow,
+  registry: Registry,
+): EditRelatedListSection | EntityListExpandableRow {
+  const { serverSortFields: _authored, ...authored } = section;
+  const derived = deriveServerSortFields(section, registry);
+  return derived === undefined ? authored : { ...authored, serverSortFields: derived };
+}
+
+// Same gate as projectionList.sortable (a `sort` param), narrowed to the fields
+// the query really orders by, so a section never hands a sort to a query that
+// would answer in id order.
+function deriveServerSortFields(
+  section: EditRelatedListSection | EntityListExpandableRow,
+  registry: Registry,
+): readonly string[] | undefined {
+  const { query, columns } = section;
+  const handler = registry.getQueryHandler(query);
+  const shape = getZodObjectShape(handler?.schema);
+  if (shape === undefined || !("sort" in shape)) return undefined;
+  const sortableColumns = columns
+    .map(normalizeListColumn)
+    .filter((column) => column.sortable === true)
+    .map((column) => column.field);
+  const candidates = [...new Set([...sortableColumns, CREATION_ORDER_FIELD])];
+  const entity = resolveEntityBehindListQuery(query, handler, (name) => registry.getEntity(name));
+  if (entity !== undefined) {
+    return candidates.filter((field) => isEntityListSortField(entity, field, registry));
+  }
+  const literals = getZodStringLiterals(shape["sort"]);
+  if (literals !== undefined) return candidates.filter((field) => literals.includes(field));
+  // An open string sort is trusted like projectionList trusts it; creation order is not assumed.
+  // A reference still needs a label sort, else the header would promise an order by uuid.
+  const sectionEntity =
+    section.entity !== undefined
+      ? registry.getEntity(parseRefTargetEntityName(section.entity))
+      : undefined;
+  return sortableColumns.filter(
+    (field) =>
+      sectionEntity?.fields[field]?.type !== "reference" ||
+      isEntityListSortField(sectionEntity, field, registry),
+  );
+}
+
+// Mirrors resolveListSort: every field it would silently drop to id order is left out.
+function isEntityListSortField(
+  entity: EntityDefinition,
+  field: string,
+  registry: Registry,
+): boolean {
+  const derived = entity.derivedFields?.[field];
+  if (derived !== undefined) return isSqlDerivedField(derived) && derived.sortable === true;
+  if (Object.hasOwn(LIST_ROW_META_COLUMNS, field)) return true;
+  const def = entity.fields[field];
+  // A locatedTimestamp has no column of its own name, only <name>Utc and <name>Tz.
+  if (def === undefined || def.type === "locatedTimestamp" || !isListSortAllowed(entity, field)) {
+    return false;
+  }
+  // The schema is shared by every role; a field read rule lets the server drop
+  // the sort for some caller or row scope, which only the client fallback survives.
+  if (def.access?.read !== undefined) return false;
+  if (def.type !== "reference") return true;
+  if (def.sortable !== true || def.labelField === undefined) return false;
+  const target = registry.getEntity(parseRefTargetEntityName(def.entity));
+  const label = target?.fields[def.labelField];
+  return (
+    target !== undefined &&
+    label !== undefined &&
+    label.access?.read === undefined &&
+    !isSensitiveLabelField(target, def.labelField)
+  );
+}
+
 function projectEntities(
   entities: Readonly<Record<string, EntityDefinition>>,
 ): Readonly<Record<string, EntityDefinition>> {
@@ -523,6 +649,7 @@ function projectEntity(entityName: string, entity: EntityDefinition): EntityDefi
   // in case apps reference `entity.table` directly.
   // No cast is needed: all omitted fields are optional (`?`).
   return {
+    name: entity.name,
     fields: fieldsOut,
     // @cast-boundary schema-walk: EntityDefinition.derivedFields is typed for
     // the SERVER (derive required); this is the one place a client schema

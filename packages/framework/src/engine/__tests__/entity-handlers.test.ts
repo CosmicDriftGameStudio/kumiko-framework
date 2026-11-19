@@ -25,6 +25,7 @@ import { buildMinimalCtx } from "./_pipeline-test-utils.ts";
 const VALID_UUID = "00000000-0000-4000-8000-000000000001";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "notes",
   fields: {
     title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -33,6 +34,7 @@ const noteEntity = createEntity({
 });
 
 const noteEntitySoftDelete = createEntity({
+  name: "note",
   table: "notes_soft",
   fields: {
     title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -41,6 +43,7 @@ const noteEntitySoftDelete = createEntity({
 });
 
 const promptEntity = createEntity({
+  name: "prompt",
   table: "prompts",
   fields: {
     label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -53,6 +56,7 @@ const promptEntity = createEntity({
 });
 
 const promptEntityDefaultedBody = createEntity({
+  name: "prompt",
   table: "prompts_defaulted",
   fields: {
     label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -257,7 +261,7 @@ describe("defineEntityQueryHandler", () => {
 
 describe("createEntityExecutor", () => {
   test("returns a drizzle table plus an executor bound to it", () => {
-    const { table, executor } = createEntityExecutor("note", noteEntity);
+    const { table, executor } = createEntityExecutor(noteEntity);
     // Table: drizzle-built — has the id column the event-store executor keys on.
     expect(table).toBeDefined();
     expect(table!["id"]).toBeDefined();
@@ -270,7 +274,7 @@ describe("createEntityExecutor", () => {
   });
 
   test("accepts softDelete entities (executor.restore exists)", () => {
-    const { executor } = createEntityExecutor("note", noteEntitySoftDelete);
+    const { executor } = createEntityExecutor(noteEntitySoftDelete);
     expect(typeof executor.restore).toBe("function");
   });
 });
@@ -322,7 +326,10 @@ describe("defineProjectionQueryHandler", () => {
         unsafeAllTenants: { reason: "operator-wide revenue sweep" },
       },
     );
-    expect(def.escapeHatch).toEqual({ reason: "operator-wide revenue sweep" });
+    expect(def.escapeHatch).toEqual({
+      reason: "operator-wide revenue sweep",
+      grants: ["systemIdentity"],
+    });
     const queryProjection = mock().mockResolvedValue([]);
     await def.handler(
       { type: "revenue:list", user: createTestUser(), payload: {} },
@@ -371,10 +378,16 @@ describe("defineProjectionQueryHandler", () => {
       {
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         unsafeAllTenants: true,
-        escapeHatch: { reason: "fw#2913 test — cross-tenant revenue analytics" },
+        escapeHatch: {
+          reason: "fw#2913 test — cross-tenant revenue analytics",
+          grants: ["systemIdentity"],
+        },
       },
     );
-    expect(def.escapeHatch).toEqual({ reason: "fw#2913 test — cross-tenant revenue analytics" });
+    expect(def.escapeHatch).toEqual({
+      reason: "fw#2913 test — cross-tenant revenue analytics",
+      grants: ["systemIdentity"],
+    });
   });
 
   test("escapeHatch is omitted from the def when not declared", () => {
@@ -476,13 +489,13 @@ function createCrudRegistrarMock(): {
 describe("registerCrudHandlers", () => {
   test("registers entity + standard handlers (restore only when softDelete)", () => {
     const { r, entities, writes, queries } = createCrudRegistrarMock();
-    registerCrudHandlers(r, "note", noteEntitySoftDelete, {
+    registerCrudHandlers(r, noteEntitySoftDelete, {
       write: { access: { roles: ["Admin"] } },
       read: {
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       },
     });
-    expect(entities["note"]).toEqual({ name: "note", ...noteEntitySoftDelete });
+    expect(entities["note"]).toEqual(noteEntitySoftDelete);
     expect(writes.map((w) => w.name)).toEqual([
       "note:create",
       "note:update",
@@ -498,7 +511,7 @@ describe("registerCrudHandlers", () => {
 
   test("verbs.delete: false skips delete handler", () => {
     const { r, writes } = createCrudRegistrarMock();
-    registerCrudHandlers(r, "note", noteEntity, {
+    registerCrudHandlers(r, noteEntity, {
       write: adminAccess,
       read: adminAccess,
       verbs: { delete: false },
@@ -508,20 +521,20 @@ describe("registerCrudHandlers", () => {
 
   test("no options → registration throws (no implicit openToAll)", () => {
     const { r } = createCrudRegistrarMock();
-    expect(() => registerCrudHandlers(r, "note", noteEntity)).toThrow(/no access rule resolved/);
+    expect(() => registerCrudHandlers(r, noteEntity)).toThrow(/no access rule resolved/);
   });
 
   test("restore verb on entity without softDelete throws", () => {
     const { r } = createCrudRegistrarMock();
-    expect(() => registerCrudHandlers(r, "note", noteEntity, { verbs: { restore: true } })).toThrow(
+    expect(() => registerCrudHandlers(r, noteEntity, { verbs: { restore: true } })).toThrow(
       /softDelete/,
     );
   });
 
   test("registerEntity: false skips r.entity when already registered", () => {
     const { r, entities, writes } = createCrudRegistrarMock();
-    r.entity({ name: "note", ...noteEntity });
-    registerCrudHandlers(r, "note", noteEntity, {
+    r.entity(noteEntity);
+    registerCrudHandlers(r, noteEntity, {
       write: adminAccess,
       registerEntity: false,
       verbs: { update: false, delete: false, restore: false, list: false, detail: false },
@@ -531,7 +544,7 @@ describe("registerCrudHandlers", () => {
   });
   test("descriptions: per-verb text lands on that verb only, and drives agent exposure", () => {
     const { r, writes, queries } = createCrudRegistrarMock();
-    registerCrudHandlers(r, "note", noteEntity, {
+    registerCrudHandlers(r, noteEntity, {
       write: adminAccess,
       read: adminAccess,
       descriptions: {
@@ -561,7 +574,7 @@ describe("registerCrudHandlers", () => {
 
   test("descriptions: per-verb entry wins over the write/read fallback", () => {
     const { r, writes } = createCrudRegistrarMock();
-    registerCrudHandlers(r, "note", noteEntity, {
+    registerCrudHandlers(r, noteEntity, {
       write: { access: { roles: ["Admin"] }, description: "Shared write text." },
       descriptions: { create: "Files a new note." },
       verbs: { list: false, detail: false },
@@ -573,7 +586,7 @@ describe("registerCrudHandlers", () => {
 
   test("agents: per-verb hints raise risk on that verb only", () => {
     const { r, writes } = createCrudRegistrarMock();
-    registerCrudHandlers(r, "note", noteEntity, {
+    registerCrudHandlers(r, noteEntity, {
       write: { access: { roles: ["Admin"] }, description: "Writes notes." },
       agents: { delete: { risk: "high" } },
       verbs: { list: false, detail: false },
@@ -591,7 +604,7 @@ describe("registerCrudHandlers", () => {
 
   test("agents: a per-verb hint merges into write.agent instead of replacing it", () => {
     const { r, writes } = createCrudRegistrarMock();
-    registerCrudHandlers(r, "note", noteEntity, {
+    registerCrudHandlers(r, noteEntity, {
       write: { access: { roles: ["Admin"] }, agent: { expose: true } },
       agents: { delete: { risk: "high" } },
       verbs: { list: false, detail: false },
@@ -604,7 +617,7 @@ describe("registerCrudHandlers", () => {
 
   test("agents: a per-verb hint merges into read.agent instead of replacing it", () => {
     const { r, queries } = createCrudRegistrarMock();
-    registerCrudHandlers(r, "note", noteEntity, {
+    registerCrudHandlers(r, noteEntity, {
       read: { access: { roles: ["Admin"] }, agent: { expose: true } },
       agents: { list: { risk: "low" } },
       verbs: { create: false, update: false, delete: false, restore: false },

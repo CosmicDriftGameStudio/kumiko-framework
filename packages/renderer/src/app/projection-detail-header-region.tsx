@@ -41,7 +41,7 @@ export type DetailRegionModel = DetailGuidanceModel & {
 
 // Pieces built once per render and shared by the page-header and card layouts.
 export type DetailRegionPieces = {
-  readonly PageHeader: DetailHeaderModel["primitives"]["PageHeader"];
+  readonly PageHeader: DetailHeaderModel["primitives"]["PageHeader"] | undefined;
   readonly pageHeaderCompact: boolean;
   readonly recordTitle: string | undefined;
   readonly headerTitleSlot: ReactNode;
@@ -71,7 +71,7 @@ export function deriveDetailRegionPieces(model: DetailRegionModel): DetailRegion
   const headerTitleSlot = renderHeaderTitleSlot(model);
   const headerSubtitleSlot = renderHeaderSubtitleSlot(model);
   const metricItems = buildMetricItems(model);
-  const usesPageHeaderSlot = model.pageHeaderSlotAvailable && primitives.PageHeader !== undefined;
+  const usesPageHeaderSlot = model.pageHeaderSlotAvailable;
   const pageHeaderCompact = model.pageHeaderCompactContext && usesPageHeaderSlot;
   const statusBadge = renderStatusBadge(model);
   const bandSubtitle = renderBandSubtitle(
@@ -97,10 +97,6 @@ export function deriveDetailRegionPieces(model: DetailRegionModel): DetailRegion
 
 // Tailwind needs the literal class strings.
 const NARROW_METRICS_ORDER = "max-md:order-1";
-// The split band keeps the padding of the single band: the lead part drops its bottom, the tiles
-// part trades its top for the band's gap-3.
-const LEAD_BAND_SHARED_PADDING = "[&>*]:pb-0";
-const TILES_BAND_SHARED_PADDING = "[&>*]:pt-3";
 const NARROW_TABS_ORDER = "max-md:order-2";
 const NARROW_TABS_ORDER_AFTER_STEPS = "max-md:order-3";
 
@@ -140,25 +136,29 @@ function renderBandWithNarrowMetrics(
   if (!usesNarrowMetricsOrder(model) || !hasMetrics) {
     return renderMetricsBlock(model, metricItems, subtitle, lead);
   }
-  const splitsBand = MetricBand !== undefined && (subtitle !== undefined || lead !== undefined);
+  const splitsBand = subtitle !== undefined || lead !== undefined;
   return (
     <>
-      {splitsBand &&
-        wrapLayout(
-          primitives,
-          LEAD_BAND_SHARED_PADDING,
-          <MetricBand
-            testId="kumiko-screen-projection-detail-metrics-lead"
-            subtitle={subtitle}
-            {...(lead !== undefined && { lead })}
-          >
-            {undefined}
-          </MetricBand>,
-        )}
+      {splitsBand && (
+        <MetricBand
+          testId="kumiko-screen-projection-detail-metrics-lead"
+          subtitle={subtitle}
+          splitPart="lead"
+          {...(lead !== undefined && { lead })}
+        >
+          {undefined}
+        </MetricBand>
+      )}
       {wrapNarrowOrder(
         model,
-        splitsBand ? `${NARROW_METRICS_ORDER} ${TILES_BAND_SHARED_PADDING}` : NARROW_METRICS_ORDER,
-        renderMetricsBlock(model, metricItems, MetricBand !== undefined ? undefined : subtitle),
+        NARROW_METRICS_ORDER,
+        renderMetricsBlock(
+          model,
+          metricItems,
+          undefined,
+          undefined,
+          splitsBand ? "tiles" : undefined,
+        ),
       )}
     </>
   );
@@ -209,21 +209,10 @@ function renderPageHeaderBand(
   headerSlot: ReactNode | undefined,
   bandSubtitle: ReactNode,
 ): ReactNode {
-  const { MetricBand } = model.primitives;
   return (
     <>
-      {/* The band owns the horizontal inset; the slot is its unstyled lead
-          row so it lines up with the metrics below. */}
-      {MetricBand === undefined && bandSubtitle}
-      {MetricBand === undefined && headerSlot}
       {(model.hasMetrics || bandSubtitle !== undefined || headerSlot !== undefined) &&
-        (MetricBand !== undefined || model.hasMetrics) &&
-        renderBandWithNarrowMetrics(
-          model,
-          pieces.metricItems,
-          bandSubtitle,
-          MetricBand !== undefined ? headerSlot : undefined,
-        )}
+        renderBandWithNarrowMetrics(model, pieces.metricItems, bandSubtitle, headerSlot)}
     </>
   );
 }
@@ -311,7 +300,7 @@ function renderHeaderCardBranch(
 function renderDetailTabs(
   model: DetailRegionModel,
   activeSection: NonNullable<DetailRegionModel["activeSection"]>,
-  Tabs: NonNullable<DetailHeaderModel["primitives"]["Tabs"]>,
+  Tabs: DetailHeaderModel["primitives"]["Tabs"],
 ): ReactNode {
   const { screen, record, effectiveTranslate, nav } = model;
   return (
@@ -346,7 +335,6 @@ export function renderDetailHeaderContent(
       {renderDetailGuidance(model)}
       {hasTabs &&
         activeSection !== undefined &&
-        Tabs !== undefined &&
         wrapTabStrip(model, renderDetailTabs(model, activeSection, Tabs))}
     </>
   );

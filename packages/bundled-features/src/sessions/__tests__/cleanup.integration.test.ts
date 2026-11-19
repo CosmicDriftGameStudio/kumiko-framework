@@ -1,7 +1,5 @@
-// Integration test for the sessions cleanup job. Pattern mirrors
-// secrets/retention.integration.ts — we hit the handler directly with a
-// minimal ctx, because the full setupTestStack + jobRunner path is
-// exercised by the framework's job tests. Here we pin the semantics: old
+// Integration test for the sessions cleanup job. Calls the handler directly with a minimal ctx;
+// scheduling is pinned in session-store-registration.test.ts. Here we pin the semantics: old
 // expired/revoked rows go, live rows stay, batching + signal work.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";

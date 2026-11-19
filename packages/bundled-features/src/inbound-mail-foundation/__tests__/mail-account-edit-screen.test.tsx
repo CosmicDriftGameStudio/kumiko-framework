@@ -18,12 +18,8 @@ import {
   TokensProvider,
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import {
-  createStore,
-  type Dispatcher,
-  type DispatcherError,
-  type DispatcherStatus,
-} from "@cosmicdrift/kumiko-renderer/headless";
+import type { Dispatcher, DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
@@ -69,18 +65,14 @@ const STUB_ERROR: DispatcherError = {
 // A failure result is assignable to every generic WriteResult/QueryResult without a
 // cast; the test only inspects which write was issued.
 function makeDispatcher(writes: Array<{ type: string; payload: unknown }>): Dispatcher {
-  return {
+  return createMockDispatcher({
     write: async (type, payload) => {
       writes.push({ type, payload });
       return { isSuccess: false, error: STUB_ERROR };
     },
     query: async () => ({ isSuccess: false, error: STUB_ERROR }),
     batch: async () => ({ isSuccess: true, results: [] }),
-    statusStore: createStore<DispatcherStatus>("online"),
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+  });
 }
 
 describe("mail-account-edit screen", () => {

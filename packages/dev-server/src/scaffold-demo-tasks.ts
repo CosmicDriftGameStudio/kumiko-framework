@@ -7,11 +7,6 @@ import {
   createEntity,
   createNumberField,
   createTextField,
-  defineEntityCreateHandler,
-  defineEntityDeleteHandler,
-  defineEntityDetailHandler,
-  defineEntityListHandler,
-  defineEntityUpdateHandler,
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -21,6 +16,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
 const taskEntity = createEntity({
+  name: "task",
   description: "A to-do item with a title, status, priority and urgency flag.",
   fields: {
     title: createTextField({
@@ -61,8 +57,6 @@ const open = {
     },
   },
 } as const;
-
-const described = (description: string) => ({ ...open, description });
 
 const TASKS_I18N = {
   "screen:task-list.title": { de: "Aufgaben", en: "Tasks" },
@@ -79,12 +73,17 @@ const TASKS_I18N = {
 export function createDemoTasksFeature(): FeatureDefinition {
   return defineFeature("tasks", (r) => {
     r.translations({ keys: TASKS_I18N });
-    r.entity({ name: "task", ...taskEntity });
-    r.writeHandler(defineEntityCreateHandler("task", taskEntity, described("Creates a task.")));
-    r.writeHandler(defineEntityUpdateHandler("task", taskEntity, described("Updates a task.")));
-    r.writeHandler(defineEntityDeleteHandler("task", taskEntity, described("Deletes a task.")));
-    r.queryHandler(defineEntityListHandler("task", taskEntity, described("Lists all tasks.")));
-    r.queryHandler(defineEntityDetailHandler("task", taskEntity, described("Returns one task.")));
+    r.crud(taskEntity, {
+      write: open,
+      read: open,
+      descriptions: {
+        create: "Creates a task.",
+        update: "Updates a task.",
+        delete: "Deletes a task.",
+        list: "Lists all tasks.",
+        detail: "Returns one task.",
+      },
+    });
     r.screen(listScreen);
     r.screen(editScreen);
     r.nav({ id: "tasks", label: "tasks:nav.tasks", order: 10, screen: "tasks:screen:task-list" });
@@ -100,18 +99,13 @@ export function createDemoTasksFeature(): FeatureDefinition {
 
 export function renderDemoTasksFeatureFile(): string {
   return `// Demo tasks feature — scaffolded by \`kumiko new app\`. Edit or replace.
-// Entity + CRUD handlers + list/edit screens + sidebar nav.
+// Entity + CRUD handlers (r.crud) + list/edit screens + sidebar nav.
 
 import {
   createBooleanField,
   createEntity,
   createNumberField,
   createTextField,
-  defineEntityCreateHandler,
-  defineEntityDeleteHandler,
-  defineEntityDetailHandler,
-  defineEntityListHandler,
-  defineEntityUpdateHandler,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type {
@@ -121,6 +115,7 @@ import type {
 import { tasksTranslationKeys } from "./i18n";
 
 const taskEntity = createEntity({
+  name: "task",
   description: "A to-do item with a title, status, priority and urgency flag.",
   fields: {
     title: createTextField({
@@ -162,16 +157,19 @@ const open = {
   },
 } as const;
 
-const described = (description: string) => ({ ...open, description });
-
 export const tasksFeature = defineFeature("tasks", (r) => {
   r.translations({ keys: tasksTranslationKeys });
-  r.entity({ name: "task", ...taskEntity });
-  r.writeHandler(defineEntityCreateHandler("task", taskEntity, described("Creates a task.")));
-  r.writeHandler(defineEntityUpdateHandler("task", taskEntity, described("Updates a task.")));
-  r.writeHandler(defineEntityDeleteHandler("task", taskEntity, described("Deletes a task.")));
-  r.queryHandler(defineEntityListHandler("task", taskEntity, described("Lists all tasks.")));
-  r.queryHandler(defineEntityDetailHandler("task", taskEntity, described("Returns one task.")));
+  r.crud(taskEntity, {
+    write: open,
+    read: open,
+    descriptions: {
+      create: "Creates a task.",
+      update: "Updates a task.",
+      delete: "Deletes a task.",
+      list: "Lists all tasks.",
+      detail: "Returns one task.",
+    },
+  });
   r.screen(listScreen);
   r.screen(editScreen);
   r.nav({ id: "tasks", label: "tasks:nav.tasks", order: 10, screen: "tasks:screen:task-list" });

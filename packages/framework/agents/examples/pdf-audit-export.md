@@ -23,7 +23,7 @@ Feature entry point: `src/feature.ts`. The export reads at most 200 inspections 
 
 ## Tests
 
-Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+Needs the Postgres from the repo root's `docker-compose.yml` (`docker compose up -d`); `TEST_DATABASE_URL` defaults to `postgresql://kumiko:kumiko@localhost:15432/kumiko_test`.
 
 ```bash
 cd samples/recipes/pdf-audit-export
@@ -48,14 +48,10 @@ import {
   createInMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { extractText, getDocumentProxy } from "unpdf";
 import * as z from "zod";
-import { inspectionEntity, pdfAuditExportFeature } from "../feature";
+import { pdfAuditExportFeature } from "../feature";
 
 const EXPORT_AUDIT = "pdf-audit-export:write:export-audit";
 
@@ -80,7 +76,6 @@ beforeAll(async () => {
     features: [createFilesFeature(), pdfAuditExportFeature, nestedExportFeature],
     files: { storageProvider: createInMemoryFileProvider() },
   });
-  await unsafeCreateEntityTable(stack.db, inspectionEntity);
 });
 
 afterAll(async () => {
@@ -231,6 +226,7 @@ import * as z from "zod";
 export const INSPECTION_RESULTS = ["ok", "defect"] as const;
 
 export const inspectionEntity = createEntity({
+  name: "inspection",
   table: "read_sample_inspections",
   fields: {
     assetName: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -261,8 +257,8 @@ const AUDIT_ROW_LIMIT = MAX_LIST_LIMIT - 1;
 const access = { access: { roles: ["Admin", "User"] } } as const;
 
 export const pdfAuditExportFeature = defineFeature("pdf-audit-export", (r) => {
-  r.entity({ name: "inspection", ...inspectionEntity });
-  const { executor: inspectionExecutor } = createEntityExecutor("inspection", inspectionEntity);
+  r.entity(inspectionEntity);
+  const { executor: inspectionExecutor } = createEntityExecutor(inspectionEntity);
 
   type AuditPayload = { assetName: string; from: string; to: string };
   type ExecutorUser = Parameters<typeof inspectionExecutor.list>[1];

@@ -12,6 +12,7 @@ import { collectCardMetaOverflow, validateCardMetaOverflow } from "../card-meta-
 
 const text = () => createTextField({ personal: false, reason: "test_fixture" });
 const entity = createEntity({
+  name: "item",
   fields: {
     name: text(),
     a: text(),
@@ -25,7 +26,7 @@ const entity = createEntity({
 
 function listFeature(columns: readonly ListColumnSpec[]) {
   return defineFeature("cards", (r) => {
-    r.entity({ name: "item", ...entity });
+    r.entity(entity);
     r.screen({ id: "item-list", type: "entityList", entity: "item", columns });
   });
 }
@@ -119,7 +120,7 @@ describe("collectCardMetaOverflow", () => {
 
   test("an entityList expandableRow is reported with its location", () => {
     const feature = defineFeature("exp", (r) => {
-      r.entity({ name: "item", ...entity });
+      r.entity(entity);
       r.screen({
         id: "item-list",
         type: "entityList",
@@ -170,7 +171,7 @@ describe("collectCardMetaOverflow", () => {
 
   test("a relatedList resolves select columns through its declared entity", () => {
     const feature = defineFeature("detail", (r) => {
-      r.entity({ name: "item", ...entity });
+      r.entity(entity);
       r.screen({
         id: "tenant-detail",
         type: "projectionDetail",

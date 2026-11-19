@@ -21,9 +21,12 @@ const meta = brandWritable<EntityTableMeta>({
 function makeRecordingDb() {
   const calls: Array<{ sqlText: string; params: readonly unknown[] }> = [];
   const db = {
-    unsafe: async (sqlText: string, params: readonly unknown[]) => {
+    unsafe: async (sqlText: string, params: readonly unknown[] = []) => {
       calls.push({ sqlText, params });
       return [{ id: "1" }];
+    },
+    begin: async () => {
+      throw new Error("unused in this test");
     },
   };
   return { db, calls };

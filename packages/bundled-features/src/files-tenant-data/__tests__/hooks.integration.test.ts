@@ -13,7 +13,6 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEventStoreExecutor,
   createTenantDataDestroyDb,
-  createTenantDb,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -23,15 +22,17 @@ import {
   type JobContext,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { append, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   buildStorageKey,
+  createFilesFeature,
   createInMemoryFileProvider,
   fileRefEntity,
   fileRefsTable,
   type InMemoryFileProvider,
   tenantExportPrefix,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
@@ -53,22 +54,18 @@ import {
 import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
-import { createFilesFeature } from "../../files/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantMembershipEntity } from "../../tenant/index.ts";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
-import { updateTenantViaEventStore } from "../../tenant/testing.ts";
 import { TenantHandlers } from "../../tenant/web/constants.ts";
-import {
-  TENANT_AGGREGATE_TYPE,
-  TENANT_DESTRUCTION_STARTED_EVENT_QN,
-} from "../../tenant-lifecycle/constants.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy.ts";
+import { seedDestroyingTenant } from "../../tenant-lifecycle/testing.ts";
 import { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "../hooks.ts";
 import { createFilesTenantDataFeature } from "../index.ts";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";
+
 const SWEEP_JOB = "files-tenant-data:job:sweep-orphaned-derivatives";
 
 const fileRefCrud = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
@@ -148,24 +145,13 @@ async function seedFileRef(tenantId: TenantId, storageKey: string) {
 // Stands in for a tenant-handover claim: the row's
 // tenantId moves, the storageKey — and the bytes behind it — do not.
 async function handOverFileRef(fileRefId: EntityId, toTenantId: TenantId): Promise<void> {
-  await updateRows(db, fileRefsTable, { tenantId: toTenantId }, { id: String(fileRefId) });
-}
-
-// Sidesteps the `request-destruction` write handler (needs user/auth/sessions
-// features wired) by seeding the same "destroying" state it would produce —
-// same pattern as tenant-lifecycle's own poison-pill destroy tests.
-async function seedDestroyingTenant(tenantId: TenantId): Promise<void> {
-  const now = getTemporal().Now.instant();
-  await updateTenantViaEventStore(db, tenantId, { status: "destroying", destroyStartedAt: now });
-  await append(db, {
-    aggregateId: tenantId,
-    aggregateType: TENANT_AGGREGATE_TYPE,
-    tenantId,
-    expectedVersion: (await loadAggregate(db, tenantId, tenantId)).at(-1)?.version ?? 0,
-    type: TENANT_DESTRUCTION_STARTED_EVENT_QN,
-    payload: { startedAt: now.toString() },
-    metadata: { userId: "system", requestId: "test:destruction-started" },
-  });
+  await updateRows(
+    db,
+    fileRefsTable,
+    { tenantId: toTenantId },
+    { id: String(fileRefId) },
+    { projectionOnly: "stands in for the tenant-handover move, which writes the row directly" },
+  );
 }
 
 async function driveDestructionToCompletion(
@@ -278,7 +264,7 @@ describe("files-tenant-data :: tenant destroy", () => {
     await seedFileRef(tenantB.tenantId, originalKeyB);
     await provider.write(originalKeyB, new Uint8Array([4]));
 
-    await seedDestroyingTenant(tenantA.tenantId);
+    await seedDestroyingTenant(stack, tenantA.tenantId);
 
     const finalStatus = await driveDestructionToCompletion(tenantA.tenantId, async () => provider);
     expect(finalStatus).toBe("destroyed");
@@ -320,7 +306,7 @@ describe("files-tenant-data :: tenant destroy", () => {
     await seedFileRef(tenantA.tenantId, originalKeyA);
     await provider.write(originalKeyA, new Uint8Array([1]));
 
-    await seedDestroyingTenant(tenantA.tenantId);
+    await seedDestroyingTenant(stack, tenantA.tenantId);
 
     const finalStatus = await driveDestructionToCompletion(tenantA.tenantId);
     expect(finalStatus).toBe("destroyed");
@@ -354,7 +340,7 @@ describe("files-tenant-data :: tenant destroy", () => {
 
       await handOverFileRef(fileRefId, tenantB.tenantId);
 
-      await seedDestroyingTenant(tenantB.tenantId);
+      await seedDestroyingTenant(stack, tenantB.tenantId);
       const finalStatus = await driveDestructionToCompletion(
         tenantB.tenantId,
         async () => provider,
@@ -385,7 +371,7 @@ describe("files-tenant-data :: tenant destroy", () => {
 
       await handOverFileRef(fileRefId, tenantB.tenantId);
 
-      await seedDestroyingTenant(tenantB.tenantId);
+      await seedDestroyingTenant(stack, tenantB.tenantId);
       const finalStatus = await driveDestructionToCompletion(tenantB.tenantId, async (tenantId) =>
         tenantId === tenantA.tenantId ? providerOfA : providerOfB,
       );
@@ -394,7 +380,7 @@ describe("files-tenant-data :: tenant destroy", () => {
       expect(await providerOfA.exists(handedOverKey)).toBe(false);
     });
 
-    test("the SOURCE tenant's destroy does not delete a file — or its derivative — a foreign tenant claimed, but still sweeps a true orphan", async () => {
+    test("the SOURCE tenant's destroy does not delete files — or their derivatives — foreign tenants claimed, but still sweeps orphans and stem-sharing siblings", async () => {
       await seedTenant(tenantA);
       await seedTenant(tenantB);
 
@@ -407,33 +393,52 @@ describe("files-tenant-data :: tenant destroy", () => {
         "u1",
       );
       const derivativeKey = `${originalKey.replace(/\.jpg$/, "")}.medium.jpg`;
+      const secondOriginalKey = buildStorageKey(
+        tenantA.tenantId,
+        "fileRef",
+        1,
+        "attachment",
+        "scan.jpg",
+        "u2",
+      );
+      const secondDerivativeKey = `${secondOriginalKey.replace(/\.jpg$/, "")}.medium.jpg`;
+      // Shares the original's leading characters but not its stem.
+      const siblingKey = `${originalKey.replace(/\.jpg$/, "")}-sibling.jpg`;
       const orphanKey = `${tenantA.tenantId}/some-other-file.bin`;
       const { id: fileRefId } = await seedFileRef(tenantA.tenantId, originalKey);
+      const { id: secondFileRefId } = await seedFileRef(tenantA.tenantId, secondOriginalKey);
       await provider.write(originalKey, new Uint8Array([1]));
       await provider.write(derivativeKey, new Uint8Array([2]));
+      await provider.write(secondOriginalKey, new Uint8Array([4]));
+      await provider.write(secondDerivativeKey, new Uint8Array([5]));
+      await provider.write(siblingKey, new Uint8Array([6]));
       await provider.write(orphanKey, new Uint8Array([3]));
 
       await handOverFileRef(fileRefId, tenantB.tenantId);
+      await handOverFileRef(secondFileRefId, tenantB.tenantId);
 
-      await seedDestroyingTenant(tenantA.tenantId);
+      await seedDestroyingTenant(stack, tenantA.tenantId);
       const finalStatus = await driveDestructionToCompletion(
         tenantA.tenantId,
         async () => provider,
       );
       expect(finalStatus).toBe("destroyed");
 
-      // A's own app-data stage never even sees this row — by the time it ran,
-      // the handover had already moved it to B.
+      // A's own app-data stage never even sees these rows — by the time it ran,
+      // the handover had already moved them to B.
       const rowsB = await selectMany(db, fileRefsTable, { tenantId: tenantB.tenantId });
-      expect(rowsB).toHaveLength(1);
+      expect(rowsB).toHaveLength(2);
 
       // The silent-data-loss case the whole handover design exists to
       // prevent: A's storage-prefix sweep must not delete bytes a foreign
-      // tenant's surviving row still references — original AND derivative.
+      // tenant's surviving row still references — originals AND derivatives.
       expect(await provider.exists(originalKey)).toBe(true);
       expect(await provider.exists(derivativeKey)).toBe(true);
-      // A true orphan (no fileRef row anywhere) is still swept — the
-      // exception above is narrow, not a general retreat from the sweep.
+      expect(await provider.exists(secondOriginalKey)).toBe(true);
+      expect(await provider.exists(secondDerivativeKey)).toBe(true);
+      // Orphans and stem-sharing siblings (no fileRef row anywhere) are still
+      // swept — the exception above is narrow, not a general retreat.
+      expect(await provider.exists(siblingKey)).toBe(false);
       expect(await provider.exists(orphanKey)).toBe(false);
     });
   });

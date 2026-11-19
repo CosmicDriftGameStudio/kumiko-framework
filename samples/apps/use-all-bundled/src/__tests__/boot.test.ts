@@ -43,7 +43,7 @@ const BOOT_ENV = { env: { [FILE_STORAGE_PROVIDER_ENV]: "inmemory" } };
 // configured — configure a test double for the duration of this file only,
 // so its result never depends on file-execution order (bun test shares
 // process-global state across files in one run) and doesn't leak into
-// boot-validator.test.ts's own "no cipher configured" cases.
+// encrypted-fields.test.ts's own "no cipher configured" cases.
 beforeAll(() => {
   configureEntityFieldEncryption(createTestEnvelopeCipher());
 });

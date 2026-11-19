@@ -12,7 +12,7 @@ import {
   createEntityNounKeyResolver,
   loadAuditEvent,
 } from "./audit-events.ts";
-import { requireAuditSystemDb } from "./audit-system-db.ts";
+import { createAuditPayloadFilter } from "./audit-payload-visibility.ts";
 import { resolveAuditScopeFilter } from "./resolve-audit-tenant.ts";
 
 export const detailsQuery = defineQueryHandler({
@@ -24,11 +24,10 @@ export const detailsQuery = defineQueryHandler({
     scope: z.enum(AUDIT_SCOPE_VALUES).optional(),
   }),
   access: { roles: access.admin },
+  systemScope: true,
   handler: async (query, ctx) => {
     const scopeFilter = resolveAuditScopeFilter(query.user, query.payload.scope);
-    const db = requireAuditSystemDb(ctx.systemDb, "audit:query:details").assertTenantMatch(
-      query.user.tenantId,
-    );
+    const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
     const aggregateType = aggregateTypeCondition(
       scopeFilter.aggregateType,
       scopeFilter.hiddenAggregateTypes,
@@ -41,6 +40,7 @@ export const detailsQuery = defineQueryHandler({
         id: BigInt(query.payload.id),
       },
       createEntityNounKeyResolver(ctx.registry),
+      createAuditPayloadFilter(ctx.registry, query.user),
     );
   },
 });

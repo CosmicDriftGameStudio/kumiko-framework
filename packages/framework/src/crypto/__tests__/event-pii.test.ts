@@ -46,7 +46,7 @@ const ENVELOPE: EventSubjectEnvelope = {
 
 function catalogWithAttempt(): void {
   configureEventPiiCatalog(
-    new Map([[EVENT_TYPE, { recipientAddress: { subjectField: "recipientId" } }]]),
+    new Map([[EVENT_TYPE, { recipientAddress: { personal: { of: "recipientId" } } }]]),
   );
 }
 
@@ -56,13 +56,8 @@ afterEach(() => {
 });
 
 describe("normalizeEventPiiSubject", () => {
-  test("canonical personal.of and legacy subjectField normalize to the same form", () => {
+  test("personal.of normalizes to a user subject", () => {
     expect(normalizeEventPiiSubject({ personal: { of: "recipientId" } })).toEqual({
-      kind: "user",
-      ownerField: "recipientId",
-      whenAbsent: undefined,
-    });
-    expect(normalizeEventPiiSubject({ subjectField: "recipientId" })).toEqual({
       kind: "user",
       ownerField: "recipientId",
       whenAbsent: undefined,
@@ -78,16 +73,15 @@ describe("normalizeEventPiiSubject", () => {
 
 describe("defineEvent piiFields validation", () => {
   test("valid piiFields land on the EventDef and in the registry catalog", () => {
-    // The deprecated subjectField form cannot express whenAbsent, so it only
-    // registers against a schema whose owner field is always populated.
+    // No whenAbsent stance, so it only registers against a schema whose owner field is always populated.
     const feature = defineFeature("mailer", (r) => {
       r.defineEvent("attempt", requiredOwnerSchema, {
-        piiFields: { recipientAddress: { subjectField: "recipientId" } },
+        piiFields: { recipientAddress: { personal: { of: "recipientId" } } },
       });
     });
     createRegistry([feature]);
     expect(configuredEventPiiCatalog().get(EVENT_TYPE)).toEqual({
-      recipientAddress: { subjectField: "recipientId" },
+      recipientAddress: { personal: { of: "recipientId" } },
     });
   });
 
@@ -95,30 +89,10 @@ describe("defineEvent piiFields validation", () => {
     expect(() =>
       defineFeature("mailer", (r) => {
         r.defineEvent("attempt", attemptSchema, {
-          piiFields: { nope: { subjectField: "recipientId" } },
+          piiFields: { nope: { personal: { of: "recipientId" } } },
         });
       }),
     ).toThrow(/piiFields references "nope"/);
-  });
-
-  test("unknown subjectField throws at definition time", () => {
-    expect(() =>
-      defineFeature("mailer", (r) => {
-        r.defineEvent("attempt", attemptSchema, {
-          piiFields: { recipientAddress: { subjectField: "ownerId" } },
-        });
-      }),
-    ).toThrow(/piiFields references "ownerId"/);
-  });
-
-  test("field cannot be its own subjectField (legacy form)", () => {
-    expect(() =>
-      defineFeature("mailer", (r) => {
-        r.defineEvent("attempt", attemptSchema, {
-          piiFields: { recipientAddress: { subjectField: "recipientAddress" } },
-        });
-      }),
-    ).toThrow(/cannot use itself as the owner field/);
   });
 
   test("valid canonical personal.of piiFields land on the EventDef and in the registry catalog", () => {
@@ -326,33 +300,6 @@ describe("encryptEventPayloadPii", () => {
       requestId: "test",
     });
     expect(back["recipientAddress"]).toBe("u1@example.com");
-  });
-
-  test("legacy subjectField and canonical personal.of encrypt under the same subject key", async () => {
-    const LEGACY_TYPE = "mailer:event:legacy-attempt";
-    const CANONICAL_TYPE = "mailer:event:canonical-attempt";
-    configureEventPiiCatalog(
-      new Map([
-        [LEGACY_TYPE, { recipientAddress: { subjectField: "recipientId" } }],
-        [CANONICAL_TYPE, { recipientAddress: { personal: { of: "recipientId" } } }],
-      ]),
-    );
-    const kms = new InMemoryKmsAdapter();
-    configurePiiSubjectKms(kms);
-    const ctx = { requestId: "test" };
-
-    const legacy = await encryptEventPayloadPii(LEGACY_TYPE, payload, ENVELOPE);
-    const canonical = await encryptEventPayloadPii(CANONICAL_TYPE, payload, ENVELOPE);
-    for (const out of [legacy, canonical]) {
-      const back = await decryptPiiFieldValues(out, ["recipientAddress"], kms, ctx);
-      expect(back["recipientAddress"]).toBe("u1@example.com");
-    }
-
-    await kms.eraseKey({ kind: "user", userId: "u-1" });
-    for (const out of [legacy, canonical]) {
-      const back = await decryptPiiFieldValues(out, ["recipientAddress"], kms, ctx);
-      expect(back["recipientAddress"]).toBe(PII_ERASED_SENTINEL);
-    }
   });
 
   const systemPayload = {

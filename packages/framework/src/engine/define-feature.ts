@@ -9,7 +9,7 @@ import { buildConfigEventsJobsMethods } from "./feature-config-events-jobs.ts";
 import { buildEntityHandlerMethods } from "./feature-entity-handlers.ts";
 import { buildProbeMethods } from "./feature-probes.ts";
 import { buildUiExtensionsMethods } from "./feature-ui-extensions.ts";
-import { isObjectArgument, throwObjectArgumentRequired, unwrapArrayForm } from "./object-form.ts";
+import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.ts";
 import type { FeatureDefinition } from "./types/index.ts";
 import { buildWebhookEventMethods } from "./webhook-events.ts";
 
@@ -25,14 +25,6 @@ import { buildWebhookEventMethods } from "./webhook-events.ts";
 // for `ctx.events.append({ type: eventDef.name, ... })` lights up. Apps
 // that don't care can keep the default-string and use the wrapper-based
 // strict-mode (string-literal types per call-site) like before.
-
-// optionalRequires accepts either variadic strings or a single `{ features }` object; requires
-// takes only the object (see RequiresApi).
-function resolveFeatureNamesArgs(
-  args: readonly [{ readonly features: readonly string[] }] | readonly string[],
-): readonly string[] {
-  return unwrapArrayForm(args, "features");
-}
 
 export type DefineFeatureSettings = {
   readonly dedupeOptions?: Readonly<Record<string, unknown>>;
@@ -105,10 +97,8 @@ export function defineFeature<const TName extends string, TExports = undefined>(
         },
       });
     })(),
-    optionalRequires(
-      ...args: readonly [{ readonly features: readonly string[] }] | readonly string[]
-    ): void {
-      state.optionalRequires.push(...resolveFeatureNamesArgs(args));
+    optionalRequires(options: { readonly features: readonly string[] }): void {
+      state.optionalRequires.push(...options.features);
     },
     toggleable(options: { default: boolean }): void {
       if (state.toggleableDefault !== undefined) {
@@ -117,9 +107,6 @@ export function defineFeature<const TName extends string, TExports = undefined>(
         });
       }
       state.toggleableDefault = options.default;
-    },
-    adoptsBundledLists(): void {
-      state.adoptsBundledLists = true;
     },
     // guard:dup-ok builder setter shape, sharing would add a parameter per line
     uiHints(hints: UiHints): void {
@@ -152,7 +139,6 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     requiredProjections: state.requiredProjections,
     requiredSteps: state.requiredSteps,
     ...(state.toggleableDefault !== undefined && { toggleableDefault: state.toggleableDefault }),
-    ...(state.adoptsBundledLists && { adoptsBundledLists: true as const }),
     ...(state.uiHints !== undefined && { uiHints: state.uiHints }),
     entities: state.entities,
     entityTables: state.entityTables,

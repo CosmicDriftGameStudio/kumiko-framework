@@ -1,6 +1,7 @@
-import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { requireSystemDb, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+
+export { requireSystemDb } from "@cosmicdrift/kumiko-framework/db";
 
 type CrossTenantReason = Parameters<
   NonNullable<AppContext["systemDb"]>["acknowledgeCrossTenant"]
@@ -11,10 +12,5 @@ export function acknowledgedSystemDb(
   featureName: string,
   crossTenantReason: CrossTenantReason,
 ): TenantDb {
-  if (!ctx.systemDb) {
-    throw new InternalError({
-      message: `${featureName} requires ctx.systemDb — is r.systemScope() set on the feature?`,
-    });
-  }
-  return ctx.systemDb.acknowledgeCrossTenant(crossTenantReason);
+  return requireSystemDb(ctx, featureName).acknowledgeCrossTenant(crossTenantReason);
 }

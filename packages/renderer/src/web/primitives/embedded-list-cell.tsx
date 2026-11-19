@@ -96,7 +96,7 @@ export function readOnlyCellText(
         ? formatLocaleNumber(value, locale, { grouping: true })
         : String(value);
     case "money":
-      return typeof value === "number" ? formatMoney(value, currency, locale) : String(value);
+      return typeof value === "number" ? formatMoney(value, currency, { locale }) : String(value);
     case "select":
       return typeof value === "string" ? (column.optionLabels?.[value] ?? value) : String(value);
     case "reference":

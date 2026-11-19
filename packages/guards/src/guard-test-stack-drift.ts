@@ -8,7 +8,8 @@
  * the production wiring — exactly the drift source that produces green
  * tests over a broken prod path.
  *
- * Allowed opt-out: `// @no-server-stack: <reason>` anywhere in the file.
+ * Allowed opt-out: `// kumiko-lint-ignore-file test-stack-drift <reason>` in the
+ * leading comment of the file.
  * Meant for pure adapter integration tests (DB, Redis, Meilisearch) that
  * deliberately don't spin up a server.
  *
@@ -24,6 +25,7 @@ import {
   reportResults,
   runRepoChecks,
 } from "./_lib/guard-kit";
+import { FILE_IGNORE_TAG_PREFIX, fileIgnoreTagLine } from "./_lib/ignore-tag";
 import { frameworkTsConfigPath } from "./_lib/roots";
 import { type ScanSpec, scanFiles } from "./_lib/scan-scope";
 
@@ -58,7 +60,7 @@ const FORBIDDEN_WITHOUT_SERVER = new Set([
   "createLifecycleHooks",
 ]);
 
-const OPT_OUT_MARKER = /\/\/\s*@no-server-stack:/i;
+const GUARD_SLUG = "test-stack-drift";
 
 const INTEGRATION_FILE = /\.integration(\.test)?\.ts$/;
 
@@ -96,22 +98,8 @@ function collectCallNames(sf: SourceFile): Map<string, number[]> {
   return calls;
 }
 
-// Only a marker inside a real comment counts: the same text
-// inside a string/template literal is fixture data, not an opt-out.
-function hasOptOutMarker(sf: SourceFile): boolean {
-  const text = sf.getFullText();
-  const marker = new RegExp(OPT_OUT_MARKER.source, "gi");
-  for (const match of text.matchAll(marker)) {
-    const kind = sf.getDescendantAtPos(match.index)?.getKind();
-    if (kind === SyntaxKind.SingleLineCommentTrivia || kind === SyntaxKind.MultiLineCommentTrivia) {
-      return true;
-    }
-  }
-  return false;
-}
-
 export function scanFile(sf: SourceFile): Violation | null {
-  if (hasOptOutMarker(sf)) return null;
+  if (fileIgnoreTagLine(sf, GUARD_SLUG) !== undefined) return null;
 
   const calls = collectCallNames(sf);
 
@@ -138,7 +126,7 @@ export const check: RepoCheck = {
   name: "Test-Stack-Drift Guard",
   hint:
     "Integration tests must call buildServer or setupTestStack — otherwise they test a different " +
-    "reality than prod. Pure adapter tests without a server stack: // @no-server-stack: <reason>.",
+    `reality than prod. Pure adapter tests without a server stack: // ${FILE_IGNORE_TAG_PREFIX} ${GUARD_SLUG} <reason>.`,
   run(roots) {
     if (!roots.some((r) => r.kind === "framework")) {
       return { violations: [], matchedFiles: 0, notApplicable: true };

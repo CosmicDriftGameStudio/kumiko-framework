@@ -16,9 +16,8 @@ export type { MultiStreamApplyContext } from "@cosmicdrift/kumiko-types/multi-st
 export type MultiStreamApplyContextDeps = {
   readonly registry: Registry;
   // Same DbRunner the applyFn receives as its 2nd arg. In the server's MSP
-  // consumer wiring (api/server.ts) that's the unbound pool, not the
-  // dispatcher's cursor tx — a throw does NOT roll back appends/inline
-  // projections already made; apply must be idempotent for the retry.
+  // consumer wiring that is a savepoint on the dispatcher's turn tx: a throw
+  // rolls back this event's writes and appends, which commit with the cursor.
   readonly db: DbRunner;
   // tenantId + userId of the TRIGGERING event. appendEvent stamps these
   // onto the new event so the causal chain stays tenant-consistent and
@@ -44,10 +43,7 @@ export type MultiStreamApplyContextDeps = {
 export function createMultiStreamApplyContext(
   deps: MultiStreamApplyContextDeps,
 ): MultiStreamApplyContext {
-  const appendWithLabel = async (
-    callSiteLabel: string,
-    args: AppendEventArgs & { readonly expectedVersion?: number },
-  ): Promise<void> => {
+  const appendWithLabel = async (callSiteLabel: string, args: AppendEventArgs): Promise<void> => {
     await appendDomainEventCore(
       {
         registry: deps.registry,

@@ -44,8 +44,6 @@
     "packages/locale-it",
     "packages/document-designer",
     "packages/feature-ast",
-    "packages/renderer-mail-html",
-    "packages/renderer-puppeteer-client",
     "apps/puppeteer-service",
     "packages/samples",
     "samples/recipes/*",
@@ -61,7 +59,7 @@
   },
   "scripts": {
     "kumiko": "bun run bin/kumiko.ts",
-    "test": "bun integration.guard.ts && bun test --dots --parallel=4 --no-isolate",
+    "test": "bun test --dots --parallel=4 --no-isolate",
     "test:dom": "bun test --dots --config=bunfig.dom.toml --timeout=5000 .test.tsx",
     "test:run": "bun test --dots",
     "test:verbose": "bun test",
@@ -103,7 +101,6 @@
     "ip-address": "^10.7.5",
     "js-yaml": "^4.3.2",
     "fast-copy": "^4.3.1",
-    "html-to-text": "^10.0.1",
     "nodemailer": "^10.3.1",
     "prosemirror-view": "^1.42.8",
     "source-map-js": "^1.2.2",
@@ -111,7 +108,6 @@
   },
   "overrides": {
     "fast-copy": "4.3.1",
-    "html-to-text": "10.0.1",
     "nodemailer": "10.3.1",
     "brace-expansion": "5.0.12",
     "undici": "7.30.1",

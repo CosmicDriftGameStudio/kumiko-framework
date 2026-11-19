@@ -6,6 +6,8 @@ export {
   isSafeHexColor,
   isSafeHttpsUrl,
   layoutMaxWidth,
+  OPTIONAL_HEX_COLOR_CONFIG_PATTERN,
+  OPTIONAL_HTTPS_URL_CONFIG_PATTERN,
 } from "./branding.ts";
 export {
   type CachedSecurePageResponseInit,

@@ -42,12 +42,12 @@ describe("validateBoot — projectionDetail singleton", () => {
 
   test("singleton + detailFor throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity({
-        name: "user",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "user",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
       r.queryHandler({
         name: "me",
         schema: z.object({}),

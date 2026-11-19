@@ -12,63 +12,27 @@ For full app-domain showcases (multiple features per app, deployed),
 see [publicstatus](https://github.com/cosmicdriftgamestudio/publicstatus) —
 an open-source statuspage clone built with Kumiko.
 
-## Recipes — I want to do X → sample
+## Recipes
 
-| I want to...                                                                                   | Sample                                                                        | Test type   |
-| ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ----------- |
-| See the whole loop once: entity, write handler, event, projection, screen, test                | [recipes/golden-path](recipes/golden-path/)                                   | Integration |
-| Entity + standard handlers + soft delete + optimistic locking                                  | [recipes/basic-entity](recipes/basic-entity/)                                 | Integration |
-| Custom handlers with business logic                                                            | [recipes/custom-handlers](recipes/custom-handlers/)                           | Integration |
-| Parent-child relations + cascade/restrict                                                      | [recipes/relations](recipes/relations/)                                       | Integration |
-| Embedded objects (1:1 sub-shapes inside a parent row)                                          | [recipes/embedded](recipes/embedded/)                                         | Integration |
-| Inspection checklist (embedded list with conditional cells, derived pass/fail, photos per row) | [recipes/inspection-checklist](recipes/inspection-checklist/)                 | Integration |
-| Hide/protect fields per role                                                                   | [recipes/field-access](recipes/field-access/)                                 | Integration |
-| Hooks (validation, preSave, postSave)                                                          | [recipes/lifecycle-hooks](recipes/lifecycle-hooks/)                           | Integration |
-| Seed reference data (`r.referenceData`)                                                        | [recipes/reference-data](recipes/reference-data/)                             | Integration |
-| Full-text search (searchable, searchWeight)                                                    | [recipes/search](recipes/search/)                                             | Integration |
-| Realtime updates via SSE                                                                       | [recipes/realtime-sse](recipes/realtime-sse/)                                 | Integration |
-| Cross-feature reactions (`ctx.events.append` + `r.multiStreamProjection`)                      | [recipes/cross-feature-events](recipes/cross-feature-events/)                 | Integration |
-| Full event sourcing (defineEvent + Upcaster + Projections + asOf + archive)                    | [recipes/event-sourcing](recipes/event-sourcing/)                             | Integration |
-| State machine (allowed transitions enforced)                                                   | [recipes/state-machine](recipes/state-machine/)                               | Integration |
-| Request deduplication (idempotency)                                                            | [recipes/idempotency](recipes/idempotency/)                                   | Integration |
-| Multi-tenant data isolation                                                                    | [recipes/tenant-isolation](recipes/tenant-isolation/)                         | Integration |
-| Anonymous access (public endpoints, no auth)                                                   | [recipes/anonymous-access](recipes/anonymous-access/)                         | Integration |
-| Anonymous access in multi-tenant setup                                                         | [recipes/anonymous-access-multitenant](recipes/anonymous-access-multitenant/) | Integration |
-| Tenant per subdomain, per-host HTML/CSP, locale redirect (`host-routing`)                      | [recipes/host-routing](recipes/host-routing/)                                 | Integration |
-| Internationalization (i18n)                                                                    | [recipes/i18n](recipes/i18n/)                                                 | Unit        |
-| Clean error handling (Kumiko error classes, reasons, helpers)                                  | [recipes/error-contract](recipes/error-contract/)                             | Integration |
-| Default-deny access rules + FK indices via relations                                           | [recipes/access-control](recipes/access-control/)                             | Integration |
-| Features inject identity facts into the JWT (`r.authClaims`)                                   | [recipes/auth-claims](recipes/auth-claims/)                                   | Integration |
-| Row-level ownership (entity + field, read + write, straddle-safe)                              | [recipes/ownership](recipes/ownership/)                                       | Integration |
-| Pin jobs to deploy lane (`runIn: "api" \| "worker"`), event-triggered fan-out                  | [recipes/lane-routing](recipes/lane-routing/)                                 | Integration |
-| Register screens + navigation (`r.screen` + `r.nav`) with cross-feature parents                | [recipes/screens-nav](recipes/screens-nav/)                                   | Unit        |
-| Generate Playwright E2E specs from the registry                                                | [recipes/e2e-generator](recipes/e2e-generator/)                               | Unit        |
-| SQL derived list columns (coalesce, related count/first, money, sort, defaultSort)             | [recipes/derived-fields-sql](recipes/derived-fields-sql/)                     | Integration |
-| Opt-in list table behaviour (remembered state, reset, column picker, density)                  | [recipes/list-table-options](recipes/list-table-options/)                     | Unit        |
-| Multi-currency money type (global rate table)                                                  | [recipes/currencies-global](recipes/currencies-global/)                       | Integration |
-| Multi-currency money type (per-tenant rate table)                                              | [recipes/currencies-per-tenant](recipes/currencies-per-tenant/)               | Integration |
-| Email/SMS/in-app delivery notifications                                                        | [recipes/delivery-notifications](recipes/delivery-notifications/)             | Integration |
-| Encrypted tenant config (per-tenant secrets at rest)                                           | [recipes/encrypted-tenant-config](recipes/encrypted-tenant-config/)           | Integration |
-| Feature toggles (per-tenant on/off)                                                            | [recipes/feature-toggles](recipes/feature-toggles/)                           | Integration |
-| File upload + post-processing (resize, virus scan, etc.)                                       | [recipes/files-post-processing](recipes/files-post-processing/)               | Integration |
-| Export tenant data as PDF and keep it as a FileRef                                             | [recipes/pdf-audit-export](recipes/pdf-audit-export/)                         | Integration |
-| Legal pages (terms, privacy, imprint) with versioned acceptance                                | [recipes/legal-pages](recipes/legal-pages/)                                   | Integration |
-| DSGVO Art. 15+17+20 für deine Domain (`EXT_USER_DATA`-Hooks)                                   | [recipes/user-data-rights](recipes/user-data-rights/)                         | Integration |
-| Rate limiting per user / IP / endpoint                                                         | [recipes/rate-limiting](recipes/rate-limiting/)                               | Integration |
-| Secrets management (env-var → encrypted DB row)                                                | [recipes/secrets-demo](recipes/secrets-demo/)                                 | Integration |
-| Session revocation (logout-all, force-logout, audit)                                           | [recipes/session-revocation](recipes/session-revocation/)                     | Integration |
-| Designer-driven feature (live schema edits via UI)                                             | [recipes/designer-demo](recipes/designer-demo/)                               | —           |
+[`packages/framework/agents/examples.md`](../packages/framework/agents/examples.md) lists every
+recipe with the `description` from its `package.json`. `bun run gen:agent-docs` generates it,
+so a new recipe shows up there without a hand-written entry. The smallest complete example is
+[`recipes/golden-path`](recipes/golden-path/).
 
 ## Apps — UI + dev-server
 
 | Sample                                                    | What it shows                                                                                                                                                      |
 | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [apps/ui-walkthrough](apps/ui-walkthrough/)               | DefaultAppShell + LanguageSwitcher + ThemeToggle + emailPasswordClient + TenantSwitcher + tasks demo. Includes Playwright E2E.                                     |
-| [apps/workspaces](apps/workspaces/)                       | WorkspaceShell + persona/role-gated workspaces + cross-feature nav members + server-injected AppSchema.                                                            |
+| [apps/admin-console](apps/admin-console/)                 | Bundled admin shell: tenant and platform workspaces with screens from the owning features.                                                                         |
+| [apps/cap-billing-demo](apps/cap-billing-demo/)           | Billing-foundation + cap engine + Stripe + Mollie integration on one app.                                                                                          |
+| [apps/config-demo](apps/config-demo/)                     | Config seeding and the config source badge in the config edit form.                                                                                                |
 | [apps/marketing-demo](apps/marketing-demo/)               | Asset tracker + ticketing on one Kumiko instance — internal-tools showcase with translated select options, deterministically seeded.                               |
 | [apps/showcase](apps/showcase/)                           | Generic showcase app to exercise the full feature surface in one place.                                                                                            |
-| [apps/cap-billing-demo](apps/cap-billing-demo/)           | Billing-foundation + cap engine + Stripe + Mollie integration on one app.                                                                                          |
+| [apps/styleguide](apps/styleguide/)                       | Gallery of the auto-UI building blocks; its screenshot runner shoots them in three themes for the docs.                                                            |
+| [apps/ui-walkthrough](apps/ui-walkthrough/)               | DefaultAppShell + LanguageSwitcher + ThemeToggle + emailPasswordClient + TenantSwitcher + tasks demo. Includes Playwright E2E.                                     |
+| [apps/use-all-bundled](apps/use-all-bundled/)             | Mounts every bundled feature, so framework CI catches coverage gaps that real apps miss.                                                                           |
 | [apps/user-data-rights-demo](apps/user-data-rights-demo/) | DSGVO Art. 15+17+18+20 end-to-end: todos-Domain mit `EXT_USER_DATA`-Hooks, request-export → ZIP-Bundle, request-deletion → Forget-Cleanup, Restriction-Auth-Block. |
+| [apps/workspaces](apps/workspaces/)                       | WorkspaceShell + persona/role-gated workspaces + cross-feature nav members + server-injected AppSchema.                                                            |
 
 ## Running tests
 
@@ -127,7 +91,7 @@ apply` runs the bundled kumiko CLI against the DB.
 
 ```
 samples/recipes/my-recipe/
-  package.json              ← { "name": "@cosmicdrift/kumiko-sample-my-recipe", "dependencies": { "@cosmicdrift/kumiko-framework": "workspace:*" } }
+  package.json              ← { "name": "@cosmicdrift/kumiko-sample-my-recipe", "description": "<one sentence>", "dependencies": { "@cosmicdrift/kumiko-framework": "workspace:*" } }
   src/
     feature.ts              ← defineFeature + entity + handler
     __tests__/

@@ -24,7 +24,7 @@ const RELEASABLE_FIELDS: Readonly<Record<string, string>> = {
     "id status includePaid includeSystemProbes triggeredByUserId requestedAt startedAt finishedAt durationMs okCount failedCount skippedCount results",
   "delivery/notification-preference": "id userId notificationType channel enabled",
   "delivery/notification-address-opt-out": "id notificationType channel",
-  "files/fileRef": "id mimeType size entityType entityId fieldName",
+  "files/fileRef": "id mimeType size contentSha256 entityType entityId fieldName",
   "tier-engine/tier-assignment": "id tier source",
   "cap-counter/cap-counter": "id capName value periodStart lastSoftWarnedAt",
   "compliance-profiles/tenant-compliance-profile": "id profileKey override",
@@ -43,7 +43,7 @@ const RELEASABLE_FIELDS: Readonly<Record<string, string>> = {
     "id slug kind locale title folder content contentFormat variableSchema linkedResources meta scope parentTemplateId status draft activeVersion activeSince",
   "document-draft/documentDraft":
     "id subjectType subjectId templateSlug templateVariant templateTitle templateId templateVersion templateScope locale templateBody meta variableSchema status revision fileRefId finalizedAt",
-  "template-resolver/user-content-entry": "id ownerId slug kind locale title folder contentFormat",
+  "template-resolver/user-content-entry": "id ownerId slug kind locale contentFormat",
   "renderer-puppeteer-client/rendered-pdf":
     "id fileRefId templateSlug locale templateId templateVersion templateScope layoutId layoutVersion pageCount",
   "managed-pages/page": "id slug lang title body bodyFormat description ogImage published",
@@ -54,17 +54,19 @@ const RELEASABLE_FIELDS: Readonly<Record<string, string>> = {
   "notes-history/note-entry": "id entityType entityId authorId",
   "notes-history/note-mention": "id noteId subjectId",
   "form-draft/form-draft": "id ownerId draftKey",
+  "field-approval/field-change-request": "id entityType entityId fieldName status requestedValue",
   "folders/folder": "id name parentId",
   "folders/folder-assignment": "id folderId entityType entityId",
   "documents/filed-document": "id title category issuedAt validUntil file",
   "documents/filed-document-link": "id documentId entityType entityId",
   "ledger/account": "id name type code parentId",
-  "ledger/transaction": "id date description reference status lines subjectType subjectId",
+  "ledger/transaction":
+    "id date description reference status lines subjectType subjectId sourceRef reversesTransactionId scheduleId period",
   "ledger/schedule":
     "id description startDate endDate interval amount debitAccountId creditAccountId subjectType subjectId sourceRef",
-  "document-ingest-foundation/documentExtract": "id fileRefId pages meta",
+  "document-ingest-foundation/documentExtract": "id fileRefId meta",
   "signature/signatureRequest":
-    "id documentFileId title level subjectType subjectId status expiresAt completedFileId completedAt",
+    "id documentFileId title level subjectType subjectId hostType hostId status expiresAt completedFileId completedAt",
   "signature/signatureSigner":
     "id requestId role contactId status method signedAt linkAnchor linkSentAt viewedAt viewCount",
   "notes-demo/note": "id title customFields",
@@ -125,7 +127,7 @@ describe("derived entity webhook contracts", () => {
 
   test("the real api-token entity would not release tokenHash", () => {
     const feature = defineFeature("pat-probe", (r) => {
-      r.entity({ name: "api-token", ...apiTokenEntity, webhookEvents: true });
+      r.entity({ ...apiTokenEntity, webhookEvents: true });
     });
     const fields = releasedFields(createWebhookContractResolver([feature]), "api-token");
     expect(fields).toBeDefined();

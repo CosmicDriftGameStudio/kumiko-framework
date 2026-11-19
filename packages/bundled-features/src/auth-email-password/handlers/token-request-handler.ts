@@ -5,8 +5,8 @@
 //   POST email
 //     → resolve user (system-scoped query)
 //     → skip silently if user doesn't exist / is deleted / already done
-//     → mint an HMAC-signed token
-//     → return { kind: <successKind>, email, token, expiresAt }
+//     → mint an HMAC-signed token and mail it
+//     → return { kind: <successKind> } for known and unknown addresses alike
 //
 // Differences between the flows are four parameters (successKind, sign fn,
 // default TTL, extra skip condition) + two error codes — encoded on the
@@ -17,11 +17,12 @@ import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
+import { normalizeEmail, resolveHandlerMailLocale } from "../../shared/index.ts";
 import { UserQueries } from "../../user/index.ts";
 import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row.ts";
 import { AUTH_EMAIL_PAYLOAD_RATE_LIMITS } from "../email-rate-limits.ts";
 import type { AuthMailLocale } from "../email-templates.ts";
-import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail.ts";
+import { dispatchMagicLinkMail } from "../magic-link-mail.ts";
 import { MAX_RETURN_PATH_LENGTH } from "../web/return-path.ts";
 
 const RequestTokenSchema = z.object({
@@ -30,19 +31,9 @@ const RequestTokenSchema = z.object({
   returnTo: z.string().max(MAX_RETURN_PATH_LENGTH).optional().catch(undefined),
 });
 
-// What the route layer reads off `result.data` after dispatching. Identical
-// shape for both flows; only the `kind` discriminator differs so the route
-// knows whether to forward to sendResetEmail or sendVerificationEmail.
-export type TokenRequestSuccess<K extends string> = {
-  readonly kind: K;
-  readonly email: string;
-  readonly token: string;
-  readonly expiresAt: string;
-};
-
-export type TokenRequestNoOp = { readonly kind: "no-op" };
-
-export type TokenRequestData<K extends string> = TokenRequestSuccess<K> | TokenRequestNoOp;
+// The result is reachable through POST /api/write, so it carries neither the
+// token nor the address and has the same shape for every request.
+export type TokenRequestData<K extends string> = { readonly kind: K };
 
 export type TokenRequestSpec<TName extends string, TSuccessKind extends string> = {
   readonly handlerName: TName;
@@ -105,6 +96,8 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
     name: spec.handlerName,
     schema: RequestTokenSchema,
     access: { roles: ["anonymous"] },
+    // Pre-auth flows: the caller has no session, so the agent can never run them for a user.
+    agent: { expose: false },
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
     additionalRateLimits: AUTH_EMAIL_PAYLOAD_RATE_LIMITS,
     escapeHatch: {
@@ -133,12 +126,10 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
         }),
       );
 
-      // Silent-success branches all return the SAME shape with kind="no-op".
-      // Response-level timing stays uniform (200 / isSuccess: true); the
-      // small difference in handler-internal work is accepted — no probing
-      // client can observe it through the HTTP surface.
+      // Skipped requests answer exactly like issued ones (200 / isSuccess: true,
+      // same data); the token only ever leaves via the mail.
       if (!user || user.isDeleted || !user.email || spec.extraSilentSkip(user)) {
-        const data: TokenRequestData<TSuccessKind> = { kind: "no-op" };
+        const data: TokenRequestData<TSuccessKind> = { kind: spec.successKind };
         // skip: silent no-op — uniform response prevents user-enumeration probing
         return { isSuccess: true, data };
       }
@@ -155,9 +146,9 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
           notificationType: spec.notificationType,
         },
         {
-          // Row value is ciphertext with an active KMS; the byte-exact
-          // lookup above guarantees the payload IS the stored plaintext.
-          email: event.payload.email,
+          // The row is ciphertext with an active KMS; the lookup normalizes,
+          // so the normalized payload is the stored address.
+          email: normalizeEmail(event.payload.email),
           appUrl: opts.appUrl,
           token,
           expiresAt: expiresAt.toString(),
@@ -170,12 +161,7 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
         },
       );
 
-      const data: TokenRequestData<TSuccessKind> = {
-        kind: spec.successKind,
-        email: event.payload.email,
-        token,
-        expiresAt: expiresAt.toString(),
-      };
+      const data: TokenRequestData<TSuccessKind> = { kind: spec.successKind };
       return { isSuccess: true, data };
     },
   });

@@ -5,15 +5,16 @@
 
 import { createAuditFeature } from "@cosmicdrift/kumiko-bundled-features/audit";
 import { AuthMailNotificationTypes } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
+import { createBrandingFeature } from "@cosmicdrift/kumiko-bundled-features/branding";
 import {
   createChannelEmailFeature,
   createInMemoryTransport,
 } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
-import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
-import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-mail-html";
+import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client";
 import {
   createTemplateResolverFeature,
   type TenantEditableTemplate,
@@ -21,10 +22,9 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-designer";
+import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { localeEs } from "@cosmicdrift/kumiko-locale-es";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
-import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import { TENANT_ADMIN_EMAIL } from "./app/auth-constants";
 import { billingFeature } from "./features/billing";
 import { rentalFeature } from "./features/rental";
@@ -72,9 +72,8 @@ export const APP_FEATURES = [
   createComplianceProfilesFeature(),
   createTenantLifecycleFeature(),
   createTemplateResolverFeature({ tenantEditable: TENANT_EDITABLE_TEMPLATES }),
-  // Only the branding rail of the layout editor needs managed-pages; the sample
-  // serves no public pages, so no host resolves to a tenant.
-  createManagedPagesFeature({ resolveApexTenant: () => null }),
+  // The branding rail of the layout editor needs the branding feature.
+  createBrandingFeature(),
   // The mail editor offers uploads only when the files feature is mounted.
   createFilesFeature(),
   createDocumentDesignerFeature({ access: templateEditAccess(TENANT_EDITABLE_TEMPLATES) }),

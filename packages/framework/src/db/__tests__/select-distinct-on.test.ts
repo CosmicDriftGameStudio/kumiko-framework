@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { RawDbClient } from "@cosmicdrift/kumiko-types/db-connection";
 import { createEntity, createNumberField, createTextField } from "../../engine/index.ts";
 import { buildDistinctOnClause } from "../distinct-on.ts";
 import { selectMany } from "../query.ts";
@@ -6,13 +7,14 @@ import { buildEntityTable } from "../table-builder.ts";
 import { extractTableInfo } from "../table-info.ts";
 
 const docEntity = createEntity({
+  name: "distinct-on-unit",
   table: "read_distinct_on_units",
   fields: {
     key: createTextField({ personal: false, reason: "technical_reference", required: true }),
     revision: createNumberField({ required: true }),
   },
 });
-const info = extractTableInfo(buildEntityTable("distinct-on-unit", docEntity));
+const info = extractTableInfo(buildEntityTable(docEntity));
 
 describe("buildDistinctOnClause", () => {
   test("returns undefined without distinctOn", () => {
@@ -32,13 +34,14 @@ describe("buildDistinctOnClause", () => {
 
   test("treats camelCase and snake_case spellings of the same column as equal", () => {
     const entity = createEntity({
+      name: "distinct-on-camel",
       table: "read_distinct_on_camel",
       fields: {
         accountKey: createTextField({ personal: false, reason: "technical_reference" }),
         revision: createNumberField({ required: true }),
       },
     });
-    const camelInfo = extractTableInfo(buildEntityTable("distinct-on-camel", entity));
+    const camelInfo = extractTableInfo(buildEntityTable(entity));
     const orderBy = [{ col: "account_key" }, { col: "revision", direction: "desc" as const }];
     expect(buildDistinctOnClause(camelInfo, ["accountKey"], orderBy)?.orderBy).toEqual(orderBy);
   });
@@ -57,9 +60,17 @@ describe("buildDistinctOnClause", () => {
   });
 
   test("selectMany rejects before touching the database", async () => {
-    const table = buildEntityTable("distinct-on-unit", docEntity);
+    const table = buildEntityTable(docEntity);
+    const unusedDb: RawDbClient = {
+      unsafe: async () => {
+        throw new Error("unused in this test");
+      },
+      begin: async () => {
+        throw new Error("unused in this test");
+      },
+    };
     await expect(
-      selectMany({}, table, {}, { distinctOn: ["key"], orderBy: { col: "revision" } }),
+      selectMany(unusedDb, table, {}, { distinctOn: ["key"], orderBy: { col: "revision" } }),
     ).rejects.toThrow(/orderBy must start/);
   });
 });

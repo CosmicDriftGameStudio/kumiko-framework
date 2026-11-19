@@ -2,7 +2,7 @@ import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 
-function quoteTable(tableName: string): string {
+export function quoteIdent(tableName: string): string {
   return `"${tableName.replace(/"/g, '""')}"`;
 }
 
@@ -31,7 +31,7 @@ export async function setCustomFieldValue(
   aggregateId: string,
   tenantId: TenantId,
 ): Promise<void> {
-  const tbl = quoteTable(tableName);
+  const tbl = quoteIdent(tableName);
   const escapedKey = fieldKey.replace(/'/g, "''");
   const jsonb = bindJsonbParam(value);
   await asRawClient(db).unsafe(
@@ -47,7 +47,7 @@ export async function clearCustomFieldKey(
   aggregateId: string,
   tenantId: TenantId,
 ): Promise<void> {
-  const tbl = quoteTable(tableName);
+  const tbl = quoteIdent(tableName);
   await asRawClient(db).unsafe(
     `UPDATE ${tbl} SET custom_fields = custom_fields - $1 WHERE id = $2 AND tenant_id = $3`,
     [fieldKey, aggregateId, tenantId],
@@ -64,7 +64,7 @@ export async function removeCustomFieldKeyForTenant(
   fieldKey: string,
   tenantId: TenantId,
 ): Promise<void> {
-  const tbl = quoteTable(tableName);
+  const tbl = quoteIdent(tableName);
   await asRawClient(db).unsafe(
     `UPDATE ${tbl} SET custom_fields = custom_fields - $1 WHERE tenant_id = $2`,
     [fieldKey, tenantId],
@@ -79,6 +79,6 @@ export async function removeCustomFieldKeyFromAllTenants(
   tableName: string,
   fieldKey: string,
 ): Promise<void> {
-  const tbl = quoteTable(tableName);
+  const tbl = quoteIdent(tableName);
   await asRawClient(db).unsafe(`UPDATE ${tbl} SET custom_fields = custom_fields - $1`, [fieldKey]);
 }

@@ -27,9 +27,9 @@ import {
   enrichRowWithReferences,
   enrichWithReferences,
 } from "../db/eagerload.ts";
-import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor.ts";
+import { createEventStoreExecutor } from "../db/event-store-executor.ts";
 import { answerListAggregate } from "../db/list-aggregate-labels.ts";
-import { buildEntityTable, type EntityRow, type EntityTable } from "../db/table-builder.ts";
+import { buildEntityTable, type EntityExecutorOf, type EntityTable } from "../db/table-builder.ts";
 import {
   acknowledgeConventionCrossTenant,
   reportConventionCrossTenantUse,
@@ -51,6 +51,7 @@ import type {
   EntityCrudRegistrar,
   EntityCrudVerb,
   EntityHandlerOptions,
+  EntityListHandlerOptions,
   EntityQueryHandlerOptions,
   EntityWriteHandlerOptions,
   RegisterEntityCrudOptions,
@@ -63,38 +64,18 @@ export type {
   EntityCrudRegistrar,
   EntityCrudVerb,
   EntityHandlerOptions,
+  EntityListHandlerOptions,
   EntityQueryHandlerOptions,
   EntityWriteHandlerOptions,
   RegisterEntityCrudOptions,
 } from "./types/entity-handlers.ts";
 
-// Convention-based handler factories for event-sourced aggregates.
-//
-// You register one handler per call (no auto-generation of a whole CRUD set),
-// but the Schema and the executor body are inferred from the entity + verb.
-// Pick the verbs you need — leave out the ones you don't.
-//
-// Two API shapes — pick one per project, don't mix:
-//
-//   PREFERRED — full standard CRUD set in one call:
-//     r.crud("note", noteEntity, { write: { access }, read: { access } })
-//
-//   PREFERRED — one function per verb, type-safe, no magic strings:
-//     r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access }))
-//     r.writeHandler(defineEntityUpdateHandler("note", noteEntity, { access }))
-//     r.writeHandler(defineEntityDeleteHandler("note", noteEntity, { access }))
-//     r.queryHandler(defineEntityListHandler("note", noteEntity, { access }))
-//     r.queryHandler(defineEntityDetailHandler("note", noteEntity, { access }))
-//
-//   LEGACY — single function with verb in the name-string. Kept for
-//   backwards-compat; existing apps work as before. New code should use
-//   the verb-specific factories above:
-//     r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access }))
-//     r.queryHandler(defineEntityDetailHandler("note", noteEntity, { access }))
-//
-// For custom logic (default values, business rules, side effects, custom
-// executors with ctx.services.searchAdapter, ...) write the handler explicitly with
-// r.writeHandler / r.queryHandler — these helpers cover the standard path only.
+// Convention-based handler factories for event-sourced aggregates: schema and executor
+// body are inferred from entity + verb. Two API shapes: `r.crud("note", noteEntity, { write:
+// { access }, read: { access } })` for the full set, or one factory per verb
+// (`r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access }))`, likewise
+// Update/Delete/Restore and `r.queryHandler(defineEntityListHandler(...))`/Detail).
+// Custom logic gets a hand-written r.writeHandler / r.queryHandler.
 //
 // Note on the `as` casts in the handler bodies: WriteHandlerDef.handler's
 // payload type is `unknown` because the dispatcher hands the parsed payload
@@ -133,6 +114,7 @@ type ListPayload = {
     readonly value: unknown;
   };
   filters?: readonly NamedListFilterCondition[];
+  fields?: readonly string[];
   namedFilter?: string;
   aggregate?: ListAggregatePayload;
 };
@@ -188,6 +170,7 @@ export const entityListSchema = z.object({
   sortDirection: z.enum(["asc", "desc"]).optional(),
   offset: z.number().int().nonnegative().optional(),
   totalCount: z.boolean().optional(),
+  fields: z.array(z.string().min(1)).min(1).max(100).optional(),
   // Trash query: include soft-deleted rows. Honoured only for softDelete
   // entities; the dispatcher mirrors it onto ctx.includeDeleted. Tenant +
   // ownership filters still apply.
@@ -342,6 +325,7 @@ export type EntityWriteHandlerDef = WriteHandlerDef & {
   readonly beforeTransactionWhenNested?: undefined;
 };
 
+// Module-internal: parses "<entity>:<verb>"; the public surface is the verb factories below.
 export function defineEntityWriteHandler(
   name: string,
   entity: EntityDefinition,
@@ -363,7 +347,7 @@ export function defineEntityWriteHandler(
     excludedFields,
   );
 
-  const table = buildEntityTable(entityName, entity);
+  const table = buildEntityTable(entity);
   const executor = createEventStoreExecutor(table, entity, { entityName });
 
   // r.systemScope() features (tenant, config, secrets, ...) hand their
@@ -453,6 +437,7 @@ export function defineEntityWriteHandler(
           isSystemIdentity(event.user) ? (event.payload as DbRow) : payloadWithoutId,
         );
         return executor.create(payload, event.user, dbFor(ctx), {
+          parentVisibility: parentVisibilityFor(ctx, event.user),
           preSave:
             runPreSave &&
             ((changes, previous, isNew) => runPreSave(event.type, changes, previous, isNew)),
@@ -557,14 +542,28 @@ function augmentDerivedFields(
   });
 }
 
+// Module-internal: parses "<entity>:<verb>"; the public surface is the verb factories below.
 export function defineEntityQueryHandler(
   name: string,
   entity: EntityDefinition,
-  options: EntityQueryHandlerOptions,
+  options: EntityListHandlerOptions,
 ): QueryHandlerDef {
   const { entityName, verb } = parseHandlerName(name, QUERY_VERBS);
+  const excludedFields = options.excludeFields ?? [];
+  if (verb !== "list" && excludedFields.length > 0) {
+    throw bootRuleError(DEFINITION_HANDLER_RULES.excludeFieldsVerbUnsupported, {
+      message: `"${name}": excludeFields only applies to create, update and list handlers.`,
+    });
+  }
+  for (const fieldName of excludedFields) {
+    if (!entity.fields[fieldName]) {
+      throw bootRuleError(DEFINITION_HANDLER_RULES.excludeFieldsUnknownField, {
+        message: `"${name}": excludeFields names unknown field "${fieldName}".`,
+      });
+    }
+  }
 
-  const table = buildEntityTable(entityName, entity);
+  const table = buildEntityTable(entity);
   const executor = createEventStoreExecutor(table, entity, { entityName });
 
   let schema: ZodType;
@@ -644,11 +643,25 @@ export function defineEntityQueryHandler(
             { entity, resolveEntity, viewer: eagerLoadViewer },
           );
         }
-        const result = await executor.list(listPayload, query.user, db, runtimeOptions);
+        const result = await executor.list(
+          excludedFields.length > 0
+            ? { ...listPayload, excludeFields: excludedFields }
+            : listPayload,
+          query.user,
+          db,
+          runtimeOptions,
+        );
         const enrichedRows = hasRefFields
           ? await enrichWithReferences(result.rows, entity, resolveEntity, db, eagerLoadViewer)
           : result.rows;
-        return { ...result, rows: augmentDerivedFields(enrichedRows, entity, ctx.tz.now()) };
+        // JS derives read fields the selection may have left out.
+        return {
+          ...result,
+          rows:
+            listPayload.fields === undefined
+              ? augmentDerivedFields(enrichedRows, entity, ctx.tz.now())
+              : enrichedRows,
+        };
       };
       break;
     case "detail":
@@ -687,25 +700,11 @@ export function defineEntityQueryHandler(
   };
 }
 
-// ─── Verb-specific factories (preferred) ──────────────────────────────
+// ─── Verb factories ───────────────────────────────────────────────────
 //
-// One function per verb — verb is the function name, no magic-string
-// parsing. Each delegates to the legacy `defineEntityWriteHandler` /
-// `defineEntityQueryHandler` with a fixed verb-suffix; the schema +
-// handler-body logic is unchanged. Migration from the legacy API is a
-// 1:1 rename — same arguments minus the verb-prefix in the name-string.
-//
-// Why prefer these over the legacy form:
-//   - Verb is checked at compile-time (no runtime "Unknown verb" throw)
-//   - IDE auto-completes the four/two verbs after typing `defineEntity`
-//   - Function name is self-documenting; no comment needed to explain
-//   - Entity-name appears once (used to be doubled: once in the string,
-//     once as the entity-arg)
-//
-// Restore-specific note: defineEntityRestoreHandler still validates at
-// runtime that entity.softDelete === true. A compile-time-only check
-// would need a Branded-EntityDefinition with `softDelete: true` literal
-// — feasible but not yet wired; the runtime guard catches misuse.
+// The verb is the function name, each delegates to defineEntityWriteHandler/
+// defineEntityQueryHandler with a fixed suffix. defineEntityRestoreHandler still
+// checks entity.softDelete at runtime.
 
 export function defineEntityCreateHandler(
   entityName: string,
@@ -742,7 +741,7 @@ export function defineEntityRestoreHandler(
 export function defineEntityListHandler(
   entityName: string,
   entity: EntityDefinition,
-  options: EntityQueryHandlerOptions,
+  options: EntityListHandlerOptions,
 ): QueryHandlerDef {
   return defineEntityQueryHandler(`${entityName}:list`, entity, options);
 }
@@ -756,20 +755,17 @@ export function defineEntityDetailHandler(
 }
 
 // Bundle the two calls every custom write-handler opens with: build the
-// Drizzle table from the entity, then wire an event-store executor onto it.
+// entity table, then wire an event-store executor onto it.
 // The pair is identical in every sample that hand-writes handlers, so the
 // helper collapses 3-4 lines + the { entityName } bookkeeping into one.
 //
-//   const { table, executor } = createEntityExecutor("counter", counterEntity);
-//
-// Keep using the explicit buildEntityTable / createEventStoreExecutor duo
-// when you need search-adapter / entity-cache options on the executor — this
-// helper covers the zero-config case.
+// Use buildEntityTable + createEventStoreExecutor directly when the executor needs a
+// searchAdapter. This helper covers the zero-config case.
 export function createEntityExecutor<E extends EntityDefinition>(
-  entityName: string,
   entity: E,
-): { readonly table: EntityTable; readonly executor: EventStoreExecutor<EntityRow<E>> } {
-  const table = buildEntityTable<EntityDefinition>(entityName, entity);
+): { readonly table: EntityTable<E>; readonly executor: EntityExecutorOf<E> } {
+  const entityName = entity.name;
+  const table = buildEntityTable<E>(entity);
   const executor = createEventStoreExecutor(table, entity, { entityName });
   return { table, executor };
 }
@@ -803,7 +799,7 @@ export function defineProjectionQueryHandler(
   const escapeHatch: EscapeHatchDeclaration | undefined =
     options.escapeHatch ??
     (typeof options.unsafeAllTenants === "object"
-      ? { reason: options.unsafeAllTenants.reason }
+      ? { reason: options.unsafeAllTenants.reason, grants: ["systemIdentity"] }
       : undefined);
   return {
     name,
@@ -836,10 +832,10 @@ function defaultCrudVerbs(entity: EntityDefinition): Record<EntityCrudVerb, bool
 /** Backs `r.crud`: registers the standard entity CRUD handlers. Access stays explicit — no openToAll default. */
 export function registerCrudHandlers(
   r: EntityCrudRegistrar,
-  entityName: string,
   entity: EntityDefinition,
   options?: RegisterEntityCrudOptions,
 ): void {
+  const entityName = entity.name;
   const verbs = { ...defaultCrudVerbs(entity), ...options?.verbs };
   if (verbs.restore && entity.softDelete !== true) {
     throw bootRuleError(DEFINITION_HANDLER_RULES.restoreWithoutSoftDelete, {
@@ -848,7 +844,7 @@ export function registerCrudHandlers(
   }
 
   if (options?.registerEntity !== false) {
-    r.entity({ name: entityName, ...entity });
+    r.entity(entity);
   }
   const writeOpts = options?.write;
   const readOpts = options?.read;

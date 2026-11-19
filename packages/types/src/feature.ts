@@ -298,16 +298,13 @@ export type FeatureDefinition = {
   // if a step targets a non-listed table or one that's already an
   // r.entity-registered aggregate-table. See step-vocabulary.md Q10.
   readonly requiredProjections: ReadonlySet<string>;
-  // Tier-2 step kinds opted-in via r.requires.step("webhook.send").
+  // Tier-2 step kinds opted-in via r.requires.step("callFeature").
   readonly requiredSteps: ReadonlySet<string>;
   // Declared via r.toggleable({ default }). Presence makes the feature
   // operator-switchable via the feature-toggles bundled feature; absence
   // means the feature is always-on (e.g. auth, tenant, user — core infra
   // that would brick the system if switchable).
   readonly toggleableDefault?: boolean;
-  // Set via r.adoptsBundledLists(): the feature takes the app-wide `bundledLists`
-  // block from composeFeatures. App features never set this.
-  readonly adoptsBundledLists?: true;
   // Declarative UI metadata for picker/scaffolder tooling. Set via r.uiHints().
   // Pure manifest-side info — the framework runtime doesn't read it.
   readonly uiHints?: UiHints;
@@ -607,6 +604,8 @@ export type Registry = {
   // Look up projections by source-entity name. Empty list when no projection
   // feeds off the entity — event-store-executor uses this as the hot-path.
   getProjectionsForSource(entityName: string): readonly ProjectionDefinition[];
+  // Entity projections that take this stream in through r.extendEntityProjection sources.
+  getEntityProjectionsExtendedBy(aggregateType: string): readonly ProjectionDefinition[];
   getAllProjections(): ReadonlyMap<string, ProjectionDefinition>;
 
   // All r.storeTable() registrations across all features, keyed by

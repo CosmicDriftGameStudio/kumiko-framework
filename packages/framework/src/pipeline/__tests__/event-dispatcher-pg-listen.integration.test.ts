@@ -11,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   sharedWidgetEntity,
   sharedWidgetTable,
+  sleep,
   waitFor,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -30,14 +31,20 @@ const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity,
 });
 
 let deliveryCount = 0;
+let gatedHandlerEntered = false;
+let gate: Promise<void> | undefined;
 
 const listenFeature = defineFeature("listen", (r) => {
-  r.entity({ name: "widget", ...sharedWidgetEntity });
+  r.entity(sharedWidgetEntity);
 
   r.multiStreamProjection({
     name: "latency-probe",
     apply: {
-      "widget.created": async () => {
+      "widget.created": async (event) => {
+        if (event.payload["name"] === "gated" && gate !== undefined) {
+          gatedHandlerEntered = true;
+          await gate;
+        }
         deliveryCount += 1;
       },
     },
@@ -100,6 +107,63 @@ describe("E.4 — PG NOTIFY/LISTEN wake-up", () => {
     await stack.eventDispatcher?.start();
     try {
       await executor.create({ name: "restart-probe" }, admin, tdb);
+
+      await waitFor(
+        () => {
+          expect(deliveryCount).toBe(1);
+        },
+        { delays: [100, 500, 1000, 3500] },
+      );
+    } finally {
+      await stack.eventDispatcher?.stop();
+    }
+  });
+
+  test("an event committed during an in-flight turn is delivered without the poll timer", async () => {
+    deliveryCount = 0;
+    gatedHandlerEntered = false;
+    let openGate: (() => void) | undefined;
+    gate = new Promise<void>((resolve) => {
+      openGate = resolve;
+    });
+
+    await stack.eventDispatcher?.start();
+    try {
+      await executor.create({ name: "gated" }, admin, tdb);
+      await waitFor(
+        () => {
+          expect(gatedHandlerEntered).toBe(true);
+        },
+        { delays: [100, 500, 1000, 3500] },
+      );
+      await executor.create({ name: "during-turn" }, admin, tdb);
+      // Let the NOTIFY for the second event reach the dispatcher while the first turn still runs.
+      await sleep(300);
+      openGate?.();
+
+      await waitFor(
+        () => {
+          expect(deliveryCount).toBe(2);
+        },
+        { delays: [100, 500, 1000, 3500] },
+      );
+    } finally {
+      openGate?.();
+      gate = undefined;
+      await stack.eventDispatcher?.stop();
+    }
+  });
+
+  test("an event committed while background passes are paused is delivered right after the pause", async () => {
+    deliveryCount = 0;
+
+    await stack.eventDispatcher?.start();
+    try {
+      await stack.eventDispatcher?.withBackgroundPassesPaused(async () => {
+        await executor.create({ name: "during-pause" }, admin, tdb);
+        await sleep(300);
+        expect(deliveryCount).toBe(0);
+      });
 
       await waitFor(
         () => {

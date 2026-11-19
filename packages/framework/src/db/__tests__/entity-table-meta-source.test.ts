@@ -12,6 +12,7 @@ import { defineUnmanagedTable, deriveEntityTableMeta } from "../entity-table-met
 import { diffSnapshots, snapshotFromMetas } from "../migrate-generator.ts";
 
 const entity = createEntity({
+  name: "source-probe",
   table: "source-probe",
   fields: {
     userId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -24,12 +25,12 @@ const entity = createEntity({
 
 describe("deriveEntityTableMeta — options.source", () => {
   test("defaults to managed when omitted", () => {
-    expect(deriveEntityTableMeta("source-probe", entity).source).toBe("managed");
+    expect(deriveEntityTableMeta(entity).source).toBe("managed");
   });
 
   test("options.source: 'unmanaged' changes only source, columns + piiSubjectFields stay identical", () => {
-    const managed = deriveEntityTableMeta("source-probe", entity);
-    const unmanaged = deriveEntityTableMeta("source-probe", entity, { source: "unmanaged" });
+    const managed = deriveEntityTableMeta(entity);
+    const unmanaged = deriveEntityTableMeta(entity, { source: "unmanaged" });
 
     expect(managed.source).toBe("managed");
     expect(unmanaged.source).toBe("unmanaged");
@@ -40,9 +41,9 @@ describe("deriveEntityTableMeta — options.source", () => {
   });
 
   test("flipping an existing table's meta to unmanaged produces an empty migration diff", () => {
-    const prevSnapshot = snapshotFromMetas([deriveEntityTableMeta("source-probe", entity)]);
+    const prevSnapshot = snapshotFromMetas([deriveEntityTableMeta(entity)]);
     const nextSnapshot = snapshotFromMetas([
-      deriveEntityTableMeta("source-probe", entity, { source: "unmanaged" }),
+      deriveEntityTableMeta(entity, { source: "unmanaged" }),
     ]);
 
     const diff = diffSnapshots(prevSnapshot, nextSnapshot);
@@ -55,23 +56,25 @@ describe("deriveEntityTableMeta — options.source", () => {
 describe("unmanaged builders reject read_ prefix", () => {
   test("deriveEntityTableMeta(..., { source: unmanaged }) with read_ table throws", () => {
     const readEntity = createEntity({
+      name: "source-probe",
       table: "read_source_probe",
       fields: {
         userId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
       },
     });
-    expect(() =>
-      deriveEntityTableMeta("source-probe", readEntity, { source: "unmanaged" }),
-    ).toThrow(/the "read_" prefix is reserved/);
+    expect(() => deriveEntityTableMeta(readEntity, { source: "unmanaged" })).toThrow(
+      /the "read_" prefix is reserved/,
+    );
   });
 
   test("default toTableName (read_*) + unmanaged throws", () => {
     const noTable = createEntity({
+      name: "source-probe",
       fields: {
         userId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
       },
     });
-    expect(() => deriveEntityTableMeta("source-probe", noTable, { source: "unmanaged" })).toThrow(
+    expect(() => deriveEntityTableMeta(noTable, { source: "unmanaged" })).toThrow(
       /the "read_" prefix is reserved/,
     );
   });
@@ -88,19 +91,21 @@ describe("unmanaged builders reject read_ prefix", () => {
 
 describe("deriveEntityTableMeta — recordOwned on a serial unmanaged store", () => {
   const serialEntity = createEntity({
+    name: "x",
     table: "store_serial_record_owned",
     idType: "serial",
     fields: { body: createTextField({ personal: { of: "id" }, find: "none" }) },
   });
 
   test("unmanaged + idType serial + recordOwned field throws, naming entity and field", () => {
-    expect(() => deriveEntityTableMeta("x", serialEntity, { source: "unmanaged" })).toThrow(
+    expect(() => deriveEntityTableMeta(serialEntity, { source: "unmanaged" })).toThrow(
       /"x".*"body".*recordOwned/,
     );
   });
 
   test('unmanaged + idType serial + whenAbsent "self" field throws — it keys ownerless rows on the record', () => {
     const selfEntity = createEntity({
+      name: "x",
       table: "store_serial_when_absent_self",
       idType: "serial",
       fields: {
@@ -108,16 +113,17 @@ describe("deriveEntityTableMeta — recordOwned on a serial unmanaged store", ()
         body: createTextField({ personal: { of: "ownerId", whenAbsent: "self" }, find: "none" }),
       },
     });
-    expect(() => deriveEntityTableMeta("x", selfEntity, { source: "unmanaged" })).toThrow(
+    expect(() => deriveEntityTableMeta(selfEntity, { source: "unmanaged" })).toThrow(
       /"x".*"body".*whenAbsent: "self"/,
     );
   });
 
   test("the same entity with a uuid id derives fine", () => {
     const uuidEntity = createEntity({
+      name: "x",
       table: "store_uuid_record_owned",
       fields: { body: createTextField({ personal: { of: "id" }, find: "none" }) },
     });
-    expect(() => deriveEntityTableMeta("x", uuidEntity, { source: "unmanaged" })).not.toThrow();
+    expect(() => deriveEntityTableMeta(uuidEntity, { source: "unmanaged" })).not.toThrow();
   });
 });

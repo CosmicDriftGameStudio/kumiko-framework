@@ -14,6 +14,7 @@ const TEST_KEY = Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base6
 
 describe("entity-field-encryption", () => {
   const entity = createEntity({
+    name: "entity",
     table: "read_enc_test",
     fields: {
       email: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -77,6 +78,7 @@ describe("validateEntityFieldEncryptionAvailable", () => {
 
 describe("undecryptable encrypted field", () => {
   const entity = createEntity({
+    name: "entity",
     table: "read_enc_degrade",
     fields: {
       secretNote: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),

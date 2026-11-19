@@ -10,7 +10,6 @@ import {
   asRawClient,
   buildEntityTable,
   createEventStoreExecutor,
-  createTenantDb,
   executeRawQuery,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -22,6 +21,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefEntity } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -52,6 +52,7 @@ const CLAIM_QN = "tenant-handover:write:claim";
 const APP_ACTIVATION_URL = "https://app.example.com/signup/complete";
 
 const runEntity: EntityDefinition = createEntity({
+  name: "run",
   table: "signup_handover_run",
   idType: "uuid",
   transferable: true,
@@ -61,6 +62,7 @@ const runEntity: EntityDefinition = createEntity({
 });
 
 const photoEntity: EntityDefinition = createEntity({
+  name: "photo",
   table: "signup_handover_photo",
   idType: "uuid",
   transferable: true,
@@ -75,6 +77,7 @@ const photoEntity: EntityDefinition = createEntity({
 // Deliberately declares NO `transferable` — models an entity type the claim
 // mover must refuse mid-graph (see claim.integration.test.ts's own noteEntity).
 const noteEntity: EntityDefinition = createEntity({
+  name: "note",
   table: "signup_handover_note",
   idType: "uuid",
   parentRef: { entityTypeField: "hostType", entityIdField: "hostId", allowedTypes: ["run"] },
@@ -86,14 +89,14 @@ const noteEntity: EntityDefinition = createEntity({
 });
 
 const handoverFixturesFeature = defineFeature("signup-handover-fixtures", (r) => {
-  r.entity({ name: "run", ...runEntity });
-  r.entity({ name: "photo", ...photoEntity });
-  r.entity({ name: "note", ...noteEntity });
+  r.entity(runEntity);
+  r.entity(photoEntity);
+  r.entity(noteEntity);
 });
 
-const runTable = buildEntityTable("run", runEntity);
-const photoTable = buildEntityTable("photo", photoEntity);
-const noteTable = buildEntityTable("note", noteEntity);
+const runTable = buildEntityTable(runEntity);
+const photoTable = buildEntityTable(photoEntity);
+const noteTable = buildEntityTable(noteEntity);
 const runCrud = createEventStoreExecutor(runTable, runEntity, { entityName: "run" });
 const photoCrud = createEventStoreExecutor(photoTable, photoEntity, { entityName: "photo" });
 const noteCrud = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
@@ -170,8 +173,7 @@ beforeEach(async () => {
     `TRUNCATE kumiko_events, kumiko_snapshots, signup_handover_run, signup_handover_photo, signup_handover_note, file_refs RESTART IDENTITY CASCADE`,
   );
   emailTransport.sent.length = 0;
-  const allKeys = await stack.redis.redis.keys("signup:*");
-  if (allKeys.length > 0) await stack.redis.redis.del(...allKeys);
+  await stack.redis.flushNamespace();
 });
 
 async function seedRun(tenantId: TenantId, name: string): Promise<string> {

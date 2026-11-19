@@ -30,6 +30,7 @@ export const changeEmailWrite = defineWriteHandler({
     currentPassword: z.string().min(1),
     newEmail: z.email(),
   }),
+  rateLimit: { per: "user+handler", limit: 5, windowSeconds: 300 },
   access: {
     openToAll: {
       reason:
@@ -85,9 +86,7 @@ export const changeEmailWrite = defineWriteHandler({
       );
     }
 
-    // user is systemStream: the event stream is deterministically located
-    // on SYSTEM_TENANT_ID. Older streams require a one-time
-    // backfillUserStreamTenants.
+    // user is systemStream: the event stream is deterministically located on SYSTEM_TENANT_ID.
     const writer = createSystemUser(SYSTEM_TENANT_ID);
 
     const writeRes = await ctx.dispatch.writeAs(writer, UserHandlers.update, {

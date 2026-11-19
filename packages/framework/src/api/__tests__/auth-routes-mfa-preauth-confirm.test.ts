@@ -11,6 +11,7 @@ import type { Hono } from "hono";
 import { Hono as HonoCtor } from "hono";
 import { InternalError, UnprocessableError } from "../../errors/index.ts";
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.ts";
+import { type HandlerType, resolveType } from "../../pipeline/dispatcher-utils.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { PUBLIC_API_PATHS } from "../api-constants.ts";
 import { authMiddleware } from "../auth-middleware.ts";
@@ -139,8 +140,8 @@ describe("POST /auth/mfa/preauth-confirm", () => {
   test("on success: dispatches to mfaPreauthConfirmHandler, mints a JWT + cookies", async () => {
     let receivedBody: unknown;
     const dispatcher = createStubDispatcher({
-      async write(qn, payload): Promise<WriteResult> {
-        expect(qn).toBe(PREAUTH_CONFIRM_QN);
+      async write(qn: HandlerType, payload: unknown): Promise<WriteResult> {
+        expect(resolveType(qn)).toBe(PREAUTH_CONFIRM_QN);
         receivedBody = payload;
         return {
           isSuccess: true,

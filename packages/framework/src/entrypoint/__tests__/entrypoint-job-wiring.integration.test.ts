@@ -1,9 +1,8 @@
 // Regression test for the `mergeDispatcherOptions` plumbing.
 //
-// The command-dispatcher (packages/framework/src/pipeline/dispatcher.ts:997)
-// fires `jobRunner.handleEvent` as an afterCommit-hook. Without a jobRunner
-// reference IN the dispatcher's options, event-triggered jobs silently drop
-// on every write. The entrypoint factory built the jobRunner
+// The job-trigger event consumer enqueues event-triggered jobs. Without a
+// jobRunner reference IN the dispatcher's options, event-triggered jobs
+// silently drop on every write. The entrypoint factory built the jobRunner
 // but never wired it in — this closes that via mergeDispatcherOptions.
 //
 // `job-event-trigger.integration.ts` only covers the path when the CALLER
@@ -21,8 +20,8 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
-import { createRegistry, defineFeature } from "../../engine/index.ts";
-import { createArchivedStreamsTable } from "../../event-store/index.ts";
+import { createRegistry, defineFeature, emitEvent } from "../../engine/index.ts";
+import { createArchivedStreamsTable, createEventsTable } from "../../event-store/index.ts";
 import { createNoopProvider, createPrometheusMeter } from "../../observability/index.ts";
 import { createEventConsumerStateTable } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
@@ -31,22 +30,31 @@ import { createAllInOneEntrypoint } from "../index.ts";
 const jobRuns: Array<{ name: string; payload: Record<string, unknown> }> = [];
 
 const wiringFeature = defineFeature("wiring", (r) => {
+  const orderPlaced = r.defineEvent("order-placed", z.object({ sku: z.string() }), {
+    piiFields: "none",
+  });
   r.writeHandler({
     name: "order:create",
     schema: z.object({ sku: z.string() }),
-    handler: async (event) => ({
-      isSuccess: true as const,
-      data: { id: 1, sku: event.payload.sku },
-    }),
+    handler: async (event, ctx) => {
+      await emitEvent(ctx, orderPlaced, {
+        aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
+        aggregateType: "order-placed",
+        payload: { sku: event.payload.sku },
+      });
+      return { isSuccess: true as const, data: { id: 1, sku: event.payload.sku } };
+    },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.job(
-    "record-order",
-    { trigger: { on: "wiring:write:order:create" }, runIn: "worker" },
-    async (payload) => {
+  r.job({
+    name: "record-order",
+    trigger: { on: "order-placed" },
+    runIn: "worker",
+    handler: async (payload) => {
       jobRuns.push({ name: "wiring:job:record-order", payload });
     },
-  );
+  });
 });
 
 // Mixed-lane feature: one worker-lane + one api-lane job triggered on the
@@ -55,24 +63,36 @@ const wiringFeature = defineFeature("wiring", (r) => {
 // createAllInOneEntrypoint actually consumes both lanes — not just that
 // enqueue routing works.
 const mixedLaneFeature = defineFeature("mixed", (r) => {
+  const pinged = r.defineEvent("pinged", z.object({ msg: z.string() }), { piiFields: "none" });
   r.writeHandler({
     name: "ping",
     schema: z.object({ msg: z.string() }),
-    handler: async (event) => ({
-      isSuccess: true as const,
-      data: { id: 1, msg: event.payload.msg },
-    }),
+    handler: async (event, ctx) => {
+      await emitEvent(ctx, pinged, {
+        aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
+        aggregateType: "pinged",
+        payload: { msg: event.payload.msg },
+      });
+      return { isSuccess: true as const, data: { id: 1, msg: event.payload.msg } };
+    },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.job(
-    "handle-on-worker",
-    { trigger: { on: "mixed:write:ping" }, runIn: "worker" },
-    async (payload) => {
+  r.job({
+    name: "handle-on-worker",
+    trigger: { on: "pinged" },
+    runIn: "worker",
+    handler: async (payload) => {
       jobRuns.push({ name: "mixed:job:handle-on-worker", payload });
     },
-  );
-  r.job("handle-on-api", { trigger: { on: "mixed:write:ping" }, runIn: "api" }, async (payload) => {
-    jobRuns.push({ name: "mixed:job:handle-on-api", payload });
+  });
+  r.job({
+    name: "handle-on-api",
+    trigger: { on: "pinged" },
+    runIn: "api",
+    handler: async (payload) => {
+      jobRuns.push({ name: "mixed:job:handle-on-api", payload });
+    },
   });
 });
 
@@ -84,6 +104,7 @@ let testRedis: TestRedis;
 
 beforeAll(async () => {
   [testDb, testRedis] = await Promise.all([createTestDb(), createTestRedis()]);
+  await createEventsTable(testDb.db);
   await createArchivedStreamsTable(testDb.db);
   await createEventConsumerStateTable(testDb.db);
 });
@@ -93,7 +114,7 @@ afterAll(async () => {
 });
 
 describe("createAllInOneEntrypoint auto-wires jobRunner into command-dispatcher", () => {
-  test("event-triggered job runs end-to-end (HTTP write → afterCommit → BullMQ → handler)", async () => {
+  test("event-triggered job runs end-to-end (HTTP write → job-trigger consumer → BullMQ → handler)", async () => {
     jobRuns.length = 0;
     const registry = createRegistry([wiringFeature]);
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
@@ -123,8 +144,7 @@ describe("createAllInOneEntrypoint auto-wires jobRunner into command-dispatcher"
       expect(result.isSuccess).toBe(true);
 
       // If mergeDispatcherOptions ever stops wiring the jobRunner, the
-      // afterCommit-hook at dispatcher.ts:997 becomes a no-op, the job
-      // is never enqueued, and waitFor times out. That's the regression
+      // job-trigger consumer enqueues nothing, and waitFor times out. That's the regression
       // this test is here to catch.
       await waitFor(() => {
         const run = jobRuns.find((e) => e.name === "wiring:job:record-order");
@@ -240,22 +260,29 @@ describe("createAllInOneEntrypoint — kumiko_job_queue_depth sees the SAME mete
 const featuresSeenByJob: Array<ReadonlySet<string> | undefined> = [];
 
 const featureGateJobFeature = defineFeature("featuregate", (r) => {
+  const pinged = r.defineEvent("pinged", z.object({ msg: z.string() }), { piiFields: "none" });
   r.writeHandler({
     name: "ping",
     schema: z.object({ msg: z.string() }),
-    handler: async (event) => ({
-      isSuccess: true as const,
-      data: { id: 1, msg: event.payload.msg },
-    }),
+    handler: async (event, ctx) => {
+      await emitEvent(ctx, pinged, {
+        aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
+        aggregateType: "pinged",
+        payload: { msg: event.payload.msg },
+      });
+      return { isSuccess: true as const, data: { id: 1, msg: event.payload.msg } };
+    },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.job(
-    "record-features",
-    { trigger: { on: "featuregate:write:ping" }, runIn: "worker" },
-    async (_payload, context) => {
+  r.job({
+    name: "record-features",
+    trigger: { on: "pinged" },
+    runIn: "worker",
+    handler: async (_payload, context) => {
       featuresSeenByJob.push(context.services.effectiveFeatures?.(adminUser.tenantId));
     },
-  );
+  });
 });
 
 describe("createAllInOneEntrypoint — job context sees dispatcherOptions.effectiveFeatures", () => {

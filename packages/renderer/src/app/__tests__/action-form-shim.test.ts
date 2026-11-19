@@ -28,6 +28,25 @@ describe("synthesizeActionFormScreen", () => {
     expect(screen.layout).toEqual({ sections: [{ title: "Invite", fields: ["email"] }] });
   });
 
+  test("labelEntity with labelEntityFields maps the fields to fieldTextEntities", () => {
+    const base = {
+      id: "set-status",
+      type: "actionForm",
+      handler: "shop:write:set-status",
+      layout: { sections: [{ fields: ["status"] }] },
+      fields: { status: { type: "text" } },
+    } as const;
+    const withEntity = synthesizeActionFormScreen({
+      ...base,
+      labelEntity: "order",
+      labelEntityFields: ["status"],
+    });
+    expect(withEntity.fieldTextEntities).toEqual({ status: "order" });
+
+    const withoutFields = synthesizeActionFormScreen({ ...base, labelEntity: "order" });
+    expect("fieldTextEntities" in withoutFields).toBe(false);
+  });
+
   test("carries description through so RenderEdit can render it as the form subtitle", () => {
     const withDescription = synthesizeActionFormScreen({
       id: "invite-user",

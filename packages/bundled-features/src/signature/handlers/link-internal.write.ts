@@ -4,7 +4,7 @@ import {
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { signerExecutor } from "../entity.ts";
+import { type SignatureRequestExecutor, signerExecutor } from "../entity.ts";
 import { discardGeneratedFile, signedDocumentUrl } from "../files.ts";
 import { parseSignatureLinkSubject, redeemSignatureLinkToken } from "../grant.ts";
 import {
@@ -49,6 +49,7 @@ const NO_CONSUME_REASON =
 
 // Anchor of a signer whose link may still act: unsigned, request open, link not revoked.
 async function loadLiveTarget(
+  requestExecutor: SignatureRequestExecutor,
   ctx: Pick<HandlerContext, "db">,
   user: SessionUser,
   signerId: string,
@@ -58,7 +59,7 @@ async function loadLiveTarget(
   if (signer === null || !isUnsignedSigner(signer) || typeof signer.linkAnchor !== "string") {
     return null;
   }
-  const request = await loadRequestOfSigner(ctx, user, signer);
+  const request = await loadRequestOfSigner(requestExecutor, ctx, user, signer);
   return request !== null && isOpenRequest(request, now) ? { signer, request } : null;
 }
 
@@ -76,7 +77,10 @@ function viewChanges(signer: SignerRow, now: Temporal.Instant): Record<string, u
   };
 }
 
-export function createLinkInternalHandlers(linkSecret: string) {
+export function createLinkInternalHandlers(
+  linkSecret: string,
+  requestExecutor: SignatureRequestExecutor,
+) {
   const linkOpen = defineWriteHandler<"link-open", typeof OpenByLinkSchema, LinkOpenData>({
     name: "link-open",
     schema: OpenByLinkSchema,
@@ -93,7 +97,7 @@ export function createLinkInternalHandlers(linkSecret: string) {
         secret: linkSecret,
         now,
         loadLinkAnchor: async (signerId) => {
-          const target = await loadLiveTarget(ctx, user, signerId, now);
+          const target = await loadLiveTarget(requestExecutor, ctx, user, signerId, now);
           if (target === null || viewCountOf(target.signer) >= SIGNATURE_MAX_LINK_OPENS)
             return null;
           found.target = target;
@@ -150,7 +154,7 @@ export function createLinkInternalHandlers(linkSecret: string) {
         secret: linkSecret,
         now,
         loadLinkAnchor: async (signerId) => {
-          found.target = await loadLiveTarget(ctx, user, signerId, now);
+          found.target = await loadLiveTarget(requestExecutor, ctx, user, signerId, now);
           const anchor = found.target?.signer.linkAnchor;
           return typeof anchor === "string" ? anchor : null;
         },
@@ -180,7 +184,7 @@ export function createLinkInternalHandlers(linkSecret: string) {
       });
       const target = found.target;
       if (!redeemed.ok || target === null) return invalidLink();
-      const allSigned = await advanceIfAllSigned(ctx, user, target.request.id);
+      const allSigned = await advanceIfAllSigned(requestExecutor, ctx, user, target.request.id);
       return {
         isSuccess: true,
         data: {
@@ -212,7 +216,7 @@ export function createLinkInternalHandlers(linkSecret: string) {
         secret: linkSecret,
         now,
         loadLinkAnchor: async (signerId) => {
-          found.target = await loadLiveTarget(ctx, user, signerId, now);
+          found.target = await loadLiveTarget(requestExecutor, ctx, user, signerId, now);
           const anchor = found.target?.signer.linkAnchor;
           return typeof anchor === "string" ? anchor : null;
         },
@@ -239,6 +243,7 @@ export function createLinkInternalHandlers(linkSecret: string) {
       const target = found.target;
       if (!redeemed.ok || target === null) return invalidLink();
       const moved = await setRequestStatus(
+        requestExecutor,
         ctx,
         user,
         target.request.id,

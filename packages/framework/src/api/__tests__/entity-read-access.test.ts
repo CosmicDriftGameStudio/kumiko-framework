@@ -12,7 +12,7 @@ function registryOf(...names: readonly string[]) {
   return createRegistry(
     names.map((name, index) =>
       defineFeature(`collide${index}`, (r) => {
-        r.entity({ name, ...createEntity({ table: `read_collide_${index}`, fields }) });
+        r.entity(createEntity({ name, table: `read_collide_${index}`, fields }));
       }),
     ),
   );

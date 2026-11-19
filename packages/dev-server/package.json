@@ -19,7 +19,6 @@
     "bunOnlyExports": [
       ".",
       "./managed-files",
-      "./setup-test-stack-from-features",
       "./testing"
     ]
   },
@@ -44,9 +43,13 @@
       "types": "./src/managed-files/index.ts",
       "default": "./src/managed-files/index.ts"
     },
-    "./setup-test-stack-from-features": {
-      "types": "./src/setup-test-stack-from-features.ts",
-      "default": "./src/setup-test-stack-from-features.ts"
+    "./scaffold-app-feature": {
+      "types": "./src/scaffold-app-feature.ts",
+      "default": "./src/scaffold-app-feature.ts"
+    },
+    "./scaffold-feature": {
+      "types": "./src/scaffold-feature.ts",
+      "default": "./src/scaffold-feature.ts"
     },
     "./testing": {
       "types": "./src/testing.ts",
@@ -81,7 +84,6 @@
     "@cosmicdrift/kumiko-feature-ast": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-renderer": "workspace:*",
-    "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
     "@cosmicdrift/kumiko-guards": "workspace:*",
     "@cosmicdrift/kumiko-server-runtime": "workspace:*",
     "@cosmicdrift/kumiko-testing": "workspace:*",
@@ -119,9 +121,13 @@
         "types": "./dist/managed-files/index.d.ts",
         "default": "./dist/managed-files/index.js"
       },
-      "./setup-test-stack-from-features": {
-        "types": "./dist/setup-test-stack-from-features.d.ts",
-        "default": "./dist/setup-test-stack-from-features.js"
+      "./scaffold-app-feature": {
+        "types": "./dist/scaffold-app-feature.d.ts",
+        "default": "./dist/scaffold-app-feature.js"
+      },
+      "./scaffold-feature": {
+        "types": "./dist/scaffold-feature.d.ts",
+        "default": "./dist/scaffold-feature.js"
       },
       "./testing": {
         "types": "./dist/testing.d.ts",

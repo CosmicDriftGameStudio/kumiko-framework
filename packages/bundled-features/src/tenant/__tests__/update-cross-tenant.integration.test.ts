@@ -1,10 +1,10 @@
 // Security regression: tenant:write:update is systemScope() (ctx.db is not
 // tenant-scoped), so without a self-check a caller with the tenant-scoped
-// "Admin" role could pass a foreign tenantId as payload.id and update another
+// TenantAdmin/Admin role could pass a foreign tenantId as payload.id and update another
 // tenant's row. Real HTTP via setupTestStack — no mocks.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -77,5 +77,31 @@ describe("tenant:write:update cross-tenant self-check", () => {
       TestUsers.systemAdmin,
     );
     expect((data!["data"] as Record<string, unknown>)["name"]).toBe("Renamed By SystemAdmin");
+  });
+
+  test("a TenantAdmin without Admin renames its own tenant but not another one", async () => {
+    const ownTenantId = testTenantId(7);
+    const tenantAdminOnly = createTestUser({
+      id: 77,
+      tenantId: ownTenantId,
+      roles: ["TenantAdmin"],
+    });
+    await stack.http.writeOk(
+      TenantHandlers.create,
+      { id: ownTenantId, key: "tenant-admin-own", name: "TA Own" },
+      TestUsers.systemAdmin,
+    );
+    const data = await stack.http.writeOk(
+      TenantHandlers.update,
+      { id: ownTenantId, changes: { name: "TA Renamed" }, version: 1 },
+      tenantAdminOnly,
+    );
+    expect((data!["data"] as Record<string, unknown>)["name"]).toBe("TA Renamed");
+    const err = await stack.http.writeErr(
+      TenantHandlers.update,
+      { id: TestUsers.otherTenant.tenantId, changes: { name: "Pwned" }, version: 2 },
+      tenantAdminOnly,
+    );
+    expectErrorIncludes(err, "tenant_not_found");
   });
 });

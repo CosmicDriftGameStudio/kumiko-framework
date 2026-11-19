@@ -39,6 +39,18 @@ export function cardFileDisplayKind(
   return undefined;
 }
 
+// A reference cell links the target's file only when that file is unambiguous: one
+// single-file field and no multi-file field beside it. Shared with the boot validator.
+export function referencedFileFieldOf(
+  entity: { readonly fields: Readonly<Record<string, { readonly type: string }>> } | undefined,
+): string | undefined {
+  const fileFields = Object.entries(entity?.fields ?? {}).filter(
+    ([, field]) => field.type === "file" || field.type === "files",
+  );
+  const [only] = fileFields;
+  return fileFields.length === 1 && only?.[1].type === "file" ? only[0] : undefined;
+}
+
 // One rule for the narrow-layout list card, shared by the renderer and the
 // boot validator so the validator counts exactly what the card would draw.
 // The first image column is the card's leading preview, neither title nor meta.
@@ -62,7 +74,13 @@ export function cardColumnRoles<C extends CardRoleColumn>(
     textColumns.find(
       (col) => col !== title && col.cardBadge === true && col.hideOnNarrow !== true,
     ) ??
-    textColumns.find((col) => col !== title && col.type === "select" && col.renderer === undefined);
+    textColumns.find(
+      (col) =>
+        col !== title &&
+        col.type === "select" &&
+        col.renderer === undefined &&
+        col.hideOnNarrow !== true,
+    );
   const lead = textColumns.find(
     (col) => col !== title && col !== status && isLeadCandidate(col) && col.hideOnNarrow !== true,
   );

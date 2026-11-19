@@ -34,6 +34,7 @@ import {
 } from "./mail-test-support.ts";
 
 const dossierEntity = createEntity({
+  name: "dossier",
   table: "outbound_access_dossiers",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -42,7 +43,7 @@ const dossierEntity = createEntity({
 });
 
 const probeFeature = defineFeature("outbound-access-test", (r) => {
-  r.entity({ name: "dossier", ...dossierEntity });
+  r.entity(dossierEntity);
   r.writeHandler(
     defineEntityCreateHandler("dossier", dossierEntity, {
       access: { roles: ["TenantAdmin", "User"] },

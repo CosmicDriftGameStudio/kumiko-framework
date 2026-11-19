@@ -21,7 +21,7 @@ preload = [
 # key in its [test] section and ignores both silently (#3078, same as #2796
 # for the integration config). The real 15s budget is `--timeout=15000` on
 # every `bun test --config=bunfig.dom.toml` call — package.json `test:dom`
-# and the DOM steps in bin/kumiko-legacy.ts. Without `--concurrent`, tests
+# and the DOM steps in bin/check-pipeline.ts. Without `--concurrent`, tests
 # run sequentially anyway.
 
 # Coverage für den Badge-Merge — der dom-Lauf ist der EINZige, der die
@@ -37,7 +37,6 @@ coveragePathIgnorePatterns = [
   "**/bin/**",
   "**/test-setup/**",
   "**/tmp/**",
-  "integration.guard.ts",
 ]
 
 pathIgnorePatterns = [

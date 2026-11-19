@@ -33,14 +33,14 @@ function fillPasswords(password: string, confirm: string): void {
 describe("SignupCompleteScreen", () => {
   test("without a token in the URL and without a token prop → missing-token page", () => {
     renderWithProviders(<SignupCompleteScreen />);
-    expect(screen.getByText(/missing a token/i)).toBeTruthy();
+    screen.getByText(/missing a token/i);
   });
 
   test("with token prop → form renders", () => {
     renderWithProviders(<SignupCompleteScreen token="abc-token" />);
     expect(document.getElementById("signup-password")).toBeTruthy();
     expect(document.getElementById("signup-confirm-password")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Activate account" })).toBeTruthy();
+    screen.getByRole("button", { name: "Activate account" });
   });
 
   test("Password < 8 characters → client-side error, no fetch call", async () => {
@@ -92,7 +92,7 @@ describe("SignupCompleteScreen", () => {
             body: JSON.stringify({ token: "abc-token", password: "validpass1" }),
           }),
         );
-        expect(screen.getByText("Your account is active and you're signed in.")).toBeTruthy();
+        screen.getByText("Your account is active and you're signed in.");
       });
 
       // No automatic redirect: the form is gone, but nothing navigated us away.
@@ -337,9 +337,7 @@ describe("SignupCompleteScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Activate account" }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Your account is active. Sign in to set up two-factor authentication."),
-      ).toBeTruthy();
+      screen.getByText("Your account is active. Sign in to set up two-factor authentication.");
     });
     expect(screen.getByRole("link", { name: "Continue" }).getAttribute("href")).toBe("/sign-in");
   });

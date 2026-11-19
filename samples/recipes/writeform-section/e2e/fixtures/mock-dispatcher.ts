@@ -12,19 +12,13 @@
 // so the spec can read what actually reached the "server" via
 // page.evaluate(), without reaching into this module's closure.
 
-import type {
-  BatchResult,
-  Command,
-  Dispatcher,
-  DispatcherStatus,
-  PendingFile,
-  PendingWrite,
-  QueryOpts,
-  QueryResult,
-  Store,
-  WriteOpts,
-  WriteResult,
-} from "@cosmicdrift/kumiko-renderer/headless";
+import type { Dispatcher, WriteResult } from "@cosmicdrift/kumiko-renderer/headless";
+import {
+  createMockDispatcher,
+  type MockBatchHandler,
+  type MockQueryHandler,
+  type MockWriteHandler,
+} from "@cosmicdrift/kumiko-renderer/testing";
 import { NOTE_DETAIL_FIELDS } from "../../src/note-fixture";
 
 const QUERY_NOTE_DETAIL = "note-desk:query:note:summary";
@@ -34,60 +28,39 @@ const WRITE_NOTE_CREATE = "note-desk:write:note:create";
 export const CREATED_COMMENTS_KEY = "mock-created-comments";
 export const CREATED_NOTES_KEY = "mock-created-notes";
 
-const ONLINE_STORE: Store<DispatcherStatus> = {
-  getSnapshot: () => "online",
-  subscribe: () => () => {},
-};
-
 function mirrorToStorage(key: string, payload: unknown): void {
   const list = JSON.parse(localStorage.getItem(key) ?? "[]") as unknown[];
   list.push(payload);
   localStorage.setItem(key, JSON.stringify(list));
 }
 
-export function createMockDispatcher(): Dispatcher {
-  async function write<TData = unknown>(
-    type: string,
-    payload: unknown,
-    _opts?: WriteOpts,
-  ): Promise<WriteResult<TData>> {
+export function createInMemoryDispatcher(): Dispatcher {
+  const write: MockWriteHandler = async (type, payload) => {
     if (type === WRITE_NOTE_COMMENT) {
       mirrorToStorage(CREATED_COMMENTS_KEY, payload);
-      return { isSuccess: true, data: null as unknown as TData };
+      return { isSuccess: true, data: null };
     }
     if (type === WRITE_NOTE_CREATE) {
       mirrorToStorage(CREATED_NOTES_KEY, payload);
-      return { isSuccess: true, data: { id: "note-new", ...(payload as object) } as TData };
+      return { isSuccess: true, data: { id: "note-new", ...(payload as object) } };
     }
     throw new Error(`mock-dispatcher: unsupported write qn "${type}"`);
-  }
+  };
 
-  async function query<TData = unknown>(
-    type: string,
-    payload: unknown,
-    _opts?: QueryOpts,
-  ): Promise<QueryResult<TData>> {
+  const query: MockQueryHandler = async (type, payload) => {
     if (type === QUERY_NOTE_DETAIL) {
       const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary mock-dispatcher wire payload
       const id = (data["id"] as string | undefined) ?? "note-1";
-      return { isSuccess: true, data: { id, ...NOTE_DETAIL_FIELDS } as unknown as TData };
+      return { isSuccess: true, data: { id, ...NOTE_DETAIL_FIELDS } };
     }
     throw new Error(`mock-dispatcher: unsupported query qn "${type}"`);
-  }
+  };
 
-  async function batch(commands: readonly Command[], opts?: WriteOpts): Promise<BatchResult> {
+  const batch: MockBatchHandler = async (commands, opts) => {
     const results: WriteResult[] = [];
     for (const cmd of commands) results.push(await write(cmd.type, cmd.payload, opts));
     return { isSuccess: true, results };
-  }
-
-  return {
-    write,
-    query,
-    batch,
-    statusStore: ONLINE_STORE,
-    async *stream() {},
-    pendingWrites: (): readonly PendingWrite[] => [],
-    pendingFiles: (): readonly PendingFile[] => [],
   };
+
+  return createMockDispatcher({ write, query, batch });
 }

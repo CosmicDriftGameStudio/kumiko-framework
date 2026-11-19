@@ -179,6 +179,17 @@ export const averageMetric = defineMetric({
   scopes: bothScopes,
 });
 
+export const maximumMetric = defineMetric({
+  id: "events-maximum",
+  description: "Largest amount per day",
+  source: eventsTable,
+  measure: { fn: "max", field: "amount" },
+  timeField: "createdAt",
+  window: "7d",
+  bucket: "day",
+  scopes: bothScopes,
+});
+
 export const snapshotMetric = defineMetric({
   id: "events-snapshot",
   description: "Successful events, no window",
@@ -215,6 +226,7 @@ export const ALL_TEST_METRICS: readonly MetricDefinition[] = [
   usersWithoutComparisonMetric,
   amountMetric,
   averageMetric,
+  maximumMetric,
   snapshotMetric,
   manyUsersMetric,
   globalMetric,

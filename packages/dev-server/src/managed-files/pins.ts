@@ -3,6 +3,8 @@ import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards
 // peerDependencies stay out: libraries declare a lower bound (>=x.y.z) on purpose.
 const DEPENDENCY_BLOCKS = ["dependencies", "devDependencies", "optionalDependencies"] as const;
 
+const OVERRIDE_BLOCKS = ["overrides", "resolutions"] as const;
+
 const EXACT_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
 type PinScope = "@cosmicdrift" | "@cosmicdriftgamestudio";
@@ -22,7 +24,11 @@ function dependencyEntries(block: unknown): readonly [string, string][] {
   );
 }
 
-/** Errors for Kumiko dependencies of an app: every one exact, and one version per scope. */
+function overrideNames(block: unknown): readonly string[] {
+  return isPlainObject(block) ? Object.keys(block) : [];
+}
+
+/** Errors for Kumiko dependencies of an app: every one exact, one version per scope, and no override of them. */
 export function findKumikoPinErrors(packageJson: unknown): readonly string[] {
   const errors: string[] = [];
   const versionsByScope = new Map<PinScope, Set<string>>();
@@ -40,6 +46,14 @@ export function findKumikoPinErrors(packageJson: unknown): readonly string[] {
       const versions = versionsByScope.get(scope) ?? new Set<string>();
       versions.add(spec);
       versionsByScope.set(scope, versions);
+    }
+  }
+  for (const blockName of OVERRIDE_BLOCKS) {
+    for (const name of overrideNames(propertyOf(packageJson, blockName))) {
+      if (pinScopeOf(name) === undefined) continue;
+      errors.push(
+        `package.json#${blockName}: ${name} is overridden. Kumiko packages pin each other exactly, so the override only hides a drift; remove it and pin the dependency directly.`,
+      );
     }
   }
   for (const [scope, versions] of versionsByScope) {

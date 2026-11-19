@@ -3,7 +3,6 @@ import type {
   ActionFormScreenDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
 import { clickSubmitOnceEnabled, listScreen } from "./_kumiko-screen-helpers.tsx";
@@ -40,10 +39,10 @@ describe("KumikoScreen: update-only entityEdit (allowCreate/allowDelete)", () =>
 
   test("allowDelete:false → update mode does not render a Delete button", async () => {
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { id: "task-1", version: 3, title: "loaded", count: 0, done: false },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -51,16 +50,16 @@ describe("KumikoScreen: update-only entityEdit (allowCreate/allowDelete)", () =>
       </DispatcherProvider>,
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
     expect(screen.queryByTestId("render-edit-delete")).toBeNull();
   });
 
   test("allowCreate:false → entityList does not render an automatic + New button", async () => {
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { rows: [], nextCursor: null },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -73,10 +72,10 @@ describe("KumikoScreen: update-only entityEdit (allowCreate/allowDelete)", () =>
 
   test("entityList allowCreate:false hides + Neu while the edit screen keeps its create branch", async () => {
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { rows: [], nextCursor: null },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const renderList = async (list: typeof listScreen) => {
       const view = render(
@@ -98,7 +97,7 @@ describe("KumikoScreen: update-only entityEdit (allowCreate/allowDelete)", () =>
     expect(screen.queryByTestId("render-list-create")).toBeNull();
     hidden.unmount();
     await renderList(listScreen);
-    expect(screen.getByTestId("render-list-create")).toBeTruthy();
+    screen.getByTestId("render-list-create");
   });
 
   test("allowCreate:false → Calling without entityId shows an error banner instead of the Create form", () => {
@@ -107,7 +106,7 @@ describe("KumikoScreen: update-only entityEdit (allowCreate/allowDelete)", () =>
         <KumikoScreen schema={updateOnlySchema} qn="tasks:screen:task-edit" />
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("kumiko-screen-create-disabled")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-create-disabled");
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
   });
 });
@@ -142,10 +141,10 @@ describe("KumikoScreen: entityEdit header actions", () => {
   };
   const detailDispatcher = () =>
     makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { id: "task-1", version: 1, title: "loaded", count: 0, done: false },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
   test("update mode with three header actions collapses to icon-only with ariaLabel", async () => {
@@ -215,7 +214,7 @@ describe("KumikoScreen: entityEdit header actions", () => {
         <KumikoScreen schema={actionsSchema} qn="tasks:screen:task-edit-actions-3" />
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    screen.getByTestId("render-edit-form");
     expect(screen.queryByTestId("render-edit-action-publish")).toBeNull();
     expect(screen.queryByTestId("render-edit-action-archive")).toBeNull();
     expect(screen.queryByTestId("render-edit-action-duplicate")).toBeNull();
@@ -261,17 +260,17 @@ describe("KumikoScreen: entityEdit actions drawer-kind", () => {
     let queryCallCount = 0;
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
-      query: (async () => {
+      query: async () => {
         queryCallCount += 1;
         return {
           isSuccess: true,
           data: { id: "task-1", version: 1, title: "loaded", count: 0, done: false },
         };
-      }) as unknown as Dispatcher["query"],
-      write: (async (type: string, payload: unknown) => {
+      },
+      write: async (type: string, payload: unknown) => {
         writeCalls.push({ type, payload });
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["write"],
+      },
     });
 
     render(
@@ -284,7 +283,7 @@ describe("KumikoScreen: entityEdit actions drawer-kind", () => {
 
     fireEvent.click(screen.getByTestId("render-edit-action-add-note"));
     const drawer = () => within(screen.getByTestId("toolbar-drawer-add-note"));
-    await waitFor(() => expect(drawer().getByTestId("field-note")).toBeTruthy());
+    await waitFor(() => drawer().getByTestId("field-note"));
     const titleInput = drawer().getByTestId("field-title").querySelector("input");
     if (titleInput === null) throw new Error("expected an <input> inside field-title");
     expect(titleInput.value).toBe("loaded");

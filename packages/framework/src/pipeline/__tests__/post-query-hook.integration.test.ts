@@ -17,6 +17,7 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 // --- Fixture entity ---
 
 const widgetEntity = createEntity({
+  name: "widget",
   table: "read_post_query_widgets",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -44,7 +45,7 @@ const entityKeyedHook: PostQueryHookFn = async ({ rows }) => {
 };
 
 const postQueryFeature = defineFeature("postquerytest", (r) => {
-  const widget = r.entity({ name: "widget", ...widgetEntity });
+  const widget = r.entity(widgetEntity);
 
   // Returns 2 rows in {rows}-Shape (the dominant case for list-handlers)
   r.queryHandler({
@@ -76,10 +77,12 @@ const postQueryFeature = defineFeature("postquerytest", (r) => {
 // surface as a dispatcher error instead.
 
 const gadgetEntity = createEntity({
+  name: "gadget",
   table: "read_post_query_gadgets",
   fields: { name: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 const gizmoEntity = createEntity({
+  name: "gizmo",
   table: "read_post_query_gizmos",
   fields: { name: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
@@ -88,7 +91,7 @@ const dropRowHook: PostQueryHookFn = async () => ({ rows: [] });
 const duplicateRowHook: PostQueryHookFn = async ({ rows }) => ({ rows: [...rows, ...rows] });
 
 const singleObjectFeature = defineFeature("singleobjtest", (r) => {
-  const gadget = r.entity({ name: "gadget", ...gadgetEntity });
+  const gadget = r.entity(gadgetEntity);
   r.queryHandler({
     name: "gadget:get",
     schema: z.object({}),
@@ -97,7 +100,7 @@ const singleObjectFeature = defineFeature("singleobjtest", (r) => {
   });
   r.hook({ type: "postQuery", target: { allOf: gadget }, handler: dropRowHook });
 
-  const gizmo = r.entity({ name: "gizmo", ...gizmoEntity });
+  const gizmo = r.entity(gizmoEntity);
   r.queryHandler({
     name: "gizmo:get",
     schema: z.object({}),

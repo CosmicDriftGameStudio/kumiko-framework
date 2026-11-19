@@ -6,6 +6,7 @@ import type {
 import type { ReactNode } from "react";
 import { navigateTargetAllows } from "../../app/screen-access.ts";
 import type { Translate } from "../../headless/index.ts";
+import { isRecord } from "../../headless/is-record.ts";
 import {
   extensionSectionName,
   lastSegment,
@@ -29,7 +30,7 @@ import {
   useDashboardQuery,
   useReportPanelLoaded,
 } from "./dashboard-shared.tsx";
-import { isDashboardI18nText, isRecord, resolveDashboardText } from "./dashboard-text.ts";
+import { isDashboardI18nText, resolveDashboardText } from "./dashboard-text.ts";
 
 function isDashboardText(value: unknown): value is DashboardText {
   return typeof value === "string" || isDashboardI18nText(value);
@@ -344,6 +345,7 @@ function QueryTextPanelBody({
   const { data, error, loading, refetch } = useDashboardQuery<unknown>(
     query,
     panelPayload(panel, screenParams),
+    { ...(panel.resultField !== undefined && { resultField: panel.resultField }) },
   );
   useReportPanelLoaded(data, loading);
   const narrow = useIsBelowSmViewport();

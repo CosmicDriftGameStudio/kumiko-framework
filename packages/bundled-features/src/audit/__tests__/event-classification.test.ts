@@ -3,19 +3,19 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import {
-  type FeatureDefinition,
-  qn,
-  toKebab,
-  WORKFLOW_SYSTEM_EVENT_DEFS,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { type FeatureDefinition, qn, toKebab } from "@cosmicdrift/kumiko-framework/engine";
 import { createBillingFoundationFeature } from "../../billing-foundation/index.ts";
+import { createFieldApprovalFeature } from "../../field-approval/index.ts";
+import { createFoldersFeature } from "../../folders/index.ts";
 import { createHelpdeskFeature } from "../../helpdesk/index.ts";
+import { createNotesHistoryFeature } from "../../notes-history/index.ts";
 import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/index.ts";
+import { createTagsFeature } from "../../tags/index.ts";
 import {
   AUDIT_EVENT_STANCES,
-  FRAMEWORK_SYSTEM_EVENT_TYPES,
+  RETIRED_EVENT_STANCES,
   TECHNICAL_EVENT,
+  TECHNICAL_EVENT_TYPES,
 } from "../event-classification.ts";
 import { AUDIT_I18N } from "../web/i18n.ts";
 
@@ -42,6 +42,10 @@ const FACTORIES_NEEDING_OPTIONS: ReadonlySet<string> = new Set([
   "metrics/createSystemMetricsFeature",
   "file-provider-s3/createFileProviderS3NamedEnvFeature",
   "subscription-mollie/createSubscriptionMollieFeature",
+  "field-approval/createFieldApprovalFeature",
+  "notes-history/createNotesHistoryFeature",
+  "tags/createTagsFeature",
+  "folders/createFoldersFeature",
 ]);
 
 async function zeroArgBundledFeatures(): Promise<{
@@ -82,6 +86,10 @@ const featuresWithOptions: readonly FeatureDefinition[] = [
   }),
   createPersonalAccessTokensFeature({ scopes: {} }),
   createHelpdeskFeature({ appName: "Acme" }),
+  createFieldApprovalFeature({ parents: ["note"] }),
+  createNotesHistoryFeature({ parents: ["note"] }),
+  createTagsFeature({ parents: ["note"] }),
+  createFoldersFeature({ parents: ["note"] }),
 ];
 
 const eventTypes: readonly string[] = [
@@ -90,7 +98,6 @@ const eventTypes: readonly string[] = [
       qn(toKebab(feature.name), "event", toKebab(shortName)),
     ),
   ),
-  ...WORKFLOW_SYSTEM_EVENT_DEFS.keys(),
 ];
 
 describe("audit event classification", () => {
@@ -106,7 +113,6 @@ describe("audit event classification", () => {
 
   test("every event type has an English label or a technical stance", () => {
     const unclassified = eventTypes.filter((type) => {
-      if (FRAMEWORK_SYSTEM_EVENT_TYPES.includes(type)) return false;
       const stance = AUDIT_EVENT_STANCES[type];
       if (stance === undefined) return true;
       return stance !== TECHNICAL_EVENT && AUDIT_I18N[stance.labelKey] === undefined;
@@ -117,5 +123,17 @@ describe("audit event classification", () => {
   test("no stance points at an event type that no longer exists", () => {
     const registered = new Set(eventTypes);
     expect(Object.keys(AUDIT_EVENT_STANCES).filter((type) => !registered.has(type))).toEqual([]);
+  });
+
+  test("retired stances name only event types that are no longer registered", () => {
+    const registered = new Set(eventTypes);
+    const retired = Object.keys(RETIRED_EVENT_STANCES);
+    expect(retired.filter((type) => registered.has(type))).toEqual([]);
+    expect(retired.filter((type) => type in AUDIT_EVENT_STANCES)).toEqual([]);
+  });
+
+  test("retired technical types stay hidden behind the technical filter", () => {
+    expect(TECHNICAL_EVENT_TYPES).toContain("inbound-mail-foundation:event:mail-thread-updated");
+    expect(TECHNICAL_EVENT_TYPES).toContain("kumiko:system:workflow.run-started");
   });
 });

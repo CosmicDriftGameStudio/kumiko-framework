@@ -9,8 +9,8 @@ import {
   TENANT_ISOLATION_POLICY,
   tenantRowLevelSecurityFor,
 } from "../render-rls-ddl.ts";
+import { quoteIdent } from "../sql-identifier.ts";
 import { isFrameworkIsolationIntact, readRowLevelSecurityShape } from "./rls-shape.ts";
-import { quoteTableIdent } from "./table-ops.ts";
 
 type PolicyExpressions = { using: string | null; withCheck: string | null };
 
@@ -24,7 +24,7 @@ async function isolationExpressionsMatchFramework(tx: AnyDb, meta: EntityTableMe
   const raw = asRawClient(tx);
   const referenceTable = "kumiko_rls_reference";
   await raw.unsafe(
-    `CREATE TEMP TABLE ${referenceTable} ON COMMIT DROP AS SELECT * FROM public.${quoteTableIdent(meta.tableName)} WITH NO DATA`,
+    `CREATE TEMP TABLE ${referenceTable} ON COMMIT DROP AS SELECT * FROM public.${quoteIdent(meta.tableName)} WITH NO DATA`,
   );
   await raw.unsafe(renderCreatePolicy(`pg_temp.${referenceTable}`, expected));
   const read = async (relation: string): Promise<PolicyExpressions | undefined> =>
@@ -34,7 +34,7 @@ async function isolationExpressionsMatchFramework(tx: AnyDb, meta: EntityTableMe
         [relation, TENANT_ISOLATION_POLICY],
       )
     )[0];
-  const live = await read(`public.${quoteTableIdent(meta.tableName)}`);
+  const live = await read(`public.${quoteIdent(meta.tableName)}`);
   const referenceExpressions = await read(`pg_temp.${referenceTable}`);
   return (
     live !== undefined &&
@@ -50,7 +50,7 @@ export async function assertRebuildableRowLevelSecurity(
   const tableName = meta.tableName;
   // SHARE UPDATE EXCLUSIVE conflicts with CREATE/ALTER/DROP POLICY and ENABLE/FORCE (ACCESS EXCLUSIVE) but not with readers, and with itself: a second rebuild waits instead of both holding a shared lock and deadlocking on the swap's ACCESS EXCLUSIVE.
   await asRawClient(tx).unsafe(
-    `LOCK TABLE public.${quoteTableIdent(tableName)} IN SHARE UPDATE EXCLUSIVE MODE`,
+    `LOCK TABLE public.${quoteIdent(tableName)} IN SHARE UPDATE EXCLUSIVE MODE`,
   );
   const state = await readRowLevelSecurityShape(tx, tableName);
   // skip: table has no row-level security, nothing to verify

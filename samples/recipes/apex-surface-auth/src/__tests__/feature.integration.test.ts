@@ -3,20 +3,24 @@
 // runs end to end through /api/write WITHOUT auth (anonymousAccess).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { createInMemoryTransport } from "@cosmicdrift/kumiko-bundled-features/channel-email";
+import { tenantComplianceProfileTable } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
+import { configValuesTable } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
-  tenantComplianceProfileEntity,
-  tenantComplianceProfileTable,
-} from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
-import { USER_STATUS, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
-import type { SendDeletionVerificationEmailFn } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
+  createDeliveryTestContext,
+  deliveryAttemptsTable,
+  notificationPreferencesTable,
+} from "@cosmicdrift/kumiko-bundled-features/delivery";
+import { seedNotificationTemplates } from "@cosmicdrift/kumiko-bundled-features/template-resolver/testing";
+import { USER_STATUS, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { composeApexAccountApp } from "../feature";
 
@@ -29,10 +33,13 @@ const tenant = testTenantId(1);
 const user = createTestUser({ id: 7, tenantId: tenant, roles: ["Member"] });
 const EMAIL = "user@example.com";
 
-const verifyCalls: Parameters<SendDeletionVerificationEmailFn>[0][] = [];
-const sendDeletionVerificationEmail: SendDeletionVerificationEmailFn = async (args) => {
-  verifyCalls.push(args);
-};
+const transport = createInMemoryTransport();
+
+// The text part carries the plain link; the HTML part is entity-encoded.
+function verifyTokenOf(text: string | undefined): string {
+  const link = /https?:\/\/\S+#token=[^\s)\]>"]+/.exec(text ?? "")?.[0] ?? "";
+  return new URLSearchParams(new URL(link).hash.slice(1)).get("token") ?? "";
+}
 
 let stack: TestStack;
 
@@ -41,13 +48,17 @@ beforeAll(async () => {
     features: composeApexAccountApp({
       deletionTokenSecret: SECRET,
       deletionVerifyUrl: VERIFY_URL,
-      sendDeletionVerificationEmail,
+      mailTransport: transport,
     }),
+    extraContext: (deps) => createDeliveryTestContext(deps),
     anonymousAccess: { defaultTenantId: tenant },
   });
-  await unsafeCreateEntityTable(stack.db, userEntity);
-  await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
-  await createEventsTable(stack.db);
+  await unsafePushTables(stack.db, {
+    configValuesTable,
+    notificationPreferencesTable,
+    deliveryAttemptsTable,
+  });
+  await seedNotificationTemplates(stack.db, stack.registry);
 });
 
 afterAll(async () => {
@@ -55,7 +66,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  verifyCalls.length = 0;
+  transport.sent.length = 0;
   await resetTestTables(stack.db, [userTable, tenantComplianceProfileTable, eventsTable]);
   await seedRowViaEventStore(stack.db, userTable, {
     id: user.id,
@@ -77,10 +88,11 @@ describe("apex-surface-auth recipe", () => {
       payload: { email: EMAIL },
     });
     expect(reqRes.status).toBe(200);
-    expect(verifyCalls).toHaveLength(1);
+    expect(transport.sent).toHaveLength(1);
+    expect(transport.sent[0]?.to).toBe(EMAIL);
+    expect(transport.sent[0]?.text).toContain(`${VERIFY_URL}#token=`);
 
-    const verifyUrl = new URL(verifyCalls[0]?.verifyUrl ?? "");
-    const token = new URLSearchParams(verifyUrl.hash.slice(1)).get("token") ?? "";
+    const token = verifyTokenOf(transport.sent[0]?.text);
     expect(token.length).toBeGreaterThan(0);
 
     const confirmRes = await stack.http.raw("POST", "/api/write", {
@@ -89,9 +101,9 @@ describe("apex-surface-auth recipe", () => {
     });
     expect(confirmRes.status).toBe(200);
 
-    const rows = (await selectMany(stack.db, userTable, { id: user.id })) as Array<{
-      status: string;
-    }>;
+    const rows = await selectMany<{ readonly status: string }>(stack.db, userTable, {
+      id: user.id,
+    });
     expect(rows[0]?.status).toBe(USER_STATUS.DeletionRequested);
   });
 
@@ -101,6 +113,6 @@ describe("apex-surface-auth recipe", () => {
       payload: { email: "nobody@example.com" },
     });
     expect(res.status).toBe(200);
-    expect(verifyCalls).toHaveLength(0);
+    expect(transport.sent).toHaveLength(0);
   });
 });

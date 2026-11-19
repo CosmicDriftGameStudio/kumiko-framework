@@ -7,7 +7,6 @@ import type {
   ConfigSeedDef,
   ExtensionSelectorPanel,
   JobDefinition,
-  JobHandlerFn,
   NotificationDataFn,
   NotificationLocalizedTemplate,
   NotificationRecipientFn,
@@ -27,7 +26,7 @@ import type {
 import type { RegisterEntityCrudOptions } from "./entity-handlers.ts";
 import type { EntityTableMeta } from "./entity-table-meta-types.ts";
 import type { KumikoEventTypeMap } from "./event-type-map.ts";
-import type { ExtensionOptionsArgs, ExtensionOptionsFor } from "./extension-options-map.ts";
+import type { ExtensionOptionsFor } from "./extension-options-map.ts";
 import type {
   BootCheckFn,
   MetricOptions,
@@ -41,7 +40,6 @@ import type {
 } from "./feature.ts";
 import type { EntityDefinition } from "./fields.ts";
 import type {
-  AccessRule,
   AuthClaimsFn,
   BeforeTransactionWhenNested,
   ClaimKeyHandle,
@@ -55,8 +53,7 @@ import type {
   HandlerRef,
   NameOrRef,
   QualifiedEventName,
-  RateLimitDeclaration,
-  StreamHandlerFn,
+  QueryHandlerRef,
 } from "./handlers.ts";
 import type {
   HookPhase,
@@ -81,6 +78,7 @@ import type { ScreenDefinition } from "./screen.ts";
 import type { TreeActionDef, TreeActionsHandle } from "./tree-node.ts";
 import type { WebSocketRouteDefinition } from "./websocket-route.ts";
 import type { WorkspaceDefinition } from "./workspace.ts";
+import type { WriteFailure } from "./write-error-info-types.ts";
 
 // --- Feature Registrar (the "r" object in defineFeature) ---
 
@@ -90,10 +88,7 @@ type RefOrRefs = NameOrRef | readonly NameOrRef[];
 type HookTarget = RefOrRefs | { readonly allOf: NameOrRef };
 
 // `backingTable` points the entity at an existing drizzle table instead of a generated one.
-export type EntityObjectDefinition = {
-  readonly name: string;
-  readonly backingTable?: unknown;
-} & EntityDefinition;
+export type EntityObjectDefinition = EntityDefinition & { readonly backingTable?: unknown };
 
 type HookEscapeHatch = { readonly escapeHatch?: EscapeHatchDeclaration };
 type HookPhaseOption = { readonly phase?: HookPhase };
@@ -170,26 +165,22 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // you need it"). At most once per feature; must be non-empty.
   describe(text: string): void;
   requires: RequiresApi;
-  optionalRequires(...featureNames: string[]): void;
   optionalRequires(options: { readonly features: readonly string[] }): void;
   // Declare the feature as operator-togglable. `default` is the effective
   // state when no global-toggle row exists. Must be called at most once per
   // feature; calling on an always-on feature (e.g. auth/tenant/user) is a
   // bug — and one nothing catches at boot, so don't.
   toggleable(options: { default: boolean }): void;
-  // Opt the feature's list screens into the app-wide `bundledLists` table block.
-  // For feature packages only; idempotent.
-  adoptsBundledLists(): void;
   // Picker/scaffolder metadata — see UiHints. At most once per feature.
   uiHints(hints: UiHints): void;
 
   /**
-   * @example r.entity({ name: "note", fields: { title: createTextField({ required: true }) } });
+   * @example r.entity(noteEntity); // const noteEntity = createEntity({ name: "note", fields })
    */
   entity(definition: EntityObjectDefinition): EntityRef;
 
   // Registers the entity plus its standard CRUD handlers, scoped to this registrar.
-  crud(entityName: string, entity: EntityDefinition, options?: RegisterEntityCrudOptions): void;
+  crud(entity: EntityDefinition, options?: RegisterEntityCrudOptions): void;
 
   /**
    * @example r.writeHandler({ name: "note:archive", schema, handler, access: { roles: ["User"] } });
@@ -213,29 +204,16 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   /**
    * @example r.queryHandler({ name: "note:list", schema, handler, access: { roles: ["User"] } });
    */
-  queryHandler<TName extends string, TSchema extends ZodType>(
-    def: QueryHandlerDefinition<TName, TSchema>,
-  ): HandlerRef;
+  queryHandler<TName extends string, TSchema extends ZodType, TResult = unknown>(
+    def: QueryHandlerDefinition<TName, TSchema, TResult>,
+  ): QueryHandlerRef<z.input<TSchema>, Exclude<TResult, WriteFailure>>;
 
   streamHandler<TName extends string, TSchema extends ZodType>(
     def: StreamHandlerDefinition<TName, TSchema>,
   ): HandlerRef;
-  streamHandler<TSchema extends ZodType>(
-    name: string,
-    schema: TSchema,
-    handler: StreamHandlerFn<z.infer<TSchema>>,
-    options: {
-      access: AccessRule;
-      rateLimit?: RateLimitDeclaration;
-      escapeHatch?: EscapeHatchDeclaration;
-    },
-  ): HandlerRef;
 
-  relation(entity: NameOrRef, relationName: string, definition: RelationDefinition): void;
-  // TDef inferred from the literal — keeps the excess-property check
-  // resolved against the matching RelationDefinition union member instead
-  // of distributing across all three (which spuriously rejects valid
-  // combinations when checked directly against the raw union).
+  // TDef is inferred from the literal so the excess-property check resolves against
+  // the matching RelationDefinition union member instead of distributing across all three.
   relation<TDef extends RelationDefinition>(
     definition: { readonly entity: NameOrRef; readonly name: string } & TDef,
   ): void;
@@ -252,41 +230,16 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // tags-array as searchable. See `SearchPayloadContributorFn`.
   searchPayloadExtension(entity: NameOrRef, fn: SearchPayloadContributorFn): void;
 
-  // Single-key form: bare handle, no wrapping record, no seeds (callers
-  // needing seeds use the multi-key form below).
-  config<T extends ConfigKeyType>(keyName: string, def: ConfigKeyDefinition<T>): ConfigKeyHandle<T>;
-
-  // Multi-key form: returns a handle map keyed exactly like the input. Pass
-  // any handle to `ctx.config(handle)` to get the value type narrowed by the
-  // key's `type`. Optional `seeds` declare boot-time system-rows that are
-  // written via the event-store executor — idempotent, skipped when the
-  // stream already exists.
+  // Returns a handle map keyed like `keys`; pass a handle to `ctx.config(handle)` for the
+  // value narrowed by the key's `type`. `seeds` are boot-time system rows written through the
+  // event-store executor, idempotent and skipped when the stream already exists.
   config<TKeys extends Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>>(definition: {
     readonly keys: TKeys;
     readonly seeds?: Readonly<Record<string, ConfigSeedDef>>;
   }): { readonly [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]> };
 
-  job(name: string, options: Omit<JobDefinition, "name" | "handler">, handler: JobHandlerFn): void;
   job(definition: JobDefinition): void;
 
-  notification(
-    name: string,
-    definition: {
-      readonly trigger?: { readonly on: NameOrRef };
-      readonly recipient?: NotificationRecipientFn;
-      readonly data?: NotificationDataFn;
-      readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
-      readonly variables?: TemplateVariables;
-      readonly record?: NotificationRecordMapping;
-      readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
-      readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
-      readonly localizedTemplate?: () => NotificationLocalizedTemplate;
-      readonly renamedFrom?: readonly string[];
-      readonly systemOnly?: boolean;
-      readonly unsubscribe?: boolean;
-      readonly tenantTransport?: boolean;
-    },
-  ): void;
   notification(definition: {
     readonly name: string;
     readonly trigger?: { readonly on: NameOrRef };
@@ -322,8 +275,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   //
   // `options.piiFields` is a mandatory, explicit PII stance —
   // registration fails without one. Pass a map of payload fields to their
-  // owning subject via `{ personal: { of: "<ownerField>" } }` (the older
-  // `{ subjectField: "<ownerField>" }` form still works) for fields carrying
+  // owning subject via `{ personal: { of: "<ownerField>" } }` for fields carrying
   // personal data (encrypted under that user's DEK, crypto-shredding),
   // or `"none"` to declare the payload holds no personal data. append()
   // enforces the resulting catalog on every write path.
@@ -359,14 +311,8 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     readonly wireName?: string;
   }): WebhookEventHandle;
 
-  readsConfig(...qualifiedKeys: string[]): void;
   readsConfig(options: { readonly keys: readonly string[] }): void;
 
-  referenceData(
-    entity: NameOrRef,
-    data: readonly Record<string, unknown>[],
-    options?: { upsertKey?: string },
-  ): void;
   referenceData(definition: {
     readonly entity: NameOrRef;
     readonly data: readonly Record<string, unknown>[];
@@ -375,12 +321,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
 
   extendsRegistrar(name: string, def: RegistrarExtensionDef): void;
 
-  useExtension<N extends string>(
-    extensionName: N,
-    entity: NameOrRef,
-    ...options: ExtensionOptionsArgs<N>
-  ): void;
-  useExtension<N extends string>(
+  applyExtension<N extends string>(
     definition: { readonly name: N; readonly entity: NameOrRef } & ExtensionOptionsFor<N>,
   ): void;
 
@@ -472,17 +413,10 @@ export type FeatureRegistrar<TFeature extends string = string> = {
    */
   bootCheck(fn: BootCheckFn): void;
 
-  // Declare a metric. Short name (without kumiko_<feature>_ prefix) — Framework
-  // qualifies it on boot. Validation (snake_case + typ-suffix) runs at boot.
-  // Usage at runtime: ctx.obs.metrics.inc("created_total", { status: "new" }).
-  metric(shortName: string, options: MetricOptions): void;
+  // Declare a metric; `name` is the short name, the framework adds the kumiko_<feature>_ prefix on boot.
   metric(definition: { readonly name: string } & MetricOptions): void;
 
-  // Declare a secret key. Qualified name follows "<feature>:secret:<kebab>"
-  // via the QN helper. Returns a typed handle so feature code can pass it
-  // to ctx.services.secrets.get without retyping the qualified string — same
-  // ergonomics as r.config's handle.
-  secret(shortName: string, options: SecretOptions): SecretKeyHandle;
+  // Declare a secret key "<feature>:secret:<kebab>"; the handle goes to ctx.services.secrets.get.
   secret(definition: { readonly name: string } & SecretOptions): SecretKeyHandle;
 
   // Declare a live probe the readiness system check runs against the real environment; failure = throw.
@@ -491,7 +425,6 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // Declare a namespace of runtime-named secret keys. The prefix is
   // "<feature>:<kebab name>." — secrets:write:set/delete accept any key under
   // it whose suffix passes options.nameSchema.
-  secretNamespace(shortName: string, options: SecretNamespaceOptions): SecretNamespaceHandle;
   secretNamespace(
     definition: { readonly name: string } & SecretNamespaceOptions,
   ): SecretNamespaceHandle;
@@ -517,7 +450,9 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // pattern). Rebuild-only: the inline runner skips implicit projections —
   // live delivery stays with the extension's own MSP. The entity must be
   // declared via r.entity in the SAME feature; unknown entities and
-  // apply-key collisions fail at registry build.
+  // apply-key collisions fail at registry build. An r.projection on the entity
+  // table is merged into the rebuild automatically; this is only needed for table
+  // writers without their own r.projection (MSP pattern like custom-fields).
   extendEntityProjection(entityName: string, extension: EntityProjectionExtension): void;
 
   // Register a function that contributes claims into SessionUser.claims at
@@ -544,10 +479,6 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // r.authClaims hooks return an inner-key not in the declared list, the
   // resolver logs a warning (the claim still lands in the JWT — declared
   // or not — so strict-mode isn't on; this is typo-drift protection).
-  claimKey<T extends ClaimKeyType>(
-    shortName: string,
-    options: { readonly type: T },
-  ): ClaimKeyHandle<T>;
   claimKey<T extends ClaimKeyType>(definition: {
     readonly name: string;
     readonly type: T;

@@ -5,8 +5,9 @@
 import {
   access,
   createSystemUser,
+  defineWriteHandler,
   SYSTEM_TENANT_ID,
-  type WriteHandlerDef,
+  type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { createI18n } from "@cosmicdrift/kumiko-framework/i18n";
@@ -77,8 +78,8 @@ function pickTimeZone(userZone: string | null | undefined, tenantZone: string): 
 export function createIssueContractConfirmationHandler(
   options: ResolvedBillingFoundationOptions,
   consumerProtection: ConsumerProtectionOptions,
-): WriteHandlerDef {
-  return {
+) {
+  return defineWriteHandler({
     name: "issue-contract-confirmation",
     agent: { expose: false },
     schema: issueContractConfirmationSchema,
@@ -86,11 +87,11 @@ export function createIssueContractConfirmationHandler(
     escapeHatch: {
       reason:
         "reads the consenting buyer's email via UserQueries.findForAuth as a tenant system user; the mail goes only to the user recorded in the consent event",
+      grants: ["systemIdentity"],
     },
     // kumiko-lint-ignore complexity-budget one linear pass: stream lookup, consent match, idempotency check, recipient lookup, mail, marker append
-    handler: async (event, ctx) => {
-      // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const payload = event.payload as z.infer<typeof issueContractConfirmationSchema>;
+    handler: async (event, ctx): Promise<WriteResult<IssueContractConfirmationResult>> => {
+      const payload = event.payload;
       const tenantId = event.user.tenantId;
 
       // The stream is derived from the caller's tenant: no read of another
@@ -249,5 +250,5 @@ export function createIssueContractConfirmationHandler(
         data: { issued: true } satisfies IssueContractConfirmationResult,
       };
     },
-  };
+  });
 }

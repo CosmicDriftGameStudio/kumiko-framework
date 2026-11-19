@@ -3,17 +3,29 @@ import {
   type DurationSpec,
   type EffectiveComplianceProfile,
 } from "@cosmicdrift/kumiko-framework/compliance";
-import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import { type DbRunner, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   declareEscapeHatch,
   type HandlerContext,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { decryptStoredPii } from "../../shared/index.ts";
+import { decryptStoredPii, resolveHandlerMailLocale } from "../../shared/index.ts";
+import { tenantMembershipsTable } from "../../tenant/index.ts";
 import { USER_STATUS, userTable } from "../../user/index.ts";
+import { signDeletionCancelToken } from "../deletion-token.ts";
+import {
+  type GdprMailDefaults,
+  isGdprMailDeliveryAvailable,
+  makeDefaultDeletionRequestedEmail,
+} from "../lib/default-mailers.ts";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
+import type { SendDeletionRequestedEmailFn } from "./request-deletion.write.ts";
+import { buildDeletionVerifyUrl } from "./request-deletion-by-email.write.ts";
+
+const log = createFallbackLogger("user-data-rights");
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
@@ -26,6 +38,7 @@ export async function resolveGracePeriod(
   tenantId: string,
 ): Promise<DurationSpec> {
   declareEscapeHatch({
+    grants: ["systemIdentity"],
     reason:
       "reads the tenant compliance profile via queryAs(SYSTEM, ...) to compute the grace period end; the calling user's own identity has no read access to that tenant-config projection",
   });
@@ -35,6 +48,47 @@ export async function resolveGracePeriod(
     {},
   )) as EffectiveComplianceProfile; // @cast-boundary engine-payload
   return profile.profile.userRights.gracePeriod;
+}
+
+// Deletion hits the global user row, so no single tenant's profile may shorten the window:
+// a TenantAdmin can set its own gracePeriod to 0 days via compliance-profiles set-profile.
+export const MIN_DELETION_GRACE_PERIOD: DurationSpec = { days: 7 };
+
+// Symmetric ceiling: one tenant's profile must not postpone a global deletion indefinitely.
+export const MAX_DELETION_GRACE_PERIOD: DurationSpec = { days: 90 };
+
+function durationSpecMs(spec: DurationSpec): number {
+  return "days" in spec ? spec.days * 24 * 60 * 60 * 1000 : spec.hours * 60 * 60 * 1000;
+}
+
+function clampToDeletionBounds(spec: DurationSpec): DurationSpec {
+  if (durationSpecMs(spec) < durationSpecMs(MIN_DELETION_GRACE_PERIOD)) {
+    return MIN_DELETION_GRACE_PERIOD;
+  }
+  if (durationSpecMs(spec) > durationSpecMs(MAX_DELETION_GRACE_PERIOD)) {
+    return MAX_DELETION_GRACE_PERIOD;
+  }
+  return spec;
+}
+
+// Longest grace period over every tenant the user belongs to, clamped to [floor, ceiling].
+// Falls back to the calling tenant for a user without memberships.
+export async function resolveDeletionGracePeriod(
+  ctx: HandlerContext,
+  userId: string,
+  callerTenantId: string,
+  runner: DbRunner,
+): Promise<DurationSpec> {
+  const memberships = await selectMany<{ tenantId: string }>(runner, tenantMembershipsTable, {
+    userId,
+  });
+  const tenantIds = [...new Set(memberships.map((m) => m.tenantId))];
+  if (tenantIds.length === 0) tenantIds.push(callerTenantId);
+
+  const specs = await Promise.all(tenantIds.map((tenantId) => resolveGracePeriod(ctx, tenantId)));
+  return [MIN_DELETION_GRACE_PERIOD, ...specs.map(clampToDeletionBounds)].reduce((longest, spec) =>
+    durationSpecMs(spec) > durationSpecMs(longest) ? spec : longest,
+  );
 }
 
 export type StartGracePeriodResult =
@@ -135,4 +189,65 @@ export async function startDeletionGracePeriod(
       : "",
     userLocale: userRow["locale"] ?? null,
   };
+}
+
+export type DeletionRequestedMailOptions = {
+  readonly sendDeletionRequestedEmail?: SendDeletionRequestedEmailFn;
+  readonly mailDefaults?: GdprMailDefaults;
+  /** Base URL of the screen that cancels via token; the mail links there. */
+  readonly deletionCancelUrl?: string;
+  readonly deletionTokenSecret?: string;
+};
+
+// Best-effort: a send failure must not undo the status flip, the user's action
+// is complete once the row is updated. The app callback wins; otherwise the
+// default mail goes through ctx.notify, and without delivery there is no mail.
+export async function sendDeletionRequestedNotification(
+  ctx: HandlerContext,
+  opts: DeletionRequestedMailOptions,
+  args: {
+    readonly userId: string;
+    readonly userEmail: string;
+    readonly userLocale: string | null;
+    readonly tenantId: string;
+    readonly gracePeriodEnd: Instant;
+  },
+  logLabel: string,
+): Promise<void> {
+  const send =
+    opts.sendDeletionRequestedEmail ??
+    (ctx.notify !== undefined && opts.mailDefaults && isGdprMailDeliveryAvailable(ctx.registry)
+      ? makeDefaultDeletionRequestedEmail(ctx.notify, {
+          ...opts.mailDefaults,
+          locale: resolveHandlerMailLocale(ctx, opts.mailDefaults.locale),
+        })
+      : undefined);
+  if (!send || args.userEmail.length === 0) return;
+
+  // A deletionRequested account cannot sign in, so the mail carries the way back.
+  const cancelUrl =
+    opts.deletionCancelUrl !== undefined && opts.deletionTokenSecret
+      ? buildDeletionVerifyUrl(
+          opts.deletionCancelUrl,
+          signDeletionCancelToken(args.userId, args.gracePeriodEnd, opts.deletionTokenSecret).token,
+        )
+      : undefined;
+
+  try {
+    await send({
+      userId: args.userId,
+      userEmail: args.userEmail,
+      userLocale: args.userLocale,
+      tenantId: args.tenantId,
+      gracePeriodEnd: args.gracePeriodEnd.toString(),
+      ...(cancelUrl !== undefined && { cancelUrl }),
+    });
+  } catch (err) {
+    log.warn("sendDeletionRequestedEmail failed", {
+      handler: logLabel,
+      userId: args.userId,
+      tenantId: args.tenantId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }

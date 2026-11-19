@@ -28,6 +28,7 @@ export {
 export { SEARCHABLE_FALSE_WHITELIST } from "../engine/boot-validator/entity-list-screens.ts";
 export { validateNavBootSubset } from "../engine/boot-validator/index.ts";
 export { validateOwnershipBoot } from "../engine/boot-validator/ownership.ts";
+export { validateReadModelFieldReadRules } from "../engine/boot-validator/read-model-field-access.ts";
 export { featureHasI18nSurface, requiredKeysFromFeature } from "../i18n/required-surface-keys.ts";
 export type { Lifecycle } from "../lifecycle/index.ts";
 export { createRateLimitResolver } from "../rate-limit/index.ts";

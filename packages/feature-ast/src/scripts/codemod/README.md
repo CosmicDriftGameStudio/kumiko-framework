@@ -1,105 +1,6 @@
-# consumer-facing codemods
+# Codemods
 
-This directory holds the codemod scripts `kumiko upgrade --apply` runs for
-consumers of `@cosmicdrift/kumiko-framework`. It ships as part of the
-published package (under `src/`), unlike `scripts/codemod/` at the repo
-root, which is internal bun-cutover tooling for this repo's own migration
-and never gets published.
-
-`crypto-shredding-testing-move.ts` rewrites the moved
-`resetPiiSubjectKmsForTests` import path; it's wired into
-`packages/bundled-features/src/crypto-shredding/changes.json`'s `codemod`
-field and runs automatically via `kumiko upgrade --apply`.
-
-## pii-personal-migration.ts
-
-Migrates `create*Field(...)` calls from the old flag-based PII API (`pii`,
-`userOwned`, `tenantOwned`, `subjectRef`, `allowPlaintext`, `lookupable`,
-`searchable`, `sensitive`) to the author-facing `personal`/`find` API
-(kumiko-framework#2250). Idempotent — safe to re-run against already
-migrated code (no-ops on fields carrying `personal`).
-
-`createTenantConfig`/`createUserConfig`/etc. are out of scope by
-construction (name doesn't match `create*Field`).
-
-```bash
-bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/pii-personal-migration.ts <targetDir> [--dry-run]
-```
-
-Anything it can't map mechanically (two subject flags on one field,
-`sensitive` + `lookupable`/`searchable` together, `piiEncrypted` on an
-entity field, a raw object literal with subject flags outside a
-`create*Field(...)` call) is reported with file:line instead of guessed
-at — fix those by hand. The report also lists every field that newly
-gains `lookupable` (searchable-only fields resolving to `find: "fuzzy"`)
-— each of those needs a `_bidx` column migration, which this script does
-not write.
-
-## object-form.ts
-
-Rewrites the positional registrar calls `r.writeHandler(name, schema, handler, options)`,
-`r.queryHandler(…)`, `r.entity(name, definition, { table })`, `r.requires("a", "b")` and
-`r.hook(type, target, fn, options?)` to their object form, and
-`registerEntityCrud(r, name, entity, options?)` to `r.crud(name, entity, options?)`
-(the now-unused import is removed). Idempotent — object-form calls are left alone.
-
-A call is only touched when its receiver is provably a feature registrar: a parameter of
-the `defineFeature(name, (r) => …)` callback, or a binding typed `FeatureRegistrar`.
-Anything else (`sessions.requires("x")`, `foo.entity(…)`) stays untouched. A call on an
-untyped `r`/`registrar` it cannot resolve, a spread argument, too few arguments or
-`entity` options other than `{ table }` are reported as `manual` instead of guessed at.
-
-```bash
-bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/object-form.ts <dir> [--check | --dry-run | --write] [--no-format]
-```
-
-Runs automatically via `bun kumiko-upgrade --apply`. Without a mode flag it writes, then
-formats the changed files with the Biome binary found in `node_modules/.bin` (`--no-format`
-skips that). `--dry-run` only reports; `--check` reports and exits 1 while any rewritable
-or manual site is left.
-
-## db-factory.ts
-
-Moves consumers to the single DB connection factory and the relocated query helpers.
-`@cosmicdrift/kumiko-framework/bun-db` imports (including `import type`, `export … from` and
-`import("…")` types) are repointed to `@cosmicdrift/kumiko-framework/db`, merged into an existing
-`/db` import of the same kind. `createDbConnection(url, options)` becomes
-`createDbConnection({ url, ...options })`; `createConnection`/`createPgConnection` from the
-framework become `createDbConnection` in the object form, and the now-pointless `await` is dropped.
-Idempotent. Local functions named `createConnection` are left alone.
-
-Reported as `manual` instead of guessed at: imports of `createBunDbConnection`,
-`bunDbConnectionOptionsFromEnv`, `BunDbConnection`, `BunDbTx`, `BunDbRunner`,
-`BunDbConnectionOptions` and `DbPoolHandle` (removed without replacement), uses of `DB_PROVIDER`,
-and `createConnection` results that are not awaited directly.
-
-```bash
-bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/db-factory.ts <dir> [--check | --dry-run | --write] [--no-format]
-```
-
-Runs automatically via `bun kumiko-upgrade --apply`. Without a mode flag it writes, then formats the
-changed files with Biome. `--check` exits 1 while any rewritable or manual site is left.
-
-## tenant-db-options.ts
-
-Moves `createTenantDb(db, tenantId, mode, tracer, meter, signal, grants)` to the options object
-`createTenantDb({ db, tenantId, mode, tracer, meter, signal, grants })`. A call is only touched when
-the callee resolves (import, aliased import, namespace import or `await import(…)` destructuring) to
-the framework export; a local function with the same name is left alone. Arguments that are the
-identifier of the same name become shorthand, literal `undefined` arguments after `tenantId` are
-dropped, an explicit `mode` is kept, comments between the arguments are preserved. Idempotent —
-calls already passing one object literal are left alone.
-
-Reported as `manual` instead of guessed at: spread arguments, more than seven arguments, a single
-argument that is not an object literal, and `createTenantDb` used as a value (callback, assignment,
-`.bind`/`.call`/`.apply`).
-
-```bash
-bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/tenant-db-options.ts <dir> [--check | --dry-run | --write] [--no-format]
-```
-
-Runs automatically via `bun kumiko-upgrade --apply`. Without a mode flag it writes, then formats the
-changed files with Biome. `--check` exits 1 while any rewritable or manual site is left.
+The codemods a guard points to, plus the upgrade codemods `kumiko-upgrade --apply` runs for releases after 0.420.0. `kumiko codemod <name>` runs the guard ones (preview unless `--write`). Upgrade codemods of a release are deleted once every app is past it (docs/reference/decisions.md, 2026-11-17).
 
 ## import-extensions
 
@@ -115,56 +16,9 @@ The tsconfig that compiles the code needs `allowImportingTsExtensions` and
 bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/import-extensions.ts <dir> [--check | --dry-run | --write] [--no-format]
 ```
 
-Runs via `bun kumiko-upgrade --apply`. Without a mode flag it writes. `--check` exits 1 while any
+Runs via `bun kumiko codemod import-extensions . --write`. Without a mode flag it writes. `--check` exits 1 while any
 rewritable or manual site is left. The `import-extensions` guard (`kumiko check guards`) reports
 sites that are still on `.js`.
-
-## remove-engine-payload-casts.ts
-
-`executor.detail()` and `executor.list()` from `createEntityExecutor` / `createEventStoreExecutor`
-return the entity's own row type (`EntityRow<E>`), so `row["f"] as T`, `row as T` and
-`(await executor.detail(…)) as unknown as T` are usually redundant. The codemod removes such a cast,
-and its `@cast-boundary` marker comment when no other cast stays in the statement, only when the
-operand derives from an executor read (directly, through `rows[0]`, property access, `??` or a
-single-assignment variable) and the type checker says its type is assignable to the cast target. A
-file is left untouched if removing the casts would add type errors to it.
-
-It type-checks against the tsconfig at or above each file, so run it with the new framework version
-installed. Reported as `manual` and left alone: casts the row type does not satisfy (for example a
-nullable column cast to a non-null type, or `rows[0]` under `noUncheckedIndexedAccess`), and files
-without a tsconfig. A call site that still needs a narrower type than the row gives keeps its cast.
-
-```bash
-bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/remove-engine-payload-casts.ts <dir> [--check | --dry-run | --write] [--no-format]
-```
-
-Runs via `bun kumiko-upgrade --apply`. Without a mode flag it writes, then formats the changed files
-with Biome. `--check` exits 1 while any rewritable or manual site is left.
-
-## package-merge.ts
-
-Packages folded into another package stay as re-export shims for one wave. The codemod rewrites
-imports, re-exports, `import("…")` and `mock.module` specifiers (including subpaths) of the old
-package to the new one, and in `package.json` replaces the old dependency with the target package
-(same version range, same block, skipped when the block already lists it). The moves are the rows
-of `PACKAGE_MERGE_MAPPINGS`: `@cosmicdrift/kumiko-http` to `@cosmicdrift/kumiko-framework/http`,
-`@cosmicdrift/kumiko-repo-manifest` to `@cosmicdrift/kumiko-guards/repo-manifest`,
-`@cosmicdrift/kumiko-headless` to `@cosmicdrift/kumiko-renderer/headless` (subpaths keep their name),
-`@cosmicdrift/kumiko-dispatcher-live` to `@cosmicdrift/kumiko-renderer/live`,
-`@cosmicdrift/kumiko-renderer-web` to `@cosmicdrift/kumiko-renderer/web` (so
-`@import "@cosmicdrift/kumiko-renderer-web/styles.css"` becomes
-`@import "@cosmicdrift/kumiko-renderer/web/styles.css"`).
-
-`.css` files are covered too: the specifier of `@import`, `@plugin` and `@config` is rewritten like
-an import. A `@source` path into `node_modules/<old package>/…` has no mechanical target and is
-reported as manual.
-
-```bash
-bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/package-merge.ts <dir> [--check | --dry-run | --write] [--no-format]
-```
-
-Runs via `bun kumiko-upgrade --apply`. Without a mode flag it writes. `--check` exits 1 while any
-site is left. Run your package manager's install afterwards to refresh the lockfile.
 
 ## feature-layout.ts
 
@@ -174,7 +28,7 @@ isomorphic. Every file that carries a runtime-client marker outside `web/` moves
 `<feature>/web/` (sub-structure kept), the relative imports, re-exports, `import()` calls and
 `mock.module` strings that point at it or out of it are rewritten, `package.json` export
 targets follow, and the marker is dropped. A marker the path already implies (client in
-`web/`, test in `__tests__/`) is only removed. Idempotent.
+`web/`, test in `__tests__/`) is only removed. A `<name>.write.ts`, `<name>.query.ts` or `<name>.job.ts` directly in the feature root moves to `<feature>/handlers/`, `entity.ts` and `<name>.entity.ts` move to `<feature>/schema/`, and a root `client.ts` that defines a `ClientFeatureDefinition` moves to `<feature>/web/index.ts`; a `write.ts` or `queries.ts` with several handlers is reported as manual for a split. `--check` also fails while a move is pending. Idempotent.
 
 ```bash
 bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/feature-layout.ts <dir> [--check | --dry-run | --write] [--no-format]
@@ -186,64 +40,108 @@ Features are found as `src/features/<feature>/` and `bundled-features/src/<featu
 `web/` and a marker no path rule covers (for example `dev` outside `dev/`) are reported as
 `manual` and left alone. `--check` exits 1 while anything is left.
 
-## feature-ast-package.ts
+## guard-markers-to-lint-ignore
 
-The feature AST, the pattern library and the codemod pipeline moved from `@cosmicdrift/kumiko-framework`
-to `@cosmicdrift/kumiko-feature-ast`. The codemod moves the 36 names (`parseFeatureFile`, `renderFeatureFile`,
-`PATTERN_LIBRARY`, `FeaturePattern`, ...) out of `@cosmicdrift/kumiko-framework/engine` imports and re-exports,
-splitting a declaration that also imports other names, and renames `@cosmicdrift/kumiko-framework/engine/codemod`
-to `@cosmicdrift/kumiko-feature-ast/codemod`. `type` modifiers and `as` aliases stay. A namespace import that reads
-a moved name is reported as `manual`. In `package.json` it adds `@cosmicdrift/kumiko-feature-ast` next to
-`@cosmicdrift/kumiko-framework` (same range, same block) when the package's sources use the moved API.
-
-```bash
-bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/feature-ast-package.ts <dir> [--check | --dry-run | --write] [--no-format]
-```
-
-## ctx-namespaces.ts
-
-Moves the flat `HandlerContext` / `JobContext` members into their namespaces:
-`ctx.appendEvent` -> `ctx.events.append`, `ctx.write` -> `ctx.dispatch.write`,
-`ctx.log` -> `ctx.obs.log`, `ctx.dbOutsideTransaction` -> `ctx.db.outsideTransaction` and so on.
-The wiring members follow: `ctx.redis`, `cacheSync`, `jobRunner`, `searchAdapter`, `entityCache`,
-`secrets`, `kms`, `files`, `derivatives`, `configResolver` and the other injected services move to
-`ctx.services.*`, `scheduleAfterCommit` / `scheduleAfterRollback` to `ctx.lifecycle.afterCommit` /
-`afterRollback`, `signal` to `ctx.lifecycle.signal`, `configFor` / `forTenant` to `ctx.tenants.config` /
-`writeTarget`, and `ctx.meter` to `ctx.obs.meter`. A hook parameter annotated `AppContext` becomes
-`HandlerContext`, and its body is read as a handler context in the same run (`context.log` ->
-`context.obs.log`). An extraContext key read through a cast moves to `ctx.services.extensions`.
-Property accesses, destructuring, mock object literals typed as a context, `Pick` / indexed
-access types and the `ctx` annotation of `beforeTransaction` / `reserveBeforeTransaction`
-(`BeforeTransactionContext` / `ReservationContext`) are rewritten. Idempotent.
-
-Unlike the codemods above it is type-aware: it builds a ts-morph `Project` from the nearest
-`tsconfig.json` of every file (or `--tsconfig <path>`) and only touches receivers whose type is a
-Kumiko context, so `AppContext.log`, the MSP apply context's `appendEvent` or a websocket
-`write` stay as they are. It works against both the old and the new context types.
+The retired guard opt-out markers move to the one marker syntax: `@no-server-stack: X` becomes
+`kumiko-lint-ignore-file test-stack-drift X`, `@timeout-exception: X` becomes
+`kumiko-lint-ignore test-timeouts X` and `@template-drift-exception: X` becomes
+`kumiko-lint-ignore test-template-drift X`. Only comment lines of `.ts`, `.tsx` and `.mts` files change;
+the reason text stays as written. A reason the `ignore-tag-reason` guard reports as too weak
+(fewer than three real words) has to be rewritten by hand.
 
 ```bash
-bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/ctx-namespaces.ts <dir> [--check | --dry-run | --write] [--no-format] [--tsconfig <path>]
+bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/guard-markers-to-lint-ignore.ts <dir> [--check | --dry-run | --write] [--no-format]
 ```
 
-Reported as `manual`: `systemUser`, `triggeredBy` and `_tenantId` read off a `HandlerContext`, a
-handler or job context passed to a parameter annotated `AppContext`, boot wiring read through a cast
-(`clock`, `geoTzProvider` and similar), object literals with a spread next to moved members, destructuring with a
-default value or rest element, `Omit` of a moved member, a namespace key that is already set to a
-non-literal, a union receiver that maps differently per member, and an unresolved `ctx` / `context`
-receiver. A parameter named `ctx` or `context` that is typed by a hand-written structural type
-(`{ query: ... }`, a same-file alias, interface or intersection of them) follows the context: the
-type's moved members are nested (`{ dispatch: { query: ... } }`) and the body is rewritten, but only
-when a handler or job context is passed to that parameter somewhere in the project. A structural
-type declared in another file is reported as `manual`, and structural parameters with other names are
-invisible to it and show up as type errors afterwards.
+Without a mode flag it writes. `--check` exits 1 while any marker is left.
 
-## content-collection-format.ts
+## registrar-single-form
 
-Content collections know two editor formats, `plain` and `document`. The codemod rewrites
-`contentFormat: "rich"` and `contentFormat: "markdown"` to `"document"` in the collection declarations of
-`createTemplateResolverFeature({ collections: [...] })` and `r.contentCollection({...})`. Record storage
-literals such as `contentFormat: "markdown"` in write payloads or seeds use a different vocabulary and stay.
+Every registrar verb takes one options object. Positional calls of `r.optionalRequires`,
+`r.readsConfig`, `r.relation`, `r.config`, `r.job`, `r.notification`, `r.referenceData`,
+`r.metric`, `r.secret`, `r.secretNamespace`, `r.claimKey` and `r.streamHandler` become the object
+form (an options argument that is an object literal is inlined, anything else is spread).
+`r.config("key", def)` becomes `r.config({ keys: { key: def } }).key`. `r.useExtension(...)` becomes
+`r.applyExtension({ name, entity, ...options })`, and the `biome-ignore lint/correctness/useHookAtTopLevel`
+line above it is removed. The receiver has to resolve to a `FeatureRegistrar` (defineFeature callback
+parameter or a `FeatureRegistrar`-typed binding).
 
 ```bash
-bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/content-collection-format.ts <dir> [--check | --dry-run | --write] [--no-format]
+bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/registrar-single-form.ts <dir> [--check | --dry-run | --write] [--no-format]
 ```
+
+A spread argument, a missing required argument, a receiver that does not resolve, a single argument
+that may already be the options object and a `r.config` key that is no identifier are reported as
+`manual` and left alone. Calls already in the object form stay unchanged, so a second run is a no-op.
+`r.useExtension(` inside strings and Markdown is not touched.
+
+## escape-hatch-grants
+
+`escapeHatch: { reason }` on write and query handlers, hooks and jobs gets the `grants` it needs,
+in the order of `ESCAPE_HATCH_GRANTS`. The grants come from the definition literal and, when
+`handler` or `run` names a function of the same file, from that function's body: `unsafeRaw(` gives
+`unsafeRaw`, `.global(` `globalWrites`, `crossTenantReads` `crossTenantReads`, and `queryAs(`,
+`writeAs(`, `createSystemUser(`, `unsafeAllTenants` or `runAs` together with `SystemAdmin` give
+`systemIdentity`. `escapeHatch` in `r.applyExtension` / `r.useExtension` options is not touched.
+
+```bash
+bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/escape-hatch-grants.ts <dir> [--check | --dry-run | --write] [--no-format]
+```
+
+A declaration without a readable signal, a handler that passes `ctx` to an imported function, an
+imported handler and an `escapeHatch` that is no object literal are reported as `manual` ("grants not
+inferable"). Run the integration tests of the touched features afterwards: a missing grant only fails
+when that code path runs. Declarations that already carry `grants` stay unchanged.
+
+## entity-name
+
+The entity carries its name. Per `createEntity` declaration the codemod collects the names used in
+`r.entity({ name, ...entity })`, `r.crud("name", entity)`, `createEntityExecutor("name", entity)`,
+`buildEntityTable("name", entity)` and `deriveEntityTableMeta("name", entity)` (symbol resolution, also
+across files), writes the first one as `name` into the `createEntity({ ... })` call and drops the name
+argument at every use. A use under another name becomes `{ ...entity, name: "other" }`. Inline
+`r.entity({ name, fields })` literals stay as they are. Inline `createEntity({...})` or object literals at the call site, names given as constants (resolved by their string literal type), same-file const literals, `as`/alias/single-return factories and sites that already carry the name are handled too; an entity that does not resolve becomes `{ ...entity, name: X }`. Safe to rerun on a partly migrated tree.
+
+```bash
+bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/entity-name.ts <dir> [--check | --dry-run | --write] [--no-format]
+```
+
+The analysis spans the whole project root (nearest `biome.json`, `tsconfig.json` there is used for
+module resolution), so run it on the directory that holds both the entity declarations and their uses.
+A non-literal name, an entity that does not resolve to a `createEntity` call and extra properties in
+the `r.entity` literal are reported as `manual`.
+
+## define-handler
+
+Handlers typed with the erased `WriteHandlerDef` / `QueryHandlerDef` move to `defineWriteHandler` /
+`defineQueryHandler` (from `@cosmicdrift/kumiko-framework/engine`), so the payload is typed from the
+`schema`. Per candidate the codemod
+
+- wraps the object literal in `defineXHandler(...)` and drops the annotation, for `const x: XHandlerDef = { ... }`
+  and for functions or arrows with return type `XHandlerDef` and a single `return { ... }` / `=> ({ ... })`;
+- drops `event.payload as z.infer<typeof schema>` (also `z.output`, `z.TypeOf` and a same-file alias of
+  them) and the `// @cast-boundary ...` comment above it, and turns `schema.parse(event.payload)` into
+  `event.payload`, when `schema` is the identifier of the handler's own `schema:` property;
+- removes a payload alias, the `z` import and the `XHandlerDef` import specifier when nothing uses them
+  any more, and adds the `defineXHandler` import;
+- removes only the annotation from a function that returns a call to another converted factory of the same file.
+
+A handler is converted only when every use in the project (test files included, they are never rewritten) is
+an argument of `.writeHandler(...)` / `.queryHandler(...)`, an import or re-export, a property read such as
+`x.name`, a return of such a forwarding factory, or the first argument of `withCapEnforcement` /
+`withStockCap`. Otherwise the file stays as it is and the use is reported with file and line, for example a
+handler passed to an app wrapper typed `WriteHandlerDef`, put in an array or stored in an annotated variable.
+
+`kumiko-upgrade --apply` runs it for the release that introduced the typed definitions. By hand:
+
+```bash
+bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/define-handler.ts <dir> [--check | --dry-run | --write] [--no-format]
+```
+
+Reported as `manual` and left unchanged: a literal that spreads an identifier, property access or call
+(a conditional `...(cond && { ... })` is fine), `satisfies XHandlerDef` and `as XHandlerDef`, several or
+non-literal returns, a dynamic schema (a parameter or local of the factory, or a call that does not start with
+`z.`), an annotated first handler parameter, `excludedFields` and computed keys. A payload cast to a type
+that does not match the schema is kept and reported, the definition itself is converted. Safe to rerun.
+The analysis spans the project root (nearest `biome.json`, `tsconfig.json` there is used for module
+resolution), so run it on the directory that holds the handlers and their uses.

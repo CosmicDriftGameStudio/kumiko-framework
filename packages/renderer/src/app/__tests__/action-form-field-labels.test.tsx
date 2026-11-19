@@ -8,7 +8,8 @@ import type { ReactNode } from "react";
 import { RenderEdit } from "../../components/render-edit.tsx";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import { type CorePrimitives, type FieldProps, PrimitivesProvider } from "../../primitives.tsx";
+import { type FieldProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createStubPrimitives } from "../../testing.ts";
 import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "../action-form-shim.ts";
 
 const noop = (): ReactNode => null;
@@ -22,7 +23,7 @@ function renderActionFormCapturingFieldLabels(screen: ActionFormScreenDefinition
     if (props.testId !== undefined) labels[props.testId] = props.label;
     return props.children;
   };
-  const primitives: CorePrimitives = {
+  const primitives = createStubPrimitives({
     Button: noop,
     Banner: noop,
     Field: capturingField,
@@ -41,7 +42,7 @@ function renderActionFormCapturingFieldLabels(screen: ActionFormScreenDefinition
     ConfigSourceBadge: noop,
     ConfigCascadeView: noop,
     Link: noop,
-  };
+  });
   render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en-US" })}
@@ -52,7 +53,7 @@ function renderActionFormCapturingFieldLabels(screen: ActionFormScreenDefinition
           screen={synthesizeActionFormScreen(screen)}
           entity={synthesizeActionFormEntity(screen.fields)}
           featureName="shop"
-          initial={{ dueAt: "" }}
+          initial={{ dueAt: "", note: "" }}
         />
       </PrimitivesProvider>
     </LocaleProvider>,
@@ -88,5 +89,22 @@ describe("RenderEdit — ActionFormScreenDefinition.fieldLabels", () => {
     const { labels } = renderActionFormCapturingFieldLabels(screen);
 
     expect(labels["field-dueAt"]).toBe("shop:entity:__action-form__:field:dueAt");
+  });
+
+  test("labelEntity moves the fields the entity declares to the entity keys; the rest keep __action-form__", () => {
+    const screen: ActionFormScreenDefinition = {
+      id: "reschedule",
+      type: "actionForm",
+      handler: "shop:write:reschedule",
+      fields: { dueAt: { type: "date" }, note: { type: "text" } },
+      layout: { sections: [{ fields: ["dueAt", "note"] }] },
+      labelEntity: "order",
+      labelEntityFields: ["dueAt"],
+    };
+
+    const { labels } = renderActionFormCapturingFieldLabels(screen);
+
+    expect(labels["field-dueAt"]).toBe("shop:entity:order:field:dueAt");
+    expect(labels["field-note"]).toBe("shop:entity:__action-form__:field:note");
   });
 });

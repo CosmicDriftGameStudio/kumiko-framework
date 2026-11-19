@@ -10,7 +10,7 @@ import {
   type TenantId,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
+import { AccessDeniedError, reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import { eventsTable, VersionConflictError } from "@cosmicdrift/kumiko-framework/event-store";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
@@ -22,7 +22,7 @@ import {
 } from "./constants.ts";
 import { capCounterEntity } from "./entity.ts";
 
-const { table, executor } = createEntityExecutor("cap-counter", capCounterEntity);
+const { table, executor } = createEntityExecutor(capCounterEntity);
 
 // periodStartIso feeds the aggregate id and Temporal.Instant.from(); a non-instant string would
 // silently fork a counter row on update and throw a RangeError (500) on create.
@@ -237,11 +237,31 @@ export async function markCapSoftWarned(
   ctx: CapCounterContext,
   options: MarkCapSoftWarnedOptions,
 ): Promise<WriteResult> {
+  return (await markCapSoftWarnedTracked(ctx, options)).result;
+}
+
+// True only for the call that flipped lastSoftWarnedAt itself; a parallel warner that won the
+// version race (or an earlier call) leaves it false, so exactly one caller notifies per period.
+export async function claimCapSoftWarning(
+  ctx: CapCounterContext,
+  options: MarkCapSoftWarnedOptions,
+): Promise<boolean> {
+  const { result, flippedByThisCall } = await markCapSoftWarnedTracked(ctx, options);
+  if (!result.isSuccess) throw reraiseAsKumikoError(result.error);
+  return flippedByThisCall;
+}
+
+async function markCapSoftWarnedTracked(
+  ctx: CapCounterContext,
+  options: MarkCapSoftWarnedOptions,
+): Promise<{ readonly result: WriteResult; readonly flippedByThisCall: boolean }> {
   const parsed = capPeriodSchema.parse(options);
   const { user, writeDb } = resolveCapCounterScope(ctx, options.outsideTransaction === true);
   const aggregateId = capCounterAggregateId(user.tenantId, parsed.capName, parsed.periodStartIso);
+  let flippedByThisCall = false;
 
   async function attemptMark(db: TenantDb): Promise<WriteResult> {
+    flippedByThisCall = false;
     const existing = await db.selectMany(table, { id: aggregateId }, { limit: 1 });
     if (existing.length === 0) {
       throw new Error(
@@ -259,7 +279,7 @@ export async function markCapSoftWarned(
     }
     const currentVersion = row["version"] as number; // @cast-boundary db-row
 
-    return executor.update(
+    const updated = await executor.update(
       {
         id: aggregateId,
         version: currentVersion,
@@ -268,12 +288,14 @@ export async function markCapSoftWarned(
       user,
       db,
     );
+    flippedByThisCall = updated.isSuccess;
+    return updated;
   }
 
-  if (options.outsideTransaction) {
-    return retryCounterWriteOnVersionConflict(() => runInOwnTransaction(writeDb, attemptMark));
-  }
-  return retryCounterWriteOnVersionConflict(() => attemptMark(writeDb));
+  const result = options.outsideTransaction
+    ? await retryCounterWriteOnVersionConflict(() => runInOwnTransaction(writeDb, attemptMark))
+    : await retryCounterWriteOnVersionConflict(() => attemptMark(writeDb));
+  return { result, flippedByThisCall: result.isSuccess && flippedByThisCall };
 }
 
 export type ReadRollingCapUsageOptions = {

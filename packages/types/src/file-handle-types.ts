@@ -1,3 +1,5 @@
+import type { TenantId } from "./identifiers.ts";
+
 export type FileHandle = {
   readonly key: string;
   read(): Promise<Uint8Array>;
@@ -30,4 +32,27 @@ export type FileContext = {
   writeUploadBytes(key: string, data: Uint8Array, mimeType: string): Promise<void>;
   // Drops the ledger entry of bytes that were deleted again without a committed fileRef row.
   forgetUploadBytes(key: string): Promise<void>;
+};
+
+export type FileDownloadLinkClaims = {
+  readonly tenantId: TenantId;
+  readonly fileRefId: string;
+  readonly expiresAtMs: number;
+};
+
+export type FileDownloadLinkSigner = {
+  readonly sign: (claims: FileDownloadLinkClaims) => string;
+  readonly verify: (token: string, now: Temporal.Instant) => FileDownloadLinkClaims | undefined;
+};
+
+export type FileDownloadLink = {
+  readonly path: string;
+  readonly expiresAt: string;
+};
+
+export type FileDownloadLinks = {
+  readonly issue: (
+    fileRefId: string,
+    options?: { readonly expiresInSeconds?: number },
+  ) => FileDownloadLink;
 };

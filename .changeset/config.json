@@ -14,8 +14,6 @@
       "@cosmicdrift/kumiko-locale-es",
       "@cosmicdrift/kumiko-locale-fr",
       "@cosmicdrift/kumiko-locale-it",
-      "@cosmicdrift/kumiko-renderer-mail-html",
-      "@cosmicdrift/kumiko-renderer-puppeteer-client",
       "@cosmicdrift/kumiko-document-designer",
       "@cosmicdrift/kumiko-feature-ast",
       "@cosmicdrift/kumiko-cli",
@@ -36,7 +34,6 @@
   "ignore": [
     "@cosmicdrift/kumiko-sample-*",
     "@cosmicdrift/kumiko-marketing-demo",
-    "@samples/workflow-engine",
     "@cosmicdrift/kumiko-puppeteer-service"
   ],
   "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {

@@ -6,6 +6,7 @@ import {
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, type ReactNode, useState } from "react";
@@ -16,12 +17,12 @@ import { MfaRegenerateRecoveryDialog } from "../mfa-regenerate-recovery-dialog.t
 type WriteCall = { readonly type: string; readonly payload: unknown };
 
 function makeDispatcher(calls: WriteCall[]): Dispatcher {
-  return {
+  return createMockDispatcher({
     write: async (type: string, payload: unknown) => {
       calls.push({ type, payload });
       return { isSuccess: true, data: { disabled: true, recoveryCodes: [] } };
     },
-  } as unknown as Dispatcher;
+  });
 }
 
 function renderWith(ui: ReactElement, dispatcher: Dispatcher): void {
@@ -96,7 +97,7 @@ describe("MfaDisableDialog reopening", () => {
     renderWith(<ReopenableDisableDialog />, makeDispatcher([]));
 
     fireEvent.click(screen.getByRole("button", { name: "Use a recovery code instead" }));
-    expect(screen.getByLabelText(/^Recovery code/)).toBeTruthy();
+    screen.getByLabelText(/^Recovery code/);
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => {
@@ -104,7 +105,7 @@ describe("MfaDisableDialog reopening", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "reopen" }));
 
-    expect(screen.getByLabelText(/^Code from your authenticator app/)).toBeTruthy();
+    screen.getByLabelText(/^Code from your authenticator app/);
     expect(screen.queryByLabelText(/^Recovery code/)).toBeNull();
   });
 });

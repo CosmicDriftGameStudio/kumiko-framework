@@ -16,13 +16,14 @@ import { buildEntityTable } from "../table-builder.ts";
 import { createTenantDb } from "../tenant-db.ts";
 
 const globalEntity = createEntity({
+  name: "gtenancyGlobal",
   table: "gtenancy_global",
   tenancy: "global",
   systemStream: true,
   fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 
-const globalTable = buildEntityTable("gtenancyGlobal", globalEntity);
+const globalTable = buildEntityTable(globalEntity);
 const globalExec = createEventStoreExecutor(globalTable, globalEntity, {
   entityName: "gtenancyGlobal",
 });

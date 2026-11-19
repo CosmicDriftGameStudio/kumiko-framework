@@ -7,8 +7,8 @@
 // Mailcrab, or real SMTP.
 //
 // **What this feature provides:**
-//   1. Plugin registration via `r.useExtension("mailTransport",
-//      "inmemory", { build })`. Tenants set
+//   1. Plugin registration via `r.applyExtension({ name: "mailTransport",
+//      entity: "inmemory", build })`. Tenants set
 //      "mail-foundation:config:provider" to "inmemory" and receive
 //      the buffered variant.
 //   2. **Per-tenant inbox.** Each tenant has its own mail buffer
@@ -97,7 +97,7 @@ export function createMailTransportInMemoryFeature() {
           return getOrCreateTransportForTenant(tenantId);
         },
       };
-      r.useExtension(MAIL_TRANSPORT_EXTENSION, "inmemory", plugin);
+      r.applyExtension({ name: MAIL_TRANSPORT_EXTENSION, entity: "inmemory", ...plugin });
       r.translations({
         keys: { "mail-transport-inmemory.settings": { en: "Test inbox (in memory)" } },
       });

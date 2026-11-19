@@ -152,6 +152,18 @@ function declaredIndexEntries(
   });
 }
 
+// A single reference column is the lookup key for "rows of this parent". A declared index that already
+// leads with the field covers that lookup and would collide with the auto index name.
+export function autoIndexedReferenceFieldNames(entity: EntityDefinition): readonly string[] {
+  const leadingDeclared = new Set((entity.indexes ?? []).map((def) => def.columns[0]));
+  return Object.entries(entity.fields)
+    .filter(
+      ([name, field]) =>
+        field.type === "reference" && field.multiple !== true && !leadingDeclared.has(name),
+    )
+    .map(([name]) => name);
+}
+
 // Every multi-tenant query filters by tenant_id; without this index list
 // queries scan the whole table across all tenants.
 export function buildEntityIndexes(

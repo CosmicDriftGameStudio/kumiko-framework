@@ -165,7 +165,7 @@ describe("DataTable view options", () => {
         resetAll={{ active: true, onReset: () => {} }}
       />,
     );
-    expect(screen.getByTestId("list-reset-all")).not.toBeNull();
+    screen.getByTestId("list-reset-all");
     unmount();
     render(
       <DataTable

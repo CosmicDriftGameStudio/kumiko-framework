@@ -105,22 +105,22 @@ await seedSystemTemplate(db, {
 
 ## Admin workflows (write handlers + queries)
 
-| Handler                                   | QN                                         | Who                                                           | What                                                                                                                                                      |
-| ----------------------------------------- | ------------------------------------------ | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TemplateResolverHandlers.upsertSystem`   | `template-resolver:write:upsert-system`    | SystemAdmin                                                   | Creates or updates system default templates (`SYSTEM_TENANT_ID`, scope='system', status='active')                                                         |
-| `TemplateResolverHandlers.upsertTenant`   | `template-resolver:write:upsert-tenant`    | TenantAdmin (own tenant) + SystemAdmin via `tenantIdOverride` | Creates or updates tenant overrides (scope='tenant'), default status='draft'                                                                              |
-| `TemplateResolverHandlers.publish`        | `template-resolver:write:publish`          | TenantAdmin (own tenant)                                      | Sets status='active'                                                                                                                                      |
-| `TemplateResolverHandlers.archive`        | `template-resolver:write:archive`          | TenantAdmin (own tenant)                                      | Sets status='archived' (the resolver ignores it afterward)                                                                                                |
-| `TemplateResolverHandlers.publishSystem`  | `template-resolver:write:publish-system`   | SystemAdmin                                                   | Sets status='active' on a system default, with the same mail validation as `publish`                                                                      |
-| `TemplateResolverHandlers.archiveSystem`  | `template-resolver:write:archive-system`   | SystemAdmin                                                   | Sets status='archived' on a system default; tenants without an override fall through                                                                      |
-| `TemplateResolverHandlers.resetToSystem`  | `template-resolver:write:reset-to-system`  | TenantAdmin (own tenant)                                      | Archives the own override so that the active system template applies again; without an active system template, `no_system_template`                       |
-| `TemplateResolverQueries.findById`        | `template-resolver:query:find-by-id`       | TenantAdmin + User (own tenant, system templates visible)     | Raw lookup for the edit UI                                                                                                                                |
-| `TemplateResolverQueries.list`            | `template-resolver:query:list`             | same                                                          | Filters by kind/locale/status, optionally includeSystem                                                                                                   |
-| `TemplateResolverQueries.usage`           | `template-resolver:query:usage`            | TenantAdmin                                                   | Which notifications use a mail template or mail layout, from the registry                                                                                 |
-| `TemplateResolverQueries.overview`        | `template-resolver:query:overview`         | TenantAdmin + SystemAdmin                                     | One row per slug and type, mail, PDF, layouts, with origin, languages, status, version, layout, and usage; searchable, filterable, sortable, and pageable |
-| `TemplateResolverQueries.layoutSource`    | `template-resolver:query:layout-source`    | TenantAdmin + SystemAdmin                                     | Own and system version of a layout, header/signature/footer regions of the effective HTML version, storage locale; MJML source only for SystemAdmin       |
-| `TemplateResolverQueries.tenantOverrides` | `template-resolver:query:tenant-overrides` | SystemAdmin                                                   | Number of active/draft overrides of a system template and total active tenants, numbers only                                                              |
-| `TemplateResolverQueries.diffToSystem`    | `template-resolver:query:diff-to-system`   | TenantAdmin (own tenant)                                      | Block and meta comparison of a tenant override with the system template                                                                                   |
+| Handler                                   | QN                                         | Who                                                                                                    | What                                                                                                                                                      |
+| ----------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TemplateResolverHandlers.upsertSystem`   | `template-resolver:write:upsert-system`    | SystemAdmin                                                                                            | Creates or updates system default templates (`SYSTEM_TENANT_ID`, scope='system', status='active')                                                         |
+| `TemplateResolverHandlers.upsertTenant`   | `template-resolver:write:upsert-tenant`    | TenantAdmin (own tenant) + SystemAdmin via `tenantIdOverride`                                          | Creates or updates tenant overrides (scope='tenant'), default status='draft'                                                                              |
+| `TemplateResolverHandlers.publish`        | `template-resolver:write:publish`          | TenantAdmin (own tenant)                                                                               | Sets status='active'                                                                                                                                      |
+| `TemplateResolverHandlers.archive`        | `template-resolver:write:archive`          | TenantAdmin (own tenant)                                                                               | Sets status='archived' (the resolver ignores it afterward)                                                                                                |
+| `TemplateResolverHandlers.publishSystem`  | `template-resolver:write:publish-system`   | SystemAdmin                                                                                            | Sets status='active' on a system default, with the same mail validation as `publish`                                                                      |
+| `TemplateResolverHandlers.archiveSystem`  | `template-resolver:write:archive-system`   | SystemAdmin                                                                                            | Sets status='archived' on a system default; tenants without an override fall through                                                                      |
+| `TemplateResolverHandlers.resetToSystem`  | `template-resolver:write:reset-to-system`  | TenantAdmin (own tenant)                                                                               | Archives the own override so that the active system template applies again; without an active system template, `no_system_template`                       |
+| `TemplateResolverQueries.findById`        | `template-resolver:query:find-by-id`       | SystemAdmin, TenantAdmin and the roles listed in tenantEditable (own tenant, system templates visible) | Raw lookup for the edit UI                                                                                                                                |
+| `TemplateResolverQueries.list`            | `template-resolver:query:list`             | same                                                                                                   | Filters by kind/locale/status, optionally includeSystem                                                                                                   |
+| `TemplateResolverQueries.usage`           | `template-resolver:query:usage`            | TenantAdmin                                                                                            | Which notifications use a mail template or mail layout, from the registry                                                                                 |
+| `TemplateResolverQueries.overview`        | `template-resolver:query:overview`         | TenantAdmin + SystemAdmin                                                                              | One row per slug and type, mail, PDF, layouts, with origin, languages, status, version, layout, and usage; searchable, filterable, sortable, and pageable |
+| `TemplateResolverQueries.layoutSource`    | `template-resolver:query:layout-source`    | TenantAdmin + SystemAdmin                                                                              | Own and system version of a layout, header/signature/footer regions of the effective HTML version, storage locale; MJML source only for SystemAdmin       |
+| `TemplateResolverQueries.tenantOverrides` | `template-resolver:query:tenant-overrides` | SystemAdmin                                                                                            | Number of active/draft overrides of a system template and total active tenants, numbers only                                                              |
+| `TemplateResolverQueries.diffToSystem`    | `template-resolver:query:diff-to-system`   | TenantAdmin (own tenant)                                                                               | Block and meta comparison of a tenant override with the system template                                                                                   |
 
 **SystemAdmin cross-tenant access for publish/archive/findById:** deferred (Task 8), `upsertTenant` already has `tenantIdOverride`; publish/archive only need this when a system admin panel curates templates belonging to other tenants. `ctx.db` is tenant-scoped, foreign IDs result in NotFound without an override.
 
@@ -166,12 +166,12 @@ The harness checks `TemplateNotFoundError` propagation, locale fallback, and, wh
 Marketing, FAQ, and legal texts use the same store, but a separate write path: `set.write` carries
 `title` + `folder` (content tree) and has no draft status, saving publishes.
 
-| Handler                                | QN                                    | Who                                                                            | What                                                      |
-| -------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------- |
-| `TemplateResolverHandlers.set`         | `template-resolver:write:set`         | TenantAdmin + SystemAdmin (via `tenantIdOverride`, also on `SYSTEM_TENANT_ID`) | Upserts one resource per `(tenantId, slug, kind, locale)` |
-| `TemplateResolverQueries.bySlug`       | `template-resolver:query:by-slug`     | anonymous + User + Admins                                                      | One text block, the public read for landing/legal pages   |
-| `TemplateResolverQueries.byTenant`     | `template-resolver:query:by-tenant`   | anonymous + User + Admins                                                      | All text blocks of a tenant for the content tree          |
-| `<collection>-list` / `-item` / `-set` | `template-resolver:query:<id>-list` … | as declared                                                                    | Per content collection, see below                         |
+| Handler                                | QN                                    | Who                                                                                          | What                                                      |
+| -------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `TemplateResolverHandlers.set`         | `template-resolver:write:set`         | TenantAdmin + SystemAdmin (via `tenantIdOverride`, also on `SYSTEM_TENANT_ID`)               | Upserts one resource per `(tenantId, slug, kind, locale)` |
+| `TemplateResolverQueries.bySlug`       | `template-resolver:query:by-slug`     | anonymous + User + Admins; SystemAdmin may pass `tenantIdOverride` = `SYSTEM_TENANT_ID` only | One text block, the public read for landing/legal pages   |
+| `TemplateResolverQueries.byTenant`     | `template-resolver:query:by-tenant`   | anonymous + User + Admins; SystemAdmin may pass `tenantIdOverride` = `SYSTEM_TENANT_ID` only | All text blocks of a tenant for the content tree          |
+| `<collection>-list` / `-item` / `-set` | `template-resolver:query:<id>-list` … | as declared                                                                                  | Per content collection, see below                         |
 
 The two public queries are hardcoded to `kind: "text-block"` and accept **no** kind parameter. Mail
 templates and AI prompts are stored in the same table and use the handlers of their collection. This
@@ -225,6 +225,28 @@ the union of all roles and sort in the body.
 Accordingly, the payload carries **no** `kind`; `kind`, `ownership` and `access` come from the
 declaration. Two collections may use the same `kind` with different rules.
 
+The AI assistant names a `<id>-set` call by its title and field labels, and `kumiko agent lint` fails
+without them. The feature cannot ship them because it never knows the ids, so the app registers them in
+its own feature, next to the nav labels:
+
+```typescript
+r.translations({
+  keys: handlerTranslationKeys(TEMPLATE_RESOLVER_FEATURE, {
+    writes: {
+      "reply-snippets-set": {
+        title: { en: "Save reply snippet", de: "Textbaustein speichern" },
+        fields: {
+          slug: {
+            en: "Identifier",
+            de: "Kennung",
+          } /* locale, title, content, folder, createOnly, tenantIdOverride */,
+        },
+      },
+    },
+  }),
+});
+```
+
 `textBlocksClient()` automatically serves every declared collection: one folder tree per collection,
 including SSE refresh, and an editor target with the `collectionId`. The app passes nothing through for this.
 
@@ -261,8 +283,8 @@ When mounting a user-owned collection, two things are required:
    user-owned collection is declared. Then in the app run
    `bunx kumiko-schema generate add-user-content` + `apply`, without the table
    the handler returns 500 in production.
-2. **Mount `template-resolver-user-data` as well.** The entity carries subject data;
-   without the EXT_USER_DATA hook, the boot guard refuses to start. The feature provides the Art. 20
+2. **The EXT_USER_DATA hooks come with the feature.** The entity carries subject data, so the
+   feature registers the EXT_USER_DATA hooks for `user-content-entry` itself. They provide the Art. 20
    export; deletion (Art. 17) uses crypto-shredding, not a physical DELETE, which would not be
    replay-safe for an event-sourced entity.
 

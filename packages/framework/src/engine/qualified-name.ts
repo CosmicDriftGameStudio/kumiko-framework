@@ -9,6 +9,7 @@
 //   "system:hook:search-index"     → scope=system, type=hook, name=search-index
 //   "billing:notify:invoice-sent"  → scope=billing, type=notify, name=invoice-sent
 
+import type { QueryQualifiedName } from "@cosmicdrift/kumiko-types/handler-contract";
 import { toKebab } from "@cosmicdrift/kumiko-types/kebab-case";
 
 export { toKebab };
@@ -148,4 +149,11 @@ export function qnScope(qualifiedName: string): string | undefined {
 // means a single place to change if the qualification rule ever evolves.
 export function qualifyEntityName(featureName: string, type: QnType, shortName: string): string {
   return qn(toKebab(featureName), type, toKebab(shortName));
+}
+
+export function qualifyQueryName(featureName: string, shortName: string): QueryQualifiedName {
+  const scope = toKebab(featureName);
+  const name = toKebab(shortName);
+  qn(scope, "query", name); // validates the segments, the literal below keeps the query type
+  return `${scope}:query:${name}`;
 }

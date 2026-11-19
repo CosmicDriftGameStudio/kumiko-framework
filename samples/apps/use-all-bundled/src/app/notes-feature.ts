@@ -35,6 +35,7 @@ import {
 const ADMIN_ACCESS = { roles: ["TenantAdmin", "SystemAdmin"] } as const;
 
 export const noteEntity = createEntity({
+  name: "note",
   description:
     "A demo note holding just a title plus per-tenant custom-field values, used as the host object that the tags, folders and custom-fields extensions attach to.",
   table: "read_demo_notes",
@@ -51,7 +52,7 @@ export const noteEntity = createEntity({
   },
 });
 
-export const noteTable = buildEntityTable("note", noteEntity);
+export const noteTable = buildEntityTable(noteEntity);
 
 const noteListScreen: EntityListScreenDefinition = {
   id: "note-list",
@@ -128,7 +129,7 @@ export const notesFeature: FeatureDefinition = defineFeature("notes-demo", (r) =
 
   wireCustomFieldsFor(r, "note", noteTable);
 
-  r.crud("note", noteEntity, {
+  r.crud(noteEntity, {
     write: { access: ADMIN_ACCESS },
     read: { access: ADMIN_ACCESS },
     descriptions: {

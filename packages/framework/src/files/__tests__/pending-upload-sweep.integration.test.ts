@@ -31,6 +31,7 @@ const SWEEP_JOB = "files:job:sweep-orphaned-uploads";
 const PDF_BYTES = new TextEncoder().encode("%PDF-1.4 pending");
 
 const dossierEntity = createEntity({
+  name: "dossier",
   table: "pending_sweep_dossiers",
   fields: {
     title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -39,7 +40,7 @@ const dossierEntity = createEntity({
 });
 
 const dossierFeature = defineFeature("pending-sweep", (r) => {
-  r.crud("dossier", dossierEntity, {
+  r.crud(dossierEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });

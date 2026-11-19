@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { getStreamVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
@@ -33,10 +33,11 @@ afterAll(async () => {
 });
 
 function report(fileRefId: string, pagesDone: number, pagesTotal: number) {
-  return reportIngestProgress(
-    { db: stack.db, registry: stack.registry, tenantId: admin.tenantId, actorId: admin.id },
-    { fileRefId, pagesDone, pagesTotal },
-  );
+  return reportIngestProgress(createTenantDb({ db: stack.db, tenantId: admin.tenantId }), {
+    fileRefId,
+    pagesDone,
+    pagesTotal,
+  });
 }
 
 async function progressRows() {
@@ -55,28 +56,18 @@ describe("reportIngestProgress", () => {
 
     const rows = (await progressRows()).filter((row) => row.fileRefId === "file-a");
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({
-      id: documentIngestAggregateId(admin.tenantId, "file-a"),
-      pagesDone: 2,
-      pagesTotal: 3,
-    });
+    expect(rows[0]).toMatchObject({ pagesDone: 2, pagesTotal: 3 });
   });
 
-  test("parallel reports for one file all land and the row ends on a reported state", async () => {
+  test("parallel reports for one file leave one row on the highest count", async () => {
     await Promise.all([report("file-p", 1, 4), report("file-p", 2, 4), report("file-p", 3, 4)]);
 
     const rows = (await progressRows()).filter((row) => row.fileRefId === "file-p");
     expect(rows).toHaveLength(1);
-    expect([1, 2, 3].includes(rows[0]?.pagesDone ?? 0)).toBe(true);
-    const streamVersion = await getStreamVersion(
-      stack.db,
-      documentIngestAggregateId(admin.tenantId, "file-p"),
-      admin.tenantId,
-    );
-    expect(streamVersion).toBe(3);
+    expect(rows[0]).toMatchObject({ pagesDone: 3, pagesTotal: 4 });
   });
 
-  test("more parallel reports than retry attempts do not fail and leave one row", async () => {
+  test("eight parallel reports leave one row on the highest count", async () => {
     await Promise.all(Array.from({ length: 8 }, (_, index) => report("file-many", index + 1, 8)));
 
     const rows = (await progressRows()).filter((row) => row.fileRefId === "file-many");
@@ -90,6 +81,21 @@ describe("reportIngestProgress", () => {
 
     const rows = (await progressRows()).filter((row) => row.fileRefId === "file-late");
     expect(rows[0]).toMatchObject({ pagesDone: 5, pagesTotal: 5 });
+  });
+
+  test("reporting progress appends no event to the ingest stream", async () => {
+    await report("file-quiet", 1, 2);
+
+    expect(
+      await getStreamVersion(
+        stack.db,
+        documentIngestAggregateId(admin.tenantId, "file-quiet"),
+        admin.tenantId,
+      ),
+    ).toBe(0);
+    const rows = (await progressRows()).filter((row) => row.fileRefId === "file-quiet");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ pagesDone: 1 });
   });
 
   test("a second file gets its own row", async () => {

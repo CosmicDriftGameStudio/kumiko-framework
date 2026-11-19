@@ -2,7 +2,7 @@ import { configuredPiiSubjectKms } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { documentDraftExecutor } from "./entity.ts";
+import { ungatedDocumentDraftExecutor } from "./entity.ts";
 import { DOCUMENT_DRAFT_ENTITY } from "./web/constants.ts";
 
 // A handler ctx fits, and so does a system-mode tenant db in an erasure job.
@@ -18,7 +18,7 @@ async function draftIdsOfSubject(
 ): Promise<readonly string[]> {
   const ids: string[] = [];
   for (;;) {
-    const page = await documentDraftExecutor.list(
+    const page = await ungatedDocumentDraftExecutor.list(
       {
         filters: [
           { field: "subjectType", op: "eq", value: subject.subjectType },
@@ -47,7 +47,7 @@ export async function forgetDocumentDraftsOfSubject(
   const kms = configuredPiiSubjectKms();
   const ids = await draftIdsOfSubject(ctx, subject);
   for (const id of ids) {
-    const forgotten = await documentDraftExecutor.forget({ id }, ctx.user, ctx.db);
+    const forgotten = await ungatedDocumentDraftExecutor.forget({ id }, ctx.user, ctx.db);
     if (!forgotten.isSuccess) {
       throw new InternalError({
         message: `[document-draft] draft ${id} could not be forgotten: ${forgotten.error.message}`,

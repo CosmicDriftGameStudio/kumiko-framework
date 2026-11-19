@@ -51,6 +51,27 @@ function writeSchemaFile(appCwd: string, tableName: string, extraField?: string)
   writeFileSync(join(appCwd, "kumiko/schema.ts"), content);
 }
 
+function writeVersionedEntitySchemaFile(
+  appCwd: string,
+  nameColumn: string,
+  entityEventVersion: number,
+): void {
+  const content = `export const ENTITY_METAS = [
+  {
+    tableName: "tbl_person",
+    source: "managed",
+    entityEventVersion: ${entityEventVersion},
+    indexes: [],
+    columns: [
+      { name: "id", pgType: "uuid", notNull: true, primaryKey: true, defaultSql: "gen_random_uuid()" },
+      { name: "${nameColumn}", pgType: "text", notNull: false }
+    ],
+  },
+];
+`;
+  writeFileSync(join(appCwd, "kumiko/schema.ts"), content);
+}
+
 describe("runSchemaCli — no-DB paths", () => {
   let appCwd: string;
   beforeEach(() => {
@@ -184,6 +205,42 @@ describe("runSchemaCli — no-DB paths", () => {
     expect(cap.log.join("\n")).toContain("No schema changes detected");
     const files = readdirSync(join(appCwd, "kumiko/migrations"));
     expect(files).not.toContain("0002_noop.sql");
+  });
+
+  // Each step runs in its own app dir with the migrations carried over: the runtime caches the
+  // imported kumiko/schema.ts per path, so a rewritten schema in the same dir would not reload.
+  test("an eventVersion bump without schema change records the version, so a later unversioned rename is refused", async () => {
+    const generateIn = async (
+      nameColumn: string,
+      entityEventVersion: number,
+      migrationName: string,
+      carryFrom?: string,
+    ) => {
+      const dir = freshAppCwd();
+      if (carryFrom !== undefined) {
+        cpSync(join(carryFrom, "kumiko/migrations"), join(dir, "kumiko/migrations"), {
+          recursive: true,
+        });
+      }
+      writeVersionedEntitySchemaFile(dir, nameColumn, entityEventVersion);
+      const cap = captureOut();
+      const code = await runSchemaCli(["generate", migrationName], dir, cap.out);
+      return { dir, cap, code, migrationsDir: join(dir, "kumiko/migrations") };
+    };
+
+    const init = await generateIn("first_name", 1, "init");
+    expect(init.code).toBe(0);
+
+    const bump = await generateIn("first_name", 2, "bump", init.dir);
+    expect(bump.code).toBe(0);
+    expect(readdirSync(bump.migrationsDir)).not.toContain("0002_bump.sql");
+    const snapshot = JSON.parse(readFileSync(join(bump.migrationsDir, ".snapshot.json"), "utf8"));
+    expect(snapshot.tables[0].entityEventVersion).toBe(2);
+
+    const rename = await generateIn("given_name", 2, "rename", bump.dir);
+    expect(rename.code).toBe(1);
+    expect(rename.cap.err.join("\n")).toContain("without a raised eventVersion");
+    expect(readdirSync(rename.migrationsDir)).not.toContain("0002_rename.sql");
   });
 
   test("apply without DATABASE_URL exits 1", async () => {

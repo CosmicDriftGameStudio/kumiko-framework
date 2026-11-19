@@ -10,7 +10,14 @@ import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema, NavApi, NavTarget } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider, UserRolesProvider } from "../../index.ts";
 import { clickSubmitOnceEnabled, schema } from "./_kumiko-screen-helpers.tsx";
-import { fireEvent, makeDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  fireEvent,
+  type MockWriteHandler,
+  makeDispatcher,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 describe("KumikoScreen", () => {
   // toolbarActions kind:"drawer": mounts the referenced actionForm
@@ -37,10 +44,10 @@ describe("KumikoScreen", () => {
 
     test("Click opens the Drawer with the referenced actionForm's fields", async () => {
       const dispatcher = makeDispatcher({
-        query: (async () => ({
+        query: async () => ({
           isSuccess: true,
           data: { rows: [{ id: "r1", title: "x", count: 0, done: false }], nextCursor: null },
-        })) as unknown as Dispatcher["query"],
+        }),
       });
       const user = userEvent.setup();
       render(
@@ -55,22 +62,22 @@ describe("KumikoScreen", () => {
       expect(screen.queryByTestId("field-note")).toBeNull();
 
       await user.click(screen.getByTestId("render-list-toolbar-action-add-note"));
-      expect(screen.getByTestId("render-edit-form")).toBeTruthy();
-      expect(screen.getByTestId("field-note")).toBeTruthy();
+      screen.getByTestId("render-edit-form");
+      screen.getByTestId("field-note");
     });
 
     test("Successful submit calls the actionForm's handler, closes the Drawer, and reloads the list", async () => {
       const writeCalls: { type: string; payload: unknown }[] = [];
       let queryCallCount = 0;
       const dispatcher = makeDispatcher({
-        query: (async () => {
+        query: async () => {
           queryCallCount += 1;
           return { isSuccess: true, data: { rows: [], nextCursor: null } };
-        }) as unknown as Dispatcher["query"],
-        write: (async (type: string, payload: unknown) => {
+        },
+        write: async (type: string, payload: unknown) => {
           writeCalls.push({ type, payload });
           return { isSuccess: true, data: {} };
-        }) as unknown as Dispatcher["write"],
+        },
       });
       const user = userEvent.setup();
       render(
@@ -83,7 +90,7 @@ describe("KumikoScreen", () => {
       );
       await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
       await user.click(screen.getByTestId("render-list-toolbar-action-add-note"));
-      expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+      screen.getByTestId("render-edit-form");
       const queryCallsBeforeSubmit = queryCallCount;
 
       // field-note's testId sits on the Field wrapper (label + errors +
@@ -109,10 +116,10 @@ describe("KumikoScreen", () => {
         access: { roles: ["Admin"] },
       };
       const dispatcher = makeDispatcher({
-        query: (async () => ({
+        query: async () => ({
           isSuccess: true,
           data: { rows: [{ id: "r1", title: "x", count: 0, done: false }], nextCursor: null },
-        })) as unknown as Dispatcher["query"],
+        }),
       });
       const user = userEvent.setup();
       render(
@@ -130,7 +137,7 @@ describe("KumikoScreen", () => {
       const button = screen.getByTestId("render-list-toolbar-action-add-note");
       await user.click(button);
 
-      expect(screen.getByTestId("kumiko-toolbar-drawer-access-denied")).toBeTruthy();
+      screen.getByTestId("kumiko-toolbar-drawer-access-denied");
       expect(screen.queryByTestId("field-note")).toBeNull();
     });
   });
@@ -165,13 +172,13 @@ describe("KumikoScreen", () => {
       };
     }
 
-    function makeRowDrawerDispatcher(write?: Dispatcher["write"]): {
+    function makeRowDrawerDispatcher(write?: MockWriteHandler): {
       dispatcher: Dispatcher;
       getQueryCallCount: () => number;
     } {
       let queryCallCount = 0;
       const dispatcher = makeDispatcher({
-        query: (async () => {
+        query: async () => {
           queryCallCount += 1;
           return {
             isSuccess: true,
@@ -180,7 +187,7 @@ describe("KumikoScreen", () => {
               nextCursor: null,
             },
           };
-        }) as unknown as Dispatcher["query"],
+        },
         ...(write !== undefined && { write }),
       });
       return { dispatcher, getQueryCallCount: () => queryCallCount };
@@ -211,7 +218,7 @@ describe("KumikoScreen", () => {
       expect(screen.queryByTestId("field-title")).toBeNull();
 
       await user.click(screen.getByTestId("row-r1-action-add-note"));
-      expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+      screen.getByTestId("render-edit-form");
       const titleInput = screen.getByTestId("field-title").querySelector("input");
       if (titleInput === null) throw new Error("expected an <input> inside field-title");
       expect(titleInput.value).toBe("Alpha");
@@ -241,7 +248,7 @@ describe("KumikoScreen", () => {
       await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
 
       await user.click(screen.getByTestId("row-r1-action-add-note-mapped"));
-      expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+      screen.getByTestId("render-edit-form");
       const noteInput = screen.getByTestId("field-note").querySelector("input");
       if (noteInput === null) throw new Error("expected an <input> inside field-note");
       expect(noteInput.value).toBe("Alpha");
@@ -274,7 +281,7 @@ describe("KumikoScreen", () => {
       await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
 
       await user.click(screen.getByTestId("row-r1-action-reveal"));
-      expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+      screen.getByTestId("render-edit-form");
       const secretInput = screen.getByTestId("field-secret").querySelector("input");
       if (secretInput === null) throw new Error("expected an <input> inside field-secret");
       expect(secretInput.value).toBe("");
@@ -295,13 +302,12 @@ describe("KumikoScreen", () => {
         ],
       };
       const writeCalls: { type: string; payload: unknown }[] = [];
-      const { dispatcher, getQueryCallCount } = makeRowDrawerDispatcher((async (
-        type: string,
-        payload: unknown,
-      ) => {
-        writeCalls.push({ type, payload });
-        return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["write"]);
+      const { dispatcher, getQueryCallCount } = makeRowDrawerDispatcher(
+        async (type: string, payload: unknown) => {
+          writeCalls.push({ type, payload });
+          return { isSuccess: true, data: {} };
+        },
+      );
       const navigateCalls: unknown[] = [];
       const memoryNav = {
         route: { screenId: "task-list" },
@@ -323,7 +329,7 @@ describe("KumikoScreen", () => {
       );
       await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
       await user.click(screen.getByTestId("row-r1-action-add-note"));
-      expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+      screen.getByTestId("render-edit-form");
       const queryCallsBeforeSubmit = getQueryCallCount();
 
       const noteInput = screen.getByTestId("field-note").querySelector("input");
@@ -345,13 +351,13 @@ describe("KumikoScreen", () => {
   test("entityList screen-filter: schema.filter is included in the query payload", async () => {
     const queryCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
-      query: (async (type: string, payload: unknown) => {
+      query: async (type: string, payload: unknown) => {
         queryCalls.push({ type, payload });
         return {
           isSuccess: true,
           data: { rows: [], nextCursor: null },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
 
     const filteredScreen: EntityListScreenDefinition = {
@@ -385,10 +391,10 @@ describe("KumikoScreen", () => {
   test("entityList faceted id-filter → payload.filters carries an op:'in' id-set", async () => {
     const queryCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
-      query: (async (type: string, payload: unknown) => {
+      query: async (type: string, payload: unknown) => {
         queryCalls.push({ type, payload });
         return { isSuccess: true, data: { rows: [], nextCursor: null } };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     // useListUrlState reads `<screenId>.f.<field>` (comma-joined) from nav —
     // listScreen.id is "task-list", so this seeds an id-facet of two row ids.
@@ -421,13 +427,13 @@ describe("KumikoScreen", () => {
   test("entityList without screen.filter: queryPayload has no filter field", async () => {
     const queryCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher({
-      query: (async (type: string, payload: unknown) => {
+      query: async (type: string, payload: unknown) => {
         queryCalls.push({ type, payload });
         return {
           isSuccess: true,
           data: { rows: [], nextCursor: null },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
 
     render(
@@ -443,7 +449,7 @@ describe("KumikoScreen", () => {
 
   test("entityList rowActions visible-filter: hidden action does not appear in the DOM", async () => {
     const dispatcher = makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           rows: [
@@ -452,7 +458,7 @@ describe("KumikoScreen", () => {
           ],
           nextCursor: null,
         },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     const screenWithVisible: EntityListScreenDefinition = {
@@ -575,10 +581,10 @@ describe("KumikoScreen: entityList cell rendering", () => {
 
   function orderDispatcher(rows: readonly Record<string, unknown>[]): Dispatcher {
     return makeDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { rows, nextCursor: null },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
   }
 

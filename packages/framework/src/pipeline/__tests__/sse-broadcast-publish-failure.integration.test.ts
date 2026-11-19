@@ -22,7 +22,7 @@ const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity,
   entityName: "widget",
 });
 const feature = defineFeature("ssepublishfailure", (r) => {
-  r.entity({ name: "widget", ...sharedWidgetEntity });
+  r.entity(sharedWidgetEntity);
 });
 
 let stack: TestStack;

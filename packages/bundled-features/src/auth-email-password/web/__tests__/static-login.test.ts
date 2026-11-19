@@ -237,13 +237,20 @@ describe("marketingLoginUrl", () => {
 describe("static-login import surface", () => {
   test("imports only pure sibling modules", () => {
     const dir = new URL("..", import.meta.url);
-    const sources = ["static-login.ts", "login-failure.ts", "login-url.ts"].map((file) =>
-      readFileSync(new URL(file, dir), "utf8"),
+    const sources = ["static-login.ts", "static-client.ts", "login-failure.ts", "login-url.ts"].map(
+      (file) => readFileSync(new URL(file, dir), "utf8"),
     );
     const specifiers = sources.flatMap((source) =>
       [...source.matchAll(/^(?:import|export)[^;]*?from\s+"([^"]+)"/gms)].map((m) => m[1]),
     );
-    const allowed = new Set(["./login-failure.ts", "./login-url.ts", "./return-path.ts"]);
+    const allowed = new Set([
+      "./login-failure.ts",
+      "./login-url.ts",
+      "./return-path.ts",
+      "./static-client.ts",
+      "@cosmicdrift/kumiko-types/session-cookies",
+      "@cosmicdrift/kumiko-types/type-guards",
+    ]);
     expect(specifiers.filter((s) => !allowed.has(s ?? ""))).toEqual([]);
   });
 });

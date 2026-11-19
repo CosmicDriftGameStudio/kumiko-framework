@@ -3,10 +3,8 @@
 // in bin/commands/index.ts), detects the role, dispatches the requested
 // command. No-args + TTY launches the Ink-TUI.
 //
-// The legacy 1600-LOC monolith lives in bin/kumiko-legacy.ts — the
-// check / check:fast / ci:guards commands still subprocess-delegate
-// there because their 300-LOC parallel-lock + tee-logging machinery
-// hasn't been extracted yet (Sprint C).
+// check / check:fast / ci:guards subprocess-delegate to bin/check-pipeline.ts,
+// which holds their parallel-lock and tee-logging step pipeline.
 
 import { existsSync } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";

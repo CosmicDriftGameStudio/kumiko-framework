@@ -1,4 +1,5 @@
 import { bootRuleError } from "./boot-rule.ts";
+import { validateEnumOptionLabelSources } from "./enum-option-label-source.ts";
 import { SCREEN_RULES } from "./screens-rules.ts";
 // Screen validation entry point. The per-kind validators live in the
 // screens-kind-*.ts siblings and the shared sub-validators in screens-dashboard/
@@ -239,6 +240,7 @@ function validateScreenPrelude(
   rejectSubmitPrefilledOutsideForms(featureName, screenId, screen);
   validateScreenHasNavArea(ctx.feature, screenId, screen, ctx.featureMap);
   validateScreenVisibleWhen(ctx.feature, screenId, screen, ctx.allScreenQns, ctx.featureMap);
+  validateEnumOptionLabelSources(featureName, screenId, screen, ctx.featureMap);
 }
 
 export function validateScreens(

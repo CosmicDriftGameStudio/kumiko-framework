@@ -1,0 +1,219 @@
+// HTTP client for puppeteer-service. Retry strategy: only network errors and
+// 502/503 (4xx is a client bug, 500/504 a deterministic render failure, neither
+// is a retry candidate). Exponential backoff with jitter to avoid
+// thundering-herd effects.
+
+import {
+  RendererError,
+  type RendererPayloadLimits,
+} from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { egress } from "@cosmicdrift/kumiko-framework/http";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+import type { ClientConfig } from "./config.ts";
+
+export type FetchResult = {
+  readonly contentType: string;
+  readonly bytes: Uint8Array;
+};
+
+// The allowlist is the service URL's own origin, so it cannot restrict the
+// target — what `internal` buys here is http(s)-scheme enforcement and
+// redirects confined to that same origin (scheme, host, port), so a compromised
+// or misrouted puppeteer-service cannot bounce the Bearer token elsewhere.
+export function serviceEgress(
+  serviceUrl: string,
+): (raw: string, init?: RequestInit) => Promise<Response> {
+  let parsed: URL;
+  try {
+    parsed = new URL(serviceUrl);
+  } catch {
+    throw new RendererError(
+      `renderer-puppeteer-client: PUPPETEER_SERVICE_URL is not a URL: ${serviceUrl}`,
+      "other",
+    );
+  }
+  // Checked here, not left to egress(): egress runs inside the retry loop and
+  // would retry a permanent config error with backoff.
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new RendererError(
+      `renderer-puppeteer-client: PUPPETEER_SERVICE_URL has unsupported scheme ${parsed.protocol}`,
+      "other",
+    );
+  }
+  return egress({ kind: "internal", allowOrigins: [parsed.origin] });
+}
+
+export function postRender(config: ClientConfig, body: unknown): Promise<FetchResult> {
+  return postWithRetry(config, "/render", body, readRenderBody);
+}
+
+// The service answers /rasterize with JSON; the caller validates its shape.
+export function postRasterize(config: ClientConfig, body: unknown): Promise<unknown> {
+  return postWithRetry(config, "/rasterize", body, async (response) => {
+    try {
+      return await response.json();
+    } catch (e) {
+      // A plain Error would be retried and re-run the whole rasterization on the pod.
+      throw new RendererError(`invalid /rasterize response: ${String(e)}`, "other");
+    }
+  });
+}
+
+async function postWithRetry<T>(
+  config: ClientConfig,
+  path: string,
+  body: unknown,
+  readSuccess: (response: Response) => Promise<T>,
+): Promise<T> {
+  const postToService = serviceEgress(config.serviceUrl);
+  let lastError: Error | null = null;
+  let retryAfterMs: number | undefined;
+  for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
+    if (attempt > 0) {
+      // Exponential backoff: 200ms, 400ms, 800ms, ... plus 0–100% jitter
+      // (Math.random() returns 0..1, multiplied by base gives
+      // additive jitter between 0 and base — so actual waits:
+      // 200–400ms, 400–800ms, 800–1600ms). Avoids a thundering herd
+      // when several clients retry at the same time. A 503 with Retry-After waits
+      // at least that long (the service sends it when all render slots are busy).
+      const baseMs = 100 * 2 ** attempt;
+      const jitter = Math.random() * baseMs;
+      await sleep(Math.max(baseMs, retryAfterMs ?? 0) + jitter);
+    }
+    try {
+      return await tryFetch(config, path, body, postToService, readSuccess);
+    } catch (e) {
+      // A RendererError is final (4xx, deterministic render failure, client timeout);
+      // only plain Errors (network failure, 502/503) fall through to the next attempt.
+      if (e instanceof RendererError) throw e;
+      lastError = e instanceof Error ? e : new Error(String(e));
+      retryAfterMs = e instanceof RetryableServiceError ? e.retryAfterMs : undefined;
+    }
+  }
+  throw new RendererError(
+    `puppeteer-service is not reachable at ${config.serviceUrl}: ${lastError?.message ?? "unknown"}`,
+    "unavailable",
+  );
+}
+
+// 502/503 mean the service (or its proxy) could not take the job at all. A 500/504 means
+// the render ran and failed or timed out: repeating it only burns Chromium time again.
+const RETRYABLE_STATUSES: ReadonlySet<number> = new Set([502, 503]);
+
+// Caps a service-sent wait so a bad header cannot park a handler for an hour.
+const MAX_RETRY_AFTER_MS = 10_000;
+
+class RetryableServiceError extends Error {
+  constructor(
+    message: string,
+    readonly retryAfterMs: number | undefined,
+  ) {
+    super(message);
+  }
+}
+
+function retryAfterMsOf(response: Response): number | undefined {
+  const header = response.headers.get("Retry-After");
+  if (header === null || !/^\d+$/.test(header)) return undefined;
+  return Math.min(Number(header) * 1000, MAX_RETRY_AFTER_MS);
+}
+
+// The timer covers headers AND body: a service that sends headers and then stalls
+// must not block the caller forever.
+async function tryFetch<T>(
+  config: ClientConfig,
+  path: string,
+  body: unknown,
+  postToService: (raw: string, init?: RequestInit) => Promise<Response>,
+  readSuccess: (response: Response) => Promise<T>,
+): Promise<T> {
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(() => controller.abort(), config.requestTimeoutMs);
+  try {
+    const response = await postToService(`${config.serviceUrl}${path}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.authToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    return await readServiceResponse(response, readSuccess);
+  } catch (e) {
+    // The service keeps rendering after the client gives up; a retry would start a
+    // second parallel render on the same pod.
+    if (e instanceof Error && e.name === "AbortError") {
+      throw new RendererError(`request timeout after ${config.requestTimeoutMs}ms`, "unavailable");
+    }
+    throw e instanceof Error ? e : new Error(String(e));
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
+}
+
+async function readRenderBody(response: Response): Promise<FetchResult> {
+  const buffer = await response.arrayBuffer();
+  return {
+    contentType: response.headers.get("Content-Type") ?? "application/octet-stream",
+    bytes: new Uint8Array(buffer),
+  };
+}
+
+async function readServiceResponse<T>(
+  response: Response,
+  readSuccess: (response: Response) => Promise<T>,
+): Promise<T> {
+  if (response.status >= 200 && response.status < 300) return readSuccess(response);
+
+  const json = await safeReadJson(response);
+  const detail = describeErrorJson(json);
+  if (response.status === 413) {
+    throw new RendererError(
+      `puppeteer-service rejected request: ${response.status} ${detail}`,
+      "payload_too_large",
+      limitsOf(json),
+    );
+  }
+  if (response.status >= 400 && response.status < 500) {
+    throw new RendererError(
+      `puppeteer-service rejected request: ${response.status} ${detail}`,
+      "invalid_payload",
+    );
+  }
+  if (RETRYABLE_STATUSES.has(response.status)) {
+    throw new RetryableServiceError(
+      `puppeteer-service ${response.status}: ${detail}`,
+      retryAfterMsOf(response),
+    );
+  }
+  throw new RendererError(`puppeteer-service failed: ${response.status} ${detail}`, "other");
+}
+
+async function safeReadJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return undefined;
+  }
+}
+
+function describeErrorJson(json: unknown): string {
+  if (json === undefined) return "<no parseable body>";
+  return [propertyOf(json, "error"), propertyOf(json, "details")]
+    .filter((field): field is string => typeof field === "string" && field !== "")
+    .join(" — ");
+}
+
+function limitsOf(json: unknown): RendererPayloadLimits {
+  const maxBytes = propertyOf(json, "maxBytes");
+  const gotBytes = propertyOf(json, "gotBytes");
+  return {
+    ...(typeof maxBytes === "number" && { maxBytes }),
+    ...(typeof gotBytes === "number" && { gotBytes }),
+  };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

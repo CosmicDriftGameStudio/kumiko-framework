@@ -7,6 +7,7 @@ import { SUBSCRIPTION_STRIPE_FEATURE } from "@cosmicdrift/kumiko-bundled-feature
 import { TIER_ENGINE_FEATURE } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import type { ExtraRouteDefinition } from "@cosmicdrift/kumiko-framework/api";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import type { ProdSeedFn } from "../run-prod-app.ts";
 import { type BillingBootOption, resolveBillingOption } from "./billing-option.ts";
 import { buildDemoModeRoute, type DemoModeOption, withDemoReadOnlyFetch } from "./demo-mode.ts";
@@ -22,6 +23,7 @@ import {
 import { type KmsMode, type ResolvedKmsMode, resolveKmsMode } from "./kms-mode.ts";
 import { CHANNEL_EMAIL_FEATURE, type MailBootOption, resolveMailOption } from "./mail-option.ts";
 import { assertPreviewLoginKey, type PreviewLoginOption } from "./preview-login-option.ts";
+import { resolveSearchOption, type SearchOption, searchProviderOf } from "./search-option.ts";
 import { type DbSeedFn, type ProdSeedsConfig, resolveSeedShortcuts } from "./seed-shortcuts.ts";
 import { stackBootWarnings } from "./stack-boot-requirements.ts";
 
@@ -30,6 +32,7 @@ export type BootOptionFields = {
   readonly mail?: MailBootOption;
   readonly kmsMode?: KmsMode;
   readonly fileStorage?: FileStorageBootOption;
+  readonly search?: SearchOption;
   readonly billing?: BillingBootOption;
   readonly featureToggles?: boolean;
   readonly demoMode?: DemoModeOption;
@@ -62,6 +65,8 @@ export type BootOptionWiring = {
   readonly featureToggles?: FeatureTogglesWiring;
   /** True when `mail` mounted a transport; the auth mail flows then wire without `SMTP_HOST`. */
   readonly mailConfigured: boolean;
+  /** Set when `search` built the adapter; injected into the extraContext of API and worker. */
+  readonly searchAdapter?: SearchAdapter;
   readonly wrapFetch: <TArg>(
     handler: (req: Request, arg?: TArg) => Promise<Response>,
   ) => (req: Request, arg?: TArg) => Promise<Response>;
@@ -150,17 +155,41 @@ function warnAboutBootOptions(
   }
   if (
     options.runSingleInstance === false &&
-    (options.mail || options.fileStorage || options.featureToggles || options.appOverrides) &&
+    (options.mail ||
+      options.fileStorage ||
+      options.search ||
+      options.featureToggles ||
+      options.appOverrides) &&
     options.workerMountsFeatures !== true
   ) {
     bootWarnings.push(
-      "runSingleInstance:false — delivery and file jobs run in runWorkerApp. Pass the same mail / fileStorage / featureToggles / appOverrides options there, or set workerMountsFeatures: true if it mounts those features itself.",
+      "runSingleInstance:false — delivery and file jobs run in runWorkerApp. Pass the same mail / fileStorage / search / featureToggles / appOverrides options there, or set workerMountsFeatures: true if it mounts those features itself.",
     );
   }
   if (bootWarnings.length > 0) {
     // biome-ignore lint/suspicious/noConsole: boot-time warn, no logger configured this early
     console.warn(`[runProdApp] ${bootWarnings.join("\n[runProdApp] ")}`);
   }
+}
+
+function wireBillingOption(
+  billingOption: BillingBootOption,
+  mounted: ReadonlySet<string>,
+  envSource: Record<string, string | undefined>,
+): ReturnType<typeof resolveBillingOption> {
+  requireFeatures(
+    mounted,
+    "billing",
+    [BILLING_FOUNDATION_FEATURE, TIER_ENGINE_FEATURE],
+    "Mount createBillingFoundationFeature() and createTierEngineFeature(), or composeSaasStack from @cosmicdrift/kumiko-dev-server/compose-stacks.",
+  );
+  if (billingOption.stripe) {
+    rejectDoubleMount(mounted, "billing.stripe", SUBSCRIPTION_STRIPE_FEATURE);
+  }
+  if (billingOption.paddle) {
+    rejectDoubleMount(mounted, "billing.paddle", SUBSCRIPTION_PADDLE_FEATURE);
+  }
+  return resolveBillingOption(billingOption, envSource);
 }
 
 /** Runs after the env is validated and KEK slots are decrypted, before any
@@ -205,19 +234,7 @@ export async function resolveBootOptionWiring(
   }
 
   if (options.billing) {
-    requireFeatures(
-      mounted,
-      "billing",
-      [BILLING_FOUNDATION_FEATURE, TIER_ENGINE_FEATURE],
-      "Mount createBillingFoundationFeature() and createTierEngineFeature(), or composeSaasStack from @cosmicdrift/kumiko-dev-server/compose-stacks.",
-    );
-    if (options.billing.stripe) {
-      rejectDoubleMount(mounted, "billing.stripe", SUBSCRIPTION_STRIPE_FEATURE);
-    }
-    if (options.billing.paddle) {
-      rejectDoubleMount(mounted, "billing.paddle", SUBSCRIPTION_PADDLE_FEATURE);
-    }
-    const billing = resolveBillingOption(options.billing, envSource);
+    const billing = wireBillingOption(options.billing, mounted, envSource);
     features.push(...billing.features);
     extraRoutes.push(billing.route);
   }
@@ -242,6 +259,11 @@ export async function resolveBootOptionWiring(
       });
   const customSeeds = isSeedFnList(seeds) ? seeds : (seeds.run ?? []);
 
+  const searchProvider = searchProviderOf(options.search);
+  const searchAdapter = searchProvider
+    ? await resolveSearchOption(searchProvider, envSource)
+    : undefined;
+
   // Last: it may open a KMS pool, which nothing above should leak on a throw.
   const kms = await resolveKmsMode(options.kmsMode, options, envSource);
 
@@ -254,6 +276,7 @@ export async function resolveBootOptionWiring(
     shortcutSeeds,
     customSeeds,
     mailConfigured: options.mail !== undefined,
+    ...(searchAdapter && { searchAdapter }),
     wrapFetch: (handler) => (demoMode ? withDemoReadOnlyFetch(handler, demoMode) : handler),
   };
 }

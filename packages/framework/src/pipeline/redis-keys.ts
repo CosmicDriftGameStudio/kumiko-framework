@@ -4,7 +4,6 @@
 export const RedisKeys = {
   idempotency: "kumiko:idempotency:",
   eventDedup: "kumiko:event-dedup:",
-  entityCache: "kumiko:cache:",
   lock: "kumiko:lock:",
   events: "kumiko:events",
   rateLimit: "kumiko:rl:",

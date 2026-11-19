@@ -12,6 +12,7 @@ import {
 } from "../../../engine/factories.ts";
 
 export const customerEntity = createEntity({
+  name: "customer",
   table: "xl_customers",
   fields: {
     name: createTextField({ personal: false, reason: "test_fixture" }),
@@ -19,6 +20,7 @@ export const customerEntity = createEntity({
 });
 
 export const itemEntity = createEntity({
+  name: "item",
   table: "xl_items",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", searchable: true }),
@@ -56,13 +58,13 @@ const COLUMNS = [
 const OPEN_TO_ALL = { openToAll: { reason: "test handler callable by any signed-in test user" } };
 
 export const exportFeature = defineFeature("xl", (r) => {
-  r.entity({ name: "customer", ...customerEntity });
-  r.crud("customer", customerEntity, {
+  r.entity(customerEntity);
+  r.crud(customerEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: OPEN_TO_ALL },
   });
-  r.entity({ name: "item", ...itemEntity });
-  r.crud("item", itemEntity, {
+  r.entity(itemEntity);
+  r.crud(itemEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: OPEN_TO_ALL },
   });

@@ -10,7 +10,8 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../db/query.ts";
+import { asRawClient, selectMany } from "../../db/query.ts";
+import { type KumikoError, NotFoundError, UnprocessableError } from "../../errors/index.ts";
 import { eventsTable } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { defineFeature } from "../define-feature.ts";
@@ -18,6 +19,7 @@ import { createEntity, createTextField } from "../factories.ts";
 import { from } from "../ownership.ts";
 
 const contactEntity = createEntity({
+  name: "contact",
   table: "presave_wiring_contacts",
   fields: {
     firstName: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -64,6 +66,7 @@ const throwOnPreSave: import("@cosmicdrift/kumiko-types/hooks").PreSaveHookFn = 
 };
 
 const codeEntity = createEntity({
+  name: "code",
   table: "presave_wiring_codes",
   fields: {
     code: createTextField({
@@ -81,17 +84,32 @@ const overwriteCodeWhenArmed: import("@cosmicdrift/kumiko-types/hooks").PreSaveH
   changes,
 ) => (hookWritesInvalidCode ? { ...changes, code: OVERLONG_CODE } : changes);
 
+let hookRejection: KumikoError | undefined;
+const rejectWhenArmed: import("@cosmicdrift/kumiko-types/hooks").PreSaveHookFn = async (
+  changes,
+) => {
+  if (hookRejection) throw hookRejection;
+  return changes;
+};
+
+const codeReserved = () =>
+  new UnprocessableError("code_reserved", {
+    details: { fields: [{ path: "code", code: "reserved", i18nKey: "errors.codeReserved" }] },
+  });
+
 const codeFeature = defineFeature("presave-wiring-code", (r) => {
-  r.crud("code", codeEntity, {
+  r.crud(codeEntity, {
     write: { access: { roles: ["User"] } },
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });
   r.hook({ type: "preSave", target: "code:create", handler: overwriteCodeWhenArmed });
   r.hook({ type: "preSave", target: "code:update", handler: overwriteCodeWhenArmed });
+  r.hook({ type: "preSave", target: "code:create", handler: rejectWhenArmed });
+  r.hook({ type: "preSave", target: "code:update", handler: rejectWhenArmed });
 });
 
 const contactFeature = defineFeature("presave-wiring", (r) => {
-  r.crud("contact", contactEntity, {
+  r.crud(contactEntity, {
     write: { access: { roles: ["User"] } },
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });
@@ -106,12 +124,13 @@ const contactFeature = defineFeature("presave-wiring", (r) => {
 });
 
 const throwingEntity = createEntity({
+  name: "thing",
   table: "presave_wiring_throwing",
   fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 
 const throwingFeature = defineFeature("presave-wiring-throw", (r) => {
-  r.crud("thing", throwingEntity, {
+  r.crud(throwingEntity, {
     write: { access: { roles: ["User"] } },
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });
@@ -141,6 +160,7 @@ describe("preSave hooks use the real dispatcher path", () => {
   beforeEach(async () => {
     seenIsNew.length = 0;
     hookWritesInvalidCode = false;
+    hookRejection = undefined;
     await resetTestTables(stack.db, [
       "presave_wiring_codes",
       eventsTable,
@@ -225,5 +245,49 @@ describe("preSave hooks use the real dispatcher path", () => {
 
     expect(res.status).toBe(422);
     expect(JSON.stringify(await res.json())).toContain("presave_hook_invalid_output");
+  });
+
+  test("create: a KumikoError thrown by a preSave hook reaches the caller with its fields and writes no event", async () => {
+    hookRejection = codeReserved();
+    const res = await stack.http.write(CODE_CREATE, { code: "ok" }, TestUsers.user);
+
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as {
+      error?: {
+        code?: string;
+        details?: { reason?: string; fields?: readonly { path?: string }[] };
+      };
+    };
+    expect(body.error?.code).toBe("unprocessable");
+    expect(body.error?.details?.reason).toBe("code_reserved");
+    expect(body.error?.details?.fields?.[0]?.path).toBe("code");
+    expect(await selectMany(stack.db, eventsTable)).toHaveLength(0);
+  });
+
+  test("update: a KumikoError thrown by a preSave hook rejects the update and appends no event", async () => {
+    const created = await stack.http.write(CODE_CREATE, { code: "ok" }, TestUsers.user);
+    expect(created.status).toBe(200);
+    const { data } = (await created.json()) as { data: { data: { id: string } } };
+
+    hookRejection = codeReserved();
+    const res = await stack.http.write(
+      CODE_UPDATE,
+      { id: data.data.id, version: 1, changes: { code: "new" } },
+      TestUsers.user,
+    );
+
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { error?: { details?: { reason?: string } } };
+    expect(body.error?.details?.reason).toBe("code_reserved");
+    expect(await selectMany(stack.db, eventsTable)).toHaveLength(1);
+  });
+
+  test("a NotFoundError thrown by a preSave hook stays a 404", async () => {
+    hookRejection = new NotFoundError("code", "missing");
+    const res = await stack.http.write(CODE_CREATE, { code: "ok" }, TestUsers.user);
+
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error?: { code?: string } };
+    expect(body.error?.code).toBe("not_found");
   });
 });

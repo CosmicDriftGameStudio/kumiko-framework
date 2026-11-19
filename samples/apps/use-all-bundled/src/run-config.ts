@@ -19,8 +19,8 @@ import { createAdminShellFeature } from "@cosmicdrift/kumiko-bundled-features/ad
 import { createAgentToolsFeature } from "@cosmicdrift/kumiko-bundled-features/agent-tools";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createAuthMfaFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
-import { createAuthMfaUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa-user-data";
 import { createBillingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import { createBrandingFeature } from "@cosmicdrift/kumiko-bundled-features/branding";
 import { createCapCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
 import { createCapOverviewFeature } from "@cosmicdrift/kumiko-bundled-features/cap-overview";
 import { createChannelDiscordFeature } from "@cosmicdrift/kumiko-bundled-features/channel-discord";
@@ -50,12 +50,11 @@ import {
   createFeatureTogglesFeature,
   FEATURE_TOGGLES_FEATURE,
 } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
+import { createFieldApprovalFeature } from "@cosmicdrift/kumiko-bundled-features/field-approval";
 import { createFileDerivativesFeature } from "@cosmicdrift/kumiko-bundled-features/file-derivatives";
 import { createFilesTenantDataFeature } from "@cosmicdrift/kumiko-bundled-features/files-tenant-data";
 import { createFoldersFeature } from "@cosmicdrift/kumiko-bundled-features/folders";
-import { createFoldersUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/folders-user-data";
 import { createFormDraftFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft";
-import { createFormDraftUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft-user-data";
 import { createHandbookKnowledgeFeature } from "@cosmicdrift/kumiko-bundled-features/handbook-knowledge";
 import {
   createHelpdeskFeature,
@@ -75,22 +74,20 @@ import {
   DEFAULT_METRICS,
 } from "@cosmicdrift/kumiko-bundled-features/metrics";
 import { createNotesHistoryFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history";
-import { createNotesHistoryUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history-user-data";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { createPresenceFeature } from "@cosmicdrift/kumiko-bundled-features/presence";
 import { createReadinessFeature } from "@cosmicdrift/kumiko-bundled-features/readiness";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { createRendererPdfFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-pdf";
+import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createSeoFeature } from "@cosmicdrift/kumiko-bundled-features/seo";
 import { createSignatureFeature } from "@cosmicdrift/kumiko-bundled-features/signature";
-import { createStepDispatcherFeature } from "@cosmicdrift/kumiko-bundled-features/step-dispatcher";
 import { createSubscriptionMollieFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-mollie";
 import { createSubscriptionPaddleFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-paddle";
 import { createSubscriptionStripeFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
 import { createTagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
-import { createTemplateResolverUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver-user-data";
 import { createTenantHandoverFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-handover";
 import { createTenantInactivityFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-inactivity";
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
@@ -100,7 +97,6 @@ import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-feature
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import { createUserProfileFeature } from "@cosmicdrift/kumiko-bundled-features/user-profile";
 import { createWaitlistFeature } from "@cosmicdrift/kumiko-bundled-features/waitlist";
-import { createWorkflowRunnerFeature } from "@cosmicdrift/kumiko-bundled-features/workflow-runner";
 import {
   composeFileStack,
   composeMailStack,
@@ -109,12 +105,6 @@ import {
 import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-designer";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
-import {
-  createRendererPuppeteerClientFeature,
-  renderHtmlToPdf,
-  renderPdfBeforeTransaction,
-  storeRenderedPdf,
-} from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import { ADMIN_NAV_QN, ADMIN_NAV_WORKSPACES, adminNavFeature } from "./app/admin-nav-feature";
 import { DEV_TENANT_ID } from "./app/auth-constants";
 import { CAP_OVERVIEW_CAPS } from "./app/cap-overview-caps";
@@ -140,6 +130,9 @@ const stubPushTransport: PushTransport = {
 // under 32 chars, and this sample never runs outside `bun dev` / CI boot —
 // no token minted here is ever trusted by a deployment.
 const SMOKE_HMAC_SECRET = "use-all-bundled-smoke-hmac-key-0123456789";
+
+export const BUNDLED_JOIN_HOSTS = ["helpdesk-request"] as const;
+export const TAGS_NOTES_ROLES = ["TenantAdmin", "TenantMember", "SystemAdmin"] as const;
 
 export const APP_FEATURES = [
   localeDe(),
@@ -281,11 +274,6 @@ export const APP_FEATURES = [
 
   // jobs
   createJobsFeature(),
-  createStepDispatcherFeature(),
-  // workflow-runner: no entities/MSPs/handlers of its own — reserves the
-  // manifest slot and provides startAndRunWorkflow/registerEventTrigger for
-  // consumer features to wire up defineWorkflow-based workflows.
-  createWorkflowRunnerFeature(),
 
   // compliance / DSGVO
   createComplianceProfilesFeature(),
@@ -316,7 +304,7 @@ export const APP_FEATURES = [
     tenant: { file: "index.html" },
   }),
   createDataRetentionFeature(),
-  createUserDataRightsFeature(),
+  createUserDataRightsFeature({ mailDefaults: { appName: "Use All Bundled" } }),
   createUserDataRightsDefaultsFeature(),
   createUserProfileFeature(),
 
@@ -370,11 +358,6 @@ export const APP_FEATURES = [
       },
     ],
   }),
-  // template-resolver-user-data: GDPR export/erase coverage for the
-  // user-content-entry rows the `signatures` collection writes. Mandatory
-  // whenever a user-owned collection is mounted — the boot guard refuses the
-  // subject-carrying entity without it.
-  createTemplateResolverUserDataFeature(),
   // collection-labels: the app-side nav labels for the two collections above.
   collectionLabelsFeature,
   createRendererFoundationFeature(),
@@ -382,21 +365,21 @@ export const APP_FEATURES = [
   // PDF printing for document templates; the print service is reached through
   // PUPPETEER_SERVICE_URL + PUPPETEER_AUTH_TOKEN and only asked when a PDF is generated.
   createRendererPuppeteerClientFeature(),
-  // signature: needs files; the print function is the real client, asked only when a request completes.
-  // deliverLink is smoke-only: boot never sends a link.
+  // signature: needs files and the print client, which is asked only when a request completes.
+  // folder stands in for a host; deliverLink is smoke-only: boot never sends a link.
   createSignatureFeature({
-    retention: { keepFor: "10y" },
-    renderHtmlToPdf,
+    retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
     linkSecret: SMOKE_HMAC_SECRET,
     signaturePageUrl: "https://use-all-bundled.example/sign",
+    hostEntities: ["folder"],
     deliverLink: async () => {
       /* smoke-only */
     },
   }),
-  // document-draft: the app hands over the client's print and store functions as they are.
+  // document-draft: prints through the print client when a draft is finalized.
+  // folder stands in for a host.
   createDocumentDraftFeature({
-    subjectTypes: ["lease"],
-    pdf: { render: renderPdfBeforeTransaction, store: storeRenderedPdf },
+    subjectTypes: ["folder"],
   }),
   createHandbookKnowledgeFeature({
     pages: {
@@ -417,20 +400,21 @@ export const APP_FEATURES = [
     access: { roles: ["TenantAdmin", "TenantMember", "SystemAdmin"] },
   }),
 
-  // managed-pages: requires config (auto-bundled). Every host resolves to the
+  // branding: requires config (auto-bundled). allowCustomCss:true boot-validates the CSS
+  // code path + emits the custom-css key into the manifest. The branding-css companion
+  // toggle is handler-less and recipe-covered, not standalone-mounted here.
+  createBrandingFeature({ allowCustomCss: true }),
+
+  // managed-pages: requires config + branding. Every host resolves to the
   // dev tenant so the document-editor e2e can read a saved page back from the
-  // public route. allowCustomCss:true boot-validates the CSS code path + emits
-  // the branding-custom-css key into the manifest. The managed-pages-css
-  // companion toggle is handler-less, has no subpath export, and is recipe-
-  // covered — not standalone-mounted here (smoke = one mount per subpath-export).
+  // public route.
   createManagedPagesFeature({
     // Mapping every host to the dev tenant is for this sample and its e2e only; production maps
     // its known hosts and returns null for any other.
     resolveApexTenant: () => DEV_TENANT_ID as TenantId,
-    allowCustomCss: true,
   }),
 
-  // Template overview, layout editor and PDF template editor; needs template-resolver and managed-pages above.
+  // Template overview, layout editor and PDF template editor; needs template-resolver and managed-pages and branding above.
   createDocumentDesignerFeature(),
 
   // seo: requires config (auto-bundled). Smoke resolver never serves (boot-
@@ -452,7 +436,6 @@ export const APP_FEATURES = [
   // tenant-caps nav entries end-to-end — cap-overview is mounted below.
   createAdminShellFeature({
     includeCapOverview: true,
-    includeDocumentDesigner: true,
     extraPlatformPanels: helpdeskOpenRequestsPanels(),
   }),
 
@@ -461,37 +444,23 @@ export const APP_FEATURES = [
   // The default tag roles are TenantAdmin/TenantMember; this app's operator is a
   // global SystemAdmin (see server.ts admin), so add SystemAdmin or every tag
   // query/screen is access_denied — exactly what the constants doc warns about.
-  createTagsFeature({ roles: ["TenantAdmin", "TenantMember", "SystemAdmin"] }),
+  createTagsFeature({ roles: TAGS_NOTES_ROLES, parents: BUNDLED_JOIN_HOSTS }),
   // notes-history: default roles are TenantAdmin/TenantMember; same
   // SystemAdmin-operator reasoning as tags above.
-  createNotesHistoryFeature({ roles: ["TenantAdmin", "TenantMember", "SystemAdmin"] }),
+  createNotesHistoryFeature({ roles: TAGS_NOTES_ROLES, parents: BUNDLED_JOIN_HOSTS }),
+  // field-approval: same SystemAdmin-operator reasoning as tags above.
+  createFieldApprovalFeature({ roles: TAGS_NOTES_ROLES, parents: BUNDLED_JOIN_HOSTS }),
   // presence: no host entity in this sample opts in, so it only mounts the handlers.
   createPresenceFeature(),
-  // notes-history-user-data: GDPR export/erase coverage for note-entry.
-  // Depends (optionally) on notes-history + (hard) on user-data-rights —
-  // both mounted here.
-  createNotesHistoryUserDataFeature(),
   createFormDraftFeature(),
-  // form-draft-user-data: GDPR export/erase coverage for the form-draft
-  // entity. Depends (optionally) on form-draft + (hard) on
-  // user-data-rights — both mounted here.
-  createFormDraftUserDataFeature(),
-  createFoldersFeature(),
+  createFoldersFeature({ parents: BUNDLED_JOIN_HOSTS }),
   // documents: filed files visible through the records they link to; folder stands in for a host.
   createDocumentsFeature({
     categories: ["contract", "other"],
     linkTargets: ["folder"],
     adminRoles: ["TenantAdmin", "SystemAdmin"],
   }),
-  // folders-user-data: GDPR hooks for folder entities. Depends (optionally)
-  // on folders + (hard) on user-data-rights — both mounted above.
-  createFoldersUserDataFeature(),
-  // auth-mfa-user-data: GDPR hooks for the user-mfa entity. Depends
-  // (optionally) on auth-mfa + (hard) on user-data-rights — both mounted
-  // above.
-  createAuthMfaUserDataFeature(),
-  // files-tenant-data: tenant-destroy row purge + storage-prefix binary wipe
-  // for fileRef, plus the orphaned-derivative backfill/GC job (#2474).
+  // files-tenant-data: tenant-destroy row purge + storage-prefix binary wipe for fileRef.
   // Depends (optionally) on files + (hard) on tenant-lifecycle — both
   // mounted above.
   createFilesTenantDataFeature(),

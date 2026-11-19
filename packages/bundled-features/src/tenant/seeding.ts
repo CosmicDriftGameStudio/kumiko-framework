@@ -30,7 +30,6 @@
 
 import {
   createEventStoreExecutor,
-  createTenantDb,
   type DbRunner,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
@@ -45,7 +44,9 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
 import { getUnscopedAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import {
   createDeferringNotify,
   createLifecycleHooks,
@@ -285,7 +286,7 @@ export async function seedTenant(
     // this create; the executor confines the failed append to a savepoint, so
     // the surrounding TX stays usable. Both paths return without firing
     // postSave — hooks only run for the call that actually created the tenant.
-    if (result.error.code === "version_conflict") return { id: options.id };
+    if (result.error.code === VERSION_CONFLICT_CODE) return { id: options.id };
     throw new Error(
       `seedTenant failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
     );
@@ -437,7 +438,7 @@ export async function addTenantMembershipRoles(
       }),
     );
     if (result.isSuccess) return { added };
-    if (result.error.code === "version_conflict" && attempt === 0) continue;
+    if (result.error.code === VERSION_CONFLICT_CODE && attempt === 0) continue;
     throw new Error(
       `addTenantMembershipRoles failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
     );

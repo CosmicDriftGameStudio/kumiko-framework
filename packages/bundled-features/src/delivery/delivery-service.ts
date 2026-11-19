@@ -1,6 +1,5 @@
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection, DbRow } from "@cosmicdrift/kumiko-framework/db";
-import { createSystemDbView, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type {
   ConfigAccessor,
   DeliveryErrorCode,
@@ -13,24 +12,15 @@ import type {
   Registry,
   TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  assertNotificationVariables,
-  attachOutsideTransaction,
-  bridgeStub,
-  createSystemUser,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { assertNotificationVariables } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileContext } from "@cosmicdrift/kumiko-framework/files";
 import {
   createFallbackLogger,
   type Logger,
   scrubLogText,
 } from "@cosmicdrift/kumiko-framework/logging";
-import {
-  assertNotifyTargetsOwnTenant,
-  createEscapeHatchReporter,
-} from "@cosmicdrift/kumiko-framework/pipeline";
+import { assertNotifyTargetsOwnTenant } from "@cosmicdrift/kumiko-framework/pipeline";
 import type { EnvelopeCipher, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
 import { fileContextFromResolver } from "../file-foundation/index.ts";
 import { collectExtensionOptions, redactErrorText } from "../shared/index.ts";
@@ -40,7 +30,6 @@ import { buildChannelContext } from "./channel-context.ts";
 import {
   DELIVERY_CHANNEL_EXTENSION,
   DeliveryJobs,
-  deliveryIdempotencyRedisKey,
   deliveryPriorityRank,
   EMAIL_CHANNEL_NAME,
 } from "./constants.ts";
@@ -49,9 +38,24 @@ import {
   addressOptOutKey,
   selectOptedOutAddresses,
 } from "./db/queries/address-opt-outs.ts";
-import { selectNotificationPreferences } from "./db/queries/preferences.ts";
+import {
+  claimDeliveryIdempotency,
+  jobIdempotencyKeyFor,
+  releaseIdempotencyIfNothingDelivered,
+} from "./delivery-idempotency.ts";
+import {
+  checkDeliveryRateLimit,
+  type RateLimitConfig,
+  registerDeliveryRateLimitScript,
+} from "./delivery-rate-limit.ts";
+import { sealJobContent } from "./job-content-seal.ts";
+import {
+  isChannelEnabledByPreferences,
+  loadPreferencesByUser,
+  type PreferencesByUser,
+} from "./notification-preference-gate.ts";
 import { notificationTypeNames } from "./notification-type-aliases.ts";
-import { sealRecipientAddress } from "./recipient-address-seal.ts";
+import { resolveUserIdsForTenant } from "./tenant-recipients.ts";
 import {
   type ChannelContext,
   type ChannelMessage,
@@ -73,12 +77,6 @@ export function redactedMessageOf(err: unknown): string {
   return redactErrorText(err instanceof Error ? err.message : String(err));
 }
 
-export type RateLimitConfig = {
-  readonly redis: Redis;
-  readonly maxPerHour: number; // per channel per tenant
-  readonly keyPrefix?: string;
-};
-
 export type KillSwitchResolver = (tenantId: TenantId, channelName: string) => Promise<boolean>;
 
 export type DeliveryServiceOptions = {
@@ -93,16 +91,16 @@ export type DeliveryServiceOptions = {
   // Must be present whenever callers rely on idempotencyKey, otherwise notify()
   // throws at the callsite (silent no-op would be a correctness bug).
   readonly idempotencyRedis?: Redis;
-  // Job dispatcher for async (queued-mode) channels: email/push/chat render+send
-  // run in the delivery.render → delivery.send jobs. notify() may override it per
+  // Job dispatcher for async (queued-mode) channels: email/chat render+send
+  // run in the delivery.send job. notify() may override it per
   // call. When neither is present, queued channels fall back to synchronous
   // inline delivery (job-less setups, unit tests).
   readonly jobRunner?: NotifyJobDispatcher;
   // Credentials source for inline-delivered chat channels (webhook URL / bot
   // token). Jobs get ctx.services.secrets from the job runner instead.
   readonly secrets?: SecretsContext;
-  // Seals the recipient address inside queued job payloads (tenant scope). Absent means the
-  // payload carries the plaintext address.
+  // Seals recipient address and message content inside queued job payloads (tenant scope).
+  // Absent means the payload carries them as plaintext.
   readonly addressCipher?: EnvelopeCipher;
   // File storage for inline-delivered mails with attachments; jobs use their own ctx instead.
   readonly filesForTenant?: (tenantId: string) => FileContext | undefined;
@@ -145,175 +143,9 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
   const idemRedis = idempotencyRedis ?? rateLimit?.redis;
   const logError = createFallbackLogger("delivery", log);
 
-  // Rate limit check: atomic INCR + TTL + over-limit rollback via server-side
-  // Lua. Runs single-threaded in Redis, so two parallel clients can't both
-  // observe `count <= max` and slip past. The prior non-atomic JS version
-  // could leave the counter stuck below the true hit count when two INCRs
-  // raced into simultaneous DECR rollbacks.
-  const RATE_LIMIT_LUA = `
-    local count = redis.call('INCR', KEYS[1])
-    if count == 1 then
-      redis.call('EXPIRE', KEYS[1], ARGV[1])
-    end
-    if count > tonumber(ARGV[2]) then
-      redis.call('DECR', KEYS[1])
-      return 0
-    end
-    return 1
-  `;
+  if (rateLimit) registerDeliveryRateLimitScript(rateLimit.redis);
 
-  type RedisWithLua = Redis & {
-    deliveryRateLimitCheck: (key: string, ttl: string, max: string) => Promise<number>;
-  };
-
-  if (rateLimit) {
-    // Register the Lua script once per Redis client. Noop if already defined.
-    // @cast-boundary engine-bridge — defineCommand attaches the Lua method post-boot
-    const r = rateLimit.redis as Partial<Pick<RedisWithLua, "deliveryRateLimitCheck">> & Redis;
-    if (!r.deliveryRateLimitCheck) {
-      r.defineCommand("deliveryRateLimitCheck", { numberOfKeys: 1, lua: RATE_LIMIT_LUA });
-    }
-  }
-
-  async function checkRateLimit(
-    rl: RateLimitConfig,
-    tenantId: TenantId,
-    channelName: string,
-  ): Promise<boolean> {
-    const key = `${rl.keyPrefix ?? "delivery:rate"}:${tenantId}:${channelName}`;
-    // @cast-boundary engine-bridge — defineCommand attaches the Lua method shape at boot
-    const r = rl.redis as RedisWithLua;
-    const allowed = await r.deliveryRateLimitCheck(key, "3600", String(rl.maxPerHour));
-    return Number(allowed) === 1;
-  }
-
-  // Idempotency: returns true the first time a key is seen, false on
-  // subsequent calls within the TTL window. Opt-in via options.idempotencyKey
-  // so callers decide when dedup matters (e.g. webhook replays, button
-  // double-clicks). Requires a Redis handle — configured via idempotencyRedis
-  // or reused from rateLimit.redis. notify() throws if the key is used without
-  // a backing Redis, so misconfigurations fail loud instead of silently double-sending.
-  async function claimIdempotency(
-    tenantId: TenantId,
-    key: string,
-    ttlSec = 86400,
-  ): Promise<boolean> {
-    if (!idemRedis) {
-      throw new Error(
-        "Delivery idempotencyKey requires options.idempotencyRedis (or rateLimit.redis) to be configured",
-      );
-    }
-    const res = await idemRedis.set(
-      deliveryIdempotencyRedisKey(tenantId, key),
-      "1",
-      "EX",
-      ttlSec,
-      "NX",
-    );
-    return res === "OK";
-  }
-
-  function isDeliveredOrQueued(delivery: NotifyDelivery): boolean {
-    return delivery.status === "sent" || delivery.status === "queued";
-  }
-
-  // A key that guarded nothing must not turn the caller's retry into a skipped duplicate.
-  // Partial success keeps it: a retry would re-send to those who got it.
-  // A failing release is logged and swallowed: it must neither replace the dispatch error the
-  // caller retries on nor fail a notify() that already dispatched.
-  async function releaseIdempotencyIfNothingDelivered(
-    tenantId: TenantId,
-    key: string | undefined,
-    run: NotifyRun,
-    notificationType: string,
-  ): Promise<void> {
-    // skip: no key claimed, or a recipient already got the notification
-    if (!key || run.deliveries.some(isDeliveredOrQueued)) return;
-    try {
-      await idemRedis?.del(deliveryIdempotencyRedisKey(tenantId, key));
-    } catch (releaseErr) {
-      logError.warn(`idempotency key release failed: ${redactedMessageOf(releaseErr)}`, {
-        notificationType,
-      });
-    }
-  }
-
-  // Only a single-channel route lets the queued job free the key on terminal failure
-  // without risking a duplicate send on another channel.
-  function jobIdempotencyKeyFor(
-    idempotencyKey: string | undefined,
-    route: NotifyOptions["route"],
-  ): string | undefined {
-    if (!idempotencyKey || !route) return undefined;
-    const routedChannelCount = channels.filter((channel) => route[channel.name]).length;
-    return routedChannelCount === 1 ? idempotencyKey : undefined;
-  }
-
-  async function resolveUserIdsForTenant(
-    run: NotifyRun,
-    tenantId: TenantId,
-  ): Promise<readonly string[]> {
-    if (!tenantUserIdsQuery) {
-      throw new Error(
-        "Tenant broadcast (to: { tenant }) requires the tenant feature (default wiring) or an explicit tenantUserIdsQuery in DeliveryServiceOptions",
-      );
-    }
-    const handler = registry.getQueryHandler(tenantUserIdsQuery);
-    if (!handler) {
-      throw new Error(`Tenant broadcast query "${tenantUserIdsQuery}" not found in registry`);
-    }
-    const systemUser = createSystemUser(tenantId);
-    const report = createEscapeHatchReporter({
-      handler: tenantUserIdsQuery,
-      tenantId,
-      actor: systemUser.id,
-      sink: escapeHatchAuditSink,
-      log: logError,
-    });
-    // ctx.db/db.outsideTransaction are tenant-filtered even for a systemScope handler:
-    // the dispatcher closes them off entirely there, so "system" mode would hand this
-    // path a cross-tenant read the dispatcher never allows. Cross-tenant reach only
-    // exists through the grant-carrying systemDb view below.
-    const isSystem = registry.isHandlerSystemScoped(tenantUserIdsQuery);
-    const tenantDb = createTenantDb({
-      db: run.db,
-      tenantId,
-      mode: "tenant",
-      grants: {
-        report,
-      },
-    });
-    // The dispatcher grants a systemScope handler's ctx.systemDb.unsafeRaw() ungated —
-    // the grant comes from the handler's own r.systemScope() registration, not from this
-    // caller. Only the systemDb view's own source TenantDb carries the grant, so it
-    // can't leak onto ctx.db.
-    const systemDbSourceTenantDb = isSystem
-      ? createTenantDb({
-          db: run.db,
-          tenantId,
-          mode: "system",
-          reason: "delivery fan-out of a systemScope handler resolves recipients across tenants",
-          grants: {
-            report,
-            unsafeRaw: { reason: `r.systemScope() handler "${tenantUserIdsQuery}"` },
-          },
-        })
-      : undefined;
-    // Hand-built context, not routed through the dispatcher — this needs both
-    // db (with its outsideTransaction) wired directly.
-    // @cast-boundary engine-payload — generic query-handler return for typed convention
-    return (await handler.handler(
-      { type: tenantUserIdsQuery, payload: { tenantId }, user: systemUser },
-      {
-        db: attachOutsideTransaction(tenantDb, tenantDb),
-        systemDb: systemDbSourceTenantDb
-          ? createSystemDbView(systemDbSourceTenantDb, undefined, report)
-          : undefined,
-        registry,
-        ...bridgeStub(),
-      },
-    )) as readonly string[];
-  }
+  const tenantRecipientDeps = { registry, tenantUserIdsQuery, escapeHatchAuditSink, log: logError };
 
   // State of one notify() call: collects the per-channel outcome returned to
   // the caller. Passed explicitly — the service itself is shared across calls.
@@ -331,6 +163,8 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     // The caller's key as given, stamped on every attempt the call logs.
     readonly idempotencyKey: string | undefined;
     readonly filesForTenant: ((tenantId: string) => FileContext | undefined) | undefined;
+    // One kill-switch lookup per tenant and channel per notify() call.
+    readonly killSwitchVerdicts: Map<string, Promise<boolean>>;
   };
 
   function recordDelivery(
@@ -395,8 +229,8 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
 
   // Deliver one resolved (channel, address) pair. Inline channels (inApp) and
   // the no-job-runner fallback render + send synchronously and log the terminal
-  // status. Queued channels (email/push) record a `queued` attempt up front and
-  // hand off to the delivery.render (or delivery.send) job, which appends the
+  // status. Queued channels (email, chat) record a `queued` attempt up front and
+  // hand off to the delivery.send job, which appends the
   // terminal event on the same attempt stream.
   async function deliverViaChannel(args: {
     run: NotifyRun;
@@ -421,12 +255,10 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       priority,
     } = args;
 
-    if (channel.mode === "queued" && run.jobDispatcher) {
-      // Async hand-off: record the attempt as queued, then dispatch the
-      // render/send job — the terminal sent/failed event is appended by the
-      // job, not here.
-      const deliveryAttemptId = generateId();
-      const queuedEntry: DeliveryLogEntry = {
+    if (channel.mode === "queued" && run.jobDispatcher && addressCipher) {
+      // Async hand-off: record the attempt as queued, then dispatch the send
+      // job — the terminal sent/failed event is appended by the job, not here.
+      const queuedEntry = withIdempotencyKey(run, {
         tenantId,
         notificationType,
         channel: channel.name,
@@ -435,32 +267,44 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         status: "queued",
         error: null,
         priority,
-      };
-      await appendAttemptEvent(
-        run.db,
-        registry,
-        deliveryAttemptId,
-        withIdempotencyKey(run, queuedEntry),
-      );
-      await run.jobDispatcher.dispatch(
-        channel.render ? DeliveryJobs.render : DeliveryJobs.send,
-        {
-          channelName: channel.name,
-          ...(await sealRecipientAddress(address, tenantId, addressCipher)),
-          tenantId,
-          recipientId,
+      });
+      const deliveryAttemptId = await logAttempt(run.db, registry, queuedEntry);
+      try {
+        await run.jobDispatcher.dispatch(
+          DeliveryJobs.send,
+          {
+            channelName: channel.name,
+            ...(await sealJobContent({ address, message }, tenantId, addressCipher)),
+            tenantId,
+            recipientId,
+            notificationType,
+            deliveryAttemptId,
+            priority,
+            ...(run.jobIdempotencyKey !== undefined && { idempotencyKey: run.jobIdempotencyKey }),
+            ...(run.idempotencyKey !== undefined && { notifyIdempotencyKey: run.idempotencyKey }),
+          },
+          { priority: deliveryPriorityRank[priority] },
+        );
+      } catch (err) {
+        // Closes the queued attempt on its own stream: a rethrow would make deliverToUser log a
+        // second, separate failed attempt and leave this one queued forever.
+        const failedEntry: DeliveryLogEntry = {
+          ...queuedEntry,
+          status: "failed",
+          error: "channel_error",
+        };
+        logError.error(`${channel.name} job dispatch failed: ${redactedMessageOf(err)}`, {
           notificationType,
-          deliveryAttemptId,
-          priority,
-          message,
-          ...(run.jobIdempotencyKey !== undefined && { idempotencyKey: run.jobIdempotencyKey }),
-          ...(run.idempotencyKey !== undefined && { notifyIdempotencyKey: run.idempotencyKey }),
-        },
-        { priority: deliveryPriorityRank[priority] },
-      );
+          channel: channel.name,
+        });
+        await appendAttemptEvent(run.db, registry, deliveryAttemptId, failedEntry);
+        recordDelivery(run, failedEntry, deliveryAttemptId);
+        return;
+      }
       recordDelivery(run, queuedEntry, deliveryAttemptId);
     } else {
-      // Inline (inApp) or no-job-runner fallback: render + send synchronously.
+      // Inline (inApp), no job runner, or no address cipher: render and send synchronously so no
+      // plaintext address lands in a job payload.
       let rendered: RenderedMessage | undefined;
       if (channel.render) {
         try {
@@ -628,29 +472,52 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
   type PrefetchedRecipients = {
     readonly addresses: ReadonlyMap<string, string | null>;
     readonly gates: ReadonlyMap<string, ChannelGate>;
+    readonly preferences: PreferencesByUser;
   };
+
+  function killSwitchVerdict(
+    run: NotifyRun,
+    tenantId: TenantId,
+    channelName: string,
+  ): Promise<boolean> {
+    if (!isChannelKilled) return Promise.resolve(false);
+    const key = `${tenantId}|${channelName}`;
+    let verdict = run.killSwitchVerdicts.get(key);
+    if (verdict === undefined) {
+      verdict = isChannelKilled(tenantId, channelName);
+      run.killSwitchVerdicts.set(key, verdict);
+    }
+    return verdict;
+  }
 
   // Kill switch, then the user's preference, then the rate limit — the order deliverToUser reports
   // skips in. The rate limit consumes a token, so each recipient/channel pair is evaluated once.
   async function evaluateChannelGate(
     run: NotifyRun,
+    preferences: PreferencesByUser,
     userId: string,
     tenantId: TenantId,
     notificationType: string,
     channelName: string,
     priority: NotifyPriority,
   ): Promise<ChannelGate> {
-    if (isChannelKilled && (await isChannelKilled(tenantId, channelName))) {
+    if (await killSwitchVerdict(run, tenantId, channelName)) {
       return "channel_disabled";
     }
     // Critical priority skips the preference check
     if (
       priority !== "critical" &&
-      !(await isChannelEnabled(run, userId, tenantId, notificationType, channelName))
+      !isChannelEnabledByPreferences(
+        preferences.get(userId) ?? [],
+        notificationTypeNames(registry, notificationType),
+        notificationType,
+        channelName,
+      )
     ) {
       return "preference_disabled";
     }
-    if (rateLimit && !(await checkRateLimit(rateLimit, tenantId, channelName))) {
+    // Per recipient and channel on purpose: every call consumes a rate-limit token.
+    if (rateLimit && !(await checkDeliveryRateLimit(rateLimit, tenantId, channelName))) {
       return "rate_limited";
     }
     return "open";
@@ -671,6 +538,12 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
   ): Promise<PrefetchedRecipients> {
     const addresses = new Map<string, string | null>();
     const gates = new Map<string, ChannelGate>();
+    const preferences = await loadPreferencesByUser(
+      run.db,
+      tenantId,
+      userIds,
+      notificationTypeNames(registry, notificationType),
+    );
     const channelCtx = buildChannelContext(
       run.db,
       registry,
@@ -688,6 +561,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         try {
           const gate = await evaluateChannelGate(
             run,
+            preferences,
             userId,
             tenantId,
             notificationType,
@@ -707,53 +581,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         }
       }
     }
-    return { addresses, gates };
-  }
-
-  // Check if user has disabled this notification+channel combo.
-  // Specificity order: exact > any wildcard. When only wildcards match and they
-  // disagree, "disabled wins" — the user has asked to be opted out somewhere,
-  // and an exact override is the way to punch through it. Without this rule
-  // the outcome would depend on row insertion order in the DB.
-  // Example:
-  //   { type: "*", channel: "inApp", enabled: false }         disables inApp globally
-  //   { type: "orderAssigned", channel: "*", enabled: true }  enables orderAssigned everywhere
-  //   → orderAssigned on inApp: disabled (conservative) unless an exact entry overrides.
-  async function isChannelEnabled(
-    run: NotifyRun,
-    userId: string,
-    tenantId: TenantId,
-    notificationType: string,
-    channelName: string,
-  ): Promise<boolean> {
-    const prefs = await selectNotificationPreferences(
-      run.db,
-      tenantId,
-      userId,
-      notificationTypeNames(registry, notificationType),
-      channelName,
-    );
-
-    if (prefs.length === 0) return true;
-
-    // Exact match (both specific) wins over any wildcard
-    const exact = prefs.find(
-      (p) => p.notificationType === notificationType && p.channel === channelName,
-    );
-    if (exact) return exact.enabled;
-
-    // Rows stored under a former name: the user's choice from before the rename
-    const aliasExact = prefs.filter(
-      (p) =>
-        p.notificationType !== "*" &&
-        p.notificationType !== notificationType &&
-        p.channel === channelName,
-    );
-    if (aliasExact.length > 0) return !aliasExact.some((p) => p.enabled === false);
-
-    // Only wildcards matched: any disabled entry disables delivery (deterministic
-    // and conservative — DB ordering no longer decides the outcome).
-    return !prefs.some((p) => p.enabled === false);
+    return { addresses, gates, preferences };
   }
 
   async function deliverToUser(
@@ -788,6 +616,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         prefetched.gates.get(prefetchKey) ??
         (await evaluateChannelGate(
           run,
+          prefetched.preferences,
           userId,
           tenantId,
           notificationType,
@@ -936,7 +765,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       }
 
       if (rateLimit) {
-        const allowed = await checkRateLimit(rateLimit, tenantId, channel.name);
+        const allowed = await checkDeliveryRateLimit(rateLimit, tenantId, channel.name);
         if (!allowed) {
           await logDelivery(run, {
             tenantId,
@@ -1017,14 +846,14 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       if (typeof to === "string") {
         userIds = [to];
       } else if ("tenant" in to) {
-        userIds = await resolveUserIdsForTenant(run, to.tenant);
+        userIds = await resolveUserIdsForTenant(tenantRecipientDeps, run.db, to.tenant);
       } else {
         userIds = to;
       }
 
       const prefetched: PrefetchedRecipients =
         priority === "critical"
-          ? { addresses: new Map(), gates: new Map() }
+          ? { addresses: new Map(), gates: new Map(), preferences: new Map() }
           : await prefetchRecipients(run, userIds, tenantId, notificationType, priority);
       const suppressed = await loadSuppressedAddresses(
         run,
@@ -1073,7 +902,8 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         jobDispatcher: options.immediate ? undefined : (jobDispatcher ?? jobRunner),
         locale: options.locale,
         channelNames: options.channels === undefined ? undefined : new Set(options.channels),
-        jobIdempotencyKey: jobIdempotencyKeyFor(idempotencyKey, route),
+        killSwitchVerdicts: new Map(),
+        jobIdempotencyKey: jobIdempotencyKeyFor(channels, idempotencyKey, route),
         idempotencyKey,
         filesForTenant:
           fileProviderResolver === undefined
@@ -1082,7 +912,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       };
 
       if (idempotencyKey) {
-        const first = await claimIdempotency(tenantId, idempotencyKey);
+        const first = await claimDeliveryIdempotency(idemRedis, tenantId, idempotencyKey);
         if (!first) {
           await logDelivery(run, {
             tenantId,
@@ -1101,10 +931,24 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       try {
         await dispatchNotification(notificationType, options, tenantId, priority, run);
       } catch (err) {
-        await releaseIdempotencyIfNothingDelivered(tenantId, idempotencyKey, run, notificationType);
+        await releaseIdempotencyIfNothingDelivered({
+          redis: idemRedis,
+          log: logError,
+          tenantId,
+          key: idempotencyKey,
+          deliveries: run.deliveries,
+          notificationType,
+        });
         throw err;
       }
-      await releaseIdempotencyIfNothingDelivered(tenantId, idempotencyKey, run, notificationType);
+      await releaseIdempotencyIfNothingDelivered({
+        redis: idemRedis,
+        log: logError,
+        tenantId,
+        key: idempotencyKey,
+        deliveries: run.deliveries,
+        notificationType,
+      });
       return dispatched(run);
     },
     async logAttempt(entry, deliveryDb) {

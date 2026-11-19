@@ -1,7 +1,7 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import { templateResourcesTable } from "../table.ts";
 import { deliveryPolicyOf } from "../template-delivery-policy.ts";
 import { draftViewerTenantId, parseTemplateDraft, servedVersionOf } from "../template-draft.ts";
 import type { TemplateEditPolicy } from "../template-edit-policy.ts";
@@ -13,6 +13,8 @@ import {
   effectiveRowsOf,
   isRowVisibleToCaller,
   ownLayoutSlugOf,
+  TEMPLATE_LISTING_FIELDS,
+  type TemplateListingRow,
 } from "./overview.query.ts";
 import { storedRecord } from "./template-gates.ts";
 import { defaultPdfLayoutSlug } from "./tenant-settings.ts";
@@ -35,12 +37,16 @@ async function visibleRowsOfKind(
   policy: TemplateEditPolicy,
   user: Parameters<typeof isRowVisibleToCaller>[1],
   kind: "mail" | "document-pdf",
-): Promise<TemplateResourceRow[]> {
-  const fetchedRows = await selectMany<TemplateResourceRow>(
+): Promise<TemplateListingRow[]> {
+  const fetchedRows = await selectMany<TemplateListingRow>(
     ctx.db,
     templateResourcesTable,
     { kind },
-    { orderBy: { col: "id", direction: "asc" }, limit: USAGE_ROW_LIMIT + 1 },
+    {
+      fields: TEMPLATE_LISTING_FIELDS,
+      orderBy: { col: "id", direction: "asc" },
+      limit: USAGE_ROW_LIMIT + 1,
+    },
   );
   if (fetchedRows.length > USAGE_ROW_LIMIT) {
     ctx.obs.log?.warn("template usage: row limit reached, result is incomplete", {
@@ -55,7 +61,7 @@ async function visibleRowsOfKind(
 // An open draft lives beside the served row, so its layout choice sits in the draft's own meta.
 function draftLayoutOf(
   user: Parameters<typeof draftViewerTenantId>[0],
-  row: TemplateResourceRow,
+  row: TemplateListingRow,
 ): { readonly layoutSlug: string | null } | null {
   if (row.tenantId !== draftViewerTenantId(user, row)) return null;
   const draft = parseTemplateDraft(row.draft);
@@ -65,9 +71,9 @@ function draftLayoutOf(
 }
 
 function servedRowOf(
-  group: readonly TemplateResourceRow[],
+  group: readonly TemplateListingRow[],
   policy: ReturnType<typeof deliveryPolicyOf>,
-): { readonly served: TemplateResourceRow; readonly isSystem: boolean } | null {
+): { readonly served: TemplateListingRow; readonly isSystem: boolean } | null {
   const effective = effectiveRowsOf(group, policy);
   if (effective === null || (effective.lockedOverride && effective.origin === "tenant"))
     return null;
@@ -77,7 +83,7 @@ function servedRowOf(
 }
 
 function pdfLayoutUserOf(
-  group: readonly TemplateResourceRow[],
+  group: readonly TemplateListingRow[],
   layoutSlug: string,
   defaultSlug: string,
   policy: ReturnType<typeof deliveryPolicyOf>,
@@ -105,13 +111,13 @@ function pdfLayoutUserOf(
 // The served version of every document and locale decides: its own layout, else the tenant default.
 // A saved draft that names the layout counts too, so a template shows up as soon as it is applied.
 function pdfLayoutUsers(
-  rows: readonly TemplateResourceRow[],
+  rows: readonly TemplateListingRow[],
   layoutSlug: string,
   defaultSlug: string,
   policy: ReturnType<typeof deliveryPolicyOf>,
   user: Parameters<typeof draftViewerTenantId>[0],
 ): PdfLayoutUser[] {
-  const groups = new Map<string, TemplateResourceRow[]>();
+  const groups = new Map<string, TemplateListingRow[]>();
   for (const row of rows) {
     const key = `${row.slug}\u0000${row.locale}`;
     groups.set(key, [...(groups.get(key) ?? []), row]);

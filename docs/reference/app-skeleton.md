@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-18
+verified: 2026-11-17
 evidence: "kumiko new app scaffold, packages/dev-server/src/managed-files/registry.ts, kumiko check managed|scripts"
 ---
 
@@ -21,19 +21,20 @@ evidence: "kumiko new app scaffold, packages/dev-server/src/managed-files/regist
 
 | Path | Owner | Content |
 | --- | --- | --- |
-| `deploy/Dockerfile`, `deploy/Dockerfile.dockerignore` | managed | Container build; migrations run as the k3s InitContainer from `release.yml`. `deploy/migrate-step.sh` is not managed (compose self-hosting only, from `kumiko-init-deploy`) |
+| `deploy/Dockerfile`, `deploy/Dockerfile.dockerignore` | managed | Container build; migrations run as the k3s InitContainer from `release.yml`. `deploy/migrate-step.sh` is not managed (compose self-hosting only, written by `scaffoldDeploy` from `@cosmicdrift/kumiko-dev-server`) |
 | `.github/workflows/ci.yml` | managed | Test, integration, e2e and image build via the shared workflows |
 | `.github/workflows/release.yml` | managed | Manual rollout of a built image |
 | `.github/workflows/cache-cleanup.yml` | managed | Removes PR caches after merge |
 | `.husky/pre-push` | managed | Pre-push hook; app additions go to `scripts/pre-push-extra.sh` |
 | `bunfig.toml`, `bunfig.integration.toml`, `bunfig.real.toml`, `bunfig.dom.toml` | managed | Test configs; `bunfig.dom.toml` only with `uiRoots`. Extra sections such as `[install.scopes]` survive the sync |
 | `kumiko/schema.ts` | managed | `FEATURES` and `ENTITY_METAS` derived from `kumiko.config.ts` |
+| `bin/kumiko.ts` | managed | Calls `runStandaloneCli` (`@cosmicdrift/kumiko-server-runtime/standalone-cli`) for `schema`, `consumer` and `events` with `FEATURES`, `envSchema` from `bin/env-schema.ts` and `requireKms` under `NODE_ENV=production`; bundled to `dist-server/kumiko.js` |
 | `biome.json` | preset | `{ "extends": ["@cosmicdrift/kumiko-framework/biome"] }` |
 | `tsconfig.json` | preset | `extends: "@cosmicdrift/kumiko-framework/tsconfig.app.json"` |
 | `kumiko.config.ts` | preset | `defineAppConfig(...)`, see below |
 | `bin/server.ts` | seed | Dev server (`runDevApp`) |
 | `bin/env-schema.ts` | seed | Env contract of the production processes |
-| `bin/main.ts`, `bin/kumiko.ts` | app | Production boot, bundled schema and consumer CLI |
+| `bin/main.ts` | app | Production boot |
 | `src/run-config.ts`, `src/features/`, `src/client.tsx` | app | Features and the web entry |
 | `e2e/_helpers/`, `src/__tests__/_setup.ts` | app | Shared e2e helpers and integration stack setup |
 | `kumiko.json` | app | Repo manifest: kind, source roots, `uiRoots` |
@@ -42,6 +43,8 @@ A deliberate change to a managed file stays when line 2 reads
 `# kumiko-managed: local <reason>`. The check then skips the file and lists it
 with the reason; the sync leaves it alone. A file without any marker is never
 overwritten unless `kumiko sync-managed --write --adopt` is passed.
+
+`.github/workflows/ci.yml` takes its knobs from `package.json#kumiko.deploy`: `infraRef` pins the infra tag (default: the tag of the installed framework), `visibility: "public"` renders the self-contained variant for public repos, `docStatusGuard: false` turns the doc-status guard off, `e2eShards` splits e2e into shards and `e2eChromiumFull: true` runs e2e in full Chromium. The services follow `ports.infra` in `kumiko.config.ts` (`s3` adds MinIO, `meilisearch` adds Meilisearch). Checks run on the PR, the merge push only builds the image. Jobs only one app needs are named `app-<name>` in the same file; they survive the sync and are no drift.
 
 ## kumiko.config.ts
 
@@ -63,8 +66,7 @@ export default defineAppConfig({
   below the root and fails on a port claimed twice, infrastructure ports included.
 - `ports.infra.s3` and `ports.infra.meilisearch` switch the MinIO and Meilisearch
   services on in the managed `ci.yml`.
-- `bundledLists` sets one DataTable `table` block for every list of the features
-  that call `r.adoptsBundledLists()` (the bundled features with lists);
+- `listDefaults` sets one DataTable `table` block for every list of the app;
   `kumiko/schema.ts` passes it to `composeFeatures`, the bin files pass it to
   the runners. See `renderer-widget-options.md`.
 
@@ -96,6 +98,7 @@ an app that needs `auth-foundation` for the token feature lists it in `features`
 - `uiOnlyWrites`, patterns of writes that screens trigger but no scope grants, each
   with a `reason`; unlisted ones are reported.
 - `texts`, paragraph overrides per locale and key; the page structure stays fixed.
+- `translations`, a function returning texts only the docs need (handler titles, descriptions, field labels) as full translation keys, e.g. `() => import("./src/api-docs-texts").then((m) => m.texts)`. Loaded only by `kumiko api-docs`, never at boot, and outside the locale-consistency boot rule. A locale the registry defines for a key wins.
 - `examplesDir` (default `api-examples`), recorded request and response pairs. Record
   them in an integration test with `recordApiExample` from
   `@cosmicdrift/kumiko-testing/api-examples` and `KUMIKO_RECORD_API_EXAMPLES=1`.

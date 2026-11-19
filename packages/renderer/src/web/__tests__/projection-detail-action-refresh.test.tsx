@@ -31,14 +31,14 @@ describe("projectionDetail record action", () => {
   test("shows the changed field after the action without a reload", async () => {
     let state = "active";
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { id: "rent-1", state },
-      })) as unknown as Dispatcher["query"],
-      write: (async () => {
+      }),
+      write: async () => {
         state = "terminated";
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["write"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>

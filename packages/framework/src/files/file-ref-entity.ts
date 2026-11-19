@@ -21,6 +21,7 @@ import { createBigIntField, createEntity, createTextField } from "../engine/inde
 export { FILE_REF_ENTITY_NAME } from "./types.ts";
 
 export const fileRefEntity = createEntity({
+  name: "fileRef",
   table: "file_refs",
   softDelete: true,
   fields: {
@@ -28,6 +29,7 @@ export const fileRefEntity = createEntity({
     fileName: createTextField({ required: true, personal: "self", find: "none" }),
     mimeType: createTextField({ required: true, personal: false, reason: "system_metadata" }),
     size: createBigIntField({ required: true }),
+    contentSha256: createTextField({ personal: false, reason: "system_metadata" }),
     entityType: createTextField({ personal: false, reason: "technical_reference" }),
     entityId: createTextField({ personal: false, reason: "technical_reference" }),
     fieldName: createTextField({ personal: false, reason: "technical_reference" }),

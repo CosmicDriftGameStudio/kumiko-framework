@@ -1,3 +1,4 @@
+import type { ListFilterOption } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 import type { EntityDefinition, FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/index.ts";
@@ -62,12 +63,6 @@ function inListSql(
   return `${colSql(field)} = ANY($${params.length}::${pgTypeToSqlType(pgType)}[])`;
 }
 
-export type ListFilter = {
-  readonly field: string;
-  readonly op: "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
-  readonly value: unknown;
-};
-
 // multiSelect stores its options as a jsonb array — a filter value is one
 // option, not the whole array, so eq/ne/in must check array containment
 // (`@>`) instead of scalar `=`/`<>`/`IN` against the jsonb column.
@@ -80,7 +75,7 @@ function applyMultiSelectFilter(
   colSql: (field: string) => string,
   whereSql: string[],
   params: unknown[],
-  f: ListFilter,
+  f: ListFilterOption,
 ): void {
   if (f.op === "lt" || f.op === "gt" || f.op === "lte" || f.op === "gte") {
     whereSql.push("FALSE");
@@ -129,7 +124,7 @@ function applyScreenFilter(
   colSql: (field: string) => string,
   whereSql: string[],
   params: unknown[],
-  f: ListFilter,
+  f: ListFilterOption,
 ): void {
   const screen = buildFilterWhere(f.field, f.op, f.value);
   if (screen === null) {
@@ -185,7 +180,7 @@ function applyScreenFilter(
 // means containment (see applyMultiSelectFilter) rather than equality.
 export function deriveParentNarrowTypes(
   entity: EntityDefinition,
-  payload: { readonly filter?: ListFilter; readonly filters?: readonly ListFilter[] },
+  payload: { readonly filter?: ListFilterOption; readonly filters?: readonly ListFilterOption[] },
 ): ReadonlySet<string> | undefined {
   return pinnedParentFieldValues(entity, payload, entity.parentRef?.entityTypeField);
 }
@@ -194,14 +189,14 @@ export function deriveParentNarrowTypes(
 // hosts resolved.
 export function deriveParentNarrowHostIds(
   entity: EntityDefinition,
-  payload: { readonly filter?: ListFilter; readonly filters?: readonly ListFilter[] },
+  payload: { readonly filter?: ListFilterOption; readonly filters?: readonly ListFilterOption[] },
 ): ReadonlySet<string> | undefined {
   return pinnedParentFieldValues(entity, payload, entity.parentRef?.entityIdField);
 }
 
 function pinnedParentFieldValues(
   entity: EntityDefinition,
-  payload: { readonly filter?: ListFilter; readonly filters?: readonly ListFilter[] },
+  payload: { readonly filter?: ListFilterOption; readonly filters?: readonly ListFilterOption[] },
   parentField: string | undefined,
 ): ReadonlySet<string> | undefined {
   if (parentField === undefined) return undefined;
@@ -234,9 +229,9 @@ function pinnedParentFieldValues(
 }
 
 export function collectListFilters(payload: {
-  readonly filter?: ListFilter | undefined;
-  readonly filters?: readonly ListFilter[] | undefined;
-}): readonly ListFilter[] {
+  readonly filter?: ListFilterOption | undefined;
+  readonly filters?: readonly ListFilterOption[] | undefined;
+}): readonly ListFilterOption[] {
   const single = payload.filter !== undefined ? [payload.filter] : [];
   return payload.filters !== undefined ? [...single, ...payload.filters] : single;
 }
@@ -247,7 +242,7 @@ function isJsonbArrayField(field: FieldDefinition | undefined): boolean {
 
 export function applyListFilter(
   where: ListWhere,
-  f: ListFilter,
+  f: ListFilterOption,
   table: Table,
   entity: EntityDefinition,
   fieldReadClause: (field: string) => OwnershipClause,

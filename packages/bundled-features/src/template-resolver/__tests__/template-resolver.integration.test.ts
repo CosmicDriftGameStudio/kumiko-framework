@@ -310,6 +310,33 @@ describe("template-resolver :: resolveTemplate :: 4-step fallback", () => {
     expect(result.locale).toBe("tr");
   });
 
+  test("System row in the requested locale beats the tenant row in the fallback locale (step 2 before step 3)", async () => {
+    await seedTemplate({
+      tenantId: TENANT_A,
+      slug: "step-order",
+      kind: "mail",
+      locale: FALLBACK_LOCALE,
+      scope: "tenant",
+      content: "tenant-fallback",
+    });
+    await seedTemplate({
+      tenantId: SYSTEM_TENANT_ID,
+      slug: "step-order",
+      kind: "mail",
+      locale: "tr",
+      scope: "system",
+      content: "system-tr",
+    });
+    const result = await api.resolveTemplate({
+      tenantId: TENANT_A,
+      slug: "step-order",
+      kind: "mail",
+      locale: "tr",
+    });
+    expect(result.content).toBe("system-tr");
+    expect(result.scope).toBe("system");
+  });
+
   test("throws TemplateNotFoundError when nothing is found", async () => {
     await expect(
       api.resolveTemplate({

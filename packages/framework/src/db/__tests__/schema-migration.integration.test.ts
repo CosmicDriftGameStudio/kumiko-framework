@@ -43,7 +43,7 @@ async function applySchema(features: readonly FeatureDefinition[]): Promise<void
   const tables: Record<string, unknown> = {};
   for (const feature of features) {
     for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
-      tables[entityName] = buildEntityTable(entityName, entity);
+      tables[entityName] = buildEntityTable({ ...entity, name: entityName });
     }
   }
   await unsafePushTables(testDb.db, tables);
@@ -75,9 +75,9 @@ async function getTableColumns(
 describe("schema migration workflows", () => {
   test("workflow 1: new feature creates table with all base + field columns", async () => {
     const feature = defineFeature("blog", (r) => {
-      r.entity({
-        name: "post",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "post",
           table: "wf1_posts",
           fields: {
             title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -87,7 +87,7 @@ describe("schema migration workflows", () => {
             isDraft: createBooleanField({ default: true }),
           },
         }),
-      });
+      );
     });
 
     await applySchema([feature]);
@@ -117,13 +117,13 @@ describe("schema migration workflows", () => {
 
   test("workflow 1b: tenant_id index is created on every table", async () => {
     const feature = defineFeature("indexed-blog", (r) => {
-      r.entity({
-        name: "article",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "article",
           table: "wf1b_articles",
           fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
     });
     await applySchema([feature]);
 
@@ -137,13 +137,15 @@ describe("schema migration workflows", () => {
   test("workflow 2: add field to existing entity → ADD COLUMN", async () => {
     // Initial entity with just email
     const initialEntity = createEntity({
+      name: "user",
       table: "wf2_users",
       fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
     });
-    await unsafePushTables(testDb.db, { user: buildEntityTable("user", initialEntity) });
+    await unsafePushTables(testDb.db, { user: buildEntityTable(initialEntity) });
 
     // Developer adds a new field
     const updatedEntity = createEntity({
+      name: "user",
       table: "wf2_users",
       fields: {
         email: createTextField({ personal: false, reason: "test_fixture" }),
@@ -154,8 +156,8 @@ describe("schema migration workflows", () => {
     // Push updated schema — drizzle-kit generates ALTER TABLE ADD COLUMN
     await unsafePushTables(
       testDb.db,
-      { user: buildEntityTable("user", updatedEntity) },
-      { user: buildEntityTable("user", initialEntity) },
+      { user: buildEntityTable(updatedEntity) },
+      { user: buildEntityTable(initialEntity) },
     );
 
     const columns = await getTableColumns("wf2_users");
@@ -167,10 +169,11 @@ describe("schema migration workflows", () => {
   test("workflow 3: add required boolean field with default → safe ADD COLUMN", async () => {
     // Initial entity with just name
     const initialEntity = createEntity({
+      name: "project",
       table: "wf3_projects",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
     });
-    const initialTable = buildEntityTable("project", initialEntity);
+    const initialTable = buildEntityTable(initialEntity);
     await unsafePushTables(testDb.db, { project: initialTable });
 
     // Insert a row first (to prove ADD COLUMN with default doesn't break existing rows)
@@ -186,13 +189,14 @@ describe("schema migration workflows", () => {
 
     // Developer adds boolean field with default
     const updatedEntity = createEntity({
+      name: "project",
       table: "wf3_projects",
       fields: {
         name: createTextField({ personal: false, reason: "test_fixture" }),
         isArchived: createBooleanField({ default: false }),
       },
     });
-    const updatedTable = buildEntityTable("project", updatedEntity);
+    const updatedTable = buildEntityTable(updatedEntity);
     await unsafePushTables(testDb.db, { project: updatedTable }, { project: initialTable });
 
     // Existing row should have the default value
@@ -207,12 +211,13 @@ describe("schema migration workflows", () => {
     // DEFAULT. The text branch in table-builder previously ignored `field.default`, so this test
     // verifies that the default is now applied.
     const initialEntity = createEntity({
+      name: "user",
       table: "wf3b_users",
       fields: {
         email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
       },
     });
-    const initialTable = buildEntityTable("user", initialEntity);
+    const initialTable = buildEntityTable(initialEntity);
     await unsafePushTables(testDb.db, { user: initialTable });
 
     await seedRow(
@@ -226,6 +231,7 @@ describe("schema migration workflows", () => {
     );
 
     const updatedEntity = createEntity({
+      name: "user",
       table: "wf3b_users",
       fields: {
         email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -237,7 +243,7 @@ describe("schema migration workflows", () => {
         }),
       },
     });
-    const updatedTable = buildEntityTable("user", updatedEntity);
+    const updatedTable = buildEntityTable(updatedEntity);
     await unsafePushTables(testDb.db, { user: updatedTable }, { user: initialTable });
 
     const rows = await selectMany(testDb.db, updatedTable);
@@ -246,14 +252,14 @@ describe("schema migration workflows", () => {
 
   test("workflow 4: activate soft delete → adds 3 columns", async () => {
     const feature = defineFeature("tasks", (r) => {
-      r.entity({
-        name: "task",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "task",
           table: "wf4_tasks",
           fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
           softDelete: true,
         }),
-      });
+      );
     });
 
     await applySchema([feature]);
@@ -269,26 +275,26 @@ describe("schema migration workflows", () => {
 
   test("workflow 5: multiple features each create their own tables", async () => {
     const blogFeature = defineFeature("blog", (r) => {
-      r.entity({
-        name: "article",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "article",
           table: "wf5_articles",
           fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      });
+      );
     });
 
     const shopFeature = defineFeature("shop", (r) => {
-      r.entity({
-        name: "product",
-        ...createEntity({
+      r.entity(
+        createEntity({
+          name: "product",
           table: "wf5_products",
           fields: {
             name: createTextField({ personal: false, reason: "test_fixture" }),
             price: createNumberField(),
           },
         }),
-      });
+      );
     });
 
     await applySchema([blogFeature, shopFeature]);
@@ -313,10 +319,11 @@ describe("schema migration workflows", () => {
 describe("date field — real DATE column, no TZ dependence", () => {
   test("column is a genuine `date`, not timestamptz", async () => {
     const entity = createEntity({
+      name: "invoice",
       table: "df1_invoices",
       fields: { periodFrom: createDateField({ required: true }) },
     });
-    await unsafePushTables(testDb.db, { invoice: buildEntityTable("invoice", entity) });
+    await unsafePushTables(testDb.db, { invoice: buildEntityTable(entity) });
 
     const columns = await getTableColumns("df1_invoices");
     expect(columns.get("period_from")?.dataType).toBe("date");
@@ -324,10 +331,11 @@ describe("date field — real DATE column, no TZ dependence", () => {
 
   test("a written calendar day round-trips exactly, as Temporal.PlainDate", async () => {
     const entity = createEntity({
+      name: "invoice",
       table: "df2_invoices",
       fields: { periodFrom: createDateField({ required: true }) },
     });
-    const table = buildEntityTable("invoice", entity);
+    const table = buildEntityTable(entity);
     await unsafePushTables(testDb.db, { invoice: table });
 
     await seedRow(
@@ -349,10 +357,11 @@ describe("date field — real DATE column, no TZ dependence", () => {
 
   test("a Temporal.PlainDate value on write also round-trips exactly", async () => {
     const entity = createEntity({
+      name: "invoice",
       table: "df3_invoices",
       fields: { periodFrom: createDateField({ required: true }) },
     });
-    const table = buildEntityTable("invoice", entity);
+    const table = buildEntityTable(entity);
     await unsafePushTables(testDb.db, { invoice: table });
 
     await seedRow(

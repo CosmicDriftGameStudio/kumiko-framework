@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { UNKNOWN_CLIENT_IP } from "@cosmicdrift/kumiko-framework/api";
 import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
@@ -77,6 +78,8 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetTestTables(stack.db, [userTable, tenantMembershipsTable, eventsTable]);
+  // stack.http.raw has no socket address, so every login shares the "unknown" IP bucket.
+  await stack.redis.redis.del(`kumiko:rl:ip+handler:${UNKNOWN_CLIENT_IP}:${AuthHandlers.login}`);
 });
 
 // Helper: seed a full login-ready user (user row + membership).
@@ -148,6 +151,22 @@ describe("scenario 1: login success", () => {
     // claim at all (not null, not "").
     const payload = await stack.jwt.verify(body.token as string);
     expect(payload.locale).toBeUndefined();
+  });
+
+  test("login with another letter case of the stored email → session", async () => {
+    const seed = await seedLoginUser({
+      email: "case@example.com",
+      password: "correct-horse-battery",
+    });
+
+    const res = await stack.http.raw("POST", "/api/auth/login", {
+      email: "Case@Example.COM",
+      password: "correct-horse-battery",
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.user).toMatchObject({ id: seed.id });
   });
 
   test("correct credentials with a stored locale → JWT carries the locale claim", async () => {

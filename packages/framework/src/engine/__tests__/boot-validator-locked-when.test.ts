@@ -7,10 +7,9 @@ import { createDateField, createEntity, createSelectField, createTextField } fro
 function bootWith(lockedWhen: EntityDefinition["lockedWhen"], fields: EntityDefinition["fields"]) {
   validateBoot([
     defineFeature("test", (r) => {
-      r.entity({
-        name: "ticket",
-        ...createEntity({ fields, ...(lockedWhen !== undefined && { lockedWhen }) }),
-      });
+      r.entity(
+        createEntity({ fields, ...(lockedWhen !== undefined && { lockedWhen }), name: "ticket" }),
+      );
     }),
   ]);
 }

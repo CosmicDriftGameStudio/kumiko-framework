@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-26
-evidence: "packages/bundled-features/src/readiness/feature.ts, execute-probes.ts, run-probes-job.ts, screens.ts; packages/types/src/probe.ts; packages/renderer-puppeteer-client/src/probe.ts; packages/bundled-features/src/inbound-mail-foundation/probe.ts; samples/apps/use-all-bundled/e2e/docs-guides.screenshots.spec.ts"
+evidence: "packages/bundled-features/src/readiness/feature.ts, execute-probes.ts, run-probes-job.ts, screens.ts; packages/types/src/probe.ts; packages/bundled-features/src/renderer-puppeteer-client/probe.ts; packages/bundled-features/src/inbound-mail-foundation/probe.ts; samples/apps/use-all-bundled/e2e/docs-guides.screenshots.spec.ts"
 ---
 
 # System check: live probes for mail, files, mailboxes and more

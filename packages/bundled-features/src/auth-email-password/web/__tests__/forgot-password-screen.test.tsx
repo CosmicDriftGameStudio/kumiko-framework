@@ -15,9 +15,9 @@ installFetchMock();
 describe("ForgotPasswordScreen", () => {
   test("rendert title + email-input + submit-button (de)", () => {
     renderWithProviders(<ForgotPasswordScreen />);
-    expect(screen.getByText("Reset password")).toBeTruthy();
-    expect(screen.getByLabelText(/^Email/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Request link" })).toBeTruthy();
+    screen.getByText("Reset password");
+    screen.getByLabelText(/^Email/);
+    screen.getByRole("button", { name: "Request link" });
   });
 
   test("submit calls /api/auth/request-password-reset with the email", async () => {
@@ -49,9 +49,9 @@ describe("ForgotPasswordScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Request link" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Email sent")).toBeTruthy();
+      screen.getByText("Email sent");
     });
-    expect(screen.getByRole("link", { name: /Back to sign in/i })).toBeTruthy();
+    screen.getByRole("link", { name: /Back to sign in/i });
   });
 
   test("server 5xx → error banner instead of success state", async () => {

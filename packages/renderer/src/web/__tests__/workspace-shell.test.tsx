@@ -343,8 +343,8 @@ describe("WorkspaceShell", () => {
       </WorkspaceShell>,
     );
     await user.click(screen.getByTestId("workspace-switcher-trigger"));
-    expect(screen.getByTestId("workspace-tab-admin")).toBeTruthy();
-    expect(screen.getByTestId("workspace-tab-dispatch")).toBeTruthy();
+    screen.getByTestId("workspace-tab-admin");
+    screen.getByTestId("workspace-tab-dispatch");
     expect(screen.queryByTestId("workspace-tab-driver")).toBeNull();
   });
 
@@ -426,9 +426,9 @@ describe("WorkspaceShell", () => {
       </WorkspaceShell>,
     );
     // No allow-set → NavTree renders every entry.
-    expect(screen.getByText("System")).toBeTruthy();
-    expect(screen.getByText("Orders")).toBeTruthy();
-    expect(screen.getByText("Tours")).toBeTruthy();
+    screen.getByText("System");
+    screen.getByText("Orders");
+    screen.getByText("Tours");
     // No switcher.
     expect(document.querySelector('[data-kumiko-layout="workspace-switcher"]')).toBeNull();
   });
@@ -557,7 +557,7 @@ describe("WorkspaceShell — nav hierarchy after filter", () => {
         <div>content</div>
       </WorkspaceShell>,
     );
-    expect(screen.getByText("Products")).toBeTruthy();
+    screen.getByText("Products");
     expect(screen.queryByText("Catalog")).toBeNull();
   });
 });
@@ -747,8 +747,8 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
     // featureName. With the single-feature schema, qualifyNavId would have
     // qualified both orders and fleet under the same featureName, so the
     // allowedNavQns filter could never match fleet:nav:vehicles.
-    expect(screen.getByText("Order List")).toBeTruthy();
-    expect(screen.getByText("Vehicles")).toBeTruthy();
+    screen.getByText("Order List");
+    screen.getByText("Vehicles");
   });
 
   test("Workspace filter respects membership across features", () => {
@@ -796,7 +796,7 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
       </WorkspaceShell>,
     );
     // Admin is active by default → only Order List, not Vehicles.
-    expect(screen.getByText("Order List")).toBeTruthy();
+    screen.getByText("Order List");
     expect(screen.queryByText("Vehicles")).toBeNull();
   });
 
@@ -891,7 +891,7 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
     // correctly promoted to the app level and that the allowedNavQns filter
     // let the entry through. WorkspaceSwitcher renders nothing for a single
     // workspace (no choice, no UI); that is not the point of this test.
-    expect(screen.getByText("List")).toBeTruthy();
+    screen.getByText("List");
   });
 });
 
@@ -922,7 +922,7 @@ describe("WorkspaceShell — single nav", () => {
         <div>content</div>
       </WorkspaceShell>,
     );
-    expect(screen.getByText("List")).toBeTruthy();
+    screen.getByText("List");
   });
 
   test("active target in the URL renders EditorPanel instead of the screen children", () => {
@@ -953,7 +953,7 @@ describe("WorkspaceShell — single nav", () => {
       </WorkspaceShell>,
     );
     // EditorPanel fallback (no resolver for demo:edit) — proves target→Editor.
-    expect(screen.getByRole("heading", { name: "Editor" })).toBeTruthy();
+    screen.getByRole("heading", { name: "Editor" });
     // The screen children are replaced, not rendered in addition.
     expect(screen.queryByText("content")).toBeNull();
   });
@@ -1022,7 +1022,7 @@ describe("WorkspaceShell wires user.roles into children for screen-level access"
         </WorkspaceShell>
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("kumiko-screen-access-denied")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-access-denied");
   });
 
   test("user prop with matching role → role-gated screen child renders", () => {

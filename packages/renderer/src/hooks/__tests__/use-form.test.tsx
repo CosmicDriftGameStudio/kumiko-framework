@@ -1,26 +1,22 @@
 import { describe, expect, mock, test } from "bun:test";
 import { act, renderHook } from "@testing-library/react";
 import type { Dispatcher, WriteResult } from "../../headless/index.ts";
+import { createMockDispatcher, type MockWriteHandler } from "../../testing.ts";
 import { useForm } from "../use-form.ts";
 
 function makeDispatcher(response?: WriteResult): Dispatcher & {
   readonly writeSpy: ReturnType<typeof mock>;
 } {
-  const writeSpy = mock(
+  const writeSpy = mock<MockWriteHandler>(
     async () => response ?? ({ isSuccess: true, data: { id: "srv-1" } } as WriteResult),
   );
   return {
+    ...createMockDispatcher({
+      write: writeSpy,
+      query: async () => ({ isSuccess: true, data: null }),
+      batch: async () => ({ isSuccess: true, results: [] }),
+    }),
     writeSpy,
-    write: writeSpy as unknown as Dispatcher["write"],
-    query: (async () => ({ isSuccess: true, data: null })) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    async *stream() {},
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    pendingWrites: () => [],
-    pendingFiles: () => [],
   };
 }
 

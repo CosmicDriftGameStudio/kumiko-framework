@@ -27,6 +27,7 @@ import {
   createEntity,
   createTextField,
   defineFeature,
+  emitEvent,
   SYSTEM_USER_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -64,33 +65,43 @@ const bootJobQueuePrefix = testRunQueueNamePrefix("test-worker-boot");
 const jobRuns: Array<{ note: string; temporalWasDefined: boolean }> = [];
 
 const workerProbeEntity = createEntity({
+  name: "probe",
   fields: { note: createTextField({ personal: false, reason: "test_fixture", required: true }) },
   table: "worker_probes",
 });
 
 const workerProbeFeature = defineFeature("worker-probe", (r) => {
-  r.entity({ name: "probe", ...workerProbeEntity });
+  r.entity(workerProbeEntity);
+  const pinged = r.defineEvent("pinged", z.object({ note: z.string() }), { piiFields: "none" });
   r.writeHandler({
     name: "ping",
     schema: z.object({ note: z.string() }),
     access: { roles: ["SystemAdmin"] },
-    handler: async (event) => ({
-      isSuccess: true as const,
-      data: { note: (event.payload as { note: string }).note },
-    }),
+    handler: async (event, ctx) => {
+      await emitEvent(ctx, pinged, {
+        aggregateId: crypto.randomUUID(),
+        expectedVersion: 0,
+        aggregateType: "probe-ping",
+        payload: { note: event.payload.note },
+      });
+      return { isSuccess: true as const, data: { note: event.payload.note } };
+    },
   });
   // The job's only purpose: prove Temporal is already defined by the time
   // the handler runs. Before, there was no framework-side boot path for this
   // — apps had to rebuild the polyfill call by hand and forgot it.
-  r.job(
-    "boot-probe",
-    { trigger: { manual: true }, runIn: "worker", runOnBoot: true },
-    async () => {},
-  );
-  r.job(
-    "record-ping",
-    { trigger: { on: "worker-probe:write:ping" }, runIn: "worker" },
-    async (payload) => {
+  r.job({
+    name: "boot-probe",
+    trigger: { manual: true },
+    runIn: "worker",
+    runOnBoot: true,
+    handler: async () => {},
+  });
+  r.job({
+    name: "record-ping",
+    trigger: { on: "pinged" },
+    runIn: "worker",
+    handler: async (payload) => {
       const temporalWasDefined =
         typeof (globalThis as { Temporal?: unknown }).Temporal === "object";
       // Touches the global directly — throws "Temporal is not defined" if the
@@ -101,7 +112,7 @@ const workerProbeFeature = defineFeature("worker-probe", (r) => {
         temporalWasDefined,
       });
     },
-  );
+  });
 });
 
 // A per-instance MSP keys its cursor row by the dispatcher's instance id, which makes

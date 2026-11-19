@@ -376,16 +376,17 @@ export type JobTrigger =
   // is DRY for fan-out patterns: one job body, multiple triggers (e.g.
   // webhook-fanout: incident.open / incident.update / maintenance.start)
   // instead of N r.job calls with the same handler body.
-  // The handler payload includes `_triggerName: string` so the code knows
-  // which trigger fired.
+  // `ctx.triggerName` names the trigger that fired; `await triggeredEventOf(events, payload, ctx)`
+  // from the engine decrypts the catalogued personal fields and parses the payload into a typed union of those events.
   //
-  // Two delivery semantics depend on what `on` resolves to: a write/query-handler
-  // QN dispatches synchronously from dispatch-write.ts's afterCommitHooks —
-  // effectively once. An r.defineEvent QN (e.g. one an r.multiStreamProjection
-  // appends via ctx.events.unsafeAppend) dispatches asynchronously through the
-  // job-trigger event consumer (createJobTriggerEventConsumer,
-  // pipeline/job-trigger-consumer.ts) — cursor delivery, at-least-once. Handlers
-  // triggered on an r.defineEvent QN must be idempotent.
+  // `on` names an r.defineEvent event (qualified, or the own feature's short
+  // name) or an entity lifecycle event `<entityName>.<created|updated|deleted|
+  // restored|forgotten>`. Every trigger runs through the job-trigger event
+  // consumer (createJobTriggerEventConsumer, pipeline/job-trigger-consumer.ts):
+  // at-least-once, with a deterministic job id per job and event, so a
+  // redelivery is a no-op while the job is retained. Handlers must still be
+  // idempotent. A write/query handler QN is rejected at boot: that trigger fired
+  // after the commit and was lost when the process died before the enqueue.
   | {
       readonly on: import("./handlers.ts").NameOrRef | readonly import("./handlers.ts").NameOrRef[];
       // Equality filter on top-level payload fields, checked before enqueue —
@@ -395,8 +396,8 @@ export type JobTrigger =
       // store (own consumer `job:<jobQn>`), including events appended before
       // the job existed. A deterministic job id (job QN + event id) makes a
       // redelivery a no-op while the job is still retained in the queue. Every
-      // `on` entry must be an r.defineEvent event, not a handler QN. The job
-      // is not fired by the synchronous handler path. The job receives the
+      // `on` entry must be an r.defineEvent event (not an entity lifecycle
+      // event, not a handler QN). The job receives the
       // payload upcast to the event's current version. Adding catchUp to a
       // running app runs the job for the whole history of every tenant, so its
       // side effects (mails, webhooks) must be safe to repeat for old events.
@@ -439,11 +440,9 @@ export type MaxPerTenantOptions = {
 // readAsInstruction write) without a directly dispatched entry handler. A new case is a framework change.
 //   rebuildable-derived-data   deletes derived data that is re-created from a reversible source
 //   high-risk-or-cron-pipeline runs behind a risk "high" handler or as a cron scan of expired data
-//   per-dispatch-record-key    the step-dispatcher erasing its per-dispatch record key
 export const IRREVERSIBLE_WITHOUT_ENTRY_HANDLER_CASES = [
   "rebuildable-derived-data",
   "high-risk-or-cron-pipeline",
-  "per-dispatch-record-key",
 ] as const;
 
 export type IrreversibleWithoutEntryHandler =
@@ -493,6 +492,8 @@ export type JobDefinition = {
   readonly perTenant?: boolean | undefined;
   // perTenant fan-out only covers active tenant rows and SYSTEM_TENANT_ID has none; maintenance jobs for system-tenant data need the extra run.
   readonly includeSystemTenant?: boolean | undefined;
+  // Narrows the perTenant fan-out to these tenants, intersected with the active ones, instead of one run per active tenant that returns early.
+  readonly onlyTenants?: readonly TenantId[] | undefined;
   // Which deploy-lane runs this job. Default "worker". Set "api" only for
   // short CPU-light handlers (token cleanup, in-process cache warmup) that
   // don't justify a separate worker container — long/CPU-heavy jobs on the
@@ -500,6 +501,10 @@ export type JobDefinition = {
   readonly runIn?: JobRunIn | undefined;
   // Grants `ctx.db.unsafeRaw()` (audited as `unsafe-raw`) and `db.global()` writes (`global-write`) for this job.
   readonly escapeHatch?: EscapeHatchDeclaration | undefined;
+  // Roles the job's own identity (ctx.systemUser) carries next to SYSTEM_ROLE, so ctx.dispatch.write and
+  // ctx.dispatch.query reach handlers gated on them. SystemAdmin can write into other tenants and therefore
+  // needs an escapeHatch with the systemIdentity grant or an r.systemScope() feature.
+  readonly runAs?: { readonly roles: readonly string[] } | undefined;
   // Opt in to a tenant-visible failure record (`jobs:query:failures`). Only a
   // translation key ever reaches the tenant: a thrown KumikoError's `i18nKey`
   // when it carries one, otherwise `messageKey`. The provider's own message

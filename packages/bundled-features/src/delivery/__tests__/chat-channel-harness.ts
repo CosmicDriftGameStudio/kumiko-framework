@@ -5,8 +5,9 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 
-import { createSystemDbView, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createSystemDbView, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureDefinition, JobContext } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import {
@@ -14,7 +15,10 @@ import {
   type SecretsContext,
 } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createTestEnvelopeCipher,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -178,13 +182,19 @@ export async function setupChatHarness(
     registry: NO_VALUE_SCHEMAS,
   });
   const attemptRows: AttemptRow[] = [];
+  const cipher = createTestEnvelopeCipher();
 
   // Mirrors what job-runner.ts builds for a systemScope()'d job.
   function buildJobContext(jobRunner?: unknown): JobContext {
     return {
       db,
       registry: stack.registry,
-      services: { secrets, extensions: {}, ...(jobRunner !== undefined && { jobRunner }) },
+      services: {
+        secrets,
+        extensions: {},
+        configEncryption: cipher,
+        ...(jobRunner !== undefined && { jobRunner }),
+      },
       lifecycle: {},
       obs: { log: silentLog },
       systemDb: createSystemDbView(
@@ -194,7 +204,10 @@ export async function setupChatHarness(
           mode: "system",
           reason: "test harness reads delivery rows of any tenant",
           grants: {
-            unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+            unsafeRaw: {
+              reason: "test: job context mirrors systemScope() grant",
+              grants: ["unsafeRaw"],
+            },
           },
         }),
       ),
@@ -228,6 +241,7 @@ export async function setupChatHarness(
         registry: stack.registry,
         channels: collectChannels(stack.registry),
         jobRunner: runner,
+        addressCipher: cipher,
       });
       const notificationType = `app:notify:chat-${notificationCounter++}`;
       await service.notify(

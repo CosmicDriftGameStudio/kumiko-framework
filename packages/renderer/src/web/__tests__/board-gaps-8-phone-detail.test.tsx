@@ -53,8 +53,8 @@ describe("phone card: narrowInline columns", () => {
     setViewportWidth(500);
     render(<DataTable columns={cardColumns} rows={cardRows} testId="t" />);
     const vals = screen.getByTestId("card-vals-r1-rent");
-    expect(within(vals).getByTestId("cell-r1-rent")).toBeTruthy();
-    expect(within(vals).getByTestId("cell-r1-since")).toBeTruthy();
+    within(vals).getByTestId("cell-r1-rent");
+    within(vals).getByTestId("cell-r1-since");
     expect(within(vals).queryByTestId("cell-r1-unit")).toBeNull();
     expect(vals.className).toContain("flex-wrap");
     expect(vals.className).toContain("gap-x-3");
@@ -249,7 +249,7 @@ describe("card inline header content", () => {
         body
       </DefaultCard>,
     );
-    expect(screen.getByText("Chips")).toBeTruthy();
+    screen.getByText("Chips");
     expect(screen.getByText("Chips").parentElement?.children).toHaveLength(1);
   });
 

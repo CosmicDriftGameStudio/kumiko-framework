@@ -18,7 +18,7 @@ export const createCommand = defineCommand({
       return 1;
     }
     const destination = getStringFlag(args, "path");
-    const { scaffoldFeature } = await import("@cosmicdrift/kumiko-dev-server");
+    const { scaffoldFeature } = await import("@cosmicdrift/kumiko-dev-server/scaffold-feature");
     try {
       const result = scaffoldFeature({
         name,

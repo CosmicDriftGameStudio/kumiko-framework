@@ -2,7 +2,7 @@
 // Plugin contract and domain types for subscription-foundation. Provider
 // plugins (subscription-stripe, subscription-mollie, ...) implement
 // `SubscriptionProviderPlugin` and register via
-// `r.useExtension("subscriptionProvider", "<name>", { build })`.
+// `r.applyExtension({ name: "subscriptionProvider", entity: "<name>", build })`.
 //
 // **Two-phase plugin contract:**
 //   1. **Pre-tenant-resolution:** `verifyAndParseWebhook` runs BEFORE
@@ -653,7 +653,7 @@ export type BillingPlansResult = {
   readonly consumerProtection?: BillingConsumerProtectionView;
 };
 
-// r.useExtension options-shape, co-located since the framework never imports upward.
+// r.applyExtension options-shape, co-located since the framework never imports upward.
 declare module "@cosmicdrift/kumiko-framework/engine" {
   interface KumikoExtensionOptionsMap {
     [SUBSCRIPTION_PROVIDER_EXTENSION]: SubscriptionProviderPlugin;

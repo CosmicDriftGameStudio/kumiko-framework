@@ -41,14 +41,14 @@ function makeDispatcher(
   configValues: unknown = TENANT_CURRENCY_VALUES,
 ): Dispatcher {
   return createMockDispatcher({
-    query: (async (type: string) => {
+    query: async (type: string) => {
       if (type === "config:query:values") return { isSuccess: true, data: configValues };
       return { isSuccess: true, data: { rows: [], nextCursor: null } };
-    }) as unknown as Dispatcher["query"],
-    write: (async (type: string, payload: unknown) => {
+    },
+    write: async (type: string, payload: unknown) => {
       writeCalls.push({ type, payload });
       return { isSuccess: true, data: { id: "inv-1" } };
-    }) as unknown as Dispatcher["write"],
+    },
   });
 }
 
@@ -72,7 +72,7 @@ describe("actionForm money field currency source", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     await typeText("field-amount", "12.50");
     await typeText("field-note", "paid");
     await userEvent.setup().click(screen.getByTestId("render-edit-submit"));
@@ -82,7 +82,7 @@ describe("actionForm money field currency source", () => {
     if (call === undefined) throw new Error("expected one write call");
     expect(call.type).toBe("billing:write:invoice:pay");
     expect((call.payload as { amount?: unknown }).amount).toEqual({
-      amount: 12.5,
+      amount: 1250,
       currency: "CHF",
     });
   });
@@ -110,7 +110,7 @@ describe("actionForm money field currency source", () => {
     const call = writeCalls[0];
     if (call === undefined) throw new Error("expected one write call");
     expect((call.payload as { amount?: unknown }).amount).toEqual({
-      amount: 7,
+      amount: 700,
       currency: "GBP",
     });
   });
@@ -118,13 +118,13 @@ describe("actionForm money field currency source", () => {
   test("the tenant currency lookup asks for the currency key only, not every readable config key", async () => {
     const configPayloads: unknown[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async (type: string, payload: unknown) => {
+      query: async (type: string, payload: unknown) => {
         if (type === "config:query:values") {
           configPayloads.push(payload);
           return { isSuccess: true, data: TENANT_CURRENCY_VALUES };
         }
         return { isSuccess: true, data: { rows: [], nextCursor: null } };
-      }) as unknown as Dispatcher["query"],
+      },
     });
 
     render(
@@ -133,25 +133,28 @@ describe("actionForm money field currency source", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     expect(configPayloads).toEqual([{ keys: ["tenant-settings:config:currency"] }]);
   });
 
   test("a failing or empty tenant currency lookup blocks the form instead of submitting a guessed currency", async () => {
     const failing = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: false,
-        error: { code: "internal", i18nKey: "errors.internal" },
-      })) as unknown as Dispatcher["query"],
+        error: {
+          code: "internal",
+          httpStatus: 500,
+          i18nKey: "errors.internal",
+          message: "internal error",
+        },
+      }),
     });
     const { unmount } = render(
       <DispatcherProvider dispatcher={failing}>
         <KumikoScreen schema={makeSchema({ kind: "tenant" })} qn="billing:screen:invoice-pay" />
       </DispatcherProvider>,
     );
-    await waitFor(() =>
-      expect(screen.getByTestId("kumiko-screen-currency-unresolved")).toBeTruthy(),
-    );
+    await waitFor(() => screen.getByTestId("kumiko-screen-currency-unresolved"));
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
     unmount();
 
@@ -161,19 +164,17 @@ describe("actionForm money field currency source", () => {
         <KumikoScreen schema={makeSchema({ kind: "tenant" })} qn="billing:screen:invoice-pay" />
       </DispatcherProvider>,
     );
-    await waitFor(() =>
-      expect(screen.getByTestId("kumiko-screen-currency-unresolved")).toBeTruthy(),
-    );
+    await waitFor(() => screen.getByTestId("kumiko-screen-currency-unresolved"));
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
   });
 
   test("a form with only literal-declared money fields never calls config:query:values", async () => {
     const queriedTypes: string[] = [];
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         queriedTypes.push(type);
         return { isSuccess: true, data: { rows: [], nextCursor: null } };
-      }) as unknown as Dispatcher["query"],
+      },
     });
 
     render(
@@ -185,7 +186,7 @@ describe("actionForm money field currency source", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     expect(queriedTypes).not.toContain("config:query:values");
   });
 });
@@ -214,10 +215,10 @@ describe("secretMint money field currency source", () => {
   test("literal money fields in the mint step and the confirm step both submit { amount, currency }", async () => {
     const writeCalls: { type: string; payload: unknown }[] = [];
     const dispatcher = createMockDispatcher({
-      write: (async (type: string, payload: unknown) => {
+      write: async (type: string, payload: unknown) => {
         writeCalls.push({ type, payload });
         return { isSuccess: true, data: { token: "kpat_secret" } };
-      }) as unknown as Dispatcher["write"],
+      },
     });
     const schema: FeatureSchema = {
       featureName: "billing",
@@ -230,7 +231,7 @@ describe("secretMint money field currency source", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-form"));
     await typeText("field-amount", "3");
     await typeText("field-note", "mint it");
     await userEvent.setup().click(screen.getByTestId("render-edit-submit"));
@@ -240,7 +241,7 @@ describe("secretMint money field currency source", () => {
     if (mintCall === undefined) throw new Error("expected a mint write call");
     expect(mintCall.type).toBe("billing:write:credit:mint");
     expect((mintCall.payload as { amount?: unknown }).amount).toEqual({
-      amount: 3,
+      amount: 300,
       currency: "CHF",
     });
 
@@ -254,7 +255,7 @@ describe("secretMint money field currency source", () => {
     if (confirmCall === undefined) throw new Error("expected a confirm write call");
     expect(confirmCall.type).toBe("billing:write:credit:confirm");
     expect((confirmCall.payload as { fee?: unknown }).fee).toEqual({
-      amount: 4.25,
+      amount: 425,
       currency: "GBP",
     });
   });

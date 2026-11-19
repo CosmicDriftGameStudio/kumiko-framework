@@ -14,6 +14,12 @@ export const USER_DATA_RIGHTS_BOOT_RULES = {
   missingHook: {
     id: "user-data-rights/missing-hook",
     summary: "An entity with user-subject fields registers an EXT_USER_DATA hook.",
-    fix: "Register r.useExtension(EXT_USER_DATA, ...) for the entity, or a documented no-op hook if it is covered elsewhere.",
+    fix: "Register r.applyExtension({ name: EXT_USER_DATA, ... }) for the entity, or a documented no-op hook if it is covered elsewhere.",
+  },
+  mailAppNameMissing: {
+    id: "user-data-rights/mail-app-name-missing",
+    summary:
+      "When the default GDPR mails can go out, mailDefaults.appName names the app in their subject and body.",
+    fix: 'Pass createUserDataRightsFeature({ mailDefaults: { appName: "<your app>" } }), or set every send*Email callback and leave the anonymous deletion flow off.',
   },
 } as const satisfies BootRuleTable;

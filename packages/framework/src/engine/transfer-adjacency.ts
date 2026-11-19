@@ -53,13 +53,8 @@ function referenceEdgesFrom(entityName: string, entity: EntityDefinition): Trans
   return edges;
 }
 
-// A parentRef names the types it accepts; without `allowedTypes` it accepts
-// any of them, so the edge is recorded against every registered type.
-function parentRefEdgesFrom(
-  entityName: string,
-  entity: EntityDefinition,
-  allEntityNames: readonly string[],
-): TransferEdge[] {
+// A parentRef records one edge per host it names in allowedTypes.
+function parentRefEdgesFrom(entityName: string, entity: EntityDefinition): TransferEdge[] {
   const parentRef = entity.parentRef;
   if (!parentRef) return [];
   const link: TransferEdgeLink = {
@@ -67,7 +62,7 @@ function parentRefEdgesFrom(
     typeField: parentRef.entityTypeField,
     idField: parentRef.entityIdField,
   };
-  return (parentRef.allowedTypes ?? allEntityNames).map((parentEntityName) => ({
+  return parentRef.allowedTypes.map((parentEntityName) => ({
     entityName,
     entity,
     parentEntityName,
@@ -89,7 +84,6 @@ export function resolveTransferAdjacency(
   entities: ReadonlyMap<string, EntityDefinition>,
   rootEntityType?: string,
 ): TransferAdjacency {
-  const allEntityNames = [...entities.keys()];
   const byParent = new Map<string, TransferEdge[]>();
 
   for (const [entityName, entity] of entities) {
@@ -98,7 +92,7 @@ export function resolveTransferAdjacency(
     // across the tenant boundary along with the one that was claimed.
     if (entityName === rootEntityType) continue;
     for (const edge of [
-      ...parentRefEdgesFrom(entityName, entity, allEntityNames),
+      ...parentRefEdgesFrom(entityName, entity),
       ...referenceEdgesFrom(entityName, entity),
     ]) {
       const edges = byParent.get(edge.parentEntityName) ?? [];

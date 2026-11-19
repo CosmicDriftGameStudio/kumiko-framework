@@ -38,7 +38,6 @@ import { runStepList } from "../run-pipeline.ts";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.ts";
 import { validateNoReturnSteps } from "./_no-return-guard.ts";
 import { resolveRequired } from "./_resolver-utils.ts";
-import { SUSPEND_SENTINEL } from "./_step-dispatch-constants.ts";
 
 type ForEachArgs<TItem = unknown> = {
   readonly over: StepResolver<readonly TItem[]>;
@@ -49,9 +48,8 @@ type ForEachArgs<TItem = unknown> = {
   readonly concurrency?: 1;
 };
 
-defineStep<ForEachArgs, undefined | typeof SUSPEND_SENTINEL>({
+defineStep<ForEachArgs, undefined>({
   kind: "forEach",
-  defaultFailureStrategy: "throw",
   subPaths: ["do"],
   run: async (args, ctx: PipelineCtx) => {
     const items = resolveRequired(args.over, ctx);
@@ -74,19 +72,9 @@ defineStep<ForEachArgs, undefined | typeof SUSPEND_SENTINEL>({
     try {
       for (const item of items) {
         scopeAcc[args.as] = item;
-        const outcome = await runStepList(
-          args.do,
-          ctx.event,
-          ctx,
-          stepsAcc,
-          scopeAcc,
-          ctx.workflow,
-        );
+        const outcome = await runStepList(args.do, ctx.event, ctx, stepsAcc, scopeAcc);
         if (outcome.kind === "return") {
           throw new Error("r.step.return is not allowed inside r.step.forEach.do (Q12)");
-        }
-        if (outcome.kind === "suspended") {
-          return SUSPEND_SENTINEL;
         }
       }
     } finally {

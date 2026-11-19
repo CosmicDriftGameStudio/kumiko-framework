@@ -3,6 +3,7 @@ import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumik
 import * as z from "zod";
 
 export const noteEntity = createEntity({
+  name: "note",
   table: "read_sample_notes",
   fields: {
     title: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -24,6 +25,7 @@ export const preferenceTable = defineUnmanagedTable({
     { name: "tenant_id", pgType: "uuid", notNull: true },
     { name: "key", pgType: "text", notNull: true },
     { name: "value", pgType: "text", notNull: true },
+    { name: "changes", pgType: "integer", notNull: true, defaultSql: "0" },
   ],
   indexes: [
     { name: "sample_tenant_preferences_tenant_key", columns: ["tenant_id", "key"], unique: true },
@@ -42,7 +44,7 @@ const openRead = {
 } as const;
 
 export const noteFeature = defineFeature("notes", (r) => {
-  r.crud("note", noteEntity, {
+  r.crud(noteEntity, {
     write: adminWrite,
     read: openRead,
     verbs: { update: false, delete: false, restore: false },
@@ -54,10 +56,12 @@ export const noteFeature = defineFeature("notes", (r) => {
     name: "preference:set",
     schema: z.object({ key: z.string().min(1), value: z.string() }),
     handler: async (event, ctx) => {
-      const row = await ctx.db.upsert<{ value: string }>(preferenceTable, event.payload, {
-        conflictTarget: ["tenantId", "key"],
-      });
-      return { isSuccess: true, data: { value: row?.value } };
+      const row = await ctx.db.upsert<{ value: string; changes: number }>(
+        preferenceTable,
+        event.payload,
+        { conflictTarget: ["tenantId", "key"], increment: { changes: 1 } },
+      );
+      return { isSuccess: true, data: { value: row?.value, changes: row?.changes } };
     },
     ...adminWrite,
   });

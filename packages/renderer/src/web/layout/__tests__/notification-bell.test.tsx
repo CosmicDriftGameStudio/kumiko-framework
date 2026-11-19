@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { InAppInboxResult } from "@cosmicdrift/kumiko-types/in-app-notification-types";
 import type { ReactNode } from "react";
 import type { Dispatcher } from "../../../headless/index.ts";
+import { isRecord } from "../../../headless/is-record.ts";
 import {
   type AppSchema,
   DispatcherProvider,
@@ -65,17 +66,17 @@ type Calls = { queries: string[]; writes: Array<{ type: string; payload: unknown
 
 function makeDispatcher(calls: Calls, unread: { count: number }): Dispatcher {
   return createMockDispatcher({
-    query: (async (type: string) => {
+    query: async (type: string) => {
       calls.queries.push(type);
       if (type === "channel-in-app:query:unread-count") {
         return { isSuccess: true, data: { count: unread.count } };
       }
       return { isSuccess: true, data: inboxRows };
-    }) as unknown as Dispatcher["query"],
-    write: (async (type: string, payload: unknown) => {
+    },
+    write: async (type: string, payload: unknown) => {
       calls.writes.push({ type, payload });
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
+    },
   });
 }
 
@@ -171,7 +172,7 @@ describe("NotificationBell", () => {
         </LiveEventsProvider>
       </DispatcherProvider>,
     );
-    expect(screen.getByRole("button", { name: "Assistant" })).toBeTruthy();
+    screen.getByRole("button", { name: "Assistant" });
     expect(screen.queryByRole("button", { name: /Notifications/ })).toBeNull();
   });
 
@@ -207,8 +208,8 @@ describe("NotificationBell", () => {
     const navigated: unknown[] = [];
     mount("channel-in-app", makeDispatcher(calls, { count: 1 }), makeLive().subscriber, navigated);
     fireEvent.click(await screen.findByRole("button", { name: "Notifications, 1 unread" }));
-    expect(await screen.findByText("Printer is down")).toBeTruthy();
-    expect(screen.getByText("Welcome")).toBeTruthy();
+    await screen.findByText("Printer is down");
+    screen.getByText("Welcome");
 
     fireEvent.click(screen.getByText("Ticket assigned"));
     await waitFor(() => expect(navigated).toEqual([{ screenId: "detail", entityId: "t-7" }]));
@@ -247,11 +248,12 @@ describe("NotificationBell", () => {
     let olderRequested = false;
     let resolveOlder: (result: InAppInboxResult) => void = () => {};
     const dispatcher = createMockDispatcher({
-      query: (async (type: string, payload: { cursor?: string }) => {
+      query: async (type: string, payload: unknown) => {
+        const cursor = isRecord(payload) ? payload["cursor"] : undefined;
         if (type === "channel-in-app:query:unread-count") {
           return { isSuccess: true, data: { count: 1 } };
         }
-        if (payload.cursor !== undefined) {
+        if (cursor !== undefined) {
           const older = await new Promise<InAppInboxResult>((resolve) => {
             olderRequested = true;
             resolveOlder = resolve;
@@ -259,7 +261,7 @@ describe("NotificationBell", () => {
           return { isSuccess: true, data: older };
         }
         return { isSuccess: true, data: { ...inboxRows, nextCursor: "page-2" } };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     mount("channel-in-app", dispatcher, live.subscriber);
     fireEvent.click(await screen.findByRole("button", { name: "Notifications, 1 unread" }));
@@ -273,7 +275,7 @@ describe("NotificationBell", () => {
     });
 
     expect(screen.queryByText("Stale older row")).toBeNull();
-    expect(screen.getByRole("button", { name: "Load more" })).toBeTruthy();
+    screen.getByRole("button", { name: "Load more" });
   });
 
   test("a delivered signal refetches the count", async () => {
@@ -285,7 +287,7 @@ describe("NotificationBell", () => {
 
     unread.count = 4;
     act(() => live.emit("channel-in-app:event:delivered"));
-    expect(await screen.findByRole("button", { name: "Notifications, 4 unread" })).toBeTruthy();
+    await screen.findByRole("button", { name: "Notifications, 4 unread" });
   });
 });
 
@@ -323,7 +325,7 @@ describe("NotificationBell in the overflow menu", () => {
     fireEvent.click(screen.getByTestId("shell-header-overflow-trigger"));
     fireEvent.click(await screen.findByTestId("notification-bell-menu-item"));
 
-    expect(await screen.findByText("Printer is down")).toBeTruthy();
+    await screen.findByText("Printer is down");
     expect(screen.getByTestId("shell-header-overflow").hasAttribute("hidden")).toBe(true);
 
     fireEvent.click(screen.getByText("Ticket assigned"));
@@ -382,7 +384,7 @@ describe("NotificationBell in the overflow menu", () => {
       },
     );
     fireEvent.click(screen.getByTestId("shell-header-overflow-trigger"));
-    expect(screen.getByTestId("notification-bell-menu-item")).toBeTruthy();
+    screen.getByTestId("notification-bell-menu-item");
     expect(screen.getByTestId("shell-header-overflow").querySelector("hr")).toBeNull();
   });
 

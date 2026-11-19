@@ -15,6 +15,7 @@ const ALL_GDPR_MAIL_KINDS = [
   "exportFailed",
   "deletionRequested",
   "deletionExecuted",
+  "deletionVerification",
 ] as const;
 
 export type GdprMailKind = (typeof ALL_GDPR_MAIL_KINDS)[number];
@@ -26,6 +27,7 @@ export const GDPR_MAIL_KINDS: Readonly<
   exportFailed: { name: "export-failed", translationKey: "exportFailed" },
   deletionRequested: { name: "deletion-requested", translationKey: "deletionRequested" },
   deletionExecuted: { name: "deletion-executed", translationKey: "deletionExecuted" },
+  deletionVerification: { name: "deletion-verification", translationKey: "deletionVerification" },
 };
 
 export const GdprMailNotificationTypes: Readonly<Record<GdprMailKind, string>> = {
@@ -33,6 +35,7 @@ export const GdprMailNotificationTypes: Readonly<Record<GdprMailKind, string>> =
   exportFailed: gdprMailType("exportFailed"),
   deletionRequested: gdprMailType("deletionRequested"),
   deletionExecuted: gdprMailType("deletionExecuted"),
+  deletionVerification: gdprMailType("deletionVerification"),
 };
 
 function gdprMailType(kind: GdprMailKind): string {
@@ -64,8 +67,16 @@ export const GDPR_MAIL_VARIABLES: Readonly<Record<GdprMailKind, TemplateVariable
   deletionRequested: {
     appName: appName(),
     deletionDate: templateVariable.text({ required: true }),
+    cancelUrl: templateVariable.link({ required: false }),
+    // Set when there is no cancelUrl; shows the sign-in instruction instead.
+    signInToCancel: templateVariable.text({ required: false }),
   },
   deletionExecuted: { appName: appName(), executedAt: templateVariable.text({ required: true }) },
+  deletionVerification: {
+    appName: appName(),
+    actionUrl: templateVariable.link({ required: true }),
+    validUntil: templateVariable.text({ required: true }),
+  },
 };
 
 // Translation placeholder -> template variable per kind.
@@ -74,6 +85,7 @@ const PLACEHOLDER_SLOTS: Readonly<Record<GdprMailKind, Readonly<Record<string, s
   exportFailed: { app: "{appName}" },
   deletionRequested: { app: "{appName}", when: "{deletionDate}" },
   deletionExecuted: { app: "{appName}", when: "{executedAt}" },
+  deletionVerification: { app: "{appName}", when: "{validUntil}" },
 };
 
 function paragraph(kind: GdprMailKind, locale: string, part: string): string {
@@ -102,10 +114,22 @@ function mailBody(kind: GdprMailKind, locale: string): string {
       return [
         greeting(locale),
         paragraph(kind, locale, "intro"),
-        paragraph(kind, locale, "cancel"),
+        mailParagraph(mailT(locale, "gdpr.mail.deletionRequested.cancel"), { showIf: "cancelUrl" }),
+        `<p data-if="cancelUrl"><a data-button href="{{cancelUrl}}">${escapeHtml(mailT(locale, "gdpr.mail.deletionRequested.cancelButton"))}</a></p>`,
+        mailParagraph(mailT(locale, "gdpr.mail.deletionRequested.cancelSignIn"), {
+          showIf: "signInToCancel",
+        }),
       ].join("");
     case "deletionExecuted":
       return [greeting(locale), paragraph(kind, locale, "intro")].join("");
+    case "deletionVerification":
+      return [
+        greeting(locale),
+        paragraph(kind, locale, "intro"),
+        `<p><a data-button href="{{actionUrl}}">${escapeHtml(mailT(locale, "gdpr.mail.deletionVerification.button"))}</a></p>`,
+        paragraph(kind, locale, "expiry"),
+        paragraph(kind, locale, "ignore"),
+      ].join("");
   }
 }
 
@@ -113,7 +137,8 @@ export const gdprMailLocalizedTemplate = mailLocaleTemplates.localizedTemplate;
 
 export function registerGdprMails(r: FeatureRegistrar): void {
   for (const kind of ALL_GDPR_MAIL_KINDS) {
-    r.notification(GDPR_MAIL_KINDS[kind].name, {
+    r.notification({
+      name: GDPR_MAIL_KINDS[kind].name,
       variables: GDPR_MAIL_VARIABLES[kind],
       localizedTemplate: gdprMailLocalizedTemplate(kind),
     });

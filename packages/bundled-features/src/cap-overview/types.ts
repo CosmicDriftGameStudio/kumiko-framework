@@ -9,9 +9,8 @@ export type CapUnit = "count" | "mb" | "tokens";
 // both together when a cap needs a shape not covered here.
 export type CapIconKey = "file" | "hash" | "database" | "users" | "mail" | "gauge";
 
-// What a limit sees besides the tier: the target tenant, the same system-mode db `usage` gets
-// (app-owned rows such as booked add-ons are read from it, scoped by tenantId), and the target
-// tenant's config.
+// What a limit sees besides the tier: the target tenant, the same db `usage` gets (app-owned rows
+// such as booked add-ons are read from it, filtered by tenantId), and the target tenant's config.
 export type CapSpecLimitContext = CapLimitContext & {
   readonly tenantId: TenantId;
   readonly db: TenantDb;
@@ -19,11 +18,9 @@ export type CapSpecLimitContext = CapLimitContext & {
 
 export type CapSpecLimitTenant = Omit<CapSpecLimitContext, "db"> & { readonly tier: string };
 
-// Consumer-owned cap definition. `usage`/`usageBatch` receive the SAME
-// unfiltered system-mode TenantDb the handler itself reads through — the
-// callback is responsible for scoping its own app-owned tables by tenantId,
-// same obligation the rest of this feature carries (see feature.ts SECURITY
-// note).
+// Consumer-owned cap definition. caps:usage hands `usage` and `limit` a tenant-mode TenantDb scoped
+// to the target tenant, without unsafeRaw; tenant-caps:list hands every callback the unfiltered
+// system-mode TenantDb, so callbacks still filter their own tables by tenantId.
 export type CapSpec = {
   readonly id: string;
   readonly label: string;

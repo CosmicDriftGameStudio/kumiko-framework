@@ -16,6 +16,7 @@ import {
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
@@ -57,8 +58,8 @@ function gatedDispatcher(
   record: Readonly<Record<string, unknown>>,
   forcedRejection?: RejectingFields,
 ): Dispatcher {
-  return {
-    write: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async (type: string, payload: unknown) => {
       const sent = payload as Record<string, unknown>;
       writes.push({ type, payload: sent });
       if (forcedRejection !== undefined) return forcedRejection;
@@ -69,17 +70,10 @@ function gatedDispatcher(
       const gate = sanitizePageBody(changes.body, changes.bodyFormat);
       if (!gate.ok) return rejection(gate.issues[0]?.params?.["detail"] as string);
       return { isSuccess: true, data: { id: "new-page" } };
-    }) as unknown as Dispatcher["write"],
-    query: (async () => ({ isSuccess: true, data: record })) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    query: async () => ({ isSuccess: true, data: record }),
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 function WebPreviewStub({ content }: PreviewRendererProps): ReactNode {

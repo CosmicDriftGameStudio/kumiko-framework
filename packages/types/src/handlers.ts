@@ -11,10 +11,13 @@ import type {
   NotifyDeliveryStatus,
 } from "./delivery-attempt-types.ts";
 import type { DerivativesContext } from "./derivatives-types.ts";
-import type { EntityCache } from "./entity-cache.ts";
 import type { EventMetadata, WriteOrigin } from "./event-store-types.ts";
 import type { KumikoEventTypeMap } from "./event-type-map.ts";
-import type { FileContext } from "./file-handle-types.ts";
+import type {
+  FileContext,
+  FileDownloadLinkSigner,
+  FileDownloadLinks,
+} from "./file-handle-types.ts";
 import type { FileProviderResolver } from "./file-provider-resolver-types.ts";
 import type { GeoTzProvider } from "./geo-tz.ts";
 import type {
@@ -36,10 +39,11 @@ import type {
   JobLifecycle,
   UserLiveSignals,
 } from "./handler-context-services.ts";
+import type { QueryContract } from "./handler-contract.ts";
 import type { Logger } from "./logger.ts";
 import type { Meter, Tracer } from "./observability/index.ts";
 import type { SearchAdapter } from "./search-adapter.ts";
-import type { CrossTenantReads, TenantDb } from "./tenant-db-types.ts";
+import type { ConnectionTenantDb, CrossTenantReads, TenantDb } from "./tenant-db-types.ts";
 import { isOneOf, propertyOf } from "./type-guards.ts";
 import type { Clock, TzContext } from "./tz-context.ts";
 
@@ -106,10 +110,11 @@ export const ESCAPE_HATCH_GRANTS = [
 
 export type EscapeHatchGrant = (typeof ESCAPE_HATCH_GRANTS)[number];
 
-// `grants` narrows what the declaration unlocks; absent means all of ESCAPE_HATCH_GRANTS.
-export type EscapeHatchDeclaration = {
+// `grants` lists what the declaration unlocks. defineWriteHandler/defineQueryHandler infer TGrant from
+// the literal list to type ctx.crossTenantReads; everywhere else it stays the full union.
+export type EscapeHatchDeclaration<TGrant extends EscapeHatchGrant = EscapeHatchGrant> = {
   readonly reason: string;
-  readonly grants?: readonly EscapeHatchGrant[];
+  readonly grants: readonly [TGrant, ...TGrant[]];
 };
 
 export function isEscapeHatchGrant(value: unknown): value is EscapeHatchGrant {
@@ -121,7 +126,7 @@ export function escapeHatchAllows(
   grant: EscapeHatchGrant,
 ): boolean {
   if (declaration === undefined) return false;
-  return declaration.grants === undefined || declaration.grants.includes(grant);
+  return declaration.grants.includes(grant);
 }
 
 // Returns the declaration only when it unlocks `grant`, so call sites keep passing
@@ -148,7 +153,9 @@ export function escapeHatchGrantsProblem(declaration: {
   readonly grants?: unknown;
 }): string | undefined {
   const { grants } = declaration;
-  if (grants === undefined) return undefined;
+  if (grants === undefined) {
+    return `grants is required: a non-empty list of ${ESCAPE_HATCH_GRANTS.join(", ")}`;
+  }
   if (!Array.isArray(grants) || grants.length === 0) {
     return `grants must be a non-empty list of: ${ESCAPE_HATCH_GRANTS.join(", ")}`;
   }
@@ -362,17 +369,16 @@ export type WriteResult<TData = unknown> =
 
 // Forward import: Registry is in feature.ts (circular type import — fine in TS)
 import type { Registry } from "./feature.ts";
-import type { TenantId } from "./identifiers.ts";
+import type { TenantId, VisitorKey } from "./identifiers.ts";
 import type { UncheckedSystemDb } from "./tenant-db-types.ts";
 
 // The framework resolves the member internally, so no hand-built SessionUser reaches app code.
 export type MemberReader = (userId: string, qn: string, payload: unknown) => Promise<unknown>;
 
-// The stored event that made an r.job trigger fire, carried through so the
-// job handler can key an idempotency check on it (at-least-once delivery via
-// the job-trigger event consumer, see pipeline/system-hooks.ts).
+// The stored event that made an r.job trigger fire. `aggregateId` is the stream it was appended to — for an entity write the written row's id, so a follow-up job can act on exactly that row. `id` keys idempotency for the at-least-once consumer paths.
 export type JobTriggerEvent = {
   readonly id: string;
+  readonly aggregateId: string;
   readonly headers: NonNullable<EventMetadata["headers"]>;
 };
 
@@ -579,11 +585,15 @@ type SharedContextFields = {
   readonly rateLimit?: import("./rate-limit-types.ts").RateLimitResolver;
   // Internal: keyed digest for payload-field rate-limit buckets. Set by buildServer; read only by the dispatcher.
   readonly _rateLimitPayloadDigest?: (value: string) => string;
+  // Internal: keyed digest behind ctx.visitorKey. Set by buildServer; read only by the handler-context builder.
+  readonly _visitorKeyDigest?: (value: string) => string;
   readonly searchAdapter?: SearchAdapter;
   readonly files?: FileContext;
+  readonly fileDownloadLinks?: FileDownloadLinks;
+  // Internal: signs download-link tokens. Set by buildServer; read by the handler-context builder and the link route.
+  readonly _fileDownloadLinkSigner?: FileDownloadLinkSigner;
   readonly derivatives?: DerivativesContext;
   readonly _fileProviderResolver?: FileProviderResolver;
-  readonly entityCache?: EntityCache;
   readonly notify?: NotifyFn;
   readonly _notifyFactory?: NotifyFactory;
   readonly _notifyInTransactionFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
@@ -617,8 +627,8 @@ export type AppContext = SharedContextFields & {
   readonly triggeredBy?: { readonly id: string; readonly tenantId: TenantId } | null;
   /** For job-handler calls triggered by an `on` entry
    *  (`r.job` with `trigger: { on: ... }`): the qualified name the entry matched,
-   *  either a write/query-handler QN (e.g. `multi:write:order:open`) or an
-   *  `r.defineEvent` QN (e.g. `inbound-mail-foundation:event:inbound-message-received`).
+   *  an `r.defineEvent` QN (e.g. `inbound-mail-foundation:event:inbound-message-received`)
+   *  or an entity lifecycle event (e.g. `order.created`).
    *  For multi-trigger jobs (`on: [...]`), this is the only way for the
    *  handler to know which trigger fired. Cron and manual jobs leave the
    *  field undefined. */
@@ -669,10 +679,10 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = {
   // only for system handlers (isSystem is a runtime-only registry lookup),
   // so a system handler must reach for `systemDb` below.
   readonly db: HandlerDb;
-  // Only present for r.systemScope() handlers. Non-system handlers never
-  // receive this — reach for `db` instead, which is fail-closed for them.
+  // Present for r.systemScope() handlers; non-optional on SystemScopeHandlerContext (handler declares systemScope: true). Non-system handlers never receive it — reach for db instead.
   readonly systemDb?: UncheckedSystemDb;
   // Present only when the handler's escapeHatch grants crossTenantReads or unsafeRaw; every call is audited as cross-tenant-read.
+  // Non-optional on GrantedHandlerContext (a define*-handler lists crossTenantReads in its grants). Agent tool calls and resolved members never receive it.
   readonly crossTenantReads?: CrossTenantReads;
   readonly registry: Registry;
   /** The active SessionUser for the handler call, exposed as a convenience
@@ -686,6 +696,12 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = {
    *  the same input yields a different digest per handler and never matches a
    *  dispatcher payload-bucket digest. Absent when the app wires no digest key. */
   readonly rateLimitDigest?: (value: string) => string;
+  /** Pseudonym of the HTTP caller: keyed HMAC over the UTC day, the resolved client IP and
+   *  the User-Agent, identical in every handler and nested dispatch of the app for that day.
+   *  Absent outside an HTTP request and when the client IP is unknown. Pseudonymous personal
+   *  data for dedup records only, never in events. Not a rate-limit subject: the User-Agent is
+   *  caller-controlled, so limits use rateLimit (client IP). */
+  readonly visitorKey?: VisitorKey;
   // Trash query opt-in (soft-delete). When true, the auto entity-list handler
   // asks the executor to include soft-deleted rows; a custom query handler can
   // read it to branch its own logic. Set by the dispatcher from the query
@@ -743,6 +759,32 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = {
   readonly tenants: HandlerTenants;
 };
 
+// Context of a handler that declares `systemScope: true`. defineWriteHandler/defineQueryHandler
+// check at dispatch that systemDb is present, and boot rejects the marker outside an
+// r.systemScope() feature, so the field is guaranteed rather than optional.
+export type SystemScopeHandlerContext<TMap extends object = KumikoEventTypeMap> =
+  HandlerContext<TMap> & { readonly systemDb: UncheckedSystemDb };
+
+// Maps a define*-handler's inferred grant list onto its context; defineWriteHandler/defineQueryHandler
+// check at dispatch that the field is present. A list the compiler only knows as the full
+// EscapeHatchGrant union (a shared EscapeHatchDeclaration, explicit type arguments) proves nothing, so
+// the field stays optional there. unsafeRaw also wires crossTenantReads at runtime but is not mapped:
+// its handlers read through ctx.db.unsafeRaw(), which is always on the type.
+export type GrantedHandlerContext<
+  TContext extends { readonly crossTenantReads?: CrossTenantReads },
+  TGrant extends EscapeHatchGrant,
+> = [EscapeHatchGrant] extends [TGrant]
+  ? TContext
+  : ["crossTenantReads"] extends [TGrant]
+    ? TContext & { readonly crossTenantReads: CrossTenantReads }
+    : TContext;
+
+export function hasCrossTenantReads<
+  TContext extends { readonly crossTenantReads?: CrossTenantReads },
+>(ctx: TContext): ctx is TContext & { readonly crossTenantReads: CrossTenantReads } {
+  return ctx.crossTenantReads !== undefined;
+}
+
 // Job execution: db + registry + systemUser + logging guaranteed, plus a
 // write path into the same dispatcher pipeline write-handlers use.
 //
@@ -750,16 +792,16 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = {
 // call this early is a framework boot bug, not a job-author mistake.
 //
 // `write` runs as the job's own systemUser, tenant-scoped via its tenantId
-// (SYSTEM_TENANT_ID for jobs with no tenant context, e.g. plain cron jobs). A job that writes without fanning out per-tenant
+// (SYSTEM_TENANT_ID for jobs with no tenant context, e.g. plain cron jobs). `query` runs as the same identity. A job that writes without fanning out per-tenant
 // (`_perTenant:` trigger) silently writes into the system tenant instead of
 // each tenant it may have meant to reach — no guard against this, only this
 // warning.
 //
 // `writeAs` is the explicit-identity counterpart, symmetric with `queryAs`:
 // `hasAccess` has no system bypass, so a write handler whose `access` lists
-// concrete roles is unreachable through `write` — the job's systemUser only
-// carries SYSTEM_ROLE and the dispatch comes back `access_denied`.
-// The job has to assemble a full SessionUser for it:
+// concrete roles is unreachable through `write` unless the job lists that role in `runAs`:
+// the job's systemUser carries SYSTEM_ROLE plus the `runAs` roles, anything else comes back
+// `access_denied`. To act as a different identity the job assembles a full SessionUser for `writeAs`:
 // `triggeredBy` alone is not enough, it carries only id + tenantId and no
 // roles, so the roles have to come from the job's own lookup.
 //
@@ -775,7 +817,7 @@ export type JobContext = {
   // Tenant-filtered to the job's own tenant. Cross-tenant raw access needs
   // `escapeHatch` on the job (`ctx.db.unsafeRaw()`) or `r.systemScope()`
   // (`ctx.systemDb`).
-  readonly db: TenantDb;
+  readonly db: ConnectionTenantDb;
   readonly events: JobEvents;
   readonly registry: Registry;
   readonly systemUser: SessionUser;
@@ -804,8 +846,8 @@ export type JobContext = {
   // Multi-trigger jobs (`on: [...]`) use this to tell which trigger fired —
   // undefined for cron/manual jobs. Mirrors AppContext.triggerName.
   readonly triggerName?: string;
-  // Set only via the at-least-once job-trigger event consumer (not cron/manual or the sync handler-QN path);
-  // delivery can repeat, so use triggerEvent.id (or a header) as idempotency key.
+  // Set when a stored event fired the job, by the job-trigger and catch-up consumers (at-least-once, key idempotency on triggerEvent.id).
+  // Undefined for cron and manual runs.
   readonly triggerEvent?: JobTriggerEvent;
   readonly config?: ConfigAccessor;
   readonly notify?: NotifyFn;
@@ -832,313 +874,32 @@ export type StreamHandlerFn<TPayload = unknown, TChunk = unknown> = (
   context: HandlerContext,
 ) => AsyncGenerator<TChunk>;
 
-// --- Event Definitions ---
+// --- Event Definitions (moved to handler-event-types.ts) ---
 
-/**
- * Compile-time mirror of `engine/qualified-name.ts:toKebab` for camelCase
- * → kebab-case. Drives the literal-type of `EventDef.name`, so that
- * `r.defineEvent("foo", schema)` inside `defineFeature("driverOrders")`
- * carries `name: "driver-orders:event:foo"` as a literal — strict-mode
- * for `ctx.events.append({ type: eventDef.name, ... })` lights up.
- *
- * Algorithm mirrors the runtime regex pipeline:
- *   1. `.` → `-` (dot acts as word-boundary)
- *   2. Insert `-` between `[A-Z]+` and `[A-Z][a-z]` (so `SSEFoo` →
- *      `SSE-Foo`, splitting an uppercase run before a camel-hump)
- *   3. Insert `-` between `[a-z0-9]` and `[A-Z]` (camelCase boundary,
- *      so `ticketAssigned` → `ticket-Assigned`)
- *   4. lowercase everything
- *
- * Implemented as a state machine with one-char lookahead. State:
- *   - "start"        — at start of string, or right after a dot-boundary
- *   - "upper"        — last emitted char came from an uppercase letter
- *   - "post-letter"  — last emitted char was a lowercase letter or digit
- *
- * Sync vs runtime is verified by `engine/__tests__/camel-to-kebab.test-d.ts`
- * — the type-tests cross-check identical inputs against `toKebab()`.
- */
-export type CamelToKebab<S extends string> = CamelToKebabImpl<S, "start", "">;
-
-type CamelToKebabImpl<
-  S extends string,
-  Prev extends "start" | "upper" | "post-letter",
-  Acc extends string,
-> = S extends `${infer C}${infer Rest}`
-  ? CharKind<C> extends "upper"
-    ? Prev extends "start"
-      ? CamelToKebabImpl<Rest, "upper", `${Acc}${Lowercase<C>}`>
-      : Prev extends "post-letter"
-        ? CamelToKebabImpl<Rest, "upper", `${Acc}-${Lowercase<C>}`>
-        : // Prev = "upper" — peek next char to decide between
-          // continuing-the-run and splitting-before-camel-hump.
-          Rest extends `${infer Next}${string}`
-          ? CharKind<Next> extends "lower"
-            ? CamelToKebabImpl<Rest, "upper", `${Acc}-${Lowercase<C>}`>
-            : CamelToKebabImpl<Rest, "upper", `${Acc}${Lowercase<C>}`>
-          : `${Acc}${Lowercase<C>}`
-    : CharKind<C> extends "lower"
-      ? CamelToKebabImpl<Rest, "post-letter", `${Acc}${C}`>
-      : // Non-letter: dots become word-boundaries (state resets to "start"
-        // so the next uppercase letter doesn't pick up a redundant dash).
-        // Other non-letters (digits etc.) act like lowercase for transitions.
-        C extends "."
-        ? CamelToKebabImpl<Rest, "start", `${Acc}-`>
-        : CamelToKebabImpl<Rest, "post-letter", `${Acc}${C}`>
-  : Acc;
-
-/**
- * Three-way classification used by `CamelToKebab`:
- *   - "lower"      — a lowercase letter (a-z and Unicode lowercase)
- *   - "upper"      — an uppercase letter (A-Z and Unicode uppercase)
- *   - "non-letter" — digit, dot, dash, etc. (Lowercase==Uppercase for them)
- */
-type CharKind<C extends string> =
-  C extends Lowercase<C> ? (C extends Uppercase<C> ? "non-letter" : "lower") : "upper";
-
-/**
- * Builds the qualified event-name from feature + inner-name in the same
- * shape the runtime emits via `qn(toKebab(feature), "event", toKebab(inner))`.
- */
-export type QualifiedEventName<
-  TFeature extends string,
-  TInner extends string,
-> = `${CamelToKebab<TFeature>}:event:${CamelToKebab<TInner>}`;
-
-// PII payload fields on a custom event: `field` is encrypted under
-// the DEK the subject spec names (crypto-shredding).
-//
-// `{ personal: { of: "<ownerField>" } }` is the canonical user-subject form,
-// matching the entity-field `personal` vocabulary (see fields.ts).
-// `personal: "tenant"` and `personal: "self"` declare the event's tenant
-// (envelope.tenantId) or its own aggregate stream (envelope.aggregateType +
-// aggregateId) as the subject instead — resolved via `resolveEventSubject`
-// in `packages/framework/src/crypto/subject-resolver.ts`.
-//
-// `whenAbsent` decides what happens when the named owner field carries no
-// id (system- or cron-triggered writes): "tenant" re-targets the envelope
-// tenant key, "self" the event's own aggregate stream (record key),
-// "plaintext" is an explicit acknowledgement that the value ships
-// unencrypted and cannot be crypto-shredded. Undeclared is not another
-// option — the append fails closed instead of leaking.
-export type EventPiiAbsentSubject = "plaintext" | "tenant" | "self";
-
-export type EventPiiSubject =
-  | {
-      readonly personal: {
-        readonly of: string;
-        readonly whenAbsent?: EventPiiAbsentSubject;
-      };
-    }
-  | { readonly personal: "tenant" }
-  | { readonly personal: "self" }
-  | {
-      /** @deprecated use `{ personal: { of: "<ownerField>" } }` instead. Removed in 0.390.0. */
-      readonly subjectField: string;
-    };
-
-export type EventPiiFields = Readonly<Record<string, EventPiiSubject>>;
-
-export type NormalizedEventPiiSubject =
-  | {
-      readonly kind: "user";
-      readonly ownerField: string;
-      readonly whenAbsent: EventPiiAbsentSubject | undefined;
-    }
-  | { readonly kind: "tenant" }
-  | { readonly kind: "self" };
-
-export function normalizeEventPiiSubject(spec: EventPiiSubject): NormalizedEventPiiSubject {
-  if ("subjectField" in spec) {
-    return { kind: "user", ownerField: spec.subjectField, whenAbsent: undefined };
-  }
-  if (spec.personal === "tenant") return { kind: "tenant" };
-  if (spec.personal === "self") return { kind: "self" };
-  return { kind: "user", ownerField: spec.personal.of, whenAbsent: spec.personal.whenAbsent };
-}
-
-// The full set of PII stances a defineEvent() call may declare. "none" is a
-// distinct value from `{}` — an empty object is indistinguishable from "the
-// author forgot to list fields", while "none" is an explicit assertion that
-// the payload carries no personal data.
-export type EventPiiStance = EventPiiFields | "none";
-
-export type EventDef<TPayload = unknown, TName extends string = string> = {
-  readonly name: TName;
-  readonly schema: ZodType<TPayload>;
-  // Schema generation number. Starts at 1; bumped whenever a breaking change
-  // to the payload shape lands together with a matching r.eventMigration that
-  // upcasts older stored events. Reads consult this to decide if upcasters
-  // need to run before the payload hits consumer code.
-  readonly version: number;
-  readonly piiFields: EventPiiStance;
-};
-
-// Args for ctx.events.append — explicit aggregate target, Marten-style.
-// `type` must match a name returned by r.defineEvent in any registered
-// feature; payload is validated against that event's Zod schema before
-// being written to the events-table.
-//
-// `headers` lands in StoredEvent.metadata.headers — Marten-conform free
-// key/value space for app-specific metadata (A/B-bucket, geo-region,
-// client SDK version). Framework does not interpret values; keep them
-// JSON-primitive (string|number|boolean) for safe serialization.
-export type AppendEventArgs = {
-  readonly aggregateId: string;
-  readonly aggregateType: string;
-  readonly type: string;
-  readonly payload: unknown;
-  readonly headers?: Readonly<Record<string, string | number | boolean>>;
-};
-
-// Typed-payload variant — used by the strict ctx.events.append. Keyed via
-// the discriminator type-arg so payload inference flows from `type`-literal
-// to the matching schema-payload.
-//
-// TMap is propagated as a generic parameter (not hard-coded to
-// KumikoEventTypeMap) so the constraint `K extends keyof TMap` resolves at
-// USE-site instead of definition-site. Cross-package augmentation only
-// becomes visible at use-site — the App's tsc compiles the augmentation
-// alongside its own code, so `keyof TMap` widens to include all augmented
-// event names. Hard-coding `keyof KumikoEventTypeMap` here would resolve
-// at definition-site (framework's compile) where the augmentation is
-// invisible → K = never, no strict-checking. The default = KumikoEventTypeMap
-// keeps existing call-sites zero-config.
-export type TypedAppendEventArgs<TMap extends object, K extends keyof TMap> = {
-  readonly aggregateId: string;
-  readonly aggregateType: string;
-  readonly type: K;
-  readonly payload: TMap[K];
-  readonly headers?: Readonly<Record<string, string | number | boolean>>;
-};
-
-// Strict-only form. Single overload — `<K extends keyof TMap>` against the
-// app's pre-bound TMap. No fallback overload: apps that need runtime-pluggable
-// events (where the type-string isn't known at compile-time) reach for
-// `unsafeAppendEvent`.
-//
-// Why no fallback overload:
-//   A two-overload form (`(args: AppendEventArgs)` as the second sig)
-//   silently accepts any args via the loose overload as soon as TS can't
-//   prove the strict one matches. Cross-package, the strict overload's
-//   `K = keyof TMap` collapses to `never` when called WITHOUT a local
-//   wrapper (default-substitution is eager at definition-site → augmentation
-//   invisible). Either every caller binds TMap via wrapper → strict fires;
-//   or they don't, and the fallback would silently swallow every typo.
-//   We pick the first option and force the wrong path to fail visibly.
-//
-// How this is wired in practice:
-//   - Apps that augment KumikoEventTypeMap get a strict ctx.events.append in
-//     handlers bound to that map. Without an augmentation, emit through
-//     `emitEvent(ctx, eventDef, ...)`, which checks the payload against the
-//     EventDef returned by r.defineEvent.
-//   - Cross-package callers (e.g. bundled-features's set.write.ts) that
-//     can't afford a local wrapper reach for `ctx.events.unsafeAppend`
-//     instead — same runtime, looser type-surface.
-export type AppendEventFn<TMap extends object = KumikoEventTypeMap> = <K extends keyof TMap>(
-  args: TypedAppendEventArgs<TMap, K>,
-) => Promise<void>;
-
-export type UnsafeAppendEventFn = (args: AppendEventArgs) => Promise<void>;
-
-// Savepoint-scoped append — returns a discriminated result instead of
-// throwing on VersionConflictError, so a handler can react gracefully to
-// losing a race against a concurrent writer on the same aggregate stream
-// (e.g. two idempotent ingest calls for the same dedup key). The append
-// runs inside a driver-native SAVEPOINT: a conflict rolls back only that
-// nested scope, leaving the rest of the handler's transaction usable —
-// unlike unsafeAppendEvent, whose thrown VersionConflictError poisons the
-// entire enclosing transaction.
-export type TryAppendEventResult =
-  | { readonly ok: true; readonly event: import("./event-store-types.ts").StoredEvent }
-  | { readonly ok: false; readonly conflict: import("./event-store-types.ts").VersionConflict };
-
-export type TryAppendEventFn = (args: AppendEventArgs) => Promise<TryAppendEventResult>;
-
-// Args for ctx.events.fetchForWriting — Marten FetchForWriting equivalent. Returns
-// the current stream state + a handle that appends without re-specifying
-// aggregateId/aggregateType. When expectedVersion is provided, the handle
-// rejects the write immediately if the stream is ahead — optimistic
-// concurrency enforced BEFORE any downstream work. Without expectedVersion,
-// the handle trusts whatever version the stream currently has.
-export type FetchForWritingArgs = {
-  readonly aggregateId: string;
-  readonly aggregateType: string;
-  readonly expectedVersion?: number;
-};
-
-export type AggregateStreamHandle = {
-  // Snapshot at fetch time — upcasted via the registered upcaster chain,
-  // so payloads match the current schema regardless of when they landed.
-  readonly events: readonly import("./event-store-types.ts").StoredEvent[];
-  readonly version: number;
-  // Append an event on this stream. Derives aggregateId/aggregateType/
-  // expectedVersion from the handle automatically. Multiple calls in a
-  // row bump the handle's internal version and the events-table in order.
-  // Only this handle's own appendOne calls advance the pinned version: if the
-  // same handler also writes to this aggregateId another way (ctx.events.append,
-  // a second handle, a CRUD write or a nested ctx.dispatch.write), the next appendOne
-  // fails with VersionConflictError against that handler's own write. Route
-  // every append for the aggregate through one handle.
-  readonly appendOne: (args: { readonly type: string; readonly payload: unknown }) => Promise<void>;
-  // Idempotency check against `events` (fetch-time snapshot only — an
-  // appendOne in the same handler isn't reflected). Guards a handler that
-  // may run twice against the same stream without risking a false
-  // "already succeeded" read that appendIfAbsent-style helpers would give
-  // on a genuine optimistic-concurrency conflict.
-  readonly hasEvent: (type: string) => boolean;
-};
-
-// --- Event Upcasters (schema migration) ---
-//
-// Marten's Upcaster pattern adapted for TypeScript. An event's payload shape
-// may evolve over releases; stored events stay immutable on disk. Features
-// register step-wise transforms that upgrade v(N) payloads to v(N+1) at read
-// time. The framework chains them automatically — a v1 event gets walked
-// through every registered migration up to the current version before the
-// payload reaches a projection apply() or ctx.events.append consumer.
-//
-// Sync transforms: just return the upgraded payload. Most schema-evolution
-// (renames, additions, format-fixes) needs no IO and stays sync — fast on
-// the hot path of projection-rebuild.
-//
-// Async transforms (Marten's "AsyncOnlyEventUpcaster"): when the upgrade
-// needs DB enrichment (e.g. v1 stored only a customerId, v2 also needs the
-// customer's segment which lives in a reference table), accept the optional
-// ctx-arg, run the lookup via ctx.db, return a Promise. The framework
-// awaits unconditionally — sync transforms return a plain value and pay
-// only the await-microtask overhead. Pattern-match Marten:
-//   r.defineEvent("invoiceCreated", schema, {
-//     version: 2,
-//     migrations: [{ fromVersion: 1, toVersion: 2, transform: async (payload, ctx) => {
-//       const customer = await ctx.db.select().from(customersTable)...;
-//       return { ...payload, customerSegment: customer.segment };
-//     } }],
-//   });
-export type EventUpcastCtx = {
-  readonly db: import("./db-connection.ts").DbRunner;
-  readonly tenantId: import("./identifiers.ts").TenantId;
-};
-
-export type EventUpcastFn = (payload: unknown, ctx: EventUpcastCtx) => unknown | Promise<unknown>;
-
-// Declarative single-step migration — common payload transforms without an
-// imperative function. Applied in fixed order: rename → default → map.
-export type DeclarativeEventMigration = {
-  // old key → new key; a missing source key is a no-op
-  readonly rename?: Readonly<Record<string, string>>;
-  // set only when the key is absent — never overwrites an existing value
-  readonly default?: Readonly<Record<string, unknown>>;
-  // per-key value transform; skipped when the key is absent
-  readonly map?: Readonly<Record<string, (value: unknown) => unknown>>;
-};
-
-export type EventMigrationDef = {
-  // Qualified event name, matching r.defineEvent(...).name.
-  readonly eventName: string;
-  readonly fromVersion: number;
-  readonly toVersion: number; // must be fromVersion + 1
-  readonly transform: EventUpcastFn;
-};
+export type {
+  AggregateStreamHandle,
+  AppendConcurrency,
+  AppendEventArgs,
+  AppendEventFn,
+  CamelToKebab,
+  DeclarativeEventMigration,
+  EventDef,
+  EventMigrationDef,
+  EventPiiAbsentSubject,
+  EventPiiFields,
+  EventPiiStance,
+  EventPiiSubject,
+  EventUpcastCtx,
+  EventUpcastFn,
+  FetchForWritingArgs,
+  NormalizedEventPiiSubject,
+  QualifiedEventName,
+  TryAppendEventFn,
+  TryAppendEventResult,
+  TypedAppendEventArgs,
+  UnsafeAppendEventFn,
+} from "./handler-event-types.ts";
+export { normalizeEventPiiSubject } from "./handler-event-types.ts";
 
 // --- References ---
 
@@ -1153,6 +914,10 @@ export type EntityRef = {
 export type HandlerRef = {
   readonly name: string;
 };
+
+// Carries the target handler's payload and result types, so ctx.dispatch.query(ref, payload) is typed.
+export type QueryHandlerRef<TPayload = unknown, TResult = unknown> = HandlerRef &
+  QueryContract<TPayload, TResult>;
 
 // --- Handler Definitions (stored in feature/registry) ---
 
@@ -1288,7 +1053,7 @@ export type BeforeTransactionPhase<TPayload = unknown, TPrepared = unknown> = (
 
 /** `perCommand`: the handler runs without a transaction of its own. Use it for long external calls
  *  (minutes) that also need writes: no transaction or connection is held while the call runs, and
- *  `ctx.db.outsideTransaction` stays available for metering/provenance bookings. */
+ *  `ctx.db.outsideTransaction` stays available for metering/provenance bookings (as it does in beforeTransaction). */
 export type WriteHandlerTransactionMode = "perCommand";
 
 /** `skip`: run as a nested write without the `beforeTransaction` phase. */
@@ -1305,7 +1070,7 @@ export type WriteHandlerDef = {
   readonly name: string;
   readonly schema: ZodType;
   readonly handler: WriteHandlerFn;
-  /** Set only by defineEntityWriteHandler, which wires the parent-ref visibility gate.
+  /** Set only by the entity write factories (defineEntityUpdateHandler, …), which wire the parent-ref visibility gate.
    *  The boot-validator requires it on a `parentRef` entity's update/delete/restore handler. */
   readonly [ENTITY_CONVENTION_WRITE_BRAND]?: true;
   readonly access: AccessRule;
@@ -1323,6 +1088,8 @@ export type WriteHandlerDef = {
    *  payload (e.g. `(p) => p.files.length`). Replaces the options' `cost`; results below 1 count as 1. */
   readonly rateLimitCost?: (payload: unknown) => number;
   readonly escapeHatch?: EscapeHatchDeclaration;
+  /** Declared via `systemScope: true` on defineWriteHandler; boot requires the owning feature to call r.systemScope(). */
+  readonly systemScope?: true;
   /** Reserves before the handler transaction opens. Reached through a nested ctx.dispatch.write the
    *  reservation cannot run, so the dispatcher rejects it unless the top-level batch reserved it. */
   readonly reserveBeforeTransaction?: PreTransactionReservation;
@@ -1330,6 +1097,8 @@ export type WriteHandlerDef = {
    *  transaction opens: no transaction and no connection held, for external I/O and reads only.
    *  Its `data` reaches the handler as `event.prepared`; a failure result or throw rejects the
    *  write before anything is written. A handler with this phase cannot run as a nested ctx.dispatch.write.
+   *  `ctx.db.outsideTransaction` and `ctx.systemDb.outsideTransaction` stay available for writes
+   *  that must outlive a failing request (metering, provenance, idempotency records).
    *  `ctx.tenants.writeTarget` is available but read-only here: its db denies writes for the own and a
    *  foreign tenant alike (a foreign tenant stays gated by the SystemAdmin check). */
   readonly beforeTransaction?: BeforeTransactionPhase;
@@ -1343,9 +1112,12 @@ export type WriteHandlerDef = {
    *  ctx.db writes and event appends throw. It cannot run as a nested write or inside a
    *  multi-command batch, and cannot be combined with beforeTransaction/reserveBeforeTransaction. */
   readonly transaction?: WriteHandlerTransactionMode;
-  /** Lets an anonymous `POST /api/write` for this handler proceed under
-   *  SYSTEM_TENANT_ID when the host resolves no tenant. Boot requires
-   *  `access.roles: ["anonymous"]` and a real `rateLimit`. */
+  /** Reachable only from server code (ctx.dispatch, jobs, server routes), never through the
+   *  generic HTTP entry: POST /api/write, /api/batch and /api/command answer 404 as for an
+   *  unknown handler. The calling user is kept, unlike a system-access internal handler.
+   *  Implies agent exposure false. */
+  readonly dispatchOnly?: boolean;
+  /** The only way an anonymous write from the generic HTTP entry runs under SYSTEM_TENANT_ID (default tenant, host resolver or tenantless fallback); without it that write fails with 422 tenant_required. Also enables the tenantless fallback when the host resolves no tenant. Boot requires access.roles: ["anonymous"] and an ip-scoped rateLimit. */
   readonly tenantlessAnonymous?: boolean;
   // Set when the author wrote a `perform: stepsPipeline(...)` block. Boot-
   // validators (projection-allowlist) and Designer/AI tooling read this
@@ -1357,20 +1129,20 @@ export type WriteHandlerDef = {
   readonly perform?: import("./step.ts").PipelineDef;
 };
 
-// Marker set by defineEntityQueryHandler on both of its verbs. A string, not
+// Marker set by defineEntityListHandler/defineEntityDetailHandler. A string, not
 // a Symbol(), for the same reason as PAGED_QUERY_HANDLER_BRAND: a symlinked
 // workspace can evaluate a module twice, and two Symbol() calls would not
 // compare equal across those instances.
 export const ENTITY_CONVENTION_QUERY_BRAND = "__kumikoEntityConventionQuery";
 
-// Same brand for the update/delete/restore handlers built by defineEntityWriteHandler.
+// Same brand for the update/delete/restore handlers built by the entity write factories (defineEntityUpdateHandler, …).
 export const ENTITY_CONVENTION_WRITE_BRAND = "__kumikoEntityConventionWrite";
 
 export type QueryHandlerDef = {
   readonly name: string;
   readonly schema: ZodType;
   readonly handler: QueryHandlerFn;
-  /** Set only by defineEntityQueryHandler, which wires the parent-ref
+  /** Set only by defineEntityListHandler/defineEntityDetailHandler, which wire the parent-ref
    *  read-gate. The boot-validator requires it on a `parentRef` entity's
    *  list/detail handler — see boot-validator/parent-ref.ts. */
   readonly [ENTITY_CONVENTION_QUERY_BRAND]?: true;
@@ -1391,10 +1163,19 @@ export type QueryHandlerDef = {
    *  access to this query receive /api/sse change signals (no field values)
    *  for these entities. Every name must be a registered entity. */
   readonly liveEntities?: readonly string[];
+  /** The entity whose field read rules and writeOnly mask apply to this query's result (a row,
+   *  an array of rows or `{ rows }`). It does not map the handler to the entity: no effect on
+   *  live signals, access or hooks. */
+  readonly resultEntity?: string;
+  /** Marks a query whose result holds no entity rows (options, counts, derived values), so no
+   *  field filter applies. Excludes `resultEntity`. */
+  readonly unfilteredResult?: { readonly reason: string };
   // Query handlers can't reach db.global() (that gate is write-only), but
   // they can still switch identity to SYSTEM via ctx.dispatch.queryAs — this opts
   // in, same contract as WriteHandlerDef.escapeHatch.
   readonly escapeHatch?: EscapeHatchDeclaration;
+  /** Declared via `systemScope: true` on defineQueryHandler; boot requires the owning feature to call r.systemScope(). */
+  readonly systemScope?: true;
 };
 
 export type StreamHandlerDef = {

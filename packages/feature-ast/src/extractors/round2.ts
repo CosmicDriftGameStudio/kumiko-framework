@@ -1,19 +1,32 @@
 import type {
-  EntityDefinition,
   NavDefinition,
   RelationDefinition,
   WorkspaceDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   CallExpression,
+  Node,
   ObjectLiteralElementLike,
   ObjectLiteralExpression,
   SourceFile,
+  VariableDeclaration,
 } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import { describeUnknownFieldType, findUnknownEntityFieldTypes } from "../entity-field-types.ts";
-import type { EntityPattern, NavPattern, RelationPattern, WorkspacePattern } from "../patterns.ts";
+import type {
+  EntityPattern,
+  EntityPatternDefinition,
+  NavPattern,
+  RelationPattern,
+  WorkspacePattern,
+} from "../patterns.ts";
 import { sourceLocationFromNode } from "../source-location.ts";
+import {
+  findImportBindingForLocalName,
+  findScopedVariableDeclaration,
+  resolveExportedVariable,
+  resolveModuleFile,
+} from "./resolve-import.ts";
 import {
   type ExtractOutput,
   fail,
@@ -29,6 +42,7 @@ import {
 type SpreadOnlyEntity = {
   readonly definition: RawRefSentinel;
   readonly backingTable: RawRefSentinel | undefined;
+  readonly overridesName: boolean;
 };
 
 function readBackingTableRef(property: ObjectLiteralElementLike): RawRefSentinel | undefined {
@@ -52,8 +66,9 @@ function readSpreadOnlyDefinition(obj: ObjectLiteralExpression): SpreadOnlyEntit
   };
   const allProperties = obj.getProperties();
   const properties = allProperties.filter((property) => !isBackingTable(property));
-  const spread =
-    properties.length === 2 ? properties[1]?.asKind(SyntaxKind.SpreadAssignment) : undefined;
+  if (properties.length !== 2) return undefined;
+  const leadingSpread = properties[0]?.asKind(SyntaxKind.SpreadAssignment);
+  const spread = leadingSpread ?? properties[1]?.asKind(SyntaxKind.SpreadAssignment);
   if (!spread) return undefined;
   const reference = readDataLiteralNode(spread.getExpression());
   if (!isRawRefSentinel(reference)) return undefined;
@@ -61,7 +76,194 @@ function readSpreadOnlyDefinition(obj: ObjectLiteralExpression): SpreadOnlyEntit
   const backingTable = backingTableProperty ? readBackingTableRef(backingTableProperty) : undefined;
   // A backingTable that is not a plain reference cannot be re-rendered; fall back to the data reader.
   if (backingTableProperty && !backingTable) return undefined;
-  return { definition: reference, backingTable };
+  return { definition: reference, backingTable, overridesName: leadingSpread !== undefined };
+}
+
+type EntityReference = {
+  readonly definition: RawRefSentinel;
+  readonly backingTable: RawRefSentinel | undefined;
+  readonly entityName: string | undefined;
+};
+
+function findEntityDeclaration(
+  identifier: Node,
+  sourceFile: SourceFile,
+): VariableDeclaration | undefined {
+  const localName = identifier.getText();
+  const local = findScopedVariableDeclaration(identifier, localName);
+  if (local) return local;
+  const binding = findImportBindingForLocalName(sourceFile, localName);
+  if (!binding) return undefined;
+  const target = resolveModuleFile(sourceFile, binding.moduleSpecifier);
+  return target ? resolveExportedVariable(target, binding.importedName) : undefined;
+}
+
+function readCreateEntityCallName(call: CallExpression | undefined): string | undefined {
+  if (call?.getExpression().getText() !== "createEntity") return undefined;
+  const nameInitializer = call
+    .getArguments()[0]
+    ?.asKind(SyntaxKind.ObjectLiteralExpression)
+    ?.getProperty("name")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer();
+  return nameInitializer ? readNameLiteral(nameInitializer) : undefined;
+}
+
+// The `name` of the `createEntity({ name: "x", ... })` an identifier points at, in this file or an imported one.
+function readCreateEntityName(identifier: Node, sourceFile: SourceFile): string | undefined {
+  const declaration = findEntityDeclaration(identifier, sourceFile);
+  const initializer = declaration?.getInitializer()?.asKind(SyntaxKind.CallExpression);
+  if (!declaration || !initializer) return undefined;
+  return (
+    readCreateEntityCallName(initializer) ??
+    readFactoryEntityName(initializer, declaration.getSourceFile(), 0)
+  );
+}
+
+const MAX_ENTITY_FACTORY_DEPTH = 4;
+
+// `const entity = createXEntity(opts)`: follow the factory's `return` chain (same file or imported)
+// down to the `createEntity({ name, ... })` call. Only plain `return <call>` statements of the
+// factory body count; anything else stays unreadable and surfaces as a parse error.
+function readFactoryEntityName(
+  call: CallExpression,
+  sourceFile: SourceFile,
+  depth: number,
+): string | undefined {
+  if (depth >= MAX_ENTITY_FACTORY_DEPTH) return undefined;
+  const callee = call.getExpression().asKind(SyntaxKind.Identifier)?.getText();
+  if (callee === undefined) return undefined;
+  let factoryFile = sourceFile;
+  let factory = sourceFile.getFunction(callee);
+  if (!factory) {
+    const binding = findImportBindingForLocalName(sourceFile, callee);
+    const target = binding ? resolveModuleFile(sourceFile, binding.moduleSpecifier) : undefined;
+    if (!binding || !target) return undefined;
+    factoryFile = target;
+    factory = target.getFunction(binding.importedName);
+  }
+  for (const statement of factory?.getStatements() ?? []) {
+    const returned = statement.asKind(SyntaxKind.ReturnStatement)?.getExpression();
+    const returnedCall = returned?.asKind(SyntaxKind.CallExpression);
+    if (!returnedCall) continue;
+    const name =
+      readCreateEntityCallName(returnedCall) ??
+      readFactoryEntityName(returnedCall, factoryFile, depth + 1);
+    if (name !== undefined) return name;
+  }
+  return undefined;
+}
+
+// `r.entity(xEntity)` and `r.entity({ ...xEntity, backingTable })`: the entity carries its own name.
+function readEntityReference(first: Node, sourceFile: SourceFile): EntityReference | undefined {
+  const inlineCall = first.asKind(SyntaxKind.CallExpression);
+  if (inlineCall?.getExpression().getText() === "createEntity") {
+    return {
+      definition: { __raw: inlineCall.getText() },
+      backingTable: undefined,
+      entityName: readCreateEntityCallName(inlineCall),
+    };
+  }
+  const identifier = first.asKind(SyntaxKind.Identifier);
+  if (identifier) {
+    return {
+      definition: { __raw: identifier.getText() },
+      backingTable: undefined,
+      entityName: readCreateEntityName(identifier, sourceFile),
+    };
+  }
+  const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
+  if (!obj || obj.getProperty("name") !== undefined) return undefined;
+  const properties = obj.getProperties();
+  const backingTableProperty = properties.find((property) => {
+    const name =
+      property.asKind(SyntaxKind.PropertyAssignment)?.getName() ??
+      property.asKind(SyntaxKind.ShorthandPropertyAssignment)?.getName();
+    return name === "backingTable";
+  });
+  const rest = properties.filter((property) => property !== backingTableProperty);
+  const spreadTarget =
+    rest.length === 1 ? rest[0]?.asKind(SyntaxKind.SpreadAssignment)?.getExpression() : undefined;
+  const identifierTarget = spreadTarget?.asKind(SyntaxKind.Identifier);
+  if (!identifierTarget) return undefined;
+  const backingTable = backingTableProperty ? readBackingTableRef(backingTableProperty) : undefined;
+  if (backingTableProperty && !backingTable) return undefined;
+  return {
+    definition: { __raw: identifierTarget.getText() },
+    backingTable,
+    entityName: readCreateEntityName(identifierTarget, sourceFile),
+  };
+}
+
+function extractEntityFromReference(
+  call: CallExpression,
+  sourceFile: SourceFile,
+  reference: EntityReference,
+): ExtractOutput<EntityPattern> {
+  if (reference.entityName === undefined) {
+    return fail(
+      "entity",
+      sourceLocationFromNode(call, sourceFile),
+      'the entity\'s name could not be read: declare it with createEntity({ name: "...", ... }) in the same file',
+    );
+  }
+  // Same narrowing contract as the inline path: the reference stays opaque until render.
+  const opaqueDefinition: Record<string, unknown> = reference.definition;
+  return ok({
+    kind: "entity",
+    source: sourceLocationFromNode(call, sourceFile),
+    entityName: reference.entityName,
+    definition: opaqueDefinition as EntityPatternDefinition,
+    ...(reference.backingTable && { backingTable: reference.backingTable }),
+  });
+}
+
+function extractEntityFromObjectForm(
+  call: CallExpression,
+  sourceFile: SourceFile,
+  obj: ObjectLiteralExpression,
+): ExtractOutput<EntityPattern> {
+  const nameInit = obj
+    .getProperty("name")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer()
+    ?.asKind(SyntaxKind.StringLiteral);
+  if (!nameInit) {
+    return fail(
+      "entity",
+      sourceLocationFromNode(call, sourceFile),
+      "object form requires a string-literal `name` property",
+    );
+  }
+  const spreadOnly = readSpreadOnlyDefinition(obj);
+  const definition = spreadOnly?.definition ?? readDataLiteralNode(obj);
+  if (!isPlainObject(definition)) {
+    return fail(
+      "entity",
+      sourceLocationFromNode(call, sourceFile),
+      "definition could not be read as a plain object (contains functions or identifiers)",
+    );
+  }
+  const { name: _name, ...defWithoutName } = definition;
+  const unknownTypes = findUnknownEntityFieldTypes(defWithoutName);
+  const firstUnknown = unknownTypes[0];
+  if (firstUnknown) {
+    return fail(
+      "entity",
+      sourceLocationFromNode(call, sourceFile),
+      `definition.fields.${firstUnknown.fieldName}.type: ${describeUnknownFieldType(firstUnknown)}`,
+    );
+  }
+  return ok({
+    kind: "entity",
+    source: sourceLocationFromNode(call, sourceFile),
+    entityName: nameInit.getLiteralValue(),
+    // Field-type membership is checked above; the cast is the extractor's
+    // existing narrowing contract (readDataLiteralNode returns unknown).
+    definition: defWithoutName as EntityPatternDefinition,
+    ...(spreadOnly?.backingTable && { backingTable: spreadOnly.backingTable }),
+    ...(spreadOnly?.overridesName && { overridesName: true }),
+  });
 }
 
 export function extractEntity(
@@ -78,49 +280,11 @@ export function extractEntity(
     );
   }
 
+  const reference = args.length === 1 ? readEntityReference(first, sourceFile) : undefined;
+  if (reference) return extractEntityFromReference(call, sourceFile, reference);
+
   const obj = first.asKind(SyntaxKind.ObjectLiteralExpression);
-  if (obj && args.length === 1) {
-    const nameInit = obj
-      .getProperty("name")
-      ?.asKind(SyntaxKind.PropertyAssignment)
-      ?.getInitializer()
-      ?.asKind(SyntaxKind.StringLiteral);
-    if (!nameInit) {
-      return fail(
-        "entity",
-        sourceLocationFromNode(call, sourceFile),
-        "object form requires a string-literal `name` property",
-      );
-    }
-    const spreadOnly = readSpreadOnlyDefinition(obj);
-    const definition = spreadOnly?.definition ?? readDataLiteralNode(obj);
-    if (!isPlainObject(definition)) {
-      return fail(
-        "entity",
-        sourceLocationFromNode(call, sourceFile),
-        "definition could not be read as a plain object (contains functions or identifiers)",
-      );
-    }
-    const { name: _name, ...defWithoutName } = definition;
-    const unknownTypes = findUnknownEntityFieldTypes(defWithoutName);
-    const firstUnknown = unknownTypes[0];
-    if (firstUnknown) {
-      return fail(
-        "entity",
-        sourceLocationFromNode(call, sourceFile),
-        `definition.fields.${firstUnknown.fieldName}.type: ${describeUnknownFieldType(firstUnknown)}`,
-      );
-    }
-    return ok({
-      kind: "entity",
-      source: sourceLocationFromNode(call, sourceFile),
-      entityName: nameInit.getLiteralValue(),
-      // Field-type membership is checked above; the cast is the extractor's
-      // existing narrowing contract (readDataLiteralNode returns unknown).
-      definition: defWithoutName as EntityDefinition,
-      ...(spreadOnly?.backingTable && { backingTable: spreadOnly.backingTable }),
-    });
-  }
+  if (obj && args.length === 1) return extractEntityFromObjectForm(call, sourceFile, obj);
 
   const entityName = readNameLiteral(first);
   if (entityName === undefined) {
@@ -159,7 +323,7 @@ export function extractEntity(
     kind: "entity",
     source: sourceLocationFromNode(call, sourceFile),
     entityName,
-    definition: definition as EntityDefinition,
+    definition: definition as EntityPatternDefinition,
   });
 }
 

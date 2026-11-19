@@ -1,3 +1,4 @@
+import type { SortNulls } from "@cosmicdrift/kumiko-types/fields";
 import { createFallbackLogger } from "../logging/utils.ts";
 import type { FieldDefinition, SelectFieldDef } from "./types/fields.ts";
 import type {
@@ -172,6 +173,25 @@ export function normalizeListColumn(c: ListColumnSpec): Exclude<ListColumnSpec, 
     );
   }
   return col;
+}
+
+export function declaredSortNulls(field: FieldDefinition | undefined): SortNulls | undefined {
+  return field !== undefined && "sortNulls" in field ? field.sortNulls : undefined;
+}
+
+// Postgres' own null order without an explicit NULLS clause: last ascending, first descending.
+export function nullsSortFirst(descending: boolean, declared: SortNulls | undefined): boolean {
+  return declared === undefined ? descending : declared === "first";
+}
+
+const ISO_INSTANT_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?Z$/;
+
+/** Fixed-width text of an ISO instant, undefined for any other string. Instant.toString()
+ *  drops trailing fraction zeros, so "…00.5Z" and "…00.25Z" only compare by time this way. */
+export function instantSortKey(value: string): string | undefined {
+  const match = ISO_INSTANT_PATTERN.exec(value);
+  if (match === null) return undefined;
+  return `${match[1]}.${(match[2] ?? "").padEnd(9, "0")}Z`;
 }
 
 /** Evaluates a declarative FieldCondition against the current row/form

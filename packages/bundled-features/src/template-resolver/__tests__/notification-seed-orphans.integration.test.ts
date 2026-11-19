@@ -3,7 +3,6 @@ import { type DbConnection, fetchOne, selectMany } from "@cosmicdrift/kumiko-fra
 import { defineFeature, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import {
   setupTestStack,
   type TestStack,
@@ -11,6 +10,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
 import { seedNotificationTemplates, seedSystemTemplate } from "../seeding.ts";
 import {
@@ -44,7 +44,8 @@ const mailerFeature = defineFeature("mailer", (r) => {
     access: { roles: ["TenantAdmin"] },
     handler: async () => ({ isSuccess: true as const, data: {} }),
   });
-  r.notification("kept", {
+  r.notification({
+    name: "kept",
     trigger: { on: "create" },
     recipient: () => null,
     data: () => ({}),

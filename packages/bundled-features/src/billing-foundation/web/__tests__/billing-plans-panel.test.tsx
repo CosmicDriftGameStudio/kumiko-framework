@@ -229,7 +229,7 @@ describe("BillingPlansPanel — contact card", () => {
     const grid = screen.getByTestId("billing-plans-grid");
     expect(grid.lastElementChild).toBe(screen.getByTestId("billing-plan-card-contact"));
     expect(screen.queryByTestId("billing-plan-card-contact-price-unavailable")).toBeNull();
-    expect(screen.getByText("plan.enterprise.benefit")).toBeTruthy();
+    screen.getByText("plan.enterprise.benefit");
     const link = screen.getByTestId("billing-plan-card-contact-cta");
     expect(link.tagName).toBe("A");
     expect(link.getAttribute("href")).toBe("mailto:sales@example.com");
@@ -245,12 +245,12 @@ describe("BillingPlansPanel — contact card", () => {
 
   test("stays visible when the caller cannot purchase", () => {
     showResult({ contact, canPurchase: false });
-    expect(screen.getByTestId("billing-plan-card-contact")).toBeTruthy();
+    screen.getByTestId("billing-plan-card-contact");
   });
 
   test("stays visible when billing is disabled", () => {
     showResult({ contact, enabled: false });
-    expect(screen.getByTestId("billing-plan-card-contact")).toBeTruthy();
+    screen.getByTestId("billing-plan-card-contact");
   });
 
   test("renders no card without contact", () => {
@@ -268,7 +268,7 @@ describe("BillingPlansPanel", () => {
   test("shows a loading banner while the catalog query is in flight", () => {
     queryState = { data: null, loading: true, error: null };
     renderPanel();
-    expect(screen.getByTestId("billing-plans-panel-loading")).toBeTruthy();
+    screen.getByTestId("billing-plans-panel-loading");
   });
 
   test("shows an error banner translated via the dispatcher error's i18nKey", () => {
@@ -283,15 +283,15 @@ describe("BillingPlansPanel", () => {
       } as DispatcherError,
     };
     renderPanel();
-    expect(screen.getByTestId("billing-plans-panel-error")).toBeTruthy();
-    expect(screen.getByText("billing-foundation.errors.unexpected")).toBeTruthy();
+    screen.getByTestId("billing-plans-panel-error");
+    screen.getByText("billing-foundation.errors.unexpected");
   });
 
   test("renders one PlanCard per catalog plan with its price and benefits", () => {
     queryState = { data: result(), loading: false, error: null };
     renderPanel();
-    expect(screen.getByTestId("billing-plan-card-pro")).toBeTruthy();
-    expect(screen.getByText("$9.99")).toBeTruthy();
+    screen.getByTestId("billing-plan-card-pro");
+    screen.getByText("$9.99");
   });
 
   test("billing disabled renders the billingDisabled banner and only the current-tier card", () => {
@@ -304,8 +304,8 @@ describe("BillingPlansPanel", () => {
       error: null,
     };
     renderPanel();
-    expect(screen.getByTestId("billing-plans-panel-disabled")).toBeTruthy();
-    expect(screen.getByTestId("billing-plan-card-current")).toBeTruthy();
+    screen.getByTestId("billing-plans-panel-disabled");
+    screen.getByTestId("billing-plan-card-current");
     expect(screen.queryByRole("button")).toBeNull();
   });
 
@@ -319,8 +319,8 @@ describe("BillingPlansPanel", () => {
       error: null,
     };
     renderPanel();
-    expect(screen.getByTestId("billing-plans-panel-disabled")).toBeTruthy();
-    expect(screen.getByTestId("billing-plan-card-pro")).toBeTruthy();
+    screen.getByTestId("billing-plans-panel-disabled");
+    screen.getByTestId("billing-plan-card-pro");
     expect(screen.queryByTestId("billing-plan-card-current")).toBeNull();
     expect(screen.queryByText("Price not available")).toBeNull();
   });
@@ -335,8 +335,8 @@ describe("BillingPlansPanel", () => {
       error: null,
     };
     renderPanel();
-    expect(screen.getByTestId("billing-plan-card-current")).toBeTruthy();
-    expect(screen.getByTestId("billing-plan-card-pro")).toBeTruthy();
+    screen.getByTestId("billing-plan-card-current");
+    screen.getByTestId("billing-plan-card-pro");
   });
 
   test("canPurchase=false renders the purchaseNotAllowed banner and no cta at all", () => {
@@ -349,7 +349,7 @@ describe("BillingPlansPanel", () => {
       error: null,
     };
     renderPanel();
-    expect(screen.getByTestId("billing-plans-panel-readonly")).toBeTruthy();
+    screen.getByTestId("billing-plans-panel-readonly");
     expect(screen.queryByRole("button")).toBeNull();
   });
 
@@ -475,7 +475,7 @@ describe("BillingPlansPanel", () => {
       error: null,
     };
     renderPanel();
-    expect(screen.getByText("billing-foundation.plans.paymentPending")).toBeTruthy();
+    screen.getByText("billing-foundation.plans.paymentPending");
     expect(screen.queryByTestId("billing-plan-card-pro-cta")).toBeNull();
   });
 
@@ -504,7 +504,7 @@ describe("BillingPlansPanel", () => {
       error: null,
     };
     renderPanel();
-    expect(screen.getByTestId("billing-plans-panel-past-due")).toBeTruthy();
+    screen.getByTestId("billing-plans-panel-past-due");
   });
 
   test("price=null renders the price-unavailable fallback and a disabled cta", () => {
@@ -514,7 +514,7 @@ describe("BillingPlansPanel", () => {
       error: null,
     };
     renderPanel();
-    expect(screen.getByText("Price not available")).toBeTruthy();
+    screen.getByText("Price not available");
     const cta = screen.getByRole("button") as HTMLButtonElement;
     expect(cta.disabled).toBe(true);
   });
@@ -556,7 +556,7 @@ describe("BillingPlansPanel", () => {
 
     test("the checkout CTA opens the consent dialog with summary and links instead of calling the mutation", () => {
       openConsentDialog();
-      expect(screen.getByTestId("checkout-consent-dialog")).toBeTruthy();
+      screen.getByTestId("checkout-consent-dialog");
       expect(checkoutMutate).not.toHaveBeenCalled();
       expect(screen.getByTestId("checkout-consent-summary").textContent).toContain("$9.99");
       expect(screen.getByTestId("checkout-consent-summary").textContent).toContain(
@@ -725,7 +725,7 @@ describe("BillingPlansPanel", () => {
       fireEvent.click(screen.getByTestId("cancel-contract-continue"));
       expect(terminateMutate).not.toHaveBeenCalled();
       fireEvent.click(screen.getByTestId("cancel-contract-submit"));
-      await waitFor(() => expect(screen.getByTestId("cancel-contract-receipt")).toBeTruthy());
+      await waitFor(() => screen.getByTestId("cancel-contract-receipt"));
       expect(terminateMutate).toHaveBeenCalledWith({
         declarationType: "termination",
         terminationKind: "ordinary",
@@ -799,7 +799,7 @@ describe("BillingPlansPanel — providers", () => {
     renderPanel();
     fireEvent.click(screen.getByTestId("billing-plan-card-pro-cta"));
     expect(checkoutMutate).not.toHaveBeenCalled();
-    expect(screen.getByTestId("checkout-consent-dialog")).toBeTruthy();
+    screen.getByTestId("checkout-consent-dialog");
     expect((screen.getByRole("radio", { name: /Stripe/ }) as HTMLInputElement).checked).toBe(true);
     expect(screen.getByTestId("checkout-consent-summary").textContent).toContain("€9.99");
     expect(screen.getByRole("radio", { name: /Paddle/ }).closest("label")?.textContent).toContain(
@@ -952,9 +952,7 @@ describe("BillingPlansPanel — in-app plan switch", () => {
     fireEvent.click(screen.getByLabelText("EN loss"));
     expect(confirm.disabled).toBe(false);
     fireEvent.click(confirm);
-    await waitFor(() =>
-      expect(screen.getByTestId("billing-plans-panel-switch-requested")).toBeTruthy(),
-    );
+    await waitFor(() => screen.getByTestId("billing-plans-panel-switch-requested"));
     expect(switchMutate).toHaveBeenCalledWith({
       tier: "pro",
       consent: {

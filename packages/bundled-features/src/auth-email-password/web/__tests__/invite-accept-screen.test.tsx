@@ -51,15 +51,15 @@ afterEach(() => {
 describe("InviteAcceptScreen — no <SessionProvider> ancestor (632/1)", () => {
   test("renders the anonymous accept-form instead of throwing", () => {
     renderWithoutSessionProvider("tok-123");
-    expect(screen.getByText("Accept invitation")).toBeTruthy();
-    expect(screen.getByLabelText(/^Password/)).toBeTruthy();
+    screen.getByText("Accept invitation");
+    screen.getByLabelText(/^Password/);
     // Anon default mode is "anon-existing" — email field is shown too.
-    expect(screen.getByLabelText(/^Email/)).toBeTruthy();
+    screen.getByLabelText(/^Email/);
   });
 
   test("missing token still renders (no session access needed for that branch)", () => {
     renderWithoutSessionProvider("");
-    expect(screen.getByText("The invitation link is missing or invalid.")).toBeTruthy();
+    screen.getByText("The invitation link is missing or invalid.");
     expect(screen.getByRole("link", { name: "Go to sign in" }).getAttribute("href")).toBe("/login");
   });
 });
@@ -69,8 +69,8 @@ describe("InviteAcceptScreen — logged-in branch", () => {
     renderWithProviders(<InviteAcceptScreen token="tok-123" />, {
       session: makeSessionApi({ status: "authenticated" }),
     });
-    expect(screen.getByText(/user@example.com/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Accept" })).toBeTruthy();
+    screen.getByText(/user@example.com/);
+    screen.getByRole("button", { name: "Accept" });
     expect(screen.queryByLabelText(/^Email/)).toBeNull();
   });
 
@@ -186,7 +186,7 @@ describe("InviteAcceptScreen — logged-in branch", () => {
       session: makeSessionApi({ status: "authenticated" }),
     });
     fireEvent.click(screen.getByRole("button", { name: "Sign in with a different account" }));
-    expect(screen.getByLabelText(/^Email/)).toBeTruthy();
+    screen.getByLabelText(/^Email/);
   });
 });
 

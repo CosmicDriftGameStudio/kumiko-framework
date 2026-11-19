@@ -93,6 +93,19 @@ describe("runProdApp boot options", () => {
     expect(bootSummary()).toBe("");
   });
 
+  test('the boot dry run lists the meili-env block of search "meili-env"', async () => {
+    await bootValidate({ features: deliveryFeatures(), search: { provider: "meili-env" } });
+
+    const inventory =
+      logSpy.mock.calls
+        .map((call: unknown[]) => String(call[0]))
+        .find((line: string) => line.startsWith("Env check")) ?? "";
+    const rowOf = (name: string): string =>
+      inventory.split("\n").find((row: string) => row.trim().startsWith(`${name} `)) ?? "";
+    expect(rowOf("MEILI_URL")).toMatch(/runProdApp\.search\s+required\s+.*missing/i);
+    expect(rowOf("MEILI_MASTER_KEY")).toMatch(/runProdApp\.search\s+required/);
+  });
+
   test("an invalid smtp-env value fails the boot dry run", async () => {
     const reported: KumikoBootError[] = [];
     await bootValidate(
@@ -123,8 +136,17 @@ describe("runProdApp boot options", () => {
     );
   });
 
-  test('kmsMode "required" without the KMS env aborts', async () => {
-    await expect(bootValidate({ kmsMode: "required" })).rejects.toThrow(/kmsMode "required"/);
+  test('kmsMode "required" without the KMS env aborts, and the boot dry run names the trio', async () => {
+    await bootValidate({ kmsMode: "required" });
+    const table = logSpy.mock.calls.map((call: unknown[]) => String(call[0])).join("\n");
+    for (const name of ["PLATFORM_KEK", "SUBJECT_KEYS_DATABASE_URL", "KUMIKO_BLIND_INDEX_KEY"]) {
+      expect(table).toMatch(new RegExp(`${name}\\s+runProdApp\\.kmsMode\\s+required\\s+missing`));
+    }
+
+    const { KUMIKO_DRY_RUN_ENV: _dryRun, ...normalBootEnv } = BOOT_ENV;
+    await expect(
+      bootValidate({ kmsMode: "required", bootErrorReporter: () => {} }, normalBootEnv),
+    ).rejects.toThrow(/PLATFORM_KEK/);
   });
 
   test('fileStorage "auto" in production without S3 aborts', async () => {

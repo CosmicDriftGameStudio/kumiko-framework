@@ -11,19 +11,13 @@
 // back both the short-list and long-list layout measurements the
 // fw#2778 fix needs — a fixed row count would need two fixtures.
 
-import type {
-  BatchResult,
-  Command,
-  Dispatcher,
-  DispatcherStatus,
-  PendingFile,
-  PendingWrite,
-  QueryOpts,
-  QueryResult,
-  Store,
-  WriteOpts,
-  WriteResult,
-} from "@cosmicdrift/kumiko-renderer/headless";
+import type { Dispatcher, WriteResult } from "@cosmicdrift/kumiko-renderer/headless";
+import {
+  createMockDispatcher,
+  type MockBatchHandler,
+  type MockQueryHandler,
+  type MockWriteHandler,
+} from "@cosmicdrift/kumiko-renderer/testing";
 import {
   answerBriefing,
   answerCustomers,
@@ -89,83 +83,66 @@ function buildItemRows(count: number): Array<Record<string, unknown>> {
     sku: `KB-${100 + i}`,
     description: `Item ${i + 1}`,
     quantity: 1,
-    unitPrice: 10 + i,
+    unitPrice: (10 + i) * 100,
   }));
 }
 
-const ONLINE_STORE: Store<DispatcherStatus> = {
-  getSnapshot: () => "online",
-  subscribe: () => () => {},
-};
-
-export function createMockDispatcher(): Dispatcher {
-  async function write<TData = unknown>(type: string): Promise<WriteResult<TData>> {
+export function createInMemoryDispatcher(): Dispatcher {
+  const write: MockWriteHandler = async (type) => {
     throw new Error(`mock-dispatcher: unsupported write qn "${type}"`);
-  }
+  };
 
-  async function query<TData = unknown>(
-    type: string,
-    payload: unknown,
-    _opts?: QueryOpts,
-  ): Promise<QueryResult<TData>> {
+  const query: MockQueryHandler = async (type, payload) => {
     if (type === QUERY_ORDER_DETAIL) {
       const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary mock-dispatcher wire payload
       const id = (data["id"] as string | undefined) ?? "order-1";
-      return { isSuccess: true, data: orderDetailForUrl(id) as unknown as TData };
+      return { isSuccess: true, data: orderDetailForUrl(id) };
     }
     if (type === QUERY_ORDER_LIST) {
       const answer = answerOrderList(orderListSchema.parse(payload ?? {}));
-      return { isSuccess: true, data: answer as unknown as TData };
+      return { isSuccess: true, data: answer };
     }
     if (type === QUERY_ORDER_SUMMARY) {
       const answer = answerOrderSummary(orderSummarySchema.parse(payload ?? {}));
-      return { isSuccess: true, data: answer as unknown as TData };
+      return { isSuccess: true, data: answer };
     }
     if (type === QUERY_ORDER_NOW) {
-      return { isSuccess: true, data: answerNowList() as unknown as TData };
+      return { isSuccess: true, data: answerNowList() };
     }
     if (type === QUERY_ORDER_BRIEFING) {
-      return { isSuccess: true, data: answerBriefing() as unknown as TData };
+      return { isSuccess: true, data: answerBriefing() };
     }
     if (type === QUERY_ORDER_DEADLINES) {
-      return { isSuccess: true, data: answerDeadlines() as unknown as TData };
+      return { isSuccess: true, data: answerDeadlines() };
     }
     if (type === QUERY_ORDER_CUSTOMERS) {
-      return { isSuccess: true, data: answerCustomers() as unknown as TData };
+      return { isSuccess: true, data: answerCustomers() };
     }
     if (type === QUERY_ORDER_MONEY) {
-      return { isSuccess: true, data: answerMoney() as unknown as TData };
+      return { isSuccess: true, data: answerMoney() };
     }
     if (type === QUERY_ORDER_ITEMS) {
-      return { isSuccess: true, data: { rows: buildItemRows(itemsCountFromUrl()) } as TData };
+      return { isSuccess: true, data: { rows: buildItemRows(itemsCountFromUrl()) } };
     }
     if (type === QUERY_ORDER_PAYMENTS) {
       return {
         isSuccess: true,
         data: {
           rows: [
-            { paidAt: "2026-08-21", amount: 936, method: "card", status: "settled" },
-            { paidAt: "2026-08-25", amount: 312, method: "invoice", status: "pending" },
+            { paidAt: "2026-08-21", amount: 93600, method: "card", status: "settled" },
+            { paidAt: "2026-08-25", amount: 31200, method: "invoice", status: "pending" },
           ],
-        } as TData,
+        },
       };
     }
     throw new Error(`mock-dispatcher: unsupported query qn "${type}"`);
-  }
+  };
 
-  async function batch(commands: readonly Command[], opts?: WriteOpts): Promise<BatchResult> {
+  const batch: MockBatchHandler = async (commands, opts) => {
     const results: WriteResult[] = [];
     for (const cmd of commands) results.push(await write(cmd.type, cmd.payload, opts));
     return { isSuccess: true, results };
-  }
-
-  return {
-    write,
-    query,
-    batch,
-    statusStore: ONLINE_STORE,
-    async *stream() {},
-    pendingWrites: (): readonly PendingWrite[] => [],
-    pendingFiles: (): readonly PendingFile[] => [],
   };
+
+  return createMockDispatcher({ write, query, batch });
 }

@@ -1,4 +1,3 @@
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   type AccessRule,
   defineFeature,
@@ -182,7 +181,7 @@ export function createSecretsFeature(
     // uniqueIndex are not expressible via the field-DSL (jsonb-without-default,
     // now()-default), so the physical table is the DDL truth. Without this the
     // generated migration omitted those columns → prod-500.
-    r.entity({ name: "tenant-secret", ...tenantSecretEntity, backingTable: tenantSecretsTable });
+    r.entity({ ...tenantSecretEntity, backingTable: tenantSecretsTable });
 
     // Read-audit domain-event. Registered here so ops tools + MSPs can
     // discover the type; secrets-context.get parses payloads against
@@ -206,13 +205,9 @@ export function createSecretsFeature(
       trigger: { manual: true },
       escapeHatch: {
         reason: ROTATE_ESCAPE_HATCH_REASON,
+        grants: ["unsafeRaw"],
       },
-      handler: (payload, ctx) =>
-        rotateJob(
-          payload,
-          ctx,
-          ctx.db.unsafeRaw() as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
-        ),
+      handler: (payload, ctx) => rotateJob(payload, ctx, ctx.db.unsafeRawAllTenants()),
     });
 
     // Pre-ES had a separate `retention-cleanup` job scrubbing the audit

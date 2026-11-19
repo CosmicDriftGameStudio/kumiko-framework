@@ -21,6 +21,7 @@ import {
 } from "../factories.ts";
 
 const noteEntity = createEntity({
+  name: "note",
   table: "update_null_clear_notes",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -38,7 +39,7 @@ const clearEndpointWhenArmed: PreSaveHookFn = async (changes) =>
   hookClearsEndpoint ? { ...changes, endpoint: null } : changes;
 
 const noteFeature = defineFeature("update-null-clear", (r) => {
-  r.crud("note", noteEntity, {
+  r.crud(noteEntity, {
     write: { access: { roles: ["User"] } },
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });

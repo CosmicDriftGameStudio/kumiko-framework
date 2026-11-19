@@ -9,6 +9,7 @@ import { defineFeature } from "../define-feature.ts";
 import { createEntity, createTextField, createTimestampField } from "../factories.ts";
 
 const leadEntity = createEntity({
+  name: "lead",
   table: "sort_nulls_leads",
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -19,7 +20,7 @@ const leadEntity = createEntity({
 });
 
 const leadFeature = defineFeature("sort-nulls", (r) => {
-  r.crud("lead", leadEntity, {
+  r.crud(leadEntity, {
     write: { access: { roles: ["User"] } },
     read: { access: { roles: ["User"] } },
   });

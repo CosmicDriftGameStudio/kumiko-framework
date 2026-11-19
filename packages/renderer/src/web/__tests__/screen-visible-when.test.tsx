@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "../../headless/index.ts";
+import type { QueryResult } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -80,21 +80,26 @@ function renderDirect(gate: GateResult, options: GateOptions = {}): { queryTypes
   const queryTypes: string[] = [];
   const schema = buildSchema(options);
   const dispatcher = createMockDispatcher({
-    query: (async (type: string) => {
+    query: async (type: string) => {
       queryTypes.push(type);
       if (type === GATE_QUERY) {
-        if (gate.kind === "pending") return new Promise(() => undefined);
+        if (gate.kind === "pending") return new Promise<QueryResult>(() => undefined);
         if (gate.kind === "error") {
           return {
             isSuccess: false,
-            error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
+            error: {
+              code: "internal",
+              httpStatus: 500,
+              message: "kaputt",
+              i18nKey: "errors.internal",
+            },
           };
         }
         return { isSuccess: true, data: { chatAlertsAvailable: gate.available } };
       }
       const name = type === "billing:query:upgrade:list" ? "UPGRADE ROW" : "CHANNEL ROW";
       return { isSuccess: true, data: { rows: [{ id: "r1", name }], nextCursor: null } };
-    }) as unknown as Dispatcher["query"],
+    },
   });
   render(
     <DispatcherProvider dispatcher={dispatcher}>
@@ -111,13 +116,13 @@ function renderDirect(gate: GateResult, options: GateOptions = {}): { queryTypes
 describe("KumikoScreen visibleWhen (direct access)", () => {
   test("met condition renders the screen content", async () => {
     renderDirect({ kind: "data", available: true });
-    await waitFor(() => expect(screen.getByText("CHANNEL ROW")).toBeTruthy());
+    await waitFor(() => screen.getByText("CHANNEL ROW"));
     expect(screen.queryByTestId("kumiko-screen-unavailable")).toBeNull();
   });
 
   test("unmet condition without fallback shows the standard notice and never loads the content", async () => {
     const { queryTypes } = renderDirect({ kind: "data", available: false });
-    await waitFor(() => expect(screen.getByTestId("kumiko-screen-unavailable")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("kumiko-screen-unavailable"));
     expect(screen.queryByText("CHANNEL ROW")).toBeNull();
     expect(queryTypes).not.toContain("billing:query:channel:list");
   });
@@ -127,7 +132,7 @@ describe("KumikoScreen visibleWhen (direct access)", () => {
       { kind: "data", available: false },
       { fallback: "upgrade" },
     );
-    await waitFor(() => expect(screen.getByText("UPGRADE ROW")).toBeTruthy());
+    await waitFor(() => screen.getByText("UPGRADE ROW"));
     expect(screen.queryByText("CHANNEL ROW")).toBeNull();
     expect(queryTypes).not.toContain("billing:query:channel:list");
   });
@@ -137,7 +142,7 @@ describe("KumikoScreen visibleWhen (direct access)", () => {
       { kind: "data", available: false },
       { fallback: "upgrade", fallbackAccess: { roles: ["TenantAdmin"] } },
     );
-    await waitFor(() => expect(screen.getByTestId("kumiko-screen-unavailable")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("kumiko-screen-unavailable"));
     expect(screen.queryByTestId("kumiko-screen-not-found")).toBeNull();
     expect(screen.queryByText("UPGRADE ROW")).toBeNull();
     expect(queryTypes).not.toContain("billing:query:upgrade:list");
@@ -145,14 +150,14 @@ describe("KumikoScreen visibleWhen (direct access)", () => {
 
   test("while the gate query loads, no content and no notice render", () => {
     const { queryTypes } = renderDirect({ kind: "pending" });
-    expect(screen.getByTestId("kumiko-screen-loading")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-loading");
     expect(screen.queryByTestId("kumiko-screen-unavailable")).toBeNull();
     expect(queryTypes).not.toContain("billing:query:channel:list");
   });
 
   test("a failing gate query is treated as unmet (fail-closed)", async () => {
     const { queryTypes } = renderDirect({ kind: "error" });
-    await waitFor(() => expect(screen.getByTestId("kumiko-screen-unavailable")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("kumiko-screen-unavailable"));
     expect(queryTypes).not.toContain("billing:query:channel:list");
   });
 });
@@ -173,13 +178,18 @@ describe("KumikoScreen visibleWhen refetch", () => {
       return () => {};
     };
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) => {
+      query: async (type: string) => {
         if (type === GATE_QUERY) {
           gateCalls++;
           return gateFails
             ? {
                 isSuccess: false,
-                error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
+                error: {
+                  code: "internal",
+                  httpStatus: 500,
+                  message: "kaputt",
+                  i18nKey: "errors.internal",
+                },
               }
             : { isSuccess: true, data: { chatAlertsAvailable: true } };
         }
@@ -187,7 +197,7 @@ describe("KumikoScreen visibleWhen refetch", () => {
           isSuccess: true,
           data: { rows: [{ id: "r1", name: "CHANNEL ROW" }], nextCursor: null },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -200,7 +210,7 @@ describe("KumikoScreen visibleWhen refetch", () => {
         </LiveEventsProvider>
       </DispatcherProvider>,
     );
-    await waitFor(() => expect(screen.getByText("CHANNEL ROW")).toBeTruthy());
+    await waitFor(() => screen.getByText("CHANNEL ROW"));
 
     gateFails = true;
     await act(async () => {
@@ -208,7 +218,7 @@ describe("KumikoScreen visibleWhen refetch", () => {
     });
     await waitFor(() => expect(gateCalls).toBe(2));
     await act(async () => {});
-    expect(screen.getByText("CHANNEL ROW")).toBeTruthy();
+    screen.getByText("CHANNEL ROW");
     expect(screen.queryByTestId("kumiko-screen-unavailable")).toBeNull();
   });
 });
@@ -244,7 +254,7 @@ describe("KumikoScreen visibleWhen inside an app shell", () => {
       ],
     };
     const dispatcher = createMockDispatcher({
-      query: (async (type: string) =>
+      query: async (type: string) =>
         type === GATE_QUERY
           ? { isSuccess: true, data: { chatAlertsAvailable: currentAvailable } }
           : type === SECOND_GATE_QUERY
@@ -252,7 +262,7 @@ describe("KumikoScreen visibleWhen inside an app shell", () => {
             : {
                 isSuccess: true,
                 data: { rows: [{ id: "r1", name: "UPGRADE ROW" }], nextCursor: null },
-              }) as unknown as Dispatcher["query"],
+              },
     });
     renderWithSidebar(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -299,19 +309,19 @@ describe("KumikoScreen visibleWhen inside an app shell", () => {
 
   test("a met condition keeps the screen's breadcrumb", async () => {
     renderInShell(true);
-    await waitFor(() => expect(screen.getByText("UPGRADE ROW")).toBeTruthy());
+    await waitFor(() => screen.getByText("UPGRADE ROW"));
     expect(crumbCount()).toBe(1);
   });
 
   test("the fallback screen leaves no breadcrumb for the locked screen", async () => {
     renderInShell(false, { fallback: "upgrade" });
-    await waitFor(() => expect(screen.getByText("UPGRADE ROW")).toBeTruthy());
+    await waitFor(() => screen.getByText("UPGRADE ROW"));
     expect(crumbCount()).toBe(0);
   });
 
   test("the fallback screen's nav label heads the page instead of the locked screen's", async () => {
     renderInShell(false, { fallback: "upgrade" }, "Upgrade plan");
-    await waitFor(() => expect(screen.getByText("UPGRADE ROW")).toBeTruthy());
+    await waitFor(() => screen.getByText("UPGRADE ROW"));
     expect(crumbCount()).toBe(1);
     expect(document.querySelector("h1")?.textContent).toBe("Upgrade plan");
     expect(screen.queryByText("Channels")).toBeNull();
@@ -332,13 +342,13 @@ describe("KumikoScreen visibleWhen inside an app shell", () => {
     renderInShell(false, { fallback: "upgrade" }, undefined, {
       "screen:upgrade.title": "Upgrade your plan",
     });
-    await waitFor(() => expect(screen.getByText("UPGRADE ROW")).toBeTruthy());
+    await waitFor(() => screen.getByText("UPGRADE ROW"));
     expect(document.querySelector("h1")?.textContent).toBe("Upgrade your plan");
   });
 
   test("a locked fallback chain heads the page with the screen that finally renders", async () => {
     renderInShell(false, { fallback: "upgrade", lockedFallback: true }, "Upgrade plan");
-    await waitFor(() => expect(screen.getByText("UPGRADE ROW")).toBeTruthy());
+    await waitFor(() => screen.getByText("UPGRADE ROW"));
     // The row can paint before the shell title follows the resolved chain.
     await waitFor(() => expect(document.querySelector("h1")?.textContent).toBe("Plans"));
     expect(crumbCount()).toBe(1);
@@ -346,7 +356,7 @@ describe("KumikoScreen visibleWhen inside an app shell", () => {
 
   test("the standard notice leaves no breadcrumb for the locked screen", async () => {
     renderInShell(false);
-    await waitFor(() => expect(screen.getByTestId("kumiko-screen-unavailable")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("kumiko-screen-unavailable"));
     // The shell drops the locked screen's crumb in an effect after the notice renders.
     await waitFor(() => expect(crumbCount()).toBe(0));
   });

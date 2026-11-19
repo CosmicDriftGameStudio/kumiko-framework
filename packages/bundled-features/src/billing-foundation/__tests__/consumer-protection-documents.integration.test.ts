@@ -112,7 +112,7 @@ const mockProviderFeature = defineFeature("test-mock-documents-provider", (r) =>
       };
     },
   };
-  r.useExtension("subscriptionProvider", "mock-documents-provider", plugin);
+  r.applyExtension({ name: "subscriptionProvider", entity: "mock-documents-provider", ...plugin });
 });
 
 let stack: TestStack;

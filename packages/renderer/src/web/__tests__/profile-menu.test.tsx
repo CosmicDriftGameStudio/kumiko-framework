@@ -21,7 +21,7 @@ describe("ProfileMenu", () => {
     expect(trigger.getAttribute("aria-label")).toBe("Open Ada Lovelace menu");
     await user.click(trigger);
     await waitFor(() => {
-      expect(screen.getByTestId("action-menu-item-profile")).toBeTruthy();
+      screen.getByTestId("action-menu-item-profile");
     });
     await user.click(screen.getByTestId("action-menu-item-profile"));
     expect(onSelect).toHaveBeenCalled();

@@ -2,16 +2,17 @@ import type { EventStoreExecutor } from "@cosmicdrift/kumiko-types/event-store-e
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { LocalKeyKmsAdapter } from "../crypto/index.ts";
 
-import type { EntityCache } from "../pipeline/entity-cache.ts";
 import type { SearchAdapter } from "../search/types.ts";
 import type { EnvelopeCipher } from "../secrets/envelope-cipher.ts";
 import { buildExecutorContext, type Table } from "./event-store-executor-context.ts";
+import { createHistoryVerbs } from "./event-store-executor-history.ts";
 import { createReadVerbs } from "./event-store-executor-read.ts";
 import { createWriteVerbs } from "./event-store-executor-write.ts";
 import { withOwnTransactionOnPool } from "./event-store-executor-write-atomic.ts";
 import type { EntityRow } from "./table-builder.ts";
 
 export type {
+  EntityHistoryEntry,
   EventStoreExecutor,
   LockGuardOption,
   WritePurpose,
@@ -25,12 +26,13 @@ export { WritePurposes } from "@cosmicdrift/kumiko-types/event-store-executor-ty
 // removed to close the silent-bypass hole where a caller forgetting to pass
 // one would skip projections without any signal.
 //
-// Split into three files: this facade holds the public
+// Split into four files: this facade holds the public
 // types + the createEventStoreExecutor() factory. Context-building (crypto/
 // ownership helpers shared by every verb) lives in
 // event-store-executor-context.ts; the write verbs (create/update/delete/
 // forget/restore) in event-store-executor-write.ts; the read verbs (list/
-// detail) in event-store-executor-read.ts.
+// detail) in event-store-executor-read.ts; the history verbs (history/listAsOf) in
+// event-store-executor-history.ts.
 
 export type { EntityLifecycleVerb } from "./event-store-executor-context.ts";
 export { entityEventName } from "./event-store-executor-context.ts";
@@ -38,7 +40,6 @@ export { entityEventName } from "./event-store-executor-context.ts";
 export type EventStoreExecutorOptions = {
   searchAdapter?: SearchAdapter;
   entityName: string; // required — the aggregateType marker on every event
-  entityCache?: EntityCache;
   /** Override the boot-injected cipher for fields marked `encrypted: true`. */
   encryption?: EnvelopeCipher;
   /** Override the boot-injected subject KMS for pii-annotated fields. */
@@ -61,5 +62,6 @@ export function createEventStoreExecutor(
   return {
     ...withOwnTransactionOnPool(createWriteVerbs(ctx)),
     ...createReadVerbs(ctx),
+    ...createHistoryVerbs(ctx),
   };
 }

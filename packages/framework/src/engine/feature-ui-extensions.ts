@@ -2,6 +2,7 @@ import type {
   ExtensionSelectorPanel,
   RegistrarExtensionDef,
 } from "@cosmicdrift/kumiko-types/config";
+import type { ExtensionOptionsFor } from "@cosmicdrift/kumiko-types/extension-options-map";
 import type { BootCheckFn, StoreTableOptions } from "@cosmicdrift/kumiko-types/feature";
 import type { HookDefinition } from "@cosmicdrift/kumiko-types/feature-registrar";
 import type { EscapeHatchDeclaration, NameOrRef } from "@cosmicdrift/kumiko-types/handlers";
@@ -16,6 +17,7 @@ import type {
   SearchPayloadContributorFn,
   ValidationHookFn,
 } from "@cosmicdrift/kumiko-types/hooks";
+import { isValidHttpRouteRateLimit } from "@cosmicdrift/kumiko-types/http-route";
 import type {
   EntityProjectionExtension,
   MultiStreamProjectionDefinition,
@@ -40,7 +42,7 @@ import { reasonProblem } from "./escape-hatch-reason.ts";
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
 import { resolveName } from "./handler-helpers.ts";
 import { HookPhases } from "./hook-helpers.ts";
-import { isObjectArgument, requireArgument, throwObjectArgumentRequired } from "./object-form.ts";
+import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.ts";
 import { isKebabSegment, isValidQn, qualifyEntityName, toKebab } from "./qualified-name.ts";
 import type { HttpRouteDefinition } from "./types/http-route.ts";
 
@@ -261,7 +263,10 @@ export function buildUiExtensionsMethods<TName extends string>(
       // — typed Dev-API (LifecycleHookFn|ValidationHookFn) → erased Map<name, fn>.
       if (type === "validation") {
         for (const n of names) {
-          state.validationHooks[n] = wrapped as ValidationHookFn; // @cast-boundary engine-bridge
+          state.validationHooks[n] = chainValidationHooks(
+            state.validationHooks[n],
+            wrapped as ValidationHookFn, // @cast-boundary engine-bridge
+          );
         }
         // skip: validation hooks have no phase, stored and done
         return;
@@ -313,51 +318,36 @@ export function buildUiExtensionsMethods<TName extends string>(
     extendsRegistrar(extensionName: string, def: RegistrarExtensionDef): void {
       state.registrarExtensions[extensionName] = def;
     },
-    useExtension(
-      extensionNameOrDefinition:
-        | string
-        | ({ readonly name: string; readonly entity: NameOrRef } & object),
-      entityRef?: NameOrRef,
-      options?: object,
+    applyExtension<N extends string>(
+      definition: { readonly name: N; readonly entity: NameOrRef } & ExtensionOptionsFor<N>,
     ): void {
-      const [extensionName, resolvedEntityRef, resolvedOptions] =
-        typeof extensionNameOrDefinition === "string"
-          ? [
-              extensionNameOrDefinition,
-              requireArgument(entityRef, name, "useExtension", "entity"),
-              options,
-            ]
-          : (() => {
-              const { name, entity, ...rest } = extensionNameOrDefinition;
-              return [name, entity, rest] as const;
-            })();
+      const { name: extensionName, entity: resolvedEntityRef, ...resolvedOptions } = definition;
       const resolvedEntityName = resolveName(resolvedEntityRef);
-      // @cast-boundary engine-bridge — typed per-extension options → erased registration bag
-      const optionsBag = resolvedOptions as Record<string, unknown> | undefined;
+      const optionsBag: Record<string, unknown> = resolvedOptions;
       // Cross-cutting escapeHatch convention for hook-context db
       // access (mirrors r.hook's validation above). Validated the same way
       // for every extension regardless of its typed hook shape.
-      const escapeHatch = optionsBag?.["escapeHatch"];
+      const escapeHatch = optionsBag["escapeHatch"];
       if (escapeHatch !== undefined) {
         const escapeHatchObject = isPlainObject(escapeHatch) ? escapeHatch : undefined;
         const reason = escapeHatchObject?.["reason"];
         if (escapeHatchObject === undefined || typeof reason !== "string") {
-          throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.useExtensionEscapeHatchInvalid, {
+          throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.applyExtensionEscapeHatchInvalid, {
             message:
-              `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ` +
+              `[Feature ${name}] r.applyExtension({ name: "${extensionName}", entity: "${resolvedEntityName}", ... }) declares an invalid { escapeHatch } — ` +
               `must be { reason: "<explanation>" } explaining why this usage needs unfiltered db access.`,
           });
         }
         const extReasonProblem = reasonProblem(reason);
         if (extReasonProblem !== undefined) {
-          throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.useExtensionEscapeHatchInvalid, {
-            message: `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ${extReasonProblem}`,
+          throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.applyExtensionEscapeHatchInvalid, {
+            message: `[Feature ${name}] r.applyExtension({ name: "${extensionName}", entity: "${resolvedEntityName}", ... }) declares an invalid { escapeHatch } — ${extReasonProblem}`,
           });
         }
-        const extGrantsProblem = escapeHatchGrantsProblem(escapeHatchObject);
-        if (extGrantsProblem) {
-          throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.useExtensionEscapeHatchInvalid, {
-            message: `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ${extGrantsProblem}`,
+        // An extension escapeHatch always means unsafeRaw, so a grants list has nothing to say.
+        if (escapeHatchObject["grants"] !== undefined) {
+          throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.applyExtensionEscapeHatchInvalid, {
+            message: `[Feature ${name}] r.applyExtension({ name: "${extensionName}", entity: "${resolvedEntityName}", ... }) declares an invalid { escapeHatch } — an extension escapeHatch always means unsafeRaw; remove grants.`,
           });
         }
       }
@@ -487,29 +477,12 @@ export function buildUiExtensionsMethods<TName extends string>(
       list.push(extension);
       state.entityProjectionExtensions[entityName] = list;
     },
-    referenceData(
-      entityRefOrDefinition:
-        | NameOrRef
-        | {
-            readonly entity: NameOrRef;
-            readonly data: readonly Record<string, unknown>[];
-            readonly upsertKey?: string;
-          },
-      data?: readonly Record<string, unknown>[],
-      options?: { upsertKey?: string },
-    ): void {
-      const [entityRef, resolvedData, upsertKey] =
-        typeof entityRefOrDefinition === "object" && "entity" in entityRefOrDefinition
-          ? [
-              entityRefOrDefinition.entity,
-              entityRefOrDefinition.data,
-              entityRefOrDefinition.upsertKey,
-            ]
-          : [
-              entityRefOrDefinition,
-              requireArgument(data, name, "referenceData", "data"),
-              options?.upsertKey,
-            ];
+    referenceData(definition: {
+      readonly entity: NameOrRef;
+      readonly data: readonly Record<string, unknown>[];
+      readonly upsertKey?: string;
+    }): void {
+      const { entity: entityRef, data: resolvedData, upsertKey } = definition;
       state.referenceData.push({
         entityName: resolveName(entityRef),
         data: resolvedData,
@@ -630,13 +603,7 @@ export function buildUiExtensionsMethods<TName extends string>(
         });
       }
       const routeLimit = definition.rateLimit;
-      if (
-        routeLimit !== undefined &&
-        (!Number.isInteger(routeLimit.limit) ||
-          routeLimit.limit < 1 ||
-          !Number.isInteger(routeLimit.windowSeconds) ||
-          routeLimit.windowSeconds < 1)
-      ) {
+      if (routeLimit !== undefined && !isValidHttpRouteRateLimit(routeLimit)) {
         throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.httpRouteRateLimitInvalid, {
           message:
             `[Feature ${name}] httpRoute "${definition.method} ${definition.path}" rateLimit needs ` +
@@ -788,5 +755,17 @@ export function buildUiExtensionsMethods<TName extends string>(
         treeActions: actions,
       });
     },
+  };
+}
+
+// A second validation hook on the same target adds to the first instead of replacing it.
+function chainValidationHooks(
+  existing: ValidationHookFn | undefined,
+  added: ValidationHookFn,
+): ValidationHookFn {
+  if (!existing) return added;
+  return (data) => {
+    const errors = [...(existing(data) ?? []), ...(added(data) ?? [])];
+    return errors.length > 0 ? errors : null;
   };
 }

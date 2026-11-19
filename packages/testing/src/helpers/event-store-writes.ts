@@ -4,7 +4,6 @@
 
 import {
   createEventStoreExecutor,
-  createTenantDb,
   type DbConnection,
   selectMany,
   type WhereObject,
@@ -14,6 +13,7 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { executorManagedEntitySourceOf } from "@cosmicdrift/kumiko-framework/internal/testing";
 
 type ExecutorArgs = Parameters<typeof createEventStoreExecutor>;

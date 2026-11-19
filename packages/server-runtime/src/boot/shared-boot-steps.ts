@@ -16,6 +16,7 @@ import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import type { AuthRoutesConfig } from "@cosmicdrift/kumiko-framework/api";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import {
+  bindAppProjectionRegistry,
   createDbConnection,
   type DbConnection,
   dbConnectionOptionsFromEnv,
@@ -25,11 +26,11 @@ import {
   withSessionAdvisoryLock,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
-  type BundledListsOptions,
   collectWriteHandlerQns,
   type EffectiveFeaturesResolver,
   type FeatureDefinition,
   findTierResolverUsage,
+  type ListDefaultsOptions,
   type Registry,
   requireTierResolverPlugin,
   type ValidateBootOptions,
@@ -62,13 +63,13 @@ export function composeAppFeatures(
   appFeatures: readonly FeatureDefinition[],
   bootFeatures: readonly FeatureDefinition[],
   effectiveAuth: AuthOptionsCarrier | undefined,
-  bundledLists?: BundledListsOptions,
+  listDefaults?: ListDefaultsOptions,
 ): readonly FeatureDefinition[] {
   const composeAuthOptions = buildComposeAuthOptions(effectiveAuth);
   return composeFeatures([...appFeatures, ...bootFeatures], {
     includeBundled: !!effectiveAuth,
     ...(composeAuthOptions && { authOptions: composeAuthOptions }),
-    ...(bundledLists && { bundledLists }),
+    ...(listDefaults && { listDefaults }),
   });
 }
 
@@ -309,6 +310,7 @@ export function openDatabasePools(
   databaseUrl: string,
   envSource: Record<string, string | undefined>,
   rowLevelSecurity: RowLevelSecurityMode,
+  registry: Registry,
 ): {
   readonly db: DbConnection;
   readonly closeDb: () => Promise<void>;
@@ -327,5 +329,10 @@ export function openDatabasePools(
     ...outsideTransactionPoolOptionsFromEnv(envSource),
     ...serverTimeoutOptionsFromEnv(envSource),
   });
-  return { db, closeDb, outsideTransactionDb, closeOutsideTransactionDb };
+  return {
+    db: bindAppProjectionRegistry(db, registry),
+    closeDb,
+    outsideTransactionDb: bindAppProjectionRegistry(outsideTransactionDb, registry),
+    closeOutsideTransactionDb,
+  };
 }

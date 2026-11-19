@@ -2,7 +2,6 @@
 import type { DbRunner, TenantDb, WhereObject } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEventStoreExecutor,
-  createTenantDb,
   fetchOne,
   selectMany,
   tryWithSessionAdvisoryLock,
@@ -22,7 +21,9 @@ import {
   VersionConflictError,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
+import { runProjectionsForEvent } from "@cosmicdrift/kumiko-framework/pipeline";
 import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { tenantHasBlockDeleteRows } from "../data-retention/index.ts";
@@ -203,14 +204,17 @@ function stageOutcomeRecorded(
   );
 }
 
+// The tenant row version follows its stream; a bare append() would leave it behind, so a
+// SystemAdmin update gets version_conflict and a rebuild yields a different row than live.
 async function appendTenantStageEvent(
   db: DbRunner,
+  registry: Registry,
   tenantId: TenantId,
   type: string,
   payload: Record<string, unknown>,
   expectedVersion: number,
-): Promise<void> {
-  await append(db, {
+): Promise<number> {
+  const stored = await append(db, {
     aggregateId: tenantId,
     aggregateType: TENANT_AGGREGATE_TYPE,
     tenantId: SYSTEM_TENANT_ID,
@@ -222,22 +226,22 @@ async function appendTenantStageEvent(
       requestId: `tenant-lifecycle:${type}`,
     },
   });
+  await runProjectionsForEvent(stored, registry, db);
+  return stored.version;
 }
 
 async function appendTenantStageEventIdempotent(
   db: DbRunner,
+  registry: Registry,
   tenantId: TenantId,
   type: string,
   payload: Record<string, unknown>,
   expectedVersion: number,
   alreadyRecorded: boolean,
 ): Promise<number> {
-  if (alreadyRecorded) {
-    const events = await loadAggregate(db, tenantId, SYSTEM_TENANT_ID);
-    return lastEventVersion(events);
-  }
+  if (alreadyRecorded) return expectedVersion;
   try {
-    await appendTenantStageEvent(db, tenantId, type, payload, expectedVersion);
+    return await appendTenantStageEvent(db, registry, tenantId, type, payload, expectedVersion);
   } catch (err) {
     if (!(err instanceof VersionConflictError)) throw err;
     const events = await loadAggregate(db, tenantId, SYSTEM_TENANT_ID);
@@ -248,8 +252,6 @@ async function appendTenantStageEventIdempotent(
     }
     throw err;
   }
-  const events = await loadAggregate(db, tenantId, SYSTEM_TENANT_ID);
-  return lastEventVersion(events);
 }
 
 async function setTenantLifecycleStatus(
@@ -289,6 +291,7 @@ async function tenantOwnsRetentionHeldRows(args: {
 
 async function haltPipelineOnAbandon(args: {
   readonly db: DbRunner;
+  readonly registry: Registry;
   readonly tenantId: TenantId;
   readonly stage: string;
   readonly attempts: number;
@@ -305,17 +308,17 @@ async function haltPipelineOnAbandon(args: {
   // tombstoneTenantRow's tenantCrud.update) before throwing, so any version
   // captured earlier in the pipeline is stale and would VersionConflict here.
   const eventsBeforeAbandon = await loadAggregate(args.db, args.tenantId, SYSTEM_TENANT_ID);
-  await appendTenantStageEvent(
+  const versionAfterAbandon = await appendTenantStageEvent(
     args.db,
+    args.registry,
     args.tenantId,
     qualified(TENANT_DESTRUCTION_STAGE_ABANDONED_EVENT_SHORT),
     { stage: args.stage, attempts: args.attempts, error: args.error },
     lastEventVersion(eventsBeforeAbandon),
   );
-  const eventsAfterAbandon = await loadAggregate(args.db, args.tenantId, SYSTEM_TENANT_ID);
-  const versionAfterAbandon = lastEventVersion(eventsAfterAbandon);
   await appendTenantStageEvent(
     args.db,
+    args.registry,
     args.tenantId,
     TENANT_DESTRUCTION_FAILED_EVENT_QN,
     { stage: args.stage, error: args.error, failedAt: failedAt.toString() },
@@ -326,6 +329,7 @@ async function haltPipelineOnAbandon(args: {
 
 async function maybeAppendDestructionCompleted(
   db: DbRunner,
+  registry: Registry,
   tenantId: TenantId,
   completed: ReadonlySet<string>,
 ): Promise<void> {
@@ -341,6 +345,7 @@ async function maybeAppendDestructionCompleted(
   const T = getTemporal();
   await appendTenantStageEvent(
     db,
+    registry,
     tenantId,
     TENANT_DESTRUCTION_COMPLETED_EVENT_QN,
     { destroyedAt: T.Now.instant().toString() },
@@ -361,6 +366,7 @@ type StageTickResult = {
 // version, the no-progress path against the version reloaded after run().
 async function recordFailedStageAttempt(args: {
   readonly db: DbRunner;
+  readonly registry: Registry;
   readonly tenantId: TenantId;
   readonly stage: DestructionStage;
   readonly attempt: number;
@@ -374,6 +380,7 @@ async function recordFailedStageAttempt(args: {
   if (args.attempt >= args.stage.maxAttempts) {
     await haltPipelineOnAbandon({
       db: args.db,
+      registry: args.registry,
       tenantId: args.tenantId,
       stage: args.stage.name,
       attempts: args.attempt,
@@ -384,6 +391,7 @@ async function recordFailedStageAttempt(args: {
   }
   await appendTenantStageEvent(
     args.db,
+    args.registry,
     args.tenantId,
     qualified(TENANT_DESTRUCTION_STAGE_FAILED_EVENT_SHORT),
     { stage: args.stage.name, attempts: args.attempt, error: args.error },
@@ -398,6 +406,7 @@ async function recordFailedStageAttempt(args: {
 // pending window would never close.
 async function recordIdleStageTick(args: {
   readonly db: DbRunner;
+  readonly registry: Registry;
   readonly tenantId: TenantId;
   readonly stage: DestructionStage;
   readonly attempt: number;
@@ -409,6 +418,7 @@ async function recordIdleStageTick(args: {
   if (args.pending && isPendingWindowOpen(args.events, args.stage.name, args.now)) {
     await appendTenantStageEvent(
       args.db,
+      args.registry,
       args.tenantId,
       qualified(TENANT_DESTRUCTION_STAGE_PROGRESSED_EVENT_SHORT),
       {
@@ -424,6 +434,7 @@ async function recordIdleStageTick(args: {
   }
   return await recordFailedStageAttempt({
     db: args.db,
+    registry: args.registry,
     tenantId: args.tenantId,
     stage: args.stage,
     attempt: args.attempt,
@@ -458,7 +469,7 @@ export async function runNextDestructionStage(args: {
 
   const next = pickNextStage(completed, abandoned);
   if (!next) {
-    await maybeAppendDestructionCompleted(args.db, args.tenantId, completed);
+    await maybeAppendDestructionCompleted(args.db, args.registry, args.tenantId, completed);
     return { done: isDestructionPipelineComplete(completed) };
   }
 
@@ -496,6 +507,7 @@ export async function runNextDestructionStage(args: {
   if (!isStageContinuation(events, next.name)) {
     version = await appendTenantStageEventIdempotent(
       args.db,
+      args.registry,
       args.tenantId,
       qualified(TENANT_DESTRUCTION_STAGE_STARTED_EVENT_SHORT),
       { stage: next.name, attempts: attempt, startedAt: now.toString() },
@@ -514,6 +526,7 @@ export async function runNextDestructionStage(args: {
     if (!outcome.done && outcome.processed === 0) {
       return await recordIdleStageTick({
         db: args.db,
+        registry: args.registry,
         tenantId: args.tenantId,
         stage: next,
         attempt,
@@ -526,6 +539,7 @@ export async function runNextDestructionStage(args: {
     if (!outcome.done) {
       await appendTenantStageEvent(
         args.db,
+        args.registry,
         args.tenantId,
         qualified(TENANT_DESTRUCTION_STAGE_PROGRESSED_EVENT_SHORT),
         { stage: next.name, attempts: attempt, processed: outcome.processed },
@@ -535,6 +549,7 @@ export async function runNextDestructionStage(args: {
     }
     version = await appendTenantStageEventIdempotent(
       args.db,
+      args.registry,
       args.tenantId,
       qualified(TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT),
       { stage: next.name, attempts: attempt },
@@ -547,11 +562,12 @@ export async function runNextDestructionStage(args: {
     );
 
     const completedAfter = new Set([...completed, next.name]);
-    await maybeAppendDestructionCompleted(args.db, args.tenantId, completedAfter);
+    await maybeAppendDestructionCompleted(args.db, args.registry, args.tenantId, completedAfter);
     return { done: isDestructionPipelineComplete(completedAfter) };
   } catch (err) {
     return await recordFailedStageAttempt({
       db: args.db,
+      registry: args.registry,
       tenantId: args.tenantId,
       stage: next,
       attempt,
@@ -651,6 +667,7 @@ export async function runTenantDestructionSweep(args: {
         invalidateTenantLifecycleGate(tenantId);
         await appendTenantStageEvent(
           args.db,
+          args.registry,
           tenantId,
           qualified(TENANT_DESTRUCTION_STARTED_EVENT_SHORT),
           { startedAt: now.toString() },

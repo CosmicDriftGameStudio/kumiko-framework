@@ -17,7 +17,7 @@ function buildAppSchema(registry: Registry, options?: BuildAppSchemaOptions): Ap
 function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchema;
 function buildInsertSchema(entity: EntityDefinition, currencies?: string[], excludedFields?: string[], options?: { allowCallerId?: boolean; }): z.ZodObject<Record<string, z.ZodTypeAny>>;
 function buildManifestFromRegistry(registry: Registry, options: BuildManifestOptions): FeatureManifest;
-function buildPipelineSteps<TPayload, TAwaits extends Record<string, AwaitedEventType> = Record<string, AwaitedEventType>>(pipelineDef: PipelineDef<TPayload, unknown, TAwaits>, event: WriteEvent<TPayload>): StepInstance[];
+function buildPipelineSteps<TPayload>(pipelineDef: PipelineDef<TPayload, unknown>, event: WriteEvent<TPayload>): StepInstance[];
 function buildSessionRoles(globalRoles: string[], membershipRoles: string[]): string[];
 function buildUpdateSchema(entity: EntityDefinition, currencies?: string[], excludedFields?: string[]): z.ZodObject<Record<string, z.ZodTypeAny>>;
 function canActorAssignRole(actorRoles: string[], role: string, assignableAppRoles?: AssignableAppRoles): boolean;
@@ -25,7 +25,6 @@ function collectBootRuleViolations<T>(items: Iterable<T>, run: (item: T) => void
 function collectCardMetaOverflow(features: FeatureDefinition[]): CardMetaOverflow[];
 function collectWriteHandlerQns(features: FeatureDefinition[]): Set<string>;
 function compareVersions(a: string, b: string): number;
-function computeDefinitionFingerprint<TPayload = unknown, TData = unknown, TAwaits extends Record<string, string> = Record<string, string>>(workflow: Pick<WorkflowDefinition<TPayload, TData, TAwaits>, "name" | "trigger" | "pipelineDef">): string; // Snapshot-at-Start fingerprint.
 function computeEffectiveFeatures(registry: Registry, readToggle: ToggleReader): ReadonlySet<string>;
 function createAnonymousUser(tenantId: TenantId): SessionUser;
 function createBigIntField<R extends true | false = false>(overrides?: Partial<Omit<BigIntFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind & { required?: R; }): BigIntFieldDef & { required: R; };
@@ -35,8 +34,8 @@ function createDecimalField<R extends true | false = false>(config: { precision:
 function createDerivedField(spec: DerivedFieldDef): DerivedFieldDef; // Read-time computed field for `EntityDefinition.derivedFields` (NOT `fields`), never persisted.
 function createEmbeddedField(schema: EmbeddedFieldDef["schema"], overrides?: Partial<Omit<EmbeddedFieldDef, "type" | "schema" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): EmbeddedFieldDef;
 function createEmbeddedListField(schema: EmbeddedFieldDef["schema"], overrides?: Partial<Omit<EmbeddedFieldDef, "type" | "schema" | "multiple" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): EmbeddedFieldDef & { multiple: true; };
-function createEntity<const F, const T extends EntityTenancy = "tenant">(def: { table?: string; fields: F; description?: string; softDelete?: boolean; systemStream?: boolean; systemRowsReadable?: boolean; webhookEvents?: boolean; eventVersion?: number; eventMigrations?: EntityDefinition["eventMigrations"]; searchWeight?: number; defaultCurrency?: string; transitions?: Readonly<Record<string, Readonly<Record<string, string[]>>>>; lockedWhen?: EntityDefinition["lockedWhen"]; indexes?: EntityIndexDef[]; idType?: "serial" | "uuid"; access?: EntityDefinition["access"]; parentRef?: EntityDefinition["parentRef"]; readGate?: EntityDefinition["readGate"]; retention?: RetentionDef; derivedFields?: EntityDefinition["derivedFields"]; namedFilters?: EntityDefinition["namedFilters"]; tenancy?: T; transferable?: boolean; attachedFileAccess?: EntityDefinition["attachedFileAccess"]; crossTenantFileRead?: EntityDefinition["crossTenantFileRead"]; }): F extends FieldsMap ? EntityDefinition<F, T> : never;
-function createEntityExecutor<E extends EntityDefinition>(entityName: string, entity: E): { table: EntityTable; executor: EventStoreExecutor<EntityRow<E>>; };
+function createEntity<const F, const T extends EntityTenancy = "tenant">(def: { name: string; table?: string; fields: F; description?: string; softDelete?: boolean; systemStream?: boolean; systemRowsReadable?: boolean; webhookEvents?: boolean; eventVersion?: number; eventMigrations?: EntityDefinition["eventMigrations"]; searchWeight?: number; defaultCurrency?: string; transitions?: Readonly<Record<string, Readonly<Record<string, string[]>>>>; verbs?: EntityDefinition["verbs"]; lockedWhen?: EntityDefinition["lockedWhen"]; indexes?: EntityIndexDef[]; idType?: "serial" | "uuid"; access?: EntityDefinition["access"]; parentRef?: EntityDefinition["parentRef"]; readGate?: EntityDefinition["readGate"]; retention?: RetentionDef; streamRetention?: EntityDefinition["streamRetention"]; forgetWithSubject?: true; derivedFields?: EntityDefinition["derivedFields"]; namedFilters?: EntityDefinition["namedFilters"]; tenancy?: T; transferable?: boolean; attachedFileAccess?: EntityDefinition["attachedFileAccess"]; crossTenantFileRead?: EntityDefinition["crossTenantFileRead"]; }): F extends FieldsMap ? EntityDefinition<F, T> : never;
+function createEntityExecutor<E extends EntityDefinition>(entity: E): { table: EntityTable<E>; executor: EntityExecutorOf<E>; };
 function createFileField(overrides?: Partial<Omit<FileFieldDef, "type" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): FileFieldDef;
 function createFilesField(overrides?: Partial<Omit<FilesFieldDef, "type" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): FilesFieldDef;
 function createImageField(overrides?: Partial<Omit<ImageFieldDef, "type" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): ImageFieldDef;
@@ -67,44 +66,49 @@ function defineApply<TPayload = Record<string, unknown>>(fn: (event: StoredEvent
 function defineEntityCreateHandler(entityName: string, entity: EntityDefinition, options: EntityWriteHandlerOptions): EntityWriteHandlerDef;
 function defineEntityDeleteHandler(entityName: string, entity: EntityDefinition, options: EntityHandlerOptions): EntityWriteHandlerDef;
 function defineEntityDetailHandler(entityName: string, entity: EntityDefinition, options: EntityQueryHandlerOptions): QueryHandlerDef;
-function defineEntityListHandler(entityName: string, entity: EntityDefinition, options: EntityQueryHandlerOptions): QueryHandlerDef;
-function defineEntityQueryHandler(name: string, entity: EntityDefinition, options: EntityQueryHandlerOptions): QueryHandlerDef;
+function defineEntityListHandler(entityName: string, entity: EntityDefinition, options: EntityListHandlerOptions): QueryHandlerDef;
 function defineEntityRestoreHandler(entityName: string, entity: EntityDefinition, options: EntityHandlerOptions): EntityWriteHandlerDef;
 function defineEntityUpdateHandler(entityName: string, entity: EntityDefinition, options: EntityWriteHandlerOptions): EntityWriteHandlerDef;
-function defineEntityWriteHandler(name: string, entity: EntityDefinition, options: EntityWriteHandlerOptions): EntityWriteHandlerDef;
 function defineFeature<const TName extends string, TExports = undefined>(name: TName, setup: (r: FeatureRegistrar<TName>) => TExports, settings?: DefineFeatureSettings): FeatureDefinition & { exports: TExports; };
 function defineMspApply<TPayload = Record<string, unknown>>(fn: (event: StoredEvent<TPayload>, tx: ExecutorManagedRunner, ctx: MultiStreamApplyContext) => Promise<void>): MultiStreamApplyFn;
-function definePagedQueryHandler<const TName extends string, TSchema extends ZodType, TRow = unknown, TMap extends object = KumikoEventTypeMap>(def: QueryHandlerDefinition<TName, TSchema, CursorResult<TRow>, TMap>, ..._noSecretInResponse: true extends ContainsSecret<CursorResult<TRow>> ? [ secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field." ] : [ ]): PagedQueryHandlerDefinition<TName, TSchema, TRow, TMap>;
+function definePagedQueryHandler<const TName extends string, TSchema extends ZodType, TRow = unknown, TMap extends object = KumikoEventTypeMap, TGrant extends EscapeHatchGrant = EscapeHatchGrant>(def: QueryHandlerInput<TName, TSchema, CursorResult<TRow>, TMap, TGrant>, ..._noSecretInResponse: true extends ContainsSecret<CursorResult<TRow>> ? [ secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field." ] : [ ]): PagedQueryHandlerDefinition<TName, TSchema, TRow, TMap>;
+function definePagedQueryHandler<const TName extends string, TSchema extends ZodType, TRow = unknown, TMap extends object = KumikoEventTypeMap, TGrant extends EscapeHatchGrant = EscapeHatchGrant>(def: QueryHandlerInput<TName, TSchema, CursorResult<TRow>, TMap, TGrant>, ..._noSecretInResponse: true extends ContainsSecret<CursorResult<TRow>> ? [ secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field." ] : [ ]): PagedQueryHandlerDefinition<TName, TSchema, TRow, TMap>;
 function defineProjectionQueryHandler(name: string, projectionQualifiedName: string, options: { access: AccessRule; unsafeAllTenants?: boolean | { reason: string; }; escapeHatch?: EscapeHatchDeclaration; }): QueryHandlerDef;
-function defineQueryHandler<const TName extends string, TSchema extends ZodType, TResult = unknown, TMap extends object = KumikoEventTypeMap>(def: QueryHandlerDefinition<TName, TSchema, TResult, TMap>, ..._noSecretInResponse: true extends ContainsSecret<TResult> ? [ secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field." ] : [ ]): QueryHandlerDefinition<TName, TSchema, TResult, TMap>;
+function defineQueryHandler<const TName extends string, TSchema extends ZodType, TResult = unknown, TMap extends object = KumikoEventTypeMap, TGrant extends EscapeHatchGrant = EscapeHatchGrant>(def: QueryHandlerInput<TName, TSchema, TResult, TMap, TGrant>, ..._noSecretInResponse: true extends ContainsSecret<TResult> ? [ secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field." ] : [ ]): QueryHandlerDefinition<TName, TSchema, TResult, TMap>;
+function defineQueryHandler<const TName extends string, TSchema extends ZodType, TResult = unknown, TMap extends object = KumikoEventTypeMap, TGrant extends EscapeHatchGrant = EscapeHatchGrant>(def: QueryHandlerInput<TName, TSchema, TResult, TMap, TGrant>, ..._noSecretInResponse: true extends ContainsSecret<TResult> ? [ secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field." ] : [ ]): QueryHandlerDefinition<TName, TSchema, TResult, TMap>;
 function defineRoles<const T extends string[]>(roles: T): RoleMap<T>;
 function defineStep<TArgs, TResult>(def: StepDef<TArgs, TResult>): StepDef<TArgs, TResult>;
 function defineTransitions<const TMap extends Record<string, string[]>>(map: TMap): TransitionGraph<keyof TMap & string>; // Defines allowed state transitions.
-function defineWorkflow<TPayload = unknown, TData = unknown, const TAwaits extends Record<string, string> = Record<string, string>>(input: WorkflowInput<TPayload, TData, TAwaits>): WorkflowDefinition<TPayload, TData, TAwaits>; // Define a suspendable workflow.
-function defineWriteHandler<const TName extends string, TSchema extends ZodType, TData = unknown, TMap extends object = KumikoEventTypeMap, TPrepared = undefined, TWhenNested extends BeforeTransactionWhenNested | undefined = undefined>(def: WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared, TWhenNested>, ..._noSecretInResponse: true extends ContainsSecret<TData> ? [ secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field." ] : [ ]): WriteHandlerDefinition<TName, TSchema, TData, TMap, TPrepared, TWhenNested>;
-function describeWorkflowStepError(error: unknown): string;
-function emitEvent<TPayload>(ctx: EmitCtx, eventDef: EventDef<TPayload>, args: { aggregateId: string; aggregateType: string; payload: TPayload; headers?: AppendEventArgs["headers"]; }): Promise<void>;
+function defineWriteHandler<const TName extends string, TSchema extends ZodType, TData = unknown, TMap extends object = KumikoEventTypeMap, TPrepared = undefined, TWhenNested extends BeforeTransactionWhenNested | undefined = undefined, TGrant extends EscapeHatchGrant = EscapeHatchGrant>(def: WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared, TWhenNested, TGrant>, ..._noSecretInResponse: true extends ContainsSecret<TData> ? [ secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field." ] : [ ]): WriteHandlerDefinition<TName, TSchema, TData, TMap, TPrepared, TWhenNested>;
+function defineWriteHandler<const TName extends string, TSchema extends ZodType, TData = unknown, TMap extends object = KumikoEventTypeMap, TPrepared = undefined, TWhenNested extends BeforeTransactionWhenNested | undefined = undefined, TGrant extends EscapeHatchGrant = EscapeHatchGrant>(def: WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared, TWhenNested, TGrant>, ..._noSecretInResponse: true extends ContainsSecret<TData> ? [ secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field." ] : [ ]): WriteHandlerDefinition<TName, TSchema, TData, TMap, TPrepared, TWhenNested>;
+function emitEvent<TPayload>(ctx: EmitCtx, eventDef: EventDef<TPayload>, args: { aggregateId: string; aggregateType: string; payload: TPayload; headers?: AppendEventArgs["headers"]; } & AppendConcurrency): Promise<void>;
 function entityHasAnonymizableSubjectField(fields: EntityDefinition["fields"]): boolean;
-function evaluateEventMatch(match: EventMatch, payload: unknown): boolean;
 function extensionSelectorTargets(registry: Pick<Registry, "getAllExtensionSelectors">): ReadonlyMap<string, string>;
 function extensionUsageEscapeHatchReason(usage: Pick<RegistrarExtensionRegistration, "options">): string | undefined;
+function fieldApproveRoles(field: FieldDefinition): string[];
 function fieldToZod(field: FieldDefinition, currencies: string[], opts?: { applyDefaults?: boolean; isUpdate?: boolean; }): z.ZodTypeAny;
+function fieldsAwaitingApproval(entity: EntityDefinition, user: Pick<SessionUser, "roles">, data: Readonly<Record<string, unknown>>, previous: Readonly<Record<string, unknown>> | undefined): string[];
+function fieldsRequiringApprovalRequest(entity: EntityDefinition, user: Pick<SessionUser, "roles">): string[];
 function filterEntriesAfter(entries: ChangelogEntry[], version: string): ChangelogEntry[];
-function filterReadFields(entity: EntityDefinition, data: Readonly<Record<string, unknown>>, user: SessionUser): Record<string, unknown>;
+function filterReadFields(entity: EntityDefinition, data: Readonly<Record<string, unknown>>, user: SessionUser, ruleRow?: Readonly<Record<string, unknown>>): Record<string, unknown>;
 function findEntity(features: ReadonlyMap<string, FeatureDefinition>, entityName: string): EntityDefinition | undefined;
 function findForbiddenMembershipRole(roles: string[]): string | undefined;
 function findForbiddenRoleAssignment(actorRoles: string[], assignedRoles: string[], targetCurrentRoles: string[], assignableAppRoles?: AssignableAppRoles): string | undefined;
 function findOverDeepTransferChain(adjacency: TransferAdjacency, onPath: string[]): string[] | undefined;
 function findTierResolverUsage(features: FeatureDefinition[]): RegistrarExtensionRegistration | undefined;
+function forEachPage<Row, Stop = never>(fetchPage: (request: ListPageRequest) => Promise<ListPage<Row>>, visit: (rows: Row[]) => Promise<Stop | undefined>, options?: ListAllPagesOptions): Promise<Stop | undefined>; // Stops paging as soon as `visit` returns anything but undefined and resolves to that value.
 function formatWebhookPayloadIssues(issues: WebhookPayloadIssue[]): string;
 function from(ref: OwnershipRef, column?: string): FromRule;
+function fromParent(field: string, entity: string): ParentRule;
 function getStep(kind: StepKind): StepDef | undefined;
 function guardTransition<TStates extends string>(transitions: TransitionGraph<TStates>, from: TStates, to: TStates): void; // Asserts a state transition is allowed.
 function handlerDescriptionKey(handlerQn: string): string;
 function handlerFieldLabelKey(handlerQn: string, fieldName: string): string;
 function handlerFieldReference(schema: z.ZodType, field: string): HandlerFieldReference | undefined;
 function handlerTitleKey(handlerQn: string): string;
+function handlerTranslationKeys(featureName: string, handlers: HandlerTranslations): TranslationKeys;
 function hasAccess(user: Pick<SessionUser, "roles">, access: AccessRule | undefined): boolean;
+function hostRoleAllowsRead(registry: Registry, entityName: string, user: SessionUser): boolean;
 function i18nKey(value: string): string;
 function isAgentVisibleScreen(screen: { agent?: AgentScreenHints; }): boolean; // Screens are the inverse of handlers: the manifest lists every role-visible screen regardless of `description`, so only an explicit opt-out hides one.
 function isAssignableByRole(assignableFrom: AssignableFromRole, actorRole: AssignableFromRole): boolean; // True when `actorRole` ranks at least as high as the role an app role is assignable from.
@@ -120,6 +124,7 @@ function isToggleableFeature(feature: FeatureDefinition): feature is FeatureDefi
 function isUnchangedValue(a: unknown, b: unknown): boolean;
 function isUuid(value: unknown): value is string;
 function isValidQn(value: string): boolean;
+function listAllPages<Row>(fetchPage: (request: ListPageRequest) => Promise<ListPage<Row>>, options?: ListAllPagesOptions): Promise<Row[]>;
 function maskWriteOnlyFields<T extends Readonly<Record<string, unknown>>>(entity: EntityDefinition, row: T): T;
 function mayOverrideTenant(user: SessionUser): boolean;
 function mergeAssignedRoles(actorRoles: string[], assignedRoles: string[], targetCurrentRoles: string[], assignableAppRoles: AssignableAppRoles): string[];
@@ -128,6 +133,7 @@ function normalizeEditField(f: EditFieldSpec): Exclude<EditFieldSpec, string>;
 function normalizeListColumn(c: ListColumnSpec): Exclude<ListColumnSpec, string>;
 function pageRows<TRow extends Readonly<Record<TSortField, PagedListRowValue>> & { id: string; }, TSortField extends string>(rows: TRow[], request: PagedListRequest<TSortField>, options: { searchFields: TSortField[]; defaultSort: TSortField; }): CursorResult<TRow>;
 function pagedListSchema<const TSortField extends string>(sortableFields: [ TSortField, ...TSortField[] ]): …;
+function parentRulesFromRegistry(registry: Pick<Registry, "getEntity" | "getAllProjections">, access: AccessSide): ParentRuleResolver;
 function parentVisibilityFor(ctx: HandlerContext, user: SessionUser): ParentVisibilityOption;
 function parseChangesetChanges(markdown: string, source: string): PendingChange[]; // Parse structured upgrade metadata embedded in a Changeset body.
 function parseFeatureChangelog(raw: string, featureName: string): FeatureChangelog | null; // Parse a changes.json body.
@@ -137,32 +143,42 @@ function parseRefTargetEntityName(raw: string): string;
 function parseTenantId(value: unknown): TenantId | null;
 function parseWebhookPayload(contract: Pick<WebhookEventContract, "payload">, payload: unknown): WebhookPayloadResult; // Delivery sends the returned payload, never the input: zod strips keys the contract does not declare, so a field added to the source row cannot leak into a webhook by accident.
 function projectAppSchemaForRoles(schema: AppSchema, roles: string[]): AppSchema;
+function projectionInsertColumns(table: ProjectionTable, event: ProjectionEvent): Record<string, unknown>;
+function projectionUpdateColumns(table: ProjectionTable, event: ProjectionEvent): Record<string, unknown>;
 function qn(scope: string, type: QnType, name: string): string;
 function readClaim<T extends ClaimKeyType>(user: SessionUser, handle: ClaimKeyHandle<T>): ClaimKeyJsType<T> | undefined;
 function readSoftDeleteGraceDays(config: ((qualifiedKey: string) => Promise<unknown>) | undefined): Promise<number>;
 function referenceGroupLabels(ctx: HandlerContext, user: SessionUser, sourceTableName: string, groupByField: string, keys: AggregateKey[], db: TenantDb): Promise<ReadonlyMap<string, string>>;
+function registeredEntityExecutor(registry: Pick<Registry, "getEntity">, entityName: string): EventStoreExecutor | undefined;
 function requireTierResolverPlugin(usage: RegistrarExtensionRegistration): TierResolverPlugin;
-function resolveAgentExposure(def: { description?: string; agent?: AgentHandlerHints; }, kind: "query" | "write"): AgentExposure; // Fail-closed: a handler without a `description` stays invisible to the agent unless it opts in explicitly.
+function resolveAgentExposure(def: { description?: string; agent?: AgentHandlerHints; dispatchOnly?: boolean; }, kind: "query" | "write"): AgentExposure; // Fail-closed: a handler without a `description` stays invisible to the agent unless it opts in explicitly.
 function resolveEntityTransferAdjacency(entities: ReadonlyMap<string, EntityDefinition>, rootEntityType?: string): TransferAdjacency;
 function resolveNamedListFilters(ctx: HandlerContext, user: SessionUser, entityName: string, name: string): Promise<NamedListFilterCondition[]>;
-function runPipeline<TPayload, TData, TMap extends object = KumikoEventTypeMap>(pipelineDef: PipelineDef<TPayload, TData>, event: WriteEvent<TPayload>, handlerCtx: HandlerContext<TMap>, workflow?: PipelineCtx["workflow"], resumeFrom?: number): Promise<WriteResult<TData>>;
-function runStepList<TPayload, TMap extends object = KumikoEventTypeMap>(steps: StepInstance[], event: WriteEvent<TPayload>, handlerCtx: HandlerContext<TMap>, stepsAcc: Record<string, unknown>, scopeAcc: Record<string, unknown>, workflow?: PipelineCtx["workflow"], resumeFrom?: number): Promise<StepListOutcome>; // Walk a step-list.
+function resolveParentWriteAccess(input: { accessMap: OwnershipMap | undefined; user: SessionUser; rows: Readonly<Record<string, unknown>>[]; db: TenantDb; parents: ParentRuleResolver | undefined; }): Promise<OwnershipMap | undefined>;
+function runPipeline<TPayload, TData, TMap extends object = KumikoEventTypeMap>(pipelineDef: PipelineDef<TPayload, TData>, event: WriteEvent<TPayload>, handlerCtx: HandlerContext<TMap>): Promise<WriteResult<TData>>;
+function runStepList<TPayload, TMap extends object = KumikoEventTypeMap>(steps: StepInstance[], event: WriteEvent<TPayload>, handlerCtx: HandlerContext<TMap>, stepsAcc: Record<string, unknown>, scopeAcc: Record<string, unknown>): Promise<StepListOutcome>; // Walk a step-list.
 function screenShortId(ref: string): string;
 function sectionFieldSpecs(section: FieldsOrGroupsSection): EditFieldSpec[];
 function selectablePluginIds(registry: Pick<Registry, "getExtensionUsages">, extensionName: string): string[];
 function serializeManifest(manifest: FeatureManifest): string;
 function setFields(table: ProjectionTable, fields: Record<string, unknown> | ((event: Parameters<SingleStreamApplyFn>[0]) => Record<string, unknown>)): SingleStreamApplyFn;
-function stepsPipeline<TPayload = unknown, TData = unknown, TAwaits extends Record<string, AwaitedEventType> = Record<string, AwaitedEventType>>(closure: (ctx: PipelineBuildCtx<TPayload, TAwaits>) => StepInstance[]): PipelineDef<TPayload, TData, TAwaits>;
+function stepsPipeline<TPayload = unknown, TData = unknown>(closure: (ctx: PipelineBuildCtx<TPayload>) => StepInstance[]): PipelineDef<TPayload, TData>;
+function storedEventPayloadSchema<TShape extends z.ZodRawShape, TPiiKey extends keyof TShape & string>(schema: z.ZodObject<TShape>, piiFields: Readonly<Record<TPiiKey, EventPiiSubject>>): z.ZodObject<StoredEventPayloadShape<TShape, TPiiKey>>;
+function storedEventPayloadSchema<TShape extends z.ZodRawShape, TPiiKey extends keyof TShape & string>(schema: z.ZodObject<TShape>, piiFields: Readonly<Record<TPiiKey, EventPiiSubject>>): z.ZodObject<StoredEventPayloadShape<TShape, TPiiKey>>;
 function templateVariablesToZod(variables: TemplateVariables): z.ZodObject;
 function tenantChannel(tenantId: TenantId): string;
 function toEntityWebhookPayload(contract: Pick<WebhookEventContract, "payload" | "verb">, event: { aggregateId: string; payload: Readonly<Record<string, unknown>>; }): WebhookPayloadResult; // Maps a stored entity lifecycle event to the contract's payload: the aggregate id joins the event payload, and the contract parse drops every field it does not release, personal ones included, even when the event payload carries them.
 function toKebab(input: string): string;
+function toListPage(value: unknown, source: string): ListPage<Readonly<Record<string, unknown>>>;
+function triggeredEventOf<const TEvents extends EventDef[]>(events: TEvents, payload: Readonly<Record<string, unknown>>, ctx: Pick<JobContext, "triggerName">): Promise<TriggeredEvent<TEvents>>;
+function triggeredEventOf<const TEvents extends EventDef[]>(events: TEvents, payload: Readonly<Record<string, unknown>>, ctx: Pick<JobContext, "triggerName">): Promise<TriggeredEvent<TEvents>>;
 function typedPayload<TPayload>(event: { type: string; payload: Record<string, unknown>; }, eventDef: EventDef<TPayload>): TPayload;
-function unwrapWorkflowStepError(error: unknown): unknown;
+function userCanApproveField(user: Pick<SessionUser, "roles">, field: FieldDefinition): boolean;
+function userCanReadFieldRow(user: SessionUser, accessMap: OwnershipMap | undefined, row: Readonly<Record<string, unknown>>): boolean;
 function userCanWriteFieldRow(user: SessionUser, accessMap: OwnershipMap | undefined, oldRow: Readonly<Record<string, unknown>>, newRow: Readonly<Record<string, unknown>>): boolean;
 function validateAppCustomScreenWriteQns(appRoot: string, knownQns: ReadonlySet<string>): void; // Boot-time scan of app `src/**` for `dispatcher.write("…")` string literals.
-function validateBoot(rawFeatures: FeatureDefinition[], options?: ValidateBootOptions): void; // Validates all feature configurations at boot time.
-function validateBundledListsOptions(options: unknown): void;
+function validateBoot(rawFeatures: FeatureDefinition[], options?: ValidateBootOptions): BootValidationResult; // Validates all feature configurations at boot time.
+function validateListDefaultsOptions(options: unknown): void;
 function walkStepInstances(steps: StepInstance[], where: string): Generator<StepInstance, void, void>;
 function webhookEventDescriptionKey(webhookEventQn: string): string;
 function webhookEventFieldKey(webhookEventQn: string, fieldPath: string): string; // `fieldPath` is the payload row name as the docs list it, nested fields dotted.
@@ -183,7 +199,7 @@ const DEFAULT_LIST_LIMIT: 50;
 const DEFAULT_LOCALES: ["de", "en", "es"];
 const DELIVERY_FAILURE_CODES;
 const DELIVERY_SKIP_REASONS: ["channel_disabled", "preference_disabled", "rate_limited", "no_address", "unsubscribed", "duplicate_idempotency_key"];
-const EXT_ASSIGNABLE_ROLE: "assignableRole"; // `assignableRole` — an app declares a membership role as assignable: `r.useExtension(EXT_ASSIGNABLE_ROLE, "<RoleName>", { assignableFrom?
+const EXT_ASSIGNABLE_ROLE: "assignableRole"; // `assignableRole` — an app declares a membership role as assignable: `r.applyExtension({ name: EXT_ASSIGNABLE_ROLE, entity: "<RoleName>", assignableFrom?
 const EXT_DERIVATIVE_OVERLAY_RESOLVER: "derivativeOverlayResolver"; // `derivativeOverlayResolver` — per-entityType "resolve this overlay dataToken to its real value" contract for `file-derivatives`' overlay compositing (QR codes on a public variant).
 const EXT_DERIVATIVE_PUBLIC_PREDICATE: "derivativePublicPredicate"; // `derivativePublicPredicate` — per-entityType "is this FileRef's derivative publicly readable?" gate for the anonymous variant route (file-derivatives).
 const EXT_DERIVATIVE_RENDERER: "derivativeRenderer"; // `derivativeRenderer` — File-Derivative-Renderer-Plugin-Selection (file-derivatives).
@@ -197,11 +213,13 @@ const EXT_TENANT_DATA: "tenantData"; // `tenantData` — per-entity tenant-destr
 const EXT_TENANT_LIFECYCLE_STATUS: "tenantLifecycleStatus"; // `tenantLifecycleStatus` — tenant-teardown status contract, fulfilled by the bundled `tenant-lifecycle` feature; absent means no tenant is ever "in teardown".
 const EXT_USER_DATA: "userData"; // `userData` — user-data rights hooks (GDPR Articles 15, 17, and 20).
 const EXT_USER_DATA_ORDER: { REDACT_BEFORE_OWNER: -100; DEFAULT: 0; };
+const FIELD_CHANGE_REQUEST_ENTITY_NAME: "field-change-request";
 const FILE_PROVIDER_CONFIG_KEY: "file-foundation:config:provider";
 const FILE_STORAGE_PROVIDER_BOOT_SENTINEL: "configured";
 const FILE_STORAGE_PROVIDER_ENV: "FILE_STORAGE_PROVIDER";
 const HTTP_ERROR_CODE_PATTERN: RegExp;
 const HookPhases: { inTransaction: "inTransaction"; afterCommit: "afterCommit"; };
+const LIST_ALL_PAGES_DEFAULT_MAX_PAGES: 50;
 const LifecycleHookTypes: { preSave: "preSave"; postSave: "postSave"; preDelete: "preDelete"; postDelete: "postDelete"; postQuery: "postQuery"; };
 const MAX_LIST_LIMIT: 200;
 const MAX_TRANSFER_DEPTH: 5;
@@ -214,10 +232,6 @@ const SELECTED_EXTENSIONS_QUERY: "config:query:config-value:selected-extensions"
 const SETTINGS_HUB_FEATURE: "config";
 const SOFT_DELETE_DEFAULT_GRACE_DAYS: 30;
 const SOFT_DELETE_GRACE_DAYS_KEY: "soft-delete:config:grace-days";
-const STEP_DISPATCHED_TYPE: "kumiko:system:step.dispatched";
-const STEP_DISPATCH_AGGREGATE_TYPE: "step-dispatch";
-const STEP_DISPATCH_FAILED_TYPE: "kumiko:system:step.dispatch-failed";
-const STEP_DISPATCH_REQUESTED_TYPE: "kumiko:system:step.dispatch-requested";
 const SYSTEM_ONLY_JSON_SCHEMA_KEY: "x-kumiko-system-only";
 const SYSTEM_ROLE: "system";
 const SYSTEM_TENANT_ID: TenantId;
@@ -226,16 +240,7 @@ const TENANT_CURRENCY_CONFIG_KEY: "tenant-settings:config:currency"; // Qualifie
 const TENANT_MEMBERSHIPS_QUERY: "tenant:query:memberships";
 const TENANT_TIER_RESOLVER_EXT: "tenantTierResolver"; // Extension name under which a tier-resolver plugin must be registered in the registry.
 const WEBHOOK_ENTITY_VERBS: WebhookEntityVerb[];
-const WORKFLOW_AGGREGATE_TYPE: "workflow-run";
-const WORKFLOW_RESUMED_TYPE: "kumiko:system:workflow.step.resumed";
-const WORKFLOW_RETRY_SCHEDULED_TYPE: "kumiko:system:workflow.retry.scheduled";
-const WORKFLOW_RUN_COMPLETED_TYPE: "kumiko:system:workflow.run-completed";
-const WORKFLOW_RUN_FAILED_TYPE: "kumiko:system:workflow.run-failed";
-const WORKFLOW_RUN_STARTED_TYPE: "kumiko:system:workflow.run-started";
-const WORKFLOW_SYSTEM_EVENT_DEFS: ReadonlyMap<string, EventDef>;
-const WORKFLOW_WAITING_FOR_EVENT_TYPE: "kumiko:system:workflow.step.waiting-for-event";
-const WORKFLOW_WAITING_TYPE: "kumiko:system:workflow.step.waiting";
-const access: { all; admin; systemAdmin; system; privileged; builtinUserRoles; anonymous; roles; withSystem };
+const access: { all; admin; systemAdmin; system; privileged; builtinUserRoles; tenantMembers; anonymous; roles; withSystem };
 const entityListSchema;
 const templateVariable: { text; link; richText; money; date; percent; images; list };
 ```
@@ -253,9 +258,6 @@ class BootValidationError extends Error {
 }
 class ProbeFailure extends Error {
   constructor(text: ProbeText);
-}
-class WorkflowStepError extends Error {
-  constructor(stepIndex: number, cause: unknown);
 }
 ```
 
@@ -282,6 +284,8 @@ type ActionFormScreenDefinition = {
   derive?: Readonly<Record<string, FormFieldDerivation>>; // Fields computed from other fields, shown read-only and recomputed on every change.
   layout: EditLayout; // Layout analogous to EntityEditScreen: sections with fields from the fields map above.
   fieldLabels?: Readonly<Record<string, FieldTextRef>>; // Per-field label i18n key override, same type/semantics as `EntityEditScreenDefinition.fieldLabels`.
+  labelEntity?: string; // Entity of the same feature whose field texts this form reuses: a form field the entity also declares takes its label and option labels from `<feature>:entity:<labelEntity>:field:<name>`.
+  labelEntityFields?: string[]; // Derived by buildAppSchema: the form fields `labelEntity` declares.
   submitLabel?: string; // i18n key for the submit button.
   footerActions?: ActionFormFooterAction[]; // Extra buttons in the form footer next to the submit button.
   summary?: {
@@ -308,7 +312,8 @@ type ActionFormScreenDefinition = {
   slots?: ScreenSlots;
   access?: AccessRule;
 };
-type AgentEffect = "proposal"; // "proposal": the write only changes a suggestion that a person still approves elsewhere, so the agent may run it without its own approval step.
+type AdminNavArea = "tenant" | "platform";
+type AgentEffect = "proposal" | "outbound"; // "proposal": the write only changes a suggestion that a person still approves elsewhere, so the agent may run it without its own approval step.
 type AgentHandlerHints = { // Per-handler hints for the AI-agent manifest.
   expose?: boolean;
   risk?: AgentRisk;
@@ -335,13 +340,7 @@ type AuthClaimsContext = {
   queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
   config?: ConfigAccessor;
 };
-type AwaitedEventType = string & {
-  __awaitedEvent: unique symbol;
-};
-type BeforeTransactionContext<TMap extends object = KumikoEventTypeMap> = Omit<ReservationContext<TMap>, "db" | "systemDb"> & { // ctx of `beforeTransaction`: external I/O and reads only, so the outside-transaction handles are gone too.
-  db: TenantDb & { outsideTransaction: undefined; };
-  systemDb?: Omit<UncheckedSystemDb, "outsideTransaction"> & { outsideTransaction: undefined; };
-};
+type BeforeTransactionContext<TMap extends object = KumikoEventTypeMap> = ReservationContext<TMap>; // ctx of `beforeTransaction`: external I/O and reads, same surface as the reservation phase.
 type BeforeTransactionResult<TPrepared = unknown> = // Outcome of a write handler's pre-transaction phase.
   | {
     isSuccess: true;
@@ -357,6 +356,9 @@ type BootRule = {
   fix: string;
 };
 type BootRuleTable = Readonly<Record<string, BootRule>>;
+type BootValidationResult = {
+  warnings: BootWarning[];
+};
 type BootViolation = {
   ruleId: string;
   check: string;
@@ -364,18 +366,21 @@ type BootViolation = {
   message: string;
   fix?: string;
 };
-type BundledListsOptions = { // One `table` block for every entityList, projectionList and relatedList of the bundled features.
-  table: ListTableOptions;
-  pinFirstColumn?: boolean; // Pins the first column left on every bundled list where no column is pinned.
+type BootWarning = {
+  kind: BootWarningKind;
+  feature?: string;
+  message: string;
 };
+type BootWarningKind = "nav/access-inversion" | "nav/screen-unreachable" | "config/toggleable-dependency" | "security/baseline-incomplete" | "access/unique-role" | "list/hidden-file-column" | "api/self-use" | "gdpr/ephemeral-store" | "gdpr/s3-env-unset" | "pii/owner-not-user-reference" | "pii/unannotated-personal-name" | "retention/invalid-keep-for" | "retention/block-delete-without-anonymize";
 type ChangelogEntry = {
   version: string;
   type: ChangelogType;
   title: string;
-  detail?: string;
+  detail?: string; // Kept in changes.json only on breaking entries; `kumiko changes fold` drops it from improvements and fixes, whose prose stays in the package CHANGELOG.md.
   migration?: string; // Required when type=breaking.
   codemod?: string; // Path (relative to packages/feature-ast/src/, under scripts/codemod/) run by `kumiko upgrade --apply`.
   manualAfterCodemod?: boolean; // The codemod only covers part of the migration: the entry is also recorded as pending manual work after it ran.
+  affects?: string[]; // Breaking entries only: symbols or import paths an app mentions when the change touches it.
 };
 type ChatSendFailureCode = `http_${number}` | Exclude<DeliveryFailureCode, "render_failed" | "send_failed" | "channel_error">;
 type ClaimKeyType = "string" | "number" | "boolean" | "string[]" | "object";
@@ -505,6 +510,7 @@ type DeleteContext = {
   entityName?: string | undefined;
   event: StoredEvent;
   lockGuardBypassed?: boolean | undefined;
+  cascadedFrom?: { entityName: string; id: EntityId; } | undefined;
 };
 type DeliveryAttemptLogEntry = {
   notificationType: string;
@@ -569,7 +575,8 @@ type EditRelatedListSection = EditSectionPresentation & {
   itemNoun?: string; // i18n key holding plural forms for the footer count ("1 Position", "3 Positionen").
   pageSize?: number;
   table?: ListTableOptions; // Opt-in table behaviour: remembered state, reset, column picker, density.
-  defaultSort?: ListSortSpec; // Initial sort on mount, applied client-side over the already-loaded rows (this section has no pager; if the fetch is truncated, `nextCursor !== null`, the section shows a hint banner that the sort covers only the loaded rows).
+  defaultSort?: ListSortSpec; // Initial sort on mount.
+  serverSortFields?: string[]; // Derived by buildAppSchema, never authored (an authored value is overwritten): the columns the bound query orders itself, from its Zod `sort` param (enum literals, or for an `<entity>:list` query the fields its SQL sort accepts for every caller, so no field with its own `access.read`), plus `insertedAt` when the query can order by creation time.
   searchable?: boolean; // Renders a search box whose debounced term rides along as `payload.search` on this section's own query.
   facets?: ListFacetSpec[]; // User-toggleable facet dropdowns — same explicit-label `ListFacetSpec` as `projectionList.facets` (a relatedList has no entity to derive filterable fields from).
   rowClick?: {
@@ -597,6 +604,7 @@ type EffectiveFeaturesResolver = ((tenantId: TenantId) => ReadonlySet<string>) &
   trialGate?: TrialGate; // Optional live-trial gate, consulted by the dispatcher feature gate ONLY when the synchronous resolver reports a feature as disabled.
 };
 type EntityDefinition<F extends FieldsMap = FieldsMap, T extends EntityTenancy = EntityTenancy> = {
+  name: string; // Feature-local entity name; the table, the event stream and the handler names derive from it.
   table?: string;
   fields: F;
   softDelete?: boolean;
@@ -610,6 +618,7 @@ type EntityDefinition<F extends FieldsMap = FieldsMap, T extends EntityTenancy =
   defaultCurrency?: string;
   lockedWhen?: FieldCondition; // Rows whose stored state meets this condition are read-only: every executor update and delete on them is rejected with a 409 (`errors.recordLocked`), whatever handler or job calls it.
   transitions?: Readonly<Record<string, TransitionMap>>; // Allowed state transitions per field.
+  verbs?: Readonly<Record<string, EntityVerbDef>>; // Named update events, keyed by the event verb (`<entity>.<verb>`).
   indexes?: EntityIndexDef[]; // Composite indexes over multiple fields.
   idType?: "serial" | "uuid"; // Entity primary-key type.
   access?: {
@@ -619,6 +628,8 @@ type EntityDefinition<F extends FieldsMap = FieldsMap, T extends EntityTenancy =
   parentRef?: ParentRefDef; // Join-row carrier reference.
   readGate?: ReadGateDef; // Declarative read gate for rows readable only through other rows (a link to a visible host, a file whose owner is readable).
   retention?: RetentionDef; // Default retention policy for this entity.
+  streamRetention?: StreamRetentionDef; // Prunes whole event streams of this entity once their newest event is older than keepFor.
+  forgetWithSubject?: true; // crypto-shredding:write:forget-subject forgets this entity's row, through the executor, when the row's own subject is forgotten: `record:<entity>:<id>`, or `user:<id>` when the entity has a `personal: "self"` field.
   derivedFields?: DerivedFieldsMap; // Read-time computed fields, keyed by name.
   namedFilters?: Readonly<Record<string, NamedListFilterDef>>; // Named work-queue rules keyed by id, selected via `namedFilter`; function-valued, never in the client schema.
   description?: string; // Optional free-text semantics for the AI agent manifest — see TextFieldDef.description.
@@ -655,6 +666,7 @@ type EntityEditScreenDefinition = {
   redirect?: string | ActionFormRedirect; // Navigate to this screen ID after a successful save (create or update).
   listScreenId?: string; // Parent list screen (short id) for breadcrumb + nav highlighting when this screen has no nav entry of its own.
   fieldLabels?: Readonly<Record<string, FieldTextRef>>; // Optional per-field label i18n key (field name → key), overrides the default convention `<feature>:entity:<entity>:field:<name>`.
+  fieldTextEntities?: Readonly<Record<string, string>>; // Field name -> entity whose label and option keys the field uses instead of `entity`.
   actions?: EntityEditAction[]; // Record actions.
   slots?: ScreenSlots;
   access?: AccessRule;
@@ -709,9 +721,9 @@ type EntityListScreenDefinition = {
   access?: AccessRule;
 };
 type EscapeHatchAuditSink = (event: EscapeHatchUseEvent) => Promise<void>;
-type EscapeHatchDeclaration = {
+type EscapeHatchDeclaration<TGrant extends EscapeHatchGrant = EscapeHatchGrant> = {
   reason: string;
-  grants?: EscapeHatchGrant[];
+  grants: [ TGrant, ...TGrant[] ];
 };
 type EscapeHatchKind = "unsafe-raw" | "acknowledge-cross-tenant" | "global-write" | "identity-switch" | "unsafe-all-tenants" | "cross-tenant-read";
 type EscapeHatchUseEvent = {
@@ -729,8 +741,8 @@ type EventDef<TPayload = unknown, TName extends string = string> = {
   version: number;
   piiFields: EventPiiStance;
 };
-type ExtensionOptionsArgs<N extends string> = N extends keyof KumikoExtensionOptionsMap ? Record<never, never> extends KumikoExtensionOptionsMap[N] ? [ options?: ExtensionOptionsFor<N> ] : [ options: ExtensionOptionsFor<N> ] : [ options?: Record<string, unknown> ]; // Rest-tuple for useExtension's positional options arg: required for an augmented name with required keys, optional otherwise.
-type ExtensionOptionsFor<N extends string> = N extends keyof KumikoExtensionOptionsMap ? KumikoExtensionOptionsMap[N] & { escapeHatch?: EscapeHatchDeclaration; } : Record<string, unknown>; // Options shape for an extension name: the augmented hook shape plus `escapeHatch`, or an untyped bag if unaugmented.
+type ExtensionOptionsArgs<N extends string> = N extends keyof KumikoExtensionOptionsMap ? Record<never, never> extends KumikoExtensionOptionsMap[N] ? [ options?: ExtensionOptionsFor<N> ] : [ options: ExtensionOptionsFor<N> ] : [ options?: Record<string, unknown> ]; // Rest-tuple for an extension's options arg: required for an augmented name with required keys, optional otherwise.
+type ExtensionOptionsFor<N extends string> = N extends keyof KumikoExtensionOptionsMap ? KumikoExtensionOptionsMap[N] & { escapeHatch?: ExtensionEscapeHatchDeclaration; } : Record<string, unknown>; // Options shape for an extension name: the augmented hook shape plus `escapeHatch`, or an untyped bag if unaugmented.
 type FeatureDefinition = {
   name: string;
   description?: string;
@@ -741,7 +753,6 @@ type FeatureDefinition = {
   requiredProjections: ReadonlySet<string>;
   requiredSteps: ReadonlySet<string>;
   toggleableDefault?: boolean;
-  adoptsBundledLists?: true;
   uiHints?: UiHints;
   entities?: Readonly<Record<string, EntityDefinition>>;
   entityTables?: Readonly<Record<string, unknown>>;
@@ -801,53 +812,39 @@ type FeatureRegistrar<TFeature extends string = string> = { // `TFeature` is the
   systemScope(): void;
   describe(text: string): void;
   requires: RequiresApi;
-  optionalRequires(...featureNames: string[]): void;
   optionalRequires(options: { features: string[]; }): void;
   toggleable(options: { default: boolean; }): void;
-  adoptsBundledLists(): void;
   uiHints(hints: UiHints): void;
   entity(definition: EntityObjectDefinition): EntityRef;
-  crud(entityName: string, entity: EntityDefinition, options?: RegisterEntityCrudOptions): void;
+  crud(entity: EntityDefinition, options?: RegisterEntityCrudOptions): void;
   writeHandler<TName extends string, TSchema extends ZodType, TPrepared = undefined, TWhenNested extends BeforeTransactionWhenNested | undefined = undefined>(def: WriteHandlerDefinition<TName, TSchema, unknown, KumikoEventTypeMap, TPrepared, TWhenNested>): HandlerRef;
-  queryHandler<TName extends string, TSchema extends ZodType>(def: QueryHandlerDefinition<TName, TSchema>): HandlerRef;
+  queryHandler<TName extends string, TSchema extends ZodType, TResult = unknown>(def: QueryHandlerDefinition<TName, TSchema, TResult>): QueryHandlerRef<z.input<TSchema>, Exclude<TResult, WriteFailure>>;
   streamHandler<TName extends string, TSchema extends ZodType>(def: StreamHandlerDefinition<TName, TSchema>): HandlerRef;
-  streamHandler<TSchema extends ZodType>(name: string, schema: TSchema, handler: StreamHandlerFn<z.infer<TSchema>>, options: { access: AccessRule; rateLimit?: RateLimitDeclaration; escapeHatch?: EscapeHatchDeclaration; }): HandlerRef;
-  relation(entity: NameOrRef, relationName: string, definition: RelationDefinition): void;
   relation<TDef extends RelationDefinition>(definition: { entity: NameOrRef; name: string; } & TDef): void;
   hook(definition: HookDefinition): void;
   searchPayloadExtension(entity: NameOrRef, fn: SearchPayloadContributorFn): void;
-  config<T extends ConfigKeyType>(keyName: string, def: ConfigKeyDefinition<T>): ConfigKeyHandle<T>;
   config<TKeys extends Readonly<Record<string, ConfigKeyDefinition<ConfigKeyType>>>>(definition: { keys: TKeys; seeds?: Readonly<Record<string, ConfigSeedDef>>; }): { [K in keyof TKeys]: ConfigKeyHandle<TKeys[K]["type"]>; };
-  job(name: string, options: Omit<JobDefinition, "name" | "handler">, handler: JobHandlerFn): void;
   job(definition: JobDefinition): void;
-  notification(name: string, definition: { trigger?: { on: NameOrRef; }; recipient?: NotificationRecipientFn; data?: NotificationDataFn; templates?: Readonly<Record<string, NotificationTemplateFn>>; variables?: TemplateVariables; record?: NotificationRecordMapping; template?: Readonly<Record<string, NotificationTemplateBody>>; meta?: Readonly<Record<string, NotificationTemplateMeta>>; localizedTemplate?: () => NotificationLocalizedTemplate; renamedFrom?: string[]; systemOnly?: boolean; unsubscribe?: boolean; tenantTransport?: boolean; }): void;
   notification(definition: { name: string; trigger?: { on: NameOrRef; }; recipient?: NotificationRecipientFn; data?: NotificationDataFn; templates?: Readonly<Record<string, NotificationTemplateFn>>; variables?: TemplateVariables; record?: NotificationRecordMapping; template?: Readonly<Record<string, NotificationTemplateBody>>; meta?: Readonly<Record<string, NotificationTemplateMeta>>; localizedTemplate?: () => NotificationLocalizedTemplate; renamedFrom?: string[]; systemOnly?: boolean; unsubscribe?: boolean; tenantTransport?: boolean; }): void;
   translations(def: TranslationsDef): void;
   defineEvent<const TInner extends string, TPayload>(name: TInner, schema: ZodType<TPayload>, options: { version?: number; piiFields: EventPiiStance; migrations?: { fromVersion: number; toVersion: number; transform: EventUpcastFn | DeclarativeEventMigration; }[]; }): EventDef<TPayload, QualifiedEventName<TFeature, TInner>>;
   defineWebhookEvent(definition: { name: string; description: string; payload: z.ZodObject; version: number; wireName?: string; }): WebhookEventHandle;
-  readsConfig(...qualifiedKeys: string[]): void;
   readsConfig(options: { keys: string[]; }): void;
-  referenceData(entity: NameOrRef, data: Record<string, unknown>[], options?: { upsertKey?: string; }): void;
   referenceData(definition: { entity: NameOrRef; data: Record<string, unknown>[]; upsertKey?: string; }): void;
   extendsRegistrar(name: string, def: RegistrarExtensionDef): void;
-  useExtension<N extends string>(extensionName: N, entity: NameOrRef, ...options: ExtensionOptionsArgs<N>): void;
-  useExtension<N extends string>(definition: { name: N; entity: NameOrRef; } & ExtensionOptionsFor<N>): void;
+  applyExtension<N extends string>(definition: { name: N; entity: NameOrRef; } & ExtensionOptionsFor<N>): void;
   extensionSelector(extensionName: string, key: { name: string; } | string, options?: { panels?: ExtensionSelectorPanel[]; }): void; // Declares which config key selects the active provider under an extension point — called by the point-owning foundation (e.g. `r.extensionSelector("mailTransport", configKeys.provider)`).
   exposesApi(apiName: string): void; // Marker declaration: this feature provides a cross-feature API under the given name.
   usesApi(apiName: string): void; // Declares that this feature calls a cross-feature API.
   bootCheck(fn: BootCheckFn): void; // Declares a boot-time mount-invariant for this feature.
-  metric(shortName: string, options: MetricOptions): void;
   metric(definition: { name: string; } & MetricOptions): void;
-  secret(shortName: string, options: SecretOptions): SecretKeyHandle;
   secret(definition: { name: string; } & SecretOptions): SecretKeyHandle;
   probe(options: ProbeOptions): void;
-  secretNamespace(shortName: string, options: SecretNamespaceOptions): SecretNamespaceHandle;
   secretNamespace(definition: { name: string; } & SecretNamespaceOptions): SecretNamespaceHandle;
   projection(definition: ProjectionDefinition): void;
   multiStreamProjection(definition: MultiStreamProjectionDefinition): void;
   extendEntityProjection(entityName: string, extension: EntityProjectionExtension): void;
   authClaims(fn: AuthClaimsFn): void;
-  claimKey<T extends ClaimKeyType>(shortName: string, options: { type: T; }): ClaimKeyHandle<T>;
   claimKey<T extends ClaimKeyType>(definition: { name: string; type: T; }): ClaimKeyHandle<T>;
   screen(definition: ScreenDefinition): void;
   nav(definition: NavDefinition): void;
@@ -897,14 +894,21 @@ interface FieldFormatRegistry {
     locale?: string;
     dateStyle?: "full" | "long" | "medium" | "short";
   };
+  month: {
+    locale?: string;
+  }; // A `YYYY-MM` value (text field `format: "month"`) as month and year, "Juni 2026"; anything else stays as stored.
   phone: Record<never, never>; // Telephone number shown as a `tel:` link in list cells, like a read-only `format: "phone"` field.
   boolean: {
     trueLabel?: string;
     falseLabel?: string;
   };
   currency: {
-    symbol?: string;
-  };
+    currency: string;
+    locale?: string;
+  }; // ISO 4217 code such as "EUR"; the value is an amount in minor units (4250 = 42.50 EUR), formatted with Intl in the UI locale.
+  money: {
+    locale?: string;
+  }; // Money value as the executor reads it, `{ amount, currency }` with the amount in minor units (4250 = 42.50 EUR); formatted with Intl in the value's own currency and the UI locale.
   priority: {
     emptyLabel?: string;
     prefix?: string;
@@ -920,10 +924,7 @@ interface FieldFormatRegistry {
     locale?: string;
     unitDisplay?: "long" | "short" | "narrow";
   };
-  enumOption: {
-    keyPrefix: string;
-    tones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
-  };
+  enumOption: { keyPrefix: string; optionsOf?: never; tones?: Readonly<Partial<Record<string, SelectOptionTone>>>; } | { optionsOf: string; keyPrefix?: never; tones?: Readonly<Partial<Record<string, SelectOptionTone>>>; };
   i18nText: Record<never, never>; // Value is a `DashboardI18nText` (`{ i18nKey, i18nParams }`) a query built server-side, or a plain i18n key, translated in the user's language.
   json: {
     indent?: number;
@@ -947,6 +948,7 @@ type HandlerContext<TMap extends object = KumikoEventTypeMap> = {
   registry: Registry;
   user: SessionUser; // The active SessionUser for the handler call, exposed as a convenience alias for `event.user`.
   rateLimitDigest?: (value: string) => string; // Keyed digest for handler-owned rate-limit keys, so Redis never holds a plaintext or plainly hashed identifier.
+  visitorKey?: VisitorKey; // Pseudonym of the HTTP caller: keyed HMAC over the UTC day, the resolved client IP and the User-Agent, identical in every handler and nested dispatch of the app for that day.
   includeDeleted?: boolean;
   onlyDeleted?: boolean;
   dispatch: HandlerDispatch;
@@ -966,23 +968,24 @@ type HandlerDb = TenantDb & { // `ctx.db` plus `outsideTransaction`: the same te
   outsideTransaction: TenantDb | undefined;
 };
 type HandlerDispatch = { // Cross-feature bridge: `query`/`write` run the target handler AS THE CURRENT USER, sharing the active tx + afterCommit queue.
-  query: (qn: string, payload: unknown) => Promise<unknown>;
-  queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
-  write: (qn: string, payload: unknown) => Promise<WriteResult>;
-  writeAs: (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
+  query: ContractQuery;
+  queryAs: ContractQueryAs;
+  write: ContractWrite;
+  writeAs: ContractWriteAs;
   queryAsMember: MemberReader;
   queryProjection: <T = Record<string, unknown>>(qualifiedName: string, options?: { unsafeAllTenants?: boolean; }) => Promise<T[]>;
 };
 type HandlerEvents<TMap extends object = KumikoEventTypeMap> = { // Event-store surface of a handler.
   append: AppendEventFn<TMap>; // Default append: a typed domain event on one aggregate stream in the current tx.
-  unsafeAppend: UnsafeAppendEventFn; // Untyped append (`payload: unknown`) with the same runtime as `append`.
+  unsafeAppend: UnsafeAppendEventFn; // Untyped payload for runtime-pluggable events; same checks and the same concurrency contract as `append`.
   tryAppend: TryAppendEventFn; // Optimistic append: runs in a savepoint and returns a version conflict as a result instead of throwing, so the handler can continue after losing a race on the same aggregate stream.
   fetchForWriting: (args: FetchForWritingArgs) => Promise<AggregateStreamHandle>;
-  load: (aggregateId: string, options?: { asOf?: Temporal.Instant; atVersion?: never; includeArchived?: boolean; } | { atVersion?: number; asOf?: never; includeArchived?: boolean; }) => Promise<StoredEvent[]>;
+  load: (aggregateId: string, options?: { asOf?: Temporal.Instant; atVersion?: never; includeArchived?: boolean; aggregateType?: string; } | { atVersion?: number; asOf?: never; includeArchived?: boolean; aggregateType?: string; }) => Promise<Store…;
   loadByTypes: (args: { aggregateIds: string[]; eventTypes: string[]; includeArchived?: boolean; }) => Promise<StoredEvent[]>;
   archive: (aggregateId: string, args: { aggregateType: string; reason?: string; }) => Promise<void>;
   restore: (aggregateId: string) => Promise<void>;
   isArchived: (aggregateId: string) => Promise<boolean>;
+  streamVersion: (aggregateId: string) => Promise<number>;
   snapshot: (args: { aggregateId: string; aggregateType: string; version: number; state: Record<string, unknown>; snapshotVersion?: number; }) => Promise<void>;
   loadWithSnapshot: <TState extends Record<string, unknown>>(aggregateId: string, reducer: SnapshotReducer<TState>, initial: TState, options?: Omit<LoadAggregateWithSnapshotOptions, "upcastEvent">) => Promise<LoadAggregateWithSnapshotResult<TState>>;
 };
@@ -993,8 +996,17 @@ type HandlerObservability = {
   metricsFor: (featureName: string) => MetricsHandle;
   meter?: Meter;
 };
+type HandlerTranslationTexts = {
+  title: TranslationEntry;
+  description?: TranslationEntry;
+  fields?: Readonly<Record<string, TranslationEntry>>;
+};
+type HandlerTranslations = {
+  writes?: Readonly<Record<string, HandlerTranslationTexts>>;
+  queries?: Readonly<Record<string, HandlerTranslationTexts>>;
+};
 type JobContext = {
-  db: TenantDb;
+  db: ConnectionTenantDb;
   events: JobEvents;
   registry: Registry;
   systemUser: SessionUser;
@@ -1035,13 +1047,15 @@ type JobDefinition = {
   bootGate?: boolean | undefined;
   perTenant?: boolean | undefined;
   includeSystemTenant?: boolean | undefined;
+  onlyTenants?: TenantId[] | undefined;
   runIn?: JobRunIn | undefined;
   escapeHatch?: EscapeHatchDeclaration | undefined;
+  runAs?: { roles: string[]; } | undefined;
   tenantVisibleFailure?: { messageKey: string; subjectFields?: string[] | undefined; } | undefined;
   tenantVisibleRun?: { subjectFields?: string[] | undefined; } | undefined;
   irreversibleWithoutEntryHandler?: IrreversibleWithoutEntryHandler | undefined;
 };
-type JobDispatch = Pick<HandlerDispatch, "write" | "writeAs" | "queryAs" | "queryAsMember">;
+type JobDispatch = Pick<HandlerDispatch, "write" | "query" | "writeAs" | "queryAs" | "queryAsMember">;
 type JobEvents = Pick<HandlerEvents, "append" | "load">;
 type JobHandlerFn = (payload: Record<string, unknown>, context: JobContext) => Promise<void | JobDeferral>;
 type JobObservability = Pick<HandlerObservability, "log" | "metricsFor" | "meter">;
@@ -1075,6 +1089,9 @@ type JsonbFieldDef = PiiAndFieldState & {
 interface KumikoEventTypeMap {}
 interface KumikoExtensionOptionsMap {}
 type LifecycleHookType = (typeof LifecycleHookTypes)[keyof typeof LifecycleHookTypes];
+type ListAllPagesOptions = {
+  maxPages?: number;
+};
 type ListColumnSpec =
   | string
   | {
@@ -1094,6 +1111,7 @@ type ListColumnSpec =
     ellipsis?: true; // One line with a trailing ellipsis in the table; the full text is the cell's `title`.
     multiline?: true; // Free text: the cell wraps instead of ending in "…", and a line break (`\n`) in the value starts a new line (table and phone card).
     cardAbove?: true; // Phone card: the column's line stands above the title (muted, e.g. "date, channel") instead of below it.
+    cardLabel?: true; // Phone card: the line starts with the column label ("Current value: …"), and the value moves below the label as a whole before it breaks inside.
     emphasis?: true; // Cell text in medium weight and foreground colour, like the title column of a board.
     tone?: "muted"; // `"muted"` draws every cell of the column in the muted text colour (e.g. a free-text message beside primary columns).
     cardBadge?: true; // The phone card shows this column as its badge: right of the title, as an outlined neutral pill (a `display: "badge"` column keeps its own pill).
@@ -1114,6 +1132,10 @@ type ListColumnSpec =
     hint?: ListColumnHint; // "To do" cell: the column's field holds a sentence, shown emphasized in the row tone; an empty value shows `emptyLabel`.
   }
 ;
+type ListDefaultsOptions = { // One `table` block for every entityList, projectionList and relatedList of every composed feature.
+  table: ListTableOptions;
+  pinFirstColumn?: boolean; // Pins the first column left on every list where no column is pinned.
+};
 type ListFacetSpec =
   | {
     field: string;
@@ -1148,7 +1170,15 @@ type ListFacetSpec =
     }; // Query-payload keys the chosen bounds are sent under as ISO instants.
   }
 ;
-type ListTableOptions = { // Opt-in table behaviour of a list.
+type ListPage<Row> = {
+  rows: Row[];
+  nextCursor?: string | null;
+};
+type ListPageRequest = {
+  limit: number;
+  cursor?: string;
+};
+type ListTableOptions = { // Table behaviour of a list.
   rememberState?: boolean; // Keeps search, sort, page size, facets and date range for the browser session and restores them when the screen is opened without list parameters in the URL.
   resetAll?: boolean; // Replaces the facet reset with one button that resets search, sort, page size, facets and date range, and drops the remembered list parameters (column and density choices stay).
   columnPicker?: boolean; // Lets the user hide and reorder columns in the view menu.
@@ -1189,7 +1219,6 @@ type ManifestFeature = {
   name: string;
   description: string | null;
   toggleableDefault: boolean | null;
-  adoptsBundledLists?: true;
   requires: string[];
   optionalRequires: string[];
   configReads: string[];
@@ -1247,6 +1276,7 @@ type NavDefinition = {
   provider?: boolean;
   access?: AccessRule;
   workspaces?: string[];
+  adminArea?: AdminNavArea;
 };
 type NavIconKey = (typeof NAV_ICON_KEYS)[number];
 type NotificationDefinition = {
@@ -1322,6 +1352,12 @@ type OwnershipMap = Readonly<Record<string, OwnershipRule>>;
 type PagedQueryHandlerDefinition<TName extends string = string, TSchema extends ZodType = ZodType, TRow = unknown, TMap extends object = KumikoEventTypeMap> = QueryHandlerDefinition<TName, TSchema, CursorResult<TRow>, TMap> & {
   [PAGED_QUERY_HANDLER_BRAND]: true;
 };
+type ParentRuleResolver = (entityName: string) => ParentRuleTarget | undefined;
+type ParentRuleTarget = {
+  accessMap: OwnershipMap | undefined;
+  table: unknown;
+  tableName: string;
+};
 type PendingChange = {
   feature: string;
   type: ChangelogType;
@@ -1330,19 +1366,13 @@ type PendingChange = {
   migration?: string;
   codemod?: string;
   manualAfterCodemod?: boolean;
+  affects?: string[];
   source: string;
 };
 type PipelineCtx<TPayload = unknown, TMap extends object = KumikoEventTypeMap> = HandlerContext<TMap> & { // Pipeline-side context handed to step argument resolvers.
   event: WriteEvent<TPayload>;
   steps: Readonly<Record<string, unknown>>;
   scope: Readonly<Record<string, unknown>>;
-  workflow?: {
-    runId: string;
-    workflowName: string;
-    stepIndex: number; // Current step index in the pipeline — set by the executor before each step.
-    retryAttempt?: number; // Retry attempt counter for the current workflow.retry step.
-    definitionFingerprint?: string; // Snapshot-at-Start fingerprint of the workflow definition that started this run.
-  };
 };
 type PostDeleteHookFn = (payload: DeleteContext, context: HandlerContext) => Promise<void>;
 type PostSaveHookFn = (result: SaveContext, context: HandlerContext) => Promise<void>;
@@ -1506,14 +1536,19 @@ type QueryHandlerDef = {
   name: string;
   schema: ZodType;
   handler: QueryHandlerFn;
-  [ENTITY_CONVENTION_QUERY_BRAND]?: true; // Set only by defineEntityQueryHandler, which wires the parent-ref read-gate.
+  [ENTITY_CONVENTION_QUERY_BRAND]?: true; // Set only by defineEntityListHandler/defineEntityDetailHandler, which wire the parent-ref read-gate.
   access: AccessRule;
   description?: string;
   agent?: AgentHandlerHints;
   rateLimit?: RateLimitDeclaration;
   outputSchema?: ZodType; // Zod schema of the handler's actual return value — the paged envelope `{ rows, nextCursor, total?
   liveEntities?: string[]; // Entities whose changes this query reflects.
+  resultEntity?: string; // The entity whose field read rules and writeOnly mask apply to this query's result (a row, an array of rows or `{ rows }`).
+  unfilteredResult?: {
+    reason: string;
+  }; // Marks a query whose result holds no entity rows (options, counts, derived values), so no field filter applies.
   escapeHatch?: EscapeHatchDeclaration;
+  systemScope?: true; // Declared via `systemScope: true` on defineQueryHandler; boot requires the owning feature to call r.systemScope().
 };
 type QueryHandlerDefinition<TName extends string = string, TSchema extends ZodType = ZodType, TResult = unknown, TMap extends object = KumikoEventTypeMap> = {
   name: TName;
@@ -1523,10 +1558,19 @@ type QueryHandlerDefinition<TName extends string = string, TSchema extends ZodTy
   agent?: AgentHandlerHints;
   rateLimit?: RateLimitDeclaration;
   escapeHatch?: EscapeHatchDeclaration;
+  systemScope?: true;
   handler: (query: QueryEvent<z.infer<TSchema>>, context: HandlerContext<TMap>) => Promise<TResult>;
   outputSchema?: ZodType; // Zod schema of `handler`'s actual return value — see QueryHandlerDef's doc (handlers.ts) for the boot-validator checks this unlocks.
   liveEntities?: string[]; // Entities whose changes this query reflects.
+  resultEntity?: string; // The entity whose field read rules and writeOnly mask apply to the result (a row, an array of rows or `{ rows }`).
+  unfilteredResult?: {
+    reason: string;
+  }; // Marks a query whose result holds no entity rows (options, counts, derived values), so no field filter applies.
 };
+type QueryHandlerInput<TName extends string = string, TSchema extends ZodType = ZodType, TResult = unknown, TMap extends object = KumikoEventTypeMap, TGrant extends EscapeHatchGrant = EscapeHatchGrant> = Omit<QueryHandlerDefinition<TName, TSchema, TResult, TMap>, "handler" | "systemScope" | "escapeHatch"> & ({ systemScope?: undefined; handler: (query: QueryEvent<z.infer<TSchema>>, context: GrantedHandlerContext<HandlerContext<TMap>, TGrant>) => Promise<TResult>; } | { systemScope: true; handler: (query: QueryEvent<z.infer<TSchema>>, context: GrantedHandlerContext<SystemScopeHandlerContext<TMap>, TGrant>) => Promise<TResult>; }) & {
+  escapeHatch?: EscapeHatchDeclaration<TGrant>;
+};
+type QueryHandlerRef<TPayload = unknown, TResult = unknown> = HandlerRef & QueryContract<TPayload, TResult>;
 type RateLimitPer = (typeof RATE_LIMIT_PERS)[number];
 type ReferenceDataDef = {
   entityName: string;
@@ -1589,6 +1633,7 @@ type Registry = {
   getAllNotifications(): ReadonlyMap<string, NotificationDefinition>;
   getAllReferenceData(): ReferenceDataDef[];
   getProjectionsForSource(entityName: string): ProjectionDefinition[];
+  getEntityProjectionsExtendedBy(aggregateType: string): ProjectionDefinition[];
   getAllProjections(): ReadonlyMap<string, ProjectionDefinition>;
   getAllStoreTables(): ReadonlyMap<string, StoreTableDef>;
   getAllMultiStreamProjections(): ReadonlyMap<string, MultiStreamProjectionDefinition>;
@@ -1750,11 +1795,11 @@ type SessionUser = {
 type StepInstance = { // An instance of a step in a pipeline — what users build via the step-builder (`r.step.compute(...)`).
   kind: StepKind;
   args: unknown;
-  onFailure?: StepFailureStrategy;
 };
 type StepResolver<T, TPayload = unknown> = T | ((ctx: PipelineCtx<TPayload>) => T); // A resolver is either a static value or a function that derives the value from the pipeline-context.
 type StorageProviderDestroyTenantHook = TenantResourceDestroyHook;
 type StorageProviderHookCtx = TenantResourceHookCtx;
+type StoredEventPayloadShape<TShape extends z.ZodRawShape, TPiiKey extends keyof TShape> = Omit<TShape, TPiiKey> & { [K in TPiiKey]: StoredPiiFieldSchema<TShape[K]>; };
 type StreamHandlerDef = {
   name: string;
   schema: ZodType;
@@ -1762,6 +1807,9 @@ type StreamHandlerDef = {
   access: AccessRule;
   rateLimit?: RateLimitDeclaration;
   escapeHatch?: EscapeHatchDeclaration;
+};
+type SystemScopeHandlerContext<TMap extends object = KumikoEventTypeMap> = HandlerContext<TMap> & {
+  systemDb: UncheckedSystemDb;
 };
 type TargetRef = {
   featureId: string;
@@ -1856,6 +1904,7 @@ type TreeActionDef<TArgs = Record<string, unknown>> = {
 type TreeChildrenSubscribe = () => Subscribe<TreeNode[]>;
 type TreeNode = {
   label: string;
+  labelKey?: string;
   icon?: string;
   state?: TreeNodeState;
   target?: TargetRef;
@@ -1864,6 +1913,7 @@ type TreeNode = {
   createAction?: TreeAction;
 };
 type TrialGate = (tenantId: TenantId, featureName: string) => Promise<boolean>; // Live-Trial-Gate-Shape.
+type TriggeredEvent<TEvents extends EventDef[]> = { [K in keyof TEvents]: TEvents[K] extends EventDef<infer TPayload, infer TName> ? { type: TName; payload: TPayload; } : never; }[number];
 type UnitKey = "m2" | "km" | "m" | "kg" | "percent" | "mi";
 type UserDataDeleteHook = (ctx: UserDataHookCtx, strategy: UserDataDeleteStrategy) => Promise<UserDataDeleteHookResult>;
 type UserDataDeleteStrategy = "delete" | "anonymize"; // Strategy for the forget path per entity: - "delete": Physically remove the row (profile, personal notes, sessions).
@@ -1875,7 +1925,7 @@ interface UserDataExportSnippet { // Feature/entity snippet included in the expo
 }
 interface UserDataHookCtx {
   db: TenantDb;
-  registry: Registry; // The app registry.
+  registry: Registry; // The app registry, for read access.
   tenantId: TenantId;
   userId: UserId;
   buildStorageProvider?: (tenantId: TenantId) => Promise<UserDataStorageProvider | undefined>; // Per-tenant storage-provider resolver, injected by the forget orchestrator from the mounted file-foundation — so a hook deletes binaries from the SAME store the upload/export path uses (delete-target == upload-target by construction).
@@ -1900,6 +1950,7 @@ type ValidationError = {
   error: string;
 };
 type ValidationHookFn = (data: Readonly<Record<string, unknown>>) => ValidationError[] | null;
+type VisitorKey = string;
 type WebhookContractResolver = {
   get(qualifiedName: string): WebhookEventContract | undefined; // Declared contract, or one derived from an entity lifecycle event (`entity.verb`).
   declared(): WebhookEventContract[]; // Declared contracts only, sorted by QN.
@@ -1934,14 +1985,6 @@ type WebhookPayloadResult =
     issues: WebhookPayloadIssue[];
   }
 ;
-type WorkflowDefinition<TPayload = unknown, TData = unknown, TAwaits extends Record<string, string> = Record<string, string>> = { // Workflow definition — the result of defineWorkflow().
-  __kind: "workflow";
-  name: string;
-  trigger: WorkflowTrigger;
-  awaits?: TAwaits; // Declared expected events (workflow-resume-loop.md) — the sole route a waitForEvent step can reach an event type.
-  pipelineDef: PipelineDef<TPayload, TData, { [K in keyof TAwaits]: AwaitedEventType; }>; // The pipeline definition containing the step list closure.
-  idempotencyKey?: string | ((event: WriteEvent<TPayload>) => string); // Idempotency key for deduplication — prevents duplicate runs.
-};
 type WorkspaceDefinition = {
   id: string;
   label: string;
@@ -1949,6 +1992,7 @@ type WorkspaceDefinition = {
   order?: number;
   access?: AccessRule;
   nav?: string[];
+  collectAdminArea?: AdminNavArea;
   default?: boolean;
 };
 type WriteEvent<TPayload = unknown> = {
@@ -1960,7 +2004,7 @@ type WriteHandlerDef = {
   name: string;
   schema: ZodType;
   handler: WriteHandlerFn;
-  [ENTITY_CONVENTION_WRITE_BRAND]?: true; // Set only by defineEntityWriteHandler, which wires the parent-ref visibility gate.
+  [ENTITY_CONVENTION_WRITE_BRAND]?: true; // Set only by the entity write factories (defineEntityUpdateHandler, …), which wire the parent-ref visibility gate.
   access: AccessRule;
   description?: string;
   agent?: AgentHandlerHints;
@@ -1970,11 +2014,13 @@ type WriteHandlerDef = {
   additionalRateLimits?: PayloadRateLimitOption[]; // Per-payload-field limits, e.g. per recipient address.
   rateLimitCost?: (payload: unknown) => number; // Tokens each request books on every declared rateLimit bucket, computed from the validated payload (e.g. `(p) => p.files.length`).
   escapeHatch?: EscapeHatchDeclaration;
+  systemScope?: true; // Declared via `systemScope: true` on defineWriteHandler; boot requires the owning feature to call r.systemScope().
   reserveBeforeTransaction?: PreTransactionReservation; // Reserves before the handler transaction opens.
   beforeTransaction?: BeforeTransactionPhase; // Runs after all pre-handler gates (and after reserveBeforeTransaction) and before the transaction opens: no transaction and no connection held, for external I/O and reads only.
   beforeTransactionWhenNested?: BeforeTransactionWhenNested; // `"skip"`: a nested ctx.dispatch.write of this handler runs without the beforeTransaction phase (`event.prepared` is undefined) and without a reservation, so the handler does that work inside its own transaction.
   transaction?: WriteHandlerTransactionMode; // `"perCommand"`: the handler runs without a transaction of its own.
-  tenantlessAnonymous?: boolean; // Lets an anonymous `POST /api/write` for this handler proceed under SYSTEM_TENANT_ID when the host resolves no tenant.
+  dispatchOnly?: boolean; // Reachable only from server code (ctx.dispatch, jobs, server routes), never through the generic HTTP entry: POST /api/write, /api/batch and /api/command answer 404 as for an unknown handler.
+  tenantlessAnonymous?: boolean; // The only way an anonymous write from the generic HTTP entry runs under SYSTEM_TENANT_ID (default tenant, host resolver or tenantless fallback); without it that write fails with 422 tenant_required.
   perform?: PipelineDef;
 };
 type WriteHandlerDefinition<TName extends string = string, TSchema extends ZodType = ZodType, TData = unknown, TMap extends object = KumikoEventTypeMap, TPrepared = undefined, TWhenNested extends BeforeTransactionWhenNested | undefined = undefined> = {
@@ -1989,29 +2035,33 @@ type WriteHandlerDefinition<TName extends string = string, TSchema extends ZodTy
   additionalRateLimits?: PayloadRateLimitOption[];
   rateLimitCost?: (payload: z.infer<TSchema>) => number; // Tokens each request books on every declared rateLimit bucket, computed from the validated payload (e.g. `(p) => p.files.length`).
   escapeHatch?: EscapeHatchDeclaration;
+  systemScope?: true;
   reserveBeforeTransaction?: PreTransactionReservation;
   beforeTransaction?: BeforeTransactionPhase<z.infer<TSchema>, TPrepared>;
   beforeTransactionWhenNested?: TWhenNested;
+  dispatchOnly?: boolean;
   tenantlessAnonymous?: boolean;
   transaction?: WriteHandlerTransactionMode;
   handler: (event: PreparedWriteEvent<z.infer<TSchema>, PreparedOrSkipped<TPrepared, TWhenNested>>, context: HandlerContext<TMap>) => Promise<WriteResult<TData>>;
   perform?: PipelineDef<z.infer<TSchema>, TData>;
 };
 type WriteHandlerFn<TPayload = unknown, TData = unknown> = (event: WriteEvent<TPayload>, context: HandlerContext) => Promise<WriteResult<TData>>;
-type WriteHandlerInput<TName extends string = string, TSchema extends ZodType = ZodType, TData = unknown, TMap extends object = KumikoEventTypeMap, TPrepared = undefined, TWhenNested extends BeforeTransactionWhenNested | undefined = undefined> = ({ handler: (event: PreparedWriteEvent<z.infer<TSchema>, PreparedOrSkipped<TPrepared, TWhenNested>>, context: HandlerContext<TMap>) => Promise<WriteResult<TData>>; perform?: never; } | { perform: PipelineDef<z.infer<TSchema>, TData>; handler?: never; }) & {
+type WriteHandlerInput<TName extends string = string, TSchema extends ZodType = ZodType, TData = unknown, TMap extends object = KumikoEventTypeMap, TPrepared = undefined, TWhenNested extends BeforeTransactionWhenNested | undefined = undefined, TGrant extends EscapeHatchGrant = EscapeHatchGrant> = (({ systemScope?: undefined; } & WriteHandlerBody<TSchema, TData, TPrepared, TWhenNested, GrantedHandlerContext<HandlerContext<TMap>, TGrant>>) | ({ systemScope: true; } & WriteHandlerBody<TSchema, TData, TPrepared, TWhenNested, GrantedHandlerContext<SystemScopeHandlerContext<TMap>, TGrant>>)) & {
   name: TName;
   schema: TSchema;
   access: AccessRule;
   description?: string;
   agent?: AgentHandlerHints;
+  excludedFields?: string[]; // See WriteHandlerDefinition.excludedFields.
   unsafeSkipTransitionGuard?: boolean;
   rateLimit?: RateLimitDeclaration;
   additionalRateLimits?: PayloadRateLimitOption[];
   rateLimitCost?: (payload: z.infer<TSchema>) => number; // Tokens each request books on every declared rateLimit bucket, computed from the validated payload (e.g. `(p) => p.files.length`).
-  escapeHatch?: EscapeHatchDeclaration;
+  escapeHatch?: EscapeHatchDeclaration<TGrant>;
   reserveBeforeTransaction?: PreTransactionReservation;
   beforeTransaction?: BeforeTransactionPhase<z.infer<TSchema>, TPrepared>;
   beforeTransactionWhenNested?: TWhenNested;
+  dispatchOnly?: boolean;
   tenantlessAnonymous?: boolean;
   transaction?: WriteHandlerTransactionMode;
 };

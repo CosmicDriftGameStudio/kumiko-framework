@@ -23,36 +23,36 @@ const COLUMNS = [
 describe("QueryTable", () => {
   test("renders the query result as DataTable rows", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: [
           { id: "t1", name: "Acme", plan: "pro" },
           { id: "t2", name: "Beta GmbH", plan: "free" },
         ],
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     renderWithDispatcher(
       <QueryTable query="tenant:query:tenant:list" columns={COLUMNS} testId="tbl" />,
       dispatcher,
     );
-    await waitFor(() => expect(screen.getByText("Acme")).toBeTruthy());
-    expect(screen.getByText("Beta GmbH")).toBeTruthy();
-    expect(screen.getByText("Name")).toBeTruthy();
+    await waitFor(() => screen.getByText("Acme"));
+    screen.getByText("Beta GmbH");
+    screen.getByText("Name");
   });
 
   test("row click provides the clicked row", async () => {
     const onRowClick = mock((_row: { id: string }) => {});
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: [{ id: "t1", name: "Acme", plan: "pro" }],
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     renderWithDispatcher(
       <QueryTable query="tenant:query:tenant:list" columns={COLUMNS} onRowClick={onRowClick} />,
       dispatcher,
     );
-    await waitFor(() => expect(screen.getByText("Acme")).toBeTruthy());
+    await waitFor(() => screen.getByText("Acme"));
     fireEvent.click(screen.getByText("Acme"));
     expect(onRowClick).toHaveBeenCalledTimes(1);
     expect(onRowClick.mock.calls[0]?.[0]?.id).toBe("t1");
@@ -61,30 +61,35 @@ describe("QueryTable", () => {
   test("Fehler → ErrorState, Retry refetcht", async () => {
     let calls = 0;
     const dispatcher = createMockDispatcher({
-      query: (async () => {
+      query: async () => {
         calls += 1;
         if (calls === 1) {
           return {
             isSuccess: false,
-            error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
+            error: {
+              code: "internal",
+              httpStatus: 500,
+              message: "kaputt",
+              i18nKey: "errors.internal",
+            },
           };
         }
         return { isSuccess: true, data: [{ id: "t1", name: "Acme", plan: "pro" }] };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     renderWithDispatcher(
       <QueryTable query="tenant:query:tenant:list" columns={COLUMNS} testId="tbl" />,
       dispatcher,
     );
-    await waitFor(() => expect(screen.getByRole("button")).toBeTruthy());
+    await waitFor(() => screen.getByRole("button"));
     fireEvent.click(screen.getByRole("button"));
-    await waitFor(() => expect(screen.getByText("Acme")).toBeTruthy());
+    await waitFor(() => screen.getByText("Acme"));
     expect(calls).toBe(2);
   });
 
   test("leeres Result rendert Empty-State", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async () => ({ isSuccess: true, data: [] })) as unknown as Dispatcher["query"],
+      query: async () => ({ isSuccess: true, data: [] }),
     });
     const { container } = renderWithDispatcher(
       <QueryTable
@@ -94,16 +99,16 @@ describe("QueryTable", () => {
       />,
       dispatcher,
     );
-    await waitFor(() => expect(screen.getByText("Keine Tenants")).toBeTruthy());
+    await waitFor(() => screen.getByText("Keine Tenants"));
     expect(container.querySelectorAll("tbody tr").length).toBe(0);
   });
 
   test("row selector extracts rows from nested result", async () => {
     const dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { items: [{ id: "x", name: "Nested", plan: "pro" }], total: 1 },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     renderWithDispatcher(
       <QueryTable<{ items: readonly Record<string, unknown>[]; total: number }>
@@ -113,6 +118,6 @@ describe("QueryTable", () => {
       />,
       dispatcher,
     );
-    await waitFor(() => expect(screen.getByText("Nested")).toBeTruthy());
+    await waitFor(() => screen.getByText("Nested"));
   });
 });

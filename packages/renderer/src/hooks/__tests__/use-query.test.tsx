@@ -1,26 +1,15 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
-import { act, render, renderHook } from "@testing-library/react";
+import { queryContract } from "@cosmicdrift/kumiko-types/handler-contract";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
-import type { Dispatcher } from "../../headless/index.ts";
+import {
+  PageVisibilityProvider,
+  type PageVisibilityState,
+} from "../../context/page-visibility-context.tsx";
+import { createStore, type Dispatcher, type QueryResult } from "../../headless/index.ts";
+import { createMockDispatcher, type MockQueryHandler } from "../../testing.ts";
 import { useQuery } from "../use-query.ts";
-
-type QueryFn = Dispatcher["query"];
-
-function makeDispatcher(query: QueryFn): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query,
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
-}
 
 function wrapperFor(dispatcher: Dispatcher) {
   return ({ children }: { readonly children: ReactNode }) => (
@@ -30,11 +19,11 @@ function wrapperFor(dispatcher: Dispatcher) {
 
 function countingDispatcher(): { dispatcher: Dispatcher; calls: () => number } {
   let calls = 0;
-  const query = (async () => {
+  const query: MockQueryHandler = async () => {
     calls += 1;
     return { isSuccess: true, data: { n: calls } };
-  }) as unknown as QueryFn;
-  return { dispatcher: makeDispatcher(query), calls: () => calls };
+  };
+  return { dispatcher: createMockDispatcher({ query: query }), calls: () => calls };
 }
 
 async function advance(ms: number): Promise<void> {
@@ -43,7 +32,7 @@ async function advance(ms: number): Promise<void> {
   });
 }
 
-const QUERY_TYPE = "f:query:x:list";
+const QUERY_TYPE = "f:query:x:list" as const;
 
 describe("useQuery refetchIntervalMs", () => {
   beforeEach(() => {
@@ -95,19 +84,22 @@ describe("useQuery refetchIntervalMs", () => {
   test("a tick while a fetch is in flight is skipped instead of aborting it", async () => {
     let calls = 0;
     let release: (() => void) | undefined;
-    const query = (async (_type: string, _payload: unknown, opts?: { signal?: AbortSignal }) => {
+    const query: MockQueryHandler = async (_type, _payload, opts) => {
       calls += 1;
       await new Promise<void>((resolve) => {
         release = resolve;
       });
       return opts?.signal?.aborted
-        ? { isSuccess: false, error: { code: "aborted", message: "aborted", i18nKey: "x" } }
+        ? {
+            isSuccess: false,
+            error: { code: "aborted", httpStatus: 499, message: "aborted", i18nKey: "x" },
+          }
         : { isSuccess: true, data: { done: true } };
-    }) as unknown as QueryFn;
+    };
     const { result } = renderHook(
       () => useQuery<{ done: boolean }>(QUERY_TYPE, {}, { refetchIntervalMs: 1000 }),
       {
-        wrapper: wrapperFor(makeDispatcher(query)),
+        wrapper: wrapperFor(createMockDispatcher({ query: query })),
       },
     );
     await advance(0);
@@ -128,11 +120,11 @@ describe("useQuery refetchIntervalMs", () => {
   describe("option changes while mounted", () => {
     function payloadRecordingDispatcher(): { dispatcher: Dispatcher; payloads: unknown[] } {
       const payloads: unknown[] = [];
-      const query = (async (_type: string, payload: unknown) => {
+      const query: MockQueryHandler = async (_type, payload) => {
         payloads.push(payload);
         return { isSuccess: true, data: { n: payloads.length } };
-      }) as unknown as QueryFn;
-      return { dispatcher: makeDispatcher(query), payloads };
+      };
+      return { dispatcher: createMockDispatcher({ query: query }), payloads };
     }
 
     test("a payload change refetches with the new payload and the interval keeps ticking with it, on a single timer", async () => {
@@ -196,21 +188,24 @@ describe("useQuery refetchIntervalMs", () => {
 
     test("a fetch aborted by a payload change does not leave polling blocked", async () => {
       const payloads: unknown[] = [];
-      const query = (async (_type: string, payload: unknown, opts?: { signal?: AbortSignal }) => {
+      const query: MockQueryHandler = async (_type, payload, opts) => {
         payloads.push(payload);
         if ((payload as { id: number }).id === 1) {
           // Hangs until the hook aborts it, like a slow request that gets superseded.
           await new Promise<void>((resolve) => {
             opts?.signal?.addEventListener("abort", () => resolve());
           });
-          return { isSuccess: false, error: { code: "aborted", message: "aborted", i18nKey: "x" } };
+          return {
+            isSuccess: false,
+            error: { code: "aborted", httpStatus: 499, message: "aborted", i18nKey: "x" },
+          };
         }
         return { isSuccess: true, data: { done: true } };
-      }) as unknown as QueryFn;
+      };
       const { rerender } = renderHook(
         ({ id }: { readonly id: number }) =>
           useQuery(QUERY_TYPE, { id }, { refetchIntervalMs: 1000 }),
-        { wrapper: wrapperFor(makeDispatcher(query)), initialProps: { id: 1 } },
+        { wrapper: wrapperFor(createMockDispatcher({ query: query })), initialProps: { id: 1 } },
       );
       await advance(0);
       expect(payloads).toEqual([{ id: 1 }]);
@@ -250,7 +245,7 @@ describe("useQuery refetchIntervalMs", () => {
 type PendingCall = {
   readonly payload: unknown;
   readonly signal: AbortSignal | undefined;
-  readonly settle: (result: unknown) => void;
+  readonly settle: (result: QueryResult) => void;
 };
 
 function deferredDispatcher(): {
@@ -264,11 +259,11 @@ function deferredDispatcher(): {
   let inFlight = 0;
   let maxInFlight = 0;
   let started = 0;
-  const query = ((_type: string, payload: unknown, opts?: { signal?: AbortSignal }) => {
+  const query: MockQueryHandler = (_type, payload, opts) => {
     started += 1;
     inFlight += 1;
     maxInFlight = Math.max(maxInFlight, inFlight);
-    return new Promise((resolve) => {
+    return new Promise<QueryResult>((resolve) => {
       pending.push({
         payload,
         signal: opts?.signal,
@@ -278,9 +273,9 @@ function deferredDispatcher(): {
         },
       });
     });
-  }) as unknown as QueryFn;
+  };
   return {
-    dispatcher: makeDispatcher(query),
+    dispatcher: createMockDispatcher({ query: query }),
     pending,
     inFlight: () => inFlight,
     maxInFlight: () => maxInFlight,
@@ -409,7 +404,10 @@ describe("useQuery concurrency", () => {
 
     const failing = fake.pending.shift();
     await act(async () => {
-      failing?.settle({ isSuccess: false, error: { code: "boom", message: "boom" } });
+      failing?.settle({
+        isSuccess: false,
+        error: { code: "boom", httpStatus: 500, i18nKey: "boom", message: "boom" },
+      });
     });
     expect(fake.started()).toBe(2);
     expect(fake.inFlight()).toBe(1);
@@ -466,5 +464,84 @@ describe("useQuery concurrency", () => {
     expect(fake.started()).toBe(2);
     expect(fake.inFlight()).toBe(0);
     expect(fake.maxInFlight()).toBe(1);
+  });
+});
+
+describe("useQuery polling and page visibility", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  function visibilityWrapper(dispatcher: Dispatcher) {
+    const visibility = createStore<PageVisibilityState>("visible");
+    const wrapper = ({ children }: { readonly children: ReactNode }) => (
+      <DispatcherProvider dispatcher={dispatcher}>
+        <PageVisibilityProvider value={visibility}>{children}</PageVisibilityProvider>
+      </DispatcherProvider>
+    );
+    return { visibility, wrapper };
+  }
+
+  test("ticks are skipped while the page is hidden", async () => {
+    const { dispatcher, calls } = countingDispatcher();
+    const { visibility, wrapper } = visibilityWrapper(dispatcher);
+    renderHook(() => useQuery(QUERY_TYPE, {}, { refetchIntervalMs: 1000 }), { wrapper });
+    await advance(0);
+    expect(calls()).toBe(1);
+
+    act(() => visibility.setState("hidden"));
+    await advance(3000);
+    expect(calls()).toBe(1);
+  });
+
+  test("returning to the page fetches once, then polling continues", async () => {
+    const { dispatcher, calls } = countingDispatcher();
+    const { visibility, wrapper } = visibilityWrapper(dispatcher);
+    renderHook(() => useQuery(QUERY_TYPE, {}, { refetchIntervalMs: 1000 }), { wrapper });
+    await advance(0);
+    act(() => visibility.setState("hidden"));
+    await advance(3000);
+
+    await act(async () => visibility.setState("visible"));
+    expect(calls()).toBe(2);
+    await advance(1000);
+    expect(calls()).toBe(3);
+  });
+
+  test("a hook without refetchIntervalMs does not fetch when the page becomes visible", async () => {
+    const { dispatcher, calls } = countingDispatcher();
+    const { visibility, wrapper } = visibilityWrapper(dispatcher);
+    renderHook(() => useQuery(QUERY_TYPE, {}), { wrapper });
+    await advance(0);
+    act(() => visibility.setState("hidden"));
+    await act(async () => visibility.setState("visible"));
+    expect(calls()).toBe(1);
+  });
+});
+
+describe("useQuery with a handler contract", () => {
+  test("queries by qualifiedName and does not refetch for a new, same-named contract object", async () => {
+    const seenTypes: string[] = [];
+    const dispatcher = createMockDispatcher({
+      query: async (type: string) => {
+        seenTypes.push(type);
+        return { isSuccess: true, data: { n: seenTypes.length } };
+      },
+    });
+    const { result, rerender } = renderHook(
+      () => useQuery(queryContract<{ id: string }, { n: number }>(QUERY_TYPE), { id: "a" }),
+      { wrapper: wrapperFor(dispatcher) },
+    );
+    await waitFor(() => expect(result.current.data).toEqual({ n: 1 }));
+
+    rerender();
+    rerender();
+    await act(async () => {});
+
+    expect(seenTypes).toEqual([QUERY_TYPE]);
+    expect(result.current.data?.n).toBe(1);
   });
 });

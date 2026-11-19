@@ -1,5 +1,5 @@
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import * as z from "zod";
 import { base32Encode } from "../base32.ts";
 import { findUserMfaRow } from "../db/queries.ts";
@@ -63,7 +63,7 @@ export function createEnableStartPreauthHandler(opts: EnableStartPreauthOptions)
       // meaningless here — the preauthSetupToken is the source of truth
       // for which tenant's row to read, mirroring verify.write.ts.
       const scopedDb = createTenantDb({
-        db: ctx.db.unsafeRaw(),
+        db: ctx.db.unsafeRawAllTenants(),
         tenantId,
         mode: "system",
         reason: "pre-auth MFA setup has no session, the tenant comes from the verified setup token",

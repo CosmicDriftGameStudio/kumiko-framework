@@ -33,17 +33,19 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 //   - afterCommit hooks from writeAs fire exactly once on outer commit
 
 const bagEntity = createEntity({
+  name: "bag",
   table: "ctx_bags",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
     counter: createNumberField({ default: 0 }),
   },
 });
-const bagTable = buildEntityTable("bag", bagEntity);
+const bagTable = buildEntityTable(bagEntity);
 
 // secret has a system-only read field — proves queryAs(system) reads it,
 // plain query doesn't.
 const secretEntity = createEntity({
+  name: "secret",
   table: "ctx_secrets",
   fields: {
     owner: createTextField({ personal: false, reason: "test_fixture", required: true }),
@@ -55,19 +57,20 @@ const secretEntity = createEntity({
     }),
   },
 });
-const secretTable = buildEntityTable("secret", secretEntity);
+const secretTable = buildEntityTable(secretEntity);
 
 // Target entity for the afterCommit-hook-writes-a-second-entity test below
 // (dead-tx-in-afterCommit-hooks). Plain Admin access — kept separate
 // from `secret` so that test doesn't entangle with the privileged-access
 // assertions the other describe blocks make about it.
 const echoEntity = createEntity({
+  name: "echo",
   table: "ctx_echoes",
   fields: {
     bagId: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
-const echoTable = buildEntityTable("echo", echoEntity);
+const echoTable = buildEntityTable(echoEntity);
 
 let stack: TestStack;
 const admin = TestUsers.admin;
@@ -80,9 +83,9 @@ let afterCommitHookShouldEchoBag = false;
 const echoedBagIds: string[] = [];
 
 const bridgeFeature = defineFeature("ctxbridge", (r) => {
-  const bag = r.entity({ name: "bag", ...bagEntity });
-  const secret = r.entity({ name: "secret", ...secretEntity });
-  const echo = r.entity({ name: "echo", ...echoEntity });
+  const bag = r.entity(bagEntity);
+  const secret = r.entity(secretEntity);
+  const echo = r.entity(echoEntity);
 
   r.writeHandler({
     name: "bag:create",
@@ -109,10 +112,7 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
     schema: z.object({ owner: z.string() }),
     handler: async (query, ctx) => {
       const rows = await selectMany(ctx.db, secretTable);
-      return (
-        (rows as Array<Record<string, unknown>>).find((r) => r["owner"] === query.payload.owner) ??
-        null
-      );
+      return rows.find((r) => r["owner"] === query.payload.owner) ?? null;
     },
     access: { roles: access.privileged },
   });
@@ -145,7 +145,10 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
       return created;
     },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test fixture: writeAs(SYSTEM) creates the secret for the caller" },
+    escapeHatch: {
+      reason: "test fixture: writeAs(SYSTEM) creates the secret for the caller",
+      grants: ["systemIdentity"],
+    },
   });
 
   // Two inserts, one via ctx.db (tx-bound) and one via ctx.db.outsideTransaction
@@ -199,7 +202,10 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
       );
     },
     access: { roles: ["Admin"] },
-    escapeHatch: { reason: "test fixture: queryAs(SYSTEM) reads the privileged token field" },
+    escapeHatch: {
+      reason: "test fixture: queryAs(SYSTEM) reads the privileged token field",
+      grants: ["systemIdentity"],
+    },
   });
 
   // Proves runBatch strips the request signal: both inserts land and
@@ -416,7 +422,7 @@ describe("runInOwnTransaction(ctx.db.outsideTransaction)", () => {
     expect((await res.json()).isSuccess).toBe(false);
 
     const bags = await selectMany(stack.db, bagTable);
-    const labels = (bags as Array<Record<string, unknown>>).map((row) => row["label"]);
+    const labels = bags.map((row) => row["label"]);
     expect(labels).toEqual(["outside-outside-tx"]);
   });
 });
@@ -431,7 +437,7 @@ describe("ctx.db.outsideTransaction", () => {
     expect((await res.json()).isSuccess).toBe(false);
 
     const bags = await selectMany(stack.db, bagTable);
-    const labels = (bags as Array<Record<string, unknown>>).map((row) => row["label"]);
+    const labels = bags.map((row) => row["label"]);
     expect(labels).toEqual(["probe-outside-tx"]);
   });
 
@@ -461,7 +467,7 @@ describe("ctx.db.outsideTransaction", () => {
 
     // Both inserts landed — the client's disconnect doesn't touch the write.
     const bags = await selectMany(stack.db, bagTable);
-    const labels = (bags as Array<Record<string, unknown>>).map((row) => row["label"]).sort();
+    const labels = bags.map((row) => row["label"]).sort();
     expect(labels).toEqual(["signal-probe-inside-tx", "signal-probe-outside-tx"]);
   });
 

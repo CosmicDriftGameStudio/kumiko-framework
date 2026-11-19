@@ -4,7 +4,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createJobsFeature, JobQueries } from "@cosmicdrift/kumiko-bundled-features/jobs";
-import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, defineWriteHandler, emitEvent } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
@@ -19,26 +19,37 @@ const userA = createTestUser({ id: 1, tenantId: tenantA, roles: ["Admin"] });
 const userB = createTestUser({ id: 2, tenantId: tenantB, roles: ["Admin"] });
 
 const appFeature = defineFeature("app", (r) => {
+  const generationRequested = r.defineEvent(
+    "generation-requested",
+    z.object({ campaignId: z.string() }),
+    { piiFields: "none" },
+  );
   r.writeHandler(
     defineWriteHandler({
       name: "generate",
       description: "Test-only: starts a job that always fails.",
       schema: z.object({ campaignId: z.string() }),
       access: { roles: ["Admin"] },
-      handler: async (event) => ({ isSuccess: true as const, data: { ...event.payload } }),
+      handler: async (event, ctx) => {
+        await emitEvent(ctx, generationRequested, {
+          aggregateId: crypto.randomUUID(),
+          expectedVersion: 0,
+          aggregateType: "generation-request",
+          payload: { campaignId: event.payload.campaignId },
+        });
+        return { isSuccess: true as const, data: { ...event.payload } };
+      },
     }),
   );
-  r.job(
-    "generateTexts",
-    {
-      trigger: { on: "app:write:generate" },
-      retries: 0,
-      tenantVisibleFailure: { messageKey: FAILURE_KEY, subjectFields: ["campaignId"] },
-    },
-    async () => {
+  r.job({
+    name: "generateTexts",
+    trigger: { on: "generation-requested" },
+    retries: 0,
+    tenantVisibleFailure: { messageKey: FAILURE_KEY, subjectFields: ["campaignId"] },
+    handler: async () => {
       throw new Error(PROVIDER_MESSAGE);
     },
-  );
+  });
 });
 
 type FailureRow = { readonly jobName: string; readonly messageKey: string };

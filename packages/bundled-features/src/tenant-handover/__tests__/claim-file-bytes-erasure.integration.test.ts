@@ -7,7 +7,6 @@ import {
   asRawClient,
   buildEntityTable,
   createEventStoreExecutor,
-  createTenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
@@ -25,6 +24,7 @@ import {
   fileRefEntity,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
@@ -44,6 +44,7 @@ const SOURCE_TENANT = testTenantId(5);
 const DEST_TENANT = testTenantId(6);
 
 const carEntity: EntityDefinition = createEntity({
+  name: "car",
   table: "handover_erasure_car",
   idType: "uuid",
   transferable: true,
@@ -55,10 +56,10 @@ const carEntity: EntityDefinition = createEntity({
 });
 
 const fixturesFeature = defineFeature("handover-erasure-fixtures", (r) => {
-  r.entity({ name: "car", ...carEntity });
+  r.entity(carEntity);
 });
 
-const carCrud = createEventStoreExecutor(buildEntityTable("car", carEntity), carEntity, {
+const carCrud = createEventStoreExecutor(buildEntityTable(carEntity), carEntity, {
   entityName: "car",
 });
 const fileRefCrud = createEventStoreExecutor(fileRefsTable, fileRefEntity, {

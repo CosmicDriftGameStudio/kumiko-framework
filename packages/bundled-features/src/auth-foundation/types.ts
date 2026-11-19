@@ -2,7 +2,7 @@
 //
 // Type contracts for auth-foundation's `tokenVerifier` extension point.
 // Provider-features (future: auth-provider-jwt, auth-provider-pat) register
-// an AuthProviderPlugin via `r.useExtension(EXT_TOKEN_VERIFIER, "<name>", plugin)`.
+// an AuthProviderPlugin via `r.applyExtension({ name: EXT_TOKEN_VERIFIER, entity: "<name>", ...plugin })`.
 //
 // **Shape-match routing:** unlike file-foundation/mail-foundation (one active
 // provider per tenant, chosen via a config-key), token verification happens
@@ -14,13 +14,10 @@
 import type {
   SessionChecker,
   SessionCreator,
-  SessionMassRevoker,
   SessionRevoker,
 } from "@cosmicdrift/kumiko-framework/api";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { DbConnection, DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
-
-export type { SessionMassRevoker };
 
 export const EXT_TOKEN_VERIFIER = "tokenVerifier" as const;
 
@@ -86,18 +83,10 @@ export function tokenShapeKey(shape: TokenShape): string {
 
 export const EXT_SESSION_STORE = "sessionStore" as const;
 
-/** Keep current sid (if any); revoke every other live session. Used by auth-mfa. */
-export type SessionRevokeAllOthers = (
-  userId: string,
-  currentSid: string | undefined,
-) => Promise<number>;
-
 export type SessionStore = {
   readonly creator: SessionCreator;
   readonly revoker: SessionRevoker;
   readonly checker: SessionChecker;
-  readonly massRevoker: SessionMassRevoker;
-  readonly revokeAllOthers: SessionRevokeAllOthers;
 };
 
 export type SessionStoreProvider = {
@@ -106,6 +95,30 @@ export type SessionStoreProvider = {
 
 export function isSessionStoreProvider(o: unknown): o is SessionStoreProvider {
   return typeof o === "object" && o !== null && "build" in o && typeof o.build === "function";
+}
+
+// Credential-revoker extension point. Multi-provider: every registered
+// provider (sessions, personal-access-tokens, ...) is called when a password
+// or MFA state change must invalidate a user's credentials.
+
+export const EXT_CREDENTIAL_REVOKER = "credentialRevoker" as const;
+
+// Revokes every live credential of one kind for a user, across all tenants, on the given runner (the caller's transaction).
+export type CredentialRevoker = {
+  readonly revokeAllForUser: (
+    runner: DbRunner,
+    userId: string,
+    options: { readonly keepSessionId?: string | undefined },
+  ) => Promise<number>;
+};
+
+export function isCredentialRevoker(o: unknown): o is CredentialRevoker {
+  return (
+    typeof o === "object" &&
+    o !== null &&
+    "revokeAllForUser" in o &&
+    typeof o.revokeAllForUser === "function"
+  );
 }
 
 // Tenant-resolution extension points. Both are single-provider and
@@ -159,12 +172,13 @@ export function isTenantExistenceProvider(o: unknown): o is TenantExistenceProvi
   return typeof o === "object" && o !== null && "build" in o && typeof o.build === "function";
 }
 
-// r.useExtension options-shape for auth-foundation's four extension points.
+// r.applyExtension options-shape for auth-foundation's extension points.
 declare module "@cosmicdrift/kumiko-framework/engine" {
   interface KumikoExtensionOptionsMap {
     [EXT_TOKEN_VERIFIER]: AuthProviderPlugin;
     [EXT_SESSION_STORE]: SessionStoreProvider;
     [EXT_TENANT_RESOLVER]: TenantResolverProvider;
     [EXT_TENANT_EXISTENCE]: TenantExistenceProvider;
+    [EXT_CREDENTIAL_REVOKER]: CredentialRevoker;
   }
 }

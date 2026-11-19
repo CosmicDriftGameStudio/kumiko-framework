@@ -28,6 +28,7 @@ import {
 import { defineCreateWithTenantDefaults } from "../tenant-defaults.ts";
 
 const invoiceEntity = createEntity({
+  name: "invoice",
   table: "read_invoices",
   fields: {
     title: createTextField({ required: true, personal: false, reason: "is_business_data" }),
@@ -58,7 +59,7 @@ test("defineCreateWithTenantDefaults throws on an unknown locale field", () => {
 
 describe("without tenant-settings mount", () => {
   const invoiceFeature = defineFeature("invoice", (r) => {
-    r.entity({ name: "invoice", ...invoiceEntity });
+    r.entity(invoiceEntity);
     r.writeHandler(
       defineCreateWithTenantDefaults("invoice", invoiceEntity, {
         access: ACCESS,
@@ -103,13 +104,14 @@ describe("without tenant-settings mount", () => {
 
 describe("caller-supplied id", () => {
   const noteEntity = createEntity({
+    name: "note",
     table: "read_tenant_default_notes",
     fields: {
       title: createTextField({ required: true, personal: false, reason: "is_business_data" }),
     },
   });
   const noteFeature = defineFeature("note", (r) => {
-    r.entity({ name: "note", ...noteEntity });
+    r.entity(noteEntity);
     r.writeHandler(defineCreateWithTenantDefaults("note", noteEntity, { access: ACCESS }));
   });
 

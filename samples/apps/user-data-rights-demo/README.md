@@ -28,7 +28,7 @@ DSGVO requests work end-to-end:
 │ src/feature.ts                                               │
 │   todos:write:create     (per-user todo)                     │
 │   todos:query:list       (own todos)                         │
-│   r.useExtension(EXT_USER_DATA, "todo", {                    │
+│   r.applyExtension({ name: EXT_USER_DATA, entity: "todo",    │
 │     export: ctx → { entity:"todo", rows:[...] },             │
 │     delete: ctx → DELETE WHERE author_id = userId            │
 │   })                                                         │
@@ -122,7 +122,7 @@ To add another DSGVO-compliant entity to the demo:
 
 ```ts illustration
 // In your feature:
-r.useExtension(EXT_USER_DATA, "your-entity", {
+r.applyExtension({ name: EXT_USER_DATA, entity: "your-entity",
   export: async (ctx) => {
     // ctx.db, ctx.tenantId, ctx.userId
     const rows = await ctx.db.select(...).where(authorId = ctx.userId);

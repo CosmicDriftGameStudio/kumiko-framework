@@ -68,6 +68,10 @@ or {
     $classes <: r"(?s).*(?:(?:^|[ \t\n\r\"'`:])(?:(?:bg|text|border|ring|fill|stroke|from|via|to|outline|decoration|divide|accent|caret)-(?:red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|slate|gray|zinc|neutral|stone)-[0-9]+(?:/[0-9]+)?|(?:bg|text|border|ring|fill|stroke|from|via|to|outline|decoration|divide|accent|caret)-\[(?:#|rgb|hsl|oklch|color-mix)[^ \t\n\r\"'`}]*|shadow(?:-[^ \t\n\r\"'`}]+)?)(?:$|[ \t\n\r\"'`}])).*",
     register_diagnostic(span=$classes, message="Design-bearing Tailwind classes (palette colours, arbitrary colours, shadow) belong in widgets and theme tokens (--color-status-*), not in screen code.", severity="error")
   },
+  JsxAttribute(name=`className`, initializer=$classes) where {
+    $classes <: r"=\"flex flex-col gap-[246]\"",
+    register_diagnostic(span=$classes, message="Vertical flex with gap in app code: use Stack (gap sm|md|lg = gap-2|gap-4|gap-6) from @cosmicdrift/kumiko-renderer/web.", severity="warn")
+  },
   JsFunctionDeclaration(id=$name) where {
     $name <: includes or {
       "Card",

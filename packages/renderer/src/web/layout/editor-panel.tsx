@@ -66,13 +66,7 @@ function EditorPanelInner({
           </code>{" "}
           registriert.
         </p>
-        {JsonView !== undefined ? (
-          <JsonView value={target.args} />
-        ) : (
-          <pre className="bg-muted p-2 rounded text-xs overflow-auto">
-            {JSON.stringify(target.args, null, 2)}
-          </pre>
-        )}
+        <JsonView value={target.args} />
       </div>
     </div>
   );

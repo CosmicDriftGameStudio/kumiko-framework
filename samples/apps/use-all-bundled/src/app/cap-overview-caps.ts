@@ -7,7 +7,7 @@ import { tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/ten
 import { buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 
-const tagTable = buildEntityTable("tag", tagEntity);
+const tagTable = buildEntityTable(tagEntity);
 
 const NOTE_LIMIT_BY_TIER: Readonly<Record<string, number>> = { free: 10, pro: 100 };
 const TAG_LIMIT_BY_TIER: Readonly<Record<string, number>> = { free: 5, pro: 50 };

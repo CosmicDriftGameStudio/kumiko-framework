@@ -9,7 +9,7 @@ import * as z from "zod";
 // consumers (access-invalidation) something to LISTEN for via the
 // existing event-store NOTIFY, keyed by the affected userId.
 //
-// _SHORT/_QN pair mirrors cap-counter's rolling-incremented event:
+// _SHORT/_QN pair:
 //   _SHORT — r.defineEvent(short, schema) in feature.ts, framework prefixes
 //            it to the QN below.
 //   _QN    — ctx.events.unsafeAppend({ type }) / raw append()'s `type` field.

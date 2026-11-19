@@ -19,7 +19,7 @@ mock.module("nodemailer", () => ({
   },
 }));
 
-const { createSmtpTransport } = await import("../smtp-transport.ts");
+const { createSmtpTransport, createSmtpTransportFromEnv } = await import("../smtp-transport.ts");
 
 afterAll(() => {
   mock.module("nodemailer", () => realNodemailer);
@@ -40,5 +40,56 @@ describe("createSmtpTransport — nodemailer wiring", () => {
     createSmtpTransport({ host: "mailpit.internal", from: "noreply@test.local" });
     expect(capturedOptions?.["host"]).toBe("mailpit.internal");
     expect(capturedOptions?.["servername"]).toBeUndefined();
+  });
+});
+
+describe("createSmtpTransport — TLS and pooling", () => {
+  test("requires STARTTLS when not using implicit TLS", () => {
+    createSmtpTransport({ host: "smtp.example", secure: false, from: "noreply@test.local" });
+    expect(capturedOptions?.["requireTLS"]).toBe(true);
+    createSmtpTransport({ host: "smtp.example", from: "noreply@test.local" });
+    expect(capturedOptions?.["requireTLS"]).toBe(true);
+  });
+
+  test("does not require STARTTLS for loopback hosts (local dev catchers)", () => {
+    for (const host of ["localhost", "127.0.0.1", "127.1.2.3", "::1", "[::1]"]) {
+      createSmtpTransport({ host, from: "noreply@test.local" });
+      expect(capturedOptions?.["requireTLS"]).toBe(false);
+    }
+  });
+
+  test("does not require STARTTLS for an operator-allowlisted private host", () => {
+    createSmtpTransport({
+      host: "mailpit.internal",
+      from: "noreply@test.local",
+      allowedPrivateMailHosts: ["mailpit.internal"],
+    });
+    expect(capturedOptions?.["requireTLS"]).toBe(false);
+    createSmtpTransport({
+      host: "smtp.example",
+      from: "noreply@test.local",
+      allowedPrivateMailHosts: ["mailpit.internal"],
+    });
+    expect(capturedOptions?.["requireTLS"]).toBe(true);
+  });
+
+  test("reads the allowlist from KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS in createSmtpTransportFromEnv", () => {
+    createSmtpTransportFromEnv(
+      { SMTP_HOST: "mailpit.internal", KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS: "mailpit.internal" },
+      { fallbackFrom: "noreply@test.local" },
+    );
+    expect(capturedOptions?.["requireTLS"]).toBe(false);
+  });
+
+  test("does not require STARTTLS on implicit TLS", () => {
+    createSmtpTransport({ host: "smtp.example", secure: true, from: "noreply@test.local" });
+    expect(capturedOptions?.["requireTLS"]).toBe(false);
+  });
+
+  test("pools by default and not when built per send", () => {
+    createSmtpTransport({ host: "smtp.example", from: "noreply@test.local" });
+    expect(capturedOptions?.["pool"]).toBe(true);
+    createSmtpTransport({ host: "smtp.example", from: "noreply@test.local", pooled: false });
+    expect(capturedOptions?.["pool"]).toBe(false);
   });
 });

@@ -2,7 +2,7 @@
 // hands out TenantMember mounts the feature with its own role.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -10,16 +10,37 @@ import {
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { createTenantDb } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { PDFDocument } from "pdf-lib";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
+import {
+  configValuesTable,
+  createConfigAccessorFactory,
+  createConfigFeature,
+  createConfigResolver,
+} from "../../config/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { createRendererFoundationFeature } from "../../renderer-foundation/index.ts";
+import { renderedPdfEntity } from "../../renderer-puppeteer-client/entity.ts";
+import { createRendererPuppeteerClientFeature } from "../../renderer-puppeteer-client/feature.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
+import {
+  createTemplateResolverFeature,
+  templateResourceEntity,
+} from "../../template-resolver/index.ts";
+import { createTenantFeature, tenantEntity, tenantMembershipsTable } from "../../tenant/index.ts";
 import { createUserFeature } from "../../user/index.ts";
 import { createUserDataRightsFeature } from "../../user-data-rights/feature.ts";
 import { createSignatureFeature } from "../feature.ts";
 import { SignatureHandlers, SignatureQueries } from "../web/constants.ts";
+import { leaseHostFeature, seedLease } from "./lease-host.ts";
 
 const TENANT = testTenantId(8);
 const CUSTOM_ROLE_USER = createTestUser({ id: 1, tenantId: TENANT, roles: ["CustomRole"] });
@@ -33,6 +54,7 @@ const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
 });
 
 beforeAll(async () => {
+  const resolver = createConfigResolver();
   stack = await setupTestStack({
     features: [
       createUserFeature(),
@@ -42,17 +64,31 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       createUserDataRightsFeature(),
       createFilesFeature(),
+      leaseHostFeature,
+      createConfigFeature(),
+      createTenantFeature(),
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      createRendererPuppeteerClientFeature(),
       createSignatureFeature({
-        retention: { keepFor: "10y" },
+        hostEntities: ["lease"],
+        retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
         linkSecret: "signature-access-test-link-secret-0123456789",
-        renderHtmlToPdf: async () => new Uint8Array(),
         signaturePageUrl: "https://app.example/sign",
         deliverLink: async () => {},
         access: { roles: ["CustomRole"] },
       }),
     ],
     files: { storageProvider: provider },
+    extraContext: (deps) => ({
+      configResolver: resolver,
+      configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
+    }),
   });
+  await unsafeCreateEntityTable(stack.db, templateResourceEntity, "template-resource");
+  await unsafeCreateEntityTable(stack.db, tenantEntity, "tenant");
+  await unsafeCreateEntityTable(stack.db, renderedPdfEntity, "rendered-pdf");
+  await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 
 afterAll(async () => {
@@ -91,6 +127,8 @@ async function requestPayload() {
     title: "Rental agreement",
     subjectType: "lease",
     subjectId: "lease-1",
+    hostType: "lease",
+    hostId: await seedLease(stack.db, TENANT, CUSTOM_ROLE_USER),
     signers: [{ name: "Ada", email: "ada@example.test" }],
   };
 }

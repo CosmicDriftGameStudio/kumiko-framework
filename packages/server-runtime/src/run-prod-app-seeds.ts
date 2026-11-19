@@ -42,7 +42,6 @@ function buildSeedContext(run: ProdSeedRun) {
     {
       db,
       redis,
-      entityCache: run.requestContext.entityCache,
       registry,
       ...run.requestContext.extraContext,
       rateLimit: createUnlimitedRateLimitResolver(),
@@ -116,7 +115,7 @@ export async function runProdBootSeeds(
         registry: composed.registry,
         extraContext: run.requestContext.extraContext,
         processName: "runProdApp",
-        ...(options.search && { search: options.search }),
+        ...(options.search === "none" && { search: options.search }),
         ...(options.databaseWait && { databaseWait: options.databaseWait }),
       });
       await applyStandardBootSeeds({

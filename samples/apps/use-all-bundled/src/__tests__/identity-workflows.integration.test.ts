@@ -7,19 +7,15 @@ import {
   AuthHandlers,
   hashPassword,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
-import {
-  AuthMfaHandlers,
-  base32Decode,
-  userMfaEntity,
-} from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
+import { AuthMfaHandlers, base32Decode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
 import {
   configValuesTable,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import { tenantEntity, tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
-import { UserHandlers, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
+import { UserHandlers, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -29,7 +25,6 @@ import { createTestEnvelopeCipher, resetTestTables } from "@cosmicdrift/kumiko-t
 import {
   setupTestStack,
   type TestStack,
-  unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { APP_FEATURES, AUTH_COMPOSE_OPTIONS } from "../run-config";
@@ -55,9 +50,6 @@ beforeAll(async () => {
     },
   });
 
-  await unsafeCreateEntityTable(stack.db, userEntity);
-  await unsafeCreateEntityTable(stack.db, tenantEntity);
-  await unsafeCreateEntityTable(stack.db, userMfaEntity);
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 });
 

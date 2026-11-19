@@ -71,7 +71,6 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
     });
   }
   return defineFeature("jobs", (r) => {
-    r.adoptsBundledLists();
     r.describe(
       "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution writes directly into `store_job_runs` (current status + duration) and `store_job_run_logs` (per-line log rows) from the BullMQ callbacks — no event stream in between (#2243). A daily `retention-cleanup` job deletes runs (and their logs) older than `retentionDays`; an hourly `stale-run-sweep` job marks runs stuck at status `running` past `staleRunTimeoutHours` as `failed` (#2246 — a crashed worker never fires the completion callback, so nothing else ever revisits the row). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list`, `jobs:query:details`, and `jobs:query:catalog` (manual jobs) for the operator UI. A job that declares `tenantVisibleFailure` also records its last failed attempt per tenant and subject in `store_tenant_job_failures`, which the tenant itself reads through `jobs:query:failures` — a translation key only, never the provider's message (fw#3079). A job that declares `tenantVisibleRun` also keeps its run state per tenant and subject in `store_tenant_job_runs` (queued, running, plus the latest completed or failed run, no payload, error text or logs), which the tenant reads through `jobs:query:tenant-runs` (fw#3616); the stale-run sweep fails its stuck `running` rows and drops `queued` rows older than `retentionDays`.",
     );
@@ -102,44 +101,46 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
     });
 
     // Framework-provided rebuild job — available whenever `jobs` is composed; enqueueProjectionRebuild dispatches it.
-    r.job(
-      "projectionRebuild",
-      { trigger: { manual: true }, concurrency: "skip", schema: projectionRebuildPayloadSchema },
-      projectionRebuildJob,
-    );
+    r.job({
+      name: "projectionRebuild",
+      trigger: { manual: true },
+      concurrency: "skip",
+      schema: projectionRebuildPayloadSchema,
+      handler: projectionRebuildJob,
+    });
 
     // Retroactive search backfill — manual + perTenant, so one
     // `jobs:write:trigger` call with { entity } fans out to every active
     // tenant (job-runner.ts perTenant dispatch applies to manual triggers
     // too, not just cron).
-    r.job(
-      "reindexEntity",
-      {
-        trigger: { manual: true },
-        perTenant: true,
-        concurrency: "skip",
-        schema: reindexEntityPayloadSchema,
-      },
-      reindexEntityJob,
-    );
+    r.job({
+      name: "reindexEntity",
+      trigger: { manual: true },
+      perTenant: true,
+      concurrency: "skip",
+      schema: reindexEntityPayloadSchema,
+      handler: reindexEntityJob,
+    });
 
     // store_job_runs/store_job_run_logs are direct-write, unbounded-growth
     // stores — nothing else purges them.
-    r.job(
-      "retention-cleanup",
-      { trigger: { maintenance: true }, concurrency: "skip" },
-      createRetentionCleanupJob(retentionDays),
-    );
+    r.job({
+      name: "retention-cleanup",
+      trigger: { maintenance: true },
+      concurrency: "skip",
+      handler: createRetentionCleanupJob(retentionDays),
+    });
 
     // Sweeps store_job_runs for rows stuck at status "running" past the
     // timeout. Runs in the maintenance window: the timeout is
     // hours, so a daily pass finds a stuck run at most a day late and a sleeping
     // app is not woken every hour for it.
-    r.job(
-      "stale-run-sweep",
-      { trigger: { maintenance: true }, concurrency: "skip" },
-      createStaleRunSweepJob(staleRunTimeoutHours, retentionDays),
-    );
+    r.job({
+      name: "stale-run-sweep",
+      trigger: { maintenance: true },
+      concurrency: "skip",
+      handler: createStaleRunSweepJob(staleRunTimeoutHours, retentionDays),
+    });
 
     const handlers = {
       trigger: r.writeHandler(triggerWrite),
@@ -171,6 +172,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
       icon: "list",
       screen: "jobs:screen:job-runs",
       order: 10,
+      adminArea: "platform",
     });
 
     r.screen(eventConsumersScreen);
@@ -181,6 +183,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
       icon: "list",
       screen: "jobs:screen:event-consumers",
       order: 11,
+      adminArea: "platform",
     });
 
     return { handlers, queries };

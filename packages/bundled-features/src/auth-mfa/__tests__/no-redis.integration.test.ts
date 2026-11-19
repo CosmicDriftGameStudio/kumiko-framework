@@ -11,14 +11,13 @@ import { randomBytes } from "node:crypto";
 import {
   configureEntityFieldEncryption,
   createEventStoreExecutor,
-  createTenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createAnonymousUser,
   type SessionUser,
-  SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -48,7 +47,8 @@ const TENANT_ID: TenantId = testTenantId(421);
 // Mirrors framework's auth-routes.ts anonymous dispatch — verify/enable-confirm-preauth
 // are guest-callable (access: { roles: ["anonymous"] }), the real identity comes
 // entirely from the signed token, not from this dispatch-level user.
-const ANONYMOUS_USER: SessionUser = createAnonymousUser(SYSTEM_TENANT_ID);
+// Dispatched on the token's tenant: anonymous writes on the system tenant are refused with tenant_required before the handler runs.
+const ANONYMOUS_USER: SessionUser = createAnonymousUser(TENANT_ID);
 
 beforeAll(async () => {
   const encryption = createTestEnvelopeCipher(randomBytes(32).toString("base64"));

@@ -12,12 +12,7 @@ import {
   type TenantId,
   withResponseData,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  InternalError,
-  NotFoundError,
-  ValidationError,
-  writeFailure,
-} from "@cosmicdrift/kumiko-framework/errors";
+import { NotFoundError, ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import { assertNotLastTenantAdmin } from "../last-tenant-admin.ts";
@@ -73,16 +68,12 @@ export const updateMemberRolesWrite = defineWriteHandler({
   // manage memberships cross-tenant (payload.tenantId). TenantAdmin and Admin
   // are session-scoped (event.user.tenantId).
   access: { roles: ["system", ...access.admin] },
+  systemScope: true,
   description:
     "Sets the roles a user holds in a tenant, rejecting reserved role names and any grant that would raise the target above the caller; roles the caller could not grant (platform roles such as DataProtectionOfficer, undeclared or higher-tier app roles) are kept, only the system user replaces the full list; admins act on their own tenant, SystemAdmins on any.",
   agent: { risk: "high" },
   handler: async (event, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "tenant:write:updateMemberRoles requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
-      });
-    }
+    const { systemDb } = ctx;
 
     const isSystemActor = event.user.roles.includes(SYSTEM_ROLE);
     const isSystem = mayOverrideTenant(event.user) || isSystemActor;
@@ -106,8 +97,8 @@ export const updateMemberRolesWrite = defineWriteHandler({
       );
     }
     const db = isSystem
-      ? ctx.systemDb.acknowledgeCrossTenant("SystemAdmin manages memberships across tenants")
-      : ctx.systemDb.assertTenantMatch(event.user.tenantId);
+      ? systemDb.acknowledgeCrossTenant("SystemAdmin manages memberships across tenants")
+      : systemDb.assertTenantMatch(event.user.tenantId);
 
     const forbidden = findForbiddenMembershipRole(event.payload.roles);
     if (forbidden !== undefined) return writeFailure(reservedMembershipRoleError(forbidden));
@@ -156,7 +147,7 @@ export const updateMemberRolesWrite = defineWriteHandler({
     if (targetIsTenantAdmin && !willBeTenantAdmin) {
       // assertNotLastTenantAdmin issues raw SQL, so it needs the raw runner, not
       // `db` — the count is already filtered by the explicit targetTenantId.
-      const lockRunner = ctx.systemDb.unsafeRaw(
+      const lockRunner = systemDb.unsafeRaw(
         "tenant:write:updateMemberRoles last-TenantAdmin advisory lock + membership count",
       );
       const lastAdmin = await assertNotLastTenantAdmin(

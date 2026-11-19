@@ -1,9 +1,4 @@
 export {
-  extractAiClassify,
-  extractAiExtract,
-  extractAiGenerate,
-} from "./ai-steps.ts";
-export {
   extractDefineEvent,
   extractNotification,
 } from "./events.ts";
@@ -41,7 +36,6 @@ export {
   resolveModuleFile,
 } from "./resolve-import.ts";
 export {
-  extractAdoptsBundledLists,
   extractDescribe,
   extractOptionalRequires,
   extractReadsConfig,

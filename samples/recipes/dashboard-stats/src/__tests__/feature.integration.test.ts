@@ -4,18 +4,13 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-} from "@cosmicdrift/kumiko-testing/stack";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import {
   TICKET_CAPABILITIES_QUERY,
   TICKET_LIST_QUERY,
+  TICKET_OVERVIEW_QUERY,
   TICKET_STATS_QUERY,
-  ticketEntity,
   ticketFeature,
 } from "../feature";
 
@@ -25,8 +20,6 @@ const admin = createTestUser({ roles: ["Admin"], tenantId: testTenantId(31) });
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [ticketFeature] });
-  await unsafeCreateEntityTable(stack.db, ticketEntity);
-  await createEventsTable(stack.db);
 });
 
 afterAll(async () => {
@@ -68,6 +61,34 @@ describe("ticket:stats", () => {
     const result = await stack.http.queryOk<Record<string, unknown>>(TICKET_STATS_QUERY, {}, admin);
 
     expect(result).toEqual({ open: 3, closed: 2, total: 5 });
+  });
+});
+
+describe("overview dashboard", () => {
+  test("overview: every panel's resultField is a field of the one overview answer over HTTP", async () => {
+    const screen = ticketFeature.screens["ticket-overview"];
+    if (screen?.type !== "dashboard") throw new Error("ticket-overview is not a dashboard screen");
+    await stack.http.writeOk<SaveContext>(
+      "tickets:write:ticket:create",
+      { title: "overview", status: "open" },
+      admin,
+    );
+
+    const result = await stack.http.queryOk<Record<string, { open?: number }>>(
+      TICKET_OVERVIEW_QUERY,
+      {},
+      admin,
+    );
+    const panels = screen.panels.flatMap((panel) =>
+      panel.kind === "stat-group" ? [...panel.stats] : [panel],
+    );
+    for (const panel of panels) {
+      expect(panel.kind === "custom" || panel.kind === "screen").toBe(false);
+      if (panel.kind === "custom" || panel.kind === "screen") continue;
+      expect(panel.query).toBe(TICKET_OVERVIEW_QUERY);
+      expect(result).toHaveProperty(panel.resultField ?? "");
+    }
+    expect(result["stats"]?.open).toBeGreaterThanOrEqual(1);
   });
 });
 

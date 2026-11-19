@@ -10,6 +10,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
+import { open, openRead } from "./access";
 import {
   AI_STEPS,
   ANTHROPIC_CONNECTION_ID,
@@ -19,8 +20,15 @@ import {
   type Provider,
 } from "./catalog";
 import { AI_SETTINGS_I18N } from "./i18n";
+import {
+  connectionDetailScreen,
+  connectionEditScreen,
+  connectionListScreen,
+  stepAssignScreen,
+} from "./screens";
 
 export const connectionEntity = createEntity({
+  name: "connection",
   table: "read_styleguide_ai_connections",
   fields: {
     name: createTextField({
@@ -35,18 +43,11 @@ export const connectionEntity = createEntity({
   },
 });
 
-const openReason =
-  "demo app: any signed-in user manages AI connections and settings; there is no per-user ownership in this sample";
-const open = {
-  access: { openToAll: { reason: openReason, personalData: "tenant-members" } },
-} as const;
-const openRead = { access: { openToAll: { reason: openReason } } } as const;
-
 const noPayload = z.object({});
 const connectionIdPayload = z.object({ connectionId: z.string().optional() });
 const idPayload = z.object({ id: z.string() });
 
-const { executor } = createEntityExecutor("connection", connectionEntity);
+const { executor } = createEntityExecutor(connectionEntity);
 
 function isProvider(value: unknown): value is Provider {
   return PROVIDERS.some((provider) => provider === value);
@@ -56,9 +57,10 @@ export const aiSettingsFeature = defineFeature("ai-settings", (r) => {
   r.requires({ features: ["config"] });
   r.translations({ keys: AI_SETTINGS_I18N });
 
-  r.crud("connection", connectionEntity, { write: open, read: openRead });
+  r.crud(connectionEntity, { write: open, read: openRead });
   r.queryHandler({
     name: "connection-options",
+    unfilteredResult: { reason: "returns select options, never connection rows" },
     schema: noPayload,
     handler: async (query, ctx) => {
       const page = await executor.list({ limit: 100 }, query.user, ctx.db);
@@ -74,6 +76,7 @@ export const aiSettingsFeature = defineFeature("ai-settings", (r) => {
 
   r.queryHandler({
     name: "model-options",
+    unfilteredResult: { reason: "returns select options, never connection rows" },
     schema: connectionIdPayload,
     handler: async (query, ctx) => {
       const { connectionId } = query.payload;
@@ -87,6 +90,7 @@ export const aiSettingsFeature = defineFeature("ai-settings", (r) => {
 
   r.queryHandler({
     name: "step-options",
+    unfilteredResult: { reason: "returns select options, never connection rows" },
     schema: noPayload,
     handler: async () => ({ rows: AI_STEPS }),
     ...openRead,
@@ -94,6 +98,7 @@ export const aiSettingsFeature = defineFeature("ai-settings", (r) => {
 
   r.queryHandler({
     name: "all-model-options",
+    unfilteredResult: { reason: "returns select options, never connection rows" },
     schema: noPayload,
     handler: async () => ({
       rows: PROVIDERS.flatMap((provider) =>
@@ -156,131 +161,13 @@ export const aiSettingsFeature = defineFeature("ai-settings", (r) => {
     },
   });
 
-  r.screen({
-    id: "connection-edit",
-    type: "entityEdit",
-    entity: "connection",
-    layout: {
-      sections: [
-        {
-          title: "ai-settings.section.connection",
-          columns: 2,
-          fields: [
-            { field: "name", span: 2 },
-            { field: "provider", span: 2 },
-            { field: "apiKey", span: 2 },
-          ],
-        },
-      ],
-    },
-  });
+  r.screen(connectionEditScreen);
 
-  r.screen({
-    id: "connection-list",
-    type: "entityList",
-    entity: "connection",
-    columns: ["name", "provider"],
-    pagination: "pages",
-    pageSize: 25,
-    defaultSort: { field: "name", dir: "asc" },
-    rowActions: [
-      {
-        kind: "navigate",
-        id: "edit",
-        label: "ai-settings.action.edit",
-        screen: "connection-edit",
-        rowClick: true,
-      },
-      {
-        kind: "navigate",
-        id: "probe",
-        label: "ai-settings.action.probe",
-        screen: "connection-detail",
-      },
-    ],
-  });
+  r.screen(connectionListScreen);
 
-  r.screen({
-    id: "connection-detail",
-    type: "projectionDetail",
-    query: "ai-settings:query:connection:summary",
-    header: { title: "name", subtitle: "provider" },
-    fieldLabels: {
-      name: "ai-settings:entity:connection:field:name",
-      provider: "ai-settings:entity:connection:field:provider",
-    },
-    layout: {
-      mode: "tabs",
-      sections: [
-        {
-          id: "overview",
-          kind: "fields",
-          title: "ai-settings.tab.overview",
-          fields: ["name", "provider"],
-        },
-        {
-          id: "probe",
-          kind: "writeForm",
-          title: "ai-settings.tab.probe",
-          columns: 2,
-          fieldDefs: {
-            model: createSelectField({
-              options: [],
-              optionsQuery: "ai-settings:query:all-model-options",
-            }),
-            prompt: createTextField({
-              personal: false,
-              reason: "is_business_data",
-              multiline: { rows: 4 },
-            }),
-          },
-          fields: [
-            { field: "model", span: 2 },
-            { field: "prompt", span: 2 },
-          ],
-          handler: "ai-settings:write:probe:run",
-          submitLabel: "ai-settings.action.start-probe",
-        },
-      ],
-    },
-    access: open.access,
-  });
+  r.screen(connectionDetailScreen);
 
-  r.screen({
-    id: "step-assign",
-    type: "actionForm",
-    handler: "ai-settings:write:step:assign",
-    fields: {
-      step: createSelectField({
-        options: [],
-        optionsQuery: "ai-settings:query:step-options",
-        display: "radio",
-        required: true,
-      }),
-      connection: createSelectField({
-        options: [],
-        optionsQuery: "ai-settings:query:connection-options",
-      }),
-      model: createSelectField({
-        options: [],
-        optionsQuery: "ai-settings:query:model-options",
-        optionsQueryPayload: { connectionId: { field: "connection" } },
-      }),
-    },
-    fieldLabels: {
-      step: "ai-settings:entity:__action-form__:field:step",
-      connection: "ai-settings:entity:__action-form__:field:connection",
-      model: "ai-settings:entity:__action-form__:field:model",
-    },
-    layout: {
-      sections: [
-        { title: "ai-settings.section.step", fields: ["step"] },
-        { title: "ai-settings.section.model", columns: 2, fields: ["connection", "model"] },
-      ],
-    },
-    submitLabel: "ai-settings.action.assign",
-    access: open.access,
-  });
+  r.screen(stepAssignScreen);
 
   r.nav({ id: "ai", label: "ai-settings:nav.ai", icon: "sparkles", order: 40 });
   r.nav({

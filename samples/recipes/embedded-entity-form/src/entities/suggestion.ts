@@ -8,6 +8,7 @@ import {
 // Seeded via the standard CRUD create — `prospect:accept` is the only path
 // that ever moves it from "pending" to "accepted".
 export const suggestionEntity = createEntity({
+  name: "suggestion",
   table: "read_sample_suggestions",
   fields: {
     name: createTextField({ required: true, personal: "self", find: "fuzzy" }),

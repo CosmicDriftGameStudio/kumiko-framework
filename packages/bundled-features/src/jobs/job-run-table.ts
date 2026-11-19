@@ -40,6 +40,7 @@ export type JobLogLevel = "info" | "warn" | "error";
 // rebuildable projection — `defineUnmanagedTable`/`deriveEntityTableMeta`
 // reject the `read_` prefix for `source: "unmanaged"`.
 export const jobRunEntity = createEntity({
+  name: "read_job_runs",
   table: "store_job_runs",
   fields: {
     jobName: createTextField({ required: true, personal: false, reason: "system_metadata" }),
@@ -65,16 +66,20 @@ export const jobRunEntity = createEntity({
     duration: createNumberField({ integer: true }),
     triggeredById: createTextField({ personal: false, reason: "pseudonymous_fk" }),
   },
-  indexes: [{ columns: ["startedAt"] }],
+  // Terminal callbacks resolve the run by (jobName, bullJobId) on a cache miss.
+  indexes: [{ columns: ["startedAt"] }, { columns: ["jobName", "bullJobId"] }],
 });
 
 // Unmanaged meta, NOT buildEntityTable (its table is not Writable and only the
 // executor may write it): job-run is an unmanaged direct-write store, so
 // onJobStart/-Complete/-Failed need to write via ctx.db/insertOne directly
 // (same pattern as sessions/schema/user-session.ts).
-export const jobRunsTable: WritableTable = deriveEntityTableMeta("job-run", jobRunEntity, {
-  source: "unmanaged",
-});
+export const jobRunsTable: WritableTable = deriveEntityTableMeta(
+  { ...jobRunEntity, name: "job-run" },
+  {
+    source: "unmanaged",
+  },
+);
 export const jobRunsTableMeta = jobRunsTable;
 
 // Child projection keyed by the jobRun aggregate id. Pre-ES used a serial
@@ -99,6 +104,7 @@ export const jobRunLogsTable = pgTable("store_job_run_logs", {
 // for migration generation.
 export const jobRunLogsTableMeta: EntityTableMeta = defineUnmanagedTable({
   tableName: "store_job_run_logs",
+  indexes: [{ name: "store_job_run_logs_run_id_idx", columns: ["run_id"] }],
   columns: [
     { name: "id", pgType: "serial", notNull: true, primaryKey: true },
     { name: "run_id", pgType: "text", notNull: true },

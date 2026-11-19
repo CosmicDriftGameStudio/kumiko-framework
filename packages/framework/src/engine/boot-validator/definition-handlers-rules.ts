@@ -28,7 +28,7 @@ export const DEFINITION_HANDLER_RULES = {
   },
   excludeFieldsVerbUnsupported: {
     id: "handler/exclude-fields-verb-unsupported",
-    summary: "excludeFields is used on create and update handlers only.",
+    summary: "excludeFields is used on create, update and list handlers only.",
     fix: "Remove excludeFields from this handler.",
   },
   excludeFieldsUnknownField: {

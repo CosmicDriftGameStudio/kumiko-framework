@@ -22,7 +22,7 @@ import { useBrowserNavApi } from "../app/nav.tsx";
 import { defaultPrimitives, EmbeddedFormProvider } from "../primitives/index.tsx";
 import {
   createMockDispatcher,
-  queryAnswering,
+  type MockQueryHandler,
   render,
   screen,
   taskEntity,
@@ -55,11 +55,10 @@ function renderBoard(board: DashboardScreenDefinition): void {
     entities: {},
     screens: [detailScreen, board],
   };
-  const query = queryAnswering((type) =>
+  const query: MockQueryHandler = (type) =>
     type === "sites:query:site:detail"
       ? { isSuccess: true, data: { id: "site-1", region: "EU-North" } }
-      : { isSuccess: true, data: { value: "1" } },
-  );
+      : { isSuccess: true, data: { value: "1" } };
   render(
     <BrowserNav>
       <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
@@ -87,7 +86,7 @@ describe("chromeless screen panel head", () => {
     renderBoard(
       dashboardWith([{ kind: "screen", id: "site", screen: "site-detail", chromeless: true }]),
     );
-    await waitFor(() => expect(screen.getByTestId("dashboard-panel-site-title")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-panel-site-title"));
     expect(screen.getByTestId("dashboard-panel-site-title").textContent).toBe("site-detail");
     expect(screen.getByTestId("dashboard-panel-site-description").textContent).toBe(
       "About this site",
@@ -101,7 +100,7 @@ describe("updated-at stamp", () => {
     renderBoard(
       dashboardWith([{ kind: "screen", id: "site", screen: "site-detail", chromeless: true }]),
     );
-    await waitFor(() => expect(screen.getByTestId("dashboard-panel-site-title")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-panel-site-title"));
     expect(screen.queryByTestId("dashboard-board-updated-at")).toBeNull();
   });
 
@@ -117,7 +116,7 @@ describe("updated-at stamp", () => {
         },
       ]),
     );
-    await waitFor(() => expect(screen.getByTestId("dashboard-board-updated-at")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("dashboard-board-updated-at"));
   });
 });
 
@@ -168,10 +167,10 @@ describe("embedded list description", () => {
         entities: { task: taskEntity },
         screens: [list, board],
       };
-      const query = queryAnswering(() => ({
+      const query: MockQueryHandler = () => ({
         isSuccess: true,
         data: { rows: [{ id: "r1", title: "Alpha" }], nextCursor: null },
-      }));
+      });
       render(
         <BrowserNav>
           <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
@@ -187,7 +186,7 @@ describe("embedded list description", () => {
           </DispatcherProvider>
         </BrowserNav>,
       );
-      await waitFor(() => expect(screen.getByText("Alpha")).toBeTruthy());
+      await waitFor(() => screen.getByText("Alpha"));
       expect(screen.getAllByText("Open tasks")).toHaveLength(1);
       expect(screen.getByTestId("dashboard-panel-tasks-description").textContent).toBe(
         "Open tasks",

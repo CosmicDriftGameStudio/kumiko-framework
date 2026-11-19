@@ -6,7 +6,6 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { runAsAgentToolCallEntry } from "@cosmicdrift/kumiko-framework/internal/request-context";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -30,6 +29,7 @@ import {
   getInbox,
 } from "../../mail-transport-inmemory/index.ts";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.ts";
+import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import { createTenantFeature } from "../../tenant/index.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
@@ -51,8 +51,8 @@ const addressOf = (userId: string): string => `${userId}@send-test.test`;
 const statusMailer = defineFeature("status-mailer", (r) => {
   const template = { en: { body: "<p>Something happened.</p>" } };
   const meta = { en: { subject: "Status update" } };
-  r.notification("incident", { tenantTransport: true, template, meta });
-  r.notification("account-notice", { template, meta });
+  r.notification({ name: "incident", tenantTransport: true, template, meta });
+  r.notification({ name: "account-notice", template, meta });
 });
 
 const tenantWithProvider = testTenantId(701);

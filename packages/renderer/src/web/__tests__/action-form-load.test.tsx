@@ -42,23 +42,29 @@ function renderForm(options: {
 }): Calls {
   const calls: Calls = { queries: [], writes: [] };
   const dispatcher: Dispatcher = createMockDispatcher({
-    query: (async (type: string, payload: unknown) => {
+    query: async (type: string, payload: unknown) => {
       calls.queries.push({ type, payload });
       if (options.outcome.kind === "error") {
         return {
           isSuccess: false,
-          error: { code: "handler_failed", message: "Detail failed", details: {} },
+          error: {
+            code: "handler_failed",
+            httpStatus: 500,
+            i18nKey: "errors.internal",
+            message: "Detail failed",
+            details: {},
+          },
         };
       }
       return {
         isSuccess: true,
         data: options.outcome.kind === "record" ? options.outcome.record : null,
       };
-    }) as unknown as Dispatcher["query"],
-    write: (async (_type: string, payload: unknown) => {
+    },
+    write: async (_type: string, payload: unknown) => {
       calls.writes.push(payload);
       return { isSuccess: true, data: {} };
-    }) as unknown as Dispatcher["write"],
+    },
   });
   render(
     <DispatcherProvider dispatcher={dispatcher}>
@@ -172,21 +178,21 @@ describe("actionForm load", () => {
   test("without a record id it shows a hint and runs no query", () => {
     const calls = renderForm({ outcome: { kind: "none" } });
 
-    expect(screen.getByTestId("kumiko-screen-action-form-missing-id")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-action-form-missing-id");
     expect(calls.queries).toHaveLength(0);
   });
 
   test("a failed load query shows the error instead of the form", async () => {
     renderForm({ entityId: "p1", outcome: { kind: "error" } });
 
-    await waitFor(() => expect(screen.getByTestId("kumiko-screen-error")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("kumiko-screen-error"));
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
   });
 
   test("an unknown record shows the not-found state instead of the form", async () => {
     renderForm({ entityId: "gone", outcome: { kind: "none" } });
 
-    await waitFor(() => expect(screen.getByTestId("kumiko-screen-record-missing")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("kumiko-screen-record-missing"));
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
   });
 

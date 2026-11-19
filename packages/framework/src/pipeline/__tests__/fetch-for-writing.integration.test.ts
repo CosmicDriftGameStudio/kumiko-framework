@@ -28,16 +28,17 @@ import { TestUsers } from "../../seeding/seed-users.ts";
 let betweenFetchAndAppend: (() => Promise<void>) | undefined;
 
 const cartEntity = createEntity({
+  name: "f4wCart",
   table: "read_f4w_carts",
   fields: {
     customer: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 
-const cartTable = buildEntityTable("f4wCart", cartEntity);
+const cartTable = buildEntityTable(cartEntity);
 
 const cartFeature = defineFeature("f4w", (r) => {
-  r.entity({ name: "f4wCart", ...cartEntity });
+  r.entity(cartEntity);
 
   const itemAdded = r.defineEvent("itemAdded", z.object({ sku: z.string(), qty: z.number() }), {
     piiFields: "none",
@@ -135,6 +136,21 @@ const cartFeature = defineFeature("f4w", (r) => {
           hasProbe: stream.hasEvent(event.payload.probeType),
         },
       };
+    },
+    access: { roles: ["Admin"] },
+  });
+
+  r.writeHandler({
+    name: "cart:load-info",
+    schema: z.object({ id: z.uuid(), asOf: z.iso.datetime().optional() }),
+    handler: async (event, ctx) => {
+      const events = await ctx.events.load(event.payload.id, {
+        aggregateType: "f4wCart",
+        ...(event.payload.asOf !== undefined && {
+          asOf: Temporal.Instant.from(event.payload.asOf),
+        }),
+      });
+      return { isSuccess: true as const, data: { types: events.map((e) => e.type) } };
     },
     access: { roles: ["Admin"] },
   });
@@ -447,6 +463,56 @@ describe("Runde 3 / C.2a — ctx.events.fetchForWriting", () => {
     expect(result.version).toBe(3);
     const events = await loadAggregate(stack.db, created.id, admin.tenantId);
     expect(events.map((e) => e.version)).toEqual([1, 2, 3]);
+  });
+
+  test("ctx.events.load with aggregateType leaves out a foreign type on the same id", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "f4w:write:cart:create",
+      { customer: "heidi" },
+      admin,
+    );
+    await append(stack.db, {
+      aggregateId: created.id,
+      aggregateType: "reservation",
+      tenantId: admin.tenantId,
+      expectedVersion: 1,
+      type: "reservation:event:created",
+      payload: {},
+      metadata: { userId: String(admin.id) },
+    });
+
+    const info = await stack.http.writeOk<{ types: string[] }>(
+      "f4w:write:cart:load-info",
+      { id: created.id },
+      admin,
+    );
+
+    expect(info.types).toEqual(["f4wCart.created"]);
+  });
+
+  test("ctx.events.load with asOf and aggregateType leaves out a foreign type on the same id", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "f4w:write:cart:create",
+      { customer: "ivan" },
+      admin,
+    );
+    const foreign = await append(stack.db, {
+      aggregateId: created.id,
+      aggregateType: "reservation",
+      tenantId: admin.tenantId,
+      expectedVersion: 1,
+      type: "reservation:event:created",
+      payload: {},
+      metadata: { userId: String(admin.id) },
+    });
+
+    const info = await stack.http.writeOk<{ types: string[] }>(
+      "f4w:write:cart:load-info",
+      { id: created.id, asOf: foreign.createdAt.toString() },
+      admin,
+    );
+
+    expect(info.types).toEqual(["f4wCart.created"]);
   });
 
   test("hasEvent reflects the fetch-time snapshot for the handle's own aggregateType", async () => {

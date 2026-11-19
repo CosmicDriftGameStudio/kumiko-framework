@@ -2,11 +2,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import {
   buildEntityTable,
   createEventStoreExecutor,
-  createTenantDb,
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
 import { type SessionUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { isStreamArchived } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
@@ -24,10 +24,18 @@ import {
 // The former contact feature's definitions, rebuilt here to write rows the way it did.
 const FORMER_REQUEST_ENTITY = "contact-request";
 const FORMER_REPLY_ENTITY = "contact-reply";
-const formerRequestEntity = { ...helpdeskRequestEntity, table: "read_contact_requests" };
-const formerReplyEntity = { ...helpdeskReplyEntity, table: "read_contact_replies" };
-const formerRequestTable = buildEntityTable(FORMER_REQUEST_ENTITY, formerRequestEntity);
-const formerReplyTable = buildEntityTable(FORMER_REPLY_ENTITY, formerReplyEntity);
+const formerRequestEntity = {
+  ...helpdeskRequestEntity,
+  table: "read_contact_requests",
+  name: FORMER_REQUEST_ENTITY,
+};
+const formerReplyEntity = {
+  ...helpdeskReplyEntity,
+  table: "read_contact_replies",
+  name: FORMER_REPLY_ENTITY,
+};
+const formerRequestTable = buildEntityTable(formerRequestEntity);
+const formerReplyTable = buildEntityTable(formerReplyEntity);
 const formerRequestExecutor = createEventStoreExecutor(formerRequestTable, formerRequestEntity, {
   entityName: FORMER_REQUEST_ENTITY,
 });

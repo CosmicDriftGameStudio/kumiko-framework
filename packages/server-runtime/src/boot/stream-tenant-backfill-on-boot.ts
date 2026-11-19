@@ -29,12 +29,10 @@ import { createEsOperationsTable, esOperationsTable } from "@cosmicdrift/kumiko-
 import { runInSystemRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { isEntitySearchable, type SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
+import type { SearchBackendDeclaration } from "../boot-options/search-option.ts";
 import { type DatabaseWaitClock, waitUntilDatabaseReachable } from "./wait-for-database.ts";
 
 export const STREAM_TENANT_BACKFILL_LOCK_KEY = 0x73_74_62_66; // 'stbf'
-
-/** Declares that the app has no search backend in any of its processes. */
-export type SearchBackendDeclaration = "none";
 
 export type StreamBackfillPart = "user" | "tenant";
 

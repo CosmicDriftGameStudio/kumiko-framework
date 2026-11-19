@@ -11,8 +11,8 @@ import type { TenantId } from "../../engine/types/identifiers.ts";
 import type { AppContext, Registry } from "../../engine/types/index.ts";
 import { createNoopProvider, createPrometheusMeter } from "../../observability/index.ts";
 import { registerStandardMetrics } from "../../observability/standard-metrics.ts";
-
 import { createJobRunner, type JobRunnerOptions } from "../job-runner.ts";
+import { purgeRawRedisKeys } from "./purge-raw-redis-keys.ts";
 
 const JWT = "job-last-success-test-secret-minimum-32-chars!!";
 const SUCCEEDS = "liveness:job:succeeds";
@@ -25,12 +25,16 @@ let testRedis: TestRedis;
 let redisUrl: string;
 
 const livenessFeature = defineFeature("liveness", (r) => {
-  r.job("succeeds", { trigger: { manual: true } }, async () => {});
-  r.job("failsAlways", { trigger: { manual: true } }, async () => {
-    throw new Error("intentional failure");
+  r.job({ name: "succeeds", trigger: { manual: true }, handler: async () => {} });
+  r.job({
+    name: "failsAlways",
+    trigger: { manual: true },
+    handler: async () => {
+      throw new Error("intentional failure");
+    },
   });
-  r.job("fansOut", { trigger: { manual: true }, perTenant: true }, async () => {});
-  r.job("completeHookThrows", { trigger: { manual: true } }, async () => {});
+  r.job({ name: "fansOut", trigger: { manual: true }, perTenant: true, handler: async () => {} });
+  r.job({ name: "completeHookThrows", trigger: { manual: true }, handler: async () => {} });
 });
 
 beforeAll(async () => {
@@ -79,8 +83,7 @@ async function withRunner(
     await fn(runner, failures);
   } finally {
     await runner.stop();
-    const keys = await testRedis.redis.keys(`bull:${queueNamePrefix}-worker:*`);
-    if (keys.length > 0) await testRedis.redis.del(...keys);
+    await purgeRawRedisKeys(testRedis.redisUrl, `bull:${queueNamePrefix}-worker:*`);
   }
 }
 

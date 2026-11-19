@@ -49,6 +49,6 @@ describe("custom preview renderer", () => {
       </PrimitivesProvider>,
     );
     expect(screen.queryByTestId("branded-preview")).toBeNull();
-    expect(screen.getByDisplayValue("Mail words")).toBeDefined();
+    screen.getByDisplayValue("Mail words");
   });
 });

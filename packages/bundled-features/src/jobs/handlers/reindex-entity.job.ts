@@ -8,6 +8,7 @@ import type { JobHandlerFn } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { reindexEntity } from "@cosmicdrift/kumiko-framework/search";
 import * as z from "zod";
+import { requireSystemDb } from "../../shared/index.ts";
 
 export const reindexEntityPayloadSchema = z.object({
   entity: z.string().min(1),
@@ -36,16 +37,11 @@ export const reindexEntityJob: JobHandlerFn = async (rawPayload, ctx): Promise<v
     // skip: fired without a perTenant fan-out tenant — nothing scoped to reindex
     return;
   }
-  if (!ctx.systemDb) {
-    throw new InternalError({
-      message:
-        "[jobs:reindex-entity] ctx.systemDb missing — the owning feature must declare r.systemScope().",
-    });
-  }
+  const systemDb = requireSystemDb(ctx, "jobs:reindex-entity");
   // unsafeRaw bypasses tenant filtering, safe here only because reindexEntity
   // filters `WHERE tenant_id = $1` itself with this same tenantId.
-  ctx.systemDb.assertTenantMatch(tenantId);
-  const db = ctx.systemDb.unsafeRaw(
+  systemDb.assertTenantMatch(tenantId);
+  const db = systemDb.unsafeRaw(
     "reindexEntity filters WHERE tenant_id = $1 itself with this job's tenantId",
   );
   const result = await reindexEntity(

@@ -1,3 +1,4 @@
+import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
 import { camelCase as envCamelCase } from "../env/internals.ts";
 import { toSnakeCase } from "./table-builder.ts";
 import { asEntityTableMeta } from "./table-introspection.ts";
@@ -28,14 +29,7 @@ export type TableInfo = {
   readonly hasColumn: (fieldOrColumn: string) => boolean;
 };
 
-export function extractTableInfo(table: unknown): TableInfo {
-  const meta = asEntityTableMeta(table);
-  if (!meta) {
-    throw new Error(
-      "extractTableInfo: table is not a kumiko EntityTableMeta — " +
-        "build it via buildEntityTable / deriveEntityTableMeta / table().",
-    );
-  }
+function buildTableInfo(meta: EntityTableMeta): TableInfo {
   const colByField = new Map<string, string>();
   const fieldByCol = new Map<string, string>();
   const typeByCol = new Map<string, string>();
@@ -59,4 +53,22 @@ export function extractTableInfo(table: unknown): TableInfo {
     fieldOf: (col) => fieldByCol.get(col) ?? snakeToCamel(col),
     hasColumn: (fieldOrColumn) => colByField.has(fieldOrColumn) || fieldByCol.has(fieldOrColumn),
   };
+}
+
+// Keyed on the meta, not the table: writeTableMeta swaps in a new meta object, so a table-keyed entry could outlive it.
+const tableInfoByMeta = new WeakMap<EntityTableMeta, TableInfo>();
+
+export function extractTableInfo(table: unknown): TableInfo {
+  const meta = asEntityTableMeta(table);
+  if (!meta) {
+    throw new Error(
+      "extractTableInfo: table is not a kumiko EntityTableMeta — " +
+        "build it via buildEntityTable / deriveEntityTableMeta / table().",
+    );
+  }
+  const cached = tableInfoByMeta.get(meta);
+  if (cached) return cached;
+  const info = buildTableInfo(meta);
+  tableInfoByMeta.set(meta, info);
+  return info;
 }

@@ -20,6 +20,7 @@ import {
   PrimitivesProvider,
   type SectionProps,
 } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import { RelatedListSection } from "../related-list-section.tsx";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
@@ -76,26 +77,16 @@ const testBanner = ({ children, testId }: { children?: ReactNode; testId?: strin
 );
 
 function testPrimitives(): CorePrimitives {
-  return {
-    Button: noop,
+  return createStubPrimitives({
     Banner: testBanner,
     Field: passChildren,
     Input: testInput,
     DataTable: testDataTable,
-    Form: noop,
     Section: testSection,
     Card: passChildren,
     Grid: passChildren,
     GridCell: passChildren,
-    Text: noop,
-    Heading: noop,
-    Dialog: noop,
-    Modal: noop,
-    Lightbox: noop,
-    ConfigSourceBadge: noop,
-    ConfigCascadeView: noop,
-    Link: noop,
-  } as unknown as CorePrimitives;
+  });
 }
 
 function stubDispatcher(
@@ -109,12 +100,12 @@ function stubDispatcher(
 } {
   const writes: Array<{ type: string; payload: unknown }> = [];
   let queryCalls = 0;
-  const dispatcher: Dispatcher = {
-    write: (async (type, payload) => {
+  const dispatcher: Dispatcher = createMockDispatcher({
+    write: async (type, payload) => {
       writes.push({ type, payload });
       return { isSuccess: true, data: null };
-    }) as Dispatcher["write"],
-    query: (async () => {
+    },
+    query: async () => {
       queryCalls += 1;
       return {
         isSuccess: true,
@@ -124,16 +115,9 @@ function stubDispatcher(
           ...(envelope.total !== undefined && { total: envelope.total }),
         },
       };
-    }) as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
   return { dispatcher, writes, queryCount: () => queryCalls };
 }
 
@@ -232,7 +216,7 @@ describe("RelatedListSection column value type", () => {
         </DispatcherProvider>
       </LocaleProvider>,
     );
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     expect(capturedTypes["betrag"]).toBe("money");
     expect(capturedTypes["name"]).toBe("text");
   });
@@ -269,7 +253,7 @@ describe("RelatedListSection — tabs-mode card chrome", () => {
       </LocaleProvider>,
     );
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     expect(rtlScreen.queryByTestId(`related-list-${historySection.title}`)).toBeNull();
     expect(capturedChromeless).toBe(true);
     expect(capturedScrollBody).toBe(true);
@@ -306,8 +290,8 @@ describe("RelatedListSection — tabs-mode card chrome", () => {
       </LocaleProvider>,
     );
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
-    expect(rtlScreen.getByTestId(`related-list-${historySection.title}`)).toBeTruthy();
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
+    rtlScreen.getByTestId(`related-list-${historySection.title}`);
     expect(capturedChromeless).toBeUndefined();
     expect(capturedScrollBody).toBeUndefined();
     expect(capturedScreenPadding).toBe(false);
@@ -350,7 +334,7 @@ describe("RelatedListSection — hideTitle FillContainer", () => {
     renderHideTitle({ ...testPrimitives(), FillContainer: fillContainer });
 
     const container = await rtlScreen.findByTestId("fill-container");
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     expect(container.contains(rtlScreen.getByTestId("row-r1"))).toBe(true);
     expect(container.getAttribute("data-grow")).toBe("0");
   });
@@ -365,7 +349,7 @@ describe("RelatedListSection — hideTitle FillContainer", () => {
   test("without a FillContainer primitive the list renders directly", async () => {
     renderHideTitle(testPrimitives());
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     expect(rtlScreen.queryByTestId("fill-container")).toBeNull();
   });
 });
@@ -439,9 +423,9 @@ describe("RelatedListSection — list-screen toolbar in tabs mode", () => {
       </LocaleProvider>,
     );
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     expect(capturedFilterFacets?.length).toBe(1);
-    expect(rtlScreen.getByTestId("render-list-toolbar-action-create")).toBeTruthy();
+    rtlScreen.getByTestId("render-list-toolbar-action-create");
   });
 
   test("a declared toolbarAction icon reaches the button even when the id derives none", async () => {
@@ -501,7 +485,7 @@ describe("RelatedListSection — list-screen toolbar in tabs mode", () => {
       </LocaleProvider>,
     );
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     const button = rtlScreen.getByTestId("render-list-toolbar-action-notify");
     expect(button.getAttribute("data-icon")).toBe("plus");
   });
@@ -557,7 +541,7 @@ describe("RelatedListSection — list-screen toolbar in tabs mode", () => {
       </LocaleProvider>,
     );
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     rtlScreen.getByTestId("render-list-toolbar-action-create").click();
 
     await waitFor(() => expect(navigations).toHaveLength(1));
@@ -620,7 +604,7 @@ describe("RelatedListSection — list-screen toolbar in tabs mode", () => {
       </LocaleProvider>,
     );
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     expect(rtlScreen.queryByTestId("render-list-toolbar-action-create")).toBeNull();
   });
 
@@ -679,9 +663,7 @@ describe("RelatedListSection — list-screen toolbar in tabs mode", () => {
       </LocaleProvider>,
     );
 
-    await waitFor(() =>
-      expect(rtlScreen.getByTestId("render-list-toolbar-action-create")).toBeTruthy(),
-    );
+    await waitFor(() => rtlScreen.getByTestId("render-list-toolbar-action-create"));
   });
 
   test("a toolbarAction's params extractor maps the parent record and replaces the implicit parentParam prefill", async () => {
@@ -743,7 +725,7 @@ describe("RelatedListSection — list-screen toolbar in tabs mode", () => {
       </LocaleProvider>,
     );
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     rtlScreen.getByTestId("render-list-toolbar-action-create").click();
 
     await waitFor(() => expect(navigations).toHaveLength(1));
@@ -752,9 +734,9 @@ describe("RelatedListSection — list-screen toolbar in tabs mode", () => {
 
   test("a reference facet loads its options from the referenced entity's list query, and selecting one sends an id filter", async () => {
     const calls: Array<{ type: string; payload: unknown }> = [];
-    const dispatcher: Dispatcher = {
-      write: (async () => ({ isSuccess: true, data: null })) as Dispatcher["write"],
-      query: (async (type: string, payload: unknown) => {
+    const dispatcher: Dispatcher = createMockDispatcher({
+      write: async () => ({ isSuccess: true, data: null }),
+      query: async (type: string, payload: unknown) => {
         calls.push({ type, payload });
         if (type === "orders:query:tenant:list") {
           return {
@@ -766,16 +748,9 @@ describe("RelatedListSection — list-screen toolbar in tabs mode", () => {
           };
         }
         return { isSuccess: true, data: { rows: [{ id: "r1", name: "Alice" }], nextCursor: null } };
-      }) as Dispatcher["query"],
-      batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
-      statusStore: {
-        getState: () => "online",
-        subscribe: () => () => {},
-      } as unknown as Dispatcher["statusStore"],
-      async *stream() {},
-      pendingWrites: () => [],
-      pendingFiles: () => [],
-    };
+      },
+      batch: async () => ({ isSuccess: true, results: [] }),
+    });
     let capturedFilterFacets: DataTableProps["filterFacets"];
     let capturedOnFilterChange: DataTableProps["onFilterChange"];
     const capturingDataTable: ComponentType<DataTableProps> = (props) => {
@@ -810,7 +785,7 @@ describe("RelatedListSection — list-screen toolbar in tabs mode", () => {
       </LocaleProvider>,
     );
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     await waitFor(() => expect(capturedFilterFacets?.[0]?.options).toHaveLength(1));
     expect(capturedFilterFacets).toEqual([
       {
@@ -841,7 +816,7 @@ describe("RelatedListSection — rowActions", () => {
     const { dispatcher, writes, queryCount } = stubDispatcher();
     renderRelatedList(dispatcher);
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     rtlScreen.getByTestId("action-resend-r1").click();
 
     await waitFor(() => expect(writes).toHaveLength(1));
@@ -872,7 +847,7 @@ describe("RelatedListSection — rowActions", () => {
       nav,
     );
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-item-7")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-item-7"));
     rtlScreen.getByTestId("action-adjust-rent-item-7").click();
 
     await waitFor(() => expect(navigations).toHaveLength(1));
@@ -901,8 +876,8 @@ describe("RelatedListSection — rowActions", () => {
       ],
     });
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-ended-1")).toBeTruthy());
-    expect(rtlScreen.getByTestId("action-end-item-active-1")).toBeTruthy();
+    await waitFor(() => rtlScreen.getByTestId("row-ended-1"));
+    rtlScreen.getByTestId("action-end-item-active-1");
     expect(rtlScreen.queryByTestId("action-end-item-ended-1")).toBeNull();
   });
 
@@ -1012,7 +987,7 @@ describe("RelatedListSection — rowActions drawer-kind", () => {
       </LocaleProvider>,
     );
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-item-7")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-item-7"));
     rtlScreen.getByTestId("action-adjust-rent-item-7").click();
 
     await waitFor(() => expect(openDrawerCalls).toHaveLength(1));
@@ -1039,7 +1014,7 @@ describe("RelatedListSection — rowActions drawer-kind", () => {
       ],
     });
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-item-7")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-item-7"));
     expect(rtlScreen.queryByTestId("action-adjust-rent-item-7")).toBeNull();
   });
 
@@ -1062,7 +1037,7 @@ describe("RelatedListSection — rowActions drawer-kind", () => {
         ],
       });
 
-      await waitFor(() => expect(rtlScreen.getByTestId("row-item-7")).toBeTruthy());
+      await waitFor(() => rtlScreen.getByTestId("row-item-7"));
       expect(warnSpy).toHaveBeenCalledTimes(1);
       expect(warnSpy.mock.calls[0]?.[0]).toContain("adjust-rent-warn-only-2733");
     } finally {
@@ -1108,160 +1083,20 @@ describe("RelatedListSection — rowActions drawer-kind", () => {
         </LocaleProvider>,
       );
 
-      await waitFor(() => expect(rtlScreen.getByTestId("row-item-7")).toBeTruthy());
-      expect(rtlScreen.getByTestId("action-adjust-rent-warn-wired-2733-item-7")).toBeTruthy();
+      await waitFor(() => rtlScreen.getByTestId("row-item-7"));
+      rtlScreen.getByTestId("action-adjust-rent-warn-wired-2733-item-7");
       expect(warnSpy).not.toHaveBeenCalled();
     } finally {
       warnSpy.mockRestore();
     }
   });
 });
-
-// A DataTable stub that renders one row per query row (DOM order == passed
-// `rows` order, so a re-sort is observable as a re-ordered row list) plus a
-// button that calls `onSortChange` the same way a real SortableHeader click
-// would — enough to prove RelatedListSection actually re-orders rows, not
-// just that a header is clickable.
-const orderedDataTable: ComponentType<DataTableProps> = ({ rows, onSortChange }) => (
-  <div>
-    <table>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row.id} data-testid={`row-${row.id}`} />
-        ))}
-      </tbody>
-    </table>
-    {onSortChange !== undefined && (
-      <button
-        type="button"
-        data-testid="sort-amount-desc"
-        onClick={() => onSortChange({ field: "amount", dir: "desc" })}
-      >
-        sort
-      </button>
-    )}
-  </div>
-);
-
-function renderedRowOrder(): string[] {
-  return rtlScreen
-    .getAllByTestId(/^row-/)
-    .map((el) => el.getAttribute("data-testid")?.replace("row-", "") ?? "");
-}
-
-describe("RelatedListSection — sorting", () => {
-  const unsortedRows = [
-    { id: "r1", name: "Charlie", amount: 300 },
-    { id: "r2", name: "Alice", amount: 100 },
-    { id: "r3", name: "Bob", amount: 200 },
-  ];
-
-  test("defaultSort sorts the already-loaded rows client-side, independent of query response order", async () => {
-    const { dispatcher } = stubDispatcher(unsortedRows);
-    render(
-      <LocaleProvider
-        resolver={createStaticLocaleResolver({ locale: "en-US" })}
-        fallbackBundles={[kumikoDefaultTranslations]}
-      >
-        <DispatcherProvider dispatcher={dispatcher}>
-          <PrimitivesProvider value={{ ...testPrimitives(), DataTable: orderedDataTable }}>
-            <NavProvider value={stubNav().nav}>
-              <RelatedListSection
-                section={{
-                  kind: "relatedList",
-                  title: "Positions",
-                  query: "lease:query:items:list",
-                  columns: [{ field: "amount", sortable: true }],
-                  defaultSort: { field: "amount", dir: "asc" },
-                }}
-                parentId="order-1"
-                record={{ id: "order-1" }}
-                featureName="orders"
-              />
-            </NavProvider>
-          </PrimitivesProvider>
-        </DispatcherProvider>
-      </LocaleProvider>,
-    );
-
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
-    expect(renderedRowOrder()).toEqual(["r2", "r3", "r1"]);
-  });
-
-  test("toggling sort via onSortChange re-orders rows without a refetch", async () => {
-    const { dispatcher, queryCount } = stubDispatcher(unsortedRows);
-    render(
-      <LocaleProvider
-        resolver={createStaticLocaleResolver({ locale: "en-US" })}
-        fallbackBundles={[kumikoDefaultTranslations]}
-      >
-        <DispatcherProvider dispatcher={dispatcher}>
-          <PrimitivesProvider value={{ ...testPrimitives(), DataTable: orderedDataTable }}>
-            <NavProvider value={stubNav().nav}>
-              <RelatedListSection
-                section={{
-                  kind: "relatedList",
-                  title: "Positions",
-                  query: "lease:query:items:list",
-                  columns: [{ field: "amount", sortable: true }],
-                }}
-                parentId="order-1"
-                record={{ id: "order-1" }}
-                featureName="orders"
-              />
-            </NavProvider>
-          </PrimitivesProvider>
-        </DispatcherProvider>
-      </LocaleProvider>,
-    );
-
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
-    expect(renderedRowOrder()).toEqual(["r1", "r2", "r3"]);
-
-    fireEvent.click(rtlScreen.getByTestId("sort-amount-desc"));
-
-    await waitFor(() => expect(renderedRowOrder()).toEqual(["r1", "r3", "r2"]));
-    expect(queryCount()).toBe(1);
-  });
-
-  test("a section without defaultSort renders rows in the original query order (unchanged behavior)", async () => {
-    const { dispatcher } = stubDispatcher(unsortedRows);
-    render(
-      <LocaleProvider
-        resolver={createStaticLocaleResolver({ locale: "en-US" })}
-        fallbackBundles={[kumikoDefaultTranslations]}
-      >
-        <DispatcherProvider dispatcher={dispatcher}>
-          <PrimitivesProvider value={{ ...testPrimitives(), DataTable: orderedDataTable }}>
-            <NavProvider value={stubNav().nav}>
-              <RelatedListSection
-                section={{
-                  kind: "relatedList",
-                  title: "Positions",
-                  query: "lease:query:items:list",
-                  columns: [{ field: "amount" }],
-                }}
-                parentId="order-1"
-                record={{ id: "order-1" }}
-                featureName="orders"
-              />
-            </NavProvider>
-          </PrimitivesProvider>
-        </DispatcherProvider>
-      </LocaleProvider>,
-    );
-
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
-    expect(renderedRowOrder()).toEqual(["r1", "r2", "r3"]);
-  });
-});
-
 describe("RelatedListSection — truncation banner", () => {
   test("nextCursor !== null renders a truncation banner", async () => {
     const { dispatcher } = stubDispatcher([{ id: "r1", name: "Alice" }], "cursor-abc");
     renderRelatedList(dispatcher);
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     const banner = rtlScreen.getByTestId("related-list-truncated");
     expect(banner).toBeTruthy();
     // Proves {count} actually interpolates (single-brace, the renderer's own
@@ -1273,7 +1108,7 @@ describe("RelatedListSection — truncation banner", () => {
     const { dispatcher } = stubDispatcher([{ id: "r1", name: "Alice" }], null);
     renderRelatedList(dispatcher);
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     expect(rtlScreen.queryByTestId("related-list-truncated")).toBeNull();
   });
 
@@ -1283,7 +1118,7 @@ describe("RelatedListSection — truncation banner", () => {
     });
     renderRelatedList(dispatcher);
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     expect(rtlScreen.queryByTestId("related-list-truncated")).toBeNull();
   });
 
@@ -1293,7 +1128,7 @@ describe("RelatedListSection — truncation banner", () => {
     });
     renderRelatedList(dispatcher);
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     expect(rtlScreen.queryByTestId("related-list-truncated")).toBeNull();
   });
 
@@ -1313,8 +1148,8 @@ describe("RelatedListSection — truncation banner", () => {
       defaultSort: { field: "amount", dir: "asc" },
     });
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
-    expect(rtlScreen.getByTestId("related-list-truncated")).toBeTruthy();
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
+    rtlScreen.getByTestId("related-list-truncated");
   });
 });
 
@@ -1372,9 +1207,9 @@ function filteringDispatcher(rows: readonly Record<string, unknown>[]): {
   payloads: Record<string, unknown>[];
 } {
   const payloads: Record<string, unknown>[] = [];
-  const dispatcher: Dispatcher = {
-    write: (async () => ({ isSuccess: true, data: null })) as Dispatcher["write"],
-    query: (async (_type: string, payload: unknown) => {
+  const dispatcher: Dispatcher = createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: null }),
+    query: async (_type: string, payload: unknown) => {
       const p = payload as {
         search?: string;
         filters?: readonly { field: string; op: "in"; value: readonly unknown[] }[];
@@ -1393,16 +1228,9 @@ function filteringDispatcher(rows: readonly Record<string, unknown>[]): {
         result = result.filter((r) => f.value.includes(r[f.field]));
       }
       return { isSuccess: true, data: { rows: result, nextCursor: null } };
-    }) as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
   return { dispatcher, payloads };
 }
 
@@ -1454,8 +1282,8 @@ describe("RelatedListSection — search + facets", () => {
       searchFacetDataTable,
     );
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
-    expect(rtlScreen.getByTestId("row-r2")).toBeTruthy();
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
+    rtlScreen.getByTestId("row-r2");
 
     fireEvent.change(rtlScreen.getByTestId("render-list-search"), {
       target: { value: "ali" },
@@ -1469,7 +1297,7 @@ describe("RelatedListSection — search + facets", () => {
       { timeout: 2000 },
     );
     await waitFor(() => expect(rtlScreen.queryByTestId("row-r2")).toBeNull());
-    expect(rtlScreen.getByTestId("row-r1")).toBeTruthy();
+    rtlScreen.getByTestId("row-r1");
   });
 
   test("without searchable, RenderList shows no search input and no payload ever carries a search key", async () => {
@@ -1485,7 +1313,7 @@ describe("RelatedListSection — search + facets", () => {
       searchFacetDataTable,
     );
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     expect(rtlScreen.queryByTestId("render-list-search")).toBeNull();
     for (const p of payloads) {
       expect("search" in p).toBe(false);
@@ -1507,9 +1335,9 @@ describe("RelatedListSection — search + facets", () => {
       true,
     );
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
-    expect(rtlScreen.getByTestId("row-r2")).toBeTruthy();
-    expect(rtlScreen.getByTestId("render-list-search")).toBeTruthy();
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
+    rtlScreen.getByTestId("row-r2");
+    rtlScreen.getByTestId("render-list-search");
 
     fireEvent.change(rtlScreen.getByTestId("render-list-search"), {
       target: { value: "ali" },
@@ -1523,7 +1351,7 @@ describe("RelatedListSection — search + facets", () => {
       { timeout: 2000 },
     );
     await waitFor(() => expect(rtlScreen.queryByTestId("row-r2")).toBeNull());
-    expect(rtlScreen.getByTestId("row-r1")).toBeTruthy();
+    rtlScreen.getByTestId("row-r1");
   });
 
   const statusSection: EditRelatedListSectionViewModel = {
@@ -1552,21 +1380,21 @@ describe("RelatedListSection — search + facets", () => {
     const { dispatcher, payloads } = filteringDispatcher(statusRows);
     renderWithDataTable(dispatcher, statusSection, searchFacetDataTable);
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-active-1")).toBeTruthy());
-    expect(rtlScreen.getByTestId("row-ended-1")).toBeTruthy();
+    await waitFor(() => rtlScreen.getByTestId("row-active-1"));
+    rtlScreen.getByTestId("row-ended-1");
 
     fireEvent.click(rtlScreen.getByTestId("facet-status-active"));
 
     await waitFor(() => expect(rtlScreen.queryByTestId("row-ended-1")).toBeNull());
-    expect(rtlScreen.getByTestId("row-active-1")).toBeTruthy();
+    rtlScreen.getByTestId("row-active-1");
     expect(payloads[payloads.length - 1]?.["filters"]).toEqual([
       { field: "status", op: "in", value: ["active"] },
     ]);
 
     fireEvent.click(rtlScreen.getByTestId("filter-reset"));
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-ended-1")).toBeTruthy());
-    expect(rtlScreen.getByTestId("row-active-1")).toBeTruthy();
+    await waitFor(() => rtlScreen.getByTestId("row-ended-1"));
+    rtlScreen.getByTestId("row-active-1");
     expect(payloads[payloads.length - 1]?.["filters"]).toBeUndefined();
   });
 
@@ -1596,13 +1424,13 @@ describe("RelatedListSection — search + facets", () => {
       searchFacetDataTable,
     );
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-paid-1")).toBeTruthy());
-    expect(rtlScreen.getByTestId("row-unpaid-1")).toBeTruthy();
+    await waitFor(() => rtlScreen.getByTestId("row-paid-1"));
+    rtlScreen.getByTestId("row-unpaid-1");
 
     fireEvent.click(rtlScreen.getByTestId("facet-paid-true"));
 
     await waitFor(() => expect(rtlScreen.queryByTestId("row-unpaid-1")).toBeNull());
-    expect(rtlScreen.getByTestId("row-paid-1")).toBeTruthy();
+    rtlScreen.getByTestId("row-paid-1");
     expect(payloads[payloads.length - 1]?.["filters"]).toEqual([
       { field: "paid", op: "in", value: [true] },
     ]);
@@ -1618,9 +1446,9 @@ function parentFilterDispatcher(rows: readonly Record<string, unknown>[]): {
   payloads: Record<string, unknown>[];
 } {
   const payloads: Record<string, unknown>[] = [];
-  const dispatcher: Dispatcher = {
-    write: (async () => ({ isSuccess: true, data: null })) as Dispatcher["write"],
-    query: (async (_type: string, payload: unknown) => {
+  const dispatcher: Dispatcher = createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: null }),
+    query: async (_type: string, payload: unknown) => {
       const p = payload as {
         filter?: { field: string; op: "eq"; value: unknown };
         search?: string;
@@ -1644,16 +1472,9 @@ function parentFilterDispatcher(rows: readonly Record<string, unknown>[]): {
         result = result.filter((r) => f.value.includes(r[f.field]));
       }
       return { isSuccess: true, data: { rows: result, nextCursor: null } };
-    }) as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
   return { dispatcher, payloads };
 }
 
@@ -1688,8 +1509,8 @@ describe("RelatedListSection — parentFilter", () => {
     const { dispatcher, payloads } = parentFilterDispatcher(rows);
     renderWithDataTable(dispatcher, section, searchFacetDataTable);
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
-    expect(rtlScreen.getByTestId("row-r2")).toBeTruthy();
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
+    rtlScreen.getByTestId("row-r2");
     expect(rtlScreen.queryByTestId("row-r3")).toBeNull();
 
     const firstPayload = payloads[0];
@@ -1705,7 +1526,7 @@ describe("RelatedListSection — parentFilter", () => {
     const { dispatcher, payloads } = parentFilterDispatcher(rows);
     renderWithDataTable(dispatcher, section, searchFacetDataTable);
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     fireEvent.change(rtlScreen.getByTestId("render-list-search"), {
       target: { value: "ali" },
     });
@@ -1720,18 +1541,18 @@ describe("RelatedListSection — parentFilter", () => {
     const last = payloads[payloads.length - 1];
     expect(last?.["filter"]).toEqual({ field: "parentId", op: "eq", value: "order-1" });
     await waitFor(() => expect(rtlScreen.queryByTestId("row-r2")).toBeNull());
-    expect(rtlScreen.getByTestId("row-r1")).toBeTruthy();
+    rtlScreen.getByTestId("row-r1");
   });
 
   test("selecting a facet leaves payload.filter unchanged and adds payload.filters", async () => {
     const { dispatcher, payloads } = parentFilterDispatcher(rows);
     renderWithDataTable(dispatcher, section, searchFacetDataTable);
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     fireEvent.click(rtlScreen.getByTestId("facet-status-active"));
 
     await waitFor(() => expect(rtlScreen.queryByTestId("row-r2")).toBeNull());
-    expect(rtlScreen.getByTestId("row-r1")).toBeTruthy();
+    rtlScreen.getByTestId("row-r1");
     const last = payloads[payloads.length - 1];
     expect(last?.["filter"]).toEqual({ field: "parentId", op: "eq", value: "order-1" });
     expect(last?.["filters"]).toEqual([{ field: "status", op: "in", value: ["active"] }]);
@@ -1791,7 +1612,7 @@ describe("RelatedListSection — parentFilter", () => {
       </LocaleProvider>,
     );
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     rtlScreen.getByTestId("render-list-toolbar-action-create").click();
 
     await waitFor(() => expect(navigations).toHaveLength(1));
@@ -1862,7 +1683,7 @@ describe("RelatedListSection — default edit row action", () => {
     };
     renderWithFeatures(sectionWithRowClick, dispatcher, [schema], [], nav);
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     const editButton = rtlScreen.getByTestId("action-edit-r1");
     expect(editButton.textContent).toBe("Edit");
 
@@ -1887,7 +1708,7 @@ describe("RelatedListSection — default edit row action", () => {
       [schema],
     );
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     expect(rtlScreen.queryAllByTestId("action-edit-r1")).toHaveLength(1);
     expect(rtlScreen.getByTestId("action-edit-r1").textContent).toBe("custom-edit");
   });
@@ -1901,7 +1722,7 @@ describe("RelatedListSection — default edit row action", () => {
     };
     renderWithFeatures({ ...sectionWithRowClick, rowClick: undefined }, dispatcher, [schema]);
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     expect(rtlScreen.queryByTestId("action-edit-r1")).toBeNull();
   });
 
@@ -1914,7 +1735,7 @@ describe("RelatedListSection — default edit row action", () => {
     };
     renderWithFeatures(sectionWithRowClick, dispatcher, [schema]);
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     expect(rtlScreen.queryByTestId("action-edit-r1")).toBeNull();
   });
 });
@@ -1937,7 +1758,13 @@ describe("RelatedListSection — sortable column over a declared entity", () => 
     };
     const schema: FeatureSchema = {
       featureName: "lease",
-      entities: { item: createEntity({ table: "Items", fields: { dueDate: createDateField() } }) },
+      entities: {
+        item: createEntity({
+          name: "item",
+          table: "Items",
+          fields: { dueDate: createDateField() },
+        }),
+      },
       screens: [],
     };
     render(
@@ -1968,7 +1795,7 @@ describe("RelatedListSection — sortable column over a declared entity", () => 
       </LocaleProvider>,
     );
 
-    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    await waitFor(() => rtlScreen.getByTestId("row-r1"));
     expect(seenSortable.at(-1)).toEqual({ dueDate: true });
   });
 });

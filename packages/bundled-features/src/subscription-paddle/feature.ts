@@ -239,7 +239,7 @@ export function createSubscriptionPaddleFeature(
       previewPlanSwitch: createPaddlePreviewPlanSwitch(runtimes.ctx, now),
       applyPlanSwitch: createPaddleApplyPlanSwitch(runtimes.ctx),
     };
-    r.useExtension("subscriptionProvider", PADDLE_PROVIDER_NAME, plugin);
+    r.applyExtension({ name: "subscriptionProvider", entity: PADDLE_PROVIDER_NAME, ...plugin });
 
     return { configKeys };
   });

@@ -4,6 +4,7 @@
 // removes, delete-then-restore indexes the restored state).
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { generateId as uuid } from "@cosmicdrift/kumiko-framework/utils";
+import { liveMeiliConnection, meiliAvailable } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { Meilisearch } from "meilisearch";
 import * as z from "zod";
@@ -16,32 +17,12 @@ import { meilisearchTenantIndex } from "../meilisearch-adapter-internals.ts";
 
 import type { SearchAdapter } from "../types.ts";
 
-const MEILI_URL = process.env["MEILI_URL"] ?? "http://localhost:17700";
-const MEILI_KEY = process.env["MEILI_MASTER_KEY"] ?? "kumiko-dev-key";
-
-async function meiliAvailable(): Promise<boolean> {
-  try {
-    const health = await fetch(`${MEILI_URL}/health`, { signal: AbortSignal.timeout(2000) });
-    return health.ok;
-  } catch {
-    return false;
-  }
-}
+const { url: MEILI_URL, masterKey: MEILI_KEY } = liveMeiliConnection();
 
 const MEILI_UP = await meiliAvailable();
-if (!MEILI_UP) {
-  if (process.env["REQUIRE_MEILI"] === "1") {
-    throw new Error(
-      `REQUIRE_MEILI=1 but Meilisearch not reachable at ${MEILI_URL} — integration job misconfigured`,
-    );
-  }
-  console.warn(
-    `Meilisearch not reachable at ${MEILI_URL} — skipping live batch-consumer tests ` +
-      `(docker compose up -d meilisearch, default port 17700)`,
-  );
-}
 
 const docEntity = createEntity({
+  name: "doc",
   table: "read_batch_search_docs",
   fields: {
     label: createTextField({
@@ -55,7 +36,7 @@ const docEntity = createEntity({
 });
 
 const batchSearchFeature = defineFeature("batch-search", (r) => {
-  r.entity({ name: "doc", ...docEntity });
+  r.entity(docEntity);
   r.defineEvent("noop", z.object({}), { piiFields: "none" });
 });
 

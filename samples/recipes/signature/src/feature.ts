@@ -1,24 +1,34 @@
 import { createSignatureFeature } from "@cosmicdrift/kumiko-bundled-features/signature";
-import { PDFDocument } from "pdf-lib";
+import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+export const leaseEntity = createEntity({
+  name: "lease",
+  table: "recipe_signature_leases",
+  fields: {
+    name: createTextField({
+      required: true,
+      maxLength: 100,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
+});
+
+// In an app the host is the record the document belongs to; a user sees its requests while they can read it.
+export const leaseFeature = defineFeature("signature-recipe-lease", (r) => {
+  r.entity(leaseEntity);
+});
 
 // In an app `deliverLink` sends a mail to the signer. The recipe keeps the links in a map so the
 // test can open them: the link is never part of a handler result.
 export const deliveredLinks = new Map<string, string>();
 
-// In an app this is `renderHtmlToPdf` from @cosmicdrift/kumiko-renderer-puppeteer-client, which
-// needs the print service; the recipe prints a blank page instead.
-async function printSignaturePage(): Promise<Uint8Array> {
-  const pdf = await PDFDocument.create();
-  pdf.addPage();
-  return pdf.save();
-}
-
 export const SIGNATURE_LINK_SECRET = "signature-recipe-link-secret-0123456789";
 
 export const signatureFeature = createSignatureFeature({
-  retention: { keepFor: "10y" },
+  retention: { keepFor: "10y", unfinishedKeepFor: "90d" },
   linkSecret: SIGNATURE_LINK_SECRET,
-  renderHtmlToPdf: printSignaturePage,
+  hostEntities: ["lease"],
   signaturePageUrl: "https://app.example/sign",
   deliverLink: async (_ctx, { signerId, url }) => {
     deliveredLinks.set(signerId, url);

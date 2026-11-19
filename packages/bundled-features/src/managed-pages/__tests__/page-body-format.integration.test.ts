@@ -1,12 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import {
-  createEventStoreExecutor,
-  createTenantDb,
-  fetchOne,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
@@ -16,6 +12,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { createBrandingFeature } from "../../branding/index.ts";
 import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
@@ -41,7 +38,7 @@ let stack: TestStack;
 beforeAll(async () => {
   const resolver = createConfigResolver();
   stack = await setupTestStack({
-    features: [createConfigFeature(), managed],
+    features: [createConfigFeature(), createBrandingFeature(), managed],
     anonymousAccess: { tenantExists: async (id) => id === TENANT_A },
     extraContext: ({ registry }) => ({
       configResolver: resolver,

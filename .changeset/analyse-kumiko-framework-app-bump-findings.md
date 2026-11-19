@@ -1,0 +1,59 @@
+---
+"@cosmicdrift/kumiko-bundled-features": patch
+"@cosmicdrift/kumiko-dev-server": patch
+"@cosmicdrift/kumiko-framework": patch
+"@cosmicdrift/kumiko-guards": patch
+"@cosmicdrift/kumiko-locale-de": patch
+"@cosmicdrift/kumiko-locale-es": patch
+"@cosmicdrift/kumiko-locale-fr": patch
+"@cosmicdrift/kumiko-locale-it": patch
+"@cosmicdrift/kumiko-server-runtime": patch
+"@cosmicdrift/kumiko-types": patch
+---
+
+The managed `bin/kumiko.ts` reads `process.env["INIT_CWD"]` with bracket access, so it type-checks in apps with `noPropertyAccessFromIndexSignature`. `billing-foundation:write:start-plan-checkout` and `billing-foundation:write:switch-plan` ship their title and field labels (en, de, es, fr, it), so `kumiko agent lint` no longer reports them as handler translation gaps in an app that mounts a plan catalog. The same now holds for `create-checkout-session` (field `consent`), `request-contract-termination`, `revoke-contract-termination` and `terminate-contract`.
+
+The direct-entity-writes guard reads the entity definition as the first argument of `buildEntityTable(entityDef, options?)`, `r.crud(entityDef, options)` and `r.entity(entityDef)`, so it finds those tables again instead of reporting a misconfigured scan. `defineWriteHandler` accepts `excludedFields` on hand-written handlers and keeps it on the definition. The bundled `kumiko` CLI (`runStandaloneCli`) rejects `schema generate` and `schema baseline` with "Unknown subcommand"; both only run in development through `bun kumiko-schema`.
+
+Projected row helpers (`insertProjectedEntityRow`, `patchProjectedEntityRow`) accept money and located timestamps in the combined form their type declares.
+
+Upcasters and entity `eventMigrations` receive the aggregate id and type of the event they migrate (`EventUpcastCtx.aggregateId`, `EventUpcastCtx.aggregateType`).
+
+The handler definitions guard no longer counts calls to inherited object methods such as `toString`.
+
+The managed `ci.yml` pins the image build job to the commit behind the infra tag (`_docker-build-push.yml@<sha> # reusables-v2.4.5`); an app that sets `kumiko.deploy.infraRef` keeps its own ref there. The cross-feature import guard accepts `../<feature>/server-contract` as a public surface next to `contract` and `schema/entity`.
+
+<!-- kumiko-changes
+feature: dev-server
+type: fix
+title: Managed bin/kumiko.ts and ci.yml fixes
+detail: The managed `bin/kumiko.ts` reads `process.env["INIT_CWD"]` with bracket access, so it type-checks in apps with `noPropertyAccessFromIndexSignature`. The managed `ci.yml` pins the image build job to the commit behind the infra tag (`_docker-build-push.yml@<sha> # reusables-v2.4.5`); an app that sets `kumiko.deploy.infraRef` keeps its own ref there.
+-->
+
+<!-- kumiko-changes
+feature: billing-foundation
+type: fix
+title: Plan checkout, plan switch and contract handlers ship their labels
+detail: `start-plan-checkout`, `switch-plan`, `create-checkout-session` (field `consent`), `request-contract-termination`, `revoke-contract-termination` and `terminate-contract` ship their title and field labels in en, de, es, fr and it, so `kumiko agent lint` no longer reports them as handler translation gaps in an app that mounts a plan catalog.
+-->
+
+<!-- kumiko-changes
+feature: guards
+type: fix
+title: Direct-entity-writes, handler definitions and cross-feature import guards
+detail: The direct-entity-writes guard reads the entity definition as the first argument of `buildEntityTable(entityDef, options?)`, `r.crud(entityDef, options)` and `r.entity(entityDef)`, so it finds those tables again instead of reporting a misconfigured scan. The handler definitions guard no longer counts calls to inherited object methods such as `toString`. The cross-feature import guard accepts `../<feature>/server-contract` as a public surface next to `contract` and `schema/entity`.
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: improvement
+title: excludedFields on hand-written handlers, projected row value forms and upcaster stream identity
+detail: `defineWriteHandler` accepts `excludedFields` on hand-written handlers and keeps it on the definition. `insertProjectedEntityRow` and `patchProjectedEntityRow` accept money and located timestamps in the combined form their type declares. Upcasters and entity `eventMigrations` receive the aggregate id and type of the event they migrate (`EventUpcastCtx.aggregateId`, `EventUpcastCtx.aggregateType`).
+-->
+
+<!-- kumiko-changes
+feature: server-runtime
+type: fix
+title: The bundled CLI rejects schema generate and schema baseline
+detail: `runStandaloneCli`, behind the production bundle `kumiko.js`, answers `schema generate` and `schema baseline` with "Unknown subcommand"; both only run in development through `bun kumiko-schema`.
+-->

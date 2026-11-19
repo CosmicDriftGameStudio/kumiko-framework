@@ -15,6 +15,7 @@ export const listQuery = defineQueryHandler({
     totalCount: z.boolean().optional(),
   }),
   access: { roles: ["SystemAdmin"] },
+  systemScope: true,
   description:
     "Pages through every tenant on the platform with an optional search term, for a SystemAdmin browsing the tenant roster.",
   handler: async (query, ctx) => {

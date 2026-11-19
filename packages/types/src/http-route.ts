@@ -12,6 +12,7 @@
 // feature (e.g. platform-specific static-serving logic).
 
 import type { Context } from "hono";
+import type { ContractQuery } from "./handler-contract.ts";
 import type { RateLimitOption } from "./handlers.ts";
 
 /** Subset of HTTP methods actively supported. Hono supports all methods,
@@ -20,8 +21,9 @@ export type HttpRouteMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEA
 
 /** Dependencies provided to the handler by the framework. The app can be
  *  called directly (`deps.app.fetch(...)` for internal calls), or data can
- *  be fetched through the dispatcher. Db/Redis are raw connections — tenant
- *  scoping requires going through dispatcher.query.
+ *  be fetched through the dispatcher. There is no db or redis handle: data
+ *  comes through `systemQuery` or `app.fetch`, and the request's tenant comes
+ *  from `hostTenantId`.
  *
  *  Hono typing: `Context<any, any>` is used because Hono's type-parameter
  *  setup is only relevant internally. The concrete Hono app is assigned
@@ -44,11 +46,13 @@ export type HttpRouteHandlerDeps = {
    *  an internal X-Tenant header on `app.fetch(...)` is indistinguishable
    *  from an external client and gets rejected by resolverTrust:
    *  "authoritative" anonymousAccess configs (see auth-middleware.ts). */
-  readonly systemQuery: (
-    type: string,
-    payload: unknown,
-    tenantId: import("./identifiers.ts").TenantId,
-  ) => Promise<unknown>;
+  readonly systemQuery: ContractQuery<[tenantId: import("./identifiers.ts").TenantId]>;
+  /** The tenant the server's own anonymous host resolution maps this request to:
+   *  `anonymousAccess.defaultTenantId`, else the registered tenant resolver (e.g.
+   *  host-routing) checked against `tenantExists`; null when it maps to none.
+   *  X-Tenant and the tenant cookie are never read, so a visitor cannot pick the
+   *  tenant of a public page. */
+  readonly hostTenantId: () => Promise<import("./identifiers.ts").TenantId | null>;
   /** Caller IP resolved via the server's configured, trustedProxyHops-aware
    *  resolver (same one requestIdMiddleware uses for `/api/*`) — a route
    *  handler needing the caller's IP (rate limiting, audit) should read
@@ -70,6 +74,17 @@ export type HttpRouteHandler = (
 export type HttpRouteRateLimit = Omit<RateLimitOption, "per"> & {
   readonly per: "ip" | "ip+handler";
 };
+
+export function isValidHttpRouteRateLimit(
+  rateLimit: Pick<HttpRouteRateLimit, "limit" | "windowSeconds">,
+): boolean {
+  return (
+    Number.isInteger(rateLimit.limit) &&
+    rateLimit.limit >= 1 &&
+    Number.isInteger(rateLimit.windowSeconds) &&
+    rateLimit.windowSeconds >= 1
+  );
+}
 
 export type HttpRouteDefinition = {
   /** HTTP method — mounted in Hono via app.{get,post,...}(path). */

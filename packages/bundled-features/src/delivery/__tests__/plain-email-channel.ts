@@ -11,7 +11,9 @@ export function createPlainFallbackEmailFeature(options: EmailChannelOptions): F
   const channel = createEmailChannel(options);
   return defineFeature("channel-email", (r) => {
     r.requires({ features: ["delivery"] });
-    r.useExtension(DELIVERY_CHANNEL_EXTENSION, "email", {
+    r.applyExtension({
+      name: DELIVERY_CHANNEL_EXTENSION,
+      entity: "email",
       mode: channel.mode,
       resolve: channel.resolve,
       async render(message, ctx) {

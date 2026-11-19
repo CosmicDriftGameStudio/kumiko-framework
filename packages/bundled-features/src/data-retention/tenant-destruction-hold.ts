@@ -4,8 +4,8 @@
 
 import {
   createEventStoreExecutor,
-  createTenantDb,
   type DbRunner,
+  type SchemaTable,
   selectMany,
   type WhereObject,
   WritePurposes,
@@ -16,6 +16,7 @@ import {
   type Registry,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { collectFileRefIds, planFileFields } from "../shared/index.ts";
 import { computeCutoff, type Instant } from "./keep-for.ts";
@@ -31,7 +32,7 @@ import {
 
 const ANONYMIZE_PAGE_SIZE = 1000;
 
-type ProjectionTable = Parameters<typeof selectMany>[1];
+type ProjectionTable = SchemaTable;
 
 type BlockDeleteEntity = {
   readonly entityName: string;

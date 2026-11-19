@@ -6,19 +6,20 @@
 //     changed field, using the qualified key and scope
 //   - Save-button disabling via controller.rebase after success
 //   - Loading state while config:query:values is pending
-//
-// `as unknown as Dispatcher["query"/"batch"]` throughout: each inline mock
-// lambda only implements the one overload a given test exercises, never the
-// full overloaded Dispatcher signature — the missing overloads are never
-// called at runtime.
 
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, type Mock, mock, test } from "bun:test";
 import type { ConfigEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
-import type { BatchResult, Dispatcher } from "../../headless/index.ts";
+import type { BatchResult, Dispatcher, QueryResult, WriteResult } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  type MockBatchHandler,
+  render,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const settingsScreen: ConfigEditScreenDefinition = {
   id: "settings",
@@ -68,12 +69,12 @@ const schema: FeatureSchema = {
 
 describe("KumikoScreen / configEdit", () => {
   test("loading state while config:query:values is pending", async () => {
-    let resolveQuery: (value: unknown) => void = () => {};
-    const queryPending = new Promise((resolve) => {
+    let resolveQuery: (value: QueryResult) => void = () => {};
+    const queryPending = new Promise<QueryResult>((resolve) => {
       resolveQuery = resolve;
     });
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (() => queryPending) as unknown as Dispatcher["query"],
+      query: () => queryPending,
     });
 
     render(
@@ -84,7 +85,7 @@ describe("KumikoScreen / configEdit", () => {
 
     // While the query is pending, ConfigEditBody renders the loading banner
     // rather than a form or a prematurely empty field.
-    expect(screen.getByTestId("kumiko-screen-loading")).toBeTruthy();
+    screen.getByTestId("kumiko-screen-loading");
 
     // Cleanup: resolve the query so the useEffect subscriber can unmount
     // cleanly without an open-handle warning.
@@ -94,13 +95,13 @@ describe("KumikoScreen / configEdit", () => {
 
   test("loaded values pre-fill the form (string + numeric coercion)", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           "demo:config:site-name": { value: "Acme", scope: "tenant" },
           "demo:config:max-upload-mb": { value: 25, scope: "tenant" },
         },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
 
     render(
@@ -117,16 +118,19 @@ describe("KumikoScreen / configEdit", () => {
   });
 
   test("dirty footer: counts changed fields, Discard restores the loaded values client-side", async () => {
-    const batchSpy = mock(async () => ({ isSuccess: true as const, results: [] }));
+    const batchSpy = mock<MockBatchHandler>(async () => ({
+      isSuccess: true as const,
+      results: [],
+    }));
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           "demo:config:site-name": { value: "Acme", scope: "tenant" },
           "demo:config:max-upload-mb": { value: 25, scope: "tenant" },
         },
-      })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      }),
+      batch: batchSpy,
     });
     const user = userEvent.setup();
     render(
@@ -178,13 +182,16 @@ describe("KumikoScreen / configEdit", () => {
       entities: {},
       screens: [boundedScreen],
     };
-    const batchSpy = mock(async () => ({ isSuccess: true as const, results: [] }));
+    const batchSpy = mock<MockBatchHandler>(async () => ({
+      isSuccess: true as const,
+      results: [],
+    }));
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { "demo:config:max-upload-mb": { value: 25, scope: "tenant" } },
-      })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      }),
+      batch: batchSpy,
     });
     const user = userEvent.setup();
     render(
@@ -214,19 +221,21 @@ describe("KumikoScreen / configEdit", () => {
   });
 
   test("submit dispatches one /api/batch with one command per changed field", async () => {
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
-      isSuccess: true as const,
-      results: [],
-    }));
+    const batchSpy = mock<MockBatchHandler>(
+      async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+        isSuccess: true as const,
+        results: [],
+      }),
+    );
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: {
           "demo:config:site-name": { value: "Acme", scope: "tenant" },
           "demo:config:max-upload-mb": { value: 25, scope: "tenant" },
         },
-      })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      }),
+      batch: batchSpy,
     });
 
     const user = userEvent.setup();
@@ -278,14 +287,14 @@ describe("KumikoScreen / configEdit", () => {
 
     async function submitBothChanged(batchResult: BatchResult) {
       const dispatcher: Dispatcher = createMockDispatcher({
-        query: (async () => ({
+        query: async () => ({
           isSuccess: true,
           data: {
             "demo:config:first": { value: "a", scope: "tenant" },
             "demo:config:second": { value: "b", scope: "tenant" },
           },
-        })) as unknown as Dispatcher["query"],
-        batch: (async () => batchResult) as unknown as Dispatcher["batch"],
+        }),
+        batch: async () => batchResult,
       });
       const user = userEvent.setup();
       render(
@@ -346,7 +355,7 @@ describe("KumikoScreen / configEdit", () => {
         },
       });
 
-      await waitFor(() => expect(screen.getByTestId("render-edit-form-error")).toBeTruthy());
+      await waitFor(() => screen.getByTestId("render-edit-form-error"));
       expect(screen.getByTestId("field-secondName").textContent).not.toContain("Invalid format.");
     });
   });
@@ -358,16 +367,18 @@ describe("KumikoScreen / configEdit", () => {
   // batch's config:write:set value fails its `string | number | boolean`
   // schema entirely (regression guard for that unwrap).
   test("money field submit unwraps {amount, currency} back to a bare number", async () => {
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
-      isSuccess: true as const,
-      results: [],
-    }));
+    const batchSpy = mock<MockBatchHandler>(
+      async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+        isSuccess: true as const,
+        results: [],
+      }),
+    );
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
-        data: { "demo:config:price-limit": { value: 12.99, scope: "tenant" } },
-      })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+        data: { "demo:config:price-limit": { value: 1299, scope: "tenant" } },
+      }),
+      batch: batchSpy,
     });
 
     const user = userEvent.setup();
@@ -391,20 +402,20 @@ describe("KumikoScreen / configEdit", () => {
     expect(commands).toHaveLength(1);
     expect(commands[0]).toEqual({
       type: "config:write:set",
-      payload: { key: "demo:config:price-limit", value: 15, scope: "tenant" },
+      payload: { key: "demo:config:price-limit", value: 1500, scope: "tenant" },
     });
   });
 
   test("save-button disabled after successful submit (rebase fired)", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { "demo:config:site-name": { value: "Acme", scope: "tenant" } },
-      })) as unknown as Dispatcher["query"],
-      batch: (async () => ({
+      }),
+      batch: async () => ({
         isSuccess: true,
         results: [],
-      })) as unknown as Dispatcher["batch"],
+      }),
     });
 
     const user = userEvent.setup();
@@ -434,7 +445,7 @@ describe("KumikoScreen / configEdit", () => {
   // before and after the input, on every settings screen with default values.
   test("Source badge and standard disclosure appear exactly once per field", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (qn: string) => {
+      query: async (qn: string) => {
         if (qn === "config:query:cascade") {
           return {
             isSuccess: true,
@@ -468,7 +479,7 @@ describe("KumikoScreen / configEdit", () => {
             "demo:config:site-name": { value: "Acme", scope: "tenant", source: "tenant-row" },
           },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -496,7 +507,7 @@ describe("KumikoScreen / configEdit", () => {
   test("save refetches values + cascade — Disclosure is up to date after saving, not only after reloading", async () => {
     const queryCalls: Record<string, number> = {};
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (qn: string) => {
+      query: async (qn: string) => {
         queryCalls[qn] = (queryCalls[qn] ?? 0) + 1;
         if (qn === "config:query:cascade") {
           return {
@@ -531,8 +542,8 @@ describe("KumikoScreen / configEdit", () => {
             "demo:config:site-name": { value: "Acme", scope: "tenant", source: "tenant-row" },
           },
         };
-      }) as unknown as Dispatcher["query"],
-      batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
+      },
+      batch: async () => ({ isSuccess: true, results: [] }),
     });
 
     const user = userEvent.setup();
@@ -563,7 +574,7 @@ describe("KumikoScreen / configEdit", () => {
   // the level panel; the open/close cycle is pinned here as an interaction.
   test("cascade disclosure toggles the level panel open and closed", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (qn: string) => {
+      query: async (qn: string) => {
         if (qn === "config:query:cascade") {
           return {
             isSuccess: true,
@@ -604,7 +615,7 @@ describe("KumikoScreen / configEdit", () => {
             "demo:config:site-name": { value: "Acme", scope: "tenant", source: "tenant-row" },
           },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
 
     const user = userEvent.setup();
@@ -634,7 +645,7 @@ describe("KumikoScreen / configEdit", () => {
 
     // open → panel renders all levels incl. the inactive default value
     await user.click(toggle);
-    await waitFor(() => expect(screen.getByText("fallback")).toBeTruthy());
+    await waitFor(() => screen.getByText("fallback"));
 
     // close → panel gone again
     await user.click(toggle);
@@ -643,10 +654,10 @@ describe("KumikoScreen / configEdit", () => {
 
   test("a changed field gets the changed marker, an untouched one does not", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { "demo:config:site-name": { value: "Acme", scope: "tenant" } },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     const user = userEvent.setup();
     render(
@@ -660,7 +671,7 @@ describe("KumikoScreen / configEdit", () => {
     const siteInput = screen.getByTestId("field-siteName").querySelector("input");
     if (!siteInput) throw new Error("site name input not found");
     await user.type(siteInput, "!");
-    await waitFor(() => expect(screen.getByTestId("field-siteName-changed")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("field-siteName-changed"));
     expect(screen.queryByTestId("field-maxUploadMb-changed")).toBeNull();
   });
 
@@ -673,7 +684,7 @@ describe("KumikoScreen / configEdit", () => {
       ],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["query"],
+      query: async () => ({ isSuccess: true, data: {} }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -691,7 +702,7 @@ describe("KumikoScreen / configEdit", () => {
   test("a failed values query shows the error with a retry that refetches", async () => {
     let calls = 0;
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => {
+      query: async () => {
         calls += 1;
         if (calls === 1) {
           return {
@@ -700,7 +711,7 @@ describe("KumikoScreen / configEdit", () => {
           };
         }
         return { isSuccess: true, data: {} };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     const user = userEvent.setup();
     render(
@@ -713,6 +724,58 @@ describe("KumikoScreen / configEdit", () => {
     await user.click(screen.getByTestId("kumiko-screen-retry"));
     await waitFor(() => screen.getByTestId("render-edit-form"));
     expect(screen.queryByTestId("kumiko-screen-error")).toBeNull();
+  });
+
+  test("a failed refetch after saving keeps the form and its input and shows the error with retry", async () => {
+    let valuesCalls = 0;
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: async (name: string) => {
+        if (name !== "config:query:values") return { isSuccess: true, data: {} };
+        valuesCalls += 1;
+        if (valuesCalls === 1) {
+          return {
+            isSuccess: true,
+            data: {
+              "demo:config:site-name": { value: "Acme", scope: "tenant" },
+              "demo:config:max-upload-mb": { value: 25, scope: "tenant" },
+            },
+          };
+        }
+        return {
+          isSuccess: false,
+          error: {
+            code: "network_error",
+            httpStatus: 0,
+            i18nKey: "kumiko.errors.network",
+            message: "offline",
+          },
+        };
+      },
+      batch: async () => ({ isSuccess: true, results: [] }),
+    });
+    const user = userEvent.setup();
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={schema} qn="demo:screen:settings" />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const siteInput = screen.getByTestId("field-siteName").querySelector("input");
+    if (!siteInput) throw new Error("expected siteName input");
+    await user.clear(siteInput);
+    await user.type(siteInput, "Other");
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => screen.getByTestId("kumiko-screen-error"));
+    screen.getByTestId("render-edit-form");
+    const uploadInput = screen.getByTestId("field-maxUploadMb").querySelector("input");
+    if (!uploadInput) throw new Error("expected maxUploadMb input");
+    await user.clear(uploadInput);
+    await user.type(uploadInput, "30");
+    expect(uploadInput.value).toBe("30");
+    expect(siteInput.value).toBe("Other");
+    screen.getByTestId("kumiko-screen-retry");
   });
 });
 
@@ -732,16 +795,18 @@ describe("KumikoScreen / configEdit bounds and row alignment", () => {
   };
 
   test("a number above its max is rejected on the field and never written", async () => {
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
-      isSuccess: true as const,
-      results: [],
-    }));
+    const batchSpy = mock<MockBatchHandler>(
+      async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+        isSuccess: true as const,
+        results: [],
+      }),
+    );
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { "demo:config:max-upload-mb": { value: 25, scope: "tenant" } },
-      })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      }),
+      batch: batchSpy,
     });
     const user = userEvent.setup();
     render(
@@ -765,7 +830,7 @@ describe("KumikoScreen / configEdit bounds and row alignment", () => {
 
   test("a row with a below-control appendix aligns its cells to the top", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (qn: string) =>
+      query: async (qn: string) =>
         qn === "config:query:cascade"
           ? {
               isSuccess: true,
@@ -785,7 +850,7 @@ describe("KumikoScreen / configEdit bounds and row alignment", () => {
                 },
               },
             }
-          : { isSuccess: true, data: {} }) as unknown as Dispatcher["query"],
+          : { isSuccess: true, data: {} },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -822,16 +887,18 @@ describe("KumikoScreen / configEdit write-only secret keys", () => {
   };
 
   async function renderSecretScreen(stored: boolean, source = "system-row") {
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
-      isSuccess: true as const,
-      results: [],
-    }));
+    const batchSpy = mock<MockBatchHandler>(
+      async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+        isSuccess: true as const,
+        results: [],
+      }),
+    );
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: stored ? { "demo:config:api-key": { value: MASK, scope: "system", source } } : {},
-      })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      }),
+      batch: batchSpy,
     });
     const user = userEvent.setup();
     render(
@@ -850,10 +917,10 @@ describe("KumikoScreen / configEdit write-only secret keys", () => {
   test("a stored secret shows a set marker with Replace, and Replace reveals an empty input", async () => {
     const user = userEvent.setup();
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
         data: { "demo:config:api-key": { value: MASK, scope: "system", source: "system-row" } },
-      })) as unknown as Dispatcher["query"],
+      }),
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -884,7 +951,7 @@ describe("KumikoScreen / configEdit write-only secret keys", () => {
     await user.clear(input);
     await user.click(screen.getByTestId("render-edit-submit"));
 
-    await waitFor(() => expect(screen.getByTestId("render-edit-submit")).toBeTruthy());
+    await waitFor(() => screen.getByTestId("render-edit-submit"));
     expect(batchSpy).not.toHaveBeenCalled();
   });
 
@@ -964,16 +1031,18 @@ describe("KumikoScreen / configEdit empty number fields", () => {
   const limitSchema: FeatureSchema = { featureName: "demo", entities: {}, screens: [limitScreen] };
 
   async function renderLimitScreen(stored: Record<string, unknown>) {
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
-      isSuccess: true as const,
-      results: [],
-    }));
+    const batchSpy = mock<MockBatchHandler>(
+      async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+        isSuccess: true as const,
+        results: [],
+      }),
+    );
     const data = Object.fromEntries(
       Object.entries(stored).map(([key, value]) => [key, { value, scope: "tenant" }]),
     );
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+      query: async () => ({ isSuccess: true, data }),
+      batch: batchSpy,
     });
     const user = userEvent.setup();
     render(
@@ -1049,16 +1118,18 @@ describe("KumikoScreen / configEdit empty number fields", () => {
   });
 
   test("clearing a stored money value sends a reset for that key", async () => {
-    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
-      isSuccess: true as const,
-      results: [],
-    }));
+    const batchSpy = mock<MockBatchHandler>(
+      async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+        isSuccess: true as const,
+        results: [],
+      }),
+    );
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
+      query: async () => ({
         isSuccess: true,
-        data: { "demo:config:price-limit": { value: 12.99, scope: "tenant" } },
-      })) as unknown as Dispatcher["query"],
-      batch: batchSpy as unknown as Dispatcher["batch"],
+        data: { "demo:config:price-limit": { value: 1299, scope: "tenant" } },
+      }),
+      batch: batchSpy,
     });
     const user = userEvent.setup();
     render(
@@ -1118,7 +1189,7 @@ describe("KumikoScreen / configEdit — tenant value shows in the control", () =
 
   test("a set tenant value prefills the text input and marks the select option without opening the cascade", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (qn: string) => {
+      query: async (qn: string) => {
         if (qn === "config:query:cascade") {
           return {
             isSuccess: true,
@@ -1135,7 +1206,7 @@ describe("KumikoScreen / configEdit — tenant value shows in the control", () =
             "demo:config:layout": { value: "wide", scope: "tenant", source: "tenant-row" },
           },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -1177,7 +1248,7 @@ describe("KumikoScreen / configEdit — tenant value shows in the control", () =
       screens: [layoutScreen, otherScreen],
     };
     const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async (qn: string) => {
+      query: async (qn: string) => {
         if (qn === "config:query:cascade") return { isSuccess: true, data: {} };
         return {
           isSuccess: true,
@@ -1188,7 +1259,7 @@ describe("KumikoScreen / configEdit — tenant value shows in the control", () =
             "demo:config:mode": { value: "b", scope: "tenant", source: "tenant-row" },
           },
         };
-      }) as unknown as Dispatcher["query"],
+      },
     });
     const view = render(
       <DispatcherProvider dispatcher={dispatcher}>
@@ -1207,5 +1278,223 @@ describe("KumikoScreen / configEdit — tenant value shows in the control", () =
       screen.getByTestId("field-mode").querySelector('[role="radio"][aria-checked="true"]')
         ?.textContent,
     ).toBe("b");
+  });
+
+  test("reset only marks the field: the inherited value shows, nothing is written until Save sends the reset", async () => {
+    const writes: string[] = [];
+    const batchSpy = mock<MockBatchHandler>(async () => ({
+      isSuccess: true as const,
+      results: [],
+    }));
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: async (qn: string) => {
+        if (qn === "config:query:cascade") {
+          return {
+            isSuccess: true,
+            data: {
+              "demo:config:site-name": cascadeFor("Acme", "Site"),
+              "demo:config:layout": cascadeFor("wide", "centered"),
+            },
+          };
+        }
+        return {
+          isSuccess: true,
+          data: {
+            "demo:config:site-name": { value: "Acme", scope: "tenant", source: "tenant-row" },
+            "demo:config:layout": { value: "wide", scope: "tenant", source: "tenant-row" },
+          },
+        };
+      },
+      write: async (type: string) => {
+        writes.push(type);
+        return { isSuccess: true, data: null };
+      },
+      batch: batchSpy,
+    });
+    const user = userEvent.setup();
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={layoutSchema} qn="demo:screen:site-settings" />
+      </DispatcherProvider>,
+    );
+    const siteField = await waitFor(() => {
+      const field = screen.getByTestId("field-siteName");
+      if (field.querySelector('[data-testid="config-cascade-reset"]') === null) {
+        throw new Error("reset not rendered yet");
+      }
+      return field;
+    });
+    const resetButton = siteField.querySelector('[data-testid="config-cascade-reset"]');
+    if (!(resetButton instanceof HTMLElement)) throw new Error("reset button missing");
+
+    await user.click(resetButton);
+
+    await waitFor(() => expect(siteField.querySelector("input")?.value).toBe("Site"));
+    expect(writes).toEqual([]);
+    expect(batchSpy).not.toHaveBeenCalled();
+
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(batchSpy).toHaveBeenCalledTimes(1));
+    expect(batchSpy.mock.calls[0]?.[0]).toEqual([
+      { type: "config:write:reset", payload: { key: "demo:config:site-name", scope: "tenant" } },
+    ]);
+    expect(writes).toEqual([]);
+  });
+
+  test("typing after a reset saves the typed value instead of the reset", async () => {
+    const batchSpy = mock<MockBatchHandler>(async () => ({
+      isSuccess: true as const,
+      results: [],
+    }));
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: async (qn: string) => {
+        if (qn === "config:query:cascade") {
+          return {
+            isSuccess: true,
+            data: { "demo:config:site-name": cascadeFor("Acme", "Site") },
+          };
+        }
+        return {
+          isSuccess: true,
+          data: {
+            "demo:config:site-name": { value: "Acme", scope: "tenant", source: "tenant-row" },
+          },
+        };
+      },
+      batch: batchSpy,
+    });
+    const user = userEvent.setup();
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={layoutSchema} qn="demo:screen:site-settings" />
+      </DispatcherProvider>,
+    );
+    const resetButton = await waitFor(() => {
+      const button = screen
+        .getByTestId("field-siteName")
+        .querySelector('[data-testid="config-cascade-reset"]');
+      if (!(button instanceof HTMLElement)) throw new Error("reset not rendered yet");
+      return button;
+    });
+    await user.click(resetButton);
+    const input = screen.getByTestId("field-siteName").querySelector("input");
+    if (!input) throw new Error("siteName input missing");
+    await waitFor(() => expect(input.value).toBe("Site"));
+
+    await user.clear(input);
+    await user.type(input, "Beta");
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(batchSpy).toHaveBeenCalledTimes(1));
+    expect(batchSpy.mock.calls[0]?.[0]).toEqual([
+      {
+        type: "config:write:set",
+        payload: { key: "demo:config:site-name", value: "Beta", scope: "tenant" },
+      },
+    ]);
+  });
+
+  function renderSiteNameOverride(
+    tenantValue: string,
+    inheritedValue: string,
+    writeResult: WriteResult<unknown> = { isSuccess: true, data: null },
+  ): {
+    readonly writes: { type: string; payload: unknown }[];
+    readonly batchSpy: Mock<MockBatchHandler>;
+    readonly queries: string[];
+  } {
+    const writes: { type: string; payload: unknown }[] = [];
+    const queries: string[] = [];
+    const batchSpy = mock<MockBatchHandler>(async () => ({
+      isSuccess: true as const,
+      results: [],
+    }));
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: async (qn: string) => {
+        queries.push(qn);
+        if (qn === "config:query:cascade") {
+          return {
+            isSuccess: true,
+            data: { "demo:config:site-name": cascadeFor(tenantValue, inheritedValue) },
+          };
+        }
+        return {
+          isSuccess: true,
+          data: {
+            "demo:config:site-name": { value: tenantValue, scope: "tenant", source: "tenant-row" },
+          },
+        };
+      },
+      write: async (type: string, payload: unknown) => {
+        writes.push({ type, payload });
+        return writeResult;
+      },
+      batch: batchSpy,
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={layoutSchema} qn="demo:screen:site-settings" />
+      </DispatcherProvider>,
+    );
+    return { writes, batchSpy, queries };
+  }
+
+  async function clickSiteNameReset(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+    const resetButton = await waitFor(() => {
+      const button = screen
+        .getByTestId("field-siteName")
+        .querySelector('[data-testid="config-cascade-reset"]');
+      if (!(button instanceof HTMLElement)) throw new Error("reset not rendered yet");
+      return button;
+    });
+    await user.click(resetButton);
+  }
+
+  test("a discarded reset is forgotten: typing the inherited value later saves it as the tenant's own", async () => {
+    const { batchSpy } = renderSiteNameOverride("Acme", "Site");
+    const user = userEvent.setup();
+    await clickSiteNameReset(user);
+    const input = screen.getByTestId("field-siteName").querySelector("input");
+    if (!input) throw new Error("siteName input missing");
+    await waitFor(() => expect(input.value).toBe("Site"));
+
+    await user.click(screen.getByTestId("render-edit-discard"));
+    await waitFor(() => expect(input.value).toBe("Acme"));
+    await user.clear(input);
+    await user.type(input, "Site");
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(batchSpy).toHaveBeenCalledTimes(1));
+    expect(batchSpy.mock.calls[0]?.[0]).toEqual([
+      {
+        type: "config:write:set",
+        payload: { key: "demo:config:site-name", value: "Site", scope: "tenant" },
+      },
+    ]);
+  });
+
+  test("resetting an override that equals the inherited value removes the override", async () => {
+    const { writes } = renderSiteNameOverride("Site", "Site");
+    const user = userEvent.setup();
+    await clickSiteNameReset(user);
+
+    await waitFor(() =>
+      expect(writes).toEqual([
+        { type: "config:write:reset", payload: { key: "demo:config:site-name", scope: "tenant" } },
+      ]),
+    );
+  });
+
+  test("a refused immediate reset shows the error like a refused save and reloads nothing", async () => {
+    const error = { code: "access_denied", httpStatus: 403, i18nKey: "errors.access.denied" };
+    const refused = { isSuccess: false, error: { ...error, message: "denied" } } as const;
+    const { writes, queries } = renderSiteNameOverride("Site", "Site", refused);
+    await clickSiteNameReset(userEvent.setup());
+    const banner = await screen.findByTestId("render-edit-form-error");
+    expect(banner.textContent).toContain("You don't have permission to do this.");
+    expect(writes).toHaveLength(1);
+    // Only the read at render: a reload after the click would have landed by now.
+    expect(queries.filter((qn) => qn === "config:query:cascade")).toHaveLength(1);
   });
 });

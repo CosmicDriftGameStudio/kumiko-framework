@@ -6,6 +6,7 @@ import { dispatcherErrorText } from "../app/write-failed-error.ts";
 import { stripUntouchedEmptyStrings } from "../headless/form/form-controller.ts";
 import type {
   EditFieldViewModel,
+  EditSectionViewModel,
   EditWriteFormSectionViewModel,
   Translate,
 } from "../headless/index.ts";
@@ -18,7 +19,7 @@ import { GridCellForField } from "./grid-cell-for-field.tsx";
 import { narrowAwareDescription } from "./narrow-description.tsx";
 import { appendixCellProps } from "./render-edit-field-grid.tsx";
 import { hasIssueWithoutVisibleField, issuesAfterEdit } from "./render-edit-logic.ts";
-import { useWriteFormRegistry } from "./write-form-registry.ts";
+import { useReportWriteFormDirty, useWriteFormRegistry } from "./write-form-registry.ts";
 
 function buildWriteFormSchema(fields: readonly EditFieldViewModel[]): z.ZodType {
   return z
@@ -39,7 +40,7 @@ function buildWriteFormSchema(fields: readonly EditFieldViewModel[]): z.ZodType 
 }
 
 export type WriteFormSectionProps = {
-  readonly section: EditWriteFormSectionViewModel;
+  readonly section: EditWriteFormSectionViewModel & Pick<EditSectionViewModel, "titleOnNarrow">;
   readonly featureName: string;
   readonly translate?: Translate;
   readonly hideTitle?: boolean;
@@ -147,7 +148,7 @@ export function WriteFormSection({
   actions,
   onFooterAction,
 }: WriteFormSectionProps): ReactNode {
-  const { Section, Card, Grid, GridCell, Button, StatusBadge } = usePrimitives();
+  const { Grid, GridCell, Button, StatusBadge } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
 
@@ -162,6 +163,7 @@ export function WriteFormSection({
     schema,
   });
   useUnsavedInputSource(() => controller.getSnapshot().isDirty);
+  useReportWriteFormDirty(snapshot.isDirty, section.submitWith);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<ErrorNotice | null>(null);
   const { submitWith } = section;
@@ -257,6 +259,36 @@ export function WriteFormSection({
     </>
   );
 
+  return (
+    <WriteFormSectionFrame
+      section={section}
+      hideTitle={hideTitle}
+      labelTitle={labelTitle}
+      actions={actions}
+      testId={sectionTestId}
+    >
+      {content}
+    </WriteFormSectionFrame>
+  );
+}
+
+function WriteFormSectionFrame({
+  section,
+  hideTitle,
+  labelTitle,
+  actions,
+  testId,
+  children,
+}: {
+  readonly section: WriteFormSectionProps["section"];
+  readonly hideTitle: boolean | undefined;
+  readonly labelTitle: boolean | undefined;
+  readonly actions: ReactNode;
+  readonly testId: string;
+  readonly children: ReactNode;
+}): ReactNode {
+  const { Section, Card } = usePrimitives();
+
   // Section always flattens to a borderless divider when rendered inside
   // RenderEdit's own <Form> in tabs mode (hideTitle) — an unframed Card panel
   // stands in, like render-edit.tsx's tabs-mode fields/extension branches.
@@ -270,9 +302,9 @@ export function WriteFormSection({
           }),
           ...(actions !== undefined && { headerActions: actions }),
         }}
-        testId={sectionTestId}
+        testId={testId}
       >
-        {content}
+        {children}
       </Card>
     );
   }
@@ -280,15 +312,16 @@ export function WriteFormSection({
   return (
     <Section
       {...(section.title !== undefined && { title: section.title })}
+      {...(section.titleOnNarrow === false && { titleOnNarrow: false as const })}
       {...(labelTitle === true && { titleStyle: "label" as const })}
       {...(section.description !== undefined && {
         subtitle: narrowAwareDescription(section.description, section.descriptionNarrow),
       })}
       {...(section.icon !== undefined && { icon: section.icon })}
       {...(actions !== undefined && { actions })}
-      testId={sectionTestId}
+      testId={testId}
     >
-      {content}
+      {children}
     </Section>
   );
 }

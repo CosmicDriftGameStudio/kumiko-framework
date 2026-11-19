@@ -1,3 +1,4 @@
+import { currencyDecimals, toMajorUnits } from "@cosmicdrift/kumiko-types/minor-units";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Cell } from "write-excel-file/node";
 import { referenceCell } from "./export-cells-reference.ts";
@@ -87,6 +88,10 @@ function locatedTimestampCell(value: unknown): Cell {
     : { value: date, type: Date, format: TIMESTAMP_FORMAT };
 }
 
+function moneyNumberFormat(decimals: number): string {
+  return decimals === 0 ? "#,##0" : `#,##0.${"0".repeat(decimals)}`;
+}
+
 function moneyCell(value: unknown): Cell {
   if (typeof value !== "object" || value === null || !("amount" in value)) {
     const n = toFiniteNumber(value);
@@ -96,9 +101,9 @@ function moneyCell(value: unknown): Cell {
   if (amount === undefined) return textCell(stringify(value.amount));
   const currency = "currency" in value ? String(value.currency) : "";
   const format = CURRENCY_CODE.test(currency)
-    ? `${PLAIN_MONEY_FORMAT} "${currency}"`
+    ? `${moneyNumberFormat(currencyDecimals(currency))} "${currency}"`
     : PLAIN_MONEY_FORMAT;
-  return numberCell(amount, format);
+  return numberCell(toMajorUnits(amount, currency), format);
 }
 
 function integerCell(value: unknown, kind: "number" | "decimal" | "bigInt"): Cell {

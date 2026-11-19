@@ -16,10 +16,10 @@ import {
 // already emits `number | undefined`, so no extra coercion is needed
 // beyond what "number" already does.
 export function renderNumberInput(
-  { field, Input, onChange, appLocale, row }: RenderInputArgs,
+  { field, Input, onChange, appLocale, row, iconless }: RenderInputArgs,
   { common, placeholderProp, affixProps }: SharedInputProps,
 ): ReactNode {
-  const icon = resolveFieldIcon(field);
+  const icon = resolveFieldIcon(field, iconless);
   const unit = resolveNumberUnit(field.unit, row);
   return (
     <Input
@@ -39,10 +39,10 @@ export function renderNumberInput(
 }
 
 export function renderDecimalInput(
-  { field, Input, onChange, appLocale }: RenderInputArgs,
+  { field, Input, onChange, appLocale, iconless }: RenderInputArgs,
   { common, placeholderProp, affixProps }: SharedInputProps,
 ): ReactNode {
-  const icon = resolveFieldIcon(field);
+  const icon = resolveFieldIcon(field, iconless);
   return (
     <Input
       kind="number"
@@ -76,7 +76,7 @@ export function renderMoneyInput(
     <Input
       kind="money"
       {...common}
-      value={moneyMinorValue(field.value, currency)}
+      value={moneyMinorValue(field.value)}
       onChange={(v) => onChange(moneyPayload(v, currency))}
       currency={currency}
       locale={appLocale}

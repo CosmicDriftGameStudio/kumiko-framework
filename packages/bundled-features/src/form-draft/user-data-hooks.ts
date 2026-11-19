@@ -1,0 +1,58 @@
+// EXT_USER_DATA hooks for the form-draft feature's `form-draft` entity
+// (GDPR Art. 20 export / Art. 17 erasure), registered by the form-draft feature itself.
+
+import { WritePurposes } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createSystemUser,
+  type UserDataDeleteHook,
+  type UserDataExportHook,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { formDraftExecutor, formDraftTable } from "./executor.ts";
+
+export const formDraftExportHook: UserDataExportHook = async (ctx) => {
+  const rows = await ctx.db.selectMany(formDraftTable, {
+    tenantId: ctx.tenantId,
+    ownerId: ctx.userId,
+  });
+  if (rows.length === 0) return null;
+  return {
+    entity: "form-draft",
+    rows: rows.map((r) => ({
+      draftKey: r["draftKey"],
+      draft: r["draft"],
+      insertedAt: r["insertedAt"],
+    })),
+  };
+};
+
+// Deletes the row through the event store; `draft` is ciphertext under the
+// owner's key in the row and in every event (previous of the delete included).
+// A drafted form is pure pre-submit scratch state with no value once the
+// owner is gone, so both forget strategies (delete/anonymize) remove the
+// row outright rather than anonymizing in place. Per-row via the executor
+// (event -> rebuild-safe), scoped to this user only — never touches other
+// owners' drafts, tenant model doesn't matter here (unlike folders' single-
+// user gating: a form-draft row always has exactly one owner already).
+export const formDraftDeleteHook: UserDataDeleteHook = async (ctx) => {
+  const rows = await ctx.db.selectMany<{ id: string }>(formDraftTable, {
+    tenantId: ctx.tenantId,
+    ownerId: ctx.userId,
+  });
+  const systemUser = createSystemUser(ctx.tenantId);
+  const failures: string[] = [];
+  for (const row of rows) {
+    const result = await formDraftExecutor.delete({ id: row.id }, systemUser, ctx.db, {
+      writePurpose: WritePurposes.erasure,
+    });
+    if (!result.isSuccess) {
+      failures.push(`${row.id}: ${result.error.message}`);
+    }
+  }
+  // A silently-ignored delete failure would let the forget pipeline flip the
+  // user to Deleted (Art. 17 "done") while the row — and its PII — is still
+  // there. Throwing rolls back this user's sub-tx (runForgetCleanup) so the
+  // status stays DeletionRequested and the next run retries.
+  if (failures.length > 0) {
+    throw new Error(`[form-draft-user-data] failed to delete draft(s): ${failures.join(", ")}`);
+  }
+};

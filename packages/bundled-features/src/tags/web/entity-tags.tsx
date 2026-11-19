@@ -5,7 +5,7 @@
 
 import { useQuery } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { TagsQueries } from "./constants.ts";
+import { TAG_CATALOG_QUERY, TagsQueries } from "./constants.ts";
 import { TagChip } from "./tag-chip.tsx";
 
 type TagRow = { readonly id: string; readonly name: string; readonly color?: string | null };
@@ -23,7 +23,9 @@ export function EntityTags({
   readonly entityId: string | null;
 }): ReactNode {
   const enabled = entityId !== null;
-  const catalog = useQuery<{ rows: readonly TagRow[] }>(TagsQueries.tagList, {}, { enabled });
+  const catalog = useQuery<{ rows: readonly TagRow[] }>(TagsQueries.tagList, TAG_CATALOG_QUERY, {
+    enabled,
+  });
   // entityType server-side, not just entityId: it collapses the parent-ref
   // read gate to this one host entity instead of every registered one.
   const assignments = useQuery<{ rows: readonly AssignmentRow[] }>(

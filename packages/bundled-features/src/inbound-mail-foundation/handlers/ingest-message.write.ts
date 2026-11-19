@@ -15,10 +15,7 @@
 //      read_inbound_messages in the same TX). Savepoint-scoped
 //      (ctx.events.tryAppend) — a losing concurrent ingest for the same
 //      messageAggId returns { duplicate: true } instead of failing the TX.
-//   5. Thread rollup: mail-thread-updated append with a recalculated
-//      snapshot (count+1, max(lastMessageAt)) — the apply is a
-//      dumb UPSERT.
-//   6. Insert the seen-message deduplication anchor.
+//   5. Insert the seen-message deduplication anchor.
 //
 // SystemAdmin-only: the caller is the watch/sync supervisor or
 // the poll cron with a programmatic SystemUser — never a tenant request.
@@ -30,7 +27,7 @@ import {
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id.ts";
+import { inboundMessageAggregateId } from "../aggregate-id.ts";
 import { INBOUND_MESSAGE_PII_FIELDS, inboundMessageEntity, seenMessageTable } from "../entities.ts";
 import {
   INBOUND_MESSAGE_AGGREGATE_TYPE,
@@ -44,22 +41,34 @@ import {
   type PreparedIngest,
   prepareIngestMessage,
 } from "./ingest-message-prepare.ts";
-import { ingestMessageSchema } from "./ingest-message-schema.ts";
+import { type IngestMessagePayload, ingestMessageSchema } from "./ingest-message-schema.ts";
 import {
   contentStateOf,
   MESSAGE_LOCK_NAMESPACE,
   storeInboundMessageContent,
 } from "./message-content.ts";
-import { appendThreadRollup, buildThreadKey } from "./thread-rollup.ts";
 
-const THREAD_ROLLUP_ADVISORY_LOCK_REASON =
-  "takes the per-thread advisory lock and counts the caller tenant's thread messages; TenantDb has no lock/count API";
+/**
+ * Normalizes threadKey:
+ *   1. Use the provider thread ID when present — prefix it with the provider
+ *      so IMAP References keys and Graph conversationIds never collide.
+ *   2. Otherwise use the root of the References chain (the oldest Message-ID,
+ *      which is the thread anchor shared by all replies).
+ *   3. Otherwise use the own Message-ID → single-message thread; a later
+ *      reply carries it as the References root and joins the same thread.
+ */
+function buildThreadKey(p: IngestMessagePayload, effectiveMessageIdHeader: string): string {
+  if (p.providerThreadId) return `${p.providerName}:${p.providerThreadId}`.slice(0, 500);
+  const referencesRoot = p.references[0];
+  if (referencesRoot) return `mid:${referencesRoot}`.slice(0, 500);
+  return `mid:${effectiveMessageIdHeader}`.slice(0, 500);
+}
+
 type IngestMessageData =
   | { readonly duplicate: true; readonly inboundMessageAggregateId: string }
   | {
       readonly duplicate: false;
       readonly inboundMessageAggregateId: string;
-      readonly threadAggregateId: string;
       readonly threadKey: string;
       readonly contentStorage: "stored" | "unavailable";
     };
@@ -69,10 +78,6 @@ export const ingestMessageHandler = defineWriteHandler({
   schema: ingestMessageSchema,
   access: { roles: ["SystemAdmin"] },
   agent: { expose: false },
-  escapeHatch: {
-    grants: ["unsafeRaw"],
-    reason: THREAD_ROLLUP_ADVISORY_LOCK_REASON,
-  },
   // Nested (an app handler dispatching ingest-message) there is no phase; the handler then stores in its own transaction.
   beforeTransactionWhenNested: "skip",
   beforeTransaction: prepareIngestMessage,
@@ -121,7 +126,6 @@ export const ingestMessageHandler = defineWriteHandler({
     // ---------------------------------------------------------------
     const effectiveMessageIdHeader = payload.messageIdHeader ?? `kumiko-inbound:${messageAggId}`;
     const threadKey = buildThreadKey(payload, effectiveMessageIdHeader);
-    const threadAggId = mailThreadAggregateId(tenantId, threadKey);
 
     // ---------------------------------------------------------------
     // 3. PII encryption. Serialize to/cc as JSON BEFORE encryption so the
@@ -150,6 +154,7 @@ export const ingestMessageHandler = defineWriteHandler({
     const sanitizedHtml =
       payload.bodyHtml === undefined ? null : sanitizeInboundHtml(payload.bodyHtml);
     const messagePlainPii = {
+      id: messageAggId,
       tenantId,
       bodyText: payload.bodyText,
       bodyHtml: sanitizedHtml,
@@ -214,12 +219,12 @@ export const ingestMessageHandler = defineWriteHandler({
       type: INBOUND_MESSAGE_RECEIVED_EVENT_QN,
       payload: messageEventPayload,
       headers: messageHeaders,
+      expectedVersion: 0,
     });
     if (!messageAppend.ok) {
       // Lost the race against a concurrent ingest for the same messageAggId
       // (Watch-Push vs. Poll-Reconciliation overlap). The winner already
-      // writes thread-rollup + seen-anchor for this message — steps 5+6
-      // skip here. events.tryAppend's savepoint keeps this TX usable despite
+      // writes the seen-anchor for this message, so step 5 is skipped here. events.tryAppend's savepoint keeps this TX usable despite
       // the caught VersionConflictError (see ctx.events.tryAppend doc).
       return {
         isSuccess: true as const,
@@ -227,18 +232,8 @@ export const ingestMessageHandler = defineWriteHandler({
       };
     }
 
-    await appendThreadRollup(ctx, {
-      tenantId,
-      threadAggId,
-      threadKey,
-      subject: payload.subject,
-      receivedAtIso: payload.receivedAtIso,
-      headers: messageHeaders,
-      piiKms,
-    });
-
     // ---------------------------------------------------------------
-    // 6. Deduplication anchor. It runs in the same TX as the appends, so
+    // 5. Deduplication anchor. It runs in the same TX as the appends, so
     //    if the handler fails, everything is rolled back together.
     // ---------------------------------------------------------------
     await ctx.db.insertOne(seenMessageTable, {
@@ -253,7 +248,6 @@ export const ingestMessageHandler = defineWriteHandler({
       data: {
         duplicate: false as const,
         inboundMessageAggregateId: messageAggId,
-        threadAggregateId: threadAggId,
         threadKey,
         contentStorage: content.contentStorage,
       },

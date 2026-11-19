@@ -1,0 +1,72 @@
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { seedTenant, setupAppTestStack } from "@cosmicdrift/kumiko-dev-server/testing";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { contactsFeature } from "../features/contacts";
+
+const CONTACT_CREATE = "contacts:write:contact:create";
+const CONTACT_NOTE_CALL = "contacts:write:contact:note-call";
+const CONTACT_DETAIL = "contacts:query:contact:detail";
+
+type Created = { id: string };
+type ContactRow = { id: string; name: string; email: string };
+
+let stack: TestStack;
+
+beforeAll(async () => {
+  stack = await setupAppTestStack([contactsFeature]);
+});
+
+afterAll(async () => {
+  await stack.cleanup();
+});
+
+describe("eval acceptance: personal data", () => {
+  test("create and detail round-trip name and email", async () => {
+    const tenant = await seedTenant(stack);
+    const created = await tenant.api.writeOk<Created>(CONTACT_CREATE, {
+      name: "Ada Lovelace",
+      email: "ada@example.com",
+      phone: "+49 30 1234567",
+    });
+
+    const detail = await tenant.api.queryOk<ContactRow>(CONTACT_DETAIL, { id: created.id });
+    expect(detail.name).toBe("Ada Lovelace");
+    expect(detail.email).toBe("ada@example.com");
+  });
+
+  test("name and email are marked as personal data", () => {
+    const fields = stack.registry.getEntity("contact")?.fields;
+    for (const fieldName of ["name", "email"] as const) {
+      const field = fields?.[fieldName];
+      const marked =
+        field?.pii === true || field?.userOwned !== undefined || field?.recordOwned === true;
+      expect(marked).toBe(true);
+    }
+  });
+
+  test("the note-call event declares callerName as personal data", async () => {
+    const tenant = await seedTenant(stack);
+    const created = await tenant.api.writeOk<Created>(CONTACT_CREATE, {
+      name: "Grace Hopper",
+      email: "grace@example.com",
+      phone: "+49 30 7654321",
+    });
+    await tenant.api.writeOk(CONTACT_NOTE_CALL, {
+      id: created.id,
+      version: 1,
+      callerName: "Alan Turing",
+    });
+
+    const events = await selectMany(stack.db, eventsTable, { aggregateId: created.id });
+    const noteCallEvent = events.find(
+      (event) => !String(event.type).endsWith(".created") && !String(event.type).endsWith(".updated"),
+    );
+    expect(noteCallEvent).toBeDefined();
+
+    const piiFields = stack.registry.getEvent(String(noteCallEvent?.type))?.piiFields;
+    expect(piiFields).not.toBe("none");
+    expect(piiFields === undefined ? [] : Object.keys(piiFields)).toContain("callerName");
+  });
+});

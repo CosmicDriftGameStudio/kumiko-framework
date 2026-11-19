@@ -16,7 +16,7 @@ import {
   type Registry,
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.ts";
@@ -76,14 +76,18 @@ function encodeSortCursor(column: DeliveryLogSortColumn, row: DeliveryLogRow): s
   return encodeKeysetCursor(sortValue, row.id);
 }
 
-type DecodedSortCursor = { sortValue: Temporal.Instant | string; lastId: string | undefined };
+type DecodedSortCursor = { sortValue: Temporal.Instant | string; lastId: string };
 
-// lastId is undefined for a legacy sort-value-only cursor still in flight.
 function decodeSortCursor(column: DeliveryLogSortColumn, cursor: string): DecodedSortCursor {
   const decoded = decodeKeysetCursor(cursor);
-  const raw = decoded.sortValue ?? decoded.id;
-  const sortValue = column === "createdAt" ? Temporal.Instant.from(raw) : raw;
-  return { sortValue, lastId: decoded.sortValue === undefined ? undefined : decoded.id };
+  if (typeof decoded.sortValue !== "string") {
+    throw new ValidationError({
+      fields: [{ path: "cursor", code: "invalid_type", i18nKey: "errors.validation.invalid_type" }],
+    });
+  }
+  const sortValue =
+    column === "createdAt" ? Temporal.Instant.from(decoded.sortValue) : decoded.sortValue;
+  return { sortValue, lastId: decoded.id };
 }
 
 // One batched name lookup for the whole page. Only when the user feature is
@@ -139,22 +143,17 @@ export const logQuery = definePagedQueryHandler({
   access: { roles: access.admin },
   description:
     "Pages through recorded delivery attempts (notification type, channel, recipient, status, error, priority) for the caller's tenant, or across all tenants for a SystemAdmin; use it to investigate whether and why a notification reached someone.",
+  systemScope: true,
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({ message: "delivery log handler requires ctx.systemDb" });
-    }
-    // delivery is r.systemScope()'d, so the TenantDb is system-mode (reads
-    // unfiltered). assertTenantMatch is a self-check on the caller's own
-    // tenantId, not a query filter — it returns that same unfiltered db, so
-    // the explicit `where` below still does the actual tenant scoping for
-    // non-SystemAdmin callers. SystemAdmin acknowledges cross-tenant read
-    // (PII-bearing delivery logs across all tenants incl. SYSTEM_TENANT_ID).
+    // SystemAdmin acknowledges the cross-tenant read (PII-bearing delivery logs across all
+    // tenants incl. SYSTEM_TENANT_ID); everyone else gets a tenant-filtered db via scopedTo, and
+    // the explicit `where` below still covers the SYSTEM_TENANT_ID rows that filter lets through.
     const isSystemAdmin = query.user.roles.includes("SystemAdmin");
     const db = isSystemAdmin
       ? ctx.systemDb.acknowledgeCrossTenant(
           "SystemAdmin reads delivery attempts across all tenants including SYSTEM_TENANT_ID",
         )
-      : ctx.systemDb.assertTenantMatch(query.user.tenantId);
+      : ctx.systemDb.scopedTo(query.user.tenantId);
 
     const requestedSort = query.payload.sort;
     const sortField: DeliveryLogSortField =
@@ -177,7 +176,7 @@ export const logQuery = definePagedQueryHandler({
     // cursor's id), then rows strictly beyond it. Both halves are ordered the
     // same way as the overall ORDER BY, so concatenation preserves it.
     const tiedRows =
-      cursor?.lastId !== undefined
+      cursor !== undefined
         ? await selectMany<DeliveryLogRow>(
             db,
             deliveryAttemptsTable,

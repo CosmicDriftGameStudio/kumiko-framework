@@ -3,22 +3,8 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher, DispatcherError } from "../../headless/index.ts";
+import { createMockDispatcher } from "../../testing.ts";
 import { useStreamHandler } from "../use-stream-handler.ts";
-
-function makeDispatcher(streamImpl: unknown): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    stream: streamImpl as Dispatcher["stream"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
-}
 
 function wrapperFor(dispatcher: Dispatcher) {
   return ({ children }: { readonly children: ReactNode }) => (
@@ -28,9 +14,11 @@ function wrapperFor(dispatcher: Dispatcher) {
 
 describe("useStreamHandler", () => {
   test("start accumulates chunks then status=done", async () => {
-    const dispatcher = makeDispatcher(async function* () {
-      yield { i: 0 };
-      yield { i: 1 };
+    const dispatcher = createMockDispatcher({
+      stream: async function* () {
+        yield { i: 0 };
+        yield { i: 1 };
+      },
     });
 
     const { result } = renderHook(() => useStreamHandler<{ i: number }>("f:stream:x:tail"), {
@@ -53,9 +41,11 @@ describe("useStreamHandler", () => {
       i18nKey: "errors.access",
       message: "denied",
     };
-    const dispatcher = makeDispatcher(async function* () {
-      yield* []; // satisfy generator shape; error is the only outcome
-      throw err;
+    const dispatcher = createMockDispatcher({
+      stream: async function* () {
+        yield* []; // satisfy generator shape; error is the only outcome
+        throw err;
+      },
     });
 
     const { result } = renderHook(() => useStreamHandler("f:stream:x:tail"), {
@@ -75,18 +65,16 @@ describe("useStreamHandler", () => {
     const gate = new Promise<void>((r) => {
       release = r;
     });
-    const dispatcher = makeDispatcher(async function* (
-      _t: string,
-      _p: unknown,
-      opts?: { signal?: AbortSignal },
-    ) {
-      yield { i: 0 };
-      await gate;
-      if (opts?.signal?.aborted) {
-        const e = { code: "aborted", httpStatus: 0, i18nKey: "x", message: "aborted" };
-        throw e;
-      }
-      yield { i: 1 };
+    const dispatcher = createMockDispatcher({
+      stream: async function* (_t: string, _p: unknown, opts?: { signal?: AbortSignal }) {
+        yield { i: 0 };
+        await gate;
+        if (opts?.signal?.aborted) {
+          const e = { code: "aborted", httpStatus: 0, i18nKey: "x", message: "aborted" };
+          throw e;
+        }
+        yield { i: 1 };
+      },
     });
 
     const { result } = renderHook(() => useStreamHandler<{ i: number }>("f:stream:x:tail"), {

@@ -6,6 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 
 export const inspectionPlanEntity = createEntity({
+  name: "inspection-plan",
   table: "read_sample_inspection_plans",
   fields: {
     name: createTextField({ personal: false, reason: "is_business_data", required: true }),
@@ -21,4 +22,4 @@ export const inspectionPlanEntity = createEntity({
   },
 });
 
-export const inspectionPlanTable = buildEntityTable("inspection-plan", inspectionPlanEntity);
+export const inspectionPlanTable = buildEntityTable(inspectionPlanEntity);

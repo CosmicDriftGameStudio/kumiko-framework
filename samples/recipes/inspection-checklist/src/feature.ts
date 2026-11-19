@@ -19,11 +19,11 @@ const inspectorAccess = { access: { roles: ["Admin", "Inspector"] } } as const;
 export const inspectionChecklistFeature = defineFeature("inspection-checklist", (r) => {
   r.requires({ features: ["files"] });
 
-  r.crud("inspection-plan", inspectionPlanEntity, {
+  r.crud(inspectionPlanEntity, {
     write: inspectorAccess,
     read: inspectorAccess,
   });
-  r.crud("inspection-protocol", inspectionProtocolEntity, {
+  r.crud(inspectionProtocolEntity, {
     write: inspectorAccess,
     read: inspectorAccess,
   });

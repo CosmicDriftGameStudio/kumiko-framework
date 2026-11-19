@@ -148,6 +148,70 @@ describe("POST /render — Validation", () => {
     });
     expect(res.status).toBe(400);
   });
+
+  test("document-pdf with malformed pageRanges → 400", async () => {
+    const { app } = createApp(CONFIG);
+    const res = await app.request("/render", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...makeAuthHeader() },
+      body: JSON.stringify({
+        kind: "document-pdf",
+        html: "<p>test</p>",
+        options: { pageRanges: "1; drop" },
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("POST /render — body limit and error shape", () => {
+  const OVERSIZED_BODY = () =>
+    JSON.stringify({ kind: "document-pdf", html: "x".repeat(CONFIG.maxHtmlBytes + 20_000) });
+
+  test("a body without Content-Length above the limit is 413 before parsing and never renders", async () => {
+    let renders = 0;
+    const { app } = createApp(CONFIG, {
+      render: async () => {
+        renders += 1;
+        return { contentType: "application/pdf", bytes: new Uint8Array([0x25]) } satisfies RenderResult;
+      },
+    });
+    const res = await app.request("/render", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...makeAuthHeader() },
+      body: OVERSIZED_BODY(),
+    });
+    expect(res.status).toBe(413);
+    const body = (await res.json()) as { error: string; maxBytes: number };
+    expect(body.error).toBe("payload_too_large");
+    expect(body.maxBytes).toBe(CONFIG.maxHtmlBytes);
+    expect(renders).toBe(0);
+  });
+
+  test("an unauthenticated oversized body is 401, not 413", async () => {
+    const { app } = createApp(CONFIG);
+    const res = await app.request("/render", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: OVERSIZED_BODY(),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  test("a failed render answers render_failed without the internal message", async () => {
+    const { app } = createApp(CONFIG, {
+      render: async () => {
+        throw new Error("/tmp/secret-path boom");
+      },
+    });
+    const res = await app.request("/render", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...makeAuthHeader() },
+      body: JSON.stringify({ kind: "document-pdf", html: "<p>test</p>" }),
+    });
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "render_failed" });
+  });
 });
 
 describe("POST /render — concurrency limit", () => {
@@ -280,6 +344,17 @@ describe("POST /rasterize", () => {
     expect(metrics.rendersTotal.rasterize).toBe(2);
   });
 
+  test("a failed rasterize answers rasterize_failed without the internal message", async () => {
+    const { app } = createApp(CONFIG, {
+      rasterize: async () => {
+        throw new Error("/tmp/raster-secret");
+      },
+    });
+    const res = await postRasterize(app, { pdfBase64: PDF_BASE64 });
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "rasterize_failed" });
+  });
+
   test("an invalid PDF is 400 invalid_pdf, a timeout 504", async () => {
     const failing = (error: Error) =>
       createApp(CONFIG, {
@@ -291,7 +366,7 @@ describe("POST /rasterize", () => {
       pdfBase64: PDF_BASE64,
     });
     expect(invalid.status).toBe(400);
-    expect(((await invalid.json()) as { error: string }).error).toBe("invalid_pdf");
+    expect(await invalid.json()).toEqual({ error: "invalid_pdf" });
     const slow = await postRasterize(failing(new RasterizeTimeoutError("slow")), {
       pdfBase64: PDF_BASE64,
     });

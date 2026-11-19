@@ -6,17 +6,17 @@ import type {
   UserDataExportHook,
   UserDataHookCtx,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { listAllPages, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   systemTenantReadDb,
   systemTenantWriteRunner,
 } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
-import { eraseNoteBodiesReachingSubject } from "../notes-history-user-data/index.ts";
+import { eraseNoteBodiesReachingSubject } from "../notes-history/index.ts";
 import { collectErasureFailure, throwIfErasureFailed } from "../shared/index.ts";
 import { resolveVerifiedUserEmail } from "../user/index.ts";
-import { listAllPages, platformActor, replyExecutor, requestExecutor } from "./lib.ts";
+import { platformActor, replyExecutor, requestExecutor } from "./lib.ts";
 import {
   HELPDESK_REPLY_ENTITY,
   HELPDESK_REQUEST_ENTITY,

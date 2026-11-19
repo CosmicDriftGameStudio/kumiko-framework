@@ -85,6 +85,7 @@ export function bridgeStub(opts?: {
       archive: notAvailable("events.archive"),
       restore: notAvailable("events.restore"),
       isArchived: notAvailable("events.isArchived"),
+      streamVersion: notAvailable("events.streamVersion"),
       snapshot: notAvailable("events.snapshot"),
       loadWithSnapshot: notAvailable("events.loadWithSnapshot"),
     },

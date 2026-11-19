@@ -37,7 +37,9 @@ const FILE_PROVIDER_KEY = "file-foundation:config:provider";
 
 const failingMail = defineFeature("probe-failing-mail", (r) => {
   r.requires({ features: ["mail-foundation"] });
-  r.useExtension(MAIL_TRANSPORT_EXTENSION, "failing", {
+  r.applyExtension({
+    name: MAIL_TRANSPORT_EXTENSION,
+    entity: "failing",
     selectableInSettings: false,
     build: async () => ({
       send: async () => {
@@ -49,7 +51,9 @@ const failingMail = defineFeature("probe-failing-mail", (r) => {
 
 const unresolvableMail = defineFeature("probe-unresolvable-mail", (r) => {
   r.requires({ features: ["mail-foundation"] });
-  r.useExtension(MAIL_TRANSPORT_EXTENSION, "unresolvable", {
+  r.applyExtension({
+    name: MAIL_TRANSPORT_EXTENSION,
+    entity: "unresolvable",
     selectableInSettings: false,
     build: async () => {
       throw new HostResolutionError("smtp.invalid does not resolve");
@@ -61,7 +65,9 @@ let failingFilesDeleteCalls = 0;
 
 const failingFiles = defineFeature("probe-failing-files", (r) => {
   r.requires({ features: ["file-foundation"] });
-  r.useExtension(EXT_FILE_PROVIDER, "failing", {
+  r.applyExtension({
+    name: EXT_FILE_PROVIDER,
+    entity: "failing",
     build: async () => ({
       ...createInMemoryFileProvider(),
       write: async () => {
@@ -107,12 +113,12 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-async function freshAdmin(email: string | undefined) {
+async function freshAdmin(email: string | undefined, roles: readonly string[] = ["TenantAdmin"]) {
   nextTenant += 1;
   const admin = createTestUser({
     id: nextTenant,
     tenantId: testTenantId(nextTenant),
-    roles: ["TenantAdmin"],
+    roles: [...roles],
   });
   if (email !== undefined) {
     await seedRowViaEventStore(stack.db, userTable, {
@@ -214,7 +220,7 @@ describe("mail probe", () => {
 
 describe("storage probe", () => {
   test("writes, reads and deletes the test file without leaving a key or file events", async () => {
-    const admin = await freshAdmin(undefined);
+    const admin = await freshAdmin(undefined, ["TenantAdmin", "SystemAdmin"]);
     await select(admin, FILE_PROVIDER_KEY, "inmemory");
     const newEvents = await markEvents(stack);
 
@@ -235,7 +241,7 @@ describe("storage probe", () => {
   });
 
   test("a provider that throws fails the probe", async () => {
-    const admin = await freshAdmin(undefined);
+    const admin = await freshAdmin(undefined, ["TenantAdmin", "SystemAdmin"]);
     await select(admin, FILE_PROVIDER_KEY, "failing");
     failingFilesDeleteCalls = 0;
 

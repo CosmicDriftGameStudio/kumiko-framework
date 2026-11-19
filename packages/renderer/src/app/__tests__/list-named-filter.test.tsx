@@ -18,7 +18,8 @@ import type { Dispatcher } from "../../headless/index.ts";
 import { listResetUpdates } from "../../hooks/list-reset.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
-import { type CorePrimitives, type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
+import { type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
+import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi } from "../nav.tsx";
@@ -36,7 +37,7 @@ const getCapturedProps = (): DataTableProps | undefined => capturedProps;
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const testPrimitives: CorePrimitives = {
+const testPrimitives = createStubPrimitives({
   Button: noop,
   Banner: passChildren,
   Field: passChildren,
@@ -55,26 +56,19 @@ const testPrimitives: CorePrimitives = {
   ConfigSourceBadge: noop,
   ConfigCascadeView: noop,
   Link: noop,
-};
+});
 
 let queryCalls: Array<{ readonly type: string; readonly payload: unknown }> = [];
 
 function stubDispatcher(): Dispatcher {
-  return {
-    write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async (type: string, payload: unknown) => {
+  return createMockDispatcher({
+    write: async () => ({ isSuccess: true, data: {} }),
+    query: async (type: string, payload: unknown) => {
       queryCalls.push({ type, payload });
       return { isSuccess: true, data: { rows: [], nextCursor: null } };
-    }) as unknown as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
+    },
+    batch: async () => ({ isSuccess: true, results: [] }),
+  });
 }
 
 // Stateful nav so setSearchParams (called by useListUrlState.setFilter)
@@ -133,6 +127,7 @@ function renderScreen(
 }
 
 const statusEntity: EntityDefinition = {
+  name: "status",
   fields: {
     status: { type: "select", options: ["open", "done"], filterable: true, required: false },
   },
@@ -248,9 +243,15 @@ describe("entityList namedFilters", () => {
       QN,
       { "task-list.filter": "overdue" },
     );
-    await waitFor(() => expect(queryCalls.length).toBeGreaterThan(2));
+    await waitFor(() =>
+      expect(
+        queryCalls.some(
+          (call) =>
+            (call.payload as { aggregate?: { groupBy?: unknown } }).aggregate?.groupBy === "status",
+        ),
+      ).toBe(true),
+    );
     expect(queryCalls.every((call) => namedFilterOf(call.payload) === "overdue")).toBe(true);
-    expect(queryCalls.some((call) => (call.payload as { limit?: number }).limit === 1)).toBe(true);
   });
 
   test("without the URL key no namedFilter is sent", async () => {

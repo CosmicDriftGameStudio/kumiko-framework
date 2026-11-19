@@ -4,6 +4,7 @@ import type {
 } from "@cosmicdrift/kumiko-types/handlers";
 import type { Context } from "hono";
 import { createSystemUser } from "../engine/system-user.ts";
+import { parseTenantId } from "../engine/types/identifiers.ts";
 import type { SessionUser, TenantId } from "../engine/types/index.ts";
 
 import { assertUnreachable } from "../utils/index.ts";
@@ -49,10 +50,6 @@ function tenantIndependentPrefs(user: SessionUser): Pick<SessionUser, "timezone"
     ...(user.timezone ? { timezone: user.timezone } : {}),
     ...(user.locale ? { locale: user.locale } : {}),
   };
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0;
 }
 
 export function registerSessionRoutes(ctx: AuthRouteContext): void {
@@ -119,12 +116,12 @@ export function registerSessionRoutes(ctx: AuthRouteContext): void {
   api.post(Routes.authSwitchTenant, async (c) => {
     const user = getUser(c);
     const body = await readJsonObjectOrEmpty(c.req);
-    // The id seeds a SYSTEM identity in resolveActiveMembership — reject anything
-    // that is not a non-empty string before it gets that far.
-    if (!isNonEmptyString(body.tenantId)) {
+    // The id seeds a SYSTEM identity in resolveActiveMembership, so only a
+    // well-formed tenant id may get that far.
+    const targetTenantId = parseTenantId(body.tenantId);
+    if (targetTenantId === null) {
       return c.json({ error: "invalid_tenant" }, 400);
     }
-    const targetTenantId = body.tenantId as TenantId; // @cast-boundary request-body
 
     if (targetTenantId === user.tenantId) {
       return c.json({ error: "already_in_tenant" }, 400);

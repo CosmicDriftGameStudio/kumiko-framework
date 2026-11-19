@@ -1,5 +1,4 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   declareEscapeHatch,
@@ -7,6 +6,7 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { type MfaRequiredPolicy, mfaRequiredConfigHandle, mfaRequiredConfigKey } from "./config.ts";
 import { findUserMfaRow } from "./db/queries.ts";
 import { signMfaChallengeToken } from "./mfa-challenge-token.ts";
@@ -47,9 +47,10 @@ export function createMfaStatusChecker(opts: {
     declareEscapeHatch({
       reason:
         "reads the MFA enrollment of the tenant named in the signed login/setup token, not the guest dispatch tenant, on the caller's handler context; the calling handler declares its own escapeHatch",
+      grants: ["unsafeRaw"],
     });
     const scopedDb = createTenantDb({
-      db: ctx.db.unsafeRaw(),
+      db: ctx.db.unsafeRawAllTenants(),
       tenantId,
       mode: "system",
       reason:

@@ -167,6 +167,18 @@ describe("disable", () => {
     expect(res.disabled).toBe(true);
   });
 
+  test("the sixth wrong attempt within the window is rate limited", async () => {
+    const { user } = await enableMfaFor("disable-rate-limit-1");
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const err = await stack.http.writeErr(AuthMfaHandlers.disable, { code: "000000" }, user);
+      expectErrorIncludes(err, "invalid_totp_code");
+    }
+    const limited = await stack.http.writeErr(AuthMfaHandlers.disable, { code: "000000" }, user);
+    expect(limited.httpStatus).toBe(429);
+    expectErrorIncludes(limited, "rate_limited");
+  });
+
   test("disable on a user without MFA is rejected", async () => {
     const user = createTestUser({ id: "disable-never-enabled-1", roles: ["User"] });
     const err = await stack.http.writeErr(AuthMfaHandlers.disable, { code: "123456" }, user);

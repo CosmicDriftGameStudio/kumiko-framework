@@ -1,21 +1,14 @@
-// Thin wrapper around signed-token.ts pinning the purpose to "reset".
-// Handlers keep their terse API (signResetToken / verifyResetToken) while
-// the shared HMAC logic lives in one place. verification-token.ts mirrors
-// this pattern with purpose="verify".
+// Pins the purpose so a flow can only sign and verify its own tokens.
 
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { signToken, TokenPurpose, verifyToken } from "./signed-token.ts";
-
-export type VerifyResult =
-  | { readonly ok: true; readonly userId: string; readonly expiresAtMs: number }
-  | { readonly ok: false; readonly reason: "malformed" | "bad_signature" | "expired" };
+import { signToken, TokenPurpose, type VerifyResult, verifyToken } from "../shared/index.ts";
 
 export function signResetToken(
   userId: string,
   ttlMinutes: number,
   secret: string,
   now?: Temporal.Instant,
-): { token: string; expiresAt: Temporal.Instant } {
+): ReturnType<typeof signToken> {
   return signToken(userId, TokenPurpose.passwordReset, ttlMinutes, secret, now);
 }
 

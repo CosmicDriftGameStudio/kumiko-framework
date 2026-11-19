@@ -1,9 +1,12 @@
-import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type AccessRule,
+  defineWriteHandler,
+  type WriteResult,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
 import { tagAssignmentAggregateId } from "../aggregate-id.ts";
-import { tagAssignmentExecutor } from "../executor.ts";
-import { type RemoveTagPayload, removeTagPayloadSchema } from "../schemas.ts";
-import { DEFAULT_TAG_ACCESS } from "../web/constants.ts";
+import type { TagAssignmentExecutor } from "../executor.ts";
+import { removeTagPayloadSchema } from "../schemas.ts";
 
 // remove-tag — unlinks a tag from a host entity. Idempotent: removing an
 // assignment that doesn't exist is already the requested end state (not
@@ -13,17 +16,17 @@ import { DEFAULT_TAG_ACCESS } from "../web/constants.ts";
 // able to see the host row before detaching anything from it — see
 // shared/parent-visibility.ts.
 export function createRemoveTagHandler(
-  access: AccessRule = DEFAULT_TAG_ACCESS,
-  assignmentExecutor: typeof tagAssignmentExecutor = tagAssignmentExecutor,
-): WriteHandlerDef {
-  return {
+  access: AccessRule,
+  assignmentExecutor: TagAssignmentExecutor,
+) {
+  return defineWriteHandler({
     name: "remove-tag",
     schema: removeTagPayloadSchema,
     access,
     description:
       "Detaches one catalog tag from one host entity, reporting success when it was not attached; use it to untag a single record while the tag itself stays in the catalog.",
-    handler: async (event, ctx) => {
-      const payload = event.payload as RemoveTagPayload; // @cast-boundary engine-payload
+    handler: async (event, ctx): Promise<WriteResult<unknown>> => {
+      const payload = event.payload;
       const denied = await denyUnlessJoinRowParentVisible(
         ctx.registry,
         "tag-assignment",
@@ -47,7 +50,5 @@ export function createRemoveTagHandler(
 
       return assignmentExecutor.delete({ id }, event.user, ctx.db);
     },
-  };
+  });
 }
-
-export const removeTagHandler: WriteHandlerDef = createRemoveTagHandler();

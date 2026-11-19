@@ -33,7 +33,7 @@ import {
   type ScanSpec,
 } from "./_lib/guard-kit";
 import { resolveRepoRoots } from "./_lib/roots";
-import { TEST_FILE_RE } from "./_lib/test-file";
+import { isTestFilePath } from "./_lib/test-file";
 
 const SCAN: ScanSpec = {
   kinds: ALL_REPO_KINDS,
@@ -46,6 +46,7 @@ const INTERNAL_PREFIX = "@cosmicdrift/kumiko-framework/internal/";
 const TESTING_HELPERS = "@cosmicdrift/kumiko-testing/helpers";
 
 const TEST_ONLY_SCOPE_SYMBOLS = new Set([
+  "createTenantDb",
   "runInRowLevelSecurityScope",
   "runInSystemRowLevelSecurityScope",
   "tenantRowLevelSecurityScope",
@@ -75,10 +76,6 @@ type Finding = { line: number; message: string };
 function mayMention(sf: SourceFile, names: readonly string[]): boolean {
   const text = sf.getFullText();
   return mayContainEscapedLiteral(text) || names.some((name) => text.includes(name));
-}
-
-function isTestFile(rel: string): boolean {
-  return rel.split("/").includes("__tests__") || TEST_FILE_RE.test(rel);
 }
 
 function isInternalSpecifier(specifier: string): boolean {
@@ -274,7 +271,7 @@ function findTenantDbReasonViolations(sf: SourceFile): Finding[] {
 export const guard: AstGuard = {
   name: "Internal-Subpath-Imports Guard",
   scan: SCAN,
-  hint: "Consumer repos use the public subpaths only; `@cosmicdrift/kumiko-framework/internal/*` is for framework packages. Scope helpers from kumiko-testing/helpers belong in tests. Every system-scope entry, including createTenantDb with mode system, passes a specific string-literal reason (why it needs cross-tenant access).",
+  hint: "Consumer repos use the public subpaths only; `@cosmicdrift/kumiko-framework/internal/*` is for framework packages. Scope helpers from kumiko-testing/helpers belong in tests. The full createTenantDb (system mode, grants) from kumiko-testing/helpers is test-only; production code uses the tenant-only createTenantDb from the db subpath. Every system-scope entry, including createTenantDb with mode system, passes a specific string-literal reason (why it needs cross-tenant access).",
   run(files, roots = resolveRepoRoots()) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
 
@@ -284,7 +281,7 @@ export const guard: AstGuard = {
       const isFrameworkRepo = findRepoRootFor(file, roots)?.kind === "framework";
       const findings: Finding[] = [];
       if (!isFrameworkRepo) findings.push(...findInternalImports(sf));
-      if (!isTestFile(rel)) findings.push(...findTestOnlyScopeImports(sf));
+      if (!isTestFilePath(rel)) findings.push(...findTestOnlyScopeImports(sf));
       if (!isAllowlisted(rel, REASON_RULE_EXEMPT)) findings.push(...findReasonViolations(sf));
       if (!isAllowlisted(rel, FORWARDED_TENANT_DB_REASON_ALLOWLIST)) {
         findings.push(...findTenantDbReasonViolations(sf));

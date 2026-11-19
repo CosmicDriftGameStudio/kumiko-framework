@@ -24,6 +24,7 @@ import { createTenantDb, type TenantDb } from "../tenant-db.ts";
 import { type BunTestDb, createTestDb } from "./query/bun-test-db.ts";
 
 const entity = createEntity({
+  name: "pagerItem",
   table: "read_pager_items",
   fields: {
     title: createTextField({
@@ -36,7 +37,7 @@ const entity = createEntity({
     dueDate: createDateField({ sortable: true }),
   },
 });
-const table = buildEntityTable("pagerItem", entity);
+const table = buildEntityTable(entity);
 
 let testDb: BunTestDb;
 let tdb: TenantDb;
@@ -675,13 +676,14 @@ describe("event-store-executor.list — runtime SearchAdapter", () => {
 
   test("tenant-mode list: systemStream entity searches SYSTEM_TENANT_ID", async () => {
     const sysEntity = createEntity({
+      name: "pagerSys",
       table: "read_pager_sys",
       systemStream: true,
       fields: {
         title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
       },
     });
-    const sysTable = buildEntityTable("pagerSys", sysEntity);
+    const sysTable = buildEntityTable(sysEntity);
     await unsafeCreateEntityTable(testDb.db, sysEntity, "pagerSys");
     const sysExec = createEventStoreExecutor(sysTable, sysEntity, { entityName: "pagerSys" });
     let searchedTenant: string | undefined;

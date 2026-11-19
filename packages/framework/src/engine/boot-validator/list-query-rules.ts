@@ -26,7 +26,7 @@ export const LIST_QUERY_RULES = {
   defaultSortRequired: {
     id: "list-query/default-sort-required",
     summary: "A projectionList with active search or sort declares a defaultSort.",
-    fix: "Set defaultSort: { field, direction } on the screen.",
+    fix: "Set defaultSort: { field, dir } on the screen.",
   },
   filterParamMissing: {
     id: "list-query/filter-param-missing",

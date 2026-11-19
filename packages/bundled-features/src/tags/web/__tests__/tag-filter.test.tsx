@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { fileURLToPath } from "node:url";
+import { entityListSchema } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -68,7 +70,11 @@ const StubPicker = ({
     pick urgent
   </button>
 );
-mock.module("../tag-picker", () => ({ TagPicker: StubPicker }));
+mockModuleForFile(
+  fileURLToPath(new URL("../tag-picker.tsx", import.meta.url)),
+  await import("../tag-picker.tsx"),
+  { TagPicker: StubPicker },
+);
 
 function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return (
@@ -85,7 +91,7 @@ describe("TagFilter", () => {
         <TagFilter entityName="note" screenId="note-list" />
       </Wrapper>,
     );
-    expect(screen.getByTestId("tag-filter-open")).toBeTruthy();
+    screen.getByTestId("tag-filter-open");
     expect(screen.queryByTestId("tag-chip")).toBeNull();
     expect(screen.queryByTestId("tag-filter-clear")).toBeNull();
   });
@@ -102,8 +108,8 @@ describe("TagFilter", () => {
     // urgent (t1) is assigned to n1 → list narrows to that id set
     expect(setFilterSpy).toHaveBeenCalledWith("id", ["n1"]);
     // the active selection is visible as a chip + a clear affordance
-    expect(screen.getByText("urgent")).toBeTruthy();
-    expect(screen.getByTestId("tag-filter-clear")).toBeTruthy();
+    screen.getByText("urgent");
+    screen.getByTestId("tag-filter-clear");
   });
 
   test("clear → drops the filter and the chip", () => {
@@ -119,5 +125,23 @@ describe("TagFilter", () => {
 
     expect(setFilterSpy).toHaveBeenCalledWith("id", []);
     expect(screen.queryByText("urgent")).toBeNull();
+  });
+});
+
+describe("TagFilter assignment query", () => {
+  test("sends a payload the real list schema accepts, scoped to the host entity", () => {
+    useQuerySpy.mockClear();
+    render(
+      <Wrapper>
+        <TagFilter entityName="note" screenId="note-list" />
+      </Wrapper>,
+    );
+
+    const call = useQuerySpy.mock.calls.find(([type]) => type === TagsQueries.assignmentList);
+    const payload = (call as unknown as [string, unknown])[1];
+    expect(entityListSchema.safeParse(payload).success).toBe(true);
+    expect(payload).toMatchObject({
+      filters: [{ field: "entityType", op: "eq", value: "note" }],
+    });
   });
 });

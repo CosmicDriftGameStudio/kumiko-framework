@@ -7,9 +7,9 @@
 // the single boundary cast so callers don't sprinkle `as { … }`-narrowings
 // across the bundle.
 //
-// All structured `serializedField`-keys recognised today (`fieldAccess`,
-// `retention`) live on this shape. New keys go here so the other call-sites
-// can read them via the typed result instead of re-parsing.
+// All structured `serializedField`-keys recognised today (`fieldAccess`) live
+// on this shape. New keys go here so the other call-sites can read them via
+// the typed result instead of re-parsing.
 
 import { parseJsonSafe } from "@cosmicdrift/kumiko-framework/utils";
 
@@ -18,10 +18,6 @@ export interface SerializedFieldShape {
   readonly fieldAccess?: {
     readonly read?: ReadonlyArray<string>;
     readonly write?: ReadonlyArray<string>;
-  };
-  readonly retention?: {
-    readonly keepFor: string;
-    readonly strategy: "delete" | "anonymize";
   };
 }
 

@@ -154,13 +154,12 @@ describe("AuthRoutesConfig.trustedProxyHops", () => {
     expect((await attempt()).status).toBe(429);
   });
 
-  test("hops=1 with short/missing XFF uses x-real-ip so clients stay independent", async () => {
+  test("hops=1 without XFF ignores X-Real-IP: rotating it does not open fresh buckets", async () => {
     const app = await buildApp({ trustedProxyHops: 1 });
     const attempt = (realIp: string) => app.request(verifyRequest(undefined, realIp));
     expect((await attempt("203.0.113.10")).status).toBe(422);
-    expect((await attempt("203.0.113.10")).status).toBe(422);
-    expect((await attempt("203.0.113.10")).status).toBe(429);
-    // Different X-Real-IP must not share the previous client's bucket.
     expect((await attempt("203.0.113.11")).status).toBe(422);
+    // All requests share the "unknown" bucket (limit 2).
+    expect((await attempt("203.0.113.12")).status).toBe(429);
   });
 });

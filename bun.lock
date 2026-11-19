@@ -36,7 +36,7 @@
         "zod": "4.6.7",
       },
       "devDependencies": {
-        "@cosmicdrift/kumiko-renderer-puppeteer-client": "workspace:*",
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
       },
     },
     "packages/bundled-features": {
@@ -65,14 +65,17 @@
         "@types/mailparser": "^3.9.0",
         "@types/qrcode": "^1.5.6",
         "clsx": "^2.1.1",
+        "handlebars": "^4.7.10",
         "happy-dom": "^21.0.4",
         "hono": "^4.13.14",
+        "html-to-text": "^10.0.1",
         "imapflow": "^1.7.8",
         "ioredis": "^5.11.1",
         "jose": "^6.2.14",
         "lucide-react": "^1.65.0",
         "mailparser": "^3.14.1",
         "marked": "^18.1.2",
+        "mjml": "^5.4.1",
         "nodemailer": "^10.3.1",
         "pdf-lib": "^1.17.1",
         "qrcode": "^1.5.4",
@@ -91,9 +94,10 @@
         "@cosmicdrift/kumiko-locale-es": "workspace:*",
         "@cosmicdrift/kumiko-locale-fr": "workspace:*",
         "@cosmicdrift/kumiko-locale-it": "workspace:*",
-        "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
         "@cosmicdrift/kumiko-testing": "workspace:*",
         "@testing-library/user-event": "^14.6.8",
+        "@types/html-to-text": "^9.0.4",
+        "@types/mjml": "5.4.2",
         "@types/sanitize-html": "^2.16.2",
         "jsqr": "^1.4.0",
         "unpdf": "^1.9.1",
@@ -113,30 +117,25 @@
         "kumiko-upgrade": "./bin/kumiko-upgrade.ts",
       },
       "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-dev-server": "workspace:*",
         "@cosmicdrift/kumiko-feature-ast": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-guards": "workspace:*",
+        "@cosmicdrift/kumiko-renderer": "workspace:*",
         "@cosmicdrift/kumiko-server-runtime": "workspace:*",
         "@cosmicdrift/kumiko-testing": "workspace:*",
+        "create-kumiko-app": "workspace:*",
         "marked": "^18.1.2",
         "zod": "^4.6.7",
       },
       "devDependencies": {
-        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
-        "@cosmicdrift/kumiko-framework": "workspace:*",
-        "@cosmicdrift/kumiko-renderer": "workspace:*",
         "sharp": "^0.35.5",
       },
       "peerDependencies": {
-        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
-        "@cosmicdrift/kumiko-framework": "workspace:*",
-        "@cosmicdrift/kumiko-renderer": "workspace:*",
         "sharp": "^0.35.5",
       },
       "optionalPeers": [
-        "@cosmicdrift/kumiko-bundled-features",
-        "@cosmicdrift/kumiko-framework",
-        "@cosmicdrift/kumiko-renderer",
         "sharp",
       ],
     },
@@ -171,7 +170,6 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-guards": "workspace:*",
         "@cosmicdrift/kumiko-renderer": "workspace:*",
-        "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
         "@cosmicdrift/kumiko-server-runtime": "workspace:*",
         "@cosmicdrift/kumiko-testing": "workspace:*",
         "@cosmicdrift/kumiko-types": "workspace:*",
@@ -192,7 +190,6 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-renderer": "workspace:*",
-        "@cosmicdrift/kumiko-renderer-puppeteer-client": "workspace:*",
         "@cosmicdrift/kumiko-types": "workspace:*",
         "react": "^19.3.1",
       },
@@ -330,39 +327,6 @@
         "tailwindcss": "^4.3.3",
       },
     },
-    "packages/renderer-mail-html": {
-      "name": "@cosmicdrift/kumiko-renderer-mail-html",
-      "version": "0.424.1",
-      "dependencies": {
-        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
-        "@cosmicdrift/kumiko-framework": "workspace:*",
-        "@cosmicdrift/kumiko-renderer": "workspace:*",
-        "@cosmicdrift/kumiko-types": "workspace:*",
-        "handlebars": "^4.7.10",
-        "html-to-text": "^9.0.5",
-        "mjml": "^5.4.1",
-      },
-      "devDependencies": {
-        "@cosmicdrift/kumiko-locale-de": "workspace:*",
-        "@cosmicdrift/kumiko-testing": "workspace:*",
-        "@types/html-to-text": "^9.0.4",
-        "@types/mjml": "5.4.2",
-      },
-    },
-    "packages/renderer-puppeteer-client": {
-      "name": "@cosmicdrift/kumiko-renderer-puppeteer-client",
-      "version": "0.424.1",
-      "dependencies": {
-        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
-        "@cosmicdrift/kumiko-framework": "workspace:*",
-        "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
-        "@cosmicdrift/kumiko-types": "workspace:*",
-        "pdf-lib": "^1.17.1",
-      },
-      "devDependencies": {
-        "@cosmicdrift/kumiko-testing": "workspace:*",
-      },
-    },
     "packages/samples": {
       "name": "@cosmicdrift/kumiko-samples",
       "version": "0.424.1",
@@ -374,7 +338,6 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-renderer": "workspace:*",
-        "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
         "@cosmicdrift/kumiko-types": "workspace:*",
         "ioredis": "^5.11.1",
         "temporal-polyfill": "^0.3.2",
@@ -532,8 +495,6 @@
         "@cosmicdrift/kumiko-locale-de": "workspace:*",
         "@cosmicdrift/kumiko-locale-es": "workspace:*",
         "@cosmicdrift/kumiko-renderer": "workspace:*",
-        "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
-        "@cosmicdrift/kumiko-renderer-puppeteer-client": "workspace:*",
         "@cosmicdrift/kumiko-server-runtime": "workspace:*",
         "react": "^19.3.1",
         "react-dom": "^19.3.1",
@@ -555,8 +516,6 @@
         "@cosmicdrift/kumiko-locale-fr": "workspace:*",
         "@cosmicdrift/kumiko-locale-it": "workspace:*",
         "@cosmicdrift/kumiko-renderer": "workspace:*",
-        "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
-        "@cosmicdrift/kumiko-renderer-puppeteer-client": "workspace:*",
         "@cosmicdrift/kumiko-server-runtime": "workspace:*",
         "@cosmicdrift/kumiko-types": "workspace:*",
         "react": "^19.3.1",
@@ -814,7 +773,6 @@
       "dependencies": {
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
-        "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
       },
       "devDependencies": {
         "@cosmicdrift/kumiko-testing": "workspace:*",
@@ -827,12 +785,6 @@
       },
       "devDependencies": {
         "@cosmicdrift/kumiko-testing": "workspace:*",
-      },
-    },
-    "samples/recipes/designer-demo": {
-      "name": "@cosmicdrift/kumiko-sample-designer-demo",
-      "dependencies": {
-        "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
     "samples/recipes/documents": {
@@ -925,6 +877,16 @@
     "samples/recipes/field-access": {
       "name": "@cosmicdrift/kumiko-sample-field-access",
       "dependencies": {
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
+    },
+    "samples/recipes/field-approval": {
+      "name": "@cosmicdrift/kumiko-sample-field-approval",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
       "devDependencies": {
@@ -1383,16 +1345,6 @@
         "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
-    "samples/recipes/webhook-step": {
-      "name": "@cosmicdrift/kumiko-sample-webhook-step",
-      "dependencies": {
-        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
-        "@cosmicdrift/kumiko-framework": "workspace:*",
-      },
-      "devDependencies": {
-        "@cosmicdrift/kumiko-testing": "workspace:*",
-      },
-    },
     "samples/recipes/wizard-form": {
       "name": "@cosmicdrift/kumiko-sample-wizard-form",
       "dependencies": {
@@ -1408,12 +1360,6 @@
         "@tailwindcss/cli": "^4.3.3",
         "@types/react": "^19.3.0",
         "tailwindcss": "^4.3.3",
-      },
-    },
-    "samples/recipes/workflow-engine": {
-      "name": "@samples/workflow-engine",
-      "devDependencies": {
-        "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
     "samples/recipes/writeform-section": {
@@ -1443,7 +1389,6 @@
     "@radix-ui/react-dialog": "1.3.1",
     "brace-expansion": "5.0.12",
     "fast-copy": "4.3.1",
-    "html-to-text": "10.0.1",
     "ip-address": "10.7.5",
     "nodemailer": "10.3.1",
     "prosemirror-model": "1.25.12",
@@ -1556,10 +1501,6 @@
 
     "@cosmicdrift/kumiko-renderer": ["@cosmicdrift/kumiko-renderer@workspace:packages/renderer"],
 
-    "@cosmicdrift/kumiko-renderer-mail-html": ["@cosmicdrift/kumiko-renderer-mail-html@workspace:packages/renderer-mail-html"],
-
-    "@cosmicdrift/kumiko-renderer-puppeteer-client": ["@cosmicdrift/kumiko-renderer-puppeteer-client@workspace:packages/renderer-puppeteer-client"],
-
     "@cosmicdrift/kumiko-sample-access-control": ["@cosmicdrift/kumiko-sample-access-control@workspace:samples/recipes/access-control"],
 
     "@cosmicdrift/kumiko-sample-admin-console": ["@cosmicdrift/kumiko-sample-admin-console@workspace:samples/apps/admin-console"],
@@ -1616,8 +1557,6 @@
 
     "@cosmicdrift/kumiko-sample-derived-fields-sql": ["@cosmicdrift/kumiko-sample-derived-fields-sql@workspace:samples/recipes/derived-fields-sql"],
 
-    "@cosmicdrift/kumiko-sample-designer-demo": ["@cosmicdrift/kumiko-sample-designer-demo@workspace:samples/recipes/designer-demo"],
-
     "@cosmicdrift/kumiko-sample-documents": ["@cosmicdrift/kumiko-sample-documents@workspace:samples/recipes/documents"],
 
     "@cosmicdrift/kumiko-sample-e2e-generator": ["@cosmicdrift/kumiko-sample-e2e-generator@workspace:samples/recipes/e2e-generator"],
@@ -1637,6 +1576,8 @@
     "@cosmicdrift/kumiko-sample-feature-toggles": ["@cosmicdrift/kumiko-sample-feature-toggles@workspace:samples/recipes/feature-toggles"],
 
     "@cosmicdrift/kumiko-sample-field-access": ["@cosmicdrift/kumiko-sample-field-access@workspace:samples/recipes/field-access"],
+
+    "@cosmicdrift/kumiko-sample-field-approval": ["@cosmicdrift/kumiko-sample-field-approval@workspace:samples/recipes/field-approval"],
 
     "@cosmicdrift/kumiko-sample-files-post-processing": ["@cosmicdrift/kumiko-sample-files-post-processing@workspace:samples/recipes/files-post-processing"],
 
@@ -1741,8 +1682,6 @@
     "@cosmicdrift/kumiko-sample-user-data-rights-demo": ["@cosmicdrift/kumiko-sample-user-data-rights-demo@workspace:samples/apps/user-data-rights-demo"],
 
     "@cosmicdrift/kumiko-sample-user-profile": ["@cosmicdrift/kumiko-sample-user-profile@workspace:samples/recipes/user-profile"],
-
-    "@cosmicdrift/kumiko-sample-webhook-step": ["@cosmicdrift/kumiko-sample-webhook-step@workspace:samples/recipes/webhook-step"],
 
     "@cosmicdrift/kumiko-sample-wizard-form": ["@cosmicdrift/kumiko-sample-wizard-form@workspace:samples/recipes/wizard-form"],
 
@@ -2125,8 +2064,6 @@
     "@radix-ui/react-visually-hidden": ["@radix-ui/react-visually-hidden@1.2.13", "", { "dependencies": { "@radix-ui/react-primitive": "2.2.0" }, "peerDependencies": { "@types/react": "*", "@types/react-dom": "*", "react": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc", "react-dom": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc" }, "optionalPeers": ["@types/react", "@types/react-dom"] }, "sha512-feijiN1oPk4rck4u9Dm9tsU4mT6Wp9oeEEhaz1WUEs1VuqLf8xzsFG+Qk+uWq6TnMH9O+WRECRg0NftyP9E4Fw=="],
 
     "@radix-ui/rect": ["@radix-ui/rect@1.1.3", "", {}, "sha512-JtyZR+mqgBibTo8xea3B6ZRmzZiM/YeVBtUkas6zMuXjAlfIFIW2FgqeM9eLyvEaYX66vr6DJMK+4U6LV0KhNw=="],
-
-    "@samples/workflow-engine": ["@samples/workflow-engine@workspace:samples/recipes/workflow-engine"],
 
     "@selderee/plugin-htmlparser2": ["@selderee/plugin-htmlparser2@0.12.0", "", { "dependencies": { "domelementtype": "~2.3.0", "domhandler": "~5.0.3" }, "peerDependencies": { "selderee": "~0.12.0" } }, "sha512-oELmoyA6ML9jDRMV3kgcMQFKxUfBU0yFVn6yTctVaLT5ygXnxH52I3TZEgV9EhXJC68/uFvE5Daj1/25c0Xa/A=="],
 
