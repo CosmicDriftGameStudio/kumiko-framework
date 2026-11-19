@@ -33,7 +33,7 @@ import {
   bearerTokenOf,
   normalizeRelativePath,
 } from "./device-auth.ts";
-import { syncReportSchema } from "./handlers/touch-device.write.ts";
+import { syncReportSchema, type uploadOutcomeSchema } from "./handlers/touch-device.write.ts";
 import { exceedsFolderLimits, isBallastPath } from "./path-rules.ts";
 
 export type ConnectorRouteOptions = {
@@ -41,9 +41,9 @@ export type ConnectorRouteOptions = {
   readonly basePath?: string;
   /** Per-file cap in bytes. Default 50 MiB. */
   readonly maxUploadBytes?: number;
-  /** Page where a TenantAdmin confirms the user code; shown to the satellite. Default: the
-   *  public app URL (APP_BASE_URL), else the address the satellite reached the app on, plus "/connector-pair" (the pairing screen's URL
-   *  in an app without workspaces or a base path; set this option otherwise). */
+  /** Absolute URL of the page where a TenantAdmin confirms the user code; shown to the satellite.
+   *  Default: the public app URL (APP_BASE_URL), else the address the satellite reached the app on,
+   *  plus "/connector-pair" (the pairing screen's URL without a base path; set this option behind one). */
   readonly verificationUri?: string;
   /** Flood protection of the pairing start (client_id is public). Defaults: 10 starts per minute and
    *  address, 3 open requests per address, 1000 open requests overall. */
@@ -125,7 +125,7 @@ async function touchDevice(
   deps: SignatureExtraRouteDeps,
   device: AuthenticatedDevice,
   heartbeat?: { readonly version: string; readonly sync?: z.infer<typeof syncReportSchema> },
-  upload?: "accepted" | "quotaRejected",
+  upload?: z.infer<typeof uploadOutcomeSchema>,
 ): Promise<boolean> {
   const result = await deps.dispatchWriteAs({
     handlerQn: ConnectorHandlers.touchDevice,
@@ -147,7 +147,7 @@ async function touchDevice(
 function uploadOutcomeOf(result: {
   readonly isSuccess: boolean;
   readonly error?: { readonly details?: unknown };
-}): "accepted" | "quotaRejected" | undefined {
+}): z.infer<typeof uploadOutcomeSchema> | undefined {
   if (result.isSuccess) return "accepted";
   return result.error !== undefined &&
     failureReason(result.error) === ConnectorErrors.storageQuotaExceeded
@@ -291,6 +291,11 @@ export function createConnectorRoutes(
 ): readonly ExtraRouteDefinition[] {
   const basePath = options.basePath ?? DEFAULT_CONNECTORS_BASE_PATH;
   const maxUploadBytes = options.maxUploadBytes ?? DEFAULT_MAX_UPLOAD_BYTES;
+  if (options.verificationUri !== undefined && !URL.canParse(options.verificationUri)) {
+    throw new Error(
+      `createConnectorRoutes: verificationUri must be an absolute URL, got "${options.verificationUri}"`,
+    );
+  }
 
   const deviceAuthorization = signatureRoute({
     method: "POST",

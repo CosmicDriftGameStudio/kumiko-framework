@@ -111,6 +111,40 @@ describe("list-table-options recipe", () => {
     ).toThrow(/sends field "owner"/);
   });
 
+  test("the status link form keeps its link prefill and i18n-key fact on the registered screen", () => {
+    const feature = createTaskBoardFeature();
+    expect(() => validateBoot([feature])).not.toThrow();
+    const screen = createRegistry([feature]).getScreen("task-board:screen:task-status-link");
+    expect(screen?.type === "actionForm" ? screen.linkPrefillFields : undefined).toEqual([
+      "status",
+    ]);
+    expect(screen?.type === "actionForm" ? screen.successFacts : undefined).toEqual([
+      { field: "count", label: "Tasks changed" },
+      { field: "statusKey", label: "New status", valueIsI18nKey: true },
+    ]);
+  });
+
+  test("linkPrefillFields naming an unknown field is rejected", () => {
+    const feature = defineFeature("link-prefill-bad", (r) => {
+      r.writeHandler({
+        name: "task:noop",
+        schema: z.object({ status: z.string() }),
+        access: openAccess.access,
+        handler: async () => ({ isSuccess: true as const, data: {} }),
+      });
+      r.screen({
+        id: "noop-form",
+        type: "actionForm",
+        dormant: true,
+        handler: "link-prefill-bad:write:task:noop",
+        linkPrefillFields: ["owner"],
+        fields: { status: { type: "text" } },
+        layout: { sections: [{ fields: ["status"] }] },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(/form\/link-prefill-unknown-field/);
+  });
+
   test("a bulk action that points at a navigate row action is rejected", () => {
     const feature = defineFeature("bulk-on-navigate", (r) => {
       r.crud(taskEntity, { write: openAccess, read: openAccess });

@@ -166,3 +166,26 @@ export const taskSetStatusScreen: ScreenDefinition = {
     },
   },
 };
+
+// A plain link such as `?status=done` fills `status` (and only `status`); the success box names
+// the applied status by an i18n key the handler returns, shown translated.
+export const taskStatusLinkScreen: ScreenDefinition = {
+  id: "task-status-link",
+  type: "actionForm",
+  dormant: true,
+  handler: "task-board:write:task:set-status",
+  labelEntity: "task",
+  linkPrefillFields: ["status"],
+  fields: {
+    taskIds: { type: "multiSelect", options: [], display: "count" },
+    status: createSelectField({
+      options: ["open", "inProgress", "blocked", "done"] as const,
+      required: true,
+    }),
+  },
+  layout: { sections: [{ fields: ["taskIds", "status"] }] },
+  successFacts: [
+    { field: "count", label: "Tasks changed" },
+    { field: "statusKey", label: "New status", valueIsI18nKey: true },
+  ],
+};

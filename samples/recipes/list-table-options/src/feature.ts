@@ -24,6 +24,7 @@ import {
   taskEditScreen,
   taskOverdueScreen,
   taskSetStatusScreen,
+  taskStatusLinkScreen,
   taskWorkloadScreen,
 } from "./screens";
 
@@ -204,7 +205,10 @@ export function createTaskBoardFeature(
           );
           if (!result.isSuccess) return result;
         }
-        return { isSuccess: true as const, data: { count: changed.length } };
+        return {
+          isSuccess: true as const,
+          data: { count: changed.length, statusKey: `task-board:status.${status}` },
+        };
       },
     });
 
@@ -252,6 +256,7 @@ export function createTaskBoardFeature(
     });
 
     r.screen(taskSetStatusScreen);
+    r.screen(taskStatusLinkScreen);
 
     r.nav({ id: "tasks", label: "task-board:nav.tasks", icon: "list", order: 10 });
     r.nav({

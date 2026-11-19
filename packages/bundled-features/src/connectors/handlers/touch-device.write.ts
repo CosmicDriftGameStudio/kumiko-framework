@@ -5,6 +5,8 @@ import * as z from "zod";
 import { HEARTBEAT_MIN_INTERVAL_MINUTES, SYNC_STATE } from "../constants.ts";
 import { deviceTable } from "../schema/device.ts";
 
+export const uploadOutcomeSchema = z.enum(["accepted", "quotaRejected"]);
+
 export const syncReportSchema = z.object({
   state: z.enum([SYNC_STATE.idle, SYNC_STATE.syncing, SYNC_STATE.error]),
   queued: z.number().int().min(0),
@@ -23,7 +25,7 @@ export const touchDeviceWrite = defineWriteHandler({
     sync: syncReportSchema.optional(),
     // Only the heartbeat hands the retry signal to the satellite; an upload must not swallow it.
     consumeRetry: z.boolean().optional(),
-    upload: z.enum(["accepted", "quotaRejected"]).optional(),
+    upload: uploadOutcomeSchema.optional(),
   }),
   access: { roles: access.system },
   agent: { expose: false },
