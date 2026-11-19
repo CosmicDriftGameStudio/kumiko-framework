@@ -1068,7 +1068,7 @@
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
-| <a id="query-dispatch-only-on-screen"></a>`query/dispatch-only-on-screen` | A query a screen or panel loads in the browser is not dispatchOnly. | Drop dispatchOnly from the query, or give the screen its own query. | `packages/framework/src/engine/boot-validator/query-rules.ts` |
+| <a id="query-dispatch-only-on-screen"></a>`query/dispatch-only-on-screen` | A query the browser loads (screen, panel, field options, availability or summary row) is not dispatchOnly. | Drop dispatchOnly from the query, or point the reference at a query without it. | `packages/framework/src/engine/boot-validator/query-rules.ts` |
 | <a id="query-list-source-output-without-rows"></a>`query/list-source-output-without-rows` | A query used as a list source has an outputSchema describing the paged envelope with a rows field. | Wrap the row schema in the { rows, nextCursor, total? } envelope. | `packages/framework/src/engine/boot-validator/query-rules.ts` |
 | <a id="query-not-registered"></a>`query/not-registered` | A query reference on a screen names a registered query handler. | Check the QN spelling ("<feature>:query:<short>") and declare the handler via r.queryHandler(...). | `packages/framework/src/engine/boot-validator/query-rules.ts` |
 | <a id="query-output-field-missing"></a>`query/output-field-missing` | A field a screen reads from a query result exists in the query's outputSchema. | Check the field name for a typo or add the field to the outputSchema. | `packages/framework/src/engine/boot-validator/query-rules.ts` |

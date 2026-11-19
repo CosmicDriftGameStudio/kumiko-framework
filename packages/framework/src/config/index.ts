@@ -77,8 +77,9 @@ export type AppConfig = {
   readonly listDefaults?: ListDefaultsOptions;
   /** "on" enforces tenant isolation in Postgres via row level security; schema tooling and every runner read this one value. Default "on". */
   readonly rowLevelSecurity?: RowLevelSecurityMode;
-  /** The production KMS decision; bin/main.ts and `schema apply` in bin/kumiko.ts both read it through
-   *  `productionKmsMode`. Unset: production requires the KMS env ("required"). */
+  /** Production KMS mode that `schema apply` in bin/kumiko.ts and the scaffolded bin/main.ts read through
+   *  `productionKmsMode`; unset means "required". A bin/main.ts that passes no kmsMode boots with the
+   *  `runProdApp` default "optional", so such an app sets "optional" here or `schema apply` needs the KMS env. */
   readonly kmsMode?: KmsMode;
   readonly apiDocs?: AppApiDocsConfig;
 };

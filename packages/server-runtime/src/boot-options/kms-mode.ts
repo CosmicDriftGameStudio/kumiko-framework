@@ -1,4 +1,5 @@
 import {
+  findKmsModeProblem,
   type KmsAdapter,
   type KmsMode,
   resolveKmsWiringAsync,
@@ -46,10 +47,9 @@ export async function resolveKmsMode(
       "[runProdApp] kmsMode cannot be combined with kms / blindIndexKey / allowPlaintextPii — pick the short form or the low-level fields.",
     );
   }
+  const problem = findKmsModeProblem(kmsMode);
+  if (problem !== undefined) throw new Error(`[runProdApp] ${problem}.`);
   if (typeof kmsMode === "object") {
-    if (kmsMode.plaintextReason.trim() === "") {
-      throw new Error("[runProdApp] kmsMode.plaintextReason must name a reason.");
-    }
     return { allowPlaintextPii: kmsMode.plaintextReason, close: noop };
   }
   const wiring = await resolveKmsWiringAsync(envSource, {

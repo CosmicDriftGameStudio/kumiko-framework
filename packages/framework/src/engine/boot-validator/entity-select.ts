@@ -5,6 +5,7 @@ import type { FieldCondition } from "@cosmicdrift/kumiko-types/screen";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import { ENTITY_SELECT_IMAGE_RULES } from "./entity-select-image-rules.ts";
+import { assertNotDispatchOnlyQuery } from "./query-refs.ts";
 import { isSelectOptionTone } from "./select-option-tone.ts";
 
 // --- MultiSelect field validation ---
@@ -125,6 +126,12 @@ export function validateEntitySelectAvailabilityQuery(
             `is declared via r.queryHandler(...).`,
         });
       }
+      assertNotDispatchOnlyQuery(
+        queryHandlers.get(query),
+        query,
+        () =>
+          `[Feature ${feature.name}] ${field.type} field "${fieldName}" on entity "${entityName}" optionsAvailabilityQuery`,
+      );
     }
   }
 }

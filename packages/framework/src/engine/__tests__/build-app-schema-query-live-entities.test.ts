@@ -84,6 +84,30 @@ describe("buildAppSchema queryLiveEntities", () => {
     });
   });
 
+  test("a dispatchOnly query stays out, a regular query of the same entity stays in", () => {
+    const content = defineFeature("content", (r) => {
+      r.entity(bannerEntity);
+      r.queryHandler({
+        name: "banner:internal",
+        schema: z.object({}),
+        handler: async () => ({ rows: [] }),
+        access: openAccess,
+        dispatchOnly: true,
+        liveEntities: ["banner"],
+      });
+      r.queryHandler({
+        name: "banner:overview",
+        schema: z.object({}),
+        handler: async () => ({ rows: [] }),
+        access: openAccess,
+      });
+    });
+    const app = buildAppSchema(createRegistry([content]));
+    const projected = app.features.find((f) => f.featureName === "content")?.queryLiveEntities;
+    expect(projected).toEqual({ "content:query:banner:overview": ["banner"] });
+    expect(Object.keys(projected ?? {})).not.toContain("content:query:banner:internal");
+  });
+
   test("the tenant feature strip drops the projection of a disabled feature", () => {
     const registry = createRegistry(features());
     const stripped = stripDisabledFeaturesFromAppSchema(buildAppSchema(registry), registry, [

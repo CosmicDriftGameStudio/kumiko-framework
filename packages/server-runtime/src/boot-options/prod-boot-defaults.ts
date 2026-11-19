@@ -20,9 +20,10 @@ export function prodKmsModeDefault(
   return "optional";
 }
 
-/** The one KMS decision of an app for bin/main.ts and `schema apply`: with NODE_ENV=production its
- *  `kmsMode` from kumiko.config.ts, "required" when unset; otherwise undefined, so the caller wires
- *  whatever KMS env is present. */
+/** The KMS mode bin/main.ts and `schema apply` share once the app sets `kmsMode` in
+ *  kumiko.config.ts: with NODE_ENV=production that mode, "required" when unset (while a bin/main.ts
+ *  that passes no kmsMode boots runProdApp with "optional"); otherwise undefined, so the caller
+ *  wires whatever KMS env is present. */
 export function productionKmsMode(
   appKmsMode: KmsMode | undefined,
   envSource: Record<string, string | undefined>,

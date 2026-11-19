@@ -37,6 +37,12 @@ describe("resolveKmsMode", () => {
     await expect(resolveKmsMode({ plaintextReason: " " }, {}, {})).rejects.toThrow(/reason/);
   });
 
+  test("a placeholder plaintextReason is refused like in kumiko.config.ts", async () => {
+    await expect(resolveKmsMode({ plaintextReason: "todo" }, {}, {})).rejects.toThrow(
+      '[runProdApp] kmsMode.plaintextReason must name a reason (the reason "todo" is a placeholder',
+    );
+  });
+
   test('"required" with an empty trio aborts', async () => {
     await expect(resolveKmsMode("required", {}, {})).rejects.toThrow(/kmsMode "required"/);
   });

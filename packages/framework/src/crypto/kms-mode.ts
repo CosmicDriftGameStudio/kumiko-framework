@@ -1,6 +1,12 @@
-// No runtime imports: defineAppConfig loads this, and tooling reads kumiko.config.ts without the engine runtime.
+// Runtime imports only from import-free modules: defineAppConfig loads this, and tooling reads
+// kumiko.config.ts without the engine runtime.
+import { reasonProblem } from "../engine/escape-hatch-reason.ts";
 
 const KMS_MODE_NAMES = ["required", "optional"] as const;
+
+function isKmsModeName(value: unknown): value is (typeof KMS_MODE_NAMES)[number] {
+  return KMS_MODE_NAMES.some((name) => name === value);
+}
 
 /** Short form over the low-level `kms` / `blindIndexKey` / `allowPlaintextPii`
  *  fields:
@@ -16,13 +22,21 @@ const KMS_MODE_NAMES = ["required", "optional"] as const;
 export type KmsMode = (typeof KMS_MODE_NAMES)[number] | { readonly plaintextReason: string };
 
 /** The problem with a kmsMode value read from untyped config, or undefined when it is valid. */
-export function findKmsModeProblem(kmsMode: KmsMode): string | undefined {
-  if (typeof kmsMode === "object") {
-    return kmsMode.plaintextReason.trim() === ""
-      ? "kmsMode.plaintextReason must name a reason"
-      : undefined;
+export function findKmsModeProblem(kmsMode: unknown): string | undefined {
+  if (isKmsModeName(kmsMode)) return undefined;
+  if (typeof kmsMode === "object" && kmsMode !== null && !Array.isArray(kmsMode)) {
+    const reason = "plaintextReason" in kmsMode ? kmsMode.plaintextReason : undefined;
+    if (typeof reason !== "string") {
+      return "kmsMode.plaintextReason must name a reason as a string";
+    }
+    const problem = reasonProblem(reason);
+    return problem === undefined
+      ? undefined
+      : `kmsMode.plaintextReason must name a reason (${problem})`;
   }
-  return KMS_MODE_NAMES.includes(kmsMode)
-    ? undefined
-    : `kmsMode must be one of ${KMS_MODE_NAMES.join(", ")} or { plaintextReason }, got ${String(kmsMode)}`;
+  return `kmsMode must be one of ${KMS_MODE_NAMES.join(", ")} or { plaintextReason }, got ${describeKmsModeValue(kmsMode)}`;
+}
+
+function describeKmsModeValue(value: unknown): string {
+  return Array.isArray(value) ? "an array" : String(value);
 }

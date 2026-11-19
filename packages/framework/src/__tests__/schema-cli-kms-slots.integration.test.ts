@@ -7,6 +7,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { withEnv } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestDb,
   type TestDb,
@@ -290,17 +291,21 @@ describe("runSchemaCli apply — kmsSlots", () => {
   });
 
   test("a plaintext kmsMode wires no KMS even with the KMS env set, like the boot", async () => {
-    process.env["SUBJECT_KEYS_DATABASE_URL"] = testDbUrl;
-    process.env["PLATFORM_KEK"] = PLATFORM_KEK_PLAINTEXT;
-    process.env["KUMIKO_BLIND_INDEX_KEY"] = BLIND_INDEX_PLAINTEXT;
-
     const appCwd = writeAppWithTrivialMigration("0005_plaintext");
     const cap = captureOut();
-    const code = await runSchemaCli(["apply"], appCwd, cap.out, {
-      features: [feature],
-      kmsSlots: ["PLATFORM_KEK", "KUMIKO_BLIND_INDEX_KEY"],
-      kmsMode: { plaintextReason: "demo without customer data" },
-    });
+    const code = await withEnv(
+      {
+        SUBJECT_KEYS_DATABASE_URL: testDbUrl,
+        PLATFORM_KEK: PLATFORM_KEK_PLAINTEXT,
+        KUMIKO_BLIND_INDEX_KEY: BLIND_INDEX_PLAINTEXT,
+      },
+      () =>
+        runSchemaCli(["apply"], appCwd, cap.out, {
+          features: [feature],
+          kmsSlots: ["PLATFORM_KEK", "KUMIKO_BLIND_INDEX_KEY"],
+          kmsMode: { plaintextReason: "demo without customer data" },
+        }),
+    );
 
     expect(cap.err).toEqual([]);
     expect(code).toBe(0);

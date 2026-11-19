@@ -8,8 +8,9 @@ export const QUERY_RULES = {
   },
   dispatchOnlyOnScreen: {
     id: "query/dispatch-only-on-screen",
-    summary: "A query a screen or panel loads in the browser is not dispatchOnly.",
-    fix: "Drop dispatchOnly from the query, or give the screen its own query.",
+    summary:
+      "A query the browser loads (screen, panel, field options, availability or summary row) is not dispatchOnly.",
+    fix: "Drop dispatchOnly from the query, or point the reference at a query without it.",
   },
   visibleWhenRequiresInput: {
     id: "query/visible-when-requires-input",

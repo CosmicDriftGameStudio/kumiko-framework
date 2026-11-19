@@ -344,3 +344,46 @@ describe("named verbs and history", () => {
     expect(row?.["status"]).toBe("open");
   });
 });
+
+describe("dispatchOnly query", () => {
+  async function createCounter(name: string): Promise<string> {
+    const created = await stack.http.writeOk<SaveContext>(
+      "counters:write:counter:create",
+      { name },
+      admin,
+    );
+    return String(created.id);
+  }
+
+  test("/api/query answers 404 for the dispatchOnly query", async () => {
+    const id = await createCounter("dispatch-only-hidden");
+
+    const error = await stack.http.queryErr(
+      "counters:query:counter:last-incremented-by",
+      { id },
+      user,
+    );
+
+    expect(error.code).toBe("not_found");
+    expect(error.httpStatus).toBe(404);
+  });
+
+  test("the calling handler reads it through ctx.dispatch.query", async () => {
+    const id = await createCounter("dispatch-only-caller");
+    await stack.http.writeOk("counters:write:counter:increment", { id, amount: 1 }, user);
+
+    const mine = await stack.http.queryOk<{ incrementedByMe: boolean }>(
+      "counters:query:counter:incremented-by-me",
+      { id },
+      user,
+    );
+    const notAdmins = await stack.http.queryOk<{ incrementedByMe: boolean }>(
+      "counters:query:counter:incremented-by-me",
+      { id },
+      admin,
+    );
+
+    expect(mine.incrementedByMe).toBe(true);
+    expect(notAdmins.incrementedByMe).toBe(false);
+  });
+});

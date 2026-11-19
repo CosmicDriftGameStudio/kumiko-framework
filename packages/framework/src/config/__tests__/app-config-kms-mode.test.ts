@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { findKmsModeProblem } from "../../crypto/kms-mode.ts";
 import { type AppConfig, defineAppConfig } from "../index.ts";
 
 const baseConfig: AppConfig = {
@@ -30,5 +31,28 @@ describe("defineAppConfig :: kmsMode", () => {
     expect(() => defineAppConfig({ ...baseConfig, kmsMode: typo })).toThrow(
       "kmsMode must be one of required, optional or { plaintextReason }, got requird",
     );
+  });
+
+  test.each(["todo", "legacy"])("rejects the placeholder reason %p", (plaintextReason) => {
+    expect(() => defineAppConfig({ ...baseConfig, kmsMode: { plaintextReason } })).toThrow(
+      `kmsMode.plaintextReason must name a reason (the reason "${plaintextReason}" is a placeholder`,
+    );
+  });
+});
+
+describe("findKmsModeProblem :: untyped config values", () => {
+  test.each([
+    {
+      value: null,
+      problem: "kmsMode must be one of required, optional or { plaintextReason }, got null",
+    },
+    { value: [], problem: "got an array" },
+    { value: {}, problem: "kmsMode.plaintextReason must name a reason as a string" },
+    {
+      value: { plaintextReason: 42 },
+      problem: "kmsMode.plaintextReason must name a reason as a string",
+    },
+  ])("reports $value instead of throwing", ({ value, problem }) => {
+    expect(findKmsModeProblem(value)).toContain(problem);
   });
 });

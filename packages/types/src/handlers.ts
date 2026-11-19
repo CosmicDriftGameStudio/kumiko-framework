@@ -1178,7 +1178,9 @@ export type QueryHandlerDef = {
   readonly systemScope?: true;
   /** Reachable only from server code (ctx.dispatch.query/queryAs, jobs, server routes), never
    *  through the generic HTTP entry: POST /api/query and the screen export answer 404 as for an
-   *  unknown handler. Implies agent exposure false; grants no live signals. */
+   *  unknown handler. Implies agent exposure false; grants no live signals. It closes the HTTP
+   *  entry only: its access rule still counts as a read grant on the entity for linked lists
+   *  (parentRef rows) and derived values. */
   readonly dispatchOnly?: boolean;
 };
 

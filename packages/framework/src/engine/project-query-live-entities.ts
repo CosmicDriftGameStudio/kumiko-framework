@@ -7,6 +7,8 @@ export function projectQueryLiveEntities(
   const projected: Record<string, readonly string[]> = {};
   for (const [queryQn, handler] of registry.getAllQueryHandlers()) {
     if (registry.getHandlerFeature(queryQn) !== featureName) continue;
+    // /api/schema is public to every client; a dispatchOnly QN there would confirm it exists.
+    if (handler.dispatchOnly) continue;
     // The handler's own entity is implicit: the client cannot derive a camelCase
     // entity (driverNode) from the kebab QN segment, but SSE frames carry the entity name.
     const handlerEntity = registry.getHandlerEntity(queryQn);

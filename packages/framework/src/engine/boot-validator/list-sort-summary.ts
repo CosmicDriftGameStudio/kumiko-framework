@@ -15,6 +15,7 @@ import { bootRuleError } from "./boot-rule.ts";
 import { LIST_SORT_SUMMARY_RULES } from "./list-sort-summary-rules.ts";
 import { rejectUnknownKeys } from "./list-table-reject-unknown-keys.ts";
 import { buildQueryHandlerMap, schemaAccepts } from "./projection-list-screens.ts";
+import { assertNotDispatchOnlyQuery } from "./query-refs.ts";
 import { getZodObjectShape, getZodStringLiterals } from "./zod-shape.ts";
 
 export function validateSummaryRowShape(where: string, summaryRow: unknown): void {
@@ -100,6 +101,7 @@ function validateSummaryRowQuery(
       message: `${prefix}: table.summaryRow.query "${summaryRow.query}" is not a registered query handler.`,
     });
   }
+  assertNotDispatchOnlyQuery(handler, summaryRow.query, () => `${prefix}: table.summaryRow`);
   const shape = getZodObjectShape(handler.schema);
   const paramKeys = Object.keys(summaryRow.params ?? {});
   const missing = [...listKeysSentBy(feature, screen, queryHandlers), ...paramKeys].filter(

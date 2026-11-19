@@ -10,6 +10,7 @@ import { ZodObject } from "zod";
 import { holdsFileRefs } from "../../files/file-field-slots.ts";
 import { access as accessPresets } from "../config-helpers.ts";
 import { parseRefTarget } from "../parse-ref-target.ts";
+import { QnTypes, qualifyEntityName } from "../qualified-name.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { validateAgentProposalEffect } from "./agent-effect.ts";
 import { bootRuleError } from "./boot-rule.ts";
@@ -17,6 +18,7 @@ import { HANDLER_ACCESS_RULES } from "./entity-handler-access-rules.ts";
 import { ENTITY_REFERENCE_EMBEDDED_RULES } from "./entity-reference-embedded-rules.ts";
 import { ENTITY_STRUCTURE_RULES } from "./entity-structure-rules.ts";
 import { FIELD_CONDITION_RULES } from "./field-conditions-rules.ts";
+import { assertNotDispatchOnlyQuery } from "./query-refs.ts";
 import {
   validateBeforeTransactionWhenNested,
   validatePerCommandTransaction,
@@ -671,7 +673,13 @@ function validateReferenceTarget(
         `different label/entity.`,
     });
   }
-  // The check above still applies when optionsQuery is set: optionsQuery only
+  assertNotDispatchOnlyQuery(
+    targetFeature.queryHandlers[expectedHandlerShortName],
+    qualifyEntityName(target.featureName, QnTypes.query, expectedHandlerShortName),
+    () =>
+      `[Feature ${feature.name}] Reference field "${fieldPath}" on entity "${entityName}" target list`,
+  );
+  // The checks above still apply when optionsQuery is set: optionsQuery only
   // replaces the picker's option list, while list cells keep resolving the
   // UUID through `<targetFeature>:query:<targetEntity>:list`
   // (use-reference-lookup).
@@ -707,6 +715,12 @@ function validateReferenceOptionsQuery(
         `is declared via r.queryHandler(...).`,
     });
   }
+  assertNotDispatchOnlyQuery(
+    queryHandlers.get(optionsQuery),
+    optionsQuery,
+    () =>
+      `[Feature ${feature.name}] Reference field "${fieldPath}" on entity "${entityName}" optionsQuery`,
+  );
 }
 
 // ReferenceFieldDef validation for top-level

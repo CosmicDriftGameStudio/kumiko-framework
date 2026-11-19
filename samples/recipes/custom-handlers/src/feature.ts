@@ -1,7 +1,8 @@
 // Custom Handlers Sample
 // Shows: writeHandler with business logic, queryHandler with a server-side filter,
 // handler that modifies payload before DB write, named entity verbs (counter.archived,
-// counter.reset) with a checked transition, and the executor's history and as-of reads.
+// counter.reset) with a checked transition, the executor's history and as-of reads, and a
+// dispatchOnly query that only another handler can call.
 
 import {
   createEntity,
@@ -153,6 +154,28 @@ export const counterFeature = defineFeature("counters", (r) => {
           "any signed-in user may read a counter by id; the sample has no per-user counter ownership",
       },
     },
+  });
+
+  // dispatchOnly: reachable only through ctx.dispatch.query, /api/query answers 404 as for an unknown name.
+  const lastIncrementedBy = r.queryHandler({
+    name: "counter:last-incremented-by",
+    schema: z.object({ id: z.uuid() }),
+    dispatchOnly: true,
+    handler: async (query, ctx) => {
+      const counter = await counterExecutor.detail(query.payload, query.user, ctx.db);
+      return { lastIncrementedBy: counter?.lastIncrementedBy ?? null };
+    },
+    access: { roles: ["Admin", "User"] },
+  });
+
+  r.queryHandler({
+    name: "counter:incremented-by-me",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (query, ctx) => {
+      const result = await ctx.dispatch.query(lastIncrementedBy, query.payload);
+      return { incrementedByMe: result.lastIncrementedBy === `user:${query.user.id}` };
+    },
+    access: { roles: ["Admin", "User"] },
   });
 
   r.queryHandler({
