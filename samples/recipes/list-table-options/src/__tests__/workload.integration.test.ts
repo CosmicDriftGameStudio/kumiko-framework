@@ -106,12 +106,12 @@ describe("form bulk action handler", () => {
       ),
     );
     const taskIds = created.map((task) => task.data.id);
-    const result = await stack.http.writeOk<{ count: number; via: string }>(
+    const result = await stack.http.writeOk<{ count: number; statusKey: string; via: string }>(
       "task-board:write:task:set-status-via",
       { via: "inbox", values: { taskIds, status: "done" } },
       user,
     );
-    expect(result).toEqual({ count: 2, via: "inbox" });
+    expect(result).toEqual({ count: 2, statusKey: "task-board:status.done", via: "inbox" });
     const list = await stack.http.queryOk<{ rows: { title: string; status: string }[] }>(
       "task-board:query:task:list",
       { sort: "title" },
