@@ -427,9 +427,8 @@ export type JobBackoff =
 // "skipped:max-per-tenant"). `defer`: nothing is dropped; the limit is checked
 // when a worker picks the job up, and over the limit the job is moved to delayed
 // for `deferMs` (default 1000) and re-checked without consuming a retry attempt.
-// The delay grows per deferral up to a cap (30 s) plus jitter. Pick-up order
-// (`processedOn`) keeps the cap; only clock skew between workers can briefly let
-// one job more through.
+// The delay grows per deferral up to a cap (30 s) plus jitter. A picked-up job
+// counts only the jobs BullMQ moved to active before it, so at most `limit` run.
 export type MaxPerTenantOptions = {
   readonly limit: number;
   readonly onLimit: "skip" | "defer";

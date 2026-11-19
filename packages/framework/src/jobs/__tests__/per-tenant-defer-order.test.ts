@@ -90,4 +90,22 @@ describe("maxPerTenant defer order", () => {
 
     expect(await defersAt({ worker: [self], api: [inOtherLane] }, self, 1)).toBe(true);
   });
+
+  test("without its own entry in the active list, every active job of the tenant counts", async () => {
+    const self = activeJob("1", 1000);
+    const activatedLater = activeJob("2", 5000);
+
+    expect(await defersAt({ worker: [activatedLater] }, self, 1)).toBe(true);
+    expect(
+      await isOverPerTenantLimit(
+        scopeWith({ worker: [activatedLater, self] }),
+        JOB_NAME,
+        TENANT,
+        1,
+        {
+          activatedBefore: { jobId: undefined },
+        },
+      ),
+    ).toBe(true);
+  });
 });

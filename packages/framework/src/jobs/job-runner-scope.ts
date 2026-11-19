@@ -88,7 +88,7 @@ export async function isOverPerTenantLimit(
   for (const list of results) {
     const counted = activatedBefore ? jobsActivatedBefore(list, activatedBefore.jobId) : list;
     for (const j of counted) {
-      if (j === undefined || j.name !== jobName) continue;
+      if (j.name !== jobName) continue;
       if (propertyOf(j.data, "_tenantId") === tenantId) {
         count += 1;
         if (count >= max) return true;
