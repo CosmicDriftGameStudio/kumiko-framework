@@ -20,9 +20,16 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
 } from "../../crypto/index.ts";
-import { createEntity, createTextField, from } from "../../engine/index.ts";
+import {
+  createEntity,
+  createLocatedTimestampField,
+  createMoneyField,
+  createTextField,
+  defineFeature,
+  from,
+} from "../../engine/index.ts";
 
-import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
+import { createTestUser, TestUsers, testTenantId } from "../../seeding/seed-users.ts";
 import {
   collectReferenceFields,
   type EagerLoadViewer,
@@ -492,5 +499,94 @@ describe("enrichWithReferences", () => {
 
     expect(single(goodRow, "contact")?.["email"]).toBe("grace@acme.test");
     expect(single(brokenRow, "contact")).toBeUndefined();
+  });
+});
+
+describe("eager-loaded refs over HTTP: compound fields have the detail shape", () => {
+  const vehicleEntity = createEntity({
+    name: "vehicle",
+    table: "el_vehicles",
+    fields: {
+      label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+      price: createMoneyField(),
+      listedAt: createLocatedTimestampField(),
+      purchasePrice: createMoneyField({ access: { read: ["SystemAdmin"] } }),
+    },
+  });
+  const inquiryEntity = createEntity({
+    name: "inquiry",
+    table: "el_inquiries",
+    fields: {
+      title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+      vehicle: { type: "reference", entity: "vehicle" },
+    },
+  });
+  const crudAccess = {
+    write: { access: { roles: ["Admin"] } },
+    read: { access: { roles: ["Admin"] } },
+  };
+  const feature = defineFeature("el", (r) => {
+    r.crud(vehicleEntity, crudAccess);
+    r.crud(inquiryEntity, crudAccess);
+  });
+  const admin = TestUsers.admin;
+  let httpStack: TestStack;
+
+  beforeAll(async () => {
+    httpStack = await setupTestStack({ features: [feature] });
+  });
+
+  afterAll(async () => {
+    await httpStack.cleanup();
+  });
+
+  test("money and located timestamp in _refs equal the referenced detail, an unreadable money field is absent", async () => {
+    const { id: vehicleId } = await httpStack.http.writeOk<{ id: string }>(
+      "el:write:vehicle:create",
+      {
+        label: "Roadster",
+        price: { amount: 1_890_000, currency: "EUR" },
+        listedAt: { at: "2026-01-02T03:04:05", tz: "Europe/Berlin" },
+        purchasePrice: { amount: 1_500_000, currency: "CHF" },
+      },
+      admin,
+    );
+    await httpStack.http.writeOk(
+      "el:write:inquiry:create",
+      { title: "Test drive", vehicle: vehicleId },
+      admin,
+    );
+
+    const detail = await httpStack.http.queryOk<Record<string, unknown>>(
+      "el:query:vehicle:detail",
+      { id: vehicleId },
+      admin,
+    );
+    const list = await httpStack.http.queryOk<{ rows: EagerloadedRow[] }>(
+      "el:query:inquiry:list",
+      { limit: 10 },
+      admin,
+    );
+    const vehicle = single(list.rows[0], "vehicle");
+
+    expect(detail["price"]).toEqual({ amount: 1_890_000, currency: "EUR" });
+    expect(vehicle?.["price"]).toEqual(detail["price"]);
+    expect(vehicle?.["listedAt"]).toEqual(detail["listedAt"]);
+    expect(Object.keys(vehicle ?? {}).sort()).toEqual(Object.keys(detail).sort());
+    expect(vehicle).not.toHaveProperty("priceCurrency");
+    expect(vehicle).not.toHaveProperty("purchasePrice");
+    expect(vehicle).not.toHaveProperty("purchasePriceCurrency");
+
+    // In-process, before any HTTP serializer: a handler result carrying _refs goes through JSON.stringify as is.
+    const [inProcess] = (await enrichWithReferences(
+      [{ id: "i1", vehicle: vehicleId }],
+      inquiryEntity,
+      (name) => (name === "vehicle" ? vehicleEntity : undefined),
+      createTenantDb({ db: httpStack.db, tenantId: admin.tenantId, mode: "tenant" }),
+      viewerFor(admin),
+    )) as EagerloadedRow[];
+    const inProcessVehicle = single(inProcess, "vehicle");
+    expect(inProcessVehicle?.["price"]).toEqual(detail["price"]);
+    expect(JSON.parse(JSON.stringify(inProcessVehicle))).toEqual(vehicle ?? {});
   });
 });

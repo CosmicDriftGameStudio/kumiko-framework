@@ -34,6 +34,7 @@ import type { ReferenceFieldDef, SessionUser } from "../engine/types/index.ts";
 
 import { scrubLogValue } from "../logging/scrub.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
+import { rehydrateCompoundTypes } from "./compound-types.ts";
 import {
   collectEncryptedFieldNames,
   decryptEntityFieldValues,
@@ -181,6 +182,10 @@ async function resolveRefAccessScope(
 // are unrelated to this one broken reference. Drop just that row from the
 // map; the renderer falls back to the raw UUID.
 //
+// Compound fields are folded before decrypt and filterReadFields, in the
+// executor's read order: the field-level read check knows `price`, not the
+// `priceCurrency` column, which would otherwise pass as a base column.
+//
 // piiFields/encryptedFields/kms are constant per refEntity — the
 // caller computes them once and passes them in instead of recomputing per row.
 async function buildRefLookupMap(
@@ -196,9 +201,14 @@ async function buildRefLookupMap(
   for (const r of rawRefRows) {
     let decrypted: Record<string, unknown>;
     try {
-      decrypted = await decryptReferencedRow(r, piiFields, encryptedFields, kms);
+      decrypted = await decryptReferencedRow(
+        rehydrateCompoundTypes(r, refEntity),
+        piiFields,
+        encryptedFields,
+        kms,
+      );
     } catch (e) {
-      log.warn("failed to decrypt referenced row", {
+      log.warn("failed to read referenced row", {
         entity: refEntityName,
         id: String(r["id"]),
         err: scrubLogValue(e),
