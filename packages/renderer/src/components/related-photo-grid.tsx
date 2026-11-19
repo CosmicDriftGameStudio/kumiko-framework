@@ -63,7 +63,10 @@ export function RelatedPhotoGrid({
                   onPress: () => action.onTrigger(vm),
                   ...(action.style !== undefined && { style: action.style }),
                   ...(action.display !== undefined && { display: action.display }),
-                  ...(action.confirm !== undefined && { confirm: action.confirm }),
+                  ...(action.confirm !== undefined && {
+                    confirm:
+                      typeof action.confirm === "function" ? action.confirm(vm) : action.confirm,
+                  }),
                   ...(action.confirmLabel !== undefined && { confirmLabel: action.confirmLabel }),
                   ...(action.confirmRequired !== undefined && {
                     confirmRequired: action.confirmRequired,
