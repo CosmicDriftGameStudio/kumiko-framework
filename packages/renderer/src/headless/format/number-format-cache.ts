@@ -33,7 +33,8 @@ export function canonicalLocaleOr(candidate: string, fallback: string): string {
   try {
     resolved = Intl.getCanonicalLocales(candidate)[0] ?? fallback;
   } catch {
-    resolved = fallback;
+    // Not remembered: an invalid tag is arbitrary user text of any length.
+    return fallback;
   }
   return rememberBounded(canonicalLocales, key, resolved);
 }
