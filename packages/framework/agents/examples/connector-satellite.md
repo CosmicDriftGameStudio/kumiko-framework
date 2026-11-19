@@ -109,6 +109,7 @@ test("a satellite pairs, is confirmed by a TenantAdmin and uploads a file once",
     )
   ).json()) as { device_code: string; user_code: string };
 
+  await stack.http.writeOk("connectors:write:check-device", { userCode: started.user_code }, admin);
   await stack.http.writeOk(
     "connectors:write:approve-device",
     { userCode: started.user_code, name: "Warehouse server" },
