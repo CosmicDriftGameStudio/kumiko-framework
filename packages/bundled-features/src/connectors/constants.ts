@@ -9,7 +9,6 @@ export type ConnectorStatus = (typeof CONNECTOR_STATUS)[keyof typeof CONNECTOR_S
 export const DEVICE_AUTHORIZATION_STATUS = {
   pending: "pending",
   approved: "approved",
-  redeemed: "redeemed",
 } as const;
 
 // A device-code request can name any client_id; the satellite sends this fixed one.

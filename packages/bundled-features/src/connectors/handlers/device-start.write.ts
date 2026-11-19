@@ -7,6 +7,7 @@ import {
   DEVICE_AUTHORIZATION_STATUS,
   MAX_OPEN_REQUESTS_PER_IP,
   MAX_OPEN_REQUESTS_TOTAL,
+  PAIRING_STARTS_PER_MINUTE,
   POLL_INTERVAL_SECONDS,
   USER_CODE_TTL_SECONDS,
 } from "../constants.ts";
@@ -14,6 +15,7 @@ import { hashUserCode, mintDeviceCode, mintUserCode } from "../hash.ts";
 import { deviceAuthorizationTable } from "../schema/device-authorization.ts";
 
 const MAX_USER_CODE_ATTEMPTS = 5;
+const START_RATE_WINDOW_SECONDS = 60;
 
 type DeviceStartResult =
   | { readonly tooManyOpenRequests: true }
@@ -35,6 +37,7 @@ export const deviceStartWrite = defineWriteHandler({
   name: "device-start",
   schema: z.object({
     requestIp: z.string().max(64),
+    maxStartsPerMinute: z.number().int().positive().default(PAIRING_STARTS_PER_MINUTE),
     maxOpenPerIp: z.number().int().positive().default(MAX_OPEN_REQUESTS_PER_IP),
     maxOpenTotal: z.number().int().positive().default(MAX_OPEN_REQUESTS_TOTAL),
   }),
@@ -54,7 +57,12 @@ export const deviceStartWrite = defineWriteHandler({
     });
     const open = { status: DEVICE_AUTHORIZATION_STATUS.pending, expiresAt: { gt: now } };
     // ponytail: count then insert without a lock, so parallel starts can overshoot a cap by the number of concurrent requests; the per-address route rate limit bounds that
+    // The route's own rate limit keys on the exact address, so the /64 key is counted here as well.
     const overCap =
+      (await ctx.db.count(deviceAuthorizationTable, {
+        requestIp: event.payload.requestIp,
+        createdAt: { gt: now.subtract({ seconds: START_RATE_WINDOW_SECONDS }) },
+      })) >= event.payload.maxStartsPerMinute ||
       (await ctx.db.count(deviceAuthorizationTable, {
         ...open,
         requestIp: event.payload.requestIp,

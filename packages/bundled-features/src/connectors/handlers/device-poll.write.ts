@@ -1,4 +1,4 @@
-import { fetchOne, insertOne, updateMany } from "@cosmicdrift/kumiko-framework/db";
+import { deleteMany, fetchOne, insertOne, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -55,9 +55,6 @@ export const devicePollWrite = defineWriteHandler({
     if (redeemableUntil.epochMilliseconds <= now.epochMilliseconds) {
       return outcome({ kind: "expired_token" });
     }
-    if (row.status === DEVICE_AUTHORIZATION_STATUS.redeemed) {
-      return outcome({ kind: "invalid_grant" });
-    }
 
     if (row.status === DEVICE_AUTHORIZATION_STATUS.pending) {
       const tooFast =
@@ -75,14 +72,13 @@ export const devicePollWrite = defineWriteHandler({
       return outcome({ kind: tooFast ? "slow_down" : "authorization_pending" });
     }
 
-    // Approved: the conditional update is the single redeem, so two parallel polls never both win.
-    const redeemed = await updateMany(
-      ctx.db,
-      deviceAuthorizationTable,
-      { status: DEVICE_AUTHORIZATION_STATUS.redeemed, lastPolledAt: now },
-      { id: row.id, status: DEVICE_AUTHORIZATION_STATUS.approved },
-    );
-    if (redeemed.length === 0 || row.ownerTenantId === null || row.connectorId === null) {
+    // Approved: the conditional delete is the single redeem, so two parallel polls never both win;
+    // deleting also drops the request address with the row.
+    const redeemed = await deleteMany(ctx.db, deviceAuthorizationTable, {
+      id: row.id,
+      status: DEVICE_AUTHORIZATION_STATUS.approved,
+    });
+    if (redeemed === 0 || row.ownerTenantId === null || row.connectorId === null) {
       return outcome({ kind: "invalid_grant" });
     }
     const token = mintDeviceToken();

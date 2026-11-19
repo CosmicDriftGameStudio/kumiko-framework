@@ -12,6 +12,7 @@ import { FrameworkReasons, VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-fra
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Context } from "hono";
 import * as z from "zod";
+import { pairingAddressKey } from "./address-key.ts";
 import { inboundItemAggregateId } from "./aggregate-id.ts";
 import {
   CONNECTOR_CLIENT_ID,
@@ -264,7 +265,8 @@ export function createConnectorRoutes(
       const started = await deps.dispatchWriteAs({
         handlerQn: ConnectorHandlers.deviceStart,
         payload: {
-          requestIp: deps.clientIp,
+          requestIp: pairingAddressKey(deps.clientIp),
+          maxStartsPerMinute: options.pairingLimits?.startsPerMinute ?? PAIRING_STARTS_PER_MINUTE,
           ...(options.pairingLimits?.maxOpenPerIp !== undefined && {
             maxOpenPerIp: options.pairingLimits.maxOpenPerIp,
           }),

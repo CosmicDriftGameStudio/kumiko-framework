@@ -41,6 +41,31 @@ describe("connectors pairing flood protection", () => {
   });
 });
 
+describe("connectors pairing flood protection per IPv6 prefix", () => {
+  let proxied: TestStack;
+  beforeAll(async () => {
+    proxied = await setupConnectorsStack({ pairingLimits: { maxOpenPerIp: 3 } }, 1);
+  });
+  afterAll(() => teardownConnectorsStack(proxied));
+
+  const startFrom = (ip: string) =>
+    proxied.app.request(START_PATH, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded", "x-forwarded-for": ip },
+      body: new URLSearchParams({ client_id: CONNECTOR_CLIENT_ID }).toString(),
+    });
+
+  test("fresh addresses of one /64 share one set of open requests", async () => {
+    for (const ip of ["2001:db8:1:2::1", "2001:db8:1:2::2", "2001:db8:1:2:aaaa::3"]) {
+      expect((await startFrom(ip)).status).toBe(200);
+    }
+    const refused = await startFrom("2001:db8:1:2:ffff:ffff:ffff:ffff");
+    expect(refused.status).toBe(429);
+    expect(await refused.json()).toEqual({ error: "slow_down" });
+    expect((await startFrom("2001:db8:1:3::1")).status).toBe(200);
+  });
+});
+
 describe("connectors pairing global cap", () => {
   let capped: TestStack;
   beforeAll(async () => {

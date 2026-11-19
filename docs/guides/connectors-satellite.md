@@ -39,6 +39,8 @@ The client id is public, so the pairing start has three limits; beyond the two o
 - At most 3 open (pending, not yet expired) requests per address; a confirmed or expired request frees its place.
 - At most 1000 open requests overall, so many addresses together cannot fill the table.
 
+An IPv6 address counts as its /64 prefix (an IPv4-mapped one as the IPv4 address), because one subscriber holds a whole /64 and could otherwise take a fresh address per request. The confirm screen therefore shows that prefix for IPv6 satellites. A request row is deleted as soon as its token is collected.
+
 Override them with the route option `pairingLimits: { startsPerMinute, maxOpenPerIp, maxOpenTotal }`.
 
 The address is the socket peer unless `KUMIKO_TRUSTED_PROXY_HOPS` is set, so a client cannot spoof it through `X-Forwarded-For`. Behind a reverse proxy set that value; otherwise every satellite shares the proxy address and the per-address limits apply to all of them together.

@@ -34,7 +34,10 @@ export const FILES_PATH = "/connectors/v1/files";
 export const HEARTBEAT_PATH = "/connectors/v1/heartbeat";
 export const DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";
 
-export async function setupConnectorsStack(routes: ConnectorRouteOptions = {}): Promise<TestStack> {
+export async function setupConnectorsStack(
+  routes: ConnectorRouteOptions = {},
+  trustedProxyHops?: number,
+): Promise<TestStack> {
   resetPiiSubjectKmsForTests();
   configurePiiSubjectKms(new InMemoryKmsAdapter());
   const stack = await setupTestStack({
@@ -58,6 +61,7 @@ export async function setupConnectorsStack(routes: ConnectorRouteOptions = {}): 
     }),
     files: { storageProvider: createInMemoryFileProvider() },
     now: TEST_NOW,
+    ...(trustedProxyHops !== undefined && { trustedProxyHops }),
   });
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
   await unsafeCreateEntityTable(stack.db, tenantEntity, "tenant");
