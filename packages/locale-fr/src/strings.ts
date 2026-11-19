@@ -3423,6 +3423,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "connectors.list.sync.status.failed": "Erreur",
   "connectors.list.sync.queued": "{count} en file d'attente",
   "connectors.list.sync.failedCount": "{count} en erreur",
+  "connectors.sync.detail.storageFull": "Stockage plein, envois en pause",
   "connectors.list.retry": "Réessayer",
   "screen:connector-files.title": "Fichiers",
   "connectors.files.root": "Tous les appareils",

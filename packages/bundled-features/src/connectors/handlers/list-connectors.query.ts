@@ -9,6 +9,7 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { ConnectorQueries, SYNC_STATE, SYNC_STATUS } from "../constants.ts";
 import { connectorTable } from "../schema/connector.ts";
+import { physicalStoredBytes } from "../stored-bytes.ts";
 
 const LIST_DEVICES_REASON =
   "device rows live in the system tenant (the device has no tenant until it is paired); the list reads only the caller's own tenant's devices, by ownerTenantId taken from the session";
@@ -42,7 +43,11 @@ function syncStatusOf({ state, failed }: SyncReport): string {
 }
 
 // Text for the "Details" column: counts the badge cannot carry.
-function syncDetailOf(status: string, { queued, failed }: SyncReport) {
+function syncDetailOf(status: string, report: SyncReport, storageFull: boolean) {
+  const { queued, failed } = report;
+  if (storageFull && report.state !== null && report.state !== SYNC_STATE.idle) {
+    return { i18nKey: "connectors.sync.detail.storageFull" };
+  }
   if (status === SYNC_STATUS.failed && (failed ?? 0) > 0) {
     return { i18nKey: "connectors.list.sync.failedCount", i18nParams: { count: failed ?? 0 } };
   }
@@ -52,44 +57,51 @@ function syncDetailOf(status: string, { queued, failed }: SyncReport) {
   return null;
 }
 
-export const listConnectorsQuery = defineQueryHandler({
-  name: "list",
-  schema: z.object({}),
-  access: { roles: access.admin },
-  escapeHatch: { grants: ["systemIdentity"], reason: LIST_DEVICES_REASON },
-  description:
-    "Lists the tenant's connectors with their status and, per connector, when its device was last seen and which software version it reported. Use it to check which satellites are paired and alive.",
-  handler: async (query, ctx) => {
-    const connectors = (await selectMany<ConnectorRow>(ctx.db, connectorTable, {})).toSorted(
-      (a, b) => Temporal.Instant.compare(b.insertedAt, a.insertedAt),
-    );
-    const devices = deviceSummariesSchema.parse(
-      await ctx.dispatch.queryAs(createSystemUser(SYSTEM_TENANT_ID), ConnectorQueries.listDevices, {
-        ownerTenantId: query.user.tenantId,
-      }),
-    );
-    const rows = connectors.map((connector) => {
-      const live = devices.find(
-        (device) => device.connectorId === connector.id && device.revokedAt === null,
+export function createListConnectorsQuery(maxStoredBytes: number) {
+  return defineQueryHandler({
+    name: "list",
+    schema: z.object({}),
+    access: { roles: access.admin },
+    escapeHatch: { grants: ["systemIdentity"], reason: LIST_DEVICES_REASON },
+    description:
+      "Lists the tenant's connectors with their status and, per connector, when its device was last seen and which software version it reported. Use it to check which satellites are paired and alive.",
+    handler: async (query, ctx) => {
+      const connectors = (await selectMany<ConnectorRow>(ctx.db, connectorTable, {})).toSorted(
+        (a, b) => Temporal.Instant.compare(b.insertedAt, a.insertedAt),
       );
-      const report: SyncReport = {
-        state: live?.syncState ?? null,
-        queued: live?.syncQueued ?? null,
-        failed: live?.syncFailed ?? null,
-      };
-      const syncStatus = syncStatusOf(report);
-      return {
-        syncStatus,
-        syncDetail: syncDetailOf(syncStatus, report),
-        id: connector.id,
-        name: connector.name,
-        kind: connector.kind,
-        status: connector.status,
-        createdAt: connector.insertedAt.toString(),
-        lastSeenAt: live?.lastSeenAt ?? null,
-        reportedVersion: live?.reportedVersion ?? null,
-      };
-    });
-    return { rows, nextCursor: null };
-  },
-});
+      const devices = deviceSummariesSchema.parse(
+        await ctx.dispatch.queryAs(
+          createSystemUser(SYSTEM_TENANT_ID),
+          ConnectorQueries.listDevices,
+          {
+            ownerTenantId: query.user.tenantId,
+          },
+        ),
+      );
+      const storageFull = (await physicalStoredBytes(ctx.db)) >= maxStoredBytes;
+      const rows = connectors.map((connector) => {
+        const live = devices.find(
+          (device) => device.connectorId === connector.id && device.revokedAt === null,
+        );
+        const report: SyncReport = {
+          state: live?.syncState ?? null,
+          queued: live?.syncQueued ?? null,
+          failed: live?.syncFailed ?? null,
+        };
+        const syncStatus = syncStatusOf(report);
+        return {
+          syncStatus,
+          syncDetail: syncDetailOf(syncStatus, report, storageFull),
+          id: connector.id,
+          name: connector.name,
+          kind: connector.kind,
+          status: connector.status,
+          createdAt: connector.insertedAt.toString(),
+          lastSeenAt: live?.lastSeenAt ?? null,
+          reportedVersion: live?.reportedVersion ?? null,
+        };
+      });
+      return { rows, nextCursor: null };
+    },
+  });
+}

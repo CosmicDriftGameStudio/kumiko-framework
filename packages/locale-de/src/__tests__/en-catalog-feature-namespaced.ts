@@ -907,6 +907,7 @@ export const featureNamespacedEnCatalog: Readonly<Record<string, string>> = {
   "connectors.list.sync.status.failed": "Failed",
   "connectors.list.sync.queued": "{count} in the queue",
   "connectors.list.sync.failedCount": "{count} failed",
+  "connectors.sync.detail.storageFull": "Storage full, uploads paused",
   "connectors.list.retry": "Retry",
   "screen:connector-files.title": "Files",
   "connectors.files.root": "All devices",

@@ -84,3 +84,41 @@ describe("heartbeat sync report and retry signal", () => {
     expect(await second.json()).toEqual({ ok: true });
   });
 });
+
+describe("heartbeat sync detail when the storage is full", () => {
+  const errorReport = { version: "1.0.0", sync: { state: "error", queued: 4, failed: 0 } };
+
+  test("a connector that is not idle says the storage is full once the quota is reached", async () => {
+    const small = await setupConnectorsStack({ maxStoredBytesPerTenant: 10 });
+    try {
+      const paired = await pairDevice(small);
+      const send = (body: unknown) =>
+        small.app.request(HEARTBEAT_PATH, {
+          method: "POST",
+          headers: { authorization: `Bearer ${paired.token}`, "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      const smallRow = async () =>
+        (await listConnectors(small)).find((c) => c.id === paired.connectorId);
+
+      await send(errorReport);
+      expect((await smallRow())?.syncDetail).toBeNull();
+
+      const stored = await upload(small, paired.token, {
+        path: "a/one.bin",
+        bytes: new Uint8Array(10),
+      });
+      expect(stored.status).toBe(201);
+
+      await send(errorReport);
+      expect((await smallRow())?.syncDetail).toEqual({
+        i18nKey: "connectors.sync.detail.storageFull",
+      });
+
+      await send({ version: "1.0.0", sync: { state: "idle", queued: 0, failed: 0 } });
+      expect((await smallRow())?.syncDetail).toBeNull();
+    } finally {
+      await teardownConnectorsStack(small);
+    }
+  });
+});

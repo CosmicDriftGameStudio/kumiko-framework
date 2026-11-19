@@ -3389,6 +3389,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "connectors.list.sync.status.failed": "Error",
   "connectors.list.sync.queued": "{count} en cola",
   "connectors.list.sync.failedCount": "{count} con error",
+  "connectors.sync.detail.storageFull": "Almacenamiento lleno, subidas en pausa",
   "connectors.list.retry": "Reintentar",
   "screen:connector-files.title": "Archivos",
   "connectors.files.root": "Todos los dispositivos",

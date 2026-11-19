@@ -31,6 +31,10 @@ export const CONNECTORS_I18N: Readonly<Record<string, Localized>> = {
   "connectors.list.sync.status.failed": { en: "Failed", de: "Fehler" },
   "connectors.list.sync.queued": { en: "{count} in the queue", de: "{count} in der Warteschlange" },
   "connectors.list.sync.failedCount": { en: "{count} failed", de: "{count} Fehler" },
+  "connectors.sync.detail.storageFull": {
+    en: "Storage full, uploads paused",
+    de: "Speicher voll, Uploads pausiert",
+  },
   "connectors.list.retry": { en: "Retry", de: "Erneut versuchen" },
 
   "screen:connector-list.title": { en: "Connectors", de: "Anschlüsse" },

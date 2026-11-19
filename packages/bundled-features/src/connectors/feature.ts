@@ -22,7 +22,7 @@ import { devicePollWrite } from "./handlers/device-poll.write.ts";
 import { deviceStartWrite } from "./handlers/device-start.write.ts";
 import { createInboundFolderQuery } from "./handlers/inbound-folder.query.ts";
 import { createInboundSearchQuery } from "./handlers/inbound-search.query.ts";
-import { listConnectorsQuery } from "./handlers/list-connectors.query.ts";
+import { createListConnectorsQuery } from "./handlers/list-connectors.query.ts";
 import { listDevicesQuery } from "./handlers/list-devices.query.ts";
 import { markDeviceCheckedWrite } from "./handlers/mark-device-checked.write.ts";
 import { markDeviceRetryWrite } from "./handlers/mark-device-retry.write.ts";
@@ -117,7 +117,7 @@ export function createConnectorsFeature(options: ConnectorsFeatureOptions = {}):
     r.writeHandler(createReceiveFileWrite(maxStoredBytes));
     r.writeHandler(deleteFileWrite);
     r.writeHandler(deleteFolderWrite);
-    r.queryHandler(listConnectorsQuery);
+    r.queryHandler(createListConnectorsQuery(maxStoredBytes));
     r.queryHandler(resolveDeviceQuery);
     r.queryHandler(listDevicesQuery);
     r.queryHandler(pendingRequestQuery);
