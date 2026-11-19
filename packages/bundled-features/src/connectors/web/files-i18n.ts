@@ -15,7 +15,7 @@ export const CONNECTOR_FILES_I18N: Readonly<Record<string, Localized>> = {
   "connectors.files.kind.file": { en: "File", de: "Datei" },
   "connectors.files.storage": { en: "Storage used", de: "Speicher belegt" },
   "connectors.files.storageOf": { en: "of {quota}", de: "von {quota}" },
-  "connectors.files.breadcrumb": { en: "Path", de: "Pfad" },
+  "connectors.files.breadcrumb": { en: "Folder path", de: "Ordnerpfad" },
   "connectors.files.storageDeleting": {
     en: "{size} of it is being deleted",
     de: "davon {size} werden gelöscht",

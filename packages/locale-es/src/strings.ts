@@ -3402,7 +3402,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "connectors.files.kind.file": "Archivo",
   "connectors.files.storage": "Almacenamiento usado",
   "connectors.files.storageOf": "de {quota}",
-  "connectors.files.breadcrumb": "Ruta",
+  "connectors.files.breadcrumb": "Ruta de carpetas",
   "connectors.files.storageDeleting": "de ellos {size} se están eliminando",
   "connectors.files.empty.title": "Aquí todavía no ha llegado nada",
   "connectors.files.empty.hint": "Los archivos que entregue un satélite vinculado aparecen aquí.",

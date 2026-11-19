@@ -204,7 +204,7 @@ test("file tree: root, folder, delete confirmation", async ({ page, request, see
 
   // The breadcrumb's current entry follows the settled answer for the opened folder; the table keeps showing the previous rows until then, so a click before it would hit stale rows.
   const currentCrumb = page
-    .getByRole("navigation", { name: "Pfad" })
+    .getByRole("navigation", { name: "Ordnerpfad" })
     .locator("[aria-current=page]");
   await table.getByText(ACTIVE_DEVICE).click();
   await expect(currentCrumb).toHaveText(ACTIVE_DEVICE);

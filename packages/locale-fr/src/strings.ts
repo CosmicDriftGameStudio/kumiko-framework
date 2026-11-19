@@ -3436,7 +3436,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "connectors.files.kind.file": "Fichier",
   "connectors.files.storage": "Stockage utilisé",
   "connectors.files.storageOf": "sur {quota}",
-  "connectors.files.breadcrumb": "Chemin",
+  "connectors.files.breadcrumb": "Chemin du dossier",
   "connectors.files.storageDeleting": "dont {size} en cours de suppression",
   "connectors.files.empty.title": "Rien n'est encore arrivé ici",
   "connectors.files.empty.hint": "Les fichiers livrés par un satellite couplé apparaissent ici.",
