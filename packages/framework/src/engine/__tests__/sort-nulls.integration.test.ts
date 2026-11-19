@@ -135,11 +135,6 @@ const burstFeature = defineFeature("sort-burst", (r) => {
 type BurstRow = { readonly id: string; readonly insertedAt: string };
 type BurstPage = { readonly rows: readonly BurstRow[]; readonly nextCursor: string | null };
 
-// Code-unit order, as Postgres orders uuids and ISO timestamps with a fixed offset.
-function compareText(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
-}
-
 // Rows created in one burst share inserted_at values; a cursor that dropped precision would
 // skip or repeat rows at those ties.
 describe("insertedAt cursor over rows created in one burst", () => {
@@ -171,13 +166,12 @@ describe("insertedAt cursor over rows created in one burst", () => {
       { limit: 200, sort: "insertedAt", sortDirection: "desc" },
       TestUsers.user,
     );
-    const expected = [...all.rows]
-      .sort((a, b) =>
-        a.insertedAt === b.insertedAt
-          ? compareText(a.id, b.id)
-          : compareText(b.insertedAt, a.insertedAt),
-      )
-      .map((row) => row.id);
+    // The single query is the reference: the column keeps microseconds, the response milliseconds
+    // without trailing zeros ("…03.06Z"), so neither a text sort nor an id tie-break in the test
+    // matches the database order.
+    const expected = all.rows.map((row) => row.id);
+    const instants = all.rows.map((row) => Date.parse(row.insertedAt));
+    expect(instants).toEqual([...instants].sort((a, b) => b - a));
 
     const paged: string[] = [];
     let cursor: string | null = null;
@@ -193,6 +187,5 @@ describe("insertedAt cursor over rows created in one burst", () => {
 
     expect(new Set(paged).size).toBe(BURST_SIZE);
     expect(paged).toEqual(expected);
-    expect(all.rows.map((row) => row.id)).toEqual(expected);
   });
 });
