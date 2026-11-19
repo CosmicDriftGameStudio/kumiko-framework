@@ -51,6 +51,13 @@ function primaryRowAction(actions: readonly DataTableRowAction[]): DataTableRowA
 // The isVisible filter runs here; an action hidden for a given row never
 // reaches render. If every action is hidden, the cell stays empty (no
 // phantom column).
+function confirmTextOf(
+  confirm: NonNullable<DataTableRowAction["confirm"]>,
+  row: ListRowViewModel,
+): string {
+  return typeof confirm === "function" ? confirm(row) : confirm;
+}
+
 export function RowActionsCell({
   row,
   actions,
@@ -276,7 +283,7 @@ function RowActionButton({
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         title={action.label}
-        {...(action.confirm !== undefined && { description: action.confirm })}
+        {...(action.confirm !== undefined && { description: confirmTextOf(action.confirm, row) })}
         confirmLabel={action.confirmLabel ?? action.label}
         {...(action.style === "danger" && { variant: "danger" as const })}
         onConfirm={() => triggerNow(action)}
@@ -353,7 +360,9 @@ function RowActionsKebab({
             if (!open) setPendingConfirm(null);
           }}
           title={pendingConfirm.label}
-          {...(pendingConfirm.confirm !== undefined && { description: pendingConfirm.confirm })}
+          {...(pendingConfirm.confirm !== undefined && {
+            description: confirmTextOf(pendingConfirm.confirm, row),
+          })}
           confirmLabel={pendingConfirm.confirmLabel ?? pendingConfirm.label}
           {...(pendingConfirm.style === "danger" && { variant: "danger" as const })}
           onConfirm={async () => {

@@ -50,6 +50,8 @@ One entry per feature a package ships: purpose, import of its factory, required 
   `import { createComplianceProfilesOpsFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles-ops"`; requires `compliance-profiles`, `tenant`
 - `config`: Stores per-tenant (and optionally per-user) configuration values with a multi-layer cascade: user-row → tenant-row → system-row → app-override (deploy-time `AppConfigOverrides`) → computed → feature default.
   `import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config"`
+- `connectors`: Lets a satellite program on a customer's own machine deliver files into the app.
+  `import { createConnectorsFeature } from "@cosmicdrift/kumiko-bundled-features/connectors"`; requires `files`, `tenant`, `tenant-lifecycle`
 - `crypto-shredding`: Operator-level crypto-shredding trigger.
   `import { createCryptoShreddingFeature } from "@cosmicdrift/kumiko-bundled-features/crypto-shredding"`
 - `custom-fields`: Tenant- and system-scoped custom field definitions with generic value storage on any host entity.

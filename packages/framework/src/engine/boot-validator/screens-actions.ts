@@ -701,6 +701,17 @@ export function validateRedirectTarget(
       feature.screens[redirectTarget],
     );
   }
+  if (
+    typeof redirect !== "string" &&
+    redirect.handOff === true &&
+    redirect.searchParams === undefined
+  ) {
+    throw bootRuleError(SCREEN_ACTION_RULES.redirectHandOffNeedsSearchParams, {
+      message:
+        `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) ${propertyPath}.handOff hands the ` +
+        `searchParams values to the target form, but no searchParams are set — add them or drop handOff.`,
+    });
+  }
   if (typeof redirect !== "string" && redirect.searchParams !== undefined) {
     validateRedirectSearchParams(
       feature.name,

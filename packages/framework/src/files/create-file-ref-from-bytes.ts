@@ -21,7 +21,7 @@ import {
 import type { FileContext } from "./file-handle.ts";
 import { fileRefsTable } from "./file-ref-table.ts";
 import { readFilesRouteOptions } from "./file-routes.ts";
-import { assertSafeStorageKey } from "./types.ts";
+import { assertSafeStorageKey, isOwnUploadKey } from "./types.ts";
 
 export type { CreatedFileRef, UploadedFileBytes };
 
@@ -47,6 +47,8 @@ export type CreateFileRefInput = {
   };
   /** Byte limit replacing the configured default upload limit; a file field's own maxSize still applies first. */
   readonly maxSize?: number;
+  /** `false` keeps the bytes out of the offsite backup: the key lives under `nobackup/<tenant>/`, and tenant destroy still removes it. */
+  readonly backup?: false;
 };
 
 function defaultUploadLimit(registry: Registry, input: CreateFileRefInput): string | number {
@@ -96,6 +98,7 @@ export async function createFileRefFromBytes(
       entityId: input.attachTo?.entityId,
       fieldName: input.attachTo?.fieldName,
       subField: input.attachTo?.subField,
+      backup: input.backup,
     },
   );
   switch (outcome.kind) {
@@ -156,6 +159,7 @@ export async function uploadFileBytesBeforeTransaction(
       entityId: input.attachTo?.entityId,
       fieldName: input.attachTo?.fieldName,
       subField: input.attachTo?.subField,
+      backup: input.backup,
     },
   );
   if (outcome.kind === "rejected") return fileRejectedFailure(outcome.error);
@@ -182,8 +186,7 @@ export async function createFileRefFromUploadedBytes(
   ctx: Pick<CreateFileRefContext, "db" | "user">,
   uploaded: UploadedFileBytes,
 ): Promise<WriteResult<CreatedFileRef>> {
-  const ownPrefix = `${ctx.user.tenantId}/`;
-  if (!uploaded.storageKey.startsWith(ownPrefix)) {
+  if (!isOwnUploadKey(ctx.user.tenantId, uploaded.storageKey)) {
     return writeFailure(
       new InternalError({
         message: "createFileRefFromUploadedBytes: storageKey is outside the caller's tenant prefix",

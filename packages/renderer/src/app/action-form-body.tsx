@@ -573,6 +573,7 @@ export function ActionFormBody({
         initial={derivedInitial}
         {...(screen.derive !== undefined && { formDerivation: screen })}
         actionFormScreenQn={qualifyScreenId(schema.featureName, screen.id)}
+        {...(screen.valueDisplay !== undefined && { valueDisplay: screen.valueDisplay })}
         // Extension sections in the actionForm see the initial form values
         // (incl. searchParams prefill, e.g. ?incidentId=...) as initialValues;
         // unlike entityEdit there is no record they could draw context from.

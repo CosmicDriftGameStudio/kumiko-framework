@@ -19,7 +19,7 @@ import type {
 import { derivativeListPrefix, isDerivativeSuffix, splitKey } from "../derivatives/variant-key.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
 import { InternalError } from "../errors/index.ts";
-import { assertSafeStorageKey, type FileStorageProvider } from "./types.ts";
+import { assertSafeStorageKey, type FileStorageProvider, isOwnUploadKey } from "./types.ts";
 
 export type { FileContext, FileHandle };
 
@@ -79,8 +79,10 @@ export function createFileContext(
     return uploadLedger;
   };
   const assertOwnKey = (method: string, key: string): void => {
-    if (tenantId !== undefined && !key.startsWith(`${tenantId}/`)) {
-      throw new Error(`FileContext.${method}: key must start with "${tenantId}/"`);
+    if (tenantId !== undefined && !isOwnUploadKey(tenantId, key)) {
+      throw new Error(
+        `FileContext.${method}: key must start with "${tenantId}/" or "nobackup/${tenantId}/"`,
+      );
     }
   };
   return {
@@ -109,8 +111,10 @@ export function createFileContext(
       return (await getProvider()).list(storageKeyStemPrefix(row.storageKey));
     },
     list: async (prefix) => {
-      if (tenantId !== undefined && !prefix.startsWith(`${tenantId}/`)) {
-        throw new Error(`FileContext.list: prefix must start with "${tenantId}/"`);
+      if (tenantId !== undefined && !isOwnUploadKey(tenantId, prefix)) {
+        throw new Error(
+          `FileContext.list: prefix must start with "${tenantId}/" or "nobackup/${tenantId}/"`,
+        );
       }
       return (await getProvider()).list(prefix);
     },

@@ -10,7 +10,7 @@ import type { RenderEditAction } from "./render-edit-types.ts";
 // (schema-driven navigate/drawer actions, where the target form is itself
 // the confirmation).
 export function needsActionConfirm(
-  action: Pick<RenderEditAction, "confirm" | "confirmRequired" | "style">,
+  action: Pick<RenderEditAction, "confirmRequired" | "style"> & { readonly confirm?: unknown },
 ): boolean {
   return action.confirm !== undefined || (action.confirmRequired ?? action.style === "danger");
 }

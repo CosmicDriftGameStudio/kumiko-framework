@@ -36,6 +36,8 @@ export {
 export type {
   AnonymousExtraRoute,
   AnonymousExtraRouteDeps,
+  BinaryBodyOptions,
+  BinarySignatureExtraRouteVerifyRequest,
   ExtraRouteDefinition,
   RoleDispatchArgs,
   SignatureExtraRouteDeps,
@@ -43,7 +45,7 @@ export type {
   SystemDispatchArgs,
   UserExtraRouteDeps,
 } from "./extra-route.ts";
-export { ExtraRouteRejection, signatureRoute } from "./extra-route.ts";
+export { binaryBodySignatureRoute, ExtraRouteRejection, signatureRoute } from "./extra-route.ts";
 export type { CachePolicy } from "./http-cache.ts";
 export {
   cacheControlHeader,

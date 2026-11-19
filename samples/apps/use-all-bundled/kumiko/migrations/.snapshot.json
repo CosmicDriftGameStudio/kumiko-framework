@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-17T21:28:35.072Z",
+  "generatedAt": "2026-11-19T14:14:09.335Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -336,6 +336,258 @@
       ],
       "source": "managed",
       "systemRowsReadable": true,
+      "entityEventVersion": 1
+    },
+    {
+      "tableName": "read_connector_inbound_folders",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "connector_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "parent_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "id_path",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "deleting",
+          "pgType": "boolean",
+          "notNull": true,
+          "defaultSql": "false"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_connector_inbound_folders_tenant_id_idx",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_connector_inbound_folders_connector_id_parent_id_idx",
+          "columns": ["connector_id", "parent_id"]
+        },
+        {
+          "name": "read_connector_inbound_folders_id_path_idx",
+          "columns": ["id_path"]
+        }
+      ],
+      "source": "managed",
+      "piiSubjectFields": ["name"],
+      "entityEventVersion": 1
+    },
+    {
+      "tableName": "read_connector_inbound_items",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "connector_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "folder_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "file_ref_id",
+          "pgType": "uuid",
+          "notNull": false
+        },
+        {
+          "name": "relative_path",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "sha256",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "size_bytes",
+          "pgType": "double precision",
+          "notNull": true
+        },
+        {
+          "name": "source_modified_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_connector_inbound_items_tenant_id_idx",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_connector_inbound_items_file_ref_id_idx",
+          "columns": ["file_ref_id"]
+        },
+        {
+          "name": "read_connector_inbound_items_connector_id_folder_id_idx",
+          "columns": ["connector_id", "folder_id"]
+        }
+      ],
+      "source": "managed",
+      "piiSubjectFields": ["relativePath"],
+      "entityEventVersion": 1
+    },
+    {
+      "tableName": "read_connectors",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "kind",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'satellite'"
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'active'"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_connectors_tenant_id_idx",
+          "columns": ["tenant_id"]
+        }
+      ],
+      "source": "managed",
       "entityEventVersion": 1
     },
     {
@@ -3084,7 +3336,7 @@
         }
       ],
       "source": "managed",
-      "entityEventVersion": 1
+      "entityEventVersion": 2
     },
     {
       "tableName": "read_signature_signers",
@@ -4993,6 +5245,258 @@
       "source": "unmanaged"
     },
     {
+      "tableName": "store_connector_device_authorizations",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "device_code_hash",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "user_code_hash",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'pending'"
+        },
+        {
+          "name": "owner_tenant_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "connector_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "approved_by_user_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "checked_by_user_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "checked_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "request_ip",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "interval_seconds",
+          "pgType": "double precision",
+          "notNull": true
+        },
+        {
+          "name": "last_polled_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "expires_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "created_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "store_connector_device_authorizations_tenant_id_idx",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "store_connector_dev_auth_device_uniq",
+          "columns": ["device_code_hash"],
+          "unique": true
+        },
+        {
+          "name": "store_connector_dev_auth_user_uniq",
+          "columns": ["user_code_hash"],
+          "unique": true
+        }
+      ],
+      "source": "unmanaged"
+    },
+    {
+      "tableName": "store_connector_devices",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "owner_tenant_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "connector_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "token_hash",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "token_prefix",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "reported_version",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "sync_state",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "sync_queued",
+          "pgType": "integer",
+          "notNull": false
+        },
+        {
+          "name": "sync_failed",
+          "pgType": "integer",
+          "notNull": false
+        },
+        {
+          "name": "sync_last_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "retry_requested_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "last_seen_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "created_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "revoked_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "store_connector_devices_tenant_id_idx",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "store_connector_devices_hash_uniq",
+          "columns": ["token_hash"],
+          "unique": true
+        },
+        {
+          "name": "store_connector_devices_owner_idx",
+          "columns": ["owner_tenant_id", "connector_id"]
+        }
+      ],
+      "source": "unmanaged"
+    },
+    {
       "tableName": "store_delivery_attempts",
       "columns": [
         {
@@ -6174,6 +6678,42 @@
         }
       ]
     },
+    "read_connector_inbound_folders": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
+        }
+      ]
+    },
+    "read_connector_inbound_items": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
+        }
+      ]
+    },
+    "read_connectors": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
+        }
+      ]
+    },
     "read_custom_field_definitions": {
       "policies": [
         {
@@ -6748,6 +7288,30 @@
       ]
     },
     "store_cap_reservations": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
+        }
+      ]
+    },
+    "store_connector_device_authorizations": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
+        }
+      ]
+    },
+    "store_connector_devices": {
       "policies": [
         {
           "name": "kumiko_tenant_isolation",

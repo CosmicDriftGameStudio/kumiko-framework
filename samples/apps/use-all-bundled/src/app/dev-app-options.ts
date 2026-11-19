@@ -10,6 +10,7 @@
 // user-list, tier-admin, GDPR inspector). anonymousAccess + extraContext.text
 // content: the public legal-pages routes (/legal/*).
 
+import { createConnectorRoutes } from "@cosmicdrift/kumiko-bundled-features/connectors";
 import {
   createFoldersFeature,
   FOLDERS_FEATURE_NAME,
@@ -55,6 +56,7 @@ const DEV_HOST_FEATURES: ReadonlySet<string> = new Set([
 const DEV_JOIN_HOSTS = [...BUNDLED_JOIN_HOSTS, "note"];
 
 export const devAppOptions = {
+  extraRoutes: createConnectorRoutes(),
   // notesFeature is dev-only (app-owned tag host) — see notes-feature.ts for why
   // it stays out of APP_FEATURES. appScreensFeature places the user-profile screen.
   features: [

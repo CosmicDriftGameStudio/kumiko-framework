@@ -1398,6 +1398,8 @@ type QueryTableColumn = {
   field: string;
   label: string; // Translated header label (resolving the i18n key is the caller's responsibility).
   type?: string; // Field type for cell formatting.
+  sortable?: boolean; // Sortable header: needs `sort` and `onSortChange` on the table.
+  renderer?: ListColumnViewModel["renderer"]; // Custom cell, `{ react: { __component: "Name" } }` with Name registered in a client plugin's `columnRenderers`.
 };
 type QueryTableProps<TData = unknown> = {
   query: string; // Dispatcher-Query-Type (`<feature>:query:<entity>:<verb>`).
@@ -1412,6 +1414,9 @@ type QueryTableProps<TData = unknown> = {
   toolbarTitle?: ReactNode;
   toolbarEnd?: ReactNode;
   testId?: string;
+  screenPadding?: boolean; // false: no outer padding, for a table inside a screen that pads itself.
+  sort?: DataTableProps["sort"];
+  onSortChange?: DataTableProps["onSortChange"];
 };
 type RadiusTokens = {
   sm: string;

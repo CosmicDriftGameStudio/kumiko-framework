@@ -12,6 +12,7 @@ import { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.ts";
 import { fileRefsTable } from "./file-ref-table.ts";
 import { resolveContentType } from "./resolve-content-type.ts";
 import {
+  buildNoBackupStorageKey,
   buildStorageKey,
   resolveUploadMimeType,
   validateFile,
@@ -55,6 +56,8 @@ export type StoreFileInput = {
   /** Qualified name of a registered actionForm screen; `fieldName` then names one of its files
    *  fields and the upload is stored as pending (entityType = the screen QN, no entityId). */
   readonly actionForm?: string | undefined;
+  /** `false`: store under `nobackup/<tenant>/` (see createFileRefFromBytes). */
+  readonly backup?: false | undefined;
 };
 
 export type StoreFileDeps = {
@@ -214,7 +217,8 @@ export async function writeAcceptedFileBytes(
   if (accepted.kind === "rejected") return accepted;
   const { mimeType, extension } = accepted;
 
-  const storageKey = buildStorageKey(
+  const keyBuilder = input.backup === false ? buildNoBackupStorageKey : buildStorageKey;
+  const storageKey = keyBuilder(
     deps.user.tenantId,
     // The screen QN stays out of the key: a fixed segment keeps it a plain path part.
     actionForm !== undefined ? ACTION_FORM_STORAGE_SEGMENT : (entityType ?? "unattached"),

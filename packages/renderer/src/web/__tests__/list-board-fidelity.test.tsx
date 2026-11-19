@@ -10,7 +10,7 @@ const sortableColumns = [
 ] as const;
 
 describe("list board fidelity", () => {
-  test("sort icon is visible only on the sorted column; idle columns reveal it on hover", () => {
+  test("sort icon is full on the sorted column; idle columns show it dimmed", () => {
     render(
       <DataTable
         columns={sortableColumns}
@@ -24,7 +24,8 @@ describe("list board fidelity", () => {
     expect(sortedIcon?.getAttribute("data-sort-icon")).toBe("active");
     expect(sortedIcon?.classList.contains("opacity-0")).toBe(false);
     expect(idleIcon?.getAttribute("data-sort-icon")).toBe("idle");
-    expect(idleIcon?.classList.contains("opacity-0")).toBe(true);
+    expect(idleIcon?.classList.contains("opacity-0")).toBe(false);
+    expect(idleIcon?.classList.contains("opacity-30")).toBe(true);
   });
 
   test("an empty cell stays blank", () => {

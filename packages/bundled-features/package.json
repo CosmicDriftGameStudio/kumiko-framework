@@ -170,6 +170,8 @@
     "./renderer-mail-html/seeding": "./src/renderer-mail-html/seeding.ts",
     "./renderer-puppeteer-client": "./src/renderer-puppeteer-client/index.ts",
     "./renderer-puppeteer-client/qualified-names": "./src/renderer-puppeteer-client/web/qualified-names.ts",
+    "./connectors": "./src/connectors/index.ts",
+    "./connectors/web": "./src/connectors/web/index.ts",
     "./signature": "./src/signature/index.ts",
     "./signature/web": "./src/signature/web/index.ts",
     "./document-draft": "./src/document-draft/index.ts",
@@ -819,6 +821,14 @@
       "./renderer-puppeteer-client/qualified-names": {
         "types": "./dist/renderer-puppeteer-client/web/qualified-names.d.ts",
         "default": "./dist/renderer-puppeteer-client/web/qualified-names.js"
+      },
+      "./connectors": {
+        "types": "./dist/connectors/index.d.ts",
+        "default": "./dist/connectors/index.js"
+      },
+      "./connectors/web": {
+        "types": "./dist/connectors/web/index.d.ts",
+        "default": "./dist/connectors/web/index.js"
       },
       "./signature": {
         "types": "./dist/signature/index.d.ts",

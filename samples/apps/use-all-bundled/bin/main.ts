@@ -3,6 +3,7 @@
 // feature without an actual postgres/redis. See package.json `boot`
 // script + ../README.md.
 
+import { createConnectorRoutes } from "@cosmicdrift/kumiko-bundled-features/connectors";
 import { frameworkCoreEnvSchema } from "@cosmicdrift/kumiko-dev-server/env-schema";
 import { InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -24,6 +25,7 @@ const envSchema = composeEnvSchema({
 });
 
 await runProdApp({
+  extraRoutes: createConnectorRoutes(),
   features: BOOT_FEATURES,
   featureToggles: true,
   envSchema,
