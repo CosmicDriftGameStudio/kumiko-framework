@@ -173,7 +173,6 @@ export type JobInvocation = {
   readonly attemptsMade: number;
   /** False for inline invocations (boot gates): nothing retries a throw. */
   readonly retryable?: boolean;
-  readonly processedOn?: number | undefined;
   moveToDelayed?(timestamp: number, token?: string): Promise<void>;
   updateData?(data: Record<string, unknown>): Promise<void>;
 };

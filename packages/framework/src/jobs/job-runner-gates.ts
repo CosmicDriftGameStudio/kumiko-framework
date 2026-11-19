@@ -219,8 +219,7 @@ export async function deferOverTenantLimit(
     typeof deferTenantId === "string" &&
     isQueuedRun(bullJob, token) &&
     (await isOverPerTenantLimit(scope, bullJob.name, deferTenantId, maxPerTenant.limit, {
-      activeOnly: true,
-      self: { id: bullJob.id, processedOn: bullJob.processedOn },
+      activatedBefore: { jobId: bullJob.id },
     }))
   ) {
     const deferCount = priorDeferCountOf(bullJob.data, DEFER_COUNT_KEY);

@@ -471,13 +471,16 @@ export function deferDelayMs(deferMs: number, deferCount: number): number {
   return grown + Math.floor(Math.random() * deferMs);
 }
 
-export function isActiveBefore(
-  other: { readonly id?: string | undefined; readonly processedOn?: number | undefined },
-  self: { readonly id: string | undefined; readonly processedOn: number | undefined },
-): boolean {
-  if (other.id === self.id) return false;
-  if (self.processedOn === undefined) return true;
-  const otherProcessedOn = other.processedOn ?? 0;
-  if (otherProcessedOn !== self.processedOn) return otherProcessedOn < self.processedOn;
-  return (other.id ?? "") < (self.id ?? "");
+// BullMQ's moveToActive pushes every activated job onto the head of the active list
+// atomically and getJobs(["active"]) reads it head first, so the entries after self are
+// exactly the jobs activated before it. processedOn cannot order activations: worker
+// clocks tie within a millisecond and drift apart between processes.
+// Without self in the list (another lane's queue) there is no shared order: all count.
+export function jobsActivatedBefore<T extends { readonly id?: string | undefined }>(
+  activeNewestFirst: readonly T[],
+  selfJobId: string | undefined,
+): readonly T[] {
+  const selfIndex =
+    selfJobId === undefined ? -1 : activeNewestFirst.findIndex((job) => job.id === selfJobId);
+  return selfIndex === -1 ? activeNewestFirst : activeNewestFirst.slice(selfIndex + 1);
 }
