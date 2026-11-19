@@ -3412,6 +3412,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "connectors.files.kind.file": "File",
   "connectors.files.storage": "Spazio usato",
   "connectors.files.storageOf": "di {quota}",
+  "connectors.files.breadcrumb": "Percorso",
   "connectors.files.storageDeleting": "di cui {size} in eliminazione",
   "connectors.files.empty.title": "Qui non è ancora arrivato nulla",
   "connectors.files.empty.hint": "I file consegnati da un satellite abbinato compaiono qui.",

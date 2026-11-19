@@ -7,7 +7,11 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { QueryTable, StatCard, useToast } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useState } from "react";
-import { ConnectorHandlers, ConnectorQueries, FILE_NAME_CELL_COMPONENT } from "../constants.ts";
+import {
+  ConnectorHandlers,
+  ConnectorQueries,
+  FILE_NAME_CELL_COMPONENT,
+} from "./client-constants.ts";
 
 type Crumb = {
   readonly label: string;
@@ -207,7 +211,10 @@ export function ConnectorFilesScreen(): ReactNode {
         ].join(" · ")}
         testId="connector-files-storage"
       />
-      <nav aria-label="breadcrumb" className="flex flex-wrap items-center gap-1.5 text-sm">
+      <nav
+        aria-label={t("connectors.files.breadcrumb")}
+        className="flex flex-wrap items-center gap-1.5 text-sm"
+      >
         {trail.map((crumb, index) => {
           const isCurrent = index === trail.length - 1;
           return (

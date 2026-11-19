@@ -920,6 +920,7 @@ export const featureNamespacedEnCatalog: Readonly<Record<string, string>> = {
   "connectors.files.kind.file": "File",
   "connectors.files.storage": "Storage used",
   "connectors.files.storageOf": "of {quota}",
+  "connectors.files.breadcrumb": "Path",
   "connectors.files.storageDeleting": "{size} of it is being deleted",
   "connectors.files.empty.title": "Nothing delivered here yet",
   "connectors.files.empty.hint": "Files that a paired satellite delivers appear here.",

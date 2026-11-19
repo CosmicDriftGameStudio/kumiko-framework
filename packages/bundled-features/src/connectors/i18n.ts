@@ -1,5 +1,5 @@
-import { CONNECTOR_FILES_I18N } from "./files-i18n.ts";
 import { CONNECTOR_STATUS_OPTION_KEY_PREFIX, connectorFieldLabelKey } from "./screens.ts";
+import { CONNECTOR_FILES_I18N } from "./web/files-i18n.ts";
 
 type Localized = { readonly en: string; readonly de: string };
 

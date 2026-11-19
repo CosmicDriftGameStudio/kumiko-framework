@@ -3407,6 +3407,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "connectors.files.kind.file": "Datei",
   "connectors.files.storage": "Speicher belegt",
   "connectors.files.storageOf": "von {quota}",
+  "connectors.files.breadcrumb": "Pfad",
   "connectors.files.storageDeleting": "davon {size} werden gelöscht",
   "connectors.files.empty.title": "Hier ist noch nichts angekommen",
   "connectors.files.empty.hint": "Dateien, die ein gekoppelter Satellit liefert, erscheinen hier.",
