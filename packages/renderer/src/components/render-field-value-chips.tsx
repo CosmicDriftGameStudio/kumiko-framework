@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { cachedNumberFormat } from "../headless/format/number-format-cache.ts";
 import {
   currencyDecimals,
   type EditFieldViewModel,
@@ -29,7 +30,7 @@ function chipText(
       ...(wholeMajor && { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
     });
   }
-  const text = new Intl.NumberFormat(resolveSafeMoneyLocale(locale)).format(value);
+  const text = cachedNumberFormat(resolveSafeMoneyLocale(locale), {}).format(value);
   return typeof field.suffix === "string" ? `${text} ${field.suffix}` : text;
 }
 

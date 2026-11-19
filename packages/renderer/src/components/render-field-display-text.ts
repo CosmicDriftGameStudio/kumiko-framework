@@ -1,3 +1,4 @@
+import { cachedNumberFormat } from "../headless/format/number-format-cache.ts";
 import {
   applyFormatSpec,
   type EditFieldViewModel,
@@ -32,7 +33,7 @@ const numberText: DisplayText = (field, value, appLocale) => {
   const n = numberValue(value);
   return n === ""
     ? EMPTY_VALUE_PLACEHOLDER
-    : new Intl.NumberFormat(appLocale, { useGrouping: field.grouping ?? true }).format(n);
+    : cachedNumberFormat(appLocale, { useGrouping: field.grouping ?? true }).format(n);
 };
 
 const moneyText: DisplayText = (field, value, appLocale) => {

@@ -1,3 +1,5 @@
+import { canonicalLocaleOr } from "./number-format-cache.ts";
+
 const FALLBACK_LOCALE = "en-US";
 
 // An invalid tag makes every Intl constructor and toLocaleString throw a
@@ -6,9 +8,5 @@ const FALLBACK_LOCALE = "en-US";
 export function resolveSafeLocale(locale: string | undefined): string {
   const candidate =
     locale ?? (typeof navigator !== "undefined" ? navigator.language : undefined) ?? "";
-  try {
-    return Intl.getCanonicalLocales(candidate)[0] ?? FALLBACK_LOCALE;
-  } catch {
-    return FALLBACK_LOCALE;
-  }
+  return canonicalLocaleOr(candidate, FALLBACK_LOCALE);
 }

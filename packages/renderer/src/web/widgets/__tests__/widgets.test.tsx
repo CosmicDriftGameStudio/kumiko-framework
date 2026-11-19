@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { fireEvent, render, screen } from "../../__tests__/test-utils.tsx";
+import { fireEvent, render, screen, waitFor } from "../../__tests__/test-utils.tsx";
 import { StackedAreaChart, StatusBarChart, smoothPath, TimeseriesChart } from "../charts.tsx";
 import { CollapsibleSection } from "../collapsible-section.tsx";
 import { DetailList } from "../detail-list.tsx";
@@ -471,6 +471,47 @@ describe("CollapsibleSection", () => {
       </CollapsibleSection>,
     );
     expect(container.querySelector("summary")?.className.split(" ")).toContain("min-h-9");
+  });
+
+  test("onOpenChange reports opening and closing by the user", async () => {
+    const onOpenChange = mock((_open: boolean) => {});
+    const { container } = render(
+      <CollapsibleSection title="Erweitert" onOpenChange={onOpenChange}>
+        <span>Inhalt</span>
+      </CollapsibleSection>,
+    );
+    screen.getByText("Inhalt");
+    fireEvent.click(screen.getByText("Erweitert"));
+    await waitFor(() => expect(onOpenChange.mock.calls).toEqual([[true]]));
+    expect(container.querySelector("details")?.open).toBe(true);
+    fireEvent.click(screen.getByText("Erweitert"));
+    await waitFor(() => expect(onOpenChange.mock.calls).toEqual([[true], [false]]));
+    expect(container.querySelector("details")?.open).toBe(false);
+  });
+
+  test("toggling without onOpenChange works", async () => {
+    const { container } = render(
+      <CollapsibleSection title="Erweitert">
+        <span>Inhalt</span>
+      </CollapsibleSection>,
+    );
+    fireEvent.click(screen.getByText("Erweitert"));
+    await waitFor(() => expect(container.querySelector("details")?.open).toBe(true));
+  });
+
+  test("defaultOpen does not call onOpenChange on the first render", () => {
+    const onOpenChange = mock((_open: boolean) => {});
+    const { container } = render(
+      <CollapsibleSection title="Erweitert" defaultOpen onOpenChange={onOpenChange}>
+        <span>Inhalt</span>
+      </CollapsibleSection>,
+    );
+    const details = container.querySelector("details");
+    if (!details) throw new Error("details not rendered");
+    expect(details.open).toBe(true);
+    // Browsers fire toggle after React sets `open` on mount; happy-dom does not.
+    fireEvent(details, new Event("toggle"));
+    expect(onOpenChange).not.toHaveBeenCalled();
   });
 });
 

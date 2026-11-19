@@ -8,6 +8,7 @@ import { rendererWarn } from "../../dev-console.ts";
 import { serverNowMs } from "../../server-clock.ts";
 import { fieldOptionLabelKeyPrefix } from "../view-model/list.ts";
 import { formatMoney, isCurrencyCode } from "./money.ts";
+import { cachedNumberFormat } from "./number-format-cache.ts";
 import { formatRelativeTime } from "./relative-time.ts";
 
 export const EMPTY_VALUE_PLACEHOLDER = "—";
@@ -94,9 +95,7 @@ function formatNumberCell(
 ): string {
   if (typeof value !== "number" || !Number.isFinite(value)) return String(value);
   try {
-    return new Intl.NumberFormat(locale, { useGrouping: grouping, ...fractionDigits }).format(
-      value,
-    );
+    return cachedNumberFormat(locale, { useGrouping: grouping, ...fractionDigits }).format(value);
   } catch {
     // Malformed BCP-47 locale tag — mirrors formatDateCell's fallback above.
     return String(value);
@@ -139,7 +138,7 @@ function formatUnitCell(
   if (unit === undefined || !Number.isFinite(n)) return String(value);
   if (isIntlUnit(unit)) {
     try {
-      return new Intl.NumberFormat(locale, {
+      return cachedNumberFormat(locale, {
         style: "unit",
         unit: UNIT_INTL_IDS[unit],
         unitDisplay,

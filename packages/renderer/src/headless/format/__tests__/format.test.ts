@@ -1,6 +1,87 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import type { UnitKey } from "@cosmicdrift/kumiko-framework/engine";
 import { applyFormatSpec, formatMoney, UNIT_FORMAT_KEYS } from "../index.ts";
+import { MAX_CACHED_FORMAT_ENTRIES } from "../number-format-cache.ts";
+
+describe("number formatter reuse", () => {
+  test("the same locale and options build the formatter and canonical locale only once", () => {
+    const numberFormatSpy = spyOn(Intl, "NumberFormat");
+    const canonicalSpy = spyOn(Intl, "getCanonicalLocales");
+    try {
+      const options = { locale: "de-CH-x-reuse", minimumFractionDigits: 3 };
+      const first = formatMoney(123450, "CHF", options);
+      const second = formatMoney(123450, "CHF", options);
+      expect(second).toBe(first);
+      expect(numberFormatSpy).toHaveBeenCalledTimes(1);
+      expect(canonicalSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      numberFormatSpy.mockRestore();
+      canonicalSpy.mockRestore();
+    }
+  });
+
+  test("different locales, currencies and options keep their own output", () => {
+    const formatAll = (): string[] => [
+      formatMoney(123450, "EUR", { locale: "de-DE" }),
+      formatMoney(123450, "USD", { locale: "en-US" }),
+      formatMoney(123450, "JPY", { locale: "en-US" }),
+      formatMoney(123450, "EUR", { locale: "de-DE", signDisplay: "always" }),
+      formatMoney(123456700, "EUR", { locale: "en-US", notation: "compact" }),
+      formatMoney(123450, "EUR"),
+      applyFormatSpec({ format: "number", locale: "de-DE" }, 2021),
+      applyFormatSpec({ format: "number", locale: "de-DE", grouping: false }, 2021),
+      applyFormatSpec({ format: "unit", unit: "km", locale: "de-DE" }, 58),
+    ];
+    const firstPass = formatAll();
+    expect(firstPass.slice(0, 4)).toEqual(["1.234,50 €", "$1,234.50", "¥123,450", "+1.234,50 €"]);
+    expect(firstPass[4]).toBe(
+      new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "EUR",
+        notation: "compact",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(1234567),
+    );
+    expect(firstPass.slice(5)).toEqual(["€1,234.50", "2.021", "2021", "58 km"]);
+    expect(formatAll().reverse()).toEqual([...firstPass].reverse());
+  });
+
+  test("the runtime default locale is not merged with an explicit locale", () => {
+    const runtimeDefault = new Intl.NumberFormat(undefined, { useGrouping: true }).format(2021);
+    expect(applyFormatSpec({ format: "number" }, 2021)).toBe(runtimeDefault);
+    expect(applyFormatSpec({ format: "number", locale: "de-DE" }, 2021)).toBe("2.021");
+    expect(applyFormatSpec({ format: "number" }, 2021)).toBe(runtimeDefault);
+  });
+
+  test("an invalid locale or currency gives the same text on every call", () => {
+    for (let call = 0; call < 2; call++) {
+      expect(formatMoney(123450, "EUR", { locale: "not_a_locale" })).toBe("€1,234.50");
+      expect(formatMoney(1050, "XX1", { locale: "en-US" })).toBe("10.50");
+      expect(formatMoney(1050, "XX1", { locale: "de-DE", signDisplay: "always" })).toBe("+10,50");
+      expect(applyFormatSpec({ format: "number", locale: "not_a_locale" }, 2021)).toBe("2021");
+      expect(applyFormatSpec({ format: "unit", unit: "km", locale: "not_a_locale" }, 58)).toBe(
+        "58",
+      );
+    }
+  });
+
+  test("the cache is dropped at its cap and rebuilds afterwards", () => {
+    const numberFormatSpy = spyOn(Intl, "NumberFormat");
+    try {
+      const firstOptions = { locale: "en-x-capfirst" };
+      expect(formatMoney(100, "EUR", firstOptions)).toBe("€1.00");
+      for (let index = 0; index < MAX_CACHED_FORMAT_ENTRIES; index++) {
+        formatMoney(100, "EUR", { locale: `en-x-cap${index}` });
+      }
+      expect(numberFormatSpy).toHaveBeenCalledTimes(1 + MAX_CACHED_FORMAT_ENTRIES);
+      expect(formatMoney(100, "EUR", firstOptions)).toBe("€1.00");
+      expect(numberFormatSpy).toHaveBeenCalledTimes(2 + MAX_CACHED_FORMAT_ENTRIES);
+    } finally {
+      numberFormatSpy.mockRestore();
+    }
+  });
+});
 
 describe("formatMoney", () => {
   test("takes minor units and scales by the currency decimals", () => {

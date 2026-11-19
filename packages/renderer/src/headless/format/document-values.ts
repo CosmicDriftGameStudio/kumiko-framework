@@ -1,5 +1,6 @@
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { formatMoney, resolveSafeMoneyLocale } from "./money.ts";
+import { cachedNumberFormat } from "./number-format-cache.ts";
 
 // Used when the tenant has no currency setting.
 export const DOCUMENT_FALLBACK_CURRENCY = "EUR";
@@ -109,7 +110,7 @@ export function formatDocumentDate(
 
 export function formatDocumentPercent(value: unknown, locale: string): string {
   if (typeof value === "number" && Number.isFinite(value)) {
-    return new Intl.NumberFormat(resolveSafeMoneyLocale(locale), {
+    return cachedNumberFormat(resolveSafeMoneyLocale(locale), {
       style: "percent",
       maximumFractionDigits: 2,
     }).format(value / 100);
