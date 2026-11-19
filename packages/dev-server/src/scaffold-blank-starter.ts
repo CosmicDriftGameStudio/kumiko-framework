@@ -41,7 +41,7 @@ export const envSchema = composeEnvSchema({
 
 export function renderBlankMain(appName: string): string {
   const imports = renderSortedImports([
-    { specifier: "@cosmicdrift/kumiko-server-runtime", names: ["runProdApp"] },
+    { specifier: "@cosmicdrift/kumiko-server-runtime", names: ["productionKmsMode", "runProdApp"] },
     { specifier: "@cosmicdrift/kumiko-framework/engine", names: ["TenantId"], typeOnly: true },
     {
       specifier: "@cosmicdrift/kumiko-framework/crypto",
@@ -70,10 +70,9 @@ const kmsOpts = {
     "no PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL / KUMIKO_BLIND_INDEX_KEY set — see .env.example",
 } as const;
 
-const kmsWiring =
-  process.env["NODE_ENV"] === "production"
-    ? { kmsMode: "required" as const }
-    : resolveKmsWiring(process.env, kmsOpts);
+// kmsMode in kumiko.config.ts is the production decision here and in schema apply (bin/kumiko.ts).
+const kmsMode = productionKmsMode(appConfig.kmsMode, process.env);
+const kmsWiring = kmsMode !== undefined ? { kmsMode } : resolveKmsWiring(process.env, kmsOpts);
 
 // The bootstrap admin has no password; password reset is the only way it gets one. Without SMTP
 // and APP_BASE_URL (local boot) the mail flow stays off and the app still boots.

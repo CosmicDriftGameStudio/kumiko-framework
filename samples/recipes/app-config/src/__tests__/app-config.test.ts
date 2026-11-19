@@ -41,4 +41,15 @@ describe("kumiko.config.ts", () => {
       }),
     ).toThrow();
   });
+
+  test("a plaintext kmsMode must name its reason", () => {
+    expect(() =>
+      defineAppConfig({
+        features: [notesFeature],
+        client: { entries: ["src/client.tsx"] },
+        ports: { dev: 4510, e2e: 4511 },
+        kmsMode: { plaintextReason: "" },
+      }),
+    ).toThrow("kmsMode.plaintextReason must name a reason");
+  });
 });

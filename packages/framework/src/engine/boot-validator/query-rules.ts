@@ -6,6 +6,11 @@ export const QUERY_RULES = {
     summary: "A query reference on a screen names a registered query handler.",
     fix: 'Check the QN spelling ("<feature>:query:<short>") and declare the handler via r.queryHandler(...).',
   },
+  dispatchOnlyOnScreen: {
+    id: "query/dispatch-only-on-screen",
+    summary: "A query a screen or panel loads in the browser is not dispatchOnly.",
+    fix: "Drop dispatchOnly from the query, or give the screen its own query.",
+  },
   visibleWhenRequiresInput: {
     id: "query/visible-when-requires-input",
     summary: "A visibleWhen query parses the payload the gate sends.",

@@ -1176,6 +1176,10 @@ export type QueryHandlerDef = {
   readonly escapeHatch?: EscapeHatchDeclaration;
   /** Declared via `systemScope: true` on defineQueryHandler; boot requires the owning feature to call r.systemScope(). */
   readonly systemScope?: true;
+  /** Reachable only from server code (ctx.dispatch.query/queryAs, jobs, server routes), never
+   *  through the generic HTTP entry: POST /api/query and the screen export answer 404 as for an
+   *  unknown handler. Implies agent exposure false; grants no live signals. */
+  readonly dispatchOnly?: boolean;
 };
 
 export type StreamHandlerDef = {

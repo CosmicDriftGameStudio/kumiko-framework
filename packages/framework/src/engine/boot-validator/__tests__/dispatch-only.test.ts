@@ -4,6 +4,7 @@ import type { WriteHandlerDefinition } from "@cosmicdrift/kumiko-types/define-ha
 import * as z from "zod";
 import { defineFeature } from "../../define-feature.ts";
 import { validateHandlerAccess } from "../entity-handler.ts";
+import { validateQueryRefs } from "../query-refs.ts";
 
 type HandlerOverrides = Partial<
   Pick<WriteHandlerDefinition, "access" | "rateLimit" | "agent" | "tenantlessAnonymous">
@@ -42,6 +43,50 @@ describe("validateHandlerAccess — dispatchOnly", () => {
     expect(() => validateHandlerAccess(feature)).toThrow(
       /dispatch-only-tenantless|feature:write:name/,
     );
+  });
+
+  test("a dispatchOnly query with agent.expose: true is rejected", () => {
+    const feature = defineFeature("feature", (r) => {
+      r.queryHandler({
+        name: "lookup",
+        schema: z.object({}),
+        access: { roles: ["User"] },
+        dispatchOnly: true,
+        agent: { expose: true },
+        handler: async () => ({}),
+      });
+    });
+    expect(() => validateHandlerAccess(feature)).toThrow(/feature:query:lookup/);
+  });
+});
+
+function featureWithScreenQuery(dispatchOnly: boolean) {
+  return defineFeature("feature", (r) => {
+    r.queryHandler({
+      name: "rows",
+      schema: z.object({}),
+      access: { roles: ["User"] },
+      dispatchOnly,
+      handler: async () => ({ rows: [], nextCursor: null }),
+    });
+    r.screen({
+      id: "row-list",
+      type: "projectionList",
+      query: "feature:query:rows",
+      columns: ["title"],
+    });
+  });
+}
+
+describe("validateQueryRefs — dispatchOnly", () => {
+  test("a screen loading a dispatchOnly query is rejected", () => {
+    expect(() => validateQueryRefs([featureWithScreenQuery(true)])).toThrow(
+      /\[Feature feature\] Screen "row-list" \(projectionList\) query "feature:query:rows" is dispatchOnly/,
+    );
+  });
+
+  test("a screen loading a regular query boots", () => {
+    expect(() => validateQueryRefs([featureWithScreenQuery(false)])).not.toThrow();
   });
 });
 

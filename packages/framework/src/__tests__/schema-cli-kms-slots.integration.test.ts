@@ -271,7 +271,7 @@ describe("runSchemaCli apply — kmsSlots", () => {
     expect(await tableExists(testDb.db, KMS_PROBE_TABLE)).toBe(false);
   });
 
-  test("requireKms without the KMS env exits 1 before applying any migration", async () => {
+  test('kmsMode "required" without the KMS env exits 1 before applying any migration', async () => {
     const appCwd = writeAppWithTrivialMigration("0004_kms_required_probe");
     writeFileSync(
       join(appCwd, "kumiko/migrations/0004_kms_required_probe.sql"),
@@ -281,11 +281,49 @@ describe("runSchemaCli apply — kmsSlots", () => {
     const code = await runSchemaCli(["apply"], appCwd, cap.out, {
       features: [feature],
       kmsSlots: [],
-      requireKms: true,
+      kmsMode: "required",
     });
 
     expect(code).toBe(1);
     expect(cap.err.length).toBeGreaterThan(0);
+    expect(await tableExists(testDb.db, KMS_PROBE_TABLE)).toBe(false);
+  });
+
+  test("a plaintext kmsMode wires no KMS even with the KMS env set, like the boot", async () => {
+    process.env["SUBJECT_KEYS_DATABASE_URL"] = testDbUrl;
+    process.env["PLATFORM_KEK"] = PLATFORM_KEK_PLAINTEXT;
+    process.env["KUMIKO_BLIND_INDEX_KEY"] = BLIND_INDEX_PLAINTEXT;
+
+    const appCwd = writeAppWithTrivialMigration("0005_plaintext");
+    const cap = captureOut();
+    const code = await runSchemaCli(["apply"], appCwd, cap.out, {
+      features: [feature],
+      kmsSlots: ["PLATFORM_KEK", "KUMIKO_BLIND_INDEX_KEY"],
+      kmsMode: { plaintextReason: "demo without customer data" },
+    });
+
+    expect(cap.err).toEqual([]);
+    expect(code).toBe(0);
+    expect(cap.log.join("\n")).toContain("demo without customer data");
+    expect(configuredBlindIndexKey()).toBeUndefined();
+    expect(configuredPiiSubjectKms()).toBeUndefined();
+  });
+
+  test("a plaintext kmsMode without a reason exits 1 before applying any migration", async () => {
+    const appCwd = writeAppWithTrivialMigration("0006_empty_reason_probe");
+    writeFileSync(
+      join(appCwd, "kumiko/migrations/0006_empty_reason_probe.sql"),
+      `CREATE TABLE ${KMS_PROBE_TABLE} (id integer);\n`,
+    );
+    const cap = captureOut();
+    const code = await runSchemaCli(["apply"], appCwd, cap.out, {
+      features: [feature],
+      kmsSlots: [],
+      kmsMode: { plaintextReason: " " },
+    });
+
+    expect(code).toBe(1);
+    expect(cap.err.join("\n")).toContain("kmsMode.plaintextReason must name a reason");
     expect(await tableExists(testDb.db, KMS_PROBE_TABLE)).toBe(false);
   });
 });

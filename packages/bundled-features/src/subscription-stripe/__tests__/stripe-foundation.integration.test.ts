@@ -743,4 +743,33 @@ describe("billing-live gate end-to-end", () => {
     expect(opened.httpStatus).toBe(422);
     expect(opened.i18nKey).toBe("billing-foundation.errors.unknownPrice");
   });
+
+  // Without oneOffPriceIds every payment checkout is closed, also for a price the subscription catalog knows.
+  test('mode:"payment" with a subscription priceId and no oneOffPriceIds is rejected as unknown_price', async () => {
+    const sysAdmin = createTestUser({
+      id: 6004,
+      tenantId: SYSTEM_TENANT_ID,
+      roles: ["SystemAdmin"],
+    });
+    await gateStack.http.writeOk(
+      "config:write:set",
+      { key: BILLING_LIVE_CONFIG_QN, value: true, scope: "system" },
+      sysAdmin,
+    );
+    const tenantAdmin = createTestUser({
+      id: 6003,
+      tenantId: testTenantId(6003),
+      roles: ["TenantAdmin"],
+    });
+
+    const error = await gateStack.http.writeErr(
+      "billing-foundation:write:create-checkout-session",
+      { ...checkoutPayload, mode: "payment" },
+      tenantAdmin,
+    );
+
+    expect(error.httpStatus).toBe(422);
+    expect(error.i18nKey).toBe("billing-foundation.errors.unknownPrice");
+    expect(error.details).toMatchObject({ reason: "unknown_price" });
+  });
 });

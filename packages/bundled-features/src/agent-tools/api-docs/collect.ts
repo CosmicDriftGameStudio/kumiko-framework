@@ -131,11 +131,12 @@ export function collectApiDocsModel(
   if (patFeature === undefined || scopeConfig === undefined) return undefined;
 
   const kinds = new Map<string, { kind: "query" | "write"; def: AnyHandlerDef }>();
+  // A dispatchOnly handler answers 404 over HTTP, so a token holder can never call it.
   for (const [qn, def] of registry.getAllQueryHandlers()) {
-    if (!isSystemOnlyHandler(def)) kinds.set(qn, { kind: "query", def });
+    if (!isSystemOnlyHandler(def) && !def.dispatchOnly) kinds.set(qn, { kind: "query", def });
   }
   for (const [qn, def] of registry.getAllWriteHandlers()) {
-    if (!isSystemOnlyHandler(def)) kinds.set(qn, { kind: "write", def });
+    if (!isSystemOnlyHandler(def) && !def.dispatchOnly) kinds.set(qn, { kind: "write", def });
   }
   const allQns = [...kinds.keys()].sort(compareIds);
 

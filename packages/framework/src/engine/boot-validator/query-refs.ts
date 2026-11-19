@@ -26,12 +26,20 @@ export function checkQueryRef(
   query: string,
   buildPrefix: () => string,
 ): void {
-  // skip: empty/non-string queries get their own message in screens.ts;
-  // a registered query has nothing left to check.
-  if (!isNonEmptyQueryString(query) || queryHandlers.has(query)) return;
-  throw bootRuleError(QUERY_RULES.notRegistered, {
-    message: `${buildPrefix()} query "${query}" ${NOT_REGISTERED_SUFFIX}`,
-  });
+  // skip: empty/non-string queries get their own message in screens.ts
+  if (!isNonEmptyQueryString(query)) return;
+  const handler = queryHandlers.get(query);
+  if (handler === undefined) {
+    throw bootRuleError(QUERY_RULES.notRegistered, {
+      message: `${buildPrefix()} query "${query}" ${NOT_REGISTERED_SUFFIX}`,
+    });
+  }
+  // The browser loads every query a screen references over /api/query, which answers 404 here.
+  if (handler.dispatchOnly) {
+    throw bootRuleError(QUERY_RULES.dispatchOnlyOnScreen, {
+      message: `${buildPrefix()} query "${query}" is dispatchOnly, so the browser can never load it. Drop dispatchOnly from the query, or give the screen its own query.`,
+    });
+  }
 }
 
 const PROBE_ROUTE_ID = "00000000-0000-4000-8000-000000000000";

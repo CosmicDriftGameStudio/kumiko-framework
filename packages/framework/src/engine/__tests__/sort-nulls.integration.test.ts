@@ -111,4 +111,10 @@ describe("sortNulls on a sortable field", () => {
     expect([...names.slice(0, 2)].sort()).toEqual(["manual-1", "manual-2"]);
     expect(names.slice(2)).toEqual(["old", "mid", "new"]);
   });
+
+  test("the insertedAt base column sorts newest first across cursor pages", async () => {
+    const names = await pagedNames("insertedAt", "desc");
+
+    expect(names).toEqual(["mid", "new", "manual-2", "old", "manual-1"]);
+  });
 });

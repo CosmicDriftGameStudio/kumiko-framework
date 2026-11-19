@@ -23,13 +23,16 @@ and ports. `kumiko/schema.ts`, `kumiko agent lint`, `kumiko check` and
 - **`ports`** with `dev`, `e2e` and optional `infra` (`postgres`, `redis`,
   `meilisearch`, `s3`). Keep them number literals: `kumiko ports` reads them
   statically across all apps of a workspace and reports collisions.
+- **`kmsMode`** is the production KMS decision `bin/main.ts` and `schema apply`
+  both read: `"required"` (also when unset), `"optional"`, or
+  `{ plaintextReason }` for a demo app without KMS.
 
 ## Files
 
 ```
-kumiko.config.ts                  defineAppConfig with features, prodFeatures, client, ports
+kumiko.config.ts                  defineAppConfig with features, prodFeatures, client, ports, kmsMode
 src/feature.ts                    two placeholder features
-src/__tests__/app-config.test.ts  feature list, port list, validation errors
+src/__tests__/app-config.test.ts  feature list, port list, validation errors, kmsMode
 ```
 
 See [`docs/reference/app-skeleton.md`](../../../docs/reference/app-skeleton.md)
@@ -48,6 +51,7 @@ export default defineAppConfig({
   prodFeatures: [auditExportFeature],
   client: { entries: ["src/client.tsx"] },
   ports: { dev: 4510, e2e: 4511, infra: { postgres: 15510 } },
+  kmsMode: "required",
 });
 ```
 
@@ -96,6 +100,17 @@ describe("kumiko.config.ts", () => {
         ports: { dev: 4510, e2e: 4511 },
       }),
     ).toThrow();
+  });
+
+  test("a plaintext kmsMode must name its reason", () => {
+    expect(() =>
+      defineAppConfig({
+        features: [notesFeature],
+        client: { entries: ["src/client.tsx"] },
+        ports: { dev: 4510, e2e: 4511 },
+        kmsMode: { plaintextReason: "" },
+      }),
+    ).toThrow("kmsMode.plaintextReason must name a reason");
   });
 });
 ```

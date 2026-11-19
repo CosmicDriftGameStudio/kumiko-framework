@@ -1549,6 +1549,7 @@ type QueryHandlerDef = {
   }; // Marks a query whose result holds no entity rows (options, counts, derived values), so no field filter applies.
   escapeHatch?: EscapeHatchDeclaration;
   systemScope?: true; // Declared via `systemScope: true` on defineQueryHandler; boot requires the owning feature to call r.systemScope().
+  dispatchOnly?: boolean; // Reachable only from server code (ctx.dispatch.query/queryAs, jobs, server routes), never through the generic HTTP entry: POST /api/query and the screen export answer 404 as for an unknown handler.
 };
 type QueryHandlerDefinition<TName extends string = string, TSchema extends ZodType = ZodType, TResult = unknown, TMap extends object = KumikoEventTypeMap> = {
   name: TName;
@@ -1559,6 +1560,7 @@ type QueryHandlerDefinition<TName extends string = string, TSchema extends ZodTy
   rateLimit?: RateLimitDeclaration;
   escapeHatch?: EscapeHatchDeclaration;
   systemScope?: true;
+  dispatchOnly?: boolean;
   handler: (query: QueryEvent<z.infer<TSchema>>, context: HandlerContext<TMap>) => Promise<TResult>;
   outputSchema?: ZodType; // Zod schema of `handler`'s actual return value — see QueryHandlerDef's doc (handlers.ts) for the boot-validator checks this unlocks.
   liveEntities?: string[]; // Entities whose changes this query reflects.

@@ -1,6 +1,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
 import { isOneOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import type { KmsMode } from "../crypto/kms-mode.ts";
 import { loadSnapshotJson, type renderTablesDdl } from "../db/index.ts";
 import { assertUniqueTableNames } from "../db/migrate-generator.ts";
 import {
@@ -30,7 +31,7 @@ export type RunSchemaCliOptions = RunSchemaCliRowLevelSecurityOption &
     | {
         readonly features?: undefined;
         readonly kmsSlots?: undefined;
-        readonly requireKms?: undefined;
+        readonly kmsMode?: undefined;
       }
     | {
         /** Composed app features. When given, `apply` rebuilds the projections whose
@@ -41,8 +42,10 @@ export type RunSchemaCliOptions = RunSchemaCliRowLevelSecurityOption &
          *  `[]` when the app wires none. This CLI parses no env schema, so the
          *  rebuild's KMS wiring cannot derive them itself. */
         readonly kmsSlots: readonly string[];
-        /** true: `apply` exits 1 before any migration when the KMS env is missing (runProdApp kmsMode "required"). */
-        readonly requireKms?: boolean;
+        /** Same values as runProdApp's kmsMode. `"required"`: `apply` exits 1 before any migration when
+         *  the KMS env is missing. `{ plaintextReason }`: no KMS wiring, the reason is logged.
+         *  `"optional"` or unset: wires the KMS env when it is present. */
+        readonly kmsMode?: KmsMode;
       }
   );
 

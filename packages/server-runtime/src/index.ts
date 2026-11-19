@@ -36,6 +36,7 @@ export {
   type PreviewLoginOption,
 } from "./boot-options/preview-login-option.ts";
 export type { SignalsOption } from "./boot-options/process-signals.ts";
+export { productionKmsMode } from "./boot-options/prod-boot-defaults.ts";
 export {
   type BootOptionFields,
   type BootOptionWiring,

@@ -5,6 +5,7 @@
 import type { TranslationKeys } from "@cosmicdrift/kumiko-types/config";
 import type { ListDefaultsOptions } from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { findKmsModeProblem, type KmsMode } from "../crypto/kms-mode.ts";
 import { ROW_LEVEL_SECURITY_MODES, type RowLevelSecurityMode } from "../db/render-rls-ddl.ts";
 import type { ValidateBootOptions } from "../engine/boot-validator.ts";
 import type { FeatureDefinition } from "../engine/types/index.ts";
@@ -76,6 +77,9 @@ export type AppConfig = {
   readonly listDefaults?: ListDefaultsOptions;
   /** "on" enforces tenant isolation in Postgres via row level security; schema tooling and every runner read this one value. Default "on". */
   readonly rowLevelSecurity?: RowLevelSecurityMode;
+  /** The production KMS decision; bin/main.ts and `schema apply` in bin/kumiko.ts both read it through
+   *  `productionKmsMode`. Unset: production requires the KMS env ("required"). */
+  readonly kmsMode?: KmsMode;
   readonly apiDocs?: AppApiDocsConfig;
 };
 
@@ -171,6 +175,8 @@ export function defineAppConfig(config: AppConfig): AppConfig {
       `rowLevelSecurity must be one of ${ROW_LEVEL_SECURITY_MODES.join(", ")}, got ${String(config.rowLevelSecurity)}`,
     );
   }
+  const kmsModeProblem = config.kmsMode !== undefined && findKmsModeProblem(config.kmsMode);
+  if (kmsModeProblem) problems.push(kmsModeProblem);
   if (problems.length > 0) {
     throw new Error(`defineAppConfig: ${problems.join("; ")}`);
   }

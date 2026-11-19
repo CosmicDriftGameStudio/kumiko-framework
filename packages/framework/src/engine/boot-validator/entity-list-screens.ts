@@ -22,6 +22,12 @@ export const SEARCHABLE_FALSE_WHITELIST = new Set(["download-attempt-list", "cap
 // because the renderer's LIST_ROW_META_COLUMNS doesn't know them.
 export const LIST_ROW_META_COLUMN_NAMES = new Set(Object.keys(LIST_ROW_META_COLUMNS));
 
+// insertedAt/modifiedAt: every entity table has them, the list handler orders by the column with
+// the id as tie-breaker, so "newest first" needs no declared field.
+export function isSortableRowMetaColumn(field: string): boolean {
+  return LIST_ROW_META_COLUMNS[field] === "timestamp";
+}
+
 export function hasFilterableFields(feature: FeatureDefinition, entityName: string): boolean {
   return entityHasFilterableFields(feature.entities?.[entityName]);
 }
@@ -113,6 +119,7 @@ function checkSortSpecColumn(
   const entityDef = feature.entities?.[screen.entity];
   const fieldDef = entityDef?.fields[sortField];
   const isSortable =
+    isSortableRowMetaColumn(sortField) ||
     (entityDef !== undefined && isSortableSqlDerivedField(entityDef, sortField)) ||
     (fieldDef !== undefined && "sortable" in fieldDef && fieldDef.sortable === true);
   if (!isSortable) {

@@ -1655,6 +1655,36 @@ describe("validateBoot — screen validation", () => {
     expect(() => validateBoot([feature])).toThrow(/defaultSort references unknown field "summary"/);
   });
 
+  test("entityList defaultSort on the insertedAt base column boots", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity(productEntity());
+      r.screen({
+        id: "list",
+        type: "entityList",
+        entity: "product",
+        columns: ["name", "insertedAt"],
+        defaultSort: { field: "insertedAt", dir: "desc" },
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("entityList defaultSort on a name that is neither field nor base column fails boot", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity(productEntity());
+      r.screen({
+        id: "list",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+        defaultSort: { field: "createdAt", dir: "desc" },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /defaultSort references unknown field "createdAt"/,
+    );
+  });
+
   test("entityEdit with unknown field (string form in sections) fails boot", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity(productEntity());

@@ -11,7 +11,7 @@ const ANONYMOUS_PRINCIPAL = { roles: [ANONYMOUS_ROLE] } as const;
 export function collectAnonymousLiveEntities(registry: Registry): ReadonlySet<string> {
   const entities = new Set<string>();
   for (const handler of registry.getAllQueryHandlers().values()) {
-    if (!hasAccess(ANONYMOUS_PRINCIPAL, handler.access)) continue;
+    if (handler.dispatchOnly || !hasAccess(ANONYMOUS_PRINCIPAL, handler.access)) continue;
     for (const entityName of handler.liveEntities ?? []) entities.add(entityName);
   }
   return entities;

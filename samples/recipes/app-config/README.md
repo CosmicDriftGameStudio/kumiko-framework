@@ -15,13 +15,16 @@ and ports. `kumiko/schema.ts`, `kumiko agent lint`, `kumiko check` and
 - **`ports`** with `dev`, `e2e` and optional `infra` (`postgres`, `redis`,
   `meilisearch`, `s3`). Keep them number literals: `kumiko ports` reads them
   statically across all apps of a workspace and reports collisions.
+- **`kmsMode`** is the production KMS decision `bin/main.ts` and `schema apply`
+  both read: `"required"` (also when unset), `"optional"`, or
+  `{ plaintextReason }` for a demo app without KMS.
 
 ## Files
 
 ```
-kumiko.config.ts                  defineAppConfig with features, prodFeatures, client, ports
+kumiko.config.ts                  defineAppConfig with features, prodFeatures, client, ports, kmsMode
 src/feature.ts                    two placeholder features
-src/__tests__/app-config.test.ts  feature list, port list, validation errors
+src/__tests__/app-config.test.ts  feature list, port list, validation errors, kmsMode
 ```
 
 See [`docs/reference/app-skeleton.md`](../../../docs/reference/app-skeleton.md)

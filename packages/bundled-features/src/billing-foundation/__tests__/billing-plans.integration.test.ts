@@ -755,6 +755,8 @@ describe("create-checkout-session — redirect + price hardening", () => {
       admin,
     );
     expect(error.httpStatus).toBe(422);
+    expect(error.i18nKey).toBe("billing-foundation.errors.redirectOriginNotAllowed");
+    expect(error.details).toMatchObject({ reason: "redirect_origin_not_allowed" });
   });
 
   test("an unknown priceId is rejected", async () => {
@@ -770,6 +772,8 @@ describe("create-checkout-session — redirect + price hardening", () => {
       admin,
     );
     expect(error.httpStatus).toBe(422);
+    expect(error.i18nKey).toBe("billing-foundation.errors.unknownPrice");
+    expect(error.details).toMatchObject({ reason: "unknown_price" });
   });
 
   test("a priceId mapping to a tier outside catalog.plans is rejected", async () => {

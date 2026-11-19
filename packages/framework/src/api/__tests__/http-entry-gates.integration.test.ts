@@ -1,5 +1,5 @@
-// The generic HTTP entry (/api/write, /api/batch, /api/command) is the trust boundary for client
-// dispatches. It hides dispatchOnly handlers behind the 404 of an unknown handler and refuses an
+// The generic HTTP entry (/api/write, /api/batch, /api/command, /api/query) is the trust boundary
+// for client dispatches. It hides dispatchOnly handlers behind the 404 of an unknown handler and refuses an
 // anonymous write under SYSTEM_TENANT_ID unless the handler declares tenantlessAnonymous.
 // The gates sit in routes.ts, not the dispatcher, because ctx.dispatch must still reach both.
 
@@ -14,6 +14,8 @@ const RECORD_STEP = "entry-gates:write:record-step";
 const RUN_FLOW = "entry-gates:write:run-flow";
 const OPEN_INTAKE = "entry-gates:write:open-intake";
 const SYSTEM_INTAKE = "entry-gates:write:system-intake";
+const LOOKUP_SECRET = "entry-gates:query:lookup-secret";
+const SHOW_LOOKUP = "entry-gates:query:show-lookup";
 
 const NoteSchema = z.object({ note: z.string() });
 const INTAKE_RATE_LIMIT = { per: "ip", limit: 50, windowSeconds: 60 } as const;
@@ -46,6 +48,19 @@ const gatesFeature = defineFeature("entry-gates", (r) => {
     rateLimit: INTAKE_RATE_LIMIT,
     tenantlessAnonymous: true,
     handler: async () => ({ isSuccess: true as const, data: {} }),
+  });
+  r.queryHandler({
+    name: "lookup-secret",
+    schema: z.object({}),
+    access: { roles: ["User"] },
+    dispatchOnly: true,
+    handler: async (query) => ({ by: query.user.id }),
+  });
+  r.queryHandler({
+    name: "show-lookup",
+    schema: z.object({}),
+    access: { roles: ["User"] },
+    handler: async (_query, ctx) => ctx.dispatch.query(LOOKUP_SECRET, {}),
   });
 });
 
@@ -106,6 +121,19 @@ describe("dispatchOnly handlers behind the HTTP entry", () => {
 
   test("ctx.dispatch still reaches it with the calling user", async () => {
     const data = await stack.http.writeOk<{ by: string }>(RUN_FLOW, { note: "x" }, user);
+    expect(data.by).toBe(user.id);
+  });
+
+  test("/api/query answers a dispatchOnly query like an unknown one", async () => {
+    const hidden = await stack.http.queryErr(LOOKUP_SECRET, {}, user);
+    const unknown = await stack.http.queryErr("entry-gates:query:does-not-exist", {}, user);
+    expect(hidden.code).toBe("not_found");
+    expect(hidden.httpStatus).toBe(404);
+    expect(hidden.code).toBe(unknown.code);
+  });
+
+  test("ctx.dispatch.query still reaches a dispatchOnly query with the calling user", async () => {
+    const data = await stack.http.queryOk<{ by: string }>(SHOW_LOOKUP, {}, user);
     expect(data.by).toBe(user.id);
   });
 });
