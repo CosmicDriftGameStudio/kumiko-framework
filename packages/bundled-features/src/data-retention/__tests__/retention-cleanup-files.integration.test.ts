@@ -41,6 +41,7 @@ import {
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
+  deleteRowViaEventStore,
   seedRowViaEventStore,
   updateRowViaEventStore,
   withEnv,
@@ -105,8 +106,19 @@ const otherDocEntity = createEntity({
   },
 });
 
+// Live holder whose field rejects the test file (.jpg key), so rebinding onto it throws.
+const strictDocEntity = createEntity({
+  name: "c8-strict-doc",
+  table: "read_c8_strict_doc",
+  fields: {
+    label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    cover: createImageField({ accept: ["png"] }),
+  },
+});
+
 const c8Feature = defineFeature("c8-retention-file-fixtures", (r) => {
   r.entity(otherDocEntity);
+  r.entity(strictDocEntity);
   r.entity(docEntity);
   r.entity(softDocEntity);
   r.entity(anonDocEntity);
@@ -138,7 +150,7 @@ beforeAll(async () => {
     features: [createDataRetentionFeature(), c8Feature],
     files: { storageProvider: provider },
   });
-  for (const e of [docEntity, softDocEntity, anonDocEntity, otherDocEntity]) {
+  for (const e of [docEntity, softDocEntity, anonDocEntity, otherDocEntity, strictDocEntity]) {
     await unsafeCreateEntityTable(stack.db, e);
   }
   fileRefCrud = createEventStoreExecutor(fileRefsTable, fileRefEntity, { entityName: "fileRef" });
@@ -241,6 +253,7 @@ beforeEach(async () => {
     "read_c8_soft_doc",
     "read_c8_anon_doc",
     "read_c8_other_doc",
+    "read_c8_strict_doc",
     fileRefsTable,
   ]);
   provider.clear();
@@ -411,6 +424,75 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
     expect(await labels("read_c8_other_doc", T1)).toEqual(["live-other"]);
     expect(await provider.exists(key)).toBe(true);
     expect(await fileRefExists(sharedId)).toBe(true);
+  });
+
+  test("a soft-deleted holder does not count: the file is purged with the expired row", async () => {
+    const rowA = await seedDoc(docEntity, T1, "expired-owner-softheld", pastIso);
+    const rowB = await seedDoc(softDocEntity, T1, "soft-deleted-holder", withinIso);
+    const key = "t1/soft-holder/cover/orig.jpg";
+    const sharedId = await seedFileRef({
+      tenantId: T1,
+      entityName: "c8-doc",
+      entityId: rowA,
+      fieldName: "cover",
+      key,
+    });
+    await setCover(docEntity, rowA, sharedId);
+    await setCover(softDocEntity, rowB, sharedId);
+    await deleteRowViaEventStore(
+      stack.db,
+      {
+        table: buildEntityTable(softDocEntity),
+        entity: softDocEntity,
+        entityName: softDocEntity.name,
+      },
+      { id: rowB },
+      { tenantId: T1 },
+    );
+
+    const result = await runRetentionCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      tenantId: T1,
+      preloadedTenantPreset: null,
+      now,
+      files: filesCtx(),
+    });
+
+    expect(result.hardDeleted).toBe(1);
+    expect(await labels("read_c8_doc", T1)).toEqual([]);
+    expect(await provider.exists(key)).toBe(false);
+    expect(await fileRefExists(sharedId)).toBe(false);
+  });
+
+  test("a throwing rebind skips the row (file_delete_failed) without aborting the tenant run", async () => {
+    const failingRow = await seedDoc(docEntity, T1, "expired-rebind-throws", pastIso);
+    const holderRow = await seedDoc(strictDocEntity, T1, "live-strict-holder", withinIso);
+    const key = "t1/rebind-throws/cover/orig.jpg";
+    const sharedId = await seedFileRef({
+      tenantId: T1,
+      entityName: "c8-doc",
+      entityId: failingRow,
+      fieldName: "cover",
+      key,
+    });
+    await setCover(docEntity, failingRow, sharedId);
+    await setCover(strictDocEntity, holderRow, sharedId);
+    await seedDoc(docEntity, T1, "expired-plain", pastIso);
+
+    const result = await runRetentionCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      tenantId: T1,
+      preloadedTenantPreset: null,
+      now,
+      files: filesCtx(),
+    });
+
+    expect(result.skipped).toContainEqual({ entityName: "c8-doc", reason: "file_delete_failed" });
+    expect(await labels("read_c8_doc", T1)).toEqual(["expired-rebind-throws"]);
+    expect(await fileRefExists(sharedId)).toBe(true);
+    expect(await provider.exists(key)).toBe(true);
   });
 
   test("a throwing storage list() skips the row (file_delete_failed) without aborting the tenant run", async () => {

@@ -350,11 +350,21 @@ async function purgeHardDeleteRowWithFiles(args: {
         : undefined,
     fileRefForget: async (fileRefId) =>
       (await args.fileRefExecutor.forget({ id: fileRefId }, args.systemUser, args.tdb)).isSuccess,
-    fileRefRebind: async (fileRefId, from, to) =>
-      (await rebindFileRef(
-        { db: args.tdb, registry: args.registry, user: args.systemUser },
-        { fileRefId, from, to },
-      )) === "rebound",
+    fileRefRebind: async (fileRefId, from, to) => {
+      try {
+        return (
+          (await rebindFileRef(
+            { db: args.tdb, registry: args.registry, user: args.systemUser },
+            { fileRefId, from, to },
+          )) === "rebound"
+        );
+      } catch (error) {
+        log.warn(
+          `${logContext} rebind of fileRef=${fileRefId} to ${to.entityType}/${to.entityId}.${to.fieldName} failed, row skipped: ${String(error)}`,
+        );
+        return false;
+      }
+    },
     onBytesDeleteFailed: (failedKeys) => {
       // biome-ignore lint/suspicious/noConsole: operator-visibility for storage-cleanup failures
       console.warn(

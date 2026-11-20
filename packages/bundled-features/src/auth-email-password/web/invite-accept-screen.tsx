@@ -75,7 +75,6 @@ function isMfaPending(data: InviteAcceptResponse): data is InviteAcceptMfaPendin
 type InviteInfo = { readonly email: string; readonly hasAccount: boolean };
 
 type InviteInfoState =
-  | { readonly kind: "pending" }
   | { readonly kind: "unavailable" }
   | { readonly kind: "invalid" }
   | { readonly kind: "ready"; readonly info: InviteInfo };
@@ -94,7 +93,7 @@ function grantedRoles(data: InviteAcceptSucceeded): readonly string[] {
 // Without a mounted dispatcher (standalone mounts, tests) the lookup is skipped and the
 // form behaves as before; so does any lookup failure except an invalid token.
 function InviteAcceptWithLookup(props: InviteAcceptBodyProps): ReactNode {
-  const { data, error, loading } = useQuery<InviteInfo>(
+  const { data, error } = useQuery<InviteInfo>(
     AuthQueries.inviteInfo,
     { token: props.token },
     { enabled: props.token !== "" },
@@ -102,13 +101,9 @@ function InviteAcceptWithLookup(props: InviteAcceptBodyProps): ReactNode {
   const inviteInfo: InviteInfoState =
     data !== null
       ? { kind: "ready", info: data }
-      : error !== null
-        ? error.details?.["reason"] === AuthErrors.invalidInviteToken
-          ? { kind: "invalid" }
-          : { kind: "unavailable" }
-        : loading
-          ? { kind: "pending" }
-          : { kind: "unavailable" };
+      : error?.details?.["reason"] === AuthErrors.invalidInviteToken
+        ? { kind: "invalid" }
+        : { kind: "unavailable" };
   return <InviteAcceptBody {...props} inviteInfo={inviteInfo} />;
 }
 
@@ -191,7 +186,11 @@ function InviteAcceptBody({
       finishAccept(data);
       return;
     }
-    const { key, params } = reasonToKey(await failureFromResponse(res), "auth.errors.unknownError");
+    const failure = await failureFromResponse(res);
+    const { key, params } =
+      failure.reason === "validation_error"
+        ? { key: "auth.errors.passwordRejected", params: undefined }
+        : reasonToKey(failure, "auth.errors.unknownError");
     setError(t(key, params));
   };
 

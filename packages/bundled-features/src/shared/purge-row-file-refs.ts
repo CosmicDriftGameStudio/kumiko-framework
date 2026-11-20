@@ -21,6 +21,7 @@ export type SingleFileHolder = {
   readonly entityName: string;
   readonly table: EntityTable;
   readonly tableHasTenantId: boolean;
+  readonly hidesSoftDeleted: boolean;
   readonly singleFields: readonly string[];
 };
 
@@ -63,6 +64,8 @@ export function collectSingleFileHolders(registry: Registry): readonly SingleFil
       entityName: proj.source,
       table: proj.table,
       tableHasTenantId: propertyOf(proj.table, "tenantId") !== undefined,
+      hidesSoftDeleted:
+        entity.softDelete === true && propertyOf(proj.table, "isDeleted") !== undefined,
       singleFields,
     });
   }
@@ -140,6 +143,7 @@ async function findOtherHolder(
         where["id"] = fieldIsPurged ? { ne: rowId } : rowId;
       }
       if (holder.tableHasTenantId) where["tenantId"] = tenantId;
+      if (holder.hidesSoftDeleted) where["isDeleted"] = false;
       const others = await selectMany<{ id: string }>(db, holder.table, where, {
         limit: 1,
         orderBy: { col: "id" },
@@ -176,7 +180,7 @@ export async function purgeRowFileRefs(args: {
   readonly deleteBytes: ((storageKey: string) => Promise<readonly string[]>) | undefined;
   readonly fileRefForget: (fileRefId: string) => Promise<boolean>;
   /** Moves a shared fileRef off the purged row onto the holder that stays; false = not moved. */
-  readonly fileRefRebind?: (
+  readonly fileRefRebind: (
     fileRefId: string,
     from: FileRefOwner,
     to: FileRefOwner,
@@ -217,12 +221,10 @@ export async function purgeRowFileRefs(args: {
       continue;
     }
     const move = rebindMoveOf(fileRef, args.entityName, rowId, holder);
-    if (args.fileRefRebind && move !== undefined) toRebind.push(move);
+    if (move !== undefined) toRebind.push(move);
   }
-  if (args.fileRefRebind) {
-    for (const move of toRebind) {
-      if (!(await args.fileRefRebind(move.id, move.from, move.to))) return "file_delete_failed";
-    }
+  for (const move of toRebind) {
+    if (!(await args.fileRefRebind(move.id, move.from, move.to))) return "file_delete_failed";
   }
   if (toDelete.length === 0) return "purged";
 

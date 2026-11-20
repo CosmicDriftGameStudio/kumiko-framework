@@ -115,8 +115,6 @@ export function reasonToKey(
       return { key: "auth.errors.inviteEmailMismatch" };
     case "invite_already_accepted":
       return { key: "auth.errors.inviteAlreadyAccepted" };
-    case "validation_error":
-      return { key: "auth.errors.passwordRejected" };
     default:
       return { key: fallbackKey };
   }

@@ -26,6 +26,7 @@ import {
   rebindFileRef,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import {
   collectSingleFileHolders,
   type FileRefPurgeOutcome,
@@ -116,6 +117,8 @@ function fieldsResolvingToSubject(
 // A user owning many records must not load them all at once; the id cursor keeps each page
 // bounded while rows purged in place stay out of the way.
 export const PURGE_CANDIDATE_PAGE_SIZE = 200;
+
+const log = createFallbackLogger("forget-subject");
 
 async function* candidateRowsPaged(
   db: DbRunner,
@@ -228,11 +231,21 @@ export async function purgeFilesReachingSubject(args: {
             : undefined,
           fileRefForget: async (fileRefId) =>
             (await fileRefExecutor.forget({ id: fileRefId }, systemUser, tdb)).isSuccess,
-          fileRefRebind: async (fileRefId, from, to) =>
-            (await rebindFileRef(
-              { db: tdb, registry: registry, user: systemUser },
-              { fileRefId, from, to },
-            )) === "rebound",
+          fileRefRebind: async (fileRefId, from, to) => {
+            try {
+              return (
+                (await rebindFileRef(
+                  { db: tdb, registry: registry, user: systemUser },
+                  { fileRefId, from, to },
+                )) === "rebound"
+              );
+            } catch (error) {
+              log.warn(
+                `tenant=${tenantId} rebind of fileRef=${fileRefId} to ${to.entityType}/${to.entityId}.${to.fieldName} failed, row skipped: ${String(error)}`,
+              );
+              return false;
+            }
+          },
         });
         if (outcome === "missing_file_storage" && missingStorage.mode === "skip") {
           missingStorage.warn(tenantId);
