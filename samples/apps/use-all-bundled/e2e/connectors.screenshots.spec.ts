@@ -135,9 +135,9 @@ test("empty list, paired and revoked devices, confirm step and unknown code", as
         headers: { authorization: `Bearer ${token}` },
         data: { version: "1.0.0", sync: { state: "idle", queued: 0, failed: 3 } },
       });
-      return (await answer.json()) as { retry?: boolean };
+      return (await answer.json()) as { retry?: boolean; name?: string };
     })
-    .toEqual({ ok: true, retry: true });
+    .toEqual({ ok: true, retry: true, name: ACTIVE_DEVICE });
 
   await openPairScreen(page);
   await checkCode(page, "ZZZZ-ZZZZ");
