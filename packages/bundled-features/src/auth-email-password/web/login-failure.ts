@@ -13,7 +13,11 @@ export type KnownLoginFailureReason =
   | "rate_limited"
   | "invalid_body"
   | "mfa_not_supported"
-  | "mfa_setup_required";
+  | "mfa_setup_required"
+  | "invalid_invite_token"
+  | "invite_email_mismatch"
+  | "invite_already_accepted"
+  | "validation_error";
 
 export type LoginFailure = {
   readonly reason: KnownLoginFailureReason | (string & {});

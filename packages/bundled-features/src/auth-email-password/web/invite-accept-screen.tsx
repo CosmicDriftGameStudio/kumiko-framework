@@ -15,11 +15,19 @@
 // frontend redirects to loggedInHref. Branch 1 already has a session, but the
 // frontend also redirects to loggedInHref so the invitee enters the new tenant.
 
-import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import {
+  useOptionalDispatcher,
+  usePrimitives,
+  useQuery,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useContext, useState } from "react";
 import { csrfHeader } from "./auth-client.ts";
 import { resolvePostAuthHref } from "./auth-form-logic.ts";
 import { AuthCard, useUrlToken } from "./auth-form-primitives.tsx";
+import { AuthErrors, AuthQueries } from "./constants.ts";
+import { failureFromErrorField, isRecord, type LoginFailure } from "./login-failure.ts";
+import { reasonToKey } from "./login-screen.tsx";
 import { SessionContext, UNAUTHENTICATED } from "./session.tsx";
 
 export type InviteAcceptScreenProps = {
@@ -64,17 +72,68 @@ function isMfaPending(data: InviteAcceptResponse): data is InviteAcceptMfaPendin
   return data.tenantId === undefined;
 }
 
+type InviteInfo = { readonly email: string; readonly hasAccount: boolean };
+
+type InviteInfoState =
+  | { readonly kind: "pending" }
+  | { readonly kind: "unavailable" }
+  | { readonly kind: "invalid" }
+  | { readonly kind: "ready"; readonly info: InviteInfo };
+
+async function failureFromResponse(res: Response): Promise<LoginFailure> {
+  if (res.status === 429) return { reason: "rate_limited" };
+  const body: unknown = await res.json().catch(() => null);
+  return failureFromErrorField(isRecord(body) ? body["error"] : undefined, "unknown_error");
+}
+
 function grantedRoles(data: InviteAcceptSucceeded): readonly string[] {
   if (data.user?.roles !== undefined) return data.user.roles;
   return data.role === undefined ? [] : [data.role];
 }
 
+// Without a mounted dispatcher (standalone mounts, tests) the lookup is skipped and the
+// form behaves as before; so does any lookup failure except an invalid token.
+function InviteAcceptWithLookup(props: InviteAcceptBodyProps): ReactNode {
+  const { data, error, loading } = useQuery<InviteInfo>(
+    AuthQueries.inviteInfo,
+    { token: props.token },
+    { enabled: props.token !== "" },
+  );
+  const inviteInfo: InviteInfoState =
+    data !== null
+      ? { kind: "ready", info: data }
+      : error !== null
+        ? error.details?.["reason"] === AuthErrors.invalidInviteToken
+          ? { kind: "invalid" }
+          : { kind: "unavailable" }
+        : loading
+          ? { kind: "pending" }
+          : { kind: "unavailable" };
+  return <InviteAcceptBody {...props} inviteInfo={inviteInfo} />;
+}
+
 export function InviteAcceptScreen({
-  title,
   token: tokenProp,
+  ...rest
+}: InviteAcceptScreenProps): ReactNode {
+  const token = useUrlToken(tokenProp);
+  const dispatcher = useOptionalDispatcher();
+  return dispatcher === undefined ? (
+    <InviteAcceptBody {...rest} token={token} inviteInfo={{ kind: "unavailable" }} />
+  ) : (
+    <InviteAcceptWithLookup {...rest} token={token} />
+  );
+}
+
+type InviteAcceptBodyProps = Omit<InviteAcceptScreenProps, "token"> & { readonly token: string };
+
+function InviteAcceptBody({
+  title,
+  token,
   loggedInHref = "/",
   loginHref = "/login",
-}: InviteAcceptScreenProps): ReactNode {
+  inviteInfo,
+}: InviteAcceptBodyProps & { readonly inviteInfo: InviteInfoState }): ReactNode {
   const t = useTranslation();
   const { Form, Field, Input, Button, Banner, Link } = usePrimitives();
   // NOT useSession(): InviteAcceptScreen is a public route (anon invite-links
@@ -82,14 +141,20 @@ export function InviteAcceptScreen({
   // <SessionProvider> ancestor. Read the context directly and fall back to
   // the anonymous state when no provider wraps this screen (632/1).
   const session = useContext(SessionContext) ?? UNAUTHENTICATED;
-  const token = useUrlToken(tokenProp);
-  const [mode, setMode] = useState<Mode>(() =>
-    session.status === "authenticated" ? "loggedin" : "anon-existing",
-  );
-  const [email, setEmail] = useState("");
+  const [chosenMode, setMode] = useState<Mode | null>(null);
+  const [typedEmail, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const invitedEmail = inviteInfo.kind === "ready" ? inviteInfo.info.email : null;
+  const email = invitedEmail ?? typedEmail;
+  const defaultMode: Mode =
+    session.status === "authenticated"
+      ? "loggedin"
+      : inviteInfo.kind === "ready" && !inviteInfo.info.hasAccount
+        ? "anon-new"
+        : "anon-existing";
+  const mode = chosenMode ?? defaultMode;
 
   const effectiveTitle = title ?? t("auth.inviteAccept.title");
 
@@ -126,7 +191,8 @@ export function InviteAcceptScreen({
       finishAccept(data);
       return;
     }
-    setError(t("auth.errors.invalidInviteToken"));
+    const { key, params } = reasonToKey(await failureFromResponse(res), "auth.errors.unknownError");
+    setError(t(key, params));
   };
 
   const acceptLoggedIn = (): Promise<void> =>
@@ -162,6 +228,17 @@ export function InviteAcceptScreen({
     );
   }
 
+  if (inviteInfo.kind === "invalid") {
+    return (
+      <AuthCard title={effectiveTitle}>
+        <Banner variant="error">{t("auth.errors.invalidInviteToken")}</Banner>
+        <Link href={loginHref} variant="muted">
+          {t("auth.inviteAccept.goToLogin")}
+        </Link>
+      </AuthCard>
+    );
+  }
+
   return (
     <AuthCard title={effectiveTitle}>
       <p className="text-sm text-muted-foreground">{t("auth.inviteAccept.intro")}</p>
@@ -187,7 +264,7 @@ export function InviteAcceptScreen({
         </Form>
       ) : (
         <Form onSubmit={onSubmit}>
-          {mode === "anon-existing" && (
+          {(mode === "anon-existing" || invitedEmail !== null) && (
             <Field id="invite-email" label={t("auth.inviteAccept.email")} required>
               <Input
                 kind="email"
@@ -195,7 +272,7 @@ export function InviteAcceptScreen({
                 name="invite-email"
                 value={email}
                 onChange={setEmail}
-                disabled={submitting}
+                disabled={submitting || invitedEmail !== null}
                 required
                 autoComplete="email"
               />

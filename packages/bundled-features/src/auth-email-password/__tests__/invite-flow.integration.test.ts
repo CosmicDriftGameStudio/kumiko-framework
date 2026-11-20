@@ -580,6 +580,19 @@ describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {
     expect(payload.locale).toBeUndefined();
   });
 
+  test("invitee without an account → invalid_credentials, not invalid_invite_token", async () => {
+    const token = await inviteEmail("no-account@example.com", "Editor");
+
+    const res = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
+      token,
+      email: "no-account@example.com",
+      password: "some-password-123",
+    });
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { error?: { details?: { reason?: string } } };
+    expect(body.error?.details?.reason).toBe(AuthErrors.invalidCredentials);
+  });
+
   test("bare member of the inviting tenant accepts with login → membership and session carry the invited role", async () => {
     await seedTenantMembership(stack.db, { userId: bobId, tenantId: TENANT_A_ID, roles: [] });
     const token = await inviteEmail(BOB_EMAIL, "Editor");

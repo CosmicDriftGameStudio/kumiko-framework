@@ -82,6 +82,13 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "auth.errors.emailNotVerified": "E-Mail-Adresse noch nicht bestätigt.",
   "auth.errors.invalidBody": "Ungültige Eingabe.",
   "auth.errors.invalidCredentials": "E-Mail oder Passwort falsch.",
+  "auth.errors.invalidInviteToken":
+    "Dieser Einladungslink ist ungültig, abgelaufen oder schon benutzt. Bitte lass dir eine neue Einladung schicken.",
+  "auth.errors.inviteEmailMismatch":
+    "Diese Einladung wurde an eine andere E-Mail-Adresse geschickt.",
+  "auth.errors.inviteAlreadyAccepted": "Diese Einladung wurde bereits angenommen.",
+  "auth.errors.passwordRejected":
+    "Dieses Passwort wurde abgelehnt. Bitte mindestens 8 Zeichen verwenden und kein gängiges Passwort wählen.",
   "auth.errors.invalidResetToken":
     "Der Link ist ungültig oder abgelaufen. Bitte fordere einen neuen an.",
   "auth.errors.invalidSignupToken":

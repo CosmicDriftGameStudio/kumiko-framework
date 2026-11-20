@@ -78,8 +78,11 @@ export type LoginScreenProps = {
 };
 
 // Maps login-handler reason codes to i18n keys and optional interpolation parameters.
-// Unknown codes fall back to `auth.errors.loginFailed`.
-function reasonToKey(failure: LoginFailure): {
+// Unknown codes fall back to `fallbackKey` (login: `auth.errors.loginFailed`).
+export function reasonToKey(
+  failure: LoginFailure,
+  fallbackKey = "auth.errors.loginFailed",
+): {
   readonly key: string;
   readonly params?: Readonly<Record<string, unknown>>;
 } {
@@ -106,8 +109,16 @@ function reasonToKey(failure: LoginFailure): {
       return { key: "auth.errors.mfaNotSupported" };
     case "mfa_setup_required":
       return { key: "auth.errors.mfaSetupRequired" };
+    case "invalid_invite_token":
+      return { key: "auth.errors.invalidInviteToken" };
+    case "invite_email_mismatch":
+      return { key: "auth.errors.inviteEmailMismatch" };
+    case "invite_already_accepted":
+      return { key: "auth.errors.inviteAlreadyAccepted" };
+    case "validation_error":
+      return { key: "auth.errors.passwordRejected" };
     default:
-      return { key: "auth.errors.loginFailed" };
+      return { key: fallbackKey };
   }
 }
 

@@ -23,6 +23,12 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.login.resendRateLimited": "Please wait a moment and try again.",
     "auth.login.resendError": "Could not send. Please try again.",
     "auth.errors.invalidCredentials": "Invalid email or password.",
+    "auth.errors.invalidInviteToken":
+      "This invitation link is invalid, expired or already used. Please ask for a new invitation.",
+    "auth.errors.inviteEmailMismatch": "This invitation was sent to a different email address.",
+    "auth.errors.inviteAlreadyAccepted": "This invitation has already been accepted.",
+    "auth.errors.passwordRejected":
+      "This password was rejected. Use at least 8 characters and avoid common passwords.",
     "auth.errors.noMembership": "This account has no tenant access.",
     "auth.errors.accountLocked": "Account temporarily locked.",
     "auth.errors.accountLockedRetry": "Account locked. Try again in {minutes} minutes.",

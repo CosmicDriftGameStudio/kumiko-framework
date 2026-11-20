@@ -81,6 +81,13 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "auth.errors.emailNotVerified": "El correo electrónico aún no está confirmado.",
   "auth.errors.invalidBody": "Entrada no válida.",
   "auth.errors.invalidCredentials": "Correo electrónico o contraseña incorrectos.",
+  "auth.errors.invalidInviteToken":
+    "Este enlace de invitación no es válido, ha caducado o ya se ha usado. Pide una nueva invitación.",
+  "auth.errors.inviteEmailMismatch":
+    "Esta invitación se envió a otra dirección de correo electrónico.",
+  "auth.errors.inviteAlreadyAccepted": "Esta invitación ya fue aceptada.",
+  "auth.errors.passwordRejected":
+    "Se ha rechazado esta contraseña. Usa al menos 8 caracteres y evita contraseñas comunes.",
   "auth.errors.invalidResetToken": "El enlace no es válido o ha caducado. Solicita uno nuevo.",
   "auth.errors.invalidSignupToken":
     "El enlace de activación no es válido o ha caducado. Solicita uno nuevo.",
