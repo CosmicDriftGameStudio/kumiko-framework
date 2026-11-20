@@ -1,5 +1,22 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.425.1
+
+### Patch Changes
+
+- e960a41: The release writes changes.json in Biome's format, so a version commit with `affects` lists passes the lint step.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: The release writes changes.json in Biome's format
+  -->
+- Updated dependencies [e960a41]
+  - @cosmicdrift/kumiko-framework@0.425.1
+  - @cosmicdrift/kumiko-renderer@0.425.1
+  - @cosmicdrift/kumiko-testing@0.425.1
+  - @cosmicdrift/kumiko-types@0.425.1
+
 ## 0.425.0
 
 ### Minor Changes
