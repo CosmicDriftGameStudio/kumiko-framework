@@ -57,7 +57,43 @@ function typeInto(id: string, value: string): void {
   });
 }
 
+function factCells(testId: string): string[] {
+  return Array.from(screen.getByTestId(testId).children).map((cell) => cell.textContent ?? "");
+}
+
 describe("actionForm preview", () => {
+  test("single-line facts form one name-value list and mark the emphasized row", async () => {
+    const dispatcher = createMockDispatcher({
+      query: async () => ({
+        isSuccess: true,
+        data: {
+          principal: { amount: 10000, currency: "EUR" },
+          total: { amount: 10500, currency: "EUR" },
+        },
+      }),
+    });
+    renderForm(dispatcher, {
+      ...form,
+      preview: {
+        query: "tasks:query:set-status-preview",
+        fields: ["status"],
+        facts: [
+          { field: "principal", label: "Principal", type: "money" },
+          { field: "total", label: "Total", type: "money", emphasize: true },
+        ],
+      },
+    });
+
+    typeInto("status", "blocked");
+    await waitFor(() => screen.getByTestId("action-form-preview"));
+    const principal = screen.getByTestId("action-form-preview-fact-0");
+    const total = screen.getByTestId("action-form-preview-fact-1");
+    expect(principal.parentElement).toBe(total.parentElement);
+    expect(factCells("action-form-preview-fact-1")).toEqual(["Total", "€105.00"]);
+    expect(total.hasAttribute("data-emphasize")).toBe(true);
+    expect(principal.hasAttribute("data-emphasize")).toBe(false);
+  });
+
   test("a changed form value runs the preview query and renders facts and list", async () => {
     const queries: { type: string; payload: unknown }[] = [];
     const dispatcher = createMockDispatcher({
@@ -85,7 +121,7 @@ describe("actionForm preview", () => {
     expect(queries).toEqual([
       { type: "tasks:query:set-status-preview", payload: { status: "blocked" } },
     ]);
-    expect(screen.getByTestId("action-form-preview-fact-0").textContent).toBe("Affected tasks: 2");
+    expect(factCells("action-form-preview-fact-0")).toEqual(["Affected tasks", "2"]);
     screen.getByText("Quarterly VAT filing");
     screen.getByText("Prepare audit");
   });
@@ -187,8 +223,8 @@ describe("actionForm preview", () => {
 
     typeInto("status", "blocked");
     await waitFor(() => screen.getByTestId("action-form-preview"));
-    expect(screen.getByTestId("action-form-preview-fact-0").textContent).toBe("Total: €1,234.50");
-    const due = screen.getByTestId("action-form-preview-fact-1").textContent ?? "";
+    expect(factCells("action-form-preview-fact-0")).toEqual(["Total", "€1,234.50"]);
+    const due = factCells("action-form-preview-fact-1")[1] ?? "";
     expect(due).not.toContain("2026-11-30");
     expect(due).toContain("2026");
     screen.getByText("€12.50");

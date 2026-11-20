@@ -1543,6 +1543,19 @@ export type FileValueListProps = {
   readonly testId?: string;
 };
 
+/** Read-only name-value list: dimmed label on the left, value right-aligned in one column, evenly
+ *  spaced rows. An `emphasize` row (a total) is bold with a rule above it. */
+export type KeyValueListProps = {
+  readonly rows: readonly {
+    readonly key: string;
+    readonly label: string;
+    readonly value: string;
+    readonly emphasize?: boolean;
+    readonly testId?: string;
+  }[];
+  readonly testId?: string;
+};
+
 /** Page title area rendered by the app shell's header instead of inside the
  *  screen: `title` replaces the last breadcrumb, `status` sits right after it,
  *  `actions` at the right edge. Renders nothing itself; without a shell slot
@@ -1641,6 +1654,7 @@ export type CorePrimitives = {
   readonly Metric: ComponentType<MetricProps>;
   readonly JsonView: ComponentType<JsonViewProps>;
   readonly FileValueList: ComponentType<FileValueListProps>;
+  readonly KeyValueList: ComponentType<KeyValueListProps>;
   readonly FillContainer: ComponentType<FillContainerProps>;
   readonly PageHeader: ComponentType<PageHeaderProps>;
   readonly MetricBand: ComponentType<MetricBandProps>;

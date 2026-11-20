@@ -2702,6 +2702,10 @@ type JsonViewProps = { // Structured JSON display (audit payload/metadata, job l
   indent?: number;
   testId?: string;
 };
+type KeyValueListProps = { // Read-only name-value list: dimmed label on the left, value right-aligned in one column, evenly spaced rows.
+  rows: { key: string; label: string; value: string; emphasize?: boolean; testId?: string; }[];
+  testId?: string;
+};
 type LightboxBaseProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;

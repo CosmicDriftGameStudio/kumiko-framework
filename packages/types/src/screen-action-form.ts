@@ -314,6 +314,8 @@ export type ActionFormSuccessFact = {
   readonly type?: ActionFormValueType | "file";
   /** The value is an i18n key and is shown translated: for a result that names a case without knowing the reader's language. */
   readonly valueIsI18nKey?: boolean;
+  /** Highlights the key figure, e.g. a total: bold with a rule above it. */
+  readonly emphasize?: boolean;
 };
 
 /** Per-entry hints of the success box, read from an array in the handler's success payload. */

@@ -137,6 +137,7 @@ const STUB_PRIMITIVES = {
   Metric: renderNothing,
   JsonView: renderNothing,
   FileValueList: renderNothing,
+  KeyValueList: renderNothing,
   FillContainer: passChildren,
   PageHeader: renderNothing,
   MetricBand: passChildren,
