@@ -1360,6 +1360,29 @@ describe("buildAppSchema", () => {
     expect(screen.paginated).toBe(false);
   });
 
+  test("projectionList: `table: { export: undefined }` leaves no undefined behind in the schema", () => {
+    const f = defineFeature("ledger", (r) => {
+      r.queryHandler({
+        name: "schedule:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.screen({
+        id: "schedule-list",
+        type: "projectionList",
+        query: "ledger:query:schedule:list",
+        columns: ["description"],
+        table: { export: undefined, density: { default: "compact" } },
+      });
+    });
+
+    const app = buildAppSchema(createRegistry([f]));
+    const screen = app.features[0]?.screens[0] as ProjectionListScreenDefinition;
+    expect(screen.table).toEqual({ density: { default: "compact" } });
+    expect(findNonJsonSafePath(app, "schema")).toBeNull();
+  });
+
   describe("projectionList over an entity-convention list query", () => {
     const listAccess = {
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },

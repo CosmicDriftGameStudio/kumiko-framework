@@ -6,9 +6,18 @@ export {
   CONNECTORS_FEATURE,
   ConnectorHandlers,
   ConnectorQueries,
+  INBOUND_ITEM_CREATED_EVENT,
   INBOUND_ITEM_ENTITY,
 } from "./constants.ts";
 export { createConnectorsFeature } from "./feature.ts";
+export {
+  INBOUND_FILE_FAILURE,
+  type InboundFile,
+  type InboundFileFailure,
+  type ReadInboundFileContext,
+  type ReadInboundFileResult,
+  readInboundFile,
+} from "./read-inbound-file.ts";
 export { type ConnectorRouteOptions, createConnectorRoutes } from "./routes.ts";
 export { connectorEntity, connectorTable } from "./schema/connector.ts";
 export { inboundItemEntity, inboundItemTable } from "./schema/inbound-item.ts";

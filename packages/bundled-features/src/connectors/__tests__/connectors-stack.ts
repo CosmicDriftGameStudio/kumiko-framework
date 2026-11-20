@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -38,11 +39,18 @@ export const HEARTBEAT_PATH = "/connectors/v1/heartbeat";
 export const DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";
 
 export async function setupConnectorsStack(
-  options: ConnectorRouteOptions & ConnectorsFeatureOptions = {},
+  options: ConnectorRouteOptions &
+    ConnectorsFeatureOptions & { extraFeatures?: readonly FeatureDefinition[] } = {},
   trustedProxyHops?: number,
   fileProvider: InMemoryFileProvider = createInMemoryFileProvider(),
 ): Promise<TestStack> {
-  const { maxStoredBytesPerTenant, folderDeleteBatchSize, maxSearchNames, ...routes } = options;
+  const {
+    maxStoredBytesPerTenant,
+    folderDeleteBatchSize,
+    maxSearchNames,
+    extraFeatures = [],
+    ...routes
+  } = options;
   resetPiiSubjectKmsForTests();
   configurePiiSubjectKms(new InMemoryKmsAdapter());
   const stack = await setupTestStack({
@@ -58,6 +66,7 @@ export async function setupConnectorsStack(
         ...(folderDeleteBatchSize !== undefined && { folderDeleteBatchSize }),
         ...(maxSearchNames !== undefined && { maxSearchNames }),
       }),
+      ...extraFeatures,
     ],
     // Generous defaults: most tests start many pairings from the one test address.
     extraRoutes: createConnectorRoutes({

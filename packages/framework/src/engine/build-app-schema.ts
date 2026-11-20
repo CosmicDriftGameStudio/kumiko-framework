@@ -42,6 +42,7 @@ import type {
   ConfigEditScreenDefinition,
   EntityDefinition,
   FeatureSchema,
+  ListTableOptions,
   ProjectionListScreenDefinition,
   ScreenDefinition,
   WorkspaceSchema,
@@ -376,9 +377,11 @@ function projectScreens(
     if (screen.type === "configEdit") return projectConfigEditScreen(screen, encryptedConfigKeyQns);
     if (screen.type === "projectionList") return projectProjectionListScreen(screen, registry);
     if (screen.type === "entityList") {
-      const projected = projectNamedFilterRoles(
-        screen,
-        registry.features.get(featureName)?.entities?.[screen.entity]?.namedFilters,
+      const projected = withoutUndefinedTableExport(
+        projectNamedFilterRoles(
+          screen,
+          registry.features.get(featureName)?.entities?.[screen.entity]?.namedFilters,
+        ),
       );
       return projected.expandableRow === undefined
         ? projected
@@ -508,12 +511,22 @@ function projectProjectionListScreen(
   const searchable =
     capabilities.searchable &&
     !isListQueryWithoutSearchableFields(screen.query, handler, (name) => registry.getEntity(name));
-  return {
+  return withoutUndefinedTableExport({
     ...screen,
     searchable: screen.searchable ?? searchable,
     sortable: capabilities.sortable,
     paginated: capabilities.paginated,
-  };
+  });
+}
+
+// `table: { export: undefined }` opts a list out of the app-wide export default. Once the defaults are
+// merged it carries no information, and an explicit undefined would trip the JSON-safety walk.
+function withoutUndefinedTableExport<S extends { readonly table?: ListTableOptions }>(
+  screen: S,
+): S {
+  if (screen.table === undefined || screen.table.export !== undefined) return screen;
+  const { export: _dropped, ...table } = screen.table;
+  return { ...screen, table };
 }
 
 // Zod v4: a ZodObject's param names live on `.shape`. A schema that isn't a
