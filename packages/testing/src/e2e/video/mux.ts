@@ -129,6 +129,7 @@ export interface MuxVideoOptions {
   readonly playbackRate?: number;
   readonly frames: readonly MuxFrame[];
   readonly sceneAudio: readonly MuxSceneAudio[];
+  readonly silent?: boolean;
   readonly outMp4: string;
   readonly workDir: string;
 }
@@ -158,6 +159,8 @@ const ENCODE_ARGS = [
   "28",
   "-pix_fmt",
   "yuv420p",
+  "-movflags",
+  "+faststart",
 ];
 
 function buildSilentMuxArgs(options: MuxVideoOptions, listPath: string): string[] {
@@ -178,18 +181,27 @@ function buildSilentMuxArgs(options: MuxVideoOptions, listPath: string): string[
     "[vout]",
     ...ENCODE_ARGS,
     "-an",
-    "-movflags",
-    "+faststart",
     ...(metadataComment === undefined ? [] : ["-metadata", `comment=${metadataComment}`]),
     outMp4,
   ];
+}
+
+function assertAudioMatchesMode(silent: boolean, sceneAudioCount: number): void {
+  if (silent && sceneAudioCount > 0) {
+    throw new Error("buildMuxArgs(): a silent video cannot carry audio");
+  }
+  if (!silent && sceneAudioCount === 0) {
+    throw new Error("buildMuxArgs(): a voiced video needs scene audio");
+  }
 }
 
 export function buildMuxArgs(options: MuxVideoOptions, listPath: string): string[] {
   const { frames, sceneAudio, outMp4, brandPng, music, metadataComment } = options;
   const playbackRate = options.playbackRate ?? 1;
   assertPlaybackRate(playbackRate);
-  if (sceneAudio.length === 0) return buildSilentMuxArgs(options, listPath);
+  const silent = options.silent === true;
+  assertAudioMatchesMode(silent, sceneAudio.length);
+  if (silent) return buildSilentMuxArgs(options, listPath);
   const sped = playbackRate !== 1;
   const audioInputs = sceneAudio.flatMap((scene) => ["-i", scene.wavPath]);
   const musicInputIndex = music === undefined ? undefined : 1 + sceneAudio.length;
@@ -224,24 +236,9 @@ export function buildMuxArgs(options: MuxVideoOptions, listPath: string): string
     "-c:a",
     "aac",
     "-shortest",
-    "-movflags",
-    "+faststart",
     ...(metadataComment === undefined ? [] : ["-metadata", `comment=${metadataComment}`]),
     outMp4,
   ];
-}
-
-export interface VideoOutputPlan {
-  readonly mp4: string;
-  readonly vtt?: string;
-  readonly poster?: string;
-}
-
-// A silent video has no speech to subtitle, and the poster is its only still.
-export function planVideoOutputs(outDir: string, locale: string, silent: boolean): VideoOutputPlan {
-  const mp4 = join(outDir, `${locale}.mp4`);
-  if (silent) return { mp4, poster: join(outDir, `${locale}.jpg`) };
-  return { mp4, vtt: join(outDir, `${locale}.vtt`) };
 }
 
 export function buildPosterArgs(mp4: string, posterPath: string): string[] {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { defineVideo } from "../e2e/video/define-video";
-import { buildMuxArgs, buildPosterArgs, planVideoOutputs } from "../e2e/video/mux";
+import { buildMuxArgs, buildPosterArgs } from "../e2e/video/mux";
 import { createNarrator } from "../e2e/video/narration";
 import { sceneExtensionMs } from "../e2e/video/scene-plan";
 import { findVideoTextGaps } from "../e2e/video/video-texts";
@@ -25,7 +25,7 @@ describe("silent defineVideo", () => {
 
 describe("silent buildMuxArgs", () => {
   const frames = [{ path: "f.png", durationMs: 1000 }];
-  const silent = { frames, sceneAudio: [], outMp4: "out.mp4", workDir: "w" };
+  const silent = { frames, sceneAudio: [], silent: true, outMp4: "out.mp4", workDir: "w" };
 
   test("has no audio input, mapping or filter and drops audio", () => {
     const args = buildMuxArgs(silent, "list.txt");
@@ -43,6 +43,12 @@ describe("silent buildMuxArgs", () => {
     const args = buildMuxArgs({ ...silent, brandPng: "b.png", playbackRate: 2 }, "list.txt");
     const filter = args[args.indexOf("-filter_complex") + 1];
     expect(filter).toBe("[0:v]setpts=PTS/2,fps=30[base];[base][1:v]overlay=W-w-40:H-h-40[vout]");
+  });
+
+  test("refuses audio on a silent video and silence on a voiced one", () => {
+    const audio = [{ wavPath: "a.wav", startMs: 0, durationMs: 500, sceneMs: 1000 }];
+    expect(() => buildMuxArgs({ ...silent, sceneAudio: audio }, "list.txt")).toThrow(/silent/);
+    expect(() => buildMuxArgs({ ...silent, silent: false }, "list.txt")).toThrow(/voiced/);
   });
 
   test("refuses music", () => {
@@ -78,15 +84,7 @@ describe("scene plan", () => {
   });
 });
 
-describe("planVideoOutputs", () => {
-  test("silent: mp4 and poster, no subtitles", () => {
-    expect(planVideoOutputs("/o", "en", true)).toEqual({ mp4: "/o/en.mp4", poster: "/o/en.jpg" });
-  });
-
-  test("voiced: mp4 and subtitles, poster untouched", () => {
-    expect(planVideoOutputs("/o", "en", false)).toEqual({ mp4: "/o/en.mp4", vtt: "/o/en.vtt" });
-  });
-
+describe("poster", () => {
   test("the poster is the first frame of the mp4", () => {
     expect(buildPosterArgs("/o/en.mp4", "/o/en.jpg")).toEqual([
       "-y",

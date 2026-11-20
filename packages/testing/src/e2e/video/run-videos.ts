@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { extname, join } from "node:path";
 import type { Page } from "@playwright/test";
 import { DESKTOP_VIEWPORT } from "../constants";
@@ -9,14 +9,7 @@ import { test } from "../seeded-tenant-fixture";
 import { addVideoOverlay, showFocus } from "./cursor-overlay";
 import type { VideoDefinition, VideoSceneContext } from "./define-video";
 import { FrameTimeline } from "./frame-timeline";
-import {
-  buildVtt,
-  type MuxSceneAudio,
-  muxVideo,
-  planVideoOutputs,
-  type VttCue,
-  writePoster,
-} from "./mux";
+import { buildVtt, type MuxSceneAudio, muxVideo, type VttCue, writePoster } from "./mux";
 import { createNarrator, type Narrator } from "./narration";
 import { assertAiNoticeCoversLocales, SETUP_TOOLS, sceneExtensionMs } from "./scene-plan";
 
@@ -133,11 +126,34 @@ interface WriteOutputsInput {
   readonly aiNotice: Readonly<Record<string, string>> | undefined;
 }
 
+interface KindSpecificFileInput {
+  readonly silent: boolean;
+  readonly outMp4: string;
+  readonly vttPath: string;
+  readonly posterPath: string;
+  readonly cues: readonly VttCue[];
+  readonly playbackRate: number | undefined;
+}
+
+// Subtitles from an earlier voiced run must not linger next to a silent video. A voiced
+// video keeps its `<locale>.jpg`: that poster is placed by hand and uploaded with the video.
+function writeKindSpecificFile(input: KindSpecificFileInput): void {
+  const { silent, outMp4, vttPath, posterPath, cues, playbackRate } = input;
+  if (!silent) {
+    writeFileSync(vttPath, buildVtt(cues, playbackRate));
+    return;
+  }
+  rmSync(vttPath, { force: true });
+  writePoster(outMp4, posterPath);
+}
+
 async function writeOutputs(input: WriteOutputsInput): Promise<void> {
   const { page, video, locale, silent, videoDir, timeline, sceneAudio, cues, muxDir } = input;
   const outDir = join(videoDir, "out");
   mkdirSync(outDir, { recursive: true });
-  const outputs = planVideoOutputs(outDir, locale, silent);
+  const outMp4 = join(outDir, `${locale}.mp4`);
+  const vttPath = join(outDir, `${locale}.vtt`);
+  const posterPath = join(outDir, `${locale}.jpg`);
   // The notice discloses an AI voice; a silent video has none.
   const notice = silent ? undefined : input.aiNotice?.[locale];
   mkdirSync(muxDir, { recursive: true });
@@ -153,11 +169,18 @@ async function writeOutputs(input: WriteOutputsInput): Promise<void> {
     ...(video.playbackRate !== undefined && { playbackRate: video.playbackRate }),
     frames: timeline.allFrames,
     sceneAudio,
-    outMp4: outputs.mp4,
+    silent,
+    outMp4,
     workDir: muxDir,
   });
-  if (outputs.vtt !== undefined) writeFileSync(outputs.vtt, buildVtt(cues, video.playbackRate));
-  if (outputs.poster !== undefined) writePoster(outputs.mp4, outputs.poster);
+  writeKindSpecificFile({
+    silent,
+    outMp4,
+    vttPath,
+    posterPath,
+    cues,
+    playbackRate: video.playbackRate,
+  });
 }
 
 // Registrar like runMatrix: call at the spec's module top, do NOT await.
