@@ -20,11 +20,7 @@
     "title": "Custom fields enforce read roles and the searchable flag",
     "detail": "The postQuery hook used to flatten every stored custom-field value for every caller, and the search extension indexed every value. Query results now carry only values whose definition exists and whose `fieldAccess.read` is empty, contains `\"anonymous\"` (public) or shares a role with the caller, in the flattened keys as well as in `customFields`. The search index gets only fields with `searchable: true` and no read restriction. Values without a live definition are no longer returned.",
     "migration": "Give roles that must see a restricted field a matching `fieldAccess.read` entry (`\"anonymous\"` for public reads). Mark fields that should be findable as `searchable: true` and run the reindex job for the host entity.",
-    "affects": [
-      "custom-fields",
-      "createCustomFieldsFeature",
-      "customFields"
-    ]
+    "affects": ["custom-fields", "createCustomFieldsFeature", "customFields"]
   },
   {
     "version": "0.425.0",
@@ -32,10 +28,7 @@
     "title": "Per-field custom-field retention removed",
     "detail": "`serializedField.retention` was accepted but the sweep behind it was never registered, so no value ever expired. The sweep and its tenant-unscoped update query are deleted, and define/update now reject a `serializedField` with a `retention` key.",
     "migration": "Drop `retention` from custom-field definitions. Use data-retention on the host entity for expiry.",
-    "affects": [
-      "custom-fields",
-      "serializedField"
-    ]
+    "affects": ["custom-fields", "serializedField"]
   },
   {
     "version": "0.425.0",
@@ -71,10 +64,7 @@
     "title": "One custom-fields value projection for all wired host entities",
     "detail": "`wireCustomFieldsFor` no longer registers a multi-stream projection `<feature>:projection:custom-fields-<entity>-projection` per host entity. The custom-fields feature registers one projection, `custom-fields:projection:host-values`, that finds the host table through the registry, so each value event runs through one consumer instead of one per wired host. The signature of `wireCustomFieldsFor` is unchanged. The new consumer starts at the beginning of the event log and replays the value events once; the replay is idempotent. A `custom-field-set` event without a value is now skipped without a console warning.",
     "migration": "Nothing to do by hand. The rows of the old consumers `<feature>:projection:custom-fields-<entity>-projection` stay in `kumiko_event_consumers` with a cursor that no longer advances. The bundled retention jobs (data-retention, delivery attempt log, audit escape-hatch) skip consumers the registry no longer declares once their row has not moved for seven days and log their names, so retention resumes at the latest a week after the deploy. An app that calls `pruneEvents` itself passes `registry` to get the same behaviour. Disabling the rows with `consumer-disable` is no longer needed and does no harm where it was already done.",
-    "affects": [
-      "wireCustomFieldsFor",
-      "custom-fields"
-    ]
+    "affects": ["wireCustomFieldsFor", "custom-fields"]
   },
   {
     "version": "0.390.0",

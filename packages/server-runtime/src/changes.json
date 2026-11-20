@@ -15,10 +15,7 @@
     "title": "runProdApp defaults to Secure session cookies",
     "detail": "`auth.secureCookies` in runProdApp now defaults to `true` instead of `NODE_ENV === \"production\"`, so a production image started without NODE_ENV no longer falls back to plain, non-Secure auth and CSRF cookies. An explicit `secureCookies: false` still wins. runDevApp and the test stack keep the NODE_ENV fallback.",
     "migration": "A runProdApp deployment served over plain http on a host other than localhost must set `auth.secureCookies: false`. Users of such a deployment log in once after the update.",
-    "affects": [
-      "runProdApp",
-      "secureCookies"
-    ]
+    "affects": ["runProdApp", "secureCookies"]
   },
   {
     "version": "0.425.0",
@@ -53,9 +50,7 @@
     "title": "composeFeatures listDefaults applies to all features",
     "detail": "`composeFeatures`, `runProdApp`, `runWorkerApp` and `composeAppFeatures` take `listDefaults` instead of `bundledLists`. The block no longer skips features without a marker; a screen's own `table` keys still win per key, and relatedList sections never get `export`.",
     "migration": "Rename the option to `listDefaults`. Remove per-screen wrappers that only repeated the app's table standard.",
-    "affects": [
-      "bundledLists"
-    ]
+    "affects": ["bundledLists"]
   },
   {
     "version": "0.425.0",

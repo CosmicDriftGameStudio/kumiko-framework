@@ -39,10 +39,7 @@
     "title": "Overrides of Kumiko packages fail the managed-files check",
     "detail": "`kumiko check-managed` reports every `@cosmicdrift/kumiko-*` or `@cosmicdriftgamestudio/kumiko-*` entry in `overrides` or `resolutions`. Published Kumiko packages pin each other exactly, so such an override only hides a version drift.",
     "migration": "Delete the Kumiko entries from `overrides` and `resolutions` and keep the exact pins in `dependencies`. Also delete overrides for html-to-text, nodemailer, sharp and happy-dom, which the framework now brings in patched versions.",
-    "affects": [
-      "overrides",
-      "resolutions"
-    ]
+    "affects": ["overrides", "resolutions"]
   },
   {
     "version": "0.425.0",
@@ -75,9 +72,7 @@
     "title": "Managed kumiko/schema.ts and kumiko check read listDefaults",
     "detail": "The managed `kumiko/schema.ts` passes `appConfig.listDefaults` to `composeFeatures`, and `kumiko check` reports bin runners that leave out `listDefaults` while kumiko.config.ts sets it. `runDevApp` and `setupTestStackFromFeatures` take `listDefaults`.",
     "migration": "Run `kumiko sync-managed` to refresh kumiko/schema.ts, then rename the runner option in bin/.",
-    "affects": [
-      "bundledLists"
-    ]
+    "affects": ["bundledLists"]
   },
   {
     "version": "0.425.0",
@@ -85,9 +80,7 @@
     "title": "App test stacks gate tiers like runDevApp",
     "detail": "`setupAppTestStack` now wires the tenantTierResolver of a mounted tier-engine (`createTierEngineFeature({ tierMap })`, `composeSaasStack({ tiers })`) the same way runDevApp and runProdApp do, including the trial gate and `featureToggles`. `ctx.hasFeature` and the dispatcher's feature gate are no longer always on in app tests, so a free-tier refusal test can fail. Breaking for app tests that call tier-gated handlers without assigning a tier: assign one with `tier-engine:write:tier-assignment:create`, or pass `effectiveFeatures` explicitly, which still replaces the resolver.",
     "migration": "App tests that call tier-gated handlers without assigning a tier assign one with `tier-engine:write:tier-assignment:create`, or pass `effectiveFeatures` to `setupAppTestStack`, which still replaces the resolver.",
-    "affects": [
-      "setupAppTestStack"
-    ]
+    "affects": ["setupAppTestStack"]
   },
   {
     "version": "0.425.0",

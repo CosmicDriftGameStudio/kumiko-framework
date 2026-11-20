@@ -26,10 +26,7 @@
     "title": "Prebuilt folder handler constants removed",
     "detail": "`setFolderHandler` and `clearFolderHandler` are no longer exported from the folders feature. They were default-access copies of `createSetFolderHandler` and `createClearFolderHandler`, which stay; the feature mounts the factories with its host list and the assignment executor.",
     "migration": "Do not register `setFolderHandler` or `clearFolderHandler` yourself; mount `createFoldersFeature({ parents })`. A custom feature that needs the handler calls `createSetFolderHandler(access, assignmentExecutor)` or `createClearFolderHandler(access, assignmentExecutor)`.",
-    "affects": [
-      "setFolderHandler",
-      "clearFolderHandler"
-    ]
+    "affects": ["setFolderHandler", "clearFolderHandler"]
   },
   {
     "version": "0.425.0",
@@ -37,9 +34,7 @@
     "title": "Folder assignments enforce ownership.write",
     "detail": "createFoldersFeature({ ownership: { write } }) now gates set-folder (create, move, restore) and clear-folder like the tags feature does. Before, the handlers wrote through an executor without the rule, so any caller with handler access could file or unfile another user's records.",
     "migration": "Direct callers of createFolderAssignmentExecutor pass the ownership option first: createFolderAssignmentExecutor(ownership, parents).",
-    "affects": [
-      "createFolderAssignmentExecutor"
-    ]
+    "affects": ["createFolderAssignmentExecutor"]
   },
   {
     "version": "0.370.0",

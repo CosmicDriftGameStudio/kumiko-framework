@@ -22,10 +22,7 @@
     "title": "PATs of principals without a user row are rejected",
     "detail": "The PAT resolver uses `resolveLiveTenantRoles`; a token whose user has no user row now gets the same 401 as an unknown token.",
     "migration": "None for apps; PATs are always created by existing users.",
-    "affects": [
-      "personal-access-tokens",
-      "createPersonalAccessTokensFeature"
-    ]
+    "affects": ["personal-access-tokens", "createPersonalAccessTokensFeature"]
   },
   {
     "version": "0.412.0",

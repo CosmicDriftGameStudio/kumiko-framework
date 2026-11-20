@@ -183,9 +183,7 @@
     "title": "/version drops the node field",
     "detail": "The public `GET /version` route returns `{ version, buildTime }`. The `node` field that exposed `NODE_ENV` to anonymous callers is removed.",
     "migration": "Clients or monitors that read `node` from `/version` read the environment from their own deployment config instead.",
-    "affects": [
-      "/version"
-    ]
+    "affects": ["/version"]
   },
   {
     "version": "0.425.0",
@@ -198,12 +196,7 @@
     "title": "Deprecated money, PII, schema and webhook aliases removed",
     "detail": "Rehydrated money values no longer carry `amountMinor`; `amountScaled` holds the same value. `r.defineEvent` `piiFields` no longer accepts `{ subjectField: \"<field>\" }`. `HostDispatchResult` and `DevHostDispatchResult` no longer have `injectSchema`. `runProdApp` billing no longer reads `stripe.webhookPath` as a fallback for the webhook route.",
     "migration": "Read `amountScaled` instead of `amountMinor`. Write `piiFields: { x: { personal: { of: \"<field>\" } } }` instead of `{ subjectField: \"<field>\" }`. Drop `injectSchema` from host dispatch results. Move `billing.stripe.webhookPath` to `billing.webhookPath`.",
-    "affects": [
-      "amountMinor",
-      "subjectField",
-      "injectSchema",
-      "webhookPath"
-    ]
+    "affects": ["amountMinor", "subjectField", "injectSchema", "webhookPath"]
   },
   {
     "version": "0.425.0",
@@ -274,10 +267,7 @@
     "title": "Entity handlers with the verb in the name string are internal",
     "detail": "`defineEntityWriteHandler(\"note:create\", ...)` and `defineEntityQueryHandler(\"note:list\", ...)` were a third public way to register entity handlers next to `r.crud` and the verb factories, and only the search recipe used them. They are no longer exported from `@cosmicdrift/kumiko-framework/engine`. The verb factories `defineEntityCreateHandler`, `defineEntityUpdateHandler`, `defineEntityDeleteHandler`, `defineEntityRestoreHandler`, `defineEntityListHandler` and `defineEntityDetailHandler` build the same handlers with the same parent-ref brand.",
     "migration": "Replace `defineEntityWriteHandler(\"<entity>:<verb>\", entity, options)` with the factory of that verb, `defineEntity<Verb>Handler(\"<entity>\", entity, options)`, and `defineEntityQueryHandler` with `defineEntityListHandler` or `defineEntityDetailHandler`.",
-    "affects": [
-      "defineEntityWriteHandler",
-      "defineEntityQueryHandler"
-    ]
+    "affects": ["defineEntityWriteHandler", "defineEntityQueryHandler"]
   },
   {
     "version": "0.425.0",
@@ -398,11 +388,7 @@
     "title": "Write-handler job triggers carry the written row id",
     "detail": "`r.job` with `trigger: { on: \"<feature>:write:<handler>\" }` received only the handler's input payload, so a follow-up job could not tell which row was created and had to sweep the tenant. When the handler returns a save or delete lifecycle result (every `r.crud` verb and executor write), the job now gets `ctx.triggerEvent = { id, aggregateId, headers }` of that event; `aggregateId` is the written row's id. Handlers that return plain data still run the job without `triggerEvent`. `JobTriggerEvent` gained the required field `aggregateId`, also on the job-trigger and catch-up consumer paths.",
     "migration": "Code that builds a `JobTriggerEvent` itself, for example a test calling `jobRunner.handleCatchUpEvent(...)`, adds `aggregateId` (the stored event's `aggregateId`). Jobs that swept the tenant because the id was missing can read `ctx.triggerEvent?.aggregateId` instead.",
-    "affects": [
-      "JobTriggerEvent",
-      "handleCatchUpEvent",
-      "triggerEvent"
-    ]
+    "affects": ["JobTriggerEvent", "handleCatchUpEvent", "triggerEvent"]
   },
   {
     "version": "0.425.0",
@@ -443,10 +429,7 @@
     "title": "Named entity verbs, executor history and listAsOf",
     "detail": "An entity declares named update events in `verbs`, optionally with a transition (`{ archived: { transition: { field: \"status\", from: [\"open\"], to: \"archived\" } } }`). `executor.update(payload, user, db, { verb })` appends `<entity>.<verb>` with the `{ changes, previous }` payload of `updated`; a verb with a transition sets its field and fails with `invalid_transition` (422) when the current state is not in `from`. The implicit projection, rebuild, entity upcasters, job triggers, projection apply keys, derived webhook contracts and the audit filter treat a declared verb like `updated`. Boot rejects lifecycle names, names with dots, transitions on non-select fields, unknown options and pairs that `entity.transitions` does not allow. `EventStoreExecutor` has `history({ id })`, which returns the lifecycle and verb events of one entity as `{ version, at, by, verb, changes }`, upcast and decrypted, without fields the caller may not read, and `listAsOf({ asOf })`, which folds the entity's events up to an instant into rows and refuses entities with parentRef, readGate or a row read ownership.",
     "migration": "Hand-built `EventStoreExecutor` objects add `history` and `listAsOf`. A status change written as its own `r.defineEvent` plus an `extendEntityProjection` or `setFields` apply can become a verb in the entity's `verbs` and an `executor.update(..., { verb })`; the projection apply and the hand-written transition check go away. Code that reads `kumiko_events` to show an entity's changes or to fold it to a past instant switches to `executor.history` or `executor.listAsOf`.",
-    "affects": [
-      "EventStoreExecutor",
-      "parseAutoVerb"
-    ]
+    "affects": ["EventStoreExecutor", "parseAutoVerb"]
   },
   {
     "version": "0.425.0",
@@ -558,10 +541,7 @@
     "title": "Projection list shows implicit entity projections",
     "detail": "`listProjectionsWithState(db, registry)` used to hide the projection that `r.entity` registers for each entity (`<feature>:projection:<entity>-entity`) unless the caller passed `{ includeImplicit: true }`. An `r.projection` on an entity table rebuilds through that implicit projection, so hiding it left `kumiko project list` without the names an operator actually rebuilds. The function now always returns every registered single-stream projection and has no third parameter, and `kumiko project list` prints the implicit projections too.",
     "migration": "Drop the `{ includeImplicit: true }` argument from `listProjectionsWithState` calls. Code that relied on the old default and wants only explicit projections filters the result with `registry.getAllProjections().get(name)?.isImplicit !== true`.",
-    "affects": [
-      "includeImplicit",
-      "listProjectionsWithState"
-    ]
+    "affects": ["includeImplicit", "listProjectionsWithState"]
   },
   {
     "version": "0.425.0",
@@ -649,9 +629,7 @@
     "title": "SessionMassRevoker type removed",
     "detail": "Removed export: `SessionMassRevoker` from the api entry point; mass revocation runs through the auth-foundation credentialRevoker.",
     "migration": "Use `CredentialRevoker` from auth-foundation.",
-    "affects": [
-      "SessionMassRevoker"
-    ]
+    "affects": ["SessionMassRevoker"]
   },
   {
     "version": "0.425.0",
@@ -659,9 +637,7 @@
     "title": "AuthSessionStatus gains not_a_member",
     "detail": "`AuthSessionStatus` has the new member `not_a_member`; the middleware rejects it with 401 `session_invalid`.",
     "migration": "Exhaustive switches over `AuthSessionStatus` need a `not_a_member` branch.",
-    "affects": [
-      "AuthSessionStatus"
-    ]
+    "affects": ["AuthSessionStatus"]
   },
   {
     "version": "0.425.0",
@@ -676,9 +652,7 @@
     "title": "Boot rule transfer/custom-projection",
     "detail": "tenant-handover moves the entity table rows, the event streams and the search documents of a transferable entity. A separate projection table fed by its events is not moved, so its rows would stay in the source tenant. The new boot rule `transfer/custom-projection` rejects such a projection by name. Projections on the entity's own table and multi-stream projections are not affected.",
     "migration": "Move the projected columns into the entity, or drop `transferable` from the source entity.",
-    "affects": [
-      "transferable"
-    ]
+    "affects": ["transferable"]
   },
   {
     "version": "0.425.0",
@@ -760,9 +734,7 @@
     "title": "App connections carry their projection registry",
     "detail": "The prod boot, the worker boot and `setupTestStack` bind both database pools to the app registry with the new `bindAppProjectionRegistry(connection, registry)` from `@cosmicdrift/kumiko-framework/db`. Every transaction, savepoint and reserved connection derived from them inherits it, so `createTenantDb({ db: tx, ... })` inside a multi-stream projection apply or a raw `transaction()` runs the custom projections of an executor write, as the dispatcher's own TenantDb already did. User-data delete and export hooks get a TenantDb with the registry, so `executor.forget(id, user, ctx.db)` in a forget hook also clears child projections for the `<entity>.forgotten` event. Binding a connection to a second, different registry throws. Connections that are never bound (CLI tools, a bare `createTestDb`) keep skipping custom projections.",
     "migration": "Remove manual `runProjectionsForEvent(...)` calls that follow an executor write (create, update, delete, forget) on a TenantDb built over an app connection, together with the `unsafeRaw()` grant and escape hatch they needed; the executor has already projected that event object, so the manual call is a no-op. Raw `append(...)` plus `runProjectionsForEvent` stays as it is.",
-    "affects": [
-      "runProjectionsForEvent"
-    ]
+    "affects": ["runProjectionsForEvent"]
   },
   {
     "version": "0.425.0",
@@ -770,11 +742,7 @@
     "title": "ctx.db rows are typed from the entity table",
     "detail": "Without an explicit type argument, `ctx.db.selectMany(table)` and `ctx.db.fetchOne(table, where)` on a table from `buildEntityTable` or `createEntityExecutor` now return the table's column row (`EntityColumnRow<E>`): every field with its column type, money and locatedTimestamp as their column pair, personal values as stored. `createEntityExecutor` returns `table: EntityTable<E>` instead of the widened `EntityTable`. `EntityRow` and `EntityColumnRow` are exported from the db entry point. An explicit type argument, `options.fields` and tables without entity typing keep `Record<string, unknown>`.",
     "migration": "Code that read such rows as `Record<string, unknown>` can now fail to compile where it reads a key the table does not have or assigns the row to an incompatible type. Drop the casts and read the typed fields, or pass the row type explicitly.",
-    "affects": [
-      "selectMany",
-      "fetchOne",
-      "createEntityExecutor"
-    ]
+    "affects": ["selectMany", "fetchOne", "createEntityExecutor"]
   },
   {
     "version": "0.425.0",
@@ -783,10 +751,7 @@
     "detail": "A granted `ctx.db.unsafeRaw()` used to run in the system scope of row level security, so raw SQL with a forgotten tenant_id filter read and wrote rows of every tenant. It now runs in the scope of its TenantDb: the caller's tenant (plus system tenant rows on tables that allow reading them) in tenant mode, the system scope in system mode. The new `ctx.db.unsafeRawAllTenants()` returns the old all-tenants runner under the same `unsafeRaw` grant and audit. `ctx.systemDb.unsafeRaw(reason)` is unchanged. `ConnectionTenantDb` has both methods.",
     "migration": "Run kumiko-upgrade --apply; the unsafe-raw-all-tenants codemod renames every `.unsafeRaw()` call without arguments to `.unsafeRawAllTenants()`, which keeps today's behaviour. Hand-written TenantDb stubs it lists need an `unsafeRawAllTenants` member. Switch a call back to `unsafeRaw()` where its SQL only touches the caller's own tenant.",
     "codemod": "scripts/codemod/unsafe-raw-all-tenants.ts",
-    "affects": [
-      "unsafeRaw",
-      "TenantDb"
-    ]
+    "affects": ["unsafeRaw", "TenantDb"]
   },
   {
     "version": "0.425.0",
@@ -799,10 +764,7 @@
     "title": "createTenantDb on the db subpath is tenant-only",
     "detail": "`createTenantDb` from `@cosmicdrift/kumiko-framework/db` takes `{ db, tenantId, tracer?, meter?, signal?, mode?: \"tenant\" }` and always builds a tenant-mode handle. `mode: \"system\"`, `reason` and `grants` are no longer accepted there. The full function lives in `@cosmicdrift/kumiko-framework/internal/row-level-security` for framework packages and in `@cosmicdrift/kumiko-testing/helpers` for tests, and the guard `internal-subpath-imports` keeps the helpers export out of production files. The public `createTenantDb` throws `AccessDeniedError` when its runner comes from `ctx.db.unsafeRaw()`, `ctx.db.unsafeRawAllTenants()` or `ctx.systemDb.unsafeRaw(reason)`, also for a transaction, savepoint or reserved connection opened on such a runner, and `scopeTenantDbToTenant` throws `AccessDeniedError` when it would move a tenant-mode handle to another tenant. Declared cross-tenant access stays on `r.systemScope()` with `ctx.systemDb.acknowledgeCrossTenant(reason)`, the escape hatch grant `crossTenantReads` with `ctx.crossTenantReads`, and `ctx.tenants.writeTarget(tenantId)`.",
     "migration": "Handlers, hooks and jobs that built `createTenantDb({ mode: \"system\", ... })` or `createTenantDb({ db: ctx.db.unsafeRaw(), tenantId })` for another tenant move to `r.systemScope()` with `ctx.systemDb.acknowledgeCrossTenant(reason)`, to `ctx.crossTenantReads` for reads, or to `ctx.tenants.writeTarget(tenantId)` for SystemAdmin writes into one tenant. Boot code, backfills and CLIs that hold a `DbConnection` call `createTenantDb({ db, tenantId })` once per target tenant. Tests that need `mode: \"system\"` or `grants` import `createTenantDb` from `@cosmicdrift/kumiko-testing/helpers`.",
-    "affects": [
-      "createTenantDb",
-      "scopeTenantDbToTenant"
-    ]
+    "affects": ["createTenantDb", "scopeTenantDbToTenant"]
   },
   {
     "version": "0.425.0",
@@ -855,9 +817,7 @@
     "title": "Query handlers declare their result entity",
     "detail": "`r.queryHandler({ resultEntity })` applies the entity's field read rules and writeOnly mask to the handler's result (a row, an array of rows or `{ rows }`), as the `entity:verb` naming convention already did. `unfilteredResult: { reason }` marks a query that returns no entity rows. In a feature whose entities have a field with `access.read`, a writeOnly text field or an embedded sub-field with `access.read`, every query handler without a colon in its name must declare one of the two, or the boot fails.",
     "migration": "For each query handler the boot names, set `resultEntity` to the entity whose rows it returns. When it returns options, counts or other derived values, set `unfilteredResult: { reason }` with a real reason instead.",
-    "affects": [
-      "queryHandler"
-    ]
+    "affects": ["queryHandler"]
   },
   {
     "version": "0.425.0",
@@ -865,9 +825,7 @@
     "title": "Breaking changesets declare affects",
     "detail": "A `kumiko-changes` block of type breaking without a codemod (or with `manualAfterCodemod`) must carry `affects: <symbol or path>, …` or `affects: all`; parsing fails otherwise. `kumiko changes add` takes `--affects`. `kumiko-upgrade --apply` runs `git grep -F` for these strings in the app after the codemods and records an entry as resolved not-applicable only when nothing matches; any match, a non-git directory or an error leaves it pending.",
     "migration": "Add `affects:` to every pending breaking changeset that needs manual work in your repo, or pass `--affects` to `kumiko changes add`.",
-    "affects": [
-      "kumiko-changes"
-    ]
+    "affects": ["kumiko-changes"]
   },
   {
     "version": "0.425.0",
@@ -917,9 +875,7 @@
     "migration": "Run the codemod. It adds the grants it can read from the definition (`unsafeRaw(` for unsafeRaw, `.global(` for globalWrites, `crossTenantReads` for crossTenantReads, `queryAs(`, `writeAs(`, `createSystemUser(`, `unsafeAllTenants` or `runAs` with SystemAdmin for systemIdentity) and lists every other declaration as manual. Add grants to the manual sites by hand and run the integration tests of the touched features: a missing grant only fails when that code path runs. Remove `grants` from `escapeHatch` in `r.applyExtension` options.",
     "codemod": "scripts/codemod/escape-hatch-grants.ts",
     "manualAfterCodemod": true,
-    "affects": [
-      "escapeHatch"
-    ]
+    "affects": ["escapeHatch"]
   },
   {
     "version": "0.425.0",
@@ -1060,11 +1016,7 @@
     "title": "Unmapped colon queries need resultEntity",
     "detail": "The boot check that query handlers of a feature with read-restricted or writeOnly fields name their resultEntity skipped every handler with a colon in its name. It now skips only handlers mapped to an entity. A query like \"report:overview\" with no \"report\" entity fails the boot until it sets resultEntity or unfilteredResult.",
     "migration": "Add resultEntity (the entity whose rows the query returns) or unfilteredResult: { reason } to the reported handler, or rename it to an entity:verb that exists.",
-    "affects": [
-      "queryHandler",
-      "resultEntity",
-      "unfilteredResult"
-    ]
+    "affects": ["queryHandler", "resultEntity", "unfilteredResult"]
   },
   {
     "version": "0.425.0",
@@ -1105,10 +1057,7 @@
     "title": "A record key that an owner forget erases holds only that owner's data",
     "detail": "Forgetting a user erases the record key of every row whose owner field holds that user, because the created event keeps the values written while the row had no owner. A `recordOwned` field (`personal: { of: \"id\" }`) or a `whenAbsent: \"self\"` field of a second owner field on the same entity sits under that key too, so the erase destroyed the record's own data or another person's, also on rows kept by a `blockDelete` retention. Boot now fails with `pii/record-key-one-owner` when an entity combines `personal: { of: \"<ownerField>\", whenAbsent: \"self\" }` with a `recordOwned` field, or uses `whenAbsent: \"self\"` with more than one owner field.",
     "migration": "Give the owner-keyed fields `whenAbsent: \"tenant\"`, use one owner field for all `whenAbsent: \"self\"` fields, or keep the record's own data on a separate entity. No bundled feature is affected.",
-    "affects": [
-      "whenAbsent",
-      "recordOwned"
-    ]
+    "affects": ["whenAbsent", "recordOwned"]
   },
   {
     "version": "0.425.0",
@@ -1126,10 +1075,7 @@
     "title": "Fuzzy-searchable longText fields cannot restrict access.read",
     "detail": "The search index is not filtered per role, so a fuzzy-searchable longText with a restricted access.read let roles that cannot read it guess its value from search matches. The boot rule entity/searchable-restricted-read now covers longText like text.",
     "migration": "Drop find \"fuzzy\" or the access.read restriction on the longText field the boot error names.",
-    "affects": [
-      "fuzzy",
-      "searchable"
-    ]
+    "affects": ["fuzzy", "searchable"]
   },
   {
     "version": "0.425.0",

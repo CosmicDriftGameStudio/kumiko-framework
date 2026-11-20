@@ -77,10 +77,7 @@
     "title": "Idempotent send from a mailbox",
     "detail": "`sendMailFromAccount(ctx, { accountId, message, idempotencyKey })` records each keyed send in the new store table `store_mail_outbound_sends` through `ctx.db.outsideTransaction`. After a successful send, a repeat with the same key returns the stored `messageIdHeader` and `attachmentFileIds` without sending again. If a send started under the key but never finished (crash, parallel call), the key answers with the typed failure `mail_send_outcome_unknown` instead of sending a second copy. A typed send failure frees the key for a retry. Without a key the function behaves as before. Destroying a tenant deletes its send records.",
     "migration": "Run `kumiko schema generate` and apply the migration for `store_mail_outbound_sends`. Pass a stable key from a job that dispatches the sending write, for example the id of the event that asked for the mail.",
-    "affects": [
-      "inbound-mail-foundation",
-      "sendMailFromAccount"
-    ]
+    "affects": ["inbound-mail-foundation", "sendMailFromAccount"]
   },
   {
     "version": "0.425.0",
@@ -88,10 +85,7 @@
     "title": "Send idempotency keys bound to caller and mailbox",
     "detail": "sendMailFromAccount checks the mailbox and the caller's send right before it looks up an idempotencyKey. The stored send record carries the caller's userId, and a key matches only for the same user and mailbox. Before, a key recorded for another mailbox returned that send's Message-ID or outcomeUnknown to anyone in the tenant.",
     "migration": "Regenerate the schema (kumiko schema generate). store_mail_outbound_sends gets a nullable user_id column, and its unique index becomes (tenant_id, user_id, account_id, idempotency_key). Records written before the update have no user and no longer dedupe a retry.",
-    "affects": [
-      "sendMailFromAccount",
-      "outboundMailSendEntity"
-    ]
+    "affects": ["sendMailFromAccount", "outboundMailSendEntity"]
   },
   {
     "version": "0.415.0",
