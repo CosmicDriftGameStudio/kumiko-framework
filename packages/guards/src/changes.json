@@ -1,9 +1,242 @@
 [
   {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "As-Casts Audit hints name the kumiko-guards command"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "biome-preset repo check for apps"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "i18n keys guard no longer walks the file system from the root"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Runtime-isolation check catches server entries in the browser bundle"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Bundled security exception for the picomatch advisory"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "doc-status warns about stale active plans"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Data-Testid Guard ratchets test hooks in production code"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "guard-integration-mocks check in kumiko check, Biome plugins in guards.md"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "agent-docs-drift rejects docs/ links in AGENTS.md"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Cross-feature import guard checks re-exports"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Ratchet guards fail without a baseline file",
+    "detail": "Every baseline ratchet (As-Casts Audit with its suspect and legit baselines, File Size, Complexity Check, Data-Testid Guard, ignore-tag-reason, comment-issue-ref-only, Tailwind-Scan-Surface Guard, security-plugin-suppression, guard-raw-sql, guard-integration-mocks, Runtime-Isolation Check) treats a missing baseline file as an empty baseline. Each existing finding is a violation until the repo freezes its current state; before, a repo without the file only got a console warning and the ratchet had no effect. Without a baseline file the As-Casts Audit now also fails on unknown `@cast-boundary` reasons. The `failClosed` option of `baselineRatchet` is removed because it is now the only behavior.",
+    "migration": "Freeze the current state once per failing ratchet and commit the written `.kumiko-*-baseline.json` files: `bunx kumiko-guards guards --write-baseline --guard=<name>` for AST guards (for example `--guard=\"As-Casts Audit\"`, `--guard=\"File Size\"`, `--guard=\"Complexity Check\"`, `--guard=ignore-tag-reason`) and `bunx kumiko-guards checks --write-baseline --guard=<name>` for repo checks (`guard-raw-sql`, `guard-integration-mocks`). Each violation names the missing baseline file. Ratchets without findings need no file."
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Direct-Entity-Writes Guard covers r.crud tables"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Fake-Test Guard covers test modifiers and self comparisons"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "lib-test-coverage ignore tags cite an existing test file",
+    "detail": "`// kumiko-lint-ignore lib-test-coverage <reason>` exempts an exported lib function only when the reason names at least one `*.test.ts` or `*.test.tsx` file and every named file exists among the scanned tests. A repo-relative path or a bare file name both match by path suffix. A tag without a cited file, or with a file that does not exist, is reported on the function.",
+    "migration": "Name the covering test in each lib-test-coverage tag, e.g. `// kumiko-lint-ignore lib-test-coverage integration-covered via src/__tests__/lease.integration.test.ts`, or write a unit test for the function.",
+    "affects": [
+      "lib-test-coverage"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Tenant-Escalation Guard covers r.writeHandler"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Direct-entity-writes, handler definitions and cross-feature import guards"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Bundled license exceptions cover framework transitives",
+    "migration": "Optionally remove these entries from the app's `dependency-license-exceptions.json`."
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Handler layout and feature import cycles are guarded",
+    "detail": "`kumiko-guards guards` now runs `Handler Definitions` (handler definitions outside `<feature>/handlers/`, several handlers per file, a wrong `.write`/`.query` suffix, object literals typed `WriteHandlerDef`/`QueryHandlerDef`) and `Feature Import Cycles` (static, non-type-only imports outside test files that close a cycle between features). Both freeze existing hits per file in `.kumiko-handler-definitions-baseline.json` and `.kumiko-feature-import-cycles-baseline.json`. A missing baseline counts as empty, so every existing hit fails until the baseline is written. The feature-layout codemod now also moves `<name>.write.ts` and `<name>.query.ts` from a feature root into `handlers/` and rewrites their imports.",
+    "migration": "Run the codemod, then `kumiko-guards guards --write-baseline --guard=\"Handler Definitions\"` and `kumiko-guards guards --write-baseline --guard=\"Feature Import Cycles\"` and commit both baseline files.",
+    "codemod": "scripts/codemod/feature-layout.ts",
+    "affects": [
+      "kumiko-guards"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "seed-runtime-imports guard",
+    "detail": "In apps, files under `seeds/` may not import `@cosmicdrift/*` at runtime (only `import type`), and relative imports may not leave `seeds/`, because the runtime image ships `seeds/` without `src/` and bundles the framework into server.js. Static imports, re-exports, `import()` and `require()` are checked.",
+    "migration": "Turn framework imports in seeds into `import type` or inline the value, move shared helpers into `seeds/`, and delete the import tests of app-level copies such as `seed-boot-safety.test.ts`."
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "test-env-writes ratchet and suite env helpers",
+    "detail": "The new guard `test-env-writes` counts direct writes to `process.env` and `Bun.env` in test files (assignment, `delete`, `Object.assign`) and freezes them in `.kumiko-test-env-writes-baseline.json`. `@cosmicdrift/kumiko-testing/helpers` adds `withEnvForEachTest(overrides)` and `withEnvForSuite(overrides)`, which set and restore env per test or per describe block; register them before any `beforeAll` that reads the env.",
+    "migration": "Run `kumiko-guards guards --write-baseline --guard=\"test-env-writes\"` once, then move direct writes to `withEnv`, `withEnvForEachTest` or `withEnvForSuite`.",
+    "affects": [
+      "process.env",
+      "Bun.env"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "File Size guard limits test files to 1500 lines",
+    "detail": "The File Size guard now scans tests, integration tests and e2e specs as well. Test files may have up to 1500 lines, production files still up to 1200. Existing larger test files are frozen in the same `.kumiko-file-size-baseline.json` and may only shrink.",
+    "migration": "Run `kumiko-guards guards --write-baseline --guard=\"File Size\"` once to freeze the current test files, then split the large ones by behaviour."
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "test-timeouts flags literal Playwright timeouts and extended test objects",
+    "detail": "In Playwright files (`e2e*/` directories and `*.spec.ts`), a number literal on a `timeout` option fails; use an `E2E_TIMEOUT_MS` class from `@cosmicdrift/kumiko-testing/e2e`. A one-argument `setTimeout(…)` or `slow()` on any test object there, such as one built with `test.extend(...)`, now counts as raising the timeout, unless its argument is an `E2E_TIMEOUT_MS` class such as `E2E_TIMEOUT_MS.real`; a number literal or a computed value such as `15 * 60_000` is still flagged. Playwright config files are not checked.",
+    "migration": "Replace literals with the value-equal class (10_000 → `E2E_TIMEOUT_MS.navigation`, 15_000 → `poll`, 30_000 → `test`; drop 5000 on expect, it is the default). Mark a justified raise with `// kumiko-lint-ignore test-timeouts #<issue> <reason>`."
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Fake-Test Guard flags existence-only checks on error results",
+    "migration": "Replace the existence check with the expected error, e.g. `expect(error).toMatchObject({ code: \"validation_error\" })` or `expect(error.code).toBe(\"access_denied\")`."
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Test-timeout guard checks the options argument",
+    "migration": "Remove the `timeout` from the options object and fix the slow setup, or add `// kumiko-lint-ignore test-timeouts #<issue> <reason>` above the test."
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Port registry sees nested apps"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "lib-test-coverage takes a file-wide exception"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Test guard opt-outs move to kumiko-lint-ignore",
+    "detail": "`// @timeout-exception: #N reason` is now `// kumiko-lint-ignore test-timeouts #N reason`, `// @template-drift-exception: #N reason` is now `// kumiko-lint-ignore test-template-drift #N reason`, and the file-wide `// @no-server-stack: reason` is now `// kumiko-lint-ignore-file test-stack-drift reason` in the leading comment of the file. The old markers are no longer read. Every reason now goes through the ignore-tag-reason check (at least three real words); the two test guards still require `#<issue>` first.",
+    "migration": "Run the codemod, then rewrite any reason the ignore-tag-reason guard reports as too weak.",
+    "codemod": "scripts/codemod/guard-markers-to-lint-ignore.ts",
+    "affects": [
+      "@timeout-exception",
+      "@template-drift-exception",
+      "@no-server-stack"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Ratchet baselines with headroom fail",
+    "detail": "Every baseline ratchet (file size, complexity, raw SQL, runtime isolation, cast markers, ignore-tag reasons and the others) now reports a file whose current count is below its frozen count as a violation, next to regressions in the same run. Before, the lower count passed and the headroom let later findings in unnoticed. Baselines no longer carry `generated`, `total` or `totalSuspect`; existing files with these fields still load.",
+    "migration": "After the bump run the guards, check that only \"under baseline\" violations appear, then freeze once with `--write-baseline` (guards, checks, UI guards and `bun kumiko-guards guards --write-baseline --guard=\"As-Casts Audit\"`) and commit the baseline files."
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "app-feature-structure covers samples"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Unused kumiko-lint-ignore markers fail the guard run",
+    "detail": "Every guard that honours a `kumiko-lint-ignore <slug>` marker records each marker it consumed. After the run, the new `unused-ignore-tags` check reports every marker of a guard that ran whose spot produced no finding, for example markers above header titles that i18n-ui-strings already exempts. Placeholders such as `<reason>` in doc comments are skipped. File-wide `kumiko-lint-ignore-file` markers and comment-lang, comment-issue-ref-only, raw-sql and secret-literals markers are not checked.",
+    "migration": "Run the guards and delete every marker the `unused-ignore-tags` check reports. A marker belongs only where its guard would otherwise report a finding.",
+    "affects": [
+      "kumiko-lint-ignore"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Custom-screen rule skips the sample galleries"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Payload casts in handlers count as suspect casts",
+    "detail": "A cast marked `// @cast-boundary engine-payload` whose expression starts with `event.payload` or `query.payload` in a `handlers/**/*.write.ts` or `handlers/**/*.query.ts` file is now a suspect cast instead of a legit boundary. `defineWriteHandler` and `defineQueryHandler` type the payload from the schema, so such a cast hides drift between schema and payload type. Projections and all other files keep the marker.",
+    "migration": "Define the handler with `defineWriteHandler` or `defineQueryHandler` instead of an object typed `WriteHandlerDef`/`QueryHandlerDef` and drop the cast. Casts that must stay for now can be frozen with `kumiko-guards guards --write-baseline --guard=\"As-Casts Audit\"`.",
+    "affects": [
+      "kumiko-guards"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Existence-only checks on queries fail, existence-only tests are ratcheted",
+    "detail": "Testing Library `getBy*`, `getAllBy*`, `findBy*` and `findAllBy*` queries throw when nothing matches, so the Fake-Test Guard now reports `.toBeTruthy()`, `.toBeDefined()`, `.not.toBeNull()` and `.not.toBeUndefined()` directly on such a query (also awaited) as \"QUERY EXISTS ONLY\". Chained checks such as `expect(screen.getByTestId(\"x\").querySelector(\"input\")).toBeTruthy()` stay allowed. A bare query call now counts as an assertion, a `findBy*` call only when it is awaited or returned, so `screen.getByText(\"Saved\");` alone is a complete test; `queryBy*` still does not count. The new guard `weak-assertions` counts tests whose only assertions are `expect(x).toBeDefined()` or `expect(x).toBeTruthy()` and freezes them per file in `.kumiko-weak-assertions-baseline.json`; a missing baseline counts as empty.",
+    "migration": "Replace `expect(<query>).toBeTruthy()` and the other existence checks on a query with the bare query call (`screen.getByText(\"Saved\");`, `await screen.findByText(\"Saved\");`). Then run `kumiko-guards guards --write-baseline --guard=\"weak-assertions\"` once and commit `.kumiko-weak-assertions-baseline.json`.",
+    "affects": [
+      "kumiko-guards"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Test-ES-Row-Writes guard checks app and library tests",
+    "detail": "The guard was limited to the framework repo (`kinds: [\"framework\"]`), so `kumiko-guards guards` in an app never ran it. It now scans every non-tooling repo: the manifest's test files plus helper files in `src/**/__tests__`, `bin/**/__tests__`, `bin/**/*.test.ts` and `e2e/`. In every repo it now reports raw `INSERT INTO`, `UPDATE`, `DELETE FROM`, `MERGE INTO` and `COPY … FROM` (also with `ONLY` or a schema prefix) on `read_*` tables, on tables the file builds with `buildEntityTable` and on tables the file declares with `createEntity({ table })`, written literally or through a const in the same file whose value is such a name or comes from `<table>.tableName` (except inside a projection's `apply` and for an entity the file derives with `deriveEntityTableMeta(entity, { source: \"unmanaged\" })`), `TRUNCATE` of such a table without `kumiko_events` in the same statement, a `TRUNCATE kumiko_events` without the projection in a file that knows one, and `DELETE FROM kumiko_events`. A projection's `apply` never exempts writes on `kumiko_events`. It also reports calls like `insertOne`, `insertMany`, `deleteMany`, `deleteRows` or `seedRow` that take `eventsTable`. DDL (`ALTER TABLE … RENAME`, `CREATE TABLE`) and a `TRUNCATE` of projection and `kumiko_events` together (a reset) are not reported. `seedRow`, `updateRows` and `deleteRows` with a non-empty `{ projectionOnly: reason }`, inline or through a const in the same file, are no longer reported in any repo; on `eventsTable` they still are.",
+    "migration": "Replace each reported write in a test. Rows that events can produce go through the real command, `seedRowViaEventStore`, `updateRowViaEventStore` or `deleteRowViaEventStore`. A state no event produces goes through the testing helpers with a reason: `asRawClient(db).unsafe('UPDATE \"read_x\" SET \"version\" = 0 …')` (stale-version race), `UPDATE \"read_x\" SET \"<pii column>\" = <corrupted ciphertext>` and `UPDATE \"read_x\" SET \"<column>\" = NULL` (state after a column migration) become `updateRows(db, xTable, { … }, { id }, { projectionOnly: \"<scenario>\" })`, which writes the values verbatim without encrypting or bumping the version; `TRUNCATE \"read_x\"` (lost read table before a rebuild) becomes `deleteRows(db, xTable, {}, { projectionOnly: \"<scenario>\" })`; a raw `INSERT INTO read_x` legacy row becomes `seedRow(db, xTable, row, { projectionOnly: \"<scenario>\" })`. A reset keeps the events: `resetEventStore(stack, [xTable])` or `resetTestTables(db, [xTable, eventsTable])`.",
+    "affects": [
+      "kumiko-guards guards",
+      "Test-ES-Row-Writes Guard"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Public-exports changelog guard orders prerelease versions by semver"
+  },
+  {
     "version": "0.418.0",
     "type": "fix",
-    "title": "pre-push stops in a worktree that is not installed",
-    "detail": "`kumiko-pre-push` aborts before any check when it runs in a git worktree that has a `package.json` but no `node_modules`, and prints `bun install --frozen-lockfile` for that worktree. A main checkout is not affected."
+    "title": "pre-push stops in a worktree that is not installed"
   },
   {
     "version": "0.415.0",
@@ -15,8 +248,7 @@
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Error-Reasons guard accepts a prose reason in subjectForgetAfterDeleteHook",
-    "detail": "The reason is the forget-subject audit reason and part of the hook's systemIdentity escape-hatch reason, not an error-reason code. Apps no longer need a constant to get past the guard."
+    "title": "Error-Reasons guard accepts a prose reason in subjectForgetAfterDeleteHook"
   },
   {
     "version": "0.414.0",
@@ -29,460 +261,386 @@
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Backslash-aware escape prefilter, Dockerfile heredoc start, stable editor handle report, IMAP host key",
-    "detail": "The escaped-literal prefilter treats every backslash as a possible escape, so identity escapes and backslash-newline continuations no longer hide a literal from the RLS-setting, test-ES-fixture and test-ES-row-write guards. The Dockerfile heredoc start ignores `<<<` herestrings and `$((1 << x))` shifts, so later stages are still inspected. The template editor reports its handle once per editor instance again (the reporting callback is read through a ref), instead of re-reporting on every render. The IMAP connect-target rate limit strips a trailing dot from the host before keying its buckets. Several tests are sharpened (parallel ingest progress, batch hooks, consumer audit, pre-push lane order)."
+    "title": "Backslash-aware escape prefilter, Dockerfile heredoc start, stable editor handle report, IMAP host key"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Guard hardening: test titles, ignore-tag reasons, schema CLI, unsafe array params, RLS settings, internal imports",
-    "detail": "test-title no longer lets English apostrophes hide German words and no longer flags hex colours or row positions as issue references. ignore-tag-reason also checks tags preceded by text and counts lines in linear time. schema-cli-features accepts .js specifiers and namespace imports. unsafe-array-param sees through non-null and angle-bracket assertions. rls-session-settings splits SQL only at top-level semicolons, ignoring comments, strings and dollar-quoted bodies, and skips build, coverage and .turbo directories. internal-subpath-imports flags export-star re-exports of the testing helpers and import-equals require of internal subpaths."
+    "title": "Guard hardening: test titles, ignore-tag reasons, schema CLI, unsafe array params, RLS settings, internal imports"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Guards: parser and diagnostic fixes, escape-aware prefilters",
-    "detail": "The app-dockerfile guard now sees RUN heredocs and the `bun i` alias, accepts an inline token assignment only when it reads the mounted secret, and takes token variables only from the private scope's registry entry. The doc-status guard tolerates CRLF and a BOM and skips symlinks while walking. Agent docs render public class accessors with their types and no longer derive a flag call from an `!== true` condition. The security check no longer calls an expired or shadowed repo exception unused. The pre-push pool floor drops from four lanes to two. The RLS-setting, test-ES-fixture and test-ES-row-write guards resolve string escapes (`_`, `\\x20`) before matching and their text prefilters no longer skip files containing escapes. Two timing-based guard tests now synchronize instead of measuring wall-clock time."
+    "title": "Guards: parser and diagnostic fixes, escape-aware prefilters"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "pre-push re-entry needs owner command and nonce, not just an ancestor PID",
-    "detail": "Any shell could run `KUMIKO_CHECK_WT_OWNER=$$ git push` and the ancestor-PID check passed, switching off `pre-push-extra.sh`, the upgrade-state guard and gitleaks. Before delegating to a tracked `scripts/check-wt.sh` the hook now writes a random nonce to `kumiko-prepush-<pid>` (mode 0600) in the git common dir and passes it as `KUMIKO_CHECK_WT_NONCE`. Re-entry requires the owner to be an ancestor whose command line contains `scripts/check-wt.sh` (or the hook process itself when check-wt.sh exec'd it) and the nonce to match the file. Each outer run removes nonce files whose PID is no longer alive; if the file cannot be written the push is refused."
+    "title": "pre-push re-entry needs owner command and nonce, not just an ancestor PID"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "guard slot directory from older versions is tightened, spreads no longer flagged",
-    "detail": "A slots directory created with mode 0755 by an earlier version made the slot check fail open on every run. A directory owned by the current user is now chmod-ed to 0700 and used; foreign owners and symlinks are still rejected. `guard-unsafe-array-param` no longer warns on spreads in the parameter list, since they bind as scalars. The generated API reference now lists unexported constants that exported types reach through `typeof`."
+    "title": "guard slot directory from older versions is tightened, spreads no longer flagged"
   },
   {
     "version": "0.409.0",
     "type": "improvement",
-    "title": "Guard boot-raw-throws removed",
-    "detail": "The temporary `boot-raw-throws` guard and `.kumiko-boot-raw-throws-baseline.json` are deleted because every boot validator throw in the framework is migrated to a rule id. The guard only scanned the framework repo, so apps need no change."
+    "title": "Guard boot-raw-throws removed"
   },
   {
     "version": "0.409.0",
     "type": "improvement",
-    "title": "Cross-feature import guard scans .tsx and accepts web barrels",
-    "detail": "The guard scanned only .ts files, so a deep import across features from a .tsx screen or cell went through. It now scans .tsx as well (test files stay excluded). Next to the barrel, contract and schema/entity, another feature's web barrel (`../B/web`, `../B/web/index.ts`) is allowed, because browser code must not load the server barrel. Consumer note: after the bump, deep imports across feature boundaries in .tsx files fail the guard; import from the feature's barrel, its web barrel or its contract instead."
+    "title": "Cross-feature import guard scans .tsx and accepts web barrels"
   },
   {
     "version": "0.409.0",
     "type": "improvement",
-    "title": "no-custom-primitives knows the inbox widgets",
-    "detail": "The guard flags app components named MessageThread, MessageReader, StepList, ClampedText, AttachmentChip, HtmlMailFrame, SenderSheet, SenderFrame or AiSurface, so apps use the framework widgets instead of rebuilding them."
+    "title": "no-custom-primitives knows the inbox widgets"
   },
   {
     "version": "0.408.0",
     "type": "improvement",
-    "title": "No-Direct-Fs allowlists the static page writer",
-    "detail": "packages/server-runtime/src/static-html-pages.ts is on the No-Direct-Fs allowlist, next to run-prod-app-static-files.ts. It writes build output under the caller's outDir and checks page paths for traversal."
+    "title": "No-Direct-Fs allowlists the static page writer"
   },
   {
     "version": "0.404.0",
     "type": "improvement",
-    "title": "Security check warns about unused repo exceptions",
-    "detail": "kumiko-guards security lists every exception from the repo's dependency-security-exceptions.json that suppressed no advisory in the run, with package, advisory and file. The warning does not block; exceptions bundled with the guards package never warn because they cover consumers that may not have the package. Remove the listed entries once the advisory is fixed or withdrawn."
+    "title": "Security check warns about unused repo exceptions"
   },
   {
     "version": "0.402.0",
     "type": "improvement",
-    "title": "New guard boot-raw-throws",
-    "detail": "Freezes the count of raw `throw new Error` in `engine/boot-validator` and bundled `boot-checks.ts` per file in `.kumiko-boot-raw-throws-baseline.json`. New boot checks throw `bootRuleError(RULE, { message })` with a rule table. Only the framework repo is scanned."
+    "title": "New guard boot-raw-throws"
   },
   {
     "version": "0.396.0",
     "type": "improvement",
-    "title": "Faster guard suite through text prefilters",
-    "detail": "RLS-Session-Settings, Internal-Subpath-Imports, Test-ES-Fixtures and Test-ES-Row-Writes walked every node of every scanned file. Each now first checks the file text for the tokens its rules need (for example kumiko. or set_config, createTenantDb, kumiko_events, DELETE FROM or UPDATE) and skips the walk when none appears; Internal-Subpath-Imports keeps walking any file with a unicode escape, which could spell a name without its plain text. Findings are unchanged: the suites report the same results on kumiko-framework, kumiko-enterprise and publicstatus before and after."
+    "title": "Faster guard suite through text prefilters"
   },
   {
     "version": "0.396.0",
     "type": "improvement",
-    "title": "pre-push runs its worktree steps in parallel",
-    "detail": "The worktree branch without check-wt.sh now hands typecheck, lint, test, the guard suites, comment-lang and public-exports-changelog to the new run-steps-parallel.ts next to the hook. test:dom stays behind test in the same lane, every step still runs after a failure, and each step's output is printed as one block when it finishes. The failure line keeps its form (worktree check failed: <steps>). The pool follows the free CPU capacity with a floor of four lanes; KUMIKO_PRE_PUSH_POOL overrides it."
+    "title": "pre-push runs its worktree steps in parallel"
   },
   {
     "version": "0.396.0",
     "type": "fix",
-    "title": "pre-push runs its pre-flight steps once per push",
-    "detail": "When the hook delegated to a tracked scripts/check-wt.sh that wraps the hook again, the inner run repeated pre-push-extra.sh, the upgrade-state guard and the gitleaks scan, and that second scan only covered HEAD because git's stdin was already read. A re-entry recognised by process ancestry now skips these steps; a check-wt.sh run by hand still runs them once. The worktree branch without check-wt.sh adds kumiko-guards ui when kumiko.json declares non-empty uiRoots, and in the repo that ships kumiko-guards it runs the checked-out packages/guards/src/cli.ts instead of a node_modules bin."
+    "title": "pre-push runs its pre-flight steps once per push"
   },
   {
     "version": "0.394.0",
     "type": "fix",
-    "title": "kumiko-guards declares its kumiko-types dependency",
-    "detail": "error-reasons, app-dockerfile and check-subpath-exports import @cosmicdrift/kumiko-types at runtime, but the package listed only ts-morph and zod. Installs that get kumiko-types through the framework kept working; an install of kumiko-guards alone failed on that import. The framework stays an optional peer, so run the guards from a project that installs it. Apps that install the framework need no change."
+    "title": "kumiko-guards declares its kumiko-types dependency"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "app-dockerfile and doc-status run as public repo checks",
-    "detail": "kumiko-guards checks now includes app-dockerfile and doc-status, ported from the private infra guards package. app-dockerfile inspects deploy/Dockerfile: public/index.html or index.html must exist; with @cosmicdriftgamestudio/* dependencies the build stage copies a bunfig.toml or .npmrc scope entry before bun install and that RUN mounts the npm_auth_token BuildKit secret under the variable the registry config reads. The token as ARG/ENV (NPM_AUTH_TOKEN or the variable the registry config reads) is a warning for now and a violation next to a secret mount. Apps without private dependencies no longer need registry auth in the Dockerfile. doc-status requires valid status frontmatter for docs under docs/plans, runbooks, migration and reference; missing issue refs, finished plans outside the archive and malformed depends refs are warnings."
+    "title": "app-dockerfile and doc-status run as public repo checks"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "comment-lang scans every source root of the framework repo",
-    "detail": "The comment-language guard no longer limits the framework repo to packages/*/src and now also scans samples, scripts, bin, packages/*/bin, apps/*/src and packages/renderer/e2e. App and library repos are unchanged, they already scanned all their source roots."
+    "title": "comment-lang scans every source root of the framework repo"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "New test-title and ignore-tag-reason guards, fewer comment-language false positives",
-    "detail": "test-title scans test, it and describe titles (including each/skip/only chains) for German text (an umlaut, two German function words, or one unambiguous German word) and issue references. ignore-tag-reason requires a kumiko-lint-ignore reason of at least three words that is not generic. Both start with a baseline of 0 and warn only in repos without a baseline. The comment-language guard now reports a comment only when a lowercase word contains an umlaut, an umlaut appears together with a German function word, or at least two German markers appear, so proper nouns with umlauts pass."
+    "title": "New test-title and ignore-tag-reason guards, fewer comment-language false positives"
   },
   {
     "version": "0.390.0",
     "type": "improvement",
     "title": "Complexity guard covers .tsx with the hard cap of 40",
-    "detail": "The Complexity Check scans .tsx files next to .ts (.test.tsx stays excluded), and conditional JSX counts as a branch. A .tsx function above complexity 40 fails in the repo's own files, regardless of baseline or complexity-budget tag.",
     "migration": "Run `kumiko-guards guards --write-baseline --guard=\"Complexity Check\"` once on the bump to freeze the .tsx hotspots between 15 and 40, and split every .tsx function above 40 before the bump; the complexity-budget tag and the baseline do not cover it. Measured on 2026-10-23 (function, complexity / lines): offlot-app ComposerWorkspace 129/597 (campaign-composer-screen.tsx) and ComposerPostText 47/289 (composer-post-drawer.tsx); kumiko-enterprise AgentPanelBody 74/634 (agent-panel-body.tsx); phronexsis WorkbenchDashboardScreen 64/653 (workbench-dashboard-screen.tsx); money-horse CreditCalculatorScreen 60/468 (credit-calculator-screen.tsx); solon CockpitDetail 58/462 (inbox-cockpit-screen.tsx). publicstatus, show-pony, kumiko-studio and kumiko-platform have no .tsx function above 40."
   },
   {
     "version": "0.390.0",
     "type": "improvement",
     "title": "Guard for the runSchemaCli feature list",
-    "detail": "The Schema CLI Features guard fails when a consumer's `runSchemaCli` call does not get `features: FEATURES` imported from `kumiko/schema`. `allAppFeatures()` is raw, without the bundled foundation, so the projection rebuild after the migrations failed at deploy with \"Feature X requires feature Y\" (kumiko-studio, 2026-10-22). The message names the fix. Repos without `kumiko/schema.ts` are skipped, and a manifest exclude cannot hide `bin/kumiko.ts`.",
     "migration": "Run `bun kumiko check` once on the bump. Measured on 2026-10-23: only show-pony fails (bin/kumiko.ts composes its own list); import `FEATURES` from `../kumiko/schema` there. publicstatus, offlot-app, solon, money-horse, phronexsis and kumiko-studio are clean."
   },
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "Guard against projection-only writes in framework tests",
-    "detail": "The Test-ES-Row-Writes guard flags updateRows and deleteRows from the testing helpers in framework tests, because they change the projection but not the event log. It only runs in the framework repo; consumer repos are not affected."
+    "title": "Guard against projection-only writes in framework tests"
   },
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "Guard against array parameters in .unsafe()",
-    "detail": "The Unsafe Array Param guard warns when a `.unsafe(sql, [...])` parameter list holds an array literal or a spread. Bun.SQL binds such an array as \"a,b\" on Linux, so `ANY($n)` fails only in CI and passes on macOS; pass `toPostgresArrayLiteral(values)` with a `$n::text[]` cast. It is a warning and cannot see array-typed variables. Measured on 2026-10-23: no hit in any consumer repo."
+    "title": "Guard against array parameters in .unsafe()"
   },
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "test-es-row-writes guard covers seedRow and raw SQL on event-sourced tables",
-    "detail": "Besides updateRows/deleteRows, the guard now reports seedRow on an entity table the test file builds with buildEntityTable, and raw DELETE or UPDATE statements on read_ tables, DELETE on kumiko_events and template SQL on eventsTable or such an entity table. Tests that corrupt projections, backdate timestamps or plant legacy rows on purpose are allowlisted per file with a reason. The guard runs in the framework repo only; nothing changes for apps."
+    "title": "test-es-row-writes guard covers seedRow and raw SQL on event-sourced tables"
   },
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "New guard rls-session-settings",
-    "detail": "Flags SET and SET SESSION on kumiko.* settings and set_config with is_local false in any source or test string, kumiko.* writes outside rls-scope.ts in non-test code, and a set_config in rls-scope.ts without literal true. A session-level setting survives on a pooled connection and leaks one request's scope into the next."
+    "title": "New guard rls-session-settings"
   },
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "rls-session-settings also scans .sql files",
-    "detail": "Consumer migrations are checked statement by statement for session-level SET kumiko.*, set_config with is_local false and any kumiko.* write."
+    "title": "rls-session-settings also scans .sql files"
   },
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "New guard internal-subpath-imports",
-    "detail": "Flags kumiko-framework/internal/* imports outside the framework repo, row level security scope helpers from kumiko-testing/helpers in non-test code, and system scope calls without a literal reason."
+    "title": "New guard internal-subpath-imports"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "Guard against hand-made event and membership SQL in tests",
-    "detail": "Flags INSERT INTO / UPDATE kumiko_events and CREATE TABLE read_tenant_memberships in test files. Seed through append() or runSeedWritesAt() and unsafeCreateEntityTable with seedRow instead. Perf bulk seeds and the ordering tests that hold a transaction open are allowlisted."
+    "title": "Guard against hand-made event and membership SQL in tests"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "pre-push re-entry detection no longer an env switch",
-    "detail": "Before delegating to a tracked scripts/check-wt.sh the hook records its own PID in KUMIKO_CHECK_WT_OWNER and treats a run as re-entry only when that PID is an ancestor of the current process, whether check-wt.sh execs or spawns the hook. KUMIKO_CHECK_WT=1 is ignored, so it cannot skip check-wt.sh; wrappers that still set it need no change."
+    "title": "pre-push re-entry detection no longer an env switch"
   },
   {
     "version": "0.388.0",
     "type": "improvement",
     "title": "Complexity hard cap 40, thin-wrapper guard skips typed table slots",
-    "detail": "A function above complexity 40 in the repo's own files fails the complexity guard, independent of the complexity baseline and of the complexity-budget tag, also with --no-baseline. The thin-wrapper guard skips a function that is a value of an object literal with a declared type or a satisfies check, inline or referenced by name, because the table fixes its signature.",
     "migration": "Split every function above complexity 40 before the bump; the complexity-budget tag and the baseline do not cover it. `bun check-complexity.ts --all --no-baseline` lists them under \"Above hard cap\"."
   },
   {
     "version": "0.388.0",
     "type": "improvement",
     "title": "Complexity hard cap, --all, file-size threshold 1200",
-    "detail": "Functions with complexity above 60 are a violation in the repo's own files, independent of the complexity baseline and of the complexity-budget tag, also with --no-baseline. The report lists them in their own section. `bun check-complexity.ts --all` prints all hotspots in the standalone run, --write-baseline and --no-baseline. The file-size guard now freezes files above 1200 lines instead of 2000.",
     "migration": "Consumer repos without a complexity baseline get a hard error for functions above complexity 60; split them. File size stays a warning there without a baseline; with one, files between 1200 and 2000 lines count as new hits until `--write-baseline` is run."
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Harden guards infrastructure (pre-push scan range, slot dir, root walk)",
-    "detail": "The pre-push secret scan covers every pushed ref instead of HEAD. The guard slot directory is created 0700 and ignored when not private; slot max age is 2 h. findLocalRepo no longer picks up a kumiko.json above the git root. Runtime-isolation keeps web/dev/ files as client."
+    "title": "Harden guards infrastructure (pre-push scan range, slot dir, root walk)"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Guards report fewer false results",
-    "detail": "The import-extensions guard now also checks import types, mock.module and template-literal specifiers. The comment-issue-ref-only guard no longer treats file names like round2.ts as plan labels. The direct-entity-writes guard recognises r.entity registrations with a constant or shorthand name, reports direct writes on package catalog tables even when the scope has no own ES tables, keeps receiver text on one line and names the installed kumiko-guards bin in its catalog rewrite hint. The app-feature-structure guard no longer tells dev/ and scripts/ files to move under web/, and the bundled license exceptions drop the stale first-party and create-kumiko-app entries."
+    "title": "Guards report fewer false results"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Dependency exceptions, timeout and boundary guards no longer miss or invent findings",
-    "detail": "A renewed license or security exception now wins over an expired earlier one, license exceptions must match the package license and a real semver range, and only exceptions that suppressed an advisory block on near expiry. The test-timeouts guard also flags union-typed and untyped timeout arguments, the renderer-boundaries guard covers headless and live imports, import-extensions ignores real .js files without a .ts sibling, and the generated agent examples now include bin, e2e, seeds and scripts files."
+    "title": "Dependency exceptions, timeout and boundary guards no longer miss or invent findings"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Guards --explain uses the injectable project builder",
-    "detail": "runGuardsCli builds the explain project through the same buildProject dependency as the check run, which lets tests assert that --explain takes no guard run slot without parsing the whole repository."
+    "title": "Guards --explain uses the injectable project builder"
   },
   {
     "version": "0.387.0",
     "type": "improvement",
     "title": "Comment Issue-Ref guard",
-    "detail": "The comment-issue-ref-only guard flags comments that consist only of an issue or PR reference or a planning label (`#1234`, `fw#1234`, `Phase 3`, `S2.H1`) with no explanatory word besides it. Consecutive own-line `//` comments count as one paragraph, so a reference at the end of an explaining paragraph passes. Hits are frozen per file in `.kumiko-comment-issue-ref-baseline.json` and may not grow; without the baseline file the guard only warns. Deliberate exceptions take `// kumiko-lint-ignore comment-issue-ref-only <reason>`.",
     "migration": "Optional. Freeze existing hits with `kumiko-guards guards --write-baseline --guard=comment-issue-ref-only`."
   },
   {
     "version": "0.385.0",
     "type": "improvement",
     "title": "File Size guard and per-package ratchet for legit casts",
-    "detail": "The File Size guard freezes production files above 2000 lines in `.kumiko-file-size-baseline.json` and fails when a file grows or a new one crosses the limit. The As-Casts Audit additionally caps legit-bridge and legit-boundary casts per package in `.kumiko-cast-legit-baseline.json`. Without the baseline files both only warn.",
     "migration": "Optional. Freeze both with `kumiko-guards guards --write-baseline --guard=\"File Size\"` and `--guard=\"As-Casts Audit\"`."
   },
   {
     "version": "0.384.0",
     "type": "improvement",
     "title": "Unsafe-Append-Event guard removed",
-    "detail": "The event store rejects unregistered event types and validates every payload against its schema at runtime, for appendEvent and unsafeAppendEvent alike, so the static guard is redundant.",
     "migration": "Delete `.kumiko-unsafe-append-event-baseline.json`."
   },
   {
     "version": "0.384.0",
     "type": "improvement",
     "title": "Access-Denied-Test guard replaced by a contract test helper",
-    "detail": "Roles are checked centrally before the payload is parsed. The new `expectRoleRestrictedHandlersDenyForeignRole` test helper proves this over HTTP for every role-restricted write and query handler, so the guard that searched for a matching test per handler is removed.",
     "migration": "In an app integration test with setupTestStack and the app features, call `expectRoleRestrictedHandlersDenyForeignRole(stack)` and remove the \"Access-Denied-Test Guard\" entry from `.kumiko-security-baseline.json`."
   },
   {
     "version": "0.384.0",
     "type": "improvement",
     "title": "i18n-Keys guard no longer checks locales",
-    "detail": "The guard only reports keys that are used without a definition. Locale completeness moved to the boot validator, which sees the real registered translations of every feature.",
     "migration": "Delete `src/i18n-guard-locales.ts` if it exists."
   },
   {
     "version": "0.384.0",
     "type": "improvement",
     "title": "PII-Annotations guard removed",
-    "detail": "Entity text and longText fields now have to declare their personal stance by type and at boot, so the static guard that searched for unannotated fields is redundant.",
     "migration": "Delete `.kumiko-pii-annotations-baseline.json`."
   },
   {
     "version": "0.383.0",
     "type": "improvement",
     "title": "Nine guards are removed because types and boot checks replace them",
-    "detail": "Removed guards and their replacement. Text-Field Personal-Stance: the field factories require `personal`. API-Object-Form: the registrar only has the object form. Table-DDL (warning only), Pre-ES-Patterns and No-Broker-Subscribe (the broker is not exported). Open-To-All-Reason and Escape-Hatch-Declared: boot and runtime reason validation. Loadall-Events: the function is removed. Section-Fields-Raw: EditFieldsSection is a union. Screen-Conventions loses rule R1 (metrics without label), the type enforces it.",
     "migration": "Delete `.kumiko-text-field-stance-baseline.json` and `.kumiko-section-fields-raw-baseline.json`. In `.kumiko-security-baseline.json` the \"Escape-Hatch-Declared Guard\" and \"Open-To-All-Reason Guard\" entries in `hardFail` can be removed (they are ignored now). Remove leftover `kumiko-lint-ignore section-fields-raw` markers."
   },
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "App-feature-structure guard flags runtime-client markers",
-    "detail": "The guard reports a runtime-client marker in a feature file, outside web/ as client code in the server tree and inside web/ as redundant. dev/ is classified as the dev runtime by path."
+    "title": "App-feature-structure guard flags runtime-client markers"
   },
   {
     "version": "0.379.0",
     "type": "fix",
-    "title": "Direct-entity-writes guard catches external and projection event-store tables",
-    "detail": "Published packages list their event-store tables in kumiko-es-tables.json, which the guard checks for staleness in the owning repo and reads in consumers. r.projection tables are now guarded as well. Existing consumers can get new findings that were previously hidden."
+    "title": "Direct-entity-writes guard catches external and projection event-store tables"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "Guard runs queue for a free local slot",
-    "detail": "At most two full guard runs per machine run at the same time (KUMIKO_GUARD_SLOTS, default 2, 0 disables, unset in CI). Further runs print a waiting line and start when a slot frees up; slots of crashed runs are taken over automatically."
+    "title": "Guard runs queue for a free local slot"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
     "title": "direct-fetch guard uses kumiko-lint-ignore",
-    "detail": "The guard-allow direct-fetch marker is no longer parsed. The guard now honors kumiko-lint-ignore direct-fetch with a specific reason, like the other guards.",
     "migration": "Replace guard-allow direct-fetch comments with kumiko-lint-ignore direct-fetch followed by the reason."
   },
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "Subpath-exports and guards-doc-drift checks",
-    "detail": "The subpath-exports check fails when a published package ships src/<feature>/web.ts without the matching exports key. The guards-doc-drift check keeps docs/reference/guards.md in sync with the guard sources, and a registry test fails when a guard file is not registered."
+    "title": "Subpath-exports and guards-doc-drift checks"
   },
   {
     "version": "0.378.0",
     "type": "fix",
-    "title": "Direct-entity-writes guard catches imported event-store tables",
-    "detail": "Table identifiers are resolved through import aliases to their definition, so direct insert/update/delete on an event-store table imported from another file of the scanned repo is no longer missed. Findings now show the full receiver (ctx.db). Existing consumers can get new findings that were previously hidden."
+    "title": "Direct-entity-writes guard catches imported event-store tables"
   },
   {
     "version": "0.378.0",
     "type": "improvement",
-    "title": "Faster, leaner guard run",
-    "detail": "Four AST guards skip files that cannot contain their anchor names before walking every node, and Direct-Entity-Writes only resolves symbols for table arguments named like an event-sourced table. Findings are identical."
+    "title": "Faster, leaner guard run"
   },
   {
     "version": "0.378.0",
     "type": "fix",
-    "title": "Pre-push shim skips untrusted ancestors and stops at $HOME",
-    "detail": "The shim walked up to / and could exec a kumiko-pre-push planted in /tmp or another shared directory. The walk now ends at $HOME and skips ancestors that another user owns or that group or others can write to."
+    "title": "Pre-push shim skips untrusted ancestors and stops at $HOME"
   },
   {
     "version": "0.378.0",
     "type": "fix",
-    "title": "Pre-push shim also vets node_modules/.bin",
-    "detail": "The shim now requires node_modules/.bin itself to be owned by the user and not group or world writable before executing kumiko-pre-push from it, in the guards hook and the dev-server husky template."
+    "title": "Pre-push shim also vets node_modules/.bin"
   },
   {
     "version": "0.377.0",
     "type": "improvement",
-    "title": "guard-unsafe-append-event",
-    "detail": "Flags ctx.unsafeAppendEvent outside migrations/, upcasters/ and tests. Existing call sites are frozen per file in .kumiko-unsafe-append-event-baseline.json and the count may only shrink; repos without the file get a warning only."
+    "title": "guard-unsafe-append-event"
   },
   {
     "version": "0.377.0",
     "type": "improvement",
     "title": "repo-manifest moved into guards",
-    "detail": "The kumiko.json schema and loader are exported from @cosmicdrift/kumiko-guards/repo-manifest, the app port reader from @cosmicdrift/kumiko-guards/repo-manifest/app-ports. @cosmicdrift/kumiko-repo-manifest now only re-exports them and is removed after the consumer pass of wave 4. @cosmicdrift/kumiko-framework is an optional peer for the app-ports subpath.",
     "migration": "Run bun kumiko-upgrade --apply, or bun kumiko codemod package-merge . --write. It rewrites imports of @cosmicdrift/kumiko-repo-manifest (and its /app-ports subpath) to @cosmicdrift/kumiko-guards/repo-manifest and replaces the dependency in package.json with kumiko-guards.",
     "codemod": "scripts/codemod/package-merge.ts"
   },
   {
     "version": "0.377.0",
     "type": "improvement",
-    "title": "renderer-boundaries guard scans headless and live for imports only",
-    "detail": "The headless and live subtrees of kumiko-renderer must not import react-dom, jsdom or renderer-web; the symbol and JSX rules of the shared layer no longer apply to them. The section-fields-raw scope follows the moved headless sources."
+    "title": "renderer-boundaries guard scans headless and live for imports only"
   },
   {
     "version": "0.377.0",
     "type": "improvement",
-    "title": "renderer-boundaries guard leaves the web subtree unscanned",
-    "detail": "renderer/src/web may use the DOM and every web dependency; the shared renderer root and headless/live must not import it. The tailwind-scan-surface guard follows the new stylesheet location through package exports and shim imports."
+    "title": "renderer-boundaries guard leaves the web subtree unscanned"
   },
   {
     "version": "0.377.0",
     "type": "improvement",
-    "title": "comment-lang touched mode pairs renames",
-    "detail": "The touched mode diffs a moved file against its old path, so moving a file no longer counts every German comment in it as new."
+    "title": "comment-lang touched mode pairs renames"
   },
   {
     "version": "0.376.0",
     "type": "improvement",
-    "title": "The pre-push bypass is gone",
-    "detail": "PRE_PUSH_SKIP no longer skips the hook, neither in the shipped hook nor in kumiko-pre-push. KUMIKO_CHECK_WT=1 only stops the hook from re-entering a wrapping scripts/check-wt.sh. The i18n-keys guard treats keys defined by installed @cosmicdrift packages as known."
+    "title": "The pre-push bypass is gone"
   },
   {
     "version": "0.371.0",
     "type": "improvement",
-    "title": "test-timeouts guard flags hook timeouts and scans recipes",
-    "detail": "The test-timeouts guard now also fails on a timeout argument to beforeAll, beforeEach, afterAll and afterEach, as a number or as a { timeout } object, including renamed and namespace imports from bun:test. The samples/recipes exemption is gone, recipe tests and their e2e dirs are scanned like every other test. The kumiko.json of the framework repo scans tests under scripts and bin as well. There is no baseline."
+    "title": "test-timeouts guard flags hook timeouts and scans recipes"
   },
   {
     "version": "0.371.0",
     "type": "improvement",
-    "title": "import-extensions guard skips imports of build output",
-    "detail": "A relative specifier with a dist/ path segment, such as a published bin importing ../dist/cli.js, is no longer reported. The .js there is the only file that exists."
+    "title": "import-extensions guard skips imports of build output"
   },
   {
     "version": "0.371.0",
     "type": "improvement",
-    "title": "Pre-push shim stops at the repo boundary, nearest kumiko.json wins, process.env guard covers bin",
-    "detail": "The pre-push shim searches upward only through ancestors up to the git root and fails with a message when nothing is found. findLocalRepo prefers the nearest kumiko.json over the git root. guard-no-direct-process-env scans bin/**/*.ts including bin/ops."
+    "title": "Pre-push shim stops at the repo boundary, nearest kumiko.json wins, process.env guard covers bin"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "import-extensions guard reports relative .js and .jsx specifiers",
-    "detail": "The import-extensions guard fails on a relative specifier that ends in .js or .jsx in a .ts or .tsx file (import, export from, import type and import()). Declaration files and fixtures are skipped. The message points to the import-extensions codemod. There is no baseline."
+    "title": "import-extensions guard reports relative .js and .jsx specifiers"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "Runtime-isolation guard resolves imports through the TypeScript resolver",
-    "detail": "The runtime-isolation guard resolves import and re-export targets with ts.resolveModuleName, so path aliases and package exports are followed, and classifies e2e directories as test code. resolveImportTargetPath is exported for other guards."
+    "title": "Runtime-isolation guard resolves imports through the TypeScript resolver"
   },
   {
     "version": "0.366.0",
     "type": "improvement",
-    "title": "kumiko-guards gains the api-object-form guard",
-    "detail": "The guard fails on a positional r.writeHandler, r.queryHandler, r.entity, r.requires or r.hook call and on registerEntityCrud, and names the object form to use. It runs with the default kumiko-guards checks. The direct-entity-writes guard now also reads entity registrations written in the object form, including a backingTable override."
+    "title": "kumiko-guards gains the api-object-form guard"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "public-exports-changelog --base=<ref> checks drops against the baseline of the merge-base and matches exported names as whole identifiers",
-    "detail": "Check mode with --base=<ref> reads .kumiko-public-exports-baseline.json from the merge-base and sends every drop against it through the changelog/changeset ratchet, so a PR can no longer hide a removal by editing or deleting the baseline. An unknown ref is an error; a base without a baseline is a bootstrap. A changelog entry or open changeset covers a drop only when every dropped name appears in it as a whole identifier (getUserById no longer covers getUser). An unparsable changes.json is reported on stderr with its path. check-wt.sh, the worktree pre-push branch and the legacy check step pass the base."
+    "title": "public-exports-changelog --base=<ref> checks drops against the baseline of the merge-base and matches exported names as whole identifiers"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "guard-test-timeouts ignores identifier test bodies and timeout-free options; push-root no longer trusts a lookalike folder name",
-    "detail": "An identifier passed as a test argument only counts as a timeout when its type is a number or has a timeout property, so Playwright's test(title, details, body) and options like { retry: 2 } pass. A push root that resolves to a git repo is judged by its canonical checkout name, not by its folder name. An unexpected security baseline shape keeps the reason unexpected_baseline_shape and adds a readable detail."
+    "title": "guard-test-timeouts ignores identifier test bodies and timeout-free options; push-root no longer trusts a lookalike folder name"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "comment-lang needs two lower-case markers, scans HEAD in touched mode and recognises division after keywords",
-    "detail": "The short German markers now match case-sensitively in lower case and need two hits, so a licence header such as \"MIT License\" no longer counts; an umlaut alone still does. The scanner treats a slash after contextual keywords (from, type, get, of, ...) and after the non-null postfix as division instead of a regex, so a German comment after \"width! / 2\" is no longer hidden. --touched compares the diff of mergeBase to HEAD and scans the file contents from HEAD, so the pre-push hook checks the commits being pushed rather than local uncommitted edits."
+    "title": "comment-lang needs two lower-case markers, scans HEAD in touched mode and recognises division after keywords"
   },
   {
     "version": "0.364.0",
     "type": "improvement",
-    "title": "kumiko-guards gains licenses, security and outdated subcommands",
-    "detail": "bunx kumiko-guards licenses classifies installed packages against a licence allow/gray/deny policy, security runs bun audit (critical and high block, exceptions expiring within 14 days block), outdated fails on deprecated direct dependencies, warns with the reason for every package the registry did not answer and fails when it answered for none. All three scan the repo cwd sits in (installed packages from node_modules of the repo, its workspace members and every ancestor directory; the repo's bun.lock or the nearest ancestor's) and fail loudly when nothing is found. Each takes --report. They are not part of the default run or the checks bundle because they use the network. Exceptions need reason, reviewer and expiry; the package ships defaults and merges dependency-license-exceptions.json from the repo root and every ancestor whose node_modules was scanned, and dependency-security-exceptions.json from the repo root and the audited lockfile directory."
+    "title": "kumiko-guards gains licenses, security and outdated subcommands"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "guard-upgrade-state keeps legacy pendingManual steps and reports malformed ones",
-    "detail": "Marker entries written before pendingManual carried an id were dropped silently, so a repo with open manual steps passed the guard. The guard now derives the id from version and title like kumiko-upgrade does, and a structurally broken pendingManual entry is reported instead of filtered out."
+    "title": "guard-upgrade-state keeps legacy pendingManual steps and reports malformed ones"
   },
   {
     "version": "0.364.0",
     "type": "improvement",
-    "title": "kumiko-pre-push runs a gitleaks scan of origin/main..HEAD before the checks",
-    "detail": "When the gitleaks binary is installed, the hook runs `gitleaks git --redact --log-opts=origin/main..HEAD` in the repo root and blocks the push on a finding. A `.gitleaks.toml` in the repo root is picked up by gitleaks itself. Without the binary or without origin/main the hook only prints a warning and continues (install with `brew install gitleaks`)."
+    "title": "kumiko-pre-push runs a gitleaks scan of origin/main..HEAD before the checks"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "text-field-stance guard test no longer fails on unrelated warnings in a shared test run",
-    "detail": "The test spied on console.warn globally and asserted zero calls. In a run that shares one process across test files, async warnings from other files (job-runner stop, mail egress) landed in the spy and turned main red. The assertion now only counts calls with the guard's own warn prefix. No change to the guard itself."
+    "title": "text-field-stance guard test no longer fails on unrelated warnings in a shared test run"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "As-casts guard fails on baseline regressions",
-    "detail": "check-as-casts now returns violations for more suspect casts per file and target than the baseline, for unknown or missing @cast-boundary reasons in repo-local files (only when a baseline exists), and for a baseline with a drifted format. Repos without a baseline and sibling checkouts under ../ still only warn."
+    "title": "As-casts guard fails on baseline regressions"
   },
   {
     "version": "0.361.0",
     "type": "fix",
-    "title": "comment-lang guard scans tooling repos, handles division before a comment and ignores a stale KUMIKO_PUSH_REPO_ROOT",
-    "detail": "comment-lang scans tooling repos, no longer rescans a division as a regex literal, and honours KUMIKO_PUSH_REPO_ROOT only when KUMIKO_CLI_SCOPE names that checkout. The scan-scope helpers scanFiles and scanRoots are exported."
+    "title": "comment-lang guard scans tooling repos, handles division before a comment and ignores a stale KUMIKO_PUSH_REPO_ROOT"
   },
   {
     "version": "0.360.0",
     "type": "fix",
-    "title": "public-exports-changelog requires the open breaking changeset to name the dropped export",
-    "detail": "Before, any open breaking kumiko-changes block of the owning feature let --write-baseline drop every export of that feature. Now the block's title, detail or migration must contain at least one dropped name, the same rule changes.json entries already follow. The finding hint and the report hint name the .changeset block and bun packages/guards/src/cli.ts public-exports-changelog --write-baseline. pendingBreakingFeaturesIn and loadPendingBreakingFeatures are renamed to pendingBreakingChangesIn and loadPendingBreakingChanges and return feature to block texts; featureFlagForCli is removed."
+    "title": "public-exports-changelog requires the open breaking changeset to name the dropped export"
   },
   {
     "version": "0.360.0",
     "type": "improvement",
-    "title": "New public-exports-changelog guard (kumiko-guards public-exports-changelog) ratchets the public export surface of framework and bundled-features",
-    "detail": "Add the public-exports-changelog guard: a dropped public export of packages/framework or packages/bundled-features fails unless a breaking changelog entry names it before the baseline is refrozen"
+    "title": "New public-exports-changelog guard (kumiko-guards public-exports-changelog) ratchets the public export surface of framework and bundled-features"
   },
   {
     "version": "0.357.0",
     "type": "fix",
-    "title": "comment-lang reports an unreadable or non-object baseline instead of crashing",
-    "detail": "`kumiko-guards comment-lang` with a baseline file that is not valid JSON, is `null` or has a `null` perFile now prints a baseline-format message and exits 1 instead of throwing a TypeError. A security baseline with the wrong shape now reports the reason `unexpected_baseline_shape`."
+    "title": "comment-lang reports an unreadable or non-object baseline instead of crashing"
   },
   {
     "version": "0.355.0",
@@ -499,20 +657,17 @@
   {
     "version": "0.354.0",
     "type": "improvement",
-    "title": "Real-Provider-Isolation guard allows real runs in schedule- or workflow_dispatch-only workflows",
-    "detail": "The Real-Provider-Isolation guard allows `test:real`, `e2e:real` and `KUMIKO_REAL_PROVIDERS` in CI workflows whose `on:` triggers are exclusively `schedule` and/or `workflow_dispatch`, so an app can run its real-provider suite weekly or by hand. Any other trigger next to them (`push`, `pull_request`, `pull_request_target`, `workflow_call`, ...) or a workflow without a parseable `on:` is still a violation."
+    "title": "Real-Provider-Isolation guard allows real runs in schedule- or workflow_dispatch-only workflows"
   },
   {
     "version": "0.354.0",
     "type": "fix",
-    "title": "Security guards scan the tooling root, direct-fetch guard-allow needs a concrete reason, types postgres peer accepts the prerelease alias",
-    "detail": "Final review batch G: guards and tooling\nThe security guards (`direct-fetch`, `direct-entity-writes`, `tenant-escalation`, `unsafe-json-parse`, `html-escape`, `no-direct-fs`, `restricted-symbols`, `admin-api`, `access-denied-test`, `open-to-all-reason`, `escape-hatch-declared`) now scan a `tooling` root too. `direct-fetch` rejects a `guard-allow` marker without a specific reason. The `direct-entity-writes` canary also blocks when table declarations exist but write resolution finds nothing. `@cosmicdrift/kumiko-types` accepts the `postgres` prerelease alias in its peer range."
+    "title": "Security guards scan the tooling root, direct-fetch guard-allow needs a concrete reason, types postgres peer accepts the prerelease alias"
   },
   {
     "version": "0.352.0",
     "type": "improvement",
-    "title": "New No-Temporal-Polyfill-Import guard reports direct temporal-polyfill value imports outside kumiko-types",
-    "detail": "Scans source and test files (ts, tsx). Flags named, default, namespace and side-effect imports, re-exports, import() and require of \"temporal-polyfill\" or its subpaths, and prints the replacement import from @cosmicdrift/kumiko-types/temporal. Type-only imports and triple-slash type references pass."
+    "title": "New No-Temporal-Polyfill-Import guard reports direct temporal-polyfill value imports outside kumiko-types"
   },
   {
     "version": "0.352.0",
@@ -524,14 +679,12 @@
   {
     "version": "0.351.0",
     "type": "fix",
-    "title": "A missing guard baseline with zero findings is clean instead of warning",
-    "detail": "A guard without a baseline file and without findings passes quietly\nGuards with a baseline ratchet printed the \"No baseline found\" warning in every consumer, even when they found nothing. A missing baseline now counts as an empty one when the current count is zero. `raw-sql` uses the same ratchet."
+    "title": "A missing guard baseline with zero findings is clean instead of warning"
   },
   {
     "version": "0.347.0",
     "type": "improvement",
-    "title": "New kumiko-guards comment-lang subcommand replaces the kumiko-guard-comment-lang bin",
-    "detail": "`kumiko-guards comment-lang` runs the comment-language ratchet\nThe subcommand takes `--touched --base=<ref>`, `--list`, `--write-baseline` and `--no-baseline`. The pre-push hook calls it instead of the separate `kumiko-guard-comment-lang` bin."
+    "title": "New kumiko-guards comment-lang subcommand replaces the kumiko-guard-comment-lang bin"
   },
   {
     "version": "0.341.0",
@@ -544,47 +697,40 @@
     "version": "0.340.0",
     "type": "improvement",
     "title": "Raw-sql markers must be listed in a baseline",
-    "detail": "`guard-raw-sql` counts the markers that suppress a blocking hit per file and reason and compares them with `.kumiko-raw-sql-baseline.json` in the repo root. A marker without a baseline entry, or with a changed reason, fails the check. Without a baseline file the guard only warns. `kumiko-guards checks --write-baseline --guard=guard-raw-sql` writes the file.",
     "migration": "Consumer: `--write-baseline` einmal laufen lassen (`bunx kumiko-guards checks --write-baseline --guard=guard-raw-sql`) und die erzeugte `.kumiko-raw-sql-baseline.json` committen."
   },
   {
     "version": "0.339.0",
     "type": "fix",
     "title": "Guards ignore neighbour repos of the parent workspace",
-    "detail": "The root comes from `findLocalRepo`, not a path heuristic. `isOutsideRepoRoot(filePath, repoRoot?)` compares real paths, so symlinks into a neighbour repo count as outside. `buildSharedProject` drops such files and `no-framed-extension-sections` stops following imports into them.",
     "migration": "keine"
   },
   {
     "version": "0.337.0",
     "type": "fix",
-    "title": "i18n-keys guard decodes escaped literals, framed-sections guard skips test usages, renderer-boundaries guard blocks bare fetch and reports all JSX tags per line, pre-push shim no longer execs binaries from shared ancestor dirs",
-    "detail": "The i18n-keys guard reads string literals with `getLiteralText()` so escaped keys match their definitions. The no-framed-extension-sections guard ignores test files when collecting component usages. The renderer-boundaries guard now also rejects a bare `fetch(` call in `packages/renderer/src`, and reports every JSX tag on a line. The `.husky/pre-push` shim only resolves `kumiko-pre-push` from the repo's own `node_modules` or the parent-workspace root, never from arbitrary ancestor directories."
+    "title": "i18n-keys guard decodes escaped literals, framed-sections guard skips test usages, renderer-boundaries guard blocks bare fetch and reports all JSX tags per line, pre-push shim no longer execs binaries from shared ancestor dirs"
   },
   {
     "version": "0.336.0",
     "type": "improvement",
-    "title": "Guards reject --guard without --write-baseline and catch more raw-form-HTML, locale and timeout cases",
-    "detail": "Guards are stricter and more consistent: `guards --guard=<name>` without `--write-baseline` is rejected instead of silently running every guard, the raw-form-HTML check also catches tags after `=`, `[` or in spaceless ternaries, the German locale check flags lowercase \"organisation\", `test-timeouts` flags `setDefaultTimeout` and `describe.configure({ timeout })`, the no-framed-extension-sections guard correlates registry keys and usages by resolved value, and the fake-tests helper lookup is scope-aware. UI guards report repo-relative file paths. The pre-push worktree detection compares absolute git dirs."
+    "title": "Guards reject --guard without --write-baseline and catch more raw-form-HTML, locale and timeout cases"
   },
   {
     "version": "0.336.0",
     "type": "improvement",
     "title": "secret-literal checks all fallbacks on a line; as-casts audit is quiet inside the shared runner",
-    "detail": "`secret-literal` now inspects every `?? \"literal\"` fallback on a line instead of only the first, so a hardcoded secret behind a trivial first fallback is flagged. The `as-casts` audit prints its per-site listings only when run standalone; inside the shared runner it prints just the counts and the baseline verdict.",
     "migration": "A repo with a hardcoded secret fallback hidden behind an earlier trivial fallback on the same line can now fail the secret-literal guard. Replace the literal with a hard failure on a missing env value."
   },
   {
     "version": "0.335.0",
     "type": "improvement",
     "title": "Stricter guard detection for raw-sql, test-template-drift, framed extension sections, runtime-isolation and test-stack-drift",
-    "detail": "Stricter guard detection; app repos that carried an undetected pattern can now turn red.\n- `guard-raw-sql`: only kumiko-platform is skipped. An app repo whose declared `sourceRoots` all do not exist now fails as vacuous (0 files scanned) instead of passing.\n- `test-template-drift`: `...defineAppE2eConfig(...)` spread next to `fullyParallel`, `retries`, `timeout`, `workers` or `expect`, and shorthand `{ viewport }` / `{ deviceScaleFactor }`, are flagged.\n- `no-framed-extension-sections`: an `extensionSectionComponents` registry held in a variable, shorthand or spread is resolved.\n- `runtime-isolation`: entries declared in package.json `kumiko.clientEntry` / `kumiko.clientEntries[].sourceFile` count as browser code.\n- `test-stack-drift`: `@no-server-stack:` only opts out when it sits in a comment, not in a string literal.\n- Direct `run-guards.ts` / `run-ui-guards.ts` / `run-repo-checks.ts` invocations exit with 1 instead of the failure count.",
     "migration": "App repos that carried a previously undetected pattern can now fail their guards. Fix the reported sites; a vacuous raw-sql scan (all declared sourceRoots missing) must declare existing source roots."
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Escape-hatch guards accept only real framework imports, a corrupt cast baseline is an error, hints name kumiko-guards guards",
-    "detail": "The escape-hatch guards now only accept `declareEscapeHatch` and `withUnsafeRawGrant` imported from the framework itself; a local function or an import from another module with the same name no longer satisfies them. A corrupt `.kumiko-cast-baseline.json` is now an error instead of being treated as an empty baseline. Guard hints point at `kumiko-guards guards`."
+    "title": "Escape-hatch guards accept only real framework imports, a corrupt cast baseline is an error, hints name kumiko-guards guards"
   },
   {
     "version": "0.332.0",
@@ -634,21 +780,18 @@
     "version": "0.331.0",
     "type": "improvement",
     "title": "Primitives-discipline guard flags hand-built mx-auto + max-w-* screen containers",
-    "detail": "A className combining `mx-auto` with a `max-w-*` token now fails the guard and points to `<PageSection maxWidth>` (3xl/4xl/full); files under a `public/` segment are exempt because PublicShell is their container. Web code under a `client/` path segment (enterprise ai-foundation) is now scanned too.",
     "migration": "Replace the hand-rolled container with `<PageSection maxWidth=\"3xl|4xl|full\">`; a deliberate exception (e.g. a narrow centered card) carries `// kumiko-lint-ignore primitives-discipline <reason>`. Web code under `client/` folders is now scanned as well."
   },
   {
     "version": "0.327.0",
     "type": "improvement",
     "title": "New repo check flags nested Kumiko package copies that drift from the top-level install",
-    "detail": "The new Single-Runtime-Instance check reads bun.lock and reports every Kumiko-scoped package resolved at more than one version unless it is marked dev/tooling/test; copies nested under a dev/tooling/test-marked package are ignored. The runtime-isolation guard also recognizes the \"prod\" kumiko.runtime marker.",
     "migration": "A repo whose bun.lock resolves a runtime/client/prod-marked Kumiko package at more than one version now fails `kumiko-guards checks`; align the dependency ranges or pin one version via root overrides. dev/tooling/test-marked packages (kumiko-cli, kumiko-guards, kumiko-repo-manifest) are exempt, as are copies nested under such a package (e.g. the kumiko-guards > kumiko-cli subtree)."
   },
   {
     "version": "0.324.0",
     "type": "fix",
-    "title": "lib-test-coverage guard links NodeNext-style .js/.mjs/.cjs test imports to their .ts source",
-    "detail": "Under moduleResolution NodeNext a test imports \"../foo.js\" while the source is foo.ts.\nThe guard now strips .js/.jsx/.mjs/.cjs as well as .ts/.tsx/.mts/.cts before comparing,\nso such a test no longer triggers a false \"no test imports this lib module\"."
+    "title": "lib-test-coverage guard links NodeNext-style .js/.mjs/.cjs test imports to their .ts source"
   },
   {
     "version": "0.323.0",
@@ -659,34 +802,29 @@
   {
     "version": "0.323.0",
     "type": "improvement",
-    "title": "Text-Field Personal-Stance Guard exempts the two framework tests that assert the throw",
-    "detail": "`guard-text-field-stance.ts` now skips an explicit, exact\nrepo-relative-path allowlist\n(`packages/framework/src/engine/__tests__/factories-long-text.test.ts`,\n`packages/framework/src/engine/__tests__/factories-personal.test.ts`) —\nthese two deliberately call `createTextField`/`createLongTextField`\nwithout a stance to prove the fail-closed throw. A different file\nsharing one of those basenames is not exempt; the match is on the exact\nrepo-relative path. The guard also scans `samples/**` and `demo/**`\nnow, not only `packages/*/src/**`. The baseline\n(`.kumiko-text-field-stance-baseline.json`) drops to 0."
+    "title": "Text-Field Personal-Stance Guard exempts the two framework tests that assert the throw"
   },
   {
     "version": "0.321.0",
     "type": "improvement",
     "title": "pre-push.sh refuses to push a stale .kumiko/upgrade-state.json",
-    "detail": "When `.kumiko/upgrade-state.json` exists at the repo root, `pre-push.sh`\nnow runs the upgrade-state guard before its main check and refuses the\npush if the guard fails, resolving `guard-upgrade-state.ts` next to the\nhook's real (symlink-resolved) script location.",
     "migration": "A repo that has adopted `.kumiko/upgrade-state.json` and is currently\nstale now has its push blocked until the upgrade state is reconciled. A\nrepo without that marker file is unaffected."
   },
   {
     "version": "0.321.0",
     "type": "improvement",
     "title": "New guard blocks direct writes to the event-store tables outside the event store itself",
-    "detail": "guard-event-store-writes.ts flags any UPDATE/DELETE FROM/INSERT INTO\nstring or template literal naming kumiko_events, kumiko_snapshots, or\nkumiko_archived_streams outside packages/framework/src/event-store/**\nand their db/queries/event-store*.ts backing (plus the two pre-existing,\nnamed one-time backfill exceptions). Registered in run-guards.ts.",
     "migration": "No action needed for code that already goes through the event store's\nown primitives (append, transferAggregateStreams, archiveStream, ...).\nA direct raw-SQL write against one of these three tables from feature\ncode now fails the guard; use transferAggregateStreams for a tenant\nmove, or add a new event-store primitive instead."
   },
   {
     "version": "0.317.0",
     "type": "fix",
-    "title": "no-framed-extension-sections now resolves the actual mount kind before flagging",
-    "detail": "extensionSectionComponents backs three different mount shapes: a\nkind: \"extension\" section (framed by the host's own Card/Section), a\ndashboard kind: \"custom\" panel, and an entityEdit slots.header slot. Only\nthe section mount is actually framed, but the guard previously flagged\nevery registered component that rendered its own Card/SectionCard/\nCollapsibleSection regardless of which of the three ways it was mounted,\nproducing false positives for components that only ever render as a bare\ndashboard panel or header slot.\nThe guard now scans every __component: SOME_CONST usage site across the\nscanned files (extending its scan to plain .ts files, not just .tsx, so\nscreens.ts/feature.ts usage sites are actually seen), classifies each by\nits enclosing mount kind, and correlates it back to the registration via\nthe shared registry key both sides reference by name. A component is only\nexempted when every usage site resolves to a custom panel and/or a header\nslot; a component used as a section anywhere, or whose usage sites cannot\nbe classified at all, keeps today's conservative \"stays flagged\"\nbehavior. List-header-slot mounts and footer/titleAction slots also keep\nthe conservative behavior since this fix only covers the two shapes that\nproduced real false positives.\nThe scan now also covers plain .ts files on both the registration and the\nusage side, not just .tsx, so a registration declared inside a\nscreens.ts/feature.ts file is checked for the first time. Checked against\npublicstatus and solon, the two consumers currently registering\nextensionSectionComponents from a .ts file: the fix does not add findings\nthere, since their one Card-rendering registration is mounted exclusively\nas a kind: \"custom\" panel, which this guard now correctly exempts."
+    "title": "no-framed-extension-sections now resolves the actual mount kind before flagging"
   },
   {
     "version": "0.314.0",
     "type": "fix",
-    "title": "Tailwind-Scan-Surface Guard classifies files against the runner's roots",
-    "detail": "The guard ignored the roots its runner passes to run() and re-derived the\nsingle repo of the current working directory. Under a multi-root runner,\na file from a checkout outside cwd fell through to the packages/ marker\nfallback, which misreads a checkout path that itself contains a packages/\nsegment. run() now uses the roots it is given, like the other guards."
+    "title": "Tailwind-Scan-Surface Guard classifies files against the runner's roots"
   },
   {
     "version": "0.311.0",
@@ -699,26 +837,22 @@
     "version": "0.308.0",
     "type": "improvement",
     "title": "New guard-no-framed-extension-sections flags a registered extension-section component that renders its own Card/SectionCard/CollapsibleSection (fw#3234)",
-    "detail": "Modeled on guard-no-custom-primitives: scans packages/bundled-features/src/** and samples/** for `extensionSectionComponents: { ... }` registrations, then checks each registered component's own render body for a nested Card/SectionCard/CollapsibleSection — the host (RenderEdit) already frames it in one card, so a second one doubles the border/padding. Registered in run-ui-guards.ts. Per-line override: `// kumiko-lint-ignore no-framed-extension-sections <reason>`.",
     "migration": "New rule, no baseline — the measured backlog across bundled-features and samples is 0 (notes-section.tsx's own nested cards were dropped as part of this change)."
   },
   {
     "version": "0.301.0",
     "type": "fix",
-    "title": "kumiko-pre-push refuses a standalone push without a package.json test script with a clear message",
-    "detail": "Previously the standalone branch ran bun run test unconditionally, so a repo without a test script only saw bun's Script not found error. The hook still fails closed (exit 1) but now names the missing script and the PRE_PUSH_SKIP escape."
+    "title": "kumiko-pre-push refuses a standalone push without a package.json test script with a clear message"
   },
   {
     "version": "0.301.0",
     "type": "improvement",
-    "title": "kumiko-pre-push runs a worktree's own package.json scripts instead of the parent check on the main checkout",
-    "detail": "A push from a .wt/<name> worktree under the parent workspace without a tracked scripts/check-wt.sh used to fall into the parent-scoped kumiko check, which checks the main checkout of that repo, not the pushed worktree. It now runs the worktree's own typecheck, lint, test and test:dom scripts (whichever are declared) in the worktree, collects failures and refuses the push if any fail or if no test script exists. A tracked scripts/check-wt.sh still takes precedence; regular checkouts keep the parent-scoped check."
+    "title": "kumiko-pre-push runs a worktree's own package.json scripts instead of the parent check on the main checkout"
   },
   {
     "version": "0.299.0",
     "type": "improvement",
-    "title": "kumiko-guards ships a kumiko-pre-push bin carrying the shared pre-push hook mechanics",
-    "detail": "Consumer repos can replace their vendored .husky/pre-push with a thin shim; a tracked, executable scripts/pre-push-extra.sh is the per-repo extension point."
+    "title": "kumiko-guards ships a kumiko-pre-push bin carrying the shared pre-push hook mechanics"
   },
   {
     "version": "0.299.0",
@@ -734,38 +868,32 @@
   {
     "version": "0.292.0",
     "type": "improvement",
-    "title": "Export the three suite runners so a CLI can compose them in-process",
-    "detail": "runGuardsCli, runUiGuardsCli and runRepoChecksCli (plus their flag lists and cliFlagsError) were only reachable from their own runner modules, so a caller had to spawn three subprocesses — each building its own ts-morph project. They are part of the package entry point now, which lets `kumiko check` run all three over one shared project in a single process."
+    "title": "Export the three suite runners so a CLI can compose them in-process"
   },
   {
     "version": "0.291.0",
     "type": "improvement",
-    "title": "New Raw section.fields Guard",
-    "detail": "The boot-validator enforces `fields` XOR `groups` on edit sections, so a section carrying `groups` has `fields: []` — every reader that iterates `section.fields` walks an empty list there and silently sees no field at all. That same cause produced three independent regressions (kumiko-framework#2986, then the boot-guard and the E2E generator in #3042). The new guard flags for-of, spread and array reads over a section's `fields` in the layer where a section is a spec (framework engine/i18n/testing, headless, renderer app shims) and points at `sectionFieldSpecs(section)`, the one reader that unions both sources. A deliberate raw reader declares itself with `// kumiko-lint-ignore section-fields-raw <reason>` on the line or the line above — a bare tag without a reason stays a finding, so there is no silent exception list. `section.fields.length` is a known gap: the fields-XOR-groups validator itself needs it and an emptiness check is not the silent-iteration bug. Ratcheted against `.kumiko-section-fields-raw-baseline.json`, warning-only in a repo that has not frozen one yet."
+    "title": "New Raw section.fields Guard"
   },
   {
     "version": "0.285.1",
     "type": "fix",
-    "title": "Fix false-positive BLOCK in the Direct-Entity-Writes Guard for repos with no event store",
-    "detail": "An empty `esTables` set had one meaning: the scan lost track of ES definitions while table-write code still exists, so the guard reported a misconfiguration canary and blocked (the guard is `security: true`, so this always failed CI). That conflated two different situations: a repo with no event store at all (e.g. `kumiko-platform`, an Astro docs/marketing site) also has an empty `esTables` set, but there is nothing to guard against there. The guard now checks whether any table write is present at all before treating an empty `esTables` set as a misconfiguration; a repo with no ES and no table writes is green, while a repo with table writes but no resolvable ES tables still blocks as before."
+    "title": "Fix false-positive BLOCK in the Direct-Entity-Writes Guard for repos with no event store"
   },
   {
     "version": "0.284.0",
     "type": "fix",
-    "title": "Fix Direct-Fetch Guard allowlist after egress moved to kumiko-http",
-    "detail": "The ALLOWLIST regex still pointed at the old packages/framework/src/http/egress.ts path; egress() now lives in packages/http/src/egress.ts (@cosmicdrift/kumiko-http), so the guard was about to self-flag its own allowed implementation as a raw-fetch violation."
+    "title": "Fix Direct-Fetch Guard allowlist after egress moved to kumiko-http"
   },
   {
     "version": "0.283.0",
     "type": "fix",
-    "title": "Escape-Hatch-Declared Guard resolves a module-local const reason instead of forcing duplicate literals",
-    "detail": "`_lib/generic-reason.ts`'s `literalReasonText` only accepted a string/template literal in place — an Identifier (even a module-local `const SOME_REASON = \"...\"`) fell through as \"not statically judgeable\" and was rejected exactly like a real placeholder. Every consumer declaring several hooks with the same justification (e.g. publicstatus's five GDPR delete hooks) had to repeat the same reason text literally in each `declareEscapeHatch({ reason })` / `escapeHatch: { reason }` / `unsafeAllTenants: { reason }` / `acknowledgeCrossTenant(reason)` call, because a shared constant made the guard fail.\nThe guard now resolves an Identifier to a module-local `const` initializer (string or non-templated template literal only — no imports, no `let`, no reassignment) via a new `resolveReasonText`, used at all four call sites; `isGenericReason` is unchanged and still applies to the resolved text, so a const resolving to `\"todo\"` is rejected exactly as before. An import, a function call, or a template literal with substitutions still doesn't resolve, and the `unsafe-raw-outside-system-scope` / `system-identity-outside-declared-scope` findings now say why when a nearby `declareEscapeHatch` call's reason is one of those three shapes. Both R2 and R3's base messages now also name `declareEscapeHatch({ reason: \"...\" })` as a direct body statement of a named hook among the allowed ways to clear the finding."
+    "title": "Escape-Hatch-Declared Guard resolves a module-local const reason instead of forcing duplicate literals"
   },
   {
     "version": "0.282.0",
     "type": "fix",
-    "title": "kumiko-guards bin now passes flags through to the guards, ui, and checks subcommands",
-    "detail": "The bin's `guards` subcommand called run-guards.ts's suite runner directly, skipping the `--explain`/`--write-security-baseline`/`--strict-security-baseline` handling that only existed in run-guards.ts's own `if (import.meta.main)` block — a consumer running `bunx @cosmicdrift/kumiko-guards guards --write-security-baseline` got a normal guard run with the flag silently dropped. Each suite (guards, ui, checks) now exports a `run*Cli(argv)` function that validates argv against that suite's known flags and applies them; both the bin and the suite's own direct-invocation entry point call the same function, so they cannot drift apart again. Validation matches each arg exactly against the known list (not just a `--`-prefix check), so a single-dash typo or a stray positional also exits 1 with the flags that subcommand accepts, rather than passing through unnoticed."
+    "title": "kumiko-guards bin now passes flags through to the guards, ui, and checks subcommands"
   },
   {
     "version": "0.282.0",
@@ -775,8 +903,7 @@
   {
     "version": "0.282.0",
     "type": "improvement",
-    "title": "Port the upgrade-state and runtime-isolation guards",
-    "detail": "guard-upgrade-state and check-runtime-isolation ported from the private infra guards package into the public @cosmicdrift/kumiko-guards package, rebuilt onto the public RepoCheck pattern with single-repo root resolution. guard-app-dockerfile, guard-doc-status, check-licenses, and check-security stay in infra guards as CDGS-specific house rules (private registry scope, CDGS doc taxonomy, and CDGS license/security exception files with no equivalent consumer-facing mechanism in the public package) — they were deliberately not ported, not forgotten."
+    "title": "Port the upgrade-state and runtime-isolation guards"
   },
   {
     "version": "0.3.0",
@@ -786,14 +913,12 @@
   {
     "version": "0.3.0",
     "type": "fix",
-    "title": "Fix two false-positive findings in the Secret-Literal and Thin-Wrappers guards",
-    "detail": "The Secret-Literal Guard flagged secret-fallback patterns documented inside comments: only line-start `//` comments were skipped, so a block-comment line (JSDoc-style `*`, `/*`, `*/`) explaining the rule tripped the guard on its own documentation. Block-comment lines are now recognized as comments too. The Thin-Wrappers Guard misread `/regex/.test(x)` as a call to a function literally named `test`, reporting the enclosing function as a thin wrapper around it. That misclassification no longer fires."
+    "title": "Fix two false-positive findings in the Secret-Literal and Thin-Wrappers guards"
   },
   {
     "version": "0.3.0",
     "type": "improvement",
-    "title": "Port the last five infra guards guards",
-    "detail": "app-feature-structure, lib-test-coverage, i18n-locale-terminology, feature-integration-tests, and test-stack-drift ported from the private infra guards package into the public @cosmicdrift/kumiko-guards package. The latter two were rebuilt from ad-hoc infra scripts onto the public RepoCheck pattern; the other three are literal AstGuard ports."
+    "title": "Port the last five infra guards guards"
   },
   {
     "version": "0.3.0",
@@ -813,7 +938,6 @@
   {
     "version": "0.1.1",
     "type": "fix",
-    "title": "Spawned git calls no longer inherit GIT_DIR/GIT_WORK_TREE",
-    "detail": "Guards that shell out to git now pass an allowlisted environment. Running inside a Husky pre-push hook, an inherited GIT_DIR pointed git at the hook's repo instead of the path being checked, so a guard could read and write the wrong repository."
+    "title": "Spawned git calls no longer inherit GIT_DIR/GIT_WORK_TREE"
   }
 ]

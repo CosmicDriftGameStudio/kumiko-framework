@@ -1,9 +1,40 @@
 [
   {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "kumiko-cli declares framework, bundled-features and renderer as dependencies"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "kumiko --version prints the real package version"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "kumiko new app scaffolds the recommended feature set"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "kumiko ops seed:new and seed:status ship with the app CLI"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "kumiko project and consumer list/status no longer create tables"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Upgrade codemods up to 0.420.0 removed",
+    "detail": "Every app is past 0.420.0, so the upgrade codemods of earlier releases are gone from @cosmicdrift/kumiko-feature-ast (src/scripts/codemod), among them package-merge, feature-factory, s3-imports, migrate-db-raw, migrate-cross-tenant, migrate-open-to-all, object-form, db-factory, tenant-db-options, testing-move, testing-injection, ctx-namespaces, pii-personal-migration and scaffold-kms-mode. import-extensions and feature-layout, the two codemods a guard points to, stay next to the upgrade codemods of later releases, and `kumiko codemod` lists those two; feature-layout was missing from that list, so the hint of the app-feature-structure guard failed.",
+    "migration": "An app whose .kumiko/upgrade-state.json is below 0.420.0 first runs `kumiko-upgrade --apply` with a framework release up to 0.420.0, then upgrades to this one."
+  },
+  {
     "version": "0.418.0",
     "type": "fix",
-    "title": "Handbook chapter links resolve on static hosting",
-    "detail": "`kumiko handbuch build` now writes `<id>/index.html` for each chapter, a small page that redirects to `../#<id>` in the single handbook page, so the `<publicPath>/<id>` links from handbook-knowledge resolve without a rewrite rule."
+    "title": "Handbook chapter links resolve on static hosting"
   },
   {
     "version": "0.415.0",
@@ -15,104 +46,87 @@
   {
     "version": "0.413.0",
     "type": "fix",
-    "title": "Help output of kumiko and create-kumiko-app starts without loading the scaffolder",
-    "detail": "Both CLIs imported the `@cosmicdrift/kumiko-dev-server` barrel at the top, so every call, including `--help`, loaded framework, server-runtime and renderer (about 0.7 s cold). `kumiko new app`, `kumiko add feature`, `kumiko ports` and the create-kumiko-app scaffold step now import those modules when they run. Measured on an idle machine: `kumiko --help` 0.67 s to 0.03 s, `kumiko check --help` 0.67 s to 0.03 s, `create-kumiko-app --help` 0.65 s to 0.02 s."
+    "title": "Help output of kumiko and create-kumiko-app starts without loading the scaffolder"
   },
   {
     "version": "0.405.0",
     "type": "improvement",
-    "title": "handbuch escapes HTML through the renderer helper",
-    "detail": "The handbuch renderer uses escapeHtmlAttr from @cosmicdrift/kumiko-renderer/headless instead of its own copy. The escaped characters are the same as before, including the single quote."
+    "title": "handbuch escapes HTML through the renderer helper"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "handbuch build no longer wipes its own inputs",
-    "detail": "The out directory is deleted before the build, so it is now rejected when it sits inside the configured repo, a flow source repo or an input directory, not only when it contains one."
+    "title": "handbuch build no longer wipes its own inputs"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "waitlist-migrate encrypts imported personal data or aborts",
-    "detail": "waitlist-migrate wires the PII KMS and blind-index key from the environment before importing. Without them it aborts with a clear message; --allow-plaintext-pii <reason> opts out for apps without subject encryption."
+    "title": "waitlist-migrate encrypts imported personal data or aborts"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "check, sync-managed and backfill-pii handle failure and subdirectories correctly",
-    "detail": "kumiko check only warns about unresolvable managed files or package.json scripts until kumiko.config.ts calls defineAppConfig. sync-managed resolves the repo root like check instead of using cwd. ops backfill-pii closes the KMS wiring when registry creation fails. The agent command reuses allAppFeatures from the framework config."
+    "title": "check, sync-managed and backfill-pii handle failure and subdirectories correctly"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "Internal peer dependencies are published as exact versions",
-    "detail": "The peer dependencies between the Kumiko packages (cli, guards, bundled-features, testing) are workspace:* in the repo, so publish pins them to the release version instead of an open range."
+    "title": "Internal peer dependencies are published as exact versions"
   },
   {
     "version": "0.377.0",
     "type": "improvement",
-    "title": "kumiko codemod lists package-merge",
-    "detail": "kumiko codemod package-merge rewrites imports and package.json dependencies of merged packages."
+    "title": "kumiko codemod lists package-merge"
   },
   {
     "version": "0.377.0",
     "type": "fix",
-    "title": "project rebuild keeps blind indexes and aborts without crypto, events prune names its aggregate types",
-    "detail": "`kumiko project rebuild` now wires the subject KMS and blind-index key from the env like `schema apply` and `ops backfill-pii`, so rebuilding a PII projection no longer nulls its bidx columns. Without the crypto env an app with PII fields aborts the rebuild unless `--allow-plaintext-pii <reason>` is passed. `kumiko events prune` takes the required `--aggregate-types <a,b>` flag; before, it always failed because pruneEvents needs explicit aggregate types."
+    "title": "project rebuild keeps blind indexes and aborts without crypto, events prune names its aggregate types"
   },
   {
     "version": "0.376.0",
     "type": "fix",
-    "title": "kumiko ports and sync-managed use the shared port reader and print managed warnings",
-    "detail": "kumiko ports reads from repo-manifest/app-ports; check managed and sync-managed print the infraRef warning."
+    "title": "kumiko ports and sync-managed use the shared port reader and print managed warnings"
   },
   {
     "version": "0.371.0",
     "type": "improvement",
-    "title": "kumiko codemod lists and runs codemods",
-    "detail": "kumiko codemod lists the codemods without a name. kumiko codemod <name> runs one against the current directory as a dry run and applies it with --write."
+    "title": "kumiko codemod lists and runs codemods"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "kumiko ops backfill-pii encrypts plaintext PII events of the app in kumiko.config.ts",
-    "detail": "kumiko ops backfill-pii [--dry-run] [--resolve-owner-from-projection] [--rekey-tenant-keyed-owner-fields] [--erase-unresolvable-subjects] runs the framework PII backfill over the features of kumiko.config.ts with DATABASE_URL, PLATFORM_KEK (and PLATFORM_KEK_PREVIOUS) and KUMIKO_BLIND_INDEX_KEY from the environment. It does not rebuild projections; run kumiko ops backfill-pii --rebuild afterwards, which rebuilds only the projections of entities with personal fields. A second backfill run changes nothing. Apps with their own backfill-pii script switch to this command and to the two-step runbook."
+    "title": "kumiko ops backfill-pii encrypts plaintext PII events of the app in kumiko.config.ts"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "kumiko check gains the managed and scripts steps; new kumiko sync-managed and kumiko ports",
-    "detail": "kumiko check managed compares framework-owned files with the installed templates and prints a diff; files with a local marker are skipped and listed. kumiko check scripts requires dev, build, start, typecheck, lint, check, test, test:unit, test:integration, test:integration:ci, test:dom (with uiRoots), test:real, e2e, e2e:real, screenshots and prepare, and lists extras. Both steps fail only once the app calls defineAppConfig. kumiko check accepts step ids as positional filters (kumiko check managed scripts). kumiko sync-managed [--write] [--adopt] writes the templates; it never overwrites a file without marker unless --adopt is passed, never touches local files and refuses symlinked paths. kumiko ports [workspace-root] lists the ports of every app below the root and exits 1 on a collision. kumiko agent lint also checks prodFeatures."
+    "title": "kumiko check gains the managed and scripts steps; new kumiko sync-managed and kumiko ports"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "kumiko handbuch build refuses a dangerous --out; missing-peer message tells an outdated install from a missing one",
-    "detail": "handbuch build deletes the output directory before building, so `--out .` or `--out <root>` removed the checkout. The command now exits 2 when --out is, or contains, the working directory, --root or a configured source repo. When an installed @cosmicdrift package lacks a requested subpath, the error asks for an upgrade instead of recommending bun add."
+    "title": "kumiko handbuch build refuses a dangerous --out; missing-peer message tells an outdated install from a missing one"
   },
   {
     "version": "0.357.0",
     "type": "improvement",
-    "title": "kumiko handbuch build generates the user manual from a JSON config",
-    "detail": "New command `kumiko handbuch build` generates the user manual as a static page from a JSON config\n`kumiko handbuch build <config.json> [--root <dir>] [--out <dir>] [--shots <dir>] [--texts <dir>] [--web-shots <dir>] [--web-texts <dir>] [--web-repo <dir>] [--repo <dir>] [--locale <l>] [--no-large]`. Relative config paths resolve against `--root` (default: the working directory); the default output is `<root>/.handbuch/<config-name>`. Image conversion needs `sharp`, which is an optional peer dependency: without it the command prints an install hint and exits 1. The command also needs the app's `@cosmicdrift/kumiko-framework` and `@cosmicdrift/kumiko-headless` (optional peers, loaded only when `handbuch build` runs). Replaces the workspace handbuch builder script."
+    "title": "kumiko handbuch build generates the user manual from a JSON config"
   },
   {
     "version": "0.354.0",
     "type": "improvement",
-    "title": "kumiko-cli declares framework and bundled-features as optional peer dependencies",
-    "detail": "kumiko-cli declares @cosmicdrift/kumiko-framework and @cosmicdrift/kumiko-bundled-features as optional peer dependencies instead of hard dependencies, so `kumiko new app` no longer pulls them in; commands that need them report a missing install instead of a resolver stacktrace"
+    "title": "kumiko-cli declares framework and bundled-features as optional peer dependencies"
   },
   {
     "version": "0.354.0",
     "type": "fix",
-    "title": "kumiko-cli optional peers no longer force a 1.0.0 release",
-    "detail": "kumiko-cli declares its optional peers framework and bundled-features with an explicit 0.x range, and changesets only bumps peer dependents when that range is left, so a minor framework release no longer pushes the fixed package group to 1.0.0"
+    "title": "kumiko-cli optional peers no longer force a 1.0.0 release"
   },
   {
     "version": "0.351.0",
     "type": "fix",
-    "title": "kumiko-upgrade ships with kumiko-cli and takes the installed version from the repo's own install or bun.lock",
-    "detail": "`kumiko-upgrade` ships with kumiko-cli and reads the repo's own version\nRepos that depend only on `@cosmicdrift/kumiko-cli` and `@cosmicdrift/kumiko-guards` now get the `kumiko-upgrade` bin, which the upgrade-state guard runs. The installed version comes from the repo itself: its `node_modules`, the framework's package directories, then its `bun.lock`. It no longer walks up into a parent workspace, and with the isolated linker `installedVersion` is no longer `null`. Changelog entries newer than the installed version are not reported as pending, even when a parent workspace holds a newer install."
+    "title": "kumiko-upgrade ships with kumiko-cli and takes the installed version from the repo's own install or bun.lock"
   },
   {
     "version": "0.342.0",
@@ -124,32 +138,27 @@
   {
     "version": "0.337.0",
     "type": "fix",
-    "title": "project and consumer validate the subcommand before any database work",
-    "detail": "`kumiko project` and `kumiko consumer` now reject an unknown or missing subcommand with the usage text before importing the config or touching the database. A failing state-table DDL no longer leaks the connection pool and is reported as an error with exit code 1."
+    "title": "project and consumer validate the subcommand before any database work"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "kumiko check runs boot validation against the repo root when started from a subdirectory",
-    "detail": "`kumiko check` now runs the boot validation against the repo root instead of the current directory, so running it from a subdirectory no longer reports a missing `kumiko/schema.ts`."
+    "title": "kumiko check runs boot validation against the repo root when started from a subdirectory"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "kumiko check survives throwing steps, config loading validates its shape",
-    "detail": "`kumiko check` counts a step that throws as a failure and still runs the remaining steps, and `--explain` now returns the guards' exit code. The `agent`, `consumer` and `project` commands report a readable message when `kumiko.config.ts` has no default export with a `features` array instead of crashing. Invalid-manifest errors name the root as `<root>` instead of an empty path."
+    "title": "kumiko check survives throwing steps, config loading validates its shape"
   },
   {
     "version": "0.292.0",
     "type": "improvement",
     "title": "New `kumiko check`: boot validation plus the guard suites in one command, step list derived from kumiko.json",
-    "detail": "Until now every consumer repo assembled the same chain by hand — `kumiko-schema validate` plus `kumiko-guards guards|ui|checks` in package.json, CI YAML or check-wt.sh, in four different shapes, each with its own hand-written presence gate (`|| true`, `::error::`, `bun add --no-save`). `kumiko check` derives the step list declaratively from the kumiko.json manifest instead: `kind: \"app\"` adds boot validation (validateBoot over the composed FEATURES in kumiko/schema.ts), any kind other than \"tooling\" adds the AST guards and the repo checks, declared uiRoots add the UI guards, and a \"tooling\" repo says out loud that it has nothing to check. `--explain` prints the resolved step list with the reason for each step and passes through to the guards own --explain without running a suite. When @cosmicdrift/kumiko-guards cannot be loaded the command fails with an install hint instead of skipping silently.",
     "migration": "No action required — additive. A repo that today calls `kumiko-schema validate` and `kumiko-guards guards|ui|checks` separately in package.json, CI YAML or check-wt.sh replaces that chain with `bun kumiko check`; the step list then follows from kumiko.json (kind, uiRoots) instead of from the script. Private bins without a public counterpart (kumiko-guard-comment-lang, kumiko-guard-ui) stay as their own step next to it for now."
   },
   {
     "version": "0.4.0",
     "type": "improvement",
-    "title": "`@cosmicdrift/kumiko-cli/repo-manifest`: kumiko.json repo manifest schema and loader (fw#2856).",
-    "detail": "repoManifestSchema declares kind (a role — framework|library|app, not a layout description) plus repo-relative sourceRoots/testGlobs/uiRoots/excludes patterns; loadRepoManifest reads and validates a repo's kumiko.json, rejecting absolute paths, \"..\" traversal, and symlinks that resolve outside the repo root, and is strict against unknown fields (typos fail loudly instead of being silently ignored). Without a kumiko.json it falls back to deriving a layout from packages/*/src or src/ and warns once via the injected warn option."
+    "title": "`@cosmicdrift/kumiko-cli/repo-manifest`: kumiko.json repo manifest schema and loader (fw#2856)."
   }
 ]

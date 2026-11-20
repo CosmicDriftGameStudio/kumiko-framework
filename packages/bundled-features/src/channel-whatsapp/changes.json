@@ -1,38 +1,65 @@
 [
   {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "WhatsApp test double moved to channel-whatsapp/testing",
+    "detail": "`createInMemoryMeta`, `deliverMetaWebhook`, `requestMetaVerification`, `metaTextMessage`, `metaButtonReplyMessage`, `metaMediaMessage`, `metaStatus`, `metaWebhookPayload` and the `InMemoryMeta*` types are no longer exported from `@cosmicdrift/kumiko-bundled-features/channel-whatsapp`. They live in `@cosmicdrift/kumiko-bundled-features/channel-whatsapp/testing`, so the production entry point carries no test code. `signMetaBody` stays in the main entry.",
+    "migration": "Change test imports of these names from `@cosmicdrift/kumiko-bundled-features/channel-whatsapp` to `@cosmicdrift/kumiko-bundled-features/channel-whatsapp/testing`. Production code is not affected.",
+    "affects": [
+      "createInMemoryMeta",
+      "InMemoryMeta",
+      "deliverMetaWebhook",
+      "requestMetaVerification",
+      "metaTextMessage",
+      "metaButtonReplyMessage",
+      "metaMediaMessage",
+      "metaStatus",
+      "metaWebhookPayload"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "WhatsApp PII under per-stream record keys, opt-in retention",
+    "detail": "Sender number, text, button payload and status recipient of `message-received`, `throttled` and `status-updated` events are encrypted under the record key of their stream instead of the tenant key; destroying a tenant erases all of its stream keys. The new option `eventRetentionDays` of `createChannelWhatsappFeature` is opt-in and has no default: only when it is set, the maintenance job `whatsapp-event-retention` (perTenant) erases the keys of streams older than that many days, so `readWhatsappMessagePii`, `readWhatsappStatusPii` and `readWhatsappThrottledPii` return the erased sentinel for them. Without it no job is registered and no key is erased before tenant destroy. A consuming job must copy what it keeps into its own entities within the window. The feature now requires `tenant-lifecycle` and owns the store table `store_whatsapp_retention_cursors`.",
+    "migration": "Mount `createTenantLifecycleFeature()` (with `tenant` and `compliance-profiles`) next to `createChannelWhatsappFeature`, also in test stacks, and run `kumiko schema generate` for `store_whatsapp_retention_cursors`. Set `eventRetentionDays` (for example 30) to switch the retention job on. Events stored before the update keep their tenant-keyed ciphertext and stay readable until the tenant is destroyed.",
+    "affects": [
+      "channel-whatsapp",
+      "ChannelWhatsapp",
+      "eventRetentionDays",
+      "readWhatsappMessagePii",
+      "readWhatsappStatusPii",
+      "readWhatsappThrottledPii"
+    ]
+  },
+  {
     "version": "0.416.0",
     "type": "improvement",
-    "title": "WhatsApp sendTemplate takes quickReplyPayloads and headerImageLink",
-    "detail": "quickReplyPayloads (1 to 10 entries, each non-empty and at most 256 characters) adds one quick-reply button component per entry, so a tap comes back with that payload. headerImageLink (https only) adds an image header. Components are sent as header, body, buttons; without the new fields the request is unchanged."
+    "title": "WhatsApp sendTemplate takes quickReplyPayloads and headerImageLink"
   },
   {
     "version": "0.415.0",
     "type": "fix",
-    "title": "Inbound messages are charged to the sender budget once per wamid",
-    "detail": "A one-token marker bucket per tenant and wamid is taken before the sender windows are charged. A delivery that fails after the charge, its redelivery, and concurrent deliveries of the same wamid no longer use up the sender's budget again, so a real message is not stored as throttled by retries."
+    "title": "Inbound messages are charged to the sender budget once per wamid"
   },
   {
     "version": "0.415.0",
     "type": "fix",
-    "title": "WhatsApp webhook skips oversized ids and survives absurd timestamps",
-    "detail": "An entry with a wamid or phone number id above its limit is counted as skipped instead of failing the whole delivery with a 5xx. Overlong context ids and media ids are dropped to null and overlong mime types are clipped, and a timestamp beyond the Temporal range falls back to the receive time."
+    "title": "WhatsApp webhook skips oversized ids and survives absurd timestamps"
   },
   {
     "version": "0.415.0",
     "type": "fix",
-    "title": "Non-integer status error codes are dropped instead of answering 500",
-    "detail": "The webhook normalizer accepted any number as a status error code while the handler schema requires an integer, so a fractional code made the whole delivery answer 500 and Meta redeliver it. The code is now dropped to null like other invalid optional fields."
+    "title": "Non-integer status error codes are dropped instead of answering 500"
   },
   {
     "version": "0.415.0",
     "type": "fix",
-    "title": "Concurrent webhook deliveries no longer store a message or status twice",
-    "detail": "The receive-message and record-status handlers now take a per-stream advisory lock before their duplicate check. Before, a delivery that committed after the other one's load landed as a second event on the same stream."
+    "title": "Concurrent webhook deliveries no longer store a message or status twice"
   },
   {
     "version": "0.414.0",
     "type": "improvement",
-    "title": "WhatsApp Business channel with signed webhook, send API and media loading",
-    "detail": "`createChannelWhatsappFeature(opts)` plus `createWhatsappWebhookRoutes()` take Meta's signed webhooks per tenant (`/api/channel-whatsapp/webhook/:tenantId`, verify handshake and HMAC-SHA256 signature, identical 401 on every auth failure) and store `message-received`, `status-updated` and `throttled` events; sender, text and button payload are tenant-key ciphertext and a redelivered wamid is stored once. A per-sender limit runs inside the inbound handler. `createWhatsappClient(opts)` sends text, templates, buttons and images and loads media, with the Graph URL checked against `allowedHosts` before the token goes out. `createInMemoryMeta()` is the test stand-in. Guide: `docs/guides/whatsapp-channel.md`."
+    "title": "WhatsApp Business channel with signed webhook, send API and media loading"
   }
 ]

@@ -1,9 +1,13 @@
 [
   {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "form-draft save serialises the per-owner draft cap"
+  },
+  {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Encrypted drafts without a PII key service raise an error",
-    "detail": "Reading a ciphertext draft with no PII subject key service configured throws instead of returning an empty draft, so the stale-draft cleanup defers it and no longer releases its file refs as if it were empty."
+    "title": "Encrypted drafts without a PII key service raise an error"
   },
   {
     "version": "0.379.0",

@@ -1,5 +1,757 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.425.0
+
+### Minor Changes
+
+- 34cf35e: Removes four deprecated aliases: `MoneyRead.amountMinor`, the `{ subjectField }` event PII form, `injectSchema` on host dispatch results and `billing.stripe.webhookPath`.
+  
+  <!-- kumiko-changes
+  feature: core
+  type: breaking
+  title: Deprecated money, PII, schema and webhook aliases removed
+  detail: Rehydrated money values no longer carry `amountMinor`; `amountScaled` holds the same value. `r.defineEvent` `piiFields` no longer accepts `{ subjectField: "<field>" }`. `HostDispatchResult` and `DevHostDispatchResult` no longer have `injectSchema`. `runProdApp` billing no longer reads `stripe.webhookPath` as a fallback for the webhook route.
+  migration: Read `amountScaled` instead of `amountMinor`. Write `piiFields: { x: { personal: { of: "<field>" } } }` instead of `{ subjectField: "<field>" }`. Drop `injectSchema` from host dispatch results. Move `billing.stripe.webhookPath` to `billing.webhookPath`.
+  affects: amountMinor, subjectField, injectSchema, webhookPath
+  -->
+- 34cf35e: `kumiko check` verifies the timeout of every `bun test` script.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: kumiko check verifies test script timeouts
+  detail: The scripts step of `kumiko check` reads every `bun test` command in package.json, derives its variant from `--config` and fails when the effective `--timeout` (bun's default is 5000) differs from `TEST_TIMEOUT_MS` of that variant. Running `bunfig.integration.toml` through `bun test` directly and `test:integration*` scripts that do not call `bun kumiko-testing integration` fail too. Apps that adopted `defineAppConfig` fail, others get a warning.
+  migration: Set `--timeout` to the class value (`test:dom` 5000, `test:real` 240000) and delete app-level copies of this check such as `bun-test-timeout.test.ts`.
+  affects: all
+  -->
+- 34cf35e: renderer-mail-html in bundled-features depends on html-to-text ^10.0.1, and the managed-files check rejects overrides of Kumiko packages.
+  
+  <!-- kumiko-changes
+  feature: renderer-mail-html
+  type: fix
+  title: html-to-text 10
+  detail: The plain-text part of mails is rendered with html-to-text ^10.0.1 instead of ^9.0.5, so apps no longer need an override to get the patched version.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: Overrides of Kumiko packages fail the managed-files check
+  detail: `kumiko check-managed` reports every `@cosmicdrift/kumiko-*` or `@cosmicdriftgamestudio/kumiko-*` entry in `overrides` or `resolutions`. Published Kumiko packages pin each other exactly, so such an override only hides a version drift.
+  migration: Delete the Kumiko entries from `overrides` and `resolutions` and keep the exact pins in `dependencies`. Also delete overrides for html-to-text, nodemailer, sharp and happy-dom, which the framework now brings in patched versions.
+  affects: overrides, resolutions
+  -->
+- 34cf35e: Password changes and MFA state changes revoke sessions and access tokens through a new auth-foundation extension point, in the same transaction, without boot wiring.
+  
+  <!-- kumiko-changes
+  feature: auth-foundation
+  type: breaking
+  title: credentialRevoker extension point replaces the session mass-revoke callbacks
+  detail: New `EXT_CREDENTIAL_REVOKER`, `CredentialRevoker`, `isCredentialRevoker` and `revokeAllUserCredentials(registry, runner, userId, { keepSessionId })`. sessions and personal-access-tokens register as providers; a password change (user feature postSave hook, in transaction) and every MFA state change call all providers in the triggering transaction, so a failing revoke rolls the change back. `SessionStore` loses `massRevoker` and `revokeAllOthers`; removed export: `SessionMassRevoker`.
+  migration: Drop `massRevoker` and `revokeAllOthers` from custom sessionStore providers. A custom credential store registers `r.applyExtension({ name: EXT_CREDENTIAL_REVOKER, entity: "<key>", revokeAllForUser })`.
+  affects: massRevoker, revokeAllOthers, SessionMassRevoker
+  -->
+  
+  <!-- kumiko-changes
+  feature: sessions
+  type: breaking
+  title: autoRevokeOnPasswordChange option and late binding removed
+  detail: Sessions are revoked on password change through the auth-foundation credentialRevoker, synchronously in the user write's transaction. Removed: the `autoRevokeOnPasswordChange` option, `bindAutoRevokeFromFeature`, `BindAutoRevokeOnPasswordChange`, `SessionMassRevoker`, the `sessionMassRevoker` and `sessionRevokeAllOthers` fields of `createSessionCallbacks()`, and `asMassRevoker` from `sessionCallbacksFromLateBound`.
+  migration: Remove `autoRevokeOnPasswordChange` from `createSessionsFeature(...)` and every `bindAutoRevokeFromFeature(...)`/`asMassRevoker()` call; nothing replaces them.
+  affects: autoRevokeOnPasswordChange, bindAutoRevokeFromFeature, BindAutoRevokeOnPasswordChange, SessionMassRevoker, sessionMassRevoker, sessionRevokeAllOthers, asMassRevoker
+  -->
+  
+  <!-- kumiko-changes
+  feature: personal-access-tokens
+  type: breaking
+  title: PAT auto-revoke option and late binding removed
+  detail: Access tokens are revoked on password change and MFA state change through the auth-foundation credentialRevoker. Removed: the `autoRevokeOnPasswordChange` option, `bindPatAutoRevokeOnPasswordChangeFromFeature`, `BindPatAutoRevokeOnPasswordChange`. `revokeAllPatTokensForUser` stays.
+  migration: Remove the option and the bind call; nothing replaces them.
+  affects: autoRevokeOnPasswordChange, bindPatAutoRevokeOnPasswordChangeFromFeature, BindPatAutoRevokeOnPasswordChange
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-mfa
+  type: breaking
+  title: MFA revoke bindings removed; regenerate-recovery also revokes access tokens
+  detail: enable-confirm, enable-confirm-preauth, disable and regenerate-recovery revoke every other session and all access tokens through the auth-foundation credentialRevoker in their own transaction. Removed: `bindMfaRevokeAllOtherSessionsFromFeature`, `bindRevokeAllPatTokensFromFeature`, `BindMfaRevokeAllOtherSessions`, `BindRevokeAllPatTokens`.
+  migration: Remove the bind calls; mount auth-foundation with sessions and personal-access-tokens as before.
+  affects: bindMfaRevokeAllOtherSessionsFromFeature, bindRevokeAllPatTokensFromFeature, BindMfaRevokeAllOtherSessions, BindRevokeAllPatTokens
+  -->
+  
+  <!-- kumiko-changes
+  feature: shared
+  type: breaking
+  title: late-bound slot helper removed
+  detail: Removed exports: `createLateBoundSlot`, `LateBoundSlot`; their only users were the removed revoke bindings.
+  migration: None for apps.
+  affects: createLateBoundSlot, LateBoundSlot
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: SessionMassRevoker type removed
+  detail: Removed export: `SessionMassRevoker` from the api entry point; mass revocation runs through the auth-foundation credentialRevoker.
+  migration: Use `CredentialRevoker` from auth-foundation.
+  affects: SessionMassRevoker
+  -->
+- 34cf35e: The managed ci.yml gains e2e shards and full Chromium, runs checks on pull requests only and builds without waiting for them.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: Managed ci.yml covers e2e shards and full Chromium, checks run on pull requests only
+  detail: package.json#kumiko.deploy takes `e2eShards` (integer from 1, default 1) and `e2eChromiumFull` (default false); they render `shards` and `chromium-full: true` into the e2e job. In the private ci.yml the test and integration jobs run on pull_request and merge_group only, like e2e, and the build on the main push no longer needs them, because the pull request already gated the merge. The public ci.yml caches the bun install and runs `bun kumiko-guards comment-lang` and `bun kumiko agent lint` in the test job.
+  migration: Delete the `# kumiko-managed: local …` line in .github/workflows/ci.yml, rename jobs only this app needs to `app-<name>`, move shards and full Chromium to kumiko.deploy.e2eShards and kumiko.deploy.e2eChromiumFull and MinIO or Meilisearch to ports.infra (s3, meilisearch) in kumiko.config.ts, then run `kumiko sync-managed --write`. A public app needs English comments or a comment-lang baseline and a description on every agent-visible handler.
+  affects: all
+  -->
+- 34cf35e: `setupTestStackFromFeatures` is no longer exported; apps test through `setupAppTestStack` from `@cosmicdrift/kumiko-dev-server/testing`.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: setupAppTestStack is the one app test entry
+  detail: The subpath `@cosmicdrift/kumiko-dev-server/setup-test-stack-from-features` and the root re-exports of `setupTestStackFromFeatures`, `SetupTestStackFromFeaturesOptions` and `TestStackPreset` are removed. Apps use `setupAppTestStack` from `@cosmicdrift/kumiko-dev-server/testing`; packages use `setupTestStack` from `@cosmicdrift/kumiko-testing/stack`.
+  migration: Replace `setupTestStackFromFeatures(features, options)` with `setupAppTestStack(features, options)` and the type `SetupTestStackFromFeaturesOptions` with `SetupAppTestStackOptions`. setupAppTestStack defaults to `includeBundled: true` and `registryTables: true`; pass `includeBundled: false, registryTables: false` to keep the old defaults.
+  affects: setupTestStackFromFeatures, setup-test-stack-from-features, SetupTestStackFromFeaturesOptions, TestStackPreset
+  -->
+- 34cf35e: `bundledLists` becomes `listDefaults` and reaches the lists of every composed feature; `r.adoptsBundledLists()` is removed.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: listDefaults replaces bundledLists, adoptsBundledLists removed
+  detail: The app-wide table block is named `listDefaults` (AppConfig, `ListDefaultsOptions`, `validateListDefaultsOptions`) and applies to every entityList, projectionList and relatedList of every composed feature, app features included. `r.adoptsBundledLists()`, `FeatureDefinition.adoptsBundledLists` and the `adoptsBundledLists` field in feature-manifest.json are removed. The boot rules are renamed from `bundled-lists/*` to `list-defaults/*`.
+  migration: Rename `bundledLists` to `listDefaults` in kumiko.config.ts and the bin runner options, `BundledListsOptions` to `ListDefaultsOptions`, `validateBundledListsOptions` to `validateListDefaultsOptions`, and delete every `r.adoptsBundledLists()` call. App lists now get the block too; a screen that must differ sets its own `table` keys (`export: undefined`, `pinning: false`, `resizing: false`).
+  affects: bundledLists, BundledListsOptions, adoptsBundledLists, bundled-lists/
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: composeFeatures listDefaults applies to all features
+  detail: `composeFeatures`, `runProdApp`, `runWorkerApp` and `composeAppFeatures` take `listDefaults` instead of `bundledLists`. The block no longer skips features without a marker; a screen's own `table` keys still win per key, and relatedList sections never get `export`.
+  migration: Rename the option to `listDefaults`. Remove per-screen wrappers that only repeated the app's table standard.
+  affects: bundledLists
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: Managed kumiko/schema.ts and kumiko check read listDefaults
+  detail: The managed `kumiko/schema.ts` passes `appConfig.listDefaults` to `composeFeatures`, and `kumiko check` reports bin runners that leave out `listDefaults` while kumiko.config.ts sets it. `runDevApp` and `setupTestStackFromFeatures` take `listDefaults`.
+  migration: Run `kumiko sync-managed` to refresh kumiko/schema.ts, then rename the runner option in bin/.
+  affects: bundledLists
+  -->
+  
+  <!-- kumiko-changes
+  feature: feature-ast
+  type: breaking
+  title: adoptsBundledLists pattern removed
+  detail: The parser, renderer, patch kinds, pattern-id and pattern-change schemas and the pattern library no longer know `adoptsBundledLists`; `AdoptsBundledListsPattern` and `adoptsBundledListsSchema` are no longer exported.
+  migration: Drop references to the `adoptsBundledLists` pattern kind.
+  affects: adoptsBundledLists, AdoptsBundledListsPattern, adoptsBundledListsSchema
+  -->
+- 34cf35e: `setupAppTestStack` gates handlers by the tenant's tier when tier-engine is mounted with a tierMap.
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: App test stacks gate tiers like runDevApp
+  detail: `setupAppTestStack` now wires the tenantTierResolver of a mounted tier-engine (`createTierEngineFeature({ tierMap })`, `composeSaasStack({ tiers })`) the same way runDevApp and runProdApp do, including the trial gate and `featureToggles`. `ctx.hasFeature` and the dispatcher's feature gate are no longer always on in app tests, so a free-tier refusal test can fail. Breaking for app tests that call tier-gated handlers without assigning a tier: assign one with `tier-engine:write:tier-assignment:create`, or pass `effectiveFeatures` explicitly, which still replaces the resolver.
+  migration: App tests that call tier-gated handlers without assigning a tier assign one with `tier-engine:write:tier-assignment:create`, or pass `effectiveFeatures` to `setupAppTestStack`, which still replaces the resolver.
+  affects: setupAppTestStack
+  -->
+
+### Patch Changes
+
+- 34cf35e: Mails the platform sends itself can carry the app's title and accent color through the new `platformBrand` option of the mail renderer.
+  
+  <!-- kumiko-changes
+  feature: renderer-mail-html
+  type: fix
+  title: Platform mails carry the app brand through platformBrand
+  detail: `createRendererMailHtmlFeature({ platformBrand: { title, accentColor? } })` brands the mails of the system tenant, such as the account deletion confirmation, in the brand row, the initial tile, the buttons and the chrome that `readMailChrome` hands to pages like the unsubscribe page. Branding stored for the system tenant still wins, and mails of every other tenant never get the platform brand. An empty title or an accent color that is not a `#rrggbb` hex is refused when the feature is created. Apps that build the renderer through `composeRendererStack` pass the brand as `composeRendererStack({ mailPlatformBrand })`. Before, the system tenant's mails showed no title and the default accent, because the renderer only knew tenant branding and `createConfigResolver({ appOverrides })` would have branded every tenant.
+  -->
+- 34cf35e: Remove the deprecated securityBaselineFeatures preset; composeSecurityStack replaces it.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: securityBaselineFeatures preset removed
+  detail: The subpath @cosmicdrift/kumiko-bundled-features/presets is gone with its exports securityBaselineFeatures and SecurityBaselineOptions. composeSecurityStack({ includeSessions }) from @cosmicdrift/kumiko-dev-server/compose-stacks mounts the same features (sessions, crypto-shredding, rate-limiting, audit) in the same order. The production boot warning about a missing security baseline now points to composeSecurityStack.
+  migration: Replace securityBaselineFeatures({ includeSessions }) with composeSecurityStack({ includeSessions }) from @cosmicdrift/kumiko-dev-server/compose-stacks, or mount createSessionsFeature, createCryptoShreddingFeature, createRateLimitingFeature and createAuditFeature yourself.
+  affects: securityBaselineFeatures, SecurityBaselineOptions, kumiko-bundled-features/presets
+  -->
+- 34cf35e: Add runStandaloneCli, one dispatcher for schema, consumer and events in the bundled kumiko CLI; new apps scaffold bin/kumiko.ts with it.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runStandaloneCli for bin/kumiko.ts
+  detail: @cosmicdrift/kumiko-server-runtime/standalone-cli exports runStandaloneCli(argv, appCwd, out, { features, envSchema, rowLevelSecurity? }). It dispatches `schema`, `consumer` and `events`, joins the KMS slots of the app env schema with kmsEnvSchema for the rebuild after `schema apply`, and passes rowLevelSecurity to schema and events. The scaffolded bin/kumiko.ts is now a call to it with process.exitCode, so apps no longer drift on which commands and options the production CLI supports.
+  -->
+- 34cf35e: The scaffolded demo tasks feature now registers its CRUD handlers with `r.crud` instead of five hand-written entity handlers.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Scaffolded tasks feature uses r.crud
+  detail: `kumiko new app` writes a tasks feature that registers the entity and its create, update, delete, list and detail handlers through one `r.crud(taskEntity, { write, read, descriptions })` call. Handler names and access stay the same; existing apps are not affected.
+  -->
+- 34cf35e: The managed `bin/kumiko.ts` reads `process.env["INIT_CWD"]` with bracket access, so it type-checks in apps with `noPropertyAccessFromIndexSignature`. `billing-foundation:write:start-plan-checkout` and `billing-foundation:write:switch-plan` ship their title and field labels (en, de, es, fr, it), so `kumiko agent lint` no longer reports them as handler translation gaps in an app that mounts a plan catalog. The same now holds for `create-checkout-session` (field `consent`), `request-contract-termination`, `revoke-contract-termination` and `terminate-contract`.
+  
+  The direct-entity-writes guard reads the entity definition as the first argument of `buildEntityTable(entityDef, options?)`, `r.crud(entityDef, options)` and `r.entity(entityDef)`, so it finds those tables again instead of reporting a misconfigured scan. `defineWriteHandler` accepts `excludedFields` on hand-written handlers and keeps it on the definition. The bundled `kumiko` CLI (`runStandaloneCli`) rejects `schema generate` and `schema baseline` with "Unknown subcommand"; both only run in development through `bun kumiko-schema`.
+  
+  Projected row helpers (`insertProjectedEntityRow`, `patchProjectedEntityRow`) accept money and located timestamps in the combined form their type declares.
+  
+  Upcasters and entity `eventMigrations` receive the aggregate id and type of the event they migrate (`EventUpcastCtx.aggregateId`, `EventUpcastCtx.aggregateType`).
+  
+  The handler definitions guard no longer counts calls to inherited object methods such as `toString`.
+  
+  The managed `ci.yml` pins the image build job to the commit behind the infra tag (`_docker-build-push.yml@<sha> # reusables-v2.4.5`); an app that sets `kumiko.deploy.infraRef` keeps its own ref there. The cross-feature import guard accepts `../<feature>/server-contract` as a public surface next to `contract` and `schema/entity`.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Managed bin/kumiko.ts and ci.yml fixes
+  detail: The managed `bin/kumiko.ts` reads `process.env["INIT_CWD"]` with bracket access, so it type-checks in apps with `noPropertyAccessFromIndexSignature`. The managed `ci.yml` pins the image build job to the commit behind the infra tag (`_docker-build-push.yml@<sha> # reusables-v2.4.5`); an app that sets `kumiko.deploy.infraRef` keeps its own ref there.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Plan checkout, plan switch and contract handlers ship their labels
+  detail: `start-plan-checkout`, `switch-plan`, `create-checkout-session` (field `consent`), `request-contract-termination`, `revoke-contract-termination` and `terminate-contract` ship their title and field labels in en, de, es, fr and it, so `kumiko agent lint` no longer reports them as handler translation gaps in an app that mounts a plan catalog.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Direct-entity-writes, handler definitions and cross-feature import guards
+  detail: The direct-entity-writes guard reads the entity definition as the first argument of `buildEntityTable(entityDef, options?)`, `r.crud(entityDef, options)` and `r.entity(entityDef)`, so it finds those tables again instead of reporting a misconfigured scan. The handler definitions guard no longer counts calls to inherited object methods such as `toString`. The cross-feature import guard accepts `../<feature>/server-contract` as a public surface next to `contract` and `schema/entity`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: excludedFields on hand-written handlers, projected row value forms and upcaster stream identity
+  detail: `defineWriteHandler` accepts `excludedFields` on hand-written handlers and keeps it on the definition. `insertProjectedEntityRow` and `patchProjectedEntityRow` accept money and located timestamps in the combined form their type declares. Upcasters and entity `eventMigrations` receive the aggregate id and type of the event they migrate (`EventUpcastCtx.aggregateId`, `EventUpcastCtx.aggregateType`).
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: The bundled CLI rejects schema generate and schema baseline
+  detail: `runStandaloneCli`, behind the production bundle `kumiko.js`, answers `schema generate` and `schema baseline` with "Unknown subcommand"; both only run in development through `bun kumiko-schema`.
+  -->
+- 34cf35e: `kumiko create` and `kumiko add feature` load only the scaffolder instead of the whole dev-server.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Scaffold subpaths for the CLI
+  detail: `@cosmicdrift/kumiko-dev-server/scaffold-feature` exports `scaffoldFeature` and `@cosmicdrift/kumiko-dev-server/scaffold-app-feature` exports `scaffoldAppFeature` and `runConfigPathForApp`. `kumiko create` and `kumiko add feature` import these subpaths, so they no longer load the dev-server barrel with its stack, schema and deploy code. The barrel still exports both functions.
+  -->
+- cdbf386: `kmsMode` moves into `kumiko.config.ts`, so `bin/main.ts` and `schema apply` in `bin/kumiko.ts` share one KMS decision.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: kmsMode in kumiko.config.ts is the one KMS decision for boot and schema apply
+  detail: `defineAppConfig` takes an optional `kmsMode` (`"required"`, `"optional"` or `{ plaintextReason }`, the type `KmsMode` now lives in `@cosmicdrift/kumiko-framework/crypto` and is still exported by `@cosmicdrift/kumiko-server-runtime`) and rejects an unknown mode or an empty or placeholder reason (such as "todo"); `runProdApp` and `schema apply` apply the same check. `productionKmsMode(appConfig.kmsMode, process.env)` from `@cosmicdrift/kumiko-server-runtime` returns that mode under `NODE_ENV=production`, `"required"` when it is unset, and undefined otherwise. The managed `bin/kumiko.ts` passes `appConfig.kmsMode` to `runStandaloneCli`, which hands `schema apply` the result of `productionKmsMode`; the scaffolded `bin/main.ts` boots `runProdApp` with the same result. `runSchemaCli` takes `kmsMode` instead of `requireKms`: `"required"` exits 1 before any migration when the KMS env is missing, `{ plaintextReason }` wires no KMS and logs the reason (a plaintext app boots without KMS, so its projection rebuild must not encrypt either), `"optional"` or unset wires the KMS env when it is present. Outside production `schema apply` keeps wiring whatever KMS env is present.
+  migration: An app that sets `kmsMode` only in `bin/main.ts` moves it into `kumiko.config.ts` (`defineAppConfig({ ..., kmsMode: { plaintextReason: "…" } })`) and lets `bin/main.ts` read it, for example `const kmsMode = productionKmsMode(appConfig.kmsMode, process.env);` and `kmsMode !== undefined ? { kmsMode } : <local wiring>`. Without that, a plaintext app's migrate step in production exits 1 because `schema apply` requires the KMS env. An app whose `bin/main.ts` passes no `kmsMode` boots production with `"optional"` (the `runProdApp` default) and must set `kmsMode: "optional"` in `kumiko.config.ts`; otherwise `schema apply` takes `"required"` and asks for the KMS env. Apps that boot production with `kmsMode: "required"` need no change.
+  -->
+- 34cf35e: Managed workflows pin the framework's infra tag when kumiko.deploy.infraRef is unset.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Managed CI follows the framework's infra tag unless the app sets infraRef
+  detail: ci.yml and release.yml render the infra reusables at CURRENT_INFRA_REF (now reusables-v2.4.5) when package.json#kumiko.deploy.infraRef is unset, instead of @main. `kumiko check managed` and `kumiko sync-managed` no longer report a missing infraRef, and `kumiko new app` writes kumiko.deploy.infraRef only when an infraRef option is passed. A set infraRef still overrides the tag.
+  -->
+- 34cf35e: `runProdApp`, `runWorkerApp` and `runDevApp` take a `search` option that builds the Meilisearch adapter from the env.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: search boot option
+  detail: `search: { provider: "meili-env", indexPrefix? }` on `runProdApp`, `runWorkerApp` and `runDevApp` builds the Meilisearch search adapter from `MEILI_URL` and `MEILI_MASTER_KEY` and puts it into the extraContext of all three processes, so apps drop their own adapter wiring. Both variables are required and show up in the boot dry run (the key as a secret); a missing one aborts the boot instead of indexing into memory. The option and an `extraContext.searchAdapter` together abort the boot. The app needs `meilisearch` installed, the optional peer of the framework; without it the boot names the missing package.
+  migration: Replace a `searchAdapter` in `extraContext` (for example built with `createSearchAdapterFromEnv`) with `search: { provider: "meili-env" }` on runProdApp, runWorkerApp and runDevApp.
+  -->
+- 34cf35e: `*.build.integration.test.ts` is its own test class, run by `kumiko-testing integration --build`.
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: Build tests get their own class and budget
+  detail: Integration tests that run bun install, a build or a Docker image in a subprocess move to `*.build.integration.test.ts`. `kumiko-testing integration` skips them, `kumiko-testing integration --build` runs only them with `TEST_TIMEOUT_MS.build` (180 s), and `test:build` is a known app script. Apps run them in their own CI job instead of the normal integration lane, so a registry stall no longer slows every pull request.
+  -->
+- 34cf35e: `bin/kumiko.ts` is a managed file, and `schema apply` wires KMS before it applies any migration.
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: bin/kumiko.ts is managed by kumiko sync-managed
+  detail: `kumiko sync-managed` renders `bin/kumiko.ts` from a template. The file runs `runStandaloneCli` with `FEATURES` from `kumiko/schema.ts`, `envSchema` from `bin/env-schema.ts` and `rowLevelSecurity` from `kumiko.config.ts`, and `kmsMode` from `kumiko.config.ts`. Every app gets the schema, consumer and events commands with the same KMS slots. Existing apps export `envSchema` from `bin/env-schema.ts` and adopt the file with `kumiko sync-managed --adopt --write`. `runStandaloneCli` and `runSchemaCli` accept `kmsMode`; with `"required"` `schema apply` exits 1 when the KMS env is missing. `schema apply` with `features` now resolves the KMS wiring before it applies migrations, so a missing or broken KMS env leaves the database untouched instead of failing after the migrations.
+  migration: Existing apps export `envSchema` from `bin/env-schema.ts` and adopt `bin/kumiko.ts` with `kumiko sync-managed --adopt --write`.
+  -->
+- 34cf35e: `setupAppTestStack` with `registryTables: false` no longer fails at boot when a tier-engine feature is mounted, also together with `featureToggles: true`. The tier gate preloads `read_tier_assignments` while the stack is built, so the unpushed table broke every app test that leaves tables absent on purpose (for example to make the tier-sync step fail and prove the Stripe retry self-heal). With `registryTables: false` the stack now skips the tier gate, as it did before the gate was added to app test stacks.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: setupAppTestStack with registryTables false boots with a mounted tier-engine
+  detail: The tier gate preloads `read_tier_assignments` while the stack is built, so `setupAppTestStack(features, { registryTables: false })` failed at boot as soon as a tier-engine with a tierMap was mounted. With `registryTables: false` the stack now skips the tier gate, and with `featureToggles: true` also the operator toggles, whose runtime preloads its table the same way.
+  -->
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [49e723e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [49e723e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [cdbf386]
+- Updated dependencies [34cf35e]
+- Updated dependencies [cdbf386]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [cdbf386]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [e9d5559]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [6f043fa]
+- Updated dependencies [34cf35e]
+- Updated dependencies [a44b984]
+- Updated dependencies [99da456]
+- Updated dependencies [34cf35e]
+- Updated dependencies [007d227]
+- Updated dependencies [a44b984]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [3f3bb46]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+  - @cosmicdrift/kumiko-bundled-features@0.425.0
+  - @cosmicdrift/kumiko-guards@0.425.0
+  - @cosmicdrift/kumiko-framework@0.425.0
+  - @cosmicdrift/kumiko-renderer@0.425.0
+  - @cosmicdrift/kumiko-testing@0.425.0
+  - @cosmicdrift/kumiko-server-runtime@0.425.0
+  - @cosmicdrift/kumiko-types@0.425.0
+  - @cosmicdrift/kumiko-feature-ast@0.425.0
+
 ## 0.424.1
 
 ### Patch Changes

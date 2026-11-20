@@ -1,5 +1,313 @@
 # create-kumiko-app
 
+## 0.425.0
+
+### Minor Changes
+
+- 34cf35e: The workflow engine is removed: `defineWorkflow`, the bundled features `workflow-runner` and `step-dispatcher`, the steps `wait`, `waitForEvent`, `retry`, `webhook.send` and `mail.send`, and the `kumiko:system:workflow.*` and `kumiko:system:step.*` system events.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Workflow engine, workflow-runner and step-dispatcher removed
+  detail: `defineWorkflow`, `computeDefinitionFingerprint`, `WorkflowDefinition`, `WorkflowStepError`, `unwrapWorkflowStepError`, `describeWorkflowStepError`, `evaluateEventMatch`, `WORKFLOW_SYSTEM_EVENT_DEFS`, the `STEP_DISPATCH_*` and `WORKFLOW_*` constants (`STEP_DISPATCHED_TYPE`, `STEP_DISPATCH_AGGREGATE_TYPE`, `STEP_DISPATCH_FAILED_TYPE`, `STEP_DISPATCH_REQUESTED_TYPE`, `WORKFLOW_AGGREGATE_TYPE`, `WORKFLOW_RESUMED_TYPE`, `WORKFLOW_RETRY_SCHEDULED_TYPE`, `WORKFLOW_RUN_COMPLETED_TYPE`, `WORKFLOW_RUN_FAILED_TYPE`, `WORKFLOW_RUN_STARTED_TYPE`, `WORKFLOW_WAITING_FOR_EVENT_TYPE`, `WORKFLOW_WAITING_TYPE`) and the type `AwaitedEventType` are no longer exported. `r.step.wait`, `r.step.waitForEvent`, `r.step.retry`, `r.step.webhook.send` and `r.step.mail.send` are gone; `PipelineCtx.workflow`, `PipelineDef.awaits` and step tier 3 are removed, and `runPipeline`/`runStepList` no longer take `workflow`/`resumeFrom`. The subpaths `@cosmicdrift/kumiko-bundled-features/workflow-runner` and `/step-dispatcher` are removed, and so is the irreversible-operation case `per-dispatch-record-key`. feature-ast no longer extracts `ai.generate`/`ai.extract`/`ai.classify` patterns from `defineWorkflow` step arrays. `stepsPipeline`, `defineStep`, `r.step.callFeature` and all synchronous steps stay.
+  migration: Build multi-step flows as jobs triggered by events (`r.job({ trigger: { on } })`), send mail through `channel-email`/`delivery` and call webhooks from a job. Apps that mounted `createWorkflowRunnerFeature()` or `createStepDispatcherFeature()` remove the mount and run `kumiko-schema generate` to drop their tables.
+  affects: defineWorkflow, workflow-runner, step-dispatcher, createWorkflowRunnerFeature, createStepDispatcherFeature, step.wait, step.retry, step.webhook, step.mail, WorkflowDefinition, WorkflowStepError, evaluateEventMatch, computeDefinitionFingerprint, WORKFLOW_, STEP_DISPATCH_, AwaitedEventType, PipelineDef, ctx.workflow, resumeFrom, per-dispatch-record-key
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: step-dispatcher feature removed
+  detail: The subpath @cosmicdrift/kumiko-bundled-features/step-dispatcher is gone with all its exports: `createStepDispatcherFeature`, `STEP_DISPATCH_AGGREGATE_TYPE`, `MailSpec`, `mailSpecSchema`, `MailDispatchResult`, `performMailDispatch`, `setMailRunner`, `WebhookSpec`, `webhookSpecSchema`, `WebhookDispatchDeps`, `WebhookDispatchResult`, `performWebhookDispatch`, `setWebhookFetch`, `setWebhookHostLookup`, `webhookAuthSecretKey`, `WEBHOOK_AUTH_SECRET_KEY_PREFIX`, `WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR`, `readAllowedPrivateWebhookHostsFromEnv` and `stepDispatcherEnvSchema`. It only served the removed `webhook.send` and `mail.send` workflow steps.
+  migration: There is no replacement feature. Send mail through channel-email or delivery and call webhooks from a job; remove the createStepDispatcherFeature mount.
+  affects: step-dispatcher, createStepDispatcherFeature, performMailDispatch, performWebhookDispatch, setMailRunner, setWebhookFetch, setWebhookHostLookup, stepDispatcherEnvSchema
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: workflow-runner feature removed
+  detail: The subpath @cosmicdrift/kumiko-bundled-features/workflow-runner is gone with all its exports: `createWorkflowRunnerFeature`, `startAndRunWorkflow`, `registerEventTrigger`, `workflowRunAggregateId`, `WorkflowSuspensionUnsupportedError`, `WorkflowRunStartedPayload`, `WorkflowRunCompletedPayload` and `WorkflowRunFailedPayload`.
+  migration: There is no replacement feature. Build multi-step flows as jobs triggered by events (`r.job({ trigger: { on } })`); remove the createWorkflowRunnerFeature mount.
+  affects: workflow-runner, createWorkflowRunnerFeature, startAndRunWorkflow, registerEventTrigger
+  -->
+
+### Patch Changes
+
+- 34cf35e: A parentRef names its host entities: `allowedTypes` is required and non-empty, and tags, folders and notes-history take a required `parents` list.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: parentRef and the join features name their hosts
+  detail: Without an allowlist the parentRef read gate built one SQL branch per registered entity, and the handler executors of tags, folders and notes-history ignored `parents` even when it was set. `ParentRefDef.allowedTypes` is now required, and the boot rule `parent-ref/allowed-types-empty` rejects an empty list. `createTagsFeature`, `createFoldersFeature` and `createNotesHistoryFeature` require `parents`, have no default singleton any more, and build their handler executors with it. `setFolderHandler` and `clearFolderHandler` are removed, and the set, clear and delete folder handlers and `createDeleteTagHandler` take the assignment executor. `folderAssignmentEntity`, `tagAssignmentEntity` and `noteEntryEntity` are the table shape without parentRef. The same holds for signature and document-draft: `createSignatureRequestEntity` and `createDocumentDraftEntity` require the hosts or subject types, `requestExecutor` and `documentDraftExecutor` are replaced by `createSignatureRequestExecutor(hosts)` and `createDocumentDraftExecutor(subjectTypes)`, and the request and draft handler factories take that executor. create-kumiko-app no longer offers tags in the picker.
+  migration: Pass `parents: [<host entities>]` to every createTagsFeature, createFoldersFeature and createNotesHistoryFeature call and `allowedTypes` to every hand-written parentRef; replace setFolderHandler and clearFolderHandler with the feature mount.
+  affects: createTagsFeature, createFoldersFeature, createNotesHistoryFeature, parentRef, setFolderHandler, clearFolderHandler, createDeleteTagHandler, folderAssignmentEntity, tagAssignmentEntity, noteEntryEntity, createSignatureRequestEntity, createDocumentDraftEntity, requestExecutor, documentDraftExecutor
+  -->
+  
+  <!-- kumiko-changes
+  feature: folders
+  type: breaking
+  title: Prebuilt folder handler constants removed
+  detail: `setFolderHandler` and `clearFolderHandler` are no longer exported from the folders feature. They were default-access copies of `createSetFolderHandler` and `createClearFolderHandler`, which stay; the feature mounts the factories with its host list and the assignment executor.
+  migration: Do not register `setFolderHandler` or `clearFolderHandler` yourself; mount `createFoldersFeature({ parents })`. A custom feature that needs the handler calls `createSetFolderHandler(access, assignmentExecutor)` or `createClearFolderHandler(access, assignmentExecutor)`.
+  affects: setFolderHandler, clearFolderHandler
+  -->
+- 34cf35e: `create-kumiko-app` accepts `--dest <dir>` to scaffold into a chosen directory.
+  
+  <!-- kumiko-changes
+  feature: create-kumiko-app
+  type: improvement
+  title: create-kumiko-app --dest
+  detail: `bun create kumiko-app <name> --dest <dir>` scaffolds into `<dir>` (absolute or relative to the working directory) instead of `./<name>`. The "Next steps" output names the chosen directory in its `cd` line.
+  -->
+- 34cf35e: The scaffold passes the app name to `createUserDataRightsFeature`, so a new app with a mail transport boots.
+  
+  <!-- kumiko-changes
+  feature: create-kumiko-app
+  type: fix
+  title: Scaffolded apps name themselves in the GDPR mails
+  detail: `bun create kumiko-app <name>` wrote `createUserDataRightsFeature()` without `mailDefaults`. Once a mail transport was picked or added, boot failed with `user-data-rights/mail-app-name-missing`. The generated `run-config.ts` now contains `createUserDataRightsFeature({ mailDefaults: { appName: "<name>" } })`.
+  migration: Apps scaffolded before this release add `mailDefaults: { appName: "<your app>" }` to `createUserDataRightsFeature` by hand.
+  -->
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [cdbf386]
+- Updated dependencies [34cf35e]
+- Updated dependencies [cdbf386]
+- Updated dependencies [34cf35e]
+- Updated dependencies [cdbf386]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [6f043fa]
+- Updated dependencies [a44b984]
+- Updated dependencies [007d227]
+- Updated dependencies [a44b984]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [3f3bb46]
+- Updated dependencies [34cf35e]
+  - @cosmicdrift/kumiko-framework@0.425.0
+  - @cosmicdrift/kumiko-testing@0.425.0
+  - @cosmicdrift/kumiko-server-runtime@0.425.0
+  - @cosmicdrift/kumiko-dev-server@0.425.0
+
 ## 0.424.1
 
 ### Patch Changes

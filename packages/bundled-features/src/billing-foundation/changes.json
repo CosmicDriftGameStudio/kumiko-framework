@@ -1,27 +1,65 @@
 [
   {
-    "version": "0.415.0",
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Stub subscription provider in billing-foundation/testing"
+  },
+  {
+    "version": "0.425.0",
     "type": "fix",
-    "title": "Webhook events without a subscription stop answering 503 after an hour",
-    "detail": "An `updated`, `canceled` or invoice event that arrives before its subscription exists is redelivered (503) only while its provider event time is at most 60 minutes old. Older ones are ignored with 200 (`subscription_not_yet_created`), so a `created` that never comes (subscription from before the checkout ledger, foreign custom_data, deleted subscription) no longer drives the provider's endpoint into disabling. A provider that sends no event time (mollie) keeps retrying as before."
+    "title": "Plan switch and webhooks share the subscription stream lock"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Drift sync calls the provider outside the transaction"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Tier sync follows the subscription events; drift sync runs daily",
+    "detail": "`createSubscriptionTierSync()` returns a new `createFeature()` that mounts the `subscription-tier-sync` feature: an event-triggered job on the five subscription events runs the tier sync through `subscription-tier-sync:write:sync-tier`. Before, the tier sync ran only after a webhook, so a cancellation that the `sync-subscriptions` job found on the provider's side was stored while the tenant kept the paid tier. The `billing` boot option mounts the feature on its own. The `sync-subscriptions` job now runs daily in the maintenance window instead of on every boot. The tier-engine `create`, `update` and `list` handlers and `billing-foundation:query:subscription:list` also accept the system role the job runs as. Two syncs of one tenant that run at once (the webhook's own sync and the job, or the jobs of two events) no longer fail with `version_conflict`: the one that loses reads the assignment once more and decides again.",
+    "migration": "Apps that call `createSubscriptionTierSync()` themselves (instead of the `billing` boot option) add `tierSync.createFeature()` to their features; it needs `tier-engine` mounted. Apps that relied on the drift sync at boot dispatch `billing-foundation:job:sync-subscriptions` themselves when they need it outside the maintenance window.",
+    "affects": [
+      "createSubscriptionTierSync",
+      "sync-subscriptions",
+      "billing-foundation"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Subscription webhook 500 answers without error details"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Plan checkout, plan switch and contract handlers ship their labels"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Stub subscription provider records its calls"
   },
   {
     "version": "0.415.0",
     "type": "fix",
-    "title": "create-checkout-session and start-plan-checkout allow 30 starts per tenant and hour",
-    "detail": "Every started checkout appends a `checkout-opened` event to the tenant's stream, which each webhook reads in full. Both checkout-starting handlers now declare `{ per: \"tenant+handler\", limit: 30, windowSeconds: 3600 }`, so a tenant member can no longer grow the stream without bound. An app that mounts billing-foundation now needs a rate limit resolver (Redis on `context.redis` or `context.rateLimit`); without one the handler fails at dispatch."
+    "title": "Webhook events without a subscription stop answering 503 after an hour"
   },
   {
     "version": "0.415.0",
     "type": "fix",
-    "title": "Review fixes for Paddle redelivery, plan-switch consent age and WhatsApp ids",
-    "detail": "shouldRedeliverLegacyCheckout answers false only for configuration or permission failures of the backfill marker (access_denied, not_found, feature_disabled) and true for transient or internal ones, since Paddle retries only a bounded number of times. billing-foundation attaches a recorded switch consent to a provider tier change only within 24 hours before the provider event time. channel-whatsapp sets mediaId and contextWamid to null when they exceed the id length instead of truncating them into a different reference. The waitlist and helpdesk lib modules no longer re-export normalizeEmail; it comes from the shared index."
+    "title": "create-checkout-session and start-plan-checkout allow 30 starts per tenant and hour"
   },
   {
     "version": "0.415.0",
     "type": "fix",
-    "title": "plan-switch consent survives interleaved state events, one stream load per webhook",
-    "detail": "pendingSwitchConsentId no longer limits the consent search to events after the last state event, so a same-tier update between switch-plan and the tier change keeps the consent. process-event loads the subscription stream once under the lock for admission and append. Ignored-event reasons share one IgnoredEventReasons object and the provider id limit one constant."
+    "title": "Review fixes for Paddle redelivery, plan-switch consent age and WhatsApp ids"
+  },
+  {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "plan-switch consent survives interleaved state events, one stream load per webhook"
   },
   {
     "version": "0.414.0",
@@ -33,128 +71,107 @@
   {
     "version": "0.414.0",
     "type": "improvement",
-    "title": "providerTexts take a refund link per provider",
-    "detail": "`consumerProtection.providerTexts[provider].refundLink` (one link, or one per consent locale) replaces `legalLinks.refund` for that provider; a provider without it falls back to `legalLinks.refund`. It is validated like `legalLinks`, shown next to the other links while that provider is selected in the checkout dialog, and with `documentsAcknowledgement` it selects the text variant and the consent text version of that provider. `billing-plans` lists the override under `providers[].consumerProtection`."
+    "title": "providerTexts take a refund link per provider"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "PII ciphertext limits on the provider ids of the billing events",
-    "detail": "`providerCustomerId` and `providerSubscriptionId` of the subscription and payment event payloads hold PII ciphertext of an id of up to 200 characters; their limit of 1000 was a rough guess and now comes from `piiCiphertextMaxLengthFor` in `@cosmicdrift/kumiko-framework/crypto`."
+    "title": "PII ciphertext limits on the provider ids of the billing events"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Provider cancel and resume in contract termination time out",
-    "detail": "The provider cancel (record) and resume (revoke) calls run while the tenant's advisory lock is held and are now bounded to 20 seconds. A hanging provider is reported like any provider error (operator notice provider_error or revocation_resume_failed) instead of pinning the transaction, its pool connection and the public withdrawal requests. subscription-paddle and subscription-stripe now share one isBillingLive check with assertBillingLive."
+    "title": "Provider cancel and resume in contract termination time out"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Pending in-app plan switch blocks a second one",
-    "detail": "A second in-app plan switch is refused until the provider's webhook confirmed the first one (30 minute window)."
+    "title": "Pending in-app plan switch blocks a second one"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "The legacy rawPayload header is removed from subscription and invoice events at boot",
-    "detail": "Earlier billing events carried the provider webhook body in the event header `rawPayload`, outside the PII-encrypted payload. The new boot job `billing-foundation:job:scrub-raw-payload-headers` (`runOnBoot`, idempotent) removes that header from the subscription created/updated/canceled and invoice paid/payment-failed events via `scrubEventHeaderKeys`; events without it are untouched and a second run changes nothing. The job declares an `escapeHatch` because the scrub spans every tenant. Framework: `scrubEventHeaderKeys` accepts any `DbRunner`."
+    "title": "The legacy rawPayload header is removed from subscription and invoice events at boot"
   },
   {
     "version": "0.405.0",
     "type": "improvement",
-    "title": "Provider helpers shared through billing-foundation",
-    "detail": "billing-foundation exports validateOneOffPriceIds, parseStoredSecret, createTtlPriceCache and hasSeenProviderEvent. subscription-stripe and subscription-paddle use them instead of their own copies, with the same error texts as before. The subscription projection reuses one apply body for created/updated and one for canceled/invoice-paid; the exported apply names stay."
+    "title": "Provider helpers shared through billing-foundation"
   },
   {
     "version": "0.399.0",
     "type": "improvement",
-    "title": "Shorter documents checkbox text in the consent box",
-    "detail": "With `consumerProtection.documentsAcknowledgement: true` the checkbox now reads \"I have read and agree to the Terms and the Refund Policy.\" (de: \"Ich habe die AGB und die Erstattungsrichtlinie gelesen und bin mit ihnen einverstanden.\"), or without a refund link only the terms. The privacy policy stays a link. The text is part of `consentTextVersion`, so apps with the option on get a new version hash; consents recorded earlier keep their stored version."
+    "title": "Shorter documents checkbox text in the consent box"
   },
   {
     "version": "0.398.0",
     "type": "improvement",
-    "title": "Consent box takes a refund policy link and an optional documents checkbox",
-    "detail": "`legalLinks.refund` is rendered next to the other links in the checkout and plan-switch dialogs. `consumerProtection.documentsAcknowledgement: true` adds a required first checkbox whose text depends on whether a refund link is set for the locale. The text joins `consentTextVersion` only when the option is on, `start-plan-checkout`, `create-checkout-session` and `switch-plan` then reject a consent without `documentsAcknowledged: true` with 422 `consent_required`, and the recorded consent stores the flag. Without the option nothing changes, including the version. New i18n key `billing-foundation.consent.link.refund`."
+    "title": "Consent box takes a refund policy link and an optional documents checkbox"
   },
   {
     "version": "0.394.0",
     "type": "improvement",
-    "title": "authorizeOneOffCheckout hook gates one-off checkouts per tenant",
-    "detail": "BillingFoundationOptions.authorizeOneOffCheckout runs before every one-off (mode payment) checkout, after the oneOffPriceIds gate and before any provider call. A rejection becomes an UnprocessableError with the hook's reason as code. Without the hook the behavior is unchanged."
+    "title": "authorizeOneOffCheckout hook gates one-off checkouts per tenant"
   },
   {
     "version": "0.394.0",
     "type": "improvement",
-    "title": "One-off checkouts reuse the tenant's provider customer",
-    "detail": "create-checkout-session with mode payment and no providerCustomerId now passes the customer id of the tenant's own subscription at the same provider, so Stripe also receives the customer on one-off checkouts. The foreign-customer guard still applies."
+    "title": "One-off checkouts reuse the tenant's provider customer"
   },
   {
     "version": "0.394.0",
     "type": "improvement",
-    "title": "PaymentEvent carries the bought quantity",
-    "detail": "PaymentEvent.quantity (absent means 1) reaches the stored payment-received event payload, which stays readable for events stored before. Apps that grant credits per pack have to multiply by it. No read-model column."
+    "title": "PaymentEvent carries the bought quantity"
   },
   {
     "version": "0.394.0",
     "type": "improvement",
-    "title": "Plan-switch preview shows the recurring price gross",
-    "detail": "PlanSwitchPreview.recurringAmount and recurringTax carry the provider's gross recurring price; the confirm dialog shows them with the tax when set and falls back to the catalog price otherwise. subscription-paddle fills them from recurring_transaction_details."
+    "title": "Plan-switch preview shows the recurring price gross"
   },
   {
     "version": "0.394.0",
     "type": "improvement",
-    "title": "Plan cards can show a note under the price",
-    "detail": "`BillingPlanCatalog.priceNoteKey` (an app i18n key) renders a small note under the price of every plan card, e.g. \"plus VAT\" when catalog prices are net. `PlanCardPrice` gets an optional `note`."
+    "title": "Plan cards can show a note under the price"
   },
   {
     "version": "0.390.0",
     "type": "fix",
-    "title": "Revoking one termination no longer resumes a subscription another termination still cancels",
-    "detail": "A revocation only resumes the subscription at the provider when no other recorded termination still cancels it. Recording and revoking a termination now run one at a time per tenant, so provider calls can no longer interleave with the event stream."
+    "title": "Revoking one termination no longer resumes a subscription another termination still cancels"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Concurrent termination runs, revocation resume and sync ordering",
-    "detail": "record-contract-termination re-checks the requestId after the provider call so a concurrent run appends nothing. Revocation resumes a period-end cancel that was recorded between its two stream reads. sync-subscription stamps the snapshot time as providerEventAtIso so a late older webhook cannot reactivate a synced cancellation."
+    "title": "Concurrent termination runs, revocation resume and sync ordering"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Ordered terms lists keep their numbers in the confirmation mail",
-    "detail": "The contract confirmation mail prefixes each item of an ordered Markdown list with its number, so references such as \"see no. 3\" in terms and cancellation policies stay intact."
+    "title": "Ordered terms lists keep their numbers in the confirmation mail"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Operator notice tells an unavailable receipt limiter from a reached limit",
-    "detail": "When the termination receipt mail is withheld because the rate limiter failed or has no digest key, the operator notice reports \"receipt_not_sent\" instead of the per-recipient limit reason."
+    "title": "Operator notice tells an unavailable receipt limiter from a reached limit"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "An abandoned plan-change checkout no longer restarts the withdrawal period",
-    "detail": "The withdrawal period now runs from the latest subscription start only; a checkout consent without a following subscription start does not reopen it, so a later withdrawal of an old contract is cancelled at period end."
+    "title": "An abandoned plan-change checkout no longer restarts the withdrawal period"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Same-second provider update cannot revive a canceled subscription",
-    "detail": "When a non-terminal state event carries the same provider timestamp as a stored cancellation, it is treated as late and discarded."
+    "title": "Same-second provider update cannot revive a canceled subscription"
   },
   {
     "version": "0.388.0",
     "type": "improvement",
-    "title": "Several subscription providers in one catalog",
-    "detail": "The billing-plans query returns providers (name, displayName, plans, note) when more than one provider is offered, and start-plan-checkout takes providerName. consumerProtection.providerTexts overrides checkoutNote and vatNote per provider, and the consent record carries providerName. switch-plan always uses the provider of the existing subscription."
+    "title": "Several subscription providers in one catalog"
   },
   {
     "version": "0.388.0",
     "type": "improvement",
-    "title": "In-app plan switch with a preview and consent",
-    "detail": "A provider plugin that implements previewPlanSwitch and applyPlanSwitch switches plans without a hosted portal. The new plan-switch-preview query returns the proration, the billing-plans result carries inAppPlanSwitch, and the panel shows PlanSwitchConfirmDialog with the withdrawal consent checkboxes. The confirmation mail is sent when the plan_changed webhook arrives with the consent id."
+    "title": "In-app plan switch with a preview and consent"
   },
   {
     "version": "0.388.0",
@@ -166,38 +183,32 @@
   {
     "version": "0.388.0",
     "type": "improvement",
-    "title": "Provider choice moved into the checkout dialog",
-    "detail": "The plan panel no longer shows a provider switch. Cards show the first provider's price, or the cheapest one with a \"from\" prefix when providers disagree. With several providers, or with consumerProtection, choosing a plan opens CheckoutConsentDialog, which now has an optional providerChoice (ChoiceCards with the checkout note and, when prices differ, the price), an optional note, and an optional consumerProtection (without it there are no checkboxes and the order carries no consent). The plan switch dialog shows the recurring price with its interval."
+    "title": "Provider choice moved into the checkout dialog"
   },
   {
     "version": "0.379.0",
     "type": "fix",
-    "title": "Late Stripe events are dropped",
-    "detail": "The Stripe plugin passes event.created as providerEventAt, process-event stores it as providerEventAtIso in the subscription event and drops a created, updated or canceled event that is older than one already stored (result stale: true). A canceled subscription is no longer reactivated by a late delivery. Providers without a timestamp are unaffected; no migration."
+    "title": "Late Stripe events are dropped"
   },
   {
     "version": "0.379.0",
     "type": "fix",
-    "title": "Contract mails reach users with encrypted email addresses",
-    "detail": "With a KMS configured, the contract confirmation and the receipt for a termination from the user account used the stored, encrypted email address as recipient. The mail channel refuses such addresses, so neither mail was sent and the send job failed after its retries. Both now decrypt the address first; an erased user gets no mail, as before for deleted users."
+    "title": "Contract mails reach users with encrypted email addresses"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "\"This cancellation was not me\" link in the public cancellation receipt",
-    "detail": "When a public § 312k declaration matches an account, the receipt mail carries a one-time link (random token, only its sha256 is stored as revocationTokenHash in the declared event). The link opens a confirmation page; confirming with POST takes the cancellation back until it takes effect, resumes the provider subscription through the new optional SubscriptionProviderPlugin.resumeSubscription (Stripe sets cancel_at_period_end to false) or asks the operator to do it by hand, appends contract-termination.revoked and notifies the operator. Unknown requests and wrong tokens get the same answer; after the effective date the page says it is too late. Declarations stored before this release have no token and cannot be revoked by link."
+    "title": "\"This cancellation was not me\" link in the public cancellation receipt"
   },
   {
     "version": "0.377.0",
     "type": "improvement",
-    "title": "Optional contact card in the billing plan catalog",
-    "detail": "catalog.contact takes labelKey, benefits, actionLabelKey and an absolute https: or mailto: href. The billing-plans query returns it as contact, the billing-plans panel renders it as the last card without a price for every viewRole, also when the caller cannot purchase or billing is off. Boot validation rejects empty keys and any other href."
+    "title": "Optional contact card in the billing plan catalog"
   },
   {
     "version": "0.371.0",
     "type": "improvement",
-    "title": "Billing webhook sync exposes afterSync",
-    "detail": "The billing webhook sync calls afterSync({ tenantId, tier, changed, event }) after every webhook, with changed false when the tier stayed the same."
+    "title": "Billing webhook sync exposes afterSync"
   },
   {
     "version": "0.370.0",
@@ -210,50 +221,42 @@
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Termination record re-reads the stream after the provider call",
-    "detail": "The cancel-at-provider call can take long, so the termination event is appended with a freshly fetched stream version instead of the one read before it."
+    "title": "Termination record re-reads the stream after the provider call"
   },
   {
     "version": "0.365.0",
     "type": "improvement",
-    "title": "Contract mails carry designer labels",
-    "detail": "Feature and notify labels for contract-confirmation, contract-termination-receipt and contract-termination-operator-notice name the contract mails in the document designer."
+    "title": "Contract mails carry designer labels"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "Stale subscription created events are ignored and manual-grant skips are logged",
-    "detail": "A created event for a subscription that is no longer current no longer replaces the active one while the current row blocks checkout, and the tier sync logs its own code when a manual grant keeps the tier."
+    "title": "Stale subscription created events are ignored and manual-grant skips are logged"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "Contract confirmation mail renders the terms' Markdown as formatting",
-    "detail": "The terms rows of the contract confirmation mail were plain text, so `**Right to cancel.**` reached the buyer with its asterisks (0.363.0) or lost its emphasis. Each row of `termsParagraphs` is now a richText value: bold, italic and http(s)/mailto/tel links render as HTML, headings become bold rows. Author HTML and images in the terms stay escaped text, and links outside those schemes stay \"label (url)\". Tenant overrides of the template keep working, the variable name and row structure are unchanged."
+    "title": "Contract confirmation mail renders the terms' Markdown as formatting"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "Terms in the contract confirmation mail no longer show raw Markdown",
-    "detail": "The terms Markdown is reduced to plain text rows: bold and italic markers are dropped, links become \"label (url)\", list items get their own row, and single line breaks inside a paragraph become spaces."
+    "title": "Terms in the contract confirmation mail no longer show raw Markdown"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "The termination receipt rate limit keys Redis with a keyed, handler-bound digest instead of an unkeyed SHA-256 of the email",
-    "detail": "HandlerContext gains an optional rateLimitDigest(value), an HMAC bound to the running handler, so a handler can build rate-limit keys without plaintext identifiers and cannot reproduce the dispatcher's payload-bucket digests. normalizePayloadBucketValue is exported from the pipeline entry point. The receipt limit reuses it, and withholds the receipt mail (the declaration is still recorded) when no digest is wired. Payload-bucket normalization now applies Unicode NFKC first, so fullwidth lookalikes share a bucket. Existing receipt buckets restart empty; they expire after the 24 hour window."
+    "title": "The termination receipt rate limit keys Redis with a keyed, handler-bound digest instead of an unkeyed SHA-256 of the email"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "Checkout validates the one-off order label and price lookup",
-    "detail": "An invalid oneOffItemLabel or a provider without retrievePrices fails with a configuration error before the provider is called."
+    "title": "Checkout validates the one-off order label and price lookup"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "Contract termination downgrades late withdrawals and caps receipt mails",
-    "detail": "A withdrawal declared after the 14-day period ends at period end (operator notice withdrawal_period_expired); the declaration is always accepted, receipt mails are capped at 3 per recipient per day and carry only enum fields, request id and time; purchaser roles come from the catalog."
+    "title": "Contract termination downgrades late withdrawals and caps receipt mails"
   },
   {
     "version": "0.363.0",
@@ -271,8 +274,7 @@
   {
     "version": "0.346.0",
     "type": "fix",
-    "title": "Subscription webhooks no longer overwrite manual tier grants",
-    "detail": "Subscription tier sync keeps manual tier grants\nThe billing webhook sync now skips tier assignments with `source: \"manual\"`, so a `set-tenant-tier` grant is no longer overwritten by Stripe created/canceled events. Rows the sync writes are marked `source: \"billing\"`. `TierAssignmentSources` is exported from tier-engine."
+    "title": "Subscription webhooks no longer overwrite manual tier grants"
   },
   {
     "version": "0.344.0",
@@ -284,69 +286,59 @@
   {
     "version": "0.341.0",
     "type": "improvement",
-    "title": "App layout around termination pages, trailing-slash redirects, receipt greeting",
-    "detail": "`createContractTerminationRoutes` accepts a `wrapLayout`, the same function `createLegalPagesFeature` takes. It wraps every termination page (form, review, result, 429, error); the security headers stay with the framework. The layout also receives `alternates`, a map from locale to the path of the same page, so it can render a language switch from plain links. `page-render` exports the shared type `PublicPageWrapLayout`; `LegalPagesWrapLayout` is now an alias of it. The page body sits in `<div data-kumiko-page=\"contract-termination\">` with `data-kumiko-*` hooks on the form, field groups, buttons and review table. The page CSP keeps `script-src 'none'`, so a layout must not rely on JavaScript.\nThe default `wrapInLayout` stylesheet gains base rules for input, select, textarea and button, so unstyled forms stay readable.\nThe termination pages and every legal page now answer the other trailing-slash form of their path (`/legal/kuendigen/`, `/legal/impressum/`) with a 301 to the configured path for GET and HEAD, query string kept. POST has no alias.\nThe termination receipt mail text changed: it now starts with a greeting line (\"Hallo,\" / \"Hello,\") and the English sentence starts capitalized (\"We confirm receipt ...\"). The receipt content still depends only on the declarant's input."
+    "title": "App layout around termination pages, trailing-slash redirects, receipt greeting"
   },
   {
     "version": "0.340.0",
     "type": "improvement",
     "title": "Payment and subscription projections use typed bun-db helpers",
-    "detail": "`payment-received` inserts through `insertOnConflictDoNothing`, subscription events upsert through `upsertOnConflict`. The raw `db/queries/payment-projection.ts` and `subscription-projection.ts` modules are gone.",
     "migration": "keine"
   },
   {
     "version": "0.339.0",
     "type": "improvement",
     "title": "Missing or unchecked checkout consent returns 422 consent_required",
-    "detail": "The consent payload is optional in the `start-plan-checkout` and `create-checkout-session` input schemas and its two flags are plain booleans. `prepareConsent` throws `UnprocessableError(\"consent_required\")` with `billing-foundation.errors.consentRequired` when consumer protection is on and the consent is missing or either flag is not true.",
     "migration": "Clients that treated the previous `400` validation error for a missing consent as the signal must check for `422` with `reason: \"consent_required\"`."
   },
   {
     "version": "0.339.0",
     "type": "fix",
-    "title": "Contract confirmation, termination receipt and cancellation pages use \"du\"",
-    "detail": "The German contract confirmation mail, the termination and withdrawal receipt mail, the public cancellation pages and the subscription and payment submit messages address the customer with \"du\". The recorded consent statements are first-person and unchanged, so `consentTextVersion` stays the same."
+    "title": "Contract confirmation, termination receipt and cancellation pages use \"du\""
   },
   {
     "version": "0.339.0",
     "type": "fix",
     "title": "The § 312k confirm POST forwards the visitor's host to /api/write",
-    "detail": "The `/legal/kuendigen` and `/legal/cancel` pages re-enter `/api/write` through the app. The re-entry now carries `Host`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `X-Tenant` and the `kumiko_tenant` cookie as the visitor sent them, so a host-based `tenantResolver` resolves the same tenant as for a direct call; before, it saw no host and every confirm failed with `400 tenant_required`. The session cookie, `Authorization` and `X-Forwarded-For` are not forwarded.",
     "migration": "keine"
   },
   {
     "version": "0.339.0",
     "type": "improvement",
     "title": "consumerProtection.terminationScope \"platform\" for hosts without a tenant",
-    "detail": "`consumerProtection.terminationScope` is `\"tenant-host\"` (default, unchanged) or `\"platform\"`. With `\"platform\"`, `request-contract-termination` is flagged `tenantlessAnonymous` and also runs on a host whose resolver returns no tenant: it finds the contract by the declarant's email as before, records on the matched tenant's subscription stream, and answers every outcome identically. An unknown option value fails at `createBillingFoundationFeature`.",
     "migration": "Apps that serve the pages on a platform apex (publicstatus) set `consumerProtection.terminationScope: \"platform\"`. Other apps change nothing."
   },
   {
     "version": "0.339.0",
     "type": "improvement",
     "title": "Public termination declarations cancel at the provider in a job",
-    "detail": "For the public channel, `request-contract-termination` no longer calls the provider in the request. A matched request appends the PII-free `contract-termination-declared` event (`requestId`, `declarationType`, `terminationKind`, `receivedAtIso`, `locale`) via the system-only `declare-contract-termination`; the job `cancel-on-public-termination-declared` then runs `record-contract-termination`, which asks the provider for `cancel_at_period_end` and appends `contract-termination-requested` with the outcome. Matched and unmatched requests do the same work in the request, so the response time does not reveal whether the email is a customer. The job is idempotent per `requestId`. A provider without `cancelSubscription`, a provider error or a missing subscription now sends a separate operator notice with request id and tenant id but no name or email. A public withdrawal still makes no provider call. The account path (`terminate-contract`) stays synchronous.",
     "migration": "Code that expected `contract-termination-requested` right after the public request must wait for the job (in tests: `drainJobs`)."
   },
   {
     "version": "0.338.0",
     "type": "improvement",
     "title": "Contract confirmation mail after a recorded checkout consent",
-    "detail": "With `consumerProtection`, four event-triggered jobs (`confirm-on-subscription-created`, `confirm-on-subscription-updated`, `confirm-on-invoice-paid`, `confirm-on-payment-received`) call the system-only `billing-foundation:write:issue-contract-confirmation` (`consentId`, `sourceAggregateId`, optional `currentPeriodEndIso`) for events carrying a `consentId`; subscription events only count with status `active` or `trialing`. The handler only reads the caller tenant's own subscription or payment stream, finds the `checkout-consent-recorded` event, appends `contract-confirmation-issued` (`consentId`, `issuedAtIso`, `locale`, `termsTemplateVersion`) at the fetched stream version and then notifies `billing-foundation:contract-confirmation` (critical priority) to the consenting user's email. A second run returns `{ issued: false, reason: \"already_issued\" }` or fails with a version conflict; an unknown consent returns `consent_not_found` and sends nothing. The mail is rendered in German or English (fallback German) as structured header/sections content for the email channel's renderer.",
     "migration": "Enabling `consumerProtection` additionally requires the `user` feature, and an email channel plus renderer must be mounted for the mail to go out."
   },
   {
     "version": "0.338.0",
     "type": "improvement",
     "title": "Optional consumer-protection consent gate on checkout",
-    "detail": "`BillingFoundationOptions.consumerProtection` (`termsTextBlock`, `vatNote` with `de` and `en`, `operatorEmail`, `legalLinks`) requires `baseUrl` and additionally requires the `template-resolver` and `delivery` features. When set, `start-plan-checkout` and `create-checkout-session` take a strict `consent` object (`earlyPerformanceRequested: true`, `withdrawalLossAcknowledged: true`, `consentTextVersion`, `locale`); a missing or unchecked consent fails validation (400). The consent texts and their version (first 16 hex characters of the SHA-256 of the early-performance and withdrawal-loss texts) are owned by the framework in German and English. After the provider returned the checkout URL, `checkout-consent-recorded` is appended (no email, no IP). `billing-plans` returns `consumerProtection: { consentTexts, legalLinks }` so a client can render and echo the version.",
     "migration": "No code change needed unless you enable consumerProtection; then callers of start-plan-checkout/create-checkout-session must send `consent`."
   },
   {
     "version": "0.338.0",
     "type": "improvement",
     "title": "Consent dialog and cancel-contract button in the billing panel",
-    "detail": "The checkout CTA opens `CheckoutConsentDialog` when `billing-plans` returns `consumerProtection`; `start-plan-checkout` then receives `consent: { earlyPerformanceRequested, withdrawalLossAcknowledged, consentTextVersion, locale }`. The locale rule (`resolveConsentLocale`) moved to the crypto-free `consumer-protection/consent-locale.ts` and is still re-exported from `consent-text.ts`. `CancelContractDialog` calls `billing-foundation:write:terminate-contract`. New English i18n keys under `billing-foundation.consent.*` and `billing-foundation.cancel.*`.",
     "migration": "No action. Apps that translate the panel add the new `billing-foundation.consent.*` and `billing-foundation.cancel.*` keys to their locale bundles."
   },
   {
@@ -360,7 +352,6 @@
     "version": "0.338.0",
     "type": "improvement",
     "title": "§ 312k cancellation pages and handlers with consumerProtection",
-    "detail": "`contract-termination-requested` (on the tenant's subscription stream: `requestId`, `declarationType` termination|withdrawal, `terminationKind` ordinary|extraordinary, `channel` public|account, `receivedAtIso`, `effectiveAtIso`, `providerCancel` period-end|immediately|none) and `contract-termination-unmatched` (system-tenant stream, `matchResult` none|ambiguous) are appended by the system-only `record-contract-termination` and `record-unmatched-contract-termination` handlers. `billing-foundation:write:request-contract-termination` is anonymous and answers `{ requestId, receivedAtIso }` for every outcome; `billing-foundation:write:terminate-contract` (purchase roles) answers `{ requestId, receivedAtIso, effectiveAtIso, providerCancel }`. Provider errors or a provider without `cancelSubscription` still record the declaration (`providerCancel: none`) and notify the operator. `consumerProtection` now also requires the `tenant` and `user` features.",
     "migration": "Add `createContractTerminationRoutes()` from billing-foundation to the app's `extraRoutes`, make sure `anonymousAccess` is configured, and link `/legal/kuendigen` (or `/legal/cancel`) in the page footer."
   },
   {
@@ -374,7 +365,6 @@
     "version": "0.338.0",
     "type": "improvement",
     "title": "late events of a superseded provider subscription no longer overwrite the live row",
-    "detail": "billing-foundation: `process-event` drops a non-`created` provider event that belongs to a different subscription than the one the tenant's row currently tracks, while that row still blocks checkout. A late webhook retry of a superseded subscription can no longer flip the live subscription to `canceled`. The webhook answers 200 with `stale: true`.",
     "migration": "No action needed: events of the tracked subscription and `created` events behave as before."
   },
   {
@@ -387,8 +377,7 @@
   {
     "version": "0.330.0",
     "type": "fix",
-    "title": "The switch-plan error for a subscription with a scheduled cancellation says \"scheduled to end\", matching the plan badge",
-    "detail": "The error for switching plans on a subscription with a scheduled cancellation now says \"scheduled to end\", like the plan badge, and the invalid-credentials message reads the same in every source that registers it."
+    "title": "The switch-plan error for a subscription with a scheduled cancellation says \"scheduled to end\", matching the plan badge"
   },
   {
     "version": "0.321.0",
@@ -401,14 +390,12 @@
     "version": "0.321.0",
     "type": "improvement",
     "title": "past_due banner on the billing-plans panel; sync-subscription backfill for provider-side drift",
-    "detail": "`billing-plans-panel` renders a `past_due`-status warning banner\n(`billing-foundation.plans.pastDue`) alongside the existing\npayment-pending/cancel-scheduled ones. `SubscriptionProviderPlugin` gained\nan optional `retrieveSubscription(ctx, providerSubscriptionId)` method\nreturning a `ProviderSubscriptionSnapshot`; the new\n`billing-foundation:write:sync-subscription` handler (`agent.expose:\nfalse`, `SYSTEM_ROLE`/`SystemAdmin`-only — the `sync-subscriptions` job's\nown systemUser only carries `SYSTEM_ROLE`) compares the live snapshot\nagainst `read_subscriptions` and appends a `subscription.updated` (or\n`subscription.canceled`, when the snapshot's own status is terminal)\nevent with a deterministic `sync:<sha256>` providerEventId when it has\ndrifted, a no-op otherwise. The `sync-subscriptions` job (manual-trigger +\nrunOnBoot, perTenant) dispatches it and is registered unconditionally.\n`isBillingEnabled(ctx, providerName)` returns `false` instead of throwing\nwhen `providerName` isn't registered.",
     "migration": "No action needed — every part is additive. Apps on `subscription-stripe`\nautomatically get `retrieveSubscription` wired; a custom provider plugin\nwithout one makes `sync-subscription` report\n`{ synced: false, reason: \"provider_cannot_retrieve\" }` instead of syncing.\nOn the next deploy, `sync-subscriptions`' `runOnBoot` fires once per Redis\ndataset (not once per replica) with one provider API call per tenant that\nhas a live subscription. If that run is interrupted (deploy killed\nmid-fan-out, Redis restart), it is not re-run automatically on the next\nboot — trigger it manually via `billing-foundation:job:sync-subscriptions`\n(`jobs:write:trigger`) to catch up."
   },
   {
     "version": "0.319.0",
     "type": "improvement",
-    "title": "billing-plans no longer throws when no provider is mounted",
-    "detail": "billing-plans now resolves the catalog's provider through a new\n`findCatalogProvider` (returns `null` instead of throwing) and returns\n`{ enabled: false, ... }` when none is mounted, instead of failing the\nwhole query with UnconfiguredError. Apps that mounted Stripe with an\nempty price map purely to keep this query alive can drop that\nworkaround. An ambiguous catalog (more than one matching provider\nmounted) still throws UnconfiguredError — that case didn't change."
+    "title": "billing-plans no longer throws when no provider is mounted"
   },
   {
     "version": "0.319.0",
@@ -425,8 +412,7 @@
   {
     "version": "0.319.0",
     "type": "improvement",
-    "title": "billing-foundation exports resolveProviderPlugin, isBillingEnabled and the /web QN constants",
-    "detail": "The server barrel now exports `resolveProviderPlugin`, `isBillingEnabled`\nand the `ResolvedProvider` type, built on internal\n`isPluginBillingEnabled`/`assertBillingEnabled` helpers already used by\nevery handler that gates on billing being enabled. An app that\nduplicated this provider-lookup-plus-cast itself (offlot did) can call\n`resolveProviderPlugin`/`isBillingEnabled` instead and drop the cast.\n\nThe `/web` barrel now exports `SubscriptionFoundationHandlers`,\n`SubscriptionFoundationQueries`, `BillingPlanActions`,\n`SubscriptionStatuses`, `BILLING_PLANS_SCREEN_ID` and the\n`BillingPlanBenefit`/`BillingPlanCatalog`/`BillingPlansResult`/\n`BillingPlanView` types. An app that hand-copied these QN constants\n(publicstatus did) can import them from `/web` instead."
+    "title": "billing-foundation exports resolveProviderPlugin, isBillingEnabled and the /web QN constants"
   },
   {
     "version": "0.319.0",
@@ -443,8 +429,7 @@
   {
     "version": "0.318.0",
     "type": "improvement",
-    "title": "Add a shared billing-plans catalog (start-plan-checkout, switch-plan, BillingPlansPanel)",
-    "detail": "BillingFoundationOptions gains an optional catalog: BillingPlanCatalog<TTier>, describing the app's purchasable tiers, benefits, current-tier resolution and view/purchase roles. Two new write handlers, start-plan-checkout and switch-plan, and a billing-plans query resolve prices via the provider's retrievePrices, decide checkout vs. switch per tier, and enforce viewRoles/purchaseRoles. BillingPlansPanel (web) renders the catalog via the new PlanCard/PlanGrid widgets, handling loading/error/disabled/read-only states and disabling every CTA while a checkout/switch/portal mutation is in flight."
+    "title": "Add a shared billing-plans catalog (start-plan-checkout, switch-plan, BillingPlansPanel)"
   },
   {
     "version": "0.318.0",
@@ -455,14 +440,12 @@
   {
     "version": "0.318.0",
     "type": "improvement",
-    "title": "billing-foundation's checkout gate no longer blocks forever on a stale incomplete subscription",
-    "detail": "A stale `incomplete` subscription (older than 24h) no longer counts as an active subscription for the checkout gate, so a tenant whose Stripe checkout was abandoned can start a fresh one. `SubscriptionView.lastChangedAt` (required) and `BillingPlanActions.paymentPending` are new; a consumer with an exhaustive switch over `BillingPlanAction` needs a `paymentPending` case. Known limit: two checkouts started in parallel before the provider's first webhook arrives can still create two subscriptions, since the gate only sees subscriptions already projected."
+    "title": "billing-foundation's checkout gate no longer blocks forever on a stale incomplete subscription"
   },
   {
     "version": "0.306.0",
     "type": "fix",
-    "title": "Tenant destroy no longer fails on subscription and payment rows",
-    "detail": "The subscription and payment tenant-destroy hooks passed the tenant-scoped TenantDb they receive into raw DbRunner helpers, so the app-data stage failed and the tenant ended in destroyFailed. They now use ctx.db methods and declare an escapeHatch for the compliance-profile lookup and the event-stream archive."
+    "title": "Tenant destroy no longer fails on subscription and payment rows"
   },
   {
     "version": "0.301.0",
@@ -479,13 +462,11 @@
   {
     "version": "0.288.0",
     "type": "improvement",
-    "title": "add onSyncError option to createSubscriptionTierSync",
-    "detail": "`SubscriptionTierSyncDeps<TTier>` gets an optional `onSyncError?: \"log\" | \"fail-webhook\"`\n(default `\"log\"`, matching prior behavior exactly). `\"fail-webhook\"` makes a tier-sync\nfailure also fail the webhook response, so an idempotent-retry caller (whose retry\nno-ops the already-committed primary write) gets another attempt at the sync step."
+    "title": "add onSyncError option to createSubscriptionTierSync"
   },
   {
     "version": "0.286.0",
     "type": "improvement",
-    "title": "Add createBillingInfoQueryConfig factory for the billing-info query handler",
-    "detail": "Extracted from the near-identical app copies in show-pony and publicstatus. Returns a handler-config object rather than calling defineQueryHandler itself, so apps can pass it through their own wrapper."
+    "title": "Add createBillingInfoQueryConfig factory for the billing-info query handler"
   }
 ]

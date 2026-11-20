@@ -2,31 +2,26 @@
   {
     "version": "0.376.0",
     "type": "improvement",
-    "title": "Legal layout receives alternates",
-    "detail": "createLegalPagesLayout passes alternates as second argument to headerHtml and footerHtml, and legal-pages routes provide the other-language paths of the same slug, so a layout can render a language switch."
+    "title": "Legal layout receives alternates"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "legal-pages serves terms of service, ships a layout helper and a boot seed",
-    "detail": "createLegalPagesFeature({ terms: true }) adds /legal/nutzungsbedingungen and /legal/terms (slug terms, de/en, never boot-required). createLegalPagesLayout({ siteName, css?, stylesheetHrefs?, headerHtml?, footerHtml?, contentClass? }) builds a wrapLayout with the app's chrome. legalContentSeed({ blocks } | { path }) returns a seed for runProdApp seeds that writes the blocks into SYSTEM_TENANT and updates existing ones, so the JSON stays authoritative. legalPagePath(routes, slug, lang) from the client-safe ./legal-pages/constants subpath gives static sites the same paths. Defaults are unchanged."
+    "title": "legal-pages serves terms of service, ships a layout helper and a boot seed"
   },
   {
     "version": "0.352.0",
     "type": "fix",
-    "title": "The legal-pages README imprint example uses a fictional demo identity",
-    "detail": "The legal-pages README seeds its imprint example with a fictional demo identity and address instead of a real person's details."
+    "title": "The legal-pages README imprint example uses a fictional demo identity"
   },
   {
     "version": "0.344.0",
     "type": "improvement",
-    "title": "Optional title heading on legal pages",
-    "detail": "`LegalPageRoute` has an optional `titleHeading` flag. When `true`, the page body starts with an `<h1>` holding the escaped page title. The default (`false`) leaves the body unchanged."
+    "title": "Optional title heading on legal pages"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Legal pages fail fast on custom routes without required blocks; seed race honours skip",
-    "detail": "`createLegalPagesFeature` now throws when custom `routes` cover no default required block and `requiredBlocks` is omitted, instead of failing the production boot check later. The text-block and system-template seed race loser now honours `ifExists: \"skip\"` and the no-op comparison. `SegmentedSelect` keeps the first segment tabbable when the stored value matches no option. The `subscribePathname` option documents that the `popstate` default misses `pushState` navigation."
+    "title": "Legal pages fail fast on custom routes without required blocks; seed race honours skip"
   }
 ]

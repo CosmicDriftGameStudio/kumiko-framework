@@ -1,57 +1,95 @@
 [
   {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Handler input schemas are computed once per handler"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Agent write tools keep optimistic locking",
+    "detail": "For a write handler whose schema requires `version`, the tool catalog used to strip `version` from the tool's input schema, and dispatch read the current version from the detail handler right before the write. That turned off optimistic locking for agent writes: a model acting on an old read overwrote newer changes. `version` now stays a required tool argument and reaches the handler unchanged. A stale version returns `{ ok: false, code: \"version_conflict\" }` to the model, and the tool description tells it to read the record again. The `injectsVersion` field is gone from the write tool dispatch descriptor. The re-read through the detail handler after a successful write is unchanged.",
+    "migration": "Agent-driven write calls must send `version` from the latest read. Code or tests that built write descriptors with `injectsVersion`, or relied on dispatch reading the version (for example a failing detail lookup before the write), drop that assumption and pass `version` in the tool input.",
+    "affects": [
+      "injectsVersion",
+      "agent-tools"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Doc-only translations for kumiko api-docs",
+    "detail": "Apps that document their API in more locales than the app itself mounted one pseudo-feature per locale so the boot rule i18n/locale-inconsistent would accept the extra texts, and those texts were loaded on every server boot. `apiDocs.translations` in kumiko.config.ts is a function returning full translation keys, for example `() => import(\"./src/api-docs-texts\").then((m) => m.texts)`. Only `kumiko api-docs` calls it. Per key and locale it fills only what the registry does not define. `resolveApiDocsConfig` from `@cosmicdrift/kumiko-bundled-features/agent-tools` now returns a Promise; callers await it.",
+    "migration": "Await `resolveApiDocsConfig(...)`, and replace per-locale pseudo-features that only carried API-doc texts with `apiDocs.translations` in kumiko.config.ts, for example `() => import(\"./src/api-docs-texts\").then((m) => m.texts)`.",
+    "affects": [
+      "resolveApiDocsConfig",
+      "apiDocs"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Agent lint fails on missing handler translations",
+    "detail": "The handler translation gaps that `kumiko agent lint` listed as warnings now fail the command, and `kumiko check` with it. A fully spelled-out key counts from any mounted feature, as on the client, so an app labels handlers that a bundled feature derives from its config, such as template-resolver's `<id>-set` for each declared collection. App-local tests that asserted the same titles are no longer needed.",
+    "migration": "Add the reported title and field-label keys (`handlerTranslationKeys` from `@cosmicdrift/kumiko-framework/engine`), or hide the handler from the agent with `agent: { expose: false }`. For template-resolver collections register them in an app feature with `handlerTranslationKeys(TEMPLATE_RESOLVER_FEATURE, { writes: { \"<id>-set\": { title, fields } } })`. Delete app tests that only re-check handler titles."
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "API docs generator on its own subpath",
+    "detail": "`@cosmicdrift/kumiko-bundled-features/agent-tools` re-exported the API docs generator, so every runtime import of the tool catalog or agent manifest loaded the generator and its texts in five languages. `generateApiDocs`, `resolveApiDocsConfig`, `diffApiDocsOutput`, `ApiExampleFileSchema`, `WebhookExampleFileSchema`, `apiDocsLocales`, `isApiDocsLocale`, `formatApiDocsText`, `formatApiDocsProblem`, `INDEX_FILE`, `OPENAPI_FILE` and their types are now imported from `@cosmicdrift/kumiko-bundled-features/agent-tools/api-docs`. `createAgentToolsFeature` and `AGENT_TOOLS_FEATURE_NAME` stay on the barrel.",
+    "migration": "Import `generateApiDocs`, `resolveApiDocsConfig`, `diffApiDocsOutput` and the other API docs symbols from `@cosmicdrift/kumiko-bundled-features/agent-tools/api-docs`.",
+    "affects": [
+      "kumiko-bundled-features/agent-tools",
+      "generateApiDocs",
+      "resolveApiDocsConfig",
+      "diffApiDocsOutput"
+    ]
+  },
+  {
     "version": "0.418.0",
     "type": "fix",
-    "title": "API docs label nullable types",
-    "detail": "A JSON Schema type array such as `[\"string\", \"null\"]` (Zod nullable) was labelled `any` in the generated API docs. Each element is now labelled (string keeps its format) and joined with ` | `, with null last, e.g. `string | null`."
+    "title": "API docs label nullable types"
   },
   {
     "version": "0.416.0",
     "type": "improvement",
-    "title": "ask_user options can carry a preview",
-    "detail": "Each option of the `ask_user` agent tool is a string or `{ label, preview? }`, where `preview` is the text the agent writes if the option is chosen. Plain string options keep working."
+    "title": "ask_user options can carry a preview"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "agent manifest, tool dispatch and api-docs review fixes",
-    "detail": "The manifest takes feature ownership from the registry instead of qualified-id prefixes, keeps features that only contribute a visible workspace, shares the entity reachability rule with the tool catalog (`isExplicitlyAgentHidden` is no longer exported), splits feature descriptions at ./!/? while keeping abbreviations whole, and cuts long ones by code point with a trailing ellipsis. A write tool without a detail handler to read its version from is now a logged internal error instead of `invalid_tool_call`. API docs: root `$ref: \"#\"` in input schemas points at the payload schema, only the real token feature is documented, empty translations count as gaps, entity labels stay boundary- and feature-aware, webhook examples must match the contract version (new problems `webhookExampleVersionMismatch`, `unusedWebhookExample`, `scopeSlugCollision`), and `resolveApiDocsConfig` gives the CLI and the recipe golden test one config resolution."
+    "title": "agent manifest, tool dispatch and api-docs review fixes"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "agent manifest labels resolve regional locales",
-    "detail": "`pickLabel` only matched the exact locale key, so a caller passing `de-DE` got English labels for every entity, field, nav and screen. It now tries the base language (`de`) before the English fallback."
+    "title": "agent manifest labels resolve regional locales"
   },
   {
     "version": "0.412.0",
     "type": "improvement",
-    "title": "kumiko api-docs generates HTTP API docs from the registry and the PAT scopes",
-    "detail": "`kumiko api-docs [--out <dir>] [--locales en,de] [--check]` reads `kumiko.config.ts` and writes `<out>/openapi.json` (OpenAPI 3.1 with only the handlers some PAT scope reaches, one request wrapper per handler with a `type` discriminator), `<out>/<locale>/overview.md` (endpoints, body, envelopes, error codes with HTTP status, versions, lists, batches, safe retries), `<out>/<locale>/tokens.md` (create path from the app's nav labels, scope table, expiry, rate limit, errors, revoke, security, optional plan note) and `<out>/<locale>/reference/<scope>.md` (per handler: title, description, required grant, field table, curl example, recorded response), plus `<out>/index.json` with order, source versions and language independent anchor ids per heading. Output is plain GFM with only `title` and `description` in the frontmatter, so Astro and Starlight render it as is, and it is byte identical for the same input. New `AppConfig.apiDocs` options: `appName`, `baseUrl` (required), `locales`, `planNote`, `uiOnlyWrites` (pattern plus reason), `texts` (paragraph overrides per locale) and `examplesDir`. `--check` writes nothing and exits 1 when a handler in a scope has no description or no description translation (new gap kind `handlerWithoutDescriptionTranslation`, key `handlerDescriptionKey(qn)`), when a write that a screen triggers lies in no scope and is not listed in `uiOnlyWrites`, when a `uiOnlyWrites` entry matches nothing, or when the committed output differs. Known gap: the screen write check only looks at features with at least one handler in a scope. New exports: `frameworkErrorHttpStatus`, `FrameworkErrorCode`, `patAuthRejectHttpStatus`, `PAT_RATE_LIMITED_CODE`, `qnMatches`, `patAllows`, `handlerDescriptionKey`, `patScopesFromFeature`, `PAT_MAX_EXPIRES_IN_DAYS`, and `ApiExampleFileSchema` from `@cosmicdrift/kumiko-types/api-example`."
+    "title": "kumiko api-docs generates HTTP API docs from the registry and the PAT scopes"
   },
   {
     "version": "0.412.0",
     "type": "improvement",
-    "title": "api-docs token guide covers client code, logs and leaks",
-    "detail": "The security list in `tokens.md` now says never to keep a token in an app or web page or in a log, and to revoke a token at once if it may have leaked, in all five locales. Regenerate with `kumiko api-docs`; `--check` reports the changed `tokens.md` until then."
+    "title": "api-docs token guide covers client code, logs and leaks"
   },
   {
     "version": "0.412.0",
     "type": "improvement",
-    "title": "api-docs names events by wireName and skips system-only handlers",
-    "detail": "`events.md` headings and anchors, the OpenAPI `webhooks` keys and their `summary` use the wire name; the contract QN stays as `x-kumiko-qn` in OpenAPI and as the anchor `qn` in `index.json`. Write and query handlers whose `access.roles` are only `[\"system\"]` are no longer documented, even when a scope pattern such as `app:write:monitor:*` matches them, and the `uiWriteOutsideScopes` check ignores them."
+    "title": "api-docs names events by wireName and skips system-only handlers"
   },
   {
     "version": "0.412.0",
     "type": "improvement",
-    "title": "kumiko api-docs documents webhook events",
-    "detail": "When a scope lists events, the output gains `<locale>/events.md` (delivery text from `apiDocs.webhookDelivery`, versioning rules, one section per event with fields and a recorded example), an OpenAPI 3.1 `webhooks` section keyed by event name and an `events` page in `index.json`. New problems `webhookDeliveryTextMissing` and `webhookEventWithoutDescriptionTranslation`. Field descriptions come from `.describe()` on declared payloads and from the entity field translations on derived ones. `ApiDocsInput.webhookExamples` is optional; `kumiko api-docs` reads `<examplesDir>/webhooks/*.json`."
+    "title": "kumiko api-docs documents webhook events"
   },
   {
     "version": "0.409.0",
     "type": "improvement",
-    "title": "Agent write handlers can be marked as proposal changes",
-    "detail": "AgentHandlerHints takes effect \"proposal\" for a write whose result is itself a suggestion that a person approves later (for example a plan step the clerk still checks). resolveAgentExposure, the agent manifest handler entry and the write ToolDispatchDescriptor carry the effect, so an agent runtime can skip its own approval step for these calls. Boot rejects effect \"proposal\" unless the handler declares risk \"low\" explicitly (the write default is mid), and rejects any effect on a query handler."
+    "title": "Agent write handlers can be marked as proposal changes"
   },
   {
     "version": "0.402.0",
@@ -63,32 +101,27 @@
   {
     "version": "0.402.0",
     "type": "improvement",
-    "title": "Agent manifest shows only the first sentence of a feature description",
-    "detail": "`buildAgentManifest` emits the first sentence of `FeatureDefinition.description` (a `. ` before a capital letter ends it, so \"e.g.\" and \"Art. 15\" stay whole), at most 300 characters. The full text stays on the definition for the docs generators. In an app with 77 features the descriptions drop from about 46.6k to 12.2k characters."
+    "title": "Agent manifest shows only the first sentence of a feature description"
   },
   {
     "version": "0.402.0",
     "type": "improvement",
-    "title": "Agent manifest features and entities follow the role",
-    "detail": "`buildAgentManifest` now leaves out a feature when none of its handlers, screens or navs remain in the manifest for the role, and an entity when no remaining handler or screen refers to it, no `get_`/`list_` tool of the role reads it and no reachable entity points at it through a reference field (one hop). Before, `features` and `entities` were identical for every role, so a restricted role paid for schemas it could not use in every system prompt. A translation-only feature such as `locale-de` no longer appears in `features`."
+    "title": "Agent manifest features and entities follow the role"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "Local agent tool errors carry a code",
-    "detail": "dispatchToolCall returns code invalid_tool_call for validation errors and unknown_tool for an unknown tool name, instead of a result without code. TOOL_CALL_ERROR_CODES names both."
+    "title": "Local agent tool errors carry a code"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "dispatchToolCall documents which failures carry a code",
-    "detail": "Only handler and dispatcher failures carry a code; local validation errors such as an unknown tool or bad arguments come back without one, and the JSDoc now says so."
+    "title": "dispatchToolCall documents which failures carry a code"
   },
   {
     "version": "0.366.0",
     "type": "improvement",
-    "title": "Agent tool failures are classified instead of passing raw messages through",
-    "detail": "dispatchToolCall now adds a code to failed tool results. Client errors keep their message, rate limits also set retryable and retryAfterSeconds. Server errors and unknown throws are logged with their cause and returned to the model as \"Tool failed unexpectedly\", so internal details such as database messages no longer reach the model. ToolCallRequest accepts an optional log."
+    "title": "Agent tool failures are classified instead of passing raw messages through"
   },
   {
     "version": "0.353.0",
@@ -99,28 +132,24 @@
   {
     "version": "0.353.0",
     "type": "fix",
-    "title": "Agent manifest screen titles resolve per feature instead of by mount order",
-    "detail": "Agent manifest screen titles no longer depend on feature mount order\nTwo features with a screen of the same short id used to get the title of whichever feature was mounted first. The manifest now looks up the screen's own feature-prefixed title key first and falls back to the unprefixed key."
+    "title": "Agent manifest screen titles resolve per feature instead of by mount order"
   },
   {
     "version": "0.338.0",
     "type": "improvement",
     "title": "entity get/list tools honour agent.risk, PII-bearing system lists are high risk",
-    "detail": "agent-tools: `get_<entity>` and `list_<entity>` take their risk from the entity handler's `agent.risk` instead of a hard-coded `low`. The SystemAdmin `user:list`, `user:detail` and `download-attempt:list` handlers declare `risk: \"high\"`.",
     "migration": "No action needed: handlers without an agent.risk hint stay low risk."
   },
   {
     "version": "0.338.0",
     "type": "fix",
     "title": "agent entity tools no longer filter on read-restricted fields",
-    "detail": "agent-tools: `list_<entity>` filters and `find_<entity>_by_<field>` tools only offer filterable fields that every caller role may read without a row condition. A role- or ownership-restricted filterable field can no longer be probed through `totalCount` or hit/miss results.",
     "migration": "No action needed: fields whose access.read is not unconditionally open to the agent's roles drop out of list filters and find-by tools."
   },
   {
     "version": "0.337.0",
     "type": "fix",
-    "title": "agent tool name collisions are disambiguated, audit search is substring, encrypted config bounds errors do not echo the value",
-    "detail": "The agent manifest reports a detail screen's configured `idParam` and builds its label index once per manifest. Handler tools whose names collide after sanitizing or truncation are no longer dropped; the later one gets a QN-hash suffix. The audit log search matches event types by substring instead of exact equality. Config bounds errors no longer echo an encrypted value. The MFA account label never falls back to the internal user id. The tenant caps list resolves limits in parallel."
+    "title": "agent tool name collisions are disambiguated, audit search is substring, encrypted config bounds errors do not echo the value"
   },
   {
     "version": "0.335.0",
@@ -137,7 +166,6 @@
   {
     "version": "0.313.0",
     "type": "fix",
-    "title": "Agent manifest now resolves a screen's i18n-key description to English prose",
-    "detail": "buildAgentManifest passed screen.description straight through even when\na feature registered it as an i18n key (e.g. \"audit.log.detail.subtitle\")\nrather than literal text, so agents saw the raw key instead of prose.\nIt now resolves through the registry's translations the same way\nlabelsForSuffix already does for entity/field labels, falling back to\nthe literal string when the description isn't a registered key."
+    "title": "Agent manifest now resolves a screen's i18n-key description to English prose"
   }
 ]

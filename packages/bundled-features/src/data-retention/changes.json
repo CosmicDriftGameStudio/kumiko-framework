@@ -1,51 +1,48 @@
 [
   {
-    "version": "0.414.0",
-    "type": "fix",
-    "title": "Retention anonymize compares decrypted values",
-    "detail": "Retention anonymize compares decrypted PII values and is covered by a test. The anonymize diff compares JSON values independent of key order, and the notes-history feature name comes from its constant."
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Declarative event stream retention for short-lived entities"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Retention hardDelete takes the notes of the deleted parent along",
-    "detail": "When the retention cleanup hard-deletes a row and notes-history is mounted, the note bodies attached to that row (note-entry, any tenant, including notes written in customer tenants on a global parent) are crypto-shredded in the same sub-transaction as the row's own keys. Before, the parent was gone but its notes stayed readable."
+    "title": "Retention anonymize compares decrypted values"
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Retention hardDelete takes the notes of the deleted parent along"
   },
   {
     "version": "0.413.1",
     "type": "fix",
-    "title": "Retention cleanup, upload sweep and soft-delete cleanup reach the system tenant",
-    "detail": "Jobs with `perTenant: true` can set `includeSystemTenant: true` to get one more run with `SYSTEM_TENANT_ID` after the active tenants (no duplicate if the app's `getActiveTenantIds` already returns it). `data-retention:job:retention-cleanup`, `files:job:sweep-orphaned-uploads` and `soft-delete:job:cleanup` set it, so helpdesk requests, replies and their attachments are deleted after `keepFor`. The retention run applies to every entity with a `retention` rule whose rows sit in the system tenant (for example download attempts or custom-field values written in a SystemAdmin session); they now expire after their declared `keepFor` like in any other tenant. Other per-tenant jobs (tenant inactivity, billing, workflows, reindex, inbound-mail retention) keep running for active tenants only. The soft-delete cleanup computes its grace cutoff from the job clock instead of the wall clock. Setting `includeSystemTenant` without `perTenant` fails at boot."
+    "title": "Retention cleanup, upload sweep and soft-delete cleanup reach the system tenant"
   },
   {
     "version": "0.407.0",
     "type": "fix",
-    "title": "Anonymize no longer emits one event per run for encrypted fields",
-    "detail": "The retention cleanup compared the encrypted ciphertext with the anonymized value and treated every row with encrypted fields as still needing anonymization, so each run appended another anonymize event. The check now looks at the decrypted value, so already anonymized rows are left alone."
+    "title": "Anonymize no longer emits one event per run for encrypted fields"
   },
   {
     "version": "0.372.0",
     "type": "improvement",
-    "title": "runRetentionCleanup is exported for app tests",
-    "detail": "The data-retention entry point now exports runRetentionCleanup with its argument, result and skip types, so an app test can drive a retention run with its own now and file context and check that bytes, file_refs rows and the entity row are gone. The user-data-rights recipe shows the pattern."
+    "title": "runRetentionCleanup is exported for app tests"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "data-retention exports computeCutoff",
-    "detail": "computeCutoff(keepFor, now) and its Instant type are exported from @cosmicdrift/kumiko-bundled-features/data-retention, so apps that compute a retention cutoff themselves (for example a backfill) use the same keepFor parsing as the cleanup job instead of a copy."
+    "title": "data-retention exports computeCutoff"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Retention hardDelete keeps cross-entity shared files and isolates storage errors per row",
-    "detail": "Retention hardDelete no longer deletes a fileRef that a live row of another entity type still references in a file/image field (relevant for unbound uploads). A storage error while deleting a row's files (for example a missing list permission) now skips only that row with `file_delete_failed` instead of aborting the whole tenant's cleanup run."
+    "title": "Retention hardDelete keeps cross-entity shared files and isolates storage errors per row"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Retention hardDelete pages past stuck file rows and blockDelete reports personal fields without anonymize",
-    "detail": "Retention hardDelete on entities with file fields now pages by id, so rows stuck on a storage failure or a missing file storage no longer starve the rows behind them. A `blockDelete` entity with a personal field but no `anonymize` function is reported as `missing_anonymize_fields` again after the hold expires; only entities without any anonymizable subject field stay silent. The framework exports `entityHasAnonymizableSubjectField` for this check."
+    "title": "Retention hardDelete pages past stuck file rows and blockDelete reports personal fields without anonymize"
   },
   {
     "version": "0.330.1",
@@ -61,8 +58,7 @@
   {
     "version": "0.313.0",
     "type": "fix",
-    "title": "data-retention hardDelete now erases a purged row's own KMS subject key",
-    "detail": "Refs #2057 (partial fix — the hardDelete path only). run-retention-\ncleanup's hardDelete forgot the row's event history via the executor but\nnever crypto-shredded its KMS subject key, leaving the DEK live after the\nrow was gone. It now erases the key in the same per-row sub-transaction as the\nforget (an eraseKey throw rolls the forget back too), mirroring run-\nforget-cleanup.ts's forget -> eraseKey -> nullBlindIndexesForSubject\nordering. Only the row's own recordOwned/self-pii subjects are erased;\na userOwned or tenantOwned field's subject is the REFERENCED user/tenant,\nnot this row, and may still protect other live rows elsewhere — those\nkeys are never touched. No migration needed."
+    "title": "data-retention hardDelete now erases a purged row's own KMS subject key"
   },
   {
     "version": "0.309.0",
@@ -74,13 +70,11 @@
     "version": "0.167.1",
     "type": "fix",
     "title": "blockDelete boot warning only fires for entities that have a subject (fw#1622).",
-    "detail": "The warning \"retention.strategy=blockDelete but no field has an anonymize-function\" checked the strategy alone. blockDelete is the legal-hold mode and therefore the obvious choice for anything under a statutory retention period — including entities that hold nothing but business data and foreign keys. Those got warned at every boot about something that cannot be satisfied: there is nothing to anonymize, and User-Forget never reaches a row without a subject. The warning made the correct declaration louder than the wrong one. It now requires at least one field annotated pii/userOwned/tenantOwned.",
     "migration": "None. Warnings disappear for entities without subject-annotated fields; entities that do carry PII still get warned, unchanged."
   },
   {
     "version": "0.116.0",
     "type": "improvement",
-    "title": "data-retention cleanup now implements the `anonymize` strategy (per-field anonymize funct…",
-    "detail": "data-retention cleanup now implements the `anonymize` strategy (per-field anonymize functions applied via the event-store executor, idempotent — a re-run appends zero events) and completes `blockDelete`: rows stay untouched during the keepFor legal hold, after expiry the anonymize functions run (row stays, person link goes). `RunRetentionCleanupResult.anonymizeDeferred` is replaced by `anonymized: number`; entities with an anonymize/blockDelete policy but no anonymize-annotated fields are reported in `skipped` with reason `missing_anonymize_fields`."
+    "title": "data-retention cleanup now implements the `anonymize` strategy (per-field anonymize funct…"
   }
 ]

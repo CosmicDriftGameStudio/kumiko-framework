@@ -2,19 +2,16 @@
   {
     "version": "0.394.0",
     "type": "improvement",
-    "title": "account-security nav has a default icon and an icon option",
-    "detail": "The nav entry shows the `user` icon by default. `nav.icon` takes any nav icon key to override it, so apps no longer need their own nav entry just for an icon."
+    "title": "account-security nav has a default icon and an icon option"
   },
   {
     "version": "0.376.0",
     "type": "improvement",
-    "title": "Client-safe account-security/constants subpath",
-    "detail": "\"@cosmicdrift/kumiko-bundled-features/account-security/constants\" exports ACCOUNT_SECURITY_FEATURE, the screen id and QN, the nav label and the new ACCOUNT_SECURITY_SCREEN_TITLE_KEY without importing server code."
+    "title": "Client-safe account-security/constants subpath"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "createAccountSecurityFeature bundles the self-service screen for MFA and own sessions",
-    "detail": "createAccountSecurityFeature({ nav?, access? }) registers account-security:screen:account-security, a dashboard that embeds the auth-mfa enable, regenerate and disable screens and the sessions list of the signed-in user. It owns no handlers; mount it next to auth-mfa and sessions, or let composeAuthStack({ mfa }) mount it. Without nav the screen is dormant (no sidebar entry); nav takes { order?, parent? } with order 90 by default. access defaults to every signed-in user. Apps with a local copy of this screen replace it with the bundled feature."
+    "title": "createAccountSecurityFeature bundles the self-service screen for MFA and own sessions"
   }
 ]

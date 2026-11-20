@@ -1,38 +1,50 @@
 [
   {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Row-bound grants verify the signature before the row lookup",
+    "detail": "`signRowBoundGrant` now puts the anchor next to the subject in the signed token body (`<subject>:<anchor>.<expiresAtMs>.<hmac>`), and the HMAC covers a purpose namespaced for row-bound grants, so neither a plain `signToken` token nor a grant in the previous format verifies as a grant. `redeemRowBoundGrant` checks signature and expiry first, calls `loadAnchor` only for a genuine token and then compares the row's current anchor with the signed one, so a forged token never reaches the database. The new `verifyRowBoundGrant({ token, purpose, secret, now })` runs the same check without database access and returns subject and anchor; it fails closed on an empty secret. The anonymous `open-by-link`, `sign-by-link` and `decline-by-link` handlers of `signature` verify the link before switching into the request's tenant. Subject and anchor are readable in the token and must not contain `:` or `.`; minting throws otherwise. `peekTokenSubject` (`shared/signed-token`) and `peekTenantScopedSubject` (`shared/tenant-scoped-subject`) are removed. Every grant minted before this version is invalid: deletion and deletion-cancel mails, keep-account mails, tenant-handover grants, signing links and app grants built on `signRowBoundGrant`.",
+    "migration": "A wrapper that picks a tenant from a grant replaces `peekTokenSubject(token)` or `peekTenantScopedSubject(token)` with `verifyRowBoundGrant({ token, purpose, secret, now })` and parses `subject` of an ok result, for example with `parseTenantScopedSubject`. Links already sent stop working and have to be issued again."
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "late-bound slot helper removed",
+    "detail": "Removed exports: `createLateBoundSlot`, `LateBoundSlot`; their only users were the removed revoke bindings.",
+    "migration": "None for apps.",
+    "affects": [
+      "createLateBoundSlot",
+      "LateBoundSlot"
+    ]
+  },
+  {
     "version": "0.415.0",
     "type": "fix",
-    "title": "One normalizeEmail for helpdesk, waitlist, signup tokens and user-data lookups",
-    "detail": "The copies in helpdesk, waitlist, signup-token-store and the inline toLowerCase in resolveVerifiedUserEmail now use shared/normalizeEmail, so a changed normalization cannot make export and erasure miss stored rows."
+    "title": "One normalizeEmail for helpdesk, waitlist, signup tokens and user-data lookups"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Stream-tenant backfill reindexes the old search bucket",
-    "detail": "The stream-tenant backfill reindexes the old search bucket when a candidate fails after its docs were removed (createSearchBucketCleanup takes a row source and exposes onMoveFailed). A failed candidate reindexes only its own document in the old bucket, not the whole bucket."
+    "title": "Stream-tenant backfill reindexes the old search bucket"
   },
   {
     "version": "0.405.0",
     "type": "improvement",
-    "title": "Bundled features share internal helpers",
-    "detail": "Access resolution for folders, ledger, notes-history and tags, the folders/tags write hook, the system-mode TenantDb cache of the re-encryption and rotation jobs, the mail locale templates of auth-email-password and user-data-rights, extension option collection for delivery and renderers, PAT scope parsing, user-data-rights hook DBs, unique-constraint failure checks, tenant member PII decryption, the status banner, the invite-accept request, the tenant label and the jobs subject parser each live in one internal module now. Empty onRegister callbacks are dropped. No behavior change."
+    "title": "Bundled features share internal helpers"
   },
   {
     "version": "0.364.0",
     "type": "improvement",
-    "title": "Mail template body helpers exported as `./shared/mail-template-body`",
-    "detail": "Apps that register their own notification templates can build the body with the same helpers the framework uses: `mailParagraph`, `mailHeading`, `mailRepeatedRows`, `mailTextWithSlotsHtml`, plus the new `mailButton`, `mailParagraphWithLink` and `mailSubject`. The subpath only depends on kumiko-headless and is safe on the server. Apps that copied these helpers can import them instead."
+    "title": "Mail template body helpers exported as `./shared/mail-template-body`"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Row-bound grant redemption logs a failing anchor lookup instead of swallowing it silently",
-    "detail": "`redeemRowBoundGrant` now logs a warning (error name and code only, never the token or subject) when the anchor lookup throws, so a database outage no longer looks like an expired link. The result is still the same bare rejection."
+    "title": "Row-bound grant redemption logs a failing anchor lookup instead of swallowing it silently"
   },
   {
     "version": "0.287.0",
     "type": "improvement",
-    "title": "row-bound grants: one short-lived, single-use capability for anonymous writes on one row",
-    "detail": "`signed-token.ts` moves from `auth-email-password/` to `shared/` — the mechanism\nwas never email/password specific (user-data-rights already used it). The old\npath re-exports it, so no importer breaks. New subpaths:\n`./shared/signed-token` and `./shared/row-bound-grant`.\n`shared/row-bound-grant.ts` is the new piece. It folds the row's *current*\nanchor (a request id, a status, a version — anything that moves on when the row\nis consumed) into the HMAC purpose on both mint and redeem, so a replayed token\nstops working the moment the row moves on. Single-use semantics without a burn\nkey and without Redis. Minting and redeeming share one purpose-building\nfunction, because an unanchored purpose silently degrades into a bearer token\nvalid for the whole TTL.\nAnchoring alone only closes the replay window once the row has moved on, so\nspending the anchor is part of the primitive, not homework for the caller:\n`redeemRowBoundGrant` takes a mandatory `commitAnchor(subject, expectedAnchor)`\nthat must move the row on atomically (a conditional UPDATE) and report whether\nthis caller won. It runs strictly after verification, so nobody can invalidate a\nrow by naming it with a junk token, and the loser of a race gets the same\nrejection as a forged grant. Skipping it is possible but has to be declared with\na reason (`{ unsafeSkip: { reason } }`), the way the framework handles\n`escapeHatch` — an undeclared skip is how a single-use grant quietly becomes a\nbearer token for the length of its TTL.\nEvery rejection returns a bare `{ ok: false }` with no reason, so a caller\ncannot accidentally turn an anonymous endpoint into a row-existence oracle.\n`user-data-rights`' deletion token now runs on the helper and its hand-rolled\n`peekDeletionTokenUserId` is gone. The tokens stay byte-compatible — a test\npins the wire format against the pre-refactor formula. It declares an\n`unsafeSkip` for the spend: `pendingDeletionRequestId` may only change through\n`updateUserLifecycle`, so a conditional UPDATE there would lose the field on a\nprojection rebuild. Behaviour of that flow is unchanged.\nNote for callers: the subject is not secret. `signToken` puts it in the token\nbody in the clear, so a grant on a row exposes that row's id to whoever holds\nthe link. Where the id itself must stay hidden, use an opaque handle\n(`./shared/single-use-token-store`) instead."
+    "title": "row-bound grants: one short-lived, single-use capability for anonymous writes on one row"
   }
 ]

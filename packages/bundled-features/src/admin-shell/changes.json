@@ -1,27 +1,36 @@
 [
   {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "admin-shell workspaces collect navs; includeDocumentDesigner removed",
+    "detail": "The tenant and platform workspaces of admin-shell now use `collectAdminArea`, so they also list event consumers, export jobs, feature toggles, the cap list and the document templates of mounted features. A new platform nav `admin-shell:nav:users` opens `user:screen:user-list` for SystemAdmin. Apps that keep `registerWorkspaces: false` set `collectAdminArea` on their own workspaces and drop the hand-written nav lists. The option `includeDocumentDesigner` is removed because the document-designer navs carry their area.",
+    "migration": "Remove `includeDocumentDesigner` from `createAdminShellFeature`. In app workspaces replace the lists of standard nav QNs with `collectAdminArea: \"tenant\"` or `\"platform\"`, and delete own users and system-check navs in favour of `admin-shell:nav:users` and `createReadinessFeature({ nav: { adminArea: \"platform\" } })`.",
+    "affects": [
+      "createAdminShellFeature",
+      "includeDocumentDesigner",
+      "registerWorkspaces",
+      "admin-shell:nav"
+    ]
+  },
+  {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Nav option types split per workspace",
-    "detail": "Admin-shell nav option types are split per workspace with required booleans."
+    "title": "Nav option types split per workspace"
   },
   {
     "version": "0.409.0",
     "type": "improvement",
-    "title": "createAdminShellFeature extraPlatformPanels",
-    "detail": "`createAdminShellFeature({ extraPlatformPanels })` appends dashboard panels to the platform \"Overview\" dashboard, so a feature can put a tile (for example the open contact requests) there instead of mounting a dashboard of its own."
+    "title": "createAdminShellFeature extraPlatformPanels"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "includeTenantOverview turns the tenant overview off",
-    "detail": "createAdminShellFeature({ includeTenantOverview: false }) registers neither the tenant overview screen nor its nav and leaves it out of the tenant workspace. The default stays true."
+    "title": "includeTenantOverview turns the tenant overview off"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "includeDocumentDesigner lists the template navs in the admin workspaces",
-    "detail": "With includeDocumentDesigner, the tenant workspace shows document-designer:nav:templates and the platform workspace document-designer:nav:platform-templates. The option requires the document-designer feature and defaults to false."
+    "title": "includeDocumentDesigner lists the template navs in the admin workspaces"
   },
   {
     "version": "0.330.0",
@@ -39,13 +48,11 @@
   {
     "version": "0.241.0",
     "type": "fix",
-    "title": "tenant-overview/platform-overview dashboards no longer show \"undefined\" tiles; both converted to declarative dashboard screens (fw#2312).",
-    "detail": "Both overview screens sent `totalCount: true` to `tenant:query:list`/`jobs:query:list`, but neither handler's Zod schema declared the field, so it was stripped before the handler saw it and the tile rendered the literal string \"undefined\". Both handlers now accept `totalCount: boolean` and return `total` when set — `jobs:query:list`'s total is a real count (via `countWhere`), not `rows.length`, so it isn't capped by `limit`. `config:query:readiness` gains `missingCount`/`missingTone` alongside the existing `missing` array. `PlatformOverviewScreen`/`TenantOverviewScreen` (never public exports) and their `overview-layout`/`overview-query` support modules are gone — both screens are now `type: \"dashboard\"` (`kind: \"stat\"` panels) rendered by the generic renderer, using the new `DashboardStatPanel.params` (see framework changelog) to pin the failed-jobs tile's `status: \"failed\"` filter server-side. The `overview-allowlist` exports (`isOverviewQueryAllowed`, `overviewAllowedQueries`, the allow/forbidden-list constants) are unchanged and still importable — they're now checked against the screen definitions in tests instead of gating a deleted client-side dispatch call."
+    "title": "tenant-overview/platform-overview dashboards no longer show \"undefined\" tiles; both converted to declarative dashboard screens (fw#2312)."
   },
   {
     "version": "0.125.0",
     "type": "improvement",
-    "title": "admin-shell: neues bundled-feature für rollen-gated Tenant- und Platform-Workspaces mit O…",
-    "detail": "admin-shell: neues bundled-feature für rollen-gated Tenant- und Platform-Workspaces mit Overview-Home-Screens, Nav-Icons und Server-i18n. Komponiert Screens aus `tenant`, `audit`, `jobs` und optional `tier-engine` — mount nach diesen Features. Overview-Queries laufen über eine fest kodierte Allowlist pro Workspace, um versehentliche Cross-Workspace-Datenzugriffe zu verhindern."
+    "title": "admin-shell: neues bundled-feature für rollen-gated Tenant- und Platform-Workspaces mit O…"
   }
 ]

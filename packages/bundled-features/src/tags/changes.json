@@ -1,9 +1,57 @@
 [
   {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Prebuilt tag and note handler constants removed",
+    "detail": "`createTagHandler`, `assignTagHandler`, `deleteTagHandler` and `removeTagHandler` from the tags feature and `addNoteHandler` from notes-history are gone. They were default-access copies of the factories and nothing registered them; the features themselves already used the factories. Inside custom-fields the same backwards-compat constants and the `lib/quota.ts` re-export are removed, and the feature builds every handler through its factory, with unchanged default roles.",
+    "migration": "Replace `createTagHandler` with `createCreateTagHandler()`, `assignTagHandler` with `createAssignTagHandler()`, `deleteTagHandler` with `createDeleteTagHandler()`, `removeTagHandler` with `createRemoveTagHandler()` and `addNoteHandler` with `createAddNoteHandler()`; pass an access rule where you need one other than the default.",
+    "affects": [
+      "createTagHandler",
+      "assignTagHandler",
+      "deleteTagHandler",
+      "removeTagHandler",
+      "addNoteHandler"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Legacy tag catalog handlers removed",
+    "detail": "tags registered every catalog write twice, once for TagManager and once for the catalog screens. Only `tags:write:tag:create` (flat `{ name, color?, scope? }`), `tags:write:tag:update` (`{ id, version, changes }`) and `tags:write:tag:delete` (cascades over the assignments) remain, and `TagsHandlers.createTag`, `updateTag` and `deleteTag` point to them. `tag:update` rejects a colour that is not a hex code with `invalid_color`, rejects an envelope without a name, color or scope change with `no_changes`, and trims the name server-side like `tag:create` does. The exports `createUpdateTagHandler`, `updateTagHandler`, `updateTagPayloadSchema` and `UpdateTagPayload` are removed; `createCreateTagHandler` and `createDeleteTagHandler` now default to the names `tag:create` and `tag:delete`.",
+    "migration": "Dispatch `TagsHandlers.createTag`, `updateTag` and `deleteTag` instead of the strings `tags:write:create-tag`, `tags:write:update-tag` and `tags:write:delete-tag`, and send `tag:update` the envelope `{ id, version, changes: { name?, color?, scope? } }` instead of the flat payload.",
+    "affects": [
+      "tags:write:create-tag",
+      "tags:write:update-tag",
+      "tags:write:delete-tag",
+      "TagsHandlers",
+      "tag:update",
+      "createUpdateTagHandler",
+      "updateTagHandler",
+      "updateTagPayloadSchema",
+      "UpdateTagPayload",
+      "createCreateTagHandler",
+      "createDeleteTagHandler"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Tag usage counts and catalog no longer stop at 50"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "tag:delete refuses while a hidden record carries the tag"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Tag cell and tag filter query assignments within the list limit"
+  },
+  {
     "version": "0.379.0",
     "type": "fix",
-    "title": "assign-tag and delete-tag no longer race",
-    "detail": "Re-assigning a tag after it was deleted no longer restores the assignment of a gone tag. assign-tag and delete-tag now take the same per-tag advisory lock, so a parallel assign can no longer leave an assignment for a deleted tag."
+    "title": "assign-tag and delete-tag no longer race"
   },
   {
     "version": "0.370.0",
@@ -24,7 +72,6 @@
     "version": "0.246.0",
     "type": "improvement",
     "title": "assign-tag and remove-tag now verify entityType/entityId against the host entity's own read path",
-    "detail": "Before this change, assign-tag and remove-tag took entityType/entityId straight from the client with no check — any dispatch-eligible tenant user could attach a catalog tag to, or detach one from, any object in their tenant, including one they could not otherwise read. The tag-assignment aggregate-id is derived from the tenant, so this was never a cross-tenant hole; it was tagging inside your own tenant across a row-level ownership boundary. Both handlers now unconditionally verify that entityType names a registered entity and that the host row is visible to the caller through that entity's own read path (tenant scope plus its `access.read` ownership) before touching the assignment; either check failing returns a not_found response, the same answer a genuinely missing row gets, so nothing doubles as an existence oracle. The check runs before the assignment and tag lookups, so a denied caller cannot tell an invisible host row apart from a missing assignment. This mirrors the add-note gate shipped in 0.244.0 and shares its helper.",
     "migration": "entityType must now name an entity registered in the same app (via r.entity(...) or a bundled feature), and the caller must be able to see the target row through that entity's own read path. Any consumer that called assign-tag or remove-tag with an entityType that is NOT a registered entity name, or with an entityId the caller could not otherwise read, will now get a not_found error instead of a successful write — register the host entity (and, if it needs row-level ownership, its `access.read` rule) before upgrading. Note the consequence for hard-deleted host rows: once the host row is gone, its assignment can no longer be removed through remove-tag; delete-tag's cascade still detaches it."
   }
 ]

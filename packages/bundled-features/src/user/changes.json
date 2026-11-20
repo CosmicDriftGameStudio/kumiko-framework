@@ -1,27 +1,35 @@
 [
   {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "User email lookups and writes are case-insensitive",
+    "detail": "`user:find-for-auth`, `user:create` and `user:update` lowercase the email in their schema, `seedUser` and the signup guard lowercase it before lookup and insert, and `login` lowercases before the lookup and the unknown-email lockout count. Before, the blind index compared byte-exact, so `Max@Firma.de` failed to log in to `max@firma.de` and `user:create` could add a second account for the same address in other casing. Emails returned by these handlers are now always lowercase, and `user-data-rights:write:request-deletion-by-email` lowercases its input too. The admin boot seed (`seedAdminGuarded`, `seedBootstrapAdmin`, `ensureBootstrapAdminRoles`) still finds an account stored with upper case and rewrites its email to lower case. `runProdApp` and `runWorkerApp` lowercase every other stored email on each boot in the background through the executor (`normalizeStoredUserEmails` from `@cosmicdrift/kumiko-bundled-features/user`), so the event and the blind index follow.",
+    "migration": "Nothing to do for accounts stored with upper case; the boot step repairs them. When the lowercase address already belongs to another live account, the boot step leaves both accounts unchanged and logs the count and the user ids as a warning (\"user accounts whose lower-cased email belongs to another live account\"); decide per pair which account stays and merge or delete the other one. Callers that compared a returned email against mixed-case input compare with `normalizeEmail` instead."
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "seedAdminGuarded, seedBootstrapAdmin and ensureBootstrapAdminRoles still find accounts with a blank email_bidx"
+  },
+  {
     "version": "0.414.0",
     "type": "fix",
-    "title": "user:me returns null for a caller id that is no uuid",
-    "detail": "An anonymous or system caller (id `anonymous`, `system`) reached `user:me` with an id that the uuid column rejects, so the query failed with a Postgres error and aborted the transaction. The handler now returns null for such callers without querying."
+    "title": "user:me returns null for a caller id that is no uuid"
   },
   {
     "version": "0.368.0",
     "type": "fix",
-    "title": "Soft-deleted users no longer count as active principals",
-    "detail": "A user deleted through the entity executor keeps its last status (usually active) with isDeleted set. principalStatusPlugin, the session checker and the PAT role resolver only looked at the status, so existing sessions and tokens of such a user stayed valid. They now treat isDeleted as blocked (session \"blocked\", PAT 401, principal_blocked for membership resolution) through the new isPrincipalRowBlocked predicate."
+    "title": "Soft-deleted users no longer count as active principals"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "resolveUserDisplayNames no longer swallows decrypt errors",
-    "detail": "A misconfigured or unavailable KMS made the delivery log silently show addresses or ids instead of names. Decrypt errors now propagate like in the member directory; users that are missing or have no display name are still left out."
+    "title": "resolveUserDisplayNames no longer swallows decrypt errors"
   },
   {
     "version": "0.361.0",
     "type": "improvement",
-    "title": "user:me returns effectiveTimeZone, SessionProvider provides the current user",
-    "detail": "The me query adds effectiveTimeZone (ctx.tz.user), CurrentUserProfile.effectiveTimeZone is parsed by fetchCurrentUser and SessionProvider wraps its children in CurrentUserProvider."
+    "title": "user:me returns effectiveTimeZone, SessionProvider provides the current user"
   },
   {
     "version": "0.354.0",
@@ -42,33 +50,28 @@
     "version": "0.340.0",
     "type": "improvement",
     "title": "The last-SystemAdmin check uses jsonb containment through selectMany",
-    "detail": "Removing the SystemAdmin role still refuses to drop the last active SystemAdmin; the count now comes from `selectMany` with a roles containment filter instead of raw SQL.",
     "migration": "keine"
   },
   {
     "version": "0.271.0",
     "type": "improvement",
-    "title": "systemScope handlers get a default per-tenant+handler rate limit; user:me opts out (fw#2861).",
-    "detail": "`user` mounts under `r.systemScope()`, so its write/query handlers without their own `rateLimit` now default to `{ per: \"tenant+handler\", limit: 600, windowSeconds: 60 }` once an app has a `RateLimitResolver` configured (framework change, see kumiko-framework changes.json 0.271.0). `user:query:user:me` (`user:me.query.ts`) declares `rateLimit: { disabled: true, reason: \"...\" }` — it is a self-scoped read of the caller's own identity record, hit on every page load, and a per-tenant bucket would throttle the whole tenant's page loads instead of just that one handler's traffic."
+    "title": "systemScope handlers get a default per-tenant+handler rate limit; user:me opts out (fw#2861)."
   },
   {
     "version": "0.218.1",
     "type": "improvement",
     "title": "user.email searchable — reindex required after upgrade",
-    "detail": "email gained searchable for roster lookup. buildSearchDocument only runs on write; existing rows need reindexEntity(\"user\") (or the reindex job) plus Meili configure for the new attribute.",
     "migration": "After deploying, run reindexEntity(\"user\") (or the existing reindex job) so pre-upgrade user rows appear in roster search."
   },
   {
     "version": "0.218.0",
     "type": "fix",
-    "title": "user-list: system-scope search; membership roles on tenants; emailVerified sort",
-    "detail": "systemScope entityList search uses SYSTEM_TENANT_ID (was session tenant → Meili miss/500). Tenants column shows membership roles (Offlot Demo (TenantAdmin)). emailVerified sortable; email also searchable for roster lookup. Global roles stay SystemAdmin-only — TenantAdmin/Admin live on membership (Team → Members)."
+    "title": "user-list: system-scope search; membership roles on tenants; emailVerified sort"
   },
   {
     "version": "0.217.0",
     "type": "improvement",
     "title": "user-list: roles multiSelect + tenants column; roles editable as SystemAdmin (fw#2384 follow-up)",
-    "detail": "user.roles is now createMultiSelectField (jsonb string[], options=[SystemAdmin]) so entityEdit shows a real multi-select instead of a raw JSON text box — SystemAdmins can promote another SystemAdmin from the UI. user-list columns gain roles + tenants; tenants is a derived field filled by the list handler from memberships (platform roster was unusable without tenant context). switch-tenant + auth-client parseRoles accept jsonb arrays (string-only deserialize dropped SystemAdmin on tenant switch). Soft-deleted users stay hidden by default.",
     "migration": "Run `kumiko-schema generate` and apply — migrates read_users.roles from text to jsonb USING roles::jsonb. Existing JSON array strings (`[]`, `[\"SystemAdmin\"]`) convert cleanly. Consumers that wrote roles as a JSON-encoded string via user:create/update should pass string[] instead (parseRoles still accepts both on read)."
   },
   {
@@ -82,13 +85,11 @@
     "version": "0.167.1",
     "type": "improvement",
     "title": "user.timezone field, wired into ctx.tz (fw#1636).",
-    "detail": "The user entity gains a `timezone` field (createTzField, no default). buildHandlerContext passes it to ctx.tz.user; the fallback chain stays tenant.timezone, then \"UTC\". Before this, ctx.tz.tenant and ctx.tz.user both hardcoded \"UTC\" while the plumbing already accepted per-request values.",
     "migration": "Run `kumiko-schema generate` and apply — the migration adds `read_users.timezone`. No backfill: an unset timezone falls through to the tenant's, exactly as before the field existed."
   },
   {
     "version": "0.165.3",
     "type": "improvement",
-    "title": "user.displayName is searchable via derived Meili (fw#1610).",
-    "detail": "displayName is userOwned PII and now searchable through the decrypt-into-Meili path; forget purges the index entry with the subject key."
+    "title": "user.displayName is searchable via derived Meili (fw#1610)."
   }
 ]

@@ -1,113 +1,196 @@
 [
   {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "securityBaselineFeatures preset removed",
+    "detail": "The subpath @cosmicdrift/kumiko-bundled-features/presets is gone with its exports securityBaselineFeatures and SecurityBaselineOptions. composeSecurityStack({ includeSessions }) from @cosmicdrift/kumiko-dev-server/compose-stacks mounts the same features (sessions, crypto-shredding, rate-limiting, audit) in the same order. The production boot warning about a missing security baseline now points to composeSecurityStack.",
+    "migration": "Replace securityBaselineFeatures({ includeSessions }) with composeSecurityStack({ includeSessions }) from @cosmicdrift/kumiko-dev-server/compose-stacks, or mount createSessionsFeature, createCryptoShreddingFeature, createRateLimitingFeature and createAuditFeature yourself.",
+    "affects": [
+      "securityBaselineFeatures",
+      "SecurityBaselineOptions",
+      "kumiko-bundled-features/presets"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Scaffolded tasks feature uses r.crud"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Managed bin/kumiko.ts and ci.yml fixes"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "kumiko check verifies test script timeouts",
+    "detail": "The scripts step of `kumiko check` reads every `bun test` command in package.json, derives its variant from `--config` and fails when the effective `--timeout` (bun's default is 5000) differs from `TEST_TIMEOUT_MS` of that variant. Running `bunfig.integration.toml` through `bun test` directly and `test:integration*` scripts that do not call `bun kumiko-testing integration` fail too. Apps that adopted `defineAppConfig` fail, others get a warning.",
+    "migration": "Set `--timeout` to the class value (`test:dom` 5000, `test:real` 240000) and delete app-level copies of this check such as `bun-test-timeout.test.ts`."
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Scaffold subpaths for the CLI"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Overrides of Kumiko packages fail the managed-files check",
+    "detail": "`kumiko check-managed` reports every `@cosmicdrift/kumiko-*` or `@cosmicdriftgamestudio/kumiko-*` entry in `overrides` or `resolutions`. Published Kumiko packages pin each other exactly, so such an override only hides a version drift.",
+    "migration": "Delete the Kumiko entries from `overrides` and `resolutions` and keep the exact pins in `dependencies`. Also delete overrides for html-to-text, nodemailer, sharp and happy-dom, which the framework now brings in patched versions.",
+    "affects": [
+      "overrides",
+      "resolutions"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Managed ci.yml covers e2e shards and full Chromium, checks run on pull requests only",
+    "detail": "package.json#kumiko.deploy takes `e2eShards` (integer from 1, default 1) and `e2eChromiumFull` (default false); they render `shards` and `chromium-full: true` into the e2e job. In the private ci.yml the test and integration jobs run on pull_request and merge_group only, like e2e, and the build on the main push no longer needs them, because the pull request already gated the merge. The public ci.yml caches the bun install and runs `bun kumiko-guards comment-lang` and `bun kumiko agent lint` in the test job.",
+    "migration": "Delete the `# kumiko-managed: local …` line in .github/workflows/ci.yml, rename jobs only this app needs to `app-<name>`, move shards and full Chromium to kumiko.deploy.e2eShards and kumiko.deploy.e2eChromiumFull and MinIO or Meilisearch to ports.infra (s3, meilisearch) in kumiko.config.ts, then run `kumiko sync-managed --write`. A public app needs English comments or a comment-lang baseline and a description on every agent-visible handler."
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Managed CI follows the framework's infra tag unless the app sets infraRef"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "setupAppTestStack is the one app test entry",
+    "detail": "The subpath `@cosmicdrift/kumiko-dev-server/setup-test-stack-from-features` and the root re-exports of `setupTestStackFromFeatures`, `SetupTestStackFromFeaturesOptions` and `TestStackPreset` are removed. Apps use `setupAppTestStack` from `@cosmicdrift/kumiko-dev-server/testing`; packages use `setupTestStack` from `@cosmicdrift/kumiko-testing/stack`.",
+    "migration": "Replace `setupTestStackFromFeatures(features, options)` with `setupAppTestStack(features, options)` and the type `SetupTestStackFromFeaturesOptions` with `SetupAppTestStackOptions`. setupAppTestStack defaults to `includeBundled: true` and `registryTables: true`; pass `includeBundled: false, registryTables: false` to keep the old defaults.",
+    "affects": [
+      "setupTestStackFromFeatures",
+      "setup-test-stack-from-features",
+      "SetupTestStackFromFeaturesOptions",
+      "TestStackPreset"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Managed kumiko/schema.ts and kumiko check read listDefaults",
+    "detail": "The managed `kumiko/schema.ts` passes `appConfig.listDefaults` to `composeFeatures`, and `kumiko check` reports bin runners that leave out `listDefaults` while kumiko.config.ts sets it. `runDevApp` and `setupTestStackFromFeatures` take `listDefaults`.",
+    "migration": "Run `kumiko sync-managed` to refresh kumiko/schema.ts, then rename the runner option in bin/.",
+    "affects": [
+      "bundledLists"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "App test stacks gate tiers like runDevApp",
+    "detail": "`setupAppTestStack` now wires the tenantTierResolver of a mounted tier-engine (`createTierEngineFeature({ tierMap })`, `composeSaasStack({ tiers })`) the same way runDevApp and runProdApp do, including the trial gate and `featureToggles`. `ctx.hasFeature` and the dispatcher's feature gate are no longer always on in app tests, so a free-tier refusal test can fail. Breaking for app tests that call tier-gated handlers without assigning a tier: assign one with `tier-engine:write:tier-assignment:create`, or pass `effectiveFeatures` explicitly, which still replaces the resolver.",
+    "migration": "App tests that call tier-gated handlers without assigning a tier assign one with `tier-engine:write:tier-assignment:create`, or pass `effectiveFeatures` to `setupAppTestStack`, which still replaces the resolver.",
+    "affects": [
+      "setupAppTestStack"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "bin/kumiko.ts is managed by kumiko sync-managed",
+    "migration": "Existing apps export `envSchema` from `bin/env-schema.ts` and adopt `bin/kumiko.ts` with `kumiko sync-managed --adopt --write`."
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "setupAppTestStack with registryTables false boots with a mounted tier-engine"
+  },
+  {
     "version": "0.423.0",
     "type": "fix",
     "title": "kumiko-build writes the server lockfile without network",
-    "detail": "The dist-server lockfile is derived from the app lock alone, so builds in environments without internet access no longer hang on registry lookups. Packages missing from the app lock still resolve through the registry.",
     "migration": "Apps that run with LOG_FORMAT=pretty in production must declare pino-pretty as a dependency; dist-server no longer installs it by default."
   },
   {
     "version": "0.420.0",
     "type": "fix",
-    "title": "English welcome banner and a quieter dev boot",
-    "detail": "The welcome banner of scaffolded apps mixed German and English (\"kumiko-app läuft\", \"Login als\"). It now reads \"Kumiko app running\", \"Login\" and \"Add a feature\". The stack no longer prints \"table … already exists, skipping create\" for every projection table on each boot."
+    "title": "English welcome banner and a quieter dev boot"
   },
   {
     "version": "0.418.0",
     "type": "improvement",
-    "title": "Deploy Dockerfile runs bun on the build platform",
-    "detail": "The managed `deploy/Dockerfile` runs every bun step in a `--platform=$BUILDPLATFORM` stage. A new `deps` stage installs the server bundle's production dependencies with `--os=linux --cpu=<x64|arm64>` for the target, and the runtime stage only copies them. An amd64 image built on arm64 runners therefore never runs bun under QEMU, where it aborts. The managed public CI workflow builds `linux/arm64,linux/amd64`. Apps pick it up with `kumiko sync-managed --write`."
+    "title": "Deploy Dockerfile runs bun on the build platform"
   },
   {
     "version": "0.417.0",
     "type": "fix",
     "title": "kumiko-upgrade migrates older scaffolds to Key Manager ciphertext keys",
-    "detail": "The `scaffold-kms-mode` codemod replaces `requireKmsWiring` in the production branch of `bin/main.ts` with `{ kmsMode: \"required\" as const }` and lets `schema apply` in `bin/kumiko.ts` also resolve the slots of `kmsEnvSchema`. It only rewrites the exact scaffold form; a hand-edited file is left as it is and reported as manual.",
     "codemod": "scripts/codemod/scaffold-kms-mode.ts"
   },
   {
     "version": "0.416.0",
     "type": "fix",
-    "title": "Scaffolded apps accept Key Manager ciphertext keys in production",
-    "detail": "The generated `bin/main.ts` (demo and blank starter) boots production with `kmsMode: \"required\"` instead of the sync `requireKmsWiring`, which rejected every `*_CIPHERTEXT` key; local boots keep `resolveKmsWiring`. The generated `bin/kumiko.ts` passes `schema apply` the slots of `kmsEnvSchema` in addition to the app's own, so the migrate step resolves the same keys as the server. Existing apps scaffolded before this release keep their old files; copy both changes by hand if they receive ciphertext keys."
+    "title": "Scaffolded apps accept Key Manager ciphertext keys in production"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Scaffolded apps typecheck with bun check",
-    "detail": "The typecheck script of newly scaffolded apps and of the framework workspace now runs `bun check --no-script` instead of `tsc --noEmit`, which needs Bun 1.4.4 or newer. Existing apps keep their script until they change it."
+    "title": "Scaffolded apps typecheck with bun check"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Deploy Dockerfile template no longer mentions migrate-step.sh",
-    "detail": "The comment in `deploy/Dockerfile.template` named a compose-host migrate step that the scaffold does not generate. It now only names the migrate-db initContainer of the k3s deployment."
+    "title": "Deploy Dockerfile template no longer mentions migrate-step.sh"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "managed check reports a bin entry that does not pass bundledLists",
-    "detail": "When `kumiko.config.ts` sets `bundledLists`, every `runProdApp`, `runDevApp` and `runWorkerApp` call in `bin/*.ts` must pass `bundledLists` too; otherwise the managed-files check reports an error instead of the app drifting silently from its config."
+    "title": "managed check reports a bin entry that does not pass bundledLists"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "subpath imports of an optional runtime external count as an import",
-    "detail": "The server bundle only detected `import \"meilisearch\"`, so an app that imported just `meilisearch/token` and did not list `meilisearch` in its dependencies shipped a `dist-server/package.json` without it and crashed in production with `Cannot find package 'meilisearch'`. Subpath imports are detected now."
+    "title": "subpath imports of an optional runtime external count as an import"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "dev server boots when KUMIKO_REDIS_PREFIX is set",
-    "detail": "The SSE channel prefix defaulted to a per-boot value that differs from `KUMIKO_REDIS_PREFIX`, which `redisNamespaceFromEnv` rejects. The prefix now falls back to `KUMIKO_REDIS_PREFIX` before the per-boot default."
+    "title": "dev server boots when KUMIKO_REDIS_PREFIX is set"
   },
   {
     "version": "0.411.0",
     "type": "improvement",
-    "title": "scaffoldApp starter \"blank\"",
-    "detail": "`scaffoldApp({ starter: \"blank\" })` (`SCAFFOLD_STARTERS`, `ScaffoldStarter`) writes an app without the tasks demo, `src/seed.ts` and `DEMO_ADMIN_PASSWORD`. `bin/main.ts` seeds the creator through `seeds.bootstrapAdminFromEnv` and wires SMTP mail and password reset when `SMTP_HOST` and `APP_BASE_URL` are set; `delivery` is mounted. The welcome banner prints only the email when the dev admin has no password. The default starter `demo` is unchanged."
+    "title": "scaffoldApp starter \"blank\""
   },
   {
     "version": "0.408.0",
     "type": "fix",
-    "title": "webp content type for public files",
-    "detail": "The dev server serves .webp files from public/ with content-type image/webp, the same as prod."
+    "title": "webp content type for public files"
   },
   {
     "version": "0.403.0",
     "type": "fix",
-    "title": "Dev watcher ignores restart events on unchanged files",
-    "detail": "startDevFileWatchers records the watcher start time and skips a restart when the changed file's mtime is older than that start. A failing stat (deleted or renamed file) still restarts. Known limit: a file copied in with a preserved older mtime (cp -p, rsync -a) no longer triggers a restart."
+    "title": "Dev watcher ignores restart events on unchanged files"
   },
   {
     "version": "0.401.0",
     "type": "improvement",
-    "title": "Scaffolded apps show the user, speak German and seed demo data as the real admin",
-    "detail": "The scaffolded shell gets the signed-in user, the app mounts the German locale, and its kumiko.config.ts turns on requireFieldValueTranslations. A `SeedFn` receives `(stack, { admin })`: the seeded admin as a session user (first membership), undefined without auth. The scaffolded demo seed uses it instead of TestUsers.admin. `applyStandardBootSeeds` returns `{ adminUserId? }`."
+    "title": "Scaffolded apps show the user, speak German and seed demo data as the real admin"
   },
   {
     "version": "0.401.0",
     "type": "improvement",
-    "title": "New apps start on infra reusables v2.0.0",
-    "detail": "The managed ci.yml gives the test job `contents: read`, `packages: read` and `pull-requests: read`, which the v2 reusable test workflow asks for, and kumiko-create writes kumiko.deploy.infraRef reusables-v2.0.0. Existing apps set infraRef to reusables-v2.0.0 and run kumiko sync-managed --write."
+    "title": "New apps start on infra reusables v2.0.0"
   },
   {
     "version": "0.395.0",
     "type": "fix",
-    "title": "Live updates from a separate worker process reach the dev-server browser",
-    "detail": "The dev server always used an in-memory SSE broker, so it never subscribed to Redis. When a separate worker process won the shared event cursor it published live signals to Redis, and they never reached the browser. The dev server now uses the Redis-backed broker when REDIS_URL is set, and setupTestStack accepts an optional sseBroker. Its channels are prefixed per boot (KUMIKO_REDIS_CHANNEL_PREFIX if set, otherwise derived from the dev DB mode), so parallel dev servers on one Redis stay apart; a separate worker must set the same KUMIKO_REDIS_CHANNEL_PREFIX (the handle exposes it as sseChannelPrefix)."
+    "title": "Live updates from a separate worker process reach the dev-server browser"
   },
   {
     "version": "0.394.0",
     "type": "improvement",
-    "title": "Scaffolded bin/kumiko.ts dispatches events",
-    "detail": "The generated standalone CLI now forwards `events` to `runEventsCli` with the app's features and row level security mode."
+    "title": "Scaffolded bin/kumiko.ts dispatches events"
   },
   {
     "version": "0.392.1",
     "type": "fix",
-    "title": "New apps start on infra reusables v1.2.4",
-    "detail": "kumiko-create wrote kumiko.deploy.infraRef reusables-v1.2.0. With the 0.392 Dockerfile template that tag runs the frozen app-dockerfile guard, which rejects the secret mount, so a fresh app failed its first CI run. Existing apps set infraRef to reusables-v1.2.4 and run kumiko sync-managed --write."
+    "title": "New apps start on infra reusables v1.2.4"
   },
   {
     "version": "0.392.0",
@@ -118,20 +201,17 @@
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "meilisearch lands in dist-server dependencies only when the bundle imports it or the app declares it",
-    "detail": "The package stays external in every server build, but apps without search no longer get it as a production dependency in dist-server/package.json. An app that imports createMeilisearchAdapter, or lists meilisearch in dependencies or optionalDependencies, keeps it with the framework's peer range."
+    "title": "meilisearch lands in dist-server dependencies only when the bundle imports it or the app declares it"
   },
   {
     "version": "0.390.0",
     "type": "fix",
-    "title": "The managed Dockerfile names the real k3s migration step",
-    "detail": "The comment above the migrations COPY in the managed Dockerfile pointed at a release.yml InitContainer that does not exist. It now names the migrate-db initContainer of the infra _app-deploy.yml, and migrate-step.sh for compose hosts. Only the comment changes; the next kumiko-upgrade shows it as a managed-file diff."
+    "title": "The managed Dockerfile names the real k3s migration step"
   },
   {
     "version": "0.390.0",
     "type": "fix",
-    "title": "Scaffolded bin/kumiko.ts passes FEATURES from kumiko/schema",
-    "detail": "The scaffolded standalone CLI handed allAppFeatures(appConfig) to runSchemaCli, a raw list without the bundled foundation. It now imports FEATURES from kumiko/schema, which the Schema CLI Features guard requires. Existing apps are not touched."
+    "title": "Scaffolded bin/kumiko.ts passes FEATURES from kumiko/schema"
   },
   {
     "version": "0.390.0",
@@ -144,81 +224,68 @@
     "version": "0.390.0",
     "type": "improvement",
     "title": "Scaffolded dev admin leaves emailVerified to the boot seed",
-    "detail": "The boot seed marks the operator-created admin and the seed shortcut accounts as email-verified, so the scaffolded `bin/server.ts` no longer sets `emailVerified: true` on its own. Self-registered users still go through the verify flow.",
     "migration": "Optional. Existing apps can drop `emailVerified: true` from `auth.admin` in `bin/server.ts` and `bin/main.ts`; an explicit value still wins over the default."
   },
   {
     "version": "0.389.0",
     "type": "improvement",
     "title": "Scaffolded apps pin Bun 1.4.4",
-    "detail": "The deploy Dockerfile template, the managed public CI workflow and the scaffolded bun-types range move from Bun 1.4.0 to 1.4.4, the minimum the Bun.SQL driver needs. The managed CI workflow updates on the next sync; the deploy Dockerfile is only written at scaffold time.",
     "migration": "Raise BUN_VERSION in an existing deploy Dockerfile to 1.4.4 and bun-types to ^1.4.4 by hand."
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "Scaffolded docker-compose raises Postgres max_connections to 300",
-    "detail": "Bun.SQL dials its whole pool eagerly, so the default limit of 100 is too tight for an app plus its tests. Existing apps can add command postgres -c max_connections=300 to the postgres service."
+    "title": "Scaffolded docker-compose raises Postgres max_connections to 300"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "Fresh scaffolds build with bun run build",
-    "detail": "create-kumiko-app now writes public/index.html with the /styles.css and /client.js placeholders. Without it kumiko-build stopped with a missing-template error, so the scaffolded Dockerfile could not build either."
+    "title": "Fresh scaffolds build with bun run build"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "Scaffolded apps get exact framework pins",
-    "detail": "resolveFrameworkVersion no longer prefixes ^ and scaffoldApp no longer falls back to \"*\", so a new app is green in kumiko check managed. Without a resolvable version and without an explicit frameworkVersion, scaffoldApp throws."
+    "title": "Scaffolded apps get exact framework pins"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "migrate-step.sh leaves the managed file set",
-    "detail": "Managed apps run migrations as the k3s InitContainer from release.yml, so deploy/migrate-step.sh is neither scaffolded nor synced for them. Delete it if present. kumiko-init-deploy keeps generating it for compose self-hosting."
+    "title": "migrate-step.sh leaves the managed file set"
   },
   {
     "version": "0.388.0",
     "type": "improvement",
-    "title": "English buildServerBundle errors",
-    "detail": "The errors for a missing bin/main.ts and a missing bin/kumiko.ts in buildServerBundle are now English."
+    "title": "English buildServerBundle errors"
   },
   {
     "version": "0.388.0",
     "type": "improvement",
-    "title": "Named boot phases for the dev server",
-    "detail": "createKumikoServer now reads as a list of phases: client bundles, Tailwind stylesheet, HTML templates, stack boot, background runners, fetch handler, HTTP server, shutdown, file watchers and signal handlers. Each phase lives in its own create-kumiko-server-*.ts file. Request routing is a route table instead of one if chain, and the file watcher classifies changes through suffix and directory tables. Responses, headers, cookies, the reload stream, log lines, exit codes and the start and stop order stay the same. PROD_BUNDLES_ENV, STYLESHEET_WATCH_ENV and resolveStylesheet are still exported from the package index."
+    "title": "Named boot phases for the dev server"
   },
   {
     "version": "0.388.0",
     "type": "improvement",
-    "title": "runDevApp split into boot phases",
-    "detail": "runDevApp() keeps its signature and behavior. Config resolution and boot validation (run-dev-app-config.ts), late-bound tier, session and token wiring plus the onAfterSetup step (run-dev-app-auth.ts) and the createKumikoServer options (run-dev-app-server-options.ts) are separate phases. Steps shared with prod come from @cosmicdrift/kumiko-server-runtime/boot/shared-boot-steps. A new unit test covers the late-bound tier resolver's boot-order guard and trialGate delegation."
+    "title": "runDevApp split into boot phases"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "runDevApp releases the KMS on any boot failure; server lockfile is verified",
-    "detail": "runDevApp closes the KMS wiring when a boot gate throws before the server is created. Stopping one app no longer replaces the session, MFA and PAT revokers a newer app bound on the same feature instances: the bind functions of sessions, auth-mfa and personal-access-tokens return an unbind that only clears its own binding. writeServerLockfile replays the frozen install the runtime image runs, so a lock that did not re-resolve fails in kumiko-build."
+    "title": "runDevApp releases the KMS on any boot failure; server lockfile is verified"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Managed CI, app jobs and static config parsing",
-    "detail": "The public ci.yml sets MEILI_URL and MEILI_MASTER_KEY for the Meilisearch service. App-owned workflow jobs with a trailing comment or a quoted name survive a sync. kumiko.config.ts with shorthand or spread siblings next to literal ports is read as defined instead of invalid."
+    "title": "Managed CI, app jobs and static config parsing"
   },
   {
     "version": "0.379.0",
     "type": "fix",
-    "title": "runDevApp stop releases the late-bound revokers",
-    "detail": "stop() swaps the session and PAT revokers that boot bound onto the auth-mfa, sessions and personal-access-tokens feature instances for inert ones, and those features now accept a new binding on a second boot instead of keeping the first. A later app or test stack on the same feature instances no longer reaches the closed database connection."
+    "title": "runDevApp stop releases the late-bound revokers"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "setupAppTestStack featureToggles option",
-    "detail": "featureToggles true mounts the feature-toggles feature and binds it, so a disabled feature is unreachable in the test stack. It cannot be combined with effectiveFeatures."
+    "title": "setupAppTestStack featureToggles option"
   },
   {
     "version": "0.379.0",
@@ -230,63 +297,53 @@
   {
     "version": "0.378.0",
     "type": "improvement",
-    "title": "composeRendererStack forwards templateResolver options",
-    "detail": "RendererStackOptions.templateResolver is passed to createTemplateResolverFeature, so an app can set tenantEditable."
+    "title": "composeRendererStack forwards templateResolver options"
   },
   {
     "version": "0.376.0",
     "type": "improvement",
-    "title": "composeSaasStack with stripe warns instead of requiring billing",
-    "detail": "A stripe stack without the billing option logs a boot warning instead of aborting, and composeSaasStack takes featureToggles to require that option."
+    "title": "composeSaasStack with stripe warns instead of requiring billing"
   },
   {
     "version": "0.376.0",
     "type": "improvement",
-    "title": "Managed workflows take infraRef, visibility and app-* jobs",
-    "detail": "ci.yml and release.yml render the infra reusables as @<infraRef> from package.json#kumiko.deploy.infraRef. Without it sync-managed renders @main and kumiko check managed warns; this warning becomes an error in a later release. kumiko.deploy.visibility \"public\" renders a self-contained ci.yml and a release.yml that only prints the gh workflow run hint for the public rollout. Jobs named app-* survive a sync and are not drift. kumiko.deploy.docStatusGuard false renders doc-status-guard false."
+    "title": "Managed workflows take infraRef, visibility and app-* jobs"
   },
   {
     "version": "0.376.0",
     "type": "improvement",
-    "title": "./testing subpath with the bound test stack and seed helpers",
-    "detail": "setupAppTestStack, seedTenant, persistTenantRows and createE2eSeedRoutes, wired to the bundled user, tenant and auth features."
+    "title": "./testing subpath with the bound test stack and seed helpers"
   },
   {
     "version": "0.373.0",
     "type": "improvement",
     "title": "kumiko-build pins dist-server dependencies with a bun.lock seeded from the app's bun.lock",
-    "detail": "The lock is written by writeServerLockfile after the bundle build and needs network or a warm Bun cache. The scaffolded Dockerfile runs bun install --production --frozen-lockfile in the runtime stage.",
     "migration": "Apps with their own Dockerfile should run `bun install --production --frozen-lockfile` in dist-server instead of `bun install --production`."
   },
   {
     "version": "0.372.0",
     "type": "improvement",
-    "title": "kumiko-build --entry and buildServerBundle extraEntries bundle additional server entry points as dist-server/<basename>.js",
-    "detail": "Opt-in per file, not every bin/ helper module; the output shares the chunk files with server.js. Unknown kumiko-build options now fail the build."
+    "title": "kumiko-build --entry and buildServerBundle extraEntries bundle additional server entry points as dist-server/<basename>.js"
   },
   {
     "version": "0.371.0",
     "type": "improvement",
-    "title": "composeGdprStack access, composePagesStack terms, migrate-step project name",
-    "detail": "composeGdprStack({ access }) is passed to compliance-profiles and composeOpsStack({ access }) to delivery as their handler roles. composePagesStack({ terms }) is passed to legal-pages. DevHostDispatch and DevHostDispatchResult are exported. The migrate-step.sh template and the managed pre-push template follow the show-pony version, with the compose project name taken from docker compose config."
+    "title": "composeGdprStack access, composePagesStack terms, migrate-step project name"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "runDevApp binds the MFA token secrets",
-    "detail": "When auth-mfa is mounted and JWT_SECRET is set, runDevApp binds the MFA token secrets the same way runProdApp does."
+    "title": "runDevApp binds the MFA token secrets"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "composeAuthStack, composeSaasStack and composeSecurityStack",
-    "detail": "composeAuthStack({ sessions?, mfa?, accountSecurity? }) mounts auth-foundation and sessions, with mfa also auth-mfa and account-security; the password login still comes from the auth option or composeFeatures. composeSaasStack({ billing: \"stripe\" | \"mollie\", tiers, caps?, waitlist?, billingFoundation? }) mounts billing-foundation and tier-engine, cap-counter plus cap-overview with caps, waitlist with waitlist. With \"stripe\" the runProdApp billing option mounts subscription-stripe and the tier-sync webhook route; with \"mollie\" the stack mounts subscription-mollie from the mollie options and the app adds the webhook route. composeSecurityStack({ includeSessions? }) mounts sessions, crypto-shredding, rate-limiting and audit. composeGdprStack({ selfService: { userDataRights? } }) adds sessions, user-data-rights and user-profile in the order dsgvoSelfServiceFeatures used. billing-foundation requires tenant-lifecycle and compliance-profiles, which composeGdprStack({ tenantLifecycle: true }) mounts. user-profile in selfService requires user-data-rights-defaults and auth-email-password; composeUserDataRightsStack mounts the defaults, and the login comes from the auth option. Recipe: samples/recipes/compose-stacks."
+    "title": "composeAuthStack, composeSaasStack and composeSecurityStack"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
     "title": "Managed files: one template source for the scaffold, kumiko check managed and kumiko sync-managed",
-    "detail": "deploy/Dockerfile, deploy/Dockerfile.dockerignore, deploy/migrate-step.sh, .husky/pre-push, .github/workflows/{ci,release,cache-cleanup}.yml, the bunfigs and kumiko/schema.ts carry a kumiko-managed marker on line 1 (line 2 after a shebang or # syntax= line). kumiko new app writes them, plus kumiko.config.ts, bin/server.ts (was bin/dev.ts), bin/env-schema.ts, e2e/_helpers and src/__tests__/_setup.ts; bunfig.ci.toml is gone. kumiko/schema.ts is generated from kumiko.config.ts. kumiko-init-deploy prints a deprecation notice and goes away in the next release. Release targets come from package.json#kumiko.deploy.namespace and .deployment (default: the app name).",
     "migration": "Existing apps: add kumiko.config.ts with defineAppConfig, then run kumiko sync-managed (dry run), kumiko sync-managed --write --adopt for files that are identical or should follow the template, and mark deliberate deviations with \"# kumiko-managed: local <reason>\" on line 2. Until kumiko.config.ts calls defineAppConfig, kumiko check only warns about drift and missing scripts."
   },
   {
@@ -299,32 +356,27 @@
   {
     "version": "0.368.0",
     "type": "improvement",
-    "title": "Scaffolded apps get AGENTS.md from a template with placeholders",
-    "detail": "The scaffold renders AGENTS.md from templates/AGENTS.app.md instead of a fixed string. It fills in the app name, the mounted features and the commands that exist in the generated package.json. Purpose, production URL and app-specific rules stay as visible TODO(app owner) placeholders. CLAUDE.md is unchanged: it imports the framework guide and AGENTS.md."
+    "title": "Scaffolded apps get AGENTS.md from a template with placeholders"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "New projects read the prod admin password from DEMO_ADMIN_PASSWORD",
-    "detail": "The scaffolded bin/main.ts no longer seeds the prod admin with a fixed password. It reads DEMO_ADMIN_PASSWORD (declared in the env schema, min 12 chars), and boot fails without it. Existing apps are untouched; apps from an older scaffold should change bin/main.ts the same way."
+    "title": "New projects read the prod admin password from DEMO_ADMIN_PASSWORD"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "A freshly scaffolded app passes bun run lint without rework",
-    "detail": "New projects now get a .gitignore, an exactly pinned @biomejs/biome and lint-clean generated files (import order, formatting). Existing apps are untouched."
+    "title": "A freshly scaffolded app passes bun run lint without rework"
   },
   {
     "version": "0.365.0",
     "type": "improvement",
-    "title": "composeRendererStack passes a mail brand suffix resolver",
-    "detail": "composeRendererStack({ mailBrandSuffix }) hands the resolver to createRendererMailHtmlFeature as brandSuffix."
+    "title": "composeRendererStack passes a mail brand suffix resolver"
   },
   {
     "version": "0.365.0",
     "type": "improvement",
-    "title": "composeRendererStack passes a mail footer resolver to the mail renderer",
-    "detail": "composeRendererStack({ mailFooter }) hands the resolver to createRendererMailHtmlFeature, so apps on the composed stack set imprint, privacy and platform line in one place."
+    "title": "composeRendererStack passes a mail footer resolver to the mail renderer"
   },
   {
     "version": "0.365.0",
@@ -336,26 +388,22 @@
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "buildServerBundle resolves worker and bootstrap entries as .ts or .js; runDevApp stop keeps an explicit blindIndexKey",
-    "detail": "An app with bin/main.js and bin/worker.js used to get no dist-server/worker.js without any warning, because only worker.ts and bootstrap.ts were looked up. Siblings now resolve like the server entry, .ts first and then .js. In the ephemeral PII default, stopping runDevApp unset a blindIndexKey that the app passed itself; it now unsets only the key the default generated."
+    "title": "buildServerBundle resolves worker and bootstrap entries as .ts or .js; runDevApp stop keeps an explicit blindIndexKey"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "runDevApp resolves the masterKey provider before boot validation",
-    "detail": "runDevApp validated encrypted fields before building the boot cipher, so an app that supplies masterKey and has no KUMIKO_SECRETS_MASTER_KEY_V1 in the environment booted in production but failed locally with no usable master key. The provider now reaches validateBoot like in runProdApp and runWorkerApp."
+    "title": "runDevApp resolves the masterKey provider before boot validation"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "composeRendererStack includes renderer-mail-html",
-    "detail": "The renderer stack now also mounts createRendererMailHtmlFeature, which the auth mails need. Apps that already list renderer-mail-html next to composeRendererStack() drop their own copy, createRegistry rejects duplicate features."
+    "title": "composeRendererStack includes renderer-mail-html"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "composeRendererStack no longer mounts renderer-simple",
-    "detail": "renderer-simple is removed, so the renderer stack is template-resolver, renderer-foundation and renderer-mail-html."
+    "title": "composeRendererStack no longer mounts renderer-simple"
   },
   {
     "version": "0.361.0",
@@ -373,8 +421,7 @@
   {
     "version": "0.353.0",
     "type": "fix",
-    "title": "init-deploy fails early when private GitHub packages have no bunfig.toml or .npmrc",
-    "detail": "init-deploy rejects private GitHub packages without a registry config\nAn app with `@cosmicdriftgamestudio/*` dependencies but no `bunfig.toml`/`.npmrc` used to get a Dockerfile whose `bun install` failed with a 404 only inside the image build. `scaffoldDeploy`, `renderDeployFiles` and `checkDeployDrift` now throw with a hint to add the scope entry."
+    "title": "init-deploy fails early when private GitHub packages have no bunfig.toml or .npmrc"
   },
   {
     "version": "0.353.0",
@@ -384,32 +431,27 @@
   {
     "version": "0.351.0",
     "type": "fix",
-    "title": "--help prints usage instead of running the command (init-deploy, build, dev, schema-check, kumiko-testing integration)",
-    "detail": "`--help` prints usage on every bin\n`kumiko-init-deploy --help` used to write the deploy files, and `kumiko-testing integration --help` crashed while parsing its arguments. Both now print their usage and exit 0, as do `kumiko-build`, `kumiko-dev`, `kumiko-schema-check` and `create-kumiko-app`."
+    "title": "--help prints usage instead of running the command (init-deploy, build, dev, schema-check, kumiko-testing integration)"
   },
   {
     "version": "0.349.0",
     "type": "improvement",
-    "title": "init-deploy reads kumiko.deploy.dbName for the migrate step's DATABASE_URL",
-    "detail": "init-deploy: `package.json#kumiko.deploy.dbName`\n`migrate-step.sh` builds `DATABASE_URL` with `kumiko.deploy.dbName` as the database (default: appName), validated like `dbUser`. Apps without the key render byte-identical output."
+    "title": "init-deploy reads kumiko.deploy.dbName for the migrate step's DATABASE_URL"
   },
   {
     "version": "0.347.0",
     "type": "fix",
-    "title": "Dev-server file watchers take an injectable event source so watcher tests no longer depend on FSEvents timing",
-    "detail": "Dev-server file watchers accept an injected event source\n`watchAndRegenerate` takes `watchDirectory` and `createKumikoServer` takes `_watchDirectory`. Production behavior is unchanged (native `fs.watch`); the hot-reload and codegen-watch tests drive changes through the seam instead of macOS FSEvents, which starts asynchronously and drops early writes."
+    "title": "Dev-server file watchers take an injectable event source so watcher tests no longer depend on FSEvents timing"
   },
   {
     "version": "0.345.0",
     "type": "fix",
-    "title": "generated migrate-step.sh honours COMPOSE_PROJECT_NAME from .env",
-    "detail": "The `migrate-step.sh` that `kumiko-init-deploy` generates now reads `.env` before it picks the stack network. Before, a `COMPOSE_PROJECT_NAME` set only in `.env` was ignored and the script fell back to the directory name, so on a shared host it could run the migration against another app's network and Postgres. The project name, from `.env` or the directory, is lowercased and stripped to `[a-z0-9_-]` as Compose does, and the script still stops when the network does not exist. Regenerate the script in existing apps to pick this up."
+    "title": "generated migrate-step.sh honours COMPOSE_PROJECT_NAME from .env"
   },
   {
     "version": "0.345.0",
     "type": "fix",
-    "title": "Client entry edits hot-reload instead of restarting",
-    "detail": "Editing a client entry file hot-reloads instead of restarting the dev server\nOn macOS the recursive file watcher reports paths relative to the watched directory. A change to a client entry such as `client.tsx` or a custom-named entry was therefore classified as a server change and restarted the process. The watcher now resolves the path and treats every configured entry source file as hot-reload."
+    "title": "Client entry edits hot-reload instead of restarting"
   },
   {
     "version": "0.341.0",
@@ -431,70 +473,59 @@
   {
     "version": "0.340.0",
     "type": "improvement",
-    "title": "Server bundle includes an optional worker entry",
-    "detail": "When `bin/worker.ts` sits next to `bin/main.ts`, `buildServerBundle` builds it in the same split build as `dist-server/worker.js`. Start a separate worker process from the same image with `exec bun run worker.js`."
+    "title": "Server bundle includes an optional worker entry"
   },
   {
     "version": "0.338.0",
     "type": "fix",
-    "title": "Scaffolded migrate step percent-encodes DB_PASSWORD",
-    "detail": "dev-server: the scaffolded `deploy/migrate-step.sh` percent-encodes `DB_PASSWORD` in `DATABASE_URL`, so passwords with `@`, `:`, `/`, `#`, `%` or non-ASCII characters no longer break the URL. Re-run `kumiko init-deploy` to pick it up; apps with a hand-written `urlencode` should take the new version, which also encodes bytes >= 0x80 correctly."
+    "title": "Scaffolded migrate step percent-encodes DB_PASSWORD"
   },
   {
     "version": "0.338.0",
     "type": "improvement",
     "title": "dev hostDispatch not-found can serve a custom 404 page",
-    "detail": "`DevHostDispatchResult` `{ kind: \"not-found\" }` accepts `file` (served like `static-html`) or `entryName` (that entry's shell), both with status 404. A missing file answers 500 with `hostDispatch: file not found`. Without fields the plain \"Not Found\" 404 stays.",
     "migration": "No code change needed."
   },
   {
     "version": "0.338.0",
     "type": "improvement",
-    "title": "New package @cosmicdrift/kumiko-samples with the corpus sources",
-    "detail": "New package with the sample recipes, sample apps and bundled-features sources\n`@cosmicdrift/kumiko-samples` ships the sample recipes, sample apps and bundled-features sources in the repository layout. Tools such as the few-shot corpus build can run against a pinned version of it and get the same entry ids and source paths as in the monorepo."
+    "title": "New package @cosmicdrift/kumiko-samples with the corpus sources"
   },
   {
     "version": "0.337.1",
     "type": "improvement",
     "title": "createKumikoServer handle exposes the boot's jobQueueNamePrefix",
-    "detail": "dev-server: `createKumikoServer()` returns the boot's `jobQueueNamePrefix` on its handle, so callers sharing a Redis can address exactly that boot's `bull:<prefix>-*` keys.",
     "migration": "No action needed: purely additive handle field."
   },
   {
     "version": "0.337.0",
     "type": "fix",
-    "title": "public/ served via realpath incl. symlinked public/, ephemeral dev queues cleaned on stop, init-deploy --out app name, compose-style migrate-step network name, config preset validates configResolver; guards report correct isolation lines and time out kumiko-upgrade",
-    "detail": "The dev server serves `public/` files from the symlink-resolved path (realpath check before the read) and works when `public/` itself is a symlink. Ephemeral dev boots delete their per-boot BullMQ keys from the shared Redis on `stop()`. `kumiko-init-deploy --out <dir>` defaults the app name from that directory's `package.json`. The generated `migrate-step.sh` with `stackNetwork: \"directory\"` derives the network name like Docker Compose (lowercased, sanitised, `COMPOSE_PROJECT_NAME` wins). `setupTestStackFromFeatures` with the `config` preset throws a clear error when `extraContext.configResolver` is not a resolver. The runtime-isolation guard reports each regression at its own import line, and the upgrade-state guard no longer hangs on a stuck `kumiko-upgrade` (stdin ignored, timeout)."
+    "title": "public/ served via realpath incl. symlinked public/, ephemeral dev queues cleaned on stop, init-deploy --out app name, compose-style migrate-step network name, config preset validates configResolver; guards report correct isolation lines and time out kumiko-upgrade"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Codegen validates feature-manifest.json and only keeps the stale handler block when it is missing or invalid",
-    "detail": "`kumiko-build` codegen now validates `feature-manifest.json`. A valid manifest that lists no write handlers removes the generated `WriteHandlerQn` and typed-dispatcher block instead of keeping a stale one. A broken manifest keeps the block and warns with its own \"feature-manifest.json invalid\" message."
+    "title": "Codegen validates feature-manifest.json and only keeps the stale handler block when it is missing or invalid"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Codegen emits namespace zod imports",
-    "detail": "Generated `schemas.generated.ts` and `types.generated.d.ts` now import zod as a namespace (`import * as z from \"zod\"`), matching the framework's own convention. Regenerate with `kumiko build` to pick it up."
+    "title": "Codegen emits namespace zod imports"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Dev public-file fallback returns 404 for NUL or over-long paths, deploy scaffold blames appName for an invalid default DB user",
-    "detail": "The dev-server public-file fallback answers a request path containing an encoded NUL byte (`%00`) or an over-long file name with the normal 404 instead of a 500. The scaffold deploy step now names `appName` as the cause when it is too long to serve as the default DB user."
+    "title": "Dev public-file fallback returns 404 for NUL or over-long paths, deploy scaffold blames appName for an invalid default DB user"
   },
   {
     "version": "0.330.0",
     "type": "improvement",
-    "title": "kumiko-server-runtime and kumiko-dev-server are published as compiled JavaScript plus .d.ts",
-    "detail": "Both packages now ship `dist` (`.js` and `.d.ts`) instead of TypeScript source. Export keys are unchanged; only the targets behind them move to `dist`. `kumiko-dev-server` keeps its `bin/*.ts` entrypoints (they still need Bun) and ships them together with `templates`; they now import through the new `@cosmicdrift/kumiko-dev-server/cli` export instead of reaching into `src`. `kumiko-server-runtime` now declares `ioredis` and `kumiko-dev-server` declares `zod` as dependencies, which their code already imported. `ioredis` is imported as a named `{ Redis }` so the class resolves under Node's ESM loader."
+    "title": "kumiko-server-runtime and kumiko-dev-server are published as compiled JavaScript plus .d.ts"
   },
   {
     "version": "0.328.0",
     "type": "improvement",
-    "title": "Dev server serves the renderer-web fonts",
-    "detail": "GET `/assets/kumiko/fonts/<file>.woff2` streams the packaged IBM Plex files with `font/woff2` and a one day cache header. Names outside the allowlist answer 404."
+    "title": "Dev server serves the renderer-web fonts"
   },
   {
     "version": "0.323.0",
@@ -512,7 +543,6 @@
     "version": "0.323.0",
     "type": "improvement",
     "title": "runDevApp wires auth-email-password's new invite-info query into invite.infoHandler",
-    "detail": "Same wiring as runProdApp, for the dev server.",
     "migration": "No action needed: purely additive wiring, no option changes."
   },
   {
@@ -526,14 +556,12 @@
     "version": "0.321.0",
     "type": "improvement",
     "title": "kumiko-upgrade gained --help/-h",
-    "detail": "Prints usage and exits 0 without running the upgrade report.",
     "migration": "No action needed."
   },
   {
     "version": "0.321.0",
     "type": "improvement",
     "title": "runDevApp now also honors KUMIKO_TRUSTED_PROXY_HOPS as an env fallback, symmetric to runProdApp",
-    "detail": "Precedence: `options.trustedProxyHops ?? effectiveAuth?.trustedProxyHops\n?? parseTrustedProxyHopsEnv(envSource[TRUSTED_PROXY_HOPS_ENV], \"runDevApp\")`.",
     "migration": "No action needed for the default (unproxied) dev setup."
   },
   {
@@ -546,8 +574,7 @@
   {
     "version": "0.320.0",
     "type": "fix",
-    "title": "setupTestStackFromFeatures' config preset now also derives _configAccessorFactory",
-    "detail": "buildHandlerContext derives ctx.config from _configAccessorFactory, not configResolver directly, so a write handler under presets: [\"config\"] saw ctx.config as undefined even with a configResolver present. mergeExtraContext now also runs addConfigAccessorFactory (the same helper runProdApp/runDevApp use), keeping a base-supplied configResolver winning over the preset default. Closes #3313."
+    "title": "setupTestStackFromFeatures' config preset now also derives _configAccessorFactory"
   },
   {
     "version": "0.320.0",
@@ -568,14 +595,12 @@
   {
     "version": "0.305.0",
     "type": "improvement",
-    "title": "createKumikoServer/runDevApp gain stylesheetWatch (env KUMIKO_DEV_STYLESHEET_WATCH=0) to build Tailwind CSS once without a --watch process",
-    "detail": "`defineAppE2eConfig` sets `KUMIKO_DEV_STYLESHEET_WATCH=0`, so the dev-server it boots builds CSS once and stops instead of keeping a Tailwind `--watch` process alive. Tailwind v4's watcher subscribes to the whole app cwd recursively with no gitignore filter, so every Playwright artifact write under `test-results/` previously counted as a rebuild trigger."
+    "title": "createKumikoServer/runDevApp gain stylesheetWatch (env KUMIKO_DEV_STYLESHEET_WATCH=0) to build Tailwind CSS once without a --watch process"
   },
   {
     "version": "0.301.0",
     "type": "fix",
-    "title": "Scaffolded bunfig.toml and bunfig.ci.toml no longer contain the inert [test] concurrency key",
-    "detail": "bun has no [test] concurrency key and ignores it silently; the scaffold wrote concurrency = 8, which made kumiko-testing bunfig refuse the merge on a freshly scaffolded app. Existing apps can delete the line from their bunfig files; nothing changes at runtime."
+    "title": "Scaffolded bunfig.toml and bunfig.ci.toml no longer contain the inert [test] concurrency key"
   },
   {
     "version": "0.299.0",
@@ -592,13 +617,11 @@
   {
     "version": "0.291.0",
     "type": "fix",
-    "title": "renderWriteHandlerTypes emits the WriteHandlerQn union in stable order",
-    "detail": "`renderWriteHandlerTypes` now sorts `handlerQns` before rendering, like its sibling renderers in the same file. The dev-server passes registration order (`collectWriteHandlerQns`) while the CLI/build path passes manifest order, so the same feature set produced a differently ordered `WriteHandlerQn` union in `.kumiko/define.ts` and `.kumiko/types.generated.d.ts` depending on which one ran last. Consumer apps that commit those generated files no longer get order-only diffs after a local `bun dev`."
+    "title": "renderWriteHandlerTypes emits the WriteHandlerQn union in stable order"
   },
   {
     "version": "0.289.0",
     "type": "improvement",
-    "title": "runDevApp gains resolvePageHead for dev/e2e parity with runProdApp",
-    "detail": "RunDevAppOptions/CreateKumikoServerOptions gain resolvePageHead, same PageHeadResolver signature as RunProdAppOptions. Applied to every templated HTML response (default single-entry shell and a host-dispatched \"html\" entry) via the shared @cosmicdrift/kumiko-headless/apex resolveAndInjectPageHead — same 300ms timeout, same error/null/timeout-falls-back-to-unchanged-200-shell semantics as prod (kumiko-framework#3026). The dev-only static-html hostDispatch kind (raw file passthrough, no bundle/schema injection either) is unaffected. No behavior change for apps that don't set resolvePageHead."
+    "title": "runDevApp gains resolvePageHead for dev/e2e parity with runProdApp"
   }
 ]

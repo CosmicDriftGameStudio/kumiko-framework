@@ -2,8 +2,7 @@
   {
     "version": "0.415.0",
     "type": "fix",
-    "title": "unreadable ledger backfill marker no longer causes endless 503",
-    "detail": "shouldRedeliverLegacyCheckout answers 200 and logs only when the marker dispatch fails with a configuration error (access_denied, not_found, feature_disabled), because custom_data.tenantBinding is client-settable; other dispatch failures still answer 503 so Paddle redelivers a bounded number of times."
+    "title": "unreadable ledger backfill marker no longer causes endless 503"
   },
   {
     "version": "0.414.0",
@@ -15,14 +14,12 @@
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "paddle webhook drops one-off payments for prices outside oneOffPriceIds",
-    "detail": "`transaction.completed` became a payment event for any price with a valid tenant binding. Paddle.js can open a checkout in the browser with arbitrary customData and price, so the server-side `oneOffPriceIds` / `authorizeOneOffCheckout` gate was bypassable. `PaddleWebhookOptions` now takes `oneOffPriceIds` (the feature passes `options.oneOffPriceIds ?? []`) and an event for any other price is dropped with a warning carrying only the provider event id and price id. Apps selling one-off credits must list those prices in `oneOffPriceIds`."
+    "title": "paddle webhook drops one-off payments for prices outside oneOffPriceIds"
   },
   {
     "version": "0.394.0",
     "type": "improvement",
-    "title": "Add subscription-paddle, a Paddle Billing provider plugin",
-    "detail": "Checkout via the Paddle.js overlay on a page served by the feature at /billing/paddle-checkout. The Default Payment Link in the Paddle dashboard must point to <APP_BASE_URL>/billing/paddle-checkout; it is the only source, because transactions are created without a checkout url. Create subscription prices in the Paddle catalog with quantity minimum and maximum 1; for one-off packs set the quantity limits on purpose, because the payment event carries quantity and the app has to multiply its credits by it. Also ships customer portal, cancel, resume, batched price lookup, in-app plan switch and tenant binding of checkouts through an HMAC in custom_data."
+    "title": "Add subscription-paddle, a Paddle Billing provider plugin"
   },
   {
     "version": "0.394.0",

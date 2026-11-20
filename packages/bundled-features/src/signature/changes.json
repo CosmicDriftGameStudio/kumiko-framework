@@ -1,5 +1,56 @@
 [
   {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Oversized signature pages end the request as failed"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "A whitespace-only linkSecret rejects every signing link"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Signature sweep skips open requests that still wait for a signer"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "legacyHostOf makes pre-host-gate signature requests visible again"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Opt-in retention for signers of unfinished requests and an admin write to forget a signer",
+    "migration": "Nothing to do. To switch the job on add `unfinishedKeepFor` to `retention`, for example `retention: { keepFor: \"10y\", unfinishedKeepFor: \"90d\" }`."
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Signature requests are visible through their host row",
+    "detail": "`createSignatureFeature` takes the required `hostEntities`, and every `signature:write:request` payload carries `hostType` and `hostId`. A user sees, signs, issues links for, revokes and cancels a request only while the host row is readable to them through the host entity's own `access.read`; otherwise the answer is 404 like a missing record. The request list filters in SQL, so `total`, `offset` and `aggregate` work again and the cursor is a plain cursor. The signer list requires exactly one `requestId` filter for every user (403 otherwise) and answers an empty page for a request whose host the user cannot read. `authorizeSubject`, `unscopedRoles`, `AuthorizeSignatureSubject` and `SignatureSubject` are removed. `subjectType` and `subjectId` stay as a free label.",
+    "migration": "Pass `hostEntities` (registered entity names without their own `parentRef`) and add `hostType`/`hostId` to every request payload; move the visibility rule from `authorizeSubject` into `access.read` of the host entity. Run `kumiko-schema generate` and ship the migration for the columns `host_type` and `host_id` and the index on `read_signature_requests`. Requests stored without a host stay invisible.",
+    "affects": [
+      "createSignatureFeature",
+      "signature:write:request",
+      "authorizeSubject",
+      "unscopedRoles",
+      "AuthorizeSignatureSubject",
+      "SignatureSubject"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "forget-signer checks the host record",
+    "detail": "signature:write:forget-signer loads the signer's request and its host record with the caller's rights, like revoke-link. A caller who cannot read the host (for example a data protection officer without read access to the lease) gets 404 and the signer stays.",
+    "migration": "Code that calls createForgetSignerHandler directly passes the signature request executor. Erasing signers of records outside the caller's read rights runs through a role that can read the host or through forget-subject.",
+    "affects": [
+      "createForgetSignerHandler"
+    ]
+  },
+  {
     "version": "0.424.0",
     "type": "breaking",
     "title": "authorizeSubject receives the subject scope context instead of the full handler context",
@@ -8,26 +59,22 @@
   {
     "version": "0.420.0",
     "type": "fix",
-    "title": "Empty signature images are rejected on any background",
-    "detail": "The background of a signature image is now the dominant opaque colour of its border (within a small tolerance) instead of four identical corners, so an opaque blank image with one differing corner pixel no longer passes as signed. A `linkSecret` of only whitespace is refused when `authorizeSubject` is set. The tenant-scoped subject of the signing link is available as `tenantScopedSubject`, `parseTenantScopedSubject` and `peekTenantScopedSubject` in `@cosmicdrift/kumiko-bundled-features/shared/tenant-scoped-subject`."
+    "title": "Empty signature images are rejected on any background"
   },
   {
     "version": "0.418.0",
     "type": "fix",
-    "title": "List cursor of subject-scoped users is sealed",
-    "detail": "The request list returned the plain cursor of the last base page, which could name a request of a foreign subject. Scoped users now get an encrypted cursor bound to their user and tenant, a plain or foreign cursor is answered with access denied, and `authorizeSubject` now requires a non-empty `linkSecret` because the cursor key is derived from it. A scoped user asking for `limit: 0` is refused like `offset`."
+    "title": "List cursor of subject-scoped users is sealed"
   },
   {
     "version": "0.418.0",
     "type": "fix",
-    "title": "Unrecoverable finalisation ends in status failed",
-    "detail": "A request whose original PDF changed or went missing, or whose signature image is missing, used to stay `all-signed` forever while the sweep warned every five minutes. It now ends in the status `failed` with the event `signature:event:failed` and a reason (`document-changed` or `signature-image-missing`). Renderer outages and storage errors still retry on the next run."
+    "title": "Unrecoverable finalisation ends in status failed"
   },
   {
     "version": "0.418.0",
     "type": "fix",
-    "title": "Empty signatures are rejected on every background",
-    "detail": "The ink check treats an image as having a solid background only when all four corners are opaque and identical; a lone opaque pixel no longer counts the whole image as ink, and signer emails must be valid addresses."
+    "title": "Empty signatures are rejected on every background"
   },
   {
     "version": "0.417.0",
@@ -40,13 +87,11 @@
     "version": "0.416.0",
     "type": "improvement",
     "title": "Signature requests with in-person and link signing",
-    "detail": "`createSignatureFeature({ retention, linkSecret, renderHtmlToPdf, deliverLink, signaturePageUrl })` adds the entities `signatureRequest` and `signatureSigner`, the handlers `request`, `sign-in-person`, `issue-link` (sends the link through `deliverLink(ctx, { signerId, url, ..., issuedBy })` inside its own transaction, so the app can dispatch its mail write and pick the issuer's mailbox; it never returns the token), `revoke-link`, `cancel` and the anonymous, rate-limited `open-by-link`, `sign-by-link`, `decline-by-link`. Links carry a row-bound grant in the URL fragment (14 days, 20 opens, single-use signing, one answer for every rejection). The last signature sets the request to `all-signed`; the `signature:job:sweep` cron renders the signature page through the injected print function, appends it with pdf-lib and completes the request; the events `completed`, `declined` and `expired` report the outcome. The subpaths `./signature/web` (`SignaturePad`) and `./signature/static-sign` (no React) ship the signature field.",
     "migration": "The feature adds the tables `read_signature_requests` and `read_signature_signers`; apps that mount it run the schema pipeline migration."
   },
   {
     "version": "0.416.0",
     "type": "improvement",
-    "title": "Access rule option for the signature feature",
-    "detail": "`createSignatureFeature({ ..., access })` replaces the default `{ roles: [\"TenantAdmin\", \"TenantMember\"] }` on the signed-in handlers, queries, screens and nav, like `createLedgerFeature({ access })`. Without it, nested `ctx.dispatch` calls fail for users that only hold an app-specific role."
+    "title": "Access rule option for the signature feature"
   }
 ]

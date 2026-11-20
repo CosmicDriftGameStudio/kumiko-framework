@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Prebuilt addNoteHandler constant removed",
+    "detail": "`addNoteHandler` is no longer exported from the notes-history feature. It was a default-access copy of the factory and nothing registered it; the feature builds its handler with `createAddNoteHandler`.",
+    "migration": "Replace `addNoteHandler` with `createAddNoteHandler(access, entryExecutor)`, or mount `createNotesHistoryFeature({ parents })`, which registers the handler.",
+    "affects": [
+      "addNoteHandler"
+    ]
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "The deprecated notesHistoryFeature constant is removed",
@@ -10,8 +20,7 @@
   {
     "version": "0.358.0",
     "type": "fix",
-    "title": "forget-subject shreds note bodies even when the host entity has anonymize or blockDelete retention",
-    "detail": "Note bodies that @-mention the forgotten subject or hang on it as host entity were skipped when the host entity's retention strategy was anonymize or blockDelete, so the note text stayed readable while the host's own PII fields were anonymized. The note text is free-form PII, and a retention strategy protects the row, not its content, so these bodies are now always crypto-shredded. This applies to the manual `forget-subject` command and to the automated Art. 17 delete hook."
+    "title": "forget-subject shreds note bodies even when the host entity has anonymize or blockDelete retention"
   },
   {
     "version": "0.354.0",
@@ -30,7 +39,6 @@
     "version": "0.338.0",
     "type": "improvement",
     "title": "add-note rejects mentions of non-members; mention export lists mentioning notes",
-    "detail": "notes-history: `add-note` now rejects `mentions` of users who are not members of the current tenant, because their forget run only visits tenants they belong to and would never reach such a note. The notes-history user-data export hook now lists the notes that mention the exporting user.",
     "migration": "No action needed unless a client mentions user ids that are not members of the tenant; those writes now fail validation."
   },
   {
@@ -44,14 +52,12 @@
     "version": "0.244.0",
     "type": "improvement",
     "title": "add-note now always verifies entityType/entityId against the parent entity's own read path",
-    "detail": "Before this change, add-note took entityType/entityId straight from the client with no check — any dispatch-eligible tenant user could attach a note to any parent object, including one they couldn't otherwise see. add-note now unconditionally verifies that entityType names a registered entity and that the row is visible to the caller through that entity's own read path (tenant scope plus its `access.read` ownership) before accepting the write; entries that fail either check are rejected with a not_found response. createNotesHistoryFeature also accepts a `parents` option — an allowlist further narrowing which registered entities may be a note's parent — but this option is additive-only; the parent-visibility check itself is not gated behind it.",
     "migration": "entityType must now name an entity registered in the same app (via r.entity(...) or a bundled feature), and the caller must be able to see the target row through that entity's own read path. Any consumer that called add-note with an entityType that is NOT a registered entity name, or with an entityId the caller could not otherwise read, will now get a not_found error instead of a successful write — register the parent entity (and, if it needs row-level ownership, its `access.read` rule) before upgrading."
   },
   {
     "version": "0.215.3",
     "type": "improvement",
     "title": "note-entry gains authorName, stamped at write time",
-    "detail": "The entry display previously had no readable author — only the internal authorId (UUID). note-entry now carries an `authorName` field (personal: { of: \"authorId\" }, same crypto-shredding subject as `body`), stamped once at add-note write time from the writer's own read_users row (self-lookup by id, decrypted displayName) so the append-only history keeps the name as it was when the note was written, not whatever the account is called later. A failed lookup, a missing displayName, and pre-field/shredded rows all read `authorName: null` — the UI falls back to a translated placeholder, never the raw id; the write itself never fails over a missing name.",
     "migration": "Run `kumiko-schema generate` and apply — the migration adds `read_note_entries.authorName`. No backfill: existing rows read null and show the placeholder, same as before this change from the user's point of view."
   }
 ]

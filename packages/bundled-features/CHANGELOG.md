@@ -1,5 +1,2588 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.425.0
+
+### Minor Changes
+
+- 34cf35e: A tenant admin or data protection officer can now restrict, unrestrict or forget only users who are members of their own tenant alone and do not outrank them.
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: breaking
+  title: Tenant admins act only on users within their own reach
+  detail: `restrict-account` (for another user), `lift-restriction` and `forget-subject` with `kind: "user"` act on global user data (status, sessions, key). A tenant admin or data protection officer may now run them only for users who are members of their own tenant and no other, and who hold no role above their own rank. Otherwise the call fails with 403 and the reason `target_user_in_other_tenants` or `target_user_outranks_actor`. `forget-subject` (crypto-shredding) falls back to the subject's own row only for subjects without any membership. Targets holding a platform role (SystemAdmin) are not reachable for tenant admins and data protection officers. A SystemAdmin is unchanged. Without the user feature mounted there is no user row, so the global-role checks are skipped and only the membership-derived checks apply.
+  migration: Cases that involve users with memberships in several tenants, or users with a higher role, are run by a SystemAdmin. `denyIfTargetOutsideAdminTenant` is replaced by `denyIfTargetBeyondAdminReach` (same call shape plus a required fourth parameter `userFeatureMounted`; the bundled handlers pass `ctx.registry.features.has("user")`).
+  affects: user-data-rights, denyIfTargetOutsideAdminTenant, restrict-account, lift-restriction, forget-subject
+  -->
+- 34cf35e: `reportIngestProgress` takes the caller's TenantDb and writes the progress row directly instead of appending a `documentIngest.progress` event.
+  
+  <!-- kumiko-changes
+  feature: document-ingest-foundation
+  type: breaking
+  title: Ingest progress is a direct store write on the TenantDb
+  detail: `reportIngestProgress(db, { fileRefId, pagesDone, pagesTotal })` now takes a `TenantDb`, so providers no longer need `unsafeRaw()`. Progress is display-only, so it no longer appends one event per batch: the event `documentIngest.progress` and the projection `ingest-progress` are gone, and `store_document_ingest_progress` is a direct-write store table with a unique index on `(tenant_id, file_ref_id)`. pagesDone still only moves forward, also for parallel or out-of-order reports. The exports `DOCUMENT_INGEST_PROGRESS_EVENT_QN`, `DOCUMENT_INGEST_PROGRESS_EVENT_SHORT` and `ReportIngestProgressDeps` are removed. Progress events already stored stay in the event store and are ignored.
+  migration: Call `reportIngestProgress(tenantDb, input)` instead of `reportIngestProgress({ db: tenantDb.unsafeRaw(), registry, tenantId, actorId }, input)`. Apps that mount document-ingest-foundation run `kumiko-schema generate` and ship the migration that replaces the index `store_document_ingest_progress_tenant_id_file_ref_id_idx` with the unique index `store_document_ingest_progress_tenant_file_ref_unique`.
+  affects: document-ingest-foundation, reportIngestProgress, ReportIngestProgressDeps, DOCUMENT_INGEST_PROGRESS_EVENT, documentIngest.progress
+  -->
+- 34cf35e: Agent write tools now ask the model for `version` and pass it through, so a write on a stale read fails with `version_conflict` instead of silently overwriting.
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: breaking
+  title: Agent write tools keep optimistic locking
+  detail: For a write handler whose schema requires `version`, the tool catalog used to strip `version` from the tool's input schema, and dispatch read the current version from the detail handler right before the write. That turned off optimistic locking for agent writes: a model acting on an old read overwrote newer changes. `version` now stays a required tool argument and reaches the handler unchanged. A stale version returns `{ ok: false, code: "version_conflict" }` to the model, and the tool description tells it to read the record again. The `injectsVersion` field is gone from the write tool dispatch descriptor. The re-read through the detail handler after a successful write is unchanged.
+  migration: Agent-driven write calls must send `version` from the latest read. Code or tests that built write descriptors with `injectsVersion`, or relied on dispatch reading the version (for example a failing detail lookup before the write), drop that assumption and pass `version` in the tool input.
+  affects: injectsVersion, agent-tools
+  -->
+- 34cf35e: Login, password reset and user creation treat an email address the same regardless of upper or lower case.
+  
+  <!-- kumiko-changes
+  feature: user
+  type: breaking
+  title: User email lookups and writes are case-insensitive
+  detail: `user:find-for-auth`, `user:create` and `user:update` lowercase the email in their schema, `seedUser` and the signup guard lowercase it before lookup and insert, and `login` lowercases before the lookup and the unknown-email lockout count. Before, the blind index compared byte-exact, so `Max@Firma.de` failed to log in to `max@firma.de` and `user:create` could add a second account for the same address in other casing. Emails returned by these handlers are now always lowercase, and `user-data-rights:write:request-deletion-by-email` lowercases its input too. The admin boot seed (`seedAdminGuarded`, `seedBootstrapAdmin`, `ensureBootstrapAdminRoles`) still finds an account stored with upper case and rewrites its email to lower case. `runProdApp` and `runWorkerApp` lowercase every other stored email on each boot in the background through the executor (`normalizeStoredUserEmails` from `@cosmicdrift/kumiko-bundled-features/user`), so the event and the blind index follow.
+  migration: Nothing to do for accounts stored with upper case; the boot step repairs them. When the lowercase address already belongs to another live account, the boot step leaves both accounts unchanged and logs the count and the user ids as a warning ("user accounts whose lower-cased email belongs to another live account"); decide per pair which account stays and merge or delete the other one. Callers that compared a returned email against mixed-case input compare with `normalizeEmail` instead.
+  affects: all
+  -->
+- 34cf35e: The static login and the web auth client's token flows send their requests through the shared static-client request core.
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: breaking
+  title: One request core for the static login and the token flows
+  detail: `loginWithPassword` and `verifyMfaCode` from `auth-email-password/static-login` now use `postJson` from `auth-email-password/static-client` and answer as before; a signed-in visitor's CSRF cookie is now sent along. `requestPasswordReset`, `resetPassword`, `requestEmailVerification`, `verifyEmail`, `requestAccountUnlock`, `confirmAccountUnlock`, `requestSignup` and `confirmSignup` from the web auth client no longer throw when the network fails; they return `{ ok: false, error: { reason: "network" } }`. A 401 without an error code now gives the reason `unauthenticated`, and a token rejected only by the schema gives `malformed_token`. `static-login` no longer exports `STATIC_NETWORK_FAILURE_REASON` and `STATIC_RATE_LIMITED_REASON`.
+  migration: Import `STATIC_NETWORK_REASON` and `STATIC_RATE_LIMITED_REASON` from `@cosmicdrift/kumiko-bundled-features/auth-email-password/static-client` instead; the values are the same (`"network"`, `"rate_limited"`).
+  affects: static-login, STATIC_NETWORK_FAILURE_REASON, STATIC_RATE_LIMITED_REASON, requestPasswordReset, resetPassword, requestEmailVerification, verifyEmail, requestAccountUnlock, confirmAccountUnlock, requestSignup, confirmSignup
+  -->
+- 34cf35e: A subscription change found by the drift sync now updates the tenant's tier, and the drift sync runs daily instead of once per boot.
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: breaking
+  title: Tier sync follows the subscription events; drift sync runs daily
+  detail: `createSubscriptionTierSync()` returns a new `createFeature()` that mounts the `subscription-tier-sync` feature: an event-triggered job on the five subscription events runs the tier sync through `subscription-tier-sync:write:sync-tier`. Before, the tier sync ran only after a webhook, so a cancellation that the `sync-subscriptions` job found on the provider's side was stored while the tenant kept the paid tier. The `billing` boot option mounts the feature on its own. The `sync-subscriptions` job now runs daily in the maintenance window instead of on every boot. The tier-engine `create`, `update` and `list` handlers and `billing-foundation:query:subscription:list` also accept the system role the job runs as. Two syncs of one tenant that run at once (the webhook's own sync and the job, or the jobs of two events) no longer fail with `version_conflict`: the one that loses reads the assignment once more and decides again.
+  migration: Apps that call `createSubscriptionTierSync()` themselves (instead of the `billing` boot option) add `tierSync.createFeature()` to their features; it needs `tier-engine` mounted. Apps that relied on the drift sync at boot dispatch `billing-foundation:job:sync-subscriptions` themselves when they need it outside the maintenance window.
+  affects: createSubscriptionTierSync, sync-subscriptions, billing-foundation
+  -->
+- 34cf35e: The WhatsApp Meta test double moved from `channel-whatsapp` to the `channel-whatsapp/testing` subpath.
+  
+  <!-- kumiko-changes
+  feature: channel-whatsapp
+  type: breaking
+  title: WhatsApp test double moved to channel-whatsapp/testing
+  detail: `createInMemoryMeta`, `deliverMetaWebhook`, `requestMetaVerification`, `metaTextMessage`, `metaButtonReplyMessage`, `metaMediaMessage`, `metaStatus`, `metaWebhookPayload` and the `InMemoryMeta*` types are no longer exported from `@cosmicdrift/kumiko-bundled-features/channel-whatsapp`. They live in `@cosmicdrift/kumiko-bundled-features/channel-whatsapp/testing`, so the production entry point carries no test code. `signMetaBody` stays in the main entry.
+  migration: Change test imports of these names from `@cosmicdrift/kumiko-bundled-features/channel-whatsapp` to `@cosmicdrift/kumiko-bundled-features/channel-whatsapp/testing`. Production code is not affected.
+  affects: createInMemoryMeta, InMemoryMeta, deliverMetaWebhook, requestMetaVerification, metaTextMessage, metaButtonReplyMessage, metaMediaMessage, metaStatus, metaWebhookPayload
+  -->
+- 34cf35e: The tags and notes-history features no longer export prebuilt handler constants; build handlers through their factories.
+  
+  <!-- kumiko-changes
+  feature: tags
+  type: breaking
+  title: Prebuilt tag and note handler constants removed
+  detail: `createTagHandler`, `assignTagHandler`, `deleteTagHandler` and `removeTagHandler` from the tags feature and `addNoteHandler` from notes-history are gone. They were default-access copies of the factories and nothing registered them; the features themselves already used the factories. Inside custom-fields the same backwards-compat constants and the `lib/quota.ts` re-export are removed, and the feature builds every handler through its factory, with unchanged default roles.
+  migration: Replace `createTagHandler` with `createCreateTagHandler()`, `assignTagHandler` with `createAssignTagHandler()`, `deleteTagHandler` with `createDeleteTagHandler()`, `removeTagHandler` with `createRemoveTagHandler()` and `addNoteHandler` with `createAddNoteHandler()`; pass an access rule where you need one other than the default.
+  affects: createTagHandler, assignTagHandler, deleteTagHandler, removeTagHandler, addNoteHandler
+  -->
+  
+  <!-- kumiko-changes
+  feature: notes-history
+  type: breaking
+  title: Prebuilt addNoteHandler constant removed
+  detail: `addNoteHandler` is no longer exported from the notes-history feature. It was a default-access copy of the factory and nothing registered it; the feature builds its handler with `createAddNoteHandler`.
+  migration: Replace `addNoteHandler` with `createAddNoteHandler(access, entryExecutor)`, or mount `createNotesHistoryFeature({ parents })`, which registers the handler.
+  affects: addNoteHandler
+  -->
+- 34cf35e: Custom fields now enforce `fieldAccess.read` on query results and index only fields marked searchable.
+  
+  <!-- kumiko-changes
+  feature: custom-fields
+  type: breaking
+  title: Custom fields enforce read roles and the searchable flag
+  detail: The postQuery hook used to flatten every stored custom-field value for every caller, and the search extension indexed every value. Query results now carry only values whose definition exists and whose `fieldAccess.read` is empty, contains `"anonymous"` (public) or shares a role with the caller, in the flattened keys as well as in `customFields`. The search index gets only fields with `searchable: true` and no read restriction. Values without a live definition are no longer returned.
+  migration: Give roles that must see a restricted field a matching `fieldAccess.read` entry (`"anonymous"` for public reads). Mark fields that should be findable as `searchable: true` and run the reindex job for the host entity.
+  affects: custom-fields, createCustomFieldsFeature, customFields
+  -->
+- 34cf35e: The per-field `retention` option of custom fields is removed because its sweep never ran.
+  
+  <!-- kumiko-changes
+  feature: custom-fields
+  type: breaking
+  title: Per-field custom-field retention removed
+  detail: `serializedField.retention` was accepted but the sweep behind it was never registered, so no value ever expired. The sweep and its tenant-unscoped update query are deleted, and define/update now reject a `serializedField` with a `retention` key.
+  migration: Drop `retention` from custom-field definitions. Use data-retention on the host entity for expiry.
+  affects: custom-fields, serializedField
+  -->
+- 34cf35e: Custom-field definitions and values are accepted only for entities wired with `wireCustomFieldsFor`, and system-tenant field definitions now resolve on value writes.
+  
+  <!-- kumiko-changes
+  feature: custom-fields
+  type: breaking
+  title: Custom fields only on wired host entities
+  detail: `define-tenant-field`, `define-system-field`, `set-custom-field` and `clear-custom-field` now fail with 422 `custom_fields_entity_not_wired` when the entity is not wired through `wireCustomFieldsFor`; before, definitions for any name were stored and counted against the quota. Fix: `set-custom-field` and `clear-custom-field` now find system-tenant definitions (the system definition wins over a tenant one with the same key) and ignore deleted definitions, so values for system fields can be written and a deleted field returns 404.
+  migration: Call `wireCustomFieldsFor` for every entity that should carry custom fields, or remove `createCustomFieldsFeature()` from apps that wire none.
+  affects: custom-fields, createCustomFieldsFeature, wireCustomFieldsFor, define-tenant-field, define-system-field, set-custom-field, clear-custom-field
+  -->
+- 34cf35e: The delivery log drops its compatibility path for sort-value-less cursors; re-masking of legacy events and the drain of old queued jobs stay.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: breaking
+  title: Delivery log no longer accepts old cursors
+  detail: `delivery:query:log` answers 400 for a cursor that carries no sort value instead of paging from it. The delivery-log projection still masks recipient addresses of attempt events written before write-time masking when it is rebuilt. Queued notifications are delivered by one sealed `delivery.send` job; jobs queued by earlier versions (`delivery.render`, and `delivery.send` with `address`/`sealedAddress`) are still processed so a deploy does not fail them.
+  migration: Clients holding an old cursor reload the first page.
+  affects: all
+  -->
+- 34cf35e: Queued deliveries run as one sealed delivery.send job; the delivery.render job is gone.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: breaking
+  title: Queued delivery renders inside the send job and seals the message content
+  detail: Queued channels (email, push, chat) no longer pass through a separate `delivery.render` job. `delivery.send` renders and sends in one step, so neither rendered HTML nor the plaintext title, body and data sit in Redis or the job-run table. With a master key the job payload carries a single `sealedContent` field (recipient address plus message) bound to its purpose and tenant; without one it carries `content` in plaintext. `DeliveryJobs.render` is removed. A send retry renders again.
+  migration: Remove references to `DeliveryJobs.render` or the `delivery:job:render` job name. The queue does not need to be drained: the new worker still parses `delivery.send` jobs with the old `address`/`sealedAddress` payload and keeps processing queued `delivery.render` jobs. The other direction fails: a job with `sealedContent` that a 0.424 worker picks up does not parse and lands in the failed set after its attempts. Roll out the worker before the web process, and after the rollout retry the `delivery.send` runs that failed during the deploy window in the jobs screen.
+  affects: kumiko-bundled-features/delivery, createDeliveryFeature, DeliveryJobs, delivery:job:render
+  -->
+- 34cf35e: inbound-mail-foundation no longer keeps a mail-thread rollup, and `kumiko schema generate` drops `read_mail_threads`.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: breaking
+  title: Mail-thread rollup and read_mail_threads removed
+  detail: Every ingest took a per-thread lock, counted the thread's messages, encrypted the subject and appended a `mail-thread-updated` event, but nothing read `read_mail_threads`. Ingest now writes only the message. `threadKey` stays on every message and in the ingest result, and `message:list` still filters by it. Removed: the `mail-thread-updated` event, the `mail-thread` projection and its tenant-destroy hook, the ingest result field `threadAggregateId`, and the exports `mailThreadAggregateId`, `mailThreadEntity`, `mailThreadsProjectionTable`, `MAIL_THREAD_PII_FIELDS`, `MAIL_THREAD_AGGREGATE_TYPE`, `MAIL_THREAD_UPDATED_EVENT_QN`, `MAIL_THREAD_UPDATED_EVENT_SHORT`, `MailThreadEventPayload` and `mailThreadEventPayloadSchema`. `read_mail_threads` is now a retired framework table, so `kumiko schema generate` drops it. The ingest handler no longer declares an `unsafeRaw` escape hatch.
+  migration: Run `kumiko schema generate` and apply the migration. Remove `mailThreadEntity` from test table lists. Old `mail-thread-updated` events stay in the event log untouched; do not prune them.
+  affects: inbound-mail-foundation, mailThreadAggregateId, mailThreadEntity, mailThreadsProjectionTable, MAIL_THREAD_PII_FIELDS, MAIL_THREAD_AGGREGATE_TYPE, MAIL_THREAD_UPDATED_EVENT_QN, MAIL_THREAD_UPDATED_EVENT_SHORT, MailThreadEventPayload, mailThreadEventPayloadSchema, mail-thread-updated, threadAggregateId, read_mail_threads
+  -->
+- 34cf35e: `inbound-mail-foundation:query:message:list` pages newest first with a cursor and returns 50 messages by default.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: breaking
+  title: message:list pages with a cursor
+  detail: The query read every matching message of the tenant, filtered personal mail in memory and decrypted every row. It now orders by `receivedAt`, then `id`, newest first, takes `limit` (default 50, at most 200) and `cursor`, and returns `{ rows, nextCursor }`. `nextCursor` is null once the list is exhausted. Only the rows of the page are decrypted. A malformed cursor answers 400 `invalid_cursor`. `read_inbound_messages` gets indexes on `(tenantId, receivedAt)`, `(tenantId, accountId, receivedAt)` and `(tenantId, threadKey)`.
+  migration: Callers that need more than 50 messages either page with `cursor` until `nextCursor` is null or pass a `limit` of up to 200. Run `kumiko schema generate` for the new indexes.
+  affects: inbound-mail-foundation, InboundMailFoundation, message:list
+  -->
+- 34cf35e: The inbound-mail OAuth callback accepts a state only in the browser that started the connect flow.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: breaking
+  title: OAuth connect state is bound to the starting browser
+  detail: The signed state bound tenant, owner and mailbox, but a state link could be completed in any browser. An attacker could start a connect flow and let a victim sign in, which put the victim's mailbox into the attacker's account. The connect route now sets an HttpOnly, SameSite=Lax cookie scoped to the callback path, and the state carries its SHA-256 digest. Before exchanging the code, the callback answers 403 `state_browser_mismatch` when the cookie is missing or belongs to another flow. `OAuthStatePayload` replaces `nonce` with `browserBinding`, and `signOAuthState` takes the full payload. The nonce never gave replay protection; the provider's authorization code is single-use. New exports: `OAUTH_BROWSER_BINDING_COOKIE` and `oauthBrowserBinding`.
+  migration: Serve the connect route and the callback on the same host, because the cookie is host-scoped. Code that calls `signOAuthState` directly passes `browserBinding: oauthBrowserBinding(<cookie value>)`.
+  affects: inbound-mail-foundation, signOAuthState, OAuthStatePayload
+  -->
+- 34cf35e: Ledger reports read only the posted entries of the requested period from the database instead of the tenant's whole journal.
+  
+  <!-- kumiko-changes
+  feature: ledger
+  type: breaking
+  title: Ledger reports filter the period in SQL and require ISO dates
+  detail: `report:balances`, `report:income-statement` and `report:balance-sheet` now pass `from`/`to` and the posted status to the database query, so a report reads only the entries it sums. Both bounds stay inclusive. `from` and `to` must be calendar dates in the form `YYYY-MM-DD`; other strings fail validation instead of being compared as text.
+  migration: Callers that pass `from` or `to` send `YYYY-MM-DD` dates.
+  affects: reportBalances, reportIncomeStatement, reportBalanceSheet, report:balances, report:income-statement, report:balance-sheet
+  -->
+- 34cf35e: A custom managed-pages `wrapLayout` receives only escaped and sanitized parts instead of raw tenant values.
+  
+  <!-- kumiko-changes
+  feature: managed-pages
+  type: breaking
+  title: Custom managed-pages layouts get escaped parts only
+  detail: A custom `wrapLayout` used to receive the page title, description, language, slug, OG image and the tenant branding raw, and was trusted to escape them itself; a naive template string turned a tenant admin's branding title into markup on the public page. It now receives `bodyHtml`, `titleHtml`, `descriptionHtml`, `langHtml`, `slugHtml`, `ogImageHtml` (empty unless it is an https URL), `brandingStyleHtml` (theme variables plus the sanitized tenant CSS) and `brandingHeaderHtml`, all escaped or sanitized, so every field can be interpolated as is. The default layout is unchanged.
+  migration: Rewrite a custom managed-pages `wrapLayout` to the new fields: `title` becomes `titleHtml`, `lang` becomes `langHtml`, `description` becomes `descriptionHtml`, and `brandingStyleBlock(o.branding)`, `tenantStyleBlock(o.branding.customCss)` and `brandingHeaderHtml(o.branding)` become `o.brandingStyleHtml` and `o.brandingHeaderHtml`. Keep `TENANT_CONTENT_ATTR` on the content container.
+  affects: wrapLayout, brandingStyleBlock, tenantStyleBlock, brandingHeaderHtml
+  -->
+- 34cf35e: Public server-rendered pages send a closed Content-Security-Policy with default-src 'none'.
+  
+  <!-- kumiko-changes
+  feature: page-render
+  type: breaking
+  title: Public pages send default-src 'none' and form-action 'none'
+  detail: securePageHeaders (legal-pages, managed-pages, seo pages, contract termination) now sends "default-src 'none'; script-src 'none'; object-src 'none'; base-uri 'none'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; font-src 'self'; form-action 'none'; frame-ancestors 'self'". Images may come from the own origin, https or data URLs; stylesheets and fonts only from the own origin; forms post nowhere. An optional second argument relaxes form-action or frame-ancestors; the contract termination pages use it for form-action 'self' and frame-ancestors 'none'.
+  migration: Layouts passed as wrapLayout or stylesheetHrefs must load stylesheets and fonts from the app's own origin and must not post forms; serve such assets under the app host instead of a foreign host.
+  affects: securePageHeaders, wrapLayout, stylesheetHrefs
+  -->
+- 34cf35e: Remove the deprecated securityBaselineFeatures preset; composeSecurityStack replaces it.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: securityBaselineFeatures preset removed
+  detail: The subpath @cosmicdrift/kumiko-bundled-features/presets is gone with its exports securityBaselineFeatures and SecurityBaselineOptions. composeSecurityStack({ includeSessions }) from @cosmicdrift/kumiko-dev-server/compose-stacks mounts the same features (sessions, crypto-shredding, rate-limiting, audit) in the same order. The production boot warning about a missing security baseline now points to composeSecurityStack.
+  migration: Replace securityBaselineFeatures({ includeSessions }) with composeSecurityStack({ includeSessions }) from @cosmicdrift/kumiko-dev-server/compose-stacks, or mount createSessionsFeature, createCryptoShreddingFeature, createRateLimitingFeature and createAuditFeature yourself.
+  affects: securityBaselineFeatures, SecurityBaselineOptions, kumiko-bundled-features/presets
+  -->
+- 34cf35e: `selectRendererPlugin(plugins, kind)` replaces `createRendererFoundationApi(plugins).createRendererForTenant({ tenantId, kind })`; the documented per-tenant plugin override never existed and is gone.
+  
+  <!-- kumiko-changes
+  feature: renderer-foundation
+  type: breaking
+  title: Renderer plugins are picked by kind with selectRendererPlugin
+  detail: The renderer for a kind is the mounted plugin named in `DEFAULT_PLUGIN_BY_KIND`, otherwise the first mounted plugin serving the kind, otherwise `RendererError("no_plugin_for_kind")`. The tenant override through a `rendererPluginByKind` config key was documented, but no caller ever passed a lookup and no such key was registered, so it is removed together with its parameter. `createRendererFoundationApi`, the type `RendererFoundationApi` and `requireRendererFoundation` are removed; no code read `rendererFoundation` from the extra context.
+  migration: Replace `createRendererFoundationApi(collectRendererPlugins(registry)).createRendererForTenant({ tenantId, kind })` with `selectRendererPlugin(collectRendererPlugins(registry), kind)` and drop a `rendererFoundation` entry from `extraContext`.
+  affects: createRendererFoundationApi, createRendererForTenant, RendererFoundationApi, requireRendererFoundation, rendererFoundation, rendererPluginByKind
+  -->
+- 34cf35e: tags writes its catalog only through `tag:create`, `tag:update` and `tag:delete`; the duplicate `create-tag`, `update-tag` and `delete-tag` handlers are gone.
+  
+  <!-- kumiko-changes
+  feature: tags
+  type: breaking
+  title: Legacy tag catalog handlers removed
+  detail: tags registered every catalog write twice, once for TagManager and once for the catalog screens. Only `tags:write:tag:create` (flat `{ name, color?, scope? }`), `tags:write:tag:update` (`{ id, version, changes }`) and `tags:write:tag:delete` (cascades over the assignments) remain, and `TagsHandlers.createTag`, `updateTag` and `deleteTag` point to them. `tag:update` rejects a colour that is not a hex code with `invalid_color`, rejects an envelope without a name, color or scope change with `no_changes`, and trims the name server-side like `tag:create` does. The exports `createUpdateTagHandler`, `updateTagHandler`, `updateTagPayloadSchema` and `UpdateTagPayload` are removed; `createCreateTagHandler` and `createDeleteTagHandler` now default to the names `tag:create` and `tag:delete`.
+  migration: Dispatch `TagsHandlers.createTag`, `updateTag` and `deleteTag` instead of the strings `tags:write:create-tag`, `tags:write:update-tag` and `tags:write:delete-tag`, and send `tag:update` the envelope `{ id, version, changes: { name?, color?, scope? } }` instead of the flat payload.
+  affects: tags:write:create-tag, tags:write:update-tag, tags:write:delete-tag, TagsHandlers, tag:update, createUpdateTagHandler, updateTagHandler, updateTagPayloadSchema, UpdateTagPayload, createCreateTagHandler, createDeleteTagHandler
+  -->
+- 34cf35e: `managed-pages:query:by-tenant-published` no longer takes `tenantIdOverride`.
+  
+  <!-- kumiko-changes
+  feature: managed-pages
+  type: breaking
+  title: Published page list always reads the caller's tenant
+  detail: The discovery query accepted a tenantIdOverride that could never reach another tenant through the tenant-scoped read. The field is gone; the query lists the published pages of the caller's tenant.
+  migration: Drop tenantIdOverride from by-tenant-published calls; use systemQuery with the tenant id, as the seo feature does.
+  affects: tenantIdOverride, by-tenant-published
+  -->
+- 34cf35e: `template-resolver:write:resource-upload` requires `templateId` and `key`.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: breaking
+  title: Resource upload always links into a template
+  detail: Without templateId the upload skipped the template edit check and only created a new file. That path had no caller; templateId and key are now required, so every upload runs the edit check of its template.
+  migration: Send templateId and key with every resource-upload call; a plain file goes through POST /api/files.
+  affects: resource-upload, resourceUpload
+  -->
+- 34cf35e: `template-resolver:query:find-by-id` and `:list` follow the template edit policy instead of admitting every User.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: breaking
+  title: Template reads follow tenantEditable roles
+  detail: find-by-id and list were open to TenantAdmin, SystemAdmin and every User, while a role unlocked through tenantEditable was refused. They now admit SystemAdmin, TenantAdmin and the roles listed in tenantEditable, the same rule as body-preview; a plain User gets 403.
+  migration: If plain members must read templates, list their role in the tenantEditable entries of createTemplateResolverFeature.
+  affects: template-resolver, createTemplateResolverFeature, tenantEditable
+  -->
+- 34cf35e: Text-block and collection reads accept `tenantIdOverride` only as `SYSTEM_TENANT_ID`.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: breaking
+  title: Read override on text blocks narrows to SYSTEM only
+  detail: by-slug, by-tenant and the collection list and item queries took any tenant id as tenantIdOverride, but a tenant-scoped read reaches only the caller's own tenant plus SYSTEM, so a foreign id silently returned the caller's own and SYSTEM rows. The override now accepts SYSTEM_TENANT_ID only (still SystemAdmin only) and any other value fails validation.
+  migration: Pass SYSTEM_TENANT_ID or no override. Reads of another tenant's content go through a server-side systemQuery for that tenant.
+  affects: tenantIdOverride, textBlocksClient
+  -->
+- 34cf35e: Notes, tags, documents and other join rows are only visible to roles that may query their host entity.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Join rows respect the host's query roles
+  detail: The parentRef gate and the write-side checks (`parentRowIsVisible`, `visibleParentRowIds`) only checked the host row's row-level read rules. A role without any query handler access to the host could still list and add notes, tags or documents on it. A host with query handlers now also requires that one of them grants the viewer's roles; a host without query handlers is decided by row rules as before. New export `hostRoleAllowsRead` from the engine and new field `ParentVisibilityOption.canReadHostByRole`.
+  migration: Roles that should see join rows on a host need access to one of the host's query handlers. Custom `ParentVisibilityOption` objects can set `canReadHostByRole`.
+  affects: all
+  -->
+- 34cf35e: `apiDocs.translations` loads texts that only the API docs need, and `resolveApiDocsConfig` is async.
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: breaking
+  title: Doc-only translations for kumiko api-docs
+  detail: Apps that document their API in more locales than the app itself mounted one pseudo-feature per locale so the boot rule i18n/locale-inconsistent would accept the extra texts, and those texts were loaded on every server boot. `apiDocs.translations` in kumiko.config.ts is a function returning full translation keys, for example `() => import("./src/api-docs-texts").then((m) => m.texts)`. Only `kumiko api-docs` calls it. Per key and locale it fills only what the registry does not define. `resolveApiDocsConfig` from `@cosmicdrift/kumiko-bundled-features/agent-tools` now returns a Promise; callers await it.
+  migration: Await `resolveApiDocsConfig(...)`, and replace per-locale pseudo-features that only carried API-doc texts with `apiDocs.translations` in kumiko.config.ts, for example `() => import("./src/api-docs-texts").then((m) => m.texts)`.
+  affects: resolveApiDocsConfig, apiDocs
+  -->
+- 34cf35e: An anonymous write under the system tenant now runs only for handlers that declare `tenantlessAnonymous`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Anonymous writes under the system tenant need tenantlessAnonymous
+  detail: POST /api/write, /api/batch and /api/command reject an anonymous write whose tenant is SYSTEM_TENANT_ID with 422 tenant_required unless the handler declares `tenantlessAnonymous: true`, no matter whether `anonymousAccess.defaultTenantId`, a tenant resolver or the tenantless fallback set the tenant. Unknown handlers still answer 404, handlers the anonymous role cannot call still answer 401, and signed-in users are unaffected. The bundled intake writes (user-data-rights request-deletion-by-email, confirm- and cancel-deletion-by-token, tenant-inactivity keep-account, waitlist and helpdesk submit, signature open-, sign- and decline-by-link) now declare it, so they also run under the tenantless fallback on hosts that resolve no tenant.
+  migration: Add `tenantlessAnonymous: true` to every app write handler that anonymous visitors call while the request resolves to SYSTEM_TENANT_ID; boot then requires `access: { roles: ["anonymous"] }` (anySignedIn and personalData allowed) and a rateLimit per "ip" or "ip+handler", including any `rateLimit` override you pass to the waitlist or helpdesk feature. App guards that rejected the system anchor per handler can be removed.
+  affects: anonymous, ANONYMOUS_ROLE, openToAll, createWaitlistFeature, createHelpdeskFeature
+  -->
+- 34cf35e: `formatMoney(amountMinor, currency, options)` and `formatMoneyValue(value, options)` take an options object with `locale`, `minimumFractionDigits`, `maximumFractionDigits`, `signDisplay` and `notation` instead of positional `locale` and `fractionDigits`. An unknown currency code now formats the amount as a plain decimal instead of printing the raw minor integer.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: formatMoney takes an options object
+  detail: Apps wrote their own money formatters for whole-euro display, compact notation and hiding the sign of a rounded zero. formatMoney now covers these through Intl options.
+  migration: Replace `formatMoney(minor, currency, locale, digits)` with `formatMoney(minor, currency, { locale, minimumFractionDigits: digits, maximumFractionDigits: digits })` and `formatMoneyValue(value, locale)` with `formatMoneyValue(value, { locale })`. Replace own compact or no-sign-zero money formatters with `notation: "compact"` and `signDisplay: "negative"`.
+  affects: formatMoney
+  -->
+- 34cf35e: Money is an integer in the currency's minor unit on every path. `createMoneyField` write payloads, zod schemas, events and read rows all carry `{ amount, currency }` with `amount` in minor units (cents for EUR, 0 decimals for JPY, 3 for BHD); `flattenMoney` no longer multiplies by 100 and rejects non-integer amounts and bare numbers, read rows drop `amountScaled`, and form derivations no longer convert. `toMinorUnits`/`toMajorUnits` take the currency and scale by `currencyDecimals`; `MINOR_UNIT_SCALE`, `moneyPayloadToMinorUnits` and `moneyAmountToMinor` are removed.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Money amounts are integers in minor units everywhere
+  detail: Top-level money fields used major units on write and read while embedded rows, aggregates and template variables used minor units, and the database scaled by a flat 100 regardless of currency. Now every path carries the same integer in the currency's minor unit; only input widgets and formatters convert.
+  migration: Multiply every top-level money amount you send or seed by 10^decimals of its currency (×100 for EUR). Stored events and rows of two-decimal currencies need no change: they already hold minor units. Amounts stored before this release in a currency without two decimals (JPY, KRW, BHD, KWD and others) were scaled by a flat 100 and now read wrong by that factor (JPY 100 times too large, BHD 10 times too small); correct them once through the entity executor before upgrading. Replace reads of `amountScaled`/`amountMinor` with `amount`. Remove own ×100/÷100 wire helpers. Pass the currency to `toMinorUnits(amount, currency)` and `toMajorUnits(amount, currency)`. Replace `moneyAmountToMinor(x, c)` with `toMinorUnits(x, c)` from `@cosmicdrift/kumiko-types`.
+  affects: all
+  -->
+- 34cf35e: Row-bound grants carry their anchor signed in the token, so the signature is checked before any row lookup or tenant switch.
+  
+  <!-- kumiko-changes
+  feature: shared
+  type: breaking
+  title: Row-bound grants verify the signature before the row lookup
+  detail: `signRowBoundGrant` now puts the anchor next to the subject in the signed token body (`<subject>:<anchor>.<expiresAtMs>.<hmac>`), and the HMAC covers a purpose namespaced for row-bound grants, so neither a plain `signToken` token nor a grant in the previous format verifies as a grant. `redeemRowBoundGrant` checks signature and expiry first, calls `loadAnchor` only for a genuine token and then compares the row's current anchor with the signed one, so a forged token never reaches the database. The new `verifyRowBoundGrant({ token, purpose, secret, now })` runs the same check without database access and returns subject and anchor; it fails closed on an empty secret. The anonymous `open-by-link`, `sign-by-link` and `decline-by-link` handlers of `signature` verify the link before switching into the request's tenant. Subject and anchor are readable in the token and must not contain `:` or `.`; minting throws otherwise. `peekTokenSubject` (`shared/signed-token`) and `peekTenantScopedSubject` (`shared/tenant-scoped-subject`) are removed. Every grant minted before this version is invalid: deletion and deletion-cancel mails, keep-account mails, tenant-handover grants, signing links and app grants built on `signRowBoundGrant`.
+  migration: A wrapper that picks a tenant from a grant replaces `peekTokenSubject(token)` or `peekTenantScopedSubject(token)` with `verifyRowBoundGrant({ token, purpose, secret, now })` and parses `subject` of an ok result, for example with `parseTenantScopedSubject`. Links already sent stop working and have to be issued again.
+  affects: all
+  -->
+- 34cf35e: Workspaces collect the admin navs of every mounted feature with `collectAdminArea`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Workspaces collect navs by admin area
+  detail: A nav declares `adminArea: "tenant" | "platform"`, a workspace declares `collectAdminArea` with the same value. At boot the workspace lists every matching nav of the mounted features after its explicit `nav` list, sorted by `order`, each QN once. The navs count as reachable for the unreachable-screen warning. `AdminNavArea` is exported from the engine.
+  -->
+  
+  admin-shell collects its workspace navs instead of listing them.
+  
+  <!-- kumiko-changes
+  feature: admin-shell
+  type: breaking
+  title: admin-shell workspaces collect navs; includeDocumentDesigner removed
+  detail: The tenant and platform workspaces of admin-shell now use `collectAdminArea`, so they also list event consumers, export jobs, feature toggles, the cap list and the document templates of mounted features. A new platform nav `admin-shell:nav:users` opens `user:screen:user-list` for SystemAdmin. Apps that keep `registerWorkspaces: false` set `collectAdminArea` on their own workspaces and drop the hand-written nav lists. The option `includeDocumentDesigner` is removed because the document-designer navs carry their area.
+  migration: Remove `includeDocumentDesigner` from `createAdminShellFeature`. In app workspaces replace the lists of standard nav QNs with `collectAdminArea: "tenant"` or `"platform"`, and delete own users and system-check navs in favour of `admin-shell:nav:users` and `createReadinessFeature({ nav: { adminArea: "platform" } })`.
+  affects: createAdminShellFeature, includeDocumentDesigner, registerWorkspaces, admin-shell:nav
+  -->
+  
+  delivery and sessions let the app pick the admin area of their log navs.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: delivery-log nav takes an adminArea option
+  detail: `createDeliveryFeature({ adminArea })` tags the delivery-log nav for a collecting workspace. Unset, the nav stays out of every admin area, as before.
+  -->
+  
+  <!-- kumiko-changes
+  feature: sessions
+  type: improvement
+  title: session-list nav takes an adminArea option
+  detail: `createSessionsFeature({ adminArea })` tags the session-list nav for a collecting workspace. Unset, the nav stays out of every admin area, as before.
+  -->
+  
+  <!-- kumiko-changes
+  feature: readiness
+  type: improvement
+  title: System-check nav takes an adminArea
+  detail: `createReadinessFeature({ nav: { adminArea } })` puts the system-check nav into the collecting admin workspace.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: Template navs carry their admin area
+  detail: `document-designer:nav:templates` belongs to the tenant area, `document-designer:nav:platform-templates` to the platform area, so collecting workspaces list them without extra wiring.
+  -->
+- 34cf35e: The default auth pages of the web auth client also serve signup, signup completion, email verification and invite acceptance, follow custom auth paths and take an auth shell.
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: breaking
+  title: Default auth pages cover every auth path and take a shell
+  detail: `emailPasswordClient({ defaultAuthPages })` now takes `false` or `{ paths?: Partial<AuthPaths> }`; `true` is no longer accepted. Besides forgot-password, reset-password and unlock-account, signed-out visitors now get `/signup` (only when the server registers the signup status query; a visitor with a session cookie passes through), `/signup/complete`, `/verify-email` and `/invite/accept`, each at the path from `paths`, resolved like the server's `auth.mail.paths`. Login links on these pages point to `/login` under the app base path. The new option `authShell` wraps every auth card through `AuthShellProvider`.
+  migration: Replace `defaultAuthPages: true` with no option. Apps that pass custom `auth.mail.paths` to the server pass the same object as `defaultAuthPages: { paths }`. Delete app gates that only mounted these screens, and pass the shell as `authShell` instead of wrapping `AuthShellProvider` in an own gate. Keep an own earlier gate only for screens that need app-specific props.
+  affects: defaultAuthPages, AuthShellProvider, emailPasswordClient
+  -->
+- 34cf35e: user-data-rights sends the verification mail of the anonymous account deletion itself, as a localized notification template.
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: breaking
+  title: The anonymous deletion verify mail comes from user-data-rights
+  detail: `request-deletion-by-email` now sends the verify link through `ctx.notify` as `user-data-rights:notify:deletion-verification` (route to the entered address, priority critical, after commit through the delivery queue), rendered from a seeded template in the user's locale with `mailDefaults`. The option `sendDeletionVerificationEmail` and the type `SendDeletionVerificationEmailFn` are removed. Setting `deletionTokenSecret` and `deletionVerifyUrl` now requires the `delivery` and `channel-email` features at boot. New translation keys `gdpr.mail.deletionVerification.*` in en, de, es, fr and it.
+  migration: Remove `sendDeletionVerificationEmail` from `createUserDataRightsFeature(...)` and delete the app's own verify mailer. Mount `createDeliveryFeature()` and `createChannelEmailFeature(...)` if the app sets `deletionTokenSecret` and `deletionVerifyUrl`. Custom wording or branding goes into a template override of `user-data-rights:notify:deletion-verification` or into `mailDefaults.appName`.
+  affects: sendDeletionVerificationEmail, SendDeletionVerificationEmailFn, deletionTokenSecret, deletionVerifyUrl
+  -->
+- 34cf35e: The default GDPR mails always name the app and, when sent from a request, use the request language for users without a stored locale.
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: breaking
+  title: GDPR default mails need an app name and follow the request language
+  detail: `GdprMailDefaults.appName` is now required, and the new boot rule `user-data-rights/mail-app-name-missing` fails boot when an email delivery channel or a `mail-transport-*` is mounted, `mailDefaults` is unset, and at least one default mail can go out (a `send*Email` callback is unset or the anonymous deletion flow is on). Before, these mails went out as "Account — …". The deletion-requested and deletion-verification mails, which are sent from a request, now pick the locale as user locale, then the request locale (X-Locale / Accept-Language), then `mailDefaults.locale`, then the boot default, the same way the auth mails do. A request locale without mail translations (e.g. `pl`) is skipped, so a German app still sends German mail instead of the English fallback; this applies to the auth mails (signup, token request, invite) too. Mails sent from jobs (export ready/failed, deletion executed) keep user locale, then `mailDefaults.locale`, then en. `resolveHandlerMailLocale` moved from auth-email-password into the shared helpers.
+  migration: Pass the app name, e.g. `createUserDataRightsFeature({ mailDefaults: { appName: "Acme" } })`. A multilingual app sets only `appName` and leaves `locale` unset, so the request language applies. Apps that replace every `send*Email` callback and do not use the anonymous deletion flow need no change.
+  affects: user-data-rights, GdprMailDefaults, mailDefaults, request-deletion, request-deletion-by-email, confirm-deletion-by-token
+  -->
+- 34cf35e: Bundled handlers are built with `defineWriteHandler`/`defineQueryHandler`, so their payloads are typed from the schema and the engine-payload casts are gone; a codemod moves app handlers the same way.
+  
+  <!-- kumiko-changes
+  feature: feature-ast
+  type: breaking
+  title: Handlers are defined with defineWriteHandler/defineQueryHandler
+  detail: The bundled features no longer annotate handlers with the erased `WriteHandlerDef`/`QueryHandlerDef`. Factories such as `createEnsureAccountsHandler`, `createSubjectTotalsHandler`, `createScheduleActualsHandler`, `createBalancesReportHandler`, `createIncomeStatementHandler` and `createBalanceSheetHandler` return the typed `WriteHandlerDefinition`/`QueryHandlerDefinition`, which is not assignable to `WriteHandlerDef`. `withCapEnforcement` keeps the wrapped handler's type and still accepts a `WriteHandlerDef`. Two guards cover what is left: the As-Casts Audit (`check-as-casts`) counts a cast with `@cast-boundary engine-payload` on `event.payload`/`query.payload` inside `handlers/*.write.ts`/`*.query.ts` as suspect; it does not see casts outside `handlers/`, other parameter names, destructured payloads, other marker reasons or `schema.parse(event.payload)` re-parses. The Handler Definitions ratchet (`guard-handler-definitions`) counts every literal annotated, `satisfies`- or `as`-typed with `WriteHandlerDef`/`QueryHandlerDef` and every function returning such a literal, anywhere in the scanned tree, against `.kumiko-handler-definitions-baseline.json`; it does not see a returned identifier, aliases of the erased types or test files.
+  migration: Run the codemod. It wraps literals annotated with `WriteHandlerDef`/`QueryHandlerDef` (variables and factory returns) in `defineWriteHandler`/`defineQueryHandler`, drops the annotation, removes `event.payload as z.infer<typeof schema>` casts and `schema.parse(event.payload)` re-parses on the handler's own schema and fixes the imports. It checks every use across the project and converts a handler only when all uses are `r.writeHandler`/`r.queryHandler` arguments, re-exports, property reads or `withCapEnforcement`/`withStockCap`. Listed as manual: handlers spreading another handler, dynamic schemas, `satisfies`/`as` forms and handlers used anywhere else, for example passed to an app wrapper typed `WriteHandlerDef`, put into an array or stored in an annotated variable. Give such a wrapper the two overloads of `withCapEnforcement` (erased and typed) or keep the handler erased and freeze it with `kumiko-guards guards --write-baseline --guard="Handler Definitions"`. Code that stored a bundled factory result in a `WriteHandlerDef`/`QueryHandlerDef` variable drops that annotation.
+  affects: WriteHandlerDef, QueryHandlerDef, withCapEnforcement, createEnsureAccountsHandler, createSubjectTotalsHandler, createScheduleActualsHandler, createBalancesReportHandler, createIncomeStatementHandler, createBalanceSheetHandler
+  codemod: scripts/codemod/define-handler.ts
+  manualAfterCodemod: true
+  -->
+- 34cf35e: The API docs generator moves to `@cosmicdrift/kumiko-bundled-features/agent-tools/api-docs`.
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: breaking
+  title: API docs generator on its own subpath
+  detail: `@cosmicdrift/kumiko-bundled-features/agent-tools` re-exported the API docs generator, so every runtime import of the tool catalog or agent manifest loaded the generator and its texts in five languages. `generateApiDocs`, `resolveApiDocsConfig`, `diffApiDocsOutput`, `ApiExampleFileSchema`, `WebhookExampleFileSchema`, `apiDocsLocales`, `isApiDocsLocale`, `formatApiDocsText`, `formatApiDocsProblem`, `INDEX_FILE`, `OPENAPI_FILE` and their types are now imported from `@cosmicdrift/kumiko-bundled-features/agent-tools/api-docs`. `createAgentToolsFeature` and `AGENT_TOOLS_FEATURE_NAME` stay on the barrel.
+  migration: Import `generateApiDocs`, `resolveApiDocsConfig`, `diffApiDocsOutput` and the other API docs symbols from `@cosmicdrift/kumiko-bundled-features/agent-tools/api-docs`.
+  affects: kumiko-bundled-features/agent-tools, generateApiDocs, resolveApiDocsConfig, diffApiDocsOutput
+  -->
+- 34cf35e: Audit queries show an event payload only as far as the caller may read the entity.
+  
+  <!-- kumiko-changes
+  feature: audit
+  type: breaking
+  title: Audit payloads follow the entity read rules; payload can be null
+  detail: `audit:query:list`, `details`, `list-all-tenants` and `details-all-tenants` checked only the tenant and redacted PII ciphertext, so a TenantAdmin read plaintext fields of entities restricted to another role. Now `payload` is `null` when the caller lacks the entity's query access, when the entity's `access.read` grants none of the caller's roles `"all"`, or when the entity has a `readGate` or `parentRef`. Otherwise writeOnly fields and fields whose read rule grants none of the caller's roles `"all"` are removed from the snapshot and from `changes` and `previous`. Other events on such an aggregate have their payload withheld if the entity has a field restricted for the caller. The rules apply to SystemAdmins too.
+  migration: Code that reads `payload` from audit rows must handle `null`.
+  affects: audit:query, AuditQueries
+  -->
+- 34cf35e: `cap-overview:query:caps:usage` hands app-owned `CapSpec.usage()` and `CapSpec.limit()` callbacks a tenant-mode db scoped to the target tenant, so a callback that forgets its `tenantId` filter no longer shows a TenantAdmin platform-wide totals.
+  
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: breaking
+  title: caps:usage hands cap callbacks a tenant-scoped db without unsafeRaw
+  detail: On the own-tenant call and on the SystemAdmin override, `usage(db, tenantId)` and `limit(tier, { db })` now receive a tenant-mode `TenantDb` that returns only the target tenant's rows plus reference rows of `SYSTEM_TENANT_ID`. Before, both got the unfiltered system-mode db, and an app callback without a `tenantId` filter leaked counts of every tenant. The handler no longer declares an `escapeHatch`, so `db.unsafeRaw()` inside these callbacks throws an `AccessDeniedError`; COUNT, SUM and AVG go through `db.count` and `db.aggregate`. `tenant-caps:list` is unchanged and still hands the system-mode db to `usage`, `usageBatch`, `limit` and `limitBatch`.
+  migration: A `CapSpec.usage()` or `limit()` that calls `db.unsafeRaw()` switches to `db.count` or `db.aggregate`. Keep the explicit `tenantId` filter, because tenant-caps:list still needs it. No callback in kumiko-studio or offlot-app uses `unsafeRaw()` or reads across tenants.
+  affects: unsafeRaw
+  -->
+- 34cf35e: `cap-overview:query:tenant-caps:list` no longer decrypts every tenant name per call: it sorts by the plaintext tenant key by default, searches names through the SearchAdapter and decrypts only the names of the returned page.
+  
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: breaking
+  title: Tenant caps list sorts by key and searches through the search index
+  detail: Tenant names are ciphertext at rest, so the list used to decrypt every tenant on each call (the default sort was the name, and every search filtered decrypted names). The default sort is now the tenant `key`, each row carries `key`, and `sort: "name"` is rejected with a 400 like any other unsupported sort field. A search goes through the app's SearchAdapter, where the tenant name is already indexed for `tenant:query:list`, and answers 422 `search_adapter_not_wired` when no adapter is wired; more than 1000 candidate hits set `searchTruncated`. Only the names of the returned page are decrypted.
+  migration: Callers that send `sort: "name"` to `cap-overview:query:tenant-caps:list` drop it or send `sort: "key"`. Apps that search this list wire a SearchAdapter. No caller in kumiko-enterprise, kumiko-platform, kumiko-studio or the app repos sends `sort: "name"`.
+  affects: cap-overview, tenant-caps
+  -->
+- 34cf35e: `channel-whatsapp` encrypts each stream under its own record key, erases those keys on tenant destroy and, when the app sets `eventRetentionDays`, after that many days. It requires `tenant-lifecycle`.
+  
+  <!-- kumiko-changes
+  feature: channel-whatsapp
+  type: breaking
+  title: WhatsApp PII under per-stream record keys, opt-in retention
+  detail: Sender number, text, button payload and status recipient of `message-received`, `throttled` and `status-updated` events are encrypted under the record key of their stream instead of the tenant key; destroying a tenant erases all of its stream keys. The new option `eventRetentionDays` of `createChannelWhatsappFeature` is opt-in and has no default: only when it is set, the maintenance job `whatsapp-event-retention` (perTenant) erases the keys of streams older than that many days, so `readWhatsappMessagePii`, `readWhatsappStatusPii` and `readWhatsappThrottledPii` return the erased sentinel for them. Without it no job is registered and no key is erased before tenant destroy. A consuming job must copy what it keeps into its own entities within the window. The feature now requires `tenant-lifecycle` and owns the store table `store_whatsapp_retention_cursors`.
+  migration: Mount `createTenantLifecycleFeature()` (with `tenant` and `compliance-profiles`) next to `createChannelWhatsappFeature`, also in test stacks, and run `kumiko schema generate` for `store_whatsapp_retention_cursors`. Set `eventRetentionDays` (for example 30) to switch the retention job on. Events stored before the update keep their tenant-keyed ciphertext and stay readable until the tenant is destroyed.
+  affects: channel-whatsapp, ChannelWhatsapp, eventRetentionDays, readWhatsappMessagePii, readWhatsappStatusPii, readWhatsappThrottledPii
+  -->
+- 34cf35e: `crypto-shredding:write:forget-subject` runs in one transaction and has the subject key erased after commit; entities can opt into being forgotten with their subject.
+  
+  <!-- kumiko-changes
+  feature: crypto-shredding
+  type: breaking
+  title: forget-subject erases the key after commit and forgets forgetWithSubject rows
+  detail: forget-subject no longer calls kms.eraseKey itself. It closes a user's login, purges search documents and files, forgets the rows of entities that declare the new `forgetWithSubject: true` (the record subject's own row, or the row whose id is the forgotten user id when the entity has a `personal: "self"` field), erases note bodies, nulls blind indexes and appends `subject-forgotten`, all in the handler transaction. The new `crypto-shredding:projection:subject-key-eraser` consumer erases the key once that transaction commits. A failure now rolls the whole forget back instead of erasing the key and writing an audit event with `cleanupError`; the `cleanupError` field is gone from the payload. `subject-forgotten` always lands on a fresh aggregate id, never the subject's id. user-data-rights forget-cleanup and forget-subject share `eraseSubjectData`; the cleanup now nulls blind indexes even without a KMS. Boot rejects `forgetWithSubject` on an entity without a `personal: "self"` or record-keyed field, or with `retention.strategy: "blockDelete"`.
+  migration: Code that reads the key state right after forget-subject waits for the consumer; tests call `drainEventConsumers(stack, ["crypto-shredding:projection:subject-key-eraser"])`. Consumers of `subject-forgotten` read the subject from `payload.subjectKey` instead of `aggregateId`. App-built cascades that forget a subject's own row after forget-subject (publicstatus forgotten-subscriber-cascade, offlot dealer-link forget, money-horse erase-recipient) are replaced by `forgetWithSubject: true` on the entity plus a dispatch of forget-subject inside the handler transaction.
+  affects: crypto-shredding, securityBaselineFeatures, forget-subject, subject-forgotten, cleanupError, eraseKey, user-data-rights
+  -->
+- 34cf35e: Custom-field values of every wired host entity are now written by one projection owned by the custom-fields feature.
+  
+  <!-- kumiko-changes
+  feature: custom-fields
+  type: breaking
+  title: One custom-fields value projection for all wired host entities
+  detail: `wireCustomFieldsFor` no longer registers a multi-stream projection `<feature>:projection:custom-fields-<entity>-projection` per host entity. The custom-fields feature registers one projection, `custom-fields:projection:host-values`, that finds the host table through the registry, so each value event runs through one consumer instead of one per wired host. The signature of `wireCustomFieldsFor` is unchanged. The new consumer starts at the beginning of the event log and replays the value events once; the replay is idempotent. A `custom-field-set` event without a value is now skipped without a console warning.
+  migration: Nothing to do by hand. The rows of the old consumers `<feature>:projection:custom-fields-<entity>-projection` stay in `kumiko_event_consumers` with a cursor that no longer advances. The bundled retention jobs (data-retention, delivery attempt log, audit escape-hatch) skip consumers the registry no longer declares once their row has not moved for seven days and log their names, so retention resumes at the latest a week after the deploy. An app that calls `pruneEvents` itself passes `registry` to get the same behaviour. Disabling the rows with `consumer-disable` is no longer needed and does no harm where it was already done.
+  affects: wireCustomFieldsFor, custom-fields
+  -->
+- 34cf35e: The `@cosmicdrift/kumiko-bundled-features/files` subpath is removed; import the files feature from `@cosmicdrift/kumiko-framework/files`.
+  
+  <!-- kumiko-changes
+  feature: files
+  type: breaking
+  title: files feature only under @cosmicdrift/kumiko-framework/files
+  detail: `@cosmicdrift/kumiko-bundled-features/files` only re-exported `createFilesFeature` and `fileRefEntity` from the framework. The subpath is gone, so the feature has one import path. Behaviour of the feature is unchanged; create-kumiko-app and the dev-server scaffold now write the framework import.
+  migration: Replace `import { createFilesFeature, fileRefEntity } from "@cosmicdrift/kumiko-bundled-features/files"` with `import { createFilesFeature, fileRefEntity } from "@cosmicdrift/kumiko-framework/files"`.
+  affects: kumiko-bundled-features/files
+  -->
+- 34cf35e: Tenant branding moved from managed-pages into its own `branding` feature, so mail, PDF and the document designer get branding without public pages.
+  
+  <!-- kumiko-changes
+  feature: branding
+  type: breaking
+  title: Branding is its own feature
+  detail: createBrandingFeature({ allowCustomCss }) registers the branding config keys (branding:config:title, description, site-url, accent-color, logo-url, logo-file, layout-preset, custom-css), the anonymous branding:query:tokens query, the branding:screen:branding-settings screen and brandingClient() translations; createBrandingCssFeature() gates custom CSS. managed-pages now requires branding and no longer exports BRANDING_QN, readBranding, MANAGED_PAGES_CSS_FEATURE, createManagedPagesCssFeature or the allowCustomCss option. The mail renderer and the document designer read the new keys and feature name.
+  migration: Mount createBrandingFeature() (with allowCustomCss and createBrandingCssFeature() where custom CSS was used) wherever managed-pages, mail branding or the document designer branding rail is used; import BRANDING_QN from @cosmicdrift/kumiko-bundled-features/branding; replace managed-pages:query:branding with branding:query:tokens and managed-pages:config:branding-* with branding:config:*; add brandingClient() to the client features. Stored values under the old managed-pages:config:branding-* keys are still read: branding:query:tokens, readBranding and the mail and PDF renderers fall back to the old key when the new key has no stored value, so tenants keep their branding without a migration step, and the branding settings form shows such a value and writes the new key on save; a value stored under the new key, even a cleared one, wins.
+  affects: managed-pages, BRANDING_QN, readBranding, MANAGED_PAGES_CSS_FEATURE, createManagedPagesCssFeature, allowCustomCss, renderer-mail-html, document-designer
+  -->
+  
+  <!-- kumiko-changes
+  feature: managed-pages
+  type: breaking
+  title: Branding exports removed from managed-pages
+  detail: `BRANDING_QN`, `MANAGED_PAGES_CSS_FEATURE` and `createManagedPagesCssFeature` are no longer exported from managed-pages. Branding config, query and screen live in the branding feature, and custom CSS is gated by `createBrandingCssFeature()`.
+  migration: Import `BRANDING_QN` from @cosmicdrift/kumiko-bundled-features/branding and replace `createManagedPagesCssFeature()` with `createBrandingCssFeature()` next to `createBrandingFeature({ allowCustomCss })`. `MANAGED_PAGES_CSS_FEATURE` is replaced by `BRANDING_CSS_FEATURE` from the same branding subpath.
+  affects: BRANDING_QN, MANAGED_PAGES_CSS_FEATURE, createManagedPagesCssFeature
+  -->
+- 34cf35e: Ledger transactions keep their system links in their own columns; `reference` is display text only.
+  
+  <!-- kumiko-changes
+  feature: ledger
+  type: breaking
+  title: Ledger reversal and schedule links moved out of reference
+  detail: Reversals set reversesTransactionId (unique per tenant), confirmed schedule periods set scheduleId and period, and the Storno copies scheduleId, period and subject from its original. create-transaction accepts an optional period but can no longer forge a reversal or a booked period through reference. Reversing a Storno is rejected with transaction_is_reversal. scheduleReference was removed; findReversedIds and LedgerTxRow use the new columns.
+  migration: Replace scheduleReference matching with LedgerTxRow.scheduleId/period and read reversals via reversesTransactionId. Load schedule bookings with ledger:query:schedule-actuals instead of paging the transaction list. Transaction events are now eventVersion 2; an upcaster derives reversesTransactionId from a v1 Storno's reference and scheduleId/period from `schedule:<id>:<period>` (a v1 Storno copies them from its original), so rebuilding read_ledger_transactions restores the links of existing bookings. When several v1 bookings name the same original (a double Storno click or a free reference with another booking's id), only the first in event order gets reversesTransactionId; the others keep their reference as display text, so the rebuild does not fail on the unique index.
+  affects: ledger, scheduleReference, LedgerTxRow, findReversedIds
+  -->
+- 34cf35e: Password changes and MFA state changes revoke sessions and access tokens through a new auth-foundation extension point, in the same transaction, without boot wiring.
+  
+  <!-- kumiko-changes
+  feature: auth-foundation
+  type: breaking
+  title: credentialRevoker extension point replaces the session mass-revoke callbacks
+  detail: New `EXT_CREDENTIAL_REVOKER`, `CredentialRevoker`, `isCredentialRevoker` and `revokeAllUserCredentials(registry, runner, userId, { keepSessionId })`. sessions and personal-access-tokens register as providers; a password change (user feature postSave hook, in transaction) and every MFA state change call all providers in the triggering transaction, so a failing revoke rolls the change back. `SessionStore` loses `massRevoker` and `revokeAllOthers`; removed export: `SessionMassRevoker`.
+  migration: Drop `massRevoker` and `revokeAllOthers` from custom sessionStore providers. A custom credential store registers `r.applyExtension({ name: EXT_CREDENTIAL_REVOKER, entity: "<key>", revokeAllForUser })`.
+  affects: massRevoker, revokeAllOthers, SessionMassRevoker
+  -->
+  
+  <!-- kumiko-changes
+  feature: sessions
+  type: breaking
+  title: autoRevokeOnPasswordChange option and late binding removed
+  detail: Sessions are revoked on password change through the auth-foundation credentialRevoker, synchronously in the user write's transaction. Removed: the `autoRevokeOnPasswordChange` option, `bindAutoRevokeFromFeature`, `BindAutoRevokeOnPasswordChange`, `SessionMassRevoker`, the `sessionMassRevoker` and `sessionRevokeAllOthers` fields of `createSessionCallbacks()`, and `asMassRevoker` from `sessionCallbacksFromLateBound`.
+  migration: Remove `autoRevokeOnPasswordChange` from `createSessionsFeature(...)` and every `bindAutoRevokeFromFeature(...)`/`asMassRevoker()` call; nothing replaces them.
+  affects: autoRevokeOnPasswordChange, bindAutoRevokeFromFeature, BindAutoRevokeOnPasswordChange, SessionMassRevoker, sessionMassRevoker, sessionRevokeAllOthers, asMassRevoker
+  -->
+  
+  <!-- kumiko-changes
+  feature: personal-access-tokens
+  type: breaking
+  title: PAT auto-revoke option and late binding removed
+  detail: Access tokens are revoked on password change and MFA state change through the auth-foundation credentialRevoker. Removed: the `autoRevokeOnPasswordChange` option, `bindPatAutoRevokeOnPasswordChangeFromFeature`, `BindPatAutoRevokeOnPasswordChange`. `revokeAllPatTokensForUser` stays.
+  migration: Remove the option and the bind call; nothing replaces them.
+  affects: autoRevokeOnPasswordChange, bindPatAutoRevokeOnPasswordChangeFromFeature, BindPatAutoRevokeOnPasswordChange
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-mfa
+  type: breaking
+  title: MFA revoke bindings removed; regenerate-recovery also revokes access tokens
+  detail: enable-confirm, enable-confirm-preauth, disable and regenerate-recovery revoke every other session and all access tokens through the auth-foundation credentialRevoker in their own transaction. Removed: `bindMfaRevokeAllOtherSessionsFromFeature`, `bindRevokeAllPatTokensFromFeature`, `BindMfaRevokeAllOtherSessions`, `BindRevokeAllPatTokens`.
+  migration: Remove the bind calls; mount auth-foundation with sessions and personal-access-tokens as before.
+  affects: bindMfaRevokeAllOtherSessionsFromFeature, bindRevokeAllPatTokensFromFeature, BindMfaRevokeAllOtherSessions, BindRevokeAllPatTokens
+  -->
+  
+  <!-- kumiko-changes
+  feature: shared
+  type: breaking
+  title: late-bound slot helper removed
+  detail: Removed exports: `createLateBoundSlot`, `LateBoundSlot`; their only users were the removed revoke bindings.
+  migration: None for apps.
+  affects: createLateBoundSlot, LateBoundSlot
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: SessionMassRevoker type removed
+  detail: Removed export: `SessionMassRevoker` from the api entry point; mass revocation runs through the auth-foundation credentialRevoker.
+  migration: Use `CredentialRevoker` from auth-foundation.
+  affects: SessionMassRevoker
+  -->
+- 34cf35e: The session check fails closed on lookup errors and rejects a session whose user lost the membership.
+  
+  <!-- kumiko-changes
+  feature: sessions
+  type: breaking
+  title: Session check rejects removed members and no longer falls back to JWT roles on errors
+  detail: A user or membership lookup error now fails the request instead of returning live with the token's frozen roles. A user without a membership in the session's tenant gets 401 `session_invalid` with reason `not_a_member`. Principals without a user row (bootstrap actors) keep their token roles. The check and the PAT resolver share the new `resolveLiveTenantRoles` from the tenant feature.
+  migration: Tests with hand-built actors that have a user row but no membership in the tenant must seed a membership.
+  affects: all
+  -->
+  
+  <!-- kumiko-changes
+  feature: personal-access-tokens
+  type: breaking
+  title: PATs of principals without a user row are rejected
+  detail: The PAT resolver uses `resolveLiveTenantRoles`; a token whose user has no user row now gets the same 401 as an unknown token.
+  migration: None for apps; PATs are always created by existing users.
+  affects: personal-access-tokens, createPersonalAccessTokensFeature
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: AuthSessionStatus gains not_a_member
+  detail: `AuthSessionStatus` has the new member `not_a_member`; the middleware rejects it with 401 `session_invalid`.
+  migration: Exhaustive switches over `AuthSessionStatus` need a `not_a_member` branch.
+  affects: AuthSessionStatus
+  -->
+- 34cf35e: Document drafts are gated by their subject row through `parentRef`; `authorizeSubject` and `unscopedRoles` are removed.
+  
+  <!-- kumiko-changes
+  feature: document-draft
+  type: breaking
+  title: Document drafts are visible through their subject row
+  detail: `subjectTypes` now names registered entities without their own `parentRef`, and the boot fails otherwise. Every handler and query answers 404 when the caller cannot read the draft's subject row through that entity's own `access.read`, `finalize` already before printing. `authorizeSubject`, `unscopedRoles` and `AuthorizeDocumentDraftSubject` are removed; `DocumentDraftSubject` is a plain `{ subjectType, subjectId }` type.
+  migration: Make `subjectTypes` the entity names of the subjects, drop `authorizeSubject` and `unscopedRoles`, and put the visibility rule into `access.read` of the subject entity. No schema change.
+  affects: document-draft, createDocumentDraftFeature, authorizeSubject, unscopedRoles, AuthorizeDocumentDraftSubject, DocumentDraftSubject, subjectTypes
+  -->
+- 34cf35e: Signature requests are gated by a host row through `parentRef`; `authorizeSubject`, `unscopedRoles` and the sealed list cursor are removed.
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: breaking
+  title: Signature requests are visible through their host row
+  detail: `createSignatureFeature` takes the required `hostEntities`, and every `signature:write:request` payload carries `hostType` and `hostId`. A user sees, signs, issues links for, revokes and cancels a request only while the host row is readable to them through the host entity's own `access.read`; otherwise the answer is 404 like a missing record. The request list filters in SQL, so `total`, `offset` and `aggregate` work again and the cursor is a plain cursor. The signer list requires exactly one `requestId` filter for every user (403 otherwise) and answers an empty page for a request whose host the user cannot read. `authorizeSubject`, `unscopedRoles`, `AuthorizeSignatureSubject` and `SignatureSubject` are removed. `subjectType` and `subjectId` stay as a free label.
+  migration: Pass `hostEntities` (registered entity names without their own `parentRef`) and add `hostType`/`hostId` to every request payload; move the visibility rule from `authorizeSubject` into `access.read` of the host entity. Run `kumiko-schema generate` and ship the migration for the columns `host_type` and `host_id` and the index on `read_signature_requests`. Requests stored without a host stay invisible.
+  affects: createSignatureFeature, signature:write:request, authorizeSubject, unscopedRoles, AuthorizeSignatureSubject, SignatureSubject
+  -->
+- 34cf35e: Titles and folders of user-owned collection entries are encrypted with the owner's key like the body.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: breaking
+  title: User-owned entry titles and folders are personal data
+  detail: `user-content-entry.title` and `.folder` are now `personal: { of: "ownerId" }`. They are stored encrypted while a KMS is configured, decrypted by the collection list and item queries and by the user export, and read as erased after the owner's key is shredded. Before, a forget left signature and snippet names in plaintext.
+  migration: Apps with an `ownership: "user"` collection run the PII backfill (backfillEventPiiEncryption) and rebuild the user-content-entry projection; raw reads of read_user_content_entries.title and .folder now return ciphertext and must go through decryptStoredPii or the collection queries.
+  affects: ownership: "user", user-content-entry, read_user_content_entries
+  -->
+- 34cf35e: The workflow engine is removed: `defineWorkflow`, the bundled features `workflow-runner` and `step-dispatcher`, the steps `wait`, `waitForEvent`, `retry`, `webhook.send` and `mail.send`, and the `kumiko:system:workflow.*` and `kumiko:system:step.*` system events.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Workflow engine, workflow-runner and step-dispatcher removed
+  detail: `defineWorkflow`, `computeDefinitionFingerprint`, `WorkflowDefinition`, `WorkflowStepError`, `unwrapWorkflowStepError`, `describeWorkflowStepError`, `evaluateEventMatch`, `WORKFLOW_SYSTEM_EVENT_DEFS`, the `STEP_DISPATCH_*` and `WORKFLOW_*` constants (`STEP_DISPATCHED_TYPE`, `STEP_DISPATCH_AGGREGATE_TYPE`, `STEP_DISPATCH_FAILED_TYPE`, `STEP_DISPATCH_REQUESTED_TYPE`, `WORKFLOW_AGGREGATE_TYPE`, `WORKFLOW_RESUMED_TYPE`, `WORKFLOW_RETRY_SCHEDULED_TYPE`, `WORKFLOW_RUN_COMPLETED_TYPE`, `WORKFLOW_RUN_FAILED_TYPE`, `WORKFLOW_RUN_STARTED_TYPE`, `WORKFLOW_WAITING_FOR_EVENT_TYPE`, `WORKFLOW_WAITING_TYPE`) and the type `AwaitedEventType` are no longer exported. `r.step.wait`, `r.step.waitForEvent`, `r.step.retry`, `r.step.webhook.send` and `r.step.mail.send` are gone; `PipelineCtx.workflow`, `PipelineDef.awaits` and step tier 3 are removed, and `runPipeline`/`runStepList` no longer take `workflow`/`resumeFrom`. The subpaths `@cosmicdrift/kumiko-bundled-features/workflow-runner` and `/step-dispatcher` are removed, and so is the irreversible-operation case `per-dispatch-record-key`. feature-ast no longer extracts `ai.generate`/`ai.extract`/`ai.classify` patterns from `defineWorkflow` step arrays. `stepsPipeline`, `defineStep`, `r.step.callFeature` and all synchronous steps stay.
+  migration: Build multi-step flows as jobs triggered by events (`r.job({ trigger: { on } })`), send mail through `channel-email`/`delivery` and call webhooks from a job. Apps that mounted `createWorkflowRunnerFeature()` or `createStepDispatcherFeature()` remove the mount and run `kumiko-schema generate` to drop their tables.
+  affects: defineWorkflow, workflow-runner, step-dispatcher, createWorkflowRunnerFeature, createStepDispatcherFeature, step.wait, step.retry, step.webhook, step.mail, WorkflowDefinition, WorkflowStepError, evaluateEventMatch, computeDefinitionFingerprint, WORKFLOW_, STEP_DISPATCH_, AwaitedEventType, PipelineDef, ctx.workflow, resumeFrom, per-dispatch-record-key
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: step-dispatcher feature removed
+  detail: The subpath @cosmicdrift/kumiko-bundled-features/step-dispatcher is gone with all its exports: `createStepDispatcherFeature`, `STEP_DISPATCH_AGGREGATE_TYPE`, `MailSpec`, `mailSpecSchema`, `MailDispatchResult`, `performMailDispatch`, `setMailRunner`, `WebhookSpec`, `webhookSpecSchema`, `WebhookDispatchDeps`, `WebhookDispatchResult`, `performWebhookDispatch`, `setWebhookFetch`, `setWebhookHostLookup`, `webhookAuthSecretKey`, `WEBHOOK_AUTH_SECRET_KEY_PREFIX`, `WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR`, `readAllowedPrivateWebhookHostsFromEnv` and `stepDispatcherEnvSchema`. It only served the removed `webhook.send` and `mail.send` workflow steps.
+  migration: There is no replacement feature. Send mail through channel-email or delivery and call webhooks from a job; remove the createStepDispatcherFeature mount.
+  affects: step-dispatcher, createStepDispatcherFeature, performMailDispatch, performWebhookDispatch, setMailRunner, setWebhookFetch, setWebhookHostLookup, stepDispatcherEnvSchema
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: workflow-runner feature removed
+  detail: The subpath @cosmicdrift/kumiko-bundled-features/workflow-runner is gone with all its exports: `createWorkflowRunnerFeature`, `startAndRunWorkflow`, `registerEventTrigger`, `workflowRunAggregateId`, `WorkflowSuspensionUnsupportedError`, `WorkflowRunStartedPayload`, `WorkflowRunCompletedPayload` and `WorkflowRunFailedPayload`.
+  migration: There is no replacement feature. Build multi-step flows as jobs triggered by events (`r.job({ trigger: { on } })`); remove the createWorkflowRunnerFeature mount.
+  affects: workflow-runner, createWorkflowRunnerFeature, startAndRunWorkflow, registerEventTrigger
+  -->
+- 34cf35e: EXT_USER_DATA is framework-owned; folders, form-draft, notes-history, template-resolver and auth-mfa register their GDPR hooks themselves, and the five `*-user-data` adapter features are removed.
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: breaking
+  title: User-data adapter features merged into their owner features
+  detail: `EXT_USER_DATA` is defined by the framework (`FRAMEWORK_OWNED_EXTENSIONS`), so any feature registers `r.applyExtension({ name: EXT_USER_DATA, ... })` without `requires("user-data-rights")`; user-data-rights runs the hooks whenever it is mounted and a feature calling `r.extendsRegistrar(EXT_USER_DATA, ...)` now fails with "Duplicate registrar extension". folders, form-draft, notes-history, template-resolver (for `user-content-entry` when a user-owned collection is mounted) and auth-mfa register their export and delete hooks themselves. Removed: the subpaths `@cosmicdrift/kumiko-bundled-features/folders-user-data`, `/form-draft-user-data`, `/notes-history-user-data`, `/template-resolver-user-data` and `/auth-mfa-user-data` with their exports `createFoldersUserDataFeature`, `createFormDraftUserDataFeature`, `createNotesHistoryUserDataFeature`, `createTemplateResolverUserDataFeature` and `createAuthMfaUserDataFeature`, and the shared helper `registerUserDataHooks`. `eraseNoteBodiesReachingSubject` moved from `/notes-history-user-data` to `@cosmicdrift/kumiko-bundled-features/notes-history`.
+  migration: Delete `createFoldersUserDataFeature()`, `createFormDraftUserDataFeature()`, `createNotesHistoryUserDataFeature()`, `createTemplateResolverUserDataFeature()` and `createAuthMfaUserDataFeature()` and their imports from the feature list; the owner features already carry the hooks. Import `eraseNoteBodiesReachingSubject` from `@cosmicdrift/kumiko-bundled-features/notes-history`. App features that only call `r.applyExtension({ name: EXT_USER_DATA, ... })` may drop `requires("user-data-rights")`.
+  affects: folders-user-data, form-draft-user-data, notes-history-user-data, template-resolver-user-data, auth-mfa-user-data, UserDataFeature, registerUserDataHooks, eraseNoteBodiesReachingSubject, EXT_USER_DATA
+  -->
+- 34cf35e: Every event append states expectedVersion or a blindAppendReason; the workflow resume claim is version-pinned.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Every event append states its concurrency expectation
+  detail: ctx.events.append, unsafeAppend, tryAppend, emitEvent, the job ctx.events.append, the MSP appendEvent and unsafeAppendEvent and r.step.aggregate.appendEvent now require either expectedVersion or blindAppendReason (type AppendConcurrency from @cosmicdrift/kumiko-types/handlers). Before, the stream version was read at append time, so a handler that read state and then appended could silently stack on a decision another transaction had just committed. An append with neither field, a negative or non-integer expectedVersion, or a placeholder reason (todo, legacy, n/a, ...) throws internal_error. With expectedVersion a concurrent append fails with 409 version_conflict (tryAppend returns ok:false). unsafeAppend now only means an untyped payload; the typed path is emitEvent(ctx, eventDef, ...). The bundled workflow runner pins its resume claim, so a step can no longer be resumed twice when two dispatches race.
+  migration: At every append site pick one: (1) the handler reads state of the aggregate before appending: call const v = await ctx.events.streamVersion(aggregateId) as the first statement before that read (projection row, executor detail or ctx.events.load) and pass expectedVersion: v (v + 1 for a second append in the same handler), or append through a ctx.events.fetchForWriting handle; (2) the aggregate id was created in this handler: expectedVersion: 0; (3) the event is valid whatever was appended meanwhile: blindAppendReason with a concrete sentence. Clients treat 409 version_conflict like a stale form: reload and retry. Known sites: solon 35, publicstatus 6, kumiko-enterprise 2, money-horse 1.
+  affects: events.append, unsafeAppend, tryAppend, emitEvent, appendEvent
+  -->
+- 34cf35e: Jobs trigger on events only; a handler name as job trigger fails the boot.
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: breaking
+  title: Job triggers on events only
+  detail: `r.job({ trigger: { on } })` accepts an `r.defineEvent` event (qualified or the own feature's short name) or an entity lifecycle event such as `order.created`. A write or query handler name now fails the boot with a message that names the alternatives. The job-trigger event consumer enqueues every event-triggered job after the commit, with a deterministic job id per job and event. A crash between commit and enqueue no longer loses the job, and a redelivered event does not enqueue it twice. The write response no longer waits for the job enqueue. The bundled `run-requested-export` job triggers on `export-job.created`, and readiness `run-probes` triggers on `probe-run.created`. `delivery:write:unsubscribeAddress` appends `delivery:event:address-unsubscribed` (`DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT`, payload `unsubscribeAddressPayloadSchema`).
+  migration: Replace every job trigger on a handler name. When the handler writes an entity through crud or an executor, trigger on `<entity>.created`, `.updated` or `.deleted`; the job payload is the event payload, and `ctx.triggerEvent.aggregateId` is the row id. Otherwise define an event with `r.defineEvent`, append it in the handler with `ctx.events.append`, and trigger on it. A job on `DeliveryHandlers.unsubscribeAddress` triggers on `DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT`. Tests that ran a job right after a write call `stack.drainJobs()`, which also waits for the event consumer.
+  affects: all
+  -->
+- 34cf35e: sendMailFromAccount takes an idempotencyKey.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: breaking
+  title: Idempotent send from a mailbox
+  detail: `sendMailFromAccount(ctx, { accountId, message, idempotencyKey })` records each keyed send in the new store table `store_mail_outbound_sends` through `ctx.db.outsideTransaction`. After a successful send, a repeat with the same key returns the stored `messageIdHeader` and `attachmentFileIds` without sending again. If a send started under the key but never finished (crash, parallel call), the key answers with the typed failure `mail_send_outcome_unknown` instead of sending a second copy. A typed send failure frees the key for a retry. Without a key the function behaves as before. Destroying a tenant deletes its send records.
+  migration: Run `kumiko schema generate` and apply the migration for `store_mail_outbound_sends`. Pass a stable key from a job that dispatches the sending write, for example the id of the event that asked for the mail.
+  affects: inbound-mail-foundation, sendMailFromAccount
+  -->
+- 34cf35e: The packages `@cosmicdrift/kumiko-renderer-mail-html` and `@cosmicdrift/kumiko-renderer-puppeteer-client` are now features of bundled-features; document-draft and signature use the print client directly.
+  
+  <!-- kumiko-changes
+  feature: renderer-puppeteer-client
+  type: breaking
+  title: Mail and PDF renderers live in bundled-features, document-draft and signature print without injected functions
+  detail: The packages `@cosmicdrift/kumiko-renderer-mail-html` and `@cosmicdrift/kumiko-renderer-puppeteer-client` are removed. Their code ships as `@cosmicdrift/kumiko-bundled-features/renderer-mail-html` (plus `/renderer-mail-html/seeding`) and `@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client` (plus `/renderer-puppeteer-client/qualified-names`) with the same exports, feature names, entity `rendered-pdf`, table and environment variables, so no data migration is needed. `createDocumentDraftFeature` loses its `pdf` option and its type parameter, `createSignatureFeature` loses `renderHtmlToPdf`; both render through the print client themselves and require the `renderer-puppeteer-client` feature at boot. The types `DocumentDraftPdf` and `RenderSignatureHtmlToPdf` are gone.
+  migration: Replace the two package names in imports and package.json with the `@cosmicdrift/kumiko-bundled-features/renderer-mail-html` and `@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client` subpaths (keep one bundled-features dependency). Then delete the `pdf: { render, store }` option from `createDocumentDraftFeature(...)` and `renderHtmlToPdf` from `createSignatureFeature(...)`, and mount `createRendererPuppeteerClientFeature()` wherever document-draft or signature is mounted.
+  affects: kumiko-renderer-mail-html, kumiko-renderer-puppeteer-client, createDocumentDraftFeature, createSignatureFeature, DocumentDraftPdf, RenderSignatureHtmlToPdf, renderHtmlToPdf
+  -->
+- 34cf35e: A parentRef names its host entities: `allowedTypes` is required and non-empty, and tags, folders and notes-history take a required `parents` list.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: parentRef and the join features name their hosts
+  detail: Without an allowlist the parentRef read gate built one SQL branch per registered entity, and the handler executors of tags, folders and notes-history ignored `parents` even when it was set. `ParentRefDef.allowedTypes` is now required, and the boot rule `parent-ref/allowed-types-empty` rejects an empty list. `createTagsFeature`, `createFoldersFeature` and `createNotesHistoryFeature` require `parents`, have no default singleton any more, and build their handler executors with it. `setFolderHandler` and `clearFolderHandler` are removed, and the set, clear and delete folder handlers and `createDeleteTagHandler` take the assignment executor. `folderAssignmentEntity`, `tagAssignmentEntity` and `noteEntryEntity` are the table shape without parentRef. The same holds for signature and document-draft: `createSignatureRequestEntity` and `createDocumentDraftEntity` require the hosts or subject types, `requestExecutor` and `documentDraftExecutor` are replaced by `createSignatureRequestExecutor(hosts)` and `createDocumentDraftExecutor(subjectTypes)`, and the request and draft handler factories take that executor. create-kumiko-app no longer offers tags in the picker.
+  migration: Pass `parents: [<host entities>]` to every createTagsFeature, createFoldersFeature and createNotesHistoryFeature call and `allowedTypes` to every hand-written parentRef; replace setFolderHandler and clearFolderHandler with the feature mount.
+  affects: createTagsFeature, createFoldersFeature, createNotesHistoryFeature, parentRef, setFolderHandler, clearFolderHandler, createDeleteTagHandler, folderAssignmentEntity, tagAssignmentEntity, noteEntryEntity, createSignatureRequestEntity, createDocumentDraftEntity, requestExecutor, documentDraftExecutor
+  -->
+  
+  <!-- kumiko-changes
+  feature: folders
+  type: breaking
+  title: Prebuilt folder handler constants removed
+  detail: `setFolderHandler` and `clearFolderHandler` are no longer exported from the folders feature. They were default-access copies of `createSetFolderHandler` and `createClearFolderHandler`, which stay; the feature mounts the factories with its host list and the assignment executor.
+  migration: Do not register `setFolderHandler` or `clearFolderHandler` yourself; mount `createFoldersFeature({ parents })`. A custom feature that needs the handler calls `createSetFolderHandler(access, assignmentExecutor)` or `createClearFolderHandler(access, assignmentExecutor)`.
+  affects: setFolderHandler, clearFolderHandler
+  -->
+- 34cf35e: Public routes take their tenant from the server's host resolution; managed-pages and seo no longer need an app resolver for it.
+  
+  <!-- kumiko-changes
+  feature: host-routing
+  type: breaking
+  title: r.httpRoute gets deps.hostTenantId(); managed-pages and seo default to it; createHostTenantIdResolver is removed
+  detail: `r.httpRoute` handlers receive `hostTenantId()`, the tenant the server's anonymous host resolution maps the request to (`anonymousAccess.defaultTenantId`, else the registered tenant resolver such as host-routing, checked against `tenantExists`). It never reads X-Tenant or the tenant cookie. `resolveApexTenant` of `createManagedPagesFeature` and of the seo `managedPages` option is now optional and defaults to it; a passed resolver receives `(host, { hostTenantId })`. host-routing's `createHostTenantIdResolver(options, db)` is removed, so apps no longer bind a module-global resolver to a raw connection at boot.
+  migration: Remove `createHostTenantIdResolver` and the boot-time binding around it, and drop `resolveApexTenant` from `createManagedPagesFeature` / the seo `managedPages` option when host-routing already maps the host. Keep a `resolveApexTenant` only for a fixed tenant or a mapping that differs from the API's host resolution; it can call `deps.hostTenantId()`.
+  affects: createHostTenantIdResolver, resolveApexTenant
+  -->
+- 34cf35e: `template-resolver:write:set` runs html text-block and snippet bodies of every scope, the system scope included, through the document sanitizer and refuses bodies it rejects.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: breaking
+  title: Text-block writes reject external images and embeds
+  detail: `TemplateResolverHandlers.set` stored html text blocks and snippets as written. It now checks them with the same document sanitizer as document templates, for tenant and system scope alike, and answers a rejected body with `validation_error`. The field issues carry the sanitizer codes, among them `script_element`, `event_handler_attribute`, `disallowed_link_href`, `external_image_source` (an `<img>` with `src` or `srcset`), `image_without_resource` (an `<img>` without `data-resource`) and `embedded_content` (`<iframe>`, `<object>`, `<embed>`). A text block cannot carry an image at all, because `set` stores no linked resources. Markdown and plain bodies are unchanged.
+  migration: Remove external images, images and embeds from html text blocks and snippets before you save them again: an existing block that still contains them fails with `validation_error` on its next `set` (the anonymous reads already withhold such a tenant block and serve a system block unchanged). Seeds and imports that write such bodies through `set` fail the same way. Link to an image or video instead of embedding it, or move the content into a document template that carries the image as a linked resource.
+  affects: template-resolver, TemplateResolverHandlers.set
+  -->
+- 34cf35e: Queued delivery channels only queue sealed jobs; without an address cipher they send inline.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: breaking
+  title: No plaintext addresses in delivery jobs
+  detail: createDeliveryService dispatches a send job for a queued channel only when it has an addressCipher, and the job payload always carries sealedContent. Without a cipher (no master key) the channel renders and sends inline, so recipient addresses and message content never reach Redis or the job-run store in plaintext. sealJobContent requires the cipher. Jobs already queued with plain content are still sent.
+  migration: Set KUMIKO_SECRETS_MASTER_KEY_V1 on web and worker so mail and other queued channels keep going through the queue. Tests that build a delivery service with a job dispatcher pass addressCipher (createTestEnvelopeCipher) and configEncryption in the job context.
+  affects: sealJobContent, createDeliveryService, addressCipher
+  -->
+- 34cf35e: Field approval requires access.write on the field, refuses unsealed secret fields, checks the requester's entity write right and hides pending values from approvers who may not read the field.
+  
+  <!-- kumiko-changes
+  feature: field-approval
+  type: breaking
+  title: Stricter field-approval rules
+  detail: Boot rejects access.approve without access.write (field-approval/needs-write) and on an encrypted or writeOnly field that is not encrypted under a data subject (field-approval/secret-field), because the pending value would be stored unsealed. request-change also checks the entity's access.write ownership against the host row (422 ownership_denied). pending-changes leaves out requests on fields the caller may not read, unless the caller filed them. userCanReadFieldRow is exported from @cosmicdrift/kumiko-framework/engine.
+  migration: Add access.write with every approve role to each approval-gated field. Move approve off encrypted or writeOnly fields, or annotate them with a personal subject.
+  affects: access.approve, createFieldApprovalFeature
+  -->
+- 34cf35e: set-folder and clear-folder enforce the folders feature's ownership.write.
+  
+  <!-- kumiko-changes
+  feature: folders
+  type: breaking
+  title: Folder assignments enforce ownership.write
+  detail: createFoldersFeature({ ownership: { write } }) now gates set-folder (create, move, restore) and clear-folder like the tags feature does. Before, the handlers wrote through an executor without the rule, so any caller with handler access could file or unfile another user's records.
+  migration: Direct callers of createFolderAssignmentExecutor pass the ownership option first: createFolderAssignmentExecutor(ownership, parents).
+  affects: createFolderAssignmentExecutor
+  -->
+- 34cf35e: forget-signer answers not found unless the caller can read the record the signature request belongs to.
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: breaking
+  title: forget-signer checks the host record
+  detail: signature:write:forget-signer loads the signer's request and its host record with the caller's rights, like revoke-link. A caller who cannot read the host (for example a data protection officer without read access to the lease) gets 404 and the signer stays.
+  migration: Code that calls createForgetSignerHandler directly passes the signature request executor. Erasing signers of records outside the caller's read rights runs through a role that can read the host or through forget-subject.
+  affects: createForgetSignerHandler
+  -->
+- 34cf35e: A mailbox send key now belongs to the caller and the mailbox, so another user's key neither answers nor blocks a send.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: breaking
+  title: Send idempotency keys bound to caller and mailbox
+  detail: sendMailFromAccount checks the mailbox and the caller's send right before it looks up an idempotencyKey. The stored send record carries the caller's userId, and a key matches only for the same user and mailbox. Before, a key recorded for another mailbox returned that send's Message-ID or outcomeUnknown to anyone in the tenant.
+  migration: Regenerate the schema (kumiko schema generate). store_mail_outbound_sends gets a nullable user_id column, and its unique index becomes (tenant_id, user_id, account_id, idempotency_key). Records written before the update have no user and no longer dedupe a retry.
+  affects: sendMailFromAccount, outboundMailSendEntity
+  -->
+- 34cf35e: Tenant destroy stage events now run the tenant projection, so the tenant row version follows its stream.
+  
+  <!-- kumiko-changes
+  feature: tenant-lifecycle
+  type: breaking
+  title: Tenant row version follows the destruction stage events
+  detail: The destruction pipeline appended its stage events to the tenant stream without running the projections, so read_tenants.version stayed behind the stream. A SystemAdmin update of a destroying tenant failed with version_conflict and a projection rebuild produced a different row than the live path. Every stage event now runs the projections after the append. The test helper seedDestroyingTenant from tenant-lifecycle/testing now takes the test stack (db and registry) instead of the db, so its started event projects as well.
+  migration: Replace seedDestroyingTenant(stack.db, tenantId) with seedDestroyingTenant(stack, tenantId).
+  affects: seedDestroyingTenant
+  -->
+- 34cf35e: The password-reset, email-verification, account-unlock and signup request handlers no longer return the token or the address in their result.
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: breaking
+  title: Token request handlers no longer return the token
+  detail: `request-password-reset`, `request-email-verification` and `request-account-unlock` now return only `{ kind }`, and `signup-request` returns only `kind` and `expiresAt`. The result of the three token request handlers is the same for every address, known or not, so `kind: "no-op"` no longer occurs there. The token reaches the user only by mail.
+  migration: Code that read `token` or `email` from the result of these handlers gets the token from the sent mail instead. Checks for `kind: "no-op"` on reset, verification and unlock requests are removed. The types `TokenRequestSuccess` and `TokenRequestNoOp` no longer exist; `TokenRequestData<K>` is `{ readonly kind: K }`.
+  affects: request-password-reset, request-email-verification, request-account-unlock, signup-request, requestPasswordReset, requestEmailVerification, requestAccountUnlock, TokenRequestSuccess, TokenRequestNoOp, TokenRequestData
+  -->
+- 34cf35e: Account deletion now waits the longest grace period of all the user's tenants, and never less than 7 days.
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: breaking
+  title: Deletion grace period is the maximum over the user's tenants with a 7-day floor
+  detail: `request-deletion` and `confirm-deletion-by-token` took the grace period from the active tenant's compliance profile, although the deletion hits the global user. A tenant admin could set it to 0 days via `compliance-profiles:write:set-profile`. The period is now the longest `userRights.gracePeriod` over every tenant the user is a member of (the active tenant for a user without memberships), raised to `MIN_DELETION_GRACE_PERIOD` (7 days) if shorter and capped at `MAX_DELETION_GRACE_PERIOD` (90 days) if longer, so one tenant profile cannot postpone a global deletion indefinitely. The handlers read `read_tenant_memberships`, so an app stack that mounts user-data-rights needs the tenant feature's membership table.
+  migration: Apps that relied on a grace period shorter than 7 days (for example `{ hours: 6 }` overrides) now get 7 days; longer values (for example 3650 days) now get 90 days. Test stacks that mount user-data-rights and call these handlers must create the membership table (`unsafeCreateEntityTable(db, tenantMembershipEntity)`).
+  affects: user-data-rights, request-deletion, confirm-deletion-by-token, gracePeriod, MIN_DELETION_GRACE_PERIOD, MAX_DELETION_GRACE_PERIOD
+  -->
+- 34cf35e: The storage provider selection (`file-foundation:config:provider`) can now be written by a SystemAdmin only; a tenant admin can still read it.
+  
+  <!-- kumiko-changes
+  feature: file-foundation
+  type: breaking
+  title: Storage provider selection is SystemAdmin-only
+  detail: The config key `file-foundation:config:provider` chose which storage plugin serves a tenant and was writable by TenantAdmin. Storage provider selection is platform-level, so only a SystemAdmin may write it now; a TenantAdmin write fails with 403. Reading is unchanged.
+  migration: Set the provider through a SystemAdmin or pin it with an app override or the `FILE_STORAGE_PROVIDER` environment variable instead of letting tenant admins write it.
+  affects: file-foundation
+  -->
+- 34cf35e: The S3 endpoint and path-style config of file-provider-s3 can now only be written by a SystemAdmin.
+  
+  <!-- kumiko-changes
+  feature: file-provider-s3
+  type: breaking
+  title: S3 endpoint and forcePathStyle are SystemAdmin-writable only
+  detail: The server connects to the configured S3 `endpoint` with the tenant's stored credentials and applies no host policy, so a TenantAdmin choosing the endpoint could point the server at internal hosts (SSRF). `file-provider-s3:config:endpoint` and `file-provider-s3:config:force-path-style` are now writable by SystemAdmin only (read access is unchanged). `bucket`, `region`, `accessKeyId` and the secret access key stay tenant-writable, so a tenant still brings its own bucket on the endpoint the operator chose.
+  migration: Set the endpoint and forcePathStyle of tenants that use a custom S3-compatible store (Hetzner, MinIO, R2) as a SystemAdmin, or seed them. Calls that write these keys as a TenantAdmin now fail with 403.
+  affects: file-provider-s3, FileProviderS3, composeFileStack
+  -->
+- 34cf35e: SMTP transports now require STARTTLS (or implicit TLS) and refuse to send in clear text.
+  
+  <!-- kumiko-changes
+  feature: channel-email
+  type: breaking
+  title: SMTP requires STARTTLS unless the host is loopback or allowlisted
+  detail: `createSmtpTransport` (also via `createSmtpTransportFromEnv` and the per-tenant mail-transport-smtp) now sets nodemailer `requireTLS` when `secure` is false. A public SMTP server that offers no STARTTLS no longer receives mail or credentials in clear text; sending fails instead. Loopback hosts (`localhost`, `127.0.0.0/8`, `::1`) and hosts in the operator allowlist `KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS` stay plaintext-capable so local dev catchers such as Mailpit keep working.
+  migration: Point the SMTP host at a server that offers STARTTLS or implicit TLS (`SMTP_SECURE=true`, port 465). For a private dev catcher that has no TLS, list its host in `KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS`; loopback hosts need no entry.
+  affects: all
+  -->
+
+### Patch Changes
+
+- 34cf35e: Embedded custom fields check every sub-field on write: money as integer minor units, enum against its values. A definition with a sub-type the write cannot check is refused.
+  
+  <!-- kumiko-changes
+  feature: custom-fields
+  type: fix
+  title: Embedded custom fields check money and enum sub-fields
+  detail: set-custom-field skipped the value check of an embedded field as soon as one sub-field was not text, number, boolean or date. Now money sub-fields take an integer amount in minor units (the currency is the definition's top-level currency) and enum sub-fields only their declared values. define-tenant-field, define-system-field and update-tenant-field refuse an embedded definition whose sub-fields are not text, number, boolean, date, money or enum, an enum sub-field without values and a money sub-field without the definition's currency (400 validation_error). For API callers: send embedded money as { "fee": 1250 } (12.50 in the definition's currency), not as { amount, currency }; a value that used to pass unchecked now fails with 422 custom_field_value_invalid.
+  -->
+- 34cf35e: update-tenant-field checks embedded sub-fields against the stored type, so an embedded field can no longer be stored without a schema by leaving out the type. A definition saved before the sub-field check stays editable as long as its sub-fields are sent unchanged. An embedded field needs at least one sub-field, and set-custom-field refuses keys outside the declared sub-fields.
+  
+  <!-- kumiko-changes
+  feature: custom-fields
+  type: fix
+  title: update-tenant-field checks embedded sub-fields against the stored definition
+  detail: The embedded sub-field check of update-tenant-field moved from the payload schema into the handler, which knows the stored type. Before, an update without serializedField.type skipped the check, so an embedded field could be saved without a schema or with unchecked sub-types. update stays a full replacement: an omitted schema removes it, so an embedded field sent without a schema is refused (400 validation_error on serializedField), never kept from the stored definition. A changed sub-field schema that the check refuses is refused the same way. A legacy definition whose stored sub-fields the check would refuse today can still be relabelled or reordered when its schema and currency are sent unchanged. An empty sub-field schema ({}) checked nothing and is now refused by define-tenant-field, define-system-field and update-tenant-field (400 validation_error); a stored legacy definition with an empty schema can still be relabelled when sent unchanged. set-custom-field refuses a value whose row carries a key outside the declared sub-fields (422 custom_field_value_invalid), in a single row and in every row of a multiple field; before, such keys passed the check and were stored as sent. Nothing to do for apps unless a client sends extra keys in an embedded value.
+  -->
+- 34cf35e: The approval list shows who requested a change to approvers who are no admins, and its phone card puts the current and the new value on their own labelled lines. An open request stays visible at its field after a reload and names the requested value, and an empty approval list says that nothing awaits approval. The approval screen and its nav entry now also reach the roles that may file a request, so more people see the "Approvals" entry.
+  
+  <!-- kumiko-changes
+  feature: field-approval
+  type: fix
+  title: Requester name for every approver, readable phone card, open request at its field
+  detail: field-approval:query:pending-changes now returns requestedByName, the requester's display name (never the email), so the list no longer depends on the admin-only member directory and shows the name to every approver; requestedBy stays in the row. On the phone card the field label stands above the record, current and new value each take a labelled line, and requester and date share one; the date keeps date and time together. The edit form asks pending-changes for the record's open requests when field-approval is mounted and shows "Awaiting approval" at each such field, also after a reload; the requester sees their own requests, approvers see all they may read. A requester who may write but not read the field sees that the request is open, never its value. A requester's second request on the same field replaces their own open one. When the caller may read the requested value, the field says "Requested: DE89… · awaiting approval" (key kumiko.form.fieldApproval.pendingValue, formatted like the field's read-only value, a document field as plain text); a writeOnly field, a reference field (its value is a record id, not a label) and a request without a readable value keep "Awaiting approval". pending-changes masks writeOnly fields like every other read: currentValue, the requested value and the record label come back as true (set) or null, never in plaintext, also for approvers. The approval screen and its nav entry are listed for the union of approverRoles and the feature's access roles (before: approverRoles only, when set), so requesters can find and withdraw their requests; who sees the nav entry changes accordingly, while each row stays filtered (requesters see their own requests, approvers all they may approve, other roles none). The empty approval list reads "No changes awaiting approval." (de, es, fr, it translated). Nothing to do for apps; screenshot tests of the edit form and the approval list change.
+  -->
+  
+  <!-- kumiko-changes
+  feature: field-approval
+  type: fix
+  title: A request no longer silently replaces someone else's open request
+  detail: field-approval:write:request-change overwrote another user's open request on the same field and made the caller its requester, so the first requester lost the request without notice. It now fails with reason field_change_request_pending_by_other (i18n key errors.fieldApproval.requestPendingByOther, en, de, es, fr, it); the caller's own open request can still be changed, and approvers still write the field directly. Re-filing pins the version the handler checked, so two requests filed at the same moment on a decided request end in a version conflict for the second instead of one replacing the other. On a record (pending-changes with an entityId) a writer who would have to request the field gets a row for another user's open request without value, current value, requester or name (canApprove and filedByCaller false); the approval list without an entityId is unchanged. The edit form shows "A change request for this field is awaiting approval" (key kumiko.form.fieldApproval.pendingByOther) at such a field instead of "Request change", and the request drawer leaves the field out. Apps whose tests expect no rows from pending-changes for such a writer on a record now get that one row without value.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Withdraw runs once, a refused config reset shows its error
+  detail: "Withdraw request" is disabled while its call runs, so a double click no longer sends a second reject-change that failed after the first had withdrawn the request. A config screen reset that is written at once (an override equal to the inherited value) ignored a refused write and reloaded the cascade; it now shows the error like a refused save and reloads nothing. RenderEditControls gains showSubmitError(error), which shows the failure of a write the host ran outside submit the way a failed save shows. Nothing to do for apps.
+  -->
+- 34cf35e: Field approval gets its UI. A form keeps one Save: a user who may write but not approve a gated field sees it read-only with "Request change", and a drawer files the changed gated fields in one batch with "Submit for approval". An open request shows "Requested: <value> · awaiting approval" under the field and, for its requester, "Withdraw request". Approvers edit the field directly. A save the server still refuses shows a field error only. The `field-approval` feature ships the screen `field-approval:screen:field-change-requests` with approve, reject and withdraw row actions and a nav entry in the tenant admin area.
+  
+  <!-- kumiko-changes
+  feature: field-approval
+  type: fix
+  title: Approval-gated fields are read-only with a request drawer
+  detail: Approval-gated fields are read-only with a request drawer. A user who may write but not approve a gated field sees it read-only with 'Request change'; the drawer lists all such fields of the form and files only changed ones in one batch with 'Submit for approval'. An open request shows 'Requested: <value> · awaiting approval' and, for its requester, 'Withdraw request'. pending-changes returns gatedFields for an entityType; entityId null answers for a record not created yet. A denied save shows a field error only. createFieldApprovalFeature registers the list field-approval:screen:field-change-requests (record, field, current and new value, requester, time; approve and reject for approvers, withdraw for the requester) and the nav entry field-approval:nav:field-change-requests in the tenant admin area. Values only show to callers who may read the field. Nothing to do for apps; approverRoles adds approver roles to the list and nav: { parent, order, workspaces, adminArea } moves the entry.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Request drawer: own field ids, no toast over Save
+  detail: A form rendered inside another form (the request drawer, the create-reference dialog) gives its fields ids of their own (`kumiko-edit-<scope>-<field>`), so a label in the drawer names the drawer's field and not the locked one behind it; top-level forms keep `kumiko-edit-<field>`. A field locked only by the approval keeps the cell it has while editable instead of taking the whole row. The pending hint and its links wrap as one row with a gap. Filing a request shows no toast any more (it covered the form's Save); the hint at the field is the answer and is announced to screen readers (`role="status"`, new `Text` prop `announce`). Apps whose tests select a drawer or dialog field by `kumiko-edit-<field>` select it by label or by the field's test id instead.
+  -->
+- 34cf35e: Forms save through their one Save button. A note typed into the notes section of an edit form is written with the form's Save. Resetting a config value to its inherited value marks the field and saves with the form. A failed footer action no longer leaves its values in the form. The layout editor blocks publishing and applying while the layout has unsaved changes. Actions on a projection detail ask before they discard input typed into a write form.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Forms save through their one Save button
+  detail: The notes section inside an edit form has no own add button any more; a typed note counts as unsaved input and is written by the form's Save (addNote), a standalone notes section keeps its button. On a config edit screen "Reset" sets the field to the inherited value and the reset is written with Save (config:write:reset), typing after a reset writes the typed value instead; a reset to a value equal to the current override changes nothing visible and is not saved. A footer action with a patch (for example "Save as urgent") sends its patch with this one submit only; when the write fails the patch is not kept in the form, so the next Save does not send it. The layout editor disables "Publish drafts" and "Apply to templates" while the layout has unsaved changes and says to save first (key documentDesigner.usedBy.saveFirst, de, es, fr, it translated). On a projection detail, an action that does not submit a write form asks "You have unsaved changes in this form…" while a write form section holds typed input, as entityEdit does; the action named in submitWith sends the input without the question. Nothing to do for apps.
+  -->
+- 34cf35e: Display fixes found on app screenshots: phone cards, tabs, nav labels, result tables, month values and file links.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Active tab stays visible when the tab bar grows
+  detail: When tab counts load later and the tab bar gets wider, the active tab is scrolled back into view on every size change, not only when the tab changes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: A column hidden on phones no longer becomes the card badge
+  detail: `cardColumnRoles` skips `hideOnNarrow` select columns in the status fallback, as it already did for `cardBadge` columns.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Shorter nav labels, translated content folders and layout presets
+  detail: The all-tenants audit log nav label is shorter in every locale so it fits the sidebar. The template-resolver content tree labels its folders and its root through `template-resolver.folder.<segment>` and `template-resolver.nav.content`; a `TreeNode` can carry a `labelKey` that the nav tree translates, falling back to the raw label; the sidebar search matches the translated label. The branding layout preset select shows translated option labels. All texts ship in English, German, Spanish, French and Italian.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Result tables keep the data table cell padding
+  detail: `ResultTable` and `ComparisonTable` without `card` pad their cells with `px-2` like `DataTable`, so neighbouring columns no longer run together.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Month format for year-month text
+  detail: The new cell format `{ format: "month" }` shows a `YYYY-MM` value as month and year in the user's locale ("June 2026"). An entityList text field declared with `format: "month"` uses it by default; other values stay as they are. The list-table-options recipe shows it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: File links in lists read as downloads
+  detail: A file cell in a list shows a download icon before the file name and is labelled "Download: <name>" (`kumiko.field.file-list.downloadNamed`, in all locale packages).
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot warning for a file column a phone cannot reach
+  detail: Boot warns with `list/hidden-file-column` when an entityList hides a file column on narrow screens (`hideOnNarrow`) and its rows open nothing that shows the file: no rowClick action, no `detailFor` screen and no entityEdit screen for the entity with that field in its layout. A single reference column counts too when its target entity has exactly one file field, since its cell links that file; an edit screen does not make it reachable, because its form shows the reference picker. The relatedList sections of projectionDetail and entityEdit screens are checked as well, where only the section `rowClick` or a rowClick action opens a row. An app-wide `createKumikoApp({ onRowClick })` is client code the boot cannot see. It is a warning, so existing apps keep booting.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Phone card layout: title first, date ranges, no empty lines
+  detail: On the phone card the title keeps its line and a long status badge wraps below it. Exactly two unlabelled dates on one line above the title (`cardAbove`) read as a range with a dash. Empty file lists no longer leave a blank meta line. With a row menu (and no leading image, checkbox or expand toggle) the menu sits beside the title line without making it taller, the status badge stays at the right edge, and the lines above and below the title use the full card width.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Progress lists name an entry above its bar, translated notification region
+  detail: `ProgressList` shows name and value first and the bar right below, with more space between two entries than inside one, so a reader from the top pairs each name with its own bar. The toast region is labelled through `kumiko.toast.viewport-label` (Radix fills in the hotkey) instead of the fixed English "Notifications (F8)", in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: A reference to a record with one file links that file
+  detail: A list cell of a single reference (`createReferenceField` or a column with `refEntity`) whose target entity has exactly one `file` field and no `files` field shows the reference label as a download link to that file, with the PDF view in a drawer like the file column of the documents list. The file link takes the place of the link to the referenced record. The file id comes from the rows of the reference lookup query, so tenant and field read access apply: an unreadable file field, an unreadable target or an empty file keep the plain label. The name shown is the reference label, never the stored file name. A target with several file fields, a `files` field, a multi reference or an author renderer stays text, and so do reference columns of dashboard list panels. The documents recipe shows it with an offer that references a filed document.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: The comma between phone card values stays at the value before it
+  detail: In plain phone cards (`plainPhoneCards`, related lists) two `narrowInline` values on one line are joined by a comma that now sits in the same item as the front value, and the space after it is the line's column gap. An app stylesheet that widens that gap no longer leaves the comma standing alone with space on both sides ("980,00 €  ,  29.10.2026" becomes "980,00 €, 29.10.2026"). The front value takes its line height from that item, so an app rule on the line's direct children (`[data-testid^="card-vals-"] > div`) still reaches both values. A date range above the title keeps its dash flush between the dates.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Related lists sort money, located times and empty values like the standalone list
+  detail: A relatedList sorts its loaded rows in the client. A money column (`{ amount, currency }`) now orders by its amount, like the server's column sort, which ignores the currency; before, every money value compared equal and the rows kept the server's id order. A `locatedTimestamp` column orders by its instant, and timestamps within one second order by their fraction whatever its digit count. Empty values sit where the standalone list puts them: last ascending, first descending, or where the field's `sortNulls` says. Rows with the same value follow the id, the standalone list's second key. `sortByAccessor` takes optional `nullsFirst` and `tieBreaker`; without them it behaves as before.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Related lists let their query sort, so the first page holds the right rows
+  detail: buildAppSchema derives `serverSortFields` on every relatedList section and entityList `expandableRow` from the bound query: nothing without a `sort` param, the enum literals of a hand-written query, the fields the SQL sort of an `<entity>:list` query orders by for every caller (no locatedTimestamp, no encrypted field, no field or reference label with its own `access.read`, a reference only with `sortable: true` and a label), plus `insertedAt` where the query can order by it. An open `sort: z.string()` is trusted for the sortable columns, except a reference of the section's `entity` without such a label sort. A value written by the app is overwritten. The section sends `sort`/`sortDirection` for a `defaultSort` or header click on such a column and reloads, so a section with more rows than `pageSize` shows the smallest or largest values instead of sorting only the loaded page. Text columns sorted this way follow the database collation, like the standalone list, instead of the client's locale collation (numeric, case-insensitive): "W 10" now sorts before "W 2". Without a sort it asks for `insertedAt` ascending, so child rows with random (v4) ids come in creation order across commands; rows written in one transaction share `insertedAt` and keep id order among themselves. A column the query cannot order keeps the client sort over the loaded rows; a reference column the query cannot order by its label offers no sort at all, since the client only has its uuid. Apps that marked such a reference `sortable` in the section lose that header sort until the entity field gets `sortable: true` and a `labelField`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: pageRows orders empty values and instants like the SQL list
+  detail: `pageRows` puts missing values last ascending and first descending, like the server list (`nullsSortFirst`), and compares ISO instant strings by time whatever their fraction digit count (`instantSortKey`, now exported from `ui-types` and shared with the relatedList client sort). Lists that page through `pageRows` and sort descending by a nullable column now show the empty rows first: publicstatus sysadmin users (`globalRoles`, `locale`) and tenants (`customDomain`), and the bundled tenant-caps and readiness-run lists.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Sorting and filtering by a companion column respect the field's read access
+  detail: Money, located timestamps and lookupable text store companion columns (`<name>Currency`, `<name>Utc`, `<name>Tz`, `<name>Bidx`) that have no field entry of their own. A list `sort` or `filter` on such a column skipped the field-level read check, so a caller who could not read the field could learn its order, or which rows share a value, through it. These columns now carry the read rule of their field: the sort drops to id order, the filter matches nothing, as for the field itself.
+  -->
+- 34cf35e: `forgetOwnRowsDeleteHook` is exported from `user-data-rights-defaults` and erases a user's rows across several owner fields.
+  
+  <!-- kumiko-changes
+  feature: user-data-rights-defaults
+  type: improvement
+  title: forgetOwnRowsDeleteHook erases rows on any owner field
+  detail: Apps no longer need their own loop of listing rows, forgetting each one and throwing on failure. `forgetOwnRowsDeleteHook({ entityName, table, executor, ownerFields })` from `@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults` returns an EXT_USER_DATA delete hook that forgets, through the executor, every row of the tenant whose owner field (default `userId`) holds the erased user. Soft-deleted rows are included, a row that matches several owner fields is forgotten once, and the hook forgets under both the delete and the anonymize strategy, so use it only for rows that belong wholly to the users it names. `featureName` is optional and only gates hooks for optional source features. The user-data-rights recipe shows it on an event-sourced mute entity.
+  -->
+- 34cf35e: The puppeteer service isolates each render, times out hung screenshots and no longer returns internal error text.
+  
+  <!-- kumiko-changes
+  feature: renderer-puppeteer-client
+  type: fix
+  title: Puppeteer service isolates renders and limits bodies without Content-Length
+  detail: Each render now runs in its own browser context (own cookies, cache and storage) that is closed afterwards, instead of sharing the default context across tenants. Image screenshots get the same `RENDER_TIMEOUT_MS` budget as setContent and PDF and answer 504 when it runs out. `/render` and `/rasterize` check the token first and then count the body bytes while reading, so a request without `Content-Length` can no longer skip the size limit; it answers 413 `payload_too_large`. `render_failed`, `rasterize_failed` and `invalid_pdf` responses no longer carry `details`; the service writes the cause to its log instead.
+  -->
+- 34cf35e: Apps get a ready stub subscription provider for e2e and dev seeding instead of writing their own.
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Stub subscription provider in billing-foundation/testing
+  detail: `@cosmicdrift/kumiko-bundled-features/billing-foundation/testing` exports `createStubSubscriptionProvider({ providerName, plans, oneOffPrices?, currency?, overrides? })`. It returns a feature that registers the provider plugin (prices from `plans`, checkout and portal return the given success or return URL, webhooks ignored), `setBillingEnabled(tenantId, enabled)` and `seedSubscription(write, tenantId, { tier, status?, currentPeriodEndIso?, cancelAtIso? })`, which records the checkout and processes the subscription event so the ledger admits it. Pass an e2e seeder's `ctx.write`. Tier sync stays in the app.
+  -->
+- 34cf35e: Extracted document text becomes unreadable as soon as its file is deleted or forgotten.
+  
+  <!-- kumiko-changes
+  feature: document-ingest-foundation
+  type: fix
+  title: documentExtract.pages is record-owned and shredded with its fileRef
+  detail: `pages` was tenant-subject ciphertext, so after a fileRef delete or forget the full document text stayed readable in the extract's events until the whole tenant was destroyed. It is now `personal: { of: "id" }`, and every path that forgets an extract (fileRef deleted or forgotten, orphaned extract, tenant destroy) erases the extract's record key right after the forget. Existing tenant-subject ciphertext still decrypts. Without a mounted KMS nothing changes.
+  -->
+- 34cf35e: Folders reject an unknown or cyclic parent and refuse to delete a folder that still has child folders.
+  
+  <!-- kumiko-changes
+  feature: folders
+  type: fix
+  title: Folder parents are checked and deletes lock against filing
+  detail: `folder:create` and `folder:update` answer 422 `folder_parent_not_found` when `parentId` names no live folder of the tenant, and `folder_parent_cycle` when a move would put a folder under itself or one of its descendants. `folder:delete` answers 422 `folder_has_children` while child folders exist, matching what the folder manager already enforced in the UI. `folder:delete`, `set-folder` and the parent check take an advisory lock on the folder, so a filing or a new child can no longer slip in between the delete's checks and the delete.
+  -->
+- 34cf35e: An all-signed request whose signature page exceeds the renderer's size limit now ends as `failed` instead of retrying every five minutes.
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: fix
+  title: Oversized signature pages end the request as failed
+  detail: The signature page embeds every signer's image, so many large signatures can exceed the PDF service's HTML limit. The sweep retried such a request every five minutes forever. When the renderer answers `payload_too_large`, the request now ends in `failed` with the event `signature:event:failed` and the reason `signature-page-too-large`. Renderer outages and other errors still retry on the next run.
+  -->
+- 34cf35e: Server handlers and screens can read a whole entity list with one framework helper instead of their own page loop.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: listAllPages reads every page of a list handler
+  detail: `listAllPages(fetchPage, { maxPages })` from `@cosmicdrift/kumiko-framework/engine` follows `nextCursor` with `limit: MAX_LIST_LIMIT` until the last page. It throws `InternalError` when a handler repeats a cursor, and when the list still has a cursor after `maxPages` pages (default `LIST_ALL_PAGES_DEFAULT_MAX_PAGES` = 50, so 10,000 rows), because every row is held in memory. `toListPage(value, source)` checks an untyped `{ rows, nextCursor }` response, for example from `ctx.dispatch.query` or `dispatcher.query`. The helpdesk feature reads requests and replies through it instead of its own offset loop.
+  -->
+- 34cf35e: Agent manifests reuse each handler's input JSON schema instead of recomputing it every turn.
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: improvement
+  title: Handler input schemas are computed once per handler
+  detail: `buildAgentManifest` ran `z.toJSONSchema` for every exposed handler on every agent turn. The schema is now cached per handler definition, including schemas that cannot be expressed as JSON Schema. Manifest and catalog are still built per turn, because they depend on roles, locale and the deny list.
+  -->
+- 34cf35e: An invite link stays usable when accepting it with an existing login fails in the MFA check.
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Invite handlers share one token consumption sequence
+  detail: `invite-accept`, `invite-accept-with-login` and `invite-signup-complete` each repeated the token lookup, burn, pending check, acceptance and token deletion. They now share one internal sequence that deletes the token only after the whole acceptance, including the MFA gate, has succeeded, and releases it again on any failure. Before, `invite-accept-with-login` deleted the token before the MFA gate, so a failing MFA check used up the link.
+  -->
+- 34cf35e: Password, email, access-token and MFA re-authentication can be tried at most five times per user in five minutes.
+  
+  <!-- kumiko-changes
+  feature: auth-mfa
+  type: improvement
+  title: Re-authentication handlers are rate limited per user
+  detail: `change-password`, `user-profile:change-email`, `personal-access-tokens:create`, `auth-mfa:disable` and `auth-mfa:regenerate-recovery` verify a password or second factor without a limit until now, so a stolen session could guess without bound. Each now allows 5 calls per user per 5 minutes and then answers 429 `rate_limited`. A code that cannot be a recovery code (for example a mistyped 6-digit TOTP) no longer runs the argon2 recovery-code check, and the TOTP-only MFA verifier used by access-token creation never runs it.
+  -->
+- 34cf35e: The admin boot seed keeps finding existing accounts whose blind index is blank or stale, and repairs the index.
+  
+  <!-- kumiko-changes
+  feature: user
+  type: fix
+  title: seedAdminGuarded, seedBootstrapAdmin and ensureBootstrapAdminRoles still find accounts with a blank email_bidx
+  detail: With a PII KMS configured, the boot seed matches the account by decrypting the active user rows and comparing the normalized email, so a row with a NULL or stale `email_bidx` is not duplicated (offlot#112). The oldest row wins among duplicates, its blind index is recomputed through `rewriteSeededUserEmail`, and the email is stored lower case. The ownership check before granting to an existing account and the abort when a PII KMS runs without a blind-index key stay. Without a KMS the lookup is the plain normalized email lookup.
+  -->
+- 34cf35e: Password login, MFA verify and the pre-auth MFA enrollment build the session through one helper, so a password login now checks the stored locale like the MFA paths do.
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Password login keeps only a valid, canonical locale in the session
+  detail: A plain password login copied the user's stored locale into the session and JWT without checking it. It now goes through the same check as MFA verify and the pre-auth MFA enrollment: an invalid locale tag is left out and a valid one is stored in canonical form (for example `de-de` becomes `de-DE`). All three paths share one session builder that also applies the auth-claims hooks. Which account statuses may start a new session is now one predicate, `isPrincipalBlockedForNewAuth` from `@cosmicdrift/kumiko-bundled-features/user` (restricted, deletion requested, deleted); each path refuses the same statuses as before.
+  -->
+- 34cf35e: When a session ends while a form holds unsaved input, the login now appears over the app instead of replacing it, so the input survives signing in again.
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: A session end no longer throws away unsaved form input
+  detail: Until now a revoked or expired session swapped the whole app for the login screen, and typed but unsaved input was lost without warning. If a form has registered unsaved input (`useUnsavedInputSource`, which the framework's write forms do), the auth gate now keeps the app mounted and shows the login as a full-screen dialog with the "session ended" hint; a configured `loginUrl` is not followed in that case. Signing in again as the same user in the same tenant closes the dialog and the input can be saved. Signing in as another user or into another tenant reloads the page. Without unsaved input nothing changes. `SessionState` has the new optional field `inputKeptOnSessionEnd`.
+  -->
+- 34cf35e: An in-app plan switch and a provider webhook for the same tenant no longer run past each other.
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Plan switch and webhooks share the subscription stream lock
+  detail: `switch-plan` took its own per-tenant advisory lock while `process-event` locks the subscription stream under another namespace, so a webhook arriving during the provider call read the stream without the pending switch and stored `subscription.updated` without the consent. The pending-switch check now takes the same lock as `process-event`, so such a webhook waits until the switch is committed. The list of state events is defined once in `events.ts`.
+  -->
+- 34cf35e: Mails the platform sends itself can carry the app's title and accent color through the new `platformBrand` option of the mail renderer.
+  
+  <!-- kumiko-changes
+  feature: renderer-mail-html
+  type: fix
+  title: Platform mails carry the app brand through platformBrand
+  detail: `createRendererMailHtmlFeature({ platformBrand: { title, accentColor? } })` brands the mails of the system tenant, such as the account deletion confirmation, in the brand row, the initial tile, the buttons and the chrome that `readMailChrome` hands to pages like the unsubscribe page. Branding stored for the system tenant still wins, and mails of every other tenant never get the platform brand. An empty title or an accent color that is not a `#rrggbb` hex is refused when the feature is created. Apps that build the renderer through `composeRendererStack` pass the brand as `composeRendererStack({ mailPlatformBrand })`. Before, the system tenant's mails showed no title and the default accent, because the renderer only knew tenant branding and `createConfigResolver({ appOverrides })` would have branded every tenant.
+  -->
+- 34cf35e: `sync-subscription` no longer holds a database transaction while it waits for the payment provider.
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Drift sync calls the provider outside the transaction
+  detail: `sync-subscription` now runs with `transaction: "perCommand"`: it reads the subscription and calls `retrieveSubscription` outside any transaction and hands the snapshot to the new `billing-foundation:write:apply-subscription-snapshot` handler (system role and SystemAdmin only), which locks the subscription stream, reads the row again and appends the drift. Before, every tenant's sync kept a transaction and a pool connection open for a whole provider round trip. The result `{ synced, reason }` is unchanged; a subscription replaced while the provider answered now gives `no_live_subscription`. `sync-subscription` can no longer run nested inside another write or in a batch.
+  -->
+- 34cf35e: The subscription webhook no longer returns internal error details to the caller.
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Subscription webhook 500 answers without error details
+  detail: A failed `process-event` or `process-payment-event` dispatch answered 500 with the dispatcher error in `details`, including validation issues and internal messages. The response now carries only `code` and `message`; the error goes to the server log under `billing-foundation:webhook`.
+  -->
+- 34cf35e: A signing-link secret of only spaces now rejects every link, the same as an empty secret.
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: fix
+  title: A whitespace-only linkSecret rejects every signing link
+  detail: `verifyRowBoundGrant` treated a secret of only whitespace as configured and keyed the HMAC with it, so a `linkSecret` of `"   "` accepted links signed with that guessable value. It now counts as unset like `""`: the app still boots and every link of `signature`, `tenant-handover` and `user-data-rights` is refused.
+  -->
+- 34cf35e: `ctx.config()` reads a key with one preload instead of up to three sequential row lookups.
+  
+  <!-- kumiko-changes
+  feature: config
+  type: improvement
+  title: Config reads load all cascade rows at once
+  detail: `getWithSource` (and with it `get` / `ctx.config()`) and `getCascade` now load the user, tenant and system rows of a key with the same `selectConfigRowsForKeys` preload `getCascadeBatch` already used, instead of one `fetchOne` per cascade rung. The cascade order, the source tags and the short-circuit stay the same: only the winning row is decrypted, and `computed` runs only when no row and no app override exists. The scope switch and the fallback ladder now exist once in the resolver.
+  -->
+- 34cf35e: The custom-fields `field-definition-deleted` event now carries `tenantId` (event version 2); older events without it are upcast from their stored tenant.
+  
+  <!-- kumiko-changes
+  feature: custom-fields
+  type: improvement
+  title: Field definition deletes always name their tenant
+  detail: `tenantId` in the `field-definition-deleted` payload is required. Both delete handlers always set it. The projection cleanup uses it directly: `SYSTEM_TENANT_ID` removes the key from every tenant's rows, any other tenant only from that tenant's rows. Events written before the payload carried `tenantId` (version 1) get it from the tenant of the stored event through an upcaster, so the host-values projection and entity rebuilds replay them. The schema is exported from `custom-fields/events.ts` as `fieldDefinitionDeletedSchema`.
+  -->
+- 34cf35e: notify() to several recipients loads their notification preferences in one query.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: Fewer database round trips when notifying many recipients
+  detail: For a notify() to a user list or a whole tenant, the preferences of all recipients load in one query instead of one per recipient and channel, the tenant kill switch is asked once per channel, and the queued attempt event skips the stream-version lookup. Preference rules are unchanged; the rate limit still counts each recipient and channel.
+  -->
+- 34cf35e: A failing job dispatch now closes the queued delivery attempt as failed.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Failed job dispatch no longer leaves a delivery attempt queued
+  detail: When handing a queued delivery to the job runner fails, notify() appends a `failed` event with `channel_error` to the same attempt and reports that delivery as failed. Before, the attempt stayed `queued` forever and a second failed attempt row appeared next to it.
+  -->
+- 34cf35e: User unsubscribe links no longer expire.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Unsubscribe links in older mails keep working
+  detail: `signUnsubscribeToken` no longer sets a 7-day expiry, matching the address unsubscribe tokens. List-Unsubscribe links and footer links in mails older than a week now still opt the user out. Tokens signed before this change keep their old expiry. Resubscribe tokens still expire after one hour.
+  -->
+- 34cf35e: Document links, folder and tag assignments and document extracts gained lookup indexes that apps must ship as a migration.
+  
+  <!-- kumiko-changes
+  feature: documents
+  type: improvement
+  title: Indexes on document links, folder and tag assignments and document extracts
+  detail: The document read gate checks every document row for a live link by `documentId`, and the record views look links and assignments up by `(entityType, entityId)`; these columns had no index (only `read_folder_assignments` already had `(tenantId, folderId)`), so each lookup scanned the tenant's rows. Added `(tenantId, documentId)` and `(tenantId, entityType, entityId)` on `read_filed_document_links`, `(tenantId, entityType, entityId)` on `read_folder_assignments`, `(tenantId, entityType, entityId)` and `(tenantId, tagId)` on `read_tag_assignments`, and `(tenantId, fileRefId)` on `read_document_extracts`. The schema drift check at boot does not flag missing indexes; apps that mount documents, folders, tags or document-ingest-foundation run `kumiko schema generate` and ship the resulting migration.
+  migration: Apps that mount documents, folders, tags or document-ingest-foundation run `kumiko-schema generate` and ship the resulting migration.
+  -->
+- 34cf35e: A revalidation of a public media variant answers 304 without reading the file from storage.
+  
+  <!-- kumiko-changes
+  feature: file-derivatives
+  type: improvement
+  title: Public media route skips the storage read on 304
+  detail: `GET {basePath}/:fileRefId/:variant` read the full variant from storage and base64-encoded it on every request, even when the client's `If-None-Match` matched and the answer was a 304. The route now forwards `If-None-Match` to the `public-variant` query as `ifNoneMatch`; the query still runs the tenant, `isPublic` and rate-limit checks, computes the ETag from tenant, fileRef, variant and the storage key, and returns `{ notModified: true }` without bytes when it matches. A 200 result carries `notModified: false` next to `dataBase64`, `mimeType` and `revision`. The ETag value changes once, so cached clients revalidate one more time after the update.
+  -->
+- 34cf35e: The storage stage of tenant destroy checks kept files with a set lookup instead of comparing every key against every kept file.
+  
+  <!-- kumiko-changes
+  feature: files-tenant-data
+  type: improvement
+  title: Tenant destroy keeps handed-over files without a quadratic scan
+  detail: The storage stage of tenant destroy keeps the bytes of files a foreign tenant still references, together with their derivatives. It used to compare every listed key with every kept file; it now looks each key up in a set of kept stem prefixes, so a tenant that handed over many files before its destroy no longer costs keys times kept comparisons. Which keys are kept and which are deleted does not change.
+  -->
+- 34cf35e: folder:delete checks the hosts of a folder's assignments with one query per entity type, and folder assignments are indexed by folder.
+  
+  <!-- kumiko-changes
+  feature: folders
+  type: improvement
+  title: folder:delete checks assignment hosts in batches
+  detail: `folder:delete` used to look up the host of every assignment on its own inside the write transaction. It now checks each page of assignments with one query per host entity type and still refuses on the first live host, including one the caller cannot see. Assignments of deleted hosts are still removed one by one through the executor. `read_folder_assignments` gets an index on `(tenant_id, folder_id)`, which the delete check and the folder contents list filter on.
+  migration: Run `kumiko-schema generate` in apps that mount folders and apply the migration that adds the index.
+  -->
+- 34cf35e: The folder manager and the folder picker load up to 200 folders and say so when a tenant has more.
+  
+  <!-- kumiko-changes
+  feature: folders
+  type: fix
+  title: Folder tree and picker no longer stop silently at 50 folders
+  detail: `FolderManager` and `FolderSection` asked for the folder catalog without a limit and got the default page of 50, so larger trees lost nodes and paths without notice. Both now request `limit: 200`, the list maximum, and show a warning banner (`folders.list.truncated`, test ids `folder-manager-truncated` and `folder-section-truncated`) when the catalog has further pages.
+  -->
+- 34cf35e: Parallel draft saves can no longer push a user past the per-owner draft limit.
+  
+  <!-- kumiko-changes
+  feature: form-draft
+  type: fix
+  title: form-draft save serialises the per-owner draft cap
+  detail: `form-draft:write:save` counted the owner's drafts and then created the new one without a lock, so several parallel saves with different draft keys could all pass the count and exceed the per-owner limit. The create path now takes an advisory lock on the owner before counting; updates of an existing draft are unaffected.
+  -->
+- 34cf35e: A mailbox connected through OAuth no longer stores its address as plaintext name.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: fix
+  title: OAuth connect leaves the mailbox name empty instead of copying the address
+  detail: The OAuth callback passed the mailbox address as `displayName` to `connect-account`. The address is encrypted as personal data, but `displayName` is stored in plaintext in the mail-account events, so the address ended up readable in the event store, beyond crypto-shredding. The callback now connects with an empty name; users name the mailbox through the rename action. Accounts connected earlier keep their stored name.
+  -->
+- 34cf35e: `jobs:query:list` pages with a keyset cursor instead of an offset.
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: fix
+  title: Job run list pages with a keyset cursor
+  detail: The offset cursor re-read every run up to the end of the requested page, so deep pages read thousands of rows. The cursor now carries the sort value and id of the last row, and the next page starts right after it. This works for every sort column, including `duration`, where queued and running runs have no value. Cursors from before this change answer 400 `invalid_cursor`, and the client starts again from the first page. Like `jobs:query:details`, the handler reads across tenants through `acknowledgeCrossTenant`, so its escape-hatch audit kind is `acknowledge-cross-tenant` instead of `unsafe-raw`.
+  -->
+- 34cf35e: Retrying a failed run of a per-tenant or event-triggered job is refused instead of starting the job for every tenant or with an empty payload.
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: fix
+  title: jobs:write:retry refuses runs it cannot repeat faithfully
+  detail: A run row records neither the tenant of a perTenant child run nor the event payload of an event-triggered run. `jobs:write:retry` used to dispatch such runs again anyway: a perTenant job fanned out to every active tenant, an event-triggered job ran with an empty payload. It now fails with 422 and the reason `job_not_retryable` for jobs declared `perTenant` or triggered by `on`. A run whose job no longer exists fails with 404 `job_not_found` instead of a 500. Manual, cron and maintenance jobs retry as before.
+  -->
+- 34cf35e: Job run logs are encrypted and decrypted with one key lookup per run instead of one per log line.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Batch PII encryption and decryption with one key lookup
+  detail: `encryptPiiValuesForSubject(kms, subject, values, kmsCtx, field)` from `@cosmicdrift/kumiko-framework/crypto` encrypts a list of strings for one subject with a single key lookup; values that are already ciphertext or the erased sentinel pass through, and an erased key throws `KeyErasedError` like `encryptPiiValueForSubject`. `decryptPiiValues(kms, values, kmsCtx, field)` decrypts a list of string ciphertexts with one key lookup per distinct subject; plaintext passes through and an erased subject yields the erased sentinel. The jobs feature uses them for run log lines, so writing a finished run and reading `jobs:query:details` no longer cost one `kumiko_subject_keys` query per log line.
+  -->
+- 34cf35e: The managed-pages admin CRUD checks slug, language and OG image like `managed-pages:write:set`.
+  
+  <!-- kumiko-changes
+  feature: managed-pages
+  type: fix
+  title: One validation for page slug, language and OG image
+  detail: Only `managed-pages:write:set` checked that a slug is kebab-case and a language is an ISO 639-1 code; the admin create and update handlers stored any text, so a page could get a slug its URL never resolves. Both paths now share one rule set, and `ogImage` must be empty or an https URL on both.
+  -->
+- 34cf35e: Server-rendered public pages forbid form submissions to other origins.
+  
+  <!-- kumiko-changes
+  feature: page-render
+  type: improvement
+  title: Public page CSP adds form-action 'self'
+  detail: The content security policy of legal pages, managed pages and the contract termination pages now ends with `form-action 'self'`. Markup that slips into a page can no longer post a form to a foreign site; the termination forms post to their own path and keep working.
+  -->
+- 34cf35e: `managed-pages:query:by-tenant-published` reads only the discovery columns, sorted and capped.
+  
+  <!-- kumiko-changes
+  feature: managed-pages
+  type: improvement
+  title: Published page list no longer loads page bodies
+  detail: The query behind sitemap.xml and llms.txt loaded every published page with its full body. It now reads only slug, language, title and change time, sorted by slug and language and capped at 5,000 pages.
+  -->
+- 34cf35e: Personal access token requests load membership and user in parallel.
+  
+  <!-- kumiko-changes
+  feature: personal-access-tokens
+  type: improvement
+  title: PAT role resolution reads membership and user in parallel
+  detail: Every request authenticated with a personal access token resolves its live roles with the membership and user reads running concurrently instead of one after the other. Roles are still resolved fresh on every request; the outcomes for a removed membership or a blocked user are unchanged.
+  -->
+- 34cf35e: `readiness:query:status` reads the conditions of conditional secrets in one config read, and a probe checks at most four targets at a time.
+  
+  <!-- kumiko-changes
+  feature: readiness
+  type: fix
+  title: Readiness status reads conditions in one batch, probe targets run four at a time
+  detail: `readiness:query:status` resolves every `requiredWhenConfigSet` condition through one `getCascadeBatch` call instead of one config read per secret and checks secret presence with at most four lookups in flight; the verdict is unchanged. A probe with `targets` now runs at most `PROBE_TARGET_CONCURRENCY` (4) targets at once instead of all together, so a tenant with many mailboxes or connections no longer opens them all at the same moment; a run with many targets takes correspondingly longer.
+  -->
+- 34cf35e: A SystemAdmin can now start maintenance jobs by hand from the job-runs screen.
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: fix
+  title: Maintenance jobs can be started by hand
+  detail: `jobs:write:trigger` and `jobs:query:catalog` accepted only jobs with `trigger: { manual: true }`, so a job moved to `trigger: { maintenance: true }` (for example `sessions:job:cleanup`) could no longer be started from the job-runs screen and failed with `job_not_manual`. Both handlers now also accept maintenance jobs. Every bundled maintenance job checks its own retention or grace period, so an early run removes only rows that are already due. Cron and event jobs stay rejected, and both handlers stay SystemAdmin-only.
+  -->
+- 34cf35e: Session and personal-access-token lists decrypt their rows with at most four key lookups at a time.
+  
+  <!-- kumiko-changes
+  feature: sessions
+  type: improvement
+  title: Session and token lists no longer flood the KMS pool
+  detail: `user-session:list`, `user-session:mine` and the personal-access-tokens list decrypted every row at once, so an admin list of 200 sessions started up to 400 key lookups against a KMS pool of four connections and stalled every other PII read in the process. They now decrypt through `mapWithConcurrency` with the shared `KMS_POOL_CONCURRENCY` (4), like the member and display-name lookups. The results are unchanged.
+  -->
+- 34cf35e: The sessions cleanup job now runs every day in the maintenance window, and the device list no longer shows expired sessions.
+  
+  <!-- kumiko-changes
+  feature: sessions
+  type: fix
+  title: Sessions cleanup runs daily and the device list hides expired sessions
+  detail: `sessions:job:cleanup` was registered with a manual trigger only, and no app scheduled it, so `store_user_sessions` grew with every login and kept the encrypted IP and user agent of every session forever. The job now uses `trigger: { maintenance: true }` with `concurrency: "skip"` and deletes rows expired or revoked more than 30 days ago once a day in the app's maintenance window (`KUMIKO_MAINTENANCE_WINDOW`, default 03:00 UTC). Starting it by hand from the job-runs screen still works. `user-session:mine` now also filters on `expiresAt` in the future, so a session that ran out without a logout no longer appears as active.
+  -->
+- 34cf35e: Sessions and personal access tokens gained a `userId` index that apps must ship as a migration.
+  
+  <!-- kumiko-changes
+  feature: sessions
+  type: improvement
+  title: userId indexes on store_user_sessions and store_api_tokens
+  detail: The device list, logout everywhere, password-change mass revoke and the token list filter both tables by `userId`, but only `tenant_id` and the token hash were indexed, so these reads scanned all sessions or tokens of a tenant, and the cross-tenant revokes scanned the whole table. Both tables now declare an index on `userId` (`store_user_sessions_user_id_idx`, `store_api_tokens_user_id_idx`). Existing databases only get them through a migration; the schema drift check covers tables and columns, not indexes. Apps that mount sessions or personal-access-tokens run `kumiko schema generate` and ship the resulting migration.
+  migration: Apps that mount sessions or personal-access-tokens run `kumiko-schema generate` and ship the migration that adds `store_user_sessions_user_id_idx` and `store_api_tokens_user_id_idx`.
+  -->
+- 34cf35e: Document text, the PDF frame and the signature page escape HTML through the shared renderer escape.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Document text escapes quotes through the shared HTML escape
+  detail: `textToDocumentHtml` used its own escape that left `"` unescaped; it now uses `escapeHtml` from `@cosmicdrift/kumiko-renderer/headless`, so quotes become `&quot;` and `documentHtmlToText` turns them back. The PDF frame in renderer-puppeteer-client and the signature page in bundled-features drop their private copies for the same shared `escapeHtml` and `escapeHtmlAttr`; their output is unchanged.
+  -->
+- 34cf35e: The signature sweep reconciles an open request only when all of its signers have signed and reads the signature images in parallel.
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: improvement
+  title: Signature sweep skips open requests that still wait for a signer
+  detail: Every five minutes the sweep dispatched one reconcile write per open request, and each one loaded the signers only to find that someone had not signed yet. The sweep now counts the unsigned signers of each page of open requests in one grouped query and dispatches reconcile only for requests without any. Expired requests still expire as before. When the sweep builds the signature page, it reads the signature images in parallel instead of one after another.
+  -->
+- 34cf35e: Stored tenant mail and PDF bodies are re-checked by the document sanitizer at render time and fall back to the system template when they fail.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Tenant mail and PDF bodies are re-sanitized at render time
+  detail: Tenant layouts were re-checked on every render, tenant template bodies were not, so a row stored before the write gate existed or through another path (import, seed, migration) could put an iframe, form or tracking image into a mail or PDF. Mail and PDF rendering now run a stored tenant body through the same sanitizer as the write gate (cached per template version) and render the system template of the same slug when it fails, as layouts already do. `revalidateStoredTemplateBody` is exported from the template-resolver entry point.
+  -->
+- 34cf35e: The tag manager counts tag usage on the server and the tag catalog loads up to 200 tags.
+  
+  <!-- kumiko-changes
+  feature: tags
+  type: fix
+  title: Tag usage counts and catalog no longer stop at 50
+  detail: The tag manager counted usage in the browser over the first 50 assignments, so counts were wrong from the 51st assignment on, and every tag catalog (manager, filter, column, section) showed at most 50 tags. Usage now comes from a grouped count over all assignments the user can see, and the catalogs load up to 200 tags.
+  -->
+- 34cf35e: Template, layout and variant resolution each read the database once instead of walking the fallback chain query by query.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Template resolution in one query
+  detail: Every mail and PDF render resolved its template with up to four queries along the tenant/system and locale/fallback chain plus one more for the collection shadow check, layouts with two and variants with one per locale. Each now reads all candidate rows in one query and picks in the same order as before; the company placeholders of the empty-data check are read in parallel.
+  -->
+- 34cf35e: `template-resolver:query:tenant-override-counts` counts in SQL.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Override counts no longer load every tenant row
+  detail: The SystemAdmin overview count loaded every tenant override of every tenant and grouped in memory. It now counts distinct enabled tenants with an active override per slug and kind in one aggregate query; templates without an active override are left out of counts instead of listed with 0.
+  -->
+- 34cf35e: Template overview and usage read no template bodies.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Template overview no longer loads bodies
+  detail: overview and usage loaded up to 5,000 full template rows including content, variable schema and linked resources. They now read only the listing columns.
+  -->
+- 34cf35e: `template-resolver:query:by-tenant` reads only the listed columns, sorted and capped.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Text block list is sorted and capped
+  detail: The anonymous content-tree query loaded every text block with all columns and no limit. It now reads only the columns it returns plus the delivery check, sorted by slug and locale and capped at 1,000 blocks.
+  -->
+- 34cf35e: The inactivity job loads all owner accounts of a tenant in one query.
+  
+  <!-- kumiko-changes
+  feature: tenant-inactivity
+  type: improvement
+  title: Inactivity warnings load all owner accounts in one query
+  detail: The inactivity job reads the locale of all owners of a tenant in one query instead of one query per owner. Recipients and mail language are unchanged.
+  -->
+- 34cf35e: The team list reads only the newest session per member for the last-seen time.
+  
+  <!-- kumiko-changes
+  feature: tenant
+  type: improvement
+  title: Team list reads only the newest session per member
+  detail: tenant:query:team:list loads the last-seen time with one query that returns one row per member, instead of loading every session of every member and picking the newest in memory. The result is unchanged.
+  -->
+- 34cf35e: tier-engine exports the built tierAssignmentTable.
+  
+  <!-- kumiko-changes
+  feature: tier-engine
+  type: improvement
+  title: tierAssignmentTable is exported from tier-engine
+  detail: `@cosmicdrift/kumiko-bundled-features/tier-engine` now exports `tierAssignmentTable`, the table built once from `tierAssignmentEntity`. Apps that call `buildEntityTable("tier-assignment", tierAssignmentEntity)` themselves can import it instead. The `tierAssignmentTable` returned by `createTierResolver` is now this same table.
+  -->
+- 34cf35e: The generic tier-assignment create and update handlers reject tier names that are not in the tierMap.
+  
+  <!-- kumiko-changes
+  feature: tier-engine
+  type: fix
+  title: Unknown tier names are rejected on tier-assignment writes
+  detail: With a tierMap configured, tier-engine:write:tier-assignment:create and :update now answer validation_error (field tier or changes.tier, code invalid_value) for a tier name the tierMap does not define, the same check set-tenant-tier already makes. Before, such a row was stored and the tenant silently got only the always-on features. Storage-only mode without a tierMap is unchanged.
+  -->
+- 34cf35e: user-data-rights processes a GDPR export right after the request instead of in the next daily maintenance run.
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: GDPR export runs right after the request
+  detail: The new job `user-data-rights:job:run-requested-export` runs on every committed `request-export` and processes all pending export jobs plus the stale pass. `run-export-jobs` stays in the maintenance window as a backstop. Before, a requested export and a stale running job waited up to a day, and the one-active-export rule blocked a new request in the meantime.
+  -->
+- 34cf35e: A job's `ctx.db.unsafeRaw()` is typed as `DbConnection`, so job handlers need no cast.
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: improvement
+  title: Job raw runner typed as DbConnection
+  detail: `JobContext.db` is the new `ConnectionTenantDb`: a `TenantDb` whose `unsafeRaw()` returns `DbConnection`, because the job runner always builds it from the boot connection. `createTenantDb` returns `ConnectionTenantDb` when given a `DbConnection`. The bundled jobs drop their `as DbConnection` casts and read the time from `ctx.tz.now()`, which honours an injected clock.
+  migration: Optional: remove `ctx.db.unsafeRaw() as DbConnection` casts in job handlers. A hand-built `JobContext` must take its `db` from `createTenantDb({ db: <DbConnection>, ... })`.
+  -->
+- 34cf35e: The export job resolves each tenant's compliance profile and storage provider once per run instead of once per job.
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: improvement
+  title: Export job looks up each tenant once per run
+  detail: `runExportJobs` resolved the tenant's compliance profile again for every running, pending and expired job, and built the storage provider again for every pending job and every cleanup candidate. A run now caches both per tenant, so a backlog of many jobs from one tenant costs one profile lookup and one provider build. A failed provider build is not cached, so the next candidate tries again.
+  -->
+- 34cf35e: JWT verification accepts only HS256, and a keyring accepts only tokens with a known kid.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: JWT verify pins HS256 and requires a kid in keyring mode
+  detail: `createJwtHelper` and the unsubscribe tokens of `delivery` verify with `algorithms: ["HS256"]`, so a token signed with another HMAC algorithm and the same secret is rejected. With a keyring (`JWT_SECRET_V<n>` + `JWT_SECRET_CURRENT_VERSION`) a token without a `kid` or with an unknown `kid` is rejected; verification no longer tries every key. `loadJwtSecretOrKeyring` no longer carries a plain `JWT_SECRET` into the keyring as the `legacy` key, and runProdApp no longer logs the legacy warning. `JWT_SECRET` stays required for the HMAC token family.
+  migration: Switching an app from `JWT_SECRET` to the keyring logs every user out once, because their kid-less tokens are rejected. No app sets the keyring today, so nothing changes on update.
+  affects: JWT_SECRET_V, JWT_SECRET_CURRENT_VERSION, loadJwtSecretOrKeyring, createJwtHelper
+  -->
+- 34cf35e: The event-store executor quotes table names, aliases and columns through the shared `quoteIdent` helper.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Executor SQL escapes identifiers through one helper
+  detail: List, count, aggregate, search, sort and read-gate SQL in the event-store executor interpolated table names, aliases and column names as raw `"${name}"`, so a name containing `"` broke the statement. All of them now go through `quoteIdent` from `db/sql-identifier.ts`, and the seven internal copies of that helper in the framework are gone. custom-fields keeps one internal helper instead of three. No public API changes.
+  -->
+- 34cf35e: The where DSL gets `contains` and `startsWith`, which match user input literally; `like` stays a raw pattern.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: contains and startsWith where operators escape wildcards
+  detail: `{ like }` passes its pattern unchanged, so `%` and `_` from user input act as wildcards unless the caller escapes them. `{ contains: value }` and `{ startsWith: value }` escape `%`, `_` and `\` themselves and match a substring or a prefix with LIKE. Like `like`, they match nothing on a jsonb column. The audit search and the form-draft lookup use them instead of their own escape helpers.
+  -->
+- 34cf35e: A layout whose header or footer skips page 1 no longer prints the whole document twice; the second print renders page 1 only.
+  
+  <!-- kumiko-changes
+  feature: renderer-puppeteer-client
+  type: improvement
+  title: First-page reprint is limited to page 1
+  detail: Chromium cannot leave out a header or footer on page 1 alone, so such layouts print a second time and swap in page 1. That second print now sends `pageRanges: "1"` and renders one page instead of the whole document, which halves the Chromium time of these documents. `PdfOptions` has an optional `pageRanges`, and the puppeteer service accepts and validates it. The swap takes page 1 of the second print and no longer requires both prints to have the same page count.
+  -->
+- 34cf35e: Mail rendering, PDF rendering and the PDF preview resolve layouts through one shared rule for re-checking tenant layouts.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: One trusted layout resolution for mail, PDF and preview
+  detail: `resolveTrustedLayout(api, request, alreadyResolved?)` from the template-resolver entry point resolves a mail or PDF layout and re-checks a tenant row on every render: a tenant layout that is not html or fails the layout sanitizer is replaced by the system layout of the same slug, a passing one is returned with its sanitized content. Mail rendering, PDF rendering and the PDF preview each kept their own copy of this rule; they now share it. A leftover non-html tenant pdf-layout row now falls back to the system layout like a mail layout does. `TemplateNotFoundError` still reaches the caller, which keeps its own fallback.
+  -->
+- 34cf35e: `mapWithConcurrency` is exported from `@cosmicdrift/kumiko-framework/utils`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: mapWithConcurrency in framework utils
+  detail: `mapWithConcurrency(items, limit, fn)` from `@cosmicdrift/kumiko-framework/utils` runs `fn` over `items` with at most `limit` calls in flight and returns the results in item order. After the first rejection no further items are started and the call rejects with that error. Apps that kept their own worker pool can use it; the bundled features use this one implementation.
+  -->
+- 34cf35e: `parseSenderAddress` splits the sender text of an inbound mail into display name and address.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: Sender address parser for inbound mail
+  detail: `parseSenderAddress(from)` from `@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation` turns the `from` text of an inbound message, such as `"Max Mustermann <max@firma.de>"`, into `{ label, email }`. A bare address is its own label, surrounding quotes are dropped, and a value without `@`, such as the `(no sender)` placeholder, yields `undefined`.
+  -->
+- 34cf35e: `registeredEntityExecutor(registry, entityName)` returns a cached executor for an entity the registry knows.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Cached executor for a registered entity
+  detail: `registeredEntityExecutor(registry, entityName)` from `@cosmicdrift/kumiko-framework/engine` looks the entity up in the registry and returns its event-store executor, or `undefined` when no feature registered it. The executor is built once per entity definition and name and then reused, so code that reaches an optional feature's entity by name no longer builds a table and an executor on every call or pairs a name with a definition by hand. It covers the same zero-config case as `createEntityExecutor`; an executor with a search adapter is still built with `createEventStoreExecutor`. Parent visibility, document link targets and the document import use it.
+  -->
+- 34cf35e: `retryOnVersionConflict` and `VERSION_CONFLICT_CODE` are exported from `@cosmicdrift/kumiko-framework/errors`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Retry a write on a version conflict
+  detail: `retryOnVersionConflict(attempt, { maxAttempts })` runs a read-modify-write again while it loses a stream-version race, up to `maxAttempts` attempts in total (default 2, one retry). The attempt must re-read the row it writes, so each run checks against the state the competing write committed. The last conflict is returned as is, any other result ends the loop at once, and a `maxAttempts` below 1 or not a whole number throws. `VERSION_CONFLICT_CODE` is the typed `"version_conflict"` code for checks on a raw error code; the bundled features use it instead of the string. `isVersionConflict(result)` stays the check for write results.
+  -->
+- 34cf35e: The calendar cap reservation handle gets `settle(actualAmount)`.
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: improvement
+  title: calendarCapReservationHandle can settle the actual amount
+  detail: A caller that reserved an estimate had to consume, release and book any overflow in separate steps, and a retry after a lost ack could book twice. `calendarCapReservationHandle(...).settle(actualAmount)` replaces the reservation by the actual amount in one transaction: it books the overflow when the actual amount is higher, gives the rest back when it is lower, books the full amount when the reservation was already swept, and books nothing when it is repeated.
+  -->
+- 34cf35e: `createComplianceProfilesFeature({ defaultProfile })` gives every new tenant a compliance profile in the transaction that creates it.
+  
+  <!-- kumiko-changes
+  feature: compliance-profiles
+  type: improvement
+  title: Default compliance profile on tenant creation
+  detail: The option takes a selectable profile key (`eu-dsgvo`, `swiss-dsg`, `de-hr-dsgvo-hgb`) and writes it as the tenant's profile through the event-store executor when a tenant is created; with the option the feature requires `tenant`. The `for-tenant` query, `needs-profile`, data retention and the export jobs all read that row, and a tenant admin can still change it with `set-profile`. The default tier of tier-engine and the default profile share one tenant-created hook: the default tier assignment is now recorded with the system user, and a missing `ctx.systemDb` fails the tenant creation instead of silently skipping the default.
+  -->
+- 34cf35e: `requireSystemDb`, `requireOutsideTransactionDb` and `hasOutsideTransactionDb` are exported from `@cosmicdrift/kumiko-framework/db`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Public guards for ctx.systemDb and ctx.db.outsideTransaction
+  detail: `requireSystemDb(ctx, callerName)` returns `ctx.systemDb` with the exact type of the given context or throws an InternalError that names the caller and points at `r.systemScope()`. `requireOutsideTransactionDb(ctx)` returns `ctx.db.outsideTransaction` or throws, `hasOutsideTransactionDb(ctx)` narrows it. Handlers use them instead of hand-written "not wired" checks; the bundled features use the same `requireSystemDb`.
+  -->
+- 34cf35e: `access.tenantMembers` names the role list TenantAdmin plus TenantMember.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: access.tenantMembers preset
+  detail: `access.tenantMembers` from `@cosmicdrift/kumiko-framework/engine` is `["TenantAdmin", "TenantMember"]`, the default access of documents, document-draft, signature and presence, which now use it. Apps that repeat this list per feature can use the preset instead. The roles themselves and their assignment rules are unchanged.
+  -->
+- 34cf35e: Ledger transactions take an optional `sourceRef`, so a caller books an entry at most once per tenant.
+  
+  <!-- kumiko-changes
+  feature: ledger
+  type: improvement
+  title: create-transaction books at most once per sourceRef
+  detail: `transaction` has an optional `sourceRef` (up to 128 characters, filterable), unique per tenant through the partial index `read_ledger_transactions_tenant_id_source_ref_uidx`. `create-transaction` with a `sourceRef` that is already booked in the tenant books nothing and returns the existing entry as `{ id, alreadyBooked: true }`; a new booking returns `alreadyBooked: false`. Parallel calls with the same key are serialized, so only one entry is booked. The key stays with its entry after a reversal, so booking again after a Storno needs a new key. Entries without `sourceRef` behave as before.
+  migration: Apps that mount ledger run `kumiko-schema generate` and ship the migration that adds `read_ledger_transactions.source_ref` and its unique index. Callers that guard repeat bookings by searching `reference` pass `sourceRef` instead.
+  -->
+- 34cf35e: `readBranding` is exported from `@cosmicdrift/kumiko-bundled-features/managed-pages`.
+  
+  <!-- kumiko-changes
+  feature: managed-pages
+  type: improvement
+  title: readBranding is public
+  detail: Apps that render their own branded pages read the tenant's managed-pages branding with `readBranding(ctx.config)` from `@cosmicdrift/kumiko-bundled-features/managed-pages` instead of reading the `BRANDING_QN` keys one by one. It returns the same tokens as the branding query (title, description, siteUrl, accentColor, logoUrl, logoFile, layoutPreset) with `customCss` left empty, and the defaults when the app has no config feature.
+  -->
+- 34cf35e: Server code can label folders with their full path through the folders entry point, without importing the React client barrel.
+  
+  <!-- kumiko-changes
+  feature: folders
+  type: improvement
+  title: Folder tree helpers on the server-neutral folders entry
+  detail: `buildFolderTree`, `folderPath`, `FolderRow` and `FolderNode` are now exported from `@cosmicdrift/kumiko-bundled-features/folders` as well as from `/folders/web`. Server handlers that build filter options with folder paths can import them there instead of copying the path walk.
+  -->
+- 34cf35e: `helpdeskWebsiteClient()` from `helpdesk/client` returns the checked `window.KumikoHelpdesk` client, so websites no longer write their own guard.
+  
+  <!-- kumiko-changes
+  feature: helpdesk
+  type: improvement
+  title: helpdeskWebsiteClient gives websites a checked helpdesk client
+  detail: `helpdeskWebsiteClient(scope = globalThis)` from `@cosmicdrift/kumiko-bundled-features/helpdesk/client` reads `KumikoHelpdesk`, returns undefined while the script is missing and otherwise a typed `HelpdeskWebsiteClient`. `load()` resolves to valid form options (an unknown phone mode becomes `off`, unknown kinds are dropped and an empty list offers every website kind), `submit()` resolves to a `HelpdeskWebsiteSubmitResult` and turns a rejection or an unknown answer into `failed`. `HELPDESK_WEBSITE_SUBMIT_OUTCOME` names the three outcomes, and `HELPDESK_PHONE_MODES` from `helpdesk/web` lists the phone modes. Websites can delete their own `isHelpdeskClient`, outcome mapping and form-option parsing.
+  -->
+- 34cf35e: The signature feature takes an optional `legacyHostOf` that names the host of requests stored before the host gate existed.
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: improvement
+  title: legacyHostOf makes pre-host-gate signature requests visible again
+  detail: Signature requests created before `hostType` and `hostId` existed have no host in their created event, so the host gate hides them. The new optional `legacyHostOf({ subjectType, subjectId }, ctx)` option of `createSignatureFeature` returns the `{ hostType, hostId }` of such a request (it may look rows up through `ctx.db`); it runs as an upcaster when events are replayed, the stored events stay unchanged. A host outside `hostEntities`, an empty `hostId` or `undefined` leaves the request without a host and invisible. The request entity moves to eventVersion 2 with a no-op upcaster when the option is not set. The types `SignatureHost` and `SignatureLegacyHostResolver` are exported.
+  -->
+- 34cf35e: The managed `bin/kumiko.ts` reads `process.env["INIT_CWD"]` with bracket access, so it type-checks in apps with `noPropertyAccessFromIndexSignature`. `billing-foundation:write:start-plan-checkout` and `billing-foundation:write:switch-plan` ship their title and field labels (en, de, es, fr, it), so `kumiko agent lint` no longer reports them as handler translation gaps in an app that mounts a plan catalog. The same now holds for `create-checkout-session` (field `consent`), `request-contract-termination`, `revoke-contract-termination` and `terminate-contract`.
+  
+  The direct-entity-writes guard reads the entity definition as the first argument of `buildEntityTable(entityDef, options?)`, `r.crud(entityDef, options)` and `r.entity(entityDef)`, so it finds those tables again instead of reporting a misconfigured scan. `defineWriteHandler` accepts `excludedFields` on hand-written handlers and keeps it on the definition. The bundled `kumiko` CLI (`runStandaloneCli`) rejects `schema generate` and `schema baseline` with "Unknown subcommand"; both only run in development through `bun kumiko-schema`.
+  
+  Projected row helpers (`insertProjectedEntityRow`, `patchProjectedEntityRow`) accept money and located timestamps in the combined form their type declares.
+  
+  Upcasters and entity `eventMigrations` receive the aggregate id and type of the event they migrate (`EventUpcastCtx.aggregateId`, `EventUpcastCtx.aggregateType`).
+  
+  The handler definitions guard no longer counts calls to inherited object methods such as `toString`.
+  
+  The managed `ci.yml` pins the image build job to the commit behind the infra tag (`_docker-build-push.yml@<sha> # reusables-v2.4.5`); an app that sets `kumiko.deploy.infraRef` keeps its own ref there. The cross-feature import guard accepts `../<feature>/server-contract` as a public surface next to `contract` and `schema/entity`.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Managed bin/kumiko.ts and ci.yml fixes
+  detail: The managed `bin/kumiko.ts` reads `process.env["INIT_CWD"]` with bracket access, so it type-checks in apps with `noPropertyAccessFromIndexSignature`. The managed `ci.yml` pins the image build job to the commit behind the infra tag (`_docker-build-push.yml@<sha> # reusables-v2.4.5`); an app that sets `kumiko.deploy.infraRef` keeps its own ref there.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Plan checkout, plan switch and contract handlers ship their labels
+  detail: `start-plan-checkout`, `switch-plan`, `create-checkout-session` (field `consent`), `request-contract-termination`, `revoke-contract-termination` and `terminate-contract` ship their title and field labels in en, de, es, fr and it, so `kumiko agent lint` no longer reports them as handler translation gaps in an app that mounts a plan catalog.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Direct-entity-writes, handler definitions and cross-feature import guards
+  detail: The direct-entity-writes guard reads the entity definition as the first argument of `buildEntityTable(entityDef, options?)`, `r.crud(entityDef, options)` and `r.entity(entityDef)`, so it finds those tables again instead of reporting a misconfigured scan. The handler definitions guard no longer counts calls to inherited object methods such as `toString`. The cross-feature import guard accepts `../<feature>/server-contract` as a public surface next to `contract` and `schema/entity`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: excludedFields on hand-written handlers, projected row value forms and upcaster stream identity
+  detail: `defineWriteHandler` accepts `excludedFields` on hand-written handlers and keeps it on the definition. `insertProjectedEntityRow` and `patchProjectedEntityRow` accept money and located timestamps in the combined form their type declares. Upcasters and entity `eventMigrations` receive the aggregate id and type of the event they migrate (`EventUpcastCtx.aggregateId`, `EventUpcastCtx.aggregateType`).
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: The bundled CLI rejects schema generate and schema baseline
+  detail: `runStandaloneCli`, behind the production bundle `kumiko.js`, answers `schema generate` and `schema baseline` with "Unknown subcommand"; both only run in development through `bun kumiko-schema`.
+  -->
+- 34cf35e: Update events store only the old values of the changed keys, delete and forget events only plaintext columns, and the executor writes many rows with one append.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Lean update, delete and forget events and executor createMany/updateMany
+  detail: The `<entity>.updated` event now carries `previous` with the old values of exactly the keys in `changes` (owner-transition rekeys included) instead of the whole pre-update row. `<entity>.deleted` and `<entity>.forgotten` carry `previous` without personal, encrypted and sensitive fields, in plaintext and without a KMS call, so the erasure event no longer holds a copy of the erased values and a delete without a KMS no longer writes personal fields in plaintext to the log. A delete of a row whose subject key is already erased now succeeds without an erasure purpose; restoring that row stays refused. Restore still carries the whole row, and the update and delete WriteResults still return the whole row. The search index reads the live row on update, the access invalidation of `tenant-membership.updated` reads the user id from the changes or the membership row, and the derived webhook contract of `updated` no longer has `id` inside `previous`; the `deleted` webhook no longer passes tenant-key ciphertext of non-personal tenant-owned fields. `EventStoreExecutor` has `createMany` and `updateMany`: every row runs the checks of create and update, all events go into the log with one statement and one optimistic check per stream, and the batch commits or fails as a whole. Append and projection of a single create or update share one savepoint. `createAccessInvalidationEventConsumer` takes the registry as second argument. A forgotten file reference now lowers the tenant storage usage.
+  migration: Code that reads `payload.previous` of an `updated` event for a key the event did not change reads the projection row instead. Code that reads a personal, encrypted or sensitive field from `payload.previous` of a `deleted` or `forgotten` event reads it from the `created` and `updated` events or the projection row before the delete; events written before this release still carry the whole row. Webhook receivers of `<entity>.updated` take the id from the top level. Hand-built `EventStoreExecutor` objects add `createMany` and `updateMany`. A loop of `executor.create` or `executor.update` over many rows in one handler can switch to `createMany` or `updateMany`.
+  affects: payload.previous, payload["previous"], createAccessInvalidationEventConsumer, EventStoreExecutor
+  -->
+- 34cf35e: Entities declare named update verbs, and the executor reads an entity's history and its rows as of an instant.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Named entity verbs, executor history and listAsOf
+  detail: An entity declares named update events in `verbs`, optionally with a transition (`{ archived: { transition: { field: "status", from: ["open"], to: "archived" } } }`). `executor.update(payload, user, db, { verb })` appends `<entity>.<verb>` with the `{ changes, previous }` payload of `updated`; a verb with a transition sets its field and fails with `invalid_transition` (422) when the current state is not in `from`. The implicit projection, rebuild, entity upcasters, job triggers, projection apply keys, derived webhook contracts and the audit filter treat a declared verb like `updated`. Boot rejects lifecycle names, names with dots, transitions on non-select fields, unknown options and pairs that `entity.transitions` does not allow. `EventStoreExecutor` has `history({ id })`, which returns the lifecycle and verb events of one entity as `{ version, at, by, verb, changes }`, upcast and decrypted, without fields the caller may not read, and `listAsOf({ asOf })`, which folds the entity's events up to an instant into rows and refuses entities with parentRef, readGate or a row read ownership.
+  migration: Hand-built `EventStoreExecutor` objects add `history` and `listAsOf`. A status change written as its own `r.defineEvent` plus an `extendEntityProjection` or `setFields` apply can become a verb in the entity's `verbs` and an `executor.update(..., { verb })`; the projection apply and the hand-written transition check go away. Code that reads `kumiko_events` to show an entity's changes or to fold it to a past instant switches to `executor.history` or `executor.listAsOf`.
+  affects: EventStoreExecutor, parseAutoVerb
+  -->
+- 34cf35e: Entities declare `streamRetention: { keepFor }`; the data-retention job `stream-retention` prunes their whole event streams and rows once the newest event is older than keepFor.
+  
+  <!-- kumiko-changes
+  feature: data-retention
+  type: improvement
+  title: Declarative event stream retention for short-lived entities
+  detail: An entity that holds technical or short-lived state (previews, run state, claims) declares `streamRetention: { keepFor: "30d" }`. The new global maintenance job `data-retention:job:stream-retention` prunes every stream of that entity whose newest event is older than keepFor, with all its events, and then deletes the entity rows whose stream is gone, so a rebuild stays consistent. While an event consumer lags, the run deletes nothing and retries on the next run. `runStreamRetention({ db, registry, now })` is exported from `@cosmicdrift/kumiko-bundled-features/data-retention` for app tests. Boot rejects streamRetention together with `retention`, on systemStream or idType "serial" entities, on entities with file or image fields, and when a table-bearing r.projection or r.multiStreamProjection reads the entity's events. High-frequency counters belong in an `r.storeTable` written with `ctx.db.upsert(..., { increment })` instead; the persistence reference shows both. The user-data-rights recipe shows streamRetention on a preview entity.
+  -->
+- 34cf35e: Write handlers can declare `agent.effect: "outbound"` for writes that leave the system.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Outbound agent effect
+  detail: `agent: { effect: "outbound" }` marks a write that sends something out of the system, such as a mail or message. The effect reaches the agent manifest and tool descriptors; the agent then asks for approval on every call and offers no standing approval. Any risk is allowed; `risk: "low"` stays required only for `effect: "proposal"`.
+  -->
+- 34cf35e: The agent now treats `config:write:set` as high risk, like `config:write:reset`.
+  
+  <!-- kumiko-changes
+  feature: config
+  type: fix
+  title: Config set needs an approval per agent call
+  detail: `config:write:set` declares `agent: { risk: "high" }`, so an AI agent asks for approval on every change of a config value and a standing approval no longer covers it.
+  -->
+- 34cf35e: document-ingest-foundation exports readers for extracts and progress, a bounded byte reader and one call that writes an extract with its terminal event.
+  
+  <!-- kumiko-changes
+  feature: document-ingest-foundation
+  type: improvement
+  title: Extract readers, readDocumentBytes and completeDocumentExtract
+  detail: `loadDocumentExtract({ db, user }, fileRefId)` returns the newest extract of a file with its decrypted pages, or null when there is none or its record key was erased. `listDocumentExtractSummaries(db, fileRefIds)` returns id, meta and `hasError` of the newest extract per file from plaintext columns only, and `loadDocumentIngestProgress(db, fileRefId)` returns pagesDone and pagesTotal. `readDocumentBytes(storage, storageKey, maxBytes)` stops reading once the limit is exceeded and returns "too-large". `completeDocumentExtract(deps, { fileRefId, storageKey, pages, meta }, options)` writes the extract and appends the ready event, or the failed event when `meta.error` is set, and catches up the event of an earlier delivery that wrote the extract but died before the event.
+  migration: Providers replace their own bounded read, their write plus `events.append` and their pre-check with `readDocumentBytes` and `completeDocumentExtract`; apps that built their own `documentExtract` executor or read `documentExtractsTable` or `documentIngestProgressTable` use the readers instead.
+  -->
+  
+  inbound-mail-foundation exports a decrypting envelope reader.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: loadInboundMessageEnvelope
+  detail: `loadInboundMessageEnvelope({ db, user }, messageId)` returns from, to, subject, snippet, ownerUserId and threadKey of one received mail, decrypted, with `to` as a string array. It applies the visibility of `message:content`: a personal mailbox is readable by its owner and by the system user only. It returns null when the mail is gone, hidden from the caller or its tenant key was erased.
+  migration: Apps that decrypt rows of `inboundMessagesProjectionTable` with `INBOUND_MESSAGE_PII_FIELDS` themselves call `loadInboundMessageEnvelope` instead and pass the user they run as.
+  -->
+  
+  The files module exports purgeFileRef.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: purgeFileRef removes a file's bytes and row in one call
+  detail: `purgeFileRef({ db, user, files }, fileRefId, { entityType })` deletes the original and its derivatives, then forgets the fileRef row. When storage is missing or a delete fails it soft-deletes the row instead, so the soft-delete cleanup finishes later, and reports `left-to-cleanup` with `bytesDeleted` and `rowSoftDeleted`. It returns `not-found` for an unknown or foreign id and `bound-elsewhere` when `entityType` is given and does not match. It never throws on a failed delete.
+  migration: Replace hand-written sequences of `deleteFileRefBytes`, `forget` and soft delete with `purgeFileRef`.
+  -->
+- 34cf35e: The audit feature records read accesses: `recordAccess(ctx, entry)` writes to the new `store_access_log` table outside the caller's transaction, `audit:query:access-log` lists them for admins, and the maintenance job `audit:job:access-log-retention` prunes them per the tenant's compliance profile.
+  
+  <!-- kumiko-changes
+  feature: audit
+  type: improvement
+  title: Access log for read accesses with compliance-profile retention
+  detail: Features that must prove who opened or used an object (a portal link, a shared document) call `recordAccess(ctx, { subjectType, subjectId, action, details })` from `@cosmicdrift/kumiko-bundled-features/audit` instead of appending an event to a fresh stream per access. The row lands in `store_access_log` through the outside-transaction connection, so query handlers can record too and a handler that fails afterwards still leaves the entry. Rows carry ids and codes only (details: up to 20 string, number or boolean values), never personal data. Admins of the tenant read them newest-first with cursor paging through `audit:query:access-log`, filtered by subject type, subject id, actor or action. The per-tenant maintenance job `audit:job:access-log-retention` deletes rows older than the compliance profile's audit-log retention (an override can only lengthen it; without compliance-profiles the minimal profile's 3 months apply), and tenant-lifecycle deletes a destroyed tenant's rows. Apps that mount audit need a schema migration for the new table.
+  migration: Apps that mount audit run `kumiko-schema generate` and ship the migration that creates `store_access_log`.
+  -->
+- 34cf35e: Fields can require a second person's approval. `access: { approve: ["Accountant"] }` on a field makes the executor refuse a create or update that changes it by anyone without an approve role (403, reason `field_approval_required`). The new `field-approval` feature (`createFieldApprovalFeature({ parents })`) stores the change as a request, encrypted under the host record's subject, and a different approver applies it with `approve-change`. Boot rules check that approve roles may write the field, that the field is scalar and top-level, and that the feature is mounted with the entity among its parents.
+  
+  <!-- kumiko-changes
+  feature: field-approval
+  type: improvement
+  title: Four-eyes approval for payment-relevant fields
+  detail: Declare access.approve on a field and mount createFieldApprovalFeature({ parents }). Direct changes by non-approvers return 403 field_approval_required; file them with field-approval:write:request-change and decide them with approve-change or reject-change. field-approval:query:pending-changes lists open requests with their value.
+  -->
+- 34cf35e: `TenantDb.aggregate` gets `min`, `max` and `percentile` measures and refuses non-numeric measure columns with a clear error.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Aggregate measures min, max and percentile
+  detail: `ctx.db.aggregate` accepts `{ fn: "min" | "max", field }` and `{ fn: "percentile", field, fraction }` (continuous percentile, `fraction` between 0 and 1, e.g. 0.95 for p95) next to count, countDistinct, sum and avg, also per field or per hour or day bucket. Over zero rows they return null. sum, avg, min, max and percentile need a numeric column (integer, bigint, double precision, numeric) and throw `aggregateWhere: <fn> needs a numeric column` instead of a Postgres error. A metric with a min, max or percentile measure leaves empty buckets null, like avg, instead of filling them with 0.
+  -->
+- 34cf35e: `kumiko agent lint` exits 1 when an agent-callable write handler lacks a title or field-label translation.
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: breaking
+  title: Agent lint fails on missing handler translations
+  detail: The handler translation gaps that `kumiko agent lint` listed as warnings now fail the command, and `kumiko check` with it. A fully spelled-out key counts from any mounted feature, as on the client, so an app labels handlers that a bundled feature derives from its config, such as template-resolver's `<id>-set` for each declared collection. App-local tests that asserted the same titles are no longer needed.
+  migration: Add the reported title and field-label keys (`handlerTranslationKeys` from `@cosmicdrift/kumiko-framework/engine`), or hide the handler from the agent with `agent: { expose: false }`. For template-resolver collections register them in an app feature with `handlerTranslationKeys(TEMPLATE_RESOLVER_FEATURE, { writes: { "<id>-set": { title, fields } } })`. Delete app tests that only re-check handler titles.
+  affects: all
+  -->
+- 34cf35e: `waitForWrite` waits for one write type in e2e tests, and `defineAppE2eConfig` passes the local MinIO as `S3_*` to the app server.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: waitForWrite and S3 env for e2e app servers
+  detail: `@cosmicdrift/kumiko-testing/e2e` exports `waitForWrite(page, writeType)`, which resolves with the `/api/write` response of that write type and fails with the response body when the status is 400 or higher, so a rejected write fails at the save instead of at a later visibility timeout. `defineAppE2eConfig` now also passes `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_REGION` and `S3_FORCE_PATH_STYLE=true` to the web server, derived from the resolved `MINIO_*` values with the same precedence (shell, then the app's `.env`, then the local default). The file provider is still chosen by `FILE_STORAGE_PROVIDER`. `managed-pages` exports `PAGE_UPDATE_HANDLER` for e2e tests.
+  migration: Apps that mapped `MINIO_*` to `S3_*` in their `playwright.config.ts` remove that mapping and keep only `FILE_STORAGE_PROVIDER`. Local copies of `waitForWrite` switch to the export.
+  -->
+- 34cf35e: `@cosmicdrift/kumiko-testing/helpers` exports `fakePooledClientFailingWith` for closed-connection retry tests.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: Typed fake pooled client for closed-connection retry tests
+  detail: `fakePooledClientFailingWith(failures, row)` returns a `FakePooledClient`, a `RawDbClient` with `options.max` 1 that throws the given errors on its first reads and then answers `[row]`. It records every read in `calls` (`sql`, `params`). Pair it with `captureClosedConnectionError()` to prove that a query helper built on `unsafeReadRetrying` retries. The framework's event-store and projection-rebuild tests and the custom-fields and form-draft tests use it instead of local copies with `as never` casts.
+  migration: Local fake clients in app retry tests can switch to `fakePooledClientFailingWith`; `calls` is an array, so `calls` counters become `toHaveLength`.
+  -->
+- 34cf35e: renderer-mail-html in bundled-features depends on html-to-text ^10.0.1, and the managed-files check rejects overrides of Kumiko packages.
+  
+  <!-- kumiko-changes
+  feature: renderer-mail-html
+  type: fix
+  title: html-to-text 10
+  detail: The plain-text part of mails is rendered with html-to-text ^10.0.1 instead of ^9.0.5, so apps no longer need an override to get the patched version.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: Overrides of Kumiko packages fail the managed-files check
+  detail: `kumiko check-managed` reports every `@cosmicdrift/kumiko-*` or `@cosmicdriftgamestudio/kumiko-*` entry in `overrides` or `resolutions`. Published Kumiko packages pin each other exactly, so such an override only hides a version drift.
+  migration: Delete the Kumiko entries from `overrides` and `resolutions` and keep the exact pins in `dependencies`. Also delete overrides for html-to-text, nodemailer, sharp and happy-dom, which the framework now brings in patched versions.
+  affects: overrides, resolutions
+  -->
+- 34cf35e: A preSave hook that throws a KumikoError rejects the write with exactly that error instead of presave_hook_failed.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: preSave hooks reject writes with their own error
+  detail: A KumikoError thrown by a preSave hook (for example `UnprocessableError` with `details.fields`, `ValidationError`, `NotFoundError`) reaches the caller unchanged, with its code, status, i18nKey and details, and no event is written. Any other throw still answers 422 `presave_hook_failed`. Bundled guards now answer with their own errors: `ledger:schedule:create|update` gives 400 `validation_error` with the missing subject field, `folder:create|update` gives 422 `folder_parent_not_found` or `folder_parent_cycle`, and `documents:filed-document:create|update` gives 404 `not_found` for a foreign pending file or a document whose host the caller cannot edit.
+  -->
+- 34cf35e: `enforceCap` and `assertBelowHardCap` take an optional `scope` ("tenant" or "subject"); when set, `CapExceededError` carries it as `details.scope`, so a client can tell a per-user limit from the tenant limit. Parallel `reportIngestProgress` calls for a new file no longer fail on the primary key: the progress row gets a random id and the unique index on tenant and file is the only key in play. The live-events `online` listener is removed through its own window reference, so a cleanup after teardown no longer throws.
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: improvement
+  title: Cap errors carry an optional scope
+  detail: `enforceCap` and `assertBelowHardCap` take an optional `scope` ("tenant" or "subject"); when set, `CapExceededError` carries it as `details.scope`, so a client can tell a per-user limit from the tenant limit.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-ingest-foundation
+  type: fix
+  title: Parallel first progress reports of a file no longer collide
+  detail: Parallel `reportIngestProgress` calls for a new file no longer fail on the primary key: the progress row gets a random id and the unique index on tenant and file is the only key in play.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Live-events cleanup after teardown no longer throws
+  detail: The live-events `online` listener is removed through its own window reference, so a cleanup after teardown no longer throws.
+  -->
+- 34cf35e: The custom-fields form section edits money fields: it shows the stored amount formatted in its currency and writes `{ amount, currency }` in minor units in the definition's currency.
+  
+  <!-- kumiko-changes
+  feature: custom-fields
+  type: fix
+  title: Money custom fields can be edited in the form
+  detail: A custom field of type money rendered as a text input showing "[object Object]", and saving sent the typed string, which set-custom-field rejected, so the form could never write a money value. It now uses the money input in the definition's `currency` (without one: the stored value's currency, else EUR), which is the only currency set-custom-field accepts, and sends the amount in minor units, the same as built-in money fields. A value stored in another currency than the definition's (written before the definition's currency changed) is shown as stored, e.g. "Stored: £12.50", above an empty input; a new amount is saved in the definition's currency, and typing then emptying the input clears the old value.
+  migration: Custom-field money values are not covered by the minor-unit release note "Stored events and rows of two-decimal currencies need no change". Values written before the money minor-unit release through set-custom-field (API, agent tool, import) followed the old major-unit convention (`12.5` meant 12.50) and are stored raw, with no flattenMoney scaling, in the host table's `custom_fields` jsonb and in `custom-field-set` events. They now read 100 times too small for two-decimal currencies. Check them before upgrading and rewrite affected values once through set-custom-field.
+  -->
+- 34cf35e: The agent tool for `set-custom-field` describes `value`, including that a money amount is an integer in minor units of the definition's currency.
+  
+  <!-- kumiko-changes
+  feature: custom-fields
+  type: fix
+  title: Agent tools see the money unit of custom fields
+  detail: `value` of `set-custom-field` is free-form because its shape depends on the field definition, so its JSON Schema carried no hint and a model could send 12.5 for 12.50. It now has a description: a money field takes `{ amount, currency }`, amount as an integer in minor units (12.50 is 1250), currency as the definition's currency. The handler already rejects other amounts and currencies with `custom_field_value_invalid` (details `fieldKey`, `fieldType`, `issues`).
+  migration: Nothing to do.
+  -->
+- cdbf386: Query handlers accept `dispatchOnly: true`: server code still dispatches them, the HTTP entry answers 404.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: dispatchOnly query handlers
+  detail: `r.queryHandler`, `defineQueryHandler` and `definePagedQueryHandler` take `dispatchOnly?: boolean`, with the same meaning as on write handlers. POST /api/query and the xlsx screen export answer a dispatch-only query with the 404 of an unknown handler; `ctx.dispatch.query` and `queryAs`, jobs and server routes still run it with the calling user. Such a query is never an agent tool (also not as a registry-derived list/get tool), grants no `/api/sse` live signals, and boot rejects it together with `agent.expose: true`. Boot also rejects every query reference the browser loads when it names a dispatch-only query (rule `query/dispatch-only-on-screen`): the query of a screen or dashboard panel, an `optionsQuery` on a form, config-key or reference field, the list query of a reference field or reference facet target, a select `optionsAvailabilityQuery` and a `table.summaryRow` query. `/api/schema` leaves it out of the live entities. `dispatchOnly` closes the HTTP entry only: its access rule still counts as a read grant on the entity for linked lists (parentRef rows) and derived values. The API docs for personal access tokens leave out dispatch-only queries and writes, since a token can never call them. `expectRoleRestrictedHandlersDenyForeignRole` expects 404 `not_found` for a dispatch-only query.
+  migration: A query that only a server flow may run (for example one that returns decrypted personal data after the flow checked a token) declares `dispatchOnly: true`. Clients that call it over /api/query get 404 afterwards.
+  -->
+- 34cf35e: A fresh demo app passes `kumiko check` again: its run-config test asserts the task handlers by name, and template-resolver labels the fields of `create-variant`.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: Fresh apps pass the weak-assertions guard and the agent lint
+  detail: The demo starter's `src/__tests__/run-config.test.ts` checked the task handlers only with `toBeDefined()`, so the `weak-assertions` guard failed a new app that has no baseline yet. It now asserts that the registered write and query handler names contain the task handlers. template-resolver's `create-variant` handler had no field labels, which made `kumiko agent lint` fail in every app that mounts template-resolver; it now ships labels in en, de and es.
+  -->
+- 34cf35e: The GDPR forget run now deletes the user's export ZIPs from storage and ends their open export jobs instead of leaving them until the download TTL runs out.
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: Forget run deletes the user's export ZIPs and ends open exports
+  detail: run-forget-cleanup never touched read_export_jobs, so a finished export bundle (profile, email, name, files) stayed downloadable through its magic link until expiresAt and stayed in storage until expiresAt plus the cleanup grace, about eight days after the user was marked Deleted. The run now deletes every done or failed export bundle of the user through the same per-tenant storage provider it uses for file binaries and clears downloadStorageKey through the event-store executor in the user's sub-transaction, before the subject key erase and the status flip. A failed storage delete rolls the user back to DeletionRequested and reports an error with entityName "export-job", like a failed file-binary delete; the next run retries. Without a resolvable storage provider the bundle is skipped with a warning and its key kept, so the export storage-cleanup pass still removes it later. Both the run-forget-cleanup handler and the maintenance job are covered. Pending and running export jobs of the user are failed in the same step with errorMessage "cancelled: user erased"; a running job keeps its downloadStorageKey for the storage-cleanup pass. The export worker builds no ZIP for a user marked Deleted, skips a job whose erased check or claim fails with an unexpected error (only the job id is logged) and goes on with the next one, checks again after writing and deletes a ZIP it finishes after the forget run without issuing a token or flipping the job to done. If the forget run lands between the check after writing and the done flip, the job ends failed with the same message, no failure mail is sent and the token is expired. The storage-cleanup pass removes the bundle of a Deleted user at once, even for done jobs before expiresAt. download-by-token answers a Deleted user's link, expired or not, like an unknown token and writes no audit row for it. Restricted and DeletionRequested users keep their export (Art. 15 and 20).
+  -->
+- 34cf35e: Server code can walk a list page by page with one framework helper that has the same cursor and page-cap checks as listAllPages.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: forEachPage visits every page of a list handler and can stop early
+  detail: `forEachPage(fetchPage, visit, { maxPages })` from `@cosmicdrift/kumiko-framework/engine` asks `fetchPage` for pages of `MAX_LIST_LIMIT` rows, follows `nextCursor` and hands each page's rows to `visit` before it fetches the next one, so nothing piles up in memory. When `visit` returns anything but `undefined`, paging stops and `forEachPage` resolves to that value, for example a `writeFailure`; otherwise it resolves to `undefined` after the last page. Like `listAllPages` it throws `InternalError` for a `maxPages` that is not a whole number of at least 1, for a list handler that repeats a cursor, and when the list still has a cursor after `maxPages` pages (default `LIST_ALL_PAGES_DEFAULT_MAX_PAGES` = 50, so 10,000 rows); the pages up to the cap have been visited by then. `listAllPages` now runs on the same loop, and its cap message points to `forEachPage`. In bundled-features the signature sweep, the unfinished-signer erasure, `tag:delete` and `folder:delete` page through `forEachPage` instead of their own uncapped loops. A tenant with more than 10,000 signature requests in one status now gets an `InternalError` from those jobs after the first 10,000 are processed, and a `tag:delete` or `folder:delete` with more than 10,000 assignments fails with `InternalError` and rolls back instead of deleting them all in one transaction.
+  -->
+- 34cf35e: Signers of declined, expired, failed or cancelled requests can be erased after a shorter retention when the app sets `retention.unfinishedKeepFor`, and an admin can forget a single signer.
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: improvement
+  title: Opt-in retention for signers of unfinished requests and an admin write to forget a signer
+  detail: `retention` of `createSignatureFeature` accepts the optional `unfinishedKeepFor` (data-retention keepFor syntax); there is no default. Only when it is set, the daily job `signature:job:erase-unfinished-signers` is registered and anonymizes the signers of requests that ended declined, expired, failed or cancelled more than `unfinishedKeepFor` ago: name, email, signature image, IP address, user agent and refusal reason are removed and the signer's record key is erased; status and timestamps stay. Without it nothing is anonymized and signers keep `keepFor`. Completed requests always keep `keepFor`. `signature:write:forget-signer` lets a TenantAdmin or DataProtectionOfficer erase one signer who has no account (row, image and record key) and cancels the request while it is still open or all-signed.
+  migration: Nothing to do. To switch the job on add `unfinishedKeepFor` to `retention`, for example `retention: { keepFor: "10y", unfinishedKeepFor: "90d" }`.
+  -->
+- f144056: `pruneEvents` takes an optional `registry` and then skips consumer rows of projections and catch-up jobs the app no longer declares, so a removed or renamed projection no longer blocks event retention.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Event retention no longer stalls on consumers the app no longer declares
+  detail: A renamed or removed multi-stream projection, or a job that lost `catchUp`, leaves its row in `kumiko_event_consumers` with a cursor that never advances. `pruneEvents` counted it like a live consumer and threw `ConsumerLagError` once the cutoff passed the cursor; the bundled retention jobs only logged a warning, so retention stopped for good. With the new `registry` option, rows named like a projection (`<feature>:projection:<name>`) or a catch-up job (`job:<job>`) that the registry does not declare and whose row has not moved for seven days are skipped and their names are logged. A row that moved more recently still counts, because a differently composed worker or an old pod during a rollout may still drive it; a retention job blocked by a removed projection therefore resumes at the latest seven days after the deploy. Registered consumers that lag still throw, disabled consumers are ignored as before, and system consumers or names of any other shape always count. The data-retention, delivery attempt-log and audit escape-hatch retention jobs pass the registry. Rows of a per-instance consumer left behind by an old instance id are not covered; delete them before scaling down.
+  -->
+- 34cf35e: `helpdesk` keeps exporting, erasing and expiring requests and replies stored before the contact to helpdesk rename.
+  
+  <!-- kumiko-changes
+  feature: helpdesk
+  type: improvement
+  title: helpdesk still exports and forgets pre-rename contact data
+  detail: Events under the former `contact-request` and `contact-reply` aggregates contain personal data and stay in the event log, so access and erasure keep reaching them. The `contact-request` user-data hook exports them and deletes them on forget (record keys erased, streams archived, attached note bodies erased), the daily maintenance job `legacy-contact-retention` expires them after the helpdesk `keepFor`, and the boot job `legacy-contact-config` still copies the former `contact:config:*` keys to the helpdesk keys. Nothing needs to be removed or migrated before the upgrade.
+  -->
+- 34cf35e: Each inbound mail is encrypted under its own record key; forget-message and tenant destroy erase it, the retention sweep only when `eraseRecordKeys` is set.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: fix
+  title: Forgotten mails are unreadable in the event log; retention key erase is opt-in
+  detail: from, to, cc, subject, snippet, bodyText and bodyHtml of an inbound message were encrypted under the tenant key, so after forget-message the full text stayed readable in the archived `inbound-message` events until the tenant was destroyed. These fields are now encrypted under the record key `record:inbound-message:<messageId>`. forget-message erases that key before it deletes the row (a failed erase keeps the row for the next run), and the tenant-destroy hook erases the key of every message the tenant's event log names, including mails the retention sweep already removed, before it archives and deletes the rows. The retention sweep (`runInboundMailRetention`) erases the key of a purged mail only with the opt-in `eraseRecordKeys: true`; by default it behaves as before and leaves the archived stream readable. Reading is unchanged: decryption takes the subject from the ciphertext, so `INBOUND_MESSAGE_PII_FIELDS` with `decryptPiiFieldValues` keeps working, and mails stored before this change stay under the tenant key. The mailbox address stays under the tenant key.
+  -->
+- 34cf35e: The reconciliation poll of the inbound-mail supervisor fetches each mailbox once per interval across all workers.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: One reconciliation poll per mailbox across workers
+  detail: With several workers every worker polled every mailbox each interval, so two workers doubled the IMAP logins per mailbox. A scheduled poll tick, and the first poll of `start()`, now claims a per-mailbox lease `<accountId>:poll` on the supervisor's `lock` for one poll interval minus one second; a worker without it skips the fetch for that mailbox but still checks its watcher. `stop()` releases the held poll leases so a peer polls in its next tick. If the lock throws, the worker polls anyway, because ingest deduplicates. `pollOnce()`, wake syncs and `syncAccountNow` do not take the lease. The key ends in `:poll`, so a lock prefix shared with the watch lease keeps working and scripts that look for `:<accountId>` still find only the watch lease.
+  -->
+- 34cf35e: Ledger adds ensure-accounts, an idempotent write that creates missing chart-of-accounts entries by code and returns their ids.
+  
+  <!-- kumiko-changes
+  feature: ledger
+  type: improvement
+  title: Idempotent ensure-accounts write
+  detail: ledger:write:ensure-accounts takes up to 50 accounts with code, name and type, locks per code, creates only the missing ones and returns a code-to-id map; an existing code with a different type fails with a conflict before anything is created.
+  migration: Replace app-side find-or-create loops over account:list and account:create with one ensure-accounts call.
+  -->
+- 34cf35e: Ledger adds report:subject-totals and schedule-actuals queries for per-contract saldo and forecast-versus-actual in one call.
+  
+  <!-- kumiko-changes
+  feature: ledger
+  type: improvement
+  title: Subject totals and schedule actuals queries
+  detail: ledger:query:report:subject-totals returns net signed totals per subject, account and optionally period for up to 500 subjects of one subjectType, with optional account, period range and asOf filters. ledger:query:schedule-actuals returns posted entries including Stornos for up to 500 schedules, shaped for mergeScheduleActuals.
+  migration: Replace loops that page ledger:query:transaction:list per contract or schedule with one call to these queries.
+  -->
+- 34cf35e: `tag:delete` no longer detaches a tag from records the caller cannot see.
+  
+  <!-- kumiko-changes
+  feature: tags
+  type: fix
+  title: tag:delete refuses while a hidden record carries the tag
+  detail: The tag:delete cascade listed and removed every assignment of the tag without the caller's read gate, so in an app with team-scoped records any member could delete a tag and strip it from the records of other teams, with no way to restore the assignments. tag:delete now answers 422 with reason `tag_in_use_on_hidden_records` while an assignment the caller cannot read still points at a live record, and removes nothing. Assignments on deleted records are still removed together with the tag, and a caller who can read every carrying record deletes as before. Who may create, rename or delete tags is unchanged.
+  -->
+- 34cf35e: The anonymous text-block reads serve stored html bodies only after the document sanitizer and withhold rejected ones.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Text-block reads sanitize stored html
+  detail: by-slug and by-tenant returned the stored body as is, so an html text block written before the write gate existed or through a seed or import reached anonymous visitors unsanitized. Both queries now run a stored tenant html body through the same sanitizer as the write gate (cached per version) and return content null when it is rejected; by-tenant shows such a block as a stub. Markdown and plain bodies and system rows are returned unchanged.
+  -->
+- 34cf35e: A user with only `TenantAdmin` can close, rename and inspect their own tenant and read its attached files, like an `Admin`.
+  
+  <!-- kumiko-changes
+  feature: tenant-lifecycle
+  type: fix
+  title: TenantAdmin is no longer locked out of tenant administration
+  detail: `TENANT_ACCOUNT_CLOSE_ROLES` is now `["TenantAdmin", "Admin"]`, so request-destruction and cancel-destruction accept a TenantAdmin. `tenant:write:update`, `rate-limiting:query:status` and `user-data-rights:query:list-download-attempts` accept TenantAdmin next to Admin and SystemAdmin, and the default file guard's `DEFAULT_PRIVILEGED_ROLES` is `["TenantAdmin", "Admin", "SystemAdmin"]`. A TenantAdmin still only reaches their own tenant; SystemAdmin stays the only cross-tenant role.
+  -->
+- 34cf35e: `decryptPiiFieldValues` looks up each subject's key once per call, and the members and team list decrypt a user's email and display name with one key lookup.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: One KMS key lookup per subject when decrypting several PII fields
+  detail: `decryptPiiFieldValues` used to call `kms.getKey` once per encrypted field, so a row with an email and a display name of the same user cost two key-store round trips. It now memoizes the key per subject within one call; an erased subject still yields the erased sentinel for all of its fields, and there is still no cache across calls, so an erased key holds on every pod immediately. bundled-features adds `decryptStoredPiiFields` next to `decryptStoredPii`, and the tenant members and team list queries use it, which halves the key lookups of these lists.
+  -->
+- 34cf35e: Executor writes run the app's custom projections on every TenantDb built over an app connection, including multi-stream projection applies, raw transactions and forget hooks.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: App connections carry their projection registry
+  detail: The prod boot, the worker boot and `setupTestStack` bind both database pools to the app registry with the new `bindAppProjectionRegistry(connection, registry)` from `@cosmicdrift/kumiko-framework/db`. Every transaction, savepoint and reserved connection derived from them inherits it, so `createTenantDb({ db: tx, ... })` inside a multi-stream projection apply or a raw `transaction()` runs the custom projections of an executor write, as the dispatcher's own TenantDb already did. User-data delete and export hooks get a TenantDb with the registry, so `executor.forget(id, user, ctx.db)` in a forget hook also clears child projections for the `<entity>.forgotten` event. Binding a connection to a second, different registry throws. Connections that are never bound (CLI tools, a bare `createTestDb`) keep skipping custom projections.
+  migration: Remove manual `runProjectionsForEvent(...)` calls that follow an executor write (create, update, delete, forget) on a TenantDb built over an app connection, together with the `unsafeRaw()` grant and escape hatch they needed; the executor has already projected that event object, so the manual call is a no-op. Raw `append(...)` plus `runProjectionsForEvent` stays as it is.
+  affects: runProjectionsForEvent
+  -->
+- 34cf35e: The public `createTenantDb` builds only tenant-mode handles; system mode, `grants` and handles on an `unsafeRaw()` runner are framework-internal.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: createTenantDb on the db subpath is tenant-only
+  detail: `createTenantDb` from `@cosmicdrift/kumiko-framework/db` takes `{ db, tenantId, tracer?, meter?, signal?, mode?: "tenant" }` and always builds a tenant-mode handle. `mode: "system"`, `reason` and `grants` are no longer accepted there. The full function lives in `@cosmicdrift/kumiko-framework/internal/row-level-security` for framework packages and in `@cosmicdrift/kumiko-testing/helpers` for tests, and the guard `internal-subpath-imports` keeps the helpers export out of production files. The public `createTenantDb` throws `AccessDeniedError` when its runner comes from `ctx.db.unsafeRaw()`, `ctx.db.unsafeRawAllTenants()` or `ctx.systemDb.unsafeRaw(reason)`, also for a transaction, savepoint or reserved connection opened on such a runner, and `scopeTenantDbToTenant` throws `AccessDeniedError` when it would move a tenant-mode handle to another tenant. Declared cross-tenant access stays on `r.systemScope()` with `ctx.systemDb.acknowledgeCrossTenant(reason)`, the escape hatch grant `crossTenantReads` with `ctx.crossTenantReads`, and `ctx.tenants.writeTarget(tenantId)`.
+  migration: Handlers, hooks and jobs that built `createTenantDb({ mode: "system", ... })` or `createTenantDb({ db: ctx.db.unsafeRaw(), tenantId })` for another tenant move to `r.systemScope()` with `ctx.systemDb.acknowledgeCrossTenant(reason)`, to `ctx.crossTenantReads` for reads, or to `ctx.tenants.writeTarget(tenantId)` for SystemAdmin writes into one tenant. Boot code, backfills and CLIs that hold a `DbConnection` call `createTenantDb({ db, tenantId })` once per target tenant. Tests that need `mode: "system"` or `grants` import `createTenantDb` from `@cosmicdrift/kumiko-testing/helpers`.
+  affects: createTenantDb, scopeTenantDbToTenant
+  -->
+- 34cf35e: All CorePrimitives are required; tests build their primitives with `createStubPrimitives` from `@cosmicdrift/kumiko-renderer/testing`.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Every CorePrimitive is required, createStubPrimitives replaces partial test stubs
+  detail: The 25 primitives that were optional only so partial test mocks kept compiling (Drawer, Tabs, PageHeader, StatusBadge, Metric, FillContainer, StepBar, ActionOverflowMenu and others) are now required in `CorePrimitives`. The renderer no longer carries fallback branches or "primitive not registered" warnings for them; screens always render through the registered primitive. `createKumikoApp({ primitives })` still takes a partial override merged over `defaultPrimitives`, so apps that only use createKumikoApp change nothing. `createStubPrimitives(overrides)` from `@cosmicdrift/kumiko-renderer/testing` returns a complete registry whose entries render nothing, with the overrides on top; it needs no DOM.
+  migration: Replace hand-written `CorePrimitives` objects in tests (`const p: CorePrimitives = { ... }` or `{ ... } as unknown as CorePrimitives`) with `createStubPrimitives({ ... })`. Code that builds a full `CorePrimitives` value outside createKumikoApp must supply all 43 entries. Remove checks like `primitives.Drawer !== undefined`.
+  affects: CorePrimitives
+  -->
+- 34cf35e: `bundledLists` becomes `listDefaults` and reaches the lists of every composed feature; `r.adoptsBundledLists()` is removed.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: listDefaults replaces bundledLists, adoptsBundledLists removed
+  detail: The app-wide table block is named `listDefaults` (AppConfig, `ListDefaultsOptions`, `validateListDefaultsOptions`) and applies to every entityList, projectionList and relatedList of every composed feature, app features included. `r.adoptsBundledLists()`, `FeatureDefinition.adoptsBundledLists` and the `adoptsBundledLists` field in feature-manifest.json are removed. The boot rules are renamed from `bundled-lists/*` to `list-defaults/*`.
+  migration: Rename `bundledLists` to `listDefaults` in kumiko.config.ts and the bin runner options, `BundledListsOptions` to `ListDefaultsOptions`, `validateBundledListsOptions` to `validateListDefaultsOptions`, and delete every `r.adoptsBundledLists()` call. App lists now get the block too; a screen that must differ sets its own `table` keys (`export: undefined`, `pinning: false`, `resizing: false`).
+  affects: bundledLists, BundledListsOptions, adoptsBundledLists, bundled-lists/
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: composeFeatures listDefaults applies to all features
+  detail: `composeFeatures`, `runProdApp`, `runWorkerApp` and `composeAppFeatures` take `listDefaults` instead of `bundledLists`. The block no longer skips features without a marker; a screen's own `table` keys still win per key, and relatedList sections never get `export`.
+  migration: Rename the option to `listDefaults`. Remove per-screen wrappers that only repeated the app's table standard.
+  affects: bundledLists
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: Managed kumiko/schema.ts and kumiko check read listDefaults
+  detail: The managed `kumiko/schema.ts` passes `appConfig.listDefaults` to `composeFeatures`, and `kumiko check` reports bin runners that leave out `listDefaults` while kumiko.config.ts sets it. `runDevApp` and `setupTestStackFromFeatures` take `listDefaults`.
+  migration: Run `kumiko sync-managed` to refresh kumiko/schema.ts, then rename the runner option in bin/.
+  affects: bundledLists
+  -->
+  
+  <!-- kumiko-changes
+  feature: feature-ast
+  type: breaking
+  title: adoptsBundledLists pattern removed
+  detail: The parser, renderer, patch kinds, pattern-id and pattern-change schemas and the pattern library no longer know `adoptsBundledLists`; `AdoptsBundledListsPattern` and `adoptsBundledListsSchema` are no longer exported.
+  migration: Drop references to the `adoptsBundledLists` pattern kind.
+  affects: adoptsBundledLists, AdoptsBundledListsPattern, adoptsBundledListsSchema
+  -->
+- 34cf35e: `@cosmicdrift/kumiko-bundled-features/cap-overview/constants` exports the cap-overview constants and the `caps:usage` contract for client code.
+  
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: improvement
+  title: cap-overview constants subpath with the caps:usage contract
+  detail: Client code imports `CapOverviewQueries` and `CapOverviewContracts.capsUsage` (payload `{ tenantId?: string }`, result `{ rows: readonly CapUsageWithMeta[] }`) from `@cosmicdrift/kumiko-bundled-features/cap-overview/constants` instead of hard-coding `"cap-overview:query:caps:usage"`. `useQuery(CapOverviewContracts.capsUsage, {})` returns the typed rows.
+  -->
+- 34cf35e: `renderPdfsBeforeTransaction` prints several PDFs for one write, and the HTTP client honours `Retry-After` on 503.
+  
+  <!-- kumiko-changes
+  feature: renderer-puppeteer-client
+  type: improvement
+  title: Several PDFs per write with renderPdfsBeforeTransaction
+  detail: `renderPdfsBeforeTransaction(ctx, documents)` takes the arguments of `renderPdfBeforeTransaction` once per document, renders and uploads at most two at a time and returns the uploads in input order. When one document fails, it starts no further document, removes every file it already uploaded and returns that failure. When the write itself fails or rolls back, the one release it returns removes all uploads. Pass each upload to `storeRenderedPdf` inside the transaction. On a 502 or 503 the HTTP client now waits at least the `Retry-After` seconds the service sends, capped at 10 seconds, before it retries.
+  -->
+- 34cf35e: Static sites bind the email/password login form with one call instead of their own DOM glue.
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: mountStaticLoginForm binds the static login to a data-attribute markup contract
+  detail: `@cosmicdrift/kumiko-bundled-features/auth-email-password/static-login-dom` exports `mountStaticLoginForm(root, { messages, isAppPath, fallbackPath, navigate? })` for plain site scripts. It wires `form[data-login-form="credentials"]` (email, password), `form[data-login-form="mfa"]` (code) with `[data-login-mfa-back]`, an optional `a[data-login-forgot]` and `[data-error]` slots: empty-field checks, busy state, MFA challenge switch, failure messages and the post-login redirect through `postLoginPath`. `loginFailureMessageKey`, `LOGIN_FAILURE_MESSAGE_KEYS` and `isLoginFailureMessages` map server reasons to the seven message keys the page provides.
+  -->
+- 34cf35e: `recordSubjectsOwnedByUser` finds the record subjects of rows a user owns through `personal: { of, whenAbsent: "self" }` fields; erasing their keys on forget is opt-in via `eraseSubjectData({ eraseOwnedRecordKeys: true })`; apps switch it on with `createCryptoShreddingFeature({ eraseOwnedRecordKeys: true })` and `createUserDataRightsFeature({ eraseOwnedRecordKeys: true })`.
+  
+  <!-- kumiko-changes
+  feature: crypto-shredding
+  type: improvement
+  title: Opt-in shredding of the ownerless phase of self-keyed fields on owner forget
+  detail: A field declared `personal: { of: "<ownerField>", whenAbsent: "self" }` is encrypted under the row's own record key while the owner is empty. After the owner is set the row is rekeyed, but the created event keeps the earlier ciphertext. `recordSubjectsOwnedByUser(db, features, userId)` is exported from `@cosmicdrift/kumiko-framework/db` and returns each such row's record subject with the row's tenant (soft-deleted rows included, rows already hard-deleted are out of reach). `eraseSubjectData` returns them only with the opt-in `eraseOwnedRecordKeys: true`; by default forgetting a user erases no record key beyond what it erased before. Apps opt in per feature: `createCryptoShreddingFeature({ eraseOwnedRecordKeys: true })` for `forget-subject` and `createUserDataRightsFeature({ eraseOwnedRecordKeys: true })` for the automated Art. 17 cleanup.
+  -->
+- 34cf35e: `ctx.systemDb.scopedTo(tenantId)` returns a tenant-mode db after the tenant self-check, and the delivery handlers use it.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: systemDb.scopedTo returns a tenant-filtered db
+  detail: System-scoped handlers that only work inside the caller's tenant call `ctx.systemDb.scopedTo(tenantId)` instead of `assertTenantMatch(tenantId)`. They get a tenant-mode `TenantDb` on the same transaction: reads are filtered to the tenant plus system rows, writes are pinned to the tenant, and `unsafeRaw()` and `global()` are not available. `assertTenantMatch` keeps returning the unfiltered system db for writes with a foreign or system tenant id. `scopeTenantDbToTenant` now keeps the audit reporter, projection registry, personal-data gate and member read-only flag of its source.
+  -->
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Delivery preference, opt-out, log and unsubscribe handlers read through a tenant-filtered db
+  detail: The handlers behind notification preferences, address opt-outs, the delivery log for tenant users and the unsubscribe page now run on `ctx.systemDb.scopedTo(...)`, so a query that forgets its `tenantId` condition can no longer read another tenant's rows. Apps change nothing.
+  -->
+- 34cf35e: Audit payloads withhold embedded fields that hold a sub-field the caller may not read.
+  
+  <!-- kumiko-changes
+  feature: audit
+  type: fix
+  title: Audit hides embedded fields with restricted sub-fields
+  detail: An embedded or embedded-list field whose schema has a sub-field with an access.read rule that grants none of the caller's roles "all" is removed from the audit snapshot, changes and previous, the same as a restricted top-level field. Before, such sub-fields showed in plaintext.
+  -->
+- 34cf35e: The stub subscription provider records checkout, portal and plan-switch calls.
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Stub subscription provider records its calls
+  detail: `createStubSubscriptionProvider` from `@cosmicdrift/kumiko-bundled-features/billing-foundation/testing` now returns `calls.checkout`, `calls.portal` and `calls.planSwitch` with the options each provider hook received, plus `resetCalls()`. App tests can assert the price, URLs and tenant of a checkout through the real handlers without writing their own SubscriptionProviderPlugin mock. A hook replaced through `overrides` is not recorded.
+  -->
+- 34cf35e: `createTierResolver` applies the tier-engine trial to the resolved tier and its caps.
+  <!-- kumiko-changes
+  feature: tier-engine
+  type: improvement
+  title: createTierResolver knows the trial
+  detail: `createTierResolver({ ..., trial: { tier, durationHours, tierOrder } })` lifts a tenant to the trial tier while the window from the tenant's creation is open and its stored tier ranks below the trial tier (a stored tier missing from `tierOrder` is never lifted), using the same `tenant.inserted_at` source as the tier-engine gate. `resolveTier` and `resolveTierCaps` return the effective tier, and the new `resolveTierState` also returns the stored tier and `trialEndsAtEpochMs` for billing displays. Apps no longer compute the trial themselves through a raw runner.
+  -->
+- 34cf35e: `forget-subject` for a user records the erase of each owned row's record key in that row's own tenant instead of the caller's.
+  
+  <!-- kumiko-changes
+  feature: crypto-shredding
+  type: fix
+  title: Owner forget announces record key erases in the row's tenant
+  detail: `crypto-shredding:write:forget-subject` with `kind: "user"` appends one `subject-forgotten` event per row the user owns through `whenAbsent: "self"` fields. These events went to the caller's tenant, so a data protection officer's tenant received the record keys, and with them the row ids, of rows in other tenants. Each event now goes to the tenant of its row, and the subject-key eraser erases the key as before. The user's own `subject-forgotten` event stays in the caller's tenant.
+  -->
+- 34cf35e: Events of removed workflow, mail-thread and ingest-progress types keep their technical stance in the audit log.
+  
+  <!-- kumiko-changes
+  feature: audit
+  type: fix
+  title: Retired event types stay classified in the audit log
+  detail: Events of types that are no longer registered stay in the append-only log. `RETIRED_EVENT_STANCES` keeps the technical stance of the former workflow system events, `inbound-mail-foundation:event:mail-thread-updated` and `document-ingest-foundation:event:document-ingest-progress`, so they do not surface unlabelled in the default audit list; `TECHNICAL_EVENT_TYPES` and `eventLabelKeyOf` include them.
+  -->
+- 34cf35e: `config` exports `readStoredTextOfFormerKey` for reading the stored value of a renamed or moved key.
+  
+  <!-- kumiko-changes
+  feature: config
+  type: improvement
+  title: readStoredTextOfFormerKey reads the stored text of a former config key
+  detail: `readStoredTextOfFormerKey(db, key, tenantId, userId)` returns the stored text of a key that is no longer registered: the tenant row, else the system row, else undefined. Registered keys keep going through the resolver; the helper serves a `computed` rung that keeps the value of a former key readable. The branding keys use it to show values stored under the old managed-pages keys.
+  -->
+- 34cf35e: The configuration error for `sendExportReadyEmail` without `appExportDownloadUrl` is now English.
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: improvement
+  title: sendExportReadyEmail configuration error in English
+  detail: Setting `sendExportReadyEmail` without `appExportDownloadUrl` still fails, now with the English message "user-data-rights: sendExportReadyEmail is set but appExportDownloadUrl is missing, configure both together" instead of the German one. Code that matched the German text must match the new one.
+  migration: Code that matched the German error text matches the new English message.
+  -->
+- 34cf35e: Self-signup and both invite acceptances now put the app's auth claims into the first session, like a regular login.
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Signup and invite sessions carry the auth claims
+  detail: `signup-confirm`, `invite-signup-complete` and `invite-accept-with-login` built their session without running the `r.authClaims` hooks, so the first JWT after these flows had no `claims` until the user logged in again or switched tenants. They now mint the session the same way `login` does; roles, tenant, locale and timezone stay as before.
+  -->
+- 34cf35e: Handlers declare `systemScope: true` and get a non-optional `ctx.systemDb`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: systemScope handlers get ctx.systemDb typed as present
+  detail: `defineWriteHandler`, `defineQueryHandler` and `definePagedQueryHandler` accept `systemScope: true`. The handler then receives `SystemScopeHandlerContext`, whose `systemDb` is not optional, so the hand-written "ctx.systemDb not wired" checks go away. Boot rejects the marker in a feature without `r.systemScope()` (rule handler/system-scope-without-feature-system-scope), and a dispatch without `ctx.systemDb` (no db wired) throws an InternalError naming the handler. Without the marker nothing changes: `ctx.systemDb` stays optional. `WriteHandlerInput` is now a union over the marker, `defineQueryHandler`/`definePagedQueryHandler` take the new `QueryHandlerInput`, and `WriteHandlerDefinition`/`QueryHandlerDefinition` carry `systemScope?: true`. New helpers: `hasSystemDb` (db) and the type `SystemScopeHandlerContext` (engine). Jobs and hooks keep `requireSystemDb`.
+  migration: Nothing has to change. To drop a not-wired check, add `systemScope: true` to the handler definition in an `r.systemScope()` feature and replace `requireSystemDb(ctx, "…")` or the `if (!ctx.systemDb) throw …` block with `ctx.systemDb`. An inline `r.writeHandler({ … })` needs `defineWriteHandler(…)` around it for the typed context. A helper taking `HandlerContext` can take `SystemScopeHandlerContext` instead once all its callers declare the marker. A value already typed as `QueryHandlerDefinition` or `WriteHandlerDefinition` can no longer be passed back into `defineQueryHandler`/`defineWriteHandler`; register it directly with `r.queryHandler`/`r.writeHandler`. `systemScope` must be the literal `true`, not a boolean variable.
+  affects: defineWriteHandler(, defineQueryHandler(, definePagedQueryHandler(, WriteHandlerInput, QueryHandlerInput, SystemScopeHandlerContext, hasSystemDb(, requireSystemDb(
+  -->
+- 34cf35e: A user whose deletion is pending can cancel it from the link in the deletion-requested mail, without signing in.
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: improvement
+  title: Cancel a pending deletion from the mail link
+  detail: A deletionRequested account cannot sign in, so the old "sign in and cancel" advice in the deletion-requested mail led nowhere. The new anonymous handler `cancel-deletion-by-token` takes a signed token and puts the account back to active while the grace period runs. The feature option `deletionCancelUrl` (needs `deletionTokenSecret`) makes request-deletion and confirm-deletion-by-token put a `Cancel deletion` button with a token link into the mail; `sendDeletionRequestedEmail` callbacks receive it as `cancelUrl`. Without the option the mail keeps the sign-in sentence. `makePublicDeletionGate` takes an optional `cancelPath` that renders the new `CancelAccountDeletionScreen`. Apps set `deletionCancelUrl` and `cancelPath` to the same route. The anonymous confirm flow now sends the deletion-requested mail too, which it did not before.
+  -->
+- 34cf35e: Parallel first writes of the same tenant- or system-level config key no longer create duplicate rows.
+  
+  <!-- kumiko-changes
+  feature: config
+  type: improvement
+  title: config:write:set serialises concurrent writes of the same key
+  detail: The unique index on (key, tenantId, userId) does not cover a NULL userId, so two parallel first `config:write:set` calls for a tenant- or system-level key each created a row. The handler now takes a transaction-scoped advisory lock per (key, tenantId, userId) before looking up the existing row.
+  -->
+- 4bc40f3: New `connectors` feature: a satellite pairs through the OAuth device flow and delivers files.
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: improvement
+  title: New connectors feature: devices pair via OAuth device flow and deliver files into an inbound list
+  detail: A satellite program pairs with `createConnectorsFeature()` through the OAuth device flow (RFC 8628); a TenantAdmin confirms the user code and the device receives a revocable `ksat_` token of which only the SHA-256 is stored. With it the device uploads files (raw bytes, relative path, SHA-256, modification time; the same file again is the same item) and sends heartbeats. Each upload becomes a file reference plus an event-sourced `inbound-item`. Mount the HTTP endpoints with `createConnectorRoutes()` as `extraRoutes`; the protocol is in docs/guides/connectors-satellite.md.
+  -->
+- e9d5559: The heartbeat answer of the connectors feature carries the connector name.
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: improvement
+  title: The heartbeat answer carries the connector name
+  detail: `POST /v1/heartbeat` now answers `{"ok":true,"name":"<connector name>"}` with the name the admin gave when pairing, so a satellite can show "Paired as <name>". A satellite treats a missing `name` as "no name to show".
+  -->
+- 4bc40f3: Uploads can opt out of the offsite backup with `backup: false`; connector uploads do, are capped per tenant and refuse system files; heartbeats carry a sync status and a retry signal.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: File uploads can stay out of the offsite backup
+  detail: `createFileRefFromBytes` and `uploadFileBytesBeforeTransaction` take `backup: false`: the key is built under `nobackup/<tenantId>/` (`NO_BACKUP_STORAGE_PREFIX`, `buildNoBackupStorageKey`, `tenantNoBackupPrefix`, `isOwnUploadKey` are exported), `tenantStoragePrefixes()` includes it so tenant destroy deletes the files, and a backup mirror can exclude the one prefix. Without the option nothing changes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: improvement
+  title: Connector files stay out of the backup, are capped per tenant and refuse system files
+  detail: Delivered files are stored under `nobackup/<tenantId>/`. A tenant may store 5 GiB by default (`maxStoredBytesPerTenant` on `createConnectorsFeature`); beyond it an upload answers `507 storage_quota_exceeded` and stores nothing. Paths containing Windows or macOS system files (`Thumbs.db`, `$RECYCLE.BIN`, `desktop.ini`, `~$` lock files and others) answer `422 path_rejected`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: improvement
+  title: A satellite reports its sync status in the heartbeat and an admin can ask it to retry
+  detail: The heartbeat takes an optional `sync: { state, queued, failed, lastSyncAt? }`; the connector list shows it as a status badge with details, and a change of state or failure count is stored at once. The row action "Retry" (TenantAdmin) makes the next heartbeat answer carry `retry: true` exactly once. Old satellites without `sync` keep working.
+  -->
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: improvement
+  title: Delivered files form a folder tree with a "Dateien" screen
+  detail: The path's directory part becomes an event-sourced `inbound-folder` tree per device (`inbound-item.folderId`); folders hold counts and sizes over the whole subtree. The custom screen `connector-files` shows breadcrumb, folders and files with storage used against the quota, and deletes a file or a folder with its subtree and bytes (TenantAdmin; a folder is marked at once and the `delete-folder-tree` job removes the subtree in batches, any size). Apps mount `connectorsClient()` from `@cosmicdrift/kumiko-bundled-features/connectors/web`, place the screen in their nav and set the quota only on `createConnectorsFeature()`; the upload check and the screen share it. Paths deeper than 20 folders or with a segment over 255 characters answer `422 path_rejected`. New tables: run the migration `0072_connectors`.
+  -->
+  
+  The connectors file tree can be searched by part of a name (`inbound-search`, server-side decrypt-and-scan with a cap of 20 000 names). A file re-sent while its folder is being deleted is kept in a fresh folder instead of being answered as a duplicate.
+- 6f043fa: The connector list says why a satellite is not syncing when its upload was refused for lack of storage; the pairing link a satellite shows opens the pair screen in an app with workspaces.
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: improvement
+  title: The connector list shows "Storage full, uploads paused"
+  detail: When an upload is refused with `507 storage_quota_exceeded`, the device remembers it (`quotaRejectedAt`) and the "Details" column of its connector says "Storage full, uploads paused" until the next upload of that device is accepted. The server decides this, so no satellite update is needed. New column on `store_connector_devices`: run the migration `0073_connectors-quota-rejected`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: A link to a screen without workspace prefix opens that screen
+  detail: In an app with workspaces, `/<screenId>` (for example the connectors pairing link `/connector-pair`) was read as an unknown workspace and ended on the default screen. The shell now moves it to the active workspace and keeps the query.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: A form screen can name the fields a plain link may fill
+  detail: An `actionForm` takes `linkPrefillFields: ["userCode"]`. A link such as `/pair?userCode=AB12-CD34` then fills exactly these fields, each value coerced by its field type; every other query key is ignored, and nothing is submitted by the link. Until now only navigate `params` and `redirect.handOff` could allow URL prefill. Boot rejects a name that is no field of the form (`form/link-prefill-unknown-field`).
+  -->
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: improvement
+  title: The satellite can offer a link that opens the pair screen with the code filled in
+  detail: `POST /v1/device_authorization` also answers `verification_uri_complete` (`verification_uri` plus `?userCode=<code>`, RFC 8628 section 3.3.1). The pair screen fills the code from it; the admin still presses Check, and confirming stays bound to that Check by the same admin within 5 minutes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: fix
+  title: The confirm step shows the requesting address readably
+  detail: A request from an IPv6 address is shown as its /64 prefix in compact form (`2001:db8:1:2::/64`), and a request from this very server as "local (this server)", instead of `0:0:0:0::/64`. IPv4 is unchanged. Action form facts take `valueIsI18nKey` to show a translated value.
+  -->
+- 99da456: channel-email skips placeholder addresses on the reserved `.invalid` TLD.
+  
+  <!-- kumiko-changes
+  feature: channel-email
+  type: fix
+  title: No mail to .invalid placeholder addresses
+  detail: Addresses on the reserved `.invalid` TLD (RFC 2606), such as a guest account's `guest-<id>@guests.invalid` or an anonymized user's address, are never handed to the mail provider, which rejected them. The email channel resolves such a stored address to none and answers a send to one with `skipped` / `no_address`, so the delivery log records a skipped attempt instead of a failed one and the failed-mail alert stays quiet. The user-data-rights deletion-executed mail treats that skip as done instead of logging a send failure.
+  -->
+- 34cf35e: Ledger transactions and job runs gained lookup indexes that apps must ship as a migration.
+  
+  <!-- kumiko-changes
+  feature: ledger
+  type: improvement
+  title: New indexes on ledger transactions, job runs and job run logs
+  detail: Added an index on ledger transactions `(tenantId, reference)`, on job runs `(jobName, bullJobId)` and on job run logs `run_id`. Existing databases only get them through a migration; the schema drift check covers tables and columns, not indexes, so boot does not flag them. Apps that mount ledger or jobs run `kumiko schema generate` and ship the resulting migration.
+  migration: Apps that mount ledger or jobs run `kumiko-schema generate` and ship the resulting migration.
+  -->
+- 34cf35e: A PDF whose HTML exceeds the puppeteer service limit now fails with `rendered_pdf_too_large` instead of `rendered_pdf_invalid_request`.
+  
+  <!-- kumiko-changes
+  feature: renderer-puppeteer-client
+  type: improvement
+  title: Oversized PDF requests report rendered_pdf_too_large
+  detail: The service answers 413 when the HTML, the PDF or a raster result exceeds its limit. The client mapped every 4xx to `invalid_payload`, so photo PDFs failed with a meaningless error. `RendererError` has the new code `payload_too_large` plus optional `limits` (`maxBytes`, `gotBytes`), and PDF writes answer 422 `rendered_pdf_too_large` with those sizes in `details`.
+  -->
+- 34cf35e: The tag chips in lists and the tag filter show up again.
+  
+  <!-- kumiko-changes
+  feature: tags
+  type: improvement
+  title: Tag cell and tag filter query assignments within the list limit
+  detail: `TagsCell` and `TagFilter` asked for 500 assignment rows, but the list schema caps `limit` at 200, so the query failed validation and no tags were shown. `TagsCell` now filters on the row's `entityId`, `TagFilter` on the host `entityType`, both with `limit: 200`.
+  -->
+- Updated dependencies [34cf35e]
+- Updated dependencies [49e723e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [49e723e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [cdbf386]
+- Updated dependencies [34cf35e]
+- Updated dependencies [cdbf386]
+- Updated dependencies [34cf35e]
+- Updated dependencies [cdbf386]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [6f043fa]
+- Updated dependencies [a44b984]
+- Updated dependencies [007d227]
+- Updated dependencies [a44b984]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [3f3bb46]
+- Updated dependencies [4bc40f3]
+  - @cosmicdrift/kumiko-framework@0.425.0
+  - @cosmicdrift/kumiko-renderer@0.425.0
+  - @cosmicdrift/kumiko-testing@0.425.0
+  - @cosmicdrift/kumiko-types@0.425.0
+
 ## 0.424.1
 
 ### Patch Changes

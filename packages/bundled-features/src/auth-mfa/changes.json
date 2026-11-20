@@ -1,51 +1,61 @@
 [
   {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Re-authentication handlers are rate limited per user"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "MFA revoke bindings removed; regenerate-recovery also revokes access tokens",
+    "detail": "enable-confirm, enable-confirm-preauth, disable and regenerate-recovery revoke every other session and all access tokens through the auth-foundation credentialRevoker in their own transaction. Removed: `bindMfaRevokeAllOtherSessionsFromFeature`, `bindRevokeAllPatTokensFromFeature`, `BindMfaRevokeAllOtherSessions`, `BindRevokeAllPatTokens`.",
+    "migration": "Remove the bind calls; mount auth-foundation with sessions and personal-access-tokens as before.",
+    "affects": [
+      "bindMfaRevokeAllOtherSessionsFromFeature",
+      "bindRevokeAllPatTokensFromFeature",
+      "BindMfaRevokeAllOtherSessions",
+      "BindRevokeAllPatTokens"
+    ]
+  },
+  {
     "version": "0.415.0",
     "type": "fix",
-    "title": "Signed tokens accept only the exact signature text",
-    "detail": "`hmacSignatureMatches` compared the decoded bytes, so a signature whose last character differed only in its unused trailing bits also verified. It now compares the text. No consumer action needed."
+    "title": "Signed tokens accept only the exact signature text"
   },
   {
     "version": "0.405.0",
     "type": "improvement",
-    "title": "MFA setup token uses the shared HMAC token codec",
-    "detail": "signMfaSetupToken and verifyMfaSetupToken run on createHmacTokenCodec with the domain mfa-setup. Tokens issued before the change still verify, and new tokens are byte-identical for the same input. The challenge and preauth-setup tokens share one payload guard, and signed-token and the inbound-mail OAuth state use the same HMAC signature helper."
+    "title": "MFA setup token uses the shared HMAC token codec"
   },
   {
     "version": "0.391.0",
     "type": "fix",
-    "title": "The disable-MFA form confirms success",
-    "detail": "After a successful disable the auth-mfa-disable screen shows \"Two-factor authentication is now turned off.\" and clears the spent code. Before, the form looked unchanged. New key mfa.disable.done in all locale packages."
+    "title": "The disable-MFA form confirms success"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "requiredPolicy \"systemAdmins\"",
-    "detail": "The new auth-mfa:config:required value systemAdmins (between optional and admins) forces MFA enrollment only for users whose merged global and tenant roles contain SystemAdmin. TenantAdmins and other roles log in as before; enrolled users are always challenged regardless of policy. No locale labels are involved, the option list has none."
+    "title": "requiredPolicy \"systemAdmins\""
   },
   {
     "version": "0.388.0",
     "type": "improvement",
-    "title": "Six-cell code input, autofocus, auto-submit and recovery switch",
-    "detail": "The MFA login, setup, disable and regenerate screens use the six-cell code input with autofocus. Login and setup submit automatically on the sixth digit; disable and regenerate keep the explicit confirm button. Verify, disable and regenerate can switch to a recovery-code field. New keys auth.mfa.verify.useRecoveryCode, useAuthenticatorCode, recoveryCode and recoverySubtitle in all locale packages; auth.mfa.disable.code now names the authenticator code only."
+    "title": "Six-cell code input, autofocus, auto-submit and recovery switch"
   },
   {
     "version": "0.379.0",
     "type": "fix",
-    "title": "MFA setup uses the shared QR secret primitive",
-    "detail": "The pre-auth MFA setup screen renders the QR code and secret through the renderer's QR secret primitive instead of its own markup."
+    "title": "MFA setup uses the shared QR secret primitive"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "MFA token secrets are optional and bound at boot",
-    "detail": "setupTokenSecret and challengeTokenSecret on createAuthMfaFeature are optional. Unset, the boot binds them through bindMfaTokenSecretsFromFeature(feature)(masterSecret, env): MFA_SETUP_TOKEN_SECRET and MFA_CHALLENGE_TOKEN_SECRET from env when set, otherwise derived from the master secret. mfaTokenSecretsEnvSchema declares both variables and the feature registers it next to the secrets master-key slot. A handler called before the binding throws instead of signing with an empty key."
+    "title": "MFA token secrets are optional and bound at boot"
   },
   {
     "version": "0.357.0",
     "type": "improvement",
-    "title": "MFA enable asks to confirm saved recovery codes, code field autocompletes one-time codes",
-    "detail": "secretMint `reveal.acknowledge` (i18n key) renders a checkbox on the reveal card that must be ticked before the confirm step or the acknowledge button can be used; the tick never reaches the payload. Text fields accept an `autoComplete` token that reaches the input. The MFA enable screen uses both: a \"saved my recovery codes\" gate and `one-time-code` on the code field"
+    "title": "MFA enable asks to confirm saved recovery codes, code field autocompletes one-time codes"
   },
   {
     "version": "0.354.0",
@@ -63,61 +73,51 @@
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "MFA web client shares the login response mapper",
-    "detail": "The MFA web client reuses the shared `toLoginResponse` helper (now exported from the auth-email-password web barrel) for `landingPath` handling, so login, MFA verify and MFA setup confirm map the response identically."
+    "title": "MFA web client shares the login response mapper"
   },
   {
     "version": "0.329.0",
     "type": "improvement",
-    "title": "kumiko-bundled-features is published as compiled JavaScript plus .d.ts",
-    "detail": "`kumiko-bundled-features` now ships `dist` (`.js` and `.d.ts`) instead of TypeScript source. Export keys are unchanged; only the targets behind them move to `dist`. The per-feature `changes.json` files stay in the tarball as source, because `kumiko upgrade` and `kumiko changes` read them from the installed package. The package now declares `jose`, `temporal-polyfill`, `uuid` and `zod` as dependencies, which its code already imported. `template-resolver/testing` needs Bun (it imports `kumiko-framework/testing`). The MFA setup screen imports `qrcode/lib/browser.js` with its extension so Node's ESM resolver finds it."
+    "title": "kumiko-bundled-features is published as compiled JavaScript plus .d.ts"
   },
   {
     "version": "0.286.0",
     "type": "improvement",
-    "title": "mfa-verify-attempts now delegates to shared/lockout-counter",
-    "detail": "No behavior change — same exported function/type names and Redis key prefixes as before the extraction."
+    "title": "mfa-verify-attempts now delegates to shared/lockout-counter"
   },
   {
     "version": "0.259.0",
     "type": "improvement",
-    "title": "Declarative auth-mfa-disable and auth-mfa-regenerate-recovery screens (fw#2844).",
-    "detail": "`auth-mfa-disable` (actionForm on auth-mfa:write:disable) and `auth-mfa-regenerate-recovery` (secretMint on auth-mfa:write:regenerate-recovery, one-time reveal of the new codes) join `auth-mfa-enable`, so a settings page can offer the full MFA lifecycle without client components — gate them on `auth-mfa:query:user-mfa:status` via a dashboard screen panel's `visibleWhen`. Exported ids MFA_DISABLE_SCREEN_ID, MFA_REGENERATE_RECOVERY_SCREEN_ID. Additive; handlers unchanged."
+    "title": "Declarative auth-mfa-disable and auth-mfa-regenerate-recovery screens (fw#2844)."
   },
   {
     "version": "0.165.0",
     "type": "fix",
-    "title": "KEK reencrypt job: rejects unrecognized envelopes",
-    "detail": "Reencrypt job now explicitly fails on non-envelope rows instead of silently passing through."
+    "title": "KEK reencrypt job: rejects unrecognized envelopes"
   },
   {
     "version": "0.165.0",
     "type": "fix",
-    "title": "MFA: fail-closed when ctx.redis is missing",
-    "detail": "Verify/enable-confirm operations now fail when Redis is unreachable instead of silently accepting."
+    "title": "MFA: fail-closed when ctx.redis is missing"
   },
   {
     "version": "0.150.0",
     "type": "fix",
-    "title": "Fix `auth-mfa`'s two-step verify + enroll flow re-checking stale state and skipping repla…",
-    "detail": "Fix `auth-mfa`'s two-step verify + enroll flow re-checking stale state and skipping replay protection that `login.write.ts` already enforces: - `verify.write.ts` minted a session from a challenge token alone, without re-checking account status or tenant membership. A user restricted/deleted, or removed from the tenant, in the ~10-minute window between password login and MFA verify still got a full session — membership loss even silently fell back to global-only roles instead of refusing. Both gates now mirror `login.write.ts`. - `enable-confirm.write.ts` never burned the setup token on success: the same token could re-enable MFA with an old secret after a `disable` (replay), and two parallel confirms both hit the executor instead of the second seeing `mfa_already_enabled`. The token is now single-use, the same as `login.write.ts`'s magic-link tokens. - `auth-mfa` was missing `r.requires(\"tenant\")` despite `verify.write.ts` dispatching `tenant:query:memberships` — a mount without `tenant` now fails at boot instead of 500ing on first login. - Recovery codes are now normalized (uppercased, punctuation-stripped) before hashing and verifying, so a code retyped lowercase or without the dash still matches — this changes the stored hash format, safe because `auth-mfa` has no deployed consumer with enrolled users yet. Also fixes `samples/apps/user-data-rights-demo`'s forget-cleanup test, which asserted on the manual `runForgetCleanup` helper instead of driving the actually-registered cron job through its real `JobContext` wrapper."
+    "title": "Fix `auth-mfa`'s two-step verify + enroll flow re-checking stale state and skipping repla…"
   },
   {
     "version": "0.149.1",
     "type": "fix",
-    "title": "Fix `auth-mfa` crashing on enable/regenerate for any app with per-subject crypto-shreddin…",
-    "detail": "Fix `auth-mfa` crashing on enable/regenerate for any app with per-subject crypto-shredding (`configurePiiSubjectKms`) active: `recoveryCodes` was a `jsonb` field marked `userOwned`, but the PII-encryption pipeline requires a string value for any subject-owned field — every real enable-confirm write threw `PII field \"recoveryCodes\" must be a string, got object`. `recoveryCodes` is now a `createTextField({ encrypted: true, userOwned })` (JSON-stringified at the write/read boundary), matching `totpSecret`. That exposed a second, deeper bug: a field carrying both `encrypted: true` and a subject marker is written as `PII(envelope(plaintext))`, but `decryptForRead` peeled the layers in write order instead of reverse order, so the envelope cipher choked on a still-PII-wrapped string. Fixed `event-store-executor-context.ts`'s `decryptForRead` to unwrap PII first, then envelope — and updated `auth-mfa`'s KEK-reencrypt job (which reads raw rows, bypassing `decryptForRead`) to do the same. Also: `MfaEnableScreen` now takes an optional `onEnabled` callback, fired after a successful enable-confirm — hosts that compose it inside their own MFA-status view (like kumiko-studio's account-security screen) need it to know when to refetch and swap away from the embedded enable flow. - @cosmicdrift/kumiko-framework@0.149.1 - @cosmicdrift/kumiko-headless@0.149.1 - @cosmicdrift/kumiko-renderer@0.149.1 - @cosmicdrift/kumiko-dispatcher-live@0.149.1 - @cosmicdrift/kumiko-renderer-web@0.149.1"
+    "title": "Fix `auth-mfa` crashing on enable/regenerate for any app with per-subject crypto-shreddin…"
   },
   {
     "version": "0.149.0",
     "type": "improvement",
-    "title": "`auth-mfa/web` gains `MfaDisableDialog`, `MfaRegenerateRecoveryDialog`, and `MfaRecoveryC…",
-    "detail": "`auth-mfa/web` gains `MfaDisableDialog`, `MfaRegenerateRecoveryDialog`, and `MfaRecoveryCodesReveal` — the disable/regenerate-recovery UI deferred from the initial MFA-UI PR (kumiko-framework#266). Also fixes `MfaEnableScreen`'s error banner, which templated the raw snake_case server error code straight into the i18n key (`auth.mfa.errors.invalid_totp_code`) instead of the camelCase key actually registered (`auth.mfa.errors.invalidCode`) — extracted into a shared `mfaManageErrorKey` helper, now used by all three write-triggering components."
+    "title": "`auth-mfa/web` gains `MfaDisableDialog`, `MfaRegenerateRecoveryDialog`, and `MfaRecoveryC…"
   },
   {
     "version": "0.149.0",
     "type": "improvement",
-    "title": "`auth-mfa` gains a `status` query (`AuthMfaQueries.status`, wire QN `auth-mfa:query:user-…",
-    "detail": "`auth-mfa` gains a `status` query (`AuthMfaQueries.status`, wire QN `auth-mfa:query:user-mfa:status`) returning `{ enabled: boolean }` for the calling user — the one thing a settings/security screen needs to decide whether to show the enrollment flow or the disable/regenerate actions. No client-side signal carried this before."
+    "title": "`auth-mfa` gains a `status` query (`AuthMfaQueries.status`, wire QN `auth-mfa:query:user-…"
   }
 ]

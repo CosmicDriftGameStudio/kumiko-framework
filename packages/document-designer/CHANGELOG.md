@@ -1,5 +1,495 @@
 # @cosmicdrift/kumiko-document-designer
 
+## 0.425.0
+
+### Patch Changes
+
+- 34cf35e: Forms save through their one Save button. A note typed into the notes section of an edit form is written with the form's Save. Resetting a config value to its inherited value marks the field and saves with the form. A failed footer action no longer leaves its values in the form. The layout editor blocks publishing and applying while the layout has unsaved changes. Actions on a projection detail ask before they discard input typed into a write form.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Forms save through their one Save button
+  detail: The notes section inside an edit form has no own add button any more; a typed note counts as unsaved input and is written by the form's Save (addNote), a standalone notes section keeps its button. On a config edit screen "Reset" sets the field to the inherited value and the reset is written with Save (config:write:reset), typing after a reset writes the typed value instead; a reset to a value equal to the current override changes nothing visible and is not saved. A footer action with a patch (for example "Save as urgent") sends its patch with this one submit only; when the write fails the patch is not kept in the form, so the next Save does not send it. The layout editor disables "Publish drafts" and "Apply to templates" while the layout has unsaved changes and says to save first (key documentDesigner.usedBy.saveFirst, de, es, fr, it translated). On a projection detail, an action that does not submit a write form asks "You have unsaved changes in this form…" while a write form section holds typed input, as entityEdit does; the action named in submitWith sends the input without the question. Nothing to do for apps.
+  -->
+- 34cf35e: Workspaces collect the admin navs of every mounted feature with `collectAdminArea`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Workspaces collect navs by admin area
+  detail: A nav declares `adminArea: "tenant" | "platform"`, a workspace declares `collectAdminArea` with the same value. At boot the workspace lists every matching nav of the mounted features after its explicit `nav` list, sorted by `order`, each QN once. The navs count as reachable for the unreachable-screen warning. `AdminNavArea` is exported from the engine.
+  -->
+  
+  admin-shell collects its workspace navs instead of listing them.
+  
+  <!-- kumiko-changes
+  feature: admin-shell
+  type: breaking
+  title: admin-shell workspaces collect navs; includeDocumentDesigner removed
+  detail: The tenant and platform workspaces of admin-shell now use `collectAdminArea`, so they also list event consumers, export jobs, feature toggles, the cap list and the document templates of mounted features. A new platform nav `admin-shell:nav:users` opens `user:screen:user-list` for SystemAdmin. Apps that keep `registerWorkspaces: false` set `collectAdminArea` on their own workspaces and drop the hand-written nav lists. The option `includeDocumentDesigner` is removed because the document-designer navs carry their area.
+  migration: Remove `includeDocumentDesigner` from `createAdminShellFeature`. In app workspaces replace the lists of standard nav QNs with `collectAdminArea: "tenant"` or `"platform"`, and delete own users and system-check navs in favour of `admin-shell:nav:users` and `createReadinessFeature({ nav: { adminArea: "platform" } })`.
+  affects: createAdminShellFeature, includeDocumentDesigner, registerWorkspaces, admin-shell:nav
+  -->
+  
+  delivery and sessions let the app pick the admin area of their log navs.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: delivery-log nav takes an adminArea option
+  detail: `createDeliveryFeature({ adminArea })` tags the delivery-log nav for a collecting workspace. Unset, the nav stays out of every admin area, as before.
+  -->
+  
+  <!-- kumiko-changes
+  feature: sessions
+  type: improvement
+  title: session-list nav takes an adminArea option
+  detail: `createSessionsFeature({ adminArea })` tags the session-list nav for a collecting workspace. Unset, the nav stays out of every admin area, as before.
+  -->
+  
+  <!-- kumiko-changes
+  feature: readiness
+  type: improvement
+  title: System-check nav takes an adminArea
+  detail: `createReadinessFeature({ nav: { adminArea } })` puts the system-check nav into the collecting admin workspace.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: Template navs carry their admin area
+  detail: `document-designer:nav:templates` belongs to the tenant area, `document-designer:nav:platform-templates` to the platform area, so collecting workspaces list them without extra wiring.
+  -->
+- 34cf35e: Tenant branding moved from managed-pages into its own `branding` feature, so mail, PDF and the document designer get branding without public pages.
+  
+  <!-- kumiko-changes
+  feature: branding
+  type: breaking
+  title: Branding is its own feature
+  detail: createBrandingFeature({ allowCustomCss }) registers the branding config keys (branding:config:title, description, site-url, accent-color, logo-url, logo-file, layout-preset, custom-css), the anonymous branding:query:tokens query, the branding:screen:branding-settings screen and brandingClient() translations; createBrandingCssFeature() gates custom CSS. managed-pages now requires branding and no longer exports BRANDING_QN, readBranding, MANAGED_PAGES_CSS_FEATURE, createManagedPagesCssFeature or the allowCustomCss option. The mail renderer and the document designer read the new keys and feature name.
+  migration: Mount createBrandingFeature() (with allowCustomCss and createBrandingCssFeature() where custom CSS was used) wherever managed-pages, mail branding or the document designer branding rail is used; import BRANDING_QN from @cosmicdrift/kumiko-bundled-features/branding; replace managed-pages:query:branding with branding:query:tokens and managed-pages:config:branding-* with branding:config:*; add brandingClient() to the client features. Stored values under the old managed-pages:config:branding-* keys are still read: branding:query:tokens, readBranding and the mail and PDF renderers fall back to the old key when the new key has no stored value, so tenants keep their branding without a migration step, and the branding settings form shows such a value and writes the new key on save; a value stored under the new key, even a cleared one, wins.
+  affects: managed-pages, BRANDING_QN, readBranding, MANAGED_PAGES_CSS_FEATURE, createManagedPagesCssFeature, allowCustomCss, renderer-mail-html, document-designer
+  -->
+  
+  <!-- kumiko-changes
+  feature: managed-pages
+  type: breaking
+  title: Branding exports removed from managed-pages
+  detail: `BRANDING_QN`, `MANAGED_PAGES_CSS_FEATURE` and `createManagedPagesCssFeature` are no longer exported from managed-pages. Branding config, query and screen live in the branding feature, and custom CSS is gated by `createBrandingCssFeature()`.
+  migration: Import `BRANDING_QN` from @cosmicdrift/kumiko-bundled-features/branding and replace `createManagedPagesCssFeature()` with `createBrandingCssFeature()` next to `createBrandingFeature({ allowCustomCss })`. `MANAGED_PAGES_CSS_FEATURE` is replaced by `BRANDING_CSS_FEATURE` from the same branding subpath.
+  affects: BRANDING_QN, MANAGED_PAGES_CSS_FEATURE, createManagedPagesCssFeature
+  -->
+- 34cf35e: All CorePrimitives are required; tests build their primitives with `createStubPrimitives` from `@cosmicdrift/kumiko-renderer/testing`.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Every CorePrimitive is required, createStubPrimitives replaces partial test stubs
+  detail: The 25 primitives that were optional only so partial test mocks kept compiling (Drawer, Tabs, PageHeader, StatusBadge, Metric, FillContainer, StepBar, ActionOverflowMenu and others) are now required in `CorePrimitives`. The renderer no longer carries fallback branches or "primitive not registered" warnings for them; screens always render through the registered primitive. `createKumikoApp({ primitives })` still takes a partial override merged over `defaultPrimitives`, so apps that only use createKumikoApp change nothing. `createStubPrimitives(overrides)` from `@cosmicdrift/kumiko-renderer/testing` returns a complete registry whose entries render nothing, with the overrides on top; it needs no DOM.
+  migration: Replace hand-written `CorePrimitives` objects in tests (`const p: CorePrimitives = { ... }` or `{ ... } as unknown as CorePrimitives`) with `createStubPrimitives({ ... })`. Code that builds a full `CorePrimitives` value outside createKumikoApp must supply all 43 entries. Remove checks like `primitives.Drawer !== undefined`.
+  affects: CorePrimitives
+  -->
+- 34cf35e: The PDF editor uploads a template resource with a key again.
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: PDF editor resource upload sends the resource key
+  detail: The upload button in the PDF editor called `template-resolver:write:resource-upload` without `key`, which the handler schema rejects, so no image could be added there. The editor now derives the key from the file name and adds a numeric suffix when the template already links that key, as the mail editor does.
+  -->
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [49e723e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [49e723e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [cdbf386]
+- Updated dependencies [cdbf386]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [cdbf386]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [e9d5559]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [6f043fa]
+- Updated dependencies [34cf35e]
+- Updated dependencies [a44b984]
+- Updated dependencies [99da456]
+- Updated dependencies [34cf35e]
+- Updated dependencies [007d227]
+- Updated dependencies [a44b984]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [3f3bb46]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+  - @cosmicdrift/kumiko-bundled-features@0.425.0
+  - @cosmicdrift/kumiko-framework@0.425.0
+  - @cosmicdrift/kumiko-renderer@0.425.0
+  - @cosmicdrift/kumiko-types@0.425.0
+
 ## 0.424.1
 
 ### Patch Changes

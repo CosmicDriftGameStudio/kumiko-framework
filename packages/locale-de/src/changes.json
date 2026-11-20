@@ -2,62 +2,52 @@
   {
     "version": "0.415.0",
     "type": "fix",
-    "title": "Informal German bundle says du throughout",
-    "detail": "Fourteen strings in the informal bundle addressed the user with Sie. They now say du. Apps with address formal keep the previous wording through the formal overrides."
+    "title": "Informal German bundle says du throughout"
   },
   {
     "version": "0.409.0",
     "type": "improvement",
-    "title": "German strings for the contact feature and the configEdit action rows",
-    "detail": "Adds the German copy for the contact feature (screens, panels, fields, delivery status and notification labels), the configEdit action hint `kumiko.configEdit.action.saveFirst` and the masked write-only secret row (`kumiko.field.writeOnly.maskedSet`, `kumiko.field.writeOnly.replace`). Apps that mount contact and this locale package need no further translation work."
+    "title": "German strings for the contact feature and the configEdit action rows"
   },
   {
     "version": "0.388.0",
     "type": "improvement",
-    "title": "German strings for the provider choice and the in-app plan switch",
-    "detail": "Adds billing-foundation planSwitch.*, plans.providerChoice, plans.planSwitchRequested and the providerNotOffered and providerRequired errors."
+    "title": "German strings for the provider choice and the in-app plan switch"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "Translations for the default-filter empty state",
-    "detail": "kumiko.list.empty.defaultFiltered and kumiko.list.empty.showAll are translated in de, es, fr and it."
+    "title": "Translations for the default-filter empty state"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "One English reference catalog for all locale packages",
-    "detail": "The completeness checks of es, fr and it run in the use-all-bundled i18n parity test against the single English catalog in locale-de; the harvest script writes only that file. New keys errors.validation.invalid_format.{email,url,date,datetime,uuid} in all locales."
+    "title": "One English reference catalog for all locale packages"
   },
   {
     "version": "0.371.0",
     "type": "improvement",
-    "title": "errors.demoReadOnly translated",
-    "detail": "The read-only demo error has German copy in the informal and formal catalogs."
+    "title": "errors.demoReadOnly translated"
   },
   {
     "version": "0.364.0",
     "type": "improvement",
-    "title": "German text for discarding a template draft",
-    "detail": "Adds templateResolver.errors.noDraft."
+    "title": "German text for discarding a template draft"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "error texts for template meta and placeholder validation in German and Spanish",
-    "detail": "The locale packages carry the new templateResolver.errors keys (invalid meta, unknown and missing placeholders, mail layout format, collection kind not allowed); renderer-web's formatMoney delegates to headless and the create-kumiko-app feature manifest is refreshed."
+    "title": "error texts for template meta and placeholder validation in German and Spanish"
   },
   {
     "version": "0.361.0",
     "type": "improvement",
-    "title": "German string for locked records",
-    "detail": "Adds errors.recordLocked."
+    "title": "German string for locked records"
   },
   {
     "version": "0.360.0",
     "type": "improvement",
-    "title": "German strings for the file list widget and embedded list accessibility",
-    "detail": "Adds kumiko.field.file-list.add, empty, move-down and move-up, kumiko.field.file-upload.attached, change, failed, remove and upload, plus kumiko.field.embedded-list.actions and cell-label."
+    "title": "German strings for the file list widget and embedded list accessibility"
   },
   {
     "version": "0.341.0",
@@ -67,26 +57,22 @@
   {
     "version": "0.339.0",
     "type": "fix",
-    "title": "Billing consent and cancel dialogs use \"du\"",
-    "detail": "`billing-foundation.consent.*`, `billing-foundation.cancel.*`, `billing-foundation.errors.consentTextOutdated` and `billing-foundation.errors.termsUnavailable` switch from \"Sie\" to \"du\", matching the `billing-foundation.plans.*` keys. The formal bundle (`address: \"formal\"`) keeps the \"Sie\" wording through `localeDeFormalOverrides`."
+    "title": "Billing consent and cancel dialogs use \"du\""
   },
   {
     "version": "0.338.0",
     "type": "improvement",
-    "title": "German strings for the billing consent and cancel-contract dialogs",
-    "detail": "Adds the `billing-foundation.consent.*`, `billing-foundation.cancel.*`, `billing-foundation.errors.consentTextOutdated` and `billing-foundation.errors.termsUnavailable` keys in formal German."
+    "title": "German strings for the billing consent and cancel-contract dialogs"
   },
   {
     "version": "0.337.0",
     "type": "fix",
-    "title": "German copy for the jobs invalid-payload error",
-    "detail": "Adds the German copy for `jobs.errors.invalidPayload`, shown when a manual job trigger gets a broken or non-object JSON payload."
+    "title": "German copy for the jobs invalid-payload error"
   },
   {
     "version": "0.330.0",
     "type": "improvement",
-    "title": "German strings cover every registered key and call the audit log \"Ereignisprotokoll\" everywhere",
-    "detail": "The new i18n-parity test in `use-all-bundled` harvests the English copy from the real registrations (feature translations, client plugins, renderer defaults, mail templates) and fails with `key -> locale` when `locale-de` or `locale-es` lacks a key or an en-catalog drifts. This added the missing German and Spanish copy for billing plans, the privacy-center status field and many more keys, and removed 110 translation keys no feature registers any more. German uses \"Ereignisprotokoll\" for the audit log everywhere. `userDataRights.privacyCenter.restriction.dialogTitle` and `.deletion.dialogTitle` are registered in English by the feature."
+    "title": "German strings cover every registered key and call the audit log \"Ereignisprotokoll\" everywhere"
   },
   {
     "version": "0.330.0",
@@ -98,13 +84,11 @@
   {
     "version": "0.328.0",
     "type": "improvement",
-    "title": "New pager, list, form, wizard and drawer strings",
-    "detail": "Adds the keys for the pager, list counts, sort label, form changed marker, unsaved counter, \"All fields are required.\", the on-this-page nav, wizard \"Save and close\" and \"Next: {title}\" and the drawer discard dialog."
+    "title": "New pager, list, form, wizard and drawer strings"
   },
   {
     "version": "0.319.0",
     "type": "improvement",
-    "title": "German strings for the new billing-plans cancel-scheduled banner and reactivate label",
-    "detail": "Adds German i18n strings for the cancel-scheduled info banner and the\n\"Reactivate subscription\" button label introduced by billing-foundation's\ncancel/reactivate change."
+    "title": "German strings for the new billing-plans cancel-scheduled banner and reactivate label"
   }
 ]

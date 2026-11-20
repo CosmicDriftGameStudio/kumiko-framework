@@ -1,154 +1,193 @@
 [
   {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Boot dry run lists the KMS trio under kmsMode \"required\""
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "runStandaloneCli for bin/kumiko.ts"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "runProdApp defaults to Secure session cookies",
+    "detail": "`auth.secureCookies` in runProdApp now defaults to `true` instead of `NODE_ENV === \"production\"`, so a production image started without NODE_ENV no longer falls back to plain, non-Secure auth and CSRF cookies. An explicit `secureCookies: false` still wins. runDevApp and the test stack keep the NODE_ENV fallback.",
+    "migration": "A runProdApp deployment served over plain http on a host other than localhost must set `auth.secureCookies: false`. Users of such a deployment log in once after the update.",
+    "affects": [
+      "runProdApp",
+      "secureCookies"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "No migration check for filename-based client entries"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Prod shutdown closes HTTP first and stays within the drain budget"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Shared demo-mode payload and a useDemoMode hook for the browser"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "The bundled CLI rejects schema generate and schema baseline"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Production boot defaults for kmsMode and staticDir",
+    "detail": "Without `kmsMode`, `kms`, `blindIndexKey` and `allowPlaintextPii`, a production boot now uses `kmsMode: \"optional\"`: the subject-key KMS is wired when `PLATFORM_KEK`, `SUBJECT_KEYS_DATABASE_URL` and `KUMIKO_BLIND_INDEX_KEY` are set, a partial trio aborts the boot, and otherwise the PII boot gate decides as before. Without `staticDir`, `runProdApp` serves `./dist` when that folder exists. The env value `FILE_STORAGE_PROVIDER=inmemory` now aborts a production boot like the `inmemory` option does.",
+    "migration": "A production env with only part of the KMS trio, or with `FILE_STORAGE_PROVIDER=inmemory`, now fails the boot: complete or remove the trio and unset the variable. Apps can drop `staticDir: \"./dist\"` from `bin/main.ts` and the `process.env` pin of `FILE_STORAGE_PROVIDER`; keep `kmsMode: \"required\"` where an empty KMS env must abort the boot."
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "composeFeatures listDefaults applies to all features",
+    "detail": "`composeFeatures`, `runProdApp`, `runWorkerApp` and `composeAppFeatures` take `listDefaults` instead of `bundledLists`. The block no longer skips features without a marker; a screen's own `table` keys still win per key, and relatedList sections never get `export`.",
+    "migration": "Rename the option to `listDefaults`. Remove per-screen wrappers that only repeated the app's table standard.",
+    "affects": [
+      "bundledLists"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "search boot option",
+    "migration": "Replace a `searchAdapter` in `extraContext` (for example built with `createSearchAdapterFromEnv`) with `search: { provider: \"meili-env\" }` on runProdApp, runWorkerApp and runDevApp."
+  },
+  {
     "version": "0.423.0",
     "type": "fix",
-    "title": "No more CSP eval warning in the browser",
-    "detail": "The web client no longer triggers the DevTools message \"Content Security Policy of your site blocks the use of 'eval' in JavaScript\". Nothing to change in the app; rebuild with this version."
+    "title": "No more CSP eval warning in the browser"
   },
   {
     "version": "0.421.0",
     "type": "improvement",
-    "title": "Studio preview login and owner role top-up",
-    "detail": "`previewLogin: { loginKey }` on runProdApp and runDevApp mounts a signed, short-lived link that signs the bootstrap owner in without a password. `bootstrapAdminFromEnv: { ensureRoles: true }` adds newly declared `roles` to the owner's existing membership on every boot."
+    "title": "Studio preview login and owner role top-up"
   },
   {
     "version": "0.417.0",
     "type": "improvement",
-    "title": "The billing boot option forwards allowPromotionCodes",
-    "detail": "`billing.stripe.allowPromotionCodes` reaches `createSubscriptionStripeFeature`, so an app booted through `runProdApp` or `runWorkerApp` can show Stripe's promotion-code field in checkout. Default false."
+    "title": "The billing boot option forwards allowPromotionCodes"
   },
   {
     "version": "0.415.0",
     "type": "fix",
-    "title": "PWA update removes the precache of the unscoped cache name format",
-    "detail": "Caches named kumiko-pwa-<16hex> from before the per-scope prefix were never deleted after an update. The service worker now drops them once, and keeps caches of other scopes and foreign libraries."
+    "title": "PWA update removes the precache of the unscoped cache name format"
   },
   {
     "version": "0.415.0",
     "type": "improvement",
-    "title": "runWorkerApp accepts the unsubscribe option",
-    "detail": "Pass the same `unsubscribe: { secret }` to runWorkerApp as to runProdApp; a job in the worker (e.g. a cron digest) that sends an `unsubscribe: true` notification then gets a signed link from `APP_BASE_URL`. The unsubscribe routes stay in the API process, which must use the same secret. Before, such mails went out without a link."
+    "title": "runWorkerApp accepts the unsubscribe option"
   },
   {
     "version": "0.414.0",
     "type": "improvement",
-    "title": "The stripe boot option passes clientConfig",
-    "detail": "`billing: { stripe: { clientConfig } }` is handed to the subscription-stripe feature, so an app can set the Stripe client configuration (API version, retries, host) from the boot options."
+    "title": "The stripe boot option passes clientConfig"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "provider-wide billing webhookPath, shared worker boot steps, no leaked SSE broker",
-    "detail": "`billing.webhookPath` replaces `billing.stripe.webhookPath` (deprecated, still read as a fallback) and the error message names the new key. `runWorkerApp` applies env defaults through `withEnvDefaults` and `bootWorkerProcess` validates through the shared `validateBootAndWarnTz` step. If `createWorkerEntrypoint` throws, the Redis SSE broker opened before it is closed instead of keeping the process alive. The stream tenant backfill decides searchability with the shared `isEntitySearchable`."
+    "title": "provider-wide billing webhookPath, shared worker boot steps, no leaked SSE broker"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "job drain leaves a tail reserve of the shutdown budget",
-    "detail": "The SIGTERM timer and the job drain in `stop()` used the same budget, so a job that ran the whole time ended the process with exit code 1 before the HTTP shutdown, the escape-hatch audit flush and the connection close ran. The job drain now gets the budget minus a 5 s reserve (at least 1 s). `KUMIKO_SHUTDOWN_DRAIN_TIMEOUT_MS` is the budget for both."
+    "title": "job drain leaves a tail reserve of the shutdown budget"
   },
   {
     "version": "0.411.0",
     "type": "improvement",
-    "title": "seeds.bootstrapAdminFromEnv creates the app creator as admin",
-    "detail": "`runProdApp({ seeds: { bootstrapAdminFromEnv: true | { tenant, displayName, roles, globalRoles, emailVerified } } })` reads `KUMIKO_BOOTSTRAP_ADMIN_EMAIL` (optional, validated as an email in the env schema) and idempotently creates that account without a password, with the Admin and TenantAdmin roles in the tenant (`seeds.demoTenant` or the option's `tenant`), the SystemAdmin global role and a verified email. An empty variable seeds nothing. An existing account that already has a password (for example a self-registration with the same email) is left untouched: no verification, no membership, no role change; boot logs one warning without the email. It works next to `auth.admin`. Boot warns when the variable is set but neither `auth.passwordReset` nor `auth.mail` is configured, because the admin could never set a password."
+    "title": "seeds.bootstrapAdminFromEnv creates the app creator as admin"
   },
   {
     "version": "0.411.0",
     "type": "fix",
-    "title": "Boot seeds run under an advisory lock",
-    "detail": "`applyStandardBootSeeds` holds a session advisory lock (`BOOT_SEEDS_LOCK_KEY`) while it seeds, for `runProdApp` and `runDevApp` alike. Two pods starting at the same time no longer race on add-only seeds such as the demo admin. The lock takes one pooled connection while the seeds run."
+    "title": "Boot seeds run under an advisory lock"
   },
   {
     "version": "0.409.0",
     "type": "improvement",
-    "title": "Boot-time search reindex when search fields or the document format change",
-    "detail": "runProdApp and runWorkerApp start a background reindex (reindexEntity for every tenant that owns events) for each searchable entity whose search fingerprint, the sorted search fields plus the document format version 2, has no completion marker yet. The marker is a kumiko_es_operations row written only after a run without failing rows, so an aborted or failed run is retried on the next boot. A Postgres advisory lock lets one process run it while the others skip, and boot readiness does not wait for it. It needs a configured SearchAdapter in the process; KUMIKO_SKIP_SEARCH_REINDEX=1 opts out."
+    "title": "Boot-time search reindex when search fields or the document format change"
   },
   {
     "version": "0.408.0",
     "type": "improvement",
-    "title": "writeStaticHtmlPages and webp content type",
-    "detail": "writeStaticHtmlPages(outDir, pages) from @cosmicdrift/kumiko-server-runtime writes each { path, html } to <outDir>/<path>/index.html (an empty path writes <outDir>/index.html) and creates the directories. Before writing anything it rejects absolute paths, backslashes and \"..\" segments. Apps that render marketing pages per locale into dist/pages can use it instead of their own node:fs code. The prod static file server now answers .webp files with content-type image/webp instead of application/octet-stream."
+    "title": "writeStaticHtmlPages and webp content type"
   },
   {
     "version": "0.404.0",
     "type": "improvement",
-    "title": "runProdApp and runWorkerApp use the Redis prefix and drain running jobs on SIGTERM",
-    "detail": "Both boots pass the namespace to the Redis client, the cache-sync bus and the job runner, so enqueuer and consumer share one key space. KUMIKO_SHUTDOWN_DRAIN_TIMEOUT_MS (positive integer, invalid aborts the boot) sets the drain budget; signals.drainTimeoutMs wins, the default stays 25 s. Entrypoint stop() now stops every job lane fetching first, then waits for active jobs up to that budget before the database and Redis close; before, the lifecycle's fixed 40 s cut the wait short."
+    "title": "runProdApp and runWorkerApp use the Redis prefix and drain running jobs on SIGTERM"
   },
   {
     "version": "0.399.0",
     "type": "fix",
-    "title": "Worker SSE signals reach the API clients when the env comes from envSource",
-    "detail": "The worker built its SSE broker from process.env only. A worker started with `runWorkerApp({ envSource })` and no REDIS_URL in process.env kept an in-memory broker, so signals from jobs and consumers never reached the SSE clients connected to the API process. The worker boot now builds the broker from the same env source as the API and closes it on shutdown. `WorkerEntrypointOptions` gets an optional `sseBroker`."
+    "title": "Worker SSE signals reach the API clients when the env comes from envSource"
   },
   {
     "version": "0.390.0",
     "type": "fix",
-    "title": "auth.admin seed admin is email-verified",
-    "detail": "Under emailVerificationMode strict the seeded admin failed login with email_not_verified."
+    "title": "auth.admin seed admin is email-verified"
   },
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "runProdApp checks the row level security state at boot",
-    "detail": "RunProdAppOptions.rowLevelSecurity (\"off\" by default) sets the mode of every connection; the scaffolded server entry passes appConfig.rowLevelSecurity. With \"on\", boot fails when the database role has SUPERUSER or BYPASSRLS, because Postgres then skips every policy, and when a table with tenant_id lacks ENABLE, FORCE or one of the two kumiko policies; the message lists the tables. With \"off\", boot fails while any table still has row level security enabled and points to the DISABLE migration that kumiko-schema generate writes."
+    "title": "runProdApp checks the row level security state at boot"
   },
   {
     "version": "0.390.0",
     "type": "fix",
-    "title": "demoAdminFromEnv seed account is email-verified",
-    "detail": "Under emailVerificationMode strict the seeded demo admin failed login with email_not_verified."
+    "title": "demoAdminFromEnv seed account is email-verified"
   },
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "Wiring tests reset event-sourced tables through resetTestTables",
-    "detail": "The compose-features integration tests clear users, memberships and the event log with resetTestTables instead of deleting projection rows. Nothing changes for apps."
+    "title": "Wiring tests reset event-sourced tables through resetTestTables"
   },
   {
     "version": "0.390.0",
     "type": "improvement",
     "title": "search \"none\" lets apps without a search backend run the stream-tenant backfill",
-    "detail": "The backfill deferred itself in every process without a search adapter, so apps with a searchable tenant entity but no search backend (for example publicstatus) never moved their legacy tenant streams.",
     "migration": "Apps without a search backend set `search: \"none\"` on runProdApp and runWorkerApp, otherwise the stream-tenant backfill stays deferred."
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "The renderer-web stylesheet fallback checks tailwindcss in node_modules",
-    "detail": "canResolveTailwindStylesheet looks for tailwindcss in the node_modules directories above the stylesheet, as Tailwind does, instead of asking Bun.resolveSync. On Bun 1.4.4 the resolver auto-installs tailwindcss next to a renderer copy in Bun's install cache, so a build without a node_modules tree took the fallback and then failed in Tailwind with \"Can't resolve 'tailwindcss'\". Such a build skips the fallback stylesheet again."
+    "title": "The renderer-web stylesheet fallback checks tailwindcss in node_modules"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "Package lookups no longer auto-install from the registry",
-    "detail": "The new @cosmicdrift/kumiko-server-runtime/resolve-installed-package export looks up node_modules before asking Bun.resolveSync, which installs missing packages from the registry since Bun 1.4.4. The prod build, the dev-server stylesheet lookup and the handbuch commands use it."
+    "title": "Package lookups no longer auto-install from the registry"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "bundledLists sets one table block for every bundled list",
-    "detail": "composeFeatures takes bundledLists with a table block and an optional pinFirstColumn flag. The block is mixed into every entityList, projectionList and relatedList section of the bundled features, the foundation features user and tenant as well as the features an app mounts from @cosmicdrift/kumiko-bundled-features, before the boot validator runs. A key the screen sets itself wins, export is left out on relatedList sections, and pinFirstColumn pins the first visible column left where no column is pinned yet. grouping and totals are rejected in the shared block. App screens stay untouched. Features opt in with the new registrar method r.adoptsBundledLists(), which every bundled feature with lists calls and which feature packages such as Enterprise can call for their own lists; app features never do. No migration for apps. The option lives in AppConfig.bundledLists for the managed kumiko/schema.ts and in the run options of runProdApp, runDevApp and runWorkerApp, so kumiko check and the running app see the same screens."
+    "title": "bundledLists sets one table block for every bundled list"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "Boot database backoff takes an injectable clock",
-    "detail": "The new databaseWait option on runProdApp and runWorkerApp swaps sleep, now and the log sink of the database, KMS and seed waits. A worker boot against an unreachable database is now tested to retry until the deadline, abort with the connection error and close its Redis clients."
+    "title": "Boot database backoff takes an injectable clock"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "Default CSP covers inline scripts of HTML written after the build",
-    "detail": "At boot the hashes from csp-hashes.json are merged with the inline scripts found in the HTML files under staticDir, for the default CSP and for hostDispatch. Boot-rendered pages keep their inline scripts working without a custom securityHeaders.csp."
+    "title": "Default CSP covers inline scripts of HTML written after the build"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "Read-only demo mode blocks WebSocket upgrades",
-    "detail": "Upgrade requests count as mutating in the demo read-only gate and get 403 demo_read_only unless the route path is in allowedWritePaths. Socket routes in a read-only demo that need to stay open must be listed there."
+    "title": "Read-only demo mode blocks WebSocket upgrades"
   },
   {
     "version": "0.389.0",
@@ -160,38 +199,32 @@
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "appOverrides work in runWorkerApp and runDevApp",
-    "detail": "Both boot functions take the same appOverrides option as runProdApp and share its merge, so worker-rendered mails and the dev server resolve the same tenant model, branding and SEO values as the API. The runSingleInstance:false warning names appOverrides next to mail, fileStorage and featureToggles."
+    "title": "appOverrides work in runWorkerApp and runDevApp"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "Boot seeds survive a short database outage",
-    "detail": "applyStandardBootSeeds re-runs the idempotent seed sequence with the database backoff on transient connection errors (ECONNREFUSED, connection class 08, too_many_connections) until the 90 second deadline. Non-transient errors still abort the boot at once."
+    "title": "Boot seeds survive a short database outage"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "filesForTenant in SystemWireDeps",
-    "detail": "The wire hook and the worker wireComponents receive filesForTenant, built from the AppContext after buildServer wired it. ApiEntrypoint and WorkerEntrypoint expose that context as entrypoint.context."
+    "title": "filesForTenant in SystemWireDeps"
   },
   {
     "version": "0.388.0",
     "type": "improvement",
-    "title": "runProdApp split into boot phases, boot steps shared with dev and worker",
-    "detail": "runProdApp() keeps its signature and behavior. Config resolution, feature composition, dependency connection, request context, auth wiring, entrypoint, seeds and the returned handle now live in run-prod-app-*.ts files next to run-prod-app.ts. Steps that prod, dev and the worker ran as copies (env defaults, feature composition, boot validation, the auth-mfa switch-tenant gate, the tier and feature-toggle resolver, standard boot seeds, shared auth routes, the KMS health gate and the database pools) live once in the new subpath @cosmicdrift/kumiko-server-runtime/boot/shared-boot-steps. requireEnv is still exported from run-prod-app under the same name."
+    "title": "runProdApp split into boot phases, boot steps shared with dev and worker"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "runProdApp releases connections when the boot fails",
-    "detail": "A failing boot closes the database pools, the Redis client and the KMS adapter it already opened. The KMS health wait logs \"KMS not reachable\" instead of \"database not reachable\"."
+    "title": "runProdApp releases connections when the boot fails"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Boot validation and shutdown hardening",
-    "detail": "The KMS and app database waits share one deadline so a boot never outlasts the liveness window. An app-supplied master key provider is checked at boot, also in a dry run. Additional fileStorage providers get the same production and S3 checks as the default one, and their env keys are validated. appOverrides without auth or delivery feature abort instead of being dropped. A fatal shutdown keeps its listeners installed, and inline script hashing handles a \">\" inside quoted attributes."
+    "title": "Boot validation and shutdown hardening"
   },
   {
     "version": "0.388.0",
@@ -203,20 +236,17 @@
   {
     "version": "0.385.0",
     "type": "improvement",
-    "title": "Database wait ignores Bun.SQL error codes",
-    "detail": "The transient connection error list no longer contains the ERR_POSTGRES_* codes of the removed Bun.SQL driver; postgres-js never raises them."
+    "title": "Database wait ignores Bun.SQL error codes"
   },
   {
     "version": "0.384.0",
     "type": "improvement",
-    "title": "hostDispatch pages get the build's CSP script hashes",
-    "detail": "The deps passed to hostDispatch now carry cspScriptHashes (the inline-script hashes from csp-hashes.json). Build the page CSP with buildDefaultCsp(deps.cspScriptHashes), now exported, so per-host pages keep script-src without unsafe-inline. runDevApp passes an empty list because dev serves no per-host CSP."
+    "title": "hostDispatch pages get the build's CSP script hashes"
   },
   {
     "version": "0.383.0",
     "type": "improvement",
-    "title": "Production logs are plain JSON without the [runProdApp] prefix",
-    "detail": "Behavior change for log parsers and alert rules: runProdApp and runWorkerApp now write one JSON object per line from the process logger, without the former \"[runProdApp]\" text prefix. Match on the component field instead of the prefix."
+    "title": "Production logs are plain JSON without the [runProdApp] prefix"
   },
   {
     "version": "0.383.0",
@@ -228,20 +258,17 @@
   {
     "version": "0.383.0",
     "type": "improvement",
-    "title": "Fatal-error handlers and graceful server stop",
-    "detail": "New installFatalErrorHandlers logs uncaughtException and unhandledRejection, stops the app and exits 1 (hard exit after 10 s). runProdApp and runWorkerApp install it. The HTTP server stop is awaited against a 10 s grace period and then forced before the database closes."
+    "title": "Fatal-error handlers and graceful server stop"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "resolveStoredUserEmail and resolveFeatureTogglesOption exported",
-    "detail": "resolveStoredUserEmail (with MailRecipientScope) and resolveFeatureTogglesOption with its binding types are available from the package entry. The production boot builds the template resolver API with the registry."
+    "title": "resolveStoredUserEmail and resolveFeatureTogglesOption exported"
   },
   {
     "version": "0.378.0",
     "type": "improvement",
-    "title": "diskFileRoute for allowlisted disk files",
-    "detail": "diskFileRoute({ path, resolveFile }) returns an anonymous GET extra route with a :file parameter. resolveFile maps the raw name to a disk path or null for 404; the file is served with mime type, ETag and 304 handling."
+    "title": "diskFileRoute for allowlisted disk files"
   },
   {
     "version": "0.376.0",
@@ -261,56 +288,47 @@
     "version": "0.376.0",
     "type": "improvement",
     "title": "runDevApp and runWorkerApp take the declarative boot options",
-    "detail": "mail, fileStorage, kmsMode, billing, seeds, demoMode, envSchema and featureToggles work in runDevApp, and mail, fileStorage, kmsMode, billing, featureToggles and envSchema in runWorkerApp, through the same resolve functions as runProdApp. The worker honours KUMIKO_DRY_RUN_ENV with an env schema. A stack that sets runSingleInstance false only warns when no worker mounts the features.",
     "migration": "RunDevAppOptions.seeds is now `readonly SeedFn[] | RunDevAppSeedsConfig`. Code that spreads `seeds` from an object typed as RunDevAppOptions no longer type-checks; declare that object with `satisfies RunDevAppOptions` so the array type survives, or build the seed list separately. An app that lists createFeatureTogglesFeature() in the features passed to runDevApp or runProdApp removes it there and sets `featureToggles: true`."
   },
   {
     "version": "0.376.0",
     "type": "improvement",
-    "title": "featureToggles, appOverrides and secrets in boot deps",
-    "detail": "featureToggles true mounts feature-toggles and layers the global switches over the tier resolver in runProdApp, runDevApp and runWorkerApp. appOverrides sets tenant-model, branding and seo defaults. masterKeyProvider and configEncryption reach extraContext factories, system wiring and seed functions, so an app no longer resolves its KEK a second time."
+    "title": "featureToggles, appOverrides and secrets in boot deps"
   },
   {
     "version": "0.376.0",
     "type": "improvement",
-    "title": "Boot errors for removed and half-wired feature toggles",
-    "detail": "runProdApp, runDevApp and runWorkerApp abort when the removed effectiveFeatures option is still passed, and when feature-toggles sits in features without the featureToggles option. runWorkerApp now enforces a stack that expects featureToggles, so a worker cannot keep running jobs and event handlers of features an operator switched off."
+    "title": "Boot errors for removed and half-wired feature toggles"
   },
   {
     "version": "0.376.0",
     "type": "improvement",
-    "title": "Named S3 provider names are validated at boot",
-    "detail": "fileStorage.providers refuses the names s3-env, s3 and inmemory, which the bundled providers register, and a name listed twice. A tenant admin can still select any mounted provider through the file-foundation provider config, so name a provider only if every tenant may use its bucket."
+    "title": "Named S3 provider names are validated at boot"
   },
   {
     "version": "0.376.0",
     "type": "improvement",
-    "title": "Named S3 providers and a corrected SMTP_HOST description",
-    "detail": "fileStorage.providers takes entries with name, envPrefix and lazy, each validated through createS3EnvSchema with its own prefix. The SMTP_HOST description in the env schema of mail smtp-env now says the variable is required."
+    "title": "Named S3 providers and a corrected SMTP_HOST description"
   },
   {
     "version": "0.376.0",
     "type": "improvement",
-    "title": "Demo-mode accounts can carry a label",
-    "detail": "demoMode.notice.accounts entries may be { role, label? } next to a bare role; the GET /demo-mode payload then lists { role, label?, email, password } so the banner can name each login. Bare roles behave as before."
+    "title": "Demo-mode accounts can carry a label"
   },
   {
     "version": "0.372.0",
     "type": "fix",
-    "title": "Seeds no longer fail on write handlers that declare a rateLimit",
-    "detail": "The seed dispatcher gets an unlimited RateLimitResolver instead of none; requests keep the app's resolver and limits."
+    "title": "Seeds no longer fail on write handlers that declare a rateLimit"
   },
   {
     "version": "0.371.0",
     "type": "improvement",
-    "title": "Default mail resolveEmail finds users of any tenant",
-    "detail": "The default resolveEmail of the mail boot option loads the user by id only. Rows in read_users carry the system tenant, so the former tenantId filter returned null for every real tenant."
+    "title": "Default mail resolveEmail finds users of any tenant"
   },
   {
     "version": "0.371.0",
     "type": "improvement",
-    "title": "extraContext factories see the boot env, billing hook and new exports",
-    "detail": "The merged env, including the defaults of declarative boot options such as FILE_STORAGE_PROVIDER from fileStorage, is passed to extraContext factories as env. resolveBillingOption, parseRunMode, HostDispatchFn, buildDemoModeRoute and withDemoReadOnlyFetch are exported from the package index. The billing boot option accepts afterSync."
+    "title": "extraContext factories see the boot env, billing hook and new exports"
   },
   {
     "version": "0.370.0",
@@ -322,62 +340,52 @@
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "KUMIKO_DRY_RUN_ENV=boot prints an env table and exits 0 on missing values",
-    "detail": "The boot dry run lists every variable of the composed schema with its feature, whether it is required, and whether it is set, missing or invalid. DATABASE_URL, REDIS_URL and JWT_SECRET appear with source server-runtime when the schema does not declare them, since runProdApp reads them itself. Values are never printed, and a validation message that quotes the value is replaced. A keyring the master-key provider cannot use fails the dry run. An invalid value exits 1. A missing required value exits 0 and says the feature wiring was not validated; with every variable present the dry run validates the wiring as before. NODE_ENV=production does not change this. The MFA secret binding and other env reads run after this exit, so an empty env no longer crashes the dry run."
+    "title": "KUMIKO_DRY_RUN_ENV=boot prints an env table and exits 0 on missing values"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "runProdApp names the stack and the boot option it is missing",
-    "detail": "Features returned by the compose*Stack helpers carry bootRequires ({ stack, options }), a new optional FeatureDefinition field; BootOptionName and StackBootRequirement are exported from @cosmicdrift/kumiko-framework/engine. runProdApp checks them before it wires the boot options and fails with \"[runProdApp] stacks in `features` need boot options that are not set:\" followed by one line per gap, for example \"composeSaasStack needs the boot option `billing`: set billing: { stripe: { priceToTier }, defaultTier }\". composeMailStack and composeUserDataRightsStack need mail (or a mounted channel-email), composeFileStack without providers needs fileStorage (or a mounted file provider), composeGdprStack and composeSecurityStack need kmsMode (or kms / allowPlaintextPii), composeSecurityStack also fails with rateLimit: false, composeSaasStack with billing \"stripe\" needs billing (or a mounted subscription provider). composeFileStack takes providers as optional now. The renderer, pages, ops and identity stacks need no option. resolveBillingOption is exported from @cosmicdrift/kumiko-server-runtime/boot-options/billing for tests that mount the billing wiring on a test stack."
+    "title": "runProdApp names the stack and the boot option it is missing"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "runProdApp effectiveFeatures is deprecated",
-    "detail": "effectiveFeatures stays for one release. createTierEngineFeature({ tierMap }), or composeSaasStack, builds the per-tenant feature resolver at boot, and the prod-only features come from the mail, fileStorage and billing options."
+    "title": "runProdApp effectiveFeatures is deprecated"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "runProdApp boot options for mail, kmsMode, fileStorage, billing, demoMode, seeds and signals",
-    "detail": "New optional runProdApp fields replace hand-wired bin/main.ts code. mail ({ transport: \"smtp-env\" | \"inmemory\" | EmailTransport, from?, resolveEmail?, tenantTransport? }) mounts channel-email and routes the auth mails through it; needs delivery. kmsMode (\"required\" | \"optional\" | { plaintextReason }) builds KMS and blind-index key from PLATFORM_KEK, SUBJECT_KEYS_DATABASE_URL and KUMIKO_BLIND_INDEX_KEY and cannot be combined with kms, blindIndexKey or allowPlaintextPii. fileStorage ({ provider: \"s3-env\" | \"inmemory\" | \"auto\" }) mounts the file provider; auto picks S3 when S3_* is complete and aborts a production boot on a partial S3 env; needs file-foundation. billing ({ stripe: { priceToTier, webhookPath? }, defaultTier }) mounts subscription-stripe and the tier-sync webhook route; needs billing-foundation and tier-engine. demoMode ({ readOnly, notice? }) serves GET /demo-mode and answers writes with 403 demo_read_only while readOnly; demo account credentials are published only when listed in notice.accounts. seeds also takes { demoTenant, demoAdminFromEnv, sysadminFromEnv, run }; the array form still works, but code indexing RunProdAppOptions[\"seeds\"][number] must switch to ProdSeedFn. SIGTERM/SIGINT now run stop() with a 25 s drain timeout (signals: { drainTimeoutMs }) and exit 1 on timeout or error instead of always 0; signals: false hands the signals to the host. The env blocks the options read (SMTP_* for mail smtp-env, S3_* for fileStorage s3-env/auto, the KMS block for kmsMode, STRIPE_* for billing, DEMO_* for the seed shortcuts) join the app's envSchema for the boot dry run and the env validation without the app composing them; keys the option cannot run without (SMTP_HOST, the four S3 keys under s3-env, the seeded accounts) are required there. Without the new fields the boot behaves as before. createSubscriptionTierSync().createWebhookRoute takes an optional { path }. kmsEnvSchema is also exported from @cosmicdrift/kumiko-bundled-features/crypto-shredding/env, which loads without the crypto-shredding feature. Recipe: samples/recipes/prod-boot-options."
+    "title": "runProdApp boot options for mail, kmsMode, fileStorage, billing, demoMode, seeds and signals"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "runProdApp sets a Content-Security-Policy and L1/L2 rate limits without configuration",
-    "detail": "Without options, runProdApp now sends a default CSP (default-src 'self'; script-src 'self' plus the sha256 hashes of the build's inline scripts; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none') and limits requests per client IP to 600/60 s (L1) and 30/60 s on /api/auth/* (L2). kumiko build writes dist/csp-hashes.json from every HTML file it outputs; without that file the CSP has no hashes and boot warns. securityHeaders.csp takes false (off), a string (replaces the default) or { extend: { directive: [sources] } }. rateLimit: false disables both layers, partial values override only the named fields. Apps with their own CSP set the header through securityHeaders.csp as a string or move their additions to extend; apps that need neither opt out with csp: false and rateLimit: false. Behind a reverse proxy set trustedProxyHops, otherwise all clients share one rate-limit bucket. Details in docs/reference/security-defaults.md."
+    "title": "runProdApp sets a Content-Security-Policy and L1/L2 rate limits without configuration"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "makeSeedCreateFileRef is exported",
-    "detail": "makeSeedCreateFileRef and the SeedCreateFileRef type are exported from @cosmicdrift/kumiko-server-runtime, so app seed scripts can create file references the same way the bootstrap seeder does."
+    "title": "makeSeedCreateFileRef is exported"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Bootstrap fails when a global-role invite cannot be provisioned; delivery notify works without auth",
-    "detail": "runBootstrap now fails with a non-zero exit when an invite with global roles ends role-mismatch or cancelled. The delivery notify factory gets a config resolver also when the app has no auth feature."
+    "title": "Bootstrap fails when a global-role invite cannot be provisioned; delivery notify works without auth"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Seeds can create fileRefs through handlers that use createFileRefFromBytes",
-    "detail": "The seed dispatcher built its handler context without the file provider resolver, so a write handler invoked via systemWriteAs failed with \"createFileRefFromBytes: ctx.files is unavailable\". The seed context now carries the same file provider as the HTTP path."
+    "title": "Seeds can create fileRefs through handlers that use createFileRefFromBytes"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "composeFeatures adds template-resolver, renderer-foundation and renderer-mail-html for auth apps",
-    "detail": "With includeBundled, the auth mails are stored templates and the boot seed needs the template-resolver and a mail renderer. composeFeatures adds whichever of template-resolver, renderer-foundation and renderer-mail-html the app does not mount itself, so runDevApp, runProdApp and scaffolds keep booting. Apps without the template tables need a schema migration (`kumiko schema generate`)."
+    "title": "composeFeatures adds template-resolver, renderer-foundation and renderer-mail-html for auth apps"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "Immediate notify renders with the tenant config in runProdApp",
-    "detail": "The boot delivery notify factory passes tenantConfigFor, built from the boot config resolver, to the delivery service, so immediate notifications render the tenant name in the mail layout like the delivery.render job does."
+    "title": "Immediate notify renders with the tenant config in runProdApp"
   },
   {
     "version": "0.357.0",
@@ -393,75 +401,63 @@
     "version": "0.354.0",
     "type": "fix",
     "title": "Boot context passes Redis to the delivery service",
-    "detail": "notify with an idempotencyKey used to throw because the delivery service had no idempotencyRedis. Production boot, dev boot and the worker boot now hand over the existing Redis.",
     "migration": "No action needed."
   },
   {
     "version": "0.353.0",
     "type": "fix",
-    "title": "Boot rejects decrypted kms env slots that violate their schema validators",
-    "detail": "runProdApp validates Key-Manager-decrypted env slots against their schema\nA `kms` slot delivered only as `_CIPHERTEXT` skipped its own `.regex`/`.min`/`.refine` because the first parse relaxes it. After decryption the env is now parsed again, so a malformed plaintext aborts the boot with a `KumikoBootError` naming the slot."
+    "title": "Boot rejects decrypted kms env slots that violate their schema validators"
   },
   {
     "version": "0.353.0",
     "type": "improvement",
-    "title": "Prod static files and the dev server share one request-bound systemQuery wiring",
-    "detail": "Shared request-bound systemQuery wiring and clearer deploy scaffold warnings\n`@cosmicdrift/kumiko-server-runtime/request-bound-system-query` exports the systemQuery wiring that the prod static-file path and the dev server previously each copied. `scaffoldDeploy` now tells a broken `package.json` (deploy settings fall back to defaults) apart from an unexpected `dependencies`/`workspaces` shape in its warning."
+    "title": "Prod static files and the dev server share one request-bound systemQuery wiring"
   },
   {
     "version": "0.347.0",
     "type": "fix",
-    "title": "runProdApp and runDevApp forward auth.retiredCookieDomains to the auth routes",
-    "detail": "runProdApp and runDevApp pass retiredCookieDomains through\n`auth.retiredCookieDomains` is now accepted by both runners and reaches the auth routes. Before, the option existed only on the lower-level route config, so apps starting through the runners could not clear a retired cookie domain."
+    "title": "runProdApp and runDevApp forward auth.retiredCookieDomains to the auth routes"
   },
   {
     "version": "0.346.0",
     "type": "improvement",
-    "title": "runWorkerApp records app.started; instance id prefers KUMIKO_INSTANCE_ID over HOSTNAME",
-    "detail": "runWorkerApp records app.started too\nThe worker now appends the same `kumiko:system:app.started` event as `runProdApp`. The instance id prefers `KUMIKO_INSTANCE_ID` and falls back to `HOSTNAME`, then the OS hostname."
+    "title": "runWorkerApp records app.started; instance id prefers KUMIKO_INSTANCE_ID over HOSTNAME"
   },
   {
     "version": "0.345.0",
     "type": "improvement",
-    "title": "runProdApp records an app.started system event with version and instance on every boot",
-    "detail": "runProdApp records a `kumiko:system:app.started` event on every boot\nEach start appends one event under the system tenant (stream type `app-instance`) with the app version, the instance id (`HOSTNAME`, else the OS hostname) and the start time. Set `KUMIKO_APP_VERSION` and optionally `KUMIKO_GIT_COMMIT` in the deployment; without a version the event records `\"unknown\"`. A failed write is logged and does not stop the boot. The framework exports `APP_STARTED_EVENT_TYPE` and `APP_INSTANCE_STREAM_TYPE` from `event-store`."
+    "title": "runProdApp records an app.started system event with version and instance on every boot"
   },
   {
     "version": "0.343.0",
     "type": "fix",
-    "title": "Delivery failures are logged to the app logger in prod",
-    "detail": "The prod and worker boot pass the app logger (`extraContext.log`) to the delivery service, so redacted delivery failures reach that logger instead of the console. `ctx.notify` is built with `createDeliveryNotifyFactory`. `buildBootExtraContext` accepts an optional `log`."
+    "title": "Delivery failures are logged to the app logger in prod"
   },
   {
     "version": "0.343.0",
     "type": "improvement",
     "title": "masterKey on runProdApp and runWorkerApp replaces the env KEK for the boot checks",
-    "detail": "A `masterKey` provider on runProdApp and runWorkerApp is enough for the boot checks\nThe boot probe for `encrypted: true` entity fields now accepts the cipher the runner builds from `masterKey` (new `ValidateBootOptions.entityFieldCipher`), and the env-schema parse no longer requires `KUMIKO_SECRETS_MASTER_KEY_V1` when `masterKey` is set. The framework exports `withOptionalEnvKeys` for that, and the secrets feature exports `SECRETS_MASTER_KEK_ENV_KEYS`. Without `masterKey`, a missing env KEK still stops the boot; the message now names both ways to provide a key. A malformed env KEK now fails during boot validation, so `KUMIKO_DRY_RUN_ENV=boot` reports it too.",
     "migration": "Apps that pass `masterKey` can drop `KUMIKO_SECRETS_MASTER_KEY_V1` from their env and deployment config. Apps without `masterKey` change nothing."
   },
   {
     "version": "0.343.0",
     "type": "improvement",
-    "title": "Prod seeds get registry and dispatcher",
-    "detail": "Prod seeds receive the boot registry and a system dispatcher\n`ProdSeedFn` deps grow from `{ db }` to `{ db, registry, dispatcher }`. Seeds should write through `dispatcher.write(...)` so projections and hooks run. The dispatcher is built once when `seeds` or `seedsDir` is set and is shared with the seed migrations."
+    "title": "Prod seeds get registry and dispatcher"
   },
   {
     "version": "0.343.0",
     "type": "improvement",
-    "title": "Prod build runs Tailwind in-process instead of spawning the CLI",
-    "detail": "The prod build runs Tailwind in-process (`@tailwindcss/node` and `@tailwindcss/oxide`, resolved from the `@tailwindcss/cli` package) instead of spawning the CLI. Options mirror the CLI, and a parity test pins byte-identical output."
+    "title": "Prod build runs Tailwind in-process instead of spawning the CLI"
   },
   {
     "version": "0.341.0",
     "type": "improvement",
-    "title": "runBootstrap() for one-shot passwordless prod provisioning; runProdApp auth.admin is optional",
-    "detail": "Creates tenants (seed hook only on creation) and mails invitations; reruns send nothing, expired unused invitations are re-sent. Convention bin/bootstrap.ts -> dist-server/bootstrap.js."
+    "title": "runBootstrap() for one-shot passwordless prod provisioning; runProdApp auth.admin is optional"
   },
   {
     "version": "0.341.0",
     "type": "improvement",
-    "title": "runWorkerApp: secrets in wireComponents and a metrics port",
-    "detail": "WorkerWireDeps carries ctx.secrets (for createInboundMailSupervisor), and the new metrics option serves /metrics on its own port; KUMIKO_DRY_RUN_ENV=boot validates it."
+    "title": "runWorkerApp: secrets in wireComponents and a metrics port"
   },
   {
     "version": "0.341.0",
@@ -471,47 +467,40 @@
   {
     "version": "0.341.0",
     "type": "improvement",
-    "title": "Worker picks up tenant timezone changes made on API pods",
-    "detail": "The worker boot now joins the cache sync bus, so a timezone write on an API pod invalidates the worker's cached tenant timezone instead of leaving jobs on the old value until the TTL expires."
+    "title": "Worker picks up tenant timezone changes made on API pods"
   },
   {
     "version": "0.339.0",
     "type": "fix",
     "title": "Prod builds no longer inject an inline script for the build info, so strict CSPs without unsafe-inline work without hashes or nonces",
-    "detail": "Build info is baked into index.html as a meta tag instead of an inline script",
     "migration": "window.__KUMIKO_BUILD__ no longer exists. Code that read it (for example a version footer) now gets undefined and silently renders nothing. Replace the global with readLoadedBuild() from @cosmicdrift/kumiko-renderer-web, which returns { id, builtAt } from the new <meta name=\"kumiko-build\"> tag, and drop the Window augmentation for __KUMIKO_BUILD__. The UpdateChecker needs no change."
   },
   {
     "version": "0.338.0",
     "type": "improvement",
     "title": "hostDispatch not-found can serve a custom 404 page",
-    "detail": "`HostDispatchResult` `{ kind: \"not-found\" }` accepts `file` (relative to `staticDir`) and `csp`. The page goes through the same delivery as `kind: \"html\"` (page head, `Vary: Host`, CSP) with status 404. A missing file answers 500 with the same message as `html`.",
     "migration": "No code change needed."
   },
   {
     "version": "0.338.0",
     "type": "improvement",
     "title": "boot warning when trustedProxyHops is unset",
-    "detail": "runProdApp warns at boot when neither `trustedProxyHops` nor `KUMIKO_TRUSTED_PROXY_HOPS` is set. Behind a reverse proxy all clients then share one IP-keyed rate-limit bucket.",
     "migration": "Set `KUMIKO_TRUSTED_PROXY_HOPS` (for example 1 behind one ingress) or pass `trustedProxyHops` to runProdApp."
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Client bundle mapping matches exact entry names; page-head HTML is validated by ETag only",
-    "detail": "Multi-entry client builds map each Bun output to its entry by exact `<base>-<hash>.js` name, so `client-admin` and `client-admin-legacy` can no longer receive each other's bundle. Static HTML with injected page head no longer sends `Last-Modified`, so a crawler sending only `If-Modified-Since` gets the fresh metadata instead of a stale 304."
+    "title": "Client bundle mapping matches exact entry names; page-head HTML is validated by ETag only"
   },
   {
     "version": "0.330.0",
     "type": "fix",
-    "title": "server-runtime and dev-server declare their renderer-web dependency and their .d.ts resolve Bun and Temporal types without consumer setup",
-    "detail": "The emitted declarations that mention `Temporal` or `Bun` now carry a preserved `/// <reference types>` for `temporal-polyfill/global` and `bun-types`, so a consumer without `bun-types` in its tsconfig no longer gets unresolved `Temporal`/`Bun` errors from our declarations. `kumiko-server-runtime` and `kumiko-dev-server` declare `@cosmicdrift/kumiko-renderer-web` as a dependency (they resolve its `styles.css`; it was already installed through bundled-features) and `bun-types` as a dependency. `bundled-features`, `server-runtime`, `dev-server`, `dispatcher-live`, `headless`, `renderer`, `renderer-web` and `cli` ship the README.md their `files` list already named. `bun run check:dist` now typechecks the packed install, checks README shipping, runtime-resolved package declarations and the `styles.css` resolve."
+    "title": "server-runtime and dev-server declare their renderer-web dependency and their .d.ts resolve Bun and Temporal types without consumer setup"
   },
   {
     "version": "0.328.0",
     "type": "improvement",
-    "title": "Production build copies the renderer-web fonts",
-    "detail": "`buildProdBundle` copies the IBM Plex woff2 files to `dist/assets/kumiko/fonts/`, where the compiled CSS expects them. The new export `@cosmicdrift/kumiko-server-runtime/renderer-web-fonts` holds the URL prefix, the file name allowlist and the resolver, and the woff2 MIME type is known to the static file server."
+    "title": "Production build copies the renderer-web fonts"
   },
   {
     "version": "0.323.0",
@@ -524,21 +513,18 @@
     "version": "0.323.0",
     "type": "improvement",
     "title": "runProdApp wires auth-email-password's new invite-info query into invite.infoHandler",
-    "detail": "When the invite feature is enabled, runProdApp now passes AuthQueries.inviteInfo as invite.infoHandler, mounting POST /auth/invite-info automatically.",
     "migration": "No action needed: purely additive wiring, no option changes."
   },
   {
     "version": "0.321.0",
     "type": "improvement",
     "title": "runProdApp's KUMIKO_TRUSTED_PROXY_HOPS parsing now shares framework's parseTrustedProxyHopsEnv",
-    "detail": "The inline digits-only + non-negative-integer validation moved out of\n`run-prod-app.ts` into `parseTrustedProxyHopsEnv`\n(`@cosmicdrift/kumiko-framework/api`); same validation and error message\nas before, no behavioral change.",
     "migration": "No action needed."
   },
   {
     "version": "0.321.0",
     "type": "improvement",
     "title": "ProdAppHandle.fetch's type now declares its optional socket-address parameter",
-    "detail": "`fetch: (req: Request, socketAddress?: string) => Promise<Response> |\nResponse`. The doc comment now explains that an app with `autoListen:\nfalse` running its own `Bun.serve` must pass\n`server.requestIP(req)?.address`, extracted at the outermost Bun fetch\ncallback — `requestIP()` only resolves for Bun's original Request\ninstance, not a cloned/rebuilt one. `RunProdAppAuthOptions\n.trustedProxyHops`'s doc comment also dropped the stale \"pre-#1539\nspoofable default\" wording; 0 hops is the safe socket-only default.",
     "migration": "No action needed for the default `autoListen: true` boot. Apps with\n`autoListen: false` can now type-check passing the socket address to\n`handle.fetch`; passing nothing keeps the previous (unresolved) behavior."
   },
   {
@@ -557,14 +543,12 @@
   {
     "version": "0.320.0",
     "type": "improvement",
-    "title": "requireEnv is now part of the public package export",
-    "detail": "`packages/server-runtime/src/index.ts` now re-exports `requireEnv`\nalongside `runProdApp`, so `import { requireEnv } from\n\"@cosmicdrift/kumiko-server-runtime\"` resolves without reaching into the\ninternal `run-prod-app.ts` module."
+    "title": "requireEnv is now part of the public package export"
   },
   {
     "version": "0.320.0",
     "type": "improvement",
-    "title": "resolveAuthMail builds locale-aware appUrls and adds a dedicated auth.mail.hmacSecret",
-    "detail": "resolveAuthMail (shared by runProdApp and runDevApp) now builds the passwordReset/emailVerification/signup/invite appUrl from a locale-aware AuthPath, so a function-valued auth.mail.paths entry produces a locale-aware appUrl for every flow, symmetric to the appUrl-as-function support each flow's options already had.\nAuthMailOptions also gains an optional hmacSecret: when set, passwordReset/emailVerification tokens sign with it instead of the hmacSecret resolveAuthMail is called with (JWT_SECRET), so JWT_SECRET can rotate without invalidating in-flight reset/verify tokens. hmacSecret is now optional on the passwordReset/emailVerification wrapper options too — an app overriding just appUrl no longer has to also thread its own secret; resolveAuthMail backfills the resolved secret onto that explicit block. An explicitly supplied hmacSecret still wins."
+    "title": "resolveAuthMail builds locale-aware appUrls and adds a dedicated auth.mail.hmacSecret"
   },
   {
     "version": "0.298.0",
@@ -575,19 +559,16 @@
   {
     "version": "0.291.0",
     "type": "fix",
-    "title": "runProdApp, runDevApp and runWorkerApp forward validateBootOptions to validateBoot (fw#3080)",
-    "detail": "All three run-app entrypoints called `validateBoot(features)` without options, so only `createApp` could pass a `navAllowlist` or `warnOnUniqueAccessRoles` through. An app could declare the option, test it against `validateBoot` directly and see green — while the process it actually boots never received it. The three option types now carry an optional `validateBootOptions`, passed straight through in the same shape `createApp` already uses. `ValidateBootOptions` is exported from `@cosmicdrift/kumiko-framework/engine` so consumers can type the value. Omitting it leaves boot behaviour unchanged."
+    "title": "runProdApp, runDevApp and runWorkerApp forward validateBootOptions to validateBoot (fw#3080)"
   },
   {
     "version": "0.289.0",
     "type": "improvement",
-    "title": "PageHeadMeta/PageHeadResolver/PageHeadSystemQuery now importable from the server-runtime barrel",
-    "detail": "The three resolvePageHead types moved to @cosmicdrift/kumiko-headless/apex (kumiko-framework#3026) and are re-exported unchanged from run-prod-app.ts, so the existing @cosmicdrift/kumiko-server-runtime/run-prod-app subpath import keeps working. New: the main @cosmicdrift/kumiko-server-runtime barrel now also exports all three, closing the gap where a consumer had to use the subpath just to type a resolver. render-head-tags.ts (internal-only, not a public subpath) is removed; injectPageHead now lives in headless."
+    "title": "PageHeadMeta/PageHeadResolver/PageHeadSystemQuery now importable from the server-runtime barrel"
   },
   {
     "version": "0.286.0",
     "type": "improvement",
-    "title": "runProdApp gains resolvePageHead for per-request Open-Graph/title/description metadata",
-    "detail": "New PageHeadResolver/PageHeadMeta types and a resolvePageHead option on RunProdAppOptions. buildStaticFallback's static-files module resolves the metadata on both HTML-serving paths (hostDispatch and the default index.html), timing the resolver out at 300ms via Promise.race and always falling back to the unchanged 200 shell on error/null/timeout. Head tags render via renderApexHeadTags from the new @cosmicdrift/kumiko-headless dependency (ApexHead built from PageHeadMeta, lang derived from meta.locale's language subtag, default \"en\"; og:type is hardcoded \"website\" by the renderer, so PageHeadMeta has no ogType field), injected idempotently via a marker comment in render-head-tags.ts's injectPageHead, same pattern as inject-schema.ts. A strong ETag is recomputed over the final bytes whenever head tags are actually injected, so two requests with different resolved metadata never collide on one ETag. systemQuery inside the resolver dispatches as createAnonymousUser (not createSystemUser) wrapped in requestContext.run, using the new buildRequestContextDataFromRequest(req: Request) extracted from @cosmicdrift/kumiko-framework/api's existing buildRequestContextData(c: Context) — needed because this resolver runs outside Hono's router and only has a raw Request. No behavior change for apps that don't set resolvePageHead."
+    "title": "runProdApp gains resolvePageHead for per-request Open-Graph/title/description metadata"
   }
 ]

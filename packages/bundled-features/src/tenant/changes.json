@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Team list reads only the newest session per member"
+  },
+  {
     "version": "0.423.0",
     "type": "breaking",
     "title": "The TenantOwner role option is removed from the member roles form",
@@ -9,26 +14,22 @@
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "seedTenantMembership reports rowMissing",
-    "detail": "seedTenantMembership reports rowMissing when the membership projection row did not materialize and callers log it."
+    "title": "seedTenantMembership reports rowMissing"
   },
   {
     "version": "0.391.0",
     "type": "fix",
-    "title": "The stream-tenant backfill archives membership streams a projection replay must not see",
-    "detail": "Before the membership projection is rebuilt, the backfill reads the membership lifecycle from the event log and archives two kinds of streams. Streams of a user whose every stream is archived are archived with it, so a rebuild does not bring back memberships of users that no longer exist. When a second stream of a (userId, tenantId) pair was created while another one was still alive, the stream with the newest event stays and the others are archived; a pair that was removed and added again is left alone. Before, the rebuild failed on read_tenant_memberships_unique on every boot and the backfill stayed pending. The archived streams are logged as a warning and returned in membershipStreamsArchived. If a collision still remains, the failure says so and the step runs again on the next boot. Membership rows of archived users disappear from read_tenant_memberships with the rebuild."
+    "title": "The stream-tenant backfill archives membership streams a projection replay must not see"
   },
   {
     "version": "0.391.0",
     "type": "fix",
-    "title": "seedTenantMembership reuses the live membership stream of a pair",
-    "detail": "seedTenantMembership looked only at read_tenant_memberships. After the row was lost it created a second stream for the same pair, which made every later rebuild of the projection collide. It now also checks the event log and returns the id of the pair's live stream without writing anything. The seed does not bring the lost row back; only a rebuild of the membership projection does, and nothing triggers one on its own, so until then the user has no membership in that tenant."
+    "title": "seedTenantMembership reuses the live membership stream of a pair"
   },
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "Event-store write helpers for user, membership and tenant tests",
-    "detail": "The user/testing and tenant/testing subpaths export updateUserViaEventStore, softDeleteUserViaEventStore, setMembershipRolesViaEventStore, deleteMembershipViaEventStore and updateTenantViaEventStore. updateTenantViaEventStore addresses the stream of the seed SystemAdmin's tenant by default, where tenants created in tests live. Tests use them to change event-sourced rows through the event store instead of the projection tables. Both subpaths now import @cosmicdrift/kumiko-testing and therefore load under Bun only, like tenant-lifecycle/testing; import user/seeding or tenant/seeding where Node has to load the seed helpers."
+    "title": "Event-store write helpers for user, membership and tenant tests"
   },
   {
     "version": "0.390.0",
@@ -40,32 +41,27 @@
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "Tests no longer write event-sourced tables directly",
-    "detail": "Integration tests for users, memberships, tenants and user-data-rights change event-sourced rows through the event store or the real commands and reset them with resetTestTables. seedDestroyingTenant in tenant-lifecycle/testing now writes the status through the event store and throws when the tenant stream does not live on the seed SystemAdmin's tenant. Nothing changes for apps; the packages are only republished."
+    "title": "Tests no longer write event-sourced tables directly"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Tenant directory search contract documented",
-    "detail": "A search returns the first limit matches in tenant-key order, sorted by label afterwards; the handler description now says so."
+    "title": "Tenant directory search contract documented"
   },
   {
     "version": "0.383.0",
     "type": "improvement",
-    "title": "Tenant directory search stops decrypting once the limit is reached",
-    "detail": "Tenant names are encrypted and not in the search index, so the directory search decrypts in small batches and stops after limit matches; the 1000-row scan cap stays. With more matches than the limit, the first matches in key order are returned (sorted by label), not the best alphabetical ones. The missing-profile list drops tenants that already have a profile before decrypting."
+    "title": "Tenant directory search stops decrypting once the limit is reached"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Post-save seed hooks use the after-commit notify factory",
-    "detail": "afterCommit seed hooks now get a notify function bound to the signup dispatcher's job runner when the dispatcher provides one, falling back to the regular factory. The afterCommit hook context is built only when the hook actually runs."
+    "title": "Post-save seed hooks use the after-commit notify factory"
   },
   {
     "version": "0.357.0",
     "type": "improvement",
-    "title": "The member roles form only offers roles the signed-in admin may assign",
-    "detail": "New query tenant:query:member-role-availability; TenantAdmin still sees every role."
+    "title": "The member roles form only offers roles the signed-in admin may assign"
   },
   {
     "version": "0.354.0",
@@ -89,20 +85,17 @@
   {
     "version": "0.341.0",
     "type": "improvement",
-    "title": "Harden system role, invitations query, tenant teardown and addMember",
-    "detail": "The system role can no longer be minted into a session through a user's global roles. invitations.query returns an explicit field allowlist and exposes globalRoles only to a SystemAdmin. The tenant destruction sweep waits 60 seconds after the grace period ends so the teardown gate can settle. Behaviour change: tenant:write:addMember now adds members to a foreign tenant only from the framework system context; a SystemAdmin request user is limited to their own tenant and gets 403 otherwise."
+    "title": "Harden system role, invitations query, tenant teardown and addMember"
   },
   {
     "version": "0.336.1",
     "type": "fix",
-    "title": "Member and tenant directory lookups return a stable order under a limit",
-    "detail": "`tenant:query:member-directory` and `tenant:query:tenant-directory` now sort their rows (tenants by name then id, members by id), so a `limit` always keeps the same rows instead of whichever the database returned first."
+    "title": "Member and tenant directory lookups return a stable order under a limit"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "remove-member no longer fails with an internal error when removing a TenantAdmin",
-    "detail": "Several bundled-feature fixes. `tenant:remove-member` no longer fails with an internal error when it removes a TenantAdmin: the last-admin check now runs on the raw runner like `update-member-roles`, and the last admin is refused with a conflict. The `member-directory` query accepts `search` so the `user:user` reference combobox finds members beyond the first page. One-off Stripe payment checkouts without a known customer create one, so the paid payment is no longer ignored by the webhook. A throwing secrets lookup in the webhook step now becomes a `dispatch-failed` event instead of dead-lettering the step-dispatcher consumer. The row-bound grant validates an `unsafeSkip` reason before verifying the token. The session list loads one maximum-size page without a pager that could not page. The public user-data-rights handlers rate-limit per IP and handler."
+    "title": "remove-member no longer fails with an internal error when removing a TenantAdmin"
   },
   {
     "version": "0.335.0",
@@ -112,20 +105,17 @@
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Tenant directory search, canonical user locale, last-admin remove message and destroy-hook boot check",
-    "detail": "Several review fixes in bundled features. The tenant reference combobox now searches tenants by name through `tenant:query:tenant-directory`, so tenants beyond the first page can be picked. Removing the last tenant admin reports \"cannot remove\" instead of \"cannot demote\". `user:write:create` and `user:write:update` store the locale tag in canonical form (`DE-AT` becomes `de-AT`). Tenant-lifecycle rejects `tenantData`, `storageProvider`, `searchAdapter`, `externalResource` and `infraResource` registrations without a destroy function at boot instead of during tenant destruction. The convention `tier-assignment:create`/`update` and `tenant:entity:list`/`update` handlers are hidden from the agent in favour of their canonical counterparts."
+    "title": "Tenant directory search, canonical user locale, last-admin remove message and destroy-hook boot check"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Saving member roles keeps roles the editor cannot grant",
-    "detail": "Admin, TenantAdmin and SystemAdmin saves keep DataProtectionOfficer, TenantOwner, undeclared and higher-tier app roles; the system user still replaces the list. The roles column translates TenantOwner and DataProtectionOfficer. New exports: canActorAssignRole, mergeAssignedRoles, assignableAppRolesOf. Apps translate their roles via tenant:entity:__action-form__:field:roles:option:<Role> (and role:option: for the invite)."
+    "title": "Saving member roles keeps roles the editor cannot grant"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Editing your own roles no longer ends your own session",
-    "detail": "Saving your own roles in the members screen keeps the current session and its live streams; the new roles apply on the next request. Your other sessions are still revoked, and editing someone else's roles still revokes all of theirs. The team list now shows the real creation time of members and invitations instead of the query time."
+    "title": "Editing your own roles no longer ends your own session"
   },
   {
     "version": "0.333.0",
@@ -135,64 +125,54 @@
   {
     "version": "0.313.0",
     "type": "fix",
-    "title": "Team member status and roles now translate instead of showing the raw enum value",
-    "detail": "member-status-cell and member-roles-cell rendered the raw status/role\nenum values (e.g. \"active\", \"TenantAdmin\") straight into the table —\nnon-English admin UIs showed English words next to translated column\nlabels. Both cells now resolve through useTranslation against the\nexisting tenant.members.filter.status.option.<status> and\ntenant:entity:__action-form__:field:roles:option:<role> keys, falling\nback to the raw value for any status/role not covered by those keys."
+    "title": "Team member status and roles now translate instead of showing the raw enum value"
   },
   {
     "version": "0.296.0",
     "type": "improvement",
     "title": "Tenant reference columns show display names for TenantAdmins (fw#3142)",
-    "detail": "Every `tenant:tenant` reference (the delivery-log tenantId column, `LIST_ROW_META_REFERENCES.tenantId`, and any screen that references a tenant) resolved its label through the entity-convention query `tenant:query:tenant:list`. That handler is a SystemAdmin-only entity-list handler, so a TenantAdmin got a 403 and every cell fell back to the raw UUID.\nThe entity-convention handler stays SystemAdmin-only. Instead the new `tenant:query:tenant-directory` (`access.admin`) returns just `{ id, label }` pairs: an admin gets their own tenant, a SystemAdmin keeps the global reach of `tenant:query:tenant:list`. The query is not exposed to agents. The central `REFERENCE_LOOKUP_SOURCES` map in `@cosmicdrift/kumiko-framework/ui-types` now routes `tenant:tenant` lookups there, the same way it already routes `user:user` lookups to the member directory (fw#3107).",
     "migration": "No code change needed. A `tenant:tenant` reference picker or column in an edit form or list now shows a non-SystemAdmin their own tenant's name instead of failing with a 403 and falling back to the raw id. Set `optionsQuery` on the reference field if a screen needs a different source."
   },
   {
     "version": "0.296.0",
     "type": "improvement",
     "title": "User reference columns show display names for TenantAdmins (fw#3107)",
-    "detail": "Every `user:user` reference (the audit-log actor, the sessions user column, their detail screens) resolved its label through the entity-convention query `user:query:user:list`. That handler is the SystemAdmin cross-tenant user roster, so a TenantAdmin got a 403 and every cell fell back to the raw UUID — in practice every tenant admin reading their own audit log.\nThe roster stays SystemAdmin-only: its `tenants` column joins every membership of a user and would expose foreign tenant names. Instead the new `tenant:query:member-directory` (`access.admin`) returns just `{ id, label }` pairs — the display name, no email, no roles. An admin gets their own tenant's members; a SystemAdmin keeps the global reach the roster gave them, so operator actions in tenants they are no member of still resolve. The query is not exposed to agents. The new central `REFERENCE_LOOKUP_SOURCES` map in `@cosmicdrift/kumiko-framework/ui-types` routes `user:user` lookups there, the same way `SYSTEM_REFERENCE_LABELS` already applies per referenced entity. The list lookup, the read-only detail value, the reference combobox and embedded-list reference cells all consult it; a reference field's own `optionsQuery` still wins.",
     "migration": "No code change needed. Two behavior shifts to be aware of: for a non-SystemAdmin, a `user:user` reference picker in an edit form now offers the active tenant's members (it used to fail with a 403 and stay empty) — set `optionsQuery` on the reference field if a screen needs a different source. And a `user:user` label now only resolves when the `tenant` feature is mounted. In an app that mounts `sessions` without `tenant`, a SystemAdmin — who used to see names there — now sees the raw id, the same fallback a TenantAdmin got before; mount `createTenantFeature()` to get names back."
   },
   {
     "version": "0.271.0",
     "type": "improvement",
-    "title": "systemScope handlers get a default per-tenant+handler rate limit; tenant:me opts out (fw#2861).",
-    "detail": "`tenant` mounts under `r.systemScope()`, so its write/query handlers without their own `rateLimit` now default to `{ per: \"tenant+handler\", limit: 600, windowSeconds: 60 }` once an app has a `RateLimitResolver` configured (framework change, see kumiko-framework changes.json 0.271.0). `tenant:query:me` (`tenant:me.query.ts`) declares `rateLimit: { disabled: true, reason: \"...\" }` — it is a self-scoped read of the caller's own active tenant, hit on every page load, and a per-tenant bucket would throttle the whole tenant's page loads instead of just that one handler's traffic."
+    "title": "systemScope handlers get a default per-tenant+handler rate limit; tenant:me opts out (fw#2861)."
   },
   {
     "version": "0.219.0",
     "type": "improvement",
-    "title": "Invite/member-roles pickers include TenantAdmin",
-    "detail": "DEFAULT_INVITE_ROLE_OPTIONS stays User/Editor/Admin so Admin actors never see an unassignable TenantAdmin option (fw#2414). OWNER_INVITE_ROLE_OPTIONS adds TenantAdmin for custom screens used by TenantAdmin/SystemAdmin. SystemAdmin stays global-only (user.roles), never a membership invite option."
+    "title": "Invite/member-roles pickers include TenantAdmin"
   },
   {
     "version": "0.209.0",
     "type": "improvement",
-    "title": "tenant: single /members screen replaces the members-card/pending-card split (#2223)",
-    "detail": "New `tenant:query:team:list` handler merges active memberships and pending invitations into one projectionList screen (`membersScreen`), with a `status` facet, sortable/searchable columns, and a danger-styled `cancel-invitation` row action visible only on pending rows. `createTenantFeature({ inviteScreen: true })` additionally wires a drawer-hosted invite actionForm onto the toolbar (bound to auth-email-password's `invite-create` handler) — off by default, and only safe to enable once the app also configures `createAuthEmailPasswordFeature({ invite: {...} })`, since the boot validator rejects the actionForm's cross-feature handler QN otherwise. The old `members`/`invitations` query handlers and their custom `MembersScreen` component are unaffected and stay registered for existing callers; `updateMemberRoles` stays SystemAdmin-only and off this screen."
+    "title": "tenant: single /members screen replaces the members-card/pending-card split (#2223)"
   },
   {
     "version": "0.165.0",
     "type": "fix",
-    "title": "resolveRawDb: removed redundant null check",
-    "detail": "CodeQL flagged db !== null after if (!db) — truthiness already excludes null. Internal cleanup, no API break."
+    "title": "resolveRawDb: removed redundant null check"
   },
   {
     "version": "0.165.0",
     "type": "fix",
-    "title": "Seed hook: explicit SessionUser typing",
-    "detail": "Fixed tenant seeding type annotation — prevents implicit any propagation in seed handlers."
+    "title": "Seed hook: explicit SessionUser typing"
   },
   {
     "version": "0.165.0",
     "type": "fix",
     "title": "Seed afterCommit + real tenant rescope",
-    "detail": "ScheduleAfterCommit now available on HandlerContext — fireEntityPostSave queues after TX commit instead of mid-transaction. DB/notify/hasFeature/_tenantId are correctly rescoped when targeting an entity's tenant.",
     "migration": "Only affects custom seed handlers using fireEntityPostSave — now afterCommit-compatible."
   },
   {
     "version": "0.163.0",
     "type": "improvement",
-    "title": "tenant: seedTenant fires entity postSave hooks (#1463).",
-    "detail": "tenant: seedTenant fires entity postSave hooks (#1463). `seedTenant` writes through the raw event-store executor, which never fired postSave hooks — self-signup (`provisionSignupAccount` → `signup-confirm`) silently skipped feature-registered entity hooks like tier-engine's auto-default-tier and app-level auto-default-compliance, leaving new tenants without a tier/compliance row. `seedTenant` and `provisionSignupAccount` take a new optional `hooks: { registry, context }` param; passing it fires the same entity-scoped postSave hooks the dispatcher would, without the full dispatch roundtrip. Existing call-sites are unaffected — the param is optional and append-only."
+    "title": "tenant: seedTenant fires entity postSave hooks (#1463)."
   }
 ]

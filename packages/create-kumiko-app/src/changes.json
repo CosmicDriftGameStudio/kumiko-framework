@@ -1,20 +1,28 @@
 [
   {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "create-kumiko-app --dest"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Scaffolded apps name themselves in the GDPR mails",
+    "migration": "Apps scaffolded before this release add `mailDefaults: { appName: \"<your app>\" }` to `createUserDataRightsFeature` by hand."
+  },
+  {
     "version": "0.411.0",
     "type": "improvement",
-    "title": "--blank flag",
-    "detail": "`bun create kumiko-app <name> --blank` scaffolds the blank starter: no demo tasks, no seeded password; the creator sets one through \"forgot password\" after the first start with `KUMIKO_BOOTSTRAP_ADMIN_EMAIL`."
+    "title": "--blank flag"
   },
   {
     "version": "0.409.0",
     "type": "improvement",
-    "title": "Feature manifest lists contact and its new options",
-    "detail": "`feature-manifest.json` describes the bundled feature `contact` with its config keys and dependencies (`config`, `delivery`, `user-data-rights`, `files`; `channel-telegram` with option `telegram`), so scaffolding and `kumiko check` know it."
+    "title": "Feature manifest lists contact and its new options"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "The scaffold no longer offers renderer-simple",
-    "detail": "renderer-simple is removed from the bundled features, so the feature picker and the bundled feature manifest no longer list it. Template-based mails need template-resolver, renderer-foundation and renderer-mail-html."
+    "title": "The scaffold no longer offers renderer-simple"
   }
 ]

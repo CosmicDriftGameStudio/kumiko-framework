@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Public media route skips the storage read on 304"
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "The deprecated fileDerivativesFeature constant is removed",
@@ -10,20 +15,17 @@
   {
     "version": "0.313.0",
     "type": "fix",
-    "title": "file-derivatives fileRef mode now 404s a disabled/destroy-lifecycle tenant like an unknown fileRef",
-    "detail": "publicTenantResolution:\"fileRef\" resolved a variant's tenant straight off\nthe FileRef row, without checking whether that tenant was still enabled or\npast `active` in its destroy lifecycle — a disabled or destroy-requested\ntenant's public variants stayed reachable through the shared host. The\nby-fileRef handler now also loads the FileRef-tenant's row and, via the\nnew `isTenantServingPublicContent` predicate (isEnabled && status ===\n\"active\"), 404s identically to an unknown fileRef when it isn't serving.\n`publicTenantResolution: \"fileRef\"` now requires the `tenant` feature to\nbe mounted (fails boot otherwise) — no migration needed for apps that\nalready mount `tenant`, which every fileRef-mode consumer does today."
+    "title": "file-derivatives fileRef mode now 404s a disabled/destroy-lifecycle tenant like an unknown fileRef"
   },
   {
     "version": "0.310.0",
     "type": "improvement",
-    "title": "publicTenantResolution \"fileRef\" reads a public variant from its FileRef's own tenant",
-    "detail": "`createFileDerivativesFeature({ resolveApexTenant, publicTenantResolution: \"fileRef\" })`\nkeeps resolveApexTenant as the host gate (an unknown host still 404s), but\nreads the variant in the tenant that owns the FileRef, so one shared\nplatform host serves `/media/:fileRefId/:variant` for every tenant. The\nFileRef tenant's `isPublic` predicate stays the default-deny gate; unknown\nand non-public FileRefs answer the identical 404. Default \"host\" keeps the\nprevious behavior. In \"fileRef\" mode the anonymous\n`file-derivatives:query:public-variant-by-file-ref` query is also reachable\nover `/api`, independent of the host, and returns only variants the\npredicate allows. Passing publicTenantResolution without resolveApexTenant\nthrows at construction."
+    "title": "publicTenantResolution \"fileRef\" reads a public variant from its FileRef's own tenant"
   },
   {
     "version": "0.287.0",
     "type": "improvement",
-    "title": "Add overlay stage (QR codes, badge images) to derived image variants",
-    "detail": "VariantSpec now supports declarative overlay layers (qr via a resolver-token, or a base64 image) composited onto derived image variants. QR values are never free text — only a dataToken resolved server-side via a new extension point, keeping the anonymous derivative route from becoming an open image generator."
+    "title": "Add overlay stage (QR codes, badge images) to derived image variants"
   },
   {
     "version": "0.194.0",

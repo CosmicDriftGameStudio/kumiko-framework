@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "S3 endpoint and forcePathStyle are SystemAdmin-writable only",
+    "detail": "The server connects to the configured S3 `endpoint` with the tenant's stored credentials and applies no host policy, so a TenantAdmin choosing the endpoint could point the server at internal hosts (SSRF). `file-provider-s3:config:endpoint` and `file-provider-s3:config:force-path-style` are now writable by SystemAdmin only (read access is unchanged). `bucket`, `region`, `accessKeyId` and the secret access key stay tenant-writable, so a tenant still brings its own bucket on the endpoint the operator chose.",
+    "migration": "Set the endpoint and forcePathStyle of tenants that use a custom S3-compatible store (Hetzner, MinIO, R2) as a SystemAdmin, or seed them. Calls that write these keys as a TenantAdmin now fail with 403.",
+    "affects": [
+      "file-provider-s3",
+      "FileProviderS3",
+      "composeFileStack"
+    ]
+  },
+  {
     "version": "0.414.0",
     "type": "breaking",
     "title": "S3 endpoint rule from the booted env",
@@ -10,26 +22,22 @@
     "version": "0.414.0",
     "type": "fix",
     "title": "s3EndpointSchema carries the production https rule wherever it is reused",
-    "detail": "The env rule lived only on the endpoint field inside `createS3EnvSchema`, so an app that built `s3EndpointSchema` into its own env schema silently lost the production check. The rule is now attached to `s3EndpointSchema` itself, env rules are found through `.optional()`, `.default()` and unions, and `s3EndpointEnvRule` is exported. With NODE_ENV=production a non-loopback `http://` endpoint is rejected by `parseEnv` and the composed boot env without app code; https and loopback http pass.",
     "migration": "Own copies of the rule (an `envRule` built on `isAcceptableS3Endpoint` next to `s3EndpointSchema`) can be removed."
   },
   {
     "version": "0.376.0",
     "type": "improvement",
-    "title": "Named S3 provider feature",
-    "detail": "createFileProviderS3NamedEnvFeature mounts an additional S3 provider under its own name with an env prefix, next to the default one, so a second bucket needs no hand-written wiring."
+    "title": "Named S3 provider feature"
   },
   {
     "version": "0.371.0",
     "type": "improvement",
-    "title": "S3 endpoint over http outside production",
-    "detail": "s3EndpointSchema rejects http on non-loopback hosts only when NODE_ENV=production, so compose hostnames such as minio work in smoke setups."
+    "title": "S3 endpoint over http outside production"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "s3EnvSchema and createS3EnvSchema declare the S3 provider variables",
-    "detail": "s3EnvSchema covers S3_BUCKET, S3_REGION, S3_ACCESS_KEY, S3_SECRET_KEY, S3_ENDPOINT and S3_FORCE_PATH_STYLE; createFileProviderS3Feature({ fromEnv: true }) registers it. createS3EnvSchema({ prefix }) builds the same block under another prefix, for example RELEASES_S3_. The endpoint must use https unless the host is loopback, and a blank endpoint counts as unset."
+    "title": "s3EnvSchema and createS3EnvSchema declare the S3 provider variables"
   },
   {
     "version": "0.370.0",

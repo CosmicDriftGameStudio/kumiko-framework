@@ -1,32 +1,33 @@
 [
   {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Indexes on document links, folder and tag assignments and document extracts",
+    "migration": "Apps that mount documents, folders, tags or document-ingest-foundation run `kumiko-schema generate` and ship the resulting migration."
+  },
+  {
     "version": "0.415.0",
     "type": "fix",
-    "title": "Split access without write no longer lets members file invisible documents",
-    "detail": "With `access: { read, delete }` and no `write`, create fell back to TenantAdmin and TenantMember, so a member could file a document they could never see. Create now stays limited to the admin roles unless a write rule is set."
+    "title": "Split access without write no longer lets members file invisible documents"
   },
   {
     "version": "0.414.0",
     "type": "improvement",
-    "title": "documents list and tab show a View action for PDFs",
-    "detail": "The file renderer takes `viewInDrawer: true`; list cells then show a View button for PDFs (MIME from the batched `useFileMeta`, one `/api/files/meta` request per page) that opens `PdfPreview` in a drawer. `documents:screen:list` and the documents tab set it. New export `FileViewAction` for custom columns, new i18n key `kumiko.field.file-list.view` (en, de, es, fr, it)."
+    "title": "documents list and tab show a View action for PDFs"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Capped linked document list",
-    "detail": "documents linkedDocumentIds throws the reason too_many_linked_documents (DocumentsReasons) above 10000 links."
+    "title": "Capped linked document list"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "document import is a no-op after the document stream was archived",
-    "detail": "A document whose stream the retention archived is recognised as already imported, so repeating the import changes nothing instead of failing with \"belongs to another record\"."
+    "title": "document import is a no-op after the document stream was archived"
   },
   {
     "version": "0.404.1",
     "type": "fix",
-    "title": "Documents recipe has a README and gen-sample-index rejects a primarySample without one",
-    "detail": "feature-reference linked to /en/samples/recipes-documents/, a page the docs site never generated because the recipe had no README.md. The README is added, and gen-sample-index aborts with the feature, the sample and the fix when a primarySample from sample-index.overrides.json has no README.md."
+    "title": "Documents recipe has a README and gen-sample-index rejects a primarySample without one"
   }
 ]

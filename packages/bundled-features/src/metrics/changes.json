@@ -2,38 +2,32 @@
   {
     "version": "0.399.0",
     "type": "improvement",
-    "title": "Metric access roles and group names from a source table",
-    "detail": "A metric declares `access: { roles }` to open its tenant query to roles other than the admin roles; an empty list fails boot validation and no `access` keeps the admin-only default. A `groupBy` metric on an entity-table source whose column is a single reference names the rows after the referenced row's label field; the lookup runs through the caller's read access on the target entity, so unreadable or foreign-tenant rows keep their key, and static `groupLabels` still win."
+    "title": "Metric access roles and group names from a source table"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Metric integer filters reject fractions and out-of-range values; feature-name constants exported",
-    "detail": "Filters on smallint, integer and bigint columns now fail validation for decimals and values outside the column range instead of a Postgres cast error. FILES_FEATURE and FILES_TENANT_DATA_FEATURE are exported and reused by compose-features."
+    "title": "Metric integer filters reject fractions and out-of-range values; feature-name constants exported"
   },
   {
     "version": "0.349.0",
     "type": "improvement",
-    "title": "Metrics accept payload filters that narrow the aggregate without replacing the tenant scope",
-    "detail": "metrics: payload filters on a metric\n`MetricDefinition.filters` maps payload keys to source columns, e.g. `{ folderId: \"folderId\" }`. The metric query then accepts that key and narrows the aggregate to the value, for the current and previous window and for groups, stacks and series. The tenant scope is applied last, so a filter value from another tenant yields 0, never that tenant's numbers. `\"\"`, `null` and a missing key mean no filter. The value type follows the column (uuid, numeric, text); an invalid value is a 400. Definitions are rejected at boot for non-camelCase keys, the reserved keys `range`/`timeZone`/`tenantId`, unknown columns, the tenant column, columns already fixed by `where`, and column types other than uuid, text and numeric.\nA filter can also be a resolver `{ column, resolve(value, ctx), valueKind? }`: the payload value (e.g. a folder id) is mapped to the allowed values of `column` through the tenant handler context (IN filter, empty result = no rows), for assignments that live in another table. Resolvers are rejected on metrics with scope `system`."
+    "title": "Metrics accept payload filters that narrow the aggregate without replacing the tenant scope"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Metric queries reject offset time zones",
-    "detail": "Metric queries now reject offset time zones such as `+01:00` with a validation error. Postgres reads them with the opposite sign, so day buckets came back empty. Use IANA names like `Europe/Berlin`."
+    "title": "Metric queries reject offset time zones"
   },
   {
     "version": "0.330.0",
     "type": "fix",
-    "title": "deliveries-by-channel shows readable channel labels instead of raw channel ids",
-    "detail": "Dashboard panels gain the chart kinds `stacked-bars`, `segment-bars` and `stacked-area`, a subtitle, per-series tones, static query `params`, `ignoreScreenFilter`, an empty label and hint, a `span` (half/full width), a stat `sparklineField` and static `tone`, a `negative` tone, an unlabelled `stat-group` KPI strip and bar/badge list columns. Every panel shows skeleton, empty and error states with retry. A screen can declare a `timeRange` control and a `scope` badge and notice. The admin-shell overview screens use all of this and show the metrics of the new `metrics` and `metrics-system` features. `deliveries-by-channel` now labels the email, in-app and push channels."
+    "title": "deliveries-by-channel shows readable channel labels instead of raw channel ids"
   },
   {
     "version": "0.330.0",
     "type": "improvement",
     "title": "Add metrics feature: declarative dashboard metrics over TenantDb.aggregate (fw#3396)",
-    "detail": "New bundled features `metrics` (tenant scope, `access.admin`) and `metrics-system` (platform-wide, `access.systemAdmin`). A metric is declared once with `defineMetric` (source table, measure, optional timeField, window, bucket, groupBy, stackBy, where) and becomes the query `<feature>:query:<metric.id>` returning a `MetricResult` (total, delta against the previous period, bucketed series, group rows, segments). Definitions are validated when the feature is built. Eight default metrics ship: job-runs-by-status, failed-job-runs, tenant-job-failures, deliveries-by-channel, failed-deliveries, active-users, active-tenants, audit-writes. Pass your own list via `createMetricsFeature({ metrics })`.",
     "migration": "Opt-in: mount `createMetricsFeature(...)` and/or `createSystemMetricsFeature(...)`. The new indexes on jobs, delivery and sessions need `kumiko migrate generate`."
   }
 ]

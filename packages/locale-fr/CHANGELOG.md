@@ -1,5 +1,597 @@
 # @cosmicdrift/kumiko-locale-fr
 
+## 0.425.0
+
+### Patch Changes
+
+- 34cf35e: The approval list shows who requested a change to approvers who are no admins, and its phone card puts the current and the new value on their own labelled lines. An open request stays visible at its field after a reload and names the requested value, and an empty approval list says that nothing awaits approval. The approval screen and its nav entry now also reach the roles that may file a request, so more people see the "Approvals" entry.
+  
+  <!-- kumiko-changes
+  feature: field-approval
+  type: fix
+  title: Requester name for every approver, readable phone card, open request at its field
+  detail: field-approval:query:pending-changes now returns requestedByName, the requester's display name (never the email), so the list no longer depends on the admin-only member directory and shows the name to every approver; requestedBy stays in the row. On the phone card the field label stands above the record, current and new value each take a labelled line, and requester and date share one; the date keeps date and time together. The edit form asks pending-changes for the record's open requests when field-approval is mounted and shows "Awaiting approval" at each such field, also after a reload; the requester sees their own requests, approvers see all they may read. A requester who may write but not read the field sees that the request is open, never its value. A requester's second request on the same field replaces their own open one. When the caller may read the requested value, the field says "Requested: DE89… · awaiting approval" (key kumiko.form.fieldApproval.pendingValue, formatted like the field's read-only value, a document field as plain text); a writeOnly field, a reference field (its value is a record id, not a label) and a request without a readable value keep "Awaiting approval". pending-changes masks writeOnly fields like every other read: currentValue, the requested value and the record label come back as true (set) or null, never in plaintext, also for approvers. The approval screen and its nav entry are listed for the union of approverRoles and the feature's access roles (before: approverRoles only, when set), so requesters can find and withdraw their requests; who sees the nav entry changes accordingly, while each row stays filtered (requesters see their own requests, approvers all they may approve, other roles none). The empty approval list reads "No changes awaiting approval." (de, es, fr, it translated). Nothing to do for apps; screenshot tests of the edit form and the approval list change.
+  -->
+  
+  <!-- kumiko-changes
+  feature: field-approval
+  type: fix
+  title: A request no longer silently replaces someone else's open request
+  detail: field-approval:write:request-change overwrote another user's open request on the same field and made the caller its requester, so the first requester lost the request without notice. It now fails with reason field_change_request_pending_by_other (i18n key errors.fieldApproval.requestPendingByOther, en, de, es, fr, it); the caller's own open request can still be changed, and approvers still write the field directly. Re-filing pins the version the handler checked, so two requests filed at the same moment on a decided request end in a version conflict for the second instead of one replacing the other. On a record (pending-changes with an entityId) a writer who would have to request the field gets a row for another user's open request without value, current value, requester or name (canApprove and filedByCaller false); the approval list without an entityId is unchanged. The edit form shows "A change request for this field is awaiting approval" (key kumiko.form.fieldApproval.pendingByOther) at such a field instead of "Request change", and the request drawer leaves the field out. Apps whose tests expect no rows from pending-changes for such a writer on a record now get that one row without value.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Withdraw runs once, a refused config reset shows its error
+  detail: "Withdraw request" is disabled while its call runs, so a double click no longer sends a second reject-change that failed after the first had withdrawn the request. A config screen reset that is written at once (an override equal to the inherited value) ignored a refused write and reloaded the cascade; it now shows the error like a refused save and reloads nothing. RenderEditControls gains showSubmitError(error), which shows the failure of a write the host ran outside submit the way a failed save shows. Nothing to do for apps.
+  -->
+- 34cf35e: Field approval gets its UI. A form keeps one Save: a user who may write but not approve a gated field sees it read-only with "Request change", and a drawer files the changed gated fields in one batch with "Submit for approval". An open request shows "Requested: <value> · awaiting approval" under the field and, for its requester, "Withdraw request". Approvers edit the field directly. A save the server still refuses shows a field error only. The `field-approval` feature ships the screen `field-approval:screen:field-change-requests` with approve, reject and withdraw row actions and a nav entry in the tenant admin area.
+  
+  <!-- kumiko-changes
+  feature: field-approval
+  type: fix
+  title: Approval-gated fields are read-only with a request drawer
+  detail: Approval-gated fields are read-only with a request drawer. A user who may write but not approve a gated field sees it read-only with 'Request change'; the drawer lists all such fields of the form and files only changed ones in one batch with 'Submit for approval'. An open request shows 'Requested: <value> · awaiting approval' and, for its requester, 'Withdraw request'. pending-changes returns gatedFields for an entityType; entityId null answers for a record not created yet. A denied save shows a field error only. createFieldApprovalFeature registers the list field-approval:screen:field-change-requests (record, field, current and new value, requester, time; approve and reject for approvers, withdraw for the requester) and the nav entry field-approval:nav:field-change-requests in the tenant admin area. Values only show to callers who may read the field. Nothing to do for apps; approverRoles adds approver roles to the list and nav: { parent, order, workspaces, adminArea } moves the entry.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Request drawer: own field ids, no toast over Save
+  detail: A form rendered inside another form (the request drawer, the create-reference dialog) gives its fields ids of their own (`kumiko-edit-<scope>-<field>`), so a label in the drawer names the drawer's field and not the locked one behind it; top-level forms keep `kumiko-edit-<field>`. A field locked only by the approval keeps the cell it has while editable instead of taking the whole row. The pending hint and its links wrap as one row with a gap. Filing a request shows no toast any more (it covered the form's Save); the hint at the field is the answer and is announced to screen readers (`role="status"`, new `Text` prop `announce`). Apps whose tests select a drawer or dialog field by `kumiko-edit-<field>` select it by label or by the field's test id instead.
+  -->
+- 34cf35e: Forms save through their one Save button. A note typed into the notes section of an edit form is written with the form's Save. Resetting a config value to its inherited value marks the field and saves with the form. A failed footer action no longer leaves its values in the form. The layout editor blocks publishing and applying while the layout has unsaved changes. Actions on a projection detail ask before they discard input typed into a write form.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Forms save through their one Save button
+  detail: The notes section inside an edit form has no own add button any more; a typed note counts as unsaved input and is written by the form's Save (addNote), a standalone notes section keeps its button. On a config edit screen "Reset" sets the field to the inherited value and the reset is written with Save (config:write:reset), typing after a reset writes the typed value instead; a reset to a value equal to the current override changes nothing visible and is not saved. A footer action with a patch (for example "Save as urgent") sends its patch with this one submit only; when the write fails the patch is not kept in the form, so the next Save does not send it. The layout editor disables "Publish drafts" and "Apply to templates" while the layout has unsaved changes and says to save first (key documentDesigner.usedBy.saveFirst, de, es, fr, it translated). On a projection detail, an action that does not submit a write form asks "You have unsaved changes in this form…" while a write form section holds typed input, as entityEdit does; the action named in submitWith sends the input without the question. Nothing to do for apps.
+  -->
+- 34cf35e: Display fixes found on app screenshots: phone cards, tabs, nav labels, result tables, month values and file links.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Active tab stays visible when the tab bar grows
+  detail: When tab counts load later and the tab bar gets wider, the active tab is scrolled back into view on every size change, not only when the tab changes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: A column hidden on phones no longer becomes the card badge
+  detail: `cardColumnRoles` skips `hideOnNarrow` select columns in the status fallback, as it already did for `cardBadge` columns.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Shorter nav labels, translated content folders and layout presets
+  detail: The all-tenants audit log nav label is shorter in every locale so it fits the sidebar. The template-resolver content tree labels its folders and its root through `template-resolver.folder.<segment>` and `template-resolver.nav.content`; a `TreeNode` can carry a `labelKey` that the nav tree translates, falling back to the raw label; the sidebar search matches the translated label. The branding layout preset select shows translated option labels. All texts ship in English, German, Spanish, French and Italian.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Result tables keep the data table cell padding
+  detail: `ResultTable` and `ComparisonTable` without `card` pad their cells with `px-2` like `DataTable`, so neighbouring columns no longer run together.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Month format for year-month text
+  detail: The new cell format `{ format: "month" }` shows a `YYYY-MM` value as month and year in the user's locale ("June 2026"). An entityList text field declared with `format: "month"` uses it by default; other values stay as they are. The list-table-options recipe shows it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: File links in lists read as downloads
+  detail: A file cell in a list shows a download icon before the file name and is labelled "Download: <name>" (`kumiko.field.file-list.downloadNamed`, in all locale packages).
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot warning for a file column a phone cannot reach
+  detail: Boot warns with `list/hidden-file-column` when an entityList hides a file column on narrow screens (`hideOnNarrow`) and its rows open nothing that shows the file: no rowClick action, no `detailFor` screen and no entityEdit screen for the entity with that field in its layout. A single reference column counts too when its target entity has exactly one file field, since its cell links that file; an edit screen does not make it reachable, because its form shows the reference picker. The relatedList sections of projectionDetail and entityEdit screens are checked as well, where only the section `rowClick` or a rowClick action opens a row. An app-wide `createKumikoApp({ onRowClick })` is client code the boot cannot see. It is a warning, so existing apps keep booting.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Phone card layout: title first, date ranges, no empty lines
+  detail: On the phone card the title keeps its line and a long status badge wraps below it. Exactly two unlabelled dates on one line above the title (`cardAbove`) read as a range with a dash. Empty file lists no longer leave a blank meta line. With a row menu (and no leading image, checkbox or expand toggle) the menu sits beside the title line without making it taller, the status badge stays at the right edge, and the lines above and below the title use the full card width.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Progress lists name an entry above its bar, translated notification region
+  detail: `ProgressList` shows name and value first and the bar right below, with more space between two entries than inside one, so a reader from the top pairs each name with its own bar. The toast region is labelled through `kumiko.toast.viewport-label` (Radix fills in the hotkey) instead of the fixed English "Notifications (F8)", in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: A reference to a record with one file links that file
+  detail: A list cell of a single reference (`createReferenceField` or a column with `refEntity`) whose target entity has exactly one `file` field and no `files` field shows the reference label as a download link to that file, with the PDF view in a drawer like the file column of the documents list. The file link takes the place of the link to the referenced record. The file id comes from the rows of the reference lookup query, so tenant and field read access apply: an unreadable file field, an unreadable target or an empty file keep the plain label. The name shown is the reference label, never the stored file name. A target with several file fields, a `files` field, a multi reference or an author renderer stays text, and so do reference columns of dashboard list panels. The documents recipe shows it with an offer that references a filed document.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: The comma between phone card values stays at the value before it
+  detail: In plain phone cards (`plainPhoneCards`, related lists) two `narrowInline` values on one line are joined by a comma that now sits in the same item as the front value, and the space after it is the line's column gap. An app stylesheet that widens that gap no longer leaves the comma standing alone with space on both sides ("980,00 €  ,  29.10.2026" becomes "980,00 €, 29.10.2026"). The front value takes its line height from that item, so an app rule on the line's direct children (`[data-testid^="card-vals-"] > div`) still reaches both values. A date range above the title keeps its dash flush between the dates.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Related lists sort money, located times and empty values like the standalone list
+  detail: A relatedList sorts its loaded rows in the client. A money column (`{ amount, currency }`) now orders by its amount, like the server's column sort, which ignores the currency; before, every money value compared equal and the rows kept the server's id order. A `locatedTimestamp` column orders by its instant, and timestamps within one second order by their fraction whatever its digit count. Empty values sit where the standalone list puts them: last ascending, first descending, or where the field's `sortNulls` says. Rows with the same value follow the id, the standalone list's second key. `sortByAccessor` takes optional `nullsFirst` and `tieBreaker`; without them it behaves as before.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Related lists let their query sort, so the first page holds the right rows
+  detail: buildAppSchema derives `serverSortFields` on every relatedList section and entityList `expandableRow` from the bound query: nothing without a `sort` param, the enum literals of a hand-written query, the fields the SQL sort of an `<entity>:list` query orders by for every caller (no locatedTimestamp, no encrypted field, no field or reference label with its own `access.read`, a reference only with `sortable: true` and a label), plus `insertedAt` where the query can order by it. An open `sort: z.string()` is trusted for the sortable columns, except a reference of the section's `entity` without such a label sort. A value written by the app is overwritten. The section sends `sort`/`sortDirection` for a `defaultSort` or header click on such a column and reloads, so a section with more rows than `pageSize` shows the smallest or largest values instead of sorting only the loaded page. Text columns sorted this way follow the database collation, like the standalone list, instead of the client's locale collation (numeric, case-insensitive): "W 10" now sorts before "W 2". Without a sort it asks for `insertedAt` ascending, so child rows with random (v4) ids come in creation order across commands; rows written in one transaction share `insertedAt` and keep id order among themselves. A column the query cannot order keeps the client sort over the loaded rows; a reference column the query cannot order by its label offers no sort at all, since the client only has its uuid. Apps that marked such a reference `sortable` in the section lose that header sort until the entity field gets `sortable: true` and a `labelField`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: pageRows orders empty values and instants like the SQL list
+  detail: `pageRows` puts missing values last ascending and first descending, like the server list (`nullsSortFirst`), and compares ISO instant strings by time whatever their fraction digit count (`instantSortKey`, now exported from `ui-types` and shared with the relatedList client sort). Lists that page through `pageRows` and sort descending by a nullable column now show the empty rows first: publicstatus sysadmin users (`globalRoles`, `locale`) and tenants (`customDomain`), and the bundled tenant-caps and readiness-run lists.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Sorting and filtering by a companion column respect the field's read access
+  detail: Money, located timestamps and lookupable text store companion columns (`<name>Currency`, `<name>Utc`, `<name>Tz`, `<name>Bidx`) that have no field entry of their own. A list `sort` or `filter` on such a column skipped the field-level read check, so a caller who could not read the field could learn its order, or which rows share a value, through it. These columns now carry the read rule of their field: the sort drops to id order, the filter matches nothing, as for the field itself.
+  -->
+- 34cf35e: The folder manager and the folder picker load up to 200 folders and say so when a tenant has more.
+  
+  <!-- kumiko-changes
+  feature: folders
+  type: fix
+  title: Folder tree and picker no longer stop silently at 50 folders
+  detail: `FolderManager` and `FolderSection` asked for the folder catalog without a limit and got the default page of 50, so larger trees lost nodes and paths without notice. Both now request `limit: 200`, the list maximum, and show a warning banner (`folders.list.truncated`, test ids `folder-manager-truncated` and `folder-section-truncated`) when the catalog has further pages.
+  -->
+- 34cf35e: Retrying a failed run of a per-tenant or event-triggered job is refused instead of starting the job for every tenant or with an empty payload.
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: fix
+  title: jobs:write:retry refuses runs it cannot repeat faithfully
+  detail: A run row records neither the tenant of a perTenant child run nor the event payload of an event-triggered run. `jobs:write:retry` used to dispatch such runs again anyway: a perTenant job fanned out to every active tenant, an event-triggered job ran with an empty payload. It now fails with 422 and the reason `job_not_retryable` for jobs declared `perTenant` or triggered by `on`. A run whose job no longer exists fails with 404 `job_not_found` instead of a 500. Manual, cron and maintenance jobs retry as before.
+  -->
+- 34cf35e: Apps built with `createKumikoApp` show a hint while the server is unreachable, and live updates reconnect as soon as the device is back online.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Offline hint and immediate live reconnect
+  detail: `createKumikoApp` mounts a status banner (role status, aria-live polite) next to the update checker. It shows while the dispatcher status is `offline` or the browser reports no network, with the new key `kumiko.network.offline` in English, German, Spanish, French and Italian. `createEventSourceLiveEvents` reconnects on the window `online` event instead of waiting out the backoff; the new option `networkOnline` replaces that signal in tests or non-browser runtimes. After the reconnect every live list refreshes through the usual resync.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Offline banner pushes the header down instead of covering it
+  detail: The offline banner now stands in the page flow above the app header. Its height is published as `--kumiko-offline-banner-height`, so full-height layouts (`data-kumiko-fill`) shrink by it and nothing is hidden behind the banner.
+  -->
+- 34cf35e: The managed `bin/kumiko.ts` reads `process.env["INIT_CWD"]` with bracket access, so it type-checks in apps with `noPropertyAccessFromIndexSignature`. `billing-foundation:write:start-plan-checkout` and `billing-foundation:write:switch-plan` ship their title and field labels (en, de, es, fr, it), so `kumiko agent lint` no longer reports them as handler translation gaps in an app that mounts a plan catalog. The same now holds for `create-checkout-session` (field `consent`), `request-contract-termination`, `revoke-contract-termination` and `terminate-contract`.
+  
+  The direct-entity-writes guard reads the entity definition as the first argument of `buildEntityTable(entityDef, options?)`, `r.crud(entityDef, options)` and `r.entity(entityDef)`, so it finds those tables again instead of reporting a misconfigured scan. `defineWriteHandler` accepts `excludedFields` on hand-written handlers and keeps it on the definition. The bundled `kumiko` CLI (`runStandaloneCli`) rejects `schema generate` and `schema baseline` with "Unknown subcommand"; both only run in development through `bun kumiko-schema`.
+  
+  Projected row helpers (`insertProjectedEntityRow`, `patchProjectedEntityRow`) accept money and located timestamps in the combined form their type declares.
+  
+  Upcasters and entity `eventMigrations` receive the aggregate id and type of the event they migrate (`EventUpcastCtx.aggregateId`, `EventUpcastCtx.aggregateType`).
+  
+  The handler definitions guard no longer counts calls to inherited object methods such as `toString`.
+  
+  The managed `ci.yml` pins the image build job to the commit behind the infra tag (`_docker-build-push.yml@<sha> # reusables-v2.4.5`); an app that sets `kumiko.deploy.infraRef` keeps its own ref there. The cross-feature import guard accepts `../<feature>/server-contract` as a public surface next to `contract` and `schema/entity`.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Managed bin/kumiko.ts and ci.yml fixes
+  detail: The managed `bin/kumiko.ts` reads `process.env["INIT_CWD"]` with bracket access, so it type-checks in apps with `noPropertyAccessFromIndexSignature`. The managed `ci.yml` pins the image build job to the commit behind the infra tag (`_docker-build-push.yml@<sha> # reusables-v2.4.5`); an app that sets `kumiko.deploy.infraRef` keeps its own ref there.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Plan checkout, plan switch and contract handlers ship their labels
+  detail: `start-plan-checkout`, `switch-plan`, `create-checkout-session` (field `consent`), `request-contract-termination`, `revoke-contract-termination` and `terminate-contract` ship their title and field labels in en, de, es, fr and it, so `kumiko agent lint` no longer reports them as handler translation gaps in an app that mounts a plan catalog.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Direct-entity-writes, handler definitions and cross-feature import guards
+  detail: The direct-entity-writes guard reads the entity definition as the first argument of `buildEntityTable(entityDef, options?)`, `r.crud(entityDef, options)` and `r.entity(entityDef)`, so it finds those tables again instead of reporting a misconfigured scan. The handler definitions guard no longer counts calls to inherited object methods such as `toString`. The cross-feature import guard accepts `../<feature>/server-contract` as a public surface next to `contract` and `schema/entity`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: excludedFields on hand-written handlers, projected row value forms and upcaster stream identity
+  detail: `defineWriteHandler` accepts `excludedFields` on hand-written handlers and keeps it on the definition. `insertProjectedEntityRow` and `patchProjectedEntityRow` accept money and located timestamps in the combined form their type declares. Upcasters and entity `eventMigrations` receive the aggregate id and type of the event they migrate (`EventUpcastCtx.aggregateId`, `EventUpcastCtx.aggregateType`).
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: The bundled CLI rejects schema generate and schema baseline
+  detail: `runStandaloneCli`, behind the production bundle `kumiko.js`, answers `schema generate` and `schema baseline` with "Unknown subcommand"; both only run in development through `bun kumiko-schema`.
+  -->
+- 34cf35e: Workspaces collect the admin navs of every mounted feature with `collectAdminArea`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Workspaces collect navs by admin area
+  detail: A nav declares `adminArea: "tenant" | "platform"`, a workspace declares `collectAdminArea` with the same value. At boot the workspace lists every matching nav of the mounted features after its explicit `nav` list, sorted by `order`, each QN once. The navs count as reachable for the unreachable-screen warning. `AdminNavArea` is exported from the engine.
+  -->
+  
+  admin-shell collects its workspace navs instead of listing them.
+  
+  <!-- kumiko-changes
+  feature: admin-shell
+  type: breaking
+  title: admin-shell workspaces collect navs; includeDocumentDesigner removed
+  detail: The tenant and platform workspaces of admin-shell now use `collectAdminArea`, so they also list event consumers, export jobs, feature toggles, the cap list and the document templates of mounted features. A new platform nav `admin-shell:nav:users` opens `user:screen:user-list` for SystemAdmin. Apps that keep `registerWorkspaces: false` set `collectAdminArea` on their own workspaces and drop the hand-written nav lists. The option `includeDocumentDesigner` is removed because the document-designer navs carry their area.
+  migration: Remove `includeDocumentDesigner` from `createAdminShellFeature`. In app workspaces replace the lists of standard nav QNs with `collectAdminArea: "tenant"` or `"platform"`, and delete own users and system-check navs in favour of `admin-shell:nav:users` and `createReadinessFeature({ nav: { adminArea: "platform" } })`.
+  affects: createAdminShellFeature, includeDocumentDesigner, registerWorkspaces, admin-shell:nav
+  -->
+  
+  delivery and sessions let the app pick the admin area of their log navs.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: delivery-log nav takes an adminArea option
+  detail: `createDeliveryFeature({ adminArea })` tags the delivery-log nav for a collecting workspace. Unset, the nav stays out of every admin area, as before.
+  -->
+  
+  <!-- kumiko-changes
+  feature: sessions
+  type: improvement
+  title: session-list nav takes an adminArea option
+  detail: `createSessionsFeature({ adminArea })` tags the session-list nav for a collecting workspace. Unset, the nav stays out of every admin area, as before.
+  -->
+  
+  <!-- kumiko-changes
+  feature: readiness
+  type: improvement
+  title: System-check nav takes an adminArea
+  detail: `createReadinessFeature({ nav: { adminArea } })` puts the system-check nav into the collecting admin workspace.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: Template navs carry their admin area
+  detail: `document-designer:nav:templates` belongs to the tenant area, `document-designer:nav:platform-templates` to the platform area, so collecting workspaces list them without extra wiring.
+  -->
+- 34cf35e: user-data-rights sends the verification mail of the anonymous account deletion itself, as a localized notification template.
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: breaking
+  title: The anonymous deletion verify mail comes from user-data-rights
+  detail: `request-deletion-by-email` now sends the verify link through `ctx.notify` as `user-data-rights:notify:deletion-verification` (route to the entered address, priority critical, after commit through the delivery queue), rendered from a seeded template in the user's locale with `mailDefaults`. The option `sendDeletionVerificationEmail` and the type `SendDeletionVerificationEmailFn` are removed. Setting `deletionTokenSecret` and `deletionVerifyUrl` now requires the `delivery` and `channel-email` features at boot. New translation keys `gdpr.mail.deletionVerification.*` in en, de, es, fr and it.
+  migration: Remove `sendDeletionVerificationEmail` from `createUserDataRightsFeature(...)` and delete the app's own verify mailer. Mount `createDeliveryFeature()` and `createChannelEmailFeature(...)` if the app sets `deletionTokenSecret` and `deletionVerifyUrl`. Custom wording or branding goes into a template override of `user-data-rights:notify:deletion-verification` or into `mailDefaults.appName`.
+  affects: sendDeletionVerificationEmail, SendDeletionVerificationEmailFn, deletionTokenSecret, deletionVerifyUrl
+  -->
+- 34cf35e: Tenant branding moved from managed-pages into its own `branding` feature, so mail, PDF and the document designer get branding without public pages.
+  
+  <!-- kumiko-changes
+  feature: branding
+  type: breaking
+  title: Branding is its own feature
+  detail: createBrandingFeature({ allowCustomCss }) registers the branding config keys (branding:config:title, description, site-url, accent-color, logo-url, logo-file, layout-preset, custom-css), the anonymous branding:query:tokens query, the branding:screen:branding-settings screen and brandingClient() translations; createBrandingCssFeature() gates custom CSS. managed-pages now requires branding and no longer exports BRANDING_QN, readBranding, MANAGED_PAGES_CSS_FEATURE, createManagedPagesCssFeature or the allowCustomCss option. The mail renderer and the document designer read the new keys and feature name.
+  migration: Mount createBrandingFeature() (with allowCustomCss and createBrandingCssFeature() where custom CSS was used) wherever managed-pages, mail branding or the document designer branding rail is used; import BRANDING_QN from @cosmicdrift/kumiko-bundled-features/branding; replace managed-pages:query:branding with branding:query:tokens and managed-pages:config:branding-* with branding:config:*; add brandingClient() to the client features. Stored values under the old managed-pages:config:branding-* keys are still read: branding:query:tokens, readBranding and the mail and PDF renderers fall back to the old key when the new key has no stored value, so tenants keep their branding without a migration step, and the branding settings form shows such a value and writes the new key on save; a value stored under the new key, even a cleared one, wins.
+  affects: managed-pages, BRANDING_QN, readBranding, MANAGED_PAGES_CSS_FEATURE, createManagedPagesCssFeature, allowCustomCss, renderer-mail-html, document-designer
+  -->
+  
+  <!-- kumiko-changes
+  feature: managed-pages
+  type: breaking
+  title: Branding exports removed from managed-pages
+  detail: `BRANDING_QN`, `MANAGED_PAGES_CSS_FEATURE` and `createManagedPagesCssFeature` are no longer exported from managed-pages. Branding config, query and screen live in the branding feature, and custom CSS is gated by `createBrandingCssFeature()`.
+  migration: Import `BRANDING_QN` from @cosmicdrift/kumiko-bundled-features/branding and replace `createManagedPagesCssFeature()` with `createBrandingCssFeature()` next to `createBrandingFeature({ allowCustomCss })`. `MANAGED_PAGES_CSS_FEATURE` is replaced by `BRANDING_CSS_FEATURE` from the same branding subpath.
+  affects: BRANDING_QN, MANAGED_PAGES_CSS_FEATURE, createManagedPagesCssFeature
+  -->
+- 34cf35e: sendMailFromAccount takes an idempotencyKey.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: breaking
+  title: Idempotent send from a mailbox
+  detail: `sendMailFromAccount(ctx, { accountId, message, idempotencyKey })` records each keyed send in the new store table `store_mail_outbound_sends` through `ctx.db.outsideTransaction`. After a successful send, a repeat with the same key returns the stored `messageIdHeader` and `attachmentFileIds` without sending again. If a send started under the key but never finished (crash, parallel call), the key answers with the typed failure `mail_send_outcome_unknown` instead of sending a second copy. A typed send failure frees the key for a retry. Without a key the function behaves as before. Destroying a tenant deletes its send records.
+  migration: Run `kumiko schema generate` and apply the migration for `store_mail_outbound_sends`. Pass a stable key from a job that dispatches the sending write, for example the id of the event that asked for the mail.
+  affects: inbound-mail-foundation, sendMailFromAccount
+  -->
+- 4bc40f3: New `connectors` feature: a satellite pairs through the OAuth device flow and delivers files.
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: improvement
+  title: New connectors feature: devices pair via OAuth device flow and deliver files into an inbound list
+  detail: A satellite program pairs with `createConnectorsFeature()` through the OAuth device flow (RFC 8628); a TenantAdmin confirms the user code and the device receives a revocable `ksat_` token of which only the SHA-256 is stored. With it the device uploads files (raw bytes, relative path, SHA-256, modification time; the same file again is the same item) and sends heartbeats. Each upload becomes a file reference plus an event-sourced `inbound-item`. Mount the HTTP endpoints with `createConnectorRoutes()` as `extraRoutes`; the protocol is in docs/guides/connectors-satellite.md.
+  -->
+- 4bc40f3: Uploads can opt out of the offsite backup with `backup: false`; connector uploads do, are capped per tenant and refuse system files; heartbeats carry a sync status and a retry signal.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: File uploads can stay out of the offsite backup
+  detail: `createFileRefFromBytes` and `uploadFileBytesBeforeTransaction` take `backup: false`: the key is built under `nobackup/<tenantId>/` (`NO_BACKUP_STORAGE_PREFIX`, `buildNoBackupStorageKey`, `tenantNoBackupPrefix`, `isOwnUploadKey` are exported), `tenantStoragePrefixes()` includes it so tenant destroy deletes the files, and a backup mirror can exclude the one prefix. Without the option nothing changes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: improvement
+  title: Connector files stay out of the backup, are capped per tenant and refuse system files
+  detail: Delivered files are stored under `nobackup/<tenantId>/`. A tenant may store 5 GiB by default (`maxStoredBytesPerTenant` on `createConnectorsFeature`); beyond it an upload answers `507 storage_quota_exceeded` and stores nothing. Paths containing Windows or macOS system files (`Thumbs.db`, `$RECYCLE.BIN`, `desktop.ini`, `~$` lock files and others) answer `422 path_rejected`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: improvement
+  title: A satellite reports its sync status in the heartbeat and an admin can ask it to retry
+  detail: The heartbeat takes an optional `sync: { state, queued, failed, lastSyncAt? }`; the connector list shows it as a status badge with details, and a change of state or failure count is stored at once. The row action "Retry" (TenantAdmin) makes the next heartbeat answer carry `retry: true` exactly once. Old satellites without `sync` keep working.
+  -->
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: improvement
+  title: Delivered files form a folder tree with a "Dateien" screen
+  detail: The path's directory part becomes an event-sourced `inbound-folder` tree per device (`inbound-item.folderId`); folders hold counts and sizes over the whole subtree. The custom screen `connector-files` shows breadcrumb, folders and files with storage used against the quota, and deletes a file or a folder with its subtree and bytes (TenantAdmin; a folder is marked at once and the `delete-folder-tree` job removes the subtree in batches, any size). Apps mount `connectorsClient()` from `@cosmicdrift/kumiko-bundled-features/connectors/web`, place the screen in their nav and set the quota only on `createConnectorsFeature()`; the upload check and the screen share it. Paths deeper than 20 folders or with a segment over 255 characters answer `422 path_rejected`. New tables: run the migration `0072_connectors`.
+  -->
+  
+  The connectors file tree can be searched by part of a name (`inbound-search`, server-side decrypt-and-scan with a cap of 20 000 names). A file re-sent while its folder is being deleted is kept in a fresh folder instead of being answered as a duplicate.
+- 6f043fa: The connector list says why a satellite is not syncing when its upload was refused for lack of storage; the pairing link a satellite shows opens the pair screen in an app with workspaces.
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: improvement
+  title: The connector list shows "Storage full, uploads paused"
+  detail: When an upload is refused with `507 storage_quota_exceeded`, the device remembers it (`quotaRejectedAt`) and the "Details" column of its connector says "Storage full, uploads paused" until the next upload of that device is accepted. The server decides this, so no satellite update is needed. New column on `store_connector_devices`: run the migration `0073_connectors-quota-rejected`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: A link to a screen without workspace prefix opens that screen
+  detail: In an app with workspaces, `/<screenId>` (for example the connectors pairing link `/connector-pair`) was read as an unknown workspace and ended on the default screen. The shell now moves it to the active workspace and keeps the query.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: A form screen can name the fields a plain link may fill
+  detail: An `actionForm` takes `linkPrefillFields: ["userCode"]`. A link such as `/pair?userCode=AB12-CD34` then fills exactly these fields, each value coerced by its field type; every other query key is ignored, and nothing is submitted by the link. Until now only navigate `params` and `redirect.handOff` could allow URL prefill. Boot rejects a name that is no field of the form (`form/link-prefill-unknown-field`).
+  -->
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: improvement
+  title: The satellite can offer a link that opens the pair screen with the code filled in
+  detail: `POST /v1/device_authorization` also answers `verification_uri_complete` (`verification_uri` plus `?userCode=<code>`, RFC 8628 section 3.3.1). The pair screen fills the code from it; the admin still presses Check, and confirming stays bound to that Check by the same admin within 5 minutes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: fix
+  title: The confirm step shows the requesting address readably
+  detail: A request from an IPv6 address is shown as its /64 prefix in compact form (`2001:db8:1:2::/64`), and a request from this very server as "local (this server)", instead of `0:0:0:0::/64`. IPv4 is unchanged. Action form facts take `valueIsI18nKey` to show a translated value.
+  -->
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [cdbf386]
+- Updated dependencies [cdbf386]
+- Updated dependencies [cdbf386]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [6f043fa]
+- Updated dependencies [a44b984]
+- Updated dependencies [007d227]
+- Updated dependencies [a44b984]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [3f3bb46]
+  - @cosmicdrift/kumiko-framework@0.425.0
+
 ## 0.424.1
 
 ### Patch Changes

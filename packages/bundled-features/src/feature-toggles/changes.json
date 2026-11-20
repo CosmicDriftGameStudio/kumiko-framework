@@ -2,14 +2,12 @@
   {
     "version": "0.404.0",
     "type": "improvement",
-    "title": "Feature-toggle Redis signal follows KUMIKO_REDIS_PREFIX",
-    "detail": "createRedisToggleSyncSignal takes an optional channelSubscribePattern (default from KUMIKO_REDIS_PREFIX) and ignores messages from other channels, which a prefix-wide subscription delivers."
+    "title": "Feature-toggle Redis signal follows KUMIKO_REDIS_PREFIX"
   },
   {
     "version": "0.365.0",
     "type": "fix",
     "title": "Overlapping toggle refreshes no longer drop a flip, and the runtime can reuse the server cache-sync bus",
-    "detail": "initialize() and refresh() now run one snapshot load at a time, so a flip applied while a second load is in flight is kept instead of being overwritten by older rows. createFeatureToggleRuntime takes an optional fourth cacheSyncBus argument; with it no second bus (and no extra Redis connections) is created and close() leaves the shared bus open.",
     "migration": "Pass the server's cache-sync bus as the fourth argument of createFeatureToggleRuntime to avoid the additional Redis publisher and subscriber connections of the default bus; without it the runtime still builds and closes its own bus."
   },
   {
@@ -20,25 +18,21 @@
   {
     "version": "0.165.0",
     "type": "fix",
-    "title": "compose-tier-resolver: fixed requires-cascade",
-    "detail": "Tier resolver now correctly handles the requires-cascade and marks non-toggleable features properly."
+    "title": "compose-tier-resolver: fixed requires-cascade"
   },
   {
     "version": "0.163.0",
     "type": "fix",
-    "title": "feature-toggles: register `store_global_feature_state` via `r.storeTable()` (exported as …",
-    "detail": "feature-toggles: register `store_global_feature_state` via `r.storeTable()` (exported as `globalFeatureStateTableMeta`). Previously the table was only a plain Drizzle export with no store-table meta, so `collectTableMetas(FEATURES)` never saw it — `kumiko schema generate` reported no changes for any app mounting `createFeatureTogglesFeature()`, and the table was missing in any DB that wasn't manually provisioned (e.g. via `unsafePushTables` in tests). `setupTestStack` now auto-provisions the table like every other `r.storeTable()` feature."
+    "title": "feature-toggles: register `store_global_feature_state` via `r.storeTable()` (exported as …"
   },
   {
     "version": "0.163.0",
     "type": "fix",
-    "title": "feature-toggles: fix `composeTierResolverWithGlobalToggles` to actually grant tier-unawar…",
-    "detail": "feature-toggles: fix `composeTierResolverWithGlobalToggles` to actually grant tier-unaware toggleable features. The previous version only ever narrowed the tier resolver's own set — a toggleable feature that no tier's `features` list mentions at all (e.g. a pure operator kill-switch like a self-registration toggle, never differentiated by plan) could never appear, regardless of its declared default or an explicit `true` override, because narrowing can only remove names, never add ones the tier never granted. Now takes a third `registry` argument and unions in `computeEffectiveFeatures`' normal cascade for every feature name absent from `tierResolver(SYSTEM_TENANT_ID)` (the tier-managed set) — tier-managed toggleables keep the narrow-only semantics from before, tier-unaware ones are governed purely by their own default/override. - @cosmicdrift/kumiko-framework@0.163.0 - @cosmicdrift/kumiko-headless@0.163.0 - @cosmicdrift/kumiko-renderer@0.163.0 - @cosmicdrift/kumiko-dispatcher-live@0.163.0 - @cosmicdrift/kumiko-renderer-web@0.163.0"
+    "title": "feature-toggles: fix `composeTierResolverWithGlobalToggles` to actually grant tier-unawar…"
   },
   {
     "version": "0.162.0",
     "type": "improvement",
-    "title": "feature-toggles: add `composeTierResolverWithGlobalToggles` to combine a tier-engine `ten…",
-    "detail": "feature-toggles: add `composeTierResolverWithGlobalToggles` to combine a tier-engine `tenantTierResolver` with a global `GlobalFeatureToggleRuntime` into a single `effectiveFeatures` resolver. Apps running both tier-engine (per-tenant feature cuts) and feature-toggles (global operator switches, e.g. a runtime kill-switch not tied to any tier) previously had no way to compose them — the framework only auto-wires one `tenantTierResolver` plugin. The global layer only narrows what the tier grants (an explicit `enabled:false` row removes a feature; no row or `true` leaves the tier's grant untouched) — it never falls back to a toggleable feature's own default, which would otherwise silently disable every tier-gated toggleable feature the moment feature-toggles gets composed in. Also adds `GlobalFeatureToggleRuntime.readOverride(name)` for the raw per-feature override, bypassing the requires() cascade."
+    "title": "feature-toggles: add `composeTierResolverWithGlobalToggles` to combine a tier-engine `ten…"
   }
 ]

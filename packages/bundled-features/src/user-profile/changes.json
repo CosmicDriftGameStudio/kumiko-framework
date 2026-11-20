@@ -2,20 +2,17 @@
   {
     "version": "0.391.0",
     "type": "improvement",
-    "title": "The profile can link to account security",
-    "detail": "createUserProfileFeature({ linkAccountSecurity: true }) adds a header action that opens the account-security screen, which offers MFA enable or disable by the user's status. It requires the account-security feature; the default stays off. New key profile.mfa.open in all locale packages."
+    "title": "The profile can link to account security"
   },
   {
     "version": "0.360.0",
     "type": "improvement",
-    "title": "change-email can be switched off",
-    "detail": "createUserProfileFeature({ allowEmailChange: false }) neither registers the change-email write handler nor shows the email section on the profile screen. Without the option nothing changes."
+    "title": "change-email can be switched off"
   },
   {
     "version": "0.243.1",
     "type": "fix",
-    "title": "Security fix: ChangePasswordSection/ChangeEmailSection no longer nest a <form> inside the host RenderEdit form.",
-    "detail": "Since `profile` became a declarative `projectionDetail` screen (fw#2312), RenderEdit wraps the whole singleton screen in its own host `<form>`. `ChangePasswordSection` and `ChangeEmailSection` were each rendering their own `<Form>` inside that host, creating invalid nested `<form>` DOM. The submit button silently fell back to a native GET submission of the outer form instead of dispatching a write, putting the entered password(s) in the URL query string (browser history, `Referer` header, proxy/server access logs — `ChangePasswordSection` leaked both the old and the new password). Both sections now follow the same no-nested-form pattern `write-form-section.tsx` uses: a plain container with a `type=\"button\"` that calls the write dispatcher directly. testIds are unchanged; Enter-to-submit inside these two sections is an accepted, deliberate trade-off (same one `write-form-section.tsx` already makes)."
+    "title": "Security fix: ChangePasswordSection/ChangeEmailSection no longer nest a <form> inside the host RenderEdit form."
   },
   {
     "version": "0.241.0",
@@ -27,7 +24,6 @@
   {
     "version": "0.123.2",
     "type": "fix",
-    "title": "Consistency: user-profile's ProfileScreen adopts the shared `FormScreenShell` (centered `…",
-    "detail": "Consistency: user-profile's ProfileScreen adopts the shared `FormScreenShell` (centered `max-w-3xl` like all other settings screens, was left-aligned `max-w-5xl`). DataTable now sits on `bg-card` instead of a transparent surface — on themes with a colored page background (e.g. cream) lists previously didn't match the white cards; now they do. - @cosmicdrift/kumiko-renderer-web@0.123.2 - @cosmicdrift/kumiko-framework@0.123.2 - @cosmicdrift/kumiko-dispatcher-live@0.123.2 - @cosmicdrift/kumiko-headless@0.123.2 - @cosmicdrift/kumiko-renderer@0.123.2"
+    "title": "Consistency: user-profile's ProfileScreen adopts the shared `FormScreenShell` (centered `…"
   }
 ]

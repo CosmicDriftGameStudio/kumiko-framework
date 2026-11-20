@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "files feature only under @cosmicdrift/kumiko-framework/files",
+    "detail": "`@cosmicdrift/kumiko-bundled-features/files` only re-exported `createFilesFeature` and `fileRefEntity` from the framework. The subpath is gone, so the feature has one import path. Behaviour of the feature is unchanged; create-kumiko-app and the dev-server scaffold now write the framework import.",
+    "migration": "Replace `import { createFilesFeature, fileRefEntity } from \"@cosmicdrift/kumiko-bundled-features/files\"` with `import { createFilesFeature, fileRefEntity } from \"@cosmicdrift/kumiko-framework/files\"`.",
+    "affects": [
+      "kumiko-bundled-features/files"
+    ]
+  },
+  {
     "version": "0.414.0",
     "type": "breaking",
     "title": "Anonymous file uploads need the claim handle to be bound",
@@ -9,26 +19,22 @@
   {
     "version": "0.394.0",
     "type": "improvement",
-    "title": "createFileRefFromBytes takes a per-call maxSize",
-    "detail": "`CreateFileRefInput.maxSize` (bytes) replaces the route default for that call, so server-side generated files such as mail attachments can exceed the 10 MB upload default without raising it for browsers. A file field's own maxSize still applies first. `configuredMaxUploadBytes(registry)` returns the configured route limit in bytes, or undefined."
+    "title": "createFileRefFromBytes takes a per-call maxSize"
   },
   {
     "version": "0.394.0",
     "type": "improvement",
-    "title": "canCallerReadFileRef answers the file read decision in handlers",
-    "detail": "`canCallerReadFileRef(ctx, fileRef)` applies the same rule as GET /files/:id: the configured accessGuard, otherwise the default guard with the configured privilegedRoles and the bound record's detail query. `createDefaultGuard` is exported from the files barrel. A handler that lists or links files no longer needs its own copy of the rule."
+    "title": "canCallerReadFileRef answers the file read decision in handlers"
   },
   {
     "version": "0.394.0",
     "type": "improvement",
-    "title": "Projection entities are server-side attach targets for files",
-    "detail": "An entity declared on a projection (r.projection with entity) is a read-model entity: a files field on it can be the attachTo target of createFileRefFromBytes and uploadFileBytesBeforeTransaction, and the file read check uses the owning feature's `<name>:detail` query for it. The registry gets getReadModelEntity and getReadModelEntityOwner; two projections declaring an entity for the same source fail the boot. POST /files still accepts only r.entity targets, so a client can never attach to a read model. deleteFileRefsBoundToRecord soft-deletes the fileRefs of one record for owners that remove it without an r.entity delete."
+    "title": "Projection entities are server-side attach targets for files"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
     "title": "File uploads in an actionForm, dropzone display for files fields",
-    "detail": "A files or images field of an actionForm screen uploads through POST /files with actionForm=<screen QN> and fieldName; the file is stored pending under the screen and the route checks the caller's access to the screen and its handler before writing bytes. New helpers resolveActionFormFileField and listActionFormFileFields (framework/files), bindPendingFileRef takes bindTo (the target entity file field, checked against its accept and maxSize) and registry, and ACTION_FORM_PSEUDO_ENTITY moves to framework/ui-types. New display \"list\" or \"dropzone\" on FilesFieldDef and ImagesFieldDef; the dropzone works in entityEdit and actionForm and maps server error codes to translated texts. Pending actionForm uploads are removed on user forget and by the forget-subject file purge. New i18n keys kumiko.widget.upload.too-large|invalid-type|max-count|remove, kumiko.field.dropzone.* and errors.file.violatesBindTarget (de, es, fr, it included).",
     "migration": "Custom upload screens such as solon document-upload can become an actionForm with a files field and display \"dropzone\". The form's handler must bind every file it keeps: load it with loadPendingFileRef (entityName = the screen QN) and move it onto a record with bindPendingFileRef({ bindTo, registry: ctx.registry }); unbound uploads are treated as the uploader's personal data and removed on forget."
   },
   {
@@ -65,8 +71,7 @@
   {
     "version": "0.341.0",
     "type": "improvement",
-    "title": "Uploads resolve a generic content type from the file content",
-    "detail": "POST /api/files now resolves application/octet-stream or a missing type from the bytes (PDF, XML, PNG, JPEG, GIF, WebP, ZIP) and falls back to the file extension. A concrete declared type is never overridden. The shared helper resolveContentType is exported from the files module."
+    "title": "Uploads resolve a generic content type from the file content"
   },
   {
     "version": "0.341.0",

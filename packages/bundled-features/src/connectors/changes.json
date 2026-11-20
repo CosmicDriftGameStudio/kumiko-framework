@@ -1,0 +1,42 @@
+[
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "New connectors feature: devices pair via OAuth device flow and deliver files into an inbound list"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "The heartbeat answer carries the connector name"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Connector files stay out of the backup, are capped per tenant and refuse system files"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "A satellite reports its sync status in the heartbeat and an admin can ask it to retry"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Delivered files form a folder tree with a \"Dateien\" screen"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "The connector list shows \"Storage full, uploads paused\""
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "The satellite can offer a link that opens the pair screen with the code filled in"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "The confirm step shows the requesting address readably"
+  }
+]

@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "forgetOwnRowsDeleteHook erases rows on any owner field"
+  },
+  {
     "version": "0.336.0",
     "type": "fix",
     "title": "Delete hooks erase every row and report all failures together"
@@ -7,7 +12,6 @@
   {
     "version": "0.116.0",
     "type": "fix",
-    "title": "user-data-rights-defaults now registers EXT_USER_DATA export/delete hooks for six more bu…",
-    "detail": "user-data-rights-defaults now registers EXT_USER_DATA export/delete hooks for six more bundled entities: user-session (ip/userAgent), api-token, in-app-message, tenant-invitation, notification-preference and user-scoped config-value. Hooks no-op when the source feature isn't mounted. pii annotations added on the affected schema fields. - @cosmicdrift/kumiko-renderer-web@0.116.0 - @cosmicdrift/kumiko-framework@0.116.0 - @cosmicdrift/kumiko-dispatcher-live@0.116.0 - @cosmicdrift/kumiko-headless@0.116.0 - @cosmicdrift/kumiko-renderer@0.116.0"
+    "title": "user-data-rights-defaults now registers EXT_USER_DATA export/delete hooks for six more bu…"
   }
 ]

@@ -1,21 +1,69 @@
 [
   {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Custom managed-pages layouts get escaped parts only",
+    "detail": "A custom `wrapLayout` used to receive the page title, description, language, slug, OG image and the tenant branding raw, and was trusted to escape them itself; a naive template string turned a tenant admin's branding title into markup on the public page. It now receives `bodyHtml`, `titleHtml`, `descriptionHtml`, `langHtml`, `slugHtml`, `ogImageHtml` (empty unless it is an https URL), `brandingStyleHtml` (theme variables plus the sanitized tenant CSS) and `brandingHeaderHtml`, all escaped or sanitized, so every field can be interpolated as is. The default layout is unchanged.",
+    "migration": "Rewrite a custom managed-pages `wrapLayout` to the new fields: `title` becomes `titleHtml`, `lang` becomes `langHtml`, `description` becomes `descriptionHtml`, and `brandingStyleBlock(o.branding)`, `tenantStyleBlock(o.branding.customCss)` and `brandingHeaderHtml(o.branding)` become `o.brandingStyleHtml` and `o.brandingHeaderHtml`. Keep `TENANT_CONTENT_ATTR` on the content container.",
+    "affects": [
+      "wrapLayout",
+      "brandingStyleBlock",
+      "tenantStyleBlock",
+      "brandingHeaderHtml"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "One validation for page slug, language and OG image"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Published page list no longer loads page bodies"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Published page list always reads the caller's tenant",
+    "detail": "The discovery query accepted a tenantIdOverride that could never reach another tenant through the tenant-scoped read. The field is gone; the query lists the published pages of the caller's tenant.",
+    "migration": "Drop tenantIdOverride from by-tenant-published calls; use systemQuery with the tenant id, as the seo feature does.",
+    "affects": [
+      "tenantIdOverride",
+      "by-tenant-published"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "readBranding is public"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Branding exports removed from managed-pages",
+    "detail": "`BRANDING_QN`, `MANAGED_PAGES_CSS_FEATURE` and `createManagedPagesCssFeature` are no longer exported from managed-pages. Branding config, query and screen live in the branding feature, and custom CSS is gated by `createBrandingCssFeature()`.",
+    "migration": "Import `BRANDING_QN` from @cosmicdrift/kumiko-bundled-features/branding and replace `createManagedPagesCssFeature()` with `createBrandingCssFeature()` next to `createBrandingFeature({ allowCustomCss })`. `MANAGED_PAGES_CSS_FEATURE` is replaced by `BRANDING_CSS_FEATURE` from the same branding subpath.",
+    "affects": [
+      "BRANDING_QN",
+      "MANAGED_PAGES_CSS_FEATURE",
+      "createManagedPagesCssFeature"
+    ]
+  },
+  {
     "version": "0.414.0",
     "type": "improvement",
-    "title": "page mask on the editor workbench with a live preview of the unsaved body",
-    "detail": "`managedPagesClient()` registers the page mask and the shared `web` preview renderer from template-resolver (Desktop and 375 px Mobil), so the page preview works without `textBlocksClient`; the preview query lives in template-resolver. The `page-edit` screen is now a custom screen under the same id: settings in the right rail, body editor with the lossy-Markdown warning, one submit for both (create via `managed-pages:write:page:create`, update with only the changed fields). The page list has `createScreen: \"page-edit\"`. The extension section `managed-pages:page-body` and `PAGE_BODY_EXTENSION_NAME` are removed; an app that replaced `page-edit` with its own screen is not affected. New keys `managed-pages:editor.*` in all locale packages."
+    "title": "page mask on the editor workbench with a live preview of the unsaved body"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "managed-pages client bundle no longer loads tiptap at start",
-    "detail": "The link policy helpers moved from `document-schema.ts` into the tiptap-free `document-link-policy.ts` (re-exported from `document-schema.ts`), so `markdown-to-document.ts` stays out of the editor chunk. A test guards the static import closure."
+    "title": "managed-pages client bundle no longer loads tiptap at start"
   },
   {
     "version": "0.402.0",
     "type": "improvement",
-    "title": "The public render caches a sanitized document body per page version",
-    "detail": "The render cache holds up to 500 entries keyed on tenant, slug, language, version and format. Bodies larger than 256 KB are sanitized on every render and not cached."
+    "title": "The public render caches a sanitized document body per page version"
   },
   {
     "version": "0.395.0",
@@ -27,20 +75,17 @@
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "MANAGED_PAGES_FEATURE names the feature",
-    "detail": "The barrel exports the MANAGED_PAGES_FEATURE constant so other code can refer to the feature name without a string literal."
+    "title": "MANAGED_PAGES_FEATURE names the feature"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "Branding screen edits the logo file and readBranding returns logoFile",
-    "detail": "The branding settings screen has a logo upload for managed-pages:config:branding-logo-file, and readBranding and the branding query include logoFile next to logoUrl. The template resource errors template_resource_too_large and template_resource_unsupported_image have German and Spanish texts."
+    "title": "Branding screen edits the logo file and readBranding returns logoFile"
   },
   {
     "version": "0.353.0",
     "type": "fix",
-    "title": "A rate-limited page request answers 429 with Retry-After instead of 503 or an unbranded page",
-    "detail": "Managed pages and sitemap answer 429 when rate limited, agent catalog checks the deny list, draft cleanup continues past skipped rows\nA rate-limited managed-page request now answers 429 with `Retry-After` instead of 503 or an unbranded page, and `sitemap.xml` and `llms.txt` answer 429 instead of silently dropping the managed-page entries. `buildToolCatalog` throws when its manifest was built with `denyQns` that the catalog options lack. The form-draft cleanup no longer stops when a whole batch was re-saved by users in the meantime."
+    "title": "A rate-limited page request answers 429 with Retry-After instead of 503 or an unbranded page"
   },
   {
     "version": "0.335.0",
@@ -50,19 +95,16 @@
   {
     "version": "0.147.3",
     "type": "fix",
-    "title": "`managed-pages`' `GET {basePath}/:slug` render route and `seo`'s `sitemap.xml`/`llms.txt`…",
-    "detail": "`managed-pages`' `GET {basePath}/:slug` render route and `seo`'s `sitemap.xml`/`llms.txt` routes now use the `systemQuery` in-process dispatch (introduced for `legal-pages` in the `resolverTrust` fix) instead of an internal `app.fetch` self-request with a forged `X-Tenant` header. That self-fetch carried no `Host` header (Host is only implied by the request URL, never stored in `Headers`), so a host-based `anonymousAccess.tenantResolver` reading only the header resolved `null` for the inner request. Under `resolverTrust: \"authoritative\"` there is no client-tenant fallback for a `null` resolution, so the route failed with `tenant_required` (503 \"page unavailable\" / empty sitemap entries) even for a legitimate, correctly-routed visitor. `systemQuery` forces the already host-resolved tenant in-process — no header round-trip, nothing that can go missing. Consumers running `managed-pages` or `seo` with `resolverTrust: \"authoritative\"` should upgrade — the render/discovery routes were not reliably servable under that mode before this fix. - @cosmicdrift/kumiko-framework@0.147.3 - @cosmicdrift/kumiko-dispatcher-live@0.147.3 - @cosmicdrift/kumiko-headless@0.147.3 - @cosmicdrift/kumiko-renderer@0.147.3 - @cosmicdrift/kumiko-renderer-web@0.147.3"
+    "title": "`managed-pages`' `GET {basePath}/:slug` render route and `seo`'s `sitemap.xml`/`llms.txt`…"
   },
   {
     "version": "0.123.1",
     "type": "fix",
-    "title": "managed-pages: add a `./managed-pages/web` client export (`managedPagesClient()`) so apps…",
-    "detail": "managed-pages: add a `./managed-pages/web` client export (`managedPagesClient()`) so apps can register the feature's admin-screen translations into the browser i18n store. Previously the server-side `r.translations` bundle never reached the client, so configEdit/entityEdit labels (branding, page CMS) rendered as raw i18n keys in the admin UI. The client bundle is pivoted from the same `MANAGED_PAGES_I18N` source (no key duplication). renderer-web: extract a shared `FormScreenShell` primitive — the canonical centered `max-w-3xl` form/settings column that `DefaultForm` (configEdit/entityEdit) already used. Exporting it lets custom settings screens share the exact same width + centering instead of each author re-inventing the wrapper. `user-data-rights`' privacy-center screen adopts it. - @cosmicdrift/kumiko-renderer-web@0.123.1 - @cosmicdrift/kumiko-framework@0.123.1 - @cosmicdrift/kumiko-dispatcher-live@0.123.1 - @cosmicdrift/kumiko-headless@0.123.1 - @cosmicdrift/kumiko-renderer@0.123.1"
+    "title": "managed-pages: add a `./managed-pages/web` client export (`managedPagesClient()`) so apps…"
   },
   {
     "version": "0.122.5",
     "type": "fix",
-    "title": "managed-pages: ship de/en translations for its admin screens (branding settings + page CM…",
-    "detail": "managed-pages: ship de/en translations for its admin screens (branding settings + page CMS) via `r.translations`, so field labels, section headers and screen titles no longer render as raw i18n keys. Any app mounting `managed-pages` now boots with a complete, translated admin surface. Also adds `tag` and `key` to the nav-icon allowlist (`NAV_ICONS`) so nav entries using those keys render a Lucide icon instead of the grey dot fallback. - @cosmicdrift/kumiko-renderer-web@0.122.5 - @cosmicdrift/kumiko-framework@0.122.5 - @cosmicdrift/kumiko-dispatcher-live@0.122.5 - @cosmicdrift/kumiko-headless@0.122.5 - @cosmicdrift/kumiko-renderer@0.122.5"
+    "title": "managed-pages: ship de/en translations for its admin screens (branding settings + page CM…"
   }
 ]

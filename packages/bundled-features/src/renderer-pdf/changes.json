@@ -2,25 +2,21 @@
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "renderTablePdf validates the document for direct callers",
-    "detail": "renderTablePdf parses the document against pdfTableDocumentSchema and throws RendererError invalid_payload above the row, column and cell caps. Title, subtitle, meta entries, headers, empty text, footer text and page label now have length caps and meta at most 500 entries."
+    "title": "renderTablePdf validates the document for direct callers"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "renderTablePdf rejects tables above 10000 rows, 30 columns or 5000 characters per cell",
-    "detail": "The table document schema now caps rows at 10000, columns at 30 and each cell string at 5000 characters. Larger input fails with invalid_payload instead of exhausting memory during layout."
+    "title": "renderTablePdf rejects tables above 10000 rows, 30 columns or 5000 characters per cell"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "render-table-pdf validates input and paginates its intro",
-    "detail": "Table documents reject negative margins and unusable column widths, normalize CRLF and paginate the intro text and the first header row."
+    "title": "render-table-pdf validates input and paginates its intro"
   },
   {
     "version": "0.360.0",
     "type": "improvement",
-    "title": "Pure-JS PDF renderer for table documents",
-    "detail": "renderTablePdf(doc, options?) renders a PdfTableDocument (title, subtitle, meta lines, weighted columns, wrapped cells, header row repeated per page, footerText and a pageLabel template with {page} and {pages}) to PDF bytes with pdf-lib. Characters outside WinAnsi are replaced by \"?\". Identical input yields identical bytes. createRendererPdfFeature() registers it as plugin \"pdf\" for kind \"document-pdf\"; payload.variables is validated against pdfTableDocumentSchema, anything else fails with RendererError invalid_payload."
+    "title": "Pure-JS PDF renderer for table documents"
   }
 ]

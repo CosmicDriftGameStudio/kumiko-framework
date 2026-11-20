@@ -1,5 +1,858 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.425.0
+
+### Minor Changes
+
+- 34cf35e: Removes four deprecated aliases: `MoneyRead.amountMinor`, the `{ subjectField }` event PII form, `injectSchema` on host dispatch results and `billing.stripe.webhookPath`.
+  
+  <!-- kumiko-changes
+  feature: core
+  type: breaking
+  title: Deprecated money, PII, schema and webhook aliases removed
+  detail: Rehydrated money values no longer carry `amountMinor`; `amountScaled` holds the same value. `r.defineEvent` `piiFields` no longer accepts `{ subjectField: "<field>" }`. `HostDispatchResult` and `DevHostDispatchResult` no longer have `injectSchema`. `runProdApp` billing no longer reads `stripe.webhookPath` as a fallback for the webhook route.
+  migration: Read `amountScaled` instead of `amountMinor`. Write `piiFields: { x: { personal: { of: "<field>" } } }` instead of `{ subjectField: "<field>" }`. Drop `injectSchema` from host dispatch results. Move `billing.stripe.webhookPath` to `billing.webhookPath`.
+  affects: amountMinor, subjectField, injectSchema, webhookPath
+  -->
+- 34cf35e: The `currency` cell format takes an ISO 4217 code and formats the amount with Intl in the UI locale.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Currency cells format with Intl and an ISO currency code
+  detail: `{ format: "currency", currency: "EUR" }` renders an integer amount in the currency's minor unit (`4250` or `"4250"` for 42.50 EUR) through `Intl.NumberFormat` with the currency's decimals, grouping and symbol position of the UI locale, for example `1.234,50 €` in German and `€1,234.50` in English. An optional `locale` overrides the UI locale. The old `symbol` option is gone: it only appended the symbol to the raw value without grouping or decimals. A missing or malformed currency code or a non-numeric value renders the raw value.
+  migration: Replace `renderer: { format: "currency", symbol: "€" }` with `renderer: { format: "currency", currency: "EUR" }` (ISO 4217 code). The value is an integer in the currency's minor unit: multiply a major-unit amount by 10^decimals of its currency (×100 for EUR, ×1 for JPY, ×1000 for KWD).
+  affects: "currency"
+  -->
+- 34cf35e: `SenderFrame` is removed; `SenderSheet`, `DrawnFilter`, `DrawnPanel` and `DrawnWand` are no longer exported from `@cosmicdrift/kumiko-renderer/web`.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Unused web exports removed
+  detail: `SenderFrame` had no user in the framework, enterprise or any app and is deleted. `SenderSheet` and the icons `DrawnFilter`, `DrawnPanel` and `DrawnWand` stay as internals of the message thread, the data-table toolbar, the sidebar and the AI text field but leave the public `/web` entry. `PhotoSlots` and `PreviewWidthFrame` stay public.
+  migration: No known app imports these names. An app that does wraps a letter in its own `Card`, and picks icons through the `icon` props of the primitives.
+  affects: SenderFrame, SenderSheet, DrawnFilter, DrawnPanel, DrawnWand
+  -->
+- 34cf35e: The props type of the `Drawer` widget from `@cosmicdrift/kumiko-renderer/web` is renamed to `DrawerPanelProps`.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Drawer widget props type is DrawerPanelProps
+  detail: `@cosmicdrift/kumiko-renderer/web` exported a `DrawerProps` type that differed from the `DrawerProps` primitive contract of `@cosmicdrift/kumiko-renderer`. The widget type is now `DrawerPanelProps`; the contract keeps its name.
+  migration: Replace `import type { DrawerProps } from "@cosmicdrift/kumiko-renderer/web"` with `DrawerPanelProps`.
+  affects: DrawerProps
+  -->
+- 34cf35e: `formatMoney(amountMinor, currency, options)` and `formatMoneyValue(value, options)` take an options object with `locale`, `minimumFractionDigits`, `maximumFractionDigits`, `signDisplay` and `notation` instead of positional `locale` and `fractionDigits`. An unknown currency code now formats the amount as a plain decimal instead of printing the raw minor integer.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: formatMoney takes an options object
+  detail: Apps wrote their own money formatters for whole-euro display, compact notation and hiding the sign of a rounded zero. formatMoney now covers these through Intl options.
+  migration: Replace `formatMoney(minor, currency, locale, digits)` with `formatMoney(minor, currency, { locale, minimumFractionDigits: digits, maximumFractionDigits: digits })` and `formatMoneyValue(value, locale)` with `formatMoneyValue(value, { locale })`. Replace own compact or no-sign-zero money formatters with `notation: "compact"` and `signDisplay: "negative"`.
+  affects: formatMoney
+  -->
+- 34cf35e: Money is an integer in the currency's minor unit on every path. `createMoneyField` write payloads, zod schemas, events and read rows all carry `{ amount, currency }` with `amount` in minor units (cents for EUR, 0 decimals for JPY, 3 for BHD); `flattenMoney` no longer multiplies by 100 and rejects non-integer amounts and bare numbers, read rows drop `amountScaled`, and form derivations no longer convert. `toMinorUnits`/`toMajorUnits` take the currency and scale by `currencyDecimals`; `MINOR_UNIT_SCALE`, `moneyPayloadToMinorUnits` and `moneyAmountToMinor` are removed.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Money amounts are integers in minor units everywhere
+  detail: Top-level money fields used major units on write and read while embedded rows, aggregates and template variables used minor units, and the database scaled by a flat 100 regardless of currency. Now every path carries the same integer in the currency's minor unit; only input widgets and formatters convert.
+  migration: Multiply every top-level money amount you send or seed by 10^decimals of its currency (×100 for EUR). Stored events and rows of two-decimal currencies need no change: they already hold minor units. Amounts stored before this release in a currency without two decimals (JPY, KRW, BHD, KWD and others) were scaled by a flat 100 and now read wrong by that factor (JPY 100 times too large, BHD 10 times too small); correct them once through the entity executor before upgrading. Replace reads of `amountScaled`/`amountMinor` with `amount`. Remove own ×100/÷100 wire helpers. Pass the currency to `toMinorUnits(amount, currency)` and `toMajorUnits(amount, currency)`. Replace `moneyAmountToMinor(x, c)` with `toMinorUnits(x, c)` from `@cosmicdrift/kumiko-types`.
+  affects: all
+  -->
+- 34cf35e: All CorePrimitives are required; tests build their primitives with `createStubPrimitives` from `@cosmicdrift/kumiko-renderer/testing`.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Every CorePrimitive is required, createStubPrimitives replaces partial test stubs
+  detail: The 25 primitives that were optional only so partial test mocks kept compiling (Drawer, Tabs, PageHeader, StatusBadge, Metric, FillContainer, StepBar, ActionOverflowMenu and others) are now required in `CorePrimitives`. The renderer no longer carries fallback branches or "primitive not registered" warnings for them; screens always render through the registered primitive. `createKumikoApp({ primitives })` still takes a partial override merged over `defaultPrimitives`, so apps that only use createKumikoApp change nothing. `createStubPrimitives(overrides)` from `@cosmicdrift/kumiko-renderer/testing` returns a complete registry whose entries render nothing, with the overrides on top; it needs no DOM.
+  migration: Replace hand-written `CorePrimitives` objects in tests (`const p: CorePrimitives = { ... }` or `{ ... } as unknown as CorePrimitives`) with `createStubPrimitives({ ... })`. Code that builds a full `CorePrimitives` value outside createKumikoApp must supply all 43 entries. Remove checks like `primitives.Drawer !== undefined`.
+  affects: CorePrimitives
+  -->
+
+### Patch Changes
+
+- 49e723e: `CollapsibleSection` reports when the user opens or closes it through the new optional `onOpenChange` prop.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: CollapsibleSection gets onOpenChange
+  detail: The callback receives true or false whenever the user opens or closes the section, so a screen can defer expensive content until the section is open. defaultOpen does not trigger it, and children are still always rendered.
+  -->
+- 34cf35e: The approval list shows who requested a change to approvers who are no admins, and its phone card puts the current and the new value on their own labelled lines. An open request stays visible at its field after a reload and names the requested value, and an empty approval list says that nothing awaits approval. The approval screen and its nav entry now also reach the roles that may file a request, so more people see the "Approvals" entry.
+  
+  <!-- kumiko-changes
+  feature: field-approval
+  type: fix
+  title: Requester name for every approver, readable phone card, open request at its field
+  detail: field-approval:query:pending-changes now returns requestedByName, the requester's display name (never the email), so the list no longer depends on the admin-only member directory and shows the name to every approver; requestedBy stays in the row. On the phone card the field label stands above the record, current and new value each take a labelled line, and requester and date share one; the date keeps date and time together. The edit form asks pending-changes for the record's open requests when field-approval is mounted and shows "Awaiting approval" at each such field, also after a reload; the requester sees their own requests, approvers see all they may read. A requester who may write but not read the field sees that the request is open, never its value. A requester's second request on the same field replaces their own open one. When the caller may read the requested value, the field says "Requested: DE89… · awaiting approval" (key kumiko.form.fieldApproval.pendingValue, formatted like the field's read-only value, a document field as plain text); a writeOnly field, a reference field (its value is a record id, not a label) and a request without a readable value keep "Awaiting approval". pending-changes masks writeOnly fields like every other read: currentValue, the requested value and the record label come back as true (set) or null, never in plaintext, also for approvers. The approval screen and its nav entry are listed for the union of approverRoles and the feature's access roles (before: approverRoles only, when set), so requesters can find and withdraw their requests; who sees the nav entry changes accordingly, while each row stays filtered (requesters see their own requests, approvers all they may approve, other roles none). The empty approval list reads "No changes awaiting approval." (de, es, fr, it translated). Nothing to do for apps; screenshot tests of the edit form and the approval list change.
+  -->
+  
+  <!-- kumiko-changes
+  feature: field-approval
+  type: fix
+  title: A request no longer silently replaces someone else's open request
+  detail: field-approval:write:request-change overwrote another user's open request on the same field and made the caller its requester, so the first requester lost the request without notice. It now fails with reason field_change_request_pending_by_other (i18n key errors.fieldApproval.requestPendingByOther, en, de, es, fr, it); the caller's own open request can still be changed, and approvers still write the field directly. Re-filing pins the version the handler checked, so two requests filed at the same moment on a decided request end in a version conflict for the second instead of one replacing the other. On a record (pending-changes with an entityId) a writer who would have to request the field gets a row for another user's open request without value, current value, requester or name (canApprove and filedByCaller false); the approval list without an entityId is unchanged. The edit form shows "A change request for this field is awaiting approval" (key kumiko.form.fieldApproval.pendingByOther) at such a field instead of "Request change", and the request drawer leaves the field out. Apps whose tests expect no rows from pending-changes for such a writer on a record now get that one row without value.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Withdraw runs once, a refused config reset shows its error
+  detail: "Withdraw request" is disabled while its call runs, so a double click no longer sends a second reject-change that failed after the first had withdrawn the request. A config screen reset that is written at once (an override equal to the inherited value) ignored a refused write and reloaded the cascade; it now shows the error like a refused save and reloads nothing. RenderEditControls gains showSubmitError(error), which shows the failure of a write the host ran outside submit the way a failed save shows. Nothing to do for apps.
+  -->
+- 34cf35e: Field approval gets its UI. A form keeps one Save: a user who may write but not approve a gated field sees it read-only with "Request change", and a drawer files the changed gated fields in one batch with "Submit for approval". An open request shows "Requested: <value> · awaiting approval" under the field and, for its requester, "Withdraw request". Approvers edit the field directly. A save the server still refuses shows a field error only. The `field-approval` feature ships the screen `field-approval:screen:field-change-requests` with approve, reject and withdraw row actions and a nav entry in the tenant admin area.
+  
+  <!-- kumiko-changes
+  feature: field-approval
+  type: fix
+  title: Approval-gated fields are read-only with a request drawer
+  detail: Approval-gated fields are read-only with a request drawer. A user who may write but not approve a gated field sees it read-only with 'Request change'; the drawer lists all such fields of the form and files only changed ones in one batch with 'Submit for approval'. An open request shows 'Requested: <value> · awaiting approval' and, for its requester, 'Withdraw request'. pending-changes returns gatedFields for an entityType; entityId null answers for a record not created yet. A denied save shows a field error only. createFieldApprovalFeature registers the list field-approval:screen:field-change-requests (record, field, current and new value, requester, time; approve and reject for approvers, withdraw for the requester) and the nav entry field-approval:nav:field-change-requests in the tenant admin area. Values only show to callers who may read the field. Nothing to do for apps; approverRoles adds approver roles to the list and nav: { parent, order, workspaces, adminArea } moves the entry.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Request drawer: own field ids, no toast over Save
+  detail: A form rendered inside another form (the request drawer, the create-reference dialog) gives its fields ids of their own (`kumiko-edit-<scope>-<field>`), so a label in the drawer names the drawer's field and not the locked one behind it; top-level forms keep `kumiko-edit-<field>`. A field locked only by the approval keeps the cell it has while editable instead of taking the whole row. The pending hint and its links wrap as one row with a gap. Filing a request shows no toast any more (it covered the form's Save); the hint at the field is the answer and is announced to screen readers (`role="status"`, new `Text` prop `announce`). Apps whose tests select a drawer or dialog field by `kumiko-edit-<field>` select it by label or by the field's test id instead.
+  -->
+- 34cf35e: List columns can label their phone card line with `cardLabel: true`, e.g. "Current value: DE02…".
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: cardLabel puts the column label in front of a phone card line
+  detail: A list column with cardLabel: true starts its phone card line with the column label ("Current value: …"); the value moves below the label as a whole before it breaks inside. The table keeps the label in the header only. Works for entity and projection lists.
+  -->
+- 34cf35e: The sidebar scrolls the active entry into view when it opens and when the route changes, so a long navigation no longer hides where you are.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Sidebar scrolls the active entry into view
+  detail: NavTree calls scrollIntoView({ block: "nearest" }) on the active entry on mount and when the active screen changes, also after it opened a collapsed container to show the entry. The list only moves when the entry is out of view, and collapsing another container afterwards does not pull it back. Nothing to do for apps.
+  -->
+- 49e723e: Lists and tables with many amounts and numbers render faster because the number formatters are reused.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Number and money formatting reuses its formatters
+  detail: formatMoney, the number and unit cells of applyFormatSpec, formatDocumentPercent, read-only number fields and the number value chips of a form field keep one Intl.NumberFormat per locale and option set instead of building one per value, and remember the resolved locale per input. The cache is capped and cleared when full, because locale and currency can come from user data. Output is unchanged.
+  -->
+- 34cf35e: Forms save through their one Save button. A note typed into the notes section of an edit form is written with the form's Save. Resetting a config value to its inherited value marks the field and saves with the form. A failed footer action no longer leaves its values in the form. The layout editor blocks publishing and applying while the layout has unsaved changes. Actions on a projection detail ask before they discard input typed into a write form.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Forms save through their one Save button
+  detail: The notes section inside an edit form has no own add button any more; a typed note counts as unsaved input and is written by the form's Save (addNote), a standalone notes section keeps its button. On a config edit screen "Reset" sets the field to the inherited value and the reset is written with Save (config:write:reset), typing after a reset writes the typed value instead; a reset to a value equal to the current override changes nothing visible and is not saved. A footer action with a patch (for example "Save as urgent") sends its patch with this one submit only; when the write fails the patch is not kept in the form, so the next Save does not send it. The layout editor disables "Publish drafts" and "Apply to templates" while the layout has unsaved changes and says to save first (key documentDesigner.usedBy.saveFirst, de, es, fr, it translated). On a projection detail, an action that does not submit a write form asks "You have unsaved changes in this form…" while a write form section holds typed input, as entityEdit does; the action named in submitWith sends the input without the question. Nothing to do for apps.
+  -->
+- 34cf35e: Display fixes found on app screenshots: phone cards, tabs, nav labels, result tables, month values and file links.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Active tab stays visible when the tab bar grows
+  detail: When tab counts load later and the tab bar gets wider, the active tab is scrolled back into view on every size change, not only when the tab changes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: A column hidden on phones no longer becomes the card badge
+  detail: `cardColumnRoles` skips `hideOnNarrow` select columns in the status fallback, as it already did for `cardBadge` columns.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Shorter nav labels, translated content folders and layout presets
+  detail: The all-tenants audit log nav label is shorter in every locale so it fits the sidebar. The template-resolver content tree labels its folders and its root through `template-resolver.folder.<segment>` and `template-resolver.nav.content`; a `TreeNode` can carry a `labelKey` that the nav tree translates, falling back to the raw label; the sidebar search matches the translated label. The branding layout preset select shows translated option labels. All texts ship in English, German, Spanish, French and Italian.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Result tables keep the data table cell padding
+  detail: `ResultTable` and `ComparisonTable` without `card` pad their cells with `px-2` like `DataTable`, so neighbouring columns no longer run together.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Month format for year-month text
+  detail: The new cell format `{ format: "month" }` shows a `YYYY-MM` value as month and year in the user's locale ("June 2026"). An entityList text field declared with `format: "month"` uses it by default; other values stay as they are. The list-table-options recipe shows it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: File links in lists read as downloads
+  detail: A file cell in a list shows a download icon before the file name and is labelled "Download: <name>" (`kumiko.field.file-list.downloadNamed`, in all locale packages).
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot warning for a file column a phone cannot reach
+  detail: Boot warns with `list/hidden-file-column` when an entityList hides a file column on narrow screens (`hideOnNarrow`) and its rows open nothing that shows the file: no rowClick action, no `detailFor` screen and no entityEdit screen for the entity with that field in its layout. A single reference column counts too when its target entity has exactly one file field, since its cell links that file; an edit screen does not make it reachable, because its form shows the reference picker. The relatedList sections of projectionDetail and entityEdit screens are checked as well, where only the section `rowClick` or a rowClick action opens a row. An app-wide `createKumikoApp({ onRowClick })` is client code the boot cannot see. It is a warning, so existing apps keep booting.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Phone card layout: title first, date ranges, no empty lines
+  detail: On the phone card the title keeps its line and a long status badge wraps below it. Exactly two unlabelled dates on one line above the title (`cardAbove`) read as a range with a dash. Empty file lists no longer leave a blank meta line. With a row menu (and no leading image, checkbox or expand toggle) the menu sits beside the title line without making it taller, the status badge stays at the right edge, and the lines above and below the title use the full card width.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Progress lists name an entry above its bar, translated notification region
+  detail: `ProgressList` shows name and value first and the bar right below, with more space between two entries than inside one, so a reader from the top pairs each name with its own bar. The toast region is labelled through `kumiko.toast.viewport-label` (Radix fills in the hotkey) instead of the fixed English "Notifications (F8)", in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: A reference to a record with one file links that file
+  detail: A list cell of a single reference (`createReferenceField` or a column with `refEntity`) whose target entity has exactly one `file` field and no `files` field shows the reference label as a download link to that file, with the PDF view in a drawer like the file column of the documents list. The file link takes the place of the link to the referenced record. The file id comes from the rows of the reference lookup query, so tenant and field read access apply: an unreadable file field, an unreadable target or an empty file keep the plain label. The name shown is the reference label, never the stored file name. A target with several file fields, a `files` field, a multi reference or an author renderer stays text, and so do reference columns of dashboard list panels. The documents recipe shows it with an offer that references a filed document.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: The comma between phone card values stays at the value before it
+  detail: In plain phone cards (`plainPhoneCards`, related lists) two `narrowInline` values on one line are joined by a comma that now sits in the same item as the front value, and the space after it is the line's column gap. An app stylesheet that widens that gap no longer leaves the comma standing alone with space on both sides ("980,00 €  ,  29.10.2026" becomes "980,00 €, 29.10.2026"). The front value takes its line height from that item, so an app rule on the line's direct children (`[data-testid^="card-vals-"] > div`) still reaches both values. A date range above the title keeps its dash flush between the dates.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Related lists sort money, located times and empty values like the standalone list
+  detail: A relatedList sorts its loaded rows in the client. A money column (`{ amount, currency }`) now orders by its amount, like the server's column sort, which ignores the currency; before, every money value compared equal and the rows kept the server's id order. A `locatedTimestamp` column orders by its instant, and timestamps within one second order by their fraction whatever its digit count. Empty values sit where the standalone list puts them: last ascending, first descending, or where the field's `sortNulls` says. Rows with the same value follow the id, the standalone list's second key. `sortByAccessor` takes optional `nullsFirst` and `tieBreaker`; without them it behaves as before.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Related lists let their query sort, so the first page holds the right rows
+  detail: buildAppSchema derives `serverSortFields` on every relatedList section and entityList `expandableRow` from the bound query: nothing without a `sort` param, the enum literals of a hand-written query, the fields the SQL sort of an `<entity>:list` query orders by for every caller (no locatedTimestamp, no encrypted field, no field or reference label with its own `access.read`, a reference only with `sortable: true` and a label), plus `insertedAt` where the query can order by it. An open `sort: z.string()` is trusted for the sortable columns, except a reference of the section's `entity` without such a label sort. A value written by the app is overwritten. The section sends `sort`/`sortDirection` for a `defaultSort` or header click on such a column and reloads, so a section with more rows than `pageSize` shows the smallest or largest values instead of sorting only the loaded page. Text columns sorted this way follow the database collation, like the standalone list, instead of the client's locale collation (numeric, case-insensitive): "W 10" now sorts before "W 2". Without a sort it asks for `insertedAt` ascending, so child rows with random (v4) ids come in creation order across commands; rows written in one transaction share `insertedAt` and keep id order among themselves. A column the query cannot order keeps the client sort over the loaded rows; a reference column the query cannot order by its label offers no sort at all, since the client only has its uuid. Apps that marked such a reference `sortable` in the section lose that header sort until the entity field gets `sortable: true` and a `labelField`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: pageRows orders empty values and instants like the SQL list
+  detail: `pageRows` puts missing values last ascending and first descending, like the server list (`nullsSortFirst`), and compares ISO instant strings by time whatever their fraction digit count (`instantSortKey`, now exported from `ui-types` and shared with the relatedList client sort). Lists that page through `pageRows` and sort descending by a nullable column now show the empty rows first: publicstatus sysadmin users (`globalRoles`, `locale`) and tenants (`customDomain`), and the bundled tenant-caps and readiness-run lists.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Sorting and filtering by a companion column respect the field's read access
+  detail: Money, located timestamps and lookupable text store companion columns (`<name>Currency`, `<name>Utc`, `<name>Tz`, `<name>Bidx`) that have no field entry of their own. A list `sort` or `filter` on such a column skipped the field-level read check, so a caller who could not read the field could learn its order, or which rows share a value, through it. These columns now carry the read rule of their field: the sort drops to id order, the filter matches nothing, as for the field itself.
+  -->
+- 34cf35e: On a phone the toast starts below the shell header on an opaque surface, so it no longer covers the title bar or lets its text show through.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Toast below the header on narrow screens
+  detail: Below the `sm` breakpoint the toast viewport starts at `--shell-header-height` instead of the top edge, so the header and the bottom save bar stay visible. The toast tones use the opaque status surface tokens instead of a 10 to 15 percent tint. From `sm` up the toast stays bottom right. Nothing to do for apps; screenshot tests that show a toast on a phone change.
+  -->
+- 34cf35e: Edit screens can fill their form from loaded data without a hand-written effect.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: useDraft fills the draft from query data once per key
+  detail: `useDraft(defaults, { initialFrom: { key, values } })` copies `values` into the draft the first time they arrive for a `key`, keeps the user's edits when the same key refetches, loads again for a new key and resets to `defaults` when `key` is `null`. It returns `loadedKey` for the record the draft belongs to. The no-raw-hooks lint message now points to this option instead of a `useEffect` with a loaded-ref gate.
+  -->
+- 34cf35e: x-axis labels on the left or right edge of the numeric charts stay inside the plot instead of overflowing half their width.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Numeric chart edge tick labels stay inside the plot
+  detail: `NumericLineChart` and `HistogramChart` centered every x-axis label on its tick, so the labels at the left and right edge stuck out of the plot by half their width and could be clipped. A label exactly on the left edge now starts at its tick and one exactly on the right edge ends at it. Every other label stays centered, so a first or last tick inside the plot and the `SignedBarChart` labels under their bars keep their position. The y-axis label column now takes the width of its widest label instead of a fixed 3rem and never wraps a label, so long or negative values such as `-€2,000.00` stay on one line and are no longer cut off at the left.
+  -->
+- 34cf35e: Document text, the PDF frame and the signature page escape HTML through the shared renderer escape.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Document text escapes quotes through the shared HTML escape
+  detail: `textToDocumentHtml` used its own escape that left `"` unescaped; it now uses `escapeHtml` from `@cosmicdrift/kumiko-renderer/headless`, so quotes become `&quot;` and `documentHtmlToText` turns them back. The PDF frame in renderer-puppeteer-client and the signature page in bundled-features drop their private copies for the same shared `escapeHtml` and `escapeHtmlAttr`; their output is unchanged.
+  -->
+- 34cf35e: A config edit screen keeps its form and the user's input when reloading the values after a save fails; the error shows above the form with a retry.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Config edit keeps the form when the refetch fails
+  detail: After a save the config edit screen reloads its values. When that reload failed, the screen replaced the whole form with an error banner, so input in other sections was lost after a short network drop. The full-screen banner now appears only when the first load has no data, as on list screens; a failed reload with values on screen shows the error with a retry button above the form, which stays mounted.
+  -->
+- 34cf35e: Apex pages render links with an unsafe URL scheme as `#`.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Apex links only keep safe URL schemes
+  detail: `renderApexPage` and `renderApexHeader` check every link href (CTAs, header brand and nav, dropdown items and footer, footer columns) with `isSafeHref`, the same check as the Link primitive and the markdown renderer. A `javascript:`, `data:` or `vbscript:` href, also entity-encoded or in mixed case, renders as `#`; relative paths, anchors, http(s), mailto and tel links stay. `metaHtml` and feature or menu icons are still rendered verbatim and must stay app-authored.
+  -->
+- 34cf35e: Infinite entity lists keep showing live changes to their first page after more pages were loaded, and a write no longer jumps them back to the top.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Infinite lists stay live after loading more pages
+  detail: A list with `pagination: "infinite"` keeps its first page as the live query and loads further pages separately. A live event refreshes the first page and merges it into the loaded rows: changed rows update, rows deleted or filtered out of the first page disappear, and rows of later pages stay. Before, a live event after the first load-more only refetched the last page, so changes and deletions on earlier rows never arrived. After a write action the list reloads exactly the pages it has loaded instead of resetting to page 1, so the scroll position and the rows beyond page 1 stay up to date. `InfinityList` uses the same merge helpers and the shared live refetch scheduler; its behavior is unchanged.
+  -->
+- 34cf35e: Apps built with `createKumikoApp` show a hint while the server is unreachable, and live updates reconnect as soon as the device is back online.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Offline hint and immediate live reconnect
+  detail: `createKumikoApp` mounts a status banner (role status, aria-live polite) next to the update checker. It shows while the dispatcher status is `offline` or the browser reports no network, with the new key `kumiko.network.offline` in English, German, Spanish, French and Italian. `createEventSourceLiveEvents` reconnects on the window `online` event instead of waiting out the backoff; the new option `networkOnline` replaces that signal in tests or non-browser runtimes. After the reconnect every live list refreshes through the usual resync.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Offline banner pushes the header down instead of covering it
+  detail: The offline banner now stands in the page flow above the app header. Its height is published as `--kumiko-offline-banner-height`, so full-height layouts (`data-kumiko-fill`) shrink by it and nothing is hidden behind the banner.
+  -->
+- 34cf35e: Polling queries and presence heartbeats pause while the browser tab is hidden.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Polling and presence pause in hidden tabs
+  detail: `useQuery` with `refetchIntervalMs` skips its ticks while the page is hidden and fetches once as soon as it is visible again. `usePresence` sends no heartbeat and ignores presence signals while the page is hidden and beats once when it becomes visible, so a hidden tab drops out of the roster after the presence expiry instead of reporting a user nobody sees. `usePresenceList` pauses its polling and signals the same way. `createKumikoApp` and `createPublicSurface` read the state from `document.visibilityState`; without them (React Native, tests) the page counts as always visible.
+  -->
+- 34cf35e: Button gets a plain variant for clickable rows and tiles, Link a download option, and FilePickButton picks files without uploading them.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Plain button variant, Link download and FilePickButton
+  detail: `<Button variant="plain">` renders a button without the fixed height, padding, centring and background of the other variants and keeps the focus ring and the disabled state, so a multi-line row or an image thumbnail can be the click target; `width="full"` stretches it. `<Link download="name.png">` saves the target as a file and then also accepts `blob:` and `data:image/` hrefs, which a plain link still blocks. `FilePickButton` from `@cosmicdrift/kumiko-renderer/web` is a Button that opens the file picker and hands the picked files to `onFilesPicked` without uploading them (`accept`, `multiple`, `capture`). Apps can replace their raw `<button>`, `<a download>` and hidden `<input type="file">` exceptions for these cases.
+  -->
+- 34cf35e: `useDebouncedValue` is exported from `@cosmicdrift/kumiko-renderer/web`, the raw-hooks lint names it, and the app lint warns about a plain vertical flex with gap.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: useDebouncedValue in /web and a Stack hint in the app lint
+  detail: `useDebouncedValue(value, delayMs)` is now also exported from `@cosmicdrift/kumiko-renderer/web` and listed in the widget reference. The no-raw-hooks message names it for a debounced search instead of a hand-written effect. The raw-ui-in-app lint warns on `className="flex flex-col gap-2|4|6"` and points to `Stack` with `gap="sm"|"md"|"lg"`.
+  -->
+- 34cf35e: List screens navigate rows by keyboard by default; `table.keyboardNavigation: false` turns it off.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Keyboard row navigation is on by default in list screens
+  detail: `entityList`, `projectionList` and `relatedList` screens now make their rows one tab stop with ArrowUp/ArrowDown, Home/End and Enter, without a `table` block. Set `table: { keyboardNavigation: false }` to keep the old behaviour. A free `DataTable` outside a list screen stays opt-in.
+  -->
+- 34cf35e: `AccentScope` tints a subtree with a tenant accent color from runtime data.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: AccentScope applies a tenant accent color
+  detail: `<AccentScope color={accent} className testId>` from `@cosmicdrift/kumiko-renderer/web` renders a div that sets `--color-primary`, `--color-ring` and a readable `--color-primary-foreground` (white or near-black, whichever contrasts more with the accent) for its children. Only hex colors (`#rgb`, `#rrggbb`, `#rrggbbaa`) apply; any other value keeps the theme colors. `accentColorVars(color)` returns the same variables as data. Apps no longer need an inline `style` with a lint suppression for branding colors.
+  -->
+- 34cf35e: `useNow(intervalMs)` gives screens a ticking clock without a raw effect.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: useNow hook for a ticking clock
+  detail: `useNow(intervalMs)` from `@cosmicdrift/kumiko-renderer` returns the current time in epoch ms and re-renders every `intervalMs`. It reads the server-aligned clock, so countdowns and "x ago" texts agree with server timestamps. `null`, zero or a negative interval stops the ticking and keeps the last value; switching back on refreshes the value at once. `PresenceNotice` uses it for its minute clock. The no-raw-hooks lint message now names `useNow(intervalMs)` for clock ticks and `useQuery` with `refetchIntervalMs` for polling.
+  -->
+- 34cf35e: The demo-mode payload type and schema live in `@cosmicdrift/kumiko-types/demo-mode-types`, and `useDemoMode()` from `@cosmicdrift/kumiko-renderer/web` reads it.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Shared demo-mode payload and a useDemoMode hook for the browser
+  detail: Apps with the demoMode boot option mirrored the payload type of GET /demo-mode and cast the response. `@cosmicdrift/kumiko-types/demo-mode-types` now holds DEMO_MODE_PATH, DemoModePayload and demoModePayloadSchema, server-runtime re-exports DemoModePayload, and `useDemoMode()` from `@cosmicdrift/kumiko-renderer/web` fetches the route once per page, validates the answer and returns null while loading or when the server runs without demo mode.
+  -->
+- 34cf35e: A business-rule rejection shows its translated reason instead of the generic "request could not be processed" text when the app has a translation for the reason.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Translated reason for unprocessable errors
+  detail: A write that fails through `failUnprocessable(reason)` arrives with code `unprocessable`, the generic i18nKey `errors.unprocessable` and the slug in `details.reason`. `dispatcherErrorText` (and with it every toast, action form and list action) and the entityEdit error banner now translate `details.reason` as a key when the error carries that generic key and a bundle knows the reason, from `r.translations` or a client feature's translations. Without such a translation they show the generic text as before, and an explicit i18nKey on the error still wins.
+  -->
+- 34cf35e: `Input kind="file"` can pick one or several files without uploading them.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Pick-only file input with multiple
+  detail: `Input kind="file"|"image"` now only picks whenever `onFilesPicked` is set: the picked files go to the callback and nothing is uploaded to `/api/files`, with or without `directory`. The new `multiple` prop lets that pick-only input take several files. Without `onFilesPicked` the input uploads one file as before.
+  -->
+- 34cf35e: `renderer: { format: "money" }` formats a money value `{ amount, currency }` in its own currency, so projectionDetail fields, headers and metrics can take the raw value from the query.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: FormatSpec "money" for money values
+  detail: A projectionDetail query that returned a money field as read by the executor (`{ amount, currency }`, `amount` an integer in the currency's minor unit) had no format to show it: `format: "currency"` needs a fixed currency code and a number, and the synthesized display entity types every field as text. `{ format: "money", locale? }` formats such a value with Intl in the value's own currency and the UI locale, on layout fields (`renderer`), header `statusFormat`, metric `format` and list column renderers. Values that are not a money value render as their text, an object renders empty.
+  -->
+- 34cf35e: Apps with static marketing pages per locale can route apex requests through their locale router instead of a hand-written path matrix.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Locale router dispatches static pages
+  detail: `createLocaleRouter(...)` from `@cosmicdrift/kumiko-renderer/headless/locale-routing` now returns `staticPageDispatch(pathname, fileFor)`. A canonical page path (with or without trailing slash) answers `{ kind: "html", file }` from `fileFor(page, locale)`, or `null` when `fileFor` returns `undefined`. A `localeHints` path and a path carrying the unprefixed default locale's prefix (for example `/en/features` when `en` is the default) answer a 301 redirect to the canonical path. Every other path answers `null`, so the host dispatch can fall through to the app.
+  -->
+- 34cf35e: `@cosmicdrift/kumiko-renderer/testing` exports a typed `createMockDispatcher` for component tests.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Typed mock dispatcher for component tests
+  detail: Component tests built their own dispatcher stubs and cast every handler with `as unknown as Dispatcher[...]`, which hid wrong shapes such as a status store without `getSnapshot`. `createMockDispatcher(options)` from `@cosmicdrift/kumiko-renderer/testing` takes plain handlers for `write`, `query`, `batch` and `stream` (`MockWriteHandler`, `MockQueryHandler`, `MockBatchHandler`, `MockStreamHandler`), answers unset ones with an empty success, starts with `initialStatus` (default `online`) and exposes a writable `statusStore`. Handlers are checked against the dispatcher result types, so no cast is needed. The framework's own renderer, bundled-features and document-designer tests and the in-memory dispatchers of the renderer and recipe e2e fixtures use it.
+  migration: Apps with local `makeDispatcher` stubs or `as unknown as Dispatcher` casts in tests switch to `createMockDispatcher` from `@cosmicdrift/kumiko-renderer/testing`.
+  -->
+- 34cf35e: Bulk failure and cancel states are tested in the DOM instead of the browser.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Bulk cancel and failure banner covered by DOM tests
+  detail: The DataTable bulk DOM test checks the warning variant of the result banner after a failed row and a cancel run (four writes in flight, cancel button disabled with "Cancelling…", succeeded and not-run tallies, unstarted rows stay selected). The two renderer e2e tests for a rejected row and for cancel and the in-memory dispatcher's `rejectWriteIds`, `holdWrites` and `releaseWrites` controls are removed. No runtime behavior changes.
+  -->
+- 34cf35e: The boot-validator tests are split by rule into separate files.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot-validator tests split by rule
+  detail: The single 7,400-line `boot-validator.test.ts` is split into one test file per checked area under `engine/boot-validator/__tests__/`, next to the rule modules. Test names drop internal task references, and the env-dependent cases set their variables through `withEnv`. Runtime behaviour does not change.
+  -->
+- 34cf35e: `enforceCap` and `assertBelowHardCap` take an optional `scope` ("tenant" or "subject"); when set, `CapExceededError` carries it as `details.scope`, so a client can tell a per-user limit from the tenant limit. Parallel `reportIngestProgress` calls for a new file no longer fail on the primary key: the progress row gets a random id and the unique index on tenant and file is the only key in play. The live-events `online` listener is removed through its own window reference, so a cleanup after teardown no longer throws.
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: improvement
+  title: Cap errors carry an optional scope
+  detail: `enforceCap` and `assertBelowHardCap` take an optional `scope` ("tenant" or "subject"); when set, `CapExceededError` carries it as `details.scope`, so a client can tell a per-user limit from the tenant limit.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-ingest-foundation
+  type: fix
+  title: Parallel first progress reports of a file no longer collide
+  detail: Parallel `reportIngestProgress` calls for a new file no longer fail on the primary key: the progress row gets a random id and the unique index on tenant and file is the only key in play.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Live-events cleanup after teardown no longer throws
+  detail: The live-events `online` listener is removed through its own window reference, so a cleanup after teardown no longer throws.
+  -->
+- 34cf35e: The Link primitive keeps a `data:text/calendar` href when it carries `download`.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Calendar downloads work through the Link primitive
+  detail: `DefaultLink` with `download` replaced every href except `blob:` and `data:image/` with "#", so an .ics download built as a `data:text/calendar` URL needed a raw anchor. A download link now also keeps `data:text/calendar,…` and `data:text/calendar;charset=utf-8,…`. Only that exact media type passes; `data:text/html`, look-alike subtypes such as `data:text/calendar-x` and `javascript:` stay blocked, and without `download` every `data:` href stays blocked as before.
+  -->
+- 34cf35e: The scroll container of a `scrollBody` list and of the dashboard list keeps sr-only cell labels inside, so a wide table no longer widens the page.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Wide list tables no longer widen the page
+  detail: The scroll container of a list with `scrollBody` (`<testId>-scroll`, default `render-list-scroll`) and the horizontal scroll container of the dashboard list panel had no positioning. Absolutely placed sr-only labels in cells, for example of a boolean cell or a link icon, then took the page as their containing block, so a table wider than its container made the whole page scroll sideways. Both containers are now `relative`. Apps that set `position: relative` on `render-list-table-scroll` themselves can drop that rule.
+  -->
+- 34cf35e: The shared renderer layer (app/, components/) no longer uses DOM tags or `[&…]` selector variants; the renderer-boundaries guard enforces both.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Shared renderer layer styles through primitive props instead of DOM selectors
+  detail: New primitive props replace the selector hacks in the platform-neutral layer: `FormWidth` "settings" (940px column, used by configEdit `compact`), RenderEdit `fieldIcons: false`, `CardOptions.headerPadding: "flush"`, `DataTableProps.headerTone: "muted"`, `MetricBandProps.splitPart`, `SectionProps.titleOnNarrow: false` and `FillContainerProps.dataAttributes`. The renderer-boundaries guard now also catches a lowercase JSX tag whose opening spans several lines and reports `[&…]` arbitrary variants in app/ and components/. The look stays the same.
+  -->
+- 34cf35e: Chip facets with counts ask the list once per facet instead of once per chip.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Facet chip counts come from one grouped query per facet
+  detail: An entityList facet with `showCounts` or `hideEmpty` now sends one list request with `aggregate: { groupBy: <field> }` instead of one `limit: 1, totalCount: true` request per chip; a chip's count is the sum of its values' groups, a chip without values counts every row, and an answer cut at 200 groups shows no numbers. Reference chips get counts too. A counted chip facet on a multiple reference or an encrypted, personal or secret field is the new boot error `list-table/count-facet-not-groupable`. Named filter counts are unchanged.
+  -->
+- 34cf35e: Dashboard panels read one field of a shared query answer with `resultField`, so several panels load with one request.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Dashboard panels share one query through resultField
+  detail: Every query-backed dashboard panel (stat, stat-group child, chart, list, feed, progress-list, text) takes `resultField`. The panel reads `answer[resultField]` instead of the whole answer, so one screen query that returns for example `{ stats, recent, deadlines }` can feed several panels. Panels with the same `query` and the same merged params share one request on load, on refresh, on live events and on refetchAll; a panel with its own `params` or `ignoreScreenFilter` keeps its own request. Boot validation checks that `resultField` names a field of the query's outputSchema and checks the panel's fields (valueField, columns, row links) against that field's schema. The dashboard-stats recipe shows an overview screen fed by one query.
+  -->
+- 34cf35e: `@cosmicdrift/kumiko-renderer/web` exports StackedAreaChart and four numeric charts: NumericLineChart, SignedBarChart, HistogramChart and DivergingBarChart.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Numeric line, signed bar, histogram and diverging bar charts
+  detail: Apps no longer need a chart library for numeric axes. NumericLineChart draws several series over a numeric x axis (for example years) with y ticks, horizontal or vertical reference lines and a `renderTooltip(x)` slot. SignedBarChart stacks positive values above and negative values below a zero line. HistogramChart draws numeric bins with x and y ticks and vertical reference lines such as breakeven. DivergingBarChart draws signed horizontal bars around zero, sorted by absolute value (tornado chart). StackedAreaChart and its types (ChartSeries, ChartMarker, ChartLine, StackedAreaRanges) are now exported from `@cosmicdrift/kumiko-renderer/web`.
+  -->
+- 34cf35e: useQuery hooks with the same type and payload share one request and one result under a DispatcherProvider.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: useQuery shares one request and one result per query key
+  detail: All useQuery hooks under one DispatcherProvider with the same type and payload now read one shared state. Mounting joins a running request, polling ticks and live refetches send one request per key instead of one per hook, and refetch() called by several hooks in the same tick sends one request; a later refetch() aborts the running request and starts a fresh one. A refetch from any hook updates every hook on that key, and live events open one subscription per key. The state is held only while at least one hook is mounted, so there is no cache: returning to a screen loads fresh data. The new useQuery option `resultField` reads one top-level field of the answer, so several hooks can read different parts of one query result with one request.
+  -->
+- 34cf35e: Handler contracts type dispatch: `queryContract` and `writeContract` declare a handler's payload and result once, and dispatch on server and client infers both from it.
+  
+  <!-- kumiko-changes
+  feature: framework-core
+  type: improvement
+  title: Typed dispatch through handler contracts
+  detail: `@cosmicdrift/kumiko-types/handler-contract` is client-safe and exports `queryContract<TPayload, TResult>(qualifiedName)` and `writeContract<TPayload, TData>(qualifiedName)`. `ctx.dispatch.query`, `queryAs`, `write` and `writeAs`, the job dispatch, the server `Dispatcher`, the extra-route and httpRoute deps (`query`, `write`, `systemQuery`) and the renderer hooks `useQuery` and `useMutation` accept a contract in place of the qualified name, check the payload against it and return the declared result type without a cast. The string form stays for qualified names built at runtime. Auth routes map handler error statuses through one helper instead of casting them.
+  migration: None required. Replace `result as X` and `useQuery<X>(qn, payload)` with a contract exported next to the feature's constants.
+  -->
+- 34cf35e: `enumOption` takes `optionsOf: "<feature>:<entity>.<field>"`, and boot checks that the field exists.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: enumOption names its select field with optionsOf
+  detail: `{ format: "enumOption", optionsOf: "orders:order.status" }` shows the option labels of that select or multiSelect field from the `<feature>:entity:<entity>:field:<field>:option:<value>` keys, so query columns no longer spell out the key prefix by hand. Boot fails with `screen/enum-option-label-source-invalid` when the field does not exist or is not a select or multiSelect field, and when an enumOption sets both or neither of `keyPrefix` and `optionsOf`. `keyPrefix` stays for labels outside the field-option convention. Columns of an entityList or relatedList on a select field already get their labels without a renderer.
+  -->
+- 34cf35e: multiSelect form fields can load their options from a query.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: multiSelect supports optionsQuery on actionForm and configEdit fields
+  detail: `createMultiSelectField({ options: [], optionsQuery, optionsQueryPayload })` loads the checkable options from a query handler, with `{ field }` payload refs to sibling fields like a select. Stored values missing from the result stay visible, and a payload change drops values the new rows no longer contain. Boot rejects the same misconfigurations as for select, and entity multiSelect fields reject optionsQuery. The write handler still checks every submitted value against the same source.
+  -->
+- 34cf35e: An actionForm can reuse an entity's field labels and option labels via `labelEntity`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: actionForm labelEntity
+  detail: `labelEntity` on an actionForm names an entity of the same feature. Every form field that entity also declares takes its label from `<feature>:entity:<labelEntity>:field:<name>` and its select option labels from `...:field:<name>:option:<value>`, both in the renderer and in the required i18n keys. An entry in `fieldLabels` still wins; fields the entity lacks keep the `__action-form__` keys. buildAppSchema derives `labelEntityFields`; a `labelEntity` that is not an entity of the feature fails the boot with `form/label-entity-unknown`. Without `labelEntity` nothing changes.
+  migration: Optional. Set `labelEntity` on forms whose fields mirror an entity, then delete the `fieldLabels` entries that only point at that entity's field keys and the duplicated `__action-form__` translations.
+  -->
+- 34cf35e: `useQuery({ live: true })` now refetches on events of the query handler's own entity, also for camelCase entities, and `useLiveRefetch` brings the same live refetch to hooks that fetch a query themselves.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Live refetch for entity queries and custom fetch hooks
+  detail: The app schema's `queryLiveEntities` now lists, for every query handler mapped to an entity (`<entity>:<verb>` names and r.crud queries), that entity next to the declared `liveEntities`. A live `useQuery` on `driverNode:list` therefore listens on `driverNode` events, where the client previously derived `driver-node` from the kebab query name and never matched the SSE frame. Handlers that read other entities still declare them via `liveEntities`. New `useLiveRefetch(queryType, refetch, { enabled })` from `@cosmicdrift/kumiko-renderer` subscribes a self-fetching hook (for example an all-pages loader) to the same entities and coalesces bursts like `useQuery`.
+  -->
+- 4bc40f3: An actionForm `redirect` with `handOff: true` lets the target form prefill those fields; a `timestamp` cell takes `emptyLabel`; an actionForm takes `valueDisplay`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: A multi-step actionForm hands values to its next step with redirect handOff
+  detail: `redirect: { screen, searchParams, handOff: true }` lets the target actionForm prefill the same-named fields from the URL and makes the redirect win over a `returnTo` the form was opened with, so step one can pass a checked value (for example a code) to step two. Opt-in: redirects without `handOff` behave exactly as before.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: A timestamp column can show text for an empty value
+  detail: `renderer: { format: "timestamp", emptyLabel: i18nKey }` renders the translated text (for example "never") when the cell is empty; without it the cell stays blank as before.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: An actionForm can show its read-only fields as plain text
+  detail: `valueDisplay: "text"` on an actionForm renders read-only fields as their value instead of a disabled input, as projectionDetail already does. Read-only fields no longer count toward the "All fields are required" summary, so a form with one editable required field keeps its asterisk.
+  -->
+- 6f043fa: The connector list says why a satellite is not syncing when its upload was refused for lack of storage; the pairing link a satellite shows opens the pair screen in an app with workspaces.
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: improvement
+  title: The connector list shows "Storage full, uploads paused"
+  detail: When an upload is refused with `507 storage_quota_exceeded`, the device remembers it (`quotaRejectedAt`) and the "Details" column of its connector says "Storage full, uploads paused" until the next upload of that device is accepted. The server decides this, so no satellite update is needed. New column on `store_connector_devices`: run the migration `0073_connectors-quota-rejected`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: A link to a screen without workspace prefix opens that screen
+  detail: In an app with workspaces, `/<screenId>` (for example the connectors pairing link `/connector-pair`) was read as an unknown workspace and ended on the default screen. The shell now moves it to the active workspace and keeps the query.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: A form screen can name the fields a plain link may fill
+  detail: An `actionForm` takes `linkPrefillFields: ["userCode"]`. A link such as `/pair?userCode=AB12-CD34` then fills exactly these fields, each value coerced by its field type; every other query key is ignored, and nothing is submitted by the link. Until now only navigate `params` and `redirect.handOff` could allow URL prefill. Boot rejects a name that is no field of the form (`form/link-prefill-unknown-field`).
+  -->
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: improvement
+  title: The satellite can offer a link that opens the pair screen with the code filled in
+  detail: `POST /v1/device_authorization` also answers `verification_uri_complete` (`verification_uri` plus `?userCode=<code>`, RFC 8628 section 3.3.1). The pair screen fills the code from it; the admin still presses Check, and confirming stays bound to that Check by the same admin within 5 minutes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: fix
+  title: The confirm step shows the requesting address readably
+  detail: A request from an IPv6 address is shown as its /64 prefix in compact form (`2001:db8:1:2::/64`), and a request from this very server as "local (this server)", instead of `0:0:0:0::/64`. IPv4 is unchanged. Action form facts take `valueIsI18nKey` to show a translated value.
+  -->
+- a44b984: Eager-loaded references in `_refs` now carry money and located timestamp fields in the same shape as the referenced record's own detail, and a money field the caller may not read no longer leaves its currency behind. A reference label that is money or a located timestamp shows the formatted value.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: _refs carry money and located timestamps in the detail shape
+  detail: A referenced row in `_refs.<field>` used to hold a money field as the raw minor-unit amount (a `bigint` in process) next to a separate `<field>Currency`, and a located timestamp as `<field>Utc` plus `<field>Tz`. A handler result carrying such a `_refs` row failed in `JSON.stringify`. The row now has the shape the referenced entity's detail query returns: `{ amount, currency }` for money, `{ at, tz, utc }` for a located timestamp, without the companion columns. A money or located timestamp field the caller may not read is absent as a whole; before, its `<field>Currency`, `<field>Utc` or `<field>Tz` column still came through.
+  migration: Code that reads `_refs.<ref>.<money>` as a number or `_refs.<ref>.<money>Currency` reads `_refs.<ref>.<money>.amount` and `.currency`; code that reads `_refs.<ref>.<ts>Utc` or `<ts>Tz` reads `_refs.<ref>.<ts>.utc` and `.tz`.
+  affects: _refs, enrichWithReferences, enrichRowWithReferences, EagerloadedRow
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Reference columns format a money or located timestamp label
+  detail: A reference column or reference field whose label field is a money or located timestamp field showed "[object Object]", both for eager-loaded `_refs` rows and for labels from the lookup query. It now shows the formatted amount or timestamp.
+  -->
+- 4bc40f3: A table row action's `confirm` can be a function of the row, so the dialog names what is about to be deleted.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Row action confirm text can come from the row
+  detail: `DataTableRowAction.confirm` accepts `(row) => string` besides a plain string; the confirm dialog shows the returned text for the clicked row. `QueryTable` also takes `sort`/`onSortChange` with per-column `sortable`, a column `renderer` (a client plugin's `columnRenderers` entry) and `screenPadding={false}` for a table inside a screen that pads itself. A plain string keeps working; nothing to do for apps. Visible in every app: the sort arrow of a sortable table header now shows at rest (faint) instead of only on hover.
+  -->
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [cdbf386]
+- Updated dependencies [cdbf386]
+- Updated dependencies [cdbf386]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [6f043fa]
+- Updated dependencies [a44b984]
+- Updated dependencies [007d227]
+- Updated dependencies [a44b984]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [3f3bb46]
+  - @cosmicdrift/kumiko-framework@0.425.0
+  - @cosmicdrift/kumiko-types@0.425.0
+
 ## 0.424.1
 
 ### Patch Changes

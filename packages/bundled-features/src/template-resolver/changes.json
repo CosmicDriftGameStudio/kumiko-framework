@@ -1,69 +1,155 @@
 [
   {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Shorter nav labels, translated content folders and layout presets"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Tenant mail and PDF bodies are re-sanitized at render time"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Template resolution in one query"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Override counts no longer load every tenant row"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Template overview no longer loads bodies"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Resource upload always links into a template",
+    "detail": "Without templateId the upload skipped the template edit check and only created a new file. That path had no caller; templateId and key are now required, so every upload runs the edit check of its template.",
+    "migration": "Send templateId and key with every resource-upload call; a plain file goes through POST /api/files.",
+    "affects": [
+      "resource-upload",
+      "resourceUpload"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Template reads follow tenantEditable roles",
+    "detail": "find-by-id and list were open to TenantAdmin, SystemAdmin and every User, while a role unlocked through tenantEditable was refused. They now admit SystemAdmin, TenantAdmin and the roles listed in tenantEditable, the same rule as body-preview; a plain User gets 403.",
+    "migration": "If plain members must read templates, list their role in the tenantEditable entries of createTemplateResolverFeature.",
+    "affects": [
+      "template-resolver",
+      "createTemplateResolverFeature",
+      "tenantEditable"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Text block list is sorted and capped"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Read override on text blocks narrows to SYSTEM only",
+    "detail": "by-slug, by-tenant and the collection list and item queries took any tenant id as tenantIdOverride, but a tenant-scoped read reaches only the caller's own tenant plus SYSTEM, so a foreign id silently returned the caller's own and SYSTEM rows. The override now accepts SYSTEM_TENANT_ID only (still SystemAdmin only) and any other value fails validation.",
+    "migration": "Pass SYSTEM_TENANT_ID or no override. Reads of another tenant's content go through a server-side systemQuery for that tenant.",
+    "affects": [
+      "tenantIdOverride",
+      "textBlocksClient"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "One trusted layout resolution for mail, PDF and preview"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Text-block reads sanitize stored html"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "User-owned entry titles and folders are personal data",
+    "detail": "`user-content-entry.title` and `.folder` are now `personal: { of: \"ownerId\" }`. They are stored encrypted while a KMS is configured, decrypted by the collection list and item queries and by the user export, and read as erased after the owner's key is shredded. Before, a forget left signature and snippet names in plaintext.",
+    "migration": "Apps with an `ownership: \"user\"` collection run the PII backfill (backfillEventPiiEncryption) and rebuild the user-content-entry projection; raw reads of read_user_content_entries.title and .folder now return ciphertext and must go through decryptStoredPii or the collection queries.",
+    "affects": [
+      "ownership: \"user\"",
+      "user-content-entry",
+      "read_user_content_entries"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Text-block writes reject external images and embeds",
+    "detail": "`TemplateResolverHandlers.set` stored html text blocks and snippets as written. It now checks them with the same document sanitizer as document templates, for tenant and system scope alike, and answers a rejected body with `validation_error`. The field issues carry the sanitizer codes, among them `script_element`, `event_handler_attribute`, `disallowed_link_href`, `external_image_source` (an `<img>` with `src` or `srcset`), `image_without_resource` (an `<img>` without `data-resource`) and `embedded_content` (`<iframe>`, `<object>`, `<embed>`). A text block cannot carry an image at all, because `set` stores no linked resources. Markdown and plain bodies are unchanged.",
+    "migration": "Remove external images, images and embeds from html text blocks and snippets before you save them again: an existing block that still contains them fails with `validation_error` on its next `set` (the anonymous reads already withhold such a tenant block and serve a system block unchanged). Seeds and imports that write such bodies through `set` fail the same way. Link to an image or video instead of embedding it, or move the content into a document template that carries the image as a linked resource.",
+    "affects": [
+      "template-resolver",
+      "TemplateResolverHandlers.set"
+    ]
+  },
+  {
     "version": "0.424.0",
     "type": "improvement",
-    "title": "document ops, sanitizer and block diff are exported",
-    "detail": "The barrel exports `applyDocumentOps`, `documentOpsSchema`, `documentBlocksOf`, `allowedBlocksFor`, `parseDocumentJson`, `serializeDocumentJson`, `diffTemplateBlocks`, `splitTemplateBlocks` and `VARIANT_UNKNOWN_REASON`, so a bundle that keeps its own copy of a document can edit it with the same operations."
+    "title": "document ops, sanitizer and block diff are exported"
   },
   {
     "version": "0.424.0",
     "type": "fix",
-    "title": "form-field document editor keeps tables in frame, scrolls its toolbar and leaves room for the repeat strip",
-    "detail": "Under md the toolbar rows of the form-field editor are one line that swipes sideways instead of wrapping. Wide tables scroll inside their wrapper instead of leaving the editor frame, and a table with a repeat strip gets a line of room above it so the strip no longer covers the previous paragraph. The document-draft editor shows the template's variable label (or the company-data name) on a placeholder chip that has no value yet."
+    "title": "form-field document editor keeps tables in frame, scrolls its toolbar and leaves room for the repeat strip"
   },
   {
     "version": "0.424.0",
     "type": "fix",
-    "title": "The variants query no longer requires TenantAdmin or User",
-    "detail": "`template-resolver:query:variants` is open to every authenticated user, because whoever may create a document from a base template must be able to list its variants and an app's role names are unknown to the framework. The result is unchanged: slug, title, scope and locale of the active system variants and the caller's own tenant's variants, never another tenant's."
+    "title": "The variants query no longer requires TenantAdmin or User"
   },
   {
     "version": "0.423.0",
     "type": "improvement",
-    "title": "Variants of a PDF template",
-    "detail": "A `tenantEditable` entry of kind `document-pdf` accepts `variants: true` (any other kind fails boot with `template-resolver/tenant-editable-variants-need-pdf`). A variant is a `document-pdf` row with the slug `<base>:<name>` (name: one kebab segment, at most 40 characters) and `meta.variantOf = <base>`; its title is the title column. The new write `template-resolver:write:create-variant` ({baseSlug, title, name?, locale?}; `name` is derived from the title when omitted, `locale` defaults to `de`) copies the base as the caller's tenant draft with the base's content, variables, linked images and settings, and is refused with `variants_not_enabled` when the base entry lacks `variants: true` (also for a TenantAdmin) and with `variant_exists` for a taken slug. A variant's `variableSchema` follows its base: every write without an explicit schema (`patch-draft`, `create-variant`, publish) stores the base's current effective schema, so a base that gains a variable does not lock its variants and publish gates the required placeholders against it. `setVariable` on a variant and an `upsert-tenant` schema that differs from the base are refused with `variables_inherited_from_base`; `patch-draft` also refuses a change of `variantOf` (`variant_of_immutable`). The overview query rows carry `variantOf` (base slug or null), `variantsEnabled` and `locale`, and list a variant right after its base; the document designer shows them and offers \"Variante anlegen\" on bases that allow variants. The new query `template-resolver:query:variants` ({baseSlug, locale}) returns the active variants as {slug, title, scope, locale}, system and own, never another tenant's. Editing and delivery of variants follow the base's entry, so removing the base from `tenantEditable` stops serving tenant variants. `seedSystemTemplate` takes `variantOf` for system variants."
+    "title": "Variants of a PDF template"
   },
   {
     "version": "0.423.0",
     "type": "improvement",
-    "title": "patch-draft description tells agents to use heading blocks for section titles",
-    "detail": "The `patch-draft` description says that a heading stays with the block that follows it on print, so section titles should be `heading` blocks."
+    "title": "patch-draft description tells agents to use heading blocks for section titles"
   },
   {
     "version": "0.422.0",
     "type": "improvement",
-    "title": "PDF image captions, image columns and page-break rules",
-    "detail": "Entries of an `images` variable can carry a caption (`{ fileRefId, caption }`), printed under the image as a figcaption. The Images block accepts `data-image-columns` 1, 2 or 3. The print CSS keeps headings with the next paragraph and avoids splitting paragraphs, list items, table rows and figures across pages; tables of up to 8 rows stay whole."
+    "title": "PDF image captions, image columns and page-break rules"
   },
   {
     "version": "0.420.0",
     "type": "improvement",
-    "title": "Editor controls for letter features",
-    "detail": "The content editor bubble gains image width in mm and left/center/right alignment (plus the existing full-bleed switch in layout regions) and a divider bubble with color and weight. The table toolbar gets add-row and remove-row buttons; a row added under the repeat row is a plain row. The pdf-layout settings gain table line color, fold marks and header/footer on page 1 switches; the layout paper shows fold marks on the left edge and dims a region that starts on page 2."
+    "title": "Editor controls for letter features"
   },
   {
     "version": "0.420.0",
     "type": "improvement",
-    "title": "PDF templates cover typical business letters",
-    "detail": "patch-draft accepts image `widthMm`, `align` and `bleed` (bleed only in the header or footer of a pdf-layout, otherwise `bleed_not_allowed`), the run `{hardBreak:true}`, table `rowsAfterRepeat`, and divider `color` and `weightPt`. Layout meta gains `tableLineColor`, `foldMarks` (none, din-a, din-b) and `headerOnFirstPage` / `footerOnFirstPage`, plus `cornerMarks` (boolean, angles 10 mm from the paper edge, drawn by pdf-lib like the fold marks) and `paperColor` (`#rrggbb`, pdf-lib fills each page with it underneath all content, bleed images included; absent means white). Tables take `cellPaddingMm` (0 to 10), `widthMm` and `align`; table rows take `lineAbove` / `lineBelow` `{color, weightPt}` that beat `tableLineColor` on that edge, also on the repeat row and `rowsAfterRepeat`; a text run takes `dateStyle` (`short` 15.01.2026 or `long`, the default) for the placeholders in it, which `{{date x dateStyle=\"short\"}}` renders in PDFs and mails. Filled cells in the outer columns keep a small inset so their text no longer sticks out of the fill, and the footer region's table cells are top-aligned like the body. The editor schema loads and writes the new attributes unchanged. renderer-puppeteer-client prints a header or footer that skips page 1 as a second render merged with pdf-lib and draws fold marks on every page. The full-bleed rule is now scoped per region, because Chromium shares one document for header and footer and an unscoped rule moved the footer image to the top edge."
+    "title": "PDF templates cover typical business letters"
   },
   {
     "version": "0.420.0",
     "type": "fix",
-    "title": "PDF preview shows a draft letterhead",
-    "detail": "A preview that carries draft content resolves the tenant's own PDF layout in its working version, including layouts that were never published, instead of falling back to the system layout. `resolveLayout` takes an optional `working` flag for this; system layouts always resolve to their active version and real renders are unchanged."
+    "title": "PDF preview shows a draft letterhead"
   },
   {
     "version": "0.420.0",
     "type": "fix",
-    "title": "A frame past the paper edge is refused on save",
-    "detail": "A document-pdf body whose frame reaches past 297 mm (x + width or y + height, the long edge of the largest supported paper) is refused with frame_outside_page instead of printing blank pages before the text. The sender line of an address frame is now flattened on the parsed document, so a line break next to a tag or attribute can no longer corrupt the markup. The configured default PDF layout is looked up once per render and preview."
+    "title": "A frame past the paper edge is refused on save"
   },
   {
     "version": "0.419.0",
     "type": "improvement",
-    "title": "Frames and text styles in PDF templates",
-    "detail": "A PDF body can hold positioned frames (address window at DIN 5008 form B or A, free text frame, as `div[data-frame]` with `data-x`, `data-y`, `data-width`, `data-height` in mm) and text styles (`span[data-text-style]` with font, size in pt and colour, plus line height and paragraph spacing on blocks). Both go through the sanitizer and compile to inline CSS. The font catalog is Arial, Times New Roman, Courier New, Calibri and Cambria; the puppeteer-service image needs the metric-compatible fonts (Carlito, Caladea) next to the Liberation ones, so rebuild it."
+    "title": "Frames and text styles in PDF templates"
   },
   {
     "version": "0.419.0",
@@ -75,14 +161,12 @@
   {
     "version": "0.419.0",
     "type": "improvement",
-    "title": "Header and footer use the layout font size",
-    "detail": "PDF header and footer take the layout's `fontSizePt` and fall back to 10.5pt, the size the editor always showed; before they printed at 9px. Paragraphs in header and footer no longer carry margins. Existing PDF layouts therefore change on the next render: a footer taller than the bottom margin minus 4mm reaches into the page body, so check multi-line footers."
+    "title": "Header and footer use the layout font size"
   },
   {
     "version": "0.419.0",
     "type": "improvement",
-    "title": "Default PDF layout per tenant, apply-layout and publish-templates",
-    "detail": "The tenant config key `template-resolver:config:default-pdf-layout-slug` picks the layout of PDF templates that name none. `template-resolver:write:apply-layout` sets it (mode `all`, no copies) or writes the layout into a tenant draft per chosen template (mode `selected`, text unchanged); `template-resolver:write:publish-templates` activates drafts together and reports per template what failed. The usage query lists the templates a layout serves, with `hasOwnLayout` for those that follow the default."
+    "title": "Default PDF layout per tenant, apply-layout and publish-templates"
   },
   {
     "version": "0.419.0",
@@ -94,68 +178,57 @@
   {
     "version": "0.419.0",
     "type": "improvement",
-    "title": "patch-draft and create-layout let an agent rebuild PDF templates and layouts",
-    "detail": "patch-draft and document-blocks accept inline runs (bold, italic, underline, font, size, color), block formatting, lists, tables with a repeat row, address and text frames, a replaceBody op and a formatBlock op, all checked against the editor's print ranges and fonts. They also take kind pdf-layout with a region (header, signature or footer). The new create-layout handler creates an empty PDF layout draft under the slug tenant-layout-<name>; a tenant may edit, publish and use such layouts as soon as it may edit any PDF template, and system layouts may not take that prefix (reserved_layout_slug). patch-draft is now an agent proposal with risk low; its new refusals use the patch error codes print_style_not_allowed, invalid_table, too_many_blocks and others."
+    "title": "patch-draft and create-layout let an agent rebuild PDF templates and layouts"
   },
   {
     "version": "0.415.0",
     "type": "fix",
-    "title": "Orphan cleanup keeps edited system templates of notifications unknown to the booting registry",
-    "detail": "A system mail template of a mounted feature whose notification this boot does not register (conditional registration, older pod during a rolling deploy) is deleted only while the system user alone ever wrote it; an edited row is kept and logged with slug and locale. Rows of notifications renamed away through `renamedFrom` are still deleted."
+    "title": "Orphan cleanup keeps edited system templates of notifications unknown to the booting registry"
   },
   {
     "version": "0.415.0",
     "type": "fix",
-    "title": "Web preview of document bodies fills the example values",
-    "detail": "The web preview target sent document bodies with unfilled variable chips. It now fills them with the example values like the snippet preview does."
+    "title": "Web preview of document bodies fills the example values"
   },
   {
     "version": "0.414.0",
     "type": "improvement",
-    "title": "text-block and collection-entry masks on the editor workbench, the preview toggle under the field is gone",
-    "detail": "The text-block editor and the collection-entry create form open on `EditorWorkbench` with an edit and a preview mode and the placeholder example values in the right rail. `previewTargetOfKind` and `previewTargetOfCollectionKind` map a template kind to its preview target: text-block previews as `web`, snippet and ai-prompt as `text`. New query `template-resolver:query:body-preview` (roles that may write a body: SystemAdmin, the `tenantEditable` roles and TenantAdmin) renders an unsaved body (`body`, optional `bodyFormat` markdown or document) to the HTML the public page serves, without saving; a document body the write rules reject answers with the field errors of a save. `WebPreviewRenderer` is exported from `template-resolver/web` and registered as `contentPreviews.web`; `contentPreviews.text` shows document-format entries with the example values filled in client-side (escaped, in the sandboxed mail frame, no server call), other formats stay plain text. Legal text previews work in apps that mount legal-pages without managed-pages. A text without placeholders shows no example-values section. `ContentField` and its inline Vorschau toggle are removed. New keys `template-resolver.editor.{infoEdit,infoPreview,localeLabel,rail*}` in all locale packages."
+    "title": "text-block and collection-entry masks on the editor workbench, the preview toggle under the field is gone"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Collection entries via decryptStoredPii",
-    "detail": "template-resolver reads collection entries via decryptStoredPii."
+    "title": "Collection entries via decryptStoredPii"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Seeding removes system templates of notifications that no longer exist",
-    "detail": "`seedNotificationTemplates` deletes, through the event-based delete write, the system mail templates `<feature>:notify:<name>` whose feature is mounted but whose notification is gone, and those stored under a `renamedFrom` name. Tenant overrides of such slugs are kept and reported once per slug with a warning (slug and count only). Templates of features that are not mounted stay untouched."
+    "title": "Seeding removes system templates of notifications that no longer exist"
   },
   {
     "version": "0.414.0",
     "type": "improvement",
-    "title": "A template test mail is logged as a delivery attempt",
-    "detail": "`send-test` now writes one delivery attempt per test mail (notification type `template-resolver:test-mail`, channel `email`, the caller as recipient, status and error code of the send, address masked like every attempt), also when the send fails, so test mails show up in the delivery log. The attempt is written on the outside-transaction connection through the delivery attempt log, which the delivery feature now exports as `logAttempt`."
+    "title": "A template test mail is logged as a delivery attempt"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Test mail attempt log works from agent tool calls",
-    "detail": "send-test drops its unsafeRaw escapeHatch, which the agent tool-call scope refuses. The attempt row is written by delivery (createDeliveryAttemptLogFactory, bound per call as ctx.services._logOwnDeliveryAttempt) on the outside-transaction connection, so a failed test mail stays logged after the handler transaction rolls back. Apps that build their own extraContext without createDeliveryTestContext or the prod boot must set _deliveryAttemptLogFactory, otherwise send-test fails closed before sending."
+    "title": "Test mail attempt log works from agent tool calls"
   },
   {
     "version": "0.414.0",
     "type": "improvement",
-    "title": "Overview query filters by slug",
-    "detail": "`template-resolver:query:overview` accepts `slug` as a filter field next to kindGroup, kind, origin and status, so a client can fetch the one row of an open template instead of paging through its kind."
+    "title": "Overview query filters by slug"
   },
   {
     "version": "0.402.0",
     "type": "improvement",
-    "title": "Document anchors accept relative links",
-    "detail": "An anchor href in a document body may be relative (/path, ./, ../, #, ?); never // or a backslash. Other URL attributes (image src and similar) and mail links still accept only explicit schemes or placeholders. The sanitizer, the editor schema, compileDocumentBody and the confirmation mail use the same split."
+    "title": "Document anchors accept relative links"
   },
   {
     "version": "0.402.0",
     "type": "improvement",
-    "title": "Collection nav takes entryLabel for the create title",
-    "detail": "A collection's nav takes an optional entryLabel (singular i18n key, new in the nav type and in the required surface keys of all locale packages). The create screen title reads \"New {label}\", or \"New entry\" without it."
+    "title": "Collection nav takes entryLabel for the create title"
   },
   {
     "version": "0.395.0",
@@ -168,128 +241,107 @@
   {
     "version": "0.394.0",
     "type": "fix",
-    "title": "collection trees and Save follow the server's access rules",
-    "detail": "textBlocksClient({ tenantId }) no longer sends tenantIdOverride for `ownership: \"user\"` collections, and a tenant-wide tree that the server answers with tenant_override_requires_system_admin reloads on the session tenant, so members see and edit their own entries instead of an error. The Save button follows the collection's own access rule (DEFAULT_COLLECTION_ACCESS when none is declared), the same rule the list, item and set handlers check; the public text-block pair keeps TenantAdmin or SystemAdmin. A save reloads the tree of its collection, so a new per-user entry shows without a page reload. The editor sets the page header title to the entry title, so the breadcrumb no longer shows the screen behind it."
+    "title": "collection trees and Save follow the server's access rules"
   },
   {
     "version": "0.394.0",
     "type": "fix",
-    "title": "user-owned collection entries no longer fail with pii_ciphertext_leak",
-    "detail": "With a PII key service configured, the list and item queries of an `ownership: \"user\"` collection (signatures) returned the stored ciphertext, so the API rejected the response and the editor showed \"Could not load block\". Both queries now decrypt `content` for the owner before returning it."
+    "title": "user-owned collection entries no longer fail with pii_ciphertext_leak"
   },
   {
     "version": "0.390.0",
     "type": "fix",
-    "title": "Rail inserts no longer do nothing after the placeholder labels load",
-    "detail": "Inserting a placeholder into the subject, preheader, header chip or footer field could silently do nothing once the placeholder labels had loaded, because the replaced editor unregistered the handle of its remounted successor. The editors now report their handle from the React commit instead of tiptap's create and destroy callbacks."
+    "title": "Rail inserts no longer do nothing after the placeholder labels load"
   },
   {
     "version": "0.390.0",
     "type": "fix",
-    "title": "Placeholder inserts keep working after a line editor remounts",
-    "detail": "When a placeholder line editor (subject, preheader, header chip, footer note) remounted (labels arriving from the async validate query, or a new external value), TipTap could destroy the replaced editor after the new one was created. Its late null report then removed the live handle and placeholder inserts into that field did nothing. A null from a superseded editor is now ignored."
+    "title": "Placeholder inserts keep working after a line editor remounts"
   },
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "Split DocumentTiptapEditor into a model hook and render functions",
-    "detail": "DocumentTiptapEditor and its insert panel compose a model hook, pure helpers and render functions for toolbar, bubble menu, content and insert fields. Rendered markup and behavior are unchanged."
+    "title": "Split DocumentTiptapEditor into a model hook and render functions"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "copy-locale reads source files from the owning tenant's storage",
-    "detail": "The copy of linked files uses readFileRefContent with the provider of the fileRef's tenant. A source file whose fileRef row exists but whose bytes cannot be read fails the copy with template_resource_source_unreadable and releases the files already copied. A deleted fileRef is still left out of the copy."
+    "title": "copy-locale reads source files from the owning tenant's storage"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "replaceText explains finds across formatting or placeholders",
-    "detail": "replaceText matches inside single text nodes so formatting stays intact. A find that appears in the block line but crosses a formatting change now fails with text_spans_formatting, and a find with a {{placeholder}} fails with placeholder_not_replaceable, both with translated messages. Only a string that is not in the block at all still gives text_not_found."
+    "title": "replaceText explains finds across formatting or placeholders"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "send-test-status follows the tenantEditable roles",
-    "detail": "send-test-status takes its access from templateEditAccess(policy.tenantEditable), like send-test. Roles that may send a test mail now get the status, and a TenantAdmin without an edit opt-in gets a 403 on both."
+    "title": "send-test-status follows the tenantEditable roles"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "overview follows the tenantEditable roles",
-    "detail": "The overview query takes its access from templateEditAccess(policy.tenantEditable). An opted-in role lists exactly the released templates, and a TenantAdmin without an opt-in is refused with a 403, matching the screen visibility and the write handlers."
+    "title": "overview follows the tenantEditable roles"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "overview search and sort use the translated title",
-    "detail": "The overview query translates a seeded titleI18nKey with the request locale before it filters by search and sorts by title. A search for the visible title now matches, and the raw key is still searchable."
+    "title": "overview search and sort use the translated title"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "legalContentSeed keeps and can set the content folder",
-    "detail": "seedTextBlock no longer resets the folder of an existing block to null when the seed passes no folder. legalContentSeed takes an optional folder, so apps do not need their own seed loop to keep legal blocks in the SystemAdmin content tree."
+    "title": "legalContentSeed keeps and can set the content folder"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Template overrides, key collisions and by-tenant queries",
-    "detail": "link-pdf refuses a key that already holds an inline image (key_in_use). by-tenant no longer runs a query per row, tenant-override-counts selects only the needed columns, and tenant-overrides resolves names beyond the first 200 tenants or users through the new ids filter of the tenant and member directories. Notification preference and form-draft cleanup queries bind array parameters as Postgres array literals."
+    "title": "Template overrides, key collisions and by-tenant queries"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Re-seeding keeps archived system templates, drops stale drafts and adds only missing bundle locales",
-    "detail": "A boot-time re-seed no longer reactivates an archived system template and clears an open system draft when the seeded content changes. A bundle with resources seeded with ifExists skip imports only the missing locales instead of overwriting existing system rows. copy-locale fails with version_conflict when its source changed between the upload and the transaction, and releases the uploaded files."
+    "title": "Re-seeding keeps archived system templates, drops stale drafts and adds only missing bundle locales"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "isCollectionRefusedKind is a type predicate",
-    "detail": "isCollectionRefusedKind accepts unknown and narrows to the refused kinds; tier-engine's isTierAssignmentSource shares the isOneOf implementation. Behavior is unchanged."
+    "title": "isCollectionRefusedKind is a type predicate"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Layout usage list matches the overview",
-    "detail": "The usage query of a mail layout filters the mail rows by the caller's visibility like the overview and logs a warning when the 5000-row limit cuts the result."
+    "title": "Layout usage list matches the overview"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Admin views follow the delivery rule of rendering",
-    "detail": "List, find-by-id, diff-to-system, validate, preview and the document base hide a collection row that a locked system template of the same slug shadows, as mail, PDF and the resolver already do."
+    "title": "Admin views follow the delivery rule of rendering"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Seeded title key must look like a namespace:key",
-    "detail": "seedSystemTemplate rejects a titleI18nKey without a namespace prefix or with whitespace, so free text cannot pass as a key and show up raw in the UI."
+    "title": "Seeded title key must look like a namespace:key"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Failing release keeps the upload error",
-    "detail": "When releasing already uploaded files fails after a refused upload in copy-locale or bundle import, the release error is logged and the original error is returned, and the releases run once."
+    "title": "Failing release keeps the upload error"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Mail layout enums and hex color pattern are exported client-side",
-    "detail": "The layout editor imports the width, font, accent line and button style lists plus the hex pattern from the template-resolver web barrel instead of keeping copies, so editor and server validation cannot drift."
+    "title": "Mail layout enums and hex color pattern are exported client-side"
   },
   {
     "version": "0.384.0",
     "type": "improvement",
-    "title": "Template overview reports tenant overrides per template",
-    "detail": "template-resolver has a SystemAdmin query tenant-override-counts, and the overview rows for system templates carry overriddenBy { active, total } for SystemAdmins. The designer's overview reads it instead of issuing one tenant-overrides query per row. Reading it uses a declared unsafeRaw escape hatch because it counts across tenants."
+    "title": "Template overview reports tenant overrides per template"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "Titles for the template-resolver write handlers",
-    "detail": "Every agent-callable template-resolver write handler now has a title in de, en, es, fr and it, so the AI assistant names actions such as \"Edit template draft\" instead of \"template-resolver:write:patch-draft\". The handlers of mounted content collections (`<id>-set`) stay untitled because their names depend on the app. The empty-field hint of the placeholder line editor now ends in an ellipsis inside the field instead of running past it."
+    "title": "Titles for the template-resolver write handlers"
   },
   {
     "version": "0.379.0",
@@ -301,38 +353,32 @@
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "Overview label for locked template overrides",
-    "detail": "Adds templateResolver.overview.lockedOverride."
+    "title": "Overview label for locked template overrides"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "Mail rendering follows the template delivery policy",
-    "detail": "Resolves templates through createTemplateResolverApi(db, registry); overrides of locked templates fall back to the system version."
+    "title": "Mail rendering follows the template delivery policy"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "PDF rendering follows the template delivery policy",
-    "detail": "Resolves templates through createTemplateResolverApi(db, registry); overrides of locked templates fall back to the system version."
+    "title": "PDF rendering follows the template delivery policy"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "Samples follow the createTemplateResolverApi(db, registry) signature",
-    "detail": "Recipes and sample apps build the template resolver API with the registry as second argument."
+    "title": "Samples follow the createTemplateResolverApi(db, registry) signature"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "seedSystemTemplate accepts titleI18nKey",
-    "detail": "A seeded template can store an i18n key as its title (titleI18nKey, exclusive with title). The overview returns the key; the document-designer overview, mail editor and PDF link modal translate it and fall back to the raw text. Templates without a key behave as before; no migration."
+    "title": "seedSystemTemplate accepts titleI18nKey"
   },
   {
     "version": "0.378.0",
     "type": "improvement",
     "title": "Document PDFs embed the images of a record",
-    "detail": "A template variable of type images (templateVariable.images()) holds FileRef ids of the record. The new Images block (div[data-images], PDF templates only, rejected for mail kinds) renders them as data-URI images in the real PDF render. Only files of the rendering tenant are read, only png, jpeg, gif and webp, at most 24 images and 20 MB per document; missing, foreign, oversized or non-image ids are dropped silently. Previews and draft PDFs never read files and show one placeholder box per block. An images variable never renders as inline text. i18n keys template-resolver.documentEditor.images, template-resolver.documentEditor.imagesVariable and templateResolver.errors.document.imagesBlockPdfOnly ship in de, es, fr and it.",
     "migration": "Declare a template variable with type `images`, place the Images block, and pass FileRef ids of the record in `variables`. Images resolve only in the real PDF render, previews show placeholders. The ids must come from the record on the server, never from client input: a resolved id is read for the whole tenant without an entity access check."
   },
   {
@@ -345,63 +391,53 @@
   {
     "version": "0.378.0",
     "type": "improvement",
-    "title": "send-test-status query for the template test mail",
-    "detail": "template-resolver:query:send-test-status answers whether a test mail can be sent (canSend) and, if not, why (no_channel or no_address), so clients can disable the action instead of failing on send."
+    "title": "send-test-status query for the template test mail"
   },
   {
     "version": "0.377.0",
     "type": "improvement",
-    "title": "seedSystemTemplateBundle sets a title per template",
-    "detail": "Bundle locale entries accept an optional title, written to the template resource and exported again by the bundle export. SeedSystemTemplateOptions gets title. The template overview shows it instead of the slug."
+    "title": "seedSystemTemplateBundle sets a title per template"
   },
   {
     "version": "0.375.0",
     "type": "improvement",
-    "title": "Preview and test mail render with the values of a picked record",
-    "detail": "`template-resolver:query:preview` and `template-resolver:write:send-test` accept an optional `variables` object that replaces the declared example values for the named variables. The values are checked against the template's variable schema like a real send (unknown names and wrong types are rejected as `variables.<name>` validation errors); variables not passed keep their example. The mail editor now passes the values picked through the preview record picker into the preview and the test mail instead of only listing them."
+    "title": "Preview and test mail render with the values of a picked record"
   },
   {
     "version": "0.375.0",
     "type": "improvement",
-    "title": "Read a mail or PDF template as blocks and change it with structured operations",
-    "detail": "The query `template-resolver:query:document-blocks` returns a document template as blocks with stable ids (b0, b1, ...), its meta, variables, allowed block types and uploaded image keys, plus a `base` (scope and version). The write `template-resolver:write:patch-draft` applies up to 50 operations (insertBlock, replaceText, removeBlock, setResource, setMeta, setVariable) to that state and stores the result as the caller's tenant draft; an active version keeps being served until publish. Block ids refer to the state that was read. If the template changed since `base` was read, the call fails with `version_conflict` and writes nothing; a patch that removes a required placeholder or sets variables a notification declares is refused. `writeTemplateRow` accepts an optional `expectedVersion`. The universal helpers `placeholder-text` and the toolbar block sets moved out of `web/` without changing the web exports."
+    "title": "Read a mail or PDF template as blocks and change it with structured operations"
   },
   {
     "version": "0.372.0",
     "type": "improvement",
-    "title": "Text examples of template variables follow the template's language",
-    "detail": "The `example` of a text or richText templateVariable is now read like `label`: an i18n key resolves to the translation of the edited template's locale, plain text stays as it is. Preview, the sample values bar and send-test therefore show German examples for a German template. Example values of other types (link, number, enum-like text values) stay as declared; put the explanation of such a value into the variable's label. Apps: register `templateVariable.text({ example: \"<app>:mail.example.x\" })` and add the key with de, en and es via `r.translations`."
+    "title": "Text examples of template variables follow the template's language"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "templateVariable label accepts an i18n key; the designer shows the translation instead of the raw name",
-    "detail": "A label given as i18n key (templateVariable.text({ label: \"billing:mail.variable.invoiceNumber\" }) plus r.translations in each locale) is translated in the designer's variable rail, in the chips on the paper, in the steps and repeat block heads, in the placeholder, button, repeat and steps pickers of the editor toolbar and in the missing-variables footer; the raw variable name stays visible as tooltip. Plain-text labels keep working, a key without translation falls back to the key text. The server preview (sampleValuesFor, now with an optional labelText translator) names sample values by the translated label in the draft's locale. variableLabelMap in document-designer now takes the translator as first argument. VariableChips in the renderer takes optional labels."
+    "title": "templateVariable label accepts an i18n key; the designer shows the translation instead of the raw name"
   },
   {
     "version": "0.367.0",
     "type": "improvement",
-    "title": "Notifications can keep their mail template system-only",
-    "detail": "r.notification(name, { systemOnly: true }) marks the stored mail template as a platform text. Tenant admins no longer see it in the template overview, list or detail, and creating a tenant version (upsert-tenant, copy-locale, import-bundle, also a SystemAdmin writing for a tenant) is refused with access_denied and templateResolver.errors.systemOnlyTemplate. SystemAdmins edit the system template as before, and the mail renderer always uses it, even if a tenant row exists from before."
+    "title": "Notifications can keep their mail template system-only"
   },
   {
     "version": "0.367.0",
     "type": "fix",
     "title": "Rich text placeholders no longer nest paragraphs",
-    "detail": "A richText placeholder alone in a paragraph compiles into a div that keeps the paragraph attributes, and one inside other text renders inline with line breaks instead of its own paragraphs. Mails and PDFs no longer contain <p><p>. richText and stepIs are now reserved template variable names, like the other renderer helpers.",
     "migration": "A notification that declares a template variable called richText, stepIs or percent fails at boot; rename the variable."
   },
   {
     "version": "0.367.0",
     "type": "improvement",
-    "title": "Template bundles with a logo can be seeded",
-    "detail": "seedSystemTemplateBundle(db, bundle, { dispatcher }) now seeds bundles that carry resources such as a logo by running the import-bundle-system write on the given seed dispatcher. With ifExists \"skip\" (default) nothing is written when every locale row already exists; if only some exist, the whole bundle is imported again. Without a dispatcher such a bundle still fails with a message that names the missing option."
+    "title": "Template bundles with a logo can be seeded"
   },
   {
     "version": "0.367.0",
     "type": "improvement",
-    "title": "Template conditions with data-if and a percent variable type",
-    "detail": "A paragraph, heading or table row with data-if=\"name\" renders only when the variable has a value (0 counts as a value); inside a repeat row the name refers to the row field, on the repeat row itself to the root variable. The sanitizer keeps the attribute, and template validation reports a condition on an undeclared variable. New variable type percent (templateVariable.percent()) takes percentage points and renders locale-aware, 12 as \"12 %\" in German and \"12%\" in English; the preview uses its example value. The document designer has no toolbar control for conditions yet; the attribute survives editing."
+    "title": "Template conditions with data-if and a percent variable type"
   },
   {
     "version": "0.365.0",
@@ -413,8 +449,7 @@
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Opening a document or mail editor with an empty body no longer marks the form as changed",
-    "detail": "Switching the editor's editable state on mount emitted an update, so DocumentTiptapEditor called onChange(\"<p></p>\") before the user typed anything and the surrounding form counted as dirty."
+    "title": "Opening a document or mail editor with an empty body no longer marks the form as changed"
   },
   {
     "version": "0.365.0",
@@ -426,56 +461,47 @@
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Document editor no longer blanks the app when late placeholders rebuild it",
-    "detail": "When the system placeholders or resource previews arrived in the same render as a new value (layout editor after opening or saving), the editor rebuilt itself and the value sync then read the destroyed editor. The TypeError unmounted the whole app and left a blank page. Both sync effects now skip a destroyed editor; the replacement editor picks up the value on its next render."
+    "title": "Document editor no longer blanks the app when late placeholders rebuild it"
   },
   {
     "version": "0.365.0",
     "type": "improvement",
-    "title": "Steps block in mail and PDF templates",
-    "detail": "The document editor offers a steps block in the toolbar block menu. It stores a fixed list of stages (value=label, at most 8) and the variable that names the current stage. Mail and PDF render it as a row of bars and labels; stages up to the current one are coloured, the current label is bold. Invalid blocks are dropped by the sanitizer and render nothing. Layout regions do not offer the block."
+    "title": "Steps block in mail and PDF templates"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "A paragraph or heading that only holds an empty placeholder is left out of the rendered document",
-    "detail": "compileDocumentBodyToHandlebars wraps a p or h1 to h4 whose only content is one placeholder in an if block, so an empty optional value no longer leaves a blank line in mails and PDFs. Zero numbers and money values still render. Blocks with static text, images or several placeholders are unchanged."
+    "title": "A paragraph or heading that only holds an empty placeholder is left out of the rendered document"
   },
   {
     "version": "0.365.0",
     "type": "improvement",
-    "title": "Mail layout buttons follow the branding accent colour",
-    "detail": "mailLayoutAppearance takes the tenant branding accent colour. When the layout uses the branding accent line, buttons in the mail body use that colour instead of the fixed dark teal. Invalid colours fall back to the previous default."
+    "title": "Mail layout buttons follow the branding accent colour"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "A placeholder inside a button label is kept",
-    "detail": "The document schema allows placeholder chips inside a button label. Before, saving or seeding a body such as a button reading \"View {{pageName}}\" split the button: the label stopped at the placeholder and the rest landed in a new paragraph outside the button."
+    "title": "A placeholder inside a button label is kept"
   },
   {
     "version": "0.365.0",
     "type": "improvement",
-    "title": "compileDocumentBodyToHandlebars takes a height cap for resource images",
-    "detail": "The new resourceImageMaxHeightPx option adds max-height and width:auto to resource images. The mail renderer caps images in a layout header at 64 px, so a square logo stays small while a wide wordmark keeps its 180 px width cap."
+    "title": "compileDocumentBodyToHandlebars takes a height cap for resource images"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "resource-upload refuses key collisions between images and attachments and linking a non-active PDF template",
-    "detail": "Uploading an attachment under a key that holds an inline image, or an image under a key that holds an attachment or linked PDF, fails with template_attachment_invalid (code key_in_use) instead of silently replacing the entry. resource-link-pdf only accepts an active document-pdf template, so draft or archived templates no longer produce mails that fail at send time. When the link write fails after the file was stored, the orphaned storage object is deleted."
+    "title": "resource-upload refuses key collisions between images and attachments and linking a non-active PDF template"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "collection kinds fail at boot; validate, diff-to-system, overview, seeding, bundle import and placeholder checks follow the write rules",
-    "detail": "createTemplateResolverFeature throws for a collection whose kind is mail, mail-layout or pdf-layout instead of failing on every save. The validate query ignores scope system for non-SystemAdmins. diff-to-system compares only against an active system template like reset-to-system. The overview reads rows in a stable order and reports truncated when its row limit is hit. Re-seeding notification templates reactivates an archived system row and applies a changed parentTemplateId. A bundle holds at most 50 locales. Dotted placeholders under a declared variable or list item field are reported as unknown because they never render a value. The document editor fallbacks are read-only and the placeholder line editor recolors chips when systemVariables change."
+    "title": "collection kinds fail at boot; validate, diff-to-system, overview, seeding, bundle import and placeholder checks follow the write rules"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Resource image formats come from one list",
-    "detail": "PNG, JPEG, GIF and WebP content types and extensions are defined once in the shared module and reused by the resource upload, the document body compiler and the email channel."
+    "title": "Resource image formats come from one list"
   },
   {
     "version": "0.365.0",
@@ -487,14 +513,12 @@
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "PDF collections show Page break instead of Button, and placeholder links no longer insert {{name}} text",
-    "detail": "The content editor for a `document-pdf` collection now offers the PDF block set (including Page break) instead of the mail set, chosen from the collection's kind. A link to a placeholder href such as `{{invoice.url}}` without a selection now links a variable node instead of inserting the placeholder as plain text."
+    "title": "PDF collections show Page break instead of Button, and placeholder links no longer insert {{name}} text"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "Document sanitizer rejects prototype-style placeholder hrefs",
-    "detail": "`{{__proto__}}` and `{{constructor.prototype}}` are no longer accepted as link or button placeholder hrefs; only valid reference names pass."
+    "title": "Document sanitizer rejects prototype-style placeholder hrefs"
   },
   {
     "version": "0.364.0",
@@ -506,26 +530,22 @@
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "export-bundle for a system template with resources returns a validation error outside the system tenant",
-    "detail": "A TenantAdmin, or a SystemAdmin outside the system tenant, exporting a system template that links resource files now gets the `system_resources_need_system_tenant` validation error, the same code import-bundle-system uses, instead of a NotFound for the resource file."
+    "title": "export-bundle for a system template with resources returns a validation error outside the system tenant"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "send-test logs failed test mails with error class and tenant",
-    "detail": "A transport that throws or reports not sent is logged with the error class/code and tenant id (no address, no provider body) and still answers `template_test_mail_failed`."
+    "title": "send-test logs failed test mails with error class and tenant"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "copy-locale ignores archived tenant sources and duplicates linked files of system sources; export-bundle refuses locales with differing format",
-    "detail": "copy-locale no longer copies from an archived tenant template, and copying a system template duplicates its linked resource files into the target tenant. export-bundle rejects a bundle whose locales differ in content format or variable schema with `bundleLocalesDiffer`."
+    "title": "copy-locale ignores archived tenant sources and duplicates linked files of system sources; export-bundle refuses locales with differing format"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "Template preview counts encoding overhead and reports missing attachments",
-    "detail": "The mail size estimate counts base64 size plus a fixed per-part overhead, an attachment whose file reference is missing fails the resources_resolved check, and the document draft scope is derived once per request."
+    "title": "Template preview counts encoding overhead and reports missing attachments"
   },
   {
     "version": "0.364.0",
@@ -537,44 +557,37 @@
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "template-resolver:query:overview accepts layoutSlug to list only the mails and PDFs using that layout",
-    "detail": "The optional layoutSlug payload field keeps only documents whose layout slug matches; total counts the filtered rows. Without it the response is unchanged."
+    "title": "template-resolver:query:overview accepts layoutSlug to list only the mails and PDFs using that layout"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "Layout usage follows the effective template per notification and locale",
-    "detail": "Mail layout usage counts a notification only when it declares a template and resolves the effective row per notification and locale, so tenant overrides are reflected."
+    "title": "Layout usage follows the effective template per notification and locale"
   },
   {
     "version": "0.364.0",
     "type": "improvement",
-    "title": "templateVariable.richText for notification variables that carry formatted HTML",
-    "detail": "Notification variables are escaped, so a value holding HTML (for example a document written in a rich text editor) showed up as literal tags in the mail. A variable declared with templateVariable.richText({ required }) is run through the document sanitizer at render time and inserted as HTML; bold, italic, lists and safe links stay, script, event handlers and javascript links are not emitted as markup. If the sanitizer rejects a value, it is rendered as escaped text and a warning with the violation codes is logged. All other variable types stay escaped."
+    "title": "templateVariable.richText for notification variables that carry formatted HTML"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "Overview and layout-source queries for the template designer",
-    "detail": "template-resolver:query:overview lists the mail, PDF and layout templates of the caller's tenant grouped by slug and kind (effective origin, locales, status, versions, layout slug, last change and the notifications that use it) and template-resolver:query:layout-source returns the header, signature and footer regions of a mail or PDF layout plus the locale a save has to use; a SystemAdmin also receives the MJML source of the system layout. The usage lookup is the exported collectTemplateUsage."
+    "title": "Overview and layout-source queries for the template designer"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "contentFormat \"document\" with a toolbar editor for mail and PDF templates",
-    "detail": "ContentEditorFormat gains \"document\". template-resolver registers DocumentContentEditor for it (tiptap, lazy-loaded) and stores the body as html. The toolbar offers paragraph style, bold, italic, lists, links, placeholders and the blocks image, table, button, divider, repeat and page break; the blocks prop picks them (MAIL_DOCUMENT_BLOCKS, PDF_DOCUMENT_BLOCKS). Placeholders are inserted only as variable nodes (data-variable), never as {{name}} text. ContentPreview does not substitute example values for \"document\" content, because substituting a button or link href would make the schema drop that node. New exports from template-resolver/web: DocumentContentEditor, DocumentEditorProps, DocumentToolbarBlock, MAIL_DOCUMENT_BLOCKS, PDF_DOCUMENT_BLOCKS."
+    "title": "contentFormat \"document\" with a toolbar editor for mail and PDF templates"
   },
   {
     "version": "0.363.0",
     "type": "fix",
-    "title": "Preview uses the examples of a stored or draft variable schema",
-    "detail": "A template's variableSchema kept only type and required, label and example were dropped, so the preview showed [name] instead of the declared example. The schema now keeps label and example, for mail and document previews."
+    "title": "Preview uses the examples of a stored or draft variable schema"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "PDF meta gets orientation, printBackground and layoutHeaderFooter; paragraphs and headings get data-align",
-    "detail": "The document-pdf meta accepts orientation (portrait or landscape), printBackground (default true) and layoutHeaderFooter (false prints without the layout header and footer). Paragraphs and headings carry textAlign (left, center, right, justify), serialized as data-align and kept by the sanitizer only with these four values. New exports are evaluateDocumentDraft, localeSchema, DOCUMENT_TEXT_ALIGNMENTS and DocumentTextAlign; compileDocumentBodyToHandlebars accepts alignmentAsInlineStyle."
+    "title": "PDF meta gets orientation, printBackground and layoutHeaderFooter; paragraphs and headings get data-align"
   },
   {
     "version": "0.363.0",
@@ -586,50 +599,42 @@
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "Mail templates carry file attachments (PDF, PNG, JPEG)",
-    "detail": "linkedResources stays image only; file attachments of a mail template are listed in the optional TemplateResource.fileAttachments (kind file, fileRefId, fileName), sorted by key. template-resolver:write:resource-upload takes purpose \"attachment\" with a fileName; it checks the file by content (PDF, PNG, JPEG), keeps the original bytes, allows at most 10 per mail template and stores the entry next to the inline images. resource-remove, copy-locale and the bundle export/import carry attachments (bundle resource entries get purpose \"attachment\"). The preview lists attachments with kind \"inline\" or \"file\" (PreviewAttachment is now a union), send-test sends them, and the mail renderer attaches them after the inline images within the delivery attachment limit."
+    "title": "Mail templates carry file attachments (PDF, PNG, JPEG)"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "copy-locale can copy system templates (scope \"system\", system admins only)",
-    "detail": "template-resolver:write:copy-locale takes scope \"tenant\" (default) or \"system\". With \"system\" a system admin copies a system template to another locale as a draft; other callers get access denied."
+    "title": "copy-locale can copy system templates (scope \"system\", system admins only)"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "Mail preview returns displayHtml for the editor",
-    "detail": "The preview of a mail template carries displayHtml, the body with cid images replaced by data URIs (png, jpeg, gif, webp, 5 MiB budget in total) so an editor can show it without cid support. The sent mail is unchanged."
+    "title": "Mail preview returns displayHtml for the editor"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "Document editor gets variable labels, a handle, resource previews, canvas chrome, underline and PlaceholderLineEditor",
-    "detail": "DocumentContentEditor accepts variableLabels, systemVariables, resourcePreviews, chrome (\"default\" or \"canvas\") and onEditorReady (handle with insertPlaceholder, insertResource, focus). The new PlaceholderLineEditor edits plain text with {{name}} placeholders as chips on one line. Underline (u) is part of the document schema and survives the sanitizer."
+    "title": "Document editor gets variable labels, a handle, resource previews, canvas chrome, underline and PlaceholderLineEditor"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "Mail templates link a PDF rendered from a document template (resource-link-pdf)",
-    "detail": "New write template-resolver:write:resource-link-pdf takes templateId, key, templateSlug and fileName and stores a linkedResources entry { kind \"rendered-pdf\", templateSlug, fileName } in a mail template; nothing is uploaded. fileName is a one-line pattern that may use the mail's {{placeholders}} and must end with .pdf (no / \\ \" ; or ..). The document-pdf template must exist for the tenant or the system, otherwise the write fails with template_attachment_pdf_template_missing; an invalid pattern or slug fails with template_attachment_invalid. Uploaded files and linked PDFs share the limit of 10 attachments per template. resource-remove, copy-locale and the bundle export/import carry the entry (the bundle gets an optional pdfAttachments map of key to { templateSlug, fileName }; import does not check that the document template exists). TemplateResource gains pdfAttachmentLinks, LinkedResourceEntry gains the TemplatePdfAttachmentLink variant."
+    "title": "Mail templates link a PDF rendered from a document template (resource-link-pdf)"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "Preview and test mail use the images and attachments of the edited row, also while it is a draft",
-    "detail": "When preview or send-test get content and the caller has a row for (slug, kind, locale), that row supplies linkedResources whatever its status (also when it has none, so nothing is borrowed from the system template), so a tenant whose customization is saved as a draft sees its logo and attachments. MailDraft has an optional linkedResources; without it the stored active template's resources are used as before. PreviewAttachment gains the variant { kind \"rendered-pdf\", name, templateSlug } without sizeBytes, because the PDF is not rendered in the preview; size_under_cap does not count it."
+    "title": "Preview and test mail use the images and attachments of the edited row, also while it is a draft"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "Preview query and send-test write for mail and PDF templates",
-    "detail": "template-resolver:query:preview renders a draft, or the stored template when no content is given, with sample values from the declared variable examples (list variables get two rows). The draft passes the same write gates as a save and a mail goes through the real mail renderer, so subject, html, plain text and inline images match a real send. The response carries checks (images resolved, plain text present, size under 10 MiB, required placeholders used); a PDF template returns its sanitized body and the layout regions. template-resolver:write:send-test mails the rendered mail to the calling user's own address only, subject prefixed with [TEST], limited to 10 per user and hour. It needs delivery, channel-email and renderer-mail-html."
+    "title": "Preview query and send-test write for mail and PDF templates"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "DocumentEditorProps toolbar option for an icon-only toolbar",
-    "detail": "DocumentEditorProps gains toolbar (\"full\" or \"compact\", default \"full\"). Compact renders the placeholder and block buttons icon-only with a tooltip and a narrower paragraph select, for narrow columns such as the layout editor regions. The formatting buttons now carry a tooltip with their label in every mode."
+    "title": "DocumentEditorProps toolbar option for an icon-only toolbar"
   },
   {
     "version": "0.363.0",
@@ -641,14 +646,12 @@
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "resolveLayout finds a layout in any locale",
-    "detail": "TemplateResolverApi gains resolveLayout({ tenantId, slug, kind, locale }) for mail-layout and pdf-layout. It looks at the tenant first (requested locale, then the fallback locale, then any active locale) and then at the system layouts the same way, ignoring draft and archived rows. A layout saved by the layout editor under one locale is therefore found for every locale. The template preview uses it for the PDF layout."
+    "title": "resolveLayout finds a layout in any locale"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "PDF template meta, render provenance, system template lifecycle and override queries",
-    "detail": "kind document-pdf takes a strict meta (layoutSlug, pageFormat A4/Letter, margins in mm, fileName without / \\ \" ; or .., metadata title/author); new exports PDF_PAGE_FORMATS, PdfPageFormat, PdfTemplateMeta, readPdfTemplateMeta, DEFAULT_MAIL_LAYOUT_SLUG. RenderResponse (renderer-foundation) gains optional template and layout refs ({ templateId, templateVersion, scope }, new types RenderedTemplateRef and RenderProvenance); renderer-mail-html fills them. New handlers template-resolver:write:publish-system and archive-system (SystemAdmin), reset-to-system (TenantAdmin, SystemAdmin), queries usage, tenant-overrides (SystemAdmin, counts only) and diff-to-system. publish and archive answer not_found for rows outside the caller's tenant instead of a version_conflict; find-by-id also returns meta."
+    "title": "PDF template meta, render provenance, system template lifecycle and override queries"
   },
   {
     "version": "0.363.0",
@@ -660,8 +663,7 @@
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "Bundle import re-encodes its images like resource-upload; re-seeding keeps uploaded system resources",
-    "detail": "importBundle and importBundleSystem store each bundle resource through the same normalization as resource-upload (decoded format decides the content type, SVG and non-images are rejected, width at most 1200 px, resource-max-bytes applies), so an exported bundle carries the re-encoded bytes. seedSystemTemplate without linkedResources no longer resets the links of an existing row, so images a system admin uploaded survive the next boot. storeTemplateResource from the template-resolver barrel is the normalizing store; the raw byte variant is gone."
+    "title": "Bundle import re-encodes its images like resource-upload; re-seeding keeps uploaded system resources"
   },
   {
     "version": "0.363.0",

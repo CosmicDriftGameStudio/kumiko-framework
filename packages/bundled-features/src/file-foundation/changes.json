@@ -1,9 +1,18 @@
 [
   {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Storage provider selection is SystemAdmin-only",
+    "detail": "The config key `file-foundation:config:provider` chose which storage plugin serves a tenant and was writable by TenantAdmin. Storage provider selection is platform-level, so only a SystemAdmin may write it now; a TenantAdmin write fails with 403. Reading is unchanged.",
+    "migration": "Set the provider through a SystemAdmin or pin it with an app override or the `FILE_STORAGE_PROVIDER` environment variable instead of letting tenant admins write it.",
+    "affects": [
+      "file-foundation"
+    ]
+  },
+  {
     "version": "0.391.0",
     "type": "improvement",
-    "title": "File-storage probe",
-    "detail": "file-foundation registers a probe that writes, reads and deletes a probe object in the configured storage provider."
+    "title": "File-storage probe"
   },
   {
     "version": "0.370.0",
@@ -16,14 +25,12 @@
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "readFileRefContent reads handed-over files; fileContextForTenant takes the context tenant",
-    "detail": "readFileRefContent, readTemplateResource and the public variant query read bytes through FileContext.refFromFileRef, so a fileRef moved by a tenant handover is readable again. fileContextForTenant gains a `contextTenantId` argument: without a provider resolver it returns undefined for any other tenant instead of the context's files, which are bound to a different key space."
+    "title": "readFileRefContent reads handed-over files; fileContextForTenant takes the context tenant"
   },
   {
     "version": "0.292.0",
     "type": "improvement",
     "title": "FILE_STORAGE_PROVIDER selects the file provider, not just the boot gate",
-    "detail": "The `provider` config key declares `env: \"FILE_STORAGE_PROVIDER\"`, so the ENV→app-override bridge selects the provider at boot without an app-side `createConfigResolver` rebuild. Tenant rows still override the ENV value (cascade unchanged). The boot-gate placeholder `\"configured\"` that `runDevApp` writes names no plugin, so `createFileProviderForTenant` treats it as unset and raises \"no provider selected\"; both strings are exported as `FILE_STORAGE_PROVIDER_ENV` / `FILE_STORAGE_PROVIDER_BOOT_SENTINEL`.",
     "migration": "Apps on the framework's default config resolver: make sure `FILE_STORAGE_PROVIDER` holds a registered provider name (`inmemory`, `s3`, `s3-env`) — it is now the provider selection, not only a presence check. Apps that pass their own `configResolver` are unaffected and can drop their hand-rolled `file-foundation:config:provider` app-override."
   }
 ]

@@ -1,33 +1,43 @@
 [
   {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "tierAssignmentTable is exported from tier-engine"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Unknown tier names are rejected on tier-assignment writes"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "createTierResolver knows the trial"
+  },
+  {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Tier preload keeps a newer cache entry",
-    "detail": "The tier-engine preload no longer overwrites a newer cache entry."
+    "title": "Tier preload keeps a newer cache entry"
   },
   {
     "version": "0.408.0",
     "type": "improvement",
-    "title": "capsForTierFromMap",
-    "detail": "capsForTierFromMap(tierMap, isTierName, defaultTier) returns a capsForTier function for createTierResolver. An unknown tier name falls back to defaultTier; if the map has no entry for the resolved name it throws. Apps with a hand-written capsForTier over their tier map can switch to it."
+    "title": "capsForTierFromMap"
   },
   {
     "version": "0.395.0",
     "type": "fix",
-    "title": "The tier resolver no longer keeps tier writes made before its build",
-    "detail": "A tier write that ran before build() cached a feature set without the always-on features, and a later build() left that entry in place, so the tenant got feature_disabled instead of the default fallback. build() now starts from an empty cache and writes before it are not cached."
+    "title": "The tier resolver no longer keeps tier writes made before its build"
   },
   {
     "version": "0.392.0",
     "type": "fix",
-    "title": "Tier fallback to the default tier under row-level security",
-    "detail": "With row-level security enabled (the default since 0.390) the boot preload, the bus-driven reloads and the trial gate of the tier-engine resolver ran on the enforcing pool without a tenant scope, read zero rows and dropped every tenant to the default tier, so toggleable features of paying tenants answered 403 feature_disabled. These reads now run in system scope; no app change is needed."
+    "title": "Tier fallback to the default tier under row-level security"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "set-tenant-tier no longer accepts source default",
-    "detail": "The source field of set-tenant-tier is limited to manual and billing. The value default is reserved for the signup default tier and made a manual grant look like a billing row that the next sync overwrites."
+    "title": "set-tenant-tier no longer accepts source default"
   },
   {
     "version": "0.370.0",
@@ -40,20 +50,17 @@
   {
     "version": "0.365.0",
     "type": "improvement",
-    "title": "set-tenant-tier accepts an optional source so a manual grant can return to billing control",
-    "detail": "The handler payload takes source (manual, billing or default, default manual). Writing the row with source billing makes the subscription tier sync treat it as billing-driven again, so the next webhook overwrites the tier. The handler stays SystemAdmin only."
+    "title": "set-tenant-tier accepts an optional source so a manual grant can return to billing control"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "tier-assignment source is a select field of TierAssignmentSources",
-    "detail": "The source column keeps its text storage, but the entity now validates it against manual, billing and default, so a typo can no longer bypass the manual-grant protection of the billing sync. TierAssignmentSource and isTierAssignmentSource are exported; the billing sync narrows the stored value with the guard."
+    "title": "tier-assignment source is a select field of TierAssignmentSources"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "Tier cache: stale single reload cannot overwrite a newer full resync",
-    "detail": "A single-tenant reload that started before a full resync and resolved after it could restore an outdated tier. The resync now advances the per-tenant ticket for deleted and adopted tenants too, and assignment changes are published remote-only."
+    "title": "Tier cache: stale single reload cannot overwrite a newer full resync"
   },
   {
     "version": "0.354.0",
@@ -63,8 +70,7 @@
   {
     "version": "0.352.0",
     "type": "improvement",
-    "title": "createTierOptionGate builds the availability rows and gates select options by tier on write",
-    "detail": "withTierOptionGate rejects a disallowed option with the lowest tier that allows it and lets an unchanged stored value pass on update."
+    "title": "createTierOptionGate builds the availability rows and gates select options by tier on write"
   },
   {
     "version": "0.278.0",

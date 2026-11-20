@@ -1,87 +1,109 @@
 [
   {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Puppeteer service isolates renders and limits bodies without Content-Length"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "First-page reprint is limited to page 1"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Mail and PDF renderers live in bundled-features, document-draft and signature print without injected functions",
+    "detail": "The packages `@cosmicdrift/kumiko-renderer-mail-html` and `@cosmicdrift/kumiko-renderer-puppeteer-client` are removed. Their code ships as `@cosmicdrift/kumiko-bundled-features/renderer-mail-html` (plus `/renderer-mail-html/seeding`) and `@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client` (plus `/renderer-puppeteer-client/qualified-names`) with the same exports, feature names, entity `rendered-pdf`, table and environment variables, so no data migration is needed. `createDocumentDraftFeature` loses its `pdf` option and its type parameter, `createSignatureFeature` loses `renderHtmlToPdf`; both render through the print client themselves and require the `renderer-puppeteer-client` feature at boot. The types `DocumentDraftPdf` and `RenderSignatureHtmlToPdf` are gone.",
+    "migration": "Replace the two package names in imports and package.json with the `@cosmicdrift/kumiko-bundled-features/renderer-mail-html` and `@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client` subpaths (keep one bundled-features dependency). Then delete the `pdf: { render, store }` option from `createDocumentDraftFeature(...)` and `renderHtmlToPdf` from `createSignatureFeature(...)`, and mount `createRendererPuppeteerClientFeature()` wherever document-draft or signature is mounted.",
+    "affects": [
+      "kumiko-renderer-mail-html",
+      "kumiko-renderer-puppeteer-client",
+      "createDocumentDraftFeature",
+      "createSignatureFeature",
+      "DocumentDraftPdf",
+      "RenderSignatureHtmlToPdf",
+      "renderHtmlToPdf"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Several PDFs per write with renderPdfsBeforeTransaction"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Oversized PDF requests report rendered_pdf_too_large"
+  },
+  {
     "version": "0.424.0",
     "type": "improvement",
-    "title": "renderPdfBeforeTransaction and renderPdfBytes print a stored draft body",
-    "detail": "`RenderPdfArgs` and the args of `renderPdfBytes` have `draft?: DocumentPdfDraft` (`{ content, meta, variableSchema? }`). It is printed instead of the stored template; the stored template of the slug still supplies images, layout and variable schema. Used by the document-draft bundle's `finalize`."
+    "title": "renderPdfBeforeTransaction and renderPdfBytes print a stored draft body"
   },
   {
     "version": "0.423.0",
     "type": "improvement",
-    "title": "A heading never stands alone at the end of a PDF page",
-    "detail": "A heading (level 1 to 4) moves to the next page together with the first block after it, with no setting; long paragraphs and tables after it still split across pages. Section titles must be `heading` blocks for this to apply: a bold paragraph is not kept with the next block, so move such titles of existing templates to `heading` with the same text style."
+    "title": "A heading never stands alone at the end of a PDF page"
   },
   {
     "version": "0.423.0",
     "type": "improvement",
-    "title": "renderPdfBeforeTransaction and renderPdfBytes take a variant",
-    "detail": "`RenderPdfArgs` has `variant?: string`, the slug of a variant of `slug` from the template-resolver `variants` query; it is rendered instead of the base and stored as the rendered PDF's template slug. A variant that is not served to the tenant or does not belong to `slug` fails with the 422 reason `template_variant_unknown`."
+    "title": "renderPdfBeforeTransaction and renderPdfBytes take a variant"
   },
   {
     "version": "0.420.0",
     "type": "fix",
-    "title": "An unparseable /rasterize response is a final error",
-    "detail": "An unparseable 2xx `/rasterize` body is a final `RendererError` instead of being retried."
+    "title": "An unparseable /rasterize response is a final error"
   },
   {
     "version": "0.419.0",
     "type": "improvement",
-    "title": "preview-png and rasterizePdf let an agent see the printed result",
-    "detail": "The puppeteer-service has a new POST /rasterize route (poppler: pdftoppm, optionally pdfimages) that turns a PDF into PNG pages, limited by MAX_PDF_BYTES and MAX_RASTER_PAGES; the service image now ships poppler-utils. The client exports rasterizePdf(bytes, options) and the constant AGENT_IMAGES_RESULT_KEY. The new preview-png query prints a draft like preview-pdf (same rights and input) and returns the page sizes in pages and the PNG images once under agentImages (no base64 in pages). Embedded images above 25 million pixels are skipped, and all poppler calls share one deadline."
+    "title": "preview-png and rasterizePdf let an agent see the printed result"
   },
   {
     "version": "0.416.0",
     "type": "improvement",
-    "title": "renderHtmlToPdf for callers that bring their own HTML",
-    "detail": "`renderHtmlToPdf(html, options?)` renders an HTML string to PDF through the print service and returns the bytes. It is the function the signature feature takes as `renderHtmlToPdf`."
+    "title": "renderHtmlToPdf for callers that bring their own HTML"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Idle Chromium is closed after BROWSER_IDLE_TIMEOUT_MS",
-    "detail": "The service kept Chromium running after the first render (about 480 MiB instead of 17 MiB idle). It now closes the browser after `BROWSER_IDLE_TIMEOUT_MS` (default 300000) without a render and launches it again on the next render, which pays a cold start. `/metrics` gains the gauge `puppeteer_browser_running`."
+    "title": "Idle Chromium is closed after BROWSER_IDLE_TIMEOUT_MS"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "puppeteer-service image reaps Chromium child processes",
-    "detail": "The service ran bun as PID 1, which does not reap orphaned processes, so every idle close of Chromium left zombie chromium and crashpad processes in the pod. The image now starts through tini, which reaps them and forwards SIGTERM to the service."
+    "title": "puppeteer-service image reaps Chromium child processes"
   },
   {
     "version": "0.391.0",
     "type": "improvement",
-    "title": "PDF-service probe",
-    "detail": "renderer-puppeteer-client registers a probe that calls the PDF service health check. probePuppeteerService and PuppeteerStatus are exported for it."
+    "title": "PDF-service probe"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "Render a PDF without storing it",
-    "detail": "renderPdfBytes is the render half of renderPdfBeforeTransaction. Use it when the bytes go straight into a mail or a download and no file or rendered-pdf row should exist."
+    "title": "Render a PDF without storing it"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Conditions on images variables work in the PDF render",
-    "detail": "A data-condition on an images variable now shows its block when the record has resolvable images, instead of never. Record image loading stops once the byte budget is used up, caps the number of looked-up ids, and ignores image blocks whose variable is not declared as images."
+    "title": "Conditions on images variables work in the PDF render"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "Retry documentation matches the client",
-    "detail": "The client retries 502, 503 and network errors; other 5xx and client timeouts fail at once because the render already ran. The feature description no longer promises a retry for every 5xx."
+    "title": "Retry documentation matches the client"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "Package ships its event-store table catalog",
-    "detail": "kumiko-es-tables.json is included in the published files; no runtime change."
+    "title": "Package ships its event-store table catalog"
   },
   {
     "version": "0.365.0",
     "type": "improvement",
-    "title": "PDF steps block uses the branding accent colour",
-    "detail": "The steps block in a PDF document is coloured with the accent colour from the tenant branding, like in mails, and falls back to #1f5468 when no branding colour is set."
+    "title": "PDF steps block uses the branding accent colour"
   },
   {
     "version": "0.365.0",
@@ -93,14 +115,12 @@
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "image-snapshot width and height come from the image header; PDF default layout slug is shared",
-    "detail": "The service screenshots the full page, so the image can be taller than the requested viewport; the response now reports the size read from the PNG or JPEG header. DEFAULT_PDF_LAYOUT_SLUG is exported from template-resolver and used by both the PDF renderer and the editor preview, so they cannot pick different layouts. image-snapshot HTML must embed all resources as data: URIs because the service fetches no http(s) resources."
+    "title": "image-snapshot width and height come from the image header; PDF default layout slug is shared"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "Render requests retry only network errors, 502 and 503, and the timeout covers the body",
-    "detail": "A 500 or 504 from puppeteer-service is a final RendererError with code other instead of being retried up to maxRetries times, and a client timeout abort is final too, so a failing or slow render no longer starts parallel renders on the service. The request timer now runs until the response body is read, so a service that stalls after the headers cannot block the caller forever."
+    "title": "Render requests retry only network errors, 502 and 503, and the timeout covers the body"
   },
   {
     "version": "0.364.0",
@@ -119,14 +139,12 @@
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "The service performs no network fetches",
-    "detail": "Only data:, about: and blob: requests are allowed, everything else is aborted. The client embeds all resources as data URIs, so there is no DNS rebinding and no reachable node IP or kubelet. Margins accept 0."
+    "title": "The service performs no network fetches"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "Query preview-pdf prints a document draft to a real PDF",
-    "detail": "renderer-puppeteer-client:query:preview-pdf takes { slug, locale, content, meta, variableSchema? } and returns { fileName, pdfBase64, pageCount, sizeBytes, durationMs }. The draft passes the same write rules as a save, is printed with the sample values of its variable schema through the puppeteer-service and nothing is stored. It is limited to 60 calls per user and hour and fails with puppeteer_unavailable (HTTP 503) while the service does not answer. Access is TenantAdmin and SystemAdmin."
+    "title": "Query preview-pdf prints a document draft to a real PDF"
   },
   {
     "version": "0.363.0",
@@ -138,7 +156,6 @@
   {
     "version": "0.363.0",
     "type": "fix",
-    "title": "PDFs use a tenant layout stored under another locale",
-    "detail": "The document PDF renderer resolves its letterhead with resolveLayout, so a tenant pdf-layout saved under one locale applies to every document locale."
+    "title": "PDFs use a tenant layout stored under another locale"
   }
 ]

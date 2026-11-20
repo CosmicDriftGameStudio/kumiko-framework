@@ -1,9 +1,60 @@
 [
   {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Ledger reports filter the period in SQL and require ISO dates",
+    "detail": "`report:balances`, `report:income-statement` and `report:balance-sheet` now pass `from`/`to` and the posted status to the database query, so a report reads only the entries it sums. Both bounds stay inclusive. `from` and `to` must be calendar dates in the form `YYYY-MM-DD`; other strings fail validation instead of being compared as text.",
+    "migration": "Callers that pass `from` or `to` send `YYYY-MM-DD` dates.",
+    "affects": [
+      "reportBalances",
+      "reportIncomeStatement",
+      "reportBalanceSheet",
+      "report:balances",
+      "report:income-statement",
+      "report:balance-sheet"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "create-transaction books at most once per sourceRef",
+    "migration": "Apps that mount ledger run `kumiko-schema generate` and ship the migration that adds `read_ledger_transactions.source_ref` and its unique index. Callers that guard repeat bookings by searching `reference` pass `sourceRef` instead."
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Idempotent ensure-accounts write",
+    "migration": "Replace app-side find-or-create loops over account:list and account:create with one ensure-accounts call."
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Ledger reversal and schedule links moved out of reference",
+    "detail": "Reversals set reversesTransactionId (unique per tenant), confirmed schedule periods set scheduleId and period, and the Storno copies scheduleId, period and subject from its original. create-transaction accepts an optional period but can no longer forge a reversal or a booked period through reference. Reversing a Storno is rejected with transaction_is_reversal. scheduleReference was removed; findReversedIds and LedgerTxRow use the new columns.",
+    "migration": "Replace scheduleReference matching with LedgerTxRow.scheduleId/period and read reversals via reversesTransactionId. Load schedule bookings with ledger:query:schedule-actuals instead of paging the transaction list. Transaction events are now eventVersion 2; an upcaster derives reversesTransactionId from a v1 Storno's reference and scheduleId/period from `schedule:<id>:<period>` (a v1 Storno copies them from its original), so rebuilding read_ledger_transactions restores the links of existing bookings. When several v1 bookings name the same original (a double Storno click or a free reference with another booking's id), only the first in event order gets reversesTransactionId; the others keep their reference as display text, so the rebuild does not fail on the unique index.",
+    "affects": [
+      "ledger",
+      "scheduleReference",
+      "LedgerTxRow",
+      "findReversedIds"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Subject totals and schedule actuals queries",
+    "migration": "Replace loops that page ledger:query:transaction:list per contract or schedule with one call to these queries."
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "New indexes on ledger transactions, job runs and job run logs",
+    "migration": "Apps that mount ledger or jobs run `kumiko-schema generate` and ship the resulting migration."
+  },
+  {
     "version": "0.379.0",
     "type": "improvement",
     "title": "ledger confirm-schedule-period takes its lock through TenantDb",
-    "detail": "confirm-schedule-period serializes parallel confirms of one schedule period with ctx.db.advisoryXactLock instead of an unsafeRaw connection and an escapeHatch declaration. The lock key is unchanged (tenant id plus reference), so nothing changes for running installations.",
     "migration": "None."
   },
   {
@@ -18,14 +69,12 @@
     "version": "0.364.0",
     "type": "fix",
     "title": "Document the duplicate check required before the (tenant_id, source_ref) unique index",
-    "detail": "The unique index on read_ledger_schedules (tenant_id, source_ref) is created in place and fails on existing duplicate pairs, and a projection rebuild over duplicate events fails the same way. Replay handling for duplicate events is not part of this change.",
     "migration": "Before upgrading, check each database for duplicates and clean them up: SELECT tenant_id, source_ref, count(*) FROM read_ledger_schedules WHERE source_ref IS NOT NULL GROUP BY 1, 2 HAVING count(*) > 1; Any row returned makes the unique index migration abort."
   },
   {
     "version": "0.354.0",
     "type": "fix",
-    "title": "confirm-schedule-period serializes concurrent confirms of the same schedule period",
-    "detail": "ledger: `confirm-schedule-period` serializes concurrent confirms of the same (tenant, schedule period) with an advisory lock, so direct calls can no longer double-book."
+    "title": "confirm-schedule-period serializes concurrent confirms of the same schedule period"
   },
   {
     "version": "0.354.0",
@@ -48,7 +97,6 @@
     "version": "0.331.0",
     "type": "improvement",
     "title": "Ledger schedules get an optional filterable sourceRef field",
-    "detail": "`read_ledger_schedules` gets a nullable text column `source_ref` (max 128) plus the non-unique index `(tenant_id, source_ref)`. Callers set it on `createSchedule` / `updateSchedule` to find a schedule again without parsing `description`. Existing schedules keep `sourceRef = null`.",
     "migration": "Run `kumiko schema generate`. For a new nullable column and a new non-unique index on a managed projection it emits an in-place `ALTER TABLE \"read_ledger_schedules\" ADD COLUMN \"source_ref\" text` plus a `CREATE INDEX`, with no DROP/CREATE and no `.rebuild.json`. No backfill: do not write the column with SQL. Old schedules stay at `sourceRef = null`, so callers should fall back to their previous lookup key for them."
   },
   {

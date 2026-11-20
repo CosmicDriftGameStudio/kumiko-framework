@@ -1,27 +1,35 @@
 [
   {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "No mail to .invalid placeholder addresses"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "SMTP requires STARTTLS unless the host is loopback or allowlisted",
+    "detail": "`createSmtpTransport` (also via `createSmtpTransportFromEnv` and the per-tenant mail-transport-smtp) now sets nodemailer `requireTLS` when `secure` is false. A public SMTP server that offers no STARTTLS no longer receives mail or credentials in clear text; sending fails instead. Loopback hosts (`localhost`, `127.0.0.0/8`, `::1`) and hosts in the operator allowlist `KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS` stay plaintext-capable so local dev catchers such as Mailpit keep working.",
+    "migration": "Point the SMTP host at a server that offers STARTTLS or implicit TLS (`SMTP_SECURE=true`, port 465). For a private dev catcher that has no TLS, list its host in `KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS`; loopback hosts need no entry."
+  },
+  {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "channel-email publishes its app transport",
-    "detail": "channel-email declares the emailAppTransport extension and registers its app transport under it; findEmailAppTransport(registry) returns that transport, or null when the app has none or does not mount channel-email."
+    "title": "channel-email publishes its app transport"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Corrected description of an email channel without app transport",
-    "detail": "Without an app transport only notifications declared with tenantTransport true are delivered; all others fail with missing_credentials, so such apps must mark every outgoing notification or keep an app transport."
+    "title": "Corrected description of an email channel without app transport"
   },
   {
     "version": "0.376.0",
     "type": "improvement",
-    "title": "resolveEmail receives a typed tenant database",
-    "detail": "The context of EmailChannelOptions resolveEmail types db as TenantDb, so resolvers read tables without a cast."
+    "title": "resolveEmail receives a typed tenant database"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "smtpEnvSchema declares the SMTP_* variables",
-    "detail": "smtpEnvSchema covers SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS and SMTP_FROM, all optional, and createChannelEmailFeature registers it. It lives next to createSmtpTransportFromEnv, which reads these variables."
+    "title": "smtpEnvSchema declares the SMTP_* variables"
   },
   {
     "version": "0.369.0",
@@ -33,26 +41,22 @@
   {
     "version": "0.367.0",
     "type": "improvement",
-    "title": "Email channel can send through the tenant's own mail provider",
-    "detail": "EmailChannelOptions gets tenantTransport, a resolver called per send with the delivery channel context. mail-foundation exports tenantMailTransport for it: a tenant with a provider configured sends through its own transport, a broken provider fails the send, a tenant without a provider uses the app transport. The transport is built per send and never cached, and the tenant comes from the server-side delivery context only. ChannelContext now carries the tenant's config accessor as config. Without tenantTransport nothing changes."
+    "title": "Email channel can send through the tenant's own mail provider"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "SMTP display names drop address-like characters, inline images get matching extensions",
-    "detail": "Control characters, angle brackets and at signs in a From display name are replaced by spaces so it cannot smuggle a second address; inline image file names derive their extension from the shared image format list."
+    "title": "SMTP display names drop address-like characters, inline images get matching extensions"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "List-Unsubscribe accepts an app-owned unsubscribe URL",
-    "detail": "When unsubscribeUrl in the mail data points to an http(s) URL outside the framework unsubscribe route, the email channel sets List-Unsubscribe to that URL without the one-click List-Unsubscribe-Post header, because the framework cannot vouch for a foreign endpoint accepting POST. Other schemes set no header."
+    "title": "List-Unsubscribe accepts an app-owned unsubscribe URL"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "A mail whose file attachment is missing fails at once instead of retrying",
-    "detail": "A missing or foreign-tenant file ref ends the delivery attempt as failed (send_failed) without a retry. The send job no longer throws, so the idempotency key is released and the caller can resend. A template test mail whose template file is missing now answers not_sent instead of channel_error."
+    "title": "A mail whose file attachment is missing fails at once instead of retrying"
   },
   {
     "version": "0.363.0",
@@ -64,45 +68,38 @@
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "Email channel sends rendered-pdf attachments",
-    "detail": "The channel resolves rendered-pdf entries from notify data next to file entries; without a locale the message locale is used. A render failure fails the send job, so the retry runs it again."
+    "title": "Email channel sends rendered-pdf attachments"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "Email channel sends file attachments and inline cid images",
-    "detail": "EmailMessage.attachments is sent through the SMTP transport (inline images with Content-ID). notify data.attachments with kind file entries are resolved through the file store; the PII guard rejects ciphertext file names."
+    "title": "Email channel sends file attachments and inline cid images"
   },
   {
     "version": "0.350.0",
     "type": "improvement",
-    "title": "Mails get a plain-text part (EmailMessage.text, NotificationRenderer.renderText, simple renderer and GDPR mails fill it)",
-    "detail": "Email text part\n`EmailMessage` gets an optional `text`. With it the SMTP transport sends `multipart/alternative` with a plain-text part. `NotificationRenderer` gets an optional `renderText`, which the email channel sends next to the HTML through the queued render and send jobs. `createSimpleRenderer` implements it from the template data (header, sections, footer, branding footer; buttons as `label: url`). The GDPR default mails return and send `text` as well. The PII guard checks and redacts `text` like the body."
+    "title": "Mails get a plain-text part (EmailMessage.text, NotificationRenderer.renderText, simple renderer and GDPR mails fill it)"
   },
   {
     "version": "0.348.1",
     "type": "fix",
     "title": "Email channel decrypts the resolved recipient address so notify to users and tenants works with an active KMS",
-    "detail": "Email notifications to resolved users reach the plaintext address under an active KMS\nWith an active PII KMS, an app's `resolveEmail` that reads the stored `user.email` returns ciphertext, and the PII guard rightly refused to send it (`recipient address is a PII ciphertext`). That broke every `notify` target that resolves an address from a user id: a single user, a list of users and `{ tenant }`. The email channel now decrypts the resolved address (`decryptStoredPii`, a no-op without KMS or for plaintext) before it is used for delivery, opt-out checks and the attempt log. The guard is unchanged.",
     "migration": "No action needed. Apps whose resolveEmail returns the raw stored user.email now send to the plaintext address instead of failing with \"recipient address is a PII ciphertext\"."
   },
   {
     "version": "0.342.0",
     "type": "improvement",
-    "title": "EmailMessage.fromName sets the From display name",
-    "detail": "channel-email: fromName sets the display name of the From header\n`EmailMessage` gets an optional `fromName`, and the email channel passes `data.fromName` through like `replyTo`. The SMTP transport combines it with the address of `message.from` or the transport default, so `from: \"App <noreply@x>\"` plus `fromName: \"Tenant via veridom\"` sends from `noreply@x` under the new name. Control characters in the name are replaced by spaces before sending, and an empty name behaves like no name. The PII ciphertext guard refuses a ciphertext `fromName`."
+    "title": "EmailMessage.fromName sets the From display name"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Explicit List-Unsubscribe headers replace the automatic pair case-insensitively",
-    "detail": "The email channel now matches explicit `data.headers` case-insensitively against the automatic unsubscribe headers. Overriding `List-Unsubscribe` or `List-Unsubscribe-Post` in any spelling drops the whole automatic pair, so a mail client no longer sends a one-click POST to a URL that cannot handle it."
+    "title": "Explicit List-Unsubscribe headers replace the automatic pair case-insensitively"
   },
   {
     "version": "0.321.0",
     "type": "improvement",
     "title": "Automatic List-Unsubscribe / List-Unsubscribe-Post headers for messages that carry a framework unsubscribeUrl",
-    "detail": "`createEmailChannel`'s `send()` now sets `List-Unsubscribe: <url>` and\n`List-Unsubscribe-Post: List-Unsubscribe=One-Click` whenever the\nnotification's `data.unsubscribeUrl` is an `http(s)` URL whose path is\nthe delivery feature's `DELIVERY_UNSUBSCRIBE_PATH` — only that route can\nhonor a one-click POST. An explicit `data.headers[\"List-Unsubscribe\"]`\n(or `-Post`) still wins over the automatic value. Apps whose\n`unsubscribeUrl` points somewhere else (their own page, a foreign path)\nget no automatic headers.",
     "migration": "No action needed for apps already using the framework's unsubscribe\nroute via `data.unsubscribeUrl`. Apps with a GET-only unsubscribe page of\ntheir own keep getting no `List-Unsubscribe-Post` header, since a\none-click POST there would 404 or no-op."
   }
 ]

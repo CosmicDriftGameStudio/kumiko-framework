@@ -1,5 +1,399 @@
 # @cosmicdrift/kumiko-feature-ast
 
+## 0.425.0
+
+### Minor Changes
+
+- 34cf35e: Bundled handlers are built with `defineWriteHandler`/`defineQueryHandler`, so their payloads are typed from the schema and the engine-payload casts are gone; a codemod moves app handlers the same way.
+  
+  <!-- kumiko-changes
+  feature: feature-ast
+  type: breaking
+  title: Handlers are defined with defineWriteHandler/defineQueryHandler
+  detail: The bundled features no longer annotate handlers with the erased `WriteHandlerDef`/`QueryHandlerDef`. Factories such as `createEnsureAccountsHandler`, `createSubjectTotalsHandler`, `createScheduleActualsHandler`, `createBalancesReportHandler`, `createIncomeStatementHandler` and `createBalanceSheetHandler` return the typed `WriteHandlerDefinition`/`QueryHandlerDefinition`, which is not assignable to `WriteHandlerDef`. `withCapEnforcement` keeps the wrapped handler's type and still accepts a `WriteHandlerDef`. Two guards cover what is left: the As-Casts Audit (`check-as-casts`) counts a cast with `@cast-boundary engine-payload` on `event.payload`/`query.payload` inside `handlers/*.write.ts`/`*.query.ts` as suspect; it does not see casts outside `handlers/`, other parameter names, destructured payloads, other marker reasons or `schema.parse(event.payload)` re-parses. The Handler Definitions ratchet (`guard-handler-definitions`) counts every literal annotated, `satisfies`- or `as`-typed with `WriteHandlerDef`/`QueryHandlerDef` and every function returning such a literal, anywhere in the scanned tree, against `.kumiko-handler-definitions-baseline.json`; it does not see a returned identifier, aliases of the erased types or test files.
+  migration: Run the codemod. It wraps literals annotated with `WriteHandlerDef`/`QueryHandlerDef` (variables and factory returns) in `defineWriteHandler`/`defineQueryHandler`, drops the annotation, removes `event.payload as z.infer<typeof schema>` casts and `schema.parse(event.payload)` re-parses on the handler's own schema and fixes the imports. It checks every use across the project and converts a handler only when all uses are `r.writeHandler`/`r.queryHandler` arguments, re-exports, property reads or `withCapEnforcement`/`withStockCap`. Listed as manual: handlers spreading another handler, dynamic schemas, `satisfies`/`as` forms and handlers used anywhere else, for example passed to an app wrapper typed `WriteHandlerDef`, put into an array or stored in an annotated variable. Give such a wrapper the two overloads of `withCapEnforcement` (erased and typed) or keep the handler erased and freeze it with `kumiko-guards guards --write-baseline --guard="Handler Definitions"`. Code that stored a bundled factory result in a `WriteHandlerDef`/`QueryHandlerDef` variable drops that annotation.
+  affects: WriteHandlerDef, QueryHandlerDef, withCapEnforcement, createEnsureAccountsHandler, createSubjectTotalsHandler, createScheduleActualsHandler, createBalancesReportHandler, createIncomeStatementHandler, createBalanceSheetHandler
+  codemod: scripts/codemod/define-handler.ts
+  manualAfterCodemod: true
+  -->
+- 34cf35e: The workflow engine is removed: `defineWorkflow`, the bundled features `workflow-runner` and `step-dispatcher`, the steps `wait`, `waitForEvent`, `retry`, `webhook.send` and `mail.send`, and the `kumiko:system:workflow.*` and `kumiko:system:step.*` system events.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Workflow engine, workflow-runner and step-dispatcher removed
+  detail: `defineWorkflow`, `computeDefinitionFingerprint`, `WorkflowDefinition`, `WorkflowStepError`, `unwrapWorkflowStepError`, `describeWorkflowStepError`, `evaluateEventMatch`, `WORKFLOW_SYSTEM_EVENT_DEFS`, the `STEP_DISPATCH_*` and `WORKFLOW_*` constants (`STEP_DISPATCHED_TYPE`, `STEP_DISPATCH_AGGREGATE_TYPE`, `STEP_DISPATCH_FAILED_TYPE`, `STEP_DISPATCH_REQUESTED_TYPE`, `WORKFLOW_AGGREGATE_TYPE`, `WORKFLOW_RESUMED_TYPE`, `WORKFLOW_RETRY_SCHEDULED_TYPE`, `WORKFLOW_RUN_COMPLETED_TYPE`, `WORKFLOW_RUN_FAILED_TYPE`, `WORKFLOW_RUN_STARTED_TYPE`, `WORKFLOW_WAITING_FOR_EVENT_TYPE`, `WORKFLOW_WAITING_TYPE`) and the type `AwaitedEventType` are no longer exported. `r.step.wait`, `r.step.waitForEvent`, `r.step.retry`, `r.step.webhook.send` and `r.step.mail.send` are gone; `PipelineCtx.workflow`, `PipelineDef.awaits` and step tier 3 are removed, and `runPipeline`/`runStepList` no longer take `workflow`/`resumeFrom`. The subpaths `@cosmicdrift/kumiko-bundled-features/workflow-runner` and `/step-dispatcher` are removed, and so is the irreversible-operation case `per-dispatch-record-key`. feature-ast no longer extracts `ai.generate`/`ai.extract`/`ai.classify` patterns from `defineWorkflow` step arrays. `stepsPipeline`, `defineStep`, `r.step.callFeature` and all synchronous steps stay.
+  migration: Build multi-step flows as jobs triggered by events (`r.job({ trigger: { on } })`), send mail through `channel-email`/`delivery` and call webhooks from a job. Apps that mounted `createWorkflowRunnerFeature()` or `createStepDispatcherFeature()` remove the mount and run `kumiko-schema generate` to drop their tables.
+  affects: defineWorkflow, workflow-runner, step-dispatcher, createWorkflowRunnerFeature, createStepDispatcherFeature, step.wait, step.retry, step.webhook, step.mail, WorkflowDefinition, WorkflowStepError, evaluateEventMatch, computeDefinitionFingerprint, WORKFLOW_, STEP_DISPATCH_, AwaitedEventType, PipelineDef, ctx.workflow, resumeFrom, per-dispatch-record-key
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: step-dispatcher feature removed
+  detail: The subpath @cosmicdrift/kumiko-bundled-features/step-dispatcher is gone with all its exports: `createStepDispatcherFeature`, `STEP_DISPATCH_AGGREGATE_TYPE`, `MailSpec`, `mailSpecSchema`, `MailDispatchResult`, `performMailDispatch`, `setMailRunner`, `WebhookSpec`, `webhookSpecSchema`, `WebhookDispatchDeps`, `WebhookDispatchResult`, `performWebhookDispatch`, `setWebhookFetch`, `setWebhookHostLookup`, `webhookAuthSecretKey`, `WEBHOOK_AUTH_SECRET_KEY_PREFIX`, `WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR`, `readAllowedPrivateWebhookHostsFromEnv` and `stepDispatcherEnvSchema`. It only served the removed `webhook.send` and `mail.send` workflow steps.
+  migration: There is no replacement feature. Send mail through channel-email or delivery and call webhooks from a job; remove the createStepDispatcherFeature mount.
+  affects: step-dispatcher, createStepDispatcherFeature, performMailDispatch, performWebhookDispatch, setMailRunner, setWebhookFetch, setWebhookHostLookup, stepDispatcherEnvSchema
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: workflow-runner feature removed
+  detail: The subpath @cosmicdrift/kumiko-bundled-features/workflow-runner is gone with all its exports: `createWorkflowRunnerFeature`, `startAndRunWorkflow`, `registerEventTrigger`, `workflowRunAggregateId`, `WorkflowSuspensionUnsupportedError`, `WorkflowRunStartedPayload`, `WorkflowRunCompletedPayload` and `WorkflowRunFailedPayload`.
+  migration: There is no replacement feature. Build multi-step flows as jobs triggered by events (`r.job({ trigger: { on } })`); remove the createWorkflowRunnerFeature mount.
+  affects: workflow-runner, createWorkflowRunnerFeature, startAndRunWorkflow, registerEventTrigger
+  -->
+- 34cf35e: Remove the upgrade codemods of releases up to 0.420.0; kumiko codemod lists import-extensions and feature-layout.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: breaking
+  title: Upgrade codemods up to 0.420.0 removed
+  detail: Every app is past 0.420.0, so the upgrade codemods of earlier releases are gone from @cosmicdrift/kumiko-feature-ast (src/scripts/codemod), among them package-merge, feature-factory, s3-imports, migrate-db-raw, migrate-cross-tenant, migrate-open-to-all, object-form, db-factory, tenant-db-options, testing-move, testing-injection, ctx-namespaces, pii-personal-migration and scaffold-kms-mode. import-extensions and feature-layout, the two codemods a guard points to, stay next to the upgrade codemods of later releases, and `kumiko codemod` lists those two; feature-layout was missing from that list, so the hint of the app-feature-structure guard failed.
+  migration: An app whose .kumiko/upgrade-state.json is below 0.420.0 first runs `kumiko-upgrade --apply` with a framework release up to 0.420.0, then upgrades to this one.
+  affects: all
+  -->
+- 34cf35e: Guard opt-outs now use one marker syntax: `kumiko-lint-ignore <slug> <reason>` for a line and `kumiko-lint-ignore-file <slug> <reason>` for a whole file.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: Test guard opt-outs move to kumiko-lint-ignore
+  detail: `// @timeout-exception: #N reason` is now `// kumiko-lint-ignore test-timeouts #N reason`, `// @template-drift-exception: #N reason` is now `// kumiko-lint-ignore test-template-drift #N reason`, and the file-wide `// @no-server-stack: reason` is now `// kumiko-lint-ignore-file test-stack-drift reason` in the leading comment of the file. The old markers are no longer read. Every reason now goes through the ignore-tag-reason check (at least three real words); the two test guards still require `#<issue>` first.
+  migration: Run the codemod, then rewrite any reason the ignore-tag-reason guard reports as too weak.
+  codemod: scripts/codemod/guard-markers-to-lint-ignore.ts
+  affects: @timeout-exception, @template-drift-exception, @no-server-stack
+  -->
+- 34cf35e: `bundledLists` becomes `listDefaults` and reaches the lists of every composed feature; `r.adoptsBundledLists()` is removed.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: listDefaults replaces bundledLists, adoptsBundledLists removed
+  detail: The app-wide table block is named `listDefaults` (AppConfig, `ListDefaultsOptions`, `validateListDefaultsOptions`) and applies to every entityList, projectionList and relatedList of every composed feature, app features included. `r.adoptsBundledLists()`, `FeatureDefinition.adoptsBundledLists` and the `adoptsBundledLists` field in feature-manifest.json are removed. The boot rules are renamed from `bundled-lists/*` to `list-defaults/*`.
+  migration: Rename `bundledLists` to `listDefaults` in kumiko.config.ts and the bin runner options, `BundledListsOptions` to `ListDefaultsOptions`, `validateBundledListsOptions` to `validateListDefaultsOptions`, and delete every `r.adoptsBundledLists()` call. App lists now get the block too; a screen that must differ sets its own `table` keys (`export: undefined`, `pinning: false`, `resizing: false`).
+  affects: bundledLists, BundledListsOptions, adoptsBundledLists, bundled-lists/
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: composeFeatures listDefaults applies to all features
+  detail: `composeFeatures`, `runProdApp`, `runWorkerApp` and `composeAppFeatures` take `listDefaults` instead of `bundledLists`. The block no longer skips features without a marker; a screen's own `table` keys still win per key, and relatedList sections never get `export`.
+  migration: Rename the option to `listDefaults`. Remove per-screen wrappers that only repeated the app's table standard.
+  affects: bundledLists
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: Managed kumiko/schema.ts and kumiko check read listDefaults
+  detail: The managed `kumiko/schema.ts` passes `appConfig.listDefaults` to `composeFeatures`, and `kumiko check` reports bin runners that leave out `listDefaults` while kumiko.config.ts sets it. `runDevApp` and `setupTestStackFromFeatures` take `listDefaults`.
+  migration: Run `kumiko sync-managed` to refresh kumiko/schema.ts, then rename the runner option in bin/.
+  affects: bundledLists
+  -->
+  
+  <!-- kumiko-changes
+  feature: feature-ast
+  type: breaking
+  title: adoptsBundledLists pattern removed
+  detail: The parser, renderer, patch kinds, pattern-id and pattern-change schemas and the pattern library no longer know `adoptsBundledLists`; `AdoptsBundledListsPattern` and `adoptsBundledListsSchema` are no longer exported.
+  migration: Drop references to the `adoptsBundledLists` pattern kind.
+  affects: adoptsBundledLists, AdoptsBundledListsPattern, adoptsBundledListsSchema
+  -->
+- 34cf35e: An entity carries its name: `createEntity({ name, ... })`, and `r.entity`, `r.crud`, `createEntityExecutor`, `buildEntityTable` and `deriveEntityTableMeta` take the entity without a separate name.
+  
+  <!-- kumiko-changes
+  feature: framework-core
+  type: breaking
+  title: Entities carry their name
+  detail: `createEntity` requires `name`, and `EntityDefinition` has `name`. `r.entity(entity)` or `r.entity({ ...entity, backingTable })`, `r.crud(entity, options?)`, `createEntityExecutor(entity)`, `buildEntityTable(entity, options?)` and `deriveEntityTableMeta(entity, options?)` read it from the entity, so the name given at registration and the one given to the executor can no longer differ.
+  migration: Run the codemod. It moves the name from `r.entity({ name, ...entity })`, `r.crud("name", entity)`, `createEntityExecutor("name", entity)`, `buildEntityTable("name", entity)` and `deriveEntityTableMeta("name", entity)` into the entity's `createEntity` call and drops the name argument. An entity used under a second name becomes `{ ...entity, name: "other" }` at that site. Entities it cannot resolve are listed as manual; add `name` there by hand.
+  affects: createEntity, r.entity, r.crud, buildEntityTable, deriveEntityTableMeta, EntityDefinition
+  codemod: scripts/codemod/entity-name.ts
+  manualAfterCodemod: true
+  -->
+- 34cf35e: `escapeHatch` requires `grants`; a declaration without them no longer unlocks all four grants.
+  
+  <!-- kumiko-changes
+  feature: framework-core
+  type: breaking
+  title: escapeHatch names its grants
+  detail: `escapeHatch` on write and query handlers, hooks and jobs requires `grants`, a non-empty list of `systemIdentity`, `globalWrites`, `unsafeRaw` and `crossTenantReads`. A declaration without `grants` used to unlock all four; it now fails at boot with "grants is required". `defineProjectionQueryHandler` with `unsafeAllTenants: { reason }` declares `grants: ["systemIdentity"]`. An `escapeHatch` in `r.applyExtension` options takes `{ reason }` only and always means `unsafeRaw`; `grants` there fails at boot.
+  migration: Run the codemod. It adds the grants it can read from the definition (`unsafeRaw(` for unsafeRaw, `.global(` for globalWrites, `crossTenantReads` for crossTenantReads, `queryAs(`, `writeAs(`, `createSystemUser(`, `unsafeAllTenants` or `runAs` with SystemAdmin for systemIdentity) and lists every other declaration as manual. Add grants to the manual sites by hand and run the integration tests of the touched features: a missing grant only fails when that code path runs. Remove `grants` from `escapeHatch` in `r.applyExtension` options.
+  affects: escapeHatch
+  codemod: scripts/codemod/escape-hatch-grants.ts
+  manualAfterCodemod: true
+  -->
+- 34cf35e: Every registrar verb takes one options object, and `r.useExtension` is now `r.applyExtension`.
+  
+  <!-- kumiko-changes
+  feature: framework-core
+  type: breaking
+  title: Registrar verbs take one options object; r.useExtension becomes r.applyExtension
+  detail: The positional overloads of `r.optionalRequires`, `r.relation`, `r.config`, `r.job`, `r.notification`, `r.readsConfig`, `r.referenceData`, `r.useExtension`, `r.metric`, `r.secret`, `r.secretNamespace`, `r.claimKey` and `r.streamHandler` are removed; each keeps the object form it already had. `r.useExtension` is renamed to `r.applyExtension`, so React lint rules no longer treat it as a hook. The runtime check that rejects positional calls to `r.entity`, `r.writeHandler`, `r.queryHandler`, `r.hook`, `r.requires` and `r.defineWebhookEvent` stays (boot rule `registrar/options-object-required`); only `registrar/argument-missing` is removed with the positional overloads. The boot rule `extension/use-escape-hatch-invalid` is now `extension/apply-escape-hatch-invalid`.
+  migration: Run the codemod. It rewrites positional calls into the object form, renames `r.useExtension` to `r.applyExtension` and removes the `biome-ignore lint/correctness/useHookAtTopLevel` comment above it. `r.config("key", def)` becomes `r.config({ keys: { key: def } }).key`. Rewrite the sites it lists as manual by hand, and rename `r.useExtension(` in strings and Markdown by hand.
+  affects: optionalRequires, readsConfig, referenceData, useExtension, secretNamespace, claimKey, streamHandler, .relation(, .config(, .job(, .notification(, .metric(, .secret(, registrar/argument-missing, extension/use-escape-hatch-invalid
+  codemod: scripts/codemod/registrar-single-form.ts
+  manualAfterCodemod: true
+  -->
+
+### Patch Changes
+
+- 34cf35e: Write handlers can declare `dispatchOnly: true` so only server code reaches them.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Dispatch-only write handlers
+  detail: A write handler with `dispatchOnly: true` runs only through ctx.dispatch, jobs and server routes, with the calling user kept. POST /api/write, /api/batch and /api/command answer it with the 404 of an unknown handler, and the agent manifest leaves it out. Boot rejects it together with `agent.expose: true` or `tenantlessAnonymous`. Use it for the sub-steps of a perCommand handler.
+  -->
+- 34cf35e: New ratchet guards `Handler Definitions` and `Feature Import Cycles`; the feature-layout codemod moves root-level `<name>.write.ts`/`<name>.query.ts` into `handlers/`.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: Handler layout and feature import cycles are guarded
+  detail: `kumiko-guards guards` now runs `Handler Definitions` (handler definitions outside `<feature>/handlers/`, several handlers per file, a wrong `.write`/`.query` suffix, object literals typed `WriteHandlerDef`/`QueryHandlerDef`) and `Feature Import Cycles` (static, non-type-only imports outside test files that close a cycle between features). Both freeze existing hits per file in `.kumiko-handler-definitions-baseline.json` and `.kumiko-feature-import-cycles-baseline.json`. A missing baseline counts as empty, so every existing hit fails until the baseline is written. The feature-layout codemod now also moves `<name>.write.ts` and `<name>.query.ts` from a feature root into `handlers/` and rewrites their imports.
+  migration: Run the codemod, then `kumiko-guards guards --write-baseline --guard="Handler Definitions"` and `kumiko-guards guards --write-baseline --guard="Feature Import Cycles"` and commit both baseline files.
+  affects: kumiko-guards
+  codemod: scripts/codemod/feature-layout.ts
+  -->
+- cdbf386: Query handlers accept `dispatchOnly: true`: server code still dispatches them, the HTTP entry answers 404.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: dispatchOnly query handlers
+  detail: `r.queryHandler`, `defineQueryHandler` and `definePagedQueryHandler` take `dispatchOnly?: boolean`, with the same meaning as on write handlers. POST /api/query and the xlsx screen export answer a dispatch-only query with the 404 of an unknown handler; `ctx.dispatch.query` and `queryAs`, jobs and server routes still run it with the calling user. Such a query is never an agent tool (also not as a registry-derived list/get tool), grants no `/api/sse` live signals, and boot rejects it together with `agent.expose: true`. Boot also rejects every query reference the browser loads when it names a dispatch-only query (rule `query/dispatch-only-on-screen`): the query of a screen or dashboard panel, an `optionsQuery` on a form, config-key or reference field, the list query of a reference field or reference facet target, a select `optionsAvailabilityQuery` and a `table.summaryRow` query. `/api/schema` leaves it out of the live entities. `dispatchOnly` closes the HTTP entry only: its access rule still counts as a read grant on the entity for linked lists (parentRef rows) and derived values. The API docs for personal access tokens leave out dispatch-only queries and writes, since a token can never call them. `expectRoleRestrictedHandlersDenyForeignRole` expects 404 `not_found` for a dispatch-only query.
+  migration: A query that only a server flow may run (for example one that returns decrypted personal data after the flow checked a token) declares `dispatchOnly: true`. Clients that call it over /api/query get 404 afterwards.
+  -->
+- 34cf35e: `ctx.db.unsafeRaw()` keeps the tenant's row level security scope; `ctx.db.unsafeRawAllTenants()` reaches every tenant.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: ctx.db.unsafeRaw() stays in the caller's tenant
+  detail: A granted `ctx.db.unsafeRaw()` used to run in the system scope of row level security, so raw SQL with a forgotten tenant_id filter read and wrote rows of every tenant. It now runs in the scope of its TenantDb: the caller's tenant (plus system tenant rows on tables that allow reading them) in tenant mode, the system scope in system mode. The new `ctx.db.unsafeRawAllTenants()` returns the old all-tenants runner under the same `unsafeRaw` grant and audit. `ctx.systemDb.unsafeRaw(reason)` is unchanged. `ConnectionTenantDb` has both methods.
+  migration: Run kumiko-upgrade --apply; the unsafe-raw-all-tenants codemod renames every `.unsafeRaw()` call without arguments to `.unsafeRawAllTenants()`, which keeps today's behaviour. Hand-written TenantDb stubs it lists need an `unsafeRawAllTenants` member. Switch a call back to `unsafeRaw()` where its SQL only touches the caller's own tenant.
+  affects: unsafeRaw, TenantDb
+  codemod: scripts/codemod/unsafe-raw-all-tenants.ts
+  -->
+- 34cf35e: The feature-layout codemod also moves root jobs, entities and the client entry into their folders.
+  <!-- kumiko-changes
+  feature: feature-ast
+  type: improvement
+  title: feature-layout moves jobs, entities and client.ts
+  detail: `kumiko codemod feature-layout` now moves `<name>.job.ts` from the feature root to `handlers/`, `entity.ts` and `<name>.entity.ts` to `schema/`, and a root `client.ts` that defines a `ClientFeatureDefinition` to `web/index.ts`, rewriting every import. A `write.ts` or `queries.ts` with several handlers is reported for a manual split into one file per handler. `--check` now also fails while a move is pending. Baselines keyed by file path have to be frozen again after the moves.
+  migration: After running `kumiko codemod feature-layout`, freeze the baselines keyed by file path again.
+  -->
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [cdbf386]
+- Updated dependencies [cdbf386]
+- Updated dependencies [cdbf386]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [6f043fa]
+- Updated dependencies [a44b984]
+- Updated dependencies [007d227]
+- Updated dependencies [a44b984]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [3f3bb46]
+  - @cosmicdrift/kumiko-framework@0.425.0
+  - @cosmicdrift/kumiko-types@0.425.0
+
 ## 0.424.1
 
 ### Patch Changes

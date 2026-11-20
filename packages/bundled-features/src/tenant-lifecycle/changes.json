@@ -1,5 +1,20 @@
 [
   {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "TenantAdmin is no longer locked out of tenant administration"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Tenant row version follows the destruction stage events",
+    "detail": "The destruction pipeline appended its stage events to the tenant stream without running the projections, so read_tenants.version stayed behind the stream. A SystemAdmin update of a destroying tenant failed with version_conflict and a projection rebuild produced a different row than the live path. Every stage event now runs the projections after the append. The test helper seedDestroyingTenant from tenant-lifecycle/testing now takes the test stack (db and registry) instead of the db, so its started event projects as well.",
+    "migration": "Replace seedDestroyingTenant(stack.db, tenantId) with seedDestroyingTenant(stack, tenantId).",
+    "affects": [
+      "seedDestroyingTenant"
+    ]
+  },
+  {
     "version": "0.423.0",
     "type": "breaking",
     "title": "TenantOwner no longer closes the account",
@@ -9,86 +24,72 @@
   {
     "version": "0.418.0",
     "type": "fix",
-    "title": "The tenant destruction sweep locks per tenant",
-    "detail": "Overlapping sweeps no longer push a tenant into `destroyFailed`. Each sweep takes a session advisory lock per tenant and skips tenants another sweep holds for that tick; failed stage attempts and abandoned stages are now logged with tenant and stage."
+    "title": "The tenant destruction sweep locks per tenant"
   },
   {
     "version": "0.415.0",
     "type": "fix",
-    "title": "Held-tenant destruction test tolerates the scheduled sweep finishing first",
-    "detail": "After the retention job releases a destroyHeld tenant, the scheduled sweep may already have moved it on to destroyed. The test now accepts destroying or destroyed and only asserts the retention override while the status is still destroying, reading the overrides first so the check stays meaningful."
+    "title": "Held-tenant destruction test tolerates the scheduled sweep finishing first"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Destroy accumulator and subject-key erasure",
-    "detail": "The destroy accumulator reports a hook without progress as stuck even when another hook is pending; subject-key erasure no longer counts a destroying tenant as live, so two overlapping destructions with a shared member both erase the user key."
+    "title": "Destroy accumulator and subject-key erasure"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Destruction anonymize converges",
-    "detail": "Tenant destruction anonymize stops when a pass makes no progress."
+    "title": "Destruction anonymize converges"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "review fixes for document links, termination revoke, inactivity keep race, retention hold release and destroy pending window",
-    "detail": "`ensureDocumentLink` keeps the lifecycle result of a newly created link, so postSave hooks and projections on the link entity run. `hasOtherOpenProviderCancel` ignores cancel declarations that already took effect, so revoking a new cancel resumes the subscription. The inactivity state is saved only while its cycleId is unchanged and the destruction request re-checks it, so a keep link redeemed during a job run is no longer overwritten. The destroyHeld retention purge also deletes rows whose reference field is NULL, so the tenant can be released. The pending window of a tenant destroy stage counts at most 10 minutes per gap between pending ticks (new `tickAt` on pending progressed events)."
+    "title": "review fixes for document links, termination revoke, inactivity keep race, retention hold release and destroy pending window"
   },
   {
     "version": "0.408.0",
     "type": "improvement",
-    "title": "Shared lookup for single-provider extension points",
-    "detail": "findSignupHandoverProvider and findTenantDestructionHoldProvider now go through one internal helper that returns the first registered usage whose options match the provider shape. Usages with other options are still skipped, and the result is undefined when none matches."
+    "title": "Shared lookup for single-provider extension points"
   },
   {
     "version": "0.407.0",
     "type": "improvement",
-    "title": "Tenants with blockDelete rows park in destroyHeld",
-    "detail": "When a destroying tenant owns rows of an entity with strategy blockDelete (entity default, preset, profile or per-tenant override), the destruction pauses before the tenant row in the new tenant status destroyHeld instead of deleting those rows. The sweep ignores destroyHeld tenants and hasTenantDestructionWork does not count them. The daily data-retention cleanup hard-deletes the held rows once their keepFor has passed, including their files, and then moves the tenant back to destroying in the same run. Code that switches exhaustively over the tenant status must handle destroyHeld; it is a transient state between destroying and destroyed and never the final one. The tenant's compliance profile and retention overrides are erased in the tenant-row phase through EXT_TENANT_DATA hooks, so they survive while the tenant is held."
+    "title": "Tenants with blockDelete rows park in destroyHeld"
   },
   {
     "version": "0.407.0",
     "type": "improvement",
-    "title": "requestTenantDestruction extracted",
-    "detail": "The core of the request-destruction handler is exported as requestTenantDestruction({ tenantId, actor, now, db, runner, registry, revokeSessions }) so other features, such as tenant-inactivity, file the same deletion request. The handler behavior is unchanged."
+    "title": "requestTenantDestruction extracted"
   },
   {
     "version": "0.406.0",
     "type": "improvement",
-    "title": "Destroy stages can wait on external operations",
-    "detail": "A tick in which a hook reports pending is recorded as a progressed event with pending true and does not count as a failed attempt. The wait is bounded: once 60 minutes (DESTRUCTION_STAGE_MAX_PENDING_MS) have passed since the attempt's stage-started event, a pending tick fails the attempt with \"still pending\", and the stage is abandoned after its usual maxAttempts, so a stage waits at most maxAttempts x 60 minutes. Ticks without progress and without pending still count as failed attempts. stage-started events now carry startedAt from the sweep clock."
+    "title": "Destroy stages can wait on external operations"
   },
   {
     "version": "0.406.0",
     "type": "improvement",
-    "title": "Destruction sweep no longer wakes a sleeping app",
-    "detail": "The run-tenant-destruction cron declares wakesSleepingApp false, so its per-minute schedule does not keep a sleeping shared app awake. A due destruction runs on the next wake, for example the daily maintenance window. Its scheduler id changes to scheduler-nowake-tenant-lifecycle-job-run-tenant-destruction; the old scheduler is removed on the first start."
+    "title": "Destruction sweep no longer wakes a sleeping app"
   },
   {
     "version": "0.405.0",
     "type": "improvement",
-    "title": "archiveAndDeleteTenantRows for tenant-destroy hooks",
-    "detail": "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle exports archiveAndDeleteTenantRows(ctx, table, aggregateType, escapeHatchReason), which archives each row's event stream and then deletes the tenant's rows, plus the TENANT_DESTROY_ARCHIVED_BY and TENANT_DESTROY_ARCHIVE_REASON constants. inbound-mail-foundation uses the helper, billing-foundation the constants."
+    "title": "archiveAndDeleteTenantRows for tenant-destroy hooks"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "Tenant destroy keeps user keys of members in other live tenants",
-    "detail": "The subject-keys stage erases user keys only for members without a membership in another tenant whose status is not destroyed. The tenant and tenant-record keys are erased as before."
+    "title": "Tenant destroy keeps user keys of members in other live tenants"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Destroy sweep keeps a minimum time slice per tenant",
-    "detail": "With many tenants in destroying state the shared tick budget no longer shrinks a tenant's slice below two seconds, so chunking hooks make progress instead of failing the stage as no-progress attempts."
+    "title": "Destroy sweep keeps a minimum time slice per tenant"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "One sweep tick shares a single stage budget between all destroying tenants",
-    "detail": "The destruction sweep used to give every destroying tenant its own full stage budget, so a few large tenants stretched one tick far beyond the minute cron window and the following ticks were skipped. The tick budget is now divided evenly over the destroying tenants. Each tenant's slice starts when that tenant's turn begins, so an overrun by one tenant never leaves the next ones with a zero slice. runNextDestructionStage accepts an optional deadlineAt."
+    "title": "One sweep tick shares a single stage budget between all destroying tenants"
   },
   {
     "version": "0.354.0",
@@ -98,14 +99,12 @@
   {
     "version": "0.354.0",
     "type": "improvement",
-    "title": "Tenant destroy stages resume partial progress next tick; hooks may return { done: false } and get deadlineAt; file hooks work in chunks",
-    "detail": "Tenant destroy stages resume partial progress in the next sweep tick instead of burning failed attempts\nA tenant with tens of thousands of files used to exhaust the stage's three attempts and leave the DSGVO destroy stuck. Destroy hooks (`destroyTenant`, EXT_TENANT_DATA `destroy`) may now return `{ done: false, processed }` and receive `deadlineAt` in their ctx; the runner records a `tenant-destruction-stage-progressed` event in the tenant stream and continues the stage next tick without counting a failed attempt. Hooks returning nothing stay valid. The `fileRef` row purge and the storage prefix wipe work in chunks against that deadline."
+    "title": "Tenant destroy stages resume partial progress next tick; hooks may return { done: false } and get deadlineAt; file hooks work in chunks"
   },
   {
     "version": "0.354.0",
     "type": "improvement",
-    "title": "Boot warns when files is mounted without files-tenant-data",
-    "detail": "files-tenant-data is opt-in, so an app with tenant-lifecycle and files that forgot it silently left fileRef rows and stored binaries behind on tenant destroy. tenant-lifecycle now logs a boot warning in that case. Action: mount createFilesTenantDataFeature(), or ignore the warning if the app erases files itself."
+    "title": "Boot warns when files is mounted without files-tenant-data"
   },
   {
     "version": "0.354.0",
@@ -115,7 +114,6 @@
   {
     "version": "0.337.0",
     "type": "fix",
-    "title": "tenant destroy deletes handed-over binaries via the uploader's provider, trigger reports invalid payloads distinctly, mail failure logs redact addresses",
-    "detail": "A tenant destroy deletes a handed-over binary through the file provider of the tenant that uploaded it, not the destroyed tenant's. `jobs:write:trigger` answers a broken or non-object JSON payload with `job_invalid_payload` instead of `job_not_manual`. Grouped metrics restrict their stack and series queries to the top groups. The notes and folders sections filter by `entityType` on the server. A failed mail dispatch logs the adapter error without email addresses."
+    "title": "tenant destroy deletes handed-over binaries via the uploader's provider, trigger reports invalid payloads distinctly, mail failure logs redact addresses"
   }
 ]

@@ -2,38 +2,32 @@
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Embedded-list limit range wording",
-    "detail": "The embedded-list limit-range text reads \"Límite de {min} a {max}\"."
+    "title": "Embedded-list limit range wording"
   },
   {
     "version": "0.409.0",
     "type": "improvement",
-    "title": "Spanish strings for the contact feature and the configEdit action rows",
-    "detail": "Adds the Spanish copy for the contact feature (screens, panels, fields, delivery status and notification labels), the configEdit action hint `kumiko.configEdit.action.saveFirst` and the masked write-only secret row (`kumiko.field.writeOnly.maskedSet`, `kumiko.field.writeOnly.replace`). Apps that mount contact and this locale package need no further translation work."
+    "title": "Spanish strings for the contact feature and the configEdit action rows"
   },
   {
     "version": "0.371.0",
     "type": "improvement",
-    "title": "errors.demoReadOnly translated",
-    "detail": "The read-only demo error has Spanish copy."
+    "title": "errors.demoReadOnly translated"
   },
   {
     "version": "0.364.0",
     "type": "improvement",
-    "title": "Spanish text for discarding a template draft",
-    "detail": "Adds templateResolver.errors.noDraft."
+    "title": "Spanish text for discarding a template draft"
   },
   {
     "version": "0.361.0",
     "type": "improvement",
-    "title": "Spanish string for locked records",
-    "detail": "Adds errors.recordLocked."
+    "title": "Spanish string for locked records"
   },
   {
     "version": "0.360.0",
     "type": "improvement",
-    "title": "Spanish strings for the file list widget and embedded list accessibility",
-    "detail": "Adds kumiko.field.file-list.add, empty, move-down and move-up, kumiko.field.file-upload.attached, change, failed, remove and upload, plus kumiko.field.embedded-list.actions and cell-label."
+    "title": "Spanish strings for the file list widget and embedded list accessibility"
   },
   {
     "version": "0.341.0",
@@ -43,26 +37,22 @@
   {
     "version": "0.339.0",
     "type": "fix",
-    "title": "Billing consent and cancel dialogs use \"tú\"",
-    "detail": "`billing-foundation.consent.*`, `billing-foundation.cancel.*`, `billing-foundation.errors.consentTextOutdated` and `billing-foundation.errors.termsUnavailable` switch from \"usted\" to \"tú\", matching the `billing-foundation.plans.*` keys."
+    "title": "Billing consent and cancel dialogs use \"tú\""
   },
   {
     "version": "0.338.0",
     "type": "improvement",
-    "title": "Spanish strings for the billing consent and cancel-contract dialogs",
-    "detail": "Adds the `billing-foundation.consent.*`, `billing-foundation.cancel.*`, `billing-foundation.errors.consentTextOutdated` and `billing-foundation.errors.termsUnavailable` keys in formal Spanish."
+    "title": "Spanish strings for the billing consent and cancel-contract dialogs"
   },
   {
     "version": "0.337.0",
     "type": "fix",
-    "title": "Spanish copy for the jobs invalid-payload error",
-    "detail": "Adds the Spanish copy for `jobs.errors.invalidPayload`, shown when a manual job trigger gets a broken or non-object JSON payload."
+    "title": "Spanish copy for the jobs invalid-payload error"
   },
   {
     "version": "0.330.0",
     "type": "improvement",
-    "title": "Spanish strings cover every registered key",
-    "detail": "The new i18n-parity test in `use-all-bundled` harvests the English copy from the real registrations (feature translations, client plugins, renderer defaults, mail templates) and fails with `key -> locale` when `locale-de` or `locale-es` lacks a key or an en-catalog drifts. This added the missing German and Spanish copy for billing plans, the privacy-center status field and many more keys, and removed 110 translation keys no feature registers any more. German uses \"Ereignisprotokoll\" for the audit log everywhere. `userDataRights.privacyCenter.restriction.dialogTitle` and `.deletion.dialogTitle` are registered in English by the feature."
+    "title": "Spanish strings cover every registered key"
   },
   {
     "version": "0.330.0",
@@ -74,13 +64,11 @@
   {
     "version": "0.328.0",
     "type": "improvement",
-    "title": "New pager, list, form, wizard and drawer strings",
-    "detail": "Adds the keys for the pager, list counts, sort label, form changed marker, unsaved counter, \"All fields are required.\", the on-this-page nav, wizard \"Save and close\" and \"Next: {title}\" and the drawer discard dialog."
+    "title": "New pager, list, form, wizard and drawer strings"
   },
   {
     "version": "0.319.0",
     "type": "improvement",
-    "title": "Spanish strings for the new billing-plans cancel-scheduled banner and reactivate label",
-    "detail": "Adds Spanish i18n strings for the cancel-scheduled info banner and the\n\"Reactivate subscription\" button label introduced by billing-foundation's\ncancel/reactivate change."
+    "title": "Spanish strings for the new billing-plans cancel-scheduled banner and reactivate label"
   }
 ]

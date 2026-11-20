@@ -1,119 +1,126 @@
 [
   {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "forget-subject erases the key after commit and forgets forgetWithSubject rows",
+    "detail": "forget-subject no longer calls kms.eraseKey itself. It closes a user's login, purges search documents and files, forgets the rows of entities that declare the new `forgetWithSubject: true` (the record subject's own row, or the row whose id is the forgotten user id when the entity has a `personal: \"self\"` field), erases note bodies, nulls blind indexes and appends `subject-forgotten`, all in the handler transaction. The new `crypto-shredding:projection:subject-key-eraser` consumer erases the key once that transaction commits. A failure now rolls the whole forget back instead of erasing the key and writing an audit event with `cleanupError`; the `cleanupError` field is gone from the payload. `subject-forgotten` always lands on a fresh aggregate id, never the subject's id. user-data-rights forget-cleanup and forget-subject share `eraseSubjectData`; the cleanup now nulls blind indexes even without a KMS. Boot rejects `forgetWithSubject` on an entity without a `personal: \"self\"` or record-keyed field, or with `retention.strategy: \"blockDelete\"`.",
+    "migration": "Code that reads the key state right after forget-subject waits for the consumer; tests call `drainEventConsumers(stack, [\"crypto-shredding:projection:subject-key-eraser\"])`. Consumers of `subject-forgotten` read the subject from `payload.subjectKey` instead of `aggregateId`. App-built cascades that forget a subject's own row after forget-subject (publicstatus forgotten-subscriber-cascade, offlot dealer-link forget, money-horse erase-recipient) are replaced by `forgetWithSubject: true` on the entity plus a dispatch of forget-subject inside the handler transaction.",
+    "affects": [
+      "crypto-shredding",
+      "securityBaselineFeatures",
+      "forget-subject",
+      "subject-forgotten",
+      "cleanupError",
+      "eraseKey",
+      "user-data-rights"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Opt-in shredding of the ownerless phase of self-keyed fields on owner forget"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Owner forget announces record key erases in the row's tenant"
+  },
+  {
     "version": "0.414.0",
     "type": "fix",
-    "title": "A failed forget in the after-delete hook keeps its error code and message",
-    "detail": "The hook threw forgotten.error, a plain WriteErrorInfo object, so the HTTP layer reported internal_error with the message \"[object Object]\" and no cause, even for a real KMS outage. It now throws reraiseAsKumikoError(forgotten.error). The helpdesk legacy-contact-config job had the same pattern and is fixed the same way."
+    "title": "A failed forget in the after-delete hook keeps its error code and message"
   },
   {
     "version": "0.414.0",
     "type": "improvement",
-    "title": "subjectForgetAfterDeleteHook erases a deleted row's subjects only after the delete is accepted",
-    "detail": "`subjectForgetAfterDeleteHook({ target, subjectsOf, reason })` returns a `postDelete` hook (in the delete's transaction) that runs `crypto-shredding:write:forget-subject` as the system identity for the subjects of the row just deleted, in the tenant of the deleted row's event. Because preDelete hooks run after the delete handler returns and a key erase cannot be rolled back, forgetting inside the delete handler erased the key even when a preDelete hook then rejected the delete; the hook runs after all of them, and a failed forget throws and rolls the delete back. Register it with `r.hook(subjectForgetAfterDeleteHook({ target: { allOf: entity }, ... }))`; it declares the narrow `systemIdentity` grant itself. `forget-subject` is an irreversible operation, so the consumer's delete handler (the entry handler) must resolve to agent risk `high`, otherwise the hook fails."
+    "title": "subjectForgetAfterDeleteHook erases a deleted row's subjects only after the delete is accepted"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "forget-subject called from another write handler no longer blocks on the caller's stream",
-    "detail": "The audit event and the user login-door close of `forget-subject` were written on the outside-transaction connection with the subject id as aggregate id. When the caller's transaction had already written an event for that id (a delete of the very row), the outside append waited for the uncommitted version and the request hung. Called from another write handler, `forget-subject` still commits the login-door close and the audit event on the outside-transaction connection (the key erase cannot be undone, so they must not roll back with the caller), but the audit event goes onto a fresh aggregate id instead of the subject's id; direct calls (HTTP, agents) are unchanged."
+    "title": "forget-subject called from another write handler no longer blocks on the caller's stream"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "Tests pin the erasure write purpose in forget-subject and the forget cleanup",
-    "detail": "A pre-KMS user whose key was already erased still ends deleted, loses its tokens and gets the erased sentinel in the update event."
+    "title": "Tests pin the erasure write purpose in forget-subject and the forget cleanup"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "The subject file purge reads candidate rows in pages",
-    "detail": "A user owning many records no longer loads them all into memory at once; every page is purged, not only the first."
+    "title": "The subject file purge reads candidate rows in pages"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "forget-subject audit event survives a failing record owner lookup",
-    "detail": "The lookup of the record row's owning tenant now runs inside the file purge step, so a database error there is reported as cleanupError on the subject-forgotten event instead of aborting the handler after the key was erased."
+    "title": "forget-subject audit event survives a failing record owner lookup"
   },
   {
     "version": "0.377.0",
     "type": "fix",
-    "title": "Forgetting a user also removes their unbound pending uploads",
-    "detail": "forget-subject for a user deleted only files bound to a record. Uploads the user made but never attached (file refs without an entity id) stayed behind. They are now removed with their bytes, except refs a record still names in a single-file column."
+    "title": "Forgetting a user also removes their unbound pending uploads"
   },
   {
     "version": "0.372.0",
     "type": "fix",
-    "title": "forget-subject removes files bound to the forgotten subject",
-    "detail": "Forgetting a record or user subject now deletes the bytes, derivatives and file_refs rows behind that subject's personal file fields (fail closed with missing_file_storage or file_delete_failed in cleanupError), so a retry can finish the job; the entity row stays."
+    "title": "forget-subject removes files bound to the forgotten subject"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "kmsEnvSchema declares the subject-key KMS variables",
-    "detail": "kmsEnvSchema lists the 13 KMS slots (PLATFORM_KEK, its rotation predecessor and versions, KUMIKO_BLIND_INDEX_KEY, SUBJECT_KEYS_DATABASE_URL, the _CIPHERTEXT twins and the Key Manager coordinates), all optional. createCryptoShreddingFeature registers it, so composeEnvSchema picks it up."
+    "title": "kmsEnvSchema declares the subject-key KMS variables"
   },
   {
     "version": "0.368.0",
     "type": "fix",
-    "title": "forget-subject closes the login door for users whose stream is already deleted",
-    "detail": "forget-subject returned 500 (\"user lifecycle update failed ... not_found\") when the user stream was deleted but the read_users status still read active, leaving sessions and PATs alive. The erasure now appends the status-deleted user.updated event to that stream too, so the login door closes, the handler returns 200 and a read_users rebuild keeps the state."
+    "title": "forget-subject closes the login door for users whose stream is already deleted"
   },
   {
     "version": "0.366.0",
     "type": "fix",
-    "title": "forget-subject is covered for users stored before the KMS and users without an event stream",
-    "detail": "Tests now cover forget-subject for users stored as plaintext before the KMS was configured and for users without an event stream. Both succeed since the KMS tombstone fix, close the login door and write the audit event."
+    "title": "forget-subject is covered for users stored before the KMS and users without an event stream"
   },
   {
     "version": "0.365.1",
     "type": "fix",
     "title": "eraseKey leaves a tombstone for subjects that never had a key",
-    "detail": "eraseKey now records an erased entry even when the subject has no key (pre-KMS plaintext). A later createKey or write for that subject fails with subject_erased instead of minting a fresh key and re-encrypting the plaintext. Erase flows must write with writePurpose erasure after eraseKey. kumiko_subject_keys now gets one tombstone row per forgotten record subject and per step dispatch. The tenant destruction stage tenant-row now fails loudly when marking the tenant destroyed does not succeed.",
     "migration": "Run backfill-pii before erasing Pre-KMS data, otherwise untouched plaintext stays readable after eraseKey."
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "forget-subject keeps the user status flip and PAT revocation when the sweep fails",
-    "detail": "The user is set to Deleted and its personal access tokens are revoked right after the key erase, in their own transaction on the outside-transaction db. A failing blind-index or search sweep still makes the handler throw so the cleanup can be retried, but it no longer rolls the login door back. Without an outside-transaction db the previous in-transaction savepoint path is used. A failure while closing the login door of an existing user now fails the forget (retry is safe) instead of passing silently; subjects without a user row are skipped."
+    "title": "forget-subject keeps the user status flip and PAT revocation when the sweep fails"
   },
   {
     "version": "0.357.0",
     "type": "improvement",
-    "title": "forget-subject shreds note bodies attached to the subject and notes that mention it",
-    "detail": "`forget-subject` on a user or record subject now also erases the per-note keys of every `note-entry` that hangs on the subject as host entity (entityId, plus entityType for record subjects) or @-mentions it, unless the host entity's retention strategy is anonymize/blockDelete. The automated Art. 17 delete hook reaches notes on the user as host too, and the export lists them. Before, `forget-subject(contact)` left the note bodies readable. Consumer tests that expect readable note bodies after `forget-subject` on a contact (e.g. solon contact-notes-forget) now see the erased sentinel. Forgetting only the author still leaves the bodies readable."
+    "title": "forget-subject shreds note bodies attached to the subject and notes that mention it"
   },
   {
     "version": "0.354.0",
     "type": "fix",
-    "title": "forget-subject: the SUBJECT_FORGOTTEN audit now commits before the handler tx does and records cleanupError when a derived-data sweep fails",
-    "detail": "The SUBJECT_FORGOTTEN audit event is appended through the outside-transaction db, so it commits before the handler transaction does and survives a later rollback. If the blind-index sweep or search purge fails, the event carries cleanupError (error code or name, never the message) and the handler then fails; retry to finish the cleanup. The user-lifecycle step runs in a savepoint and no longer aborts the handler transaction."
+    "title": "forget-subject: the SUBJECT_FORGOTTEN audit now commits before the handler tx does and records cleanupError when a derived-data sweep fails"
   },
   {
     "version": "0.354.0",
     "type": "fix",
-    "title": "Writing a personal field of an erased data subject answers 409 subject_erased instead of 500",
-    "detail": "Writing PII to an erased data subject answers 409 `subject_erased`, rebinding a hook's unsafeRaw grant no longer inherits db.global() writes, jobs wait for boot gates before consuming\nA write that has to encrypt a personal field for a subject whose key was erased (crypto-shredding) now fails with a `ConflictError` (409, reason `subject_erased`, i18n in en and de) instead of a 500, on the executor write path and in `encryptForDirectWrite`. A hook's own `unsafeRaw` grant (`withUnsafeRawGrant`) no longer carries the handler's `globalWrites` grant. The job runner starts its BullMQ worker only after the boot gates passed, so a job queued by a previous run cannot execute against an unmet boot precondition. `buildServer` warns at boot when `r.systemScope()` features exist but no RateLimitResolver is configured. The auth, MFA, PAT, change-email and request-deletion handlers declare only the escape-hatch grants they use."
+    "title": "Writing a personal field of an erased data subject answers 409 subject_erased instead of 500"
   },
   {
     "version": "0.338.0",
     "type": "improvement",
     "title": "forget-denied audit digest is keyed and omitted without a blind-index key",
-    "detail": "crypto-shredding: the forget-denied audit event now stores `subjectKeyDigest` as a keyed blind-index HMAC instead of a bare SHA-256 of the subject key, so a candidate id cannot be matched against it. Without a configured blind-index key the digest is omitted (`subjectKeyDigest` is now optional in the payload).",
     "migration": "No action needed. Existing denial events keep their old digest; configure the blind-index key to get a digest on new ones."
   },
   {
     "version": "0.338.0",
     "type": "fix",
-    "title": "forget-subject tenant check falls back to event-store provenance",
-    "detail": "forget-subject now accepts a record subject for a DPO when the owning tenant is proven by the event stream, not only by a projection row. A record whose row was already deleted, or a custom aggregate without a registered entity, can be shredded by the DPO of the tenant that owns it. A DPO of another tenant is still denied, and so is any DPO when events for the same aggregate id exist in more than one tenant."
+    "title": "forget-subject tenant check falls back to event-store provenance"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "forget-denied audit events record the specific tenant-gate denial reason",
-    "detail": "The `forget-denied` audit event now records the specific tenant-gate reason (for example `target_tenant_not_admin_tenant`) instead of the generic `access_denied`. The framework exports `requireEntityTableMeta` from `bun-db`."
+    "title": "forget-denied audit events record the specific tenant-gate denial reason"
   },
   {
     "version": "0.332.0",
@@ -131,25 +138,21 @@
   {
     "version": "0.166.0",
     "type": "improvement",
-    "title": "resolveKmsWiring / requireKmsWiring / buildPgKmsOptions: boot-time KMS env validation (fw#1617).",
-    "detail": "The subject-keys KMS env trio was validated by four copy-pasted app-side helpers that had drifted: only one parsed PLATFORM_KEK_VERSION strictly, so \"1e21\", \"0x10\" and \"-1\" were accepted and silently produced an unreachable rotation slot. Ordering of previous vs. active version stays enforced by PgKmsAdapter."
+    "title": "resolveKmsWiring / requireKmsWiring / buildPgKmsOptions: boot-time KMS env validation (fw#1617)."
   },
   {
     "version": "0.166.0",
     "type": "fix",
-    "title": "KmsWiringEnv accepts process.env directly (fw#1618).",
-    "detail": "All members being optional made TypeScript's weak-type detection reject ProcessEnv for having no properties in common, which forced every consumer into a cast or a six-key mapping — the boilerplate fw#1617 set out to remove."
+    "title": "KmsWiringEnv accepts process.env directly (fw#1618)."
   },
   {
     "version": "0.165.3",
     "type": "improvement",
-    "title": "Searchable subject-PII via derived Meili index (fw#1610).",
-    "detail": "Fields may be searchable + userOwned/tenantOwned: the search consumer decrypts into Meili (ciphertext stays at rest). Forget erases the subject key and purgeSearchDocumentsForSubject removes Meili docs (ciphertext LIKE + ownership for post-anonymize). sortable + subject remains forbidden; sensitive + searchable is rejected at boot."
+    "title": "Searchable subject-PII via derived Meili index (fw#1610)."
   },
   {
     "version": "0.119.0",
     "type": "improvement",
-    "title": "Crypto-shredding phase D: forget wire.",
-    "detail": "Crypto-shredding phase D: forget wire. New `crypto-shredding` bundled feature with the `forget-subject` operator command (DPO/SystemAdmin) — erases a user/tenant subject key and appends a `subject-forgotten` audit event. `user-data-rights` forget-cleanup now erases the user's subject key inside the per-user sub-tx (crash-safe, before the status flip). Fixes `list()` returning ciphertext for camelCase encrypted/pii fields and caching plaintext rows."
+    "title": "Crypto-shredding phase D: forget wire."
   }
 ]

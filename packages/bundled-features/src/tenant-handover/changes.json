@@ -2,45 +2,38 @@
   {
     "version": "0.354.0",
     "type": "improvement",
-    "title": "Reference fields can opt out of the handover with handover: \"stay\"; boot depth limit and mover share one graph definition",
-    "detail": "ReferenceFieldDef gains handover: \"stay\". An entity that should NOT travel with its host but points at it through a plain reference no longer blocks the claim with entity_not_transferable when that reference field carries handover: \"stay\": the edge is not walked, its rows stay in the source tenant, and the reference crosses the tenant boundary after the handover. Without the opt-out the behaviour is unchanged (entity_not_transferable at claim time). Migration: an entity that should NOT travel with its host: mark the reference field handover: \"stay\" (removing transferable alone does not help once rows exist, the claim still fails). The framework now exports one adjacency definition (resolveEntityTransferAdjacency, reference and parentRef edges, non-transferable intermediate nodes included, handover: \"stay\" respected) that the boot validator's depth limit and the tenant-handover mover both use. Consequence: the boot-time MAX_TRANSFER_DEPTH check now also counts parentRef edges and chains running through non-transferable entities, as the mover always did; a graph that was deeper than 5 hops only through such nodes now fails the boot instead of the claim."
+    "title": "Reference fields can opt out of the handover with handover: \"stay\"; boot depth limit and mover share one graph definition"
   },
   {
     "version": "0.353.0",
     "type": "fix",
-    "title": "Tenant handover claims fail with transfer_graph_too_deep only when rows exist beyond the last allowed hop",
-    "detail": "Tenant handover only fails with `transfer_graph_too_deep` when rows really hang below the fifth hop, and failed workflow runs report the suspended step\nA claim used to fail whenever the last round's entity type had outgoing edges, even with no rows behind them, so a chain of exactly five hops with an unrestricted `parentRef` entity registered was rejected. `workflow.run-failed` carries the real `stepIndex` for the unsupported-suspension case instead of always 0."
+    "title": "Tenant handover claims fail with transfer_graph_too_deep only when rows exist beyond the last allowed hop"
   },
   {
     "version": "0.321.0",
     "type": "improvement",
     "title": "Claim now moves event-store ownership through transferAggregateStreams instead of raw SQL",
-    "detail": "move-entity-graph.ts no longer runs its own `UPDATE kumiko_events` /\n`UPDATE kumiko_snapshots` against the event store — it calls the\nframework's `transferAggregateStreams` per aggregate type, threading the\nclaiming user's id as `transferredBy`. Archive markers now move with the\nstream (previously left behind under the source tenant). Each moved\naggregate gets its own `kumiko:system:aggregate.transferred` audit event\nin the destination tenant, in addition to the existing\n`tenant-handover:event:claimed` summary event.",
     "migration": "No action needed — the claim API and its response shape are unchanged."
   },
   {
     "version": "0.313.0",
     "type": "fix",
-    "title": "tenant-handover claim now moves a fileRef's own event history and storage-usage counters",
-    "detail": "moveFileRefs only flipped the file_refs read-model row's tenant_id: the\nfileRef aggregate's own events in kumiko_events stayed under the source\ntenant, so a later write against the moved fileRef couldn't load its\nstream, and a projection rebuild put the row back into the source\ntenant. It also never touched the fileRef's share of the\ntenant-storage-usage MSP counters, leaving stale bytes/fileCount behind\nunder the source tenant and none under the destination. moveFileRefs now\nalso calls moveEventHistory for the fileRef aggregate and a new\ntransferTenantStorageUsage (framework, exported via the files barrel),\nwhich locks the MSP's consumer cursor row, sums the already-applied\nfileRef deltas via the newly extracted fileRefStorageDelta, and moves\nthem from source to destination before the tenant_id rewrite runs (the\n\"already applied\" lookup keys off the pre-rewrite tenant_id). No\nmigration needed."
+    "title": "tenant-handover claim now moves a fileRef's own event history and storage-usage counters"
   },
   {
     "version": "0.313.0",
     "type": "fix",
-    "title": "tenant-handover transfer graph now resolves feature-prefixed reference targets",
-    "detail": "ReferenceFieldDef.entity may carry a feature prefix\n(\"<feature>:<entity>\") for cross-feature refs. The tenant-handover\ntransfer graph and the framework boot validator's depth check both took\nthat value raw, so a prefixed reference never formed an edge: the claim\nhandler silently moved only the root row, leaving every entity reachable\nsolely through a prefixed reference behind in the source tenant. Both\nnow resolve the target through the shared parseRefTargetEntityName.\nConsumer-visible: an entity reachable only via a prefixed reference that\nhas rows and is not declared `transferable: true` now fails the claim\nwith `entity_not_transferable` instead of being left behind, and the\nboot-time MAX_TRANSFER_DEPTH check now counts prefixed chains too. No\nmigration needed; declare `transferable: true` on a newly caught entity\nor flatten a newly caught over-deep chain."
+    "title": "tenant-handover transfer graph now resolves feature-prefixed reference targets"
   },
   {
     "version": "0.296.0",
     "type": "improvement",
     "title": "Transfer graph follows reference edges and nested levels (fw#3088, fw#3131)",
-    "detail": "`resolveChildCandidates` knew exactly one edge kind: an entity's `parentRef`. An app whose graph hangs together through ordinary `{ type: \"reference\" }` fields got a silent partial handover — the root row moved and its children stayed in the source tenant. `parentRef` is also one level deep by construction, so even declaring it could not express a root → child → grandchild chain. Both together are the data loss kumiko-framework#3035 warns about, reachable without doing anything wrong.\nThe resolver now reads static adjacency off the declarations — which edges lead away from each type — and the mover drives the traversal from the rows it moves. An entity is reached when it declares a `parentRef` naming a type in the graph, or a single-valued `reference` field pointing at one. Every batch of rows that actually changed hands becomes the parent ids for the edges leading away from its type, so the same edge runs again whenever a later round discovers more rows of its parent type — what a type reachable by two paths of different length needs. The root is never collected as its own descendant, and a reference cycle terminates on row-level idempotency: every statement filters on the source tenant and returns only the rows it flipped, so a row enters the worklist exactly once. `transferable: true` remains the only gate on what actually moves.",
     "migration": "A handover now moves rows it previously left behind. An entity with `transferable: true` that points at the handover root through a plain `reference` field was silently skipped before and travels with the root from this version on, and so does anything hanging off that entity, up to five hops from the root. A type that two paths of different length lead to has its descendants moved along both. Check every entity declaring `transferable: true` and confirm it should move with its host — an entity that should NOT travel needs `transferable` removed, which is also what the existing named `entity_not_transferable` error reports at claim time. Two new boot errors, both scoped to `transferable: true` entities only: a `multiple` reference on such an entity is rejected (its jsonb array cannot be matched by the mover, so its rows would be left behind), and a transferable reference chain longer than five edges is rejected with the offending path. The boot check measures transferable reference chains only, while the mover counts hops of both edge kinds, and it cannot measure a cycle at all, so for the shapes boot cannot see the mover carries the same guarantee at claim time: rows still leading somewhere after five hops fail the claim with `transfer_graph_too_deep` and roll the whole handover back, rather than moving part of it."
   },
   {
     "version": "0.289.0",
     "type": "improvement",
-    "title": "tenant-handover: try-before-signup ownership handover",
-    "detail": "New bundled feature: claims an anonymous run's declared-transferable entity graph (root plus parentRef-linked children) into a freshly signed-up account's tenant, legitimized by a row-bound grant. EntityDefinition gains an optional transferable flag; files-tenant-data's tenant-destroy hooks learn to handle handed-over fileRef rows (their bytes stay under the source tenant's storage prefix by design) on both sides."
+    "title": "tenant-handover: try-before-signup ownership handover"
   }
 ]

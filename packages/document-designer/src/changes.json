@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Template navs carry their admin area"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "PDF editor resource upload sends the resource key"
+  },
+  {
     "version": "0.424.0",
     "type": "breaking",
     "title": "system placeholder labels moved to the template-resolver namespace",
@@ -9,20 +19,17 @@
   {
     "version": "0.420.0",
     "type": "improvement",
-    "title": "PDF template editor can hand a template to the AI assistant",
-    "detail": "When a client feature registers the ai-agent:import-template client action, the PDF editor header shows an \"Import from a template\" button that calls it with the slug, the current locale and the template title."
+    "title": "PDF template editor can hand a template to the AI assistant"
   },
   {
     "version": "0.419.0",
     "type": "improvement",
-    "title": "Layout appearance, ruler and company data rail",
-    "detail": "A PDF layout sets font, size, text colour, table style, table header colour and page margins in its `meta`. The editor paper shows them with a cm ruler and the margin zones; a template inherits the layout margins (\"Aus Layout: ...\") and can override them. Footer and header accept a columns block. The company data rail lists the tenant's company settings next to the placeholders and inserts them on click; a placeholder without a value is flagged by the validate query (`emptyCompanyData`). Company placeholder names (`companyAddress`, `companyIban`, ...) are reserved and cannot be declared as template variables."
+    "title": "Layout appearance, ruler and company data rail"
   },
   {
     "version": "0.419.0",
     "type": "improvement",
-    "title": "PDF paper opens once its layout and placeholders are known",
-    "detail": "The PDF template editor shows a loading state in the canvas until the first validate, preview and layout source answers are in, so the editor no longer rebuilds right after opening and drops the caret, and the text no longer shifts when the layout arrives. A tenant default layout that was archived or deleted falls back to the built-in letterhead in the PDF, the preview and the usage lists."
+    "title": "PDF paper opens once its layout and placeholders are known"
   },
   {
     "version": "0.419.0",
@@ -34,116 +41,97 @@
   {
     "version": "0.419.0",
     "type": "fix",
-    "title": "Visible loading state in the PDF template editor",
-    "detail": "While the layout loads, the canvas shows skeleton rows on a white sheet; before, they had the colour of the canvas background and the editor looked empty. The \"From layout\" margin line appears once the layout is in instead of showing the default margins first."
+    "title": "Visible loading state in the PDF template editor"
   },
   {
     "version": "0.414.0",
     "type": "improvement",
-    "title": "mail and PDF previews register in the preview registry",
-    "detail": "`documentDesignerClient()` registers `contentPreviews.mail` and `contentPreviews.pdf`; the mail, PDF and layout editors keep their look and mount their preview through `PreviewPane`. Their shell parts are adapters over the renderer's editor shell. Apps that mount the editors through `documentDesignerClient()` need no change; tests that render the editors without `createKumikoApp` wrap them in `ContentPreviewsProvider` with `documentDesignerClient().contentPreviews`."
+    "title": "mail and PDF previews register in the preview registry"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "review round 2 document designer fixes",
-    "detail": "`toWorkingRow` keeps `archived` for an archived row with an open draft instead of reporting it as a draft, so find-by-id and layout-source show the template as archived and publish brings the draft back. `useEditorHandleReport` re-reports the handle when `onEditorReady` changes on a standing editor and unregisters the old callback. The repeat-bar list label ignores inherited object keys. Dead null guards in the PDF and mail editors, the redundant variable guard in the insert panel and the unused bullet-list text are removed, and the copies of `Translate`, `Primitives` and the selected-block type now come from one place. Tests cover the PDF editor's branding query without managed-pages and drop an unsafe cast."
+    "title": "review round 2 document designer fixes"
   },
   {
     "version": "0.414.0",
     "type": "improvement",
-    "title": "Template title helpers and editor screen ids exported",
-    "detail": "`@cosmicdrift/kumiko-document-designer/web` exports `templateTitle`, `templateTitleText`, `DOCUMENT_DESIGNER_FEATURE`, `MAIL_EDITOR_SCREEN_ID`, `PDF_TEMPLATE_EDITOR_SCREEN_ID`, `TEMPLATE_EDITOR_SCREENS` and the type `TemplateEditorKind`. An app that reads the `slug` search parameter of an editor route can resolve the shown title the same way the overview does."
+    "title": "Template title helpers and editor screen ids exported"
   },
   {
     "version": "0.409.0",
     "type": "improvement",
-    "title": "Template dates use the active app locale",
-    "detail": "The modified-at dates in the template list, the origin bar, the version list and the overrides drawer are formatted with the active app locale instead of the browser default."
+    "title": "Template dates use the active app locale"
   },
   {
     "version": "0.397.0",
     "type": "fix",
-    "title": "Editors skip the branding query without managed-pages",
-    "detail": "The layout editor and the PDF template editor queried managed-pages:query:branding unconditionally. In an app without managed-pages that query has no handler and answered 404 each time an editor opened. They now check the app schema for managed-pages first and show branding as unavailable without asking."
+    "title": "Editors skip the branding query without managed-pages"
   },
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "PDF editor actions drop unreachable null checks",
-    "detail": "generatePdf, printOnce and the save path of the PDF template editor no longer check for a missing editor state; the editor only builds its actions once the state is loaded, and the type already excludes null. A new test pins the publishSystem path for a SystemAdmin who holds a clean tenant template."
+    "title": "PDF editor actions drop unreachable null checks"
   },
   {
     "version": "0.390.0",
     "type": "fix",
-    "title": "The PDF editor no longer saves or publishes the previous row after a scope switch",
-    "detail": "When the host scope changed while the editor was open, for example once the SystemAdmin role loaded, the editor kept showing the tenant copy until the system row arrived. Save then wrote the tenant content as the system template, and publish sent the tenant row to publishSystem. The editor now shows the loading state until the detail of the newly picked row has loaded."
+    "title": "The PDF editor no longer saves or publishes the previous row after a scope switch"
   },
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "Split PDF, layout and mail editors into hooks and render functions",
-    "detail": "PdfTemplateEditor, LayoutEditorBody and MailEditorBody compose focused state hooks, pure logic modules and render functions for chrome, panes and previews. Rendered markup and behavior are unchanged."
+    "title": "Split PDF, layout and mail editors into hooks and render functions"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "layout editor scope follows the entry screen",
-    "detail": "The tenant overview opens layout rows in the tenant editor even for a SystemAdmin, so a system-origin row there loads and saves the tenant layout through layout-source with scope tenant and upsert-tenant. The platform overview opens the new platform-layout-editor screen (PLATFORM_LAYOUT_EDITOR_SCREEN_ID) for the system layout. layout-source takes an optional scope and answers 403 to scope system for non-SystemAdmins. templateRowActions now takes { platform }."
+    "title": "layout editor scope follows the entry screen"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "mail editor resets the record pick when variables change",
-    "detail": "The picked record values are cleared as soon as the set of declared variables changes, so a removed or renamed variable no longer leaves a stale pick behind and a re-added variable does not revive an old value."
+    "title": "mail editor resets the record pick when variables change"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Picked preview values are filtered to declared variables",
-    "detail": "A picked record value for a variable the template does not declare no longer travels into the preview or test mail, which the server rejected as an unknown variable."
+    "title": "Picked preview values are filtered to declared variables"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Singular tenant counts in the override texts",
-    "detail": "The override summary and the system origin bar use plural forms, so one customising tenant reads \"1 tenant has its own version\" in en, de and es."
+    "title": "Singular tenant counts in the override texts"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Seeded layout titles show translated in the PDF editor and mail rail",
-    "detail": "A layout seeded with a title i18n key now shows its translated name in the PDF editor header and the mail editor properties rail instead of the raw key."
+    "title": "Seeded layout titles show translated in the PDF editor and mail rail"
   },
   {
     "version": "0.384.0",
     "type": "improvement",
-    "title": "Layout, mail and PDF template editors load lazily",
-    "detail": "The editors are split into their own chunks and show a loading state while they load. The PdfTemplateEditor export of the web barrel is unchanged."
+    "title": "Layout, mail and PDF template editors load lazily"
   },
   {
     "version": "0.379.0",
     "type": "fix",
-    "title": "Designer rails wrap instead of clipping",
-    "detail": "A rail section wraps its action below the heading instead of clipping it, a resource name without spaces wraps inside its row instead of running under \"Remove\" and its meta text takes its own line instead of an ellipsis, the footer no longer offers a test mail when send-test-status says none can be sent, and the header label placeholder reads \"e.g. Reminder\" instead of an incident example. In a narrow window (1024px beside the app sidebar) both rails share the left column so the page keeps its room, and the header leaves save and publish to the footer below 1280px so the template title stays readable."
+    "title": "Designer rails wrap instead of clipping"
   },
   {
     "version": "0.379.0",
     "type": "fix",
-    "title": "Long template names wrap in the template overview",
-    "detail": "In the template overview, a long template name such as \"Kündigungshinweis an den Betreiber\" now wraps to a second line instead of widening the first column. The overview fits at 1280 px again when billing-foundation templates are listed."
+    "title": "Long template names wrap in the template overview"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "Template overview shows locked tenant overrides",
-    "detail": "Rows with lockedOverride and lockedOverrideI18nKey show the status text as a warning badge in the status column. The row action \"Remove own version\" calls the existing resetToSystem with the new overview field lockedOverrideId (the tenant row; one locale per click). The status shows a short label with the long sentence as tooltip."
+    "title": "Template overview shows locked tenant overrides"
   },
   {
     "version": "0.378.0",
     "type": "fix",
-    "title": "Mail preview fills the editor column",
-    "detail": "The preview frame (HTML and plain text) had a fixed height of 560px, so long mails were cut off mid-sentence with an empty grey area below. The frame now grows with the center column (at least 420px) and scrolls inside."
+    "title": "Mail preview fills the editor column"
   },
   {
     "version": "0.378.0",
@@ -155,103 +143,86 @@
   {
     "version": "0.378.0",
     "type": "improvement",
-    "title": "Stylesheet export for the designer",
-    "detail": "\"@cosmicdrift/kumiko-document-designer/web/styles.css\" registers the designer's own Tailwind sources. Apps that embed the designer import it after the renderer stylesheet."
+    "title": "Stylesheet export for the designer"
   },
   {
     "version": "0.378.0",
     "type": "fix",
-    "title": "Upload and test mail follow the server's capabilities",
-    "detail": "Upload is disabled with a hint when the files feature is not mounted, and the test mail button is disabled with a hint when the server has no email channel or no address for the user."
+    "title": "Upload and test mail follow the server's capabilities"
   },
   {
     "version": "0.372.0",
     "type": "fix",
-    "title": "The designer names placeholders by their label everywhere",
-    "detail": "Placeholder chips in the mail subject, the header label, the footer note and the paper editor now show only the variable's label; the raw name stays available as a tooltip. The tone select reads \"From placeholder: <label>\" instead of \"{{tone}}\", and the validation notes in the preview list labels instead of names. The file-name hint in the settings is translated (de, en, es). Unknown placeholders and variables without a label still show their name."
+    "title": "The designer names placeholders by their label everywhere"
   },
   {
     "version": "0.372.0",
     "type": "fix",
-    "title": "Sample values show formatted money and dates",
-    "detail": "The sample-values bar in the mail preview formats money, dates and percentages in the language of the selected tab and with the tenant currency, through the same helpers the mail and PDF renderers use (formatDocumentMoney, formatDocumentDate and formatDocumentPercent, now exported from kumiko-headless). An amount reads \"1.284,50 €\" instead of \"128450 EUR\". The required star in the placeholder list stays on the label's last word instead of wrapping onto its own line. config/web now exports ConfigQueries."
+    "title": "Sample values show formatted money and dates"
   },
   {
     "version": "0.371.1",
     "type": "fix",
-    "title": "The Document Designer editor shows its own texts in Spanish",
-    "detail": "The client translation bundle of the Document Designer (canvas caption, origin bar, tenant customisations, resources, PDF settings, preview and validation messages) had only en and de, so Spanish users saw these texts in English. It now ships an es block that uses tú and the same terms as locale-es (organización, diseño, marcador). A parity test keeps the keys and placeholders of en, de and es aligned."
+    "title": "The Document Designer editor shows its own texts in Spanish"
   },
   {
     "version": "0.370.0",
     "type": "fix",
-    "title": "Designer addresses the user informally in German, points tenant-routed senders to Email sending and renders chips inside buttons",
-    "detail": "All German document designer strings use du like the rest of the framework; the formal locale overrides keep Sie. For a notification with tenantTransport the sender hint in the mail editor says the address comes from the tenant's Email sending settings and links to that screen when the app mounts it; TemplateUsageEntry gains tenantTransport. A placeholder chip inside a button block is now drawn in inverted colors so the button text stays readable in the editor."
+    "title": "Designer addresses the user informally in German, points tenant-routed senders to Email sending and renders chips inside buttons"
   },
   {
     "version": "0.365.0",
     "type": "improvement",
-    "title": "Seeded mails show readable titles and the editor opens in the UI language",
-    "detail": "A mail template without a stored title is named by its notification label (<feature>:notify.<name>.label) in the overview and the editor header instead of its slug. The mail editor opens on the UI language, or its base language, when the template has it, and falls back to the previous choice otherwise. The layout select offers the built-in standard layout when no default layout is stored, and the preview text field shows a hint while empty."
+    "title": "Seeded mails show readable titles and the editor opens in the UI language"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Layout editor no longer asks for the platform override counts after a tenant save",
-    "detail": "Saving or resetting a layout as tenant admin refetched the tenant-overrides query, which only the platform admin may read, so every save logged a 403. The reload now refetches it only for the platform admin."
+    "title": "Layout editor no longer asks for the platform override counts after a tenant save"
   },
   {
     "version": "0.365.0",
     "type": "improvement",
-    "title": "Mail editor rail edits header chip, tone and footer note",
-    "detail": "The properties rail of the mail editor has a section \"Kopf und Fuß\" with the header chip and the footer note as placeholder lines and the tone as a select (accent, info, success, warning, danger, neutral). The values are saved in the mail meta and show in the preview right away. A tone stored as placeholder stays as its own option; the accent tone is stored as no tone. template-resolver/web exports MAIL_TONES and MailTone."
+    "title": "Mail editor rail edits header chip, tone and footer note"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Debounced layout validation, collision-free resource keys and reload after a half-finished system publish",
-    "detail": "The layout editor sent a validate query (with an MJML compile) on every change; it now waits 400 ms after the last edit. A second upload with the same file name before the row refetch finished reused the first key; keys handed out earlier are now remembered. When a SystemAdmin saved a mail version but publishing it failed, the editor kept the old state with the error shown; it now reloads so the stored version is visible."
+    "title": "Debounced layout validation, collision-free resource keys and reload after a half-finished system publish"
   },
   {
     "version": "0.364.0",
     "type": "improvement",
-    "title": "Editors and overview show an open draft beside the active version",
-    "detail": "The editor header shows the served version (Active vN) next to the open draft (Draft vM), fed by the active field of find-by-id and layout-source; the template overview shows the draftVersion badge under the status of an active row."
+    "title": "Editors and overview show an open draft beside the active version"
   },
   {
     "version": "0.364.0",
     "type": "improvement",
-    "title": "Document designer editors follow the approved board",
-    "detail": "Mail-layout templates accept appearance meta (width, font, outer background, accent line, button style) that the mail renderer applies, and the layout-source query returns it. The layout editor uses the shared editor shell with one paper and one shared toolbar (`DocumentContentEditor` gains `toolbarHost`). Mail and PDF editors share frame, info bar, rails and footer.\nThe unused `sender` key of mail template meta is gone from the editor; stored rows that still carry it are read without it, so they stay editable.\nInvalid template meta now reports per-field messages (`templateResolver.errors.template.meta.<field>.required|invalid`) instead of the parser text; the editors show them at the field. The `tenant-overrides` query additionally returns one row per customising tenant (name, status, version, changed at/by) and, with `diffTenantId`, the diff to the system version. A language without a version shows an empty state in the mail editor instead of a disabled editor.\nThe `compileDocumentBody` option `resourceImageMaxWidthPx` caps resource images in mails (180 px). The `send-test` command takes `prefixSubject` (default true) to skip the `[TEST]` subject prefix, the template preview returns `mailLayout` (slug, scope, version of the layout used), and `RenderedMail` carries the layout ref."
+    "title": "Document designer editors follow the approved board"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "PDF editor keeps unset margins unset, frees old PDF previews, and shows reset and diff errors",
-    "detail": "Setting one margin no longer stores the other three as 15 mm, so the layout's header and footer margins still apply to them. The PDF preview no longer re-renders pages or stacks text layers on re-render and destroys the previous document. A failed reset to the system version shows an error banner in the PDF and mail editors, and a failing diff query shows an error state with retry instead of loading forever. The canvas reserves the footer margin like the renderer. Page formats, orientations and default margins now come from template-resolver (new exports PDF_ORIENTATIONS, PDF_DEFAULT_MARGIN_MM, PDF_HEADER_MARGIN_MM, PDF_FOOTER_MARGIN_MM, PdfOrientation)."
+    "title": "PDF editor keeps unset margins unset, frees old PDF previews, and shows reset and diff errors"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "Layout editor shows the real number of mails or PDFs using a layout",
-    "detail": "The editor asks the overview for the users of one layout (kind and layoutSlug filter) and takes the count from total, so a tenant with more than 200 templates no longer sees a too low usage number."
+    "title": "Layout editor shows the real number of mails or PDFs using a layout"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "Mail templates open in a mail editor with preview and test mail",
-    "detail": "The \"Edit\" row action of a mail template opens the new mail-editor screen: subject, preview text and content with placeholders from the notification, logo and file attachments, PDF-template attachments, layout and category, sandboxed preview (HTML or text, desktop or 375 px), test mail to the signed-in user and the audit-based version list. PreviewRecordPickerProvider is an optional slot for a \"pick a record\" action in the preview."
+    "title": "Mail templates open in a mail editor with preview and test mail"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "Template overview, layout editor and an options object for documentDesignerClient",
-    "detail": "The package gains the server feature createDocumentDesignerFeature with the templates and platform-templates overviews and the layout-editor screen. documentDesignerClient now takes an options object instead of a screen id, and appLocales sets the languages column of the overview. The feature declares the pdf-template-editor screen (PDF_TEMPLATE_EDITOR_SCREEN_ID) and PDF rows open the PDF editor."
+    "title": "Template overview, layout editor and an options object for documentDesignerClient"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "New package with the PDF template editor screen",
-    "detail": "\"@cosmicdrift/kumiko-document-designer/web\" exports documentDesignerClient(screenId), PdfTemplateEditorScreen, PdfTemplateEditor and documentDesignerTranslations. The screen takes the template from the URL (?slug=...&locale=...), edits the system template for a SystemAdmin and a tenant customisation for everyone else, and previews the printed PDF with pdf.js. template-resolver/web additionally exports DocumentEditorHandle, TemplateResolverQueries, TemplateResolverHandlers and TemplateResolverErrors."
+    "title": "New package with the PDF template editor screen"
   }
 ]

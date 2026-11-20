@@ -1,89 +1,198 @@
 [
   {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "SERVICE_ENV_DEFAULTS from kumiko-testing/e2e"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "E2E server shuts down cleanly and leaves no job queues in Redis"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "E2E worker count falls back to os.cpus()"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "updateRows and deleteRows refuse event-sourced entity tables without a reason",
+    "detail": "`seedRow` and `seedRows` already refused an `r.entity` table without `{ projectionOnly }`, but `updateRows` and `deleteRows` changed such rows silently, so a test could set up projection state that no event history produces and that a rebuild undoes. Both now take an optional last `options` argument and throw synchronously on an event-sourced entity table unless `options.projectionOnly` names the scenario. The error points to `updateRowViaEventStore` or `deleteRowViaEventStore`. Tables without event sourcing are unaffected.",
+    "migration": "Calls of `updateRows(db, table, set, where)` or `deleteRows(db, table, where)` on an `r.entity` table switch to `updateRowViaEventStore` / `deleteRowViaEventStore`, or pass `{ projectionOnly: \"<scenario>\" }` as the last argument when the event-less change is the point of the test.",
+    "affects": [
+      "updateRows",
+      "deleteRows"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Access contract accepts dispatchOnly handlers"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "One DOM test budget of 5 s",
+    "migration": "Apps whose `test:dom` script passes `--timeout=15000` switch to `--timeout=5000` and speed up DOM tests that need longer instead of raising the budget."
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "waitForWrite and S3 env for e2e app servers",
+    "migration": "Apps that mapped `MINIO_*` to `S3_*` in their `playwright.config.ts` remove that mapping and keep only `FILE_STORAGE_PROVIDER`. Local copies of `waitForWrite` switch to the export."
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "One Meilisearch availability check for live tests"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Typed fake pooled client for closed-connection retry tests",
+    "migration": "Local fake clients in app retry tests can switch to `fakePooledClientFailingWith`; `calls` is an array, so `calls` counters become `toHaveLength`."
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Scaffolded Playwright config uses ports.e2e",
+    "detail": "The generated `playwright.config.ts` imports the app's kumiko.config.ts and passes `appConfig.ports.e2e`, so the e2e port is declared once. `renderTestSetup` no longer takes `port`, and `SCAFFOLD_E2E_PORT` is no longer exported.",
+    "migration": "Existing apps write `import appConfig from \"./kumiko.config\";` and `defineAppE2eConfig({ port: appConfig.ports.e2e })` in playwright.config.ts. Callers of `renderTestSetup` drop the `port` argument.",
+    "affects": [
+      "renderTestSetup",
+      "SCAFFOLD_E2E_PORT",
+      "defineAppE2eConfig"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "e2e teardown sweeps Meilisearch indexes of killed runs"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Fresh apps pass the weak-assertions guard and the agent lint"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Prod-boot e2e on the built server bundle",
+    "migration": "Add `playwright.prod-boot.config.ts` with `defineProdBootE2eConfig` and the app's port from `samples/e2e/e2e-ports.ts`, add one spec in `e2e-prod-boot/` that calls `expectProdBootSecure(page)`, and run that config after the app build."
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Video tooling on its own subpath",
+    "detail": "`defineVideo`, `runVideos`, `editorStage`, `terminalStage`, `findVideoTextGaps`, `loadVideoTexts`, `DEFAULT_TTS_MODEL` and their types (`VideoDefinition`, `VideoScene`, `VideoSceneContext`, `VideoTools`, `VideoVoice`, `EditorLine`, `EditorStageOptions`, `PreviewBox`, `PreviewStage`, `StagePreview`, `StagePreviewCard`, `RunVideosOptions`, `StageOutputLine`, `StageTone`, `TerminalCommand`, `TerminalStageOptions`, `TypedStage`) are exported from `@cosmicdrift/kumiko-testing/video` and no longer from `./e2e`, so e2e specs do not load the video pipeline.",
+    "migration": "Import the video API from `@cosmicdrift/kumiko-testing/video`.",
+    "affects": [
+      "defineVideo",
+      "runVideos",
+      "editorStage",
+      "terminalStage",
+      "findVideoTextGaps",
+      "loadVideoTexts",
+      "DEFAULT_TTS_MODEL",
+      "VideoDefinition",
+      "VideoScene",
+      "VideoTools",
+      "VideoVoice",
+      "EditorLine",
+      "EditorStageOptions",
+      "PreviewBox",
+      "PreviewStage",
+      "StagePreview",
+      "RunVideosOptions",
+      "StageOutputLine",
+      "StageTone",
+      "TerminalCommand",
+      "TerminalStageOptions",
+      "TypedStage"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Build tests get their own class and budget"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Application role is aligned once per process"
+  },
+  {
     "version": "0.420.0",
     "type": "improvement",
-    "title": "Terminal and code editor stages for e2e videos",
-    "detail": "`terminalStage` and `editorStage` from `@cosmicdrift/kumiko-testing/e2e` return `{ html, durationMs }` for `tools.stage` and `tools.animate`. Typing rhythm is seeded, so the same options always produce the same video. The editor stage highlights TypeScript without extra dependencies."
+    "title": "Terminal and code editor stages for e2e videos"
   },
   {
     "version": "0.418.0",
     "type": "fix",
-    "title": "Stack cleanup test tolerates the ioredis MONITOR startup race",
-    "detail": "ioredis switches a connection to monitoring one microtask after MONITOR's OK, so command lines in the same TCP read raised \"Command queue state error\" and failed the cleanup test under parallel Redis traffic. The test opens its own monitor connection and drops only that startup error."
+    "title": "Stack cleanup test tolerates the ioredis MONITOR startup race"
   },
   {
     "version": "0.417.0",
     "type": "improvement",
-    "title": "Video generator for tutorial and marketing videos",
-    "detail": "`defineVideo` and `runVideos` from `@cosmicdrift/kumiko-testing/e2e` record scenes from the real app or from an HTML stage with Playwright in virtual time, narrate them via Gemini TTS over OpenRouter (cached by text hash), and mux MP4 plus VTT with ffmpeg. Optional brand logo, background music with ducking and a per-locale AI disclosure."
+    "title": "Video generator for tutorial and marketing videos"
   },
   {
     "version": "0.417.0",
     "type": "improvement",
-    "title": "Smaller web-ready video files",
-    "detail": "The video muxer encodes with CRF 28, preset slow and +faststart, so trailers shrink by about half and start playing while they load."
+    "title": "Smaller web-ready video files"
   },
   {
     "version": "0.415.0",
     "type": "fix",
-    "title": "App e2e runs clean up their Meilisearch indexes",
-    "detail": "Each run's server gets `KUMIKO_MEILI_INDEX_PREFIX=e2e_<uuid>_`, which beats the adapter's `indexPrefix` option, and a global teardown drops only that prefix. Without the variable the adapter behaves as before. A config that sets its own `globalTeardown` replaces this cleanup, so it has to include `config.globalTeardown`. Indexes of a run killed before its teardown stay behind. The framework's own Meilisearch tests now list all indexes in their cleanup instead of the first 20."
+    "title": "App e2e runs clean up their Meilisearch indexes"
   },
   {
     "version": "0.415.0",
     "type": "fix",
-    "title": "Test runs outside the runner stay alive for parallel sweeps",
-    "detail": "testRunQueueNamePrefix now marks the process run alive, and a failed first alive mark no longer stops the refresh timer, so a parallel run's sweep cannot delete live queues, keys or template databases."
+    "title": "Test runs outside the runner stay alive for parallel sweeps"
   },
   {
     "version": "0.414.0",
     "type": "improvement",
-    "title": "seedRowsViaEventStore seeds several rows through the event store",
-    "detail": "`@cosmicdrift/kumiko-testing/helpers` exports `seedRowsViaEventStore(db, table, rows)`, the event store counterpart of `seedRows`. Each row becomes its own event stream."
+    "title": "seedRowsViaEventStore seeds several rows through the event store"
   },
   {
     "version": "0.414.0",
     "type": "fix",
     "title": "stricter and clearer test helpers",
-    "detail": "`loginViaUi` throws with the MFA verify status and body, or names the missing post-login redirect. `defineAppE2eConfig` merges the default ignores into app projects that set `testIgnore` even without `isolatedSpecs`. `seedRowViaEventStore` throws for system columns such as `isDeleted`; use `deleteRowViaEventStore` or the real command. The unused `end` member of `RawDbClient` is gone.",
     "migration": "Replace seeds with system columns by the real event, for example `softDeleteUserViaEventStore` instead of `isDeleted: true`."
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "setupTestStack cleans up when a factory throws",
-    "detail": "The cleanup region of `setupTestStack` starts right after the storage is provisioned, so a throwing `extraContext` factory, `runLogger` factory or job runner creation no longer leaves the test database, Redis namespace and cache-sync connection open. The cleanup only closes what already exists."
+    "title": "setupTestStack cleans up when a factory throws"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "test stack setup split, drain-jobs regression bound to the batch size",
-    "detail": "The test stack setup moved from one 694-line file into test-stack-storage.ts, test-stack-services.ts and test-stack-server.ts without behaviour change. The drain-jobs row-level-security regression derives its backlog from `DEFAULT_EVENT_DISPATCHER_BATCH_SIZE` (newly exported from `@cosmicdrift/kumiko-framework/pipeline`) instead of a fixed 450, so it keeps covering \"more than two batches\" when the batch size changes. The seeded-tenant fixture documents that the per-test client IP header forces a CORS preflight on cross-origin requests. The use-all-bundled admin session file is cleared by a Playwright globalSetup, so a reused runner pid never serves expired cookies."
+    "title": "test stack setup split, drain-jobs regression bound to the batch size"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "api example recordings redact tokens, api keys and JWTs",
-    "detail": "The recording normalizer only masked values under keys matching `password|secret|mfaCode`, so an `accessToken`, `refreshToken`, `apiKey` or `authorization` value was committed and published verbatim. The key rule is now `password|secret|mfa|token|apikey|api_key|authorization|credential` (string values only; numeric fields such as `tokenCount` are untouched) and any JWT-shaped string in a value is replaced by a fixed placeholder. A recorded `token` field is now `REDACTED` instead of the `kpat_EXAMPLE` placeholder. The committed samples/recipes recordings contain no matching keys and are unchanged."
+    "title": "api example recordings redact tokens, api keys and JWTs"
   },
   {
     "version": "0.414.0",
     "type": "improvement",
     "title": "e2e fixture client ip header also overrides a per-fetch x-forwarded-for",
-    "detail": "The per-test client ip goes through `context.setExtraHTTPHeaders`, so an `x-forwarded-for` set in a single `fetch(..., { headers })` is replaced by it; only `page.setExtraHTTPHeaders` or a separate `browser.newContext()` with its own header changes the IP. This is now covered by `e2e/client-ip.spec.ts`.",
     "migration": "Specs that simulate other client IPs per request (rate limit, audit IP, geo) must set the header with `page.setExtraHTTPHeaders` or on their own `browser.newContext()`; a per-fetch `x-forwarded-for` is overwritten. A cross-origin `fetch`/XHR from the page now carries `x-forwarded-for` and therefore forces a CORS preflight; route third-party endpoints that send no `Access-Control-Allow-Headers` through a same-origin proxy or mock them with `page.route`."
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "event-store write helpers fail on ambiguous row filters",
-    "detail": "`updateRowViaEventStore` and `deleteRowViaEventStore` now throw when the filter matches more than one row instead of writing to whichever row came first. `updateInvitationViaEventStore` also filters on the inviting tenant, so the same email invited in two tenants no longer hits the wrong row."
+    "title": "event-store write helpers fail on ambiguous row filters"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Test stack attaches the job dispatcher before the runner starts",
-    "detail": "With jobs.consumerLane set, setupTestStack started the runner (worker plus runOnBoot enqueue) before attachDispatcher. Under load a boot job such as a perTenant sync reached ctx.dispatch.write in that window, failed, and drainJobs reported it later as a job failure in an unrelated test. The order now matches the prod entrypoint."
+    "title": "Test stack attaches the job dispatcher before the runner starts"
   },
   {
     "version": "0.414.0",
@@ -95,62 +204,52 @@
   {
     "version": "0.412.0",
     "type": "improvement",
-    "title": "recordApiExample records real API responses for the generated docs",
-    "detail": "`recordApiExample(http, { name, dir, endpoint, body, token })` from `@cosmicdrift/kumiko-testing/api-examples` sends the request with the token as Bearer and returns status and body. With `KUMIKO_RECORD_API_EXAMPLES=1` it also writes `<dir>/<name>.json` with ids, timestamps, tokens, request ids and cursors replaced by stable placeholders and values under password, secret and mfaCode keys redacted. `kumiko api-docs` uses a recording for the example request and the example response of the matching handler. The recipe `samples/recipes/api-docs` shows the whole flow."
+    "title": "recordApiExample records real API responses for the generated docs"
   },
   {
     "version": "0.412.0",
     "type": "improvement",
-    "title": "recordWebhookExample records validated webhook payloads for the generated docs",
-    "detail": "`recordWebhookExample({ name, dir, contract, payload })` from `@cosmicdrift/kumiko-testing/api-examples` validates the payload with `parseWebhookPayload` and throws with the issues when it breaks the contract. With `KUMIKO_RECORD_API_EXAMPLES=1` it writes `<dir>/webhooks/<name>.json` with ids, timestamps and secrets normalized. It always returns the parsed payload. `WebhookExampleFileSchema` is exported from `@cosmicdrift/kumiko-types/api-example`."
+    "title": "recordWebhookExample records validated webhook payloads for the generated docs"
   },
   {
     "version": "0.411.0",
     "type": "improvement",
-    "title": "renderTestSetup starter \"blank\"",
-    "detail": "`renderTestSetup({ starter: \"blank\" })` skips the tasks integration and e2e files, ships a boot validation unit test and a boot integration test, and runs Playwright with `--pass-with-no-tests`."
+    "title": "renderTestSetup starter \"blank\""
   },
   {
     "version": "0.411.0",
     "type": "fix",
-    "title": "runScreenshots finishes CSS transitions before the capture",
-    "detail": "`runScreenshots` captures with `animations: \"disabled\"` like `runMatrix`. A scenario flow that toggles the dark theme no longer catches `transition-all` buttons mid-fade with their light-theme colours."
+    "title": "runScreenshots finishes CSS transitions before the capture"
   },
   {
     "version": "0.409.0",
     "type": "fix",
-    "title": "Test-stack jobs get ctx.services.files from mounted file providers",
-    "detail": "setupTestStack resolved the file-provider plugins only for the request path, so a job saw ctx.services.files undefined unless the stack got an explicit files option. The job context now carries the same resolver the production entrypoint builds (withFileProviderResolver), so a job that hashes or reads stored bytes behaves in tests as it does in production."
+    "title": "Test-stack jobs get ctx.services.files from mounted file providers"
   },
   {
     "version": "0.401.0",
     "type": "fix",
-    "title": "drainJobs waits for consumer backlogs under row-level security",
-    "detail": "`stack.drainJobs()` compared every shared consumer's cursor with the event high-water mark, but read that mark through the tenant-enforced pool. With `rowLevelSecurity: \"on\"` (the default) the mark was 0, every consumer counted as caught up, and the drain resolved after two dispatcher batches (400 events). A test behind a longer backlog then saw event-triggered jobs that had not run yet, so its result depended on how many events earlier tests in the same file had written. The drain now reads through the same cross-tenant runner as `stack.db`."
+    "title": "drainJobs waits for consumer backlogs under row-level security"
   },
   {
     "version": "0.401.0",
     "type": "improvement",
-    "title": "dropTestDb drops a test database by name",
-    "detail": "`dropTestDb(baseUrl, dbName)` from `@cosmicdrift/kumiko-testing/stack` drops a database through an admin connection, for persistent databases made with `createTestDb({ persistent: true, dbName })`; the cleanup of `createTestDb` uses it too."
+    "title": "dropTestDb drops a test database by name"
   },
   {
     "version": "0.399.0",
     "type": "fix",
-    "title": "loginViaUi waits for the landing page after the login",
-    "detail": "loginViaUi returned as soon as the login form disappeared, while the app was still navigating to its landing page. A page.goto right after it was then interrupted by that navigation (\"Navigation to … is interrupted by another navigation to …/d\"). It now waits until the URL has left /login, with and without the MFA step."
+    "title": "loginViaUi waits for the landing page after the login"
   },
   {
     "version": "0.394.0",
     "type": "improvement",
-    "title": "request-helper sessions carry a realistic IP and user agent",
-    "detail": "Sessions the request helper opens record a documentation-range IP and a desktop Chrome user agent instead of \"test\" and \"request-helper\", so seeded sample apps show plausible rows on My sessions."
+    "title": "request-helper sessions carry a realistic IP and user agent"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "kumiko-testing exports main(argv, io)",
-    "detail": "The kumiko-testing bin exports main(argv, io), which returns the exit code and writes through the given io, so its commands can run in-process. Invocation from the shell is unchanged."
+    "title": "kumiko-testing exports main(argv, io)"
   },
   {
     "version": "0.390.0",
@@ -162,20 +261,17 @@
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "Run e2e specs that change global app state in an isolated project",
-    "detail": "defineAppE2eConfig takes an isolatedSpecs option with the same pattern form as testMatch. Matching specs are removed from chromium and from every app project and run in a separate chromium-isolated project with one worker, only after all other projects have finished. Apps use it for specs that change state shared across the app, such as creating catalog channels. With isolatedSpecs set, every app project needs a name, and a run with --shard throws because Playwright does not shard dependency projects. Without the option the generated config is unchanged."
+    "title": "Run e2e specs that change global app state in an isolated project"
   },
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "The e2e suites run in two parallel CI shards",
-    "detail": "The framework CI splits the Playwright e2e suites across two runners instead of running them one after another on a single runner. The required e2e check passes only when both shards succeed. Nothing changes for apps; the package is only republished."
+    "title": "The e2e suites run in two parallel CI shards"
   },
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "The puppeteer render tests, including the egress guard, run in CI",
-    "detail": "The integration job installs Chrome through the trusted puppeteer postinstall and caches it between runs, so the real render tests no longer skip in CI. Nothing changes for apps; the package is only republished."
+    "title": "The puppeteer render tests, including the egress guard, run in CI"
   },
   {
     "version": "0.390.0",
@@ -187,14 +283,12 @@
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "Export applicationRoleUrlOf from kumiko-testing/stack",
-    "detail": "Use it to boot runProdApp in tests against the app role. It returns the URL of a database as the non-bypass application role with the password of TEST_DATABASE_URL; pair it with createTestDb({ applicationRole: true })."
+    "title": "Export applicationRoleUrlOf from kumiko-testing/stack"
   },
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "The test application role is realigned to the configured password",
-    "detail": "createApplicationRole used to return early when the role existed, so a kumiko_app role with another password made every integration test fail with 28P01. It now runs ALTER ROLE with the configured password and the NOSUPERUSER NOBYPASSRLS attributes."
+    "title": "The test application role is realigned to the configured password"
   },
   {
     "version": "0.390.0",
@@ -206,14 +300,12 @@
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "Test helpers for event-store writes",
-    "detail": "The testing helpers gain updateRowViaEventStore, deleteRowViaEventStore and deleteRowsViaEventStore. They update or delete rows of an event-sourced table through the event-store executor, so the event log and the projection stay in step, instead of writing the projection table directly."
+    "title": "Test helpers for event-store writes"
   },
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "Seed event-sourced rows through the event store",
-    "detail": "The testing helpers gain seedRowViaEventStore(db, table, values). It takes the same arguments as seedRow, appends a created event through the event-store executor and projects the row, so a rebuild keeps the seeded row. The row's tenantId selects the acting tenant; global entities such as user are seeded without a tenantId, because the executor rejects one on them. It throws for tables that are not event-sourced entity tables, for a non-string id and when the executor rejects the row. To support this, buildEntityTable and r.entity now remember which entity a managed table belongs to; nothing changes for apps."
+    "title": "Seed event-sourced rows through the event store"
   },
   {
     "version": "0.389.0",
@@ -232,80 +324,67 @@
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "loginViaUi no longer races the MFA auto-submit",
-    "detail": "The MFA code field submits itself on the sixth digit since 0.388. loginViaUi now fills the code while waiting for the verify response and no longer presses Enter on a field that may already be disabled."
+    "title": "loginViaUi no longer races the MFA auto-submit"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "consoleCallsFromNamespace test helper for silent-log assertions",
-    "detail": "Filters a console spy by logger namespace prefix, so a new or reworded warning from the module under test fails a silent test. The boot-validator, client-ip and settings-hub silent tests use it."
+    "title": "consoleCallsFromNamespace test helper for silent-log assertions"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "mockModuleForFile restores module mocks automatically",
-    "detail": "bun's mock.module is process-global, so tests had to copy the real module and restore it by hand in afterAll. The helper does both and can point re-exporting modules back at the real export."
+    "title": "mockModuleForFile restores module mocks automatically"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "E2E specs can present stable identities around their own screenshots",
-    "detail": "withPresentedIdentities replaces generated identities in page text and form values, runs the callback and restores the originals in a finally block. The lower-level present and restore functions are exported too."
+    "title": "E2E specs can present stable identities around their own screenshots"
   },
   {
     "version": "0.388.0",
     "type": "improvement",
-    "title": "setupTestStack split into setup phases",
-    "detail": "setupTestStack() keeps its signature and behavior. Feature validation, storage provisioning with its DDL cleanup, cache sync, services, the job runner and the server start are separate phases in stack/test-stack-setup.ts. The cleanup on a failed setup still stops the job runner, closes cache sync and drops the test database and Redis in that order."
+    "title": "setupTestStack split into setup phases"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Barrier, SSE reader, boundary guard and Redis helper fixes",
-    "detail": "createBarrier rejects late arrivals after a timeout instead of hanging. readSseFrames accepts CRLF and CR line endings. The error-boundary guard observes every page of the context and no longer fails on closed pages. createTestRedis disconnects the client when the initial connect fails. createE2eSeedRoutes of the e2e/seed-route subpath is also available as createE2eSeedRoutesWith, the old name stays as a deprecated alias."
+    "title": "Barrier, SSE reader, boundary guard and Redis helper fixes"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "consoleCallsMentioning helper for console spies",
-    "detail": "`@cosmicdrift/kumiko-testing/helpers` exports `consoleCallsMentioning(spy, fragment)` and `ConsoleSpyLike`, replacing the per-file filters tests used to ignore console output of other test files."
+    "title": "consoleCallsMentioning helper for console spies"
   },
   {
     "version": "0.386.0",
     "type": "fix",
-    "title": "Integration test stacks clone a migrated template database",
-    "detail": "kumiko-testing integration and the framework integration runner set a run id; setupTestStack then builds one template per schema fingerprint under an advisory lock and clones it, and the runner drops the templates at the end. Plain bun test runs keep the in-place DDL path. setupAppTestStack skips pushEntityProjectionTables on fresh databases."
+    "title": "Integration test stacks clone a migrated template database"
   },
   {
     "version": "0.386.0",
     "type": "fix",
-    "title": "createTestRedis waits for a ready connection",
-    "detail": "The test Redis client connected in the background, so the first rate-limit check in a test file could see status \"connect\" and fail with \"rate-limit redis connection not ready\". createTestRedis now connects explicitly and returns after the connection is ready."
+    "title": "createTestRedis waits for a ready connection"
   },
   {
     "version": "0.385.0",
     "type": "fix",
-    "title": "Tests use waitFor and sleep helpers instead of inline timers",
-    "detail": "Fixed waits that back a TTL bound, an absence or an ordering gap use sleep with a reason; the combobox debounce test polls with waitFor."
+    "title": "Tests use waitFor and sleep helpers instead of inline timers"
   },
   {
     "version": "0.382.0",
     "type": "improvement",
-    "title": "withEnv and readSseFrames test helpers",
-    "detail": "withEnv restores process.env after a callback so parallel no-isolate runs do not leak variables; readSseFrames replaces hand-written SSE stream parsers in tests."
+    "title": "withEnv and readSseFrames test helpers"
   },
   {
     "version": "0.381.0",
     "type": "improvement",
-    "title": "Deterministic concurrency test helpers",
-    "detail": "createBarrier proves handler calls overlapped, burst fires N requests and tallies statuses with a guard against the pool size, TestStack exposes dbPoolMax."
+    "title": "Deterministic concurrency test helpers"
   },
   {
     "version": "0.376.0",
     "type": "fix",
-    "title": "MEILI_URL in the test preload follows the app's Meilisearch port",
-    "detail": "service-env-defaults derives MEILI_URL from ports.infra.meilisearch of the app's kumiko.config.ts when the variable is unset; without a configured port the old default stays."
+    "title": "MEILI_URL in the test preload follows the app's Meilisearch port"
   },
   {
     "version": "0.376.0",
@@ -318,168 +397,141 @@
   {
     "version": "0.372.0",
     "type": "improvement",
-    "title": "defineAppE2eConfig runs against a remote instance via KUMIKO_E2E_REMOTE_BASE_URL; csrfFetch handles the __Host- csrf cookie",
-    "detail": "KUMIKO_E2E_STORAGE_STATE supplies a recorded session. Without the remote env nothing changes."
+    "title": "defineAppE2eConfig runs against a remote instance via KUMIKO_E2E_REMOTE_BASE_URL; csrfFetch handles the __Host- csrf cookie"
   },
   {
     "version": "0.371.0",
     "type": "improvement",
-    "title": "Scaffold test:dom passes without test files",
-    "detail": "The scaffold sets test:dom to pass without test files and adds the devDependencies @testing-library/react, @testing-library/dom and @happy-dom/global-registrator."
+    "title": "Scaffold test:dom passes without test files"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "setupTestStack binds the MFA token secrets",
-    "detail": "setupTestStack binds the auth-mfa token secrets from the stack's JWT secret, independent of the host env, so tests that mount auth-mfa without explicit secrets keep working."
+    "title": "setupTestStack binds the MFA token secrets"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "renderTestSetup writes the standard test scripts, bunfig.dom.toml and the helper homes",
-    "detail": "The scaffolded test setup now adds test:unit, test:integration:ci, test:dom and screenshots, writes bunfig.dom.toml (with @happy-dom/global-registrator as devDependency), e2e/_helpers/index.ts and src/__tests__/_setup.ts."
+    "title": "renderTestSetup writes the standard test scripts, bunfig.dom.toml and the helper homes"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "createTestStoredEvent builds a StoredEvent fixture",
-    "detail": "createTestStoredEvent(overrides) from @cosmicdrift/kumiko-testing/helpers returns a complete StoredEvent with stable defaults, for hook tests that construct SaveContext or DeleteContext directly."
+    "title": "createTestStoredEvent builds a StoredEvent fixture"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "E2E webServer env no longer overrides keys from .env.local or .env.<NODE_ENV>",
-    "detail": "Keys defined in the app's .env.local or .env.<NODE_ENV> (not only .env) are now left to the server's own dotenv loading instead of being overridden by the template service defaults."
+    "title": "E2E webServer env no longer overrides keys from .env.local or .env.<NODE_ENV>"
   },
   {
     "version": "0.365.0",
     "type": "improvement",
-    "title": "extractMailLink and extractMailLinkToken in kumiko-testing/e2e",
-    "detail": "mailLinks, extractMailLink(mail, fragment) and extractMailLinkToken(mail, fragment, param) read href values from a captured HTML mail and decode HTML entities such as &#x3D; and &amp; once, so e2e specs no longer need their own mail helper."
+    "title": "extractMailLink and extractMailLinkToken in kumiko-testing/e2e"
   },
   {
     "version": "0.357.0",
     "type": "improvement",
-    "title": "defineAppE2eConfig accepts permissions, launchOptions, a custom server command and Bun preloads",
-    "detail": "Apps that need browser permissions (camera, microphone), Chromium launch flags such as fake media devices, or a preloaded module for the e2e server no longer have to hand-roll their Playwright config. permissions and launchOptions land in the shared use block. preload (one path or a list) is prefixed to serverEntry as bun run --preload flags; serverCommand replaces the whole server start command and cannot be combined with serverEntry or preload."
+    "title": "defineAppE2eConfig accepts permissions, launchOptions, a custom server command and Bun preloads"
   },
   {
     "version": "0.354.0",
     "type": "improvement",
-    "title": "trackInFlightRequests(page) export for captureScreenshot",
-    "detail": "Export trackInFlightRequests(page) so captureScreenshot counts requests from the initial load; the first untracked call waits for network idle, and a pushState during a delayed navigation no longer drops in-flight requests"
+    "title": "trackInFlightRequests(page) export for captureScreenshot"
   },
   {
     "version": "0.353.0",
     "type": "fix",
-    "title": "E2E webServer infra defaults no longer override keys defined in the app's .env",
-    "detail": "E2E webServer infra defaults no longer override keys defined in the app's `.env`; precedence is shell environment, then `.env`, then the template default"
+    "title": "E2E webServer infra defaults no longer override keys defined in the app's .env"
   },
   {
     "version": "0.351.0",
     "type": "improvement",
-    "title": "CapturedMail.text in the e2e seed route carries the mail's plain-text part",
-    "detail": "The e2e seed route returns the plain-text part of captured mails\n`CapturedMail` in the seed contract has an optional `text`, filled from the mail's text part, so e2e flows can assert on it."
+    "title": "CapturedMail.text in the e2e seed route carries the mail's plain-text part"
   },
   {
     "version": "0.345.0",
     "type": "improvement",
-    "title": "e2e kit seeds an MFA factor and answers the MFA challenge on login",
-    "detail": "The e2e kit now works against apps that enforce MFA. `seedTenant({ mfa: \"totp\" })` enrolls the seeded admin with a confirmed TOTP factor through the real auth-mfa endpoints and returns the base32 secret as `admin.mfaTotpSecret`. `loginViaApi` and `loginViaUi` answer the MFA challenge with that secret when the credentials carry `mfaTotpSecret`; without it they behave as before for accounts that need no MFA. `seedTenant()` also enrolls the admin when the app policy demands MFA (the login answers with a required setup), without the option; the option forces enrollment when no policy does. `enrollTotpViaApi(request, credentials)` is exported for enrolling other users, and `addUser(roles, { mfa: \"totp\" })` enrolls a seeded user (returned as `mfaTotpSecret`) on a separate request context, so the admin session stays logged in. `loginViaApi` now throws when the account answers with an MFA challenge or a required MFA setup but the credentials carry no `mfaTotpSecret`, instead of returning without a session. It also throws when the credentials carry a secret but the server answers with a required MFA setup, since the account then has no enrolled factor. Repeated logins in one 30 s window use the next valid TOTP step, because the server burns an accepted code."
+    "title": "e2e kit seeds an MFA factor and answers the MFA challenge on login"
   },
   {
     "version": "0.339.0",
     "type": "fix",
     "title": "Generated integration bunfig ignores *.test.tsx",
-    "detail": "The generated `bunfig.integration.toml` now ignores `**/*.test.tsx`. Calling `bun test --config=bunfig.integration.toml <dir>` directly no longer picks up DOM tests, which failed there without the DOM preload. The runner and `test:dom` collect the same tests as before.",
     "migration": "Regenerate with `kumiko-testing bunfig` after the bump to pick up the new ignore pattern."
   },
   {
     "version": "0.337.0",
     "type": "fix",
-    "title": "bunfig merge reports dotted/quoted keys and keeps array tables, empty schema env defaults are replaced, integration dir expansion prunes node_modules, seedTenant gains unsubscribeSse",
-    "detail": "`kumiko-testing bunfig` now reports dotted and quoted keys as unknown and keeps `[[array-of-tables]]` blocks instead of folding them into `[test]`, and drops the superseded `./test-setup/dom.preload.ts` only when the DOM preload is generated. The schema-env-defaults preload treats empty values like unset ones for every key. `kumiko-testing integration <dir>` skips `node_modules`, `dist` and `e2e` while expanding a directory. `seedTenant` returns `unsubscribeSse` to detach the tenant's SSE client from `events.sse`. A real-provider scenario `waitFor` now times out after `E2E_TIMEOUT_MS.realWait` (180 s), before the 240 s test timeout."
+    "title": "bunfig merge reports dotted/quoted keys and keeps array tables, empty schema env defaults are replaced, integration dir expansion prunes node_modules, seedTenant gains unsubscribeSse"
   },
   {
     "version": "0.336.1",
     "type": "fix",
-    "title": "DOM preload bounds the printed output of SVG elements as well",
-    "detail": "The DOM preload's bounded print of nodes now covers SVG elements too. Before, printing an `<svg>` in a failed assertion dumped the whole happy-dom object graph (about 10 MB)."
+    "title": "DOM preload bounds the printed output of SVG elements as well"
   },
   {
     "version": "0.336.1",
     "type": "fix",
-    "title": "Scaffolded test:real only matches *.real.test.ts files",
-    "detail": "The scaffolded `test:real` script now filters on `.real.test.ts` instead of `real.test.ts`, so files such as `unreal.test.ts` no longer run under the real-provider environment."
+    "title": "Scaffolded test:real only matches *.real.test.ts files"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Screenshot runner skips empty desktop passes, keeps regional locale tags and restores presented identities",
-    "detail": "Screenshot runner fixes: a desktop project whose viewports are all covered by device projects is now skipped with a reason instead of running empty. Locales that already carry a region (`pt-BR`, `en-GB`) keep their tag instead of becoming `pt-BR-BR`. `captureScreenshot` with `presentIdentities` restores the original DOM text and field values after the capture, so later assertions and form submits in the same spec see real data."
+    "title": "Screenshot runner skips empty desktop passes, keeps regional locale tags and restores presented identities"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "bunfig merge drops stale template-owned ignore patterns; @testing-library/dom declared as optional peer",
-    "detail": "`kumiko-testing bunfig` drops ignore patterns the template owns but omits for the variant (such as `**/*.test.tsx` in a DOM bunfig) instead of keeping them as app extras, which silently skipped the whole suite. `@testing-library/dom` is declared as an optional peer dependency, since `@testing-library/react` needs it for `preload/dom`; apps using `--dom` install it alongside `@testing-library/react`."
+    "title": "bunfig merge drops stale template-owned ignore patterns; @testing-library/dom declared as optional peer"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "captureScreenshot fit content ignores non-shrinking scroll containers, integration discovery skips node_modules, apiAs retries a failed login",
-    "detail": "`captureScreenshot(..., { fit: \"content\" })` ignores scroll containers whose overflow does not shrink when the viewport grows (textareas, fixed-height panes) instead of failing to converge. `kumiko-testing integration` no longer walks `node_modules` while discovering test files, and the seeded-tenant `apiAs` retries a failed login on the next call instead of replaying the cached error. The privacy-center and profile `cancel-deletion` actions declare the `x` icon instead of resolving to the destructive trash icon."
+    "title": "captureScreenshot fit content ignores non-shrinking scroll containers, integration discovery skips node_modules, apiAs retries a failed login"
   },
   {
     "version": "0.329.0",
     "type": "fix",
-    "title": "kumiko-testing integration with a directory runs only *.integration.test.ts files",
-    "detail": "A directory argument used to reach `bun test` as a path filter, which also picked up `*.test.tsx` files. It now expands to the integration test files below it."
+    "title": "kumiko-testing integration with a directory runs only *.integration.test.ts files"
   },
   {
     "version": "0.321.0",
     "type": "improvement",
     "title": "kumiko-testing integration accepts positional test-file args",
-    "detail": "`kumiko-testing integration` now runs only the given files/globs when\npositional args are passed, instead of always discovering every\n`*.integration.test.ts` file.",
     "migration": "No action needed — omitting positional args keeps the previous full-discovery behavior."
   },
   {
     "version": "0.321.0",
     "type": "improvement",
     "title": "defineAppE2eConfig reserves KUMIKO_TRUSTED_PROXY_HOPS; loginViaApi sends a synthetic per-user X-Forwarded-For",
-    "detail": "`defineAppE2eConfig`'s `webServer.env` now sets\n`KUMIKO_TRUSTED_PROXY_HOPS=1` and rejects that key in a consumer's own\n`env` (template-owned, added to `RESERVED_ENV_KEYS`). `loginViaApi` sends\n`x-forwarded-for: syntheticClientIpFor(credentials.email)`, a new\nexported helper deriving a deterministic private-range IP from\n`sha256(email)`, so each seeded user's login lands in its own\nrate-limit bucket instead of every ::1 client sharing one.\n`loginViaUi` is unchanged.",
     "migration": "Consumers using `defineAppE2eConfig` + `loginViaApi` (incl. the\n`seedTenant` fixture) need no changes — each seeded user now logs in\nfrom its own bucket. Browser logins (`loginViaUi`, raw `fetch` to\n`/api/auth/login` from a page) still share the `::1` bucket. A consumer\nwith its own e2e login helper (bypassing `loginViaApi`) should send\n`x-forwarded-for: syntheticClientIpFor(email)` (exported from\n`@cosmicdrift/kumiko-testing`) themselves, and must not set\n`KUMIKO_TRUSTED_PROXY_HOPS` in `defineAppE2eConfig`'s `env` — it's now\nreserved."
   },
   {
     "version": "0.321.0",
     "type": "fix",
     "title": "e2e test fixture gives every test its own synthetic client IP",
-    "detail": "`test` from `@cosmicdrift/kumiko-testing/e2e` overrides the `context`\nfixture with a `context.route(\"**/api/**\")` that adds\n`x-forwarded-for: syntheticClientIpFor(perTestClientIpKey(testInfo))` to\nsame-origin requests; an explicit `x-forwarded-for` wins. Cross-origin\nrequests stay untouched because an extra header would force a CORS\npreflight. Routing disables the HTTP cache of the test's context.\n`seedTenant`'s per-user API contexts send\n`syntheticClientIpFor(user.email)`. The built-in `request` fixture is not\ncovered.",
     "migration": "Specs that import `test` from `@cosmicdrift/kumiko-testing/e2e` need no\nchange. Specs importing `test` straight from `@playwright/test` keep\nsharing the `::1` bucket; switch their import to kumiko-testing."
   },
   {
     "version": "0.320.0",
     "type": "improvement",
-    "title": "requireRealProviders from kumiko-testing/e2e, SSE events for seedTenant tenants",
-    "detail": "`@cosmicdrift/kumiko-testing/e2e` re-exports `requireRealProviders`, `isRealProviderRun` and `REAL_PROVIDERS_ENV` from the framework's `testing/real-providers` subpath instead of keeping its own copy. Playwright specs and configs, which load under Node, no longer have to avoid the framework's `./testing` barrel.\n\n`seedTenant(stack, …)` subscribes `stack.events.sse` to the seeded tenant's SSE channel. Before, `setupTestStack` only listened on test tenant 1, so writes in a seeded tenant never showed up on `events.sse` and tests had to call `stack.sseBroker.addClient(tenantChannel(id), …)` themselves; that manual call can go. Events from `persist: true` seeding (tenant, user, membership) now also land on `events.sse` after the next drain."
+    "title": "requireRealProviders from kumiko-testing/e2e, SSE events for seedTenant tenants"
   },
   {
     "version": "0.320.0",
     "type": "improvement",
-    "title": "Schema-required test env keys (JWT_SECRET, secrets master key) now default in every bunfig variant",
-    "detail": "Apps with the secrets, field-encryption or auth-mfa features previously had\nto hand-roll a `test-setup/env.preload.ts` to satisfy the env schema's\n`JWT_SECRET` and `KUMIKO_SECRETS_MASTER_KEY_*` in unit and DOM tests, since\nonly `SERVICE_ENV_DEFAULTS` (integration/real only) carried a `JWT_SECRET`\ndefault and no map carried the master key. The new `SCHEMA_ENV_DEFAULTS`\nmap lives next to `SERVICE_ENV_DEFAULTS` and is preloaded in all four bunfig\nvariants (unit, DOM, integration, real) via a new `preload/schema-env-defaults`\nmodule, filled with `??=` so an app's own value is kept; only a\n`JWT_SECRET` shorter than 32 characters is replaced.\n`SERVICE_ENV_DEFAULTS` no longer duplicates `JWT_SECRET` — it has one home\nnow. Unit and DOM still carry no service-endpoint defaults."
+    "title": "Schema-required test env keys (JWT_SECRET, secrets master key) now default in every bunfig variant"
   },
   {
     "version": "0.318.0",
     "type": "improvement",
-    "title": "integration-runner exports a dedicated subpath",
-    "detail": "`buildIntegrationTestArgs` and `selectIntegrationFiles` previously reached\nconsumers only through `kumiko-testing`'s own CLI (`kumiko-testing\nintegration --parallel N`), with no package subpath a caller outside the\nCLI could import them from. kumiko-framework's own\n`scripts/run-integration-tests.ts` needed exactly that: the same\n`--parallel N --no-isolate` invocation the app template already runs,\nreused instead of reimplemented, while still discovering its own file\nlist and running a separate bulk/perf mode split the CLI doesn't have.\nThe new `./integration-runner` export makes that reuse\npossible without duplicating the arg-building logic; no existing export\nchanged."
+    "title": "integration-runner exports a dedicated subpath"
   },
   {
     "version": "0.317.0",
     "type": "fix",
-    "title": "mergeBunfig keeps app-local array extras instead of overwriting them",
-    "detail": "mergeBunfig only checked whether a key such as `preload` existed on both\nsides of the merge, not whether its array value matched. Regenerating a\nbunfig therefore silently replaced an app's `[test].preload`,\n`pathIgnorePatterns` or `coveragePathIgnorePatterns` array with the\ngenerated one, dropping any entry the app had appended by hand (measured\nagainst publicstatus's real bunfig.toml, which carries exactly this case\nfor env.preload.ts/codegen.preload.ts and says so in a comment).\nmergeBunfig now diffs the parsed array for each of these three keys and\nappends entries only present on disk after the generated ones, so\n`kumiko-testing bunfig` is safe to rerun on an app that extended one of\nthem. A `./test-setup/dom.preload.ts` entry left over from before the\nDOM preload became a package export (see the DOM-preload-package\nchangeset in this same release) is not carried forward as an extra,\nsince keeping it would preload the same DOM setup twice.\nA package preload an app deliberately adds from another variant (say\n`preload/env` in its unit bunfig) is kept; an unrecognized or superseded\npackage preload path is dropped instead of kept as an extra, so a rename\ninside the package doesn't leave both the old and new path preloaded. A\npreload written as a single string rather than an array is read the same\nas a one-item array.\nTwo known limits: a comment attached to an extra in the source bunfig is\nnot preserved, only the value; and the template can no longer remove a\n`pathIgnorePatterns`/`coveragePathIgnorePatterns` entry from a consumer,\nsince either key has no equivalent to preload's exclusion list, so a\npattern it stops emitting stays in every consumer's bunfig until removed\nby hand. Unlike an unknown key, which blocks the merge, a stale array\nentry is kept silently rather than failing loudly."
+    "title": "mergeBunfig keeps app-local array extras instead of overwriting them"
   },
   {
     "version": "0.317.0",
@@ -491,38 +543,32 @@
   {
     "version": "0.316.0",
     "type": "fix",
-    "title": "Parallel integration runs no longer OOM-kill their workers",
-    "detail": "bun 1.4.0's --parallel implies --isolate, which leaks native memory per\ntest file while the JS heap stays flat: about 4 MB per file for a bare\nsetupTestStack, about 40 MB with bundled-features. In publicstatus\n(--parallel 4) each worker grew from ~290 to ~1000 MiB and the run died\nwith exit 137 on the 3 GiB CI runner. With --no-isolate the same run\npeaks at 380 MiB and finishes in 28.9 s instead of 49.9 s, with no new\nfailures. Without --parallel bun never isolated files, so the tests\nalready isolate through data (seedTenant per flow, queue prefix per\nstack), not through processes."
+    "title": "Parallel integration runs no longer OOM-kill their workers"
   },
   {
     "version": "0.316.0",
     "type": "fix",
-    "title": "A dedicated screenshots Playwright config without SCREENSHOT_DIR now fails with a clear message",
-    "detail": "A dedicated screenshots config (testDir: \"./e2e/screenshots\", used by\nphronexsis and publicstatus) had its entire testDir excluded by\nscreenshotSpecsIgnore()'s \"**/screenshots/**\" pattern whenever\nSCREENSHOT_DIR was unset, so Playwright reported the generic \"No tests\nfound\" with no mention of the missing env var — even though\nrequireScreenshotDir() already existed with a clear message, just never\ncalled on this path. defineAppE2eConfig now calls it up front for any\ntestDir ending in \"screenshots\" outside a screenshot run."
+    "title": "A dedicated screenshots Playwright config without SCREENSHOT_DIR now fails with a clear message"
   },
   {
     "version": "0.316.0",
     "type": "improvement",
-    "title": "tenant.addUser accepts an optional displayName/email identity",
-    "detail": "seedTenant()'s admin already accepted `admin: { displayName, email }`, but\n`tenant.addUser(roles)` (the seed-user route and the in-process seedTenant\nalike) had no such parameter and always fell back to `Seed <hash>` /\n`user-<uuid>@example.test`, which then leaked into screenshots and docs\n(solon, money-horse). `addUser(roles, { displayName, email })` now threads\nan optional identity through to the created user row, the same\n`SeedAdminIdentity` shape the admin already uses. Also: the seedTenant\nfixture logging the shared Playwright `context` in as the tenant admin was\npreviously documented only in a code comment in auth-kit.ts — it is now on\nthe `SeedTenantFixture` type's own JSDoc."
+    "title": "tenant.addUser accepts an optional displayName/email identity"
   },
   {
     "version": "0.314.0",
     "type": "improvement",
-    "title": "Screenshot runner replaces generated seed identities with presentable values",
-    "detail": "Seeded identities are unique per run (admin-<tenantId>@…), so screenshots\nshowed a different address on every run. A scenario flow now calls\n`presentIdentities([{ from: tenant.admin.email, to: \"anna@example.com\" }])`\nfrom its fixtures, and runScreenshots/runMatrix replace `from` with `to` in\nthe page's text nodes and input/textarea values right before every capture,\nagain after each theme and viewport change. captureScreenshot takes the same\nlist as `opts.presentIdentities`. Only the rendered page changes: the seeded\ndata, the seed routes and the app UI stay untouched. Code that builds a\n`ScenarioFixtures` object itself (instead of receiving it in a flow) now has\nto pass `presentIdentities` too."
+    "title": "Screenshot runner replaces generated seed identities with presentable values"
   },
   {
     "version": "0.314.0",
     "type": "fix",
-    "title": "captureScreenshot, runScreenshots and runMatrix settle after a reload or cross-document navigation",
-    "detail": "Chromium drops the old document's fetch/XHR requests on a reload, goto or\nlocation change without firing requestfinished or requestfailed. The\nin-flight tracker kept those requests forever, so a flow that reloaded\nwhile a data request was still open failed with \"page never settled\".\nThe tracker now clears its in-flight set when the main frame commits a new\ndocument (a main-frame navigation request followed by framenavigated).\nA same-document navigation (pushState) still waits for its requests, and\na navigation that never commits (204, download) keeps them too."
+    "title": "captureScreenshot, runScreenshots and runMatrix settle after a reload or cross-document navigation"
   },
   {
     "version": "0.314.0",
     "type": "improvement",
-    "title": "Seed routes seed a SystemAdmin and run app-owned seeders",
-    "detail": "SystemAdmin is now one of the built-in seedable roles. This reverses the\nearlier \"SystemAdmin is never seedable\" rule: the seed gate\n(KUMIKO_TEST_SEED=1, never under NODE_ENV=production, per-run token) is now\nthe only boundary around the seed routes. `tenant.addUser([\"SystemAdmin\"])`\n(seed-user route and in-process seedTenant alike) stores SystemAdmin as a\nglobal user role, never as a membership role; without a tenant role the user\njoins the tenant as Member so the login has a membership.\n`createE2eSeedRoutes({ extraRoles: [\"SystemAdmin\"] })` no longer throws.\n`createE2eSeedRoutes({ extraSeeders: { name: (ctx, tenantId, body) => … } })`\nmounts POST /__test/seed behind the same gate; the flow calls\n`tenant.seed(name, body)` on the seedTenant fixture. Only tenants seeded by\nthat server's seed-tenant route are accepted (403 otherwise), unknown names\nare a 404, `body` arrives as `unknown` and a ZodError from the seeder becomes\na 400. `ctx.write`/`ctx.query` run as the tenant's system user (SystemAdmin)\nand are bound to that tenant, so the target handler must admit SystemAdmin;\nthere is no raw DB access."
+    "title": "Seed routes seed a SystemAdmin and run app-owned seeders"
   },
   {
     "version": "0.314.0",
@@ -541,8 +587,7 @@
   {
     "version": "0.310.0",
     "type": "improvement",
-    "title": "captureScreenshot accepts fit viewport, fullPage or content",
-    "detail": "`fit: \"viewport\"` (default) keeps the previous behaviour. `fit: \"fullPage\"`\ncaptures the whole document, so offlot's inline mid-flow shots\n(channel-request, channel-prompts, vehicle-channel-texts) can move to\ncaptureScreenshot. `fit: \"content\"` grows the viewport until neither the\ndocument nor a visible overflow-auto/scroll container (WorkspaceShell's\ninner scroll area) overflows, captures, and restores the viewport; it\nthrows instead of writing a cropped image when growth does not converge\nwithin 4 rounds. A 1px container overflow counts as sub-pixel rounding\n(overflow-x-auto table wrappers), not content. This replaces solon's own `e2e/_helpers/shot.ts`; its\nimages pick up the `reducedMotion: \"reduce\"` default on the switch, so a\none-time pixel drift in the handbook PNGs is expected."
+    "title": "captureScreenshot accepts fit viewport, fullPage or content"
   },
   {
     "version": "0.310.0",
@@ -554,14 +599,12 @@
   {
     "version": "0.310.0",
     "type": "fix",
-    "title": "defineAppE2eConfig's webServer env no longer defaults MEILI_URL and MEILI_MASTER_KEY",
-    "detail": "Since the infra env defaults landed, every e2e webServer got\nMEILI_URL=http://localhost:17700. Apps that choose Meilisearch over\ntheir in-memory search adapter when MEILI_URL is set then pointed at an\nunreachable host in CI without a Meili service. Meili is opt-in again:\nthe two vars reach the webServer only when the environment sets them or\nthe app passes them via `env`. All other infra defaults are unchanged.\nMigration: an app whose e2e needs Meilisearch sets MEILI_URL (and\nMEILI_MASTER_KEY) in `defineAppE2eConfig({ env })` or in the CI env; an\napp that worked around it with `MEILI_URL: \"\"` can drop that override."
+    "title": "defineAppE2eConfig's webServer env no longer defaults MEILI_URL and MEILI_MASTER_KEY"
   },
   {
     "version": "0.310.0",
     "type": "fix",
-    "title": "Screenshot scenario waitFor uses the template timeout budget instead of a fixed 10s",
-    "detail": "runScreenshots/runMatrix wait for a scenario's `waitFor` selector with\n`E2E_TIMEOUT_MS.navigation`, or `E2E_TIMEOUT_MS.real` under\nKUMIKO_REAL_PROVIDERS=1, so real-provider screenshot scenarios no longer\ntime out on LLM/OCR latency and apps don't need their own wait timeouts."
+    "title": "Screenshot scenario waitFor uses the template timeout budget instead of a fixed 10s"
   },
   {
     "version": "0.309.0",
@@ -573,32 +616,27 @@
   {
     "version": "0.309.0",
     "type": "fix",
-    "title": "test:real now filters to *.real.test.ts, and real-provider runs share one 240s timeout budget",
-    "detail": "bunfig.real.toml's pathIgnorePatterns is blacklist-only (no gitignore-style\nnegation), so an unfiltered `bun test --config=bunfig.real.toml` still ran\nthe whole unit suite under the real-provider env. The generated `test:real`\nscript now passes a positional `real.test.ts` filter. TEST_TIMEOUT_MS.real\n(bun --timeout) and E2E_TIMEOUT_MS.real (the Playwright real-run path via\ndefineAppE2eConfig) now both come from the same 240_000 template constant\ninstead of a separately hardcoded 120s, covering solon's real-provider\ndocument-onboarding flow. `isRealProviderRun(env?)` is exported next to\n`REAL_PROVIDERS_ENV`/`requireRealProviders` so apps stop duplicating the\n`KUMIKO_REAL_PROVIDERS === \"1\"` literal."
+    "title": "test:real now filters to *.real.test.ts, and real-provider runs share one 240s timeout budget"
   },
   {
     "version": "0.309.0",
     "type": "improvement",
-    "title": "runMatrix locales are app-injectable via localeTags, and gains a namedDevice mode for phone-style device projects",
-    "detail": "runMatrix's locale list was fixed to en/de with hardcoded BCP47 tags.\nopts.localeTags lets an app supply its own locale -> tag map (e.g. \"es\" ->\n\"es-ES\"); locales with neither an app override nor the en/de default fall\nback to Intl.Locale(locale).maximize().region derivation, throwing only\nwhen no tag is derivable. A Playwright project whose name isn't a\nViewportId but is a mobile/device project (offlot's \"phone\" project) now\ngets its own namedDevice output subtree\n(<dir>/<outputPrefix>/<name>/<locale>/<theme>/<viewport>.png) fixed to the mobile\nviewport, instead of incorrectly falling through to the desktop pass."
+    "title": "runMatrix locales are app-injectable via localeTags, and gains a namedDevice mode for phone-style device projects"
   },
   {
     "version": "0.309.0",
     "type": "improvement",
-    "title": "Scenario flow receives runMatrix's locale; Scenario.captureStyle for screenshot-only CSS",
-    "detail": "runMatrix passes the current locale to `flow(page, { seedTenant, locale })`,\nso apps whose routes carry the locale in the path (offlot's public vehicle\npage) can build the URL per locale. `captureStyle` is handed to Playwright's\nscreenshot `style` option in runScreenshots and runMatrix: the CSS applies\nto the capture only and does not leak into the next theme × viewport shot."
+    "title": "Scenario flow receives runMatrix's locale; Scenario.captureStyle for screenshot-only CSS"
   },
   {
     "version": "0.309.0",
     "type": "improvement",
-    "title": "seedTenant accepts an admin identity (displayName/email) for demo and screenshot tenants",
-    "detail": "SeedTenantOptions gained an optional `admin: { displayName?, email? }`.\nemail supports a `{tenantId}` placeholder, substituted per call, so a\nfixed template (e.g. `admin+{tenantId}@example.test`) stays unique across\nthe global `read_users_email_unique` index instead of colliding across\nper-scenario tenants. Threaded through both the plain seed-tenant.ts path\nand the HTTP seed route/fixture."
+    "title": "seedTenant accepts an admin identity (displayName/email) for demo and screenshot tenants"
   },
   {
     "version": "0.309.0",
     "type": "fix",
-    "title": "defineAppE2eConfig's webServer env now defaults the infra service vars, environment wins",
-    "detail": "webServer.env is now built as `{ ...infraEnvDefaults(), ...PLAYWRIGHT_DEMO_ENV, ...env }`,\nwhere infraEnvDefaults() reads the same SERVICE_ENV_DEFAULTS the app's own\npreload uses (DATABASE_URL, REDIS_URL, MEILI_URL, MINIO_*, ...), falling\nback to each default only when process.env doesn't already carry a value.\nA CI/shell-set env var still wins over the template default. No\n`--env-file` is loaded here."
+    "title": "defineAppE2eConfig's webServer env now defaults the infra service vars, environment wins"
   },
   {
     "version": "0.308.0",
@@ -635,14 +673,12 @@
   {
     "version": "0.305.0",
     "type": "fix",
-    "title": "defineAppE2eConfig starts the E2E web server without a Tailwind --watch process, so Playwright artifact writes no longer trigger hundreds of CSS rebuilds",
-    "detail": "`defineAppE2eConfig` sets `KUMIKO_DEV_STYLESHEET_WATCH=0`, so the dev-server it boots builds CSS once and stops instead of keeping a Tailwind `--watch` process alive. Tailwind v4's watcher subscribes to the whole app cwd recursively with no gitignore filter, so every Playwright artifact write under `test-results/` previously counted as a rebuild trigger."
+    "title": "defineAppE2eConfig starts the E2E web server without a Tailwind --watch process, so Playwright artifact writes no longer trigger hundreds of CSS rebuilds"
   },
   {
     "version": "0.304.0",
     "type": "improvement",
-    "title": "Screenshot scenarios get { seedTenant } in flow and a beforeCapture hook; the README no longer recommends a postSave hook on tenant for test defaults",
-    "detail": "`runScreenshots`/`runMatrix` register their tests on the same `test` as `@cosmicdrift/kumiko-testing/e2e`'s seeded-tenant fixture, so `Scenario.flow` now receives `(page, { seedTenant })` — existing single-parameter `flow(page)` scenarios keep working unchanged. `Scenario.beforeCapture?: (page) => Promise<void>` runs after the viewport is set and the page has settled, right before each screenshot. `seedTenant()`'s \"no baseURL\" error now only fires when a scenario actually calls it, not for every screenshot spec's fixture setup."
+    "title": "Screenshot scenarios get { seedTenant } in flow and a beforeCapture hook; the README no longer recommends a postSave hook on tenant for test defaults"
   },
   {
     "version": "0.299.0",
@@ -659,7 +695,6 @@
   {
     "version": "0.295.0",
     "type": "improvement",
-    "title": "New kumiko-testing package with seedTenant, preloads, bunfig generator and integration runner",
-    "detail": "seedTenant gives each test its own tenant (light by default, persist: true writes real rows through the dispatcher), setupAppTestStack mounts the bundled features and the entity projection tables, the preload subpaths (temporal, ci-log, scrub-env, env, real) replace the per-repo test-setup copies and scrub provider API keys, renderBunfig generates the bunfig variants, and kumiko-testing integration runs the integration files with the 15s budget and opt-in parallelism.\nThe `./e2e` subpath is the Playwright core: defineAppE2eConfig fixes parallelism, retries, timeouts and workers centrally, the test fixture seeds a tenant per test through the token-gated `./e2e/seed-route` routes and logs the admin in, and the auth kit (loginViaApi, csrfFetch, createHttpApi, totpCode, waitForProjection) replaces the per-app copies. A SeedPart runs unchanged against the in-process stack and over HTTP.\nThe screenshot runner (runScreenshots, runMatrix, pinEnglishLocale) moves in from the samples: `SCREENSHOT_DIR` is required with no default path, so a run can never overwrite the committed docs images, and `screenshotSpecsIgnore()` keeps screenshot specs out of every normal e2e run. Scenarios no longer take `settleMs`; the runner waits until no data request is in flight and the page layout stops changing."
+    "title": "New kumiko-testing package with seedTenant, preloads, bunfig generator and integration runner"
   }
 ]

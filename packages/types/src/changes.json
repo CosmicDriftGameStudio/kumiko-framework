@@ -1,57 +1,77 @@
 [
   {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Unused entity, handler payload and handler result type maps removed",
+    "detail": "`KumikoEntityTypeMap`, `KumikoHandlerPayloadMap` and `KumikoHandlerResultMap` were empty declaration-merging markers that nothing read and no app augmented; the code-generation script their comment promised does not exist. `KumikoEventTypeMap` stays and still types `ctx.events.append` for apps that augment it.",
+    "migration": "None known. Code that augments one of the three removed interfaces deletes that `declare module` block.",
+    "affects": [
+      "KumikoEntityTypeMap",
+      "KumikoHandlerPayloadMap",
+      "KumikoHandlerResultMap"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Step definitions drop the unused failure strategy",
+    "detail": "`StepFailureStrategy` only allowed \"throw\", and neither `StepDef.defaultFailureStrategy` nor `StepInstance.onFailure` was read at runtime: a throwing step always propagates to the dispatcher. The type and both fields are removed, and the bundled steps no longer set the field. A failure strategy comes back together with a second strategy that the runtime implements.",
+    "migration": "Remove `defaultFailureStrategy: \"throw\"` from your own `defineStep({ ... })` calls and `onFailure` from hand-built step instances.",
+    "affects": [
+      "StepFailureStrategy",
+      "defaultFailureStrategy",
+      "onFailure"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "allocateMinorUnits splits money into whole cents by weight"
+  },
+  {
     "version": "0.414.0",
     "type": "improvement",
-    "title": "Long external calls with writes belong in transaction perCommand",
-    "detail": "A `perCommand` write handler holds no transaction or connection while an external call runs and keeps `ctx.db.outsideTransaction`, so metering and provenance bookings work there (covered by an integration test with the cap counter). The docs of `WriteHandlerTransactionMode` and `BeforeTransactionContext` say so; `beforeTransaction` keeps its read-only context."
+    "title": "Long external calls with writes belong in transaction perCommand"
   },
   {
     "version": "0.404.0",
     "type": "improvement",
-    "title": "JobTrigger gains { maintenance: true }",
-    "detail": "A job with trigger { maintenance: true } runs once a day at the maintenance window of the app. Prefer it over a fixed cron for housekeeping; the window can be set per app."
+    "title": "JobTrigger gains { maintenance: true }"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "RecordHeaderSpec takes statusFormat",
-    "detail": "header.statusFormat is a FormatSpec for the header badge text, typically enumOption with a keyPrefix. The badge tone still resolves on the raw status value."
+    "title": "RecordHeaderSpec takes statusFormat"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "projectionDetail takes inlineActions",
-    "detail": "ProjectionDetailScreenDefinition.inlineActions lists action ids that stay visible buttons next to the primary action in the page header instead of folding into the \"More actions\" menu. Without it the header behaves as before. The phone header keeps its single icon button."
+    "title": "projectionDetail takes inlineActions"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "relatedList emptyState takes variants",
-    "detail": "EditRelatedListSection.emptyState is a RelatedListEmptyStateSpec. Its optional variants list pairs a FieldCondition on the parent record with a title and description; the first matching variant replaces the default text, the action stays."
+    "title": "relatedList emptyState takes variants"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "relatedList drawer and writeHandler toolbar actions take params",
-    "detail": "RelatedListToolbarAction kind \"drawer\" and kind \"writeHandler\" accept params as a RowFieldExtractor evaluated against the parent record, for example params with map appId to id. A drawer gets the values as prefill, a writeHandler merges them over its static payload with the extracted values winning. Without a parent record the action stays hidden."
+    "title": "relatedList drawer and writeHandler toolbar actions take params"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "Option tones gain critical and accent",
-    "detail": "SelectOptionTone is now ok, warn, bad, critical, accent or neutral, for select optionTones, enumOption tones, relatedList rowTone and projectionDetail header.statusTones. critical and accent reuse the StatusBadge colors (status-critical and the primary brand color), neutral stays muted. An informative state such as \"Ready\" can use accent instead of a custom cell."
+    "title": "Option tones gain critical and accent"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "Custom dashboard panels accept static params",
-    "detail": "A dashboard panel of kind custom takes params, static values laid over the screen's filterParams for its component. The panel wins when a filter uses the same name. Without params nothing changes."
+    "title": "Custom dashboard panels accept static params"
   },
   {
     "version": "0.391.0",
     "type": "improvement",
-    "title": "i18nText format, enumOption tones, linkScreenField, live projectionDetail and metric tiles",
-    "detail": "FormatSpec gains { format: \"i18nText\" } for values that are a server-built { i18nKey, i18nParams } or a plain i18n key. enumOption takes tones per option value. ListColumnSpec takes linkScreenField, the row field holding the screen QN the cell links to. ProjectionDetailScreenDefinition takes live and metricsStyle (\"band\" or \"tiles\"); MetricSpec takes tone and icon."
+    "title": "i18nText format, enumOption tones, linkScreenField, live projectionDetail and metric tiles"
   },
   {
     "version": "0.389.0",
@@ -63,20 +83,17 @@
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "Config validators can read a key's cascade",
-    "detail": "ConfigValidateContext gains readCascade(qualifiedKey), which returns the full cascade of any registered key from the writing tenant and user. Unknown keys throw."
+    "title": "Config validators can read a key's cascade"
   },
   {
     "version": "0.386.0",
     "type": "improvement",
-    "title": "RawDbClient is typed instead of any",
-    "detail": "`RawDbClient.unsafe` and `begin` have real signatures, so `db.unsafe(...)` on a `DbConnection` no longer collapses to `any`. A hand-built fake runner needs `unsafe(sql, params?)` returning rows and a `begin` that takes a callback."
+    "title": "RawDbClient is typed instead of any"
   },
   {
     "version": "0.385.0",
     "type": "improvement",
-    "title": "SelectOptions.distinctOn and split screen types",
-    "detail": "SelectOptions gains the optional distinctOn field. The screen type definitions are split into several files below 2000 lines; the import paths of the exported types are unchanged."
+    "title": "SelectOptions.distinctOn and split screen types"
   },
   {
     "version": "0.383.0",
@@ -103,7 +120,6 @@
     "version": "0.377.0",
     "type": "improvement",
     "title": "outsideTransaction deprecated, ProviderPluginContext added",
-    "detail": "HandlerContext.outsideTransaction is marked deprecated; use runInOwnTransaction(ctx.dbOutsideTransaction, fn). ProviderPluginContext is a Pick of HandlerContext for provider plugins. SharedContextFields gains configAccessorFactory; _configAccessorFactory stays as a deprecated alias. dbOutsideTransaction stays TenantDb | undefined (undefined only in the member-resolution and before-transaction denial phases and in platform-metering tenant mode); hasOutsideTransactionDb(ctx) narrows it and requireOutsideTransactionDb(ctx) throws when it is missing.",
     "migration": "Replace ctx.outsideTransaction(fn) with runInOwnTransaction(ctx.dbOutsideTransaction, fn). Read configAccessorFactory instead of _configAccessorFactory."
   },
   {
@@ -116,8 +132,7 @@
   {
     "version": "0.376.0",
     "type": "improvement",
-    "title": "StackBootRequirement severity and the featureToggles option name",
-    "detail": "StackBootRequirement takes severity \"warn\" for requirements that only log, and BootOptionName lists featureToggles."
+    "title": "StackBootRequirement severity and the featureToggles option name"
   },
   {
     "version": "0.370.0",
@@ -129,62 +144,52 @@
   {
     "version": "0.365.0",
     "type": "improvement",
-    "title": "DASHBOARD_STAT_TONES is the single source for dashboard stat tones",
-    "detail": "screen.ts exports DASHBOARD_STAT_TONES and DashboardStatTone; DashboardStatPanel.tone derives from it, and the web renderer builds its runtime tone check and StatTone type from the same constant, so a new tone can no longer be silently dropped from toneField values."
+    "title": "DASHBOARD_STAT_TONES is the single source for dashboard stat tones"
   },
   {
     "version": "0.362.0",
     "type": "improvement",
-    "title": "EntityListScreenDefinition.allowCreate",
-    "detail": "allowCreate false hides the list's create button and empty-state create action; the entity's edit screen keeps its create branch."
+    "title": "EntityListScreenDefinition.allowCreate"
   },
   {
     "version": "0.362.0",
     "type": "improvement",
-    "title": "Stat tone \"ok\"",
-    "detail": "DashboardStatPanel.tone accepts \"ok\" for a status-green value."
+    "title": "Stat tone \"ok\""
   },
   {
     "version": "0.361.0",
     "type": "improvement",
-    "title": "EditFieldSpec.prefill",
-    "detail": "New EditFieldPrefill, today or currentUser with displayName, email or id, on the object form of EditFieldSpec."
+    "title": "EditFieldSpec.prefill"
   },
   {
     "version": "0.361.0",
     "type": "improvement",
-    "title": "entityEdit screens accept a readOnly condition",
-    "detail": "EntityEditScreenDefinition.readOnly is a FieldCondition evaluated against the loaded record. UI only, the server is not affected."
+    "title": "entityEdit screens accept a readOnly condition"
   },
   {
     "version": "0.361.0",
     "type": "improvement",
-    "title": "EditFieldSpec.embeddedList for read-only cells and fixed rows",
-    "detail": "New EmbeddedListEditSpec with readOnlyCells and fixedRows on the object form of EditFieldSpec."
+    "title": "EditFieldSpec.embeddedList for read-only cells and fixed rows"
   },
   {
     "version": "0.361.0",
     "type": "improvement",
-    "title": "display on embedded select sub-fields",
-    "detail": "The select variant of EmbeddedSubFieldDef accepts display radio or dropdown."
+    "title": "display on embedded select sub-fields"
   },
   {
     "version": "0.361.0",
     "type": "improvement",
-    "title": "EntityDefinition.lockedWhen and the executor options unsafeSkipLockGuard and writePurpose",
-    "detail": "lockedWhen is a FieldCondition evaluated against the stored row. update and delete on the EventStoreExecutor take unsafeSkipLockGuard to opt one call out, and writePurpose (WritePurposes.retention or erasure) lets the framework system user through. EntityEditScreenDefinition.readOnly is combined with the entity's lockedWhen (either shows the view)."
+    "title": "EntityDefinition.lockedWhen and the executor options unsafeSkipLockGuard and writePurpose"
   },
   {
     "version": "0.357.0",
     "type": "improvement",
-    "title": "MultiSelectFieldDef.optionsAvailabilityQuery hides static multiSelect options per caller",
-    "detail": "The query returns { rows: { value, disabled?, hint? }[] }; disabled options are hidden unless currently selected."
+    "title": "MultiSelectFieldDef.optionsAvailabilityQuery hides static multiSelect options per caller"
   },
   {
     "version": "0.352.0",
     "type": "improvement",
-    "title": "SelectFieldDef.optionsAvailabilityQuery marks static select options as unavailable per tenant",
-    "detail": "The query returns { rows: { value, disabled?, hint? }[] }; the renderer merges it onto options and keeps the stored value enabled."
+    "title": "SelectFieldDef.optionsAvailabilityQuery marks static select options as unavailable per tenant"
   },
   {
     "version": "0.352.0",
@@ -196,98 +201,83 @@
   {
     "version": "0.351.0",
     "type": "fix",
-    "title": "ContainsSecret no longer fails with TS2615 on recursive types such as DashboardI18nText",
-    "detail": "ContainsSecret works on recursive types\n`ContainsSecret<T>` stops after eight levels of nesting. Query handlers whose output contains `DashboardI18nText` (which refers to itself through `i18nParams`) no longer fail to compile with TS2615. A secret nested deeper than that is still caught by the runtime leak guard."
+    "title": "ContainsSecret no longer fails with TS2615 on recursive types such as DashboardI18nText"
   },
   {
     "version": "0.351.0",
     "type": "improvement",
     "title": "New @cosmicdrift/kumiko-types/temporal export resolves one Temporal (native first, polyfill as fallback) for framework and app code",
-    "detail": "One Temporal implementation: `@cosmicdrift/kumiko-types/temporal`\nThe new export returns the native `globalThis.Temporal` when the runtime has it (Bun 1.4, current browsers) and falls back to `temporal-polyfill` otherwise, installing it on `globalThis`. Framework, bundled features and renderers import from there, so values made by the framework pass `instanceof` and `z.instanceof(Temporal.Instant)` checks in app code. `ensureTemporalPolyfill()` puts the same instance on the global. Apps should import `Temporal` from `@cosmicdrift/kumiko-types/temporal` instead of `temporal-polyfill`.",
     "migration": "Replace imports from \"temporal-polyfill\" with \"@cosmicdrift/kumiko-types/temporal\" so app code and framework share one set of Temporal classes."
   },
   {
     "version": "0.340.0",
     "type": "improvement",
     "title": "Where clauses and aggregate options describe jsonb text matches and key ordering",
-    "detail": "`WhereOperator` gains `jsonText?: JsonTextMatch | readonly JsonTextMatch[]` with `JsonTextMatch = { keys: readonly [string, ...string[]]; eq: string }`, and the aggregate options gain `orderByKeys?: \"asc\" | \"desc\"`.",
     "migration": "keine"
   },
   {
     "version": "0.338.0",
     "type": "improvement",
     "title": "ctx.configFor on the handler context types",
-    "detail": "`configFor?: (tenantId: TenantId) => ConfigAccessor` is part of the shared handler context fields, optional like `config`.",
     "migration": "No code change needed."
   },
   {
     "version": "0.337.0",
     "type": "improvement",
     "title": "relatedList groupBy.label is optional; groups without a header show their rows directly",
-    "detail": "`RelatedListGroupBy.label` is optional. The header key of a group is `labels[value] ?? label`; a group without one renders its rows without a header row and never collapses. `relatedListGroupKey` and `relatedListGroupHeaderLabel` resolve the group key and its header key; `collapsedWhen: null` now matches rows whose field is empty.",
     "migration": "No code change needed. To hide a header, drop `label` and name only the groups that keep one in `labels`, for example `{ field: \"status\", collapsedWhen: \"done\", labels: { done: \"<key>\" } }`."
   },
   {
     "version": "0.336.0",
     "type": "improvement",
     "title": "Query handlers can declare liveEntities",
-    "detail": "`QueryHandlerDefinition` and the inline `queryHandler` options accept `liveEntities`, the entities whose changes the query reflects. Anonymous callers with access to the query receive /api/sse change signals for them.",
     "migration": "No code change needed."
   },
   {
     "version": "0.335.0",
     "type": "improvement",
     "title": "RowActionWriteHandler gets an optional redirect for record actions",
-    "detail": "`redirect` takes the same forms as entityEdit `redirect` and is honored on projectionDetail and entityEdit header and section actions, not on list row actions.",
     "migration": "No code change needed."
   },
   {
     "version": "0.328.1",
     "type": "improvement",
-    "title": "kumiko-types declares zod and ioredis as peer dependencies",
-    "detail": "The published `.d.ts` files import `zod` and `ioredis`, so consumers need both for type resolution. `ioredis` is an optional peer."
+    "title": "kumiko-types declares zod and ioredis as peer dependencies"
   },
   {
     "version": "0.328.0",
     "type": "improvement",
-    "title": "kumiko-types is published as compiled JavaScript plus .d.ts",
-    "detail": "The package now ships `dist` (`.js` and `.d.ts`) instead of TypeScript source. Export keys are unchanged; only the targets behind them move to `dist`. Consumers on plain Node ESM can import every subpath without a TypeScript-aware loader."
+    "title": "kumiko-types is published as compiled JavaScript plus .d.ts"
   },
   {
     "version": "0.328.0",
     "type": "improvement",
-    "title": "Screen schema gains fillHeight, createLabel, searchPlaceholder, optionTones, statusTones, description, itemNoun, valueType, summary, hideOnNarrow",
-    "detail": "`fillHeight` (default true) on entityList, projectionList, projectionDetail, entityEdit and actionForm. `createLabel` and `searchPlaceholder` (i18n keys) on lists. `optionTones` on select fields and `statusTones` on projectionDetail map values to ok, warn, bad or neutral (`SelectOptionTone`). `description` and `itemNoun` on relatedList sections. `valueType` on relatedList columns (numbers and money align right), `hideOnNarrow` on list columns. `summary: { title, subtitle }` on actionForm with `{name}` placeholders from the drawer prefill. New nav icon `chevron-left`."
+    "title": "Screen schema gains fillHeight, createLabel, searchPlaceholder, optionTones, statusTones, description, itemNoun, valueType, summary, hideOnNarrow"
   },
   {
     "version": "0.320.0",
     "type": "improvement",
-    "title": "ToolbarAction's navigate variant gets `tab`",
-    "detail": "The navigate-kind ToolbarAction (entityList, projectionList and\nrelatedList-section toolbars) accepts `tab?: string`, the section id of the\ntab to activate on the target projectionDetail (layout.mode \"tabs\"),\nanalogous to RowActionNavigate.tab and MetricNavigate.tab."
+    "title": "ToolbarAction's navigate variant gets `tab`"
   },
   {
     "version": "0.310.0",
     "type": "improvement",
-    "title": "RowActionNavigate.tab selects the tab on the target projectionDetail",
-    "detail": "Navigate row actions, screen/section actions and relatedList emptyState\nactions accept `tab?: string`, the section id of the tab to activate on the\ntarget projectionDetail (layout.mode \"tabs\"), analogous to MetricNavigate.tab.\nExample: `{ kind: \"navigate\", id: \"edit-channels\", label: \"...\",\nscreen: \"vehicle-detail\", entityId: \"vehicleId\", tab: \"channels\" }`."
+    "title": "RowActionNavigate.tab selects the tab on the target projectionDetail"
   },
   {
     "version": "0.308.0",
     "type": "improvement",
     "title": "EditFieldsSection/EditExtensionSection/EditRelatedListSection/EditWriteFormSection gain actions; EditRelatedListSection gains emptyState; number fields gain grouping (fw#3234)",
-    "detail": "All four Edit*Section spec types accept an optional `actions?: readonly RowAction[]`, resolved and rendered in that section's own title row. EditRelatedListSection additionally accepts `emptyState?: { title, description?, action? }` for its zero-rows state. A number field spec accepts `grouping?: boolean` (default true) — false renders without thousands separators. Every projectionDetail/entityEdit-tabs screen/section/emptyState action must resolve an icon (declared `icon`, or the framework's id-derived default via resolveActionIcon) — checked by the boot validator (see @cosmicdrift/kumiko-framework's changes.json).",
     "migration": "Additive — every field is optional. An existing screen/section/emptyState action on a projectionDetail (or entityEdit's section-level actions) whose id resolves no icon and declares none itself now fails boot; give it an explicit `icon` or an id the shared action-icon map already resolves."
   },
   {
     "version": "0.290.0",
     "type": "improvement",
-    "title": "EventMetadata: feature + handler + UNATTRIBUTED_ORIGIN",
-    "detail": "EventMetadata traegt zwei neue optionale Felder (feature, handler) und exportiert die Sentinel-Konstante UNATTRIBUTED_ORIGIN fuer Appends ausserhalb eines attribuierten Ausfuehrungsscopes. Additiv, bestehende Zeilen bleiben ohne Backfill lesbar."
+    "title": "EventMetadata: feature + handler + UNATTRIBUTED_ORIGIN"
   },
   {
     "version": "0.289.0",
     "type": "improvement",
-    "title": "EntityDefinition gains an optional transferable flag",
-    "detail": "Declares that an entity's rows can move to a different tenant via the tenant-handover bundled feature (kumiko-framework#3035): the root entity, or any parentRef-linked entity, that is NOT declared transferable makes a claim attempt fail with a named error instead of silently leaving its rows behind. Additive — every existing entity is unaffected (transferable defaults to unset/false)."
+    "title": "EntityDefinition gains an optional transferable flag"
   }
 ]

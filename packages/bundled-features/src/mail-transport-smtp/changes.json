@@ -2,14 +2,12 @@
   {
     "version": "0.390.0",
     "type": "fix",
-    "title": "nodemailer 10.2.1 fixes the address-parser advisories",
-    "detail": "nodemailer 10.0.13 mis-parsed quoted semicolons, angle brackets and nested comments in addresses (GHSA-m943-m63m-w62w, GHSA-85x2-q946-cp5h, GHSA-8c8m-p3m8-cjg8). The dependency is now 10.2.1, and the overrides for ip-address (10.7.4) and fast-copy (4.2.0) remove the remaining audit findings."
+    "title": "nodemailer 10.2.1 fixes the address-parser advisories"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "SMTP authentication is optional",
-    "detail": "authUser is no longer a required key and the SMTP password secret no longer counts as missing in readiness. With an empty user the transport connects without auth, which suits internal relays; with a user set, a missing password still fails the send."
+    "title": "SMTP authentication is optional"
   },
   {
     "version": "0.370.0",
@@ -29,8 +27,7 @@
   {
     "version": "0.326.1",
     "type": "fix",
-    "title": "Mail stack on patched nodemailer 10, imapflow and mailparser",
-    "detail": "Bumps nodemailer to ^10.0.13 (GHSA-v53p-9fqp-m79j, high), mailparser to ^3.9.32 and imapflow to ^1.7.8 so no dependency pins a vulnerable nodemailer 9.x any more. nodemailer 10 ships its own types, so @types/nodemailer is dropped; it requires Node.js >= 20. No API change for kumiko apps."
+    "title": "Mail stack on patched nodemailer 10, imapflow and mailparser"
   },
   {
     "version": "0.320.0",
@@ -41,7 +38,6 @@
   {
     "version": "0.320.0",
     "type": "fix",
-    "title": "SMTP connect failures no longer distinguish a blocked host from a DNS failure in the thrown message",
-    "detail": "`buildSmtpTransport` throws an `UnconfiguredError` for a blocked host and\na `HostResolutionError` for a DNS failure — both classes unchanged for\nretry semantics — but the `.message` text is now byte-identical between\nthe two (\"... host is not reachable or not allowed\"). The configured\nhost and the underlying error are now logged via the feature's own\nlogger instead of being embedded in the thrown message."
+    "title": "SMTP connect failures no longer distinguish a blocked host from a DNS failure in the thrown message"
   }
 ]
