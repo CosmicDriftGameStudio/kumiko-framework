@@ -336,14 +336,14 @@ export function ActionFormFacts({
     if (fact.fileIds !== undefined) {
       return (
         <Grid key={fact.key} columns={1} testId={factTestId}>
-          <Text>{fact.label}:</Text>
+          <Text variant="muted">{fact.label}</Text>
           <FileValueList fileIds={fact.fileIds} testId={`${factTestId}-files`} />
         </Grid>
       );
     }
     return (
       <Grid key={fact.key} columns={1} testId={factTestId}>
-        <Text>{fact.label}:</Text>
+        <Text variant="muted">{fact.label}</Text>
         {positionedLines(fact.lines).map(({ position, line }) => (
           <Text key={position} testId={`${factTestId}-line-${position}`}>
             {line}
