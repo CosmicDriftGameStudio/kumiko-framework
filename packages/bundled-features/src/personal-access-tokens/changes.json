@@ -1,46 +1,67 @@
 [
   {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "PAT role resolution reads membership and user in parallel"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "PAT auto-revoke option and late binding removed",
+    "detail": "Access tokens are revoked on password change and MFA state change through the auth-foundation credentialRevoker. Removed: the `autoRevokeOnPasswordChange` option, `bindPatAutoRevokeOnPasswordChangeFromFeature`, `BindPatAutoRevokeOnPasswordChange`. `revokeAllPatTokensForUser` stays.",
+    "migration": "Remove the option and the bind call; nothing replaces them.",
+    "affects": [
+      "autoRevokeOnPasswordChange",
+      "bindPatAutoRevokeOnPasswordChangeFromFeature",
+      "BindPatAutoRevokeOnPasswordChange"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "PATs of principals without a user row are rejected",
+    "detail": "The PAT resolver uses `resolveLiveTenantRoles`; a token whose user has no user row now gets the same 401 as an unknown token.",
+    "migration": "None for apps; PATs are always created by existing users.",
+    "affects": [
+      "personal-access-tokens",
+      "createPersonalAccessTokensFeature"
+    ]
+  },
+  {
     "version": "0.412.0",
     "type": "improvement",
-    "title": "token scopes list the webhook events they release",
-    "detail": "`PatScopeDef.events` takes exact event names (no globs). Holding the scope at read or write level is enough to subscribe, `expandScopeEvents(config, granted)` returns the union. Boot fails when a scope lists an event without a public contract, for example an internal `r.defineEvent`. Revoking a token now has a title and a field label in every bundle locale."
+    "title": "token scopes list the webhook events they release"
   },
   {
     "version": "0.385.0",
     "type": "improvement",
     "title": "patScopeOptionKey for translating token scope labels",
-    "detail": "The scope labels personal-access-tokens generates from `scopes[domain].label` are English only. `patScopeOptionKey(domain, \"read\" | \"write\")` returns their translation key, so an app feature can add the other locales with `r.translations`.",
     "migration": "Apps that mount personal-access-tokens and set `requiredLocales` with a locale other than `en` translate each generated scope label (`read`, plus `write` where the domain offers it) under `patScopeOptionKey`."
   },
   {
     "version": "0.372.0",
     "type": "fix",
-    "title": "Tenants whose tier excludes API tokens now reach the lockedFallbackScreen",
-    "detail": "GET /api/schema removed every screen of a feature the tenant has switched off, and the role projection then dropped the navs of other features that pointed at them. The token list screen was gone, so the upgrade screen set via lockedFallbackScreen was never shown. Screens that declare a fallback (and the same-feature screens those fallbacks name) now stay in the schema; the server still rejects their queries and writes with feature_disabled, which makes the renderer show the fallback. Navs, content collections and workspaces of the disabled feature are still removed."
+    "title": "Tenants whose tier excludes API tokens now reach the lockedFallbackScreen"
   },
   {
     "version": "0.372.0",
     "type": "improvement",
-    "title": "The token list looks like any other Kumiko list",
-    "detail": "The create button now sits in the page header next to the title, and an empty list shows the standard hint with a create button. The German title of the list screen is \"API-Tokens\" instead of \"Personal Access Tokens\", which also fixes the breadcrumb of the mint screen. Renderer, all apps: a projection list without an entity create button now shows its first primary toolbar action (one that needs no confirmation dialog) in the page header on desktop as well, with its label, instead of in the toolbar row; on phones it already did. On desktop only an icon derived from the action id (or declared on the action) is shown; the plus fallback exists only on phones. Consumers get this after the bump without code changes."
+    "title": "The token list looks like any other Kumiko list"
   },
   {
     "version": "0.368.0",
     "type": "improvement",
-    "title": "The token list screen takes a description and slots via listScreen",
-    "detail": "createPersonalAccessTokensFeature({ listScreen: { description, slots } }) sets the i18n description and the slots (for example a header component) of the api-tokens list, so an app can show instructions above the list and use the bundled screen directly instead of embedding it in its own dashboard. Without the option nothing changes. Both bundled token screens are now marked agent: { expose: false }, since the mint screen reveals the token plaintext."
+    "title": "The token list screen takes a description and slots via listScreen"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "revokeAllPatTokensForUser detects begin() the same way as the transaction helpers",
-    "detail": "The transaction probe looked for begin() directly on the handle, so a pool wrapped by a legacy Drizzle connection fell back to a non-atomic update plus append. It now uses runnerCanBeginTransaction from bun-db, which unwraps the client first."
+    "title": "revokeAllPatTokensForUser detects begin() the same way as the transaction helpers"
   },
   {
     "version": "0.347.0",
     "type": "improvement",
-    "title": "API-token screens hide behind the tier gate and can fall back to an upgrade screen via lockedFallbackScreen",
-    "detail": "Token screens follow the tier gate of personal-access-tokens\nThe list and mint screens carry a `visibleWhen` on the new `personal-access-tokens:query:availability` probe. For a tenant whose tier excludes the feature (`toggleable`), the dispatcher already rejected every token handler with `feature_disabled`; now the screens also show the unavailable notice instead of an empty list with a broken Create button. A new option `lockedFallbackScreen` names a screen (for example an upgrade notice) to show in its place. Without `toggleable` nothing changes: the feature stays always on."
+    "title": "API-token screens hide behind the tier gate and can fall back to an upgrade screen via lockedFallbackScreen"
   },
   {
     "version": "0.336.0",
@@ -62,7 +83,6 @@
   {
     "version": "0.117.0",
     "type": "improvement",
-    "title": "personal-access-tokens: add `toggleable` option so the whole feature can be tier-gated vi…",
-    "detail": "personal-access-tokens: add `toggleable` option so the whole feature can be tier-gated via the tier-engine (mirrors ledger/tags). Pass `{ toggleable: { default: false } }` for fail-closed gating — PAT is then off until a tier lists `\"personal-access-tokens\"` in its features. Omitting the option keeps PAT always-on (no behaviour change for existing consumers)."
+    "title": "personal-access-tokens: add `toggleable` option so the whole feature can be tier-gated vi…"
   }
 ]

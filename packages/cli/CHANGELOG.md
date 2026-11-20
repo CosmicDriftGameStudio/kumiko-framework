@@ -1,5 +1,597 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.425.0
+
+### Minor Changes
+
+- 34cf35e: `kumiko agent lint` exits 1 when an agent-callable write handler lacks a title or field-label translation.
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: breaking
+  title: Agent lint fails on missing handler translations
+  detail: The handler translation gaps that `kumiko agent lint` listed as warnings now fail the command, and `kumiko check` with it. A fully spelled-out key counts from any mounted feature, as on the client, so an app labels handlers that a bundled feature derives from its config, such as template-resolver's `<id>-set` for each declared collection. App-local tests that asserted the same titles are no longer needed.
+  migration: Add the reported title and field-label keys (`handlerTranslationKeys` from `@cosmicdrift/kumiko-framework/engine`), or hide the handler from the agent with `agent: { expose: false }`. For template-resolver collections register them in an app feature with `handlerTranslationKeys(TEMPLATE_RESOLVER_FEATURE, { writes: { "<id>-set": { title, fields } } })`. Delete app tests that only re-check handler titles.
+  affects: all
+  -->
+- 34cf35e: `kumiko check` verifies the timeout of every `bun test` script.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: kumiko check verifies test script timeouts
+  detail: The scripts step of `kumiko check` reads every `bun test` command in package.json, derives its variant from `--config` and fails when the effective `--timeout` (bun's default is 5000) differs from `TEST_TIMEOUT_MS` of that variant. Running `bunfig.integration.toml` through `bun test` directly and `test:integration*` scripts that do not call `bun kumiko-testing integration` fail too. Apps that adopted `defineAppConfig` fail, others get a warning.
+  migration: Set `--timeout` to the class value (`test:dom` 5000, `test:real` 240000) and delete app-level copies of this check such as `bun-test-timeout.test.ts`.
+  affects: all
+  -->
+- 34cf35e: Remove the upgrade codemods of releases up to 0.420.0; kumiko codemod lists import-extensions and feature-layout.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: breaking
+  title: Upgrade codemods up to 0.420.0 removed
+  detail: Every app is past 0.420.0, so the upgrade codemods of earlier releases are gone from @cosmicdrift/kumiko-feature-ast (src/scripts/codemod), among them package-merge, feature-factory, s3-imports, migrate-db-raw, migrate-cross-tenant, migrate-open-to-all, object-form, db-factory, tenant-db-options, testing-move, testing-injection, ctx-namespaces, pii-personal-migration and scaffold-kms-mode. import-extensions and feature-layout, the two codemods a guard points to, stay next to the upgrade codemods of later releases, and `kumiko codemod` lists those two; feature-layout was missing from that list, so the hint of the app-feature-structure guard failed.
+  migration: An app whose .kumiko/upgrade-state.json is below 0.420.0 first runs `kumiko-upgrade --apply` with a framework release up to 0.420.0, then upgrades to this one.
+  affects: all
+  -->
+- 34cf35e: Breaking changes now name what they affect, so `kumiko-upgrade --apply` skips the ones an app never touches.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Breaking changesets declare affects
+  detail: A `kumiko-changes` block of type breaking without a codemod (or with `manualAfterCodemod`) must carry `affects: <symbol or path>, …` or `affects: all`; parsing fails otherwise. `kumiko changes add` takes `--affects`. `kumiko-upgrade --apply` runs `git grep -F` for these strings in the app after the codemods and records an entry as resolved not-applicable only when nothing matches; any match, a non-git directory or an error leaves it pending.
+  migration: Add `affects:` to every pending breaking changeset that needs manual work in your repo, or pass `--affects` to `kumiko changes add`.
+  affects: kumiko-changes
+  -->
+
+### Patch Changes
+
+- 34cf35e: `kumiko-guards checks` fails an app whose `biome.json` does not extend the Kumiko Biome preset.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: biome-preset repo check for apps
+  detail: The check that `biome.json` extends `@cosmicdrift/kumiko-framework/biome` now runs as the `biome-preset` repo check in `kumiko-guards checks` (kind app). `kumiko check` keeps its lint-step failure and uses the same `repoExtendsFrameworkPreset` function, exported from `@cosmicdrift/kumiko-guards`.
+  -->
+- 34cf35e: kumiko-cli depends on framework, bundled-features and renderer directly.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: improvement
+  title: kumiko-cli declares framework, bundled-features and renderer as dependencies
+  detail: The three packages were optional peer dependencies, but dev-server and server-runtime, which kumiko-cli depends on, install them anyway, and several commands import them statically. They are regular dependencies now and the missing-peer hint is gone. sharp stays an optional peer for `kumiko handbuch build`. kumiko-cli also depends on create-kumiko-app, whose scaffold `kumiko new app` uses.
+  -->
+- 34cf35e: `kumiko --version` prints the installed package version.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: fix
+  title: kumiko --version prints the real package version
+  detail: `kumiko --version` and the first line of `kumiko --help` read the version from the package's own package.json instead of the hard-coded 0.1.0.
+  -->
+- 34cf35e: `kumiko new app` scaffolds the same app as `bun create kumiko-app --yes`.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: improvement
+  title: kumiko new app scaffolds the recommended feature set
+  detail: `kumiko new app <name> [--blank]` runs the scaffold of `bun create kumiko-app <name> --yes`: the recommended features from the feature manifest, the demo tasks (none with --blank) and the same next steps. Before, it scaffolded a smaller app through a separate code path.
+  -->
+- 34cf35e: `kumiko ops seed:new` and `kumiko ops seed:status` are part of the app CLI.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: improvement
+  title: kumiko ops seed:new and seed:status ship with the app CLI
+  detail: `kumiko ops seed:new <slug> [--seeds-dir <path>]` scaffolds seeds/<date>-<slug>.ts, and `kumiko ops seed:status [--seeds-dir <path>]` lists applied and pending seed migrations from kumiko_es_operations without creating the table. Before, these commands existed only in the framework repository's own CLI, under the same name `kumiko ops` that the app CLI uses for backfill-pii and waitlist-migrate. Pending seeds are applied on app boot as before; there is no `seed:apply`.
+  -->
+- 34cf35e: `kumiko project` and `kumiko consumer` list/status only read the database.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: fix
+  title: kumiko project and consumer list/status no longer create tables
+  detail: `kumiko project list|status` and `kumiko consumer list|status` only read. On a database without kumiko_projections or kumiko_event_consumers they report that nothing has run yet instead of creating the table. `project rebuild` and `consumer restart|disable|enable|skip` still create their state table when it is missing. `project`, `consumer`, `agent` and `ops waitlist-migrate` share one check for kumiko.config.ts and DATABASE_URL with the same messages.
+  -->
+- 34cf35e: `apiDocs.translations` loads texts that only the API docs need, and `resolveApiDocsConfig` is async.
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: breaking
+  title: Doc-only translations for kumiko api-docs
+  detail: Apps that document their API in more locales than the app itself mounted one pseudo-feature per locale so the boot rule i18n/locale-inconsistent would accept the extra texts, and those texts were loaded on every server boot. `apiDocs.translations` in kumiko.config.ts is a function returning full translation keys, for example `() => import("./src/api-docs-texts").then((m) => m.texts)`. Only `kumiko api-docs` calls it. Per key and locale it fills only what the registry does not define. `resolveApiDocsConfig` from `@cosmicdrift/kumiko-bundled-features/agent-tools` now returns a Promise; callers await it.
+  migration: Await `resolveApiDocsConfig(...)`, and replace per-locale pseudo-features that only carried API-doc texts with `apiDocs.translations` in kumiko.config.ts, for example `() => import("./src/api-docs-texts").then((m) => m.texts)`.
+  affects: resolveApiDocsConfig, apiDocs
+  -->
+- 34cf35e: `kumiko create` and `kumiko add feature` load only the scaffolder instead of the whole dev-server.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Scaffold subpaths for the CLI
+  detail: `@cosmicdrift/kumiko-dev-server/scaffold-feature` exports `scaffoldFeature` and `@cosmicdrift/kumiko-dev-server/scaffold-app-feature` exports `scaffoldAppFeature` and `runConfigPathForApp`. `kumiko create` and `kumiko add feature` import these subpaths, so they no longer load the dev-server barrel with its stack, schema and deploy code. The barrel still exports both functions.
+  -->
+- 34cf35e: `listProjectionsWithState` and `kumiko project list` include the implicit entity projections; the `includeImplicit` option is removed.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Projection list shows implicit entity projections
+  detail: `listProjectionsWithState(db, registry)` used to hide the projection that `r.entity` registers for each entity (`<feature>:projection:<entity>-entity`) unless the caller passed `{ includeImplicit: true }`. An `r.projection` on an entity table rebuilds through that implicit projection, so hiding it left `kumiko project list` without the names an operator actually rebuilds. The function now always returns every registered single-stream projection and has no third parameter, and `kumiko project list` prints the implicit projections too.
+  migration: Drop the `{ includeImplicit: true }` argument from `listProjectionsWithState` calls. Code that relied on the old default and wants only explicit projections filters the result with `registry.getAllProjections().get(name)?.isImplicit !== true`.
+  affects: includeImplicit, listProjectionsWithState
+  -->
+- 34cf35e: The API docs generator moves to `@cosmicdrift/kumiko-bundled-features/agent-tools/api-docs`.
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: breaking
+  title: API docs generator on its own subpath
+  detail: `@cosmicdrift/kumiko-bundled-features/agent-tools` re-exported the API docs generator, so every runtime import of the tool catalog or agent manifest loaded the generator and its texts in five languages. `generateApiDocs`, `resolveApiDocsConfig`, `diffApiDocsOutput`, `ApiExampleFileSchema`, `WebhookExampleFileSchema`, `apiDocsLocales`, `isApiDocsLocale`, `formatApiDocsText`, `formatApiDocsProblem`, `INDEX_FILE`, `OPENAPI_FILE` and their types are now imported from `@cosmicdrift/kumiko-bundled-features/agent-tools/api-docs`. `createAgentToolsFeature` and `AGENT_TOOLS_FEATURE_NAME` stay on the barrel.
+  migration: Import `generateApiDocs`, `resolveApiDocsConfig`, `diffApiDocsOutput` and the other API docs symbols from `@cosmicdrift/kumiko-bundled-features/agent-tools/api-docs`.
+  affects: kumiko-bundled-features/agent-tools, generateApiDocs, resolveApiDocsConfig, diffApiDocsOutput
+  -->
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [49e723e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [49e723e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [cdbf386]
+- Updated dependencies [34cf35e]
+- Updated dependencies [cdbf386]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [cdbf386]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [e9d5559]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [6f043fa]
+- Updated dependencies [34cf35e]
+- Updated dependencies [a44b984]
+- Updated dependencies [99da456]
+- Updated dependencies [34cf35e]
+- Updated dependencies [007d227]
+- Updated dependencies [a44b984]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [3f3bb46]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+  - @cosmicdrift/kumiko-bundled-features@0.425.0
+  - @cosmicdrift/kumiko-guards@0.425.0
+  - @cosmicdrift/kumiko-framework@0.425.0
+  - @cosmicdrift/kumiko-renderer@0.425.0
+  - @cosmicdrift/kumiko-testing@0.425.0
+  - @cosmicdrift/kumiko-server-runtime@0.425.0
+  - @cosmicdrift/kumiko-dev-server@0.425.0
+  - @cosmicdrift/kumiko-feature-ast@0.425.0
+  - create-kumiko-app@0.425.0
+
 ## 0.424.1
 
 ### Patch Changes

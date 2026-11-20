@@ -1,52 +1,72 @@
 [
   {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Job run list pages with a keyset cursor"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "jobs:write:retry refuses runs it cannot repeat faithfully"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Maintenance jobs can be started by hand"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Job raw runner typed as DbConnection",
+    "migration": "Optional: remove `ctx.db.unsafeRaw() as DbConnection` casts in job handlers. A hand-built `JobContext` must take its `db` from `createTenantDb({ db: <DbConnection>, ... })`."
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Job triggers on events only",
+    "detail": "`r.job({ trigger: { on } })` accepts an `r.defineEvent` event (qualified or the own feature's short name) or an entity lifecycle event such as `order.created`. A write or query handler name now fails the boot with a message that names the alternatives. The job-trigger event consumer enqueues every event-triggered job after the commit, with a deterministic job id per job and event. A crash between commit and enqueue no longer loses the job, and a redelivered event does not enqueue it twice. The write response no longer waits for the job enqueue. The bundled `run-requested-export` job triggers on `export-job.created`, and readiness `run-probes` triggers on `probe-run.created`. `delivery:write:unsubscribeAddress` appends `delivery:event:address-unsubscribed` (`DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT`, payload `unsubscribeAddressPayloadSchema`).",
+    "migration": "Replace every job trigger on a handler name. When the handler writes an entity through crud or an executor, trigger on `<entity>.created`, `.updated` or `.deleted`; the job payload is the event payload, and `ctx.triggerEvent.aggregateId` is the row id. Otherwise define an event with `r.defineEvent`, append it in the handler with `ctx.events.append`, and trigger on it. A job on `DeliveryHandlers.unsubscribeAddress` triggers on `DELIVERY_ADDRESS_UNSUBSCRIBED_EVENT`. Tests that ran a job right after a write call `stack.drainJobs()`, which also waits for the event consumer."
+  },
+  {
     "version": "0.404.0",
     "type": "improvement",
-    "title": "Cleanup jobs run once a day in the maintenance window",
-    "detail": "jobs (stale-run-sweep, hourly before, and retention-cleanup), user-data-rights (export and forget), data-retention, audit escape-hatch-retention, inbound-mail retention, delivery attempt-log-retention and form-draft cleanup use trigger { maintenance: true } instead of 03:00 to 03:30 and hourly crons. Without KUMIKO_MAINTENANCE_WINDOW they all run at 03:00 UTC. A stuck job run is now marked failed at most a day after it crosses the stale timeout."
+    "title": "Cleanup jobs run once a day in the maintenance window"
   },
   {
     "version": "0.394.0",
     "type": "fix",
-    "title": "catchUp job consumers ignore foreign event types before upcasting, and catchUp with maxPerTenant skip fails at boot",
-    "detail": "A catch-up job consumer now filters on the trigger's event types before the stored event is upcast, so a foreign event with a failing upcaster no longer stalls the job cursor. Boot rejects `trigger.catchUp` together with `maxPerTenant` onLimit \"skip\" (including the number shorthand): a replay must not discard history. Use onLimit \"defer\"."
+    "title": "catchUp job consumers ignore foreign event types before upcasting, and catchUp with maxPerTenant skip fails at boot"
   },
   {
     "version": "0.394.0",
     "type": "improvement",
-    "title": "r.job event triggers can catch up on stored events",
-    "detail": "trigger { on, catchUp: true } gives the job its own event consumer job:<jobQn> that starts at the beginning of the event store, so events from before the job existed run it too, once per event (job id derived from job QN and event id). Every \"on\" entry must be an r.defineEvent event, otherwise boot fails. The job is no longer fired by the shared job-trigger consumer. JobRunner gains handleCatchUpEvent."
+    "title": "r.job event triggers can catch up on stored events"
   },
   {
     "version": "0.394.0",
     "type": "fix",
-    "title": "triggerName is documented as the firing event's qualified name",
-    "detail": "The JSDoc of `triggerName` said it names the handler that emitted the event; the job runner sets the event's qualified name, which multi-trigger jobs compare against the event QN constants."
+    "title": "triggerName is documented as the firing event's qualified name"
   },
   {
     "version": "0.390.0",
     "type": "fix",
-    "title": "Tenant job run rows are written in the tenant's scope",
-    "detail": "With row level security on, the queued, started and finished rows of tenant-visible job runs were rejected by Postgres when the job was dispatched outside a request scope, and the logger only logged the error. The logger now scopes its tenant writes to the job's tenant and logs a rejected write as a missing row-level-security scope instead of a generic write failure."
+    "title": "Tenant job run rows are written in the tenant's scope"
   },
   {
     "version": "0.388.0",
     "type": "improvement",
     "title": "readRoles for tenant job status",
-    "detail": "`createJobsFeature({ readRoles: [\"PropertyManager\"] })` lets those app roles call `jobs:query:failures` and `jobs:query:tenant-runs` for their own tenant. They are added to the default `User`, `Editor` and admin roles, which stay. Before, a member who only holds app roles got access_denied.",
     "migration": "Optional. Apps whose members hold only their own roles pass `createJobsFeature({ readRoles: [...] })`."
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Deduplicated job add keeps the finished tenant run row",
-    "detail": "JobQueuedMeta carries the BullMQ creation time of the job. The queued hook only removes finished rows queued before that time (leftovers of a Redis reset), so re-announcing an already finished job no longer turns its row back into queued."
+    "title": "Deduplicated job add keeps the finished tenant run row"
   },
   {
     "version": "0.384.0",
     "type": "improvement",
-    "title": "Event consumers screen with restart, skip, pause and resume",
-    "detail": "SystemAdmins get the screens event-consumers and event-consumer-detail. A stopped consumer offers Restart as the primary action; Skip event (with a confirm dialog), Pause and Resume sit in the overflow menu. The write handlers no longer return the raw error text: unknown consumer, wrong status and nothing to skip have their own codes and messages, anything else is logged on the server and answers a generic message. The shared instance reads \"Shared\"."
+    "title": "Event consumers screen with restart, skip, pause and resume"
   },
   {
     "version": "0.383.0",
@@ -58,39 +78,33 @@
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Finished tenant run reads its timestamp under the lock",
-    "detail": "The run that finishes last in lock order now carries the latest finishedAt, so a stale timestamp can no longer make the newest run the row that gets pruned."
+    "title": "Finished tenant run reads its timestamp under the lock"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Older migration notes that say \"kumiko migrate generate\" mean kumiko-schema generate",
-    "detail": "Migration notes of the delivery, jobs, metrics and sessions features name a command that does not exist, `kumiko migrate generate`. Run `kumiko-schema generate <name>` and then `kumiko-schema apply` instead. The published notes stay as they were."
+    "title": "Older migration notes that say \"kumiko migrate generate\" mean kumiko-schema generate"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "jobs list query caps the page size at 200",
-    "detail": "limit above 200 is rejected with a validation error."
+    "title": "jobs list query caps the page size at 200"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "Stale-run sweep uses the job-run retention window for queued runs",
-    "detail": "The sweep now only fails queued runs that are older than the configured retention days instead of every queued run past the stale cutoff, so freshly queued runs of a long backlog are no longer failed."
+    "title": "Stale-run sweep uses the job-run retention window for queued runs"
   },
   {
     "version": "0.364.0",
     "type": "fix",
     "title": "Tenant-visible job runs no longer collide across tenants, jobs and lanes",
-    "detail": "store_tenant_job_runs was unique on bull_job_id alone, but BullMQ ids count per queue, so a job on the api lane and one on the worker lane (or two tenants after a Redis reset) shared an id and overwrote each other's row. The unique index now covers (tenant_id, job_name, bull_job_id), every write filters by all three, and an enqueue replaces a finished row left over under the same key. onJobDropped now receives { tenantId } as a third argument.",
     "migration": "Run `kumiko-schema generate` in your app to add the migration that creates store_tenant_job_runs_tenant_job_bull_job_id_unique and drops store_tenant_job_runs_bull_job_id_unique (generated as a commented DROP INDEX; uncomment it). A custom onJobDropped callback passed to the job runner now gets a third argument { tenantId }."
   },
   {
     "version": "0.360.0",
     "type": "fix",
-    "title": "Finished tenant job run replaces the older one atomically",
-    "detail": "recordTenantRunOutcome wrote the new completed or failed row and pruned older finished rows of the same tenant, job and subject in two separate statements, so the store briefly held two finished rows per subject, and two runs of one subject finishing together could each miss the other's row and leave both. Both writes now run in one transaction under a per-key advisory lock (namespace tjrl). jobs:query:tenant-runs already showed only the newest finished row, so its result does not change."
+    "title": "Finished tenant job run replaces the older one atomically"
   },
   {
     "version": "0.354.0",
@@ -102,14 +116,12 @@
     "version": "0.354.0",
     "type": "improvement",
     "title": "Tenant-visible job run state: r.job({ tenantVisibleRun }) plus jobs:query:tenant-runs",
-    "detail": "A job that declares `tenantVisibleRun` keeps its queued, running, completed and failed state per tenant and subject in the new table `store_tenant_job_runs`, and the tenant reads it through `jobs:query:tenant-runs` (payload `{ jobName?, subject?, limit? }`, own tenant only). Each row is `{ jobName, subject, status, queuedAt, startedAt, finishedAt }`: every queued or running run plus the latest completed or failed one per job and subject, active runs first. No payload, error text or log ever reaches the tenant. A failed attempt that is retried shows as `queued` again. The stale-run sweep and `retention-cleanup` also cover the new table. `JobRunnerOptions` gains `onJobQueued` and `onJobDropped`.",
     "migration": "New store table. Run `kumiko-schema generate <name>` and apply the migration with `kumiko-schema apply` - `store_tenant_job_runs` is created empty and stays empty until a job declares `tenantVisibleRun`. No change needed for apps that do not opt in."
   },
   {
     "version": "0.354.0",
     "type": "fix",
-    "title": "jobs:query:list and jobs:query:failures reject a fractional limit, and migration hints name `kumiko-schema generate`",
-    "detail": "Migration hints name the real `kumiko-schema generate` command, and the jobs list queries reject fractional `limit` values\nThe generated migration header and the recipe READMEs pointed at a non-existent `kumiko migrate generate`. `jobs:query:list` and `jobs:query:failures` now validate `limit` as an integer (at least 1), so `limit: 2.5` fails validation instead of reaching the database query."
+    "title": "jobs:query:list and jobs:query:failures reject a fractional limit, and migration hints name `kumiko-schema generate`"
   },
   {
     "version": "0.354.0",
@@ -125,8 +137,7 @@
   {
     "version": "0.343.0",
     "type": "improvement",
-    "title": "ctx.crossTenantReads for read-only cross-tenant job reads",
-    "detail": "Jobs whose `escapeHatch` grants `unsafeRaw` get `ctx.crossTenantReads` with `selectMany`, `fetchOne` and `count` across all tenants, read-only. Each call is reported as the new escape-hatch kind `cross-tenant-read`; system crons audit it once per process and the metric `kumiko_escape_hatch_uses_total` counts every call. `EscapeHatchKind` and the `escape-hatch-used` audit schema gain `cross-tenant-read`.\n`tenant-lifecycle:job:run-tenant-destruction` checks through `ctx.crossTenantReads` whether a tenant is due and only then calls `ctx.db.unsafeRaw()`, so idle minutes no longer write an `unsafe-raw` audit event."
+    "title": "ctx.crossTenantReads for read-only cross-tenant job reads"
   },
   {
     "version": "0.336.0",
@@ -136,8 +147,7 @@
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Tenant failure subject filter shares one serializer with the job runner",
-    "detail": "The framework `jobs` entry now exports `serializeJobSubject`, the single source of the tenant-visible failure subject string. The job runner and `jobs:query:failures` both use it, so the subject filter cannot drift from what the runner stored."
+    "title": "Tenant failure subject filter shares one serializer with the job runner"
   },
   {
     "version": "0.335.0",
@@ -150,14 +160,12 @@
     "version": "0.330.0",
     "type": "improvement",
     "title": "store_job_runs gets an index on started_at (fw#3396)",
-    "detail": "Windowed dashboard aggregates over job runs (metrics feature) filter on started_at; the index keeps them off a sequential scan.",
     "migration": "Run `kumiko migrate generate` and apply the migration: it adds `store_job_runs_started_at_idx`."
   },
   {
     "version": "0.291.0",
     "type": "improvement",
     "title": "Tenant-visible job failures: `r.job({ tenantVisibleFailure })` plus `jobs:query:failures` (fw#3079)",
-    "detail": "A fire-and-forget job that fails left the tenant's screen on a spinner that never ends — `jobs:query:list` is SystemAdmin and reads cross-tenant over `systemDb.unsafeRaw`, so a tenant could not see its own job failing. Apps worked around it with their own failure entity written in the job's catch.\nA job now opts in declaratively: `r.job(\"generateTexts\", { trigger: …, tenantVisibleFailure: { messageKey: \"app:errors.generationFailed\", subjectFields: [\"campaignId\"] } }, handler)`. When its last attempt fails, the run-logger records one row per tenant, job and subject in the new `store_tenant_job_failures` table, and the tenant reads it back through `jobs:query:failures` (every membership rank, own tenant only).\nOnly a translation key travels to the tenant: the thrown error's own `i18nKey` when it carries one, otherwise the declared `messageKey`. The provider's message stays on `store_job_runs.error` and in the run log, both SystemAdmin-only. Records are scoped to the run's tenant — a tenant-less run (cron, `SYSTEM_TENANT_ID`) records nothing.\nLifetime and retries: a record lives until the next successful run of the same job and subject deletes it; there is no acknowledgement step (tenant job administration stays out of scope). Only the final attempt records, so a job with `retries` that succeeds on a later attempt never shows the tenant a failure. The daily `retention-cleanup` job purges leftovers past `retentionDays`.\n`jobs:query:list`, `jobs:query:details` and `jobs:query:retry` are unchanged. `JobRunnerOptions.onJobComplete`/`onJobFailed` gained an optional fifth `outcome` argument — existing four-argument callbacks keep working.",
     "migration": "New store table. Run `kumiko migrate generate` and apply the migration — `store_tenant_job_failures` is created empty and stays empty until a job declares `tenantVisibleFailure`. No change needed for apps that do not opt in."
   },
   {
@@ -170,7 +178,6 @@
   {
     "version": "0.120.0",
     "type": "improvement",
-    "title": "PII on custom-event payloads (#799).",
-    "detail": "PII on custom-event payloads (#799). `r.defineEvent(name, schema, { piiFields: { recipientAddress: { subjectField: \"recipientId\" } } })` declares payload fields that are encrypted under the owning user's DEK (crypto-shredding). Enforcement lives in the low-level event-store `append()` — the single write funnel — so `ctx.appendEvent`, MSP-apply AND out-of-dispatcher writers (delivery attempt-log, jobs run-logger) are all covered; the stored event and the returned echo carry ciphertext, keeping inline projections and rebuilds identical. A null subject field (system cron runs, recipient-less attempts) stays plaintext — there is no user key to shred. Misconfigured `piiFields` (unknown field/subjectField) throw at feature-definition time. Bundled features annotated: `delivery:event:attempt`.`recipientAddress` (subject = recipientId) and `jobs` `run-started`.`payload` (subject = triggeredById); the pseudonymous fk ids stay plaintext. `delivery log.query` and `jobs list/details` decrypt for display — a forgotten subject shows `[[erased]]`. This makes the events-only aggregates from #797 Art.-17-capable: user-forget erases the DEK, historical delivery addresses and job payloads become unreadable without touching the append-only stream. New exports: `encryptPiiValueForSubject`, `configureEventPiiCatalog`/`configuredEventPiiCatalog`/`encryptEventPayloadPii` (framework/crypto)."
+    "title": "PII on custom-event payloads (#799)."
   }
 ]

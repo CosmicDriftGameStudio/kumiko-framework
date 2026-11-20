@@ -1,33 +1,38 @@
 [
   {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "helpdeskWebsiteClient gives websites a checked helpdesk client"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "helpdesk still exports and forgets pre-rename contact data"
+  },
+  {
     "version": "0.424.0",
     "type": "fix",
-    "title": "helpdesk tests no longer flake on a guessed wrong nonce",
-    "detail": "A guessed wrong nonce still solved the challenge with probability 2^-bits at the low test difficulty, so the dropped-submit and wrong-nonce tests failed now and then. The tests now search for a nonce that fails verification. No runtime change."
+    "title": "helpdesk tests no longer flake on a guessed wrong nonce"
   },
   {
     "version": "0.415.0",
     "type": "fix",
-    "title": "Helpdesk forwards requests and replies without ctx.notify",
-    "detail": "Forwarding a request, the reply mail dispatch and the in-app note are plain dispatches and now run through runBestEffort instead of the notify-gated sendBestEffort, so they no longer get skipped when the delivery feature is not mounted. The legacy contact subject lookup checks the archive first and decrypts an email only for anonymous requests."
+    "title": "Helpdesk forwards requests and replies without ctx.notify"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Legacy contact data is exported, erased and expired from the event log",
-    "detail": "The user-data hooks for requests stored under the former contact names read the dropped `read_contact_requests` and `read_contact_replies` tables, so the export failed and the forget run reported an error on an app that never had those tables. They now fold the `contact-request` and `contact-reply` event streams instead: the export lists the requests of the user (by user id, or by verified email for anonymous ones) with their replies, the forget run purges attachments, erases the record keys and archives the streams. A new maintenance job `helpdesk:job:legacy-contact-retention` applies the retention period to old legacy requests and replies. Deleting a user also erases the notes written on their helpdesk requests and legacy requests."
+    "title": "Legacy contact data is exported, erased and expired from the event log"
   },
   {
     "version": "0.414.0",
     "type": "improvement",
-    "title": "HELPDESK_REQUEST_ENTITY is exported from the helpdesk entry",
-    "detail": "`HELPDESK_REQUEST_ENTITY` comes from `@cosmicdrift/kumiko-bundled-features/helpdesk` next to the other helpdesk constants."
+    "title": "HELPDESK_REQUEST_ENTITY is exported from the helpdesk entry"
   },
   {
     "version": "0.414.0",
     "type": "improvement",
     "title": "Indexes for helpdesk requests and replies",
-    "detail": "All helpdesk rows live in the system tenant, so the tenant index selected nothing. `read_helpdesk_requests` gets indexes on (tenant_id, status) and (tenant_id, reporter_user_id), `read_helpdesk_replies` on (tenant_id, request_id).",
     "migration": "Run `bun kumiko-schema generate` in the app to pick up the new indexes."
   },
   {
@@ -40,38 +45,32 @@
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Public handlers declare only the anonymous role",
-    "detail": "Handlers declaring access.anySignedIn next to the anonymous role list only anonymous in roles (the dropped signed-in roles never had an effect); the SUBMIT_ROLES constant of helpdesk is removed."
+    "title": "Public handlers declare only the anonymous role"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Notification preferences and config values of the former contact feature are carried over",
-    "detail": "The helpdesk notifications declare `renamedFrom: [\"contact:notify:<name>\"]`, so stored preferences and address opt-outs under the former names keep applying (a helpdesk-name row wins). The boot job `helpdesk:job:legacy-contact-config` (`runOnBoot`, idempotent) writes `contact:config:reply-to` and `contact:config:telegram-chat` to `helpdesk:config:reply-to` and `helpdesk:config:telegram-chat` through `config:write:set` as SystemAdmin, only when the helpdesk key has no value yet; the old rows stay untouched. The job declares an `escapeHatch` (crossTenantReads, systemIdentity). This replaces the \"not carried over\" hint of the 0.413.0 migration note for these settings."
+    "title": "Notification preferences and config values of the former contact feature are carried over"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "pre-rename contact requests are exported and erased with the user",
-    "detail": "Since the rename from contact to helpdesk, requests and replies stored under the aggregates `contact-request` and `contact-reply` (tables `read_contact_requests`, `read_contact_replies`, attachments with that entity type) sat inert; the EXT_USER_DATA hooks only covered `helpdesk-*`, so a user's export missed them and an erasure left the personal data behind. The helpdesk feature now registers export and delete hooks for the former aggregate, matching by reporter user id or verified email like the current hooks. Deleting forgets the rows through the event-store executor, removes their attachments and shreds the record subject keys. The former entities are not registered, so no schema is generated for them, and installs without former data skip the hooks. The data-retention job does not see these rows, since it only walks registered entities."
+    "title": "pre-rename contact requests are exported and erased with the user"
   },
   {
     "version": "0.414.0",
     "type": "improvement",
-    "title": "acknowledgedSystemDb for system-scoped features",
-    "detail": "`acknowledgedSystemDb(ctx, featureName, crossTenantReason)` returns `ctx.systemDb.acknowledgeCrossTenant(reason)` and throws an InternalError naming the feature when `r.systemScope()` is missing. helpdesk and waitlist use it, together with the shared `sendBestEffort` and `resolveVerifiedUserEmail`; behaviour and log texts are unchanged."
+    "title": "acknowledgedSystemDb for system-scoped features"
   },
   {
     "version": "0.413.1",
     "type": "improvement",
-    "title": "helpdesk sample: complete same-origin contact page",
-    "detail": "`samples/apps/use-all-bundled/public/helpdesk-contact.html` (with `.js` and `.css`) loads `/helpdesk/client.js`, builds the form from `load()` (kinds, optional phone), submits with proof of work and a hidden honeypot field and shows the sent, rate-limited and failed states. Two Playwright specs cover a real submit that reaches the SystemAdmin inbox and a honeypot submit that stores nothing."
+    "title": "helpdesk sample: complete same-origin contact page"
   },
   {
     "version": "0.413.1",
     "type": "fix",
-    "title": "helpdesk recipe: client script same-origin, notes-history listed as required",
-    "detail": "The recipe comment embedded `/helpdesk/client.js` from another origin, but the client posts to the relative paths `/api/query` and `/api/write` without cookies, so the page has to share the app's origin or forward `/api` to the app on its own origin. The recipe and its README now say so and list `notes-history` with `config`, `delivery`, `user-data-rights` and `files` as required features."
+    "title": "helpdesk recipe: client script same-origin, notes-history listed as required"
   },
   {
     "version": "0.413.0",
@@ -82,32 +81,27 @@
   {
     "version": "0.410.0",
     "type": "improvement",
-    "title": "contact/client subpath, app name in the report hint, Telegram documented as optional",
-    "detail": "`@cosmicdrift/kumiko-bundled-features/contact/client` exports `CONTACT_CLIENT_SOURCE` and the website client types `ContactWebsiteClient`, `ContactWebsiteWindow`, `ContactWebsiteSubmitFields`, `ContactWebsiteSubmitResult`, `ContactWebsiteFormOptions` and `ContactWebsiteKind`. The report form hint reads \"Goes straight to the {appName} team\" with the `appName` option (de, en, es, fr, it). With the default `telegram: false` the feature lists `channel-telegram` as an optional dependency only; the feature manifest, the recipe and the docs no longer show the Telegram config key or `contact:write:send-test` for that default. A signed-in visitor with any role can submit the website form and fetch the challenge."
+    "title": "contact/client subpath, app name in the report hint, Telegram documented as optional"
   },
   {
     "version": "0.409.0",
     "type": "improvement",
     "title": "New bundled feature contact: public contact form with spam protection, admin replies and Telegram forwarding",
-    "detail": "`createContactFeature({ appName, telegram? })` adds a public contact form backend: the anonymous `contact:write:submit` stores a question, contact request or problem report (honeypot, single-use proof-of-work challenge from `contact:query:challenge`, minimum submit time, per-IP and per-email rate limits; spam gets the same 200 body and nothing is stored), notifies every SystemAdmin by mail and, with option `telegram: true` (default off), in a Telegram chat (adds `channel-telegram` to `requires`, the `telegramChat` config key and `contact:write:send-test`). The notification carries no personal data on any channel: only the kind, the app name and a link into the inbox, never name, address, phone, subject or message, because mail and Telegram cannot be shredded. A website sender gets a fixed acknowledgement that repeats nothing they typed (the form is no mail relay); a signed-in admin report gets a copy. The per-email limit counts only submits that passed the spam checks, `contact:write:report` is limited to 10 per hour and user, and the stored `page` loses its query string and fragment. Phone is off by default (`fields.phone`). Logged-in users file reports with `contact:write:report`; SystemAdmins answer with `contact:write:reply` (mail with Reply-To, optional in-app notice for logged-in reporters), mark requests done, and read `contact:query:request-detail`, `contact:query:replies` and `contact:query:request-delivery` (one row per channel with recipient, time and status email|telegram|reply-email|reply-in-app: pending|delivered|failed|skipped|read). Open means no answer yet: only status `open` counts. The browser client is served at `GET /contact/client.js` (`window.KumikoContact`). Requests are crypto-shredding-ready PII with EXT_USER_DATA export and erasure and a 365 day retention. The feature requires `config`, `delivery`, `user-data-rights` and `files` (a file provider must be mounted).",
     "migration": "Run `kumiko schema generate`: it adds the `contact-request` and `contact-reply` tables. Apps mounting contact also need the delivery and channel-in-app migrations (`idempotency_key` columns) and a mounted file provider."
   },
   {
     "version": "0.409.0",
     "type": "improvement",
-    "title": "contact option reportCancelTarget",
-    "detail": "`createContactFeature({ reportCancelTarget })` sets the screen the Cancel button of the report form navigates to; without it the form shows no Cancel button."
+    "title": "contact option reportCancelTarget"
   },
   {
     "version": "0.409.0",
     "type": "improvement",
-    "title": "contact option detailLinks; every signed-in user may report a problem",
-    "detail": "`createContactFeature({ detailLinks: { user, tenant } })` sets the screens the sender and tenant links in the request detail header open (short id or `<feature>:screen:<id>`); defaults stay `user-edit` and `tenant-edit`, `false` removes a link. `contact:write:report` and the report screen are now open to every signed-in user (`openToAll`), not only TenantAdmin and Member. The detail layout drops the phone row while `fields.phone` is off and hides it for an empty value, and the contact feature now requires `notes-history` (the detail notes section needs it)."
+    "title": "contact option detailLinks; every signed-in user may report a problem"
   },
   {
     "version": "0.409.0",
     "type": "fix",
-    "title": "The contact website client sends without credentials",
-    "detail": "`GET /contact/client.js` now sends the challenge and submit requests with `credentials: \"omit\"`, so a visitor who is signed in on the same domain with any role (including app roles) still submits as an anonymous caller instead of getting 403. Name and email come from the form, never from the session."
+    "title": "The contact website client sends without credentials"
   }
 ]

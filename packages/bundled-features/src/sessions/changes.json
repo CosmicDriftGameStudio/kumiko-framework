@@ -1,21 +1,62 @@
 [
   {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Session and token lists no longer flood the KMS pool"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Sessions cleanup runs daily and the device list hides expired sessions"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "userId indexes on store_user_sessions and store_api_tokens",
+    "migration": "Apps that mount sessions or personal-access-tokens run `kumiko-schema generate` and ship the migration that adds `store_user_sessions_user_id_idx` and `store_api_tokens_user_id_idx`."
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "session-list nav takes an adminArea option"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "autoRevokeOnPasswordChange option and late binding removed",
+    "detail": "Sessions are revoked on password change through the auth-foundation credentialRevoker, synchronously in the user write's transaction. Removed: the `autoRevokeOnPasswordChange` option, `bindAutoRevokeFromFeature`, `BindAutoRevokeOnPasswordChange`, `SessionMassRevoker`, the `sessionMassRevoker` and `sessionRevokeAllOthers` fields of `createSessionCallbacks()`, and `asMassRevoker` from `sessionCallbacksFromLateBound`.",
+    "migration": "Remove `autoRevokeOnPasswordChange` from `createSessionsFeature(...)` and every `bindAutoRevokeFromFeature(...)`/`asMassRevoker()` call; nothing replaces them.",
+    "affects": [
+      "autoRevokeOnPasswordChange",
+      "bindAutoRevokeFromFeature",
+      "BindAutoRevokeOnPasswordChange",
+      "SessionMassRevoker",
+      "sessionMassRevoker",
+      "sessionRevokeAllOthers",
+      "asMassRevoker"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Session check rejects removed members and no longer falls back to JWT roles on errors",
+    "detail": "A user or membership lookup error now fails the request instead of returning live with the token's frozen roles. A user without a membership in the session's tenant gets 401 `session_invalid` with reason `not_a_member`. Principals without a user row (bootstrap actors) keep their token roles. The check and the PAT resolver share the new `resolveLiveTenantRoles` from the tenant feature.",
+    "migration": "Tests with hand-built actors that have a user row but no membership in the tenant must seed a membership."
+  },
+  {
     "version": "0.407.0",
     "type": "improvement",
-    "title": "clock option and lastActivityProbeSecret",
-    "detail": "createSessionsFeature and createSessionCallbacks accept a clock option for deterministic tests. With lastActivityProbeSecret set, the sessions feature serves GET /sessions/last-activity for other apps of the same account (Bearer secret, constant-time compare, rate limited, 401 otherwise); the secret must be at least 32 characters, shorter ones fail at boot; without the option no route exists. fetchRemoteAppLastActivity({ url, secret }) from tenant-inactivity reads it as an activity source and uses internal egress restricted to the origin of the URL."
+    "title": "clock option and lastActivityProbeSecret"
   },
   {
     "version": "0.390.0",
     "type": "fix",
-    "title": "Session screens show the device without sessionsClient()",
-    "detail": "The list, my-sessions and detail screens showed [object Object] in the device column for apps that do not register sessionsClient(). The session queries (user-session:list, user-session:mine, user-session:detail) now return a deviceLabel string such as \"Chrome 141 · macOS\" next to the unchanged device object, null when the user agent is unknown, and the screens render that field. sessionsClient() only adds the translated \"Unknown device\" for rows without a label."
+    "title": "Session screens show the device without sessionsClient()"
   },
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "Sessions tests no longer write projection tables directly",
-    "detail": "The sessions integration tests change tenant memberships and user status through the update-member-roles handler or the event-store executor instead of writing into the projection tables. Nothing changes for apps; the package is only republished."
+    "title": "Sessions tests no longer write projection tables directly"
   },
   {
     "version": "0.389.0",
@@ -27,20 +68,17 @@
   {
     "version": "0.384.0",
     "type": "improvement",
-    "title": "Session lists show the device",
-    "detail": "The new subpath @cosmicdrift/kumiko-bundled-features/sessions/web exports sessionsClient(). Apps must add sessionsClient() to their client features to get the device column (browser and OS parsed from the user agent) and the translated \"This session\" cell; without it the screens fall back to the raw columns. The IP display is unchanged."
+    "title": "Session lists show the device"
   },
   {
     "version": "0.383.0",
     "type": "improvement",
-    "title": "sessionChecker looks up the user and the membership concurrently",
-    "detail": "The session check starts the user lookup together with the session read and the membership lookup together with the last-seen refresh. Results and the fail-open behavior are unchanged; a failed lookup that is not needed no longer raises an unhandled rejection."
+    "title": "sessionChecker looks up the user and the membership concurrently"
   },
   {
     "version": "0.336.0",
     "type": "fix",
-    "title": "Session revoke (single, mass, all-others) and its revoked-event commit atomically",
-    "detail": "Session logout, password-change/MFA mass revoke, revoke-all-others and PAT revoke now commit the revoke and its revoked-event in one transaction, so a failed append no longer leaves a revoked token whose SSE streams stay open. GDPR delete hooks now try every row of the subject and report all failures at once instead of stopping at the first. The notes mention-forget hook loads the mentioned notes with one query and resolves each host entity's retention policy once."
+    "title": "Session revoke (single, mass, all-others) and its revoked-event commit atomically"
   },
   {
     "version": "0.335.0",
@@ -51,7 +89,6 @@
     "version": "0.330.0",
     "type": "improvement",
     "title": "store_user_sessions gets an index on (tenant_id, last_seen_at) (fw#3396)",
-    "detail": "Active-user dashboard aggregates (metrics feature) filter on tenant_id and last_seen_at.",
     "migration": "Run `kumiko migrate generate` and apply the migration: it adds an index on `store_user_sessions (tenant_id, last_seen_at)`."
   },
   {
@@ -64,19 +101,16 @@
   {
     "version": "0.208.2",
     "type": "improvement",
-    "title": "Session rows track lastSeenAt, refreshed hourly",
-    "detail": "userSession now carries a lastSeenAt timestamp, set on session creation and refreshed by sessionChecker at most once per hour (LAST_SEEN_REFRESH_MS). A refresh failure is swallowed and the check still returns \"live\" — this is a coarse activity marker, not a per-request write."
+    "title": "Session rows track lastSeenAt, refreshed hourly"
   },
   {
     "version": "0.165.1",
     "type": "fix",
-    "title": "Mid-stream access revocation aborts idle SSE pulls; sseHeartbeatMs is a real buildServer option (fw#1587).",
-    "detail": "A revoked session used to keep an idle SSE stream alive until the client disconnected. clientIpOf now falls back to x-real-ip before the shared \"unknown\" bucket, so per-IP rate limits stop collapsing into one bucket behind proxies that only set that header."
+    "title": "Mid-stream access revocation aborts idle SSE pulls; sseHeartbeatMs is a real buildServer option (fw#1587)."
   },
   {
     "version": "0.165.0",
     "type": "improvement",
-    "title": "Revoke handlers emit session-revoked event",
-    "detail": "Session revocation now appends a session-revoked event to the aggregate stream — other features can react to it (e.g. cache invalidation)."
+    "title": "Revoke handlers emit session-revoked event"
   }
 ]

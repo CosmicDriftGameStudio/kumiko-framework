@@ -2,8 +2,7 @@
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "IMAP connect limited per target host, send failures classified correctly, watch and poll share one fetch path",
-    "detail": "The connect, connect-my and reconnect checks now also count per target host and per host plus user across all tenants (200 and 20 per 10 minutes), so many tenants cannot probe one foreign mail server. Sending reports \"not set up\" when the credential document is missing or unreadable, and for a failed certificate check or a blocked host, instead of a rejected password or a retryable outage. Poll, watch and content refetch fetch and parse mails through one function. The TLS failure text no longer mentions a TLS setting the form does not have, and the SMTP port hint states that 465 means SSL/TLS and every other port STARTTLS. attach-message-content fails instead of treating a stream without a readable received event as a shared mailbox."
+    "title": "IMAP connect limited per target host, send failures classified correctly, watch and poll share one fetch path"
   },
   {
     "version": "0.414.0",
@@ -15,80 +14,67 @@
   {
     "version": "0.411.0",
     "type": "fix",
-    "title": "IMAP polling works again for mailboxes given as a host name",
-    "detail": "Since 0.393 the host guard resolves every host name to its IP, and the IMAP client then overrode the TLS `servername` with undefined, so the certificate was checked against the IP and every poll ended in InboundTransientError. The pinned host name now goes to tls as the servername; IP-literal hosts still connect without SNI. SMTP was not affected: nodemailer receives the original name as `servername`."
+    "title": "IMAP polling works again for mailboxes given as a host name"
   },
   {
     "version": "0.395.0",
     "type": "fix",
-    "title": "A mail the IMAP watch quarantines keeps its sender and subject",
-    "detail": "The live watch fetched new mails without the IMAP envelope, so an unparseable mail it quarantined showed no sender and no subject in the quarantine list. The watch now fetches the envelope like the poll does."
+    "title": "A mail the IMAP watch quarantines keeps its sender and subject"
   },
   {
     "version": "0.394.0",
     "type": "improvement",
-    "title": "The IMAP provider reads text, HTML and attachments",
-    "detail": "The provider parses full mails. Inline images are skipped, forwarded message/rfc822 mails are unpacked up to depth 3, and the limits are 25 MB per attachment, 50 MB per mail and 50 attachments; everything skipped is reported in skippedAttachments with its reason. The new plugin method fetchContent reloads the content of a mail by provider id."
+    "title": "The IMAP provider reads text, HTML and attachments"
   },
   {
     "version": "0.394.0",
     "type": "fix",
-    "title": "IMAP and SMTP hosts given as IP addresses connect over TLS",
-    "detail": "imapflow passes servername false for an IP literal, which Bun's TLS rejects, so such mailboxes could not connect. The IMAP client now sets an undefined servername; nodemailer already omits it for SMTP."
+    "title": "IMAP and SMTP hosts given as IP addresses connect over TLS"
   },
   {
     "version": "0.394.0",
     "type": "improvement",
-    "title": "The IMAP cursor follows UIDs and skips known mails",
-    "detail": "lastUid is derived from the fetched UIDs, so a quarantined or already known mail at the end of a full batch no longer holds the cursor back or gets fetched again; the envelope is read so a mail the parser throws on still gets its header entry. A forwarded mail that cannot be parsed is kept as an attachment instead of failing the whole mail."
+    "title": "The IMAP cursor follows UIDs and skips known mails"
   },
   {
     "version": "0.394.0",
     "type": "improvement",
-    "title": "Members connect a personal IMAP mailbox from \"My mail accounts\"",
-    "detail": "The new write handler inbound-provider-imap:write:connect-my-mailbox (every mail member role, not exposed to the agent, 10 calls per user in 10 minutes) takes the connect-mailbox fields without trustedAuthservId, checks the IMAP and SMTP login first and creates a mailbox owned by the caller. A disconnected personal mailbox of the caller with the same address is reactivated under its old account id; an address that belongs to another user or to a shared mailbox is refused with the usual conflict answer. connect-account stays admin-only; the handler creates the personal account through the system identity with the owner taken from the caller session, never from the payload. The dormant screen my-mail-account-connect-imap (exported as MY_IMAP_CONNECT_SCREEN_ID) is reached from the new \"Connect mailbox\" toolbar action of my-mail-accounts; it has no sender-check field, that policy stays with the admin form. New keys in all locale packages."
+    "title": "Members connect a personal IMAP mailbox from \"My mail accounts\""
   },
   {
     "version": "0.394.0",
     "type": "fix",
-    "title": "The IMAP watch quarantines an unparseable mail right away",
-    "detail": "A mail the MIME parser cannot handle used to be dropped by the live watch and reached the quarantine only with the next reconciliation poll, up to five minutes later. The provider watch handler now passes such mails to `handlers.onMessages(messages, rejected)` and the supervisor quarantines them through the same ingest path as the poll. `onMessages` takes an optional second argument, so existing providers are unaffected. A failed account health update after a quarantine now logs the error code of the rejected write."
+    "title": "The IMAP watch quarantines an unparseable mail right away"
   },
   {
     "version": "0.393.0",
     "type": "improvement",
-    "title": "IMAP mailboxes with a sign-in error can be reconnected",
-    "detail": "The new write handler inbound-provider-imap:write:reconnect-mailbox (TenantAdmin, SystemAdmin, not exposed to the agent, 10 calls per tenant in 10 minutes) takes the account id plus host, port, user, password and the outgoing server, checks the IMAP and SMTP login like connect-mailbox, then overwrites the credential secret of the same account and sets it back to active in one transaction. A failed check changes nothing. It answers not found for an unknown account or one of another tenant, account_disconnected for a disconnected one and reconnect_not_password_imap for other providers. The form screen mail-account-reconnect-imap is prefilled by the query inbound-provider-imap:query:reconnect-prefill with the stored server settings, never the password. New keys in all locale packages."
+    "title": "IMAP mailboxes with a sign-in error can be reconnected"
   },
   {
     "version": "0.393.0",
     "type": "fix",
-    "title": "IMAP forms trim the mailbox name and show ports without digit grouping",
-    "detail": "connect-mailbox trims displayName and still requires a non-empty name. The port fields of the connect and reconnect forms show 993 or 13993 instead of 13.993 in locales with digit grouping."
+    "title": "IMAP forms trim the mailbox name and show ports without digit grouping"
   },
   {
     "version": "0.392.1",
     "type": "fix",
-    "title": "Mailboxes connect and send over SMTP port 587 with STARTTLS",
-    "detail": "The connect form gets a required field \"SMTP port\", preset to 587, and stores it as smtpPort in the credential document (the schema still accepts any stored port, default now 587). Port 465 uses implicit TLS; every other port uses STARTTLS with requireTLS, so the password is never sent in clear text and the connection fails when the server offers no STARTTLS. The certificate is checked against the host name on the STARTTLS upgrade as well. The SMTP failure texts name the entered port. New key for the field label in all locale packages."
+    "title": "Mailboxes connect and send over SMTP port 587 with STARTTLS"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "IMAP mailboxes can be connected from a form",
-    "detail": "The new write handler inbound-provider-imap:write:connect-mailbox (TenantAdmin, SystemAdmin, not exposed to the agent, 10 calls per tenant in 10 minutes) checks the IMAP login before the transaction, then creates a shared mail account and stores host, port, user and password in its credential secret in the same transaction. It always connects with implicit TLS (default port 993); there is no plaintext option, and a secure:false in the payload is ignored. A failed check stores nothing and answers with one of four texts: host not reachable or not allowed, login rejected, TLS failed, no connection. The form screen mail-account-connect-imap has a masked password field and no TLS toggle. New keys in all locale packages."
+    "title": "IMAP mailboxes can be connected from a form"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "IMAP mailboxes send over their own SMTP server",
-    "detail": "The connect form gets an optional field \"Outgoing server (SMTP)\". Left empty, the IMAP host is used, with smtp. in place of a leading imap.. connect-mailbox now also checks the SMTP login on port 465 (implicit TLS, same user and password, same host guard) and answers a failure with its own text (\"Receiving works, but sending does not: ...\"). The credential document gains smtpHost and smtpPort (default 465). The provider implements send: it sends over SMTP with From = the mailbox address and display name, then stores the same message in the sent folder (special use \\Sent, else Sent, Gesendet or INBOX.Sent); a failed copy is only logged. Accounts stored without smtpHost answer mail_send_not_configured. New keys in all locale packages."
+    "title": "IMAP mailboxes send over their own SMTP server"
   },
   {
     "version": "0.390.1",
     "type": "fix",
-    "title": "mailparser moved to a version without known nodemailer advisories",
-    "detail": "mailparser moves to ^3.12.4, which pins nodemailer 10.2.1, so apps no longer get nodemailer 10.0.13 through it."
+    "title": "mailparser moved to a version without known nodemailer advisories"
   },
   {
     "version": "0.370.0",
@@ -113,7 +99,6 @@
   {
     "version": "0.320.0",
     "type": "fix",
-    "title": "IMAP connect failures no longer distinguish a blocked host from a DNS failure in the thrown message",
-    "detail": "`createImapClient` throws the same generic message\n(\"IMAP host is not reachable or not allowed\") for both a blocked host\n(`InboundAuthError`) and a DNS resolution failure (`InboundTransientError`).\nThe configured host and the underlying error are now logged via the\nfeature's own logger instead of being embedded in the thrown message.\nError class (and therefore retry behavior) is unchanged."
+    "title": "IMAP connect failures no longer distinguish a blocked host from a DNS failure in the thrown message"
   }
 ]

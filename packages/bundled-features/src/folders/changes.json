@@ -1,5 +1,47 @@
 [
   {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Folder parents are checked and deletes lock against filing"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "folder:delete checks assignment hosts in batches",
+    "migration": "Run `kumiko-schema generate` in apps that mount folders and apply the migration that adds the index."
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Folder tree and picker no longer stop silently at 50 folders"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Folder tree helpers on the server-neutral folders entry"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Prebuilt folder handler constants removed",
+    "detail": "`setFolderHandler` and `clearFolderHandler` are no longer exported from the folders feature. They were default-access copies of `createSetFolderHandler` and `createClearFolderHandler`, which stay; the feature mounts the factories with its host list and the assignment executor.",
+    "migration": "Do not register `setFolderHandler` or `clearFolderHandler` yourself; mount `createFoldersFeature({ parents })`. A custom feature that needs the handler calls `createSetFolderHandler(access, assignmentExecutor)` or `createClearFolderHandler(access, assignmentExecutor)`.",
+    "affects": [
+      "setFolderHandler",
+      "clearFolderHandler"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Folder assignments enforce ownership.write",
+    "detail": "createFoldersFeature({ ownership: { write } }) now gates set-folder (create, move, restore) and clear-folder like the tags feature does. Before, the handlers wrote through an executor without the rule, so any caller with handler access could file or unfile another user's records.",
+    "migration": "Direct callers of createFolderAssignmentExecutor pass the ownership option first: createFolderAssignmentExecutor(ownership, parents).",
+    "affects": [
+      "createFolderAssignmentExecutor"
+    ]
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "The deprecated foldersFeature constant is removed",
@@ -10,14 +52,12 @@
   {
     "version": "0.354.0",
     "type": "fix",
-    "title": "folder:delete removes assignments whose host entity is gone instead of refusing forever",
-    "detail": "An assignment pointing at a hard-deleted, soft-deleted or unregistered host blocked folder:delete permanently with folder_has_assignments, because clear-folder needs a visible host and could not remove it. folder:delete now removes such assignments through the event-store executor (normal delete events) before the check, without the caller's read gate. Assignments of live hosts, including ones the caller cannot see, still block with folder_has_assignments. A refused delete removes nothing. The cleanup runs lazily at folder:delete, not in a host-delete hook, so restoring a soft-deleted host before then keeps its folder."
+    "title": "folder:delete removes assignments whose host entity is gone instead of refusing forever"
   },
   {
     "version": "0.246.0",
     "type": "improvement",
     "title": "set-folder and clear-folder now verify entityType/entityId against the host entity's own read path",
-    "detail": "Before this change, set-folder and clear-folder took entityType/entityId straight from the client with no check — any dispatch-eligible tenant user could file, move or unfile any object in their tenant, including one they could not otherwise read, and moving it out of whatever folder its owning team had put it in. The folder-assignment aggregate-id is derived from the tenant, so this was never a cross-tenant hole; it was filing inside your own tenant across a row-level ownership boundary. Both handlers now unconditionally verify that entityType names a registered entity and that the host row is visible to the caller through that entity's own read path (tenant scope plus its `access.read` ownership) before touching the membership; either check failing returns a not_found response, the same answer a genuinely missing row gets, so nothing doubles as an existence oracle. The check runs before the folder lookup, so a denied caller learns nothing about which folder ids exist. This mirrors the add-note gate shipped in 0.244.0 and shares its helper.",
     "migration": "entityType must now name an entity registered in the same app (via r.entity(...) or a bundled feature), and the caller must be able to see the target row through that entity's own read path. Any consumer that called set-folder or clear-folder with an entityType that is NOT a registered entity name, or with an entityId the caller could not otherwise read, will now get a not_found error instead of a successful write — register the host entity (and, if it needs row-level ownership, its `access.read` rule) before upgrading. Note the consequence for hard-deleted host rows: once the host row is gone, its folder-assignment can no longer be cleared, and folder:delete keeps refusing while that assignment points at the folder."
   }
 ]

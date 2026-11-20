@@ -1,26 +1,33 @@
 [
   {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "r.httpRoute gets deps.hostTenantId(); managed-pages and seo default to it; createHostTenantIdResolver is removed",
+    "detail": "`r.httpRoute` handlers receive `hostTenantId()`, the tenant the server's anonymous host resolution maps the request to (`anonymousAccess.defaultTenantId`, else the registered tenant resolver such as host-routing, checked against `tenantExists`). It never reads X-Tenant or the tenant cookie. `resolveApexTenant` of `createManagedPagesFeature` and of the seo `managedPages` option is now optional and defaults to it; a passed resolver receives `(host, { hostTenantId })`. host-routing's `createHostTenantIdResolver(options, db)` is removed, so apps no longer bind a module-global resolver to a raw connection at boot.",
+    "migration": "Remove `createHostTenantIdResolver` and the boot-time binding around it, and drop `resolveApexTenant` from `createManagedPagesFeature` / the seo `managedPages` option when host-routing already maps the host. Keep a `resolveApexTenant` only for a fixed tenant or a mapping that differs from the API's host resolution; it can call `deps.hostTenantId()`.",
+    "affects": [
+      "createHostTenantIdResolver",
+      "resolveApexTenant"
+    ]
+  },
+  {
     "version": "0.389.0",
     "type": "fix",
-    "title": "Redirects from /api paths fail at boot",
-    "detail": "Redirects run inside hostDispatch after static files and API routes, so a from of /api or /api/... was silently dead config. Boot validation now throws; the options and README already describe the HTML-fallback scope."
+    "title": "Redirects from /api paths fail at boot"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Redirects documented as hostDispatch-only",
-    "detail": "The redirects option and README state that redirects run inside hostDispatch, so only for requests that reach the HTML fallback; a from matching a static file or an API route never fires. The shared existence lookup of the host and resolver modes is one helper."
+    "title": "Redirects documented as hostDispatch-only"
   },
   {
     "version": "0.376.0",
     "type": "improvement",
-    "title": "tenantBy resolver, apex path tenants, redirects and anonymous query allowlist",
-    "detail": "tenantBy accepts (host, db) => TenantId | null for profile subdomains and custom domains; tenantPathPrefix also works in host and resolver mode for apex path tenants. redirects send fixed 301/302 answers before host classification, apexAnonymousQueryAllowlist limits the anonymous apex anchor to listed query types per host (/api/query and /api/stream), and createHostTenantIdResolver(options, db) maps a Host header to its tenant for managed-pages. Existing \"host\" and \"path\" configs behave as before, except that apexAnonymousQueryAllowlist with tenantBy \"path\" is rejected at boot."
+    "title": "tenantBy resolver, apex path tenants, redirects and anonymous query allowlist"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "createHostRoutingFeature and createHostDispatch route tenants by host or path",
-    "detail": "One HostRoutingOptions object ({ tenantBy: \"host\" } or { tenantBy: \"path\", tenantPathPrefix }, plus baseDomain, apex, tenant, unknownTenant?, hosts?, locales?) drives both halves. createHostRoutingFeature registers an authoritative Host-header tenant resolver in host mode and, in both modes, an existence check that admits only enabled, active tenants. apexAnonymousTenantId gives anonymous apex calls a tenant (e.g. SYSTEM_TENANT_ID); without it the apex answers tenant_required. createHostDispatch is a runProdApp hostDispatch: HTML file and optional CSP per surface (without csp the runProdApp default applies), a 301 from the default-locale prefix to the unprefixed path, and 404 for unknown tenants and hosts. toDevHostDispatch(dispatch, { entries, staticDir }) from @cosmicdrift/kumiko-dev-server plugs the same decision into the dev server. Apps with their own routing feature and hostDispatch move to these; app-specific redirects or custom domains wrap the dispatch function."
+    "title": "createHostRoutingFeature and createHostDispatch route tenants by host or path"
   }
 ]

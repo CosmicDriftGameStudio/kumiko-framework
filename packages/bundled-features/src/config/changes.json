@@ -1,45 +1,58 @@
 [
   {
-    "version": "0.414.0",
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Config reads load all cascade rows at once"
+  },
+  {
+    "version": "0.425.0",
     "type": "fix",
-    "title": "Config values read keeps the declared scope",
-    "detail": "config values returns the declared scope on a widened system read."
+    "title": "Config set needs an approval per agent call"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "readStoredTextOfFormerKey reads the stored text of a former config key"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "config:write:set serialises concurrent writes of the same key"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Encrypted keys closed to config validators",
-    "detail": "ConfigValidateContext.readCascade refuses encrypted, secrets-backed and piiEncrypted keys with an internal error so a validator cannot echo their plaintext."
+    "title": "Config values read keeps the declared scope"
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Encrypted keys closed to config validators"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "config:write:set passes readCascade to validators",
-    "detail": "The set handler binds readCascade to the config resolver, the tenant-scoped db and the secrets reader, so validators see the same cascade as the value queries."
+    "title": "config:write:set passes readCascade to validators"
   },
   {
     "version": "0.388.0",
     "type": "improvement",
-    "title": "config:query:values and config:query:cascade accept a read scope",
-    "detail": "Both queries take an optional scope (system, tenant, user). With scope system the cascade of a tenant or user key is evaluated at system level, so the system row is returned even when the caller's own tenant has a row for the key. Only a SystemAdmin gets the narrowed read; other callers keep the normal cascade. Inherited-value redaction still applies. Without scope the behavior is unchanged."
+    "title": "config:query:values and config:query:cascade accept a read scope"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Remove unreachable branch in configRowHoldsValue",
-    "detail": "The undefined key definition is now handled together with the plaintext comparison, dropping a dead return without changing behavior."
+    "title": "Remove unreachable branch in configRowHoldsValue"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "Config key validate() receives a db scoped to the written tenant",
-    "detail": "A SystemAdmin writing a config value for another tenant previously handed the validator a system-mode db that could read every tenant. `ConfigValidateContext.db` is now a `TenantDb` locked to the tenant the value is written for. The validator runs inside the write transaction, so a slow query there should set its own timeout."
+    "title": "Config key validate() receives a db scoped to the written tenant"
   },
   {
     "version": "0.338.0",
     "type": "improvement",
     "title": "config keys can declare an async write validator that rejects with a KumikoError",
-    "detail": "Config key definitions accept a new async `validate(value, ctx)` function. `config:write:set` runs it after the type, bounds and pattern checks and before the value is stored, for every scope and backing. A validator rejects the write by throwing a `KumikoError`, for example an `UnprocessableError`. The feature manifest reports `validated` per key.",
     "migration": "No action needed: keys without `validate` behave as before."
   },
   {
@@ -58,8 +71,7 @@
   {
     "version": "0.271.0",
     "type": "improvement",
-    "title": "systemScope handlers get a default per-tenant+handler rate limit; the four read queries opt out (fw#2861).",
-    "detail": "`config` mounts under `r.systemScope()`, so `config:write:set`/`config:write:reset` without their own `rateLimit` now default to `{ per: \"tenant+handler\", limit: 600, windowSeconds: 60 }` once an app has a `RateLimitResolver` configured (framework change, see kumiko-framework changes.json 0.271.0). `config:query:cascade`, `config:query:values`, `config:query:schema` and `config:query:readiness` declare `rateLimit: { disabled: true, reason: \"...\" }` — each is a self-scoped read of the caller's own readable config, hit on every page load, and a per-tenant bucket would throttle the whole tenant's page loads instead of just that one handler's traffic."
+    "title": "systemScope handlers get a default per-tenant+handler rate limit; the four read queries opt out (fw#2861)."
   },
   {
     "version": "0.165.0",

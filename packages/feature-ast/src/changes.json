@@ -1,51 +1,81 @@
 [
   {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Handlers are defined with defineWriteHandler/defineQueryHandler",
+    "detail": "The bundled features no longer annotate handlers with the erased `WriteHandlerDef`/`QueryHandlerDef`. Factories such as `createEnsureAccountsHandler`, `createSubjectTotalsHandler`, `createScheduleActualsHandler`, `createBalancesReportHandler`, `createIncomeStatementHandler` and `createBalanceSheetHandler` return the typed `WriteHandlerDefinition`/`QueryHandlerDefinition`, which is not assignable to `WriteHandlerDef`. `withCapEnforcement` keeps the wrapped handler's type and still accepts a `WriteHandlerDef`. Two guards cover what is left: the As-Casts Audit (`check-as-casts`) counts a cast with `@cast-boundary engine-payload` on `event.payload`/`query.payload` inside `handlers/*.write.ts`/`*.query.ts` as suspect; it does not see casts outside `handlers/`, other parameter names, destructured payloads, other marker reasons or `schema.parse(event.payload)` re-parses. The Handler Definitions ratchet (`guard-handler-definitions`) counts every literal annotated, `satisfies`- or `as`-typed with `WriteHandlerDef`/`QueryHandlerDef` and every function returning such a literal, anywhere in the scanned tree, against `.kumiko-handler-definitions-baseline.json`; it does not see a returned identifier, aliases of the erased types or test files.",
+    "migration": "Run the codemod. It wraps literals annotated with `WriteHandlerDef`/`QueryHandlerDef` (variables and factory returns) in `defineWriteHandler`/`defineQueryHandler`, drops the annotation, removes `event.payload as z.infer<typeof schema>` casts and `schema.parse(event.payload)` re-parses on the handler's own schema and fixes the imports. It checks every use across the project and converts a handler only when all uses are `r.writeHandler`/`r.queryHandler` arguments, re-exports, property reads or `withCapEnforcement`/`withStockCap`. Listed as manual: handlers spreading another handler, dynamic schemas, `satisfies`/`as` forms and handlers used anywhere else, for example passed to an app wrapper typed `WriteHandlerDef`, put into an array or stored in an annotated variable. Give such a wrapper the two overloads of `withCapEnforcement` (erased and typed) or keep the handler erased and freeze it with `kumiko-guards guards --write-baseline --guard=\"Handler Definitions\"`. Code that stored a bundled factory result in a `WriteHandlerDef`/`QueryHandlerDef` variable drops that annotation.",
+    "codemod": "scripts/codemod/define-handler.ts",
+    "manualAfterCodemod": true,
+    "affects": [
+      "WriteHandlerDef",
+      "QueryHandlerDef",
+      "withCapEnforcement",
+      "createEnsureAccountsHandler",
+      "createSubjectTotalsHandler",
+      "createScheduleActualsHandler",
+      "createBalancesReportHandler",
+      "createIncomeStatementHandler",
+      "createBalanceSheetHandler"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "adoptsBundledLists pattern removed",
+    "detail": "The parser, renderer, patch kinds, pattern-id and pattern-change schemas and the pattern library no longer know `adoptsBundledLists`; `AdoptsBundledListsPattern` and `adoptsBundledListsSchema` are no longer exported.",
+    "migration": "Drop references to the `adoptsBundledLists` pattern kind.",
+    "affects": [
+      "adoptsBundledLists",
+      "AdoptsBundledListsPattern",
+      "adoptsBundledListsSchema"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "feature-layout moves jobs, entities and client.ts",
+    "migration": "After running `kumiko codemod feature-layout`, freeze the baselines keyed by file path again."
+  },
+  {
     "version": "0.415.0",
     "type": "fix",
-    "title": "lint-ignore-to-biome skips no-raw-hooks markers outside the plugin scope",
-    "detail": "The no-raw-hooks Biome plugin only scans .tsx files under web/ and public/, without tests, renderer, document-designer and samples. Converting a marker elsewhere produced a `biome-ignore` that suppresses nothing. The codemod now keeps such markers as they are."
+    "title": "lint-ignore-to-biome skips no-raw-hooks markers outside the plugin scope"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "ctx-namespaces codemod reads the context kind a structural parameter receives",
-    "detail": "A structural context type that only a job context reaches kept being rewritten with the handler namespaces, for example `tracer` into `obs.tracer`, which `JobContext` does not carry. The codemod now collects the context kinds that reach the parameter: members that move the same way for all kinds are rewritten, members that move for one kind only are reported as manual. The type-aware project also forwards the redirected project reference and the module mode of the importing file to module resolution."
+    "title": "ctx-namespaces codemod reads the context kind a structural parameter receives"
   },
   {
     "version": "0.404.0",
     "type": "improvement",
-    "title": "Pattern library documents the maintenance trigger",
-    "detail": "The job pattern's comment and summary name { maintenance: true }; the parser already reads it as a literal option."
+    "title": "Pattern library documents the maintenance trigger"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "Codemod entries return their exit code",
-    "detail": "The feature-ast codemods export main(argv) and runCodemod next to runCodemodCli; they return an exit code instead of calling process.exit, so callers can run them in-process. Invocation from the shell is unchanged."
+    "title": "Codemod entries return their exit code"
   },
   {
     "version": "0.391.1",
     "type": "fix",
-    "title": "Type-aware codemods no longer exhaust memory when the app pins another zod",
-    "detail": "ctx-namespaces and remove-engine-payload-casts build their ts-morph project with a resolution host that resolves zod and its subpaths from the app root, so the program holds one zod copy even when bun nests a second version under each framework package. Without zod at the app root, resolution is unchanged. A small app with zod 4.6.6 next to framework packages on 4.6.7 went from 17 GB and 36 s to 1.1 GB and 3 s for ctx-namespaces, with the same rewrites."
+    "title": "Type-aware codemods no longer exhaust memory when the app pins another zod"
   },
   {
     "version": "0.391.0",
     "type": "fix",
-    "title": "Codemods no longer fail when git is not installed",
-    "detail": "collectSourceFiles asks git check-ignore which files the repository's .gitignore excludes. Without a git executable Bun.spawnSync threw ENOENT and kumiko-upgrade --apply aborted at the first codemod, for example ctx-namespaces in the customer-app builder image. A missing git is now treated like a directory outside a repository: no file is filtered."
+    "title": "Codemods no longer fail when git is not installed"
   },
   {
     "version": "0.390.1",
     "type": "fix",
-    "title": "Codemods skip gitignored files, ctx-namespaces finds structural helpers across files",
-    "detail": "collectSourceFiles, used by the codemods, leaves out files the repository's .gitignore excludes, such as generated output and local worktrees. The ctx-namespaces codemod loads all files of a tsconfig project before rewriting, so a helper with a structural `{ query }` context type is migrated even when its handler caller sits in a file processed later."
+    "title": "Codemods skip gitignored files, ctx-namespaces finds structural helpers across files"
   },
   {
     "version": "0.390.0",
     "type": "fix",
     "title": "ctx-namespaces codemod follows structural context types through aliases and intersections",
-    "detail": "A parameter named ctx or context typed by a hand-written structural type such as type PatternQueryContext = { readonly query: ... } was left alone, so the type kept the flat member and every ctx.query call failed to type-check after the context namespaces landed. The codemod now nests the moved members of such an alias, interface, inline literal or intersection of them (readonly query becomes readonly dispatch: { readonly query }) and rewrites the calls in the body, when a handler or job context is passed to that parameter anywhere in the project. A structural type declared in another file is reported as manual.",
     "migration": "Run kumiko-upgrade --apply again; the ctx-namespaces codemod now picks up structural context parameter types. Types it reports as manual (declared in another file) get their moved members nested by hand.",
     "codemod": "scripts/codemod/ctx-namespaces.ts"
   },

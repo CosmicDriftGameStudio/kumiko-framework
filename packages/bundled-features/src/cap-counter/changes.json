@@ -1,57 +1,58 @@
 [
   {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "calendarCapReservationHandle can settle the actual amount"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Cap errors carry an optional scope"
+  },
+  {
     "version": "0.418.0",
     "type": "fix",
-    "title": "withStockCap keeps the handler type",
-    "detail": "`withStockCap` is generic over the write handler definition and returns the type it received, so a `defineWriteHandler` result passes in without an `as unknown as WriteHandlerDef` cast. Callers passing a `WriteHandlerDef` compile unchanged."
+    "title": "withStockCap keeps the handler type"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Canonical stock-cap lock keys",
-    "detail": "The stock-cap lock key sorts where-keys at every depth and serializes Temporal and Date values by their string form, so handlers counting the same rows share one lock."
+    "title": "Canonical stock-cap lock keys"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "Settle and consume racing on a swept reservation book their units",
-    "detail": "After the sweep deleted a reservation's row, a consume could commit its released tombstone between the two reads of a parallel settle or consume. That call took the released tombstone for a settled one, so settle reported success without booking its amount and a second consume was rejected with cap_reservation_settled. Only a settled tombstone counts as settled now; a released one runs into the insert conflict and the retry books against it."
+    "title": "Settle and consume racing on a swept reservation book their units"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "Settle after a sweep survives a lost counter race",
-    "detail": "The amount is booked first and the tombstone written afterwards, so a version conflict on the counter retries the whole settle instead of leaving a tombstone that turns the retry into a no-op and drops the usage from the cap."
+    "title": "Settle after a sweep survives a lost counter race"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Consume on a released reservation extends its tombstone",
-    "detail": "Every consume against a released reservation tombstone now pushes its expiry out, so a long-running job that consumes across the sweep can no longer lose the tombstone and have its earlier units counted twice at settle."
+    "title": "Consume on a released reservation extends its tombstone"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Misconfigured cap period fails on every enforcement",
-    "detail": "A periodEndIso that is unparsable or not after periodStartIso now throws on each enforceCap or reservation call instead of only once the hard cap is reached, so a bad period no longer turns into a 500 at the limit instead of cap_exceeded."
+    "title": "Misconfigured cap period fails on every enforcement"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Stock cap lock covers the counted rows, not the error code",
-    "detail": "withStockCap serializes on the table and where filter that are counted, so two handlers capping the same rows under different codes can no longer both pass the check in parallel and exceed the cap together."
+    "title": "Stock cap lock covers the counted rows, not the error code"
   },
   {
     "version": "0.378.0",
     "type": "fix",
-    "title": "Stock caps are atomic under parallel writes",
-    "detail": "withStockCap now takes a transaction-scoped advisory lock per tenant and cap, so concurrent creates cannot both pass the check and exceed the cap."
+    "title": "Stock caps are atomic under parallel writes"
   },
   {
     "version": "0.378.0",
     "type": "improvement",
-    "title": "withStockCap no longer widens the handler's grants",
-    "detail": "withStockCap serialises through TenantDb.advisoryXactLock instead of ctx.db.unsafeRaw(), so wrapped handlers no longer receive an implicit unsafeRaw grant."
+    "title": "withStockCap no longer widens the handler's grants"
   },
   {
     "version": "0.370.0",
@@ -64,21 +65,18 @@
   {
     "version": "0.368.0",
     "type": "improvement",
-    "title": "calendarCapReservationHandle consumes a reservation per unit",
-    "detail": "`reserveCalendarCapUsage` now returns `reservationId`. `calendarCapReservationHandle(ctx, reservationId, { capName, periodStartIso })` returns a handle with `consume(units)` (turns reserved units into booked ones, counter unchanged) and `release()` (gives back the unconsumed rest). A handler reserves the worst case before the job is dispatched, the job consumes per written unit, so parallel dispatches can no longer overshoot the hard cap and a retry only counts what was written.\n\n`consume` beyond the still-reserved rest throws `CapReservationOverConsumedError` (422, `cap_reservation_over_consumed`). `consume` against a settle tombstone throws `CapReservationSettledError` (422, `cap_reservation_settled`); `release` against it is a no-op. When the reservation outlived its TTL and was swept, `consume` books the units directly, the way settle does for a missing row, without a hard-cap check."
+    "title": "calendarCapReservationHandle consumes a reservation per unit"
   },
   {
     "version": "0.368.0",
     "type": "fix",
     "title": "Swept or released calendar reservations remember the units consume booked",
-    "detail": "The reservation row now stores `consumed_amount`. A release or the TTL sweep gives back only the unconsumed rest. If units were consumed, it keeps the row as a released tombstone (`released_at` set, `amount` 0) until the tombstone TTL passes, instead of deleting it. A later `settle` subtracts the consumed units from the booking, and a `consume` after the sweep books its units directly and is remembered the same way, so the counter ends at exactly the settled total. `settle` below the consumed units throws `CapSettleBelowConsumedError` (422, `cap_settle_below_consumed`) in every state. Expired released tombstones are deleted by the sweep.",
     "migration": "Apps with cap-counter generate a migration for the new columns store_cap_reservations.consumed_amount (integer NOT NULL DEFAULT 0) and store_cap_reservations.released_at (kumiko migrate generate)."
   },
   {
     "version": "0.366.0",
     "type": "fix",
     "title": "cap-counter calendar settle is idempotent",
-    "detail": "Settling a calendar cap reservation now keeps the row as a tombstone (new column store_cap_reservations.settled_at, retained for 24 hours) instead of deleting it. A repeated settle with the same reservation id is a no-op, and confirm, give-back and expiry sweep ignore settled rows. The sweep deletes expired tombstones.",
     "migration": "Apps with cap-counter generate a migration for the new column store_cap_reservations.settled_at (kumiko migrate generate)."
   },
   {
@@ -91,8 +89,7 @@
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Rolling cap release remembers the original booking time",
-    "detail": "rolling-released events now carry the incrementedAt of the booking they return, so readRollingCapUsage no longer subtracts a release whose increment already left the rolling window."
+    "title": "Rolling cap release remembers the original booking time"
   },
   {
     "version": "0.364.0",
@@ -103,14 +100,12 @@
   {
     "version": "0.361.0",
     "type": "improvement",
-    "title": "cap-counter exports capReservationsTable and capReservationsTableMeta",
-    "detail": "The reservation table store_cap_reservations was only reachable through internal imports, so kumiko-enterprise redeclared it in a test. The cap-counter entry now exports capReservationsTable and capReservationsTableMeta, following the feature-toggles pattern."
+    "title": "cap-counter exports capReservationsTable and capReservationsTableMeta"
   },
   {
     "version": "0.358.0",
     "type": "improvement",
     "title": "Reserve and settle cap usage outside the dispatcher",
-    "detail": "reserveCalendarCapUsage(ctx, { capName, periodStartIso, limit, profile, amount, notify? }) runs the same sweep, soft-hit notification and guarded hard-cap reservation as withCapEnforcement and returns a handle. settle(actualAmount) replaces the reserved amount by the actual one in one transaction (and books the full actual amount if the reservation was swept or released meanwhile); release() gives it back. Parallel callers cannot exceed the hard cap. It works with a HandlerContext (also r.systemScope() handlers) and a JobContext. Pattern: `const r = await reserveCalendarCapUsage(ctx, {...}); try { ...; await r.settle(actual) } catch (e) { await r.release(); throw e }`. bookCapUsage, markCapSoftWarned, releaseCapUsage and the enforceCap family accept a JobContext as well.",
     "migration": "withCapEnforcement and bookCapUsage now work on r.systemScope() handlers; before, they failed on the fail-closed ctx.db. Reservation rows carry the tenant of ctx.user explicitly, and a context whose tenant-mode db belongs to another tenant than ctx.user is rejected with access_denied. enforceCap now filters the counter by ctx.user.tenantId, so a system-mode db no longer reads another tenant's counter."
   },
   {
@@ -138,28 +133,24 @@
   {
     "version": "0.352.0",
     "type": "improvement",
-    "title": "createValueCapGuard rejects a written number outside the min and max of the tenant's tier",
-    "detail": "A number written by a handler can be bounded per tier\n`createValueCapGuard(resolveTierCaps)` returns `checkValueCap` and `withValueCap`. The spec names the payload field, optional `min` and `max` functions over the tier caps (`undefined` means unbounded), an error code and an i18n key. The value is read from the payload or, for entity updates, from `changes`; an absent or non-numeric value passes. A value below the minimum or above the maximum is rejected with `UnprocessableError` and `details: { field, value, min, max }`. `withValueCap` spreads the wrapped handler, so it composes with `withCapEnforcement`."
+    "title": "createValueCapGuard rejects a written number outside the min and max of the tenant's tier"
   },
   {
     "version": "0.348.0",
     "type": "fix",
     "title": "withCapEnforcement reserves cap usage before the handler transaction so parallel calls cannot exceed the hard limit",
-    "detail": "withCapEnforcement reserves cap usage before the handler transaction\n`withCapEnforcement` used to check the cap and book the usage in two separate steps, so parallel calls could all pass the same stale read and exceed the hard limit. The wrapper now only declares the cap through the new `WriteHandlerDef.reserveBeforeTransaction` hook. The dispatcher runs the hook after the access, feature and schema checks and before the handler transaction opens. The hard-cap check and the increment are one short, version-guarded write that commits at once, so no connection is held across the handler and capped calls on the same counter still run in parallel. The returned release gives the amount back (never below 0) after the transaction ended without committing: rollback, failure result, throw or failed commit. Each reservation covers exactly one top-level execution: a capped handler reached through a nested `ctx.write` or run a second time in the same command is rejected. A wrapped handler now keeps its own `rateLimit`, `escapeHatch` and `additionalRateLimits` (the old wrapper dropped them). The reservation runs before the rate-limit gate, so a rate-limited caller can still cause reserve and release writes. If a COMMIT fails with an unknown outcome, the release can under-count. `bookCapUsage` accepts a `guardCurrentValue` callback, `markCapSoftWarned` and `enforceCapAndMaybeNotify` can write outside the handler transaction, and the soft-warning pre-check now honors `amount`. `withRollingCapEnforcement` is unchanged and keeps its check-then-book race.",
     "migration": "No action needed. Calls above the hard limit are now rejected with cap_exceeded even when they race. A capped handler must not be called through ctx.write from another handler."
   },
   {
     "version": "0.338.0",
     "type": "improvement",
     "title": "corrected the documented reason rolling cap booking needs SystemAdmin",
-    "detail": "cap-counter: corrected the documented reason why rolling cap booking still needs a `SystemAdmin` identity. The event-ownership check only guards `appendDomainEventCore`, not the entity-executor path, so the earlier \"ownership rule rejects in-process appends\" wording was inaccurate. Behavior is unchanged.",
     "migration": "No action needed: behavior is unchanged."
   },
   {
     "version": "0.336.0",
     "type": "fix",
-    "title": "markCapSoftWarned skips the redundant write when the soft-warned flag is already set",
-    "detail": "`markCapSoftWarned` no longer appends a second update event when a parallel warner already set `lastSoftWarnedAt`; the version-conflict retry now returns success without writing."
+    "title": "markCapSoftWarned skips the redundant write when the soft-warned flag is already set"
   },
   {
     "version": "0.335.0",
@@ -171,8 +162,7 @@
   {
     "version": "0.317.0",
     "type": "fix",
-    "title": "bookCapUsage/markCapSoftWarned count parallel bookings instead of losing them",
-    "detail": "Both re-read and retry when they lose an optimistic-lock race, so parallel bookings for the same cap period all count instead of failing or getting silently dropped. The outsideTransaction path runs each attempt in its own transaction (runInOwnTransaction), keeping event append and projection update atomic. withCapEnforcement now throws a failed booking instead of discarding it."
+    "title": "bookCapUsage/markCapSoftWarned count parallel bookings instead of losing them"
   },
   {
     "version": "0.307.0",
@@ -183,7 +173,6 @@
     "version": "0.278.0",
     "type": "improvement",
     "title": "bookCapUsage/markCapSoftWarned/readRollingCapUsage — in-process calendar-cap booking bound to the caller's own tenant (fw#2854).",
-    "detail": "New helpers in `book-cap-usage.ts`: `bookCapUsage(ctx, options)` and `markCapSoftWarned(ctx, options)` run the calendar-counter create-or-update / soft-warn-flip logic in-process against `ctx.db`/`ctx.user`; `readRollingCapUsage(db, tenantId, options)` sums a rolling window without throwing and works as the `usage` callback for an existing rolling stream. `enforceCapAndMaybeNotify` and `withCapEnforcement` now call `bookCapUsage`/`markCapSoftWarned` in-process instead of dispatching the `SystemAdmin`-only `increment`/`mark-soft-warned` write-handlers through `ctx.write` — a plain `TenantAdmin` caller (no `SystemAdmin` role, no `escapeHatch`, no `ctx.writeAs` identity-switch) can now use calendar cap-enforcement end to end. `withRollingCapEnforcement` still books through the `SystemAdmin`-only `increment-rolling` write-handler via `ctx.write` — the framework's event-ownership rule rejects `unsafeAppendEvent` calls for a foreign feature made in-process, so rolling callers still need a `SystemAdmin` identity.",
     "migration": "No action required for the call signatures — `enforceCapAndMaybeNotify`/`withCapEnforcement`/`withRollingCapEnforcement` keep their existing signatures and result shapes. An app that previously worked around the `SystemAdmin`-only calendar dispatch with its own `escapeHatch` + `ctx.writeAs(SystemAdmin, ...)` wrapper can remove that workaround for `withCapEnforcement`; `withRollingCapEnforcement` callers still need a `SystemAdmin` identity (role or `ctx.writeAs`)."
   },
   {

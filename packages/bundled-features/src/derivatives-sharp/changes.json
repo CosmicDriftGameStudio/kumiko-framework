@@ -10,14 +10,12 @@
   {
     "version": "0.352.0",
     "type": "fix",
-    "title": "sharp is bumped to 0.35.5 to pick up the librsvg security fix",
-    "detail": "Bump sharp to 0.35.5 (librsvg advisory GHSA-WQ5F-XC86-PV6W)"
+    "title": "sharp is bumped to 0.35.5 to pick up the librsvg security fix"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Overlay and blur intermediates are lossless and QR overlays render crisp at their final size",
-    "detail": "The sharp renderer buffers intermediates losslessly before overlays and blur regions, so a JPEG source no longer gains an extra compression generation. QR overlays are generated at their final size and checked against the smaller of output width and height before generation, so a flat output can no longer cache an unscannable QR."
+    "title": "Overlay and blur intermediates are lossless and QR overlays render crisp at their final size"
   },
   {
     "version": "0.335.0",
@@ -27,7 +25,6 @@
   {
     "version": "0.287.0",
     "type": "improvement",
-    "title": "Render overlay layers (QR codes, badge images) onto image variants",
-    "detail": "The sharp renderer composites resolved overlay layers after resize and before final encoding. Overlay bytes go through the same SVG rejection as the source image, with DoS caps on layer count, size, and QR data length enforced in assertRenderSpecBounds."
+    "title": "Render overlay layers (QR codes, badge images) onto image variants"
   }
 ]

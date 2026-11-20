@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Readiness status reads conditions in one batch, probe targets run four at a time"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "System-check nav takes an adminArea"
+  },
+  {
     "version": "0.414.0",
     "type": "breaking",
     "title": "includePaid from a non-SystemAdmin is rejected",
@@ -9,62 +19,52 @@
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Readiness probes judge running runs by startedAt",
-    "detail": "readiness run-probes judges a running run by startedAt (pending by requestedAt) before abandoning it; an undecryptable starter address skips the mail probe instead of crashing the run; the storage probe no longer deletes after a failed write and a cleanup error cannot replace the original failure; RUN_OUTCOME replaces the literals and the abandoned empty-state variant comes first."
+    "title": "Readiness probes judge running runs by startedAt"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Conditional secret readiness",
-    "detail": "A secret can declare requiredWhenConfigSet (qualified config key name) and readiness:query:status then counts it as missing only while that key is non-empty; the SMTP password uses it with authUser. Test coverage added for a recently started run that was requested long ago staying active in run-probes."
+    "title": "Conditional secret readiness"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "system check runs are rate limited per user",
-    "detail": "`readiness:write:run-probes` sends a real test mail and logs in to every mailbox per run; the single-active-run lock only bounded concurrency. It now allows 10 runs per user and hour."
+    "title": "system check runs are rate limited per user"
   },
   {
     "version": "0.402.0",
     "type": "fix",
-    "title": "System-check history keeps runs of the same second in order",
-    "detail": "`probe-run:list` returned `requestedAt` as `Instant.toString()`, which drops trailing zeros in the fraction, and `pageRows` sorts that field as a string. Two runs in the same second could then come out reversed (`…:20Z` sorted after `…:20.001Z`), so the history showed the older run on top and a click opened it. `requestedAt` now always carries six fractional digits, so string order matches time order."
+    "title": "System-check history keeps runs of the same second in order"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "The paid run is a button next to Start check",
-    "detail": "The system check screen declares run-paid-check as an inline action, so \"Test AI extraction\" shows as a button beside \"Start check\" instead of in the \"More actions\" menu. It stays hidden while the app has no paid probes."
+    "title": "The paid run is a button next to Start check"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "The readiness entry exports ProbeTextKeys",
-    "detail": "ProbeTextKeys comes from @cosmicdrift/kumiko-bundled-features/readiness next to ReadinessQueries and ReadinessWrites, so apps can name probe texts without a deep import."
+    "title": "The readiness entry exports ProbeTextKeys"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "The paid probe hint names the button",
-    "detail": "readiness.probe.paid-not-requested now reads \"Only via “Test AI extraction”\" (de „Nur über „KI-Auslesen testen““), the label of the button that starts the paid run."
+    "title": "The paid probe hint names the button"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "The search probe fails with its own text",
-    "detail": "When the search service throws, the search probe fails with readiness.probe.search.unavailable (\"The search service does not answer\"). The raw error can name the search host, so it goes only to the server log. New key in all locale packages."
+    "title": "The search probe fails with its own text"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "An empty latest run says why it is empty",
-    "detail": "The latest results and the run detail show \"The check is running. Results appear when it is done.\" while a run is running and \"There is nothing to check for this tenant.\" when a finished run has no rows the caller may see, and \"The run was stopped before it returned results.\" for an abandoned run. Without a run the old text stays. New keys readiness.screen.latest.running, readiness.screen.latest.nothing-to-check and readiness.screen.latest.abandoned in all locale packages."
+    "title": "An empty latest run says why it is empty"
   },
   {
     "version": "0.391.0",
     "type": "improvement",
     "title": "Probe runs and the system-check screen",
-    "detail": "The new readiness:write:run-probes starts a run as a worker job; includePaid also runs paid probes. A run only writes its own probe-run events, the probes read through adapters and fixtures and never write domain data. New queries return the latest run with its summary, the run history with the starter's name, and one run with its results. Probe texts arrive as { i18nKey, i18nParams }, and failed rows carry the QN of the screen that fixes the problem; the boot validator checks that QN against the feature screens and the generated settings screens. A probe that reports itself skipped shows no duration. createReadinessFeature({ nav: { order?, parent?, workspaces? } }) adds the system-check screen to the nav (workspace apps list the workspaces, a parent's membership does not carry over): start buttons (the paid one only when paid probes exist), the latest results with a fix link on failed rows, and the history that opens each run. Standard probes cover database, cache, search, mail sending, file storage, inbound mailboxes and the PDF service.",
     "migration": "New table read_readiness_probe_runs. Apps that mount readiness run `kumiko schema generate` and apply the migration before deploying. Without a nav option the screen stays dormant; pass createReadinessFeature({ nav: {} }) or a parent nav QN to show it."
   },
   {

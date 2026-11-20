@@ -2,21 +2,18 @@
   {
     "version": "0.414.0",
     "type": "improvement",
-    "title": "readStateByKeys is readable by a job's system user",
-    "detail": "`channel-in-app:query:readStateByKeys` now accepts the `system` role besides SystemAdmin, so a job running as the system user of a tenant reads the read state of its own tenant's messages directly. It still sees only keys of the caller's tenant."
+    "title": "readStateByKeys is readable by a job's system user"
   },
   {
     "version": "0.409.0",
     "type": "improvement",
     "title": "In-app read state by idempotency key",
-    "detail": "Channels receive the notify `idempotencyKey` as `ChannelContext.idempotencyKey`. The in-app channel stores it in the new nullable column `in_app_messages.idempotency_key` (indexed) and the SystemAdmin query `channel-in-app:query:readStateByKeys` (`{ keys }`, 1 to 50) returns `{ key, readAt }` rows without any content, tenant-scoped. Queued delivery jobs carry the key as `notifyIdempotencyKey` in their payload.",
     "migration": "Run `kumiko schema generate`: it adds the `idempotency_key` column and its index to `in_app_messages`. Notes sent before the migration have no key."
   },
   {
     "version": "0.399.0",
     "type": "improvement",
-    "title": "Inbox cursor, total and navigation target for the shell bell",
-    "detail": "`channel-in-app:query:inbox` accepts a `cursor` and answers `{ rows, nextCursor, total }`; each row carries `target` (`{ screenId, entityId? }` or null) parsed from `data.target`. Build the target with `inAppTarget(screenId, entityId?)`; a malformed target is dropped and the notification is still delivered. The SSE frame `channel-in-app:event:delivered` now carries only `{ id, userId, notificationType }`, and a failing push no longer fails the delivery because the row is already stored. The shared contract lives in `@cosmicdrift/kumiko-types/in-app-notification-types`."
+    "title": "Inbox cursor, total and navigation target for the shell bell"
   },
   {
     "version": "0.354.0",

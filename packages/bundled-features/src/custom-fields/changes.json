@@ -1,9 +1,85 @@
 [
   {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Embedded custom fields check money and enum sub-fields"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "update-tenant-field checks embedded sub-fields against the stored definition"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Field definition deletes always name their tenant"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Custom fields enforce read roles and the searchable flag",
+    "detail": "The postQuery hook used to flatten every stored custom-field value for every caller, and the search extension indexed every value. Query results now carry only values whose definition exists and whose `fieldAccess.read` is empty, contains `\"anonymous\"` (public) or shares a role with the caller, in the flattened keys as well as in `customFields`. The search index gets only fields with `searchable: true` and no read restriction. Values without a live definition are no longer returned.",
+    "migration": "Give roles that must see a restricted field a matching `fieldAccess.read` entry (`\"anonymous\"` for public reads). Mark fields that should be findable as `searchable: true` and run the reindex job for the host entity.",
+    "affects": [
+      "custom-fields",
+      "createCustomFieldsFeature",
+      "customFields"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Per-field custom-field retention removed",
+    "detail": "`serializedField.retention` was accepted but the sweep behind it was never registered, so no value ever expired. The sweep and its tenant-unscoped update query are deleted, and define/update now reject a `serializedField` with a `retention` key.",
+    "migration": "Drop `retention` from custom-field definitions. Use data-retention on the host entity for expiry.",
+    "affects": [
+      "custom-fields",
+      "serializedField"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Custom fields only on wired host entities",
+    "detail": "`define-tenant-field`, `define-system-field`, `set-custom-field` and `clear-custom-field` now fail with 422 `custom_fields_entity_not_wired` when the entity is not wired through `wireCustomFieldsFor`; before, definitions for any name were stored and counted against the quota. Fix: `set-custom-field` and `clear-custom-field` now find system-tenant definitions (the system definition wins over a tenant one with the same key) and ignore deleted definitions, so values for system fields can be written and a deleted field returns 404.",
+    "migration": "Call `wireCustomFieldsFor` for every entity that should carry custom fields, or remove `createCustomFieldsFeature()` from apps that wire none.",
+    "affects": [
+      "custom-fields",
+      "createCustomFieldsFeature",
+      "wireCustomFieldsFor",
+      "define-tenant-field",
+      "define-system-field",
+      "set-custom-field",
+      "clear-custom-field"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Money custom fields can be edited in the form",
+    "migration": "Custom-field money values are not covered by the minor-unit release note \"Stored events and rows of two-decimal currencies need no change\". Values written before the money minor-unit release through set-custom-field (API, agent tool, import) followed the old major-unit convention (`12.5` meant 12.50) and are stored raw, with no flattenMoney scaling, in the host table's `custom_fields` jsonb and in `custom-field-set` events. They now read 100 times too small for two-decimal currencies. Check them before upgrading and rewrite affected values once through set-custom-field."
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Agent tools see the money unit of custom fields",
+    "migration": "Nothing to do."
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "One custom-fields value projection for all wired host entities",
+    "detail": "`wireCustomFieldsFor` no longer registers a multi-stream projection `<feature>:projection:custom-fields-<entity>-projection` per host entity. The custom-fields feature registers one projection, `custom-fields:projection:host-values`, that finds the host table through the registry, so each value event runs through one consumer instead of one per wired host. The signature of `wireCustomFieldsFor` is unchanged. The new consumer starts at the beginning of the event log and replays the value events once; the replay is idempotent. A `custom-field-set` event without a value is now skipped without a console warning.",
+    "migration": "Nothing to do by hand. The rows of the old consumers `<feature>:projection:custom-fields-<entity>-projection` stay in `kumiko_event_consumers` with a cursor that no longer advances. The bundled retention jobs (data-retention, delivery attempt log, audit escape-hatch) skip consumers the registry no longer declares once their row has not moved for seven days and log their names, so retention resumes at the latest a week after the deploy. An app that calls `pruneEvents` itself passes `registry` to get the same behaviour. Disabling the rows with `consumer-disable` is no longer needed and does no harm where it was already done.",
+    "affects": [
+      "wireCustomFieldsFor",
+      "custom-fields"
+    ]
+  },
+  {
     "version": "0.390.0",
     "type": "fix",
-    "title": "wireCustomFieldsUserDataRightsFor is exported from ./custom-fields",
-    "detail": "The helper that adds custom fields to the user-data-rights export is documented as an app call but was missing from the subpath exports. It is exported again together with its options type."
+    "title": "wireCustomFieldsUserDataRightsFor is exported from ./custom-fields"
   },
   {
     "version": "0.370.0",
@@ -16,26 +92,22 @@
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "update-tenant-field no longer hides `type` from the handler schema",
-    "detail": "The `type` field is part of the documented payload; the 422 check against changing the stored type remains the protection."
+    "title": "update-tenant-field no longer hides `type` from the handler schema"
   },
   {
     "version": "0.359.0",
     "type": "improvement",
-    "title": "update-tenant-field keeps the stored type when serializedField.type is omitted",
-    "detail": "custom-fields: update-tenant-field accepts serializedField without type and keeps the stored type; a different type is still refused with 422 field_type_immutable. The handler declares excludedFields [\"type\"]."
+    "title": "update-tenant-field keeps the stored type when serializedField.type is omitted"
   },
   {
     "version": "0.338.0",
     "type": "fix",
     "title": "field-definition list keeps TenantAdmin when fieldDefinitionWriteRoles is set",
-    "detail": "custom-fields: the field-definition list roles always include the default `TenantAdmin`, also when `fieldDefinitionWriteRoles` is set. `TenantAdmin` keeps saving values by default, so the form section must keep loading for it; `fieldDefinitionWriteRoles: []` no longer locks out the list.",
     "migration": "No action needed. Set fieldDefinitionListRoles explicitly to narrow the list roles."
   },
   {
     "version": "0.146.0",
     "type": "improvement",
-    "title": "custom-fields: PII-Support entfernt (#972) — custom fields sind für zusätzliche Business-…",
-    "detail": "custom-fields: PII-Support entfernt (#972) — custom fields sind für zusätzliche Business-Infos, nicht für personenbezogene Daten. BREAKING: `serializedField.sensitive` wird beim Anlegen/Update rejected, gespeicherte Definitionen mit dem Key werfen beim Parsen (zero-legacy, Feld neu anlegen). Der Self-Projection-Sonderweg und der user-data-rights-Forget-Strip entfallen; jeder `customField.set` trägt seinen Wert im Event — custom fields sind damit vollständig rebuild-safe. PII gehört in Schema-Entity-Felder mit pii/userOwned/tenantOwned-Annotation."
+    "title": "custom-fields: PII-Support entfernt (#972) — custom fields sind für zusätzliche Business-…"
   }
 ]

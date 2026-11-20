@@ -1,113 +1,122 @@
 [
   {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Access log for read accesses with compliance-profile retention",
+    "migration": "Apps that mount audit run `kumiko-schema generate` and ship the migration that creates `store_access_log`."
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Audit payloads follow the entity read rules; payload can be null",
+    "detail": "`audit:query:list`, `details`, `list-all-tenants` and `details-all-tenants` checked only the tenant and redacted PII ciphertext, so a TenantAdmin read plaintext fields of entities restricted to another role. Now `payload` is `null` when the caller lacks the entity's query access, when the entity's `access.read` grants none of the caller's roles `\"all\"`, or when the entity has a `readGate` or `parentRef`. Otherwise writeOnly fields and fields whose read rule grants none of the caller's roles `\"all\"` are removed from the snapshot and from `changes` and `previous`. Other events on such an aggregate have their payload withheld if the entity has a field restricted for the caller. The rules apply to SystemAdmins too.",
+    "migration": "Code that reads `payload` from audit rows must handle `null`.",
+    "affects": [
+      "audit:query",
+      "AuditQueries"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Audit hides embedded fields with restricted sub-fields"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Retired event types stay classified in the audit log"
+  },
+  {
     "version": "0.391.0",
     "type": "improvement",
-    "title": "The audit log leaves readiness probe runs to SystemAdmins",
-    "detail": "A probe run's events carry system-probe and personal-mailbox results. audit:query:list and audit:query:details now leave the probe-run stream out for every caller below SystemAdmin, also when the caller filters by that aggregate type."
+    "title": "The audit log leaves readiness probe runs to SystemAdmins"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Oversized audit cursor is documented as a 400 validation error",
-    "detail": "The cursor pattern comment now names the validation error (400) the API actually returns instead of 422."
+    "title": "Oversized audit cursor is documented as a 400 validation error"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Tests cover nested agent grants, erased subjects and anonymous change-password",
-    "detail": "Integration tests now check that a delegating tool handler keeps the cross-tenant-read marker closed, that an erased subject gets no consumer-protection mail, and that the anonymous change-password check runs once; the audit seed helper uses withEnv."
+    "title": "Tests cover nested agent grants, erased subjects and anonymous change-password"
   },
   {
     "version": "0.384.0",
     "type": "improvement",
-    "title": "Audit log shows a label for every event type and hides technical entries",
-    "detail": "Events that are not entity lifecycle events get a readable label (for example \"Custom field value set\") or are classified technical (delivery attempts, counters, tenant-destruction stages) and hidden by default behind \"Show technical entries\". New event types of bundled features need an entry in the audit classification; a test over all registered events fails without one. Apps that add their own event types are unaffected, they keep the entity and action wording or the raw type."
+    "title": "Audit log shows a label for every event type and hides technical entries"
   },
   {
     "version": "0.383.0",
     "type": "improvement",
-    "title": "Escape-hatch retention loads only needed columns, in keyset pages",
-    "detail": "The retention run groups tenants only over events older than the shortest cutoff, selects id, aggregateId, createdAt and payload, and prunes per 2000-row keyset page instead of loading every row with its full payload."
+    "title": "Escape-hatch retention loads only needed columns, in keyset pages"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
     "title": "SystemAdmin audit log across all tenants",
-    "detail": "New queries audit:query:list-all-tenants and audit:query:details-all-tenants (SystemAdmin only) return the audit trail of every tenant, each row with its tenantId, filterable by tenant. Screens audit-log-all-tenants and audit-log-all-tenants-detail show the tenant name; the admin-shell platform workspace lists the new nav audit:nav:audit-log-all-tenants. Events of the system tenant are not included. The audit feature now declares r.systemScope(), so its handlers read through ctx.systemDb instead of ctx.db, and list and details rows carry tenantId too. A targetless cross-tenant read (acknowledgeCrossTenant or cross-tenant-read) is now recorded at most once per actor, handler, tenant and reason per hour, so the reference lookups of a SystemAdmin list no longer flood the trail on every page load; all other escape-hatch kinds keep the 60 s window. The audit events keep metadata free of PII ciphertext, a cursor or id beyond bigint is a 422 and the all-tenants tenant filter takes at most 100 ids. Applies to every user:user reference column and read-only reference field in all apps, not only the audit screens: an actor without a visible row no longer shows the raw id but reads \"Unknown\" (kumiko.reference.unknown-user), once the lookup finished without error (while it loads or after it failed the cell keeps a placeholder), and the \"system\" createdBy literal reads \"System\". The audit screen descriptions are now short user-facing sentences.",
     "migration": "Apps with their own platform workspace add the nav `audit:nav:audit-log-all-tenants` (screen `audit:screen:audit-log-all-tenants`) to its navs; apps using the admin-shell platform workspace get it automatically."
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Escape-hatch retention keeps the operator floor and deletes in bounded batches",
-    "detail": "An explicitly configured retention key now acts as a lower bound for tenant compliance-profile cutoffs, so a tenant profile can no longer delete events younger than the operator allows. A key left at its default does not count. Pruning runs in batches of 5000 events, each in its own transaction, until a batch comes back short."
+    "title": "Escape-hatch retention keeps the operator floor and deletes in bounded batches"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Audit retention events always use the system user",
-    "detail": "Events written by the audit feature no longer fall back to the calling user id and always record the system user."
+    "title": "Audit retention events always use the system user"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "Audit list pages by id unless sorted by type",
-    "detail": "An explicit createdAt sort pages in id order so keyset pagination no longer skips rows."
+    "title": "Audit list pages by id unless sorted by type"
   },
   {
     "version": "0.361.0",
     "type": "fix",
-    "title": "Audit log works under an active subject KMS",
-    "detail": "audit list, audit details and user-data-rights my-audit-log returned event payloads as stored. With a subject KMS configured the payload carried kumiko-pii ciphertext and the API leak guard answered 500 pii_ciphertext_leak. Every PII ciphertext string in the payload is now replaced by REDACTED_PII_PLACEHOLDER (\"[[personal data]]\"); the audit log still never shows plaintext PII."
+    "title": "Audit log works under an active subject KMS"
   },
   {
     "version": "0.353.0",
     "type": "fix",
-    "title": "Audit list paging no longer repeats rows with ascending sort",
-    "detail": "Audit list pages forward without repeats when sorted ascending\n`audit:query:list` with `sortDirection: \"asc\"` returned the same rows again on the next page because the cursor always meant \"older than\". The cursor now follows the sort direction, and ties are broken by event id. Sorting by `type` returns a single page without `nextCursor`, since an event id cannot resume a type-ordered listing."
+    "title": "Audit list paging no longer repeats rows with ascending sort"
   },
   {
     "version": "0.346.0",
     "type": "improvement",
-    "title": "Audit queries can read app-instance system events with scope \"system\" (SystemAdmin only)",
-    "detail": "Audit queries accept `scope: \"system\"` for SystemAdmin\n`audit:query:list` and `audit:query:details` take an optional `scope` (`\"tenant\"` or `\"system\"`). With `\"system\"` a SystemAdmin reads the app-instance system events, e.g. `kumiko:system:app.started`; other roles are denied. Without `scope` nothing changes."
+    "title": "Audit queries can read app-instance system events with scope \"system\" (SystemAdmin only)"
   },
   {
     "version": "0.345.0",
     "type": "fix",
-    "title": "Escape-hatch retention loads only expirable rows",
-    "detail": "Escape-hatch audit retention loads only rows that can expire\nThe retention job used to load every escapeHatchUse event to decide which ones to prune. It now reads the storing tenants with one grouped query and loads only events older than each storing tenant's cutoff. The same rows are pruned as before."
+    "title": "Escape-hatch retention loads only expirable rows"
   },
   {
     "version": "0.343.0",
     "type": "improvement",
-    "title": "escape-hatch retention follows the tenant compliance profile",
-    "detail": "The audit job `escape-hatch-retention` now deletes `escapeHatchUse` events after the `auditLog.retention` of the tenant's compliance profile. A tenant override can only lengthen that period, never go below the base retention of the selected profile. Cross-tenant audits (with `targetTenantId`, e.g. `identity-switch`) additionally follow the profile of the target tenant. The config key `audit:config:escape-hatch-retention-days` is only the fallback when compliance-profiles is not mounted.\n`pruneEvents` gains the optional `aggregateIds` option to restrict the prune to specific aggregates. `@cosmicdrift/kumiko-framework/compliance` exports `subtractRetentionSpec` and the `RetentionSpec` type for calendar-aware cutoffs (months and years)."
+    "title": "escape-hatch retention follows the tenant compliance profile"
   },
   {
     "version": "0.313.0",
     "type": "fix",
-    "title": "Audit-log-detail screen subtitle is translatable; aggregate columns get de/es copy",
-    "detail": "The audit-log-detail screen's description was hardcoded English prose;\nit's now the audit.log.detail.subtitle key with de/es translations.\nSeparately, audit.log.col.aggregateType/aggregateId (the actual column\nkeys the audit-log-detail screen renders) had no de/es copy at all —\nonly the dead, unused audit.log.col.aggregate key did. Added\naggregateType/aggregateId to de/es, removed the dead aggregate key, and\nfixed the German filter label typo \"Aggregate-Typ\" -> \"Aggregattyp\"."
+    "title": "Audit-log-detail screen subtitle is translatable; aggregate columns get de/es copy"
   },
   {
     "version": "0.292.0",
     "type": "improvement",
     "title": "Audit log shows actor display names instead of raw UUIDs (fw#3103)",
-    "detail": "The `Actor` column of `audit:screen:audit-log` and the `createdBy` field of its detail screen rendered the raw `createdBy` UUID. The framework primitive for this already existed — `ListColumnSpec.refEntity` / `refLabelField`, used by `sessions` and `delivery` — the audit feature just did not declare it. Both now carry `refEntity: \"user:user\"`, `refLabelField: \"displayName\"`, which also makes the `createdBy → user:user` relation machine-readable in the app schema instead of implicit.\n`audit:query:list` and `audit:query:details` are unchanged and still return the plain id.\nA system write (`SYSTEM_USER_ID`, the null UUID) has no `read_users` row, so the bulk reference lookup can never resolve it. `SYSTEM_REFERENCE_LABELS` gained a `user:user` entry with the new `kumiko.reference.system-user` key, so every screen referencing `user:user` — not just the audit log — renders \"System\" for it. An actor that resolves to no row at all (deleted user) keeps the existing generic fallback: the raw id, no throw.\n`SYSTEM_USER_ID` moved from `framework/engine/system-user` to `kumiko-types/identifiers`, next to `SYSTEM_TENANT_ID`, so the client-side reference-label map can read it without importing a runtime module. `engine/system-user` re-exports it — every existing import keeps working.",
     "migration": "The audit feature now declares `r.requires(\"tenant\", \"user\")`. An app that mounts `createAuditFeature()` without the `user` feature fails at boot with `Feature \"audit\" requires feature \"user\" which is not registered` — mount `createUserFeature()`. Apps using `securityBaselineFeatures()` already had to mount it."
   },
   {
     "version": "0.271.0",
     "type": "improvement",
-    "title": "escapeHatchUsedSchema.kind accepts the new unsafe-all-tenants EscapeHatchKind (fw#2913).",
-    "detail": "`escapeHatchUsedSchema.kind` (`audit/escape-hatch-audit-sink.ts`) now also accepts `\"unsafe-all-tenants\"`, keeping the `satisfies readonly EscapeHatchKind[]` tuple in sync with the framework's new `EscapeHatchKind` member for a granted `ctx.queryProjection(qn, { unsafeAllTenants: true })` call — see the framework changelog for fw#2913. No consumer action needed; existing sinks already accept any `EscapeHatchKind`."
+    "title": "escapeHatchUsedSchema.kind accepts the new unsafe-all-tenants EscapeHatchKind (fw#2913)."
   },
   {
     "version": "0.271.0",
     "type": "improvement",
-    "title": "New escape-hatch-used audit sink: createEscapeHatchAuditSink records security:escape-hatch-used as audit:event:escape-hatch-used (fw#2861).",
-    "detail": "New `createEscapeHatchAuditSink({ db })` (`@cosmicdrift/kumiko-bundled-features/audit`) implements the framework's `EscapeHatchAuditSink` — it parses each escape-hatch-use event against the new `escapeHatchUsedSchema` and appends it as an `audit:event:escape-hatch-used` event (`r.defineEvent(\"escape-hatch-used\", ...)`, `piiFields: \"none\"`) on the unbound pool, so the entry survives a rollback of the handler that triggered it. `server-runtime`'s `buildBootExtraContext` wires it as `AppContext._escapeHatchAuditSink` automatically whenever the `audit` feature is mounted; without the feature, escape-hatch uses fall back to a structured warn log. Events show up in the existing `audit:query:list`/`audit-log` screen like any other event."
+    "title": "New escape-hatch-used audit sink: createEscapeHatchAuditSink records security:escape-hatch-used as audit:event:escape-hatch-used (fw#2861)."
   },
   {
     "version": "0.241.0",
@@ -119,7 +128,6 @@
   {
     "version": "0.127.0",
     "type": "improvement",
-    "title": "Harden admin operator UI: stricter boot i18n/entityList validation, job run logger wiring…",
-    "detail": "Harden admin operator UI: stricter boot i18n/entityList validation, job run logger wiring, audit/job filters, shell breadcrumbs, and bundled entityList/i18n standards."
+    "title": "Harden admin operator UI: stricter boot i18n/entityList validation, job run logger wiring…"
   }
 ]

@@ -1,33 +1,58 @@
 [
   {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "documentExtract.pages is record-owned and shredded with its fileRef"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Ingest progress is a direct store write on the TenantDb",
+    "detail": "`reportIngestProgress(db, { fileRefId, pagesDone, pagesTotal })` now takes a `TenantDb`, so providers no longer need `unsafeRaw()`. Progress is display-only, so it no longer appends one event per batch: the event `documentIngest.progress` and the projection `ingest-progress` are gone, and `store_document_ingest_progress` is a direct-write store table with a unique index on `(tenant_id, file_ref_id)`. pagesDone still only moves forward, also for parallel or out-of-order reports. The exports `DOCUMENT_INGEST_PROGRESS_EVENT_QN`, `DOCUMENT_INGEST_PROGRESS_EVENT_SHORT` and `ReportIngestProgressDeps` are removed. Progress events already stored stay in the event store and are ignored.",
+    "migration": "Call `reportIngestProgress(tenantDb, input)` instead of `reportIngestProgress({ db: tenantDb.unsafeRaw(), registry, tenantId, actorId }, input)`. Apps that mount document-ingest-foundation run `kumiko-schema generate` and ship the migration that replaces the index `store_document_ingest_progress_tenant_id_file_ref_id_idx` with the unique index `store_document_ingest_progress_tenant_file_ref_unique`.",
+    "affects": [
+      "document-ingest-foundation",
+      "reportIngestProgress",
+      "ReportIngestProgressDeps",
+      "DOCUMENT_INGEST_PROGRESS_EVENT",
+      "documentIngest.progress"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Extract readers, readDocumentBytes and completeDocumentExtract",
+    "migration": "Providers replace their own bounded read, their write plus `events.append` and their pre-check with `readDocumentBytes` and `completeDocumentExtract`; apps that built their own `documentExtract` executor or read `documentExtractsTable` or `documentIngestProgressTable` use the readers instead."
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Parallel first progress reports of a file no longer collide"
+  },
+  {
     "version": "0.418.0",
     "type": "fix",
-    "title": "Ingest progress only moves forward",
-    "detail": "Parallel `reportIngestProgress` calls for one file can land in any order; the progress row now keeps the highest `pagesDone`, a report whose progress is already stored stops early, and after 10 version conflicts the call throws instead of returning silently."
+    "title": "Ingest progress only moves forward"
   },
   {
     "version": "0.415.0",
     "type": "fix",
-    "title": "Parallel ingest progress reports no longer fail after the retry budget",
-    "detail": "A version conflict after the last attempt means a newer report already landed, so reportIngestProgress returns instead of throwing into the ingest run."
+    "title": "Parallel ingest progress reports no longer fail after the retry budget"
   },
   {
     "version": "0.409.0",
     "type": "improvement",
-    "title": "Ingest progress per file via reportIngestProgress",
-    "detail": "reportIngestProgress(deps, { fileRefId, pagesDone, pagesTotal }) appends a documentIngest.progress event to the file's ingest stream and runs the ingest-progress projection, which keeps one row per file in store_document_ingest_progress (documentIngestProgressTable, read by tenantId and fileRefId). The payload is validated by documentIngestProgressPayloadSchema (pagesTotal at least 1, pagesDone not above pagesTotal). Provider jobs still trigger only on documentIngest.requested. Apps need a migration for the new table."
+    "title": "Ingest progress per file via reportIngestProgress"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "appendMissingDocumentExtractEvent and shared ready/failed payload schemas",
-    "detail": "A provider whose job died after creating the extract calls appendMissingDocumentExtractEvent(deps, existing, fileRefId, { readyEventQn, failedEventQn, mapError }) to append the missing terminal event; it returns appended-ready, appended-failed or already-terminal. documentExtractReadyPayloadSchema and documentExtractFailedPayloadSchema are exported so providers register their own event names with the shared payload shape."
+    "title": "appendMissingDocumentExtractEvent and shared ready/failed payload schemas"
   },
   {
     "version": "0.379.0",
     "type": "fix",
-    "title": "documentExtract projection survives a rebuild",
-    "detail": "DOCUMENT_EXTRACT_AGGREGATE_TYPE is exported, and the documentExtract entity projection applies the stored document-extract.* events, so rebuildProjection restores the rows. No event is rewritten."
+    "title": "documentExtract projection survives a rebuild"
   },
   {
     "version": "0.370.0",
@@ -40,20 +65,17 @@
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Ingest events: correlate by event type and payload.fileRefId",
-    "detail": "New documentIngest events live on their own stream while older ones stay on the fileRef stream (aggregateId = fileRefId). Consumers must not correlate by aggregateId or the fileRef stream version."
+    "title": "Ingest events: correlate by event type and payload.fileRefId"
   },
   {
     "version": "0.362.0",
     "type": "fix",
-    "title": "document-ingest events live on their own stream",
-    "detail": "documentIngest.requested/skipped were appended to the fileRef's own event stream (aggregateId = fileRefId), so the request-ingest projection racing a save that binds a pending upload broke the fileRef's optimistic lock (409 version_conflict). They now use documentIngestAggregateId(tenantId, fileRefId); payload.fileRefId is unchanged."
+    "title": "document-ingest events live on their own stream"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Writing a document extract is idempotent per fileRef",
-    "detail": "`writeDocumentExtractForLiveFileRef` now returns `{ kind: \"skipped\", reason: \"already_extracted\" }` when the fileRef already has a documentExtract, so a redelivered `documentIngest.requested` or a delete-restore race no longer creates a second extract. Providers need no existence check of their own; code that switches exhaustively on `reason` must handle the new value."
+    "title": "Writing a document extract is idempotent per fileRef"
   },
   {
     "version": "0.335.0",

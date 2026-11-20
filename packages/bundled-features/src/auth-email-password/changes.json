@@ -1,179 +1,226 @@
 [
   {
-    "version": "0.414.0",
+    "version": "0.425.0",
     "type": "fix",
-    "title": "Foreign-member check with one limited query",
-    "detail": "auth-email-password checks for foreign members with one limited query."
+    "title": "Invite handlers share one token consumption sequence"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Password login keeps only a valid, canonical locale in the session"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "A session end no longer throws away unsaved form input"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "One request core for the static login and the token flows",
+    "detail": "`loginWithPassword` and `verifyMfaCode` from `auth-email-password/static-login` now use `postJson` from `auth-email-password/static-client` and answer as before; a signed-in visitor's CSRF cookie is now sent along. `requestPasswordReset`, `resetPassword`, `requestEmailVerification`, `verifyEmail`, `requestAccountUnlock`, `confirmAccountUnlock`, `requestSignup` and `confirmSignup` from the web auth client no longer throw when the network fails; they return `{ ok: false, error: { reason: \"network\" } }`. A 401 without an error code now gives the reason `unauthenticated`, and a token rejected only by the schema gives `malformed_token`. `static-login` no longer exports `STATIC_NETWORK_FAILURE_REASON` and `STATIC_RATE_LIMITED_REASON`.",
+    "migration": "Import `STATIC_NETWORK_REASON` and `STATIC_RATE_LIMITED_REASON` from `@cosmicdrift/kumiko-bundled-features/auth-email-password/static-client` instead; the values are the same (`\"network\"`, `\"rate_limited\"`).",
+    "affects": [
+      "static-login",
+      "STATIC_NETWORK_FAILURE_REASON",
+      "STATIC_RATE_LIMITED_REASON",
+      "requestPasswordReset",
+      "resetPassword",
+      "requestEmailVerification",
+      "verifyEmail",
+      "requestAccountUnlock",
+      "confirmAccountUnlock",
+      "requestSignup",
+      "confirmSignup"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Default auth pages cover every auth path and take a shell",
+    "detail": "`emailPasswordClient({ defaultAuthPages })` now takes `false` or `{ paths?: Partial<AuthPaths> }`; `true` is no longer accepted. Besides forgot-password, reset-password and unlock-account, signed-out visitors now get `/signup` (only when the server registers the signup status query; a visitor with a session cookie passes through), `/signup/complete`, `/verify-email` and `/invite/accept`, each at the path from `paths`, resolved like the server's `auth.mail.paths`. Login links on these pages point to `/login` under the app base path. The new option `authShell` wraps every auth card through `AuthShellProvider`.",
+    "migration": "Replace `defaultAuthPages: true` with no option. Apps that pass custom `auth.mail.paths` to the server pass the same object as `defaultAuthPages: { paths }`. Delete app gates that only mounted these screens, and pass the shell as `authShell` instead of wrapping `AuthShellProvider` in an own gate. Keep an own earlier gate only for screens that need app-specific props.",
+    "affects": [
+      "defaultAuthPages",
+      "AuthShellProvider",
+      "emailPasswordClient"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "mountStaticLoginForm binds the static login to a data-attribute markup contract"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Signup and invite sessions carry the auth claims"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Token request handlers no longer return the token",
+    "detail": "`request-password-reset`, `request-email-verification` and `request-account-unlock` now return only `{ kind }`, and `signup-request` returns only `kind` and `expiresAt`. The result of the three token request handlers is the same for every address, known or not, so `kind: \"no-op\"` no longer occurs there. The token reaches the user only by mail.",
+    "migration": "Code that read `token` or `email` from the result of these handlers gets the token from the sent mail instead. Checks for `kind: \"no-op\"` on reset, verification and unlock requests are removed. The types `TokenRequestSuccess` and `TokenRequestNoOp` no longer exist; `TokenRequestData<K>` is `{ readonly kind: K }`.",
+    "affects": [
+      "request-password-reset",
+      "request-email-verification",
+      "request-account-unlock",
+      "signup-request",
+      "requestPasswordReset",
+      "requestEmailVerification",
+      "requestAccountUnlock",
+      "TokenRequestSuccess",
+      "TokenRequestNoOp",
+      "TokenRequestData"
+    ]
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Logout navigates once and no longer races a login redirect",
-    "detail": "In the browser `logout()` leaves the session state untouched and either assigns `postLogoutUrl` or reloads the page. Before, the reload path first flipped the state to unauthenticated, which let an `AuthGate` with `loginUrl` start its own redirect against the reload (aborted navigation, flaky e2e). Without `window` (native, SSR) the state is still set to unauthenticated."
+    "title": "Foreign-member check with one limited query"
   },
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "boot admin seed ignores unverified accounts that squat the seed email",
-    "detail": "`seedAdminGuarded` (demoAdmin, sysadmin, auth.admin boot seeds) reconciled `emailVerified` and added memberships for any existing account with the seed email, so a self-registered, unverified account with a foreign password became the admin on the next boot. For an existing row it now requires `emailVerified === true` or a seed password that verifies against the stored hash; otherwise it logs a warning and returns the id untouched. An explicit caller guard (`seedBootstrapAdmin`, passwordless own account) still replaces this check."
+    "title": "Logout navigates once and no longer races a login redirect"
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "boot admin seed ignores unverified accounts that squat the seed email"
   },
   {
     "version": "0.411.0",
     "type": "improvement",
-    "title": "SignupScreen shows a closed state while self-registration is off",
-    "detail": "With a mounted dispatcher the screen asks `auth-email-password:query:signup-registration-status`. While `enabled` is false it renders the notice `auth.signup.closed` (de: \"Die Registrierung ist derzeit nur mit Einladung möglich.\") plus the login link instead of the form, and sends nothing. A failed status query reads as open. The status query needs a mounted `DispatcherProvider`; in standalone auth mounts without one the form always shows and the server still rejects `signup-request`. New key `auth.signup.closed` in en, de, es, fr and it."
+    "title": "SignupScreen shows a closed state while self-registration is off"
   },
   {
     "version": "0.411.0",
     "type": "improvement",
-    "title": "auth-email-password/static-account, DOM-free account page clients",
-    "detail": "`@cosmicdrift/kumiko-bundled-features/auth-email-password/static-account` exports `fetchSignupRegistrationStatus`, `requestPasswordReset`, `resetPassword`, `verifyEmail`, `requestAccountUnlock`, `confirmAccountUnlock`, `logout`, `isSignedOutFailure`, `fetchInviteInfo`, `acceptInviteSignedIn`, `acceptInviteWithLogin` and `acceptInviteWithNewAccount` for plain Astro scripts, plus `takeUrlToken(\"query\" | \"fragment\")` to read a mail-link token and remove it from the address bar. Every call returns a `kind: \"success\" | \"failure\"` union with a `reason` and, for rate limits, `retryAfterSeconds`; a 401 without an error code reads as `unauthenticated`; none throws for an expected failure; a malformed CSRF cookie sends no CSRF header instead of failing the request. A `landingPath` from the server is passed on only when it is a safe same-origin path. The shared request core with the result types is exported as `auth-email-password/static-client`."
+    "title": "auth-email-password/static-account, DOM-free account page clients"
   },
   {
     "version": "0.411.0",
     "type": "improvement",
-    "title": "seedAdmin works without a password",
-    "detail": "`SeedAdminOptions.password` is optional. Without it the account is created without a password hash and sets one through the password-reset flow. An existing account with the same email keeps its hash, as before."
+    "title": "seedAdmin works without a password"
   },
   {
     "version": "0.411.0",
     "type": "fix",
-    "title": "Bootstrap admin seed is one-shot",
-    "detail": "`seedBootstrapAdmin` skips when the target tenant already has another member (also a removed one), so a deleted owner or one who changed their email is not re-created as a passwordless SystemAdmin on the next boot. Our own passwordless account without membership is still completed, and the has-password skip now re-checks the row right before the grants."
+    "title": "Bootstrap admin seed is one-shot"
   },
   {
     "version": "0.405.0",
     "type": "improvement",
-    "title": "Login-path redirect hook and topbar without UserMenu",
-    "detail": "auth-email-password/web exports useRedirectAuthedFromLogin({ loginPath, target }), which replaces the URL with target while a signed-in user sits on the login path, also after Browser-Back, and isAuthedOnLoginPath. DefaultTopbarActions takes userMenu (default true) to hide the UserMenu and themeToggleTestId for the ThemeToggle button."
+    "title": "Login-path redirect hook and topbar without UserMenu"
   },
   {
     "version": "0.394.0",
     "type": "improvement",
-    "title": "static-login subpath for static sites",
-    "detail": "`@cosmicdrift/kumiko-bundled-features/auth-email-password/static-login` imports neither React nor the renderer. It offers `loginWithPassword` and `verifyMfaCode` (same requests as the SPA login, one result union with success, mfa-challenge, mfa-setup-required and failure incl. network and rate limit), `appReturnPath` and `postLoginPath` for the `next` filter, `forgotPasswordHref`, and `marketingLoginUrl({ localePaths, isAppPath })`, a `LoginUrlBuilder` for the auth gate that sends visitors to the marketing login with `next`. `LoginUrlBuilder` and `failureFromErrorField` are now exported from `auth-email-password/web`."
+    "title": "static-login subpath for static sites"
   },
   {
     "version": "0.390.0",
     "type": "improvement",
-    "title": "isSafeReturnPath has its own light subpath",
-    "detail": "Importing @cosmicdrift/kumiko-bundled-features/auth-email-password/return-path gives isSafeReturnPath, readReturnToFromSearch, RETURN_TO_QUERY_PARAM and MAX_RETURN_PATH_LENGTH without loading the web barrel, for example in Astro pages that run without the Kumiko runtime."
+    "title": "isSafeReturnPath has its own light subpath"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "Optional returnTo for password reset and signup",
-    "detail": "Password reset and signup accept an optional returnTo path. A safe value (same-origin path, no dot segments) is appended to the mailed link as a query parameter, the reset and signup-complete screens follow it, and the login screen forwards its next to the forgot-password and signup links. Invalid values are dropped silently and never block the mail. isSafeReturnPath and readReturnToFromSearch are exported from the web barrel. isSafeNextPath now uses the same check, so a next with a dot segment such as \"/a/../b\" is no longer followed."
+    "title": "Optional returnTo for password reset and signup"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "CurrentUser carries tenantId, logout clears remembered list state",
-    "detail": "The session CurrentUser has an optional tenantId used to scope remembered list state; logout removes all kumiko.list.* storage entries."
+    "title": "CurrentUser carries tenantId, logout clears remembered list state"
   },
   {
     "version": "0.385.0",
     "type": "improvement",
-    "title": "Denser common-password list, comments name postgres-js as the only driver",
-    "detail": "The common-password list is wrapped densely and split on whitespace; a test pins its 2086 entries. Comments across the bundled features that referred to the removed Bun.SQL driver now name postgres-js. No behavior change."
+    "title": "Denser common-password list, comments name postgres-js as the only driver"
   },
   {
     "version": "0.384.0",
     "type": "improvement",
-    "title": "Forgot-password and account-unlock work without app wiring",
-    "detail": "With auth.mail and SMTP configured, runProdApp and runDevApp now also wire the account-unlock flow (POST /api/auth/request-account-unlock and /api/auth/confirm-account-unlock, mail link to /unlock-account) because the login lockout is always on. emailPasswordClient serves ForgotPasswordScreen, ResetPasswordScreen (with token) and the unlock screens at /forgot-password, /reset-password and /unlock-account; gates registered earlier by the app win, and defaultAuthPages: false turns it off. LoginScreen reads the new anonymous login-options query and shows the forgot and unlock links when the flows exist; explicit forgotPasswordHref and unlockAccountHref still win and null hides a link. The query needs anonymousAccess on the app, otherwise no link appears."
+    "title": "Forgot-password and account-unlock work without app wiring"
   },
   {
     "version": "0.383.0",
     "type": "improvement",
-    "title": "Warning when the login limiter falls back to memory in production",
-    "detail": "The in-memory login and MFA rate limiter logs one warning per process in production, because its limits are per replica."
+    "title": "Warning when the login limiter falls back to memory in production"
   },
   {
     "version": "0.379.0",
     "type": "fix",
-    "title": "Unknown e-mail addresses count towards the login lockout",
-    "detail": "Failed logins for unknown or deleted addresses are counted under a keyed digest of the normalized address (ctx.rateLimitDigest, derived from the JWT secret), so after the threshold they answer account_locked like a registered address and the lock no longer reveals which addresses exist. Without a digest key the old invalid_credentials answer stays."
+    "title": "Unknown e-mail addresses count towards the login lockout"
   },
   {
     "version": "0.374.0",
     "type": "improvement",
-    "title": "Client actions for password reset and email verification",
-    "detail": "emailPasswordClient registers auth-email-password:request-password-reset and auth-email-password:request-email-verification for clientAction row actions."
+    "title": "Client actions for password reset and email verification"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "createAuthEmailPasswordFeature carries its env schema type",
-    "detail": "createAuthEmailPasswordFeature returns the feature typed with authEmailPasswordEnvSchema, so composeEnvSchema types JWT_SECRET and JWT_ISSUER."
+    "title": "createAuthEmailPasswordFeature carries its env schema type"
   },
   {
     "version": "0.366.0",
     "type": "fix",
     "title": "Removed unused AuthHandlers.inviteCancel constant",
-    "detail": "AuthHandlers.inviteCancel pointed at auth-email-password:write:invite-cancel, a handler that never existed. The constant is removed.",
     "migration": "If you referenced AuthHandlers.inviteCancel, use tenant:write:cancel-invitation."
   },
   {
     "version": "0.366.0",
     "type": "fix",
-    "title": "invite-create is no longer exposed to agents",
-    "detail": "The admin invite-create handler is now opted out of the agent tool catalog with agent: { expose: false }, like the other invite handlers, because it mails an accept link to an arbitrary address."
+    "title": "invite-create is no longer exposed to agents"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Magic-link mail expiry and app name use the template locale",
-    "detail": "The expiry text, the app-name fallback and the notify locale follow the locale the auth mail template actually renders in, while the link keeps the request locale."
+    "title": "Magic-link mail expiry and app name use the template locale"
   },
   {
     "version": "0.365.0",
     "type": "improvement",
-    "title": "systemInviteCreate takes an optional locale tag",
-    "detail": "The payload accepts a locale (BCP 47 tag) that wins over the request locale when rendering the invitation mail, so system callers such as the waitlist can invite in the recipient's language."
+    "title": "systemInviteCreate takes an optional locale tag"
   },
   {
     "version": "0.365.0",
     "type": "improvement",
-    "title": "Auth mails carry designer labels",
-    "detail": "The feature registers <feature>:feature.label and notify labels for password-reset, account-unlock, email-verification, signup-activation and invite, so the document designer lists them by name. German and Spanish ship in the locale packages."
+    "title": "Auth mails carry designer labels"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "A loginUrl builder that throws no longer crashes the app tree",
-    "detail": "The auth gate resolves the login redirect once per location change and, when the builder returns an invalid URL or throws, logs the error and shows the built-in login screen instead of throwing during render."
+    "title": "A loginUrl builder that throws no longer crashes the app tree"
   },
   {
     "version": "0.364.0",
     "type": "fix",
     "title": "How to send an auth mail after the render*Email helpers were removed in 0.363.0",
-    "detail": "No runtime change. The 0.363.0 breaking entry lists renderActivationEmail, renderResetPasswordEmail, renderUnlockAccountEmail, renderVerifyEmail and renderInviteEmail as removed but does not say how app code that rendered one of these mails itself now sends it. This entry adds that recipe.",
     "migration": "App code that rendered an auth mail itself and passed the result as `data`, for example `notify(\"auth-email-password:signup-activation\", { route: { email }, data: renderActivationEmail({ url, expiresAt, locale, appName }), priority: \"critical\" })`, breaks twice since 0.363.0: the helper is gone and the notification type is now `auth-email-password:notify:signup-activation`. The stored template renders subject and body; the app only passes template variables.\nFor a signup activation link, call `issueSignupActivation({ redis, notify: ctx.notify, email, appUrl, appName, locale, timeZone, tokenTtlMinutes, onTokenStored })` from `@cosmicdrift/kumiko-bundled-features/auth-email-password` (only redis, notify, email and appUrl are required). It drops any live signup token for the email, stores a new one under the keys signup-confirm reads and sends the mail. `appUrl` is the bare activation page; a function `(locale) => url` picks the page per locale.\nIf the app stores the token itself and only needs the mail, call `ctx.notify(AuthMailNotificationTypes.signupActivation, { route: { email }, data: { appName, actionUrl, validFor, validUntil }, locale, priority: \"critical\" })`. `AuthMailNotificationTypes` comes from `@cosmicdrift/kumiko-bundled-features/auth-email-password`. All four variables are required strings: ctx.notify checks them against the declared template variables and throws an InternalError on a missing or invalid one, which fails the write. `actionUrl` is the page URL with `token=<encodeURIComponent(token)>` appended as a query parameter and must be an http, https or mailto URL. `validFor` and `validUntil` come from `tokenMailExpiry({ expiresAt, issuedAt, timeZone }, locale)` in `@cosmicdrift/kumiko-bundled-features/auth-email-password/email-templates`. Only send a `locale` that has a template for the type, because the renderer has no locale fallback and a locale without a template sends nothing: use `resolveMailLocale(locale)` when `hasMailTranslationKey(resolveMailLocale(locale), \"auth.mail.activation.subject\")` is true (both from `@cosmicdrift/kumiko-framework/i18n`), otherwise `\"en\"`. The other mails use the subject keys `auth.mail.reset.subject`, `auth.mail.unlock.subject`, `auth.mail.verify.subject` and `auth.mail.invite.subject`.\nThe other auth mails work the same way with `AuthMailNotificationTypes.passwordReset`, `.accountUnlock`, `.emailVerification` and `.invite`; the invite mail also needs a `role` variable."
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "seedAdminGuarded rewrites the admin email only when its blind index is missing or stale",
-    "detail": "rewriteSeededUserEmail returns early when the stored email blind index already matches the expected value, so repeated boots no longer re-encrypt the email and grow the user event stream. The row version is now checked with a type guard instead of a cast."
+    "title": "seedAdminGuarded rewrites the admin email only when its blind index is missing or stale"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "Bootstrap reruns no longer rewrite encrypted config or restore dropped global roles",
-    "detail": "Declarative bootstrap compares encrypted and piiEncrypted config keys by their decrypted value, so a matching rerun writes nothing, and re-issues an invitation whose stored global roles are no longer in the plan. makeDispatchWriteAs is exported from the framework api."
+    "title": "Bootstrap reruns no longer rewrite encrypted config or restore dropped global roles"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "Email payload buckets ignore plus-tags and case; auth requests are capped at 3 per 15 minutes",
-    "detail": "additionalRateLimits accepts normalize: email, which lowercases and strips the plus-tag before hashing, and bucket keys are scoped by tenant and handler. Signup and token requests (reset, unlock, verification) and the waitlist default use it with a 3-request, 900-second window."
+    "title": "Email payload buckets ignore plus-tags and case; auth requests are capped at 3 per 15 minutes"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "Password change and logout work for members with only an app role or TenantAdmin",
-    "detail": "Both handlers required User, Admin or SystemAdmin and answered 403 access_denied for invited members holding a single custom role. They are now open to every signed-in user, like the other self-service handlers; anonymous callers are still rejected."
+    "title": "Password change and logout work for members with only an app role or TenantAdmin"
   },
   {
     "version": "0.363.0",
@@ -198,8 +245,7 @@
   {
     "version": "0.354.0",
     "type": "fix",
-    "title": "Login, MFA verify and MFA preauth setup follow the server landingPath when no valid next parameter is present",
-    "detail": "AuthGate onSuccess receives the landing path. A validated next parameter still wins; a landing path equal to the current path is not followed, so the screen does not reload itself."
+    "title": "Login, MFA verify and MFA preauth setup follow the server landingPath when no valid next parameter is present"
   },
   {
     "version": "0.354.0",
@@ -210,64 +256,54 @@
     "version": "0.354.0",
     "type": "fix",
     "title": "INITIAL_SIGNUP_ROLES stays [\"TenantAdmin\", \"Admin\"] as a transition",
-    "detail": "New self-signup owners hold TenantAdmin plus the legacy Admin literal, because handlers that gate on the Admin literal would otherwise lock them out. Both roles show in Team, Members until those handlers gate on access.admin. This supersedes the earlier note that the owner role is only TenantAdmin.",
     "migration": "Move your own handlers that gate on the Admin literal to access.admin; after that the Admin entry can be dropped from the constant."
   },
   {
     "version": "0.348.0",
     "type": "fix",
     "title": "AuthGate accepts a loginUrl function, renders LoginScreen on the login route, and LoginScreen follows a validated next",
-    "detail": "AuthGate accepts a loginUrl function and LoginScreen follows a validated next\n`AuthGateOptions.loginUrl` may now be a function `(locale, returnPath) => string` in addition to a string. When the user is already on the login route, the gate renders the LoginScreen instead of redirecting. After a successful login (and MFA verify or setup), the screen follows the `next` query parameter, but only for relative same-origin paths: no `//`, no scheme, no backslash, no control characters.",
     "migration": "No action needed. String loginUrl keeps working."
   },
   {
     "version": "0.347.0",
     "type": "fix",
-    "title": "Signup-confirm under an MFA policy returns the signup landing path and the activation screen forwards it to login as next",
-    "detail": "Signup with an MFA requirement keeps its landing path\nWhen the MFA policy asks for a factor at self-registration, `/auth/signup-confirm` now also returns the `landingPath` that `auth.postAuthLanding` resolves for the signup flow (including a claimed handover). `SignupCompleteScreen` passes it to the login link as `?next=`, so the login that follows can land where a signup without MFA would have."
+    "title": "Signup-confirm under an MFA policy returns the signup landing path and the activation screen forwards it to login as next"
   },
   {
     "version": "0.345.0",
     "type": "fix",
-    "title": "invite-signup-complete enforces the MFA gate before issuing a session",
-    "detail": "`invite-signup-complete` now applies the same MFA gate as `invite-accept-with-login`. The account is still created and the invitation accepted, but an invitee whose role requires MFA (for example an admin invitation under the `admins` policy) receives the MFA step instead of a session. Member invitations keep receiving a session directly."
+    "title": "invite-signup-complete enforces the MFA gate before issuing a session"
   },
   {
     "version": "0.345.0",
     "type": "fix",
-    "title": "signup-confirm enforces the MFA gate before issuing a session",
-    "detail": "`POST /auth/signup-confirm` now runs the login's MFA gate before it issues the first session. Self-signup makes the new user TenantAdmin of a fresh tenant, so under an MFA policy that covers admins the route used to hand out an admin session without a second factor. The account, the tenant and a bound handover claim are still created, but when the gate applies the route answers with the login contract (`mfaSetupRequired` plus `preauthSetupToken`, or `mfaRequired` plus `challengeToken`) and sets no cookies. `SignupCompleteScreen` then tells the user the account is active and sends them to sign in, where they set up the second factor. Without `mfaStatusChecker` nothing changes. Two exported types change shape: `SignupConfirmData` gains the two MFA variants, and `confirmSignup` now resolves to `SignupConfirmResult` with `kind: \"signed-in\"` (the previous `SignupConfirmSuccess` fields) or `kind: \"mfa-pending\"`. The handler and `invite-signup-complete` also run the gate before they delete the token, so an error in the MFA check leaves the link usable for a retry."
+    "title": "signup-confirm enforces the MFA gate before issuing a session"
   },
   {
     "version": "0.345.0",
     "type": "fix",
-    "title": "switch-tenant enforces the MFA gate before issuing a session",
-    "detail": "`POST /auth/switch-tenant` now runs the same MFA gate as login before it issues the new session. A user who is a plain member in one tenant and an admin in another can no longer reach an admin session without a second factor by switching. When the target tenant requires MFA the route answers with the login contract (`mfaRequired` plus `challengeToken`, or `mfaSetupRequired` plus `preauthSetupToken`) and sets no cookies. The gate runs in a new system-only handler, `auth-email-password:write:switch-tenant-mfa-gate`, which resolves the membership and roles itself; `runDevApp` and `runProdApp` wire it as `switchTenantMfaGateHandler` whenever auth-mfa is mounted."
+    "title": "switch-tenant enforces the MFA gate before issuing a session"
   },
   {
     "version": "0.345.0",
     "type": "fix",
-    "title": "Token mail expiry uses the recipient's profile time zone",
-    "detail": "Token mails show the expiry in the recipient's own time zone\nPassword reset, email verification and account unlock are requested anonymously, so `ctx.tz.user` only held the tenant default or UTC. These mails now use the recipient's profile time zone when it is a valid IANA zone and fall back to the previous value otherwise. Signup and invite mails keep the fallback because the recipient has no profile yet."
+    "title": "Token mail expiry uses the recipient's profile time zone"
   },
   {
     "version": "0.343.0",
     "type": "improvement",
     "title": "Mail expiry shows duration and local time with time zone",
-    "detail": "Auth mails state the link validity as a duration and in the user's time zone\nThe five token mail renderers replace the UTC timestamp with `{duration}` (for example \"1 day\") and `{when}` (medium date and short time with zone abbreviation, in the recipient's locale). `RenderTokenContentArgs` gains `issuedAt` (default now) and `timeZone` (default UTC; an invalid zone falls back to UTC); the handlers pass the token issue time and `ctx.tz.user`. German strings use \"Konto\" instead of \"Account\".",
     "migration": "Custom `auth.mail.*.expiry` translations should use the new `{duration}` and `{when}` placeholders; `{when}` now includes the time and zone abbreviation instead of a UTC timestamp."
   },
   {
     "version": "0.342.0",
     "type": "improvement",
-    "title": "AuthCard styling hooks (className, headerClassName, titleClassName, bodyClassName)",
-    "detail": "AuthCard takes className, headerClassName, titleClassName and bodyClassName\n`AuthCard` renders the body wrapper (`p-6 pt-0 flex flex-col gap-4`) itself and accepts `className` (Card), `headerClassName`, `titleClassName` and `bodyClassName`, merged with tailwind-merge over the defaults. The auth-email-password and auth-mfa screens no longer carry their own body wrapper; the rendered DOM stays the same. The session bootstrap error screen keeps its former bottom padding through `bodyClassName`."
+    "title": "AuthCard styling hooks (className, headerClassName, titleClassName, bodyClassName)"
   },
   {
     "version": "0.342.0",
     "type": "improvement",
-    "title": "Bootstrap seed can write with app tenant roles",
-    "detail": "Bootstrap seed gets `dispatchWriteAs` to write with app tenant roles instead of SystemAdmin."
+    "title": "Bootstrap seed can write with app tenant roles"
   },
   {
     "version": "0.341.0",
@@ -279,8 +315,7 @@
   {
     "version": "0.341.0",
     "type": "improvement",
-    "title": "runBootstrap applies per-tenant config",
-    "detail": "BootstrapTenant.config sets tenant-scope config keys as system writes on every run; a value that already matches is not rewritten."
+    "title": "runBootstrap applies per-tenant config"
   },
   {
     "version": "0.341.0",
@@ -291,75 +326,63 @@
     "version": "0.339.0",
     "type": "improvement",
     "title": "emailPasswordClient({ loginUrl, postLogoutUrl }) sends unauthenticated visitors to an external login page with a same-origin next path and navigates there on logout",
-    "detail": "emailPasswordClient accepts loginUrl and postLogoutUrl for external login pages",
     "migration": "No code change needed."
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Credential-carrying auth handlers are hidden from the agent catalog; additionalAssignableRoles rejects framework-ranked roles",
-    "detail": "The credential-carrying handlers `auth-email-password:login`, `change-password`, `user-profile:change-email`, `auth-mfa:verify` and `auth-mfa:enable-confirm-preauth` are now opted out of the agent tool catalog with `agent: { expose: false }`, so passwords, TOTP codes and setup tokens no longer reach an LLM transcript. `invite.additionalAssignableRoles` now throws at construction when it lists a framework-ranked role such as `TenantAdmin`, instead of silently disabling the elevation guard for it."
+    "title": "Credential-carrying auth handlers are hidden from the agent catalog; additionalAssignableRoles rejects framework-ranked roles"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Invite accept handles MFA responses, bootstrap error screen offers Sign out",
-    "detail": "`InviteAcceptScreen` no longer redirects to a tenant URL when the accept route answers with an MFA challenge or setup requirement (no session cookie was minted); it sends the user to `loginHref` instead. `SessionBootstrapErrorScreen` accepts an optional `onSignOut` and the auth gate wires it, so a permanent bootstrap failure no longer traps the user behind \"Try again\" (new i18n key `auth.sessionBootstrap.signOut`). Cap bookings back off with a small random delay between version-conflict retries."
+    "title": "Invite accept handles MFA responses, bootstrap error screen offers Sign out"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Ended session leads back to the login screen",
-    "detail": "When the server ends a session (revoked, expired), the app now shows the login screen with a short hint instead of a raw error banner. After signing in again the user lands on the same screen as before."
+    "title": "Ended session leads back to the login screen"
   },
   {
     "version": "0.328.1",
     "type": "fix",
-    "title": "Accepting an invitation grants the invited role to existing members of the tenant",
-    "detail": "`invite-accept` and `invite-accept-with-login` used to skip the membership write when the user already belonged to the invited tenant, so a member without roles who accepted an invitation kept no roles and saw no accessible screen. The invited role is now added to the existing membership through the event-store executor. Existing roles are kept, because accepting an invitation never demotes. `invite-accept-with-login` builds the session from the resulting membership roles and rejects a reserved invitation role on this path with 403, the same as the other invite branches. An invitation issued before a later change to the membership is rejected with 409 and `TenantErrors.invitationSuperseded`; re-sending the invitation issues it anew. Removing a member cancels their open invitations in that tenant."
+    "title": "Accepting an invitation grants the invited role to existing members of the tenant"
   },
   {
     "version": "0.328.0",
     "type": "improvement",
-    "title": "User menu and tenant menu items fit the new shell",
-    "detail": "The web user menu and tenant menu items are adapted to the sidebar footer user block, which now hosts the tenant, language and theme controls."
+    "title": "User menu and tenant menu items fit the new shell"
   },
   {
     "version": "0.323.0",
     "type": "improvement",
     "title": "New anonymous invite-info lookup route; invite-accept-with-login now returns invalid_credentials for a wrong or missing password",
-    "detail": "POST /auth/invite-info ({token} -> {email, hasAccount}) lets an invite-acceptance page pre-fill the email and show a login-vs-signup form without consuming the token; it 422s invalid_invite_token for any unknown/non-pending token, same as the accept routes. invite-accept-with-login's wrong-password and no-password-set branches now return 422 invalid_credentials instead of collapsing into invalid_invite_token — safe to reveal because reaching that branch already required a valid, open invite token plus the matching invitation email.",
     "migration": "No action needed for apps using createAuthEmailPasswordFeature's default wiring via runProdApp/runDevApp — the new route only mounts when the host app's auth-routes config sets invite.infoHandler (runProdApp/runDevApp now do this automatically when the invite feature is enabled). A client that special-cased invite-accept-with-login's invalid_invite_token response to also mean \"wrong password\" should switch to matching invalid_credentials for that case."
   },
   {
     "version": "0.320.0",
     "type": "fix",
-    "title": "AuthPaths entries accept a locale function, not just a plain path",
-    "detail": "AuthPaths (and DEFAULT_AUTH_PATHS/makeAuthPaths) previously typed every entry as a plain string, so an app needing a locale-in-path reset link (/de/reset-password) had to set auth.passwordReset explicitly instead of auth.mail.paths — and since that block requires its own hmacSecret, the app ended up threading its own secret instead of the one auth.mail resolves, decoupling reset-token signing from that secret's rotation. Each AuthPaths entry now accepts a plain path or a (locale) => path function, mirroring the appUrl shape every flow's options already take, so a locale-aware reset link needs only auth.mail.paths.resetPassword, never a hand-rolled passwordReset block."
+    "title": "AuthPaths entries accept a locale function, not just a plain path"
   },
   {
     "version": "0.320.0",
     "type": "improvement",
-    "title": "auth routes return a server-computed landingPath from auth.postAuthLanding",
-    "detail": "`AuthRoutesConfig.postAuthLanding` lets an app resolve, in one server-side place, where a user lands after auth instead of every frontend screen re-deriving it from roles/tenantId. The resolver runs for login, mfa-verify, mfa-preauth-confirm, signup-confirm, and all three invite-accept branches, and its result is validated (root-relative only, no protocol-relative/backslash/control-character paths, no cross-origin resolution) before it is ever added to the response as `landingPath`. An invalid path or a throwing resolver just omits the field — auth never fails because of it.\n`run-prod-app`'s and `run-dev-app`'s auth options now accept `postAuthLanding` and thread it through to the framework config unchanged.\n`SignupCompleteScreen` and `InviteAcceptScreen` now prefer the server's `landingPath` over their `loggedInHref` prop, which becomes a deprecated per-app fallback for apps that haven't configured a resolver yet.\nCloses #3320."
+    "title": "auth routes return a server-computed landingPath from auth.postAuthLanding"
   },
   {
     "version": "0.314.0",
     "type": "improvement",
-    "title": "SignupCompleteScreen passes the claimed handover to loggedInHref",
-    "detail": "The function form of `loggedInHref` on `SignupCompleteScreen` now receives\nan optional `handover: { entityType, id }` next to `tenantKey`/`roles`,\nmirroring the `handover` field `confirmSignup` already returns when a\ntry-first tenant-handover grant was claimed during signup. Apps can route a\nfreshly activated user straight to the entity they claimed (offlot-app#454)\ninstead of a fixed landing page. The string form and callers that ignore the\nextra field are unaffected."
+    "title": "SignupCompleteScreen passes the claimed handover to loggedInHref"
   },
   {
     "version": "0.313.0",
     "type": "improvement",
-    "title": "magic-link self-signup can now claim a try-first tenant-handover grant across devices",
-    "detail": "An anonymous visitor's tenant-handover grant (packages/bundled-features/src/\ntenant-handover) lives only in the browser that minted it, but the signup\nactivation link is often opened somewhere else (a different device, or the\nmail app's in-app browser) — the grant never reaches signup-confirm there.\nrequestSignup(email, handover?) can now pass { entityType, token } alongside\nthe email; signup-request verifies the grant against its anchor row\n(read-only, tenant-handover's own redeemRowBoundGrant with commitAnchor\nskipped) and binds only { entityType, rowId, sourceTenantId } to the signup\ntoken in Redis — never the grant token or the email. A resend without a\nfresh grant carries the previous verified binding to the new token instead\nof dropping it. signup-confirm reads the binding after provisioning the new\ntenant, mints a fresh short-lived (5 min) grant server-side, and redeems it\nvia the same claim write tenant-handover already exposes — riding the\nconfirm handler's own transaction. A benign rejection (already claimed\nelsewhere, forged grant, row gone) never fails the signup; any other claim\nfailure (e.g. a non-transferable child row) rolls the whole signup back and\nleaves the activation link retryable, instead of committing a partial move\nnext to a new account. On success\nthe signup-confirm response gains an optional `handover: { entityType, id }`\nfield; auth-client's confirmSignup result type reflects it. New extension\npoint `signupHandover` (packages/bundled-features/src/shared/signup-handover.ts)\nlets tenant-handover provide this without auth-email-password importing it\ndirectly; tenant-handover self-registers as its own provider."
+    "title": "magic-link self-signup can now claim a try-first tenant-handover grant across devices"
   },
   {
     "version": "0.309.0",
     "type": "fix",
-    "title": "Boot admin seed no longer duplicates the admin when the email blind-index lookup misses (fw#3101)",
-    "detail": "runProdApp and runDevApp used to call the unguarded `seedAdmin`, whose idempotency check is a plain email fetchOne that the query layer rewrites into `(email = $plaintext OR email_bidx = $hmac)` once a blind-index key is configured. Under KMS encryption `email` holds per-row ciphertext, so only the bidx arm can ever match — and it misses whenever a row's `email_bidx` is NULL (written before the key existed, or after a subject-key erase), silently inserting a second admin account for the same email. Both boot paths now call `seedAdminGuarded`, which under KMS decrypt-scans the active users for the email and reuses the oldest matching row instead of duplicating it. `seedAdminGuarded` also now aborts with a named error if a PII KMS is configured but no blind-index key is — that combination makes the lookup blind by construction — and reconciles `emailVerified: true` onto the existing row it resolves through the decrypt-scan branch, matching the existing-row reconcile `seedUser` already does on its own idempotency hit."
+    "title": "Boot admin seed no longer duplicates the admin when the email blind-index lookup misses (fw#3101)"
   },
   {
     "version": "0.307.0",
@@ -382,26 +405,22 @@
   {
     "version": "0.291.0",
     "type": "improvement",
-    "title": "loggedInHref callbacks on SignupCompleteScreen and InviteAcceptScreen now receive the roles granted by the flow",
-    "detail": "Apps can route a freshly activated user to a screen their role can actually open, instead of a fixed path that may render Access denied. The string form of loggedInHref is unchanged; the function form gains a roles field next to the existing tenantKey/tenantId."
+    "title": "loggedInHref callbacks on SignupCompleteScreen and InviteAcceptScreen now receive the roles granted by the flow"
   },
   {
     "version": "0.286.0",
     "type": "improvement",
-    "title": "lockout-store and signup/invite-token-store now delegate to shared/lockout-counter and shared/single-use-token-store",
-    "detail": "No behavior change — same exported function/type names and Redis key prefixes as before the extraction."
+    "title": "lockout-store and signup/invite-token-store now delegate to shared/lockout-counter and shared/single-use-token-store"
   },
   {
     "version": "0.218.0",
     "type": "improvement",
-    "title": "Self-signup provisions TenantAdmin on the new tenant",
-    "detail": "INITIAL_SIGNUP_ROLES is TenantAdmin (was Admin) so the first user on a new tenant can invite peers and manage memberships without elevation dead-ends."
+    "title": "Self-signup provisions TenantAdmin on the new tenant"
   },
   {
     "version": "0.167.1",
     "type": "improvement",
     "title": "accountLockout is reachable through runProdApp/runDevApp (fw#1627).",
-    "detail": "accountLockout was an option on createAuthEmailPasswordFeature, but both wrappers mount auth-email-password themselves and their auth options only knew accountUnlock — an app on either entrypoint had no way to turn brute-force protection on. RunProdAppAuthOptions and RunDevAppAuthOptions now carry accountLockout and composeFeatures passes it through.",
     "migration": "Opt-in, nothing breaks without it. Two things to know before relying on it: without ctx.redis the lockout is silently skipped in login.write.ts — no error, no warning, no protection — so treat Redis as a deploy invariant, and prove the lockout with a behavioural test instead of assuming the mount is enough."
   },
   {
@@ -414,25 +433,21 @@
   {
     "version": "0.162.0",
     "type": "improvement",
-    "title": "auth-email-password: runtime toggle for self-registration.",
-    "detail": "auth-email-password: runtime toggle for self-registration. A new handler-less companion feature (`auth-self-registration`, toggleable, default on) lets an operator flip self-signup off at runtime via feature-toggles without redeploying. `signup-request` silently no-ops when off (matching its always-200 anti-enumeration contract), and a new anonymous-readable query (`auth-email-password:query:signup-registration-status`) lets the public signup page hide its own link/form."
+    "title": "auth-email-password: runtime toggle for self-registration."
   },
   {
     "version": "0.154.1",
     "type": "fix",
-    "title": "Export `LoginScreen`/`LoginScreenProps`/`AuthLegalLink` from `@cosmicdrift/kumiko-bundled…",
-    "detail": "Export `LoginScreen`/`LoginScreenProps`/`AuthLegalLink` from `@cosmicdrift/kumiko-bundled-features/auth-email-password/web`. Every other auth screen (ForgotPasswordScreen, SignupScreen, ResetPasswordScreen, …) was already exported from the barrel with its props type; `LoginScreen` was missed. `makeAuthGate`'s second parameter is typed `LoginScreenProps`, so consumers passing a typed `loginScreenProps` override (e.g. `@cosmicdriftgamestudio/kumiko-designer`) couldn't import the type at all. - @cosmicdrift/kumiko-framework@0.154.1 - @cosmicdrift/kumiko-dispatcher-live@0.154.1 - @cosmicdrift/kumiko-headless@0.154.1 - @cosmicdrift/kumiko-renderer@0.154.1 - @cosmicdrift/kumiko-renderer-web@0.154.1"
+    "title": "Export `LoginScreen`/`LoginScreenProps`/`AuthLegalLink` from `@cosmicdrift/kumiko-bundled…"
   },
   {
     "version": "0.151.0",
     "type": "improvement",
-    "title": "`auth-email-password/web` no longer exports `LoginScreen`/`LoginScreenProps` directly — u…",
-    "detail": "`auth-email-password/web` no longer exports `LoginScreen`/`LoginScreenProps` directly — use the new `createLoginRoute({ loginScreenProps, mfaVerifyScreen, unaffected (they already build on the same logic internally now). Why: a raw `<LoginScreen />` render has no MFA-challenge handling unless the caller remembers to hand-wire `onMfaChallenge` + swap in a verify screen itself — exactly how kumiko-framework#266's login-time MFA step went missing in a real app's standalone apex/marketing login route (it renders outside `emailPasswordClient`'s own gate, which already handled this correctly). `createLoginRoute` is the one place this logic lives now, for both the gated and standalone cases — there's no lower-level piece left to misuse. The `apex-surface-auth` recipe is updated to match."
+    "title": "`auth-email-password/web` no longer exports `LoginScreen`/`LoginScreenProps` directly — u…"
   },
   {
     "version": "0.131.0",
     "type": "improvement",
-    "title": "App-Mounting 2.0 Säule A: Mid-Level-Widget-Kit in renderer-web (StatCard, MiniStat, Secti…",
-    "detail": "App-Mounting 2.0 Säule A: Mid-Level-Widget-Kit in renderer-web (StatCard, MiniStat, SectionCard, StatusBadge, ProgressBar, CollapsibleSection, DetailList, ModeSwitch, StatusBarChart, TimeseriesChart, EmptyState/LoadingState/ErrorState, QueryTable) + Status-Farb-Tokens (--color-status-\\*). Neue Hooks useMutation + useDisclosure. Neues Core-Primitive Link (default/button/muted), Button-Variant \"link\", Text-Variant \"muted\"; auth-email-password nutzt sie (authButtonClass/authMutedLinkClass entfernt)."
+    "title": "App-Mounting 2.0 Säule A: Mid-Level-Widget-Kit in renderer-web (StatCard, MiniStat, Secti…"
   }
 ]

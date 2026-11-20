@@ -1,5 +1,601 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.425.0
+
+### Minor Changes
+
+- 34cf35e: Ratchet guards fail on every unfrozen finding when their baseline file is missing, in consumer repos as well.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: Ratchet guards fail without a baseline file
+  detail: Every baseline ratchet (As-Casts Audit with its suspect and legit baselines, File Size, Complexity Check, Data-Testid Guard, ignore-tag-reason, comment-issue-ref-only, Tailwind-Scan-Surface Guard, security-plugin-suppression, guard-raw-sql, guard-integration-mocks, Runtime-Isolation Check) treats a missing baseline file as an empty baseline. Each existing finding is a violation until the repo freezes its current state; before, a repo without the file only got a console warning and the ratchet had no effect. Without a baseline file the As-Casts Audit now also fails on unknown `@cast-boundary` reasons. The `failClosed` option of `baselineRatchet` is removed because it is now the only behavior.
+  migration: Freeze the current state once per failing ratchet and commit the written `.kumiko-*-baseline.json` files: `bunx kumiko-guards guards --write-baseline --guard=<name>` for AST guards (for example `--guard="As-Casts Audit"`, `--guard="File Size"`, `--guard="Complexity Check"`, `--guard=ignore-tag-reason`) and `bunx kumiko-guards checks --write-baseline --guard=<name>` for repo checks (`guard-raw-sql`, `guard-integration-mocks`). Each violation names the missing baseline file. Ratchets without findings need no file.
+  affects: all
+  -->
+- 34cf35e: A lib-test-coverage ignore tag must name the covering test file, and the file must exist.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: lib-test-coverage ignore tags cite an existing test file
+  detail: `// kumiko-lint-ignore lib-test-coverage <reason>` exempts an exported lib function only when the reason names at least one `*.test.ts` or `*.test.tsx` file and every named file exists among the scanned tests. A repo-relative path or a bare file name both match by path suffix. A tag without a cited file, or with a file that does not exist, is reported on the function.
+  migration: Name the covering test in each lib-test-coverage tag, e.g. `// kumiko-lint-ignore lib-test-coverage integration-covered via src/__tests__/lease.integration.test.ts`, or write a unit test for the function.
+  affects: lib-test-coverage
+  -->
+- 34cf35e: New ratchet guards `Handler Definitions` and `Feature Import Cycles`; the feature-layout codemod moves root-level `<name>.write.ts`/`<name>.query.ts` into `handlers/`.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: Handler layout and feature import cycles are guarded
+  detail: `kumiko-guards guards` now runs `Handler Definitions` (handler definitions outside `<feature>/handlers/`, several handlers per file, a wrong `.write`/`.query` suffix, object literals typed `WriteHandlerDef`/`QueryHandlerDef`) and `Feature Import Cycles` (static, non-type-only imports outside test files that close a cycle between features). Both freeze existing hits per file in `.kumiko-handler-definitions-baseline.json` and `.kumiko-feature-import-cycles-baseline.json`. A missing baseline counts as empty, so every existing hit fails until the baseline is written. The feature-layout codemod now also moves `<name>.write.ts` and `<name>.query.ts` from a feature root into `handlers/` and rewrites their imports.
+  migration: Run the codemod, then `kumiko-guards guards --write-baseline --guard="Handler Definitions"` and `kumiko-guards guards --write-baseline --guard="Feature Import Cycles"` and commit both baseline files.
+  affects: kumiko-guards
+  codemod: scripts/codemod/feature-layout.ts
+  -->
+- 34cf35e: The new guard `seed-runtime-imports` keeps seeds runnable in the runtime image.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: seed-runtime-imports guard
+  detail: In apps, files under `seeds/` may not import `@cosmicdrift/*` at runtime (only `import type`), and relative imports may not leave `seeds/`, because the runtime image ships `seeds/` without `src/` and bundles the framework into server.js. Static imports, re-exports, `import()` and `require()` are checked.
+  migration: Turn framework imports in seeds into `import type` or inline the value, move shared helpers into `seeds/`, and delete the import tests of app-level copies such as `seed-boot-safety.test.ts`.
+  affects: all
+  -->
+- 34cf35e: Direct env writes in tests are ratcheted; `withEnvForEachTest` and `withEnvForSuite` set env around tests.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: test-env-writes ratchet and suite env helpers
+  detail: The new guard `test-env-writes` counts direct writes to `process.env` and `Bun.env` in test files (assignment, `delete`, `Object.assign`) and freezes them in `.kumiko-test-env-writes-baseline.json`. `@cosmicdrift/kumiko-testing/helpers` adds `withEnvForEachTest(overrides)` and `withEnvForSuite(overrides)`, which set and restore env per test or per describe block; register them before any `beforeAll` that reads the env.
+  migration: Run `kumiko-guards guards --write-baseline --guard="test-env-writes"` once, then move direct writes to `withEnv`, `withEnvForEachTest` or `withEnvForSuite`.
+  affects: process.env, Bun.env
+  -->
+- 34cf35e: The File Size guard also limits test files, at 1500 lines.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: File Size guard limits test files to 1500 lines
+  detail: The File Size guard now scans tests, integration tests and e2e specs as well. Test files may have up to 1500 lines, production files still up to 1200. Existing larger test files are frozen in the same `.kumiko-file-size-baseline.json` and may only shrink.
+  migration: Run `kumiko-guards guards --write-baseline --guard="File Size"` once to freeze the current test files, then split the large ones by behaviour.
+  affects: all
+  -->
+- 34cf35e: test-timeouts flags literal Playwright timeouts and timeout raises on extended test objects.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: test-timeouts flags literal Playwright timeouts and extended test objects
+  detail: In Playwright files (`e2e*/` directories and `*.spec.ts`), a number literal on a `timeout` option fails; use an `E2E_TIMEOUT_MS` class from `@cosmicdrift/kumiko-testing/e2e`. A one-argument `setTimeout(…)` or `slow()` on any test object there, such as one built with `test.extend(...)`, now counts as raising the timeout, unless its argument is an `E2E_TIMEOUT_MS` class such as `E2E_TIMEOUT_MS.real`; a number literal or a computed value such as `15 * 60_000` is still flagged. Playwright config files are not checked.
+  migration: Replace literals with the value-equal class (10_000 → `E2E_TIMEOUT_MS.navigation`, 15_000 → `poll`, 30_000 → `test`; drop 5000 on expect, it is the default). Mark a justified raise with `// kumiko-lint-ignore test-timeouts #<issue> <reason>`.
+  affects: all
+  -->
+- 34cf35e: Guard opt-outs now use one marker syntax: `kumiko-lint-ignore <slug> <reason>` for a line and `kumiko-lint-ignore-file <slug> <reason>` for a whole file.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: Test guard opt-outs move to kumiko-lint-ignore
+  detail: `// @timeout-exception: #N reason` is now `// kumiko-lint-ignore test-timeouts #N reason`, `// @template-drift-exception: #N reason` is now `// kumiko-lint-ignore test-template-drift #N reason`, and the file-wide `// @no-server-stack: reason` is now `// kumiko-lint-ignore-file test-stack-drift reason` in the leading comment of the file. The old markers are no longer read. Every reason now goes through the ignore-tag-reason check (at least three real words); the two test guards still require `#<issue>` first.
+  migration: Run the codemod, then rewrite any reason the ignore-tag-reason guard reports as too weak.
+  codemod: scripts/codemod/guard-markers-to-lint-ignore.ts
+  affects: @timeout-exception, @template-drift-exception, @no-server-stack
+  -->
+- 34cf35e: A ratchet baseline that allows more findings than exist now fails until it is tightened.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: Ratchet baselines with headroom fail
+  detail: Every baseline ratchet (file size, complexity, raw SQL, runtime isolation, cast markers, ignore-tag reasons and the others) now reports a file whose current count is below its frozen count as a violation, next to regressions in the same run. Before, the lower count passed and the headroom let later findings in unnoticed. Baselines no longer carry `generated`, `total` or `totalSuspect`; existing files with these fields still load.
+  migration: After the bump run the guards, check that only "under baseline" violations appear, then freeze once with `--write-baseline` (guards, checks, UI guards and `bun kumiko-guards guards --write-baseline --guard="As-Casts Audit"`) and commit the baseline files.
+  affects: all
+  -->
+- 34cf35e: Guard runs fail on kumiko-lint-ignore markers that suppress nothing.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: Unused kumiko-lint-ignore markers fail the guard run
+  detail: Every guard that honours a `kumiko-lint-ignore <slug>` marker records each marker it consumed. After the run, the new `unused-ignore-tags` check reports every marker of a guard that ran whose spot produced no finding, for example markers above header titles that i18n-ui-strings already exempts. Placeholders such as `<reason>` in doc comments are skipped. File-wide `kumiko-lint-ignore-file` markers and comment-lang, comment-issue-ref-only, raw-sql and secret-literals markers are not checked.
+  migration: Run the guards and delete every marker the `unused-ignore-tags` check reports. A marker belongs only where its guard would otherwise report a finding.
+  affects: kumiko-lint-ignore
+  -->
+- 34cf35e: The As-Casts Audit no longer accepts `engine-payload` casts of `event.payload` and `query.payload` in write and query handlers.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: Payload casts in handlers count as suspect casts
+  detail: A cast marked `// @cast-boundary engine-payload` whose expression starts with `event.payload` or `query.payload` in a `handlers/**/*.write.ts` or `handlers/**/*.query.ts` file is now a suspect cast instead of a legit boundary. `defineWriteHandler` and `defineQueryHandler` type the payload from the schema, so such a cast hides drift between schema and payload type. Projections and all other files keep the marker.
+  migration: Define the handler with `defineWriteHandler` or `defineQueryHandler` instead of an object typed `WriteHandlerDef`/`QueryHandlerDef` and drop the cast. Casts that must stay for now can be frozen with `kumiko-guards guards --write-baseline --guard="As-Casts Audit"`.
+  affects: kumiko-guards
+  -->
+- 34cf35e: The Fake-Test Guard rejects existence checks on Testing Library queries and counts bare queries as assertions; the new `weak-assertions` ratchet freezes tests that only assert existence.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: Existence-only checks on queries fail, existence-only tests are ratcheted
+  detail: Testing Library `getBy*`, `getAllBy*`, `findBy*` and `findAllBy*` queries throw when nothing matches, so the Fake-Test Guard now reports `.toBeTruthy()`, `.toBeDefined()`, `.not.toBeNull()` and `.not.toBeUndefined()` directly on such a query (also awaited) as "QUERY EXISTS ONLY". Chained checks such as `expect(screen.getByTestId("x").querySelector("input")).toBeTruthy()` stay allowed. A bare query call now counts as an assertion, a `findBy*` call only when it is awaited or returned, so `screen.getByText("Saved");` alone is a complete test; `queryBy*` still does not count. The new guard `weak-assertions` counts tests whose only assertions are `expect(x).toBeDefined()` or `expect(x).toBeTruthy()` and freezes them per file in `.kumiko-weak-assertions-baseline.json`; a missing baseline counts as empty.
+  migration: Replace `expect(<query>).toBeTruthy()` and the other existence checks on a query with the bare query call (`screen.getByText("Saved");`, `await screen.findByText("Saved");`). Then run `kumiko-guards guards --write-baseline --guard="weak-assertions"` once and commit `.kumiko-weak-assertions-baseline.json`.
+  affects: kumiko-guards
+  -->
+- f144056: The Test-ES-Row-Writes guard now runs in app and library repos and catches raw SQL writes on `read_*` tables and row writes on the events table in tests.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: Test-ES-Row-Writes guard checks app and library tests
+  detail: The guard was limited to the framework repo (`kinds: ["framework"]`), so `kumiko-guards guards` in an app never ran it. It now scans every non-tooling repo: the manifest's test files plus helper files in `src/**/__tests__`, `bin/**/__tests__`, `bin/**/*.test.ts` and `e2e/`. In every repo it now reports raw `INSERT INTO`, `UPDATE`, `DELETE FROM`, `MERGE INTO` and `COPY … FROM` (also with `ONLY` or a schema prefix) on `read_*` tables, on tables the file builds with `buildEntityTable` and on tables the file declares with `createEntity({ table })`, written literally or through a const in the same file whose value is such a name or comes from `<table>.tableName` (except inside a projection's `apply` and for an entity the file derives with `deriveEntityTableMeta(entity, { source: "unmanaged" })`), `TRUNCATE` of such a table without `kumiko_events` in the same statement, a `TRUNCATE kumiko_events` without the projection in a file that knows one, and `DELETE FROM kumiko_events`. A projection's `apply` never exempts writes on `kumiko_events`. It also reports calls like `insertOne`, `insertMany`, `deleteMany`, `deleteRows` or `seedRow` that take `eventsTable`. DDL (`ALTER TABLE … RENAME`, `CREATE TABLE`) and a `TRUNCATE` of projection and `kumiko_events` together (a reset) are not reported. `seedRow`, `updateRows` and `deleteRows` with a non-empty `{ projectionOnly: reason }`, inline or through a const in the same file, are no longer reported in any repo; on `eventsTable` they still are.
+  migration: Replace each reported write in a test. Rows that events can produce go through the real command, `seedRowViaEventStore`, `updateRowViaEventStore` or `deleteRowViaEventStore`. A state no event produces goes through the testing helpers with a reason: `asRawClient(db).unsafe('UPDATE "read_x" SET "version" = 0 …')` (stale-version race), `UPDATE "read_x" SET "<pii column>" = <corrupted ciphertext>` and `UPDATE "read_x" SET "<column>" = NULL` (state after a column migration) become `updateRows(db, xTable, { … }, { id }, { projectionOnly: "<scenario>" })`, which writes the values verbatim without encrypting or bumping the version; `TRUNCATE "read_x"` (lost read table before a rebuild) becomes `deleteRows(db, xTable, {}, { projectionOnly: "<scenario>" })`; a raw `INSERT INTO read_x` legacy row becomes `seedRow(db, xTable, row, { projectionOnly: "<scenario>" })`. A reset keeps the events: `resetEventStore(stack, [xTable])` or `resetTestTables(db, [xTable, eventsTable])`.
+  affects: kumiko-guards guards, Test-ES-Row-Writes Guard
+  -->
+
+### Patch Changes
+
+- 34cf35e: The As-Casts Audit names a command that runs in every repo when it asks to re-freeze its baseline.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: As-Casts Audit hints name the kumiko-guards command
+  detail: Every As-Casts Audit message that asks to freeze or tighten the baseline (new cast, headroom, unreadable file, format drift) now says `bun kumiko-guards guards --write-baseline --guard="As-Casts Audit"`. Before, the hints pointed at `packages/guards/src/...` source paths that exist only in the framework repo.
+  -->
+- 34cf35e: `kumiko-guards checks` fails an app whose `biome.json` does not extend the Kumiko Biome preset.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: biome-preset repo check for apps
+  detail: The check that `biome.json` extends `@cosmicdrift/kumiko-framework/biome` now runs as the `biome-preset` repo check in `kumiko-guards checks` (kind app). `kumiko check` keeps its lint-step failure and uses the same `repoExtendsFrameworkPreset` function, exported from `@cosmicdrift/kumiko-guards`.
+  -->
+- 34cf35e: The i18n keys guard reads installed framework keys only from the app's own `node_modules/@cosmicdrift`.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: i18n keys guard no longer walks the file system from the root
+  detail: To find the keys of the installed framework packages, the guard handed absolute globs to ts-morph. When the app lay outside the current working directory, the glob walked from `/` and could take minutes; glob characters in the app path also matched sibling folders. The guard now globs relative to each `node_modules/@cosmicdrift` folder.
+  -->
+- 34cf35e: The runtime-isolation check in `kumiko-guards checks` now fails browser code that imports a server entry point of a Kumiko package, such as `@cosmicdrift/kumiko-framework/engine` instead of `/ui-types`.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Runtime-isolation check catches server entries in the browser bundle
+  detail: An app file reachable from a client entry that value-imported `@cosmicdrift/kumiko-framework/engine` (or `/db`, `/event-store` and other server entries of an installed Kumiko package) used to pass the guard, because imports into `node_modules` were never judged; pino then landed in the client bundle and the app did not start in the browser. The check now judges such imports by the package's own markers: `kumiko.runtime`, the guard's path rules applied to the file's source path (`repository.directory`, published `dist/` mapped back to `src/`), and the `exports` whose target classifies as client. The finding names the file, the import chain from the client entry and the client-safe entry that exports the imported names (for example `import handlerTranslationKeys from "@cosmicdrift/kumiko-framework/ui-types"`), or lists the package's client-safe entries when none does. Type-only imports do not count. These findings cannot be frozen in `.kumiko-runtime-isolation-baseline.json`. `@cosmicdrift/kumiko-framework/auth` (the `ROLES` constants) now counts as client-safe. If the check turns red, import from the named entry or move the import into server-only code.
+  -->
+- 34cf35e: `kumiko-guards security` ships the picomatch advisory exception GHSA-FC5Q-39XC-VJPF for every consumer.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Bundled security exception for the picomatch advisory
+  detail: picomatch has no patched release and is only reached through glob tooling, so `kumiko-guards security` now carries the reviewed exception in its bundled `dependency-security-exceptions.json`. Apps no longer need their own copy to get a green security check.
+  -->
+- 34cf35e: The doc-status guard warns about active plans that nobody has re-verified for over 90 days.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: doc-status warns about stale active plans
+  detail: A status doc with `status: in-progress` or `blocked` whose `verified` date is more than 90 days old now gets the warning "last verified <date>, over 90 days ago: re-verify it or archive it". It is a warning, not a violation. `statusDocHygieneWarnings` takes the current date as a second argument.
+  -->
+- 34cf35e: New guard freezes data-testid hooks in production code.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Data-Testid Guard ratchets test hooks in production code
+  detail: `data-testid` and `data-test` in non-test `.ts`/`.tsx` files (JSX attributes and `"data-testid"` object keys) are counted per file and frozen in `.kumiko-data-testid-baseline.json`; a file may not gain more. Tests select by role, label or text instead. Without a baseline file the guard only warns. Freeze the current state once with `kumiko-guards guards --write-baseline --guard="Data-Testid Guard"`.
+  -->
+- 34cf35e: The integration-test mock guard moved into kumiko-guards, and guards.md lists the Biome plugins.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: guard-integration-mocks check in kumiko check, Biome plugins in guards.md
+  detail: Mock calls (`mock(`, `spyOn(`, `mock.module`, `vi.*`, `jest.*`) in `*.integration.test.ts` and `*.integration.ts` are now a repo check of `kumiko check` and run in every repo, not only through the framework's own `integration.guard.ts`. Counts are frozen per file in `.kumiko-integration-mocks-baseline.json` instead of a hand-kept allowlist; without the file the check only warns. Freeze once with `kumiko-guards checks --write-baseline --guard=guard-integration-mocks`. The generated `docs/reference/guards.md` gains a Biome plugins table with purpose and scope per plugin.
+  -->
+- 34cf35e: agent-docs-drift flags AGENTS.md references into docs/, which the framework npm package does not ship.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: agent-docs-drift rejects docs/ links in AGENTS.md
+  detail: packages/framework/AGENTS.md is read by agents inside apps, where only the npm package exists. A backticked docs/... reference there now fails the agent-docs-drift guard; link a generated agents/ file or state the fact inline. AGENTS.md also gains the rule that entity tables are rebuilt from events and that data without events belongs in r.storeTable.
+  -->
+- 34cf35e: The cross-feature import guard also checks re-exports.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Cross-feature import guard checks re-exports
+  detail: `export { x } from "../other-feature/internal"` and `export * from "../other-feature/internal"` count like an import: a re-export of another feature's internals is a violation, while the barrel, `contract`, `schema/entity` and `web` stay allowed and `// kumiko-lint-ignore cross-feature-import <reason>` on the line or the line above suppresses it. Dynamic `import()` stays unchecked.
+  -->
+- 34cf35e: The direct-entity-writes guard treats r.crud entities like r.entity and resolves table arguments such as tables.userTable.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Direct-Entity-Writes Guard covers r.crud tables
+  detail: An entity registered with `r.crud(name, entityDef, options)` makes the table built from `buildEntityTable(..., entityDef)` an event-sourced table, the same as `r.entity({ name, ...entityDef })`. A write whose table argument is a property access (`tables.userTable`) is resolved through the property's symbol instead of being skipped.
+  -->
+- 34cf35e: The fake-test guard also checks test.each, it.concurrent and other test modifiers, and flags a value compared with itself.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Fake-Test Guard covers test modifiers and self comparisons
+  detail: A test declared through `test.each(...)(...)`, `it.concurrent`, `test.skip`, `test.if(...)(...)` or a renamed `bun:test` import now needs an assertion like a plain `test`/`it`. `expect(x).toBe(x)`, `toEqual` and `toStrictEqual` with the same argument on both sides count as a tautology when the argument contains no call, so determinism checks such as `expect(hash(a)).toBe(hash(a))` stay allowed.
+  -->
+- 34cf35e: The tenant-escalation guard checks handlers registered with r.writeHandler and accepts only real strip calls at JWT mints.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Tenant-Escalation Guard covers r.writeHandler
+  detail: The role-input check and the cross-tenant user-write check now also cover `r.writeHandler({ ... })`, not only `defineWriteHandler`. At a JWT mint built from membership roles, only a call to `stripForbiddenMembershipRoles` or `buildSessionRoles` counts; a mention in a comment no longer does, and mint and membership patterns inside comments are ignored.
+  -->
+- 34cf35e: The managed `bin/kumiko.ts` reads `process.env["INIT_CWD"]` with bracket access, so it type-checks in apps with `noPropertyAccessFromIndexSignature`. `billing-foundation:write:start-plan-checkout` and `billing-foundation:write:switch-plan` ship their title and field labels (en, de, es, fr, it), so `kumiko agent lint` no longer reports them as handler translation gaps in an app that mounts a plan catalog. The same now holds for `create-checkout-session` (field `consent`), `request-contract-termination`, `revoke-contract-termination` and `terminate-contract`.
+  
+  The direct-entity-writes guard reads the entity definition as the first argument of `buildEntityTable(entityDef, options?)`, `r.crud(entityDef, options)` and `r.entity(entityDef)`, so it finds those tables again instead of reporting a misconfigured scan. `defineWriteHandler` accepts `excludedFields` on hand-written handlers and keeps it on the definition. The bundled `kumiko` CLI (`runStandaloneCli`) rejects `schema generate` and `schema baseline` with "Unknown subcommand"; both only run in development through `bun kumiko-schema`.
+  
+  Projected row helpers (`insertProjectedEntityRow`, `patchProjectedEntityRow`) accept money and located timestamps in the combined form their type declares.
+  
+  Upcasters and entity `eventMigrations` receive the aggregate id and type of the event they migrate (`EventUpcastCtx.aggregateId`, `EventUpcastCtx.aggregateType`).
+  
+  The handler definitions guard no longer counts calls to inherited object methods such as `toString`.
+  
+  The managed `ci.yml` pins the image build job to the commit behind the infra tag (`_docker-build-push.yml@<sha> # reusables-v2.4.5`); an app that sets `kumiko.deploy.infraRef` keeps its own ref there. The cross-feature import guard accepts `../<feature>/server-contract` as a public surface next to `contract` and `schema/entity`.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Managed bin/kumiko.ts and ci.yml fixes
+  detail: The managed `bin/kumiko.ts` reads `process.env["INIT_CWD"]` with bracket access, so it type-checks in apps with `noPropertyAccessFromIndexSignature`. The managed `ci.yml` pins the image build job to the commit behind the infra tag (`_docker-build-push.yml@<sha> # reusables-v2.4.5`); an app that sets `kumiko.deploy.infraRef` keeps its own ref there.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Plan checkout, plan switch and contract handlers ship their labels
+  detail: `start-plan-checkout`, `switch-plan`, `create-checkout-session` (field `consent`), `request-contract-termination`, `revoke-contract-termination` and `terminate-contract` ship their title and field labels in en, de, es, fr and it, so `kumiko agent lint` no longer reports them as handler translation gaps in an app that mounts a plan catalog.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Direct-entity-writes, handler definitions and cross-feature import guards
+  detail: The direct-entity-writes guard reads the entity definition as the first argument of `buildEntityTable(entityDef, options?)`, `r.crud(entityDef, options)` and `r.entity(entityDef)`, so it finds those tables again instead of reporting a misconfigured scan. The handler definitions guard no longer counts calls to inherited object methods such as `toString`. The cross-feature import guard accepts `../<feature>/server-contract` as a public surface next to `contract` and `schema/entity`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: excludedFields on hand-written handlers, projected row value forms and upcaster stream identity
+  detail: `defineWriteHandler` accepts `excludedFields` on hand-written handlers and keeps it on the definition. `insertProjectedEntityRow` and `patchProjectedEntityRow` accept money and located timestamps in the combined form their type declares. Upcasters and entity `eventMigrations` receive the aggregate id and type of the event they migrate (`EventUpcastCtx.aggregateId`, `EventUpcastCtx.aggregateType`).
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: The bundled CLI rejects schema generate and schema baseline
+  detail: `runStandaloneCli`, behind the production bundle `kumiko.js`, answers `schema generate` and `schema baseline` with "Unknown subcommand"; both only run in development through `bun kumiko-schema`.
+  -->
+- 34cf35e: The license check ships exceptions for the framework's transitive dependencies and self-hosted fonts.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Bundled license exceptions cover framework transitives
+  detail: `caniuse-lite`, `slick`, `@img/sharp-libvips-*`, `@fontsource/*` and `@fontsource-variable/*` are now in the exceptions bundled with `@cosmicdrift/kumiko-guards`, so apps no longer need their own copies. Entries an app keeps are merged and do no harm.
+  migration: Optionally remove these entries from the app's `dependency-license-exceptions.json`.
+  -->
+- 34cf35e: The fake-test guard flags existence-only checks on writeErr and queryErr results.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Fake-Test Guard flags existence-only checks on error results
+  detail: `writeErr` and `queryErr` always return an error object (or throw when the call succeeded), so `expect(error).toBeDefined()`, `.toBeTruthy()`, `.not.toBeNull()` or `.not.toBeUndefined()` on that result, or on its `code`, `httpStatus`, `message` or `i18nKey`, proves nothing. The guard now reports these as "ERROR EXISTS ONLY". The value is resolved through its declaration, so a same-named variable from another call is not affected.
+  migration: Replace the existence check with the expected error, e.g. `expect(error).toMatchObject({ code: "validation_error" })` or `expect(error.code).toBe("access_denied")`.
+  -->
+- 34cf35e: The test-timeout guard also flags a `timeout` in the options object before the test body.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Test-timeout guard checks the options argument
+  detail: `test(name, { timeout: 15000 }, fn)`, `it(...)` and `describe(...)` with a `timeout` property in the second argument (object literal or a typed variable that has `timeout`) raised the timeout without a finding, because only arguments after the body were checked. They are now reported like a trailing timeout argument. Playwright details without `timeout` (`{ tag }`, `{ annotation }`) and untyped test bodies stay allowed.
+  migration: Remove the `timeout` from the options object and fix the slow setup, or add `// kumiko-lint-ignore test-timeouts #<issue> <reason>` above the test.
+  -->
+- 34cf35e: `kumiko ports` also scans apps under `<repo>/apps/*`, and the scaffolded Playwright config reads its port from kumiko.config.ts.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Port registry sees nested apps
+  detail: The workspace port scan now also reads `<child>/apps/*/kumiko.config.ts` when the child itself has no config, so a monorepo app such as `timeline-murder/apps/server` takes part in the collision check.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: Scaffolded Playwright config uses ports.e2e
+  detail: The generated `playwright.config.ts` imports the app's kumiko.config.ts and passes `appConfig.ports.e2e`, so the e2e port is declared once. `renderTestSetup` no longer takes `port`, and `SCAFFOLD_E2E_PORT` is no longer exported.
+  migration: Existing apps write `import appConfig from "./kumiko.config";` and `defineAppE2eConfig({ port: appConfig.ports.e2e })` in playwright.config.ts. Callers of `renderTestSetup` drop the `port` argument.
+  affects: renderTestSetup, SCAFFOLD_E2E_PORT, defineAppE2eConfig
+  -->
+- 34cf35e: The public `createTenantDb` builds only tenant-mode handles; system mode, `grants` and handles on an `unsafeRaw()` runner are framework-internal.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: createTenantDb on the db subpath is tenant-only
+  detail: `createTenantDb` from `@cosmicdrift/kumiko-framework/db` takes `{ db, tenantId, tracer?, meter?, signal?, mode?: "tenant" }` and always builds a tenant-mode handle. `mode: "system"`, `reason` and `grants` are no longer accepted there. The full function lives in `@cosmicdrift/kumiko-framework/internal/row-level-security` for framework packages and in `@cosmicdrift/kumiko-testing/helpers` for tests, and the guard `internal-subpath-imports` keeps the helpers export out of production files. The public `createTenantDb` throws `AccessDeniedError` when its runner comes from `ctx.db.unsafeRaw()`, `ctx.db.unsafeRawAllTenants()` or `ctx.systemDb.unsafeRaw(reason)`, also for a transaction, savepoint or reserved connection opened on such a runner, and `scopeTenantDbToTenant` throws `AccessDeniedError` when it would move a tenant-mode handle to another tenant. Declared cross-tenant access stays on `r.systemScope()` with `ctx.systemDb.acknowledgeCrossTenant(reason)`, the escape hatch grant `crossTenantReads` with `ctx.crossTenantReads`, and `ctx.tenants.writeTarget(tenantId)`.
+  migration: Handlers, hooks and jobs that built `createTenantDb({ mode: "system", ... })` or `createTenantDb({ db: ctx.db.unsafeRaw(), tenantId })` for another tenant move to `r.systemScope()` with `ctx.systemDb.acknowledgeCrossTenant(reason)`, to `ctx.crossTenantReads` for reads, or to `ctx.tenants.writeTarget(tenantId)` for SystemAdmin writes into one tenant. Boot code, backfills and CLIs that hold a `DbConnection` call `createTenantDb({ db, tenantId })` once per target tenant. Tests that need `mode: "system"` or `grants` import `createTenantDb` from `@cosmicdrift/kumiko-testing/helpers`.
+  affects: createTenantDb, scopeTenantDbToTenant
+  -->
+- 34cf35e: `lib-test-coverage` accepts one file-wide exception instead of a tag per export.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: lib-test-coverage takes a file-wide exception
+  detail: `// kumiko-lint-ignore-file lib-test-coverage integration-covered via <path/to/x.test.ts>` in the leading comment of a lib file exempts all its exports. The cited test file must exist, as with the per-export tag. Per-export tags keep working.
+  -->
+- 34cf35e: The shared renderer layer (app/, components/) no longer uses DOM tags or `[&…]` selector variants; the renderer-boundaries guard enforces both.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Shared renderer layer styles through primitive props instead of DOM selectors
+  detail: New primitive props replace the selector hacks in the platform-neutral layer: `FormWidth` "settings" (940px column, used by configEdit `compact`), RenderEdit `fieldIcons: false`, `CardOptions.headerPadding: "flush"`, `DataTableProps.headerTone: "muted"`, `MetricBandProps.splitPart`, `SectionProps.titleOnNarrow: false` and `FillContainerProps.dataAttributes`. The renderer-boundaries guard now also catches a lowercase JSX tag whose opening spans several lines and reports `[&…]` arbitrary variants in app/ and components/. The look stays the same.
+  -->
+- 34cf35e: The app-feature-structure guard also checks the framework's sample apps and recipes.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: app-feature-structure covers samples
+  detail: In the framework repo the guard now scans `samples/apps/*/src/features/**` and `samples/recipes/*/src/**`. A recipe's `src/` folder counts as one feature folder, so `src/feature.ts` over 300 lines, a `src/web.ts(x)` monolith and JSX directly in `src/` are flagged like in an app feature. The sample features that broke the rules now keep handlers in handlers/, entities in schema/ and screens in screens.ts, and the styleguide clients moved from `web.ts(x)` to `web/index.ts`.
+  -->
+- 34cf35e: The app-feature-structure guard lets the custom-screen galleries under samples keep their custom screens.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Custom-screen rule skips the sample galleries
+  detail: Rule 3 of the app-feature-structure guard (custom screens need an allowlist tag) no longer applies to samples/apps/showcase, samples/apps/styleguide and samples/recipes/screens-nav, which exist to show custom screens. App repos are unaffected.
+  -->
+- 3f3bb46: `kumiko-upgrade` and the changelog guards handle canary versions such as `0.425.0-next-20261118143000-abc1234` from the new `next` dist-tag.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: kumiko-upgrade accepts canary versions from the next dist-tag
+  detail: Versions now compare by semver precedence, so a canary sorts above the previous release, below the release it previews and after older canaries of the same release. `kumiko-upgrade` accepts a canary as `--from`, as installed version and in `.kumiko/upgrade-state.json`, and keeps the full canary version in the marker instead of claiming the release. A canary installs the changelog entries of the release it previews. After `--apply` on a canary, the codemods and manual steps the marker recorded are not pending again; one that a later canary of the same release adds shows up as pending.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Public-exports changelog guard orders prerelease versions by semver
+  detail: `compareVersionsLocal` used to ignore a prerelease suffix, so `1.0.0-rc.1` counted as `1.0.0`. It now uses semver precedence, the same order `kumiko-upgrade` uses.
+  -->
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [cdbf386]
+- Updated dependencies [cdbf386]
+- Updated dependencies [cdbf386]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [6f043fa]
+- Updated dependencies [a44b984]
+- Updated dependencies [007d227]
+- Updated dependencies [a44b984]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [3f3bb46]
+  - @cosmicdrift/kumiko-framework@0.425.0
+  - @cosmicdrift/kumiko-types@0.425.0
+
 ## 0.424.1
 
 ### Patch Changes

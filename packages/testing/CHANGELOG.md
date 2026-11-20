@@ -1,5 +1,472 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.425.0
+
+### Minor Changes
+
+- 34cf35e: `updateRows` and `deleteRows` throw on an event-sourced entity table unless the test passes `{ projectionOnly: reason }`, like `seedRow` already does.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: updateRows and deleteRows refuse event-sourced entity tables without a reason
+  detail: `seedRow` and `seedRows` already refused an `r.entity` table without `{ projectionOnly }`, but `updateRows` and `deleteRows` changed such rows silently, so a test could set up projection state that no event history produces and that a rebuild undoes. Both now take an optional last `options` argument and throw synchronously on an event-sourced entity table unless `options.projectionOnly` names the scenario. The error points to `updateRowViaEventStore` or `deleteRowViaEventStore`. Tables without event sourcing are unaffected.
+  migration: Calls of `updateRows(db, table, set, where)` or `deleteRows(db, table, where)` on an `r.entity` table switch to `updateRowViaEventStore` / `deleteRowViaEventStore`, or pass `{ projectionOnly: "<scenario>" }` as the last argument when the event-less change is the point of the test.
+  affects: updateRows, deleteRows
+  -->
+- 34cf35e: Direct env writes in tests are ratcheted; `withEnvForEachTest` and `withEnvForSuite` set env around tests.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: test-env-writes ratchet and suite env helpers
+  detail: The new guard `test-env-writes` counts direct writes to `process.env` and `Bun.env` in test files (assignment, `delete`, `Object.assign`) and freezes them in `.kumiko-test-env-writes-baseline.json`. `@cosmicdrift/kumiko-testing/helpers` adds `withEnvForEachTest(overrides)` and `withEnvForSuite(overrides)`, which set and restore env per test or per describe block; register them before any `beforeAll` that reads the env.
+  migration: Run `kumiko-guards guards --write-baseline --guard="test-env-writes"` once, then move direct writes to `withEnv`, `withEnvForEachTest` or `withEnvForSuite`.
+  affects: process.env, Bun.env
+  -->
+- 34cf35e: `kumiko ports` also scans apps under `<repo>/apps/*`, and the scaffolded Playwright config reads its port from kumiko.config.ts.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Port registry sees nested apps
+  detail: The workspace port scan now also reads `<child>/apps/*/kumiko.config.ts` when the child itself has no config, so a monorepo app such as `timeline-murder/apps/server` takes part in the collision check.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: Scaffolded Playwright config uses ports.e2e
+  detail: The generated `playwright.config.ts` imports the app's kumiko.config.ts and passes `appConfig.ports.e2e`, so the e2e port is declared once. `renderTestSetup` no longer takes `port`, and `SCAFFOLD_E2E_PORT` is no longer exported.
+  migration: Existing apps write `import appConfig from "./kumiko.config";` and `defineAppE2eConfig({ port: appConfig.ports.e2e })` in playwright.config.ts. Callers of `renderTestSetup` drop the `port` argument.
+  affects: renderTestSetup, SCAFFOLD_E2E_PORT, defineAppE2eConfig
+  -->
+- 34cf35e: The public `createTenantDb` builds only tenant-mode handles; system mode, `grants` and handles on an `unsafeRaw()` runner are framework-internal.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: createTenantDb on the db subpath is tenant-only
+  detail: `createTenantDb` from `@cosmicdrift/kumiko-framework/db` takes `{ db, tenantId, tracer?, meter?, signal?, mode?: "tenant" }` and always builds a tenant-mode handle. `mode: "system"`, `reason` and `grants` are no longer accepted there. The full function lives in `@cosmicdrift/kumiko-framework/internal/row-level-security` for framework packages and in `@cosmicdrift/kumiko-testing/helpers` for tests, and the guard `internal-subpath-imports` keeps the helpers export out of production files. The public `createTenantDb` throws `AccessDeniedError` when its runner comes from `ctx.db.unsafeRaw()`, `ctx.db.unsafeRawAllTenants()` or `ctx.systemDb.unsafeRaw(reason)`, also for a transaction, savepoint or reserved connection opened on such a runner, and `scopeTenantDbToTenant` throws `AccessDeniedError` when it would move a tenant-mode handle to another tenant. Declared cross-tenant access stays on `r.systemScope()` with `ctx.systemDb.acknowledgeCrossTenant(reason)`, the escape hatch grant `crossTenantReads` with `ctx.crossTenantReads`, and `ctx.tenants.writeTarget(tenantId)`.
+  migration: Handlers, hooks and jobs that built `createTenantDb({ mode: "system", ... })` or `createTenantDb({ db: ctx.db.unsafeRaw(), tenantId })` for another tenant move to `r.systemScope()` with `ctx.systemDb.acknowledgeCrossTenant(reason)`, to `ctx.crossTenantReads` for reads, or to `ctx.tenants.writeTarget(tenantId)` for SystemAdmin writes into one tenant. Boot code, backfills and CLIs that hold a `DbConnection` call `createTenantDb({ db, tenantId })` once per target tenant. Tests that need `mode: "system"` or `grants` import `createTenantDb` from `@cosmicdrift/kumiko-testing/helpers`.
+  affects: createTenantDb, scopeTenantDbToTenant
+  -->
+- 34cf35e: The video tooling moves from `@cosmicdrift/kumiko-testing/e2e` to `@cosmicdrift/kumiko-testing/video`.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: Video tooling on its own subpath
+  detail: `defineVideo`, `runVideos`, `editorStage`, `terminalStage`, `findVideoTextGaps`, `loadVideoTexts`, `DEFAULT_TTS_MODEL` and their types (`VideoDefinition`, `VideoScene`, `VideoSceneContext`, `VideoTools`, `VideoVoice`, `EditorLine`, `EditorStageOptions`, `PreviewBox`, `PreviewStage`, `StagePreview`, `StagePreviewCard`, `RunVideosOptions`, `StageOutputLine`, `StageTone`, `TerminalCommand`, `TerminalStageOptions`, `TypedStage`) are exported from `@cosmicdrift/kumiko-testing/video` and no longer from `./e2e`, so e2e specs do not load the video pipeline.
+  migration: Import the video API from `@cosmicdrift/kumiko-testing/video`.
+  affects: defineVideo, runVideos, editorStage, terminalStage, findVideoTextGaps, loadVideoTexts, DEFAULT_TTS_MODEL, VideoDefinition, VideoScene, VideoTools, VideoVoice, EditorLine, EditorStageOptions, PreviewBox, PreviewStage, StagePreview, RunVideosOptions, StageOutputLine, StageTone, TerminalCommand, TerminalStageOptions, TypedStage
+  -->
+
+### Patch Changes
+
+- 34cf35e: `@cosmicdrift/kumiko-testing/e2e` exports `SERVICE_ENV_DEFAULTS`, the local service URLs and keys of the test stack.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: SERVICE_ENV_DEFAULTS from kumiko-testing/e2e
+  detail: `defineAppE2eConfig` keeps Meilisearch opt-in and hands the webServer only the service env it owns, so an app whose boot requires `MEILI_MASTER_KEY` or derives a value from `DATABASE_URL` in its Playwright config had no local default and failed to start unless the shell exported the values. Such an app now passes `MEILI_URL: process.env["MEILI_URL"] ?? SERVICE_ENV_DEFAULTS.MEILI_URL` (and the like) in `env`; shell and CI values still win.
+  -->
+- 34cf35e: `defineAppE2eConfig` stops the e2e server with SIGTERM, so the dev server removes its job queues from Redis.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: E2E server shuts down cleanly and leaves no job queues in Redis
+  detail: Playwright ended the webServer with SIGKILL, so the dev server never ran its shutdown and every e2e run left its per-boot `bull:kumiko-dev-*` keys in the shared Redis. The webServer now gets SIGTERM with a 10 second grace period before Playwright kills it.
+  -->
+- 34cf35e: `defineAppE2eConfig` no longer hands Playwright `NaN` workers when `availableParallelism()` returns no usable number.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: E2E worker count falls back to os.cpus()
+  detail: Under Bun, `availableParallelism()` reads `globalThis.navigator`; a library that replaces it (pdfjs did in an app) made the result `NaN`, and Playwright hung without a message on "NaN workers". `resolveE2eWorkers` now falls back to `os.cpus().length` and throws a clear error naming `KUMIKO_E2E_WORKERS` when neither source yields a positive integer. A set `KUMIKO_E2E_WORKERS` still wins and needs no CPU count. Nothing to do for apps.
+  -->
+- 34cf35e: The file routes honour the read access of the field a file is attached to, and field read rules the framework cannot enforce fail at boot.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: A file in a read-restricted field stays closed to readers of the record without access to the field
+  detail: The default file guard let everyone who may read a record download its attached files, even when the field holding the file has an `access.read` rule the caller does not pass. When a file field of the entity (or one of its embedded file sub-fields) declares a read rule, the record's detail query must now return the file in one of its file fields for the caller; the query strips unreadable fields, so the same rule decides for the field and its file. The field that holds the file decides, also after a save moved it between the record's fields. A save may move a file id from another file field (or embedded file sub-field) of the record only for a writer who may read that source field; otherwise the save fails with a validation error on the target field, so a writer cannot lift a file out of a field closed to them. This also holds for a privileged role that may download the file but does not pass the source field's rule, between rows of a list field whose file sub-field has its own read rule (list rows have no stable id, so a file the writer cannot read keeps its row index; reordering the rows, or inserting or deleting a row before it, leaves it at that index, and a save that shortens the list past it is refused), and for an upload bound to the record for a restricted field that no field holds yet (unless the writer uploaded it). `file_refs` records only the top-level field, so an upload bound to an embedded field whose file sub-field has its own read rule may be named only by its uploader, in any field, and a system save that did not upload it is refused as well. Rewriting the column a row's read rule points at follows that column's write rule, as on a top-level field. Keeping a file in its own field is unchanged. This covers `GET /files/:id`, `/files/:id/meta`, `/files/meta`, `/files/:id/download-url`, `/files/:id/variant/:name` and `canCallerReadFileRef`. Uploaders and privileged roles (`TenantAdmin`, `Admin`, `SystemAdmin` by default) keep their access; on a `record-only` entity type the field rule applies to privileged roles too. Files of fields without a read rule, uploads without a target field and custom `accessGuard`s behave as before.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Field read rules the framework cannot enforce fail at boot
+  detail: An entity carried by a projection (`r.projection({ entity })`) accepted `access.read`, `writeOnly` and `access.read` on embedded sub-fields, but its queries are hand-written and the framework only strips fields of `r.entity` entities, so every reader of the row saw the field and the file guard released its files. Such a field now fails at boot (`projection/entity-field-read-rule`), on every entity a projection carries other than the `r.entity` of its own source (array source, a separate entity over an `r.entity` stream, a read model), also in `setupTestStack`. A separate entity that reuses the source entity's `fields` object under another name or table counts as separate. The entity-level `access.read` of a read model is unchanged. The cross-tenant file read asks only whether the declared query returns the record, so an entity with `crossTenantFileRead` and a file field (or embedded file sub-field) with an `access.read` rule fails at boot (`files/cross-tenant-read-restricted-file-field`); fields added by a registrar extension through `extendSchema` count, checked when the registry is built. `crossTenantFileRead` on a read-model entity, which the file routes already honour, is validated at boot with the same rules as on an entity (reason, registered query, no read-restricted file field); on a projection entity the file routes never look up (array source, or a source stream that an `r.entity` of the app registers) it fails at boot (`files/cross-tenant-read-unseen-projection-entity`) instead of being ignored. A field that a registrar extension adds through `extendSchema` with `access.read` or `writeOnly` now counts for the registry check too, so a query handler of that feature that is not bound to an entity must declare `resultEntity` or `unfilteredResult`, as for the entity's own fields.
+  migration: For `projection/entity-field-read-rule`, drop the field's `access.read` or `writeOnly` on the read-model entity and restrict the read model's query access instead, or keep the field on an `r.entity`. For `files/cross-tenant-read-restricted-file-field`, drop the file field's `access.read` or the entity's `crossTenantFileRead`. For `files/cross-tenant-read-unseen-projection-entity`, move `crossTenantFileRead` to the `r.entity` of the source stream. For the `resultEntity` error, add `resultEntity` (or `unfilteredResult` with a reason) to the query handler the error names.
+  affects: r.projection, crossTenantFileRead, extendSchema, resultEntity
+  -->
+- 34cf35e: The unused entity cache is removed.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Entity cache removed
+  detail: `createEntityCache`, `EntityCacheOptions`, the `EntityCache` type with its `@cosmicdrift/kumiko-types/entity-cache` subpath, `ctx.services.entityCache`, `AppContext.entityCache` and the `entityCache` option of `createEventStoreExecutor` are removed. No handler, executor or app passed the cache to an executor, so `detail`, `list` and the write verbs never used it in production, and a cache hit would still have needed the ownership and stream-version probe on the database. `runProdApp`, the worker boot and the test stack no longer build it, and nothing writes the Redis prefix `kumiko:cache:` any more.
+  migration: Remove `entityCache` from hand-built `AppContext` objects and from `createEventStoreExecutor` options. Code that read `ctx.services.entityCache` reads the row through the executor or a query handler.
+  affects: entityCache, EntityCache, kumiko-types/entity-cache, kumiko:cache:
+  -->
+- 34cf35e: `expectRoleRestrictedHandlersDenyForeignRole` expects 404 not_found from dispatchOnly write handlers.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: Access contract accepts dispatchOnly handlers
+  detail: A write handler with `dispatchOnly: true` is not reachable over HTTP, so the HTTP entry answers it with the 404 not_found of an unknown handler before any role check. `expectRoleRestrictedHandlersDenyForeignRole` from `@cosmicdrift/kumiko-testing/helpers` now requires exactly that 404 not_found for role-restricted dispatchOnly handlers and still requires 403 access_denied from every other role-restricted handler. A dispatchOnly handler that answers over HTTP anyway, or a regular handler that answers 404, is reported as a deviation.
+  -->
+- 34cf35e: `TEST_TIMEOUT_MS.dom` is 5000 ms, and the scaffolded `test:dom` script reads it.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: One DOM test budget of 5 s
+  detail: DOM tests (`*.test.tsx`) had three budgets: 5 s in the framework's own `test:dom`, 15 s in `TEST_TIMEOUT_MS.dom` and in the local check pipeline, and the unit constant in the scaffolded `test:dom` script. `TEST_TIMEOUT_MS.dom` is now 5000 and the scaffold reads `TEST_TIMEOUT_MS.dom`, so a DOM test gets the same budget in the scaffold, the check pipeline and CI. The scaffold output does not change, because the unit budget is 5000 too.
+  migration: Apps whose `test:dom` script passes `--timeout=15000` switch to `--timeout=5000` and speed up DOM tests that need longer instead of raising the budget.
+  -->
+- 34cf35e: `waitForWrite` waits for one write type in e2e tests, and `defineAppE2eConfig` passes the local MinIO as `S3_*` to the app server.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: waitForWrite and S3 env for e2e app servers
+  detail: `@cosmicdrift/kumiko-testing/e2e` exports `waitForWrite(page, writeType)`, which resolves with the `/api/write` response of that write type and fails with the response body when the status is 400 or higher, so a rejected write fails at the save instead of at a later visibility timeout. `defineAppE2eConfig` now also passes `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_REGION` and `S3_FORCE_PATH_STYLE=true` to the web server, derived from the resolved `MINIO_*` values with the same precedence (shell, then the app's `.env`, then the local default). The file provider is still chosen by `FILE_STORAGE_PROVIDER`. `managed-pages` exports `PAGE_UPDATE_HANDLER` for e2e tests.
+  migration: Apps that mapped `MINIO_*` to `S3_*` in their `playwright.config.ts` remove that mapping and keep only `FILE_STORAGE_PROVIDER`. Local copies of `waitForWrite` switch to the export.
+  -->
+- 34cf35e: `meiliAvailable()` and `liveMeiliConnection()` in `@cosmicdrift/kumiko-testing/helpers` replace the local Meilisearch probes in live search tests.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: One Meilisearch availability check for live tests
+  detail: Seven integration test files each had their own `/health` probe, and one of them skipped its live tests silently even when the CI job set `REQUIRE_MEILI=1`. `meiliAvailable()` probes `MEILI_URL` (default from the local service defaults), returns false when Meilisearch is down so the suite can `describe.skipIf`, and throws when `REQUIRE_MEILI=1` is set. `liveMeiliConnection()` returns the URL and master key the tests connect with.
+  -->
+- 34cf35e: `@cosmicdrift/kumiko-testing/helpers` exports `fakePooledClientFailingWith` for closed-connection retry tests.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: Typed fake pooled client for closed-connection retry tests
+  detail: `fakePooledClientFailingWith(failures, row)` returns a `FakePooledClient`, a `RawDbClient` with `options.max` 1 that throws the given errors on its first reads and then answers `[row]`. It records every read in `calls` (`sql`, `params`). Pair it with `captureClosedConnectionError()` to prove that a query helper built on `unsafeReadRetrying` retries. The framework's event-store and projection-rebuild tests and the custom-fields and form-draft tests use it instead of local copies with `as never` casts.
+  migration: Local fake clients in app retry tests can switch to `fakePooledClientFailingWith`; `calls` is an array, so `calls` counters become `toHaveLength`.
+  -->
+- cdbf386: Query handlers accept `dispatchOnly: true`: server code still dispatches them, the HTTP entry answers 404.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: dispatchOnly query handlers
+  detail: `r.queryHandler`, `defineQueryHandler` and `definePagedQueryHandler` take `dispatchOnly?: boolean`, with the same meaning as on write handlers. POST /api/query and the xlsx screen export answer a dispatch-only query with the 404 of an unknown handler; `ctx.dispatch.query` and `queryAs`, jobs and server routes still run it with the calling user. Such a query is never an agent tool (also not as a registry-derived list/get tool), grants no `/api/sse` live signals, and boot rejects it together with `agent.expose: true`. Boot also rejects every query reference the browser loads when it names a dispatch-only query (rule `query/dispatch-only-on-screen`): the query of a screen or dashboard panel, an `optionsQuery` on a form, config-key or reference field, the list query of a reference field or reference facet target, a select `optionsAvailabilityQuery` and a `table.summaryRow` query. `/api/schema` leaves it out of the live entities. `dispatchOnly` closes the HTTP entry only: its access rule still counts as a read grant on the entity for linked lists (parentRef rows) and derived values. The API docs for personal access tokens leave out dispatch-only queries and writes, since a token can never call them. `expectRoleRestrictedHandlersDenyForeignRole` expects 404 `not_found` for a dispatch-only query.
+  migration: A query that only a server flow may run (for example one that returns decrypted personal data after the flow checked a token) declares `dispatchOnly: true`. Clients that call it over /api/query get 404 afterwards.
+  -->
+- 34cf35e: The e2e teardown also drops Meilisearch indexes of earlier runs that are older than a day.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: e2e teardown sweeps Meilisearch indexes of killed runs
+  detail: Besides the indexes of its own run, the global teardown of `defineAppE2eConfig` now drops every index whose uid starts with `e2e_` and whose `createdAt` is more than 24 hours old, across all pages of the index listing. Indexes of aborted runs, of configs that replaced `globalTeardown` and of indexes created while a teardown was running no longer pile up; the next teardown a day later removes them. Younger `e2e_` indexes stay, so parallel runs keep theirs, and indexes without the `e2e_` prefix are never touched. A failed delete of an old index is written to stderr and does not fail the run.
+  -->
+- 34cf35e: A fresh demo app passes `kumiko check` again: its run-config test asserts the task handlers by name, and template-resolver labels the fields of `create-variant`.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: Fresh apps pass the weak-assertions guard and the agent lint
+  detail: The demo starter's `src/__tests__/run-config.test.ts` checked the task handlers only with `toBeDefined()`, so the `weak-assertions` guard failed a new app that has no baseline yet. It now asserts that the registered write and query handler names contain the task handlers. template-resolver's `create-variant` handler had no field labels, which made `kumiko agent lint` fail in every app that mounts template-resolver; it now ships labels in en, de and es.
+  -->
+- 34cf35e: `defineProdBootE2eConfig` boots the built `dist-server/server.js` against a database migrated by `dist-server/kumiko.js schema apply`, and `expectProdBootSecure` checks CSP, security headers and `/health` on it.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: Prod-boot e2e on the built server bundle
+  detail: `defineProdBootE2eConfig({ port, env?, serverEntry?, cliEntry?, testDir? })` returns a Playwright config with one webServer: it recreates the empty database `kumiko_prod_boot_<port>`, runs the built CLI's `schema apply` like the migrate initContainer, then imports the built server with `NODE_ENV=production`. Throwaway `PLATFORM_KEK`, `KUMIKO_BLIND_INDEX_KEY` and `SMTP_HOST` values are set unless the app env names them; `SUBJECT_KEYS_DATABASE_URL` defaults to the fresh database. `expectProdBootSecure(page)` asserts status 200, a `content-security-policy` header, `x-content-type-options: nosniff` and no CSP violation on `/`, and status 200 on `/health`.
+  migration: Add `playwright.prod-boot.config.ts` with `defineProdBootE2eConfig` and the app's port from `samples/e2e/e2e-ports.ts`, add one spec in `e2e-prod-boot/` that calls `expectProdBootSecure(page)`, and run that config after the app build.
+  -->
+- 34cf35e: Executor writes run the app's custom projections on every TenantDb built over an app connection, including multi-stream projection applies, raw transactions and forget hooks.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: App connections carry their projection registry
+  detail: The prod boot, the worker boot and `setupTestStack` bind both database pools to the app registry with the new `bindAppProjectionRegistry(connection, registry)` from `@cosmicdrift/kumiko-framework/db`. Every transaction, savepoint and reserved connection derived from them inherits it, so `createTenantDb({ db: tx, ... })` inside a multi-stream projection apply or a raw `transaction()` runs the custom projections of an executor write, as the dispatcher's own TenantDb already did. User-data delete and export hooks get a TenantDb with the registry, so `executor.forget(id, user, ctx.db)` in a forget hook also clears child projections for the `<entity>.forgotten` event. Binding a connection to a second, different registry throws. Connections that are never bound (CLI tools, a bare `createTestDb`) keep skipping custom projections.
+  migration: Remove manual `runProjectionsForEvent(...)` calls that follow an executor write (create, update, delete, forget) on a TenantDb built over an app connection, together with the `unsafeRaw()` grant and escape hatch they needed; the executor has already projected that event object, so the manual call is a no-op. Raw `append(...)` plus `runProjectionsForEvent` stays as it is.
+  affects: runProjectionsForEvent
+  -->
+- 34cf35e: The free query helpers (`selectMany`, `fetchOne`, `insertOne`, `insertMany`, `updateMany`, `upsertOnConflict`, `upsertByPk`, `insertOnConflictDoNothing`, `incrementCounter`, `assertExistsIn`) check their table and db arguments and no longer return `any` rows.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Free query helpers are typed
+  detail: `TableLike` was `EntityTableMeta | any`, `AnyDb` was `DbRunner | unknown` and rows defaulted to `any`, so the type check was off for every free query call. `TableLike` is now `SchemaTable | EntityTableMeta`, `AnyDb` is `DbRunner | TenantDb`, and the default row is `Record<string, unknown>`. `selectMany` and `fetchOne` derive the row from a table built from an entity, like the TenantDb methods already do. `read.findOne` and `read.findMany` steps take a typed table, and the test stack exposes `db` as `DbConnection`.
+  migration: Type errors show every affected call. A call on a table built from an entity needs no change, its row is derived. On a hand-built table pass the row type, `selectMany<{ readonly jobName: string }>(db, table, where)`, or read a single field as `row["jobName"]`. Type `db` parameters of your own helpers as `DbConnection`, `DbRunner` or `TenantDb` instead of `unknown`. Take row lists as `readonly Row[]`.
+  affects: selectMany(, fetchOne(, insertOne(, insertMany(, updateMany(, upsertOnConflict(, upsertByPk(, insertOnConflictDoNothing(, incrementCounter(, assertExistsIn(, TableLike, AnyDb
+  -->
+- 34cf35e: `*.build.integration.test.ts` is its own test class, run by `kumiko-testing integration --build`.
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: Build tests get their own class and budget
+  detail: Integration tests that run bun install, a build or a Docker image in a subprocess move to `*.build.integration.test.ts`. `kumiko-testing integration` skips them, `kumiko-testing integration --build` runs only them with `TEST_TIMEOUT_MS.build` (180 s), and `test:build` is a known app script. Apps run them in their own CI job instead of the normal integration lane, so a registry stall no longer slows every pull request.
+  -->
+- 34cf35e: The test stack aligns the kumiko_app role once per process instead of once per test database.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: Application role is aligned once per process
+  detail: createTestDb and the template build ran ALTER ROLE on kumiko_app for every test database. Parallel workers raced on it ("tuple concurrently updated") and every lost race wrote the statement to the Postgres server log. The role is now created or realigned once per process and database server.
+  -->
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [cdbf386]
+- Updated dependencies [cdbf386]
+- Updated dependencies [cdbf386]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [f144056]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [4bc40f3]
+- Updated dependencies [6f043fa]
+- Updated dependencies [a44b984]
+- Updated dependencies [007d227]
+- Updated dependencies [a44b984]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [34cf35e]
+- Updated dependencies [3f3bb46]
+  - @cosmicdrift/kumiko-guards@0.425.0
+  - @cosmicdrift/kumiko-framework@0.425.0
+  - @cosmicdrift/kumiko-types@0.425.0
+
 ## 0.424.1
 
 ### Patch Changes

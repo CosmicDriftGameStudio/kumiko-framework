@@ -2,68 +2,57 @@
   {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Public handlers declare only the anonymous role",
-    "detail": "Handlers declaring access.anySignedIn next to the anonymous role list only anonymous in roles (the dropped signed-in roles never had an effect); the SUBMIT_ROLES constant of waitlist is removed."
+    "title": "Public handlers declare only the anonymous role"
   },
   {
     "version": "0.411.0",
     "type": "improvement",
-    "title": "waitlist/static-submit, a DOM-free waitlist sign-up client",
-    "detail": "`@cosmicdrift/kumiko-bundled-features/waitlist/static-submit` exports `submitToWaitlist(submission)` for plain Astro scripts: fetch plus pure logic, no renderer, React or `window` at import time. It posts `waitlist:write:submit` same-origin with name, email, optional company, portfolio and message, the page locale (also sent as `X-Locale`) and the honeypot field `website`. Blank optional fields are dropped. The result is a discriminated union `{ kind: \"success\"; data } | { kind: \"failure\"; reason; message?; retryAfterSeconds? }`; a network error is the reason `network`, a 429 is `rate_limited`."
+    "title": "waitlist/static-submit, a DOM-free waitlist sign-up client"
   },
   {
     "version": "0.410.0",
     "type": "fix",
-    "title": "Signed-in visitors can join the waitlist whatever their roles",
-    "detail": "`waitlist:write:submit` used to answer 403 when the browser sent the session cookie of a user without one of the listed roles. It now admits every signed-in caller through `anySignedIn`."
+    "title": "Signed-in visitors can join the waitlist whatever their roles"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "A failing notifyRecipient SQL statement no longer aborts the submit",
-    "detail": "The resolver receives a ctx whose systemDb runs in a savepoint, so a failed statement is rolled back and the submit answers 200 with the entry stored. Only ctx.systemDb is savepoint-scoped; other ctx handles stay in the handler transaction."
+    "title": "A failing notifyRecipient SQL statement no longer aborts the submit"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "waitlist purge retry after a failed shred is covered",
-    "detail": "An integration test fails the second key shred of a purge, checks that the entries stay and no audit event is written, and that the retried purge erases every entry and records its audit event. No runtime change."
+    "title": "waitlist purge retry after a failed shred is covered"
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "Waitlist import enforces the live field limits",
-    "detail": "migrateLegacyWaitlist counts a source row with a value above the live field limit as unreadable instead of importing it; importWaitlistEntry throws for it."
+    "title": "Waitlist import enforces the live field limits"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Link-on-signup failures, legacy re-run and purge audit order",
-    "detail": "link-on-signup throws when the entry update fails and the entry is still invited, so the consumer redelivers. The offlot legacy migration skips rows that are already imports. purge writes its audit event before shredding keys."
+    "title": "Link-on-signup failures, legacy re-run and purge audit order"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Admin notice language comes from adminLocale",
-    "detail": "The admin notice mail used the request locale, which is the entrant's browser language. The new adminLocale option (en, de or es, default en) sets the operator's language."
+    "title": "Admin notice language comes from adminLocale"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Legacy migration dry run counts the streams it would archive",
-    "detail": "The dry run now runs the read-only archive checks and reports archivedStreams without writing; the CLI prints \"would archive\" for it."
+    "title": "Legacy migration dry run counts the streams it would archive"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "Spanish admin notice for new waitlist entries",
-    "detail": "The operator notice \"new entry on the waitlist\" now exists in Spanish, like the entrant's confirmation. It follows the locale of the request that created the entry and falls back to English."
+    "title": "Spanish admin notice for new waitlist entries"
   },
   {
     "version": "0.377.0",
     "type": "fix",
-    "title": "migrateLegacyWaitlist no longer replays legacy events on rebuild",
-    "detail": "The legacy event stream of each migrated row is archived, so a projection rebuild does not resurrect the old id next to the imported entry. The report gains archivedStreams."
+    "title": "migrateLegacyWaitlist no longer replays legacy events on rebuild"
   },
   {
     "version": "0.370.0",
@@ -75,20 +64,17 @@
   {
     "version": "0.365.0",
     "type": "improvement",
-    "title": "Waitlist mails carry designer labels",
-    "detail": "Feature and notify labels for confirmation and admin-notice name the waitlist mails in the document designer."
+    "title": "Waitlist mails carry designer labels"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Waitlist invite no longer double-invites, uses the entry locale and refuses members",
-    "detail": "Two parallel invite calls for one entry now queue on a per-entry advisory lock, so exactly one tenant and one invitation are created. The invitation mail is rendered in the entry's locale instead of the caller's. Inviting an email that already is a member of the target tenant fails with 422 waitlist_not_invitable, as reject already did."
+    "title": "Waitlist invite no longer double-invites, uses the entry locale and refuses members"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Waitlist submit honors emailRateLimits: [], resolves notifyRecipient before the advisory lock and checks only open entries",
-    "detail": "createWaitlistFeature({ emailRateLimits: [] }) no longer fails boot validation; the per-email bucket is dropped as documented. notifyRecipient runs before the per-email advisory lock and the entry insert, so a failing resolver can no longer abort the submit transaction or hold the lock; a throwing resolver only skips the admin notice. The duplicate check queries status pending or invited with limit 1 instead of scanning the first 50 rows of the address. The feature description now states that the response body is identical for known and unknown addresses while response timing can differ."
+    "title": "Waitlist submit honors emailRateLimits: [], resolves notifyRecipient before the advisory lock and checks only open entries"
   },
   {
     "version": "0.363.0",
@@ -100,8 +86,7 @@
   {
     "version": "0.342.0",
     "type": "improvement",
-    "title": "Waitlist notifyRecipient may return a promise",
-    "detail": "Waitlist `notifyRecipient` may return a promise, so apps can read the admin address from config"
+    "title": "Waitlist notifyRecipient may return a promise"
   },
   {
     "version": "0.341.0",

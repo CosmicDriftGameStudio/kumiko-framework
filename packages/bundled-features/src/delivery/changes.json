@@ -1,76 +1,121 @@
 [
   {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "Fewer database round trips when notifying many recipients"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Failed job dispatch no longer leaves a delivery attempt queued"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Delivery log no longer accepts old cursors",
+    "detail": "`delivery:query:log` answers 400 for a cursor that carries no sort value instead of paging from it. The delivery-log projection still masks recipient addresses of attempt events written before write-time masking when it is rebuilt. Queued notifications are delivered by one sealed `delivery.send` job; jobs queued by earlier versions (`delivery.render`, and `delivery.send` with `address`/`sealedAddress`) are still processed so a deploy does not fail them.",
+    "migration": "Clients holding an old cursor reload the first page."
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Queued delivery renders inside the send job and seals the message content",
+    "detail": "Queued channels (email, push, chat) no longer pass through a separate `delivery.render` job. `delivery.send` renders and sends in one step, so neither rendered HTML nor the plaintext title, body and data sit in Redis or the job-run table. With a master key the job payload carries a single `sealedContent` field (recipient address plus message) bound to its purpose and tenant; without one it carries `content` in plaintext. `DeliveryJobs.render` is removed. A send retry renders again.",
+    "migration": "Remove references to `DeliveryJobs.render` or the `delivery:job:render` job name. The queue does not need to be drained: the new worker still parses `delivery.send` jobs with the old `address`/`sealedAddress` payload and keeps processing queued `delivery.render` jobs. The other direction fails: a job with `sealedContent` that a 0.424 worker picks up does not parse and lands in the failed set after its attempts. Roll out the worker before the web process, and after the rollout retry the `delivery.send` runs that failed during the deploy window in the jobs screen.",
+    "affects": [
+      "kumiko-bundled-features/delivery",
+      "createDeliveryFeature",
+      "DeliveryJobs",
+      "delivery:job:render"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Unsubscribe links in older mails keep working"
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "delivery-log nav takes an adminArea option"
+  },
+  {
+    "version": "0.425.0",
+    "type": "fix",
+    "title": "Delivery preference, opt-out, log and unsubscribe handlers read through a tenant-filtered db"
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "No plaintext addresses in delivery jobs",
+    "detail": "createDeliveryService dispatches a send job for a queued channel only when it has an addressCipher, and the job payload always carries sealedContent. Without a cipher (no master key) the channel renders and sends inline, so recipient addresses and message content never reach Redis or the job-run store in plaintext. sealJobContent requires the cipher. Jobs already queued with plain content are still sent.",
+    "migration": "Set KUMIKO_SECRETS_MASTER_KEY_V1 on web and worker so mail and other queued channels keep going through the queue. Tests that build a delivery service with a job dispatcher pass addressCipher (createTestEnvelopeCipher) and configEncryption in the job context.",
+    "affects": [
+      "sealJobContent",
+      "createDeliveryService",
+      "addressCipher"
+    ]
+  },
+  {
     "version": "0.415.0",
     "type": "fix",
-    "title": "opted-in-user-ids refuses the wildcard type and resolves former names",
-    "detail": "A notificationType of \"*\" is rejected by the schema so wildcard rows never count as opt-in, and a former notification name resolves to the current type instead of returning an empty list."
+    "title": "opted-in-user-ids refuses the wildcard type and resolves former names"
   },
   {
     "version": "0.414.0",
     "type": "improvement",
-    "title": "New job-only query opted-in-user-ids",
-    "detail": "The new query `delivery:query:opted-in-user-ids` (`{ notificationType, channel }`, answers `{ userIds }`) is open to system users only and lists, sorted and unique, the users of the caller's tenant whose preference row for exactly that notification type and channel is enabled. A job that sends an opt-in notification such as a daily digest uses it to address only the members who ordered it. Rows stored under a former name (`renamedFrom`) count under the current name; an exact row wins over a former-name row, as in `delivery:query:preferences`, and \"*\" wildcard rows never count as opt-in."
+    "title": "New job-only query opted-in-user-ids"
   },
   {
     "version": "0.409.0",
     "type": "improvement",
     "title": "Delivery attempts remember the notify idempotencyKey; new attempts-by-keys query",
-    "detail": "`store_delivery_attempts` gets a nullable text column `idempotency_key` plus the non-unique index `(tenant_id, idempotency_key)`. Every attempt a `ctx.notify` call logs carries the call's `idempotencyKey` (the first event of an attempt stores it; later sent/failed events keep the row's value). The new SystemAdmin query `delivery:query:attempts-by-keys` (`{ keys: string[] }`, 1 to 50) returns channel, status, error code, time and recipient id of those attempts across tenants, never an address. Attempts logged before this version keep `idempotency_key = null`.",
     "migration": "Run `kumiko schema generate`. It adds the nullable column `idempotency_key` to `store_delivery_attempts` and the index `store_delivery_attempts_tenant_id_idempotency_key_idx`. No backfill is needed; do not write the column with SQL. Every app that mounts delivery needs this migration when it bumps."
   },
   {
     "version": "0.389.0",
     "type": "fix",
-    "title": "Unsubscribe link origin is looked up once per notify call",
-    "detail": "The tenantOrigin callback runs once per tenant for a notify call with many recipients, and a fallback warning is logged once. A callback that hangs is still not guarded by a timeout, so keep it fast."
+    "title": "Unsubscribe link origin is looked up once per notify call"
   },
   {
     "version": "0.389.0",
     "type": "improvement",
-    "title": "buildSystemChannelContext for system tenant mails outside a handler",
-    "detail": "buildSystemChannelContext(deps, { config, secrets }) returns a ChannelContext for the system tenant whose readAttachment reads file and inline attachments. SystemWireDeps (wire hook and runWorkerApp wireComponents) has a new required filesForTenant that deps can pass straight in."
+    "title": "buildSystemChannelContext for system tenant mails outside a handler"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Preferences query reports renamed notification types under the current name",
-    "detail": "Rows stored under a former notification name are returned with the current name and collapsed per channel with the delivery precedence (current-name row wins, otherwise any disabled row disables), so settings screens show the effective state."
+    "title": "Preferences query reports renamed notification types under the current name"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Inline mail image retries on transient storage errors",
-    "detail": "Only a missing file storage for the file's tenant sends the mail without the inline image; any other read error (timeout, provider failure, DB) is rethrown so the send job retries instead of mailing without the logo."
+    "title": "Inline mail image retries on transient storage errors"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Unsubscribe tenant origin resolved once per notify call",
-    "detail": "The app's tenantOrigin callback runs once per notify call and tenant instead of once per recipient and channel, so a newsletter no longer causes one lookup and one fallback warning per address. The docs state the callback must only return verified, active domains."
+    "title": "Unsubscribe tenant origin resolved once per notify call"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "One-click unsubscribe POST keeps the JSON rejection",
-    "detail": "RFC 8058 one-click POSTs (form body List-Unsubscribe=One-Click) answer an invalid or expired token with the JSON 400 again and skip the branding lookup; only browser form submits get the HTML page."
+    "title": "One-click unsubscribe POST keeps the JSON rejection"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "Resubscribe limit page has its own text",
-    "detail": "A browser that hits the resubscribe limit sees that the address cannot be subscribed again here, instead of the generic \"try again later\" error (new key mail.unsubscribe.resubscribeLimitReached in en, de, es, fr, it)."
+    "title": "Resubscribe limit page has its own text"
   },
   {
     "version": "0.383.0",
     "type": "fix",
-    "title": "delivery-log projection masks the recipient address",
-    "detail": "The inline projection now masks the address with the same helper as the write path, also on rebuild, so legacy events with a full address no longer reach the attempt log. Already masked addresses and connection-name channels stay unchanged. Swallowed errors in the snapshot save, queue-depth poll and channel pre-resolve now log a scrubbed warning."
+    "title": "delivery-log projection masks the recipient address"
   },
   {
     "version": "0.379.0",
     "type": "improvement",
-    "title": "Package ships its event-store table catalog",
-    "detail": "kumiko-es-tables.json is included in the published files; no runtime change."
+    "title": "Package ships its event-store table catalog"
   },
   {
     "version": "0.372.0",
@@ -82,75 +127,63 @@
   {
     "version": "0.372.0",
     "type": "improvement",
-    "title": "createUnsubscribePageChromeReader gives app routes the tenant branding for unsubscribe pages",
-    "detail": "The JSDoc of renderUnsubscribeResultPage pointed to a chrome read that only works for SystemAdmin, so app routes for legacy unsubscribe links rendered without branding. The new `createUnsubscribePageChromeReader({ dispatchSystemQuery })` returns `(tenantId, locale) => MailChrome | null`, failing soft to null. Build it once in the `wire` hook, whose deps now also carry `dispatchSystemQuery` (runProdApp, runWorkerApp.wireComponents, createKumikoServer), and call it with a tenant the route resolved itself, for example from the Host, never with a tenantId from the query string or body. The chrome query itself stays SystemAdmin-only; anonymous `/api/query` callers are still rejected for every tenant."
+    "title": "createUnsubscribePageChromeReader gives app routes the tenant branding for unsubscribe pages"
   },
   {
     "version": "0.371.0",
     "type": "improvement",
     "title": "Unsubscribe endpoint answers form posts with an HTML page",
-    "detail": "POST on the delivery unsubscribe route returns an HTML confirmation page for a form post and JSON for a bare POST. The behavior is unchanged; this only documents it.",
     "migration": "Clients that post the unsubscribe form expect HTML, API clients that post without a form content type expect JSON. No code change is needed."
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "Unsubscribe confirmation, result and link-invalid pages look like the tenant's mails",
-    "detail": "The pages behind a mail's unsubscribe link now show the tenant's brand row (logo from managed-pages branding or the initial tile, name, brand suffix), the accent color, the site band and the mail footer (footer text, imprint, privacy) in a centered card with the bundled IBM Plex Sans font served same-origin, no external font CDN. Every state (confirm, unsubscribed with undo, subscribed again, failed, link invalid or expired) is translated in en, de and es and fits 375 px. The page answers with its own CSP (default-src 'none', the style block by sha256 hash, font-src 'self', img-src 'self' data: plus the logo's https origin, form-action 'self'). A browser GET or form POST with an invalid or expired token now gets a 400 HTML page instead of JSON (expired tokens keep the tenant's look and the mail's language, forged ones get the plain page in the Accept-Language language); JSON and one-click requests answer as before. Mail renderers can implement the new optional RendererPlugin.readMailChrome (renderer-mail-html does) which the system-only query delivery:query:unsubscribePageChrome reads. renderUnsubscribeResultPage takes an optional chrome and the new kind \"invalid\" for an app's own dead links; apps with their own CSP need style-src 'unsafe-inline' and the logo origin for it."
+    "title": "Unsubscribe confirmation, result and link-invalid pages look like the tenant's mails"
   },
   {
     "version": "0.369.0",
     "type": "improvement",
-    "title": "Unsubscribe links in dev and a reusable result page",
-    "detail": "runDevApp accepts unsubscribe: { secret, tenantOrigin? } like runProdApp, mounts the unsubscribe routes and signs the links (base URL from auth.mail.baseUrl or APP_BASE_URL). Both share resolveUnsubscribeWiring from server-runtime. delivery exports renderUnsubscribeResultPage({ kind: \"unsubscribed\" | \"resubscribed\" | \"failed\", locale, resubscribeToken? }), the page the unsubscribe routes answer with, for apps that serve their own (e.g. legacy) unsubscribe links; without a resubscribeToken it offers no undo button."
+    "title": "Unsubscribe links in dev and a reusable result page"
   },
   {
     "version": "0.367.0",
     "type": "improvement",
-    "title": "Delivery signs unsubscribe links itself",
-    "detail": "r.notification(name, { unsubscribe: true }) makes delivery put a signed data.unsubscribeUrl into every email of that notification when the service has unsubscribeLinks. User recipients get a user token, route recipients an address token (only with a blind-index key, otherwise no link). The token is scoped to tenant, notification and channel; a link the caller passes in data.unsubscribeUrl wins. runProdApp option unsubscribe: { secret } mounts createUnsubscribeRoutes and wires the links; the base URL comes from auth.publicOrigin, auth.mail.baseUrl or APP_BASE_URL, and without one boot warns and no link is added."
+    "title": "Delivery signs unsubscribe links itself"
   },
   {
     "version": "0.367.0",
     "type": "improvement",
-    "title": "Unsubscribe links use the tenant's host and the mail's language, apps learn about address opt-outs",
-    "detail": "unsubscribeLinks and the runProdApp option unsubscribe take tenantOrigin, an app callback that returns the sending tenant's own origin (subdomain or custom domain) per send; null, a throw or a non-https value fall back to the app origin and never fail the send. The signed token now carries the mail's locale (notify option locale), so the confirmation, result and undo pages render in that language; tokens without it keep working and show English. A form post to the resubscribe route now answers with an HTML page, JSON callers are unchanged. After a committed address opt-out an app job declared with trigger on DeliveryHandlers.unsubscribeAddress receives addressHash, notificationType and channel (unsubscribeAddressPayloadSchema) with the tenant in ctx.triggeredBy.tenantId; hashUnsubscribeAddress(email) matches it to the app's own subscriber. UNSUBSCRIBE_PAGE_EN exports the English page texts, German and Spanish come with the locale packages."
+    "title": "Unsubscribe links use the tenant's host and the mail's language, apps learn about address opt-outs"
   },
   {
     "version": "0.366.0",
     "type": "improvement",
-    "title": "Renaming a notification type keeps user preferences and address opt-outs",
-    "detail": "r.notification accepts renamedFrom, a list of former qualified names. Preferences and address opt-outs stored under a former name keep applying to the renamed notification, and a stored choice under the current name wins over one under a former name. New writes via setPreference and the unsubscribe and resubscribe handlers are stored under the current name, resubscribeAddress also lifts opt-outs under former names. Boot fails if an alias is a current notification name, is the wildcard, or is claimed by two notifications."
+    "title": "Renaming a notification type keeps user preferences and address opt-outs"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Rendered-PDF attachment variables must be JSON-serializable",
-    "detail": "BigInt values or cycles in rendered-pdf variables now fail validation instead of throwing a TypeError that a retrying job hits again."
+    "title": "Rendered-PDF attachment variables must be JSON-serializable"
   },
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Delivery checks opt-outs for addresses resolved on the retry path and logs idempotency release failures",
-    "detail": "The kill switch, preference and rate-limit result per recipient channel is computed once in the prefetch and reused when delivering; the rate limit now runs before the address is resolved. When the prefetch resolve failed and the address is resolved again, the suppression list is reloaded for exactly that address, so an unsubscribed address no longer receives the mail. A failing idempotency-key release is logged and swallowed instead of masking the delivery outcome."
+    "title": "Delivery checks opt-outs for addresses resolved on the retry path and logs idempotency release failures"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "A failed final delivery attempt frees the idempotency key",
-    "detail": "A soft send failure and any error thrown on the final render or send attempt release the idempotency key, so the caller's retry is not dropped as a duplicate."
+    "title": "A failed final delivery attempt frees the idempotency key"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "A mail without a readable inline image is sent without it",
-    "detail": "An inline image whose bytes could not be read (for example a system template logo while the job context has no provider resolver) failed the whole mail send. The attachment reader now logs a warning with the fileRef id and skips the image."
+    "title": "A mail without a readable inline image is sent without it"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "Delivery exports the envelope-key filter for mail variables",
-    "detail": "withoutDeliveryEnvelopeKeys strips reserved delivery keys from template variables."
+    "title": "Delivery exports the envelope-key filter for mail variables"
   },
   {
     "version": "0.363.0",
@@ -162,32 +195,27 @@
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "ChannelContext.renderMail renders template notifications for the email channel",
-    "detail": "A notification that declares a template is rendered through the mail renderer plugin with the recipient locale and the notification variables; the email channel fails when renderMail is missing instead of falling back to the legacy renderer. The job path passes the tenant config accessor to the renderer, the inline path renders without one."
+    "title": "ChannelContext.renderMail renders template notifications for the email channel"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "Mails can attach a PDF that is rendered from a document template when the mail is sent",
-    "detail": "notify data.attachments accepts { kind: \"rendered-pdf\", templateSlug, variables, fileName, locale? }. The send job renders the PDF through the document-pdf renderer, so the job payload carries the variables (at most 64000 bytes as JSON), not the bytes. Variables are stored in the job payload, so keep personal data out of them or accept that retention."
+    "title": "Mails can attach a PDF that is rendered from a document template when the mail is sent"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "ChannelContext.readAttachment takes an attachment origin",
-    "detail": "readAttachment(ref, origin) with origin \"template\" (from the renderer) or \"message\" (default, from notify data). Only template attachments may fall back to the system tenant; file refs from notify data stay limited to the sending tenant."
+    "title": "ChannelContext.readAttachment takes an attachment origin"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "EMAIL_CHANNEL_NAME, createTemplateMailRenderer and createEmailAttachmentReader are exported",
-    "detail": "The email channel name is a shared constant instead of a string literal. The mail renderer and the inline-attachment reader that build the channel context are exported and accept a tenant-bound db, so a handler can send through the same path as a notification."
+    "title": "EMAIL_CHANNEL_NAME, createTemplateMailRenderer and createEmailAttachmentReader are exported"
   },
   {
     "version": "0.363.0",
     "type": "improvement",
-    "title": "Notification messages carry attachments (file refs and inline cid images)",
-    "detail": "RenderedMessage and the send job payload accept attachments as references (kind file or inline), never bytes. ChannelContext.readAttachment resolves them tenant-scoped at send time; createDeliveryService takes a new filesForTenant option for the inline fallback path."
+    "title": "Notification messages carry attachments (file refs and inline cid images)"
   },
   {
     "version": "0.363.0",
@@ -197,14 +225,12 @@
   {
     "version": "0.363.0",
     "type": "fix",
-    "title": "Queued mails render with the tenant's config again",
-    "detail": "The delivery render and send jobs read the tenant config through ctx.configFor, which job contexts do not carry, so queued mails rendered without tenant name, locale, currency and branding. Both jobs now use ctx.config, which the job runner builds for the payload's tenant."
+    "title": "Queued mails render with the tenant's config again"
   },
   {
     "version": "0.357.0",
     "type": "improvement",
-    "title": "Delivery idempotencyKey is released when nothing was delivered",
-    "detail": "A retry of a failed notify() with the same idempotencyKey is no longer skipped as a duplicate. The key is deleted when no recipient got a `sent` or `queued` delivery, also when notify() throws; one successful recipient keeps it, even if notify() throws afterwards (a retry would re-send to them). For queued channels the send/render job deletes the key after its final failed attempt, not per retry. That reference is only attached when a `route` call has exactly one channel address; `to` calls (user lists) and multi-channel routes keep the key after queueing. The job payload gains an optional `idempotencyKey`, backward compatible. `createDeliveryTestContext` accepts `idempotencyRedis`."
+    "title": "Delivery idempotencyKey is released when nothing was delivered"
   },
   {
     "version": "0.354.0",
@@ -228,7 +254,6 @@
     "version": "0.343.0",
     "type": "improvement",
     "title": "Delivery log marks sends the provider did not confirm",
-    "detail": "The delivery log now records when a provider accepted a send without confirming delivery (for example a Teams webhook answering 202). `store_delivery_attempts` gets a nullable boolean column `confirmed`: `false` means accepted but unconfirmed, `null` means confirmed or not applicable. The `deliveryAttempt` event carries `confirmed: false` on both the inline and the job path, `delivery:query:log` returns `confirmed` per row, and the status cell shows \"Sent (unconfirmed)\" for such rows.",
     "migration": "New nullable column store_delivery_attempts.confirmed. Consumers generate the migration with the generator (kumiko-schema generate) and apply it; existing rows stay null."
   },
   {
@@ -241,20 +266,17 @@
   {
     "version": "0.343.0",
     "type": "improvement",
-    "title": "Delivery log shows time and error and translates its values",
-    "detail": "The delivery log screen shows the time and the error of each attempt and translates type, channel, status and error. Error codes map to `delivery.error.<code>` (`http_<status>` to `delivery.error.http` with a `status` parameter), statuses to `delivery.status.<status>`, channels to `delivery.channel.<name>`. Every bundled channel feature registers its own channel label. Notification types are shown through `<scope>.notification.<name>` for a type `<scope>:notify:<name>`; apps register those labels, and the short name is shown when none exists. English, German and Spanish texts are included for the bundled keys.\n`translateOrRaw` moved from the tenant web folder to `shared/web`; it is internal."
+    "title": "Delivery log shows time and error and translates its values"
   },
   {
     "version": "0.343.0",
     "type": "improvement",
-    "title": "Delivery log shows the recipient name",
-    "detail": "`delivery:query:log` returns a `recipientLabel` per row and the delivery log screen shows it in the recipient column: the user's display name, else the decrypted address, else the recipient id. Names are resolved with one batched lookup per page, and only when the user feature is mounted. The new `resolveUserDisplayNames(db, userIds)` is exported from the user feature. The recipient column is not sortable."
+    "title": "Delivery log shows the recipient name"
   },
   {
     "version": "0.343.0",
     "type": "improvement",
-    "title": "createDeliveryTestContext matches production notify",
-    "detail": "`createDeliveryTestContext` now behaves like the production `ctx.notify`. It takes a `secrets` option for inline-delivered chat channels and passes the calling context's job dispatcher to `notify()` on every call. Queued channels now go through the delivery jobs when the stack has a job consumer (`jobs: { consumerLane: \"worker\" }`); call `stack.drainJobs()` before asserting on the result. With `jobs: {}` and no `consumerLane` the attempts stay queued and `drainJobs()` never finishes. Without `jobs` they still deliver inline.\nNew export `createDeliveryNotifyFactory(deliveryService, { deliverQueuedInline? })` builds this `NotifyFactory` for custom setups."
+    "title": "createDeliveryTestContext matches production notify"
   },
   {
     "version": "0.341.0",
@@ -267,21 +289,18 @@
     "version": "0.339.0",
     "type": "improvement",
     "title": "Slack, Discord, Microsoft Teams and Telegram delivery channels",
-    "detail": "`channel-slack`, `channel-discord`, `channel-teams` and `channel-telegram` register route-only delivery channels. Webhook URLs and the Telegram bot token live in the tenant's secrets; the send job reads them with an audit entry `<feature>:send`. `DeliveryChannel.resolve` is optional and `ChannelContext.secrets` is available on the send job path.",
     "migration": "keine"
   },
   {
     "version": "0.338.0",
     "type": "improvement",
     "title": "tenant broadcast recipient query no longer reads across tenants through ctx.db",
-    "detail": "delivery: the `tenantUserIdsQuery` handler of a tenant broadcast now always gets a tenant-filtered `ctx.db` and `ctx.dbOutsideTransaction`, also when it is declared `r.systemScope()`. A systemScope handler could previously read the memberships of every tenant through `ctx.db` and notify users of foreign tenants. Cross-tenant reads stay available through `ctx.systemDb`.",
     "migration": "No action needed for handlers that resolve recipients through `ctx.systemDb`, like `tenant:query:resolveUserIds`. A systemScope handler that read `ctx.db` unfiltered now sees only the broadcast tenant's rows."
   },
   {
     "version": "0.336.0",
     "type": "fix",
-    "title": "Delivery log paging no longer skips rows tied on the sort value",
-    "detail": "The delivery log query no longer skips rows at a page boundary when the sort column has duplicate values. A toggle flip received while the initial snapshot loads is no longer overwritten by the older DB read. The stale job-run sweep encrypts and updates once per triggering user instead of once per run."
+    "title": "Delivery log paging no longer skips rows tied on the sort value"
   },
   {
     "version": "0.335.0",
@@ -294,14 +313,12 @@
     "version": "0.330.0",
     "type": "improvement",
     "title": "store_delivery_attempts gets an index on (tenant_id, created_at) (fw#3396)",
-    "detail": "Windowed per-tenant dashboard aggregates over delivery attempts (metrics feature) filter on tenant_id and created_at.",
     "migration": "Run `kumiko migrate generate` and apply the migration: it adds `store_delivery_attempts_tenant_id_created_at_idx`."
   },
   {
     "version": "0.323.0",
     "type": "improvement",
     "title": "New POST /api/delivery/resubscribe route undoes an unsubscribe/opt-out",
-    "detail": "createUnsubscribeRoutes now also mounts POST /api/delivery/resubscribe (JSON {token} or form body only, never the query string, to stay safe against mail-client link prefetchers). It accepts the same signed tokens as the unsubscribe routes and re-enables the preference (signed-in user) or removes the address opt-out (no-account recipient). A resubscribed address opt-out is hard-deleted; a later re-opt-out for the same address/type/channel lands on a fresh event-stream generation instead of reviving the deleted one.",
     "migration": "No action needed: the route is additive and mounted automatically wherever createUnsubscribeRoutes({ secret }) already runs. Sign resubscribe links with the same signUnsubscribeToken/signAddressUnsubscribeToken used for unsubscribe links."
   },
   {
@@ -314,14 +331,12 @@
   {
     "version": "0.315.0",
     "type": "fix",
-    "title": "delivery honors an address opt-out on sends to a user account",
-    "detail": "`deliverToUser` only checked the user's notification preferences, so an\naddress that had been opted out via an address unsubscribe token still got\nmail once it belonged to a user account. It now runs the same check\n`deliverDirect` already applied: when the resolved channel address has a\n`notification-address-opt-out` row for that tenant, notificationType and\nchannel, the attempt is logged as `skipped` / `unsubscribed` with\n`recipientAddress: null`. Critical priority still bypasses it\n(kumiko-framework#3275)."
+    "title": "delivery honors an address opt-out on sends to a user account"
   },
   {
     "version": "0.315.0",
     "type": "improvement",
-    "title": "Delivery unsubscribe route is now mountable via extraRoutes",
-    "detail": "`createUnsubscribeRoute` previously returned a raw Hono app that needed a\n`DbConnection` (`{ db, jwtSecret }`) and had to be mounted by hand with\n`stack.app.route(...)`, bypassing the framework's request pipeline. It now\nreturns an `ExtraRouteDefinition` built via `signatureRoute`, taking only\n`{ secret }`, and mounts at the fixed path `GET /api/delivery/unsubscribe?token=`\n(exported as `DELIVERY_UNSUBSCRIBE_PATH`). Mount it with\n`extraRoutes: [createUnsubscribeRoute({ secret: env.UNSUBSCRIBE_SECRET })]`.\n`signUnsubscribeToken` / `signAddressUnsubscribeToken` must sign with the\nsame secret. The secret must be at least 32 characters and must NOT reuse\nthe app's session `JWT_SECRET` — all three entry points fail fast on a\nshort secret.\nThe write itself now goes through two new SystemAdmin-only handlers,\n`delivery:write:unsubscribe-address` and `delivery:write:unsubscribe-user`,\ndispatched via `dispatchSystemWrite` once the route's `verify()` has proven\nthe token's authenticity. An invalid or expired token always responds 400\nwith `{ error: { code: \"unsubscribe_token_invalid\" } }`, never leaking the\nunderlying JWT-library error text.\nNew notification-preference and notification-address-opt-out rows get a\ndeterministic aggregate id derived from (tenant, user or address hash,\nnotificationType, channel), so concurrent clicks on the same link collide\nat the event-store append and converge on one row instead of failing with\na unique or version conflict. Existing rows keep their ids."
+    "title": "Delivery unsubscribe route is now mountable via extraRoutes"
   },
   {
     "version": "0.313.0",
@@ -339,19 +354,16 @@
   {
     "version": "0.271.0",
     "type": "improvement",
-    "title": "systemScope handlers get a default per-tenant+handler rate limit; delivery:preferences opts out (fw#2861).",
-    "detail": "`delivery` mounts under `r.systemScope()`, so `delivery:write:set-preference`/`delivery:query:log` without their own `rateLimit` now default to `{ per: \"tenant+handler\", limit: 600, windowSeconds: 60 }` once an app has a `RateLimitResolver` configured (framework change, see kumiko-framework changes.json 0.271.0). `delivery:query:preferences` declares `rateLimit: { disabled: true, reason: \"...\" }` — it is a self-scoped read of the caller's own notification preference rows, hit on every page load, and a per-tenant bucket would throttle the whole tenant's page loads instead of just that one handler's traffic."
+    "title": "systemScope handlers get a default per-tenant+handler rate limit; delivery:preferences opts out (fw#2861)."
   },
   {
     "version": "0.208.2",
     "type": "improvement",
-    "title": "`/delivery-log` is a declarative projectionList screen (#2221).",
-    "detail": "The 103-line hand-rolled `custom` screen (`delivery-log-screen.tsx`) is gone. `r.screen({ id: DELIVERY_LOG_SCREEN_ID, type: \"projectionList\", ... })` drives the list off `delivery:query:log`, now built on `definePagedQueryHandler` with `cursor`/`limit`/`sort`/`sortDirection` and a server-side sort whitelist (type-guarded, not an `as`-cast) covering `createdAt`/`type`/`channel`/`status` — `recipient` isn't sortable since it's PII decrypted per-row, not a column SQL can ORDER BY. Pagination is cursor-based (`pagination: \"infinite\"`): `deliveryAttemptsTable.id` is an event-stream aggregate id, not a sequential PK, so there's no cheap offset/COUNT(*) path. The notificationType/recipientAddress → type/recipient display-name mapping moved from the old client component into the query handler, matching the read-projection convention for declarative list screens; column i18n keys moved from the client-only bundle into the server-registered `DELIVERY_I18N` so the generic renderer can resolve them. The status column keeps one small TSX cell (`DeliveryStatusCell`, a `StatusBadge`), registered as a `columnRenderer` — that's the only surviving hand-written UI for this screen."
+    "title": "`/delivery-log` is a declarative projectionList screen (#2221)."
   },
   {
     "version": "0.120.0",
     "type": "improvement",
-    "title": "PII on custom-event payloads (#799).",
-    "detail": "PII on custom-event payloads (#799). `r.defineEvent(name, schema, { piiFields: { recipientAddress: { subjectField: \"recipientId\" } } })` declares payload fields that are encrypted under the owning user's DEK (crypto-shredding). Enforcement lives in the low-level event-store `append()` — the single write funnel — so `ctx.appendEvent`, MSP-apply AND out-of-dispatcher writers (delivery attempt-log, jobs run-logger) are all covered; the stored event and the returned echo carry ciphertext, keeping inline projections and rebuilds identical. A null subject field (system cron runs, recipient-less attempts) stays plaintext — there is no user key to shred. Misconfigured `piiFields` (unknown field/subjectField) throw at feature-definition time. Bundled features annotated: `delivery:event:attempt`.`recipientAddress` (subject = recipientId) and `jobs` `run-started`.`payload` (subject = triggeredById); the pseudonymous fk ids stay plaintext. `delivery log.query` and `jobs list/details` decrypt for display — a forgotten subject shows `[[erased]]`. This makes the events-only aggregates from #797 Art.-17-capable: user-forget erases the DEK, historical delivery addresses and job payloads become unreadable without touching the append-only stream. New exports: `encryptPiiValueForSubject`, `configureEventPiiCatalog`/`configuredEventPiiCatalog`/`encryptEventPayloadPii` (framework/crypto)."
+    "title": "PII on custom-event payloads (#799)."
   }
 ]

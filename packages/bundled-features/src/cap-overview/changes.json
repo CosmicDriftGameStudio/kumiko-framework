@@ -1,45 +1,64 @@
 [
   {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "caps:usage hands cap callbacks a tenant-scoped db without unsafeRaw",
+    "detail": "On the own-tenant call and on the SystemAdmin override, `usage(db, tenantId)` and `limit(tier, { db })` now receive a tenant-mode `TenantDb` that returns only the target tenant's rows plus reference rows of `SYSTEM_TENANT_ID`. Before, both got the unfiltered system-mode db, and an app callback without a `tenantId` filter leaked counts of every tenant. The handler no longer declares an `escapeHatch`, so `db.unsafeRaw()` inside these callbacks throws an `AccessDeniedError`; COUNT, SUM and AVG go through `db.count` and `db.aggregate`. `tenant-caps:list` is unchanged and still hands the system-mode db to `usage`, `usageBatch`, `limit` and `limitBatch`.",
+    "migration": "A `CapSpec.usage()` or `limit()` that calls `db.unsafeRaw()` switches to `db.count` or `db.aggregate`. Keep the explicit `tenantId` filter, because tenant-caps:list still needs it. No callback in kumiko-studio or offlot-app uses `unsafeRaw()` or reads across tenants.",
+    "affects": [
+      "unsafeRaw"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "Tenant caps list sorts by key and searches through the search index",
+    "detail": "Tenant names are ciphertext at rest, so the list used to decrypt every tenant on each call (the default sort was the name, and every search filtered decrypted names). The default sort is now the tenant `key`, each row carries `key`, and `sort: \"name\"` is rejected with a 400 like any other unsupported sort field. A search goes through the app's SearchAdapter, where the tenant name is already indexed for `tenant:query:list`, and answers 422 `search_adapter_not_wired` when no adapter is wired; more than 1000 candidate hits set `searchTruncated`. Only the names of the returned page are decrypted.",
+    "migration": "Callers that send `sort: \"name\"` to `cap-overview:query:tenant-caps:list` drop it or send `sort: \"key\"`. Apps that search this list wire a SearchAdapter. No caller in kumiko-enterprise, kumiko-platform, kumiko-studio or the app repos sends `sort: \"name\"`.",
+    "affects": [
+      "cap-overview",
+      "tenant-caps"
+    ]
+  },
+  {
+    "version": "0.425.0",
+    "type": "improvement",
+    "title": "cap-overview constants subpath with the caps:usage contract"
+  },
+  {
     "version": "0.414.0",
     "type": "fix",
-    "title": "Visible overage on not-included caps, batched limits",
-    "detail": "A cap with limit 0 and usage above zero shows the used amount with cap-overview.notIncludedButUsed instead of only \"Not included\" (bar, cap cards, tenant list). CapSpec gets an optional limitBatch that tenant-caps:list prefers over one limit() call per tenant and cap, and the limit comment no longer claims it is resolved once per tier."
+    "title": "Visible overage on not-included caps, batched limits"
   },
   {
     "version": "0.397.0",
     "type": "improvement",
-    "title": "Cap limits see the tenant and can read its add-ons",
-    "detail": "`caps-usage` and `tenant-caps-list` resolved each limit from the tier and the tenant's config only, so an app whose limit depends on booked add-ons had to show the bare tier limit while enforcement already counted the add-ons (a 300 % bar for a tenant that may still provision). Both queries now pass `tenantId` (the target tenant, also on the SystemAdmin override and per listed row) and `db`. The new context type is exported as `CapSpecLimitContext`; existing limits that take the narrower `CapLimitContext` keep compiling."
+    "title": "Cap limits see the tenant and can read its add-ons"
   },
   {
     "version": "0.394.0",
     "type": "improvement",
-    "title": "Add CapSpec.showLimit to hide a cap's limit from the dashboard",
-    "detail": "showLimit: false makes caps:usage send limit null so the card shows the counter only; cap-counter enforcement is unchanged."
+    "title": "Add CapSpec.showLimit to hide a cap's limit from the dashboard"
   },
   {
     "version": "0.392.1",
     "type": "fix",
-    "title": "Cap cards \"view all\" link uses the primary link style",
-    "detail": "The link under the cap cards no longer renders in muted grey; it uses the default link variant like other text links."
+    "title": "Cap cards \"view all\" link uses the primary link style"
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "Cap amounts follow their unit and a limit of 0 reads \"Not included\"",
-    "detail": "Values with unit \"mb\" show as MB, GB or TB (base 1024), count and tokens use the locale's digit grouping. A limit of 0 or less shows \"Not included\" instead of a 0 bar, also when nothing is measured. caps:usage rows and the tenant-caps list cells now carry the unit of the cap. New key cap-overview.notIncluded in all locale packages."
+    "title": "Cap amounts follow their unit and a limit of 0 reads \"Not included\""
   },
   {
     "version": "0.392.0",
     "type": "improvement",
-    "title": "CapCardsPanel can be limited to specific cap keys via params.capKeys",
-    "detail": "A custom dashboard panel with params capKeys as a list of cap ids shows only those cards, in the order of the capsUsage query. Anything other than a list of strings means no limit, and capKeys is not sent to the server. Each limited cap card also shows how much is left (or that nothing is), next to the percent chip, and a limited panel adds a link to the full usage screen."
+    "title": "CapCardsPanel can be limited to specific cap keys via params.capKeys"
   },
   {
     "version": "0.383.0",
     "type": "improvement",
-    "title": "Tenant caps list decrypts only the visible page",
-    "detail": "Without a search and with a sort other than name, the list loads light tenant rows, pages them, and fetches and decrypts names for the current page only. The default name sort and any search still decrypt every tenant, because tenant names are stored encrypted and cannot be sorted or filtered in SQL. Order, total and rows are unchanged."
+    "title": "Tenant caps list decrypts only the visible page"
   },
   {
     "version": "0.374.0",
@@ -51,8 +70,7 @@
   {
     "version": "0.365.0",
     "type": "fix",
-    "title": "Cap overview lists no destroyed tenants",
-    "detail": "tenant-options and tenant-caps-list now filter destroyed tenants and keep reading tenant names through the PII-aware path."
+    "title": "Cap overview lists no destroyed tenants"
   },
   {
     "version": "0.338.0",
@@ -65,20 +83,17 @@
     "version": "0.338.0",
     "type": "fix",
     "title": "Cross-tenant cap limits read the target tenant's config",
-    "detail": "`caps:usage` with a SystemAdmin `tenantId` override and `tenant-caps:list` passed the caller's config accessor to `CapSpec.limit`, so a limit that reads a tenant-scoped config key showed the caller's value for every tenant. Both now resolve one accessor per target tenant through `ctx.configFor`, and `tenant-caps:list` resolves each tenant's limit separately instead of once per tier.",
     "migration": "No code change needed."
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "tenant-caps:list validates cursor and filters, parallel usage reads; cap-counter list not searchable",
-    "detail": "`tenant-caps:list` now rejects a malformed pagination cursor and unsupported or repeated filters with a validation error instead of returning a wrong page or silently ignoring the filter, and loads per-tenant usage in parallel. The `cap-counter` operator list is no longer searchable, because search resolved against the caller's own tenant instead of all tenants."
+    "title": "tenant-caps:list validates cursor and filters, parallel usage reads; cap-counter list not searchable"
   },
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Unlimited caps show a labelled usage count",
-    "detail": "The cap usage bar labels an unlimited cap as \"<used> · unlimited\" through the new `cap-overview.unlimited` key instead of a bare number. The German and Spanish catalogs ship the translation."
+    "title": "Unlimited caps show a labelled usage count"
   },
   {
     "version": "0.332.0",
@@ -88,25 +103,21 @@
   {
     "version": "0.318.0",
     "type": "improvement",
-    "title": "Cap limits can come from runtime config",
-    "detail": "`CapSpec.limit(tier, { config })` may return a Promise and gets the caller's config accessor, so a SystemAdmin-editable config key can drive a tier's limit shown by caps:usage and tenant-caps:list. tier-engine's `capsForTier` and cap-counter's `createStockCapGuard` resolver receive the same `{ config }` context (`CapLimitContext`), so enforcement can read the same key. Sync implementations keep working; use system-scoped keys for tier-wide limits."
+    "title": "Cap limits can come from runtime config"
   },
   {
     "version": "0.282.0",
     "type": "fix",
-    "title": "caps:usage declares escapeHatch again so raw-SQL cap providers work",
-    "detail": "fw#2971 un-exported withUnsafeRawGrant, the mechanism app-owned CapSpec.usage() providers used (via caps:usage's system-mode db) to run raw SQL for aggregates TenantDb has no typed helper for (a SUM, unlike the COUNT(*)-only TenantDb.count() added in fw#2854). caps:usage's own defineQueryHandler(...) call now carries `escapeHatch: { reason: \"...\" }`, restoring the grant through the same mechanism every other handler-owned unsafeRaw use goes through. Cap providers that only need COUNT(*) should migrate to TenantDb.count(table, where) instead — it needs no escapeHatch at all."
+    "title": "caps:usage declares escapeHatch again so raw-SQL cap providers work"
   },
   {
     "version": "0.233.0",
     "type": "improvement",
-    "title": "CapSpec.limit can now return null for an unlimited usage meter.",
-    "detail": "A CapSpec's `limit(tier)` may now return `null` to mean unlimited: the cap is still counted (used shows the raw count) but never capped, has no percent, and renders no progress bar or badge. This is a distinct meaning from `limit <= 0`, which unchanged still means 'not part of this tier' and renders as 0/0%."
+    "title": "CapSpec.limit can now return null for an unlimited usage meter."
   },
   {
     "version": "0.224.0",
     "type": "improvement",
-    "title": "Add cap-overview feature: tier + cap usage visibility per tenant.",
-    "detail": "New read-only bundled feature. SystemAdmin gets a paged, searchable tenant list with tier/billing columns and per-cap usage bars, plus a per-tenant dashboard reachable from the list. TenantAdmin gets a 'My usage' dashboard showing their own tenant's cap usage as cards. Reads tier-engine, billing-foundation and tenant projections plus caller-supplied CapSpec usage callbacks; every handler enforces explicit tenant scoping (no ambient tenant filter, cross-tenant reads require SystemAdmin + acknowledgeCrossTenant)."
+    "title": "Add cap-overview feature: tier + cap usage visibility per tenant."
   }
 ]

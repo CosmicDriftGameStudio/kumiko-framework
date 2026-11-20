@@ -2,20 +2,17 @@
   {
     "version": "0.418.0",
     "type": "fix",
-    "title": "One-off checkouts with a 100% promo code are booked",
-    "detail": "A Stripe checkout session in payment mode that a 100% promo code makes free is now booked like a paid one: the handler reads the session metadata in payment mode. Sessions created before the upgrade carry no session metadata and are still discarded."
+    "title": "One-off checkouts with a 100% promo code are booked"
   },
   {
     "version": "0.416.0",
     "type": "improvement",
-    "title": "Stripe checkout can accept promotion codes",
-    "detail": "The new option `allowPromotionCodes` sets `allow_promotion_codes` on every Checkout Session of the app, in subscription and payment mode. Coupons and promotion codes are created in the Stripe dashboard. Default false, so existing checkouts show no code field. The consumer-protection confirmation mail still shows the catalog price captured at consent, not the discounted amount."
+    "title": "Stripe checkout can accept promotion codes"
   },
   {
     "version": "0.415.0",
     "type": "fix",
-    "title": "customer.subscription.created without a linked checkout session is redelivered while young",
-    "detail": "An empty checkout session list for a created event younger than ten minutes answers 503 so Stripe redelivers, instead of dropping the subscription as not in the ledger."
+    "title": "customer.subscription.created without a linked checkout session is redelivered while young"
   },
   {
     "version": "0.414.0",
@@ -27,51 +24,43 @@
   {
     "version": "0.388.0",
     "type": "improvement",
-    "title": "Stripe plugin has a displayName",
-    "detail": "The Stripe plugin sets displayName \"Stripe\", which the provider choice in the billing panel shows."
+    "title": "Stripe plugin has a displayName"
   },
   {
     "version": "0.388.0",
     "type": "fix",
-    "title": "A malformed stored credential no longer leaks into the error",
-    "detail": "A stored api-key or webhook-secret that is not valid JSON used to raise the JSON parser's own message, which repeats the value into logs and the webhook 401 body. The error now has a fixed text and names no input. subscription-dodo behaves the same."
+    "title": "A malformed stored credential no longer leaks into the error"
   },
   {
     "version": "0.370.0",
     "type": "improvement",
-    "title": "stripeEnvSchema adds price slots to the Stripe env block",
-    "detail": "stripeEnvSchema({ prices: [\"PRO\", \"TEAM\"] }) returns the bridge keys plus one optional STRIPE_PRICE_<NAME> per price, each checked for the price_ prefix. Spread it into composeEnvSchema({ extend }) next to createSubscriptionStripeFeature; the shared bridge fields are no key clash."
+    "title": "stripeEnvSchema adds price slots to the Stripe env block"
   },
   {
     "version": "0.364.0",
     "type": "fix",
-    "title": "A stale Stripe customer id no longer turns the customer portal into a 500",
-    "detail": "createPortalSession now maps Stripe's \"No such customer\" rejection (account switch, customer deleted in the dashboard) to an UnprocessableError with the i18n key billing-foundation.errors.providerCustomerUnknown, translated in German and Spanish, instead of letting the raw Stripe error surface as a server error."
+    "title": "A stale Stripe customer id no longer turns the customer portal into a 500"
   },
   {
     "version": "0.338.0",
     "type": "improvement",
     "title": "Stripe checkout sets submit_type, locale, submit text and consentId; cancel can run to period end",
-    "detail": "Checkout sessions in both modes set `submit_type: \"pay\"`. `locale` maps to a Stripe checkout locale (exact match, else the language part such as `de-AT` to `de`, else `\"auto\"`), and `submitMessage` becomes `custom_text.submit.message` (capped at Stripe's 1200 characters). `consentId` is written to `subscription_data.metadata` or `payment_intent_data.metadata` next to `tenantId` and read back from the same place on the webhook. `cancelSubscription` with `when: \"period-end\"` sets `cancel_at_period_end`; `\"immediately\"` cancels the subscription.",
     "migration": "No code change needed."
   },
   {
     "version": "0.338.0",
     "type": "fix",
-    "title": "Stripe webhooks no longer archive the full provider event",
-    "detail": "Subscription and one-off-payment events parsed from Stripe webhooks, and the snapshot returned by sync-subscriptions, no longer include the serialized Stripe event, so customer details never land in the event store."
+    "title": "Stripe webhooks no longer archive the full provider event"
   },
   {
     "version": "0.337.0",
     "type": "fix",
-    "title": "plan switch rejects unretrievable prices, concurrent request-deletion loser reports the fresh user status",
-    "detail": "The Stripe plan switch now fails with `price_unavailable` when an allowed price cannot be retrieved, instead of creating an incomplete Stripe portal configuration under a different price-set hash. A concurrent losing `request-deletion` now reports the user's current status in `user_not_in_active_state` instead of the stale `active`."
+    "title": "plan switch rejects unretrievable prices, concurrent request-deletion loser reports the fresh user status"
   },
   {
     "version": "0.336.1",
     "type": "fix",
-    "title": "Checkout retries without a customer id Stripe no longer knows",
-    "detail": "Stripe checkout now retries once without the customer when the stored customer id is unknown to Stripe (for example after switching from a test to a live account), instead of failing with \"No such customer\"."
+    "title": "Checkout retries without a customer id Stripe no longer knows"
   },
   {
     "version": "0.335.0",
@@ -81,8 +70,7 @@
   {
     "version": "0.335.0",
     "type": "fix",
-    "title": "Stripe unknown price intervals stay consistent, plan-switch errors keep their cause, dropped paid sessions are logged",
-    "detail": "Stripe prices with an interval Stripe added after this release now report `intervalCount: null` alongside `interval: null`, and log one warning per price. A `billingPortal.sessions.create` failure during a plan switch is no longer reported as `plan_tiers_share_product`, so the real Stripe error surfaces; only portal-configuration errors map to it. A paid one-off checkout session that is dropped for missing tenant, price or customer data now logs a warning with event and session id."
+    "title": "Stripe unknown price intervals stay consistent, plan-switch errors keep their cause, dropped paid sessions are logged"
   },
   {
     "version": "0.332.0",
@@ -92,32 +80,27 @@
   {
     "version": "0.320.0",
     "type": "fix",
-    "title": "subscription-stripe narrows a recurring price interval to a closed union instead of widening on an unrecognized Stripe value",
-    "detail": "stripe >= 22.5 widened Recurring.Interval to an open union. mapStripePrice now maps anything outside RecurringInterval (\"day\" | \"week\" | \"month\" | \"year\") to null via isKnownRecurringInterval, the same as a one-off price, instead of letting an unrecognized interval leak into ProviderPrice untyped. stripe bumped to 22.6.2. Closes #3312."
+    "title": "subscription-stripe narrows a recurring price interval to a closed union instead of widening on an unrecognized Stripe value"
   },
   {
     "version": "0.319.0",
     "type": "fix",
-    "title": "subscription-stripe bumps the stripe SDK to ^22.6.2 and fixes the resulting price-interval type break",
-    "detail": "The bundled `stripe` dependency moves from ^22.1.1 to ^22.6.2.\nStripe.Price.Recurring.Interval widened in that range; mapStripePrice\nnow narrows it against the exported `KNOWN_RECURRING_INTERVALS` /\n`RecurringInterval` from billing-foundation instead of a cast (an\nunrecognized interval maps to `null`). Apps pinning their own\n`stripe` override for this mismatch can remove it.\n\nThe plugin gains a new `oneOffPriceIds` option (validated at mount\ntime — an empty-string or duplicate entry throws) and now maps Stripe's\n`subscription.cancel_at` (or `current_period_end` when only\n`cancel_at_period_end` is set) into the `cancelAtIso` event field\nbilling-foundation's process-event consumes."
+    "title": "subscription-stripe bumps the stripe SDK to ^22.6.2 and fixes the resulting price-interval type break"
   },
   {
     "version": "0.318.0",
     "type": "fix",
-    "title": "switch-plan returns a 422 instead of a 500 when two plan tiers share one Stripe product",
-    "detail": "`createStripePlanSwitchSession`'s pre-check (two allowed prices at the same product+interval) and a matching Stripe Customer-Portal `StripeInvalidRequestError` (from `configurations.create()` or `sessions.create()`) both now throw `UnprocessableError('plan_tiers_share_product')` with i18nKey `billing-foundation.errors.planTiersShareProduct`, so the caller gets an actionable 422 instead of an opaque 500. Every other Stripe error keeps its existing mapping; the portal-configuration cache is still evicted on a `sessions.create()` failure.\nEach plan tier needs its own Stripe product: the Customer Portal configuration allows only one price per product and interval, so tiers that share a product cannot be switched between."
+    "title": "switch-plan returns a 422 instead of a 500 when two plan tiers share one Stripe product"
   },
   {
     "version": "0.318.0",
     "type": "fix",
-    "title": "Stripe subscription status incomplete_expired now maps to canceled instead of incomplete",
-    "detail": "incomplete_expired means Stripe abandoned the subscription's first payment for good (unlike a live incomplete, which is still retryable). Mapping it to canceled instead of incomplete lets the tenant start a fresh checkout instead of being blocked by openCheckout's subscription-already-exists conflict."
+    "title": "Stripe subscription status incomplete_expired now maps to canceled instead of incomplete"
   },
   {
     "version": "0.318.0",
     "type": "improvement",
-    "title": "subscription-stripe implements retrievePrices, createPlanSwitchSession and isBillingEnabled for the shared billing-plans catalog",
-    "detail": "Adds priceToTier (Stripe price id -> app tier name), a 10-minute TTL-cached retrievePrices for the billing-plans catalog, createPlanSwitchSession (auto-provisions a Stripe Customer-Portal configuration content-addressed by its price set, reusing an existing one via configurations.list() before calling configurations.create()) and isBillingEnabled (billingLive plus an api-key existence probe, no secret read). Each plan tier needs its own Stripe product: two allowed prices sharing a product+interval are rejected before any Stripe portal call."
+    "title": "subscription-stripe implements retrievePrices, createPlanSwitchSession and isBillingEnabled for the shared billing-plans catalog"
   },
   {
     "version": "0.313.0",

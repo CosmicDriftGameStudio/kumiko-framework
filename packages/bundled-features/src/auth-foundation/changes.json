@@ -1,15 +1,25 @@
 [
   {
+    "version": "0.425.0",
+    "type": "breaking",
+    "title": "credentialRevoker extension point replaces the session mass-revoke callbacks",
+    "detail": "New `EXT_CREDENTIAL_REVOKER`, `CredentialRevoker`, `isCredentialRevoker` and `revokeAllUserCredentials(registry, runner, userId, { keepSessionId })`. sessions and personal-access-tokens register as providers; a password change (user feature postSave hook, in transaction) and every MFA state change call all providers in the triggering transaction, so a failing revoke rolls the change back. `SessionStore` loses `massRevoker` and `revokeAllOthers`; removed export: `SessionMassRevoker`.",
+    "migration": "Drop `massRevoker` and `revokeAllOthers` from custom sessionStore providers. A custom credential store registers `r.applyExtension({ name: EXT_CREDENTIAL_REVOKER, entity: \"<key>\", revokeAllForUser })`.",
+    "affects": [
+      "massRevoker",
+      "revokeAllOthers",
+      "SessionMassRevoker"
+    ]
+  },
+  {
     "version": "0.376.0",
     "type": "improvement",
-    "title": "authEnvSchema for auth.admin and auth.mail",
-    "detail": "authEnvSchema declares APP_BASE_URL, AUTH_ADMIN_EMAIL and AUTH_ADMIN_PASSWORD with descriptions and the pulumi secret marker; an app spreads its shape into its env schema."
+    "title": "authEnvSchema for auth.admin and auth.mail"
   },
   {
     "version": "0.371.0",
     "type": "improvement",
-    "title": "Boot warning when anonymous routes run without anonymousAccess",
-    "detail": "A boot warning names anonymousAccess when host-routing, managed-pages or legal-pages is mounted without it; anonymous requests get no tenant until the option is set."
+    "title": "Boot warning when anonymous routes run without anonymousAccess"
   },
   {
     "version": "0.370.0",
@@ -22,19 +32,16 @@
   {
     "version": "0.165.1",
     "type": "improvement",
-    "title": "validateSessionStoreMultiplicity accepts zero sessionStore providers (fw#1547).",
-    "detail": "A machine-API-only deployment (PAT-bearer auth, no browser sessions) can mount auth-foundation without also mounting sessions."
+    "title": "validateSessionStoreMultiplicity accepts zero sessionStore providers (fw#1547)."
   },
   {
     "version": "0.165.0",
     "type": "fix",
-    "title": "Allow zero tokenVerifier when sessionStore present",
-    "detail": "Auth foundation now accepts zero tokenVerifier when a sessionStore is configured — prevents crash in session-store-only setups."
+    "title": "Allow zero tokenVerifier when sessionStore present"
   },
   {
     "version": "0.161.0",
     "type": "improvement",
-    "title": "tenantResolver/tenantExistence extension points, sessionStore without auth.sessions (fw#1372-1375).",
-    "detail": "Auth-foundation migration: tenant resolution and tenant-existence become extension points, sessionStore is wired without going through auth.sessions, AnonymousAccessConfig is slimmed down. See the auth-foundation-providers recipe."
+    "title": "tenantResolver/tenantExistence extension points, sessionStore without auth.sessions (fw#1372-1375)."
   }
 ]
