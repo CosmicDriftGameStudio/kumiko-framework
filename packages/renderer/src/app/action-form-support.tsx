@@ -281,8 +281,18 @@ function SuccessItemHints({
 
 type SingleLineFact = ResolvedSuccessFact & { readonly lines: readonly [string] };
 
+// ponytail: length stands in for "would wrap"; a right-aligned value that wraps reads ragged,
+// so prose such as a hint or a note goes to the block form with its label above.
+const NAME_VALUE_MAX_LENGTH = 40;
+
 function isSingleLineFact(fact: ResolvedSuccessFact): fact is SingleLineFact {
-  return fact.fileIds === undefined && fact.lines.length === 1;
+  const [line] = fact.lines;
+  return (
+    fact.fileIds === undefined &&
+    fact.lines.length === 1 &&
+    line !== undefined &&
+    line.length <= NAME_VALUE_MAX_LENGTH
+  );
 }
 
 type FactSegment =

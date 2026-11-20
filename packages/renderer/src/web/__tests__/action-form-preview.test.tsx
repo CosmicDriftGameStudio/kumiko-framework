@@ -94,6 +94,31 @@ describe("actionForm preview", () => {
     expect(principal.hasAttribute("data-emphasize")).toBe(false);
   });
 
+  test("a long text fact leaves the name-value list and shows its label above the text", async () => {
+    const note = "Two smoke detectors in the stairwell do not work at all.";
+    const dispatcher = createMockDispatcher({
+      query: async () => ({ isSuccess: true, data: { count: 2, note } }),
+    });
+    renderForm(dispatcher, {
+      ...form,
+      preview: {
+        query: "tasks:query:set-status-preview",
+        fields: ["status"],
+        facts: [
+          { field: "count", label: "Affected tasks", type: "number" },
+          { field: "note", label: "Note" },
+        ],
+      },
+    });
+
+    typeInto("status", "blocked");
+    await waitFor(() => screen.getByTestId("action-form-preview"));
+    expect(factCells("action-form-preview-fact-0")).toEqual(["Affected tasks", "2"]);
+    const noteFact = screen.getByTestId("action-form-preview-fact-1");
+    expect(noteFact.querySelector("dd")).toBeNull();
+    expect(screen.getByTestId("action-form-preview-fact-1-line-0").textContent).toBe(note);
+  });
+
   test("footer rows sit in the table footer under their column, formatted like the body, and the panel is no hint banner", async () => {
     const money = (amount: number) => ({ amount, currency: "EUR" });
     const dispatcher = createMockDispatcher({
