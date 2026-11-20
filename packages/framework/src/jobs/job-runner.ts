@@ -489,8 +489,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     schedulerIds: ReadonlySet<string>,
   ): Promise<void> {
     await markSchedulersSeen(queue, schedulerIds);
-    await recreateMissingCronSchedulers(queue, lane, schedulerIds);
+    // Sweep first: the re-create skips a job whose other-wake-flag id exists,
+    // and must not skip for an id this tick removes.
     await removeOrphanJobSchedulers(queue, schedulerIds, new Set(), lane, orphanSchedulerLog);
+    await recreateMissingCronSchedulers(queue, lane, schedulerIds);
   }
 
   // Runs on a lane without own cron jobs too: a deploy that drops a lane's

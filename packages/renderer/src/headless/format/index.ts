@@ -275,7 +275,7 @@ export function referenceLabelText(value: unknown): string {
   if (typeof value !== "object" || value === null) return String(value ?? "");
   const instant = propertyOf(value, "utc") ?? propertyOf(value, "at");
   if (typeof instant === "string") return applyFormatSpec({ format: "timestamp" }, instant);
-  return applyFormatSpec({ format: "money" }, value);
+  return applyFormatSpec({ format: "money" }, value) || String(value);
 }
 
 function formatTemporalCell(spec: CellFormatSpec, value: unknown): string {
