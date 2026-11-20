@@ -79,7 +79,7 @@ The path's directory part becomes a folder tree per device: a first upload of `R
 
 A job in an app feature runs when a file arrives: `trigger: { on: INBOUND_ITEM_CREATED_EVENT }` (`inbound-item.created`). The event carries only the item id (`ctx.triggerEvent.aggregateId`); the job fetches the rest with `readInboundFile`, which works in a job and in a write handler.
 
-```ts
+```ts illustration
 import { INBOUND_ITEM_CREATED_EVENT, readInboundFile } from "@cosmicdrift/kumiko-bundled-features/connectors";
 
 r.job({
