@@ -65,14 +65,22 @@ export interface VideoDefinition {
   readonly music?: VideoMusic;
   // Speeds picture, narration and subtitles up together, default 1; ffmpeg's atempo allows 0.5 to 2.
   readonly playbackRate?: number;
-  readonly voice: VideoVoice;
+  // Without a voice the video is silent: no texts, no TTS, no audio track, a poster instead of subtitles.
+  readonly voice?: VideoVoice;
   readonly viewport?: { readonly width: number; readonly height: number };
   // Login/seed work; runs before recording starts.
   readonly setup?: (page: Page, ctx: VideoSceneContext) => Promise<void>;
   readonly scenes: readonly VideoScene[];
 }
 
+export function isSilentVideo(definition: Pick<VideoDefinition, "voice">): boolean {
+  return definition.voice === undefined;
+}
+
 export function defineVideo(definition: VideoDefinition): VideoDefinition {
+  if (isSilentVideo(definition) && definition.music !== undefined) {
+    throw new Error("defineVideo(): music needs a voice; a silent video has no audio track");
+  }
   if (definition.scenes.length === 0) {
     throw new Error("defineVideo(): a video needs at least one scene");
   }

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as z from "zod";
-import type { VideoDefinition } from "./define-video";
+import { isSilentVideo, type VideoDefinition } from "./define-video";
 
 const textsSchema = z.record(z.string(), z.string().min(1));
 
@@ -23,10 +23,11 @@ export function loadVideoTexts(videoDir: string, locale: string): Readonly<Recor
 }
 
 export function findVideoTextGaps(
-  video: Pick<VideoDefinition, "scenes">,
+  video: Pick<VideoDefinition, "scenes" | "voice">,
   videoDir: string,
   locales: readonly string[],
 ): string[] {
+  if (isSilentVideo(video)) return [];
   const gaps: string[] = [];
   const sceneIds = new Set(video.scenes.map((scene) => scene.id));
   for (const locale of locales) {

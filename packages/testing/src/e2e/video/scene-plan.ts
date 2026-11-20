@@ -2,7 +2,9 @@ import type { VideoTools } from "./define-video";
 
 export const SCENE_TAIL_MS = 400;
 
-export function sceneExtensionMs(elapsedMs: number, speechMs: number): number {
+// Undefined speech means a silent video: a scene lasts exactly as long as its actions.
+export function sceneExtensionMs(elapsedMs: number, speechMs: number | undefined): number {
+  if (speechMs === undefined) return 0;
   return Math.max(0, speechMs + SCENE_TAIL_MS - elapsedMs);
 }
 
