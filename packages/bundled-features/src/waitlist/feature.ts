@@ -4,7 +4,7 @@ import {
   type FeatureDefinition,
   i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { waitlistEntryEntity } from "./entity.ts";
+import { createWaitlistEntryEntity, waitlistEntryEntity } from "./entity.ts";
 import { exportHandler, purgeHandler } from "./handlers/export-purge.write.ts";
 import { createInviteHandler } from "./handlers/invite.write.ts";
 import { listQuery } from "./handlers/list.query.ts";
@@ -31,6 +31,8 @@ import {
 } from "./web/constants.ts";
 
 export function createWaitlistFeature(opts: WaitlistOptions = {}): FeatureDefinition {
+  const entryEntity =
+    opts.retention === undefined ? waitlistEntryEntity : createWaitlistEntryEntity(opts.retention);
   return defineFeature(WAITLIST_FEATURE, (r) => {
     r.describe(
       "Public waitlist: an anonymous, rate-limited `submit` handler collects name, email and optional company, portfolio and message (a honeypot field and per-email dedupe keep bots and repeat submits out, and the response body is identical whether or not an address was already listed), and mails the submitter a confirmation. SystemAdmins review entries in a list screen and invite or reject them; an invite creates the entrant's own tenant (or joins one shared tenant) and mails an accept link with the configured membership role, never a global role. Entries are platform-wide, their personal data is crypto-shredding-ready, and the EXT_USER_DATA hooks export and erase entries matching a user's email.",
@@ -53,7 +55,7 @@ export function createWaitlistFeature(opts: WaitlistOptions = {}): FeatureDefini
       localizedTemplate: waitlistAdminNoticeTemplate,
     });
 
-    r.entity(waitlistEntryEntity);
+    r.entity(entryEntity);
     r.writeHandler(createSubmitHandler(opts));
     r.writeHandler(createInviteHandler(opts.invite));
     r.writeHandler(rejectHandler);

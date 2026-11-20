@@ -72,6 +72,10 @@ export type ExtensionSectionProps = {
    *  `fields`, every current host value counts as saved.
    *  Undefined outside entityEdit sections and the entityEdit footer slot. */
   readonly markSaved?: (fields?: readonly string[]) => void;
+  /** Reloads the host record (the detail query behind the screen) after the section wrote data itself, so
+   *  derived host content such as next-step guidance refreshes. Set wherever the host screen can refetch
+   *  (entityEdit and projectionDetail mounts); undefined in list-header and dashboard mounts. */
+  readonly reloadHost?: () => void;
   /** Whether the host form has unsaved changes. Only set in the entityEdit
    *  footer slot (`screen.slots.footer`); undefined in all other mounts. */
   readonly hasUnsavedChanges?: boolean;

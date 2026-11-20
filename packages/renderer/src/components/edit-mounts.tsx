@@ -20,6 +20,7 @@ export function ExtensionSectionMount({
   patch,
   validate,
   markSaved,
+  reloadHost,
   hideTitle,
   actions,
   anchorId,
@@ -34,6 +35,7 @@ export function ExtensionSectionMount({
   readonly patch?: (partial: Readonly<Record<string, unknown>>) => void;
   readonly validate?: () => boolean;
   readonly markSaved?: (fields?: readonly string[]) => void;
+  readonly reloadHost?: () => void;
   readonly hideTitle?: boolean;
   /** section.actions, already resolved into buttons by the caller. */
   readonly actions?: ReactNode;
@@ -90,6 +92,7 @@ export function ExtensionSectionMount({
       patch={patch}
       validate={validate}
       markSaved={markSaved}
+      {...(reloadHost !== undefined && { reloadHost })}
       {...(onReportStepComplete !== undefined && { reportStepComplete })}
     />
   );
@@ -124,6 +127,7 @@ export function EditSlotMount({
   entityId,
   values,
   markSaved,
+  reloadHost,
   hasUnsavedChanges,
   wizardStep,
   activeTabId,
@@ -135,6 +139,7 @@ export function EditSlotMount({
   readonly entityId: string | null;
   readonly values: Readonly<Record<string, unknown>>;
   readonly markSaved?: (fields?: readonly string[]) => void;
+  readonly reloadHost?: () => void;
   readonly hasUnsavedChanges?: boolean;
   readonly wizardStep?: { readonly index: number; readonly isLast: boolean };
   readonly activeTabId?: string;
@@ -155,6 +160,7 @@ export function EditSlotMount({
       entityId={entityId}
       values={values}
       {...(markSaved !== undefined && { markSaved })}
+      {...(reloadHost !== undefined && { reloadHost })}
       {...(hasUnsavedChanges !== undefined && { hasUnsavedChanges })}
       {...(wizardStep !== undefined && { wizardStep })}
       {...(activeTabId !== undefined && { activeTabId })}

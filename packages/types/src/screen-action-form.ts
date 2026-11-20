@@ -268,6 +268,16 @@ export type ActionFormLoad = {
  *  `text` (default) shows the value as it is. */
 export type ActionFormValueType = "text" | "number" | "money" | "date" | "timestamp";
 
+/** One footer row under the preview table, e.g. a sum row or the total claim. */
+export type ActionFormPreviewFooterRow = {
+  /** Label in the first column (i18n key). */
+  readonly label: string;
+  /** Column field of the list -> flat field of the query result (not of a row); shown under that column in the column's format. A missing result field leaves the cell empty. */
+  readonly cells: Readonly<Record<string, string>>;
+  /** Bold with a rule above, for the total. */
+  readonly emphasize?: boolean;
+};
+
 /** Rows of the preview panel, read from an array in the preview query's result. */
 export type ActionFormPreviewList = {
   /** Flat field name of an array in the query result; an entry that is no object is skipped. */
@@ -280,6 +290,8 @@ export type ActionFormPreviewList = {
     /** Value format of the column; default `text`. `file`: a FileRef id, shown with name and download link. */
     readonly type?: ActionFormValueType | "file";
   }[];
+  /** Rows under the table body, e.g. sums. */
+  readonly footer?: readonly ActionFormPreviewFooterRow[];
 };
 
 /** Preview panel above the submit button: runs a query over the current form values and shows
@@ -314,6 +326,8 @@ export type ActionFormSuccessFact = {
   readonly type?: ActionFormValueType | "file";
   /** The value is an i18n key and is shown translated: for a result that names a case without knowing the reader's language. */
   readonly valueIsI18nKey?: boolean;
+  /** Highlights the key figure, e.g. a total: bold with a rule above it. */
+  readonly emphasize?: boolean;
 };
 
 /** Per-entry hints of the success box, read from an array in the handler's success payload. */

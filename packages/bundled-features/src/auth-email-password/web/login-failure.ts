@@ -1,8 +1,7 @@
 // Pure (no DOM, no renderer): shared by the SPA clients and the static login, which must stay
 // importable from a plain script.
 
-// Reason codes the login handler is known to emit (login-screen.tsx's reasonToKey maps every one
-// of these to an i18n key). The server can also send a reason this client does not know yet
+// Reason codes the login and invite-accept endpoints are known to emit. The server can also send a reason this client does not know yet
 // (rolling deploys, a new enforcement policy), so consumers type `KnownLoginFailureReason |
 // (string & {})`: autocomplete on the known set, no collapse to plain `string`.
 export type KnownLoginFailureReason =
@@ -13,7 +12,11 @@ export type KnownLoginFailureReason =
   | "rate_limited"
   | "invalid_body"
   | "mfa_not_supported"
-  | "mfa_setup_required";
+  | "mfa_setup_required"
+  | "invalid_invite_token"
+  | "invite_email_mismatch"
+  | "invite_already_accepted"
+  | "validation_error";
 
 export type LoginFailure = {
   readonly reason: KnownLoginFailureReason | (string & {});

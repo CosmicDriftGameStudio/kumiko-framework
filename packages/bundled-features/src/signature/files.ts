@@ -7,6 +7,7 @@ import {
 import type { HandlerContext, Registry, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
   type CreatedFileRef,
+  type CreateFileRefInput,
   createFileRefFromBytes,
   fileRefEntity,
   fileRefsTable,
@@ -54,7 +55,12 @@ export async function readTenantFile(
 export function storeGeneratedFile(
   ctx: GeneratedFileContext,
   user: SessionUser,
-  file: { readonly fileName: string; readonly mimeType: string; readonly data: Uint8Array },
+  file: {
+    readonly fileName: string;
+    readonly mimeType: string;
+    readonly data: Uint8Array;
+    readonly attachTo?: CreateFileRefInput["attachTo"];
+  },
 ): Promise<WriteResult<CreatedFileRef>> {
   return createFileRefFromBytes({ ...ctx, user }, file);
 }

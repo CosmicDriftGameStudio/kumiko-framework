@@ -34,4 +34,6 @@ export type MetricBandProps = {
   readonly testId?: string;
   /** One half of a band split for the narrow order: lead drops the bottom padding, tiles uses pt-3. */
   readonly splitPart?: "lead" | "tiles";
+  /** The surrounding section already insets its content, so the band adds no padding of its own. */
+  readonly flush?: boolean;
 };

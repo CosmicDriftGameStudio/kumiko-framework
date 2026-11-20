@@ -57,6 +57,20 @@ function validateList(where: string, list: NonNullable<ActionFormPreview["list"]
       message: `${where} list column "${column.field}" needs label: the i18n key of its header.`,
     });
   }
+  const columnFields = new Set(list.columns.map((column) => column.field));
+  for (const row of list.footer ?? []) {
+    if (isBlank(row.label)) {
+      throw bootRuleError(ACTION_FORM_PREVIEW_RULES.labelMissing, {
+        message: `${where} list footer row needs label: the i18n key shown in the first column.`,
+      });
+    }
+    for (const columnField of Object.keys(row.cells)) {
+      if (columnFields.has(columnField)) continue;
+      throw bootRuleError(ACTION_FORM_PREVIEW_RULES.footerColumnUnknown, {
+        message: `${where} list footer row "${row.label}" has a cell for "${columnField}", which is no list column. Columns: ${[...columnFields].join(", ")}.`,
+      });
+    }
+  }
 }
 
 export function validateActionFormPreview(

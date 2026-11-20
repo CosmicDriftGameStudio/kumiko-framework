@@ -14,6 +14,7 @@ import { EmbeddedListInput } from "./embedded-list-input.tsx";
 import { DefaultEmptyState } from "./empty-state.tsx";
 import { FileValueList } from "./file-value-list.tsx";
 import { DefaultJsonView } from "./json-view.tsx";
+import { DefaultKeyValueList } from "./key-value-list.tsx";
 import { DefaultLightbox } from "./lightbox.tsx";
 import { DefaultMetric, DefaultMetricBand } from "./metric.tsx";
 import { DefaultModal } from "./modal.tsx";
@@ -99,6 +100,7 @@ export const defaultPrimitives: CorePrimitives = {
   PageHeader: DefaultPageHeader,
   JsonView: DefaultJsonView,
   FileValueList,
+  KeyValueList: DefaultKeyValueList,
   FillContainer: DefaultFillContainer,
   ActionOverflowMenu,
   SecretReveal: DefaultSecretReveal,

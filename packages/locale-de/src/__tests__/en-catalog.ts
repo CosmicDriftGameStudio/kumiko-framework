@@ -30,6 +30,12 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "auth.errors.emailNotVerified": "Email address not yet verified.",
   "auth.errors.invalidBody": "Invalid input.",
   "auth.errors.invalidCredentials": "Invalid email or password.",
+  "auth.errors.invalidInviteToken":
+    "This invitation link is invalid, expired or already used. Please ask for a new invitation.",
+  "auth.errors.inviteEmailMismatch": "This invitation was sent to a different email address.",
+  "auth.errors.inviteAlreadyAccepted": "This invitation has already been accepted.",
+  "auth.errors.passwordRejected":
+    "This password was rejected. Use at least 8 characters and avoid common passwords.",
   "auth.errors.invalidResetToken": "Link is invalid or expired. Please request a new one.",
   "auth.errors.invalidSignupToken":
     "Activation link is invalid or expired. Please request a new one.",

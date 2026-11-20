@@ -9,6 +9,7 @@ import {
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
+import { createMockDispatcher } from "@cosmicdrift/kumiko-renderer/testing";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { defaultTranslations } from "../i18n.ts";
@@ -16,6 +17,19 @@ import { InviteAcceptScreen } from "../invite-accept-screen.tsx";
 import { makeSessionApi, renderWithProviders } from "./test-utils.tsx";
 
 const resolver = createStaticLocaleResolver({ locale: "en" });
+
+function errorResponse(status: number, reason: string): Response {
+  return new Response(
+    JSON.stringify({ isSuccess: false, error: { code: "unprocessable", details: { reason } } }),
+    { status },
+  );
+}
+
+function submitAnonExisting(password: string): void {
+  fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: "a@example.com" } });
+  fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: password } });
+  fireEvent.click(screen.getByRole("button", { name: "Accept + sign in" }));
+}
 
 function renderWithoutSessionProvider(token: string) {
   return render(
@@ -168,17 +182,18 @@ describe("InviteAcceptScreen — logged-in branch", () => {
     });
   });
 
-  test("accept logged-in failure shows invalidInviteToken banner", async () => {
-    globalThis.fetch = mock(
-      async () => new Response(null, { status: 422 }),
+  test("accept logged-in failure with invalid_invite_token shows the translated banner", async () => {
+    globalThis.fetch = mock(async () =>
+      errorResponse(422, "invalid_invite_token"),
     ) as unknown as typeof fetch;
     renderWithProviders(<InviteAcceptScreen token="bad" />, {
       session: makeSessionApi({ status: "authenticated" }),
     });
     fireEvent.click(screen.getByRole("button", { name: "Accept" }));
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toContain("auth.errors.invalidInviteToken");
+      expect(screen.getByRole("alert").textContent).toContain("invitation link is invalid");
     });
+    expect(document.body.textContent).not.toContain("auth.errors.");
   });
 
   test("use other account switches to anon-existing form", () => {
@@ -298,16 +313,120 @@ describe("InviteAcceptScreen — anonymous branches", () => {
     expect(loggedInHref).not.toHaveBeenCalled();
   });
 
-  test("anon failure shows invalidInviteToken banner", async () => {
-    globalThis.fetch = mock(
-      async () => new Response(null, { status: 422 }),
+  test("anon invalid_credentials shows the invalidCredentials text, not the invite-token error", async () => {
+    globalThis.fetch = mock(async () =>
+      errorResponse(422, "invalid_credentials"),
     ) as unknown as typeof fetch;
     renderWithoutSessionProvider("tok-123");
-    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: "a@example.com" } });
-    fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "wrong" } });
-    fireEvent.click(screen.getByRole("button", { name: "Accept + sign in" }));
+    submitAnonExisting("wrongpass1");
     await waitFor(() => {
-      expect(screen.getByRole("alert").textContent).toContain("auth.errors.invalidInviteToken");
+      expect(screen.getByRole("alert").textContent).toContain("Invalid email or password.");
     });
+    expect(document.body.textContent).not.toContain("auth.errors.");
+  });
+
+  test("429 shows the rate-limit text", async () => {
+    globalThis.fetch = mock(
+      async () => new Response(null, { status: 429 }),
+    ) as unknown as typeof fetch;
+    renderWithoutSessionProvider("tok-123");
+    submitAnonExisting("secret123");
+    await waitFor(() => {
+      expect(screen.getByRole("alert").textContent).toContain("Too many login attempts");
+    });
+  });
+
+  test("unreadable error body falls back to the generic error, never invalidInviteToken", async () => {
+    globalThis.fetch = mock(
+      async () => new Response("oops", { status: 500 }),
+    ) as unknown as typeof fetch;
+    renderWithoutSessionProvider("tok-123");
+    submitAnonExisting("secret123");
+    await waitFor(() => {
+      expect(screen.getByRole("alert").textContent).toContain("Something went wrong");
+    });
+  });
+
+  test("invite_email_mismatch and validation_error are translated", async () => {
+    globalThis.fetch = mock(async () =>
+      errorResponse(422, "invite_email_mismatch"),
+    ) as unknown as typeof fetch;
+    renderWithoutSessionProvider("tok-123");
+    submitAnonExisting("secret123");
+    await waitFor(() => {
+      expect(screen.getByRole("alert").textContent).toContain("different email address");
+    });
+  });
+});
+
+describe("InviteAcceptScreen — invite-info lookup", () => {
+  function inviteInfoDispatcher(result: ReturnType<typeof infoOk> | ReturnType<typeof infoError>) {
+    return createMockDispatcher({ query: async () => result });
+  }
+  const infoOk = (email: string, hasAccount: boolean) =>
+    ({ isSuccess: true, data: { email, hasAccount } }) as const;
+  const infoError = (status: number, reason: string) =>
+    ({
+      isSuccess: false,
+      error: {
+        code: "unprocessable",
+        httpStatus: status,
+        i18nKey: "auth.errors.invalidInviteToken",
+        message: "x",
+        details: { reason },
+      },
+    }) as const;
+
+  test("hasAccount=false selects signup mode and shows the invited email locked", async () => {
+    renderWithProviders(<InviteAcceptScreen token="tok-123" />, {
+      session: makeSessionApi({ status: "unauthenticated", user: null }),
+      dispatcher: inviteInfoDispatcher(infoOk("new@example.com", false)),
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^Email/).hasAttribute("disabled")).toBe(true);
+    });
+    expect((screen.getByLabelText(/^Email/) as HTMLInputElement).value).toBe("new@example.com");
+    expect(
+      screen.getByRole("button", { name: "I already have an account" }).getAttribute("type"),
+    ).toBe("button");
+    expect(screen.getByLabelText(/^Password/).getAttribute("autocomplete")).toBe("new-password");
+  });
+
+  test("hasAccount=true keeps login mode with the invited email prefilled", async () => {
+    renderWithProviders(<InviteAcceptScreen token="tok-123" />, {
+      session: makeSessionApi({ status: "unauthenticated", user: null }),
+      dispatcher: inviteInfoDispatcher(infoOk("old@example.com", true)),
+    });
+    await waitFor(() => {
+      expect((screen.getByLabelText(/^Email/) as HTMLInputElement).value).toBe("old@example.com");
+    });
+    expect(
+      screen.getByRole("button", { name: "I don't have an account yet" }).getAttribute("type"),
+    ).toBe("button");
+  });
+
+  test("invalid_invite_token shows an error card instead of the form", async () => {
+    renderWithProviders(<InviteAcceptScreen token="tok-123" />, {
+      session: makeSessionApi({ status: "unauthenticated", user: null }),
+      dispatcher: inviteInfoDispatcher(infoError(422, "invalid_invite_token")),
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("alert").textContent).toContain("invitation link is invalid");
+    });
+    expect(screen.queryByLabelText(/^Password/)).toBeNull();
+    expect(document.body.textContent).not.toContain("auth.errors.");
+  });
+
+  test("other lookup failures keep the default form", async () => {
+    renderWithProviders(<InviteAcceptScreen token="tok-123" />, {
+      session: makeSessionApi({ status: "unauthenticated", user: null }),
+      dispatcher: inviteInfoDispatcher(infoError(429, "rate_limited")),
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^Password/).getAttribute("type")).toBe("password");
+    });
+    expect(
+      screen.getByRole("button", { name: "I don't have an account yet" }).getAttribute("type"),
+    ).toBe("button");
   });
 });

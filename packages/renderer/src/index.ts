@@ -322,6 +322,7 @@ export type {
   InputFillAction,
   InputProps,
   JsonViewProps,
+  KeyValueListProps,
   LightboxImage,
   LightboxProps,
   LinkProps,

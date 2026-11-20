@@ -79,6 +79,7 @@ export {
   formatMoneyValue,
   type HtmlValue,
   html,
+  isEmptyCellValue,
   isSafeHref,
   RawHtml,
   raw,

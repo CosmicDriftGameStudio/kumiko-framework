@@ -265,6 +265,7 @@ function renderEditSlot<TValues extends FormValues, TCtx>(
       entityName={sections.vm.entityName}
       entityId={resolveExtensionEntityId(props.entityId, sections.vm.id)}
       values={form.snapshot.values}
+      {...(props.onReload !== undefined && { reloadHost: props.onReload })}
     />
   );
 }
@@ -283,6 +284,7 @@ export function renderAfterFormSlot<TValues extends FormValues, TCtx>(
       entityName={sections.vm.entityName}
       entityId={resolveExtensionEntityId(props.entityId, sections.vm.id)}
       values={form.snapshot.values}
+      {...(props.onReload !== undefined && { reloadHost: props.onReload })}
       {...(props.activeTabId !== undefined && { activeTabId: props.activeTabId })}
     />
   );

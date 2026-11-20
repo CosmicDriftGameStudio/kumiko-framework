@@ -465,6 +465,12 @@ describe("signature :: request to completed document", () => {
     expect(row["status"]).toBe("completed");
     const completed = await storedPdf(String(row["completedFileId"]));
     expect(completed.getPageCount()).toBe(2);
+    const [sealedRef] = await selectMany<{ entityType: string; entityId: string }>(
+      stack.db,
+      fileRefsTable,
+      { id: String(row["completedFileId"]) },
+    );
+    expect(sealedRef).toMatchObject({ entityType: "signatureRequest", entityId: requestId });
     expect(printedHtml()).toHaveLength(1);
     expect(printedHtml()[0]).toContain(String(row["documentSha256"]));
     expect(printedHtml()[0]).toContain(NON_WIN_ANSI_NAME);

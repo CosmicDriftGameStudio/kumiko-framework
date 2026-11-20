@@ -83,6 +83,12 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "auth.errors.emailNotVerified": "L'adresse e-mail n'est pas encore confirmée.",
   "auth.errors.invalidBody": "Saisie invalide.",
   "auth.errors.invalidCredentials": "E-mail ou mot de passe incorrect.",
+  "auth.errors.invalidInviteToken":
+    "Ce lien d'invitation n'est pas valide, a expiré ou a déjà été utilisé. Demandez une nouvelle invitation.",
+  "auth.errors.inviteEmailMismatch": "Cette invitation a été envoyée à une autre adresse e-mail.",
+  "auth.errors.inviteAlreadyAccepted": "Cette invitation a déjà été acceptée.",
+  "auth.errors.passwordRejected":
+    "Ce mot de passe a été refusé. Utilisez au moins 8 caractères et évitez les mots de passe courants.",
   "auth.errors.invalidResetToken": "Le lien n'est pas valide ou a expiré. Demandez-en un nouveau.",
   "auth.errors.invalidSignupToken":
     "Le lien d'activation n'est pas valide ou a expiré. Demandez-en un nouveau.",

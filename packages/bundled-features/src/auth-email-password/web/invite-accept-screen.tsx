@@ -15,11 +15,19 @@
 // frontend redirects to loggedInHref. Branch 1 already has a session, but the
 // frontend also redirects to loggedInHref so the invitee enters the new tenant.
 
-import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import {
+  useOptionalDispatcher,
+  usePrimitives,
+  useQuery,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useContext, useState } from "react";
 import { csrfHeader } from "./auth-client.ts";
 import { resolvePostAuthHref } from "./auth-form-logic.ts";
 import { AuthCard, useUrlToken } from "./auth-form-primitives.tsx";
+import { AuthErrors, AuthQueries } from "./constants.ts";
+import { failureFromErrorField, isRecord, type LoginFailure } from "./login-failure.ts";
+import { reasonToKey } from "./login-screen.tsx";
 import { SessionContext, UNAUTHENTICATED } from "./session.tsx";
 
 export type InviteAcceptScreenProps = {
@@ -64,32 +72,84 @@ function isMfaPending(data: InviteAcceptResponse): data is InviteAcceptMfaPendin
   return data.tenantId === undefined;
 }
 
+type InviteInfo = { readonly email: string; readonly hasAccount: boolean };
+
+type InviteInfoState =
+  | { readonly kind: "unavailable" }
+  | { readonly kind: "invalid" }
+  | { readonly kind: "ready"; readonly info: InviteInfo };
+
+async function failureFromResponse(res: Response): Promise<LoginFailure> {
+  if (res.status === 429) return { reason: "rate_limited" };
+  const body: unknown = await res.json().catch(() => null);
+  return failureFromErrorField(isRecord(body) ? body["error"] : undefined, "unknown_error");
+}
+
 function grantedRoles(data: InviteAcceptSucceeded): readonly string[] {
   if (data.user?.roles !== undefined) return data.user.roles;
   return data.role === undefined ? [] : [data.role];
 }
 
+// Without a mounted dispatcher (standalone mounts, tests) the lookup is skipped and the
+// form behaves as before; so does any lookup failure except an invalid token.
+function InviteAcceptWithLookup(props: InviteAcceptBodyProps): ReactNode {
+  const { data, error } = useQuery<InviteInfo>(
+    AuthQueries.inviteInfo,
+    { token: props.token },
+    { enabled: props.token !== "" },
+  );
+  const inviteInfo: InviteInfoState =
+    data !== null
+      ? { kind: "ready", info: data }
+      : error?.details?.["reason"] === AuthErrors.invalidInviteToken
+        ? { kind: "invalid" }
+        : { kind: "unavailable" };
+  return <InviteAcceptBody {...props} inviteInfo={inviteInfo} />;
+}
+
 export function InviteAcceptScreen({
-  title,
   token: tokenProp,
+  ...rest
+}: InviteAcceptScreenProps): ReactNode {
+  const token = useUrlToken(tokenProp);
+  const dispatcher = useOptionalDispatcher();
+  return dispatcher === undefined ? (
+    <InviteAcceptBody {...rest} token={token} inviteInfo={{ kind: "unavailable" }} />
+  ) : (
+    <InviteAcceptWithLookup {...rest} token={token} />
+  );
+}
+
+type InviteAcceptBodyProps = Omit<InviteAcceptScreenProps, "token"> & { readonly token: string };
+
+function InviteAcceptBody({
+  title,
+  token,
   loggedInHref = "/",
   loginHref = "/login",
-}: InviteAcceptScreenProps): ReactNode {
+  inviteInfo,
+}: InviteAcceptBodyProps & { readonly inviteInfo: InviteInfoState }): ReactNode {
   const t = useTranslation();
-  const { Form, Field, Input, Button, Banner, Link } = usePrimitives();
+  const { Banner, Link } = usePrimitives();
   // NOT useSession(): InviteAcceptScreen is a public route (anon invite-links
   // are the documented use case) — useSession() throws without a
   // <SessionProvider> ancestor. Read the context directly and fall back to
   // the anonymous state when no provider wraps this screen (632/1).
   const session = useContext(SessionContext) ?? UNAUTHENTICATED;
-  const token = useUrlToken(tokenProp);
-  const [mode, setMode] = useState<Mode>(() =>
-    session.status === "authenticated" ? "loggedin" : "anon-existing",
-  );
-  const [email, setEmail] = useState("");
+  const [chosenMode, setMode] = useState<Mode | null>(null);
+  const [typedEmail, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const invitedEmail = inviteInfo.kind === "ready" ? inviteInfo.info.email : null;
+  const email = invitedEmail ?? typedEmail;
+  const defaultMode: Mode =
+    session.status === "authenticated"
+      ? "loggedin"
+      : inviteInfo.kind === "ready" && !inviteInfo.info.hasAccount
+        ? "anon-new"
+        : "anon-existing";
+  const mode = chosenMode ?? defaultMode;
 
   const effectiveTitle = title ?? t("auth.inviteAccept.title");
 
@@ -126,7 +186,12 @@ export function InviteAcceptScreen({
       finishAccept(data);
       return;
     }
-    setError(t("auth.errors.invalidInviteToken"));
+    const failure = await failureFromResponse(res);
+    const { key, params } =
+      failure.reason === "validation_error"
+        ? { key: "auth.errors.passwordRejected", params: undefined }
+        : reasonToKey(failure, "auth.errors.unknownError");
+    setError(t(key, params));
   };
 
   const acceptLoggedIn = (): Promise<void> =>
@@ -162,75 +227,143 @@ export function InviteAcceptScreen({
     );
   }
 
+  if (inviteInfo.kind === "invalid") {
+    return (
+      <AuthCard title={effectiveTitle}>
+        <Banner variant="error">{t("auth.errors.invalidInviteToken")}</Banner>
+        <Link href={loginHref} variant="muted">
+          {t("auth.inviteAccept.goToLogin")}
+        </Link>
+      </AuthCard>
+    );
+  }
+
   return (
     <AuthCard title={effectiveTitle}>
       <p className="text-sm text-muted-foreground">{t("auth.inviteAccept.intro")}</p>
 
       {mode === "loggedin" ? (
-        <Form onSubmit={onSubmit}>
-          <p className="text-sm">
-            {t("auth.inviteAccept.loggedInAs", { email: session.user?.email ?? "" })}
-          </p>
-          {error !== null && <Banner variant="error">{error}</Banner>}
-          <Button type="submit" loading={submitting} disabled={submitting}>
-            {submitting ? t("auth.inviteAccept.submitting") : t("auth.inviteAccept.acceptButton")}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => {
-              setMode("anon-existing");
-            }}
-          >
-            {t("auth.inviteAccept.useOtherAccount")}
-          </Button>
-        </Form>
+        <LoggedInAcceptForm
+          email={session.user?.email ?? ""}
+          error={error}
+          submitting={submitting}
+          onSubmit={onSubmit}
+          onUseOtherAccount={() => {
+            setMode("anon-existing");
+          }}
+        />
       ) : (
-        <Form onSubmit={onSubmit}>
-          {mode === "anon-existing" && (
-            <Field id="invite-email" label={t("auth.inviteAccept.email")} required>
-              <Input
-                kind="email"
-                id="invite-email"
-                name="invite-email"
-                value={email}
-                onChange={setEmail}
-                disabled={submitting}
-                required
-                autoComplete="email"
-              />
-            </Field>
-          )}
-          <Field id="invite-password" label={t("auth.inviteAccept.password")} required>
-            <Input
-              kind="password"
-              id="invite-password"
-              name="invite-password"
-              value={password}
-              onChange={setPassword}
-              disabled={submitting}
-              required
-              autoComplete={mode === "anon-existing" ? "current-password" : "new-password"}
-            />
-          </Field>
-          {error !== null && <Banner variant="error">{error}</Banner>}
-          <Button type="submit" loading={submitting} disabled={submitting}>
-            {submitting ? t("auth.inviteAccept.submitting") : t("auth.inviteAccept.submit")}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => {
-              setMode(mode === "anon-existing" ? "anon-new" : "anon-existing");
-              setError(null);
-            }}
-          >
-            {mode === "anon-existing"
-              ? t("auth.inviteAccept.toggleNew")
-              : t("auth.inviteAccept.toggleExisting")}
-          </Button>
-        </Form>
+        <CredentialsAcceptForm
+          mode={mode}
+          email={email}
+          emailLocked={invitedEmail !== null}
+          onEmail={setEmail}
+          password={password}
+          onPassword={setPassword}
+          error={error}
+          submitting={submitting}
+          onSubmit={onSubmit}
+          onToggleMode={() => {
+            setMode(mode === "anon-existing" ? "anon-new" : "anon-existing");
+            setError(null);
+          }}
+        />
       )}
     </AuthCard>
+  );
+}
+
+type AcceptFormState = {
+  readonly error: string | null;
+  readonly submitting: boolean;
+  readonly onSubmit: (e?: FormEvent) => void;
+};
+
+function LoggedInAcceptForm({
+  email,
+  error,
+  submitting,
+  onSubmit,
+  onUseOtherAccount,
+}: AcceptFormState & {
+  readonly email: string;
+  readonly onUseOtherAccount: () => void;
+}): ReactNode {
+  const t = useTranslation();
+  const { Form, Button, Banner } = usePrimitives();
+  return (
+    <Form onSubmit={onSubmit}>
+      <p className="text-sm">{t("auth.inviteAccept.loggedInAs", { email })}</p>
+      {error !== null && <Banner variant="error">{error}</Banner>}
+      <Button type="submit" loading={submitting} disabled={submitting}>
+        {submitting ? t("auth.inviteAccept.submitting") : t("auth.inviteAccept.acceptButton")}
+      </Button>
+      <Button type="button" variant="secondary" onClick={onUseOtherAccount}>
+        {t("auth.inviteAccept.useOtherAccount")}
+      </Button>
+    </Form>
+  );
+}
+
+function CredentialsAcceptForm({
+  mode,
+  email,
+  emailLocked,
+  onEmail,
+  password,
+  onPassword,
+  error,
+  submitting,
+  onSubmit,
+  onToggleMode,
+}: AcceptFormState & {
+  readonly mode: Mode;
+  readonly email: string;
+  readonly emailLocked: boolean;
+  readonly onEmail: (value: string) => void;
+  readonly password: string;
+  readonly onPassword: (value: string) => void;
+  readonly onToggleMode: () => void;
+}): ReactNode {
+  const t = useTranslation();
+  const { Form, Field, Input, Button, Banner } = usePrimitives();
+  return (
+    <Form onSubmit={onSubmit}>
+      {(mode === "anon-existing" || emailLocked) && (
+        <Field id="invite-email" label={t("auth.inviteAccept.email")} required>
+          <Input
+            kind="email"
+            id="invite-email"
+            name="invite-email"
+            value={email}
+            onChange={onEmail}
+            disabled={submitting || emailLocked}
+            required
+            autoComplete="email"
+          />
+        </Field>
+      )}
+      <Field id="invite-password" label={t("auth.inviteAccept.password")} required>
+        <Input
+          kind="password"
+          id="invite-password"
+          name="invite-password"
+          value={password}
+          onChange={onPassword}
+          disabled={submitting}
+          required
+          autoComplete={mode === "anon-existing" ? "current-password" : "new-password"}
+        />
+      </Field>
+      {error !== null && <Banner variant="error">{error}</Banner>}
+      <Button type="submit" loading={submitting} disabled={submitting}>
+        {submitting ? t("auth.inviteAccept.submitting") : t("auth.inviteAccept.submit")}
+      </Button>
+      <Button type="button" variant="secondary" onClick={onToggleMode}>
+        {mode === "anon-existing"
+          ? t("auth.inviteAccept.toggleNew")
+          : t("auth.inviteAccept.toggleExisting")}
+      </Button>
+    </Form>
   );
 }

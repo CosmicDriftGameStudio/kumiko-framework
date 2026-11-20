@@ -50,6 +50,7 @@ function renderFooterSlot<TValues extends FormValues, TCtx>({
         entityId={resolveExtensionEntityId(props.entityId, sections.vm.id)}
         values={form.snapshot.values}
         markSaved={draft.markSaved}
+        {...(props.onReload !== undefined && { reloadHost: props.onReload })}
         hasUnsavedChanges={footer.hasUnsavedInput}
         wizardStep={
           state.isWizard ? { index: steps.currentStep, isLast: steps.isLastWizardStep } : undefined

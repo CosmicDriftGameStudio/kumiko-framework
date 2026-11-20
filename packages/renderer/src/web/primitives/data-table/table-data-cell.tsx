@@ -12,9 +12,10 @@ import {
   NUMERIC_COLUMN_TYPES,
   TABULAR_COLUMN_TYPES,
 } from "../data-table-cell.tsx";
+import { stickyActionsCellClass } from "./actions-column.tsx";
 import { columnCellPresentationProps } from "./data-cell-props.ts";
 import { hintColumnWidthStyle } from "./hint-column-width.ts";
-import { isRowActionColumn } from "./row-action-column.ts";
+import { isRowActionColumn, isStickyRowActionColumn } from "./row-action-column.ts";
 import type { DataTableModel } from "./use-data-table-state.ts";
 
 // Cells stay on one line and end in "…" when the text does not fit (the full text is the
@@ -73,6 +74,8 @@ function dataCellClassName(
     col.multiline === true && "whitespace-pre-line",
     NUMERIC_COLUMN_TYPES.has(col.type) && "text-right",
     isRowActionColumn(col) && "sm:text-right",
+    isStickyRowActionColumn(m.columns, col, m.hasTableActions) &&
+      stickyActionsCellClass(m.fillsHeight),
     TABULAR_COLUMN_TYPES.has(col.type) && "tabular-nums",
     col.highlighted === true && "bg-accent/40",
     m.density.cell,

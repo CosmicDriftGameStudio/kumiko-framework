@@ -5,6 +5,8 @@ import type {
   RateLimitOption,
 } from "@cosmicdrift/kumiko-types/handlers";
 
+import type { WaitlistRetention } from "./entity.ts";
+
 export type WaitlistInviteOptions =
   | {
       /** Each invited entry gets its own tenant, named after company or name. */
@@ -43,6 +45,10 @@ export type WaitlistOptions = {
   /** Mounts the SystemAdmin-only `export` and `purge` handlers for handing over
    *  and erasing the whole list. Default true; pass false to leave them out. */
   readonly exportPurge?: boolean;
+  /** Deletes entries older than `keepFor` (from creation, any status) through the data-retention
+   *  cleanup job, which forgets each row and shreds its key; the app must mount the data-retention
+   *  feature. Without it entries stay until purged or erased by hand. */
+  readonly retention?: WaitlistRetention;
   /** Shown in the confirmation mail; omitted when unset. */
   readonly appName?: string;
 };

@@ -57,7 +57,126 @@ function typeInto(id: string, value: string): void {
   });
 }
 
+function factText(testId: string): string {
+  return screen.getByTestId(testId).textContent ?? "";
+}
+
 describe("actionForm preview", () => {
+  test("single-line facts sit side by side as KPI tiles in one band", async () => {
+    const dispatcher = createMockDispatcher({
+      query: async () => ({
+        isSuccess: true,
+        data: {
+          principal: { amount: 10000, currency: "EUR" },
+          total: { amount: 10500, currency: "EUR" },
+        },
+      }),
+    });
+    renderForm(dispatcher, {
+      ...form,
+      preview: {
+        query: "tasks:query:set-status-preview",
+        fields: ["status"],
+        facts: [
+          { field: "principal", label: "Principal", type: "money" },
+          { field: "total", label: "Total", type: "money", emphasize: true },
+        ],
+      },
+    });
+
+    typeInto("status", "blocked");
+    await waitFor(() => screen.getByTestId("action-form-preview"));
+    const principal = screen.getByTestId("action-form-preview-fact-0");
+    const total = screen.getByTestId("action-form-preview-fact-1");
+    expect(principal.parentElement).toBe(total.parentElement);
+    expect(principal.querySelector("dd")).toBeNull();
+    expect(factText("action-form-preview-fact-0")).toBe("Principal€100.00");
+    expect(factText("action-form-preview-fact-1")).toBe("Total€105.00");
+  });
+
+  test("a long text fact leaves the name-value list and shows its label above the text", async () => {
+    const note = "Two smoke detectors in the stairwell do not work at all.";
+    const dispatcher = createMockDispatcher({
+      query: async () => ({ isSuccess: true, data: { count: 2, note } }),
+    });
+    renderForm(dispatcher, {
+      ...form,
+      preview: {
+        query: "tasks:query:set-status-preview",
+        fields: ["status"],
+        facts: [
+          { field: "count", label: "Affected tasks", type: "number" },
+          { field: "note", label: "Note" },
+        ],
+      },
+    });
+
+    typeInto("status", "blocked");
+    await waitFor(() => screen.getByTestId("action-form-preview"));
+    const count = screen.getByTestId("action-form-preview-fact-0");
+    const noteFact = screen.getByTestId("action-form-preview-fact-1");
+    expect(factText("action-form-preview-fact-0")).toBe("Affected tasks2");
+    expect(noteFact.parentElement).not.toBe(count.parentElement);
+    expect(screen.getByTestId("action-form-preview-fact-1-line-0").textContent).toBe(note);
+  });
+
+  test("footer rows sit in the table footer under their column, formatted like the body, and the panel is no hint banner", async () => {
+    const money = (amount: number) => ({ amount, currency: "EUR" });
+    const dispatcher = createMockDispatcher({
+      query: async () => ({
+        isSuccess: true,
+        data: {
+          rows: [{ month: "2026-01", rent: money(103000), open: money(78115) }],
+          sumRent: money(618000),
+          sumOpen: money(593115),
+          total: money(593115),
+        },
+      }),
+    });
+    renderForm(dispatcher, {
+      ...form,
+      preview: {
+        query: "tasks:query:set-status-preview",
+        fields: ["status"],
+        title: "Claim",
+        list: {
+          field: "rows",
+          columns: [
+            { field: "month", label: "Month" },
+            { field: "rent", label: "Rent", type: "money" },
+            { field: "open", label: "Open", type: "money" },
+          ],
+          footer: [
+            { label: "Sum", cells: { rent: "sumRent", open: "sumOpen" } },
+            { label: "Total claim", cells: { open: "total" }, emphasize: true },
+          ],
+        },
+      },
+    });
+
+    typeInto("status", "blocked");
+    const panel = await screen.findByTestId("action-form-preview");
+    expect(panel.querySelector("[data-section-title]")?.textContent).toBe("Claim");
+    expect(screen.queryByRole("status")).toBeNull();
+    const sum = screen.getByText("Sum").closest("tr");
+    if (sum === null) throw new Error("expected the Sum footer row");
+    expect(sum.closest("tfoot")).not.toBeNull();
+    expect(Array.from(sum.children).map((cell) => cell.textContent)).toEqual([
+      "Sum",
+      "€6,180.00",
+      "€5,931.15",
+    ]);
+    const total = screen.getByText("Total claim").closest("tr");
+    if (total === null) throw new Error("expected the Total claim footer row");
+    expect(Array.from(total.children).map((cell) => cell.textContent)).toEqual([
+      "Total claim",
+      "",
+      "€5,931.15",
+    ]);
+    expect(total.hasAttribute("data-emphasize")).toBe(true);
+    expect(sum.hasAttribute("data-emphasize")).toBe(false);
+  });
+
   test("a changed form value runs the preview query and renders facts and list", async () => {
     const queries: { type: string; payload: unknown }[] = [];
     const dispatcher = createMockDispatcher({
@@ -85,7 +204,7 @@ describe("actionForm preview", () => {
     expect(queries).toEqual([
       { type: "tasks:query:set-status-preview", payload: { status: "blocked" } },
     ]);
-    expect(screen.getByTestId("action-form-preview-fact-0").textContent).toBe("Affected tasks: 2");
+    expect(factText("action-form-preview-fact-0")).toBe("Affected tasks2");
     screen.getByText("Quarterly VAT filing");
     screen.getByText("Prepare audit");
   });
@@ -187,8 +306,8 @@ describe("actionForm preview", () => {
 
     typeInto("status", "blocked");
     await waitFor(() => screen.getByTestId("action-form-preview"));
-    expect(screen.getByTestId("action-form-preview-fact-0").textContent).toBe("Total: €1,234.50");
-    const due = screen.getByTestId("action-form-preview-fact-1").textContent ?? "";
+    expect(factText("action-form-preview-fact-0")).toBe("Total€1,234.50");
+    const due = factText("action-form-preview-fact-1");
     expect(due).not.toContain("2026-11-30");
     expect(due).toContain("2026");
     screen.getByText("€12.50");

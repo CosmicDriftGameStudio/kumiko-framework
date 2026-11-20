@@ -9,6 +9,7 @@ import {
   applyFormatSpec,
   type EditFieldViewModel,
   EMPTY_VALUE_PLACEHOLDER,
+  isEmptyCellValue,
 } from "../headless/index.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
@@ -51,6 +52,11 @@ export function FieldRendererOutput({
           testId={valueTestId}
         />
       );
+    }
+    // applyFormatSpec collapses an empty value to "" for list cells; a read-only field shows the
+    // placeholder instead so its label never stands alone. priority keeps its own emptyLabel.
+    if (isEmptyCellValue(field.value) && renderer.format !== "priority") {
+      return <Text testId={valueTestId}>{EMPTY_VALUE_PLACEHOLDER}</Text>;
     }
     // App locale as default when the FormatSpec declares none of its own —
     // otherwise locale-sensitive formats (timestamp/date/number/decimal/
@@ -103,7 +109,7 @@ export function readOnlyDisplayText(
   t: ReturnType<typeof useTranslation>,
 ): string {
   const { type, value } = field;
-  if (value === undefined || value === null || value === "") return EMPTY_VALUE_PLACEHOLDER;
+  if (isEmptyCellValue(value)) return EMPTY_VALUE_PLACEHOLDER;
   if (type === "text" && field.writeOnly === true) return t("kumiko.field.writeOnly.set");
   if (type === "text" && field.format === "password") return "••••••••";
   const toText = DISPLAY_TEXT_BY_TYPE.get(type) ?? defaultDisplayText;

@@ -55,6 +55,7 @@ const FORGET = "crypto-shredding:write:forget-subject";
 const CREATE_DOSSIER = "ff-probe:write:dossier:create";
 const UPDATE_DOSSIER = "ff-probe:write:dossier:update";
 const DETAIL_DOSSIER = "ff-probe:query:dossier:detail";
+const CREATE_KEEPER = "ff-probe:write:keeper:create";
 const CREATE_OWNED = "ff-probe:write:owned-doc:create";
 const INTAKE_FORM = "ff-probe:screen:intake-form";
 const KEEP_AS_COVER = "ff-probe:write:keep-as-cover";
@@ -83,7 +84,19 @@ const ownedDocEntity = createEntity({
   },
 });
 
+// Live holder of a file another record is forgotten for; deliberately not personal.
+const keeperEntity = createEntity({
+  name: "keeper",
+  table: "read_ff_keeper",
+  fields: {
+    label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    attachment: createFileField(),
+  },
+});
+
 const probeFeature = defineFeature("ff-probe", (r) => {
+  r.entity(keeperEntity);
+  r.writeHandler(defineEntityCreateHandler("keeper", keeperEntity, ROLES));
   r.entity(dossierEntity);
   r.entity(ownedDocEntity);
   r.writeHandler(defineEntityCreateHandler("dossier", dossierEntity, ROLES));
@@ -147,6 +160,13 @@ const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
   entityName: "fileRef",
 });
 
+function keeperTable() {
+  for (const proj of stack.registry.getAllProjections().values()) {
+    if (proj.source === "keeper" && proj.table) return proj.table;
+  }
+  throw new Error("keeper table is not registered");
+}
+
 let stack: TestStack;
 
 beforeAll(async () => {
@@ -157,6 +177,7 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, dossierEntity, "dossier");
   await unsafeCreateEntityTable(stack.db, ownedDocEntity, "owned-doc");
+  await unsafeCreateEntityTable(stack.db, keeperEntity, "keeper");
 });
 
 afterAll(async () => {
@@ -168,6 +189,7 @@ beforeEach(async () => {
     eventsTable,
     "read_ff_dossier",
     "read_ff_owned_doc",
+    "read_ff_keeper",
     fileRefsTable,
   ]);
   memory.clear();
@@ -300,6 +322,45 @@ describe("crypto-shredding :: forget-subject removes the subject's files", () =>
       dpo,
     );
     expect(detail.id).toBe(target.id);
+  });
+
+  test("a purged file that another record's live file column still holds survives and is rebound to that holder", async () => {
+    const target = await seedDossier("target");
+    const ownKeeperFileId = await upload(dpo, "keeper", "attachment");
+    const keeper = await stack.http.writeOk<{ id: string }>(
+      CREATE_KEEPER,
+      { label: "keeper", attachment: ownKeeperFileId },
+      dpo,
+    );
+    const [keeperRow] = await selectMany<{ version: number }>(stack.db, keeperTable(), {
+      id: keeper.id,
+    });
+    const tdb = createTenantDb({
+      db: stack.db,
+      tenantId: TENANT,
+      mode: "system",
+      reason: "test points a live record at a file the forgotten record's field was bound to",
+    });
+    const keeperExecutor = createEventStoreExecutor(keeperTable(), keeperEntity, {
+      entityName: "keeper",
+    });
+    const repointed = await keeperExecutor.update(
+      { id: keeper.id, version: keeperRow?.version, changes: { attachment: target.passportId } },
+      createSystemUser(TENANT),
+      tdb,
+    );
+    expect(repointed.isSuccess).toBe(true);
+
+    const spec = forgetRecord(target.id);
+    await stack.http.writeOk(spec.name, spec.payload, spec.as);
+
+    expect(await memory.exists(target.passportKey)).toBe(true);
+    const [ref] = await selectMany(stack.db, fileRefsTable, { id: target.passportId });
+    expect(ref).toMatchObject({
+      entityType: "keeper",
+      entityId: keeper.id,
+      fieldName: "attachment",
+    });
   });
 
   test("after forget the record still saves, with or without the purged file field sent back", async () => {

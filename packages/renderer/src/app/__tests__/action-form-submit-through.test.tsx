@@ -66,6 +66,15 @@ const testPrimitives = createStubPrimitives({
   Section: passChildren,
   Card: passChildren,
   Grid: passChildren,
+  KeyValueList: ({ rows }) => (
+    <>
+      {rows.map((row) => (
+        <span key={row.key}>
+          {row.label}: {row.value}
+        </span>
+      ))}
+    </>
+  ),
   GridCell: passChildren,
   Text: passChildren,
   Heading: noop,

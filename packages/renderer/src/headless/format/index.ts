@@ -250,7 +250,7 @@ type CellTranslate =
   | undefined;
 type CellFormatter = (spec: CellFormatSpec, value: unknown, translate: CellTranslate) => string;
 
-function isEmptyCellValue(value: unknown): boolean {
+export function isEmptyCellValue(value: unknown): boolean {
   return value === null || value === undefined || value === "";
 }
 

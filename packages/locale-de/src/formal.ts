@@ -64,6 +64,8 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "documentDesigner.mail.testMail.sent": "Test-Mail an Ihre Adresse gesendet: {subject}",
   "auth.errors.accountRestricted":
     "Konto nach Art. 18 DSGVO eingeschränkt. Heben Sie die Einschränkung auf, um sich wieder anzumelden.",
+  "auth.errors.invalidInviteToken":
+    "Dieser Einladungslink ist ungültig, abgelaufen oder schon benutzt. Bitte lassen Sie sich eine neue Einladung schicken.",
   "auth.errors.invalidResetToken":
     "Der Link ist ungültig oder abgelaufen. Bitte fordern Sie einen neuen an.",
   "auth.errors.invalidSignupToken":

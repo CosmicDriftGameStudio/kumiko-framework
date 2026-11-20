@@ -1699,6 +1699,7 @@ type ExtensionSectionProps = {
   patch?: (partial: Readonly<Record<string, unknown>>) => void; // Sets host RenderEdit form values from outside (e.g. a VIN-decode roundtrip that fills other fields) — same function as `RenderEditControls.patch`, merges only the given keys.
   validate?: () => boolean; // Validates the host form without writing — same function as `RenderEditControls.validate`; field errors land in `snapshot.errors` on the field instead of a collective message.
   markSaved?: (fields?: string[]) => void; // Marks host form values as saved after the section wrote them itself, so a following navigation does not ask to discard.
+  reloadHost?: () => void; // Reloads the host record (the detail query behind the screen) after the section wrote data itself, so derived host content such as next-step guidance refreshes.
   hasUnsavedChanges?: boolean; // Whether the host form has unsaved changes.
   wizardStep?: {
     index: number;
@@ -1930,6 +1931,12 @@ type DataTableExport = { // What the export button sends to POST /api/export/xls
   payload: Readonly<Record<string, unknown>>; // The list payload without paging keys; the server reads the whole filtered list.
   columns: string[]; // Visible column ids in display order.
 };
+type DataTableFooterRow = { // One labelled row in the table footer, with values under their columns in the column's format.
+  key: string;
+  label: string; // Shown in the first column.
+  values: Readonly<Record<string, unknown>>; // Column field -> raw value; a column without an entry stays empty.
+  emphasize?: boolean; // Bold with a rule above, for a total.
+};
 type DataTableGroupByChoice = {
   value: string; // Active group field, "" = not grouped.
   fields: string[];
@@ -1958,6 +1965,7 @@ type DataTableTableBlock = { // The DataTable props a screen's `table` block fee
   serverGroups?: DataTableServerGroups; // Present: the rows are grouped on the server; replaces pager and infinite scroll.
   summaryRow?: DataTableSummaryRow; // Present: a footer line above the totals row with the summary query's items.
   totals?: DataTableTotals; // Present: a footer row with the server-computed totals of the filtered list.
+  footerRows?: DataTableFooterRow[]; // Present: labelled footer rows (sums, total) after the summary and totals rows.
   notice?: DataTableListNotice; // Present: the toolbar says the answer is incomplete and asks to narrow the list.
   rangeFacets?: DataTableRangeFacet[];
   onRangeChange?: (field: string, bound: DataTableRangeBound, value: string) => void;
@@ -2446,6 +2454,7 @@ type MetricBandProps = { // Band above the tabs of a record detail: optional sub
   tiles?: boolean; // The children are KPI tiles, laid out as a tile grid instead of a definition list.
   testId?: string;
   splitPart?: "lead" | "tiles"; // One half of a band split for the narrow order: lead drops the bottom padding, tiles uses pt-3.
+  flush?: boolean; // The surrounding section already insets its content, so the band adds no padding of its own.
 };
 type MetricProps = { // Compact label/value tile (record-detail metrics band).
   label: string;
@@ -2566,6 +2575,24 @@ type StickyActionBarProps = { // Thumb-reach action row for custom screens: pinn
 };
 ```
 
+## packages/renderer/src/primitives-value-display-types.ts
+
+```ts
+type FileValueListProps = { // Read-only list of stored files (FileRef ids): name, download link and, for PDFs, an inline preview.
+  fileIds: string[];
+  previewOpenByDefault?: boolean; // Starts the inline PDF preview of the newest file open; uploads append, so that is the last id.
+  testId?: string;
+};
+type JsonViewProps = { // Structured JSON display (audit payload/metadata, job logs, unsupported jsonb/embedded field fallback).
+  value: unknown;
+  indent?: number;
+  testId?: string;
+};
+type KeyValueListProps = { // Read-only name-value list: dimmed label on the left, value right-aligned in one column, evenly spaced rows.
+  rows: { key: string; label: string; value: string; emphasize?: boolean; }[];
+};
+```
+
 ## packages/renderer/src/primitives.tsx
 
 ```ts
@@ -2669,11 +2696,6 @@ type DrawerProps = { // Side panel for hosting an existing self-contained form/w
   testId?: string;
 };
 type FieldCellWidth = "text" | "number" | "money" | "date" | "timestamp" | "select" | "full" | "toggle"; // Width class of a field cell inside a `flow` grid: sized by what the field holds.
-type FileValueListProps = { // Read-only list of stored files (FileRef ids): name, download link and, for PDFs, an inline preview.
-  fileIds: string[];
-  previewOpenByDefault?: boolean; // Starts the inline PDF preview of the newest file open; uploads append, so that is the last id.
-  testId?: string;
-};
 type FillContainerProps = { // Chromeless flex-fill layout host — no title, no card frame, no padding, just a container that sizes to its content and, once the ancestor chain is height-constrained, shrinks so one scrolling child can scroll internally instead of the page growing.
   children: ReactNode;
   testId?: string;
@@ -2694,11 +2716,6 @@ type InputFillAction = { // Button beside a single-line text/number input that f
   onPress: () => void;
   busy?: boolean; // A suggestion is being fetched: the button shows a spinner and is inert.
   disabled?: boolean; // The surrounding form is locked as a whole.
-  testId?: string;
-};
-type JsonViewProps = { // Structured JSON display (audit payload/metadata, job logs, unsupported jsonb/embedded field fallback).
-  value: unknown;
-  indent?: number;
   testId?: string;
 };
 type LightboxBaseProps = {

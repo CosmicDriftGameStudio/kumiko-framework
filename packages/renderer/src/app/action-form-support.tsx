@@ -165,6 +165,7 @@ export type ResolvedSuccessFact = {
   readonly lines: readonly string[];
   /** Set for a `file` fact: stored file ids shown as a file list instead of lines. */
   readonly fileIds?: readonly string[];
+  readonly emphasize?: boolean;
 };
 
 export type ResolvedSuccessItem = {
@@ -227,7 +228,12 @@ export function resolveSuccessFacts(
     );
     const lines = fact.valueIsI18nKey === true ? rawLines.map(translate) : rawLines;
     if (lines.length > 0) {
-      resolved.push({ key: String(index), label: translate(fact.label), lines });
+      resolved.push({
+        key: String(index),
+        label: translate(fact.label),
+        lines,
+        ...(fact.emphasize === true && { emphasize: true }),
+      });
     }
   });
   return resolved;
@@ -273,35 +279,97 @@ function SuccessItemHints({
   );
 }
 
-/** One line per fact, a list of values as a block; shared by the success box and the preview panel. */
+type SingleLineFact = ResolvedSuccessFact & { readonly lines: readonly [string] };
+
+// ponytail: length stands in for "would wrap"; a right-aligned value that wraps reads ragged,
+// so prose such as a hint or a note goes to the block form with its label above.
+const NAME_VALUE_MAX_LENGTH = 40;
+
+function isSingleLineFact(fact: ResolvedSuccessFact): fact is SingleLineFact {
+  const [line] = fact.lines;
+  return (
+    fact.fileIds === undefined &&
+    fact.lines.length === 1 &&
+    line !== undefined &&
+    line.length <= NAME_VALUE_MAX_LENGTH
+  );
+}
+
+type FactSegment =
+  | { readonly kind: "single-lines"; readonly facts: readonly SingleLineFact[] }
+  | { readonly kind: "other"; readonly fact: ResolvedSuccessFact };
+
+// Consecutive single-line facts share one name-value list so values line up in one column.
+function segmentFacts(facts: readonly ResolvedSuccessFact[]): readonly FactSegment[] {
+  const segments: FactSegment[] = [];
+  for (const fact of facts) {
+    if (!isSingleLineFact(fact)) {
+      segments.push({ kind: "other", fact });
+      continue;
+    }
+    const last = segments[segments.length - 1];
+    if (last?.kind === "single-lines") {
+      segments[segments.length - 1] = { kind: "single-lines", facts: [...last.facts, fact] };
+    } else {
+      segments.push({ kind: "single-lines", facts: [fact] });
+    }
+  }
+  return segments;
+}
+
+/** Single-line facts as a name-value list (or KPI tiles), a list of values or files as a block; shared by the success box and the preview panel. */
 export function ActionFormFacts({
   testIdPrefix = "action-form-success-fact",
   facts,
+  tiles = false,
 }: {
   readonly facts: readonly ResolvedSuccessFact[];
   readonly testIdPrefix?: string;
+  readonly tiles?: boolean;
 }): ReactNode {
-  const { FileValueList, Grid, Text } = usePrimitives();
-  return facts.map((fact) => {
+  const { FileValueList, Grid, KeyValueList, Metric, MetricBand, Text } = usePrimitives();
+  return segmentFacts(facts).map((segment) => {
+    if (segment.kind === "single-lines" && tiles) {
+      return (
+        <MetricBand key={segment.facts[0]?.key} tiles flush>
+          {segment.facts.map((fact) => (
+            <Metric
+              key={fact.key}
+              tile
+              label={fact.label}
+              value={fact.lines[0]}
+              testId={`${testIdPrefix}-${fact.key}`}
+            />
+          ))}
+        </MetricBand>
+      );
+    }
+    if (segment.kind === "single-lines") {
+      return (
+        <KeyValueList
+          key={segment.facts[0]?.key}
+          rows={segment.facts.map((fact) => ({
+            key: fact.key,
+            label: fact.label,
+            value: fact.lines[0],
+            ...(fact.emphasize === true && { emphasize: true }),
+          }))}
+        />
+      );
+    }
+    const { fact } = segment;
     const factTestId = `${testIdPrefix}-${fact.key}`;
     if (fact.fileIds !== undefined) {
       return (
         <Grid key={fact.key} columns={1} testId={factTestId}>
-          <Text>{fact.label}:</Text>
+          <Text variant="muted">{fact.label}</Text>
           <FileValueList fileIds={fact.fileIds} testId={`${factTestId}-files`} />
         </Grid>
       );
     }
-    if (fact.lines.length === 1) {
-      return (
-        <Text key={fact.key} testId={factTestId}>
-          {fact.label}: {fact.lines[0]}
-        </Text>
-      );
-    }
     return (
       <Grid key={fact.key} columns={1} testId={factTestId}>
-        <Text>{fact.label}:</Text>
+        <Text variant="muted">{fact.label}</Text>
         {positionedLines(fact.lines).map(({ position, line }) => (
           <Text key={position} testId={`${factTestId}-line-${position}`}>
             {line}

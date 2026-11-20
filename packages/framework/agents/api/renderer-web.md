@@ -405,6 +405,7 @@ type CorePrimitives = {
   Metric: ComponentType<MetricProps>;
   JsonView: ComponentType<JsonViewProps>;
   FileValueList: ComponentType<FileValueListProps>;
+  KeyValueList: ComponentType<KeyValueListProps>;
   FillContainer: ComponentType<FillContainerProps>;
   PageHeader: ComponentType<PageHeaderProps>;
   MetricBand: ComponentType<MetricBandProps>;

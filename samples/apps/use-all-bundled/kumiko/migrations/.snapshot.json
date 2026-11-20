@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-19T16:58:15.550Z",
+  "generatedAt": "2026-11-20T15:39:02.995Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -3308,7 +3308,7 @@
         },
         {
           "name": "completed_file_id",
-          "pgType": "text",
+          "pgType": "uuid",
           "notNull": false
         },
         {
@@ -3321,6 +3321,10 @@
         {
           "name": "read_signature_requests_tenant_id_idx",
           "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_signature_requests_completed_file_id_idx",
+          "columns": ["completed_file_id"]
         },
         {
           "name": "read_signature_requests_tenant_id_status_idx",

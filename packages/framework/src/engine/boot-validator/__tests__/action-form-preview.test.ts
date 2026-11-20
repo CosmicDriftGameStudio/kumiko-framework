@@ -121,4 +121,19 @@ describe("actionForm preview", () => {
       /neither facts nor list/,
     );
   });
+
+  test("a footer cell for a column the list lacks is rejected, a known one passes", () => {
+    const list = (cells: Record<string, string>) => ({
+      ...FULL_PREVIEW,
+      list: {
+        field: "items",
+        columns: [{ field: "name", label: "shop:preview.name" }],
+        footer: [{ label: "shop:preview.sum", cells }],
+      },
+    });
+    expect(() => validateBoot([featureWithPreview(list({ name: "count" }))])).not.toThrow();
+    expect(() => validateBoot([featureWithPreview(list({ nope: "count" }))])).toThrow(
+      /footer row "shop:preview.sum" has a cell for "nope"/,
+    );
+  });
 });

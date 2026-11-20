@@ -113,4 +113,25 @@ describe("RenderEdit valueDisplay", () => {
 
     expect(screen.getByTestId("field-value-balance").textContent).toContain("500.00");
   });
+
+  test("an empty readOnly field with a format renderer shows the placeholder, not a bare label", () => {
+    const screenWithRenderer: EntityEditScreenDefinition = {
+      ...makeScreen(),
+      layout: {
+        sections: [{ fields: [{ field: "paidOn", readOnly: true, renderer: { format: "date" } }] }],
+      },
+    };
+    render(
+      <RenderEdit
+        screen={screenWithRenderer}
+        entity={{ fields: { paidOn: { type: "date" } } } as unknown as EntityDefinition}
+        featureName="accounts"
+        initial={{ paidOn: null }}
+        customSubmit={noopSubmit}
+        valueDisplay="text"
+      />,
+    );
+
+    expect(screen.getByTestId("field-value-paidOn").textContent).toBe("—");
+  });
 });

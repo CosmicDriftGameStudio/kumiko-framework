@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import { uniqueLabelKeys } from "../../../app/unique-label-keys.ts";
 import type { DataTableMeasure, DataTableTotals } from "../../../data-table-aggregate-types.ts";
-import type { DataTableSummaryRow } from "../../../data-table-view-types.ts";
+import type { DataTableFooterRow, DataTableSummaryRow } from "../../../data-table-view-types.ts";
 import type { ListColumnViewModel } from "../../../headless/index.ts";
-import { useOptionalTranslation } from "../../../index.ts";
+import { useOptionalLocale, useOptionalTranslation } from "../../../index.ts";
 import { cn } from "../../lib/cn.ts";
 import { TableCell, TableRow } from "../../ui/table.tsx";
-import { NUMERIC_COLUMN_TYPES } from "../data-table-cell.tsx";
+import { DataTableCell, NUMERIC_COLUMN_TYPES } from "../data-table-cell.tsx";
 import { stickyActionsCellClass } from "./actions-column.tsx";
 import { HINT_TONE_TEXT_CLASS } from "./hint-cell.tsx";
 import { MeasureValue, measureKindLabel, measureLabel } from "./measure-value.tsx";
@@ -258,6 +258,130 @@ export function TotalsCard({
             <dd className="m-0 font-medium tabular-nums">
               <MeasureValue measure={measure} column={column} />
             </dd>
+          </div>
+        );
+      })}
+    </dl>
+  );
+}
+
+const NO_ROW: Readonly<Record<string, unknown>> = {};
+
+function FooterCellValue({
+  column,
+  value,
+}: {
+  readonly column: ListColumnViewModel;
+  readonly value: unknown;
+}): ReactNode {
+  const translate = useOptionalTranslation();
+  const locale = useOptionalLocale();
+  return (
+    <DataTableCell
+      value={value}
+      row={NO_ROW}
+      field={column.field}
+      type={column.type}
+      renderer={column.renderer}
+      translate={translate}
+      locale={locale}
+      {...(column.optionLabels !== undefined && { optionLabels: column.optionLabels })}
+      {...(column.grouping !== undefined && { grouping: column.grouping })}
+    />
+  );
+}
+
+/** Labelled footer row: the label in the first column, values under their columns in the body's format. */
+export function FooterValueRow({
+  row,
+  columns,
+  cellPin,
+  leadingCells,
+  actionsCell,
+  cellClassName,
+}: {
+  readonly row: DataTableFooterRow;
+  readonly columns: readonly ListColumnViewModel[];
+  readonly cellPin: (field: string) => PinnedCellProps;
+  readonly leadingCells: { readonly select: boolean; readonly expand: boolean };
+  readonly actionsCell: { readonly fillsHeight: boolean } | undefined;
+  readonly cellClassName?: string;
+}): ReactNode {
+  return (
+    <TableRow
+      {...(row.emphasize === true && { "data-emphasize": "" })}
+      className={cn(
+        "hover:bg-transparent",
+        row.emphasize === true ? "border-t-2 border-foreground/40 font-bold" : "font-normal",
+      )}
+    >
+      {leadingCellKeys(leadingCells).map((key) => {
+        const pin = cellPin(key);
+        return <TableCell key={key} className={pin.className} style={pin.style} />;
+      })}
+      {columns.map((column, index) => {
+        const pin = cellPin(column.field);
+        return (
+          <TableCell
+            key={column.field}
+            className={cn(
+              "tabular-nums",
+              NUMERIC_COLUMN_TYPES.has(column.type) && "text-right",
+              cellClassName,
+              pin.className,
+            )}
+            style={pin.style}
+          >
+            {index === 0 ? (
+              row.label
+            ) : (
+              <FooterCellValue column={column} value={row.values[column.field]} />
+            )}
+          </TableCell>
+        );
+      })}
+      {actionsCell !== undefined && (
+        <TableCell className={stickyActionsCellClass(actionsCell.fillsHeight, true)} />
+      )}
+    </TableRow>
+  );
+}
+
+/** Card layout: footer rows as a labelled list; a row with several values names each by its column. */
+export function FooterRowsCard({
+  rows,
+  columns,
+}: {
+  readonly rows: readonly DataTableFooterRow[];
+  readonly columns: readonly ListColumnViewModel[];
+}): ReactNode {
+  return (
+    <dl className="m-0 flex flex-col gap-1 border-b border-border-row bg-muted/50 px-4 py-3 text-sm">
+      {rows.map((row) => {
+        const valued = columns.filter(
+          (column, index) => index > 0 && row.values[column.field] !== undefined,
+        );
+        const single = valued.length === 1;
+        return (
+          <div
+            key={row.key}
+            {...(row.emphasize === true && { "data-emphasize": "" })}
+            className={cn(
+              "flex flex-col gap-0.5",
+              row.emphasize === true && "border-t-2 border-foreground/40 pt-1 font-bold",
+            )}
+          >
+            {single ? null : <dt>{row.label}</dt>}
+            {valued.map((column) => (
+              <div key={column.field} className="flex items-baseline justify-between gap-3">
+                <dt className={cn(row.emphasize !== true && "text-muted-foreground")}>
+                  {single ? row.label : column.label}
+                </dt>
+                <dd className="m-0 tabular-nums">
+                  <FooterCellValue column={column} value={row.values[column.field]} />
+                </dd>
+              </div>
+            ))}
           </div>
         );
       })}

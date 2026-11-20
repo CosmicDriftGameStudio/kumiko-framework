@@ -69,15 +69,15 @@ describe("actionForm successFacts", () => {
     await user.type(input, "x");
     await user.click(screen.getByTestId("render-edit-submit"));
 
-    await waitFor(() => screen.getByTestId("action-form-success-fact-0"));
-    expect(screen.getByTestId("action-form-success-fact-0").textContent).toBe("Charged: 12");
+    await waitFor(() => screen.getByText("Charged"));
+    expect(screen.getByText("Charged").nextElementSibling?.textContent).toBe("12");
     // The message and each fact are separate elements, several lines become one element each.
     expect(screen.getByTestId("action-form-success-text").textContent).toBe("Done.");
     expect(screen.getByTestId("action-form-success-fact-1").textContent).toBe(
-      "Failed:Lease ALease B",
+      "FailedLease ALease B",
     );
     expect(screen.getByTestId("action-form-success-fact-1-line-0").textContent).toBe("Lease A");
     expect(screen.getByTestId("action-form-success-fact-1-line-1").textContent).toBe("Lease B");
-    expect(screen.queryByTestId("action-form-success-fact-2")).toBeNull();
+    expect(screen.queryByText("Missing")).toBeNull();
   });
 });
