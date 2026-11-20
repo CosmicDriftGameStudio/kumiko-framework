@@ -33,8 +33,14 @@ describe("heartbeat sync report and retry signal", () => {
   test("an old satellite without sync still works and shows an unknown sync status", async () => {
     const res = await heartbeat({ version: "1.0.0" });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
+    expect(await res.json()).toEqual({ ok: true, name: "Office server" });
     expect((await row())?.syncStatus).toBe("unknown");
+  });
+
+  test("the answer carries the name the admin gave when pairing", async () => {
+    const res = await heartbeat({ version: "1.0.0" });
+    expect(await res.json()).toMatchObject({ name: (await row())?.name });
+    expect((await row())?.name).toBe("Office server");
   });
 
   test("a state or failure change is stored at once, inside the throttle window", async () => {
@@ -76,12 +82,12 @@ describe("heartbeat sync report and retry signal", () => {
       version: "1.0.0",
       sync: { state: "idle", queued: 0, failed: 2 },
     });
-    expect(await first.json()).toEqual({ ok: true, retry: true });
+    expect(await first.json()).toEqual({ ok: true, retry: true, name: "Office server" });
     const second = await heartbeat({
       version: "1.0.0",
       sync: { state: "idle", queued: 0, failed: 2 },
     });
-    expect(await second.json()).toEqual({ ok: true });
+    expect(await second.json()).toEqual({ ok: true, name: "Office server" });
   });
 });
 describe("connector list names a full storage after an upload was refused", () => {

@@ -18,6 +18,7 @@ import {
   CONNECTOR_CLIENT_ID,
   ConnectorErrors,
   ConnectorHandlers,
+  ConnectorQueries,
   ConnectorScreens,
   DEFAULT_CONNECTORS_BASE_PATH,
   DEFAULT_MAX_UPLOAD_BYTES,
@@ -63,6 +64,7 @@ const HEARTBEAT_SCHEMA = z.object({
   version: z.string().min(1).max(64),
   sync: syncReportSchema.optional(),
 });
+const connectorNameSchema = z.object({ name: z.string() }).nullable();
 const touchResultSchema = z.object({ retry: z.boolean() });
 const tooManyOpenSchema = z.object({ tooManyOpenRequests: z.literal(true) });
 const receivedSchema = z.object({ id: z.uuid(), duplicate: z.boolean() });
@@ -252,6 +254,25 @@ async function receiveUpload(
   return uploadFailureResponse(c, result.error, itemId);
 }
 
+// The name is a courtesy for the satellite UI: a failed lookup must not fail the heartbeat.
+async function connectorNameOf(
+  deps: SignatureExtraRouteDeps,
+  device: AuthenticatedDevice,
+): Promise<string | null> {
+  try {
+    const found = connectorNameSchema.parse(
+      await deps.dispatchSystemQuery({
+        handlerQn: ConnectorQueries.connectorName,
+        payload: { connectorId: device.connectorId },
+        tenantId: device.ownerTenantId,
+      }),
+    );
+    return found?.name ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function receiveHeartbeat(c: Context, deps: SignatureExtraRouteDeps): Promise<Response> {
   const device = await authenticateDevice(c, deps);
   if (device === null) return unauthorized(c);
@@ -264,7 +285,8 @@ async function receiveHeartbeat(c: Context, deps: SignatureExtraRouteDeps): Prom
   const parsed = HEARTBEAT_SCHEMA.safeParse(body);
   if (!parsed.success) return badRequest(c, 'body must be {"version": "<1-64 characters>"}');
   const retry = await touchDevice(deps, device, parsed.data);
-  return c.json(retry ? { ok: true, retry: true } : { ok: true }, 200);
+  const name = await connectorNameOf(deps, device);
+  return c.json({ ok: true, ...(retry && { retry: true }), ...(name && { name }) }, 200);
 }
 
 // RFC 8628 §3.3.1: the code only prefills the pair screen; the admin still presses Check.

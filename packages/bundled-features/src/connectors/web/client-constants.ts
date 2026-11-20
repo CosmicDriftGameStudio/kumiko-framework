@@ -27,6 +27,7 @@ export const ConnectorHandlers = {
 export const ConnectorQueries = {
   list: "connectors:query:list",
   resolveDevice: "connectors:query:resolve-device",
+  connectorName: "connectors:query:connector-name",
   listDevices: "connectors:query:list-devices",
   pendingRequest: "connectors:query:pending-request",
   resolvePendingAuthorization: "connectors:query:resolve-pending-authorization",

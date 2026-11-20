@@ -77,7 +77,7 @@ The path's directory part becomes a folder tree per device: a first upload of `R
 
 ## Heartbeat
 
-`POST /v1/heartbeat` with the bearer token and a JSON body. Answer `200 {"ok":true}`. The connector list shows the version, the last time the device was seen (any upload counts as being seen too) and the sync status.
+`POST /v1/heartbeat` with the bearer token and a JSON body. Answer `200 {"ok":true,"name":"<connector name>"}`. `name` is the name the admin gave when pairing; a satellite can show it ("Paired as ..."), and if it is missing there is none to show. The connector list shows the version, the last time the device was seen (any upload counts as being seen too) and the sync status.
 
 ```json
 {
@@ -90,7 +90,7 @@ The path's directory part becomes a folder tree per device: a first upload of `R
 - `sync` is optional, so satellites without a status log keep working. `state` is `idle`, `syncing` or `error`; `queued` and `failed` are counts (0 or more); `lastSyncAt` is an ISO 8601 instant. Anything else is `400 invalid_request`. The list shows "In sync", "Running (12 in the queue)" or "3 failed". A `lastError` text is accepted and dropped: it is free text from the customer's machine and is not stored.
 - Storage is throttled to once per 5 minutes, except that a change of `state` or `failed` (like a new version) is written at once.
 
-**Retry signal.** An admin can press "Retry" on a connector whose sync failed. The satellite only connects outward, so the server answers the next heartbeat with `{"ok":true,"retry":true}` and clears the flag in the same step: the following heartbeat answers without `retry`. On `retry` the satellite requeues its failed files. An upload does not consume the signal, only a heartbeat does.
+**Retry signal.** An admin can press "Retry" on a connector whose sync failed. The satellite only connects outward, so the server answers the next heartbeat with `{"ok":true,"retry":true,"name":"..."}` and clears the flag in the same step: the following heartbeat answers without `retry`. On `retry` the satellite requeues its failed files. An upload does not consume the signal, only a heartbeat does.
 
 ## Revoking
 

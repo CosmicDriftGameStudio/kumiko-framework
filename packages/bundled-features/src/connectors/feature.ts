@@ -16,6 +16,7 @@ import { deleteFolderTreeJob } from "./delete-folder-tree.job.ts";
 import { approveDeviceWrite } from "./handlers/approve-device.write.ts";
 import { checkDeviceWrite } from "./handlers/check-device.write.ts";
 import { claimAuthorizationWrite } from "./handlers/claim-authorization.write.ts";
+import { connectorNameQuery } from "./handlers/connector-name.query.ts";
 import { deleteFileWrite } from "./handlers/delete-file.write.ts";
 import { deleteFolderWrite } from "./handlers/delete-folder.write.ts";
 import { devicePollWrite } from "./handlers/device-poll.write.ts";
@@ -119,6 +120,7 @@ export function createConnectorsFeature(options: ConnectorsFeatureOptions = {}):
     r.writeHandler(deleteFolderWrite);
     r.queryHandler(listConnectorsQuery);
     r.queryHandler(resolveDeviceQuery);
+    r.queryHandler(connectorNameQuery);
     r.queryHandler(listDevicesQuery);
     r.queryHandler(pendingRequestQuery);
     r.queryHandler(resolvePendingAuthorizationQuery);
