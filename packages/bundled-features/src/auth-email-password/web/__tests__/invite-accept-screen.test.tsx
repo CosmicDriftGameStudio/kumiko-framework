@@ -386,7 +386,9 @@ describe("InviteAcceptScreen — invite-info lookup", () => {
       expect(screen.getByLabelText(/^Email/).hasAttribute("disabled")).toBe(true);
     });
     expect((screen.getByLabelText(/^Email/) as HTMLInputElement).value).toBe("new@example.com");
-    expect(screen.getByRole("button", { name: "I already have an account" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "I already have an account" }).getAttribute("type"),
+    ).toBe("button");
     expect(screen.getByLabelText(/^Password/).getAttribute("autocomplete")).toBe("new-password");
   });
 
@@ -398,7 +400,9 @@ describe("InviteAcceptScreen — invite-info lookup", () => {
     await waitFor(() => {
       expect((screen.getByLabelText(/^Email/) as HTMLInputElement).value).toBe("old@example.com");
     });
-    expect(screen.getByRole("button", { name: "I don't have an account yet" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "I don't have an account yet" }).getAttribute("type"),
+    ).toBe("button");
   });
 
   test("invalid_invite_token shows an error card instead of the form", async () => {
@@ -419,8 +423,10 @@ describe("InviteAcceptScreen — invite-info lookup", () => {
       dispatcher: inviteInfoDispatcher(infoError(429, "rate_limited")),
     });
     await waitFor(() => {
-      expect(screen.getByLabelText(/^Password/)).toBeTruthy();
+      expect(screen.getByLabelText(/^Password/).getAttribute("type")).toBe("password");
     });
-    expect(screen.getByRole("button", { name: "I don't have an account yet" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "I don't have an account yet" }).getAttribute("type"),
+    ).toBe("button");
   });
 });

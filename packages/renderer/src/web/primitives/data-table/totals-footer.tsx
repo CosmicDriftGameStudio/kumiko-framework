@@ -309,7 +309,6 @@ export function FooterValueRow({
 }): ReactNode {
   return (
     <TableRow
-      data-testid={`list-footer-${row.key}`}
       {...(row.emphasize === true && { "data-emphasize": "" })}
       className={cn(
         "hover:bg-transparent",
@@ -325,7 +324,6 @@ export function FooterValueRow({
         return (
           <TableCell
             key={column.field}
-            data-testid={`list-footer-${row.key}-${column.field}`}
             className={cn(
               "tabular-nums",
               NUMERIC_COLUMN_TYPES.has(column.type) && "text-right",
@@ -358,10 +356,7 @@ export function FooterRowsCard({
   readonly columns: readonly ListColumnViewModel[];
 }): ReactNode {
   return (
-    <dl
-      data-testid="list-footer-rows"
-      className="m-0 flex flex-col gap-1 border-b border-border-row bg-muted/50 px-4 py-3 text-sm"
-    >
+    <dl className="m-0 flex flex-col gap-1 border-b border-border-row bg-muted/50 px-4 py-3 text-sm">
       {rows.map((row) => {
         const valued = columns.filter(
           (column, index) => index > 0 && row.values[column.field] !== undefined,
@@ -370,7 +365,6 @@ export function FooterRowsCard({
         return (
           <div
             key={row.key}
-            data-testid={`list-footer-${row.key}`}
             {...(row.emphasize === true && { "data-emphasize": "" })}
             className={cn(
               "flex flex-col gap-0.5",

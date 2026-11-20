@@ -2,14 +2,13 @@ import type { ReactNode } from "react";
 import type { KeyValueListProps } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 
-export function DefaultKeyValueList({ rows, testId }: KeyValueListProps): ReactNode {
+export function DefaultKeyValueList({ rows }: KeyValueListProps): ReactNode {
   return (
     // Capped width: on a wide banner the value would otherwise sit far away from its label.
-    <dl data-testid={testId} className="flex w-full max-w-md flex-col">
+    <dl className="flex w-full max-w-md flex-col">
       {rows.map((row) => (
         <div
           key={row.key}
-          data-testid={row.testId}
           {...(row.emphasize === true && { "data-emphasize": "" })}
           className={cn(
             "flex items-baseline justify-between gap-4 py-1.5 text-sm",

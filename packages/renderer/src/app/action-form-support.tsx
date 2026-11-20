@@ -352,7 +352,6 @@ export function ActionFormFacts({
             key: fact.key,
             label: fact.label,
             value: fact.lines[0],
-            testId: `${testIdPrefix}-${fact.key}`,
             ...(fact.emphasize === true && { emphasize: true }),
           }))}
         />

@@ -158,14 +158,16 @@ describe("actionForm preview", () => {
     const panel = await screen.findByTestId("action-form-preview");
     expect(panel.querySelector("[data-section-title]")?.textContent).toBe("Claim");
     expect(screen.queryByRole("status")).toBeNull();
-    const sum = screen.getByTestId("list-footer-0");
+    const sum = screen.getByText("Sum").closest("tr");
+    if (sum === null) throw new Error("expected the Sum footer row");
     expect(sum.closest("tfoot")).not.toBeNull();
     expect(Array.from(sum.children).map((cell) => cell.textContent)).toEqual([
       "Sum",
       "€6,180.00",
       "€5,931.15",
     ]);
-    const total = screen.getByTestId("list-footer-1");
+    const total = screen.getByText("Total claim").closest("tr");
+    if (total === null) throw new Error("expected the Total claim footer row");
     expect(Array.from(total.children).map((cell) => cell.textContent)).toEqual([
       "Total claim",
       "",
