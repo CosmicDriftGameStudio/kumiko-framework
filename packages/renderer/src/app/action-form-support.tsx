@@ -317,16 +317,33 @@ function segmentFacts(facts: readonly ResolvedSuccessFact[]): readonly FactSegme
   return segments;
 }
 
-/** Single-line facts as a name-value list, a list of values or files as a block; shared by the success box and the preview panel. */
+/** Single-line facts as a name-value list (or KPI tiles), a list of values or files as a block; shared by the success box and the preview panel. */
 export function ActionFormFacts({
   testIdPrefix = "action-form-success-fact",
   facts,
+  tiles = false,
 }: {
   readonly facts: readonly ResolvedSuccessFact[];
   readonly testIdPrefix?: string;
+  readonly tiles?: boolean;
 }): ReactNode {
-  const { FileValueList, Grid, KeyValueList, Text } = usePrimitives();
+  const { FileValueList, Grid, KeyValueList, Metric, MetricBand, Text } = usePrimitives();
   return segmentFacts(facts).map((segment) => {
+    if (segment.kind === "single-lines" && tiles) {
+      return (
+        <MetricBand key={segment.facts[0]?.key} tiles flush>
+          {segment.facts.map((fact) => (
+            <Metric
+              key={fact.key}
+              tile
+              label={fact.label}
+              value={fact.lines[0]}
+              testId={`${testIdPrefix}-${fact.key}`}
+            />
+          ))}
+        </MetricBand>
+      );
+    }
     if (segment.kind === "single-lines") {
       return (
         <KeyValueList

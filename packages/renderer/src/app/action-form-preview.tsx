@@ -138,7 +138,7 @@ export function ActionFormPreviewPanel({
       {...(preview.title !== undefined && { title: translate(preview.title) })}
     >
       <Grid columns={1}>
-        <ActionFormFacts facts={facts} testIdPrefix="action-form-preview-fact" />
+        <ActionFormFacts facts={facts} testIdPrefix="action-form-preview-fact" tiles />
         {preview.list !== undefined && (rows.length > 0 || facts.length === 0) && (
           <DataTable
             columns={columns}
