@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.425.1",
+    "type": "fix",
+    "title": "The release writes changes.json in Biome's format"
+  },
+  {
     "version": "0.425.0",
     "type": "fix",
     "title": "Managed template files are exempt from Biome formatting"
