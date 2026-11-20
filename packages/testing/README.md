@@ -92,6 +92,24 @@ test("member sees the note", async ({ seedTenant, page }) => {
 
 `defineVideo`, `runVideos`, `editorStage`, `terminalStage` and `loadVideoTexts` render product videos from Playwright scenes with TTS voice-over. They live on their own subpath so e2e specs that import `./e2e` do not load the video pipeline.
 
+### Silent videos
+
+Leave `voice` out of `defineVideo` to render a silent video, for example a short loop. It needs no `text.<locale>.yaml` and no `OPENROUTER_API_KEY`, and it lasts exactly as long as its scene actions (no lead-in). The MP4 has no audio track, no `.vtt` is written, and `aiNotice` is ignored. Next to `out/<locale>.mp4` you get a poster `out/<locale>.jpg` from the first frame. `music` needs a `voice`, so combining it with a silent video throws.
+
+```ts
+export default defineVideo({
+  viewport: { width: 1280, height: 720 },
+  scenes: [
+    {
+      id: "loop",
+      do: async (page, { tools }) => {
+        await tools.hold(4000);
+      },
+    },
+  ],
+});
+```
+
 ## Screenshots (`./e2e`)
 
 Seeded identities are unique per run (`admin-<tenantId>@…`). To show a presentable address instead, the

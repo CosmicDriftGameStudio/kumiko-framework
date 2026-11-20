@@ -147,10 +147,49 @@ export function muxVideo(options: MuxVideoOptions): void {
   renameSync(partialMp4, outMp4);
 }
 
+const ENCODE_ARGS = [
+  "-c:v",
+  "libx264",
+  // CRF 28 halves the size of animated stages at no visible loss; faststart puts the
+  // index up front so a browser starts playing before the download ends.
+  "-preset",
+  "slow",
+  "-crf",
+  "28",
+  "-pix_fmt",
+  "yuv420p",
+];
+
+function buildSilentMuxArgs(options: MuxVideoOptions, listPath: string): string[] {
+  const { outMp4, brandPng, music, metadataComment } = options;
+  if (music !== undefined) throw new Error("buildMuxArgs(): a silent video cannot carry music");
+  return [
+    "-y",
+    "-f",
+    "concat",
+    "-safe",
+    "0",
+    "-i",
+    listPath,
+    ...(brandPng === undefined ? [] : ["-i", brandPng]),
+    "-filter_complex",
+    buildVideoFilter(brandPng === undefined ? undefined : 1, options.playbackRate ?? 1),
+    "-map",
+    "[vout]",
+    ...ENCODE_ARGS,
+    "-an",
+    "-movflags",
+    "+faststart",
+    ...(metadataComment === undefined ? [] : ["-metadata", `comment=${metadataComment}`]),
+    outMp4,
+  ];
+}
+
 export function buildMuxArgs(options: MuxVideoOptions, listPath: string): string[] {
   const { frames, sceneAudio, outMp4, brandPng, music, metadataComment } = options;
   const playbackRate = options.playbackRate ?? 1;
   assertPlaybackRate(playbackRate);
+  if (sceneAudio.length === 0) return buildSilentMuxArgs(options, listPath);
   const sped = playbackRate !== 1;
   const audioInputs = sceneAudio.flatMap((scene) => ["-i", scene.wavPath]);
   const musicInputIndex = music === undefined ? undefined : 1 + sceneAudio.length;
@@ -181,16 +220,7 @@ export function buildMuxArgs(options: MuxVideoOptions, listPath: string): string
     "[vout]",
     "-map",
     sped ? "[afast]" : "[aout]",
-    "-c:v",
-    "libx264",
-    // CRF 28 halves the size of animated stages at no visible loss; faststart puts the
-    // index up front so a browser starts playing before the download ends.
-    "-preset",
-    "slow",
-    "-crf",
-    "28",
-    "-pix_fmt",
-    "yuv420p",
+    ...ENCODE_ARGS,
     "-c:a",
     "aac",
     "-shortest",
@@ -199,4 +229,25 @@ export function buildMuxArgs(options: MuxVideoOptions, listPath: string): string
     ...(metadataComment === undefined ? [] : ["-metadata", `comment=${metadataComment}`]),
     outMp4,
   ];
+}
+
+export interface VideoOutputPlan {
+  readonly mp4: string;
+  readonly vtt?: string;
+  readonly poster?: string;
+}
+
+// A silent video has no speech to subtitle, and the poster is its only still.
+export function planVideoOutputs(outDir: string, locale: string, silent: boolean): VideoOutputPlan {
+  const mp4 = join(outDir, `${locale}.mp4`);
+  if (silent) return { mp4, poster: join(outDir, `${locale}.jpg`) };
+  return { mp4, vtt: join(outDir, `${locale}.vtt`) };
+}
+
+export function buildPosterArgs(mp4: string, posterPath: string): string[] {
+  return ["-y", "-i", mp4, "-frames:v", "1", "-q:v", "2", posterPath];
+}
+
+export function writePoster(mp4: string, posterPath: string): void {
+  execFileSync("ffmpeg", buildPosterArgs(mp4, posterPath), { stdio: ["ignore", "ignore", "pipe"] });
 }

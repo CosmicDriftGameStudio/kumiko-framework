@@ -9,10 +9,16 @@ import { test } from "../seeded-tenant-fixture";
 import { addVideoOverlay, showFocus } from "./cursor-overlay";
 import type { VideoDefinition, VideoSceneContext } from "./define-video";
 import { FrameTimeline } from "./frame-timeline";
-import { buildVtt, type MuxSceneAudio, muxVideo, type VttCue } from "./mux";
+import {
+  buildVtt,
+  type MuxSceneAudio,
+  muxVideo,
+  planVideoOutputs,
+  type VttCue,
+  writePoster,
+} from "./mux";
+import { createNarrator, type Narrator } from "./narration";
 import { assertAiNoticeCoversLocales, SETUP_TOOLS, sceneExtensionMs } from "./scene-plan";
-import { synthesizeSpeech } from "./tts";
-import { loadVideoTexts } from "./video-texts";
 
 // Silent lead-in held on the first scene frame; a frame from before the first scene shows whatever setup left on the page.
 const LEAD_IN_MS = 500;
@@ -72,6 +78,88 @@ function csvFilter(raw: string | undefined): ReadonlySet<string> | undefined {
   );
 }
 
+interface RecordScenesInput {
+  readonly page: Page;
+  readonly video: VideoDefinition;
+  readonly narrator: Narrator | undefined;
+  readonly timeline: FrameTimeline;
+  readonly ctx: VideoSceneContext;
+}
+
+async function recordScenes(
+  input: RecordScenesInput,
+): Promise<{ sceneAudio: MuxSceneAudio[]; cues: VttCue[] }> {
+  const { page, video, narrator, timeline, ctx } = input;
+  const sceneAudio: MuxSceneAudio[] = [];
+  const cues: VttCue[] = [];
+  for (const scene of video.scenes) {
+    const narration = await narrator?.narrate(scene);
+
+    const startMs = timeline.totalMs;
+    await scene.do(page, { ...ctx, speechMs: narration?.speech.durationMs ?? 0 });
+    const extensionMs = sceneExtensionMs(timeline.totalMs - startMs, narration?.speech.durationMs);
+    if (extensionMs > 0) {
+      // A fresh frame, not a stretched old one: the scene may end on an uncaptured action.
+      await timeline.settle();
+      await timeline.capture(extensionMs);
+    }
+    await showFocus(page, null);
+
+    const sceneMs = timeline.totalMs - startMs;
+    if (narration === undefined) continue;
+    const videoStartMs = LEAD_IN_MS + startMs;
+    sceneAudio.push({
+      wavPath: narration.speech.wavPath,
+      startMs: videoStartMs,
+      durationMs: narration.speech.durationMs,
+      sceneMs,
+    });
+    cues.push({ startMs: videoStartMs, endMs: videoStartMs + sceneMs, text: narration.text });
+  }
+  return { sceneAudio, cues };
+}
+
+interface WriteOutputsInput {
+  readonly page: Page;
+  readonly video: VideoDefinition;
+  readonly locale: string;
+  readonly silent: boolean;
+  readonly videoDir: string;
+  readonly timeline: FrameTimeline;
+  readonly sceneAudio: readonly MuxSceneAudio[];
+  readonly cues: readonly VttCue[];
+  readonly muxDir: string;
+  readonly brandLogo: string | undefined;
+  readonly aiNotice: Readonly<Record<string, string>> | undefined;
+}
+
+async function writeOutputs(input: WriteOutputsInput): Promise<void> {
+  const { page, video, locale, silent, videoDir, timeline, sceneAudio, cues, muxDir } = input;
+  const outDir = join(videoDir, "out");
+  mkdirSync(outDir, { recursive: true });
+  const outputs = planVideoOutputs(outDir, locale, silent);
+  // The notice discloses an AI voice; a silent video has none.
+  const notice = silent ? undefined : input.aiNotice?.[locale];
+  mkdirSync(muxDir, { recursive: true });
+  let brandPng: string | undefined;
+  if (input.brandLogo !== undefined) {
+    brandPng = join(muxDir, "brand.png");
+    await renderBrandPng(page, input.brandLogo, brandPng, notice);
+  }
+  muxVideo({
+    ...(brandPng !== undefined && { brandPng }),
+    ...(notice !== undefined && { metadataComment: notice }),
+    ...(video.music !== undefined && { music: video.music }),
+    ...(video.playbackRate !== undefined && { playbackRate: video.playbackRate }),
+    frames: timeline.allFrames,
+    sceneAudio,
+    outMp4: outputs.mp4,
+    workDir: muxDir,
+  });
+  if (outputs.vtt !== undefined) writeFileSync(outputs.vtt, buildVtt(cues, video.playbackRate));
+  if (outputs.poster !== undefined) writePoster(outputs.mp4, outputs.poster);
+}
+
 // Registrar like runMatrix: call at the spec's module top, do NOT await.
 export function runVideos(options: RunVideosOptions): void {
   const { videos, videosDir, locales, brandLogo, aiNotice } = options;
@@ -92,7 +180,15 @@ export function runVideos(options: RunVideosOptions): void {
         });
         test(`${id} [${locale}]`, async ({ page, seedTenant }, testInfo) => {
           const videoDir = join(videosDir, id);
-          const texts = loadVideoTexts(videoDir, locale);
+          const narrator = createNarrator({
+            video,
+            videoId: id,
+            videoDir,
+            locale,
+            ttsCacheDir,
+            apiKey: process.env["OPENROUTER_API_KEY"],
+          });
+          const silent = narrator === undefined;
           await page.setViewportSize(video.viewport ?? DESKTOP_VIEWPORT);
           await page.emulateMedia({ reducedMotion: "reduce" });
           await page.addInitScript((lng) => {
@@ -119,65 +215,24 @@ export function runVideos(options: RunVideosOptions): void {
 
           await timeline.settle();
 
-          const sceneAudio: MuxSceneAudio[] = [];
-          const cues: VttCue[] = [];
-          for (const scene of video.scenes) {
-            const text = texts[scene.id];
-            if (text === undefined)
-              throw new Error(`Video "${id}" [${locale}]: scene "${scene.id}" has no text`);
-            const speech = await synthesizeSpeech({
-              text,
-              voice: video.voice,
-              ...(scene.instructions !== undefined && { sceneInstructions: scene.instructions }),
-              cacheDir: ttsCacheDir,
-              apiKey: process.env["OPENROUTER_API_KEY"],
-            });
-
-            const startMs = timeline.totalMs;
-            await scene.do(page, { ...ctx, speechMs: speech.durationMs });
-            const extensionMs = sceneExtensionMs(timeline.totalMs - startMs, speech.durationMs);
-            if (extensionMs > 0) {
-              // A fresh frame, not a stretched old one: the scene may end on an uncaptured action.
-              await timeline.settle();
-              await timeline.capture(extensionMs);
-            }
-            await showFocus(page, null);
-
-            const sceneMs = timeline.totalMs - startMs;
-            const videoStartMs = LEAD_IN_MS + startMs;
-            sceneAudio.push({
-              wavPath: speech.wavPath,
-              startMs: videoStartMs,
-              durationMs: speech.durationMs,
-              sceneMs,
-            });
-            cues.push({ startMs: videoStartMs, endMs: videoStartMs + sceneMs, text });
-          }
+          const { sceneAudio, cues } = await recordScenes({ page, video, narrator, timeline, ctx });
+          // The lead-in only gives the first narration a beat before it starts; a loop would freeze on it.
           const [firstFrame] = timeline.allFrames;
-          if (firstFrame !== undefined) firstFrame.durationMs += LEAD_IN_MS;
+          if (firstFrame !== undefined && !silent) firstFrame.durationMs += LEAD_IN_MS;
 
-          const outDir = join(videoDir, "out");
-          mkdirSync(outDir, { recursive: true });
-          const outMp4 = join(outDir, `${locale}.mp4`);
-          const notice = aiNotice?.[locale];
-          const muxDir = testInfo.outputPath("mux");
-          mkdirSync(muxDir, { recursive: true });
-          let brandPng: string | undefined;
-          if (brandLogo !== undefined) {
-            brandPng = join(muxDir, "brand.png");
-            await renderBrandPng(page, brandLogo, brandPng, notice);
-          }
-          muxVideo({
-            ...(brandPng !== undefined && { brandPng }),
-            ...(notice !== undefined && { metadataComment: notice }),
-            ...(video.music !== undefined && { music: video.music }),
-            ...(video.playbackRate !== undefined && { playbackRate: video.playbackRate }),
-            frames: timeline.allFrames,
+          await writeOutputs({
+            page,
+            video,
+            locale,
+            silent,
+            videoDir,
+            timeline,
             sceneAudio,
-            outMp4,
-            workDir: muxDir,
+            cues,
+            muxDir: testInfo.outputPath("mux"),
+            brandLogo,
+            aiNotice,
           });
-          writeFileSync(join(outDir, `${locale}.vtt`), buildVtt(cues, video.playbackRate));
         });
       });
     }
