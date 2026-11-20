@@ -72,6 +72,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "config:query:values expose=true risk=low",
   "config:write:reset expose=true risk=high",
   "config:write:set expose=true risk=high",
+  "connectors:query:connector-name expose=false risk=low",
   "connectors:query:inbound-folder expose=false risk=low",
   "connectors:query:inbound-search expose=false risk=low",
   "connectors:query:list expose=true risk=low",
