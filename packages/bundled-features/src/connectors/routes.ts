@@ -9,6 +9,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/api";
 import { parseTenantId, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { FrameworkReasons, VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Context } from "hono";
 import * as z from "zod";
@@ -254,6 +255,8 @@ async function receiveUpload(
   return uploadFailureResponse(c, result.error, itemId);
 }
 
+const log = createFallbackLogger("connectors");
+
 // The name is a courtesy for the satellite UI: a failed lookup must not fail the heartbeat.
 async function connectorNameOf(
   deps: SignatureExtraRouteDeps,
@@ -268,7 +271,11 @@ async function connectorNameOf(
       }),
     );
     return found?.name ?? null;
-  } catch {
+  } catch (error) {
+    log.warn("connector name lookup failed, heartbeat answers without it", {
+      connectorId: device.connectorId,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return null;
   }
 }

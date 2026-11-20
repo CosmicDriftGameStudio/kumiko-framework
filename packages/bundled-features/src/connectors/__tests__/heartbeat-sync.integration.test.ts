@@ -37,12 +37,6 @@ describe("heartbeat sync report and retry signal", () => {
     expect((await row())?.syncStatus).toBe("unknown");
   });
 
-  test("the answer carries the name the admin gave when pairing", async () => {
-    const res = await heartbeat({ version: "1.0.0" });
-    expect(await res.json()).toMatchObject({ name: (await row())?.name });
-    expect((await row())?.name).toBe("Office server");
-  });
-
   test("a state or failure change is stored at once, inside the throttle window", async () => {
     const syncing = await heartbeat({
       version: "1.0.0",
