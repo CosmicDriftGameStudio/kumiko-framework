@@ -120,9 +120,7 @@
     "title": "Currency cells format with Intl and an ISO currency code",
     "detail": "`{ format: \"currency\", currency: \"EUR\" }` renders an integer amount in the currency's minor unit (`4250` or `\"4250\"` for 42.50 EUR) through `Intl.NumberFormat` with the currency's decimals, grouping and symbol position of the UI locale, for example `1.234,50 €` in German and `€1,234.50` in English. An optional `locale` overrides the UI locale. The old `symbol` option is gone: it only appended the symbol to the raw value without grouping or decimals. A missing or malformed currency code or a non-numeric value renders the raw value.",
     "migration": "Replace `renderer: { format: \"currency\", symbol: \"€\" }` with `renderer: { format: \"currency\", currency: \"EUR\" }` (ISO 4217 code). The value is an integer in the currency's minor unit: multiply a major-unit amount by 10^decimals of its currency (×100 for EUR, ×1 for JPY, ×1000 for KWD).",
-    "affects": [
-      "\"currency\""
-    ]
+    "affects": ["\"currency\""]
   },
   {
     "version": "0.425.0",
@@ -169,9 +167,7 @@
     "title": "Drawer widget props type is DrawerPanelProps",
     "detail": "`@cosmicdrift/kumiko-renderer/web` exported a `DrawerProps` type that differed from the `DrawerProps` primitive contract of `@cosmicdrift/kumiko-renderer`. The widget type is now `DrawerPanelProps`; the contract keeps its name.",
     "migration": "Replace `import type { DrawerProps } from \"@cosmicdrift/kumiko-renderer/web\"` with `DrawerPanelProps`.",
-    "affects": [
-      "DrawerProps"
-    ]
+    "affects": ["DrawerProps"]
   },
   {
     "version": "0.425.0",
@@ -219,9 +215,7 @@
     "title": "formatMoney takes an options object",
     "detail": "Apps wrote their own money formatters for whole-euro display, compact notation and hiding the sign of a rounded zero. formatMoney now covers these through Intl options.",
     "migration": "Replace `formatMoney(minor, currency, locale, digits)` with `formatMoney(minor, currency, { locale, minimumFractionDigits: digits, maximumFractionDigits: digits })` and `formatMoneyValue(value, locale)` with `formatMoneyValue(value, { locale })`. Replace own compact or no-sign-zero money formatters with `notation: \"compact\"` and `signDisplay: \"negative\"`.",
-    "affects": [
-      "formatMoney"
-    ]
+    "affects": ["formatMoney"]
   },
   {
     "version": "0.425.0",
@@ -275,9 +269,7 @@
     "title": "Every CorePrimitive is required, createStubPrimitives replaces partial test stubs",
     "detail": "The 25 primitives that were optional only so partial test mocks kept compiling (Drawer, Tabs, PageHeader, StatusBadge, Metric, FillContainer, StepBar, ActionOverflowMenu and others) are now required in `CorePrimitives`. The renderer no longer carries fallback branches or \"primitive not registered\" warnings for them; screens always render through the registered primitive. `createKumikoApp({ primitives })` still takes a partial override merged over `defaultPrimitives`, so apps that only use createKumikoApp change nothing. `createStubPrimitives(overrides)` from `@cosmicdrift/kumiko-renderer/testing` returns a complete registry whose entries render nothing, with the overrides on top; it needs no DOM.",
     "migration": "Replace hand-written `CorePrimitives` objects in tests (`const p: CorePrimitives = { ... }` or `{ ... } as unknown as CorePrimitives`) with `createStubPrimitives({ ... })`. Code that builds a full `CorePrimitives` value outside createKumikoApp must supply all 43 entries. Remove checks like `primitives.Drawer !== undefined`.",
-    "affects": [
-      "CorePrimitives"
-    ]
+    "affects": ["CorePrimitives"]
   },
   {
     "version": "0.425.0",

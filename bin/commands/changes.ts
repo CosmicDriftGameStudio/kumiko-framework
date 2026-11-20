@@ -11,6 +11,7 @@ import {
   findFeaturesDirs,
   resolveCodemodScript,
 } from "@cosmicdrift/kumiko-framework/upgrade-cli";
+import { run } from "./_spawn";
 import { getFlag, getStringFlag, parseArgs } from "./arg-parser";
 import { defineCommand } from "./registry";
 
@@ -319,7 +320,15 @@ function runAdd(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType<
   return 0;
 }
 
-function runFold(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType<typeof parseArgs>): number {
+// JSON.stringify spreads every array over several lines; Biome joins short ones, and `biome check` fails on the difference.
+async function formatWithBiome(repoRoot: string, paths: readonly string[]): Promise<void> {
+  // Resolved from this script, not the repo root: the fold also runs in temp repos without node_modules.
+  const biomeBin = join(dirname(Bun.resolveSync("@biomejs/biome/package.json", import.meta.dir)), "bin", "biome");
+  const result = await run("bun", [biomeBin, "format", "--write", ...paths], { cwd: repoRoot });
+  if (result.status !== 0) throw new Error(`biome format failed:\n${result.stdout}${result.stderr}`);
+}
+
+async function runFold(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType<typeof parseArgs>): Promise<number> {
   const statusPath = getStringFlag(args, "status");
   if (!statusPath) return ctx.out.err("  --status is required."), 1;
   let status: ChangesetStatus;
@@ -379,14 +388,16 @@ function runFold(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType
       const path = join(repoRoot, rel);
       if (pendingPaths.has(resolve(path))) continue;
       const normalized = readEntries(path).map(toChangesJsonEntry);
-      const contents = `${JSON.stringify(normalized, null, 2)}\n`;
-      if (contents !== readFileSync(path, "utf-8")) updates.push({ path, contents, length: normalized.length });
+      // Compared by content, not text: the files on disk are in Biome's layout, not JSON.stringify's.
+      const unchanged = JSON.stringify(normalized) === JSON.stringify(parseJsonOrThrow<unknown>(readFileSync(path, "utf-8"), "changes file"));
+      if (!unchanged) updates.push({ path, contents: `${JSON.stringify(normalized, null, 2)}\n`, length: normalized.length });
     }
     if (!dryRun) {
       for (const update of updates) {
         mkdirSync(dirname(update.path), { recursive: true });
         writeFileSync(update.path, update.contents, "utf-8");
       }
+      if (updates.length > 0) await formatWithBiome(repoRoot, updates.map((update) => update.path));
     }
     for (const update of updates) {
       ctx.out.log(`${dryRun ? "would update" : "updated"} ${update.path} (${update.length} entries)`);

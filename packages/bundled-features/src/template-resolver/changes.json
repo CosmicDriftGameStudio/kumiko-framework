@@ -30,10 +30,7 @@
     "title": "Resource upload always links into a template",
     "detail": "Without templateId the upload skipped the template edit check and only created a new file. That path had no caller; templateId and key are now required, so every upload runs the edit check of its template.",
     "migration": "Send templateId and key with every resource-upload call; a plain file goes through POST /api/files.",
-    "affects": [
-      "resource-upload",
-      "resourceUpload"
-    ]
+    "affects": ["resource-upload", "resourceUpload"]
   },
   {
     "version": "0.425.0",
@@ -58,10 +55,7 @@
     "title": "Read override on text blocks narrows to SYSTEM only",
     "detail": "by-slug, by-tenant and the collection list and item queries took any tenant id as tenantIdOverride, but a tenant-scoped read reaches only the caller's own tenant plus SYSTEM, so a foreign id silently returned the caller's own and SYSTEM rows. The override now accepts SYSTEM_TENANT_ID only (still SystemAdmin only) and any other value fails validation.",
     "migration": "Pass SYSTEM_TENANT_ID or no override. Reads of another tenant's content go through a server-side systemQuery for that tenant.",
-    "affects": [
-      "tenantIdOverride",
-      "textBlocksClient"
-    ]
+    "affects": ["tenantIdOverride", "textBlocksClient"]
   },
   {
     "version": "0.425.0",
@@ -91,10 +85,7 @@
     "title": "Text-block writes reject external images and embeds",
     "detail": "`TemplateResolverHandlers.set` stored html text blocks and snippets as written. It now checks them with the same document sanitizer as document templates, for tenant and system scope alike, and answers a rejected body with `validation_error`. The field issues carry the sanitizer codes, among them `script_element`, `event_handler_attribute`, `disallowed_link_href`, `external_image_source` (an `<img>` with `src` or `srcset`), `image_without_resource` (an `<img>` without `data-resource`) and `embedded_content` (`<iframe>`, `<object>`, `<embed>`). A text block cannot carry an image at all, because `set` stores no linked resources. Markdown and plain bodies are unchanged.",
     "migration": "Remove external images, images and embeds from html text blocks and snippets before you save them again: an existing block that still contains them fails with `validation_error` on its next `set` (the anonymous reads already withhold such a tenant block and serve a system block unchanged). Seeds and imports that write such bodies through `set` fail the same way. Link to an image or video instead of embedding it, or move the content into a document template that carries the image as a linked resource.",
-    "affects": [
-      "template-resolver",
-      "TemplateResolverHandlers.set"
-    ]
+    "affects": ["template-resolver", "TemplateResolverHandlers.set"]
   },
   {
     "version": "0.424.0",

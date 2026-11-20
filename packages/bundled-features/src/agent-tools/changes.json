@@ -10,10 +10,7 @@
     "title": "Agent write tools keep optimistic locking",
     "detail": "For a write handler whose schema requires `version`, the tool catalog used to strip `version` from the tool's input schema, and dispatch read the current version from the detail handler right before the write. That turned off optimistic locking for agent writes: a model acting on an old read overwrote newer changes. `version` now stays a required tool argument and reaches the handler unchanged. A stale version returns `{ ok: false, code: \"version_conflict\" }` to the model, and the tool description tells it to read the record again. The `injectsVersion` field is gone from the write tool dispatch descriptor. The re-read through the detail handler after a successful write is unchanged.",
     "migration": "Agent-driven write calls must send `version` from the latest read. Code or tests that built write descriptors with `injectsVersion`, or relied on dispatch reading the version (for example a failing detail lookup before the write), drop that assumption and pass `version` in the tool input.",
-    "affects": [
-      "injectsVersion",
-      "agent-tools"
-    ]
+    "affects": ["injectsVersion", "agent-tools"]
   },
   {
     "version": "0.425.0",
@@ -21,10 +18,7 @@
     "title": "Doc-only translations for kumiko api-docs",
     "detail": "Apps that document their API in more locales than the app itself mounted one pseudo-feature per locale so the boot rule i18n/locale-inconsistent would accept the extra texts, and those texts were loaded on every server boot. `apiDocs.translations` in kumiko.config.ts is a function returning full translation keys, for example `() => import(\"./src/api-docs-texts\").then((m) => m.texts)`. Only `kumiko api-docs` calls it. Per key and locale it fills only what the registry does not define. `resolveApiDocsConfig` from `@cosmicdrift/kumiko-bundled-features/agent-tools` now returns a Promise; callers await it.",
     "migration": "Await `resolveApiDocsConfig(...)`, and replace per-locale pseudo-features that only carried API-doc texts with `apiDocs.translations` in kumiko.config.ts, for example `() => import(\"./src/api-docs-texts\").then((m) => m.texts)`.",
-    "affects": [
-      "resolveApiDocsConfig",
-      "apiDocs"
-    ]
+    "affects": ["resolveApiDocsConfig", "apiDocs"]
   },
   {
     "version": "0.425.0",

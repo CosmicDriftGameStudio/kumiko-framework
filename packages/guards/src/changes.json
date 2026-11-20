@@ -72,9 +72,7 @@
     "title": "lib-test-coverage ignore tags cite an existing test file",
     "detail": "`// kumiko-lint-ignore lib-test-coverage <reason>` exempts an exported lib function only when the reason names at least one `*.test.ts` or `*.test.tsx` file and every named file exists among the scanned tests. A repo-relative path or a bare file name both match by path suffix. A tag without a cited file, or with a file that does not exist, is reported on the function.",
     "migration": "Name the covering test in each lib-test-coverage tag, e.g. `// kumiko-lint-ignore lib-test-coverage integration-covered via src/__tests__/lease.integration.test.ts`, or write a unit test for the function.",
-    "affects": [
-      "lib-test-coverage"
-    ]
+    "affects": ["lib-test-coverage"]
   },
   {
     "version": "0.425.0",
@@ -99,9 +97,7 @@
     "detail": "`kumiko-guards guards` now runs `Handler Definitions` (handler definitions outside `<feature>/handlers/`, several handlers per file, a wrong `.write`/`.query` suffix, object literals typed `WriteHandlerDef`/`QueryHandlerDef`) and `Feature Import Cycles` (static, non-type-only imports outside test files that close a cycle between features). Both freeze existing hits per file in `.kumiko-handler-definitions-baseline.json` and `.kumiko-feature-import-cycles-baseline.json`. A missing baseline counts as empty, so every existing hit fails until the baseline is written. The feature-layout codemod now also moves `<name>.write.ts` and `<name>.query.ts` from a feature root into `handlers/` and rewrites their imports.",
     "migration": "Run the codemod, then `kumiko-guards guards --write-baseline --guard=\"Handler Definitions\"` and `kumiko-guards guards --write-baseline --guard=\"Feature Import Cycles\"` and commit both baseline files.",
     "codemod": "scripts/codemod/feature-layout.ts",
-    "affects": [
-      "kumiko-guards"
-    ]
+    "affects": ["kumiko-guards"]
   },
   {
     "version": "0.425.0",
@@ -116,10 +112,7 @@
     "title": "test-env-writes ratchet and suite env helpers",
     "detail": "The new guard `test-env-writes` counts direct writes to `process.env` and `Bun.env` in test files (assignment, `delete`, `Object.assign`) and freezes them in `.kumiko-test-env-writes-baseline.json`. `@cosmicdrift/kumiko-testing/helpers` adds `withEnvForEachTest(overrides)` and `withEnvForSuite(overrides)`, which set and restore env per test or per describe block; register them before any `beforeAll` that reads the env.",
     "migration": "Run `kumiko-guards guards --write-baseline --guard=\"test-env-writes\"` once, then move direct writes to `withEnv`, `withEnvForEachTest` or `withEnvForSuite`.",
-    "affects": [
-      "process.env",
-      "Bun.env"
-    ]
+    "affects": ["process.env", "Bun.env"]
   },
   {
     "version": "0.425.0",
@@ -188,9 +181,7 @@
     "title": "Unused kumiko-lint-ignore markers fail the guard run",
     "detail": "Every guard that honours a `kumiko-lint-ignore <slug>` marker records each marker it consumed. After the run, the new `unused-ignore-tags` check reports every marker of a guard that ran whose spot produced no finding, for example markers above header titles that i18n-ui-strings already exempts. Placeholders such as `<reason>` in doc comments are skipped. File-wide `kumiko-lint-ignore-file` markers and comment-lang, comment-issue-ref-only, raw-sql and secret-literals markers are not checked.",
     "migration": "Run the guards and delete every marker the `unused-ignore-tags` check reports. A marker belongs only where its guard would otherwise report a finding.",
-    "affects": [
-      "kumiko-lint-ignore"
-    ]
+    "affects": ["kumiko-lint-ignore"]
   },
   {
     "version": "0.425.0",
@@ -203,9 +194,7 @@
     "title": "Payload casts in handlers count as suspect casts",
     "detail": "A cast marked `// @cast-boundary engine-payload` whose expression starts with `event.payload` or `query.payload` in a `handlers/**/*.write.ts` or `handlers/**/*.query.ts` file is now a suspect cast instead of a legit boundary. `defineWriteHandler` and `defineQueryHandler` type the payload from the schema, so such a cast hides drift between schema and payload type. Projections and all other files keep the marker.",
     "migration": "Define the handler with `defineWriteHandler` or `defineQueryHandler` instead of an object typed `WriteHandlerDef`/`QueryHandlerDef` and drop the cast. Casts that must stay for now can be frozen with `kumiko-guards guards --write-baseline --guard=\"As-Casts Audit\"`.",
-    "affects": [
-      "kumiko-guards"
-    ]
+    "affects": ["kumiko-guards"]
   },
   {
     "version": "0.425.0",
@@ -213,9 +202,7 @@
     "title": "Existence-only checks on queries fail, existence-only tests are ratcheted",
     "detail": "Testing Library `getBy*`, `getAllBy*`, `findBy*` and `findAllBy*` queries throw when nothing matches, so the Fake-Test Guard now reports `.toBeTruthy()`, `.toBeDefined()`, `.not.toBeNull()` and `.not.toBeUndefined()` directly on such a query (also awaited) as \"QUERY EXISTS ONLY\". Chained checks such as `expect(screen.getByTestId(\"x\").querySelector(\"input\")).toBeTruthy()` stay allowed. A bare query call now counts as an assertion, a `findBy*` call only when it is awaited or returned, so `screen.getByText(\"Saved\");` alone is a complete test; `queryBy*` still does not count. The new guard `weak-assertions` counts tests whose only assertions are `expect(x).toBeDefined()` or `expect(x).toBeTruthy()` and freezes them per file in `.kumiko-weak-assertions-baseline.json`; a missing baseline counts as empty.",
     "migration": "Replace `expect(<query>).toBeTruthy()` and the other existence checks on a query with the bare query call (`screen.getByText(\"Saved\");`, `await screen.findByText(\"Saved\");`). Then run `kumiko-guards guards --write-baseline --guard=\"weak-assertions\"` once and commit `.kumiko-weak-assertions-baseline.json`.",
-    "affects": [
-      "kumiko-guards"
-    ]
+    "affects": ["kumiko-guards"]
   },
   {
     "version": "0.425.0",
@@ -223,10 +210,7 @@
     "title": "Test-ES-Row-Writes guard checks app and library tests",
     "detail": "The guard was limited to the framework repo (`kinds: [\"framework\"]`), so `kumiko-guards guards` in an app never ran it. It now scans every non-tooling repo: the manifest's test files plus helper files in `src/**/__tests__`, `bin/**/__tests__`, `bin/**/*.test.ts` and `e2e/`. In every repo it now reports raw `INSERT INTO`, `UPDATE`, `DELETE FROM`, `MERGE INTO` and `COPY … FROM` (also with `ONLY` or a schema prefix) on `read_*` tables, on tables the file builds with `buildEntityTable` and on tables the file declares with `createEntity({ table })`, written literally or through a const in the same file whose value is such a name or comes from `<table>.tableName` (except inside a projection's `apply` and for an entity the file derives with `deriveEntityTableMeta(entity, { source: \"unmanaged\" })`), `TRUNCATE` of such a table without `kumiko_events` in the same statement, a `TRUNCATE kumiko_events` without the projection in a file that knows one, and `DELETE FROM kumiko_events`. A projection's `apply` never exempts writes on `kumiko_events`. It also reports calls like `insertOne`, `insertMany`, `deleteMany`, `deleteRows` or `seedRow` that take `eventsTable`. DDL (`ALTER TABLE … RENAME`, `CREATE TABLE`) and a `TRUNCATE` of projection and `kumiko_events` together (a reset) are not reported. `seedRow`, `updateRows` and `deleteRows` with a non-empty `{ projectionOnly: reason }`, inline or through a const in the same file, are no longer reported in any repo; on `eventsTable` they still are.",
     "migration": "Replace each reported write in a test. Rows that events can produce go through the real command, `seedRowViaEventStore`, `updateRowViaEventStore` or `deleteRowViaEventStore`. A state no event produces goes through the testing helpers with a reason: `asRawClient(db).unsafe('UPDATE \"read_x\" SET \"version\" = 0 …')` (stale-version race), `UPDATE \"read_x\" SET \"<pii column>\" = <corrupted ciphertext>` and `UPDATE \"read_x\" SET \"<column>\" = NULL` (state after a column migration) become `updateRows(db, xTable, { … }, { id }, { projectionOnly: \"<scenario>\" })`, which writes the values verbatim without encrypting or bumping the version; `TRUNCATE \"read_x\"` (lost read table before a rebuild) becomes `deleteRows(db, xTable, {}, { projectionOnly: \"<scenario>\" })`; a raw `INSERT INTO read_x` legacy row becomes `seedRow(db, xTable, row, { projectionOnly: \"<scenario>\" })`. A reset keeps the events: `resetEventStore(stack, [xTable])` or `resetTestTables(db, [xTable, eventsTable])`.",
-    "affects": [
-      "kumiko-guards guards",
-      "Test-ES-Row-Writes Guard"
-    ]
+    "affects": ["kumiko-guards guards", "Test-ES-Row-Writes Guard"]
   },
   {
     "version": "0.425.0",

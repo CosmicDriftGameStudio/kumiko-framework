@@ -12,10 +12,7 @@
     "title": "late-bound slot helper removed",
     "detail": "Removed exports: `createLateBoundSlot`, `LateBoundSlot`; their only users were the removed revoke bindings.",
     "migration": "None for apps.",
-    "affects": [
-      "createLateBoundSlot",
-      "LateBoundSlot"
-    ]
+    "affects": ["createLateBoundSlot", "LateBoundSlot"]
   },
   {
     "version": "0.415.0",
