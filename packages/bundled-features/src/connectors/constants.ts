@@ -1,3 +1,5 @@
+import { entityEventName } from "@cosmicdrift/kumiko-framework/db";
+
 // Names the browser bundle needs too: they live under web/, which the runtime-isolation guard classes as client code, so server and client import the same values.
 export {
   ConnectorHandlers,
@@ -9,6 +11,8 @@ export {
 export const CONNECTORS_FEATURE = "connectors";
 export const CONNECTOR_ENTITY = "connector";
 export const INBOUND_ITEM_ENTITY = "inbound-item";
+// The executor writes under the entity name, so the event type is that name plus the verb.
+export const INBOUND_ITEM_CREATED_EVENT = entityEventName(INBOUND_ITEM_ENTITY, "created");
 export const INBOUND_FOLDER_ENTITY = "inbound-folder";
 
 export const CONNECTOR_KIND = { satellite: "satellite" } as const;

@@ -75,6 +75,30 @@ The delivered bytes are not part of the offsite backup: their storage keys start
 
 The path's directory part becomes a folder tree per device: a first upload of `Rechnungen/2026/a.pdf` creates the folders `Rechnungen` and `2026`. A path may have at most 20 folder levels and no segment longer than 255 characters (`422 path_rejected` otherwise). Folder names and file paths are stored encrypted.
 
+## Reacting to delivered files
+
+A job in an app feature runs when a file arrives: `trigger: { on: INBOUND_ITEM_CREATED_EVENT }` (`inbound-item.created`). The event carries only the item id (`ctx.triggerEvent.aggregateId`); the job fetches the rest with `readInboundFile`, which works in a job and in a write handler.
+
+```ts illustration
+import { INBOUND_ITEM_CREATED_EVENT, readInboundFile } from "@cosmicdrift/kumiko-bundled-features/connectors";
+
+r.job({
+  name: "import-delivered-csv",
+  trigger: { on: INBOUND_ITEM_CREATED_EVENT },
+  handler: async (_payload, ctx) => {
+    const itemId = ctx.triggerEvent?.aggregateId;
+    if (itemId === undefined) return;
+    const file = await readInboundFile(ctx, itemId, { maxBytes: 5 * 1024 * 1024 });
+    // skip: deleted again, or not for this feature
+    if (!file.isSuccess) return;
+    if (!file.data.relativePath.endsWith(".csv")) return;
+    // file.data: relativePath (decrypted), connectorId, connectorName, sha256, sourceModifiedAt, bytes
+  },
+});
+```
+
+`readInboundFile` answers `{ isSuccess: false, failure: "not-found" }` for an unknown, deleted or other-tenant item and `"too-large"` when the stored size exceeds `maxBytes` (nothing is read then). It reads through the caller's tenant, so app code never touches the connector tables or the path encryption itself. The job runs at least once per file; a satellite delivering the same file again is the same item and fires no second event.
+
 ## Heartbeat
 
 `POST /v1/heartbeat` with the bearer token and a JSON body. Answer `200 {"ok":true,"name":"<connector name>"}`. `name` is the name the admin gave when pairing; a satellite can show it ("Paired as ..."), and if it is missing there is none to show. The connector list shows the version, the last time the device was seen (any upload counts as being seen too) and the sync status.
