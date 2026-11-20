@@ -6,19 +6,31 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { INBOUND_ITEM_CREATED_EVENT } from "../constants.ts";
+import * as z from "zod";
+import { ConnectorHandlers, INBOUND_ITEM_CREATED_EVENT } from "../constants.ts";
 import { INBOUND_FILE_FAILURE, readInboundFile } from "../read-inbound-file.ts";
 import {
+  checkCode,
   pairDevice,
+  pollToken,
   runDeletionJobs,
   setupConnectorsStack,
+  startPairing,
   teardownConnectorsStack,
+  tenantAdmin,
   upload,
 } from "./connectors-stack.ts";
 
 const MAX_BYTES = 16;
+const READ_HANDLER = "inbound-reaction-fixture:write:read-delivered-file";
+const otherTenantAdmin = createTestUser({
+  id: 21,
+  tenantId: testTenantId(2),
+  roles: ["TenantAdmin"],
+});
 const text = (value: string) => new TextEncoder().encode(value);
 
 const text200 = {
@@ -43,6 +55,24 @@ const { table: receivedTable, executor: receivedExecutor } = createEntityExecuto
 
 const reactingFeature = defineFeature("inbound-reaction-fixture", (r) => {
   r.entity(receivedEntity);
+  r.writeHandler({
+    name: "read-delivered-file",
+    schema: z.object({ id: z.uuid() }),
+    access: { roles: ["TenantAdmin"] },
+    handler: async (event, ctx) => {
+      const file = await readInboundFile(ctx, event.payload.id, { maxBytes: MAX_BYTES });
+      return {
+        isSuccess: true as const,
+        data: file.isSuccess
+          ? {
+              outcome: "read",
+              relativePath: file.data.relativePath,
+              content: new TextDecoder().decode(file.data.bytes),
+            }
+          : { outcome: file.failure },
+      };
+    },
+  });
   r.job({
     name: "record-delivered-file",
     trigger: { on: INBOUND_ITEM_CREATED_EVENT },
@@ -121,6 +151,56 @@ describe("a job reacting to a delivered file", () => {
       outcome: INBOUND_FILE_FAILURE.tooLarge,
       relativePath: null,
       content: null,
+    });
+  });
+});
+
+describe("readInboundFile from a write handler", () => {
+  const readViaHandler = (id: string, user: typeof tenantAdmin) =>
+    stack.http.writeOk<{ outcome: string; relativePath?: string; content?: string }>(
+      READ_HANDLER,
+      { id },
+      user,
+    );
+
+  test("the handler's own user reads path and content of its tenant's file", async () => {
+    const res = await upload(stack, token, { path: "lantek/h.csv", bytes: text("H;1") });
+    const { id } = (await res.json()) as { id: string };
+    expect(await readViaHandler(id, tenantAdmin)).toEqual({
+      outcome: "read",
+      relativePath: "lantek/h.csv",
+      content: "H;1",
+    });
+  });
+
+  test("an item of a second tenant is not-found for the first tenant", async () => {
+    const started = await startPairing(stack);
+    await checkCode(stack, started.user_code, otherTenantAdmin);
+    await stack.http.writeOk(
+      ConnectorHandlers.approveDevice,
+      { userCode: started.user_code, name: "Other tenant PC" },
+      otherTenantAdmin,
+    );
+    const otherToken = (
+      (await (await pollToken(stack, started.device_code)).json()) as { access_token: string }
+    ).access_token;
+    const res = await upload(stack, otherToken, { path: "other/x.csv", bytes: text("X;1") });
+    expect(res.status).toBe(201);
+    const { id } = (await res.json()) as { id: string };
+
+    expect((await readViaHandler(id, otherTenantAdmin)).outcome).toBe("read");
+    expect(await readViaHandler(id, tenantAdmin)).toEqual({
+      outcome: INBOUND_FILE_FAILURE.notFound,
+    });
+  });
+
+  test("a deleted item is not-found", async () => {
+    const res = await upload(stack, token, { path: "lantek/gone.csv", bytes: text("G;1") });
+    const { id } = (await res.json()) as { id: string };
+    await stack.http.writeOk(ConnectorHandlers.deleteFile, { id }, tenantAdmin);
+
+    expect(await readViaHandler(id, tenantAdmin)).toEqual({
+      outcome: INBOUND_FILE_FAILURE.notFound,
     });
   });
 });
