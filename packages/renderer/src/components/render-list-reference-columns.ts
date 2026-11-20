@@ -13,7 +13,7 @@ import type {
   RuntimeRenderer,
   Translate,
 } from "../headless/index.ts";
-import { EMPTY_VALUE_PLACEHOLDER } from "../headless/index.ts";
+import { EMPTY_VALUE_PLACEHOLDER, referenceLabelText } from "../headless/index.ts";
 import type { ReferenceLookupMap } from "../hooks/use-reference-lookup.ts";
 
 export type PublishedReferenceLookup = {
@@ -191,7 +191,11 @@ function buildLinkItemsFor(lookup: ColumnLookup): RuntimeCellLinkItems {
     return value.map((v): CellLinkItem => {
       const id = String(v);
       const target = eagerById.get(id);
-      const label = String(target?.[labelField] ?? map?.get(id) ?? unresolvedLabel(id));
+      const eagerLabel = target?.[labelField];
+      const label =
+        eagerLabel !== undefined && eagerLabel !== null
+          ? referenceLabelText(eagerLabel)
+          : (map?.get(id) ?? unresolvedLabel(id));
       // Only a row the user can see is linkable: server eagerload or lookup query.
       const link =
         target !== undefined || map?.has(id) === true
@@ -216,10 +220,10 @@ function buildReferenceRenderer(lookup: ColumnLookup): RuntimeRenderer {
     // the shape of _refs.
     const resolved = eagerloadedRef(row, col.field);
     if (Array.isArray(resolved) && resolved.length > 0) {
-      return resolved.map((r) => String(r[labelField] ?? r["id"] ?? "")).join(", ");
+      return resolved.map((r) => referenceLabelText(r[labelField] ?? r["id"])).join(", ");
     }
     if (isPlainRecord(resolved)) {
-      return String(resolved[labelField] ?? resolved["id"] ?? "");
+      return referenceLabelText(resolved[labelField] ?? resolved["id"]);
     }
     // Renderer-side fallback when server eager loading is not active.
     if (Array.isArray(value)) {

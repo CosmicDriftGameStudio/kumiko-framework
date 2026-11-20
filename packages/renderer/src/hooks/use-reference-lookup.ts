@@ -20,6 +20,7 @@ import { isUuid } from "@cosmicdrift/kumiko-types/identifiers";
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-types/kms-adapter-types";
 import { useMemo } from "react";
 import { toKebab } from "../app/qn.ts";
+import { referenceLabelText } from "../headless/index.ts";
 import { useTranslation } from "../i18n.tsx";
 import { REFERENCE_LIST_LOOKUP_LIMIT } from "./reference-limits.ts";
 import { useQuery } from "./use-query.ts";
@@ -170,7 +171,7 @@ export function useReferenceLookup(
       const label = row[labelKey] ?? id;
       out.set(
         idStr,
-        label === PII_ERASED_SENTINEL ? translate("kumiko.pii.erased") : String(label),
+        label === PII_ERASED_SENTINEL ? translate("kumiko.pii.erased") : referenceLabelText(label),
       );
     }
     // System-scope ids (e.g. SYSTEM_TENANT_ID) never have a backing row, so

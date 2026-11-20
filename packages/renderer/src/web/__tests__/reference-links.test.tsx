@@ -240,6 +240,31 @@ describe("reference column links", async () => {
     expect(view.getByTestId("cell-r1-owner").querySelector("a")).toBeNull();
   });
 
+  test("a money label field resolved by the lookup query shows the formatted amount", async () => {
+    const priceLabelEntity = {
+      fields: {
+        name: { type: "text" },
+        owner: { type: "reference", entity: "owner", labelField: "price" },
+      },
+    } as unknown as EntityDefinition;
+    const dispatcher = createMockDispatcher({
+      query: async () => ({
+        isSuccess: true,
+        data: { rows: [{ id: OWNER_ID, price: { amount: 1890000, currency: "EUR" } }] },
+      }),
+    });
+    const view = await renderSettled(
+      <RenderList
+        screen={screen}
+        entity={priceLabelEntity}
+        rows={[{ id: "r1", name: "Rex", owner: OWNER_ID }]}
+        featureName="people"
+      />,
+      { dispatcher },
+    );
+    await waitFor(() => expect(view.getByTestId("cell-r1-owner").textContent).toBe("€18,900.00"));
+  });
+
   test("a null _refs entry for the field stays text", async () => {
     const view = await renderSettled(
       list([{ id: "r1", name: "Rex", owner: OTHER_OWNER_ID, _refs: { owner: null } }]),

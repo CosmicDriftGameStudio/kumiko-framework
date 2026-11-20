@@ -8,5 +8,5 @@ export { createLruCache, type LruCache, type LruCacheOptions } from "./lru-cache
 export { mapWithConcurrency } from "./map-with-concurrency.ts";
 export { parseStringArrayJson } from "./parse-string-array-json.ts";
 export { MAX_RETURN_PATH_LENGTH } from "./return-path-limit.ts";
-export { parseJsonOrThrow, parseJsonSafe } from "./safe-json.ts";
+export { parseJsonOrThrow, parseJsonSafe, stringifyJson } from "./safe-json.ts";
 export { parseRoles } from "./serialization.ts";

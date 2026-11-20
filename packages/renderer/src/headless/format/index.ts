@@ -269,6 +269,15 @@ export function applyFormatSpec(
   return CELL_FORMATTERS[spec.format](spec, value, translate);
 }
 
+// A reference's label field can be money or a located timestamp, which reads
+// as its compound object (`{ amount, currency }`, `{ at, tz, utc }`).
+export function referenceLabelText(value: unknown): string {
+  if (typeof value !== "object" || value === null) return String(value ?? "");
+  const instant = propertyOf(value, "utc") ?? propertyOf(value, "at");
+  if (typeof instant === "string") return applyFormatSpec({ format: "timestamp" }, instant);
+  return applyFormatSpec({ format: "money" }, value) || String(value);
+}
+
 function formatTemporalCell(spec: CellFormatSpec, value: unknown): string {
   const isTimestamp = spec.format === "timestamp";
   return formatDateCell(value, spec.format, {
