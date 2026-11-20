@@ -2575,6 +2575,24 @@ type StickyActionBarProps = { // Thumb-reach action row for custom screens: pinn
 };
 ```
 
+## packages/renderer/src/primitives-value-display-types.ts
+
+```ts
+type FileValueListProps = { // Read-only list of stored files (FileRef ids): name, download link and, for PDFs, an inline preview.
+  fileIds: string[];
+  previewOpenByDefault?: boolean; // Starts the inline PDF preview of the newest file open; uploads append, so that is the last id.
+  testId?: string;
+};
+type JsonViewProps = { // Structured JSON display (audit payload/metadata, job logs, unsupported jsonb/embedded field fallback).
+  value: unknown;
+  indent?: number;
+  testId?: string;
+};
+type KeyValueListProps = { // Read-only name-value list: dimmed label on the left, value right-aligned in one column, evenly spaced rows.
+  rows: { key: string; label: string; value: string; emphasize?: boolean; }[];
+};
+```
+
 ## packages/renderer/src/primitives.tsx
 
 ```ts
@@ -2678,11 +2696,6 @@ type DrawerProps = { // Side panel for hosting an existing self-contained form/w
   testId?: string;
 };
 type FieldCellWidth = "text" | "number" | "money" | "date" | "timestamp" | "select" | "full" | "toggle"; // Width class of a field cell inside a `flow` grid: sized by what the field holds.
-type FileValueListProps = { // Read-only list of stored files (FileRef ids): name, download link and, for PDFs, an inline preview.
-  fileIds: string[];
-  previewOpenByDefault?: boolean; // Starts the inline PDF preview of the newest file open; uploads append, so that is the last id.
-  testId?: string;
-};
 type FillContainerProps = { // Chromeless flex-fill layout host — no title, no card frame, no padding, just a container that sizes to its content and, once the ancestor chain is height-constrained, shrinks so one scrolling child can scroll internally instead of the page growing.
   children: ReactNode;
   testId?: string;
@@ -2703,15 +2716,6 @@ type InputFillAction = { // Button beside a single-line text/number input that f
   onPress: () => void;
   busy?: boolean; // A suggestion is being fetched: the button shows a spinner and is inert.
   disabled?: boolean; // The surrounding form is locked as a whole.
-  testId?: string;
-};
-type JsonViewProps = { // Structured JSON display (audit payload/metadata, job logs, unsupported jsonb/embedded field fallback).
-  value: unknown;
-  indent?: number;
-  testId?: string;
-};
-type KeyValueListProps = { // Read-only name-value list: dimmed label on the left, value right-aligned in one column, evenly spaced rows.
-  rows: { key: string; label: string; value: string; emphasize?: boolean; testId?: string; }[];
   testId?: string;
 };
 type LightboxBaseProps = {
