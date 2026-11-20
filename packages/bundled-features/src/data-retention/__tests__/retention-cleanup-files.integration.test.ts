@@ -350,8 +350,8 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
   });
 
   test("a fileRef bound to the purged row but held by another entity's live row is rebound to that holder", async () => {
-    const rowA = await seedDoc("read_c8_doc", T1, "expired-owner", pastIso);
-    const rowB = await seedDoc("read_c8_other_doc", T1, "live-holder", withinIso);
+    const rowA = await seedDoc(docEntity, T1, "expired-owner", pastIso);
+    const rowB = await seedDoc(otherDocEntity, T1, "live-holder", withinIso);
     const sharedId = await seedFileRef({
       tenantId: T1,
       entityName: "c8-doc",
@@ -359,8 +359,8 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       fieldName: "cover",
       key: "t1/rebind/cover/orig.jpg",
     });
-    await setCover("read_c8_doc", rowA, sharedId);
-    await setCover("read_c8_other_doc", rowB, sharedId);
+    await setCover(docEntity, rowA, sharedId);
+    await setCover(otherDocEntity, rowB, sharedId);
 
     await runRetentionCleanup({
       db: stack.db,

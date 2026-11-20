@@ -2454,6 +2454,7 @@ type MetricBandProps = { // Band above the tabs of a record detail: optional sub
   tiles?: boolean; // The children are KPI tiles, laid out as a tile grid instead of a definition list.
   testId?: string;
   splitPart?: "lead" | "tiles"; // One half of a band split for the narrow order: lead drops the bottom padding, tiles uses pt-3.
+  flush?: boolean; // The surrounding section already insets its content, so the band adds no padding of its own.
 };
 type MetricProps = { // Compact label/value tile (record-detail metrics band).
   label: string;
