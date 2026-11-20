@@ -89,6 +89,17 @@ export type DataTableSummaryRow = {
   readonly items: readonly DataTableSummaryItem[];
 };
 
+/** One labelled row in the table footer, with values under their columns in the column's format. */
+export type DataTableFooterRow = {
+  readonly key: string;
+  /** Shown in the first column. */
+  readonly label: string;
+  /** Column field -> raw value; a column without an entry stays empty. */
+  readonly values: Readonly<Record<string, unknown>>;
+  /** Bold with a rule above, for a total. */
+  readonly emphasize?: boolean;
+};
+
 /** The DataTable props a screen's `table` block feeds. */
 export type DataTableTableBlock = {
   /** View menu (column picker, density); absent = no menu. */
@@ -109,6 +120,8 @@ export type DataTableTableBlock = {
   readonly summaryRow?: DataTableSummaryRow;
   /** Present: a footer row with the server-computed totals of the filtered list. */
   readonly totals?: DataTableTotals;
+  /** Present: labelled footer rows (sums, total) after the summary and totals rows. */
+  readonly footerRows?: readonly DataTableFooterRow[];
   /** Present: the toolbar says the answer is incomplete and asks to narrow the list. */
   readonly notice?: DataTableListNotice;
   readonly rangeFacets?: readonly DataTableRangeFacet[];

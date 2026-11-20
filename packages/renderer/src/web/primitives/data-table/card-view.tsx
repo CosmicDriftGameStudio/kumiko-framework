@@ -7,7 +7,7 @@ import { CardSortSelect } from "./card-sort-select.tsx";
 import { bandClassName, bandReactKey, bandTestId } from "./group-band.tsx";
 import { renderBand } from "./row-render-parts.tsx";
 import { hasSortOptionsSelect, sortSummaryText } from "./sort-options-select.tsx";
-import { SummaryCard, TotalsCard } from "./totals-footer.tsx";
+import { FooterRowsCard, SummaryCard, TotalsCard } from "./totals-footer.tsx";
 import type { DataTableModel } from "./use-data-table-state.ts";
 
 export function renderCardsView(m: DataTableModel): ReactNode {
@@ -59,6 +59,9 @@ export function renderCardsView(m: DataTableModel): ReactNode {
         </ul>
         {m.summaryRow !== undefined && !m.belowSm && <SummaryCard summary={m.summaryRow} />}
         {totals !== undefined && <TotalsCard totals={totals} columnOf={m.columnOf} />}
+        {m.footerRows !== undefined && m.footerRows.length > 0 && (
+          <FooterRowsCard rows={m.footerRows} columns={columns} />
+        )}
       </div>
     </div>
   );

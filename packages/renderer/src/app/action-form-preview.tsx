@@ -1,6 +1,7 @@
 import type { ActionFormPreview } from "@cosmicdrift/kumiko-framework/ui-types";
 import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useMemo } from "react";
+import type { DataTableFooterRow } from "../data-table-view-types.ts";
 import {
   isCurrencyOnlyMoney,
   type ListColumnViewModel,
@@ -74,7 +75,7 @@ export function ActionFormPreviewPanel({
   readonly translate: Translate;
   readonly locale: string;
 }): ReactNode {
-  const { Banner, DataTable, Grid } = usePrimitives();
+  const { Banner, DataTable, Grid, Section } = usePrimitives();
   const fieldNames = useMemo(() => preview.fields ?? Object.keys(fields), [preview.fields, fields]);
   const serialized = useDebouncedValue(
     JSON.stringify(pickPayload(values, fieldNames)),
@@ -105,6 +106,22 @@ export function ActionFormPreviewPanel({
     [preview.list, query.data],
   );
 
+  const footerRows = useMemo<readonly DataTableFooterRow[]>(
+    () =>
+      (preview.list?.footer ?? []).map((row, index) => ({
+        key: String(index),
+        label: translate(row.label),
+        values: Object.fromEntries(
+          Object.entries(row.cells).flatMap(([columnField, resultField]) => {
+            const value = propertyOf(query.data, resultField);
+            return value === undefined ? [] : [[columnField, value]];
+          }),
+        ),
+        ...(row.emphasize === true && { emphasize: true }),
+      })),
+    [preview.list, query.data, translate],
+  );
+
   if (incomplete) return null;
   if (query.error !== null) {
     return (
@@ -115,17 +132,22 @@ export function ActionFormPreviewPanel({
   }
   if (query.data === null) return query.loading ? <QueryLoadingBanner /> : null;
   return (
-    <Banner
-      variant="hint"
+    // A sibling of the form's sections (also with preview.section), so a Section never nests in another.
+    <Section
       testId="action-form-preview"
       {...(preview.title !== undefined && { title: translate(preview.title) })}
     >
       <Grid columns={1}>
         <ActionFormFacts facts={facts} testIdPrefix="action-form-preview-fact" />
         {preview.list !== undefined && (rows.length > 0 || facts.length === 0) && (
-          <DataTable columns={columns} rows={rows} />
+          <DataTable
+            columns={columns}
+            rows={rows}
+            screenPadding={false}
+            {...(rows.length > 0 && footerRows.length > 0 && { footerRows })}
+          />
         )}
       </Grid>
-    </Banner>
+    </Section>
   );
 }

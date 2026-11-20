@@ -7,7 +7,7 @@ import { renderEmptyBlock } from "./row-render-parts.tsx";
 import { renderTableBody } from "./table-body.tsx";
 import { FILL_TABLE_CLASS, FlushTable, MUTED_HEADER_CELLS_CLASS } from "./table-chrome.tsx";
 import { renderTableHeader } from "./table-header-row.tsx";
-import { SummaryFooterRow, TotalsFooterRow } from "./totals-footer.tsx";
+import { FooterValueRow, SummaryFooterRow, TotalsFooterRow } from "./totals-footer.tsx";
 import type { DataTableModel } from "./use-data-table-state.ts";
 
 function renderColumnWidths(m: DataTableModel): ReactNode {
@@ -54,15 +54,33 @@ function renderTotalsRow(m: DataTableModel): ReactNode {
   );
 }
 
-// Both rows share one tfoot; a second tfoot is invalid HTML.
+function renderFooterRows(m: DataTableModel): ReactNode {
+  if (m.footerRows === undefined || m.footerRows.length === 0) return null;
+  return m.footerRows.map((row) => (
+    <FooterValueRow
+      key={row.key}
+      row={row}
+      columns={m.columns}
+      cellPin={m.pins.bodyCell}
+      leadingCells={{ select: m.selection.active, expand: m.expansion !== undefined }}
+      actionsCell={m.hasTableActions ? { fillsHeight: m.fillsHeight } : undefined}
+      cellClassName={m.density.cell}
+    />
+  ));
+}
+
+// All rows share one tfoot; a second tfoot is invalid HTML.
+// Labelled footer rows carry figures that read like the body, so they keep the body font size.
 function renderTableFooter(m: DataTableModel): ReactNode {
   const summary = renderSummaryRow(m);
   const totals = renderTotalsRow(m);
-  if (summary === null && totals === null) return null;
+  const footerRows = renderFooterRows(m);
+  if (summary === null && totals === null && footerRows === null) return null;
   return (
-    <TableFooter className="bg-muted text-[12.5px]">
+    <TableFooter className={cn("bg-muted", footerRows === null && "text-[12.5px]")}>
       {summary}
       {totals}
+      {footerRows}
     </TableFooter>
   );
 }

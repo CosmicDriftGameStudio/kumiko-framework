@@ -80,9 +80,15 @@ type ActionFormPreview = { // Preview panel above the submit button: runs a quer
   facts?: ActionFormSuccessFact[]; // Key figures from the query result, shown like the success box facts.
   list?: ActionFormPreviewList; // Table of rows from the query result.
 };
+type ActionFormPreviewFooterRow = { // One footer row under the preview table, e.g. a sum row or the total claim.
+  label: string; // Label in the first column (i18n key).
+  cells: Readonly<Record<string, string>>; // Column field of the list -> flat field of the query result (not of a row); shown under that column in the column's format.
+  emphasize?: boolean; // Bold with a rule above, for the total.
+};
 type ActionFormPreviewList = { // Rows of the preview panel, read from an array in the preview query's result.
   field: string; // Flat field name of an array in the query result; an entry that is no object is skipped.
   columns: { field: string; label: string; type?: ActionFormValueType | "file"; }[];
+  footer?: ActionFormPreviewFooterRow[]; // Rows under the table body, e.g. sums.
 };
 type ActionFormRedirect = { // Redirect target plus the success-payload field carrying the navigation id.
   screen: string; // Same target forms as the string `redirect`: short screen ID (same-feature) or a fully-qualified cross-feature screen QN.

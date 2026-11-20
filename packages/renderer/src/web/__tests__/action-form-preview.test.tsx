@@ -94,6 +94,61 @@ describe("actionForm preview", () => {
     expect(principal.hasAttribute("data-emphasize")).toBe(false);
   });
 
+  test("footer rows sit in the table footer under their column, formatted like the body, and the panel is no hint banner", async () => {
+    const money = (amount: number) => ({ amount, currency: "EUR" });
+    const dispatcher = createMockDispatcher({
+      query: async () => ({
+        isSuccess: true,
+        data: {
+          rows: [{ month: "2026-01", rent: money(103000), open: money(78115) }],
+          sumRent: money(618000),
+          sumOpen: money(593115),
+          total: money(593115),
+        },
+      }),
+    });
+    renderForm(dispatcher, {
+      ...form,
+      preview: {
+        query: "tasks:query:set-status-preview",
+        fields: ["status"],
+        title: "Claim",
+        list: {
+          field: "rows",
+          columns: [
+            { field: "month", label: "Month" },
+            { field: "rent", label: "Rent", type: "money" },
+            { field: "open", label: "Open", type: "money" },
+          ],
+          footer: [
+            { label: "Sum", cells: { rent: "sumRent", open: "sumOpen" } },
+            { label: "Total claim", cells: { open: "total" }, emphasize: true },
+          ],
+        },
+      },
+    });
+
+    typeInto("status", "blocked");
+    const panel = await screen.findByTestId("action-form-preview");
+    expect(panel.querySelector("[data-section-title]")?.textContent).toBe("Claim");
+    expect(screen.queryByRole("status")).toBeNull();
+    const sum = screen.getByTestId("list-footer-0");
+    expect(sum.closest("tfoot")).not.toBeNull();
+    expect(Array.from(sum.children).map((cell) => cell.textContent)).toEqual([
+      "Sum",
+      "€6,180.00",
+      "€5,931.15",
+    ]);
+    const total = screen.getByTestId("list-footer-1");
+    expect(Array.from(total.children).map((cell) => cell.textContent)).toEqual([
+      "Total claim",
+      "",
+      "€5,931.15",
+    ]);
+    expect(total.hasAttribute("data-emphasize")).toBe(true);
+    expect(sum.hasAttribute("data-emphasize")).toBe(false);
+  });
+
   test("a changed form value runs the preview query and renders facts and list", async () => {
     const queries: { type: string; payload: unknown }[] = [];
     const dispatcher = createMockDispatcher({

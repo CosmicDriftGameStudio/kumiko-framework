@@ -80,6 +80,7 @@ export type {
   ActionFormFooterAction,
   ActionFormLoad,
   ActionFormPreview,
+  ActionFormPreviewFooterRow,
   ActionFormPreviewList,
   ActionFormRedirect,
   ActionFormScreenDefinition,

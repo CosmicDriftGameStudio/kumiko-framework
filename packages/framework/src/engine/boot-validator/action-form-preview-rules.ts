@@ -16,6 +16,11 @@ export const ACTION_FORM_PREVIEW_RULES = {
     summary: "preview.list names the result field of its rows and at least one column.",
     fix: "Set list.field to the array in the query result and list the columns to show.",
   },
+  footerColumnUnknown: {
+    id: "action-form-preview/footer-column-unknown",
+    summary: "Every preview.list.footer cell names a column of the list.",
+    fix: "Use the field of one of list.columns as the cells key, or drop the cell.",
+  },
   sectionUnknown: {
     id: "action-form-preview/section-unknown",
     summary: "preview.section names a fields section of the layout.",

@@ -1931,6 +1931,12 @@ type DataTableExport = { // What the export button sends to POST /api/export/xls
   payload: Readonly<Record<string, unknown>>; // The list payload without paging keys; the server reads the whole filtered list.
   columns: string[]; // Visible column ids in display order.
 };
+type DataTableFooterRow = { // One labelled row in the table footer, with values under their columns in the column's format.
+  key: string;
+  label: string; // Shown in the first column.
+  values: Readonly<Record<string, unknown>>; // Column field -> raw value; a column without an entry stays empty.
+  emphasize?: boolean; // Bold with a rule above, for a total.
+};
 type DataTableGroupByChoice = {
   value: string; // Active group field, "" = not grouped.
   fields: string[];
@@ -1959,6 +1965,7 @@ type DataTableTableBlock = { // The DataTable props a screen's `table` block fee
   serverGroups?: DataTableServerGroups; // Present: the rows are grouped on the server; replaces pager and infinite scroll.
   summaryRow?: DataTableSummaryRow; // Present: a footer line above the totals row with the summary query's items.
   totals?: DataTableTotals; // Present: a footer row with the server-computed totals of the filtered list.
+  footerRows?: DataTableFooterRow[]; // Present: labelled footer rows (sums, total) after the summary and totals rows.
   notice?: DataTableListNotice; // Present: the toolbar says the answer is incomplete and asks to narrow the list.
   rangeFacets?: DataTableRangeFacet[];
   onRangeChange?: (field: string, bound: DataTableRangeBound, value: string) => void;
