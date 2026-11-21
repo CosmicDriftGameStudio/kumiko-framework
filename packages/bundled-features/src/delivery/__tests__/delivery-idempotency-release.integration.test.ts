@@ -23,6 +23,7 @@ import * as z from "zod";
 import { createConfigFeature } from "../../config/feature.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { DELIVERY_CHANNEL_EXTENSION, deliveryIdempotencyRedisKey } from "../constants.ts";
+import { releaseIdempotencyIfNothingDelivered } from "../delivery-idempotency.ts";
 import { collectChannels, createDeliveryService } from "../delivery-service.ts";
 import { createDeliveryFeature } from "../feature.ts";
 import { deliveryAttemptsTable } from "../tables.ts";
@@ -252,6 +253,46 @@ describe("inline path (no job runner)", () => {
     await expect(notifying).rejects.toThrow("log sink down");
     expect(sentTo).toEqual(["addr"]);
     expect(await keyExists(stack, key)).toBe(true);
+  });
+
+  test("a failing release logs the error class, not the redis error text", async () => {
+    const lines: string[] = [];
+    const record = (msg: string, data?: Record<string, unknown>) => {
+      lines.push(`${msg} ${JSON.stringify(data ?? {})}`);
+    };
+    const recordingLogger: Logger = {
+      info: record,
+      warn: record,
+      error: record,
+      debug: record,
+      child: () => recordingLogger,
+    };
+    const failingRedis = new Proxy(stack.redis.redis, {
+      get(target, prop, receiver) {
+        if (prop === "del") {
+          return async () => {
+            throw Object.assign(new TypeError("Max Mustermann +49 170 1234567"), {
+              code: "ECONNRESET",
+            });
+          };
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+    });
+
+    await releaseIdempotencyIfNothingDelivered({
+      redis: failingRedis,
+      log: recordingLogger,
+      tenantId: admin.tenantId,
+      key: freshKey(),
+      deliveries: [],
+      notificationType: "app:notify:idem-release",
+    });
+
+    const logged = lines.join("\n");
+    expect(logged).toContain("idempotency key release failed: TypeError (ECONNRESET)");
+    expect(logged).not.toContain("Mustermann");
+    expect(logged).not.toContain("1234567");
   });
 });
 
