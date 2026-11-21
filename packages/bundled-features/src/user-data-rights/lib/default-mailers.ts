@@ -248,7 +248,7 @@ export function makeDefaultDeletionExecutedEmail(
         { subject: rendered.subject, html: rendered.html, text: rendered.text },
       );
       if (result.status === "failed") {
-        // No address in the message: the user is already erased.
+        // A provider or credential failure must make the deletion job fail visibly.
         throw new Error(`deletion-executed mail not sent: ${result.error ?? result.status}`);
       }
       // skip: the channel sent it or skipped a placeholder address; the transport fallback below is for apps without a channel

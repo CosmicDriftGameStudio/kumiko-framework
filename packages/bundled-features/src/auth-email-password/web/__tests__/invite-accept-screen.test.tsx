@@ -359,6 +359,33 @@ describe("InviteAcceptScreen — anonymous branches", () => {
   });
 });
 
+describe("InviteAcceptScreen — validation_error mapping", () => {
+  test("login path: validation_error is generic invalid input, not a password rejection", async () => {
+    globalThis.fetch = mock(async () =>
+      errorResponse(422, "validation_error"),
+    ) as unknown as typeof fetch;
+    renderWithoutSessionProvider("tok-123");
+    submitAnonExisting("secret123");
+    await waitFor(() => {
+      expect(screen.getByRole("alert").textContent).toContain("Invalid input.");
+    });
+    expect(document.body.textContent).not.toContain("password was rejected");
+  });
+
+  test("signup path: validation_error means the new password was rejected", async () => {
+    globalThis.fetch = mock(async () =>
+      errorResponse(422, "validation_error"),
+    ) as unknown as typeof fetch;
+    renderWithoutSessionProvider("tok-123");
+    fireEvent.click(screen.getByRole("button", { name: "I don't have an account yet" }));
+    fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "weak" } });
+    fireEvent.click(screen.getByRole("button", { name: "Accept + sign in" }));
+    await waitFor(() => {
+      expect(screen.getByRole("alert").textContent).toContain("password was rejected");
+    });
+  });
+});
+
 describe("InviteAcceptScreen — invite-info lookup", () => {
   function inviteInfoDispatcher(result: ReturnType<typeof infoOk> | ReturnType<typeof infoError>) {
     return createMockDispatcher({ query: async () => result });

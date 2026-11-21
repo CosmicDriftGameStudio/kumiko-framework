@@ -48,6 +48,8 @@ export type InviteAcceptScreenProps = {
 
 type Mode = "loggedin" | "anon-existing" | "anon-new";
 
+const SIGNUP_COMPLETE_PATH = "/api/auth/invite-signup-complete";
+
 // All three accept routes answer 200 with tenantId + the invitation role;
 // the two session-minting branches additionally carry the stripped session
 // roles. An MFA challenge is also a 200 and carries none of them.
@@ -189,7 +191,14 @@ function InviteAcceptBody({
     const failure = await failureFromResponse(res);
     const { key, params } =
       failure.reason === "validation_error"
-        ? { key: "auth.errors.passwordRejected", params: undefined }
+        ? {
+            // Only signup-complete validates a new password; the other paths reject a bad email or token.
+            key:
+              path === SIGNUP_COMPLETE_PATH
+                ? "auth.errors.passwordRejected"
+                : "auth.errors.invalidBody",
+            params: undefined,
+          }
         : reasonToKey(failure, "auth.errors.unknownError");
     setError(t(key, params));
   };
@@ -201,7 +210,7 @@ function InviteAcceptBody({
     postInviteAccept("/api/auth/invite-accept-with-login", { token, email, password });
 
   const acceptAnonNew = (): Promise<void> =>
-    postInviteAccept("/api/auth/invite-signup-complete", { token, password });
+    postInviteAccept(SIGNUP_COMPLETE_PATH, { token, password });
 
   const onSubmit = (e?: FormEvent): void => {
     e?.preventDefault();
