@@ -19,21 +19,19 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  collectSingleFileHolders,
   FILE_REF_ENTITY_NAME,
+  type FileRefPurgeOutcome,
   fileRefEntity,
   fileRefsTable,
   listActionFormFileFields,
+  planFileFields,
+  purgeRowFileRefs,
   rebindFileRef,
+  type SingleFileHolder,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
-import {
-  collectSingleFileHolders,
-  type FileRefPurgeOutcome,
-  planFileFields,
-  purgeRowFileRefs,
-  type SingleFileHolder,
-} from "./purge-row-file-refs.ts";
 
 // Callers' error labels read err.code, so audit events name the failure class.
 export class FileSweepError extends Error {
@@ -189,6 +187,7 @@ export async function purgeFilesReachingSubject(args: {
   let firstFailure: FileSweepError | undefined;
 
   const fileEntities = collectFileEntities(registry);
+  const fileEntityByName = new Map(fileEntities.map((fe) => [fe.entityName, fe]));
   for (const fileEntity of fileEntities) {
     const seenRowIds = new Set<string>();
     for (const where of candidateWheres(subject, recordTenantId, fileEntity)) {
@@ -226,6 +225,16 @@ export async function purgeFilesReachingSubject(args: {
           fileHolders,
           row,
           fieldNames,
+          // Rows of the same subject are all erased, so they must not keep the file alive for each other.
+          isHolderPurgedAlongside: (holder, holderRow) => {
+            const holderEntity = fileEntityByName.get(holder.entityType);
+            return (
+              holderEntity !== undefined &&
+              fieldsResolvingToSubject(holderEntity, holderRow, tenantId, subjectKey).includes(
+                holder.fieldName,
+              )
+            );
+          },
           deleteBytes: deleteBytes
             ? (key) => deleteBytesFailingClosed(deleteBytes, key)
             : undefined,

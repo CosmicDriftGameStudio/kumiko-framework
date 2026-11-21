@@ -161,15 +161,12 @@ async function assertTargetRecordExists(
   ctx: RebindFileRefContext,
   to: FileRefOwner,
 ): Promise<void> {
-  const entity = ctx.registry.getEntity(to.entityType);
+  // A soft-deleted target counts: it keeps holding the file for a restore.
   const table = findImplicitEntityTable(ctx.registry, to.entityType);
   const row =
-    entity === undefined || table === undefined
+    table === undefined
       ? undefined
-      : await ctx.db.fetchOne<Record<string, unknown>>(table, {
-          id: to.entityId,
-          ...(entity.softDelete === true && { isDeleted: false }),
-        });
+      : await ctx.db.fetchOne<Record<string, unknown>>(table, { id: to.entityId });
   if (row === undefined) throw new NotFoundError(to.entityType, to.entityId);
 }
 
@@ -187,7 +184,7 @@ async function assertTargetRecordExists(
  * to write both the source record and field (it must not be locked, and an
  * entity without update handler leaves the move to the system user) and the target record and
  * field (AccessDeniedError, RecordLockedError); the system user skips these checks, and only the
- * target record has to exist (NotFoundError). The update is checked against the file's stream
+ * target record has to exist (NotFoundError); a soft-deleted target counts. The update is checked against the file's stream
  * version read here, so a bind committing in between returns "version-conflict"; the source row
  * stays locked until the surrounding transaction commits, so a lock set on `from` in between is
  * either seen or waits. Rebind first, then save the id into

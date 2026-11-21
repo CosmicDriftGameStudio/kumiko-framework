@@ -49,6 +49,15 @@ export {
   isFileProviderPlugin,
 } from "./provider-resolver.ts";
 export { type PurgeFileRefOutcome, purgeFileRef } from "./purge-file-ref.ts";
+export {
+  collectFileRefIds,
+  collectSingleFileHolders,
+  type FileFieldPlan,
+  type FileRefPurgeOutcome,
+  planFileFields,
+  purgeRowFileRefs,
+  type SingleFileHolder,
+} from "./purge-row-file-refs.ts";
 export type {
   FileRefOwner,
   RebindFileRefContext,

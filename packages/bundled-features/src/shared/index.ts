@@ -1,4 +1,13 @@
 export {
+  collectFileRefIds,
+  collectSingleFileHolders,
+  type FileFieldPlan,
+  type FileRefPurgeOutcome,
+  planFileFields,
+  purgeRowFileRefs,
+  type SingleFileHolder,
+} from "@cosmicdrift/kumiko-framework/files";
+export {
   errorKindOf,
   redactBotTokens,
   redactEmailAddresses,
@@ -71,15 +80,6 @@ export {
   type MissingStoragePolicy,
   purgeFilesReachingSubject,
 } from "./purge-files-reaching-subject.ts";
-export {
-  collectFileRefIds,
-  collectSingleFileHolders,
-  type FileFieldPlan,
-  type FileRefPurgeOutcome,
-  planFileFields,
-  purgeRowFileRefs,
-  type SingleFileHolder,
-} from "./purge-row-file-refs.ts";
 export { rateLimitedTextResponse } from "./rate-limited-text-response.ts";
 export { readFeatureExportFn } from "./read-feature-export-fn.ts";
 export { REDACTED_PII_PLACEHOLDER, redactPiiCiphertext } from "./redact-pii-ciphertext.ts";

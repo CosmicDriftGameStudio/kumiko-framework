@@ -1,11 +1,12 @@
-import { type DbRunner, selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/db";
-import type { EntityDefinition, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  type FileRefOwner,
-  fileRefsTable,
-  holdsFileRefs,
-} from "@cosmicdrift/kumiko-framework/files";
+import type { DbRunner } from "@cosmicdrift/kumiko-types/db-connection";
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { TenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { selectMany, type WhereObject } from "../db/query.ts";
+import type { Registry } from "../engine/types/index.ts";
+import { holdsFileRefs } from "./file-field-slots.ts";
+import { fileRefsTable } from "./file-ref-table.ts";
+import type { FileRefOwner } from "./rebind-file-ref.ts";
 
 type EntityFields = EntityDefinition["fields"];
 type EntityTable = Parameters<typeof selectMany>[1];
@@ -24,6 +25,9 @@ export type SingleFileHolder = {
   readonly hidesSoftDeleted: boolean;
   readonly singleFields: readonly string[];
 };
+
+/** True when the holder row is erased in the same sweep and so cannot keep a file alive. */
+export type HolderPredicate = (holder: FileRefOwner, holderRow: Record<string, unknown>) => boolean;
 
 export type FileRefPurgeOutcome = "purged" | "missing_file_storage" | "file_delete_failed";
 
@@ -126,6 +130,8 @@ function isFileRefBoundElsewhere(
 // A single-field fileRef-id can be shared by more than one row, in the SAME
 // table or in another entity's table; with a partial field set, also by another
 // field of the same row. Purging its bytes would corrupt the holder that stays.
+// A soft-deleted row still holds the file (a restore needs the bytes); a live holder
+// is preferred so the rebind points at a visible row.
 async function findOtherHolder(
   db: DbRunner,
   holders: readonly SingleFileHolder[],
@@ -134,23 +140,65 @@ async function findOtherHolder(
   rowId: string,
   fileRefId: string,
   fieldNames: readonly string[] | undefined,
+  isHolderPurgedAlongside: HolderPredicate | undefined,
 ): Promise<FileRefOwner | undefined> {
-  for (const holder of holders) {
-    for (const field of holder.singleFields) {
+  const search = (holderList: readonly SingleFileHolder[], softDeleted: boolean) =>
+    findHolderAmong(holderList, async (holder, field) => {
       const where: WhereObject = { [field]: fileRefId };
       if (holder.table === ownTable) {
         const fieldIsPurged = fieldNames === undefined || fieldNames.includes(field);
         where["id"] = fieldIsPurged ? { ne: rowId } : rowId;
       }
       if (holder.tableHasTenantId) where["tenantId"] = tenantId;
-      if (holder.hidesSoftDeleted) where["isDeleted"] = false;
-      const others = await selectMany<{ id: string }>(db, holder.table, where, {
-        limit: 1,
-        orderBy: { col: "id" },
-      });
-      const other = others[0];
-      if (other !== undefined) {
-        return { entityType: holder.entityName, entityId: String(other.id), fieldName: field };
+      if (holder.hidesSoftDeleted) where["isDeleted"] = softDeleted;
+      return await firstSurvivingHolderId(db, holder, field, where, isHolderPurgedAlongside);
+    });
+  const live = await search(holders, false);
+  if (live !== undefined) return live;
+  return await search(
+    holders.filter((holder) => holder.hidesSoftDeleted),
+    true,
+  );
+}
+
+const HOLDER_PAGE_SIZE = 50;
+
+// Paged by id because rows the predicate skips (purged in the same sweep) must not hide a
+// surviving holder behind them.
+async function firstSurvivingHolderId(
+  db: DbRunner,
+  holder: SingleFileHolder,
+  field: string,
+  where: WhereObject,
+  isHolderPurgedAlongside: HolderPredicate | undefined,
+): Promise<string | undefined> {
+  let cursor: unknown;
+  for (;;) {
+    const pageWhere: WhereObject = cursor === undefined ? where : { ...where, id: { gt: cursor } };
+    const page = await selectMany<Record<string, unknown>>(db, holder.table, pageWhere, {
+      limit: HOLDER_PAGE_SIZE,
+      orderBy: { col: "id" },
+    });
+    for (const candidate of page) {
+      const id = String(candidate["id"]);
+      const owner = { entityType: holder.entityName, entityId: id, fieldName: field };
+      if (isHolderPurgedAlongside?.(owner, candidate) !== true) return id;
+    }
+    // skip: a short page is the last one
+    if (page.length < HOLDER_PAGE_SIZE) return undefined;
+    cursor = page[page.length - 1]?.["id"];
+  }
+}
+
+async function findHolderAmong(
+  holders: readonly SingleFileHolder[],
+  firstMatchingId: (holder: SingleFileHolder, field: string) => Promise<string | undefined>,
+): Promise<FileRefOwner | undefined> {
+  for (const holder of holders) {
+    for (const field of holder.singleFields) {
+      const id = await firstMatchingId(holder, field);
+      if (id !== undefined) {
+        return { entityType: holder.entityName, entityId: String(id), fieldName: field };
       }
     }
   }
@@ -176,6 +224,7 @@ export async function purgeRowFileRefs(args: {
   readonly fileHolders: readonly SingleFileHolder[];
   readonly row: Record<string, unknown>;
   readonly fieldNames?: readonly string[];
+  readonly isHolderPurgedAlongside?: HolderPredicate;
   /** Returns the keys whose delete failed; undefined = no storage reachable. */
   readonly deleteBytes: ((storageKey: string) => Promise<readonly string[]>) | undefined;
   readonly fileRefForget: (fileRefId: string) => Promise<boolean>;
@@ -215,6 +264,7 @@ export async function purgeRowFileRefs(args: {
       rowId,
       String(fileRef["id"]),
       args.fieldNames,
+      args.isHolderPurgedAlongside,
     );
     if (holder === undefined) {
       toDelete.push(fileRef);

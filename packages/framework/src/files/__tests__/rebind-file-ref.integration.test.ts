@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import {
   createContact,
+  createDeletedKeepsake,
   fileStatusFor,
   ownerOf,
   REBIND,
@@ -106,6 +107,42 @@ describe("rebindFileRef", () => {
       fileRefId,
       uploadId,
       contactId: crypto.randomUUID(),
+    });
+    await expect(stack.drainJobs()).rejects.toThrow(/rebind-as-system/);
+
+    expect((await ownerOf(stack, fileRefId)).entityId).toBe(uploadId);
+  });
+
+  test("a system job may point the file at a soft-deleted record of its tenant, which keeps holding it", async () => {
+    const { fileRefId, uploadId } = await uploadBoundFile(stack);
+    const keepsakeId = await createDeletedKeepsake(stack, users.clerk);
+
+    await stack.jobRunner?.dispatch(REBIND_JOB, {
+      tenantId: tenant,
+      fileRefId,
+      uploadId,
+      contactId: keepsakeId,
+      targetType: "keepsake",
+    });
+    await stack.drainJobs();
+
+    expect(await ownerOf(stack, fileRefId)).toEqual({
+      entityType: "keepsake",
+      entityId: keepsakeId,
+      fieldName: "doc",
+    });
+  });
+
+  test("a system job cannot point the file at another tenant's soft-deleted record", async () => {
+    const { fileRefId, uploadId } = await uploadBoundFile(stack);
+    const foreignKeepsakeId = await createDeletedKeepsake(stack, users.foreignClerk);
+
+    await stack.jobRunner?.dispatch(REBIND_JOB, {
+      tenantId: tenant,
+      fileRefId,
+      uploadId,
+      contactId: foreignKeepsakeId,
+      targetType: "keepsake",
     });
     await expect(stack.drainJobs()).rejects.toThrow(/rebind-as-system/);
 

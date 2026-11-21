@@ -26,6 +26,8 @@ import {
   createImageField,
   createSystemUser,
   createTextField,
+  defineEntityDetailHandler,
+  defineEntityRestoreHandler,
   defineFeature,
   type JobContext,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -40,6 +42,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { type Logger, setProcessLogger } from "@cosmicdrift/kumiko-framework/logging";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   deleteRowViaEventStore,
@@ -122,6 +125,12 @@ const c8Feature = defineFeature("c8-retention-file-fixtures", (r) => {
   r.entity(strictDocEntity);
   r.entity(docEntity);
   r.entity(softDocEntity);
+  r.writeHandler(
+    defineEntityRestoreHandler("c8-soft-doc", softDocEntity, { access: { roles: ["Reader"] } }),
+  );
+  r.queryHandler(
+    defineEntityDetailHandler("c8-soft-doc", softDocEntity, { access: { roles: ["Reader"] } }),
+  );
   r.entity(anonDocEntity);
 });
 
@@ -427,7 +436,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
     expect(await fileRefExists(sharedId)).toBe(true);
   });
 
-  test("a soft-deleted holder does not count: the file is purged with the expired row", async () => {
+  test("a soft-deleted holder still holds the file: it survives, is rebound to it, and a restore finds it", async () => {
     const rowA = await seedDoc(docEntity, T1, "expired-owner-softheld", pastIso);
     const rowB = await seedDoc(softDocEntity, T1, "soft-deleted-holder", withinIso);
     const key = "t1/soft-holder/cover/orig.jpg";
@@ -462,8 +471,27 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
 
     expect(result.hardDeleted).toBe(1);
     expect(await labels("read_c8_doc", T1)).toEqual([]);
-    expect(await provider.exists(key)).toBe(false);
-    expect(await fileRefExists(sharedId)).toBe(false);
+    expect(await provider.exists(key)).toBe(true);
+    const [ref] = await selectMany<Record<string, unknown>>(stack.db, fileRefsTable, {
+      id: sharedId,
+    });
+    expect(ref).toMatchObject({
+      entityType: "c8-soft-doc",
+      entityId: rowB,
+      fieldName: "cover",
+    });
+
+    const reader = createTestUser({ id: 1, tenantId: T1, roles: ["Reader"] });
+    await stack.http.writeOk(
+      "c8-retention-file-fixtures:write:c8-soft-doc:restore",
+      { id: rowB },
+      reader,
+    );
+    const download = await stack.app.request(`/api/files/${sharedId}`, {
+      headers: { Authorization: `Bearer ${await stack.jwt.sign(reader)}` },
+    });
+    expect(download.status).toBe(200);
+    expect(new Uint8Array(await download.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
   });
 
   test("a throwing rebind skips the row (file_delete_failed) without aborting the tenant run", async () => {
