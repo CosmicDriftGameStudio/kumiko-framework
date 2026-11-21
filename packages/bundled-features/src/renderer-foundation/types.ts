@@ -121,7 +121,11 @@ export type DocumentPdfDraft = {
   readonly variableSchema?: Readonly<Record<string, unknown>>;
 };
 
-export type DocumentPreviewRequest = DocumentPdfPayload & { readonly draft?: DocumentPdfDraft };
+export type DocumentPreviewRequest = DocumentPdfPayload & {
+  readonly draft?: DocumentPdfDraft;
+  /** Resolve layouts the editor is working on (open drafts) too. Defaults to whether a draft is given. */
+  readonly working?: boolean;
+};
 
 // What an editor shows for a document: the printable HTML with the values filled in,
 // without calling any print service.

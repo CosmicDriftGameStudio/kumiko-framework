@@ -446,6 +446,7 @@ async function renderDocumentPreview(
   const pdfMeta = meta.ok ? readPdfTemplateMeta(meta.meta) : null;
   const requiredCheck = requiredPlaceholdersCheck(validation.missingRequired);
   const plugin = documentPreviewPlugin(ctx);
+  const working = input.content !== undefined;
 
   if (plugin?.previewDocument === undefined) {
     return {
@@ -464,7 +465,7 @@ async function renderDocumentPreview(
           user,
           pdfMeta?.layoutSlug,
           input.locale,
-          input.content !== undefined,
+          working,
         ),
         sampleValues,
         checks: [missingResourceCheck(validation.warnings.map((w) => w.detail)), requiredCheck],
@@ -481,6 +482,7 @@ async function renderDocumentPreview(
         locale: input.locale,
         variables: sampleValues,
         draft: { content, meta: pdfMeta, variableSchema: args.variableSchema },
+        working,
       },
       {
         db: ctx.db,

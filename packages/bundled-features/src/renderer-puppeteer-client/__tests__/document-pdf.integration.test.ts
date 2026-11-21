@@ -970,6 +970,62 @@ describe("document-pdf preview", () => {
     expect(stored.html).not.toContain("ENTWURF");
   });
 
+  test("a stored template is previewed without a layout that exists only as a draft, with the print plugin as without", async () => {
+    const tenant = tenantAdmin(58);
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: "own-default",
+        kind: "pdf-layout",
+        locale: "de",
+        content:
+          "<div data-header><p>DRAFT_ONLY_LETTERHEAD</p></div><div data-content></div><div data-footer></div>",
+        contentFormat: "html",
+        meta: {},
+        variableSchema: {},
+        linkedResources: {},
+        status: "draft",
+      },
+      tenant,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: "invoice",
+        kind: "document-pdf",
+        locale: "de",
+        content: "<p>Gespeichert</p>",
+        contentFormat: "html",
+        meta: { layoutSlug: "own-default" },
+        variableSchema: {},
+        linkedResources: {},
+        status: "active",
+      },
+      tenant,
+    );
+
+    const stored = await stack.http.queryOk<DocumentPreview>(
+      TemplateResolverQueries.preview,
+      { slug: "invoice", kind: "document-pdf", locale: "de" },
+      tenant,
+    );
+    expect(stored.layout?.regions.header ?? "").not.toContain("DRAFT_ONLY_LETTERHEAD");
+
+    const edited = await stack.http.queryOk<DocumentPreview>(
+      TemplateResolverQueries.preview,
+      {
+        slug: "invoice",
+        kind: "document-pdf",
+        locale: "de",
+        content: "<p>Entwurf</p>",
+        meta: { layoutSlug: "own-default" },
+        variableSchema: {},
+      },
+      tenant,
+    );
+    expect(edited.layout?.regions.header).toContain("DRAFT_ONLY_LETTERHEAD");
+  });
+
   test("the preview works while the print service is down", async () => {
     const closed = Bun.serve({ port: 0, fetch: () => new Response("") });
     const closedUrl = `http://127.0.0.1:${closed.port}`;

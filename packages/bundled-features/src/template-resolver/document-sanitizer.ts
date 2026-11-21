@@ -260,7 +260,12 @@ export function withParsedDocument<T>(html: string, read: (body: ScanElement) =>
   }
 }
 
-function scanDocumentHtml(html: string): DocumentViolation[] {
+export type SanitizeHtmlOptions = {
+  /** Write gates only: a body stored before the check must keep rendering. */
+  readonly rejectFramesOutsidePage?: boolean;
+};
+
+function scanDocumentHtml(html: string, options: SanitizeHtmlOptions): DocumentViolation[] {
   const violations: DocumentViolation[] = [];
   withParsedDocument(html, (body) => {
     // A second `<body ...>` in the input merges its attributes into this body.
@@ -276,7 +281,7 @@ function scanDocumentHtml(html: string): DocumentViolation[] {
         ),
       );
     }
-    for (const box of framesOutsidePage(body)) {
+    for (const box of options.rejectFramesOutsidePage === true ? framesOutsidePage(body) : []) {
       violations.push(
         violation(
           "frame_outside_page",
@@ -292,8 +297,11 @@ function scanDocumentHtml(html: string): DocumentViolation[] {
 // Rejects hostile constructs, then rebuilds the body from the document model.
 // The rebuilt HTML is always what gets returned (never the input), so anything
 // the model cannot express is dropped silently.
-export function sanitizeDocumentHtml(html: string): SanitizeHtmlResult {
-  const violations = scanDocumentHtml(html);
+export function sanitizeDocumentHtml(
+  html: string,
+  options: SanitizeHtmlOptions = {},
+): SanitizeHtmlResult {
+  const violations = scanDocumentHtml(html, options);
   if (violations.length > 0) return { ok: false, violations };
   return {
     ok: true,
@@ -331,6 +339,7 @@ type SanitizeBodyInput = {
   readonly content: string | null;
   /** A document collection stores html whatever its kind, so its html is always rebuilt. */
   readonly alwaysSanitizeHtml?: boolean;
+  readonly rejectFramesOutsidePage?: boolean;
 };
 
 function isSanitizedBody(input: SanitizeBodyInput): boolean {
@@ -418,7 +427,9 @@ export function sanitizeTemplateBody(input: SanitizeBodyInput): SanitizeBodyResu
     const relativeLinks = relativeLinkViolations(input.content);
     if (relativeLinks.length > 0) return { ok: false, violations: relativeLinks };
   }
-  const result = sanitizeDocumentHtml(input.content);
+  const result = sanitizeDocumentHtml(input.content, {
+    rejectFramesOutsidePage: input.rejectFramesOutsidePage === true,
+  });
   return result.ok ? { ok: true, content: result.html } : result;
 }
 

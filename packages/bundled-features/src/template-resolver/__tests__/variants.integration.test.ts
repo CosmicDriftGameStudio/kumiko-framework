@@ -351,6 +351,23 @@ describe("template-resolver :: variants", () => {
     expectErrorIncludes(error, "variables_inherited_from_base");
   });
 
+  test("a variant in a locale the base does not exist in still inherits the base's fallback-locale schema", async () => {
+    const error = await stack.http.writeErr(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: `${BASE}:drift-en`,
+        kind: "document-pdf",
+        locale: "en",
+        content: BASE_CONTENT,
+        contentFormat: "html",
+        meta: { variantOf: BASE },
+        variableSchema: { customer: { type: "text", required: true }, extra: { type: "text" } },
+      },
+      admin,
+    );
+    expectErrorIncludes(error, "variables_inherited_from_base");
+  });
+
   test("a variant follows a base that gains a required variable: patch-draft re-syncs, publish gates on it", async () => {
     const created = await stack.http.writeOk<Created>(
       TemplateResolverHandlers.createVariant,

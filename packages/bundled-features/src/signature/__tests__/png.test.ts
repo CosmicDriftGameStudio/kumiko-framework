@@ -35,6 +35,23 @@ describe("checkSignaturePng", () => {
     expect(checkSignaturePng(png).ok).toBe(true);
   });
 
+  test("rejects an empty image whose background has two colors", () => {
+    const png = makePng({
+      drawn: false,
+      background: [255, 255, 255, 255],
+      lowerHalfBackground: [220, 220, 220, 255],
+    });
+    expect(checkSignaturePng(png).ok).toBe(false);
+  });
+
+  test("accepts a stroke on a two-color background", () => {
+    const png = makePng({
+      background: [255, 255, 255, 255],
+      lowerHalfBackground: [220, 220, 220, 255],
+    });
+    expect(checkSignaturePng(png).ok).toBe(true);
+  });
+
   test("rejects an image where only the first pixel is opaque", () => {
     expect(checkSignaturePng(makePng({ onlyFirstPixelOpaque: true })).ok).toBe(false);
   });
