@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Entity row repair gets a follow-up run"
+  },
+  {
     "version": "0.425.0",
     "type": "fix",
     "title": "Boot dry run lists the KMS trio under kmsMode \"required\""

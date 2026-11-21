@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Changelog of 0.426.0 no longer promises a fact test id"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Text-formatted document fields keep image-only values and filter pasted blocks"
+  },
+  {
     "version": "0.426.1",
     "type": "fix",
     "title": "actionForm facts, submitThrough and document fallback fixes"

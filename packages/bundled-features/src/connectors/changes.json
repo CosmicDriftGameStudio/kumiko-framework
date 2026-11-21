@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "heartbeat without connector name is covered by a test"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "storage-full flag survives a slow earlier upload"
+  },
+  {
     "version": "0.426.1",
     "type": "fix",
     "title": "Fewer queries per upload, clearer runConnectorJobs guard"

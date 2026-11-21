@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Date format control only for date variables"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "A published variant follows the delivered base's variables"
+  },
+  {
     "version": "0.426.1",
     "type": "fix",
     "title": "Template resolver review fixes"
