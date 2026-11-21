@@ -37,6 +37,36 @@ describe("createRedisLoginRateLimiter", () => {
     expect(await limiter.check("k")).toBe(true);
   });
 
+  describe("refund", () => {
+    const redisKey = (key: string): string => `kumiko:auth:ratelimit:login:${key}`;
+
+    test("decrements the counter and keeps the window TTL", async () => {
+      const limiter = createRedisLoginRateLimiter(testRedis.redis, 2, 60_000);
+      expect(await limiter.check("k")).toBe(true);
+      expect(await limiter.check("k")).toBe(true);
+      expect(await limiter.check("k")).toBe(false);
+      await limiter.refund?.("k");
+      await limiter.refund?.("k");
+      expect(await testRedis.redis.get(redisKey("k"))).toBe("1");
+      expect(await testRedis.redis.pttl(redisKey("k"))).toBeGreaterThan(0);
+      expect(await limiter.check("k")).toBe(true);
+    });
+
+    test("does not create a missing key", async () => {
+      const limiter = createRedisLoginRateLimiter(testRedis.redis, 2, 60_000);
+      await limiter.refund?.("missing");
+      expect(await testRedis.redis.exists(redisKey("missing"))).toBe(0);
+    });
+
+    test("leaves a zero counter at zero", async () => {
+      const limiter = createRedisLoginRateLimiter(testRedis.redis, 2, 60_000);
+      await limiter.check("k");
+      await limiter.refund?.("k");
+      await limiter.refund?.("k");
+      expect(await testRedis.redis.get(redisKey("k"))).toBe("0");
+    });
+  });
+
   test("buckets are independent per key", async () => {
     const limiter = createRedisLoginRateLimiter(testRedis.redis, 1, 60_000);
 

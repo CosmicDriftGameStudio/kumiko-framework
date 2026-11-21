@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, setSystemTime, test } from "bun:test";
 import { createInMemoryLoginRateLimiter } from "../auth-routes.ts";
 
 describe("createInMemoryLoginRateLimiter — sweep + cap", () => {
@@ -46,5 +46,49 @@ describe("createInMemoryLoginRateLimiter — sweep + cap", () => {
     // window is rate-limited (count >= maxAttempts), proving enforceCap
     // dropped k1 and not k4.
     expect(await limiter.check("k4")).toBe(false);
+  });
+});
+
+describe("createInMemoryLoginRateLimiter — refund", () => {
+  test("gives back one reserved slot", async () => {
+    const limiter = createInMemoryLoginRateLimiter(1, 60_000);
+    expect(await limiter.check("k")).toBe(true);
+    expect(await limiter.check("k")).toBe(false);
+    await limiter.refund?.("k");
+    expect(await limiter.check("k")).toBe(true);
+    expect(await limiter.check("k")).toBe(false);
+  });
+
+  test("on an unknown key it changes nothing", async () => {
+    const limiter = createInMemoryLoginRateLimiter(1, 60_000);
+    await limiter.refund?.("unknown");
+    expect(await limiter.check("unknown")).toBe(true);
+    expect(await limiter.check("unknown")).toBe(false);
+  });
+
+  test("at count zero it does not go negative", async () => {
+    const limiter = createInMemoryLoginRateLimiter(1, 60_000);
+    await limiter.check("k");
+    await limiter.refund?.("k");
+    await limiter.refund?.("k");
+    expect(await limiter.check("k")).toBe(true);
+    expect(await limiter.check("k")).toBe(false);
+  });
+
+  describe("with a controlled clock", () => {
+    afterEach(() => setSystemTime());
+
+    test("after the window expired it neither extends the entry nor creates a new one", async () => {
+      setSystemTime(new Date("2026-01-01T00:00:00Z"));
+      const limiter = createInMemoryLoginRateLimiter(2, 1_000);
+      await limiter.check("k");
+      await limiter.check("k");
+      setSystemTime(new Date("2026-01-01T00:00:02Z"));
+      await limiter.refund?.("k");
+      // Fresh window: a refund must not have left a stale or pre-decremented entry behind.
+      expect(await limiter.check("k")).toBe(true);
+      expect(await limiter.check("k")).toBe(true);
+      expect(await limiter.check("k")).toBe(false);
+    });
   });
 });

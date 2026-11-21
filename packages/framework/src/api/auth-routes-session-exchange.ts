@@ -76,8 +76,9 @@ export function registerSessionExchangeRoute(ctx: AuthRouteContext): void {
       roles: session.roles,
       tenantId: session.tenantId,
     });
-    // No rate-limit reset on success: the bucket is per IP and method, not per
-    // identity, so a reset after one's own valid code would reopen guessing for others.
+    // Refund, not reset: the bucket is per IP and method, so a reset after one's own
+    // success would reopen guessing slots taken by others.
+    await rateLimiter?.refund?.(rateLimitKey);
 
     return c.json({
       isSuccess: true,
