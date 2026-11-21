@@ -1,3 +1,4 @@
+export { errorKindOf } from "./error-kind.ts";
 export { createLogger } from "./pino-logger.ts";
 export { redactBotTokens, redactEmailAddresses, redactErrorText, redactUrls } from "./redact.ts";
 export { scrubLogText } from "./scrub.ts";

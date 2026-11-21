@@ -17,14 +17,13 @@ import type { FileContext } from "@cosmicdrift/kumiko-framework/files";
 import {
   createFallbackLogger,
   type Logger,
-  redactErrorText,
   scrubLogText,
 } from "@cosmicdrift/kumiko-framework/logging";
 import { assertNotifyTargetsOwnTenant } from "@cosmicdrift/kumiko-framework/pipeline";
 import type { EnvelopeCipher, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type { Redis } from "ioredis";
 import { fileContextFromResolver } from "../file-foundation/index.ts";
-import { collectExtensionOptions } from "../shared/index.ts";
+import { collectExtensionOptions, errorKindOf } from "../shared/index.ts";
 import { hashUnsubscribeAddress } from "./address-opt-out.ts";
 import { appendAttemptEvent, logAttempt } from "./attempt-log.ts";
 import { buildChannelContext } from "./channel-context.ts";
@@ -73,10 +72,6 @@ import {
   type UnsubscribeLinkRecipient,
   unsubscribeLinkOrigin,
 } from "./unsubscribe-link.ts";
-
-export function redactedMessageOf(err: unknown): string {
-  return redactErrorText(err instanceof Error ? err.message : String(err));
-}
 
 export type KillSwitchResolver = (tenantId: TenantId, channelName: string) => Promise<boolean>;
 
@@ -212,7 +207,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     code: DeliveryErrorCode,
     err: unknown,
   ): Promise<void> {
-    logError.error(`${args.channel.name} ${code}: ${redactedMessageOf(err)}`, {
+    logError.error(`${args.channel.name} ${code}: ${errorKindOf(err)}`, {
       notificationType: args.notificationType,
       channel: args.channel.name,
     });
@@ -294,7 +289,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           status: "failed",
           error: "channel_error",
         };
-        logError.error(`${channel.name} job dispatch failed: ${redactedMessageOf(err)}`, {
+        logError.error(`${channel.name} job dispatch failed: ${errorKindOf(err)}`, {
           notificationType,
           channel: channel.name,
         });
@@ -696,7 +691,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           priority,
         });
       } catch (err) {
-        logError.error(`${channel.name} channel_error: ${redactedMessageOf(err)}`, {
+        logError.error(`${channel.name} channel_error: ${errorKindOf(err)}`, {
           notificationType,
           channel: channel.name,
         });
@@ -801,7 +796,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           priority,
         });
       } catch (err) {
-        logError.error(`${channel.name} channel_error: ${redactedMessageOf(err)}`, {
+        logError.error(`${channel.name} channel_error: ${errorKindOf(err)}`, {
           notificationType,
           channel: channel.name,
         });
