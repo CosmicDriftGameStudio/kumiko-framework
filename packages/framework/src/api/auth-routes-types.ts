@@ -12,11 +12,15 @@ export type LoginRateLimiter = {
   check(key: string): Promise<boolean>;
   // Called on successful login so a legitimate user's counter gets reset.
   reset(key: string): Promise<void>;
-  // Gives back one reservation taken by `check`, so a flow that counts before
-  // it knows the outcome can release the slot of a successful attempt without
-  // reopening slots taken by others. Optional: limiters without it keep counting.
-  refund?(key: string): Promise<void>;
+  // Counts like `check` and also names the window the slot was counted in.
+  reserve?(key: string): Promise<RateLimitReservation>;
+  // Gives back one slot taken by `reserve`, only while the key's current window is still
+  // `window`: a slot of an expired window must not shrink the counter of the new one.
+  // Optional: limiters without reserve/refund keep counting.
+  refund?(key: string, window: string): Promise<void>;
 };
+
+export type RateLimitReservation = { readonly allowed: boolean; readonly window: string };
 
 // Per-session metadata forwarded to the sessionCreator. Captured at login
 // time so the sessions feature can store IP/UA alongside each record for

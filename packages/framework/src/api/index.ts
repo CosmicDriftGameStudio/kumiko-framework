@@ -17,6 +17,7 @@ export {
 export type {
   AuthRoutesConfig,
   LoginRateLimiter,
+  RateLimitReservation,
   SessionChecker,
   SessionCreator,
   SessionMetadata,
