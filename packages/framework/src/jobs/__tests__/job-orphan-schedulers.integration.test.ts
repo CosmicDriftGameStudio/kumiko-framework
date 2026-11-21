@@ -17,6 +17,7 @@ import {
   ORPHAN_SCHEDULER_GRACE_MS,
   schedulerIdForJobName,
 } from "../job-runner.ts";
+import { removeRecreatedSchedulersBesideOtherFlag } from "../job-runner-schedulers.ts";
 import { purgeRawRedisKeys } from "./purge-raw-redis-keys.ts";
 
 let testRedis: TestRedis;
@@ -454,5 +455,57 @@ describe("orphan job schedulers while the runner keeps running", () => {
       await purgeRawRedisKeys(redisUrl, `bull:${prefix}-worker:*`);
       await purgeRawRedisKeys(redisUrl, `bull:${prefix}-api:*`);
     }
+  });
+});
+
+describe("a re-created scheduler beside the other wake flag's scheduler", () => {
+  const ownId = schedulerIdForJobName("orphan:job:probe");
+  const otherId = schedulerIdForJobName("orphan:job:probe", false);
+  const recreated = [{ schedulerId: ownId, otherFlagSchedulerId: otherId }];
+
+  async function withQueue(run: (queue: Queue) => Promise<void>): Promise<void> {
+    const prefix = uniquePrefix();
+    const queue = rawQueue(prefix, "worker");
+    try {
+      await run(queue);
+    } finally {
+      await queue.close();
+      await purgeRawRedisKeys(redisUrl, `bull:${prefix}-worker:*`);
+    }
+  }
+
+  test("yields when the other flag's scheduler appeared between the list and the upsert", async () => {
+    await withQueue(async (queue) => {
+      // The older runner listed, the newer one started and registered its id, then the older upserted its own.
+      await queue.upsertJobScheduler(otherId, { pattern: "0 0 1 1 *" }, template);
+      await queue.upsertJobScheduler(ownId, { pattern: "0 0 1 1 *" }, template);
+      const seenKey = queue.toKey("kumiko-scheduler-seen");
+      await (await queue.client).hset(seenKey, { [ownId]: String(Date.now()) });
+      const logged: string[] = [];
+
+      const yielded = await removeRecreatedSchedulersBesideOtherFlag(queue, recreated, "worker", {
+        info: (msg) => logged.push(msg),
+        warn: () => {},
+      });
+
+      expect(yielded).toEqual([ownId]);
+      expect(await schedulerKeys(queue)).toEqual([otherId]);
+      expect(await (await queue.client).hexists(seenKey, ownId)).toBe(0);
+      expect(logged).toHaveLength(1);
+    });
+  });
+
+  test("keeps the scheduler when the other flag's id does not exist", async () => {
+    await withQueue(async (queue) => {
+      await queue.upsertJobScheduler(ownId, { pattern: "0 0 1 1 *" }, template);
+
+      const yielded = await removeRecreatedSchedulersBesideOtherFlag(queue, recreated, "worker", {
+        info: () => {},
+        warn: () => {},
+      });
+
+      expect(yielded).toEqual([]);
+      expect(await schedulerKeys(queue)).toEqual([ownId]);
+    });
   });
 });
