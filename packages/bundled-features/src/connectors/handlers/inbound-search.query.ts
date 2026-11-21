@@ -8,6 +8,7 @@ import {
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { MAX_SEARCH_HITS, MIN_SEARCH_TERM_LENGTH } from "../constants.ts";
+import { fileNameOf } from "../path-rules.ts";
 import { connectorTable } from "../schema/connector.ts";
 import { inboundFolderExecutor, inboundFolderTable } from "../schema/inbound-folder.ts";
 import { inboundItemExecutor } from "../schema/inbound-item.ts";
@@ -83,10 +84,6 @@ async function namesOf(
     for (const row of page.rows) names.set(String(row["id"]), String(row["name"]));
   }
   return names;
-}
-
-function fileNameOf(relativePath: string): string {
-  return relativePath.slice(relativePath.lastIndexOf("/") + 1);
 }
 
 async function fileHits(

@@ -8,21 +8,23 @@ type Db = HandlerContext["db"];
 // Folders under a "delete folder" click, the clicked ones included: their files no longer count.
 // ponytail: the ids go into one IN list; thousands of folders below deleting roots would need the sums per idPath prefix.
 export async function deletingFolderIds(db: Db): Promise<readonly string[]> {
-  const roots = await selectMany<{ id: string; idPath: string }>(
+  const roots = await selectMany<{ id: string; idPath: string; connectorId: string }>(
     db,
     inboundFolderTable,
     { deleting: true },
+    { fields: ["id", "idPath", "connectorId"] },
+  );
+  if (roots.length === 0) return [];
+  const prefixes = roots.map((root) => `${root.idPath}${root.id}/`);
+  const folders = await selectMany<{ id: string; idPath: string }>(
+    db,
+    inboundFolderTable,
+    { connectorId: { in: [...new Set(roots.map((root) => root.connectorId))] } },
     { fields: ["id", "idPath"] },
   );
   const ids = new Set(roots.map((root) => root.id));
-  for (const root of roots) {
-    const below = await selectMany<{ id: string }>(
-      db,
-      inboundFolderTable,
-      { idPath: { startsWith: `${root.idPath}${root.id}/` } },
-      { fields: ["id"] },
-    );
-    for (const folder of below) ids.add(folder.id);
+  for (const folder of folders) {
+    if (prefixes.some((prefix) => folder.idPath.startsWith(prefix))) ids.add(folder.id);
   }
   return [...ids];
 }

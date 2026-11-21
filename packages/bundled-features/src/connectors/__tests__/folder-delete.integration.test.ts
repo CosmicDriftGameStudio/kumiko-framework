@@ -163,6 +163,30 @@ describe("delivering again after a deletion", () => {
       "keep.pdf",
     ]);
   });
+
+  test("two folders in deletion at once, one with a subfolder: all their files stop counting and a redelivery is kept", async () => {
+    await deliver("TwinA/sub/x.pdf", 10);
+    await deliver("TwinA/y.pdf", 10);
+    await deliver("TwinB/z.pdf", 10);
+    const rows = (await view({ connectorId })).rows;
+    const before = (await view({})) as TreeAnswer & { deletingBytes: number };
+    for (const name of ["TwinA", "TwinB"]) {
+      await stack.http.writeOk(
+        ConnectorHandlers.deleteFolder,
+        { id: rows.find((row) => row.name === name)?.id },
+        tenantAdmin,
+      );
+    }
+    const during = (await view({})) as TreeAnswer & { deletingBytes: number };
+    expect(during.deletingBytes - before.deletingBytes).toBe(30);
+
+    await deliver("TwinA/sub/x.pdf", 10);
+    await deliver("TwinB/z.pdf", 10);
+    await runConnectorJobs(stack);
+    const fresh = (await view({ connectorId })).rows.filter((row) => /^Twin[AB]$/.test(row.name));
+    expect(fresh.map((row) => row.name).sort()).toEqual(["TwinA", "TwinB"]);
+    expect(fresh.every((row) => !row.deleting)).toBe(true);
+  });
 });
 
 describe("quota while the deletion job has not run", () => {

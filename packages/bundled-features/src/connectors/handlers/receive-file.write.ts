@@ -17,6 +17,7 @@ import { unprocessable } from "../../shared/index.ts";
 import { inboundItemAggregateId } from "../aggregate-id.ts";
 import { CONNECTOR_STATUS, ConnectorErrors, MAX_ID_GENERATIONS } from "../constants.ts";
 import { ensureFolderChain } from "../folder-chain.ts";
+import { fileNameOf } from "../path-rules.ts";
 import { connectorExecutor } from "../schema/connector.ts";
 import { inboundItemExecutor, inboundItemTable } from "../schema/inbound-item.ts";
 import { deletingFolderIds, physicalStoredBytes } from "../stored-bytes.ts";
@@ -34,15 +35,12 @@ export const ReceiveFileSchema = z.object({
 
 type ReceiveFilePayload = z.infer<typeof ReceiveFileSchema>;
 
-function fileNameOf(relativePath: string): string {
-  return relativePath.slice(relativePath.lastIndexOf("/") + 1);
-}
-
 // An item sitting in a folder that is being deleted does not count as delivered: the sweep removes it.
 // One read over every generation's id: a forgotten generation leaves no row, so a live later generation is found past the gap.
 async function liveItemId(
   payload: ReceiveFilePayload,
   db: HandlerContext["db"],
+  doomed: ReadonlySet<string>,
 ): Promise<string | null> {
   const ids = Array.from({ length: MAX_ID_GENERATIONS }, (_, generation) =>
     inboundItemAggregateId(payload.connectorId, payload.sha256, payload.relativePath, generation),
@@ -53,7 +51,6 @@ async function liveItemId(
     { id: { in: ids } },
     { fields: ["id", "folderId"] },
   );
-  const doomed = new Set(await deletingFolderIds(db));
   const live = new Set(
     rows.filter((row) => row.folderId === null || !doomed.has(row.folderId)).map((row) => row.id),
   );
@@ -80,7 +77,8 @@ export function createReceiveFileWrite(maxStoredBytes: number) {
       ctx,
     ): Promise<BeforeTransactionResult<UploadedFileBytes | null>> => {
       const { payload } = event;
-      if ((await liveItemId(payload, ctx.db)) !== null) {
+      const doomed = new Set(await deletingFolderIds(ctx.db));
+      if ((await liveItemId(payload, ctx.db, doomed)) !== null) {
         return { isSuccess: true, data: null };
       }
       // ponytail: sum then store without a lock, so parallel uploads can overshoot the quota by their combined size; the per-file cap and the upload rate limit bound that
@@ -113,7 +111,8 @@ export function createReceiveFileWrite(maxStoredBytes: number) {
           "errors.connectors.connectorRevoked",
         );
       }
-      const liveId = await liveItemId(payload, ctx.db);
+      const doomed = new Set(await deletingFolderIds(ctx.db));
+      const liveId = await liveItemId(payload, ctx.db, doomed);
       if (liveId !== null)
         return { isSuccess: true as const, data: { id: liveId, duplicate: true } };
       // Delivered and deleted again between the byte check and here: nothing was written, the satellite sends it again.
@@ -137,7 +136,6 @@ export function createReceiveFileWrite(maxStoredBytes: number) {
       const folders = payload.relativePath.split("/").slice(0, -1);
       const chain = await ensureFolderChain(payload.connectorId, folders, event.user, ctx.db);
       if (!chain.isSuccess) return { isSuccess: false as const, error: chain.error };
-      const doomed = new Set(await deletingFolderIds(ctx.db));
       // A forgotten item leaves its stream unusable (create conflicts, nothing to read): the next generation takes the file.
       for (let generation = 0; generation < MAX_ID_GENERATIONS; generation += 1) {
         const id = inboundItemAggregateId(

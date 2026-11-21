@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -34,7 +33,7 @@ import {
 } from "../constants.ts";
 import { type ConnectorsFeatureOptions, createConnectorsFeature } from "../feature.ts";
 import { type ConnectorRouteOptions, createConnectorRoutes } from "../routes.ts";
-import { pairConnectorDevice } from "../testing.ts";
+import { pairConnectorDevice, postForm, sha256Hex } from "../testing.ts";
 
 export const TEST_NOW = Temporal.Instant.from("2026-11-19T10:00:00Z");
 export const tenantAdmin = createTestUser({ roles: ["TenantAdmin"] });
@@ -101,17 +100,7 @@ export function teardownConnectorsStack(stack: TestStack): Promise<void> {
   return stack.cleanup();
 }
 
-export function formBody(fields: Record<string, string>): string {
-  return new URLSearchParams(fields).toString();
-}
-
-export function postForm(stack: TestStack, path: string, fields: Record<string, string>) {
-  return stack.app.request(path, {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: formBody(fields),
-  });
-}
+export { postForm, sha256Hex };
 
 export async function startPairing(stack: TestStack) {
   const res = await postForm(stack, START_PATH, { client_id: CONNECTOR_CLIENT_ID });
@@ -169,6 +158,3 @@ export async function listConnectors(stack: TestStack) {
   }>(ConnectorQueries.list, {}, tenantAdmin);
   return page.rows;
 }
-
-export const sha256Hex = (bytes: Uint8Array): string =>
-  createHash("sha256").update(bytes).digest("hex");
