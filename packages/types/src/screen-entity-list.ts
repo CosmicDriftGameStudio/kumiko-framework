@@ -685,7 +685,7 @@ export type EntityListScreenDefinition = {
   readonly narrowFacets?: ListNarrowFacets;
   /** "toolbar": from `md` up the `toolbarActions` end the filter row, after the "Sorted by" select and the create button, instead of standing in the page header. Below `md` they stay in the header. Default "header". Needs `toolbarActions`. */
   readonly toolbarActionsPlacement?: ListToolbarActionsPlacement;
-  /** General help of the page: a question-mark button in the shell header opens a drawer with the sections. */
+  /** General help of the page: a button labelled "Explanations" (icon only below `sm`) in the shell header opens a drawer with the sections. */
   readonly pageHelp?: PageHelpSpec;
   /** i18n key of the plural noun for the list size in the phone sort line (`{count}` pluralised). Default `<feature>:entity:<entity>:noun`. */
   readonly itemNounKey?: string;

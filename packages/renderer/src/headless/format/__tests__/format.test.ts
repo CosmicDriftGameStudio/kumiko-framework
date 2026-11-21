@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import type { UnitKey } from "@cosmicdrift/kumiko-framework/engine";
-import { applyFormatSpec, formatMoney, UNIT_FORMAT_KEYS } from "../index.ts";
+import { applyFormatSpec, formatMoney, referenceLabelText, UNIT_FORMAT_KEYS } from "../index.ts";
 import { MAX_CACHED_FORMAT_ENTRIES } from "../number-format-cache.ts";
 
 describe("number formatter reuse", () => {
@@ -726,5 +726,25 @@ describe("applyFormatSpec — timestamp emptyLabel", () => {
         translate,
       ),
     ).not.toBe("noch nie");
+  });
+});
+
+describe("referenceLabelText", () => {
+  const asInstant = (value: string): string => applyFormatSpec({ format: "timestamp" }, value);
+
+  test("a located timestamp label formats its utc instant, not the local wall-clock at", () => {
+    const label = { at: "2026-01-02T03:04:05", tz: "Europe/Berlin", utc: "2026-01-02T02:04:05Z" };
+    expect(referenceLabelText(label)).toBe(asInstant("2026-01-02T02:04:05Z"));
+  });
+
+  test("without utc the offset-less at is formatted as an instant, tz is not applied", () => {
+    const label = { at: "2026-01-02T03:04:05", tz: "Europe/Berlin" };
+    expect(referenceLabelText(label)).toBe(asInstant("2026-01-02T03:04:05"));
+  });
+
+  test("plain values pass through as text and null becomes empty", () => {
+    expect(referenceLabelText("Alpha")).toBe("Alpha");
+    expect(referenceLabelText(7)).toBe("7");
+    expect(referenceLabelText(null)).toBe("");
   });
 });

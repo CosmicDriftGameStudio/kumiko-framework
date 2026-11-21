@@ -389,7 +389,7 @@ export type PageHelpTextSection = {
 
 export type PageHelpSection = PageHelpStatusSection | PageHelpTextSection;
 
-/** General help of a page: a question-mark button at the end of the shell header actions opens a drawer with one card per section.
+/** General help of a page: a button labelled "Explanations" (icon only below `sm`) at the end of the shell header actions opens a drawer with one card per section.
  *  The sections of relatedList sections join the help of the screen around them, after its own sections. */
 export type PageHelpSpec = {
   readonly sections: readonly PageHelpSection[];

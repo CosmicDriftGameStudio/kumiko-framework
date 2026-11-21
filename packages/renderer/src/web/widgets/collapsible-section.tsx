@@ -1,5 +1,5 @@
 import { ChevronRight } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 /** Collapsible section using native <details> with React-controlled state; otherwise
  *  the open attribute resets to its initial value on every parent re-render.
@@ -15,15 +15,26 @@ export function CollapsibleSection({
   readonly defaultOpen?: boolean;
   readonly children: ReactNode;
   readonly testId?: string;
-  /** Called when the user opens or closes the section; `defaultOpen` does not trigger it. */
+  /** Called whenever the section opens or closes after mount, including a late `defaultOpen` flip to true; the mount-time `defaultOpen` does not trigger it. */
   readonly onOpenChange?: (open: boolean) => void;
 }): ReactNode {
   const [open, setOpen] = useState(defaultOpen);
+  const openRef = useRef(open);
+  openRef.current = open;
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
+  const mountedRef = useRef(false);
   // useState(defaultOpen) reads only the mount-time value; an asynchronously hydrated
   // draft flips `defaultOpen` too late for the lazy initializer. An open-only
   // effect never overrides the user's manual collapse.
   useEffect(() => {
-    if (defaultOpen) setOpen(true);
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    if (!defaultOpen || openRef.current) return;
+    setOpen(true);
+    onOpenChangeRef.current?.(true);
   }, [defaultOpen]);
   return (
     <details

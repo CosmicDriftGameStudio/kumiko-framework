@@ -265,10 +265,10 @@ export function DefaultGrid({
         data-testid={testId}
         data-legend=""
         className={cn(
-          "grid items-start [&>:nth-child(odd)]:whitespace-nowrap",
+          "grid items-start",
           ruled === true
             ? "grid-cols-[13rem_minmax(0,1fr)]"
-            : "grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-3",
+            : "grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-3 [&>:nth-child(odd)]:whitespace-nowrap",
         )}
       >
         {ruled === true
@@ -276,7 +276,7 @@ export function DefaultGrid({
               // Each cell carries its own hairline so it runs across the whole row, the term sits at content width inside.
               <div
                 className={cn(
-                  "flex flex-wrap items-baseline border-t border-border py-3",
+                  "flex min-w-0 flex-wrap items-baseline break-words border-t border-border py-3",
                   index % 2 === 0 ? "pr-4" : "",
                   index < 2 ? "border-t-0" : "",
                 )}
