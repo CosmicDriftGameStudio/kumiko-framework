@@ -83,6 +83,7 @@ import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   collectSingleFileHolders,
   decryptStoredPii,
+  errorKindOf,
   planFileFields,
   purgeRowFileRefs,
   runInSubTransaction,
@@ -305,7 +306,7 @@ async function deleteFileFailingClosed(
   } catch (err) {
     // biome-ignore lint/suspicious/noConsole: operator-visibility for storage-cleanup failures
     console.warn(
-      `[data-retention:hardDelete] ${logContext} storage cleanup threw: ${err instanceof Error ? err.message : String(err)}`,
+      `[data-retention:hardDelete] ${logContext} storage cleanup threw: ${errorKindOf(err)}`,
     );
     return [key];
   }
@@ -343,8 +344,8 @@ async function purgeHardDeleteRowWithFiles(args: {
     deleteBytes: files
       ? (key) => deleteFileFailingClosed(key, files, logContext)
       : args.deleteWithoutFileStorage
-        ? async (key) => {
-            log.warn(`${logContext} no file storage wired, bytes of ${key} are not deleted`);
+        ? async () => {
+            log.warn(`${logContext} no file storage wired, bytes of a stored file are not deleted`);
             return [];
           }
         : undefined,
@@ -360,7 +361,7 @@ async function purgeHardDeleteRowWithFiles(args: {
         );
       } catch (error) {
         log.warn(
-          `${logContext} rebind of fileRef=${fileRefId} to ${to.entityType}/${to.entityId}.${to.fieldName} failed, row skipped: ${String(error)}`,
+          `${logContext} rebind of fileRef=${fileRefId} to ${to.entityType}/${to.entityId}.${to.fieldName} failed, row skipped: ${errorKindOf(error)}`,
         );
         return false;
       }
@@ -368,7 +369,7 @@ async function purgeHardDeleteRowWithFiles(args: {
     onBytesDeleteFailed: (failedKeys) => {
       // biome-ignore lint/suspicious/noConsole: operator-visibility for storage-cleanup failures
       console.warn(
-        `[data-retention:hardDelete] ${logContext} storage delete failed keys=${failedKeys.join(",")}`,
+        `[data-retention:hardDelete] ${logContext} storage delete failed for ${failedKeys.length} file(s)`,
       );
     },
   });

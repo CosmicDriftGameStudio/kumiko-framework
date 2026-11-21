@@ -199,16 +199,43 @@ describe("afterSync hook", () => {
     expect(writes).toHaveLength(1);
   });
 
-  test("a throwing hook is reported as a sync error", async () => {
+  test("a throwing hook is reported as a sync error without its text", async () => {
     const { syncAndNotify } = createSubscriptionTierSync({
       isTierName,
       defaultTier: "free",
       afterSync: async () => {
-        throw new Error("hook broke");
+        throw new Error("Max Mustermann +49 170 1234567");
       },
     });
 
     const error = await syncAndNotify(tenantId, event, routeDeps("pro").deps);
-    expect(error).toEqual({ code: "tier_sync_after_hook_failed", message: "hook broke" });
+    expect(error).toEqual({
+      code: "tier_sync_after_hook_failed",
+      message: "afterSync threw Error",
+    });
+    expect(JSON.stringify(error)).not.toContain("Mustermann");
+    expect(JSON.stringify(error)).not.toContain("1234567");
+  });
+
+  test("a throwing dispatch is reported with its error class and code, not its text", async () => {
+    const { syncTierFromSubscription } = createSubscriptionTierSync({
+      isTierName,
+      defaultTier: "free",
+    });
+    const adapterError = Object.assign(new TypeError("Max Mustermann +49 170 1234567"), {
+      code: "ECONNRESET",
+    });
+
+    const error = await syncTierFromSubscription(tenantId, {
+      dispatchSystemQuery: async () => {
+        throw adapterError;
+      },
+      dispatchSystemWrite: async (): Promise<WriteResult> => ({ isSuccess: true, data: {} }),
+    });
+
+    expect(error).toEqual({
+      code: "tier_sync_failed",
+      message: "tier sync threw TypeError (ECONNRESET)",
+    });
   });
 });

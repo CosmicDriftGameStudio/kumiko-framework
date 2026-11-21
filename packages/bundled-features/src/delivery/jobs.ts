@@ -20,6 +20,7 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import * as z from "zod";
 import { fileContextForTenant } from "../file-foundation/index.ts";
+import { errorKindOf } from "../shared/index.ts";
 import {
   emailAttachmentRefSchema,
   MAX_EMAIL_ATTACHMENTS,
@@ -28,7 +29,7 @@ import {
 import { appendAttemptEvent } from "./attempt-log.ts";
 import { buildChannelContext } from "./channel-context.ts";
 import { DeliveryJobs, deliveryIdempotencyRedisKey, deliveryPriorityRank } from "./constants.ts";
-import { collectChannels, redactedMessageOf } from "./delivery-service.ts";
+import { collectChannels } from "./delivery-service.ts";
 import {
   channelMessageSchema,
   type DeliveryJobContent,
@@ -163,7 +164,7 @@ async function releaseIdempotencyKey(ctx: JobContext, p: JobBase): Promise<void>
   try {
     await ctx.services.redis.del(deliveryIdempotencyRedisKey(p.tenantId, p.idempotencyKey));
   } catch (err) {
-    ctx.obs.log.warn(`delivery: idempotency key release failed: ${redactedMessageOf(err)}`, {
+    ctx.obs.log.warn(`delivery: idempotency key release failed: ${errorKindOf(err)}`, {
       notificationType: p.notificationType,
     });
   }
@@ -195,7 +196,7 @@ async function releasingKeyOnTerminalFailure<T>(
 
 // The job runner stores err.message in the run row, and BullMQ keeps failedReason and
 // the stack trace in Redis in plain text, so the rethrown error carries only the code.
-// The redacted message goes to the log.
+// The log gets the error class only: adapter texts can carry names or phone numbers.
 async function failAttempt(
   ctx: JobContext,
   db: DbConnection,
@@ -205,8 +206,7 @@ async function failAttempt(
   code: DeliveryErrorCode,
   err: unknown,
 ): Promise<never> {
-  const message = redactedMessageOf(err);
-  ctx.obs.log.error(`delivery.${p.channelName} ${code}: ${message}`, {
+  ctx.obs.log.error(`delivery.${p.channelName} ${code}: ${errorKindOf(err)}`, {
     notificationType: p.notificationType,
     channel: p.channelName,
   });
@@ -295,7 +295,7 @@ async function sendStep(p: z.infer<typeof sendJobPayloadSchema>, ctx: JobContext
     );
   } catch (err) {
     ctx.obs.log.error(
-      `delivery.${p.channelName} sent but attempt log failed: ${redactedMessageOf(err)}`,
+      `delivery.${p.channelName} sent but attempt log failed: ${errorKindOf(err)}`,
       { notificationType: p.notificationType, channel: p.channelName },
     );
   }

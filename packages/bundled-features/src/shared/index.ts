@@ -34,6 +34,7 @@ export {
 export { encryptForDirectWrite } from "./encrypt-for-direct-write.ts";
 export { entitiesOf } from "./entities-of.ts";
 export { eraseSubjectData } from "./erase-subject-data.ts";
+export { errorKindOf } from "./error-kind.ts";
 export { isWithinGracePeriod } from "./grace-period.ts";
 export { resolveHandlerMailLocale } from "./handler-mail-locale.ts";
 export { hmacSignatureMatches, signHmacSha256Base64Url } from "./hmac-signature.ts";

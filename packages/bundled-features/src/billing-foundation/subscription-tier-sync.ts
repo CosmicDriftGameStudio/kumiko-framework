@@ -26,6 +26,7 @@ import {
 import { InternalError, VERSION_CONFLICT_CODE } from "@cosmicdrift/kumiko-framework/errors";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
+import { errorKindOf } from "../shared/index.ts";
 import { subscriptionAggregateId } from "./aggregate-id.ts";
 import {
   INVOICE_PAID_EVENT_QN,
@@ -241,7 +242,7 @@ export function createSubscriptionTierSync<TTier extends string>(
       return {
         error: {
           code: "tier_sync_failed",
-          message: error instanceof Error ? error.message : "tier sync threw a non-Error value",
+          message: `tier sync threw ${errorKindOf(error)}`,
         },
       };
     }
@@ -269,7 +270,7 @@ export function createSubscriptionTierSync<TTier extends string>(
     } catch (error) {
       return {
         code: "tier_sync_after_hook_failed",
-        message: error instanceof Error ? error.message : "afterSync threw a non-Error value",
+        message: `afterSync threw ${errorKindOf(error)}`,
       };
     }
   }
