@@ -92,6 +92,8 @@ type InviteConfig = {
 type LoginRateLimiter = {
   check(key: string): Promise<boolean>;
   reset(key: string): Promise<void>;
+  reserve?(key: string): Promise<RateLimitReservation>;
+  refund?(key: string, window: string): Promise<void>;
 };
 type PasswordResetConfig = {
   requestHandler: string;
@@ -100,6 +102,10 @@ type PasswordResetConfig = {
 type PreviewLoginConfig = {
   loginKey: string;
   resolveOwnerSession: (dispatcher: Dispatcher) => Promise<SessionUser | undefined>;
+};
+type RateLimitReservation = {
+  allowed: boolean;
+  window: string;
 };
 type SessionChecker = AuthSessionChecker;
 type SessionCreator = (user: SessionUser, meta: SessionMetadata) => Promise<string>;
