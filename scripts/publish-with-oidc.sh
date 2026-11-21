@@ -167,6 +167,29 @@ publish_and_tag() {
   return 0
 }
 
+# `next` carries the newest canary, which sorts below the release it previews, so
+# after the train moves `latest` the old canary would hand `@next` users an older
+# build than `latest` until the next canary merge. Only lifts `next` when its
+# canary belongs to this release or an older one; a newer canary stays. A failed
+# move only warns, the next canary run sets `next` anyway.
+lift_next_to_release() {
+  local name="$1" version="$2" next_version next_core
+  # A missing tag is exit 0 with empty output; a failed lookup must not read as "no next".
+  if ! next_version="$(npm view "$name" dist-tags.next 2>/dev/null)"; then
+    echo "::warning::$name@$version: reading the next dist-tag failed; leaving it where it is" >&2
+    return 0
+  fi
+  if [ -n "$next_version" ]; then
+    next_core="${next_version%%-*}"
+    if [ "$(printf '%s\n%s\n' "$next_core" "$version" | sort -V | tail -n 1)" != "$version" ]; then
+      return 0
+    fi
+  fi
+  if ! npm dist-tag add "$name@$version" next >&2; then
+    echo "::warning::$name@$version: moving the next dist-tag to the release failed; it stays on the older canary until the next canary run" >&2
+  fi
+}
+
 for pkg_json in packages/*/package.json; do
   pkg_dir="$(dirname "$pkg_json")"
   name="$(jq -r .name "$pkg_json")"
@@ -216,6 +239,7 @@ for pkg_json in packages/*/package.json; do
     # a re-run of an older canary must not pull `next` back.
     if [ "$dist_tag" = "latest" ] && [ "$registry_version" != "$version" ]; then
       npm dist-tag add "$name@$version" latest >&2
+      lift_next_to_release "$name" "$version"
     fi
     # Leftover from releases that published under the old throwaway tag; only
     # when the tag exists, so the common case needs no write.
@@ -304,6 +328,7 @@ for pkg_json in packages/*/package.json; do
       skipped=$((skipped + 1))
     else
       published=$((published + 1))
+      if [ "$dist_tag" = "latest" ]; then lift_next_to_release "$name" "$version"; fi
       published_json="$(jq -c \
         --arg name "$name" --arg version "$version" \
         '. + [{name: $name, version: $version}]' <<<"$published_json")"

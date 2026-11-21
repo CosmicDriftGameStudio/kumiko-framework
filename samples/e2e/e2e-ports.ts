@@ -17,7 +17,7 @@ export const E2E_PORTS = {
   "framework/testing": 4195,
   "publicstatus/e2e": 4178,
   "publicstatus/screenshots": 4184,
-  "publicstatus/videos": 4188,
+  "publicstatus/videos": 4353,
   "money-horse/screenshots": 4318,
   "money-horse/e2e": 4319,
   "money-horse/videos": 4351,

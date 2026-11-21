@@ -44,7 +44,9 @@ export const DEFAULT_CSP_DIRECTIVES: Readonly<Record<string, readonly string[]>>
 
 // zod probes `new Function` once to choose its JIT parser; under script-src 'self' the browser
 // reports that caught probe as a CSP violation. Prepended to every client chunk so the flag is
-// set before zod builds its first schema.
+// set before zod builds its first schema. Applies regardless of the app's CSP (also with
+// `csp: false` or 'unsafe-eval'): the build cannot see the runtime header, and jitless only
+// costs parse speed.
 export const ZOD_JITLESS_BANNER = "(globalThis.__zod_globalConfig??={}).jitless=true;";
 
 const SCRIPT_HASH_PATTERN = /^sha256-[A-Za-z0-9+/]{43}=$/;

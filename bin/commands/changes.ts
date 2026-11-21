@@ -321,11 +321,20 @@ function runAdd(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType<
 }
 
 // JSON.stringify spreads every array over several lines; Biome joins short ones, and `biome check` fails on the difference.
-async function formatWithBiome(repoRoot: string, paths: readonly string[]): Promise<void> {
+// Formatted in memory, so a Biome failure leaves nothing half-written on disk.
+export async function formatJsonWithBiome(
+  repoRoot: string,
+  repoRelativePath: string,
+  contents: string,
+): Promise<string> {
   // Resolved from this script, not the repo root: the fold also runs in temp repos without node_modules.
   const biomeBin = join(dirname(Bun.resolveSync("@biomejs/biome/package.json", import.meta.dir)), "bin", "biome");
-  const result = await run("bun", [biomeBin, "format", "--write", ...paths], { cwd: repoRoot });
-  if (result.status !== 0) throw new Error(`biome format failed:\n${result.stdout}${result.stderr}`);
+  const result = await run("bun", [biomeBin, "format", `--stdin-file-path=${repoRelativePath}`], {
+    cwd: repoRoot,
+    input: contents,
+  });
+  if (result.status !== 0) throw new Error(`biome format failed for ${repoRelativePath}:\n${result.stderr}`);
+  return result.stdout;
 }
 
 async function runFold(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType<typeof parseArgs>): Promise<number> {
@@ -393,11 +402,13 @@ async function runFold(ctx: Parameters<typeof changesCommand.run>[0], args: Retu
       if (!unchanged) updates.push({ path, contents: `${JSON.stringify(normalized, null, 2)}\n`, length: normalized.length });
     }
     if (!dryRun) {
-      for (const update of updates) {
+      const formatted = await Promise.all(
+        updates.map((update) => formatJsonWithBiome(repoRoot, relative(repoRoot, update.path), update.contents)),
+      );
+      updates.forEach((update, index) => {
         mkdirSync(dirname(update.path), { recursive: true });
-        writeFileSync(update.path, update.contents, "utf-8");
-      }
-      if (updates.length > 0) await formatWithBiome(repoRoot, updates.map((update) => update.path));
+        writeFileSync(update.path, formatted[index] ?? update.contents, "utf-8");
+      });
     }
     for (const update of updates) {
       ctx.out.log(`${dryRun ? "would update" : "updated"} ${update.path} (${update.length} entries)`);

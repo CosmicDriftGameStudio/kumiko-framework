@@ -129,4 +129,28 @@ describe("upgrade command — canary installs (0.425.0-next-<datetime>-<sha>)", 
 
     expect(await pendingTitles(cwd, [])).toEqual([]);
   });
+
+  test("an explicit --from canary without a marker does not mark its release as handled", async () => {
+    const cwd = canaryRepo("0.425.0");
+
+    expect((await pendingTitles(cwd, ["--from", CANARY_A])).sort()).toEqual(
+      ["codemod of 0.425.0", "fix of 0.425.0", MANUAL_TITLE].sort(),
+    );
+  });
+
+  test("an unreadable marker with --from a canary keeps the release entries pending", async () => {
+    const cwd = canaryRepo(CANARY_B, { ".kumiko/upgrade-state.json": "{not json" });
+
+    expect((await pendingTitles(cwd, ["--from", CANARY_A])).sort()).toEqual(
+      ["codemod of 0.425.0", "fix of 0.425.0", MANUAL_TITLE].sort(),
+    );
+  });
+
+  test("a malformed --from names the accepted prerelease format", async () => {
+    const spy = makeSpyOutput();
+    const exit = await runUpgradeCli(["--from", "garbage"], canaryRepo(CANARY_A), spy.out);
+
+    expect(exit).not.toBe(0);
+    expect(spy.errs.join("\n")).toContain("expected x.y.z or x.y.z-<prerelease>");
+  });
 });

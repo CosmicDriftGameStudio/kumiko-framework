@@ -16,6 +16,14 @@ echo "$*" >> "$STUB_CALL_LOG"
 case "$1" in
   view)
     spec="$2"
+    if [ "$3" = "dist-tags.next" ]; then
+      if [ -n "\${STUB_NEXT_LOOKUP_FAILS:-}" ]; then
+        echo "npm error code E503" >&2
+        exit 1
+      fi
+      if [ -n "\${STUB_NEXT:-}" ]; then echo "$STUB_NEXT"; fi
+      exit 0
+    fi
     if [[ "\${spec#@}" == *@* ]]; then
       if printf '%s\\n' "\${STUB_PUBLISHED:-}" | grep -qxF "$spec"; then echo "\${spec##*@}"; exit 0; fi
       exit 1
@@ -133,6 +141,33 @@ describe("publish-with-oidc.sh dist-tag channel", () => {
     expect(publishes).toHaveLength(2);
     for (const call of publishes) expect(call).toEndWith("--provenance --access public --tag latest");
     expect(stdout).toContain("New tag: @cosmicdrift/kumiko-framework@0.425.0");
+  });
+
+  test("a release lifts next past an older canary of the same release", () => {
+    const { exitCode, npmCalls } = runPublish("0.425.0", [], { STUB_NEXT: CANARY });
+
+    expect(exitCode).toBe(0);
+    expect(npmCalls).toContain("dist-tag add @cosmicdrift/kumiko-framework@0.425.0 next");
+    expect(npmCalls).toContain("dist-tag add @cosmicdrift/kumiko-types@0.425.0 next");
+  });
+
+  test("a failed next lookup warns and moves no next tag", () => {
+    const { exitCode, stderr, npmCalls } = runPublish("0.425.0", [], {
+      STUB_NEXT_LOOKUP_FAILS: "1",
+    });
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toContain("reading the next dist-tag failed");
+    expect(npmCalls.filter((call) => call.endsWith(" next"))).toEqual([]);
+  });
+
+  test("a release leaves a newer canary on next", () => {
+    const { exitCode, npmCalls } = runPublish("0.425.0", [], {
+      STUB_NEXT: "0.426.0-next-20261120120000-def5678",
+    });
+
+    expect(exitCode).toBe(0);
+    expect(npmCalls.filter((call) => call.endsWith(" next"))).toEqual([]);
   });
 
   test("next publishes every package under next and never names latest", () => {

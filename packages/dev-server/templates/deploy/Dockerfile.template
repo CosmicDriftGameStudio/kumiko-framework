@@ -49,12 +49,13 @@ RUN bun run build
 # Runs on the build host (bun aborts under QEMU); --os/--cpu fetch the target's
 # native packages. `--frozen-lockfile` installs exactly the locked externals
 # from the bun.lock kumiko-build wrote and fails on drift instead of resolving
-# newer versions.
+# newer versions. `--ignore-scripts`: lifecycle scripts would build for the host
+# CPU, so only prebuilt optionalDependencies of the target reach the image.
 FROM --platform=$BUILDPLATFORM oven/bun:${BUN_VERSION}-alpine AS deps
 ARG TARGETARCH
 WORKDIR /app
 COPY --from=build /app/dist-server ./
-RUN bun install --production --frozen-lockfile --os=linux --cpu="$(case "$TARGETARCH" in amd64) echo x64 ;; arm64) echo arm64 ;; *) echo "unsupported TARGETARCH '$TARGETARCH'" >&2; exit 1 ;; esac)"
+RUN bun install --production --frozen-lockfile --os=linux --cpu="$(case "$TARGETARCH" in amd64) echo x64 ;; arm64) echo arm64 ;; *) echo "unsupported TARGETARCH '$TARGETARCH'" >&2; exit 1 ;; esac)" --ignore-scripts
 
 # ----- runtime: bun-alpine, knows only the bundle artefact ------------------
 FROM oven/bun:${BUN_VERSION}-alpine AS runtime

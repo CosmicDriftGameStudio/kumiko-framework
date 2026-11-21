@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { extname, join } from "node:path";
 import type { Page } from "@playwright/test";
 import { DESKTOP_VIEWPORT } from "../constants";
@@ -9,12 +9,10 @@ import { test } from "../seeded-tenant-fixture";
 import { addVideoOverlay, showFocus } from "./cursor-overlay";
 import type { VideoDefinition, VideoSceneContext } from "./define-video";
 import { FrameTimeline } from "./frame-timeline";
-import { buildVtt, type MuxSceneAudio, muxVideo, type VttCue, writePoster } from "./mux";
+import { LEAD_IN_MS, leadInMs, writeKindSpecificFile } from "./kind-specific-output";
+import { type MuxSceneAudio, muxVideo, type VttCue } from "./mux";
 import { createNarrator, type Narrator } from "./narration";
 import { assertAiNoticeCoversLocales, SETUP_TOOLS, sceneExtensionMs } from "./scene-plan";
-
-// Silent lead-in held on the first scene frame; a frame from before the first scene shows whatever setup left on the page.
-const LEAD_IN_MS = 500;
 
 // A video walks through the app page by page on purpose; the default budget guards specs that should boot once.
 const VIDEO_APP_BOOT_BUDGET = 60;
@@ -126,27 +124,6 @@ interface WriteOutputsInput {
   readonly aiNotice: Readonly<Record<string, string>> | undefined;
 }
 
-interface KindSpecificFileInput {
-  readonly silent: boolean;
-  readonly outMp4: string;
-  readonly vttPath: string;
-  readonly posterPath: string;
-  readonly cues: readonly VttCue[];
-  readonly playbackRate: number | undefined;
-}
-
-// Subtitles from an earlier voiced run must not linger next to a silent video. A voiced
-// video keeps its `<locale>.jpg`: that poster is placed by hand and uploaded with the video.
-function writeKindSpecificFile(input: KindSpecificFileInput): void {
-  const { silent, outMp4, vttPath, posterPath, cues, playbackRate } = input;
-  if (!silent) {
-    writeFileSync(vttPath, buildVtt(cues, playbackRate));
-    return;
-  }
-  rmSync(vttPath, { force: true });
-  writePoster(outMp4, posterPath);
-}
-
 async function writeOutputs(input: WriteOutputsInput): Promise<void> {
   const { page, video, locale, silent, videoDir, timeline, sceneAudio, cues, muxDir } = input;
   const outDir = join(videoDir, "out");
@@ -239,9 +216,8 @@ export function runVideos(options: RunVideosOptions): void {
           await timeline.settle();
 
           const { sceneAudio, cues } = await recordScenes({ page, video, narrator, timeline, ctx });
-          // The lead-in only gives the first narration a beat before it starts; a loop would freeze on it.
           const [firstFrame] = timeline.allFrames;
-          if (firstFrame !== undefined && !silent) firstFrame.durationMs += LEAD_IN_MS;
+          if (firstFrame !== undefined) firstFrame.durationMs += leadInMs(silent);
 
           await writeOutputs({
             page,
