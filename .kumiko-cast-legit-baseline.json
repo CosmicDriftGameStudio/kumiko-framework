@@ -1,7 +1,7 @@
 {
   "format": 1,
   "perFile": {
-    "packages/bundled-features:legit-boundary": 152,
+    "packages/bundled-features:legit-boundary": 151,
     "packages/bundled-features:legit-bridge": 3,
     "packages/dev-server:legit-bridge": 2,
     "packages/feature-ast:legit-boundary": 39,

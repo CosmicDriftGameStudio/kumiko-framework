@@ -168,6 +168,66 @@ function StatDeltaChip({
   );
 }
 
+function StatCardHeader({
+  icon,
+  label,
+  tone,
+  accentColor,
+  delta,
+  reserveArrowSpace,
+}: {
+  readonly icon: ReactNode | undefined;
+  readonly label: string;
+  readonly tone: StatTone;
+  readonly accentColor: string | undefined;
+  readonly delta: StatDelta | undefined;
+  readonly reserveArrowSpace: boolean;
+}): ReactNode {
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-start justify-between gap-x-2 gap-y-1",
+        reserveArrowSpace && "pr-5",
+      )}
+    >
+      <div className="flex min-w-0 flex-1 basis-[7rem] items-center gap-2 text-muted-foreground">
+        {icon !== undefined && <StatIconChip icon={icon} tone={tone} accentColor={accentColor} />}
+        <span title={label} className="min-w-0 line-clamp-2 text-xs font-medium">
+          {label}
+        </span>
+      </div>
+      {delta !== undefined && <StatDeltaChip delta={delta} tone={tone} />}
+    </div>
+  );
+}
+
+function StatCardValueRow({
+  value,
+  sub,
+  tone,
+  boardPadding,
+}: {
+  readonly value: string;
+  readonly sub: string | undefined;
+  readonly tone: StatTone;
+  readonly boardPadding: boolean;
+}): ReactNode {
+  return (
+    <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2">
+      <span
+        className={cn(
+          "text-xl font-semibold tabular-nums",
+          boardPadding && "max-sm:text-[17px]",
+          TONE_VALUE[tone],
+        )}
+      >
+        {value}
+      </span>
+      {sub !== undefined && <span className="text-xs text-muted-foreground">{sub}</span>}
+    </div>
+  );
+}
+
 function statTileSurface(inset: boolean, boardPadding: boolean): string {
   if (inset) return "bg-background px-3 py-2.5 shadow-none";
   return boardPadding ? "px-3.5 py-3 max-sm:px-3 max-sm:py-2.5" : "p-4";
@@ -246,34 +306,20 @@ export function StatCard({
           data-kumiko-layout="stat-card-arrow"
         />
       )}
-      <div
-        className={cn(
-          "flex flex-wrap items-start justify-between gap-x-2 gap-y-1",
-          leadsSomewhere && "pr-5",
-        )}
-      >
-        <div className="flex min-w-0 flex-1 basis-[7rem] items-center gap-2 text-muted-foreground">
-          {icon !== undefined && <StatIconChip icon={icon} tone={tone} accentColor={accentColor} />}
-          <span title={label} className="min-w-0 line-clamp-2 text-xs font-medium">
-            {label}
-          </span>
-        </div>
-        {delta !== undefined && <StatDeltaChip delta={delta} tone={tone} />}
-      </div>
-      <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2">
-        <span
-          className={cn(
-            "text-xl font-semibold tabular-nums",
-            boardPadding && "max-sm:text-[17px]",
-            TONE_VALUE[tone],
-          )}
-        >
-          {value}
-        </span>
-        {sub !== undefined && !subBelow && (
-          <span className="text-xs text-muted-foreground">{sub}</span>
-        )}
-      </div>
+      <StatCardHeader
+        icon={icon}
+        label={label}
+        tone={tone}
+        accentColor={accentColor}
+        delta={delta}
+        reserveArrowSpace={leadsSomewhere}
+      />
+      <StatCardValueRow
+        value={value}
+        sub={subBelow ? undefined : sub}
+        tone={tone}
+        boardPadding={boardPadding}
+      />
       {sub !== undefined && subBelow && (
         <div data-kumiko-layout="stat-card-sub" className="mt-0.5 text-xs text-muted-foreground">
           {sub}

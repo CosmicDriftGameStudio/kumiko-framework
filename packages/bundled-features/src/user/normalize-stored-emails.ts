@@ -44,6 +44,49 @@ async function readStoredEmail(
   return decrypted["email"];
 }
 
+type MutableNormalizationResult = {
+  [K in keyof StoredEmailNormalizationResult]: StoredEmailNormalizationResult[K] extends readonly (infer T)[]
+    ? T[]
+    : never;
+};
+
+function recordOutcome(
+  result: MutableNormalizationResult,
+  id: string,
+  outcome: UserEmailRewriteOutcome,
+): void {
+  if (outcome === "rewritten") result.rewrittenUserIds.push(id);
+  else if (outcome === "unique_violation") result.duplicateUserIds.push(id);
+  else if (outcome === VERSION_CONFLICT_CODE) result.versionConflictUserIds.push(id);
+}
+
+async function normalizeRow(
+  db: DbRunner,
+  row: Record<string, unknown>,
+  kms: LocalKeyKmsAdapter | undefined,
+  by: ReturnType<typeof createSystemUser>,
+  result: MutableNormalizationResult,
+): Promise<void> {
+  const id = String(row["id"]);
+  let storedEmail: unknown;
+  try {
+    storedEmail = await readStoredEmail(row, kms);
+  } catch {
+    result.undecryptableUserIds.push(id);
+    return;
+  }
+  if (typeof storedEmail !== "string" || storedEmail === normalizeEmail(storedEmail)) return;
+  try {
+    recordOutcome(
+      result,
+      id,
+      await rewriteSeededUserEmail(db, row, normalizeEmail(storedEmail), by),
+    );
+  } catch (e) {
+    result.failedUsers.push({ userId: id, code: failureCode(e) });
+  }
+}
+
 // Accounts stored before emails were lower-cased are unreachable for every lookup, which
 // lower-cases its input. Rewrites go through the executor, so the event and the blind index follow.
 export async function normalizeStoredUserEmails(
@@ -53,11 +96,13 @@ export async function normalizeStoredUserEmails(
   const kms = configuredPiiSubjectKms();
   const by = createSystemUser(SYSTEM_TENANT_ID);
   const batchSize = options.batchSize ?? DEFAULT_BATCH_SIZE;
-  const rewrittenUserIds: string[] = [];
-  const duplicateUserIds: string[] = [];
-  const versionConflictUserIds: string[] = [];
-  const undecryptableUserIds: string[] = [];
-  const failedUsers: { userId: string; code: string }[] = [];
+  const result: MutableNormalizationResult = {
+    rewrittenUserIds: [],
+    duplicateUserIds: [],
+    versionConflictUserIds: [],
+    undecryptableUserIds: [],
+    failedUsers: [],
+  };
   let afterId: string | undefined;
   while (!options.signal?.aborted) {
     // Keyset on id: a rewrite changes the email, never the id, so the cursor stays valid.
@@ -73,35 +118,11 @@ export async function normalizeStoredUserEmails(
     );
     for (const row of rows) {
       if (options.signal?.aborted) break;
-      const id = String(row["id"]);
-      let storedEmail: unknown;
-      try {
-        storedEmail = await readStoredEmail(row, kms);
-      } catch {
-        undecryptableUserIds.push(id);
-        continue;
-      }
-      if (typeof storedEmail !== "string" || storedEmail === normalizeEmail(storedEmail)) continue;
-      let outcome: UserEmailRewriteOutcome;
-      try {
-        outcome = await rewriteSeededUserEmail(db, row, normalizeEmail(storedEmail), by);
-      } catch (e) {
-        failedUsers.push({ userId: id, code: failureCode(e) });
-        continue;
-      }
-      if (outcome === "rewritten") rewrittenUserIds.push(id);
-      else if (outcome === "unique_violation") duplicateUserIds.push(id);
-      else if (outcome === VERSION_CONFLICT_CODE) versionConflictUserIds.push(id);
+      await normalizeRow(db, row, kms, by, result);
     }
     const last = rows.at(-1);
     if (last === undefined || rows.length < batchSize) break;
     afterId = String(last["id"]);
   }
-  return {
-    rewrittenUserIds,
-    duplicateUserIds,
-    versionConflictUserIds,
-    undecryptableUserIds,
-    failedUsers,
-  };
+  return result;
 }

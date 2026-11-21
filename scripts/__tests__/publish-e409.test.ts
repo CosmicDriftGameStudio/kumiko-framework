@@ -64,6 +64,7 @@ function extractTopLevelFn(fnName: string): string {
 
 const EMIT_TAG_FN = extractTopLevelFn("emit_tag_unless_on_origin");
 const REMOVE_TMP_TAG_FN = extractTopLevelFn("remove_tmp_tag");
+const LIFT_NEXT_FN = extractTopLevelFn("lift_next_to_release");
 
 function extractPublishOutcomeBranch(): string {
   const script = readFileSync(SCRIPT_PATH, "utf-8");
@@ -88,6 +89,7 @@ const NPM_STUB = [
   '[ -n "${STUB_CALL_LOG:-}" ] && echo "$*" >> "$STUB_CALL_LOG"',
   'case "$1 $2" in',
   '  "dist-tag ls") printf \'%b\' "${STUB_DIST_TAG_LS:-}"; exit 0 ;;',
+  '  "view "*) printf \'%b\' "${STUB_NEXT_VERSION:-}"; exit 0 ;;',
   "esac",
   'case "$1" in',
   "  publish)",
@@ -326,6 +328,7 @@ function runPublishOutcomeBranch(
       "dist_tag=latest",
       EMIT_TAG_FN,
       REMOVE_TMP_TAG_FN,
+      LIFT_NEXT_FN,
       'name="@cosmicdrift/kumiko-types"',
       'version="0.233.0"',
       "published=0",
