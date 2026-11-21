@@ -18,6 +18,7 @@ import {
   createSystemUser,
   createTextField,
   defineEntityCreateHandler,
+  defineEntityDeleteHandler,
   defineEntityDetailHandler,
   defineEntityUpdateHandler,
   defineFeature,
@@ -57,6 +58,8 @@ const UPDATE_DOSSIER = "ff-probe:write:dossier:update";
 const DETAIL_DOSSIER = "ff-probe:query:dossier:detail";
 const CREATE_KEEPER = "ff-probe:write:keeper:create";
 const CREATE_OWNED = "ff-probe:write:owned-doc:create";
+const CREATE_SOFT_OWNED = "ff-probe:write:soft-owned-doc:create";
+const DELETE_SOFT_OWNED = "ff-probe:write:soft-owned-doc:delete";
 const INTAKE_FORM = "ff-probe:screen:intake-form";
 const KEEP_AS_COVER = "ff-probe:write:keep-as-cover";
 const REASON = "authority request (Art. 17 file purge)";
@@ -84,6 +87,17 @@ const ownedDocEntity = createEntity({
   },
 });
 
+// A soft-deleted row keeps holding its file until it is forgotten for good.
+const softOwnedDocEntity = createEntity({
+  name: "soft-owned-doc",
+  table: "read_ff_soft_owned_doc",
+  softDelete: true,
+  fields: {
+    ownerId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
+    contract: createFileField({ personal: { of: "ownerId" } }),
+  },
+});
+
 // Live holder of a file another record is forgotten for; deliberately not personal.
 const keeperEntity = createEntity({
   name: "keeper",
@@ -99,6 +113,9 @@ const probeFeature = defineFeature("ff-probe", (r) => {
   r.writeHandler(defineEntityCreateHandler("keeper", keeperEntity, ROLES));
   r.entity(dossierEntity);
   r.entity(ownedDocEntity);
+  r.entity(softOwnedDocEntity);
+  r.writeHandler(defineEntityCreateHandler("soft-owned-doc", softOwnedDocEntity, ROLES));
+  r.writeHandler(defineEntityDeleteHandler("soft-owned-doc", softOwnedDocEntity, ROLES));
   r.writeHandler(defineEntityCreateHandler("dossier", dossierEntity, ROLES));
   r.writeHandler(defineEntityUpdateHandler("dossier", dossierEntity, ROLES));
   r.queryHandler(defineEntityDetailHandler("dossier", dossierEntity, ROLES));
@@ -167,6 +184,20 @@ function keeperTable() {
   throw new Error("keeper table is not registered");
 }
 
+function ownedTable() {
+  for (const proj of stack.registry.getAllProjections().values()) {
+    if (proj.source === "owned-doc" && proj.table) return proj.table;
+  }
+  throw new Error("owned-doc table is not registered");
+}
+
+function softOwnedTable() {
+  for (const proj of stack.registry.getAllProjections().values()) {
+    if (proj.source === "soft-owned-doc" && proj.table) return proj.table;
+  }
+  throw new Error("soft-owned-doc table is not registered");
+}
+
 let stack: TestStack;
 
 beforeAll(async () => {
@@ -177,6 +208,7 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, dossierEntity, "dossier");
   await unsafeCreateEntityTable(stack.db, ownedDocEntity, "owned-doc");
+  await unsafeCreateEntityTable(stack.db, softOwnedDocEntity, "soft-owned-doc");
   await unsafeCreateEntityTable(stack.db, keeperEntity, "keeper");
 });
 
@@ -189,6 +221,7 @@ beforeEach(async () => {
     eventsTable,
     "read_ff_dossier",
     "read_ff_owned_doc",
+    "read_ff_soft_owned_doc",
     "read_ff_keeper",
     fileRefsTable,
   ]);
@@ -597,5 +630,113 @@ describe("crypto-shredding :: forget-subject removes the subject's files", () =>
       expect(await memory.exists(key)).toBe(false);
       expect(await fileRefExists(id)).toBe(false);
     }
+  });
+
+  test("user subject: a file held by two of the user's records, one of them soft-deleted, is purged with the erasure", async () => {
+    const sharedId = await upload(foreignUploader, "soft-owned-doc", "contract");
+    const first = await stack.http.writeOk<{ id: string }>(
+      CREATE_SOFT_OWNED,
+      { ownerId: ownerUserId, contract: sharedId },
+      foreignUploader,
+    );
+    const ownFileId = await upload(foreignUploader, "soft-owned-doc", "contract");
+    const second = await stack.http.writeOk<{ id: string }>(
+      CREATE_SOFT_OWNED,
+      { ownerId: ownerUserId, contract: ownFileId },
+      foreignUploader,
+    );
+    const table = softOwnedTable();
+    const [secondRow] = await selectMany<{ version: number }>(stack.db, table, { id: second.id });
+    const tdb = createTenantDb({
+      db: stack.db,
+      tenantId: TENANT,
+      mode: "system",
+      reason: "test points a second record of the same owner at the first record's file",
+    });
+    const repointed = await createEventStoreExecutor(table, softOwnedDocEntity, {
+      entityName: "soft-owned-doc",
+    }).update(
+      { id: second.id, version: secondRow?.version, changes: { contract: sharedId } },
+      createSystemUser(TENANT),
+      tdb,
+    );
+    expect(repointed.isSuccess).toBe(true);
+    await stack.http.writeOk(DELETE_SOFT_OWNED, { id: second.id }, foreignUploader);
+    const sharedKey = await storageKeyOf(sharedId);
+
+    await stack.http.writeOk(
+      FORGET,
+      { subject: { kind: "user", userId: ownerUserId }, reason: REASON },
+      dpo,
+    );
+
+    expect(first.id).not.toBe(second.id);
+    expect(await memory.exists(sharedKey)).toBe(false);
+    expect(await fileRefExists(sharedId)).toBe(false);
+  });
+
+  async function createOwnedSharing(ownerIds: readonly [string, string]) {
+    const sharedId = await upload(foreignUploader, "owned-doc", "contract");
+    await stack.http.writeOk(
+      CREATE_OWNED,
+      { ownerId: ownerIds[0], contract: sharedId },
+      foreignUploader,
+    );
+    const ownFileId = await upload(foreignUploader, "owned-doc", "contract");
+    const second = await stack.http.writeOk<{ id: string }>(
+      CREATE_OWNED,
+      { ownerId: ownerIds[1], contract: ownFileId },
+      foreignUploader,
+    );
+    const table = ownedTable();
+    const [secondRow] = await selectMany<{ version: number }>(stack.db, table, { id: second.id });
+    const repointed = await createEventStoreExecutor(table, ownedDocEntity, {
+      entityName: "owned-doc",
+    }).update(
+      { id: second.id, version: secondRow?.version, changes: { contract: sharedId } },
+      createSystemUser(TENANT),
+      createTenantDb({
+        db: stack.db,
+        tenantId: TENANT,
+        mode: "system",
+        reason: "test points a second record at the first record's file",
+      }),
+    );
+    expect(repointed.isSuccess).toBe(true);
+    return { sharedId, secondId: second.id };
+  }
+
+  test("user subject: a file held by two live records of the user is purged with the erasure", async () => {
+    const { sharedId } = await createOwnedSharing([ownerUserId, ownerUserId]);
+    const sharedKey = await storageKeyOf(sharedId);
+
+    await stack.http.writeOk(
+      FORGET,
+      { subject: { kind: "user", userId: ownerUserId }, reason: REASON },
+      dpo,
+    );
+
+    expect(await memory.exists(sharedKey)).toBe(false);
+    expect(await fileRefExists(sharedId)).toBe(false);
+  });
+
+  test("user subject: a file also held by another user's record stays and is bound to that record", async () => {
+    const otherOwnerId = "dddddddd-dddd-4ddd-8ddd-000000000004";
+    const { sharedId, secondId } = await createOwnedSharing([ownerUserId, otherOwnerId]);
+    const sharedKey = await storageKeyOf(sharedId);
+
+    await stack.http.writeOk(
+      FORGET,
+      { subject: { kind: "user", userId: ownerUserId }, reason: REASON },
+      dpo,
+    );
+
+    expect(await memory.exists(sharedKey)).toBe(true);
+    const [ref] = await selectMany(stack.db, fileRefsTable, { id: sharedId });
+    expect(ref).toMatchObject({
+      entityType: "owned-doc",
+      entityId: secondId,
+      fieldName: "contract",
+    });
   });
 });

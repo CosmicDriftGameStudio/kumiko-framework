@@ -72,23 +72,19 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import {
+  collectSingleFileHolders,
   type FileContext,
   fileRefEntity,
   fileRefsTable,
+  planFileFields,
+  purgeRowFileRefs,
   rebindFileRef,
+  type SingleFileHolder,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import {
-  collectSingleFileHolders,
-  decryptStoredPii,
-  errorKindOf,
-  planFileFields,
-  purgeRowFileRefs,
-  runInSubTransaction,
-  type SingleFileHolder,
-} from "../shared/index.ts";
+import { decryptStoredPii, errorKindOf, runInSubTransaction } from "../shared/index.ts";
 import { eraseNotesOfDeletedRow } from "./erase-notes-of-deleted-row.ts";
 import { computeCutoff, type Instant } from "./keep-for.ts";
 import type { RetentionPresetKey } from "./presets.ts";

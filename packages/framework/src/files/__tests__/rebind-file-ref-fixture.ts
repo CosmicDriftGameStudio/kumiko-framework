@@ -58,6 +58,14 @@ const contactEntity = createEntity({
   },
 });
 
+// Soft-deleted rows keep holding their files for a restore, so a rebind may target them.
+const keepsakeEntity = createEntity({
+  name: "keepsake",
+  table: "rebind_t_keepsakes",
+  softDelete: true,
+  fields: { name: name(), doc: createFileField() },
+});
+
 export type SourceType = "upload" | "inbox";
 
 const rebindPayload = z.object({
@@ -66,6 +74,7 @@ const rebindPayload = z.object({
   uploadId: z.string(),
   contactId: z.string(),
   fieldName: z.string().default("doc"),
+  targetType: z.enum(["contact", "keepsake"]).default("contact"),
 });
 export type RebindPayload = z.input<typeof rebindPayload>;
 
@@ -73,7 +82,11 @@ function ownersOf(payload: z.infer<typeof rebindPayload>) {
   return {
     fileRefId: payload.fileRefId,
     from: { entityType: payload.source, entityId: payload.uploadId, fieldName: "file" },
-    to: { entityType: "contact", entityId: payload.contactId, fieldName: payload.fieldName },
+    to: {
+      entityType: payload.targetType,
+      entityId: payload.contactId,
+      fieldName: payload.fieldName,
+    },
   };
 }
 
@@ -106,6 +119,9 @@ const probeFeature = defineFeature("rebind-probe", (r) => {
   r.entity(uploadEntity);
   r.entity(inboxEntity);
   r.entity(contactEntity);
+  r.entity(keepsakeEntity);
+  r.writeHandler(defineEntityCreateHandler("keepsake", keepsakeEntity, { access: openToAll }));
+  r.writeHandler(defineEntityDeleteHandler("keepsake", keepsakeEntity, { access: openToAll }));
   r.writeHandler(defineEntityCreateHandler("upload", uploadEntity, { access: openToAll }));
   r.queryHandler(
     defineEntityDetailHandler("upload", uploadEntity, {
@@ -252,4 +268,14 @@ export async function ownerOf(stack: TestStack, fileRefId: string) {
     entityId: row?.["entityId"],
     fieldName: row?.["fieldName"],
   };
+}
+
+export async function createDeletedKeepsake(stack: TestStack, as: ProbeUser): Promise<string> {
+  const created = await stack.http.writeOk<{ id: string }>(
+    "rebind-probe:write:keepsake:create",
+    { name: "Gone" },
+    as,
+  );
+  await stack.http.writeOk("rebind-probe:write:keepsake:delete", { id: created.id }, as);
+  return created.id;
 }

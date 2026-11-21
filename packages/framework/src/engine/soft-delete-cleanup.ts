@@ -11,16 +11,29 @@
 // consumer-lag-guarded path.
 
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import type { FileContext } from "@cosmicdrift/kumiko-types/file-handle-types";
+import type { Logger } from "@cosmicdrift/kumiko-types/logger";
 import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor.ts";
 import { type AnyDb, asEntityTableMeta, selectMany, type WhereObject } from "../db/query.ts";
 import { hasFieldProperty } from "../db/table-introspection.ts";
+import { tenantDbRunner } from "../db/tenant-db-runner.ts";
+import { deleteFileRefBytes } from "../derivatives/delete-stored-file.ts";
 import { reraiseAsKumikoError } from "../errors/index.ts";
+import { getFileRefExecutor } from "../files/create-file-ref.ts";
 import { purgeExpiredFileRefsWithBytes } from "../files/purge-expired-file-ref-bytes.ts";
+import {
+  collectSingleFileHolders,
+  type FileRefPurgeOutcome,
+  planFileFields,
+  purgeRowFileRefs,
+  type SingleFileHolder,
+} from "../files/purge-row-file-refs.ts";
+import { rebindFileRef } from "../files/rebind-file-ref.ts";
 import { FILE_REF_ENTITY_NAME } from "../files/types.ts";
 import { createSystemUser, SYSTEM_USER_ID } from "./system-user.ts";
 import type { ConfigKeyDefinition, JobDefinition, JobHandlerFn } from "./types/config.ts";
 import { SYSTEM_TENANT_ID } from "./types/identifiers.ts";
-import type { SessionUser } from "./types/index.ts";
+import type { Registry, SessionUser } from "./types/index.ts";
 
 // qualifyEntityName convention (feature:type:kebab-name) with a reserved
 // "soft-delete" owner — no real feature owns these; the framework synthesizes
@@ -144,7 +157,7 @@ async function purgeExpiredRows(
   table: PurgeTable,
   where: WhereObject,
   cutoff: Temporal.Instant,
-  ctx: Pick<JobContext, "services" | "obs">,
+  ctx: Pick<JobContext, "services" | "obs" | "registry">,
   readDb: AnyDb = writer.db,
 ): Promise<void> {
   if (source === FILE_REF_ENTITY_NAME) {
@@ -162,18 +175,68 @@ async function purgeExpiredRows(
   await forgetExpiredPages(writer, source, table, where, ctx, readDb);
 }
 
+// Soft-deleted rows kept their files for a restore; once the row is forgotten nothing can
+// restore it, so bytes and fileRef go first (fail-closed: the row stays until they are gone).
+async function purgeRowFilesBeforeForget(args: {
+  readonly writer: PurgeWriter;
+  readonly source: string;
+  readonly entity: EntityDefinition;
+  readonly table: PurgeTable;
+  readonly fileHolders: readonly SingleFileHolder[];
+  readonly registry: Registry;
+  readonly files: FileContext | undefined;
+  readonly row: Record<string, unknown>;
+  readonly log: Pick<Logger, "warn">;
+}): Promise<FileRefPurgeOutcome> {
+  const { writer, files, registry } = args;
+  return await purgeRowFileRefs({
+    db: tenantDbRunner(writer.db),
+    tenantId: writer.user.tenantId,
+    entityName: args.source,
+    entity: args.entity,
+    table: args.table,
+    fileHolders: args.fileHolders,
+    row: args.row,
+    deleteBytes: files
+      ? (storageKey) => deleteFileRefBytes(files, { storageKey }, "soft-delete-cleanup:row")
+      : undefined,
+    fileRefForget: async (fileRefId) =>
+      (await getFileRefExecutor().forget({ id: fileRefId }, writer.user, writer.db)).isSuccess,
+    fileRefRebind: async (fileRefId, from, to) => {
+      try {
+        const outcome = await rebindFileRef(
+          { db: writer.db, registry, user: writer.user },
+          { fileRefId, from, to },
+        );
+        return outcome === "rebound";
+      } catch (err) {
+        args.log.warn(
+          `[soft-delete-cleanup] ${args.source} ${String(args.row["id"])} fileRef ${fileRefId} not rebound: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return false;
+      }
+    },
+  });
+}
+
 // Keyset on id: a row whose forget fails is logged and skipped, it must not hide the rows behind it.
 async function forgetExpiredPages(
   writer: PurgeWriter,
   source: string,
   table: PurgeTable,
   where: WhereObject,
-  ctx: Pick<JobContext, "obs">,
+  ctx: Pick<JobContext, "obs" | "services" | "registry">,
   readDb: AnyDb,
 ): Promise<void> {
+  const { registry } = ctx;
+  const entity = registry?.getEntity(source);
+  const filePlan = entity === undefined ? undefined : planFileFields(entity.fields);
+  const hasFileFields =
+    filePlan !== undefined && (filePlan.singleFields.length > 0 || filePlan.multiFields.length > 0);
+  const fileHolders = hasFileFields && registry ? collectSingleFileHolders(registry) : [];
   let afterId: string | undefined;
   for (;;) {
-    const page = await selectMany<{ id: string }>(
+    const page = await selectMany<Record<string, unknown> & { id: string }>(
       readDb,
       table,
       { ...where, ...(afterId === undefined ? {} : { id: { gt: afterId } }) },
@@ -183,6 +246,23 @@ async function forgetExpiredPages(
     if (last === undefined) break;
     for (const row of page) {
       try {
+        if (hasFileFields && entity && registry) {
+          const outcome = await purgeRowFilesBeforeForget({
+            writer,
+            source,
+            entity,
+            table,
+            fileHolders,
+            registry,
+            files: ctx.services.files,
+            row,
+            log: ctx.obs.log,
+          });
+          if (outcome !== "purged") {
+            ctx.obs.log.warn(`[soft-delete-cleanup] ${source} ${row.id} kept: ${outcome}`);
+            continue;
+          }
+        }
         await forgetRow(writer, row.id);
       } catch (err) {
         ctx.obs.log.warn(
