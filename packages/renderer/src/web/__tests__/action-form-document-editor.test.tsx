@@ -167,6 +167,63 @@ describe("document field with aiAssist", () => {
   });
 });
 
+describe("document field with aiAssist and no registered editor", () => {
+  test("the textarea shows plain text while the submitted value stays html", async () => {
+    const writes: { type: string; payload: unknown }[] = [];
+    const dispatcher = createMockDispatcher({
+      query: async () => ({ isSuccess: true, data: { message: "Dear <you>,\n\nsecond" } }),
+      write: async (type: string, payload: unknown) => {
+        writes.push({ type, payload });
+        return { isSuccess: true, data: {} };
+      },
+    });
+    const assistForm: ActionFormScreenDefinition = {
+      id: "new-message",
+      type: "actionForm",
+      handler: "mail:write:send",
+      fields: { body: { type: "longText" } },
+      layout: {
+        sections: [
+          {
+            fields: [
+              {
+                field: "body",
+                editor: "document",
+                aiAssist: {
+                  query: "mail:query:draft",
+                  resultField: "message",
+                  chips: [{ label: "Shorter", params: { style: "short" } }],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    };
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <NavProvider value={memoryNav}>
+          <KumikoScreen
+            schema={{ featureName: "mail", entities: {}, screens: [assistForm] }}
+            qn="mail:screen:new-message"
+          />
+        </NavProvider>
+      </DispatcherProvider>,
+    );
+
+    fireEvent.click(screen.getByTestId("field-ai-chip-body-0"));
+    const textarea = await waitFor(() => {
+      const element = document.querySelector("textarea");
+      if (element === null || element.value === "") throw new Error("assist text not written yet");
+      return element;
+    });
+    expect(textarea.value).toBe("Dear <you>,\n\nsecond");
+    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0]?.payload).toEqual({ body: "<p>Dear &lt;you&gt;,</p><p>second</p>" });
+  });
+});
+
 describe("actionForm field width in a columns section", () => {
   const widthForm = (columns?: number, flow?: boolean): ActionFormScreenDefinition => ({
     id: "new-message",

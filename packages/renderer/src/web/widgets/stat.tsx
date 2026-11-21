@@ -191,6 +191,7 @@ export function StatCard({
   inset = false,
   subBelow = false,
   boardPadding = false,
+  emphasize = false,
   children,
 }: {
   readonly icon?: ReactNode;
@@ -213,6 +214,8 @@ export function StatCard({
   readonly subBelow?: boolean;
   /** Detail metric tile spacing: 12px/14px padding, 10px/12px and a 17px value below `sm`. */
   readonly boardPadding?: boolean;
+  /** Highlights the tile with a primary ring (a total among peers). */
+  readonly emphasize?: boolean;
   /** Extra content below the built-in fields (e.g. a usage meter) — kept
    *  inside the same card chrome instead of stacking a second bordered box. */
   readonly children?: ReactNode;
@@ -227,7 +230,12 @@ export function StatCard({
     // kumiko-lint-ignore no-framed-extension-sections see the widget-scope reasoning above
     <Card
       options={{ padded: false }}
-      className={cn("relative", statTileSurface(inset, boardPadding), TONE_STRIPE[tone])}
+      className={cn(
+        "relative",
+        statTileSurface(inset, boardPadding),
+        TONE_STRIPE[tone],
+        emphasize && "ring-2 ring-primary/50",
+      )}
       testId={testId}
     >
       {leadsSomewhere && (

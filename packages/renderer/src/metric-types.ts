@@ -14,6 +14,8 @@ export type MetricProps = {
   readonly onPress?: () => void;
   /** Draw as a KPI tile (the dashboard StatCard) instead of a band entry. */
   readonly tile?: boolean;
+  /** Highlights a KPI tile (a total); a band entry ignores it. */
+  readonly emphasize?: boolean;
   readonly tone?: DashboardStatTone;
   readonly icon?: NavIconKey;
   /** Small muted line under the value (see `MetricSpec.subField`). */

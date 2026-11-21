@@ -71,6 +71,7 @@ describe("actionForm successFacts", () => {
 
     await waitFor(() => screen.getByText("Charged"));
     expect(screen.getByText("Charged").nextElementSibling?.textContent).toBe("12");
+    expect(screen.getByTestId("action-form-success-fact-0").textContent).toBe("Charged12");
     // The message and each fact are separate elements, several lines become one element each.
     expect(screen.getByTestId("action-form-success-text").textContent).toBe("Done.");
     expect(screen.getByTestId("action-form-success-fact-1").textContent).toBe(

@@ -319,7 +319,12 @@ export function ActionFormBody({
   // A drawer-hosted form is not a navigation target, so it never takes a handoff.
   const handoff = onSuccess === undefined ? pendingHandoff : undefined;
   const handoffValues = handoff?.values;
-  const submitThrough = handoff?.submitThrough;
+  // The handoff wraps one submit; a form that stays open afterwards writes to its own handler again.
+  const [consumedHandoff, setConsumedHandoff] = useState<typeof handoff>(undefined);
+  const submitThrough =
+    consumedHandoff !== undefined && consumedHandoff === handoff
+      ? undefined
+      : handoff?.submitThrough;
   const buildSubmitThroughPayload = useCallback(
     (_snapshot: FormSnapshot<FormValues>, shapedValues: unknown): unknown =>
       submitThrough === undefined
@@ -356,23 +361,23 @@ export function ActionFormBody({
           searchParams: nav.searchParams,
         })
       : undefined;
+  const loadPrefill = initialOverrides ?? handoffValues;
   const loadState = useActionFormLoad(
     screen.load,
     loadRecordId,
     loadableFieldNames,
     screen.summary?.paramsFromLoad,
-    initialOverrides ?? handoffValues,
+    loadPrefill,
   );
   // What an aiAssist query gets besides its chip params: the same context the form loads with.
-  const aiAssistPayload = useMemo(
-    (): Readonly<Record<string, unknown>> =>
-      screen.load === undefined
-        ? (initialOverrides ?? {})
-        : screen.load.singleton === true
-          ? {}
-          : { [screen.load.idParam ?? DEFAULT_LOAD_ID_PARAM]: loadRecordId },
-    [screen.load, initialOverrides, loadRecordId],
-  );
+  const aiAssistPayload = useMemo((): Readonly<Record<string, unknown>> => {
+    if (screen.load === undefined) return loadPrefill ?? {};
+    const idPart =
+      screen.load.singleton === true
+        ? {}
+        : { [screen.load.idParam ?? DEFAULT_LOAD_ID_PARAM]: loadRecordId };
+    return { ...(screen.load.passPrefill === true && loadPrefill), ...idPart };
+  }, [screen.load, loadPrefill, loadRecordId]);
   const loadedValues = loadState?.status === "ready" ? loadState.values : undefined;
   const summaryLoadValues = loadState?.status === "ready" ? loadState.summaryValues : undefined;
   const refetchLoadedValues = loadState?.status === "ready" ? loadState.refetch : undefined;
@@ -442,6 +447,7 @@ export function ActionFormBody({
       const sequence = successSequence.current;
       setSuccess(undefined);
       if (!result.isSuccess) return;
+      setConsumedHandoff(handoff);
       if (onSuccess !== undefined) {
         onSuccess();
         navigateAfterDrawerSubmit({
@@ -507,6 +513,7 @@ export function ActionFormBody({
       locale,
       effectiveTranslate,
       refetchLoadedValues,
+      handoff,
     ],
   );
   // The success box disappears with the next edit; a submit clears it itself.

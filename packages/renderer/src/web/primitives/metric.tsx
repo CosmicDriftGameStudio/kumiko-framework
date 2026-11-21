@@ -67,7 +67,7 @@ function useMetricSub({ sub, narrowSub }: MetricProps): {
 }
 
 function MetricTile(props: MetricProps): ReactNode {
-  const { label, value, testId, onPress, tone, icon } = props;
+  const { label, value, testId, onPress, tone, icon, emphasize } = props;
   // The phone's short sub line ("of 2,850") stands beside the value like the board; the full one sits below.
   const { sub, beside: subBeside } = useMetricSub(props);
   const card = (
@@ -75,6 +75,7 @@ function MetricTile(props: MetricProps): ReactNode {
       label={label}
       value={value}
       boardPadding
+      {...(emphasize === true && { emphasize: true })}
       {...(sub !== undefined && { sub, subBelow: !subBeside })}
       {...(onPress !== undefined && { navigable: true })}
       {...(icon !== undefined && { icon: <Icon name={icon} className="size-4" /> })}

@@ -9,6 +9,7 @@ export function DefaultKeyValueList({ rows }: KeyValueListProps): ReactNode {
       {rows.map((row) => (
         <div
           key={row.key}
+          {...(row.testId !== undefined && { "data-testid": row.testId })}
           {...(row.emphasize === true && { "data-emphasize": "" })}
           className={cn(
             "flex items-baseline justify-between gap-4 py-1.5 text-sm",

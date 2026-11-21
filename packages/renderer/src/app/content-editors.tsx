@@ -78,6 +78,10 @@ export function TextareaContentEditor({
   );
 }
 
+export function useHasContentEditor(contentFormat: ContentEditorFormat): boolean {
+  return useContext(ContentEditorsContext)[contentFormat] !== undefined;
+}
+
 /** Resolves the editor for a contentFormat, falling back to the plain
  *  textarea when no clientFeature registered one. `contentFormat`
  *  undefined (collection didn't declare one) behaves like "plain". */
