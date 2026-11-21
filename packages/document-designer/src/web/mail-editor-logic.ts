@@ -1,6 +1,7 @@
+import { dateVariableNames } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { fileUrl } from "./file-name.ts";
-import { buildMeta, dateVariableNames, systemLabelMap, variableLabelMap } from "./mail-draft.ts";
+import { buildMeta, systemLabelMap, variableLabelMap } from "./mail-draft.ts";
 import type { EditorVocabulary } from "./mail-edit-center.tsx";
 import type {
   LinkedResourceView,

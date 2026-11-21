@@ -31,6 +31,7 @@ import { type ReactNode, useRef, useState } from "react";
 import {
   COMPANY_PLACEHOLDERS,
   DocumentContentEditor,
+  dateVariableNames,
   PDF_DOCUMENT_BLOCKS,
   systemPlaceholderLabel,
   translatedOr,
@@ -69,12 +70,6 @@ const MAX_DEVIATION_TEXT_LENGTH = 120;
 
 function isShownValue(value: unknown): value is string | number | boolean {
   return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
-}
-
-function dateVariableNamesOf(record: DraftRecord): readonly string[] {
-  return Object.entries(record.variableSchema).flatMap(([name, definition]) =>
-    propertyOf(definition, "type") === "date" ? [name] : [],
-  );
 }
 
 function hasMoneyVariable(record: DraftRecord): boolean {
@@ -372,7 +367,7 @@ function DraftEditor({
             variables={Object.keys(record.variableSchema)}
             variableLabels={variableLabelsOf(t, record, currency)}
             systemVariables={SYSTEM_VARIABLES}
-            dateVariables={dateVariableNamesOf(record)}
+            dateVariables={dateVariableNames(record.variableSchema)}
             blocks={PDF_DOCUMENT_BLOCKS}
             readOnly={!open}
           />

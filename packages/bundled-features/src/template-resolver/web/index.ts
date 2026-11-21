@@ -7,6 +7,7 @@
 export { textBlocksClient } from "./client-plugin.tsx";
 export type { EditableTemplateKind } from "./constants.ts";
 export { COMPANY_PLACEHOLDERS, MAX_SELECTED_TEMPLATES } from "./constants.ts";
+export { dateVariableNames } from "./date-variable-names.ts";
 export { DocumentContentEditor } from "./document-editor.tsx";
 export {
   DOCUMENT_FONT_LABELS,
