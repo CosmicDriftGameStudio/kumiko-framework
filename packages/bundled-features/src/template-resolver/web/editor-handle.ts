@@ -35,6 +35,7 @@ export function useEditorHandleReport(
   // Callers pass a fresh function per render; keying the effect on it would re-report each render.
   const reportRef = useRef(onEditorReady);
   reportRef.current = onEditorReady;
+  // biome-ignore lint/plugin: reports the tiptap editor instance created in tiptap's own effect and withdraws it on unmount
   useEffect(() => {
     // skip: useEditor creates the instance in a later effect; the next run reports it
     if (editor === null) return;
