@@ -343,7 +343,6 @@ function reportRunOutcome(
         "backfillEventPiiEncryption(..., { eraseUnresolvableSubjects: true })",
       {
         failureCount: progress.failures.length,
-        eventIds: progress.failures.slice(0, MAX_LOGGED_FAILURE_IDS).map((f) => f.eventId),
         failures: progress.failures
           .slice(0, MAX_LOGGED_FAILURE_IDS)
           .map((f) => ({ eventId: f.eventId, reason: f.reason })),

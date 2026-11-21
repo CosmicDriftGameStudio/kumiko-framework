@@ -149,6 +149,23 @@ describe("normalizeStoredUserEmails", () => {
     expect(((await res.json()) as { user: { id: string } }).user.id).toBe(id);
   });
 
+  test("accounts beyond the first batch are normalized too", async () => {
+    const ids = [
+      await createUserAsStoredBefore("a1@x.de"),
+      await createUserAsStoredBefore("A2@X.de"),
+      await createUserAsStoredBefore("a3@x.de"),
+      await createUserAsStoredBefore("A4@X.de"),
+      await createUserAsStoredBefore("A5@X.de"),
+    ];
+
+    const result = await normalizeStoredUserEmails(stack.db, { batchSize: 2 });
+
+    expect([...result.rewrittenUserIds].sort()).toEqual(
+      [ids[1], ids[3], ids[4]].filter((id): id is string => id !== undefined).sort(),
+    );
+    expect((await login("a5@x.de")).status).toBe(200);
+  });
+
   test("a second run rewrites nothing and appends no event", async () => {
     await createUserAsStoredBefore("Max@X.de");
     await normalizeStoredUserEmails(stack.db);

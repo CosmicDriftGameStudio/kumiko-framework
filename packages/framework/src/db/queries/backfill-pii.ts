@@ -982,7 +982,8 @@ async function rekeySelfOwnedValue(deps: RekeyDeps, target: RekeyTarget): Promis
   );
 }
 
-// Forgotten and dryRun are decided before the plaintext is read.
+// For other-owned fields, forgotten and dryRun are decided before the plaintext is read;
+// a self-owned field must decrypt first to learn its owner.
 async function moveUnderUserSubject(
   deps: RekeyDeps,
   userSubject: SubjectId,

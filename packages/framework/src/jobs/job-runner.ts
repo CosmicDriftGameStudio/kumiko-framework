@@ -491,7 +491,14 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     await markSchedulersSeen(queue, schedulerIds);
     // Sweep first: the re-create skips a job whose other-wake-flag id exists,
     // and must not skip for an id this tick removes.
-    await removeOrphanJobSchedulers(queue, schedulerIds, new Set(), lane, orphanSchedulerLog);
+    await removeOrphanJobSchedulers(
+      queue,
+      schedulerIds,
+      new Set(),
+      lane,
+      orphanSchedulerLog,
+      "stamp",
+    );
     await recreateMissingCronSchedulers(queue, lane, schedulerIds);
   }
 

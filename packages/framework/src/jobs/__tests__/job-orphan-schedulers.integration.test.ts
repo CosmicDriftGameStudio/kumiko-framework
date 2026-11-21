@@ -383,6 +383,30 @@ describe("orphan job schedulers while the runner keeps running", () => {
     }
   });
 
+  test("a scheduler without a seen entry, upserted after the start sweep, is stamped by a refresh tick instead of removed", async () => {
+    const prefix = uniquePrefix();
+    const runner = runnerWithCronJob(prefix, "kept");
+    const keptId = schedulerIdForJobName("orphan:job:kept");
+    const newcomerId = schedulerIdForJobName("orphan:job:newcomer");
+    const workerQueue = rawQueue(prefix, "worker");
+    const seenKey = workerQueue.toKey("kumiko-scheduler-seen");
+    try {
+      await runner.start();
+      const client = await workerQueue.client;
+      await workerQueue.upsertJobScheduler(newcomerId, { pattern: "0 0 1 1 *" }, template);
+
+      await waitFor(async () => (await client.hexists(seenKey, newcomerId)) === 1);
+      await waitForRefreshTicks(workerQueue, seenKey, keptId);
+
+      expect(await schedulerKeys(workerQueue)).toEqual([keptId, newcomerId].sort());
+    } finally {
+      await runner.stop();
+      await workerQueue.close();
+      await purgeRawRedisKeys(redisUrl, `bull:${prefix}-worker:*`);
+      await purgeRawRedisKeys(redisUrl, `bull:${prefix}-api:*`);
+    }
+  });
+
   test("a scheduler another live runner keeps stamping survives several refresh ticks", async () => {
     const prefix = uniquePrefix();
     const owner = runnerWithCronJob(prefix, "kept");

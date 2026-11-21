@@ -101,6 +101,42 @@ describe("search consumer without a db on its context", () => {
     expect(held[0]?.reason).toContain("no db on the consumer context");
   });
 
+  test("an unexpected throw of one tenant flush rejects only after the sibling flushes finished", async () => {
+    const removed: string[] = [];
+    const adapter: SearchAdapter = {
+      ...createInMemorySearchAdapter(),
+      removeBatch: async (_tenantId, items) => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        for (const item of items) removed.push(String(item.entityId));
+      },
+    };
+    const consumer = createSearchEventConsumer(adapter, noteRegistry());
+    const failingTenant = "00000000-0000-4000-8000-000000000001" as TenantId;
+    const slowTenant = "00000000-0000-4000-8000-000000000002" as TenantId;
+    const slowNoteId = crypto.randomUUID();
+    let heldAfterReject = false;
+    let rejected = false;
+
+    const outcome = consumer.batchHandler?.(
+      [
+        eventOf("1", "nodb:event:note:relabeled", failingTenant, crypto.randomUUID()),
+        eventOf("2", "note.deleted", slowTenant, slowNoteId),
+      ],
+      {} as Parameters<typeof consumer.handler>[1],
+      {
+        holdForRetry: () => {
+          if (rejected) heldAfterReject = true;
+          throw new Error("turn already ended");
+        },
+      },
+    );
+    await expect(outcome).rejects.toThrow("turn already ended");
+    rejected = true;
+
+    expect(removed).toEqual([slowNoteId]);
+    expect(heldAfterReject).toBe(false);
+  });
+
   test("the tenants of one batch are flushed side by side, not one after another", async () => {
     let inFlight = 0;
     let mostInFlight = 0;

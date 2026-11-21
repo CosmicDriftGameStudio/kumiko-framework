@@ -25,6 +25,8 @@ export type StoredEmailNormalizationResult = {
   readonly failedUsers: readonly { readonly userId: string; readonly code: string }[];
 };
 
+const DEFAULT_BATCH_SIZE = 500;
+
 function failureCode(e: unknown): string {
   if (e instanceof UserEmailRewriteError) return e.code;
   return e instanceof Error ? e.name : "unknown";
@@ -46,40 +48,54 @@ async function readStoredEmail(
 // lower-cases its input. Rewrites go through the executor, so the event and the blind index follow.
 export async function normalizeStoredUserEmails(
   db: DbRunner,
-  options: { readonly signal?: AbortSignal } = {},
+  options: { readonly signal?: AbortSignal; readonly batchSize?: number } = {},
 ): Promise<StoredEmailNormalizationResult> {
   const kms = configuredPiiSubjectKms();
   const by = createSystemUser(SYSTEM_TENANT_ID);
-  const rows = await selectMany(db, userTable, {
-    isDeleted: false,
-    status: { ne: USER_STATUS.Deleted },
-  });
+  const batchSize = options.batchSize ?? DEFAULT_BATCH_SIZE;
   const rewrittenUserIds: string[] = [];
   const duplicateUserIds: string[] = [];
   const versionConflictUserIds: string[] = [];
   const undecryptableUserIds: string[] = [];
   const failedUsers: { userId: string; code: string }[] = [];
-  for (const row of rows) {
-    if (options.signal?.aborted) break;
-    const id = String(row["id"]);
-    let storedEmail: unknown;
-    try {
-      storedEmail = await readStoredEmail(row, kms);
-    } catch {
-      undecryptableUserIds.push(id);
-      continue;
+  let afterId: string | undefined;
+  while (!options.signal?.aborted) {
+    // Keyset on id: a rewrite changes the email, never the id, so the cursor stays valid.
+    const rows = await selectMany(
+      db,
+      userTable,
+      {
+        isDeleted: false,
+        status: { ne: USER_STATUS.Deleted },
+        ...(afterId !== undefined && { id: { gt: afterId } }),
+      },
+      { orderBy: { col: "id", direction: "asc" }, limit: batchSize },
+    );
+    for (const row of rows) {
+      if (options.signal?.aborted) break;
+      const id = String(row["id"]);
+      let storedEmail: unknown;
+      try {
+        storedEmail = await readStoredEmail(row, kms);
+      } catch {
+        undecryptableUserIds.push(id);
+        continue;
+      }
+      if (typeof storedEmail !== "string" || storedEmail === normalizeEmail(storedEmail)) continue;
+      let outcome: UserEmailRewriteOutcome;
+      try {
+        outcome = await rewriteSeededUserEmail(db, row, normalizeEmail(storedEmail), by);
+      } catch (e) {
+        failedUsers.push({ userId: id, code: failureCode(e) });
+        continue;
+      }
+      if (outcome === "rewritten") rewrittenUserIds.push(id);
+      else if (outcome === "unique_violation") duplicateUserIds.push(id);
+      else if (outcome === VERSION_CONFLICT_CODE) versionConflictUserIds.push(id);
     }
-    if (typeof storedEmail !== "string" || storedEmail === normalizeEmail(storedEmail)) continue;
-    let outcome: UserEmailRewriteOutcome;
-    try {
-      outcome = await rewriteSeededUserEmail(db, row, normalizeEmail(storedEmail), by);
-    } catch (e) {
-      failedUsers.push({ userId: id, code: failureCode(e) });
-      continue;
-    }
-    if (outcome === "rewritten") rewrittenUserIds.push(id);
-    else if (outcome === "unique_violation") duplicateUserIds.push(id);
-    else if (outcome === VERSION_CONFLICT_CODE) versionConflictUserIds.push(id);
+    const last = rows.at(-1);
+    if (last === undefined || rows.length < batchSize) break;
+    afterId = String(last["id"]);
   }
   return {
     rewrittenUserIds,
