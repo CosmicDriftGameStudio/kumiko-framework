@@ -6,6 +6,7 @@ import type { JobContext } from "@cosmicdrift/kumiko-types/handlers";
 import type { DbRow } from "../db/connection.ts";
 import { createSystemUser } from "../engine/system-user.ts";
 import type { ContextServices, JobObservability } from "../engine/types/index.ts";
+import { createFallbackLogger } from "../logging/index.ts";
 import { createMetricsForFactory } from "../observability/index.ts";
 import { buildContextServices } from "../pipeline/context-services.ts";
 import { parseWriteOrigin } from "../pipeline/write-origin.ts";
@@ -171,7 +172,15 @@ function buildJobContext(
   // this run (see createJobTriggerEventConsumer).
   const rawTriggerEvent = rawData["_triggerEvent"];
   const triggerEvent = isJobTriggerEvent(rawTriggerEvent) ? rawTriggerEvent : undefined;
-  const jobLogger = createJobLogger(input.logs);
+  const jobLogger = createJobLogger(
+    input.logs,
+    {},
+    {
+      logger: createFallbackLogger("job-runner", scope.context.log),
+      job: jobName,
+      runId: input.jobId,
+    },
+  );
   const jobContext: Omit<JobContext, "tz"> = {
     defer: createJobDefer(jobName, bullJob, token),
     canDefer: isQueuedRun(bullJob, token) && hasDeferBudgetLeft(rawData, input.jobDef.maxDefers),
@@ -245,6 +254,7 @@ export function prepareJobRun(
   };
   const { jobContext, config } = buildJobContext(scope, {
     jobName,
+    jobId,
     jobDef,
     bullJob,
     token,

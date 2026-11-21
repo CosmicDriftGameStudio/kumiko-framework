@@ -29,6 +29,7 @@ import type { JobInvocation, JobLogEntry } from "./job-runner-types.ts";
 
 export type JobContextInput = {
   readonly jobName: string;
+  readonly jobId: string;
   readonly jobDef: JobDefinition;
   readonly bullJob: JobInvocation;
   readonly token: string | undefined;
