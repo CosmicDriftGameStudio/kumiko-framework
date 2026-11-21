@@ -24,6 +24,7 @@ export function useRedirectAuthedFromLogin({
   // Callers pass an inline object; a ref keeps it out of the effect deps.
   const targetRef = useRef(target);
   targetRef.current = target;
+  // biome-ignore lint/plugin: subscribes to the browser's popstate event; no framework hook covers window events
   useEffect(() => {
     // skip: no browser location to inspect (native or server render)
     if (typeof window === "undefined") return;

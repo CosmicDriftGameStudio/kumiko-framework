@@ -325,7 +325,9 @@
       "resolutionKind": "config",
       "includes": [
         "**/web/**/*.tsx",
+        "**/web/**/*.ts",
         "**/public/**/*.tsx",
+        "**/public/**/*.ts",
         "!**/__tests__/**",
         "!**/*.test.ts",
         "!**/*.test.tsx",

@@ -1,6 +1,7 @@
 import type { TargetRef } from "@cosmicdrift/kumiko-framework/engine";
 import { useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { useEffect, useState } from "react";
+import { useDraft } from "@cosmicdrift/kumiko-renderer/web";
+import { useState } from "react";
 import { refreshTree, TEXT_BLOCK_TREE_KEY } from "./content-tree-provider.ts";
 import { convertLegacyVariableText } from "./legacy-variable-text.ts";
 import {
@@ -27,6 +28,22 @@ type EditTargetArgs = {
   locale?: string;
   collectionId?: string;
   tenantIdOverride?: string;
+};
+
+type EditorDraft = {
+  readonly title: string;
+  readonly content: string;
+  readonly baselineTitle: string;
+  readonly baselineContent: string;
+  readonly savedMsg: string | null;
+};
+
+const EMPTY_DRAFT: EditorDraft = {
+  title: "",
+  content: "",
+  baselineTitle: "",
+  baselineContent: "",
+  savedMsg: null,
 };
 
 export function useTextBlockEditor(target: TargetRef) {
@@ -66,35 +83,51 @@ export function useTextBlockEditor(target: TargetRef) {
     { enabled: slug !== "" && locale !== "" },
   );
 
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [savedMsg, setSavedMsg] = useState<string | null>(null);
-  // What is stored, to tell unsaved edits from the loaded state and to discard back to it.
-  // Separate strings: the sync effect re-runs for a fresh `loaded` object and equal strings bail out of the update.
-  const [baselineTitle, setBaselineTitle] = useState("");
-  const [baselineContent, setBaselineContent] = useState("");
-
-  // Sync loaded data into the form state. loaded === null means the block does
-  // not exist yet — empty form for the create flow.
-  // Keyed on the loaded primitives, not the result object: a refetch that returns identical
-  // values must not wipe what the user is typing.
+  // loaded === null means the block does not exist yet: empty form for the create flow.
+  // The draft also carries the stored baselines (to tell unsaved edits from the loaded state and to
+  // discard back to it) and the saved message, so loading new data resets all of them at once.
   const loadedTitle = loaded?.title ?? "";
   const loadedContent = loaded?.content ?? "";
-  useEffect(() => {
-    // skip: keep the form untouched until the query settles
-    if (loading) return;
-    const shownContent =
-      contentFormat === "document" ? convertLegacyVariableText(loadedContent) : loadedContent;
-    setTitle(loadedTitle);
-    setContent(shownContent);
-    setBaselineTitle(loadedTitle);
-    setBaselineContent(shownContent);
+  const shownContent =
+    contentFormat === "document" ? convertLegacyVariableText(loadedContent) : loadedContent;
+  // Keyed on the loaded primitives, not the result object: a refetch that returns identical
+  // values must not wipe what the user is typing. While loading the form stays untouched.
+  const loadKey = [
+    slug,
+    locale,
+    collectionId,
+    tenantIdOverride,
+    contentFormat,
+    loadedTitle,
+    loadedContent,
+  ]
+    .map((part) => part ?? "")
+    .join("\u0000");
+  const { draft, loadedKey, patch } = useDraft(EMPTY_DRAFT, {
+    initialFrom: {
+      key: loadKey,
+      values: loading
+        ? undefined
+        : {
+            title: loadedTitle,
+            content: shownContent,
+            baselineTitle: loadedTitle,
+            baselineContent: shownContent,
+            savedMsg: null,
+          },
+    },
+  });
+  const [errorClearedFor, setErrorClearedFor] = useState<string | null>(null);
+  if (loadedKey !== errorClearedFor) {
+    setErrorClearedFor(loadedKey);
     clearError();
-    setSavedMsg(null);
-  }, [loading, loadedTitle, loadedContent, contentFormat, clearError]);
+  }
+  const { title, content, baselineTitle, baselineContent, savedMsg } = draft;
+  const setTitle = (value: string): void => patch({ title: value });
+  const setContent = (value: string): void => patch({ content: value });
 
   const save = async (): Promise<void> => {
-    setSavedMsg(null);
+    patch({ savedMsg: null });
     const response = await write(writeHandler, {
       slug,
       locale,
@@ -109,19 +142,19 @@ export function useTextBlockEditor(target: TargetRef) {
     // skip: useContentWrite already set the failure text
     if (response === null) return;
     refreshTree(collectionId ?? TEXT_BLOCK_TREE_KEY);
-    setBaselineTitle(title);
-    setBaselineContent(content);
-    setSavedMsg(
-      response.isNew ? t("template-resolver.editor.created") : t("template-resolver.editor.saved"),
-    );
+    patch({
+      baselineTitle: title,
+      baselineContent: content,
+      savedMsg: response.isNew
+        ? t("template-resolver.editor.created")
+        : t("template-resolver.editor.saved"),
+    });
   };
 
   const dirty = title !== baselineTitle || content !== baselineContent;
   const discard = (): void => {
-    setTitle(baselineTitle);
-    setContent(baselineContent);
+    patch({ title: baselineTitle, content: baselineContent, savedMsg: null });
     clearError();
-    setSavedMsg(null);
   };
 
   return {
