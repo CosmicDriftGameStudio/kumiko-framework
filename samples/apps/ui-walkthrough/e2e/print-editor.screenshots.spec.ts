@@ -78,10 +78,14 @@ test("print-layout-apply", async ({ page }) => {
 
 test("print-layout-image-bubble", async ({ page }) => {
   await loginAs(page, PRINT_EDITOR_TENANTS.appearance.adminEmail, PRINT_EDITOR_PASSWORD);
+  // The placeholder vocabulary comes with the validate response and rebuilds the editors, which drops focus and selection.
+  const vocabularyLoaded = page.waitForResponse(
+    (response) =>
+      response.request().postData()?.includes("template-resolver:query:validate") === true,
+  );
   await page.goto("/layout-editor?kind=pdf-layout&slug=default");
   const header = page.getByTestId("document-designer-region-header");
-  // The placeholder vocabulary arrives after the first paint and rebuilds the editors, which drops focus and selection.
-  await page.waitForLoadState("networkidle");
+  await vocabularyLoaded;
   await header.getByText("Am Hafen 12").click();
   // A leading image starts out selected. The click only counts once the editor has moved off it; keys sent
   // earlier act on the still-selected image and end on the gap cursor instead of selecting it.

@@ -72,10 +72,11 @@ const KEYWORDS = new Set([
 const TOKEN_PATTERN =
   /(\/\/.*)|('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_$][\w$]*)|(\s+)|([\s\S])/gy;
 
-function identifierKind(name: string, followedByParen: boolean): TokenKind {
+function identifierKind(name: string, next: string | undefined): TokenKind {
   if (KEYWORDS.has(name)) return "keyword";
-  if (followedByParen) return "function";
+  if (next === "(") return "function";
   if (/^[A-Z]/.test(name)) return "type";
+  if (next === "<") return "function";
   return "plain";
 }
 
@@ -96,7 +97,7 @@ function highlightTypeScriptHtml(code: string): string {
     else if (number !== undefined) emit("number", number);
     else if (identifier !== undefined) {
       const next = code[(match.index ?? 0) + identifier.length];
-      emit(identifierKind(identifier, next === "(" || next === "<"), identifier);
+      emit(identifierKind(identifier, next), identifier);
     } else emit("plain", text);
   }
   return parts.join("");
@@ -107,7 +108,9 @@ export function editorStage(options: EditorStageOptions): PreviewStage {
   const lineHeight = Math.round(fontSize * 1.6);
   const firstNumber = options.firstLineNumber ?? 1;
   const random = seededRandom(options.seed ?? 1);
-  const lastTypedIndex = options.lines.findLastIndex((line) => typeof line !== "string");
+  const lastTypedIndex = options.lines.findLastIndex(
+    (line) => typeof line !== "string" && line.typed.trim() !== "",
+  );
   const gutterChars = String(firstNumber + options.lines.length - 1).length;
   const keyframeCss: string[] = [];
   let clock = options.startDelayMs ?? 600;
@@ -146,7 +149,7 @@ ${keyframeCss.join("\n")}
 .tab { display: flex; align-items: center; padding: 0 ${Math.round(fontSize * 1.1)}px; background: ${STAGE_WINDOW_BACKGROUND}; color: ${STAGE_TEXT_COLOR}; border-top: 2px solid #5fd7e6; }
 .editor { flex: 1 1 0; min-height: 0; overflow: hidden; padding: ${Math.round(fontSize * 0.7)}px 0; font-size: ${fontSize}px; line-height: ${lineHeight}px; }
 .line { position: relative; display: flex; height: ${lineHeight}px; white-space: pre; }
-.gutter { flex: none; width: ${gutterChars}ch; box-sizing: contentHtml-box; padding: 0 ${Math.round(fontSize * 1.2)}px; text-align: right; color: #4b5263; }
+.gutter { flex: none; width: ${gutterChars}ch; box-sizing: content-box; padding: 0 ${Math.round(fontSize * 1.2)}px; text-align: right; color: #4b5263; }
 .code { position: relative; }
 .active-line { position: absolute; inset: 0; background: rgba(255,255,255,0.05); opacity: 0; }
 .typed { display: inline-block; overflow: hidden; vertical-align: bottom; width: 0; }
