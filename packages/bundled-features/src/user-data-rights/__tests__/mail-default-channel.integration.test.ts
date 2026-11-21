@@ -6,7 +6,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
+import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createFilesFeature, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
@@ -49,6 +49,7 @@ import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/mem
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.ts";
 import { createUserDataRightsFeature } from "../feature.ts";
+import { makeDefaultDeletionExecutedEmail } from "../lib/default-mailers.ts";
 import { UserDataRightsJobs } from "../web/constants.ts";
 import { setupSubjectKmsForTest } from "./forget-shredding-test-helpers.ts";
 
@@ -183,5 +184,44 @@ describe("deletion-executed default mail through the email channel", () => {
     expect(appTransport.sent[0]?.subject).toContain("Dein Konto wurde gelöscht");
     expect(getInbox(TENANT_WITHOUT_PROVIDER)).toHaveLength(0);
     expect(await selectMany(stack.db, deliveryAttemptsTable, {})).toHaveLength(0);
+  });
+});
+
+describe("deletion-executed default mail: skipped and failed channel results", () => {
+  function mailerOverRealChannel() {
+    return makeDefaultDeletionExecutedEmail(
+      {
+        registry: stack.registry,
+        db: stack.db,
+        resolveTransport: async () => {
+          throw new Error("transport fallback must not be used while the email channel is mounted");
+        },
+        configFor: () => undefined,
+      },
+      { appName: "Acme" },
+    );
+  }
+
+  const executedArgs = {
+    userId: USER_ID,
+    userLocale: "de",
+    tenantIds: [TENANT_WITHOUT_PROVIDER as TenantId],
+    executedAt: "2026-07-30T09:05:00Z",
+  };
+
+  test("a reserved .invalid address counts as done: no throw, no mail sent", async () => {
+    await expect(
+      mailerOverRealChannel()({ ...executedArgs, userEmail: "guest-1@guests.invalid" }),
+    ).resolves.toBeUndefined();
+
+    expect(appTransport.sent).toHaveLength(0);
+  });
+
+  test("a failing transport still makes the mailer throw", async () => {
+    appTransport.failNext = { message: "smtp down" };
+
+    await expect(
+      mailerOverRealChannel()({ ...executedArgs, userEmail: ORIGINAL_EMAIL }),
+    ).rejects.toThrow("smtp down");
   });
 });

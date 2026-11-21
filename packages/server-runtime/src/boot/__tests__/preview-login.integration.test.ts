@@ -193,19 +193,25 @@ describe("preview login", () => {
     expect((await withLink.http.raw("GET", url)).status).toBe(403);
   });
 
-  test("a restricted owner gets no session", async () => {
+  test("an owner in any non-active status gets no session", async () => {
     await seedOwner(withLink);
-    await updateRowViaEventStore(
-      withLink.db,
-      { table: userTable, entity: userEntity, entityName: "user" },
-      { email: OWNER_EMAIL },
-      { status: USER_STATUS.Restricted },
-    );
+    for (const status of [
+      USER_STATUS.Restricted,
+      USER_STATUS.DeletionRequested,
+      USER_STATUS.Deleted,
+    ]) {
+      await updateRowViaEventStore(
+        withLink.db,
+        { table: userTable, entity: userEntity, entityName: "user" },
+        { email: OWNER_EMAIL },
+        { status },
+      );
 
-    const res = await withLink.http.raw("GET", link(freshExp()));
+      const res = await withLink.http.raw("GET", link(freshExp()));
 
-    expect(res.status).toBe(503);
-    expect(res.headers.getSetCookie()).toHaveLength(0);
+      expect(res.status).toBe(503);
+      expect(res.headers.getSetCookie()).toHaveLength(0);
+    }
   });
 
   test("a loginKey shorter than 32 characters is a boot error, an empty one means off", () => {

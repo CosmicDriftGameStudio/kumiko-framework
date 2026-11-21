@@ -64,6 +64,7 @@ export function createPreviewLoginRoutes(
   const previewLogin = config.previewLogin;
   if (previewLogin === undefined || previewLogin.loginKey === "") return undefined;
   const ctx = createAuthRouteContext(dispatcher, jwt, config);
+  log.warn("preview login route mounted: owner sign-in without MFA is enabled");
   const consumedSigs = new Map<string, number>();
   const app = new Hono();
   app.get(PREVIEW_LOGIN_PATH, async (c) => {
@@ -83,6 +84,10 @@ export function createPreviewLoginRoutes(
       log.error("preview login refused: the owner account is missing or not active");
       return c.body(null, 503);
     }
+    log.info("preview login: owner session minted", {
+      userId: owner.id,
+      tenantId: owner.tenantId,
+    });
     const claims = await dispatcher.resolveAuthClaims(owner);
     await ctx.mintSessionAndRespond(
       c,

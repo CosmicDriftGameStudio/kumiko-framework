@@ -8,7 +8,11 @@ import {
   type TenantId,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { WriteFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  InternalError,
+  type WriteFailure,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import {
@@ -251,6 +255,33 @@ export async function gateResolveMembership(
   return reject(noMembership());
 }
 
+// Shared by the password login and sessionForVerifiedUser: status gate, membership
+// query, membership choice. A malformed query answer is a server fault, not a client one.
+async function gateAccountMemberships(
+  ctx: HandlerContext,
+  found: AuthUserRow,
+): Promise<GateOutcome<{ readonly chosen: Membership; readonly mergedRoles: readonly string[] }>> {
+  const statusGate = gateEnforceAccountStatus(found);
+  if (!statusGate.ok) return statusGate;
+
+  const parsed = MembershipList.safeParse(
+    await ctx.dispatch.queryAs(createSystemUser(SYSTEM_USER_ID), TENANT_MEMBERSHIPS_QUERY, {
+      userId: found.id,
+    }),
+  );
+  if (!parsed.success) {
+    return reject(
+      writeFailure(
+        new InternalError({
+          message: "tenant memberships query returned an unexpected shape",
+          cause: parsed.error,
+        }),
+      ),
+    );
+  }
+  return gateResolveMembership(ctx, found, parsed.data);
+}
+
 // MFA challenge / setup-required / proceed. Excludes "auth-session" (this
 // gate never builds one) so callers with their own session shape reuse it as-is.
 export async function gateEnforceMfa(
@@ -303,10 +334,13 @@ export async function sessionForVerifiedUser(
   ctx: HandlerContext,
   lookup: VerifiedUserLookup,
 ): Promise<WriteResult<{ readonly kind: "auth-session"; readonly session: SessionUser }>> {
-  const systemUser = createSystemUser(SYSTEM_USER_ID);
+  // findForAuth validates `id` as a uuid; an app-supplied non-uuid is a miss, not a validation error.
+  if ("userId" in lookup && !z.uuid().safeParse(lookup.userId).success) {
+    return invalidCredentials();
+  }
   const found = parseAuthUserRow(
     await ctx.dispatch.queryAs(
-      systemUser,
+      createSystemUser(SYSTEM_USER_ID),
       UserQueries.findForAuth,
       "email" in lookup ? { email: lookup.email } : { id: lookup.userId },
     ),
@@ -318,14 +352,7 @@ export async function sessionForVerifiedUser(
     if (!emailGate.ok) return emailGate.result;
   }
 
-  const statusGate = gateEnforceAccountStatus(found);
-  if (!statusGate.ok) return statusGate.result;
-
-  const memberships = MembershipList.parse(
-    await ctx.dispatch.queryAs(systemUser, TENANT_MEMBERSHIPS_QUERY, { userId: found.id }),
-  );
-
-  const membershipGate = await gateResolveMembership(ctx, found, memberships);
+  const membershipGate = await gateAccountMemberships(ctx, found);
   if (!membershipGate.ok) return membershipGate.result;
   const { chosen, mergedRoles } = membershipGate.value;
 
@@ -408,15 +435,7 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
       const emailGate = gateEnforceEmailVerified(found, strictVerification);
       if (!emailGate.ok) return emailGate.result;
 
-      const statusGate = gateEnforceAccountStatus(found);
-      if (!statusGate.ok) return statusGate.result;
-
-      // Still needed for candidate ORDER (preferred tenant first) in gateResolveMembership.
-      const memberships = (await ctx.dispatch.queryAs(systemUser, TENANT_MEMBERSHIPS_QUERY, {
-        userId: found.id,
-      })) as Array<Membership>; // @cast-boundary db-runner
-
-      const membershipGate = await gateResolveMembership(ctx, found, memberships);
+      const membershipGate = await gateAccountMemberships(ctx, found);
       if (!membershipGate.ok) return membershipGate.result;
       const { chosen, mergedRoles } = membershipGate.value;
 
