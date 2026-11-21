@@ -18,14 +18,14 @@
 # 512Mi, growth 1Gi, scale 2Gi). Service hat keinen internen Memory-Cap —
 # OOM-Kill durch K8s ist intended (Pod-restart-policy: Always).
 
-# bun aborts under QEMU, so the install runs on the build host for the target CPU.
+# bun aborts under QEMU, so the install runs on the build host for the target CPU. --ignore-scripts keeps host-arch lifecycle builds out of the image.
 FROM --platform=$BUILDPLATFORM oven/bun:1.4.4-slim AS deps
 ARG TARGETARCH
 WORKDIR /app
 COPY apps/puppeteer-service/package.json ./
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 RUN bun -e "const f='./package.json'; const p=JSON.parse(await Bun.file(f).text()); delete p.devDependencies; await Bun.write(f, JSON.stringify(p, null, 2));" \
-    && bun install --production --os=linux --cpu="$(case "$TARGETARCH" in amd64) echo x64 ;; arm64) echo arm64 ;; *) echo "unsupported TARGETARCH '$TARGETARCH'" >&2; exit 1 ;; esac)"
+    && bun install --production --os=linux --cpu="$(case "$TARGETARCH" in amd64) echo x64 ;; arm64) echo arm64 ;; *) echo "unsupported TARGETARCH '$TARGETARCH'" >&2; exit 1 ;; esac)" --ignore-scripts
 
 FROM oven/bun:1.4.4-slim AS runtime
 

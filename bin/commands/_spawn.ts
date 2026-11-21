@@ -82,6 +82,8 @@ export function run(
     readonly env?: Record<string, string>;
     readonly timeoutMs?: number;
     readonly killGraceMs?: number;
+    /** Written to the child's stdin, which is then closed. */
+    readonly input?: string;
   },
 ): Promise<RunResult> {
   return new Promise((resolve) => {
@@ -89,6 +91,11 @@ export function run(
       cwd: opts?.cwd,
       env: opts?.env ? { ...envWithoutGitOverrides(), ...opts.env } : envWithoutGitOverrides(),
     });
+    if (opts?.input !== undefined) {
+      // The child may exit before reading all of it; its exit status carries the failure.
+      child.stdin?.on("error", () => {});
+      child.stdin?.end(opts.input);
+    }
     let stdout = "";
     let stderr = "";
     let settled = false;

@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, sep } from "node:path";
+import { join, sep } from "node:path";
 import { findPackageChangelogFiles } from "@cosmicdrift/kumiko-framework/upgrade-cli";
 import { makeContext, makeSpyOutput, makeTempCwd } from "../_test-helpers";
-import { changesCommand } from "../changes";
+import { changesCommand, formatJsonWithBiome } from "../changes";
 
 const cleanups: Array<() => void> = [];
 afterEach(() => {
@@ -31,23 +31,6 @@ const BUNDLED_FEATURES_PACKAGE = JSON.stringify({
 const GUARDS_PACKAGE = JSON.stringify({ name: "@cosmicdrift/kumiko-guards", version: "0.34.1" });
 
 const FRAMEWORK_REPO_ROOT = join(import.meta.dir, "..", "..", "..");
-
-async function formatWithRepoBiome(contents: string, repoRelativePath: string): Promise<string> {
-  const biomeBin = join(dirname(Bun.resolveSync("@biomejs/biome/package.json", FRAMEWORK_REPO_ROOT)), "bin", "biome");
-  const proc = Bun.spawn(["bun", biomeBin, "format", `--stdin-file-path=${repoRelativePath}`], {
-    cwd: FRAMEWORK_REPO_ROOT,
-    stdin: new Blob([contents]),
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const [stdout, stderr, code] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (code !== 0) throw new Error(`biome format failed: ${stderr}`);
-  return stdout;
-}
 
 function frameworkFixture(): Record<string, string> {
   return {
@@ -677,13 +660,31 @@ describe("changes fold", () => {
     expect((await run(cwd, ["fold", "--status", status])).exit).toBe(0);
     const folded = readFileSync(changesPath, "utf-8");
     expect(folded).toContain('"affects": ["audit:query", "AuditQueries"]');
-    expect(await formatWithRepoBiome(folded, "packages/framework/src/changes.json")).toBe(folded);
+    expect(await formatJsonWithBiome(cwd, "packages/framework/src/changes.json", folded)).toBe(folded);
 
     const afterRelease = join(cwd, ".changeset-status-after.json");
     writeFileSync(afterRelease, JSON.stringify({ changesets: [], releases: [] }));
     const again = await run(cwd, ["fold", "--status", afterRelease, "--dry-run"]);
     expect(again.exit).toBe(0);
     expect(again.logs.join("\n")).not.toContain("would update");
+  });
+
+  test("fold writes nothing when Biome cannot format", async () => {
+    const cwd = tmp({
+      ...frameworkFixture(),
+      "biome.json": "{ not valid json",
+      ".changeset/framework-fix.md": `---\n"@cosmicdrift/kumiko-framework": patch\n---\n\nFixes the framework flow.\n\n<!-- kumiko-changes\nfeature: framework\ntype: fix\ntitle: Fixes the framework flow\n-->\n`,
+      ".changeset-status.json": JSON.stringify({
+        changesets: [{ id: "framework-fix" }],
+        releases: [{ name: "@cosmicdrift/kumiko-framework", newVersion: "0.277.0", changesets: ["framework-fix"] }],
+      }),
+    });
+
+    const result = await run(cwd, ["fold", "--status", join(cwd, ".changeset-status.json")]);
+
+    expect(result.exit).toBe(1);
+    expect(result.errs.join("\n")).toContain("biome format failed");
+    expect(readFileSync(join(cwd, "packages/framework/src/changes.json"), "utf-8")).toBe("[]");
   });
 
   test("--dry-run reports the resolved update without writing it", async () => {

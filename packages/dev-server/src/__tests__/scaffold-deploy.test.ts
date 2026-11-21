@@ -108,6 +108,9 @@ describe("scaffoldDeploy", () => {
     expect(dockerfile).toContain("bun install --production --frozen-lockfile --os=linux --cpu=");
     expect(dockerfile).toContain("amd64) echo x64");
     expect(dockerfile).toContain("arm64) echo arm64");
+    expect(dockerfile).toMatch(
+      /bun install --production --frozen-lockfile --os=linux [^\n]*--ignore-scripts\n/,
+    );
     expect(dockerfile).toMatch(/FROM oven\/bun:\$\{BUN_VERSION\}-alpine AS runtime/);
   });
 

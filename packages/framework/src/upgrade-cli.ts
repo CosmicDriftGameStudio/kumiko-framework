@@ -835,7 +835,7 @@ function resolveUpgradeBaseline(
   if (!SEMVER_RE.test(currentVersion)) {
     return {
       kind: "error",
-      lines: [`Invalid version format: "${currentVersion}" — expected x.y.z`],
+      lines: [`Invalid version format: "${currentVersion}" — expected x.y.z or x.y.z-<prerelease>`],
     };
   }
   return { kind: "ok", value: { currentVersion, installedVersion, markerRead } };
@@ -867,15 +867,19 @@ function collectAllChangelogEntries(cwd: string): Planned<readonly ChangelogEntr
 // entry stays after it, also those already handled at that canary. Those the
 // marker recorded (codemod run, manual step tracked) and plain notes are done;
 // a codemod or manual step added by a later canary is not. Without a marker the
-// installed canary itself is the baseline and all of its release is done.
+// installed canary is the baseline and all of its release is done, but only when
+// the baseline really is the installed version: an explicit --from or an
+// unreadable marker says nothing about what the canary already handled.
 function isDoneAtCanaryBaseline(
   entry: ChangelogEntry,
   baselineVersion: string,
   markerRead: MarkerRead,
+  installedVersion: string | null,
 ): boolean {
   const baselineCore = releaseCoreOf(baselineVersion);
   if (baselineCore === baselineVersion || entry.version !== baselineCore) return false;
-  if (markerRead.kind !== "ok") return true;
+  if (markerRead.kind === "missing") return baselineVersion === installedVersion;
+  if (markerRead.kind !== "ok") return false;
   const { codemods, pendingManual, resolvedManual } = markerRead.marker;
   const codemodRecorded =
     !hasCodemod(entry) ||
@@ -907,7 +911,7 @@ function planUpgrade(args: ParsedArgs, cwd: string, targetDir: string): Planned<
         );
   const pending = sortEntries(
     filterEntriesAfter(installedEntries, currentVersion).filter(
-      (entry) => !isDoneAtCanaryBaseline(entry, currentVersion, markerRead),
+      (entry) => !isDoneAtCanaryBaseline(entry, currentVersion, markerRead, targetInstalledVersion),
     ),
   );
   return {

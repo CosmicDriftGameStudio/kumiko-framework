@@ -12,6 +12,9 @@ export const MAX_EMBEDDED_IMAGES = 20;
 export const MAX_RASTER_RESPONSE_BYTES = 20_000_000;
 // A small PDF can embed a huge image; pdfimages would decode it to a PNG of that size before any byte limit applies.
 export const MAX_EMBEDDED_IMAGE_PIXELS = 25_000_000;
+// pdfimages decodes every listed image to disk, only readPngs caps the count afterwards; these bound what it may decode.
+export const MAX_LISTED_IMAGES = 200;
+export const MAX_LISTED_IMAGE_PIXELS_TOTAL = MAX_EMBEDDED_IMAGE_PIXELS * 2;
 
 const PDF_MAGIC = "%PDF-";
 const A4_LONG_SIDE_INCH = 297 / 25.4;
@@ -60,13 +63,20 @@ export class RasterResultTooLargeError extends Error {
 const LIST_WIDTH_COLUMN = 3;
 const LIST_HEIGHT_COLUMN = 4;
 
-export function hasOversizedImage(listOutput: string): boolean {
-  return listOutput.split("\n").some((line) => {
+export function exceedsImageBudget(listOutput: string): boolean {
+  let count = 0;
+  let totalPixels = 0;
+  for (const line of listOutput.split("\n")) {
     const columns = line.trim().split(/\s+/);
     const width = Number(columns[LIST_WIDTH_COLUMN]);
     const height = Number(columns[LIST_HEIGHT_COLUMN]);
-    return Number.isFinite(width) && Number.isFinite(height) && width * height > MAX_EMBEDDED_IMAGE_PIXELS;
-  });
+    if (!Number.isFinite(width) || !Number.isFinite(height)) continue;
+    const pixels = width * height;
+    count += 1;
+    totalPixels += pixels;
+    if (pixels > MAX_EMBEDDED_IMAGE_PIXELS) return true;
+  }
+  return count > MAX_LISTED_IMAGES || totalPixels > MAX_LISTED_IMAGE_PIXELS_TOTAL;
 }
 
 async function runPoppler(
@@ -151,7 +161,7 @@ export async function rasterize(options: RasterizeOptions): Promise<RasterizeRes
       if (listRun.exitCode !== 0) {
         throw new InvalidPdfError(listRun.stderr.trim() || "pdfimages failed");
       }
-      extractImages = !hasOversizedImage(listRun.stdout);
+      extractImages = !exceedsImageBudget(listRun.stdout);
     }
     if (extractImages) {
       const imagesRun = await runPoppler(
