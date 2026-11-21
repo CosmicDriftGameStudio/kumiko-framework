@@ -26,5 +26,6 @@ export type KeyValueListProps = {
     readonly label: string;
     readonly value: string;
     readonly emphasize?: boolean;
+    readonly testId?: string;
   }[];
 };

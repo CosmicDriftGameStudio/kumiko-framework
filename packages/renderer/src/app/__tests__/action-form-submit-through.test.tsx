@@ -51,8 +51,10 @@ const PlainForm: ComponentType<FormProps> = ({ onSubmit, children }) => (
   </form>
 );
 
-const PlainButton: ComponentType<ButtonProps> = ({ children, type }) => (
-  <button type={type ?? "button"}>{children}</button>
+const PlainButton: ComponentType<ButtonProps> = ({ children, type, onClick }) => (
+  <button type={type ?? "button"} onClick={onClick}>
+    {children}
+  </button>
 );
 
 const testPrimitives = createStubPrimitives({
@@ -347,6 +349,62 @@ describe("actionForm load.passPrefill with a handoff", () => {
       expect(queries).toContainEqual({
         type: "shop:query:compose-prefill",
         payload: { subject: "Hello" },
+      }),
+    );
+  });
+});
+
+describe("actionForm submitThrough is used for one submit", () => {
+  test("a form that stays open after success writes to the screen handler on the next submit", async () => {
+    const { opener, writes, view } = mount(undefined, { ...screen, resetOnSuccess: true });
+    act(() => opener.offer("compose", { submitThrough }));
+    await waitFor(() => view.getByTestId("input-subject"));
+
+    fireEvent.submit(view.getByTestId("form"));
+    await waitFor(() => expect(writes).toHaveLength(1));
+    await waitFor(() => view.getByTestId("input-subject"));
+    fireEvent.submit(view.getByTestId("form"));
+
+    await waitFor(() => expect(writes).toHaveLength(2));
+    expect(writes[0]?.type).toBe("ai:write:execute-dialog-step");
+    expect(writes[1]?.type).toBe("shop:write:compose");
+  });
+});
+
+describe("actionForm aiAssist with a load.passPrefill handoff", () => {
+  test("the aiAssist query carries the handoff values the load query got", async () => {
+    const assistScreen: ActionFormScreenDefinition = {
+      ...screen,
+      load: { query: "shop:query:compose-prefill", singleton: true, passPrefill: true },
+      layout: {
+        sections: [
+          {
+            columns: 1,
+            fields: [
+              "subject",
+              {
+                field: "note",
+                aiAssist: {
+                  query: "shop:query:draft",
+                  resultField: "message",
+                  chips: [{ label: "Shorter", params: { style: "short" } }],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const { opener, queries, view } = mount(undefined, assistScreen);
+    act(() => opener.offer("compose", { submitThrough }));
+    await waitFor(() => view.getByTestId("input-subject"));
+
+    fireEvent.click(await waitFor(() => view.getByText("Shorter")));
+
+    await waitFor(() =>
+      expect(queries).toContainEqual({
+        type: "shop:query:draft",
+        payload: { subject: "Hello", style: "short" },
       }),
     );
   });

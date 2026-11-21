@@ -92,6 +92,8 @@ describe("actionForm preview", () => {
     expect(principal.querySelector("dd")).toBeNull();
     expect(factText("action-form-preview-fact-0")).toBe("Principal€100.00");
     expect(factText("action-form-preview-fact-1")).toBe("Total€105.00");
+    expect(total.className).toContain("ring-2");
+    expect(principal.className).not.toContain("ring-2");
   });
 
   test("a long text fact leaves the name-value list and shows its label above the text", async () => {

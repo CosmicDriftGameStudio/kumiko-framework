@@ -338,6 +338,7 @@ export function ActionFormFacts({
               tile
               label={fact.label}
               value={fact.lines[0]}
+              {...(fact.emphasize === true && { emphasize: true })}
               testId={`${testIdPrefix}-${fact.key}`}
             />
           ))}
@@ -352,6 +353,7 @@ export function ActionFormFacts({
             key: fact.key,
             label: fact.label,
             value: fact.lines[0],
+            testId: `${testIdPrefix}-${fact.key}`,
             ...(fact.emphasize === true && { emphasize: true }),
           }))}
         />
