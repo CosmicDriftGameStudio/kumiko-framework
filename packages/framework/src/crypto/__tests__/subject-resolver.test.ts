@@ -8,6 +8,8 @@ import {
   createTextField,
 } from "../../engine/factories.ts";
 import type { TenantId } from "../../engine/types/identifiers.ts";
+import { PII_ERASED_SENTINEL } from "../kms-adapter.ts";
+import { PII_CIPHERTEXT_PREFIX } from "../pii-ciphertext-format.ts";
 import {
   collectPiiEncryptedFields,
   collectPiiSubjectFields,
@@ -208,6 +210,39 @@ describe("resolveSubjectForField", () => {
       expect(() => resolveSubjectForField(commentEntity, "body", { id: UUID_A }, opts)).toThrow(
         /declare \{ personal: \{ of: "authorId", whenAbsent: "tenant" \} \}/,
       );
+    });
+
+    describe.each([
+      ["a stored ciphertext", `${PII_CIPHERTEXT_PREFIX}AAAA`],
+      ["the erased sentinel", PII_ERASED_SENTINEL],
+    ])("owner column holds %s", (_label, unusableOwner) => {
+      test("whenAbsent tenant falls back to the tenant subject instead of keying under the value", () => {
+        expect(
+          resolveSubjectForField(
+            nullableOwnerEntity,
+            "body",
+            { authorId: unusableOwner, tenantId: UUID_A },
+            opts,
+          ),
+        ).toEqual({ kind: "tenant", tenantId: UUID_A });
+      });
+
+      test("without whenAbsent it throws SubjectResolutionError", () => {
+        expect(() =>
+          resolveSubjectForField(commentEntity, "body", { authorId: unusableOwner }, opts),
+        ).toThrow(SubjectResolutionError);
+      });
+
+      test("ownerFallback still supplies a real owner", () => {
+        expect(
+          resolveSubjectForField(
+            nullableOwnerEntity,
+            "body",
+            { authorId: unusableOwner },
+            { ...opts, ownerFallback: { authorId: UUID_B } },
+          ),
+        ).toEqual({ kind: "user", userId: UUID_B });
+      });
     });
 
     test("ignoreWhenAbsent throws despite a declared whenAbsent", () => {

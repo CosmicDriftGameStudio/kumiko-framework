@@ -94,6 +94,9 @@ export async function removeOrphanJobSchedulers(
   supersededSchedulerIds: ReadonlySet<string>,
   lane: JobRunIn,
   log: OrphanSchedulerLog,
+  // "stamp": a scheduler without a seen entry may be a newer runner's whose own stamp failed or
+  // is still pending; it gets the normal grace period instead of an immediate removal.
+  unseen: "remove" | "stamp" = "remove",
 ): Promise<void> {
   try {
     const existingKeys = await listJobSchedulerIds(queue);
@@ -102,6 +105,10 @@ export async function removeOrphanJobSchedulers(
     const now = Date.now();
     for (const key of existingKeys) {
       if (expectedSchedulerIds.has(key)) continue;
+      if (unseen === "stamp" && !(key in seenAt)) {
+        await client.hset(schedulerSeenKey(queue), { [key]: String(now) });
+        continue;
+      }
       const lastSeen = Number(seenAt[key]);
       const isWithinGrace = key in seenAt && now - lastSeen < ORPHAN_SCHEDULER_GRACE_MS;
       if (isWithinGrace && !supersededSchedulerIds.has(key)) continue;

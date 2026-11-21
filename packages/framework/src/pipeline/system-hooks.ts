@@ -461,43 +461,52 @@ export function createSearchEventConsumer(
       const tenantIds = [...new Set<TenantId>([...perTenant.keys(), ...unresolved.keys()])];
       // Each tenant waits for its own Meilisearch tasks; serially that adds up to seconds for a
       // batch spanning many tenants. A tenant's ops still run in order inside its own flush.
+      // An unexpected throw must not reject while sibling flushes still run: they would call
+      // holdForRetry on a turn the dispatcher already ended. Collect, let all finish, then rethrow.
+      const unexpectedFailures: unknown[] = [];
       await mapWithConcurrency(tenantIds, SEARCH_TENANT_FLUSH_CONCURRENCY, async (tenantId) => {
-        const bucket = perTenant.get(tenantId);
-        const unresolvedOps = unresolved.get(tenantId);
-        const retry = tenantRetries.get(tenantId);
-        if (retry && retry.retryAtMs > now()) {
-          turn.holdForRetry(
-            [
-              ...(bucket?.sourcedOps.map((s) => s.sourceEventId) ?? []),
-              ...(unresolvedOps?.eventIds ?? []),
-            ],
-            retry.reason,
-            { stillBackingOff: true },
-          );
-          return;
-        }
-        // An unresolved event may carry an earlier op for an entity a later resolved op targets
-        // (update fails, delete resolves); writing the later op now would let the retry resurrect it.
-        const held: HeldTenantOperations | null = unresolvedOps
-          ? {
-              eventIds: [
-                ...unresolvedOps.eventIds,
+        try {
+          const bucket = perTenant.get(tenantId);
+          const unresolvedOps = unresolved.get(tenantId);
+          const retry = tenantRetries.get(tenantId);
+          if (retry && retry.retryAtMs > now()) {
+            turn.holdForRetry(
+              [
                 ...(bucket?.sourcedOps.map((s) => s.sourceEventId) ?? []),
+                ...(unresolvedOps?.eventIds ?? []),
               ],
-              error: unresolvedOps.error,
-            }
-          : bucket
-            ? await flushTenantHoldingFailedOperations(searchAdapter, tenantId, bucket)
-            : null;
-        if (held) {
-          turn.holdForRetry(held.eventIds, recordTenantFailure(tenantId, held));
-          return;
-        }
-        if (retry) {
-          tenantRetries.delete(tenantId);
-          log.info(`search index of tenant ${tenantId} accepts writes again`);
+              retry.reason,
+              { stillBackingOff: true },
+            );
+            return;
+          }
+          // An unresolved event may carry an earlier op for an entity a later resolved op targets
+          // (update fails, delete resolves); writing the later op now would let the retry resurrect it.
+          const held: HeldTenantOperations | null = unresolvedOps
+            ? {
+                eventIds: [
+                  ...unresolvedOps.eventIds,
+                  ...(bucket?.sourcedOps.map((s) => s.sourceEventId) ?? []),
+                ],
+                error: unresolvedOps.error,
+              }
+            : bucket
+              ? await flushTenantHoldingFailedOperations(searchAdapter, tenantId, bucket)
+              : null;
+          if (held) {
+            turn.holdForRetry(held.eventIds, recordTenantFailure(tenantId, held));
+            return;
+          }
+          if (retry) {
+            tenantRetries.delete(tenantId);
+            log.info(`search index of tenant ${tenantId} accepts writes again`);
+          }
+        } catch (e) {
+          unexpectedFailures.push(e);
         }
       });
+      const [firstFailure] = unexpectedFailures;
+      if (unexpectedFailures.length > 0) throw firstFailure;
     },
   };
 }
