@@ -1,5 +1,50 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.427.0
+
+### Minor Changes
+
+- 7789ce5: Boot rejects a bulk form action whose target handler schema does not bound the ids field to `MAX_BULK_SELECTION`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Bulk form actions need a bounded ids field in the handler schema
+  detail: `list-bulk/form-ids-field-unbounded` fails boot when the write handler of a bulk form action declares its `idsField` without `z.array(...).max(n)` and `n <= MAX_BULK_SELECTION`, in every option of a union or discriminated union. A handler schema that is not an object or a union of objects also fails, because its bound cannot be read. The client cap does not bind a direct `/api/write`, so the handler schema must. Optional and nullable wrappers are unwrapped.
+  migration: Declare `<idsField>: z.array(...).max(MAX_BULK_SELECTION)` in the schema of every write handler behind a bulk form action (in each option of a union), and give the handler an object schema.
+  affects: list-bulk, form-ids-field-unbounded, MAX_BULK_SELECTION, bulkActions
+  -->
+- b1eb9f1: The no-raw-hooks lint rule also checks .ts files under web/ and public/.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: no-raw-hooks also checks .ts files under web/ and public/
+  detail: The Biome rule `no-raw-hooks` used to look at .tsx files only, so a raw `useEffect` inside a hook file such as `web/use-thing.ts` slipped through. Apps with a raw useEffect in web/*.ts or public/*.ts hooks now see the lint error.
+  migration: Use a framework hook (`useDraft` with `initialFrom` for a form draft from query data, `useQuery`, `useNow`, `useDebouncedValue`) or add a `biome-ignore lint/plugin` with a reason for a real DOM integration.
+  affects: no-raw-hooks, useEffect, biome
+  -->
+
+### Patch Changes
+
+- a316ed9: A re-created cron scheduler yields when the other wake flag's scheduler appeared meanwhile, so a rolling update no longer fires the job twice per slot.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Cron scheduler no longer doubles after a rolling update
+  detail: The refresh tick that re-creates missing cron schedulers lists first and upserts later without a lock. When a newer runner with the other `wakesSleepingApp` flag started in between and removed the older id as superseded, the older runner brought its id back and both existed. After the upsert the runner now reads the scheduler ids again and removes the id it just created if the other flag's id exists. If both runners create at the same moment, both yield and the next tick creates one.
+  -->
+- e5e2407: Storage-delete and delivery failures log only the error class and code, not adapter text or storage keys.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: failure logs name the error class instead of adapter text
+  detail: New `errorKindOf` in `@cosmicdrift/kumiko-framework/logging`, also re-exported from bundled-features shared. The `storage delete failed` warning no longer logs the storage key or the adapter message, and delivery channel and dispatch failures log the error class instead of a redacted message.
+  -->
+- @cosmicdrift/kumiko-types@0.427.0
+
 ## 0.426.1
 
 ### Patch Changes

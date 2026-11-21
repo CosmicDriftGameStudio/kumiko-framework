@@ -1,5 +1,32 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.427.0
+
+### Patch Changes
+
+- aa89fa9: The changelog of 0.426.0 no longer promises a fact test id.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Changelog of 0.426.0 no longer promises a fact test id
+  detail: The 0.426.0 entry for action form facts claimed a single-line fact row keeps its `...-fact-<n>` test id. It does not; tests select the row by its label and value text.
+  -->
+- 0ef8b2e: A `document` field with `formatting: "text"` keeps a value that holds only an image, divider or table, and drops such blocks from pasted content.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Text-formatted document fields keep image-only values and filter pasted blocks
+  detail: A `document` field with `formatting: "text"` treated a value without text as empty, so a document holding only an image, divider or table was stored as "". Only a value without text and without such blocks is empty now. In the template-resolver editor, pasted images, dividers, buttons, page breaks and step blocks are dropped in text mode and pasted tables keep their cell text as paragraphs; blocks already in the stored value stay untouched.
+  -->
+- Updated dependencies [7789ce5]
+- Updated dependencies [a316ed9]
+- Updated dependencies [e5e2407]
+- Updated dependencies [b1eb9f1]
+  - @cosmicdrift/kumiko-framework@0.427.0
+  - @cosmicdrift/kumiko-types@0.427.0
+
 ## 0.426.1
 
 ### Patch Changes

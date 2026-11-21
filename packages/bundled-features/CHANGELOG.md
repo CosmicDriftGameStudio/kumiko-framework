@@ -1,5 +1,86 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.427.0
+
+### Patch Changes
+
+- 0ef8b2e: The short/long date format control and the chip date hint appear only for date variables.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Date format control only for date variables
+  detail: The document editor offered the short/long date format for every placeholder and showed a date hint on its chip, although only variables of type `date` use it. `DocumentEditorProps` gains `dateVariables` (names of the date variables); the format buttons and the chip hint appear only for those. The PDF and mail designers and the document draft editor pass it from the variable schema.
+  -->
+- 0ef8b2e: A `document` field with `formatting: "text"` keeps a value that holds only an image, divider or table, and drops such blocks from pasted content.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Text-formatted document fields keep image-only values and filter pasted blocks
+  detail: A `document` field with `formatting: "text"` treated a value without text as empty, so a document holding only an image, divider or table was stored as "". Only a value without text and without such blocks is empty now. In the template-resolver editor, pasted images, dividers, buttons, page breaks and step blocks are dropped in text mode and pasted tables keep their cell text as paragraphs; blocks already in the stored value stay untouched.
+  -->
+- 913085a: A test now covers the connector heartbeat for a device whose connector row is gone: it answers without a name and still hands over the retry signal once.
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: fix
+  title: heartbeat without connector name is covered by a test
+  detail: The heartbeat answer omits `name` when the connector lookup finds nothing. A new integration test pins this and that the retry flag still rides on exactly one answer.
+  -->
+- e5e2407: Storage-delete and delivery failures log only the error class and code, not adapter text or storage keys.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: failure logs name the error class instead of adapter text
+  detail: New `errorKindOf` in `@cosmicdrift/kumiko-framework/logging`, also re-exported from bundled-features shared. The `storage delete failed` warning no longer logs the storage key or the adapter message, and delivery channel and dispatch failures log the error class instead of a redacted message.
+  -->
+- b1eb9f1: The no-raw-hooks lint rule also checks .ts files under web/ and public/.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: no-raw-hooks also checks .ts files under web/ and public/
+  detail: The Biome rule `no-raw-hooks` used to look at .tsx files only, so a raw `useEffect` inside a hook file such as `web/use-thing.ts` slipped through. Apps with a raw useEffect in web/*.ts or public/*.ts hooks now see the lint error.
+  migration: Use a framework hook (`useDraft` with `initialFrom` for a form draft from query data, `useQuery`, `useNow`, `useDebouncedValue`) or add a `biome-ignore lint/plugin` with a reason for a real DOM integration.
+  affects: no-raw-hooks, useEffect, biome
+  -->
+- 6f763c5: Delivery jobs, the retention file cleanup and the tier sync no longer put adapter or storage error texts and storage keys into logs or error results.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Adapter error texts and storage keys stay out of logs and run rows
+  detail: `redactErrorText` strips only emails, URLs and bot tokens, not names, phone numbers or storage keys. `delivery.send` and `delivery.render` now log the error class and an optional string code instead of the adapter text. The `data-retention` hard-delete file cleanup logs the error class and a failed-file count instead of storage keys and storage error texts. `subscription-tier-sync` reports `tier sync threw <class>` and `afterSync threw <class>` instead of the thrown message, so the `InternalError` text and the webhook warn log carry no adapter text either. The new `errorKindOf` helper in `@cosmicdrift/kumiko-framework/logging` builds the class and code text.
+  -->
+- cf5bd05: A connector upload stamps its quota decision time before the quota check, so a slowly accepted upload no longer clears the storage-full flag set by a later refused one.
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: fix
+  title: storage-full flag survives a slow earlier upload
+  detail: The device touch of an upload now carries the instant taken before the upload was dispatched. An early upload that is accepted late cannot clear the refusal of an upload that began after it.
+  -->
+- 6d848fc: Publishing a template variant takes its variables from the delivered base, not from the base's open draft.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: A published variant follows the delivered base's variables
+  detail: Publishing a variant synced its variable schema from the base as the tenant edits it, including an unpublished base draft, so the variant went live with variables the delivered base lacks. Publish now syncs from the delivered base (the tenant's active row, else the active system default). Saving a variant draft still follows the base draft; a variant that uses a placeholder only the base draft knows is refused at publish until the base is published.
+  -->
+- Updated dependencies [7789ce5]
+- Updated dependencies [aa89fa9]
+- Updated dependencies [a316ed9]
+- Updated dependencies [0ef8b2e]
+- Updated dependencies [e5e2407]
+- Updated dependencies [b1eb9f1]
+  - @cosmicdrift/kumiko-framework@0.427.0
+  - @cosmicdrift/kumiko-renderer@0.427.0
+  - @cosmicdrift/kumiko-testing@0.427.0
+  - @cosmicdrift/kumiko-types@0.427.0
+
 ## 0.426.1
 
 ### Patch Changes

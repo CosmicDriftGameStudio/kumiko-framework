@@ -10,6 +10,22 @@ verified: 2026-11-21
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.427.0
+
+### framework-core
+
+**Bulk form actions need a bounded ids field in the handler schema**
+
+`list-bulk/form-ids-field-unbounded` fails boot when the write handler of a bulk form action declares its `idsField` without `z.array(...).max(n)` and `n <= MAX_BULK_SELECTION`, in every option of a union or discriminated union. A handler schema that is not an object or a union of objects also fails, because its bound cannot be read. The client cap does not bind a direct `/api/write`, so the handler schema must. Optional and nullable wrappers are unwrapped.
+
+**Migration:** Declare `<idsField>: z.array(...).max(MAX_BULK_SELECTION)` in the schema of every write handler behind a bulk form action (in each option of a union), and give the handler an object schema.
+
+**no-raw-hooks also checks .ts files under web/ and public/**
+
+The Biome rule `no-raw-hooks` used to look at .tsx files only, so a raw `useEffect` inside a hook file such as `web/use-thing.ts` slipped through. Apps with a raw useEffect in web/*.ts or public/*.ts hooks now see the lint error.
+
+**Migration:** Use a framework hook (`useDraft` with `initialFrom` for a form draft from query data, `useQuery`, `useNow`, `useDebouncedValue`) or add a `biome-ignore lint/plugin` with a reason for a real DOM integration.
+
 ## 0.426.0
 
 ### @cosmicdrift/kumiko-renderer

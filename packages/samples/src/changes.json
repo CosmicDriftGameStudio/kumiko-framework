@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "documents recipe shows the file success fact"
+  },
+  {
     "version": "0.425.0",
     "type": "improvement",
     "title": "Sample entities use createEntity instead of a cast literal"

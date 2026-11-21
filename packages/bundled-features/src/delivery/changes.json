@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Adapter error texts and storage keys stay out of logs and run rows"
+  },
+  {
     "version": "0.425.0",
     "type": "improvement",
     "title": "Fewer database round trips when notifying many recipients"

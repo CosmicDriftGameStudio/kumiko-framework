@@ -1,5 +1,33 @@
 # @cosmicdrift/kumiko-document-designer
 
+## 0.427.0
+
+### Patch Changes
+
+- 0ef8b2e: The short/long date format control and the chip date hint appear only for date variables.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Date format control only for date variables
+  detail: The document editor offered the short/long date format for every placeholder and showed a date hint on its chip, although only variables of type `date` use it. `DocumentEditorProps` gains `dateVariables` (names of the date variables); the format buttons and the chip hint appear only for those. The PDF and mail designers and the document draft editor pass it from the variable schema.
+  -->
+- Updated dependencies [7789ce5]
+- Updated dependencies [aa89fa9]
+- Updated dependencies [a316ed9]
+- Updated dependencies [0ef8b2e]
+- Updated dependencies [0ef8b2e]
+- Updated dependencies [913085a]
+- Updated dependencies [e5e2407]
+- Updated dependencies [b1eb9f1]
+- Updated dependencies [6f763c5]
+- Updated dependencies [cf5bd05]
+- Updated dependencies [6d848fc]
+  - @cosmicdrift/kumiko-framework@0.427.0
+  - @cosmicdrift/kumiko-renderer@0.427.0
+  - @cosmicdrift/kumiko-bundled-features@0.427.0
+  - @cosmicdrift/kumiko-types@0.427.0
+
 ## 0.426.1
 
 ### Patch Changes
