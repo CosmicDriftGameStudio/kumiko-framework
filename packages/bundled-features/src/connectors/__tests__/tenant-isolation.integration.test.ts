@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { ConnectorHandlers, ConnectorQueries } from "../constants.ts";
+import { uploadConnectorFile } from "../testing.ts";
 import {
   checkCode,
   HEARTBEAT_PATH,
@@ -9,7 +10,6 @@ import {
   setupConnectorsStack,
   startPairing,
   teardownConnectorsStack,
-  upload,
 } from "./connectors-stack.ts";
 
 const adminA = createTestUser({ id: 11, tenantId: testTenantId(1), roles: ["TenantAdmin"] });
@@ -55,7 +55,7 @@ describe("connectors across tenants", () => {
   test("tenant B cannot revoke tenant A's connector, whose token keeps working", async () => {
     const res = await stack.http.write(ConnectorHandlers.revoke, { id: connectorA }, adminB);
     expect(res.status).toBeGreaterThanOrEqual(400);
-    const sent = await upload(stack, tokenA, {
+    const sent = await uploadConnectorFile(stack, tokenA, {
       path: "a/file.bin",
       bytes: Uint8Array.from([1, 2]),
     });

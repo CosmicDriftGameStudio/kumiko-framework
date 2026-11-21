@@ -5,13 +5,12 @@ import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { ConnectorHandlers, ConnectorQueries } from "../constants.ts";
 import { inboundFolderTable } from "../schema/inbound-folder.ts";
 import { inboundItemTable } from "../schema/inbound-item.ts";
+import { runConnectorJobs, uploadConnectorFile } from "../testing.ts";
 import {
   pairDevice,
-  runDeletionJobs,
   setupConnectorsStack,
   teardownConnectorsStack,
   tenantAdmin,
-  upload,
 } from "./connectors-stack.ts";
 
 type Row = {
@@ -43,7 +42,9 @@ const bytesOf = (size: number): Uint8Array<ArrayBuffer> => {
 };
 
 async function deliver(path: string, size: number): Promise<void> {
-  expect((await upload(stack, token, { path, bytes: bytesOf(size) })).status).toBe(201);
+  expect((await uploadConnectorFile(stack, token, { path, bytes: bytesOf(size) })).status).toBe(
+    201,
+  );
 }
 
 beforeAll(async () => {
@@ -67,7 +68,7 @@ describe("deleting a folder", () => {
     await stack.http.writeOk(ConnectorHandlers.deleteFolder, { id: big?.id }, tenantAdmin);
 
     expect(await view({})).toMatchObject({ usedBytes: 26 * 12, deletingBytes: 25 * 12 });
-    await runDeletionJobs(stack);
+    await runConnectorJobs(stack);
 
     expect(await selectMany(stack.db, inboundFolderTable, {})).toHaveLength(0);
     const items = await selectMany(stack.db, inboundItemTable, {});
@@ -81,7 +82,7 @@ describe("deleting a folder", () => {
     const doomed = (await view({ connectorId })).rows.find((row) => row.name === "Doomed");
     await stack.http.writeOk(ConnectorHandlers.deleteFolder, { id: doomed?.id }, tenantAdmin);
     await deliver("Doomed/new.pdf", 11);
-    await runDeletionJobs(stack);
+    await runConnectorJobs(stack);
 
     const folders = (await view({ connectorId })).rows.filter((row) => row.name === "Doomed");
     expect(folders).toHaveLength(1);
@@ -95,7 +96,7 @@ describe("deleting a folder", () => {
     await deliver("Again/x.pdf", 10);
     const first = (await view({ connectorId })).rows.find((row) => row.name === "Again");
     await stack.http.writeOk(ConnectorHandlers.deleteFolder, { id: first?.id }, tenantAdmin);
-    await runDeletionJobs(stack);
+    await runConnectorJobs(stack);
     await deliver("Again/y.pdf", 10);
     const second = (await view({ connectorId })).rows.find((row) => row.name === "Again");
     expect(second?.deleting).toBe(false);
@@ -133,7 +134,7 @@ describe("delivering again after a deletion", () => {
     await deliver("Back/same.pdf", 10);
     const folder = (await view({ connectorId })).rows.find((row) => row.name === "Back");
     await stack.http.writeOk(ConnectorHandlers.deleteFolder, { id: folder?.id }, tenantAdmin);
-    await runDeletionJobs(stack);
+    await runConnectorJobs(stack);
     await deliver("Back/same.pdf", 10);
     const again = (await view({ connectorId })).rows.find((row) => row.name === "Back");
     expect((await view({ connectorId, folderId: again?.id })).rows.map((row) => row.name)).toEqual([
@@ -156,7 +157,7 @@ describe("delivering again after a deletion", () => {
     const folder = (await view({ connectorId })).rows.find((row) => row.name === "Racing");
     await stack.http.writeOk(ConnectorHandlers.deleteFolder, { id: folder?.id }, tenantAdmin);
     await deliver("Racing/keep.pdf", 10);
-    await runDeletionJobs(stack);
+    await runConnectorJobs(stack);
     const fresh = (await view({ connectorId })).rows.find((row) => row.name === "Racing");
     expect((await view({ connectorId, folderId: fresh?.id })).rows.map((row) => row.name)).toEqual([
       "keep.pdf",
@@ -173,7 +174,8 @@ describe("quota while the deletion job has not run", () => {
     );
     try {
       const paired = await pairDevice(quotaStack);
-      const send = (path: string) => upload(quotaStack, paired.token, { path, bytes: bytesOf(20) });
+      const send = (path: string) =>
+        uploadConnectorFile(quotaStack, paired.token, { path, bytes: bytesOf(20) });
       expect((await send("Full/a.pdf")).status).toBe(201);
       const folder = (
         await quotaStack.http.queryOk<TreeAnswer>(
@@ -191,7 +193,7 @@ describe("quota while the deletion job has not run", () => {
       const blocked = await send("Other/b.pdf");
       expect(blocked.status).toBe(507);
 
-      await runDeletionJobs(quotaStack);
+      await runConnectorJobs(quotaStack);
       expect((await send("Other/b.pdf")).status).toBe(201);
     } finally {
       await teardownConnectorsStack(quotaStack);

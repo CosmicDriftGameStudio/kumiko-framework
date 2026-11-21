@@ -17,12 +17,14 @@ import { pairingAddressKey } from "./address-key.ts";
 import { inboundItemAggregateId } from "./aggregate-id.ts";
 import {
   CONNECTOR_CLIENT_ID,
+  CONNECTOR_ROUTE_PATHS,
   ConnectorErrors,
   ConnectorHandlers,
   ConnectorQueries,
   ConnectorScreens,
   DEFAULT_CONNECTORS_BASE_PATH,
   DEFAULT_MAX_UPLOAD_BYTES,
+  DEVICE_CODE_GRANT_TYPE,
   HEARTBEAT_MAX_BODY_BYTES,
   HEARTBEAT_RATE_LIMIT,
   PAIRING_FLOOD_RETRY_AFTER_SECONDS,
@@ -56,7 +58,6 @@ export type ConnectorRouteOptions = {
   };
 };
 
-const DEVICE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 const NO_STORE = { "Cache-Control": "no-store" } as const;
 const FORM_RATE_LIMIT_WINDOW_SECONDS = 60;
 // `sync` is optional so satellites that predate the status log keep working. A `lastError` text they
@@ -328,7 +329,7 @@ export function createConnectorRoutes(
 
   const deviceAuthorization = signatureRoute({
     method: "POST",
-    path: `${basePath}/v1/device_authorization`,
+    path: `${basePath}${CONNECTOR_ROUTE_PATHS.deviceAuthorization}`,
     entry: "signature",
     rateLimit: {
       per: "ip",
@@ -385,12 +386,12 @@ export function createConnectorRoutes(
 
   const token = signatureRoute({
     method: "POST",
-    path: `${basePath}/v1/token`,
+    path: `${basePath}${CONNECTOR_ROUTE_PATHS.token}`,
     entry: "signature",
     rateLimit: { per: "ip", limit: 120, windowSeconds: FORM_RATE_LIMIT_WINDOW_SECONDS },
     verify: async ({ rawBody, headers }) => {
       const form = parseClientForm(rawBody, headers);
-      if (form.get("grant_type") !== DEVICE_GRANT_TYPE) {
+      if (form.get("grant_type") !== DEVICE_CODE_GRANT_TYPE) {
         throw new ExtraRouteRejection(400, { error: "unsupported_grant_type" });
       }
       const deviceCode = form.get("device_code");
@@ -413,7 +414,7 @@ export function createConnectorRoutes(
 
   const files = binaryBodySignatureRoute({
     method: "POST",
-    path: `${basePath}/v1/files`,
+    path: `${basePath}${CONNECTOR_ROUTE_PATHS.files}`,
     entry: "signature",
     binaryBody: { maxBytes: maxUploadBytes },
     rateLimit: { per: "ip", ...UPLOAD_RATE_LIMIT },
@@ -423,7 +424,7 @@ export function createConnectorRoutes(
 
   const heartbeat = binaryBodySignatureRoute({
     method: "POST",
-    path: `${basePath}/v1/heartbeat`,
+    path: `${basePath}${CONNECTOR_ROUTE_PATHS.heartbeat}`,
     entry: "signature",
     binaryBody: { maxBytes: HEARTBEAT_MAX_BODY_BYTES },
     rateLimit: { per: "ip", ...HEARTBEAT_RATE_LIMIT },

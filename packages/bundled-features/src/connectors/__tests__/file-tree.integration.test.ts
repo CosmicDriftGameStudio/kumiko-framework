@@ -6,13 +6,12 @@ import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { ConnectorHandlers, ConnectorQueries } from "../constants.ts";
 import { inboundFolderTable } from "../schema/inbound-folder.ts";
 import { inboundItemTable } from "../schema/inbound-item.ts";
+import { runConnectorJobs, uploadConnectorFile } from "../testing.ts";
 import {
   pairDevice,
-  runDeletionJobs,
   setupConnectorsStack,
   teardownConnectorsStack,
   tenantAdmin,
-  upload,
 } from "./connectors-stack.ts";
 
 type Row = {
@@ -64,7 +63,7 @@ beforeAll(async () => {
     { path: "Lieferscheine/c.pdf", bytes: bytesOf(15) },
     { path: "readme.pdf", bytes: bytesOf(12) },
   ]) {
-    expect((await upload(stack, token, file)).status).toBe(201);
+    expect((await uploadConnectorFile(stack, token, file)).status).toBe(201);
   }
 });
 afterAll(() => teardownConnectorsStack(stack));
@@ -129,7 +128,7 @@ describe("file tree", () => {
   test("parallel uploads into a new folder create it once", async () => {
     const results = await Promise.all(
       [1, 2, 3, 4].map((n) =>
-        upload(stack, token, { path: `Neu/Unter/f${n}.bin`, bytes: bytesOf(10 + n) }),
+        uploadConnectorFile(stack, token, { path: `Neu/Unter/f${n}.bin`, bytes: bytesOf(10 + n) }),
       ),
     );
     expect(results.map((res) => res.status)).toEqual([201, 201, 201, 201]);
@@ -156,7 +155,7 @@ describe("file tree", () => {
     const marked = await view({ connectorId });
     expect(marked.rows.find((row) => row.name === "Rechnungen")?.deleting).toBe(true);
     expect(await view({})).toMatchObject({ usedBytes: 15 + 50 + 50, deletingBytes: 50 });
-    await runDeletionJobs(stack);
+    await runConnectorJobs(stack);
     expect((await provider.list("")).length).toBe(before - 2);
     expect(await view({})).toMatchObject({ usedBytes: 15 + 50, deletingBytes: 0 });
     const after = await view({ connectorId });

@@ -12,16 +12,15 @@ import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { ConnectorHandlers, INBOUND_ITEM_CREATED_EVENT } from "../constants.ts";
 import { INBOUND_FILE_FAILURE, readInboundFile } from "../read-inbound-file.ts";
+import { runConnectorJobs, uploadConnectorFile } from "../testing.ts";
 import {
   checkCode,
   pairDevice,
   pollToken,
-  runDeletionJobs,
   setupConnectorsStack,
   startPairing,
   teardownConnectorsStack,
   tenantAdmin,
-  upload,
 } from "./connectors-stack.ts";
 
 const MAX_BYTES = 16;
@@ -124,11 +123,11 @@ afterAll(() => teardownConnectorsStack(stack));
 describe("a job reacting to a delivered file", () => {
   test("INBOUND_ITEM_CREATED_EVENT fires the job and readInboundFile returns path, name and content", async () => {
     const bytes = text("Q-1;Part A\n");
-    const res = await upload(stack, token, { path: "lantek/2026/parts.csv", bytes });
+    const res = await uploadConnectorFile(stack, token, { path: "lantek/2026/parts.csv", bytes });
     expect(res.status).toBe(201);
     const { id } = (await res.json()) as { id: string };
 
-    await runDeletionJobs(stack);
+    await runConnectorJobs(stack);
 
     expect(await recorded(id)).toMatchObject({
       outcome: "read",
@@ -141,11 +140,11 @@ describe("a job reacting to a delivered file", () => {
 
   test("a file above maxBytes is reported as too-large without its content", async () => {
     const bytes = text("x".repeat(MAX_BYTES + 1));
-    const res = await upload(stack, token, { path: "lantek/big.csv", bytes });
+    const res = await uploadConnectorFile(stack, token, { path: "lantek/big.csv", bytes });
     expect(res.status).toBe(201);
     const { id } = (await res.json()) as { id: string };
 
-    await runDeletionJobs(stack);
+    await runConnectorJobs(stack);
 
     expect(await recorded(id)).toMatchObject({
       outcome: INBOUND_FILE_FAILURE.tooLarge,
@@ -164,7 +163,10 @@ describe("readInboundFile from a write handler", () => {
     );
 
   test("the handler's own user reads path and content of its tenant's file", async () => {
-    const res = await upload(stack, token, { path: "lantek/h.csv", bytes: text("H;1") });
+    const res = await uploadConnectorFile(stack, token, {
+      path: "lantek/h.csv",
+      bytes: text("H;1"),
+    });
     const { id } = (await res.json()) as { id: string };
     expect(await readViaHandler(id, tenantAdmin)).toEqual({
       outcome: "read",
@@ -184,7 +186,10 @@ describe("readInboundFile from a write handler", () => {
     const otherToken = (
       (await (await pollToken(stack, started.device_code)).json()) as { access_token: string }
     ).access_token;
-    const res = await upload(stack, otherToken, { path: "other/x.csv", bytes: text("X;1") });
+    const res = await uploadConnectorFile(stack, otherToken, {
+      path: "other/x.csv",
+      bytes: text("X;1"),
+    });
     expect(res.status).toBe(201);
     const { id } = (await res.json()) as { id: string };
 
@@ -195,7 +200,10 @@ describe("readInboundFile from a write handler", () => {
   });
 
   test("a deleted item is not-found", async () => {
-    const res = await upload(stack, token, { path: "lantek/gone.csv", bytes: text("G;1") });
+    const res = await uploadConnectorFile(stack, token, {
+      path: "lantek/gone.csv",
+      bytes: text("G;1"),
+    });
     const { id } = (await res.json()) as { id: string };
     await stack.http.writeOk(ConnectorHandlers.deleteFile, { id }, tenantAdmin);
 

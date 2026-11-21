@@ -3,12 +3,12 @@ import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files"
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { ConnectorHandlers, ConnectorQueries } from "../constants.ts";
+import { uploadConnectorFile } from "../testing.ts";
 import {
   pairDevice,
   setupConnectorsStack,
   teardownConnectorsStack,
   tenantAdmin,
-  upload,
 } from "./connectors-stack.ts";
 
 type Hit = {
@@ -48,7 +48,9 @@ async function seededStack(options: { maxSearchNames?: number }): Promise<TestSt
     "Rechnungen/Angebot.pdf",
     "Lieferscheine/LS-4471.pdf",
   ]) {
-    expect((await upload(own, paired.token, { path, bytes: bytesOf(20) })).status).toBe(201);
+    expect(
+      (await uploadConnectorFile(own, paired.token, { path, bytes: bytesOf(20) })).status,
+    ).toBe(201);
   }
   return own;
 }
