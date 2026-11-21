@@ -210,12 +210,17 @@ function storedKeyOf(data: unknown): { readonly id: string; readonly version: nu
   return { id: String(id), version };
 }
 
-// The base as the tenant sees it: its own row (open draft included), else the served system default.
+export type BaseSchemaView = "working" | "served";
+
+// "working": the base as its author edits it (own row with open draft, else the served system default),
+// so a variant draft can follow a base draft. "served": only what is delivered (own active row, else the
+// active system default), so a published variant never carries variables the delivered base lacks.
 export async function baseVariableSchemaOf(
   db: TenantWriteTarget["db"],
   tenantId: string,
   baseSlug: string,
   locale: string,
+  view: BaseSchemaView,
 ): Promise<unknown> {
   const locales = locale === FALLBACK_LOCALE ? [locale] : [locale, FALLBACK_LOCALE];
   for (const candidateLocale of locales) {
@@ -224,7 +229,10 @@ export async function baseVariableSchemaOf(
       ...where,
       tenantId,
     });
-    if (own !== undefined) return parseStoredJson(toWorkingRow(own, tenantId).variableSchema);
+    if (own !== undefined && view === "working") {
+      return parseStoredJson(toWorkingRow(own, tenantId).variableSchema);
+    }
+    if (own !== undefined && own.status === "active") return parseStoredJson(own.variableSchema);
     const system = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
       ...where,
       tenantId: SYSTEM_TENANT_ID,
@@ -251,7 +259,13 @@ async function syncVariantSchema(
   const baseSlug = readVariantOf(payload.meta);
   const unchanged = { payload, variables: args.variables };
   if (args.scope !== "tenant" || baseSlug === null) return unchanged;
-  const baseSchema = await baseVariableSchemaOf(db, args.tenantId, baseSlug, payload.locale);
+  const baseSchema = await baseVariableSchemaOf(
+    db,
+    args.tenantId,
+    baseSlug,
+    payload.locale,
+    "working",
+  );
   if (!isPlainObject(baseSchema)) return unchanged;
   if (args.explicitVariableSchema === true) {
     if (isDeepStrictEqual(baseSchema, payload.variableSchema)) return unchanged;

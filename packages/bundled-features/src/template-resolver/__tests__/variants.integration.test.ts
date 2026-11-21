@@ -32,6 +32,7 @@ const LOCALE = "de";
 const BASE = "contract";
 const PLAIN_BASE = "plain-contract";
 const IMAGED_BASE = "imaged-contract";
+const SERVED_BASE = "served-contract";
 const LONG_BASE = `contract-${"x".repeat(100)}`;
 const LOGO_FILE_REF = "00000000-0000-4000-8000-0000000000f1";
 const SYSTEM_VARIANT = `${BASE}:commercial`;
@@ -120,6 +121,12 @@ describe("template-resolver :: variants", () => {
       tenantEditable: [
         { kind: "document-pdf", slug: BASE, access: { roles: ["TenantAdmin"] }, variants: true },
         { kind: "document-pdf", slug: PLAIN_BASE, access: { roles: ["TenantAdmin"] } },
+        {
+          kind: "document-pdf",
+          slug: SERVED_BASE,
+          access: { roles: ["TenantAdmin"] },
+          variants: true,
+        },
         {
           kind: "document-pdf",
           slug: LONG_BASE,
@@ -421,6 +428,79 @@ describe("template-resolver :: variants", () => {
     );
     expect(published.published).toHaveLength(0);
     expect(published.failed.map((failure) => failure.slug)).toEqual([created.slug]);
+  });
+
+  test("a published variant takes the delivered base's variables, not the base draft's or an archived own base's", async () => {
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertSystem,
+      {
+        slug: SERVED_BASE,
+        kind: "document-pdf",
+        locale: LOCALE,
+        content: BASE_CONTENT,
+        contentFormat: "html",
+        variableSchema: VARIABLE_SCHEMA,
+        linkedResources: {},
+      },
+      TestUsers.systemAdmin,
+    );
+    const saveOwnBase = (variableSchema: object, content: string, status: "active" | "draft") =>
+      stack.http.writeOk<{ id: string }>(
+        TemplateResolverHandlers.upsertTenant,
+        {
+          slug: SERVED_BASE,
+          kind: "document-pdf",
+          locale: LOCALE,
+          content,
+          contentFormat: "html",
+          variableSchema,
+          status,
+        },
+        admin,
+      );
+    const publishedVariantSchema = async (name: string) => {
+      const created = await stack.http.writeOk<Created>(
+        TemplateResolverHandlers.createVariant,
+        { baseSlug: SERVED_BASE, name, title: name, locale: LOCALE },
+        admin,
+      );
+      await stack.http.writeOk(
+        TemplateResolverHandlers.patchDraft,
+        {
+          slug: created.slug,
+          kind: "document-pdf",
+          locale: LOCALE,
+          base: created.base,
+          ops: [{ op: "replaceBody", blocks: [{ type: "paragraph", text: "Kunde {{customer}}" }] }],
+        },
+        admin,
+      );
+      const published = await stack.http.writeOk<PublishResult>(
+        TemplateResolverHandlers.publishTemplates,
+        { templates: [{ slug: created.slug, kind: "document-pdf", locale: LOCALE }] },
+        admin,
+      );
+      expect(published.published).toHaveLength(1);
+      const row = await fetchOne<TemplateResourceRow>(stack.db, templateResourcesTable, {
+        tenantId: admin.tenantId,
+        slug: created.slug,
+        kind: "document-pdf",
+        locale: LOCALE,
+      });
+      return JSON.parse(row?.variableSchema ?? "{}");
+    };
+
+    const deliveredSchema = { ...VARIABLE_SCHEMA, note: { type: "text", required: false } };
+    const own = await saveOwnBase(deliveredSchema, BASE_CONTENT, "active");
+    await saveOwnBase(
+      { ...deliveredSchema, extra: { type: "text", required: false } },
+      '<p><span data-variable="customer"></span><span data-variable="extra"></span></p>',
+      "draft",
+    );
+    expect(await publishedVariantSchema("served")).toEqual(deliveredSchema);
+
+    await stack.http.writeOk(TemplateResolverHandlers.archive, { id: own.id }, admin);
+    expect(await publishedVariantSchema("system")).toEqual(VARIABLE_SCHEMA);
   });
 
   test("create-variant is refused for a base the app does not list", async () => {
