@@ -46,43 +46,19 @@ const EMPTY_DRAFT: EditorDraft = {
   savedMsg: null,
 };
 
-export function useTextBlockEditor(target: TargetRef) {
-  // @cast-boundary visual-tree-args — TargetRef.args is erased to
-  // Record<string, unknown>; the resolver knows the action shape (see the
-  // treeActions.edit definition in feature.ts) and de-erases per action, the
-  // same way event payloads do. Optional chaining absorbs missing fields so a
-  // hand-edited URL cannot crash the editor.
-  const args = target.args as EditTargetArgs | undefined;
-  const slug = args?.slug ?? "";
-  const locale = args?.locale ?? "";
-  const tenantIdOverride = args?.tenantIdOverride;
-  // Which collection the node came from. Absent → the public text-block pair,
-  // which is what the hand-wired content tree uses.
-  const collectionId = args?.collectionId;
+type TextBlockDraftArgs = {
+  readonly slug: string;
+  readonly locale: string;
+  readonly collectionId: string | undefined;
+  readonly tenantIdOverride: string | undefined;
+  readonly contentFormat: string | undefined;
+  readonly loaded: TextBlock | null | undefined;
+  readonly loading: boolean;
+  readonly clearError: () => void;
+};
 
-  const t = useTranslation();
-  const editorContext = useCollectionEditorContext(collectionId);
-  const { contentFormat, canWrite } = editorContext;
-  const { submitting, error: saveError, clearError, write } = useContentWrite();
-
-  // Same split as the tree provider: a node without a collection reads through
-  // the public by-slug, a collection node through that collection's handlers.
-  const readQuery =
-    collectionId === undefined
-      ? TemplateResolverQueries.bySlug
-      : collectionQueryName(collectionId, "item");
-  const writeHandler =
-    collectionId === undefined ? TemplateResolverHandlers.set : collectionHandlerName(collectionId);
-  const {
-    data: loaded,
-    loading,
-    error: loadError,
-  } = useQuery<TextBlock | null>(
-    readQuery,
-    { slug, locale, ...(tenantIdOverride !== undefined && { tenantIdOverride }) },
-    { enabled: slug !== "" && locale !== "" },
-  );
-
+function useTextBlockDraft(args: TextBlockDraftArgs) {
+  const { slug, locale, collectionId, tenantIdOverride, contentFormat, loaded, loading } = args;
   // loaded === null means the block does not exist yet: empty form for the create flow.
   // The draft also carries the stored baselines (to tell unsaved edits from the loaded state and to
   // discard back to it) and the saved message, so loading new data resets all of them at once.
@@ -120,25 +96,93 @@ export function useTextBlockEditor(target: TargetRef) {
   const [errorClearedFor, setErrorClearedFor] = useState<string | null>(null);
   if (loadedKey !== errorClearedFor) {
     setErrorClearedFor(loadedKey);
-    clearError();
+    args.clearError();
   }
+  return { draft, patch };
+}
+
+type WritePayloadArgs = {
+  readonly slug: string;
+  readonly locale: string;
+  readonly title: string;
+  readonly content: string;
+  readonly collectionId: string | undefined;
+  readonly tenantIdOverride: string | undefined;
+  readonly loaded: TextBlock | null | undefined;
+};
+
+function buildWritePayload(args: WritePayloadArgs) {
+  const { slug, locale, title, content, collectionId, tenantIdOverride, loaded } = args;
+  return {
+    slug,
+    locale,
+    title,
+    content: content.length > 0 ? content : null,
+    folder: loaded?.folder ?? null,
+    // A collection derives its storage format on the server; the public set keeps what was saved.
+    ...(collectionId === undefined &&
+      loaded?.contentFormat !== undefined && { contentFormat: loaded.contentFormat }),
+    ...(tenantIdOverride !== undefined && { tenantIdOverride }),
+  };
+}
+
+export function useTextBlockEditor(target: TargetRef) {
+  // @cast-boundary visual-tree-args — TargetRef.args is erased to
+  // Record<string, unknown>; the resolver knows the action shape (see the
+  // treeActions.edit definition in feature.ts) and de-erases per action, the
+  // same way event payloads do. Optional chaining absorbs missing fields so a
+  // hand-edited URL cannot crash the editor.
+  const args = target.args as EditTargetArgs | undefined;
+  const slug = args?.slug ?? "";
+  const locale = args?.locale ?? "";
+  const tenantIdOverride = args?.tenantIdOverride;
+  // Which collection the node came from. Absent → the public text-block pair,
+  // which is what the hand-wired content tree uses.
+  const collectionId = args?.collectionId;
+
+  const t = useTranslation();
+  const editorContext = useCollectionEditorContext(collectionId);
+  const { contentFormat, canWrite } = editorContext;
+  const { submitting, error: saveError, clearError, write } = useContentWrite();
+
+  // Same split as the tree provider: a node without a collection reads through
+  // the public by-slug, a collection node through that collection's handlers.
+  const readQuery =
+    collectionId === undefined
+      ? TemplateResolverQueries.bySlug
+      : collectionQueryName(collectionId, "item");
+  const writeHandler =
+    collectionId === undefined ? TemplateResolverHandlers.set : collectionHandlerName(collectionId);
+  const {
+    data: loaded,
+    loading,
+    error: loadError,
+  } = useQuery<TextBlock | null>(
+    readQuery,
+    { slug, locale, ...(tenantIdOverride !== undefined && { tenantIdOverride }) },
+    { enabled: slug !== "" && locale !== "" },
+  );
+
+  const { draft, patch } = useTextBlockDraft({
+    slug,
+    locale,
+    collectionId,
+    tenantIdOverride,
+    contentFormat,
+    loaded,
+    loading,
+    clearError,
+  });
   const { title, content, baselineTitle, baselineContent, savedMsg } = draft;
   const setTitle = (value: string): void => patch({ title: value });
   const setContent = (value: string): void => patch({ content: value });
 
   const save = async (): Promise<void> => {
     patch({ savedMsg: null });
-    const response = await write(writeHandler, {
-      slug,
-      locale,
-      title,
-      content: content.length > 0 ? content : null,
-      folder: loaded?.folder ?? null,
-      // A collection derives its storage format on the server; the public set keeps what was saved.
-      ...(collectionId === undefined &&
-        loaded?.contentFormat !== undefined && { contentFormat: loaded.contentFormat }),
-      ...(tenantIdOverride !== undefined && { tenantIdOverride }),
-    });
+    const response = await write(
+      writeHandler,
+      buildWritePayload({ slug, locale, title, content, collectionId, tenantIdOverride, loaded }),
+    );
     // skip: useContentWrite already set the failure text
     if (response === null) return;
     refreshTree(collectionId ?? TEXT_BLOCK_TREE_KEY);

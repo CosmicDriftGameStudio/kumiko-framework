@@ -70,8 +70,10 @@ describe("date format control", () => {
   test("a date variable offers the short and long format", async () => {
     await renderEditor({ dateVariables: ["due"] });
     await selectInsertedPlaceholder("due");
-    expect(await screen.findByRole("button", { name: "Short" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "Long" })).toBeDefined();
+    const short = await screen.findByRole("button", { name: "Short" });
+    const long = screen.getByRole("button", { name: "Long" });
+    expect(short.textContent).toBe("Short");
+    expect(long.textContent).toBe("Long");
   });
 
   test("a text variable offers no date format", async () => {
