@@ -156,9 +156,10 @@ describe("POST /auth/session-exchange", () => {
     }
   });
 
-  test("a successful exchange does not reset the IP and method bucket", async () => {
+  test("a successful exchange refunds its reservation once and never resets", async () => {
     const checked: string[] = [];
     const resets: string[] = [];
+    const refunds: string[] = [];
     const app = buildApp(sessionResult, [], {
       loginRateLimit: {
         check: async (key) => {
@@ -168,12 +169,43 @@ describe("POST /auth/session-exchange", () => {
         reset: async (key) => {
           resets.push(key);
         },
+        refund: async (key) => {
+          refunds.push(key);
+        },
       },
     });
     const res = await exchange(app, { method: "apple", payload: {} });
     expect(res.status).toBe(200);
     expect(checked).toHaveLength(1);
     expect(resets).toEqual([]);
+    expect(refunds).toEqual(checked);
+  });
+
+  test("a failed exchange does not refund its reservation", async () => {
+    const refunds: string[] = [];
+    const failing = (): WriteResult => {
+      const err: WriteResult = {
+        isSuccess: false,
+        error: {
+          code: "unprocessable",
+          httpStatus: 422,
+          details: { reason: "invalid_credentials" },
+        },
+      } as WriteResult;
+      return err;
+    };
+    const app = buildApp(failing, [], {
+      loginRateLimit: {
+        check: async () => true,
+        reset: async () => {},
+        refund: async (key) => {
+          refunds.push(key);
+        },
+      },
+    });
+    const res = await exchange(app, { method: "apple", payload: {} });
+    expect(res.status).not.toBe(200);
+    expect(refunds).toEqual([]);
   });
 
   test("route is not mounted without sessionExchangeHandlers", async () => {

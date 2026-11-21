@@ -70,6 +70,10 @@ export function createInMemoryLoginRateLimiter(
     async reset(key) {
       hits.delete(key);
     },
+    async refund(key) {
+      const entry = hits.get(key);
+      if (entry && entry.resetAt > Date.now() && entry.count > 0) entry.count--;
+    },
   };
 }
 
@@ -126,6 +130,16 @@ export function createRedisLoginRateLimiter(
     },
     async reset(key) {
       await redis.del(`${prefix}${key}`);
+    },
+    // Guarded so DECR never creates a TTL-less negative counter on a missing key.
+    async refund(key) {
+      await redis.eval(
+        `local c = tonumber(redis.call('GET', KEYS[1]))
+         if c and c > 0 then redis.call('DECR', KEYS[1]) end
+         return 0`,
+        1,
+        `${prefix}${key}`,
+      );
     },
   };
 }

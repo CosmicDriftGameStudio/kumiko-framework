@@ -12,6 +12,10 @@ export type LoginRateLimiter = {
   check(key: string): Promise<boolean>;
   // Called on successful login so a legitimate user's counter gets reset.
   reset(key: string): Promise<void>;
+  // Gives back one reservation taken by `check`, so a flow that counts before
+  // it knows the outcome can release the slot of a successful attempt without
+  // reopening slots taken by others. Optional: limiters without it keep counting.
+  refund?(key: string): Promise<void>;
 };
 
 // Per-session metadata forwarded to the sessionCreator. Captured at login
@@ -68,9 +72,9 @@ export type AuthRoutesConfig = {
   // (ip + email) bucket outside production; in production a missing limiter
   // aborts the boot (pass a Redis-backed one). Pass `null` to disable.
   loginRateLimit?: LoginRateLimiter | null;
-  // Rate-limit for POST /auth/session-exchange, bucketed by IP + method and never reset
-  // after success. Unset: reuses loginRateLimit. Apps whose methods carry signed tokens
-  // may want a larger bucket or `null` to disable.
+  // Rate-limit for POST /auth/session-exchange, bucketed by IP + method. Counts before
+  // dispatch; a successful exchange gives its own slot back (refund), failures stay
+  // counted. Unset: reuses loginRateLimit. Pass `null` to disable.
   sessionExchangeRateLimit?: LoginRateLimiter | null;
   // Optional: qualified write handler completing a two-step (password +
   // TOTP/recovery-code) login. When set, POST /auth/mfa/verify dispatches
