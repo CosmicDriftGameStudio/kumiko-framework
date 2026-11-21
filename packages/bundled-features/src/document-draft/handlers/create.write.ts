@@ -1,8 +1,13 @@
 import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  UnprocessableError,
+  ValidationError,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import { joinRowParentIsVisible } from "../../shared/index.ts";
 import {
   createTemplateResolverApi,
+  documentViolationsToFieldIssues,
   isVariantSlugOf,
   readVariantOf,
   sanitizeDocumentHtml,
@@ -74,7 +79,12 @@ export function createCreateHandler(
 
       // Same normalization the editor save applies, so an unchanged save shows no deviation.
       const normalized = sanitizeDocumentHtml(resource.content);
-      const startContent = normalized.ok ? normalized.html : resource.content;
+      if (!normalized.ok) {
+        return writeFailure(
+          new ValidationError({ fields: documentViolationsToFieldIssues(normalized.violations) }),
+        );
+      }
+      const startContent = normalized.html;
 
       const created = await documentDraftExecutor.create(
         {

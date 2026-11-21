@@ -77,7 +77,7 @@ export function PaperSheet({
         ref={(element) => applyCssVariables(element, paperVariables({ size, margins, look }))}
       >
         <PageRuler size={size} margins={margins} />
-        {foldMarkLines(look.foldMarks).map((line) => (
+        {foldMarkLines(look.foldMarks, size).map((line) => (
           <span
             key={line.topMm}
             data-testid="paper-fold-mark"

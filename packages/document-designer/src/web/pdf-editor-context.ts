@@ -22,4 +22,5 @@ export type PdfRenderContext = {
   readonly exportBundle: () => Promise<void>;
   /** Undefined when no client feature registers the template-import action. */
   readonly startTemplateImport: (() => void) | undefined;
+  readonly templateImportRunning: boolean;
 };

@@ -83,6 +83,8 @@ export type PrintTableState = {
   readonly align: string | null;
   readonly lineAbove: DocumentRowLine | null;
   readonly lineBelow: DocumentRowLine | null;
+  // The repeat row and the repeated header row are owned by the repeat controls; deleting them silently unbinds the list.
+  readonly rowRemovable: boolean;
 };
 
 export const DEFAULT_ROW_LINE: DocumentRowLine = { color: "#000000", weightPt: 0.5 };
@@ -138,7 +140,8 @@ function printTableOf(e: Editor): PrintTableState | null {
       break;
     }
   }
-  const row = readRowLineAttributes(rowNodeOf(e)?.attrs ?? {});
+  const rowAttrs = rowNodeOf(e)?.attrs ?? {};
+  const row = readRowLineAttributes(rowAttrs);
   return {
     bordersOff: table.attrs["borders"] === "none",
     cellBackground,
@@ -147,7 +150,13 @@ function printTableOf(e: Editor): PrintTableState | null {
     align: stringOrNull(table.attrs["align"]),
     lineAbove: row.lineAbove,
     lineBelow: row.lineBelow,
+    rowRemovable: !isRepeatRow(rowAttrs),
   };
+}
+
+function isRepeatRow(attrs: Record<string, unknown>): boolean {
+  const each = attrs["each"];
+  return (typeof each === "string" && each !== "") || attrs["repeatHeader"] === true;
 }
 
 function rowNodeOf(e: Editor): ProseMirrorNode | null {

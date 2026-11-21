@@ -10,7 +10,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { ErrorState, LoadingState } from "@cosmicdrift/kumiko-renderer/web";
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { TEMPLATE_IMPORT_CLIENT_ACTION, TEMPLATE_RESOURCE_ENTITY } from "./constants.ts";
 import { EditorBody, EditorFrame } from "./editor-shell.tsx";
 import { describeError } from "./errors.ts";
@@ -66,6 +66,7 @@ export function PdfTemplateEditor({
   useSetScreenFocus(focus);
   const clientActionRuntime = useClientActionRuntime();
   const hasTemplateImport = useClientActionHandler(TEMPLATE_IMPORT_CLIENT_ACTION) !== undefined;
+  const [templateImportRunning, setTemplateImportRunning] = useState(false);
   if (rowsQuery.loading && rowsQuery.data === null) return <LoadingState />;
   if (rowsQuery.error !== null) return <ErrorState error={rowsQuery.error} />;
   if (row === undefined)
@@ -98,6 +99,7 @@ export function PdfTemplateEditor({
     onLocaleChange,
     exportBundle,
     startTemplateImport: hasTemplateImport ? () => void startTemplateImport() : undefined,
+    templateImportRunning,
   };
   const editing = s.ui.mode === "edit";
 
@@ -118,6 +120,7 @@ export function PdfTemplateEditor({
 
   async function startTemplateImport(): Promise<void> {
     s.ui.setActionError(null);
+    setTemplateImportRunning(true);
     try {
       await runClientAction({
         action: {
@@ -133,6 +136,8 @@ export function PdfTemplateEditor({
       });
     } catch (error) {
       s.ui.setActionError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setTemplateImportRunning(false);
     }
   }
 
