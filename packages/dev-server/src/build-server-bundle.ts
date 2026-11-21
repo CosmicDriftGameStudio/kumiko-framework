@@ -77,8 +77,12 @@ const RUNTIME_EXTERNALS = [
 // listing them unconditionally forced a registry lookup on every build. pino-pretty is only
 // named as a string transport target, which the import scan cannot see; scanning for the
 // string would match every app because the logger is always bundled. So pino-pretty enters
-// only through the app's own declaration.
+// only through the app's own declaration. meilisearch too: server-runtime lazy-loads the
+// framework's meilisearch adapter, so every bundle carries `from "meilisearch"` and the scan
+// would install it for every app; offline customer builds then fail on the missing lock entry.
+// An app without the declaration that configures search gets resolveSearchOption's error.
 const OPTIONAL_RUNTIME_EXTERNALS = ["meilisearch", "postgres", "pino-pretty"] as const;
+const DECLARATION_ONLY_EXTERNALS: ReadonlySet<string> = new Set(["meilisearch", "pino-pretty"]);
 
 // Packages that appear only in the build stack (transitive framework imports),
 // but are not referenced by app code. Without the external marker,
@@ -258,7 +262,9 @@ export async function buildServerBundle(
   const declaredAppDependencies = readDeclaredAppDependencies(cwd);
   const neededOptionalExternals = OPTIONAL_RUNTIME_EXTERNALS.filter(
     (pkg) =>
-      declaredAppDependencies.has(pkg) || emittedCode.some((code) => importsBarePackage(code, pkg)),
+      declaredAppDependencies.has(pkg) ||
+      (!DECLARATION_ONLY_EXTERNALS.has(pkg) &&
+        emittedCode.some((code) => importsBarePackage(code, pkg))),
   );
   const runtimeDeps = await resolveRuntimeDepsVersions(cwd, repoRoot, [
     ...RUNTIME_EXTERNALS,
