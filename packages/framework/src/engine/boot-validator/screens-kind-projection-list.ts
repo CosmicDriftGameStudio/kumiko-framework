@@ -134,6 +134,7 @@ export function validateProjectionListScreen(
     screen.rowActions,
     featureName,
     ctx,
+    ctx.featureMap,
   );
   if (screen.toolbarActions !== undefined) {
     validateProjectionListToolbarActions(ctx, screenId, screen.toolbarActions);

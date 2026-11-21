@@ -1,8 +1,13 @@
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { isKebabSegment } from "../qualified-name.ts";
+import * as z from "zod";
+import { zodDef, zodShapeField } from "../../env/_zod-introspect.ts";
+import { unwrapObjectSchema } from "../handler-field-references.ts";
+import { isKebabSegment, isValidQn, parseQn } from "../qualified-name.ts";
+import type { FeatureDefinition } from "../types/index.ts";
 import {
   LIST_BULK_ACTION_KEYS,
   LIST_BULK_FORM_ACTION_KEYS,
+  MAX_BULK_SELECTION,
   type RowAction,
 } from "../types/screen.ts";
 import { bootRuleError } from "./boot-rule.ts";
@@ -131,15 +136,67 @@ function validateBulkIdsField(
   }
 }
 
+const MAX_WRAPPER_DEPTH = 8;
+
+function findArraySchema(field: z.ZodType): z.ZodArray | undefined {
+  let current: z.ZodType | undefined = field;
+  for (let depth = 0; depth < MAX_WRAPPER_DEPTH && current !== undefined; depth++) {
+    if (current instanceof z.ZodArray) return current;
+    current = zodDef(current)?.innerType;
+  }
+  return undefined;
+}
+
+// Zod's bag.maximum stays empty for arrays, so the max_length checks are read directly.
+function arrayMaximum(array: z.ZodArray): number {
+  let smallest = Number.POSITIVE_INFINITY;
+  for (const check of array._zod.def.checks ?? []) {
+    const def = check._zod.def;
+    if (def.check === "max_length" && "maximum" in def && typeof def.maximum === "number") {
+      smallest = Math.min(smallest, def.maximum);
+    }
+  }
+  return smallest;
+}
+
+// The client cap MAX_BULK_SELECTION does not bind a direct /api/write, so the handler schema must.
+function validateBulkIdsBounded(
+  where: string,
+  bulkId: string,
+  idsField: string,
+  form: ActionFormTarget,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
+  // skip: an unresolvable handler is reported by the write-handler registration rule
+  if (!isValidQn(form.handler)) return;
+  const { scope, name } = parseQn(form.handler);
+  const schema = featureMap.get(scope)?.writeHandlers[name]?.schema;
+  const objectSchema = schema === undefined ? undefined : unwrapObjectSchema(schema);
+  // skip: only an object schema has per-field bounds to read
+  if (objectSchema === undefined) return;
+  const field = zodShapeField(objectSchema, idsField);
+  const array = field === undefined ? undefined : findArraySchema(field);
+  if (array !== undefined && arrayMaximum(array) <= MAX_BULK_SELECTION) return;
+  throw bootRuleError(LIST_BULK_ACTION_RULES.formIdsFieldUnbounded, {
+    message:
+      `${where} bulk action "${bulkId}" sends the selected ids in "${idsField}" to handler ` +
+      `"${form.handler}", whose schema does not bound that field to at most ${MAX_BULK_SELECTION} ids; ` +
+      `a direct /api/write would accept an unbounded list. Declare ` +
+      `${idsField}: z.array(...).max(MAX_BULK_SELECTION) in the handler schema.`,
+  });
+}
+
 function validateBulkFormTarget(
   where: string,
   bulkId: string,
   entry: Readonly<Record<string, unknown>>,
   featureName: string,
   lookups: NavigateTargetLookups,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
   const { screenId, form } = resolveBulkFormScreen(where, bulkId, entry, featureName, lookups);
   validateBulkIdsField(where, bulkId, entry, screenId, form);
+  validateBulkIdsBounded(where, bulkId, String(entry["idsField"]), form, featureMap);
 }
 
 /** `where` is the full message prefix, e.g. `[Feature x] Screen "y" (entityList)`. */
@@ -149,6 +206,7 @@ export function validateListBulkActions(
   rowActions: readonly RowAction[] | undefined,
   featureName: string,
   lookups: NavigateTargetLookups,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
   // skip: no bulk actions declared
   if (bulkActions === undefined) return;
@@ -187,7 +245,7 @@ export function validateListBulkActions(
           `Allowed keys: ${allowedKeys.join(", ")}.`,
       });
     }
-    if (opensForm) validateBulkFormTarget(where, id, entry, featureName, lookups);
+    if (opensForm) validateBulkFormTarget(where, id, entry, featureName, lookups, featureMap);
     else validateBulkActionTarget(where, id, entry["rowAction"], rowActions ?? []);
   }
 }
