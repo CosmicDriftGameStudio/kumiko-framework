@@ -174,6 +174,62 @@ describe("pageHelp boot rules", () => {
     });
   });
 
+  describe("pageHelp.entity is required where no default entity exists", () => {
+    function detailFeature(options: {
+      readonly screenPageHelp?: Record<string, unknown>;
+      readonly relatedPageHelp?: Record<string, unknown>;
+    }) {
+      return defineFeature("docs", (r) => {
+        r.queryHandler({
+          name: "doc-detail",
+          schema: z.object({}),
+          handler: async () => [],
+          access: { roles: ["Admin"] },
+        });
+        r.screen({
+          id: "doc-detail",
+          type: "projectionDetail",
+          query: "docs:query:doc-detail",
+          ...(options.screenPageHelp !== undefined && { pageHelp: options.screenPageHelp }),
+          layout: {
+            sections: [
+              {
+                kind: "relatedList",
+                title: "docs.related",
+                query: "docs:query:doc-detail",
+                columns: ["title"],
+                ...(options.relatedPageHelp !== undefined && {
+                  pageHelp: options.relatedPageHelp,
+                }),
+              },
+            ],
+          },
+        } as never);
+      });
+    }
+
+    function pageHelpViolationsOf(feature: ReturnType<typeof detailFeature>) {
+      return violationsOf([feature]).filter((v) => v.ruleId.startsWith("page-help/"));
+    }
+
+    test("a projectionDetail pageHelp without entity names the screen", () => {
+      const found = pageHelpViolationsOf(detailFeature({ screenPageHelp: statusHelp("status") }));
+      expect(found.map((v) => v.ruleId)).toEqual(["page-help/status-field-invalid"]);
+      expect(found[0]?.message).toContain('screen "doc-detail":');
+      expect(found[0]?.message).toContain("pageHelp.entity is required on a projectionDetail");
+    });
+
+    test("a relatedList pageHelp without section or pageHelp entity names the relatedList", () => {
+      const found = pageHelpViolationsOf(detailFeature({ relatedPageHelp: statusHelp("status") }));
+      expect(found.map((v) => v.ruleId)).toEqual(["page-help/status-field-invalid"]);
+      expect(found[0]?.message).toContain('relatedList "docs.related"');
+      expect(found[0]?.message).toContain(
+        "pageHelp.entity is required when the relatedList section names no entity",
+      );
+      expect(found[0]?.message).not.toContain("on a projectionDetail");
+    });
+  });
+
   test("a relatedList pageHelp on an entityEdit is rejected, it would never be shown", () => {
     const feature = defineFeature("docs", (r) => {
       r.entity(

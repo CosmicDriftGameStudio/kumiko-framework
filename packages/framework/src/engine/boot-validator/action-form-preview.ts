@@ -58,6 +58,7 @@ function validateList(where: string, list: NonNullable<ActionFormPreview["list"]
     });
   }
   const columnFields = new Set(list.columns.map((column) => column.field));
+  const firstColumnField = list.columns[0]?.field;
   for (const row of list.footer ?? []) {
     if (isBlank(row.label)) {
       throw bootRuleError(ACTION_FORM_PREVIEW_RULES.labelMissing, {
@@ -65,6 +66,11 @@ function validateList(where: string, list: NonNullable<ActionFormPreview["list"]
       });
     }
     for (const columnField of Object.keys(row.cells)) {
+      if (columnField === firstColumnField) {
+        throw bootRuleError(ACTION_FORM_PREVIEW_RULES.footerColumnUnknown, {
+          message: `${where} list footer row "${row.label}" has a cell for "${columnField}", the first column, which holds the footer label. Put the value under a later column.`,
+        });
+      }
       if (columnFields.has(columnField)) continue;
       throw bootRuleError(ACTION_FORM_PREVIEW_RULES.footerColumnUnknown, {
         message: `${where} list footer row "${row.label}" has a cell for "${columnField}", which is no list column. Columns: ${[...columnFields].join(", ")}.`,

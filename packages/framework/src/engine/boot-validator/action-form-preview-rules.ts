@@ -18,8 +18,9 @@ export const ACTION_FORM_PREVIEW_RULES = {
   },
   footerColumnUnknown: {
     id: "action-form-preview/footer-column-unknown",
-    summary: "Every preview.list.footer cell names a column of the list.",
-    fix: "Use the field of one of list.columns as the cells key, or drop the cell.",
+    summary:
+      "Every preview.list.footer cell names a column of the list other than the first, which holds the footer label.",
+    fix: "Use the field of a later list column as the cells key, or drop the cell.",
   },
   sectionUnknown: {
     id: "action-form-preview/section-unknown",
