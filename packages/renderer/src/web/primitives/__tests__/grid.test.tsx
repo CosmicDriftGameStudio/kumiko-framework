@@ -116,3 +116,29 @@ describe("DefaultGrid — ariaLabelledBy", () => {
     expect(screen.getByTestId("grid").getAttribute("role")).toBeNull();
   });
 });
+
+describe("DefaultGrid — ruled legend", () => {
+  test("term cells may wrap inside the fixed column instead of overflowing into the sentence", () => {
+    render(
+      <Grid columns={2} legend ruled testId="grid">
+        <span>Kündigung eingereicht, Rückgabe offen</span>
+        <span>Sentence</span>
+      </Grid>,
+    );
+    const grid = screen.getByTestId("grid");
+    expect(grid.className).not.toContain("whitespace-nowrap");
+    const term = grid.children[0];
+    expect(term?.className).toContain("min-w-0");
+    expect(term?.className).toContain("break-words");
+  });
+
+  test("the unruled legend keeps its terms on one line", () => {
+    render(
+      <Grid columns={2} legend testId="grid">
+        <span>Term</span>
+        <span>Sentence</span>
+      </Grid>,
+    );
+    expect(screen.getByTestId("grid").className).toContain("[&>:nth-child(odd)]:whitespace-nowrap");
+  });
+});

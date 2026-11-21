@@ -208,6 +208,79 @@ describe("RenderEdit board fidelity", () => {
     expect(screen.queryByTestId("render-edit-form-subtitle")).toBeNull();
   });
 
+  test("in the shell header slot without an all-required entity, the intro box holds the description only", () => {
+    render(
+      <DispatcherProvider dispatcher={createMockDispatcher({})}>
+        <PageHeaderSlotProvider>
+          <ActionsHost />
+          <RenderEdit
+            screen={{ ...screenWith(["price", "reason"]), description: "Each owner gets a mail." }}
+            entity={mixedEntity}
+            featureName="orders"
+            initial={{}}
+            writeCommand="order:update"
+            fillScreenHeight
+          />
+        </PageHeaderSlotProvider>
+      </DispatcherProvider>,
+    );
+    expect(screen.getByTestId("render-edit-intro").textContent).toContain(
+      "Each owner gets a mail.",
+    );
+    expect(screen.queryByTestId("render-edit-all-required-hint")).toBeNull();
+  });
+
+  test("without a shell header slot the description stays a form subtitle, no intro box", () => {
+    render(
+      <DispatcherProvider dispatcher={createMockDispatcher({})}>
+        <RenderEdit
+          screen={{ ...screenWith(["price", "reason"]), description: "Each owner gets a mail." }}
+          entity={allRequiredEntity}
+          featureName="orders"
+          initial={{}}
+          writeCommand="order:update"
+        />
+      </DispatcherProvider>,
+    );
+    expect(screen.queryByTestId("render-edit-intro")).toBeNull();
+    expect(screen.getByTestId("render-edit-form-subtitle").textContent).toContain(
+      "Each owner gets a mail.",
+    );
+  });
+
+  test("a wizard with a step rail shows no intro box for its description", () => {
+    const wizard: EntityEditScreenDefinition = {
+      id: "orders:screen:order-wizard",
+      type: "entityEdit",
+      entity: "order",
+      description: "Each owner gets a mail.",
+      layout: {
+        mode: "wizard",
+        sections: [
+          { title: "One", fields: ["price"] },
+          { title: "Two", fields: ["reason"] },
+        ],
+      },
+    };
+    render(
+      <DispatcherProvider dispatcher={createMockDispatcher({})}>
+        <PageHeaderSlotProvider>
+          <ActionsHost />
+          <RenderEdit
+            screen={wizard}
+            entity={allRequiredEntity}
+            featureName="orders"
+            initial={{}}
+            writeCommand="order:update"
+            fillScreenHeight
+          />
+        </PageHeaderSlotProvider>
+      </DispatcherProvider>,
+    );
+    screen.getByTestId("render-edit-wizard-steps");
+    expect(screen.queryByTestId("render-edit-intro")).toBeNull();
+  });
+
   test("wizard footer: Back and Next carry chevrons, Delete and Cancel stay out of the footer", () => {
     const wizard: EntityEditScreenDefinition = {
       id: "orders:screen:order-wizard",

@@ -464,6 +464,23 @@ describe("CollapsibleSection", () => {
     expect(container.querySelector("details")?.open).toBe(true);
   });
 
+  test("a late defaultOpen flip reports the opening once through onOpenChange", async () => {
+    const onOpenChange = mock((_open: boolean) => {});
+    const { rerender, container } = render(
+      <CollapsibleSection title="Erweitert" defaultOpen={false} onOpenChange={onOpenChange}>
+        <span>Inhalt</span>
+      </CollapsibleSection>,
+    );
+    expect(onOpenChange.mock.calls).toEqual([]);
+    rerender(
+      <CollapsibleSection title="Erweitert" defaultOpen={true} onOpenChange={onOpenChange}>
+        <span>Inhalt</span>
+      </CollapsibleSection>,
+    );
+    await waitFor(() => expect(container.querySelector("details")?.open).toBe(true));
+    expect(onOpenChange.mock.calls).toEqual([[true]]);
+  });
+
   test("header has the same height as input fields", () => {
     const { container } = render(
       <CollapsibleSection title="Erweitert">

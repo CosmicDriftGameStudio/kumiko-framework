@@ -139,6 +139,53 @@ describe("WorkspaceShell focus mode", () => {
     expect(screen.getByRole("button", { name: "More" }).getAttribute("data-active")).toBe("false");
   });
 
+  test("focusRailNavQns skips unknown entries and renders a duplicated entry once", () => {
+    render(
+      <WorkspaceShell
+        brand={<span>Brand</span>}
+        schema={schema}
+        focusRailNavQns={["inbox:nav:units", "inbox:nav:units", "does:not:exist"]}
+      >
+        <FocusedScreen />
+      </WorkspaceShell>,
+    );
+    const tiles = [...document.querySelectorAll('[data-kumiko-layout="focus-rail"] nav > *')];
+    expect(tiles.map((tile) => tile.getAttribute("aria-label"))).toEqual(["Einheiten"]);
+  });
+
+  test("More is active when the active screen sits in an unlisted group but outside every shown tile", () => {
+    const twoUnitsSchema = {
+      ...schema,
+      screens: [...schema.screens, { id: "depots", type: "entityList", entity: "x", columns: [] }],
+      navs: [
+        ...(schema.navs ?? []),
+        { id: "depots", label: "Depots", screen: "depots", parent: "stock", order: 20 },
+      ],
+    } as FeatureSchema;
+    const nav: NavApi = {
+      route: { screenId: "depots" },
+      navigate: () => {},
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: {},
+      setSearchParams: () => {},
+    };
+    render(
+      <NavProvider value={nav}>
+        <WorkspaceShell
+          brand={<span>Brand</span>}
+          schema={twoUnitsSchema}
+          focusRailNavQns={["inbox:nav:units"]}
+        >
+          <FocusedScreen />
+        </WorkspaceShell>
+      </NavProvider>,
+    );
+    const tile = document.querySelector('[data-kumiko-layout="focus-rail"] nav > *');
+    expect(tile?.getAttribute("data-active")).toBe("false");
+    expect(screen.getByRole("button", { name: "More" }).getAttribute("data-active")).toBe("true");
+  });
+
   test("rail tiles and brand tile follow the design: 40px md tiles, muted icons, 32px md brand tile", () => {
     render(
       <WorkspaceShell brand={<SidebarBrand name="Vermieter" />} schema={schema}>

@@ -143,6 +143,15 @@ export function FocusRail({
         isActive(other) &&
         findNavNode(node.children, other.qualifiedName) !== undefined,
     );
+  // More is active only when a hidden group holds the active screen through an entry that
+  // no shown tile covers.
+  const isMoreActive = hidden.some(
+    (group) =>
+      isActive(group) &&
+      !shown.some(
+        (tile) => isActive(tile) && findNavNode(group.children, tile.qualifiedName) !== undefined,
+      ),
+  );
   const moreLabel = t("kumiko.focusRail.more");
 
   return (
@@ -164,7 +173,7 @@ export function FocusRail({
             type="button"
             title={moreLabel}
             aria-label={moreLabel}
-            data-active={hidden.some(isActive) && !shown.some(isActive)}
+            data-active={isMoreActive}
             className={RAIL_TILE_CLASS}
             onClick={() => setOpen(true)}
           >
