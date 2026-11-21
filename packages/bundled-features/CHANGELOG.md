@@ -1,5 +1,74 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.426.0
+
+### Minor Changes
+
+- 2e9782d: The sealed PDF of a completed signature request is now owned by its request, so documents filed from it pass the file-owner read gate of the documents feature.
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: breaking
+  title: Sealed signature PDF belongs to its request
+  detail: `signatureRequest.completedFileId` is now a file field instead of a text field, and the sweep stores the sealed `signed-document.pdf` attached to the request. Before, the file had no owner, so a document filed from it was hidden from every reader by the documents read gate.
+  migration: Run `schema:generate`; the column gains a foreign-key index. Existing values stay valid. Files sealed before this change stay unowned.
+  affects: signature, signatureRequest, completedFileId
+  -->
+
+### Patch Changes
+
+- 1f0d1da: A job can react to a file a satellite delivered and read it, and the app schema no longer warns about `table: { export: undefined }`.
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: improvement
+  title: Job trigger and reader for delivered files
+  detail: `connectors` exports `INBOUND_ITEM_CREATED_EVENT` (`inbound-item.created`) for `r.job({ trigger: { on } })` and `readInboundFile(ctx, inboundItemId, { maxBytes })`, usable in a job and a write handler. It returns the decrypted `relativePath`, `connectorId`, `connectorName`, `sha256`, `sourceModifiedAt` and the bytes, or `{ isSuccess: false, failure: "not-found" | "too-large" }` without throwing. `buildAppSchema` drops an explicit `table.export: undefined` from entityList and projectionList screens, so mounting `connectors` no longer logs "output is not JSON-safe".
+  -->
+- 428f5f6: Apps can pair a satellite device, upload a file and run the resulting jobs in their integration tests.
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: improvement
+  title: Test helpers for satellite pairing and file upload
+  detail: `@cosmicdrift/kumiko-bundled-features/connectors/testing` exports `pairConnectorDevice(stack, admin, { name?, basePath? })` (returns `{ token, connectorId }`), `uploadConnectorFile(stack, token, { path, bytes, sha256?, mtime? }, { basePath? })` (returns the `Response`) and `runConnectorJobs(stack)` (dispatches events and drains the job queue). The test stack must mount `createConnectorRoutes()` as `extraRoutes` and `jobs: { consumerLane: "worker" }`; a custom route `basePath` is passed to the helpers too. `pairConnectorDevice` and `runConnectorJobs` throw a hint when the stack lacks either.
+  -->
+- 2e9782d: Retention hardDelete and subject erasure now rebind a file that another row still holds to that holder instead of leaving it bound to the purged row, so owner-row read gates keep the holder's file readable.
+  
+  <!-- kumiko-changes
+  feature: files
+  type: fix
+  title: Shared files survive the purge of their bound row
+  detail: When a hardDelete purge skips a file shared with another row, the file is rebound to the first remaining holder (by id). Before, it stayed bound to the deleted row and a read gate on the owner row hid it from every reader, for example a signed PDF filed as a document.
+  -->
+- 2e9782d: The invitation page shows a readable message for each failure and picks login or signup from the invitation.
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Invitation page translates server errors and chooses the form from invite-info
+  detail: `InviteAcceptScreen` showed the raw key `auth.errors.invalidInviteToken` for every failed accept, even a wrong password. It now maps the server's reason per code (invalid credentials, wrong invited email, rejected password, rate limit, invalid or used link) and falls back to the generic error. The keys `invalidInviteToken`, `inviteEmailMismatch`, `inviteAlreadyAccepted` and `passwordRejected` were missing in every locale bundle and are added to en, de, es, fr and it. When the app mounts the invite-info route (`invite.infoHandler`), the page also prefills the invited email, opens the signup form for invitees without an account and shows an error card for an invalid link.
+  -->
+- 2e9782d: `createWaitlistFeature({ retention: { keepFor } })` deletes waitlist entries after a retention period.
+  
+  <!-- kumiko-changes
+  feature: waitlist
+  type: improvement
+  title: Waitlist entries can expire automatically
+  detail: createWaitlistFeature takes the optional retention: { keepFor } (data-retention keepFor syntax, e.g. "180d"). The waitlist entry entity then declares a hardDelete retention counted from creation, so the data-retention cleanup job forgets every entry older than keepFor, whatever its status (pending, invited, provisioned, rejected), and shreds its subject key. The app must mount the data-retention feature. Without the option nothing changes. Also exported, WaitlistRetention.
+  -->
+- Updated dependencies [2e9782d]
+- Updated dependencies [1f0d1da]
+- Updated dependencies [e1940a6]
+- Updated dependencies [2e9782d]
+- Updated dependencies [2e9782d]
+- Updated dependencies [2e9782d]
+- Updated dependencies [e83d721]
+  - @cosmicdrift/kumiko-renderer@0.426.0
+  - @cosmicdrift/kumiko-types@0.426.0
+  - @cosmicdrift/kumiko-framework@0.426.0
+  - @cosmicdrift/kumiko-testing@0.426.0
+
 ## 0.425.1
 
 ### Patch Changes

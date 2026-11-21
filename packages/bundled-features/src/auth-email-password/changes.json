@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.426.0",
+    "type": "fix",
+    "title": "Invitation page translates server errors and chooses the form from invite-info"
+  },
+  {
     "version": "0.425.0",
     "type": "fix",
     "title": "Invite handlers share one token consumption sequence"

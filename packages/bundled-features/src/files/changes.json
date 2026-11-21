@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.426.0",
+    "type": "fix",
+    "title": "Shared files survive the purge of their bound row"
+  },
+  {
     "version": "0.425.0",
     "type": "breaking",
     "title": "files feature only under @cosmicdrift/kumiko-framework/files",

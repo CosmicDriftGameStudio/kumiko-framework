@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.426.0",
+    "type": "improvement",
+    "title": "Silent videos in the video generator"
+  },
+  {
     "version": "0.425.0",
     "type": "improvement",
     "title": "SERVICE_ENV_DEFAULTS from kumiko-testing/e2e"
