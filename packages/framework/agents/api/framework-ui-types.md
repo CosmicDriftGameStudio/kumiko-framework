@@ -587,7 +587,7 @@ type ListTableSummaryRow = { // The query receives the list's current search, fi
 type ListToolbarActionsPlacement = (typeof LIST_TOOLBAR_ACTIONS_PLACEMENTS)[number];
 type OptionsQueryPayload = Readonly<Record<string, OptionsQueryPayloadValue>>;
 type PageHelpSection = PageHelpStatusSection | PageHelpTextSection;
-type PageHelpSpec = { // General help of a page: a question-mark button at the end of the shell header actions opens a drawer with one card per section.
+type PageHelpSpec = { // General help of a page: a button labelled "Explanations" (icon only below `sm`) at the end of the shell header actions opens a drawer with one card per section.
   sections: PageHelpSection[];
 };
 type PageHelpStatusSection = { // Explains every option of one select field (typically a status).

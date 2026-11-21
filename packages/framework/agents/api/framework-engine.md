@@ -715,7 +715,7 @@ type EntityListScreenDefinition = {
   toolbarSort?: true; // From `sm` up, a "Sorted by" select in the filter row (same options as the narrow sort control); column headers stay sortable.
   narrowFacets?: ListNarrowFacets; // "pills": below `sm` the select facets render as rounded pill triggers with a stronger border; from `sm` up unchanged.
   toolbarActionsPlacement?: ListToolbarActionsPlacement; // "toolbar": from `md` up the `toolbarActions` end the filter row, after the "Sorted by" select and the create button, instead of standing in the page header.
-  pageHelp?: PageHelpSpec; // General help of the page: a question-mark button in the shell header opens a drawer with the sections.
+  pageHelp?: PageHelpSpec; // General help of the page: a button labelled "Explanations" (icon only below `sm`) in the shell header opens a drawer with the sections.
   itemNounKey?: string; // i18n key of the plural noun for the list size in the phone sort line (`{count}` pluralised).
   searchPlaceholder?: string; // i18n key for the search field placeholder (default `kumiko.list.search-placeholder`).
   searchable?: boolean;
