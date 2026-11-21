@@ -140,6 +140,7 @@ export function buildPdfView(input: {
       names: s.vocabulary.variableNames,
       labels: s.vocabulary.variableLabels,
       system: s.vocabulary.systemVariables,
+      dates: s.vocabulary.dateVariables,
     },
     footer: footerOf(t, s),
     showOverrideLinks,

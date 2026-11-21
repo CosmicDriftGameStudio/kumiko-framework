@@ -205,6 +205,20 @@ export function variableLabelMap(
   return labels;
 }
 
+// A chip inside a repeat row carries the bare item field name, so date item fields are listed by that name.
+export function dateVariableNames(
+  variables: Readonly<Record<string, MailVariable>>,
+): readonly string[] {
+  const names = new Set<string>();
+  for (const [name, variable] of Object.entries(variables)) {
+    if (variable.type === "date") names.add(name);
+    for (const [itemName, item] of Object.entries(variable.item ?? {})) {
+      if (item.type === "date") names.add(itemName);
+    }
+  }
+  return [...names];
+}
+
 export type SampleValueFormat = {
   readonly locale: string;
   // Undefined while the tenant setting is still loading or not requested: a bare amount then stays raw

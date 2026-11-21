@@ -18,6 +18,7 @@ export type EditorVocabulary = {
   readonly names: readonly string[];
   readonly labels: Readonly<Record<string, string>>;
   readonly system: readonly string[];
+  readonly dates: readonly string[];
 };
 
 function MetaLine({
@@ -123,6 +124,7 @@ export function MailEditCenter({
           blocks={MAIL_DOCUMENT_BLOCKS}
           variableLabels={vocabulary.labels}
           systemVariables={vocabulary.system}
+          dateVariables={vocabulary.dates}
           resourcePreviews={resourcePreviews}
           chrome="canvas"
           renderPaper={renderMailPaper}

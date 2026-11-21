@@ -65,6 +65,7 @@ export function renderPdfEditCanvas(c: PdfRenderContext): ReactNode {
           systemLabels={vocabulary.systemLabels}
           variableNames={vocabulary.variableNames}
           imageVariables={vocabulary.imageVariables}
+          dateVariables={vocabulary.dateVariables}
           resourcePreviews={vocabulary.resourcePreviews}
           onEditorReady={insert.register("body")}
           onFrameControlChange={s.ui.setFrameControl}

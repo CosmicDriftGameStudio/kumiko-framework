@@ -16,6 +16,7 @@ import type {
   DocumentResourcePreview,
 } from "./document-toolbar-blocks.ts";
 import { useEditorHandleReport } from "./editor-handle.ts";
+import { textFormattingPasteHtml } from "./paste-text-formatting.ts";
 import { useStableByKey } from "./use-stable-by-key.ts";
 
 export function documentEditorLabels(t: Translate) {
@@ -51,6 +52,7 @@ function useDocumentExtensions(input: {
   readonly repeatHeaderLabel: string;
   readonly variableLabels: Readonly<Record<string, string>>;
   readonly systemVariables: readonly string[];
+  readonly dateVariables: readonly string[];
   readonly resourcePreviews: Readonly<Record<string, DocumentResourcePreview>>;
 }) {
   const {
@@ -61,6 +63,7 @@ function useDocumentExtensions(input: {
     repeatHeaderLabel,
     variableLabels,
     systemVariables,
+    dateVariables,
     resourcePreviews,
   } = input;
   const frameLabels = useStableByKey(input.frameLabels, JSON.stringify(input.frameLabels ?? null));
@@ -75,6 +78,7 @@ function useDocumentExtensions(input: {
   } = input.labels;
   const stableLabels = useStableByKey(variableLabels, JSON.stringify(variableLabels));
   const stableSystem = useStableByKey(systemVariables, systemVariables.join("\n"));
+  const stableDates = useStableByKey(dateVariables, dateVariables.join("\n"));
   const stablePreviews = useStableByKey(resourcePreviews, previewsKey(resourcePreviews));
   const extensions = useMemo(
     () =>
@@ -88,6 +92,7 @@ function useDocumentExtensions(input: {
         imageBlock: imageBlockLabel,
         variableLabels: stableLabels,
         systemVariables: stableSystem,
+        dateVariables: stableDates,
         resourcePreviews: stablePreviews,
         blockLabels: canvas,
         print,
@@ -111,6 +116,7 @@ function useDocumentExtensions(input: {
       imagesLabel,
       stableLabels,
       stableSystem,
+      stableDates,
       stablePreviews,
       canvas,
       print,
@@ -125,11 +131,12 @@ function useDocumentExtensions(input: {
 
 export type DocumentTiptapModelInput = Pick<
   DocumentEditorProps,
-  "id" | "value" | "onChange" | "readOnly" | "onEditorReady" | "onFrameControlChange"
+  "id" | "value" | "onChange" | "readOnly" | "onEditorReady" | "onFrameControlChange" | "formatting"
 > & {
   readonly print: DocumentPrintMode;
   readonly variableLabels: Readonly<Record<string, string>>;
   readonly systemVariables: readonly string[];
+  readonly dateVariables: readonly string[];
   readonly resourcePreviews: Readonly<Record<string, DocumentResourcePreview>>;
   readonly canvas: boolean;
 };
@@ -163,6 +170,7 @@ export function useDocumentTiptapModel(input: DocumentTiptapModelInput, t: Trans
     repeatHeaderLabel: t("template-resolver.documentEditor.repeatHeader"),
     variableLabels: input.variableLabels,
     systemVariables: input.systemVariables,
+    dateVariables: input.dateVariables,
     resourcePreviews: input.resourcePreviews,
   });
 
@@ -177,7 +185,10 @@ export function useDocumentTiptapModel(input: DocumentTiptapModelInput, t: Trans
       // this component before committing it; immediate render would create an
       // editor instance during that throwaway pass.
       immediatelyRender: false,
-      editorProps: { attributes: { id } },
+      editorProps: {
+        attributes: { id },
+        ...(input.formatting === "text" && { transformPastedHTML: textFormattingPasteHtml }),
+      },
       onUpdate: ({ editor: e }) => onChange(e.getHTML()),
     },
     [extensions],

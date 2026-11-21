@@ -71,6 +71,12 @@ function isShownValue(value: unknown): value is string | number | boolean {
   return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
 }
 
+function dateVariableNamesOf(record: DraftRecord): readonly string[] {
+  return Object.entries(record.variableSchema).flatMap(([name, definition]) =>
+    propertyOf(definition, "type") === "date" ? [name] : [],
+  );
+}
+
 function hasMoneyVariable(record: DraftRecord): boolean {
   return Object.values(record.variableSchema).some(
     (definition) => propertyOf(definition, "type") === "money",
@@ -366,6 +372,7 @@ function DraftEditor({
             variables={Object.keys(record.variableSchema)}
             variableLabels={variableLabelsOf(t, record, currency)}
             systemVariables={SYSTEM_VARIABLES}
+            dateVariables={dateVariableNamesOf(record)}
             blocks={PDF_DOCUMENT_BLOCKS}
             readOnly={!open}
           />

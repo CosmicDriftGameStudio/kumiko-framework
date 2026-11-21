@@ -4,7 +4,7 @@ import {
   useContentEditor,
   useHasContentEditor,
 } from "../app/content-editors.tsx";
-import { documentHtmlToText, textToDocumentHtml } from "./document-text.ts";
+import { documentHtmlToText, isEmptyDocumentHtml, textToDocumentHtml } from "./document-text.ts";
 
 type DocumentFieldEditorProps = {
   readonly id: string;
@@ -52,7 +52,7 @@ export function DocumentFieldEditor(props: DocumentFieldEditorProps): ReactNode 
       variables={[]}
       formatting="text"
       // An emptied tiptap document is "<p></p>"; required and empty checks need "".
-      onChange={(html) => props.onChange(documentHtmlToText(html) === "" ? "" : html)}
+      onChange={(html) => props.onChange(isEmptyDocumentHtml(html) ? "" : html)}
     />
   );
 }

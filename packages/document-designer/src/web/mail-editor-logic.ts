@@ -1,6 +1,6 @@
 import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { fileUrl } from "./file-name.ts";
-import { buildMeta, systemLabelMap, variableLabelMap } from "./mail-draft.ts";
+import { buildMeta, dateVariableNames, systemLabelMap, variableLabelMap } from "./mail-draft.ts";
 import type { EditorVocabulary } from "./mail-edit-center.tsx";
 import type {
   LinkedResourceView,
@@ -93,6 +93,7 @@ export function vocabularyOf(t: Translate, validation: MailValidation | null): E
       ...variableLabelMap(t, validation?.variables ?? {}),
     },
     system: validation?.systemPlaceholders ?? [],
+    dates: dateVariableNames(validation?.variables ?? {}),
   };
 }
 

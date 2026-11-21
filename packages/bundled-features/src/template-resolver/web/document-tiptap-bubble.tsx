@@ -229,7 +229,9 @@ function renderBlockOptionsBar(c: TiptapContext, selectedBlock: SelectedBlock): 
         c.print !== "none" &&
         renderImagePrintControls(c, selectedBlock)}
       {selectedBlock.type === "divider" && renderDividerControls(c, selectedBlock)}
-      {selectedBlock.type === "variable" && renderDateStyleControls(c, selectedBlock)}
+      {selectedBlock.type === "variable" &&
+        c.dateVariables.includes(selectedBlock.detail) &&
+        renderDateStyleControls(c, selectedBlock)}
       {selectedBlock.type === "resource" && c.hosted && c.print === "flow" && (
         <Button
           type="button"

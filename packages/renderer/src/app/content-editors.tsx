@@ -27,7 +27,7 @@ export type ContentEditorProps = {
    *  here. */
   readonly variables: readonly string[];
   readonly readOnly: boolean;
-  /** "text" asks for plain text formatting only (bold, italic, lists, link): no images, tables or other blocks. Editors that cannot restrict themselves ignore it. */
+  /** "text" asks for plain text formatting: the toolbar offers no images, tables or other blocks and pasted ones are dropped; blocks already in the value stay. Editors that cannot restrict themselves ignore it. */
   readonly formatting?: "text";
 };
 

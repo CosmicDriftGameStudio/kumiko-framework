@@ -20,6 +20,13 @@ export function documentHtmlToText(html: string): string {
     .trim();
 }
 
+const NON_TEXT_CONTENT = /<(?:img|table|hr)\b|data-(?:page-break|steps|images|button)\b/i;
+
+// A document holding only an image, divider, table or block is not empty although it has no text.
+export function isEmptyDocumentHtml(html: string): boolean {
+  return documentHtmlToText(html) === "" && !NON_TEXT_CONTENT.test(html);
+}
+
 /** Blank line starts a paragraph, a single newline becomes a hard break. */
 export function textToDocumentHtml(text: string): string {
   return text
