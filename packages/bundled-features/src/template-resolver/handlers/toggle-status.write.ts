@@ -86,7 +86,7 @@ function planStatusChange(
   };
 }
 
-// A variant goes live with the base's current variables, so a base that gained a variable is gated and served consistently.
+// A variant goes live with the delivered base's variables; a variable only the base draft knows stays refused until the base is published.
 async function baseSchemaForPublish(
   db: LoadedTarget["db"],
   row: TemplateResourceRow,
@@ -94,7 +94,7 @@ async function baseSchemaForPublish(
   if (row.scope !== "tenant") return undefined;
   const baseSlug = readVariantOf(storedRecord(toWorkingRow(row, row.tenantId).meta));
   if (baseSlug === null) return undefined;
-  const schema = await baseVariableSchemaOf(db, row.tenantId, baseSlug, row.locale);
+  const schema = await baseVariableSchemaOf(db, row.tenantId, baseSlug, row.locale, "served");
   return isPlainObject(schema) ? schema : undefined;
 }
 
