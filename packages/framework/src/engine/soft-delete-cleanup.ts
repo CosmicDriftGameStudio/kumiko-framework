@@ -131,6 +131,8 @@ export const softDeleteCleanupJob: JobHandlerFn = async (_payload, ctx) => {
       where,
       cutoff,
       ctx,
+      db,
+      { purgeHeldFiles: true },
     );
   }
 };
@@ -159,6 +161,7 @@ async function purgeExpiredRows(
   cutoff: Temporal.Instant,
   ctx: Pick<JobContext, "services" | "obs" | "registry">,
   readDb: AnyDb = writer.db,
+  options: { readonly purgeHeldFiles: boolean } = { purgeHeldFiles: false },
 ): Promise<void> {
   if (source === FILE_REF_ENTITY_NAME) {
     // The row is the only record of the storageKey, so its bytes go first.
@@ -172,7 +175,7 @@ async function purgeExpiredRows(
       forgetRow: (id) => forgetRow(writer, id),
     });
   }
-  await forgetExpiredPages(writer, source, table, where, ctx, readDb);
+  await forgetExpiredPages(writer, source, table, where, ctx, readDb, options.purgeHeldFiles);
 }
 
 // Soft-deleted rows kept their files for a restore; once the row is forgotten nothing can
@@ -219,7 +222,62 @@ async function purgeRowFilesBeforeForget(args: {
   });
 }
 
+type RowFilePurgePlan = {
+  readonly entity: EntityDefinition;
+  readonly registry: Registry;
+  readonly fileHolders: ReturnType<typeof collectSingleFileHolders>;
+};
+
+function planRowFilePurge(
+  registry: Registry | undefined,
+  source: string,
+  purgeHeldFiles: boolean,
+): RowFilePurgePlan | undefined {
+  const entity = registry?.getEntity(source);
+  if (!purgeHeldFiles || !registry || !entity) return undefined;
+  const plan = planFileFields(entity.fields);
+  if (plan.singleFields.length === 0 && plan.multiFields.length === 0) return undefined;
+  return { entity, registry, fileHolders: collectSingleFileHolders(registry) };
+}
+
+async function purgeAndForgetRow(args: {
+  readonly writer: PurgeWriter;
+  readonly source: string;
+  readonly table: PurgeTable;
+  readonly ctx: Pick<JobContext, "obs" | "services" | "registry">;
+  readonly filePlan: RowFilePurgePlan | undefined;
+  readonly row: Record<string, unknown> & { id: string };
+}): Promise<void> {
+  const { writer, source, table, ctx, filePlan, row } = args;
+  try {
+    if (filePlan) {
+      const outcome = await purgeRowFilesBeforeForget({
+        writer,
+        source,
+        entity: filePlan.entity,
+        table,
+        fileHolders: filePlan.fileHolders,
+        registry: filePlan.registry,
+        files: ctx.services.files,
+        row,
+        log: ctx.obs.log,
+      });
+      if (outcome !== "purged") {
+        ctx.obs.log.warn(`[soft-delete-cleanup] ${source} ${row.id} kept: ${outcome}`);
+        return;
+      }
+    }
+    await forgetRow(writer, row.id);
+  } catch (err) {
+    ctx.obs.log.warn(
+      `[soft-delete-cleanup] ${source} ${row.id} not purged: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}
+
 // Keyset on id: a row whose forget fails is logged and skipped, it must not hide the rows behind it.
+// purgeHeldFiles is off for the system job: fileRefs of a global row sit in the uploader's tenant
+// and holder tables are invisible to a tenant-mode ctx.db there, so sharing cannot be judged.
 async function forgetExpiredPages(
   writer: PurgeWriter,
   source: string,
@@ -227,13 +285,9 @@ async function forgetExpiredPages(
   where: WhereObject,
   ctx: Pick<JobContext, "obs" | "services" | "registry">,
   readDb: AnyDb,
+  purgeHeldFiles: boolean,
 ): Promise<void> {
-  const { registry } = ctx;
-  const entity = registry?.getEntity(source);
-  const filePlan = entity === undefined ? undefined : planFileFields(entity.fields);
-  const hasFileFields =
-    filePlan !== undefined && (filePlan.singleFields.length > 0 || filePlan.multiFields.length > 0);
-  const fileHolders = hasFileFields && registry ? collectSingleFileHolders(registry) : [];
+  const filePlan = planRowFilePurge(ctx.registry, source, purgeHeldFiles);
   let afterId: string | undefined;
   for (;;) {
     const page = await selectMany<Record<string, unknown> & { id: string }>(
@@ -245,30 +299,7 @@ async function forgetExpiredPages(
     const last = page[page.length - 1];
     if (last === undefined) break;
     for (const row of page) {
-      try {
-        if (hasFileFields && entity && registry) {
-          const outcome = await purgeRowFilesBeforeForget({
-            writer,
-            source,
-            entity,
-            table,
-            fileHolders,
-            registry,
-            files: ctx.services.files,
-            row,
-            log: ctx.obs.log,
-          });
-          if (outcome !== "purged") {
-            ctx.obs.log.warn(`[soft-delete-cleanup] ${source} ${row.id} kept: ${outcome}`);
-            continue;
-          }
-        }
-        await forgetRow(writer, row.id);
-      } catch (err) {
-        ctx.obs.log.warn(
-          `[soft-delete-cleanup] ${source} ${row.id} not purged: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
+      await purgeAndForgetRow({ writer, source, table, ctx, filePlan, row });
     }
     afterId = last.id;
   }

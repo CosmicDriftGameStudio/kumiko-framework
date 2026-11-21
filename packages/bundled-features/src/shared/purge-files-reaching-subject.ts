@@ -91,6 +91,16 @@ function candidateWheres(
   return wheres;
 }
 
+// Only the equality shapes candidateWheres produces; values compare as strings (id types differ).
+function rowMatchesCandidateWhere(
+  row: Record<string, unknown>,
+  wheres: readonly WhereObject[],
+): boolean {
+  return wheres.some((where) =>
+    Object.entries(where).every(([column, value]) => String(row[column]) === String(value)),
+  );
+}
+
 function fieldsResolvingToSubject(
   fileEntity: FileEntity,
   row: Record<string, unknown>,
@@ -225,11 +235,16 @@ export async function purgeFilesReachingSubject(args: {
           fileHolders,
           row,
           fieldNames,
-          // Rows of the same subject are all erased, so they must not keep the file alive for each other.
+          // Rows of the same subject are all erased, so they must not keep the file alive for each
+          // other; only rows the sweep reaches (candidate wheres) are actually erased.
           isHolderPurgedAlongside: (holder, holderRow) => {
             const holderEntity = fileEntityByName.get(holder.entityType);
             return (
               holderEntity !== undefined &&
+              rowMatchesCandidateWhere(
+                holderRow,
+                candidateWheres(subject, recordTenantId, holderEntity),
+              ) &&
               fieldsResolvingToSubject(holderEntity, holderRow, tenantId, subjectKey).includes(
                 holder.fieldName,
               )

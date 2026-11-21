@@ -131,7 +131,7 @@ function isFileRefBoundElsewhere(
 // table or in another entity's table; with a partial field set, also by another
 // field of the same row. Purging its bytes would corrupt the holder that stays.
 // A soft-deleted row still holds the file (a restore needs the bytes); a live holder
-// is preferred so the rebind points at a visible row.
+// anywhere is preferred so the rebind points at a visible row.
 async function findOtherHolder(
   db: DbRunner,
   holders: readonly SingleFileHolder[],
@@ -142,67 +142,67 @@ async function findOtherHolder(
   fieldNames: readonly string[] | undefined,
   isHolderPurgedAlongside: HolderPredicate | undefined,
 ): Promise<FileRefOwner | undefined> {
-  const search = (holderList: readonly SingleFileHolder[], softDeleted: boolean) =>
-    findHolderAmong(holderList, async (holder, field) => {
+  let softDeletedHolder: FileRefOwner | undefined;
+  for (const holder of holders) {
+    for (const field of holder.singleFields) {
       const where: WhereObject = { [field]: fileRefId };
       if (holder.table === ownTable) {
         const fieldIsPurged = fieldNames === undefined || fieldNames.includes(field);
         where["id"] = fieldIsPurged ? { ne: rowId } : rowId;
       }
       if (holder.tableHasTenantId) where["tenantId"] = tenantId;
-      if (holder.hidesSoftDeleted) where["isDeleted"] = softDeleted;
-      return await firstSurvivingHolderId(db, holder, field, where, isHolderPurgedAlongside);
-    });
-  const live = await search(holders, false);
-  if (live !== undefined) return live;
-  return await search(
-    holders.filter((holder) => holder.hidesSoftDeleted),
-    true,
-  );
+      const found = await firstSurvivingHolder(db, holder, field, where, isHolderPurgedAlongside);
+      if (found === undefined) continue;
+      const owner = { entityType: holder.entityName, entityId: found.id, fieldName: field };
+      if (!found.softDeleted) return owner;
+      softDeletedHolder ??= owner;
+    }
+  }
+  return softDeletedHolder;
 }
 
 const HOLDER_PAGE_SIZE = 50;
+const LIVE_FIRST_ORDER = [{ col: "isDeleted" }, { col: "id" }] as const;
 
-// Paged by id because rows the predicate skips (purged in the same sweep) must not hide a
-// surviving holder behind them.
-async function firstSurvivingHolderId(
+type HolderCursor = { readonly softDeleted: boolean; readonly afterId: unknown };
+
+// One query per page, live rows before soft-deleted ones. Paged by id because rows the
+// predicate skips (purged in the same sweep) must not hide a surviving holder behind them.
+async function firstSurvivingHolder(
   db: DbRunner,
   holder: SingleFileHolder,
   field: string,
   where: WhereObject,
   isHolderPurgedAlongside: HolderPredicate | undefined,
-): Promise<string | undefined> {
-  let cursor: unknown;
+): Promise<{ readonly id: string; readonly softDeleted: boolean } | undefined> {
+  const { hidesSoftDeleted } = holder;
+  let cursor: HolderCursor | undefined;
   for (;;) {
-    const pageWhere: WhereObject = cursor === undefined ? where : { ...where, id: { gt: cursor } };
+    const pageWhere: WhereObject = { ...where };
+    if (cursor !== undefined) {
+      if (hidesSoftDeleted) pageWhere["isDeleted"] = cursor.softDeleted;
+      if (cursor.afterId !== undefined) pageWhere["id"] = { gt: cursor.afterId };
+    }
     const page = await selectMany<Record<string, unknown>>(db, holder.table, pageWhere, {
       limit: HOLDER_PAGE_SIZE,
-      orderBy: { col: "id" },
+      orderBy: hidesSoftDeleted ? LIVE_FIRST_ORDER : { col: "id" },
     });
     for (const candidate of page) {
       const id = String(candidate["id"]);
       const owner = { entityType: holder.entityName, entityId: id, fieldName: field };
-      if (isHolderPurgedAlongside?.(owner, candidate) !== true) return id;
-    }
-    // skip: a short page is the last one
-    if (page.length < HOLDER_PAGE_SIZE) return undefined;
-    cursor = page[page.length - 1]?.["id"];
-  }
-}
-
-async function findHolderAmong(
-  holders: readonly SingleFileHolder[],
-  firstMatchingId: (holder: SingleFileHolder, field: string) => Promise<string | undefined>,
-): Promise<FileRefOwner | undefined> {
-  for (const holder of holders) {
-    for (const field of holder.singleFields) {
-      const id = await firstMatchingId(holder, field);
-      if (id !== undefined) {
-        return { entityType: holder.entityName, entityId: String(id), fieldName: field };
+      if (isHolderPurgedAlongside?.(owner, candidate) !== true) {
+        return { id, softDeleted: hidesSoftDeleted && candidate["isDeleted"] === true };
       }
     }
+    const last = page[page.length - 1];
+    if (last !== undefined && page.length >= HOLDER_PAGE_SIZE) {
+      cursor = { softDeleted: hidesSoftDeleted && last["isDeleted"] === true, afterId: last["id"] };
+    } else if (hidesSoftDeleted && cursor?.softDeleted === false) {
+      cursor = { softDeleted: true, afterId: undefined };
+    } else {
+      return undefined;
+    }
   }
-  return undefined;
 }
 
 function isBoundToRow(fileRef: Record<string, unknown>, entityName: string, rowId: string) {

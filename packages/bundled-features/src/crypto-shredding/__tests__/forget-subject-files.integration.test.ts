@@ -177,25 +177,11 @@ const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
   entityName: "fileRef",
 });
 
-function keeperTable() {
+function tableOf(source: string) {
   for (const proj of stack.registry.getAllProjections().values()) {
-    if (proj.source === "keeper" && proj.table) return proj.table;
+    if (proj.source === source && proj.table) return proj.table;
   }
-  throw new Error("keeper table is not registered");
-}
-
-function ownedTable() {
-  for (const proj of stack.registry.getAllProjections().values()) {
-    if (proj.source === "owned-doc" && proj.table) return proj.table;
-  }
-  throw new Error("owned-doc table is not registered");
-}
-
-function softOwnedTable() {
-  for (const proj of stack.registry.getAllProjections().values()) {
-    if (proj.source === "soft-owned-doc" && proj.table) return proj.table;
-  }
-  throw new Error("soft-owned-doc table is not registered");
+  throw new Error(`${source} table is not registered`);
 }
 
 let stack: TestStack;
@@ -365,7 +351,7 @@ describe("crypto-shredding :: forget-subject removes the subject's files", () =>
       { label: "keeper", attachment: ownKeeperFileId },
       dpo,
     );
-    const [keeperRow] = await selectMany<{ version: number }>(stack.db, keeperTable(), {
+    const [keeperRow] = await selectMany<{ version: number }>(stack.db, tableOf("keeper"), {
       id: keeper.id,
     });
     const tdb = createTenantDb({
@@ -374,7 +360,7 @@ describe("crypto-shredding :: forget-subject removes the subject's files", () =>
       mode: "system",
       reason: "test points a live record at a file the forgotten record's field was bound to",
     });
-    const keeperExecutor = createEventStoreExecutor(keeperTable(), keeperEntity, {
+    const keeperExecutor = createEventStoreExecutor(tableOf("keeper"), keeperEntity, {
       entityName: "keeper",
     });
     const repointed = await keeperExecutor.update(
@@ -632,66 +618,33 @@ describe("crypto-shredding :: forget-subject removes the subject's files", () =>
     }
   });
 
-  test("user subject: a file held by two of the user's records, one of them soft-deleted, is purged with the erasure", async () => {
-    const sharedId = await upload(foreignUploader, "soft-owned-doc", "contract");
-    const first = await stack.http.writeOk<{ id: string }>(
-      CREATE_SOFT_OWNED,
-      { ownerId: ownerUserId, contract: sharedId },
-      foreignUploader,
-    );
-    const ownFileId = await upload(foreignUploader, "soft-owned-doc", "contract");
-    const second = await stack.http.writeOk<{ id: string }>(
-      CREATE_SOFT_OWNED,
-      { ownerId: ownerUserId, contract: ownFileId },
-      foreignUploader,
-    );
-    const table = softOwnedTable();
-    const [secondRow] = await selectMany<{ version: number }>(stack.db, table, { id: second.id });
-    const tdb = createTenantDb({
-      db: stack.db,
-      tenantId: TENANT,
-      mode: "system",
-      reason: "test points a second record of the same owner at the first record's file",
-    });
-    const repointed = await createEventStoreExecutor(table, softOwnedDocEntity, {
-      entityName: "soft-owned-doc",
-    }).update(
-      { id: second.id, version: secondRow?.version, changes: { contract: sharedId } },
-      createSystemUser(TENANT),
-      tdb,
-    );
-    expect(repointed.isSuccess).toBe(true);
-    await stack.http.writeOk(DELETE_SOFT_OWNED, { id: second.id }, foreignUploader);
-    const sharedKey = await storageKeyOf(sharedId);
+  const LIVE_OWNED = { name: "owned-doc", entity: ownedDocEntity, create: CREATE_OWNED } as const;
+  const SOFT_OWNED = {
+    name: "soft-owned-doc",
+    entity: softOwnedDocEntity,
+    create: CREATE_SOFT_OWNED,
+  } as const;
 
+  async function createOwnedSharing(
+    ownerIds: readonly [string, string],
+    target: typeof LIVE_OWNED | typeof SOFT_OWNED = LIVE_OWNED,
+  ) {
+    const sharedId = await upload(foreignUploader, target.name, "contract");
     await stack.http.writeOk(
-      FORGET,
-      { subject: { kind: "user", userId: ownerUserId }, reason: REASON },
-      dpo,
-    );
-
-    expect(first.id).not.toBe(second.id);
-    expect(await memory.exists(sharedKey)).toBe(false);
-    expect(await fileRefExists(sharedId)).toBe(false);
-  });
-
-  async function createOwnedSharing(ownerIds: readonly [string, string]) {
-    const sharedId = await upload(foreignUploader, "owned-doc", "contract");
-    await stack.http.writeOk(
-      CREATE_OWNED,
+      target.create,
       { ownerId: ownerIds[0], contract: sharedId },
       foreignUploader,
     );
-    const ownFileId = await upload(foreignUploader, "owned-doc", "contract");
+    const ownFileId = await upload(foreignUploader, target.name, "contract");
     const second = await stack.http.writeOk<{ id: string }>(
-      CREATE_OWNED,
+      target.create,
       { ownerId: ownerIds[1], contract: ownFileId },
       foreignUploader,
     );
-    const table = ownedTable();
+    const table = tableOf(target.name);
     const [secondRow] = await selectMany<{ version: number }>(stack.db, table, { id: second.id });
-    const repointed = await createEventStoreExecutor(table, ownedDocEntity, {
-      entityName: "owned-doc",
+    const repointed = await createEventStoreExecutor(table, target.entity, {
+      entityName: target.name,
     }).update(
       { id: second.id, version: secondRow?.version, changes: { contract: sharedId } },
       createSystemUser(TENANT),
@@ -705,6 +658,21 @@ describe("crypto-shredding :: forget-subject removes the subject's files", () =>
     expect(repointed.isSuccess).toBe(true);
     return { sharedId, secondId: second.id };
   }
+
+  test("user subject: a file held by two of the user's records, one of them soft-deleted, is purged with the erasure", async () => {
+    const { sharedId, secondId } = await createOwnedSharing([ownerUserId, ownerUserId], SOFT_OWNED);
+    await stack.http.writeOk(DELETE_SOFT_OWNED, { id: secondId }, foreignUploader);
+    const sharedKey = await storageKeyOf(sharedId);
+
+    await stack.http.writeOk(
+      FORGET,
+      { subject: { kind: "user", userId: ownerUserId }, reason: REASON },
+      dpo,
+    );
+
+    expect(await memory.exists(sharedKey)).toBe(false);
+    expect(await fileRefExists(sharedId)).toBe(false);
+  });
 
   test("user subject: a file held by two live records of the user is purged with the erasure", async () => {
     const { sharedId } = await createOwnedSharing([ownerUserId, ownerUserId]);
