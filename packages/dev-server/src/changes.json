@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.426.1",
+    "type": "fix",
+    "title": "dist-server installs meilisearch only when the app declares it",
+    "migration": "Apps that configure search \"meili-env\" must declare meilisearch in their package.json dependencies; resolveSearchOption already reports this at boot."
+  },
+  {
     "version": "0.425.0",
     "type": "breaking",
     "title": "securityBaselineFeatures preset removed",

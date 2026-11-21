@@ -1,5 +1,42 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.426.1
+
+### Patch Changes
+
+- ac3d140: Auth review fixes: shared login membership gate, preview-login allowlist and audit logs, invite-accept error mapping.
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Login membership gate shared, malformed answers and non-uuid ids handled, invite validation errors mapped per path
+  detail: The password login and `sessionForVerifiedUser` now share one status-and-membership gate. A malformed membership query answer returns a structured internal error instead of an uncaught ZodError, and `sessionForVerifiedUser` answers `invalid_credentials` for a non-uuid `userId`. The invite-accept screen shows the password-rejected text for a `validation_error` only on signup-complete, otherwise the generic invalid-input text. Preview login accepts only owners in status `active`, logs a warning when the route is mounted and an info line (user and tenant id, no key or signature) per minted session. Tests cover the userId lookup path, the exact restricted-account answer and the skipped and failed results of the deletion-executed mail.
+  -->
+- 70b9411: Review fixes for the upgrade CLI, deploy Dockerfiles, PDF rasterizing, the changes fold and the video runner.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Upgrade CLI canary baseline, multi-arch Dockerfiles, changes fold
+  detail: `kumiko-upgrade` treats a canary release as already handled only when no marker exists and the baseline is the installed canary; an explicit `--from <canary>` or an unreadable marker keeps the codemods and manual steps of that release pending, and the invalid-version message names the prerelease format. The production Dockerfile install (scaffold template and `docker/Dockerfile`) runs with `--ignore-scripts` so a build on another CPU cannot leave host-architecture binaries in the image; apps that need a lifecycle script must run it in the runtime stage. The release train also moves the `next` dist-tag to the release when `next` still points at an older canary. `changes fold` formats `changes.json` in memory and writes only after every file formatted. The registered video e2e port of one consumer app moves to 4353 because a recipe already used the old one. The puppeteer service refuses to extract embedded images when a PDF lists more than 200 of them or more than 50 megapixels in total.
+  -->
+- Updated dependencies [56161fd]
+- Updated dependencies [ac3d140]
+- Updated dependencies [c1387f3]
+- Updated dependencies [70b9411]
+- Updated dependencies [a54fbad]
+- Updated dependencies [5b257b1]
+- Updated dependencies [fbf9e90]
+- Updated dependencies [70345d9]
+- Updated dependencies [86afac6]
+- Updated dependencies [9ccb3c0]
+- Updated dependencies [2377b8b]
+- Updated dependencies [35806b4]
+  - @cosmicdrift/kumiko-framework@0.426.1
+  - @cosmicdrift/kumiko-bundled-features@0.426.1
+  - @cosmicdrift/kumiko-renderer@0.426.1
+  - @cosmicdrift/kumiko-types@0.426.1
+
 ## 0.426.0
 
 ### Patch Changes

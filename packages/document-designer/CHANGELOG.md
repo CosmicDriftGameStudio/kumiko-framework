@@ -1,5 +1,34 @@
 # @cosmicdrift/kumiko-document-designer
 
+## 0.426.1
+
+### Patch Changes
+
+- fbf9e90: Document editor and PDF fixes: fold marks only on upright A4, read-only and repeat-row guards in the table toolbar, template import cannot double-submit, draft creation refuses an unsanitizable template.
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Document editor and PDF print review fixes
+  detail: DIN fold and punch marks are printed and previewed only on upright A4 (shared `PDF_FOLD_MARK_POSITIONS_MM` and `isFoldMarkPaper`); Letter and landscape sheets get none. The table toolbar locks number fields and image alignment in a read-only editor and no longer removes the repeat or repeated-header row. The PDF editor disables "import from template" while the import handler runs. `document-draft:create` answers with a validation error instead of copying template HTML that fails the sanitizer.
+  -->
+- Updated dependencies [56161fd]
+- Updated dependencies [ac3d140]
+- Updated dependencies [c1387f3]
+- Updated dependencies [70b9411]
+- Updated dependencies [a54fbad]
+- Updated dependencies [5b257b1]
+- Updated dependencies [fbf9e90]
+- Updated dependencies [70345d9]
+- Updated dependencies [86afac6]
+- Updated dependencies [9ccb3c0]
+- Updated dependencies [2377b8b]
+- Updated dependencies [35806b4]
+  - @cosmicdrift/kumiko-framework@0.426.1
+  - @cosmicdrift/kumiko-bundled-features@0.426.1
+  - @cosmicdrift/kumiko-renderer@0.426.1
+  - @cosmicdrift/kumiko-types@0.426.1
+
 ## 0.426.0
 
 ### Patch Changes

@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.426.1",
+    "type": "fix",
+    "title": "Template resolver review fixes"
+  },
+  {
     "version": "0.425.0",
     "type": "fix",
     "title": "Shorter nav labels, translated content folders and layout presets"

@@ -1,5 +1,48 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.426.1
+
+### Patch Changes
+
+- b87d038: `kumiko-build` lists `meilisearch` in `dist-server/package.json` only when the app declares it. Since 0.425.1 the server runtime lazy-loads the framework's meilisearch adapter, so every server bundle contains an import of `meilisearch` and the import scan added it to every app. Apps without `meilisearch` in their lock then failed the offline lockfile step (`Failed to resolve root prod dependency 'meilisearch'`), which broke every Studio customer build on 0.425.1 and 0.426.0.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: dist-server installs meilisearch only when the app declares it
+  detail: The server bundle always references meilisearch through the lazily loaded search adapter, so an import in the bundle no longer adds it to the runtime dependencies. Builds without internet access work again for apps that do not use search.
+  migration: Apps that configure search "meili-env" must declare meilisearch in their package.json dependencies; resolveSearchOption already reports this at boot.
+  -->
+- 70b9411: Review fixes for the upgrade CLI, deploy Dockerfiles, PDF rasterizing, the changes fold and the video runner.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Upgrade CLI canary baseline, multi-arch Dockerfiles, changes fold
+  detail: `kumiko-upgrade` treats a canary release as already handled only when no marker exists and the baseline is the installed canary; an explicit `--from <canary>` or an unreadable marker keeps the codemods and manual steps of that release pending, and the invalid-version message names the prerelease format. The production Dockerfile install (scaffold template and `docker/Dockerfile`) runs with `--ignore-scripts` so a build on another CPU cannot leave host-architecture binaries in the image; apps that need a lifecycle script must run it in the runtime stage. The release train also moves the `next` dist-tag to the release when `next` still points at an older canary. `changes fold` formats `changes.json` in memory and writes only after every file formatted. The registered video e2e port of one consumer app moves to 4353 because a recipe already used the old one. The puppeteer service refuses to extract embedded images when a PDF lists more than 200 of them or more than 50 megapixels in total.
+  -->
+- Updated dependencies [56161fd]
+- Updated dependencies [ac3d140]
+- Updated dependencies [c1387f3]
+- Updated dependencies [70b9411]
+- Updated dependencies [a54fbad]
+- Updated dependencies [5b257b1]
+- Updated dependencies [fbf9e90]
+- Updated dependencies [70345d9]
+- Updated dependencies [86afac6]
+- Updated dependencies [9ccb3c0]
+- Updated dependencies [2377b8b]
+- Updated dependencies [35806b4]
+- Updated dependencies [451d29a]
+  - @cosmicdrift/kumiko-framework@0.426.1
+  - @cosmicdrift/kumiko-bundled-features@0.426.1
+  - @cosmicdrift/kumiko-server-runtime@0.426.1
+  - @cosmicdrift/kumiko-testing@0.426.1
+  - @cosmicdrift/kumiko-renderer@0.426.1
+  - @cosmicdrift/kumiko-types@0.426.1
+  - @cosmicdrift/kumiko-feature-ast@0.426.1
+  - @cosmicdrift/kumiko-guards@0.426.1
+
 ## 0.426.0
 
 ### Patch Changes

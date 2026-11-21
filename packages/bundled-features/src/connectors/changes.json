@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.426.1",
+    "type": "fix",
+    "title": "Fewer queries per upload, clearer runConnectorJobs guard"
+  },
+  {
+    "version": "0.426.1",
+    "type": "fix",
+    "title": "Connectors routes review fixes"
+  },
+  {
     "version": "0.426.0",
     "type": "improvement",
     "title": "Job trigger and reader for delivered files"

@@ -1,5 +1,88 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.426.1
+
+### Patch Changes
+
+- 56161fd: A job's `ctx.obs.log.warn` and `error` now also reach the pod log, redacted.
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: fix
+  title: Job warn and error log lines reach the pod log redacted
+  detail: `warn` and `error` from a job's `ctx.obs.log` are additionally written to the process logger with the message run through `redactErrorText` and only `job`, `runId` and `level` as fields; `data` and child context never go there. `info` and `debug` stay out of stdout, and the run log is unchanged. `redactErrorText`, `redactUrls`, `redactEmailAddresses` and `redactBotTokens` moved to `@cosmicdrift/kumiko-framework/logging`; `bundled-features/shared` still re-exports them.
+  -->
+- ac3d140: Auth review fixes: shared login membership gate, preview-login allowlist and audit logs, invite-accept error mapping.
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Login membership gate shared, malformed answers and non-uuid ids handled, invite validation errors mapped per path
+  detail: The password login and `sessionForVerifiedUser` now share one status-and-membership gate. A malformed membership query answer returns a structured internal error instead of an uncaught ZodError, and `sessionForVerifiedUser` answers `invalid_credentials` for a non-uuid `userId`. The invite-accept screen shows the password-rejected text for a `validation_error` only on signup-complete, otherwise the generic invalid-input text. Preview login accepts only owners in status `active`, logs a warning when the route is mounted and an info line (user and tenant id, no key or signature) per minted session. Tests cover the userId lookup path, the exact restricted-account answer and the skipped and failed results of the deletion-executed mail.
+  -->
+- a54fbad: Connector inbound handling reads deleting folders in two queries and `runConnectorJobs` fails fast on a stack without a job runner.
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: fix
+  title: Fewer queries per upload, clearer runConnectorJobs guard
+  detail: `deletingFolderIds` reads the deleting roots and then all folders of their connectors once instead of one query per root, and `receive-file` computes the set once per phase. `runConnectorJobs` also throws its `consumerLane` hint when the stack has no job runner. `postForm` and `sha256Hex` are exported from `connectors/testing`.
+  -->
+- 5b257b1: Review fixes for the connectors routes: honest loopback display, ordered storage-full flag, 409 for a vanished upload.
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: fix
+  title: Connectors routes review fixes
+  detail: The pairing confirm step no longer claims a loopback request comes from "this server": it shows the address (`::1`, `127.x`) with the note "local address (proxy, real sender unknown)", and only the exact IPv6 loopback counts as local, not the rest of `::/64`. The storage-full flag is cleared only by an upload accepted after the refusal, so a late touch of an earlier upload cannot undo it, and a duplicate delivery no longer clears it. An upload whose file vanished while it was processed answers `409 {"error":"retry"}` instead of `500 server_error`. The `readInboundFile` docs state that it does no role check and that storage failures throw.
+  -->
+- fbf9e90: Document editor and PDF fixes: fold marks only on upright A4, read-only and repeat-row guards in the table toolbar, template import cannot double-submit, draft creation refuses an unsanitizable template.
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: Document editor and PDF print review fixes
+  detail: DIN fold and punch marks are printed and previewed only on upright A4 (shared `PDF_FOLD_MARK_POSITIONS_MM` and `isFoldMarkPaper`); Letter and landscape sheets get none. The table toolbar locks number fields and image alignment in a read-only editor and no longer removes the repeat or repeated-header row. The PDF editor disables "import from template" while the import handler runs. `document-draft:create` answers with a validation error instead of copying template HTML that fails the sanitizer.
+  -->
+- 70345d9: Merged duplicated helpers found by the semantic-duplicates guard.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Deduplicated attribute readers, sealed-payload parsing, webHost, deletion token screens and purpose digests
+  detail: A single `readEnumAttribute`, `parseSealedPayload`, `webHost`, `DeletionTokenScreen` and `createPurposeDigest` replace parallel copies. The entity list search check now also counts searchable longText fields, matching the registry's searchable-field collection, so a list over an entity whose only searchable field is longText is no longer reported as unsearchable.
+  -->
+- 86afac6: Review fixes for PII backfill, the stored-email boot repair, the search consumer and the job scheduler sweep.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Bounded email boot scan, search flush settles before rejecting, scheduler sweep stamps unseen ids
+  detail: `normalizeStoredUserEmails` reads users in id-ordered batches (default 500) instead of all at once. The search consumer batch handler lets every tenant flush finish before it rethrows an unexpected failure, so no `holdForRetry` lands on an ended turn. The job runner refresh tick stamps a scheduler without a seen entry instead of deleting it; only the start sweep removes unseen ones. The PII backfill failure log no longer repeats the event ids, and subject-resolver gets tests for ciphertext and sentinel owner values.
+  -->
+- 35806b4: Review fixes for the template resolver: stored documents keep rendering, images variables accept captions.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Template resolver review fixes
+  detail: The frame-outside-page check now applies only to write gates (`sanitizeTemplateWriteBody`, collection writes, `rejectFramesOutsidePage`), so a body stored before it keeps rendering instead of silently falling back to the system template. The sender line joins spans separated by a whitespace-only line break. Signature PNGs with a two-tone background are no longer accepted as empty. A variant looks for its base in the fallback locale too. `images` template variables validate `{ fileRefId, caption? }` entries (preview, notifications). A stored-template preview with the PDF plugin no longer prints a draft-only letterhead (`DocumentPreviewRequest.working`). The overview groups variants with one map lookup, and the README describes the table page-break rule correctly.
+  -->
+- Updated dependencies [56161fd]
+- Updated dependencies [ac3d140]
+- Updated dependencies [c1387f3]
+- Updated dependencies [70b9411]
+- Updated dependencies [70345d9]
+- Updated dependencies [86afac6]
+- Updated dependencies [9ccb3c0]
+- Updated dependencies [2377b8b]
+- Updated dependencies [35806b4]
+- Updated dependencies [451d29a]
+  - @cosmicdrift/kumiko-framework@0.426.1
+  - @cosmicdrift/kumiko-testing@0.426.1
+  - @cosmicdrift/kumiko-renderer@0.426.1
+  - @cosmicdrift/kumiko-types@0.426.1
+
 ## 0.426.0
 
 ### Minor Changes
