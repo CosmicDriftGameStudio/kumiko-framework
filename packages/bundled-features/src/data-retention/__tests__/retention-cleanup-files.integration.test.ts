@@ -11,7 +11,7 @@
 //   - softDelete/anonymize entities with file fields never touch bytes
 //   - the registered cron handler forwards ctx.services.files, not just direct calls
 
-import { afterAll, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
 import {
   asRawClient,
@@ -39,6 +39,7 @@ import {
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import { type Logger, setProcessLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   deleteRowViaEventStore,
@@ -513,9 +514,16 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       },
     };
     const warnings: string[] = [];
-    const warn = spyOn(console, "warn").mockImplementation((...args: unknown[]) => {
-      warnings.push(args.map(String).join(" "));
-    });
+    const recorder: Logger = {
+      info() {},
+      warn: (msg, data) => {
+        warnings.push(`${msg} ${JSON.stringify(data ?? {})}`);
+      },
+      error() {},
+      debug() {},
+      child: () => recorder,
+    };
+    setProcessLogger(recorder);
 
     try {
       await runRetentionCleanup({
@@ -527,7 +535,7 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
         files: filesCtx(piiProvider),
       });
     } finally {
-      warn.mockRestore();
+      setProcessLogger(null);
     }
 
     const logged = warnings.join("\n");

@@ -304,10 +304,7 @@ async function deleteFileFailingClosed(
   try {
     return await deleteFileRefBytes(files, { storageKey: key }, "data-retention:hardDelete");
   } catch (err) {
-    // biome-ignore lint/suspicious/noConsole: operator-visibility for storage-cleanup failures
-    console.warn(
-      `[data-retention:hardDelete] ${logContext} storage cleanup threw: ${errorKindOf(err)}`,
-    );
+    log.warn(`hardDelete ${logContext} storage cleanup threw: ${errorKindOf(err)}`);
     return [key];
   }
 }
@@ -367,10 +364,7 @@ async function purgeHardDeleteRowWithFiles(args: {
       }
     },
     onBytesDeleteFailed: (failedKeys) => {
-      // biome-ignore lint/suspicious/noConsole: operator-visibility for storage-cleanup failures
-      console.warn(
-        `[data-retention:hardDelete] ${logContext} storage delete failed for ${failedKeys.length} file(s)`,
-      );
+      log.warn(`hardDelete ${logContext} storage delete failed for ${failedKeys.length} file(s)`);
     },
   });
   if (outcome !== "purged") {
