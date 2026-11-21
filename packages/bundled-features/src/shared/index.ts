@@ -1,3 +1,9 @@
+export {
+  redactBotTokens,
+  redactEmailAddresses,
+  redactErrorText,
+  redactUrls,
+} from "@cosmicdrift/kumiko-framework/logging";
 export { acknowledgedSystemDb, requireSystemDb } from "./acknowledged-system-db.ts";
 export { assertBillingLive, isBillingLive } from "./assert-billing-live.ts";
 export { collectErasureFailure, throwIfErasureFailed } from "./assert-erased.ts";
@@ -75,12 +81,6 @@ export {
 } from "./purge-row-file-refs.ts";
 export { rateLimitedTextResponse } from "./rate-limited-text-response.ts";
 export { readFeatureExportFn } from "./read-feature-export-fn.ts";
-export {
-  redactBotTokens,
-  redactEmailAddresses,
-  redactErrorText,
-  redactUrls,
-} from "./redact.ts";
 export { REDACTED_PII_PLACEHOLDER, redactPiiCiphertext } from "./redact-pii-ciphertext.ts";
 export { requireBootstrapExtension } from "./require-bootstrap-extension.ts";
 export { requireForTenant } from "./require-for-tenant.ts";

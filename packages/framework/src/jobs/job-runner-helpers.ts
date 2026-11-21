@@ -16,7 +16,7 @@ import type { AppContext, JobRunIn } from "../engine/types/index.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
 import { isKumikoError } from "../errors/kumiko-error.ts";
-import { createFallbackLogger, scrubLogText } from "../logging/index.ts";
+import { createFallbackLogger, redactErrorText, scrubLogText } from "../logging/index.ts";
 import type { Logger } from "../logging/types.ts";
 import { emitJobQueueDepth } from "../observability/standard-metrics.ts";
 
@@ -50,14 +50,30 @@ export function stampGatedWriteOrigin(data: Record<string, unknown>): void {
   }
 }
 
+// The run log keeps data for the tenant-visible run record; the pod log gets only the
+// redacted message plus job/runId/level, because stdout outlives crypto-shredded payloads.
+export type JobLogSink = {
+  readonly logger: Pick<Logger, "warn" | "error">;
+  readonly job: string;
+  readonly runId: string;
+};
+
 export function createJobLogger(
   logs: JobLogEntry[],
   baseContext: Record<string, unknown> = {},
+  sink?: JobLogSink,
 ): Logger {
   function push(level: "info" | "warn" | "error", msg: string, data?: Record<string, unknown>) {
     const merged = { ...baseContext, ...data };
     const message = Object.keys(merged).length > 0 ? `${msg} ${JSON.stringify(merged)}` : msg;
     logs.push({ level, message, timestamp: Temporal.Now.instant() });
+    if (sink && level !== "info") {
+      sink.logger[level](scrubLogText(redactErrorText(msg)), {
+        job: sink.job,
+        runId: sink.runId,
+        level,
+      });
+    }
   }
   const logger: Logger = {
     info(msg, data) {
@@ -75,7 +91,7 @@ export function createJobLogger(
     // nowhere durable to land.
     debug() {},
     child(context) {
-      return createJobLogger(logs, { ...baseContext, ...context });
+      return createJobLogger(logs, { ...baseContext, ...context }, sink);
     },
   };
   return logger;

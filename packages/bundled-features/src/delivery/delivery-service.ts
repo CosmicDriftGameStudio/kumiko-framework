@@ -17,13 +17,14 @@ import type { FileContext } from "@cosmicdrift/kumiko-framework/files";
 import {
   createFallbackLogger,
   type Logger,
+  redactErrorText,
   scrubLogText,
 } from "@cosmicdrift/kumiko-framework/logging";
 import { assertNotifyTargetsOwnTenant } from "@cosmicdrift/kumiko-framework/pipeline";
 import type { EnvelopeCipher, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type { Redis } from "ioredis";
 import { fileContextFromResolver } from "../file-foundation/index.ts";
-import { collectExtensionOptions, redactErrorText } from "../shared/index.ts";
+import { collectExtensionOptions } from "../shared/index.ts";
 import { hashUnsubscribeAddress } from "./address-opt-out.ts";
 import { appendAttemptEvent, logAttempt } from "./attempt-log.ts";
 import { buildChannelContext } from "./channel-context.ts";

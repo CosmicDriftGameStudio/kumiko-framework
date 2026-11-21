@@ -1,7 +1,7 @@
 import type { NotifyDelivery, NotifyOptions, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
+import { redactErrorText } from "@cosmicdrift/kumiko-framework/logging";
 import type { Redis } from "ioredis";
-import { redactErrorText } from "../shared/index.ts";
 import { deliveryIdempotencyRedisKey } from "./constants.ts";
 import type { DeliveryChannel } from "./types.ts";
 
