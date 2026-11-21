@@ -16,6 +16,7 @@ A document register on top of existing records: captured files with a category, 
 - A `capture` rule turns a file field into a document source without the entity knowing about the documents feature: every saved `contract.file` is filed as a document of category `contract`, titled from the row, and linked to the contract's property.
 - Visibility follows the linked records: a document is visible to users who may read the linked records and the contract that owns the file. The `documents:query:for-record` query returns the documents of one record; a property reader sees none for the property because they may not read the contract that owns the file.
 - A reference to a filed document links its file: the `offer` entity references `documents:filed-document`, and since that entity has exactly one file field, the `receipt` cell of the `offer-list` screen shows the document title as a download link with the PDF view in a drawer, like the file column of the documents list. The link comes from the rows of the reference lookup (`documents:query:filed-document:list`), so a user who may not read the document or its file field gets plain text or nothing.
+- An `actionForm` success fact of `type: "file"`: the `contract-copy` screen calls `contract:send-copy`, whose result names the contract's FileRef id in `contractFile`. The success box shows that id with file name, download link and preview. The id resolves through `/api/files/meta` only for a user of the contract's tenant who may read the file; another tenant gets nothing.
 
 ## Source
 
@@ -155,6 +156,48 @@ describe("offer list: reference to a filed document", () => {
     expect((await lookupReceipt(propertyReader, documentId)).rows).toEqual([]);
   });
 });
+
+describe("contract copy: an actionForm success fact of type file", () => {
+  const otherTenantAdmin = createTestUser({
+    id: 4,
+    tenantId: testTenantId(2),
+    roles: ["TenantAdmin"],
+  });
+  const filesMeta = async (as: typeof admin, ids: readonly string[]) => {
+    const res = await stack.app.request(`/api/files/meta?ids=${ids.join(",")}`, {
+      headers: { Authorization: `Bearer ${await stack.jwt.sign(as)}` },
+    });
+    expect(res.status).toBe(200);
+    return z
+      .object({ files: z.array(z.object({ id: z.string(), fileName: z.string() })) })
+      .parse(await res.json()).files;
+  };
+
+  test("the result carries the FileRef id, which resolves for its tenant only", async () => {
+    const fileId = await uploadContractFile();
+    const property = await stack.http.writeOk<{ id: string }>(
+      "property-management:write:property:create",
+      { name: "Park lane 3" },
+      admin,
+    );
+    const contract = await stack.http.writeOk<{ id: string }>(
+      "property-management:write:contract:create",
+      { name: "C-3", propertyId: property.id, file: fileId },
+      admin,
+    );
+
+    const copy = await stack.http.writeOk<{ contractFile: string }>(
+      "property-management:write:contract:send-copy",
+      { contractId: contract.id },
+      admin,
+    );
+    expect(copy.contractFile).toBe(fileId);
+    expect(await filesMeta(admin, [copy.contractFile])).toEqual([
+      expect.objectContaining({ id: fileId, fileName: "lease.pdf" }),
+    ]);
+    expect(await filesMeta(otherTenantAdmin, [copy.contractFile])).toEqual([]);
+  });
+});
 ```
 
 ### src/feature.ts
@@ -174,7 +217,9 @@ describe("offer list: reference to a filed document", () => {
 
 import { createDocumentsFeature } from "@cosmicdrift/kumiko-bundled-features/documents";
 import {
+  type ActionFormScreenDefinition,
   createEntity,
+  createEntityExecutor,
   createFileField,
   createReferenceField,
   createTextField,
@@ -183,7 +228,10 @@ import {
   defineEntityListHandler,
   defineEntityUpdateHandler,
   defineFeature,
+  defineWriteHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
+import * as z from "zod";
 
 const text = () =>
   createTextField({ personal: false, reason: "is_business_data", required: true, maxLength: 120 });
@@ -219,6 +267,39 @@ export const offerEntity = createEntity({
 
 const access = { roles: ["PropertyReader", "ContractReader", "TenantAdmin"] };
 
+const { executor: contractExecutor } = createEntityExecutor(contractEntity);
+
+// The result names the contract's FileRef id; the success box resolves it to file name,
+// download link and preview, readable only by whoever may read that contract's file.
+const sendContractCopy = defineWriteHandler({
+  name: "contract:send-copy",
+  schema: z.object({ contractId: z.uuid() }),
+  access: { roles: ["TenantAdmin"] },
+  handler: async (event, ctx) => {
+    const contract = await contractExecutor.detail(
+      { id: event.payload.contractId },
+      event.user,
+      ctx.db,
+    );
+    if (!contract) return failNotFound("contract", event.payload.contractId);
+    return { isSuccess: true as const, data: { contractFile: contract["file"] } };
+  },
+});
+
+const contractCopyScreen: ActionFormScreenDefinition = {
+  id: "contract-copy",
+  type: "actionForm",
+  handler: "property-management:write:contract:send-copy",
+  fields: {
+    contractId: createTextField({
+      personal: false,
+      reason: "is_system_identifier",
+      required: true,
+    }),
+  },
+  successFacts: [{ field: "contractFile", label: "Contract file", type: "file" }],
+};
+
 export const propertyManagement = defineFeature("property-management", (r) => {
   r.requires({ features: ["files", "documents"] });
   r.entity(propertyEntity);
@@ -235,6 +316,8 @@ export const propertyManagement = defineFeature("property-management", (r) => {
     r.queryHandler(defineEntityDetailHandler(name, entity, { access }));
   }
   r.screen({ id: "offer-list", type: "entityList", entity: "offer", columns: ["name", "receipt"] });
+  r.writeHandler(sendContractCopy);
+  r.screen(contractCopyScreen);
 });
 
 export const documents = createDocumentsFeature({
