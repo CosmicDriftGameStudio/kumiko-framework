@@ -2462,6 +2462,7 @@ type MetricProps = { // Compact label/value tile (record-detail metrics band).
   testId?: string;
   onPress?: () => void; // Click handler — set when the metric declares a `navigate` target (see `MetricSpec`).
   tile?: boolean; // Draw as a KPI tile (the dashboard StatCard) instead of a band entry.
+  emphasize?: boolean; // Highlights a KPI tile (a total); a band entry ignores it.
   tone?: DashboardStatTone;
   icon?: NavIconKey;
   sub?: string; // Small muted line under the value (see `MetricSpec.subField`).
@@ -2589,7 +2590,7 @@ type JsonViewProps = { // Structured JSON display (audit payload/metadata, job l
   testId?: string;
 };
 type KeyValueListProps = { // Read-only name-value list: dimmed label on the left, value right-aligned in one column, evenly spaced rows.
-  rows: { key: string; label: string; value: string; emphasize?: boolean; }[];
+  rows: { key: string; label: string; value: string; emphasize?: boolean; testId?: string; }[];
 };
 ```
 
