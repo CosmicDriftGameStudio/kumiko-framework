@@ -136,7 +136,7 @@ const PENDING_REQUEST_PREVIEW = {
     { field: "requestIp", label: i18nKey("connectors.pair.request.ip") },
     {
       field: "requestIpLocal",
-      label: i18nKey("connectors.pair.request.ip"),
+      label: i18nKey("connectors.pair.request.ipNote"),
       valueIsI18nKey: true,
     },
   ],

@@ -37,7 +37,9 @@ function acting(ctx: ReadInboundFileContext): SessionUser {
 }
 
 // Reads through the tenant-scoped db and file context of the caller, so another tenant's item, a deleted
-// item and a missing file all answer not-found. The size limit is checked against the stored size before any byte is read.
+// item and a missing file reference all answer not-found. The size limit is checked against the stored size before any byte is read.
+// Storage failures (no file storage for the tenant, a blob that is gone) throw: a job retries them, an outage is not a skipped file.
+// No role check: connectors shows delivered files to tenant admins only, so a handler calling this must restrict its own access the same way.
 export async function readInboundFile(
   ctx: ReadInboundFileContext,
   inboundItemId: string,

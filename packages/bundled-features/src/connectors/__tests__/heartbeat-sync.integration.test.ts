@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { ConnectorHandlers } from "../constants.ts";
+import { ConnectorHandlers, ConnectorQueries } from "../constants.ts";
+import { hashDeviceSecret } from "../hash.ts";
 import { uploadConnectorFile } from "../testing.ts";
 import {
   HEARTBEAT_PATH,
@@ -127,5 +129,75 @@ describe("connector list names a full storage after an upload was refused", () =
     } finally {
       await teardownConnectorsStack(small);
     }
+  });
+});
+
+describe("the storage-full flag survives touches that arrive out of order", () => {
+  async function withFullStorage(
+    run: (ctx: {
+      small: TestStack;
+      deviceId: string;
+      first: Response;
+      token: string;
+      detail: () => Promise<unknown>;
+    }) => Promise<void>,
+  ) {
+    const small = await setupConnectorsStack({ maxStoredBytesPerTenant: 20 });
+    try {
+      const paired = await pairDevice(small);
+      const resolved = (await small.dispatcher.query(
+        ConnectorQueries.resolveDevice,
+        { tokenHash: hashDeviceSecret(paired.token) },
+        createSystemUser(SYSTEM_TENANT_ID),
+      )) as { deviceId: string };
+      const first = await uploadConnectorFile(small, paired.token, {
+        path: "a/one.bin",
+        bytes: new Uint8Array(12).fill(1),
+      });
+      expect(first.status).toBe(201);
+      const refused = await uploadConnectorFile(small, paired.token, {
+        path: "a/two.bin",
+        bytes: new Uint8Array(12).fill(2),
+      });
+      expect(refused.status).toBe(507);
+      await run({
+        small,
+        deviceId: resolved.deviceId,
+        first,
+        token: paired.token,
+        detail: async () =>
+          (await listConnectors(small)).find((c) => c.id === paired.connectorId)?.syncDetail,
+      });
+    } finally {
+      await teardownConnectorsStack(small);
+    }
+  }
+
+  const touch = (small: TestStack, deviceId: string, uploadDecidedAt: string) =>
+    small.dispatcher.write(
+      ConnectorHandlers.touchDevice,
+      { deviceId, upload: "accepted", uploadDecidedAt },
+      createSystemUser(SYSTEM_TENANT_ID),
+    );
+
+  test("the late touch of an earlier accepted upload does not clear a later refusal", async () => {
+    await withFullStorage(async ({ small, deviceId, detail }) => {
+      await touch(small, deviceId, "2000-01-01T00:00:00Z");
+      expect(await detail()).toEqual({ i18nKey: "connectors.sync.detail.storageFull" });
+      await touch(small, deviceId, "2999-01-01T00:00:00Z");
+      expect(await detail()).toBeNull();
+    });
+  });
+
+  test("a duplicate delivery of a stored file does not clear the flag", async () => {
+    await withFullStorage(async ({ small, token, detail }) => {
+      const again = await uploadConnectorFile(small, token, {
+        path: "a/one.bin",
+        bytes: new Uint8Array(12).fill(1),
+      });
+      expect(again.status).toBe(200);
+      expect(await again.json()).toMatchObject({ duplicate: true });
+      expect(await detail()).toEqual({ i18nKey: "connectors.sync.detail.storageFull" });
+    });
   });
 });

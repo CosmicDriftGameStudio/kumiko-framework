@@ -14,7 +14,14 @@ describe("pairingAddressKey", () => {
   test("expands a shortened IPv6 address before cutting it", () => {
     expect(pairingAddressKey("2001:db8::1")).toBe("2001:db8:0:0::/64");
     expect(pairingAddressKey("2001:db8:1:2::ffff")).toBe("2001:db8:1:2::/64");
-    expect(pairingAddressKey("::1")).toBe("0:0:0:0::/64");
+    expect(pairingAddressKey("::1")).toBe("::1");
+  });
+
+  test("only the exact IPv6 loopback keeps its own key; the rest of ::/64 stays a prefix", () => {
+    expect(pairingAddressKey("0:0:0:0:0:0:0:1")).toBe("::1");
+    expect(pairingAddressKey("::")).toBe("0:0:0:0::/64");
+    expect(pairingAddressKey("::2")).toBe("0:0:0:0::/64");
+    expect(pairingAddressKey("::1.2.3.4")).toBe("0:0:0:0::/64");
   });
 
   test("two addresses of one /64 share a key, another /64 does not", () => {
@@ -48,10 +55,16 @@ describe("pairingAddressDisplay", () => {
     });
   });
 
-  test("names loopback as local, in IPv6 and IPv4", () => {
-    expect(pairingAddressDisplay(pairingAddressKey("::1"))).toEqual({ kind: "local" });
-    expect(pairingAddressDisplay("0:0:0:0::/64")).toEqual({ kind: "local" });
-    expect(pairingAddressDisplay("127.0.0.1")).toEqual({ kind: "local" });
+  test("names loopback as local and keeps its address, in IPv6 and IPv4", () => {
+    expect(pairingAddressDisplay(pairingAddressKey("::1"))).toEqual({ kind: "local", text: "::1" });
+    expect(pairingAddressDisplay("127.0.0.1")).toEqual({ kind: "local", text: "127.0.0.1" });
+  });
+
+  test("does not call the rest of ::/64 local", () => {
+    expect(pairingAddressDisplay(pairingAddressKey("::2"))).toEqual({
+      kind: "address",
+      text: "::/64",
+    });
   });
 
   test("leaves IPv4 and other text as it is", () => {

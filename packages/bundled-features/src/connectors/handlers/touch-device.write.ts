@@ -26,6 +26,8 @@ export const touchDeviceWrite = defineWriteHandler({
     // Only the heartbeat hands the retry signal to the satellite; an upload must not swallow it.
     consumeRetry: z.boolean().optional(),
     upload: uploadOutcomeSchema.optional(),
+    // When the route learned the upload outcome; touches of parallel uploads arrive in any order.
+    uploadDecidedAt: z.iso.datetime().optional(),
   }),
   access: { roles: access.system },
   agent: { expose: false },
@@ -70,12 +72,18 @@ export const touchDeviceWrite = defineWriteHandler({
       const updated = await updateMany(ctx.db, deviceTable, set, { id: deviceId, ...condition });
       if (updated.length > 0) break;
     }
-    // Conditional both ways: a paused satellite retrying or a normal upload adds no write.
+    // Conditional both ways: a paused satellite retrying or a normal upload adds no write. An
+    // acceptance only clears a refusal decided before it, so a late touch of an earlier accepted
+    // upload cannot undo the refusal of a later one.
+    const decidedAt =
+      event.payload.uploadDecidedAt === undefined
+        ? now
+        : Temporal.Instant.from(event.payload.uploadDecidedAt);
     if (event.payload.upload === "quotaRejected") {
       await updateMany(
         ctx.db,
         deviceTable,
-        { quotaRejectedAt: now },
+        { quotaRejectedAt: decidedAt },
         { id: deviceId, quotaRejectedAt: null },
       );
     } else if (event.payload.upload === "accepted") {
@@ -83,7 +91,7 @@ export const touchDeviceWrite = defineWriteHandler({
         ctx.db,
         deviceTable,
         { quotaRejectedAt: null },
-        { id: deviceId, quotaRejectedAt: { ne: null } },
+        { id: deviceId, quotaRejectedAt: { lt: decidedAt } },
       );
     }
     // One conditional update: of two parallel heartbeats only one clears the flag and gets `retry`.

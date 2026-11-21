@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { ConnectorHandlers, ConnectorQueries } from "../constants.ts";
+import { CONNECTOR_CLIENT_ID, ConnectorHandlers, ConnectorQueries } from "../constants.ts";
 import {
   approve,
   plainUser,
+  START_PATH,
   setupConnectorsStack,
   startPairing,
   teardownConnectorsStack,
@@ -109,5 +110,50 @@ describe("connectors check-device write", () => {
       plainUser,
     );
     expect(res.status).toBe(403);
+  });
+});
+
+describe("connectors pending-request shows where a request came from", () => {
+  let proxied: TestStack;
+  beforeAll(async () => {
+    proxied = await setupConnectorsStack({}, 1);
+  });
+  afterAll(() => teardownConnectorsStack(proxied));
+
+  async function pendingFrom(ip: string) {
+    const res = await proxied.app.request(START_PATH, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded", "x-forwarded-for": ip },
+      body: new URLSearchParams({ client_id: CONNECTOR_CLIENT_ID }).toString(),
+    });
+    const started = (await res.json()) as { user_code: string };
+    return proxied.http.queryOk<{ requestIp?: string; requestIpLocal?: string }>(
+      ConnectorQueries.pendingRequest,
+      { userCode: started.user_code },
+      tenantAdmin,
+    );
+  }
+
+  test("a loopback request keeps its address and carries the local-address note", async () => {
+    expect(await pendingFrom("::1")).toMatchObject({
+      requestIp: "::1",
+      requestIpLocal: "connectors.pair.request.ipLocal",
+    });
+    expect(await pendingFrom("127.0.0.1")).toMatchObject({
+      requestIp: "127.0.0.1",
+      requestIpLocal: "connectors.pair.request.ipLocal",
+    });
+  });
+
+  test("an address of the rest of ::/64 is not called local", async () => {
+    const body = await pendingFrom("::2");
+    expect(body.requestIp).toBe("::/64");
+    expect(body.requestIpLocal).toBeUndefined();
+  });
+
+  test("a public address carries no local-address note", async () => {
+    const body = await pendingFrom("203.0.113.7");
+    expect(body.requestIp).toBe("203.0.113.7");
+    expect(body.requestIpLocal).toBeUndefined();
   });
 });

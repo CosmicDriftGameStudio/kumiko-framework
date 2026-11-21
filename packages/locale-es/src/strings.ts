@@ -3384,7 +3384,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "connectors.pair.request.title": "Solicitud de emparejamiento",
   "connectors.pair.request.at": "Solicitado el",
   "connectors.pair.request.ip": "Desde la dirección IP",
-  "connectors.pair.request.ipLocal": "local (este servidor)",
+  "connectors.pair.request.ipNote": "Nota",
+  "connectors.pair.request.ipLocal": "dirección local (proxy, remitente real desconocido)",
   "connectors:entity:__action-form__:field:userCode": "Código",
   "connectors:entity:__action-form__:field:name": "Nombre",
   "errors.connectors.storageQuotaExceeded":

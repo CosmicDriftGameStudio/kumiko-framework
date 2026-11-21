@@ -66,6 +66,7 @@ Answers:
 
 ; case does not matter). The satellite should not send them in the first place; the server refuses them as well.
 - `507 storage_quota_exceeded`: the tenant's connector files together would exceed the quota (5 GiB by default; feature option `maxStoredBytesPerTenant` of `createConnectorsFeature()`). Nothing is stored; free space or raise the option, retrying does not help. Parallel uploads can overshoot the quota by their combined size.
+- `409 retry`: the file was delivered and deleted again while the server processed it, so nothing was stored. Send it again.
 
 ### Storage and backup
 
@@ -97,7 +98,7 @@ r.job({
 });
 ```
 
-`readInboundFile` answers `{ isSuccess: false, failure: "not-found" }` for an unknown, deleted or other-tenant item and `"too-large"` when the stored size exceeds `maxBytes` (nothing is read then). It reads through the caller's tenant, so app code never touches the connector tables or the path encryption itself. The job runs at least once per file; a satellite delivering the same file again is the same item and fires no second event.
+`readInboundFile` answers `{ isSuccess: false, failure: "not-found" }` for an unknown, deleted or other-tenant item and `"too-large"` when the stored size exceeds `maxBytes` (nothing is read then). A failing file store (no storage for the tenant, a blob that is gone although its reference exists) throws instead, so a job retries it. The helper does no role check: connectors shows delivered files to tenant admins only, so a write handler or query that calls it has to restrict its own access to the roles that may see them. It reads through the caller's tenant, so app code never touches the connector tables or the path encryption itself. The job runs at least once per file; a satellite delivering the same file again is the same item and fires no second event.
 
 ## Heartbeat
 

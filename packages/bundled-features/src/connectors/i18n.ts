@@ -66,7 +66,11 @@ export const CONNECTORS_I18N: Readonly<Record<string, Localized>> = {
   "connectors.pair.request.title": { en: "Pairing request", de: "Kopplungsanfrage" },
   "connectors.pair.request.at": { en: "Requested at", de: "Angefragt am" },
   "connectors.pair.request.ip": { en: "From IP address", de: "Von IP-Adresse" },
-  "connectors.pair.request.ipLocal": { en: "local (this server)", de: "lokal (dieser Server)" },
+  "connectors.pair.request.ipNote": { en: "Note", de: "Hinweis" },
+  "connectors.pair.request.ipLocal": {
+    en: "local address (proxy, real sender unknown)",
+    de: "lokale Adresse (Proxy, echter Absender unbekannt)",
+  },
 
   [connectorFieldLabelKey("userCode")]: { en: "Code", de: "Code" },
   [connectorFieldLabelKey("name")]: { en: "Name", de: "Name" },
