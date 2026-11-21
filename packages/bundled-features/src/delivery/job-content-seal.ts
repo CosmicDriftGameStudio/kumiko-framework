@@ -2,6 +2,7 @@ import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import * as z from "zod";
+import { parseSealedPayload } from "./parse-sealed-payload.ts";
 
 export const channelMessageSchema = z.object({
   notificationType: z.string(),
@@ -52,19 +53,12 @@ export async function sealJobContent(
 }
 
 function parseSealedJobContent(plaintext: string, tenantId: TenantId): DeliveryJobContent {
-  let decoded: unknown;
-  try {
-    decoded = JSON.parse(plaintext);
-  } catch {
-    decoded = undefined;
-  }
-  const parsed = sealedJobContentSchema.safeParse(decoded);
-  if (!parsed.success || parsed.data.tenantId !== tenantId) {
-    throw new InternalError({
-      message: "delivery job: sealedContent was not sealed as delivery job content",
-    });
-  }
-  return parsed.data.content;
+  return parseSealedPayload(
+    sealedJobContentSchema,
+    plaintext,
+    tenantId,
+    "delivery job: sealedContent was not sealed as delivery job content",
+  ).content;
 }
 
 export async function openJobContent(

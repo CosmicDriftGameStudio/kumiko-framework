@@ -49,6 +49,25 @@ function readHexColor(raw: string | null): string | null {
   return raw !== null && HEX_COLOR_PATTERN.test(raw) ? raw : null;
 }
 
+export function readEnumAttribute<const T extends readonly string[]>(
+  element: AttributeSource,
+  attribute: string,
+  allowed: T,
+): T[number] | null {
+  const raw = element.getAttribute(attribute);
+  return isOneOf(allowed, raw) ? raw : null;
+}
+
+export function renderEnumAttribute<const T extends readonly string[]>(
+  attributes: Record<string, unknown>,
+  key: string,
+  dataAttribute: string,
+  allowed: T,
+): Record<string, string> {
+  const value = attributes[key];
+  return isOneOf(allowed, value) ? { [dataAttribute]: value } : {};
+}
+
 function readFont(raw: string | null): DocumentFont | null {
   return isOneOf(DOCUMENT_FONTS, raw) ? raw : null;
 }
@@ -96,8 +115,7 @@ export function readImageWidthMm(element: AttributeSource): number | null {
 }
 
 export function readImageAlign(element: AttributeSource): DocumentImageAlignment | null {
-  const align = element.getAttribute("data-align");
-  return isOneOf(DOCUMENT_IMAGE_ALIGNMENTS, align) ? align : null;
+  return readEnumAttribute(element, "data-align", DOCUMENT_IMAGE_ALIGNMENTS);
 }
 
 export function readDividerColor(element: AttributeSource): string | null {
@@ -117,8 +135,7 @@ export function readTableWidthMm(element: AttributeSource): number | null {
 }
 
 export function readTableAlign(element: AttributeSource): DocumentTableAlignment | null {
-  const align = element.getAttribute("data-table-align");
-  return isOneOf(DOCUMENT_TABLE_ALIGNMENTS, align) ? align : null;
+  return readEnumAttribute(element, "data-table-align", DOCUMENT_TABLE_ALIGNMENTS);
 }
 
 export const ROW_LINE_ABOVE_ATTRIBUTE = "data-line-above";
@@ -263,10 +280,8 @@ export const documentTablePrintAttributes = {
   align: {
     default: null,
     parseHTML: (element: AttributeSource) => readTableAlign(element),
-    renderHTML: (attributes: Record<string, unknown>) => {
-      const value: unknown = attributes["align"];
-      return isOneOf(DOCUMENT_TABLE_ALIGNMENTS, value) ? { "data-table-align": value } : {};
-    },
+    renderHTML: (attributes: Record<string, unknown>) =>
+      renderEnumAttribute(attributes, "align", "data-table-align", DOCUMENT_TABLE_ALIGNMENTS),
   },
 };
 
@@ -321,10 +336,10 @@ export const documentCellPrintAttributes = {
 };
 
 export function imagePrintHtmlAttributes(attrs: Record<string, unknown>): Record<string, string> {
-  const { widthMm, align } = attrs;
+  const { widthMm } = attrs;
   return {
     ...(typeof widthMm === "number" ? { "data-width-mm": String(widthMm) } : {}),
-    ...(isOneOf(DOCUMENT_IMAGE_ALIGNMENTS, align) ? { "data-align": align } : {}),
+    ...renderEnumAttribute(attrs, "align", "data-align", DOCUMENT_IMAGE_ALIGNMENTS),
   };
 }
 

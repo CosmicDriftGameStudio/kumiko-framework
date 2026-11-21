@@ -9,7 +9,7 @@
 
 import { instantToTimestamptzParam } from "../db/driver-value-preparation.ts";
 import type { DbRunner } from "../db/index.ts";
-import { constraintOf, isUniqueViolation } from "../db/pg-error.ts";
+import { isUniqueViolation } from "../db/pg-error.ts";
 import { claimXactId, runAtomicEventWrite } from "../db/queries/event-store.ts";
 import {
   eventPredecessorExists,
@@ -21,15 +21,9 @@ import {
 import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import type { TenantId } from "../engine/types/index.ts";
 import type { RawEventToAppend } from "./admin-api-internals.ts";
-import { IdempotentAppendConflictError, VersionConflictError } from "./errors.ts";
+import { VersionConflictError } from "./errors.ts";
+import { mapAppendUniqueViolation } from "./event-store.ts";
 import { inEventStreamScope } from "./stream-scope.ts";
-
-function mapEventUniqueViolation(e: unknown, event: RawEventToAppend): Error {
-  if (constraintOf(e) === "events_idempotency_uq" && event.metadata.idempotencyKey) {
-    return new IdempotentAppendConflictError(event.tenantId, event.metadata.idempotencyKey);
-  }
-  return new VersionConflictError(event.aggregateId, event.expectedVersion);
-}
 
 // Mirrors append()'s two-path structure: typed builder equivalent for v=0,
 // INSERT … SELECT … WHERE EXISTS gate for v>0. Caller-supplied createdAt +
@@ -53,7 +47,7 @@ export async function appendRaw(runner: DbRunner, event: RawEventToAppend): Prom
     );
   } catch (e) {
     if (isUniqueViolation(e)) {
-      throw mapEventUniqueViolation(e, event);
+      throw mapAppendUniqueViolation(e, event);
     }
     throw e;
   }
@@ -155,7 +149,7 @@ export async function appendRawBatch(
     if (isUniqueViolation(e)) {
       // Pre-flight ran but lost a race against a concurrent writer. Rare for
       // migration (single-runner) but possible; we can't name the exact row.
-      throw mapEventUniqueViolation(e, firstEvent);
+      throw mapAppendUniqueViolation(e, firstEvent);
     }
     throw e;
   }

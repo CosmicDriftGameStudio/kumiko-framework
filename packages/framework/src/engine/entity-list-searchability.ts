@@ -6,13 +6,22 @@ import { parseQn } from "./qualified-name.ts";
 // Mirrors buildSearchableSortableCaches (registry-validate.ts): a `search`
 // payload only matches text fields, embedded sub-fields and references that
 // opted in with `searchable: true`.
-function entityHasSearchableField(entity: EntityDefinition): boolean {
+export function hasSearchableTextField(entity: EntityDefinition): boolean {
   return Object.values(entity.fields).some((field) => {
     if (field.type === "embedded") {
       return Object.values(field.schema).some((subField) => subField.searchable === true);
     }
-    return (field.type === "text" || field.type === "reference") && field.searchable === true;
+    return (field.type === "text" || field.type === "longText") && field.searchable === true;
   });
+}
+
+export function entityHasSearchableField(entity: EntityDefinition): boolean {
+  return (
+    hasSearchableTextField(entity) ||
+    Object.values(entity.fields).some(
+      (field) => field.type === "reference" && field.searchable === true,
+    )
+  );
 }
 
 // Entity-convention list queries (ENTITY_CONVENTION_QUERY_BRAND) carry no

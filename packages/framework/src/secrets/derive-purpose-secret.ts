@@ -1,4 +1,4 @@
-import { hkdfSync } from "node:crypto";
+import { createHmac, hkdfSync } from "node:crypto";
 
 // HKDF turns one master secret into an independent secret per purpose, so
 // a token-signing key for MFA setup can't forge a deletion token and
@@ -14,4 +14,12 @@ export function derivePurposeSecret(masterSecret: string, purpose: string): stri
     throw new Error("derivePurposeSecret: purpose must not be empty — it is the domain separator.");
   }
   return Buffer.from(hkdfSync("sha256", masterSecret, "", purpose, 32)).toString("hex");
+}
+
+export function createPurposeDigest(
+  masterSecret: string,
+  purpose: string,
+): (value: string) => string {
+  const key = derivePurposeSecret(masterSecret, purpose);
+  return (value) => createHmac("sha256", key).update(value).digest("hex");
 }

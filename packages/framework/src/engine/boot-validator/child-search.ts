@@ -1,18 +1,8 @@
-import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import { hasSearchableTextField } from "../entity-list-searchability.ts";
 import { findEntity } from "../find-entity.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import { CHILD_SEARCH_RULES } from "./child-search-rules.ts";
-
-// Mirrors the registry's searchable-field collection; `find: "fuzzy"` already sets searchable.
-function hasSearchableField(entity: EntityDefinition): boolean {
-  return Object.values(entity.fields).some((field) => {
-    if (field.type === "embedded") {
-      return Object.values(field.schema).some((sub) => sub.searchable === true);
-    }
-    return (field.type === "text" || field.type === "longText") && field.searchable === true;
-  });
-}
 
 export function validateChildSearchRelations(
   feature: FeatureDefinition,
@@ -33,7 +23,7 @@ export function validateChildSearchRelations(
           message: `[Kumiko ChildSearch] ${where} is searchable but "${relation.target}" has no field "${relation.foreignKey}".`,
         });
       }
-      if (!hasSearchableField(target)) {
+      if (!hasSearchableTextField(target)) {
         throw bootRuleError(CHILD_SEARCH_RULES.childSearchNoSearchableField, {
           message: `[Kumiko ChildSearch] ${where} is searchable but "${relation.target}" has no searchable field, so there is nothing to match a term against.`,
         });

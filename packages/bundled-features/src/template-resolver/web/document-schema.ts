@@ -24,8 +24,10 @@ import {
   imagePrintHtmlAttributes,
   readDividerColor,
   readDividerWeightPt,
+  readEnumAttribute,
   readImageAlign,
   readImageWidthMm,
+  renderEnumAttribute,
 } from "./document-print-style.ts";
 import { isDocumentReferenceName } from "./document-reference-name.ts";
 import { createDocumentStepsNode } from "./document-steps.ts";
@@ -61,8 +63,7 @@ export type DocumentDateStyle = (typeof DOCUMENT_DATE_STYLES)[number];
 export function readDocumentDateStyle(element: {
   getAttribute(name: string): string | null;
 }): DocumentDateStyle | null {
-  const style = element.getAttribute("data-date-style");
-  return isOneOf(DOCUMENT_DATE_STYLES, style) ? style : null;
+  return readEnumAttribute(element, "data-date-style", DOCUMENT_DATE_STYLES);
 }
 
 export const DocumentVariable = Node.create({
@@ -307,14 +308,10 @@ export const DocumentTextAlign = Extension.create({
         attributes: {
           textAlign: {
             default: null,
-            parseHTML: (element) => {
-              const align = element.getAttribute("data-align");
-              return isOneOf(DOCUMENT_TEXT_ALIGNMENTS, align) ? align : null;
-            },
-            renderHTML: (attributes) => {
-              const align: unknown = attributes["textAlign"];
-              return isOneOf(DOCUMENT_TEXT_ALIGNMENTS, align) ? { "data-align": align } : {};
-            },
+            parseHTML: (element) =>
+              readEnumAttribute(element, "data-align", DOCUMENT_TEXT_ALIGNMENTS),
+            renderHTML: (attributes) =>
+              renderEnumAttribute(attributes, "textAlign", "data-align", DOCUMENT_TEXT_ALIGNMENTS),
           },
         },
       },
