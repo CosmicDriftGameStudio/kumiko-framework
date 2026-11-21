@@ -129,15 +129,18 @@ async function touchDevice(
   deps: SignatureExtraRouteDeps,
   device: AuthenticatedDevice,
   heartbeat?: { readonly version: string; readonly sync?: z.infer<typeof syncReportSchema> },
-  upload?: z.infer<typeof uploadOutcomeSchema>,
+  upload?: {
+    readonly outcome: z.infer<typeof uploadOutcomeSchema>;
+    readonly decidedAt: Temporal.Instant;
+  },
 ): Promise<boolean> {
   const result = await deps.dispatchWriteAs({
     handlerQn: ConnectorHandlers.touchDevice,
     payload: {
       deviceId: device.deviceId,
       ...(upload !== undefined && {
-        upload,
-        uploadDecidedAt: Temporal.Now.instant().toString(),
+        upload: upload.outcome,
+        uploadDecidedAt: upload.decidedAt.toString(),
       }),
       ...(heartbeat && {
         reportedVersion: heartbeat.version,
@@ -240,6 +243,9 @@ async function receiveUpload(
   }
 
   const itemId = inboundItemAggregateId(device.connectorId, sha256, relativePath);
+  // Taken before the quota decision: a slowly accepted upload must not look newer than the refusal
+  // of an upload that began later, or its touch would clear that refusal.
+  const decidedAt = Temporal.Now.instant();
   const result = await deps.dispatchWriteAs({
     handlerQn: ConnectorHandlers.receiveFile,
     payload: {
@@ -254,7 +260,13 @@ async function receiveUpload(
     tenantId,
     roles: [],
   });
-  await touchDevice(deps, device, undefined, uploadOutcomeOf(result));
+  const outcome = uploadOutcomeOf(result);
+  await touchDevice(
+    deps,
+    device,
+    undefined,
+    outcome === undefined ? undefined : { outcome, decidedAt },
+  );
 
   if (result.isSuccess) {
     const { id, duplicate } = receivedSchema.parse(result.data);
