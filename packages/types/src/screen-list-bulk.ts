@@ -26,7 +26,7 @@ export type ListBulkFormAction = {
   readonly icon?: IconKey;
   /** Short id (same feature) or `<feature>:screen:<id>` of an `actionForm` screen. */
   readonly screen: string;
-  /** Field of that form which receives the selected row ids: a `multiSelect` with `display: "count"`. The ids travel in memory, not in the URL. The client cap `MAX_BULK_SELECTION` is no protection: the form's write handler runs once, so access and audit no longer run per row. Boot enforces that the handler schema bounds the list (`z.array(...).max(MAX_BULK_SELECTION)`); the handler must still check every id with a tenant-scoped detail, answering `failNotFound` for a foreign or unknown one. */
+  /** Field of that form which receives the selected row ids: a `multiSelect` with `display: "count"`. The ids travel in memory, not in the URL. The client cap `MAX_BULK_SELECTION` is no protection: the form's write handler runs once, so access and audit no longer run per row. Boot enforces that the handler schema bounds the list (`z.array(...).max(MAX_BULK_SELECTION)`, in every option of a union; a schema that is no object or union of objects is rejected); the handler must still check every id with a tenant-scoped detail, answering `failNotFound` for a foreign or unknown one. */
   readonly idsField: string;
 };
 

@@ -47,13 +47,24 @@ function rawReferenceMeta(field: z.ZodType): unknown {
   return Reflect.get(meta, HANDLER_FIELD_REFERENCES_META_KEY);
 }
 
-export function unwrapObjectSchema(schema: z.ZodType): z.ZodObject | undefined {
+export function unwrapSchemaTo<T extends z.ZodType>(
+  schema: z.ZodType,
+  guard: (candidate: z.ZodType) => candidate is T,
+): T | undefined {
   let current: z.ZodType | undefined = schema;
   for (let depth = 0; depth < MAX_WRAPPER_DEPTH && current !== undefined; depth++) {
-    if (current instanceof z.ZodObject) return current;
+    if (guard(current)) return current;
     current = zodDef(current)?.innerType;
   }
   return undefined;
+}
+
+function isObjectSchema(candidate: z.ZodType): candidate is z.ZodObject {
+  return candidate instanceof z.ZodObject;
+}
+
+export function unwrapObjectSchema(schema: z.ZodType): z.ZodObject | undefined {
+  return unwrapSchemaTo(schema, isObjectSchema);
 }
 
 // `.optional()` / `.nullable()` / `.default()` after `.meta()` hide the meta from the outer
