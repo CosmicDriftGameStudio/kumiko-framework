@@ -1,5 +1,36 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.426.1
+
+### Patch Changes
+
+- 9ccb3c0: actionForm fact rows keep emphasize, a submitThrough handoff wraps one submit only, aiAssist gets the handoff prefill, and a document field without an editor keeps an HTML value.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: actionForm facts, submitThrough and document fallback fixes
+  detail: `Metric` (tile) and `StatCard` accept `emphasize`, so an emphasized preview fact is highlighted in tiles. A `submitThrough` handoff applies to the first successful submit only; a form that stays open writes to its own handler afterwards. With `load.passPrefill`, an aiAssist query receives the same prefill (drawer or handoff values) as the load query. A `document` field without a registered document editor edits plain text in the textarea and still stores and reports HTML.
+  -->
+- 2377b8b: Renderer layout review fixes: the focus rail "More" tile follows ancestry, collapsible sections report late `defaultOpen` openings, ruled legend terms wrap, pageHelp docs match the button.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Focus rail More state, collapsible onOpenChange and ruled legend wrapping
+  detail: The focus rail's More tile is active only when a hidden group holds the active screen outside every shown tile. CollapsibleSection calls onOpenChange(true) when defaultOpen flips to true after mount (the mount-time value still does not). In a ruled legend grid the term cells now wrap (min-w-0, break-words) instead of overflowing the fixed 13rem column. pageHelp docs and JSDoc describe the labelled Explanations button and the page-help/unsupported-site rule. Tests added for focus rail entries, workspace-less screen links, intro box branches and referenceLabelText.
+  -->
+- Updated dependencies [56161fd]
+- Updated dependencies [ac3d140]
+- Updated dependencies [c1387f3]
+- Updated dependencies [70b9411]
+- Updated dependencies [70345d9]
+- Updated dependencies [86afac6]
+- Updated dependencies [2377b8b]
+- Updated dependencies [35806b4]
+  - @cosmicdrift/kumiko-framework@0.426.1
+  - @cosmicdrift/kumiko-types@0.426.1
+
 ## 0.426.0
 
 ### Minor Changes

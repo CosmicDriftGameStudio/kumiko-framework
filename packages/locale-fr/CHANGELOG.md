@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-locale-fr
 
+## 0.426.1
+
+### Patch Changes
+
+- 5b257b1: Review fixes for the connectors routes: honest loopback display, ordered storage-full flag, 409 for a vanished upload.
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: fix
+  title: Connectors routes review fixes
+  detail: The pairing confirm step no longer claims a loopback request comes from "this server": it shows the address (`::1`, `127.x`) with the note "local address (proxy, real sender unknown)", and only the exact IPv6 loopback counts as local, not the rest of `::/64`. The storage-full flag is cleared only by an upload accepted after the refusal, so a late touch of an earlier upload cannot undo it, and a duplicate delivery no longer clears it. An upload whose file vanished while it was processed answers `409 {"error":"retry"}` instead of `500 server_error`. The `readInboundFile` docs state that it does no role check and that storage failures throw.
+  -->
+- Updated dependencies [56161fd]
+- Updated dependencies [ac3d140]
+- Updated dependencies [c1387f3]
+- Updated dependencies [70b9411]
+- Updated dependencies [70345d9]
+- Updated dependencies [86afac6]
+- Updated dependencies [35806b4]
+  - @cosmicdrift/kumiko-framework@0.426.1
+
 ## 0.426.0
 
 ### Patch Changes

@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.426.1",
+    "type": "fix",
+    "title": "Login membership gate shared, malformed answers and non-uuid ids handled, invite validation errors mapped per path"
+  },
+  {
     "version": "0.426.0",
     "type": "fix",
     "title": "Invitation page translates server errors and chooses the form from invite-info"

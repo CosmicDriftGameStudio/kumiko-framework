@@ -1,5 +1,68 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.426.1
+
+### Patch Changes
+
+- 56161fd: A job's `ctx.obs.log.warn` and `error` now also reach the pod log, redacted.
+  
+  <!-- kumiko-changes
+  feature: jobs
+  type: fix
+  title: Job warn and error log lines reach the pod log redacted
+  detail: `warn` and `error` from a job's `ctx.obs.log` are additionally written to the process logger with the message run through `redactErrorText` and only `job`, `runId` and `level` as fields; `data` and child context never go there. `info` and `debug` stay out of stdout, and the run log is unchanged. `redactErrorText`, `redactUrls`, `redactEmailAddresses` and `redactBotTokens` moved to `@cosmicdrift/kumiko-framework/logging`; `bundled-features/shared` still re-exports them.
+  -->
+- ac3d140: Auth review fixes: shared login membership gate, preview-login allowlist and audit logs, invite-accept error mapping.
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Login membership gate shared, malformed answers and non-uuid ids handled, invite validation errors mapped per path
+  detail: The password login and `sessionForVerifiedUser` now share one status-and-membership gate. A malformed membership query answer returns a structured internal error instead of an uncaught ZodError, and `sessionForVerifiedUser` answers `invalid_credentials` for a non-uuid `userId`. The invite-accept screen shows the password-rejected text for a `validation_error` only on signup-complete, otherwise the generic invalid-input text. Preview login accepts only owners in status `active`, logs a warning when the route is mounted and an info line (user and tenant id, no key or signature) per minted session. Tests cover the userId lookup path, the exact restricted-account answer and the skipped and failed results of the deletion-executed mail.
+  -->
+- c1387f3: Review fixes for the boot validator: entityEdit detail query gate, footer first column, pageHelp entity message.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Boot validator review fixes
+  detail: `query/dispatch-only-on-screen` now also rejects an `entityEdit` screen whose implicit `<entity>:detail` query is dispatchOnly, which the browser loads over `/api/query` and would answer with 404. `action-form-preview/footer-column-unknown` rejects a footer cell for the first list column, where the renderer shows the footer label and drops the value. A `relatedList` pageHelp status section without any entity now reports "pageHelp.entity is required when the relatedList section names no entity" instead of the projectionDetail message. New tests cover the export route's 404 for a dispatchOnly query and both pageHelp entity-required cases.
+  -->
+- 70b9411: Review fixes for the upgrade CLI, deploy Dockerfiles, PDF rasterizing, the changes fold and the video runner.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Upgrade CLI canary baseline, multi-arch Dockerfiles, changes fold
+  detail: `kumiko-upgrade` treats a canary release as already handled only when no marker exists and the baseline is the installed canary; an explicit `--from <canary>` or an unreadable marker keeps the codemods and manual steps of that release pending, and the invalid-version message names the prerelease format. The production Dockerfile install (scaffold template and `docker/Dockerfile`) runs with `--ignore-scripts` so a build on another CPU cannot leave host-architecture binaries in the image; apps that need a lifecycle script must run it in the runtime stage. The release train also moves the `next` dist-tag to the release when `next` still points at an older canary. `changes fold` formats `changes.json` in memory and writes only after every file formatted. The registered video e2e port of one consumer app moves to 4353 because a recipe already used the old one. The puppeteer service refuses to extract embedded images when a PDF lists more than 200 of them or more than 50 megapixels in total.
+  -->
+- 70345d9: Merged duplicated helpers found by the semantic-duplicates guard.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Deduplicated attribute readers, sealed-payload parsing, webHost, deletion token screens and purpose digests
+  detail: A single `readEnumAttribute`, `parseSealedPayload`, `webHost`, `DeletionTokenScreen` and `createPurposeDigest` replace parallel copies. The entity list search check now also counts searchable longText fields, matching the registry's searchable-field collection, so a list over an entity whose only searchable field is longText is no longer reported as unsearchable.
+  -->
+- 86afac6: Review fixes for PII backfill, the stored-email boot repair, the search consumer and the job scheduler sweep.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Bounded email boot scan, search flush settles before rejecting, scheduler sweep stamps unseen ids
+  detail: `normalizeStoredUserEmails` reads users in id-ordered batches (default 500) instead of all at once. The search consumer batch handler lets every tenant flush finish before it rethrows an unexpected failure, so no `holdForRetry` lands on an ended turn. The job runner refresh tick stamps a scheduler without a seen entry instead of deleting it; only the start sweep removes unseen ones. The PII backfill failure log no longer repeats the event ids, and subject-resolver gets tests for ciphertext and sentinel owner values.
+  -->
+- 35806b4: Review fixes for the template resolver: stored documents keep rendering, images variables accept captions.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Template resolver review fixes
+  detail: The frame-outside-page check now applies only to write gates (`sanitizeTemplateWriteBody`, collection writes, `rejectFramesOutsidePage`), so a body stored before it keeps rendering instead of silently falling back to the system template. The sender line joins spans separated by a whitespace-only line break. Signature PNGs with a two-tone background are no longer accepted as empty. A variant looks for its base in the fallback locale too. `images` template variables validate `{ fileRefId, caption? }` entries (preview, notifications). A stored-template preview with the PDF plugin no longer prints a draft-only letterhead (`DocumentPreviewRequest.working`). The overview groups variants with one map lookup, and the README describes the table page-break rule correctly.
+  -->
+- Updated dependencies [2377b8b]
+  - @cosmicdrift/kumiko-types@0.426.1
+
 ## 0.426.0
 
 ### Patch Changes

@@ -1,5 +1,25 @@
 [
   {
+    "version": "0.426.1",
+    "type": "fix",
+    "title": "Boot validator review fixes"
+  },
+  {
+    "version": "0.426.1",
+    "type": "fix",
+    "title": "Upgrade CLI canary baseline, multi-arch Dockerfiles, changes fold"
+  },
+  {
+    "version": "0.426.1",
+    "type": "fix",
+    "title": "Deduplicated attribute readers, sealed-payload parsing, webHost, deletion token screens and purpose digests"
+  },
+  {
+    "version": "0.426.1",
+    "type": "fix",
+    "title": "Bounded email boot scan, search flush settles before rejecting, scheduler sweep stamps unseen ids"
+  },
+  {
     "version": "0.425.1",
     "type": "fix",
     "title": "The release writes changes.json in Biome's format"

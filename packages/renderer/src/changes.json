@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.426.1",
+    "type": "fix",
+    "title": "actionForm facts, submitThrough and document fallback fixes"
+  },
+  {
+    "version": "0.426.1",
+    "type": "fix",
+    "title": "Focus rail More state, collapsible onOpenChange and ruled legend wrapping"
+  },
+  {
     "version": "0.426.0",
     "type": "breaking",
     "title": "Action form facts render as a name-value list",

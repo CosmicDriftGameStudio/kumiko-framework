@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.426.1",
+    "type": "fix",
+    "title": "Job warn and error log lines reach the pod log redacted"
+  },
+  {
     "version": "0.425.0",
     "type": "fix",
     "title": "Job run list pages with a keyset cursor"
