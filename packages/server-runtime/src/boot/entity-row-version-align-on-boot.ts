@@ -1,6 +1,7 @@
-// Repairs rows that older releases left behind, on every boot instead of a one-off marker: pods of
-// the previous release keep writing the old shape during a rolling deploy. Both steps are
-// idempotent and write only derived rows or go through the executor.
+// Repairs rows that older releases left behind, on every boot instead of a one-off marker, plus one
+// follow-up run after a delay: pods of the previous release keep writing the old shape during a
+// rolling deploy, so what they write after the last new pod booted would stay wrong until the next
+// deploy. Both steps are idempotent and write only derived rows or go through the executor.
 //
 // 1. Entity row versions: before domain events moved `row.version` live, a row kept the version of
 //    its last lifecycle event, and editing it with that version fails with version_conflict.
@@ -29,7 +30,7 @@ type ShutdownRegistry = {
 export type EntityRowVersionAlignResult = {
   readonly alignedRows: number;
   readonly failedTables: readonly { readonly tableName: string; readonly error: string }[];
-  // Left at a batch that hit lock_timeout; the next boot finishes them.
+  // Left at a batch that hit lock_timeout; the next run finishes them.
   readonly lockTimeoutTables: readonly string[];
   readonly aborted: boolean;
 };
@@ -84,12 +85,12 @@ async function repairEntityRows(
     });
   }
   if (aligned.lockTimeoutTables.length > 0) {
-    log.warn("entity row version alignment waited too long for a lock; the next boot finishes it", {
+    log.warn("entity row version alignment waited too long for a lock; the next run finishes it", {
       tables: aligned.lockTimeoutTables,
     });
   }
   if (aligned.failedTables.length > 0) {
-    log.error("entity row version alignment failed; it is retried on the next boot", {
+    log.error("entity row version alignment failed; it is retried by the next run", {
       failedTables: aligned.failedTables,
     });
   }
@@ -110,13 +111,13 @@ async function repairEntityRows(
   }
   if (emails.versionConflictUserIds.length > 0) {
     log.error(
-      "user email normalization hit version_conflict; the rows are retried on the next boot",
+      "user email normalization hit version_conflict; the rows are retried by the next run",
       { count: emails.versionConflictUserIds.length, userIds: emails.versionConflictUserIds },
     );
   }
   if (emails.failedUsers.length > 0) {
     log.warn(
-      "user email normalization failed for some accounts; they are retried on the next boot",
+      "user email normalization failed for some accounts; they are retried by the next run",
       {
         count: emails.failedUsers.length,
         failedUsers: emails.failedUsers,
@@ -131,28 +132,65 @@ async function repairEntityRows(
   }
 }
 
+// Covers the rolling-deploy window; the old pods are gone long before.
+const DEFAULT_FOLLOW_UP_DELAY_MS = 30 * 60 * 1000;
+
+export type EntityRowRepairsHandle = {
+  readonly firstRun: Promise<void>;
+  // Resolves once the follow-up ran or was cancelled by shutdown.
+  readonly settled: Promise<{ readonly followUpRan: boolean }>;
+};
+
 // Background like the PII backfill: alignment scans every entity table. A peer replica holding the
-// lock runs the same repairs, so this process skips instead of waiting.
+// lock runs the same repairs, so this process skips instead of waiting. The follow-up delay counts
+// from the end of the boot run, so a long first scan cannot eat into it.
 export function startEntityRowRepairsOnBoot(opts: {
   readonly db: DbConnection;
   readonly registry: Registry;
   readonly lifecycle: ShutdownRegistry;
-}): void {
+  readonly followUpDelayMs?: number;
+}): EntityRowRepairsHandle {
   const log = createFallbackLogger("entity-row-repairs");
   const abortController = new AbortController();
-  const run = tryWithSessionAdvisoryLock(opts.db, ENTITY_ROW_REPAIR_LOCK_KEY, () =>
-    repairEntityRows(opts.db, opts.registry, abortController.signal, log),
-  ).then(
-    () => undefined,
-    (e: unknown) => {
-      log.error("entity row repairs crashed; they are retried on the next boot", {
-        error: e instanceof Error ? e.message : String(e),
-      });
-    },
+  const runUnderLock = (): Promise<void> =>
+    tryWithSessionAdvisoryLock(opts.db, ENTITY_ROW_REPAIR_LOCK_KEY, () =>
+      repairEntityRows(opts.db, opts.registry, abortController.signal, log),
+    ).then(
+      () => undefined,
+      (e: unknown) => {
+        log.error("entity row repairs crashed; they are retried by the next run", {
+          error: e instanceof Error ? e.message : String(e),
+        });
+      },
+    );
+
+  const firstRun = runUnderLock();
+  let followUpTimer: ReturnType<typeof setTimeout> | undefined;
+  let followUpRun: Promise<void> | undefined;
+  let cancelFollowUp: () => void = () => {};
+  const settled = firstRun.then(
+    () =>
+      new Promise<{ readonly followUpRan: boolean }>((resolve) => {
+        if (abortController.signal.aborted) {
+          resolve({ followUpRan: false });
+          return;
+        }
+        cancelFollowUp = () => resolve({ followUpRan: false });
+        followUpTimer = setTimeout(() => {
+          followUpRun = runUnderLock();
+          void followUpRun.then(() => resolve({ followUpRan: true }));
+        }, opts.followUpDelayMs ?? DEFAULT_FOLLOW_UP_DELAY_MS);
+        followUpTimer.unref();
+      }),
   );
 
   opts.lifecycle.registerShutdownHook("entityRowRepairs", async () => {
     abortController.abort();
-    await run;
+    if (followUpTimer !== undefined) clearTimeout(followUpTimer);
+    if (followUpRun === undefined) cancelFollowUp();
+    await firstRun;
+    await followUpRun;
   });
+
+  return { firstRun, settled };
 }

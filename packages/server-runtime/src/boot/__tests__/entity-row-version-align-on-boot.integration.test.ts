@@ -19,7 +19,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { alignEntityRowVersionsOnBoot } from "../entity-row-version-align-on-boot.ts";
+import {
+  alignEntityRowVersionsOnBoot,
+  startEntityRowRepairsOnBoot,
+} from "../entity-row-version-align-on-boot.ts";
 
 const parcelEntity = createEntity({
   name: "aligned-parcel",
@@ -215,5 +218,44 @@ describe("entity row version alignment on boot", () => {
 
     expect(result.alignedRows).toBe(0);
     expect(await storedVersion(created.id)).toBe(1);
+  });
+});
+
+describe("follow-up run after the boot run", () => {
+  function startRepairs() {
+    const hooks: Array<() => Promise<void>> = [];
+    const handle = startEntityRowRepairsOnBoot({
+      db: stack.db,
+      registry: stack.registry,
+      lifecycle: { registerShutdownHook: (_name, fn) => void hooks.push(fn) },
+      followUpDelayMs: 500,
+    });
+    const shutdown = async () => {
+      for (const hook of hooks) await hook();
+    };
+    return { handle, shutdown };
+  }
+
+  test("repairs a row a previous-release pod wrote after the boot run", async () => {
+    const { handle, shutdown } = startRepairs();
+    await handle.firstRun;
+    const id = await createParcelWithLegacyDomainEvents();
+    expect(await storedVersion(id)).toBe(1);
+
+    expect(await handle.settled).toEqual({ followUpRan: true });
+
+    expect(await storedVersion(id)).toBe(3);
+    await shutdown();
+  });
+
+  test("a shutdown before the delay ran out cancels the follow-up", async () => {
+    const { handle, shutdown } = startRepairs();
+    await handle.firstRun;
+    const id = await createParcelWithLegacyDomainEvents();
+
+    await shutdown();
+
+    expect(await handle.settled).toEqual({ followUpRan: false });
+    expect(await storedVersion(id)).toBe(1);
   });
 });
