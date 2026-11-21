@@ -14,6 +14,7 @@
 
 import type { FileContext } from "@cosmicdrift/kumiko-types/file-handle-types";
 import { assertSafeStorageKey } from "../files/types.ts";
+import { errorKindOf } from "../logging/error-kind.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import { derivativeListPrefix, isDerivativeKeyOf } from "./variant-key.ts";
 
@@ -79,10 +80,8 @@ export async function deleteStoredFileAndDerivatives(
       await store.delete(key);
     } catch (err) {
       failedKeys.push(key);
-      log.warn("storage delete failed", {
-        key,
-        error: err instanceof Error ? err.message : String(err),
-      });
+      // Adapter text and the key can carry customer names; the error class and code are enough to triage.
+      log.warn("storage delete failed", { error: errorKindOf(err) });
     }
   }
   return failedKeys;

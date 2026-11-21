@@ -136,25 +136,31 @@ describe("inline path (no job runner)", () => {
   test.each([
     ["leaky-send", "send_failed"],
     ["leaky-render", "render_failed"],
-  ])("%s -> %s in result, row and event; log message is redacted", async (channel, code) => {
-    logged.length = 0;
-    const notificationType = `app:notify:codes-${channel}`;
+  ])(
+    "%s -> %s in result, row and event; the log names the error class only",
+    async (channel, code) => {
+      logged.length = 0;
+      const notificationType = `app:notify:codes-${channel}`;
 
-    const result = await stack.http.writeOk<NotifyDispatched>(
-      "codes-probe:write:ping",
-      { channel, notificationType, immediate: true },
-      admin,
-    );
+      const result = await stack.http.writeOk<NotifyDispatched>(
+        "codes-probe:write:ping",
+        { channel, notificationType, immediate: true },
+        admin,
+      );
 
-    expect(result.kind).toBe("dispatched");
-    expect(result.deliveries.map((d) => [d.status, String(d.error)])).toEqual([["failed", code]]);
-    await expectNoLeak(stack, notificationType, code);
-    const logLine = logged.find((l) => l.includes(code));
-    expect(logLine).toBeDefined();
-    expect(logLine).toContain("https://hooks.example.com/[redacted]");
-    expect(logLine).not.toContain("SECRET123");
-    expect(logLine).not.toContain("ops@example.com");
-  });
+      expect(result.kind).toBe("dispatched");
+      expect(result.deliveries.map((d) => [d.status, String(d.error)])).toEqual([["failed", code]]);
+      await expectNoLeak(stack, notificationType, code);
+      const logLine = logged.find((l) => l.includes(code));
+      expect(logLine).toBeDefined();
+      expect(logLine).toContain(`${code}: Error`);
+      expect(logLine).not.toContain("hooks.example.com");
+      expect(logLine).not.toContain("/services");
+      expect(logLine).not.toContain("failed for");
+      expect(logLine).not.toContain("SECRET123");
+      expect(logLine).not.toContain("ops@example.com");
+    },
+  );
 });
 
 describe("job path", () => {
