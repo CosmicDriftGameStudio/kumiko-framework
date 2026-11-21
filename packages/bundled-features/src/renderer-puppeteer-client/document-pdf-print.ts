@@ -4,8 +4,12 @@
 
 import { RendererError } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
+  isFoldMarkPaper,
   PDF_CORNER_MARK_INSET_MM,
   PDF_CORNER_MARK_LEG_MM,
+  PDF_FOLD_MARK_LENGTH_MM,
+  PDF_FOLD_MARK_POSITIONS_MM,
+  PDF_PUNCH_MARK_LENGTH_MM,
   type PdfFoldMarks,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { grayscale, PDFArray, PDFDocument, type PDFPage } from "pdf-lib";
@@ -15,21 +19,8 @@ import { postRender } from "./http-client.ts";
 
 const POINTS_PER_MM = 72 / 25.4;
 const FIRST_PAGE_ONLY = "1";
-const FOLD_MARK_LENGTH_MM = 5;
-const PUNCH_MARK_LENGTH_MM = 8;
 const FOLD_MARK_THICKNESS_PT = 0.5;
 const FOLD_MARK_GRAY = 0.35;
-
-type FoldMarkPositions = {
-  readonly foldsMm: readonly number[];
-  readonly punchMm: number;
-};
-
-// DIN 5008 measured from the top edge: form A folds at 87 and 192 mm, form B at 105 and 210 mm.
-const FOLD_MARK_POSITIONS: Readonly<Record<Exclude<PdfFoldMarks, "none">, FoldMarkPositions>> = {
-  "din-a": { foldsMm: [87, 192], punchMm: 148.5 },
-  "din-b": { foldsMm: [105, 210], punchMm: 148.5 },
-};
 
 function drawMark(page: PDFPage, distanceFromTopMm: number, lengthMm: number): void {
   const y = page.getHeight() - distanceFromTopMm * POINTS_PER_MM;
@@ -42,10 +33,13 @@ function drawMark(page: PDFPage, distanceFromTopMm: number, lengthMm: number): v
 }
 
 function drawFoldMarks(doc: PDFDocument, foldMarks: Exclude<PdfFoldMarks, "none">): void {
-  const { foldsMm, punchMm } = FOLD_MARK_POSITIONS[foldMarks];
+  const { foldsMm, punchMm } = PDF_FOLD_MARK_POSITIONS_MM[foldMarks];
   for (const page of doc.getPages()) {
-    for (const foldMm of foldsMm) drawMark(page, foldMm, FOLD_MARK_LENGTH_MM);
-    drawMark(page, punchMm, PUNCH_MARK_LENGTH_MM);
+    if (!isFoldMarkPaper(page.getWidth() / POINTS_PER_MM, page.getHeight() / POINTS_PER_MM)) {
+      continue;
+    }
+    for (const foldMm of foldsMm) drawMark(page, foldMm, PDF_FOLD_MARK_LENGTH_MM);
+    drawMark(page, punchMm, PDF_PUNCH_MARK_LENGTH_MM);
   }
 }
 

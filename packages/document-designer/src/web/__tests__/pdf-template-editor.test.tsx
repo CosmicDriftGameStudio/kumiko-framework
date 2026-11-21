@@ -504,6 +504,27 @@ describe("PdfTemplateEditor screen focus", () => {
     await waitFor(() => expect(calls).toEqual([{ slug: SLUG, locale: "de", title: SLUG }]));
   });
 
+  test("the template-import button is disabled while the handler is still running, so a second click starts no second run", async () => {
+    const calls: Record<string, unknown>[] = [];
+    let finish: () => void = () => {};
+    renderEditor({ puppeteer: "available" }, undefined, ["TenantAdmin"], [], {
+      [TEMPLATE_IMPORT_CLIENT_ACTION]: (payload) => {
+        calls.push({ ...payload });
+        return new Promise((resolve) => {
+          finish = () => resolve({ ok: true });
+        });
+      },
+    });
+    await ready();
+    const button = (await screen.findByTestId("pdf-import-from-template")) as HTMLButtonElement;
+    fireEvent.click(button);
+    await waitFor(() => expect(button.disabled).toBe(true));
+    fireEvent.click(button);
+    expect(calls).toHaveLength(1);
+    finish();
+    await waitFor(() => expect(button.disabled).toBe(false));
+  });
+
   test("the template-import button is disabled while the draft has unsaved changes", async () => {
     const calls: Record<string, unknown>[] = [];
     renderEditor({ puppeteer: "available" }, undefined, ["TenantAdmin"], [], {

@@ -5,7 +5,7 @@ import { OverridesDrawer } from "./overrides-drawer.tsx";
 import type { PdfRenderContext } from "./pdf-editor-context.ts";
 
 export function renderPdfHeader(c: PdfRenderContext): ReactNode {
-  const { t, Button, s, view, detail, actions, startTemplateImport } = c;
+  const { t, Button, s, view, detail, actions, startTemplateImport, templateImportRunning } = c;
   const { busy, mode, setMode } = s.ui;
   return (
     <EditorHeader
@@ -23,7 +23,7 @@ export function renderPdfHeader(c: PdfRenderContext): ReactNode {
       {startTemplateImport !== undefined && (
         <Button
           variant="secondary"
-          disabled={busy !== null || view.dirty}
+          disabled={busy !== null || view.dirty || templateImportRunning}
           onClick={startTemplateImport}
           testId="pdf-import-from-template"
         >

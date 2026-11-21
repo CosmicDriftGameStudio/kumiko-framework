@@ -156,4 +156,30 @@ describe("DocumentTiptapEditor table print controls", () => {
     fireEvent.click(await screen.findByTestId("document-row-line-above"));
     await waitFor(() => expect(currentHtml()).not.toContain("data-line-above"));
   });
+
+  test("remove row is blocked on the repeat row", async () => {
+    const REPEAT_TABLE =
+      '<table><tbody><tr data-each="lines"><td><p>a</p></td></tr><tr><td><p>b</p></td></tr></tbody></table>';
+    await renderEditor({ value: REPEAT_TABLE, variableLabels: VARIABLE_LABELS });
+    await placeCaretInFirstCell();
+    const removeRow = (await screen.findByTestId("document-table-remove-row")) as HTMLButtonElement;
+    expect(removeRow.disabled).toBe(true);
+  });
+
+  test("remove row deletes a plain row", async () => {
+    await renderEditor({ value: TABLE });
+    await placeCaretInFirstCell();
+    const removeRow = (await screen.findByTestId("document-table-remove-row")) as HTMLButtonElement;
+    expect(removeRow.disabled).toBe(false);
+    fireEvent.click(removeRow);
+    await waitFor(() => expect(currentHtml()).not.toContain("<p>a</p>"));
+    expect(currentHtml()).toContain("<p>c</p>");
+  });
+
+  test("a read-only editor locks the table number fields", async () => {
+    await renderEditor({ value: TABLE, readOnly: true });
+    await placeCaretInFirstCell();
+    const width = (await screen.findByTestId("document-table-width")) as HTMLInputElement;
+    expect(width.disabled).toBe(true);
+  });
 });

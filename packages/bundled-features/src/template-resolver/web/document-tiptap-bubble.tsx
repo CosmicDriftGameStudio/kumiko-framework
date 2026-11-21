@@ -119,6 +119,7 @@ function renderImagePrintControls(c: TiptapContext, selectedBlock: ResourceBlock
           size="sm"
           variant="secondary"
           pressed={selectedBlock.align === align}
+          disabled={c.readOnly}
           testId={`document-image-align-${align}`}
           onClick={() =>
             setBlockAttributes(editor, "resource", {

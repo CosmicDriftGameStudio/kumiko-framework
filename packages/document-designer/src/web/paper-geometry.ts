@@ -1,8 +1,12 @@
 import {
   DOCUMENT_FONT_PRINT_STACKS,
+  isFoldMarkPaper,
   PDF_DEFAULT_MARGIN_MM,
+  PDF_FOLD_MARK_LENGTH_MM,
+  PDF_FOLD_MARK_POSITIONS_MM,
   PDF_FOOTER_MARGIN_MM,
   PDF_HEADER_MARGIN_MM,
+  PDF_PUNCH_MARK_LENGTH_MM,
   type PdfFoldMarks,
   type PdfTableStyle,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
@@ -114,20 +118,14 @@ export type PaperLook = {
   readonly paperColor: string | null;
 };
 
-// DIN 5008 distances from the top edge, as the PDF prints them (document-pdf-print.ts).
-const FOLD_MARK_FOLDS_MM: Readonly<Record<Exclude<PdfFoldMarks, "none">, readonly number[]>> = {
-  "din-a": [87, 192],
-  "din-b": [105, 210],
-};
-const PUNCH_MARK_MM = 148.5;
-
 export type FoldMarkLine = { readonly topMm: number; readonly lengthMm: number };
 
-export function foldMarkLines(foldMarks: PdfFoldMarks): readonly FoldMarkLine[] {
-  if (foldMarks === "none") return [];
+export function foldMarkLines(foldMarks: PdfFoldMarks, size: PaperSize): readonly FoldMarkLine[] {
+  if (foldMarks === "none" || !isFoldMarkPaper(size.widthMm, size.heightMm)) return [];
+  const { foldsMm, punchMm } = PDF_FOLD_MARK_POSITIONS_MM[foldMarks];
   return [
-    ...FOLD_MARK_FOLDS_MM[foldMarks].map((topMm) => ({ topMm, lengthMm: 5 })),
-    { topMm: PUNCH_MARK_MM, lengthMm: 8 },
+    ...foldsMm.map((topMm) => ({ topMm, lengthMm: PDF_FOLD_MARK_LENGTH_MM })),
+    { topMm: punchMm, lengthMm: PDF_PUNCH_MARK_LENGTH_MM },
   ];
 }
 

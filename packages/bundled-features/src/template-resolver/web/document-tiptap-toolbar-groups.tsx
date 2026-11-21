@@ -415,6 +415,7 @@ export function renderNumberField(
                   : Math.min(spec.range.max, Math.max(spec.range.min, value)),
               )
             }
+            disabled={c.readOnly}
             testId={spec.id}
           />
         </Field>
@@ -549,7 +550,7 @@ export function renderPrintTableGroup(c: TiptapContext): ReactNode {
           type="button"
           variant="ghost"
           size="sm"
-          disabled={c.readOnly}
+          disabled={c.readOnly || !table.rowRemovable}
           testId="document-table-remove-row"
           onClick={() => {
             editor.chain().focus().deleteRow().run();

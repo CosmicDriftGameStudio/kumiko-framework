@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { DEFAULT_PDF_FONT_SIZE_PT, DEFAULT_PDF_LAYOUT_LOOK } from "../layout-meta.ts";
 import {
   EMPTY_MARGIN_INPUT,
+  foldMarkLines,
   layoutRegionFlags,
   paperLookOf,
   paperSizeMm,
@@ -114,5 +115,21 @@ describe("paperVariables", () => {
     });
     expect(typed.fontSizePt).toBe(DEFAULT_PDF_FONT_SIZE_PT);
     expect(typed.textColor).toBeNull();
+  });
+});
+
+describe("fold mark lines", () => {
+  test("DIN 5008 form A on upright A4: two folds and a punch mark", () => {
+    expect(foldMarkLines("din-a", paperSizeMm("A4", "portrait"))).toEqual([
+      { topMm: 87, lengthMm: 5 },
+      { topMm: 192, lengthMm: 5 },
+      { topMm: 148.5, lengthMm: 8 },
+    ]);
+  });
+
+  test("no marks on landscape or Letter sheets, or when switched off", () => {
+    expect(foldMarkLines("din-a", paperSizeMm("A4", "landscape"))).toEqual([]);
+    expect(foldMarkLines("din-b", paperSizeMm("Letter", "portrait"))).toEqual([]);
+    expect(foldMarkLines("none", paperSizeMm("A4", "portrait"))).toEqual([]);
   });
 });
