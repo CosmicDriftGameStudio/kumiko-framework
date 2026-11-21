@@ -6,6 +6,7 @@ import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,
   updateRowViaEventStore,
+  withEnvForSuite,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { buildEntityTable } from "../../db/index.ts";
@@ -24,7 +25,7 @@ import { SOFT_DELETE_CLEANUP_JOB } from "../../engine/soft-delete-cleanup.ts";
 import { runSeedWritesAt, SEED_MODE_ENV } from "../../event-store/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { createInMemoryFileProvider } from "../in-memory-provider.ts";
-import { createFilesFeature, fileRefsTable } from "../index.ts";
+import { createFilesFeature, deriveKey, fileRefsTable } from "../index.ts";
 
 const docEntity = createEntity({
   name: "holder-doc",
@@ -50,11 +51,11 @@ const docFeature = defineFeature("holder-probe", (r) => {
 const PDF = new TextEncoder().encode("%PDF-1.4 holder fixture");
 const admin = TestUsers.admin;
 const provider = createInMemoryFileProvider();
-const previousSeedMode = process.env[SEED_MODE_ENV];
 let stack: TestStack;
 
+withEnvForSuite({ [SEED_MODE_ENV]: "1" });
+
 beforeAll(async () => {
-  process.env[SEED_MODE_ENV] = "1";
   patchFileInstanceofForBunTest();
   stack = await setupTestStack({
     features: [createFilesFeature(), docFeature],
@@ -65,8 +66,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await stack.cleanup();
-  if (previousSeedMode === undefined) delete process.env[SEED_MODE_ENV];
-  else process.env[SEED_MODE_ENV] = previousSeedMode;
 });
 
 beforeEach(() => {
@@ -126,11 +125,19 @@ async function fileRefRow(id: string) {
   return row;
 }
 
+async function storageKeyOf(fileRefId: string): Promise<string> {
+  const storageKey = (await fileRefRow(fileRefId))?.["storageKey"];
+  if (typeof storageKey !== "string") throw new Error(`fileRef ${fileRefId} has no storageKey`);
+  return storageKey;
+}
+
 describe("soft-delete cleanup of a row's file", () => {
-  test("an expired soft-deleted row loses its bytes and fileRef with it", async () => {
+  test("an expired soft-deleted row loses its bytes, derivative and fileRef with it", async () => {
     const fileRefId = await uploadBoundToDoc();
     const docId = await createDoc("lone holder", fileRefId);
-    const storageKey = (await fileRefRow(fileRefId))?.["storageKey"] as string;
+    const storageKey = await storageKeyOf(fileRefId);
+    const derivativeKey = deriveKey(storageKey, "thumb-ffffffffffffffff");
+    await provider.write(derivativeKey, new Uint8Array([1, 2, 3]), "image/png");
     expect(provider.keys()).toContain(storageKey);
     await softDeleteDoc(docId, 400);
 
@@ -138,13 +145,14 @@ describe("soft-delete cleanup of a row's file", () => {
 
     expect(await selectMany(stack.db, buildEntityTable(docEntity), { id: docId })).toEqual([]);
     expect(provider.keys()).not.toContain(storageKey);
+    expect(provider.keys()).not.toContain(derivativeKey);
     expect(await fileRefRow(fileRefId)).toBeUndefined();
   });
 
   test("a soft-deleted row inside the grace period keeps its file", async () => {
     const fileRefId = await uploadBoundToDoc();
     const docId = await createDoc("fresh", fileRefId);
-    const storageKey = (await fileRefRow(fileRefId))?.["storageKey"] as string;
+    const storageKey = await storageKeyOf(fileRefId);
     await softDeleteDoc(docId, 1);
 
     await runCleanup();
@@ -166,7 +174,7 @@ describe("soft-delete cleanup of a row's file", () => {
         { tenantId: admin.tenantId },
       ),
     );
-    const storageKey = (await fileRefRow(fileRefId))?.["storageKey"] as string;
+    const storageKey = await storageKeyOf(fileRefId);
     await softDeleteDoc(expiredId, 400);
     await softDeleteDoc(remainingId, 1);
 
