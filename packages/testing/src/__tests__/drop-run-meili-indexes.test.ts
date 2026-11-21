@@ -56,6 +56,7 @@ describe("dropRunMeiliIndexes failure paths", () => {
 
   test("a rejected key reports the failure and does not fail the finished run", async () => {
     const rejectingMeili = Bun.serve({
+      hostname: "127.0.0.1",
       port: 0,
       fetch: (req) =>
         new URL(req.url).pathname === "/health"
@@ -75,6 +76,7 @@ describe("dropRunMeiliIndexes failure paths", () => {
   test("URL and key from the app's .env reach the teardown when the shell sets none", async () => {
     const seenAuthorization: (string | null)[] = [];
     const meili = Bun.serve({
+      hostname: "127.0.0.1",
       port: 0,
       fetch(req) {
         const { pathname } = new URL(req.url);
@@ -106,6 +108,7 @@ describe("dropRunMeiliIndexes failure paths", () => {
   test("a connection lost after the health check reports without the key", async () => {
     const apiKey = `sentinel-${crypto.randomUUID()}`;
     const flakyMeili = Bun.serve({
+      hostname: "127.0.0.1",
       port: 0,
       fetch(req, server) {
         if (new URL(req.url).pathname === "/health") return new Response("{}");
@@ -140,6 +143,7 @@ describe("dropRunMeiliIndexes sweep of earlier e2e runs", () => {
   function fakeMeili(indexes: readonly FakeIndex[], failingDeletes: readonly string[] = []) {
     const deleted: string[] = [];
     const server = Bun.serve({
+      hostname: "127.0.0.1",
       port: 0,
       fetch(req) {
         const url = new URL(req.url);
