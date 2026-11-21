@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
+import {
+  createInMemoryFileProvider,
+  type InMemoryFileProvider,
+} from "@cosmicdrift/kumiko-framework/files";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { ConnectorHandlers } from "../constants.ts";
 import { inboundItemTable } from "../schema/inbound-item.ts";
@@ -254,6 +257,67 @@ describe("connectors storage quota", () => {
         bytes: new Uint8Array(6),
       });
       expect(again.status).toBe(200);
+    } finally {
+      await teardownConnectorsStack(small);
+    }
+  });
+
+  test("an upload accepted late does not clear the refusal of an upload that began after it", async () => {
+    const inner = createInMemoryFileProvider();
+    let armed = false;
+    let reachedWrite: () => void = () => {};
+    let releaseWrite: () => void = () => {};
+    const writeReached = new Promise<void>((resolve) => {
+      reachedWrite = resolve;
+    });
+    const writeReleased = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    // Holds the first armed byte write, so upload A is decided only after upload B was refused.
+    const gate = async () => {
+      if (!armed) return;
+      armed = false;
+      reachedWrite();
+      await writeReleased;
+    };
+    const gated: InMemoryFileProvider = {
+      ...inner,
+      async write(...args) {
+        await gate();
+        return inner.write(...args);
+      },
+      async writeStream(...args) {
+        await gate();
+        return inner.writeStream(...args);
+      },
+    };
+    const small = await setupConnectorsStack({ maxStoredBytesPerTenant: 10 }, undefined, gated);
+    try {
+      const { token: smallToken, connectorId: smallConnectorId } = await pairDevice(small);
+      const detail = async () =>
+        (await listConnectors(small)).find((c) => c.id === smallConnectorId)?.syncDetail;
+      const filler = await uploadConnectorFile(small, smallToken, {
+        path: "a/filler.bin",
+        bytes: new Uint8Array(6),
+      });
+      expect(filler.status).toBe(201);
+
+      armed = true;
+      const slowAccepted = uploadConnectorFile(small, smallToken, {
+        path: "a/slow.bin",
+        bytes: new Uint8Array(3),
+      });
+      await writeReached;
+      const laterRefused = await uploadConnectorFile(small, smallToken, {
+        path: "a/refused.bin",
+        bytes: new Uint8Array(5),
+      });
+      expect(laterRefused.status).toBe(507);
+      expect(await detail()).toEqual({ i18nKey: "connectors.sync.detail.storageFull" });
+
+      releaseWrite();
+      expect((await slowAccepted).status).toBe(201);
+      expect(await detail()).toEqual({ i18nKey: "connectors.sync.detail.storageFull" });
     } finally {
       await teardownConnectorsStack(small);
     }
