@@ -249,7 +249,14 @@ function checkEditFormScreenQueryRefs(
       () => `[Feature ${featureName}] Screen "${screenId}" (actionForm) preview`,
     );
   }
-  if (screen.type !== "entityEdit") {
+  if (screen.type === "entityEdit") {
+    const detailQuery = `${toKebab(featureName)}:query:${toKebab(screen.entity)}:detail`;
+    assertNotDispatchOnlyQuery(
+      queryHandlers.get(detailQuery),
+      detailQuery,
+      () => `[Feature ${featureName}] Screen "${screenId}" (entityEdit)`,
+    );
+  } else {
     checkFormFieldQueryRefs(queryHandlers, featureName, screenId, screen.type, screen.fields);
   }
   if (screen.type === "secretMint" && screen.confirm !== undefined) {

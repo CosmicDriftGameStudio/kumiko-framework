@@ -9,6 +9,7 @@ import { PAGE_HELP_RULES } from "./page-help-rules.ts";
 type PageHelpSite = {
   /** Where the spec sits, for the message: `screen "id"` or `screen "id" relatedList "title"`. */
   readonly where: string;
+  readonly kind: "screen" | "relatedList";
   /** Entity used when the spec names none: the entityList entity or the relatedList section entity. */
   readonly defaultEntity?: string;
   readonly section: PageHelpStatusSection;
@@ -16,13 +17,14 @@ type PageHelpSite = {
 
 function statusSitesOf(
   where: string,
+  kind: PageHelpSite["kind"],
   pageHelp: PageHelpSpec | undefined,
   defaultEntity: string | undefined,
 ): readonly PageHelpSite[] {
   const found: PageHelpSite[] = [];
   for (const section of pageHelp?.sections ?? []) {
     if (section.kind !== "status") continue;
-    found.push({ where, section, ...(defaultEntity !== undefined && { defaultEntity }) });
+    found.push({ where, kind, section, ...(defaultEntity !== undefined && { defaultEntity }) });
   }
   return found;
 }
@@ -35,6 +37,7 @@ function pageHelpSitesOf(feature: FeatureDefinition): readonly PageHelpSite[] {
       found.push(
         ...statusSitesOf(
           where,
+          "screen",
           screen.pageHelp,
           screen.type === "entityList" ? screen.entity : undefined,
         ),
@@ -46,6 +49,7 @@ function pageHelpSitesOf(feature: FeatureDefinition): readonly PageHelpSite[] {
       found.push(
         ...statusSitesOf(
           `${where} relatedList "${section.title}"`,
+          "relatedList",
           section.pageHelp,
           section.entity,
         ),
@@ -85,7 +89,10 @@ function checkPageHelpSite(
   const rawEntity = site.section.entity ?? site.defaultEntity;
   if (rawEntity === undefined) {
     throw bootRuleError(PAGE_HELP_RULES.statusFieldInvalid, {
-      message: `${prefix}: pageHelp.entity is required on a projectionDetail.`,
+      message:
+        site.kind === "relatedList"
+          ? `${prefix}: pageHelp.entity is required when the relatedList section names no entity.`
+          : `${prefix}: pageHelp.entity is required on a projectionDetail.`,
     });
   }
   const target = parseRefTarget(rawEntity, feature.name);

@@ -19,7 +19,7 @@ function featureWithPreview(preview: unknown) {
       handler: async () => ({ count: 0, items: [] }),
       outputSchema: z.object({
         count: z.number(),
-        items: z.array(z.object({ name: z.string() })),
+        items: z.array(z.object({ name: z.string(), qty: z.number() })),
       }),
       access: OPEN_TO_ALL,
     });
@@ -127,13 +127,33 @@ describe("actionForm preview", () => {
       ...FULL_PREVIEW,
       list: {
         field: "items",
-        columns: [{ field: "name", label: "shop:preview.name" }],
+        columns: [
+          { field: "name", label: "shop:preview.name" },
+          { field: "qty", label: "shop:preview.qty" },
+        ],
         footer: [{ label: "shop:preview.sum", cells }],
       },
     });
-    expect(() => validateBoot([featureWithPreview(list({ name: "count" }))])).not.toThrow();
+    expect(() => validateBoot([featureWithPreview(list({ qty: "count" }))])).not.toThrow();
     expect(() => validateBoot([featureWithPreview(list({ nope: "count" }))])).toThrow(
       /footer row "shop:preview.sum" has a cell for "nope"/,
+    );
+  });
+
+  test("a footer cell for the first column is rejected, the renderer shows the label there", () => {
+    const preview = {
+      ...FULL_PREVIEW,
+      list: {
+        field: "items",
+        columns: [
+          { field: "name", label: "shop:preview.name" },
+          { field: "qty", label: "shop:preview.qty" },
+        ],
+        footer: [{ label: "shop:preview.sum", cells: { name: "count" } }],
+      },
+    };
+    expect(() => validateBoot([featureWithPreview(preview)])).toThrow(
+      /cell for "name", the first column, which holds the footer label/,
     );
   });
 });

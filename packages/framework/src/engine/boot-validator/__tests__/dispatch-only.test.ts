@@ -330,3 +330,36 @@ describe("entityList screen and its implicit list query", () => {
     );
   });
 });
+
+describe("entityEdit screen and its implicit detail query", () => {
+  function editFeature(detailDispatchOnly: boolean) {
+    return defineFeature("shop", (r) => {
+      r.entity(
+        createEntity({ name: "order", table: "do_edit_orders", fields: { name: textField() } }),
+      );
+      r.queryHandler({
+        name: "order:detail",
+        schema: z.object({ id: z.string() }),
+        access: OPEN_TO_ALL,
+        ...(detailDispatchOnly && { dispatchOnly: true }),
+        handler: async () => ({}),
+      });
+      r.screen({
+        id: "order-edit",
+        type: "entityEdit",
+        entity: "order",
+        layout: { sections: [{ fields: ["name"] }] },
+      });
+    });
+  }
+
+  test("an entityEdit whose <entity>:detail query is dispatchOnly is rejected", () => {
+    expect(() => validateQueryRefs([editFeature(true)])).toThrow(
+      /Screen "order-edit" \(entityEdit\) query "shop:query:order:detail" is dispatchOnly/,
+    );
+  });
+
+  test("an entityEdit with a regular detail query boots", () => {
+    expect(() => validateQueryRefs([editFeature(false)])).not.toThrow();
+  });
+});
