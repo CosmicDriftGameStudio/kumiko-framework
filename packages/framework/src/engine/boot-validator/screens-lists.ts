@@ -177,6 +177,7 @@ function validateRelatedListTableAndBulk(args: RelatedListSectionValidation): vo
     section.rowActions,
     featureName,
     args,
+    args.featureMap,
   );
 }
 

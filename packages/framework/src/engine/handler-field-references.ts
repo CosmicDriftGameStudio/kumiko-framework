@@ -47,7 +47,7 @@ function rawReferenceMeta(field: z.ZodType): unknown {
   return Reflect.get(meta, HANDLER_FIELD_REFERENCES_META_KEY);
 }
 
-function unwrapObjectSchema(schema: z.ZodType): z.ZodObject | undefined {
+export function unwrapObjectSchema(schema: z.ZodType): z.ZodObject | undefined {
   let current: z.ZodType | undefined = schema;
   for (let depth = 0; depth < MAX_WRAPPER_DEPTH && current !== undefined; depth++) {
     if (current instanceof z.ZodObject) return current;

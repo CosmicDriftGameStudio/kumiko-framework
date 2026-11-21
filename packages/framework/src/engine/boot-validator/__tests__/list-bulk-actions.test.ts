@@ -4,6 +4,7 @@ import * as z from "zod";
 import { validateBoot as validateBootRaw } from "../../boot-validator.ts";
 import { defineFeature } from "../../define-feature.ts";
 import { createEntity, createTextField } from "../../factories.ts";
+import { MAX_BULK_SELECTION } from "../../types/screen.ts";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
@@ -54,6 +55,39 @@ function featureWith(kind: ScreenKind, bulkActions: unknown) {
       handler: async () => ({ isSuccess: true as const, data: {} }),
       access: OPEN_TO_ALL,
     });
+    const idsSchemas = {
+      "bulk-rename": z.array(z.string()).max(MAX_BULK_SELECTION),
+      "bulk-unbounded": z.array(z.string()),
+      "bulk-too-big": z.array(z.string()).max(MAX_BULK_SELECTION + 1),
+      "bulk-optional": z.array(z.string()).max(MAX_BULK_SELECTION).optional(),
+      "bulk-optional-unbounded": z.array(z.string()).optional(),
+    };
+    for (const [name, ids] of Object.entries(idsSchemas)) {
+      r.writeHandler({
+        name: `item:${name}`,
+        schema: z.object({ ids, name: z.string() }),
+        handler: async () => ({ isSuccess: true as const, data: {} }),
+        access: OPEN_TO_ALL,
+      });
+    }
+    r.writeHandler({
+      name: "item:bulk-missing-ids",
+      schema: z.object({ name: z.string() }),
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+      access: OPEN_TO_ALL,
+    });
+    for (const name of [...Object.keys(idsSchemas), "bulk-missing-ids"]) {
+      r.screen({
+        id: `item-ids-${name}`,
+        type: "actionForm",
+        handler: `shop:write:item:${name}`,
+        fields: {
+          ids: { type: "multiSelect", options: [], display: "count" },
+          name: { type: "text" },
+        },
+        layout: { sections: [{ title: "Rename", fields: ["ids", "name"] }] },
+      } as never);
+    }
     r.screen({
       id: "item-rename",
       type: "actionForm",
@@ -64,7 +98,7 @@ function featureWith(kind: ScreenKind, bulkActions: unknown) {
     r.screen({
       id: "item-bulk-rename",
       type: "actionForm",
-      handler: "shop:write:item:rename",
+      handler: "shop:write:item:bulk-rename",
       fields: {
         ids: { type: "multiSelect", options: [], display: "count" },
         plainIds: { type: "multiSelect", options: ["a"] },
@@ -76,7 +110,7 @@ function featureWith(kind: ScreenKind, bulkActions: unknown) {
     r.screen({
       id: "item-bulk-rename-hidden",
       type: "actionForm",
-      handler: "shop:write:item:rename",
+      handler: "shop:write:item:bulk-rename",
       fields: {
         ids: { type: "multiSelect", options: [], display: "count" },
         name: { type: "text" },
@@ -222,6 +256,32 @@ describe("validateBoot — list bulkActions", () => {
         validateBoot([featureWith("entityList", [withEntry({ idsField: "secret" })])]),
       ).toThrow(/marks sensitive or leaves out of its layout/);
     });
+
+    test.each(["bulk-unbounded", "bulk-too-big", "bulk-optional-unbounded", "bulk-missing-ids"])(
+      "a handler schema that does not bound idsField to MAX_BULK_SELECTION is rejected (%s)",
+      (handlerName) => {
+        expect(() =>
+          validateBoot([
+            featureWith("entityList", [withEntry({ screen: `item-ids-${handlerName}` })]),
+          ]),
+        ).toThrow(
+          new RegExp(
+            `sends the selected ids in "ids" to handler "shop:write:item:${handlerName}".*z\\.array\\(\\.\\.\\.\\)\\.max\\(MAX_BULK_SELECTION\\)`,
+          ),
+        );
+      },
+    );
+
+    test.each(["bulk-rename", "bulk-optional"])(
+      "a handler schema bounding idsField to exactly MAX_BULK_SELECTION passes (%s)",
+      (handlerName) => {
+        expect(() =>
+          validateBoot([
+            featureWith("entityList", [withEntry({ screen: `item-ids-${handlerName}` })]),
+          ]),
+        ).not.toThrow();
+      },
+    );
 
     test("rowAction next to screen is an unknown key of the form variant", () => {
       expect(() =>

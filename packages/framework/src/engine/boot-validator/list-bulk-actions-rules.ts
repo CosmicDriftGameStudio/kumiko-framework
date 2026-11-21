@@ -83,4 +83,10 @@ export const LIST_BULK_ACTION_RULES = {
       "A bulk form action's idsField is shown by the target form's layout and not sensitive.",
     fix: "Add the field to the form layout (visible: false hides it but keeps the value) and drop sensitive.",
   },
+  formIdsFieldUnbounded: {
+    id: "list-bulk/form-ids-field-unbounded",
+    summary:
+      "A bulk form action's idsField is a z.array(...).max(n) with n <= MAX_BULK_SELECTION in the target handler's schema.",
+    fix: "Declare the field in the handler schema as z.array(...).max(MAX_BULK_SELECTION).",
+  },
 } as const satisfies BootRuleTable;

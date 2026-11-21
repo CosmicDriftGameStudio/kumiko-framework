@@ -443,6 +443,7 @@ export function validateEntityListScreen(
     screen.rowActions,
     featureName,
     ctx,
+    ctx.featureMap,
   );
   for (const action of screen.toolbarActions ?? []) {
     validateEntityListToolbarAction(ctx, screenId, fields, action);
