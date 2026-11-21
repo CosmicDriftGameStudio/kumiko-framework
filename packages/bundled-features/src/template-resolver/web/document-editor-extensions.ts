@@ -37,6 +37,8 @@ export type DocumentEditorLabels = {
   readonly imageBlock?: string;
   readonly variableLabels?: Readonly<Record<string, string>>;
   readonly systemVariables?: readonly string[];
+  /** Variable names of type date; only these show their date format on the chip. */
+  readonly dateVariables?: readonly string[];
   readonly resourcePreviews?: Readonly<Record<string, DocumentResourcePreview>>;
   /** Canvas chrome labels every block with its type. */
   readonly blockLabels?: boolean;
@@ -81,6 +83,7 @@ const DATE_STYLE_CHIP_HINTS = { short: "15.01.2026", long: "15. Jan 2026" } as c
 export function createVariableView(
   variableLabels: Readonly<Record<string, string>>,
   systemVariables: readonly string[],
+  dateVariables: readonly string[] = [],
 ): NodeViewRenderer {
   return ({ node, editor, getPos }) => {
     const name = String(node.attrs["name"]);
@@ -99,7 +102,9 @@ export function createVariableView(
     const dateStyle: unknown = node.attrs["dateStyle"];
     if (isOneOf(DOCUMENT_DATE_STYLES, dateStyle)) {
       dom.setAttribute("data-date-style", dateStyle);
-      dom.append(document.createTextNode(` · ${DATE_STYLE_CHIP_HINTS[dateStyle]}`));
+      if (dateVariables.includes(name)) {
+        dom.append(document.createTextNode(` · ${DATE_STYLE_CHIP_HINTS[dateStyle]}`));
+      }
     }
     return { dom };
   };
@@ -287,7 +292,11 @@ export function createDocumentEditorExtensions(labels: DocumentEditorLabels): Ex
       case DocumentVariable.name:
         return DocumentVariable.extend({
           addNodeView: () =>
-            createVariableView(labels.variableLabels ?? {}, labels.systemVariables ?? []),
+            createVariableView(
+              labels.variableLabels ?? {},
+              labels.systemVariables ?? [],
+              labels.dateVariables ?? [],
+            ),
         });
       case DocumentResource.name:
         return DocumentResource.extend({ addNodeView: () => createResourceView(labels) });

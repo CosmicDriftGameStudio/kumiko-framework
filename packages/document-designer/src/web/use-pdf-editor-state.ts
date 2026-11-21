@@ -8,7 +8,7 @@ import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { EditorMode } from "./editor-header.tsx";
 import type { LayoutSourceView } from "./layout-types.ts";
-import { systemLabelMap, variableLabelMap } from "./mail-draft.ts";
+import { dateVariableNames, systemLabelMap, variableLabelMap } from "./mail-draft.ts";
 import {
   draftFromDetail,
   type EditorState,
@@ -246,6 +246,7 @@ function usePdfVocabulary(
     () => Object.keys(allVariables).filter((name) => allVariables[name]?.type === "images"),
     [allVariables],
   );
+  const dateVariables = useMemo(() => dateVariableNames(variables), [variables]);
   const systemVariables = useMemo(
     () => visibleSystemPlaceholders(validation?.systemPlaceholders ?? []),
     [validation?.systemPlaceholders],
@@ -276,6 +277,7 @@ function usePdfVocabulary(
   return {
     variables,
     imageVariables,
+    dateVariables,
     systemVariables,
     systemLabels,
     variableLabels,

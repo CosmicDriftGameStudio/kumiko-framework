@@ -44,6 +44,7 @@ export type TiptapContext = {
   readonly blocks: readonly DocumentToolbarBlock[];
   readonly variables: readonly string[];
   readonly imageVariables: readonly string[];
+  readonly dateVariables: readonly string[];
   readonly variableLabels: Readonly<Record<string, string>>;
   readonly stableLabels: Readonly<Record<string, string>>;
   readonly togglePanel: (kind: PanelKind) => void;
@@ -79,6 +80,7 @@ export type TiptapContextInput = Pick<
   | "blocks"
   | "variables"
   | "imageVariables"
+  | "dateVariables"
   | "variableLabels"
   | "stableLabels"
 >;

@@ -26,6 +26,7 @@ export type PageCanvasProps = {
   readonly systemLabels: Readonly<Record<string, string>>;
   readonly variableNames: readonly string[];
   readonly imageVariables: readonly string[];
+  readonly dateVariables: readonly string[];
   readonly resourcePreviews: Readonly<Record<string, DocumentResourcePreview>>;
   readonly onEditorReady: (handle: DocumentEditorHandle | null) => void;
   readonly onFrameControlChange: (control: DocumentFrameControl | null) => void;
@@ -195,6 +196,7 @@ export function PageCanvas(props: PageCanvasProps): ReactNode {
         onChange={props.onContentChange}
         variables={props.variableNames}
         imageVariables={props.imageVariables}
+        dateVariables={props.dateVariables}
         readOnly={false}
         blocks={PDF_DOCUMENT_BLOCKS}
         variableLabels={props.variableLabels}

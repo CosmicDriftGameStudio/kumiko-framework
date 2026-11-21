@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { documentHtmlToText, textToDocumentHtml } from "../document-text.ts";
+import { documentHtmlToText, isEmptyDocumentHtml, textToDocumentHtml } from "../document-text.ts";
 
 describe("documentHtmlToText", () => {
   test("keeps paragraphs and line breaks as newlines and drops tags", () => {
@@ -33,5 +33,26 @@ describe("textToDocumentHtml with hostile model output", () => {
     expect(textToDocumentHtml("<img src=x onerror=alert(1)>")).toBe(
       "<p>&lt;img src=x onerror=alert(1)&gt;</p>",
     );
+  });
+});
+
+describe("isEmptyDocumentHtml", () => {
+  test("an emptied editor document is empty", () => {
+    expect(isEmptyDocumentHtml("")).toBe(true);
+    expect(isEmptyDocumentHtml("<p></p>")).toBe(true);
+    expect(isEmptyDocumentHtml("<p>&nbsp;</p>")).toBe(true);
+  });
+
+  test("a document with only an image, divider, table or block is not empty", () => {
+    expect(isEmptyDocumentHtml("<p></p><img src=x>")).toBe(false);
+    expect(isEmptyDocumentHtml("<hr>")).toBe(false);
+    expect(isEmptyDocumentHtml("<table><tbody><tr><td><p></p></td></tr></tbody></table>")).toBe(
+      false,
+    );
+    expect(isEmptyDocumentHtml('<div data-page-break=""></div>')).toBe(false);
+  });
+
+  test("text makes a document non-empty", () => {
+    expect(isEmptyDocumentHtml("<p>Hi</p>")).toBe(false);
   });
 });

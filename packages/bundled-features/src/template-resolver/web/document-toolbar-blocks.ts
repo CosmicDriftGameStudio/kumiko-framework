@@ -44,6 +44,8 @@ export type DocumentEditorProps = ContentEditorProps & {
   readonly variableLabels?: Readonly<Record<string, string>>;
   /** Variable names rendered as system chips (a different tint). */
   readonly systemVariables?: readonly string[];
+  /** Names of the template's date variables; only these offer the short/long date format. */
+  readonly dateVariables?: readonly string[];
   /** Image previews by resource key; resources without one show a key placeholder. */
   readonly resourcePreviews?: Readonly<Record<string, DocumentResourcePreview>>;
   readonly chrome?: DocumentEditorChrome;

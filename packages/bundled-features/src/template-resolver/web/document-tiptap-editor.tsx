@@ -35,6 +35,7 @@ export default function DocumentTiptapEditor({
   imageVariables = NO_NAMES,
   variableLabels = NO_LABELS,
   systemVariables = NO_NAMES,
+  dateVariables = NO_NAMES,
   resourcePreviews = NO_PREVIEWS,
   chrome = "default",
   layoutValues = NO_LAYOUT_VALUES,
@@ -69,8 +70,10 @@ export default function DocumentTiptapEditor({
       print,
       variableLabels,
       systemVariables,
+      dateVariables,
       resourcePreviews,
       canvas,
+      formatting,
     },
     t,
   );
@@ -126,6 +129,7 @@ export default function DocumentTiptapEditor({
     blocks,
     variables,
     imageVariables,
+    dateVariables,
     variableLabels,
     stableLabels: model.stableLabels,
   });
