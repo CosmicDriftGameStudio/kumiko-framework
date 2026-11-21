@@ -112,6 +112,13 @@ describe("flattenAddressSenderLine", () => {
     expect(flat).toContain("border-bottom:1px solid");
   });
 
+  test("joins two sender spans that are separated by a whitespace-only line break", () => {
+    const html = frame(`<p>${small("Muster GmbH")}\n${small("Weg 1")}</p><p>Empfaenger</p>`);
+    const flat = flattenAddressSenderLine(html);
+    expect(flat).toContain(`${small("Muster GmbH")} · ${small("Weg 1")}`);
+    expect(flat).not.toContain("\n");
+  });
+
   test("returns a body without a rewritten paragraph byte-identical", () => {
     const entities = "<p class='x' title=a&amp;b>Tom &amp; Jerry &nbsp;&lt;3<br></p><p>";
     expect(flattenAddressSenderLine(entities)).toBe(entities);

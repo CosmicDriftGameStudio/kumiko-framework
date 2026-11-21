@@ -82,7 +82,12 @@ function scalarToZod(def: TemplateScalarVariableDef): z.ZodType {
   }
 }
 
-const imagesSchema = z.union([z.string(), z.array(z.string())]);
+const imageEntrySchema = z.union([
+  z.string(),
+  z.object({ fileRefId: z.string(), caption: z.string().max(200).optional() }),
+]);
+
+const imagesSchema = z.union([z.string(), z.array(imageEntrySchema)]);
 
 function variableToZod(def: TemplateVariableDef): z.ZodType {
   if (def.type === "images") return imagesSchema;

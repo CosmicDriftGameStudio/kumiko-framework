@@ -522,13 +522,29 @@ describe("print styling attributes", () => {
   const frameAt = (y: number, height: number) =>
     `<div data-frame="" data-x="20" data-y="${y}" data-width="80" data-height="${height}"><p>x</p></div>`;
 
-  test("rejects a frame that reaches past the largest paper", () => {
-    expect(violationCodes(frameAt(900, 20))).toContain("frame_outside_page");
-    expect(violationCodes(frameAt(290, 20))).toContain("frame_outside_page");
+  const writeGateCodes = (html: string): string[] => {
+    const result = sanitizeDocumentHtml(html, { rejectFramesOutsidePage: true });
+    return result.ok ? [] : result.violations.map((item) => item.code);
+  };
+
+  test("the write gate rejects a frame that reaches past the largest paper", () => {
+    expect(writeGateCodes(frameAt(900, 20))).toContain("frame_outside_page");
+    expect(writeGateCodes(frameAt(290, 20))).toContain("frame_outside_page");
   });
 
-  test("accepts a frame inside the paper", () => {
-    expect(violationCodes(frameAt(250, 40))).not.toContain("frame_outside_page");
+  test("the write gate accepts a frame inside the paper", () => {
+    expect(writeGateCodes(frameAt(250, 40))).not.toContain("frame_outside_page");
+  });
+
+  test("a stored oversized frame still renders: only the write gate rejects it", () => {
+    expect(violationCodes(frameAt(900, 20))).not.toContain("frame_outside_page");
+    const body = {
+      kind: "document-pdf",
+      contentFormat: "html",
+      content: frameAt(900, 20),
+    } as const;
+    expect(sanitizeTemplateBody(body).ok).toBe(true);
+    expect(sanitizeTemplateBody({ ...body, rejectFramesOutsidePage: true }).ok).toBe(false);
   });
 
   test.each(roundTrips)("a mail rejects the PDF-only feature %s", (content) => {

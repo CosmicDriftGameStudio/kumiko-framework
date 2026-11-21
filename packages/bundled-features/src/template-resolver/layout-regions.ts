@@ -246,6 +246,7 @@ export function sanitizeTemplateWriteBody(input: {
     kind,
     contentFormat,
     content,
+    rejectFramesOutsidePage: true,
     ...(alwaysSanitizeHtml === undefined ? {} : { alwaysSanitizeHtml }),
   });
 }

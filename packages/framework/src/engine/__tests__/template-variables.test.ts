@@ -58,6 +58,18 @@ describe("templateVariablesToZod", () => {
     expect(schema.safeParse({ ...valid, lines: [{ price: 100 }] }).success).toBe(false);
     expect(schema.safeParse({ ...valid, lines: "nope" }).success).toBe(false);
   });
+
+  test("accepts image entries with and without a caption, rejects malformed ones", () => {
+    const imageSchema = templateVariablesToZod({ photos: templateVariable.images() });
+    const accepts = (photos: unknown) => imageSchema.safeParse({ photos }).success;
+    expect(accepts("file-1")).toBe(true);
+    expect(
+      accepts(["file-1", { fileRefId: "file-2" }, { fileRefId: "f3", caption: "Front" }]),
+    ).toBe(true);
+    expect(accepts([{ caption: "no ref" }])).toBe(false);
+    expect(accepts([{ fileRefId: "f", caption: "x".repeat(201) }])).toBe(false);
+    expect(accepts([42])).toBe(false);
+  });
 });
 
 describe("templateVariable builders", () => {

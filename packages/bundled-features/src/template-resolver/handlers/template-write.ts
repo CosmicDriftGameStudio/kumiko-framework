@@ -28,7 +28,7 @@ import { refuseReservedSystemLayoutSlug } from "../template-edit-policy.ts";
 import { isSystemOnlyTemplate } from "../template-system-only.ts";
 import { resolveTemplateVariables, type TemplateValidation } from "../template-validation.ts";
 import { readVariantOf, VARIANT_KIND, variantOfMatchesSlug } from "../template-variants.ts";
-import type { ContentFormat, TemplateKind } from "../web/constants.ts";
+import { type ContentFormat, FALLBACK_LOCALE, type TemplateKind } from "../web/constants.ts";
 import { TemplateResolverErrors } from "../web/qualified-names.ts";
 import { executor } from "./shared.ts";
 import {
@@ -217,19 +217,23 @@ export async function baseVariableSchemaOf(
   baseSlug: string,
   locale: string,
 ): Promise<unknown> {
-  const where = { slug: baseSlug, kind: VARIANT_KIND, locale };
-  const own = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
-    ...where,
-    tenantId,
-  });
-  if (own !== undefined) return parseStoredJson(toWorkingRow(own, tenantId).variableSchema);
-  const system = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
-    ...where,
-    tenantId: SYSTEM_TENANT_ID,
-    scope: "system",
-    status: "active",
-  });
-  return system === undefined ? undefined : parseStoredJson(system.variableSchema);
+  const locales = locale === FALLBACK_LOCALE ? [locale] : [locale, FALLBACK_LOCALE];
+  for (const candidateLocale of locales) {
+    const where = { slug: baseSlug, kind: VARIANT_KIND, locale: candidateLocale };
+    const own = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+      ...where,
+      tenantId,
+    });
+    if (own !== undefined) return parseStoredJson(toWorkingRow(own, tenantId).variableSchema);
+    const system = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+      ...where,
+      tenantId: SYSTEM_TENANT_ID,
+      scope: "system",
+      status: "active",
+    });
+    if (system !== undefined) return parseStoredJson(system.variableSchema);
+  }
+  return undefined;
 }
 
 type VariantSchemaOutcome =

@@ -6,6 +6,7 @@ const MIN_DIMENSION = 16;
 const MAX_PIXELS = 4_000_000;
 const MIN_INK_PIXELS = 20;
 const BACKGROUND_TOLERANCE = 8;
+const MIN_BACKGROUND_BORDER_SHARE_DENOMINATOR = 10;
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] as const;
 const COLOR_TYPE_GRAY_ALPHA = 4;
@@ -145,22 +146,19 @@ function countInkPixels(raw: Uint8Array, header: Header): number {
     if (entry === undefined) colorCounts.set(key, { count: 1, start });
     else entry.count++;
   }
-  let background = -1;
-  let backgroundCount = 0;
-  for (const entry of colorCounts.values()) {
-    if (entry.count > backgroundCount) {
-      background = entry.start;
-      backgroundCount = entry.count;
-    }
-  }
-  const colorMatchesBackground = (start: number): boolean => {
-    if (background < 0) return false;
+  // Every color that fills a real share of the border is background, so a two-tone canvas is not ink.
+  const backgrounds = [...colorCounts.values()]
+    .filter((entry) => entry.count * MIN_BACKGROUND_BORDER_SHARE_DENOMINATOR >= borderStarts.length)
+    .map((entry) => entry.start);
+  const matchesColor = (start: number, background: number): boolean => {
     for (let i = 0; i < bytesPerPixel; i++) {
       const difference = Math.abs((raw[start + i] ?? 0) - (raw[background + i] ?? 0));
       if (difference > BACKGROUND_TOLERANCE) return false;
     }
     return true;
   };
+  const colorMatchesBackground = (start: number): boolean =>
+    backgrounds.some((background) => matchesColor(start, background));
   // Most of the border must be opaque and alike for a solid background; a few opaque border pixels
   // on a transparent canvas could be a stroke.
   const nearBackgroundCount = opaqueBorderStarts.filter(colorMatchesBackground).length;

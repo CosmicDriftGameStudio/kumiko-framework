@@ -392,6 +392,7 @@ type DocumentInput = {
   readonly locale: string;
   readonly variables: Readonly<Record<string, unknown>>;
   readonly draft?: DocumentPdfDraft;
+  readonly working?: boolean;
   /** Whose row the draft edits: a SystemAdmin edits the system row, everyone else the tenant's own. */
   readonly draftScope?: "system" | "tenant";
 };
@@ -515,7 +516,7 @@ async function assembleDocument(
           locale,
         );
   const meta = readPdfTemplateMeta(template.meta);
-  const working = input.draft !== undefined;
+  const working = input.working ?? input.draft !== undefined;
   const { slug: layoutSlug, resolved: resolvedLayout } = await effectivePdfLayout(
     ctx,
     ctx.tenantId,

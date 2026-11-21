@@ -33,6 +33,8 @@ export function makePng(
     height?: number;
     drawn?: boolean;
     background?: readonly number[];
+    // Repaints the lower half of the background in a second colour.
+    lowerHalfBackground?: readonly number[];
     // Shifts the stroke down so it stays clear of the (0,0) corner pixel.
     strokeRowOffset?: number;
     // Paints only the (0,0) pixel opaque and nothing else.
@@ -47,7 +49,11 @@ export function makePng(
   const raw = new Uint8Array(stride * height);
   if (options.background !== undefined) {
     for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) raw.set(options.background, y * stride + 1 + x * 4);
+      const color =
+        options.lowerHalfBackground !== undefined && y >= height / 2
+          ? options.lowerHalfBackground
+          : options.background;
+      for (let x = 0; x < width; x++) raw.set(color, y * stride + 1 + x * 4);
     }
   }
   if (options.onlyFirstPixelOpaque === true) raw.set([0, 0, 0, 255], 1);

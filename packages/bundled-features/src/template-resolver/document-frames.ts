@@ -39,6 +39,21 @@ function nonBlankTextNodes(node: ScanNode): ScanNode[] {
   return Array.from(node.childNodes).flatMap(nonBlankTextNodes);
 }
 
+function allTextNodes(node: ScanNode): ScanNode[] {
+  if (node.nodeType === TEXT_NODE_TYPE) return [node];
+  if (node.nodeType !== ELEMENT_NODE_TYPE) return [];
+  return Array.from(node.childNodes).flatMap(allTextNodes);
+}
+
+// Whitespace-only nodes between two text runs carry the line break as well; ones at the edges do not.
+function textNodesBetweenFirstAndLastText(paragraph: ScanElement): ScanNode[] {
+  const nodes = allTextNodes(paragraph);
+  const isText = (text: ScanNode) => (text.textContent ?? "").trim() !== "";
+  const first = nodes.findIndex(isText);
+  const last = nodes.findLastIndex(isText);
+  return first === -1 ? [] : nodes.slice(first, last + 1);
+}
+
 // Without the sender checkbox the first paragraph is the recipient and must stay as written.
 function isSenderLine(paragraph: ScanElement): boolean {
   const texts = nonBlankTextNodes(paragraph);
@@ -57,7 +72,7 @@ export function flattenAddressSenderLine(compiledHtml: string): string {
     let changed = false;
     for (const paragraph of Array.from(body.querySelectorAll(ADDRESS_FIRST_PARAGRAPH_SELECTOR))) {
       if (!isSenderLine(paragraph)) continue;
-      for (const text of nonBlankTextNodes(paragraph)) {
+      for (const text of textNodesBetweenFirstAndLastText(paragraph)) {
         text.textContent = (text.textContent ?? "").replace(/\s*\r?\n\s*/g, " · ");
       }
       appendStyle(paragraph, addressParagraphCss(true));

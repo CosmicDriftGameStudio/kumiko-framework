@@ -76,6 +76,7 @@ export function makeCollectionSetWrite(
         contentFormat,
         content: event.payload.content,
         alwaysSanitizeHtml: collection.contentFormat === "document",
+        rejectFramesOutsidePage: true,
       });
       if (!body.ok) {
         return writeFailure(

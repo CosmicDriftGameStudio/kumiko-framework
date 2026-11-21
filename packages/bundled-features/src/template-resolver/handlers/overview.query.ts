@@ -450,13 +450,14 @@ function variantsUnderTheirBase(rows: readonly OverviewRow[]): OverviewRow[] {
   const isPdfBase = (row: OverviewRow) => row.kind === VARIANT_KIND && row.variantOf === null;
   const baseSlugs = new Set(rows.filter(isPdfBase).map((row) => row.slug));
   const isGrouped = (row: OverviewRow) => row.variantOf !== null && baseSlugs.has(row.variantOf);
+  const variantsByBase = new Map<string, OverviewRow[]>();
+  for (const row of rows) {
+    if (row.variantOf === null || !isGrouped(row)) continue;
+    variantsByBase.set(row.variantOf, [...(variantsByBase.get(row.variantOf) ?? []), row]);
+  }
   return rows
     .filter((row) => !isGrouped(row))
-    .flatMap((row) =>
-      isPdfBase(row)
-        ? [row, ...rows.filter((r) => isGrouped(r) && r.variantOf === row.slug)]
-        : [row],
-    );
+    .flatMap((row) => (isPdfBase(row) ? [row, ...(variantsByBase.get(row.slug) ?? [])] : [row]));
 }
 
 export function makeOverviewQuery(policy: TemplateEditPolicy) {
