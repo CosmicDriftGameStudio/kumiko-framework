@@ -30,7 +30,13 @@ function makeFixture(): string {
   return dir;
 }
 
+// meilisearch enters the runtime dependencies only through the app's declaration; "*" keeps
+// the framework pin as the version source under test.
 function importMeilisearchInMain(dir: string): void {
+  writeFileSync(
+    join(dir, "package.json"),
+    `${JSON.stringify({ name: "fixture-app", dependencies: { meilisearch: "*" } })}\n`,
+  );
   writeFileSync(
     join(dir, "bin/main.ts"),
     `import { MeiliSearch } from "meilisearch";\nconsole.log("server", MeiliSearch);\n`,
@@ -320,21 +326,21 @@ describe("buildServerBundle meilisearch runtime dependency", () => {
       `import { generateTenantToken } from "meilisearch/token";\nconsole.log(generateTenantToken);\n`,
     ],
   ])(
-    "installs meilisearch with the framework version when the bundle has %s",
+    "does not install an undeclared meilisearch when the bundle has %s",
     async (_label, source) => {
       const dir = makeFixture();
       try {
         writeFileSync(join(dir, "bin/main.ts"), source);
         const { result, packageJsonDependencies } = await runtimeDepsOf(dir);
-        expect(result.runtimeDeps["meilisearch"]).toBe("^0.58.0");
-        expect(packageJsonDependencies["meilisearch"]).toBe("^0.58.0");
+        expect(result.runtimeDeps).not.toHaveProperty("meilisearch");
+        expect(packageJsonDependencies).not.toHaveProperty("meilisearch");
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
     },
   );
 
-  test("installs meilisearch when only a shared chunk imports it", async () => {
+  test("does not install an undeclared meilisearch that only a shared chunk imports", async () => {
     const dir = makeFixture();
     try {
       writeFileSync(
@@ -343,7 +349,7 @@ describe("buildServerBundle meilisearch runtime dependency", () => {
       );
       const { result } = await runtimeDepsOf(dir);
       expect(result.chunks.length).toBeGreaterThanOrEqual(1);
-      expect(result.runtimeDeps["meilisearch"]).toBe("^0.58.0");
+      expect(result.runtimeDeps).not.toHaveProperty("meilisearch");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
