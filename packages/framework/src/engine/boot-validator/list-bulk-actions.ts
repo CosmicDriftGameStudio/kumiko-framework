@@ -1,7 +1,7 @@
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
-import { zodDef, zodShapeField } from "../../env/_zod-introspect.ts";
-import { unwrapObjectSchema } from "../handler-field-references.ts";
+import { zodArrayMaximum, zodDef, zodShapeField } from "../../env/_zod-introspect.ts";
+import { unwrapSchemaTo } from "../handler-field-references.ts";
 import { isKebabSegment, isValidQn, parseQn } from "../qualified-name.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import {
@@ -136,27 +136,32 @@ function validateBulkIdsField(
   }
 }
 
-const MAX_WRAPPER_DEPTH = 8;
-
-function findArraySchema(field: z.ZodType): z.ZodArray | undefined {
-  let current: z.ZodType | undefined = field;
-  for (let depth = 0; depth < MAX_WRAPPER_DEPTH && current !== undefined; depth++) {
-    if (current instanceof z.ZodArray) return current;
-    current = zodDef(current)?.innerType;
-  }
-  return undefined;
+function isArraySchema(candidate: z.ZodType): candidate is z.ZodArray {
+  return candidate instanceof z.ZodArray;
 }
 
-// Zod's bag.maximum stays empty for arrays, so the max_length checks are read directly.
-function arrayMaximum(array: z.ZodArray): number {
-  let smallest = Number.POSITIVE_INFINITY;
-  for (const check of array._zod.def.checks ?? []) {
-    const def = check._zod.def;
-    if (def.check === "max_length" && "maximum" in def && typeof def.maximum === "number") {
-      smallest = Math.min(smallest, def.maximum);
-    }
+function isObjectOrUnionSchema(candidate: z.ZodType): candidate is z.ZodObject | z.ZodUnion {
+  return candidate instanceof z.ZodObject || candidate instanceof z.ZodUnion;
+}
+
+// Every option of a (discriminated) union is a possible input; undefined when any branch is no object.
+function objectBranchesOf(schema: z.ZodType): readonly z.ZodObject[] | undefined {
+  const resolved = unwrapSchemaTo(schema, isObjectOrUnionSchema);
+  if (resolved === undefined) return undefined;
+  if (resolved instanceof z.ZodObject) return [resolved];
+  const branches: z.ZodObject[] = [];
+  for (const option of zodDef(resolved)?.options ?? []) {
+    const optionBranches = objectBranchesOf(option);
+    if (optionBranches === undefined) return undefined;
+    branches.push(...optionBranches);
   }
-  return smallest;
+  return branches;
+}
+
+function isIdsFieldBounded(branch: z.ZodObject, idsField: string): boolean {
+  const field = zodShapeField(branch, idsField);
+  const array = field === undefined ? undefined : unwrapSchemaTo(field, isArraySchema);
+  return array !== undefined && zodArrayMaximum(array) <= MAX_BULK_SELECTION;
 }
 
 // The client cap MAX_BULK_SELECTION does not bind a direct /api/write, so the handler schema must.
@@ -171,17 +176,24 @@ function validateBulkIdsBounded(
   if (!isValidQn(form.handler)) return;
   const { scope, name } = parseQn(form.handler);
   const schema = featureMap.get(scope)?.writeHandlers[name]?.schema;
-  const objectSchema = schema === undefined ? undefined : unwrapObjectSchema(schema);
-  // skip: only an object schema has per-field bounds to read
-  if (objectSchema === undefined) return;
-  const field = zodShapeField(objectSchema, idsField);
-  const array = field === undefined ? undefined : findArraySchema(field);
-  if (array !== undefined && arrayMaximum(array) <= MAX_BULK_SELECTION) return;
+  // skip: an unknown handler is reported by the write-handler registration rule
+  if (schema === undefined) return;
+  const branches = objectBranchesOf(schema);
+  if (branches === undefined) {
+    throw bootRuleError(LIST_BULK_ACTION_RULES.formIdsFieldUnbounded, {
+      message:
+        `${where} bulk action "${bulkId}" sends the selected ids in "${idsField}" to handler ` +
+        `"${form.handler}", whose schema is not an object (or a union of objects), so the bound ` +
+        `on that field cannot be read. Declare the handler schema as z.object({ ${idsField}: ` +
+        `z.array(...).max(MAX_BULK_SELECTION) }).`,
+    });
+  }
+  if (branches.every((branch) => isIdsFieldBounded(branch, idsField))) return;
   throw bootRuleError(LIST_BULK_ACTION_RULES.formIdsFieldUnbounded, {
     message:
       `${where} bulk action "${bulkId}" sends the selected ids in "${idsField}" to handler ` +
-      `"${form.handler}", whose schema does not bound that field to at most ${MAX_BULK_SELECTION} ids; ` +
-      `a direct /api/write would accept an unbounded list. Declare ` +
+      `"${form.handler}", whose schema does not bound that field to at most ${MAX_BULK_SELECTION} ids ` +
+      `(in every union option); a direct /api/write would accept an unbounded list. Declare ` +
       `${idsField}: z.array(...).max(MAX_BULK_SELECTION) in the handler schema.`,
   });
 }

@@ -76,7 +76,36 @@ function featureWith(kind: ScreenKind, bulkActions: unknown) {
       handler: async () => ({ isSuccess: true as const, data: {} }),
       access: OPEN_TO_ALL,
     });
-    for (const name of [...Object.keys(idsSchemas), "bulk-missing-ids"]) {
+    const bounded = z.array(z.string()).max(MAX_BULK_SELECTION);
+    const unionSchemas = {
+      "bulk-union-unbounded": z.union([
+        z.object({ ids: bounded, name: z.string() }),
+        z.object({ ids: z.array(z.string()), name: z.string() }),
+      ]),
+      "bulk-union-bounded": z.union([
+        z.object({ ids: bounded, name: z.string() }),
+        z.object({ ids: bounded, name: z.string(), extra: z.string() }),
+      ]),
+      "bulk-discriminated-unbounded": z.discriminatedUnion("kind", [
+        z.object({ kind: z.literal("a"), ids: bounded, name: z.string() }),
+        z.object({ kind: z.literal("b"), name: z.string() }),
+      ]),
+      "bulk-union-non-object": z.union([z.object({ ids: bounded, name: z.string() }), z.string()]),
+    };
+    for (const [name, schema] of Object.entries(unionSchemas)) {
+      r.writeHandler({
+        name: `item:${name}`,
+        schema,
+        handler: async () => ({ isSuccess: true as const, data: {} }),
+        access: OPEN_TO_ALL,
+      });
+    }
+    const idsScreenNames = [
+      ...Object.keys(idsSchemas),
+      ...Object.keys(unionSchemas),
+      "bulk-missing-ids",
+    ];
+    for (const name of idsScreenNames) {
       r.screen({
         id: `item-ids-${name}`,
         type: "actionForm",
@@ -272,7 +301,26 @@ describe("validateBoot — list bulkActions", () => {
       },
     );
 
-    test.each(["bulk-rename", "bulk-optional"])(
+    test.each(["bulk-union-unbounded", "bulk-discriminated-unbounded"])(
+      "a union option that does not bound idsField is rejected (%s)",
+      (handlerName) => {
+        expect(() =>
+          validateBoot([
+            featureWith("entityList", [withEntry({ screen: `item-ids-${handlerName}` })]),
+          ]),
+        ).toThrow(/does not bound that field.*in every union option/);
+      },
+    );
+
+    test("a schema whose bound cannot be read is rejected instead of skipped", () => {
+      expect(() =>
+        validateBoot([
+          featureWith("entityList", [withEntry({ screen: "item-ids-bulk-union-non-object" })]),
+        ]),
+      ).toThrow(/bound\s+on that field cannot be read/);
+    });
+
+    test.each(["bulk-rename", "bulk-optional", "bulk-union-bounded"])(
       "a handler schema bounding idsField to exactly MAX_BULK_SELECTION passes (%s)",
       (handlerName) => {
         expect(() =>

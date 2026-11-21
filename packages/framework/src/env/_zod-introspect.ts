@@ -51,3 +51,15 @@ export function zodShapeField(
   // @cast-boundary schema-walk
   return schema.shape[name] as z.ZodType | undefined;
 }
+
+/** Smallest `max_length` of an array schema, `Infinity` when unbounded. Zod's `bag.maximum` stays empty for arrays. */
+export function zodArrayMaximum(array: z.ZodArray): number {
+  let smallest = Number.POSITIVE_INFINITY;
+  for (const check of array._zod.def.checks ?? []) {
+    const def = check._zod.def;
+    if (def.check === "max_length" && "maximum" in def && typeof def.maximum === "number") {
+      smallest = Math.min(smallest, def.maximum);
+    }
+  }
+  return smallest;
+}
