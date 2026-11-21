@@ -89,7 +89,7 @@ Generated from `packages/framework/presets/biome-rules.json`. Purpose is the fir
 | `no-direct-fs` | Direct fs import: request-derived paths passed straight to fs caused path-traversal bugs. | `**/src/**/*.ts` |
 | `no-external-font-cdn` | No external font CDNs (fonts.googleapis.com, fonts.gstatic.com): self-host fonts so no visitor data leaves for a third party. | `**/src/**/*.ts`, `**/src/**/*.tsx` |
 | `no-external-font-cdn-css` | No external font CDNs (fonts.googleapis.com, fonts.gstatic.com): self-host fonts so no visitor data leaves for a third party. | `**/*.css` |
-| `no-raw-hooks` | Raw useEffect/useLayoutEffect in web screens is the source of endless-rerender bugs and bypasses the framework hooks. | `**/web/**/*.tsx`, `**/public/**/*.tsx` |
+| `no-raw-hooks` | Raw useEffect/useLayoutEffect in web screens is the source of endless-rerender bugs and bypasses the framework hooks. | `**/web/**/*.tsx`, `**/web/**/*.ts`, `**/public/**/*.tsx`, `**/public/**/*.ts` |
 | `no-same-folder-barrel-import` | Import siblings directly (./Component), not through the folder's own barrel: barrel-importing from inside the same folder creates require cycles. | `**/src/**/*.ts`, `**/src/**/*.tsx` |
 | `no-screen-container-classes` | Screen container classes (mx-auto + max-w-*) belong in <PageSection maxWidth> (3xl/4xl/full), not in screen code. | `**/web/**/*.tsx`, `**/client/**/*.tsx` |
 | `no-skipped-or-retried-tests` | Unconditionally skipped test. | `**/__tests__/**/*.ts`, `**/__tests__/**/*.tsx`, `**/*.test.ts`, `**/*.test.tsx`, `**/*.spec.ts`, `**/*.integration.ts`, `**/e2e/**/*.ts` |

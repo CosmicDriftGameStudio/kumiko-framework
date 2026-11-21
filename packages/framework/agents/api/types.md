@@ -1647,7 +1647,7 @@ type ContentEditorProps = {
   onChange: (value: string) => void;
   variables: string[]; // Variable names insertable as chips (from the collection's variableSchema).
   readOnly: boolean;
-  formatting?: "text"; // "text" asks for plain text formatting only (bold, italic, lists, link): no images, tables or other blocks.
+  formatting?: "text"; // "text" asks for plain text formatting: the toolbar offers no images, tables or other blocks and pasted ones are dropped; blocks already in the value stay.
 };
 ```
 
