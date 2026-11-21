@@ -45,9 +45,8 @@ export const pendingRequestQuery = defineQueryHandler({
     return {
       requestedAt: pending.requestedAt,
       expiresAt: pending.expiresAt,
-      ...(address.kind === "local"
-        ? { requestIpLocal: "connectors.pair.request.ipLocal" }
-        : { requestIp: address.text }),
+      requestIp: address.text,
+      ...(address.kind === "local" && { requestIpLocal: "connectors.pair.request.ipLocal" }),
     };
   },
 });

@@ -3389,7 +3389,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "connectors.pair.request.title": "Kopplungsanfrage",
   "connectors.pair.request.at": "Angefragt am",
   "connectors.pair.request.ip": "Von IP-Adresse",
-  "connectors.pair.request.ipLocal": "lokal (dieser Server)",
+  "connectors.pair.request.ipNote": "Hinweis",
+  "connectors.pair.request.ipLocal": "lokale Adresse (Proxy, echter Absender unbekannt)",
   "connectors:entity:__action-form__:field:userCode": "Code",
   "connectors:entity:__action-form__:field:name": "Name",
   "errors.connectors.storageQuotaExceeded":

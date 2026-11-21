@@ -3,6 +3,12 @@ import { isIP } from "node:net";
 const IPV4_MAPPED_PREFIX_LENGTH = 5;
 const IPV6_HEXTET_COUNT = 8;
 const IPV6_PREFIX_HEXTETS = 4;
+const IPV6_LOOPBACK = "::1";
+
+// Kept apart from the /64 cut: the rest of ::/64 (`::`, IPv4-compatible forms) is not loopback.
+function isIpv6Loopback(hextets: readonly number[]): boolean {
+  return hextets.every((hextet, index) => hextet === (index === IPV6_HEXTET_COUNT - 1 ? 1 : 0));
+}
 
 function ipv6Hextets(ip: string): number[] {
   let text = ip;
@@ -27,6 +33,7 @@ export function pairingAddressKey(ip: string): string {
   const bare = ip.split("%")[0] ?? ip;
   if (isIP(bare) !== 6) return ip;
   const hextets = ipv6Hextets(bare);
+  if (isIpv6Loopback(hextets)) return IPV6_LOOPBACK;
   const [h6 = 0, h7 = 0] = hextets.slice(6);
   const isMapped =
     hextets.slice(0, IPV4_MAPPED_PREFIX_LENGTH).every((hextet) => hextet === 0) &&
@@ -55,17 +62,20 @@ function compressIpv6(hextets: readonly string[]): string {
 }
 
 // What the admin reads on the confirm step: the stored key in RFC 5952 form (`2001:db8:1:2::/64`),
-// or "local" for a request from this very server, whose text the caller translates.
-export function pairingAddressDisplay(
-  storedKey: string,
-): { readonly kind: "local" } | { readonly kind: "address"; readonly text: string } {
-  if (LOOPBACK_IPV4_PATTERN.test(storedKey)) return { kind: "local" };
+// plus `local` for a loopback address: behind a proxy without a trusted client-IP header every
+// request arrives from there, so it says nothing about the real sender. The address stays visible.
+export function pairingAddressDisplay(storedKey: string): {
+  readonly kind: "local" | "address";
+  readonly text: string;
+} {
+  if (LOOPBACK_IPV4_PATTERN.test(storedKey) || storedKey === IPV6_LOOPBACK) {
+    return { kind: "local", text: storedKey };
+  }
   const prefix = STORED_PREFIX_PATTERN.exec(storedKey)?.[1];
   if (prefix === undefined) return { kind: "address", text: storedKey };
   const hextets = [
     ...prefix.split(":").map((hextet) => hextet.replace(/^0+(?=.)/, "")),
     ...Array(4).fill("0"),
   ];
-  if (hextets.every((hextet) => hextet === "0")) return { kind: "local" };
   return { kind: "address", text: `${compressIpv6(hextets)}/64` };
 }

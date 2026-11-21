@@ -135,7 +135,10 @@ async function touchDevice(
     handlerQn: ConnectorHandlers.touchDevice,
     payload: {
       deviceId: device.deviceId,
-      ...(upload !== undefined && { upload }),
+      ...(upload !== undefined && {
+        upload,
+        uploadDecidedAt: Temporal.Now.instant().toString(),
+      }),
       ...(heartbeat && {
         reportedVersion: heartbeat.version,
         ...(heartbeat.sync && { sync: heartbeat.sync }),
@@ -148,11 +151,13 @@ async function touchDevice(
   return result.isSuccess && touchResultSchema.parse(result.data).retry;
 }
 
+// A duplicate takes no new space, so it says nothing about whether the storage is full.
 function uploadOutcomeOf(result: {
   readonly isSuccess: boolean;
+  readonly data?: unknown;
   readonly error?: { readonly details?: unknown };
 }): z.infer<typeof uploadOutcomeSchema> | undefined {
-  if (result.isSuccess) return "accepted";
+  if (result.isSuccess) return receivedSchema.parse(result.data).duplicate ? undefined : "accepted";
   return result.error !== undefined &&
     failureReason(result.error) === ConnectorErrors.storageQuotaExceeded
     ? "quotaRejected"
@@ -195,7 +200,7 @@ function parseUploadHeaders(c: Context): UploadHeaders | Response {
   }
 }
 
-function uploadFailureResponse(
+export function uploadFailureResponse(
   c: Context,
   error: { readonly code: string; readonly details?: unknown },
   itemId: string,
@@ -210,6 +215,8 @@ function uploadFailureResponse(
     return c.json({ error: "storage_quota_exceeded" }, 507);
   }
   if (reason === FrameworkReasons.fileRejected) return c.json({ error: "file_rejected" }, 422);
+  // Delivered and deleted again between the byte check and the write: the satellite sends it again.
+  if (reason === ConnectorErrors.uploadNotPrepared) return c.json({ error: "retry" }, 409);
   return c.json({ error: "server_error" }, 500);
 }
 

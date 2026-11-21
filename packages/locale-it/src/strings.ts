@@ -3393,7 +3393,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "connectors.pair.request.title": "Richiesta di abbinamento",
   "connectors.pair.request.at": "Richiesta il",
   "connectors.pair.request.ip": "Dall'indirizzo IP",
-  "connectors.pair.request.ipLocal": "locale (questo server)",
+  "connectors.pair.request.ipNote": "Nota",
+  "connectors.pair.request.ipLocal": "indirizzo locale (proxy, mittente reale sconosciuto)",
   "connectors:entity:__action-form__:field:userCode": "Codice",
   "connectors:entity:__action-form__:field:name": "Nome",
   "errors.connectors.storageQuotaExceeded":
