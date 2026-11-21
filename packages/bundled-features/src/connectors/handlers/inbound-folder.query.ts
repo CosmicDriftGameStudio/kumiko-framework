@@ -8,6 +8,7 @@ import {
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { FILES_PAGE_SIZE } from "../constants.ts";
+import { fileNameOf } from "../path-rules.ts";
 import { connectorExecutor, connectorTable } from "../schema/connector.ts";
 import { inboundFolderExecutor, inboundFolderTable } from "../schema/inbound-folder.ts";
 import { inboundItemExecutor, inboundItemTable } from "../schema/inbound-item.ts";
@@ -92,10 +93,6 @@ function folderOrder(order: FileOrder) {
     order.field === "size"
       ? sign * (a.totalBytes - b.totalBytes)
       : (order.field === "name" ? sign : 1) * a.name.localeCompare(b.name);
-}
-
-function fileNameOf(relativePath: string): string {
-  return relativePath.slice(relativePath.lastIndexOf("/") + 1);
 }
 
 type Db = HandlerContext["db"];

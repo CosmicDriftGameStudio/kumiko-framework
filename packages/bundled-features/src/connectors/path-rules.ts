@@ -24,3 +24,7 @@ export function exceedsFolderLimits(relativePath: string): boolean {
     segments.some((segment) => segment.length > MAX_FOLDER_NAME_LENGTH)
   );
 }
+
+export function fileNameOf(relativePath: string): string {
+  return relativePath.slice(relativePath.lastIndexOf("/") + 1);
+}

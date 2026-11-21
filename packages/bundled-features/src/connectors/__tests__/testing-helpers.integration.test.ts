@@ -100,3 +100,14 @@ describe("connector testing helpers", () => {
     }
   });
 });
+
+describe("runConnectorJobs on a stack without a job lane", () => {
+  test("fails with the hint to pass jobs.consumerLane instead of silently running nothing", async () => {
+    const noJobsStack = await setupTestStack({ features: [] });
+    try {
+      await expect(runConnectorJobs(noJobsStack)).rejects.toThrow("consumerLane");
+    } finally {
+      await noJobsStack.cleanup();
+    }
+  });
+});

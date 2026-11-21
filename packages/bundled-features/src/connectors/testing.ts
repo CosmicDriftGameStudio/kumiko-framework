@@ -22,9 +22,10 @@ const startResponseSchema = z.object({ device_code: z.string(), user_code: z.str
 const tokenResponseSchema = z.object({ access_token: z.string() });
 const approveResultSchema = z.object({ connectorId: z.string() });
 
-const sha256Hex = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
+export const sha256Hex = (bytes: Uint8Array): string =>
+  createHash("sha256").update(bytes).digest("hex");
 
-function postForm(stack: TestStack, path: string, fields: Record<string, string>) {
+export function postForm(stack: TestStack, path: string, fields: Record<string, string>) {
   return stack.app.request(path, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -101,7 +102,7 @@ export async function uploadConnectorFile(
 // The job-trigger consumer picks the created event up, then the queue runs the job.
 // Without a dispatcher the created event is never picked up and the test would see no rows.
 export async function runConnectorJobs(stack: TestStack): Promise<void> {
-  if (stack.eventDispatcher === undefined) {
+  if (stack.jobRunner === undefined || stack.eventDispatcher === undefined) {
     throw new Error(
       'runConnectorJobs: the test stack runs no jobs; pass jobs: { consumerLane: "worker" } to it',
     );
