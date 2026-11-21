@@ -1,11 +1,10 @@
-import { createHmac } from "node:crypto";
 import type {
   PayloadBucketNormalization,
   RateLimitOption,
 } from "@cosmicdrift/kumiko-types/handlers";
 import type { SessionUser } from "../engine/types/index.ts";
 
-import { derivePurposeSecret } from "../secrets/derive-purpose-secret.ts";
+import { createPurposeDigest } from "../secrets/derive-purpose-secret.ts";
 
 // Build the Redis bucket key for a handler-level rate limit. Format:
 //   <scope-tag>:<identifying segments…>
@@ -85,6 +84,5 @@ export function toPublicBucketName(bucket: string): string {
 // Rotating the JWT secret only resets these buckets (new digests); they are
 // ephemeral (TTL 2x window), so no migration is needed.
 export function createPayloadDigest(masterSecret: string): (value: string) => string {
-  const key = derivePurposeSecret(masterSecret, PAYLOAD_BUCKET_PURPOSE);
-  return (value) => createHmac("sha256", key).update(value).digest("hex");
+  return createPurposeDigest(masterSecret, PAYLOAD_BUCKET_PURPOSE);
 }

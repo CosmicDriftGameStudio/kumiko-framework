@@ -7,17 +7,21 @@
 // The app mounts this screen at the deletionVerifyUrl route (for example,
 // /delete-account/confirm) via createPublicSurface.
 
-import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
+import { UserDataRightsHandlers } from "./constants.ts";
+import { DeletionTokenScreen, type DeletionTokenScreenCopy } from "./deletion-token-screen.tsx";
 
-const CONFIRM_BY_TOKEN = "user-data-rights:write:confirm-deletion-by-token";
-
-type Phase = "idle" | "submitting" | "success" | "missing" | "invalid" | "error";
-
-function readToken(): string {
-  if (typeof window === "undefined") return "";
-  return new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "";
-}
+const CONFIRM_COPY: DeletionTokenScreenCopy = {
+  title: "userDataRights.deletion.confirm.title",
+  intro: "userDataRights.deletion.confirm.intro",
+  submit: "userDataRights.deletion.confirm.submit",
+  submitting: "userDataRights.deletion.confirm.submitting",
+  successTitle: "userDataRights.deletion.confirm.successTitle",
+  successBody: "userDataRights.deletion.confirm.successBody",
+  invalidToken: "userDataRights.deletion.confirm.invalidToken",
+  missingToken: "userDataRights.deletion.confirm.missingToken",
+  error: "userDataRights.deletion.confirm.error",
+};
 
 export type ConfirmAccountDeletionScreenProps = {
   readonly title?: string;
@@ -26,72 +30,12 @@ export type ConfirmAccountDeletionScreenProps = {
 export function ConfirmAccountDeletionScreen({
   title,
 }: ConfirmAccountDeletionScreenProps): ReactNode {
-  const t = useTranslation();
-  const dispatcher = useDispatcher();
-  const { Button, Banner, Card } = usePrimitives();
-  const [token] = useState(readToken);
-  const [phase, setPhase] = useState<Phase>(token.length > 0 ? "idle" : "missing");
-
-  const doConfirm = async (): Promise<void> => {
-    setPhase("submitting");
-    try {
-      const res = await dispatcher.write(CONFIRM_BY_TOKEN, { token });
-      setPhase(res.isSuccess ? "success" : "invalid");
-    } catch {
-      setPhase("error");
-    }
-  };
-
   return (
-    <Card
-      // biome-ignore lint/plugin: narrow centered confirmation card, not a screen container
-      className="w-full max-w-sm mx-auto"
-      options={{ padded: false }}
-      slots={{
-        header: (
-          <div className="flex flex-col space-y-1.5 p-6 pb-4">
-            <h1 className="text-xl font-semibold tracking-tight">
-              {title ?? t("userDataRights.deletion.confirm.title")}
-            </h1>
-          </div>
-        ),
-      }}
-    >
-      <div className="p-6 pt-0 flex flex-col gap-4">
-        {phase === "success" ? (
-          <Banner variant="info">
-            <p className="font-medium text-foreground">
-              {t("userDataRights.deletion.confirm.successTitle")}
-            </p>
-            <p className="mt-1">{t("userDataRights.deletion.confirm.successBody")}</p>
-          </Banner>
-        ) : phase === "missing" ? (
-          <Banner variant="error">{t("userDataRights.deletion.confirm.missingToken")}</Banner>
-        ) : (
-          <>
-            <p className="text-sm text-muted-foreground">
-              {t("userDataRights.deletion.confirm.intro")}
-            </p>
-            {phase === "invalid" && (
-              <Banner variant="error">{t("userDataRights.deletion.confirm.invalidToken")}</Banner>
-            )}
-            {phase === "error" && (
-              <Banner variant="error">{t("userDataRights.deletion.confirm.error")}</Banner>
-            )}
-            <Button
-              type="button"
-              variant="danger"
-              loading={phase === "submitting"}
-              disabled={phase === "submitting"}
-              onClick={() => void doConfirm()}
-            >
-              {phase === "submitting"
-                ? t("userDataRights.deletion.confirm.submitting")
-                : t("userDataRights.deletion.confirm.submit")}
-            </Button>
-          </>
-        )}
-      </div>
-    </Card>
+    <DeletionTokenScreen
+      handler={UserDataRightsHandlers.confirmDeletionByToken}
+      copy={CONFIRM_COPY}
+      submitVariant="danger"
+      title={title}
+    />
   );
 }

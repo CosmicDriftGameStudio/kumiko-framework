@@ -49,6 +49,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { convert as htmlToText } from "html-to-text";
 import mjml2html from "mjml";
+import { webHost } from "../shared/index.ts";
 import { readChromeLogoSrc } from "./chrome-logo.ts";
 import {
   compileDocumentSource,
@@ -84,7 +85,6 @@ import {
   type MailFooterResolver,
   resolvedFooterLink,
   safeFooterUrl,
-  webHost,
 } from "./mail-footer.ts";
 import {
   inCodeLayout,

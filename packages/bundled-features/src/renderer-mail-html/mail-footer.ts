@@ -1,5 +1,6 @@
 import type { RendererContext } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
+import { webHost } from "../shared/index.ts";
 import { mailChromeText } from "./mail-strings.ts";
 
 /** Without a label the imprint and privacy links use the framework's text in the mail locale. */
@@ -25,15 +26,6 @@ function linkHtml(link: LabeledLink, color = "#888"): string | null {
   const url = link.url.trim();
   if (!SAFE_FOOTER_URL.test(url) || link.label.trim() === "") return null;
   return `<a href="${escapeHtmlAttr(url)}" style="color:${escapeHtmlAttr(color)}">${escapeHtml(link.label)}</a>`;
-}
-
-export function webHost(url: string): string | null {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.host : null;
-  } catch {
-    return null;
-  }
 }
 
 // The card's own footer line: the tenant's site and the unsubscribe link.

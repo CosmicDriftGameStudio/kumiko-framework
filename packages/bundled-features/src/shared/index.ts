@@ -153,3 +153,4 @@ export {
 } from "./tenant-scoped-subject.ts";
 export { type BurnResult, burnToken, unburnToken } from "./token-burn-store.ts";
 export { unprocessable } from "./unprocessable.ts";
+export { webHost } from "./web-host.ts";

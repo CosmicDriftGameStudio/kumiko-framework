@@ -2,6 +2,7 @@ import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import * as z from "zod";
+import { parseSealedPayload } from "./parse-sealed-payload.ts";
 
 // Queued delivery jobs sit in Redis and the job-run table, so the recipient address travels
 // sealed under the app master key. Without a master key it stays plaintext (`address`); jobs
@@ -38,19 +39,12 @@ export async function sealRecipientAddress(
 }
 
 function parseSealedRecipientAddress(plaintext: string, tenantId: TenantId): string {
-  let decoded: unknown;
-  try {
-    decoded = JSON.parse(plaintext);
-  } catch {
-    decoded = undefined;
-  }
-  const parsed = sealedRecipientAddressSchema.safeParse(decoded);
-  if (!parsed.success || parsed.data.tenantId !== tenantId) {
-    throw new InternalError({
-      message: "delivery job: sealedAddress was not sealed as a delivery recipient address",
-    });
-  }
-  return parsed.data.address;
+  return parseSealedPayload(
+    sealedRecipientAddressSchema,
+    plaintext,
+    tenantId,
+    "delivery job: sealedAddress was not sealed as a delivery recipient address",
+  ).address;
 }
 
 export async function openRecipientAddress(

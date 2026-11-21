@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mailT } from "@cosmicdrift/kumiko-framework/i18n";
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
 import type { MailChrome, MailChromeLink } from "../renderer-foundation/index.ts";
+import { webHost } from "../shared/index.ts";
 import { DELIVERY_RESUBSCRIBE_PATH, DELIVERY_UNSUBSCRIBE_PATH } from "./web/public-names.ts";
 import "./unsubscribe-page-strings.ts";
 
@@ -46,15 +47,6 @@ const INLINE_LOGO_RE = /^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+
 
 function isShowableLogoSrc(src: string | undefined): boolean {
   return src !== undefined && (httpsOrigin(src) !== undefined || INLINE_LOGO_RE.test(src));
-}
-
-function webHost(url: string): string | undefined {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.host : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 const SAFE_LINK_URL = /^(https?:|mailto:)/i;
@@ -114,8 +106,8 @@ function brandRowHtml(chrome: MailChrome): string {
 }
 
 function bandHtml(chrome: MailChrome): string {
-  const host = chrome.siteUrl === undefined ? undefined : webHost(chrome.siteUrl);
-  if (host === undefined || chrome.siteUrl === undefined) return "";
+  const host = chrome.siteUrl === undefined ? null : webHost(chrome.siteUrl);
+  if (host === null || chrome.siteUrl === undefined) return "";
   return `<div class="band"><a href="${escapeHtmlAttr(chrome.siteUrl)}">${escapeHtml(host)}</a></div>`;
 }
 
