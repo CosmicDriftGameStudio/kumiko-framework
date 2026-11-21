@@ -1,6 +1,5 @@
 import type { NotifyDelivery, NotifyOptions, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
-import { redactErrorText } from "@cosmicdrift/kumiko-framework/logging";
+import { errorKindOf, type Logger } from "@cosmicdrift/kumiko-framework/logging";
 import type { Redis } from "ioredis";
 import { deliveryIdempotencyRedisKey } from "./constants.ts";
 import type { DeliveryChannel } from "./types.ts";
@@ -48,10 +47,7 @@ export async function releaseIdempotencyIfNothingDelivered(args: {
   try {
     await redis?.del(deliveryIdempotencyRedisKey(tenantId, key));
   } catch (releaseErr) {
-    log.warn(
-      `idempotency key release failed: ${redactErrorText(releaseErr instanceof Error ? releaseErr.message : String(releaseErr))}`,
-      { notificationType },
-    );
+    log.warn(`idempotency key release failed: ${errorKindOf(releaseErr)}`, { notificationType });
   }
 }
 

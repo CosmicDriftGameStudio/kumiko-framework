@@ -14,11 +14,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { assertNotificationVariables } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileContext } from "@cosmicdrift/kumiko-framework/files";
-import {
-  createFallbackLogger,
-  type Logger,
-  scrubLogText,
-} from "@cosmicdrift/kumiko-framework/logging";
+import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
 import { assertNotifyTargetsOwnTenant } from "@cosmicdrift/kumiko-framework/pipeline";
 import type { EnvelopeCipher, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type { Redis } from "ioredis";
@@ -572,7 +568,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           logError.warn("channel pre-resolve failed", {
             channel: channel.name,
             notificationType,
-            error: scrubLogText(err instanceof Error ? err.message : String(err)),
+            error: errorKindOf(err),
           });
         }
       }
