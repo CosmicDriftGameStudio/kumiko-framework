@@ -12,7 +12,9 @@
 
 import { createDocumentsFeature } from "@cosmicdrift/kumiko-bundled-features/documents";
 import {
+  type ActionFormScreenDefinition,
   createEntity,
+  createEntityExecutor,
   createFileField,
   createReferenceField,
   createTextField,
@@ -21,7 +23,10 @@ import {
   defineEntityListHandler,
   defineEntityUpdateHandler,
   defineFeature,
+  defineWriteHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
+import * as z from "zod";
 
 const text = () =>
   createTextField({ personal: false, reason: "is_business_data", required: true, maxLength: 120 });
@@ -57,6 +62,39 @@ export const offerEntity = createEntity({
 
 const access = { roles: ["PropertyReader", "ContractReader", "TenantAdmin"] };
 
+const { executor: contractExecutor } = createEntityExecutor(contractEntity);
+
+// The result names the contract's FileRef id; the success box resolves it to file name,
+// download link and preview, readable only by whoever may read that contract's file.
+const sendContractCopy = defineWriteHandler({
+  name: "contract:send-copy",
+  schema: z.object({ contractId: z.uuid() }),
+  access: { roles: ["TenantAdmin"] },
+  handler: async (event, ctx) => {
+    const contract = await contractExecutor.detail(
+      { id: event.payload.contractId },
+      event.user,
+      ctx.db,
+    );
+    if (!contract) return failNotFound("contract", event.payload.contractId);
+    return { isSuccess: true as const, data: { contractFile: contract["file"] } };
+  },
+});
+
+const contractCopyScreen: ActionFormScreenDefinition = {
+  id: "contract-copy",
+  type: "actionForm",
+  handler: "property-management:write:contract:send-copy",
+  fields: {
+    contractId: createTextField({
+      personal: false,
+      reason: "is_system_identifier",
+      required: true,
+    }),
+  },
+  successFacts: [{ field: "contractFile", label: "Contract file", type: "file" }],
+};
+
 export const propertyManagement = defineFeature("property-management", (r) => {
   r.requires({ features: ["files", "documents"] });
   r.entity(propertyEntity);
@@ -73,6 +111,8 @@ export const propertyManagement = defineFeature("property-management", (r) => {
     r.queryHandler(defineEntityDetailHandler(name, entity, { access }));
   }
   r.screen({ id: "offer-list", type: "entityList", entity: "offer", columns: ["name", "receipt"] });
+  r.writeHandler(sendContractCopy);
+  r.screen(contractCopyScreen);
 });
 
 export const documents = createDocumentsFeature({

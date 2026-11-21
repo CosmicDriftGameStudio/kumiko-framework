@@ -115,3 +115,45 @@ describe("offer list: reference to a filed document", () => {
     expect((await lookupReceipt(propertyReader, documentId)).rows).toEqual([]);
   });
 });
+
+describe("contract copy: an actionForm success fact of type file", () => {
+  const otherTenantAdmin = createTestUser({
+    id: 4,
+    tenantId: testTenantId(2),
+    roles: ["TenantAdmin"],
+  });
+  const filesMeta = async (as: typeof admin, ids: readonly string[]) => {
+    const res = await stack.app.request(`/api/files/meta?ids=${ids.join(",")}`, {
+      headers: { Authorization: `Bearer ${await stack.jwt.sign(as)}` },
+    });
+    expect(res.status).toBe(200);
+    return z
+      .object({ files: z.array(z.object({ id: z.string(), fileName: z.string() })) })
+      .parse(await res.json()).files;
+  };
+
+  test("the result carries the FileRef id, which resolves for its tenant only", async () => {
+    const fileId = await uploadContractFile();
+    const property = await stack.http.writeOk<{ id: string }>(
+      "property-management:write:property:create",
+      { name: "Park lane 3" },
+      admin,
+    );
+    const contract = await stack.http.writeOk<{ id: string }>(
+      "property-management:write:contract:create",
+      { name: "C-3", propertyId: property.id, file: fileId },
+      admin,
+    );
+
+    const copy = await stack.http.writeOk<{ contractFile: string }>(
+      "property-management:write:contract:send-copy",
+      { contractId: contract.id },
+      admin,
+    );
+    expect(copy.contractFile).toBe(fileId);
+    expect(await filesMeta(admin, [copy.contractFile])).toEqual([
+      expect.objectContaining({ id: fileId, fileName: "lease.pdf" }),
+    ]);
+    expect(await filesMeta(otherTenantAdmin, [copy.contractFile])).toEqual([]);
+  });
+});
