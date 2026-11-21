@@ -297,6 +297,7 @@ const contractCopyScreen: ActionFormScreenDefinition = {
       required: true,
     }),
   },
+  layout: { sections: [{ fields: ["contractId"] }] },
   successFacts: [{ field: "contractFile", label: "Contract file", type: "file" }],
 };
 
