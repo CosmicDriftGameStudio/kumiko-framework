@@ -2,10 +2,13 @@ import * as z from "zod";
 import { createAnonymousUser } from "../engine/system-user.ts";
 import type { SessionUser } from "../engine/types/index.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
+import { createFallbackLogger } from "../logging/utils.ts";
 import { Routes } from "./api-constants.ts";
 import { inMemoryLoginRateLimiterFallback } from "./auth-rate-limiters.ts";
 import type { AuthRouteContext } from "./auth-routes-context.ts";
 import { handlerFailureResponse } from "./auth-routes-shared.ts";
+
+const log = createFallbackLogger("session-exchange");
 
 // Parsed before the rate limit so a malformed body cannot bypass the bucket.
 const SessionExchangeBody = z.object({
@@ -51,9 +54,16 @@ export function registerSessionExchangeRoute(ctx: AuthRouteContext): void {
     }
 
     const rateLimitKey = `${getClientIp(c)}|session-exchange:${method}`;
+    let refundSlot: (() => Promise<void>) | undefined;
     if (rateLimiter) {
-      const allowed = await rateLimiter.check(rateLimitKey);
-      if (!allowed) {
+      const { reserve, refund } = rateLimiter;
+      if (reserve && refund) {
+        const reservation = await reserve.call(rateLimiter, rateLimitKey);
+        if (!reservation.allowed) {
+          return c.json({ isSuccess: false, error: "rate_limited" }, 429);
+        }
+        refundSlot = () => refund.call(rateLimiter, rateLimitKey, reservation.window);
+      } else if (!(await rateLimiter.check(rateLimitKey))) {
         return c.json({ isSuccess: false, error: "rate_limited" }, 429);
       }
     }
@@ -78,7 +88,12 @@ export function registerSessionExchangeRoute(ctx: AuthRouteContext): void {
     });
     // Refund, not reset: the bucket is per IP and method, so a reset after one's own
     // success would reopen guessing slots taken by others.
-    await rateLimiter?.refund?.(rateLimitKey);
+    // A failing refund keeps the slot counted: the session is minted, so it must not fail the login.
+    try {
+      await refundSlot?.();
+    } catch (error) {
+      log.warn("session-exchange rate-limit refund failed; slot stays counted", { error });
+    }
 
     return c.json({
       isSuccess: true,

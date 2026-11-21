@@ -32,6 +32,7 @@ export type {
   InviteConfig,
   LoginRateLimiter,
   PasswordResetConfig,
+  RateLimitReservation,
   SessionChecker,
   SessionCreator,
   SessionMetadata,

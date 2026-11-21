@@ -5,6 +5,7 @@ import { describe, expect, test } from "bun:test";
 import { getSetCookies } from "@cosmicdrift/kumiko-testing/helpers";
 import type { Hono } from "hono";
 import { Hono as HonoCtor } from "hono";
+import { UnprocessableError, writeFailure } from "../../errors/index.ts";
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { PUBLIC_API_PATHS } from "../api-constants.ts";
@@ -127,17 +128,7 @@ describe("POST /auth/session-exchange", () => {
   });
 
   test("handler error reason is mapped through loginErrorStatusMap", async () => {
-    const failing = (): WriteResult => {
-      const err: WriteResult = {
-        isSuccess: false,
-        error: {
-          code: "unprocessable",
-          httpStatus: 422,
-          details: { reason: "invalid_credentials" },
-        },
-      } as WriteResult;
-      return err;
-    };
+    const failing = (): WriteResult => writeFailure(new UnprocessableError("invalid_credentials"));
     const app = buildApp(failing, [], { loginErrorStatusMap: { invalid_credentials: 401 } });
     const res = await exchange(app, { method: "apple", payload: {} });
     expect(res.status).toBe(401);
@@ -156,53 +147,91 @@ describe("POST /auth/session-exchange", () => {
     }
   });
 
-  test("a successful exchange refunds its reservation once and never resets", async () => {
+  function reservingLimiter(onRefund: (key: string, window: string) => Promise<void> | void) {
+    const reserved: string[] = [];
     const checked: string[] = [];
     const resets: string[] = [];
-    const refunds: string[] = [];
+    const limiter: LoginRateLimiter = {
+      check: async (key) => {
+        checked.push(key);
+        return true;
+      },
+      reserve: async (key) => {
+        reserved.push(key);
+        return { allowed: true, window: "w-1" };
+      },
+      reset: async (key) => {
+        resets.push(key);
+      },
+      refund: async (key, window) => onRefund(key, window),
+    };
+    return { limiter, reserved, checked, resets };
+  }
+
+  test("a successful exchange refunds its reservation once with its window and never resets", async () => {
+    const refunds: Array<{ key: string; window: string }> = [];
+    const { limiter, reserved, checked, resets } = reservingLimiter((key, window) => {
+      refunds.push({ key, window });
+    });
+    const app = buildApp(sessionResult, [], { loginRateLimit: limiter });
+    const res = await exchange(app, { method: "apple", payload: {} });
+    expect(res.status).toBe(200);
+    expect(reserved).toHaveLength(1);
+    expect(checked).toEqual([]);
+    expect(resets).toEqual([]);
+    expect(refunds.map((refund) => refund.window)).toEqual(["w-1"]);
+    expect(refunds.map((refund) => refund.key)).toEqual(reserved);
+  });
+
+  test("a failing refund leaves the exchange successful", async () => {
+    const { limiter } = reservingLimiter(async () => {
+      throw new Error("redis down");
+    });
+    const app = buildApp(sessionResult, [], { loginRateLimit: limiter });
+    const res = await exchange(app, { method: "apple", payload: {} });
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { isSuccess: boolean }).isSuccess).toBe(true);
+  });
+
+  test("a limiter with only check is counted and never refunded", async () => {
+    const checks: string[] = [];
     const app = buildApp(sessionResult, [], {
       loginRateLimit: {
         check: async (key) => {
-          checked.push(key);
+          checks.push(key);
           return true;
         },
-        reset: async (key) => {
-          resets.push(key);
-        },
-        refund: async (key) => {
-          refunds.push(key);
-        },
+        reset: async () => {},
       },
     });
     const res = await exchange(app, { method: "apple", payload: {} });
     expect(res.status).toBe(200);
-    expect(checked).toHaveLength(1);
-    expect(resets).toEqual([]);
-    expect(refunds).toEqual(checked);
+    expect(checks).toHaveLength(1);
+  });
+
+  test("a rejected reservation is 429 and never reaches the dispatcher", async () => {
+    const calls: WriteCall[] = [];
+    const limiter: LoginRateLimiter = {
+      check: async () => true,
+      reserve: async () => ({ allowed: false, window: "w-1" }),
+      refund: async () => {},
+      reset: async () => {},
+    };
+    const res = await exchange(buildApp(sessionResult, calls, { loginRateLimit: limiter }), {
+      method: "apple",
+      payload: {},
+    });
+    expect(res.status).toBe(429);
+    expect(calls).toEqual([]);
   });
 
   test("a failed exchange does not refund its reservation", async () => {
     const refunds: string[] = [];
-    const failing = (): WriteResult => {
-      const err: WriteResult = {
-        isSuccess: false,
-        error: {
-          code: "unprocessable",
-          httpStatus: 422,
-          details: { reason: "invalid_credentials" },
-        },
-      } as WriteResult;
-      return err;
-    };
-    const app = buildApp(failing, [], {
-      loginRateLimit: {
-        check: async () => true,
-        reset: async () => {},
-        refund: async (key) => {
-          refunds.push(key);
-        },
-      },
+    const failing = (): WriteResult => writeFailure(new UnprocessableError("invalid_credentials"));
+    const { limiter } = reservingLimiter((key) => {
+      refunds.push(key);
     });
+    const app = buildApp(failing, [], { loginRateLimit: limiter });
     const res = await exchange(app, { method: "apple", payload: {} });
     expect(res.status).not.toBe(200);
     expect(refunds).toEqual([]);

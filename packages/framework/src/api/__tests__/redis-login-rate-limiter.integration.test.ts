@@ -40,30 +40,59 @@ describe("createRedisLoginRateLimiter", () => {
   describe("refund", () => {
     const redisKey = (key: string): string => `kumiko:auth:ratelimit:login:${key}`;
 
+    function reservingLimiter(maxAttempts: number, windowMs: number) {
+      const limiter = createRedisLoginRateLimiter(testRedis.redis, maxAttempts, windowMs);
+      const { reserve, refund } = limiter;
+      if (!reserve || !refund) throw new Error("redis limiter must support reserve and refund");
+      return {
+        check: (key: string) => limiter.check(key),
+        reserve: (key: string) => reserve.call(limiter, key),
+        refund: (key: string, window: string) => refund.call(limiter, key, window),
+      };
+    }
+
     test("decrements the counter and keeps the window TTL", async () => {
-      const limiter = createRedisLoginRateLimiter(testRedis.redis, 2, 60_000);
-      expect(await limiter.check("k")).toBe(true);
+      const limiter = reservingLimiter(2, 60_000);
+      const { window } = await limiter.reserve("k");
       expect(await limiter.check("k")).toBe(true);
       expect(await limiter.check("k")).toBe(false);
-      await limiter.refund?.("k");
-      await limiter.refund?.("k");
+      await limiter.refund("k", window);
+      await limiter.refund("k", window);
       expect(await testRedis.redis.get(redisKey("k"))).toBe("1");
       expect(await testRedis.redis.pttl(redisKey("k"))).toBeGreaterThan(0);
       expect(await limiter.check("k")).toBe(true);
     });
 
     test("does not create a missing key", async () => {
-      const limiter = createRedisLoginRateLimiter(testRedis.redis, 2, 60_000);
-      await limiter.refund?.("missing");
+      const limiter = reservingLimiter(2, 60_000);
+      await limiter.refund("missing", "unknown-window");
       expect(await testRedis.redis.exists(redisKey("missing"))).toBe(0);
+      expect(await testRedis.redis.exists(`${redisKey("missing")}:w`)).toBe(0);
     });
 
     test("leaves a zero counter at zero", async () => {
+      const limiter = reservingLimiter(2, 60_000);
+      const { window } = await limiter.reserve("k");
+      await limiter.refund("k", window);
+      await limiter.refund("k", window);
+      expect(await testRedis.redis.get(redisKey("k"))).toBe("0");
+    });
+
+    test("a refund of an expired window does not shrink the counter of the new window", async () => {
+      const limiter = reservingLimiter(2, 150);
+      const old = await limiter.reserve("k");
+      await Bun.sleep(200);
+      expect(await limiter.check("k")).toBe(true);
+      expect(await limiter.check("k")).toBe(true);
+      await limiter.refund("k", old.window);
+      expect(await limiter.check("k")).toBe(false);
+    });
+
+    test("reset removes the window id with the counter", async () => {
       const limiter = createRedisLoginRateLimiter(testRedis.redis, 2, 60_000);
       await limiter.check("k");
-      await limiter.refund?.("k");
-      await limiter.refund?.("k");
-      expect(await testRedis.redis.get(redisKey("k"))).toBe("0");
+      await limiter.reset("k");
+      expect(await testRedis.redis.exists(redisKey("k"), `${redisKey("k")}:w`)).toBe(0);
     });
   });
 
@@ -172,29 +201,34 @@ describe("createRedisLoginRateLimiter", () => {
     const redisReplyingWith = (reply: unknown): Redis =>
       Object.create(testRedis.redis, { eval: { value: async () => reply } });
 
-    test("accepts a numeric string reply and compares it against maxAttempts", async () => {
-      const limiter = createRedisLoginRateLimiter(redisReplyingWith("3"), 3, 60_000);
+    test("accepts a numeric string count and compares it against maxAttempts", async () => {
+      const limiter = createRedisLoginRateLimiter(redisReplyingWith(["3", "w"]), 3, 60_000);
       expect(await limiter.check("k")).toBe(true);
 
-      const overLimit = createRedisLoginRateLimiter(redisReplyingWith("4"), 3, 60_000);
+      const overLimit = createRedisLoginRateLimiter(redisReplyingWith([4, "w"]), 3, 60_000);
       expect(await overLimit.check("k")).toBe(false);
     });
 
     test("rejects a null reply instead of treating it as an allowed attempt", async () => {
       const limiter = createRedisLoginRateLimiter(redisReplyingWith(null), 3, 60_000);
       await expect(limiter.check("k")).rejects.toThrow(
-        "redis INCR script returned null, expected an integer",
+        "redis reserve script returned null, expected [integer, window id]",
       );
     });
 
-    test("rejects an empty string reply", async () => {
-      const limiter = createRedisLoginRateLimiter(redisReplyingWith(""), 3, 60_000);
-      await expect(limiter.check("k")).rejects.toThrow("expected an integer");
+    test("rejects a bare count without a window id", async () => {
+      const limiter = createRedisLoginRateLimiter(redisReplyingWith(1), 3, 60_000);
+      await expect(limiter.check("k")).rejects.toThrow("expected [integer, window id]");
     });
 
-    test("rejects a non-integer string reply", async () => {
-      const limiter = createRedisLoginRateLimiter(redisReplyingWith("1.5"), 3, 60_000);
-      await expect(limiter.check("k")).rejects.toThrow("expected an integer");
+    test("rejects an empty string count", async () => {
+      const limiter = createRedisLoginRateLimiter(redisReplyingWith(["", "w"]), 3, 60_000);
+      await expect(limiter.check("k")).rejects.toThrow("expected [integer, window id]");
+    });
+
+    test("rejects a non-integer string count", async () => {
+      const limiter = createRedisLoginRateLimiter(redisReplyingWith(["1.5", "w"]), 3, 60_000);
+      await expect(limiter.check("k")).rejects.toThrow("expected [integer, window id]");
     });
   });
 });

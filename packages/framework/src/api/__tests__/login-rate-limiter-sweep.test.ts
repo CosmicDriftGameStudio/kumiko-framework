@@ -49,28 +49,48 @@ describe("createInMemoryLoginRateLimiter — sweep + cap", () => {
   });
 });
 
+function reservingLimiter(maxAttempts: number, windowMs: number) {
+  const limiter = createInMemoryLoginRateLimiter(maxAttempts, windowMs);
+  const { reserve, refund } = limiter;
+  if (!reserve || !refund) throw new Error("in-memory limiter must support reserve and refund");
+  return {
+    check: (key: string) => limiter.check(key),
+    reserve: (key: string) => reserve.call(limiter, key),
+    refund: (key: string, window: string) => refund.call(limiter, key, window),
+  };
+}
+
 describe("createInMemoryLoginRateLimiter — refund", () => {
   test("gives back one reserved slot", async () => {
-    const limiter = createInMemoryLoginRateLimiter(1, 60_000);
-    expect(await limiter.check("k")).toBe(true);
+    const limiter = reservingLimiter(1, 60_000);
+    const { allowed, window } = await limiter.reserve("k");
+    expect(allowed).toBe(true);
     expect(await limiter.check("k")).toBe(false);
-    await limiter.refund?.("k");
+    await limiter.refund("k", window);
     expect(await limiter.check("k")).toBe(true);
     expect(await limiter.check("k")).toBe(false);
   });
 
+  test("a blocked reservation names the same window as the one that counted", async () => {
+    const limiter = reservingLimiter(1, 60_000);
+    const first = await limiter.reserve("k");
+    const blocked = await limiter.reserve("k");
+    expect(blocked.allowed).toBe(false);
+    expect(blocked.window).toBe(first.window);
+  });
+
   test("on an unknown key it changes nothing", async () => {
-    const limiter = createInMemoryLoginRateLimiter(1, 60_000);
-    await limiter.refund?.("unknown");
+    const limiter = reservingLimiter(1, 60_000);
+    await limiter.refund("unknown", "1");
     expect(await limiter.check("unknown")).toBe(true);
     expect(await limiter.check("unknown")).toBe(false);
   });
 
   test("at count zero it does not go negative", async () => {
-    const limiter = createInMemoryLoginRateLimiter(1, 60_000);
-    await limiter.check("k");
-    await limiter.refund?.("k");
-    await limiter.refund?.("k");
+    const limiter = reservingLimiter(1, 60_000);
+    const { window } = await limiter.reserve("k");
+    await limiter.refund("k", window);
+    await limiter.refund("k", window);
     expect(await limiter.check("k")).toBe(true);
     expect(await limiter.check("k")).toBe(false);
   });
@@ -80,14 +100,25 @@ describe("createInMemoryLoginRateLimiter — refund", () => {
 
     test("after the window expired it neither extends the entry nor creates a new one", async () => {
       setSystemTime(new Date("2026-01-01T00:00:00Z"));
-      const limiter = createInMemoryLoginRateLimiter(2, 1_000);
-      await limiter.check("k");
-      await limiter.check("k");
+      const limiter = reservingLimiter(2, 1_000);
+      await limiter.reserve("k");
+      const { window } = await limiter.reserve("k");
       setSystemTime(new Date("2026-01-01T00:00:02Z"));
-      await limiter.refund?.("k");
+      await limiter.refund("k", window);
       // Fresh window: a refund must not have left a stale or pre-decremented entry behind.
       expect(await limiter.check("k")).toBe(true);
       expect(await limiter.check("k")).toBe(true);
+      expect(await limiter.check("k")).toBe(false);
+    });
+
+    test("a refund of an expired window does not shrink the counter of the new window", async () => {
+      setSystemTime(new Date("2026-01-01T00:00:00Z"));
+      const limiter = reservingLimiter(2, 1_000);
+      const old = await limiter.reserve("k");
+      setSystemTime(new Date("2026-01-01T00:00:02Z"));
+      expect(await limiter.check("k")).toBe(true);
+      expect(await limiter.check("k")).toBe(true);
+      await limiter.refund("k", old.window);
       expect(await limiter.check("k")).toBe(false);
     });
   });
