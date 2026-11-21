@@ -11,7 +11,7 @@
 //   - softDelete/anonymize entities with file fields never touch bytes
 //   - the registered cron handler forwards ctx.services.files, not just direct calls
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
 
 import {
   asRawClient,
@@ -493,6 +493,48 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
     expect(await labels("read_c8_doc", T1)).toEqual(["expired-rebind-throws"]);
     expect(await fileRefExists(sharedId)).toBe(true);
     expect(await provider.exists(key)).toBe(true);
+  });
+
+  test("a storage failure logs the error class and a count, never the storage key or the adapter text", async () => {
+    const failingRow = await seedDoc(docEntity, T1, "expired-pii-key", pastIso);
+    const key = "t1/Max-Mustermann/cover/orig.jpg";
+    const fileRefId = await seedFileRef({
+      tenantId: T1,
+      entityName: "c8-doc",
+      entityId: failingRow,
+      fieldName: "cover",
+      key,
+    });
+    await setCover(docEntity, failingRow, fileRefId);
+    const piiProvider: FileStorageProvider = {
+      ...provider,
+      list: async () => {
+        throw new Error("Max Mustermann +49 170 1234567");
+      },
+    };
+    const warnings: string[] = [];
+    const warn = spyOn(console, "warn").mockImplementation((...args: unknown[]) => {
+      warnings.push(args.map(String).join(" "));
+    });
+
+    try {
+      await runRetentionCleanup({
+        db: stack.db,
+        registry: stack.registry,
+        tenantId: T1,
+        preloadedTenantPreset: null,
+        now,
+        files: filesCtx(piiProvider),
+      });
+    } finally {
+      warn.mockRestore();
+    }
+
+    const logged = warnings.join("\n");
+    expect(logged).toContain("storage cleanup threw: Error");
+    expect(logged).toContain("storage delete failed for 1 file(s)");
+    expect(logged).not.toContain("Mustermann");
+    expect(logged).not.toContain("1234567");
   });
 
   test("a throwing storage list() skips the row (file_delete_failed) without aborting the tenant run", async () => {
