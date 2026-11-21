@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.426.0",
+    "type": "improvement",
+    "title": "Job trigger and reader for delivered files"
+  },
+  {
+    "version": "0.426.0",
+    "type": "improvement",
+    "title": "Test helpers for satellite pairing and file upload"
+  },
+  {
     "version": "0.425.0",
     "type": "improvement",
     "title": "New connectors feature: devices pair via OAuth device flow and deliver files into an inbound list"

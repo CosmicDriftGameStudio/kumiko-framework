@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.426.0",
+    "type": "improvement",
+    "title": "Waitlist entries can expire automatically"
+  },
+  {
     "version": "0.414.0",
     "type": "fix",
     "title": "Public handlers declare only the anonymous role"

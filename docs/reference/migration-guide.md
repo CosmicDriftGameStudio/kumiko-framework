@@ -2,13 +2,31 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-11-20
+verified: 2026-11-21
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.426.0
+
+### @cosmicdrift/kumiko-renderer
+
+**Action form facts render as a name-value list**
+
+Single-line `facts` of an actionForm preview or success box render through the new core primitive `KeyValueList` (label left, value right-aligned) instead of one text line "Label: Value". `ActionFormSuccessFact` gains `emphasize`. A fact row keeps its `...-fact-<n>` test id; its text is no longer "Label: Value". `ActionFormPreviewList` gains `footer` (rows of label plus column-to-result-field cells, optional `emphasize`), rendered through the new `DataTable` prop `footerRows` in the table's tfoot. The preview panel renders as a `Section` (white surface, title, table) instead of `Banner variant="hint"`; error and loading states stay banners. Boot rule `action-form-preview/footer-column-unknown` rejects a footer cell for a column the list lacks.
+
+**Migration:** A custom primitive set adds `KeyValueList: ComponentType<KeyValueListProps>` (rows with key, label, value, optional emphasize and testId) and renders `DataTable` `footerRows`. Tests that read the old "Label: Value" text read the label and value cells instead; tests that expect the preview in a hint banner expect a section.
+
+### signature
+
+**Sealed signature PDF belongs to its request**
+
+`signatureRequest.completedFileId` is now a file field instead of a text field, and the sweep stores the sealed `signed-document.pdf` attached to the request. Before, the file had no owner, so a document filed from it was hidden from every reader by the documents read gate.
+
+**Migration:** Run `schema:generate`; the column gains a foreign-key index. Existing values stay valid. Files sealed before this change stay unowned.
 
 ## 0.425.0
 

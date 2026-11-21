@@ -1,5 +1,40 @@
 [
   {
+    "version": "0.426.0",
+    "type": "breaking",
+    "title": "Action form facts render as a name-value list",
+    "detail": "Single-line `facts` of an actionForm preview or success box render through the new core primitive `KeyValueList` (label left, value right-aligned) instead of one text line \"Label: Value\". `ActionFormSuccessFact` gains `emphasize`. A fact row keeps its `...-fact-<n>` test id; its text is no longer \"Label: Value\". `ActionFormPreviewList` gains `footer` (rows of label plus column-to-result-field cells, optional `emphasize`), rendered through the new `DataTable` prop `footerRows` in the table's tfoot. The preview panel renders as a `Section` (white surface, title, table) instead of `Banner variant=\"hint\"`; error and loading states stay banners. Boot rule `action-form-preview/footer-column-unknown` rejects a footer cell for a column the list lacks.",
+    "migration": "A custom primitive set adds `KeyValueList: ComponentType<KeyValueListProps>` (rows with key, label, value, optional emphasize and testId) and renders `DataTable` `footerRows`. Tests that read the old \"Label: Value\" text read the label and value cells instead; tests that expect the preview in a hint banner expect a section.",
+    "affects": [
+      "renderer",
+      "ActionFormSuccessFact",
+      "KeyValueList",
+      "CorePrimitives",
+      "ActionFormPreviewFooterRow",
+      "DataTable footerRows"
+    ]
+  },
+  {
+    "version": "0.426.0",
+    "type": "fix",
+    "title": "Dashboard list panels format dates and other FormatSpec columns"
+  },
+  {
+    "version": "0.426.0",
+    "type": "fix",
+    "title": "Empty read-only fields with a format renderer show the placeholder"
+  },
+  {
+    "version": "0.426.0",
+    "type": "improvement",
+    "title": "Extension sections can reload the host record"
+  },
+  {
+    "version": "0.426.0",
+    "type": "fix",
+    "title": "Row-action column of wide lists no longer scrolls out of view"
+  },
+  {
     "version": "0.425.0",
     "type": "improvement",
     "title": "CollapsibleSection gets onOpenChange"

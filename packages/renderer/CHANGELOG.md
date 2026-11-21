@@ -1,5 +1,59 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.426.0
+
+### Minor Changes
+
+- 2e9782d: The key figures of an action form preview and success box now line up as a name-value list with the values in one column, and a figure marked `emphasize` (such as a total) is bold with a rule above it. A preview table can carry footer rows (`list.footer`, such as a sum row and the total claim) inside the table, and the preview panel is now a normal titled section instead of a beige hint banner.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Action form facts render as a name-value list
+  detail: Single-line `facts` of an actionForm preview or success box render through the new core primitive `KeyValueList` (label left, value right-aligned) instead of one text line "Label: Value". `ActionFormSuccessFact` gains `emphasize`. A fact row keeps its `...-fact-<n>` test id; its text is no longer "Label: Value". `ActionFormPreviewList` gains `footer` (rows of label plus column-to-result-field cells, optional `emphasize`), rendered through the new `DataTable` prop `footerRows` in the table's tfoot. The preview panel renders as a `Section` (white surface, title, table) instead of `Banner variant="hint"`; error and loading states stay banners. Boot rule `action-form-preview/footer-column-unknown` rejects a footer cell for a column the list lacks.
+  migration: A custom primitive set adds `KeyValueList: ComponentType<KeyValueListProps>` (rows with key, label, value, optional emphasize and testId) and renders `DataTable` `footerRows`. Tests that read the old "Label: Value" text read the label and value cells instead; tests that expect the preview in a hint banner expect a section.
+  affects: renderer, ActionFormSuccessFact, KeyValueList, CorePrimitives, ActionFormPreviewFooterRow, DataTable footerRows
+  -->
+
+### Patch Changes
+
+- e1940a6: A dashboard list panel column applies its declared `renderer` FormatSpec.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Dashboard list panels format dates and other FormatSpec columns
+  detail: A list panel column with `renderer: { format: "date" }` (or any other FormatSpec) showed the raw value, such as the ISO date `2026-11-16`. The table, the card view and the one-line panel now format it in the user's locale, as an entityList column does.
+  -->
+- 2e9782d: An empty read-only field with a format renderer shows "—" instead of nothing.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Empty read-only fields with a format renderer show the placeholder
+  detail: A readOnly field with a FormatSpec renderer (date, timestamp, enumOption and the other built-in formats) rendered an empty string for a null, undefined or empty value, so its label stood alone on a detail page. It now renders EMPTY_VALUE_PLACEHOLDER like a read-only field without a renderer. priority keeps its own emptyLabel; list cells are unchanged. Nothing to do for apps.
+  -->
+- 2e9782d: `ExtensionSectionProps.reloadHost` lets an extension section reload the host record after its own write.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Extension sections can reload the host record
+  detail: ExtensionSectionProps gains the optional reloadHost(). Wherever the host screen can refetch its record (entityEdit and projectionDetail sections and slots: header, titleAction, afterForm, afterSection, footer), it refetches the detail query, so derived host content such as next-step guidance updates after the section wrote data itself. It is undefined in list-header and dashboard mounts. Additive, nothing to do for apps.
+  -->
+- 2e9782d: A trailing row-action column of a wide list stays visible at the right edge from md.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Row-action column of wide lists no longer scrolls out of view
+  detail: A list whose last column is a row action (rowActionLink or display button) now pins that column to the right edge from md, with the same background as the "⋯" column, so the action stays reachable when the columns are wider than the screen. When the list also has a "⋯" column, that column keeps the edge and the row-action column scrolls in flow. Nothing to do for apps.
+  -->
+- Updated dependencies [2e9782d]
+- Updated dependencies [1f0d1da]
+  - @cosmicdrift/kumiko-types@0.426.0
+  - @cosmicdrift/kumiko-framework@0.426.0
+
 ## 0.425.1
 
 ### Patch Changes
