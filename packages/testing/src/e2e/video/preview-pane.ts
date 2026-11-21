@@ -73,7 +73,7 @@ export function previewParts(preview: StagePreview, switchMs: number): PreviewPa
   );
   const styleHtml = `
 .window { inset: 5vh 51vw 5vh 3vw; animation: focus-left ${FOCUS_TRANSITION_MS}ms ease-in-out ${focusAt} both; }
-.preview { position: absolute; top: 5vh; bottom: 5vh; left: 51vw; right: 3vw; display: flex; align-items: center; justify-contentHtml: center; }
+.preview { position: absolute; top: 5vh; bottom: 5vh; left: 51vw; right: 3vw; display: flex; align-items: center; justify-content: center; }
 .shot { position: relative; width: min(100%, calc(90vh * ${width} / ${height})); aspect-ratio: ${width} / ${height}; opacity: .35; filter: saturate(.6); transform: scale(.97); animation: focus-right ${FOCUS_TRANSITION_MS}ms ease-in-out ${focusAt} both; }
 .shot img { width: 100%; height: 100%; display: block; border-radius: 12px; box-shadow: 0 40px 120px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.08); }
 .shot img.after { position: absolute; inset: 0; opacity: 0; animation: crossfade-in ${FOCUS_TRANSITION_MS}ms ease-in-out ${focusAt} both; }

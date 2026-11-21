@@ -139,7 +139,7 @@ export function terminalStage(options: TerminalStageOptions): PreviewStage {
     keyframeCss.push(keyframes.css);
     const enterAt = typeStart + (offsets.length > 0 ? keyframes.durationMs : 0) + ENTER_DELAY_MS;
 
-    // Wrapping rowsHtml reveal per character: a width-clipped box would show the whole text squeezed and re-wrap on every step.
+    // Wrapping rows reveal per character: a width-clipped box would show the whole text squeezed and re-wrap on every step.
     const typed = options.preview
       ? `<span class="typed-wrap">${Array.from(entry.command)
           .map(
@@ -197,10 +197,10 @@ export function terminalStage(options: TerminalStageOptions): PreviewStage {
 .tab-control { color: ${TABBAR_CONTROL_COLOR}; font-size: 1.3em; line-height: 1; }
 .paths { display: grid; }
 .paths > span { grid-area: 1 / 1; text-align: center; opacity: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pane-header { flex: none; display: flex; justify-contentHtml: center; padding-top: ${Math.round(fontSize * 0.3)}px; font-size: ${Math.round(fontSize * 0.7)}px; line-height: ${Math.round(fontSize * 1.1)}px; color: ${DIM_COLOR}; }
+.pane-header { flex: none; display: flex; justify-content: center; padding-top: ${Math.round(fontSize * 0.3)}px; font-size: ${Math.round(fontSize * 0.7)}px; line-height: ${Math.round(fontSize * 1.1)}px; color: ${DIM_COLOR}; }
 @keyframes row-in { from { height: 0; } to { height: ${lineHeight}px; } }
 ${keyframeCss.join("\n")}
-.body { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; justify-contentHtml: flex-end; overflow: hidden; }
+.body { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
 .lines { min-height: 100%; flex-shrink: 0; box-sizing: border-box; padding: ${Math.round(fontSize * 0.6)}px ${Math.round(fontSize * 0.5)}px; font-size: ${fontSize}px; line-height: ${lineHeight}px; }
 .row { height: 0; overflow: hidden; white-space: pre; }
 .pill { display: inline-block; padding: 0 ${Math.round(fontSize * 0.3)}px; border-radius: 5px; background: ${PATH_PILL_BACKGROUND}; color: ${WINDOW_BACKGROUND}; line-height: ${Math.round(fontSize * 1.3)}px; }
@@ -211,7 +211,7 @@ ${keyframeCss.join("\n")}
   const joinedRowsHtml = rowsHtml.join("");
   const switchMs = lastOutputMs + FOCUS_SWITCH_DELAY_MS;
   const previewPart = options.preview ? previewParts(options.preview, switchMs) : undefined;
-  // The narrower window keeps the font size, so long lines wrap. Rows grow to their contentHtml up to a cap instead of a fixed height.
+  // The narrower window keeps the font size, so long lines wrap. Rows grow to their content up to a cap instead of a fixed height.
   const wrapCss = previewPart
     ? `
 .row { height: auto; max-height: 0; white-space: pre-wrap; word-break: break-all; }

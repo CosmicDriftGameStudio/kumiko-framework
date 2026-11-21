@@ -261,3 +261,54 @@ describe("editorStage", () => {
     });
   });
 });
+
+describe("stage CSS", () => {
+  const preview = {
+    imageUrl: "file:///shot.png",
+    imageWidthPx: 1280,
+    imageHeightPx: 1000,
+    highlights: [],
+    cards: [],
+  };
+  const stages = {
+    terminal: terminalStage({ commands: [{ command: "ls", output: ["a"] }] }),
+    "terminal with preview": terminalStage({ commands: [{ command: "ls" }], preview }),
+    editor: editorStage({ fileName: "a.ts", lines: [{ typed: "const a = 1;" }] }),
+    "editor with preview": editorStage({
+      fileName: "a.ts",
+      lines: [{ typed: "const a = 1;" }],
+      preview,
+    }),
+  };
+
+  for (const [name, stage] of Object.entries(stages)) {
+    test(`${name} uses no renamed CSS property or value`, () => {
+      const style = stage.html.match(/<style>([\s\S]*?)<\/style>/)?.[1] ?? "";
+      expect(style).not.toBe("");
+      expect(style).not.toMatch(/[a-z]Html[\s:-]/);
+    });
+  }
+
+  test("terminal body is anchored to the bottom", () => {
+    expect(stages.terminal.html).toContain("justify-content: flex-end");
+  });
+});
+
+describe("editorStage edge cases", () => {
+  test("the caret keeps blinking when the last typed line is whitespace only", () => {
+    const { html } = editorStage({
+      fileName: "a.ts",
+      lines: [{ typed: "const a = 1;" }, { typed: "   " }],
+    });
+    expect(html).toMatch(/animation: [^"]*blink \d+ms steps/);
+  });
+
+  test("generic type names get the type colour, lowercase calls the function colour", () => {
+    const { html } = editorStage({
+      fileName: "a.ts",
+      lines: ["const a: Array<string> = foo<T>(x);"],
+    });
+    expect(html).toContain('<span style="color:#ffcb6b">Array</span>');
+    expect(html).toContain('<span style="color:#82aaff">foo</span>');
+  });
+});
