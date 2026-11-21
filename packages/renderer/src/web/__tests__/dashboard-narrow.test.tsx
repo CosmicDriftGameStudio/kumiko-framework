@@ -2,7 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
-import type { QueryResult } from "../../headless/index.ts";
+import { EMPTY_VALUE_PLACEHOLDER, type QueryResult } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -291,6 +291,47 @@ describe("dashboard list texts and row link", () => {
       expect(screen.getByTestId("dashboard-panel-open").textContent).toContain("Due 0"),
     );
     expect(screen.getByTestId("dashboard-panel-open").textContent).not.toContain("Task 0");
+  });
+
+  test("a table column with a date FormatSpec shows the formatted date, an empty one the placeholder", async () => {
+    const panel = textList({
+      columns: [
+        { field: "title" },
+        { field: "due", renderer: { format: "date", dateStyle: "medium" } },
+      ],
+    });
+    setViewportWidth(DESKTOP_WIDTH);
+    renderDashboard(dashboardOf(panel), {
+      "demo:query:task:list": () =>
+        ok({
+          rows: [
+            { id: "t0", title: "Task 0", due: "2026-11-16" },
+            { id: "t1", title: "Task 1", due: null },
+          ],
+        }),
+    });
+    await waitFor(() => screen.getByText("Nov 16, 2026"));
+    expect(screen.queryByText("2026-11-16")).toBeNull();
+    expect(screen.getAllByText(EMPTY_VALUE_PLACEHOLDER)).toHaveLength(1);
+  });
+
+  test("narrow.field on a column with a date FormatSpec shows the formatted date", async () => {
+    const panel = textList({
+      columns: [
+        { field: "title" },
+        { field: "due", renderer: { format: "date", dateStyle: "medium" } },
+      ],
+      narrow: { layout: "line", field: "due" },
+    });
+    setViewportWidth(PHONE_WIDTH);
+    renderDashboard(dashboardOf(panel), {
+      "demo:query:task:list": () =>
+        ok({ rows: [{ id: "t0", title: "Task 0", due: "2026-11-16" }] }),
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("dashboard-panel-open").textContent).toContain("Nov 16, 2026"),
+    );
+    expect(screen.getByTestId("dashboard-panel-open").textContent).not.toContain("2026-11-16");
   });
 
   test("narrow.field with a non-text value draws no text instead of [object Object]", async () => {

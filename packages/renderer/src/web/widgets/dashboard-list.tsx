@@ -178,6 +178,7 @@ export function DashboardListCell({
   }
   if (column.renderValue !== undefined) {
     const text = column.renderValue(raw, row);
+    if (text === "") return empty;
     const link = column.linkFor?.(raw, row);
     return link === undefined ? text : <CellTextLink link={link}>{text}</CellTextLink>;
   }

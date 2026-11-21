@@ -2,19 +2,21 @@ import type {
   DashboardListFooterLink,
   DashboardListPanel,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
+import { isFormatSpec, normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { useNav } from "../../app/nav.tsx";
+import { withUiLocale } from "../../app/projection-detail-navigation.ts";
 import { type ScreenLinkResolver, useScreenLinkResolver } from "../../app/reference-link.ts";
 import { namedFilterNavigateAllows, navigateTargetAllows } from "../../app/screen-access.ts";
 import { hintViewModel } from "../../components/render-list-hint-columns.ts";
 import { screenLinkFor } from "../../components/use-render-list-columns.ts";
-import type { CellLink, Translate } from "../../headless/index.ts";
+import { applyFormatSpec, type CellLink, type Translate } from "../../headless/index.ts";
 import {
   extensionSectionName,
   useAppFeatures,
   useExtensionSectionComponent,
+  useLocale,
   usePrimitives,
   useUserRoles,
 } from "../../index.ts";
@@ -138,6 +140,19 @@ function rowLinkResolverOf(
   return (row) => resolveScreenLink(screen, paramField === undefined ? undefined : row[paramField]);
 }
 
+// A declared FormatSpec formats the cell as in an entityList; the query sends raw ISO dates.
+function formatSpecCell(
+  column: ReturnType<typeof normalizeListColumn>,
+  locale: string,
+  translate: Translate,
+): { renderValue?: (value: unknown) => string } {
+  const { renderer } = column;
+  if (!isFormatSpec(renderer)) return {};
+  return {
+    renderValue: (value) => applyFormatSpec(withUiLocale(renderer, locale), value, translate),
+  };
+}
+
 function ListLine({
   panel,
   label,
@@ -169,11 +184,20 @@ function ListLine({
       (column) => column.display === undefined && typeof firstRow?.[column.field] === "string",
     )?.field;
   const formats = useDashboardFormats();
+  const locale = useLocale().locale();
   const lineColumn = columns.find((column) => column.field === lineField);
   const firstText =
     lineField === undefined || firstRow === undefined
       ? undefined
-      : dashboardListCellText(lineColumn ?? {}, firstRow, lineField, formats, translate);
+      : dashboardListCellText(
+          lineColumn === undefined
+            ? {}
+            : { ...lineColumn, ...formatSpecCell(lineColumn, locale, translate) },
+          firstRow,
+          lineField,
+          formats,
+          translate,
+        );
   const more = (knownTotal(data) ?? rows.length) - 1;
   const target = dashboardNavigationLink(nav, link);
   return (
@@ -274,12 +298,14 @@ export function ListPanelBody({
   const narrowLimit = narrow?.limit;
   const narrowLayout = narrow !== undefined ? (narrow.layout ?? "cards") : undefined;
   const resolveScreenLink = useScreenLinkResolver();
+  const locale = useLocale().locale();
   const columns = panel.columns.map((c): DashboardListTableColumn => {
     const normalized = normalizeListColumn(c);
     const { hint } = normalized;
     return {
       field: normalized.field,
       label: translate(normalized.label ?? normalized.field),
+      ...formatSpecCell(normalized, locale, translate),
       ...(normalized.display !== undefined && { display: normalized.display }),
       ...(normalized.variant !== undefined && { buttonVariant: normalized.variant }),
       ...(normalized.badgeToneField !== undefined && {
