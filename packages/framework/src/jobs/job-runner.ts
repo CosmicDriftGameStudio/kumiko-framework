@@ -63,7 +63,9 @@ import {
   markSchedulersSeen,
   ORPHAN_SCHEDULER_GRACE_MS,
   queueNameFor,
+  type RecreatedScheduler,
   removeOrphanJobSchedulers,
+  removeRecreatedSchedulersBesideOtherFlag,
   schedulerIdForJobName,
 } from "./job-runner-schedulers.ts";
 import {
@@ -430,8 +432,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     queue: Queue,
     lane: JobRunIn,
     skipIfPresent?: ReadonlySet<string>,
-  ): Promise<string[]> {
-    const upserted: string[] = [];
+  ): Promise<RecreatedScheduler[]> {
+    const upserted: RecreatedScheduler[] = [];
     for (const [name, jobDef] of allJobs) {
       if (laneForJob(jobDef) !== lane) continue;
       if (isScheduledTrigger(jobDef.trigger)) {
@@ -439,7 +441,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         const schedulerId = schedulerIdForJobName(name, wakesSleepingApp);
         const otherFlagId = schedulerIdForJobName(name, !wakesSleepingApp);
         if (skipIfPresent?.has(schedulerId) || skipIfPresent?.has(otherFlagId)) continue;
-        upserted.push(schedulerId);
+        upserted.push({ schedulerId, otherFlagSchedulerId: otherFlagId });
         await queue.upsertJobScheduler(
           schedulerId,
           scheduleRepeatOptions(jobDef.trigger, options.maintenanceWindow),
@@ -471,9 +473,13 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     if (schedulerIds.size === 0) return;
     const existing = new Set(await listJobSchedulerIds(queue));
     const recreated = await upsertCronSchedulers(queue, lane, existing);
-    if (recreated.length > 0) {
+    const yielded = new Set(
+      await removeRecreatedSchedulersBesideOtherFlag(queue, recreated, lane, orphanSchedulerLog),
+    );
+    const kept = recreated.map((entry) => entry.schedulerId).filter((id) => !yielded.has(id));
+    if (kept.length > 0) {
       orphanSchedulerLog.info("re-created missing job schedulers", {
-        schedulerIds: recreated,
+        schedulerIds: kept,
         lane,
       });
     }

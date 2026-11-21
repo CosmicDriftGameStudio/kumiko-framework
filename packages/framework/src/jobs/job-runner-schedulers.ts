@@ -125,6 +125,41 @@ export async function removeOrphanJobSchedulers(
   }
 }
 
+export type RecreatedScheduler = {
+  readonly schedulerId: string;
+  readonly otherFlagSchedulerId: string;
+};
+
+// The re-create tick lists, then upserts without a lock. A newer runner (other wake flag) can start
+// in between and remove our id as superseded, after which our upsert brings it back beside the
+// newer one and the job fires twice per slot. The runner that just created its id therefore checks
+// again and yields: if both of us create at the same moment, both yield and the next tick creates
+// one id again.
+export async function removeRecreatedSchedulersBesideOtherFlag(
+  queue: Queue,
+  recreated: readonly RecreatedScheduler[],
+  lane: JobRunIn,
+  log: OrphanSchedulerLog,
+): Promise<string[]> {
+  // skip: nothing was re-created, no race to resolve
+  if (recreated.length === 0) return [];
+  const existing = new Set(await listJobSchedulerIds(queue));
+  const client = await queue.client;
+  const yielded: string[] = [];
+  for (const { schedulerId, otherFlagSchedulerId } of recreated) {
+    if (!existing.has(otherFlagSchedulerId)) continue;
+    await queue.removeJobScheduler(schedulerId);
+    await client.hdel(schedulerSeenKey(queue), schedulerId);
+    yielded.push(schedulerId);
+    log.info("removed re-created job scheduler beside the other wake flag's scheduler", {
+      schedulerId,
+      otherFlagSchedulerId,
+      lane,
+    });
+  }
+  return yielded;
+}
+
 // Deterministic per-tenant child job id, derived from the perTenant
 // wrapper's own BullMQ job id. A cron tick's wrapper id is
 // `repeat:<schedulerId>:<millis>` (stable for that tick, including across
