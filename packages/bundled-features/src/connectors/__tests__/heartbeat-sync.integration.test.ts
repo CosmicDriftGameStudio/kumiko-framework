@@ -1,8 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { createTenantDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { ConnectorHandlers, ConnectorQueries } from "../constants.ts";
 import { hashDeviceSecret } from "../hash.ts";
+import { connectorExecutor } from "../schema/connector.ts";
 import { uploadConnectorFile } from "../testing.ts";
 import {
   HEARTBEAT_PATH,
@@ -199,5 +201,47 @@ describe("the storage-full flag survives touches that arrive out of order", () =
       expect(await again.json()).toMatchObject({ duplicate: true });
       expect(await detail()).toEqual({ i18nKey: "connectors.sync.detail.storageFull" });
     });
+  });
+});
+
+describe("heartbeat of a device whose connector row is gone", () => {
+  test("answers without a name, and still carries the retry signal once", async () => {
+    const gone = await setupConnectorsStack();
+    try {
+      const paired = await pairDevice(gone);
+      const send = () =>
+        gone.app.request(HEARTBEAT_PATH, {
+          method: "POST",
+          headers: { authorization: `Bearer ${paired.token}`, "content-type": "application/json" },
+          body: JSON.stringify({ version: "1.0.0" }),
+        });
+      await gone.http.writeOk(
+        ConnectorHandlers.requestRetry,
+        { id: paired.connectorId },
+        tenantAdmin,
+      );
+
+      const deleted = await connectorExecutor.delete(
+        { id: paired.connectorId },
+        createSystemUser(tenantAdmin.tenantId),
+        createTenantDb({
+          db: gone.db,
+          tenantId: tenantAdmin.tenantId,
+          mode: "system",
+          reason: "test removes the connector row while its device stays authenticated",
+        }),
+        { streamTenantId: tenantAdmin.tenantId },
+      );
+      expect(deleted.isSuccess).toBe(true);
+
+      const withRetry = await send();
+      expect(withRetry.status).toBe(200);
+      expect(await withRetry.json()).toEqual({ ok: true, retry: true });
+      const plain = await send();
+      expect(plain.status).toBe(200);
+      expect(await plain.json()).toEqual({ ok: true });
+    } finally {
+      await teardownConnectorsStack(gone);
+    }
   });
 });
