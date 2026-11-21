@@ -1,6 +1,7 @@
 import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-bundled-features/renderer-puppeteer-client/qualified-names";
 import {
   type DocumentFrameControl,
+  dateVariableNames,
   TemplateResolverQueries,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useQuery, useUserRoles } from "@cosmicdrift/kumiko-renderer";
@@ -8,7 +9,7 @@ import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { EditorMode } from "./editor-header.tsx";
 import type { LayoutSourceView } from "./layout-types.ts";
-import { dateVariableNames, systemLabelMap, variableLabelMap } from "./mail-draft.ts";
+import { systemLabelMap, variableLabelMap } from "./mail-draft.ts";
 import {
   draftFromDetail,
   type EditorState,
