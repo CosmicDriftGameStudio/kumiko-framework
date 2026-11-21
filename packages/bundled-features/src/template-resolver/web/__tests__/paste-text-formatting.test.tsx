@@ -22,6 +22,20 @@ describe("textFormattingPasteHtml", () => {
     expect(html).toBe("<p>a</p><p>b</p><p>c</p>");
   });
 
+  test("keeps two paragraphs of one cell apart", () => {
+    const html = textFormattingPasteHtml(
+      "<table><tbody><tr><td><p>a</p><p>b</p></td><td>c</td></tr></tbody></table>",
+    );
+    expect(html).toBe("<p>a</p><p>b</p><p>c</p>");
+  });
+
+  test("emits the text of a nested table once", () => {
+    const html = textFormattingPasteHtml(
+      "<table><tbody><tr><td>outer<table><tbody><tr><td>inner</td></tr></tbody></table></td><td>next</td></tr></tbody></table>",
+    );
+    expect(html).toBe("<p>outer</p><p>inner</p><p>next</p>");
+  });
+
   test("keeps formatting that the text toolbar offers", () => {
     const html = textFormattingPasteHtml(
       '<p><strong>fett</strong> <a href="https://x.de">Link</a></p>',
