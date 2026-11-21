@@ -24,19 +24,26 @@ import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
-import { CONNECTOR_CLIENT_ID, ConnectorHandlers, ConnectorQueries } from "../constants.ts";
+import {
+  CONNECTOR_CLIENT_ID,
+  CONNECTOR_ROUTE_PATHS,
+  ConnectorHandlers,
+  ConnectorQueries,
+  DEFAULT_CONNECTORS_BASE_PATH,
+  DEVICE_CODE_GRANT_TYPE,
+} from "../constants.ts";
 import { type ConnectorsFeatureOptions, createConnectorsFeature } from "../feature.ts";
 import { type ConnectorRouteOptions, createConnectorRoutes } from "../routes.ts";
+import { pairConnectorDevice } from "../testing.ts";
 
 export const TEST_NOW = Temporal.Instant.from("2026-11-19T10:00:00Z");
 export const tenantAdmin = createTestUser({ roles: ["TenantAdmin"] });
 export const plainUser = createTestUser({ roles: ["User"] });
 
-export const START_PATH = "/connectors/v1/device_authorization";
-export const TOKEN_PATH = "/connectors/v1/token";
-export const FILES_PATH = "/connectors/v1/files";
-export const HEARTBEAT_PATH = "/connectors/v1/heartbeat";
-export const DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";
+export const START_PATH = `${DEFAULT_CONNECTORS_BASE_PATH}${CONNECTOR_ROUTE_PATHS.deviceAuthorization}`;
+export const TOKEN_PATH = `${DEFAULT_CONNECTORS_BASE_PATH}${CONNECTOR_ROUTE_PATHS.token}`;
+export const FILES_PATH = `${DEFAULT_CONNECTORS_BASE_PATH}${CONNECTOR_ROUTE_PATHS.files}`;
+export const HEARTBEAT_PATH = `${DEFAULT_CONNECTORS_BASE_PATH}${CONNECTOR_ROUTE_PATHS.heartbeat}`;
 
 export async function setupConnectorsStack(
   options: ConnectorRouteOptions &
@@ -79,7 +86,7 @@ export async function setupConnectorsStack(
       },
     }),
     files: { storageProvider: fileProvider },
-    // The folder deletion job runs on the worker lane; tests drain it with `runDeletionJobs`.
+    // The folder deletion job runs on the worker lane; tests drain it with `runConnectorJobs`.
     jobs: { consumerLane: "worker", queueNamePrefix: `connectors-${generateId()}` },
     now: TEST_NOW,
     ...(trustedProxyHops !== undefined && { trustedProxyHops }),
@@ -87,12 +94,6 @@ export async function setupConnectorsStack(
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
   await unsafeCreateEntityTable(stack.db, tenantEntity, "tenant");
   return stack;
-}
-
-// The job-trigger consumer picks the folder's update event up, then the queue runs the job.
-export async function runDeletionJobs(stack: TestStack): Promise<void> {
-  await stack.eventDispatcher?.runOnce();
-  await stack.drainJobs();
 }
 
 export function teardownConnectorsStack(stack: TestStack): Promise<void> {
@@ -126,7 +127,7 @@ export async function startPairing(stack: TestStack) {
 
 export function pollToken(stack: TestStack, deviceCode: string) {
   return postForm(stack, TOKEN_PATH, {
-    grant_type: DEVICE_GRANT,
+    grant_type: DEVICE_CODE_GRANT_TYPE,
     device_code: deviceCode,
     client_id: CONNECTOR_CLIENT_ID,
   });
@@ -150,12 +151,8 @@ export async function approve(stack: TestStack, userCode: string, name = "Office
   );
 }
 
-export async function pairDevice(stack: TestStack, name = "Office server") {
-  const started = await startPairing(stack);
-  const { connectorId } = await approve(stack, started.user_code, name);
-  const res = await pollToken(stack, started.device_code);
-  const body = (await res.json()) as { access_token: string };
-  return { token: body.access_token, connectorId };
+export function pairDevice(stack: TestStack, name = "Office server") {
+  return pairConnectorDevice(stack, tenantAdmin, { name });
 }
 
 export async function listConnectors(stack: TestStack) {
@@ -175,21 +172,3 @@ export async function listConnectors(stack: TestStack) {
 
 export const sha256Hex = (bytes: Uint8Array): string =>
   createHash("sha256").update(bytes).digest("hex");
-
-export function upload(
-  stack: TestStack,
-  token: string | null,
-  file: { path: string; bytes: Uint8Array<ArrayBuffer>; sha256?: string; mtime?: string },
-) {
-  return stack.app.request(FILES_PATH, {
-    method: "POST",
-    headers: {
-      ...(token !== null && { authorization: `Bearer ${token}` }),
-      "content-type": "application/octet-stream",
-      "x-kumiko-path": encodeURIComponent(file.path),
-      "x-kumiko-sha256": file.sha256 ?? sha256Hex(file.bytes),
-      "x-kumiko-mtime": file.mtime ?? "2026-11-18T08:30:00Z",
-    },
-    body: file.bytes,
-  });
-}

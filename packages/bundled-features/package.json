@@ -97,6 +97,7 @@
     "./tenant-inactivity/static-keep-account": "./src/tenant-inactivity/static-keep-account.ts",
     "./tenant-inactivity/email-templates": "./src/tenant-inactivity/email-templates.ts",
     "./tenant-lifecycle": "./src/tenant-lifecycle/index.ts",
+    "./connectors/testing": "./src/connectors/testing.ts",
     "./tenant-lifecycle/testing": "./src/tenant-lifecycle/testing.ts",
     "./tenant-handover": "./src/tenant-handover/index.ts",
     "./tenant/testing": "./src/tenant/testing.ts",
@@ -529,6 +530,10 @@
       "./tenant-lifecycle": {
         "types": "./dist/tenant-lifecycle/index.d.ts",
         "default": "./dist/tenant-lifecycle/index.js"
+      },
+      "./connectors/testing": {
+        "types": "./dist/connectors/testing.d.ts",
+        "default": "./dist/connectors/testing.js"
       },
       "./tenant-lifecycle/testing": {
         "types": "./dist/tenant-lifecycle/testing.d.ts",

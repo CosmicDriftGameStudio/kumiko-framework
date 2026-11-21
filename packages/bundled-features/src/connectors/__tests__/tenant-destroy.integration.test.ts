@@ -11,12 +11,12 @@ import { deviceTable } from "../schema/device.ts";
 import { deviceAuthorizationTable } from "../schema/device-authorization.ts";
 import { inboundFolderTable } from "../schema/inbound-folder.ts";
 import { inboundItemTable } from "../schema/inbound-item.ts";
+import { uploadConnectorFile } from "../testing.ts";
 import {
   pairDevice,
   setupConnectorsStack,
   teardownConnectorsStack,
   tenantAdmin,
-  upload,
 } from "./connectors-stack.ts";
 
 const provider = createInMemoryFileProvider();
@@ -59,7 +59,7 @@ test("destroying a tenant removes its device, pairing and file rows, the stored 
   );
   const { token } = await pairDevice(stack);
   const bytes = Uint8Array.from([1, 2, 3]);
-  expect((await upload(stack, token, { path: "a/b.bin", bytes })).status).toBe(201);
+  expect((await uploadConnectorFile(stack, token, { path: "a/b.bin", bytes })).status).toBe(201);
   const owned = { ownerTenantId: tenantAdmin.tenantId };
   expect(await selectMany(stack.db, deviceTable, owned)).toHaveLength(1);
   expect(await selectMany(stack.db, inboundItemTable, {})).toHaveLength(1);
@@ -76,5 +76,5 @@ test("destroying a tenant removes its device, pairing and file rows, the stored 
   expect(await selectMany(stack.db, inboundFolderTable, {})).toHaveLength(0);
   expect(await provider.list("")).toHaveLength(0);
   expect(await selectMany(stack.db, deviceAuthorizationTable, owned)).toHaveLength(0);
-  expect((await upload(stack, token, { path: "a/c.bin", bytes })).status).toBe(401);
+  expect((await uploadConnectorFile(stack, token, { path: "a/c.bin", bytes })).status).toBe(401);
 });

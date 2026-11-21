@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { ConnectorHandlers } from "../constants.ts";
+import { uploadConnectorFile } from "../testing.ts";
 import {
   HEARTBEAT_PATH,
   listConnectors,
@@ -8,7 +9,6 @@ import {
   setupConnectorsStack,
   teardownConnectorsStack,
   tenantAdmin,
-  upload,
 } from "./connectors-stack.ts";
 
 let stack: TestStack;
@@ -69,7 +69,10 @@ describe("heartbeat sync report and retry signal", () => {
     await heartbeat({ version: "1.0.0", sync: { state: "idle", queued: 0, failed: 2 } });
     await stack.http.writeOk(ConnectorHandlers.requestRetry, { id: connectorId }, tenantAdmin);
 
-    const sent = await upload(stack, token, { path: "r/a.bin", bytes: Uint8Array.from([1]) });
+    const sent = await uploadConnectorFile(stack, token, {
+      path: "r/a.bin",
+      bytes: Uint8Array.from([1]),
+    });
     expect(sent.status).toBe(201);
 
     const first = await heartbeat({
@@ -98,7 +101,7 @@ describe("connector list names a full storage after an upload was refused", () =
       const detail = async () =>
         (await listConnectors(small)).find((c) => c.id === paired.connectorId)?.syncDetail;
 
-      const first = await upload(small, paired.token, {
+      const first = await uploadConnectorFile(small, paired.token, {
         path: "a/one.bin",
         bytes: new Uint8Array(12).fill(1),
       });
@@ -106,7 +109,7 @@ describe("connector list names a full storage after an upload was refused", () =
       await send({ version: "1.0.0", sync: { state: "error", queued: 4, failed: 0 } });
       expect(await detail()).toBeNull();
 
-      const refused = await upload(small, paired.token, {
+      const refused = await uploadConnectorFile(small, paired.token, {
         path: "a/two.bin",
         bytes: new Uint8Array(12).fill(2),
       });
@@ -115,7 +118,7 @@ describe("connector list names a full storage after an upload was refused", () =
 
       const { id } = (await first.json()) as { id: string };
       await small.http.writeOk(ConnectorHandlers.deleteFile, { id }, tenantAdmin);
-      const accepted = await upload(small, paired.token, {
+      const accepted = await uploadConnectorFile(small, paired.token, {
         path: "a/two.bin",
         bytes: new Uint8Array(12).fill(2),
       });

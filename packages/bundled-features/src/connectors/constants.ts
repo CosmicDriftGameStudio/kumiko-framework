@@ -102,6 +102,13 @@ export const MIN_SEARCH_TERM_LENGTH = 2;
 export const MAX_ID_GENERATIONS = 50;
 
 export const DEFAULT_CONNECTORS_BASE_PATH = "/connectors";
+export const CONNECTOR_ROUTE_PATHS = {
+  deviceAuthorization: "/v1/device_authorization",
+  token: "/v1/token",
+  files: "/v1/files",
+  heartbeat: "/v1/heartbeat",
+} as const;
+export const DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 
 export const ConnectorErrors = {
   invalidUserCode: "invalid_user_code",

@@ -3,13 +3,12 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { withEnv } from "@cosmicdrift/kumiko-testing/helpers";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { CONNECTOR_CLIENT_ID, ConnectorHandlers } from "../constants.ts";
+import { CONNECTOR_CLIENT_ID, ConnectorHandlers, DEVICE_CODE_GRANT_TYPE } from "../constants.ts";
 import { hashDeviceSecret } from "../hash.ts";
 import { deviceTable } from "../schema/device.ts";
 import {
   approve,
   checkCode,
-  DEVICE_GRANT,
   listConnectors,
   pairDevice,
   plainUser,
@@ -213,7 +212,7 @@ describe("connectors device flow", () => {
     expect(await garbageBasic.json()).toEqual({ error: "invalid_client" });
 
     const unknownCode = await postForm(stack, TOKEN_PATH, {
-      grant_type: DEVICE_GRANT,
+      grant_type: DEVICE_CODE_GRANT_TYPE,
       device_code: "never-issued",
       client_id: "kumiko-satellite",
     });
