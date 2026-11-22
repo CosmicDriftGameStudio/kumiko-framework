@@ -12,6 +12,7 @@ import type {
   LetterSpec,
   LetterSubmitResult,
 } from "@cosmicdrift/kumiko-bundled-features/letter-foundation";
+import { LetterProviderNotConfiguredError } from "@cosmicdrift/kumiko-bundled-features/letter-foundation";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { LetterXpressPrintJob } from "./api-schemas.ts";
 import {
@@ -180,7 +181,7 @@ function readCredentials(source: LetterProviderContext["env"]): {
   const username = parsed.success ? parsed.data[LETTERXPRESS_ENV.username] : undefined;
   const apiKey = parsed.success ? parsed.data[LETTERXPRESS_ENV.apiKey] : undefined;
   if (username === undefined || apiKey === undefined) {
-    throw new Error(
+    throw new LetterProviderNotConfiguredError(
       `letterxpress provider needs ${LETTERXPRESS_ENV.username} and ${LETTERXPRESS_ENV.apiKey}`,
     );
   }

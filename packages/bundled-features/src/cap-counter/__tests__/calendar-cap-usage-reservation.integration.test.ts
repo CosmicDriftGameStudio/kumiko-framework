@@ -50,6 +50,7 @@ const reservePayload = z.object({
   actual: z.number().int().min(0),
   outsideTransaction: z.boolean().optional(),
   expireAndSweepFirst: z.boolean().optional(),
+  reservationId: z.string().optional(),
 });
 type ReservePayload = z.infer<typeof reservePayload>;
 
@@ -74,13 +75,17 @@ function reserveSettleHandler(name: string): WriteHandlerDef {
         limit: payload.limit,
         profile: "hardSlot",
         amount: payload.amount,
+        ...(payload.reservationId !== undefined && { reservationId: payload.reservationId }),
         ...(payload.outsideTransaction !== undefined && {
           outsideTransaction: payload.outsideTransaction,
         }),
       });
       await betweenReserveAndSettle?.(payload);
       await reservation.settle(payload.actual);
-      return { isSuccess: true as const, data: { counterValue: reservation.counterValue } };
+      return {
+        isSuccess: true as const,
+        data: { counterValue: reservation.counterValue, reservationId: reservation.reservationId },
+      };
     },
   };
 }
@@ -410,6 +415,25 @@ describe("reserveCalendarCapUsage", () => {
     );
     expect(await readCounterValue(user, "settle-cap")).toBe(6);
     expect(await reservationRows(3102)).toHaveLength(0);
+  });
+
+  test("a reservation id passed by the caller is the id of the reservation row", async () => {
+    const user = adminFor(3104);
+    const reservationId = generateId();
+    let idsWhileOpen: readonly unknown[] = [];
+    betweenReserveAndSettle = async () => {
+      const rows = await selectMany<Record<string, unknown>>(stack.db, capReservationsTable, {
+        tenantId: testTenantId(3104),
+      });
+      idsWhileOpen = rows.map((row) => row["id"]);
+    };
+    const result = await stack.http.writeOk<{ reservationId: string }>(
+      RESERVE_SETTLE_QN,
+      { capName: "own-id-cap", limit: 100, amount: 1, actual: 1, reservationId },
+      user,
+    );
+    expect(result.reservationId).toBe(reservationId);
+    expect(idsWhileOpen).toEqual([reservationId]);
   });
 
   test("settle after the row was swept books the full actual amount once", async () => {

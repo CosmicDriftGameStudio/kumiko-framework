@@ -211,6 +211,10 @@ export const LETTER_SUBMITTING_STALE_MS = 10 * 60_000;
 // sequential queue has had room to run it; the poll starts the handover again.
 export const LETTER_APPROVED_STALE_MS = 30 * 60_000;
 
+// An approved letter this long past its hold time that still could not be handed over fails instead of being
+// restarted again, so a provider that stays unreachable does not keep it in `approved` forever.
+export const LETTER_HANDOVER_GIVE_UP_MS = 2 * 60 * 60_000;
+
 export const LETTER_FAILURE_REASONS = [
   "monthly-limit",
   "rejected-by-provider",
@@ -219,6 +223,8 @@ export const LETTER_FAILURE_REASONS = [
   "address-mismatch",
   "resolved-by-operator",
   "document-unreadable",
+  "handover-stalled",
+  "provider-changed",
 ] as const;
 export type LetterFailureReason = (typeof LETTER_FAILURE_REASONS)[number];
 
@@ -230,6 +236,8 @@ export const LETTER_FAILURE_REASON = {
   addressMismatch: "address-mismatch",
   resolvedByOperator: "resolved-by-operator",
   documentUnreadable: "document-unreadable",
+  handoverStalled: "handover-stalled",
+  providerChanged: "provider-changed",
 } as const satisfies Record<string, LetterFailureReason>;
 
 export const LetterQueries = {
@@ -262,6 +270,7 @@ export const LetterErrors = {
   cancelAlreadyProcessed: "letter_cancel_already_processed",
   cancelUnknownJob: "letter_cancel_unknown_job",
   providerJobMismatch: "letter_provider_job_mismatch",
+  providerChanged: "letter_provider_changed",
 } as const;
 
 export const LetterI18n = {
@@ -283,6 +292,7 @@ export const LetterI18n = {
   cancelAlreadyProcessed: "letter-foundation.errors.cancelAlreadyProcessed",
   cancelUnknownJob: "letter-foundation.errors.cancelUnknownJob",
   providerJobMismatch: "letter-foundation.errors.providerJobMismatch",
+  providerChanged: "letter-foundation.errors.providerChanged",
 } as const;
 
 export const LETTER_CLAIM_STATUS = {

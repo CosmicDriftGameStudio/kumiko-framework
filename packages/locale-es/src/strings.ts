@@ -2343,6 +2343,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "letter-foundation.errors.cancelUnknownJob": "El proveedor de impresión no conoce esta carta.",
   "letter-foundation.errors.providerJobMismatch":
     "El proveedor de impresión no tiene ningún pedido con este id para esta carta.",
+  "letter-foundation.errors.providerChanged":
+    "Esta carta se aprobó con otro proveedor. Vuelva a ese proveedor para modificarla.",
   "letter-foundation.preview.monthlyLimitExceeded":
     "El límite mensual de costes de cartas no cubre esta carta.",
   "mail-transport-inmemory.settings": "Buzón de prueba (en memoria)",

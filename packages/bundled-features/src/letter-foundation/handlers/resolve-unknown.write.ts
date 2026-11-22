@@ -13,7 +13,11 @@ import {
 import { letterExecutor } from "../entity.ts";
 import { closeClaimWithoutBooking } from "../letter-usage.ts";
 import { ResolveUnknownSchema } from "../payloads.ts";
-import { resolveLetterProviderOrFailure } from "../provider-resolver.ts";
+import {
+  isForeignProvider,
+  providerChangedFailure,
+  resolveLetterProviderOrFailure,
+} from "../provider-resolver.ts";
 import { transitionLetter } from "../transitions.ts";
 import type { LetterAcceptance } from "../types.ts";
 
@@ -33,7 +37,9 @@ export const resolveUnknownHandler = defineWriteHandler({
     if (providerJobId === undefined) return { isSuccess: true, data: { acceptance: null } };
     const resolved = await resolveLetterProviderOrFailure(ctx.registry);
     if (!resolved.isSuccess) return resolved;
-    const { provider } = resolved.data;
+    const { name, provider } = resolved.data;
+    const letter = await letterExecutor.detail({ id: event.payload.letterId }, event.user, ctx.db);
+    if (letter !== null && isForeignProvider(letter, name)) return providerChangedFailure();
     const order = await provider.findByJobId?.(providerJobId);
     if (order === undefined || order === null || order.reference !== event.payload.letterId) {
       return unprocessable(LetterErrors.providerJobMismatch, LetterI18n.providerJobMismatch);

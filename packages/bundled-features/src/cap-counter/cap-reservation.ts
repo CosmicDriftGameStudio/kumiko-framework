@@ -97,7 +97,10 @@ function toHandle(
 export type ReserveCalendarCapOptions = Required<
   Pick<BookCapUsageOptions, "capName" | "periodStartIso" | "amount">
 > &
-  Pick<BookCapUsageOptions, "guardCurrentValue">;
+  Pick<BookCapUsageOptions, "guardCurrentValue"> & {
+    // Lets a caller store the id before reserving, so a crash in between leaves no unreachable reservation.
+    readonly reservationId?: string;
+  };
 
 // The counter increment and the reservation row commit together, so a booked amount never exists
 // without a row that can give it back.
@@ -107,7 +110,7 @@ export async function reserveCalendarCap(
   outsideTransaction = true,
 ): Promise<CalendarCapReservation> {
   const { user, writeDb } = resolveCapCounterScope(ctx, outsideTransaction);
-  const id = generateId();
+  const id = options.reservationId ?? generateId();
   // The last attempt is the one that committed, so this holds the value its increment started from.
   let valueBeforeBooking = 0;
   const observedOptions: ReserveCalendarCapOptions = {

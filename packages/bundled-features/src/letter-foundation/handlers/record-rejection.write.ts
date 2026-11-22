@@ -12,6 +12,8 @@ import { APPLIED, internalAccess, NOT_APPLIED } from "./internal-shared.ts";
 function isRejectableFrom(reason: LetterFailureReason, from: unknown): boolean {
   if (reason === LETTER_FAILURE_REASON.monthlyLimit) return from === LETTER_STATE.approved;
   if (reason === LETTER_FAILURE_REASON.documentUnreadable) return from === LETTER_STATE.approved;
+  if (reason === LETTER_FAILURE_REASON.providerChanged) return from === LETTER_STATE.approved;
+  if (reason === LETTER_FAILURE_REASON.handoverStalled) return from === LETTER_STATE.approved;
   if (reason === LETTER_FAILURE_REASON.rejectedByProvider) return isAcceptableState(from);
   return false;
 }

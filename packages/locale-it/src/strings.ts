@@ -2349,6 +2349,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "letter-foundation.errors.cancelUnknownJob": "Il fornitore di stampa non conosce questa lettera.",
   "letter-foundation.errors.providerJobMismatch":
     "Il fornitore di stampa non ha alcun ordine con questo id per questa lettera.",
+  "letter-foundation.errors.providerChanged":
+    "Questa lettera è stata approvata con un altro fornitore. Torna a quel fornitore per modificarla.",
   "letter-foundation.preview.monthlyLimitExceeded":
     "Il limite mensile dei costi per le lettere non copre questa lettera.",
   "mail-transport-inmemory.settings": "Casella di prova (in memoria)",

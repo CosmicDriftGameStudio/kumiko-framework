@@ -2372,6 +2372,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "letter-foundation.errors.cancelUnknownJob": "Der Druckdienstleister kennt diesen Brief nicht.",
   "letter-foundation.errors.providerJobMismatch":
     "Der Druckdienstleister hat unter dieser ID keinen Auftrag für diesen Brief.",
+  "letter-foundation.errors.providerChanged":
+    "Dieser Brief wurde mit einem anderen Anbieter freigegeben. Zum Ändern wieder zu diesem Anbieter wechseln.",
   "letter-foundation.preview.monthlyLimitExceeded":
     "Das monatliche Kostenlimit für Briefe reicht für diesen Brief nicht aus.",
   "mail-transport-inmemory.settings": "Test-Postfach (im Speicher)",

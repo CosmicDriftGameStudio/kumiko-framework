@@ -51,6 +51,9 @@ export const LETTER_FOUNDATION_I18N = {
   [LetterI18n.providerJobMismatch]: {
     en: "The print provider has no order with this id for this letter.",
   },
+  [LetterI18n.providerChanged]: {
+    en: "This letter was approved with another provider. Switch back to that provider to change it.",
+  },
   [LetterI18n.limitHint]: {
     en: "The monthly letter cost limit does not cover this letter.",
   },
