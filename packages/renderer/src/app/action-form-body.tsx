@@ -56,6 +56,7 @@ import {
   navigateAfterDrawerSubmit,
   navigateToRedirectTarget,
   redirectScreenTarget,
+  redirectTargetAvailable,
   resolveActionFormSummary,
   resolveRedirectTarget,
   resolveSuccessItems,
@@ -447,19 +448,24 @@ export function ActionFormBody({
       const sequence = successSequence.current;
       setSuccess(undefined);
       if (!result.isSuccess) return;
+      // An onlyWith redirect whose payload field is missing keeps the form open on its success box.
+      const redirect =
+        screen.redirect !== undefined && redirectTargetAvailable(screen.redirect, result.data)
+          ? screen.redirect
+          : undefined;
       setConsumedHandoff(handoff);
       if (onSuccess !== undefined) {
         onSuccess();
         navigateAfterDrawerSubmit({
           nav,
-          redirect: screen.redirect,
+          redirect,
           resultData: result.data,
           schema,
           appFeatures,
         });
         return;
       }
-      if (screen.redirect === undefined) {
+      if (redirect === undefined) {
         const publish = (text: string): void => {
           if (successSequence.current !== sequence) return;
           setSuccess(
@@ -479,7 +485,11 @@ export function ActionFormBody({
           void resolveSuccessMessageParams(screen, schema.featureName, values, dispatcher, locale)
             .then(show)
             .catch(() => show(formatSummaryParams(values, locale)));
-        } else if (declaresSuccessContent(screen) || screen.resetOnSuccess === true) {
+        } else if (
+          declaresSuccessContent(screen) ||
+          screen.resetOnSuccess === true ||
+          screen.redirect !== undefined
+        ) {
           publish(effectiveTranslate("kumiko.actionForm.success"));
         }
         if (screen.resetOnSuccess === true) {
@@ -491,13 +501,13 @@ export function ActionFormBody({
       }
       // Without a redirect the form stays put; returnTo only replaces an existing
       // navigation, and never one to a record screen (see redirectTargetsRecord).
-      if (screen.redirect !== undefined) {
-        if (returnToWinsOverRedirect(returnTarget, screen.redirect, schema, appFeatures)) {
+      if (redirect !== undefined) {
+        if (returnToWinsOverRedirect(returnTarget, redirect, schema, appFeatures)) {
           navigateToReturn(nav, returnTarget);
         } else {
           navigateToRedirectTarget(
             nav,
-            resolveRedirectTarget(screen.redirect, result.data, schema, appFeatures),
+            resolveRedirectTarget(redirect, result.data, schema, appFeatures),
           );
         }
       }

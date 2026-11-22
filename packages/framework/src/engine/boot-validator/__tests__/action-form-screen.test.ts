@@ -31,6 +31,7 @@ describe("actionForm screen", () => {
           readonly screen: string;
           readonly idFrom?: string;
           readonly searchParams?: Readonly<Record<string, string>>;
+          readonly onlyWith?: string;
         };
     readonly successLinks?: ReadonlyArray<{
       readonly screen: string;
@@ -486,6 +487,48 @@ describe("actionForm screen", () => {
         }),
       ]),
     ).toThrow(/sets both redirect and successItems/);
+  });
+
+  test("success* together with a redirect that sets onlyWith → no throw", () => {
+    expect(() =>
+      validateBoot([
+        makeFeature({
+          redirect: {
+            screen: "overview",
+            searchParams: { cmd: "commandId" },
+            onlyWith: "commandId",
+          },
+          successFacts: [{ field: "count", label: "shop.fact.count" }],
+          successItems: { field: "results" },
+          successLinks: [{ screen: "overview", label: "shop.link.overview" }],
+          extraScreens: ["overview"],
+        }),
+      ]),
+    ).not.toThrow();
+  });
+
+  test("a redirect without onlyWith still rejects success* and names onlyWith as the way out", () => {
+    expect(() =>
+      validateBoot([
+        makeFeature({
+          redirect: { screen: "overview", searchParams: { cmd: "commandId" } },
+          successFacts: [{ field: "count", label: "shop.fact.count" }],
+          extraScreens: ["overview"],
+        }),
+      ]),
+    ).toThrow(/sets both redirect and successFacts.*redirect\.onlyWith/);
+  });
+
+  test("redirect.onlyWith empty → Throw", () => {
+    expect(() =>
+      validateBoot([
+        makeFeature({
+          redirect: { screen: "overview", onlyWith: "" },
+          successFacts: [{ field: "count", label: "shop.fact.count" }],
+          extraScreens: ["overview"],
+        }),
+      ]),
+    ).toThrow(/redirect\.onlyWith is empty/);
   });
 
   test("successItems link → unknown screen → Throw naming the link", () => {

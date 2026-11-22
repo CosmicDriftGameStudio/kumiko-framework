@@ -18,6 +18,7 @@ import {
 import type { FeatureDefinition } from "../types/index.ts";
 
 import type {
+  ActionFormRedirect,
   ActionFormScreenDefinition,
   ActionFormSuccessLink,
   ConfigEditScreenDefinition,
@@ -911,6 +912,10 @@ function validateSuccessLink(
   }
 }
 
+function redirectHasOnlyWith(redirect: string | ActionFormRedirect): boolean {
+  return typeof redirect !== "string" && redirect.onlyWith !== undefined;
+}
+
 function validateInlineFormNavTargets(
   feature: FeatureDefinition,
   screenId: string,
@@ -922,23 +927,21 @@ function validateInlineFormNavTargets(
   if (screen.redirect !== undefined) {
     validateRedirectTarget(feature, screenId, kind, screen.redirect, lookups);
   }
-  if (
-    screen.type === "actionForm" &&
-    screen.successFacts !== undefined &&
-    screen.redirect !== undefined
-  ) {
+  const redirectAlwaysLeaves =
+    screen.redirect !== undefined && !redirectHasOnlyWith(screen.redirect);
+  if (screen.type === "actionForm" && screen.successFacts !== undefined && redirectAlwaysLeaves) {
     throw bootRuleError(FORM_LAYOUT_RULES.successFactsWithRedirect, {
       message:
         `[Feature ${feature.name}] Screen "${screenId}" (actionForm) sets both redirect and successFacts — ` +
-        `redirect leaves the screen, successFacts are shown on it. Use one of them.`,
+        `redirect leaves the screen, successFacts are shown on it. Use one of them, or set redirect.onlyWith so the screen stays when the payload field is missing.`,
     });
   }
   if (screen.type === "actionForm" && screen.successLinks !== undefined) {
-    if (screen.redirect !== undefined) {
+    if (redirectAlwaysLeaves) {
       throw bootRuleError(FORM_LAYOUT_RULES.successLinksWithRedirect, {
         message:
           `[Feature ${feature.name}] Screen "${screenId}" (actionForm) sets both redirect and successLinks — ` +
-          `redirect leaves the screen, successLinks keep it open. Use one of them.`,
+          `redirect leaves the screen, successLinks keep it open. Use one of them, or set redirect.onlyWith so the screen stays when the payload field is missing.`,
       });
     }
     screen.successLinks.forEach((link, index) => {
@@ -946,11 +949,11 @@ function validateInlineFormNavTargets(
     });
   }
   if (screen.type === "actionForm" && screen.successItems !== undefined) {
-    if (screen.redirect !== undefined) {
+    if (redirectAlwaysLeaves) {
       throw bootRuleError(SCREEN_ACTION_RULES.actionFormSuccessItemsRedirect, {
         message:
           `[Feature ${feature.name}] Screen "${screenId}" (actionForm) sets both redirect and successItems — ` +
-          `redirect leaves the screen, successItems are shown on it. Use one of them.`,
+          `redirect leaves the screen, successItems are shown on it. Use one of them, or set redirect.onlyWith so the screen stays when the payload field is missing.`,
       });
     }
     if (screen.successItems.link !== undefined) {

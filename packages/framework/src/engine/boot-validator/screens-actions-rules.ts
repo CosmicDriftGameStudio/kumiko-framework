@@ -125,6 +125,11 @@ export const SCREEN_ACTION_RULES = {
     summary: "A redirect object's idFrom is a non-empty string.",
     fix: "Name the success-payload field carrying the navigation id, or use the plain string redirect.",
   },
+  redirectOnlyWithEmpty: {
+    id: "screen/redirect-only-with-empty",
+    summary: "A redirect onlyWith is a non-empty string.",
+    fix: "Name the success-payload field that must be set for the redirect, or drop onlyWith.",
+  },
   redirectIdFromWhitespace: {
     id: "screen/redirect-id-from-whitespace",
     summary: "A redirect idFrom has no leading or trailing whitespace.",
@@ -213,7 +218,8 @@ export const SCREEN_ACTION_RULES = {
   },
   actionFormSuccessItemsRedirect: {
     id: "screen/action-form-success-items-redirect",
-    summary: "An actionForm shows successItems or redirects after submit, not both.",
-    fix: "Drop redirect to show the successItems on the screen, or drop successItems to leave it.",
+    summary:
+      "An actionForm shows successItems or redirects after submit, not both, unless redirect.onlyWith is set.",
+    fix: "Drop redirect to show the successItems on the screen, drop successItems to leave it, or set redirect.onlyWith.",
   },
 } as const satisfies BootRuleTable;

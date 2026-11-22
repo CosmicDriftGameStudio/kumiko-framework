@@ -13,7 +13,14 @@ const detailScreen = {
 
 const schema = { screens: [detailScreen] } as unknown as FeatureSchema;
 
-function run(routeEntityId: string): NavTarget[] {
+function run(
+  routeEntityId: string,
+  redirect: Parameters<typeof navigateAfterDrawerSubmit>[0]["redirect"] = {
+    screen: "order-detail",
+    idFrom: "id",
+  },
+  resultData: unknown = { id: "order-1" },
+): NavTarget[] {
   const calls: NavTarget[] = [];
   const nav = {
     route: { screenId: "order-detail", entityId: routeEntityId },
@@ -25,8 +32,8 @@ function run(routeEntityId: string): NavTarget[] {
     nav,
     schema,
     appFeatures: [schema],
-    redirect: { screen: "order-detail", idFrom: "id" },
-    resultData: { id: "order-1" },
+    redirect,
+    resultData,
   });
   return calls;
 }
@@ -38,5 +45,17 @@ describe("navigateAfterDrawerSubmit", () => {
 
   test("a redirect onto another record of the same screen navigates", () => {
     expect(run("order-2")).toEqual([{ screenId: "order-detail", entityId: "order-1" }]);
+  });
+
+  test("an onlyWith redirect without the payload field does not navigate", () => {
+    const redirect = { screen: "order-detail", idFrom: "id", onlyWith: "orderId" };
+    expect(run("order-2", redirect, { id: "order-1" })).toEqual([]);
+  });
+
+  test("an onlyWith redirect with the payload field navigates", () => {
+    const redirect = { screen: "order-detail", idFrom: "id", onlyWith: "orderId" };
+    expect(run("order-2", redirect, { id: "order-1", orderId: "order-1" })).toEqual([
+      { screenId: "order-detail", entityId: "order-1" },
+    ]);
   });
 });

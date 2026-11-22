@@ -451,6 +451,17 @@ function redirectTargetsRecord(
   return redirectCarriesId(redirect, findRedirectTargetScreen(redirect, schema, appFeatures));
 }
 
+// A redirect with `onlyWith` fires only when that payload field is a non-empty
+// string; without `onlyWith` it always fires.
+export function redirectTargetAvailable(
+  redirect: string | ActionFormRedirect,
+  resultData: unknown,
+): boolean {
+  if (typeof redirect === "string" || redirect.onlyWith === undefined) return true;
+  const value = propertyOf(resultData, redirect.onlyWith);
+  return typeof value === "string" && value !== "";
+}
+
 // Type-guard form narrows `returnTarget` for the caller's subsequent
 // navigateToReturn(nav, returnTarget) call.
 export function returnToWinsOverRedirect(
@@ -646,7 +657,7 @@ export function navigateAfterDrawerSubmit(options: {
   readonly resultData: unknown;
 }): void {
   const { nav, schema, appFeatures, redirect, resultData } = options;
-  if (redirect === undefined) return;
+  if (redirect === undefined || !redirectTargetAvailable(redirect, resultData)) return;
   const target = resolveRedirectTarget(redirect, resultData, schema, appFeatures);
   const hostScreenId = nav.route === undefined ? undefined : lastSegment(nav.route.screenId);
   const isHostScreen =
