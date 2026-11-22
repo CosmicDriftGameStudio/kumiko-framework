@@ -1,12 +1,15 @@
 import { forEachPage, type JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { readTenantFile, storeGeneratedFile } from "../file-foundation/index.ts";
+import {
+  discardGeneratedFile,
+  readTenantFile,
+  storeGeneratedFile,
+} from "../file-foundation/index.ts";
 import { RendererError } from "../renderer-foundation/index.ts";
 import { renderHtmlToPdf } from "../renderer-puppeteer-client/index.ts";
 import { appendPdfPages, PDF_MIME_TYPE, sha256Hex } from "../shared/index.ts";
 import { signerExecutor, ungatedRequestExecutor } from "./entity.ts";
-import { discardGeneratedFile } from "./files.ts";
 import {
   instantOrNull,
   isPastInstant,

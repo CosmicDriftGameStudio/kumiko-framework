@@ -2,13 +2,13 @@ import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import {
-  type bookCapUsage,
+  bookCapUsage,
   calendarCapReservationHandle,
   calendarMonthPeriodEndIso,
-  type releaseCapUsage,
+  releaseCapUsage,
   reserveCalendarCapUsage,
 } from "../cap-counter/index.ts";
-import { LETTER_CAP, type LetterShippingMode } from "./constants.ts";
+import { LETTER_CAP, LETTER_CLAIM_STATUS, type LetterShippingMode } from "./constants.ts";
 import { letterSubmissionTable } from "./entity.ts";
 import { isLetterShippingMode } from "./row-guards.ts";
 
@@ -110,4 +110,49 @@ export async function findClaim(
 export function releaseReservationAfterCommit(ctx: HandlerContext, claim: LetterClaim): void {
   if (claim.reservationId === null) return;
   ctx.lifecycle.afterCommit?.(() => releaseReservedCost(ctx, claim, true));
+}
+
+/** A letter whose handover got no answer keeps its estimate as a firm booking: a reservation expires
+ *  after an hour, but the letter may still be at the provider and cost money. Booking it and giving the
+ *  reservation back after the commit leaves the estimate counted once. */
+export async function bookEstimateForUnknownHandover(
+  ctx: HandlerContext,
+  claim: LetterClaim,
+  quotedCents: number,
+): Promise<void> {
+  if (claim.periodStart === null || quotedCents <= 0) return;
+  assertBooked(
+    await bookCapUsage(ctx, {
+      capName: LETTER_CAP.costNetCents,
+      amount: quotedCents,
+      periodStartIso: claim.periodStart,
+      outsideTransaction: false,
+    }),
+  );
+  releaseReservationAfterCommit(ctx, claim);
+  await ctx.db.updateMany(
+    letterSubmissionTable,
+    { status: LETTER_CLAIM_STATUS.estimateBooked, reservationId: null },
+    { id: claim.id },
+  );
+}
+
+/** Gives the booked estimate of an unknown handover back, because the letter ends up booked at its
+ *  actual price or not at all. A no-op for every other claim. */
+export async function releaseBookedEstimate(
+  ctx: CapCtx,
+  claim: LetterClaim,
+  quotedCents: number,
+  outsideTransaction: boolean,
+): Promise<void> {
+  if (claim.status !== LETTER_CLAIM_STATUS.estimateBooked) return;
+  if (claim.periodStart === null || quotedCents <= 0) return;
+  assertBooked(
+    await releaseCapUsage(ctx, {
+      capName: LETTER_CAP.costNetCents,
+      amount: quotedCents,
+      periodStartIso: claim.periodStart,
+      outsideTransaction,
+    }),
+  );
 }

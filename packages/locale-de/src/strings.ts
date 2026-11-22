@@ -2368,6 +2368,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "letter-foundation.errors.cancelAlreadyProcessed":
     "Der Druckdienstleister hat den Brief bereits bearbeitet.",
   "letter-foundation.errors.cancelUnknownJob": "Der Druckdienstleister kennt diesen Brief nicht.",
+  "letter-foundation.errors.providerJobMismatch":
+    "Der Druckdienstleister hat unter dieser ID keinen Auftrag für diesen Brief.",
   "letter-foundation.preview.monthlyLimitExceeded":
     "Das monatliche Kostenlimit für Briefe reicht für diesen Brief nicht aus.",
   "mail-transport-inmemory.settings": "Test-Postfach (im Speicher)",

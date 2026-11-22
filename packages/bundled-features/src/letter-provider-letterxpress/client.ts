@@ -1,10 +1,8 @@
 import { createHash } from "node:crypto";
 import * as z from "zod";
 import {
-  balanceDataSchema,
   envelopeOf,
   errorBodySchema,
-  type LetterXpressBalance,
   type LetterXpressPrice,
   type LetterXpressPrintJob,
   type LetterXpressPrintJobList,
@@ -60,7 +58,6 @@ export type LetterXpressClientOptions = {
 };
 
 export type LetterXpressClient = {
-  balance(): Promise<LetterXpressResult<LetterXpressBalance>>;
   price(request: PriceRequest): Promise<LetterXpressResult<LetterXpressPrice>>;
   createPrintJob(request: CreatePrintJobRequest): Promise<LetterXpressResult<LetterXpressPrintJob>>;
   getPrintJob(id: string): Promise<LetterXpressResult<LetterXpressPrintJob>>;
@@ -146,7 +143,6 @@ export function createLetterXpressClient(options: LetterXpressClientOptions): Le
   }
 
   return {
-    balance: () => unwrapData(call("GET", "/balance", {}, envelopeOf(balanceDataSchema))),
     price: (request) =>
       unwrapData(
         call(

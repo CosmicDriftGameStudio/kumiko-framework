@@ -82,4 +82,5 @@ export const ApplyProviderStatusSchema = z.object({
 export const ResolveUnknownSchema = z.object({
   letterId: z.uuid(),
   note: z.string().trim().min(1).max(2000),
+  providerJobId: z.string().min(1).max(200).optional(),
 });

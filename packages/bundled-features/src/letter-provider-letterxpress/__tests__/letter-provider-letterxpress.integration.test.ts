@@ -75,6 +75,7 @@ describe("letter-provider-letterxpress in a stack", () => {
     const selected = selectLetterProvider(stack.registry, {
       LETTER_LIVE: "true",
       LETTER_PROVIDER: LETTERXPRESS_PROVIDER_NAME,
+      NODE_ENV: "production",
     });
     expect(selected.name).toBe(LETTERXPRESS_PROVIDER_NAME);
     expect(selected.live).toBe(true);

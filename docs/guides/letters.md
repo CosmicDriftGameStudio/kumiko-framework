@@ -104,20 +104,25 @@ cap counters `letter.cost-net-cents`, `letter.<mode>.count`, `letter.<mode>.shee
 hold what was actually sent and are the basis for billing a tenant.
 
 The provider's credit is a second, shared limit. When it runs out, the provider rejects letters of every
-tenant. Watch the balance on the provider's side.
+tenant. Watch the credit on the provider's side; the framework does not read it.
 
 ### When a letter is stuck
 
 | State | Meaning | What to do |
 | ----- | ------- | ---------- |
-| `submission-unknown` | The handover timed out. The provider may or may not have the letter | Wait for the poll job, which looks the letter up by its reference. If the provider offers no lookup, check the provider's site and close the case with `resolve-unknown` |
+| `submission-unknown` | The handover timed out. The provider may or may not have the letter | Wait for the poll job, which looks the letter up by its reference. If the provider offers no lookup, check the provider's site: if it has the order, pass its id as `providerJobId` to `resolve-unknown` and the letter is accepted at the order's price; if not, close the case with `resolve-unknown` and a note |
 | `on-hold` | The provider stopped the letter and waits for the operator | Look up the reason at the provider and fix it there. The poll job picks up the change |
 | `failed` with `address-mismatch` | The provider read a different address from the PDF than the app expected, and the letter was canceled in time | Fix the address block of the template and send again |
 | `addressMismatch` set on a sent letter | The same mismatch, found after the cancel window closed | Check the letter by hand; it was posted |
 | `failed` with `monthly-limit` | The tenant's limit does not cover the letter | Raise the limit or wait for the next month, then send again |
 
-A letter in `submission-unknown` is never sent a second time on its own. `resolve-unknown` marks it
-failed and frees the reserved amount, so use it only after checking that the provider has no such order.
+A letter in `submission-unknown` is never sent a second time on its own. Its estimate stays booked
+against the month, because the letter may be at the provider and a reservation would expire after an
+hour. `resolve-unknown` without `providerJobId` marks it failed and gives the estimate back, so use it
+only after checking that the provider has no such order. With `providerJobId` the order is fetched by
+id, must carry this letter's reference, and the letter is accepted at the order's price.
+
+The poll also restarts a handover that stayed in `approved` after the submit job ran out of retries, once the hold time plus 30 minutes have passed.
 
 ### Limits to know
 

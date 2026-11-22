@@ -85,3 +85,31 @@ describe("recognizedAddressMatches", () => {
     ).toBe(false);
   });
 });
+
+describe("recipientPart and legal forms", () => {
+  test("a sender line that holds the recipient's name does not make a wrong recipient match", () => {
+    const sameName = "Erika Mustermann, Absenderweg 1, 54321 Beispielstadt";
+    expect(
+      recognizedAddressMatches(
+        expected,
+        `${sameName}, , Max Beispiel, Musterstraße 12, 12345 Musterstadt`,
+      ),
+    ).toBe(false);
+  });
+
+  test("the distinctive word of a company name decides, not its legal form", () => {
+    const company = { ...expected, name: "Muster Verwaltung GmbH & Co. KG" };
+    expect(
+      recognizedAddressMatches(
+        company,
+        "Muster Verwaltung GmbH & Co. KG, Musterstraße 12, 12345 Musterstadt",
+      ),
+    ).toBe(true);
+    expect(
+      recognizedAddressMatches(
+        company,
+        "Andere Firma GmbH & Co. KG, Musterstraße 12, 12345 Musterstadt",
+      ),
+    ).toBe(false);
+  });
+});

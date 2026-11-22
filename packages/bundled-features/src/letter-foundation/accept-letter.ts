@@ -9,7 +9,12 @@ import {
 import { unprocessable } from "../shared/index.ts";
 import { LETTER_STATE, LetterErrors, LetterI18n, type LetterState } from "./constants.ts";
 import { type LetterRow, letterSubmissionTable } from "./entity.ts";
-import { applyAcceptedUsage, findClaim, releaseReservationAfterCommit } from "./letter-usage.ts";
+import {
+  applyAcceptedUsage,
+  findClaim,
+  releaseBookedEstimate,
+  releaseReservationAfterCommit,
+} from "./letter-usage.ts";
 import type { RecordAcceptance } from "./payloads.ts";
 import { isLetterState } from "./row-guards.ts";
 import { transitionLetter } from "./transitions.ts";
@@ -71,6 +76,10 @@ export async function acceptLetter(
     );
   }
   const periodStart = claim?.periodStart ?? currentCalendarMonthStartIso(ctx.tz.now());
+  // An unknown handover already counts its estimate; the actual price replaces it instead of adding to it.
+  if (claim !== undefined) {
+    await releaseBookedEstimate(ctx, claim, letter.quotedNet?.amount ?? 0, false);
+  }
   await applyAcceptedUsage(ctx, letter, periodStart, acceptance.actualNet.amount, bookCapUsage);
   if (claim !== undefined) {
     releaseReservationAfterCommit(ctx, claim);

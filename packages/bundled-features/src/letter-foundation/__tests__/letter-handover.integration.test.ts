@@ -322,7 +322,8 @@ describe("a late acceptance after the reservation expired", () => {
     letterSimulator.setScenario({ submit: { kind: "accept" } });
     const other = await handOver();
     expect(await statusOf(other)).toBe(LETTER_STATE.accepted);
-    expect(await usage()).toEqual({ cost: 109, count: 1, sheets: 2, pages: 3 });
+    // The unknown letter's estimate is a firm booking, so it still counts after its reservation expired.
+    expect(await usage()).toEqual({ cost: 218, count: 1, sheets: 2, pages: 3 });
 
     await poll();
     expect(await statusOf(late)).toBe(LETTER_STATE.accepted);
@@ -376,6 +377,8 @@ describe("polling the provider", () => {
   });
 
   test("a wrong recognized address after the window only sets the flag", async () => {
+    // Without a cancel window the letter is past it from the start, so the handover job cannot cancel either.
+    letterSimulator.setCapabilities({ cancelWindowSeconds: null });
     letterSimulator.setScenario({ misrecognizedAddress: true });
     const letterId = await handOver();
     clock().advance({ minutes: 11 });

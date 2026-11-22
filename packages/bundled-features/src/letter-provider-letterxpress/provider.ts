@@ -5,6 +5,7 @@ import type {
   LetterProvider,
   LetterProviderCapabilities,
   LetterProviderContext,
+  LetterProviderOrder,
   LetterProviderPlugin,
   LetterProviderState,
   LetterShippingMode,
@@ -185,7 +186,7 @@ export async function buildLetterXpressProvider(
   const mode: LetterXpressMode = ctx.live ? "live" : "test";
   const { username, apiKey } = readCredentials(ctx.env);
   const client: LetterXpressClient = createLetterXpressClient({
-    egress: ctx.egress({ kind: "internal", allowHosts: [LETTERXPRESS_HOST] }),
+    egress: ctx.egress({ kind: "internal", allowOrigins: [`https://${LETTERXPRESS_HOST}`] }),
     username,
     apiKey,
     mode,
@@ -275,9 +276,12 @@ export async function buildLetterXpressProvider(
       return null;
     },
 
-    async balance() {
-      const data = unwrap(await client.balance());
-      return money(eurosToCents(data.balance));
+    async findByJobId(providerJobId): Promise<LetterProviderOrder | null> {
+      const result = await client.getPrintJob(providerJobId);
+      if (result.kind === "not-found") return null;
+      const job = unwrap(result);
+      if (job.status === "canceled") return null;
+      return { reference: job.notice ?? "", acceptance: acceptanceOf(job, undefined) };
     },
   };
 }

@@ -1,6 +1,7 @@
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { egress } from "@cosmicdrift/kumiko-framework/http";
 import { LETTER_ENV, LETTER_INMEMORY_PROVIDER, LETTER_PROVIDER_EXTENSION } from "./constants.ts";
+import { letterLiveEnvRule } from "./env-schema.ts";
 import {
   isLetterProviderPlugin,
   type LetterProvider,
@@ -28,13 +29,18 @@ export type ResolvedLetterProvider = {
 /**
  * The provider plugin for this process, chosen from the environment and never per tenant. Without
  * the live switch the inmemory provider runs, so a missing or wrong setting cannot send a real
- * letter. The boot rule on the live switch has already refused `LETTER_LIVE=true` outside production.
+ * letter. The live switch is checked here against the same env source as the boot rule, so it fails closed
+ * even when that rule never ran.
  */
 export function selectLetterProvider(
   registry: ExtensionRegistry,
   env: LetterEnvSource = process.env,
 ): SelectedLetterProvider {
   const live = env[LETTER_ENV.live] === "true";
+  const liveRefusal = live ? letterLiveEnvRule("true", env) : undefined;
+  if (liveRefusal !== undefined) {
+    throw new Error(`letter-foundation: ${LETTER_ENV.live}=true refused: ${liveRefusal}.`);
+  }
   const name = live ? env[LETTER_ENV.provider] : LETTER_INMEMORY_PROVIDER;
   const usages = registry.getExtensionUsages(LETTER_PROVIDER_EXTENSION);
   const known = usages.map((usage) => usage.entityName).join(", ") || "<none>";

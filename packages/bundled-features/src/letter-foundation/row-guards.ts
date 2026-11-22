@@ -30,3 +30,7 @@ export function isLetterEnvelope(value: unknown): value is LetterEnvelope {
 export function isLetterFormRequirement(value: unknown): value is LetterFormRequirement {
   return isOneOf(LETTER_FORM_REQUIREMENTS, value);
 }
+
+export function envelopeOf(letter: { readonly envelope?: unknown }): LetterEnvelope {
+  return isLetterEnvelope(letter.envelope) ? letter.envelope : "folded";
+}

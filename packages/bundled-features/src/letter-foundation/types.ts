@@ -114,13 +114,19 @@ export type LetterCancelResult =
   | { readonly kind: "canceled" }
   | { readonly kind: "refused"; readonly reason: LetterCancelRefusalReason };
 
+export type LetterProviderOrder = {
+  readonly reference: string;
+  readonly acceptance: LetterAcceptance;
+};
+
 export type LetterProvider = {
   quote(spec: LetterSpec): Promise<LetterQuote>;
   submit(submission: LetterSubmission): Promise<LetterSubmitResult>;
   status(providerJobId: string): Promise<LetterProviderStatus>;
   cancel?(providerJobId: string): Promise<LetterCancelResult>;
   findByReference?(reference: string): Promise<LetterSubmitResult | null>;
-  balance?(): Promise<LetterMoney>;
+  /** One order by its provider id, with the reference it was placed under; null when the provider does not know it or it was canceled. */
+  findByJobId?(providerJobId: string): Promise<LetterProviderOrder | null>;
 };
 
 export type LetterProviderPlugin = {

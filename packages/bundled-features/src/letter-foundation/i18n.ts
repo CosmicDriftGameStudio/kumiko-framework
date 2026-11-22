@@ -44,6 +44,9 @@ export const LETTER_FOUNDATION_I18N = {
     en: "The print provider has already processed the letter.",
   },
   [LetterI18n.cancelUnknownJob]: { en: "The print provider does not know this letter." },
+  [LetterI18n.providerJobMismatch]: {
+    en: "The print provider has no order with this id for this letter.",
+  },
   [LetterI18n.limitHint]: {
     en: "The monthly letter cost limit does not cover this letter.",
   },

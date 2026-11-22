@@ -11,7 +11,8 @@ import {
   LetterErrors,
   LetterI18n,
 } from "../constants.ts";
-import { letterExecutor } from "../entity.ts";
+import { letterExecutor, letterSubmissionTable } from "../entity.ts";
+import { findClaim, releaseReservationAfterCommit } from "../letter-usage.ts";
 import { LetterIdSchema } from "../payloads.ts";
 import { resolveLetterProvider } from "../provider-resolver.ts";
 import { transitionLetter } from "../transitions.ts";
@@ -78,11 +79,19 @@ export const cancelHandler = defineWriteHandler({
     const letter = await letterExecutor.detail({ id: event.payload.letterId }, event.user, ctx.db);
     if (letter === null) return failNotFound(LETTER_ENTITY, event.payload.letterId);
     if (isCancelableBeforeHandover(letter.status)) {
-      return transitionLetter(ctx, event.user, {
+      const moved = await transitionLetter(ctx, event.user, {
         letterId: letter.id,
         from: letter.status,
         to: LETTER_STATE.canceled,
       });
+      if (!moved.isSuccess) return moved;
+      // A handover run that stopped after taking its reservation leaves the letter in `approved` with a claim.
+      const claim = await findClaim(ctx.db, letter.id);
+      if (claim !== undefined) {
+        releaseReservationAfterCommit(ctx, claim);
+        await ctx.db.deleteMany(letterSubmissionTable, { id: claim.id });
+      }
+      return moved;
     }
     if (isAtProviderState(letter.status)) {
       const prepared = event.prepared;

@@ -2,7 +2,6 @@ export { recognizedAddressMatches } from "./address-match.ts";
 export {
   isFinalLetterState,
   isLetterTransitionAllowed,
-  LETTER_ADDRESS_MISMATCH_FIELD,
   LETTER_CAP,
   LETTER_CONFIG_KEYS,
   LETTER_ENTITY,
@@ -27,11 +26,7 @@ export {
   type LetterState,
 } from "./constants.ts";
 export { letterEntity, letterExecutor, letterSubmissionTable, letterTable } from "./entity.ts";
-export {
-  createLetterFoundationFeature,
-  type LetterFoundationOptions,
-  readMonthlyCostLimitCents,
-} from "./feature.ts";
+export { createLetterFoundationFeature, type LetterFoundationOptions } from "./feature.ts";
 export { LetterAddressSchema, type SendLetterInput, SendLetterInputSchema } from "./payloads.ts";
 export {
   type ResolvedLetterProvider,
@@ -55,6 +50,7 @@ export {
   type LetterProvider,
   type LetterProviderCapabilities,
   type LetterProviderContext,
+  type LetterProviderOrder,
   type LetterProviderPlugin,
   type LetterProviderState,
   type LetterProviderStatus,

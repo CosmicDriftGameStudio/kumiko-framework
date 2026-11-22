@@ -7,7 +7,7 @@ import { prepareLetterDocument } from "../document-preparation.ts";
 import { letterExecutor } from "../entity.ts";
 import { LetterIdSchema } from "../payloads.ts";
 import { resolveLetterProvider } from "../provider-resolver.ts";
-import { isLetterEnvelope, isLetterFormRequirement } from "../row-guards.ts";
+import { envelopeOf, isLetterFormRequirement } from "../row-guards.ts";
 import type { LetterEnvelope, LetterFormRequirement, LetterMoney } from "../types.ts";
 
 const { table: capCounterTable } = createEntityExecutor(capCounterEntity);
@@ -65,7 +65,7 @@ export function createPreviewQuery(limitKey: ConfigKeyHandle<"number">) {
         ({ pageCount, sheetCount } = prepared.data);
       }
 
-      const envelope = isLetterEnvelope(letter.envelope) ? letter.envelope : "folded";
+      const envelope = envelopeOf(letter);
       const { maxFlatSheets } = (await resolveLetterProvider(ctx.registry)).capabilities;
       const limitCents = (await ctx.config?.(limitKey)) ?? 0;
       const periodStart = currentCalendarMonthStartIso(ctx.tz.now());

@@ -20,9 +20,6 @@ export const printJobSchema = z.object({
 });
 export type LetterXpressPrintJob = z.infer<typeof printJobSchema>;
 
-export const balanceDataSchema = z.object({ balance: z.number(), currency: z.string() });
-export type LetterXpressBalance = z.infer<typeof balanceDataSchema>;
-
 export const priceDataSchema = z.object({ price: z.number() });
 export type LetterXpressPrice = z.infer<typeof priceDataSchema>;
 

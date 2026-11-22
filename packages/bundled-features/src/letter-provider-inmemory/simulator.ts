@@ -1,12 +1,14 @@
 import {
   LETTER_ENVELOPES,
   LETTER_SHIPPING_MODES,
+  type LetterAcceptance,
   type LetterAddress,
   type LetterCancelRefusalReason,
   type LetterCancelResult,
   type LetterMoney,
   type LetterProvider,
   type LetterProviderCapabilities,
+  type LetterProviderOrder,
   type LetterProviderStatus,
   type LetterQuote,
   type LetterRejectionCode,
@@ -81,7 +83,14 @@ export type SimulatedOrder = {
   readonly finalState: FinalProviderState;
 };
 
-const NO_CALLS = { quote: 0, submit: 0, status: 0, cancel: 0, findByReference: 0, balance: 0 };
+const NO_CALLS = {
+  quote: 0,
+  submit: 0,
+  status: 0,
+  cancel: 0,
+  findByReference: 0,
+  findByJobId: 0,
+};
 
 const DEFAULT_SCENARIO: LetterScenario = {
   submit: { kind: "accept" },
@@ -160,7 +169,7 @@ export function createLetterSimulator() {
     return order;
   }
 
-  function acceptanceOf(order: SimulatedOrder): LetterSubmitResult {
+  function acceptanceOf(order: SimulatedOrder): LetterAcceptance {
     const windowSeconds = INMEMORY_CAPABILITIES.cancelWindowSeconds;
     return {
       kind: "accepted",
@@ -236,9 +245,11 @@ export function createLetterSimulator() {
       const order = jobId === undefined ? undefined : orders.get(jobId);
       return order === undefined || order.canceled ? null : acceptanceOf(order);
     },
-    async balance(): Promise<LetterMoney> {
-      calls.balance += 1;
-      return money(10_000);
+    async findByJobId(providerJobId): Promise<LetterProviderOrder | null> {
+      calls.findByJobId += 1;
+      const order = orders.get(providerJobId);
+      if (order === undefined || order.canceled) return null;
+      return { reference: order.submission.reference, acceptance: acceptanceOf(order) };
     },
   };
 

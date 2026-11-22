@@ -8,6 +8,7 @@ export {
   isFileProviderPlugin,
 } from "./feature.ts";
 export {
+  deleteFileRef,
   discardGeneratedFile,
   type GeneratedFileContext,
   MAX_DOCUMENT_BYTES,
