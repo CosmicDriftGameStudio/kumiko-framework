@@ -2330,6 +2330,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "Il documento non può essere inviato come lettera. Controlla il formato pagina (A4, verticale) e la dimensione del file.",
   "letter-foundation.errors.documentUnreadable":
     "Un documento della lettera non può essere letto come PDF.",
+  "letter-foundation.errors.providerNotConfigured":
+    "L'invio di lettere non è configurato su questo server. Chiedi al gestore di impostare il fornitore di lettere.",
   "letter-foundation.errors.noFiles": "La lettera non ha documenti.",
   "letter-foundation.errors.notAwaitingApproval": "La lettera non è in attesa di approvazione.",
   "letter-foundation.errors.notCancelableHere": "La lettera non può più essere annullata.",

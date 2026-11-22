@@ -2324,6 +2324,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "El documento no se puede enviar como carta. Comprueba el formato de página (A4, vertical) y el tamaño del archivo.",
   "letter-foundation.errors.documentUnreadable":
     "Un documento de la carta no se puede leer como PDF.",
+  "letter-foundation.errors.providerNotConfigured":
+    "El envío de cartas no está configurado en este servidor. Pide al operador que defina el proveedor de cartas.",
   "letter-foundation.errors.noFiles": "La carta no tiene documento.",
   "letter-foundation.errors.notAwaitingApproval": "La carta no está pendiente de aprobación.",
   "letter-foundation.errors.notCancelableHere": "La carta ya no se puede cancelar.",

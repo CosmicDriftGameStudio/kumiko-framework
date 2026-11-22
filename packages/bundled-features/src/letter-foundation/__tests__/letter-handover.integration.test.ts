@@ -3,7 +3,7 @@
 // whether it has passed, so every test is deterministic.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createFileContext, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
@@ -21,6 +21,7 @@ import { seedDestroyingTenant } from "../../tenant-lifecycle/testing.ts";
 import {
   LETTER_FAILURE_REASON,
   LETTER_STATE,
+  LETTER_SUBMITTING_STALE_MS,
   LetterHandlers,
   LetterI18n,
   LetterInternalHandlers,
@@ -305,33 +306,72 @@ describe("a handover without an answer", () => {
   });
 });
 
-describe("a late acceptance after the reservation expired", () => {
-  test("books the actual price and the units once and gives nothing back twice", async () => {
+describe("an unknown handover the provider rejected", () => {
+  test("the poll fails the letter, books the estimate back and removes the claim", async () => {
+    letterSimulator.setScenario({
+      submit: { kind: "timeout-lost" },
+      lookupRejection: { code: "invalid-address", message: "Street unknown" },
+    });
+    const letterId = await handOver();
+    expect(await statusOf(letterId)).toBe(LETTER_STATE.submissionUnknown);
+    expect((await usage()).cost).toBe(109);
+
+    await poll();
+    const row = await letterRow(letterId);
+    expect(row?.["status"]).toBe(LETTER_STATE.failed);
+    expect(row?.["failureReason"]).toBe(LETTER_FAILURE_REASON.rejectedByProvider);
+    expect(await usage()).toEqual(NOTHING);
+    expect(await claimRows(letterId)).toHaveLength(0);
+    expect(letterSimulator.calls.submit).toBe(1);
+  });
+});
+
+describe("a handover that never finished", () => {
+  // A negative price makes the acceptance fail after the letter is in `submitting`; the retried run leaves it there.
+  async function stuckInSubmitting(): Promise<string> {
+    letterSimulator.setScenario({ actualNet: { amount: -1, currency: "EUR" } });
+    const letterId = await handOver();
+    expect(await statusOf(letterId)).toBe(LETTER_STATE.submitting);
+    expect(letterSimulator.calls.submit).toBe(1);
+    return letterId;
+  }
+
+  test("the poll marks it unknown once it is stale and books the estimate", async () => {
+    const letterId = await stuckInSubmitting();
+    clock().advance({ milliseconds: LETTER_SUBMITTING_STALE_MS - 1_000 });
+    await poll();
+    expect(await statusOf(letterId)).toBe(LETTER_STATE.submitting);
+
+    clock().advance({ seconds: 2 });
+    await poll();
+    expect(await statusOf(letterId)).toBe(LETTER_STATE.submissionUnknown);
+    expect((await claimRows(letterId))[0]?.["status"]).toBe("estimate-booked");
+    expect(letterSimulator.calls.submit).toBe(1);
+  });
+});
+
+describe("a late acceptance of an unknown handover", () => {
+  test("books the actual price and the units once, next to a later letter", async () => {
     letterSimulator.setScenario({ submit: { kind: "timeout-accepted" } });
     const late = await handOver();
     expect(await statusOf(late)).toBe(LETTER_STATE.submissionUnknown);
     expect((await usage()).cost).toBe(109);
+    expect(
+      await selectMany(stack.db, capReservationsTable, { tenantId: CLERK.tenantId }),
+    ).toHaveLength(0);
 
-    // The TTL runs on the database clock, so the row is aged by hand; the next reservation sweeps it.
-    await updateMany(
-      stack.db,
-      capReservationsTable,
-      { expiresAt: Temporal.Now.instant().subtract({ minutes: 1 }) },
-      { tenantId: CLERK.tenantId },
-    );
     letterSimulator.setScenario({ submit: { kind: "accept" } });
     const other = await handOver();
     expect(await statusOf(other)).toBe(LETTER_STATE.accepted);
-    // The unknown letter's estimate is a firm booking, so it still counts after its reservation expired.
+    // The unknown letter's estimate is a firm booking, so it counts next to the later letter.
     expect(await usage()).toEqual({ cost: 218, count: 1, sheets: 2, pages: 3 });
 
     await poll();
     expect(await statusOf(late)).toBe(LETTER_STATE.accepted);
     expect(await usage()).toEqual({ cost: 218, count: 2, sheets: 4, pages: 6 });
-    const reservations = await selectMany(stack.db, capReservationsTable, {
-      tenantId: CLERK.tenantId,
-    });
-    expect(reservations).toHaveLength(0);
+    expect(
+      await selectMany(stack.db, capReservationsTable, { tenantId: CLERK.tenantId }),
+    ).toHaveLength(0);
     expect(letterSimulator.calls.submit).toBe(2);
   });
 });
@@ -365,15 +405,34 @@ describe("polling the provider", () => {
     expect(await claimRows(letterId)).toHaveLength(0);
   });
 
-  test("a wrong recognized address inside the cancel window cancels the letter and books back", async () => {
+  test("a wrong recognized address inside the cancel window: the poll cancels what the handover could not", async () => {
     letterSimulator.setScenario({ misrecognizedAddress: true });
+    letterSimulator.setCancelRefusal("window_closed");
     const letterId = await handOver();
+    expect(await statusOf(letterId)).toBe(LETTER_STATE.accepted);
+    expect(letterSimulator.calls.cancel).toBe(1);
+
+    letterSimulator.setCancelRefusal(undefined);
     await poll();
     const row = await letterRow(letterId);
     expect(row?.["status"]).toBe(LETTER_STATE.canceled);
     expect(row?.["failureReason"]).toBe(LETTER_FAILURE_REASON.addressMismatch);
-    expect(letterSimulator.calls.cancel).toBe(1);
+    expect(letterSimulator.calls.cancel).toBe(2);
     expect(await usage()).toEqual(NOTHING);
+  });
+
+  test("a wrong recognized address that the handover could not cancel and the window has closed on: only the flag is set", async () => {
+    letterSimulator.setScenario({ misrecognizedAddress: true });
+    letterSimulator.setCancelRefusal("window_closed");
+    const letterId = await handOver();
+    letterSimulator.setCancelRefusal(undefined);
+    clock().advance({ minutes: 11 });
+    await poll();
+    const row = await letterRow(letterId);
+    expect(row?.["status"]).toBe(LETTER_STATE.sent);
+    expect(row?.["addressMismatch"]).toBe(true);
+    expect(letterSimulator.calls.cancel).toBe(1);
+    expect((await usage()).count).toBe(1);
   });
 
   test("a wrong recognized address after the window only sets the flag", async () => {

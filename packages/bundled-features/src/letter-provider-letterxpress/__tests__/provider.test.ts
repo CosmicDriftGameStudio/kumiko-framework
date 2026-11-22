@@ -6,6 +6,7 @@ import type {
   LetterSubmission,
 } from "@cosmicdrift/kumiko-bundled-features/letter-foundation";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { LETTERXPRESS_FIND_MAX_PAGES } from "../constants.ts";
 import {
   buildLetterXpressProvider,
   letterXpressCapabilities,
@@ -46,7 +47,11 @@ function submission(overrides: Partial<LetterSpec> = {}): LetterSubmission {
 
 async function providerWith(
   answers: StubAnswer[],
-  options: { live?: boolean; env?: LetterProviderContext["env"] } = {},
+  options: {
+    live?: boolean;
+    env?: LetterProviderContext["env"];
+    wait?: (ms: number) => Promise<void>;
+  } = {},
 ) {
   const stub = createStubTransport(answers);
   const ctx: LetterProviderContext = {
@@ -54,7 +59,10 @@ async function providerWith(
     env: options.env ?? { LETTERXPRESS_USERNAME: USERNAME, LETTERXPRESS_API_KEY: API_KEY },
     egress: stub.egress,
   };
-  const provider = await buildLetterXpressProvider(ctx, { now: () => ACCEPTED_AT });
+  const provider = await buildLetterXpressProvider(ctx, {
+    now: () => ACCEPTED_AT,
+    ...(options.wait !== undefined && { wait: options.wait }),
+  });
   return { provider, requests: stub.requests, policies: stub.policies };
 }
 
@@ -235,6 +243,52 @@ describe("submit", () => {
     });
   });
 
+  describe("429", () => {
+    const throttled = (headers?: Record<string, string>): StubAnswer => ({
+      http_status: 429,
+      body: { status: 429, message: "Too Many Requests" },
+      ...(headers !== undefined && { headers }),
+    });
+
+    test("one throttled answer waits Retry-After once and then submits again", async () => {
+      const waits: number[] = [];
+      const { provider, requests } = await providerWith(
+        [throttled({ "Retry-After": "3" }), fixture("d-submit-std")],
+        { wait: async (ms) => void waits.push(ms) },
+      );
+      const result = await provider.submit(submission());
+      expect(result).toMatchObject({ kind: "accepted", providerJobId: "10000001" });
+      expect(waits).toEqual([3000]);
+      expect(requests).toHaveLength(2);
+    });
+
+    test("the wait is capped and defaults to 2 s without the header", async () => {
+      const waits: number[] = [];
+      const wait = async (ms: number) => void waits.push(ms);
+      const capped = await providerWith(
+        [throttled({ "Retry-After": "120" }), fixture("d-submit-std")],
+        { wait },
+      );
+      await capped.provider.submit(submission());
+      const bare = await providerWith([throttled(), fixture("d-submit-std")], { wait });
+      await bare.provider.submit(submission());
+      expect(waits).toEqual([10_000, 2000]);
+    });
+
+    test("a second throttled answer is a rejection, not an exception", async () => {
+      const { provider, requests } = await providerWith([throttled(), throttled()], {
+        wait: async () => {},
+      });
+      const result = await provider.submit(submission());
+      expect(result).toMatchObject({ kind: "rejected", code: "refused-by-provider" });
+      if (result.kind === "rejected") {
+        expect(result.message).toContain("throttling");
+        expect(result.message).toContain("nothing was created");
+      }
+      expect(requests).toHaveLength(2);
+    });
+  });
+
   test("500 throws, because the outcome is unknown", async () => {
     const { provider } = await providerWith([fixture("i2-landscape")]);
     await expect(provider.submit(submission())).rejects.toThrow("HTTP 500");
@@ -271,6 +325,12 @@ describe("submit", () => {
       expect(message).not.toContain(API_KEY);
       expect(message).not.toContain(USERNAME);
     }
+  });
+});
+
+describe("capabilities", () => {
+  test("a lookup costs one request per scanned list page", () => {
+    expect(letterXpressCapabilities.lookupRequestsPerLetter).toBe(3 * LETTERXPRESS_FIND_MAX_PAGES);
   });
 });
 

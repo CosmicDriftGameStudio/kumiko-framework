@@ -89,12 +89,18 @@ its state.
 | Open an account with the provider and load credit | The account belongs to the operator and serves all tenants |
 | Sign the data processing agreement with the provider | The provider reads names, addresses and the document |
 | Set the provider's credentials as secrets | See the provider's README for the variable names |
-| Set `LETTER_PROVIDER` and `LETTER_LIVE=true` in production | Without the switch every letter goes to the simulator |
+| Set `LETTER_PROVIDER` and `LETTER_LIVE=true` in production | Production needs an explicit `LETTER_LIVE`. `false` keeps the simulator; without the variable no letter can be previewed, approved or handed over |
 | Set `monthlyCostLimitCents` for each tenant that may send | The limit is 0 by default, so a tenant sends nothing until it is set |
 | Give the role `LetterApprover` to the users who may release letters | `TenantAdmin` does not include it. The app declares the role with `EXT_ASSIGNABLE_ROLE`, otherwise the members screen does not offer it |
 
 `LETTER_LIVE=true` boots only with `NODE_ENV=production`. A staging or development system therefore
-cannot send a real letter, whatever else is configured.
+cannot send a real letter, whatever else is configured. Outside production a missing `LETTER_LIVE`
+means the simulator.
+
+A production system without `LETTER_LIVE`, or with `LETTER_LIVE=true` and no known `LETTER_PROVIDER`,
+still boots. Users get the error `letter_provider_not_configured` in the preview and on approval, and
+letters approved before stay in `approved`. Once the variable is set, the poll job asks for their
+handover again, at the earliest 30 minutes plus the hold time after the approval.
 
 ### The monthly cost limit
 
@@ -110,7 +116,8 @@ tenant. Watch the credit on the provider's side; the framework does not read it.
 
 | State | Meaning | What to do |
 | ----- | ------- | ---------- |
-| `submission-unknown` | The handover timed out. The provider may or may not have the letter | Wait for the poll job, which looks the letter up by its reference. If the provider offers no lookup, check the provider's site: if it has the order, pass its id as `providerJobId` to `resolve-unknown` and the letter is accepted at the order's price; if not, close the case with `resolve-unknown` and a note |
+| `approved` for more than half an hour | The submit job ran out of retries, for example because the provider's credentials or `LETTER_LIVE` are missing | Fix the cause. The poll job asks the submit job to hand the letter over again once the hold time plus 30 minutes have passed |
+| `submission-unknown` | The handover timed out or never finished. The provider may or may not have the letter | Wait for the poll job, which looks the letter up by its reference. If the provider reports a rejection, the letter fails and its estimate is given back. If the provider offers no lookup, check the provider's site: if it has the order, pass its id as `providerJobId` to `resolve-unknown` and the letter is accepted at the order's price; if not, close the case with `resolve-unknown` and a note |
 | `on-hold` | The provider stopped the letter and waits for the operator | Look up the reason at the provider and fix it there. The poll job picks up the change |
 | `failed` with `address-mismatch` | The provider read a different address from the PDF than the app expected, and the letter was canceled in time | Fix the address block of the template and send again |
 | `addressMismatch` set on a sent letter | The same mismatch, found after the cancel window closed | Check the letter by hand; it was posted |
@@ -122,13 +129,19 @@ hour. `resolve-unknown` without `providerJobId` marks it failed and gives the es
 only after checking that the provider has no such order. With `providerJobId` the order is fetched by
 id, must carry this letter's reference, and the letter is accepted at the order's price.
 
-The poll also restarts a handover that stayed in `approved` after the submit job ran out of retries, once the hold time plus 30 minutes have passed.
+The poll job never hands a letter over itself. For a letter stuck in `approved` it writes the event
+`handover-restart-requested`, and the submit job, which handles one letter at a time, does the handover.
+That run takes a fresh reservation in the current month, so a limit lowered since the approval fails the
+letter with `monthly-limit`.
 
 ### Limits to know
 
-- The poll job spends about one provider request per open letter, at most 50 per tenant and run
-  (`pollLimitPerRun`). With many tenants the shared account can hit the provider's rate limit. Nothing is
-  lost; the next run catches up.
+- The poll job spends at most 50 provider requests per tenant and run (`pollLimitPerRun`) and stops
+  touching further letters after four minutes. A status check costs one request; looking up an unknown
+  handover can cost more (12 with LetterXpress), so only a few of those fit into a run. With many tenants
+  the shared account can still hit the provider's rate limit. Nothing is lost; the next run catches up.
+- The submit job hands over one letter at a time across all tenants. A provider that takes long to
+  answer delays the letters behind it.
 - A provider's own test mode is not reachable through the feature. Outside live sending the simulator
   runs. To exercise a provider's test mode, build the provider directly with `live: false`.
 - Letters and their merged PDFs are kept for seven years and then deleted. Destroying a tenant archives

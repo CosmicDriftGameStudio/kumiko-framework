@@ -23,7 +23,7 @@ export const letterEnvSchema = z.object({
   [LETTER_ENV.live]: liveSwitchSchema
     .optional()
     .describe(
-      "true sends real letters through the provider; without it the inmemory provider runs. Boots only with NODE_ENV=production.",
+      "true sends real letters through the provider, false runs the inmemory provider. In production one of the two must be set; true boots only with NODE_ENV=production.",
     ),
 });
 

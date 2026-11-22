@@ -57,17 +57,14 @@ async function claimLetter(ctx: JobContext, letter: LetterRow): Promise<LetterCl
 async function failBeforeHandover(
   ctx: JobContext,
   letter: LetterRow,
-  claim: LetterClaim,
   failureReason: LetterFailureReason,
   failureDetail?: string,
-): Promise<void> {
-  await dispatchApplied(ctx, LetterInternalHandlers.recordRejection, {
+): Promise<boolean> {
+  return dispatchApplied(ctx, LetterInternalHandlers.recordRejection, {
     letterId: letter.id,
     failureReason,
     ...(failureDetail !== undefined && { failureDetail }),
   });
-  await releaseReservedCost(ctx, claim, true);
-  await ctx.db.deleteMany(letterSubmissionTable, { id: claim.id });
 }
 
 function remainingHoldMs(letter: LetterRow, holdMs: number, now: Temporal.Instant): number {
@@ -103,7 +100,6 @@ async function submitToProvider(
   ctx: JobContext,
   provider: LetterProvider,
   letter: LetterRow,
-  claim: LetterClaim,
   submission: LetterSubmission,
 ): Promise<void> {
   let result: Awaited<ReturnType<LetterProvider["submit"]>>;
@@ -124,7 +120,6 @@ async function submitToProvider(
     await failBeforeHandover(
       ctx,
       letter,
-      claim,
       LETTER_FAILURE_REASON.rejectedByProvider,
       `${result.code}: ${result.message}`,
     );
@@ -174,7 +169,7 @@ async function cancelIfAddressDiffers(
 }
 
 /** Reserves before the letter leaves `approved`: a failure here must not look like a handover that may have
- *  happened. A claim that already carries a reservation is reused, so a repeated run reserves nothing twice. */
+ *  happened. A claim from an earlier run keeps no reservation: it may have expired or sit in an earlier month. */
 async function claimWithReservation(
   ctx: JobContext,
   letter: LetterRow,
@@ -182,28 +177,58 @@ async function claimWithReservation(
   limitKey: ConfigKeyHandle<"number">,
 ): Promise<LetterClaim | null> {
   const claim = await claimLetter(ctx, letter);
-  if (claim.reservationId !== null) return claim;
+  const limitCents = (await ctx.config?.(limitKey)) ?? 0;
+  await releaseReservedCost(ctx, claim, true);
   const periodStart = currentCalendarMonthStartIso(ctx.tz.now());
+  let reservationId: string;
   try {
-    const reservation = await reserveLetterCost(ctx, {
-      quotedCents,
-      limitCents: (await ctx.config?.(limitKey)) ?? 0,
-      periodStart,
-    });
-    await ctx.db.updateMany(
-      letterSubmissionTable,
-      { reservationId: reservation.reservationId, periodStart },
-      { id: claim.id },
-    );
-    return { ...claim, reservationId: reservation.reservationId, periodStart };
+    ({ reservationId } = await reserveLetterCost(ctx, { quotedCents, limitCents, periodStart }));
   } catch (error) {
     if (!(error instanceof CapExceededError)) throw error;
-    await failBeforeHandover(ctx, letter, claim, LETTER_FAILURE_REASON.monthlyLimit);
+    await failBeforeHandover(ctx, letter, LETTER_FAILURE_REASON.monthlyLimit);
     return null;
   }
+  const reserved: LetterClaim = { ...claim, reservationId, periodStart };
+  try {
+    await ctx.db.updateMany(
+      letterSubmissionTable,
+      { reservationId, periodStart },
+      { id: claim.id },
+    );
+  } catch (error) {
+    await releaseReservedCost(ctx, reserved, true);
+    throw error;
+  }
+  return reserved;
 }
 
-/** Hands an approved letter to the provider once the hold time has passed. No provider call runs inside a database transaction. */
+function hasStartedHandover(status: unknown): boolean {
+  return (
+    status === LETTER_STATE.submitting ||
+    status === LETTER_STATE.submissionUnknown ||
+    status === LETTER_STATE.accepted ||
+    status === LETTER_STATE.onHold ||
+    status === LETTER_STATE.sent ||
+    status === LETTER_STATE.returned
+  );
+}
+
+/** `startSubmission` or the failing rejection did not apply: the letter left `approved` meanwhile (canceled). Unless another run took
+ *  it over, the reservation just taken is given back; a cancel that ran before the reservation was stored
+ *  could not see it. */
+async function giveBackAfterLostStart(
+  ctx: JobContext,
+  letter: LetterRow,
+  claim: LetterClaim,
+): Promise<void> {
+  const current = await letterExecutor.detail({ id: letter.id }, ctx.systemUser, ctx.db);
+  if (current !== null && hasStartedHandover(current.status)) return;
+  await releaseReservedCost(ctx, claim, true);
+  await ctx.db.deleteMany(letterSubmissionTable, { id: claim.id });
+}
+
+/** Hands an approved letter to the provider once the hold time has passed. No provider call runs inside a database transaction.
+ *  Runs for one letter never overlap (sequential job), so a letter found in any other state than `approved` is left alone. */
 export function createSubmitLetterRun(limitKey: ConfigKeyHandle<"number">, holdMs: number) {
   return async (payload: unknown, ctx: JobContext): Promise<JobDeferral | undefined> => {
     const event = LetterTransitionEventSchema.safeParse(payload);
@@ -212,15 +237,7 @@ export function createSubmitLetterRun(limitKey: ConfigKeyHandle<"number">, holdM
     const letter = await letterExecutor.detail({ id: event.data.letterId }, ctx.systemUser, ctx.db);
     // skip: the letter is gone
     if (letter === null) return undefined;
-
-    if (letter.status === LETTER_STATE.submitting) {
-      // An earlier run died after taking the letter: whether the provider got it is unknown.
-      await dispatchApplied(ctx, LetterInternalHandlers.markSubmissionUnknown, {
-        letterId: letter.id,
-      });
-      return undefined;
-    }
-    // skip: canceled during the hold, or already handed over by an earlier delivery of the event
+    // skip: canceled during the hold, or already handed over; a stuck handover is the poll's to find
     if (letter.status !== LETTER_STATE.approved) return undefined;
 
     const remaining = remainingHoldMs(letter, holdMs, ctx.tz.now());
@@ -239,22 +256,23 @@ export function createSubmitLetterRun(limitKey: ConfigKeyHandle<"number">, holdM
 
     const submission = await buildSubmission(ctx, letter);
     if (submission === null) {
-      await failBeforeHandover(ctx, letter, claim, LETTER_FAILURE_REASON.documentUnreadable);
+      const failed = await failBeforeHandover(
+        ctx,
+        letter,
+        LETTER_FAILURE_REASON.documentUnreadable,
+      );
+      if (!failed) await giveBackAfterLostStart(ctx, letter, claim);
       return undefined;
     }
 
     if (
       !(await dispatchApplied(ctx, LetterInternalHandlers.startSubmission, { letterId: letter.id }))
     ) {
-      // Another run of the same letter got there first and owns the claim: only a reservation it does not use is given back.
-      const current = await findClaim(ctx.db, letter.id);
-      if (current?.reservationId !== claim.reservationId) {
-        await releaseReservedCost(ctx, claim, true);
-      }
+      await giveBackAfterLostStart(ctx, letter, claim);
       return undefined;
     }
 
-    await submitToProvider(ctx, provider, letter, claim, submission);
+    await submitToProvider(ctx, provider, letter, submission);
     return undefined;
   };
 }

@@ -5,10 +5,10 @@ import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import { unprocessable } from "../shared/index.ts";
 import {
   isLetterTransitionAllowed,
-  LETTER_FEATURE,
   LETTER_OUTCOME_AGGREGATE_TYPE,
   LETTER_STATE_TIMESTAMP_FIELD,
   LetterErrors,
+  LetterEvents,
   LetterI18n,
   type LetterState,
 } from "./constants.ts";
@@ -16,6 +16,34 @@ import { letterExecutor } from "./entity.ts";
 import type { LetterTransitionEvent } from "./payloads.ts";
 
 export type TransitionTarget = keyof typeof LETTER_STATE_TIMESTAMP_FIELD;
+
+const LETTER_EVENT_OF_STATE = {
+  approved: LetterEvents.approved,
+  submitting: LetterEvents.submitting,
+  "submission-unknown": LetterEvents.submissionUnknown,
+  accepted: LetterEvents.accepted,
+  "on-hold": LetterEvents.onHold,
+  sent: LetterEvents.sent,
+  failed: LetterEvents.failed,
+  canceled: LetterEvents.canceled,
+  returned: LetterEvents.returned,
+} as const satisfies Record<TransitionTarget, string>;
+
+type LetterEventType = (typeof LetterEvents)[keyof typeof LetterEvents];
+
+export async function appendLetterEvent(
+  ctx: Pick<TransitionContext, "events">,
+  type: LetterEventType,
+  payload: LetterTransitionEvent,
+): Promise<void> {
+  await ctx.events.unsafeAppend({
+    aggregateId: generateId(),
+    aggregateType: LETTER_OUTCOME_AGGREGATE_TYPE,
+    type,
+    payload,
+    expectedVersion: 0,
+  });
+}
 
 export type TransitionContext = Pick<HandlerContext, "events" | "tz"> & {
   readonly db: TenantDb;
@@ -61,12 +89,6 @@ export async function transitionLetter(
   );
   if (!updated.isSuccess) return updated;
   const payload: LetterTransitionEvent = { letterId, from };
-  await ctx.events.unsafeAppend({
-    aggregateId: generateId(),
-    aggregateType: LETTER_OUTCOME_AGGREGATE_TYPE,
-    type: `${LETTER_FEATURE}:event:${to}` as const,
-    payload,
-    expectedVersion: 0,
-  });
+  await appendLetterEvent(ctx, LETTER_EVENT_OF_STATE[to], payload);
   return { isSuccess: true, data: { letterId, status: to } };
 }

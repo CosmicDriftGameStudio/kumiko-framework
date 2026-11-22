@@ -48,11 +48,28 @@ export async function appendPdfPages(
   return merged.save();
 }
 
+export class PdfPageLimitError extends Error {
+  constructor(
+    readonly pageCount: number,
+    readonly maxPages: number,
+  ) {
+    super(`${pageCount} pages exceed the limit of ${maxPages}`);
+  }
+}
+
 // Plain object table: countPdfPages reads the page tree from the raw bytes and cannot see into object streams.
-export async function mergePdfs(buffers: readonly Uint8Array[]): Promise<Uint8Array> {
+export async function mergePdfs(
+  buffers: readonly Uint8Array[],
+  options: { readonly maxPages?: number } = {},
+): Promise<Uint8Array> {
   const merged = await PDFDocument.create();
+  let totalPages = 0;
   for (const buffer of buffers) {
     const source = await PDFDocument.load(buffer);
+    totalPages += source.getPageCount();
+    if (options.maxPages !== undefined && totalPages > options.maxPages) {
+      throw new PdfPageLimitError(totalPages, options.maxPages);
+    }
     const pages = await merged.copyPages(source, source.getPageIndices());
     for (const page of pages) merged.addPage(page);
   }

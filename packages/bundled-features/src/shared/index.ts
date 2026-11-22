@@ -73,6 +73,7 @@ export {
   appendPdfPages,
   checkPostalPdf,
   mergePdfs,
+  PdfPageLimitError,
   POSTAL_PDF_REJECTION_REASONS,
   type PostalPdfCheck,
   type PostalPdfRejectionReason,

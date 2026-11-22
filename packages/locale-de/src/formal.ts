@@ -15,6 +15,8 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "kumiko.screen.forbidden": "Sie haben keinen Zugriff auf diese Seite.",
   "letter-foundation.errors.documentRejected":
     "Das Dokument kann nicht als Brief verschickt werden. Prüfen Sie Seitenformat (A4, Hochformat) und Dateigröße.",
+  "letter-foundation.errors.providerNotConfigured":
+    "Der Briefversand ist auf diesem Server nicht eingerichtet. Fragen Sie den Betreiber, den Briefdienstleister einzustellen.",
   "letter-foundation.errors.stateChanged":
     "Der Brief hat sich inzwischen geändert. Laden Sie ihn neu und versuchen Sie es noch einmal.",
   "managed-pages:body.lossy.warning":

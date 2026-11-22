@@ -142,6 +142,8 @@ export const LETTER_CAP = {
   sheets: (mode: LetterShippingMode) => `letter.${mode}.sheets` as const,
 } as const;
 
+export const LETTER_HANDOVER_RESTART_EVENT = "handover-restart-requested" as const;
+
 export const LetterEvents = {
   approved: `${LETTER_FEATURE}:event:${LETTER_STATE.approved}`,
   submitting: `${LETTER_FEATURE}:event:${LETTER_STATE.submitting}`,
@@ -152,6 +154,7 @@ export const LetterEvents = {
   failed: `${LETTER_FEATURE}:event:${LETTER_STATE.failed}`,
   canceled: `${LETTER_FEATURE}:event:${LETTER_STATE.canceled}`,
   returned: `${LETTER_FEATURE}:event:${LETTER_STATE.returned}`,
+  handoverRestartRequested: `${LETTER_FEATURE}:event:${LETTER_HANDOVER_RESTART_EVENT}`,
 } as const;
 
 export const LETTER_OUTCOME_AGGREGATE_TYPE = "letter-outcome" as const;
@@ -167,6 +170,7 @@ export const LetterInternalHandlers = {
   recordAcceptance: `${LETTER_FEATURE}:write:record-acceptance`,
   recordRejection: `${LETTER_FEATURE}:write:record-rejection`,
   markSubmissionUnknown: `${LETTER_FEATURE}:write:mark-submission-unknown`,
+  requestHandoverRestart: `${LETTER_FEATURE}:write:request-handover-restart`,
   applyProviderStatus: `${LETTER_FEATURE}:write:apply-provider-status`,
 } as const;
 
@@ -191,9 +195,14 @@ export const LETTER_POLL_LIMIT_PER_RUN = 50;
 // A sent letter is polled this long after sending, for the tracking number and a return.
 export const LETTER_SENT_TRACKING_DAYS = 14;
 
-// Unknown handovers and stuck handovers each get this many requests per poll run, so a provider outage
-// that fills them cannot starve the letters that are accepted or sent.
+// Unknown handovers and stuck handovers each get this many provider requests per poll run (looking up an
+// unknown handover can cost several, see `lookupRequestsPerLetter`), so a provider outage that fills them
+// cannot starve the letters that are accepted or sent.
 export const LETTER_POLL_SAFETY_NET_LIMIT = 10;
+
+// Nothing stops two poll runs of one tenant from overlapping, and the cron fires every five minutes;
+// a run that stops starting on letters after four minutes ends before the next one begins.
+export const LETTER_POLL_RUN_BUDGET_MS = 4 * 60_000;
 
 // A letter in `submitting` this long after the handover started has outlived the provider call and its retries.
 export const LETTER_SUBMITTING_STALE_MS = 10 * 60_000;

@@ -39,6 +39,16 @@ import {
 } from "./constants.ts";
 import { letterXpressEnvSchema } from "./env-schema.ts";
 
+const LIST_FILTERS_OF_MODE: Readonly<Record<LetterXpressMode, readonly LetterXpressListFilter[]>> =
+  {
+    test: ["draft"],
+    live: ["queue", "hold", "done"],
+  };
+
+const MOST_LISTS_PER_LOOKUP = Math.max(
+  ...Object.values(LIST_FILTERS_OF_MODE).map((filters) => filters.length),
+);
+
 export const letterXpressCapabilities: LetterProviderCapabilities = {
   shippingModes: ["standard", "einwurf", "uebergabe"],
   envelopes: ["folded", "flat"],
@@ -46,6 +56,7 @@ export const letterXpressCapabilities: LetterProviderCapabilities = {
   maxBytes: LETTERXPRESS_MAX_BYTES,
   maxFlatSheets: LETTERXPRESS_C4_MAX_SHEETS,
   cancelWindowSeconds: LETTERXPRESS_CANCEL_WINDOW_SECONDS,
+  lookupRequestsPerLetter: MOST_LISTS_PER_LOOKUP * LETTERXPRESS_FIND_MAX_PAGES,
 };
 
 // Doc p. 7: r1 = "Einschreiben Einwurf", r2 = "Einschreiben". Mapping `uebergabe` to r2 is an assumption:
@@ -70,12 +81,6 @@ const PROVIDER_STATE_OF_JOB_STATUS = {
 
 // Doc p. 35 lists 400/401/403/405 as client errors: nothing was created. A 500 may have created the order.
 const REJECTING_HTTP_STATUSES: readonly number[] = [400, 401, 403, 405];
-
-const LIST_FILTERS_OF_MODE: Readonly<Record<LetterXpressMode, readonly LetterXpressListFilter[]>> =
-  {
-    test: ["draft"],
-    live: ["queue", "hold", "done"],
-  };
 
 type Rejected = Extract<LetterSubmitResult, { kind: "rejected" }>;
 
@@ -135,6 +140,10 @@ function isRefusedByProvider(failure: LetterXpressFailure): boolean {
   return failure.kind === "http-error" && REJECTING_HTTP_STATUSES.includes(failure.status);
 }
 
+function isThrottled(failure: LetterXpressFailure): boolean {
+  return failure.kind === "http-error" && failure.status === 429;
+}
+
 function trackingNumberOf(job: LetterXpressPrintJob): string | undefined {
   const code = job.items[0]?.tracking_code;
   return code === undefined || code === null || code === "" ? undefined : code;
@@ -180,7 +189,10 @@ function readCredentials(source: LetterProviderContext["env"]): {
 
 export async function buildLetterXpressProvider(
   ctx: LetterProviderContext,
-  options: { readonly now?: () => Temporal.Instant } = {},
+  options: {
+    readonly now?: () => Temporal.Instant;
+    readonly wait?: (ms: number) => Promise<void>;
+  } = {},
 ): Promise<LetterProvider> {
   const now = options.now ?? (() => Temporal.Now.instant());
   const mode: LetterXpressMode = ctx.live ? "live" : "test";
@@ -190,6 +202,7 @@ export async function buildLetterXpressProvider(
     username,
     apiKey,
     mode,
+    ...(options.wait !== undefined && { wait: options.wait }),
   });
 
   // The doc names no signal for an empty balance, so `insufficient-balance` is never returned: open question for the test account.
@@ -226,6 +239,13 @@ export async function buildLetterXpressProvider(
           result.data,
           now().add({ seconds: LETTERXPRESS_CANCEL_WINDOW_SECONDS }),
         );
+      }
+      if (isThrottled(result)) {
+        return {
+          kind: "rejected",
+          code: "refused-by-provider",
+          message: "LetterXpress is throttling requests (429); nothing was created",
+        };
       }
       if (isRefusedByProvider(result)) return rejectionOf(result);
       throw new Error(describeFailure(result));

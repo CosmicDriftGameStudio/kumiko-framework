@@ -3,7 +3,11 @@ import type { LetterProviderContext } from "@cosmicdrift/kumiko-bundled-features
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 
-const fixtureSchema = z.object({ http_status: z.number(), body: z.unknown() });
+const fixtureSchema = z.object({
+  http_status: z.number(),
+  body: z.unknown(),
+  headers: z.record(z.string(), z.string()).optional(),
+});
 export type Fixture = z.infer<typeof fixtureSchema>;
 
 export function fixture(name: string): Fixture {
@@ -24,7 +28,7 @@ export type StubAnswer = Fixture | Error;
 export function responseOf(answer: Fixture): Response {
   return new Response(JSON.stringify(answer.body), {
     status: answer.http_status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...answer.headers },
   });
 }
 

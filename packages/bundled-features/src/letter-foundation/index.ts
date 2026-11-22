@@ -29,10 +29,14 @@ export { letterEntity, letterExecutor, letterSubmissionTable, letterTable } from
 export { createLetterFoundationFeature, type LetterFoundationOptions } from "./feature.ts";
 export { LetterAddressSchema, type SendLetterInput, SendLetterInputSchema } from "./payloads.ts";
 export {
+  LETTER_PROVIDER_NOT_CONFIGURED,
+  LetterProviderNotConfiguredError,
   type ResolvedLetterProvider,
   resolveLetterProvider,
+  resolveLetterProviderOrFailure,
   type SelectedLetterProvider,
   selectLetterProvider,
+  selectLetterProviderOrFailure,
 } from "./provider-resolver.ts";
 export { type SendLetterContext, type SendLetterResult, sendLetter } from "./send-letter.ts";
 export { type LetterTransition, transitionLetter } from "./transitions.ts";
