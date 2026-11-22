@@ -743,6 +743,13 @@ function validateRedirectOnlyWithShape(
 ): void {
   const { onlyWith } = redirect;
   if (onlyWith === undefined) return;
+  if (screenKind !== "actionForm") {
+    throw bootRuleError(SCREEN_ACTION_RULES.redirectOnlyWithOnlyActionForm, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${propertyPath}.onlyWith is only ` +
+        `read for actionForm redirects — remove it.`,
+    });
+  }
   if (typeof onlyWith !== "string" || onlyWith.trim() === "") {
     throw bootRuleError(SCREEN_ACTION_RULES.redirectOnlyWithEmpty, {
       message:

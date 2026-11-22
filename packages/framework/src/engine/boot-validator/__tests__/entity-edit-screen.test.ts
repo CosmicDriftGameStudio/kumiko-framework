@@ -125,7 +125,9 @@ describe("entityEdit wizard mode", () => {
 // short screen-ID, same feature, must resolve to a registered screen.
 describe("entityEdit redirect", () => {
   function makeFeature(
-    redirect?: string | { readonly screen: string; readonly idFrom: string },
+    redirect?:
+      | string
+      | { readonly screen: string; readonly idFrom: string; readonly onlyWith?: string },
     extraScreens: readonly string[] = [],
     listScreens: readonly string[] = [],
   ) {
@@ -166,6 +168,14 @@ describe("entityEdit redirect", () => {
 
   test("redirect → existing screen-id in the same feature → no throw", () => {
     expect(() => validateBoot([makeFeature("product-list", ["product-list"])])).not.toThrow();
+  });
+
+  test("redirect with onlyWith on an entityEdit → Throw", () => {
+    expect(() =>
+      validateBoot([
+        makeFeature({ screen: "product-list", idFrom: "id", onlyWith: "id" }, ["product-list"]),
+      ]),
+    ).toThrow(/onlyWith is only read for actionForm redirects/);
   });
 
   test("redirect → unknown screen-id → Throw", () => {
