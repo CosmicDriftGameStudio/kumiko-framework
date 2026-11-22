@@ -244,6 +244,11 @@ export type ActionFormRedirect = {
    *  required, target an actionForm). The target prefills the same-named fields from the URL, and
    *  the redirect wins over a `returnTo` the form was opened with. Without it a redirect behaves as before. */
   readonly handOff?: true;
+  /** Flat field of the success payload. The redirect only happens when it is a
+   *  non-empty string; otherwise the form stays put and shows its success box
+   *  (`successMessage`, `successFacts`, `successItems`, `successLinks`). Only
+   *  with `onlyWith` may those sit next to `redirect`. */
+  readonly onlyWith?: string;
 };
 
 export type ActionFormLoad = {

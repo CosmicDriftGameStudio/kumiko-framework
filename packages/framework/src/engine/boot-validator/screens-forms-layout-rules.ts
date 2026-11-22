@@ -109,13 +109,13 @@ export const FORM_LAYOUT_RULES = {
   },
   successFactsWithRedirect: {
     id: "form/success-facts-with-redirect",
-    summary: "An actionForm sets either redirect or successFacts.",
-    fix: "Use one of them.",
+    summary: "An actionForm sets either redirect or successFacts, unless redirect.onlyWith is set.",
+    fix: "Use one of them, or set redirect.onlyWith.",
   },
   successLinksWithRedirect: {
     id: "form/success-links-with-redirect",
-    summary: "An actionForm sets either redirect or successLinks.",
-    fix: "Use one of them.",
+    summary: "An actionForm sets either redirect or successLinks, unless redirect.onlyWith is set.",
+    fix: "Use one of them, or set redirect.onlyWith.",
   },
   loadSingletonWithIdParam: {
     id: "form/load-singleton-with-id-param",

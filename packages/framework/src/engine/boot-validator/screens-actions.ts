@@ -681,6 +681,7 @@ export function validateRedirectTarget(
   const redirectTarget = typeof redirect === "string" ? redirect : redirect.screen;
   if (typeof redirect !== "string") {
     validateRedirectIdFromShape(feature.name, screenId, screenKind, propertyPath, redirect);
+    validateRedirectOnlyWithShape(feature.name, screenId, screenKind, propertyPath, redirect);
   }
   validateScreenNavTarget(
     feature.name,
@@ -730,6 +731,24 @@ export function validateRedirectTarget(
       { kind: "navigate", id: redirectTarget, label: redirectTarget, tab: redirect.tab },
       findNavTargetEntry(feature, redirectTarget, lookups),
     );
+  }
+}
+
+function validateRedirectOnlyWithShape(
+  featureName: string,
+  screenId: string,
+  screenKind: string,
+  propertyPath: string,
+  redirect: ActionFormRedirect,
+): void {
+  const { onlyWith } = redirect;
+  if (onlyWith === undefined) return;
+  if (typeof onlyWith !== "string" || onlyWith.trim() === "") {
+    throw bootRuleError(SCREEN_ACTION_RULES.redirectOnlyWithEmpty, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${propertyPath}.onlyWith is empty or not a string — ` +
+        `name the success-payload field that must be set for the redirect, or drop onlyWith.`,
+    });
   }
 }
 
