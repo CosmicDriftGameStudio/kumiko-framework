@@ -1,0 +1,32 @@
+{
+  "http_status": 200,
+  "body": {
+    "status": 200,
+    "message": "OK",
+    "data": {
+      "id": 10000004,
+      "shipping": "national",
+      "mode": "simplex",
+      "color": "1",
+      "c4": 0,
+      "registered": null,
+      "bank_form": 0,
+      "notice": null,
+      "status": "queue",
+      "group": null,
+      "dispatch_date": null,
+      "filename_original": null,
+      "created_at": "2022-08-01 13:38:07",
+      "updated_at": "2022-08-01 13:38:07",
+      "items": [
+        {
+          "address": "Jim Knopf, Bahnhofstr. 1, 21337 Lüneburg",
+          "pages": 1,
+          "amount": 0.68,
+          "vat": 0.13,
+          "status": "queue"
+        }
+      ]
+    }
+  }
+}

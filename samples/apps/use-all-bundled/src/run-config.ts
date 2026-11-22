@@ -70,6 +70,7 @@ import { createLedgerFeature } from "@cosmicdrift/kumiko-bundled-features/ledger
 import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
 import { createLetterFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/letter-foundation";
 import { createLetterProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/letter-provider-inmemory";
+import { createLetterProviderLetterXpressFeature } from "@cosmicdrift/kumiko-bundled-features/letter-provider-letterxpress";
 import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import {
   createMetricsFeature,
@@ -212,6 +213,7 @@ export const APP_FEATURES = [
 
   createLetterFoundationFeature(),
   createLetterProviderInMemoryFeature(),
+  createLetterProviderLetterXpressFeature(),
 
   // resolveApexTenant is what registers the `public-variant` query and the
   // anonymous /media route — the option-less export leaves both out and hides

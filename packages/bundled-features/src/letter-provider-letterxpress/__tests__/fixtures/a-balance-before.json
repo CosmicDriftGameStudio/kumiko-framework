@@ -1,0 +1,11 @@
+{
+  "http_status": 200,
+  "body": {
+    "status": 200,
+    "message": "OK",
+    "data": {
+      "balance": 20,
+      "currency": "EUR"
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "http_status": 200,
+  "body": {
+    "status": 200,
+    "message": "OK",
+    "data": {
+      "id": 10000001,
+      "shipping": "national",
+      "mode": "duplex",
+      "color": "1",
+      "c4": 0,
+      "registered": null,
+      "bank_form": 0,
+      "notice": "letter-ref-1",
+      "status": "draft",
+      "group": null,
+      "dispatch_date": null,
+      "filename_original": "API Testmode, Auftrag: 10000001",
+      "created_at": "2026-11-22 20:22:39",
+      "updated_at": "2026-11-22 20:22:39",
+      "items": [
+        {
+          "item_id": 20000001,
+          "address": "Beispiel Hausverwaltung GmbH, Beispielweg 1, 54321 Beispielstadt, , Erika Mustermann, Musterstraße 12, 12345 Musterstadt",
+          "pages": 4,
+          "amount": 0.91,
+          "vat": 0.17,
+          "status": "hold"
+        }
+      ]
+    }
+  }
+}

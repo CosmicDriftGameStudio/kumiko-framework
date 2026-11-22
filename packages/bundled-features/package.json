@@ -77,6 +77,7 @@
     "./mail-transport-smtp": "./src/mail-transport-smtp/index.ts",
     "./letter-foundation": "./src/letter-foundation/index.ts",
     "./letter-provider-inmemory": "./src/letter-provider-inmemory/index.ts",
+    "./letter-provider-letterxpress": "./src/letter-provider-letterxpress/index.ts",
     "./mail-transport-inmemory": "./src/mail-transport-inmemory/index.ts",
     "./file-foundation": "./src/file-foundation/index.ts",
     "./file-provider-s3": "./src/file-provider-s3/index.ts",
@@ -452,6 +453,10 @@
       "./letter-provider-inmemory": {
         "types": "./dist/letter-provider-inmemory/index.d.ts",
         "default": "./dist/letter-provider-inmemory/index.js"
+      },
+      "./letter-provider-letterxpress": {
+        "types": "./dist/letter-provider-letterxpress/index.d.ts",
+        "default": "./dist/letter-provider-letterxpress/index.js"
       },
       "./mail-transport-inmemory": {
         "types": "./dist/mail-transport-inmemory/index.d.ts",
