@@ -232,6 +232,9 @@ export async function buildServerBundle(
     sourcemap: "none",
     naming: { entry: "[name].js", chunk: "chunk-[hash].js" },
     minify: false,
+    // Bun.build inlines the build host's NODE_ENV into `process.env.NODE_ENV`; the image build
+    // runs without it, so the deployed server took its development branches. Keep it a runtime read.
+    define: { "process.env.NODE_ENV": "process.env.NODE_ENV" },
   });
   if (!result.success) {
     const logs = result.logs.map(String).join("\n");
