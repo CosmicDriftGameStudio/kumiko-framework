@@ -128,6 +128,7 @@ const pdfLayoutMetaSchema = z
     foldMarks: z.enum(PDF_FOLD_MARKS).optional(),
     cornerMarks: z.boolean().optional(),
     paperColor: hexColor.optional(),
+    postal: z.boolean().optional(),
     headerOnFirstPage: z.boolean().optional(),
     footerOnFirstPage: z.boolean().optional(),
   })

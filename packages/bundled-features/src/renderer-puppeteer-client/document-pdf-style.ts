@@ -166,9 +166,13 @@ export function chromiumRegionHtml(args: {
   // Header and footer templates share one document in Chromium, so an unscoped bleed rule from one
   // region also moves the other region's image (footer image jumped to the top edge).
   const edge = position === "header" ? "top:0" : "bottom:0";
+  const bleedImageRule =
+    layoutMeta.postal === true
+      ? "display:none"
+      : `position:absolute;${edge};left:0;width:100%;max-height:none`;
   const style =
     "<style>#header,#footer{padding:0!important}html,body{margin:0}table{width:100%;border-collapse:collapse}td,th{vertical-align:top}p{margin:0;white-space:pre-line}img{max-height:20mm}" +
-    `.kumiko-${position} img[data-bleed]{position:absolute;${edge};left:0;width:100%;max-height:none}${TEXT_ALIGN_CSS}</style>`;
+    `.kumiko-${position} img[data-bleed]{${bleedImageRule}}${TEXT_ALIGN_CSS}</style>`;
   const font = `font-family:${
     layoutMeta.fontFamily === undefined
       ? DEFAULT_REGION_FONT

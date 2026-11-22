@@ -55,6 +55,11 @@ describe("CapUsageCell", () => {
     screen.getByTestId("cap-usage-bar");
   });
 
+  test("lets a cents cap through the client guard", () => {
+    renderCell({ used: 1234, limit: 5000, fraction: 0.25, unit: "cents" });
+    screen.getByTestId("cap-usage-bar");
+  });
+
   test("renders nothing for an unknown unit", () => {
     renderCell({ used: 40, limit: 100, fraction: 0.4, unit: "furlongs" });
 

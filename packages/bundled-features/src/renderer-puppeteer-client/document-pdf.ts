@@ -677,6 +677,7 @@ export function toPdfRequest(document: AssembledDocument, locale: string): Docum
           }),
         }
       : { ...options, displayHeaderFooter: false };
+  const isPostal = document.layoutMeta.postal === true;
   const skipsHeaderOnFirstPage = hasHeader && document.layoutMeta.headerOnFirstPage === false;
   const skipsFooterOnFirstPage = hasFooter && document.layoutMeta.footerOnFirstPage === false;
   return {
@@ -693,9 +694,9 @@ export function toPdfRequest(document: AssembledDocument, locale: string): Docum
       skipsHeaderOnFirstPage || skipsFooterOnFirstPage
         ? printOptions(hasHeader && !skipsHeaderOnFirstPage, hasFooter && !skipsFooterOnFirstPage)
         : null,
-    foldMarks: document.layoutMeta.foldMarks ?? "none",
-    cornerMarks: document.layoutMeta.cornerMarks === true,
-    paperColor: document.layoutMeta.paperColor ?? null,
+    foldMarks: isPostal ? "none" : (document.layoutMeta.foldMarks ?? "none"),
+    cornerMarks: !isPostal && document.layoutMeta.cornerMarks === true,
+    paperColor: isPostal ? null : (document.layoutMeta.paperColor ?? null),
     fileName: document.fileName,
     template: {
       templateId: document.template.id,

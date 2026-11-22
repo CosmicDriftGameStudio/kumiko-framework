@@ -1,5 +1,4 @@
 import { escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
-import { PDFDocument } from "pdf-lib";
 import { SIGNATURE_METHOD, type SignatureMethod } from "./web/constants.ts";
 
 export type SignaturePageLabels = {
@@ -67,16 +66,4 @@ h2 { font-size: 14px; font-weight: normal; margin: 0 0 24px; }
 ${args.entries.map((entry) => entryHtml(entry, args.labels)).join("\n")}
 <p class="hash">${escapeHtmlAttr(args.labels.documentHash)}: ${escapeHtmlAttr(args.documentSha256)}</p>
 </body></html>`;
-}
-
-// The original pages are copied as they are; the signature pages only get appended.
-export async function appendPdfPages(
-  original: Uint8Array,
-  appendix: Uint8Array,
-): Promise<Uint8Array> {
-  const merged = await PDFDocument.load(original);
-  const extra = await PDFDocument.load(appendix);
-  const pages = await merged.copyPages(extra, extra.getPageIndices());
-  for (const page of pages) merged.addPage(page);
-  return merged.save();
 }

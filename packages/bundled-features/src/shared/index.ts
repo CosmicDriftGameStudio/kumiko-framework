@@ -44,6 +44,13 @@ export {
 export { encryptForDirectWrite } from "./encrypt-for-direct-write.ts";
 export { entitiesOf } from "./entities-of.ts";
 export { eraseSubjectData } from "./erase-subject-data.ts";
+export {
+  type GeneratedFileContext,
+  PDF_MIME_TYPE,
+  readTenantFile,
+  sha256Hex,
+  storeGeneratedFile,
+} from "./generated-files.ts";
 export { isWithinGracePeriod } from "./grace-period.ts";
 export { resolveHandlerMailLocale } from "./handler-mail-locale.ts";
 export { hmacSignatureMatches, signHmacSha256Base64Url } from "./hmac-signature.ts";
@@ -68,6 +75,14 @@ export {
   visibleParentRowIds,
 } from "./parent-visibility.ts";
 export { hashPassword, verifyDummyPassword, verifyPassword } from "./password-hashing.ts";
+export {
+  appendPdfPages,
+  checkPostalPdf,
+  mergePdfs,
+  POSTAL_PDF_REJECTION_REASONS,
+  type PostalPdfCheck,
+  type PostalPdfRejectionReason,
+} from "./pdf-postal.ts";
 export {
   type PriceEnvProvider,
   type PriceEnvShape,

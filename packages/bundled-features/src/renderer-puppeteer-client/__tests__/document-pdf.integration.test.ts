@@ -1168,6 +1168,17 @@ describe("document-pdf layout appearance, frames and company data", () => {
       '<div data-header><img data-resource="logo" data-bleed alt="Kopf"></div><div data-content></div><div data-footer><p>Fuss</p></div>',
     );
     await uploadImageFor(bleeding.id, "logo");
+    const marks = { foldMarks: "din-a", cornerMarks: true, paperColor: "#f4f1e2" };
+    const markedBody =
+      '<div data-header><img data-resource="logo" data-bleed alt="Kopf"></div><div data-content></div><div data-footer><p>Fuss</p></div>';
+    const marked = await upsertLayout("marked", marks, markedBody);
+    await uploadImageFor(marked.id, "logo");
+    const markedPostal = await upsertLayout(
+      "marked-postal",
+      { ...marks, postal: true },
+      markedBody,
+    );
+    await uploadImageFor(markedPostal.id, "logo");
     await upsertLayout(
       "skipped-first-page",
       {
@@ -1271,6 +1282,38 @@ describe("document-pdf layout appearance, frames and company data", () => {
     expect(allPages?.html).toContain("1px solid #336699");
     expect(firstPage?.options.pageRanges).toBe("1");
     expect(allPages?.options.pageRanges).toBeUndefined();
+    stubRequests.length = 0;
+  });
+
+  test("a postal layout prints without corner marks, paper colour and bleed images, whatever the layout sets", async () => {
+    const preview = await stack.http.queryOk<PdfPreview>(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload({
+        content: "<p>x</p>",
+        meta: { layoutSlug: "marked-postal" },
+        variableSchema: {},
+      }),
+      adminTenantA,
+    );
+    const request = onlyStubRequest();
+    expect(Buffer.from(preview.pdfBase64, "base64")).toEqual(Buffer.from(STUB_PDF));
+    expect(request.options.headerTemplate).toContain("img[data-bleed]{display:none}");
+    stubRequests.length = 0;
+  });
+
+  test("the same layout without postal still gets its marks, paper colour and bleed image", async () => {
+    const preview = await stack.http.queryOk<PdfPreview>(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload({
+        content: "<p>x</p>",
+        meta: { layoutSlug: "marked" },
+        variableSchema: {},
+      }),
+      adminTenantA,
+    );
+    const request = onlyStubRequest();
+    expect(Buffer.from(preview.pdfBase64, "base64")).not.toEqual(Buffer.from(STUB_PDF));
+    expect(request.options.headerTemplate).toContain("img[data-bleed]{position:absolute;top:0");
     stubRequests.length = 0;
   });
 

@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import type { CapUnit, CapUsage } from "../types.ts";
 import { CapUsageBar } from "./cap-usage-bar.tsx";
 
-const CAP_UNITS: readonly CapUnit[] = ["count", "mb", "tokens"];
+const CAP_UNITS: readonly CapUnit[] = ["count", "mb", "tokens", "cents"];
 
 function isCapUsage(value: unknown): value is CapUsage {
   if (!isPlainObject(value)) return false;
