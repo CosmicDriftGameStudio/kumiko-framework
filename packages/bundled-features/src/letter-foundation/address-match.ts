@@ -4,8 +4,9 @@ function normalizeAddressText(text: string): string {
   return text
     .toLowerCase()
     .replaceAll("ß", "ss")
-    .replace(/str\./g, "strasse")
+    .replace(/str(?:\.|\b)/g, "strasse")
     .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/(\d) ([a-z])\b/g, "$1$2")
     .trim();
 }
 

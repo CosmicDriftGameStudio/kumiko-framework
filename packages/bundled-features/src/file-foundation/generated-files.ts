@@ -1,10 +1,12 @@
-import { createHash } from "node:crypto";
-import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { HandlerContext, Registry, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
   type CreatedFileRef,
   type CreateFileRefInput,
   createFileRefFromBytes,
+  FileObjectMissingError,
+  fileRefEntity,
+  fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import {
@@ -12,10 +14,9 @@ import {
   FileRefTooLargeError,
   fileContextForTenant,
   readFileRefContent,
-} from "../file-foundation/index.ts";
+} from "./read-file-ref-content.ts";
 
-export const PDF_MIME_TYPE = "application/pdf";
-const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
+export const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
 
 export type GeneratedFileContext = {
   readonly db: TenantDb;
@@ -40,9 +41,26 @@ export async function readTenantFile(
       maxBytes: MAX_DOCUMENT_BYTES,
     });
   } catch (error) {
-    if (error instanceof FileRefTooLargeError) return null;
+    if (error instanceof FileRefTooLargeError || error instanceof FileObjectMissingError)
+      return null;
     throw error;
   }
+}
+
+const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
+  entityName: "fileRef",
+});
+
+// For a stored file whose owner row was never written (a lost race, a rejected follow-up write): removes
+// ref and bytes so nothing stays behind. Inside a transaction the ledger entry is not touched: a second
+// connection deleting that row would wait on the lock the transaction holds.
+export async function discardGeneratedFile(
+  ctx: GeneratedFileContext,
+  user: SessionUser,
+  file: CreatedFileRef,
+): Promise<void> {
+  await fileRefExecutor.delete({ id: file.id }, user, ctx.db);
+  await ctx.services.files?.ref(file.storageKey).delete();
 }
 
 export function storeGeneratedFile(
@@ -56,8 +74,4 @@ export function storeGeneratedFile(
   },
 ): Promise<WriteResult<CreatedFileRef>> {
   return createFileRefFromBytes({ ...ctx, user }, file);
-}
-
-export function sha256Hex(bytes: Uint8Array): string {
-  return createHash("sha256").update(bytes).digest("hex");
 }

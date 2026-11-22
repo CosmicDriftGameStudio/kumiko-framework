@@ -1,170 +1,40 @@
 // Real stack over HTTP. A probe feature stands in for the app that calls `sendLetter`; the inmemory
-// provider is steered through `letterSimulator`.
+// provider is steered through `letterSimulator`. The handover and poll jobs have their own file.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import {
-  createEventStoreExecutor,
-  seedConfigValues,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { seedConfigValues, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import {
-  createFilesFeature,
-  createInMemoryFileProvider,
-  fileRefEntity,
-  fileRefsTable,
-} from "@cosmicdrift/kumiko-framework/files";
-import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import {
-  createTenantDb,
-  resetPiiSubjectKmsForTests,
-  resetTestTables,
-} from "@cosmicdrift/kumiko-testing/helpers";
-import {
-  setupTestStack,
-  type TestStack,
-  unsafeCreateEntityTable,
-  unsafePushTables,
-} from "@cosmicdrift/kumiko-testing/stack";
-import { PDFDocument } from "pdf-lib";
-import { capCounterEntity, createCapCounterFeature } from "../../cap-counter/index.ts";
-import {
-  ConfigHandlers,
-  configValueEntity,
-  configValuesTable,
-  createConfigAccessorFactory,
-  createConfigFeature,
-  createConfigResolver,
-} from "../../config/index.ts";
-import { createLetterProviderInMemoryFeature } from "../../letter-provider-inmemory/index.ts";
+import { createTenantDb } from "@cosmicdrift/kumiko-testing/helpers";
+import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { ConfigHandlers, configValueEntity, configValuesTable } from "../../config/index.ts";
 import { letterSimulator } from "../../letter-provider-inmemory/simulator.ts";
-import { LETTER_FEATURE, LETTER_STATE, LetterHandlers, LetterQueries } from "../constants.ts";
-import { letterEntity, letterSubmissionEntity, letterTable } from "../entity.ts";
-import { createLetterFoundationFeature } from "../feature.ts";
-import { type SendLetterInput, SendLetterInputSchema } from "../payloads.ts";
-import { sendLetter } from "../send-letter.ts";
+import { LETTER_STATE, LetterHandlers, LetterI18n, LetterQueries } from "../constants.ts";
+import { letterTable } from "../entity.ts";
+import {
+  APPROVER,
+  CLERK,
+  createLetterHarness,
+  LETTER_SIZE as LETTER,
+  LIMIT_KEY,
+  SEND,
+  SYSTEM_ADMIN,
+} from "./letter-harness.ts";
 
-const TENANT = testTenantId(11);
-const APPROVER = createTestUser({ id: 1, tenantId: TENANT, roles: ["LetterApprover"] });
-const CLERK = createTestUser({ id: 2, tenantId: TENANT, roles: ["TenantAdmin"] });
-const SEND = "letter-probe:write:send";
-const LIMIT_KEY = `${LETTER_FEATURE}:config:monthly-cost-limit-cents`;
-const A4: [number, number] = [595.28, 841.89];
-const LETTER: [number, number] = [612, 792];
-
-const fileProvider = createInMemoryFileProvider();
-const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
-  entityName: "fileRef",
-});
+const harness = createLetterHarness();
+const { letterInput, letterRow, pdfBytes, seedDocument, send } = harness;
 let stack: TestStack;
-let keyCounter = 0;
-
-const probeFeature = defineFeature("letter-probe", (r) => {
-  r.writeHandler({
-    name: "send",
-    schema: SendLetterInputSchema,
-    access: { roles: ["TenantAdmin", "LetterApprover"] },
-    handler: async (event, ctx) => sendLetter(ctx, event.payload),
-  });
-});
 
 beforeAll(async () => {
-  resetPiiSubjectKmsForTests();
-  configurePiiSubjectKms(new InMemoryKmsAdapter());
-  const resolver = createConfigResolver();
-  stack = await setupTestStack({
-    features: [
-      createConfigFeature(),
-      createFilesFeature(),
-      createCapCounterFeature(),
-      createLetterFoundationFeature(),
-      createLetterProviderInMemoryFeature(),
-      probeFeature,
-    ],
-    files: { storageProvider: fileProvider },
-    extraContext: (deps) => ({
-      configResolver: resolver,
-      configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
-    }),
-  });
-  await unsafePushTables(stack.db, { configValuesTable });
-  await unsafeCreateEntityTable(stack.db, capCounterEntity, "cap-counter");
-  await unsafeCreateEntityTable(stack.db, letterEntity, "letter");
-  await unsafeCreateEntityTable(stack.db, letterSubmissionEntity, "letter-submission");
+  stack = await harness.setup();
 });
 
 afterAll(async () => {
-  await stack.cleanup();
-  resetPiiSubjectKmsForTests();
+  await harness.cleanup();
 });
 
 beforeEach(async () => {
-  letterSimulator.reset();
-  await resetTestTables(stack.db, [letterTable, fileRefsTable, eventsTable]);
-  await stack.redis.flushNamespace();
+  await harness.reset();
 });
-
-async function pdfBytes(pages: number, size?: [number, number]): Promise<Uint8Array> {
-  const pdf = await PDFDocument.create();
-  for (let page = 0; page < pages; page += 1) pdf.addPage(size);
-  return pdf.save();
-}
-
-async function seedDocument(bytes: Uint8Array): Promise<string> {
-  const db = createTenantDb({
-    db: stack.db,
-    tenantId: TENANT,
-    mode: "system",
-    reason: "test seeds the document a letter refers to",
-  });
-  const storageKey = `${TENANT}/letters/doc-${crypto.randomUUID()}.pdf`;
-  await fileProvider.write(storageKey, bytes, "application/pdf");
-  const created = await fileRefExecutor.create(
-    { storageKey, fileName: "doc.pdf", mimeType: "application/pdf", size: bytes.length },
-    APPROVER,
-    db,
-  );
-  if (!created.isSuccess) throw new Error(`fileRef create failed: ${created.error.message}`);
-  return String(created.data.id);
-}
-
-async function letterInput(overrides: Partial<SendLetterInput> = {}): Promise<SendLetterInput> {
-  keyCounter += 1;
-  return {
-    fileRefIds: [await seedDocument(await pdfBytes(3, A4))],
-    expectedRecipient: {
-      name: "Erika Mustermann",
-      street: "Musterstraße",
-      houseNumber: "12",
-      postalCode: "12345",
-      city: "Musterstadt",
-    },
-    shippingMode: "standard",
-    color: false,
-    duplex: true,
-    formRequirement: "textform",
-    idempotencyKey: `key-${keyCounter}`,
-    source: { entityType: "invoice", entityId: `inv-${keyCounter}` },
-    ...overrides,
-  };
-}
-
-async function send(input: SendLetterInput) {
-  return stack.http.writeOk<{ letterId: string; created: boolean }>(SEND, input, CLERK);
-}
-
-async function letterRow(letterId: string) {
-  const db = createTenantDb({
-    db: stack.db,
-    tenantId: TENANT,
-    mode: "system",
-    reason: "test reads the letter row",
-  });
-  const rows = await selectMany<Record<string, unknown>>(db, letterTable, { id: letterId });
-  return rows[0];
-}
 
 describe("sendLetter and approval", () => {
   test("creates a letter awaiting approval; the same key returns the same letter", async () => {
@@ -218,6 +88,32 @@ describe("sendLetter and approval", () => {
   });
 });
 
+describe("preview of a flat envelope", () => {
+  test("says the provider chooses the envelope above its flat limit", async () => {
+    const { letterId } = await send(await letterInput({ envelope: "flat" }));
+    const preview = () =>
+      stack.http.queryOk<{ envelopeLeftToProvider: boolean }>(
+        LetterQueries.preview,
+        { letterId },
+        APPROVER,
+      );
+    expect((await preview()).envelopeLeftToProvider).toBe(false);
+    letterSimulator.setCapabilities({ maxFlatSheets: 1 });
+    expect((await preview()).envelopeLeftToProvider).toBe(true);
+  });
+
+  test("a folded letter is never left to the provider", async () => {
+    letterSimulator.setCapabilities({ maxFlatSheets: 1 });
+    const { letterId } = await send(await letterInput({ envelope: "folded" }));
+    const preview = await stack.http.queryOk<{ envelopeLeftToProvider: boolean }>(
+      LetterQueries.preview,
+      { letterId },
+      APPROVER,
+    );
+    expect(preview.envelopeLeftToProvider).toBe(false);
+  });
+});
+
 describe("rejections with a readable reason", () => {
   test("schriftform is not sendable", async () => {
     const error = await stack.http.writeErr(
@@ -264,6 +160,85 @@ describe("rejections with a readable reason", () => {
   });
 });
 
+describe("the written form", () => {
+  test("a schriftform letter is accepted once the risk is acknowledged and the preview says so", async () => {
+    const { letterId } = await send(
+      await letterInput({ formRequirement: "schriftform", formRiskAcknowledged: true }),
+    );
+    const row = await letterRow(letterId);
+    expect(row?.["formRequirement"]).toBe("schriftform");
+    expect(row?.["formRiskAcknowledged"]).toBe(true);
+
+    const preview = await stack.http.queryOk<{
+      formRequirement: string;
+      formRiskAcknowledged: boolean;
+    }>(LetterQueries.preview, { letterId }, APPROVER);
+    expect(preview.formRequirement).toBe("schriftform");
+    expect(preview.formRiskAcknowledged).toBe(true);
+  });
+
+  test("a letter without a form requirement stores no acknowledgement", async () => {
+    const { letterId } = await send(await letterInput());
+    expect((await letterRow(letterId))?.["formRiskAcknowledged"]).toBe(false);
+  });
+});
+
+describe("the letters of one source record", () => {
+  test("the list filters by source type and id", async () => {
+    const source = { entityType: "statement", entityId: "statement-7" };
+    const first = await send(await letterInput({ source }));
+    const second = await send(await letterInput({ source }));
+    await send(await letterInput());
+    const { rows } = await stack.http.queryOk<{ rows: readonly { id: string }[] }>(
+      LetterQueries.list,
+      {
+        filters: [
+          { field: "sourceEntityType", op: "eq", value: source.entityType },
+          { field: "sourceEntityId", op: "eq", value: source.entityId },
+        ],
+      },
+      APPROVER,
+    );
+    expect(rows.map((row) => row.id).sort()).toEqual([first.letterId, second.letterId].sort());
+  });
+});
+
+describe("the envelope", () => {
+  test("a flat letter is stored; the default is folded", async () => {
+    const flat = await send(await letterInput({ envelope: "flat" }));
+    const folded = await send(await letterInput());
+    expect((await letterRow(flat.letterId))?.["envelope"]).toBe("flat");
+    expect((await letterRow(folded.letterId))?.["envelope"]).toBe("folded");
+  });
+
+  test("a provider without the flat envelope refuses it with its own code", async () => {
+    letterSimulator.setCapabilities({ envelopes: ["folded"] });
+    const error = await stack.http.writeErr(SEND, await letterInput({ envelope: "flat" }), CLERK);
+    expect(error.httpStatus).toBe(422);
+    expect(error.i18nKey).toBe(LetterI18n.envelopeUnsupported);
+  });
+});
+
+describe("parallel sendLetter calls", () => {
+  test("two calls with the same key end in one letter and the same id", async () => {
+    const input = await letterInput();
+    const [first, second] = await Promise.all([send(input), send(input)]);
+    expect(second.letterId).toBe(first.letterId);
+    expect([first.created, second.created].filter(Boolean)).toHaveLength(1);
+    const rows = await selectMany<Record<string, unknown>>(
+      createTenantDb({
+        db: stack.db,
+        tenantId: CLERK.tenantId,
+        mode: "system",
+        reason: "test counts the letters of one idempotency key",
+      }),
+      letterTable,
+      { idempotencyKey: input.idempotencyKey },
+    );
+    expect(rows).toHaveLength(1);
+  });
+});
+
 describe("cancel and config", () => {
   test("canceling before handover does not call the provider", async () => {
     const { letterId } = await send(await letterInput());
@@ -290,7 +265,33 @@ describe("cancel and config", () => {
       { key: LIMIT_KEY, value: 99999, scope: "tenant" },
       CLERK,
     );
-    expect(denied.httpStatus).toBeGreaterThanOrEqual(400);
+    expect(denied.httpStatus).toBe(403);
+  });
+
+  test("a SystemAdmin sets the system row and a tenant row of the limit", async () => {
+    const { letterId } = await send(await letterInput());
+    const limitOf = async () =>
+      (
+        await stack.http.queryOk<{ limitCents: number }>(
+          LetterQueries.preview,
+          { letterId },
+          APPROVER,
+        )
+      ).limitCents;
+
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: LIMIT_KEY, value: 700, scope: "system" },
+      SYSTEM_ADMIN,
+    );
+    expect(await limitOf()).toBe(700);
+
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: LIMIT_KEY, value: 1200, scope: "tenant" },
+      SYSTEM_ADMIN,
+    );
+    expect(await limitOf()).toBe(1200);
   });
 });
 

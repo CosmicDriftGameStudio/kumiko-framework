@@ -2306,10 +2306,18 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "mail-foundation.provider.description":
     "Elige quién envía tus correos. El envío de la plataforma no necesita ajustes propios.",
   "mail-foundation.provider.platformDefault": "Envío de la plataforma (predeterminado)",
+  "letter-foundation:write:approve:title": "Aprobar carta",
+  "letter-foundation:write:approve:field:letterId": "Carta",
+  "letter-foundation:write:cancel:title": "Cancelar carta",
+  "letter-foundation:write:cancel:field:letterId": "Carta",
+  "letter-foundation:write:resolve-unknown:title": "Cerrar entrega poco clara",
+  "letter-foundation:write:resolve-unknown:field:letterId": "Carta",
+  "letter-foundation:write:resolve-unknown:field:note": "Nota",
   "letter-foundation.errors.schriftformNotPossible":
     "Esta carta necesita una firma manuscrita. Una carta impresa no cumple esa forma, por eso no se puede enviar así.",
   "letter-foundation.errors.shippingModeUnsupported":
     "El proveedor de impresión no ofrece este tipo de envío.",
+  "letter-foundation.errors.envelopeUnsupported": "El proveedor de impresión no ofrece este sobre.",
   "letter-foundation.errors.tooManySheets":
     "La carta tiene más hojas de las que acepta el proveedor de impresión.",
   "letter-foundation.errors.documentRejected":
@@ -2324,6 +2332,13 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "letter-foundation.errors.transitionNotAllowed": "La carta no puede pasar a este estado.",
   "letter-foundation.errors.stateChanged":
     "La carta ha cambiado entretanto. Vuelve a cargarla e inténtalo de nuevo.",
+  "letter-foundation.errors.notSubmissionUnknown":
+    "Aquí solo se puede cerrar una carta cuya entrega no está confirmada.",
+  "letter-foundation.errors.cancelWindowClosed":
+    "El plazo de cancelación en el proveedor de impresión ha terminado.",
+  "letter-foundation.errors.cancelAlreadyProcessed":
+    "El proveedor de impresión ya ha procesado la carta.",
+  "letter-foundation.errors.cancelUnknownJob": "El proveedor de impresión no conoce esta carta.",
   "letter-foundation.preview.monthlyLimitExceeded":
     "El límite mensual de costes de cartas no cubre esta carta.",
   "mail-transport-inmemory.settings": "Buzón de prueba (en memoria)",
@@ -2559,6 +2574,13 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "audit.log.event.contract-termination-requested": "Rescisión de contrato solicitada",
   "audit.log.event.contract-termination-declared": "Rescisión de contrato declarada",
   "audit.log.event.contract-termination-unmatched": "Rescisión de contrato sin asignar",
+  "audit.log.event.letter-approved": "Carta aprobada",
+  "audit.log.event.letter-submission-unknown": "Entrega de la carta sin confirmar",
+  "audit.log.event.letter-on-hold": "Carta retenida por el proveedor",
+  "audit.log.event.letter-sent": "Carta enviada",
+  "audit.log.event.letter-failed": "Carta fallida",
+  "audit.log.event.letter-canceled": "Carta cancelada",
+  "audit.log.event.letter-returned": "Carta devuelta",
   "readiness.area.infrastructure": "Infraestructura",
   "readiness.area.run": "Comprobación del sistema",
   "readiness.probe.run": "Ejecución de la comprobación del sistema",

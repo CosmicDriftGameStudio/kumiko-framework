@@ -11,11 +11,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import {
-  collectErasureFailure,
-  type GeneratedFileContext,
-  throwIfErasureFailed,
-} from "../shared/index.ts";
+import type { GeneratedFileContext } from "../file-foundation/index.ts";
+import { collectErasureFailure, throwIfErasureFailed } from "../shared/index.ts";
 import { resolveVerifiedUserEmail } from "../user/index.ts";
 import { signatureSignerTable, signerExecutor, ungatedRequestExecutor } from "./entity.ts";
 import { deleteFileRef } from "./files.ts";

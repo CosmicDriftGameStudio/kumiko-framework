@@ -1,10 +1,26 @@
-// English copy of the letter-foundation feature.
+// English copy of the letter-foundation feature and of its audit labels.
 
 export const letterEnCatalog: Readonly<Record<string, string>> = {
+  "audit.log.event.letter-approved": "Letter approved",
+  "audit.log.event.letter-submission-unknown": "Letter handover unconfirmed",
+  "audit.log.event.letter-on-hold": "Letter on hold at the provider",
+  "audit.log.event.letter-sent": "Letter sent",
+  "audit.log.event.letter-failed": "Letter failed",
+  "audit.log.event.letter-canceled": "Letter canceled",
+  "audit.log.event.letter-returned": "Letter returned",
+  "letter-foundation:write:approve:title": "Approve letter",
+  "letter-foundation:write:approve:field:letterId": "Letter",
+  "letter-foundation:write:cancel:title": "Cancel letter",
+  "letter-foundation:write:cancel:field:letterId": "Letter",
+  "letter-foundation:write:resolve-unknown:title": "Close unclear handover",
+  "letter-foundation:write:resolve-unknown:field:letterId": "Letter",
+  "letter-foundation:write:resolve-unknown:field:note": "Note",
   "letter-foundation.errors.schriftformNotPossible":
     "This letter needs a handwritten signature. A printed letter cannot meet that form, so it cannot be sent this way.",
   "letter-foundation.errors.shippingModeUnsupported":
     "The print provider does not offer this shipping mode.",
+  "letter-foundation.errors.envelopeUnsupported":
+    "The print provider does not offer this envelope.",
   "letter-foundation.errors.tooManySheets":
     "The letter has more sheets than the print provider accepts.",
   "letter-foundation.errors.documentRejected":
@@ -19,6 +35,13 @@ export const letterEnCatalog: Readonly<Record<string, string>> = {
   "letter-foundation.errors.transitionNotAllowed": "The letter cannot change to this status.",
   "letter-foundation.errors.stateChanged":
     "The letter changed in the meantime. Reload it and try again.",
+  "letter-foundation.errors.notSubmissionUnknown":
+    "Only a letter whose handover is unconfirmed can be closed here.",
+  "letter-foundation.errors.cancelWindowClosed":
+    "The cancel window at the print provider has closed.",
+  "letter-foundation.errors.cancelAlreadyProcessed":
+    "The print provider has already processed the letter.",
+  "letter-foundation.errors.cancelUnknownJob": "The print provider does not know this letter.",
   "letter-foundation.preview.monthlyLimitExceeded":
     "The monthly letter cost limit does not cover this letter.",
 };

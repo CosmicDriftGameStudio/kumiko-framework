@@ -3,6 +3,7 @@ import type { egress } from "@cosmicdrift/kumiko-framework/http";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type {
   LetterCancelRefusalReason,
+  LetterEnvelope,
   LetterPriceSource,
   LetterProviderState,
   LetterRejectionCode,
@@ -11,6 +12,7 @@ import type {
 
 export type {
   LetterCancelRefusalReason,
+  LetterEnvelope,
   LetterFormRequirement,
   LetterPriceSource,
   LetterProviderState,
@@ -32,8 +34,11 @@ export type LetterAddress = {
 
 export type LetterProviderCapabilities = {
   readonly shippingModes: readonly LetterShippingMode[];
+  readonly envelopes: readonly LetterEnvelope[];
   readonly maxSheets: number;
   readonly maxBytes: number;
+  /** Sheets up to which a `flat` envelope is honored; above it the provider chooses the envelope. Unset: no limit known. */
+  readonly maxFlatSheets?: number | undefined;
   /** Seconds after acceptance in which the provider still cancels; null when it never does. */
   readonly cancelWindowSeconds: number | null;
 };
@@ -52,6 +57,7 @@ export type LetterSpec = {
   readonly pageCount: number;
   readonly sheetCount: number;
   readonly shippingMode: LetterShippingMode;
+  readonly envelope: LetterEnvelope;
   readonly color: boolean;
   readonly duplex: boolean;
 };

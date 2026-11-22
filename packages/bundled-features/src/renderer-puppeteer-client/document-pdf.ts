@@ -393,6 +393,7 @@ type DocumentInput = {
   readonly variables: Readonly<Record<string, unknown>>;
   readonly draft?: DocumentPdfDraft;
   readonly working?: boolean;
+  readonly postal?: boolean;
   /** Whose row the draft edits: a SystemAdmin edits the system row, everyone else the tenant's own. */
   readonly draftScope?: "system" | "tenant";
 };
@@ -497,6 +498,11 @@ async function findOwnPdfTemplate(
   });
 }
 
+function layoutMetaOf(meta: unknown, postal: boolean | undefined): PdfLayoutMeta {
+  const layoutMeta = readPdfLayoutMeta(meta);
+  return postal === true ? { ...layoutMeta, postal: true } : layoutMeta;
+}
+
 async function assembleDocument(
   input: DocumentInput,
   ctx: RendererContext,
@@ -525,7 +531,7 @@ async function assembleDocument(
     working,
   );
   const layout = await resolvePdfLayout(tplApi, ctx, layoutSlug, locale, resolvedLayout, working);
-  const layoutMeta = readPdfLayoutMeta(layout.template?.meta ?? null);
+  const layoutMeta = layoutMetaOf(layout.template?.meta ?? null, input.postal);
 
   try {
     const [format, tenantName, accentColor, companyData] = await Promise.all([

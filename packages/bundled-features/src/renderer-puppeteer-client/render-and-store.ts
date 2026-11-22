@@ -53,6 +53,8 @@ export type RenderPdfArgs = {
   readonly variables: Readonly<Record<string, unknown>>;
   /** An unsaved or per-subject version of the template to print instead of the stored one; the stored template of the slug still supplies images, layout and the variable schema. */
   readonly draft?: DocumentPdfDraft;
+  /** Prints as if the layout set `postal: true` (no fold marks, corner marks or paper colour), for this render only. Unset follows the layout. */
+  readonly postal?: boolean;
   readonly attachTo?: {
     readonly entityType: string;
     readonly fieldName: string;
@@ -157,13 +159,19 @@ function rendererContextOf(ctx: RenderContext, tenantId: string): RendererContex
 
 async function printDraftPdfBytes(
   ctx: RenderContext,
-  args: Pick<RenderPdfArgs, "locale" | "variables">,
+  args: Pick<RenderPdfArgs, "locale" | "variables" | "postal">,
   renderedSlug: string,
   draft: DocumentPdfDraft,
 ): Promise<WriteResult<RenderedPdfBytes>> {
   try {
     const built = await buildDocumentDraftPdfRequest(
-      { slug: renderedSlug, locale: args.locale, variables: args.variables, draft },
+      {
+        slug: renderedSlug,
+        locale: args.locale,
+        variables: args.variables,
+        draft,
+        ...(args.postal !== undefined && { postal: args.postal }),
+      },
       rendererContextOf(ctx, ctx.user.tenantId),
     );
     const pdfBytes = await printDocumentPdf(loadClientConfigOrUnavailable(), built);
@@ -187,7 +195,7 @@ async function printDraftPdfBytes(
 // themselves (mail attachment, download); same no-transaction rule as renderPdfBeforeTransaction.
 export async function renderPdfBytes(
   ctx: RenderContext,
-  args: Pick<RenderPdfArgs, "slug" | "variant" | "locale" | "variables" | "draft">,
+  args: Pick<RenderPdfArgs, "slug" | "variant" | "locale" | "variables" | "draft" | "postal">,
 ): Promise<WriteResult<RenderedPdfBytes>> {
   const tenantId = ctx.user.tenantId;
   if (await isUnknownVariant(ctx, args)) {
@@ -207,7 +215,12 @@ export async function renderPdfBytes(
     response = await plugin.render(
       {
         kind: "document-pdf",
-        payload: { slug: renderedSlug, locale: args.locale, variables: args.variables },
+        payload: {
+          slug: renderedSlug,
+          locale: args.locale,
+          variables: args.variables,
+          ...(args.postal !== undefined && { postal: args.postal }),
+        },
       },
       rendererContextOf(ctx, tenantId),
     );

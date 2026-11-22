@@ -189,6 +189,21 @@ const invoiceFeature = defineFeature(FEATURE, (r) => {
   );
   r.writeHandler(
     defineWriteHandler({
+      name: "generate-marked",
+      schema: z.object({ postal: z.boolean() }),
+      access: { roles: ["TenantAdmin"] },
+      beforeTransaction: async (event, ctx) =>
+        renderPdfBeforeTransaction(ctx, {
+          slug: "marked-sheet",
+          locale: "de",
+          variables: {},
+          ...(event.payload.postal && { postal: true }),
+        }),
+      handler: async (event, ctx) => storeRenderedPdf(ctx, event.prepared),
+    }),
+  );
+  r.writeHandler(
+    defineWriteHandler({
       name: "generate-photos",
       schema: z.object({
         photos: z.array(
@@ -1179,6 +1194,20 @@ describe("document-pdf layout appearance, frames and company data", () => {
       markedBody,
     );
     await uploadImageFor(markedPostal.id, "logo");
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertSystem,
+      {
+        slug: "marked-sheet",
+        kind: "document-pdf",
+        locale: "de",
+        content: "<p>x</p>",
+        contentFormat: "html",
+        meta: { layoutSlug: "marked", pageFormat: "A4" },
+        variableSchema: {},
+        linkedResources: {},
+      },
+      TestUsers.systemAdmin,
+    );
     await upsertLayout(
       "skipped-first-page",
       {
@@ -1298,6 +1327,19 @@ describe("document-pdf layout appearance, frames and company data", () => {
     const request = onlyStubRequest();
     expect(Buffer.from(preview.pdfBase64, "base64")).toEqual(Buffer.from(STUB_PDF));
     expect(request.options.headerTemplate).toContain("img[data-bleed]{display:none}");
+    stubRequests.length = 0;
+  });
+
+  test("a render with postal: true drops the layout's marks and bleed images and leaves the layout as it is", async () => {
+    const GENERATE_MARKED = qn(FEATURE, QnTypes.write, "generate-marked");
+    await stack.http.writeOk<Generated>(GENERATE_MARKED, { postal: true }, adminTenantA);
+    expect(onlyStubRequest().options.headerTemplate).toContain("img[data-bleed]{display:none}");
+    stubRequests.length = 0;
+
+    await stack.http.writeOk<Generated>(GENERATE_MARKED, { postal: false }, adminTenantA);
+    expect(onlyStubRequest().options.headerTemplate).toContain(
+      "img[data-bleed]{position:absolute;top:0",
+    );
     stubRequests.length = 0;
   });
 

@@ -5,7 +5,7 @@ import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import { unprocessable } from "../shared/index.ts";
 import {
   isLetterTransitionAllowed,
-  LETTER_EVENT_OF_STATE,
+  LETTER_FEATURE,
   LETTER_OUTCOME_AGGREGATE_TYPE,
   LETTER_STATE_TIMESTAMP_FIELD,
   LetterErrors,
@@ -64,7 +64,7 @@ export async function transitionLetter(
   await ctx.events.unsafeAppend({
     aggregateId: generateId(),
     aggregateType: LETTER_OUTCOME_AGGREGATE_TYPE,
-    type: LETTER_EVENT_OF_STATE[to],
+    type: `${LETTER_FEATURE}:event:${to}` as const,
     payload,
     expectedVersion: 0,
   });

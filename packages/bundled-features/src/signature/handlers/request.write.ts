@@ -16,7 +16,8 @@ import {
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import { PDFDocument } from "pdf-lib";
-import { joinRowParentIsVisible, readTenantFile, sha256Hex } from "../../shared/index.ts";
+import { readTenantFile } from "../../file-foundation/index.ts";
+import { joinRowParentIsVisible, sha256Hex } from "../../shared/index.ts";
 import { type SignatureRequestExecutor, signerExecutor } from "../entity.ts";
 import { RequestSignatureSchema } from "../payloads.ts";
 import {

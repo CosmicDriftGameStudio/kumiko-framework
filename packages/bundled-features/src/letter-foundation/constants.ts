@@ -5,7 +5,12 @@ export const LETTER_PROVIDER_EXTENSION = "letterProvider" as const;
 export const LETTER_SHIPPING_MODES = ["standard", "einwurf", "uebergabe", "rueckschein"] as const;
 export type LetterShippingMode = (typeof LETTER_SHIPPING_MODES)[number];
 
-// Only `formfrei` and `textform` can be sent: a printed letter without an own-hand signature never meets the written form.
+// `flat` is an unfolded A4 sheet in a C4 envelope, for contracts and other documents that must not be folded.
+export const LETTER_ENVELOPES = ["folded", "flat"] as const;
+export type LetterEnvelope = (typeof LETTER_ENVELOPES)[number];
+
+// A printed letter never meets the written form (a handwritten signature). `schriftform` is therefore refused
+// unless the caller states that the user was told and accepted the risk (`formRiskAcknowledged`); the app decides, not this feature.
 export const LETTER_FORM_REQUIREMENTS = ["schriftform", "textform", "formfrei"] as const;
 export type LetterFormRequirement = (typeof LETTER_FORM_REQUIREMENTS)[number];
 
@@ -39,7 +44,7 @@ export const LETTER_STATE = {
 // Which state a letter may move to from each state. "Delivered" is not a state of the letter.
 export const LETTER_TRANSITIONS: Readonly<Record<LetterState, readonly LetterState[]>> = {
   "awaiting-approval": ["approved", "canceled"],
-  approved: ["submitting", "canceled"],
+  approved: ["submitting", "failed", "canceled"],
   submitting: ["accepted", "failed", "submission-unknown"],
   "submission-unknown": ["accepted", "failed"],
   accepted: ["on-hold", "sent", "failed", "canceled"],
@@ -126,6 +131,10 @@ export const LETTER_CONFIG_KEYS = {
   monthlyCostLimitCents: "monthlyCostLimitCents",
 } as const;
 
+/** Qualified name of the limit key, which is how the config feature's `set` handler and accessor address it. */
+export const LETTER_MONTHLY_COST_LIMIT_CONFIG =
+  `${LETTER_FEATURE}:config:monthly-cost-limit-cents` as const;
+
 export const LETTER_CAP = {
   pages: "letter.pages",
   costNetCents: "letter.cost-net-cents",
@@ -133,48 +142,77 @@ export const LETTER_CAP = {
   sheets: (mode: LetterShippingMode) => `letter.${mode}.sheets` as const,
 } as const;
 
-export const LETTER_EVENT_SHORT = {
-  approved: "approved",
-  submitting: "submitting",
-  submissionUnknown: "submission-unknown",
-  accepted: "accepted",
-  onHold: "on-hold",
-  sent: "sent",
-  failed: "failed",
-  canceled: "canceled",
-  returned: "returned",
-} as const;
-
 export const LetterEvents = {
-  approved: `${LETTER_FEATURE}:event:${LETTER_EVENT_SHORT.approved}`,
-  submitting: `${LETTER_FEATURE}:event:${LETTER_EVENT_SHORT.submitting}`,
-  submissionUnknown: `${LETTER_FEATURE}:event:${LETTER_EVENT_SHORT.submissionUnknown}`,
-  accepted: `${LETTER_FEATURE}:event:${LETTER_EVENT_SHORT.accepted}`,
-  onHold: `${LETTER_FEATURE}:event:${LETTER_EVENT_SHORT.onHold}`,
-  sent: `${LETTER_FEATURE}:event:${LETTER_EVENT_SHORT.sent}`,
-  failed: `${LETTER_FEATURE}:event:${LETTER_EVENT_SHORT.failed}`,
-  canceled: `${LETTER_FEATURE}:event:${LETTER_EVENT_SHORT.canceled}`,
-  returned: `${LETTER_FEATURE}:event:${LETTER_EVENT_SHORT.returned}`,
+  approved: `${LETTER_FEATURE}:event:${LETTER_STATE.approved}`,
+  submitting: `${LETTER_FEATURE}:event:${LETTER_STATE.submitting}`,
+  submissionUnknown: `${LETTER_FEATURE}:event:${LETTER_STATE.submissionUnknown}`,
+  accepted: `${LETTER_FEATURE}:event:${LETTER_STATE.accepted}`,
+  onHold: `${LETTER_FEATURE}:event:${LETTER_STATE.onHold}`,
+  sent: `${LETTER_FEATURE}:event:${LETTER_STATE.sent}`,
+  failed: `${LETTER_FEATURE}:event:${LETTER_STATE.failed}`,
+  canceled: `${LETTER_FEATURE}:event:${LETTER_STATE.canceled}`,
+  returned: `${LETTER_FEATURE}:event:${LETTER_STATE.returned}`,
 } as const;
-
-export const LETTER_EVENT_OF_STATE = {
-  approved: LetterEvents.approved,
-  submitting: LetterEvents.submitting,
-  "submission-unknown": LetterEvents.submissionUnknown,
-  accepted: LetterEvents.accepted,
-  "on-hold": LetterEvents.onHold,
-  sent: LetterEvents.sent,
-  failed: LetterEvents.failed,
-  canceled: LetterEvents.canceled,
-  returned: LetterEvents.returned,
-} as const satisfies Partial<Record<LetterState, string>>;
 
 export const LETTER_OUTCOME_AGGREGATE_TYPE = "letter-outcome" as const;
 
 export const LetterHandlers = {
   approve: `${LETTER_FEATURE}:write:approve`,
   cancel: `${LETTER_FEATURE}:write:cancel`,
+  resolveUnknown: `${LETTER_FEATURE}:write:resolve-unknown`,
 } as const;
+
+export const LetterInternalHandlers = {
+  startSubmission: `${LETTER_FEATURE}:write:start-submission`,
+  recordAcceptance: `${LETTER_FEATURE}:write:record-acceptance`,
+  recordRejection: `${LETTER_FEATURE}:write:record-rejection`,
+  markSubmissionUnknown: `${LETTER_FEATURE}:write:mark-submission-unknown`,
+  applyProviderStatus: `${LETTER_FEATURE}:write:apply-provider-status`,
+} as const;
+
+export const LETTER_JOB = {
+  submit: "submit",
+  poll: "poll",
+} as const;
+
+export const LetterJobs = {
+  submit: `${LETTER_FEATURE}:job:${LETTER_JOB.submit}`,
+  poll: `${LETTER_FEATURE}:job:${LETTER_JOB.poll}`,
+} as const;
+
+// Time to cancel without touching the provider: the handover job waits this long after approval.
+export const LETTER_HANDOVER_HOLD_MS = 5 * 60_000;
+
+// The provider allows 120 requests per minute for the whole account and a run spends about one
+// request per letter. 50 per tenant and run keeps a single tenant far below that; many tenants
+// polling together can still exceed it. The way out is the provider's list query: one request for all letters.
+export const LETTER_POLL_LIMIT_PER_RUN = 50;
+
+// A sent letter is polled this long after sending, for the tracking number and a return.
+export const LETTER_SENT_TRACKING_DAYS = 14;
+
+export const LETTER_ADDRESS_MISMATCH_FIELD = "addressMismatch" as const;
+
+export const LETTER_FAILURE_REASONS = [
+  "monthly-limit",
+  "rejected-by-provider",
+  "not-found-at-provider",
+  "failed-at-provider",
+  "address-mismatch",
+  "resolved-by-operator",
+  "document-unreadable",
+] as const;
+export type LetterFailureReason = (typeof LETTER_FAILURE_REASONS)[number];
+
+export const LETTER_FAILURE_REASON = {
+  monthlyLimit: "monthly-limit",
+  rejectedByProvider: "rejected-by-provider",
+  notFoundAtProvider: "not-found-at-provider",
+  failedAtProvider: "failed-at-provider",
+  addressMismatch: "address-mismatch",
+  resolvedByOperator: "resolved-by-operator",
+  documentUnreadable: "document-unreadable",
+} as const satisfies Record<string, LetterFailureReason>;
 
 export const LetterQueries = {
   preview: `${LETTER_FEATURE}:query:preview`,
@@ -190,6 +228,7 @@ export const LETTER_SUBMISSION_TABLE = "store_letter_submissions" as const;
 export const LetterErrors = {
   schriftformRejected: "letter_schriftform_not_possible",
   shippingModeUnsupported: "letter_shipping_mode_unsupported",
+  envelopeUnsupported: "letter_envelope_unsupported",
   tooManySheets: "letter_too_many_sheets",
   documentRejected: "letter_document_rejected",
   documentUnreadable: "letter_document_unreadable",
@@ -200,11 +239,16 @@ export const LetterErrors = {
   cancelAfterAcceptanceUnavailable: "letter_cancel_after_acceptance_unavailable",
   transitionNotAllowed: "letter_transition_not_allowed",
   stateChanged: "letter_state_changed",
+  notSubmissionUnknown: "letter_not_submission_unknown",
+  cancelWindowClosed: "letter_cancel_window_closed",
+  cancelAlreadyProcessed: "letter_cancel_already_processed",
+  cancelUnknownJob: "letter_cancel_unknown_job",
 } as const;
 
 export const LetterI18n = {
   schriftformRejected: "letter-foundation.errors.schriftformNotPossible",
   shippingModeUnsupported: "letter-foundation.errors.shippingModeUnsupported",
+  envelopeUnsupported: "letter-foundation.errors.envelopeUnsupported",
   tooManySheets: "letter-foundation.errors.tooManySheets",
   documentRejected: "letter-foundation.errors.documentRejected",
   documentUnreadable: "letter-foundation.errors.documentUnreadable",
@@ -215,4 +259,8 @@ export const LetterI18n = {
   transitionNotAllowed: "letter-foundation.errors.transitionNotAllowed",
   stateChanged: "letter-foundation.errors.stateChanged",
   limitHint: "letter-foundation.preview.monthlyLimitExceeded",
+  notSubmissionUnknown: "letter-foundation.errors.notSubmissionUnknown",
+  cancelWindowClosed: "letter-foundation.errors.cancelWindowClosed",
+  cancelAlreadyProcessed: "letter-foundation.errors.cancelAlreadyProcessed",
+  cancelUnknownJob: "letter-foundation.errors.cancelUnknownJob",
 } as const;

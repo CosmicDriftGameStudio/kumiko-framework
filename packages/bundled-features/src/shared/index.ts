@@ -41,16 +41,10 @@ export {
   decryptStoredUserEmail,
   KMS_POOL_CONCURRENCY,
 } from "./decrypt-stored-pii.ts";
+export { PDF_MIME_TYPE, sha256Hex } from "./document-bytes.ts";
 export { encryptForDirectWrite } from "./encrypt-for-direct-write.ts";
 export { entitiesOf } from "./entities-of.ts";
 export { eraseSubjectData } from "./erase-subject-data.ts";
-export {
-  type GeneratedFileContext,
-  PDF_MIME_TYPE,
-  readTenantFile,
-  sha256Hex,
-  storeGeneratedFile,
-} from "./generated-files.ts";
 export { isWithinGracePeriod } from "./grace-period.ts";
 export { resolveHandlerMailLocale } from "./handler-mail-locale.ts";
 export { hmacSignatureMatches, signHmacSha256Base64Url } from "./hmac-signature.ts";

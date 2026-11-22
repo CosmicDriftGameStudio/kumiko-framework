@@ -8,6 +8,13 @@ export {
   isFileProviderPlugin,
 } from "./feature.ts";
 export {
+  discardGeneratedFile,
+  type GeneratedFileContext,
+  MAX_DOCUMENT_BYTES,
+  readTenantFile,
+  storeGeneratedFile,
+} from "./generated-files.ts";
+export {
   type FileRefContent,
   FileRefTooLargeError,
   FileStorageUnavailableError,

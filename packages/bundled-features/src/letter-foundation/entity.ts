@@ -5,6 +5,8 @@ import {
   createDateField,
   createEntity,
   createEntityExecutor,
+  createFileField,
+  createFilesField,
   createJsonbField,
   createLongTextField,
   createMoneyField,
@@ -15,6 +17,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   LETTER_ENTITY,
+  LETTER_ENVELOPES,
+  LETTER_FAILURE_REASONS,
   LETTER_FORM_REQUIREMENTS,
   LETTER_PRICE_SOURCES,
   LETTER_SHIPPING_MODES,
@@ -65,13 +69,19 @@ export const letterEntity = createEntity({
       filterable: true,
       ...TECHNICAL,
     }),
-    sourceEntityId: createTextField({ required: true, maxLength: 100, ...TECHNICAL }),
+    sourceEntityId: createTextField({
+      required: true,
+      maxLength: 100,
+      filterable: true,
+      ...TECHNICAL,
+    }),
     costCenterRef: createTextField({ maxLength: 200, filterable: true, ...TECHNICAL }),
     createdBy: createTextField({ required: true, maxLength: 64, personal: "ref" }),
     approvedBy: createTextField({ maxLength: 64, personal: "ref" }),
 
     fileRefIds: createJsonbField({ emptyValue: "array", ...TECHNICAL }),
-    mergedFileRefId: createTextField({ maxLength: 64, ...TECHNICAL }),
+    // File fields, so the hardDelete retention sweep purges the bytes together with the row.
+    mergedFileRefId: createFileField(TECHNICAL),
     documentSha256: createTextField({
       maxLength: 64,
       personal: false,
@@ -85,9 +95,11 @@ export const letterEntity = createEntity({
       required: true,
       filterable: true,
     }),
+    envelope: createSelectField({ options: LETTER_ENVELOPES, required: true, default: "folded" }),
     color: createBooleanField({ required: true }),
     duplex: createBooleanField({ required: true }),
     formRequirement: createSelectField({ options: LETTER_FORM_REQUIREMENTS, required: true }),
+    formRiskAcknowledged: createBooleanField({ required: true, default: false }),
     latestReceiptDate: createDateField({
       personal: false,
       reason: "is_deadline",
@@ -111,15 +123,19 @@ export const letterEntity = createEntity({
     providerJobId: createTextField({ maxLength: 200, ...TECHNICAL }),
     trackingNumber: createTextField({ maxLength: 200, ...TECHNICAL }),
     trackingStatus: createTextField({ maxLength: 200, ...TECHNICAL }),
-    proofFileRefIds: createJsonbField({ emptyValue: "array", ...TECHNICAL }),
+    proofFileRefIds: createFilesField(TECHNICAL),
     cancelableUntil: createTimestampField(BUSINESS_TIMESTAMP),
+    addressMismatch: createBooleanField({ default: false, filterable: true }),
+    failureReason: createSelectField({ options: LETTER_FAILURE_REASONS, filterable: true }),
+    failureDetail: createTextField({ maxLength: 500, ...RECIPIENT }),
+    resolutionNote: createLongTextField(RECIPIENT),
 
     approvedAt: createTimestampField(BUSINESS_TIMESTAMP),
     submittedAt: createTimestampField(BUSINESS_TIMESTAMP),
     submissionUnknownAt: createTimestampField(BUSINESS_TIMESTAMP),
     acceptedAt: createTimestampField(BUSINESS_TIMESTAMP),
     onHoldAt: createTimestampField(BUSINESS_TIMESTAMP),
-    sentAt: createTimestampField({ ...BUSINESS_TIMESTAMP, sortable: true }),
+    sentAt: createTimestampField({ ...BUSINESS_TIMESTAMP, sortable: true, filterable: true }),
     failedAt: createTimestampField(BUSINESS_TIMESTAMP),
     canceledAt: createTimestampField(BUSINESS_TIMESTAMP),
     returnedAt: createTimestampField(BUSINESS_TIMESTAMP),
@@ -163,6 +179,16 @@ export const letterSubmissionEntity = createEntity({
       access: { write: access.privileged },
       ...TECHNICAL,
     }),
+    reservationId: createTextField({
+      maxLength: 36,
+      access: { write: access.privileged },
+      ...TECHNICAL,
+    }),
+    periodStart: createTextField({
+      maxLength: 40,
+      access: { write: access.privileged },
+      ...TECHNICAL,
+    }),
     claimedAt: createTimestampField({ required: true, access: { write: access.privileged } }),
   },
 });
@@ -170,3 +196,5 @@ export const letterSubmissionEntity = createEntity({
 export const letterSubmissionTable = deriveEntityTableMeta(letterSubmissionEntity, {
   source: "unmanaged",
 });
+
+export type LetterRow = NonNullable<Awaited<ReturnType<typeof letterExecutor.detail>>>;

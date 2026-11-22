@@ -1,10 +1,11 @@
 import type { HandlerContext, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
-import { checkPostalPdf, mergePdfs, readTenantFile, unprocessable } from "../shared/index.ts";
+import { MAX_DOCUMENT_BYTES, readTenantFile } from "../file-foundation/index.ts";
+import { checkPostalPdf, mergePdfs, unprocessable } from "../shared/index.ts";
 import { LetterErrors, LetterI18n } from "./constants.ts";
 import type { letterExecutor } from "./entity.ts";
 import { resolveLetterProvider } from "./provider-resolver.ts";
-import { isLetterShippingMode, isStringList } from "./row-guards.ts";
+import { isLetterEnvelope, isLetterShippingMode, isStringList } from "./row-guards.ts";
 import type { LetterQuote } from "./types.ts";
 
 type LetterRow = NonNullable<Awaited<ReturnType<typeof letterExecutor.detail>>>;
@@ -53,7 +54,10 @@ export async function prepareLetterDocument(
   } catch {
     return unprocessable(LetterErrors.documentUnreadable, LetterI18n.documentUnreadable);
   }
-  const check = await checkPostalPdf(merged, { maxBytes: capabilities.maxBytes });
+  const check = await checkPostalPdf(merged, {
+    // readTenantFile reads no more than MAX_DOCUMENT_BYTES, so a larger merged letter could be approved but never sent.
+    maxBytes: Math.min(capabilities.maxBytes, MAX_DOCUMENT_BYTES),
+  });
   if (!check.ok) {
     return unprocessable(LetterErrors.documentRejected, LetterI18n.documentRejected, {
       documentReason: check.reason,
@@ -72,6 +76,7 @@ export async function prepareLetterDocument(
     pageCount: check.pageCount,
     sheetCount,
     shippingMode,
+    envelope: isLetterEnvelope(letter.envelope) ? letter.envelope : "folded",
     color: letter.color,
     duplex: letter.duplex,
   });

@@ -52,6 +52,7 @@ export const approveHandler = defineWriteHandler({
       fileName: `letter-${letter.id}.pdf`,
       mimeType: PDF_MIME_TYPE,
       data: merged,
+      attachTo: { entityType: LETTER_ENTITY, fieldName: "mergedFileRefId", entityId: letter.id },
     });
     if (!uploaded.isSuccess) return uploaded;
     return {
