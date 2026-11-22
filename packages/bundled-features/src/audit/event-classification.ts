@@ -31,6 +31,7 @@ export const AUDIT_EVENT_STANCES: Readonly<Record<string, AuditEventStance>> = {
   "tenant-lifecycle:event:tenant-destruction-stage-abandoned": TECHNICAL_EVENT,
   "letter-foundation:event:submitting": TECHNICAL_EVENT,
   "letter-foundation:event:accepted": TECHNICAL_EVENT,
+  "letter-foundation:event:handover-restart-requested": TECHNICAL_EVENT,
 
   "custom-fields:event:custom-field-set": label("custom-field-set"),
   "custom-fields:event:custom-field-cleared": label("custom-field-cleared"),

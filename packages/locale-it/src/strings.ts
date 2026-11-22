@@ -2319,6 +2319,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "letter-foundation:write:resolve-unknown:title": "Chiudi consegna poco chiara",
   "letter-foundation:write:resolve-unknown:field:letterId": "Lettera",
   "letter-foundation:write:resolve-unknown:field:note": "Nota",
+  "letter-foundation:write:resolve-unknown:field:providerJobId":
+    "Numero d'ordine presso il fornitore",
   "letter-foundation.errors.schriftformNotPossible":
     "Questa lettera richiede una firma autografa. Una lettera stampata non soddisfa tale forma, quindi non può essere inviata in questo modo.",
   "letter-foundation.errors.shippingModeUnsupported":

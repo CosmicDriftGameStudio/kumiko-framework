@@ -16,7 +16,6 @@ import {
   LETTER_HANDOVER_GIVE_UP_MS,
   LETTER_HANDOVER_HOLD_MS,
   LETTER_HANDOVER_RESTART_EVENT,
-  LETTER_JOB,
   LETTER_POLL_LIMIT_PER_RUN,
   LETTER_PROVIDER_EXTENSION,
   LETTER_ROLES,
@@ -114,7 +113,7 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
       r.writeHandler(applyProviderStatusHandler);
       const submitLetterRun = createSubmitLetterRun(monthlyCostLimitCents, handoverHoldMs);
       r.job({
-        name: LETTER_JOB.submit,
+        name: "submit",
         trigger: { on: [LetterEvents.approved, LetterEvents.handoverRestartRequested] },
         concurrency: "sequential",
         // Safe to repeat: a run in `approved` finds its claim and takes a fresh reservation, a letter in any other state is left alone.
@@ -123,7 +122,7 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
         handler: (payload, ctx) => submitLetterRun(payload, ctx),
       });
       r.job({
-        name: LETTER_JOB.poll,
+        name: "poll",
         trigger: { cron: "*/5 * * * *" },
         perTenant: true,
         concurrency: "skip",

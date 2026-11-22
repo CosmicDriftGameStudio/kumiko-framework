@@ -233,6 +233,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "letter-foundation:write:mark-submission-unknown expose=false risk=mid",
   "letter-foundation:write:record-acceptance expose=false risk=mid",
   "letter-foundation:write:record-rejection expose=false risk=mid",
+  "letter-foundation:write:request-handover-restart expose=false risk=mid",
   "letter-foundation:write:resolve-unknown expose=true risk=mid",
   "letter-foundation:write:start-submission expose=false risk=mid",
   "managed-pages:query:by-slug expose=true risk=low",

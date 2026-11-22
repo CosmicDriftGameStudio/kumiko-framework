@@ -2343,6 +2343,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "letter-foundation:write:resolve-unknown:title": "Clore la remise incertaine",
   "letter-foundation:write:resolve-unknown:field:letterId": "Lettre",
   "letter-foundation:write:resolve-unknown:field:note": "Note",
+  "letter-foundation:write:resolve-unknown:field:providerJobId":
+    "Numéro de commande chez le prestataire",
   "letter-foundation.errors.schriftformNotPossible":
     "Cette lettre exige une signature manuscrite. Une lettre imprimée ne remplit pas cette forme et ne peut donc pas être envoyée ainsi.",
   "letter-foundation.errors.shippingModeUnsupported":
