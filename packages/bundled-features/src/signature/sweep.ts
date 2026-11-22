@@ -3,14 +3,15 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { RendererError } from "../renderer-foundation/index.ts";
 import { renderHtmlToPdf } from "../renderer-puppeteer-client/index.ts";
-import { signerExecutor, ungatedRequestExecutor } from "./entity.ts";
 import {
-  discardGeneratedFile,
+  appendPdfPages,
   PDF_MIME_TYPE,
   readTenantFile,
   sha256Hex,
   storeGeneratedFile,
-} from "./files.ts";
+} from "../shared/index.ts";
+import { signerExecutor, ungatedRequestExecutor } from "./entity.ts";
+import { discardGeneratedFile } from "./files.ts";
 import {
   instantOrNull,
   isPastInstant,
@@ -19,7 +20,6 @@ import {
   type SignerRow,
 } from "./lib.ts";
 import {
-  appendPdfPages,
   buildSignaturePageHtml,
   DEFAULT_SIGNATURE_PAGE_LABELS,
   type SignaturePageEntry,

@@ -19,6 +19,13 @@ describe("formatCapAmount", () => {
     expect(formatCapAmount(150000, "tokens", "en")).toBe("150,000");
   });
 
+  test("cents show as an amount with two decimals in the locale format, without a currency symbol", () => {
+    expect(formatCapAmount(1234, "cents", "de")).toBe("12,34");
+    expect(formatCapAmount(1234, "cents", "en")).toBe("12.34");
+    expect(formatCapAmount(500000, "cents", "de")).toBe("5.000,00");
+    expect(formatCapAmount(0, "cents", "de")).toBe("0,00");
+  });
+
   test("missing unit formats as a plain number", () => {
     expect(formatCapAmount(150000, undefined, "de")).toBe("150.000");
   });

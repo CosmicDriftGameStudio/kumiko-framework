@@ -8,6 +8,7 @@ export {
   markCapSoftWarned,
   type ReadRollingCapUsageOptions,
   readRollingCapUsage,
+  releaseCapUsage,
 } from "./book-cap-usage.ts";
 export {
   type CalendarCapReservationHandle,

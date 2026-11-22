@@ -224,6 +224,14 @@ describe("pdf-layout meta", () => {
     }
   });
 
+  test("accepts the postal flag and rejects a non-boolean one", () => {
+    expect(parseTemplateMeta("pdf-layout", { postal: true })).toEqual({
+      ok: true,
+      meta: { postal: true },
+    });
+    expect(parseTemplateMeta("pdf-layout", { postal: "yes" }).ok).toBe(false);
+  });
+
   test("rejects a bad table line color, unknown fold marks and non-boolean page 1 flags", () => {
     for (const bad of [
       { tableLineColor: "gray" },

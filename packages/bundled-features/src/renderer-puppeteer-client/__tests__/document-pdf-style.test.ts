@@ -45,6 +45,11 @@ describe("chromiumRegionHtml", () => {
     expect(PRINT_CSS).toContain("[data-align=center]{text-align:center}");
   });
 
+  test("hides a bleed image of a postal layout and keeps it placed otherwise", () => {
+    expect(regionOf({ postal: true })).toContain("img[data-bleed]{display:none}");
+    expect(regionOf({})).toContain("img[data-bleed]{position:absolute;top:0");
+  });
+
   test("uses the layout font size in pt when the layout sets one", () => {
     expect(regionOf({ fontSizePt: 10 })).toContain("font-size:10pt");
   });

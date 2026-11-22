@@ -11,10 +11,14 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import { collectErasureFailure, throwIfErasureFailed } from "../shared/index.ts";
+import {
+  collectErasureFailure,
+  type GeneratedFileContext,
+  throwIfErasureFailed,
+} from "../shared/index.ts";
 import { resolveVerifiedUserEmail } from "../user/index.ts";
 import { signatureSignerTable, signerExecutor, ungatedRequestExecutor } from "./entity.ts";
-import { deleteFileRef, type GeneratedFileContext } from "./files.ts";
+import { deleteFileRef } from "./files.ts";
 import { setRequestStatus } from "./lib.ts";
 import { SIGNATURE_REQUEST_STATUS, SIGNATURE_SIGNER_ENTITY } from "./web/constants.ts";
 

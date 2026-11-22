@@ -21,6 +21,12 @@ export function formatCapAmount(value: number, unit: CapUnit | undefined, locale
         maximumFractionDigits: 1,
       }).format(value / scaled.divisor);
     }
+    if (unit === "cents") {
+      return new Intl.NumberFormat(locale, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(value / 100);
+    }
     return new Intl.NumberFormat(locale).format(value);
   } catch {
     return String(value);

@@ -2,7 +2,7 @@ import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { CapLimitContext } from "../cap-counter/index.ts";
 
-export type CapUnit = "count" | "mb" | "tokens";
+export type CapUnit = "count" | "mb" | "tokens" | "cents";
 
 // Closed vocabulary for the dashboard cards' icon chip — cap-cards-panel.tsx
 // holds the matching lucide-react lookup. Small on purpose (YAGNI): extend
