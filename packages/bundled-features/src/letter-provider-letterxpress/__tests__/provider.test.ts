@@ -68,7 +68,7 @@ function jobWithStatus(status: string): StubAnswer {
 describe("build", () => {
   test("binds the egress policy to the API host only", async () => {
     const { policies } = await providerWith([]);
-    expect(policies).toEqual([{ kind: "internal", allowHosts: ["api.letterxpress.de"] }]);
+    expect(policies).toEqual([{ kind: "internal", allowOrigins: ["https://api.letterxpress.de"] }]);
   });
 
   test("missing credentials throw with the variable names and no value", async () => {
@@ -99,11 +99,11 @@ describe("build", () => {
 describe("mode", () => {
   test("without the live switch every request says test", async () => {
     const { provider, requests } = await providerWith([
-      fixture("a-balance-before"),
+      fixture("c2-price-bw-duplex-std"),
       fixture("d-submit-std"),
       fixture("e1-get-job1"),
     ]);
-    await provider.balance?.();
+    await provider.quote(spec());
     await provider.submit(submission());
     await provider.status("10000001");
     expect(requests).toHaveLength(3);
@@ -113,10 +113,10 @@ describe("mode", () => {
   });
 
   test("with the live switch the requests say live", async () => {
-    const { provider, requests } = await providerWith([fixture("a-balance-before")], {
+    const { provider, requests } = await providerWith([fixture("c2-price-bw-duplex-std")], {
       live: true,
     });
-    await provider.balance?.();
+    await provider.quote(spec());
     expect(requests[0]?.body["auth"]).toMatchObject({ mode: "live" });
   });
 });
@@ -449,9 +449,28 @@ describe("findByReference", () => {
   });
 });
 
-describe("balance", () => {
-  test("returns whole cents", async () => {
-    const { provider } = await providerWith([fixture("a-balance-before")]);
-    expect(await provider.balance?.()).toEqual({ amount: 2000, currency: "EUR" });
+describe("findByJobId", () => {
+  test("returns the order with the reference it was placed under", async () => {
+    const { provider, requests } = await providerWith([fixture("e1-get-job1")]);
+    const order = await provider.findByJobId?.("10000001");
+    expect(order?.reference).toBe("letter-ref-1");
+    expect(order?.acceptance.providerJobId).toBe("10000001");
+    expect(order?.acceptance.actualNet).toEqual({ amount: 91, currency: "EUR" });
+    expect(requests[0]?.url).toBe("https://api.letterxpress.de/v3/printjobs/10000001");
+  });
+
+  test("an unknown id is null", async () => {
+    const { provider } = await providerWith([fixture("i3-unknown-id")]);
+    expect(await provider.findByJobId?.("999999999")).toBeNull();
+  });
+
+  test("a canceled order is null, so it is never accepted", async () => {
+    const { provider } = await providerWith([jobWithStatus("canceled")]);
+    expect(await provider.findByJobId?.("10000001")).toBeNull();
+  });
+
+  test("a failing call throws", async () => {
+    const { provider } = await providerWith([fixture("i1-wrong-apikey")]);
+    await expect(provider.findByJobId?.("10000001")).rejects.toThrow("401");
   });
 });

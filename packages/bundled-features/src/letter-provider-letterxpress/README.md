@@ -18,7 +18,7 @@ createLetterProviderLetterXpressFeature();
 
 The request field `mode` is `live` when the live switch is on and `test` otherwise. Through `letter-foundation` only the live case is reachable. The test mode of the provider is used in direct calls of `buildLetterXpressProvider` with `live: false`.
 
-All calls go through `egress()` with `allowHosts: ["api.letterxpress.de"]`.
+All calls go through `egress()` with `allowOrigins: ["https://api.letterxpress.de"]`, so a redirect to another scheme or port is refused.
 
 ## Shipping modes and limits
 
@@ -66,7 +66,7 @@ Observed in the test mode on 2026-11-22 (recorded answers in `__tests__/fixtures
 - Price, submit, get, list, delete and the answers for a wrong key (401), an unknown id (404) and a landscape PDF (500).
 - Deleting an order makes the following GET answer 404.
 - Reads work as `POST` with the header `X-HTTP-Method-Override: GET`, because `fetch` refuses a body on GET.
-- One run of the finished provider: balance, quote, submit, status, lookup by reference, cancel, status again (`not-found`), second cancel (`unknown_job`). The balance was the same afterwards.
+- One run of the finished provider: price, quote, submit, status, lookup by reference, cancel, status again (`not-found`), second cancel (`unknown_job`).
 - The C4 option in the price and in an order: two sheets cost 0,91 net folded and 1,76 net flat, eight sheets 1,64 and 2,24. Nine sheets without the option cost 2,29.
 
 Taken from the API documentation only (`__tests__/fixtures/from-docs/`):

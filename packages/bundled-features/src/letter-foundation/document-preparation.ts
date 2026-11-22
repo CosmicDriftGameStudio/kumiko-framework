@@ -3,12 +3,10 @@ import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import { MAX_DOCUMENT_BYTES, readTenantFile } from "../file-foundation/index.ts";
 import { checkPostalPdf, mergePdfs, unprocessable } from "../shared/index.ts";
 import { LetterErrors, LetterI18n } from "./constants.ts";
-import type { letterExecutor } from "./entity.ts";
+import type { LetterRow } from "./entity.ts";
 import { resolveLetterProvider } from "./provider-resolver.ts";
-import { isLetterEnvelope, isLetterShippingMode, isStringList } from "./row-guards.ts";
+import { envelopeOf, isLetterShippingMode, isStringList } from "./row-guards.ts";
 import type { LetterQuote } from "./types.ts";
-
-type LetterRow = NonNullable<Awaited<ReturnType<typeof letterExecutor.detail>>>;
 
 export type PreparedLetterDocument = {
   readonly merged: Uint8Array;
@@ -33,6 +31,8 @@ export async function prepareLetterDocument(
   const { capabilities } = resolved;
 
   const documents: Uint8Array[] = [];
+  const maxBytes = Math.min(capabilities.maxBytes, MAX_DOCUMENT_BYTES);
+  let totalBytes = 0;
   const { fileRefIds, shippingMode } = letter;
   if (!isStringList(fileRefIds) || !isLetterShippingMode(shippingMode)) {
     return unprocessable(LetterErrors.documentUnreadable, LetterI18n.documentUnreadable);
@@ -42,6 +42,15 @@ export async function prepareLetterDocument(
     if (file === null) {
       return unprocessable(LetterErrors.documentUnreadable, LetterI18n.documentUnreadable, {
         fileRefId,
+      });
+    }
+    // Merging does not shrink the parts in practice, so oversized input stops before the remaining files are read and merged.
+    totalBytes += file.content.byteLength;
+    if (totalBytes > maxBytes) {
+      return unprocessable(LetterErrors.documentRejected, LetterI18n.documentRejected, {
+        documentReason: "file-too-large",
+        page: null,
+        detail: `${totalBytes} bytes exceed the limit of ${maxBytes}`,
       });
     }
     documents.push(file.content);
@@ -54,10 +63,8 @@ export async function prepareLetterDocument(
   } catch {
     return unprocessable(LetterErrors.documentUnreadable, LetterI18n.documentUnreadable);
   }
-  const check = await checkPostalPdf(merged, {
-    // readTenantFile reads no more than MAX_DOCUMENT_BYTES, so a larger merged letter could be approved but never sent.
-    maxBytes: Math.min(capabilities.maxBytes, MAX_DOCUMENT_BYTES),
-  });
+  // readTenantFile reads no more than MAX_DOCUMENT_BYTES, so a larger merged letter could be approved but never sent.
+  const check = await checkPostalPdf(merged, { maxBytes });
   if (!check.ok) {
     return unprocessable(LetterErrors.documentRejected, LetterI18n.documentRejected, {
       documentReason: check.reason,
@@ -76,7 +83,7 @@ export async function prepareLetterDocument(
     pageCount: check.pageCount,
     sheetCount,
     shippingMode,
-    envelope: isLetterEnvelope(letter.envelope) ? letter.envelope : "folded",
+    envelope: envelopeOf(letter),
     color: letter.color,
     duplex: letter.duplex,
   });

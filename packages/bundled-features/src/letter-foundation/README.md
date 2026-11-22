@@ -126,6 +126,7 @@ it posted the letter, never that it arrived.
   PDF with the expected one. A mismatch inside the cancel window cancels the letter and fails it with
   `address-mismatch`; later it only sets `addressMismatch` on the letter.
 - A sent letter is polled for 14 more days for the tracking number and a return.
+- The poll restarts a handover that stayed in `approved` after the submit job ran out of retries, once the hold time plus 30 minutes have passed.
 
 ## Limits to know
 
@@ -156,7 +157,7 @@ Set the limit through the config feature with the key `LETTER_MONTHLY_COST_LIMIT
 
 A provider is a feature that registers a `LetterProviderPlugin` on the `letterProvider` extension:
 `capabilities` plus `build(ctx)`, which returns `quote`, `submit`, `status` and optionally `cancel`,
-`findByReference` and `balance`. `submit` returns `accepted` or `rejected`; a timeout or an unexpected
+`findByReference` and `findByJobId`. `submit` returns `accepted` or `rejected`; a timeout or an unexpected
 answer is thrown, which moves the letter to `submission-unknown`. Call the provider only through
 `ctx.egress`. `letter-provider-letterxpress` is the reference, `letter-provider-inmemory` the simulator
 for tests (`letterSimulator.setScenario`).

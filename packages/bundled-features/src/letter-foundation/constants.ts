@@ -191,7 +191,16 @@ export const LETTER_POLL_LIMIT_PER_RUN = 50;
 // A sent letter is polled this long after sending, for the tracking number and a return.
 export const LETTER_SENT_TRACKING_DAYS = 14;
 
-export const LETTER_ADDRESS_MISMATCH_FIELD = "addressMismatch" as const;
+// Unknown handovers and stuck handovers each get this many requests per poll run, so a provider outage
+// that fills them cannot starve the letters that are accepted or sent.
+export const LETTER_POLL_SAFETY_NET_LIMIT = 10;
+
+// A letter in `submitting` this long after the handover started has outlived the provider call and its retries.
+export const LETTER_SUBMITTING_STALE_MS = 10 * 60_000;
+
+// An approved letter this long past its hold time has outlived the submit job and all its retries, and a full
+// sequential queue has had room to run it; the poll starts the handover again.
+export const LETTER_APPROVED_STALE_MS = 30 * 60_000;
 
 export const LETTER_FAILURE_REASONS = [
   "monthly-limit",
@@ -220,7 +229,7 @@ export const LetterQueries = {
   detail: `${LETTER_FEATURE}:query:${LETTER_ENTITY}:detail`,
 } as const;
 
-export const LETTER_SUBMISSION_STATUSES = ["claimed", "submitted"] as const;
+export const LETTER_SUBMISSION_STATUSES = ["claimed", "estimate-booked", "submitted"] as const;
 export type LetterSubmissionStatus = (typeof LETTER_SUBMISSION_STATUSES)[number];
 
 export const LETTER_SUBMISSION_TABLE = "store_letter_submissions" as const;
@@ -243,6 +252,7 @@ export const LetterErrors = {
   cancelWindowClosed: "letter_cancel_window_closed",
   cancelAlreadyProcessed: "letter_cancel_already_processed",
   cancelUnknownJob: "letter_cancel_unknown_job",
+  providerJobMismatch: "letter_provider_job_mismatch",
 } as const;
 
 export const LetterI18n = {
@@ -263,4 +273,11 @@ export const LetterI18n = {
   cancelWindowClosed: "letter-foundation.errors.cancelWindowClosed",
   cancelAlreadyProcessed: "letter-foundation.errors.cancelAlreadyProcessed",
   cancelUnknownJob: "letter-foundation.errors.cancelUnknownJob",
+  providerJobMismatch: "letter-foundation.errors.providerJobMismatch",
 } as const;
+
+export const LETTER_CLAIM_STATUS = {
+  claimed: "claimed",
+  estimateBooked: "estimate-booked",
+  submitted: "submitted",
+} as const satisfies Record<string, LetterSubmissionStatus>;

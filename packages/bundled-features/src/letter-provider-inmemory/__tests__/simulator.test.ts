@@ -142,6 +142,6 @@ describe("letter simulator", () => {
     sim.reset();
     expect(sim.orders()).toHaveLength(0);
     expect(sim.calls.submit).toBe(0);
-    expect((await sim.provider.balance?.())?.amount).toBe(10_000);
+    expect(await sim.provider.findByJobId?.("sim-1")).toBeNull();
   });
 });

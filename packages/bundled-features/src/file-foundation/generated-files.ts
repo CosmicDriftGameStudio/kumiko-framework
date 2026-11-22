@@ -63,6 +63,10 @@ export async function discardGeneratedFile(
   await ctx.services.files?.ref(file.storageKey).delete();
 }
 
+export async function deleteFileRef(db: TenantDb, user: SessionUser, id: string): Promise<void> {
+  await fileRefExecutor.delete({ id }, user, db);
+}
+
 export function storeGeneratedFile(
   ctx: GeneratedFileContext,
   user: SessionUser,

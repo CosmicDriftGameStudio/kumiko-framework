@@ -9,7 +9,7 @@ const API_KEY = "api-key-must-never-leak";
 function clientWith(answers: StubAnswer[], mode: "test" | "live" = "test") {
   const stub = createStubTransport(answers);
   const client = createLetterXpressClient({
-    egress: stub.egress({ kind: "internal", allowHosts: ["api.letterxpress.de"] }),
+    egress: stub.egress({ kind: "internal", allowOrigins: ["https://api.letterxpress.de"] }),
     username: USERNAME,
     apiKey: API_KEY,
     mode,
@@ -18,15 +18,16 @@ function clientWith(answers: StubAnswer[], mode: "test" | "live" = "test") {
 }
 
 const SPECIFICATION = { color: "1", mode: "duplex", shipping: "national" } as const;
+const PRICE_REQUEST = { pages: 3, specification: SPECIFICATION } as const;
 
 describe("letterxpress client requests", () => {
   test("reads go out as POST with the GET override and carry the auth object in the body", async () => {
-    const { client, requests } = clientWith([fixture("a-balance-before")]);
-    const result = await client.balance();
+    const { client, requests } = clientWith([fixture("c2-price-bw-duplex-std")]);
+    const result = await client.price(PRICE_REQUEST);
 
-    expect(result).toEqual({ kind: "ok", data: { balance: 20, currency: "EUR" } });
+    expect(result).toEqual({ kind: "ok", data: { price: 1.08 } });
     const [request] = requests;
-    expect(request?.url).toBe("https://api.letterxpress.de/v3/balance");
+    expect(request?.url).toBe("https://api.letterxpress.de/v3/price");
     expect(request?.method).toBe("POST");
     expect(request?.headers.get("X-HTTP-Method-Override")).toBe("GET");
     expect(request?.headers.get("Content-Type")).toBe("application/json");
@@ -34,8 +35,8 @@ describe("letterxpress client requests", () => {
   });
 
   test("the mode of the client is the mode in the body", async () => {
-    const { client, requests } = clientWith([fixture("a-balance-before")], "live");
-    await client.balance();
+    const { client, requests } = clientWith([fixture("c2-price-bw-duplex-std")], "live");
+    await client.price(PRICE_REQUEST);
     expect(requests[0]?.body["auth"]).toMatchObject({ mode: "live" });
   });
 
@@ -117,7 +118,7 @@ describe("letterxpress client requests", () => {
 describe("letterxpress client failures", () => {
   test("401 is unauthorized", async () => {
     const { client } = clientWith([fixture("i1-wrong-apikey")]);
-    expect(await client.balance()).toEqual({ kind: "unauthorized" });
+    expect(await client.price(PRICE_REQUEST)).toEqual({ kind: "unauthorized" });
   });
 
   test("404 is not-found", async () => {
@@ -142,9 +143,9 @@ describe("letterxpress client failures", () => {
 
   test("an answer that does not match the schema is invalid-response", async () => {
     const { client } = clientWith([
-      { http_status: 200, body: { status: 200, message: "OK", data: { balance: "a lot" } } },
+      { http_status: 200, body: { status: 200, message: "OK", data: { price: "a lot" } } },
     ]);
-    expect(await client.balance()).toEqual({ kind: "invalid-response" });
+    expect(await client.price(PRICE_REQUEST)).toEqual({ kind: "invalid-response" });
   });
 
   test("an unknown order status is invalid-response", async () => {
@@ -162,15 +163,15 @@ describe("letterxpress client failures", () => {
       apiKey: API_KEY,
       mode: "test",
     });
-    expect(await client.balance()).toEqual({ kind: "invalid-response" });
+    expect(await client.price(PRICE_REQUEST)).toEqual({ kind: "invalid-response" });
   });
 
   test("a timeout and a network error are told apart", async () => {
     const timeout = new Error("slow");
     timeout.name = "TimeoutError";
     const { client } = clientWith([timeout, new Error("connection reset")]);
-    expect(await client.balance()).toEqual({ kind: "timeout" });
-    expect(await client.balance()).toEqual({ kind: "unreachable" });
+    expect(await client.price(PRICE_REQUEST)).toEqual({ kind: "timeout" });
+    expect(await client.price(PRICE_REQUEST)).toEqual({ kind: "unreachable" });
   });
 
   test("no failure carries the key or the user name", async () => {
@@ -182,15 +183,15 @@ describe("letterxpress client failures", () => {
       { http_status: 200, body: { data: 1 } },
     ]);
     const results = [
-      await client.balance(),
-      await client.balance(),
+      await client.price(PRICE_REQUEST),
+      await client.price(PRICE_REQUEST),
       await client.createPrintJob({
         pdf: new Uint8Array([1]),
         specification: SPECIFICATION,
         notice: "n",
         filenameOriginal: "f.pdf",
       }),
-      await client.balance(),
+      await client.price(PRICE_REQUEST),
     ];
     for (const result of results) {
       const text = JSON.stringify(result);

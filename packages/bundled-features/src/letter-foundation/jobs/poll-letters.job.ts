@@ -1,42 +1,36 @@
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import type { CreatedFileRef } from "@cosmicdrift/kumiko-framework/files";
-import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { discardGeneratedFile, storeGeneratedFile } from "../../file-foundation/index.ts";
 import { PDF_MIME_TYPE } from "../../shared/index.ts";
 import { isAtProviderState } from "../accept-letter.ts";
-import { recognizedAddressMatches } from "../address-match.ts";
 import {
   LETTER_ENTITY,
   LETTER_FAILURE_REASON,
   LETTER_POLL_LIMIT_PER_RUN,
+  LETTER_POLL_SAFETY_NET_LIMIT,
   LETTER_SENT_TRACKING_DAYS,
   LETTER_STATE,
   LETTER_STATE_OF_PROVIDER_STATE,
+  LETTER_STATE_TIMESTAMP_FIELD,
+  LETTER_SUBMITTING_STALE_MS,
   LetterInternalHandlers,
   type LetterState,
 } from "../constants.ts";
 import { type LetterRow, letterExecutor, letterSubmissionTable } from "../entity.ts";
-import { findClaim, releaseReservedCost } from "../letter-usage.ts";
+import { findClaim, releaseBookedEstimate, releaseReservedCost } from "../letter-usage.ts";
 import { resolveLetterProvider } from "../provider-resolver.ts";
 import type { LetterProvider, LetterProviderStatus } from "../types.ts";
-import { recipientOf } from "./submit-letter.job.ts";
+import {
+  applyProviderStatus as apply,
+  cancelOnMismatch,
+  hasAddressMismatch,
+} from "./address-mismatch.ts";
 
 function warn(ctx: JobContext, message: string, letter: LetterRow, error: unknown): void {
   ctx.obs.log.warn(message, {
     letterId: letter.id,
     error: error instanceof Error ? error.message : "unknown",
   });
-}
-
-async function apply(ctx: JobContext, payload: Record<string, unknown>): Promise<boolean> {
-  const result = await ctx.dispatch.write(LetterInternalHandlers.applyProviderStatus, payload);
-  if (!result.isSuccess) {
-    throw new Error(
-      `letter-foundation: apply-provider-status was rejected: ${JSON.stringify(result.error)}`,
-    );
-  }
-  return propertyOf(result.data, "applied") === true;
 }
 
 async function resolveUnknown(
@@ -75,13 +69,9 @@ async function resolveUnknown(
   const claim = await findClaim(ctx.db, letter.id);
   if (claim !== undefined) {
     await releaseReservedCost(ctx, claim, true);
+    await releaseBookedEstimate(ctx, claim, letter.quotedNet?.amount ?? 0, true);
     await ctx.db.deleteMany(letterSubmissionTable, { id: claim.id });
   }
-}
-
-function isWithinCancelWindow(letter: LetterRow, now: Temporal.Instant): boolean {
-  if (letter.cancelableUntil === null || letter.cancelableUntil === undefined) return false;
-  return Temporal.Instant.compare(now, Temporal.Instant.from(String(letter.cancelableUntil))) <= 0;
 }
 
 async function discardProofs(ctx: JobContext, proofs: readonly CreatedFileRef[]): Promise<void> {
@@ -110,31 +100,6 @@ async function storeProofs(
     stored.push(result.data);
   }
   return stored;
-}
-
-function hasAddressMismatch(
-  letter: LetterRow,
-  recognized: LetterProviderStatus["recognizedAddress"] | undefined,
-): boolean {
-  return recognized !== undefined && !recognizedAddressMatches(recipientOf(letter), recognized);
-}
-
-async function cancelOnMismatch(
-  ctx: JobContext,
-  provider: LetterProvider,
-  letter: LetterRow,
-  jobId: string,
-): Promise<boolean> {
-  // skip: this provider cannot cancel, or the cancel window has passed
-  if (provider.cancel === undefined || !isWithinCancelWindow(letter, ctx.tz.now())) return false;
-  const canceled = await provider.cancel(jobId);
-  if (canceled.kind !== "canceled") return false;
-  await apply(ctx, {
-    letterId: letter.id,
-    to: LETTER_STATE.canceled,
-    failureReason: LETTER_FAILURE_REASON.addressMismatch,
-  });
-  return true;
 }
 
 function statusPayload(
@@ -214,7 +179,15 @@ async function pollAtProvider(
   }
 }
 
-type PollGroup = { readonly statuses: readonly LetterState[]; readonly sentSince?: string };
+type PollFilter = {
+  readonly field: string;
+  readonly op: "gte" | "lte";
+  readonly value: string;
+};
+type PollGroup = {
+  readonly statuses: readonly LetterState[];
+  readonly where?: readonly PollFilter[];
+};
 
 const POLL_SLOT_MS = 5 * 60_000;
 
@@ -228,9 +201,7 @@ async function lettersOf(
 ): Promise<readonly LetterRow[]> {
   const filters = [
     { field: "status", op: "in" as const, value: group.statuses },
-    ...(group.sentSince !== undefined
-      ? [{ field: "sentAt", op: "gte" as const, value: group.sentSince }]
-      : []),
+    ...(group.where ?? []),
   ];
   const counted = await letterExecutor.list(
     { filters, limit: 1, totalCount: true },
@@ -247,35 +218,120 @@ async function lettersOf(
   return found.rows;
 }
 
-/** Brings letters in flight up to date: unknown handovers, then letters at the provider, then sent ones still inside the tracking window. */
+/** Hands a stuck handover to the same path as a handover without an answer, so its estimate is booked. */
+async function markStuckSubmission(ctx: JobContext, letter: LetterRow): Promise<void> {
+  const result = await ctx.dispatch.write(LetterInternalHandlers.markSubmissionUnknown, {
+    letterId: letter.id,
+  });
+  if (!result.isSuccess) {
+    throw new Error(`mark-submission-unknown rejected: ${JSON.stringify(result.error)}`);
+  }
+}
+
+/** Starts the handover of a letter that stayed in `approved` after the submit job gave up. The call can meet
+ *  a submit run of the same letter that is still waiting; `startSubmission` lets only one win, and the loser
+ *  gives its reservation back. */
+export type RestartHandover = {
+  readonly staleMs: number;
+  readonly submit: (letterId: string) => Promise<unknown>;
+};
+
+async function pollGroup(
+  ctx: JobContext,
+  provider: LetterProvider,
+  group: PollGroup,
+  budget: number,
+  restart?: RestartHandover,
+): Promise<number> {
+  if (budget <= 0) return 0;
+  const letters = await lettersOf(ctx, group, budget);
+  for (const letter of letters) {
+    try {
+      if (letter.status === LETTER_STATE.submissionUnknown) {
+        await resolveUnknown(ctx, provider, letter);
+      } else if (letter.status === LETTER_STATE.submitting) {
+        await markStuckSubmission(ctx, letter);
+      } else if (letter.status === LETTER_STATE.approved) {
+        await restart?.submit(letter.id);
+      } else {
+        await pollAtProvider(ctx, provider, letter);
+      }
+    } catch (error) {
+      warn(ctx, "[letter-foundation:poll] a letter could not be updated", letter, error);
+    }
+  }
+  return letters.length;
+}
+
+/** Brings letters in flight up to date. Unknown and stuck handovers get a small budget of their own, so a
+ *  provider outage that fills them cannot starve letters at the provider; the rest of the run goes to
+ *  letters at the provider, then to sent ones still inside the tracking window. */
 export async function pollLetters(
   ctx: JobContext,
   limitPerRun: number = LETTER_POLL_LIMIT_PER_RUN,
+  restart?: RestartHandover,
 ): Promise<void> {
   const { provider } = await resolveLetterProvider(ctx.registry);
-  const sentSince = ctx.tz
-    .now()
-    .subtract({ hours: LETTER_SENT_TRACKING_DAYS * 24 })
-    .toString();
-  const groups: readonly PollGroup[] = [
-    { statuses: [LETTER_STATE.submissionUnknown] },
-    { statuses: [LETTER_STATE.accepted, LETTER_STATE.onHold] },
-    { statuses: [LETTER_STATE.sent], sentSince },
-  ];
+  const now = ctx.tz.now();
+  const sentSince = now.subtract({ hours: LETTER_SENT_TRACKING_DAYS * 24 }).toString();
+  const stuckBefore = now.subtract({ milliseconds: LETTER_SUBMITTING_STALE_MS }).toString();
+  const approvedBefore =
+    restart === undefined ? undefined : now.subtract({ milliseconds: restart.staleMs }).toString();
+  const safetyNetBudget = Math.min(
+    LETTER_POLL_SAFETY_NET_LIMIT,
+    Math.max(1, Math.floor(limitPerRun / 4)),
+  );
+
   let budget = limitPerRun;
-  for (const group of groups) {
-    if (budget <= 0) return;
-    for (const letter of await lettersOf(ctx, group, budget)) {
-      budget -= 1;
-      try {
-        if (letter.status === LETTER_STATE.submissionUnknown) {
-          await resolveUnknown(ctx, provider, letter);
-        } else {
-          await pollAtProvider(ctx, provider, letter);
-        }
-      } catch (error) {
-        warn(ctx, "[letter-foundation:poll] a letter could not be updated", letter, error);
-      }
-    }
+  budget -= await pollGroup(
+    ctx,
+    provider,
+    { statuses: [LETTER_STATE.submissionUnknown] },
+    Math.min(safetyNetBudget, budget),
+  );
+  budget -= await pollGroup(
+    ctx,
+    provider,
+    {
+      statuses: [LETTER_STATE.submitting],
+      where: [
+        {
+          field: LETTER_STATE_TIMESTAMP_FIELD[LETTER_STATE.submitting],
+          op: "lte",
+          value: stuckBefore,
+        },
+      ],
+    },
+    Math.min(safetyNetBudget, budget),
+  );
+  if (approvedBefore !== undefined) {
+    budget -= await pollGroup(
+      ctx,
+      provider,
+      {
+        statuses: [LETTER_STATE.approved],
+        where: [
+          {
+            field: LETTER_STATE_TIMESTAMP_FIELD[LETTER_STATE.approved],
+            op: "lte",
+            value: approvedBefore,
+          },
+        ],
+      },
+      Math.min(safetyNetBudget, budget),
+      restart,
+    );
   }
+  budget -= await pollGroup(
+    ctx,
+    provider,
+    { statuses: [LETTER_STATE.accepted, LETTER_STATE.onHold] },
+    budget,
+  );
+  await pollGroup(
+    ctx,
+    provider,
+    { statuses: [LETTER_STATE.sent], where: [{ field: "sentAt", op: "gte", value: sentSince }] },
+    budget,
+  );
 }

@@ -1,6 +1,5 @@
 import {
   access,
-  type ConfigAccessor,
   createTenantConfig,
   defineEntityDetailHandler,
   defineEntityListHandler,
@@ -10,6 +9,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import {
+  LETTER_APPROVED_STALE_MS,
   LETTER_CONFIG_KEYS,
   LETTER_ENTITY,
   LETTER_FEATURE,
@@ -17,6 +17,7 @@ import {
   LETTER_POLL_LIMIT_PER_RUN,
   LETTER_PROVIDER_EXTENSION,
   LETTER_ROLES,
+  LETTER_STATE,
 } from "./constants.ts";
 import { letterEntity, letterSubmissionTable } from "./entity.ts";
 import { letterEnvSchema } from "./env-schema.ts";
@@ -108,6 +109,9 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
         name: "submit",
         trigger: { on: "letter-foundation:event:approved" },
         concurrency: "sequential",
+        // Safe to repeat: a run in `approved` finds its claim and reserves nothing twice, a run in `submitting` only marks the handover unknown.
+        retries: 5,
+        backoff: { type: "exponential", delayMs: 2_000 },
         handler: (payload, ctx) => submitLetterRun(payload, ctx),
       });
       r.job({
@@ -115,7 +119,12 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
         trigger: { cron: "*/5 * * * *" },
         perTenant: true,
         concurrency: "skip",
-        handler: (_payload, ctx) => pollLetters(ctx, pollLimitPerRun),
+        handler: (_payload, ctx) =>
+          pollLetters(ctx, pollLimitPerRun, {
+            staleMs: handoverHoldMs + LETTER_APPROVED_STALE_MS,
+            submit: (letterId) =>
+              submitLetterRun({ letterId, from: LETTER_STATE.awaitingApproval }, ctx),
+          }),
       });
       r.applyExtension({
         name: EXT_TENANT_DATA,
@@ -154,11 +163,4 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
     Object.keys(options).length === 0 ? { dedupeOptions: {} } : undefined,
   );
   return featureWithEnvSchema(feature, letterEnvSchema);
-}
-
-const sharedLetterFoundationFeature = createLetterFoundationFeature();
-
-/** The cascaded monthly limit in cents (tenant row, then system row); 0 when none is set. */
-export async function readMonthlyCostLimitCents(config: ConfigAccessor): Promise<number> {
-  return (await config(sharedLetterFoundationFeature.exports.monthlyCostLimitCents)) ?? 0;
 }

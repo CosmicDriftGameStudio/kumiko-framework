@@ -42,6 +42,8 @@ export const letterEnCatalog: Readonly<Record<string, string>> = {
   "letter-foundation.errors.cancelAlreadyProcessed":
     "The print provider has already processed the letter.",
   "letter-foundation.errors.cancelUnknownJob": "The print provider does not know this letter.",
+  "letter-foundation.errors.providerJobMismatch":
+    "The print provider has no order with this id for this letter.",
   "letter-foundation.preview.monthlyLimitExceeded":
     "The monthly letter cost limit does not cover this letter.",
 };

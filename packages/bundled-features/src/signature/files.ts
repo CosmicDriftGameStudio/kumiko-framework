@@ -1,10 +1,6 @@
-import {
-  createEventStoreExecutor,
-  selectMany,
-  type TenantDb,
-} from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
-import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import type { GeneratedFileContext } from "../file-foundation/index.ts";
 
 const SIGNED_URL_SECONDS = 15 * 60;
@@ -29,14 +25,4 @@ export async function signedDocumentUrl(
   return provider.getSignedUrl(row.storageKey, SIGNED_URL_SECONDS, {
     contentDisposition: 'inline; filename="document.pdf"',
   });
-}
-
-const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
-  entityName: "fileRef",
-});
-
-export { discardGeneratedFile } from "../file-foundation/index.ts";
-
-export async function deleteFileRef(db: TenantDb, user: SessionUser, id: string): Promise<void> {
-  await fileRefExecutor.delete({ id }, user, db);
 }

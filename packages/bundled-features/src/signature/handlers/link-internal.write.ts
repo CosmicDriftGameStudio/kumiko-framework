@@ -4,8 +4,9 @@ import {
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { discardGeneratedFile } from "../../file-foundation/index.ts";
 import { type SignatureRequestExecutor, signerExecutor } from "../entity.ts";
-import { discardGeneratedFile, signedDocumentUrl } from "../files.ts";
+import { signedDocumentUrl } from "../files.ts";
 import { parseSignatureLinkSubject, redeemSignatureLinkToken } from "../grant.ts";
 import {
   advanceIfAllSigned,

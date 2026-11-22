@@ -4,8 +4,8 @@ import {
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
+import { discardGeneratedFile } from "../../file-foundation/index.ts";
 import { type SignatureRequestExecutor, signerExecutor } from "../entity.ts";
-import { discardGeneratedFile } from "../files.ts";
 import {
   advanceIfAllSigned,
   isOpenRequest,
