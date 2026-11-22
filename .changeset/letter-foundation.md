@@ -8,7 +8,7 @@ New bundled features `letter-foundation` and `letter-provider-inmemory` for send
 feature: letter-foundation
 type: improvement
 title: `letter-foundation`: send PDFs as postal letters through a print provider, with approval, cap counting and a monthly cost limit per tenant
-detail: New feature with the `letterProvider` extension point and `letter-provider-inmemory`. Letters are created with `sendLetter`, approved by a user with a dedicated right and handed to the provider by a job. Live sending needs an explicit env switch and only boots in production.
+detail: New feature with the `letterProvider` extension point and `letter-provider-inmemory`. Letters are created with `sendLetter`, approved by a user with the role `LetterApprover` and handed to the provider by a job. A letter names its shipping mode (`standard`, `einwurf`, `uebergabe`, `rueckschein`) and its envelope (`folded`, or `flat` for unfolded A4 in a C4 envelope); what a provider lacks is refused. A letter declared as `schriftform` is refused unless the app passes `formRiskAcknowledged: true`. The limit is the config key `monthlyCostLimitCents`, 0 until it is set. Live sending needs `LETTER_LIVE=true` and only boots in production. The data export of a user lists the letters the user created or approved, without the recipient. See `docs/guides/letters.md`.
 -->
 
 <!-- kumiko-changes

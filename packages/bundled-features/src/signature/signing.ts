@@ -3,7 +3,7 @@ import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { type GeneratedFileContext, storeGeneratedFile } from "../shared/index.ts";
+import { type GeneratedFileContext, storeGeneratedFile } from "../file-foundation/index.ts";
 import { signerExecutor } from "./entity.ts";
 import { type SignerRow, versionOf } from "./lib.ts";
 import { checkSignaturePng, decodeSignaturePngBase64 } from "./png.ts";

@@ -2336,10 +2336,19 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "mail-foundation.provider.description":
     "Choisissez qui envoie vos e-mails. L'envoi par la plateforme ne demande aucun réglage propre.",
   "mail-foundation.provider.platformDefault": "Envoi par la plateforme (par défaut)",
+  "letter-foundation:write:approve:title": "Approuver la lettre",
+  "letter-foundation:write:approve:field:letterId": "Lettre",
+  "letter-foundation:write:cancel:title": "Annuler la lettre",
+  "letter-foundation:write:cancel:field:letterId": "Lettre",
+  "letter-foundation:write:resolve-unknown:title": "Clore la remise incertaine",
+  "letter-foundation:write:resolve-unknown:field:letterId": "Lettre",
+  "letter-foundation:write:resolve-unknown:field:note": "Note",
   "letter-foundation.errors.schriftformNotPossible":
     "Cette lettre exige une signature manuscrite. Une lettre imprimée ne remplit pas cette forme et ne peut donc pas être envoyée ainsi.",
   "letter-foundation.errors.shippingModeUnsupported":
     "Le prestataire d'impression ne propose pas ce mode d'envoi.",
+  "letter-foundation.errors.envelopeUnsupported":
+    "Le prestataire d'impression ne propose pas cette enveloppe.",
   "letter-foundation.errors.tooManySheets":
     "La lettre compte plus de feuilles que le prestataire d'impression n'en accepte.",
   "letter-foundation.errors.documentRejected":
@@ -2354,6 +2363,14 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "letter-foundation.errors.transitionNotAllowed": "La lettre ne peut pas passer à ce statut.",
   "letter-foundation.errors.stateChanged":
     "La lettre a changé entre-temps. Rechargez-la et réessayez.",
+  "letter-foundation.errors.notSubmissionUnknown":
+    "Seule une lettre dont la remise n'est pas confirmée peut être clôturée ici.",
+  "letter-foundation.errors.cancelWindowClosed":
+    "Le délai d'annulation chez le prestataire d'impression est expiré.",
+  "letter-foundation.errors.cancelAlreadyProcessed":
+    "Le prestataire d'impression a déjà traité la lettre.",
+  "letter-foundation.errors.cancelUnknownJob":
+    "Le prestataire d'impression ne connaît pas cette lettre.",
   "letter-foundation.preview.monthlyLimitExceeded":
     "La limite mensuelle de coûts des lettres ne couvre pas cette lettre.",
   "mail-transport-inmemory.settings": "Boîte de test (en mémoire)",
@@ -2590,6 +2607,13 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "audit.log.event.contract-termination-requested": "Résiliation de contrat demandée",
   "audit.log.event.contract-termination-declared": "Résiliation de contrat déclarée",
   "audit.log.event.contract-termination-unmatched": "Résiliation de contrat non rattachée",
+  "audit.log.event.letter-approved": "Lettre validée",
+  "audit.log.event.letter-submission-unknown": "Remise de la lettre non confirmée",
+  "audit.log.event.letter-on-hold": "Lettre retenue chez le prestataire",
+  "audit.log.event.letter-sent": "Lettre envoyée",
+  "audit.log.event.letter-failed": "Lettre en échec",
+  "audit.log.event.letter-canceled": "Lettre annulée",
+  "audit.log.event.letter-returned": "Lettre retournée",
   "readiness.area.infrastructure": "Infrastructure",
   "readiness.area.run": "Vérification du système",
   "readiness.probe.run": "Exécution de la vérification du système",

@@ -4,12 +4,8 @@ import {
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  type CreatedFileRef,
-  fileRefEntity,
-  fileRefsTable,
-} from "@cosmicdrift/kumiko-framework/files";
-import type { GeneratedFileContext } from "../shared/index.ts";
+import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import type { GeneratedFileContext } from "../file-foundation/index.ts";
 
 const SIGNED_URL_SECONDS = 15 * 60;
 
@@ -39,18 +35,7 @@ const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
   entityName: "fileRef",
 });
 
-// For a stored file whose owner row was never written (a lost sign race): removes ref and bytes so
-// no signature image of a person who did not sign stays behind. The ledger entry is not touched:
-// this runs inside the transaction that already took it, and a second connection deleting that
-// row would wait on the lock this transaction holds.
-export async function discardGeneratedFile(
-  ctx: GeneratedFileContext,
-  user: SessionUser,
-  file: CreatedFileRef,
-): Promise<void> {
-  await deleteFileRef(ctx.db, user, file.id);
-  await ctx.services.files?.ref(file.storageKey).delete();
-}
+export { discardGeneratedFile } from "../file-foundation/index.ts";
 
 export async function deleteFileRef(db: TenantDb, user: SessionUser, id: string): Promise<void> {
   await fileRefExecutor.delete({ id }, user, db);

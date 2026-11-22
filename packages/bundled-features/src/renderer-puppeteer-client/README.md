@@ -2,6 +2,8 @@
 
 Plugin for `renderer-foundation`. Renders `kind=["document-pdf", "image-snapshot"]` requests via an HTTP call to `puppeteer-service` (separate app in `apps/puppeteer-service` in this repository).
 
+A layout with `postal: true` prints without fold marks, corner marks, paper colour and bleed images. `renderPdfBytes` and `renderPdfBeforeTransaction` take `postal: true` to print one render that way, for example the same document once for e-mail and once for a print provider; without it the layout decides.
+
 ## Architecture
 
 ```

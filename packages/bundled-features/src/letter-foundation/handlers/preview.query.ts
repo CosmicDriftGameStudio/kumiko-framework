@@ -1,13 +1,14 @@
 import { createEntityExecutor, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
 import type { ConfigKeyHandle } from "@cosmicdrift/kumiko-types/config";
-import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { capCounterEntity, currentCalendarMonthStartIso } from "../../cap-counter/index.ts";
 import { LETTER_CAP, LETTER_ENTITY, LETTER_ROLES, LETTER_STATE, LetterI18n } from "../constants.ts";
 import { prepareLetterDocument } from "../document-preparation.ts";
 import { letterExecutor } from "../entity.ts";
 import { LetterIdSchema } from "../payloads.ts";
-import type { LetterMoney } from "../types.ts";
+import { resolveLetterProvider } from "../provider-resolver.ts";
+import { isLetterEnvelope, isLetterFormRequirement } from "../row-guards.ts";
+import type { LetterEnvelope, LetterFormRequirement, LetterMoney } from "../types.ts";
 
 const { table: capCounterTable } = createEntityExecutor(capCounterEntity);
 
@@ -17,6 +18,12 @@ export type LetterPreview = {
   readonly quantity: 1;
   readonly pageCount: number;
   readonly sheetCount: number;
+  readonly envelope: LetterEnvelope;
+  /** True when the envelope is `flat` but the letter has more sheets than the provider honors it for: the provider picks the envelope. */
+  readonly envelopeLeftToProvider: boolean;
+  /** The app shows the form risk before approval when this is `schriftform` and the risk was acknowledged at send time. */
+  readonly formRequirement: LetterFormRequirement;
+  readonly formRiskAcknowledged: boolean;
   readonly limitCents: number;
   readonly usedCents: number;
   readonly fitsLimit: boolean;
@@ -58,10 +65,10 @@ export function createPreviewQuery(limitKey: ConfigKeyHandle<"number">) {
         ({ pageCount, sheetCount } = prepared.data);
       }
 
+      const envelope = isLetterEnvelope(letter.envelope) ? letter.envelope : "folded";
+      const { maxFlatSheets } = (await resolveLetterProvider(ctx.registry)).capabilities;
       const limitCents = (await ctx.config?.(limitKey)) ?? 0;
-      const periodStart = currentCalendarMonthStartIso(
-        Temporal.Instant.from(ctx.tz.now().toString()),
-      );
+      const periodStart = currentCalendarMonthStartIso(ctx.tz.now());
       const [counter] = await ctx.db.selectMany(
         capCounterTable,
         { capName: LETTER_CAP.costNetCents, periodStart },
@@ -75,6 +82,14 @@ export function createPreviewQuery(limitKey: ConfigKeyHandle<"number">) {
         quantity: 1,
         pageCount,
         sheetCount,
+        envelope,
+        envelopeLeftToProvider:
+          envelope === "flat" && maxFlatSheets !== undefined && sheetCount > maxFlatSheets,
+        // An unreadable value shows as the strictest form, so the approver sees the warning rather than nothing.
+        formRequirement: isLetterFormRequirement(letter.formRequirement)
+          ? letter.formRequirement
+          : "schriftform",
+        formRiskAcknowledged: letter.formRiskAcknowledged === true,
         limitCents,
         usedCents,
         fitsLimit,

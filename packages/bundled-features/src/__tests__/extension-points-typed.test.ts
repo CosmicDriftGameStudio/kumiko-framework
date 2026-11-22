@@ -17,6 +17,7 @@ import { createDocumentIngestFoundationFeature } from "../document-ingest-founda
 import { createFileDerivativesFeature } from "../file-derivatives/feature.ts";
 import { createFileFoundationFeature } from "../file-foundation/feature.ts";
 import { createInboundMailFoundationFeature } from "../inbound-mail-foundation/feature.ts";
+import { createLetterFoundationFeature } from "../letter-foundation/feature.ts";
 import { createMailFoundationFeature } from "../mail-foundation/feature.ts";
 import { createRendererFoundationFeature } from "../renderer-foundation/feature.ts";
 import { createTenantFeature } from "../tenant/feature.ts";
@@ -54,6 +55,7 @@ const TYPED_EXTENSION_POINTS = [
   "emailAppTransport",
   "tenantDestructionHold",
   "credentialRevoker",
+  "letterProvider",
 ] as const satisfies readonly (keyof KumikoExtensionOptionsMap)[];
 
 const UNTYPED_BY_DESIGN: Record<string, string> = {
@@ -74,6 +76,7 @@ const DECLARING_FEATURE_DIRS = [
   "file-derivatives",
   "file-foundation",
   "inbound-mail-foundation",
+  "letter-foundation",
   "mail-foundation",
   "renderer-foundation",
   "tenant",
@@ -118,6 +121,7 @@ function allRegistrarExtensionNames(): readonly string[] {
     createFileDerivativesFeature(),
     createFileFoundationFeature(),
     createInboundMailFoundationFeature(),
+    createLetterFoundationFeature(),
     createMailFoundationFeature(),
     createRendererFoundationFeature(),
     createTenantFeature(),

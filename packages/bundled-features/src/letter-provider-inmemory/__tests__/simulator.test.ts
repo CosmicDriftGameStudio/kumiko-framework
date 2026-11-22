@@ -22,7 +22,14 @@ function submission(
   return {
     reference,
     pdf: new Uint8Array([1]),
-    spec: { pageCount: 3, sheetCount: 2, shippingMode, color: false, duplex: true },
+    spec: {
+      pageCount: 3,
+      sheetCount: 2,
+      shippingMode,
+      envelope: "folded",
+      color: false,
+      duplex: true,
+    },
     expectedRecipient: RECIPIENT,
   };
 }

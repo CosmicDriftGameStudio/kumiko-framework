@@ -1,6 +1,8 @@
 import {
+  LETTER_ENVELOPES,
   LETTER_SHIPPING_MODES,
   type LetterAddress,
+  type LetterCancelRefusalReason,
   type LetterCancelResult,
   type LetterMoney,
   type LetterProvider,
@@ -36,8 +38,10 @@ type MutableCapabilities = {
 
 const DEFAULT_CAPABILITIES: LetterProviderCapabilities = {
   shippingModes: LETTER_SHIPPING_MODES,
+  envelopes: LETTER_ENVELOPES,
   maxSheets: 20,
   maxBytes: 10 * 1024 * 1024,
+  maxFlatSheets: undefined,
   cancelWindowSeconds: 600,
 };
 
@@ -69,6 +73,7 @@ export type SimulatedOrder = {
   readonly submission: LetterSubmission;
   readonly acceptedAt: Temporal.Instant;
   readonly canceled: boolean;
+  readonly returned: boolean;
   readonly recognizedAddress: string;
   readonly trackingNumber: string | undefined;
   readonly actualNet: LetterMoney;
@@ -126,6 +131,9 @@ export function createLetterSimulator() {
   const orders = new Map<string, SimulatedOrder>();
   const jobIdByReference = new Map<string, string>();
   const calls = { ...NO_CALLS };
+  const statusCallsByJob = new Map<string, number>();
+  const quotedSpecs: LetterSpec[] = [];
+  let cancelRefusal: LetterCancelRefusalReason | undefined;
 
   function placeOrder(submission: LetterSubmission): SimulatedOrder {
     const known = jobIdByReference.get(submission.reference);
@@ -138,6 +146,7 @@ export function createLetterSimulator() {
       submission,
       acceptedAt: clock(),
       canceled: false,
+      returned: false,
       recognizedAddress: addressZone(submission.expectedRecipient, scenario.misrecognizedAddress),
       trackingNumber: TRACKED_MODES.includes(submission.spec.shippingMode)
         ? `SIM${providerJobId.replace("sim-", "").padStart(8, "0")}`
@@ -175,6 +184,7 @@ export function createLetterSimulator() {
   const provider: LetterProvider = {
     async quote(spec): Promise<LetterQuote> {
       calls.quote += 1;
+      quotedSpecs.push(spec);
       return { net: money(netCentsFor(spec)), priceSource: "simulated" };
     },
     async submit(submission): Promise<LetterSubmitResult> {
@@ -190,8 +200,10 @@ export function createLetterSimulator() {
     },
     async status(providerJobId): Promise<LetterProviderStatus> {
       calls.status += 1;
+      statusCallsByJob.set(providerJobId, (statusCallsByJob.get(providerJobId) ?? 0) + 1);
       const order = orders.get(providerJobId);
       if (order === undefined || order.canceled) return { state: "not-found" };
+      if (order.returned) return { recognizedAddress: order.recognizedAddress, state: "returned" };
       const base = {
         recognizedAddress: order.recognizedAddress,
         ...(order.trackingNumber !== undefined && { trackingNumber: order.trackingNumber }),
@@ -211,6 +223,7 @@ export function createLetterSimulator() {
     },
     async cancel(providerJobId): Promise<LetterCancelResult> {
       calls.cancel += 1;
+      if (cancelRefusal !== undefined) return { kind: "refused", reason: cancelRefusal };
       const order = orders.get(providerJobId);
       if (order === undefined || order.canceled) return { kind: "refused", reason: "unknown_job" };
       if (!isWithinCancelWindow(order)) return { kind: "refused", reason: "window_closed" };
@@ -236,8 +249,21 @@ export function createLetterSimulator() {
       return [...orders.values()].map((order) => order.submission);
     },
     orders: (): readonly SimulatedOrder[] => [...orders.values()],
+    get quotedSpecs(): readonly LetterSpec[] {
+      return quotedSpecs;
+    },
+    /** Makes every cancel answer with this refusal, whatever the order's real state. */
+    setCancelRefusal(next: LetterCancelRefusalReason | undefined): void {
+      cancelRefusal = next;
+    },
+    statusCallsFor: (providerJobId: string): number => statusCallsByJob.get(providerJobId) ?? 0,
     setScenario(next: Partial<LetterScenario>): void {
       scenario = { ...DEFAULT_SCENARIO, ...next };
+    },
+    /** The order comes back undelivered after it was sent. */
+    returnOrder(providerJobId: string): void {
+      const order = orders.get(providerJobId);
+      if (order !== undefined) orders.set(providerJobId, { ...order, returned: true });
     },
     setCapabilities(next: Partial<LetterProviderCapabilities>): void {
       Object.assign(INMEMORY_CAPABILITIES, next);
@@ -252,6 +278,9 @@ export function createLetterSimulator() {
       nextJobNumber = 1;
       orders.clear();
       jobIdByReference.clear();
+      statusCallsByJob.clear();
+      quotedSpecs.length = 0;
+      cancelRefusal = undefined;
       Object.assign(calls, NO_CALLS);
     },
   };

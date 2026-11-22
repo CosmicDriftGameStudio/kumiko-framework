@@ -1,11 +1,21 @@
 import { LetterI18n } from "./constants.ts";
 
 export const LETTER_FOUNDATION_I18N = {
+  "letter-foundation:write:approve:title": { en: "Approve letter" },
+  "letter-foundation:write:approve:field:letterId": { en: "Letter" },
+  "letter-foundation:write:cancel:title": { en: "Cancel letter" },
+  "letter-foundation:write:cancel:field:letterId": { en: "Letter" },
+  "letter-foundation:write:resolve-unknown:title": { en: "Close unclear handover" },
+  "letter-foundation:write:resolve-unknown:field:letterId": { en: "Letter" },
+  "letter-foundation:write:resolve-unknown:field:note": { en: "Note" },
   [LetterI18n.schriftformRejected]: {
     en: "This letter needs a handwritten signature. A printed letter cannot meet that form, so it cannot be sent this way.",
   },
   [LetterI18n.shippingModeUnsupported]: {
     en: "The print provider does not offer this shipping mode.",
+  },
+  [LetterI18n.envelopeUnsupported]: {
+    en: "The print provider does not offer this envelope.",
   },
   [LetterI18n.tooManySheets]: {
     en: "The letter has more sheets than the print provider accepts.",
@@ -26,6 +36,14 @@ export const LETTER_FOUNDATION_I18N = {
   [LetterI18n.stateChanged]: {
     en: "The letter changed in the meantime. Reload it and try again.",
   },
+  [LetterI18n.notSubmissionUnknown]: {
+    en: "Only a letter whose handover is unconfirmed can be closed here.",
+  },
+  [LetterI18n.cancelWindowClosed]: { en: "The cancel window at the print provider has closed." },
+  [LetterI18n.cancelAlreadyProcessed]: {
+    en: "The print provider has already processed the letter.",
+  },
+  [LetterI18n.cancelUnknownJob]: { en: "The print provider does not know this letter." },
   [LetterI18n.limitHint]: {
     en: "The monthly letter cost limit does not cover this letter.",
   },

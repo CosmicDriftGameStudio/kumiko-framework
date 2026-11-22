@@ -2333,10 +2333,19 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "mail-foundation.provider.description":
     "Lege fest, über wen deine E-Mails verschickt werden. Der Plattform-Versand braucht keine eigenen Einstellungen.",
   "mail-foundation.provider.platformDefault": "Plattform-Versand (Standard)",
+  "letter-foundation:write:approve:title": "Brief freigeben",
+  "letter-foundation:write:approve:field:letterId": "Brief",
+  "letter-foundation:write:cancel:title": "Brief stornieren",
+  "letter-foundation:write:cancel:field:letterId": "Brief",
+  "letter-foundation:write:resolve-unknown:title": "Unklare Übergabe abschließen",
+  "letter-foundation:write:resolve-unknown:field:letterId": "Brief",
+  "letter-foundation:write:resolve-unknown:field:note": "Notiz",
   "letter-foundation.errors.schriftformNotPossible":
     "Dieser Brief braucht eine eigenhändige Unterschrift. Ein gedruckter Brief erfüllt diese Form nicht, deshalb kann er so nicht verschickt werden.",
   "letter-foundation.errors.shippingModeUnsupported":
     "Der Druckdienstleister bietet diese Versandart nicht an.",
+  "letter-foundation.errors.envelopeUnsupported":
+    "Der Druckdienstleister bietet diesen Umschlag nicht an.",
   "letter-foundation.errors.tooManySheets":
     "Der Brief hat mehr Blätter, als der Druckdienstleister annimmt.",
   "letter-foundation.errors.documentRejected":
@@ -2352,6 +2361,13 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Der Brief kann in diesen Status nicht wechseln.",
   "letter-foundation.errors.stateChanged":
     "Der Brief hat sich inzwischen geändert. Lade ihn neu und versuche es noch einmal.",
+  "letter-foundation.errors.notSubmissionUnknown":
+    "Nur ein Brief mit unbestätigter Übergabe kann hier abgeschlossen werden.",
+  "letter-foundation.errors.cancelWindowClosed":
+    "Das Stornofenster beim Druckdienstleister ist abgelaufen.",
+  "letter-foundation.errors.cancelAlreadyProcessed":
+    "Der Druckdienstleister hat den Brief bereits bearbeitet.",
+  "letter-foundation.errors.cancelUnknownJob": "Der Druckdienstleister kennt diesen Brief nicht.",
   "letter-foundation.preview.monthlyLimitExceeded":
     "Das monatliche Kostenlimit für Briefe reicht für diesen Brief nicht aus.",
   "mail-transport-inmemory.settings": "Test-Postfach (im Speicher)",
@@ -2586,6 +2602,13 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "audit.log.event.contract-termination-requested": "Vertragskündigung angefordert",
   "audit.log.event.contract-termination-declared": "Vertragskündigung erklärt",
   "audit.log.event.contract-termination-unmatched": "Vertragskündigung nicht zugeordnet",
+  "audit.log.event.letter-approved": "Brief freigegeben",
+  "audit.log.event.letter-submission-unknown": "Brief-Übergabe unbestätigt",
+  "audit.log.event.letter-on-hold": "Brief beim Anbieter angehalten",
+  "audit.log.event.letter-sent": "Brief versendet",
+  "audit.log.event.letter-failed": "Brief gescheitert",
+  "audit.log.event.letter-canceled": "Brief storniert",
+  "audit.log.event.letter-returned": "Brief zurückgekommen",
   "readiness.area.infrastructure": "Infrastruktur",
   "readiness.area.run": "Systemcheck",
   "readiness.probe.run": "Lauf des Systemchecks",

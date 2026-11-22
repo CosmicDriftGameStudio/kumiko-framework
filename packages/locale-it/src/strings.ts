@@ -2312,10 +2312,18 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "mail-foundation.provider.description":
     "Scegli chi invia le tue e-mail. L'invio dalla piattaforma non richiede impostazioni proprie.",
   "mail-foundation.provider.platformDefault": "Invio dalla piattaforma (predefinito)",
+  "letter-foundation:write:approve:title": "Approva lettera",
+  "letter-foundation:write:approve:field:letterId": "Lettera",
+  "letter-foundation:write:cancel:title": "Annulla lettera",
+  "letter-foundation:write:cancel:field:letterId": "Lettera",
+  "letter-foundation:write:resolve-unknown:title": "Chiudi consegna poco chiara",
+  "letter-foundation:write:resolve-unknown:field:letterId": "Lettera",
+  "letter-foundation:write:resolve-unknown:field:note": "Nota",
   "letter-foundation.errors.schriftformNotPossible":
     "Questa lettera richiede una firma autografa. Una lettera stampata non soddisfa tale forma, quindi non può essere inviata in questo modo.",
   "letter-foundation.errors.shippingModeUnsupported":
     "Il fornitore di stampa non offre questo tipo di spedizione.",
+  "letter-foundation.errors.envelopeUnsupported": "Il fornitore di stampa non offre questa busta.",
   "letter-foundation.errors.tooManySheets":
     "La lettera ha più fogli di quanti ne accetti il fornitore di stampa.",
   "letter-foundation.errors.documentRejected":
@@ -2330,6 +2338,13 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "letter-foundation.errors.transitionNotAllowed": "La lettera non può passare a questo stato.",
   "letter-foundation.errors.stateChanged":
     "La lettera è cambiata nel frattempo. Ricaricala e riprova.",
+  "letter-foundation.errors.notSubmissionUnknown":
+    "Qui si può chiudere solo una lettera la cui consegna non è confermata.",
+  "letter-foundation.errors.cancelWindowClosed":
+    "Il termine di annullamento presso il fornitore di stampa è scaduto.",
+  "letter-foundation.errors.cancelAlreadyProcessed":
+    "Il fornitore di stampa ha già elaborato la lettera.",
+  "letter-foundation.errors.cancelUnknownJob": "Il fornitore di stampa non conosce questa lettera.",
   "letter-foundation.preview.monthlyLimitExceeded":
     "Il limite mensile dei costi per le lettere non copre questa lettera.",
   "mail-transport-inmemory.settings": "Casella di prova (in memoria)",
@@ -2565,6 +2580,13 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "audit.log.event.contract-termination-requested": "Disdetta del contratto richiesta",
   "audit.log.event.contract-termination-declared": "Disdetta del contratto dichiarata",
   "audit.log.event.contract-termination-unmatched": "Disdetta del contratto non associata",
+  "audit.log.event.letter-approved": "Lettera approvata",
+  "audit.log.event.letter-submission-unknown": "Consegna della lettera non confermata",
+  "audit.log.event.letter-on-hold": "Lettera sospesa presso il fornitore",
+  "audit.log.event.letter-sent": "Lettera inviata",
+  "audit.log.event.letter-failed": "Lettera non riuscita",
+  "audit.log.event.letter-canceled": "Lettera annullata",
+  "audit.log.event.letter-returned": "Lettera restituita",
   "readiness.area.infrastructure": "Infrastruttura",
   "readiness.area.run": "Controllo di sistema",
   "readiness.probe.run": "Esecuzione del controllo di sistema",

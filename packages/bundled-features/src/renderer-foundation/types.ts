@@ -112,6 +112,8 @@ export type DocumentPdfPayload = {
   readonly slug: string;
   readonly locale: string;
   readonly variables: Readonly<Record<string, unknown>>;
+  /** Prints as if the layout set `postal: true`, for this render only; unset follows the layout. */
+  readonly postal?: boolean;
 };
 
 // An unsaved version of the document template, like MailDraft.

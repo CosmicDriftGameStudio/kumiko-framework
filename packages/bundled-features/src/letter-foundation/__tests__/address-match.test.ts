@@ -57,4 +57,31 @@ describe("recognizedAddressMatches", () => {
   ])("rejects %s", (_label, recognized) => {
     expect(recognizedAddressMatches(expected, recognized)).toBe(false);
   });
+
+  test("treats Str without a dot like Straße", () => {
+    expect(
+      recognizedAddressMatches(
+        { ...expected, street: "Hauptstr", houseNumber: "5" },
+        "Erika Mustermann, Hauptstraße 5, 12345 Musterstadt",
+      ),
+    ).toBe(true);
+  });
+
+  test("treats 12a and 12 a alike", () => {
+    expect(
+      recognizedAddressMatches(
+        { ...expected, houseNumber: "12a" },
+        "Erika Mustermann, Musterstraße 12 a, 12345 Musterstadt",
+      ),
+    ).toBe(true);
+  });
+
+  test("a different house number still differs", () => {
+    expect(
+      recognizedAddressMatches(
+        { ...expected, houseNumber: "12a" },
+        "Erika Mustermann, Musterstraße 12 b, 12345 Musterstadt",
+      ),
+    ).toBe(false);
+  });
 });

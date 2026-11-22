@@ -1,7 +1,11 @@
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import {
+  LETTER_ENVELOPES,
+  LETTER_FORM_REQUIREMENTS,
   LETTER_SHIPPING_MODES,
   LETTER_STATES,
+  type LetterEnvelope,
+  type LetterFormRequirement,
   type LetterShippingMode,
   type LetterState,
 } from "./constants.ts";
@@ -17,4 +21,12 @@ export function isLetterShippingMode(value: unknown): value is LetterShippingMod
 
 export function isStringList(value: unknown): value is readonly string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+export function isLetterEnvelope(value: unknown): value is LetterEnvelope {
+  return isOneOf(LETTER_ENVELOPES, value);
+}
+
+export function isLetterFormRequirement(value: unknown): value is LetterFormRequirement {
+  return isOneOf(LETTER_FORM_REQUIREMENTS, value);
 }

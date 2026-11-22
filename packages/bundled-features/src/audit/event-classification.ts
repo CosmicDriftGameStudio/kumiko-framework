@@ -29,6 +29,8 @@ export const AUDIT_EVENT_STANCES: Readonly<Record<string, AuditEventStance>> = {
   "tenant-lifecycle:event:tenant-destruction-stage-progressed": TECHNICAL_EVENT,
   "tenant-lifecycle:event:tenant-destruction-stage-failed": TECHNICAL_EVENT,
   "tenant-lifecycle:event:tenant-destruction-stage-abandoned": TECHNICAL_EVENT,
+  "letter-foundation:event:submitting": TECHNICAL_EVENT,
+  "letter-foundation:event:accepted": TECHNICAL_EVENT,
 
   "custom-fields:event:custom-field-set": label("custom-field-set"),
   "custom-fields:event:custom-field-cleared": label("custom-field-cleared"),
@@ -69,6 +71,13 @@ export const AUDIT_EVENT_STANCES: Readonly<Record<string, AuditEventStance>> = {
   "waitlist:event:purged": label("waitlist-purged"),
   "feature-toggles:event:toggle-set": label("feature-toggle-set"),
   "jobs:event:consumer-state-changed": label("consumer-state-changed"),
+  "letter-foundation:event:approved": label("letter-approved"),
+  "letter-foundation:event:submission-unknown": label("letter-submission-unknown"),
+  "letter-foundation:event:on-hold": label("letter-on-hold"),
+  "letter-foundation:event:sent": label("letter-sent"),
+  "letter-foundation:event:failed": label("letter-failed"),
+  "letter-foundation:event:canceled": label("letter-canceled"),
+  "letter-foundation:event:returned": label("letter-returned"),
 };
 
 // Streams whose payload holds rows that only a SystemAdmin or a single owner may read: a

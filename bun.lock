@@ -1027,6 +1027,17 @@
         "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
+    "samples/recipes/letter-foundation": {
+      "name": "@cosmicdrift/kumiko-sample-letter-foundation",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+        "pdf-lib": "^1.17.1",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
+    },
     "samples/recipes/lifecycle-hooks": {
       "name": "@cosmicdrift/kumiko-sample-lifecycle-hooks",
       "dependencies": {
@@ -1616,6 +1627,8 @@
     "@cosmicdrift/kumiko-sample-ledger-invoicing": ["@cosmicdrift/kumiko-sample-ledger-invoicing@workspace:samples/recipes/ledger-invoicing"],
 
     "@cosmicdrift/kumiko-sample-legal-pages": ["@cosmicdrift/kumiko-sample-legal-pages@workspace:samples/recipes/legal-pages"],
+
+    "@cosmicdrift/kumiko-sample-letter-foundation": ["@cosmicdrift/kumiko-sample-letter-foundation@workspace:samples/recipes/letter-foundation"],
 
     "@cosmicdrift/kumiko-sample-lifecycle-hooks": ["@cosmicdrift/kumiko-sample-lifecycle-hooks@workspace:samples/recipes/lifecycle-hooks"],
 
