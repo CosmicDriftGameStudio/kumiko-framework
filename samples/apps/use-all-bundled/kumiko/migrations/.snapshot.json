@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-20T15:39:02.995Z",
+  "generatedAt": "2026-11-22T23:50:25.270Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -2528,6 +2528,360 @@
       ],
       "source": "managed",
       "entityEventVersion": 2
+    },
+    {
+      "tableName": "read_letters",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'awaiting-approval'"
+        },
+        {
+          "name": "idempotency_key",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "source_entity_type",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "source_entity_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "cost_center_ref",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "created_by",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "approved_by",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "file_ref_ids",
+          "pgType": "jsonb",
+          "notNull": true,
+          "defaultSql": "'[]'::jsonb"
+        },
+        {
+          "name": "merged_file_ref_id",
+          "pgType": "uuid",
+          "notNull": false
+        },
+        {
+          "name": "document_sha256",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "page_count",
+          "pgType": "double precision",
+          "notNull": false
+        },
+        {
+          "name": "sheet_count",
+          "pgType": "double precision",
+          "notNull": false
+        },
+        {
+          "name": "shipping_mode",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "envelope",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'folded'"
+        },
+        {
+          "name": "color",
+          "pgType": "boolean",
+          "notNull": true,
+          "defaultSql": "false"
+        },
+        {
+          "name": "duplex",
+          "pgType": "boolean",
+          "notNull": true,
+          "defaultSql": "false"
+        },
+        {
+          "name": "form_requirement",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "form_risk_acknowledged",
+          "pgType": "boolean",
+          "notNull": true,
+          "defaultSql": "false"
+        },
+        {
+          "name": "latest_receipt_date",
+          "pgType": "date",
+          "notNull": false
+        },
+        {
+          "name": "recipient_name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "recipient_address_extra",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "recipient_street",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "recipient_house_number",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "recipient_postal_code",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "recipient_city",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "recognized_address",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "quoted_net",
+          "pgType": "bigint",
+          "notNull": false,
+          "bigintJsMode": "bigint"
+        },
+        {
+          "name": "quoted_net_currency",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'EUR'"
+        },
+        {
+          "name": "actual_net",
+          "pgType": "bigint",
+          "notNull": false,
+          "bigintJsMode": "bigint"
+        },
+        {
+          "name": "actual_net_currency",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'EUR'"
+        },
+        {
+          "name": "actual_vat",
+          "pgType": "bigint",
+          "notNull": false,
+          "bigintJsMode": "bigint"
+        },
+        {
+          "name": "actual_vat_currency",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'EUR'"
+        },
+        {
+          "name": "price_source",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "provider_name",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "provider_job_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "tracking_number",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "tracking_status",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "proof_file_ref_ids",
+          "pgType": "jsonb",
+          "notNull": true,
+          "defaultSql": "'[]'::jsonb"
+        },
+        {
+          "name": "cancelable_until",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "address_mismatch",
+          "pgType": "boolean",
+          "notNull": true,
+          "defaultSql": "false"
+        },
+        {
+          "name": "failure_reason",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "failure_detail",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "resolution_note",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "approved_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "submitted_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "submission_unknown_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "accepted_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "on_hold_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "sent_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "failed_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "canceled_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "returned_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_letters_tenant_id_idx",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_letters_merged_file_ref_id_idx",
+          "columns": ["merged_file_ref_id"]
+        },
+        {
+          "name": "read_letters_tenant_id_idempotency_key_unique",
+          "columns": ["tenant_id", "idempotency_key"],
+          "unique": true
+        },
+        {
+          "name": "read_letters_tenant_id_status_idx",
+          "columns": ["tenant_id", "status"]
+        },
+        {
+          "name": "read_letters_tenant_id_source_entity_type_source_entity_id_idx",
+          "columns": ["tenant_id", "source_entity_type", "source_entity_id"]
+        }
+      ],
+      "source": "managed",
+      "piiSubjectFields": [
+        "recipientName",
+        "recipientAddressExtra",
+        "recipientStreet",
+        "recipientHouseNumber",
+        "recipientPostalCode",
+        "recipientCity",
+        "recognizedAddress",
+        "failureDetail",
+        "resolutionNote"
+      ],
+      "entityEventVersion": 1
     },
     {
       "tableName": "read_mail_accounts",
@@ -5843,6 +6197,97 @@
       "piiSubjectFields": ["payload", "error"]
     },
     {
+      "tableName": "store_letter_submissions",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "idempotency_key",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "letter_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "provider_job_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "reservation_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "period_start",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "claimed_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "store_letter_submissions_tenant_id_idx",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "store_letter_submissions_tenant_id_idempotency_key_unique",
+          "columns": ["tenant_id", "idempotency_key"],
+          "unique": true
+        }
+      ],
+      "source": "unmanaged"
+    },
+    {
       "tableName": "store_mail_ingest_failures",
       "columns": [
         {
@@ -6946,6 +7391,18 @@
         }
       ]
     },
+    "read_letters": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
+        }
+      ]
+    },
     "read_mail_accounts": {
       "policies": [
         {
@@ -7369,6 +7826,18 @@
       ]
     },
     "store_job_runs": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
+        }
+      ]
+    },
+    "store_letter_submissions": {
       "policies": [
         {
           "name": "kumiko_tenant_isolation",
