@@ -1,0 +1,20 @@
+{
+  "http_status": 200,
+  "body": {
+    "status": 200,
+    "message": "OK",
+    "data": {
+      "price": 5.16,
+      "letter": {
+        "specification": {
+          "pages": 3,
+          "color": "1",
+          "mode": "simplex",
+          "shipping": "national",
+          "c4": 0
+        },
+        "registered": "r1"
+      }
+    }
+  }
+}

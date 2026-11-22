@@ -1,0 +1,7 @@
+{
+  "http_status": 500,
+  "body": {
+    "status": 500,
+    "message": "Das PDF ist verschlüsselt oder liegt nicht im richtigen Format vor (A4-Hochformat)"
+  }
+}

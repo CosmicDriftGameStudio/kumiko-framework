@@ -1,0 +1,7 @@
+{
+  "http_status": 404,
+  "body": {
+    "status": 404,
+    "message": "Not Found"
+  }
+}

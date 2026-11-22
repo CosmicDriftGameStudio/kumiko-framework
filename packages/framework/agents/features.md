@@ -490,11 +490,11 @@ Requires: `template-resolver`
 
 ## letter-foundation
 
-Sends PDFs as postal letters through a print provider. Defines the `letterProvider` extension point, the `letter` entity with its status flow (awaiting approval, approved, submitting, accepted, on hold, sent, failed, canceled, returned) and `sendLetter`, which always creates a letter that waits for approval. A user with the LetterApprover role approves it after seeing the price; the letter is then handed to the provider. Live sending needs the LETTER_LIVE env switch and only boots with NODE_ENV=production; without it the inmemory provider runs. A monthly cost limit per tenant is set with the `monthlyCostLimitCents` config key, 0 until a value is set. The recipient address is personal data of the letter.
+Sends PDFs as postal letters through a print provider. Defines the `letterProvider` extension point, the `letter` entity with its status flow (awaiting approval, approved, submitting, accepted, on hold, sent, failed, canceled, returned) and `sendLetter`, which always creates a letter that waits for approval. A printed letter never meets the written form (`schriftform`): `sendLetter` refuses it unless `formRiskAcknowledged` is true, set by the app after the user accepted the risk; the preview returns `formRequirement` and `formRiskAcknowledged` so the app can warn before approval. `envelope` is `folded` (default) or `flat` (unfolded A4 in a C4 envelope), if the provider offers it. A user with the LetterApprover role approves it after seeing the price; the letter is then handed to the provider. Live sending needs the LETTER_LIVE env switch and only boots with NODE_ENV=production; without it the inmemory provider runs. A monthly cost limit per tenant is set with the `monthlyCostLimitCents` config key, 0 until a value is set. The recipient address is personal data of the letter.
 
 Category: notifications
 
-Requires: `config`, `files`, `cap-counter`
+Requires: `config`, `files`, `cap-counter`, `tenant-lifecycle`
 
 Config keys:
 
@@ -505,6 +505,14 @@ Config keys:
 ## letter-provider-inmemory
 
 Registers an `inmemory` provider for `letter-foundation` that accepts letters in process memory instead of printing them. Tests steer it with `letterSimulator.setScenario` (accept, reject, timeout, on hold, other price or recognized address) and `setClock`; it is the provider that runs whenever the live switch is off. Not for production: nothing is sent.
+
+Category: notifications
+
+Requires: `letter-foundation`
+
+## letter-provider-letterxpress
+
+Registers a `letterxpress` provider for `letter-foundation` that prints and posts letters within Germany through the LetterXpress API v3. Shipping modes: standard, registered mail with drop-off (`einwurf`) and registered mail (`uebergabe`); no return receipt. Needs `LETTERXPRESS_USERNAME` and `LETTERXPRESS_API_KEY`. The provider is picked by `LETTER_PROVIDER=letterxpress` and only runs when `LETTER_LIVE=true` is set, otherwise `letter-foundation` uses the inmemory provider. The provider sends `mode: live` exactly when the live switch is on; its own test mode is therefore not reachable through the resolver.
 
 Category: notifications
 

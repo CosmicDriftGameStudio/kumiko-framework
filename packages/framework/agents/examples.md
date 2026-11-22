@@ -54,6 +54,7 @@
 | `ledger-banking` | Bank accounts + transfers on the ledger primitive — balances are pure queries, never stored. | `examples/ledger-banking.md` |
 | `ledger-invoicing` | Accrual invoicing on the ledger primitive — revenue at invoice time, VAT as a liability, receivable cleared on payment. | `examples/ledger-invoicing.md` |
 | `legal-pages` | Auto-rendered Impressum + Datenschutzerklärung pages — template-resolver + legal-pages bundled features wired up with anonymousAccess for DACH-compliance. | `examples/legal-pages.md` |
+| `letter-foundation` | Letter consumer pattern: an app write-handler creates a letter with sendLetter, an approver releases it, letter-foundation hands it to the in-memory provider and polls it to sent. | `examples/letter-foundation.md` |
 | `lifecycle-hooks` | preSave, postSave, and the rest. Your logic, our plumbing. | `examples/lifecycle-hooks.md` |
 | `list-table-options` | Opt-in table behaviour of a list: remembered search/sort/filters, one reset button, column picker with hidden columns, row density, server-side groups with sums, a totals row and a number range facet. | `examples/list-table-options.md` |
 | `managed-config` | Managed config: one declaration provisions storage + masking + settings-hub, across backings (secrets vs config) and scopes (system vs tenant). | `examples/managed-config.md` |
