@@ -9,6 +9,9 @@ export const LETTER_FOUNDATION_I18N = {
   "letter-foundation:write:resolve-unknown:title": { en: "Close unclear handover" },
   "letter-foundation:write:resolve-unknown:field:letterId": { en: "Letter" },
   "letter-foundation:write:resolve-unknown:field:note": { en: "Note" },
+  "letter-foundation:write:resolve-unknown:field:providerJobId": {
+    en: "Order number at the provider",
+  },
   [LetterI18n.schriftformRejected]: {
     en: "This letter needs a handwritten signature. A printed letter cannot meet that form, so it cannot be sent this way.",
   },

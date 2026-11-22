@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { degrees, PDFDocument } from "pdf-lib";
 import { checkPostalPdf, mergePdfs, PdfPageLimitError } from "../pdf-postal.ts";
 
@@ -50,6 +50,18 @@ describe("mergePdfs", () => {
     await expect(mergePdfs(sources, { maxPages: 3 })).rejects.toThrow(PdfPageLimitError);
     const merged = await PDFDocument.load(await mergePdfs(sources, { maxPages: 4 }));
     expect(merged.getPageCount()).toBe(4);
+  });
+
+  test("stops at the source that passes the cap before its pages are copied", async () => {
+    const copyPages = spyOn(PDFDocument.prototype, "copyPages");
+    try {
+      await expect(mergePdfs([await upright(5)], { maxPages: 2 })).rejects.toThrow(
+        PdfPageLimitError,
+      );
+      expect(copyPages).not.toHaveBeenCalled();
+    } finally {
+      copyPages.mockRestore();
+    }
   });
 });
 

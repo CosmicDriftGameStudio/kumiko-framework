@@ -15,6 +15,7 @@ export const letterEnCatalog: Readonly<Record<string, string>> = {
   "letter-foundation:write:resolve-unknown:title": "Close unclear handover",
   "letter-foundation:write:resolve-unknown:field:letterId": "Letter",
   "letter-foundation:write:resolve-unknown:field:note": "Note",
+  "letter-foundation:write:resolve-unknown:field:providerJobId": "Order number at the provider",
   "letter-foundation.errors.schriftformNotPossible":
     "This letter needs a handwritten signature. A printed letter cannot meet that form, so it cannot be sent this way.",
   "letter-foundation.errors.shippingModeUnsupported":

@@ -2340,6 +2340,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "letter-foundation:write:resolve-unknown:title": "Unklare Übergabe abschließen",
   "letter-foundation:write:resolve-unknown:field:letterId": "Brief",
   "letter-foundation:write:resolve-unknown:field:note": "Notiz",
+  "letter-foundation:write:resolve-unknown:field:providerJobId": "Auftragsnummer beim Anbieter",
   "letter-foundation.errors.schriftformNotPossible":
     "Dieser Brief braucht eine eigenhändige Unterschrift. Ein gedruckter Brief erfüllt diese Form nicht, deshalb kann er so nicht verschickt werden.",
   "letter-foundation.errors.shippingModeUnsupported":

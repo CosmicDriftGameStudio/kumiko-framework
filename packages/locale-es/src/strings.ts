@@ -2313,6 +2313,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "letter-foundation:write:resolve-unknown:title": "Cerrar entrega poco clara",
   "letter-foundation:write:resolve-unknown:field:letterId": "Carta",
   "letter-foundation:write:resolve-unknown:field:note": "Nota",
+  "letter-foundation:write:resolve-unknown:field:providerJobId": "Número de pedido del proveedor",
   "letter-foundation.errors.schriftformNotPossible":
     "Esta carta necesita una firma manuscrita. Una carta impresa no cumple esa forma, por eso no se puede enviar así.",
   "letter-foundation.errors.shippingModeUnsupported":
