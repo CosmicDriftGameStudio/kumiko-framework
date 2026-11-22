@@ -1121,10 +1121,10 @@ describe("error handling", () => {
     );
   });
 
-  test("a perTenant job without includeSystemTenant gets no system-tenant run", async () => {
+  test("a perTenant job without includeSystemTenant gets no system-tenant run, even when the system tenant has an active row", async () => {
     clearLog();
     // @cast-boundary test fixture: TenantId is a branded string.
-    const tenants = ["no-system-a"] as TenantId[];
+    const tenants = ["no-system-a", SYSTEM_TENANT_ID] as TenantId[];
     await withRunner(
       async (runner) => {
         await runner.dispatch("test:job:per-tenant-fanout", {});

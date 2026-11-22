@@ -489,7 +489,7 @@ export type JobDefinition = {
   // starts no runner for that lane runs no gate.
   readonly bootGate?: boolean | undefined;
   readonly perTenant?: boolean | undefined;
-  // perTenant fan-out only covers active tenant rows and SYSTEM_TENANT_ID has none; maintenance jobs for system-tenant data need the extra run.
+  // perTenant fan-out covers the active customer tenants and skips the system tenant, even when it has an enabled tenant row; maintenance jobs for system-tenant data need the extra run.
   readonly includeSystemTenant?: boolean | undefined;
   // Narrows the perTenant fan-out to these tenants, intersected with the active ones, instead of one run per active tenant that returns early.
   readonly onlyTenants?: readonly TenantId[] | undefined;
