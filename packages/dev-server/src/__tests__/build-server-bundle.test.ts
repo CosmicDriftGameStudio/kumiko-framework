@@ -94,6 +94,21 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
     }
   });
 
+  test("reads NODE_ENV at runtime instead of inlining the build host's value", async () => {
+    const dir = makeFixture();
+    try {
+      writeFileSync(
+        join(dir, "bin/main.ts"),
+        `if (process.env.NODE_ENV !== "production") console.log("development branch");\n`,
+      );
+      const result = await buildServerBundle({ cwd: dir, outDir: join(dir, "dist-server") });
+      const serverSrc = readFileSync(join(result.outDir, "server.js"), "utf8");
+      expect(serverSrc).toContain('process.env.NODE_ENV !== "production"');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("bundles bin/worker.ts as worker.js sharing the chunk; absent worker.ts → no worker.js", async () => {
     const withoutWorker = makeFixture();
     const withWorker = makeFixture();
