@@ -3,7 +3,15 @@ import type { ActionFormScreenDefinition } from "@cosmicdrift/kumiko-framework/u
 import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
 import { clearFileMetaCache } from "../primitives/file-thumbnail.tsx";
-import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  fireEvent,
+  render,
+  restoreViewportWidthAfterEach,
+  screen,
+  setViewportWidth,
+  waitFor,
+} from "./test-utils.tsx";
 
 const form: ActionFormScreenDefinition = {
   id: "set-status",
@@ -62,6 +70,7 @@ function factText(testId: string): string {
 }
 
 describe("actionForm preview", () => {
+  restoreViewportWidthAfterEach();
   test("single-line facts sit side by side as KPI tiles in one band", async () => {
     const dispatcher = createMockDispatcher({
       query: async () => ({
@@ -209,6 +218,60 @@ describe("actionForm preview", () => {
     expect(factText("action-form-preview-fact-0")).toBe("Affected tasks2");
     screen.getByText("Quarterly VAT filing");
     screen.getByText("Prepare audit");
+  });
+
+  test("on a phone each value of a preview card carries its column name", async () => {
+    setViewportWidth(500);
+    const dispatcher = createMockDispatcher({
+      query: async () => ({
+        isSuccess: true,
+        data: { count: 1, tasks: [{ title: "Quarterly VAT filing", after: "blocked" }] },
+      }),
+    });
+    renderForm(dispatcher);
+    typeInto("status", "blocked");
+
+    await waitFor(() => screen.getByText("Quarterly VAT filing"));
+    screen.getByText("New status:", { exact: false });
+    expect(screen.queryByText("Task:", { exact: false })).toBeNull();
+  });
+
+  test("on a phone the result column of a card stands out and a zero column is left out", async () => {
+    setViewportWidth(500);
+    const dispatcher = createMockDispatcher({
+      query: async () => ({
+        isSuccess: true,
+        data: {
+          months: [
+            {
+              period: "2026-02",
+              paid: { amount: 0, currency: "EUR" },
+              open: { amount: 103000, currency: "EUR" },
+            },
+          ],
+        },
+      }),
+    });
+    renderForm(dispatcher, {
+      ...form,
+      preview: {
+        ...form.preview,
+        query: "tasks:query:set-status-preview",
+        list: {
+          field: "months",
+          columns: [
+            { field: "period", label: "Month" },
+            { field: "paid", label: "Paid", type: "money", hideZeroOnCard: true },
+            { field: "open", label: "Open", type: "money", emphasize: true },
+          ],
+        },
+      },
+    });
+    typeInto("status", "blocked");
+
+    await waitFor(() => screen.getByText("2026-02"));
+    expect(screen.queryByText("Paid")).toBeNull();
+    expect(screen.getByText("Open").parentElement?.className).toContain("border-t");
   });
 
   test("an empty list under facts shows no empty state, a list-only preview keeps it", async () => {

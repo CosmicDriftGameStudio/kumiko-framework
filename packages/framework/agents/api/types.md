@@ -2428,6 +2428,8 @@ type ListColumnViewModel = {
   multiline?: true; // Mirrors `ListColumnSpec.multiline`: `\n` in the value breaks the line.
   cardAbove?: true; // Mirrors `ListColumnSpec.cardAbove`.
   cardLabel?: true; // Mirrors `ListColumnSpec.cardLabel`.
+  cardTotal?: true; // Set by the actionForm preview (`emphasize`): the card draws the value bold with a rule above.
+  cardHideZero?: true; // Set by the actionForm preview (`hideZeroOnCard`): the card skips a zero amount or number.
   emphasis?: true; // Mirrors `ListColumnSpec.emphasis`: medium weight, foreground colour.
   tone?: "muted"; // Mirrors `ListColumnSpec.tone`.
   cardBadge?: true; // Mirrors `ListColumnSpec.cardBadge`.

@@ -87,7 +87,7 @@ type ActionFormPreviewFooterRow = { // One footer row under the preview table, e
 };
 type ActionFormPreviewList = { // Rows of the preview panel, read from an array in the preview query's result.
   field: string; // Flat field name of an array in the query result; an entry that is no object is skipped.
-  columns: { field: string; label: string; type?: ActionFormValueType | "file"; }[];
+  columns: { field: string; label: string; type?: ActionFormValueType | "file"; emphasize?: boolean; hideZeroOnCard?: boolean; }[];
   footer?: ActionFormPreviewFooterRow[]; // Rows under the table body, e.g. sums.
 };
 type ActionFormRedirect = { // Redirect target plus the success-payload field carrying the navigation id.

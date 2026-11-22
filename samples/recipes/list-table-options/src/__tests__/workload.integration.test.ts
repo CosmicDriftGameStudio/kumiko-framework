@@ -135,13 +135,25 @@ describe("form bulk action handler", () => {
     const taskIds = created.map((task) => task.data.id);
     const preview = await stack.http.queryOk<{
       count: number;
-      tasks: { title: string; before: string; after: string; attachmentId: null }[];
+      tasks: {
+        title: string;
+        before: string;
+        after: string;
+        estimateHours: number;
+        attachmentId: null;
+      }[];
     }>("task-board:query:task:set-status-preview", { taskIds, status: "blocked" }, user);
     expect(preview).toEqual({
       count: 1,
       tasks: [
-        { title: "Plan A", before: "open", after: "blocked", attachmentId: null },
-        { title: "Plan B", before: "blocked", after: "blocked", attachmentId: null },
+        { title: "Plan A", before: "open", after: "blocked", estimateHours: 0, attachmentId: null },
+        {
+          title: "Plan B",
+          before: "blocked",
+          after: "blocked",
+          estimateHours: 0,
+          attachmentId: null,
+        },
       ],
     });
   });
