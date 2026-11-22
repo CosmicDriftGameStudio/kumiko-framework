@@ -86,6 +86,7 @@ export {
   useLiveEvents,
   useLocale,
   useNav,
+  useOnKeyChange,
   usePrimitives,
   useQuery,
   useStore,

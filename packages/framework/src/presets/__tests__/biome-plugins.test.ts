@@ -282,6 +282,11 @@ describe("no-raw-hooks plugin", () => {
     const finding = findings.find((f) => f.file === "a.tsx" && f.line === 2);
     expect(finding?.message).toContain("useDebouncedValue");
   });
+
+  test("the message points to useOnKeyChange", () => {
+    const finding = findings.find((f) => f.file === "a.tsx" && f.line === 2);
+    expect(finding?.message).toContain("useOnKeyChange");
+  });
 });
 
 describe("no-direct-fs plugin", () => {

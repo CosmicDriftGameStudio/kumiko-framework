@@ -187,6 +187,7 @@ function useIsViewportBelow(breakpointPx: number): boolean;
 function useLiveEvents(): LiveEventSubscriber; // Hook for a useQuery-like consumer.
 function useLocale(): LocaleResolver; // Provides the current LocaleResolver and automatically subscribes to locale changes — the calling component re-renders when the language changes.
 function useNav(): NavApi;
+function useOnKeyChange<K extends string | number | boolean>(key: K | null, run: (key: K) => void, options?: { initial?: "run" | "skip"; }): void; // Runs `run` once per key change without a raw useEffect in app code (the no-raw-hooks guard forbids those).
 function usePresence(props: UsePresenceOptions): UsePresenceResult; // Announces the user on one record: a heartbeat right away and every 15 s, a leave when the record closes; pauses while the page is hidden.
 function usePresenceList(props: UsePresenceListOptions): UsePresenceListResult; // Who else is on each of the given rows, for badges in a list.
 function usePrimitives(): PrimitivesRegistry;

@@ -166,6 +166,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `useLiveEvents` | Hook for a useQuery-like consumer. |
 | `useLocale` | Provides the current LocaleResolver and automatically subscribes to locale changes — the calling component re-renders when the language changes. |
 | `useNav` |  |
+| `useOnKeyChange` | Runs `run` once per key change without a raw useEffect in app code (the no-raw-hooks guard forbids those). |
 | `usePresence` | Announces the user on one record: a heartbeat right away and every 15 s, a leave when the record closes; pauses while the page is hidden. |
 | `usePresenceList` | Who else is on each of the given rows, for badges in a list. |
 | `usePrimitives` |  |
