@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 93,
+  "featureCount": 95,
   "features": [
     {
       "name": "account-security",
@@ -1994,6 +1994,82 @@
       "uiHints": {
         "displayLabel": "Legal Pages",
         "category": "content",
+        "recommended": false
+      }
+    },
+    {
+      "name": "letter-foundation",
+      "description": "Sends PDFs as postal letters through a print provider. Defines the `letterProvider` extension point, the `letter` entity with its status flow (awaiting approval, approved, submitting, accepted, on hold, sent, failed, canceled, returned) and `sendLetter`, which always creates a letter that waits for approval. A user with the LetterApprover role approves it after seeing the price; the letter is then handed to the provider. Live sending needs the LETTER_LIVE env switch and only boots with NODE_ENV=production; without it the inmemory provider runs. A monthly cost limit per tenant is set with the `monthlyCostLimitCents` config key, 0 until a value is set. The recipient address is personal data of the letter.",
+      "toggleableDefault": null,
+      "requires": [
+        "config",
+        "files",
+        "cap-counter"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [
+        {
+          "key": "monthly-cost-limit-cents",
+          "qualifiedName": "letter-foundation:config:monthly-cost-limit-cents",
+          "type": "number",
+          "scope": "tenant",
+          "default": 0,
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": {
+            "min": 0
+          },
+          "pattern": null,
+          "writeRoles": [
+            "system"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ]
+        }
+      ],
+      "secrets": [],
+      "writeHandlers": [
+        "letter-foundation:write:approve",
+        "letter-foundation:write:cancel"
+      ],
+      "uiHints": {
+        "displayLabel": "Letters",
+        "category": "notifications",
+        "recommended": false
+      }
+    },
+    {
+      "name": "letter-provider-inmemory",
+      "description": "Registers an `inmemory` provider for `letter-foundation` that accepts letters in process memory instead of printing them. Tests steer it with `letterSimulator.setScenario` (accept, reject, timeout, on hold, other price or recognized address) and `setClock`; it is the provider that runs whenever the live switch is off. Not for production: nothing is sent.",
+      "toggleableDefault": null,
+      "requires": [
+        "letter-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "letterProvider",
+          "entityName": "inmemory"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Letter Provider · In-memory",
+        "category": "notifications",
         "recommended": false
       }
     },

@@ -1,0 +1,172 @@
+import { deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import {
+  access,
+  createBooleanField,
+  createDateField,
+  createEntity,
+  createEntityExecutor,
+  createJsonbField,
+  createLongTextField,
+  createMoneyField,
+  createNumberField,
+  createSelectField,
+  createTextField,
+  createTimestampField,
+} from "@cosmicdrift/kumiko-framework/engine";
+import {
+  LETTER_ENTITY,
+  LETTER_FORM_REQUIREMENTS,
+  LETTER_PRICE_SOURCES,
+  LETTER_SHIPPING_MODES,
+  LETTER_STATE,
+  LETTER_STATES,
+  LETTER_SUBMISSION_STATUSES,
+  LETTER_SUBMISSION_TABLE,
+} from "./constants.ts";
+
+const TECHNICAL = { personal: false, reason: "technical_reference" } as const;
+const BUSINESS_TIMESTAMP = { personal: false, reason: "is_business_timestamp" } as const;
+// The address and the name belong to the letter row: forgetting the letter shreds them.
+const RECIPIENT = { personal: { of: "id" }, find: "none" } as const;
+
+const STATE_TONES = {
+  [LETTER_STATE.awaitingApproval]: "warn",
+  [LETTER_STATE.approved]: "accent",
+  [LETTER_STATE.submitting]: "accent",
+  [LETTER_STATE.submissionUnknown]: "bad",
+  [LETTER_STATE.accepted]: "accent",
+  [LETTER_STATE.onHold]: "warn",
+  [LETTER_STATE.sent]: "ok",
+  [LETTER_STATE.failed]: "bad",
+  [LETTER_STATE.canceled]: "neutral",
+  [LETTER_STATE.returned]: "bad",
+} as const;
+
+export const letterEntity = createEntity({
+  name: LETTER_ENTITY,
+  table: "read_letters",
+  description:
+    "A PDF sent as a postal letter through a print provider: created awaiting approval, approved by a person with a price preview, then handed to the provider and tracked until it is sent, failed, canceled or returned; the recipient address is the letter's personal data.",
+  retention: { keepFor: "7y", strategy: "hardDelete" },
+  fields: {
+    status: createSelectField({
+      options: LETTER_STATES,
+      required: true,
+      default: LETTER_STATE.awaitingApproval,
+      filterable: true,
+      sortable: true,
+      optionTones: STATE_TONES,
+    }),
+    idempotencyKey: createTextField({ required: true, maxLength: 200, ...TECHNICAL }),
+
+    sourceEntityType: createTextField({
+      required: true,
+      maxLength: 100,
+      filterable: true,
+      ...TECHNICAL,
+    }),
+    sourceEntityId: createTextField({ required: true, maxLength: 100, ...TECHNICAL }),
+    costCenterRef: createTextField({ maxLength: 200, filterable: true, ...TECHNICAL }),
+    createdBy: createTextField({ required: true, maxLength: 64, personal: "ref" }),
+    approvedBy: createTextField({ maxLength: 64, personal: "ref" }),
+
+    fileRefIds: createJsonbField({ emptyValue: "array", ...TECHNICAL }),
+    mergedFileRefId: createTextField({ maxLength: 64, ...TECHNICAL }),
+    documentSha256: createTextField({
+      maxLength: 64,
+      personal: false,
+      reason: "is_document_hash",
+    }),
+    pageCount: createNumberField(),
+    sheetCount: createNumberField(),
+
+    shippingMode: createSelectField({
+      options: LETTER_SHIPPING_MODES,
+      required: true,
+      filterable: true,
+    }),
+    color: createBooleanField({ required: true }),
+    duplex: createBooleanField({ required: true }),
+    formRequirement: createSelectField({ options: LETTER_FORM_REQUIREMENTS, required: true }),
+    latestReceiptDate: createDateField({
+      personal: false,
+      reason: "is_deadline",
+      sortable: true,
+    }),
+
+    recipientName: createTextField({ required: true, maxLength: 200, ...RECIPIENT }),
+    recipientAddressExtra: createTextField({ maxLength: 200, ...RECIPIENT }),
+    recipientStreet: createTextField({ required: true, maxLength: 200, ...RECIPIENT }),
+    recipientHouseNumber: createTextField({ required: true, maxLength: 20, ...RECIPIENT }),
+    recipientPostalCode: createTextField({ required: true, maxLength: 20, ...RECIPIENT }),
+    recipientCity: createTextField({ required: true, maxLength: 200, ...RECIPIENT }),
+    recognizedAddress: createLongTextField({ personal: { of: "id" }, find: "none" }),
+
+    quotedNet: createMoneyField(),
+    actualNet: createMoneyField(),
+    actualVat: createMoneyField(),
+    priceSource: createSelectField({ options: LETTER_PRICE_SOURCES }),
+
+    providerName: createTextField({ maxLength: 100, ...TECHNICAL }),
+    providerJobId: createTextField({ maxLength: 200, ...TECHNICAL }),
+    trackingNumber: createTextField({ maxLength: 200, ...TECHNICAL }),
+    trackingStatus: createTextField({ maxLength: 200, ...TECHNICAL }),
+    proofFileRefIds: createJsonbField({ emptyValue: "array", ...TECHNICAL }),
+    cancelableUntil: createTimestampField(BUSINESS_TIMESTAMP),
+
+    approvedAt: createTimestampField(BUSINESS_TIMESTAMP),
+    submittedAt: createTimestampField(BUSINESS_TIMESTAMP),
+    submissionUnknownAt: createTimestampField(BUSINESS_TIMESTAMP),
+    acceptedAt: createTimestampField(BUSINESS_TIMESTAMP),
+    onHoldAt: createTimestampField(BUSINESS_TIMESTAMP),
+    sentAt: createTimestampField({ ...BUSINESS_TIMESTAMP, sortable: true }),
+    failedAt: createTimestampField(BUSINESS_TIMESTAMP),
+    canceledAt: createTimestampField(BUSINESS_TIMESTAMP),
+    returnedAt: createTimestampField(BUSINESS_TIMESTAMP),
+  },
+  indexes: [
+    { unique: true, columns: ["tenantId", "idempotencyKey"] },
+    { columns: ["tenantId", "status"] },
+    { columns: ["tenantId", "sourceEntityType", "sourceEntityId"] },
+  ],
+});
+
+export const { executor: letterExecutor, table: letterTable } = createEntityExecutor(letterEntity);
+
+/** One row per letter handed to the provider, so a retried handover finds the claim instead of sending twice.
+ *  No address and no name: ids and the provider job id only, nothing personal. */
+export const letterSubmissionEntity = createEntity({
+  name: "letter-submission",
+  table: LETTER_SUBMISSION_TABLE,
+  softDelete: false,
+  indexes: [{ unique: true, columns: ["tenantId", "idempotencyKey"] }],
+  fields: {
+    idempotencyKey: createTextField({
+      required: true,
+      maxLength: 200,
+      access: { write: access.privileged },
+      ...TECHNICAL,
+    }),
+    letterId: createTextField({
+      required: true,
+      maxLength: 36,
+      access: { write: access.privileged },
+      ...TECHNICAL,
+    }),
+    status: createSelectField({
+      options: LETTER_SUBMISSION_STATUSES,
+      required: true,
+      access: { write: access.privileged },
+    }),
+    providerJobId: createTextField({
+      maxLength: 200,
+      access: { write: access.privileged },
+      ...TECHNICAL,
+    }),
+    claimedAt: createTimestampField({ required: true, access: { write: access.privileged } }),
+  },
+});
+
+export const letterSubmissionTable = deriveEntityTableMeta(letterSubmissionEntity, {
+  source: "unmanaged",
+});

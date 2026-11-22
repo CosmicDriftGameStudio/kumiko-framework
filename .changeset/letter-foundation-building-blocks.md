@@ -1,5 +1,5 @@
 ---
-"@cosmicdrift/kumiko-bundled-features": minor
+"@cosmicdrift/kumiko-bundled-features": patch
 ---
 
 Building blocks for postal letters: `releaseCapUsage` is exported, cap-overview knows the `cents` unit, PDF layouts accept `postal`, and the shared PDF helpers (`mergePdfs`, `checkPostalPdf`) move out of signature.

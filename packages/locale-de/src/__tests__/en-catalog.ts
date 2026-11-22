@@ -3,12 +3,14 @@
 
 import { documentDesignerEnCatalog } from "./en-catalog-document-designer.ts";
 import { featureNamespacedEnCatalog } from "./en-catalog-feature-namespaced.ts";
+import { letterEnCatalog } from "./en-catalog-letter.ts";
 import { rendererEnCatalog } from "./en-catalog-renderer.ts";
 
 export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   ...rendererEnCatalog,
   ...documentDesignerEnCatalog,
   ...featureNamespacedEnCatalog,
+  ...letterEnCatalog,
   "audit.errors.systemScopeRequiresSystemAdmin": "Only SystemAdmin may read system events.",
   "audit.log.col.actor": "Actor",
   "audit.log.col.aggregateId": "Aggregate ID",

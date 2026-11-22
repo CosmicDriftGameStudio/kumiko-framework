@@ -68,6 +68,8 @@ import { createInboundProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundle
 import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import { createLedgerFeature } from "@cosmicdrift/kumiko-bundled-features/ledger";
 import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
+import { createLetterFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/letter-foundation";
+import { createLetterProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/letter-provider-inmemory";
 import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import {
   createMetricsFeature,
@@ -207,6 +209,10 @@ export const APP_FEATURES = [
   createInboundProviderImapFeature(),
 
   ...composeFileStack({ providers: ["inmemory", "s3", "s3-env"] }),
+
+  createLetterFoundationFeature(),
+  createLetterProviderInMemoryFeature(),
+
   // resolveApexTenant is what registers the `public-variant` query and the
   // anonymous /media route — the option-less export leaves both out and hides
   // them from `kumiko agent lint` (#2643). No entityType in this sample
