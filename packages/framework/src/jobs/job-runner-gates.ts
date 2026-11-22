@@ -63,9 +63,12 @@ function fanOutTenantIds(
 ): readonly TenantId[] {
   const { onlyTenants } = def;
   if (onlyTenants !== undefined) return activeTenantIds.filter((id) => onlyTenants.includes(id));
-  return def.includeSystemTenant === true && !activeTenantIds.includes(SYSTEM_TENANT_ID)
-    ? [...activeTenantIds, SYSTEM_TENANT_ID]
-    : activeTenantIds;
+  // An app may hold an enabled tenant row for the system tenant; only includeSystemTenant
+  // opts a job into running there.
+  const customerTenantIds = activeTenantIds.filter((id) => id !== SYSTEM_TENANT_ID);
+  return def.includeSystemTenant === true
+    ? [...customerTenantIds, SYSTEM_TENANT_ID]
+    : customerTenantIds;
 }
 
 async function enqueuePerTenantChildren(
