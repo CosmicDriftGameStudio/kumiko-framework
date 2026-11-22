@@ -35,7 +35,9 @@ Shipping modes and envelopes differ between providers. Read the capabilities and
 them:
 
 ```ts illustration
-const { capabilities } = selectLetterProvider(ctx.registry).plugin;
+const selected = selectLetterProviderOrFailure(ctx.registry);
+if (!selected.isSuccess) return selected;
+const { capabilities } = selected.data.plugin;
 // capabilities.shippingModes, capabilities.envelopes, capabilities.maxSheets
 ```
 
@@ -100,7 +102,16 @@ means the simulator.
 A production system without `LETTER_LIVE`, or with `LETTER_LIVE=true` and no known `LETTER_PROVIDER`,
 still boots. Users get the error `letter_provider_not_configured` in the preview and on approval, and
 letters approved before stay in `approved`. Once the variable is set, the poll job asks for their
-handover again, at the earliest 30 minutes plus the hold time after the approval.
+handover again, at the earliest 30 minutes plus the hold time after the approval. A letter that could
+not be handed over for two hours past its hold time fails with `handover-stalled`.
+
+A letter belongs to the provider it was approved with. After a change of `LETTER_LIVE` or
+`LETTER_PROVIDER` the poll leaves the other provider's letters alone, `cancel` and `resolve-unknown` with a `providerJobId`
+refuse them with `letter_provider_changed`, and an approved letter that was not handed over fails with
+`provider-changed`. Change the provider only when no letter is in `approved`, `submitting`, `accepted`,
+`on-hold` or `submission-unknown`. The inmemory provider keeps its orders in the process, so with
+`LETTER_LIVE=false` a restart or a second instance loses them and their letters fail with
+`not-found-at-provider`.
 
 ### The monthly cost limit
 
@@ -116,12 +127,14 @@ tenant. Watch the credit on the provider's side; the framework does not read it.
 
 | State | Meaning | What to do |
 | ----- | ------- | ---------- |
-| `approved` for more than half an hour | The submit job ran out of retries, for example because the provider's credentials or `LETTER_LIVE` are missing | Fix the cause. The poll job asks the submit job to hand the letter over again once the hold time plus 30 minutes have passed |
+| `approved` for more than half an hour | The submit job ran out of retries, for example because the provider's credentials or `LETTER_LIVE` are missing | Fix the cause. The poll job asks the submit job to hand the letter over again once the hold time plus 30 minutes have passed; after two hours past the hold time the letter fails with `handover-stalled` |
 | `submission-unknown` | The handover timed out or never finished. The provider may or may not have the letter | Wait for the poll job, which looks the letter up by its reference. If the provider reports a rejection, the letter fails and its estimate is given back. If the provider offers no lookup, check the provider's site: if it has the order, pass its id as `providerJobId` to `resolve-unknown` and the letter is accepted at the order's price; if not, close the case with `resolve-unknown` and a note |
 | `on-hold` | The provider stopped the letter and waits for the operator | Look up the reason at the provider and fix it there. The poll job picks up the change |
 | `failed` with `address-mismatch` | The provider read a different address from the PDF than the app expected, and the letter was canceled in time | Fix the address block of the template and send again |
 | `addressMismatch` set on a sent letter | The same mismatch, found after the cancel window closed | Check the letter by hand; it was posted |
 | `failed` with `monthly-limit` | The tenant's limit does not cover the letter | Raise the limit or wait for the next month, then send again |
+| `failed` with `handover-stalled` | The letter stayed in `approved` for two hours past its hold time and could not be handed over | Fix the cause, for example the provider credentials, and send the letter again |
+| `failed` with `provider-changed` | The provider was switched between approval and handover | Send the letter again under the provider now selected |
 
 A letter in `submission-unknown` is never sent a second time on its own. Its estimate stays booked
 against the month, because the letter may be at the provider and a reservation would expire after an

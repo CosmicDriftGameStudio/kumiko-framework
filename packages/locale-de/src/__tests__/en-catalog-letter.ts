@@ -46,6 +46,8 @@ export const letterEnCatalog: Readonly<Record<string, string>> = {
   "letter-foundation.errors.cancelUnknownJob": "The print provider does not know this letter.",
   "letter-foundation.errors.providerJobMismatch":
     "The print provider has no order with this id for this letter.",
+  "letter-foundation.errors.providerChanged":
+    "This letter was approved with another provider. Switch back to that provider to change it.",
   "letter-foundation.preview.monthlyLimitExceeded":
     "The monthly letter cost limit does not cover this letter.",
 };

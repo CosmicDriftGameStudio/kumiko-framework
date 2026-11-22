@@ -35,9 +35,18 @@ app: it is what runs whenever live sending is off.
 | `LETTER_PROVIDER` | Name of the provider used for live sending, for example `letterxpress`. Required with `true`       |
 
 Outside production a missing `LETTER_LIVE` means the inmemory provider. In production the variable must
-be `true` or `false`. If it is missing there, the app still boots, but preview, `sendLetter`, `approve`
-and `cancel` answer 422 `letter_provider_not_configured`, and approved letters stay in `approved` until
-the variable is set. The same error covers `LETTER_LIVE=true` without a known `LETTER_PROVIDER`.
+be `true` or `false`. If it is missing there, the app still boots, but preview, `sendLetter` and `approve`
+answer 422 with the reason `letter_provider_not_configured`, and so does `cancel` for a letter the provider
+already has. A letter that was not handed over can still be canceled. Approved letters stay in `approved`
+until the variable is set, for at most two hours. The same error covers `LETTER_LIVE=true` without a known
+`LETTER_PROVIDER`.
+
+A letter belongs to the provider it was approved with. After a change of `LETTER_LIVE` or `LETTER_PROVIDER`
+the poll leaves the other provider's letters alone, `cancel` and `resolve-unknown` with a `providerJobId` refuse them with
+`letter_provider_changed`, and an approved letter that was not handed over fails with `provider-changed`.
+Change the provider only when no letter is in `approved`, `submitting`, `accepted`, `on-hold` or
+`submission-unknown`. The inmemory provider keeps its orders in the process, so with `LETTER_LIVE=false` a
+restart or a second instance loses them and their letters fail with `not-found-at-provider`.
 
 A provider's own test mode is not reachable through this feature. To try one, build the provider
 directly with `live: false`.
@@ -142,14 +151,16 @@ it posted the letter, never that it arrived.
   minutes have passed, the poll writes the event `handover-restart-requested` and the submit job hands
   the letter over. The poll never calls the provider's `submit` itself, so two runs cannot hand over the
   same letter. The retry takes a fresh reservation in the current month; a limit lowered meanwhile fails
-  the letter with `monthly-limit`.
+  the letter with `monthly-limit`. A letter that still cannot be handed over two hours past its hold time
+  fails with `handover-stalled`, and its claim and reservation go back.
 
 ## Limits to know
 
 - The poll spends at most `pollLimitPerRun` provider requests per tenant and run and stops touching
   further letters after four minutes. A status check costs one request. Looking up an unknown handover
   costs `capabilities.lookupRequestsPerLetter` requests, so fewer of those fit into a run. Many tenants
-  polling at once can still exceed a provider's rate limit; the next run catches up.
+  polling at once can still exceed a provider's rate limit; the next run catches up. A lookup can exceed
+  the cap by up to `lookupRequestsPerLetter` requests.
 - The submit job hands over one letter at a time across all tenants.
 - Letters and their merged PDFs are kept seven years and then deleted. Destroying a tenant archives and
   deletes them with the tenant.

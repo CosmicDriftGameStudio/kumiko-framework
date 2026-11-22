@@ -1,4 +1,5 @@
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { ConfigKeyHandle } from "@cosmicdrift/kumiko-types/config";
 import type { JobDeferral } from "@cosmicdrift/kumiko-types/handlers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -19,7 +20,7 @@ import {
   reserveLetterCost,
 } from "../letter-usage.ts";
 import { LetterTransitionEventSchema } from "../payloads.ts";
-import { resolveLetterProvider } from "../provider-resolver.ts";
+import { isForeignProvider, resolveLetterProvider } from "../provider-resolver.ts";
 import { envelopeOf, isLetterShippingMode } from "../row-guards.ts";
 import type { LetterProvider, LetterSubmission } from "../types.ts";
 import { cancelOnMismatch, hasAddressMismatch, recipientOf } from "./address-mismatch.ts";
@@ -180,24 +181,18 @@ async function claimWithReservation(
   const limitCents = (await ctx.config?.(limitKey)) ?? 0;
   await releaseReservedCost(ctx, claim, true);
   const periodStart = currentCalendarMonthStartIso(ctx.tz.now());
-  let reservationId: string;
-  try {
-    ({ reservationId } = await reserveLetterCost(ctx, { quotedCents, limitCents, periodStart }));
-  } catch (error) {
-    if (!(error instanceof CapExceededError)) throw error;
-    await failBeforeHandover(ctx, letter, LETTER_FAILURE_REASON.monthlyLimit);
-    return null;
-  }
+  // The id is stored before the reservation exists, so a crash in between leaves an id the next run can
+  // release (a no-op without a row) instead of a reservation no claim knows about.
+  const reservationId = generateId();
+  await ctx.db.updateMany(letterSubmissionTable, { reservationId, periodStart }, { id: claim.id });
   const reserved: LetterClaim = { ...claim, reservationId, periodStart };
   try {
-    await ctx.db.updateMany(
-      letterSubmissionTable,
-      { reservationId, periodStart },
-      { id: claim.id },
-    );
+    await reserveLetterCost(ctx, { quotedCents, limitCents, periodStart, reservationId });
   } catch (error) {
-    await releaseReservedCost(ctx, reserved, true);
-    throw error;
+    if (!(error instanceof CapExceededError)) throw error;
+    const failed = await failBeforeHandover(ctx, letter, LETTER_FAILURE_REASON.monthlyLimit);
+    if (!failed) await giveBackAfterLostStart(ctx, letter, reserved);
+    return null;
   }
   return reserved;
 }
@@ -249,7 +244,11 @@ export function createSubmitLetterRun(limitKey: ConfigKeyHandle<"number">, holdM
       throw new Error(`letter-foundation: approved letter ${letter.id} has no quoted price`);
     }
 
-    const { provider } = await resolveLetterProvider(ctx.registry);
+    const { name, provider } = await resolveLetterProvider(ctx.registry);
+    if (isForeignProvider(letter, name)) {
+      await failBeforeHandover(ctx, letter, LETTER_FAILURE_REASON.providerChanged);
+      return undefined;
+    }
     const claim = await claimWithReservation(ctx, letter, quotedCents, limitKey);
     // skip: the monthly limit refused the letter, it is failed by now
     if (claim === null) return undefined;

@@ -1,5 +1,5 @@
 import { createEntityExecutor, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
+import { NotFoundError, reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import type { ConfigKeyHandle } from "@cosmicdrift/kumiko-types/config";
 import { capCounterEntity, currentCalendarMonthStartIso } from "../../cap-counter/index.ts";
 import { LETTER_CAP, LETTER_ENTITY, LETTER_ROLES, LETTER_STATE, LetterI18n } from "../constants.ts";
@@ -36,6 +36,7 @@ export function createPreviewQuery(limitKey: ConfigKeyHandle<"number">) {
     name: "preview",
     schema: LetterIdSchema,
     access: { roles: [LETTER_ROLES.approver] },
+    rateLimit: { per: "user+handler", limit: 30, windowSeconds: 60 },
     description:
       "Shows the price of a letter before it is approved, with the unit price, the total net and a hint when the tenant's monthly cost limit does not cover it.",
     handler: async (query, ctx): Promise<LetterPreview> => {
@@ -60,14 +61,14 @@ export function createPreviewQuery(limitKey: ConfigKeyHandle<"number">) {
         ({ pageCount, sheetCount } = letter);
       } else {
         const prepared = await prepareLetterDocument(ctx, query.user, letter);
-        if (!prepared.isSuccess) throw prepared.error;
+        if (!prepared.isSuccess) throw reraiseAsKumikoError(prepared.error);
         unitNet = prepared.data.quote.net;
         ({ pageCount, sheetCount } = prepared.data);
       }
 
       const envelope = envelopeOf(letter);
       const resolved = await resolveLetterProviderOrFailure(ctx.registry);
-      if (!resolved.isSuccess) throw resolved.error;
+      if (!resolved.isSuccess) throw reraiseAsKumikoError(resolved.error);
       const { maxFlatSheets } = resolved.data.capabilities;
       const limitCents = (await ctx.config?.(limitKey)) ?? 0;
       const periodStart = currentCalendarMonthStartIso(ctx.tz.now());

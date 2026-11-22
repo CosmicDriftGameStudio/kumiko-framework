@@ -217,7 +217,7 @@ function StatCardValueRow({
       <span
         className={cn(
           // A long single word (a process name in a preview tile) wraps instead of being clipped by the card.
-          "min-w-0 break-words text-xl font-semibold tabular-nums",
+          "min-w-0 hyphens-auto break-words text-xl font-semibold tabular-nums",
           boardPadding && "max-sm:text-[17px]",
           TONE_VALUE[tone],
         )}

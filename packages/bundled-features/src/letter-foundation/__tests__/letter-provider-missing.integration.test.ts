@@ -1,13 +1,20 @@
-// In production without the live switch the provider cannot be chosen: sendLetter and cancel answer with a
+// In production without the live switch the provider cannot be chosen: sendLetter, preview, approve and cancel answer with a
 // readable 422 instead of a crash.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { withEnv } from "@cosmicdrift/kumiko-testing/helpers";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { ConfigHandlers } from "../../config/index.ts";
-import { LETTER_STATE, LetterHandlers } from "../constants.ts";
+import { LETTER_STATE, LetterHandlers, LetterQueries } from "../constants.ts";
 import { LETTER_PROVIDER_NOT_CONFIGURED } from "../provider-resolver.ts";
-import { CLERK, createLetterHarness, LIMIT_KEY, SEND, SYSTEM_ADMIN } from "./letter-harness.ts";
+import {
+  APPROVER,
+  CLERK,
+  createLetterHarness,
+  LIMIT_KEY,
+  SEND,
+  SYSTEM_ADMIN,
+} from "./letter-harness.ts";
 
 const harness = createLetterHarness({ handoverHoldMs: 300 });
 const { letterInput, letterRow, send } = harness;
@@ -42,6 +49,26 @@ describe("a provider that is not configured", () => {
     );
     expect(error.httpStatus).toBe(422);
     expect(error.i18nKey).toBe(LETTER_PROVIDER_NOT_CONFIGURED.i18nKey);
+  });
+
+  test("preview answers 422 with a readable code", async () => {
+    const { letterId } = await send(await letterInput());
+    const error = await inProductionWithoutLiveSwitch(() =>
+      stack.http.queryErr(LetterQueries.preview, { letterId }, APPROVER),
+    );
+    expect(error.httpStatus).toBe(422);
+    expect(error.i18nKey).toBe(LETTER_PROVIDER_NOT_CONFIGURED.i18nKey);
+  });
+
+  test("approve answers 422, the letter keeps waiting and no claim is made", async () => {
+    const { letterId } = await send(await letterInput());
+    const error = await inProductionWithoutLiveSwitch(() =>
+      stack.http.writeErr(LetterHandlers.approve, { letterId }, APPROVER),
+    );
+    expect(error.httpStatus).toBe(422);
+    expect(error.i18nKey).toBe(LETTER_PROVIDER_NOT_CONFIGURED.i18nKey);
+    expect((await letterRow(letterId))?.["status"]).toBe(LETTER_STATE.awaitingApproval);
+    expect(await harness.claimRows(letterId)).toHaveLength(0);
   });
 
   test("cancel of a letter the provider already has answers 422 and keeps the letter", async () => {

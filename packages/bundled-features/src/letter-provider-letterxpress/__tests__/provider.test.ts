@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import type {
-  LetterProviderContext,
-  LetterShippingMode,
-  LetterSpec,
-  LetterSubmission,
+import {
+  type LetterProviderContext,
+  LetterProviderNotConfiguredError,
+  type LetterShippingMode,
+  type LetterSpec,
+  type LetterSubmission,
 } from "@cosmicdrift/kumiko-bundled-features/letter-foundation";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { LETTERXPRESS_FIND_MAX_PAGES } from "../constants.ts";
@@ -90,7 +91,7 @@ describe("build", () => {
       () => undefined,
       (e: unknown) => e,
     );
-    expect(error).toBeInstanceOf(Error);
+    expect(error).toBeInstanceOf(LetterProviderNotConfiguredError);
     const message = error instanceof Error ? error.message : "";
     expect(message).toContain("LETTERXPRESS_USERNAME");
     expect(message).toContain("LETTERXPRESS_API_KEY");
@@ -262,7 +263,7 @@ describe("submit", () => {
       expect(requests).toHaveLength(2);
     });
 
-    test("the wait is capped and defaults to 2 s without the header", async () => {
+    test("the wait is capped at a minute and defaults to a minute without the header", async () => {
       const waits: number[] = [];
       const wait = async (ms: number) => void waits.push(ms);
       const capped = await providerWith(
@@ -272,7 +273,7 @@ describe("submit", () => {
       await capped.provider.submit(submission());
       const bare = await providerWith([throttled(), fixture("d-submit-std")], { wait });
       await bare.provider.submit(submission());
-      expect(waits).toEqual([10_000, 2000]);
+      expect(waits).toEqual([60_000, 60_000]);
     });
 
     test("a second throttled answer is a rejection, not an exception", async () => {

@@ -53,7 +53,7 @@ The provider has no idempotency key. `findByReference` lists orders and matches 
 ## Failure handling
 
 - HTTP 400, 401, 403, 405 on `submit`: `rejected` with `refused-by-provider`. For 401 and 403 the message says the credentials were rejected.
-- HTTP 429 on `submit`: no order was created. The provider waits once, for the time in `Retry-After` (at most 10 seconds, 2 seconds without the header), and sends again. A second 429 ends as `rejected` with a message that the provider throttles and nothing was created. Other calls are not repeated.
+- HTTP 429 on `submit`: no order was created. The provider waits once, for the time in `Retry-After` (at most one minute, one minute without the header, because the provider limits per minute), and sends again. A second 429 ends as `rejected` with a message that the provider throttles and nothing was created. Other calls are not repeated.
 - HTTP 5xx, timeout, network error or an unreadable answer on `submit`: throws, and `letter-foundation` resolves the outcome through `findByReference`.
 - Timeouts: 30 seconds, 120 seconds for `submit`.
 - Messages and errors never contain the request body, the user name or the key.

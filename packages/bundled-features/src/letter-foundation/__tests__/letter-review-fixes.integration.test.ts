@@ -8,13 +8,15 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { UnrecoverableError } from "bullmq";
 import * as z from "zod";
-import { capReservationsTable } from "../../cap-counter/index.ts";
+import { capReservationsTable, currentCalendarMonthStartIso } from "../../cap-counter/index.ts";
 import { ConfigHandlers } from "../../config/index.ts";
 import { letterSimulator } from "../../letter-provider-inmemory/simulator.ts";
 import {
   LETTER_APPROVED_STALE_MS,
   LETTER_FAILURE_REASON,
+  LETTER_HANDOVER_GIVE_UP_MS,
   LETTER_STATE,
   LetterEvents,
   LetterHandlers,
@@ -22,6 +24,7 @@ import {
   LetterInternalHandlers,
   LetterJobs,
 } from "../constants.ts";
+import { letterSubmissionTable } from "../entity.ts";
 import {
   APPROVER,
   CLERK,
@@ -255,6 +258,39 @@ describe("a handover run that stopped after taking its reservation", () => {
     expect(await claimRows(letterId)).toHaveLength(1);
   });
 
+  test("a run that stopped after reserving finds the id stored at its claim and replaces the reservation", async () => {
+    const { letterId, parked, drained } = await holdRun(() => harness.parkNextDocumentRead());
+    expect(await reservations()).toHaveLength(1);
+
+    parked.resume("fail");
+    await drained;
+    expect(await statusOf(letterId)).toBe(LETTER_STATE.accepted);
+    expect(letterSimulator.calls.submit).toBe(1);
+    expect(await usage()).toEqual(ONE_LETTER);
+    expect(await reservations()).toHaveLength(0);
+  });
+
+  test("a run that stopped before reserving leaves an id without a reservation, which the next run replaces", async () => {
+    const { letterId, parked, drained } = await holdRun(() => harness.parkNextLimitRead());
+    await updateMany(
+      stack.db,
+      letterSubmissionTable,
+      {
+        reservationId: crypto.randomUUID(),
+        periodStart: currentCalendarMonthStartIso(clock().now()),
+      },
+      { letterId },
+    );
+
+    parked.resume("continue");
+    await drained;
+    expect(await statusOf(letterId)).toBe(LETTER_STATE.accepted);
+    expect(letterSimulator.calls.submit).toBe(1);
+    expect(await usage()).toEqual(ONE_LETTER);
+    expect(await reservations()).toHaveLength(0);
+    expect(await claimRows(letterId)).toHaveLength(1);
+  });
+
   test("the retry reserves again, so a limit lowered meanwhile fails the letter", async () => {
     const { letterId, parked, drained } = await holdRun(() => harness.parkNextDocumentRead());
     await stack.http.writeOk(
@@ -291,6 +327,21 @@ describe("a rejection from the wrong state", () => {
     expect(await statusOf(letterId)).toBe(LETTER_STATE.accepted);
     expect(await usage()).toEqual(ONE_LETTER);
     expect(await claimRows(letterId)).toHaveLength(1);
+  });
+
+  test("reasons from before the handover are ignored for an unknown handover", async () => {
+    letterSimulator.setScenario({ submit: { kind: "timeout-accepted" } });
+    const letterId = await handOver();
+    expect(await statusOf(letterId)).toBe(LETTER_STATE.submissionUnknown);
+    for (const reason of [
+      LETTER_FAILURE_REASON.monthlyLimit,
+      LETTER_FAILURE_REASON.documentUnreadable,
+    ]) {
+      await reject(letterId, reason);
+      expect(await statusOf(letterId)).toBe(LETTER_STATE.submissionUnknown);
+      expect((await usage()).cost).toBe(109);
+      expect(await claimRows(letterId)).toHaveLength(1);
+    }
   });
 
   test("a rejection by the provider is ignored while the letter is still approved", async () => {
@@ -341,10 +392,45 @@ describe("a letter that stays in approved", () => {
     return events.filter((event) => event["type"] === LetterEvents.handoverRestartRequested).length;
   }
 
-  // The job is not drained, so it never ran: the letter is in the state a letter is in after its retries ran out.
-  test("the poll asks for a restart once the hold time and 30 minutes have passed; the submit job hands it over", async () => {
-    const letterId = await approveWithoutDraining();
+  // The approved event's run ends for good before the handover (an unrecoverable read error skips the
+  // retries): the letter stays in `approved` with its claim, and the event is consumed.
+  async function approveWithFailedRun(): Promise<string> {
+    const { letterId } = await send(await letterInput());
+    await harness.approve(letterId);
+    const read = harness.fileProvider.read.bind(harness.fileProvider);
+    harness.fileProvider.read = async () => {
+      throw new UnrecoverableError("storage unavailable");
+    };
+    try {
+      clock().advance({ seconds: 1 });
+      await expect(stack.drainJobs()).rejects.toThrow("storage unavailable");
+    } finally {
+      harness.fileProvider.read = read;
+    }
     expect(await statusOf(letterId)).toBe(LETTER_STATE.approved);
+    expect(letterSimulator.calls.submit).toBe(0);
+    return letterId;
+  }
+
+  test("past the give-up time the poll fails the letter and gives its claim and reservation back", async () => {
+    const letterId = await approveWithFailedRun();
+    expect(await claimRows(letterId)).toHaveLength(1);
+    expect(await reservations()).toHaveLength(1);
+
+    clock().advance({ milliseconds: HOLD_MS + LETTER_HANDOVER_GIVE_UP_MS + 1_000 });
+    await harness.runJobWithoutEventDelivery(LetterJobs.poll);
+    const row = await letterRow(letterId);
+    expect(row?.["status"]).toBe(LETTER_STATE.failed);
+    expect(row?.["failureReason"]).toBe(LETTER_FAILURE_REASON.handoverStalled);
+    expect(await restartRequests()).toBe(0);
+    expect(await reservations()).toHaveLength(0);
+    expect(await claimRows(letterId)).toHaveLength(0);
+    expect(await usage()).toEqual(NOTHING);
+    expect(letterSimulator.calls.submit).toBe(0);
+  });
+
+  test("the poll asks for a restart once the hold time and 30 minutes have passed; the submit job hands it over", async () => {
+    const letterId = await approveWithFailedRun();
 
     clock().advance({ milliseconds: HOLD_MS + LETTER_APPROVED_STALE_MS + 1_000 });
     await harness.runJobWithoutEventDelivery(LetterJobs.poll);

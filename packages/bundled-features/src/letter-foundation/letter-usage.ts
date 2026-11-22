@@ -45,7 +45,12 @@ function unitCounters(letter: UsageLetter): readonly Counter[] {
 /** Reserves the previewed price against the monthly limit; throws CapExceededError when it does not fit. */
 export function reserveLetterCost(
   ctx: CapCtx,
-  args: { readonly quotedCents: number; readonly limitCents: number; readonly periodStart: string },
+  args: {
+    readonly quotedCents: number;
+    readonly limitCents: number;
+    readonly periodStart: string;
+    readonly reservationId?: string;
+  },
 ) {
   return reserveCalendarCapUsage(ctx, {
     capName: LETTER_CAP.costNetCents,
@@ -54,6 +59,7 @@ export function reserveLetterCost(
     periodStartIso: args.periodStart,
     periodEndIso: calendarMonthPeriodEndIso(args.periodStart),
     profile: "hardSlot",
+    ...(args.reservationId !== undefined && { reservationId: args.reservationId }),
   });
 }
 

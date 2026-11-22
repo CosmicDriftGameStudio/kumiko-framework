@@ -19,7 +19,7 @@ import {
   type LetterState,
 } from "../constants.ts";
 import { type LetterRow, letterExecutor } from "../entity.ts";
-import { resolveLetterProvider } from "../provider-resolver.ts";
+import { isForeignProvider, resolveLetterProvider } from "../provider-resolver.ts";
 import type { LetterProvider, LetterProviderStatus } from "../types.ts";
 import {
   applyProviderStatus as apply,
@@ -237,16 +237,54 @@ function requestHandoverRestart(ctx: JobContext, letter: LetterRow): Promise<voi
   return dispatchForLetter(ctx, LetterInternalHandlers.requestHandoverRestart, letter.id);
 }
 
-async function pollLetter(
-  ctx: JobContext,
-  provider: LetterProvider,
-  letter: LetterRow,
-): Promise<void> {
+type PollProvider = {
+  readonly name: string;
+  readonly provider: LetterProvider;
+  readonly giveUpMs: number;
+};
+
+function isApprovedPast(ctx: JobContext, letter: LetterRow, ms: number): boolean {
+  const approvedAt = letter[LETTER_STATE_TIMESTAMP_FIELD[LETTER_STATE.approved]];
+  if (approvedAt === null || approvedAt === undefined) return false;
+  return (
+    Temporal.Instant.compare(
+      Temporal.Instant.from(String(approvedAt)),
+      ctx.tz.now().subtract({ milliseconds: ms }),
+    ) <= 0
+  );
+}
+
+/** A handover that stayed stuck past the give-up time ends the letter instead of asking again. */
+async function giveUpOnStalledHandover(ctx: JobContext, letter: LetterRow): Promise<void> {
+  const result = await ctx.dispatch.write(LetterInternalHandlers.recordRejection, {
+    letterId: letter.id,
+    failureReason: LETTER_FAILURE_REASON.handoverStalled,
+  });
+  if (!result.isSuccess) {
+    throw new Error(`record-rejection rejected: ${JSON.stringify(result.error)}`);
+  }
+}
+
+async function pollLetter(ctx: JobContext, poll: PollProvider, letter: LetterRow): Promise<void> {
+  const { provider } = poll;
+  if (letter.status === LETTER_STATE.submitting) return markStuckSubmission(ctx, letter);
+  if (letter.status === LETTER_STATE.approved) {
+    return isApprovedPast(ctx, letter, poll.giveUpMs)
+      ? giveUpOnStalledHandover(ctx, letter)
+      : requestHandoverRestart(ctx, letter);
+  }
+  if (isForeignProvider(letter, poll.name)) {
+    ctx.obs.log.warn(
+      "[letter-foundation:poll] a letter belongs to another provider and is left alone",
+      {
+        letterId: letter.id,
+      },
+    );
+    return;
+  }
   if (letter.status === LETTER_STATE.submissionUnknown) {
     return resolveUnknown(ctx, provider, letter);
   }
-  if (letter.status === LETTER_STATE.submitting) return markStuckSubmission(ctx, letter);
-  if (letter.status === LETTER_STATE.approved) return requestHandoverRestart(ctx, letter);
   return pollAtProvider(ctx, provider, letter);
 }
 
@@ -257,7 +295,7 @@ function isPastDeadline(deadlineMs: number): boolean {
 /** Returns the provider requests it budgeted, which is what the rest of the run has left to spend. */
 async function pollGroup(
   ctx: JobContext,
-  provider: LetterProvider,
+  poll: PollProvider,
   group: PollGroup,
   budget: number,
   deadlineMs: number,
@@ -270,18 +308,20 @@ async function pollGroup(
     if (isPastDeadline(deadlineMs)) break;
     polled += 1;
     try {
-      await pollLetter(ctx, provider, letter);
+      await pollLetter(ctx, poll, letter);
     } catch (error) {
       warn(ctx, "[letter-foundation:poll] a letter could not be updated", letter, error);
     }
   }
-  return polled * requestsPerLetter;
+  return Math.min(budget, polled * requestsPerLetter);
 }
 
 export type PollOptions = {
   readonly limitPerRun?: number;
   /** How long after approval a letter still in `approved` is asked to be handed over again. */
   readonly approvedStaleMs: number;
+  /** How long after approval a letter still in `approved` is failed instead of asked again. */
+  readonly giveUpMs: number;
 };
 
 /** Brings letters in flight up to date. Unknown and stuck handovers get a small budget of their own, so a
@@ -289,7 +329,8 @@ export type PollOptions = {
  *  letters at the provider, then to sent ones still inside the tracking window. */
 export async function pollLetters(ctx: JobContext, options: PollOptions): Promise<void> {
   const deadlineMs = Temporal.Now.instant().epochMilliseconds + LETTER_POLL_RUN_BUDGET_MS;
-  const { provider, capabilities } = await resolveLetterProvider(ctx.registry);
+  const { name, provider, capabilities } = await resolveLetterProvider(ctx.registry);
+  const poll: PollProvider = { name, provider, giveUpMs: options.giveUpMs };
   const now = ctx.tz.now();
   const limitPerRun = options.limitPerRun ?? LETTER_POLL_LIMIT_PER_RUN;
   const safetyNetBudget = Math.min(
@@ -343,6 +384,6 @@ export async function pollLetters(ctx: JobContext, options: PollOptions): Promis
   ];
   let budget = limitPerRun;
   for (const { group, cap } of steps) {
-    budget -= await pollGroup(ctx, provider, group, Math.min(cap, budget), deadlineMs);
+    budget -= await pollGroup(ctx, poll, group, Math.min(cap, budget), deadlineMs);
   }
 }

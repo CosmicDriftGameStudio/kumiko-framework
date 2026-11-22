@@ -13,6 +13,7 @@ import {
   LETTER_CONFIG_KEYS,
   LETTER_ENTITY,
   LETTER_FEATURE,
+  LETTER_HANDOVER_GIVE_UP_MS,
   LETTER_HANDOVER_HOLD_MS,
   LETTER_HANDOVER_RESTART_EVENT,
   LETTER_JOB,
@@ -67,7 +68,7 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
     LETTER_FEATURE,
     (r) => {
       r.describe(
-        "Sends PDFs as postal letters through a print provider. Defines the `letterProvider` extension point, the `letter` entity with its status flow (awaiting approval, approved, submitting, accepted, on hold, sent, failed, canceled, returned) and `sendLetter`, which always creates a letter that waits for approval. A printed letter never meets the written form (`schriftform`): `sendLetter` refuses it unless `formRiskAcknowledged` is true, set by the app after the user accepted the risk; the preview returns `formRequirement` and `formRiskAcknowledged` so the app can warn before approval. `envelope` is `folded` (default) or `flat` (unfolded A4 in a C4 envelope), if the provider offers it. A user with the LetterApprover role approves it after seeing the price; the letter is then handed to the provider. Live sending needs the LETTER_LIVE env switch and only boots with NODE_ENV=production. Outside production the inmemory provider runs without the switch; in production it must be set to true or false, otherwise letters are refused. A handover without an answer is never repeated on its own: the poll job looks the letter up at the provider, and it asks the submit job to retry a letter that stayed approved. A monthly cost limit per tenant is set with the `monthlyCostLimitCents` config key, 0 until a value is set. The recipient address is personal data of the letter.",
+        "Sends PDFs as postal letters through a print provider. Defines the `letterProvider` extension point, the `letter` entity with its status flow (awaiting approval, approved, submitting, submission unknown, accepted, on hold, sent, failed, canceled, returned) and `sendLetter`, which always creates a letter that waits for approval. A printed letter never meets the written form (`schriftform`): `sendLetter` refuses it unless `formRiskAcknowledged` is true, set by the app after the user accepted the risk; the preview returns `formRequirement` and `formRiskAcknowledged` so the app can warn before approval. `envelope` is `folded` (default) or `flat` (unfolded A4 in a C4 envelope), if the provider offers it. A user with the LetterApprover role approves it after seeing the price; the letter is then handed to the provider. Live sending needs the LETTER_LIVE env switch and only boots with NODE_ENV=production. Outside production the inmemory provider runs without the switch; in production it must be set to true or false, otherwise letters are refused. A handover without an answer is never repeated on its own: the poll job looks the letter up at the provider, and it asks the submit job to retry a letter that stayed approved. An approved letter that cannot be handed over for two hours fails with `handover-stalled`. A letter stays with the provider it was approved with. A monthly cost limit per tenant is set with the `monthlyCostLimitCents` config key, 0 until a value is set. The recipient address is personal data of the letter.",
       );
       r.uiHints({ displayLabel: "Letters", category: "notifications", recommended: false });
       r.requires({ features: ["config", "files", "cap-counter", "tenant-lifecycle"] });
@@ -130,6 +131,7 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
           pollLetters(ctx, {
             limitPerRun: pollLimitPerRun,
             approvedStaleMs: handoverHoldMs + LETTER_APPROVED_STALE_MS,
+            giveUpMs: handoverHoldMs + LETTER_HANDOVER_GIVE_UP_MS,
           }),
       });
       r.applyExtension({

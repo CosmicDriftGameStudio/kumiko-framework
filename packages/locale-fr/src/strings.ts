@@ -2375,6 +2375,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Le prestataire d'impression ne connaît pas cette lettre.",
   "letter-foundation.errors.providerJobMismatch":
     "Le prestataire d'impression n'a aucune commande avec cet identifiant pour cette lettre.",
+  "letter-foundation.errors.providerChanged":
+    "Cette lettre a été approuvée avec un autre prestataire. Revenez à ce prestataire pour la modifier.",
   "letter-foundation.preview.monthlyLimitExceeded":
     "La limite mensuelle de coûts des lettres ne couvre pas cette lettre.",
   "mail-transport-inmemory.settings": "Boîte de test (en mémoire)",

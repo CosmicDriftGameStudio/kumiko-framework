@@ -19,6 +19,7 @@ export type CalendarCapUsageReservationSpec = Omit<CalendarCapDef, "amount" | "n
   readonly notify?: SoftHitNotifier;
   // Default true: the reservation must commit on its own, not roll back with the caller's transaction.
   readonly outsideTransaction?: boolean;
+  readonly reservationId?: string;
 };
 
 export type CalendarCapUsageReservation = {
@@ -59,6 +60,7 @@ export async function reserveEnforcedCalendarCap(
       capName: cap.capName,
       amount: cap.amount,
       periodStartIso: cap.periodStartIso,
+      ...(cap.reservationId !== undefined && { reservationId: cap.reservationId }),
       guardCurrentValue: (currentValue) => assertBelowHardCap(currentValue + cap.amount - 1, cap),
     },
     outsideTransaction,

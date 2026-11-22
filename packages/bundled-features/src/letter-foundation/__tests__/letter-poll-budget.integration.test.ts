@@ -54,4 +54,19 @@ describe("poll budget", () => {
     expect(letterSimulator.statusCallsFor(providerJobId)).toBe(1);
     expect(letterSimulator.calls.findByReference).toBeLessThan(4);
   });
+
+  test("a lookup dearer than the safety-net budget does not take the budget of the letters at the provider", async () => {
+    letterSimulator.setScenario({ submit: { kind: "timeout-lost" } });
+    expect((await letterRow(await handOver()))?.["status"]).toBe(LETTER_STATE.submissionUnknown);
+    letterSimulator.setScenario({});
+    const accepted = await handOver();
+    const providerJobId = String((await letterRow(accepted))?.["providerJobId"]);
+    letterSimulator.setCapabilities({ lookupRequestsPerLetter: 12 });
+
+    await stack.jobRunner?.dispatch(LetterJobs.poll, {});
+    await stack.drainJobs();
+
+    expect(letterSimulator.calls.findByReference).toBe(1);
+    expect(letterSimulator.statusCallsFor(providerJobId)).toBe(1);
+  });
 });

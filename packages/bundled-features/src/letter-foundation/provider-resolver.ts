@@ -2,7 +2,13 @@ import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { egress } from "@cosmicdrift/kumiko-framework/http";
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import { unprocessable } from "../shared/index.ts";
-import { LETTER_ENV, LETTER_INMEMORY_PROVIDER, LETTER_PROVIDER_EXTENSION } from "./constants.ts";
+import {
+  LETTER_ENV,
+  LETTER_INMEMORY_PROVIDER,
+  LETTER_PROVIDER_EXTENSION,
+  LetterErrors,
+  LetterI18n,
+} from "./constants.ts";
 import { letterLiveEnvRule } from "./env-schema.ts";
 import {
   isLetterProviderPlugin,
@@ -118,4 +124,20 @@ export async function resolveLetterProviderOrFailure(
   } catch (error) {
     return notConfigured(error);
   }
+}
+
+/** A letter belongs to the provider it was approved with; letters without a stored name predate the field. */
+export function isForeignProvider(
+  letter: { readonly providerName?: string | null | undefined },
+  resolvedName: string,
+): boolean {
+  return (
+    letter.providerName !== null &&
+    letter.providerName !== undefined &&
+    letter.providerName !== resolvedName
+  );
+}
+
+export function providerChangedFailure(): WriteResult<never> {
+  return unprocessable(LetterErrors.providerChanged, LetterI18n.providerChanged);
 }
