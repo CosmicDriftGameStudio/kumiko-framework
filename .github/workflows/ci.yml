@@ -818,8 +818,11 @@ jobs:
 
       # coverage-badge.ts treats a missing lcov as empty, so a missing part would
       # publish a wrong value; failing here keeps the last correct badge instead.
+      # The 2 is the integration-shard matrix size.
       - name: Require every coverage part
-        run: ls coverage/unit/lcov.info coverage/dom/lcov.info coverage/coverage-integration-*/lcov.info
+        run: |
+          ls coverage/unit/lcov.info coverage/dom/lcov.info
+          test "$(ls coverage/coverage-integration-*/lcov.info | wc -l)" -eq 2
 
       - name: Compute badge
         run: |
