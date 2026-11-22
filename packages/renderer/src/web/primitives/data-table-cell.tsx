@@ -203,7 +203,7 @@ type MoneyCellValue = {
   currency: string;
 };
 
-function isMoneyValue(value: unknown): value is MoneyCellValue {
+export function isMoneyValue(value: unknown): value is MoneyCellValue {
   const currency = propertyOf(value, "currency");
   return (
     typeof value === "object" &&

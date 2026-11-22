@@ -14,7 +14,9 @@ import {
   hasEmptyLabelFormat,
   isBadgeColumn,
   isEmptyCellValue,
+  isMoneyValue,
   isUnlabeledFalse,
+  NUMERIC_COLUMN_TYPES,
   showsBareCheckMark,
 } from "../data-table-cell.tsx";
 import { CardLeadingImage } from "../file-thumbnail.tsx";
@@ -142,15 +144,26 @@ function renderMetaCell(
   col: ListColumnViewModel,
   inheritLineHeight = false,
 ): ReactNode {
+  // A labeled amount on its own line reads like the totals card: name left, figure right-aligned.
+  // Inline values (narrowInline) share a line, so they keep "Label: value".
+  const labeledAmount =
+    col.cardLabel === true && col.narrowInline !== true && NUMERIC_COLUMN_TYPES.has(col.type);
   return (
     <div
       key={col.field}
       data-testid={cellTestIdOf(m, row, col.field)}
-      className={`min-w-0 max-w-full ${inheritLineHeight ? "leading-[inherit]" : "leading-5"} ${col.ellipsis === true ? "truncate" : "break-words"}${col.multiline === true ? " whitespace-pre-line" : ""}${col.emphasis === true ? " font-semibold text-foreground" : ""}`}
+      className={`${labeledAmount ? "flex w-full items-baseline justify-between gap-3 " : ""}${col.cardTotal === true ? "mt-1 border-t border-foreground/40 pt-1 font-semibold text-foreground " : ""}min-w-0 max-w-full ${inheritLineHeight ? "leading-[inherit]" : "leading-5"} ${col.ellipsis === true ? "truncate" : "break-words"}${col.multiline === true ? " whitespace-pre-line" : ""}${col.emphasis === true ? " font-semibold text-foreground" : ""}`}
       onPointerEnter={showFullTextOnHover}
     >
       {isBadgeColumn(col) ? (
         <span className="inline-flex align-middle">{cardCell(m, row, col)}</span>
+      ) : labeledAmount ? (
+        <>
+          <span className="min-w-0 truncate">{col.label}</span>
+          <span className="shrink-0 whitespace-nowrap text-foreground">
+            {cardCell(m, row, col)}
+          </span>
+        </>
       ) : col.cardLabel === true ? (
         <>
           {`${col.label}: `}
@@ -323,6 +336,10 @@ function isBlankCardValue(value: unknown): boolean {
   return isEmptyCellValue(value) || (Array.isArray(value) && value.length === 0);
 }
 
+function isZeroFigure(value: unknown): boolean {
+  return value === 0 || (isMoneyValue(value) && value.amount === 0);
+}
+
 export type CardBodyParts = {
   readonly top: ReactNode;
   readonly heading: ReactNode;
@@ -337,7 +354,8 @@ export function cardBodyParts(
   const shownMeta = roles.meta.filter(
     (col) =>
       (!isBlankCardValue(row.values[col.field]) || hasEmptyLabelFormat(col.renderer)) &&
-      !isUnlabeledFalse(col.type, row.values[col.field], col.renderer),
+      !isUnlabeledFalse(col.type, row.values[col.field], col.renderer) &&
+      !(col.cardHideZero === true && isZeroFigure(row.values[col.field])),
   );
   const aboveColumns = shownMeta.filter((col) => col.cardAbove === true);
   const metaColumns = shownMeta.filter((col) => col.cardAbove !== true);

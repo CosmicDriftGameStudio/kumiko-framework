@@ -166,6 +166,10 @@ export type ListColumnViewModel = {
   readonly cardAbove?: true;
   /** Mirrors `ListColumnSpec.cardLabel`. */
   readonly cardLabel?: true;
+  /** Set by the actionForm preview (`emphasize`): the card draws the value bold with a rule above. */
+  readonly cardTotal?: true;
+  /** Set by the actionForm preview (`hideZeroOnCard`): the card skips a zero amount or number. */
+  readonly cardHideZero?: true;
   /** Mirrors `ListColumnSpec.emphasis`: medium weight, foreground colour. */
   readonly emphasis?: true;
   /** Mirrors `ListColumnSpec.tone`. */

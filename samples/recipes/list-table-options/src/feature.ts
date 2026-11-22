@@ -83,6 +83,7 @@ type StatusPlanRow = {
   readonly title: string;
   readonly before: string;
   readonly after: string;
+  readonly estimateHours: number;
 };
 
 // The one rule behind the status form: the write handler applies it and the preview query shows it.
@@ -101,6 +102,7 @@ async function planStatusChanges(
       title: String(task["title"]),
       before: String(task["status"]),
       after: status,
+      estimateHours: Number(task["estimateHours"] ?? 0),
     });
   }
   return { rows };
@@ -245,10 +247,11 @@ export function createTaskBoardFeature(
         if ("missingId" in plan) throw new NotFoundError("task");
         return {
           count: plan.rows.filter((row) => row.before !== row.after).length,
-          tasks: plan.rows.map(({ title, before, after }) => ({
+          tasks: plan.rows.map(({ title, before, after, estimateHours }) => ({
             title,
             before,
             after,
+            estimateHours,
             attachmentId: null,
           })),
         };

@@ -696,6 +696,54 @@ describe("DataTable cardLabel columns", () => {
     });
   });
 
+  test("a labelled amount puts its name left and the figure right, like the totals card", () => {
+    atViewportWidth(500, () => {
+      render(
+        <DataTable
+          columns={[
+            ...columns,
+            { field: "paid", label: "Paid", type: "money", sortable: false, cardLabel: true },
+          ]}
+          rows={[
+            { id: "r1", values: { ...rows[0]?.values, paid: { amount: 25496, currency: "EUR" } } },
+          ]}
+          testId="phone"
+        />,
+      );
+      const paid = within(screen.getByTestId("card-meta-r1")).getByTestId("cell-r1-paid");
+      expect(paid.className).toContain("justify-between");
+      expect(paid.firstElementChild?.textContent).toBe("Paid");
+      expect(paid.textContent).not.toContain("Paid:");
+      // A text value keeps the inline "Label: value" form.
+      expect(screen.getByTestId("cell-r1-next").className).not.toContain("justify-between");
+    });
+  });
+
+  test("a labelled amount that shares its line (narrowInline) stays inline", () => {
+    atViewportWidth(500, () => {
+      render(
+        <DataTable
+          columns={[
+            ...columns,
+            {
+              field: "count",
+              label: "Debits",
+              type: "number",
+              sortable: false,
+              cardLabel: true,
+              narrowInline: true,
+            },
+          ]}
+          rows={[{ id: "r1", values: { ...rows[0]?.values, count: 3 } }]}
+          testId="phone"
+        />,
+      );
+      const count = within(screen.getByTestId("card-meta-r1")).getByTestId("cell-r1-count");
+      expect(count.className).not.toContain("justify-between");
+      expect(count.textContent).toBe("Debits: 3");
+    });
+  });
+
   test("a labelled date keeps date and time together when the card line runs out of room", () => {
     atViewportWidth(500, () => {
       render(

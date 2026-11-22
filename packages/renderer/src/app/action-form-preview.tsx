@@ -98,6 +98,10 @@ export function ActionFormPreviewPanel({
           ? { type: "text", fileDisplay: { kind: "file" } }
           : { type: column.type ?? "text" }),
         sortable: false,
+        // A preview has no column header on a phone card; a bare amount there says nothing.
+        cardLabel: true,
+        ...(column.emphasize === true && { cardTotal: true }),
+        ...(column.hideZeroOnCard === true && { cardHideZero: true }),
       })),
     [preview.list, translate],
   );

@@ -160,6 +160,15 @@ export const taskSetStatusScreen: ScreenDefinition = {
         { field: "title", label: "Task" },
         { field: "before", label: "Now" },
         { field: "after", label: "New" },
+        // Phone card: the estimate is the card's key figure (bold, rule above) and drops out at 0 h;
+        // the table keeps every value so its columns stay aligned.
+        {
+          field: "estimateHours",
+          label: "Estimate (h)",
+          type: "number",
+          emphasize: true,
+          hideZeroOnCard: true,
+        },
         // A FileRef id (null here) is shown with file name and download link.
         { field: "attachmentId", label: "Attachment", type: "file" },
       ],

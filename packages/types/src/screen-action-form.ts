@@ -294,6 +294,12 @@ export type ActionFormPreviewList = {
     readonly label: string;
     /** Value format of the column; default `text`. `file`: a FileRef id, shown with name and download link. */
     readonly type?: ActionFormValueType | "file";
+    /** The row's result, e.g. the open amount after rent minus payments: on a phone card it is
+     *  bold with a rule above it, like a total. The table is unchanged. */
+    readonly emphasize?: boolean;
+    /** A phone card leaves out a zero amount or number of this column, so it lists only what
+     *  counts; the table keeps it so the columns stay aligned. */
+    readonly hideZeroOnCard?: boolean;
   }[];
   /** Rows under the table body, e.g. sums. */
   readonly footer?: readonly ActionFormPreviewFooterRow[];

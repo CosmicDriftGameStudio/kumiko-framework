@@ -466,13 +466,25 @@ describe("form bulk action handler", () => {
     const taskIds = created.map((task) => task.data.id);
     const preview = await stack.http.queryOk<{
       count: number;
-      tasks: { title: string; before: string; after: string; attachmentId: null }[];
+      tasks: {
+        title: string;
+        before: string;
+        after: string;
+        estimateHours: number;
+        attachmentId: null;
+      }[];
     }>("task-board:query:task:set-status-preview", { taskIds, status: "blocked" }, user);
     expect(preview).toEqual({
       count: 1,
       tasks: [
-        { title: "Plan A", before: "open", after: "blocked", attachmentId: null },
-        { title: "Plan B", before: "blocked", after: "blocked", attachmentId: null },
+        { title: "Plan A", before: "open", after: "blocked", estimateHours: 0, attachmentId: null },
+        {
+          title: "Plan B",
+          before: "blocked",
+          after: "blocked",
+          estimateHours: 0,
+          attachmentId: null,
+        },
       ],
     });
   });
@@ -600,6 +612,7 @@ type StatusPlanRow = {
   readonly title: string;
   readonly before: string;
   readonly after: string;
+  readonly estimateHours: number;
 };
 
 // The one rule behind the status form: the write handler applies it and the preview query shows it.
@@ -618,6 +631,7 @@ async function planStatusChanges(
       title: String(task["title"]),
       before: String(task["status"]),
       after: status,
+      estimateHours: Number(task["estimateHours"] ?? 0),
     });
   }
   return { rows };
@@ -762,10 +776,11 @@ export function createTaskBoardFeature(
         if ("missingId" in plan) throw new NotFoundError("task");
         return {
           count: plan.rows.filter((row) => row.before !== row.after).length,
-          tasks: plan.rows.map(({ title, before, after }) => ({
+          tasks: plan.rows.map(({ title, before, after, estimateHours }) => ({
             title,
             before,
             after,
+            estimateHours,
             attachmentId: null,
           })),
         };
@@ -966,6 +981,15 @@ export const taskSetStatusScreen: ScreenDefinition = {
         { field: "title", label: "Task" },
         { field: "before", label: "Now" },
         { field: "after", label: "New" },
+        // Phone card: the estimate is the card's key figure (bold, rule above) and drops out at 0 h;
+        // the table keeps every value so its columns stay aligned.
+        {
+          field: "estimateHours",
+          label: "Estimate (h)",
+          type: "number",
+          emphasize: true,
+          hideZeroOnCard: true,
+        },
         // A FileRef id (null here) is shown with file name and download link.
         { field: "attachmentId", label: "Attachment", type: "file" },
       ],
