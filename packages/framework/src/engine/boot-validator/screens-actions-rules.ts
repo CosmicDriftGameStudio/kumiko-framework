@@ -130,6 +130,11 @@ export const SCREEN_ACTION_RULES = {
     summary: "A redirect onlyWith is a non-empty string.",
     fix: "Name the success-payload field that must be set for the redirect, or drop onlyWith.",
   },
+  redirectOnlyWithWhitespace: {
+    id: "screen/redirect-only-with-whitespace",
+    summary: "A redirect onlyWith has no leading or trailing whitespace.",
+    fix: "Remove the whitespace from onlyWith.",
+  },
   redirectOnlyWithOnlyActionForm: {
     id: "screen/redirect-only-with-only-action-form",
     summary: "A redirect onlyWith is only set on actionForm redirects.",
