@@ -42,7 +42,14 @@ function makeFeature(withOnlyWith: boolean) {
 describe("actionForm redirect.onlyWith at boot", () => {
   test("success facts next to a redirect with onlyWith boot", async () => {
     const stack = await setupTestStack({ features: [makeFeature(true)], validateBoot: "full" });
-    await stack.cleanup();
+    try {
+      const screen = stack.registry.getScreen("redirect-probe:screen:send-form");
+      expect(screen?.type === "actionForm" ? screen.redirect : undefined).toMatchObject({
+        onlyWith: "commandId",
+      });
+    } finally {
+      await stack.cleanup();
+    }
   });
 
   test("the same screen without onlyWith fails the boot", async () => {
