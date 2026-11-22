@@ -531,6 +531,18 @@ describe("actionForm screen", () => {
     ).toThrow(/redirect\.onlyWith is empty/);
   });
 
+  test("redirect.onlyWith with surrounding whitespace → Throw", () => {
+    expect(() =>
+      validateBoot([
+        makeFeature({
+          redirect: { screen: "overview", onlyWith: " commandId" },
+          successFacts: [{ field: "count", label: "shop.fact.count" }],
+          extraScreens: ["overview"],
+        }),
+      ]),
+    ).toThrow(/redirect\.onlyWith " commandId" has leading or trailing whitespace/);
+  });
+
   test("successItems link → unknown screen → Throw naming the link", () => {
     expect(() =>
       validateBoot([

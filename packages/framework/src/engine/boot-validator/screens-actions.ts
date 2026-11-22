@@ -757,6 +757,11 @@ function validateRedirectOnlyWithShape(
         `name the success-payload field that must be set for the redirect, or drop onlyWith.`,
     });
   }
+  if (onlyWith.trim() !== onlyWith) {
+    throw bootRuleError(SCREEN_ACTION_RULES.redirectOnlyWithWhitespace, {
+      message: `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${propertyPath}.onlyWith "${onlyWith}" has leading or trailing whitespace — remove it.`,
+    });
+  }
 }
 
 function validateRedirectIdFromShape(
