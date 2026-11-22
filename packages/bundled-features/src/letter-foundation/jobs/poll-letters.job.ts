@@ -1,5 +1,6 @@
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import type { CreatedFileRef } from "@cosmicdrift/kumiko-framework/files";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { discardGeneratedFile, storeGeneratedFile } from "../../file-foundation/index.ts";
 import { PDF_MIME_TYPE } from "../../shared/index.ts";
 import { isAtProviderState } from "../accept-letter.ts";
@@ -7,6 +8,7 @@ import {
   LETTER_ENTITY,
   LETTER_FAILURE_REASON,
   LETTER_POLL_LIMIT_PER_RUN,
+  LETTER_POLL_RUN_BUDGET_MS,
   LETTER_POLL_SAFETY_NET_LIMIT,
   LETTER_SENT_TRACKING_DAYS,
   LETTER_STATE,
@@ -16,8 +18,7 @@ import {
   LetterInternalHandlers,
   type LetterState,
 } from "../constants.ts";
-import { type LetterRow, letterExecutor, letterSubmissionTable } from "../entity.ts";
-import { findClaim, releaseBookedEstimate, releaseReservedCost } from "../letter-usage.ts";
+import { type LetterRow, letterExecutor } from "../entity.ts";
 import { resolveLetterProvider } from "../provider-resolver.ts";
 import type { LetterProvider, LetterProviderStatus } from "../types.ts";
 import {
@@ -66,12 +67,6 @@ async function resolveUnknown(
   });
   if (!rejected.isSuccess)
     throw new Error(`record-rejection rejected: ${JSON.stringify(rejected.error)}`);
-  const claim = await findClaim(ctx.db, letter.id);
-  if (claim !== undefined) {
-    await releaseReservedCost(ctx, claim, true);
-    await releaseBookedEstimate(ctx, claim, letter.quotedNet?.amount ?? 0, true);
-    await ctx.db.deleteMany(letterSubmissionTable, { id: claim.id });
-  }
 }
 
 async function discardProofs(ctx: JobContext, proofs: readonly CreatedFileRef[]): Promise<void> {
@@ -187,6 +182,8 @@ type PollFilter = {
 type PollGroup = {
   readonly statuses: readonly LetterState[];
   readonly where?: readonly PollFilter[];
+  /** Provider requests one letter of the group costs; the group's budget buys that many fewer letters. */
+  readonly requestsPerLetter?: number;
 };
 
 const POLL_SLOT_MS = 5 * 60_000;
@@ -218,120 +215,134 @@ async function lettersOf(
   return found.rows;
 }
 
-/** Hands a stuck handover to the same path as a handover without an answer, so its estimate is booked. */
-async function markStuckSubmission(ctx: JobContext, letter: LetterRow): Promise<void> {
-  const result = await ctx.dispatch.write(LetterInternalHandlers.markSubmissionUnknown, {
-    letterId: letter.id,
-  });
+async function dispatchForLetter(
+  ctx: JobContext,
+  handler: string,
+  letterId: string,
+): Promise<void> {
+  const result = await ctx.dispatch.write(handler, { letterId });
   if (!result.isSuccess) {
-    throw new Error(`mark-submission-unknown rejected: ${JSON.stringify(result.error)}`);
+    throw new Error(`${handler} rejected: ${JSON.stringify(result.error)}`);
   }
 }
 
-/** Starts the handover of a letter that stayed in `approved` after the submit job gave up. The call can meet
- *  a submit run of the same letter that is still waiting; `startSubmission` lets only one win, and the loser
- *  gives its reservation back. */
-export type RestartHandover = {
-  readonly staleMs: number;
-  readonly submit: (letterId: string) => Promise<unknown>;
-};
+/** Hands a stuck handover to the same path as a handover without an answer, so its estimate is booked. */
+function markStuckSubmission(ctx: JobContext, letter: LetterRow): Promise<void> {
+  return dispatchForLetter(ctx, LetterInternalHandlers.markSubmissionUnknown, letter.id);
+}
 
+/** The poll never hands a letter over itself: a restart request goes through the submit job's queue,
+ *  where it cannot run beside the first handover of the same letter. */
+function requestHandoverRestart(ctx: JobContext, letter: LetterRow): Promise<void> {
+  return dispatchForLetter(ctx, LetterInternalHandlers.requestHandoverRestart, letter.id);
+}
+
+async function pollLetter(
+  ctx: JobContext,
+  provider: LetterProvider,
+  letter: LetterRow,
+): Promise<void> {
+  if (letter.status === LETTER_STATE.submissionUnknown) {
+    return resolveUnknown(ctx, provider, letter);
+  }
+  if (letter.status === LETTER_STATE.submitting) return markStuckSubmission(ctx, letter);
+  if (letter.status === LETTER_STATE.approved) return requestHandoverRestart(ctx, letter);
+  return pollAtProvider(ctx, provider, letter);
+}
+
+function isPastDeadline(deadlineMs: number): boolean {
+  return Temporal.Now.instant().epochMilliseconds > deadlineMs;
+}
+
+/** Returns the provider requests it budgeted, which is what the rest of the run has left to spend. */
 async function pollGroup(
   ctx: JobContext,
   provider: LetterProvider,
   group: PollGroup,
   budget: number,
-  restart?: RestartHandover,
+  deadlineMs: number,
 ): Promise<number> {
-  if (budget <= 0) return 0;
-  const letters = await lettersOf(ctx, group, budget);
+  if (budget <= 0 || isPastDeadline(deadlineMs)) return 0;
+  const requestsPerLetter = group.requestsPerLetter ?? 1;
+  const letters = await lettersOf(ctx, group, Math.max(1, Math.floor(budget / requestsPerLetter)));
+  let polled = 0;
   for (const letter of letters) {
+    if (isPastDeadline(deadlineMs)) break;
+    polled += 1;
     try {
-      if (letter.status === LETTER_STATE.submissionUnknown) {
-        await resolveUnknown(ctx, provider, letter);
-      } else if (letter.status === LETTER_STATE.submitting) {
-        await markStuckSubmission(ctx, letter);
-      } else if (letter.status === LETTER_STATE.approved) {
-        await restart?.submit(letter.id);
-      } else {
-        await pollAtProvider(ctx, provider, letter);
-      }
+      await pollLetter(ctx, provider, letter);
     } catch (error) {
       warn(ctx, "[letter-foundation:poll] a letter could not be updated", letter, error);
     }
   }
-  return letters.length;
+  return polled * requestsPerLetter;
 }
+
+export type PollOptions = {
+  readonly limitPerRun?: number;
+  /** How long after approval a letter still in `approved` is asked to be handed over again. */
+  readonly approvedStaleMs: number;
+};
 
 /** Brings letters in flight up to date. Unknown and stuck handovers get a small budget of their own, so a
  *  provider outage that fills them cannot starve letters at the provider; the rest of the run goes to
  *  letters at the provider, then to sent ones still inside the tracking window. */
-export async function pollLetters(
-  ctx: JobContext,
-  limitPerRun: number = LETTER_POLL_LIMIT_PER_RUN,
-  restart?: RestartHandover,
-): Promise<void> {
-  const { provider } = await resolveLetterProvider(ctx.registry);
+export async function pollLetters(ctx: JobContext, options: PollOptions): Promise<void> {
+  const deadlineMs = Temporal.Now.instant().epochMilliseconds + LETTER_POLL_RUN_BUDGET_MS;
+  const { provider, capabilities } = await resolveLetterProvider(ctx.registry);
   const now = ctx.tz.now();
-  const sentSince = now.subtract({ hours: LETTER_SENT_TRACKING_DAYS * 24 }).toString();
-  const stuckBefore = now.subtract({ milliseconds: LETTER_SUBMITTING_STALE_MS }).toString();
-  const approvedBefore =
-    restart === undefined ? undefined : now.subtract({ milliseconds: restart.staleMs }).toString();
+  const limitPerRun = options.limitPerRun ?? LETTER_POLL_LIMIT_PER_RUN;
   const safetyNetBudget = Math.min(
     LETTER_POLL_SAFETY_NET_LIMIT,
     Math.max(1, Math.floor(limitPerRun / 4)),
   );
+  const olderThan = (field: string, ms: number): PollFilter => ({
+    field,
+    op: "lte",
+    value: now.subtract({ milliseconds: ms }).toString(),
+  });
+  const sentSince = now.subtract({ hours: LETTER_SENT_TRACKING_DAYS * 24 }).toString();
 
-  let budget = limitPerRun;
-  budget -= await pollGroup(
-    ctx,
-    provider,
-    { statuses: [LETTER_STATE.submissionUnknown] },
-    Math.min(safetyNetBudget, budget),
-  );
-  budget -= await pollGroup(
-    ctx,
-    provider,
+  const steps: readonly { readonly group: PollGroup; readonly cap: number }[] = [
     {
-      statuses: [LETTER_STATE.submitting],
-      where: [
-        {
-          field: LETTER_STATE_TIMESTAMP_FIELD[LETTER_STATE.submitting],
-          op: "lte",
-          value: stuckBefore,
-        },
-      ],
+      group: {
+        statuses: [LETTER_STATE.submissionUnknown],
+        requestsPerLetter: capabilities.lookupRequestsPerLetter ?? 1,
+      },
+      cap: safetyNetBudget,
     },
-    Math.min(safetyNetBudget, budget),
-  );
-  if (approvedBefore !== undefined) {
-    budget -= await pollGroup(
-      ctx,
-      provider,
-      {
-        statuses: [LETTER_STATE.approved],
+    {
+      group: {
+        statuses: [LETTER_STATE.submitting],
         where: [
-          {
-            field: LETTER_STATE_TIMESTAMP_FIELD[LETTER_STATE.approved],
-            op: "lte",
-            value: approvedBefore,
-          },
+          olderThan(
+            LETTER_STATE_TIMESTAMP_FIELD[LETTER_STATE.submitting],
+            LETTER_SUBMITTING_STALE_MS,
+          ),
         ],
       },
-      Math.min(safetyNetBudget, budget),
-      restart,
-    );
+      cap: safetyNetBudget,
+    },
+    {
+      group: {
+        statuses: [LETTER_STATE.approved],
+        where: [
+          olderThan(LETTER_STATE_TIMESTAMP_FIELD[LETTER_STATE.approved], options.approvedStaleMs),
+        ],
+      },
+      cap: safetyNetBudget,
+    },
+    { group: { statuses: [LETTER_STATE.accepted, LETTER_STATE.onHold] }, cap: limitPerRun },
+    {
+      group: {
+        statuses: [LETTER_STATE.sent],
+        where: [{ field: "sentAt", op: "gte", value: sentSince }],
+      },
+      cap: limitPerRun,
+    },
+  ];
+  let budget = limitPerRun;
+  for (const { group, cap } of steps) {
+    budget -= await pollGroup(ctx, provider, group, Math.min(cap, budget), deadlineMs);
   }
-  budget -= await pollGroup(
-    ctx,
-    provider,
-    { statuses: [LETTER_STATE.accepted, LETTER_STATE.onHold] },
-    budget,
-  );
-  await pollGroup(
-    ctx,
-    provider,
-    { statuses: [LETTER_STATE.sent], where: [{ field: "sentAt", op: "gte", value: sentSince }] },
-    budget,
-  );
 }

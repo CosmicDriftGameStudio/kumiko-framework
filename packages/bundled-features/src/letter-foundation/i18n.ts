@@ -1,4 +1,5 @@
 import { LetterI18n } from "./constants.ts";
+import { LETTER_PROVIDER_NOT_CONFIGURED } from "./provider-resolver.ts";
 
 export const LETTER_FOUNDATION_I18N = {
   "letter-foundation:write:approve:title": { en: "Approve letter" },
@@ -25,6 +26,9 @@ export const LETTER_FOUNDATION_I18N = {
   },
   [LetterI18n.documentUnreadable]: {
     en: "A document of the letter cannot be read as a PDF.",
+  },
+  [LETTER_PROVIDER_NOT_CONFIGURED.i18nKey]: {
+    en: "Letter sending is not configured on this server. Ask the operator to set the letter provider.",
   },
   [LetterI18n.noFiles]: { en: "The letter has no document." },
   [LetterI18n.notAwaitingApproval]: { en: "The letter is not waiting for approval." },

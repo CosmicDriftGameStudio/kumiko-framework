@@ -14,7 +14,7 @@ import {
 import { letterExecutor, letterSubmissionTable } from "../entity.ts";
 import { findClaim, releaseReservationAfterCommit } from "../letter-usage.ts";
 import { LetterIdSchema } from "../payloads.ts";
-import { resolveLetterProvider } from "../provider-resolver.ts";
+import { resolveLetterProviderOrFailure } from "../provider-resolver.ts";
 import { transitionLetter } from "../transitions.ts";
 import type { LetterCancelRefusalReason } from "../types.ts";
 
@@ -59,7 +59,9 @@ export const cancelHandler = defineWriteHandler({
     if (!isAtProviderState(letter.status))
       return { isSuccess: true, data: { askedProvider: false } };
 
-    const { provider } = await resolveLetterProvider(ctx.registry);
+    const resolved = await resolveLetterProviderOrFailure(ctx.registry);
+    if (!resolved.isSuccess) return resolved;
+    const { provider } = resolved.data;
     const until = letter.cancelableUntil;
     const windowOpen =
       until !== null && until !== undefined && Temporal.Instant.compare(ctx.tz.now(), until) <= 0;

@@ -12,6 +12,8 @@ import {
 } from "./api-schemas.ts";
 import {
   LETTERXPRESS_BASE_URL,
+  LETTERXPRESS_RATE_LIMIT_DEFAULT_WAIT_MS,
+  LETTERXPRESS_RATE_LIMIT_MAX_WAIT_MS,
   LETTERXPRESS_SUBMIT_TIMEOUT_MS,
   LETTERXPRESS_TIMEOUT_MS,
   type LetterXpressListFilter,
@@ -22,7 +24,13 @@ import {
 export type LetterXpressFailure =
   | { readonly kind: "not-found" }
   | { readonly kind: "unauthorized" }
-  | { readonly kind: "http-error"; readonly status: number; readonly message: string }
+  | {
+      readonly kind: "http-error";
+      readonly status: number;
+      readonly message: string;
+      /** Only on 429: how long the provider asks to wait, already capped. */
+      readonly retryAfterMs?: number;
+    }
   | { readonly kind: "invalid-response" }
   | { readonly kind: "timeout" }
   | { readonly kind: "unreachable" };
@@ -55,6 +63,7 @@ export type LetterXpressClientOptions = {
   readonly username: string;
   readonly apiKey: string;
   readonly mode: LetterXpressMode;
+  readonly wait?: (ms: number) => Promise<void>;
 };
 
 export type LetterXpressClient = {
@@ -75,6 +84,12 @@ function isTimeout(err: unknown): boolean {
   return err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
 }
 
+function retryAfterMsOf(header: string | null): number {
+  const seconds = header === null || !/^\d{1,6}$/.test(header.trim()) ? undefined : Number(header);
+  if (seconds === undefined) return LETTERXPRESS_RATE_LIMIT_DEFAULT_WAIT_MS;
+  return Math.min(seconds * 1000, LETTERXPRESS_RATE_LIMIT_MAX_WAIT_MS);
+}
+
 function providerMessageOf(text: string): string {
   try {
     const parsed = errorBodySchema.safeParse(JSON.parse(text));
@@ -86,6 +101,8 @@ function providerMessageOf(text: string): string {
 }
 
 export function createLetterXpressClient(options: LetterXpressClientOptions): LetterXpressClient {
+  const wait =
+    options.wait ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const auth = { username: options.username, apikey: options.apiKey, mode: options.mode };
 
   // The API reads a JSON body on GET, which fetch refuses to send. A POST with the method-override
@@ -118,7 +135,14 @@ export function createLetterXpressClient(options: LetterXpressClientOptions): Le
     if (response.status === 401) return { kind: "unauthorized" };
     if (response.status === 404) return { kind: "not-found" };
     if (response.status !== 200) {
-      return { kind: "http-error", status: response.status, message: providerMessageOf(text) };
+      return {
+        kind: "http-error",
+        status: response.status,
+        message: providerMessageOf(text),
+        ...(response.status === 429 && {
+          retryAfterMs: retryAfterMsOf(response.headers.get("Retry-After")),
+        }),
+      };
     }
     try {
       const parsed = schema.safeParse(JSON.parse(text));
@@ -157,26 +181,32 @@ export function createLetterXpressClient(options: LetterXpressClientOptions): Le
           envelopeOf(priceDataSchema),
         ),
       ),
-    createPrintJob: (request) => {
+    createPrintJob: async (request) => {
       const base64File = Buffer.from(request.pdf).toString("base64");
-      return unwrapData(
+      const body = {
+        letter: {
+          base64_file: base64File,
+          base64_file_checksum: createHash("md5").update(base64File).digest("hex"),
+          specification: request.specification,
+          notice: request.notice,
+          filename_original: request.filenameOriginal,
+          ...(request.registered !== undefined && { registered: request.registered }),
+        },
+      };
+      const send = () =>
         call(
           "POST",
           "/printjobs",
-          {
-            letter: {
-              base64_file: base64File,
-              base64_file_checksum: createHash("md5").update(base64File).digest("hex"),
-              specification: request.specification,
-              notice: request.notice,
-              filename_original: request.filenameOriginal,
-              ...(request.registered !== undefined && { registered: request.registered }),
-            },
-          },
+          body,
           envelopeOf(printJobSchema),
           LETTERXPRESS_SUBMIT_TIMEOUT_MS,
-        ),
-      );
+        );
+      let result = await send();
+      if (result.kind === "http-error" && result.status === 429) {
+        await wait(result.retryAfterMs ?? LETTERXPRESS_RATE_LIMIT_DEFAULT_WAIT_MS);
+        result = await send();
+      }
+      return result.kind === "ok" ? { kind: "ok", data: result.data.data } : result;
     },
     getPrintJob: (id) =>
       withValidId(id, () =>

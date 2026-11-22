@@ -2352,6 +2352,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Das Dokument kann nicht als Brief verschickt werden. Prüfe Seitenformat (A4, Hochformat) und Dateigröße.",
   "letter-foundation.errors.documentUnreadable":
     "Ein Dokument des Briefs lässt sich nicht als PDF lesen.",
+  "letter-foundation.errors.providerNotConfigured":
+    "Der Briefversand ist auf diesem Server nicht eingerichtet. Frag den Betreiber, den Briefdienstleister einzustellen.",
   "letter-foundation.errors.noFiles": "Der Brief hat kein Dokument.",
   "letter-foundation.errors.notAwaitingApproval": "Der Brief wartet nicht auf Freigabe.",
   "letter-foundation.errors.notCancelableHere": "Der Brief kann nicht mehr storniert werden.",

@@ -43,6 +43,7 @@ import {
   tenantComplianceProfileTable,
 } from "../../compliance-profiles/index.ts";
 import {
+  type ConfigResolver,
   configValuesTable,
   createConfigAccessorFactory,
   createConfigFeature,
@@ -88,6 +89,32 @@ const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
   entityName: "fileRef",
 });
 
+type ParkOutcome = "continue" | "fail";
+
+/** A run held at one point until the test decides how it goes on. */
+export type ParkedRun = {
+  readonly reached: Promise<void>;
+  resume(outcome: ParkOutcome): void;
+};
+
+type ParkingSlot = {
+  readonly run: ParkedRun;
+  readonly outcome: Promise<ParkOutcome>;
+  signalReached(): void;
+};
+
+function createParkingSlot(): ParkingSlot {
+  let signalReached: () => void = () => undefined;
+  let resume: (outcome: ParkOutcome) => void = () => undefined;
+  const reached = new Promise<void>((resolve) => {
+    signalReached = resolve;
+  });
+  const outcome = new Promise<ParkOutcome>((resolve) => {
+    resume = resolve;
+  });
+  return { run: { reached, resume }, outcome, signalReached: () => signalReached() };
+}
+
 const probeFeature = defineFeature("letter-probe", (r) => {
   r.writeHandler({
     name: "send",
@@ -112,10 +139,65 @@ export function createLetterHarness(
     return stack;
   }
 
+  let limitReadSlot: ParkingSlot | undefined;
+
+  // Parks the next read of the monthly limit: the handover run has inserted its claim but reserved nothing yet.
+  function limitReadGate(resolver: ConfigResolver): ConfigResolver {
+    return {
+      ...resolver,
+      async get(...args) {
+        const slot = args[0] === LIMIT_KEY ? limitReadSlot : undefined;
+        if (slot !== undefined) {
+          limitReadSlot = undefined;
+          slot.signalReached();
+          await slot.outcome;
+        }
+        return resolver.get(...args);
+      },
+    };
+  }
+
+  function parkNextLimitRead(): ParkedRun {
+    const slot = createParkingSlot();
+    limitReadSlot = slot;
+    return slot.run;
+  }
+
+  // Parks the next document read: the handover run holds its claim and reservation but has not left `approved`.
+  // "fail" lets the read throw, which is how a run stops there.
+  function parkNextDocumentRead(): ParkedRun {
+    const original = fileProvider.read.bind(fileProvider);
+    const slot = createParkingSlot();
+    fileProvider.read = async (key) => {
+      fileProvider.read = original;
+      slot.signalReached();
+      if ((await slot.outcome) === "fail") throw new Error("storage unavailable");
+      return original(key);
+    };
+    return slot.run;
+  }
+
+  /** Runs a job and waits for the job queue to empty without delivering any event, so the submit job
+   *  stays out of it and what the job did alone can be read. */
+  async function runJobWithoutEventDelivery(
+    jobName: string,
+    payload: Record<string, unknown> = {},
+  ): Promise<void> {
+    const runner = current().jobRunner;
+    if (runner === undefined) throw new Error("the stack has no job runner");
+    await runner.dispatch(jobName, payload);
+    const deadline = Date.now() + 10_000;
+    for (let idlePasses = 0; idlePasses < 2; ) {
+      if (Date.now() > deadline) throw new Error(`${jobName} did not finish within 10 s`);
+      idlePasses = (await runner.countPendingJobs()) === 0 ? idlePasses + 1 : 0;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
+
   async function setup(): Promise<TestStack> {
     resetPiiSubjectKmsForTests();
     configurePiiSubjectKms(new InMemoryKmsAdapter());
-    const resolver = createConfigResolver();
+    const resolver = limitReadGate(createConfigResolver());
     stack = await setupTestStack({
       features: [
         createConfigFeature(),
@@ -301,6 +383,9 @@ export function createLetterHarness(
     usage,
     approve,
     approveAndSubmit,
+    parkNextDocumentRead,
+    parkNextLimitRead,
+    runJobWithoutEventDelivery,
     seedTenant,
   };
 }

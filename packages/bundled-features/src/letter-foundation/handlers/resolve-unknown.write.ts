@@ -10,14 +10,10 @@ import {
   LetterErrors,
   LetterI18n,
 } from "../constants.ts";
-import { letterExecutor, letterSubmissionTable } from "../entity.ts";
-import {
-  findClaim,
-  releaseBookedEstimate,
-  releaseReservationAfterCommit,
-} from "../letter-usage.ts";
+import { letterExecutor } from "../entity.ts";
+import { closeClaimWithoutBooking } from "../letter-usage.ts";
 import { ResolveUnknownSchema } from "../payloads.ts";
-import { resolveLetterProvider } from "../provider-resolver.ts";
+import { resolveLetterProviderOrFailure } from "../provider-resolver.ts";
 import { transitionLetter } from "../transitions.ts";
 import type { LetterAcceptance } from "../types.ts";
 
@@ -35,7 +31,9 @@ export const resolveUnknownHandler = defineWriteHandler({
   beforeTransaction: async (event, ctx): Promise<BeforeTransactionResult<ResolvePrepared>> => {
     const { providerJobId } = event.payload;
     if (providerJobId === undefined) return { isSuccess: true, data: { acceptance: null } };
-    const { provider } = await resolveLetterProvider(ctx.registry);
+    const resolved = await resolveLetterProviderOrFailure(ctx.registry);
+    if (!resolved.isSuccess) return resolved;
+    const { provider } = resolved.data;
     const order = await provider.findByJobId?.(providerJobId);
     if (order === undefined || order === null || order.reference !== event.payload.letterId) {
       return unprocessable(LetterErrors.providerJobMismatch, LetterI18n.providerJobMismatch);
@@ -90,12 +88,7 @@ export const resolveUnknownHandler = defineWriteHandler({
       },
     });
     if (!moved.isSuccess) return moved;
-    const claim = await findClaim(ctx.db, letter.id);
-    if (claim !== undefined) {
-      releaseReservationAfterCommit(ctx, claim);
-      await releaseBookedEstimate(ctx, claim, letter.quotedNet?.amount ?? 0, false);
-      await ctx.db.deleteMany(letterSubmissionTable, { id: claim.id });
-    }
+    await closeClaimWithoutBooking(ctx, letter.id, letter.quotedNet?.amount ?? 0);
     return moved;
   },
 });

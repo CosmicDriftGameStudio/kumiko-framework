@@ -68,11 +68,18 @@ export type LetterScenario = {
   readonly actualVat?: LetterMoney;
   /** Differently recognized address zone: another street than the expected one. */
   readonly misrecognizedAddress: boolean;
+  /** What `findByReference` answers for an order the provider rejected after the handover got no answer. */
+  readonly lookupRejection?: { readonly code: LetterRejectionCode; readonly message: string };
+};
+
+/** Reference and spec of an order; the document stays out of memory unless a test asks for it with `keepDocuments`. */
+export type StoredSubmission = Pick<LetterSubmission, "reference" | "spec"> & {
+  readonly pdf?: Uint8Array;
 };
 
 export type SimulatedOrder = {
   readonly providerJobId: string;
-  readonly submission: LetterSubmission;
+  readonly submission: StoredSubmission;
   readonly acceptedAt: Temporal.Instant;
   readonly canceled: boolean;
   readonly returned: boolean;
@@ -143,6 +150,12 @@ export function createLetterSimulator() {
   const statusCallsByJob = new Map<string, number>();
   const quotedSpecs: LetterSpec[] = [];
   let cancelRefusal: LetterCancelRefusalReason | undefined;
+  let keepDocuments = false;
+
+  function storedSubmission(submission: LetterSubmission): StoredSubmission {
+    const { reference, spec, pdf } = submission;
+    return { reference, spec, ...(keepDocuments && { pdf }) };
+  }
 
   function placeOrder(submission: LetterSubmission): SimulatedOrder {
     const known = jobIdByReference.get(submission.reference);
@@ -152,7 +165,7 @@ export function createLetterSimulator() {
     const providerJobId = `sim-${nextJobNumber++}`;
     const order: SimulatedOrder = {
       providerJobId,
-      submission,
+      submission: storedSubmission(submission),
       acceptedAt: clock(),
       canceled: false,
       returned: false,
@@ -241,6 +254,9 @@ export function createLetterSimulator() {
     },
     async findByReference(reference): Promise<LetterSubmitResult | null> {
       calls.findByReference += 1;
+      if (scenario.lookupRejection !== undefined) {
+        return { kind: "rejected", ...scenario.lookupRejection };
+      }
       const jobId = jobIdByReference.get(reference);
       const order = jobId === undefined ? undefined : orders.get(jobId);
       return order === undefined || order.canceled ? null : acceptanceOf(order);
@@ -256,7 +272,7 @@ export function createLetterSimulator() {
   return {
     provider,
     calls,
-    get submissions(): readonly LetterSubmission[] {
+    get submissions(): readonly StoredSubmission[] {
       return [...orders.values()].map((order) => order.submission);
     },
     orders: (): readonly SimulatedOrder[] => [...orders.values()],
@@ -276,6 +292,10 @@ export function createLetterSimulator() {
       const order = orders.get(providerJobId);
       if (order !== undefined) orders.set(providerJobId, { ...order, returned: true });
     },
+    /** Keeps the submitted PDF bytes on the orders, for a test that inspects them; off by default. */
+    setKeepDocuments(next: boolean): void {
+      keepDocuments = next;
+    },
     setCapabilities(next: Partial<LetterProviderCapabilities>): void {
       Object.assign(INMEMORY_CAPABILITIES, next);
     },
@@ -292,6 +312,7 @@ export function createLetterSimulator() {
       statusCallsByJob.clear();
       quotedSpecs.length = 0;
       cancelRefusal = undefined;
+      keepDocuments = false;
       Object.assign(calls, NO_CALLS);
     },
   };

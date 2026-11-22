@@ -112,6 +112,20 @@ export function releaseReservationAfterCommit(ctx: HandlerContext, claim: Letter
   ctx.lifecycle.afterCommit?.(() => releaseReservedCost(ctx, claim, true));
 }
 
+/** Ends the claim of a letter that is never accepted, inside the handler's transaction. The claim is read
+ *  fresh, so a booking made since the caller last looked (an unknown handover's estimate) is given back too. */
+export async function closeClaimWithoutBooking(
+  ctx: HandlerContext,
+  letterId: string,
+  quotedCents: number,
+): Promise<void> {
+  const claim = await findClaim(ctx.db, letterId);
+  if (claim === undefined) return;
+  releaseReservationAfterCommit(ctx, claim);
+  await releaseBookedEstimate(ctx, claim, quotedCents, false);
+  await ctx.db.deleteMany(letterSubmissionTable, { id: claim.id });
+}
+
 /** A letter whose handover got no answer keeps its estimate as a firm booking: a reservation expires
  *  after an hour, but the letter may still be at the provider and cost money. Booking it and giving the
  *  reservation back after the commit leaves the estimate counted once. */

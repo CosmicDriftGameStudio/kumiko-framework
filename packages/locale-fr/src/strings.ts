@@ -2355,6 +2355,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Le document ne peut pas être envoyé comme lettre. Vérifiez le format de page (A4, portrait) et la taille du fichier.",
   "letter-foundation.errors.documentUnreadable":
     "Un document de la lettre ne peut pas être lu comme PDF.",
+  "letter-foundation.errors.providerNotConfigured":
+    "L'envoi de lettres n'est pas configuré sur ce serveur. Demande à l'exploitant de définir le prestataire de lettres.",
   "letter-foundation.errors.noFiles": "La lettre n'a pas de document.",
   "letter-foundation.errors.notAwaitingApproval": "La lettre n'est pas en attente d'approbation.",
   "letter-foundation.errors.notCancelableHere": "La lettre ne peut plus être annulée.",

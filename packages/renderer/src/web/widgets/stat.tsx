@@ -216,7 +216,8 @@ function StatCardValueRow({
     <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2">
       <span
         className={cn(
-          "text-xl font-semibold tabular-nums",
+          // A long single word (a process name in a preview tile) wraps instead of being clipped by the card.
+          "min-w-0 break-words text-xl font-semibold tabular-nums",
           boardPadding && "max-sm:text-[17px]",
           TONE_VALUE[tone],
         )}

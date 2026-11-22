@@ -6,7 +6,7 @@ import { LETTER_CAP, LETTER_ENTITY, LETTER_ROLES, LETTER_STATE, LetterI18n } fro
 import { prepareLetterDocument } from "../document-preparation.ts";
 import { letterExecutor } from "../entity.ts";
 import { LetterIdSchema } from "../payloads.ts";
-import { resolveLetterProvider } from "../provider-resolver.ts";
+import { resolveLetterProviderOrFailure } from "../provider-resolver.ts";
 import { envelopeOf, isLetterFormRequirement } from "../row-guards.ts";
 import type { LetterEnvelope, LetterFormRequirement, LetterMoney } from "../types.ts";
 
@@ -66,7 +66,9 @@ export function createPreviewQuery(limitKey: ConfigKeyHandle<"number">) {
       }
 
       const envelope = envelopeOf(letter);
-      const { maxFlatSheets } = (await resolveLetterProvider(ctx.registry)).capabilities;
+      const resolved = await resolveLetterProviderOrFailure(ctx.registry);
+      if (!resolved.isSuccess) throw resolved.error;
+      const { maxFlatSheets } = resolved.data.capabilities;
       const limitCents = (await ctx.config?.(limitKey)) ?? 0;
       const periodStart = currentCalendarMonthStartIso(ctx.tz.now());
       const [counter] = await ctx.db.selectMany(

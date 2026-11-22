@@ -33,6 +33,10 @@ export const LETTERXPRESS_SUBMIT_TIMEOUT_MS = 120_000;
 // The list API answers 50 orders per page, newest first.
 export const LETTERXPRESS_FIND_MAX_PAGES = 4;
 
+// A 429 on submit means nothing was created; the client waits Retry-After (whole seconds) once, capped, or the default without the header.
+export const LETTERXPRESS_RATE_LIMIT_DEFAULT_WAIT_MS = 2_000;
+export const LETTERXPRESS_RATE_LIMIT_MAX_WAIT_MS = 10_000;
+
 export const LETTERXPRESS_MODES = ["test", "live"] as const;
 export type LetterXpressMode = (typeof LETTERXPRESS_MODES)[number];
 

@@ -41,6 +41,8 @@ export type LetterProviderCapabilities = {
   readonly maxFlatSheets?: number | undefined;
   /** Seconds after acceptance in which the provider still cancels; null when it never does. */
   readonly cancelWindowSeconds: number | null;
+  /** Highest number of provider requests `findByReference` needs for one letter. Unset: 1. */
+  readonly lookupRequestsPerLetter?: number | undefined;
 };
 
 /** Server-wide, never per tenant: the provider account belongs to the operator. */

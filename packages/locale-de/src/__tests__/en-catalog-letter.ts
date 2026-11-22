@@ -27,6 +27,8 @@ export const letterEnCatalog: Readonly<Record<string, string>> = {
     "The document cannot be sent as a letter. Check the page format (A4, portrait) and the file size.",
   "letter-foundation.errors.documentUnreadable":
     "A document of the letter cannot be read as a PDF.",
+  "letter-foundation.errors.providerNotConfigured":
+    "Letter sending is not configured on this server. Ask the operator to set the letter provider.",
   "letter-foundation.errors.noFiles": "The letter has no document.",
   "letter-foundation.errors.notAwaitingApproval": "The letter is not waiting for approval.",
   "letter-foundation.errors.notCancelableHere": "The letter can no longer be canceled.",

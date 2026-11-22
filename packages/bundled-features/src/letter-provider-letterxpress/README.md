@@ -14,7 +14,7 @@ createLetterProviderLetterXpressFeature();
 
 1. Create API access in the LetterXpress customer area (My account, Access data, LXP API).
 2. Set `LETTERXPRESS_USERNAME` and `LETTERXPRESS_API_KEY`. `build` throws a message naming both variables when one is missing. The key is a secret.
-3. Set `LETTER_PROVIDER=letterxpress` and `LETTER_LIVE=true`. Without `LETTER_LIVE=true`, `letter-foundation` runs the inmemory provider and never calls LetterXpress. `LETTER_LIVE=true` boots only with `NODE_ENV=production`.
+3. Set `LETTER_PROVIDER=letterxpress` and `LETTER_LIVE=true`. Without `LETTER_LIVE=true`, `letter-foundation` never calls LetterXpress: outside production it runs the inmemory provider, and in production it does so with `LETTER_LIVE=false` and refuses letters when the variable is missing. `LETTER_LIVE=true` boots only with `NODE_ENV=production`.
 
 The request field `mode` is `live` when the live switch is on and `test` otherwise. Through `letter-foundation` only the live case is reachable. The test mode of the provider is used in direct calls of `buildLetterXpressProvider` with `live: false`.
 
@@ -48,11 +48,12 @@ All calls go through `egress()` with `allowOrigins: ["https://api.letterxpress.d
 
 ## Lookup by reference
 
-The provider has no idempotency key. `findByReference` lists orders and matches `notice`. The list has no search parameter, so it reads at most four pages of 50 orders per filter, newest first (`queue`, `hold`, `done` in live mode; `draft` in test mode). Found orders carry no cancel deadline because `created_at` has no time zone.
+The provider has no idempotency key. `findByReference` lists orders and matches `notice`. The list has no search parameter, so it reads at most four pages of 50 orders per filter, newest first (`queue`, `hold`, `done` in live mode; `draft` in test mode). One lookup can therefore cost 12 requests. The capability `lookupRequestsPerLetter` says so, and the poll of `letter-foundation` looks up fewer unknown handovers per run. Found orders carry no cancel deadline because `created_at` has no time zone.
 
 ## Failure handling
 
 - HTTP 400, 401, 403, 405 on `submit`: `rejected` with `refused-by-provider`. For 401 and 403 the message says the credentials were rejected.
+- HTTP 429 on `submit`: no order was created. The provider waits once, for the time in `Retry-After` (at most 10 seconds, 2 seconds without the header), and sends again. A second 429 ends as `rejected` with a message that the provider throttles and nothing was created. Other calls are not repeated.
 - HTTP 5xx, timeout, network error or an unreadable answer on `submit`: throws, and `letter-foundation` resolves the outcome through `findByReference`.
 - Timeouts: 30 seconds, 120 seconds for `submit`.
 - Messages and errors never contain the request body, the user name or the key.

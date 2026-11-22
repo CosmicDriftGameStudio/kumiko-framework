@@ -14,6 +14,7 @@ export {
   MAX_DOCUMENT_BYTES,
   readTenantFile,
   storeGeneratedFile,
+  sumTenantFileSizes,
 } from "./generated-files.ts";
 export {
   type FileRefContent,

@@ -14,10 +14,12 @@ import {
   LETTER_ENTITY,
   LETTER_FEATURE,
   LETTER_HANDOVER_HOLD_MS,
+  LETTER_HANDOVER_RESTART_EVENT,
+  LETTER_JOB,
   LETTER_POLL_LIMIT_PER_RUN,
   LETTER_PROVIDER_EXTENSION,
   LETTER_ROLES,
-  LETTER_STATE,
+  LetterEvents,
 } from "./constants.ts";
 import { letterEntity, letterSubmissionTable } from "./entity.ts";
 import { letterEnvSchema } from "./env-schema.ts";
@@ -28,6 +30,7 @@ import { markSubmissionUnknownHandler } from "./handlers/mark-submission-unknown
 import { createPreviewQuery } from "./handlers/preview.query.ts";
 import { recordAcceptanceHandler } from "./handlers/record-acceptance.write.ts";
 import { recordRejectionHandler } from "./handlers/record-rejection.write.ts";
+import { requestHandoverRestartHandler } from "./handlers/request-handover-restart.write.ts";
 import { resolveUnknownHandler } from "./handlers/resolve-unknown.write.ts";
 import { startSubmissionHandler } from "./handlers/start-submission.write.ts";
 import { LETTER_FOUNDATION_I18N } from "./i18n.ts";
@@ -64,7 +67,7 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
     LETTER_FEATURE,
     (r) => {
       r.describe(
-        "Sends PDFs as postal letters through a print provider. Defines the `letterProvider` extension point, the `letter` entity with its status flow (awaiting approval, approved, submitting, accepted, on hold, sent, failed, canceled, returned) and `sendLetter`, which always creates a letter that waits for approval. A printed letter never meets the written form (`schriftform`): `sendLetter` refuses it unless `formRiskAcknowledged` is true, set by the app after the user accepted the risk; the preview returns `formRequirement` and `formRiskAcknowledged` so the app can warn before approval. `envelope` is `folded` (default) or `flat` (unfolded A4 in a C4 envelope), if the provider offers it. A user with the LetterApprover role approves it after seeing the price; the letter is then handed to the provider. Live sending needs the LETTER_LIVE env switch and only boots with NODE_ENV=production; without it the inmemory provider runs. A monthly cost limit per tenant is set with the `monthlyCostLimitCents` config key, 0 until a value is set. The recipient address is personal data of the letter.",
+        "Sends PDFs as postal letters through a print provider. Defines the `letterProvider` extension point, the `letter` entity with its status flow (awaiting approval, approved, submitting, accepted, on hold, sent, failed, canceled, returned) and `sendLetter`, which always creates a letter that waits for approval. A printed letter never meets the written form (`schriftform`): `sendLetter` refuses it unless `formRiskAcknowledged` is true, set by the app after the user accepted the risk; the preview returns `formRequirement` and `formRiskAcknowledged` so the app can warn before approval. `envelope` is `folded` (default) or `flat` (unfolded A4 in a C4 envelope), if the provider offers it. A user with the LetterApprover role approves it after seeing the price; the letter is then handed to the provider. Live sending needs the LETTER_LIVE env switch and only boots with NODE_ENV=production. Outside production the inmemory provider runs without the switch; in production it must be set to true or false, otherwise letters are refused. A handover without an answer is never repeated on its own: the poll job looks the letter up at the provider, and it asks the submit job to retry a letter that stayed approved. A monthly cost limit per tenant is set with the `monthlyCostLimitCents` config key, 0 until a value is set. The recipient address is personal data of the letter.",
       );
       r.uiHints({ displayLabel: "Letters", category: "notifications", recommended: false });
       r.requires({ features: ["config", "files", "cap-counter", "tenant-lifecycle"] });
@@ -92,6 +95,9 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
       r.defineEvent("accepted", LetterTransitionEventSchema, { piiFields: "none" });
       r.defineEvent("on-hold", LetterTransitionEventSchema, { piiFields: "none" });
       r.defineEvent("sent", LetterTransitionEventSchema, { piiFields: "none" });
+      r.defineEvent(LETTER_HANDOVER_RESTART_EVENT, LetterTransitionEventSchema, {
+        piiFields: "none",
+      });
       r.defineEvent("failed", LetterTransitionEventSchema, { piiFields: "none" });
       r.defineEvent("canceled", LetterTransitionEventSchema, { piiFields: "none" });
       r.defineEvent("returned", LetterTransitionEventSchema, { piiFields: "none" });
@@ -103,27 +109,27 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
       r.writeHandler(recordAcceptanceHandler);
       r.writeHandler(recordRejectionHandler);
       r.writeHandler(markSubmissionUnknownHandler);
+      r.writeHandler(requestHandoverRestartHandler);
       r.writeHandler(applyProviderStatusHandler);
       const submitLetterRun = createSubmitLetterRun(monthlyCostLimitCents, handoverHoldMs);
       r.job({
-        name: "submit",
-        trigger: { on: "letter-foundation:event:approved" },
+        name: LETTER_JOB.submit,
+        trigger: { on: [LetterEvents.approved, LetterEvents.handoverRestartRequested] },
         concurrency: "sequential",
-        // Safe to repeat: a run in `approved` finds its claim and reserves nothing twice, a run in `submitting` only marks the handover unknown.
+        // Safe to repeat: a run in `approved` finds its claim and takes a fresh reservation, a letter in any other state is left alone.
         retries: 5,
         backoff: { type: "exponential", delayMs: 2_000 },
         handler: (payload, ctx) => submitLetterRun(payload, ctx),
       });
       r.job({
-        name: "poll",
+        name: LETTER_JOB.poll,
         trigger: { cron: "*/5 * * * *" },
         perTenant: true,
         concurrency: "skip",
         handler: (_payload, ctx) =>
-          pollLetters(ctx, pollLimitPerRun, {
-            staleMs: handoverHoldMs + LETTER_APPROVED_STALE_MS,
-            submit: (letterId) =>
-              submitLetterRun({ letterId, from: LETTER_STATE.awaitingApproval }, ctx),
+          pollLetters(ctx, {
+            limitPerRun: pollLimitPerRun,
+            approvedStaleMs: handoverHoldMs + LETTER_APPROVED_STALE_MS,
           }),
       });
       r.applyExtension({

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { degrees, PDFDocument } from "pdf-lib";
-import { checkPostalPdf, mergePdfs } from "../pdf-postal.ts";
+import { checkPostalPdf, mergePdfs, PdfPageLimitError } from "../pdf-postal.ts";
 
 const A4_PORTRAIT: [number, number] = [595.276, 841.89];
 const MAX_BYTES = 1_000_000;
@@ -42,6 +42,14 @@ describe("mergePdfs", () => {
     const merged = await mergePdfs([await upright(1), await upright(3)]);
 
     expect(new TextDecoder("latin1").decode(merged)).not.toContain("/ObjStm");
+  });
+
+  test("refuses the sources once their pages pass the cap, and allows the cap itself", async () => {
+    const sources = [await upright(2), await upright(2)];
+
+    await expect(mergePdfs(sources, { maxPages: 3 })).rejects.toThrow(PdfPageLimitError);
+    const merged = await PDFDocument.load(await mergePdfs(sources, { maxPages: 4 }));
+    expect(merged.getPageCount()).toBe(4);
   });
 });
 
