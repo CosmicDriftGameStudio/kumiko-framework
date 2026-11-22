@@ -2312,6 +2312,26 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "mail-foundation.provider.description":
     "Scegli chi invia le tue e-mail. L'invio dalla piattaforma non richiede impostazioni proprie.",
   "mail-foundation.provider.platformDefault": "Invio dalla piattaforma (predefinito)",
+  "letter-foundation.errors.schriftformNotPossible":
+    "Questa lettera richiede una firma autografa. Una lettera stampata non soddisfa tale forma, quindi non può essere inviata in questo modo.",
+  "letter-foundation.errors.shippingModeUnsupported":
+    "Il fornitore di stampa non offre questo tipo di spedizione.",
+  "letter-foundation.errors.tooManySheets":
+    "La lettera ha più fogli di quanti ne accetti il fornitore di stampa.",
+  "letter-foundation.errors.documentRejected":
+    "Il documento non può essere inviato come lettera. Controlla il formato pagina (A4, verticale) e la dimensione del file.",
+  "letter-foundation.errors.documentUnreadable":
+    "Un documento della lettera non può essere letto come PDF.",
+  "letter-foundation.errors.noFiles": "La lettera non ha documenti.",
+  "letter-foundation.errors.notAwaitingApproval": "La lettera non è in attesa di approvazione.",
+  "letter-foundation.errors.notCancelableHere": "La lettera non può più essere annullata.",
+  "letter-foundation.errors.cancelAfterAcceptanceUnavailable":
+    "Il fornitore di stampa ha già questa lettera, quindi non può essere annullata qui.",
+  "letter-foundation.errors.transitionNotAllowed": "La lettera non può passare a questo stato.",
+  "letter-foundation.errors.stateChanged":
+    "La lettera è cambiata nel frattempo. Ricaricala e riprova.",
+  "letter-foundation.preview.monthlyLimitExceeded":
+    "Il limite mensile dei costi per le lettere non copre questa lettera.",
   "mail-transport-inmemory.settings": "Casella di prova (in memoria)",
   "mail-transport-smtp.settings": "Server SMTP proprio",
   "config:entity:__config-edit__:field:mail-foundation-provider:option:":

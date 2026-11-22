@@ -2336,6 +2336,26 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "mail-foundation.provider.description":
     "Choisissez qui envoie vos e-mails. L'envoi par la plateforme ne demande aucun réglage propre.",
   "mail-foundation.provider.platformDefault": "Envoi par la plateforme (par défaut)",
+  "letter-foundation.errors.schriftformNotPossible":
+    "Cette lettre exige une signature manuscrite. Une lettre imprimée ne remplit pas cette forme et ne peut donc pas être envoyée ainsi.",
+  "letter-foundation.errors.shippingModeUnsupported":
+    "Le prestataire d'impression ne propose pas ce mode d'envoi.",
+  "letter-foundation.errors.tooManySheets":
+    "La lettre compte plus de feuilles que le prestataire d'impression n'en accepte.",
+  "letter-foundation.errors.documentRejected":
+    "Le document ne peut pas être envoyé comme lettre. Vérifiez le format de page (A4, portrait) et la taille du fichier.",
+  "letter-foundation.errors.documentUnreadable":
+    "Un document de la lettre ne peut pas être lu comme PDF.",
+  "letter-foundation.errors.noFiles": "La lettre n'a pas de document.",
+  "letter-foundation.errors.notAwaitingApproval": "La lettre n'est pas en attente d'approbation.",
+  "letter-foundation.errors.notCancelableHere": "La lettre ne peut plus être annulée.",
+  "letter-foundation.errors.cancelAfterAcceptanceUnavailable":
+    "Le prestataire d'impression a déjà cette lettre, elle ne peut donc pas être annulée ici.",
+  "letter-foundation.errors.transitionNotAllowed": "La lettre ne peut pas passer à ce statut.",
+  "letter-foundation.errors.stateChanged":
+    "La lettre a changé entre-temps. Rechargez-la et réessayez.",
+  "letter-foundation.preview.monthlyLimitExceeded":
+    "La limite mensuelle de coûts des lettres ne couvre pas cette lettre.",
   "mail-transport-inmemory.settings": "Boîte de test (en mémoire)",
   "mail-transport-smtp.settings": "Serveur SMTP propre",
   "config:entity:__config-edit__:field:mail-foundation-provider:option:":

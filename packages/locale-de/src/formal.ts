@@ -13,6 +13,10 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "errors.validation.hidden_row_removed":
     "Eine Zeile enthält Inhalte, die Sie nicht sehen dürfen, und kann daher nicht entfernt werden.",
   "kumiko.screen.forbidden": "Sie haben keinen Zugriff auf diese Seite.",
+  "letter-foundation.errors.documentRejected":
+    "Das Dokument kann nicht als Brief verschickt werden. Prüfen Sie Seitenformat (A4, Hochformat) und Dateigröße.",
+  "letter-foundation.errors.stateChanged":
+    "Der Brief hat sich inzwischen geändert. Laden Sie ihn neu und versuchen Sie es noch einmal.",
   "managed-pages:body.lossy.warning":
     "Diese Seite wurde in Markdown geschrieben. Bei der Umwandlung in den Editor gehen verloren: {features}. Prüfen Sie das Ergebnis vor dem Speichern.",
   "template-resolver.editor.readOnly": "Nur lesbar. Ihre Rolle erlaubt hier keine Änderungen.",

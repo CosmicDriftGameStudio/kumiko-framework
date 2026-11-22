@@ -108,6 +108,10 @@ One entry per feature a package ships: purpose, import of its factory, required 
   `import { createLedgerFeature } from "@cosmicdrift/kumiko-bundled-features/ledger"`
 - `legal-pages`: Opt-in wrapper around `template-resolver` text-blocks that registers public HTML routes (default: `/legal/impressum`, `/legal/datenschutz`, `/legal/imprint`, `/legal/privacy`) with Markdown-to-HTML rendering and a boot-time job that hard-fails in production when the required blocks (default: `imprint/de`, `privacy/de`) are not seeded in `SYSTEM_TENANT`.
   `import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/legal-pages"`; requires `template-resolver`
+- `letter-foundation`: Sends PDFs as postal letters through a print provider.
+  `import { createLetterFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/letter-foundation"`; requires `config`, `files`, `cap-counter`
+- `letter-provider-inmemory`: Registers an `inmemory` provider for `letter-foundation` that accepts letters in process memory instead of printing them.
+  `import { createLetterProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/letter-provider-inmemory"`; requires `letter-foundation`
 - `locale-de`: German UI and mail copy for framework screens.
   `import { localeDe } from "@cosmicdrift/kumiko-locale-de"`
 - `mail-foundation`: Defines the `mailTransport` extension point and a per-tenant `provider` config key that selects which registered transport plugin to use at runtime.

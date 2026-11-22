@@ -2306,6 +2306,26 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "mail-foundation.provider.description":
     "Elige quién envía tus correos. El envío de la plataforma no necesita ajustes propios.",
   "mail-foundation.provider.platformDefault": "Envío de la plataforma (predeterminado)",
+  "letter-foundation.errors.schriftformNotPossible":
+    "Esta carta necesita una firma manuscrita. Una carta impresa no cumple esa forma, por eso no se puede enviar así.",
+  "letter-foundation.errors.shippingModeUnsupported":
+    "El proveedor de impresión no ofrece este tipo de envío.",
+  "letter-foundation.errors.tooManySheets":
+    "La carta tiene más hojas de las que acepta el proveedor de impresión.",
+  "letter-foundation.errors.documentRejected":
+    "El documento no se puede enviar como carta. Comprueba el formato de página (A4, vertical) y el tamaño del archivo.",
+  "letter-foundation.errors.documentUnreadable":
+    "Un documento de la carta no se puede leer como PDF.",
+  "letter-foundation.errors.noFiles": "La carta no tiene documento.",
+  "letter-foundation.errors.notAwaitingApproval": "La carta no está pendiente de aprobación.",
+  "letter-foundation.errors.notCancelableHere": "La carta ya no se puede cancelar.",
+  "letter-foundation.errors.cancelAfterAcceptanceUnavailable":
+    "El proveedor de impresión ya tiene esta carta, por eso no se puede cancelar aquí.",
+  "letter-foundation.errors.transitionNotAllowed": "La carta no puede pasar a este estado.",
+  "letter-foundation.errors.stateChanged":
+    "La carta ha cambiado entretanto. Vuelve a cargarla e inténtalo de nuevo.",
+  "letter-foundation.preview.monthlyLimitExceeded":
+    "El límite mensual de costes de cartas no cubre esta carta.",
   "mail-transport-inmemory.settings": "Buzón de prueba (en memoria)",
   "mail-transport-smtp.settings": "Servidor SMTP propio",
   "config:entity:__config-edit__:field:mail-foundation-provider:option:":

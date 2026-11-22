@@ -488,6 +488,28 @@ Category: content
 
 Requires: `template-resolver`
 
+## letter-foundation
+
+Sends PDFs as postal letters through a print provider. Defines the `letterProvider` extension point, the `letter` entity with its status flow (awaiting approval, approved, submitting, accepted, on hold, sent, failed, canceled, returned) and `sendLetter`, which always creates a letter that waits for approval. A user with the LetterApprover role approves it after seeing the price; the letter is then handed to the provider. Live sending needs the LETTER_LIVE env switch and only boots with NODE_ENV=production; without it the inmemory provider runs. A monthly cost limit per tenant is set with the `monthlyCostLimitCents` config key, 0 until a value is set. The recipient address is personal data of the letter.
+
+Category: notifications
+
+Requires: `config`, `files`, `cap-counter`
+
+Config keys:
+
+| Key | Type | Scope | Default |
+| --- | --- | --- | --- |
+| `monthly-cost-limit-cents` | number | tenant | `0` |
+
+## letter-provider-inmemory
+
+Registers an `inmemory` provider for `letter-foundation` that accepts letters in process memory instead of printing them. Tests steer it with `letterSimulator.setScenario` (accept, reject, timeout, on hold, other price or recognized address) and `setClock`; it is the provider that runs whenever the live switch is off. Not for production: nothing is sent.
+
+Category: notifications
+
+Requires: `letter-foundation`
+
 ## locale-de
 
 German UI and mail copy for framework screens. Opt-in; not included by includeBundled.

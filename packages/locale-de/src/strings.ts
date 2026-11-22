@@ -2333,6 +2333,27 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "mail-foundation.provider.description":
     "Lege fest, über wen deine E-Mails verschickt werden. Der Plattform-Versand braucht keine eigenen Einstellungen.",
   "mail-foundation.provider.platformDefault": "Plattform-Versand (Standard)",
+  "letter-foundation.errors.schriftformNotPossible":
+    "Dieser Brief braucht eine eigenhändige Unterschrift. Ein gedruckter Brief erfüllt diese Form nicht, deshalb kann er so nicht verschickt werden.",
+  "letter-foundation.errors.shippingModeUnsupported":
+    "Der Druckdienstleister bietet diese Versandart nicht an.",
+  "letter-foundation.errors.tooManySheets":
+    "Der Brief hat mehr Blätter, als der Druckdienstleister annimmt.",
+  "letter-foundation.errors.documentRejected":
+    "Das Dokument kann nicht als Brief verschickt werden. Prüfe Seitenformat (A4, Hochformat) und Dateigröße.",
+  "letter-foundation.errors.documentUnreadable":
+    "Ein Dokument des Briefs lässt sich nicht als PDF lesen.",
+  "letter-foundation.errors.noFiles": "Der Brief hat kein Dokument.",
+  "letter-foundation.errors.notAwaitingApproval": "Der Brief wartet nicht auf Freigabe.",
+  "letter-foundation.errors.notCancelableHere": "Der Brief kann nicht mehr storniert werden.",
+  "letter-foundation.errors.cancelAfterAcceptanceUnavailable":
+    "Der Druckdienstleister hat diesen Brief schon, deshalb lässt er sich hier nicht stornieren.",
+  "letter-foundation.errors.transitionNotAllowed":
+    "Der Brief kann in diesen Status nicht wechseln.",
+  "letter-foundation.errors.stateChanged":
+    "Der Brief hat sich inzwischen geändert. Lade ihn neu und versuche es noch einmal.",
+  "letter-foundation.preview.monthlyLimitExceeded":
+    "Das monatliche Kostenlimit für Briefe reicht für diesen Brief nicht aus.",
   "mail-transport-inmemory.settings": "Test-Postfach (im Speicher)",
   "mail-transport-smtp.settings": "Eigener SMTP-Server",
   "config:entity:__config-edit__:field:mail-foundation-provider:option:":
