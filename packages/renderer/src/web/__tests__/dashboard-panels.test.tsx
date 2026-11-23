@@ -2625,11 +2625,11 @@ describe("dashboard design options", () => {
   test("hideYAxis removes the y axis labels", async () => {
     renderDashboard(chartScreen("stacked-bars", { hideYAxis: true }), barHandler);
     await waitFor(() => screen.getByTestId("dashboard-chart-main"));
-    const plain = screen.getByTestId("dashboard-chart-main").innerHTML;
+    expect(screen.queryByTestId("chart-y-ticks")).toBeNull();
     document.body.innerHTML = "";
     renderDashboard(chartScreen("stacked-bars"), barHandler);
     await waitFor(() => screen.getByTestId("dashboard-chart-main"));
-    expect(plain.length).toBeLessThan(screen.getByTestId("dashboard-chart-main").innerHTML.length);
+    expect(screen.queryByTestId("chart-y-ticks")).not.toBeNull();
   });
 
   test("lastBucketLabel date shows the date instead of Today", async () => {
@@ -2781,7 +2781,7 @@ describe("dashboard design options, round 3", () => {
             kind: "stat-group",
             id: "g",
             layout: "cards",
-            framed,
+            ...(!framed && { framed: false as const }),
             stats: [
               {
                 kind: "stat",

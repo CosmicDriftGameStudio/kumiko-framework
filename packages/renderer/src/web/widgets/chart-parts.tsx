@@ -24,6 +24,7 @@ export function ChartSwatch({
   return (
     <span
       aria-hidden="true"
+      data-testid="chart-y-ticks"
       className={cn("w-3 border-t-2", className)}
       style={{
         borderColor: color,
@@ -86,6 +87,7 @@ export function YTicks({
   return (
     <div
       aria-hidden="true"
+      data-testid="chart-y-ticks"
       className={cn(
         "flex flex-col-reverse justify-between text-right text-[11px] tabular-nums text-muted-foreground",
         className,

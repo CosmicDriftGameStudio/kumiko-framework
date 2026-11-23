@@ -195,7 +195,6 @@ export function DashboardListCell({
   return link === undefined ? shown : <CellTextLink link={link}>{shown}</CellTextLink>;
 }
 
-
 export function rowToneOf(
   row: Row,
   rowToneField: string | undefined,

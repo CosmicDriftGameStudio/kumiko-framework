@@ -2672,7 +2672,7 @@ type DataTableRowAction = {
   onTrigger: (row: ListRowViewModel) => Promise<void> | void; // Called with the clicked row's `ListRowViewModel`.
   isVisible?: (row: ListRowViewModel) => boolean; // Controls per-row visibility (e.g. show "Start" only when `status==="scheduled"`).
   rowClick?: boolean; // This action is what a click on the row does.
-  inMenu?: false; // `false`: never in the row menu or the action column, in any row action mode and with editable cells; the row click still runs it.
+  inMenu?: false; // `false`: never in the row menu or the action column, in any row action mode; the row click still runs it.
   icon?: IconKey; // Resolved icon (author `RowAction.icon` or the id-derived default) — drives both the icon-left-of-text render and the icon-only collapse rule (see `shouldRenderActionsIconOnly`).
   display?: RowActionDisplay; // Author-chosen inline form (`RowAction.display`).
 };
@@ -5283,9 +5283,11 @@ type SecretsEditSection = {
 ## packages/types/src/screen-dashboard.ts
 
 ```ts
+const DASHBOARD_CHART_LAST_BUCKET_LABELS: ["today", "date"];
+const DASHBOARD_CHART_TONES: ["positive", "negative", "active", "neutral"];
 const DASHBOARD_STAT_TONES: ["default", "positive", "ok", "warn", "negative"];
 type DashboardChartKind = "timeseries" | "stacked-bars" | "segment-bars" | "stacked-area";
-type DashboardChartLastBucketLabel = "today" | "date";
+type DashboardChartLastBucketLabel = (typeof DASHBOARD_CHART_LAST_BUCKET_LABELS)[number];
 type DashboardChartLayout = "rows";
 type DashboardChartRangeOption = { // One option of a stacked-area range switch.
   value: string;
@@ -5296,7 +5298,7 @@ type DashboardChartRanges = {
   options: DashboardChartRangeOption[];
   default: string;
 };
-type DashboardChartTone = "positive" | "negative" | "active" | "neutral";
+type DashboardChartTone = (typeof DASHBOARD_CHART_TONES)[number];
 type DashboardHeaderSubtitle = {
   query: string;
   field: string;

@@ -320,6 +320,8 @@ export type {
   ScreenVisibility,
 } from "./screen-dashboard.ts";
 export {
+  DASHBOARD_CHART_LAST_BUCKET_LABELS,
+  DASHBOARD_CHART_TONES,
   DASHBOARD_MIN_REFRESH_SECONDS,
   DASHBOARD_STAT_TONES,
 } from "./screen-dashboard.ts";

@@ -190,7 +190,8 @@ export type DashboardStatPanel = DashboardPanelQueryOptions &
   };
 
 export type DashboardChartKind = "timeseries" | "stacked-bars" | "segment-bars" | "stacked-area";
-export type DashboardChartTone = "positive" | "negative" | "active" | "neutral";
+export const DASHBOARD_CHART_TONES = ["positive", "negative", "active", "neutral"] as const;
+export type DashboardChartTone = (typeof DASHBOARD_CHART_TONES)[number];
 
 /** Look of the markers whose `kind` matches: a dashed guide line through the
  *  plot plus a colored pin. `color` (raw CSS color) wins over `tone`. */
@@ -296,7 +297,8 @@ export type DashboardChartPanel = DashboardPanelQueryOptions &
     readonly layout?: DashboardChartLayout;
   };
 
-export type DashboardChartLastBucketLabel = "today" | "date";
+export const DASHBOARD_CHART_LAST_BUCKET_LABELS = ["today", "date"] as const;
+export type DashboardChartLastBucketLabel = (typeof DASHBOARD_CHART_LAST_BUCKET_LABELS)[number];
 export type DashboardChartLayout = "rows";
 
 // Short list on the dashboard — query contract like projectionList

@@ -73,8 +73,12 @@ function resolveRowActions({
   // must not reappear in the kebab (a list whose only action is the rowClick
   // one gets no actions column at all). "menu" mode is the exception: every row
   // shows the kebab, and the opener is one of its entries.
-  // `inMenu: false` is the explicit opt-out that holds in every mode.
-  const shownActions = rowActions?.filter((action) => action.inMenu !== false);
+  // `inMenu: false` is the explicit opt-out that holds in every mode, except with
+  // editable cells: there the kebab is the only keyboard route to the rowClick action.
+  const shownActions =
+    onCellChange !== undefined
+      ? rowActions
+      : rowActions?.filter((action) => action.inMenu !== false);
   const menuActions =
     shownActions !== undefined && onRowClick !== undefined && rowActionMode !== "menu"
       ? shownActions.filter((action) => action.rowClick !== true)

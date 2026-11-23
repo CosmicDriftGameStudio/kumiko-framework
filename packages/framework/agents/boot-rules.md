@@ -716,6 +716,7 @@
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
+| <a id="list-boolean-tones-invalid"></a>`list/boolean-tones-invalid` | boolean column trueTone/falseTone is a known select option tone and has its own label. | Set trueLabel with trueTone and falseLabel with falseTone, and use only the allowed tones (SELECT_OPTION_TONES). | `packages/framework/src/engine/boot-validator/screens-lists-rules.ts` |
 | <a id="list-button-column-in-list-table"></a>`list/button-column-in-list-table` | display "button" is drawn only in dashboard list panels; entityList and projectionList tables (RenderList) keep a row button as a rowAction. | Declare the button as a rowAction with display: "button" or remove display: "button" from the column. | `packages/framework/src/engine/boot-validator/list-row-guidance-rules.ts` |
 | <a id="list-button-column-without-link"></a>`list/button-column-without-link` | A column with display "button" has a link (linkScreenField or refEntity) to draw as the button. | Set linkScreenField or refEntity on the column, or remove display: "button". | `packages/framework/src/engine/boot-validator/list-row-guidance-rules.ts` |
 | <a id="list-card-meta-overflow"></a>`list/card-meta-overflow` | A card list shows at most the maximum number of meta lines. | Reduce each list to the maximum number of meta lines or mark the other columns hideOnNarrow: true. | `packages/framework/src/engine/boot-validator/card-meta-overflow-rules.ts` |

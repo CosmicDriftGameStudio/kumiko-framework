@@ -670,4 +670,19 @@ describe("DataTable inMenu: false on the rowClick action", () => {
     );
     expect(screen.queryByTestId("row-r1-actions-menu")).toBeNull();
   });
+
+  test("with onCellChange inMenu false is ignored: the kebab keeps the action", async () => {
+    const user = userEvent.setup();
+    render(
+      <DataTable
+        columns={columns}
+        rows={rows}
+        onRowClick={() => {}}
+        onCellChange={mock()}
+        rowActions={open({ inMenu: false })}
+      />,
+    );
+    await user.click(screen.getByTestId("row-r1-actions-menu"));
+    await screen.findByTestId("row-r1-action-open");
+  });
 });

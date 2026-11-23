@@ -1,11 +1,15 @@
-import { DASHBOARD_MIN_REFRESH_SECONDS } from "@cosmicdrift/kumiko-types/screen";
+import {
+  DASHBOARD_CHART_LAST_BUCKET_LABELS,
+  DASHBOARD_CHART_TONES,
+  DASHBOARD_MIN_REFRESH_SECONDS,
+} from "@cosmicdrift/kumiko-types/screen";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { normalizeListColumn } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import type {
   DashboardChartMarkerKind,
   DashboardChartPanel,
   DashboardChartRanges,
-  DashboardChartTone,
   DashboardCustomPanel,
   DashboardFilterDefinition,
   DashboardPanelDefinition,
@@ -682,10 +686,7 @@ function validateBarChartOptions(where: string, panel: DashboardChartPanel): voi
       message: `${where} sets singleTone together with seriesTones or seriesColors. Use singleTone alone, or name the keys with seriesTones/seriesColors.`,
     });
   }
-  if (
-    panel.singleTone !== undefined &&
-    !["positive", "negative", "active", "neutral"].includes(panel.singleTone)
-  ) {
+  if (panel.singleTone !== undefined && !isOneOf(DASHBOARD_CHART_TONES, panel.singleTone)) {
     throw bootRuleError(DASHBOARD_CHART_RULES.chartBarOptionValueInvalid, {
       message: `${where} has an invalid singleTone. Use positive, negative, active or neutral.`,
     });
@@ -699,7 +700,8 @@ function validateBarChartOptions(where: string, panel: DashboardChartPanel): voi
     (prop) => panel[prop] !== undefined && typeof panel[prop] !== "boolean",
   );
   const invalidLabel =
-    panel.lastBucketLabel !== undefined && !["today", "date"].includes(panel.lastBucketLabel);
+    panel.lastBucketLabel !== undefined &&
+    !isOneOf(DASHBOARD_CHART_LAST_BUCKET_LABELS, panel.lastBucketLabel);
   const invalidLayout = panel.layout !== undefined && panel.layout !== "rows";
   if (nonBoolean !== undefined || invalidLabel || invalidLayout) {
     throw bootRuleError(DASHBOARD_CHART_RULES.chartBarOptionValueInvalid, {
@@ -745,22 +747,15 @@ function validateStackedAreaOnlyProps(where: string, panel: DashboardChartPanel)
   }
 }
 
-const DASHBOARD_CHART_TONES: ReadonlySet<string> = new Set([
-  "positive",
-  "negative",
-  "active",
-  "neutral",
-] satisfies DashboardChartTone[]);
-
 function validateDashboardChartMarkerKind(where: string, look: DashboardChartMarkerKind): void {
   if (look.tone === undefined && look.color === undefined) {
     throw bootRuleError(DASHBOARD_CHART_RULES.chartMarkerLookMissing, {
       message: `${where} needs a tone or a color. Set tone or color.`,
     });
   }
-  if (look.tone !== undefined && !DASHBOARD_CHART_TONES.has(look.tone)) {
+  if (look.tone !== undefined && !isOneOf(DASHBOARD_CHART_TONES, look.tone)) {
     throw bootRuleError(DASHBOARD_CHART_RULES.chartMarkerToneInvalid, {
-      message: `${where}.tone "${String(look.tone)}" is not one of ${[...DASHBOARD_CHART_TONES].join(", ")}.`,
+      message: `${where}.tone "${String(look.tone)}" is not one of ${DASHBOARD_CHART_TONES.join(", ")}.`,
     });
   }
   if (look.color !== undefined && (typeof look.color !== "string" || look.color.trim() === "")) {
