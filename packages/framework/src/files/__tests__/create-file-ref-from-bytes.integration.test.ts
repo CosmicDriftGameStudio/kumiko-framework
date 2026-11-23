@@ -52,8 +52,8 @@ const reportEntity = createEntity({
   fields: {
     // accept + maxSize are enforced exactly like on POST /files
     scan: createFileField({ maxSize: "1kb", accept: ["png"] }),
-    // heic has no signature, so only the declared-type check can catch mismatching bytes
-    rawScan: createFileField({ accept: ["heic"] }),
+    // bmp has no signature, so only the declared-type check can catch mismatching bytes
+    rawScan: createFileField({ accept: ["bmp"] }),
     checks: createEmbeddedListField(
       { photos: { type: "images", accept: ["png"] } },
       { personal: false, reason: "is_business_data" },
@@ -413,7 +413,7 @@ describe("createFileRefFromBytes from a write handler", () => {
 
   test("PDF bytes declared as image/png under an accepted extension without a signature are rejected", async () => {
     const err = await storeErr({
-      fileName: "scan.heic",
+      fileName: "scan.bmp",
       mimeType: "image/png",
       bytes: PDF_BYTES,
       attachTo: { entityType: "report", fieldName: "rawScan" },

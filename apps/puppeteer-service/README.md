@@ -62,6 +62,10 @@ puppeteer_browser_running 1
 
 Der Service lädt nichts aus dem Netz. Erlaubt sind nur `data:`, `about:` und `blob:`; jede andere Anfrage der Seite (http, https, file, ws, ...) wird abgebrochen. Der Client bettet Bilder deshalb als `data:`-URI ein. Ohne Netzabrufe gibt es kein DNS-Rebinding und keine erreichbaren Node-IPs, Kubelet oder NodePorts; eine NetworkPolicy kann Loopback nicht sperren, der Guard schon.
 
+## Vertrauensgrenze
+
+Chromium läuft ohne Sandbox unter derselben UID wie der Service. `child-env.ts` gibt Chromium und poppler das Token nicht in die Umgebung mit; das schützt bei einem Speicherleck im Renderer. Wer im Renderer Code ausführt, liest das Token trotzdem aus `/proc/<pid>/environ` des Service und sieht die Arbeitsdateien von `/rasterize` anderer Aufrufe. Eine Token-Datei ändert daran nichts, weil sie für dieselbe UID lesbar wäre (gemessen, siehe `docs/reference/decisions.md`, Eintrag vom 2026-11-23). Der Pod hat keinen Egress und ist nur aus App-Pods erreichbar.
+
 ## Configuration (env-vars)
 
 | Var | Default | Beschreibung |

@@ -74,6 +74,11 @@ const EXTENSION_MIME_WHITELIST: Record<string, readonly string[]> = {
   png: ["image/png"],
   gif: ["image/gif"],
   webp: ["image/webp"],
+  avif: ["image/avif"],
+  // .heic and .heif name the same container and senders mix the two types (freedesktop maps
+  // both extensions to image/heif), so each extension takes both.
+  heic: ["image/heic", "image/heif"],
+  heif: ["image/heif", "image/heic"],
   svg: ["image/svg+xml"],
   pdf: ["application/pdf"],
   txt: ["text/plain"],
@@ -148,6 +153,9 @@ const MAGIC_BYTE_SIGNATURES: ReadonlyArray<{
       startsWithBytes(bytes, [0x49, 0x49, 0x2a, 0x00]) ||
       startsWithBytes(bytes, [0x4d, 0x4d, 0x00, 0x2a]),
   },
+  { mimeType: "image/avif", matches: (bytes) => sniffIsoBmffImageType(bytes) === "image/avif" },
+  { mimeType: "image/heic", matches: (bytes) => sniffIsoBmffImageType(bytes) === "image/heic" },
+  { mimeType: "image/heif", matches: (bytes) => sniffIsoBmffImageType(bytes) === "image/heif" },
   { mimeType: "application/pdf", matches: (bytes) => startsWithAscii(bytes, "%PDF-") },
   // Full 8-byte OLE Compound File signature — legacy .doc/.xls/.ppt share it,
   // so any OLE file sniffs as msword regardless of which one it really is.
@@ -163,9 +171,47 @@ const MAGIC_BYTE_SIGNATURES: ReadonlyArray<{
   },
 ];
 
-// The longest MAGIC_BYTE_SIGNATURES check (WEBP: "WEBP" at offset 8) reads
-// 12 bytes; raise this with any longer signature.
-export const SNIFF_PREFIX_BYTE_COUNT = 12;
+// The longest MAGIC_BYTE_SIGNATURES check is the ISO-BMFF brand list: 16 bytes of ftyp header
+// plus 12 compatible brands. Apple's HEIC writer uses 36 bytes and an animated AVIF 44. The
+// serve path sniffs only this prefix, so no check may read past it.
+export const SNIFF_PREFIX_BYTE_COUNT = 64;
+
+const ISO_BMFF_MAJOR_BRAND_OFFSET = 8;
+const ISO_BMFF_COMPATIBLE_BRANDS_OFFSET = 16;
+const ISO_BMFF_BRAND_LENGTH = 4;
+
+const AVIF_BRANDS: ReadonlySet<string> = new Set(["avif", "avis"]);
+const HEIC_BRANDS: ReadonlySet<string> = new Set(["heic", "heix", "heim", "heis"]);
+const HEIF_BRAND = "mif1";
+
+function readIsoBmffBrands(bytes: Uint8Array): readonly string[] {
+  if (!startsWithAscii(bytes, "ftyp", 4)) return [];
+  if (bytes.length < ISO_BMFF_MAJOR_BRAND_OFFSET + ISO_BMFF_BRAND_LENGTH) return [];
+  const brandAt = (offset: number): string =>
+    String.fromCharCode(...bytes.subarray(offset, offset + ISO_BMFF_BRAND_LENGTH));
+  const brands = [brandAt(ISO_BMFF_MAJOR_BRAND_OFFSET)];
+  const boxSize = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(0);
+  const end = Math.min(boxSize, bytes.length, SNIFF_PREFIX_BYTE_COUNT);
+  for (
+    let offset = ISO_BMFF_COMPATIBLE_BRANDS_OFFSET;
+    offset + ISO_BMFF_BRAND_LENGTH <= end;
+    offset += ISO_BMFF_BRAND_LENGTH
+  ) {
+    brands.push(brandAt(offset));
+  }
+  return brands;
+}
+
+// mp4, mov, m4a and 3gp share the container and differ only in their brands, so a file is an
+// image only when it lists a still-image brand. The sequence brands hevc, hevx and msf1 belong
+// to image/heic-sequence and image/heif-sequence and do not count on their own.
+function sniffIsoBmffImageType(bytes: Uint8Array): string | null {
+  const brands = readIsoBmffBrands(bytes);
+  if (brands.some((brand) => AVIF_BRANDS.has(brand))) return "image/avif";
+  if (brands.some((brand) => HEIC_BRANDS.has(brand))) return "image/heic";
+  if (brands.includes(HEIF_BRAND)) return "image/heif";
+  return null;
+}
 
 // ZIP entry names are stored uncompressed in the local and central headers,
 // so a byte search finds the docx part directory without unzipping. The main
@@ -192,7 +238,7 @@ function startsWithAscii(bytes: Uint8Array, ascii: string, offset = 0): boolean 
 
 /**
  * Canonical MIME type for a known binary magic-byte signature (png, jpeg,
- * gif, webp, pdf, OLE, ZIP), or null for everything else — text formats
+ * gif, webp, tiff, avif, heic, heif, pdf, OLE, ZIP), or null for everything else — text formats
  * (csv, txt, json, svg, md) have no signature and always return null. Every
  * OLE Compound File (.doc/.xls/.ppt) returns "application/msword" and every
  * ZIP (.docx/.xlsx/.pptx/.zip) returns the docx MIME — callers can't tell
@@ -351,6 +397,9 @@ const VERIFIABLE_DECLARED_MIME_TYPES: ReadonlySet<string> = new Set([
   "image/gif",
   "image/webp",
   "image/tiff",
+  "image/avif",
+  "image/heic",
+  "image/heif",
   "application/pdf",
 ]);
 
@@ -382,7 +431,7 @@ export function verifyDeclaredMimeType(
     : normalizedDeclared;
   if (!VERIFIABLE_DECLARED_MIME_TYPES.has(canonical)) {
     // A declared type whose extensions are all outside accept can only get here through an
-    // extension without a signature (heic, unknown): the bytes cannot back the declared type.
+    // extension without a signature (bmp, unknown): the bytes cannot back the declared type.
     return declaredTypeFitsNoAcceptedExtension(canonical, accept)
       ? { kind: "replaced", mimeType: "application/octet-stream" }
       : { kind: "unchanged" };

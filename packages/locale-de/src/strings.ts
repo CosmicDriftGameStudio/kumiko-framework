@@ -1553,6 +1553,10 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Ein Rahmen muss direkt im Dokumentkörper stehen, nicht in einem anderen Block oder Layoutbereich.",
   "templateResolver.errors.document.frameOutsidePage":
     "Der Rahmen „{detail}“ ragt über das größte unterstützte Papierformat hinaus.",
+  "templateResolver.errors.document.tooManyTags":
+    "Der Text enthält mehr als {detail} HTML-Elemente.",
+  "templateResolver.errors.document.nestedTooDeep":
+    "Die Elemente sind tiefer als {detail} Ebenen verschachtelt.",
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "Das Ziel der Schaltfläche „{detail}“ muss ein Platzhalter sein.",
   "templateResolver.errors.document.disallowedLinkHref":

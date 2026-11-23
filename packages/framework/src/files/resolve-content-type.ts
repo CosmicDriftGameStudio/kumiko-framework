@@ -11,6 +11,9 @@ const UNAMBIGUOUS_SNIFFED_TYPES: ReadonlySet<string> = new Set([
   "image/jpeg",
   "image/gif",
   "image/webp",
+  "image/avif",
+  "image/heic",
+  "image/heif",
   "application/pdf",
 ]);
 

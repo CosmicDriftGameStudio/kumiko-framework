@@ -1,7 +1,7 @@
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { toKebab } from "@cosmicdrift/kumiko-types/kebab-case";
 import { createTemplateResolverApi, TemplateNotFoundError, type TemplateResource } from "../api.ts";
-import { withParsedDocument } from "../document-sanitizer.ts";
+import { parseLimitViolations, withParsedDocument } from "../document-sanitizer.ts";
 import { parseTemplateMeta, readPdfTemplateMeta } from "../template-meta.ts";
 import {
   COMPANY_PLACEHOLDERS,
@@ -89,6 +89,8 @@ export function isCompanyPlaceholder(name: string): boolean {
 }
 
 function companyPlaceholdersIn(html: string): readonly string[] {
+  // The draft body arrives here unsanitized, also right after the write gate has refused it.
+  if (parseLimitViolations(html).length > 0) return [];
   return withParsedDocument(html, (body) => [
     ...Array.from(body.querySelectorAll("span[data-variable]")).flatMap((element) => {
       const name = element.getAttribute("data-variable") ?? "";

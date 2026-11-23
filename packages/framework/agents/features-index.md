@@ -60,7 +60,7 @@ One entry per feature a package ships: purpose, import of its factory, required 
   `import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention"`
 - `delivery`: The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, Slack, Discord, Teams).
   `import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery"`; requires `tenant`
-- `derivatives-sharp`: Registers an `image/*` renderer against the `derivativeRenderer` extension point declared by `file-derivatives`, backed by sharp.
+- `derivatives-sharp`: Registers a renderer for JPEG, PNG, WebP, AVIF, GIF and TIFF sources against the `derivativeRenderer` extension point declared by `file-derivatives`, backed by sharp.
   `import { createDerivativesSharpFeature } from "@cosmicdrift/kumiko-bundled-features/derivatives-sharp"`; requires `file-derivatives`
 - `document-designer`: Template overview and layout editor: lists the mail, PDF and layout templates of a tenant (platform admins see the system templates and how many tenants customised each) and edits the mail layout and the PDF letterhead in the browser.
   `import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-designer"`; requires `template-resolver`

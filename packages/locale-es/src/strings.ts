@@ -1548,6 +1548,10 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Un marco debe estar directamente en el cuerpo del documento, no dentro de otro bloque ni de una zona del diseño.",
   "templateResolver.errors.document.frameOutsidePage":
     "El marco «{detail}» sobrepasa el mayor formato de papel admitido.",
+  "templateResolver.errors.document.tooManyTags":
+    "El cuerpo contiene más de {detail} etiquetas HTML.",
+  "templateResolver.errors.document.nestedTooDeep":
+    "Los elementos están anidados a más de {detail} niveles.",
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "El destino del botón «{detail}» debe ser un marcador.",
   "templateResolver.errors.document.disallowedLinkHref":

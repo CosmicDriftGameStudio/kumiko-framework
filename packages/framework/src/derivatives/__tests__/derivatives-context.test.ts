@@ -83,6 +83,39 @@ describe("resolveRenderer", () => {
     expect(resolveRenderer(registry, "image/jpeg")).toBe(wildcardPlugin);
   });
 
+  test("a wildcard with sourceMimeTypes only takes the listed types", () => {
+    const { plugin } = countingRenderer();
+    const restricted: DerivativeRendererPlugin = {
+      ...plugin,
+      sourceMimeTypes: ["image/png", "image/jpeg"],
+    };
+    const registry = fakeRegistry([{ entityName: "image/*", options: restricted }]);
+    expect(resolveRenderer(registry, "image/png")).toBe(restricted);
+    expect(resolveRenderer(registry, "image/jpeg; charset=binary")).toBe(restricted);
+    expect(resolveRenderer(registry, "image/heic")).toBeUndefined();
+  });
+
+  test("a wildcard without sourceMimeTypes still takes every type under it", () => {
+    const { plugin } = countingRenderer();
+    const registry = fakeRegistry([{ entityName: "image/*", options: plugin }]);
+    expect(resolveRenderer(registry, "image/heic")).toBe(plugin);
+  });
+
+  test("a restricted wildcard that declines a type lets the next wildcard take it", () => {
+    const { plugin: restrictedBase } = countingRenderer();
+    const restricted: DerivativeRendererPlugin = {
+      ...restrictedBase,
+      sourceMimeTypes: ["image/png"],
+    };
+    const { plugin: broad } = countingRenderer();
+    const registry = fakeRegistry([
+      { entityName: "image/*", options: restricted },
+      { entityName: "image/*", options: broad },
+    ]);
+    expect(resolveRenderer(registry, "image/png")).toBe(restricted);
+    expect(resolveRenderer(registry, "image/heic")).toBe(broad);
+  });
+
   test("no match returns undefined — caller throws with the known-list", () => {
     const registry = fakeRegistry([]);
     expect(resolveRenderer(registry, "application/pdf")).toBeUndefined();

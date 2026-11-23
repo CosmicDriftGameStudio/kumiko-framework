@@ -1086,7 +1086,7 @@
     },
     {
       "name": "derivatives-sharp",
-      "description": "Registers an `image/*` renderer against the `derivativeRenderer` extension point declared by `file-derivatives`, backed by sharp. Supports resize/fit (cover, inside, contain), format conversion with quality (webp, avif, jpeg), whole-image blur, and blurring individual regions burned in before resize (see BlurRegion). EXIF orientation is applied and then normalized away, and all other EXIF (including GPS) is dropped. Server-only: sharp is a native binding — never import this from client code.",
+      "description": "Registers a renderer for JPEG, PNG, WebP, AVIF, GIF and TIFF sources against the `derivativeRenderer` extension point declared by `file-derivatives`, backed by sharp. Other image types (HEIC, HEIF, BMP, SVG) get no renderer, so a variant request for them answers 415, or 404 on the public route. Supports resize/fit (cover, inside, contain), format conversion with quality (webp, avif, jpeg), whole-image blur, and blurring individual regions burned in before resize (see BlurRegion). EXIF orientation is applied and then normalized away, and all other EXIF (including GPS) is dropped. Server-only: sharp is a native binding — never import this from client code.",
       "toggleableDefault": null,
       "requires": [
         "file-derivatives"

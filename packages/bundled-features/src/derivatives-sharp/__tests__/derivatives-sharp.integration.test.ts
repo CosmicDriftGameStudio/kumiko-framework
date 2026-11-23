@@ -4,7 +4,8 @@
 // cache instead of rendering again.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { resolveRenderer } from "@cosmicdrift/kumiko-framework/derivatives";
+import { defineFeature, EXT_DERIVATIVE_RENDERER } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import {
   createFilesFeature,
@@ -22,7 +23,7 @@ import { createConfigFeature } from "../../config/index.ts";
 import { createFileDerivativesFeature } from "../../file-derivatives/index.ts";
 import { createFileFoundationFeature } from "../../file-foundation/index.ts";
 import { createDerivativesSharpFeature } from "../feature.ts";
-import { imageMetadata } from "../render.ts";
+import { imageMetadata, renderImage } from "../render.ts";
 
 const variantTestFeature = defineFeature("derivativessharptest", (r) => {
   r.requires({ features: ["file-derivatives"] });
@@ -118,5 +119,64 @@ describe("derivatives-sharp — end to end through ctx.derivatives.variant", () 
       user,
     );
     expect(second.rendered).toBe(false);
+  });
+});
+
+describe("derivatives-sharp: which source types get a renderer", () => {
+  test.each([
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/webp",
+    "image/avif",
+    "image/gif",
+    "image/tiff",
+  ])("%s resolves to the sharp renderer", (mimeType) => {
+    expect(resolveRenderer(stack.registry, mimeType)?.render).toBe(renderImage);
+  });
+
+  test.each(["image/heic", "image/heif", "image/bmp", "image/svg+xml"])(
+    "%s gets no renderer, so the variant routes answer without reading the original",
+    (mimeType) => {
+      expect(resolveRenderer(stack.registry, mimeType)).toBeUndefined();
+    },
+  );
+});
+
+describe("derivatives-sharp: an exact app renderer wins in either mount order", () => {
+  const appRender = async (input: Uint8Array): Promise<Uint8Array> => input;
+  const appGifRendererFeature = defineFeature("derivativessharpappgif", (r) => {
+    r.requires({ features: ["file-derivatives"] });
+    r.applyExtension({
+      name: EXT_DERIVATIVE_RENDERER,
+      entity: "image/gif",
+      render: appRender,
+    });
+  });
+
+  test.each([
+    ["sharp before the app feature", true],
+    ["the app feature before sharp", false],
+  ])("%s", async (_label, sharpFirst) => {
+    const sharpFeature = createDerivativesSharpFeature();
+    const orderedRenderers = sharpFirst
+      ? [sharpFeature, appGifRendererFeature]
+      : [appGifRendererFeature, sharpFeature];
+    const orderedStack = await setupTestStack({
+      features: [
+        createConfigFeature(),
+        createFileFoundationFeature(),
+        createFilesFeature(),
+        createFileDerivativesFeature(),
+        ...orderedRenderers,
+      ],
+      files: { storageProvider: createInMemoryFileProvider() },
+    });
+    try {
+      expect(resolveRenderer(orderedStack.registry, "image/gif")?.render).toBe(appRender);
+      expect(resolveRenderer(orderedStack.registry, "image/png")?.render).toBe(renderImage);
+    } finally {
+      await orderedStack.cleanup();
+    }
   });
 });

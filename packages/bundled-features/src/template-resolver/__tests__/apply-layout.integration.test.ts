@@ -359,4 +359,23 @@ describe("template-resolver :: validate emptyCompanyData", () => {
     );
     expect(result.emptyCompanyData).toContain("companyIban");
   });
+
+  test("a body past the parse limits is answered with a field issue", async () => {
+    const result = await stack.http.queryOk<{ canSave: boolean; issues: { i18nKey: string }[] }>(
+      TemplateResolverQueries.validate,
+      {
+        slug: "doc-company",
+        kind: "document-pdf",
+        locale: LOCALE,
+        content: `<p>${"<b>".repeat(25_000)}</p>`,
+        contentFormat: "html",
+        meta: {},
+      },
+      admin,
+    );
+    expect(result.canSave).toBe(false);
+    expect(result.issues.map((issue) => issue.i18nKey)).toEqual([
+      "templateResolver.errors.document.tooManyTags",
+    ]);
+  });
 });

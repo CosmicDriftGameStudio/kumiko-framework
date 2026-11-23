@@ -42,6 +42,22 @@ describe("resolveContentType", () => {
     expect(resolveContentType({ declared: OCTET, bytes: gif, filename: "a" })).toBe("image/gif");
   });
 
+  test("HEIC and AVIF headers resolve, an mp4 header does not", () => {
+    const fromHex = (hex: string): Uint8Array => Uint8Array.from(Buffer.from(hex, "hex"));
+    const appleHeic = fromHex(
+      "000000246674797068656963000000006d6966314d6950726d6961664d69484268656963",
+    );
+    const libheifAvif = fromHex("0000001c6674797061766966000000006d696631617669666d696166");
+    const ffmpegMp4 = fromHex("000000206674797069736f6d0000020069736f6d69736f32617663316d703431");
+    expect(resolveContentType({ declared: OCTET, bytes: appleHeic, filename: "IMG_0001" })).toBe(
+      "image/heic",
+    );
+    expect(resolveContentType({ declared: OCTET, bytes: libheifAvif, filename: "IMG_0001" })).toBe(
+      "image/avif",
+    );
+    expect(resolveContentType({ declared: OCTET, bytes: ffmpegMp4, filename: "clip" })).toBe(OCTET);
+  });
+
   test("ZIP bytes are application/zip, not docx", () => {
     const bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0, 0]);
     expect(resolveContentType({ declared: OCTET, bytes, filename: "archive" })).toBe(

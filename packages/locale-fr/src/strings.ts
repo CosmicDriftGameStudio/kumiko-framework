@@ -1565,6 +1565,10 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Un cadre doit se trouver directement dans le corps du document, pas dans un autre bloc ni dans une zone de la mise en page.",
   "templateResolver.errors.document.frameOutsidePage":
     "Le cadre « {detail} » dépasse le plus grand format de papier pris en charge.",
+  "templateResolver.errors.document.tooManyTags":
+    "Le corps contient plus de {detail} balises HTML.",
+  "templateResolver.errors.document.nestedTooDeep":
+    "Les éléments sont imbriqués sur plus de {detail} niveaux.",
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "La cible du bouton « {detail} » doit être un espace réservé.",
   "templateResolver.errors.document.disallowedLinkHref":
