@@ -155,10 +155,17 @@ async function counter(capName: string): Promise<number> {
 }
 
 describe("letter-foundation sample", () => {
-  // Runs before the limit is set: a tenant without a limit may not send anything.
-  test("without a monthly limit the handover fails with monthly-limit", async () => {
+  test("a limit lowered after approval fails the handover with monthly-limit", async () => {
+    const setLimit = (value: number) =>
+      stack.http.writeOk(
+        ConfigHandlers.set,
+        { key: LIMIT_KEY, value, scope: "tenant" },
+        SYSTEM_ADMIN,
+      );
+    await setLimit(100_000);
     const { letterId } = await sendStatement(await statementPayload());
     await stack.http.writeOk(LetterHandlers.approve, { letterId }, APPROVER);
+    await setLimit(0);
     stack.clock?.advance({ seconds: 1 });
     await stack.drainJobs();
     const detail = await detailOf(letterId);

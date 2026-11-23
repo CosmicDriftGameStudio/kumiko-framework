@@ -2357,6 +2357,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Der Briefversand ist auf diesem Server nicht eingerichtet. Frag den Betreiber, den Briefdienstleister einzustellen.",
   "letter-foundation.errors.noFiles": "Der Brief hat kein Dokument.",
   "letter-foundation.errors.notAwaitingApproval": "Der Brief wartet nicht auf Freigabe.",
+  "letter-foundation.errors.monthlyLimitNotCovered":
+    "Das Monatslimit deckt diesen Brief nicht. Der Betreiber kann das Limit erhöhen.",
   "letter-foundation.errors.notCancelableHere": "Der Brief kann nicht mehr storniert werden.",
   "letter-foundation.errors.cancelAfterAcceptanceUnavailable":
     "Der Druckdienstleister hat diesen Brief schon, deshalb lässt er sich hier nicht stornieren.",

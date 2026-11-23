@@ -71,7 +71,10 @@ async function mergeWithinSheetLimit(
   maxSheets: number,
 ): Promise<WriteResult<Uint8Array>> {
   try {
-    const merged = await mergePdfs(documents, { maxPages: duplex ? maxSheets * 2 : maxSheets });
+    const merged = await mergePdfs(documents, {
+      maxPages: duplex ? maxSheets * 2 : maxSheets,
+      startEachFileOnNewSheet: duplex,
+    });
     return { isSuccess: true, data: merged };
   } catch (error) {
     if (error instanceof PdfPageLimitError) {

@@ -58,20 +58,31 @@ export class PdfPageLimitError extends Error {
 }
 
 // Plain object table: countPdfPages reads the page tree from the raw bytes and cannot see into object streams.
+// With `startEachFileOnNewSheet` a file with an odd page count is followed by a blank page (size of its last page),
+// so the next file starts on a fresh duplex sheet; the blank pages count towards `maxPages`.
 export async function mergePdfs(
   buffers: readonly Uint8Array[],
-  options: { readonly maxPages?: number } = {},
+  options: { readonly maxPages?: number; readonly startEachFileOnNewSheet?: boolean } = {},
 ): Promise<Uint8Array> {
   const merged = await PDFDocument.create();
   let totalPages = 0;
-  for (const buffer of buffers) {
+  for (const [index, buffer] of buffers.entries()) {
     const source = await PDFDocument.load(buffer);
-    totalPages += source.getPageCount();
+    const sourcePages = source.getPageCount();
+    const needsFiller =
+      options.startEachFileOnNewSheet === true &&
+      index < buffers.length - 1 &&
+      sourcePages % 2 === 1;
+    totalPages += sourcePages + (needsFiller ? 1 : 0);
     if (options.maxPages !== undefined && totalPages > options.maxPages) {
       throw new PdfPageLimitError(totalPages, options.maxPages);
     }
     const pages = await merged.copyPages(source, source.getPageIndices());
     for (const page of pages) merged.addPage(page);
+    if (needsFiller) {
+      const last = pages[pages.length - 1];
+      if (last !== undefined) merged.addPage([last.getWidth(), last.getHeight()]);
+    }
   }
   return merged.save({ useObjectStreams: false });
 }

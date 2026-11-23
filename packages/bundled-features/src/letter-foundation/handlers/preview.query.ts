@@ -1,16 +1,14 @@
-import { createEntityExecutor, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import type { ConfigKeyHandle } from "@cosmicdrift/kumiko-types/config";
-import { capCounterEntity, currentCalendarMonthStartIso } from "../../cap-counter/index.ts";
-import { LETTER_CAP, LETTER_ENTITY, LETTER_ROLES, LETTER_STATE, LetterI18n } from "../constants.ts";
+import { LETTER_ENTITY, LETTER_ROLES, LETTER_STATE, LetterI18n } from "../constants.ts";
 import { prepareLetterDocument } from "../document-preparation.ts";
 import { letterExecutor } from "../entity.ts";
+import { readLetterBudget } from "../letter-usage.ts";
 import { LetterIdSchema } from "../payloads.ts";
 import { resolveLetterProviderOrFailure } from "../provider-resolver.ts";
 import { envelopeOf, isLetterFormRequirement } from "../row-guards.ts";
 import type { LetterEnvelope, LetterFormRequirement, LetterMoney } from "../types.ts";
-
-const { table: capCounterTable } = createEntityExecutor(capCounterEntity);
 
 export type LetterPreview = {
   readonly unitNet: LetterMoney;
@@ -70,14 +68,7 @@ export function createPreviewQuery(limitKey: ConfigKeyHandle<"number">) {
       const resolved = await resolveLetterProviderOrFailure(ctx.registry);
       if (!resolved.isSuccess) throw reraiseAsKumikoError(resolved.error);
       const { maxFlatSheets } = resolved.data.capabilities;
-      const limitCents = (await ctx.config?.(limitKey)) ?? 0;
-      const periodStart = currentCalendarMonthStartIso(ctx.tz.now());
-      const [counter] = await ctx.db.selectMany(
-        capCounterTable,
-        { capName: LETTER_CAP.costNetCents, periodStart },
-        { limit: 1 },
-      );
-      const usedCents = Number(counter?.["value"] ?? 0);
+      const { limitCents, usedCents } = await readLetterBudget(ctx, limitKey, letter.id);
       const fitsLimit = usedCents + unitNet.amount <= limitCents;
       return {
         unitNet,

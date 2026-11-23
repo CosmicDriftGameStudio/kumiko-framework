@@ -43,6 +43,7 @@ import {
   tenantComplianceProfileTable,
 } from "../../compliance-profiles/index.ts";
 import {
+  ConfigHandlers,
   type ConfigResolver,
   configValuesTable,
   createConfigAccessorFactory,
@@ -247,6 +248,7 @@ export function createLetterHarness(
       capReservationsTableMeta,
       tenantTable,
       tenantComplianceProfileTable,
+      configValuesTable,
     ]);
     await s.redis.flushNamespace();
     await s.drainJobs();
@@ -348,6 +350,14 @@ export function createLetterHarness(
     };
   }
 
+  async function setLimit(cents: number): Promise<void> {
+    await current().http.writeOk(
+      ConfigHandlers.set,
+      { key: LIMIT_KEY, value: cents, scope: "tenant" },
+      SYSTEM_ADMIN,
+    );
+  }
+
   async function approve(letterId: string): Promise<void> {
     await current().http.writeOk(LetterHandlers.approve, { letterId }, APPROVER);
   }
@@ -382,6 +392,7 @@ export function createLetterHarness(
     counter,
     usage,
     approve,
+    setLimit,
     approveAndSubmit,
     parkNextDocumentRead,
     parkNextLimitRead,

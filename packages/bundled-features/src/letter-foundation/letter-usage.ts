@@ -1,18 +1,59 @@
-import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import { createEntityExecutor, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
+import type { ConfigKeyHandle } from "@cosmicdrift/kumiko-types/config";
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import {
   bookCapUsage,
   calendarCapReservationHandle,
   calendarMonthPeriodEndIso,
+  capCounterEntity,
+  currentCalendarMonthStartIso,
   releaseCapUsage,
   reserveCalendarCapUsage,
 } from "../cap-counter/index.ts";
-import { LETTER_CAP, LETTER_CLAIM_STATUS, type LetterShippingMode } from "./constants.ts";
-import { letterSubmissionTable } from "./entity.ts";
+import {
+  LETTER_CAP,
+  LETTER_CLAIM_STATUS,
+  LETTER_STATE,
+  type LetterShippingMode,
+} from "./constants.ts";
+import { letterSubmissionTable, letterTable } from "./entity.ts";
 import { isLetterShippingMode } from "./row-guards.ts";
 
 type CapCtx = Parameters<typeof bookCapUsage>[0];
+
+const { table: capCounterTable } = createEntityExecutor(capCounterEntity);
+
+export type LetterBudget = { readonly limitCents: number; readonly usedCents: number };
+
+/** What the monthly limit has already committed: the cap counter of the running month plus the quoted price of
+ *  every approved letter, which is not reserved before its handover. An approved letter with a claim is counted
+ *  twice until the handover finishes, which errs on the cautious side. */
+export async function readLetterBudget(
+  ctx: Pick<HandlerContext, "db" | "config" | "tz">,
+  limitKey: ConfigKeyHandle<"number">,
+  excludeLetterId?: string,
+): Promise<LetterBudget> {
+  const limitCents = (await ctx.config?.(limitKey)) ?? 0;
+  const periodStart = currentCalendarMonthStartIso(ctx.tz.now());
+  const [counter] = await ctx.db.selectMany(
+    capCounterTable,
+    { capName: LETTER_CAP.costNetCents, periodStart },
+    { limit: 1 },
+  );
+  const [awaitingHandover] = await ctx.db.aggregate(
+    letterTable,
+    { measure: { fn: "sum", field: "quotedNet" } },
+    {
+      status: LETTER_STATE.approved,
+      ...(excludeLetterId !== undefined && { id: { ne: excludeLetterId } }),
+    },
+  );
+  return {
+    limitCents,
+    usedCents: Number(counter?.["value"] ?? 0) + (awaitingHandover?.value ?? 0),
+  };
+}
 
 export type LetterClaim = {
   readonly id: string;

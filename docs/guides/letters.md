@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-11-22
+verified: 2026-11-23
 evidence: "packages/bundled-features/src/letter-foundation/constants.ts, send-letter.ts, provider-resolver.ts, env-schema.ts, accept-letter.ts, letter-usage.ts, handlers/approve.write.ts, handlers/cancel.write.ts, handlers/resolve-unknown.write.ts, handlers/preview.query.ts, jobs/submit-letter.job.ts, jobs/poll-letters.job.ts; packages/bundled-features/src/letter-provider-letterxpress/README.md; samples/recipes/letter-foundation"
 ---
 
@@ -18,7 +18,8 @@ A tested example is [`samples/recipes/letter-foundation`](../../samples/recipes/
 1. The app calls `sendLetter` with file refs, an address, the shipping mode and the envelope. The letter
    is stored in `awaiting-approval`. Nothing has left the system.
 2. A user with the role `LetterApprover` opens the price preview and approves. The PDFs are merged, checked
-   against the provider's limits, and the price is fixed.
+   against the provider's limits, and the price is fixed. With `duplex` every file starts on a new sheet.
+   A letter the tenant's monthly limit does not cover is refused and keeps waiting.
 3. Five minutes later a job hands the letter to the provider. Until then `cancel` costs nothing.
 4. The provider accepts (`accepted`) or rejects (`failed`). Acceptance books the cost and the counters.
 5. A poll job asks the provider every five minutes until the letter is `sent`, and for 14 days after that
@@ -115,8 +116,10 @@ refuse them with `letter_provider_changed`, and an approved letter that was not 
 
 ### The monthly cost limit
 
-The limit is a net amount in cents per tenant and calendar month. The handover reserves the previewed
-price against it; a letter that does not fit fails with the reason `monthly-limit` and is not sent. The
+The limit is a net amount in cents per tenant and calendar month. `approve` refuses a letter it does not
+cover with `letter_monthly_limit_not_covered`; letters that are approved and not handed over yet count as
+used. The handover then reserves the price against the limit. If the limit was lowered after the
+approval, the letter fails with the reason `monthly-limit` and is not sent. The
 cap counters `letter.cost-net-cents`, `letter.<mode>.count`, `letter.<mode>.sheets` and `letter.pages`
 hold what was actually sent and are the basis for billing a tenant.
 
@@ -132,7 +135,8 @@ tenant. Watch the credit on the provider's side; the framework does not read it.
 | `on-hold` | The provider stopped the letter and waits for the operator | Look up the reason at the provider and fix it there. The poll job picks up the change |
 | `failed` with `address-mismatch` | The provider read a different address from the PDF than the app expected, and the letter was canceled in time | Fix the address block of the template and send again |
 | `addressMismatch` set on a sent letter | The same mismatch, found after the cancel window closed | Check the letter by hand; it was posted |
-| `failed` with `monthly-limit` | The tenant's limit does not cover the letter | Raise the limit or wait for the next month, then send again |
+| `approve` answers `letter_monthly_limit_not_covered` | The tenant's limit does not cover the letter together with what was sent and approved this month | Raise the limit or wait for the next month, then approve again |
+| `failed` with `monthly-limit` | The limit was lowered between approval and handover | Raise the limit or wait for the next month, then send again |
 | `failed` with `handover-stalled` | The letter stayed in `approved` for two hours past its hold time and could not be handed over | Fix the cause, for example the provider credentials, and send the letter again |
 | `failed` with `provider-changed` | The provider was switched between approval and handover | Send the letter again under the provider now selected |
 

@@ -21,7 +21,7 @@ import {
 } from "./letter-harness.ts";
 
 const harness = createLetterHarness();
-const { letterInput, letterRow, pdfBytes, seedDocument, send } = harness;
+const { letterInput, letterRow, pdfBytes, seedDocument, send, setLimit } = harness;
 let stack: TestStack;
 
 beforeAll(async () => {
@@ -60,6 +60,7 @@ describe("sendLetter and approval", () => {
   });
 
   test("approval stores price, sheet count and the document hash", async () => {
+    await setLimit(100_000);
     const { letterId } = await send(await letterInput());
     await stack.http.writeOk(LetterHandlers.approve, { letterId }, APPROVER);
     const row = await letterRow(letterId);
@@ -85,6 +86,55 @@ describe("sendLetter and approval", () => {
     expect(preview.sheetCount).toBe(2);
     expect(preview.fitsLimit).toBe(false);
     expect(preview.hint).toBeDefined();
+  });
+});
+
+describe("approval and the monthly limit", () => {
+  test("approval is refused without a limit and the letter keeps waiting", async () => {
+    const { letterId } = await send(await letterInput());
+    const refused = await stack.http.writeErr(LetterHandlers.approve, { letterId }, APPROVER);
+    expect(refused.httpStatus).toBe(422);
+    expect(refused.i18nKey).toBe(LetterI18n.monthlyLimitNotCovered);
+    expect((await letterRow(letterId))?.["status"]).toBe(LETTER_STATE.awaitingApproval);
+  });
+
+  test("an approved letter that is not handed over yet uses up the limit for the next one", async () => {
+    await setLimit(150);
+    const first = await send(await letterInput());
+    const second = await send(await letterInput());
+    await stack.http.writeOk(LetterHandlers.approve, { letterId: first.letterId }, APPROVER);
+
+    const refused = await stack.http.writeErr(
+      LetterHandlers.approve,
+      { letterId: second.letterId },
+      APPROVER,
+    );
+    expect(refused.i18nKey).toBe(LetterI18n.monthlyLimitNotCovered);
+    expect((await letterRow(second.letterId))?.["status"]).toBe(LETTER_STATE.awaitingApproval);
+    const preview = await stack.http.queryOk<{ usedCents: number; fitsLimit: boolean }>(
+      LetterQueries.preview,
+      { letterId: second.letterId },
+      APPROVER,
+    );
+    expect(preview.fitsLimit).toBe(false);
+    expect(preview.usedCents).toBe(109);
+
+    await setLimit(300);
+    await stack.http.writeOk(LetterHandlers.approve, { letterId: second.letterId }, APPROVER);
+    expect((await letterRow(second.letterId))?.["status"]).toBe(LETTER_STATE.approved);
+  });
+
+  test("the preview of an approved letter does not count the letter itself", async () => {
+    await setLimit(150);
+    const { letterId } = await send(await letterInput());
+    await stack.http.writeOk(LetterHandlers.approve, { letterId }, APPROVER);
+    const preview = await stack.http.queryOk<{ usedCents: number; fitsLimit: boolean }>(
+      LetterQueries.preview,
+      { letterId },
+      APPROVER,
+    );
+    expect(preview.usedCents).toBe(0);
+    expect(preview.fitsLimit).toBe(true);
   });
 });
 
@@ -297,6 +347,7 @@ describe("cancel and config", () => {
 
 describe("personal data", () => {
   test("no event carries the address or the recipient name in plaintext", async () => {
+    await setLimit(100_000);
     const { letterId } = await send(await letterInput());
     await stack.http.writeOk(LetterHandlers.approve, { letterId }, APPROVER);
     const events = await selectMany<Record<string, unknown>>(stack.db, eventsTable, {});

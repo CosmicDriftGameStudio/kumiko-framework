@@ -32,6 +32,8 @@ export const letterEnCatalog: Readonly<Record<string, string>> = {
     "Letter sending is not configured on this server. Ask the operator to set the letter provider.",
   "letter-foundation.errors.noFiles": "The letter has no document.",
   "letter-foundation.errors.notAwaitingApproval": "The letter is not waiting for approval.",
+  "letter-foundation.errors.monthlyLimitNotCovered":
+    "The monthly limit does not cover this letter. The operator can raise the limit.",
   "letter-foundation.errors.notCancelableHere": "The letter can no longer be canceled.",
   "letter-foundation.errors.cancelAfterAcceptanceUnavailable":
     "The print provider already has this letter, so it cannot be canceled here.",

@@ -24,8 +24,9 @@ import {
 import { letterEntity, letterSubmissionTable } from "./entity.ts";
 import { letterEnvSchema } from "./env-schema.ts";
 import { applyProviderStatusHandler } from "./handlers/apply-provider-status.write.ts";
-import { approveHandler } from "./handlers/approve.write.ts";
+import { createApproveHandler } from "./handlers/approve.write.ts";
 import { cancelHandler } from "./handlers/cancel.write.ts";
+import { cancelBeforeHandoverHandler } from "./handlers/cancel-before-handover.write.ts";
 import { markSubmissionUnknownHandler } from "./handlers/mark-submission-unknown.write.ts";
 import { createPreviewQuery } from "./handlers/preview.query.ts";
 import { recordAcceptanceHandler } from "./handlers/record-acceptance.write.ts";
@@ -102,7 +103,7 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
       r.defineEvent("canceled", LetterTransitionEventSchema, { piiFields: "none" });
       r.defineEvent("returned", LetterTransitionEventSchema, { piiFields: "none" });
 
-      r.writeHandler(approveHandler);
+      r.writeHandler(createApproveHandler(monthlyCostLimitCents));
       r.writeHandler(cancelHandler);
       r.writeHandler(resolveUnknownHandler);
       r.writeHandler(startSubmissionHandler);
@@ -110,6 +111,7 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
       r.writeHandler(recordRejectionHandler);
       r.writeHandler(markSubmissionUnknownHandler);
       r.writeHandler(requestHandoverRestartHandler);
+      r.writeHandler(cancelBeforeHandoverHandler);
       r.writeHandler(applyProviderStatusHandler);
       const submitLetterRun = createSubmitLetterRun(monthlyCostLimitCents, handoverHoldMs);
       r.job({

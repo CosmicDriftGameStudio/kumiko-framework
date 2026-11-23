@@ -35,6 +35,9 @@ export const LETTER_FOUNDATION_I18N = {
   },
   [LetterI18n.noFiles]: { en: "The letter has no document." },
   [LetterI18n.notAwaitingApproval]: { en: "The letter is not waiting for approval." },
+  [LetterI18n.monthlyLimitNotCovered]: {
+    en: "The monthly limit does not cover this letter. The operator can raise the limit.",
+  },
   [LetterI18n.notCancelableHere]: { en: "The letter can no longer be canceled." },
   [LetterI18n.cancelAfterAcceptanceUnavailable]: {
     en: "The print provider already has this letter, so it cannot be canceled here.",
