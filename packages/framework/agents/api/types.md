@@ -2672,8 +2672,8 @@ type DataTableRowAction = {
   onTrigger: (row: ListRowViewModel) => Promise<void> | void; // Called with the clicked row's `ListRowViewModel`.
   isVisible?: (row: ListRowViewModel) => boolean; // Controls per-row visibility (e.g. show "Start" only when `status==="scheduled"`).
   rowClick?: boolean; // This action is what a click on the row does.
-  inMenu?: false; // `false`: never in the row menu or the action column, in any row action mode; the row click still runs it.
-  icon?: IconKey; // Resolved icon (author `RowAction.icon` or the id-derived default) — drives both the icon-left-of-text render and the icon-only collapse rule (see `shouldRenderActionsIconOnly`).
+  inMenu?: false; // `false`: never in the row menu or action column; the row click still runs it.
+  icon?: IconKey; // Resolved icon (author or id-derived default); drives the icon-left render and the icon-only collapse.
   display?: RowActionDisplay; // Author-chosen inline form (`RowAction.display`).
 };
 type DataTableRowActionMode = "adaptive" | "inline" | "menu";
