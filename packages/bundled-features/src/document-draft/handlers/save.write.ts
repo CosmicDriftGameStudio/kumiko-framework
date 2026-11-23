@@ -5,7 +5,7 @@ import {
   sanitizeDocumentHtml,
 } from "../../template-resolver/index.ts";
 import type { DocumentDraftExecutor } from "../entity.ts";
-import { draftNotFound, loadScopedDraft, notInStatus } from "../lib.ts";
+import { draftNotFound, loadScopedDraft, notInStatus, type SubjectAccess } from "../lib.ts";
 import { SaveDraftSchema } from "../payloads.ts";
 import { DOCUMENT_DRAFT_LAST_CHANGE_SOURCE, DOCUMENT_DRAFT_STATUS } from "../web/constants.ts";
 
@@ -14,6 +14,7 @@ type SaveData = { readonly id: string; readonly version: number };
 export function createSaveHandler(
   access: AccessRule,
   documentDraftExecutor: DocumentDraftExecutor,
+  subjectAccess: SubjectAccess,
 ) {
   return defineWriteHandler<"save", typeof SaveDraftSchema, SaveData>({
     name: "save",
@@ -25,7 +26,7 @@ export function createSaveHandler(
     handler: async (event, ctx) => {
       const { id, base, content } = event.payload;
       const user = event.user;
-      const draft = await loadScopedDraft(documentDraftExecutor, ctx, user, id);
+      const draft = await loadScopedDraft(documentDraftExecutor, ctx, user, id, subjectAccess);
       if (draft === null) return draftNotFound(id);
       if (draft.status !== DOCUMENT_DRAFT_STATUS.Open)
         return notInStatus(DOCUMENT_DRAFT_STATUS.Open);

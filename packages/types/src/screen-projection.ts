@@ -187,6 +187,8 @@ export type ProjectionListScreenDefinition = {
   readonly namedFilters?: readonly NamedListFilterRef[];
   /** Presentation of `namedFilters` in the toolbar; needs `namedFilters`. */
   readonly namedFilterFacet?: NamedFilterFacetOptions;
+  /** Id from `namedFilters` that is active while the URL names none, so the list opens filtered and its chip shows as selected. The user switches to another chip; the default itself cannot be switched off. */
+  readonly defaultNamedFilter?: string;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
 };

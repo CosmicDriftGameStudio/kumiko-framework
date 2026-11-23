@@ -172,6 +172,10 @@ export type ScreenSlots = {
   readonly titleAction?: PlatformComponent;
   readonly beforeForm?: PlatformComponent;
   readonly afterForm?: PlatformComponent;
+  /** entityEdit / actionForm / configEdit: a column right of the form from `xl`
+   *  (sticky; the form column keeps its width, at most half for `layout.width: "full"`;
+   *  the section navigation is dropped). Below `xl`, and outside the padded screen form,
+   *  it renders under the sections. Receives the live form values. */
   readonly sidebar?: PlatformComponent;
   readonly footer?: PlatformComponent;
   /** entityEdit wizard: marks `footer` as the sticky-footer primary action

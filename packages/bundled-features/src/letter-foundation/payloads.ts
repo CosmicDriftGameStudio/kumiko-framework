@@ -1,5 +1,7 @@
+import { MAX_BULK_SELECTION } from "@cosmicdrift/kumiko-types/screen";
 import * as z from "zod";
 import {
+  LETTER_APPROVAL_MODES,
   LETTER_ENVELOPES,
   LETTER_FAILURE_REASONS,
   LETTER_FORM_REQUIREMENTS,
@@ -32,11 +34,16 @@ export const SendLetterInputSchema = z.object({
   }),
   costCenterRef: z.string().max(200).optional(),
   latestReceiptDate: z.iso.date().optional(),
+  approval: z.enum(LETTER_APPROVAL_MODES).optional(),
 });
 
 export type SendLetterInput = z.infer<typeof SendLetterInputSchema>;
 
 export const LetterIdSchema = z.object({ letterId: z.uuid() });
+
+export const ApproveManySchema = z.object({
+  letterIds: z.array(z.uuid()).min(1).max(MAX_BULK_SELECTION),
+});
 
 // No address, name or content: the event only says which letter moved and from where.
 export const LetterTransitionEventSchema = z.object({

@@ -2365,6 +2365,14 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "L'envoi de lettres n'est pas configuré sur ce serveur. Demande à l'exploitant de définir le prestataire de lettres.",
   "letter-foundation.errors.noFiles": "La lettre n'a pas de document.",
   "letter-foundation.errors.notAwaitingApproval": "La lettre n'est pas en attente d'approbation.",
+  "screen:letter-foundation-tenant.title": "Lettres",
+  "screen:letter-foundation-system.title": "Lettres de tous les clients",
+  "letter-foundation.settings": "Lettres",
+  "letter-foundation.settings.monthlyLimit": "Limite mensuelle de lettres (en centimes)",
+  "letter-foundation.settings.monthlyLimitHelp":
+    "Les lettres approuvées d'un mois civil peuvent coûter au plus ce montant. Avec 0, aucune lettre n'est approuvée.",
+  "letter-foundation.errors.notReadyForApproval":
+    "Certaines des lettres sélectionnées ne sont pas encore prêtes pour l'approbation. Une lettre est prête lorsqu'elle attend l'approbation et que son document a été vérifié sans problème.",
   "letter-foundation.errors.monthlyLimitNotCovered":
     "La limite mensuelle ne couvre pas cette lettre. L'opérateur peut augmenter la limite.",
   "letter-foundation.errors.notCancelableHere": "La lettre ne peut plus être annulée.",
@@ -3090,6 +3098,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "screen:document-draft-editor.title": "Brouillon de document",
   "documentDraft.errors.notOpen": "Ce brouillon n'est pas ouvert à la modification.",
   "documentDraft.errors.notFinalized": "Ce brouillon n'est pas finalisé.",
+  "documentDraft.errors.notFinalizable":
+    "Ce brouillon est imprimé par l'application lors de l'envoi et ne peut pas être finalisé.",
   "documentDraft.errors.templateNotFound": "Le modèle {slug} n'existe pas.",
   "documentDraft.errors.opNotAllowed":
     "L'opération {op} n'est pas autorisée sur un brouillon : seul son texte peut être modifié.",
@@ -3116,6 +3126,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "document-draft:editor.finalize": "Finaliser",
   "document-draft:editor.finalizeNeedsSave": "Enregistrez vos modifications avant de finaliser.",
   "document-draft:editor.discardDraft": "Abandonner le brouillon",
+  "document-draft:editor.back": "Retour",
   "document-draft:editor.revise": "Modifier à nouveau",
   "document-draft:editor.versionConflict":
     "Le brouillon a été modifié ailleurs entre-temps. Rechargez-le pour continuer avec le texte actuel.",

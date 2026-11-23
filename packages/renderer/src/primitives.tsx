@@ -1102,6 +1102,9 @@ export type FormProps = {
   /** Leading column next to the scroll surface of a `screenForm` (wizard step
    *  navigation). */
   readonly sideRail?: ReactNode;
+  /** `screenForm` only: right column from `xl` (replaces the section
+   *  navigation), stacked under the form column below `xl`. */
+  readonly sidebar?: ReactNode;
 };
 
 /** Titled group of fields. Web: `<fieldset>` + `<legend>`; native

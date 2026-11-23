@@ -15,7 +15,7 @@ import {
   VARIANT_UNKNOWN_REASON,
 } from "../../template-resolver/index.ts";
 import type { DocumentDraftExecutor } from "../entity.ts";
-import { draftNotFound } from "../lib.ts";
+import { draftNotFound, type SubjectAccess, subjectRoleAllows } from "../lib.ts";
 import { createDraftSchema } from "../payloads.ts";
 import {
   DOCUMENT_DRAFT_ENTITY,
@@ -30,6 +30,7 @@ export function createCreateHandler(
   access: AccessRule,
   documentDraftExecutor: DocumentDraftExecutor,
   subjectTypes: readonly [string, ...string[]],
+  subjectAccess: SubjectAccess,
 ) {
   const schema = createDraftSchema(subjectTypes);
   return defineWriteHandler<"create", typeof schema, CreateData>({
@@ -42,6 +43,7 @@ export function createCreateHandler(
     handler: async (event, ctx) => {
       const { subjectType, subjectId, templateSlug, variant, locale, variables } = event.payload;
       const user = event.user;
+      if (!subjectRoleAllows(subjectAccess, user, subjectType)) return draftNotFound();
       const subjectIsVisible = await joinRowParentIsVisible(
         ctx.registry,
         DOCUMENT_DRAFT_ENTITY,

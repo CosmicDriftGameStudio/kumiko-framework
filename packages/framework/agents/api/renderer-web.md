@@ -743,6 +743,7 @@ type FormProps = { // Submit wrapper.
   topBanner?: ReactNode; // Rendered above everything else in the form body (above `summary`), e.g. the submit error.
   sectionNav?: FormSectionNavItem[]; // Titled sections for the "on this page" navigation next to a `screenForm`.
   sideRail?: ReactNode; // Leading column next to the scroll surface of a `screenForm` (wizard step navigation).
+  sidebar?: ReactNode; // `screenForm` only: right column from `xl` (replaces the section navigation), stacked under the form column below `xl`.
 };
 type FormatMoneyOptions = {
   locale?: string;

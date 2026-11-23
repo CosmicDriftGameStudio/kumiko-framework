@@ -13,8 +13,10 @@ export {
   lastFetchSignalOf,
   requireCredentialSecretOnFetch,
   resetInboundInMemory,
+  type SentMail,
   seedInboundMessage,
   seedRejectedInboundMessage,
+  sentMailsOf,
   setInboundFullContent,
   watchedTrustedAuthservIdOf,
 } from "./feature.ts";

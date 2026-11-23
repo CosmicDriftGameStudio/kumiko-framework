@@ -247,6 +247,7 @@ namedFilters: [{ id: "overdue", label: "tasks.filter.overdue" }],
 - An empty `in` list matches no rows. An unknown name is a validation error on `namedFilter`, a failed `access` rule is `access_denied`; the list then shows its error state and the chip stays removable.
 - While the filter is active, `defaultFilters` are not applied.
 - A projectionList takes `namedFilters` only when its query schema has a `namedFilter` key. A custom query handler must pass the resolved conditions into `executor.list` as `filters`, because only that path applies the field-read and PII guards.
+- `defaultNamedFilter` on a projectionList names one id of `namedFilters`. While the URL carries no filter that chip is active and its filter goes with every list and count query, also for a list embedded as a dashboard panel. The user can switch to another chip but not turn the default off. Boot fails when the id is not declared.
 - A condition on a field the entity does not have fails the request with an internal error instead of being dropped, so a typo cannot widen the queue.
 - The boot validator requires for `navigate`: the target is an entityList or projectionList, the id is declared there, `query` equals the target's list query, `params.namedFilter` equals `navigate.namedFilter`, and a static `filter` on the target is repeated in `params.filter`.
 - A stat with `navigate` sends only its own `params`, never the dashboard filter, time range or record params, because the list it opens cannot carry them.
@@ -349,6 +350,7 @@ A primary action with `confirm` stays in the toolbar, so the dialog opens next t
 | `footerActions` | projectionDetail | ids of `actions` shown in the pinned footer bar instead of the header, in declaration order. An id must not also be `primaryAction` or in `inlineActions`. `align: "start"` on a declared action sets it apart on the left |
 | `footerHint` | projectionDetail | i18n key of a note left of the footer actions; hidden below `sm`; needs `footerActions` |
 | `initialTab` | projectionDetail | `[{ when, tab }]`: the first rule whose condition holds on the record picks the tab that opens first, else the first visible tab. An explicit `?tab=` wins. Needs `layout.mode: "tabs"` |
+| `slots.sidebar` | entityEdit, actionForm, configEdit | component in a sticky right column from `xl` (section navigation dropped), under the sections below `xl`; it receives the live form values |
 | `slots.afterForm` | projectionDetail | component rendered under the active tab's sections; it receives `activeTabId` |
 | `metricsPlacement` | projectionDetail | `{ narrow: "after-guidance" }` moves the metric tiles below summary, banner and steps on screens under `md`, ahead of the tabs |
 | `summary.icon` | projectionDetail | icon (`NavIconKey`) that leads the record sentence |

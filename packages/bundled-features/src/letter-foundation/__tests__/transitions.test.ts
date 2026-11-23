@@ -3,6 +3,7 @@ import { KumikoBootError, parseEnv } from "@cosmicdrift/kumiko-framework/env";
 import {
   isFinalLetterState,
   isLetterTransitionAllowed,
+  LETTER_CREATED_EVENT,
   LETTER_HANDOVER_RESTART_EVENT,
   LETTER_JOB,
   LETTER_STATE_OF_PROVIDER_STATE,
@@ -71,18 +72,23 @@ describe("letter live switch", () => {
   });
 });
 
-// feature.ts takes job names and triggers from the constants; the restart event is not a state, so it has no timestamp field.
+// feature.ts takes job names and triggers from the constants; the restart and created events are not states, so they have no timestamp field.
 describe("letter feature registration", () => {
   const feature = createLetterFoundationFeature();
 
   test("defines one event per state that stamps a timestamp", () => {
     expect(Object.keys(feature.events).sort()).toEqual(
-      [...Object.keys(LETTER_STATE_TIMESTAMP_FIELD), LETTER_HANDOVER_RESTART_EVENT].sort(),
+      [
+        ...Object.keys(LETTER_STATE_TIMESTAMP_FIELD),
+        LETTER_HANDOVER_RESTART_EVENT,
+        LETTER_CREATED_EVENT,
+      ].sort(),
     );
   });
 
-  test("registers the jobs under their constants and hands over on approval", () => {
+  test("registers the jobs under their constants, prepares on creation and hands over on approval", () => {
     expect(Object.keys(feature.jobs).sort()).toEqual(Object.values(LETTER_JOB).sort());
+    expect(feature.jobs[LETTER_JOB.prepare]?.trigger).toEqual({ on: [LetterEvents.created] });
     expect(feature.jobs[LETTER_JOB.submit]?.trigger).toEqual({
       on: [LetterEvents.approved, LetterEvents.handoverRestartRequested],
     });

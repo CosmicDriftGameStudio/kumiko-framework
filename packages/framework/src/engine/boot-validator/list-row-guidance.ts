@@ -16,6 +16,7 @@ type RowGuidanceScreen = {
   readonly columns: readonly ListColumnSpec[];
   readonly namedFilters?: readonly NamedListFilterRef[];
   readonly namedFilterFacet?: NamedFilterFacetOptions;
+  readonly defaultNamedFilter?: string;
   readonly rowToneField?: string;
   readonly rowDecoration?: { readonly query: string };
 };
@@ -154,6 +155,14 @@ function validateNamedFilterOptions(where: string, screen: RowGuidanceScreen): v
   if (screen.namedFilterFacet !== undefined && (screen.namedFilters ?? []).length === 0) {
     throw bootRuleError(NAMED_FILTER_RULES.facetWithoutFilters, {
       message: `${where} sets namedFilterFacet without namedFilters — there is nothing to present. Declare namedFilters or remove namedFilterFacet.`,
+    });
+  }
+  if (
+    screen.defaultNamedFilter !== undefined &&
+    !(screen.namedFilters ?? []).some((ref) => ref.id === screen.defaultNamedFilter)
+  ) {
+    throw bootRuleError(NAMED_FILTER_RULES.defaultNotDeclared, {
+      message: `${where} sets defaultNamedFilter "${screen.defaultNamedFilter}" which is not one of its namedFilters. Name an id from namedFilters or remove defaultNamedFilter.`,
     });
   }
   for (const ref of screen.namedFilters ?? []) {

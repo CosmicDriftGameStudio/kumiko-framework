@@ -44,6 +44,7 @@ export const DOCUMENT_DRAFT_EDITOR_I18N = {
     de: "Änderungen vor dem Abschließen speichern.",
   },
   "document-draft:editor.discardDraft": { en: "Discard draft", de: "Entwurf verwerfen" },
+  "document-draft:editor.back": { en: "Back", de: "Zurück" },
   "document-draft:editor.revise": { en: "Edit again", de: "Erneut bearbeiten" },
   "document-draft:editor.versionConflict": {
     en: "The draft was changed elsewhere in the meantime. Reload it to continue with the current text.",

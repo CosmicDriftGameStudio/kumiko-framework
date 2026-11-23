@@ -1,5 +1,6 @@
 import type { HandlerContext, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
+import { isOneOf, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   MAX_DOCUMENT_BYTES,
   readTenantFile,
@@ -8,9 +9,12 @@ import {
 import { checkPostalPdf, mergePdfs, PdfPageLimitError, unprocessable } from "../shared/index.ts";
 import { LetterErrors, LetterI18n } from "./constants.ts";
 import type { LetterRow } from "./entity.ts";
-import { resolveLetterProviderOrFailure } from "./provider-resolver.ts";
+import {
+  type ResolvedLetterProvider,
+  resolveLetterProviderOrFailure,
+} from "./provider-resolver.ts";
 import { envelopeOf, isLetterShippingMode, isStringList } from "./row-guards.ts";
-import type { LetterQuote } from "./types.ts";
+import type { LetterEnvelope, LetterQuote, LetterShippingMode } from "./types.ts";
 
 export type PreparedLetterDocument = {
   readonly merged: Uint8Array;
@@ -19,6 +23,27 @@ export type PreparedLetterDocument = {
   readonly quote: LetterQuote;
   readonly providerName: string;
 };
+
+// Faults of the document itself: the sender has to fix them, a retry cannot. Anything else
+// (provider not configured, storage down) is technical and stays an error.
+const DOCUMENT_ISSUE_CODES = [
+  LetterErrors.noFiles,
+  LetterErrors.tooManySheets,
+  LetterErrors.documentUnreadable,
+  LetterErrors.documentRejected,
+] as const;
+
+export type LetterDocumentIssue = (typeof DOCUMENT_ISSUE_CODES)[number];
+
+export function isLetterDocumentIssue(value: unknown): value is LetterDocumentIssue {
+  return isOneOf(DOCUMENT_ISSUE_CODES, value);
+}
+
+/** The document issue a failed preparation reports, or undefined when the failure is technical. */
+export function documentIssueOf(error: unknown): LetterDocumentIssue | undefined {
+  const reason = propertyOf(propertyOf(error, "details"), "reason");
+  return isLetterDocumentIssue(reason) ? reason : undefined;
+}
 
 export function sheetsFor(pageCount: number, duplex: boolean): number {
   return duplex ? Math.ceil(pageCount / 2) : pageCount;
@@ -87,6 +112,42 @@ async function mergeWithinSheetLimit(
   }
 }
 
+export type LetterQuoteSpec = {
+  readonly pageCount: number;
+  readonly shippingMode: LetterShippingMode;
+  readonly envelope: LetterEnvelope;
+  readonly color: boolean;
+  readonly duplex: boolean;
+};
+
+export type LetterPriceQuote = { readonly quote: LetterQuote; readonly sheetCount: number };
+
+async function quoteWithProvider(
+  resolved: ResolvedLetterProvider,
+  spec: LetterQuoteSpec,
+): Promise<WriteResult<LetterPriceQuote>> {
+  const sheetCount = sheetsFor(spec.pageCount, spec.duplex);
+  const { maxSheets } = resolved.capabilities;
+  if (sheetCount > maxSheets) {
+    return unprocessable(LetterErrors.tooManySheets, LetterI18n.tooManySheets, {
+      sheetCount,
+      maxSheets,
+    });
+  }
+  const quote = await resolved.provider.quote({ ...spec, sheetCount });
+  return { isSuccess: true, data: { quote, sheetCount } };
+}
+
+/** The price of a letter that does not exist yet, so an app can show it in its send form. */
+export async function quoteLetter(
+  ctx: Pick<HandlerContext, "registry">,
+  spec: LetterQuoteSpec,
+): Promise<WriteResult<LetterPriceQuote>> {
+  const providerResult = await resolveLetterProviderOrFailure(ctx.registry);
+  if (!providerResult.isSuccess) return providerResult;
+  return quoteWithProvider(providerResult.data, spec);
+}
+
 /** Merges the letter's documents, checks them against the provider's limits and asks for the price.
  *  Calls the provider, so it never runs inside an open database transaction. */
 export async function prepareLetterDocument(
@@ -122,23 +183,22 @@ export async function prepareLetterDocument(
       detail: check.detail,
     });
   }
-  const sheetCount = sheetsFor(check.pageCount, letter.duplex);
-  if (sheetCount > capabilities.maxSheets) {
-    return unprocessable(LetterErrors.tooManySheets, LetterI18n.tooManySheets, {
-      sheetCount,
-      maxSheets: capabilities.maxSheets,
-    });
-  }
-  const quote = await resolved.provider.quote({
+  const priced = await quoteWithProvider(resolved, {
     pageCount: check.pageCount,
-    sheetCount,
     shippingMode,
     envelope: envelopeOf(letter),
     color: letter.color,
     duplex: letter.duplex,
   });
+  if (!priced.isSuccess) return priced;
   return {
     isSuccess: true,
-    data: { merged, pageCount: check.pageCount, sheetCount, quote, providerName: resolved.name },
+    data: {
+      merged,
+      pageCount: check.pageCount,
+      sheetCount: priced.data.sheetCount,
+      quote: priced.data.quote,
+      providerName: resolved.name,
+    },
   };
 }

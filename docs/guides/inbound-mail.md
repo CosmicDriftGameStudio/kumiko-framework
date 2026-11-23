@@ -128,6 +128,8 @@ const sent = await sendMailFromAccount(ctx, {
 });
 ```
 
+A handler that renders a PDF in `beforeTransaction` can attach it without storing it first: `attachedBytes` takes `{ fileName, mimeType, data }` entries. They follow `attachmentFileIds`, count against the same limits and are not access-checked, because the caller produced them. `renderPdfBeforeTransaction` returns the bytes as `pdfBytes` when called with `keepPdfBytes: true`. In tests, the `inmemory` provider records each sent mail for `sentMailsOf(accountId)`.
+
 A failure comes back as a write failure with a reason: `mail_send_not_configured`, `mail_send_login_rejected`, `mail_send_server_unreachable`, `mail_send_rejected`, `mail_send_invalid_message`, `mail_send_attachment_invalid` or `mail_send_attachments_too_large`. A disconnected mailbox and another user's personal mailbox are reported as not found.
 
 ### What the framework does not ship

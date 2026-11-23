@@ -3,7 +3,6 @@ import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { ConfigKeyHandle } from "@cosmicdrift/kumiko-types/config";
 import type { JobDeferral } from "@cosmicdrift/kumiko-types/handlers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { CapExceededError, currentCalendarMonthStartIso } from "../../cap-counter/index.ts";
 import { readTenantFile } from "../../file-foundation/index.ts";
 import {
@@ -24,18 +23,7 @@ import { isForeignProvider, resolveLetterProvider } from "../provider-resolver.t
 import { envelopeOf, isLetterShippingMode } from "../row-guards.ts";
 import type { LetterProvider, LetterSubmission } from "../types.ts";
 import { cancelOnMismatch, hasAddressMismatch, recipientOf } from "./address-mismatch.ts";
-
-async function dispatchApplied(
-  ctx: JobContext,
-  type: string,
-  payload: Record<string, unknown>,
-): Promise<boolean> {
-  const result = await ctx.dispatch.write(type, payload);
-  if (!result.isSuccess) {
-    throw new Error(`letter-foundation: ${type} was rejected: ${JSON.stringify(result.error)}`);
-  }
-  return propertyOf(result.data, "applied") === true;
-}
+import { dispatchApplied } from "./dispatch-applied.ts";
 
 async function claimLetter(ctx: JobContext, letter: LetterRow): Promise<LetterClaim> {
   const id = crypto.randomUUID();

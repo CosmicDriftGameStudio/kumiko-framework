@@ -118,6 +118,7 @@ export {
   MailSendNotConfiguredError,
   MailSendRejectedError,
   OUTBOUND_ATTACHMENTS_MAX_BYTES,
+  OUTBOUND_ATTACHMENTS_MAX_COUNT,
   type OutboundAttachment,
   type OutboundMailMessage,
   type OutboundMailSent,

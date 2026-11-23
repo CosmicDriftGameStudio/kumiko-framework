@@ -151,6 +151,7 @@ describe("validateBoot — named list filters", () => {
         readonly columns?: readonly ListColumnSpec[];
         readonly namedFilters?: readonly NamedListFilterRef[];
         readonly namedFilterFacet?: NamedFilterFacetOptions;
+        readonly defaultNamedFilter?: string;
       },
       querySorts = false,
       queryCounts = false,
@@ -206,6 +207,19 @@ describe("validateBoot — named list filters", () => {
     test("rejects namedFilterFacet without namedFilters", () => {
       const feature = ledgerFeature({ namedFilterFacet: { display: "select" } });
       expect(() => validateBoot([feature])).toThrow(/sets namedFilterFacet without namedFilters/);
+    });
+
+    test("rejects a defaultNamedFilter that is not one of the namedFilters", () => {
+      const feature = ledgerFeature({ namedFilters: SORTED_OPEN, defaultNamedFilter: "gone" });
+      expect(() => validateBoot([feature])).toThrow(/defaultNamedFilter "gone"/);
+    });
+
+    test("accepts a defaultNamedFilter that names a declared filter", () => {
+      const feature = ledgerFeature(
+        { namedFilters: SORTED_OPEN, defaultNamedFilter: "open" },
+        true,
+      );
+      expect(() => validateBoot([feature])).not.toThrow();
     });
 
     test("rejects a filter emptyState with a blank title", () => {

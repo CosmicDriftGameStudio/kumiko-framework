@@ -3,9 +3,11 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import {
+  AppFeaturesProvider,
   ContentPreviewsProvider,
   createStaticLocaleResolver,
   DispatcherProvider,
+  type FeatureSchema,
   kumikoDefaultTranslations,
   LocaleProvider,
   NavProvider,
@@ -32,6 +34,7 @@ const OPEN_DRAFT = {
   subjectType: "lease",
   subjectId: "lease-7",
   subjectScreen: "lease-detail",
+  finalizable: true,
   templateSlug: "lease-contract",
   templateTitle: null,
   locale: "en",
@@ -71,7 +74,20 @@ function WebPreviewStub({ content }: PreviewRendererProps): ReactNode {
   return <div data-testid="web-preview-stub">{content}</div>;
 }
 
-function mountEditor(record: Readonly<Record<string, unknown>>): void {
+const RETURN_FEATURES: readonly FeatureSchema[] = [
+  {
+    featureName: "billing",
+    entities: {},
+    screens: [
+      { id: "billing:screen:dispatch", type: "custom", access: { roles: ["TenantAdmin"] } },
+    ],
+  } as unknown as FeatureSchema,
+];
+
+function mountEditor(
+  record: Readonly<Record<string, unknown>>,
+  searchParams: Readonly<Record<string, string>> = {},
+): void {
   writes = [];
   navigated = [];
   render(
@@ -92,15 +108,17 @@ function mountEditor(record: Readonly<Record<string, unknown>>): void {
             },
             replace: () => {},
             hrefFor: () => "",
-            searchParams: {},
+            searchParams,
             setSearchParams: () => {},
           }}
         >
           <PrimitivesProvider value={defaultPrimitives}>
             <UserRolesProvider roles={["TenantAdmin"]}>
-              <ContentPreviewsProvider value={{ web: WebPreviewStub }}>
-                <DocumentDraftEditorScreen />
-              </ContentPreviewsProvider>
+              <AppFeaturesProvider features={RETURN_FEATURES}>
+                <ContentPreviewsProvider value={{ web: WebPreviewStub }}>
+                  <DocumentDraftEditorScreen />
+                </ContentPreviewsProvider>
+              </AppFeaturesProvider>
             </UserRolesProvider>
           </PrimitivesProvider>
         </NavProvider>
@@ -145,6 +163,17 @@ describe("document draft editor", () => {
     });
     await screen.findByText("£850.00");
     expect(screen.queryByText("85000")).toBeNull();
+  });
+
+  test("a rich text placeholder chip shows the text, not the markup", async () => {
+    mountEditor({
+      ...OPEN_DRAFT,
+      body: '<p><span data-variable="intro"></span></p>',
+      variables: { intro: "<p>Here is your <strong>statement</strong> &amp; receipts.</p>" },
+      variableSchema: { intro: { type: "richText" } },
+    });
+    await screen.findByText("Here is your statement & receipts.");
+    expect(screen.queryByText(/<p>/)).toBeNull();
   });
 
   test("a placeholder chip without a value shows the variable label, with a value the formatted value", async () => {
@@ -202,6 +231,28 @@ describe("document draft editor", () => {
       { type: DocumentDraftHandlers.finalize, payload: { id: "d1", base: 5 } },
     ]);
     expect(navigated[0]).toEqual({ screenId: "lease-detail", entityId: "lease-7" });
+  });
+
+  test("with a returnTo the editor offers Back, which navigates there; without one there is no Back", async () => {
+    mountEditor(OPEN_DRAFT, { returnTo: "dispatch" });
+    fireEvent.click(await screen.findByTestId("document-draft-workbench-back"));
+    await waitFor(() => expect(navigated).toEqual([{ screenId: "dispatch" }]));
+    cleanup();
+    mountEditor(OPEN_DRAFT);
+    await screen.findByTestId("document-draft-workbench-finalize");
+    expect(screen.queryByTestId("document-draft-workbench-back")).toBeNull();
+  });
+
+  test("a returnTo wins over the subject screen after finalize", async () => {
+    mountEditor(OPEN_DRAFT, { returnTo: "dispatch" });
+    fireEvent.click(await screen.findByTestId("document-draft-workbench-finalize"));
+    await waitFor(() => expect(navigated).toEqual([{ screenId: "dispatch" }]));
+  });
+
+  test("a draft that is not finalizable shows no finalize button but still discard", async () => {
+    mountEditor({ ...OPEN_DRAFT, finalizable: false });
+    await screen.findByTestId("document-draft-workbench-discard");
+    expect(screen.queryByTestId("document-draft-workbench-finalize")).toBeNull();
   });
 
   test("without a subject screen finalize stays on the draft", async () => {

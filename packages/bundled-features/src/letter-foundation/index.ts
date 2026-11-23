@@ -3,6 +3,7 @@ export { cancelLetterBeforeHandover } from "./cancel-before-handover.ts";
 export {
   isFinalLetterState,
   isLetterTransitionAllowed,
+  LETTER_APPROVAL_MODES,
   LETTER_CAP,
   LETTER_CONFIG_KEYS,
   LETTER_ENTITY,
@@ -20,12 +21,18 @@ export {
   LETTER_STATE,
   LETTER_STATES,
   LETTER_TRANSITIONS,
+  type LetterApprovalMode,
   LetterEvents,
   LetterHandlers,
   LetterJobs,
   LetterQueries,
   type LetterState,
 } from "./constants.ts";
+export {
+  type LetterPriceQuote,
+  type LetterQuoteSpec,
+  quoteLetter,
+} from "./document-preparation.ts";
 export { letterEntity, letterExecutor, letterSubmissionTable, letterTable } from "./entity.ts";
 export { createLetterFoundationFeature, type LetterFoundationOptions } from "./feature.ts";
 export { LetterAddressSchema, type SendLetterInput, SendLetterInputSchema } from "./payloads.ts";

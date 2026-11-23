@@ -19,6 +19,7 @@ import {
   buildHeaderActions,
   type HeaderActionsModel,
   renderAfterFormSlot,
+  renderSidebarSlot,
 } from "./render-edit-header-actions.tsx";
 import type { RenderEditModel } from "./render-edit-render-model.ts";
 import { renderEditSections } from "./render-edit-section-kinds.tsx";
@@ -121,6 +122,7 @@ function buildFormHeadingProps<TValues extends FormValues, TCtx>(
   const { props } = model.engine;
   const { layout, footer, titles } = model;
   const { unsavedCount, hasDirtyFooter } = footer;
+  const sidebar = layout.isScreenForm ? renderSidebarSlot(model) : undefined;
   return {
     ...(props.hideSectionTitles !== true &&
       !layout.titleInShell &&
@@ -132,6 +134,7 @@ function buildFormHeadingProps<TValues extends FormValues, TCtx>(
     ...(unsavedCount !== undefined && (unsavedCount > 0 || hasDirtyFooter) && { unsavedCount }),
     ...(titles.sectionNavItems.length > 0 && { sectionNav: titles.sectionNavItems }),
     ...(titles.stepRail && { sideRail: renderWizardSideRail(model) }),
+    ...(sidebar !== undefined && { sidebar }),
   };
 }
 
@@ -203,6 +206,7 @@ export function renderEditLayout<TValues extends FormValues, TCtx>(
               {state.isTabs && state.isStepped && renderTabStrip(model)}
               {renderEditSections(model)}
               {props.belowSections?.(form.snapshot.values)}
+              {!model.layout.isScreenForm && renderSidebarSlot(model)}
               {renderAfterFormSlot(model)}
               {props.formErrorOnTop !== true && renderFormErrorBanner(model)}
               {renderRootIssueBanners(model)}

@@ -33,6 +33,11 @@ export const NAMED_FILTER_RULES = {
     summary: "namedFilterFacet only presents the screen's namedFilters.",
     fix: "Declare namedFilters on the screen or remove namedFilterFacet.",
   },
+  defaultNotDeclared: {
+    id: "list/default-named-filter-not-declared",
+    summary: "defaultNamedFilter is the id of one of the screen's namedFilters.",
+    fix: "Name an id from namedFilters or remove defaultNamedFilter.",
+  },
   emptyStateTitleEmpty: {
     id: "list/named-filter-empty-state-title-empty",
     summary: "A named filter's emptyState.title is a non-empty i18n key.",

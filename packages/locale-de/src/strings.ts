@@ -2361,6 +2361,14 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Der Briefversand ist auf diesem Server nicht eingerichtet. Frag den Betreiber, den Briefdienstleister einzustellen.",
   "letter-foundation.errors.noFiles": "Der Brief hat kein Dokument.",
   "letter-foundation.errors.notAwaitingApproval": "Der Brief wartet nicht auf Freigabe.",
+  "screen:letter-foundation-tenant.title": "Briefe",
+  "screen:letter-foundation-system.title": "Briefe aller Mandanten",
+  "letter-foundation.settings": "Briefe",
+  "letter-foundation.settings.monthlyLimit": "Monatslimit für Briefe (in Cent)",
+  "letter-foundation.settings.monthlyLimitHelp":
+    "So viel dürfen die freigegebenen Briefe eines Kalendermonats höchstens kosten. Bei 0 wird kein Brief freigegeben.",
+  "letter-foundation.errors.notReadyForApproval":
+    "Einige der ausgewählten Briefe sind noch nicht bereit für die Freigabe. Bereit ist ein Brief, der auf die Freigabe wartet und dessen Dokument ohne Problem geprüft wurde.",
   "letter-foundation.errors.monthlyLimitNotCovered":
     "Das Monatslimit deckt diesen Brief nicht. Der Betreiber kann das Limit erhöhen.",
   "letter-foundation.errors.notCancelableHere": "Der Brief kann nicht mehr storniert werden.",
@@ -3063,6 +3071,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "screen:document-draft-editor.title": "Dokumententwurf",
   "documentDraft.errors.notOpen": "Dieser Entwurf ist nicht zur Bearbeitung offen.",
   "documentDraft.errors.notFinalized": "Dieser Entwurf ist nicht abgeschlossen.",
+  "documentDraft.errors.notFinalizable":
+    "Dieser Entwurf wird von der App beim Versand gedruckt und kann nicht abgeschlossen werden.",
   "documentDraft.errors.templateNotFound": "Die Vorlage {slug} existiert nicht.",
   "documentDraft.errors.opNotAllowed":
     "Die Operation {op} ist bei einem Entwurf nicht erlaubt: nur der Text ist änderbar.",
@@ -3089,6 +3099,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "document-draft:editor.finalize": "Abschließen",
   "document-draft:editor.finalizeNeedsSave": "Änderungen vor dem Abschließen speichern.",
   "document-draft:editor.discardDraft": "Entwurf verwerfen",
+  "document-draft:editor.back": "Zurück",
   "document-draft:editor.revise": "Erneut bearbeiten",
   "document-draft:editor.versionConflict":
     "Der Entwurf wurde zwischenzeitlich anderswo geändert. Neu laden, um mit dem aktuellen Text weiterzuarbeiten.",

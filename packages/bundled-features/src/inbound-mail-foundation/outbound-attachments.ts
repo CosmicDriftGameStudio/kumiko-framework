@@ -17,7 +17,11 @@ import {
   readFileRefContent,
 } from "../file-foundation/index.ts";
 import { loadAttachableFileRef } from "./outbound-attachment-access.ts";
-import { OUTBOUND_ATTACHMENTS_MAX_BYTES, type OutboundAttachment } from "./outbound-mail.ts";
+import {
+  OUTBOUND_ATTACHMENTS_MAX_BYTES,
+  OUTBOUND_ATTACHMENTS_MAX_COUNT,
+  type OutboundAttachment,
+} from "./outbound-mail.ts";
 
 export type ResolveOutboundAttachmentsContext = Pick<
   HandlerContext,
@@ -66,10 +70,17 @@ export async function readableFileName(file: {
 export async function resolveOutboundAttachments(
   ctx: ResolveOutboundAttachmentsContext,
   fileIds: readonly string[],
+  attachedBytes: readonly OutboundAttachment[] = [],
 ): Promise<ResolvedOutboundAttachments> {
   const uniqueIds = [...new Set(fileIds)];
+  if (uniqueIds.length + attachedBytes.length > OUTBOUND_ATTACHMENTS_MAX_COUNT) {
+    return { isSuccess: false, failure: "attachmentInvalid" };
+  }
   const attachments: OutboundAttachment[] = [];
-  let remainingBytes = OUTBOUND_ATTACHMENTS_MAX_BYTES;
+  let remainingBytes =
+    OUTBOUND_ATTACHMENTS_MAX_BYTES -
+    attachedBytes.reduce((sum, attachment) => sum + attachment.data.byteLength, 0);
+  if (remainingBytes < 0) return { isSuccess: false, failure: "attachmentsTooLarge" };
   const tenantId = ctx.user.tenantId;
   for (const fileRefId of uniqueIds) {
     // A file the caller may not read answers like an unknown id, so ids cannot be probed.
@@ -107,5 +118,5 @@ export async function resolveOutboundAttachments(
       data: found.content,
     });
   }
-  return { isSuccess: true, attachments, fileIds: uniqueIds };
+  return { isSuccess: true, attachments: [...attachments, ...attachedBytes], fileIds: uniqueIds };
 }

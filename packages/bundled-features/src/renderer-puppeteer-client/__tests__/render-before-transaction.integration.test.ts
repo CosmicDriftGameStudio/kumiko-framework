@@ -56,6 +56,7 @@ const GENERATE_INVALID_ROW = `${FEATURE}:write:generate-invalid-row`;
 const GENERATE_BATCH = `${FEATURE}:write:generate-batch`;
 const GENERATE_BATCH_THEN_FAIL = `${FEATURE}:write:generate-batch-then-fail`;
 const PING = `${FEATURE}:write:ping`;
+const GENERATE_KEEPING_BYTES = `${FEATURE}:write:generate-keeping-bytes`;
 const POOL_MAX = 2;
 const CONCURRENT_RENDERS = 3;
 
@@ -136,6 +137,29 @@ const pdfFeature = defineFeature(FEATURE, (r) => {
       beforeTransaction: (event, ctx) =>
         renderPdfBeforeTransaction(ctx, renderArgs(event.payload.number)),
       handler: (event, ctx) => storeRenderedPdf(ctx, event.prepared),
+    }),
+  );
+  r.writeHandler(
+    defineWriteHandler({
+      name: "generate-keeping-bytes",
+      schema: z.object({ number: z.string() }),
+      access: { roles: ["TenantAdmin"] },
+      beforeTransaction: (event, ctx) =>
+        renderPdfBeforeTransaction(ctx, {
+          ...renderArgs(event.payload.number),
+          keepPdfBytes: true,
+        }),
+      handler: async (event, ctx) => {
+        const stored = await storeRenderedPdf(ctx, event.prepared);
+        if (!stored.isSuccess) return stored;
+        return {
+          isSuccess: true as const,
+          data: {
+            fileRefId: stored.data.fileRefId,
+            pdfBytesBase64: Buffer.from(event.prepared.pdfBytes ?? []).toString("base64"),
+          },
+        };
+      },
     }),
   );
   r.writeHandler(
@@ -300,6 +324,21 @@ describe("renderPdfBeforeTransaction", () => {
     );
     const rows = await selectMany(stack.db, renderedPdfsTable, { tenantId: admin.tenantId });
     expect(rows).toHaveLength(CONCURRENT_RENDERS);
+  });
+
+  test("keepPdfBytes hands the printed bytes to beforeTransaction's caller next to the stored file", async () => {
+    stubMode = "immediate";
+    const admin = tenantAdmin(9690);
+
+    const result = await stack.http.writeOk<{ fileRefId: string; pdfBytesBase64: string }>(
+      GENERATE_KEEPING_BYTES,
+      { number: "K-1" },
+      admin,
+    );
+
+    expect(result.pdfBytesBase64).toBe(Buffer.from(STUB_PDF).toString("base64"));
+    const refs = await selectMany(stack.db, fileRefsTable, { tenantId: admin.tenantId });
+    expect(refs.map((ref) => ref.id)).toContain(result.fileRefId);
   });
 
   test("a print service answering 503 yields puppeteer_unavailable and stores nothing", async () => {

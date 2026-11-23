@@ -7,6 +7,9 @@ const MAX_RECIPIENTS = 50;
 const MAX_REFERENCES = 100;
 const MAX_ATTACHMENTS = 10;
 
+/** Most attachments of one mail, stored files and attached bytes together. */
+export const OUTBOUND_ATTACHMENTS_MAX_COUNT = MAX_ATTACHMENTS;
+
 /** Raw bytes, not the encoded size: base64 grows them by a third, which stays under the usual 25 MB SMTP limit. */
 export const OUTBOUND_ATTACHMENTS_MAX_BYTES = 18 * 1024 * 1024;
 

@@ -16,6 +16,7 @@ import {
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  LETTER_APPROVAL_MODES,
   LETTER_ENTITY,
   LETTER_ENVELOPES,
   LETTER_FAILURE_REASONS,
@@ -61,6 +62,14 @@ export const letterEntity = createEntity({
       sortable: true,
       optionTones: STATE_TONES,
     }),
+    approvalMode: createSelectField({
+      options: LETTER_APPROVAL_MODES,
+      required: true,
+      default: "manual",
+      filterable: true,
+    }),
+    // Why a waiting letter cannot be approved: a LetterErrors code, empty when nothing is wrong.
+    preparationIssue: createTextField({ maxLength: 100, filterable: true, ...TECHNICAL }),
     idempotencyKey: createTextField({ required: true, maxLength: 200, ...TECHNICAL }),
 
     sourceEntityType: createTextField({

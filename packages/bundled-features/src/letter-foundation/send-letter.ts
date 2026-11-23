@@ -3,13 +3,13 @@ import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { unprocessable } from "../shared/index.ts";
-import { LETTER_STATE, LetterErrors, LetterI18n } from "./constants.ts";
+import { LETTER_STATE, LetterErrors, LetterI18n, LetterInternalHandlers } from "./constants.ts";
 import { letterExecutor } from "./entity.ts";
 import type { SendLetterInput } from "./payloads.ts";
 import { selectLetterProviderOrFailure } from "./provider-resolver.ts";
 import type { LetterEnvelope, LetterProviderCapabilities } from "./types.ts";
 
-export type SendLetterContext = Pick<HandlerContext, "db" | "user" | "registry">;
+export type SendLetterContext = Pick<HandlerContext, "db" | "user" | "registry" | "dispatch">;
 
 export type SendLetterResult = {
   readonly letterId: string;
@@ -48,8 +48,9 @@ function refusedByProvider(
 }
 
 /**
- * Creates a letter that waits for approval; nothing leaves the system before a person with the
- * approve right releases it. Runs in the caller's transaction, so the letter exists exactly when
+ * Creates a letter that waits for approval. It is released by a person with the approve right,
+ * or, with `approval: "auto"`, by the preparation job once the letter is prepared and the monthly
+ * limit covers it; nothing is handed over before one of the two. Runs in the caller's transaction, so the letter exists exactly when
  * the caller's own change commits. The same idempotency key returns the same letter.
  */
 export async function sendLetter(
@@ -72,6 +73,7 @@ export async function sendLetter(
   const created = await letterExecutor.create(
     {
       status: LETTER_STATE.awaitingApproval,
+      approvalMode: input.approval ?? "manual",
       idempotencyKey: input.idempotencyKey,
       sourceEntityType: input.source.entityType,
       sourceEntityId: input.source.entityId,
@@ -108,5 +110,8 @@ export async function sendLetter(
     }
     return created;
   }
-  return { isSuccess: true, data: { letterId: String(created.data.id), created: true } };
+  const letterId = String(created.data.id);
+  const announced = await ctx.dispatch.write(LetterInternalHandlers.announceCreated, { letterId });
+  if (!announced.isSuccess) return announced;
+  return { isSuccess: true, data: { letterId, created: true } };
 }

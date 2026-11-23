@@ -1,7 +1,7 @@
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { createContext, type ReactNode, useContext, useMemo } from "react";
+import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
 import { useUserRoles } from "../context/user-roles-context.tsx";
-import { requestLeave } from "../leave-guard.ts";
+import { leaveWithoutAsking, requestLeave } from "../leave-guard.ts";
 import { useAppFeatures } from "./app-features-context.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
 import {
@@ -120,11 +120,20 @@ function returnParamsFor(
   return { [RETURN_TO_PARAM]: formatReturnTo(host, nav.searchParams) };
 }
 
+// In memory, never in the URL: a link must not seed a form, and a loaded form ignores URL prefill.
+// `ready` is set by the jump back, so a later fresh visit of the host does not pick up stale input.
+let carriedInput:
+  | { readonly host: string; readonly values: Readonly<Record<string, unknown>>; ready: boolean }
+  | undefined;
+
+/** `carry`: the host form's current input. It comes back when the target jumps home via returnTo,
+ *  so leaving loses nothing and the "discard changes?" question is skipped. */
 export function navigateWithReturnTo(
   nav: NavApi,
   target: NavTarget,
   host: ReturnHost | undefined,
   params?: Readonly<Record<string, string | null>>,
+  carry?: Readonly<Record<string, unknown>>,
 ): void {
   // Snapshot before navigating — nav.searchParams still describes the host.
   const returnParams = returnParamsFor(nav, target, host);
@@ -132,13 +141,32 @@ export function navigateWithReturnTo(
     ...(params ?? {}),
     ...returnParams,
   };
-  // One question for navigate + params: asked separately, a declined leave would still merge the params into the host URL.
-  requestLeave(() => {
+  const go = (): void => {
+    if (carry !== undefined && host !== undefined) {
+      carriedInput = { host: formatReturnTo(host), values: carry, ready: false };
+    }
     nav.navigate(target);
     if (Object.keys(merged).length > 0) {
       nav.setSearchParams(merged);
     }
+  };
+  // One question for navigate + params: asked separately, a declined leave would still merge the params into the host URL.
+  if (carry !== undefined && host !== undefined) leaveWithoutAsking(go);
+  else requestLeave(go);
+}
+
+/** The input a host form carried away via navigateWithReturnTo, once the user is back on that host; read once per mount. */
+export function useCarriedReturnInput(
+  host: ReturnHost | undefined,
+): Readonly<Record<string, unknown>> | undefined {
+  const [values] = useState(() => {
+    if (host === undefined || carriedInput?.ready !== true) return undefined;
+    if (carriedInput.host !== formatReturnTo(host)) return undefined;
+    const taken = carriedInput.values;
+    carriedInput = undefined;
+    return taken;
   });
+  return values;
 }
 
 /** Jumps back to an already-validated returnTo target and restores the host
@@ -151,6 +179,7 @@ export function navigateToReturn(nav: NavApi, target: ScreenTarget): void {
   const returnTo = raw === undefined ? undefined : splitReturnTo(raw);
   const state = returnTo?.path === formatReturnTo(target) ? returnTo.state : NO_RETURN_STATE;
   requestLeave(() => {
+    if (carriedInput?.host === formatReturnTo(target)) carriedInput.ready = true;
     nav.navigate(target);
     // The explicit null drops this screen's own returnTo on nav impls whose
     // navigate keeps the query.
@@ -210,7 +239,13 @@ export function resolveReturnTarget(
     if (UNSAFE_ENTITY_ID_PATTERN.test(decodedEntityId) || decodedEntityId.includes("/")) {
       return undefined;
     }
-    if (matched.type !== "entityEdit" && matched.type !== "projectionDetail") return undefined;
+    if (
+      matched.type !== "entityEdit" &&
+      matched.type !== "projectionDetail" &&
+      matched.type !== "actionForm"
+    ) {
+      return undefined;
+    }
   }
   if (matched.type === "projectionDetail" && matched.singleton !== true && entityId === undefined) {
     return undefined;

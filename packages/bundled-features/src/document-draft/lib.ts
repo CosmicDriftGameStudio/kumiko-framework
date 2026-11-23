@@ -2,6 +2,7 @@ import {
   type AccessRule,
   access,
   type HandlerContext,
+  hasAccess,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -27,21 +28,35 @@ import {
 
 export const DEFAULT_DOCUMENT_DRAFT_ACCESS: AccessRule = { roles: access.tenantMembers };
 
+export type SubjectAccess = Readonly<Record<string, AccessRule>>;
+
+// A subject type without its own rule is governed by the feature-wide access only.
+export function subjectRoleAllows(
+  subjectAccess: SubjectAccess,
+  user: SessionUser,
+  subjectType: string,
+): boolean {
+  const rule = Object.hasOwn(subjectAccess, subjectType) ? subjectAccess[subjectType] : undefined;
+  return rule === undefined || hasAccess(user, rule);
+}
+
 export type DraftRow = NonNullable<Awaited<ReturnType<DocumentDraftExecutor["detail"]>>>;
 
 export function draftNotFound(id?: string) {
   return writeFailure(new NotFoundError(DOCUMENT_DRAFT_ENTITY, id));
 }
 
-// A draft of another tenant, an unknown id and a subject the user may not read all answer the same.
+// A draft of another tenant, an unknown id, a subject the user may not read and a subject type whose role rule they miss all answer the same.
 export async function loadScopedDraft(
   documentDraftExecutor: DocumentDraftExecutor,
   ctx: Pick<HandlerContext, "db" | "registry">,
   user: SessionUser,
   id: string,
+  subjectAccess: SubjectAccess,
 ): Promise<DraftRow | null> {
   const row = await documentDraftExecutor.detail({ id }, user, ctx.db);
   if (row === null) return null;
+  if (!subjectRoleAllows(subjectAccess, user, String(row.subjectType))) return null;
   const subjectIsVisible = await joinRowParentIsVisible(
     ctx.registry,
     DOCUMENT_DRAFT_ENTITY,
@@ -61,6 +76,14 @@ export function notInStatus(expected: DocumentDraftStatus) {
         i18nKey: open ? "documentDraft.errors.notOpen" : "documentDraft.errors.notFinalized",
       },
     ),
+  );
+}
+
+export function notFinalizable() {
+  return writeFailure(
+    new UnprocessableError(DOCUMENT_DRAFT_ERROR.NotFinalizable, {
+      i18nKey: "documentDraft.errors.notFinalizable",
+    }),
   );
 }
 

@@ -1527,6 +1527,7 @@ type ProjectionListScreenDefinition = {
   facets?: ListFacetSpec[]; // User-toggleable facet dropdowns — see `ListFacetSpec` doc.
   namedFilters?: NamedListFilterRef[]; // Named work-queue rules the bound query understands: its Zod schema must have a `namedFilter` key (boot-checked) and is sent the selected id in every list and count query.
   namedFilterFacet?: NamedFilterFacetOptions; // Presentation of `namedFilters` in the toolbar; needs `namedFilters`.
+  defaultNamedFilter?: string; // Id from `namedFilters` that is active while the URL names none, so the list opens filtered and its chip shows as selected.
   slots?: ScreenSlots;
   access?: AccessRule;
 };
