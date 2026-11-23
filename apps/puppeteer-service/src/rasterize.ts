@@ -186,9 +186,18 @@ async function readPngs(
   return result;
 }
 
+// Same rule as the framework's upload sniffing: poppler, like Acrobat, opens PDFs whose header
+// starts anywhere in the first 1024 bytes.
+const PDF_HEADER_SEARCH_BYTES = 1024;
+
+export function hasPdfHeader(pdfBytes: Uint8Array): boolean {
+  const window = pdfBytes.subarray(0, PDF_HEADER_SEARCH_BYTES + PDF_MAGIC.length - 1);
+  return new TextDecoder("latin1").decode(window).includes(PDF_MAGIC);
+}
+
 export async function rasterize(options: RasterizeOptions): Promise<RasterizeResult> {
   const { pdfBytes, maxPages, dpi, images, timeoutMs } = options;
-  if (new TextDecoder().decode(pdfBytes.subarray(0, PDF_MAGIC.length)) !== PDF_MAGIC) {
+  if (!hasPdfHeader(pdfBytes)) {
     throw new InvalidPdfError("not a PDF");
   }
   const deadline = Date.now() + timeoutMs;

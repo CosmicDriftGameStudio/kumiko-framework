@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   exceedsImageBudget,
+  hasPdfHeader,
   InvalidPdfError,
   listedImagesWithinBudget,
   MAX_LISTED_IMAGES,
@@ -120,5 +121,19 @@ describe("listedImagesWithinBudget", () => {
         stderr: "",
       }),
     ).toBe(false);
+  });
+});
+
+describe("hasPdfHeader", () => {
+  const withPrefix = (prefixLength: number): Uint8Array => {
+    const bytes = new Uint8Array(prefixLength + 8).fill(0x20);
+    bytes.set(new TextEncoder().encode("%PDF-1.4"), prefixLength);
+    return bytes;
+  };
+
+  test("accepts a header within the first 1024 bytes and rejects one after", () => {
+    expect(hasPdfHeader(withPrefix(0))).toBe(true);
+    expect(hasPdfHeader(withPrefix(1023))).toBe(true);
+    expect(hasPdfHeader(withPrefix(1024))).toBe(false);
   });
 });

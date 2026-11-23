@@ -162,9 +162,11 @@ export function resolveContentType(args: {
   const declared = args.declared ?? "";
   if (!GENERIC_MIME_TYPES.has(normalizeMimeType(declared))) return declared;
 
+  // XML first: no binary signature starts with "<", while an XML prolog may quote "%PDF-",
+  // which sniffs as PDF anywhere in the first 1024 bytes.
+  if (looksLikeXml(args.bytes)) return "application/xml";
   const sniffed = sniffMimeType(args.bytes);
   if (sniffed !== null && UNAMBIGUOUS_SNIFFED_TYPES.has(sniffed)) return sniffed;
-  if (looksLikeXml(args.bytes)) return "application/xml";
 
   const fromExtension = EXTENSION_FALLBACK[extensionOf(args.filename ?? "")];
   if (fromExtension !== undefined) return fromExtension;

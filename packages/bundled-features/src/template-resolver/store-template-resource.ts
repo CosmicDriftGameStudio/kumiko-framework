@@ -17,6 +17,7 @@ import {
 import {
   type CreateFileRefInput,
   createFileRefFromUploadedBytes,
+  sniffMimeType,
   type UploadedFileBytes,
   uploadFileBytesBeforeTransaction,
 } from "@cosmicdrift/kumiko-framework/files";
@@ -449,18 +450,15 @@ export async function storePreparedTemplateResource(args: {
   };
 }
 
-const PDF_MAGIC = [0x25, 0x50, 0x44, 0x46, 0x2d] as const;
-const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] as const;
-const JPEG_MAGIC = [0xff, 0xd8, 0xff] as const;
-
 const ATTACHMENT_TYPES = [
-  { contentType: "application/pdf", extension: "pdf", magic: PDF_MAGIC },
-  { contentType: "image/png", extension: "png", magic: PNG_MAGIC },
-  { contentType: "image/jpeg", extension: "jpg", magic: JPEG_MAGIC },
+  { contentType: "application/pdf", extension: "pdf" },
+  { contentType: "image/png", extension: "png" },
+  { contentType: "image/jpeg", extension: "jpg" },
 ] as const;
 
 function detectAttachmentType(bytes: Uint8Array) {
-  return ATTACHMENT_TYPES.find(({ magic }) => magic.every((byte, index) => bytes[index] === byte));
+  const sniffed = sniffMimeType(bytes);
+  return ATTACHMENT_TYPES.find(({ contentType }) => contentType === sniffed);
 }
 
 export type StoredTemplateAttachment = {
