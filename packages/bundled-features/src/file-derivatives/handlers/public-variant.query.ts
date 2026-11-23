@@ -8,6 +8,7 @@
 // registration, or a predicate that returns false, both answer `null` —
 // the httpRoute wrapper in feature.ts turns that into a 404, same as a
 // FileRef that doesn't exist (no existence-leak via distinct status codes).
+// Without a matching renderer the route also answers null/404 instead of a render error.
 //
 // tenantId comes from `query.user.tenantId` ONLY (host-resolved by the
 // httpRoute wrapper's `resolveApexTenant`), never from the payload — true
@@ -24,7 +25,7 @@
 
 import { computeRevisionEtag, etagMatches } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
-import { resolveFieldVariant } from "@cosmicdrift/kumiko-framework/derivatives";
+import { resolveFieldVariant, resolveRenderer } from "@cosmicdrift/kumiko-framework/derivatives";
 import {
   defineQueryHandler,
   EXT_DERIVATIVE_PUBLIC_PREDICATE,
@@ -39,6 +40,7 @@ type FileRefRow = {
   readonly entityType: string | null;
   readonly entityId: string | null;
   readonly fieldName: string | null;
+  readonly mimeType: string;
 };
 
 // Declared variants are implicitly public once the entityType check passes — `fieldName`/`variant` allow per-variant opt-out.
@@ -125,6 +127,7 @@ export const publicVariantQuery = defineQueryHandler({
     if (!row) return null;
     const { entityType, entityId, fieldName } = row;
     if (entityType === null || entityId === null || fieldName === null) return null;
+    if (!resolveRenderer(ctx.registry, row.mimeType)) return null;
 
     const usage = ctx.registry
       .getExtensionUsages(EXT_DERIVATIVE_PUBLIC_PREDICATE)

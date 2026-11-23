@@ -40,7 +40,7 @@ The form has three sections:
 
 - **Server sign-in**: IMAP host, port 993, user and password.
 - **Sending**: SMTP host and port, so replies leave from the same address with the same login. The form suggests 587 with STARTTLS, even when the provider lists 465/SSL.
-- **Sender check**: the authserv-id of your own mail server (see below). Leave it empty if you do not know it.
+- **Sender check**: the authserv-id of your own mail server (see below). Fill it in only if that server adds an Authentication-Results header to every incoming mail; leave it empty otherwise.
 
 "Check and connect" signs in before saving. Connecting is rate limited to 10 attempts per tenant in 10 minutes.
 
@@ -62,6 +62,8 @@ Every mail produces exactly one `inbound-message-received` event (`INBOUND_MESSA
 | `senderAuthentication` | SPF, DKIM and DMARC as your own mail server reported them, or `null` |
 
 Attachments outlive the mail: apps turn them into documents, so the retention sweep never deletes them.
+
+The HTML body is sanitized within a budget: HTML nested deeper than 1,000 levels or with more than 250,000 tags gets no `bodyHtml`, and neither does HTML over 500,000 bytes after sanitizing; the text and the original stay. An IMAP mail without a text part takes its text from the sanitized HTML, also inside `multipart/related` or `multipart/mixed`. In a `multipart/mixed` mail with an HTML part and a text part, the text covers both. Past 250,000 tags only the HTML before the 250,000th tag becomes text. The text stays empty when the HTML is nested past the limit or when the quote and list depth times the HTML length exceeds 5,000,000 characters.
 
 When the provider delivered only a snippet (file storage was down, for example), the mail is imported anyway. A background pass fetches the content later and appends `inbound-message-content-fetched` on the same aggregate. The query `message:content` returns the current body and attachments for one mail.
 
@@ -96,7 +98,7 @@ The account's `lastError` names the current problem: `connection_failed`, `rate_
 
 ### Sender authentication
 
-A mail can claim any `From` address. To tell a real customer from a forgery, the mailbox reads the `Authentication-Results` header its own mail server added. Only the topmost header whose authserv-id equals the mailbox's `trustedAuthservId` counts; everything below it may come from the sender. Without a trusted id, without a matching header, or when the header was evaluated for another domain than the `From` domain, `senderAuthentication` is `null`.
+A mail can claim any `From` address. To tell a real customer from a forgery, the mailbox reads the `Authentication-Results` header its own mail server added. Only the topmost `Authentication-Results` header is read, and only when its authserv-id equals the mailbox's `trustedAuthservId`; every header below it may come from the sender. Set the id only for a server that stamps every incoming mail: if it lets a mail through without its own header, the sender's forged header becomes the topmost one and counts as checked. Without a trusted id, without a matching header, or when the header was evaluated for another domain than the `From` domain, `senderAuthentication` is `null`.
 
 ```ts illustration
 import { isSenderAuthenticated } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";

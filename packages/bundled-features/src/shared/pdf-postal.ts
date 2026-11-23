@@ -1,4 +1,5 @@
 import { PDFDocument } from "pdf-lib";
+import { loadPdfWithinDecodeBudget } from "./pdf-load.ts";
 
 const A4_WIDTH_PT = 595.276;
 const A4_HEIGHT_PT = 841.89;
@@ -41,8 +42,8 @@ export async function appendPdfPages(
   original: Uint8Array,
   appendix: Uint8Array,
 ): Promise<Uint8Array> {
-  const merged = await PDFDocument.load(original);
-  const extra = await PDFDocument.load(appendix);
+  const merged = await loadPdfWithinDecodeBudget(original);
+  const extra = await loadPdfWithinDecodeBudget(appendix);
   const pages = await merged.copyPages(extra, extra.getPageIndices());
   for (const page of pages) merged.addPage(page);
   return merged.save();
@@ -67,7 +68,7 @@ export async function mergePdfs(
   const merged = await PDFDocument.create();
   let totalPages = 0;
   for (const [index, buffer] of buffers.entries()) {
-    const source = await PDFDocument.load(buffer);
+    const source = await loadPdfWithinDecodeBudget(buffer);
     const sourcePages = source.getPageCount();
     const needsFiller =
       options.startEachFileOnNewSheet === true &&
@@ -100,7 +101,7 @@ export async function checkPostalPdf(
   }
   let doc: PDFDocument;
   try {
-    doc = await PDFDocument.load(bytes, { updateMetadata: false });
+    doc = await loadPdfWithinDecodeBudget(bytes, { updateMetadata: false });
   } catch {
     return reject("unreadable", null, "the file is not a readable, unencrypted PDF");
   }

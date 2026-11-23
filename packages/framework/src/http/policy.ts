@@ -141,18 +141,47 @@ function matchesPrefix(groups: readonly number[], prefix: readonly number[]): bo
 
 const BLOCKED_V6_EXACT = new Set(["::1", "::"]); // loopback / unspecified
 
-// All three ranges expressed on the first 16-bit group ("head"), so they
-// share one table instead of three near-identical `if`s:
-//   fc00::/7   unique-local           -> head 0xfc00-0xfdff
-//   fe80::/10  link-local             -> head 0xfe80-0xfebf
-//   fec0::/10  deprecated site-local (RFC 3879, 2004) — no DNS server hands
-//              this out today, but this is an exported security boundary,
-//              so block it rather than lean on the deprecation.
-const BLOCKED_V6_HEAD_RANGES: readonly (readonly [number, number])[] = [
-  [0xfc00, 0xfdff],
-  [0xfe80, 0xfebf],
-  [0xfec0, 0xfeff],
+// Each entry: [min, max] per leading 16-bit group of the expanded address; groups past the entry are free.
+const BLOCKED_V6_PREFIX_RANGES: readonly (readonly (readonly [number, number])[])[] = [
+  [
+    [0x0100, 0x0100],
+    [0, 0],
+    [0, 0],
+    [0, 0],
+  ], // 100::/64 discard-only (RFC 6666)
+  // 2001::/32 Teredo (RFC 4380): the embedded v4 is obfuscated and belongs to the relay's NAT, so the whole /32 is refused instead of decoded.
+  [
+    [0x2001, 0x2001],
+    [0x0000, 0x0000],
+  ],
+  [
+    [0x2001, 0x2001],
+    [0x0002, 0x0002],
+    [0x0000, 0x0000],
+  ], // 2001:2::/48 benchmarking (RFC 5180)
+  // 2001:db8::/32 documentation (RFC 3849); blocked although the IPv4 TEST-NETs stay open, because 203.0.113.0/24 is the public fixture of the egress tests.
+  [
+    [0x2001, 0x2001],
+    [0x0db8, 0x0db8],
+  ],
+  [
+    [0x3fff, 0x3fff],
+    [0x0000, 0x0fff],
+  ], // 3fff::/20 documentation (RFC 9637)
+  [[0xfc00, 0xfdff]], // fc00::/7 unique-local
+  [[0xfe80, 0xfebf]], // fe80::/10 link-local
+  // fec0::/10 deprecated site-local (RFC 3879, 2004): no DNS server hands this out today,
+  // but this is an exported security boundary, so block it rather than lean on the deprecation.
+  [[0xfec0, 0xfeff]],
+  [[0xff00, 0xffff]], // ff00::/8 multicast
 ];
+
+function matchesGroupRanges(
+  groups: readonly number[],
+  ranges: readonly (readonly [number, number])[],
+): boolean {
+  return ranges.every((range, index) => inRange(groups[index] ?? 0, range));
+}
 
 function isBlockedV6(ip: string): boolean {
   const lower = canonicalIPv6(ip.toLowerCase());
@@ -161,8 +190,7 @@ function isBlockedV6(ip: string): boolean {
   if (!groups) return true; // not well-formed IPv6 -> fail closed
   const embedded = EMBEDDED_V4_FORMS.find((form) => matchesPrefix(groups, form.prefix));
   if (embedded) return isBlockedV4(decodeEmbeddedV4(groups, embedded.at));
-  const head = groups[0] ?? 0;
-  return BLOCKED_V6_HEAD_RANGES.some((range) => inRange(head, range));
+  return BLOCKED_V6_PREFIX_RANGES.some((ranges) => matchesGroupRanges(groups, ranges));
 }
 
 function stripBrackets(host: string): string {

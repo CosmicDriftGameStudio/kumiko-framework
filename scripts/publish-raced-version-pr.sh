@@ -71,7 +71,7 @@ fi
 
 (
   cd "$worktree_dir" || exit 1
-  bun install --frozen-lockfile
+  bun install --frozen-lockfile --ignore-scripts
   bash scripts/publish-with-oidc.sh
 )
 publish_status=$?

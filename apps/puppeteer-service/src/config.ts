@@ -29,8 +29,10 @@ export type ServiceConfig = {
   readonly puppeteerExecutablePath: string | undefined;
 };
 
+export const AUTH_TOKEN_ENV_VAR = "PUPPETEER_AUTH_TOKEN";
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServiceConfig {
-  const authToken = env["PUPPETEER_AUTH_TOKEN"];
+  const authToken = env[AUTH_TOKEN_ENV_VAR];
   if (!authToken || authToken.length < 16) {
     throw new Error(
       "PUPPETEER_AUTH_TOKEN missing or too short (need >=16 chars). Set via K8s Secret.",

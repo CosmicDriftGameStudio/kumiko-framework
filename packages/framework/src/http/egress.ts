@@ -45,10 +45,28 @@ async function runEgress(
   // ranges above. The caller sees the 3xx response itself and, to follow it,
   // is expected to call `egress()` again with the Location header — which
   // re-runs this same resolve-and-pin check against the new host.
-  const resolved = await resolvePublicHost(url);
+  // The caller's signal also covers the name resolution.
+  const signal = init?.signal ?? undefined;
+  signal?.throwIfAborted();
+  const resolved = await untilAborted(resolvePublicHost(url), signal);
   const pinned = buildPinnedRequest(url, resolved, init);
   const res = await fetch(pinned.url, withManualRedirect(pinned.init));
   return withOriginalUrl(res, url);
+}
+
+// node:dns/promises lookup takes no AbortSignal: getaddrinfo keeps running in the threadpool, only the awaiting caller is released.
+// Rejects with signal.reason, the same TimeoutError/AbortError fetch throws, so callers classify an aborted lookup like an aborted fetch.
+export function untilAborted<T>(pending: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (signal === undefined) return pending;
+  if (signal.aborted) {
+    pending.catch(() => undefined);
+    return Promise.reject(signal.reason);
+  }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+    signal.addEventListener("abort", onAbort, { once: true });
+    pending.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
+  });
 }
 
 // fetch() reports `res.url` as the address it actually connected to — the

@@ -68,6 +68,9 @@ const widgetEntity = createEntity({
   table: "public_variant_widgets",
   fields: {
     img: createImageField({
+      // Explicit accept: the svg test below uploads a non-raster source, which the default
+      // image accept would reject.
+      accept: ["jpg", "jpeg", "png", "webp", "svg"],
       variants: {
         thumb: { maxEdge: 160, format: "webp" },
         full: { maxEdge: 4096, format: "webp" },
@@ -79,6 +82,11 @@ const widgetEntity = createEntity({
       },
     }),
     plain: createImageField(),
+    // Accepts pdf so a source without a matching renderer can be stored on a field with variants.
+    doc: createImageField({
+      accept: ["pdf"],
+      variants: { thumb: { maxEdge: 160, format: "webp" } },
+    }),
   },
 });
 
@@ -191,6 +199,7 @@ async function uploadFile(
   attach: { entityType: string; entityId: string },
   fieldName = "img",
   mimeType = "image/jpeg",
+  bytes?: Uint8Array,
 ): Promise<string> {
   const token = await stack.jwt.sign(asUser);
   const fd = new FormData();
@@ -201,7 +210,10 @@ async function uploadFile(
   // Real JPEG magic bytes so validateFileContent doesn't 400 the default
   // image/jpeg uploads; svg has no signature so this covers both cases.
   const jpegBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...Array(10).fill(0)]);
-  fd.append("file", new File([Buffer.from(jpegBytes)], `img.${extension}`, { type: mimeType }));
+  fd.append(
+    "file",
+    new File([Buffer.from(bytes ?? jpegBytes)], `img.${extension}`, { type: mimeType }),
+  );
   fd.append("entityType", attach.entityType);
   fd.append("entityId", attach.entityId);
   fd.append("fieldName", fieldName);
@@ -377,6 +389,22 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
     expect(renderCalls).toBe(0);
   });
 
+  test("a source type with no registered renderer → 404 instead of a render error, no render and no predicate call", async () => {
+    const fileId = await uploadFile(
+      userA,
+      { entityType: "widget", entityId: publicWidgetId },
+      "doc",
+      "application/pdf",
+      new TextEncoder().encode("%PDF-1.4 minimal"),
+    );
+
+    const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/thumb`);
+
+    expect(res.status).toBe(404);
+    expect(renderCalls).toBe(0);
+    expect(predicateCalls).toBe(0);
+  });
+
   test("unknown fileRefId → 404", async () => {
     // Valid UUID shape (the id column's type) but no matching row.
     const res = await stack.app.request(
@@ -414,7 +442,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   });
 
   // The "raw" variant has no `format`, so its mimeType comes from
-  // outputMimeType's fallback branch. `img` has no `accept`, so the source
+  // outputMimeType's fallback branch. `img` explicitly accepts svg, so the source
   // mimeType is exactly the client-controlled `file.type` from the upload —
   // this proves the anonymous route no longer echoes it verbatim.
   test("a variant with no spec.format never echoes a non-safe, client-controlled source mimeType", async () => {

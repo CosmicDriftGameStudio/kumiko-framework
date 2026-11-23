@@ -32,6 +32,7 @@ import {
   WRITE_FORM_SECTION_ENTITY,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type AnyFileFieldDef, SELECT_OPTION_TONES } from "@cosmicdrift/kumiko-types/fields";
+import { effectiveFileFieldAccept } from "@cosmicdrift/kumiko-types/file-field-accept";
 import { isOneOf, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { buildEmbeddedListCell } from "./embedded-list-cells.ts";
 import { resolveFieldText } from "./field-text.ts";
@@ -649,9 +650,10 @@ function deriveFileFieldHints(
   const isList = fieldDef.type === "files" || fieldDef.type === "images";
   const maxCount = isList ? fieldDef.maxCount : undefined;
   const fileDisplay = isList ? fieldDef.display : undefined;
+  const accept = effectiveFileFieldAccept(fieldDef);
   return {
     ...(fileDisplay !== undefined && { fileDisplay }),
-    ...(fieldDef.accept !== undefined && { accept: fieldDef.accept }),
+    ...(accept !== undefined && { accept }),
     ...(fieldDef.maxSize !== undefined && { maxSize: fieldDef.maxSize }),
     ...(maxCount !== undefined && { maxCount }),
     ...(actionFormScreenQn !== undefined

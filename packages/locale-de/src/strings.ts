@@ -2454,7 +2454,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.senderCheck": "Absenderprüfung",
   "inboundMail.accounts.senderCheck.submit": "Speichern",
   "inboundMail.accounts.senderCheckHint":
-    "Kennung des Mailservers aus dem Header Authentication-Results, z. B. mx.example.com. Nur damit wird geprüft, ob ein Absender echt ist. Leer lassen, wenn unbekannt.",
+    "Kennung des eigenen Mailservers aus dem Header Authentication-Results, z. B. mx.example.com. Nur eintragen, wenn dieser Server den Header in jede eingehende Mail schreibt, sonst kann ein Absender ihn fälschen. Nur damit wird geprüft, ob ein Absender echt ist. Leer lassen, wenn unbekannt.",
   "inbound-mail-foundation:entity:__action-form__:field:trustedAuthservId":
     "Kennung des Mailservers",
   "inboundMail.accounts.disconnect": "Trennen",
@@ -2501,7 +2501,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "inbound-provider-imap:entity:__action-form__:field:trustedAuthservId": "Kennung des Mailservers",
   "inboundMail.imap.connect.senderCheck": "Absenderprüfung",
   "inboundMail.imap.connect.senderCheckHint":
-    "Kennung des Mailservers aus dem Header Authentication-Results, z. B. mx.example.com. Nur damit wird geprüft, ob ein Absender echt ist. Leer lassen, wenn unbekannt.",
+    "Kennung des eigenen Mailservers aus dem Header Authentication-Results, z. B. mx.example.com. Nur eintragen, wenn dieser Server den Header in jede eingehende Mail schreibt, sonst kann ein Absender ihn fälschen. Nur damit wird geprüft, ob ein Absender echt ist. Leer lassen, wenn unbekannt.",
   "inboundMail.imap.connect.errors.smtpHostUnreachable":
     "Empfang ok, Senden geht nicht: Der Postausgangsserver ist nicht erreichbar oder nicht erlaubt. Prüfe seinen Namen.",
   "inboundMail.imap.connect.errors.smtpLoginRejected":

@@ -206,6 +206,10 @@
       "types": "./src/fields.ts",
       "default": "./src/fields.ts"
     },
+    "./file-field-accept": {
+      "types": "./src/file-field-accept.ts",
+      "default": "./src/file-field-accept.ts"
+    },
     "./handler-contract": {
       "types": "./src/handler-contract.ts",
       "default": "./src/handler-contract.ts"
@@ -524,6 +528,10 @@
       "./fields": {
         "types": "./dist/fields.d.ts",
         "default": "./dist/fields.js"
+      },
+      "./file-field-accept": {
+        "types": "./dist/file-field-accept.d.ts",
+        "default": "./dist/file-field-accept.js"
       },
       "./handler-contract": {
         "types": "./dist/handler-contract.d.ts",

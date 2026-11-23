@@ -209,10 +209,13 @@ export async function rebindFileRef(
   if (isOwnedBy(fileRef, to)) return "rebound";
   if (!isOwnedBy(fileRef, from)) return "moved";
 
+  // Only an explicit accept: the stored row predates the image default, and a purge or erasure
+  // run must still be able to hand a shared file to the surviving record.
   assertRowFitsBindTarget(
     ctx.registry,
     { entityName: to.entityType, fieldName: to.fieldName },
     fileRef,
+    (fieldDef) => fieldDef.accept,
   );
   if (callerCheck === undefined) {
     await assertTargetRecordExists(ctx, to);

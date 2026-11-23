@@ -158,6 +158,7 @@ export {
   quarantineEntity,
   quarantineTable,
 } from "./quarantine-entities.ts";
+export { inboundHtmlToText } from "./sanitize-inbound-html.ts";
 export {
   IMAP_CONNECT_SCREEN_ID,
   IMAP_RECONNECT_SCREEN_ID,

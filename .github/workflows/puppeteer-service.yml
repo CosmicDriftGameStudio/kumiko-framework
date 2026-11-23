@@ -1,6 +1,7 @@
 # Self-contained on purpose: infra's reusable docker-build workflow lives in a
 # private repo and a public repo cannot call it. Builds the arm64 image for the
 # Hetzner target; `latest` is only tagged on main, PRs push sha tags only.
+# The weekly no-cache run pulls in Chromium and poppler patches; sha tags are mutable, infra pins by digest.
 name: puppeteer-service
 
 on:
@@ -9,6 +10,9 @@ on:
     paths:
       - "apps/puppeteer-service/**"
       - ".github/workflows/puppeteer-service.yml"
+  schedule:
+    - cron: "41 4 * * 1"
+  workflow_dispatch: {}
   pull_request:
     branches: [main]
     paths:
@@ -24,7 +28,7 @@ concurrency:
 jobs:
   build:
     # Fork PRs get a read-only token and cannot push to ghcr.io.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-26.04-arm
     timeout-minutes: 30
     permissions:
@@ -61,5 +65,6 @@ jobs:
           platforms: linux/arm64,linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          no-cache: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -2426,7 +2426,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.senderCheck": "Verificación del remitente",
   "inboundMail.accounts.senderCheck.submit": "Guardar",
   "inboundMail.accounts.senderCheckHint":
-    "Identificador del servidor de correo del encabezado Authentication-Results, por ejemplo mx.example.com. Solo con él se comprueba si un remitente es auténtico. Dejar vacío si se desconoce.",
+    "Identificador del servidor de correo propio del encabezado Authentication-Results, por ejemplo mx.example.com. Introducirlo solo si ese servidor añade el encabezado a todo correo entrante, de lo contrario un remitente puede falsificarlo. Solo con él se comprueba si un remitente es auténtico. Dejar vacío si se desconoce.",
   "inbound-mail-foundation:entity:__action-form__:field:trustedAuthservId":
     "Identificador del servidor de correo",
   "inboundMail.accounts.disconnect": "Desconectar",
@@ -2473,7 +2473,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Identificador del servidor de correo",
   "inboundMail.imap.connect.senderCheck": "Verificación del remitente",
   "inboundMail.imap.connect.senderCheckHint":
-    "Identificador del servidor de correo del encabezado Authentication-Results, por ejemplo mx.example.com. Solo con él se comprueba si un remitente es auténtico. Dejar vacío si se desconoce.",
+    "Identificador del servidor de correo propio del encabezado Authentication-Results, por ejemplo mx.example.com. Introducirlo solo si ese servidor añade el encabezado a todo correo entrante, de lo contrario un remitente puede falsificarlo. Solo con él se comprueba si un remitente es auténtico. Dejar vacío si se desconoce.",
   "inboundMail.imap.connect.errors.smtpHostUnreachable":
     "La recepción funciona, pero el envío no: no se puede acceder al servidor de salida o no está permitido. Revisa su nombre.",
   "inboundMail.imap.connect.errors.smtpLoginRejected":

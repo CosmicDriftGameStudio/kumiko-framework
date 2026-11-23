@@ -34,6 +34,9 @@ const photoEntity = createEntity({
   table: "variant_route_photos",
   fields: {
     avatar: createImageField({
+      // Explicit accept so the tests below can upload non-raster sources (pdf, svg), which the
+      // default image accept would reject.
+      accept: ["jpg", "jpeg", "png", "webp", "pdf", "svg"],
       variants: {
         thumb: { maxEdge: 100, format: "webp" },
         // No format — resize-without-reformat, the legitimate reason
@@ -200,9 +203,8 @@ describe("GET /api/files/:id/variant/:name", () => {
     expect(res.status).toBe(401);
   });
 
-  // createImageField has no `accept` restriction here, so validateFile
-  // never rejects a non-image upload against this field — the source
-  // mimeType a renderer has to handle is client-controlled, not just a
+  // `avatar` explicitly accepts pdf, so validateFile never rejects a non-image upload against
+  // this field: the source mimeType a renderer has to handle is client-controlled, not just a
   // deployment-time mount decision.
   test("a source mimeType with no matching renderer (client uploaded a non-image) returns 415, not a 500", async () => {
     const token = await stack.jwt.sign(user);
@@ -233,7 +235,7 @@ describe("GET /api/files/:id/variant/:name", () => {
   });
 
   // The "raw" variant has no `format`, so its mimeType comes from
-  // outputMimeType's fallback branch. `avatar` has no `accept`, so the
+  // outputMimeType's fallback branch. `avatar` explicitly accepts svg, so the
   // source mimeType is exactly the client-controlled `file.type` from the
   // upload — this proves the route no longer echoes it verbatim.
   test("a variant with no spec.format never echoes a non-safe, client-controlled source mimeType", async () => {

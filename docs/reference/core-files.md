@@ -48,7 +48,9 @@ This means:
    (`packages/framework/src/derivatives/field-variants.ts`) looks up the
    requested name in the field's `variants` map via `Object.hasOwn`, so a
    variant name like `__proto__` is rejected as an unknown name rather than
-   resolving through the prototype chain.
+   resolving through the prototype chain. An image field without `accept` takes only
+   jpg, jpeg, png, gif, webp, avif, heic and heif; SVG or other formats need an explicit
+   `accept`, and `accept: []` allows every file.
 2. **Imperative — `ctx.services.derivatives.variant(fileRefId, spec, name)`.** For apps
    that track images as their own records rather than as a single field value
    — ordering, a chosen cover image, or region-blur where the blur

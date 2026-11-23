@@ -1,6 +1,6 @@
 // Chromium-free proof that render.ts registers the SSRF egress interception
 // (enterprise#277/2). The full abort-against-local-server path stays in
-// render.integration.test.ts (skipped in CI — Chromium won't launch).
+// render.integration.test.ts (needs Chromium, runs in the integration lane).
 
 import { describe, expect, test } from "bun:test";
 import { attachEgressRequestGuard } from "../render";

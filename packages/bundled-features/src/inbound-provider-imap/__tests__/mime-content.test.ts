@@ -26,6 +26,8 @@ describe("parsed fixtures", () => {
     const { message } = await parseFixture("html-only.eml");
 
     expect(message.html).toContain("<h1>Hello</h1>");
+    expect(message.text).toBe("HELLO\n\nOnly an HTML part, no text alternative.");
+    expect(message.snippet).toBe("HELLO\n\nOnly an HTML part, no text alternative.");
     expect(message.attachments).toEqual([]);
   });
 
@@ -49,6 +51,97 @@ describe("parsed fixtures", () => {
 
     expect(message.attachments?.map((a) => a.fileName)).toEqual(["contract.pdf"]);
     expect(message.skippedAttachments ?? []).toEqual([]);
+  });
+
+  test("cid images stay links in the HTML and a related HTML part without a text part gives the text", async () => {
+    const { message } = await parseFixture("inline-logo-and-apple-pdf.eml");
+
+    expect(message.html).toContain('src="cid:logo@fixture.test"');
+    expect(message.html).not.toContain("data:");
+    expect(message.text).toBe("Contract below.");
+  });
+
+  test("HTML nested past the limit keeps the mail with empty text", async () => {
+    const mail = [
+      "From: Alice <alice@example.com>\r\n",
+      "Subject: Deep\r\n",
+      "Message-ID: <deep@fixture.test>\r\n",
+      "MIME-Version: 1.0\r\n",
+      "Content-Type: text/html; charset=utf-8\r\n",
+      "\r\n",
+      "<p><li>".repeat(1001) + "</x>".repeat(1000),
+    ].join("");
+
+    const result = await parseOrReject({
+      source: new TextEncoder().encode(mail),
+      uid: 3,
+      uidValidity: "7",
+      internalDate: undefined,
+    });
+
+    if (!("message" in result)) throw new Error("rejected");
+    expect(result.message.html).toContain("<p><li>");
+    expect(result.message.text).toBe("");
+    expect(result.message.snippet).toBe("");
+  });
+
+  describe("text of mails with an HTML part", () => {
+    const header = (contentType: string) =>
+      `From: Alice <alice@example.com>\r\nSubject: S\r\nMessage-ID: <t@fixture.test>\r\nMIME-Version: 1.0\r\nContent-Type: ${contentType}\r\n\r\n`;
+    const multipart = (kind: string, parts: ReadonlyArray<readonly [string, string]>) =>
+      `${header(`multipart/${kind}; boundary="B"`)}${parts
+        .map(([type, body]) => `--B\r\nContent-Type: ${type}; charset=utf-8\r\n\r\n${body}\r\n`)
+        .join("")}--B--\r\n`;
+    const textOf = async (mail: string) => {
+      const result = await parseOrReject({
+        source: new TextEncoder().encode(mail),
+        uid: 4,
+        uidValidity: "7",
+        internalDate: undefined,
+      });
+      if (!("message" in result)) throw new Error("rejected");
+      return result.message;
+    };
+
+    test("an HTML-only mail gets its text from the HTML", async () => {
+      const message = await textOf(
+        `${header("text/html; charset=utf-8")}<html><body><h1>Hello</h1><p>Only HTML.</p></body></html>`,
+      );
+      expect(message.text).toBe("HELLO\n\nOnly HTML.");
+    });
+
+    test("mixed with an HTML part and a text footer keeps the HTML content in the text", async () => {
+      const message = await textOf(
+        multipart("mixed", [
+          ["text/html", "<p>The actual message of the list post.</p>"],
+          ["text/plain", "____\r\nlist footer"],
+        ]),
+      );
+      expect(message.text).toContain("The actual message of the list post.");
+      expect(message.text).toContain("list footer");
+      expect(message.snippet).toContain("The actual message of the list post.");
+    });
+
+    test("mixed with a text part and an HTML part contains both", async () => {
+      const message = await textOf(
+        multipart("mixed", [
+          ["text/plain", "Intro text part."],
+          ["text/html", "<p>HTML part with the details.</p>"],
+        ]),
+      );
+      expect(message.text).toContain("Intro text part.");
+      expect(message.text).toContain("HTML part with the details.");
+    });
+
+    test("alternative keeps only the text part as text", async () => {
+      const message = await textOf(
+        multipart("alternative", [
+          ["text/plain", "plain"],
+          ["text/html", "<p>html</p>"],
+        ]),
+      );
+      expect(message.text).toBe("plain");
+    });
   });
 
   test("a forwarded .eml contributes its text and its PDF", async () => {

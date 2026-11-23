@@ -179,7 +179,7 @@ jobs:
 
       - name: Install
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
 
       - name: Changeset fold dry-run
@@ -239,7 +239,7 @@ jobs:
 
       - name: Install
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
 
       - name: Run unit and DOM tests
@@ -343,7 +343,7 @@ jobs:
       - name: Install
         if: needs.version-pr-gate.outputs.skip_heavy != 'true'
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
 
       - name: Run TZ-sensitive tests
@@ -378,7 +378,7 @@ jobs:
             bun-${{ runner.os }}-
       - name: Install
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
       - name: Verify migration-guide.md is generated, not hand-edited
         run: |
@@ -491,7 +491,7 @@ jobs:
       - name: Install
         env:
           PUPPETEER_SKIP_DOWNLOAD: "false"
-          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
 
       - name: Start services
@@ -594,7 +594,7 @@ jobs:
 
       - name: Install
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
 
       - name: Start postgres
@@ -643,7 +643,7 @@ jobs:
 
       - name: Install
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
 
       - name: Install Playwright Chromium
@@ -915,7 +915,7 @@ jobs:
         if: steps.decide.outputs.publish == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile --ignore-scripts
 
       # Only the working tree changes; pack builds each package itself, so
       # nothing is built twice.
@@ -972,8 +972,8 @@ jobs:
 
       - name: Install
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
-        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile --ignore-scripts
 
       # The Version PR's freshness check ran when the PR was last pushed; a
       # changeset merged to main since then is still in HEAD's parent but was
@@ -1054,7 +1054,7 @@ jobs:
             bash scripts/publish-raced-version-pr.sh
             exit $?
           fi
-          bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install (rescue-publish)" -- bun install --frozen-lockfile
+          env -u GITHUB_TOKEN -u GH_TOKEN bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install (rescue-publish)" -- bun install --frozen-lockfile --ignore-scripts
           bash scripts/publish-with-oidc.sh
           new_tags="$(git tag --points-at "$GITHUB_SHA")"
           if [ -n "$new_tags" ]; then echo "released=true" >> "$GITHUB_OUTPUT"; else echo "released=false" >> "$GITHUB_OUTPUT"; fi

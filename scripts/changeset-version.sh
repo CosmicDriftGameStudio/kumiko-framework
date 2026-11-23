@@ -16,7 +16,7 @@ bunx changeset version "$@"
 bun scripts/guard-no-major-gt-zero.ts
 # CI verifies this file is generated, so the bump must regenerate it here.
 bun scripts/gen-migration-guide.ts
-bun install
+bun install --ignore-scripts
 # bun install does NOT refresh the workspace "version" fields in bun.lock after
 # the bump (only `rm bun.lock && bun install` does, which drifts every floating
 # dep). bun pm pack reads those fields to substitute workspace:* at publish, so

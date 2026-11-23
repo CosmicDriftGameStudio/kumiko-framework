@@ -5,6 +5,7 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as z from "zod";
+import { childProcessEnv } from "./child-env";
 
 export const RASTER_DPI_OPTIONS = [72, 100, 150] as const;
 export const DEFAULT_RASTER_DPI = 100;
@@ -79,13 +80,66 @@ export function exceedsImageBudget(listOutput: string): boolean {
   return count > MAX_LISTED_IMAGES || totalPixels > MAX_LISTED_IMAGE_PIXELS_TOTAL;
 }
 
+// A -list row is about 110 bytes, so MAX_LISTED_IMAGES rows are roughly 25 KB; more than 1 MB is far
+// over budget, and further stderr warnings carry no information.
+const MAX_POPPLER_OUTPUT_BYTES = 1_000_000;
+
+// Drains the stream to its end so poppler never blocks on a full pipe, but keeps at most maxBytes.
+// No kill on overflow: the deadline already bounds runtime, and killing on noisy stderr would
+// turn PDFs that rasterize fine into errors.
+export async function readCappedText(
+  stream: ReadableStream<Uint8Array>,
+  maxBytes: number,
+): Promise<{ readonly text: string; readonly truncated: boolean }> {
+  const kept: Uint8Array[] = [];
+  let keptBytes = 0;
+  let truncated = false;
+  for await (const chunk of stream) {
+    const room = maxBytes - keptBytes;
+    if (chunk.byteLength <= room) {
+      kept.push(chunk);
+      keptBytes += chunk.byteLength;
+      continue;
+    }
+    truncated = true;
+    if (room > 0) {
+      // slice copies, so the oversized chunk is not kept alive.
+      kept.push(chunk.slice(0, room));
+      keptBytes += room;
+    }
+  }
+  return { text: new TextDecoder().decode(Buffer.concat(kept)), truncated };
+}
+
+export function listedImagesWithinBudget(listRun: {
+  readonly exitCode: number;
+  readonly stdout: string;
+  readonly stdoutTruncated: boolean;
+  readonly stderr: string;
+}): boolean {
+  if (listRun.stdoutTruncated) return false;
+  if (listRun.exitCode !== 0) {
+    throw new InvalidPdfError(listRun.stderr.trim() || "pdfimages failed");
+  }
+  return !exceedsImageBudget(listRun.stdout);
+}
+
 async function runPoppler(
   args: readonly string[],
   deadline: number,
-): Promise<{ readonly exitCode: number; readonly stdout: string; readonly stderr: string }> {
+): Promise<{
+  readonly exitCode: number;
+  readonly stdout: string;
+  readonly stdoutTruncated: boolean;
+  readonly stderr: string;
+}> {
   const timeoutMs = deadline - Date.now();
   if (timeoutMs <= 0) throw new RasterizeTimeoutError(`${args[0]} had no time left`);
-  const child = Bun.spawn([...args], { stdout: "pipe", stderr: "pipe" });
+  const child = Bun.spawn([...args], {
+    stdout: "pipe",
+    stderr: "pipe",
+    env: childProcessEnv(process.env),
+  });
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
@@ -94,11 +148,16 @@ async function runPoppler(
   try {
     const [exitCode, stdout, stderr] = await Promise.all([
       child.exited,
-      new Response(child.stdout).text(),
-      new Response(child.stderr).text(),
+      readCappedText(child.stdout, MAX_POPPLER_OUTPUT_BYTES),
+      readCappedText(child.stderr, MAX_POPPLER_OUTPUT_BYTES),
     ]);
     if (timedOut) throw new RasterizeTimeoutError(`${args[0]} exceeded its time budget`);
-    return { exitCode, stdout, stderr };
+    return {
+      exitCode,
+      stdout: stdout.text,
+      stdoutTruncated: stdout.truncated,
+      stderr: stderr.text,
+    };
   } finally {
     clearTimeout(timer);
   }
@@ -158,10 +217,7 @@ export async function rasterize(options: RasterizeOptions): Promise<RasterizeRes
     let extractImages = images;
     if (extractImages) {
       const listRun = await runPoppler(["pdfimages", "-list", "-l", lastPage, pdfPath], deadline);
-      if (listRun.exitCode !== 0) {
-        throw new InvalidPdfError(listRun.stderr.trim() || "pdfimages failed");
-      }
-      extractImages = !exceedsImageBudget(listRun.stdout);
+      extractImages = listedImagesWithinBudget(listRun);
     }
     if (extractImages) {
       const imagesRun = await runPoppler(
