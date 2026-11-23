@@ -154,3 +154,12 @@ describe("PDF header offset", () => {
     expect(sniffMimeType(pngWithPdf)).toBe("image/png");
   });
 });
+
+describe("PDF header inside text", () => {
+  // Accepted trade-off of the 1024-byte search: a text file that quotes the header near its start
+  // sniffs as PDF, so a csv doing so is refused as binary.
+  test("a csv quoting %PDF- in its first bytes is rejected as a binary format", () => {
+    const csv = encode("name;note\nscan;starts with %PDF-1.4\n");
+    expect(validateFileContent("export.csv", csv).kind).toBe("rejected");
+  });
+});
