@@ -63,6 +63,14 @@ export function validateDashboardScreen(
     });
   }
   validateDashboardLayout(featureName, screenId, screen);
+  if (
+    screen.headerSubtitle !== undefined &&
+    (!screen.headerSubtitle.query || !screen.headerSubtitle.field)
+  ) {
+    throw bootRuleError(DASHBOARD_RULES.headerSubtitleIncomplete, {
+      message: `[Feature ${featureName}] Screen "${screenId}" (dashboard) headerSubtitle needs a non-empty query and field. Set both.`,
+    });
+  }
   const panelIds = new Set<string>();
   const addPanelId = (id: string, context: string): void => {
     if (panelIds.has(id)) {
@@ -529,6 +537,17 @@ function validateDashboardStatGroupPanel(
       message: `${context} sets subtitle without label — an unlabeled group renders as a KPI strip without a header. Set a label or remove subtitle.`,
     });
   }
+  if (
+    panel.framed === false &&
+    (panel.layout !== "cards" ||
+      panel.label !== undefined ||
+      panel.subtitle !== undefined ||
+      panel.link !== undefined)
+  ) {
+    throw bootRuleError(DASHBOARD_RULES.statGroupUnframedChrome, {
+      message: `${context} sets framed: false — it needs layout "cards" and no label, subtitle or link, which an unframed group has no place to draw. Adjust them or remove framed.`,
+    });
+  }
   validateDashboardPanelSpan(featureName, screenId, panel);
   validateDashboardPanelVisibleWhen(context, panel.visibleWhen);
   for (const stat of panel.stats) {
@@ -599,6 +618,7 @@ function validateDashboardChartDisplay(
   const where = `[Feature ${featureName}] Screen "${screenId}" (dashboard) chart-panel "${panel.id}"`;
   validateChartScrollableAndUnit(where, panel);
   validateStackedAreaOnlyProps(where, panel);
+  validateBarChartOptions(where, panel);
   validateStackedAreaEnumProp(where, "dateFormat", panel.dateFormat, ["day", "month"]);
   validateStackedAreaEnumProp(where, "initialWindow", panel.initialWindow, [
     "default-range",
@@ -625,6 +645,67 @@ function validateDashboardChartDisplay(
     validateDashboardChartMarkerKind(`${where} markerKinds["${kind}"]`, look);
   }
   if (panel.ranges !== undefined) validateDashboardChartRanges(`${where} ranges`, panel.ranges);
+}
+
+const BAR_ONLY_OPTIONS = [
+  "barValueLabels",
+  "highlightLast",
+  "hideYAxis",
+  "labelEveryBucket",
+  "lastBucketLabel",
+] as const;
+const BAR_BOOLEAN_OPTIONS = [
+  "barValueLabels",
+  "highlightLast",
+  "hideYAxis",
+  "hideLegend",
+  "labelEveryBucket",
+] as const;
+
+function validateBarChartOptions(where: string, panel: DashboardChartPanel): void {
+  const misplaced: string[] = [];
+  if (panel.chart !== "stacked-bars") {
+    misplaced.push(...BAR_ONLY_OPTIONS.filter((prop) => panel[prop] !== undefined));
+  }
+  if (panel.hideLegend !== undefined && !["stacked-bars", "segment-bars"].includes(panel.chart)) {
+    misplaced.push("hideLegend");
+  }
+  if (panel.layout !== undefined && panel.chart !== "segment-bars") misplaced.push("layout");
+  if (panel.singleTone !== undefined && panel.chart !== "segment-bars") {
+    misplaced.push("singleTone");
+  }
+  if (
+    panel.singleTone !== undefined &&
+    (panel.seriesTones !== undefined || panel.seriesColors !== undefined)
+  ) {
+    throw bootRuleError(DASHBOARD_CHART_RULES.chartSingleToneConflict, {
+      message: `${where} sets singleTone together with seriesTones or seriesColors. Use singleTone alone, or name the keys with seriesTones/seriesColors.`,
+    });
+  }
+  if (
+    panel.singleTone !== undefined &&
+    !["positive", "negative", "active", "neutral"].includes(panel.singleTone)
+  ) {
+    throw bootRuleError(DASHBOARD_CHART_RULES.chartBarOptionValueInvalid, {
+      message: `${where} has an invalid singleTone. Use positive, negative, active or neutral.`,
+    });
+  }
+  if (misplaced.length > 0) {
+    throw bootRuleError(DASHBOARD_CHART_RULES.chartBarOptionKindMismatch, {
+      message: `${where} sets ${misplaced.join(", ")} on chart "${panel.chart}" — the option belongs to another chart kind (see the option's doc). Remove it or change the chart kind.`,
+    });
+  }
+  const nonBoolean = BAR_BOOLEAN_OPTIONS.find(
+    (prop) => panel[prop] !== undefined && typeof panel[prop] !== "boolean",
+  );
+  const invalidLabel =
+    panel.lastBucketLabel !== undefined && !["today", "date"].includes(panel.lastBucketLabel);
+  const invalidLayout = panel.layout !== undefined && panel.layout !== "rows";
+  if (nonBoolean !== undefined || invalidLabel || invalidLayout) {
+    throw bootRuleError(DASHBOARD_CHART_RULES.chartBarOptionValueInvalid, {
+      message: `${where} has an invalid bar chart option (${nonBoolean ?? (invalidLabel ? "lastBucketLabel" : "layout")}). Use true or false, lastBucketLabel "today" or "date", layout "rows".`,
+    });
+  }
 }
 
 function validateStackedAreaEnumProp(

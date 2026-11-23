@@ -157,6 +157,7 @@ type DashboardChartPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState
   subtitle?: string; // i18n key under the title, e.g. "7 days, by creation day".
   seriesTones?: Readonly<Record<string, DashboardChartTone>>; // Series/segment/line key -> tone; unmapped keys fall back to a palette.
   seriesColors?: Readonly<Record<string, string>>; // Series/segment/line key -> raw CSS color (e.g. "var(--color-debt)"); wins over `seriesTones`.
+  singleTone?: DashboardChartTone; // Only for chart "segment-bars": every segment in this one tone, for dynamic segment keys that `seriesTones` cannot name.
   valueFormat?: DashboardCurrencyFormat; // Formats values as currency (minor units): y ticks, legend totals and tooltips on stacked-bars/segment-bars/stacked-area, only the y ticks on timeseries.
   unit?: string; // i18n key of a unit label.
   scrollable?: boolean; // Only for chart "stacked-area": fixed width per bucket, plot scrolls horizontally.
@@ -168,6 +169,13 @@ type DashboardChartPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState
   initialWindow?: "default-range" | "from-today"; // Only for chart "stacked-area": window the uncontrolled chart starts in.
   markerLegend?: "list" | "legend"; // Only for chart "stacked-area": "legend" drops the numbered marker list; pins become plain dots with a tooltip and the legend lists marker kinds (see `markerKinds[].label`).
   markerLabels?: boolean; // Only for chart "stacked-area": true writes each marker label vertically next to its guide line on wide panels; narrow panels keep the pins.
+  barValueLabels?: boolean; // Only for chart "stacked-bars": writes the compact total (e.g. "21k", "21 mil") in the user locale above each bar.
+  highlightLast?: boolean; // Only for chart "stacked-bars": the last bar keeps its full color, the others are drawn lighter in the same tone.
+  hideYAxis?: boolean; // Only for chart "stacked-bars": drops the y-axis tick labels.
+  hideLegend?: boolean; // Only for chart "stacked-bars" and "segment-bars": drops the legend, including its totals.
+  labelEveryBucket?: boolean; // Only for chart "stacked-bars": labels every bar instead of about eight evenly spaced ones.
+  lastBucketLabel?: DashboardChartLastBucketLabel; // Only for chart "stacked-bars": "date" labels the last bar with its date instead of "Today".
+  layout?: DashboardChartLayout; // Only for chart "segment-bars": "rows" draws one line per row, label left, bar in the middle, value right-aligned.
 };
 type DashboardCurrencyFormat = { // Chart/stat values are minor units, formatted with the user locale.
   kind: "currency";
@@ -287,12 +295,14 @@ type DashboardScreenDefinition = {
   nav?: ScreenNavSugar;
   detailFor?: string;
   description?: string;
+  headerSubtitle?: DashboardHeaderSubtitle; // Subtitle under the title from a query, e.g. "Accepted quotes from Lantek · November 2026".
   agent?: AgentScreenHints;
   dormant?: boolean; // Screen has no nav entry by design (opened via link or navved by the app); exempts it from the nav-area boot check.
   visibleWhen?: ScreenVisibility; // UI-only gate, also on direct URL access; handlers still enforce access.
   fallback?: ScreenFallback; // Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice).
   panels: DashboardPanelDefinition[];
   layout?: DashboardLayout; // Panel arrangement, see DashboardLayout.
+  sideWidth?: "wide"; // Only with `layout: "main-side"`: "wide" gives the side column 2/5 of the width (main 3/5) instead of 1/3.
   record?: DashboardRecordBinding; // Binds the dashboard to one record via a URL search param, see DashboardRecordBinding.
   actions?: RowAction[]; // Header actions on the bound record (writeHandler, navigate, clientAction).
   refresh?: DashboardRefresh;
@@ -300,6 +310,7 @@ type DashboardScreenDefinition = {
   timeRange?: DashboardTimeRangeDefinition; // Segmented control in the toolbar; the value lives in URL search param `id` and is merged into EVERY panel query (also ignoreScreenFilter ones).
   scope?: DashboardScopeDefinition; // Marks the screen as spanning more than the caller's own scope.
   showUpdatedAt?: boolean; // Show today's date (server clock, weekday and day, no time) in the top bar next to the title; hidden below `sm`.
+  showTitle?: boolean; // Show the screen title (`screen:<id>.title`) as the page heading, with `headerSubtitle` directly below it.
   slots?: ScreenSlots;
   access?: AccessRule;
 };
@@ -327,6 +338,7 @@ type DashboardStatGroupPanel = DashboardPanelGate & DashboardPanelNarrow & {
   label?: string;
   subtitle?: string; // i18n key, a line under `label`; the boot validator requires `label`.
   span?: DashboardPanelSpan;
+  framed?: false; // `false` draws the stats as separate cards side by side without the outer panel frame, title, subtitle or link.
   layout?: DashboardStatGroupLayout; // Default: "strip" without `label`, "cards" with.
   icon?: PlatformComponent; // Icon left of the one-line phone strip (below `sm`); not drawn on wider screens.
   link?: DashboardStatGroupLink; // Link at the right edge of the panel (label + chevron).
@@ -344,6 +356,7 @@ type DashboardStatPanel = DashboardPanelQueryOptions & DashboardPanelGate & Dash
   narrowLabel?: string; // i18n key shown instead of the label in the one-line phone strip of a titled stat-group ("2 requests").
   labelNarrow?: string; // i18n key replacing `label` below the `sm` breakpoint wherever the stat draws its label (a dynamic `labelField` text still wins).
   subField?: string;
+  subToneField?: string; // Field of the query answer holding a `DashboardStatTone` ("default" | "positive" | "ok" | "warn" | "negative"), like `toneField`; colors the `subField` line.
   toneField?: string;
   valueFormat?: DashboardValueFormat; // Formats a numeric value as currency (minor units) or, with `relativeTime`, as a ticking "5 minutes ago" from epoch ms; ignored for string values.
   tone?: DashboardStatTone; // Fixed tone when `toneField` is unset or yields none; not applied while the value is 0.
@@ -737,6 +750,7 @@ type RowActionDrawer = {
   title?: string; // Drawer heading (i18n key) instead of the action `label`.
   subtitle?: string; // Line under the drawer heading (i18n key or a bare `{name}` template), resolved like `title`.
   rowClick?: boolean; // Clicking the row opens this drawer with that row's `params`.
+  inMenu?: false; // `false` keeps this action out of the row menu and action column in every row action mode, so a `rowClick` action does not leave a "..." column behind; the row click still runs it.
 };
 type RowActionMode = "adaptive" | "inline" | "menu"; // Row-action column layout.
 type RowActionNavigate = RowActionNavigateBase & ({ screen: string; entity?: never; } | { entity: string; screen?: never; }); // Exactly one of `screen` / `entity` — mutual exclusivity is type-enforced (boot validator still rejects both/neither for untyped schemas).

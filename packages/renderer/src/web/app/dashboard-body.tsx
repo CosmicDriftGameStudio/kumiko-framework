@@ -68,6 +68,7 @@ import {
   usePrimitives,
   useTranslation,
 } from "../../index.ts";
+import { screenTitleKey } from "../layout/shell-breadcrumb.ts";
 import { PageSection } from "../primitives/layout.tsx";
 import { useIsBelowSmViewport } from "../primitives/use-narrow-viewport.ts";
 import {
@@ -324,6 +325,7 @@ export function WebDashboardBody({
   const usesPageHeaderSlot = headerSlotAvailable;
   const model: DashboardHeaderModel = {
     screen,
+    screenParams,
     t,
     translate: effectiveTranslate,
     primitives,
@@ -332,6 +334,7 @@ export function WebDashboardBody({
     headerCompactContext,
     usesPageHeaderSlot,
     recordTitle: recordTitleText(recordRow, params.recordBinding?.titleField),
+    screenTitle: screen.showTitle === true ? t(screenTitleKey(screen.id)) : undefined,
     scopeBadge,
     picker: params.picker,
     rangeControl: params.rangeControl,
@@ -359,6 +362,7 @@ export function WebDashboardBody({
             />
             <DashboardPanelGrid
               layout={screen.layout}
+              sideWidth={screen.sideWidth}
               panels={panelsInNarrowOrder(screen.panels, belowSm)}
               belowSm={belowSm}
               renderPanel={(panel) =>

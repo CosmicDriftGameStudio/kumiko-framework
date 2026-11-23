@@ -153,6 +153,14 @@ function formatSpecCell(
   };
 }
 
+const NUMERIC_FORMATS = ["currency", "money", "number", "decimal", "bigInt", "unit"];
+
+function isNumericColumn(column: ReturnType<typeof normalizeListColumn>): boolean {
+  const { renderer } = column;
+  if (isFormatSpec(renderer)) return NUMERIC_FORMATS.includes(renderer.format);
+  return column.valueType !== undefined;
+}
+
 function ListLine({
   panel,
   label,
@@ -331,6 +339,7 @@ export function ListPanelBody({
           normalized.linkParamsField,
         ),
       }),
+      ...(isNumericColumn(normalized) && { numeric: true as const }),
       ...(normalized.showOnNarrowOnly === true && { narrowOnly: true as const }),
       ...(normalized.hideOnNarrow === true && { hiddenInCards: true as const }),
       ...(hint !== undefined && { hint: hintViewModel(hint, panel.rowToneField, translate) }),

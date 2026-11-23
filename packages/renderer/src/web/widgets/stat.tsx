@@ -33,6 +33,12 @@ export const TONE_VALUE: Record<StatTone, string> = {
   negative: "text-status-bad",
 };
 
+export function subToneClass(subTone: StatTone | undefined): string {
+  return subTone === undefined || subTone === "default"
+    ? "text-muted-foreground"
+    : TONE_VALUE[subTone];
+}
+
 const TONE_STRIPE: Record<StatTone, string> = {
   default: "",
   positive: "border-l-[3px] border-l-primary",
@@ -204,11 +210,13 @@ function StatCardHeader({
 function StatCardValueRow({
   value,
   sub,
+  subTone,
   tone,
   boardPadding,
 }: {
   readonly value: string;
   readonly sub: string | undefined;
+  readonly subTone: StatTone | undefined;
   readonly tone: StatTone;
   readonly boardPadding: boolean;
 }): ReactNode {
@@ -224,7 +232,7 @@ function StatCardValueRow({
       >
         {value}
       </span>
-      {sub !== undefined && <span className="text-xs text-muted-foreground">{sub}</span>}
+      {sub !== undefined && <span className={cn("text-xs", subToneClass(subTone))}>{sub}</span>}
     </div>
   );
 }
@@ -241,6 +249,7 @@ export function StatCard({
   label,
   value,
   sub,
+  subTone,
   tone = "default",
   accentColor,
   delta,
@@ -260,6 +269,8 @@ export function StatCard({
   readonly value: string;
   /** Small text on the baseline right behind the value. */
   readonly sub?: string;
+  /** Color of the `sub` line; default muted. */
+  readonly subTone?: StatTone;
   readonly tone?: StatTone;
   readonly accentColor?: string;
   readonly delta?: StatDelta;
@@ -318,11 +329,15 @@ export function StatCard({
       <StatCardValueRow
         value={value}
         sub={subBelow ? undefined : sub}
+        subTone={subTone}
         tone={tone}
         boardPadding={boardPadding}
       />
       {sub !== undefined && subBelow && (
-        <div data-kumiko-layout="stat-card-sub" className="mt-0.5 text-xs text-muted-foreground">
+        <div
+          data-kumiko-layout="stat-card-sub"
+          className={cn("mt-0.5 text-xs", subToneClass(subTone))}
+        >
           {sub}
         </div>
       )}
@@ -349,6 +364,7 @@ export function StatStripCell({
   label,
   value,
   sub,
+  subTone,
   tone = "default",
   accentColor,
   delta,
@@ -361,6 +377,7 @@ export function StatStripCell({
   readonly label: string;
   readonly value: string;
   readonly sub?: string;
+  readonly subTone?: StatTone;
   readonly tone?: StatTone;
   readonly accentColor?: string;
   readonly delta?: StatDelta;
@@ -398,7 +415,7 @@ export function StatStripCell({
             <Sparkline points={spark} className={cn("h-7 w-20 shrink-0", TONE_VALUE[tone])} />
           )}
         </div>
-        {sub !== undefined && <div className="text-xs text-muted-foreground">{sub}</div>}
+        {sub !== undefined && <div className={cn("text-xs", subToneClass(subTone))}>{sub}</div>}
       </div>
     </StatLinkFrame>
   );

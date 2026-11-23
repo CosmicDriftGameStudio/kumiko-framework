@@ -11,6 +11,11 @@ export const SCREEN_ACTION_RULES = {
     summary: "At most one row-body click target (rowClick) is declared per list.",
     fix: "Mark at most one rowAction with rowClick: true.",
   },
+  inMenuFalseNeedsRowClick: {
+    id: "screen/in-menu-false-needs-row-click",
+    summary: "A rowAction with inMenu: false is the rowClick action, or it would be unreachable.",
+    fix: "Set rowClick: true on it, or remove inMenu.",
+  },
   navigateParamsDashboardNoReader: {
     id: "screen/navigate-params-dashboard-no-reader",
     summary:

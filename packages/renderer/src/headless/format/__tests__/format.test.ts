@@ -748,3 +748,21 @@ describe("referenceLabelText", () => {
     expect(referenceLabelText(null)).toBe("");
   });
 });
+
+describe("applyFormatSpec: amountIn and unit fraction digits", () => {
+  test("currency amountIn major reads whole-unit amounts, default stays minor", () => {
+    const spec = { format: "currency", currency: "BRL", locale: "pt-BR" };
+    expect(applyFormatSpec({ ...spec, amountIn: "major" }, 1890.5)).toBe("R$ 1.890,50");
+    expect(applyFormatSpec(spec, 189050)).toBe("R$ 1.890,50");
+    expect(applyFormatSpec({ ...spec, amountIn: "major" }, "1890.5")).toBe("R$ 1.890,50");
+  });
+
+  test("unit honors minimumFractionDigits and maximumFractionDigits", () => {
+    const kg = { format: "unit", unit: "kg", locale: "de-DE" };
+    expect(applyFormatSpec({ ...kg, minimumFractionDigits: 1 }, 743)).toBe("743,0 kg");
+    expect(applyFormatSpec({ ...kg, maximumFractionDigits: 0 }, 743.6)).toBe("744 kg");
+    expect(applyFormatSpec(kg, 743)).toBe("743 kg");
+    const m2 = { format: "unit", unit: "m2", locale: "de-DE", minimumFractionDigits: 1 };
+    expect(applyFormatSpec(m2, 5)).toBe("5,0 m²");
+  });
+});

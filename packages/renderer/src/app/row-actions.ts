@@ -142,6 +142,7 @@ function buildNavigateRowAction(
     ...(action.display !== undefined && { display: action.display }),
     confirmRequired: false,
     ...(action.rowClick === true && { rowClick: true }),
+    ...(action.inMenu === false && { inMenu: false as const }),
     ...(actionIcon !== undefined && { icon: actionIcon }),
     onTrigger: (row: ListRowViewModel) => runProjectionRowNavigate(nav, action, row, host),
     ...(visible !== undefined && {
@@ -213,6 +214,7 @@ export function buildDrawerRowAction(
     ...(action.display !== undefined && { display: action.display }),
     confirmRequired: false,
     ...(action.rowClick === true && { rowClick: true }),
+    ...(action.inMenu === false && { inMenu: false as const }),
     ...(actionIcon !== undefined && { icon: actionIcon }),
     onTrigger: (row: ListRowViewModel) => runDrawerRowAction(action, openDrawer, row),
     ...(visible !== undefined && {

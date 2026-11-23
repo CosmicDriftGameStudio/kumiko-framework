@@ -399,6 +399,7 @@ function checkDashboardStatPanelFields(
   checkPanelField("valueField", panel.valueField);
   checkPanelField("labelField", panel.labelField);
   checkPanelField("subField", panel.subField);
+  checkPanelField("subToneField", panel.subToneField);
   checkPanelField("toneField", panel.toneField);
   checkPanelField("deltaField", panel.deltaField);
   checkPanelField("deltaDirectionField", panel.deltaDirectionField);
@@ -492,6 +493,15 @@ function checkDashboardOutputFields(
   screenId: string,
   screen: DashboardScreenDefinition,
 ): void {
+  const { headerSubtitle } = screen;
+  if (headerSubtitle !== undefined) {
+    checkFieldExists(
+      getZodObjectShape(queryHandlers.get(headerSubtitle.query)?.outputSchema),
+      headerSubtitle.field,
+      () =>
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) headerSubtitle references field "${headerSubtitle.field}" which is not present in query "${headerSubtitle.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
+    );
+  }
   for (const panel of screen.panels) {
     if (panel.kind !== "custom") {
       checkVisibleWhenField(

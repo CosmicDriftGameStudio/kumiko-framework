@@ -2672,6 +2672,7 @@ type DataTableRowAction = {
   onTrigger: (row: ListRowViewModel) => Promise<void> | void; // Called with the clicked row's `ListRowViewModel`.
   isVisible?: (row: ListRowViewModel) => boolean; // Controls per-row visibility (e.g. show "Start" only when `status==="scheduled"`).
   rowClick?: boolean; // This action is what a click on the row does.
+  inMenu?: false; // `false`: never in the row menu or the action column, in any row action mode and with editable cells; the row click still runs it.
   icon?: IconKey; // Resolved icon (author `RowAction.icon` or the id-derived default) — drives both the icon-left-of-text render and the icon-only collapse rule (see `shouldRenderActionsIconOnly`).
   display?: RowActionDisplay; // Author-chosen inline form (`RowAction.display`).
 };
@@ -5284,6 +5285,8 @@ type SecretsEditSection = {
 ```ts
 const DASHBOARD_STAT_TONES: ["default", "positive", "ok", "warn", "negative"];
 type DashboardChartKind = "timeseries" | "stacked-bars" | "segment-bars" | "stacked-area";
+type DashboardChartLastBucketLabel = "today" | "date";
+type DashboardChartLayout = "rows";
 type DashboardChartRangeOption = { // One option of a stacked-area range switch.
   value: string;
   label: string;
@@ -5294,6 +5297,10 @@ type DashboardChartRanges = {
   default: string;
 };
 type DashboardChartTone = "positive" | "negative" | "active" | "neutral";
+type DashboardHeaderSubtitle = {
+  query: string;
+  field: string;
+};
 type DashboardListRowLink = ({ screen: string; paramField?: string; screenField?: never; paramsField?: never; } | { screenField: string; paramsField?: string; screen?: never; paramField?: never; }) & { // Row link of a list panel: one fixed target screen (`screen`) or, when the rows point to different places, the screen named by each row (`screenField`).
   icon?: "arrow" | "chevron"; // "arrow" (default) draws ↗ for a jump to another place, "chevron" draws › for opening the row.
 };
@@ -5387,6 +5394,7 @@ type RowActionNavigateBase = {
   showOnTabs?: string[]; // projectionDetail header action only: shown while one of these tab (section) ids is active.
   style?: "primary" | "secondary" | "danger"; // Visual style only — unlike the writeHandler variants, "danger" does not force a confirm dialog here: the target form is the confirmation.
   rowClick?: boolean; // When true, a click on the whole row (not just the action menu) triggers this navigate action.
+  inMenu?: false; // `false` keeps this action out of the row menu and action column in every row action mode, so a `rowClick` action does not leave a "..." column behind; the row click still runs it.
   icon?: IconKey | false; // Overrides the id-based default icon (see ACTION_ICON_BY_ID in kumiko-renderer) — closed IconKey vocabulary into the ICONS registry (renderer/web), analogous to EditFieldSpec.icon.
   display?: RowActionDisplay; // Inline render form in the row-action column — see `RowActionDisplay`.
 };

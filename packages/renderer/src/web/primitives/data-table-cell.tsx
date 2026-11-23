@@ -818,6 +818,8 @@ function DataTableCellBody({
       <CellTextLink link={link}>{dateOnlyText}</CellTextLink>
     );
   }
+  const booleanPill = booleanTonePill(renderer, value, translate, locale, RegisteredStatusBadge);
+  if (booleanPill !== undefined) return booleanPill;
   if (
     typeof value === "boolean" &&
     isBooleanColumn(type, renderer) &&
@@ -877,6 +879,23 @@ function DataTableCellBody({
   if (selectCell !== undefined) return selectCell;
   const text = defaultCellRender(value, type, optionLabels, locale, field, grouping);
   return link === undefined ? text : <CellTextLink link={link}>{text}</CellTextLink>;
+}
+
+// A boolean format spec with `trueTone` / `falseTone` draws that value's label as a status pill.
+function booleanTonePill(
+  renderer: unknown,
+  value: unknown,
+  translate: DataTableCellProps["translate"],
+  locale: string | undefined,
+  RegisteredStatusBadge: PrimitivesRegistry["StatusBadge"] | undefined,
+): ReactNode | undefined {
+  if (!isFormatSpecRenderer(renderer) || renderer.format !== "boolean") return undefined;
+  if (typeof value !== "boolean") return undefined;
+  const tone = renderer[value ? "trueTone" : "falseTone"];
+  const labelKey = renderer[value ? "trueLabel" : "falseLabel"];
+  if (!isSelectOptionTone(tone) || typeof labelKey !== "string") return undefined;
+  const label = translate?.(labelKey) ?? labelKey;
+  return selectPill(label, { [label]: label }, { [label]: tone }, locale, RegisteredStatusBadge);
 }
 
 function renderFormatSpecCell({

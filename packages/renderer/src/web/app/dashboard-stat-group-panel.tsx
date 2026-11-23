@@ -31,7 +31,7 @@ type StatGroupProps = {
   readonly translate: Translate;
 };
 
-type StatVariant = "card" | "strip" | "strip-compact";
+type StatVariant = "card" | "card-standalone" | "strip" | "strip-compact";
 
 // Literal class strings: Tailwind only emits classes it can read in the source.
 const STAT_CARD_COLUMN_CLASSES = {
@@ -256,17 +256,20 @@ export function StatGroupPanelBody(props: StatGroupProps): ReactNode {
       <TitledStatStrip {...props} label={label} />
     );
   }
+  const unframed = panel.framed === false;
   const cells = (
     <section
+      {...(unframed && { "data-testid": `dashboard-panel-${panel.id}` })}
       className={
         panel.columns === undefined
           ? STAT_CARD_GRID_CLASSES
           : STAT_CARD_COLUMN_CLASSES[panel.columns]
       }
     >
-      <StatCells {...props} variant="card" />
+      <StatCells {...props} variant={unframed ? "card-standalone" : "card"} />
     </section>
   );
+  if (unframed) return cells;
   return (
     <PanelShell
       testId={`dashboard-panel-${panel.id}`}

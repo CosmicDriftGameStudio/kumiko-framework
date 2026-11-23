@@ -8,16 +8,24 @@ import type { DispatcherError, Translate } from "../../headless/index.ts";
 import {
   dispatcherErrorText,
   HeaderActionsBar,
-  type usePrimitives,
+  usePrimitives,
   type useRecordActions,
 } from "../../index.ts";
 import { StatusBadge } from "../widgets/status-badge.tsx";
-import type { useDashboardFormats, useLoadedAt } from "./dashboard-shared.tsx";
+import {
+  panelPayload,
+  type ScreenParams,
+  useDashboardFormats,
+  useDashboardQuery,
+  type useLoadedAt,
+} from "./dashboard-shared.tsx";
+import { resolveDashboardText } from "./dashboard-text.ts";
 
 type Primitives = ReturnType<typeof usePrimitives>;
 
 export type DashboardHeaderModel = {
   readonly screen: DashboardScreenDefinition;
+  readonly screenParams: ScreenParams;
   readonly t: Translate;
   readonly translate: Translate;
   readonly primitives: Primitives;
@@ -26,6 +34,8 @@ export type DashboardHeaderModel = {
   readonly headerCompactContext: boolean;
   readonly usesPageHeaderSlot: boolean;
   readonly recordTitle: string | undefined;
+  /** `showTitle`: the screen title drawn as the body heading; the shell bar then drops its own title. */
+  readonly screenTitle: string | undefined;
   readonly scopeBadge: ReactNode;
   readonly picker: ReactNode;
   readonly rangeControl: ReactNode;
@@ -105,15 +115,20 @@ export function renderPageHeaderSlot(
   badgeInHeader: boolean,
 ): ReactNode {
   const { PageHeader } = model.primitives;
-  const { recordTitle, scopeBadge, usesPageHeaderSlot } = model;
+  const { recordTitle, screenTitle, scopeBadge, usesPageHeaderSlot } = model;
   // The stamp is hidden below sm; counting it there would leave an empty header bar.
   const dateStamp = usesPageHeaderSlot && !model.belowSm ? renderDateStamp(model) : null;
   const showPageHeader =
     usesPageHeaderSlot &&
-    (badgeInHeader || dateStamp !== null || recordTitle !== undefined || headerActionsBar !== null);
+    (badgeInHeader ||
+      dateStamp !== null ||
+      recordTitle !== undefined ||
+      screenTitle !== undefined ||
+      headerActionsBar !== null);
   return (
     showPageHeader && (
       <PageHeader
+        {...(screenTitle !== undefined && { bodyTitle: true })}
         {...(recordTitle !== undefined && { title: recordTitle })}
         {...((badgeInHeader || dateStamp !== null) && {
           status: (
@@ -135,10 +150,16 @@ export function renderTitleRow(
   badgeInHeader: boolean,
 ): ReactNode {
   const { Heading } = model.primitives;
-  const { screen, usesPageHeaderSlot, recordTitle, scopeBadge, picker, rangeControl } = model;
+  const { screen, usesPageHeaderSlot, recordTitle, screenTitle, scopeBadge, picker, rangeControl } =
+    model;
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div className="flex min-w-0 flex-wrap items-center gap-2">
+        {screenTitle !== undefined && (
+          <Heading variant="page" testId={`dashboard-${screen.id}-title`}>
+            {screenTitle}
+          </Heading>
+        )}
         {!usesPageHeaderSlot && recordTitle !== undefined && (
           <Heading variant="page" testId={`dashboard-${screen.id}-record-title`}>
             {recordTitle}
@@ -218,6 +239,33 @@ function hasDataPanel(panels: readonly DashboardPanelDefinition[]): boolean {
   );
 }
 
+// Shows nothing while loading, on error or without text: the header is context, not a panel.
+function HeaderSubtitle({
+  screenId,
+  subtitle,
+  screenParams,
+  translate,
+}: {
+  readonly screenId: string;
+  readonly subtitle: NonNullable<DashboardScreenDefinition["headerSubtitle"]>;
+  readonly screenParams: ScreenParams;
+  readonly translate: Translate;
+}): ReactNode {
+  const { Text } = usePrimitives();
+  const formats = useDashboardFormats();
+  const { data } = useDashboardQuery<Readonly<Record<string, unknown>>>(
+    subtitle.query,
+    panelPayload({}, screenParams),
+  );
+  const text = resolveDashboardText(data?.[subtitle.field], translate, formats);
+  if (text === undefined || text === "") return null;
+  return (
+    <Text variant="muted" testId={`dashboard-${screenId}-header-subtitle`}>
+      {text}
+    </Text>
+  );
+}
+
 export function renderDescriptionAndNotice(
   model: DashboardHeaderModel,
   description: string | undefined,
@@ -230,6 +278,14 @@ export function renderDescriptionAndNotice(
         <Text variant="muted" testId={`dashboard-${screen.id}-description`}>
           {description}
         </Text>
+      )}
+      {screen.headerSubtitle !== undefined && (
+        <HeaderSubtitle
+          screenId={screen.id}
+          subtitle={screen.headerSubtitle}
+          screenParams={model.screenParams}
+          translate={model.translate}
+        />
       )}
       {screen.scope?.notice !== undefined && (
         <Banner variant="info" testId={`dashboard-${screen.id}-scope-notice`}>

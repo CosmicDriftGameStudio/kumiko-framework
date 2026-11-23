@@ -23,6 +23,8 @@ the `table` block renders and behaves as before.
 - `table.export`: an Export button downloads the whole filtered list as an XLSX
   file; `maxRows` lowers the default limit of 10000 rows.
   Reference columns export their label and timestamps use the browser time zone.
+- `rowActions[].inMenu: false` on the row-click "Open" action: it runs on a row click without adding a menu entry.
+- Boolean columns with `trueTone`/`falseTone` draw a status pill (the workload `parked` column).
 - `bulkActions`: row checkboxes and a selection bar. "Delete" runs the delete
   row action once per selected row (done tasks are skipped); "Set status" opens
   an actionForm once for the whole selection. Its `taskIds` field is a

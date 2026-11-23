@@ -357,6 +357,8 @@ export type RowActionNavigateBase = {
    *  Only on navigate — a row click must not trigger a (possibly destructive,
    *  unconfirmed) write, hence not on writeHandler actions. */
   readonly rowClick?: boolean;
+  /** `false` keeps this action out of the row menu and action column in every row action mode, so a `rowClick` action does not leave a "..." column behind; the row click still runs it. */
+  readonly inMenu?: false;
   /** Overrides the id-based default icon (see ACTION_ICON_BY_ID in
    *  kumiko-renderer) — closed IconKey vocabulary into the ICONS registry
    *  (renderer/web), analogous to EditFieldSpec.icon. `false` draws no icon at all, not even the
@@ -421,6 +423,8 @@ export type RowActionDrawer = {
    *  `rowClick` action (navigate or drawer) per list; rejected on
    *  projectionDetail header actions, like navigate's. */
   readonly rowClick?: boolean;
+  /** `false` keeps this action out of the row menu and action column in every row action mode, so a `rowClick` action does not leave a "..." column behind; the row click still runs it. */
+  readonly inMenu?: false;
 };
 
 export type RowActionClientAction = {

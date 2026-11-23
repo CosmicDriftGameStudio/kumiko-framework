@@ -142,6 +142,10 @@ export type DashboardFormats = {
   readonly formatPanelValue: (
     valueFormat: DashboardCurrencyFormat | undefined,
   ) => (value: number) => string;
+  /** Compact number without a currency symbol ("30 mil", "30K"); a currency valueFormat is read as minor units. For labels above bars. */
+  readonly formatPanelCompactNumber: (
+    valueFormat: DashboardCurrencyFormat | undefined,
+  ) => (value: number) => string;
   /** Compact variant of `formatPanelValue` for chart axes ("1,5 Mio. €"). */
   readonly formatPanelAxisValue: (
     valueFormat: DashboardCurrencyFormat | undefined,
@@ -193,6 +197,13 @@ export function useDashboardFormats(): DashboardFormats {
       valueFormat === undefined
         ? (value) => number.format(value)
         : (value) => formatMinor(value, valueFormat.currency, valueFormat.fractionDigits),
+    formatPanelCompactNumber: (valueFormat) => {
+      const decimals =
+        valueFormat !== undefined && CURRENCY_CODE_PATTERN.test(valueFormat.currency)
+          ? currencyDecimals(valueFormat.currency)
+          : 0;
+      return (value) => compactNumber.format(value / 10 ** decimals);
+    },
     formatPanelAxisValue: (valueFormat) => {
       if (valueFormat === undefined || !CURRENCY_CODE_PATTERN.test(valueFormat.currency)) {
         return (value) => compactNumber.format(value);

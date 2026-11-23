@@ -103,7 +103,7 @@ type StatPanelBodyProps = {
   readonly screenId: string;
   readonly screenParams: ScreenParams;
   readonly translate: Translate;
-  readonly variant: "card" | "strip" | "strip-compact";
+  readonly variant: "card" | "card-standalone" | "strip" | "strip-compact";
 };
 
 // Hidden before any query hook runs: the tile's own count query would be refused for this user.
@@ -168,6 +168,9 @@ function StatPanelContent({
     // A fixed tone must not paint an all-clear "0" as an alarm.
     (rawValue === 0 ? undefined : panel.tone);
   const sub = panel.subField !== undefined ? record[panel.subField] : undefined;
+  const subTone = readTone(
+    panel.subToneField !== undefined ? record[panel.subToneField] : undefined,
+  );
   const dynamicLabel = panel.labelField !== undefined ? record[panel.labelField] : undefined;
   const staticLabel =
     belowSm && panel.labelNarrow !== undefined
@@ -203,6 +206,7 @@ function StatPanelContent({
         ...(narrowLabel !== undefined && { narrowLabel }),
         ...(Icon !== undefined && { accentColor: panel.accentColor }),
         ...(subText !== undefined && { sub: subText }),
+        ...(subTone !== undefined && { subTone }),
         ...(delta !== undefined && { delta }),
         ...(spark !== undefined && { spark }),
         ...(link !== undefined && { link }),
@@ -219,6 +223,7 @@ type StatCellProps = {
   readonly tone: StatTone;
   readonly accentColor?: string;
   readonly sub?: string;
+  readonly subTone?: StatTone;
   readonly delta?: StatDelta;
   readonly spark?: readonly number[];
   readonly testId: string;
@@ -237,7 +242,9 @@ function StatVariantCell({
     return <StatBoxCell {...boxCell} />;
   }
   const { narrowLabel: _narrow, ...tileCell } = cell;
-  return variant === "strip" ? <StatStripCell {...tileCell} /> : <StatCard {...tileCell} inset />;
+  if (variant === "strip") return <StatStripCell {...tileCell} />;
+  if (variant === "card") return <StatCard {...tileCell} inset />;
+  return <StatCard {...tileCell} subBelow />;
 }
 
 function statValueText(
@@ -436,6 +443,9 @@ export function ChartPanelBody({
               colors={colors}
               ariaLabel={label}
               formatValue={formatValue}
+              {...(panel.layout !== undefined && { layout: panel.layout })}
+              hideLegend={panel.hideLegend === true}
+              {...(panel.singleTone !== undefined && { singleTone: panel.singleTone })}
               testId={testId}
             />
           );
@@ -464,6 +474,15 @@ export function ChartPanelBody({
               }
               formatValue={formatValue}
               formatAxisValue={formats.formatPanelAxisValue(panel.valueFormat)}
+              valueLabels={panel.barValueLabels === true}
+              formatValueLabel={formats.formatPanelCompactNumber(panel.valueFormat)}
+              highlightLast={panel.highlightLast === true}
+              hideYAxis={panel.hideYAxis === true}
+              hideLegend={panel.hideLegend === true}
+              labelEveryBucket={panel.labelEveryBucket === true}
+              {...(panel.lastBucketLabel !== undefined && {
+                lastBucketLabel: panel.lastBucketLabel,
+              })}
               testId={testId}
             />
           );

@@ -8,6 +8,7 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { readerRoles } from "./access";
 import { ticketCapabilitiesQuery } from "./handlers/ticket-capabilities.query";
 import { ticketCardQuery } from "./handlers/ticket-card.query";
+import { ticketDesignQuery } from "./handlers/ticket-design.query";
 import { ticketOverviewQuery } from "./handlers/ticket-overview.query";
 import { ticketQuotaQuery } from "./handlers/ticket-quota.query";
 import { ticketRecentQuery } from "./handlers/ticket-recent.query";
@@ -21,6 +22,7 @@ export const TICKET_STATS_QUERY = "tickets:query:ticket:stats";
 export const TICKET_OVERVIEW_QUERY = "tickets:query:ticket:overview";
 export const TICKET_CAPABILITIES_QUERY = "tickets:query:ticket:capabilities";
 export const TICKET_LIST_QUERY = "tickets:query:ticket:list";
+export const TICKET_DESIGN_QUERY = "tickets:query:ticket:design";
 
 export const ticketFeature = defineFeature("tickets", (r) => {
   r.crud(ticketEntity, {
@@ -35,6 +37,7 @@ export const ticketFeature = defineFeature("tickets", (r) => {
   r.queryHandler(ticketRecentQuery);
   r.queryHandler(ticketQuotaQuery);
   r.queryHandler(ticketOverviewQuery);
+  r.queryHandler(ticketDesignQuery);
 
   r.translations({
     keys: {
@@ -59,6 +62,12 @@ export const ticketFeature = defineFeature("tickets", (r) => {
       "tickets.dashboard.open-work": { en: "Open work" },
       "tickets.filter.open-work": { en: "Open work" },
       "screen:ticket-queue.title": { en: "Ticket queue" },
+      "screen:ticket-design.title": { en: "Support desk" },
+      "tickets.design.kpis": { en: "This week" },
+      "tickets.design.opened": { en: "Opened" },
+      "tickets.design.escalated": { en: "Escalated" },
+      "tickets.design.weekly": { en: "Opened per day" },
+      "tickets.design.by-team": { en: "By team" },
     },
   });
 
@@ -163,6 +172,79 @@ export const ticketFeature = defineFeature("tickets", (r) => {
         query: TICKET_OVERVIEW_QUERY,
         resultField: "recent",
         columns: ["title", "status"],
+      },
+    ],
+    access: readerRoles,
+  });
+
+  // Design options: all opt-in, a dashboard without them renders as before.
+  r.screen({
+    id: "ticket-design",
+    type: "dashboard",
+    // The screen title (`screen:ticket-design.title`) as page heading, the subtitle from the query below it.
+    showTitle: true,
+    headerSubtitle: { query: TICKET_DESIGN_QUERY, field: "subtitle" },
+    layout: "main-side",
+    // Side column two fifths wide instead of one third.
+    sideWidth: "wide",
+    panels: [
+      {
+        // Separate cards without the outer frame; the sub line takes its tone from the answer.
+        kind: "stat-group",
+        id: "kpis",
+        framed: false,
+        layout: "cards",
+        column: "top",
+        stats: [
+          {
+            kind: "stat",
+            id: "opened",
+            label: "tickets.design.opened",
+            query: TICKET_DESIGN_QUERY,
+            resultField: "kpis",
+            valueField: "opened",
+            subField: "openedSub",
+            subToneField: "openedSubTone",
+          },
+          {
+            kind: "stat",
+            id: "escalated",
+            label: "tickets.design.escalated",
+            query: TICKET_DESIGN_QUERY,
+            resultField: "kpis",
+            valueField: "escalated",
+            subField: "escalatedSub",
+            subToneField: "escalatedSubTone",
+          },
+        ],
+      },
+      {
+        kind: "chart",
+        id: "weekly",
+        label: "tickets.design.weekly",
+        chart: "stacked-bars",
+        query: TICKET_DESIGN_QUERY,
+        resultField: "weekly",
+        seriesTones: { opened: "active" },
+        barValueLabels: true,
+        highlightLast: true,
+        hideYAxis: true,
+        hideLegend: true,
+        labelEveryBucket: true,
+        lastBucketLabel: "date",
+      },
+      {
+        kind: "chart",
+        id: "by-team",
+        label: "tickets.design.by-team",
+        chart: "segment-bars",
+        query: TICKET_DESIGN_QUERY,
+        resultField: "byTeam",
+        column: "side",
+        // One line per row; every segment in one tone, for segment keys the screen cannot name.
+        layout: "rows",
+        singleTone: "active",
+        hideLegend: true,
       },
     ],
     access: readerRoles,

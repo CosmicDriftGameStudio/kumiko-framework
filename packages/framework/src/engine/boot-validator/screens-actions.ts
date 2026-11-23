@@ -44,6 +44,17 @@ export function validateAtMostOneRowClick(
   rowActions: readonly RowAction[],
 ): void {
   const rowClickActions = rowActions.filter(isRowClickAction);
+  const orphan = rowActions.find(
+    (action) =>
+      (action.kind === "navigate" || action.kind === "drawer") &&
+      action.inMenu === false &&
+      !isRowClickAction(action),
+  );
+  if (orphan !== undefined) {
+    throw bootRuleError(SCREEN_ACTION_RULES.inMenuFalseNeedsRowClick, {
+      message: `[Feature ${featureName}] Screen "${screenId}" (${screenType}) rowAction "${orphan.id}" sets inMenu: false without rowClick: true, so no control would trigger it. Set rowClick: true or remove inMenu.`,
+    });
+  }
   if (rowClickActions.length > 1) {
     throw bootRuleError(SCREEN_ACTION_RULES.rowClickAtMostOne, {
       message:

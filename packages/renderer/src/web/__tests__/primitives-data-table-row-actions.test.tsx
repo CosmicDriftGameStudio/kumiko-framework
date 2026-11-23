@@ -640,3 +640,34 @@ describe("DataTable", () => {
     });
   });
 });
+
+describe("DataTable inMenu: false on the rowClick action", () => {
+  const columns = [{ field: "name", label: "Name", type: "string", sortable: false }] as never;
+  const rows = [{ id: "r1", values: { name: "A" } }] as never;
+  const open = (extra: Record<string, unknown>) =>
+    [{ id: "open", label: "Open", rowClick: true, onTrigger: () => {}, ...extra }] as never;
+
+  test("menu mode lists the rowClick opener in a kebab, inMenu false leaves no kebab", () => {
+    const { unmount } = render(
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowActionMode="menu"
+        onRowClick={() => {}}
+        rowActions={open({})}
+      />,
+    );
+    expect(screen.queryByTestId("row-r1-actions-menu")).not.toBeNull();
+    unmount();
+    render(
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowActionMode="menu"
+        onRowClick={() => {}}
+        rowActions={open({ inMenu: false })}
+      />,
+    );
+    expect(screen.queryByTestId("row-r1-actions-menu")).toBeNull();
+  });
+});

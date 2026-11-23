@@ -270,6 +270,17 @@ export const DASHBOARD_RULES = {
     summary: "A stat-group declares at least one stat.",
     fix: "Add at least one stat.",
   },
+  statGroupUnframedChrome: {
+    id: "dashboard/stat-group-unframed-chrome",
+    summary:
+      'A stat-group with framed: false uses layout "cards" and sets no label, subtitle or link.',
+    fix: 'Set layout "cards" and remove label, subtitle and link, or remove framed.',
+  },
+  headerSubtitleIncomplete: {
+    id: "dashboard/header-subtitle-incomplete",
+    summary: "headerSubtitle names a non-empty query and field.",
+    fix: "Set both headerSubtitle.query and headerSubtitle.field.",
+  },
   statGroupSubtitleWithoutLabel: {
     id: "dashboard/stat-group-subtitle-without-label",
     summary: "A stat-group with a subtitle also has a label.",

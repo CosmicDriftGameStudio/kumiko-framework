@@ -62,7 +62,15 @@ export function createTaskListScreen(taskTable: ListTableOptions): ScreenDefinit
         display: "text",
         visible: { field: "status", eq: "done" },
       },
-      { kind: "navigate", id: "open", label: "Open", screen: "task-edit", rowClick: true },
+      // inMenu: false: the row click still opens it, but it adds no entry or "..." column to the row menu.
+      {
+        kind: "navigate",
+        id: "open",
+        label: "Open",
+        screen: "task-edit",
+        rowClick: true,
+        inMenu: false,
+      },
       {
         kind: "writeHandler",
         id: "delete",
@@ -123,6 +131,18 @@ export const taskWorkloadScreen: ScreenDefinition = {
     "assignee",
     { field: "status", renderer: { format: "enumOption", optionsOf: "task-board:task.status" } },
     "estimateHours",
+    // A tone draws the label as a status pill; each tone needs its own label.
+    {
+      field: "parked",
+      hideOnNarrow: true,
+      renderer: {
+        format: "boolean",
+        trueLabel: "Parked",
+        falseLabel: "Active",
+        trueTone: "warn",
+        falseTone: "ok",
+      },
+    },
   ],
   defaultSort: { field: "title", dir: "asc" },
   table: {

@@ -250,6 +250,14 @@ export function validateDashboardLayout(
       message: `${prefix} layout "${String(screen.layout)}" is not "main-side".`,
     });
   }
+  if (
+    screen.sideWidth !== undefined &&
+    (screen.sideWidth !== "wide" || screen.layout !== "main-side")
+  ) {
+    throw bootRuleError(DASHBOARD_RULES.layoutInvalid, {
+      message: `${prefix} sideWidth "${String(screen.sideWidth)}" must be "wide" and needs layout: "main-side".`,
+    });
+  }
   for (const panel of screen.panels) {
     // skip: panel stays in the main column
     if (panel.column === undefined) continue;

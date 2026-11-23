@@ -16,6 +16,23 @@ export const DASHBOARD_CHART_RULES = {
     summary: 'Stacked-area chart props are only set on a "stacked-area" chart.',
     fix: 'Remove the props or use chart "stacked-area".',
   },
+  chartBarOptionKindMismatch: {
+    id: "dashboard/chart-bar-option-kind-mismatch",
+    summary:
+      'Bar options (barValueLabels, highlightLast, hideYAxis, labelEveryBucket, lastBucketLabel) are only set on "stacked-bars"; hideLegend on "stacked-bars" or "segment-bars"; layout only on "segment-bars".',
+    fix: "Remove the option or use the matching chart kind.",
+  },
+  chartBarOptionValueInvalid: {
+    id: "dashboard/chart-bar-option-value-invalid",
+    summary:
+      'Bar chart flags are booleans, lastBucketLabel is "today" or "date", layout is "rows".',
+    fix: "Use true or false, or an allowed value.",
+  },
+  chartSingleToneConflict: {
+    id: "dashboard/chart-single-tone-conflict",
+    summary: "singleTone is not combined with seriesTones or seriesColors.",
+    fix: "Remove singleTone, or remove seriesTones and seriesColors.",
+  },
   chartUnitTimeseriesOnly: {
     id: "dashboard/chart-unit-timeseries-only",
     summary: 'A chart unit is only set on a "timeseries" chart.',
