@@ -178,8 +178,8 @@ async function pollAtProvider(
 
 type PollFilter = {
   readonly field: string;
-  readonly op: "gte" | "lte";
-  readonly value: string;
+  readonly op: "gte" | "lte" | "eq";
+  readonly value: string | null;
 };
 type PollGroup = {
   readonly statuses: readonly LetterState[];
@@ -364,7 +364,12 @@ export async function pollLetters(ctx: JobContext, options: PollOptions): Promis
     {
       group: {
         statuses: [LETTER_STATE.awaitingApproval],
-        where: [olderThan("insertedAt", LETTER_PREPARE_STALE_MS)],
+        // Only letters the prepare job left untouched: prepared ones and ones with an issue would use up the budget.
+        where: [
+          olderThan("insertedAt", LETTER_PREPARE_STALE_MS),
+          { field: "mergedFileRefId", op: "eq", value: null },
+          { field: "preparationIssue", op: "eq", value: null },
+        ],
       },
       cap: safetyNetBudget,
     },

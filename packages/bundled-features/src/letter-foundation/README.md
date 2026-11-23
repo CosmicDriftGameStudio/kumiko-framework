@@ -133,7 +133,7 @@ pages and sheets and quotes the price, so `preview` and `approve` read stored va
 again. A document problem (`letter_too_many_sheets`, unreadable or rejected PDF, no files) is stored in
 `preparationIssue`; the letter keeps waiting and `approve` reports the real error. A technical failure
 repeats the job. Bytes uploaded by a preparation that then finds the letter changed stay with the upload
-sweep. A letter still unprepared 15 minutes after creation, with no preparation issue, was missed by the job and its retries; the poll prepares it again.
+sweep. The preparation fixes price, sheet count and provider: a provider switched afterwards applies to new letters only, and if the old provider is no longer configured the handover fails visibly. A letter still unprepared 15 minutes after creation, with no preparation issue, was missed by the job and its retries; the poll prepares it again.
 
 `sendLetter(ctx, input, { approval: "auto" })` (field `approvalMode`, default `manual`) lets the job approve a
 prepared letter without a person, as the sender (`approvedBy` is the creator). `approval` is an option of the
