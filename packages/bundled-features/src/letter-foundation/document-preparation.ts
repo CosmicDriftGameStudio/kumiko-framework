@@ -35,7 +35,7 @@ const DOCUMENT_ISSUE_CODES = [
 
 export type LetterDocumentIssue = (typeof DOCUMENT_ISSUE_CODES)[number];
 
-export function isLetterDocumentIssue(value: unknown): value is LetterDocumentIssue {
+function isLetterDocumentIssue(value: unknown): value is LetterDocumentIssue {
   return isOneOf(DOCUMENT_ISSUE_CODES, value);
 }
 

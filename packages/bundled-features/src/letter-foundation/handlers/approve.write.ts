@@ -50,7 +50,18 @@ export function createApproveHandler(limitKey: ConfigKeyHandle<"number">) {
     },
     handler: async (event, ctx) => {
       const { prepared } = event;
-      if (prepared?.kind === "upload") {
+      // Read again: the preparation job may have stored its result since beforeTransaction looked, and
+      // writing this run's own upload then would replace the stored file with a second copy.
+      const letter = await letterExecutor.detail(
+        { id: event.payload.letterId },
+        event.user,
+        ctx.db,
+      );
+      if (letter === null) return failNotFound(LETTER_ENTITY, event.payload.letterId);
+      const { quotedNet } = letter;
+      const storedPrice = isLetterPrepared(letter) && quotedNet ? quotedNet : undefined;
+
+      if (storedPrice === undefined && prepared?.kind === "upload") {
         const limitFailure = monthlyLimitFailure(
           await readLetterBudget(ctx, limitKey),
           prepared.quote.net.amount,
@@ -76,24 +87,13 @@ export function createApproveHandler(limitKey: ConfigKeyHandle<"number">) {
         });
       }
 
-      // Nested runs skip beforeTransaction: a letter prepared in the meantime can still be approved here.
-      const letter = await letterExecutor.detail(
-        { id: event.payload.letterId },
-        event.user,
-        ctx.db,
-      );
-      if (letter === null) return failNotFound(LETTER_ENTITY, event.payload.letterId);
-      if (
-        letter.status !== LETTER_STATE.awaitingApproval ||
-        !isLetterPrepared(letter) ||
-        letter.quotedNet === null ||
-        letter.quotedNet === undefined
-      ) {
+      // Nested runs skip beforeTransaction, and a letter prepared in the meantime needs no upload either.
+      if (letter.status !== LETTER_STATE.awaitingApproval || storedPrice === undefined) {
         return unprocessable(LetterErrors.stateChanged, LetterI18n.stateChanged);
       }
       const limitFailure = monthlyLimitFailure(
         await readLetterBudget(ctx, limitKey),
-        letter.quotedNet.amount,
+        storedPrice.amount,
       );
       if (limitFailure !== undefined) return limitFailure;
       return transitionLetter(ctx, event.user, {

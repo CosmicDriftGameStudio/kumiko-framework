@@ -3,13 +3,21 @@ import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { unprocessable } from "../shared/index.ts";
-import { LETTER_STATE, LetterErrors, LetterI18n, LetterInternalHandlers } from "./constants.ts";
+import {
+  LETTER_STATE,
+  type LetterApprovalMode,
+  LetterErrors,
+  LetterI18n,
+  LetterInternalHandlers,
+} from "./constants.ts";
 import { letterExecutor } from "./entity.ts";
 import type { SendLetterInput } from "./payloads.ts";
 import { selectLetterProviderOrFailure } from "./provider-resolver.ts";
 import type { LetterEnvelope, LetterProviderCapabilities } from "./types.ts";
 
 export type SendLetterContext = Pick<HandlerContext, "db" | "user" | "registry" | "dispatch">;
+
+export type SendLetterOptions = { readonly approval?: LetterApprovalMode };
 
 export type SendLetterResult = {
   readonly letterId: string;
@@ -49,13 +57,16 @@ function refusedByProvider(
 
 /**
  * Creates a letter that waits for approval. It is released by a person with the approve right,
- * or, with `approval: "auto"`, by the preparation job once the letter is prepared and the monthly
- * limit covers it; nothing is handed over before one of the two. Runs in the caller's transaction, so the letter exists exactly when
+ * or, with `options.approval: "auto"`, by the preparation job once the letter is prepared and the
+ * monthly limit covers it; nothing is handed over before one of the two. `approval` is a server-side
+ * decision of the app and deliberately not part of `SendLetterInput`, which apps use as a client payload.
+ * Runs in the caller's transaction, so the letter exists exactly when
  * the caller's own change commits. The same idempotency key returns the same letter.
  */
 export async function sendLetter(
   ctx: SendLetterContext,
   input: SendLetterInput,
+  options: SendLetterOptions = {},
 ): Promise<WriteResult<SendLetterResult>> {
   if (input.formRequirement === "schriftform" && input.formRiskAcknowledged !== true) {
     return unprocessable(LetterErrors.schriftformRejected, LetterI18n.schriftformRejected);
@@ -73,7 +84,7 @@ export async function sendLetter(
   const created = await letterExecutor.create(
     {
       status: LETTER_STATE.awaitingApproval,
-      approvalMode: input.approval ?? "manual",
+      approvalMode: options.approval ?? "manual",
       idempotencyKey: input.idempotencyKey,
       sourceEntityType: input.source.entityType,
       sourceEntityId: input.source.entityId,

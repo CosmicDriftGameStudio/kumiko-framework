@@ -46,7 +46,12 @@ export {
   selectLetterProvider,
   selectLetterProviderOrFailure,
 } from "./provider-resolver.ts";
-export { type SendLetterContext, type SendLetterResult, sendLetter } from "./send-letter.ts";
+export {
+  type SendLetterContext,
+  type SendLetterOptions,
+  type SendLetterResult,
+  sendLetter,
+} from "./send-letter.ts";
 export { type LetterTransition, transitionLetter } from "./transitions.ts";
 export {
   isLetterProviderPlugin,

@@ -9,7 +9,6 @@ import {
   LetterErrors,
   LetterI18n,
 } from "../constants.ts";
-import { isLetterDocumentIssue } from "../document-preparation.ts";
 import { type LetterRow, letterExecutor } from "../entity.ts";
 import { monthlyLimitFailure, readLetterBudget } from "../letter-usage.ts";
 import { ApproveManySchema } from "../payloads.ts";
@@ -17,11 +16,7 @@ import { isLetterPrepared } from "../row-guards.ts";
 import { transitionLetter } from "../transitions.ts";
 
 function isReadyForApproval(letter: LetterRow): boolean {
-  return (
-    letter.status === LETTER_STATE.awaitingApproval &&
-    isLetterPrepared(letter) &&
-    !isLetterDocumentIssue(letter.preparationIssue)
-  );
+  return letter.status === LETTER_STATE.awaitingApproval && isLetterPrepared(letter);
 }
 
 export function createApproveManyHandler(limitKey: ConfigKeyHandle<"number">) {
@@ -33,12 +28,16 @@ export function createApproveManyHandler(limitKey: ConfigKeyHandle<"number">) {
     description:
       "Approves several prepared letters at once, all or none: every letter must wait for approval with a finished preparation, and the monthly cost limit must cover all of them together.",
     handler: async (event, ctx) => {
-      const letters: LetterRow[] = [];
-      for (const letterId of new Set(event.payload.letterIds)) {
-        const letter = await letterExecutor.detail({ id: letterId }, event.user, ctx.db);
-        if (letter === null) return failNotFound(LETTER_ENTITY, letterId);
-        letters.push(letter);
-      }
+      const letterIds = [...new Set(event.payload.letterIds)];
+      const found = await letterExecutor.list(
+        { filters: [{ field: "id", op: "in", value: letterIds }], limit: letterIds.length },
+        event.user,
+        ctx.db,
+      );
+      const letters = found.rows;
+      const foundIds = new Set(letters.map((letter) => letter.id));
+      const missing = letterIds.find((letterId) => !foundIds.has(letterId));
+      if (missing !== undefined) return failNotFound(LETTER_ENTITY, missing);
       const notReady = letters.filter((letter) => !isReadyForApproval(letter)).length;
       if (notReady > 0) {
         return unprocessable(LetterErrors.notReadyForApproval, LetterI18n.notReadyForApproval, {

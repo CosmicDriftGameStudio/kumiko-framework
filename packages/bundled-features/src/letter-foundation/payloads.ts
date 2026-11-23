@@ -1,7 +1,6 @@
 import { MAX_BULK_SELECTION } from "@cosmicdrift/kumiko-types/screen";
 import * as z from "zod";
 import {
-  LETTER_APPROVAL_MODES,
   LETTER_ENVELOPES,
   LETTER_FAILURE_REASONS,
   LETTER_FORM_REQUIREMENTS,
@@ -34,7 +33,6 @@ export const SendLetterInputSchema = z.object({
   }),
   costCenterRef: z.string().max(200).optional(),
   latestReceiptDate: z.iso.date().optional(),
-  approval: z.enum(LETTER_APPROVAL_MODES).optional(),
 });
 
 export type SendLetterInput = z.infer<typeof SendLetterInputSchema>;

@@ -142,9 +142,11 @@ export function navigateWithReturnTo(
     ...returnParams,
   };
   const go = (): void => {
-    if (carry !== undefined && host !== undefined) {
-      carriedInput = { host: formatReturnTo(host), values: carry, ready: false };
-    }
+    // A carry left behind by a visit that ended through the main navigation must not seed this host.
+    carriedInput =
+      carry !== undefined && host !== undefined
+        ? { host: formatReturnTo(host), values: carry, ready: false }
+        : undefined;
     nav.navigate(target);
     if (Object.keys(merged).length > 0) {
       nav.setSearchParams(merged);

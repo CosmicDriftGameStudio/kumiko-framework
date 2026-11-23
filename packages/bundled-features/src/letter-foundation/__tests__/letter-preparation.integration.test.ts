@@ -6,16 +6,27 @@ import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createTenantDb } from "@cosmicdrift/kumiko-testing/helpers";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { letterSimulator } from "../../letter-provider-inmemory/simulator.ts";
 import {
+  LETTER_PREPARE_STALE_MS,
   LETTER_STATE,
+  type LetterApprovalMode,
   LetterErrors,
   LetterHandlers,
   LetterI18n,
+  LetterJobs,
   LetterQueries,
 } from "../constants.ts";
-import { APPROVER, CLERK, createLetterHarness, SYSTEM_ADMIN, TENANT } from "./letter-harness.ts";
+import {
+  APPROVER,
+  CLERK,
+  createLetterHarness,
+  SEND,
+  SYSTEM_ADMIN,
+  TENANT,
+} from "./letter-harness.ts";
 
 // No hold time: an automatically approved letter is handed over at once instead of the drain waiting for it.
 const harness = createLetterHarness({ handoverHoldMs: 0 });
@@ -37,8 +48,11 @@ beforeEach(async () => {
   await harness.reset();
 });
 
-async function sendAndPrepare(overrides: Parameters<typeof letterInput>[0] = {}) {
-  const { letterId } = await send(await letterInput(overrides), CLERK);
+async function sendAndPrepare(
+  overrides: Parameters<typeof letterInput>[0] = {},
+  approval: LetterApprovalMode = "manual",
+) {
+  const { letterId } = await send(await letterInput(overrides), CLERK, approval);
   await stack.drainJobs();
   return letterId;
 }
@@ -118,7 +132,7 @@ describe("preparation after send", () => {
 describe("automatic approval", () => {
   test("a prepared letter is approved without an approver, in the sender's name", async () => {
     await setLimit(100_000);
-    const letterId = await sendAndPrepare({ approval: "auto" });
+    const letterId = await sendAndPrepare({}, "auto");
 
     const row = await letterRow(letterId);
     expect(row?.["status"]).not.toBe(LETTER_STATE.awaitingApproval);
@@ -129,7 +143,7 @@ describe("automatic approval", () => {
 
   test("a limit that does not cover the letter keeps it waiting until someone approves it", async () => {
     await setLimit(50);
-    const letterId = await sendAndPrepare({ approval: "auto" });
+    const letterId = await sendAndPrepare({}, "auto");
 
     const waiting = await letterRow(letterId);
     expect(waiting?.["status"]).toBe(LETTER_STATE.awaitingApproval);
@@ -145,17 +159,50 @@ describe("automatic approval", () => {
     expect(approved?.["preparationIssue"] ?? null).toBeNull();
   });
 
+  test("an approval sent in the payload of an app handler is ignored", async () => {
+    await setLimit(100_000);
+    const input = { ...(await letterInput()), approval: "auto" };
+    const { letterId } = await stack.http.writeOk<{ letterId: string }>(SEND, input, CLERK);
+    await stack.drainJobs();
+
+    const row = await letterRow(letterId);
+    expect(row?.["status"]).toBe(LETTER_STATE.awaitingApproval);
+    expect(row?.["approvalMode"]).toBe("manual");
+  });
+
   test("a document fault stops automatic approval", async () => {
     await setLimit(100_000);
     letterSimulator.setCapabilities({ maxSheets: 1 });
-    const letterId = await sendAndPrepare({
-      approval: "auto",
-      fileRefIds: [await seedDocument(await pdfBytes(5))],
-    });
+    const letterId = await sendAndPrepare(
+      { fileRefIds: [await seedDocument(await pdfBytes(5))] },
+      "auto",
+    );
 
     const row = await letterRow(letterId);
     expect(row?.["status"]).toBe(LETTER_STATE.awaitingApproval);
     expect(row?.["preparationIssue"]).toBe(LetterErrors.tooManySheets);
+  });
+});
+
+describe("a letter the prepare job never reached", () => {
+  test("the poll prepares it once it is older than the stale time, and not before", async () => {
+    const { letterId } = await send(await letterInput(), CLERK);
+    const clock = () => {
+      if (stack.clock === undefined) throw new Error("the stack has no clock");
+      return stack.clock;
+    };
+
+    // insertedAt is the real time of the send event, so the stack clock is set relative to it.
+    const sentAt = Temporal.Now.instant();
+    clock().set(sentAt.add({ milliseconds: LETTER_PREPARE_STALE_MS - 60_000 }));
+    await harness.runJobWithoutEventDelivery(LetterJobs.poll);
+    expect((await letterRow(letterId))?.["mergedFileRefId"]).toBeFalsy();
+
+    clock().set(sentAt.add({ milliseconds: LETTER_PREPARE_STALE_MS + 60_000 }));
+    await harness.runJobWithoutEventDelivery(LetterJobs.poll);
+    const row = await letterRow(letterId);
+    expect(row?.["mergedFileRefId"]).toBeTruthy();
+    expect(Number(row?.["quotedNet"])).toBe(LETTER_PRICE);
   });
 });
 

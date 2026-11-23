@@ -320,3 +320,7 @@ export const LETTER_CLAIM_STATUS = {
   estimateBooked: "estimate-booked",
   submitted: "submitted",
 } as const satisfies Record<string, LetterSubmissionStatus>;
+
+// A letter still unprepared this long after it was created has outlived the prepare job and all its retries;
+// the poll prepares it again.
+export const LETTER_PREPARE_STALE_MS = 15 * 60_000;

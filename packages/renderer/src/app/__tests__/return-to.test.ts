@@ -484,6 +484,15 @@ describe("navigateWithReturnTo — carried input", () => {
     expect(readCarried({ screenId: "letter-send", entityId: "lease-2" })).toBeUndefined();
   });
 
+  test("a later visit without carry does not bring back input an earlier visit left behind", () => {
+    navigateWithReturnTo(fakeNav().nav, editor, host, undefined, { envelope: "large" });
+    // The user leaves through the main navigation, so the jump back never happens.
+    navigateWithReturnTo(fakeNav().nav, editor, host);
+    navigateToReturn(fakeNav().nav, host);
+
+    expect(readCarried(host)).toBeUndefined();
+  });
+
   test("without carry a dirty form still asks", () => {
     const { questions } = dirtyFormWithConfirmer();
     navigateWithReturnTo(fakeNav().nav, editor, host);

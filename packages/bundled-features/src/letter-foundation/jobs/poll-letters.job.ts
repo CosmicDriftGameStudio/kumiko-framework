@@ -10,6 +10,7 @@ import {
   LETTER_POLL_LIMIT_PER_RUN,
   LETTER_POLL_RUN_BUDGET_MS,
   LETTER_POLL_SAFETY_NET_LIMIT,
+  LETTER_PREPARE_STALE_MS,
   LETTER_SENT_TRACKING_DAYS,
   LETTER_STATE,
   LETTER_STATE_OF_PROVIDER_STATE,
@@ -20,6 +21,7 @@ import {
 } from "../constants.ts";
 import { type LetterRow, letterExecutor } from "../entity.ts";
 import { isForeignProvider, resolveLetterProvider } from "../provider-resolver.ts";
+import { isLetterPrepared } from "../row-guards.ts";
 import type { LetterProvider, LetterProviderStatus } from "../types.ts";
 import {
   applyProviderStatus as apply,
@@ -237,6 +239,12 @@ function requestHandoverRestart(ctx: JobContext, letter: LetterRow): Promise<voi
   return dispatchForLetter(ctx, LetterInternalHandlers.requestHandoverRestart, letter.id);
 }
 
+/** The prepare job gave up on this letter (it left no preparation issue); a new run either prepares it or stores the issue. */
+async function prepareAgain(ctx: JobContext, letter: LetterRow): Promise<void> {
+  if (isLetterPrepared(letter) || letter.preparationIssue) return;
+  await dispatchForLetter(ctx, LetterInternalHandlers.prepare, letter.id);
+}
+
 type PollProvider = {
   readonly name: string;
   readonly provider: LetterProvider;
@@ -267,6 +275,7 @@ async function giveUpOnStalledHandover(ctx: JobContext, letter: LetterRow): Prom
 
 async function pollLetter(ctx: JobContext, poll: PollProvider, letter: LetterRow): Promise<void> {
   const { provider } = poll;
+  if (letter.status === LETTER_STATE.awaitingApproval) return prepareAgain(ctx, letter);
   if (letter.status === LETTER_STATE.submitting) return markStuckSubmission(ctx, letter);
   if (letter.status === LETTER_STATE.approved) {
     return isApprovedPast(ctx, letter, poll.giveUpMs)
@@ -349,6 +358,13 @@ export async function pollLetters(ctx: JobContext, options: PollOptions): Promis
       group: {
         statuses: [LETTER_STATE.submissionUnknown],
         requestsPerLetter: capabilities.lookupRequestsPerLetter ?? 1,
+      },
+      cap: safetyNetBudget,
+    },
+    {
+      group: {
+        statuses: [LETTER_STATE.awaitingApproval],
+        where: [olderThan("insertedAt", LETTER_PREPARE_STALE_MS)],
       },
       cap: safetyNetBudget,
     },

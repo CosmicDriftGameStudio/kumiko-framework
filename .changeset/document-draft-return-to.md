@@ -34,7 +34,7 @@ detail: `resolveReturnTarget` now accepts an entity id for an `actionForm` scree
 feature: renderer
 type: improvement
 title: A form's input survives a returnTo round trip
-detail: `navigateWithReturnTo` takes the host form's current values as an optional fifth argument `carry`. They stay in memory, come back when the opened screen jumps home through returnTo, and win over the loaded record, so the jump leaves without the "discard changes?" question and the form can be submitted right away. Without `carry` nothing changes.
+detail: `navigateWithReturnTo` takes the host form's current values as an optional fifth argument `carry`. They stay in memory, come back when the opened screen jumps home through returnTo, and win over the loaded record, so the jump leaves without the "discard changes?" question and the form can be submitted right away. Without `carry` nothing changes, and a navigation without it drops carry left behind by an earlier visit.
 -->
 
 <!-- kumiko-changes
