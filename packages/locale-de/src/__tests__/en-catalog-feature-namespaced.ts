@@ -542,6 +542,7 @@ export const featureNamespacedEnCatalog: Readonly<Record<string, string>> = {
   "document-draft:editor.finalize": "Finalize",
   "document-draft:editor.finalizeNeedsSave": "Save your changes before finalizing.",
   "document-draft:editor.discardDraft": "Discard draft",
+  "document-draft:editor.back": "Back",
   "document-draft:editor.revise": "Edit again",
   "document-draft:editor.versionConflict":
     "The draft was changed elsewhere in the meantime. Reload it to continue with the current text.",

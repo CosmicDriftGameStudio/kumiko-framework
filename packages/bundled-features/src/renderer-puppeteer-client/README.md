@@ -4,6 +4,8 @@ Plugin for `renderer-foundation`. Renders `kind=["document-pdf", "image-snapshot
 
 A layout with `postal: true` prints without fold marks, corner marks, paper colour and bleed images. `renderPdfBytes` and `renderPdfBeforeTransaction` take `postal: true` to print one render that way, for example the same document once for e-mail and once for a print provider; without it the layout decides.
 
+`renderPdfBeforeTransaction` with `keepPdfBytes: true` also returns the PDF as `pdfBytes` on its upload, for a mail that goes out before the transaction and attaches that exact PDF. It is off by default so batches do not hold every PDF in memory.
+
 ## Architecture
 
 ```

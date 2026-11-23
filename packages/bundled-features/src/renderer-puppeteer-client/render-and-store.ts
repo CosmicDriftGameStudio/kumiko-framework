@@ -55,6 +55,8 @@ export type RenderPdfArgs = {
   readonly draft?: DocumentPdfDraft;
   /** Prints as if the layout set `postal: true` (no fold marks, corner marks or paper colour), for this render only. Unset follows the layout. */
   readonly postal?: boolean;
+  /** Keeps the PDF bytes on the returned upload (`pdfBytes`), for a mail that goes out before the transaction and attaches this exact PDF. Off by default: batches would hold every PDF in memory. */
+  readonly keepPdfBytes?: boolean;
   readonly attachTo?: {
     readonly entityType: string;
     readonly fieldName: string;
@@ -70,6 +72,8 @@ export type RenderedPdfUpload = {
   readonly layout?: RenderedTemplateRef;
   readonly pageCount: number;
   readonly sizeBytes: number;
+  /** Set only when the render asked for `keepPdfBytes`. */
+  readonly pdfBytes?: Uint8Array;
 };
 
 export type StoredRenderedPdf = {
@@ -291,6 +295,7 @@ export async function renderPdfBeforeTransaction(
       ...(layout !== undefined && { layout }),
       pageCount,
       sizeBytes,
+      ...(args.keepPdfBytes === true && { pdfBytes }),
     },
     ...(uploaded.release && { release: uploaded.release }),
   };

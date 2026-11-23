@@ -20,6 +20,7 @@ import { resolveOutboundAttachments } from "./outbound-attachments.ts";
 import {
   isMailSendNotConfiguredError,
   isMailSendRejectedError,
+  type OutboundAttachment,
   type OutboundMailMessage,
   type OutboundMailSent,
   outboundMailMessageSchema,
@@ -78,6 +79,8 @@ export type SendMailFromAccountContext = Pick<
 export type SendMailFromAccountInput = {
   readonly accountId: string;
   readonly message: OutboundMailMessage;
+  /** Bytes the caller already holds, for example a PDF rendered in the same `beforeTransaction`. They go out next to `message.attachmentFileIds`, share the count and size limit, and are not access-checked: the caller vouches for them. */
+  readonly attachedBytes?: readonly OutboundAttachment[];
   /** Makes the send retry-safe: the same key never sends twice. Needs `ctx.db.outsideTransaction`. */
   readonly idempotencyKey?: string;
 };
@@ -295,7 +298,7 @@ export async function sendMailFromAccount(
   if (!plugin.send) return sendFailure("notConfigured");
 
   const attachmentFileIds = message.data.attachmentFileIds ?? [];
-  const resolved = await resolveOutboundAttachments(ctx, attachmentFileIds);
+  const resolved = await resolveOutboundAttachments(ctx, attachmentFileIds, input.attachedBytes);
   if (!resolved.isSuccess) return sendFailure(resolved.failure);
 
   const claimed = await claimKeyedSend(recording, account.id, ctx.user.id);

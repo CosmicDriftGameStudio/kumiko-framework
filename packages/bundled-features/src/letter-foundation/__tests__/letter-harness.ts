@@ -61,6 +61,7 @@ import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import {
   LETTER_CAP,
   LETTER_MONTHLY_COST_LIMIT_CONFIG,
+  type LetterApprovalMode,
   LetterHandlers,
   type LetterShippingMode,
 } from "../constants.ts";
@@ -79,6 +80,7 @@ export const APPROVER = createTestUser({ id: 1, tenantId: TENANT, roles: ["Lette
 export const CLERK = createTestUser({ id: 2, tenantId: TENANT, roles: ["TenantAdmin"] });
 export const SYSTEM_ADMIN = createTestUser({ id: 3, tenantId: TENANT, roles: ["SystemAdmin"] });
 export const SEND = "letter-probe:write:send";
+export const SEND_AUTO = "letter-probe:write:send-auto";
 export const LIMIT_KEY = LETTER_MONTHLY_COST_LIMIT_CONFIG;
 export const A4: [number, number] = [595.28, 841.89];
 export const LETTER_SIZE: [number, number] = [612, 792];
@@ -122,6 +124,13 @@ const probeFeature = defineFeature("letter-probe", (r) => {
     schema: SendLetterInputSchema,
     access: { roles: ["TenantAdmin", "LetterApprover"] },
     handler: async (event, ctx) => sendLetter(ctx, event.payload),
+  });
+  // The app decides on automatic approval itself, from its own setting, never from the payload.
+  r.writeHandler({
+    name: "send-auto",
+    schema: SendLetterInputSchema,
+    access: { roles: ["TenantAdmin", "LetterApprover"] },
+    handler: async (event, ctx) => sendLetter(ctx, event.payload, { approval: "auto" }),
   });
 });
 
@@ -304,8 +313,16 @@ export function createLetterHarness(
     };
   }
 
-  function send(input: SendLetterInput, user: SessionUser = CLERK) {
-    return current().http.writeOk<{ letterId: string; created: boolean }>(SEND, input, user);
+  function send(
+    input: SendLetterInput,
+    user: SessionUser = CLERK,
+    approval: LetterApprovalMode = "manual",
+  ) {
+    return current().http.writeOk<{ letterId: string; created: boolean }>(
+      approval === "auto" ? SEND_AUTO : SEND,
+      input,
+      user,
+    );
   }
 
   async function letterRow(letterId: string) {

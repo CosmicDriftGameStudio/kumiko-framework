@@ -4,6 +4,8 @@ import { LETTER_PROVIDER_NOT_CONFIGURED } from "./provider-resolver.ts";
 export const LETTER_FOUNDATION_I18N = {
   "letter-foundation:write:approve:title": { en: "Approve letter" },
   "letter-foundation:write:approve:field:letterId": { en: "Letter" },
+  "letter-foundation:write:approve-many:title": { en: "Approve several letters" },
+  "letter-foundation:write:approve-many:field:letterIds": { en: "Letters" },
   "letter-foundation:write:cancel:title": { en: "Cancel letter" },
   "letter-foundation:write:cancel:field:letterId": { en: "Letter" },
   "letter-foundation:write:resolve-unknown:title": { en: "Close unclear handover" },
@@ -34,6 +36,16 @@ export const LETTER_FOUNDATION_I18N = {
     en: "Letter sending is not configured on this server. Ask the operator to set the letter provider.",
   },
   [LetterI18n.noFiles]: { en: "The letter has no document." },
+  "screen:letter-foundation-tenant.title": { en: "Letters" },
+  "screen:letter-foundation-system.title": { en: "Letters of all tenants" },
+  "letter-foundation.settings": { en: "Letters" },
+  [LetterI18n.monthlyLimitTitle]: { en: "Monthly letter limit (cents)" },
+  [LetterI18n.monthlyLimitHelp]: {
+    en: "Approved letters of a calendar month may cost at most this much. 0 blocks approval.",
+  },
+  [LetterI18n.notReadyForApproval]: {
+    en: "Some of the selected letters are not ready for approval. A letter is ready when it waits for approval and its document was checked without a problem.",
+  },
   [LetterI18n.notAwaitingApproval]: { en: "The letter is not waiting for approval." },
   [LetterI18n.monthlyLimitNotCovered]: {
     en: "The monthly limit does not cover this letter. The operator can raise the limit.",

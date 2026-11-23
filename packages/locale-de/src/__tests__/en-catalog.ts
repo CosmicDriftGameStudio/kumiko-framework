@@ -1492,6 +1492,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "templateResolver.errors.missing_required_placeholder": "A required placeholder is missing.",
   "documentDraft.errors.notOpen": "This draft is not open for editing.",
   "documentDraft.errors.notFinalized": "This draft is not finalized.",
+  "documentDraft.errors.notFinalizable":
+    "This draft is printed by the app when the document is sent and cannot be finalized.",
   "documentDraft.errors.templateNotFound": "The template {slug} does not exist.",
   "documentDraft.errors.opNotAllowed":
     "The operation {op} is not allowed on a draft: only its text can change.",

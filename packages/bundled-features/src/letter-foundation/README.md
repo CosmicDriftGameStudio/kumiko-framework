@@ -126,6 +126,27 @@ moment can both pass. An approved letter whose handover already holds a reservat
 until the handover ends, which errs on the cautious side. The preview of an approved letter leaves the
 letter itself out.
 
+### Preparation, automatic approval and bulk approval
+
+Right after `sendLetter` the letter gets a `created` event and the job `prepare` merges the PDF, counts
+pages and sheets and quotes the price, so `preview` and `approve` read stored values instead of working
+again. A document problem (`letter_too_many_sheets`, unreadable or rejected PDF, no files) is stored in
+`preparationIssue`; the letter keeps waiting and `approve` reports the real error. A technical failure
+repeats the job. Bytes uploaded by a preparation that then finds the letter changed stay with the upload
+sweep. The preparation fixes price, sheet count and provider: a provider switched afterwards applies to new letters only, and if the old provider is no longer configured the handover fails visibly. A letter still unprepared 15 minutes after creation, with no preparation issue, was missed by the job and its retries; the poll prepares it again.
+
+`sendLetter(ctx, input, { approval: "auto" })` (field `approvalMode`, default `manual`) lets the job approve a
+prepared letter without a person, as the sender (`approvedBy` is the creator). `approval` is an option of the
+call, not a field of `SendLetterInput`: an app that uses the schema as its client payload sets it from its own
+setting, so a user cannot ask for it. If the monthly limit does
+not cover it, the letter waits with `preparationIssue = letter_monthly_limit_not_covered`.
+
+`approve-many` (role `LetterApprover`, up to 100 ids) approves a selection all or none: any letter that is
+not prepared, has a document problem or is not waiting stops it with `letter_not_ready_for_approval`, and
+the summed price must fit the limit. The query `budget` returns `{ limitCents, usedCents }` for the
+approver and the tenant admin. `quoteLetter(ctx, spec)` prices a document before it is sent. The config key
+`monthlyCostLimitCents` appears on the generated settings screen.
+
 Usage is counted in `cap-counter` when the provider accepts the letter, with the price the provider
 charged:
 

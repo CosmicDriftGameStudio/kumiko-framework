@@ -11,6 +11,7 @@ import { featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import {
   LETTER_APPROVED_STALE_MS,
   LETTER_CONFIG_KEYS,
+  LETTER_CREATED_EVENT,
   LETTER_ENTITY,
   LETTER_FEATURE,
   LETTER_HANDOVER_GIVE_UP_MS,
@@ -20,14 +21,19 @@ import {
   LETTER_PROVIDER_EXTENSION,
   LETTER_ROLES,
   LetterEvents,
+  LetterI18n,
 } from "./constants.ts";
 import { letterEntity, letterSubmissionTable } from "./entity.ts";
 import { letterEnvSchema } from "./env-schema.ts";
+import { announceCreatedHandler } from "./handlers/announce-created.write.ts";
 import { applyProviderStatusHandler } from "./handlers/apply-provider-status.write.ts";
 import { createApproveHandler } from "./handlers/approve.write.ts";
+import { createApproveManyHandler } from "./handlers/approve-many.write.ts";
+import { createBudgetQuery } from "./handlers/budget.query.ts";
 import { cancelHandler } from "./handlers/cancel.write.ts";
 import { cancelBeforeHandoverHandler } from "./handlers/cancel-before-handover.write.ts";
 import { markSubmissionUnknownHandler } from "./handlers/mark-submission-unknown.write.ts";
+import { createPrepareHandler } from "./handlers/prepare.write.ts";
 import { createPreviewQuery } from "./handlers/preview.query.ts";
 import { recordAcceptanceHandler } from "./handlers/record-acceptance.write.ts";
 import { recordRejectionHandler } from "./handlers/record-rejection.write.ts";
@@ -36,6 +42,7 @@ import { resolveUnknownHandler } from "./handlers/resolve-unknown.write.ts";
 import { startSubmissionHandler } from "./handlers/start-submission.write.ts";
 import { LETTER_FOUNDATION_I18N } from "./i18n.ts";
 import { pollLetters } from "./jobs/poll-letters.job.ts";
+import { prepareLetter } from "./jobs/prepare-letter.job.ts";
 import { createSubmitLetterRun } from "./jobs/submit-letter.job.ts";
 import { LetterTransitionEventSchema } from "./payloads.ts";
 import {
@@ -68,7 +75,7 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
     LETTER_FEATURE,
     (r) => {
       r.describe(
-        "Sends PDFs as postal letters through a print provider. Defines the `letterProvider` extension point, the `letter` entity with its status flow (awaiting approval, approved, submitting, submission unknown, accepted, on hold, sent, failed, canceled, returned) and `sendLetter`, which always creates a letter that waits for approval. A printed letter never meets the written form (`schriftform`): `sendLetter` refuses it unless `formRiskAcknowledged` is true, set by the app after the user accepted the risk; the preview returns `formRequirement` and `formRiskAcknowledged` so the app can warn before approval. `envelope` is `folded` (default) or `flat` (unfolded A4 in a C4 envelope), if the provider offers it. A user with the LetterApprover role approves it after seeing the price; the letter is then handed to the provider. Live sending needs the LETTER_LIVE env switch and only boots with NODE_ENV=production. Outside production the inmemory provider runs without the switch; in production it must be set to true or false, otherwise letters are refused. A handover without an answer is never repeated on its own: the poll job looks the letter up at the provider, and it asks the submit job to retry a letter that stayed approved. An approved letter that cannot be handed over for two hours fails with `handover-stalled`. A letter stays with the provider it was approved with. A monthly cost limit per tenant is set with the `monthlyCostLimitCents` config key, 0 until a value is set. The recipient address is personal data of the letter.",
+        "Sends PDFs as postal letters through a print provider. Defines the `letterProvider` extension point, the `letter` entity with its status flow (awaiting approval, approved, submitting, submission unknown, accepted, on hold, sent, failed, canceled, returned) and `sendLetter`, which always creates a letter that waits for approval, then a job prepares it (merged PDF, page and sheet count, price; a document problem is stored as `preparationIssue`). With the option `approval: auto` of `sendLetter` (an app decision, not part of the input schema), a prepared letter that fits the monthly limit is approved without a person; `approve-many` approves a selection all or none, `budget` shows limit and use, `quoteLetter` prices a document before it is sent. A printed letter never meets the written form (`schriftform`): `sendLetter` refuses it unless `formRiskAcknowledged` is true, set by the app after the user accepted the risk; the preview returns `formRequirement` and `formRiskAcknowledged` so the app can warn before approval. `envelope` is `folded` (default) or `flat` (unfolded A4 in a C4 envelope), if the provider offers it. A user with the LetterApprover role approves it after seeing the price; the letter is then handed to the provider. Live sending needs the LETTER_LIVE env switch and only boots with NODE_ENV=production. Outside production the inmemory provider runs without the switch; in production it must be set to true or false, otherwise letters are refused. A handover without an answer is never repeated on its own: the poll job looks the letter up at the provider, and it asks the submit job to retry a letter that stayed approved. An approved letter that cannot be handed over for two hours fails with `handover-stalled`. A letter stays with the provider it was approved with. A monthly cost limit per tenant is set with the `monthlyCostLimitCents` config key, 0 until a value is set. The recipient address is personal data of the letter.",
       );
       r.uiHints({ displayLabel: "Letters", category: "notifications", recommended: false });
       r.requires({ features: ["config", "files", "cap-counter", "tenant-lifecycle"] });
@@ -82,6 +89,11 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
             bounds: { min: 0 },
             write: access.privileged,
             read: access.admin,
+            mask: {
+              title: LetterI18n.monthlyLimitTitle,
+              description: LetterI18n.monthlyLimitHelp,
+              icon: "coins",
+            },
           }),
         },
       }).monthlyCostLimitCents;
@@ -90,6 +102,7 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
       r.entity(letterEntity);
       r.storeTable(letterSubmissionTable, { reason: "read_side.letter_submissions_direct_write" });
 
+      r.defineEvent(LETTER_CREATED_EVENT, LetterTransitionEventSchema, { piiFields: "none" });
       r.defineEvent("approved", LetterTransitionEventSchema, { piiFields: "none" });
       r.defineEvent("submitting", LetterTransitionEventSchema, { piiFields: "none" });
       r.defineEvent("submission-unknown", LetterTransitionEventSchema, { piiFields: "none" });
@@ -104,6 +117,9 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
       r.defineEvent("returned", LetterTransitionEventSchema, { piiFields: "none" });
 
       r.writeHandler(createApproveHandler(monthlyCostLimitCents));
+      r.writeHandler(createApproveManyHandler(monthlyCostLimitCents));
+      r.writeHandler(createPrepareHandler(monthlyCostLimitCents));
+      r.writeHandler(announceCreatedHandler);
       r.writeHandler(cancelHandler);
       r.writeHandler(resolveUnknownHandler);
       r.writeHandler(startSubmissionHandler);
@@ -113,6 +129,14 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
       r.writeHandler(requestHandoverRestartHandler);
       r.writeHandler(cancelBeforeHandoverHandler);
       r.writeHandler(applyProviderStatusHandler);
+      r.job({
+        name: "prepare",
+        trigger: { on: [LetterEvents.created] },
+        // Safe to repeat: a letter that is prepared or no longer waiting is left alone.
+        retries: 5,
+        backoff: { type: "exponential", delayMs: 2_000 },
+        handler: (payload, ctx) => prepareLetter(payload, ctx),
+      });
       const submitLetterRun = createSubmitLetterRun(monthlyCostLimitCents, handoverHoldMs);
       r.job({
         name: "submit",
@@ -153,6 +177,7 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
         delete: letterDeleteHook,
       });
       r.queryHandler(createPreviewQuery(monthlyCostLimitCents));
+      r.queryHandler(createBudgetQuery(monthlyCostLimitCents));
       r.queryHandler(
         defineEntityListHandler(LETTER_ENTITY, letterEntity, {
           access: readAccess,

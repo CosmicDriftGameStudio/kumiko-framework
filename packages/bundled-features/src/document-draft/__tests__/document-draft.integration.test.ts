@@ -55,6 +55,8 @@ const BASE = "lease-contract";
 const OWN_VARIANT = `${BASE}:commercial`;
 const FOREIGN_VARIANT = "other-contract:short";
 const SUBJECT_TYPE = "lease";
+const GATED_SUBJECT_TYPE = "lease-letter";
+let GATED_SUBJECT: string;
 let SUBJECT: string;
 let FORGET_SUBJECT: string;
 let KEEP_SUBJECT: string;
@@ -69,6 +71,7 @@ const ENV_KEYS = ["PUPPETEER_SERVICE_URL", "PUPPETEER_AUTH_TOKEN"] as const;
 const savedEnv = new Map<string, string | undefined>();
 const SECRET_TENANT_NAME = "Geheim Mieterin";
 const REPEAT_BASE = "repeat-contract";
+const APP_PRINTED_BASE = "app-printed-letter";
 const REPEAT_BODY =
   '<p>Staffel</p><table><tbody><tr data-if="rentSteps" data-repeat-header=""><th><p>Ab</p></th></tr><tr data-each="rentSteps"><td><p><span data-variable="from"></span></p></td></tr></tbody></table>';
 
@@ -117,16 +120,39 @@ const leaseEntity = createEntity({
   } satisfies NonNullable<EntityDefinition["access"]>,
 });
 
+const gatedLeaseEntity = createEntity({
+  name: GATED_SUBJECT_TYPE,
+  table: "document_draft_test_lease_letters",
+  fields: {
+    teamId: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
+  access: {
+    read: { TenantAdmin: "all", TenantMember: "all" },
+  } satisfies NonNullable<EntityDefinition["access"]>,
+});
+
 const leaseHostFeature = defineFeature("document-draft-test-lease-host", (r) => {
   r.entity(leaseEntity);
+  r.entity(gatedLeaseEntity);
 });
+
+const gatedLeaseExecutor = createEventStoreExecutor(
+  buildEntityTable(gatedLeaseEntity),
+  gatedLeaseEntity,
+  { entityName: GATED_SUBJECT_TYPE },
+);
 
 const leaseExecutor = createEventStoreExecutor(buildEntityTable(leaseEntity), leaseEntity, {
   entityName: SUBJECT_TYPE,
 });
 
-async function seedLease(teamId: string): Promise<string> {
-  const created = await leaseExecutor.create(
+async function seedLease(teamId: string, executor = leaseExecutor): Promise<string> {
+  const created = await executor.create(
     { teamId },
     admin,
     createTenantDb({
@@ -177,6 +203,7 @@ type Blocks = {
   id: string;
   version: number;
   status: string;
+  finalizable: boolean;
   revision: number;
   templateVersion: number;
   templateTitle: string | null;
@@ -235,8 +262,10 @@ beforeAll(async () => {
       createRendererFoundationFeature(),
       createRendererPuppeteerClientFeature(),
       createDocumentDraftFeature({
-        subjectTypes: [SUBJECT_TYPE],
+        subjectTypes: [SUBJECT_TYPE, GATED_SUBJECT_TYPE],
+        subjectAccess: { [GATED_SUBJECT_TYPE]: { roles: ["TenantAdmin"] } },
         subjectScreens: { [SUBJECT_TYPE]: "lease-detail" },
+        unfinalizedTemplates: [APP_PRINTED_BASE],
       }),
     ],
     files: { storageProvider: provider },
@@ -253,6 +282,7 @@ beforeAll(async () => {
   KEEP_SUBJECT = await seedLease("team-a");
   DISCARD_SUBJECT = await seedLease("team-a");
   TRAIL_SUBJECT = await seedLease("team-a");
+  GATED_SUBJECT = await seedLease("team-a", gatedLeaseExecutor);
 
   const system = (payload: Record<string, unknown>) =>
     stack.http.writeOk(TemplateResolverHandlers.upsertSystem, payload, TestUsers.systemAdmin);
@@ -265,6 +295,7 @@ beforeAll(async () => {
       },
     }),
   );
+  await system(documentPayload(APP_PRINTED_BASE));
   await system(documentPayload(FOREIGN_VARIANT, { meta: { variantOf: "other-contract" } }));
   await stack.http.writeOk(
     TemplateResolverHandlers.upsertTenant,
@@ -459,6 +490,24 @@ describe("save", () => {
     );
     expect(error.httpStatus).toBe(400);
     expect((await blocksOf(created.id)).body).not.toContain("script");
+  });
+});
+
+describe("unfinalized templates", () => {
+  test("a draft of an app-printed template is not finalizable: 422 before any print, the query says so", async () => {
+    const created = await create({ templateSlug: APP_PRINTED_BASE });
+    expect((await blocksOf(created.id)).finalizable).toBe(false);
+    expect((await blocksOf((await create()).id)).finalizable).toBe(true);
+
+    const error = await stack.http.writeErr(
+      DocumentDraftHandlers.finalize,
+      { id: created.id, base: created.version },
+      admin,
+    );
+    expect(error.httpStatus).toBe(422);
+    expect(error.details).toEqual({ reason: "document_draft_not_finalizable" });
+    expect(printedHtml).toEqual([]);
+    expect((await blocksOf(created.id)).status).toBe("open");
   });
 });
 
@@ -686,5 +735,40 @@ describe("access", () => {
     const own = await create({}, allowedMember);
     expect((await blocksOf(own.id, allowedMember)).id).toBe(own.id);
     expect((await blocksOf(own.id, admin)).id).toBe(own.id);
+  });
+
+  test("a subject type with its own role rule refuses users without that role on every handler and query, the role lets them through", async () => {
+    const gated = { subjectType: GATED_SUBJECT_TYPE, subjectId: GATED_SUBJECT };
+    const created = await create(gated, admin);
+    for (const [type, payload] of [
+      [DocumentDraftHandlers.create, { ...gated, templateSlug: BASE, variables: {} }],
+      [
+        DocumentDraftHandlers.patch,
+        { id: created.id, base: created.version, ops: [insertClause()] },
+      ],
+      [DocumentDraftHandlers.save, { id: created.id, base: created.version, content: "<p>x</p>" }],
+      [DocumentDraftHandlers.finalize, { id: created.id, base: created.version }],
+      [DocumentDraftHandlers.discard, { id: created.id, base: created.version }],
+    ] as const) {
+      expect((await stack.http.writeErr(type, payload, allowedMember)).httpStatus).toBe(404);
+    }
+    expect(
+      (await stack.http.queryErr(DocumentDraftQueries.blocks, { id: created.id }, allowedMember))
+        .httpStatus,
+    ).toBe(404);
+    expect(
+      (await stack.http.queryErr(DocumentDraftQueries.bySubject, gated, allowedMember)).httpStatus,
+    ).toBe(404);
+    expect(printedHtml).toEqual([]);
+
+    expect((await blocksOf(created.id, admin)).id).toBe(created.id);
+    await stack.http.writeOk(
+      DocumentDraftHandlers.save,
+      { id: created.id, base: created.version, content: "<p>x</p>" },
+      admin,
+    );
+    // The plain subject type stays under the feature-wide access: the member keeps working there.
+    const plain = await create({}, allowedMember);
+    expect((await blocksOf(plain.id, allowedMember)).id).toBe(plain.id);
   });
 });

@@ -11,10 +11,13 @@ import {
   releaseCapUsage,
   reserveCalendarCapUsage,
 } from "../cap-counter/index.ts";
+import { unprocessable } from "../shared/index.ts";
 import {
   LETTER_CAP,
   LETTER_CLAIM_STATUS,
   LETTER_STATE,
+  LetterErrors,
+  LetterI18n,
   type LetterShippingMode,
 } from "./constants.ts";
 import { letterSubmissionTable, letterTable } from "./entity.ts";
@@ -53,6 +56,19 @@ export async function readLetterBudget(
     limitCents,
     usedCents: Number(counter?.["value"] ?? 0) + (awaitingHandover?.value ?? 0),
   };
+}
+
+/** Not atomic: two approvals at once can both pass. The reservation at handover stays the binding check. */
+export function monthlyLimitFailure(
+  budget: LetterBudget,
+  priceCents: number,
+): WriteResult<never> | undefined {
+  if (budget.usedCents + priceCents <= budget.limitCents) return undefined;
+  return unprocessable(LetterErrors.monthlyLimitNotCovered, LetterI18n.monthlyLimitNotCovered, {
+    limitCents: budget.limitCents,
+    usedCents: budget.usedCents,
+    priceCents,
+  });
 }
 
 export type LetterClaim = {

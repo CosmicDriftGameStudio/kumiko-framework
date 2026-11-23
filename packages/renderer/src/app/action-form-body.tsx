@@ -49,7 +49,13 @@ import { type NavApi, useHandoffForScreen, useNav } from "./nav.tsx";
 import { lastSegment } from "./qn.ts";
 import { qualifyScreenId } from "./qualify-screen-id.ts";
 import { QueryLoadingBanner } from "./query-state-banners.tsx";
-import { navigateToReturn, navigateToReturnOr, useReturnTarget } from "./return-to.tsx";
+import {
+  navigateToReturn,
+  navigateToReturnOr,
+  useCarriedReturnInput,
+  useReturnHost,
+  useReturnTarget,
+} from "./return-to.tsx";
 import { screenAccessAllows } from "./screen-access.ts";
 import {
   formatSummaryParams,
@@ -320,6 +326,7 @@ export function ActionFormBody({
   // A drawer-hosted form is not a navigation target, so it never takes a handoff.
   const handoff = onSuccess === undefined ? pendingHandoff : undefined;
   const handoffValues = handoff?.values;
+  const carriedInput = useCarriedReturnInput(useReturnHost());
   // The handoff wraps one submit; a form that stays open afterwards writes to its own handler again.
   const [consumedHandoff, setConsumedHandoff] = useState<typeof handoff>(undefined);
   const submitThrough =
@@ -401,8 +408,11 @@ export function ActionFormBody({
         ...(moneyCurrencyOverrides !== undefined && { moneyCurrencyOverrides }),
       }),
       ...loadedValues,
+      // Typed by the user before a returnTo round trip, so it wins over the record.
+      ...carriedInput,
     };
   }, [
+    carriedInput,
     submittableFields,
     screen.load,
     screen.urlPrefillFields,
@@ -598,6 +608,8 @@ export function ActionFormBody({
         {...(screen.submitPrefilled === true && {
           submitWithoutChanges: hiddenRequiredFieldsFilled(synthScreen, screen.fields, initial),
         })}
+        // Carried input is the user's own edit even though it now seeds the form, so it may be sent as is.
+        {...(carriedInput !== undefined && { submitWithoutChanges: true })}
         {...((success !== undefined || screen.infoBand !== undefined) && {
           leadContent: (
             <>

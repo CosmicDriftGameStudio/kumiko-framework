@@ -1,4 +1,5 @@
 import {
+  type AccessRule,
   defineFeature,
   EXT_USER_DATA,
   type FeatureDefinition,
@@ -20,6 +21,15 @@ import { DOCUMENT_DRAFT_ENTITY, DOCUMENT_DRAFT_FEATURE } from "./web/constants.t
 
 export function createDocumentDraftFeature(opts: DocumentDraftOptions): FeatureDefinition {
   const access = opts.access ?? DEFAULT_DOCUMENT_DRAFT_ACCESS;
+  const subjectAccess: Record<string, AccessRule> = {};
+  for (const [subjectType, rule] of Object.entries(opts.subjectAccess ?? {})) {
+    if (!opts.subjectTypes.includes(subjectType)) {
+      throw new Error(
+        `document-draft: subjectAccess key "${subjectType}" is not one of subjectTypes (${opts.subjectTypes.join(", ")})`,
+      );
+    }
+    if (rule !== undefined) subjectAccess[subjectType] = rule;
+  }
   const entity = createDocumentDraftEntity(opts.retention, opts.subjectTypes);
   const documentDraftExecutor = createDocumentDraftExecutor(opts.subjectTypes);
 
@@ -36,14 +46,31 @@ export function createDocumentDraftFeature(opts: DocumentDraftOptions): FeatureD
 
     r.entity(entity);
 
-    r.writeHandler(createCreateHandler(access, documentDraftExecutor, opts.subjectTypes));
-    r.writeHandler(createPatchHandler(access, documentDraftExecutor));
-    r.writeHandler(createSaveHandler(access, documentDraftExecutor));
-    r.writeHandler(createFinalizeHandler(access, documentDraftExecutor));
-    r.writeHandler(createReviseHandler(access, documentDraftExecutor));
-    r.writeHandler(createDiscardHandler(access, documentDraftExecutor));
-    r.queryHandler(createBlocksQuery(access, documentDraftExecutor, opts.subjectScreens));
-    r.queryHandler(createBySubjectQuery(access, documentDraftExecutor));
+    r.writeHandler(
+      createCreateHandler(access, documentDraftExecutor, opts.subjectTypes, subjectAccess),
+    );
+    r.writeHandler(createPatchHandler(access, documentDraftExecutor, subjectAccess));
+    r.writeHandler(createSaveHandler(access, documentDraftExecutor, subjectAccess));
+    r.writeHandler(
+      createFinalizeHandler(
+        access,
+        documentDraftExecutor,
+        subjectAccess,
+        opts.unfinalizedTemplates,
+      ),
+    );
+    r.writeHandler(createReviseHandler(access, documentDraftExecutor, subjectAccess));
+    r.writeHandler(createDiscardHandler(access, documentDraftExecutor, subjectAccess));
+    r.queryHandler(
+      createBlocksQuery(
+        access,
+        documentDraftExecutor,
+        subjectAccess,
+        opts.subjectScreens,
+        opts.unfinalizedTemplates,
+      ),
+    );
+    r.queryHandler(createBySubjectQuery(access, documentDraftExecutor, subjectAccess));
     r.screen(createDocumentDraftEditorScreen(access));
 
     // A draft belongs to the object it was made for, not to the acting user: the app erases it

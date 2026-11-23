@@ -2312,6 +2312,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "mail-foundation.provider.platformDefault": "Envío de la plataforma (predeterminado)",
   "letter-foundation:write:approve:title": "Aprobar carta",
   "letter-foundation:write:approve:field:letterId": "Carta",
+  "letter-foundation:write:approve-many:title": "Aprobar varias cartas",
+  "letter-foundation:write:approve-many:field:letterIds": "Cartas",
   "letter-foundation:write:cancel:title": "Cancelar carta",
   "letter-foundation:write:cancel:field:letterId": "Carta",
   "letter-foundation:write:resolve-unknown:title": "Cerrar entrega poco clara",
@@ -2333,6 +2335,14 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "El envío de cartas no está configurado en este servidor. Pide al operador que defina el proveedor de cartas.",
   "letter-foundation.errors.noFiles": "La carta no tiene documento.",
   "letter-foundation.errors.notAwaitingApproval": "La carta no está pendiente de aprobación.",
+  "screen:letter-foundation-tenant.title": "Cartas",
+  "screen:letter-foundation-system.title": "Cartas de todos los clientes",
+  "letter-foundation.settings": "Cartas",
+  "letter-foundation.settings.monthlyLimit": "Límite mensual de cartas (en céntimos)",
+  "letter-foundation.settings.monthlyLimitHelp":
+    "Las cartas aprobadas de un mes natural pueden costar como máximo esta cantidad. Con 0 no se aprueba ninguna carta.",
+  "letter-foundation.errors.notReadyForApproval":
+    "Algunas de las cartas seleccionadas aún no están listas para la aprobación. Una carta está lista cuando espera aprobación y su documento se comprobó sin problemas.",
   "letter-foundation.errors.monthlyLimitNotCovered":
     "El límite mensual no cubre esta carta. El operador puede aumentar el límite.",
   "letter-foundation.errors.notCancelableHere": "La carta ya no se puede cancelar.",
@@ -3054,6 +3064,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "screen:document-draft-editor.title": "Borrador de documento",
   "documentDraft.errors.notOpen": "Este borrador no está abierto para edición.",
   "documentDraft.errors.notFinalized": "Este borrador no está finalizado.",
+  "documentDraft.errors.notFinalizable":
+    "Este borrador lo imprime la aplicación al enviar y no se puede finalizar.",
   "documentDraft.errors.templateNotFound": "La plantilla {slug} no existe.",
   "documentDraft.errors.opNotAllowed":
     "La operación {op} no está permitida en un borrador: solo se puede cambiar su texto.",
@@ -3080,6 +3092,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "document-draft:editor.finalize": "Finalizar",
   "document-draft:editor.finalizeNeedsSave": "Guarda los cambios antes de finalizar.",
   "document-draft:editor.discardDraft": "Descartar borrador",
+  "document-draft:editor.back": "Volver",
   "document-draft:editor.revise": "Editar de nuevo",
   "document-draft:editor.versionConflict":
     "El borrador se modificó entretanto en otro lugar. Vuelve a cargarlo para seguir con el texto actual.",

@@ -1,13 +1,13 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import type { ConfigKeyHandle } from "@cosmicdrift/kumiko-types/config";
-import { LETTER_ENTITY, LETTER_ROLES, LETTER_STATE, LetterI18n } from "../constants.ts";
+import { LETTER_ENTITY, LETTER_ROLES, LetterI18n } from "../constants.ts";
 import { prepareLetterDocument } from "../document-preparation.ts";
 import { letterExecutor } from "../entity.ts";
 import { readLetterBudget } from "../letter-usage.ts";
 import { LetterIdSchema } from "../payloads.ts";
 import { resolveLetterProviderOrFailure } from "../provider-resolver.ts";
-import { envelopeOf, isLetterFormRequirement } from "../row-guards.ts";
+import { envelopeOf, isLetterFormRequirement, isLetterPrepared } from "../row-guards.ts";
 import type { LetterEnvelope, LetterFormRequirement, LetterMoney } from "../types.ts";
 
 export type LetterPreview = {
@@ -25,6 +25,10 @@ export type LetterPreview = {
   readonly limitCents: number;
   readonly usedCents: number;
   readonly fitsLimit: boolean;
+  /** The merged PDF, present once the letter is prepared, so the app can show the letter itself. */
+  readonly mergedFileRefId?: string;
+  /** Why the letter cannot be approved yet: a `LetterErrors` code, absent when nothing is wrong. */
+  readonly preparationIssue?: string;
   /** i18n key of the hint shown when the monthly limit does not cover the letter. */
   readonly hint?: string;
 };
@@ -49,12 +53,7 @@ export function createPreviewQuery(limitKey: ConfigKeyHandle<"number">) {
       let pageCount: number;
       let sheetCount: number;
       const { quotedNet } = letter;
-      if (
-        letter.status !== LETTER_STATE.awaitingApproval &&
-        quotedNet &&
-        letter.pageCount &&
-        letter.sheetCount
-      ) {
+      if (isLetterPrepared(letter) && quotedNet && letter.pageCount && letter.sheetCount) {
         unitNet = quotedNet;
         ({ pageCount, sheetCount } = letter);
       } else {
@@ -87,6 +86,8 @@ export function createPreviewQuery(limitKey: ConfigKeyHandle<"number">) {
         limitCents,
         usedCents,
         fitsLimit,
+        ...(letter.mergedFileRefId && { mergedFileRefId: letter.mergedFileRefId }),
+        ...(letter.preparationIssue && { preparationIssue: letter.preparationIssue }),
         ...(!fitsLimit && { hint: LetterI18n.limitHint }),
       };
     },

@@ -13,6 +13,10 @@ export const DOCUMENT_DRAFT_I18N: Readonly<Record<string, LocalizedString>> = {
     en: "This draft is not finalized.",
     de: "Dieser Entwurf ist nicht abgeschlossen.",
   },
+  "documentDraft.errors.notFinalizable": {
+    en: "This draft is printed by the app when the document is sent and cannot be finalized.",
+    de: "Dieser Entwurf wird von der App beim Versand gedruckt und kann nicht abgeschlossen werden.",
+  },
   "documentDraft.errors.templateNotFound": {
     en: "The template {slug} does not exist.",
     de: "Die Vorlage {slug} existiert nicht.",

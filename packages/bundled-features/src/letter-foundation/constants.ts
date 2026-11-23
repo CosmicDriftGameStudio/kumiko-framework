@@ -14,6 +14,10 @@ export type LetterEnvelope = (typeof LETTER_ENVELOPES)[number];
 export const LETTER_FORM_REQUIREMENTS = ["schriftform", "textform", "formfrei"] as const;
 export type LetterFormRequirement = (typeof LETTER_FORM_REQUIREMENTS)[number];
 
+// `auto` releases a letter as soon as it is prepared and the monthly limit covers it; `manual` waits for a person.
+export const LETTER_APPROVAL_MODES = ["manual", "auto"] as const;
+export type LetterApprovalMode = (typeof LETTER_APPROVAL_MODES)[number];
+
 export const LETTER_STATES = [
   "awaiting-approval",
   "approved",
@@ -144,7 +148,10 @@ export const LETTER_CAP = {
 
 export const LETTER_HANDOVER_RESTART_EVENT = "handover-restart-requested" as const;
 
+export const LETTER_CREATED_EVENT = "created" as const;
+
 export const LetterEvents = {
+  created: `${LETTER_FEATURE}:event:${LETTER_CREATED_EVENT}`,
   approved: `${LETTER_FEATURE}:event:${LETTER_STATE.approved}`,
   submitting: `${LETTER_FEATURE}:event:${LETTER_STATE.submitting}`,
   submissionUnknown: `${LETTER_FEATURE}:event:${LETTER_STATE.submissionUnknown}`,
@@ -161,11 +168,14 @@ export const LETTER_OUTCOME_AGGREGATE_TYPE = "letter-outcome" as const;
 
 export const LetterHandlers = {
   approve: `${LETTER_FEATURE}:write:approve`,
+  approveMany: `${LETTER_FEATURE}:write:approve-many`,
   cancel: `${LETTER_FEATURE}:write:cancel`,
   resolveUnknown: `${LETTER_FEATURE}:write:resolve-unknown`,
 } as const;
 
 export const LetterInternalHandlers = {
+  prepare: `${LETTER_FEATURE}:write:prepare`,
+  announceCreated: `${LETTER_FEATURE}:write:announce-created`,
   startSubmission: `${LETTER_FEATURE}:write:start-submission`,
   recordAcceptance: `${LETTER_FEATURE}:write:record-acceptance`,
   recordRejection: `${LETTER_FEATURE}:write:record-rejection`,
@@ -176,11 +186,13 @@ export const LetterInternalHandlers = {
 } as const;
 
 export const LETTER_JOB = {
+  prepare: "prepare",
   submit: "submit",
   poll: "poll",
 } as const;
 
 export const LetterJobs = {
+  prepare: `${LETTER_FEATURE}:job:${LETTER_JOB.prepare}`,
   submit: `${LETTER_FEATURE}:job:${LETTER_JOB.submit}`,
   poll: `${LETTER_FEATURE}:job:${LETTER_JOB.poll}`,
 } as const;
@@ -243,6 +255,7 @@ export const LETTER_FAILURE_REASON = {
 
 export const LetterQueries = {
   preview: `${LETTER_FEATURE}:query:preview`,
+  budget: `${LETTER_FEATURE}:query:budget`,
   list: `${LETTER_FEATURE}:query:${LETTER_ENTITY}:list`,
   detail: `${LETTER_FEATURE}:query:${LETTER_ENTITY}:detail`,
 } as const;
@@ -260,6 +273,7 @@ export const LetterErrors = {
   documentRejected: "letter_document_rejected",
   documentUnreadable: "letter_document_unreadable",
   noFiles: "letter_no_files",
+  notReadyForApproval: "letter_not_ready_for_approval",
   notFound: "letter_not_found",
   notAwaitingApproval: "letter_not_awaiting_approval",
   monthlyLimitNotCovered: "letter_monthly_limit_not_covered",
@@ -276,6 +290,8 @@ export const LetterErrors = {
 } as const;
 
 export const LetterI18n = {
+  monthlyLimitTitle: "letter-foundation.settings.monthlyLimit",
+  monthlyLimitHelp: "letter-foundation.settings.monthlyLimitHelp",
   schriftformRejected: "letter-foundation.errors.schriftformNotPossible",
   shippingModeUnsupported: "letter-foundation.errors.shippingModeUnsupported",
   envelopeUnsupported: "letter-foundation.errors.envelopeUnsupported",
@@ -283,6 +299,7 @@ export const LetterI18n = {
   documentRejected: "letter-foundation.errors.documentRejected",
   documentUnreadable: "letter-foundation.errors.documentUnreadable",
   noFiles: "letter-foundation.errors.noFiles",
+  notReadyForApproval: "letter-foundation.errors.notReadyForApproval",
   notAwaitingApproval: "letter-foundation.errors.notAwaitingApproval",
   monthlyLimitNotCovered: "letter-foundation.errors.monthlyLimitNotCovered",
   notCancelableHere: "letter-foundation.errors.notCancelableHere",
@@ -303,3 +320,7 @@ export const LETTER_CLAIM_STATUS = {
   estimateBooked: "estimate-booked",
   submitted: "submitted",
 } as const satisfies Record<string, LetterSubmissionStatus>;
+
+// A letter still unprepared this long after it was created has outlived the prepare job and all its retries;
+// the poll prepares it again.
+export const LETTER_PREPARE_STALE_MS = 15 * 60_000;

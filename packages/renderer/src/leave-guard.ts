@@ -44,6 +44,11 @@ export function requestLeave(proceed: () => void, cancel: () => void = () => {})
   confirmer({ proceed: () => runLeave(proceed), cancel });
 }
 
+/** For a leave whose unsaved input is carried along and restored on return: nothing is lost, so no question. */
+export function leaveWithoutAsking(proceed: () => void): void {
+  runLeave(proceed);
+}
+
 function runLeave(proceed: () => void): void {
   runningLeaveDepth += 1;
   try {

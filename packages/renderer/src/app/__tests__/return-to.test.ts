@@ -1,14 +1,19 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import { createElement } from "react";
+import { renderToString } from "react-dom/server";
+import { registerUnsavedInputSource, setLeaveConfirmer } from "../../leave-guard.ts";
 import type { FeatureSchema } from "../feature-schema.ts";
 import type { NavApi, NavTarget } from "../nav.tsx";
 import {
   formatReturnTo,
   navigateToReturn,
   navigateWithReturnTo,
+  type ReturnHost,
   resolveReturnTarget,
   returnToParams,
   splitReturnTo,
+  useCarriedReturnInput,
 } from "../return-to.tsx";
 
 // hrefFor maps entity ObjectTargets to their detail screen, mirroring resolveTarget.
@@ -67,6 +72,14 @@ const singletonDetailScreen: ScreenDefinition = {
   layout: { sections: [{ fields: ["name"] }] },
 };
 
+const recordActionScreen: ScreenDefinition = {
+  id: "token-send",
+  type: "actionForm",
+  handler: "tokens:write:token:send",
+  fields: {},
+  layout: { sections: [{ fields: [] }] },
+};
+
 const adminOnlyScreen: ScreenDefinition = {
   id: "admin-only",
   type: "custom",
@@ -80,6 +93,7 @@ const features: readonly FeatureSchema[] = [
     editScreen,
     detailScreen,
     singletonDetailScreen,
+    recordActionScreen,
     adminOnlyScreen,
   ]),
 ];
@@ -167,6 +181,13 @@ describe("resolveReturnTarget", () => {
     expect(
       resolveReturnTarget("token-create", "token-create", features, undefined),
     ).toBeUndefined();
+  });
+
+  test("with entityId on an actionForm opened for one record", () => {
+    expect(resolveReturnTarget("token-send/abc-123", "token-create", features, undefined)).toEqual({
+      screenId: "token-send",
+      entityId: "abc-123",
+    });
   });
 
   test("rejects an entityId on a list screen", () => {
@@ -412,5 +433,70 @@ describe("navigateToReturn", () => {
     navigateToReturn(nav, { screenId: "other-screen" });
 
     expect(setSearchParamsCalls).toEqual([{ returnTo: null }]);
+  });
+});
+
+let probedInput: Readonly<Record<string, unknown>> | undefined;
+function CarriedInputProbe(props: { readonly at: ReturnHost }): null {
+  probedInput = useCarriedReturnInput(props.at);
+  return null;
+}
+function readCarried(at: ReturnHost): Readonly<Record<string, unknown>> | undefined {
+  renderToString(createElement(CarriedInputProbe, { at }));
+  return probedInput;
+}
+
+describe("navigateWithReturnTo — carried input", () => {
+  const host: ReturnHost = { screenId: "letter-send", entityId: "lease-1" };
+  const editor = { screenId: "draft-editor", entityId: "draft-1" };
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+
+  function dirtyFormWithConfirmer(): { readonly questions: number[] } {
+    const questions: number[] = [];
+    cleanups.push(registerUnsavedInputSource(() => true));
+    cleanups.push(setLeaveConfirmer(() => questions.push(1)));
+    return { questions };
+  }
+
+  test("leaves a dirty form without asking and hands the input back on return, once", () => {
+    const { questions } = dirtyFormWithConfirmer();
+    const { nav, navigateCalls } = fakeNav();
+    navigateWithReturnTo(nav, editor, host, undefined, { envelope: "large" });
+
+    expect(questions).toEqual([]);
+    expect(navigateCalls).toEqual([editor]);
+    expect(readCarried(host)).toBeUndefined();
+
+    // The host form unmounted with the jump; the editor it returns from holds nothing unsaved.
+    for (const cleanup of cleanups.splice(0)) cleanup();
+    navigateToReturn(fakeNav().nav, host);
+    expect(readCarried(host)).toEqual({ envelope: "large" });
+    expect(readCarried(host)).toBeUndefined();
+  });
+
+  test("another record's form does not receive the carried input", () => {
+    navigateWithReturnTo(fakeNav().nav, editor, host, undefined, { envelope: "large" });
+    navigateToReturn(fakeNav().nav, host);
+
+    expect(readCarried({ screenId: "letter-send", entityId: "lease-2" })).toBeUndefined();
+  });
+
+  test("a later visit without carry does not bring back input an earlier visit left behind", () => {
+    navigateWithReturnTo(fakeNav().nav, editor, host, undefined, { envelope: "large" });
+    // The user leaves through the main navigation, so the jump back never happens.
+    navigateWithReturnTo(fakeNav().nav, editor, host);
+    navigateToReturn(fakeNav().nav, host);
+
+    expect(readCarried(host)).toBeUndefined();
+  });
+
+  test("without carry a dirty form still asks", () => {
+    const { questions } = dirtyFormWithConfirmer();
+    navigateWithReturnTo(fakeNav().nav, editor, host);
+
+    expect(questions).toEqual([1]);
   });
 });

@@ -41,6 +41,7 @@ export const DocumentDraftQueries = {
 export const DOCUMENT_DRAFT_ERROR = {
   NotOpen: "document_draft_not_open",
   NotFinalized: "document_draft_not_finalized",
+  NotFinalizable: "document_draft_not_finalizable",
   TemplateNotFound: "template_not_found",
   OpNotAllowed: "op_not_allowed",
 } as const;

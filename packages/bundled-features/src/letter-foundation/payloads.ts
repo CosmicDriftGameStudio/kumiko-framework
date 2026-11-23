@@ -1,3 +1,4 @@
+import { MAX_BULK_SELECTION } from "@cosmicdrift/kumiko-types/screen";
 import * as z from "zod";
 import {
   LETTER_ENVELOPES,
@@ -37,6 +38,10 @@ export const SendLetterInputSchema = z.object({
 export type SendLetterInput = z.infer<typeof SendLetterInputSchema>;
 
 export const LetterIdSchema = z.object({ letterId: z.uuid() });
+
+export const ApproveManySchema = z.object({
+  letterIds: z.array(z.uuid()).min(1).max(MAX_BULK_SELECTION),
+});
 
 // No address, name or content: the event only says which letter moved and from where.
 export const LetterTransitionEventSchema = z.object({

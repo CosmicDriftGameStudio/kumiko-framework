@@ -1,12 +1,13 @@
 import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import type { DocumentDraftExecutor } from "../entity.ts";
-import { draftNotFound, loadScopedDraft, notInStatus } from "../lib.ts";
+import { draftNotFound, loadScopedDraft, notInStatus, type SubjectAccess } from "../lib.ts";
 import { DraftBaseSchema } from "../payloads.ts";
 import { DOCUMENT_DRAFT_STATUS } from "../web/constants.ts";
 
 export function createDiscardHandler(
   access: AccessRule,
   documentDraftExecutor: DocumentDraftExecutor,
+  subjectAccess: SubjectAccess,
 ) {
   return defineWriteHandler<"discard", typeof DraftBaseSchema, { readonly id: string }>({
     name: "discard",
@@ -18,7 +19,7 @@ export function createDiscardHandler(
     handler: async (event, ctx) => {
       const { id, base } = event.payload;
       const user = event.user;
-      const draft = await loadScopedDraft(documentDraftExecutor, ctx, user, id);
+      const draft = await loadScopedDraft(documentDraftExecutor, ctx, user, id, subjectAccess);
       if (draft === null) return draftNotFound(id);
       if (draft.status !== DOCUMENT_DRAFT_STATUS.Open)
         return notInStatus(DOCUMENT_DRAFT_STATUS.Open);

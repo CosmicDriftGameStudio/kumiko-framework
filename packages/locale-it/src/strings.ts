@@ -2317,6 +2317,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "mail-foundation.provider.platformDefault": "Invio dalla piattaforma (predefinito)",
   "letter-foundation:write:approve:title": "Approva lettera",
   "letter-foundation:write:approve:field:letterId": "Lettera",
+  "letter-foundation:write:approve-many:title": "Approva più lettere",
+  "letter-foundation:write:approve-many:field:letterIds": "Lettere",
   "letter-foundation:write:cancel:title": "Annulla lettera",
   "letter-foundation:write:cancel:field:letterId": "Lettera",
   "letter-foundation:write:resolve-unknown:title": "Chiudi consegna poco chiara",
@@ -2339,6 +2341,14 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "L'invio di lettere non è configurato su questo server. Chiedi al gestore di impostare il fornitore di lettere.",
   "letter-foundation.errors.noFiles": "La lettera non ha documenti.",
   "letter-foundation.errors.notAwaitingApproval": "La lettera non è in attesa di approvazione.",
+  "screen:letter-foundation-tenant.title": "Lettere",
+  "screen:letter-foundation-system.title": "Lettere di tutti i clienti",
+  "letter-foundation.settings": "Lettere",
+  "letter-foundation.settings.monthlyLimit": "Limite mensile delle lettere (in centesimi)",
+  "letter-foundation.settings.monthlyLimitHelp":
+    "Le lettere approvate di un mese di calendario possono costare al massimo questa somma. Con 0 nessuna lettera viene approvata.",
+  "letter-foundation.errors.notReadyForApproval":
+    "Alcune delle lettere selezionate non sono ancora pronte per l'approvazione. Una lettera è pronta quando attende l'approvazione e il suo documento è stato verificato senza problemi.",
   "letter-foundation.errors.monthlyLimitNotCovered":
     "Il limite mensile non copre questa lettera. L'operatore può aumentare il limite.",
   "letter-foundation.errors.notCancelableHere": "La lettera non può più essere annullata.",
@@ -3059,6 +3069,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "screen:document-draft-editor.title": "Bozza di documento",
   "documentDraft.errors.notOpen": "Questa bozza non è aperta alla modifica.",
   "documentDraft.errors.notFinalized": "Questa bozza non è finalizzata.",
+  "documentDraft.errors.notFinalizable":
+    "Questa bozza viene stampata dall'app all'invio e non può essere finalizzata.",
   "documentDraft.errors.templateNotFound": "Il modello {slug} non esiste.",
   "documentDraft.errors.opNotAllowed":
     "L'operazione {op} non è consentita su una bozza: si può modificare solo il testo.",
@@ -3085,6 +3097,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "document-draft:editor.finalize": "Finalizza",
   "document-draft:editor.finalizeNeedsSave": "Salva le modifiche prima di finalizzare.",
   "document-draft:editor.discardDraft": "Scarta bozza",
+  "document-draft:editor.back": "Indietro",
   "document-draft:editor.revise": "Modifica di nuovo",
   "document-draft:editor.versionConflict":
     "La bozza è stata modificata altrove nel frattempo. Ricaricala per continuare con il testo attuale.",

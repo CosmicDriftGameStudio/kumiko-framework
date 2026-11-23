@@ -756,7 +756,7 @@ type ScreenSlots = {
   titleAction?: PlatformComponent; // entityEdit / actionForm: rendered on the right of the form title, same row.
   beforeForm?: PlatformComponent;
   afterForm?: PlatformComponent;
-  sidebar?: PlatformComponent;
+  sidebar?: PlatformComponent; // entityEdit / actionForm / configEdit: a column right of the form from `xl` (sticky; the form column keeps its width, at most half for `layout.width: "full"`; the section navigation is dropped).
   footer?: PlatformComponent;
   footerPrimary?: boolean; // entityEdit wizard: marks `footer` as the sticky-footer primary action (pinned `max-sm:fixed` group on mobile) instead of the non-sticky secondary bucket it falls into by default alongside Back/Cancel.
   toolbar?: PlatformComponent;

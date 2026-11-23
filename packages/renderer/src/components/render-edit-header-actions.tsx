@@ -270,6 +270,25 @@ function renderEditSlot<TValues extends FormValues, TCtx>(
   );
 }
 
+export function renderSidebarSlot<TValues extends FormValues, TCtx>(
+  model: RenderEditModel<TValues, TCtx>,
+): ReactNode {
+  const { props, form, sections } = model.engine;
+  const slot = props.screen.slots?.sidebar;
+  if (slot === undefined) return undefined;
+  return (
+    <EditSlotMount
+      slot={slot}
+      slotName="sidebar"
+      screenId={props.screen.id}
+      entityName={sections.vm.entityName}
+      entityId={resolveExtensionEntityId(props.entityId, sections.vm.id)}
+      values={form.snapshot.values}
+      {...(props.onReload !== undefined && { reloadHost: props.onReload })}
+    />
+  );
+}
+
 export function renderAfterFormSlot<TValues extends FormValues, TCtx>(
   model: RenderEditModel<TValues, TCtx>,
 ): ReactNode {

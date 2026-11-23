@@ -13,8 +13,10 @@ import {
   checkOpenAtBase,
   draftNotFound,
   loadScopedDraft,
+  notFinalizable,
   pdfMetaOf,
   recordOrEmpty,
+  type SubjectAccess,
 } from "../lib.ts";
 import { DraftBaseSchema } from "../payloads.ts";
 import { DOCUMENT_DRAFT_STATUS } from "../web/constants.ts";
@@ -33,6 +35,8 @@ export const FINALIZE_RATE_LIMIT = { per: "user+handler", limit: 10, windowSecon
 export function createFinalizeHandler(
   access: AccessRule,
   documentDraftExecutor: DocumentDraftExecutor,
+  subjectAccess: SubjectAccess,
+  unfinalizedTemplates: readonly string[] = [],
 ) {
   return defineWriteHandler<
     "finalize",
@@ -50,8 +54,15 @@ export function createFinalizeHandler(
       "Prints an open document draft to a PDF with the values frozen at creation and stores it: the draft becomes finalized and carries the file (fileRefId, fileName). base is the draft version from the blocks query. Further edits need revise first. Returns the draft id, the file and the revision.",
     beforeTransaction: async (event, ctx) => {
       const { id, base } = event.payload;
-      const draft = await loadScopedDraft(documentDraftExecutor, ctx, event.user, id);
+      const draft = await loadScopedDraft(
+        documentDraftExecutor,
+        ctx,
+        event.user,
+        id,
+        subjectAccess,
+      );
       if (draft === null) return draftNotFound(id);
+      if (unfinalizedTemplates.includes(String(draft.templateSlug))) return notFinalizable();
       const notOpenAtBase = checkOpenAtBase(draft, id, base);
       if (notOpenAtBase !== null) return notOpenAtBase;
       const rendered = await renderPdfBeforeTransaction(ctx, {
@@ -70,7 +81,7 @@ export function createFinalizeHandler(
     handler: async (event, ctx) => {
       const { id, base } = event.payload;
       const user = event.user;
-      const draft = await loadScopedDraft(documentDraftExecutor, ctx, user, id);
+      const draft = await loadScopedDraft(documentDraftExecutor, ctx, user, id, subjectAccess);
       if (draft === null) return draftNotFound(id);
       const notOpenAtBase = checkOpenAtBase(draft, id, base);
       if (notOpenAtBase !== null) return notOpenAtBase;

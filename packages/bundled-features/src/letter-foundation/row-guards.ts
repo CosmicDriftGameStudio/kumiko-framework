@@ -34,3 +34,15 @@ export function isLetterFormRequirement(value: unknown): value is LetterFormRequ
 export function envelopeOf(letter: { readonly envelope?: unknown }): LetterEnvelope {
   return isLetterEnvelope(letter.envelope) ? letter.envelope : "folded";
 }
+
+/** True once the preparation stored the merged PDF, its page and sheet counts and the quoted price. */
+export function isLetterPrepared(letter: {
+  readonly mergedFileRefId?: unknown;
+  readonly quotedNet?: unknown;
+  readonly pageCount?: unknown;
+  readonly sheetCount?: unknown;
+}): boolean {
+  return Boolean(
+    letter.mergedFileRefId && letter.quotedNet && letter.pageCount && letter.sheetCount,
+  );
+}

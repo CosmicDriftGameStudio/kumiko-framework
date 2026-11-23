@@ -1,11 +1,14 @@
 import {
   dispatcherErrorTextWithFieldIssues,
+  navigateToReturn,
   PreviewPane,
+  type ScreenTarget,
   statusToneForOptionTone,
   useMutation,
   useNav,
   usePrimitives,
   useQuery,
+  useReturnTarget,
   useTenantCurrency,
   useTranslation,
   useUnsavedInputSource,
@@ -37,6 +40,7 @@ import {
   translatedOr,
 } from "../../template-resolver/web/index.ts";
 import {
+  DOCUMENT_DRAFT_EDITOR_SCREEN_ID,
   DOCUMENT_DRAFT_STATUS,
   DOCUMENT_DRAFT_STATUS_TONE,
   DocumentDraftHandlers,
@@ -50,6 +54,7 @@ type DraftRecord = {
   readonly id: string;
   readonly subjectId: string;
   readonly subjectScreen: string | null;
+  readonly finalizable: boolean;
   readonly templateSlug: string;
   readonly templateTitle: string | null;
   readonly locale: string;
@@ -90,7 +95,14 @@ function formatVariable(
     return formatDocumentMoney(value, currency, locale);
   if (type === "date") return formatDocumentDate(value, locale);
   if (type === "percent") return formatDocumentPercent(value, locale);
+  if (type === "richText") return textOfRichText(String(value));
   return String(value);
+}
+
+// A chip is one line of text; a rich text value brings its own paragraphs and inline markup.
+function textOfRichText(html: string): string {
+  const text = new DOMParser().parseFromString(html, "text/html").body.textContent ?? "";
+  return text.replace(/\s+/g, " ").trim();
 }
 
 // Filled in only when the PDF is printed, so the chip names them like the template editor does.
@@ -223,6 +235,64 @@ function DraftRail({
   );
 }
 
+// A draft the app prints itself cannot be finalized, so the action is left out.
+function FinalizeAction({
+  finalizable,
+  dirty,
+  busy,
+  pending,
+  onFinalize,
+}: {
+  readonly finalizable: boolean;
+  readonly dirty: boolean;
+  readonly busy: boolean;
+  readonly pending: boolean;
+  readonly onFinalize: () => void;
+}): ReactNode {
+  const t = useTranslation();
+  const { Button } = usePrimitives();
+  if (!finalizable) return null;
+  return (
+    <>
+      <Button
+        variant="primary"
+        width="full"
+        disabled={dirty || busy}
+        loading={pending}
+        onClick={onFinalize}
+        testId={`${TEST_ID}-finalize`}
+      >
+        {t("document-draft:editor.finalize")}
+      </Button>
+      {dirty && <RailRow label={t("document-draft:editor.finalizeNeedsSave")} />}
+    </>
+  );
+}
+
+function BackAction({
+  target,
+  busy,
+}: {
+  readonly target: ScreenTarget | undefined;
+  readonly busy: boolean;
+}): ReactNode {
+  const t = useTranslation();
+  const { Button } = usePrimitives();
+  const nav = useNav();
+  if (target === undefined) return null;
+  return (
+    <Button
+      variant="secondary"
+      width="full"
+      disabled={busy}
+      onClick={() => navigateToReturn(nav, target)}
+      testId={`${TEST_ID}-back`}
+    >
+      {t("document-draft:editor.back")}
+    </Button>
+  );
+}
+
 function DraftEditor({
   record,
   onChanged,
@@ -233,6 +303,7 @@ function DraftEditor({
   const t = useTranslation();
   const { Button } = usePrimitives();
   const nav = useNav();
+  const returnTarget = useReturnTarget(DOCUMENT_DRAFT_EDITOR_SCREEN_ID);
   const [html, setHtml] = useState(record.body);
   const [resetCount, setResetCount] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -254,6 +325,12 @@ function DraftEditor({
       : dispatcherErrorTextWithFieldIssues(error, t);
 
   const leaveToSubject = (): void => {
+    if (returnTarget !== undefined) {
+      // The draft is final or gone: nothing unsaved is left to protect.
+      savedRef.current = true;
+      navigateToReturn(nav, returnTarget);
+      return;
+    }
     if (record.subjectScreen === null) {
       onChanged();
       return;
@@ -301,17 +378,13 @@ function DraftEditor({
       <RailField>
         {open ? (
           <>
-            <Button
-              variant="primary"
-              width="full"
-              disabled={dirty || busy}
-              loading={finalize.pending}
-              onClick={onFinalize}
-              testId={`${TEST_ID}-finalize`}
-            >
-              {t("document-draft:editor.finalize")}
-            </Button>
-            {dirty && <RailRow label={t("document-draft:editor.finalizeNeedsSave")} />}
+            <FinalizeAction
+              finalizable={record.finalizable}
+              dirty={dirty}
+              busy={busy}
+              pending={finalize.pending}
+              onFinalize={onFinalize}
+            />
             <Button
               variant="danger-ghost"
               width="full"
@@ -335,6 +408,7 @@ function DraftEditor({
             {t("document-draft:editor.revise")}
           </Button>
         )}
+        <BackAction target={returnTarget} busy={busy} />
       </RailField>
     </RailSection>
   );

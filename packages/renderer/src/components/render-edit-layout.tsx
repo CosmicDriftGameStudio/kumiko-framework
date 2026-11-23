@@ -19,6 +19,7 @@ import {
   buildHeaderActions,
   type HeaderActionsModel,
   renderAfterFormSlot,
+  renderSidebarSlot,
 } from "./render-edit-header-actions.tsx";
 import type { RenderEditModel } from "./render-edit-render-model.ts";
 import { renderEditSections } from "./render-edit-section-kinds.tsx";
@@ -115,23 +116,33 @@ function showsSubtitleUnderTitle<TValues extends FormValues, TCtx>(
   return !titles.stepRail && !titles.titleInSettingsHeader && !showsIntroBox(model);
 }
 
+function showsFormTitle<TValues extends FormValues, TCtx>(
+  model: RenderEditModel<TValues, TCtx>,
+): boolean {
+  const { titles } = model;
+  return (
+    model.engine.props.hideSectionTitles !== true &&
+    !model.layout.titleInShell &&
+    !titles.titleInSettingsHeader &&
+    !titles.titleInHeaderRegion
+  );
+}
+
 function buildFormHeadingProps<TValues extends FormValues, TCtx>(
   model: RenderEditModel<TValues, TCtx>,
 ) {
-  const { props } = model.engine;
   const { layout, footer, titles } = model;
   const { unsavedCount, hasDirtyFooter } = footer;
+  const sidebar = layout.isScreenForm ? renderSidebarSlot(model) : undefined;
   return {
-    ...(props.hideSectionTitles !== true &&
-      !layout.titleInShell &&
-      !titles.titleInSettingsHeader &&
-      !titles.titleInHeaderRegion && { title: titles.formTitle }),
+    ...(showsFormTitle(model) && { title: titles.formTitle }),
     ...(titles.formSubtitle !== undefined &&
       showsSubtitleUnderTitle(model) && { subtitle: titles.formSubtitle }),
     ...(layout.isScreenForm && { screenForm: true }),
     ...(unsavedCount !== undefined && (unsavedCount > 0 || hasDirtyFooter) && { unsavedCount }),
     ...(titles.sectionNavItems.length > 0 && { sectionNav: titles.sectionNavItems }),
     ...(titles.stepRail && { sideRail: renderWizardSideRail(model) }),
+    ...(sidebar !== undefined && { sidebar }),
   };
 }
 
@@ -203,6 +214,7 @@ export function renderEditLayout<TValues extends FormValues, TCtx>(
               {state.isTabs && state.isStepped && renderTabStrip(model)}
               {renderEditSections(model)}
               {props.belowSections?.(form.snapshot.values)}
+              {!model.layout.isScreenForm && renderSidebarSlot(model)}
               {renderAfterFormSlot(model)}
               {props.formErrorOnTop !== true && renderFormErrorBanner(model)}
               {renderRootIssueBanners(model)}

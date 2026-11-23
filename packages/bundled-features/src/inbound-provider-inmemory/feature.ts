@@ -18,6 +18,8 @@ import {
   type InboundMailContext,
   type InboundMailProviderPlugin,
   type MailAccountRecord,
+  type OutboundAttachment,
+  type OutboundMailMessage,
   type RawInboundMessage,
   type RejectedInboundMessage,
   type SyncCursorPayload,
@@ -47,6 +49,7 @@ type AccountState = {
   // What fetchContent serves; a message that is not in here counts as gone from the server.
   readonly fullContent: Map<string, RawInboundMessage>;
   readonly contentFetches: string[][];
+  readonly sentMails: SentMail[];
   watch: WatchHandlers | null;
   watchedTrustedAuthservId: string | null | undefined;
   nextFetchError: unknown;
@@ -55,6 +58,11 @@ type AccountState = {
   lastFetchSignal: AbortSignal | undefined;
   fetchCount: number;
   credentialSecretKey: string | null;
+};
+
+export type SentMail = {
+  readonly message: OutboundMailMessage;
+  readonly attachments: readonly OutboundAttachment[];
 };
 
 const accounts = new Map<string, AccountState>();
@@ -66,6 +74,7 @@ function stateFor(accountId: string): AccountState {
       log: [],
       fullContent: new Map(),
       contentFetches: [],
+      sentMails: [],
       watch: null,
       watchedTrustedAuthservId: undefined,
       nextFetchError: null,
@@ -97,6 +106,11 @@ export function seedRejectedInboundMessage(accountId: string, providerMessageId:
 /** Test helper: the full version of a message that fetchContent serves later. */
 export function setInboundFullContent(accountId: string, msg: RawInboundMessage): void {
   stateFor(accountId).fullContent.set(msg.providerMessageId, msg);
+}
+
+/** Test helper: the mails sent from this account so far, with their resolved attachments. */
+export function sentMailsOf(accountId: string): readonly SentMail[] {
+  return [...stateFor(accountId).sentMails];
 }
 
 /** Test helper: the provider message ids of every fetchContent call so far. */
@@ -195,6 +209,10 @@ function offsetOf(cursor: SyncCursorPayload | null): number {
 }
 
 export const inMemoryInboundMailPlugin: InboundMailProviderPlugin = {
+  send: async (_ctx, account: MailAccountRecord, message, attachments) => {
+    stateFor(account.id).sentMails.push({ message, attachments });
+    return { messageIdHeader: `inmemory-${crypto.randomUUID()}@example.test` };
+  },
   verify: async (_ctx, account: MailAccountRecord) => {
     const state = stateFor(account.id);
     if (state.nextVerifyError) {

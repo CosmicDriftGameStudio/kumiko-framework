@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-22T23:50:25.270Z",
+  "generatedAt": "2026-11-23T17:36:48.340Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -2576,6 +2576,17 @@
           "pgType": "text",
           "notNull": true,
           "defaultSql": "'awaiting-approval'"
+        },
+        {
+          "name": "approval_mode",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'manual'"
+        },
+        {
+          "name": "preparation_issue",
+          "pgType": "text",
+          "notNull": false
         },
         {
           "name": "idempotency_key",

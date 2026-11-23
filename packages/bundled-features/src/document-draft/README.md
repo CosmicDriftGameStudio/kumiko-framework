@@ -20,12 +20,14 @@ The feature prints through the print client directly; mount `renderer-puppeteer-
 
 ## Options
 
-| Option           | Default                                      | Effect                                                                                                                       |
-| ---------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `subjectTypes`   | required                                     | Entity names a draft belongs to; `create` refuses any other (400), a subject row the user cannot read answers 404 everywhere |
-| `retention`      | `{ keepFor: "10y" }`                         | How long drafts are kept, counted from creation, hard delete                                                                 |
-| `access`         | `{ roles: ["TenantAdmin", "TenantMember"] }` | `AccessRule` of all handlers and queries                                                                                     |
-| `subjectScreens` | none                                         | Screen id per subject type that the editor returns to after finalize or discard, opened with the subject id                  |
+| Option                 | Default                                      | Effect                                                                                                                                                                                                                                                                                         |
+| ---------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `subjectTypes`         | required                                     | Entity names a draft belongs to; `create` refuses any other (400), a subject row the user cannot read answers 404 everywhere                                                                                                                                                                   |
+| `retention`            | `{ keepFor: "10y" }`                         | How long drafts are kept, counted from creation, hard delete                                                                                                                                                                                                                                   |
+| `access`               | `{ roles: ["TenantAdmin", "TenantMember"] }` | `AccessRule` of all handlers and queries                                                                                                                                                                                                                                                       |
+| `subjectScreens`       | none                                         | Screen id per subject type that the editor returns to after finalize or discard, opened with the subject id                                                                                                                                                                                    |
+| `unfinalizedTemplates` | none                                         | Template slugs whose drafts the app prints itself (for example a letter per recipient at dispatch): `finalize` answers 422 `document_draft_not_finalizable`, the editor shows no finalize button                                                                                               |
+| `subjectAccess`        | none                                         | Extra role rule per subject type (keys must be in `subjectTypes`), checked on top of `access` by create, patch, save, finalize, revise, discard, blocks and by-subject; a user who misses it gets the same 404 as for an unreadable subject. Subject types without an entry use `access` alone |
 
 ## Handlers and queries
 
@@ -59,7 +61,10 @@ The editor shows the draft text with its placeholders (labelled with the frozen 
 template (its title, or the slug and variant when it has none), the revision, the status and the deviations from the template. An open draft can be saved,
 finalized (only without unsaved changes) or discarded; a finalized one is read-only with its file name and
 "Edit again" (`revise`). After finalize or discard the screen opens `subjectScreens[subjectType]` with the
-subject id; without one it stays and shows the new state. Saving re-serializes the whole text through the editor, so
+subject id; without one it stays and shows the new state. When the app opens the editor with a `returnTo`
+search param (a screen that may be reached by the user), that target wins over `subjectScreens` after finalize
+and discard, and a secondary "Back" button leads there; unsaved text is guarded by the usual leave prompt.
+The `blocks` query returns `finalizable: false` for drafts of an `unfinalizedTemplates` slug. Saving re-serializes the whole text through the editor, so
 blocks the editor normalizes (for example tables with repeat rows) can show as deviations although the
 user did not touch them.
 

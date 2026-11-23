@@ -1,13 +1,9 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
-import {
-  createFileRefFromUploadedBytes,
-  type UploadedFileBytes,
-  uploadFileBytesBeforeTransaction,
-} from "@cosmicdrift/kumiko-framework/files";
+import { createFileRefFromUploadedBytes } from "@cosmicdrift/kumiko-framework/files";
 import type { ConfigKeyHandle } from "@cosmicdrift/kumiko-types/config";
 import type { BeforeTransactionResult } from "@cosmicdrift/kumiko-types/handlers";
-import { PDF_MIME_TYPE, sha256Hex, unprocessable } from "../../shared/index.ts";
+import { unprocessable } from "../../shared/index.ts";
 import {
   LETTER_ENTITY,
   LETTER_ROLES,
@@ -15,21 +11,16 @@ import {
   LetterErrors,
   LetterI18n,
 } from "../constants.ts";
-import { prepareLetterDocument } from "../document-preparation.ts";
 import { letterExecutor } from "../entity.ts";
-import { readLetterBudget } from "../letter-usage.ts";
+import { monthlyLimitFailure, readLetterBudget } from "../letter-usage.ts";
 import { LetterIdSchema } from "../payloads.ts";
+import { prepareAndUploadLetter, type UploadedLetterDocument } from "../prepare-and-upload.ts";
+import { isLetterPrepared } from "../row-guards.ts";
 import { transitionLetter } from "../transitions.ts";
-import type { LetterQuote } from "../types.ts";
 
-type ApprovePrepared = {
-  readonly uploaded: UploadedFileBytes;
-  readonly pageCount: number;
-  readonly sheetCount: number;
-  readonly documentSha256: string;
-  readonly quote: LetterQuote;
-  readonly providerName: string;
-};
+type ApprovePrepared =
+  | { readonly kind: "already-prepared" }
+  | ({ readonly kind: "upload" } & UploadedLetterDocument);
 
 export function createApproveHandler(limitKey: ConfigKeyHandle<"number">) {
   return defineWriteHandler({
@@ -39,9 +30,9 @@ export function createApproveHandler(limitKey: ConfigKeyHandle<"number">) {
     agent: { effect: "outbound" },
     beforeTransactionWhenNested: "skip",
     description:
-      "Approves a letter that waits for approval: merges its documents into one PDF, checks it against the provider's limits, fixes the preview price and releases the letter for handover to the print provider.",
-    // The PDF work and the quote run before the transaction, so no database connection is held
-    // while the provider answers or the file store writes.
+      "Approves a letter that waits for approval: releases it for handover to the print provider at the price fixed in its preparation. A letter that is not prepared yet is merged into one PDF, checked against the provider's limits and priced first.",
+    // A prepared letter needs no work here. Otherwise the PDF work and the quote run before the
+    // transaction, so no database connection is held while the provider answers or the file store writes.
     beforeTransaction: async (event, ctx): Promise<BeforeTransactionResult<ApprovePrepared>> => {
       const letter = await letterExecutor.detail(
         { id: event.payload.letterId },
@@ -52,63 +43,64 @@ export function createApproveHandler(limitKey: ConfigKeyHandle<"number">) {
       if (letter.status !== LETTER_STATE.awaitingApproval) {
         return unprocessable(LetterErrors.notAwaitingApproval, LetterI18n.notAwaitingApproval);
       }
-      const prepared = await prepareLetterDocument(ctx, event.user, letter);
-      if (!prepared.isSuccess) return prepared;
-      const { merged, pageCount, sheetCount, quote, providerName } = prepared.data;
-      // Not atomic: two approvals at once can both pass. The reservation at handover stays the binding check.
-      const { limitCents, usedCents } = await readLetterBudget(ctx, limitKey);
-      if (usedCents + quote.net.amount > limitCents) {
-        return unprocessable(
-          LetterErrors.monthlyLimitNotCovered,
-          LetterI18n.monthlyLimitNotCovered,
-          {
-            limitCents,
-            usedCents,
-            priceCents: quote.net.amount,
-          },
-        );
-      }
-      const uploaded = await uploadFileBytesBeforeTransaction(ctx, {
-        fileName: `letter-${letter.id}.pdf`,
-        mimeType: PDF_MIME_TYPE,
-        data: merged,
-        attachTo: { entityType: LETTER_ENTITY, fieldName: "mergedFileRefId", entityId: letter.id },
-      });
+      if (isLetterPrepared(letter)) return { isSuccess: true, data: { kind: "already-prepared" } };
+      const uploaded = await prepareAndUploadLetter(ctx, event.user, letter);
       if (!uploaded.isSuccess) return uploaded;
-      return {
-        isSuccess: true,
-        data: {
-          uploaded: uploaded.data,
-          pageCount,
-          sheetCount,
-          documentSha256: sha256Hex(merged),
-          quote,
-          providerName,
-        },
-        ...(uploaded.release !== undefined && { release: uploaded.release }),
-      };
+      return { ...uploaded, data: { kind: "upload", ...uploaded.data } };
     },
     handler: async (event, ctx) => {
       const { prepared } = event;
-      if (prepared === undefined) {
+      // Read again: the preparation job may have stored its result since beforeTransaction looked, and
+      // writing this run's own upload then would replace the stored file with a second copy.
+      const letter = await letterExecutor.detail(
+        { id: event.payload.letterId },
+        event.user,
+        ctx.db,
+      );
+      if (letter === null) return failNotFound(LETTER_ENTITY, event.payload.letterId);
+      const { quotedNet } = letter;
+      const storedPrice = isLetterPrepared(letter) && quotedNet ? quotedNet : undefined;
+
+      if (storedPrice === undefined && prepared?.kind === "upload") {
+        const limitFailure = monthlyLimitFailure(
+          await readLetterBudget(ctx, limitKey),
+          prepared.quote.net.amount,
+        );
+        if (limitFailure !== undefined) return limitFailure;
+        const fileRef = await createFileRefFromUploadedBytes(ctx, prepared.uploaded);
+        if (!fileRef.isSuccess) return fileRef;
+        return transitionLetter(ctx, event.user, {
+          letterId: event.payload.letterId,
+          from: LETTER_STATE.awaitingApproval,
+          to: LETTER_STATE.approved,
+          changes: {
+            mergedFileRefId: String(fileRef.data.id),
+            documentSha256: prepared.documentSha256,
+            pageCount: prepared.pageCount,
+            sheetCount: prepared.sheetCount,
+            quotedNet: prepared.quote.net,
+            priceSource: prepared.quote.priceSource,
+            providerName: prepared.providerName,
+            approvedBy: event.user.id,
+            preparationIssue: null,
+          },
+        });
+      }
+
+      // Nested runs skip beforeTransaction, and a letter prepared in the meantime needs no upload either.
+      if (letter.status !== LETTER_STATE.awaitingApproval || storedPrice === undefined) {
         return unprocessable(LetterErrors.stateChanged, LetterI18n.stateChanged);
       }
-      const fileRef = await createFileRefFromUploadedBytes(ctx, prepared.uploaded);
-      if (!fileRef.isSuccess) return fileRef;
+      const limitFailure = monthlyLimitFailure(
+        await readLetterBudget(ctx, limitKey),
+        storedPrice.amount,
+      );
+      if (limitFailure !== undefined) return limitFailure;
       return transitionLetter(ctx, event.user, {
         letterId: event.payload.letterId,
         from: LETTER_STATE.awaitingApproval,
         to: LETTER_STATE.approved,
-        changes: {
-          mergedFileRefId: String(fileRef.data.id),
-          documentSha256: prepared.documentSha256,
-          pageCount: prepared.pageCount,
-          sheetCount: prepared.sheetCount,
-          quotedNet: prepared.quote.net,
-          priceSource: prepared.quote.priceSource,
-          providerName: prepared.providerName,
-          approvedBy: event.user.id,
-        },
+        changes: { approvedBy: event.user.id, preparationIssue: null },
       });
     },
   });

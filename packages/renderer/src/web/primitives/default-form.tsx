@@ -167,6 +167,11 @@ function EmbeddedFormLayout({
   );
 }
 
+function FormSidebarColumn({ sidebar }: { readonly sidebar: ReactNode }): ReactNode {
+  if (sidebar === undefined) return null;
+  return <aside className="min-w-0 flex-1 self-start xl:sticky xl:top-0">{sidebar}</aside>;
+}
+
 export function DefaultForm({
   onSubmit,
   focusFirstErrorKey,
@@ -186,6 +191,7 @@ export function DefaultForm({
   unsavedCount,
   sectionNav,
   sideRail,
+  sidebar,
   summary,
   topBanner,
 }: FormProps): ReactNode {
@@ -288,7 +294,9 @@ export function DefaultForm({
   // Screen form: no card. A padded scroll surface holds the form column and,
   // from xl, the section navigation; the footer stays pinned below it.
   if (isScreenForm) {
-    const showsSectionNav = sectionNav !== undefined && sectionNav.length >= SECTION_NAV_MIN_ITEMS;
+    const hasSidebar = sidebar !== undefined;
+    const showsSectionNav =
+      !hasSidebar && sectionNav !== undefined && sectionNav.length >= SECTION_NAV_MIN_ITEMS;
     return (
       <FormRoot
         onSubmit={onSubmit}
@@ -302,13 +310,14 @@ export function DefaultForm({
             data-testid={testId !== undefined ? `${testId}-scroll` : undefined}
             className={cn("min-h-0 flex-1 overflow-y-auto", screenPaddingClassName)}
           >
-            <div className="flex gap-18">
+            <div className={cn("flex gap-18", hasSidebar && "flex-col xl:flex-row")}>
               <div
                 className={cn(
                   "flex w-full min-w-0 flex-col gap-9",
                   screenFormWidth !== undefined
                     ? screenFormColumnWidthClassName[screenFormWidth]
                     : "max-w-[640px]",
+                  hasSidebar && "xl:max-w-[50%]",
                 )}
               >
                 {headerRegion !== undefined && (
@@ -331,6 +340,7 @@ export function DefaultForm({
                 <FormSummaryBox summary={summary} testId={testId} />
                 {sections}
               </div>
+              <FormSidebarColumn sidebar={sidebar} />
               {showsSectionNav && <FormSectionNav items={sectionNav} />}
             </div>
           </div>

@@ -107,7 +107,7 @@ export function ProjectionListBody({
       <>
         {renderQueryRetryBanner(listRows, listRows.error, effectiveTranslate)}
         <NamedFilterRemove
-          active={query.activeNamedFilter !== undefined}
+          active={query.urlState.namedFilter !== undefined}
           translate={effectiveTranslate}
           onRemove={() => query.urlState.setNamedFilter(undefined)}
         />

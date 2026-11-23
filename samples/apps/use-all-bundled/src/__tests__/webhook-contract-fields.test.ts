@@ -51,7 +51,7 @@ const RELEASABLE_FIELDS: Readonly<Record<string, string>> = {
   "renderer-puppeteer-client/rendered-pdf":
     "id fileRefId templateSlug locale templateId templateVersion templateScope layoutId layoutVersion pageCount",
   "letter-foundation/letter":
-    "id status idempotencyKey sourceEntityType sourceEntityId costCenterRef createdBy approvedBy fileRefIds mergedFileRefId pageCount sheetCount shippingMode envelope color duplex formRequirement formRiskAcknowledged latestReceiptDate priceSource providerName providerJobId trackingNumber trackingStatus proofFileRefIds cancelableUntil addressMismatch failureReason approvedAt submittedAt submissionUnknownAt acceptedAt onHoldAt sentAt failedAt canceledAt returnedAt",
+    "id status approvalMode preparationIssue idempotencyKey sourceEntityType sourceEntityId costCenterRef createdBy approvedBy fileRefIds mergedFileRefId pageCount sheetCount shippingMode envelope color duplex formRequirement formRiskAcknowledged latestReceiptDate priceSource providerName providerJobId trackingNumber trackingStatus proofFileRefIds cancelableUntil addressMismatch failureReason approvedAt submittedAt submissionUnknownAt acceptedAt onHoldAt sentAt failedAt canceledAt returnedAt",
   "managed-pages/page": "id slug lang title body bodyFormat description ogImage published",
   "custom-fields/field-definition":
     "id entityName fieldKey type required searchable displayOrder serializedField",

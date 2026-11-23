@@ -742,7 +742,8 @@ type FormProps = { // Submit wrapper.
   }; // Drawer-hosted forms: context box above the fields.
   topBanner?: ReactNode; // Rendered above everything else in the form body (above `summary`), e.g. the submit error.
   sectionNav?: FormSectionNavItem[]; // Titled sections for the "on this page" navigation next to a `screenForm`.
-  sideRail?: ReactNode; // Leading column next to the scroll surface of a `screenForm` (wizard step navigation).
+  sideRail?: ReactNode; // Columns of a `screenForm`: `sideRail` leads (wizard step navigation), `sidebar` follows from `xl` and replaces the section navigation.
+  sidebar?: ReactNode;
 };
 type FormatMoneyOptions = {
   locale?: string;

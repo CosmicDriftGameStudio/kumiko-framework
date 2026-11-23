@@ -10,6 +10,8 @@ export const letterEnCatalog: Readonly<Record<string, string>> = {
   "audit.log.event.letter-returned": "Letter returned",
   "letter-foundation:write:approve:title": "Approve letter",
   "letter-foundation:write:approve:field:letterId": "Letter",
+  "letter-foundation:write:approve-many:title": "Approve several letters",
+  "letter-foundation:write:approve-many:field:letterIds": "Letters",
   "letter-foundation:write:cancel:title": "Cancel letter",
   "letter-foundation:write:cancel:field:letterId": "Letter",
   "letter-foundation:write:resolve-unknown:title": "Close unclear handover",
@@ -32,6 +34,14 @@ export const letterEnCatalog: Readonly<Record<string, string>> = {
     "Letter sending is not configured on this server. Ask the operator to set the letter provider.",
   "letter-foundation.errors.noFiles": "The letter has no document.",
   "letter-foundation.errors.notAwaitingApproval": "The letter is not waiting for approval.",
+  "screen:letter-foundation-tenant.title": "Letters",
+  "screen:letter-foundation-system.title": "Letters of all tenants",
+  "letter-foundation.settings": "Letters",
+  "letter-foundation.settings.monthlyLimit": "Monthly letter limit (cents)",
+  "letter-foundation.settings.monthlyLimitHelp":
+    "Approved letters of a calendar month may cost at most this much. 0 blocks approval.",
+  "letter-foundation.errors.notReadyForApproval":
+    "Some of the selected letters are not ready for approval. A letter is ready when it waits for approval and its document was checked without a problem.",
   "letter-foundation.errors.monthlyLimitNotCovered":
     "The monthly limit does not cover this letter. The operator can raise the limit.",
   "letter-foundation.errors.notCancelableHere": "The letter can no longer be canceled.",

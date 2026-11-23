@@ -46,7 +46,10 @@ export function useProjectionListQuery(input: ProjectionListQueryInput) {
   const { screen, featureName, effectiveTranslate, entity, searchable, sortable, paginated } =
     input;
   const urlState = useListUrlState(screen.id);
-  const activeNamedFilter = screen.namedFilters === undefined ? undefined : urlState.namedFilter;
+  const activeNamedFilter =
+    screen.namedFilters === undefined
+      ? undefined
+      : (urlState.namedFilter ?? screen.defaultNamedFilter);
   // Gated on the derived capability, not just on whether URL-state happens to
   // carry a value — a stale/hand-crafted URL (?…q=x on a non-searchable
   // screen) must not smuggle a param the query's Zod schema doesn't accept.
