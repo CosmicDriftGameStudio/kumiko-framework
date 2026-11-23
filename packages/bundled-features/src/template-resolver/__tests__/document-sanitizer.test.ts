@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { generateHTML, generateJSON } from "@tiptap/html/server";
-import { sanitizeDocumentHtml, sanitizeTemplateBody } from "../document-sanitizer";
+import {
+  DOCUMENT_HTML_MAX_NESTING_DEPTH,
+  DOCUMENT_HTML_MAX_TAG_OPENERS,
+  documentViolationsToFieldIssues,
+  sanitizeDocumentHtml,
+  sanitizeTemplateBody,
+} from "../document-sanitizer";
 import { DOCUMENT_TEXT_ALIGNMENTS, documentExtensions } from "../web/document-schema";
 import { documentBodyFixture } from "./document-body-fixture";
 
@@ -557,5 +563,79 @@ describe("print styling attributes", () => {
     expect(
       sanitizeTemplateBody({ kind: "document-pdf", contentFormat: "html", content: FRAME }),
     ).toEqual({ ok: true, content: FRAME });
+  });
+});
+
+describe("sanitizeDocumentHtml :: parse limits", () => {
+  const nested = (levels: number) => `${"<div>".repeat(levels)}<p>x</p>${"</div>".repeat(levels)}`;
+
+  test("refuses hostile nesting instead of overflowing the stack", () => {
+    expect(violationCodes(`${"<div>".repeat(15_000)}x`)).toEqual(["nested_too_deep"]);
+    expect(violationCodes(`<p>${"<b>".repeat(15_000)}x</p>`)).toEqual(["nested_too_deep"]);
+  });
+
+  test("accepts the deepest allowed nesting and refuses one level more", () => {
+    expect(sanitizeDocumentHtml(nested(DOCUMENT_HTML_MAX_NESTING_DEPTH - 1)).ok).toBe(true);
+    expect(violationCodes(nested(DOCUMENT_HTML_MAX_NESTING_DEPTH))).toEqual(["nested_too_deep"]);
+  });
+
+  test("counts the nesting inside a template element", () => {
+    const inTemplate = (levels: number) => `<template>${"<div>".repeat(levels)}</template>`;
+    expect(violationCodes(inTemplate(12_000))).toEqual(["nested_too_deep"]);
+    expect(violationCodes(inTemplate(DOCUMENT_HTML_MAX_NESTING_DEPTH))).toEqual([
+      "nested_too_deep",
+    ]);
+    expect(sanitizeDocumentHtml(inTemplate(DOCUMENT_HTML_MAX_NESTING_DEPTH - 1)).ok).toBe(true);
+    expect(sanitizeDocumentHtml("<p>ok</p><template><p>x</p></template>").ok).toBe(true);
+    const pdf = sanitizeTemplateBody({
+      kind: "document-pdf",
+      contentFormat: "html",
+      content: `<p>a</p>${inTemplate(19_000)}`,
+    });
+    expect(pdf.ok ? [] : pdf.violations.map((item) => item.code)).toEqual(["nested_too_deep"]);
+  });
+
+  test("accepts a body at the tag budget and refuses one tag more", () => {
+    const atBudget = "<p>x</p>".repeat(DOCUMENT_HTML_MAX_TAG_OPENERS / 2);
+    expect(sanitizeDocumentHtml(atBudget).ok).toBe(true);
+    expect(violationCodes(`${atBudget}<p>`)).toEqual(["too_many_tags"]);
+  });
+
+  test("keeps legitimate large input", () => {
+    const table = `<table><tbody>${"<tr><td><p>a</p></td><td><p>b</p></td><td><p>c</p></td></tr>".repeat(300)}</tbody></table>`;
+    const list = `${"<ul><li><p>a</p>".repeat(6)}${"</li></ul>".repeat(6)}`;
+    expect(sanitizeDocumentHtml(table).ok).toBe(true);
+    expect(sanitizeDocumentHtml(list).ok).toBe(true);
+  });
+
+  test("a template body past the limits is refused before any other check", () => {
+    const tooManyTags = sanitizeTemplateBody({
+      kind: "mail",
+      contentFormat: "html",
+      content: `<p>${"<b>".repeat(25_000)}</p>`,
+    });
+    const tooDeep = sanitizeTemplateBody({
+      kind: "mail",
+      contentFormat: "html",
+      content: `${"<div>".repeat(15_000)}x`,
+    });
+    expect(tooManyTags.ok ? [] : tooManyTags.violations.map((item) => item.code)).toEqual([
+      "too_many_tags",
+    ]);
+    expect(tooDeep.ok ? [] : tooDeep.violations.map((item) => item.code)).toEqual([
+      "nested_too_deep",
+    ]);
+  });
+
+  test("maps the violation to a field issue", () => {
+    const result = sanitizeDocumentHtml(nested(DOCUMENT_HTML_MAX_NESTING_DEPTH));
+    expect(result.ok ? [] : documentViolationsToFieldIssues(result.violations)).toEqual([
+      {
+        path: "content",
+        code: "nested_too_deep",
+        i18nKey: "templateResolver.errors.document.nestedTooDeep",
+        params: { detail: String(DOCUMENT_HTML_MAX_NESTING_DEPTH) },
+      },
+    ]);
   });
 });

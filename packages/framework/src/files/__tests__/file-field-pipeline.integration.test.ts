@@ -158,6 +158,25 @@ async function postUpload(
   });
 }
 
+const fromHex = (hex: string): Uint8Array => Uint8Array.from(Buffer.from(hex, "hex"));
+const LIBHEIF_AVIF = fromHex("0000001c6674797061766966000000006d696631617669666d696166");
+const FFMPEG_MP4 = fromHex("000000206674797069736f6d0000020069736f6d69736f32617663316d703431");
+
+function ftypBox(
+  majorBrand: string,
+  compatibleBrands: readonly string[],
+  boxSize?: number,
+): Uint8Array {
+  const size = 16 + compatibleBrands.length * 4;
+  const box = new Uint8Array(size);
+  new DataView(box.buffer).setUint32(0, boxSize ?? size);
+  const encoder = new TextEncoder();
+  box.set(encoder.encode("ftyp"), 4);
+  box.set(encoder.encode(majorBrand), 8);
+  box.set(encoder.encode(compatibleBrands.join("")), 16);
+  return box;
+}
+
 describe("image field without accept", () => {
   const coverTarget = { entityType: "document", fieldName: "cover" } as const;
 
@@ -179,6 +198,27 @@ describe("image field without accept", () => {
       "image/heic",
       coverTarget,
     );
+    expect(res.status).toBe(201);
+  });
+
+  test("rejects an mp4 named .heic", async () => {
+    const res = await postUpload("clip.heic", FFMPEG_MP4, "image/heic", coverTarget);
+    expect(res.status).toBe(400);
+    expect(await res.text()).toContain("content_mismatch");
+  });
+
+  test("takes a heic whose image brand is only a compatible brand", async () => {
+    const res = await postUpload(
+      "photo.heic",
+      ftypBox("mif1", ["mif1", "heic"]),
+      "image/heic",
+      coverTarget,
+    );
+    expect(res.status).toBe(201);
+  });
+
+  test("takes an avif upload", async () => {
+    const res = await postUpload("photo.avif", LIBHEIF_AVIF, "image/avif", coverTarget);
     expect(res.status).toBe(201);
   });
 });

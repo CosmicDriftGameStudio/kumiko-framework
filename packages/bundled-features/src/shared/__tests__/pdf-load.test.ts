@@ -1,4 +1,8 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { resolve } from "node:path";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { PDFDocument } from "pdf-lib";
 import { loadPdfWithinDecodeBudget, PdfDecodeLimitError } from "../pdf-load.ts";
 import {
@@ -11,6 +15,12 @@ import {
 } from "./pdf-bomb-fixture.ts";
 
 const MIB = 1024 * 1024;
+
+function readManifest(path: string): Record<string, unknown> {
+  const manifest: unknown = JSON.parse(readFileSync(path, "utf8"));
+  if (!isPlainObject(manifest)) throw new Error(`${path} is not a JSON object`);
+  return manifest;
+}
 
 async function legitPdfWithObjectStreams(): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
@@ -124,5 +134,17 @@ describe("loadPdfWithinDecodeBudget", () => {
   test("loads a PDF that lists a page twice", async () => {
     const loaded = await loadPdfWithinDecodeBudget(pageListedTwicePdf());
     expect(loaded.getPageCount()).toBe(2);
+  });
+
+  // The hook wraps private pdf-lib internals. A range would let an app install a version these tests never ran against.
+  test("the package pins the exact pdf-lib version these limits are verified against", () => {
+    const ownManifest = readManifest(resolve(import.meta.dir, "../../../package.json"));
+    const installedManifest = readManifest(
+      createRequire(import.meta.url).resolve("pdf-lib/package.json"),
+    );
+    const dependencies = ownManifest["dependencies"];
+    expect(isPlainObject(dependencies) ? dependencies["pdf-lib"] : undefined).toBe(
+      installedManifest["version"],
+    );
   });
 });

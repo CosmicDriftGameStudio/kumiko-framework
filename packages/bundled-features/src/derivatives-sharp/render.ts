@@ -259,6 +259,9 @@ const SOURCE_FORMAT_ENCODERS: Record<string, (pipeline: Sharp, quality?: number)
     pipeline.tiff(quality !== undefined ? { quality } : undefined),
 };
 
+// Every key decodes in the prebuilt sharp binary, so the feature registers its renderer for exactly these types.
+export const RENDERABLE_SOURCE_MIME_TYPES: readonly string[] = Object.keys(SOURCE_FORMAT_ENCODERS);
+
 function applyEncoder(pipeline: Sharp, spec: VariantSpec, sourceMimeType: string): Sharp {
   const quality = spec.quality;
 

@@ -7,6 +7,7 @@ import type { Element as ScanElement } from "happy-dom";
 import { hasFrame, IMAGES_BLOCK_SELECTOR, scanPrintOnlyFeatures } from "./document-print-only.ts";
 import {
   type DocumentViolation,
+  parseLimitViolations,
   type SanitizeBodyResult,
   sanitizeDocumentHtml,
   sanitizeTemplateBody,
@@ -80,6 +81,8 @@ function parseRegions(html: string): ParsedRegions {
 }
 
 export function sanitizeLayoutHtml(html: string): SanitizeLayoutResult {
+  const parseLimits = parseLimitViolations(html);
+  if (parseLimits.length > 0) return { ok: false, violations: parseLimits };
   const parsed = parseRegions(html);
   const violations = [...parsed.violations];
   if (parsed.innerHtml["data-content"] === undefined) {

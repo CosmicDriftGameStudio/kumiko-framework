@@ -87,6 +87,9 @@ export type DerivativeRendererPlugin = {
     spec: VariantSpec,
     sourceMimeType: string,
   ) => Promise<Uint8Array>;
+  // A wildcard renderer names what it can decode, so types it cannot decode get no renderer
+  // instead of a failing one. Without the field it applies to everything under the wildcard.
+  readonly sourceMimeTypes?: readonly string[];
 };
 
 export type VariantResult = {

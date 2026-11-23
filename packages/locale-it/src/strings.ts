@@ -1550,6 +1550,9 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "Un riquadro deve trovarsi direttamente nel corpo del documento, non in un altro blocco né in un'area del layout.",
   "templateResolver.errors.document.frameOutsidePage":
     "Il riquadro «{detail}» supera il formato di carta più grande supportato.",
+  "templateResolver.errors.document.tooManyTags": "Il corpo contiene più di {detail} tag HTML.",
+  "templateResolver.errors.document.nestedTooDeep":
+    "Gli elementi sono annidati oltre {detail} livelli.",
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "La destinazione del pulsante «{detail}» deve essere un segnaposto.",
   "templateResolver.errors.document.disallowedLinkHref":

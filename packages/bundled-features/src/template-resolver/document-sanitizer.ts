@@ -4,7 +4,8 @@ import type { FieldIssue } from "@cosmicdrift/kumiko-framework/errors";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { JSONContent } from "@tiptap/core";
 import { generateHTML, generateJSON } from "@tiptap/html/server";
-import { type Element as ScanElement, Window } from "happy-dom";
+import { HTMLTemplateElement, type Element as ScanElement, Window } from "happy-dom";
+import { tagOpenerBudgetCutoff } from "../shared/index.ts";
 import { framesOutsidePage, hasNestedFrame, scanPrintOnlyFeatures } from "./document-print-only.ts";
 import type { ContentFormat } from "./web/constants.ts";
 import { DOCUMENT_HTML_KINDS } from "./web/constants.ts";
@@ -39,7 +40,9 @@ export type DocumentViolationCode =
   | "layout_requires_mjml_format"
   | "layout_invalid_structure"
   | "layout_missing_content_slot"
-  | "layout_source_system_only";
+  | "layout_source_system_only"
+  | "too_many_tags"
+  | "nested_too_deep";
 
 export type DocumentViolation = {
   readonly code: DocumentViolationCode;
@@ -260,14 +263,74 @@ export function withParsedDocument<T>(html: string, read: (body: ScanElement) =>
   }
 }
 
+// The largest shipped template has about 500 tags. Scan and rebuild cost about 14 KB of transient
+// memory per element: 330 MB at this budget, 920 MB for 200,000 characters made of tags only.
+export const DOCUMENT_HTML_MAX_TAG_OPENERS = 20_000;
+
+// Chromium, which prints the PDF, flattens nesting past 512 levels. The model rebuild recurses per
+// level and overflows the stack between 6,000 and 8,000 levels.
+export const DOCUMENT_HTML_MAX_NESTING_DEPTH = 512;
+
+function exceedsTagBudget(html: string): boolean {
+  return tagOpenerBudgetCutoff(html, DOCUMENT_HTML_MAX_TAG_OPENERS) !== -1;
+}
+
+// happy-dom keeps a <template>'s subtree in `content`, outside `children`; the model rebuild and innerHTML still descend into it.
+function nestedElements(element: ScanElement): ScanElement[] {
+  const own = Array.from(element.children);
+  return element instanceof HTMLTemplateElement
+    ? [...own, ...Array.from(element.content.children)]
+    : own;
+}
+
+// Level by level, because a recursive walk is what overflows on hostile depth.
+function exceedsNestingDepth(body: ScanElement): boolean {
+  let level = nestedElements(body);
+  for (let depth = 1; level.length > 0; depth += 1) {
+    if (depth > DOCUMENT_HTML_MAX_NESTING_DEPTH) return true;
+    level = level.flatMap(nestedElements);
+  }
+  return false;
+}
+
+function tooManyTagsViolation(): DocumentViolation {
+  return violation(
+    "too_many_tags",
+    String(DOCUMENT_HTML_MAX_TAG_OPENERS),
+    `The body has more than ${DOCUMENT_HTML_MAX_TAG_OPENERS} HTML tags`,
+  );
+}
+
+function nestedTooDeepViolation(): DocumentViolation {
+  return violation(
+    "nested_too_deep",
+    String(DOCUMENT_HTML_MAX_NESTING_DEPTH),
+    `Elements nest deeper than ${DOCUMENT_HTML_MAX_NESTING_DEPTH} levels`,
+  );
+}
+
+// For callers that parse a raw body before sanitizeDocumentHtml sees it: selectors and innerHTML
+// recurse per level too.
+export function parseLimitViolations(html: string): DocumentViolation[] {
+  if (exceedsTagBudget(html)) return [tooManyTagsViolation()];
+  return withParsedDocument(html, (body) =>
+    exceedsNestingDepth(body) ? [nestedTooDeepViolation()] : [],
+  );
+}
+
 export type SanitizeHtmlOptions = {
   /** Write gates only: a body stored before the check must keep rendering. */
   readonly rejectFramesOutsidePage?: boolean;
 };
 
 function scanDocumentHtml(html: string, options: SanitizeHtmlOptions): DocumentViolation[] {
+  if (exceedsTagBudget(html)) return [tooManyTagsViolation()];
   const violations: DocumentViolation[] = [];
   withParsedDocument(html, (body) => {
+    if (exceedsNestingDepth(body)) {
+      violations.push(nestedTooDeepViolation());
+      return;
+    }
     // A second `<body ...>` in the input merges its attributes into this body.
     for (const element of [body, ...Array.from(body.querySelectorAll("*"))]) {
       scanElement(element, violations);
@@ -375,7 +438,11 @@ function pdfOnlyViolations(input: SanitizeBodyInput): DocumentViolation[] {
   ) {
     return [];
   }
-  const found = withParsedDocument(input.content, scanPrintOnlyFeatures);
+  if (exceedsTagBudget(input.content)) return [tooManyTagsViolation()];
+  const found = withParsedDocument(input.content, (body) =>
+    exceedsNestingDepth(body) ? null : scanPrintOnlyFeatures(body),
+  );
+  if (found === null) return [nestedTooDeepViolation()];
   return [
     ...(found.hasImagesBlock
       ? [
@@ -418,11 +485,14 @@ function relativeLinkViolations(html: string): DocumentViolation[] {
 export function sanitizeTemplateBody(input: SanitizeBodyInput): SanitizeBodyResult {
   const formatViolation = requiredFormatViolation(input.kind, input.contentFormat);
   if (formatViolation !== null) return { ok: false, violations: [formatViolation] };
-  const pdfOnly = pdfOnlyViolations(input);
-  if (pdfOnly.length > 0) return { ok: false, violations: pdfOnly };
   if (!isSanitizedBody(input) || input.contentFormat !== "html" || input.content === null) {
     return { ok: true, content: input.content };
   }
+  // pdfOnlyViolations checks the limits itself, but does not parse a document-pdf body at all.
+  const parseLimits = input.kind === PDF_ONLY_KIND ? parseLimitViolations(input.content) : [];
+  if (parseLimits.length > 0) return { ok: false, violations: parseLimits };
+  const pdfOnly = pdfOnlyViolations(input);
+  if (pdfOnly.length > 0) return { ok: false, violations: pdfOnly };
   if (HTML_ONLY_KINDS.has(input.kind)) {
     const relativeLinks = relativeLinkViolations(input.content);
     if (relativeLinks.length > 0) return { ok: false, violations: relativeLinks };
@@ -453,6 +523,8 @@ const VIOLATION_I18N_KEYS: Readonly<Record<DocumentViolationCode, string>> = {
   layout_invalid_structure: "templateResolver.errors.document.layoutInvalidStructure",
   layout_missing_content_slot: "templateResolver.errors.document.layoutMissingContentSlot",
   layout_source_system_only: "templateResolver.errors.document.layoutSourceSystemOnly",
+  too_many_tags: "templateResolver.errors.document.tooManyTags",
+  nested_too_deep: "templateResolver.errors.document.nestedTooDeep",
 };
 
 export function documentViolationsToFieldIssues(

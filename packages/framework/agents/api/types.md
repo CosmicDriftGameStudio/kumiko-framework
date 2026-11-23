@@ -3521,6 +3521,7 @@ type BlurRegion = {
 };
 type DerivativeRendererPlugin = {
   render: (input: Uint8Array, spec: VariantSpec, sourceMimeType: string) => Promise<Uint8Array>;
+  sourceMimeTypes?: string[];
 };
 type DerivativesContext = {
   variant: (fileRefId: string, spec: VariantSpec, name: string) => Promise<VariantResult>;

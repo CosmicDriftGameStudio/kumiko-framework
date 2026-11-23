@@ -62,7 +62,17 @@ describe("readStreamWithPrefix", () => {
     expect(closed).toBe(true);
   });
 
-  test("SNIFF_PREFIX_BYTE_COUNT covers the longest signature (WEBP)", () => {
+  test("SNIFF_PREFIX_BYTE_COUNT covers the longest signature (ISO-BMFF brand list)", () => {
+    const brands = [...Array<string>(11).fill("xxxx"), "heic"];
+    const boxSize = 16 + brands.length * 4;
+    const heic = new Uint8Array(boxSize + 32);
+    new DataView(heic.buffer).setUint32(0, boxSize);
+    const encoder = new TextEncoder();
+    heic.set(encoder.encode("ftyp"), 4);
+    heic.set(encoder.encode("isom"), 8);
+    heic.set(encoder.encode(brands.join("")), 16);
+    expect(sniffMimeType(heic.subarray(0, SNIFF_PREFIX_BYTE_COUNT))).toBe("image/heic");
+
     const bytes = new Uint8Array(32);
     bytes.set([0x52, 0x49, 0x46, 0x46], 0);
     bytes.set([0x01, 0x02, 0x03, 0x04], 4);

@@ -54,6 +54,36 @@ describe("sanitizeLayoutHtml", () => {
       ),
     ).toContain("script_element");
   });
+
+  test("refuses a region nested past the depth limit", () => {
+    expect(
+      codes(
+        sanitizeLayoutHtml(
+          `<div data-header>${"<div>".repeat(15_000)}<p>H</p></div><div data-content></div>`,
+        ),
+      ),
+    ).toEqual(["nested_too_deep"]);
+  });
+
+  test("refuses a layout past the tag budget", () => {
+    expect(
+      codes(
+        sanitizeLayoutHtml(
+          `<div data-header><p>${"<b>".repeat(25_000)}</p></div><div data-content></div>`,
+        ),
+      ),
+    ).toEqual(["too_many_tags"]);
+  });
+
+  test("refuses nesting hidden inside templates", () => {
+    expect(
+      codes(
+        sanitizeLayoutHtml(
+          `<div data-header><template>${"<template>".repeat(19_900)}</template></div><div data-content></div>`,
+        ),
+      ),
+    ).toEqual(["nested_too_deep"]);
+  });
 });
 
 describe("readLayoutRegions", () => {

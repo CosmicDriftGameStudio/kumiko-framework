@@ -52,7 +52,7 @@ describe("verifyDeclaredMimeType", () => {
     });
   });
 
-  test.each(["text/html", "image/svg+xml", "application/octet-stream", "image/heic"])(
+  test.each(["text/html", "image/svg+xml", "application/octet-stream", "image/bmp"])(
     "%s is not verifiable and stays unchanged",
     (declared) => {
       expect(verifyDeclaredMimeType(declared, PDF_BYTES)).toEqual({ kind: "unchanged" });
@@ -76,8 +76,8 @@ describe("verifyDeclaredMimeType", () => {
     });
   });
 
-  test("types without whitelist extensions (heic) stay unchanged under an accept", () => {
-    expect(verifyDeclaredMimeType("image/heic", encode("anything"), ["heic"])).toEqual({
+  test("types without whitelist extensions (bmp) stay unchanged under an accept", () => {
+    expect(verifyDeclaredMimeType("image/bmp", encode("anything"), ["bmp"])).toEqual({
       kind: "unchanged",
     });
   });

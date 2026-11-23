@@ -27,7 +27,15 @@ export type DerivativesContextDeps = {
 // extension-usage `options` is engine-payload (unknown) — structurally validate
 // instead of casting blind, same pattern as isFileProviderPlugin.
 function isDerivativeRendererPlugin(o: unknown): o is DerivativeRendererPlugin {
-  return typeof o === "object" && o !== null && "render" in o && typeof o.render === "function";
+  if (typeof o !== "object" || o === null || !("render" in o) || typeof o.render !== "function") {
+    return false;
+  }
+  if (!("sourceMimeTypes" in o) || o.sourceMimeTypes === undefined) return true;
+  return Array.isArray(o.sourceMimeTypes) && o.sourceMimeTypes.every((t) => typeof t === "string");
+}
+
+function acceptsSourceMimeType(plugin: DerivativeRendererPlugin, mimeType: string): boolean {
+  return plugin.sourceMimeTypes === undefined || plugin.sourceMimeTypes.includes(mimeType);
 }
 
 export function resolveRenderer(
@@ -46,13 +54,14 @@ export function resolveRenderer(
     return exact.options;
   }
 
-  const wildcard = usages.find((u) => u.entityName === `${normalized.split("/")[0]}/*`);
-  if (wildcard) {
-    if (!isDerivativeRendererPlugin(wildcard.options))
+  const wildcardName = `${normalized.split("/")[0]}/*`;
+  for (const usage of usages) {
+    if (usage.entityName !== wildcardName) continue;
+    if (!isDerivativeRendererPlugin(usage.options))
       throw new Error(
-        `derivatives.resolveRenderer: "${wildcard.entityName}" registered without a render(input, spec, sourceMimeType) — extension options must be a DerivativeRendererPlugin.`,
+        `derivatives.resolveRenderer: "${usage.entityName}" registered without a render(input, spec, sourceMimeType) — extension options must be a DerivativeRendererPlugin.`,
       );
-    return wildcard.options;
+    if (acceptsSourceMimeType(usage.options, normalized)) return usage.options;
   }
 
   return undefined;

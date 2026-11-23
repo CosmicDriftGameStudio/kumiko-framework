@@ -3,6 +3,7 @@
 
 import { convert as htmlToText } from "html-to-text";
 import sanitizeHtml from "sanitize-html";
+import { tagOpenerBudgetCutoff } from "../shared/index.ts";
 import { INBOUND_BODY_HTML_MAX_BYTES } from "./normalize-inbound-message.ts";
 
 const ALLOWED_TAGS = [
@@ -184,18 +185,6 @@ const TEXT_SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
 
 type ParseLimitedHtml = { readonly html: string; readonly maxPrefixDepth: number };
 
-/** Index of the first '<' past the budget, or -1 while the HTML stays within it. */
-function tagBudgetCutoff(html: string): number {
-  let count = 0;
-  let at = html.indexOf("<");
-  while (at !== -1) {
-    count += 1;
-    if (count > INBOUND_HTML_MAX_TAG_OPENERS) return at;
-    at = html.indexOf("<", at + 1);
-  }
-  return -1;
-}
-
 // The stack holds the names sanitize-html reports as opened. htmlparser2 also reports a close for a
 // tag that was never reported open (a truncated "<b " inside the text of a dropped iframe, which
 // sanitize-html parses again with the same options), so a bare counter can be pulled below the real
@@ -205,7 +194,7 @@ function sanitizeWithinParseLimits(
   html: string,
   options: sanitizeHtml.IOptions,
 ): ParseLimitedHtml | null {
-  if (tagBudgetCutoff(html) !== -1) return null;
+  if (tagOpenerBudgetCutoff(html, INBOUND_HTML_MAX_TAG_OPENERS) !== -1) return null;
   const open: string[] = [];
   let prefixDepth = 0;
   let maxPrefixDepth = 0;
@@ -246,7 +235,7 @@ export function sanitizeInboundHtml(html: string): string | null {
 // instead of dropped: only the first 32,000 characters of text are stored anyway, and a report mail
 // of 260,000 tags should still show its opening text.
 export function inboundHtmlToText(html: string): string {
-  const cutoff = tagBudgetCutoff(html);
+  const cutoff = tagOpenerBudgetCutoff(html, INBOUND_HTML_MAX_TAG_OPENERS);
   const limited = sanitizeWithinParseLimits(
     cutoff === -1 ? html : html.slice(0, cutoff),
     TEXT_SANITIZE_OPTIONS,
