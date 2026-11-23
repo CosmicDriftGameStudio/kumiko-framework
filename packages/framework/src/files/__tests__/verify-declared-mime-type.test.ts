@@ -5,6 +5,7 @@ import {
   effectiveFileFieldAccept,
   sniffMimeType,
   validateFile,
+  validateFileContent,
   verifyDeclaredMimeType,
 } from "../types.ts";
 
@@ -127,5 +128,29 @@ describe("effectiveFileFieldAccept", () => {
   test("an explicit accept wins, including the empty opt-out", () => {
     expect(effectiveFileFieldAccept({ type: "image", accept: ["svg"] })).toEqual(["svg"]);
     expect(effectiveFileFieldAccept({ type: "image", accept: [] })).toEqual([]);
+  });
+});
+
+describe("PDF header offset", () => {
+  const withPrefix = (prefixLength: number, body: Uint8Array): Uint8Array => {
+    const bytes = new Uint8Array(prefixLength + body.length).fill(0x20);
+    bytes.set(body, prefixLength);
+    return bytes;
+  };
+
+  test("a PDF with bytes before the header within the first 1024 bytes sniffs as PDF", () => {
+    expect(sniffMimeType(withPrefix(1, PDF_BYTES))).toBe("application/pdf");
+    expect(sniffMimeType(withPrefix(1023, PDF_BYTES))).toBe("application/pdf");
+    expect(validateFileContent("offer.pdf", withPrefix(300, PDF_BYTES))).toEqual({ kind: "ok" });
+  });
+
+  test("a header starting at byte 1024 or later is not a PDF", () => {
+    expect(sniffMimeType(withPrefix(1024, PDF_BYTES))).toBeNull();
+    expect(validateFileContent("offer.pdf", withPrefix(1024, PDF_BYTES)).kind).toBe("rejected");
+  });
+
+  test("a file with a signature at byte 0 keeps its type despite an embedded PDF header", () => {
+    const pngWithPdf = new Uint8Array([...PNG_BYTES, ...PDF_BYTES]);
+    expect(sniffMimeType(pngWithPdf)).toBe("image/png");
   });
 });

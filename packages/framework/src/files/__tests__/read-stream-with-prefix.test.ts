@@ -62,7 +62,11 @@ describe("readStreamWithPrefix", () => {
     expect(closed).toBe(true);
   });
 
-  test("SNIFF_PREFIX_BYTE_COUNT covers the longest signature (ISO-BMFF brand list)", () => {
+  test("SNIFF_PREFIX_BYTE_COUNT covers the longest signatures (PDF header search, ISO-BMFF brands)", () => {
+    const latePdf = new Uint8Array(2048);
+    latePdf.set(new TextEncoder().encode("%PDF-1.7"), 1023);
+    expect(sniffMimeType(latePdf.subarray(0, SNIFF_PREFIX_BYTE_COUNT))).toBe("application/pdf");
+
     const brands = [...Array<string>(11).fill("xxxx"), "heic"];
     const boxSize = 16 + brands.length * 4;
     const heic = new Uint8Array(boxSize + 32);
