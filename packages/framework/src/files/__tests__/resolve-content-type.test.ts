@@ -124,3 +124,19 @@ describe("resolveContentType", () => {
     ).toBe("text/plain; charset=utf-8");
   });
 });
+
+describe("resolveContentType with an embedded PDF header", () => {
+  test("XML quoting %PDF- in its prolog stays XML", () => {
+    const xml = encode('<?xml version="1.0"?><!-- %PDF- --><nfeProc/>');
+    expect(resolveContentType({ declared: OCTET, bytes: xml, filename: "a.xml" })).toBe(
+      "application/xml",
+    );
+  });
+
+  test("a PDF with bytes before the header resolves to application/pdf", () => {
+    const pdf = encode("\r\n\r\n%PDF-1.4 body");
+    expect(resolveContentType({ declared: OCTET, bytes: pdf, filename: undefined })).toBe(
+      "application/pdf",
+    );
+  });
+});

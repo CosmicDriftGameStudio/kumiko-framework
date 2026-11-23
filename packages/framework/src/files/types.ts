@@ -156,7 +156,6 @@ const MAGIC_BYTE_SIGNATURES: ReadonlyArray<{
   { mimeType: "image/avif", matches: (bytes) => sniffIsoBmffImageType(bytes) === "image/avif" },
   { mimeType: "image/heic", matches: (bytes) => sniffIsoBmffImageType(bytes) === "image/heic" },
   { mimeType: "image/heif", matches: (bytes) => sniffIsoBmffImageType(bytes) === "image/heif" },
-  { mimeType: "application/pdf", matches: (bytes) => startsWithAscii(bytes, "%PDF-") },
   // Full 8-byte OLE Compound File signature — legacy .doc/.xls/.ppt share it,
   // so any OLE file sniffs as msword regardless of which one it really is.
   {
@@ -169,12 +168,30 @@ const MAGIC_BYTE_SIGNATURES: ReadonlyArray<{
     mimeType: DOCX_MIME_TYPE,
     matches: (bytes) => startsWithBytes(bytes, [0x50, 0x4b, 0x03, 0x04]),
   },
+  // Last, so a file with an exact signature at byte 0 never sniffs as PDF from an embedded header.
+  { mimeType: "application/pdf", matches: hasPdfHeader },
 ];
 
-// The longest MAGIC_BYTE_SIGNATURES check is the ISO-BMFF brand list: 16 bytes of ftyp header
-// plus 12 compatible brands. Apple's HEIC writer uses 36 bytes and an animated AVIF 44. The
-// serve path sniffs only this prefix, so no check may read past it.
-export const SNIFF_PREFIX_BYTE_COUNT = 64;
+const PDF_HEADER = "%PDF-";
+// Acrobat accepts the header anywhere in the first 1024 bytes, and some scanner and ERP exports
+// write bytes before it; requiring offset 0 rejected PDFs every reader opens.
+const PDF_HEADER_SEARCH_BYTES = 1024;
+
+function hasPdfHeader(bytes: Uint8Array): boolean {
+  const lastOffset = Math.min(bytes.length - PDF_HEADER.length, PDF_HEADER_SEARCH_BYTES - 1);
+  for (let offset = 0; offset <= lastOffset; offset++) {
+    if (startsWithAscii(bytes, PDF_HEADER, offset)) return true;
+  }
+  return false;
+}
+
+// The longest MAGIC_BYTE_SIGNATURES check is the PDF header search. The serve path sniffs only
+// this prefix, so no check may read past it.
+export const SNIFF_PREFIX_BYTE_COUNT = PDF_HEADER_SEARCH_BYTES + PDF_HEADER.length - 1;
+
+// 16 bytes of ftyp header plus 12 compatible brands: Apple's HEIC writer uses 36 bytes and an
+// animated AVIF 44.
+const ISO_BMFF_BRAND_SCAN_BYTES = 64;
 
 const ISO_BMFF_MAJOR_BRAND_OFFSET = 8;
 const ISO_BMFF_COMPATIBLE_BRANDS_OFFSET = 16;
@@ -191,7 +208,7 @@ function readIsoBmffBrands(bytes: Uint8Array): readonly string[] {
     String.fromCharCode(...bytes.subarray(offset, offset + ISO_BMFF_BRAND_LENGTH));
   const brands = [brandAt(ISO_BMFF_MAJOR_BRAND_OFFSET)];
   const boxSize = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(0);
-  const end = Math.min(boxSize, bytes.length, SNIFF_PREFIX_BYTE_COUNT);
+  const end = Math.min(boxSize, bytes.length, ISO_BMFF_BRAND_SCAN_BYTES);
   for (
     let offset = ISO_BMFF_COMPATIBLE_BRANDS_OFFSET;
     offset + ISO_BMFF_BRAND_LENGTH <= end;

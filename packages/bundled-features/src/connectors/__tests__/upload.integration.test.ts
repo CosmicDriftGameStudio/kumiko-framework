@@ -215,6 +215,24 @@ describe("connectors upload rules", () => {
     expect(await itemCount()).toBe(before);
   });
 
+  test("a PDF with bytes before its header is accepted, a .pdf without a header is file_rejected", async () => {
+    const preamble = new TextEncoder().encode("\r\n\r\n%PDF-1.4\n%EOF\n");
+    const accepted = await uploadConnectorFile(stack, freshToken, {
+      path: "Propostas/scan.pdf",
+      bytes: preamble,
+    });
+    expect(accepted.status).toBe(201);
+
+    const before = await itemCount();
+    const notPdf = await uploadConnectorFile(stack, freshToken, {
+      path: "Propostas/text.pdf",
+      bytes: new TextEncoder().encode("plain text, no header"),
+    });
+    expect(notPdf.status).toBe(422);
+    expect(await notPdf.json()).toEqual({ error: "file_rejected" });
+    expect(await itemCount()).toBe(before);
+  });
+
   test("a stored file lives under the nobackup prefix of its tenant", async () => {
     const res = await uploadConnectorFile(stack, freshToken, {
       path: "Lieferscheine/LS-0001.bin",
