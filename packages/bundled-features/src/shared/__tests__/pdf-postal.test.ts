@@ -1,6 +1,8 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { degrees, PDFDocument } from "pdf-lib";
-import { checkPostalPdf, mergePdfs, PdfPageLimitError } from "../pdf-postal.ts";
+import { PdfDecodeLimitError } from "../pdf-load.ts";
+import { appendPdfPages, checkPostalPdf, mergePdfs, PdfPageLimitError } from "../pdf-postal.ts";
+import { BOMB_DECODED_BYTES, objectStreamPdf } from "./pdf-bomb-fixture.ts";
 
 const A4_PORTRAIT: [number, number] = [595.276, 841.89];
 const MAX_BYTES = 1_000_000;
@@ -102,6 +104,11 @@ describe("mergePdfs", () => {
       mergePdfs(sources, { maxPages: 3, startEachFileOnNewSheet: true }),
     ).rejects.toThrow(PdfPageLimitError);
   });
+
+  test("refuses a source whose object streams decode past the budget", async () => {
+    const bomb = objectStreamPdf({ decodedBytesPerStream: BOMB_DECODED_BYTES, streamCount: 1 });
+    await expect(mergePdfs([await upright(1), bomb])).rejects.toBeInstanceOf(PdfDecodeLimitError);
+  });
 });
 
 describe("checkPostalPdf", () => {
@@ -175,5 +182,23 @@ describe("checkPostalPdf", () => {
     expect(
       await checkPostalPdf(new TextEncoder().encode("nope"), { maxBytes: MAX_BYTES }),
     ).toMatchObject({ ok: false, reason: "unreadable" });
+  });
+
+  test("rejects an object stream bomb as unreadable", async () => {
+    const bomb = objectStreamPdf({ decodedBytesPerStream: BOMB_DECODED_BYTES, streamCount: 1 });
+    expect(await checkPostalPdf(bomb, { maxBytes: 10 * 1024 * 1024 })).toMatchObject({
+      ok: false,
+      reason: "unreadable",
+      page: null,
+    });
+  });
+});
+
+describe("appendPdfPages", () => {
+  test("refuses an original whose object streams decode past the budget", async () => {
+    const bomb = objectStreamPdf({ decodedBytesPerStream: BOMB_DECODED_BYTES, streamCount: 1 });
+    await expect(appendPdfPages(bomb, await upright(1))).rejects.toBeInstanceOf(
+      PdfDecodeLimitError,
+    );
   });
 });

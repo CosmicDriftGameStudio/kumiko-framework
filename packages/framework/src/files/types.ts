@@ -1,6 +1,12 @@
 import type { TenantId } from "../engine/types/identifiers.ts";
 import { readZipEntryNames } from "./zip-entry-names.ts";
 
+// Defined next to the field types so the renderer can derive the same picker list.
+export {
+  DEFAULT_IMAGE_FIELD_ACCEPT,
+  effectiveFileFieldAccept,
+} from "@cosmicdrift/kumiko-types/file-field-accept";
+
 // Lives here (not in file-ref-entity.ts) so engine code can name the entity without importing
 // a module that calls createEntity at load time.
 export const FILE_REF_ENTITY_NAME = "fileRef";
@@ -53,7 +59,9 @@ export function parseMaxSize(maxSize: string): number {
 }
 
 function extractExtension(fileName: string): string | undefined {
-  return fileName.split(".").pop()?.toLowerCase();
+  const dot = fileName.lastIndexOf(".");
+  if (dot === -1 || dot === fileName.length - 1) return undefined;
+  return fileName.slice(dot + 1).toLowerCase();
 }
 
 // Extension → acceptable MIME-type whitelist. Backs the cheap metadata
@@ -133,6 +141,12 @@ const MAGIC_BYTE_SIGNATURES: ReadonlyArray<{
   {
     mimeType: "image/webp",
     matches: (bytes) => startsWithAscii(bytes, "RIFF") && startsWithAscii(bytes, "WEBP", 8),
+  },
+  {
+    mimeType: "image/tiff",
+    matches: (bytes) =>
+      startsWithBytes(bytes, [0x49, 0x49, 0x2a, 0x00]) ||
+      startsWithBytes(bytes, [0x4d, 0x4d, 0x00, 0x2a]),
   },
   { mimeType: "application/pdf", matches: (bytes) => startsWithAscii(bytes, "%PDF-") },
   // Full 8-byte OLE Compound File signature — legacy .doc/.xls/.ppt share it,
@@ -236,7 +250,8 @@ export function validateFile(
   if (options.accept && options.accept.length > 0) {
     const ext = extractExtension(metadata.fileName);
     if (!ext || !options.accept.includes(ext)) {
-      return `invalid_file_type: ".${ext}" is not in [${options.accept.join(", ")}]`;
+      const shownExtension = ext ? `".${ext}"` : "no extension";
+      return `invalid_file_type: ${shownExtension} is not in [${options.accept.join(", ")}]`;
     }
     // Cheap metadata pre-check only: the client/runtime mimeType is no
     // evidence of file content (Bun derives it from the filename itself).
@@ -251,6 +266,17 @@ export function validateFile(
   }
 
   return null;
+}
+
+function pickExtensionForMimeType(
+  mimeType: string,
+  accept: readonly string[] | undefined,
+): string | undefined {
+  const candidateExtensions = extensionsForMimeType(mimeType);
+  const hasAcceptRestriction = accept !== undefined && accept.length > 0;
+  return hasAcceptRestriction
+    ? candidateExtensions.find((candidate) => accept.includes(candidate))
+    : candidateExtensions[0];
 }
 
 function signatureMimeTypesForExtension(ext: string): readonly string[] {
@@ -306,11 +332,7 @@ export function validateFileContent(
   }
   if (sniffed && signatureMimeTypes.includes(sniffed)) return { kind: "ok" };
   if (sniffed) {
-    const candidateExtensions = extensionsForMimeType(sniffed);
-    const hasAcceptRestriction = accept !== undefined && accept.length > 0;
-    const normalizedExtension = hasAcceptRestriction
-      ? candidateExtensions.find((candidate) => accept.includes(candidate))
-      : candidateExtensions[0];
+    const normalizedExtension = pickExtensionForMimeType(sniffed, accept);
     if (normalizedExtension) {
       return { kind: "normalized", extension: normalizedExtension, mimeType: sniffed };
     }
@@ -319,6 +341,66 @@ export function validateFileContent(
     kind: "rejected",
     error: `content_mismatch: ".${ext}" upload bytes are ${sniffed ?? "unrecognized"}, expected ${signatureMimeTypes.join(" or ")}`,
   };
+}
+
+// OLE and ZIP are left out on purpose: their signature is shared by several formats (doc/xls,
+// docx/xlsx/zip), so a mismatch there proves nothing.
+const VERIFIABLE_DECLARED_MIME_TYPES: ReadonlySet<string> = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "image/tiff",
+  "application/pdf",
+]);
+
+export type DeclaredMimeVerification =
+  | { readonly kind: "unchanged" }
+  | { readonly kind: "replaced"; readonly mimeType: string; readonly extension?: string }
+  | { readonly kind: "rejected"; readonly error: string };
+
+function declaredTypeFitsNoAcceptedExtension(
+  canonicalMimeType: string,
+  accept: readonly string[] | undefined,
+): boolean {
+  if (accept === undefined || accept.length === 0) return false;
+  const extensions = extensionsForMimeType(canonicalMimeType);
+  return extensions.length > 0 && pickExtensionForMimeType(canonicalMimeType, accept) === undefined;
+}
+
+// Names without an extension signature path (no extension, txt, csv, unknown) would otherwise
+// store the declared type unchecked. Unknown bytes are downgraded, not rejected, so mail
+// attachments and copy paths with a historically wrong mimeType keep their data.
+export function verifyDeclaredMimeType(
+  declaredMimeType: string,
+  content: Uint8Array,
+  accept?: readonly string[],
+): DeclaredMimeVerification {
+  const normalizedDeclared = normalizeMimeType(declaredMimeType);
+  const canonical = Object.hasOwn(DECLARED_MIME_ALIASES, normalizedDeclared)
+    ? (DECLARED_MIME_ALIASES[normalizedDeclared] ?? normalizedDeclared)
+    : normalizedDeclared;
+  if (!VERIFIABLE_DECLARED_MIME_TYPES.has(canonical)) {
+    // A declared type whose extensions are all outside accept can only get here through an
+    // extension without a signature (heic, unknown): the bytes cannot back the declared type.
+    return declaredTypeFitsNoAcceptedExtension(canonical, accept)
+      ? { kind: "replaced", mimeType: "application/octet-stream" }
+      : { kind: "unchanged" };
+  }
+  const sniffed = sniffMimeType(content);
+  if (sniffed === canonical) return { kind: "unchanged" };
+  if (sniffed !== null && VERIFIABLE_DECLARED_MIME_TYPES.has(sniffed)) {
+    const extension = pickExtensionForMimeType(sniffed, accept);
+    if (extension) return { kind: "replaced", mimeType: sniffed, extension };
+    if (accept !== undefined && accept.length > 0) {
+      return {
+        kind: "rejected",
+        error: `content_mismatch: bytes declared as "${declaredMimeType}" are ${sniffed}`,
+      };
+    }
+    return { kind: "replaced", mimeType: sniffed };
+  }
+  return { kind: "replaced", mimeType: "application/octet-stream" };
 }
 
 export type UploadMimeTypeResolution =
@@ -370,7 +452,7 @@ export function buildStorageKey(
   // (wrong) original extension.
   extensionOverride?: string,
 ): string {
-  const rawExt = extensionOverride ?? fileName.split(".").pop() ?? "";
+  const rawExt = extensionOverride ?? extractExtension(fileName) ?? "";
   const ext = /^[A-Za-z0-9]+$/.test(rawExt) ? rawExt.toLowerCase() : "bin";
   const entitySegment = entityId === undefined || entityId === "" ? NO_ENTITY_ID_SEGMENT : entityId;
   return `${tenantId}/${entityType}/${entitySegment}/${fieldName}/${uniqueId}.${ext}`;

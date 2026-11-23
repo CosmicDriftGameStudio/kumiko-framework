@@ -46,6 +46,28 @@ describe("isBlockedIp", () => {
     ["198.18.0.1", true], // 198.18.0.0/15 benchmarking (RFC 2544)
     ["198.19.255.255", true],
     ["not-an-ip", true], // fail closed
+    ["2001::1", true], // Teredo (RFC 4380)
+    ["2001:0:4136:e378:8000:63bf:3fff:fdd2", true], // real Teredo form
+    ["2001:0:ffff:ffff:ffff:ffff:ffff:ffff", true], // upper end of 2001::/32
+    ["100::1", true], // discard-only (RFC 6666)
+    ["100::ffff:ffff:ffff:ffff", true], // upper end of 100::/64
+    ["2001:2::1", true], // benchmarking (RFC 5180)
+    ["2001:db8::1", true], // documentation (RFC 3849)
+    ["2001:DB8:0:0:0:0:0:1", true], // same range, uncompressed + uppercase
+    ["2001:db8:ffff:ffff:ffff:ffff:ffff:ffff", true],
+    ["3fff::1", true], // documentation (RFC 9637)
+    ["3fff:fff:ffff::1", true], // upper end of 3fff::/20
+    ["ff02::1", true], // multicast
+    ["ff05::1:3", true],
+    ["ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", true],
+    ["2001:4860:4860::8888", false], // Google DNS, 2001::/16 must not fall
+    ["2001:1::1", false], // just above the Teredo /32
+    ["2001:2:1::1", false], // next to 2001:2::/48
+    ["2001:db7::1", false],
+    ["2001:db9::1", false],
+    ["100:0:0:1::1", false], // next to 100::/64
+    ["3fff:1000::1", false], // just above 3fff::/20
+    ["fe7f::1", false], // just below fe80::/10
     ["8.8.8.8", false],
     ["1.1.1.1", false],
     ["172.15.0.1", false], // just outside 172.16/12
@@ -179,6 +201,16 @@ describe("resolvePublicHostname", () => {
     ]) as unknown as typeof lookup;
 
     await expect(resolvePublicHostname("internal.example", fakeLookup)).rejects.toThrow(
+      BlockedHostError,
+    );
+  });
+
+  test("rejects a hostname whose AAAA record is a Teredo address", async () => {
+    const fakeLookup = (async () => [
+      { address: "2001:0:4136:e378:8000:63bf:3fff:fdd2", family: 6 },
+    ]) as unknown as typeof lookup;
+
+    await expect(resolvePublicHostname("teredo.example", fakeLookup)).rejects.toThrow(
       BlockedHostError,
     );
   });

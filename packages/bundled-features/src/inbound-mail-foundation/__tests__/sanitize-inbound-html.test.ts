@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { sanitizeInboundHtml } from "../sanitize-inbound-html.ts";
+import {
+  INBOUND_HTML_MAX_NESTING_DEPTH,
+  INBOUND_HTML_MAX_TAG_OPENERS,
+  inboundHtmlToText,
+  sanitizeInboundHtml,
+} from "../sanitize-inbound-html.ts";
 
 describe("sanitizeInboundHtml", () => {
   test("drops script elements with their content and on* attributes", () => {
@@ -126,5 +131,116 @@ describe("sanitizeInboundHtml", () => {
     expect(sanitizeInboundHtml(`<p>${"€".repeat(200_000)}</p>`)).toBeNull();
     const nearCap = `<p>${"€".repeat(166_000)}</p>`;
     expect(sanitizeInboundHtml(nearCap)).toBe(nearCap);
+  });
+});
+
+describe("parse limits", () => {
+  test("depth exactly at the limit is kept", () => {
+    const out = sanitizeInboundHtml(`${"<div>".repeat(INBOUND_HTML_MAX_NESTING_DEPTH)}x`);
+    expect(out).not.toBeNull();
+    expect(out).toContain("x");
+  });
+
+  test("one level deeper than the limit yields null", () => {
+    expect(
+      sanitizeInboundHtml(`${"<div>".repeat(INBOUND_HTML_MAX_NESTING_DEPTH + 1)}x`),
+    ).toBeNull();
+  });
+
+  test("alternating p and li above the limit yields null", () => {
+    expect(sanitizeInboundHtml(`${"<p><li>".repeat(INBOUND_HTML_MAX_NESTING_DEPTH)}x`)).toBeNull();
+  });
+
+  test("depth above the limit plus many unmatched end tags yields null", () => {
+    const html = `${"<b>".repeat(INBOUND_HTML_MAX_NESTING_DEPTH + 1)}${"</x>".repeat(100_000)}`;
+    expect(sanitizeInboundHtml(html)).toBeNull();
+  });
+
+  test("truncated tags inside dropped iframes do not lower the depth count", () => {
+    const html = `${"<iframe><b </iframe>".repeat(2000)}${"<div>".repeat(1001)}x`;
+    expect(sanitizeInboundHtml(html)).toBeNull();
+  });
+
+  test("a few iframes and 1000 levels are kept", () => {
+    const html = `${"<iframe><b </iframe>".repeat(50)}${"<div>".repeat(1000)}x`;
+    expect(sanitizeInboundHtml(html)).not.toBeNull();
+  });
+
+  test("999 levels with many unmatched end tags are kept", () => {
+    const html = `${"<div>".repeat(999)}${"</p></br></x>".repeat(2000)}x`;
+    expect(sanitizeInboundHtml(html)).not.toBeNull();
+  });
+
+  test("3000 unclosed table rows are kept", () => {
+    expect(sanitizeInboundHtml(`<table>${"<tr><td>a".repeat(3000)}</table>`)).not.toBeNull();
+  });
+
+  test("a 60-level reply chain is kept", () => {
+    const html = `${"<div><blockquote><div><table><tbody><tr><td><div>".repeat(60)}q`;
+    expect(sanitizeInboundHtml(html)).toContain("q");
+  });
+
+  test("the tag budget is enforced on '<' count", () => {
+    const over = `${"<x></x>".repeat(INBOUND_HTML_MAX_TAG_OPENERS / 2 + 1)}<p>ok</p>`;
+    expect(sanitizeInboundHtml(over)).toBeNull();
+    const under = `${"<x></x>".repeat(INBOUND_HTML_MAX_TAG_OPENERS / 2 - 2)}<p>ok</p>`;
+    expect(sanitizeInboundHtml(under)).toBe("<p>ok</p>");
+  });
+
+  test("a long data: URL does not count against the budget", () => {
+    const html = `<p>a</p><img src="data:image/png;base64,${"A".repeat(2_000_000)}">`;
+    expect(sanitizeInboundHtml(html)).toBe("<p>a</p>");
+  });
+
+  test("the call after an abort sanitizes normally", () => {
+    expect(
+      sanitizeInboundHtml(`${"<div>".repeat(INBOUND_HTML_MAX_NESTING_DEPTH + 1)}x`),
+    ).toBeNull();
+    expect(sanitizeInboundHtml("<p>a</p>")).toBe("<p>a</p>");
+  });
+});
+
+describe("inboundHtmlToText", () => {
+  test("converts a HTML-only body to text", () => {
+    expect(
+      inboundHtmlToText(
+        "<html><body><h1>Hello</h1><p>Only an HTML part, no text alternative.</p></body></html>",
+      ),
+    ).toBe("HELLO\n\nOnly an HTML part, no text alternative.");
+  });
+
+  test("HTML nested past the limit yields empty text", () => {
+    expect(inboundHtmlToText(`${"<p><li>".repeat(INBOUND_HTML_MAX_NESTING_DEPTH)}x`)).toBe("");
+  });
+
+  test("style and script content is not part of the text", () => {
+    expect(inboundHtmlToText("<style>p{color:red}</style><script>x()</script><p>a</p>")).toBe("a");
+  });
+
+  test("the title is not part of the text", () => {
+    const html = "<html><head><title>T</title></head><body>B</body></html>";
+    expect(inboundHtmlToText(html)).toBe("B");
+  });
+
+  test("section elements stay on separate lines", () => {
+    const html = "<header>Head</header><section>First</section><section>Second</section>";
+    expect(inboundHtmlToText(html)).toBe("Head\nFirst\nSecond");
+  });
+
+  test("deeply quoted HTML with many lines yields empty text", () => {
+    const html = `${"<blockquote>".repeat(900)}<pre>${"a\n".repeat(20_000)}</pre>`;
+    expect(inboundHtmlToText(html)).toBe("");
+  });
+
+  test("a normal quote with many lines keeps its text", () => {
+    const html = `<blockquote><pre>${"a\n".repeat(2000)}</pre></blockquote>`;
+    expect(inboundHtmlToText(html)).toContain("> a");
+  });
+
+  test("past the tag budget the text of the first tags is kept", () => {
+    const html = `<p>Opening text</p>${"<x></x>".repeat(INBOUND_HTML_MAX_TAG_OPENERS)}<p>Late text</p>`;
+    const text = inboundHtmlToText(html);
+    expect(text).toContain("Opening text");
+    expect(text).not.toContain("Late text");
   });
 });

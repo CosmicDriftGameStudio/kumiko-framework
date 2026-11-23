@@ -38,7 +38,7 @@ export const INBOUND_PROVIDER_IMAP_I18N: Readonly<Record<string, { readonly en: 
   [formFieldKey("trustedAuthservId")]: { en: "Mail server ID" },
   "inboundMail.imap.connect.senderCheck": { en: "Sender check" },
   "inboundMail.imap.connect.senderCheckHint": {
-    en: "Identifier of the mail server from the Authentication-Results header, for example mx.example.com. Only with it the system checks whether a sender is genuine. Leave empty if unknown.",
+    en: "Identifier of your mail server from the Authentication-Results header, for example mx.example.com. Enter it only if this server adds the header to every incoming mail, otherwise a sender can forge it. Only with it the system checks whether a sender is genuine. Leave empty if unknown.",
   },
   "inboundMail.imap.connect.submit": { en: "Check and connect" },
   "inboundMail.imap.reconnect.hint": {

@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { TimeoutError } from "puppeteer";
-import { withIsolatedPage, withRenderTimeout } from "../render";
+import { browserLaunchOptions, withIsolatedPage, withRenderTimeout } from "../render";
 
 type FakePage = { readonly contextNumber: number };
 
@@ -74,5 +74,21 @@ describe("withRenderTimeout", () => {
     await expect(withRenderTimeout(work, 5, "screenshot")).rejects.toBeInstanceOf(TimeoutError);
     rejectWork(new Error("page closed"));
     await Promise.resolve();
+  });
+});
+
+describe("browserLaunchOptions", () => {
+  test("passes the env on without the auth token", () => {
+    const options = browserLaunchOptions(undefined, {
+      PATH: "/usr/bin",
+      PUPPETEER_AUTH_TOKEN: "secret-token-0123456789",
+    });
+    expect(options.env?.["PATH"]).toBe("/usr/bin");
+    expect(options.env !== undefined && "PUPPETEER_AUTH_TOKEN" in options.env).toBe(false);
+  });
+
+  test("sets executablePath only when defined", () => {
+    expect("executablePath" in browserLaunchOptions(undefined, {})).toBe(false);
+    expect(browserLaunchOptions("/usr/bin/chromium", {}).executablePath).toBe("/usr/bin/chromium");
   });
 });

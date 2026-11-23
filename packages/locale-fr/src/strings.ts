@@ -2460,7 +2460,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.senderCheck": "Vérification de l'expéditeur",
   "inboundMail.accounts.senderCheck.submit": "Enregistrer",
   "inboundMail.accounts.senderCheckHint":
-    "Identifiant du serveur de messagerie issu de l'en-tête Authentication-Results, par exemple mx.example.com. Lui seul permet de vérifier qu'un expéditeur est authentique. Laisser vide s'il est inconnu.",
+    "Identifiant de votre serveur de messagerie issu de l'en-tête Authentication-Results, par exemple mx.example.com. À renseigner uniquement si ce serveur ajoute l'en-tête à chaque e-mail entrant, sinon un expéditeur peut le falsifier. Lui seul permet de vérifier qu'un expéditeur est authentique. Laisser vide s'il est inconnu.",
   "inbound-mail-foundation:entity:__action-form__:field:trustedAuthservId":
     "Identifiant du serveur de messagerie",
   "inboundMail.accounts.disconnect": "Déconnecter",
@@ -2507,7 +2507,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "Identifiant du serveur de messagerie",
   "inboundMail.imap.connect.senderCheck": "Vérification de l'expéditeur",
   "inboundMail.imap.connect.senderCheckHint":
-    "Identifiant du serveur de messagerie issu de l'en-tête Authentication-Results, par exemple mx.example.com. Lui seul permet de vérifier qu'un expéditeur est authentique. Laisser vide s'il est inconnu.",
+    "Identifiant de votre serveur de messagerie issu de l'en-tête Authentication-Results, par exemple mx.example.com. À renseigner uniquement si ce serveur ajoute l'en-tête à chaque e-mail entrant, sinon un expéditeur peut le falsifier. Lui seul permet de vérifier qu'un expéditeur est authentique. Laisser vide s'il est inconnu.",
   "inboundMail.imap.connect.errors.smtpHostUnreachable":
     "La réception fonctionne, mais pas l'envoi : le serveur sortant est injoignable ou non autorisé. Vérifiez son nom.",
   "inboundMail.imap.connect.errors.smtpLoginRejected":

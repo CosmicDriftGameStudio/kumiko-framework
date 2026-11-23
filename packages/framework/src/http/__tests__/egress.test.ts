@@ -3,7 +3,14 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildPinnedRequest, egress, withManualRedirect, withOriginalUrl } from "../egress.ts";
+import {
+  buildPinnedRequest,
+  egress,
+  untilAborted,
+  withManualRedirect,
+  withOriginalUrl,
+} from "../egress.ts";
+import { HostResolutionError } from "../policy.ts";
 
 let server: ReturnType<typeof Bun.serve>;
 let port: number;
@@ -336,6 +343,19 @@ describe("egress external / tenant-supplied", () => {
   );
 
   test.each(["external", "tenant-supplied"] as const)(
+    "%s with an already aborted signal rejects with the signal's reason, not a lookup error",
+    async (kind) => {
+      const reason = new Error("caller deadline");
+      const fetchIt = egress(
+        kind === "external" ? { kind: "external" } : { kind: "tenant-supplied" },
+      );
+      await expect(
+        fetchIt("http://never-resolved.invalid/", { signal: AbortSignal.abort(reason) }),
+      ).rejects.toBe(reason);
+    },
+  );
+
+  test.each(["external", "tenant-supplied"] as const)(
     "%s rejects a non-http(s) scheme",
     async (kind) => {
       const fetchIt = egress(
@@ -362,6 +382,58 @@ describe("egress external / tenant-supplied", () => {
       await expect(fetchIt(redirectLocation)).rejects.toThrow();
     },
   );
+});
+
+describe("untilAborted", () => {
+  test("returns the value without a signal", async () => {
+    await expect(untilAborted(Promise.resolve(7), undefined)).resolves.toBe(7);
+  });
+
+  test("returns the value for a signal that never aborts", async () => {
+    await expect(untilAborted(Promise.resolve(42), new AbortController().signal)).resolves.toBe(42);
+  });
+
+  test("rejects with the reason when the signal aborts a pending promise", async () => {
+    const controller = new AbortController();
+    const reason = new Error("caller deadline");
+    const result = untilAborted(new Promise<never>(() => {}), controller.signal);
+    controller.abort(reason);
+    await expect(result).rejects.toBe(reason);
+  });
+
+  test("passes a rejection that happens before the abort through unchanged", async () => {
+    const failure = new HostResolutionError("lookup failed");
+    await expect(
+      untilAborted(Promise.reject(failure), new AbortController().signal),
+    ).rejects.toBeInstanceOf(HostResolutionError);
+  });
+
+  test("a rejection after the abort raises no unhandled rejection", async () => {
+    const controller = new AbortController();
+    const reason = new Error("caller deadline");
+    let rejectLate: (error: Error) => void = () => {};
+    const late = new Promise<never>((_, reject) => {
+      rejectLate = reject;
+    });
+    const result = untilAborted(late, controller.signal);
+    controller.abort(reason);
+    await expect(result).rejects.toBe(reason);
+    rejectLate(new Error("late lookup failure"));
+    await Promise.resolve();
+  });
+
+  test("an already aborted signal rejects with its reason and swallows a later rejection", async () => {
+    const reason = new Error("caller deadline");
+    const signal = AbortSignal.abort(reason);
+    let rejectLate: (error: Error) => void = () => {};
+    const late = new Promise<never>((_, reject) => {
+      rejectLate = reject;
+    });
+    const result = untilAborted(late, signal);
+    await expect(result).rejects.toBe(signal.reason);
+    rejectLate(new Error("late lookup failure"));
+    await Promise.resolve();
+  });
 });
 
 describe("withOriginalUrl", () => {

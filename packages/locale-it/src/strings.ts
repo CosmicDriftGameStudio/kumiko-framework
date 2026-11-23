@@ -2433,7 +2433,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.senderCheck": "Verifica del mittente",
   "inboundMail.accounts.senderCheck.submit": "Salva",
   "inboundMail.accounts.senderCheckHint":
-    "Identificativo del server di posta dall'intestazione Authentication-Results, ad esempio mx.example.com. Solo con questo si verifica se un mittente è autentico. Lasciare vuoto se non noto.",
+    "Identificativo del proprio server di posta dall'intestazione Authentication-Results, ad esempio mx.example.com. Inserirlo solo se questo server aggiunge l'intestazione a ogni email in arrivo, altrimenti un mittente può falsificarla. Solo con questo si verifica se un mittente è autentico. Lasciare vuoto se non noto.",
   "inbound-mail-foundation:entity:__action-form__:field:trustedAuthservId":
     "Identificativo del server di posta",
   "inboundMail.accounts.disconnect": "Disconnetti",
@@ -2481,7 +2481,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "Identificativo del server di posta",
   "inboundMail.imap.connect.senderCheck": "Verifica del mittente",
   "inboundMail.imap.connect.senderCheckHint":
-    "Identificativo del server di posta dall'intestazione Authentication-Results, ad esempio mx.example.com. Solo con questo si verifica se un mittente è autentico. Lasciare vuoto se non noto.",
+    "Identificativo del proprio server di posta dall'intestazione Authentication-Results, ad esempio mx.example.com. Inserirlo solo se questo server aggiunge l'intestazione a ogni email in arrivo, altrimenti un mittente può falsificarla. Solo con questo si verifica se un mittente è autentico. Lasciare vuoto se non noto.",
   "inboundMail.imap.connect.errors.smtpHostUnreachable":
     "La ricezione funziona, l'invio no: il server in uscita non è raggiungibile o non è consentito. Controlla il nome.",
   "inboundMail.imap.connect.errors.smtpLoginRejected":

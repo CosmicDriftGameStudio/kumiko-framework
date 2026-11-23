@@ -15,9 +15,12 @@ import {
   type FileRef,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
-import { PDFDocument } from "pdf-lib";
 import { readTenantFile } from "../../file-foundation/index.ts";
-import { joinRowParentIsVisible, sha256Hex } from "../../shared/index.ts";
+import {
+  joinRowParentIsVisible,
+  loadPdfWithinDecodeBudget,
+  sha256Hex,
+} from "../../shared/index.ts";
 import { type SignatureRequestExecutor, signerExecutor } from "../entity.ts";
 import { RequestSignatureSchema } from "../payloads.ts";
 import {
@@ -35,10 +38,10 @@ export type RequestSignatureData = {
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 // Encrypted or unparseable PDFs would fail later when the signature page is appended and leave the
-// request stuck in all-signed.
+// request stuck in all-signed. A decode bomb is refused here too, so the same load in the sweep does not fail later.
 async function isLoadablePdf(bytes: Uint8Array): Promise<boolean> {
   try {
-    await PDFDocument.load(bytes);
+    await loadPdfWithinDecodeBudget(bytes);
     return true;
   } catch {
     return false;

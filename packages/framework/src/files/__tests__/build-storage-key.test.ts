@@ -15,9 +15,9 @@ describe("buildStorageKey", () => {
     expect(key).toBe("T1/invoice/1/attachment/u1.png");
   });
 
-  test("uses the sole segment as extension when there is no dot", () => {
-    const key = buildStorageKey("T1" as never, "invoice", 1, "attachment", "noext", "u1");
-    expect(key).toBe("T1/invoice/1/attachment/u1.noext");
+  test("falls back to bin when the name has no dot", () => {
+    const key = buildStorageKey("T1" as never, "invoice", 1, "attachment", "photo", "u1");
+    expect(key).toBe("T1/invoice/1/attachment/u1.bin");
   });
 
   test.each([undefined, ""])("never produces an empty segment when entityId is %p", (entityId) => {

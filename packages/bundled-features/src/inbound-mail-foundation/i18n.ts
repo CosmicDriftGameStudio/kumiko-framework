@@ -116,7 +116,7 @@ export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en
   "inboundMail.accounts.senderCheck": { en: "Sender check" },
   "inboundMail.accounts.senderCheck.submit": { en: "Save" },
   "inboundMail.accounts.senderCheckHint": {
-    en: "Identifier of the mail server from the Authentication-Results header, for example mx.example.com. Only with it the system checks whether a sender is genuine. Leave empty to turn the check off.",
+    en: "Identifier of your mail server from the Authentication-Results header, for example mx.example.com. Enter it only if this server adds the header to every incoming mail, otherwise a sender can forge it. Only with it the system checks whether a sender is genuine. Leave empty to turn the check off.",
   },
   [formFieldKey("trustedAuthservId")]: { en: "Mail server ID" },
   "inboundMail.accounts.disconnect": { en: "Disconnect" },

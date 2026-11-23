@@ -14,9 +14,11 @@ import { resolveContentType } from "./resolve-content-type.ts";
 import {
   buildNoBackupStorageKey,
   buildStorageKey,
+  effectiveFileFieldAccept,
   resolveUploadMimeType,
   validateFile,
   validateFileContent,
+  verifyDeclaredMimeType,
 } from "./types.ts";
 import { type AttachTargets, resolveUploadField } from "./upload-field-resolution.ts";
 import { takeUploadLedgerEntry } from "./upload-ledger.ts";
@@ -159,6 +161,11 @@ function acceptFileContent(
       extension: contentValidation.extension,
     };
   }
+  const verified = verifyDeclaredMimeType(declaredMimeType, data, accept);
+  if (verified.kind === "rejected") return { kind: "rejected", error: verified.error };
+  if (verified.kind === "replaced") {
+    return { kind: "accepted", mimeType: verified.mimeType, extension: verified.extension };
+  }
   const mimeTypeResolution = resolveUploadMimeType(fileName, declaredMimeType, data);
   if (mimeTypeResolution.kind === "rejected") {
     return { kind: "rejected", error: mimeTypeResolution.error };
@@ -193,7 +200,7 @@ function acceptFile(
   }
   const fieldDef = field.kind === "resolved" ? field.fieldDef : undefined;
   const maxSize = fieldDef?.maxSize || deps.defaultMaxUploadSize;
-  const accept = fieldDef?.accept;
+  const accept = fieldDef ? effectiveFileFieldAccept(fieldDef) : undefined;
 
   const validationError = validateFile(
     { fileName, mimeType: declaredMimeType, size: data.byteLength },

@@ -52,6 +52,8 @@ const reportEntity = createEntity({
   fields: {
     // accept + maxSize are enforced exactly like on POST /files
     scan: createFileField({ maxSize: "1kb", accept: ["png"] }),
+    // heic has no signature, so only the declared-type check can catch mismatching bytes
+    rawScan: createFileField({ accept: ["heic"] }),
     checks: createEmbeddedListField(
       { photos: { type: "images", accept: ["png"] } },
       { personal: false, reason: "is_business_data" },
@@ -371,6 +373,54 @@ describe("createFileRefFromBytes from a write handler", () => {
     });
 
     expect(err.httpStatus).toBe(422);
+    await expectNothingStored();
+  });
+
+  test("a name without extension and HTML bytes declared as image/png is stored as octet-stream", async () => {
+    const stored = await store(userA, {
+      fileName: "scan",
+      mimeType: "image/png",
+      bytes: new TextEncoder().encode("<html><script>alert(1)</script></html>"),
+    });
+
+    expect(stored.mimeType).toBe("application/octet-stream");
+    expect(stored.storageKey.endsWith(".bin")).toBe(true);
+    const res = await download(userA, stored.id);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).not.toBe("image/png");
+  });
+
+  test("text bytes in a .txt file declared as application/pdf are stored as octet-stream", async () => {
+    const stored = await store(userA, {
+      fileName: "notes.txt",
+      mimeType: "application/pdf",
+      bytes: new TextEncoder().encode("just some notes"),
+    });
+
+    expect(stored.mimeType).toBe("application/octet-stream");
+  });
+
+  test("a real PDF declared as image/png is stored as application/pdf", async () => {
+    const stored = await store(userA, {
+      fileName: "report.pdf",
+      mimeType: "image/png",
+      bytes: PDF_BYTES,
+    });
+
+    expect(stored.mimeType).toBe("application/pdf");
+    expect(stored.storageKey.endsWith(".pdf")).toBe(true);
+  });
+
+  test("PDF bytes declared as image/png under an accepted extension without a signature are rejected", async () => {
+    const err = await storeErr({
+      fileName: "scan.heic",
+      mimeType: "image/png",
+      bytes: PDF_BYTES,
+      attachTo: { entityType: "report", fieldName: "rawScan" },
+    });
+
+    expect(err.httpStatus).toBe(422);
+    expect(JSON.stringify(err.details)).toContain("content_mismatch");
     await expectNothingStored();
   });
 

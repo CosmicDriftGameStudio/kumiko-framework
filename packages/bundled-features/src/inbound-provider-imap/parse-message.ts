@@ -7,7 +7,7 @@ import { legacyDateToInstant } from "@cosmicdrift/kumiko-framework/time";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { MessageEnvelopeObject } from "imapflow";
 import { type AddressObject, type ParsedMail, simpleParser } from "mailparser";
-import { extractMailContent } from "./mime-content.ts";
+import { extractMailContent, MAIL_PARSER_OPTIONS } from "./mime-content.ts";
 import { senderAuthenticationOf } from "./sender-auth-headers.ts";
 
 const SNIPPET_MAX = 300;
@@ -69,11 +69,10 @@ export async function toRawInboundMessage(args: {
   /** authserv-id of the mailbox's own server; without it senderAuthentication is null. */
   readonly trustedAuthservId?: string | null;
 }): Promise<RawInboundMessage> {
-  const parsed: ParsedMail = await simpleParser(Buffer.from(args.source));
+  const parsed: ParsedMail = await simpleParser(Buffer.from(args.source), MAIL_PARSER_OPTIONS);
   const messageIdHeader = parsed.messageId ? stripAngles(parsed.messageId) : null;
   const receivedAt = args.internalDate ?? parsed.date;
   const content = await extractMailContent(parsed);
-  const text = parsed.text?.trim() ?? "";
   return {
     providerMessageId: buildProviderMessageId(args.uidValidity, args.uid),
     messageIdHeader: messageIdHeader && messageIdHeader.length > 0 ? messageIdHeader : null,
@@ -83,7 +82,7 @@ export async function toRawInboundMessage(args: {
     to: addressList(parsed.to),
     cc: addressList(parsed.cc),
     subject: parsed.subject ?? "",
-    snippet: text.slice(0, SNIPPET_MAX),
+    snippet: content.ownText.slice(0, SNIPPET_MAX),
     // Lib-boundary bridge (Date from imapflow/mailparser) → Temporal;
     // when no date exists, Epoch is the honest marker.
     receivedAtIso: (receivedAt

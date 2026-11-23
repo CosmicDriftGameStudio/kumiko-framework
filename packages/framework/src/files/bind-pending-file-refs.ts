@@ -19,7 +19,7 @@ import { fileRefIdsInField, holdsFileRefs } from "./file-field-slots.ts";
 import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.ts";
 import { invalidFileRefError } from "./invalid-file-ref-error.ts";
 import { type FileRefRows, loadFileRefRows } from "./load-save-file-refs.ts";
-import { validateFile } from "./types.ts";
+import { effectiveFileFieldAccept, validateFile } from "./types.ts";
 import { resolveAttachedField } from "./upload-field-resolution.ts";
 
 export { fileRefIdsOf } from "./file-field-slots.ts";
@@ -204,6 +204,7 @@ export function assertRowFitsBindTarget(
   registry: Registry | undefined,
   bindTo: PendingFileRefBindTarget,
   row: FileRefRow,
+  acceptOf: FileFieldAcceptResolver = effectiveFileFieldAccept,
 ): void {
   const target = resolveAttachedField(registry, bindTo.entityName, bindTo.fieldName);
   if (target.kind !== "resolved") {
@@ -211,12 +212,20 @@ export function assertRowFitsBindTarget(
       message: `bindPendingFileRef: bindTo ${bindTo.entityName}.${bindTo.fieldName} is not a registered file field (pass the handler's ctx.registry)`,
     });
   }
-  assertRowFitsFileField(row, target.fieldDef);
+  assertRowFitsFileField(row, target.fieldDef, acceptOf);
 }
+
+// Which accept list a row is checked against; callers that move an already stored row pass the
+// field's own accept so the image default does not apply retroactively.
+export type FileFieldAcceptResolver = (fieldDef: AnyFileFieldDef) => readonly string[] | undefined;
 
 // Same metadata check for any file slot a stored row lands in (a bind target, or an embedded
 // file sub-field a save names).
-export function assertRowFitsFileField(row: FileRefRow, fieldDef: AnyFileFieldDef): void {
+export function assertRowFitsFileField(
+  row: FileRefRow,
+  fieldDef: AnyFileFieldDef,
+  acceptOf: FileFieldAcceptResolver = effectiveFileFieldAccept,
+): void {
   const { storageKey, mimeType, size } = row;
   if (typeof storageKey !== "string" || typeof mimeType !== "string" || typeof size !== "number") {
     // A row without these can only come from corruption; letting it through would skip the check.
@@ -226,7 +235,7 @@ export function assertRowFitsFileField(row: FileRefRow, fieldDef: AnyFileFieldDe
   }
   const error = validateFile(
     { fileName: storageKey, mimeType, size },
-    { maxSize: fieldDef.maxSize, accept: fieldDef.accept },
+    { maxSize: fieldDef.maxSize, accept: acceptOf(fieldDef) },
   );
   if (error !== null) {
     throw new UnprocessableError(FrameworkReasons.fileViolatesBindTarget, {

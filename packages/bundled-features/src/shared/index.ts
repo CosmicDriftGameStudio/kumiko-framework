@@ -70,6 +70,11 @@ export {
 } from "./parent-visibility.ts";
 export { hashPassword, verifyDummyPassword, verifyPassword } from "./password-hashing.ts";
 export {
+  loadPdfWithinDecodeBudget,
+  MAX_PDF_DECODE_BUFFER_BYTES,
+  PdfDecodeLimitError,
+} from "./pdf-load.ts";
+export {
   appendPdfPages,
   checkPostalPdf,
   mergePdfs,

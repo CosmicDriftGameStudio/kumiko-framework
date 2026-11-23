@@ -2,11 +2,33 @@
 // attachments, and the attachments it deliberately leaves out. Pure; the parsing itself stays in
 // imap-client.ts.
 
-import type {
-  RawInboundAttachment,
-  SkippedInboundAttachment,
+import {
+  inboundHtmlToText,
+  type RawInboundAttachment,
+  type SkippedInboundAttachment,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
-import { type Attachment, type ParsedMail, simpleParser } from "mailparser";
+import {
+  type Attachment,
+  type ParsedMail,
+  type SimpleParserOptions,
+  simpleParser,
+} from "mailparser";
+
+// mailparser would convert the HTML to text before our limits apply, and its depth check misses
+// alternating elements. A length limit of 0 makes it skip the conversion for every HTML part but,
+// unlike skipHtmlToText, report textConversionError when a part had no text alternative, which is
+// how mixed mails with a text footer are told apart. cid images stay links because the sanitizer
+// drops them anyway and data: URLs would inflate the HTML by up to 20 MB.
+export const MAIL_PARSER_OPTIONS: SimpleParserOptions = {
+  maxHtmlLengthToParse: 0,
+  keepCidLinks: true,
+};
+
+function ownTextOf(parsed: ParsedMail): string {
+  const text = parsed.text?.trim() ?? "";
+  const textMissesHtml = parsed.textConversionError !== undefined || text === "";
+  return textMissesHtml && parsed.html ? inboundHtmlToText(parsed.html) : text;
+}
 
 /** A forwarded mail inside a forwarded mail inside a forwarded mail is still read; deeper is skipped. */
 export const MIME_FORWARD_MAX_DEPTH = 3;
@@ -17,6 +39,8 @@ const FALLBACK_FORWARDED_NAME = "forwarded.eml";
 
 export type MailContent = {
   readonly text: string;
+  /** The mail's own text, without attached forwards. */
+  readonly ownText: string;
   readonly html: string | null;
   readonly attachments: readonly RawInboundAttachment[];
   readonly skipped: readonly SkippedInboundAttachment[];
@@ -41,7 +65,7 @@ async function readForwardedMail(
   depth: number,
 ): Promise<{ readonly header: string; readonly content: MailContent } | null> {
   try {
-    const parsed = await simpleParser(source);
+    const parsed = await simpleParser(source, MAIL_PARSER_OPTIONS);
     return { header: forwardedHeader(parsed), content: await extractMailContent(parsed, depth) };
   } catch {
     return null;
@@ -49,7 +73,8 @@ async function readForwardedMail(
 }
 
 export async function extractMailContent(parsed: ParsedMail, depth = 0): Promise<MailContent> {
-  let text = parsed.text?.trim() ?? "";
+  const ownText = ownTextOf(parsed);
+  let text = ownText;
   const attachments: RawInboundAttachment[] = [];
   const skipped: SkippedInboundAttachment[] = [];
   for (const attachment of parsed.attachments) {
@@ -81,5 +106,5 @@ export async function extractMailContent(parsed: ParsedMail, depth = 0): Promise
       data: attachment.content,
     });
   }
-  return { text, html: parsed.html || null, attachments, skipped };
+  return { text, ownText, html: parsed.html || null, attachments, skipped };
 }

@@ -139,6 +139,50 @@ async function fileStatus(fileId: string): Promise<number> {
   return res.status;
 }
 
+async function postUpload(
+  fileName: string,
+  body: Uint8Array,
+  mimeType: string,
+  target: { readonly entityType: string; readonly fieldName: string },
+): Promise<Response> {
+  const token = await stack.jwt.sign(user);
+  const fd = new FormData();
+  fd.append("entityType", target.entityType);
+  fd.append("fieldName", target.fieldName);
+  fd.append("file", new File([Buffer.from(body)], fileName, { type: mimeType }));
+  const { body: multipartBody, contentType } = await buildMultipartBody(fd);
+  return stack.app.request("/api/files", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+    body: multipartBody,
+  });
+}
+
+describe("image field without accept", () => {
+  const coverTarget = { entityType: "document", fieldName: "cover" } as const;
+
+  test("rejects an svg upload", async () => {
+    const res = await postUpload(
+      "logo.svg",
+      new TextEncoder().encode("<svg xmlns='http://www.w3.org/2000/svg'/>"),
+      "image/svg+xml",
+      coverTarget,
+    );
+    expect(res.status).toBe(400);
+    expect(await res.text()).toContain("invalid_file_type");
+  });
+
+  test("still takes a heic upload", async () => {
+    const res = await postUpload(
+      "photo.heic",
+      new Uint8Array([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63]),
+      "image/heic",
+      coverTarget,
+    );
+    expect(res.status).toBe(201);
+  });
+});
+
 describe("file/image field through the CRUD pipeline", () => {
   test("create entity with file-field UUID → detail round-trips the UUID", async () => {
     const fileId = await uploadFile("doc.pdf", PDF_BYTES, "application/pdf");

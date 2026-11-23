@@ -22,6 +22,7 @@ import puppeteer, {
   TimeoutError,
 } from "puppeteer";
 import { z } from "zod";
+import { childProcessEnv } from "./child-env";
 import { isBlockedRequestUrl } from "./egress-guard";
 import { createIdleCloser } from "./idle-closer";
 
@@ -244,6 +245,28 @@ function mapPdfOptions(opts: PdfRenderRequest["options"]): PDFOptions {
   };
 }
 
+export function browserLaunchOptions(
+  executablePath: string | undefined,
+  env: NodeJS.ProcessEnv,
+): LaunchOptions {
+  return {
+    headless: true,
+    args: [
+      // No Chromium sandbox: the pod (seccomp RuntimeDefault, all capabilities dropped) has no user
+      // namespaces for it. Containment: JS off, egress guard, one context per render, NetworkPolicy.
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage", // cgroup limits → tmpfs too small
+      "--disable-gpu",
+      "--no-first-run",
+      "--no-zygote",
+      "--block-new-web-contents", // belt against window.open SSRF (enterprise#272)
+    ],
+    ...(executablePath !== undefined && { executablePath }),
+    env: childProcessEnv(env),
+  };
+}
+
 async function getBrowser(executablePath?: string): Promise<Browser> {
   // Fast hot path: cached and alive.
   if (browser?.connected) return browser;
@@ -268,22 +291,7 @@ async function getBrowser(executablePath?: string): Promise<Browser> {
     void dead.close().catch(() => {});
   }
 
-  const launchOptions: LaunchOptions = {
-    headless: true,
-    args: [
-      // No Chromium sandbox: the pod (seccomp RuntimeDefault, all capabilities dropped) has no user
-      // namespaces for it. Containment: JS off, egress guard, one context per render, NetworkPolicy.
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage", // cgroup limits → tmpfs too small
-      "--disable-gpu",
-      "--no-first-run",
-      "--no-zygote",
-      "--block-new-web-contents", // belt against window.open SSRF (enterprise#272)
-    ],
-    ...(executablePath !== undefined && { executablePath }),
-  };
-  launchingPromise = puppeteer.launch(launchOptions);
+  launchingPromise = puppeteer.launch(browserLaunchOptions(executablePath, process.env));
   try {
     browser = await launchingPromise;
     return browser;

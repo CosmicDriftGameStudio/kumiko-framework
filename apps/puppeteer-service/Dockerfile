@@ -4,15 +4,10 @@
 # **Warum nicht alpine:** chromium needs glibc; alpine = musl. Debian-slim
 # ist die kleinste-glibc-base mit chromium-Support.
 #
-# **Bun-Version:** 1.4.0 — gepinnt auf die Version, gegen die CI testet
-# (ci.yml). Kein Runtime-Drift gegenüber Test/Build mehr.
+# **Bun version:** base tag 1.4.4 matches setup-bun 1.4.4 in ci.yml.
 #
-# **Warum kein build-stage / kein --frozen-lockfile:** puppeteer-service ist
-# eine standalone Bun-App mit nur public-npm-Deps (hono/puppeteer/zod), null
-# workspace:*-Refs → isolierter `bun install --production` gegen das schmale
-# App-package.json. Kein Registry-Token, keine Workspace-Layout-Abhängigkeit.
-# Caret-Resolve matched die Runtime-Install-Norm der anderen Deploy-Images
-# (studio/publicstatus machen im runtime ebenfalls `bun install --production`).
+# **Install:** seeded from the repo bun.lock (like the app images) and run frozen, so transitive
+# dependencies stay on the tested versions with integrity hashes. See src/seed-lockfile.ts.
 #
 # **Memory:** K8s setzt resources.limits.memory pro Tier-Deployment (basic
 # 512Mi, growth 1Gi, scale 2Gi). Service hat keinen internen Memory-Cap —
@@ -22,10 +17,14 @@
 FROM --platform=$BUILDPLATFORM oven/bun:1.4.4-slim AS deps
 ARG TARGETARCH
 WORKDIR /app
-COPY apps/puppeteer-service/package.json ./
+COPY apps/puppeteer-service/package.json bun.lock apps/puppeteer-service/src/seed-lockfile.ts ./
 ENV PUPPETEER_SKIP_DOWNLOAD=true
-RUN bun -e "const f='./package.json'; const p=JSON.parse(await Bun.file(f).text()); delete p.devDependencies; await Bun.write(f, JSON.stringify(p, null, 2));" \
-    && bun install --production --os=linux --cpu="$(case "$TARGETARCH" in amd64) echo x64 ;; arm64) echo arm64 ;; *) echo "unsupported TARGETARCH '$TARGETARCH'" >&2; exit 1 ;; esac)" --ignore-scripts
+# The lockfile-only run deliberately has no reachable proxy: a dependency missing from the repo
+# lock fails the build instead of resolving fresh. The frozen install then fetches exactly the
+# locked tarballs and verifies their integrity.
+RUN bun seed-lockfile.ts \
+    && HTTPS_PROXY=http://127.0.0.1:9 HTTP_PROXY=http://127.0.0.1:9 bun install --lockfile-only \
+    && bun install --production --frozen-lockfile --os=linux --cpu="$(case "$TARGETARCH" in amd64) echo x64 ;; arm64) echo arm64 ;; *) echo "unsupported TARGETARCH '$TARGETARCH'" >&2; exit 1 ;; esac)" --ignore-scripts
 
 FROM oven/bun:1.4.4-slim AS runtime
 
@@ -34,7 +33,8 @@ FROM oven/bun:1.4.4-slim AS runtime
 # (LINUX_ARM-platform mapped trotzdem auf "linux64"-binary). Auf ARM64-Runnern
 # (cdgs-runner, OrbStack auf Apple Silicon) wäre Puppeteer's prebuilt nicht
 # ausführbar.
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# The weekly no-cache rebuild also pulls in Debian security updates for the base packages.
+RUN apt-get update && apt-get upgrade -y --no-install-recommends && apt-get install -y --no-install-recommends \
     ca-certificates \
     chromium \
     curl \

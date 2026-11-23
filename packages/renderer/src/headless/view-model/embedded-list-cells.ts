@@ -1,6 +1,7 @@
 import type { EmbeddedListEditSpec } from "@cosmicdrift/kumiko-framework/ui-types";
 import { parseRefTarget } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { EmbeddedSubFieldDef } from "@cosmicdrift/kumiko-types/fields";
+import { effectiveFileFieldAccept } from "@cosmicdrift/kumiko-types/file-field-accept";
 import { buildOptionLabels, embeddedCellLabelKey, embeddedCellOptionLabelKey } from "./list.ts";
 import type { EmbeddedListCellViewModel, Translate } from "./types.ts";
 
@@ -53,9 +54,10 @@ function referenceHints(
 
 function fileHints(subField: EmbeddedSubFieldDef): Partial<EmbeddedListCellViewModel> {
   if (subField.type !== "images" && subField.type !== "files") return {};
+  const accept = effectiveFileFieldAccept(subField);
   return {
     ...(subField.maxCount !== undefined && { maxCount: subField.maxCount }),
-    ...(subField.accept !== undefined && { accept: subField.accept }),
+    ...(accept !== undefined && { accept }),
     ...(subField.type === "images" &&
       subField.capture !== undefined && { capture: subField.capture }),
   };

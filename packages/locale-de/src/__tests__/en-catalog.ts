@@ -1255,7 +1255,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "inboundMail.accounts.senderCheck": "Sender check",
   "inboundMail.accounts.senderCheck.submit": "Save",
   "inboundMail.accounts.senderCheckHint":
-    "Identifier of the mail server from the Authentication-Results header, for example mx.example.com. Only with it the system checks whether a sender is genuine. Leave empty to turn the check off.",
+    "Identifier of your mail server from the Authentication-Results header, for example mx.example.com. Enter it only if this server adds the header to every incoming mail, otherwise a sender can forge it. Only with it the system checks whether a sender is genuine. Leave empty to turn the check off.",
   "inboundMail.accounts.disconnect": "Disconnect",
   "inboundMail.accounts.disconnect.confirm":
     "Disconnect this mailbox? No new mail is fetched; stored mail is kept.",
@@ -1283,7 +1283,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "Replies go out from this address over your own mail server, with the same user name and password. Leave the field empty if the server is called like the IMAP server, with smtp. instead of imap. Usually 587, even when your provider lists 465/SSL. Port 465 means SSL/TLS, every other port means STARTTLS.",
   "inboundMail.imap.connect.senderCheck": "Sender check",
   "inboundMail.imap.connect.senderCheckHint":
-    "Identifier of the mail server from the Authentication-Results header, for example mx.example.com. Only with it the system checks whether a sender is genuine. Leave empty if unknown.",
+    "Identifier of your mail server from the Authentication-Results header, for example mx.example.com. Enter it only if this server adds the header to every incoming mail, otherwise a sender can forge it. Only with it the system checks whether a sender is genuine. Leave empty if unknown.",
   "inboundMail.imap.connect.errors.smtpHostUnreachable":
     "Receiving works, but sending does not: the outgoing server cannot be reached or is not allowed. Check its name.",
   "inboundMail.imap.connect.errors.smtpLoginRejected":

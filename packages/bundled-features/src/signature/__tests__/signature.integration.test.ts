@@ -50,6 +50,7 @@ import { createRendererFoundationFeature } from "../../renderer-foundation/index
 import { renderedPdfEntity } from "../../renderer-puppeteer-client/entity.ts";
 import { createRendererPuppeteerClientFeature } from "../../renderer-puppeteer-client/feature.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
+import { BOMB_DECODED_BYTES, objectStreamPdf } from "../../shared/__tests__/pdf-bomb-fixture.ts";
 import {
   createTemplateResolverFeature,
   templateResourceEntity,
@@ -902,6 +903,26 @@ describe("signature :: boundaries", () => {
       {
         documentFileId: await seedDocument(ENCRYPTED_PDF),
         title: "Locked",
+        subjectType: "lease",
+        subjectId: "lease-1",
+        hostType: "lease",
+        hostId: await seedLease(stack.db, TENANT, USER),
+        signers: [{ name: "Ada" }],
+      },
+      USER,
+    );
+    expect(error.httpStatus).toBe(422);
+    expect(JSON.stringify(error)).toContain("document_not_a_pdf");
+  });
+
+  test("a PDF whose object streams decode past the budget is refused", async () => {
+    const error = await stack.http.writeErr(
+      SignatureHandlers.request,
+      {
+        documentFileId: await seedDocument(
+          objectStreamPdf({ decodedBytesPerStream: BOMB_DECODED_BYTES, streamCount: 1 }),
+        ),
+        title: "Bomb",
         subjectType: "lease",
         subjectId: "lease-1",
         hostType: "lease",
