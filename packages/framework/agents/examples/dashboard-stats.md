@@ -50,6 +50,13 @@ query and the fields to read, the query does the counting.
   `resultField`. Panels with the same query and params load with one request;
   boot validation checks `valueField` and `columns` against the schema of that field.
 
+- **Design options (`ticket-design`)**: `showTitle` draws the screen title as page heading with the
+  `headerSubtitle` query text below it; `layout: "main-side"` with `sideWidth: "wide"` gives the side
+  column two fifths. A `stat-group` with `framed: false` shows separate cards, and `subToneField`
+  colors each sub line from the answer. `stacked-bars` takes `barValueLabels`, `highlightLast`,
+  `hideYAxis`, `hideLegend`, `labelEveryBucket` and `lastBucketLabel: "date"`; `segment-bars` takes
+  `layout: "rows"`, `hideLegend` and `singleTone`.
+
 ## When to reach for it
 
 You want a landing screen with a few numbers: open items, overdue invoices,
@@ -224,6 +231,21 @@ describe("named filter shared by the dashboard tile and the list", () => {
 });
 ```
 
+### src/__tests__/feature.test.ts
+
+```ts
+import { describe, expect, test } from "bun:test";
+import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
+import { ticketFeature } from "../feature";
+
+describe("dashboard-stats recipe", () => {
+  test("the screens, including the design options dashboard, pass boot validation", () => {
+    expect(() => validateBoot(withBootValidatorFixture([ticketFeature]))).not.toThrow();
+  });
+});
+```
+
 ### src/access.ts
 
 ```ts
@@ -243,12 +265,14 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { readerRoles } from "./access";
 import { ticketCapabilitiesQuery } from "./handlers/ticket-capabilities.query";
 import { ticketCardQuery } from "./handlers/ticket-card.query";
+import { ticketDesignQuery } from "./handlers/ticket-design.query";
 import { ticketOverviewQuery } from "./handlers/ticket-overview.query";
 import { ticketQuotaQuery } from "./handlers/ticket-quota.query";
 import { ticketRecentQuery } from "./handlers/ticket-recent.query";
 import { ticketRowsQuery } from "./handlers/ticket-rows.query";
 import { ticketStatsQuery } from "./handlers/ticket-stats.query";
 import { ticketEntity } from "./schema/ticket";
+import { createTicketDesignScreen } from "./screens";
 
 export { TICKET_STATUSES, ticketEntity } from "./schema/ticket";
 
@@ -256,6 +280,7 @@ export const TICKET_STATS_QUERY = "tickets:query:ticket:stats";
 export const TICKET_OVERVIEW_QUERY = "tickets:query:ticket:overview";
 export const TICKET_CAPABILITIES_QUERY = "tickets:query:ticket:capabilities";
 export const TICKET_LIST_QUERY = "tickets:query:ticket:list";
+export const TICKET_DESIGN_QUERY = "tickets:query:ticket:design";
 
 export const ticketFeature = defineFeature("tickets", (r) => {
   r.crud(ticketEntity, {
@@ -270,6 +295,7 @@ export const ticketFeature = defineFeature("tickets", (r) => {
   r.queryHandler(ticketRecentQuery);
   r.queryHandler(ticketQuotaQuery);
   r.queryHandler(ticketOverviewQuery);
+  r.queryHandler(ticketDesignQuery);
 
   r.translations({
     keys: {
@@ -294,6 +320,12 @@ export const ticketFeature = defineFeature("tickets", (r) => {
       "tickets.dashboard.open-work": { en: "Open work" },
       "tickets.filter.open-work": { en: "Open work" },
       "screen:ticket-queue.title": { en: "Ticket queue" },
+      "screen:ticket-design.title": { en: "Support desk" },
+      "tickets.design.kpis": { en: "This week" },
+      "tickets.design.opened": { en: "Opened" },
+      "tickets.design.escalated": { en: "Escalated" },
+      "tickets.design.weekly": { en: "Opened per day" },
+      "tickets.design.by-team": { en: "By team" },
     },
   });
 
@@ -403,6 +435,8 @@ export const ticketFeature = defineFeature("tickets", (r) => {
     access: readerRoles,
   });
 
+  r.screen(createTicketDesignScreen(TICKET_DESIGN_QUERY));
+
   // Three additions: a projectionDetail embedded in a record-bound dashboard, a gated toolbar
   // button, and a fallback chosen by reason.
   const gate = { query: TICKET_CAPABILITIES_QUERY, field: "canClose", eq: true } as const;
@@ -495,6 +529,73 @@ export const ticketCardQuery = defineQueryHandler({
     const ticket = page.rows[0];
     return { id: query.payload.id, title: ticket?.title ?? "", status: ticket?.status ?? "" };
   },
+  access: readerRoles,
+});
+```
+
+### src/handlers/ticket-design.query.ts
+
+```ts
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+import { readerRoles } from "../access";
+
+const DAY_MS = 86_400_000;
+const WINDOW_END_MS = Date.UTC(2026, 10, 30);
+const OPENED_PER_DAY = [4, 7, 3, 9, 6, 5, 8];
+
+// Fixed sample figures: the screen is about how a dashboard is drawn, not about counting.
+// Each panel reads its part through `resultField`.
+export const ticketDesignQuery = defineQueryHandler({
+  name: "ticket:design",
+  schema: z.object({}),
+  handler: async () => ({
+    subtitle: "Support desk, November 2026",
+    kpis: {
+      opened: 42,
+      openedSub: "+6 vs. last week",
+      openedSubTone: "positive",
+      escalated: 3,
+      escalatedSub: "1 overdue",
+      escalatedSubTone: "negative",
+    },
+    weekly: {
+      windowStartMs: WINDOW_END_MS - 6 * DAY_MS,
+      windowEndMs: WINDOW_END_MS,
+      series: [
+        {
+          key: "opened",
+          label: "Opened",
+          points: OPENED_PER_DAY.map((value, index) => ({
+            atMs: WINDOW_END_MS - (6 - index) * DAY_MS,
+            value,
+          })),
+        },
+      ],
+    },
+    byTeam: {
+      rows: [
+        {
+          key: "billing",
+          label: "Billing",
+          value: 14,
+          segments: [
+            { key: "open", label: "Open", value: 9 },
+            { key: "closed", label: "Closed", value: 5 },
+          ],
+        },
+        {
+          key: "tech",
+          label: "Technical",
+          value: 20,
+          segments: [
+            { key: "open", label: "Open", value: 6 },
+            { key: "closed", label: "Closed", value: 14 },
+          ],
+        },
+      ],
+    },
+  }),
   access: readerRoles,
 });
 ```
@@ -674,4 +775,86 @@ export const ticketEntity = createEntity({
 });
 
 export const { executor: ticketExecutor } = createEntityExecutor(ticketEntity);
+```
+
+### src/screens.ts
+
+```ts
+import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { readerRoles } from "./access";
+
+// Design options: all opt-in, a dashboard without them renders as before.
+export function createTicketDesignScreen(designQuery: string): ScreenDefinition {
+  return {
+    id: "ticket-design",
+    type: "dashboard",
+    // The screen title (`screen:ticket-design.title`) as page heading, the subtitle from the query below it.
+    showTitle: true,
+    headerSubtitle: { query: designQuery, field: "subtitle" },
+    layout: "main-side",
+    // Side column two fifths wide instead of one third.
+    sideWidth: "wide",
+    panels: [
+      {
+        // Separate cards without the outer frame; the sub line takes its tone from the answer.
+        kind: "stat-group",
+        id: "kpis",
+        framed: false,
+        layout: "cards",
+        column: "top",
+        stats: [
+          {
+            kind: "stat",
+            id: "opened",
+            label: "tickets.design.opened",
+            query: designQuery,
+            resultField: "kpis",
+            valueField: "opened",
+            subField: "openedSub",
+            subToneField: "openedSubTone",
+          },
+          {
+            kind: "stat",
+            id: "escalated",
+            label: "tickets.design.escalated",
+            query: designQuery,
+            resultField: "kpis",
+            valueField: "escalated",
+            subField: "escalatedSub",
+            subToneField: "escalatedSubTone",
+          },
+        ],
+      },
+      {
+        kind: "chart",
+        id: "weekly",
+        label: "tickets.design.weekly",
+        chart: "stacked-bars",
+        query: designQuery,
+        resultField: "weekly",
+        seriesTones: { opened: "active" },
+        barValueLabels: true,
+        highlightLast: true,
+        hideYAxis: true,
+        hideLegend: true,
+        labelEveryBucket: true,
+        lastBucketLabel: "date",
+      },
+      {
+        kind: "chart",
+        id: "by-team",
+        label: "tickets.design.by-team",
+        chart: "segment-bars",
+        query: designQuery,
+        resultField: "byTeam",
+        column: "side",
+        // One line per row; every segment in one tone, for segment keys the screen cannot name.
+        layout: "rows",
+        singleTone: "active",
+        hideLegend: true,
+      },
+    ],
+    access: readerRoles,
+  };
+}
 ```

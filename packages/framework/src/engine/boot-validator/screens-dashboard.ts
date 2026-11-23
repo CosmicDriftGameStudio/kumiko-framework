@@ -1,11 +1,15 @@
-import { DASHBOARD_MIN_REFRESH_SECONDS } from "@cosmicdrift/kumiko-types/screen";
+import {
+  DASHBOARD_CHART_LAST_BUCKET_LABELS,
+  DASHBOARD_CHART_TONES,
+  DASHBOARD_MIN_REFRESH_SECONDS,
+} from "@cosmicdrift/kumiko-types/screen";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { normalizeListColumn } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import type {
   DashboardChartMarkerKind,
   DashboardChartPanel,
   DashboardChartRanges,
-  DashboardChartTone,
   DashboardCustomPanel,
   DashboardFilterDefinition,
   DashboardPanelDefinition,
@@ -63,6 +67,14 @@ export function validateDashboardScreen(
     });
   }
   validateDashboardLayout(featureName, screenId, screen);
+  if (
+    screen.headerSubtitle !== undefined &&
+    (!screen.headerSubtitle.query || !screen.headerSubtitle.field)
+  ) {
+    throw bootRuleError(DASHBOARD_RULES.headerSubtitleIncomplete, {
+      message: `[Feature ${featureName}] Screen "${screenId}" (dashboard) headerSubtitle needs a non-empty query and field. Set both.`,
+    });
+  }
   const panelIds = new Set<string>();
   const addPanelId = (id: string, context: string): void => {
     if (panelIds.has(id)) {
@@ -529,6 +541,17 @@ function validateDashboardStatGroupPanel(
       message: `${context} sets subtitle without label — an unlabeled group renders as a KPI strip without a header. Set a label or remove subtitle.`,
     });
   }
+  if (
+    panel.framed === false &&
+    (panel.layout !== "cards" ||
+      panel.label !== undefined ||
+      panel.subtitle !== undefined ||
+      panel.link !== undefined)
+  ) {
+    throw bootRuleError(DASHBOARD_RULES.statGroupUnframedChrome, {
+      message: `${context} sets framed: false — it needs layout "cards" and no label, subtitle or link, which an unframed group has no place to draw. Adjust them or remove framed.`,
+    });
+  }
   validateDashboardPanelSpan(featureName, screenId, panel);
   validateDashboardPanelVisibleWhen(context, panel.visibleWhen);
   for (const stat of panel.stats) {
@@ -599,6 +622,7 @@ function validateDashboardChartDisplay(
   const where = `[Feature ${featureName}] Screen "${screenId}" (dashboard) chart-panel "${panel.id}"`;
   validateChartScrollableAndUnit(where, panel);
   validateStackedAreaOnlyProps(where, panel);
+  validateBarChartOptions(where, panel);
   validateStackedAreaEnumProp(where, "dateFormat", panel.dateFormat, ["day", "month"]);
   validateStackedAreaEnumProp(where, "initialWindow", panel.initialWindow, [
     "default-range",
@@ -625,6 +649,76 @@ function validateDashboardChartDisplay(
     validateDashboardChartMarkerKind(`${where} markerKinds["${kind}"]`, look);
   }
   if (panel.ranges !== undefined) validateDashboardChartRanges(`${where} ranges`, panel.ranges);
+}
+
+const BAR_ONLY_OPTIONS = [
+  "barValueLabels",
+  "highlightLast",
+  "hideYAxis",
+  "labelEveryBucket",
+  "lastBucketLabel",
+] as const;
+const BAR_BOOLEAN_OPTIONS = [
+  "barValueLabels",
+  "highlightLast",
+  "hideYAxis",
+  "hideLegend",
+  "labelEveryBucket",
+] as const;
+
+function misplacedBarOptions(panel: DashboardChartPanel): string[] {
+  const misplaced: string[] = [];
+  if (panel.chart !== "stacked-bars") {
+    misplaced.push(...BAR_ONLY_OPTIONS.filter((prop) => panel[prop] !== undefined));
+  }
+  if (panel.hideLegend !== undefined && !["stacked-bars", "segment-bars"].includes(panel.chart)) {
+    misplaced.push("hideLegend");
+  }
+  if (panel.layout !== undefined && panel.chart !== "segment-bars") misplaced.push("layout");
+  if (panel.singleTone !== undefined && panel.chart !== "segment-bars") {
+    misplaced.push("singleTone");
+  }
+  return misplaced;
+}
+
+function validateSingleTone(where: string, panel: DashboardChartPanel): void {
+  if (panel.singleTone === undefined) return;
+  if (panel.seriesTones !== undefined || panel.seriesColors !== undefined) {
+    throw bootRuleError(DASHBOARD_CHART_RULES.chartSingleToneConflict, {
+      message: `${where} sets singleTone together with seriesTones or seriesColors. Use singleTone alone, or name the keys with seriesTones/seriesColors.`,
+    });
+  }
+  if (!isOneOf(DASHBOARD_CHART_TONES, panel.singleTone)) {
+    throw bootRuleError(DASHBOARD_CHART_RULES.chartBarOptionValueInvalid, {
+      message: `${where} has an invalid singleTone. Use positive, negative, active or neutral.`,
+    });
+  }
+}
+
+function validateBarOptionValues(where: string, panel: DashboardChartPanel): void {
+  const nonBoolean = BAR_BOOLEAN_OPTIONS.find(
+    (prop) => panel[prop] !== undefined && typeof panel[prop] !== "boolean",
+  );
+  const invalidLabel =
+    panel.lastBucketLabel !== undefined &&
+    !isOneOf(DASHBOARD_CHART_LAST_BUCKET_LABELS, panel.lastBucketLabel);
+  const invalidLayout = panel.layout !== undefined && panel.layout !== "rows";
+  if (nonBoolean !== undefined || invalidLabel || invalidLayout) {
+    throw bootRuleError(DASHBOARD_CHART_RULES.chartBarOptionValueInvalid, {
+      message: `${where} has an invalid bar chart option (${nonBoolean ?? (invalidLabel ? "lastBucketLabel" : "layout")}). Use true or false, lastBucketLabel "today" or "date", layout "rows".`,
+    });
+  }
+}
+
+function validateBarChartOptions(where: string, panel: DashboardChartPanel): void {
+  const misplaced = misplacedBarOptions(panel);
+  validateSingleTone(where, panel);
+  if (misplaced.length > 0) {
+    throw bootRuleError(DASHBOARD_CHART_RULES.chartBarOptionKindMismatch, {
+      message: `${where} sets ${misplaced.join(", ")} on chart "${panel.chart}" — the option belongs to another chart kind (see the option's doc). Remove it or change the chart kind.`,
+    });
+  }
+  validateBarOptionValues(where, panel);
 }
 
 function validateStackedAreaEnumProp(
@@ -664,22 +758,15 @@ function validateStackedAreaOnlyProps(where: string, panel: DashboardChartPanel)
   }
 }
 
-const DASHBOARD_CHART_TONES: ReadonlySet<string> = new Set([
-  "positive",
-  "negative",
-  "active",
-  "neutral",
-] satisfies DashboardChartTone[]);
-
 function validateDashboardChartMarkerKind(where: string, look: DashboardChartMarkerKind): void {
   if (look.tone === undefined && look.color === undefined) {
     throw bootRuleError(DASHBOARD_CHART_RULES.chartMarkerLookMissing, {
       message: `${where} needs a tone or a color. Set tone or color.`,
     });
   }
-  if (look.tone !== undefined && !DASHBOARD_CHART_TONES.has(look.tone)) {
+  if (look.tone !== undefined && !isOneOf(DASHBOARD_CHART_TONES, look.tone)) {
     throw bootRuleError(DASHBOARD_CHART_RULES.chartMarkerToneInvalid, {
-      message: `${where}.tone "${String(look.tone)}" is not one of ${[...DASHBOARD_CHART_TONES].join(", ")}.`,
+      message: `${where}.tone "${String(look.tone)}" is not one of ${DASHBOARD_CHART_TONES.join(", ")}.`,
     });
   }
   if (look.color !== undefined && (typeof look.color !== "string" || look.color.trim() === "")) {

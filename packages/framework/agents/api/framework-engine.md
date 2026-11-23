@@ -904,10 +904,13 @@ interface FieldFormatRegistry {
   boolean: {
     trueLabel?: string;
     falseLabel?: string;
-  };
+    trueTone?: SelectOptionTone;
+    falseTone?: SelectOptionTone;
+  }; // In list cells a tone draws the label as a status pill; each tone needs its own label (`trueTone` needs `trueLabel`, `falseTone` needs `falseLabel`).
   currency: {
     currency: string;
     locale?: string;
+    amountIn?: "minor" | "major"; // "major" reads the value as a whole-unit amount (1890.5 = 1,890.50) instead of minor units.
   }; // ISO 4217 code such as "EUR"; the value is an amount in minor units (4250 = 42.50 EUR), formatted with Intl in the UI locale.
   money: {
     locale?: string;
@@ -926,6 +929,8 @@ interface FieldFormatRegistry {
     unit: UnitKey;
     locale?: string;
     unitDisplay?: "long" | "short" | "narrow";
+    minimumFractionDigits?: number; // Intl fraction digits (integers 0..20, min <= max); `minimumFractionDigits: 1` renders "743,0 kg".
+    maximumFractionDigits?: number;
   };
   enumOption: { keyPrefix: string; optionsOf?: never; tones?: Readonly<Partial<Record<string, SelectOptionTone>>>; } | { optionsOf: string; keyPrefix?: never; tones?: Readonly<Partial<Record<string, SelectOptionTone>>>; };
   i18nText: Record<never, never>; // Value is a `DashboardI18nText` (`{ i18nKey, i18nParams }`) a query built server-side, or a plain i18n key, translated in the user's language.

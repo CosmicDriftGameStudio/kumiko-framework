@@ -73,15 +73,21 @@ function resolveRowActions({
   // must not reappear in the kebab (a list whose only action is the rowClick
   // one gets no actions column at all). "menu" mode is the exception: every row
   // shows the kebab, and the opener is one of its entries.
+  // `inMenu: false` is the explicit opt-out that holds in every mode, except with
+  // editable cells: there the kebab is the only keyboard route to the rowClick action.
+  const shownActions =
+    onCellChange !== undefined
+      ? rowActions
+      : rowActions?.filter((action) => action.inMenu !== false);
   const menuActions =
-    rowActions !== undefined && onRowClick !== undefined && rowActionMode !== "menu"
-      ? rowActions.filter((action) => action.rowClick !== true)
-      : rowActions;
+    shownActions !== undefined && onRowClick !== undefined && rowActionMode !== "menu"
+      ? shownActions.filter((action) => action.rowClick !== true)
+      : shownActions;
   // The table keeps every action in "inline" mode, and with editable cells the
   // first cell is not a keyboard link (FirstCellLink is off), so the kebab is
   // then the only keyboard route to the rowClick action.
   const tableActions =
-    rowActionMode === "inline" || onCellChange !== undefined ? rowActions : menuActions;
+    rowActionMode === "inline" || onCellChange !== undefined ? shownActions : menuActions;
   const rowClickAction = rowActions?.find((action) => action.rowClick === true);
   const rowClickIsHidden = (row: ListRowViewModel): boolean =>
     rowClickAction?.isVisible !== undefined && !rowClickAction.isVisible(row);

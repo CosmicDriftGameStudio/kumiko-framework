@@ -415,6 +415,7 @@ function EntityListBody({
             ...(action.display !== undefined && { display: action.display }),
             confirmRequired: false,
             ...(navigateAction.rowClick === true && { rowClick: true }),
+            ...(navigateAction.inMenu === false && { inMenu: false as const }),
             ...(actionIcon !== undefined && { icon: actionIcon }),
             onTrigger: (row: ListRowViewModel) => runNavigate(navigateAction, row),
             ...(actionVisible !== undefined && {

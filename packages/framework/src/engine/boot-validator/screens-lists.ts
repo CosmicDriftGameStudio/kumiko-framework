@@ -524,6 +524,7 @@ export function validateColumnRendererForm(
   },
 ): void {
   validateEnumOptionTones(`[Feature ${featureName}] Screen "${screenId}"`, column);
+  validateBooleanTones(`[Feature ${featureName}] Screen "${screenId}"`, column);
   validateRelativeTimeFormat(
     `[Feature ${featureName}] Screen "${screenId}"`,
     `column "${column.field}"`,
@@ -594,6 +595,41 @@ export function validateEnumOptionTones(
         `${prefix} column "${column.field}" has enumOption tones ${invalid.join(", ")} — ` +
         `expected one of ${SELECT_OPTION_TONES.join(", ")}.`,
     });
+  }
+}
+
+// A tone without its own label draws an empty pill; a typo'd tone falls back to the neutral pill.
+export function validateBooleanTones(
+  prefix: string,
+  column: { readonly field: string; readonly renderer?: unknown },
+): void {
+  const { renderer } = column;
+  // skip: only a boolean column renderer has trueTone/falseTone.
+  if (
+    typeof renderer !== "object" ||
+    renderer === null ||
+    propertyOf(renderer, "format") !== "boolean"
+  ) {
+    return;
+  }
+  for (const side of ["true", "false"] as const) {
+    const tone = propertyOf(renderer, `${side}Tone`);
+    // skip: no tone on this side, nothing to check.
+    if (tone === undefined) continue;
+    if (!isSelectOptionTone(tone)) {
+      throw bootRuleError(LIST_SCREEN_RULES.booleanTonesInvalid, {
+        message:
+          `${prefix} column "${column.field}" has ${side}Tone ${String(tone)} — ` +
+          `expected one of ${SELECT_OPTION_TONES.join(", ")}.`,
+      });
+    }
+    if (propertyOf(renderer, `${side}Label`) === undefined) {
+      throw bootRuleError(LIST_SCREEN_RULES.booleanTonesInvalid, {
+        message:
+          `${prefix} column "${column.field}" sets ${side}Tone without ${side}Label — ` +
+          `each tone needs its own label.`,
+      });
+    }
   }
 }
 

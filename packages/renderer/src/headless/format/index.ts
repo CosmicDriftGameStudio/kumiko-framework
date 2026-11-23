@@ -7,7 +7,7 @@ import { isOneOf, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { rendererWarn } from "../../dev-console.ts";
 import { serverNowMs } from "../../server-clock.ts";
 import { fieldOptionLabelKeyPrefix } from "../view-model/list.ts";
-import { formatMoney, isCurrencyCode } from "./money.ts";
+import { currencyDecimals, formatMoney, isCurrencyCode } from "./money.ts";
 import { cachedNumberFormat } from "./number-format-cache.ts";
 import { formatRelativeTime } from "./relative-time.ts";
 
@@ -133,6 +133,7 @@ function formatUnitCell(
   unit: string | undefined,
   locale: string | undefined,
   unitDisplay: Intl.NumberFormatOptions["unitDisplay"],
+  fractionDigits: FractionDigitsSpec = {},
 ): string {
   const n = typeof value === "number" ? value : Number(value);
   if (unit === undefined || !Number.isFinite(n)) return String(value);
@@ -142,6 +143,7 @@ function formatUnitCell(
         style: "unit",
         unit: UNIT_INTL_IDS[unit],
         unitDisplay,
+        ...fractionDigits,
       }).format(n);
     } catch {
       // Malformed BCP-47 locale tag — mirrors formatNumberCell's fallback below.
@@ -149,7 +151,7 @@ function formatUnitCell(
     }
   }
   if (isSuffixUnit(unit)) {
-    return `${formatNumberCell(n, locale)} ${UNIT_SUFFIXES[unit]}`;
+    return `${formatNumberCell(n, locale, true, fractionDigits)} ${UNIT_SUFFIXES[unit]}`;
   }
   return String(value);
 }
@@ -307,7 +309,10 @@ function formatCurrencyCell(spec: CellFormatSpec, value: unknown): string {
   if (currency === undefined || !isCurrencyCode(currency) || !Number.isFinite(amount)) {
     return String(value);
   }
-  return formatMoney(amount, currency.toUpperCase(), {
+  const code = currency.toUpperCase();
+  const minorAmount =
+    spec["amountIn"] === "major" ? Math.round(amount * 10 ** currencyDecimals(code)) : amount;
+  return formatMoney(minorAmount, code, {
     locale: stringSpec(spec, "locale"),
     ...fractionDigitsSpec(spec),
   });
@@ -345,6 +350,7 @@ function formatUnitSpecCell(spec: CellFormatSpec, value: unknown): string {
     stringSpec(spec, "unit"),
     stringSpec(spec, "locale"),
     unitDisplaySpec(spec),
+    fractionDigitsSpec(spec),
   );
 }
 

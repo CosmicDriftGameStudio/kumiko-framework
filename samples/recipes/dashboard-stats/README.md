@@ -42,6 +42,13 @@ query and the fields to read, the query does the counting.
   `resultField`. Panels with the same query and params load with one request;
   boot validation checks `valueField` and `columns` against the schema of that field.
 
+- **Design options (`ticket-design`)**: `showTitle` draws the screen title as page heading with the
+  `headerSubtitle` query text below it; `layout: "main-side"` with `sideWidth: "wide"` gives the side
+  column two fifths. A `stat-group` with `framed: false` shows separate cards, and `subToneField`
+  colors each sub line from the answer. `stacked-bars` takes `barValueLabels`, `highlightLast`,
+  `hideYAxis`, `hideLegend`, `labelEveryBucket` and `lastBucketLabel: "date"`; `segment-bars` takes
+  `layout: "rows"`, `hideLegend` and `singleTone`.
+
 ## When to reach for it
 
 You want a landing screen with a few numbers: open items, overdue invoices,

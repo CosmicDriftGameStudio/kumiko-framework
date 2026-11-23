@@ -69,6 +69,12 @@ export const LIST_SCREEN_RULES = {
     summary: "enumOption column tones are known select option tones.",
     fix: "Use only the allowed tones (SELECT_OPTION_TONES).",
   },
+  booleanTonesInvalid: {
+    id: "list/boolean-tones-invalid",
+    summary:
+      "boolean column trueTone/falseTone is a known select option tone and has its own label.",
+    fix: "Set trueLabel with trueTone and falseLabel with falseTone, and use only the allowed tones (SELECT_OPTION_TONES).",
+  },
   refTargetFeatureNotMounted: {
     id: "list/ref-target-feature-not-mounted",
     summary: "An entity reference target belongs to a mounted feature.",

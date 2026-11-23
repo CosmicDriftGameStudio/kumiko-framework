@@ -821,9 +821,9 @@ export type DataTableRowAction = {
    *  (except `"inline"` mode or editable cells) and the card layout drop it
    *  from the row menu, since the row itself is already the click target. */
   readonly rowClick?: boolean;
-  /** Resolved icon (author `RowAction.icon` or the id-derived default) —
-   *  drives both the icon-left-of-text render and the icon-only collapse
-   *  rule (see `shouldRenderActionsIconOnly`). */
+  /** `false`: never in the row menu or action column; the row click still runs it. Ignored with editable cells. */
+  readonly inMenu?: false;
+  /** Resolved icon (author or id-derived default); drives the icon-left render and the icon-only collapse. */
   readonly icon?: IconKey;
   /** Author-chosen inline form (`RowAction.display`). Set: the action stays
    *  inline even in the adaptive layout and is exempt from the automatic

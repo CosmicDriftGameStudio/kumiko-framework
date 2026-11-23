@@ -120,3 +120,48 @@ describe("RenderList — column-renderer registry", () => {
     );
   });
 });
+
+describe("RenderList boolean format tones", () => {
+  const entity = {
+    fields: { title: { type: "text" }, active: { type: "boolean" } },
+  } as unknown as EntityDefinition;
+  const rows = [{ id: "r1", title: "A", active: true }];
+  const screenWith = (renderer: Record<string, unknown>): EntityListScreenDefinition => ({
+    id: "tasks:screen:task-list",
+    type: "entityList",
+    entity: "task",
+    columns: ["title", { field: "active", renderer }],
+  });
+
+  test("trueTone with trueLabel draws a status pill", () => {
+    render(
+      <RenderList
+        screen={screenWith({
+          format: "boolean",
+          trueLabel: "Active",
+          falseLabel: "Off",
+          trueTone: "ok",
+          falseTone: "bad",
+        })}
+        entity={entity}
+        rows={rows}
+        featureName="tasks"
+      />,
+    );
+    const cell = screen.getByTestId("cell-r1-active");
+    expect(cell.textContent).toContain("Active");
+    expect(cell.querySelector('[class*="status-ok"]')).not.toBeNull();
+  });
+
+  test("without tones the label is plain text", () => {
+    render(
+      <RenderList
+        screen={screenWith({ format: "boolean", trueLabel: "Active", falseLabel: "Off" })}
+        entity={entity}
+        rows={rows}
+        featureName="tasks"
+      />,
+    );
+    expect(screen.getByTestId("cell-r1-active").querySelector('[class*="status-ok"]')).toBeNull();
+  });
+});

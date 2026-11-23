@@ -44,6 +44,8 @@ export type DashboardListColumn = {
   readonly hint?: ListColumnHintViewModel;
   /** `showOnNarrowOnly`: drawn in the phone cards only, never as a table column. */
   readonly narrowOnly?: true;
+  /** Number, money or unit column: header and cells right-aligned. */
+  readonly numeric?: true;
   /** `hideOnNarrow`: a table column that the phone cards leave out. */
   readonly hiddenInCards?: true;
 };
@@ -302,7 +304,10 @@ export function DashboardListTable({
                 <th
                   key={column.field}
                   scope="col"
-                  className={cn("px-4 font-medium", column.display === "button" && "text-right")}
+                  className={cn(
+                    "px-4 font-medium",
+                    (column.display === "button" || column.numeric === true) && "text-right",
+                  )}
                 >
                   {column.label}
                 </th>
@@ -368,7 +373,10 @@ export function DashboardListTable({
                       key={column.field}
                       className={cn(
                         "px-4",
-                        column.display === "button" && "text-right",
+                        (column.display === "button" || column.numeric === true) && "text-right",
+                        column.numeric === true && "tabular-nums",
+                        // Free text keeps wrapping; a one-third panel would otherwise cut its headline.
+                        column.numeric === true && "whitespace-nowrap",
                         !showHeader && "max-sm:block",
                       )}
                     >

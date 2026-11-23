@@ -8,12 +8,14 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { readerRoles } from "./access";
 import { ticketCapabilitiesQuery } from "./handlers/ticket-capabilities.query";
 import { ticketCardQuery } from "./handlers/ticket-card.query";
+import { ticketDesignQuery } from "./handlers/ticket-design.query";
 import { ticketOverviewQuery } from "./handlers/ticket-overview.query";
 import { ticketQuotaQuery } from "./handlers/ticket-quota.query";
 import { ticketRecentQuery } from "./handlers/ticket-recent.query";
 import { ticketRowsQuery } from "./handlers/ticket-rows.query";
 import { ticketStatsQuery } from "./handlers/ticket-stats.query";
 import { ticketEntity } from "./schema/ticket";
+import { createTicketDesignScreen } from "./screens";
 
 export { TICKET_STATUSES, ticketEntity } from "./schema/ticket";
 
@@ -21,6 +23,7 @@ export const TICKET_STATS_QUERY = "tickets:query:ticket:stats";
 export const TICKET_OVERVIEW_QUERY = "tickets:query:ticket:overview";
 export const TICKET_CAPABILITIES_QUERY = "tickets:query:ticket:capabilities";
 export const TICKET_LIST_QUERY = "tickets:query:ticket:list";
+export const TICKET_DESIGN_QUERY = "tickets:query:ticket:design";
 
 export const ticketFeature = defineFeature("tickets", (r) => {
   r.crud(ticketEntity, {
@@ -35,6 +38,7 @@ export const ticketFeature = defineFeature("tickets", (r) => {
   r.queryHandler(ticketRecentQuery);
   r.queryHandler(ticketQuotaQuery);
   r.queryHandler(ticketOverviewQuery);
+  r.queryHandler(ticketDesignQuery);
 
   r.translations({
     keys: {
@@ -59,6 +63,12 @@ export const ticketFeature = defineFeature("tickets", (r) => {
       "tickets.dashboard.open-work": { en: "Open work" },
       "tickets.filter.open-work": { en: "Open work" },
       "screen:ticket-queue.title": { en: "Ticket queue" },
+      "screen:ticket-design.title": { en: "Support desk" },
+      "tickets.design.kpis": { en: "This week" },
+      "tickets.design.opened": { en: "Opened" },
+      "tickets.design.escalated": { en: "Escalated" },
+      "tickets.design.weekly": { en: "Opened per day" },
+      "tickets.design.by-team": { en: "By team" },
     },
   });
 
@@ -167,6 +177,8 @@ export const ticketFeature = defineFeature("tickets", (r) => {
     ],
     access: readerRoles,
   });
+
+  r.screen(createTicketDesignScreen(TICKET_DESIGN_QUERY));
 
   // Three additions: a projectionDetail embedded in a record-bound dashboard, a gated toolbar
   // button, and a fallback chosen by reason.

@@ -153,6 +153,14 @@ function formatSpecCell(
   };
 }
 
+const NUMERIC_FORMATS = ["currency", "money", "number", "decimal", "bigInt", "unit"];
+
+function isNumericColumn(column: ReturnType<typeof normalizeListColumn>): boolean {
+  const { renderer } = column;
+  if (isFormatSpec(renderer)) return NUMERIC_FORMATS.includes(renderer.format);
+  return column.valueType !== undefined;
+}
+
 function ListLine({
   panel,
   label,
@@ -278,6 +286,59 @@ function NarrowCardsPanel({
   );
 }
 
+function columnLookProps(
+  normalized: ReturnType<typeof normalizeListColumn>,
+): Partial<DashboardListTableColumn> {
+  return {
+    ...(normalized.display !== undefined && { display: normalized.display }),
+    ...(normalized.variant !== undefined && { buttonVariant: normalized.variant }),
+    ...(normalized.badgeToneField !== undefined && {
+      badgeToneField: normalized.badgeToneField,
+    }),
+    ...(normalized.badgeDot !== undefined && { badgeDot: normalized.badgeDot }),
+    ...(normalized.badgeIcon !== undefined && { badgeIcon: normalized.badgeIcon }),
+    ...(normalized.emptyPlaceholder !== undefined && {
+      emptyPlaceholder: normalized.emptyPlaceholder,
+    }),
+  };
+}
+
+function toTableColumn(
+  column: DashboardListPanel["columns"][number],
+  panel: DashboardListPanel,
+  locale: string,
+  translate: Translate,
+  resolveScreenLink: ScreenLinkResolver,
+): DashboardListTableColumn {
+  const normalized = normalizeListColumn(column);
+  const { hint } = normalized;
+  return {
+    field: normalized.field,
+    label: translate(normalized.label ?? normalized.field),
+    ...formatSpecCell(normalized, locale, translate),
+    ...columnLookProps(normalized),
+    ...(normalized.refEntity !== undefined && {
+      reference: {
+        refEntity: normalized.refEntity,
+        ...(normalized.refLabelField !== undefined && {
+          refLabelField: normalized.refLabelField,
+        }),
+      },
+    }),
+    ...(normalized.linkScreenField !== undefined && {
+      linkFor: screenLinkFor(
+        resolveScreenLink,
+        normalized.linkScreenField,
+        normalized.linkParamsField,
+      ),
+    }),
+    ...(isNumericColumn(normalized) && { numeric: true as const }),
+    ...(normalized.showOnNarrowOnly === true && { narrowOnly: true as const }),
+    ...(normalized.hideOnNarrow === true && { hiddenInCards: true as const }),
+    ...(hint !== undefined && { hint: hintViewModel(hint, panel.rowToneField, translate) }),
+  };
+}
+
 export function ListPanelBody({
   panel,
   label,
@@ -299,43 +360,9 @@ export function ListPanelBody({
   const narrowLayout = narrow !== undefined ? (narrow.layout ?? "cards") : undefined;
   const resolveScreenLink = useScreenLinkResolver();
   const locale = useLocale().locale();
-  const columns = panel.columns.map((c): DashboardListTableColumn => {
-    const normalized = normalizeListColumn(c);
-    const { hint } = normalized;
-    return {
-      field: normalized.field,
-      label: translate(normalized.label ?? normalized.field),
-      ...formatSpecCell(normalized, locale, translate),
-      ...(normalized.display !== undefined && { display: normalized.display }),
-      ...(normalized.variant !== undefined && { buttonVariant: normalized.variant }),
-      ...(normalized.badgeToneField !== undefined && {
-        badgeToneField: normalized.badgeToneField,
-      }),
-      ...(normalized.badgeDot !== undefined && { badgeDot: normalized.badgeDot }),
-      ...(normalized.badgeIcon !== undefined && { badgeIcon: normalized.badgeIcon }),
-      ...(normalized.emptyPlaceholder !== undefined && {
-        emptyPlaceholder: normalized.emptyPlaceholder,
-      }),
-      ...(normalized.refEntity !== undefined && {
-        reference: {
-          refEntity: normalized.refEntity,
-          ...(normalized.refLabelField !== undefined && {
-            refLabelField: normalized.refLabelField,
-          }),
-        },
-      }),
-      ...(normalized.linkScreenField !== undefined && {
-        linkFor: screenLinkFor(
-          resolveScreenLink,
-          normalized.linkScreenField,
-          normalized.linkParamsField,
-        ),
-      }),
-      ...(normalized.showOnNarrowOnly === true && { narrowOnly: true as const }),
-      ...(normalized.hideOnNarrow === true && { hiddenInCards: true as const }),
-      ...(hint !== undefined && { hint: hintViewModel(hint, panel.rowToneField, translate) }),
-    };
-  });
+  const columns = panel.columns.map((c) =>
+    toTableColumn(c, panel, locale, translate, resolveScreenLink),
+  );
   const { footerLink } = panel;
   return (
     <QueryPanel<ListEnvelope>

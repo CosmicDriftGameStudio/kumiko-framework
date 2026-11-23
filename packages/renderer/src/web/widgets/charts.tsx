@@ -8,8 +8,10 @@ import {
   bucketTimes,
   type ChartMarker,
   type ChartSeries,
+  type ChartTone,
   type ColorMap,
   chartColor,
+  chartToneColor,
   clampDotY,
   percent,
   SINGLE_POINT_RADIUS,
@@ -537,6 +539,13 @@ export function StackedBarChart({
   formatBucketLabel,
   formatValue = String,
   formatAxisValue = formatValue,
+  valueLabels = false,
+  formatValueLabel = formatAxisValue,
+  highlightLast = false,
+  hideYAxis = false,
+  hideLegend = false,
+  labelEveryBucket = false,
+  lastBucketLabel = "today",
   emptyContent,
   testId,
 }: {
@@ -548,8 +557,20 @@ export function StackedBarChart({
   readonly todayLabel: string;
   readonly formatBucketLabel: (atMs: number) => string;
   readonly formatValue?: (value: number) => string;
-  /** y-axis tick labels only; defaults to `formatValue`. */
+  /** y-axis tick labels; defaults to `formatValue`. */
   readonly formatAxisValue?: (value: number) => string;
+  /** Bucket total above each bar. */
+  readonly valueLabels?: boolean;
+  /** Text of a `valueLabels` label; defaults to `formatAxisValue`. */
+  readonly formatValueLabel?: (value: number) => string;
+  /** The last bar keeps its color, the others are lighter. */
+  readonly highlightLast?: boolean;
+  readonly hideYAxis?: boolean;
+  readonly hideLegend?: boolean;
+  /** A label under every bar instead of about eight evenly spaced ones. */
+  readonly labelEveryBucket?: boolean;
+  /** "date" labels the last bucket like the others instead of `todayLabel`. */
+  readonly lastBucketLabel?: "today" | "date";
   readonly emptyContent?: ReactNode;
   readonly testId?: string;
 }): ReactNode {
@@ -562,17 +583,22 @@ export function StackedBarChart({
   const lastAtMs = times[lastIdx] ?? 0;
   const prevAtMs = times[lastIdx - 1];
   const stepMs = prevAtMs !== undefined ? lastAtMs - prevAtMs : DAY_MS;
-  const lastIsToday = stepMs >= DAY_MS - HOUR_MS && windowEndMs - lastAtMs <= stepMs;
-  const labelEvery = Math.max(1, Math.ceil(times.length / BAR_LABEL_TARGET));
+  const lastIsToday =
+    lastBucketLabel === "today" && stepMs >= DAY_MS - HOUR_MS && windowEndMs - lastAtMs <= stepMs;
+  const labelEvery = labelEveryBucket ? 1 : Math.max(1, Math.ceil(times.length / BAR_LABEL_TARGET));
+  // Headroom so the value above the tallest bar stays inside the plot.
+  const plotTopPadding = valueLabels ? "pt-4" : "pt-0";
 
   return (
     <div data-testid={testId} className="flex flex-col gap-3">
       <div className="flex gap-2">
-        <YTicks
-          values={evenYTickValues(max)}
-          formatValue={formatAxisValue}
-          className="h-40 pb-5 pt-0"
-        />
+        {!hideYAxis && (
+          <YTicks
+            values={evenYTickValues(max)}
+            formatValue={formatAxisValue}
+            className={cn("h-40 pb-5", plotTopPadding)}
+          />
+        )}
         <div
           role="img"
           aria-label={ariaLabel}
@@ -580,17 +606,28 @@ export function StackedBarChart({
         >
           {times.map((atMs, i) => {
             const label = i === lastIdx && lastIsToday ? todayLabel : formatBucketLabel(atMs);
+            const total = totals[i] ?? 0;
             return (
               <div
                 key={atMs}
-                title={`${label}: ${formatValue(totals[i] ?? 0)}`}
+                title={`${label}: ${formatValue(total)}`}
                 className="flex min-w-0 flex-1 flex-col"
               >
                 <div className="relative flex-1">
                   <div
                     className="absolute inset-x-0 bottom-0 flex flex-col-reverse gap-px"
-                    style={{ height: percent((totals[i] ?? 0) / max) }}
+                    style={{
+                      height: valueLabels
+                        ? `calc((100% - 1rem) * ${Math.min(1, total / max)})`
+                        : percent(total / max),
+                      ...(highlightLast && i !== lastIdx && { opacity: 0.4 }),
+                    }}
                   >
+                    {valueLabels && total > 0 && (
+                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 whitespace-nowrap pb-0.5 text-[11px] tabular-nums text-foreground">
+                        {formatValueLabel(total)}
+                      </span>
+                    )}
                     {series.map((s, si) => {
                       const value = valueAt(s, atMs);
                       if (value <= 0) return null;
@@ -615,15 +652,17 @@ export function StackedBarChart({
           })}
         </div>
       </div>
-      <ChartLegend
-        formatValue={formatValue}
-        items={series.map((s, i) => ({
-          key: s.key,
-          label: s.label,
-          color: chartColor(s.key, i, tones, colors),
-          total: seriesTotal(s),
-        }))}
-      />
+      {!hideLegend && (
+        <ChartLegend
+          formatValue={formatValue}
+          items={series.map((s, i) => ({
+            key: s.key,
+            label: s.label,
+            color: chartColor(s.key, i, tones, colors),
+            total: seriesTotal(s),
+          }))}
+        />
+      )}
     </div>
   );
 }
@@ -636,6 +675,9 @@ export function SegmentBarChart({
   colors,
   ariaLabel,
   formatValue = String,
+  layout = "stacked",
+  hideLegend = false,
+  singleTone,
   testId,
 }: {
   readonly rows: readonly SegmentBarRow[];
@@ -643,8 +685,15 @@ export function SegmentBarChart({
   readonly colors?: ColorMap;
   readonly ariaLabel: string;
   readonly formatValue?: (value: number) => string;
+  /** "rows": label left, bar in the middle, value right-aligned, on one line. */
+  readonly layout?: "stacked" | "rows";
+  readonly hideLegend?: boolean;
+  /** One tone for every segment (dynamic segment keys); wins over `tones` and `colors`. */
+  readonly singleTone?: ChartTone;
   readonly testId?: string;
 }): ReactNode {
+  const segmentColor = (key: string, index: number): string =>
+    singleTone !== undefined ? chartToneColor(singleTone) : chartColor(key, index, tones, colors);
   const rowTotal = (row: SegmentBarRow): number =>
     row.segments.length > 0 ? row.segments.reduce((sum, s) => sum + s.value, 0) : row.value;
   const maxTotal = Math.max(1, ...rows.map(rowTotal));
@@ -663,13 +712,32 @@ export function SegmentBarChart({
 
   return (
     <div data-testid={testId} role="img" aria-label={ariaLabel} className="flex flex-col gap-3">
-      <ul className="flex flex-col gap-3">
+      <ul
+        className={
+          layout === "rows"
+            ? "grid grid-cols-[fit-content(40%)_minmax(0,1fr)_auto] gap-x-3 gap-y-3"
+            : "flex flex-col gap-3"
+        }
+      >
         {rows.map((row) => (
-          <li key={row.key} data-testid={`chart-row-${row.key}`} className="flex flex-col gap-1">
-            <div className="flex items-baseline justify-between gap-2 text-sm">
-              <span className="font-medium">{row.label}</span>
-              <span className="tabular-nums text-muted-foreground">{formatValue(row.value)}</span>
-            </div>
+          <li
+            key={row.key}
+            data-testid={`chart-row-${row.key}`}
+            data-layout={layout}
+            className={
+              layout === "rows"
+                ? "col-span-3 grid grid-cols-subgrid items-center gap-3"
+                : "flex flex-col gap-1"
+            }
+          >
+            {layout === "rows" ? (
+              <span className="truncate text-sm">{row.label}</span>
+            ) : (
+              <div className="flex items-baseline justify-between gap-2 text-sm">
+                <span className="font-medium">{row.label}</span>
+                <span className="tabular-nums text-muted-foreground">{formatValue(row.value)}</span>
+              </div>
+            )}
             <div className="flex h-2 gap-px overflow-hidden rounded-full bg-muted">
               {row.segments.map((seg) => (
                 <div
@@ -678,28 +746,30 @@ export function SegmentBarChart({
                   className="h-full"
                   style={{
                     width: percent(seg.value / maxTotal),
-                    backgroundColor: chartColor(
-                      seg.key,
-                      legendKeys.indexOf(seg.key),
-                      tones,
-                      colors,
-                    ),
+                    backgroundColor: segmentColor(seg.key, legendKeys.indexOf(seg.key)),
                   }}
                 />
               ))}
             </div>
+            {layout === "rows" && (
+              <span className="text-right text-sm tabular-nums text-muted-foreground">
+                {formatValue(row.value)}
+              </span>
+            )}
           </li>
         ))}
       </ul>
-      <ChartLegend
-        formatValue={formatValue}
-        items={legendKeys.map((key, i) => ({
-          key,
-          label: segmentTotals.get(key)?.label ?? key,
-          color: chartColor(key, i, tones, colors),
-          total: segmentTotals.get(key)?.total ?? 0,
-        }))}
-      />
+      {!hideLegend && (
+        <ChartLegend
+          formatValue={formatValue}
+          items={legendKeys.map((key, i) => ({
+            key,
+            label: segmentTotals.get(key)?.label ?? key,
+            color: segmentColor(key, i),
+            total: segmentTotals.get(key)?.total ?? 0,
+          }))}
+        />
+      )}
     </div>
   );
 }

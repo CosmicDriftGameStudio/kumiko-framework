@@ -95,9 +95,20 @@ export interface FieldFormatRegistry {
   month: { readonly locale?: string };
   /** Telephone number shown as a `tel:` link in list cells, like a read-only `format: "phone"` field. */
   phone: Record<never, never>;
-  boolean: { readonly trueLabel?: string; readonly falseLabel?: string };
+  /** In list cells a tone draws the label as a status pill; each tone needs its own label (`trueTone` needs `trueLabel`, `falseTone` needs `falseLabel`). */
+  boolean: {
+    readonly trueLabel?: string;
+    readonly falseLabel?: string;
+    readonly trueTone?: SelectOptionTone;
+    readonly falseTone?: SelectOptionTone;
+  };
   /** ISO 4217 code such as "EUR"; the value is an amount in minor units (4250 = 42.50 EUR), formatted with Intl in the UI locale. */
-  currency: { readonly currency: string; readonly locale?: string };
+  currency: {
+    readonly currency: string;
+    readonly locale?: string;
+    /** "major" reads the value as a whole-unit amount (1890.5 = 1,890.50) instead of minor units. Default "minor". */
+    readonly amountIn?: "minor" | "major";
+  };
   /** Money value as the executor reads it, `{ amount, currency }` with the amount in minor units (4250 = 42.50 EUR); formatted with Intl in the value's own currency and the UI locale. */
   money: { readonly locale?: string };
   priority: { readonly emptyLabel?: string; readonly prefix?: string };
@@ -113,6 +124,9 @@ export interface FieldFormatRegistry {
     readonly unit: UnitKey;
     readonly locale?: string;
     readonly unitDisplay?: "long" | "short" | "narrow";
+    /** Intl fraction digits (integers 0..20, min <= max); `minimumFractionDigits: 1` renders "743,0 kg". */
+    readonly minimumFractionDigits?: number;
+    readonly maximumFractionDigits?: number;
   };
   // Resolves an enum value through the i18n convention
   // `<feature>:entity:<entity>:field:<field>:option:<value>` — same
@@ -258,6 +272,8 @@ export type {
 } from "./screen-custom-config.ts";
 export type {
   DashboardChartKind,
+  DashboardChartLastBucketLabel,
+  DashboardChartLayout,
   DashboardChartMarkerKind,
   DashboardChartPanel,
   DashboardChartRangeOption,
@@ -307,7 +323,12 @@ export type {
   DashboardValueFormat,
   ScreenVisibility,
 } from "./screen-dashboard.ts";
-export { DASHBOARD_MIN_REFRESH_SECONDS, DASHBOARD_STAT_TONES } from "./screen-dashboard.ts";
+export {
+  DASHBOARD_CHART_LAST_BUCKET_LABELS,
+  DASHBOARD_CHART_TONES,
+  DASHBOARD_MIN_REFRESH_SECONDS,
+  DASHBOARD_STAT_TONES,
+} from "./screen-dashboard.ts";
 export type {
   EditExtensionSection,
   EditFieldGroup,

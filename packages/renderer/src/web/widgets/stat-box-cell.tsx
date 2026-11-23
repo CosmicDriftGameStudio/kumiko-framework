@@ -7,6 +7,7 @@ import {
   type StatLink,
   StatLinkFrame,
   type StatTone,
+  subToneClass,
   TONE_VALUE,
 } from "./stat.tsx";
 
@@ -16,6 +17,7 @@ type StatBoxCellProps = {
   readonly narrowLabel?: string;
   readonly value: string;
   readonly sub?: string;
+  readonly subTone?: StatTone;
   readonly tone?: StatTone;
   readonly icon?: ReactNode;
   readonly delta?: StatDelta;
@@ -31,6 +33,7 @@ export function StatBoxCell({
   narrowLabel,
   value,
   sub,
+  subTone,
   tone = "default",
   icon,
   delta,
@@ -60,7 +63,7 @@ export function StatBoxCell({
           <div className="flex min-w-0 flex-col">
             <span className="truncate text-sm font-semibold text-foreground">{label}</span>
             {sub !== undefined && (
-              <span className="truncate text-xs text-muted-foreground">{sub}</span>
+              <span className={cn("truncate text-xs", subToneClass(subTone))}>{sub}</span>
             )}
           </div>
           {delta !== undefined && (

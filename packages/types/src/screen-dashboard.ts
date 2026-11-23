@@ -146,11 +146,13 @@ export type DashboardStatPanel = DashboardPanelQueryOptions &
     /** i18n key replacing `label` below the `sm` breakpoint wherever the stat draws its label (a dynamic `labelField` text still wins). */
     readonly labelNarrow?: string;
     readonly subField?: string;
+    /** Field of the query answer holding a `DashboardStatTone` ("default" | "positive" | "ok" | "warn" | "negative"), like `toneField`; colors the `subField` line. Without it, or with another value, the sub line stays muted. */
+    readonly subToneField?: string;
     readonly toneField?: string;
     /** Formats a numeric value as currency (minor units) or, with `relativeTime`, as
      *  a ticking "5 minutes ago" from epoch ms; ignored for string values. The sparkline is not formatted. */
     readonly valueFormat?: DashboardValueFormat;
-    /** Fixed tone when `toneField` is unset or yields none; not applied while the value is 0. */
+    /** Fixed tone when `toneField` is unset or yields none; not applied while the value is 0. A tone other than "default" colors the value and, on a card, draws a 3px edge in that color at the left (e.g. "negative" = red). */
     readonly tone?: DashboardStatTone;
     /** Record field holding `{ atMs, value | null }[]` (MetricResult.points),
      *  drawn as a sparkline next to the value. */
@@ -188,7 +190,8 @@ export type DashboardStatPanel = DashboardPanelQueryOptions &
   };
 
 export type DashboardChartKind = "timeseries" | "stacked-bars" | "segment-bars" | "stacked-area";
-export type DashboardChartTone = "positive" | "negative" | "active" | "neutral";
+export const DASHBOARD_CHART_TONES = ["positive", "negative", "active", "neutral"] as const;
+export type DashboardChartTone = (typeof DASHBOARD_CHART_TONES)[number];
 
 /** Look of the markers whose `kind` matches: a dashed guide line through the
  *  plot plus a colored pin. `color` (raw CSS color) wins over `tone`. */
@@ -248,6 +251,8 @@ export type DashboardChartPanel = DashboardPanelQueryOptions &
     readonly seriesTones?: Readonly<Record<string, DashboardChartTone>>;
     /** Series/segment/line key -> raw CSS color (e.g. "var(--color-debt)"); wins over `seriesTones`. */
     readonly seriesColors?: Readonly<Record<string, string>>;
+    /** Only for chart "segment-bars": every segment in this one tone, for dynamic segment keys that `seriesTones` cannot name. Not combinable with `seriesTones` or `seriesColors`. */
+    readonly singleTone?: DashboardChartTone;
     /** Formats values as currency (minor units): y ticks, legend totals and tooltips on
      *  stacked-bars/segment-bars/stacked-area, only the y ticks on timeseries. */
     readonly valueFormat?: DashboardCurrencyFormat;
@@ -276,7 +281,25 @@ export type DashboardChartPanel = DashboardPanelQueryOptions &
     readonly markerLegend?: "list" | "legend";
     /** Only for chart "stacked-area": true writes each marker label vertically next to its guide line on wide panels; narrow panels keep the pins. Default false. */
     readonly markerLabels?: boolean;
+    /** Only for chart "stacked-bars": writes the compact total (e.g. "21k", "21 mil") in the user locale above each bar. Default false. */
+    readonly barValueLabels?: boolean;
+    /** Only for chart "stacked-bars": the last bar keeps its full color, the others are drawn lighter in the same tone. Default false. */
+    readonly highlightLast?: boolean;
+    /** Only for chart "stacked-bars": drops the y-axis tick labels. Default false. */
+    readonly hideYAxis?: boolean;
+    /** Only for chart "stacked-bars" and "segment-bars": drops the legend, including its totals. Default false. */
+    readonly hideLegend?: boolean;
+    /** Only for chart "stacked-bars": labels every bar instead of about eight evenly spaced ones. Default false. */
+    readonly labelEveryBucket?: boolean;
+    /** Only for chart "stacked-bars": "date" labels the last bar with its date instead of "Today". Default "today". */
+    readonly lastBucketLabel?: DashboardChartLastBucketLabel;
+    /** Only for chart "segment-bars": "rows" draws one line per row, label left, bar in the middle, value right-aligned. Default: label and value above the bar. */
+    readonly layout?: DashboardChartLayout;
   };
+
+export const DASHBOARD_CHART_LAST_BUCKET_LABELS = ["today", "date"] as const;
+export type DashboardChartLastBucketLabel = (typeof DASHBOARD_CHART_LAST_BUCKET_LABELS)[number];
+export type DashboardChartLayout = "rows";
 
 // Short list on the dashboard — query contract like projectionList
 // (`{ rows, nextCursor, total? }`), rendered without pager/toolbar.
@@ -395,6 +418,8 @@ export type DashboardStatGroupPanel = DashboardPanelGate &
     /** i18n key, a line under `label`; the boot validator requires `label`. */
     readonly subtitle?: string;
     readonly span?: DashboardPanelSpan;
+    /** `false` draws the stats as separate cards side by side without the outer panel frame, title, subtitle or link. Needs `layout: "cards"` and none of `label`, `subtitle`, `link`. */
+    readonly framed?: false;
     /** Default: "strip" without `label`, "cards" with. "strip" with a `label` puts label and subtitle
      *  left, then one box per stat (number large, label bold, sub line small) and the link at the right edge; under sm it collapses to
      *  one line "<title> · <n> <narrowLabel ?? label> · …" with a chevron, clickable to the `link`. */
@@ -619,12 +644,19 @@ export type DashboardRecordBinding = {
  *  (needs `record.query`), so a monitor can be polled at its own check interval. */
 export type DashboardRefresh = { readonly seconds: number } | { readonly field: string };
 
+export type DashboardHeaderSubtitle = {
+  readonly query: string;
+  readonly field: string;
+};
+
 export type DashboardScreenDefinition = {
   readonly id: string;
   readonly type: "dashboard";
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
+  /** Subtitle under the title from a query, e.g. "Accepted quotes from Lantek · November 2026". `query` (QN) gets the screen filter, time range and record params; `field` of its answer is a string or DashboardI18nText. Nothing shows while it loads, fails or answers empty. Independent of the static `description`, which still shows too. */
+  readonly headerSubtitle?: DashboardHeaderSubtitle;
   readonly agent?: AgentScreenHints;
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
@@ -636,6 +668,8 @@ export type DashboardScreenDefinition = {
   readonly panels: readonly DashboardPanelDefinition[];
   /** Panel arrangement, see DashboardLayout. */
   readonly layout?: DashboardLayout;
+  /** Only with `layout: "main-side"`: "wide" gives the side column 2/5 of the width (main 3/5) instead of 1/3. Default: 1/3. */
+  readonly sideWidth?: "wide";
   /** Binds the dashboard to one record via a URL search param, see DashboardRecordBinding. */
   readonly record?: DashboardRecordBinding;
   /** Header actions on the bound record (writeHandler, navigate, clientAction).
@@ -653,6 +687,8 @@ export type DashboardScreenDefinition = {
   /** Show today's date (server clock, weekday and day, no time) in the top bar next to the title; hidden below `sm`.
    *  Default true; turn off for dashboards that host forms rather than live metrics. */
   readonly showUpdatedAt?: boolean;
+  /** Show the screen title (`screen:<id>.title`) as the page heading, with `headerSubtitle` directly below it. Default false. */
+  readonly showTitle?: boolean;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
 };

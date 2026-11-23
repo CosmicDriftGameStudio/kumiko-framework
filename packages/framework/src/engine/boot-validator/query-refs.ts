@@ -133,6 +133,13 @@ function checkDashboardQueryRefs(
       () => `[Feature ${featureName}] Screen "${screenId}" (dashboard) record`,
     );
   }
+  if (screen.headerSubtitle !== undefined) {
+    checkQueryRef(
+      queryHandlers,
+      screen.headerSubtitle.query,
+      () => `[Feature ${featureName}] Screen "${screenId}" (dashboard) headerSubtitle`,
+    );
+  }
   for (const panel of screen.panels) {
     if (panel.kind === "custom") continue;
     if (panel.visibleWhen !== undefined) {

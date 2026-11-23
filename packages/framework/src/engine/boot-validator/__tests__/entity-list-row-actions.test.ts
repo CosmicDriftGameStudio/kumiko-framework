@@ -310,3 +310,40 @@ describe("entityList rowAction row-meta allowlist", () => {
     ).toThrow(/references unknown field "isDeleted"/);
   });
 });
+
+describe("entityList rowAction inMenu", () => {
+  function makeFeature(action: Record<string, unknown>) {
+    return defineFeature("shop", (r) => {
+      r.entity(
+        createEntity({
+          name: "product",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
+      r.screen({ id: "product-editor", type: "custom", renderer: { react: "stub" } });
+      r.screen({
+        id: "product-list",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+        rowActions: [
+          {
+            kind: "navigate",
+            id: "open",
+            label: "actions.edit",
+            screen: "product-editor",
+            ...action,
+          },
+        ] as never,
+      });
+    });
+  }
+
+  test("inMenu false on the rowClick action passes boot", () => {
+    expect(() => validateBoot([makeFeature({ rowClick: true, inMenu: false })])).not.toThrow();
+  });
+
+  test("inMenu false without rowClick is rejected", () => {
+    expect(() => validateBoot([makeFeature({ inMenu: false })])).toThrow(/inMenu: false/);
+  });
+});
