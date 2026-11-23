@@ -230,6 +230,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "letter-foundation:write:apply-provider-status expose=false risk=mid",
   "letter-foundation:write:approve expose=true risk=mid",
   "letter-foundation:write:cancel expose=true risk=mid",
+  "letter-foundation:write:cancel-before-handover expose=false risk=mid",
   "letter-foundation:write:mark-submission-unknown expose=false risk=mid",
   "letter-foundation:write:record-acceptance expose=false risk=mid",
   "letter-foundation:write:record-rejection expose=false risk=mid",

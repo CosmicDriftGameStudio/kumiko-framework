@@ -2056,6 +2056,7 @@
         "letter-foundation:write:apply-provider-status",
         "letter-foundation:write:approve",
         "letter-foundation:write:cancel",
+        "letter-foundation:write:cancel-before-handover",
         "letter-foundation:write:mark-submission-unknown",
         "letter-foundation:write:record-acceptance",
         "letter-foundation:write:record-rejection",

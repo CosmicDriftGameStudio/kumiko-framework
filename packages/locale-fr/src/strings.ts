@@ -2361,6 +2361,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "L'envoi de lettres n'est pas configuré sur ce serveur. Demande à l'exploitant de définir le prestataire de lettres.",
   "letter-foundation.errors.noFiles": "La lettre n'a pas de document.",
   "letter-foundation.errors.notAwaitingApproval": "La lettre n'est pas en attente d'approbation.",
+  "letter-foundation.errors.monthlyLimitNotCovered":
+    "La limite mensuelle ne couvre pas cette lettre. L'opérateur peut augmenter la limite.",
   "letter-foundation.errors.notCancelableHere": "La lettre ne peut plus être annulée.",
   "letter-foundation.errors.cancelAfterAcceptanceUnavailable":
     "Le prestataire d'impression a déjà cette lettre, elle ne peut donc pas être annulée ici.",

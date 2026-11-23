@@ -6,6 +6,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { UnrecoverableError } from "bullmq";
@@ -13,6 +14,8 @@ import * as z from "zod";
 import { capReservationsTable, currentCalendarMonthStartIso } from "../../cap-counter/index.ts";
 import { ConfigHandlers } from "../../config/index.ts";
 import { letterSimulator } from "../../letter-provider-inmemory/simulator.ts";
+import { unprocessable } from "../../shared/index.ts";
+import { cancelLetterBeforeHandover } from "../cancel-before-handover.ts";
 import {
   LETTER_APPROVED_STALE_MS,
   LETTER_FAILURE_REASON,
@@ -32,9 +35,11 @@ import {
   LIMIT_KEY,
   type ParkedRun,
   SYSTEM_ADMIN,
+  TENANT,
 } from "./letter-harness.ts";
 
 const HOLD_MS = 300;
+const CASE_WORKER = createTestUser({ id: 4, tenantId: TENANT, roles: ["User"] });
 const NOTE = "Checked with the provider: the order exists under this id.";
 const NOTHING = { cost: 0, count: 0, sheets: 0, pages: 0 };
 const ONE_LETTER = { cost: 109, count: 1, sheets: 2, pages: 3 };
@@ -54,7 +59,26 @@ const rejectProbeFeature = defineFeature("letter-reject-probe", (r) => {
   });
 });
 
-const harness = createLetterHarness({ handoverHoldMs: HOLD_MS }, [rejectProbeFeature]);
+// Stands in for an app that drops the letters of a superseded case: it holds neither the approver role nor an admin one.
+const DROP_LETTER = "case-probe:write:drop-letter";
+const caseProbeFeature = defineFeature("case-probe", (r) => {
+  r.writeHandler({
+    name: "drop-letter",
+    schema: z.object({ letterId: z.string(), failAfterwards: z.boolean().default(false) }),
+    access: { roles: ["User"] },
+    handler: async (event, ctx) => {
+      const canceled = await cancelLetterBeforeHandover(ctx, event.payload.letterId);
+      if (!canceled.isSuccess) return canceled;
+      if (event.payload.failAfterwards)
+        return unprocessable("case_probe_failed", "case-probe.failed");
+      return canceled;
+    },
+  });
+});
+const harness = createLetterHarness({ handoverHoldMs: HOLD_MS }, [
+  rejectProbeFeature,
+  caseProbeFeature,
+]);
 const { letterInput, letterRow, claimRows, send, usage, pdfBytes, seedDocument } = harness;
 let stack: TestStack;
 
@@ -455,5 +479,75 @@ describe("a letter that stays in approved", () => {
     clock().advance({ seconds: 2 });
     await harness.runJobWithoutEventDelivery(LetterJobs.poll);
     expect(await restartRequests()).toBe(1);
+  });
+});
+
+describe("cancelLetterBeforeHandover from another feature", () => {
+  const canceledEvents = async () =>
+    (await selectMany<Record<string, unknown>>(stack.db, eventsTable, {})).filter(
+      (event) => event["type"] === LetterEvents.canceled,
+    ).length;
+  const drop = (letterId: string) =>
+    stack.http.writeOk<{ canceled: boolean }>(DROP_LETTER, { letterId }, CASE_WORKER);
+
+  test("cancels a waiting letter without the approver or an admin role and writes the event", async () => {
+    const { letterId } = await send(await letterInput());
+    expect((await drop(letterId)).canceled).toBe(true);
+    expect(await statusOf(letterId)).toBe(LETTER_STATE.canceled);
+    expect(await canceledEvents()).toBe(1);
+  });
+
+  test("cancels an approved letter that holds a claim and gives the claim back", async () => {
+    const { letterId, parked, drained } = await holdRun(() => harness.parkNextDocumentRead());
+    expect(await claimRows(letterId)).toHaveLength(1);
+
+    expect((await drop(letterId)).canceled).toBe(true);
+    expect(await statusOf(letterId)).toBe(LETTER_STATE.canceled);
+    expect(await claimRows(letterId)).toHaveLength(0);
+    expect(await reservations()).toHaveLength(0);
+
+    parked.resume("fail");
+    await drained;
+  });
+
+  test("leaves a letter that was handed over alone", async () => {
+    const letterId = await handOver();
+    expect(await statusOf(letterId)).toBe(LETTER_STATE.accepted);
+    expect((await drop(letterId)).canceled).toBe(false);
+    expect(await statusOf(letterId)).toBe(LETTER_STATE.accepted);
+  });
+
+  test("an unknown letter is not found", async () => {
+    const result = await stack.http.writeErr(
+      DROP_LETTER,
+      { letterId: crypto.randomUUID() },
+      CASE_WORKER,
+    );
+    expect(result.httpStatus).toBe(404);
+  });
+
+  test("the cancel is rolled back when the calling handler fails afterwards", async () => {
+    const { letterId } = await send(await letterInput());
+    const result = await stack.http.writeErr(
+      DROP_LETTER,
+      { letterId, failAfterwards: true },
+      CASE_WORKER,
+    );
+    expect(result.httpStatus).toBe(422);
+    expect(await statusOf(letterId)).toBe(LETTER_STATE.awaitingApproval);
+    expect(await canceledEvents()).toBe(0);
+  });
+
+  test("the handler itself is not reachable over HTTP, whatever the role", async () => {
+    const { letterId } = await send(await letterInput());
+    for (const user of [CLERK, APPROVER, CASE_WORKER]) {
+      const refused = await stack.http.writeErr(
+        LetterInternalHandlers.cancelBeforeHandover,
+        { letterId },
+        user,
+      );
+      expect(refused.httpStatus).toBe(404);
+    }
+    expect(await statusOf(letterId)).toBe(LETTER_STATE.awaitingApproval);
   });
 });

@@ -1,4 +1,5 @@
 export { recognizedAddressMatches } from "./address-match.ts";
+export { cancelLetterBeforeHandover } from "./cancel-before-handover.ts";
 export {
   isFinalLetterState,
   isLetterTransitionAllowed,

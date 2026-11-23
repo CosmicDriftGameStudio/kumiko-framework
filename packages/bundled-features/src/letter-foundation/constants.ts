@@ -171,6 +171,7 @@ export const LetterInternalHandlers = {
   recordRejection: `${LETTER_FEATURE}:write:record-rejection`,
   markSubmissionUnknown: `${LETTER_FEATURE}:write:mark-submission-unknown`,
   requestHandoverRestart: `${LETTER_FEATURE}:write:request-handover-restart`,
+  cancelBeforeHandover: `${LETTER_FEATURE}:write:cancel-before-handover`,
   applyProviderStatus: `${LETTER_FEATURE}:write:apply-provider-status`,
 } as const;
 
@@ -261,6 +262,7 @@ export const LetterErrors = {
   noFiles: "letter_no_files",
   notFound: "letter_not_found",
   notAwaitingApproval: "letter_not_awaiting_approval",
+  monthlyLimitNotCovered: "letter_monthly_limit_not_covered",
   notCancelableHere: "letter_not_cancelable_here",
   cancelAfterAcceptanceUnavailable: "letter_cancel_after_acceptance_unavailable",
   transitionNotAllowed: "letter_transition_not_allowed",
@@ -282,6 +284,7 @@ export const LetterI18n = {
   documentUnreadable: "letter-foundation.errors.documentUnreadable",
   noFiles: "letter-foundation.errors.noFiles",
   notAwaitingApproval: "letter-foundation.errors.notAwaitingApproval",
+  monthlyLimitNotCovered: "letter-foundation.errors.monthlyLimitNotCovered",
   notCancelableHere: "letter-foundation.errors.notCancelableHere",
   cancelAfterAcceptanceUnavailable: "letter-foundation.errors.cancelAfterAcceptanceUnavailable",
   transitionNotAllowed: "letter-foundation.errors.transitionNotAllowed",

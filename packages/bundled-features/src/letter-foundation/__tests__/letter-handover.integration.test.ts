@@ -193,9 +193,12 @@ describe("handover", () => {
     expect(await claimRows(letterId)).toHaveLength(1);
   });
 
-  test("the monthly limit stops the letter before the provider is called", async () => {
+  test("a limit lowered after approval stops the letter before the provider is called", async () => {
+    const { letterId } = await send(await letterInput());
+    await harness.approve(letterId);
     await setLimit(50);
-    const letterId = await handOver();
+    clock().advance({ seconds: 1 });
+    await stack.drainJobs();
     const row = await letterRow(letterId);
     expect(row?.["status"]).toBe(LETTER_STATE.failed);
     expect(row?.["failureReason"]).toBe(LETTER_FAILURE_REASON.monthlyLimit);

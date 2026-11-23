@@ -5,34 +5,30 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { unprocessable } from "../../shared/index.ts";
 import { isAtProviderState, leaveProviderQueue } from "../accept-letter.ts";
 import {
+  cancelBeforeHandoverInFeature,
+  isCancelableBeforeHandover,
+} from "../cancel-before-handover.ts";
+import {
   LETTER_ENTITY,
   LETTER_ROLES,
   LETTER_STATE,
   LetterErrors,
   LetterI18n,
 } from "../constants.ts";
-import { letterExecutor, letterSubmissionTable } from "../entity.ts";
-import { findClaim, releaseReservationAfterCommit } from "../letter-usage.ts";
+import { letterExecutor } from "../entity.ts";
 import { LetterIdSchema } from "../payloads.ts";
 import {
   isForeignProvider,
   providerChangedFailure,
   resolveLetterProviderOrFailure,
 } from "../provider-resolver.ts";
-import { transitionLetter } from "../transitions.ts";
 import type { LetterCancelRefusalReason } from "../types.ts";
-
-type CancelFrom = typeof LETTER_STATE.awaitingApproval | typeof LETTER_STATE.approved;
 
 // askedProvider tells "provider confirmed" from "provider never asked": the handover job may move the
 // letter to the provider between the two phases, and a cancel that skipped the provider must not succeed.
 type CancelPrepared =
   | { readonly askedProvider: false }
   | { readonly askedProvider: true; readonly refusal: LetterCancelRefusalReason | null };
-
-function isCancelableBeforeHandover(status: unknown): status is CancelFrom {
-  return status === LETTER_STATE.awaitingApproval || status === LETTER_STATE.approved;
-}
 
 const REFUSAL_FAILURE: Readonly<
   Record<LetterCancelRefusalReason, { readonly code: string; readonly i18nKey: string }>
@@ -86,19 +82,12 @@ export const cancelHandler = defineWriteHandler({
     const letter = await letterExecutor.detail({ id: event.payload.letterId }, event.user, ctx.db);
     if (letter === null) return failNotFound(LETTER_ENTITY, event.payload.letterId);
     if (isCancelableBeforeHandover(letter.status)) {
-      const moved = await transitionLetter(ctx, event.user, {
-        letterId: letter.id,
-        from: letter.status,
-        to: LETTER_STATE.canceled,
-      });
-      if (!moved.isSuccess) return moved;
-      // A handover run that stopped after taking its reservation leaves the letter in `approved` with a claim.
-      const claim = await findClaim(ctx.db, letter.id);
-      if (claim !== undefined) {
-        releaseReservationAfterCommit(ctx, claim);
-        await ctx.db.deleteMany(letterSubmissionTable, { id: claim.id });
-      }
-      return moved;
+      const canceled = await cancelBeforeHandoverInFeature(ctx, event.user, letter.id);
+      if (!canceled.isSuccess) return canceled;
+      return {
+        isSuccess: true,
+        data: { letterId: letter.id, status: LETTER_STATE.canceled },
+      };
     }
     if (isAtProviderState(letter.status)) {
       const prepared = event.prepared;

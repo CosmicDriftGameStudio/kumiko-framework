@@ -63,11 +63,61 @@ describe("mergePdfs", () => {
       copyPages.mockRestore();
     }
   });
+
+  test("starts each file on a new sheet by adding a blank page after an odd file", async () => {
+    const first = await pdfWith([{ size: [300, 400] }]);
+    const second = await pdfWith([{ size: [100, 200] }, { size: [110, 210] }]);
+
+    const merged = await PDFDocument.load(
+      await mergePdfs([first, second], { startEachFileOnNewSheet: true }),
+    );
+
+    expect(merged.getPages().map((page) => page.getSize())).toEqual([
+      { width: 300, height: 400 },
+      { width: 300, height: 400 },
+      { width: 100, height: 200 },
+      { width: 110, height: 210 },
+    ]);
+    expect(merged.getPage(1).node.Contents()).toBeUndefined();
+  });
+
+  test("joins the files directly without the option", async () => {
+    const merged = await PDFDocument.load(await mergePdfs([await upright(1), await upright(2)]));
+
+    expect(merged.getPageCount()).toBe(3);
+  });
+
+  test("adds no blank page after the last file, even when it is odd", async () => {
+    const merged = await PDFDocument.load(
+      await mergePdfs([await upright(2), await upright(1)], { startEachFileOnNewSheet: true }),
+    );
+
+    expect(merged.getPageCount()).toBe(3);
+  });
+
+  test("counts blank pages towards the page cap", async () => {
+    const sources = [await upright(1), await upright(2)];
+
+    await expect(
+      mergePdfs(sources, { maxPages: 3, startEachFileOnNewSheet: true }),
+    ).rejects.toThrow(PdfPageLimitError);
+  });
 });
 
 describe("checkPostalPdf", () => {
   test("accepts upright A4 and counts the pages of a merged file", async () => {
     const merged = await mergePdfs([await upright(1), await upright(3)]);
+
+    expect(await checkPostalPdf(merged, { maxBytes: MAX_BYTES })).toEqual({
+      ok: true,
+      pageCount: 4,
+    });
+  });
+
+  test("accepts a blank filler page between files", async () => {
+    const merged = await mergePdfs([await upright(1), await upright(2)], {
+      startEachFileOnNewSheet: true,
+    });
 
     expect(await checkPostalPdf(merged, { maxBytes: MAX_BYTES })).toEqual({
       ok: true,

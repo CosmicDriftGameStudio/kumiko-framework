@@ -71,7 +71,8 @@ const result = await sendLetter(ctx, {
 
 `sendLetter` runs in the caller's transaction and always creates a letter in `awaiting-approval`. The
 same `idempotencyKey` returns the same letter with `created: false`. Several `fileRefIds` are merged
-into one PDF in the given order when the letter is approved.
+into one PDF in the given order when the letter is approved. With `duplex`, each file starts on a new sheet:
+after a file with an odd page count the merge adds a blank page, and it counts as a page of the letter.
 
 | Field                  | Meaning                                                                                                       |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -113,7 +114,17 @@ assistant asks before every call.
 
 The config key `monthlyCostLimitCents` holds the limit per tenant in net cents. It is 0 until a
 privileged user sets it, so a new tenant sends nothing. The handover reserves the quoted price against
-the limit; a letter that does not fit fails with `monthly-limit`.
+the limit; a letter that does not fit fails with `monthly-limit`. This reservation is the binding check
+(for example when the limit was lowered after approval).
+
+`approve` and `preview` check the limit early, so an approver learns of a shortfall before the letter is
+released. `usedCents` is the counter of the running month plus the quoted price of every `approved`
+letter, because those are not reserved before their handover. `approve` refuses a letter the limit does
+not cover with `letter_monthly_limit_not_covered` and the letter stays in `awaiting-approval`; the
+operator raises the limit and approves again. The check is not atomic, so two approvals at the same
+moment can both pass. An approved letter whose handover already holds a reservation is counted twice
+until the handover ends, which errs on the cautious side. The preview of an approved letter leaves the
+letter itself out.
 
 Usage is counted in `cap-counter` when the provider accepts the letter, with the price the provider
 charged:
@@ -136,6 +147,10 @@ it posted the letter, never that it arrived.
 
 - `cancel` works without the provider until the handover starts. After acceptance it asks the provider,
   which may refuse (`window_closed`, `already_processed`, `unknown_job`).
+- `cancelLetterBeforeHandover(ctx, letterId)` is for the write handler of another feature. It cancels a letter
+  in `awaiting-approval` or `approved` inside the caller's transaction, without a role check, and returns
+  `canceled: false` for any other state. It runs the handler `cancel-before-handover` as the calling user;
+  that handler is `dispatchOnly`, so no client reaches it over HTTP.
 - `submission-unknown` means the handover timed out and nobody knows whether the provider has the
   letter. The quoted price stays booked against the limit meanwhile. The poll job looks the letter up by
   its reference: a hit accepts it with the real price, a rejection fails it and books the estimate back.

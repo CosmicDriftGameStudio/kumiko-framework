@@ -7,7 +7,7 @@ import { letterDeleteHook, letterExportHook } from "../user-data-hooks.ts";
 import { APPROVER, CLERK, createLetterHarness, SYSTEM_ADMIN, TENANT } from "./letter-harness.ts";
 
 const harness = createLetterHarness();
-const { letterInput, send } = harness;
+const { letterInput, send, setLimit } = harness;
 let stack: TestStack;
 
 beforeAll(async () => {
@@ -55,6 +55,7 @@ describe("letterExportHook", () => {
   });
 
   test("lists a letter once for a user who created and approved it", async () => {
+    await setLimit(100_000);
     const { letterId } = await send(await letterInput(), APPROVER);
     await harness.approve(letterId);
     const snippet = await letterExportHook(hookCtx(APPROVER.id));

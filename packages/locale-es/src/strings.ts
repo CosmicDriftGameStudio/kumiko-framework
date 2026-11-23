@@ -2329,6 +2329,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "El envío de cartas no está configurado en este servidor. Pide al operador que defina el proveedor de cartas.",
   "letter-foundation.errors.noFiles": "La carta no tiene documento.",
   "letter-foundation.errors.notAwaitingApproval": "La carta no está pendiente de aprobación.",
+  "letter-foundation.errors.monthlyLimitNotCovered":
+    "El límite mensual no cubre esta carta. El operador puede aumentar el límite.",
   "letter-foundation.errors.notCancelableHere": "La carta ya no se puede cancelar.",
   "letter-foundation.errors.cancelAfterAcceptanceUnavailable":
     "El proveedor de impresión ya tiene esta carta, por eso no se puede cancelar aquí.",
