@@ -20,6 +20,22 @@
     "export": "configValuesTable"
   },
   {
+    "module": "connectors/schema/connector",
+    "export": "connectorTable"
+  },
+  {
+    "module": "connectors/schema/inbound-folder",
+    "export": "inboundFolderTable"
+  },
+  {
+    "module": "connectors/schema/inbound-item",
+    "export": "inboundItemTable"
+  },
+  {
+    "module": "custom-fields/executor",
+    "export": "fieldDefinitionTable"
+  },
+  {
     "module": "data-retention/schema/tenant-retention-override",
     "export": "tenantRetentionOverrideTable"
   },
@@ -36,8 +52,20 @@
     "export": "notificationPreferencesTable"
   },
   {
+    "module": "document-draft/entity",
+    "export": "documentDraftTable"
+  },
+  {
     "module": "document-ingest-foundation/entity",
     "export": "documentExtractsTable"
+  },
+  {
+    "module": "field-approval/executor",
+    "export": "fieldChangeRequestTable"
+  },
+  {
+    "module": "form-draft/executor",
+    "export": "formDraftTable"
   },
   {
     "module": "helpdesk/entity",
@@ -56,8 +84,32 @@
     "export": "mailAccountsProjectionTable"
   },
   {
+    "module": "ledger/executor",
+    "export": "accountTable"
+  },
+  {
+    "module": "ledger/executor",
+    "export": "scheduleTable"
+  },
+  {
+    "module": "ledger/executor",
+    "export": "transactionTable"
+  },
+  {
+    "module": "letter-foundation/entity",
+    "export": "letterTable"
+  },
+  {
     "module": "managed-pages/table",
     "export": "pagesTable"
+  },
+  {
+    "module": "notes-history/executor",
+    "export": "noteEntryTable"
+  },
+  {
+    "module": "notes-history/executor",
+    "export": "noteMentionTable"
   },
   {
     "module": "readiness/schema/probe-run",
@@ -70,6 +122,14 @@
   {
     "module": "secrets/table",
     "export": "tenantSecretsTable"
+  },
+  {
+    "module": "signature/entity",
+    "export": "signatureRequestTable"
+  },
+  {
+    "module": "signature/entity",
+    "export": "signatureSignerTable"
   },
   {
     "module": "template-resolver/table",
