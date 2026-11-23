@@ -2339,6 +2339,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "mail-foundation.provider.platformDefault": "Plattform-Versand (Standard)",
   "letter-foundation:write:approve:title": "Brief freigeben",
   "letter-foundation:write:approve:field:letterId": "Brief",
+  "letter-foundation:write:approve-many:title": "Mehrere Briefe freigeben",
+  "letter-foundation:write:approve-many:field:letterIds": "Briefe",
   "letter-foundation:write:cancel:title": "Brief stornieren",
   "letter-foundation:write:cancel:field:letterId": "Brief",
   "letter-foundation:write:resolve-unknown:title": "Unklare Übergabe abschließen",

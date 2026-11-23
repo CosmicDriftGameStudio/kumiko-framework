@@ -10,6 +10,8 @@ export const letterEnCatalog: Readonly<Record<string, string>> = {
   "audit.log.event.letter-returned": "Letter returned",
   "letter-foundation:write:approve:title": "Approve letter",
   "letter-foundation:write:approve:field:letterId": "Letter",
+  "letter-foundation:write:approve-many:title": "Approve several letters",
+  "letter-foundation:write:approve-many:field:letterIds": "Letters",
   "letter-foundation:write:cancel:title": "Cancel letter",
   "letter-foundation:write:cancel:field:letterId": "Letter",
   "letter-foundation:write:resolve-unknown:title": "Close unclear handover",

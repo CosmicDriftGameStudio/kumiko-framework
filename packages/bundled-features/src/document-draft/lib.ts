@@ -46,6 +46,17 @@ export function draftNotFound(id?: string) {
   return writeFailure(new NotFoundError(DOCUMENT_DRAFT_ENTITY, id));
 }
 
+/** The role rule of the subject type and the user's read access to the subject itself; a miss is reported as not found. */
+export async function subjectIsReachable(
+  ctx: Pick<HandlerContext, "db" | "registry">,
+  user: SessionUser,
+  subject: { readonly subjectType: string; readonly subjectId: string },
+  subjectAccess: SubjectAccess,
+): Promise<boolean> {
+  if (!subjectRoleAllows(subjectAccess, user, subject.subjectType)) return false;
+  return joinRowParentIsVisible(ctx.registry, DOCUMENT_DRAFT_ENTITY, subject, user, ctx.db);
+}
+
 // A draft of another tenant, an unknown id, a subject the user may not read and a subject type whose role rule they miss all answer the same.
 export async function loadScopedDraft(
   documentDraftExecutor: DocumentDraftExecutor,

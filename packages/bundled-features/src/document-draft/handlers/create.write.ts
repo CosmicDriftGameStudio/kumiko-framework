@@ -4,7 +4,6 @@ import {
   ValidationError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { joinRowParentIsVisible } from "../../shared/index.ts";
 import {
   createTemplateResolverApi,
   documentViolationsToFieldIssues,
@@ -15,10 +14,9 @@ import {
   VARIANT_UNKNOWN_REASON,
 } from "../../template-resolver/index.ts";
 import type { DocumentDraftExecutor } from "../entity.ts";
-import { draftNotFound, type SubjectAccess, subjectRoleAllows } from "../lib.ts";
+import { draftNotFound, type SubjectAccess, subjectIsReachable } from "../lib.ts";
 import { createDraftSchema } from "../payloads.ts";
 import {
-  DOCUMENT_DRAFT_ENTITY,
   DOCUMENT_DRAFT_ERROR,
   DOCUMENT_DRAFT_LAST_CHANGE_SOURCE,
   DOCUMENT_DRAFT_STATUS,
@@ -43,15 +41,9 @@ export function createCreateHandler(
     handler: async (event, ctx) => {
       const { subjectType, subjectId, templateSlug, variant, locale, variables } = event.payload;
       const user = event.user;
-      if (!subjectRoleAllows(subjectAccess, user, subjectType)) return draftNotFound();
-      const subjectIsVisible = await joinRowParentIsVisible(
-        ctx.registry,
-        DOCUMENT_DRAFT_ENTITY,
-        { subjectType, subjectId },
-        user,
-        ctx.db,
-      );
-      if (!subjectIsVisible) return draftNotFound();
+      if (!(await subjectIsReachable(ctx, user, { subjectType, subjectId }, subjectAccess))) {
+        return draftNotFound();
+      }
       if (variant !== undefined && !isVariantSlugOf(variant, templateSlug)) {
         return variantUnknown(variant);
       }

@@ -1099,11 +1099,8 @@ export type FormProps = {
   /** Titled sections for the "on this page" navigation next to a
    *  `screenForm`. The web impl shows it only with three or more entries. */
   readonly sectionNav?: readonly FormSectionNavItem[];
-  /** Leading column next to the scroll surface of a `screenForm` (wizard step
-   *  navigation). */
+  /** Columns of a `screenForm`: `sideRail` leads (wizard step navigation), `sidebar` follows from `xl` and replaces the section navigation. */
   readonly sideRail?: ReactNode;
-  /** `screenForm` only: right column from `xl` (replaces the section
-   *  navigation), stacked under the form column below `xl`. */
   readonly sidebar?: ReactNode;
 };
 

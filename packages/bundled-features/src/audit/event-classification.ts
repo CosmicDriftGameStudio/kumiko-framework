@@ -29,6 +29,7 @@ export const AUDIT_EVENT_STANCES: Readonly<Record<string, AuditEventStance>> = {
   "tenant-lifecycle:event:tenant-destruction-stage-progressed": TECHNICAL_EVENT,
   "tenant-lifecycle:event:tenant-destruction-stage-failed": TECHNICAL_EVENT,
   "tenant-lifecycle:event:tenant-destruction-stage-abandoned": TECHNICAL_EVENT,
+  "letter-foundation:event:created": TECHNICAL_EVENT,
   "letter-foundation:event:submitting": TECHNICAL_EVENT,
   "letter-foundation:event:accepted": TECHNICAL_EVENT,
   "letter-foundation:event:handover-restart-requested": TECHNICAL_EVENT,

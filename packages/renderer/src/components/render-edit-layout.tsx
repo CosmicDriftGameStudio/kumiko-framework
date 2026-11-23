@@ -116,18 +116,26 @@ function showsSubtitleUnderTitle<TValues extends FormValues, TCtx>(
   return !titles.stepRail && !titles.titleInSettingsHeader && !showsIntroBox(model);
 }
 
+function showsFormTitle<TValues extends FormValues, TCtx>(
+  model: RenderEditModel<TValues, TCtx>,
+): boolean {
+  const { titles } = model;
+  return (
+    model.engine.props.hideSectionTitles !== true &&
+    !model.layout.titleInShell &&
+    !titles.titleInSettingsHeader &&
+    !titles.titleInHeaderRegion
+  );
+}
+
 function buildFormHeadingProps<TValues extends FormValues, TCtx>(
   model: RenderEditModel<TValues, TCtx>,
 ) {
-  const { props } = model.engine;
   const { layout, footer, titles } = model;
   const { unsavedCount, hasDirtyFooter } = footer;
   const sidebar = layout.isScreenForm ? renderSidebarSlot(model) : undefined;
   return {
-    ...(props.hideSectionTitles !== true &&
-      !layout.titleInShell &&
-      !titles.titleInSettingsHeader &&
-      !titles.titleInHeaderRegion && { title: titles.formTitle }),
+    ...(showsFormTitle(model) && { title: titles.formTitle }),
     ...(titles.formSubtitle !== undefined &&
       showsSubtitleUnderTitle(model) && { subtitle: titles.formSubtitle }),
     ...(layout.isScreenForm && { screenForm: true }),

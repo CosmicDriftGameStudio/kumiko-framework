@@ -2317,6 +2317,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "mail-foundation.provider.platformDefault": "Invio dalla piattaforma (predefinito)",
   "letter-foundation:write:approve:title": "Approva lettera",
   "letter-foundation:write:approve:field:letterId": "Lettera",
+  "letter-foundation:write:approve-many:title": "Approva più lettere",
+  "letter-foundation:write:approve-many:field:letterIds": "Lettere",
   "letter-foundation:write:cancel:title": "Annulla lettera",
   "letter-foundation:write:cancel:field:letterId": "Lettera",
   "letter-foundation:write:resolve-unknown:title": "Chiudi consegna poco chiara",

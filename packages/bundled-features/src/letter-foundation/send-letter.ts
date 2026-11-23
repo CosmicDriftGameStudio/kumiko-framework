@@ -55,6 +55,40 @@ function refusedByProvider(
   return undefined;
 }
 
+function newLetterOf(
+  createdBy: string,
+  input: SendLetterInput,
+  envelope: LetterEnvelope,
+  approval: LetterApprovalMode,
+): Parameters<typeof letterExecutor.create>[0] {
+  const recipient = input.expectedRecipient;
+  return {
+    status: LETTER_STATE.awaitingApproval,
+    approvalMode: approval,
+    idempotencyKey: input.idempotencyKey,
+    sourceEntityType: input.source.entityType,
+    sourceEntityId: input.source.entityId,
+    createdBy,
+    fileRefIds: input.fileRefIds,
+    shippingMode: input.shippingMode,
+    envelope,
+    color: input.color,
+    duplex: input.duplex,
+    formRequirement: input.formRequirement,
+    formRiskAcknowledged: input.formRiskAcknowledged ?? false,
+    recipientName: recipient.name,
+    recipientStreet: recipient.street,
+    recipientHouseNumber: recipient.houseNumber,
+    recipientPostalCode: recipient.postalCode,
+    recipientCity: recipient.city,
+    ...(recipient.addressExtra !== undefined && { recipientAddressExtra: recipient.addressExtra }),
+    ...(input.costCenterRef !== undefined && { costCenterRef: input.costCenterRef }),
+    ...(input.latestReceiptDate !== undefined && {
+      latestReceiptDate: Temporal.PlainDate.from(input.latestReceiptDate),
+    }),
+  };
+}
+
 /**
  * Creates a letter that waits for approval. It is released by a person with the approve right,
  * or, with `options.approval: "auto"`, by the preparation job once the letter is prepared and the
@@ -80,35 +114,8 @@ export async function sendLetter(
   const known = await findLetterByKey(ctx, input.idempotencyKey);
   if (known !== undefined) return { isSuccess: true, data: { letterId: known, created: false } };
 
-  const recipient = input.expectedRecipient;
   const created = await letterExecutor.create(
-    {
-      status: LETTER_STATE.awaitingApproval,
-      approvalMode: options.approval ?? "manual",
-      idempotencyKey: input.idempotencyKey,
-      sourceEntityType: input.source.entityType,
-      sourceEntityId: input.source.entityId,
-      createdBy: ctx.user.id,
-      fileRefIds: input.fileRefIds,
-      shippingMode: input.shippingMode,
-      envelope,
-      color: input.color,
-      duplex: input.duplex,
-      formRequirement: input.formRequirement,
-      formRiskAcknowledged: input.formRiskAcknowledged ?? false,
-      recipientName: recipient.name,
-      recipientStreet: recipient.street,
-      recipientHouseNumber: recipient.houseNumber,
-      recipientPostalCode: recipient.postalCode,
-      recipientCity: recipient.city,
-      ...(recipient.addressExtra !== undefined && {
-        recipientAddressExtra: recipient.addressExtra,
-      }),
-      ...(input.costCenterRef !== undefined && { costCenterRef: input.costCenterRef }),
-      ...(input.latestReceiptDate !== undefined && {
-        latestReceiptDate: Temporal.PlainDate.from(input.latestReceiptDate),
-      }),
-    },
+    newLetterOf(ctx.user.id, input, envelope, options.approval ?? "manual"),
     ctx.user,
     ctx.db,
   );

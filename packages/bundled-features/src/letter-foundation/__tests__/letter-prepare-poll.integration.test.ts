@@ -49,9 +49,9 @@ describe("poll of letters the prepare job missed", () => {
     stack.clock.set(earliest.add({ milliseconds: slotsToWait * POLL_SLOT_MS }));
     await harness.runJobWithoutEventDelivery(LetterJobs.poll);
 
-    expect((await letterRow(missed))?.["mergedFileRefId"]).toBeTruthy();
+    expect(typeof (await letterRow(missed))?.["mergedFileRefId"]).toBe("string");
     for (const letterId of preparedIds) {
-      expect((await letterRow(letterId))?.["mergedFileRefId"]).toBeTruthy();
+      expect(typeof (await letterRow(letterId))?.["mergedFileRefId"]).toBe("string");
     }
   });
 });

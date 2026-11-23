@@ -167,6 +167,11 @@ function EmbeddedFormLayout({
   );
 }
 
+function FormSidebarColumn({ sidebar }: { readonly sidebar: ReactNode }): ReactNode {
+  if (sidebar === undefined) return null;
+  return <aside className="min-w-0 flex-1 self-start xl:sticky xl:top-0">{sidebar}</aside>;
+}
+
 export function DefaultForm({
   onSubmit,
   focusFirstErrorKey,
@@ -335,14 +340,7 @@ export function DefaultForm({
                 <FormSummaryBox summary={summary} testId={testId} />
                 {sections}
               </div>
-              {hasSidebar && (
-                <aside
-                  data-testid={testId !== undefined ? `${testId}-sidebar` : undefined}
-                  className="min-w-0 flex-1 self-start xl:sticky xl:top-0"
-                >
-                  {sidebar}
-                </aside>
-              )}
+              <FormSidebarColumn sidebar={sidebar} />
               {showsSectionNav && <FormSectionNav items={sectionNav} />}
             </div>
           </div>

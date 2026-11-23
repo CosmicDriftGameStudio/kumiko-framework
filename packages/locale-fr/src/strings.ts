@@ -2342,6 +2342,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "mail-foundation.provider.platformDefault": "Envoi par la plateforme (par défaut)",
   "letter-foundation:write:approve:title": "Approuver la lettre",
   "letter-foundation:write:approve:field:letterId": "Lettre",
+  "letter-foundation:write:approve-many:title": "Approuver plusieurs lettres",
+  "letter-foundation:write:approve-many:field:letterIds": "Lettres",
   "letter-foundation:write:cancel:title": "Annuler la lettre",
   "letter-foundation:write:cancel:field:letterId": "Lettre",
   "letter-foundation:write:resolve-unknown:title": "Clore la remise incertaine",

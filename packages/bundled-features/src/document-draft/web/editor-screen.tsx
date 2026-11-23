@@ -2,6 +2,7 @@ import {
   dispatcherErrorTextWithFieldIssues,
   navigateToReturn,
   PreviewPane,
+  type ScreenTarget,
   statusToneForOptionTone,
   useMutation,
   useNav,
@@ -234,6 +235,64 @@ function DraftRail({
   );
 }
 
+// A draft the app prints itself cannot be finalized, so the action is left out.
+function FinalizeAction({
+  finalizable,
+  dirty,
+  busy,
+  pending,
+  onFinalize,
+}: {
+  readonly finalizable: boolean;
+  readonly dirty: boolean;
+  readonly busy: boolean;
+  readonly pending: boolean;
+  readonly onFinalize: () => void;
+}): ReactNode {
+  const t = useTranslation();
+  const { Button } = usePrimitives();
+  if (!finalizable) return null;
+  return (
+    <>
+      <Button
+        variant="primary"
+        width="full"
+        disabled={dirty || busy}
+        loading={pending}
+        onClick={onFinalize}
+        testId={`${TEST_ID}-finalize`}
+      >
+        {t("document-draft:editor.finalize")}
+      </Button>
+      {dirty && <RailRow label={t("document-draft:editor.finalizeNeedsSave")} />}
+    </>
+  );
+}
+
+function BackAction({
+  target,
+  busy,
+}: {
+  readonly target: ScreenTarget | undefined;
+  readonly busy: boolean;
+}): ReactNode {
+  const t = useTranslation();
+  const { Button } = usePrimitives();
+  const nav = useNav();
+  if (target === undefined) return null;
+  return (
+    <Button
+      variant="secondary"
+      width="full"
+      disabled={busy}
+      onClick={() => navigateToReturn(nav, target)}
+      testId={`${TEST_ID}-back`}
+    >
+      {t("document-draft:editor.back")}
+    </Button>
+  );
+}
+
 function DraftEditor({
   record,
   onChanged,
@@ -319,21 +378,13 @@ function DraftEditor({
       <RailField>
         {open ? (
           <>
-            {record.finalizable && (
-              <>
-                <Button
-                  variant="primary"
-                  width="full"
-                  disabled={dirty || busy}
-                  loading={finalize.pending}
-                  onClick={onFinalize}
-                  testId={`${TEST_ID}-finalize`}
-                >
-                  {t("document-draft:editor.finalize")}
-                </Button>
-                {dirty && <RailRow label={t("document-draft:editor.finalizeNeedsSave")} />}
-              </>
-            )}
+            <FinalizeAction
+              finalizable={record.finalizable}
+              dirty={dirty}
+              busy={busy}
+              pending={finalize.pending}
+              onFinalize={onFinalize}
+            />
             <Button
               variant="danger-ghost"
               width="full"
@@ -357,17 +408,7 @@ function DraftEditor({
             {t("document-draft:editor.revise")}
           </Button>
         )}
-        {returnTarget !== undefined && (
-          <Button
-            variant="secondary"
-            width="full"
-            disabled={busy}
-            onClick={() => navigateToReturn(nav, returnTarget)}
-            testId={`${TEST_ID}-back`}
-          >
-            {t("document-draft:editor.back")}
-          </Button>
-        )}
+        <BackAction target={returnTarget} busy={busy} />
       </RailField>
     </RailSection>
   );

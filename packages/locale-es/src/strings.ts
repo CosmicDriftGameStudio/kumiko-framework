@@ -2312,6 +2312,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "mail-foundation.provider.platformDefault": "Envío de la plataforma (predeterminado)",
   "letter-foundation:write:approve:title": "Aprobar carta",
   "letter-foundation:write:approve:field:letterId": "Carta",
+  "letter-foundation:write:approve-many:title": "Aprobar varias cartas",
+  "letter-foundation:write:approve-many:field:letterIds": "Cartas",
   "letter-foundation:write:cancel:title": "Cancelar carta",
   "letter-foundation:write:cancel:field:letterId": "Carta",
   "letter-foundation:write:resolve-unknown:title": "Cerrar entrega poco clara",

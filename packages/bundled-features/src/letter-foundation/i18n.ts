@@ -4,6 +4,8 @@ import { LETTER_PROVIDER_NOT_CONFIGURED } from "./provider-resolver.ts";
 export const LETTER_FOUNDATION_I18N = {
   "letter-foundation:write:approve:title": { en: "Approve letter" },
   "letter-foundation:write:approve:field:letterId": { en: "Letter" },
+  "letter-foundation:write:approve-many:title": { en: "Approve several letters" },
+  "letter-foundation:write:approve-many:field:letterIds": { en: "Letters" },
   "letter-foundation:write:cancel:title": { en: "Cancel letter" },
   "letter-foundation:write:cancel:field:letterId": { en: "Letter" },
   "letter-foundation:write:resolve-unknown:title": { en: "Close unclear handover" },

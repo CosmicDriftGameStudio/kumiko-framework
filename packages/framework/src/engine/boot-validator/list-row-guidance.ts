@@ -151,6 +151,26 @@ function validateButtonColumn(where: string, column: ListColumn, kind: GuidanceL
   }
 }
 
+function validateEmptyState(where: string, ref: NamedListFilterRef): void {
+  const { emptyState } = ref;
+  if (emptyState === undefined) return;
+  if (emptyState.title.trim().length === 0) {
+    throw bootRuleError(NAMED_FILTER_RULES.emptyStateTitleEmpty, {
+      message: `${where} namedFilters "${ref.id}" sets emptyState with an empty title. Name the i18n key or remove emptyState.`,
+    });
+  }
+  if (emptyState.paramsQuery !== undefined && emptyState.paramsQuery.trim().length === 0) {
+    throw bootRuleError(NAMED_FILTER_RULES.emptyStateParamsQueryEmpty, {
+      message: `${where} namedFilters "${ref.id}" sets emptyState.paramsQuery to an empty string. Name the query or remove paramsQuery.`,
+    });
+  }
+  if (emptyState.paramsQuery !== undefined && emptyState.description === undefined) {
+    throw bootRuleError(NAMED_FILTER_RULES.emptyStateParamsQueryWithoutDescription, {
+      message: `${where} namedFilters "${ref.id}" sets emptyState.paramsQuery without a description — the params only feed the description. Set description or remove paramsQuery.`,
+    });
+  }
+}
+
 function validateNamedFilterOptions(where: string, screen: RowGuidanceScreen): void {
   if (screen.namedFilterFacet !== undefined && (screen.namedFilters ?? []).length === 0) {
     throw bootRuleError(NAMED_FILTER_RULES.facetWithoutFilters, {
@@ -165,25 +185,7 @@ function validateNamedFilterOptions(where: string, screen: RowGuidanceScreen): v
       message: `${where} sets defaultNamedFilter "${screen.defaultNamedFilter}" which is not one of its namedFilters. Name an id from namedFilters or remove defaultNamedFilter.`,
     });
   }
-  for (const ref of screen.namedFilters ?? []) {
-    const { emptyState } = ref;
-    if (emptyState === undefined) continue;
-    if (emptyState.title.trim().length === 0) {
-      throw bootRuleError(NAMED_FILTER_RULES.emptyStateTitleEmpty, {
-        message: `${where} namedFilters "${ref.id}" sets emptyState with an empty title. Name the i18n key or remove emptyState.`,
-      });
-    }
-    if (emptyState.paramsQuery !== undefined && emptyState.paramsQuery.trim().length === 0) {
-      throw bootRuleError(NAMED_FILTER_RULES.emptyStateParamsQueryEmpty, {
-        message: `${where} namedFilters "${ref.id}" sets emptyState.paramsQuery to an empty string. Name the query or remove paramsQuery.`,
-      });
-    }
-    if (emptyState.paramsQuery !== undefined && emptyState.description === undefined) {
-      throw bootRuleError(NAMED_FILTER_RULES.emptyStateParamsQueryWithoutDescription, {
-        message: `${where} namedFilters "${ref.id}" sets emptyState.paramsQuery without a description — the params only feed the description. Set description or remove paramsQuery.`,
-      });
-    }
-  }
+  for (const ref of screen.namedFilters ?? []) validateEmptyState(where, ref);
 }
 
 type GuidanceListKind = "entityList" | "projectionList" | "dashboard" | "relatedList";
