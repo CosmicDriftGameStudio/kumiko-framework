@@ -50,6 +50,37 @@ describe("collectEsTables", () => {
     expect(ids[0]).toContain("fooTable");
   });
 
+  test("finds the table destructured from createEntityExecutor, renamed or not", () => {
+    const project = makeProject({
+      "/repo/foo.ts": `
+        declare const e: unknown;
+        declare function createEntityExecutor(e: unknown): { executor: unknown; table: unknown };
+        export const { executor: fooExecutor, table: fooTable } = createEntityExecutor(e);
+        export const { table: barTable } = createEntityExecutor(e);
+        export const { table } = createEntityExecutor(e);
+        export const whole = createEntityExecutor(e);
+      `,
+    });
+    const names = [...collectEsTables(project.getSourceFiles())].map((id) => id.split("::")[1]);
+    expect(names.sort()).toEqual(["barTable", "fooTable"]);
+  });
+
+  test("a catalog lists a table that is exported through destructuring", () => {
+    const files = {
+      "/repo/pkg/package.json": "{}",
+      "/repo/pkg/src/foo.ts": `
+        declare const e: unknown;
+        declare function createEntityExecutor(e: unknown): { executor: unknown; table: unknown };
+        export const { executor: fooExecutor, table: fooTable } = createEntityExecutor(e);
+      `,
+    };
+    const project = makeProject(files);
+    const host = project.getFileSystem();
+    for (const [file, text] of Object.entries(files)) host.writeFileSync(file, text);
+    guard.writeBaseline?.(project.getSourceFiles());
+    expect(host.readFileSync("/repo/pkg/kumiko-es-tables.json")).toContain('"fooTable"');
+  });
+
   test("ignores calls that are not createEventStoreExecutor", () => {
     const project = makeProject({
       "/repo/foo.ts": `

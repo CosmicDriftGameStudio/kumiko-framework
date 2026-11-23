@@ -146,15 +146,34 @@ function declIdOf(id: Identifier): TableId | undefined {
   return `${first.getSourceFile().getFilePath()}::${name}`;
 }
 
+// The `table` binding of `const { executor, table: fooTable } = createEntityExecutor(entity)`.
+function entityExecutorTableBinding(call: CallExpression): Identifier | undefined {
+  const declaration = call.getParentIfKind(SyntaxKind.VariableDeclaration);
+  const pattern = declaration?.getNameNode();
+  if (!pattern || !Node.isObjectBindingPattern(pattern)) return undefined;
+  const element = pattern
+    .getElements()
+    .find((el) => (el.getPropertyNameNode() ?? el.getNameNode()).getText() === "table");
+  const nameNode = element?.getNameNode();
+  return nameNode && Node.isIdentifier(nameNode) ? nameNode : undefined;
+}
+
 export function collectEsTables(files: readonly SourceFile[]): Set<TableId> {
   const tables = new Set<TableId>();
   for (const sf of files) {
-    if (!sf.getFullText().includes("createEventStoreExecutor")) continue;
+    const text = sf.getFullText();
+    if (!text.includes("createEventStoreExecutor") && !text.includes("createEntityExecutor")) {
+      continue;
+    }
     for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-      const expr = call.getExpression();
-      if (expr.getText() !== "createEventStoreExecutor") continue;
-      const firstArg = call.getArguments()[0];
-      const id = firstArg && unwrapTableExpression(firstArg).asKind(SyntaxKind.Identifier);
+      const callee = call.getExpression().getText();
+      let id: Identifier | undefined;
+      if (callee === "createEventStoreExecutor") {
+        const firstArg = call.getArguments()[0];
+        id = firstArg && unwrapTableExpression(firstArg).asKind(SyntaxKind.Identifier);
+      } else if (callee === "createEntityExecutor") {
+        id = entityExecutorTableBinding(call);
+      }
       if (!id) continue;
 
       // Repo convention: projection-tables follow `<name>Table`. Secondary
@@ -576,6 +595,20 @@ function isPublishedPackage(host: FileSystemHost, packageRoot: string): boolean 
   }
 }
 
+// `export const { executor, table: fooTable } = createEntityExecutor(...)` exports the table without a declaration of its own name.
+function isExportedVariable(sourceFile: SourceFile | undefined, name: string): boolean {
+  if (sourceFile === undefined) return false;
+  if (sourceFile.getVariableDeclaration(name)?.isExported()) return true;
+  return sourceFile.getVariableDeclarations().some((declaration) => {
+    const nameNode = declaration.getNameNode();
+    return (
+      declaration.isExported() &&
+      Node.isObjectBindingPattern(nameNode) &&
+      nameNode.getElements().some((element) => element.getName() === name)
+    );
+  });
+}
+
 // Owner side: the exported scope ES tables of every published package, grouped by package root.
 function deriveCatalogs(
   files: readonly SourceFile[],
@@ -592,7 +625,7 @@ function deriveCatalogs(
     const filePath = tableIdFilePath(tableId);
     if (!scopePaths.has(filePath) || EXCLUDE.test(filePath)) continue;
     const name = tableIdName(tableId);
-    if (!project.getSourceFile(filePath)?.getVariableDeclaration(name)?.isExported()) continue;
+    if (!isExportedVariable(project.getSourceFile(filePath), name)) continue;
     const root = packageRootOf(host, filePath);
     if (root === undefined) continue;
     let published = publishedByRoot.get(root);
