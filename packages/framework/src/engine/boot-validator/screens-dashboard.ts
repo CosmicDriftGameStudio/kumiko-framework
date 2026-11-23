@@ -666,7 +666,7 @@ const BAR_BOOLEAN_OPTIONS = [
   "labelEveryBucket",
 ] as const;
 
-function validateBarChartOptions(where: string, panel: DashboardChartPanel): void {
+function misplacedBarOptions(panel: DashboardChartPanel): string[] {
   const misplaced: string[] = [];
   if (panel.chart !== "stacked-bars") {
     misplaced.push(...BAR_ONLY_OPTIONS.filter((prop) => panel[prop] !== undefined));
@@ -678,24 +678,24 @@ function validateBarChartOptions(where: string, panel: DashboardChartPanel): voi
   if (panel.singleTone !== undefined && panel.chart !== "segment-bars") {
     misplaced.push("singleTone");
   }
-  if (
-    panel.singleTone !== undefined &&
-    (panel.seriesTones !== undefined || panel.seriesColors !== undefined)
-  ) {
+  return misplaced;
+}
+
+function validateSingleTone(where: string, panel: DashboardChartPanel): void {
+  if (panel.singleTone === undefined) return;
+  if (panel.seriesTones !== undefined || panel.seriesColors !== undefined) {
     throw bootRuleError(DASHBOARD_CHART_RULES.chartSingleToneConflict, {
       message: `${where} sets singleTone together with seriesTones or seriesColors. Use singleTone alone, or name the keys with seriesTones/seriesColors.`,
     });
   }
-  if (panel.singleTone !== undefined && !isOneOf(DASHBOARD_CHART_TONES, panel.singleTone)) {
+  if (!isOneOf(DASHBOARD_CHART_TONES, panel.singleTone)) {
     throw bootRuleError(DASHBOARD_CHART_RULES.chartBarOptionValueInvalid, {
       message: `${where} has an invalid singleTone. Use positive, negative, active or neutral.`,
     });
   }
-  if (misplaced.length > 0) {
-    throw bootRuleError(DASHBOARD_CHART_RULES.chartBarOptionKindMismatch, {
-      message: `${where} sets ${misplaced.join(", ")} on chart "${panel.chart}" — the option belongs to another chart kind (see the option's doc). Remove it or change the chart kind.`,
-    });
-  }
+}
+
+function validateBarOptionValues(where: string, panel: DashboardChartPanel): void {
   const nonBoolean = BAR_BOOLEAN_OPTIONS.find(
     (prop) => panel[prop] !== undefined && typeof panel[prop] !== "boolean",
   );
@@ -708,6 +708,17 @@ function validateBarChartOptions(where: string, panel: DashboardChartPanel): voi
       message: `${where} has an invalid bar chart option (${nonBoolean ?? (invalidLabel ? "lastBucketLabel" : "layout")}). Use true or false, lastBucketLabel "today" or "date", layout "rows".`,
     });
   }
+}
+
+function validateBarChartOptions(where: string, panel: DashboardChartPanel): void {
+  const misplaced = misplacedBarOptions(panel);
+  validateSingleTone(where, panel);
+  if (misplaced.length > 0) {
+    throw bootRuleError(DASHBOARD_CHART_RULES.chartBarOptionKindMismatch, {
+      message: `${where} sets ${misplaced.join(", ")} on chart "${panel.chart}" — the option belongs to another chart kind (see the option's doc). Remove it or change the chart kind.`,
+    });
+  }
+  validateBarOptionValues(where, panel);
 }
 
 function validateStackedAreaEnumProp(

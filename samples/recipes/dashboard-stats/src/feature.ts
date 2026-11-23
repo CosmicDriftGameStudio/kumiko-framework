@@ -15,6 +15,7 @@ import { ticketRecentQuery } from "./handlers/ticket-recent.query";
 import { ticketRowsQuery } from "./handlers/ticket-rows.query";
 import { ticketStatsQuery } from "./handlers/ticket-stats.query";
 import { ticketEntity } from "./schema/ticket";
+import { createTicketDesignScreen } from "./screens";
 
 export { TICKET_STATUSES, ticketEntity } from "./schema/ticket";
 
@@ -177,78 +178,7 @@ export const ticketFeature = defineFeature("tickets", (r) => {
     access: readerRoles,
   });
 
-  // Design options: all opt-in, a dashboard without them renders as before.
-  r.screen({
-    id: "ticket-design",
-    type: "dashboard",
-    // The screen title (`screen:ticket-design.title`) as page heading, the subtitle from the query below it.
-    showTitle: true,
-    headerSubtitle: { query: TICKET_DESIGN_QUERY, field: "subtitle" },
-    layout: "main-side",
-    // Side column two fifths wide instead of one third.
-    sideWidth: "wide",
-    panels: [
-      {
-        // Separate cards without the outer frame; the sub line takes its tone from the answer.
-        kind: "stat-group",
-        id: "kpis",
-        framed: false,
-        layout: "cards",
-        column: "top",
-        stats: [
-          {
-            kind: "stat",
-            id: "opened",
-            label: "tickets.design.opened",
-            query: TICKET_DESIGN_QUERY,
-            resultField: "kpis",
-            valueField: "opened",
-            subField: "openedSub",
-            subToneField: "openedSubTone",
-          },
-          {
-            kind: "stat",
-            id: "escalated",
-            label: "tickets.design.escalated",
-            query: TICKET_DESIGN_QUERY,
-            resultField: "kpis",
-            valueField: "escalated",
-            subField: "escalatedSub",
-            subToneField: "escalatedSubTone",
-          },
-        ],
-      },
-      {
-        kind: "chart",
-        id: "weekly",
-        label: "tickets.design.weekly",
-        chart: "stacked-bars",
-        query: TICKET_DESIGN_QUERY,
-        resultField: "weekly",
-        seriesTones: { opened: "active" },
-        barValueLabels: true,
-        highlightLast: true,
-        hideYAxis: true,
-        hideLegend: true,
-        labelEveryBucket: true,
-        lastBucketLabel: "date",
-      },
-      {
-        kind: "chart",
-        id: "by-team",
-        label: "tickets.design.by-team",
-        chart: "segment-bars",
-        query: TICKET_DESIGN_QUERY,
-        resultField: "byTeam",
-        column: "side",
-        // One line per row; every segment in one tone, for segment keys the screen cannot name.
-        layout: "rows",
-        singleTone: "active",
-        hideLegend: true,
-      },
-    ],
-    access: readerRoles,
-  });
+  r.screen(createTicketDesignScreen(TICKET_DESIGN_QUERY));
 
   // Three additions: a projectionDetail embedded in a record-bound dashboard, a gated toolbar
   // button, and a fallback chosen by reason.

@@ -118,10 +118,10 @@ export function renderPageHeaderSlot(
   const { recordTitle, screenTitle, scopeBadge, usesPageHeaderSlot } = model;
   // The stamp is hidden below sm; counting it there would leave an empty header bar.
   const dateStamp = usesPageHeaderSlot && !model.belowSm ? renderDateStamp(model) : null;
+  const hasStatus = badgeInHeader || dateStamp !== null;
   const showPageHeader =
     usesPageHeaderSlot &&
-    (badgeInHeader ||
-      dateStamp !== null ||
+    (hasStatus ||
       recordTitle !== undefined ||
       screenTitle !== undefined ||
       headerActionsBar !== null);
@@ -130,7 +130,7 @@ export function renderPageHeaderSlot(
       <PageHeader
         {...(screenTitle !== undefined && { bodyTitle: true })}
         {...(recordTitle !== undefined && { title: recordTitle })}
-        {...((badgeInHeader || dateStamp !== null) && {
+        {...(hasStatus && {
           status: (
             <>
               {badgeInHeader && scopeBadge}

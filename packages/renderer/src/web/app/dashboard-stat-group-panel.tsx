@@ -259,7 +259,6 @@ export function StatGroupPanelBody(props: StatGroupProps): ReactNode {
   const unframed = panel.framed === false;
   const cells = (
     <section
-      {...(unframed && { "data-testid": `dashboard-panel-${panel.id}` })}
       className={
         panel.columns === undefined
           ? STAT_CARD_GRID_CLASSES

@@ -624,10 +624,7 @@ export function StackedBarChart({
                     }}
                   >
                     {valueLabels && total > 0 && (
-                      <span
-                        data-testid="chart-bar-value"
-                        className="absolute bottom-full left-1/2 -translate-x-1/2 whitespace-nowrap pb-0.5 text-[11px] tabular-nums text-foreground"
-                      >
+                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 whitespace-nowrap pb-0.5 text-[11px] tabular-nums text-foreground">
                         {formatValueLabel(total)}
                       </span>
                     )}

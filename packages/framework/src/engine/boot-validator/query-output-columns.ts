@@ -503,38 +503,47 @@ function checkDashboardOutputFields(
     );
   }
   for (const panel of screen.panels) {
-    if (panel.kind !== "custom") {
-      checkVisibleWhenField(
-        queryHandlers,
-        panel.visibleWhen,
-        `[Feature ${featureName}] Screen "${screenId}" (dashboard) ${panel.kind === "screen" ? "screen-panel" : "panel"} "${panel.id}"`,
-      );
+    checkDashboardPanelOutputFields(queryHandlers, featureName, screenId, panel);
+  }
+}
+
+function checkDashboardPanelOutputFields(
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+  featureName: string,
+  screenId: string,
+  panel: DashboardScreenDefinition["panels"][number],
+): void {
+  if (panel.kind !== "custom") {
+    checkVisibleWhenField(
+      queryHandlers,
+      panel.visibleWhen,
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) ${panel.kind === "screen" ? "screen-panel" : "panel"} "${panel.id}"`,
+    );
+  }
+  if (panel.kind === "stat") {
+    checkDashboardStatPanelFields(queryHandlers, featureName, screenId, panel);
+  } else if (panel.kind === "stat-group") {
+    for (const stat of panel.stats) {
+      checkDashboardStatPanelFields(queryHandlers, featureName, screenId, stat);
     }
-    if (panel.kind === "stat") {
-      checkDashboardStatPanelFields(queryHandlers, featureName, screenId, panel);
-    } else if (panel.kind === "stat-group") {
-      for (const stat of panel.stats) {
-        checkDashboardStatPanelFields(queryHandlers, featureName, screenId, stat);
-      }
-    } else if (panel.kind === "list") {
-      checkDashboardListPanelFields(queryHandlers, featureName, screenId, panel);
-    } else if (panel.kind === "chart" || panel.kind === "feed" || panel.kind === "progress-list") {
-      // Fixed query-result contract, no author-declared field names; only resultField is checked.
-      panelOutputSchema(
-        queryHandlers,
-        panel,
-        `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}"`,
-      );
-    } else if (panel.kind === "text" && panel.query !== undefined) {
-      panelOutputSchema(
-        queryHandlers,
-        {
-          query: panel.query,
-          ...(panel.resultField !== undefined && { resultField: panel.resultField }),
-        },
-        `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}"`,
-      );
-    }
+  } else if (panel.kind === "list") {
+    checkDashboardListPanelFields(queryHandlers, featureName, screenId, panel);
+  } else if (panel.kind === "chart" || panel.kind === "feed" || panel.kind === "progress-list") {
+    // Fixed query-result contract, no author-declared field names; only resultField is checked.
+    panelOutputSchema(
+      queryHandlers,
+      panel,
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}"`,
+    );
+  } else if (panel.kind === "text" && panel.query !== undefined) {
+    panelOutputSchema(
+      queryHandlers,
+      {
+        query: panel.query,
+        ...(panel.resultField !== undefined && { resultField: panel.resultField }),
+      },
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}"`,
+    );
   }
 }
 
