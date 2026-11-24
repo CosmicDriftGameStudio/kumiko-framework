@@ -2344,6 +2344,14 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "screen:letter-foundation-tenant.title": "Lettere",
   "screen:letter-foundation-system.title": "Lettere di tutti i clienti",
   "letter-foundation.settings": "Lettere",
+  "letter-foundation.settings.live": "Invio reale di lettere",
+  "letter-provider-letterxpress.username": "Nome utente LetterXpress",
+  "letter-provider-letterxpress.api-key": "Chiave API LetterXpress",
+  "letter-provider-letterxpress.section": "Accesso a LetterXpress",
+  "letter-provider-letterxpress.username-help":
+    "Nome utente dell'account LetterXpress. Le lettere partono con esso solo finché l'invio reale di lettere è attivo.",
+  "letter-provider-letterxpress.api-key-help":
+    "Chiave API dell'account LetterXpress. Viene salvata cifrata e non viene più mostrata; per cambiarla, inserirne una nuova.",
   "letter-foundation.settings.monthlyLimit": "Budget mensile per l'invio di lettere per mandante",
   "letter-foundation.settings.monthlyLimitHelp":
     "Tetto dei costi delle lettere di un mandante per mese di calendario, al netto. Ogni lettera conta con il prezzo completo presso il fornitore di stampa: stampa, busta, affrancatura e, se scelta, raccomandata. Le lettere approvate non ancora consegnate contano già. Esaurito il budget, non viene approvata nessuna lettera fino al mese successivo o fino a un budget più alto. Con 0 € nessuna lettera viene approvata.",
