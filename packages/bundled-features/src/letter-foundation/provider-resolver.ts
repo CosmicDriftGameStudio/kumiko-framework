@@ -1,15 +1,15 @@
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { egress } from "@cosmicdrift/kumiko-framework/http";
+import type { ConfigAccessor } from "@cosmicdrift/kumiko-types/config";
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import { unprocessable } from "../shared/index.ts";
 import {
-  LETTER_ENV,
   LETTER_INMEMORY_PROVIDER,
+  LETTER_LIVE_CONFIG,
   LETTER_PROVIDER_EXTENSION,
   LetterErrors,
   LetterI18n,
 } from "./constants.ts";
-import { letterLiveEnvRule } from "./env-schema.ts";
 import {
   isLetterProviderPlugin,
   type LetterProvider,
@@ -18,8 +18,13 @@ import {
   type LetterProviderPlugin,
 } from "./types.ts";
 
-type LetterEnvSource = Readonly<Record<string, string | undefined>>;
 type ExtensionRegistry = Pick<Registry, "getExtensionUsages">;
+
+/** What the choice of a provider needs; every handler and job context carries it. */
+export type LetterProviderSelectionContext = {
+  readonly registry: ExtensionRegistry;
+  readonly config?: ConfigAccessor | undefined;
+};
 
 export type SelectedLetterProvider = {
   readonly name: string;
@@ -41,63 +46,68 @@ export const LETTER_PROVIDER_NOT_CONFIGURED = {
 
 export class LetterProviderNotConfiguredError extends Error {}
 
-function wantsLiveProvider(env: LetterEnvSource): boolean {
-  const value = env[LETTER_ENV.live];
-  if (value === "true") return true;
-  if (value === "false") return false;
-  if (env["NODE_ENV"] === "production") {
+type ProviderUsage = ReturnType<ExtensionRegistry["getExtensionUsages"]>[number];
+
+function pluginOf(usage: ProviderUsage): LetterProviderPlugin {
+  if (!isLetterProviderPlugin(usage.options)) {
     throw new LetterProviderNotConfiguredError(
-      `letter-foundation: in production ${LETTER_ENV.live}=true or ${LETTER_ENV.live}=false must be set.`,
+      `letter-foundation: provider "${usage.entityName}" registered without capabilities and build().`,
     );
   }
-  return false;
+  return usage.options;
+}
+
+function chooseLiveUsage(usages: readonly ProviderUsage[]): ProviderUsage {
+  const real = usages.filter((usage) => usage.entityName !== LETTER_INMEMORY_PROVIDER);
+  const [only, ...others] = real;
+  if (only === undefined) {
+    throw new LetterProviderNotConfiguredError(
+      "letter-foundation: live sending is on but no real provider is registered. Mount a letter-provider-* feature.",
+    );
+  }
+  if (others.length > 0) {
+    const names = real.map((usage) => usage.entityName).join(", ");
+    throw new LetterProviderNotConfiguredError(
+      `letter-foundation: live sending needs exactly one real provider, found: ${names}.`,
+    );
+  }
+  return only;
 }
 
 /**
- * The provider plugin for this process, chosen from the environment and never per tenant. Outside
- * production the inmemory provider runs unless the live switch is on; in production the switch must
- * say `true` or `false`, so a forgotten setting fails instead of silently simulating. The live switch
- * is checked here against the same env source as the boot rule, so it fails closed even when that rule never ran.
+ * The provider plugin for this process, never per tenant. Outside production the inmemory provider
+ * runs whatever the live switch says, so a wrong environment can never send a letter. In production the
+ * system config key `live` decides: off refuses instead of silently simulating, on picks the one real provider.
  */
-export function selectLetterProvider(
-  registry: ExtensionRegistry,
-  env: LetterEnvSource = process.env,
-): SelectedLetterProvider {
-  const live = wantsLiveProvider(env);
-  const liveRefusal = live ? letterLiveEnvRule("true", env) : undefined;
-  if (liveRefusal !== undefined) {
+export async function selectLetterProvider(
+  ctx: LetterProviderSelectionContext,
+): Promise<SelectedLetterProvider> {
+  const usages = ctx.registry.getExtensionUsages(LETTER_PROVIDER_EXTENSION);
+  if (process.env["NODE_ENV"] !== "production") {
+    const inmemory = usages.find((usage) => usage.entityName === LETTER_INMEMORY_PROVIDER);
+    if (inmemory === undefined) {
+      const known = usages.map((usage) => usage.entityName).join(", ") || "<none>";
+      throw new LetterProviderNotConfiguredError(
+        `letter-foundation: provider "${LETTER_INMEMORY_PROVIDER}" is not registered. Registered providers: ${known}.`,
+      );
+    }
+    return { name: LETTER_INMEMORY_PROVIDER, live: false, plugin: pluginOf(inmemory) };
+  }
+  const liveSwitch = ctx.config ? await ctx.config(LETTER_LIVE_CONFIG) : undefined;
+  if (liveSwitch !== true) {
     throw new LetterProviderNotConfiguredError(
-      `letter-foundation: ${LETTER_ENV.live}=true refused: ${liveRefusal}.`,
+      `letter-foundation: in production the system config key "${LETTER_LIVE_CONFIG.name}" must be switched on.`,
     );
   }
-  const name = live ? env[LETTER_ENV.provider] : LETTER_INMEMORY_PROVIDER;
-  const usages = registry.getExtensionUsages(LETTER_PROVIDER_EXTENSION);
-  const known = usages.map((usage) => usage.entityName).join(", ") || "<none>";
-  if (name === undefined || name.length === 0) {
-    throw new LetterProviderNotConfiguredError(
-      `letter-foundation: ${LETTER_ENV.live}=true needs ${LETTER_ENV.provider}. Registered providers: ${known}.`,
-    );
-  }
-  const usage = usages.find((candidate) => candidate.entityName === name);
-  if (usage === undefined) {
-    throw new LetterProviderNotConfiguredError(
-      `letter-foundation: provider "${name}" is not registered. Registered providers: ${known}. Mount the matching letter-provider-* feature.`,
-    );
-  }
-  if (!isLetterProviderPlugin(usage.options)) {
-    throw new LetterProviderNotConfiguredError(
-      `letter-foundation: provider "${name}" registered without capabilities and build().`,
-    );
-  }
-  return { name, live, plugin: usage.options };
+  const usage = chooseLiveUsage(usages);
+  return { name: usage.entityName, live: true, plugin: pluginOf(usage) };
 }
 
 export async function resolveLetterProvider(
-  registry: ExtensionRegistry,
-  env: LetterEnvSource = process.env,
+  ctx: LetterProviderSelectionContext,
 ): Promise<ResolvedLetterProvider> {
-  const { name, live, plugin } = selectLetterProvider(registry, env);
-  const context: LetterProviderContext = { live, env, egress };
+  const { name, live, plugin } = await selectLetterProvider(ctx);
+  const context: LetterProviderContext = { live, config: ctx.config, egress };
   return { name, live, capabilities: plugin.capabilities, provider: await plugin.build(context) };
 }
 
@@ -106,21 +116,21 @@ function notConfigured(error: unknown): WriteResult<never> {
   return unprocessable(LETTER_PROVIDER_NOT_CONFIGURED.code, LETTER_PROVIDER_NOT_CONFIGURED.i18nKey);
 }
 
-export function selectLetterProviderOrFailure(
-  registry: ExtensionRegistry,
-): WriteResult<SelectedLetterProvider> {
+export async function selectLetterProviderOrFailure(
+  ctx: LetterProviderSelectionContext,
+): Promise<WriteResult<SelectedLetterProvider>> {
   try {
-    return { isSuccess: true, data: selectLetterProvider(registry) };
+    return { isSuccess: true, data: await selectLetterProvider(ctx) };
   } catch (error) {
     return notConfigured(error);
   }
 }
 
 export async function resolveLetterProviderOrFailure(
-  registry: ExtensionRegistry,
+  ctx: LetterProviderSelectionContext,
 ): Promise<WriteResult<ResolvedLetterProvider>> {
   try {
-    return { isSuccess: true, data: await resolveLetterProvider(registry) };
+    return { isSuccess: true, data: await resolveLetterProvider(ctx) };
   } catch (error) {
     return notConfigured(error);
   }

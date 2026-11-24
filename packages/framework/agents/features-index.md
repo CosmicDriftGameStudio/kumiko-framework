@@ -113,7 +113,7 @@ One entry per feature a package ships: purpose, import of its factory, required 
 - `letter-provider-inmemory`: Registers an `inmemory` provider for `letter-foundation` that accepts letters in process memory instead of printing them.
   `import { createLetterProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/letter-provider-inmemory"`; requires `letter-foundation`
 - `letter-provider-letterxpress`: Registers a `letterxpress` provider for `letter-foundation` that prints and posts letters within Germany through the LetterXpress API v3.
-  `import { createLetterProviderLetterXpressFeature } from "@cosmicdrift/kumiko-bundled-features/letter-provider-letterxpress"`; requires `letter-foundation`
+  `import { createLetterProviderLetterXpressFeature } from "@cosmicdrift/kumiko-bundled-features/letter-provider-letterxpress"`; requires `letter-foundation`, `config`, `secrets`; config without default `api-key`, `username`
 - `locale-de`: German UI and mail copy for framework screens.
   `import { localeDe } from "@cosmicdrift/kumiko-locale-de"`
 - `mail-foundation`: Defines the `mailTransport` extension point and a per-tenant `provider` config key that selects which registered transport plugin to use at runtime.

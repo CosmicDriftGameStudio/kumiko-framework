@@ -1,3 +1,5 @@
+import type { ConfigKeyHandle } from "@cosmicdrift/kumiko-types/config";
+
 export const LETTER_FEATURE = "letter-foundation" as const;
 export const LETTER_ENTITY = "letter" as const;
 export const LETTER_PROVIDER_EXTENSION = "letterProvider" as const;
@@ -124,16 +126,18 @@ export const LETTER_ROLES = {
   approver: "LetterApprover",
 } as const;
 
-export const LETTER_ENV = {
-  provider: "LETTER_PROVIDER",
-  live: "LETTER_LIVE",
-} as const;
-
 export const LETTER_INMEMORY_PROVIDER = "inmemory" as const;
 
 export const LETTER_CONFIG_KEYS = {
   monthlyCostLimitCents: "monthlyCostLimitCents",
+  live: "live",
 } as const;
+
+/** Qualified name of the live switch, which is how the config accessor and the `set` handler address it. */
+export const LETTER_LIVE_CONFIG: ConfigKeyHandle<"boolean"> = {
+  name: `${LETTER_FEATURE}:config:live`,
+  type: "boolean",
+};
 
 /** Qualified name of the limit key, which is how the config feature's `set` handler and accessor address it. */
 export const LETTER_MONTHLY_COST_LIMIT_CONFIG =
@@ -290,6 +294,7 @@ export const LetterErrors = {
 } as const;
 
 export const LetterI18n = {
+  liveTitle: "letter-foundation.settings.live",
   monthlyLimitTitle: "letter-foundation.settings.monthlyLimit",
   monthlyLimitHelp: "letter-foundation.settings.monthlyLimitHelp",
   schriftformRejected: "letter-foundation.errors.schriftformNotPossible",

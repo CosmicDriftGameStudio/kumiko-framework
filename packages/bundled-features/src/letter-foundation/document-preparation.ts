@@ -140,10 +140,10 @@ async function quoteWithProvider(
 
 /** The price of a letter that does not exist yet, so an app can show it in its send form. */
 export async function quoteLetter(
-  ctx: Pick<HandlerContext, "registry">,
+  ctx: Pick<HandlerContext, "registry" | "config">,
   spec: LetterQuoteSpec,
 ): Promise<WriteResult<LetterPriceQuote>> {
-  const providerResult = await resolveLetterProviderOrFailure(ctx.registry);
+  const providerResult = await resolveLetterProviderOrFailure(ctx);
   if (!providerResult.isSuccess) return providerResult;
   return quoteWithProvider(providerResult.data, spec);
 }
@@ -151,11 +151,11 @@ export async function quoteLetter(
 /** Merges the letter's documents, checks them against the provider's limits and asks for the price.
  *  Calls the provider, so it never runs inside an open database transaction. */
 export async function prepareLetterDocument(
-  ctx: Pick<HandlerContext, "db" | "services" | "registry">,
+  ctx: Pick<HandlerContext, "db" | "services" | "registry" | "config">,
   user: SessionUser,
   letter: LetterRow,
 ): Promise<WriteResult<PreparedLetterDocument>> {
-  const providerResult = await resolveLetterProviderOrFailure(ctx.registry);
+  const providerResult = await resolveLetterProviderOrFailure(ctx);
   if (!providerResult.isSuccess) return providerResult;
   const resolved = providerResult.data;
   const { capabilities } = resolved;

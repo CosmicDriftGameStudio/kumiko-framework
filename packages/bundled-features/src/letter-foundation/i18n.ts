@@ -37,8 +37,9 @@ export const LETTER_FOUNDATION_I18N = {
   },
   [LetterI18n.noFiles]: { en: "The letter has no document." },
   "screen:letter-foundation-tenant.title": { en: "Letters" },
-  "screen:letter-foundation-system.title": { en: "Letters of all tenants" },
+  "screen:letter-foundation-system.title": { en: "Letters" },
   "letter-foundation.settings": { en: "Letters" },
+  [LetterI18n.liveTitle]: { en: "Live letter sending" },
   [LetterI18n.monthlyLimitTitle]: { en: "Monthly letter limit (cents)" },
   [LetterI18n.monthlyLimitHelp]: {
     en: "Approved letters of a calendar month may cost at most this much. 0 blocks approval.",

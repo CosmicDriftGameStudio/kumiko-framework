@@ -1,5 +1,6 @@
 import {
   access,
+  createSystemConfig,
   createTenantConfig,
   defineEntityDetailHandler,
   defineEntityListHandler,
@@ -7,7 +8,6 @@ import {
   EXT_TENANT_DATA,
   EXT_USER_DATA,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import {
   LETTER_APPROVED_STALE_MS,
   LETTER_CONFIG_KEYS,
@@ -24,7 +24,6 @@ import {
   LetterI18n,
 } from "./constants.ts";
 import { letterEntity, letterSubmissionTable } from "./entity.ts";
-import { letterEnvSchema } from "./env-schema.ts";
 import { announceCreatedHandler } from "./handlers/announce-created.write.ts";
 import { applyProviderStatusHandler } from "./handlers/apply-provider-status.write.ts";
 import { createApproveHandler } from "./handlers/approve.write.ts";
@@ -75,12 +74,22 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
     LETTER_FEATURE,
     (r) => {
       r.describe(
-        "Sends PDFs as postal letters through a print provider. Defines the `letterProvider` extension point, the `letter` entity with its status flow (awaiting approval, approved, submitting, submission unknown, accepted, on hold, sent, failed, canceled, returned) and `sendLetter`, which always creates a letter that waits for approval, then a job prepares it (merged PDF, page and sheet count, price; a document problem is stored as `preparationIssue`). With the option `approval: auto` of `sendLetter` (an app decision, not part of the input schema), a prepared letter that fits the monthly limit is approved without a person; `approve-many` approves a selection all or none, `budget` shows limit and use, `quoteLetter` prices a document before it is sent. A printed letter never meets the written form (`schriftform`): `sendLetter` refuses it unless `formRiskAcknowledged` is true, set by the app after the user accepted the risk; the preview returns `formRequirement` and `formRiskAcknowledged` so the app can warn before approval. `envelope` is `folded` (default) or `flat` (unfolded A4 in a C4 envelope), if the provider offers it. A user with the LetterApprover role approves it after seeing the price; the letter is then handed to the provider. Live sending needs the LETTER_LIVE env switch and only boots with NODE_ENV=production. Outside production the inmemory provider runs without the switch; in production it must be set to true or false, otherwise letters are refused. A handover without an answer is never repeated on its own: the poll job looks the letter up at the provider, and it asks the submit job to retry a letter that stayed approved. An approved letter that cannot be handed over for two hours fails with `handover-stalled`. A letter stays with the provider it was approved with. A monthly cost limit per tenant is set with the `monthlyCostLimitCents` config key, 0 until a value is set. The recipient address is personal data of the letter.",
+        "Sends PDFs as postal letters through a print provider. Defines the `letterProvider` extension point, the `letter` entity with its status flow (awaiting approval, approved, submitting, submission unknown, accepted, on hold, sent, failed, canceled, returned) and `sendLetter`, which always creates a letter that waits for approval, then a job prepares it (merged PDF, page and sheet count, price; a document problem is stored as `preparationIssue`). With the option `approval: auto` of `sendLetter` (an app decision, not part of the input schema), a prepared letter that fits the monthly limit is approved without a person; `approve-many` approves a selection all or none, `budget` shows limit and use, `quoteLetter` prices a document before it is sent. A printed letter never meets the written form (`schriftform`): `sendLetter` refuses it unless `formRiskAcknowledged` is true, set by the app after the user accepted the risk; the preview returns `formRequirement` and `formRiskAcknowledged` so the app can warn before approval. `envelope` is `folded` (default) or `flat` (unfolded A4 in a C4 envelope), if the provider offers it. A user with the LetterApprover role approves it after seeing the price; the letter is then handed to the provider. Real sending is switched on by the system config key `live` (SystemAdmin mask, default off) and only happens with NODE_ENV=production; everywhere else the inmemory provider runs, whatever the switch says. In production with the switch off letters are refused (`letter_provider_not_configured`), never simulated. With the switch on, the one mounted letter-provider-* feature sends. A handover without an answer is never repeated on its own: the poll job looks the letter up at the provider, and it asks the submit job to retry a letter that stayed approved. An approved letter that cannot be handed over for two hours fails with `handover-stalled`. A letter stays with the provider it was approved with. A monthly cost limit per tenant is set with the `monthlyCostLimitCents` config key, 0 until a value is set. The recipient address is personal data of the letter.",
       );
       r.uiHints({ displayLabel: "Letters", category: "notifications", recommended: false });
       r.requires({ features: ["config", "files", "cap-counter", "tenant-lifecycle"] });
-      r.envSchema(letterEnvSchema);
       r.extendsRegistrar(LETTER_PROVIDER_EXTENSION, {});
+
+      r.config({
+        keys: {
+          [LETTER_CONFIG_KEYS.live]: createSystemConfig("boolean", {
+            default: false,
+            write: access.systemAdmin,
+            read: access.systemAdmin,
+            mask: { title: LetterI18n.liveTitle, icon: "rocket" },
+          }),
+        },
+      });
 
       const monthlyCostLimitCents = r.config({
         keys: {
@@ -196,5 +205,5 @@ export function createLetterFoundationFeature(options: LetterFoundationOptions =
     },
     Object.keys(options).length === 0 ? { dedupeOptions: {} } : undefined,
   );
-  return featureWithEnvSchema(feature, letterEnvSchema);
+  return feature;
 }

@@ -1,5 +1,6 @@
 import type { MoneyRead } from "@cosmicdrift/kumiko-framework/db";
 import type { egress } from "@cosmicdrift/kumiko-framework/http";
+import type { ConfigAccessor } from "@cosmicdrift/kumiko-types/config";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type {
   LetterCancelRefusalReason,
@@ -47,10 +48,10 @@ export type LetterProviderCapabilities = {
 
 /** Server-wide, never per tenant: the provider account belongs to the operator. */
 export type LetterProviderContext = {
-  /** True only when the env switch is on, which the boot allows in production alone. */
+  /** True only when the system config switch is on in production. */
   readonly live: boolean;
-  /** The booted environment; a provider validates its own variables from it (`parseEnv`). */
-  readonly env: Readonly<Record<string, string | undefined>>;
+  /** Reads the provider's system config keys; a `backing: "secrets"` key arrives decrypted. Absent when the app wired no config accessor. */
+  readonly config: ConfigAccessor | undefined;
   /** Binds an egress policy for the provider's host; every call to the provider goes through it. */
   readonly egress: typeof egress;
 };

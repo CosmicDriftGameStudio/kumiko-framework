@@ -1,12 +1,30 @@
+import type { ConfigKeyHandle } from "@cosmicdrift/kumiko-types/config";
+
 export const LETTERXPRESS_FEATURE = "letter-provider-letterxpress" as const;
 export const LETTERXPRESS_PROVIDER_NAME = "letterxpress" as const;
 
 export const LETTERXPRESS_HOST = "api.letterxpress.de";
 export const LETTERXPRESS_BASE_URL = `https://${LETTERXPRESS_HOST}/v3`;
 
-export const LETTERXPRESS_ENV = {
-  username: "LETTERXPRESS_USERNAME",
-  apiKey: "LETTERXPRESS_API_KEY",
+export const LETTERXPRESS_CONFIG_KEYS = {
+  username: "username",
+  apiKey: "api-key",
+} as const;
+
+export const LETTERXPRESS_USERNAME_CONFIG: ConfigKeyHandle<"text"> = {
+  name: `${LETTERXPRESS_FEATURE}:config:${LETTERXPRESS_CONFIG_KEYS.username}`,
+  type: "text",
+};
+
+export const LETTERXPRESS_API_KEY_CONFIG: ConfigKeyHandle<"text"> = {
+  name: `${LETTERXPRESS_FEATURE}:config:${LETTERXPRESS_CONFIG_KEYS.apiKey}`,
+  type: "text",
+};
+
+export const LETTERXPRESS_I18N = {
+  username: "letter-provider-letterxpress.username",
+  apiKey: "letter-provider-letterxpress.api-key",
+  settings: "letter-provider-letterxpress.settings",
 } as const;
 
 // API doc p. 3: a PDF may not exceed 50 MB per request.

@@ -1,4 +1,4 @@
-// English copy of the letter-foundation feature and of its audit labels.
+// English copy of the letter-foundation feature, its LetterXpress provider and their audit labels.
 
 export const letterEnCatalog: Readonly<Record<string, string>> = {
   "audit.log.event.letter-approved": "Letter approved",
@@ -35,8 +35,13 @@ export const letterEnCatalog: Readonly<Record<string, string>> = {
   "letter-foundation.errors.noFiles": "The letter has no document.",
   "letter-foundation.errors.notAwaitingApproval": "The letter is not waiting for approval.",
   "screen:letter-foundation-tenant.title": "Letters",
-  "screen:letter-foundation-system.title": "Letters of all tenants",
+  "screen:letter-foundation-system.title": "Letters",
   "letter-foundation.settings": "Letters",
+  "letter-foundation.settings.live": "Live letter sending",
+  "screen:letter-provider-letterxpress-system.title": "LetterXpress",
+  "letter-provider-letterxpress.settings": "LetterXpress",
+  "letter-provider-letterxpress.username": "LetterXpress user name",
+  "letter-provider-letterxpress.api-key": "LetterXpress API key",
   "letter-foundation.settings.monthlyLimit": "Monthly letter limit (cents)",
   "letter-foundation.settings.monthlyLimitHelp":
     "Approved letters of a calendar month may cost at most this much. 0 blocks approval.",

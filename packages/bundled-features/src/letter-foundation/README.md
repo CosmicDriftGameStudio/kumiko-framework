@@ -27,26 +27,30 @@ app: it is what runs whenever live sending is off.
 | `handoverHoldMs`  | 5 minutes | Wait between approval and handover, so a letter can be canceled without asking the provider |
 | `pollLimitPerRun` | 50        | Provider requests the poll may spend per tenant and run                                     |
 
-## Environment
+## Live switch
 
-| Variable          | Effect                                                                                             |
-| ----------------- | -------------------------------------------------------------------------------------------------- |
-| `LETTER_LIVE`     | `true` sends real letters, `false` simulates. The boot refuses `true` unless `NODE_ENV=production` |
-| `LETTER_PROVIDER` | Name of the provider used for live sending, for example `letterxpress`. Required with `true`       |
+The system config key `letter-foundation:config:live` (boolean, default off) is kept by the SystemAdmin in
+the derived settings mask "Live letter sending". It decides which provider runs:
 
-Outside production a missing `LETTER_LIVE` means the inmemory provider. In production the variable must
-be `true` or `false`. If it is missing there, the app still boots, but preview, `sendLetter` and `approve`
-answer 422 with the reason `letter_provider_not_configured`, and so does `cancel` for a letter the provider
-already has. A letter that was not handed over can still be canceled. Approved letters stay in `approved`
-until the variable is set, for at most two hours. The same error covers `LETTER_LIVE=true` without a known
-`LETTER_PROVIDER`.
+| Environment               | Switch | Provider                                                                    |
+| ------------------------- | ------ | --------------------------------------------------------------------------- |
+| `NODE_ENV` not production | any    | inmemory, so a wrong environment never sends a letter                       |
+| `NODE_ENV=production`     | off    | none: the error `letter_provider_not_configured`, never a silent simulation |
+| `NODE_ENV=production`     | on     | the one mounted provider that is not inmemory                               |
 
-A letter belongs to the provider it was approved with. After a change of `LETTER_LIVE` or `LETTER_PROVIDER`
-the poll leaves the other provider's letters alone, `cancel` and `resolve-unknown` with a `providerJobId` refuse them with
-`letter_provider_changed`, and an approved letter that was not handed over fails with `provider-changed`.
-Change the provider only when no letter is in `approved`, `submitting`, `accepted`, `on-hold` or
-`submission-unknown`. The inmemory provider keeps its orders in the process, so with `LETTER_LIVE=false` a
-restart or a second instance loses them and their letters fail with `not-found-at-provider`.
+With the switch on and no real provider mounted, or more than one, the same error answers and its message
+names the cause. In the error case the app still boots, but preview, `sendLetter` and `approve` answer 422
+with the reason `letter_provider_not_configured`, and so does `cancel` for a letter the provider already
+has. A letter that was not handed over can still be canceled. Approved letters stay in `approved` until the
+switch is on, for at most two hours.
+
+A letter belongs to the provider it was approved with. After a change of the switch or of the mounted
+providers the poll leaves the other provider's letters alone, `cancel` and `resolve-unknown` with a
+`providerJobId` refuse them with `letter_provider_changed`, and an approved letter that was not handed over
+fails with `provider-changed`. Change the provider only when no letter is in `approved`, `submitting`,
+`accepted`, `on-hold` or `submission-unknown`. The inmemory provider keeps its orders in the process, so
+with the switch off a restart or a second instance loses them and their letters fail with
+`not-found-at-provider`.
 
 A provider's own test mode is not reachable through this feature. To try one, build the provider
 directly with `live: false`.
@@ -85,8 +89,8 @@ after a file with an odd page count the merge adds a blank page, and it counts a
 
 Read the provider's `capabilities` (`shippingModes`, `envelopes`, `maxSheets`, `maxBytes`,
 `maxFlatSheets`, `cancelWindowSeconds`) and offer only what the provider can do.
-`selectLetterProviderOrFailure(ctx.registry)` returns them as `data.plugin.capabilities`, or the failure
-`letter_provider_not_configured` when the environment names no usable provider; `selectLetterProvider`
+`await selectLetterProviderOrFailure(ctx)` returns them as `data.plugin.capabilities`, or the failure
+`letter_provider_not_configured` when no usable provider is selected; `selectLetterProvider`
 throws in that case. `maxFlatSheets` is the sheet count up to which the provider honors a `flat`
 envelope; the preview sets `envelopeLeftToProvider` for a `flat` letter above it, because the provider
 then picks the envelope.

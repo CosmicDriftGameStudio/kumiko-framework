@@ -64,7 +64,7 @@ export function createPreviewQuery(limitKey: ConfigKeyHandle<"number">) {
       }
 
       const envelope = envelopeOf(letter);
-      const resolved = await resolveLetterProviderOrFailure(ctx.registry);
+      const resolved = await resolveLetterProviderOrFailure(ctx);
       if (!resolved.isSuccess) throw reraiseAsKumikoError(resolved.error);
       const { maxFlatSheets } = resolved.data.capabilities;
       const { limitCents, usedCents } = await readLetterBudget(ctx, limitKey, letter.id);

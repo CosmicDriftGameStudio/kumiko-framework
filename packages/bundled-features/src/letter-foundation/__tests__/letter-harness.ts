@@ -1,6 +1,7 @@
 // Shared stack and helpers of the letter integration tests: real HTTP over `setupTestStack`, a probe
 // feature that stands in for the app calling `sendLetter`, and the inmemory provider steered through `letterSimulator`.
 
+import { randomBytes } from "node:crypto";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { createEventStoreExecutor, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -16,6 +17,7 @@ import {
   fileRefEntity,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
+import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createTenantDb,
@@ -46,6 +48,7 @@ import {
   ConfigHandlers,
   type ConfigResolver,
   configValuesTable,
+  createConfigAccessor,
   createConfigAccessorFactory,
   createConfigFeature,
   createConfigResolver,
@@ -53,6 +56,12 @@ import {
 import { tenantRetentionOverrideEntity } from "../../data-retention/schema/tenant-retention-override.ts";
 import { createLetterProviderInMemoryFeature } from "../../letter-provider-inmemory/index.ts";
 import { letterSimulator } from "../../letter-provider-inmemory/simulator.ts";
+import {
+  createSecretsContext,
+  createSecretsFeature,
+  type SecretsContext,
+  tenantSecretsTable,
+} from "../../secrets/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantMembershipEntity } from "../../tenant/index.ts";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
@@ -60,6 +69,7 @@ import { TenantHandlers } from "../../tenant/web/constants.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import {
   LETTER_CAP,
+  LETTER_LIVE_CONFIG,
   LETTER_MONTHLY_COST_LIMIT_CONFIG,
   type LetterApprovalMode,
   LetterHandlers,
@@ -73,6 +83,7 @@ import {
 } from "../entity.ts";
 import { createLetterFoundationFeature, type LetterFoundationOptions } from "../feature.ts";
 import { type SendLetterInput, SendLetterInputSchema } from "../payloads.ts";
+import type { LetterProviderSelectionContext } from "../provider-resolver.ts";
 import { sendLetter } from "../send-letter.ts";
 
 export const TENANT = testTenantId(11);
@@ -150,6 +161,7 @@ export function createLetterHarness(
   }
 
   let limitReadSlot: ParkingSlot | undefined;
+  let secretsContext: SecretsContext | undefined;
 
   // Parks the next read of the monthly limit: the handover run has inserted its claim but reserved nothing yet.
   function limitReadGate(resolver: ConfigResolver): ConfigResolver {
@@ -208,9 +220,16 @@ export function createLetterHarness(
     resetPiiSubjectKmsForTests();
     configurePiiSubjectKms(new InMemoryKmsAdapter());
     const resolver = limitReadGate(createConfigResolver());
+    const masterKeyProvider = createEnvMasterKeyProvider({
+      env: {
+        KUMIKO_SECRETS_MASTER_KEY_V1: randomBytes(32).toString("base64"),
+        KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
+      },
+    });
     stack = await setupTestStack({
       features: [
         createConfigFeature(),
+        createSecretsFeature(),
         createTenantFeature(),
         createComplianceProfilesFeature(),
         createTenantLifecycleFeature(),
@@ -222,15 +241,24 @@ export function createLetterHarness(
         ...extraFeatures,
       ],
       files: { storageProvider: fileProvider },
+      masterKeyProvider,
       now: START_INSTANT,
       jobs: { consumerLane: "worker", getActiveTenantIds: async () => [TENANT] },
-      extraContext: (deps) => ({
-        configResolver: resolver,
-        configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
-      }),
+      extraContext: (deps) => {
+        secretsContext = createSecretsContext({
+          db: deps.db,
+          masterKeyProvider,
+          registry: deps.registry,
+        });
+        return {
+          secrets: secretsContext,
+          configResolver: resolver,
+          configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
+        };
+      },
     });
     const db = stack.db;
-    await unsafePushTables(db, { configValuesTable });
+    await unsafePushTables(db, { configValuesTable, tenant_secrets: tenantSecretsTable });
     await unsafeCreateEntityTable(db, tenantEntity);
     await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
     await unsafeCreateEntityTable(db, tenantMembershipEntity);
@@ -258,6 +286,7 @@ export function createLetterHarness(
       tenantTable,
       tenantComplianceProfileTable,
       configValuesTable,
+      tenantSecretsTable,
     ]);
     await s.redis.flushNamespace();
     await s.drainJobs();
@@ -375,6 +404,30 @@ export function createLetterHarness(
     );
   }
 
+  async function setLive(on: boolean): Promise<void> {
+    await current().http.writeOk(
+      ConfigHandlers.set,
+      { key: LETTER_LIVE_CONFIG.name, value: on, scope: "system" },
+      SYSTEM_ADMIN,
+    );
+  }
+
+  /** What the provider choice reads in a handler or job: the registry and the config accessor with the secrets store behind it. */
+  function providerSelectionContext(): LetterProviderSelectionContext {
+    const s = current();
+    return {
+      registry: s.registry,
+      config: createConfigAccessor(
+        s.registry,
+        createConfigResolver(),
+        TENANT,
+        SYSTEM_ADMIN.id,
+        s.db,
+        secretsContext,
+      ),
+    };
+  }
+
   async function approve(letterId: string): Promise<void> {
     await current().http.writeOk(LetterHandlers.approve, { letterId }, APPROVER);
   }
@@ -410,6 +463,8 @@ export function createLetterHarness(
     usage,
     approve,
     setLimit,
+    setLive,
+    providerSelectionContext,
     approveAndSubmit,
     parkNextDocumentRead,
     parkNextLimitRead,

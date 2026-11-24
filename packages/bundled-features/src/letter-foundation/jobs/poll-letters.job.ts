@@ -338,7 +338,7 @@ export type PollOptions = {
  *  letters at the provider, then to sent ones still inside the tracking window. */
 export async function pollLetters(ctx: JobContext, options: PollOptions): Promise<void> {
   const deadlineMs = Temporal.Now.instant().epochMilliseconds + LETTER_POLL_RUN_BUDGET_MS;
-  const { name, provider, capabilities } = await resolveLetterProvider(ctx.registry);
+  const { name, provider, capabilities } = await resolveLetterProvider(ctx);
   const poll: PollProvider = { name, provider, giveUpMs: options.giveUpMs };
   const now = ctx.tz.now();
   const limitPerRun = options.limitPerRun ?? LETTER_POLL_LIMIT_PER_RUN;

@@ -57,11 +57,9 @@ beforeEach(async () => {
   );
 });
 
-function underOtherProvider<T>(run: () => Promise<T>): Promise<T> {
-  return withEnv(
-    { NODE_ENV: "production", LETTER_LIVE: "true", LETTER_PROVIDER: OTHER_PROVIDER },
-    run,
-  );
+async function underOtherProvider<T>(run: () => Promise<T>): Promise<T> {
+  await harness.setLive(true);
+  return withEnv({ NODE_ENV: "production" }, run);
 }
 
 function advance(): void {

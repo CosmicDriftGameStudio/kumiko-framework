@@ -59,7 +59,7 @@ export const cancelHandler = defineWriteHandler({
     if (!isAtProviderState(letter.status))
       return { isSuccess: true, data: { askedProvider: false } };
 
-    const resolved = await resolveLetterProviderOrFailure(ctx.registry);
+    const resolved = await resolveLetterProviderOrFailure(ctx);
     if (!resolved.isSuccess) return resolved;
     const { name, provider } = resolved.data;
     if (isForeignProvider(letter, name)) return providerChangedFailure();
