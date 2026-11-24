@@ -6,6 +6,11 @@ export const CONFIG_KEY_RULES = {
     summary: "A config key declares bounds only when its type is number.",
     fix: 'Remove bounds or change the key type to "number".',
   },
+  currencyNonNumber: {
+    id: "config-key/currency-non-number",
+    summary: "A config key declares currency only when its type is number.",
+    fix: 'Remove currency or change the key type to "number".',
+  },
   boundsMinAboveMax: {
     id: "config-key/bounds-min-above-max",
     summary: "A config key's bounds.min is at or below its bounds.max.",

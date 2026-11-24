@@ -41,6 +41,11 @@ export function warnOnToggleableDependencies(
 
 export function validateConfigKeyBounds(feature: FeatureDefinition): void {
   for (const [keyName, keyDef] of Object.entries(feature.configKeys)) {
+    if (keyDef.currency !== undefined && keyDef.type !== "number") {
+      throw bootRuleError(CONFIG_KEY_RULES.currencyNonNumber, {
+        message: `[Feature ${feature.name}] Config key "${keyName}" has currency but type is "${keyDef.type}" — currency is only valid for type="number"`,
+      });
+    }
     const bounds = keyDef.bounds;
     // skip: no bounds declared, nothing to validate
     if (!bounds) continue;

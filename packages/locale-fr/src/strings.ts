@@ -2370,9 +2370,17 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "screen:letter-foundation-tenant.title": "Lettres",
   "screen:letter-foundation-system.title": "Lettres de tous les clients",
   "letter-foundation.settings": "Lettres",
-  "letter-foundation.settings.monthlyLimit": "Limite mensuelle de lettres (en centimes)",
+  "letter-foundation.settings.live": "Envoi réel de lettres",
+  "letter-provider-letterxpress.username": "Nom d'utilisateur LetterXpress",
+  "letter-provider-letterxpress.api-key": "Clé API LetterXpress",
+  "letter-provider-letterxpress.section": "Accès à LetterXpress",
+  "letter-provider-letterxpress.username-help":
+    "Nom d'utilisateur du compte LetterXpress. Les lettres ne partent avec lui que tant que l'envoi réel de lettres est activé.",
+  "letter-provider-letterxpress.api-key-help":
+    "Clé API du compte LetterXpress. Elle est stockée chiffrée et n'est plus jamais affichée ; pour la changer, saisissez-en une nouvelle.",
+  "letter-foundation.settings.monthlyLimit": "Budget mensuel d'envoi de lettres par mandant",
   "letter-foundation.settings.monthlyLimitHelp":
-    "Les lettres approuvées d'un mois civil peuvent coûter au plus ce montant. Avec 0, aucune lettre n'est approuvée.",
+    "Plafond des coûts de lettres d'un mandant par mois civil, hors taxes. Chaque lettre compte pour son prix complet chez le prestataire d'impression : impression, enveloppe, affranchissement et, le cas échéant, recommandé. Les lettres approuvées pas encore remises comptent déjà. Une fois le budget épuisé, aucune lettre n'est approuvée jusqu'au mois suivant ou jusqu'à un budget plus élevé. Avec 0 €, aucune lettre n'est approuvée.",
   "letter-foundation.errors.notReadyForApproval":
     "Certaines des lettres sélectionnées ne sont pas encore prêtes pour l'approbation. Une lettre est prête lorsqu'elle attend l'approbation et que son document a été vérifié sans problème.",
   "letter-foundation.errors.monthlyLimitNotCovered":

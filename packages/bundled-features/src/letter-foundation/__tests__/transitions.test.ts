@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { KumikoBootError, parseEnv } from "@cosmicdrift/kumiko-framework/env";
 import {
   isFinalLetterState,
   isLetterTransitionAllowed,
@@ -13,7 +12,6 @@ import {
   LetterEvents,
   type LetterState,
 } from "../constants.ts";
-import { letterEnvSchema } from "../env-schema.ts";
 import { createLetterFoundationFeature } from "../feature.ts";
 
 describe("letter transition table", () => {
@@ -51,24 +49,6 @@ describe("letter transition table", () => {
         isLetterTransitionAllowed("accepted", state) || isLetterTransitionAllowed("sent", state);
       expect(reachable || state === "accepted").toBe(true);
     }
-  });
-});
-
-describe("letter live switch", () => {
-  test("aborts the boot outside production", () => {
-    expect(() => parseEnv(letterEnvSchema, { LETTER_LIVE: "true", NODE_ENV: "test" })).toThrow(
-      KumikoBootError,
-    );
-  });
-
-  test("boots in production and without the switch", () => {
-    expect(parseEnv(letterEnvSchema, { LETTER_LIVE: "true", NODE_ENV: "production" })).toEqual({
-      LETTER_LIVE: "true",
-    });
-    expect(parseEnv(letterEnvSchema, { LETTER_LIVE: "false", NODE_ENV: "test" })).toEqual({
-      LETTER_LIVE: "false",
-    });
-    expect(parseEnv(letterEnvSchema, { NODE_ENV: "test" })).toEqual({});
   });
 });
 

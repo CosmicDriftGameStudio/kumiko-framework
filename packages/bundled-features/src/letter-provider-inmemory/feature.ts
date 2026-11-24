@@ -16,7 +16,7 @@ export function createLetterProviderInMemoryFeature() {
     LETTER_PROVIDER_INMEMORY_FEATURE,
     (r) => {
       r.describe(
-        "Registers an `inmemory` provider for `letter-foundation` that accepts letters in process memory instead of printing them. Tests steer it with `letterSimulator.setScenario` (accept, reject, timeout, on hold, other price or recognized address) and `setClock`; it is the provider that runs whenever the live switch is off. Not for production: nothing is sent.",
+        "Registers an `inmemory` provider for `letter-foundation` that accepts letters in process memory instead of printing them. Tests steer it with `letterSimulator.setScenario` (accept, reject, timeout, on hold, other price or recognized address) and `setClock`; it is the provider that runs outside production, whatever the live switch says. Not for production: nothing is sent.",
       );
       r.uiHints({
         displayLabel: "Letter Provider · In-memory",

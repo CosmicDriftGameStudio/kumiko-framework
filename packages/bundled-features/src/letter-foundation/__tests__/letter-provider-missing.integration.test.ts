@@ -38,7 +38,7 @@ beforeEach(async () => {
 });
 
 function inProductionWithoutLiveSwitch<T>(run: () => Promise<T>): Promise<T> {
-  return withEnv({ NODE_ENV: "production", LETTER_LIVE: undefined }, run);
+  return withEnv({ NODE_ENV: "production" }, run);
 }
 
 describe("a provider that is not configured", () => {

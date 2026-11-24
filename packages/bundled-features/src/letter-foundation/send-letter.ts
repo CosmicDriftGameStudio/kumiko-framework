@@ -15,7 +15,10 @@ import type { SendLetterInput } from "./payloads.ts";
 import { selectLetterProviderOrFailure } from "./provider-resolver.ts";
 import type { LetterEnvelope, LetterProviderCapabilities } from "./types.ts";
 
-export type SendLetterContext = Pick<HandlerContext, "db" | "user" | "registry" | "dispatch">;
+export type SendLetterContext = Pick<
+  HandlerContext,
+  "db" | "user" | "registry" | "dispatch" | "config"
+>;
 
 export type SendLetterOptions = { readonly approval?: LetterApprovalMode };
 
@@ -105,7 +108,7 @@ export async function sendLetter(
   if (input.formRequirement === "schriftform" && input.formRiskAcknowledged !== true) {
     return unprocessable(LetterErrors.schriftformRejected, LetterI18n.schriftformRejected);
   }
-  const selected = selectLetterProviderOrFailure(ctx.registry);
+  const selected = await selectLetterProviderOrFailure(ctx);
   if (!selected.isSuccess) return selected;
   const envelope = input.envelope ?? "folded";
   const unsupported = refusedByProvider(selected.data.plugin.capabilities, input, envelope);

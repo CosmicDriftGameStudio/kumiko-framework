@@ -23,22 +23,22 @@ import {
   type LetterXpressSpecification,
 } from "./client.ts";
 import {
+  LETTERXPRESS_API_KEY_CONFIG,
   LETTERXPRESS_C4_MAX_SHEETS,
   LETTERXPRESS_CANCEL_WINDOW_SECONDS,
   LETTERXPRESS_CURRENCY,
-  LETTERXPRESS_ENV,
   LETTERXPRESS_FIND_MAX_PAGES,
   LETTERXPRESS_HOST,
   LETTERXPRESS_MAX_BYTES,
   LETTERXPRESS_MAX_SHEETS,
   LETTERXPRESS_NO_TRACKING_STATUS,
+  LETTERXPRESS_USERNAME_CONFIG,
   LETTERXPRESS_VAT_PERCENT,
   type LetterXpressJobStatus,
   type LetterXpressListFilter,
   type LetterXpressMode,
   type LetterXpressRegistered,
 } from "./constants.ts";
-import { letterXpressEnvSchema } from "./env-schema.ts";
 
 const LIST_FILTERS_OF_MODE: Readonly<Record<LetterXpressMode, readonly LetterXpressListFilter[]>> =
   {
@@ -173,16 +173,15 @@ function acceptanceOf(
   };
 }
 
-function readCredentials(source: LetterProviderContext["env"]): {
+async function readCredentials(config: LetterProviderContext["config"]): Promise<{
   username: string;
   apiKey: string;
-} {
-  const parsed = letterXpressEnvSchema.safeParse(source);
-  const username = parsed.success ? parsed.data[LETTERXPRESS_ENV.username] : undefined;
-  const apiKey = parsed.success ? parsed.data[LETTERXPRESS_ENV.apiKey] : undefined;
-  if (username === undefined || apiKey === undefined) {
+}> {
+  const username = config ? await config(LETTERXPRESS_USERNAME_CONFIG) : undefined;
+  const apiKey = config ? await config(LETTERXPRESS_API_KEY_CONFIG) : undefined;
+  if (!username || !apiKey) {
     throw new LetterProviderNotConfiguredError(
-      `letterxpress provider needs ${LETTERXPRESS_ENV.username} and ${LETTERXPRESS_ENV.apiKey}`,
+      `letterxpress provider needs the system config keys ${LETTERXPRESS_USERNAME_CONFIG.name} and ${LETTERXPRESS_API_KEY_CONFIG.name}`,
     );
   }
   return { username, apiKey };
@@ -197,7 +196,7 @@ export async function buildLetterXpressProvider(
 ): Promise<LetterProvider> {
   const now = options.now ?? (() => Temporal.Now.instant());
   const mode: LetterXpressMode = ctx.live ? "live" : "test";
-  const { username, apiKey } = readCredentials(ctx.env);
+  const { username, apiKey } = await readCredentials(ctx.config);
   const client: LetterXpressClient = createLetterXpressClient({
     egress: ctx.egress({ kind: "internal", allowOrigins: [`https://${LETTERXPRESS_HOST}`] }),
     username,

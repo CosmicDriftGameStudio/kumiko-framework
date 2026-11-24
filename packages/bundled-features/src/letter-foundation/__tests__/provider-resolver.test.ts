@@ -1,62 +1,81 @@
 import { describe, expect, test } from "bun:test";
+import { withEnv } from "@cosmicdrift/kumiko-testing/helpers";
+import { LETTER_LIVE_CONFIG } from "../constants.ts";
 import { LetterProviderNotConfiguredError, selectLetterProvider } from "../provider-resolver.ts";
+import { fakeConfigAccessor } from "./fake-config.ts";
 
-const registry = { getExtensionUsages: () => [] };
+function usageOf(name: string) {
+  return {
+    extensionName: "letter-provider",
+    entityName: name,
+    options: { capabilities: {}, build: () => undefined },
+  };
+}
 
-const registryWithInmemory = {
-  getExtensionUsages: () => [
-    {
-      extensionName: "letter-provider",
-      entityName: "inmemory",
-      options: { capabilities: {}, build: () => undefined },
-    },
-  ],
-};
+function registryOf(...names: string[]) {
+  return { getExtensionUsages: () => names.map(usageOf) };
+}
 
-describe("selectLetterProvider", () => {
-  test("production without the live switch is refused instead of simulating", () => {
-    expect(() => selectLetterProvider(registry, { NODE_ENV: "production" })).toThrow(
-      "LETTER_LIVE=true or LETTER_LIVE=false must be set",
-    );
-    expect(() =>
-      selectLetterProvider(registry, { NODE_ENV: "production", LETTER_LIVE: "yes" }),
-    ).toThrow(LetterProviderNotConfiguredError);
+const switchedOn = fakeConfigAccessor({ [LETTER_LIVE_CONFIG.name]: true });
+const switchedOff = fakeConfigAccessor({ [LETTER_LIVE_CONFIG.name]: false });
+
+const inProduction = <T>(run: () => Promise<T>) => withEnv({ NODE_ENV: "production" }, run);
+const outsideProduction = <T>(run: () => Promise<T>) => withEnv({ NODE_ENV: "test" }, run);
+
+describe("selectLetterProvider outside production", () => {
+  test("selects the simulator whatever the live switch says", async () => {
+    const registry = registryOf("inmemory", "letterxpress");
+    for (const config of [switchedOn, switchedOff, undefined]) {
+      const selected = await outsideProduction(() => selectLetterProvider({ registry, config }));
+      expect(selected).toMatchObject({ name: "inmemory", live: false });
+    }
   });
 
-  test("production with LETTER_LIVE=false selects the simulator", () => {
-    const selected = selectLetterProvider(registryWithInmemory, {
-      NODE_ENV: "production",
-      LETTER_LIVE: "false",
-    });
-    expect(selected).toMatchObject({ name: "inmemory", live: false });
+  test("refuses when the simulator is not mounted", async () => {
+    await expect(
+      outsideProduction(() =>
+        selectLetterProvider({ registry: registryOf("letterxpress"), config: switchedOn }),
+      ),
+    ).rejects.toThrow(LetterProviderNotConfiguredError);
+  });
+});
+
+describe("selectLetterProvider in production", () => {
+  test("a switch that is off or unreadable is refused instead of simulating", async () => {
+    const registry = registryOf("inmemory", "letterxpress");
+    for (const config of [switchedOff, fakeConfigAccessor({}), undefined]) {
+      await expect(inProduction(() => selectLetterProvider({ registry, config }))).rejects.toThrow(
+        LetterProviderNotConfiguredError,
+      );
+    }
   });
 
-  test("outside production a missing switch selects the simulator", () => {
-    expect(selectLetterProvider(registryWithInmemory, {})).toMatchObject({
-      name: "inmemory",
-      live: false,
-    });
-    expect(selectLetterProvider(registryWithInmemory, { NODE_ENV: "development" }).live).toBe(
-      false,
-    );
-  });
-
-  test("the live switch outside production is refused before any provider is looked up", () => {
-    expect(() =>
-      selectLetterProvider(registry, { LETTER_LIVE: "true", LETTER_PROVIDER: "letterxpress" }),
-    ).toThrow("only boots with NODE_ENV=production");
-    expect(() =>
-      selectLetterProvider(registry, { LETTER_LIVE: "true", NODE_ENV: "staging" }),
-    ).toThrow("only boots with NODE_ENV=production");
-  });
-
-  test("in production the live switch passes the check and then needs a registered provider", () => {
-    expect(() =>
-      selectLetterProvider(registry, {
-        LETTER_LIVE: "true",
-        LETTER_PROVIDER: "letterxpress",
-        NODE_ENV: "production",
+  test("a switch that is on selects the one real provider as live", async () => {
+    const selected = await inProduction(() =>
+      selectLetterProvider({
+        registry: registryOf("inmemory", "letterxpress"),
+        config: switchedOn,
       }),
-    ).toThrow('provider "letterxpress" is not registered');
+    );
+    expect(selected).toMatchObject({ name: "letterxpress", live: true });
+  });
+
+  test("without a real provider the error says to mount one", async () => {
+    await expect(
+      inProduction(() =>
+        selectLetterProvider({ registry: registryOf("inmemory"), config: switchedOn }),
+      ),
+    ).rejects.toThrow("Mount a letter-provider-* feature");
+  });
+
+  test("two real providers are refused with their names", async () => {
+    await expect(
+      inProduction(() =>
+        selectLetterProvider({
+          registry: registryOf("inmemory", "letterxpress", "other"),
+          config: switchedOn,
+        }),
+      ),
+    ).rejects.toThrow("letterxpress, other");
   });
 });

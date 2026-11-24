@@ -7,7 +7,12 @@ import {
   type LetterSubmission,
 } from "@cosmicdrift/kumiko-bundled-features/letter-foundation";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { LETTERXPRESS_FIND_MAX_PAGES } from "../constants.ts";
+import { fakeConfigAccessor } from "../../letter-foundation/__tests__/fake-config.ts";
+import {
+  LETTERXPRESS_API_KEY_CONFIG,
+  LETTERXPRESS_FIND_MAX_PAGES,
+  LETTERXPRESS_USERNAME_CONFIG,
+} from "../constants.ts";
 import {
   buildLetterXpressProvider,
   letterXpressCapabilities,
@@ -18,6 +23,13 @@ import { createStubTransport, fixture, type StubAnswer } from "./test-support.ts
 const USERNAME = "api-user-name";
 const API_KEY = "api-key-must-never-leak";
 const ACCEPTED_AT = Temporal.Instant.from("2026-11-22T20:00:00Z");
+
+function credentials() {
+  return fakeConfigAccessor({
+    [LETTERXPRESS_USERNAME_CONFIG.name]: USERNAME,
+    [LETTERXPRESS_API_KEY_CONFIG.name]: API_KEY,
+  });
+}
 
 function spec(overrides: Partial<LetterSpec> = {}): LetterSpec {
   return {
@@ -50,14 +62,14 @@ async function providerWith(
   answers: StubAnswer[],
   options: {
     live?: boolean;
-    env?: LetterProviderContext["env"];
+    config?: LetterProviderContext["config"];
     wait?: (ms: number) => Promise<void>;
   } = {},
 ) {
   const stub = createStubTransport(answers);
   const ctx: LetterProviderContext = {
     live: options.live ?? false,
-    env: options.env ?? { LETTERXPRESS_USERNAME: USERNAME, LETTERXPRESS_API_KEY: API_KEY },
+    config: "config" in options ? options.config : credentials(),
     egress: stub.egress,
   };
   const provider = await buildLetterXpressProvider(ctx, {
@@ -80,11 +92,11 @@ describe("build", () => {
     expect(policies).toEqual([{ kind: "internal", allowOrigins: ["https://api.letterxpress.de"] }]);
   });
 
-  test("missing credentials throw with the variable names and no value", async () => {
+  test("missing credentials throw with the config key names and no value", async () => {
     const stub = createStubTransport([]);
     const build = letterXpressPlugin.build({
       live: false,
-      env: { LETTERXPRESS_USERNAME: USERNAME },
+      config: fakeConfigAccessor({ [LETTERXPRESS_USERNAME_CONFIG.name]: USERNAME }),
       egress: stub.egress,
     });
     const error = await build.then(
@@ -93,8 +105,8 @@ describe("build", () => {
     );
     expect(error).toBeInstanceOf(LetterProviderNotConfiguredError);
     const message = error instanceof Error ? error.message : "";
-    expect(message).toContain("LETTERXPRESS_USERNAME");
-    expect(message).toContain("LETTERXPRESS_API_KEY");
+    expect(message).toContain(LETTERXPRESS_USERNAME_CONFIG.name);
+    expect(message).toContain(LETTERXPRESS_API_KEY_CONFIG.name);
     expect(message).not.toContain(USERNAME);
   });
 

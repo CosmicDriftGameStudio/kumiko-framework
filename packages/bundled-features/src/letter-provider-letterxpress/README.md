@@ -13,8 +13,8 @@ createLetterProviderLetterXpressFeature();
 ```
 
 1. Create API access in the LetterXpress customer area (My account, Access data, LXP API).
-2. Set `LETTERXPRESS_USERNAME` and `LETTERXPRESS_API_KEY`. `build` throws a message naming both variables when one is missing. The key is a secret.
-3. Set `LETTER_PROVIDER=letterxpress` and `LETTER_LIVE=true`. Without `LETTER_LIVE=true`, `letter-foundation` never calls LetterXpress: outside production it runs the inmemory provider, and in production it does so with `LETTER_LIVE=false` and refuses letters when the variable is missing. `LETTER_LIVE=true` boots only with `NODE_ENV=production`.
+2. As SystemAdmin, enter the user name and the API key in the section "LetterXpress access" of the settings mask Platform › Letters (system config keys `username` and `api-key`; the key is stored encrypted in the secrets store). `build` throws a message naming both config keys when one is missing.
+3. Switch "Live letter sending" on in `letter-foundation`. Without it, `letter-foundation` never calls LetterXpress: outside production it runs the inmemory provider whatever the switch says, and in production it refuses letters while the switch is off. LetterXpress must be the only mounted provider besides inmemory.
 
 The request field `mode` is `live` when the live switch is on and `test` otherwise. Through `letter-foundation` only the live case is reachable. The test mode of the provider is used in direct calls of `buildLetterXpressProvider` with `live: false`.
 

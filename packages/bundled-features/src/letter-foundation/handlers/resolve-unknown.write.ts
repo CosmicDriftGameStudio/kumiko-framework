@@ -35,7 +35,7 @@ export const resolveUnknownHandler = defineWriteHandler({
   beforeTransaction: async (event, ctx): Promise<BeforeTransactionResult<ResolvePrepared>> => {
     const { providerJobId } = event.payload;
     if (providerJobId === undefined) return { isSuccess: true, data: { acceptance: null } };
-    const resolved = await resolveLetterProviderOrFailure(ctx.registry);
+    const resolved = await resolveLetterProviderOrFailure(ctx);
     if (!resolved.isSuccess) return resolved;
     const { name, provider } = resolved.data;
     const letter = await letterExecutor.detail({ id: event.payload.letterId }, event.user, ctx.db);

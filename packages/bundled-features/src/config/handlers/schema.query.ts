@@ -5,7 +5,7 @@ import { hasConfigAccess } from "../write-helpers.ts";
 export const schemaQuery = defineQueryHandler({
   name: "schema",
   description:
-    "Returns the definitions of all config keys the caller may read (scope, type, default, bounds, required flag) without any values; use it to discover which settings exist and how they may be set.",
+    "Returns the definitions of all config keys the caller may read (scope, type, default, bounds, currency for amount keys, required flag) without any values; use it to discover which settings exist and how they may be set.",
   schema: z.object({}),
   // Per-key read access enforced via hasConfigAccess inside the handler.
   access: {

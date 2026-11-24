@@ -7,7 +7,7 @@ Send letters by post from an app. `letter-foundation` owns approval, pricing, ha
 - `sendLetter(ctx, input)` runs in the caller's transaction and always creates the letter in `awaiting-approval`. Nothing leaves the system before a user with the `LetterApprover` role approves it.
 - The idempotency key decides whether a call creates a letter. The same key returns the same letter with `created: false`.
 - `schriftform` is rejected unless the caller passes `formRiskAcknowledged: true`.
-- The monthly cost limit is 0 until a privileged user sets `monthlyCostLimitCents`. Without it the handover ends in `failed` with reason `monthly-limit`.
+- The monthly cost limit is 0 until a privileged user sets `monthlyCostLimitCents` (an amount in euros in the settings mask). Without it the handover ends in `failed` with reason `monthly-limit`.
 - The test drives `letter-provider-inmemory` through `letterSimulator`. Production mounts `letter-provider-letterxpress`; the app code does not change.
 
 ## Feature composition

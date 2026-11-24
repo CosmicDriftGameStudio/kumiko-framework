@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-11-23
-evidence: "packages/bundled-features/src/letter-foundation/constants.ts, send-letter.ts, provider-resolver.ts, env-schema.ts, accept-letter.ts, letter-usage.ts, handlers/approve.write.ts, handlers/cancel.write.ts, handlers/resolve-unknown.write.ts, handlers/preview.query.ts, jobs/submit-letter.job.ts, jobs/poll-letters.job.ts; packages/bundled-features/src/letter-provider-letterxpress/README.md; samples/recipes/letter-foundation"
+evidence: "packages/bundled-features/src/letter-foundation/constants.ts, send-letter.ts, provider-resolver.ts, accept-letter.ts, letter-usage.ts, handlers/approve.write.ts, handlers/cancel.write.ts, handlers/resolve-unknown.write.ts, handlers/preview.query.ts, jobs/submit-letter.job.ts, jobs/poll-letters.job.ts; packages/bundled-features/src/letter-provider-letterxpress/README.md; samples/recipes/letter-foundation"
 ---
 
 # Letters: sending PDFs by post
@@ -36,7 +36,7 @@ Shipping modes and envelopes differ between providers. Read the capabilities and
 them:
 
 ```ts illustration
-const selected = selectLetterProviderOrFailure(ctx.registry);
+const selected = await selectLetterProviderOrFailure(ctx);
 if (!selected.isSuccess) return selected;
 const { capabilities } = selected.data.plugin;
 // capabilities.shippingModes, capabilities.envelopes, capabilities.maxSheets
@@ -91,32 +91,34 @@ its state.
 | ---- | --- |
 | Open an account with the provider and load credit | The account belongs to the operator and serves all tenants |
 | Sign the data processing agreement with the provider | The provider reads names, addresses and the document |
-| Set the provider's credentials as secrets | See the provider's README for the variable names |
-| Set `LETTER_PROVIDER` and `LETTER_LIVE=true` in production | Production needs an explicit `LETTER_LIVE`. `false` keeps the simulator; without the variable no letter can be previewed, approved or handed over |
+| Enter the provider's credentials in the Platform › Letters mask | SystemAdmin; a section of the mask, the key is stored encrypted. See the provider's README for the fields |
+| Switch "Live letter sending" on in production | SystemAdmin. Off, no letter can be previewed, approved or handed over in production; the simulator runs only outside production |
 | Set `monthlyCostLimitCents` for each tenant that may send | The limit is 0 by default, so a tenant sends nothing until it is set |
 | Give the role `LetterApprover` to the users who may release letters | `TenantAdmin` does not include it. The app declares the role with `EXT_ASSIGNABLE_ROLE`, otherwise the members screen does not offer it |
 
-`LETTER_LIVE=true` boots only with `NODE_ENV=production`. A staging or development system therefore
-cannot send a real letter, whatever else is configured. Outside production a missing `LETTER_LIVE`
-means the simulator.
+The switch `live` (settings mask "Live letter sending", SystemAdmin) works only with `NODE_ENV=production`.
+A staging or development system therefore cannot send a real letter, whatever else is configured: outside
+production the simulator runs, whatever the switch says.
 
-A production system without `LETTER_LIVE`, or with `LETTER_LIVE=true` and no known `LETTER_PROVIDER`,
-still boots. Users get the error `letter_provider_not_configured` in the preview and on approval, and
-letters approved before stay in `approved`. Once the variable is set, the poll job asks for their
-handover again, at the earliest 30 minutes plus the hold time after the approval. A letter that could
-not be handed over for two hours past its hold time fails with `handover-stalled`.
+A production system with the switch off, or with it on and not exactly one real provider mounted, still
+boots. Users get the error `letter_provider_not_configured` in the preview and on approval, and letters
+approved before stay in `approved`. Once the switch is on, the poll job asks for their handover again, at
+the earliest 30 minutes plus the hold time after the approval. A letter that could not be handed over for
+two hours past its hold time fails with `handover-stalled`.
+A production system never simulates: to try letters on a staging system, boot it without
+`NODE_ENV=production`.
 
-A letter belongs to the provider it was approved with. After a change of `LETTER_LIVE` or
-`LETTER_PROVIDER` the poll leaves the other provider's letters alone, `cancel` and `resolve-unknown` with a `providerJobId`
+A letter belongs to the provider it was approved with. After a change of the switch or of the mounted
+providers the poll leaves the other provider's letters alone, `cancel` and `resolve-unknown` with a `providerJobId`
 refuse them with `letter_provider_changed`, and an approved letter that was not handed over fails with
 `provider-changed`. Change the provider only when no letter is in `approved`, `submitting`, `accepted`,
-`on-hold` or `submission-unknown`. The inmemory provider keeps its orders in the process, so with
-`LETTER_LIVE=false` a restart or a second instance loses them and their letters fail with
+`on-hold` or `submission-unknown`. The inmemory provider keeps its orders in the process, so with the
+switch off a restart or a second instance loses them and their letters fail with
 `not-found-at-provider`.
 
 ### The monthly cost limit
 
-The limit is a net amount in cents per tenant and calendar month. `approve` refuses a letter it does not
+The limit is a net amount per tenant and calendar month, stored in cents and entered as an amount in euros in the settings mask. `approve` refuses a letter it does not
 cover with `letter_monthly_limit_not_covered`; letters that are approved and not handed over yet count as
 used. The handover then reserves the price against the limit. If the limit was lowered after the
 approval, the letter fails with the reason `monthly-limit` and is not sent. The
@@ -130,7 +132,7 @@ tenant. Watch the credit on the provider's side; the framework does not read it.
 
 | State | Meaning | What to do |
 | ----- | ------- | ---------- |
-| `approved` for more than half an hour | The submit job ran out of retries, for example because the provider's credentials or `LETTER_LIVE` are missing | Fix the cause. The poll job asks the submit job to hand the letter over again once the hold time plus 30 minutes have passed; after two hours past the hold time the letter fails with `handover-stalled` |
+| `approved` for more than half an hour | The submit job ran out of retries, for example because the provider's credentials are missing or the live switch is off | Fix the cause. The poll job asks the submit job to hand the letter over again once the hold time plus 30 minutes have passed; after two hours past the hold time the letter fails with `handover-stalled` |
 | `submission-unknown` | The handover timed out or never finished. The provider may or may not have the letter | Wait for the poll job, which looks the letter up by its reference. If the provider reports a rejection, the letter fails and its estimate is given back. If the provider offers no lookup, check the provider's site: if it has the order, pass its id as `providerJobId` to `resolve-unknown` and the letter is accepted at the order's price; if not, close the case with `resolve-unknown` and a note |
 | `on-hold` | The provider stopped the letter and waits for the operator | Look up the reason at the provider and fix it there. The poll job picks up the change |
 | `failed` with `address-mismatch` | The provider read a different address from the PDF than the app expected, and the letter was canceled in time | Fix the address block of the template and send again |

@@ -155,6 +155,40 @@ describe("config key bounds consistency", () => {
   });
 });
 
+describe("config key currency", () => {
+  test("accepts currency on a number key", () => {
+    const features = [
+      defineFeature("files", (r) => {
+        r.config({
+          keys: {
+            budget: createTenantConfig("number", { currency: { kind: "literal", code: "EUR" } }),
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).not.toThrow();
+  });
+
+  test("rejects currency on a non-number key", () => {
+    const features = [
+      defineFeature("files", (r) => {
+        r.config({
+          keys: {
+            textKey: {
+              type: "text",
+              allowPlaintext: "test fixture value, not personal data",
+              scope: "tenant",
+              access: { read: ["all"], write: ["all"] },
+              currency: { kind: "literal", code: "EUR" },
+            } as never,
+          },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/currency.*only valid for type="number"/i);
+  });
+});
+
 describe("config key computed + encrypted exclusivity", () => {
   test("rejects encrypted + computed combination", () => {
     const features = [

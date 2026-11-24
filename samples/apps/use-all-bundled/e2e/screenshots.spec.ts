@@ -375,6 +375,7 @@ const SCENARIOS: readonly Scenario[] = [
     name: "config-settings-hub",
     flow: admin("/settings/subscription-stripe-system"),
   },
+  { name: "letters-settings", flow: admin("/settings/letter-foundation-system") },
   // audit — the event store exposed as the admin-gated audit log (tenant-admin
   // workspace nav): paginated, filterable history of who/when/what.
   // `^=` matches both the populated table (testId) and DataTable's own

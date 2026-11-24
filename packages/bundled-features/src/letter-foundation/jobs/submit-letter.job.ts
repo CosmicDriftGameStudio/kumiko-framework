@@ -232,7 +232,7 @@ export function createSubmitLetterRun(limitKey: ConfigKeyHandle<"number">, holdM
       throw new Error(`letter-foundation: approved letter ${letter.id} has no quoted price`);
     }
 
-    const { name, provider } = await resolveLetterProvider(ctx.registry);
+    const { name, provider } = await resolveLetterProvider(ctx);
     if (isForeignProvider(letter, name)) {
       await failBeforeHandover(ctx, letter, LETTER_FAILURE_REASON.providerChanged);
       return undefined;

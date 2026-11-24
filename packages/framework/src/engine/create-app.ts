@@ -158,6 +158,15 @@ export function createApp(config: AppConfig): App {
         );
       }
     }
+    // A money-flagged config key derives a money field on the generated mask,
+    // which never appears in feature.screens.
+    for (const [key, keyDef] of Object.entries(feature.configKeys)) {
+      validateLiteralCurrencyCode(
+        `Config key "${feature.name}.${key}"`,
+        { type: "money", currency: keyDef.currency },
+        currencies,
+      );
+    }
     // A money field on an entity-less form screen names its own currency
     // source — a literal code has to be one the app actually knows,
     // same rule the entity `defaultCurrency` check above applies.
