@@ -50,6 +50,7 @@ function rewriteOptionsQueryFieldRefs(
 }
 
 function deriveNumberField(def: MaskedKey["def"]): FieldDefinition {
+  // MoneyFieldDef has no min/max: bounds of a money key are enforced by the server on set only.
   if (def.currency !== undefined) return createMoneyField({ currency: def.currency });
   return createNumberField({
     ...(def.bounds?.min !== undefined && { min: def.bounds.min }),

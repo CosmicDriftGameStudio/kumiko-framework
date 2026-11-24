@@ -105,6 +105,8 @@ boots. Users get the error `letter_provider_not_configured` in the preview and o
 approved before stay in `approved`. Once the switch is on, the poll job asks for their handover again, at
 the earliest 30 minutes plus the hold time after the approval. A letter that could not be handed over for
 two hours past its hold time fails with `handover-stalled`.
+A production system never simulates: to try letters on a staging system, boot it without
+`NODE_ENV=production`.
 
 A letter belongs to the provider it was approved with. After a change of the switch or of the mounted
 providers the poll leaves the other provider's letters alone, `cancel` and `resolve-unknown` with a `providerJobId`
