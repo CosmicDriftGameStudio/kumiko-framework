@@ -1,14 +1,65 @@
 ---
 status: reference
-verified: 2026-11-23
+verified: 2026-11-24
 evidence: "packages/bundled-features/src/letter-foundation/constants.ts, send-letter.ts, provider-resolver.ts, accept-letter.ts, letter-usage.ts, handlers/approve.write.ts, handlers/cancel.write.ts, handlers/resolve-unknown.write.ts, handlers/preview.query.ts, jobs/submit-letter.job.ts, jobs/poll-letters.job.ts; packages/bundled-features/src/letter-provider-letterxpress/README.md; samples/recipes/letter-foundation"
 ---
 
 # Letters: sending PDFs by post
 
-`createLetterFoundationFeature()` lets an app send a PDF as a postal letter. A print provider prints it,
-puts it in an envelope and posts it. This guide covers what an app developer builds, what an operator
-sets up before the first real letter, and what to do when a letter gets stuck.
+## In plain words
+
+![Your app hands over PDF and address, a person approves the price, a print service prints and posts the letter, the app shows "sent". Monthly budget per customer; test systems use a simulator.](/diagrams/letters-flow-en.svg)
+
+Some business mail still has to arrive on paper, such as a service charge statement or a rent increase.
+With this feature nobody prints, folds or goes to the post office. Every letter costs real money, so
+nothing goes out without a person's approval, and the operator sets a monthly budget for every customer
+of the app.
+
+## Who does what
+
+| Who | What they do | Where |
+| --- | --- | --- |
+| App developer | Mounts the letter features and adds "send by post" to a process, for example after a statement was created | Code, see [For app developers](#for-app-developers) |
+| Operator (SystemAdmin) | Opens an account with the print service, loads credit, signs the data processing agreement, enters the access data, sets the budget per customer and switches live sending on | Settings › Platform › Letters, see [For operators](#for-operators) |
+| Customer's admin | Gives the role "Letter approver" to the people who may release letters | Members screen of the app |
+| Approver | Checks address, pages and price, then approves or cancels | The app's letter screens |
+
+## What a letter costs
+
+A letter costs what the print service charges for it: printing, envelope, postage and, if chosen,
+registered mail. The preview shows this price before anyone approves. The operator pays the print
+service from a prepaid account that serves all customers of the app.
+
+The monthly budget caps what one customer may spend per calendar month. It counts each letter at its
+full price, including letters approved but not yet handed over. The operator sets it in Settings ›
+Platform › Letters as the default for every customer and can give one customer its own value in
+Settings › Tenant › Letters. As long as no budget is set, nothing goes out. When the budget is used up,
+the approval of the next letter is refused and the letter keeps waiting; an approver approves it again
+in the next month or after the operator raised the budget. What was actually sent is counted per
+customer (letters, sheets, pages, net cost), so the operator can bill it on.
+
+## Start in four steps
+
+1. Mount `createLetterFoundationFeature()`, `createLetterProviderLetterXpressFeature()` for production
+   and `createLetterProviderInMemoryFeature()` as the simulator.
+2. Call `sendLetter` from your own write handler, for example where a statement is finished:
+
+   ```ts illustration
+   return sendLetter(ctx, {
+     fileRefIds: [fileRefId],
+     expectedRecipient: recipient,
+     shippingMode: "standard",
+     color: false,
+     duplex: true,
+     formRequirement: "formfrei",
+     idempotencyKey: `statement:${statementId}:${recipient.postalCode}:${recipient.street}`,
+     source: { entityType: "statement", entityId: statementId },
+   });
+   ```
+
+3. Show the letters of a record with the `list` query and let an approver open the preview and approve.
+4. Try it on a development system. The simulator plays the print service, so you see the whole path
+   without a letter being printed.
 
 The API reference is the [feature README](../../packages/bundled-features/src/letter-foundation/README.md).
 A tested example is [`samples/recipes/letter-foundation`](../../samples/recipes/letter-foundation/).
@@ -19,7 +70,7 @@ A tested example is [`samples/recipes/letter-foundation`](../../samples/recipes/
    is stored in `awaiting-approval`. Nothing has left the system.
 2. A user with the role `LetterApprover` opens the price preview and approves. The PDFs are merged, checked
    against the provider's limits, and the price is fixed. With `duplex` every file starts on a new sheet.
-   A letter the tenant's monthly limit does not cover is refused and keeps waiting.
+   A letter the tenant's monthly budget does not cover is refused and keeps waiting.
 3. Five minutes later a job hands the letter to the provider. Until then `cancel` costs nothing.
 4. The provider accepts (`accepted`) or rejects (`failed`). Acceptance books the cost and the counters.
 5. A poll job asks the provider every five minutes until the letter is `sent`, and for 14 days after that
@@ -93,7 +144,7 @@ its state.
 | Sign the data processing agreement with the provider | The provider reads names, addresses and the document |
 | Enter the provider's credentials in the Platform › Letters mask | SystemAdmin; a section of the mask, the key is stored encrypted. See the provider's README for the fields |
 | Switch "Live letter sending" on in production | SystemAdmin. Off, no letter can be previewed, approved or handed over in production; the simulator runs only outside production |
-| Set `monthlyCostLimitCents` for each tenant that may send | The limit is 0 by default, so a tenant sends nothing until it is set |
+| Set the monthly budget for each tenant that may send | SystemAdmin: Settings › Platform › Letters sets the default for every tenant, Settings › Tenant › Letters a tenant's own value (config key `monthlyCostLimitCents`). It is 0 by default, so nothing goes out until it is set |
 | Give the role `LetterApprover` to the users who may release letters | `TenantAdmin` does not include it. The app declares the role with `EXT_ASSIGNABLE_ROLE`, otherwise the members screen does not offer it |
 
 The switch `live` (settings mask "Live letter sending", SystemAdmin) works only with `NODE_ENV=production`.
@@ -116,11 +167,11 @@ refuse them with `letter_provider_changed`, and an approved letter that was not 
 switch off a restart or a second instance loses them and their letters fail with
 `not-found-at-provider`.
 
-### The monthly cost limit
+### The monthly budget
 
-The limit is a net amount per tenant and calendar month, stored in cents and entered as an amount in euros in the settings mask. `approve` refuses a letter it does not
+The budget is a net amount per tenant and calendar month, entered in euros in the settings mask and stored in cents. `approve` refuses a letter it does not
 cover with `letter_monthly_limit_not_covered`; letters that are approved and not handed over yet count as
-used. The handover then reserves the price against the limit. If the limit was lowered after the
+used. The handover then reserves the price against the budget. If the budget was lowered after the
 approval, the letter fails with the reason `monthly-limit` and is not sent. The
 cap counters `letter.cost-net-cents`, `letter.<mode>.count`, `letter.<mode>.sheets` and `letter.pages`
 hold what was actually sent and are the basis for billing a tenant.
@@ -137,8 +188,8 @@ tenant. Watch the credit on the provider's side; the framework does not read it.
 | `on-hold` | The provider stopped the letter and waits for the operator | Look up the reason at the provider and fix it there. The poll job picks up the change |
 | `failed` with `address-mismatch` | The provider read a different address from the PDF than the app expected, and the letter was canceled in time | Fix the address block of the template and send again |
 | `addressMismatch` set on a sent letter | The same mismatch, found after the cancel window closed | Check the letter by hand; it was posted |
-| `approve` answers `letter_monthly_limit_not_covered` | The tenant's limit does not cover the letter together with what was sent and approved this month | Raise the limit or wait for the next month, then approve again |
-| `failed` with `monthly-limit` | The limit was lowered between approval and handover | Raise the limit or wait for the next month, then send again |
+| `approve` answers `letter_monthly_limit_not_covered` | The tenant's budget does not cover the letter together with what was sent and approved this month | Raise the budget or wait for the next month, then approve again |
+| `failed` with `monthly-limit` | The budget was lowered between approval and handover | Raise the budget or wait for the next month, then send again |
 | `failed` with `handover-stalled` | The letter stayed in `approved` for two hours past its hold time and could not be handed over | Fix the cause, for example the provider credentials, and send the letter again |
 | `failed` with `provider-changed` | The provider was switched between approval and handover | Send the letter again under the provider now selected |
 
@@ -150,7 +201,7 @@ id, must carry this letter's reference, and the letter is accepted at the order'
 
 The poll job never hands a letter over itself. For a letter stuck in `approved` it writes the event
 `handover-restart-requested`, and the submit job, which handles one letter at a time, does the handover.
-That run takes a fresh reservation in the current month, so a limit lowered since the approval fails the
+That run takes a fresh reservation in the current month, so a budget lowered since the approval fails the
 letter with `monthly-limit`.
 
 ### Limits to know
