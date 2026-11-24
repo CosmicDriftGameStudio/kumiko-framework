@@ -547,6 +547,36 @@ describe("buildConfigFeatureSchema — number bounds and descriptions", () => {
   });
 });
 
+describe("buildConfigFeatureSchema — money keys", () => {
+  const budgets = defineFeature("budgets", (r) => {
+    r.config({
+      keys: {
+        monthlyLimit: createTenantConfig("number", {
+          currency: { kind: "literal", code: "EUR" },
+          mask: { title: "budgets.limit" },
+        }),
+        retries: createTenantConfig("number", { mask: { title: "budgets.retries" } }),
+      },
+    });
+  });
+  const budgetsScreen = buildConfigFeatureSchema(createRegistry([budgets])).screens.find(
+    (s) => s.type === "configEdit",
+  );
+
+  test("a number key with currency derives a money field carrying that currency", () => {
+    if (budgetsScreen?.type !== "configEdit") throw new Error("no configEdit screen");
+    expect(budgetsScreen.fields["monthly-limit"]).toMatchObject({
+      type: "money",
+      currency: { kind: "literal", code: "EUR" },
+    });
+  });
+
+  test("a number key without currency stays a number field", () => {
+    if (budgetsScreen?.type !== "configEdit") throw new Error("no configEdit screen");
+    expect(budgetsScreen.fields["retries"]).toMatchObject({ type: "number" });
+  });
+});
+
 describe("buildConfigFeatureSchema — secret keys are write-only", () => {
   const vault = defineFeature("vault", (r) => {
     r.config({

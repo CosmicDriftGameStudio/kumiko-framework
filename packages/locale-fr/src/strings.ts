@@ -2370,9 +2370,9 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "screen:letter-foundation-tenant.title": "Lettres",
   "screen:letter-foundation-system.title": "Lettres de tous les clients",
   "letter-foundation.settings": "Lettres",
-  "letter-foundation.settings.monthlyLimit": "Limite mensuelle de lettres (en centimes)",
+  "letter-foundation.settings.monthlyLimit": "Budget mensuel de lettres par mandant",
   "letter-foundation.settings.monthlyLimitHelp":
-    "Les lettres approuvées d'un mois civil peuvent coûter au plus ce montant. Avec 0, aucune lettre n'est approuvée.",
+    "Montant net que les lettres approuvées d'un mandant peuvent coûter par mois civil. Les lettres approuvées pas encore remises comptent. Une fois le budget épuisé, aucune lettre n'est approuvée jusqu'au mois suivant ou jusqu'à un budget plus élevé. Avec 0 €, aucune lettre n'est approuvée.",
   "letter-foundation.errors.notReadyForApproval":
     "Certaines des lettres sélectionnées ne sont pas encore prêtes pour l'approbation. Une lettre est prête lorsqu'elle attend l'approbation et que son document a été vérifié sans problème.",
   "letter-foundation.errors.monthlyLimitNotCovered":

@@ -2,7 +2,7 @@ import type { ZodType } from "zod";
 import type { ConcurrencyMode } from "./concurrency-mode.ts";
 import type { ConfigScope } from "./config-scope.ts";
 import type { DbConnection } from "./db-connection.ts";
-import type { EntityFieldDefinition, OptionsQueryPayload } from "./fields.ts";
+import type { EntityFieldDefinition, MoneyCurrencySource, OptionsQueryPayload } from "./fields.ts";
 import type { EscapeHatchDeclaration, JobContext, JobDeferral } from "./handlers.ts";
 import type { PostDeleteHookFn, PostSaveHookFn, PreDeleteHookFn, PreSaveHookFn } from "./hooks.ts";
 import type { TenantId } from "./identifiers.ts";
@@ -123,6 +123,8 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
    *  generated settings screen. */
   readonly optionsQueryPayload?: OptionsQueryPayload;
   readonly bounds?: ConfigBounds;
+  /** Only for type "number". The value is an integer in the currency's smallest unit; the derived mask shows an amount field. */
+  readonly currency?: MoneyCurrencySource;
   // Per-key string-pattern validation for type="text". The value must match
   // the regex at write time — set.write hard-rejects a mismatch with
   // ValidationError("invalid_format"), same posture as bounds. Stored as a

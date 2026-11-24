@@ -913,6 +913,7 @@ type ConfigKeyOptions<T extends ConfigKeyType> = {
   optionsQuery?: T extends "select" ? string : never;
   optionsQueryPayload?: T extends "select" ? OptionsQueryPayload : never;
   bounds?: T extends "number" ? ConfigBounds : never;
+  currency?: T extends "number" ? MoneyCurrencySource : never;
   pattern?: T extends "text" ? { regex: string; flags?: string; } : never;
   computed?: ConfigComputedFn<T>;
   validate?: ConfigValidateFn<T>;

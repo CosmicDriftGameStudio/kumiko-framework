@@ -91,7 +91,7 @@ its state.
 | ---- | --- |
 | Open an account with the provider and load credit | The account belongs to the operator and serves all tenants |
 | Sign the data processing agreement with the provider | The provider reads names, addresses and the document |
-| Enter the provider's credentials in its settings mask | SystemAdmin; the key is stored encrypted. See the provider's README for the fields |
+| Enter the provider's credentials in the Platform › Letters mask | SystemAdmin; a section of the mask, the key is stored encrypted. See the provider's README for the fields |
 | Switch "Live letter sending" on in production | SystemAdmin. Off, no letter can be previewed, approved or handed over in production; the simulator runs only outside production |
 | Set `monthlyCostLimitCents` for each tenant that may send | The limit is 0 by default, so a tenant sends nothing until it is set |
 | Give the role `LetterApprover` to the users who may release letters | `TenantAdmin` does not include it. The app declares the role with `EXT_ASSIGNABLE_ROLE`, otherwise the members screen does not offer it |
@@ -116,7 +116,7 @@ switch off a restart or a second instance loses them and their letters fail with
 
 ### The monthly cost limit
 
-The limit is a net amount in cents per tenant and calendar month. `approve` refuses a letter it does not
+The limit is a net amount per tenant and calendar month, stored in cents and entered as an amount in euros in the settings mask. `approve` refuses a letter it does not
 cover with `letter_monthly_limit_not_covered`; letters that are approved and not handed over yet count as
 used. The handover then reserves the price against the limit. If the limit was lowered after the
 approval, the letter fails with the reason `monthly-limit` and is not sent. The

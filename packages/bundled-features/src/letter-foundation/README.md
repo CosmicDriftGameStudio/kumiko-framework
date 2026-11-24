@@ -30,7 +30,7 @@ app: it is what runs whenever live sending is off.
 ## Live switch
 
 The system config key `letter-foundation:config:live` (boolean, default off) is kept by the SystemAdmin in
-the derived settings mask "Live letter sending". It decides which provider runs:
+the derived settings mask "Live letter sending" (Platform › Letters). It decides which provider runs:
 
 | Environment               | Switch | Provider                                                                    |
 | ------------------------- | ------ | --------------------------------------------------------------------------- |
@@ -116,7 +116,7 @@ fields and whether the tenant's monthly limit covers the letter. `approve` merge
 against the provider's limits and fixes the price. It is an agent tool with `effect: "outbound"`, so the
 assistant asks before every call.
 
-The config key `monthlyCostLimitCents` holds the limit per tenant in net cents. It is 0 until a
+The config key `monthlyCostLimitCents` holds the monthly budget per tenant as net EUR cents; the settings mask shows it as an amount in euros. It is 0 until a
 privileged user sets it, so a new tenant sends nothing. The handover reserves the quoted price against
 the limit; a letter that does not fit fails with `monthly-limit`. This reservation is the binding check
 (for example when the limit was lowered after approval).
@@ -149,7 +149,7 @@ not cover it, the letter waits with `preparationIssue = letter_monthly_limit_not
 not prepared, has a document problem or is not waiting stops it with `letter_not_ready_for_approval`, and
 the summed price must fit the limit. The query `budget` returns `{ limitCents, usedCents }` for the
 approver and the tenant admin. `quoteLetter(ctx, spec)` prices a document before it is sent. The config key
-`monthlyCostLimitCents` appears on the generated settings screen.
+`monthlyCostLimitCents` appears on the generated settings screen as an amount field. The credentials of the mounted provider (for LetterXpress user name and API key) are sections of the Platform › Letters mask.
 
 Usage is counted in `cap-counter` when the provider accepts the letter, with the price the provider
 charged:

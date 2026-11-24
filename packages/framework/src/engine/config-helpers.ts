@@ -11,7 +11,7 @@ import type {
   CreateSeedOptions,
   CreateTenantSeedOptions,
 } from "@cosmicdrift/kumiko-types/config";
-import type { OptionsQueryPayload } from "@cosmicdrift/kumiko-types/fields";
+import type { MoneyCurrencySource, OptionsQueryPayload } from "@cosmicdrift/kumiko-types/fields";
 import type { ConfigScope } from "./constants.ts";
 import { SYSTEM_ROLE } from "./system-user.ts";
 
@@ -90,6 +90,7 @@ type ConfigKeyOptions<T extends ConfigKeyType> = {
   optionsQuery?: T extends "select" ? string : never;
   optionsQueryPayload?: T extends "select" ? OptionsQueryPayload : never;
   bounds?: T extends "number" ? ConfigBounds : never;
+  currency?: T extends "number" ? MoneyCurrencySource : never;
   // Regex enforced at write (set.write) — only meaningful for text keys
   // (never for the other type-tags). Use anchored + length-bounded patterns:
   // the value is tenant-supplied, so an unbounded backtracking regex is a
@@ -145,6 +146,7 @@ function createConfigKey<T extends ConfigKeyType>(
     ...(opts.options ? { options: opts.options } : {}),
     ...optionsQueryProps(opts),
     bounds: opts.bounds as ConfigBounds | undefined, // @cast-boundary schema-walk
+    ...(opts.currency ? { currency: opts.currency } : {}),
     ...(opts.pattern ? { pattern: opts.pattern } : {}),
     computed: opts.computed,
     validate: opts.validate,

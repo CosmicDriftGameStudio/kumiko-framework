@@ -439,6 +439,7 @@ type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   optionsQuery?: string; // Only on `type: "select"`: loads the options from this query (QN), contract `{ rows: { value, label, description?, group?
   optionsQueryPayload?: OptionsQueryPayload; // Payload sent with every `optionsQuery` call.
   bounds?: ConfigBounds;
+  currency?: MoneyCurrencySource; // Only for type "number".
   pattern?: {
     regex: string;
     flags?: string;

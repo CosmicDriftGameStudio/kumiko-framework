@@ -38,13 +38,16 @@ export const letterEnCatalog: Readonly<Record<string, string>> = {
   "screen:letter-foundation-system.title": "Letters",
   "letter-foundation.settings": "Letters",
   "letter-foundation.settings.live": "Live letter sending",
-  "screen:letter-provider-letterxpress-system.title": "LetterXpress",
-  "letter-provider-letterxpress.settings": "LetterXpress",
+  "letter-provider-letterxpress.section": "LetterXpress access",
+  "letter-provider-letterxpress.username-help":
+    "User name of the LetterXpress account. Letters are only sent with it while live letter sending is on.",
+  "letter-provider-letterxpress.api-key-help":
+    "API key of the LetterXpress account. It is stored encrypted and never shown again; enter a new one to replace it.",
   "letter-provider-letterxpress.username": "LetterXpress user name",
   "letter-provider-letterxpress.api-key": "LetterXpress API key",
-  "letter-foundation.settings.monthlyLimit": "Monthly letter limit (cents)",
+  "letter-foundation.settings.monthlyLimit": "Monthly letter budget per tenant",
   "letter-foundation.settings.monthlyLimitHelp":
-    "Approved letters of a calendar month may cost at most this much. 0 blocks approval.",
+    "Net amount the approved letters of one tenant may cost per calendar month, including approved letters not yet handed over. Once it is used up, no further letter is approved until the next month or a higher budget. 0 € means no letter is approved.",
   "letter-foundation.errors.notReadyForApproval":
     "Some of the selected letters are not ready for approval. A letter is ready when it waits for approval and its document was checked without a problem.",
   "letter-foundation.errors.monthlyLimitNotCovered":

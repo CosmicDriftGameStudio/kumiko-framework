@@ -24,7 +24,9 @@ export const LETTERXPRESS_API_KEY_CONFIG: ConfigKeyHandle<"text"> = {
 export const LETTERXPRESS_I18N = {
   username: "letter-provider-letterxpress.username",
   apiKey: "letter-provider-letterxpress.api-key",
-  settings: "letter-provider-letterxpress.settings",
+  section: "letter-provider-letterxpress.section",
+  usernameHelp: "letter-provider-letterxpress.username-help",
+  apiKeyHelp: "letter-provider-letterxpress.api-key-help",
 } as const;
 
 // API doc p. 3: a PDF may not exceed 50 MB per request.

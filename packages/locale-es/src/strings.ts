@@ -2338,9 +2338,9 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "screen:letter-foundation-tenant.title": "Cartas",
   "screen:letter-foundation-system.title": "Cartas de todos los clientes",
   "letter-foundation.settings": "Cartas",
-  "letter-foundation.settings.monthlyLimit": "Límite mensual de cartas (en céntimos)",
+  "letter-foundation.settings.monthlyLimit": "Presupuesto mensual de cartas por mandante",
   "letter-foundation.settings.monthlyLimitHelp":
-    "Las cartas aprobadas de un mes natural pueden costar como máximo esta cantidad. Con 0 no se aprueba ninguna carta.",
+    "Importe neto que pueden costar las cartas aprobadas de un mandante por mes natural. Las cartas aprobadas aún no entregadas cuentan. Agotado el presupuesto, no se aprueba ninguna carta hasta el mes siguiente o hasta un presupuesto mayor. Con 0 € no se aprueba ninguna carta.",
   "letter-foundation.errors.notReadyForApproval":
     "Algunas de las cartas seleccionadas aún no están listas para la aprobación. Una carta está lista cuando espera aprobación y su documento se comprobó sin problemas.",
   "letter-foundation.errors.monthlyLimitNotCovered":

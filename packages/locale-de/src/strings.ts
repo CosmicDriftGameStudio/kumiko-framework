@@ -2367,13 +2367,16 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "screen:letter-foundation-system.title": "Briefe",
   "letter-foundation.settings": "Briefe",
   "letter-foundation.settings.live": "Echter Briefversand",
-  "screen:letter-provider-letterxpress-system.title": "LetterXpress",
   "letter-provider-letterxpress.username": "LetterXpress-Benutzername",
   "letter-provider-letterxpress.api-key": "LetterXpress-API-Key",
-  "letter-provider-letterxpress.settings": "LetterXpress",
-  "letter-foundation.settings.monthlyLimit": "Monatslimit für Briefe (in Cent)",
+  "letter-provider-letterxpress.section": "Zugang zu LetterXpress",
+  "letter-provider-letterxpress.username-help":
+    "Benutzername des LetterXpress-Kontos. Briefe gehen damit nur raus, solange „Echter Briefversand“ an ist.",
+  "letter-provider-letterxpress.api-key-help":
+    "API-Key des LetterXpress-Kontos. Er wird verschlüsselt gespeichert und nie wieder angezeigt; zum Ändern einen neuen eingeben.",
+  "letter-foundation.settings.monthlyLimit": "Monatsbudget für Briefe je Mandant",
   "letter-foundation.settings.monthlyLimitHelp":
-    "So viel dürfen die freigegebenen Briefe eines Kalendermonats höchstens kosten. Bei 0 wird kein Brief freigegeben.",
+    "So viel dürfen die freigegebenen Briefe eines Mandanten pro Kalendermonat netto kosten. Freigegebene Briefe, die noch nicht übergeben sind, zählen mit. Ist das Budget aufgebraucht, wird bis zum nächsten Monat oder bis zu einem höheren Budget kein Brief mehr freigegeben. Bei 0 € wird kein Brief freigegeben.",
   "letter-foundation.errors.notReadyForApproval":
     "Einige der ausgewählten Briefe sind noch nicht bereit für die Freigabe. Bereit ist ein Brief, der auf die Freigabe wartet und dessen Dokument ohne Problem geprüft wurde.",
   "letter-foundation.errors.monthlyLimitNotCovered":
