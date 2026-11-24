@@ -8,14 +8,14 @@ Letter consumer pattern: an app write-handler creates a letter with sendLetter, 
 
 # Sample: Letter Foundation
 
-Send letters by post from an app. `letter-foundation` owns approval, pricing, handover to the provider, polling and the monthly cost limit. The app only calls `sendLetter` from its own write handler.
+Send letters by post from an app. `letter-foundation` owns approval, pricing, handover to the provider, polling and the monthly budget. The app only calls `sendLetter` from its own write handler.
 
 ## What you learn here
 
 - `sendLetter(ctx, input)` runs in the caller's transaction and always creates the letter in `awaiting-approval`. Nothing leaves the system before a user with the `LetterApprover` role approves it.
 - The idempotency key decides whether a call creates a letter. The same key returns the same letter with `created: false`.
 - `schriftform` is rejected unless the caller passes `formRiskAcknowledged: true`.
-- The monthly cost limit is 0 until a privileged user sets `monthlyCostLimitCents` (an amount in euros in the settings mask). Without it the handover ends in `failed` with reason `monthly-limit`.
+- The monthly budget is 0 until a privileged user sets `monthlyCostLimitCents` (an amount in euros in the settings mask). Without it `approve` refuses the letter with `letter_monthly_limit_not_covered` and the letter keeps waiting. A budget lowered after approval fails the handover with reason `monthly-limit`.
 - The test drives `letter-provider-inmemory` through `letterSimulator`. Production mounts `letter-provider-letterxpress`; the app code does not change.
 
 ## Feature composition
