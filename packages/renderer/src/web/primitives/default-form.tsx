@@ -169,7 +169,8 @@ function EmbeddedFormLayout({
 
 function FormSidebarColumn({ sidebar }: { readonly sidebar: ReactNode }): ReactNode {
   if (sidebar === undefined) return null;
-  return <aside className="min-w-0 flex-1 self-start xl:sticky xl:top-0">{sidebar}</aside>;
+  // Below xl the column stacks under the form; self-start there would size it to its content (a full-width PDF page) instead of the screen.
+  return <aside className="min-w-0 flex-1 xl:sticky xl:top-0 xl:self-start">{sidebar}</aside>;
 }
 
 export function DefaultForm({
