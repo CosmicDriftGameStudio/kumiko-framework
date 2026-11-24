@@ -65,6 +65,7 @@ export type {
 } from "./rebind-file-ref.ts";
 export { rebindFileRef } from "./rebind-file-ref.ts";
 export {
+  FILES_STORAGE_TRACKING_FEATURE,
   filesStorageTrackingFeature,
   tenantStorageUsageTable,
   transferTenantStorageUsage,
