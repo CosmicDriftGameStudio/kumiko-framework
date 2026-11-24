@@ -4,7 +4,7 @@ Sends PDFs of a tenant as postal letters through a print provider. The app calls
 refs and an address. The letter then waits for a person to approve it, is handed to the provider by a
 job and followed until the provider reports it sent, failed or returned.
 
-The provider account belongs to the operator and is shared by all tenants. A monthly cost limit per
+The provider account belongs to the operator and is shared by all tenants. A monthly budget per
 tenant decides how much of it a tenant may spend.
 
 ## Setup
@@ -112,7 +112,7 @@ r.applyExtension({ name: EXT_ASSIGNABLE_ROLE, entity: LETTER_ROLES.approver });
 ```
 
 The query `preview` returns the unit price, pages, sheets, the envelope, the form
-fields and whether the tenant's monthly limit covers the letter. `approve` merges the PDF, checks it
+fields and whether the tenant's monthly budget covers the letter. `approve` merges the PDF, checks it
 against the provider's limits and fixes the price. It is an agent tool with `effect: "outbound"`, so the
 assistant asks before every call.
 
@@ -142,14 +142,14 @@ sweep. The preparation fixes price, sheet count and provider: a provider switche
 `sendLetter(ctx, input, { approval: "auto" })` (field `approvalMode`, default `manual`) lets the job approve a
 prepared letter without a person, as the sender (`approvedBy` is the creator). `approval` is an option of the
 call, not a field of `SendLetterInput`: an app that uses the schema as its client payload sets it from its own
-setting, so a user cannot ask for it. If the monthly limit does
+setting, so a user cannot ask for it. If the monthly budget does
 not cover it, the letter waits with `preparationIssue = letter_monthly_limit_not_covered`.
 
 `approve-many` (role `LetterApprover`, up to 100 ids) approves a selection all or none: any letter that is
 not prepared, has a document problem or is not waiting stops it with `letter_not_ready_for_approval`, and
-the summed price must fit the limit. The query `budget` returns `{ limitCents, usedCents }` for the
+the summed price must fit the budget. The query `budget` returns `{ limitCents, usedCents }` for the
 approver and the tenant admin. `quoteLetter(ctx, spec)` prices a document before it is sent. The config key
-`monthlyCostLimitCents` appears on the generated settings screen as an amount field. The credentials of the mounted provider (for LetterXpress user name and API key) are sections of the Platform › Letters mask.
+`monthlyCostLimitCents` appears on the generated settings screen as an amount field: Settings › Platform › Letters sets the default for every tenant, Settings › Tenant › Letters a tenant's own value. The credentials of the mounted provider (for LetterXpress user name and API key) are sections of the Platform › Letters mask.
 
 Usage is counted in `cap-counter` when the provider accepts the letter, with the price the provider
 charged:
