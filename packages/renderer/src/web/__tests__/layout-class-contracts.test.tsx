@@ -80,6 +80,24 @@ describe("Form body", () => {
     expect(className).toContain("[&>:not(section)]:my-3");
     expect(className).not.toContain("[&>:not(section)]:px-6");
   });
+
+  test("the sidebar stretches to the form width while stacked and only pins to the top beside it", () => {
+    render(
+      <Form
+        onSubmit={() => {}}
+        screenForm
+        fillHeight
+        sidebar={<span data-testid="side" />}
+        testId="f"
+      >
+        <div />
+      </Form>,
+    );
+    const classes = (screen.getByTestId("side").closest("aside")?.className ?? "").split(" ");
+    expect(classes).toContain("xl:self-start");
+    expect(classes).toContain("xl:sticky");
+    expect(classes).not.toContain("self-start");
+  });
 });
 
 describe("GridCell width", () => {
