@@ -5,17 +5,18 @@ import {
   FILES_STORAGE_TRACKING_FEATURE,
   tenantStorageUsageTable,
 } from "@cosmicdrift/kumiko-framework/files";
-import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { currentCalendarMonthStartIso } from "../../cap-counter/index.ts";
-import { deliveryAttemptsTable } from "../../delivery/tables.ts";
-import { DELIVERY_FEATURE } from "../../delivery/web/public-names.ts";
 import { secretsMatch } from "./last-activity-probe.query.ts";
 
 export const USAGE_PROBE_QUERY = "sessions:query:usage-probe";
 
 const USAGE_ESCAPE_HATCH_REASON =
-  "answers one sibling app with this app's database size, file bytes and mails sent this month across every tenant, guarded by a shared secret";
+  "answers one sibling app with this app's database size, file bytes and mails sent this month across every tenant, guarded by a shared secret; raw SQL because sessions cannot import delivery";
+
+// sessions must not import delivery (cycle sessions -> delivery -> user -> sessions), so the table
+// is addressed by name; the integration test pins it against the real delivery table.
+const DELIVERY_ATTEMPTS_TABLE = "store_delivery_attempts";
 
 // null = the app does not mount the feature that measures it.
 export const usageProbeAnswerSchema = z.object({
@@ -60,13 +61,19 @@ export function createUsageProbeQuery(secret: string) {
         fileBytes = sum?.value ?? 0;
       }
 
+      const [tableRow] = await unsafeReadRetrying<{ present: boolean }>(
+        ctx.db.unsafeRawAllTenants(),
+        "select to_regclass($1) is not null as present",
+        [DELIVERY_ATTEMPTS_TABLE],
+      );
       let mailsSentThisMonth: number | null = null;
-      if (ctx.registry.getFeature(DELIVERY_FEATURE) !== undefined) {
-        mailsSentThisMonth = await crossTenantReads.count(deliveryAttemptsTable, {
-          channel: "email",
-          status: "sent",
-          createdAt: { gte: Temporal.Instant.from(currentCalendarMonthStartIso()) },
-        });
+      if (tableRow?.present) {
+        const [mailRow] = await unsafeReadRetrying<{ total: string | number }>(
+          ctx.db.unsafeRawAllTenants(),
+          `select count(*) as total from ${DELIVERY_ATTEMPTS_TABLE} where channel = 'email' and status = 'sent' and created_at >= $1`,
+          [currentCalendarMonthStartIso()],
+        );
+        mailsSentThisMonth = Number(mailRow?.total ?? 0);
       }
 
       return { dbBytes: Number(sizeRow.size), fileBytes, mailsSentThisMonth };

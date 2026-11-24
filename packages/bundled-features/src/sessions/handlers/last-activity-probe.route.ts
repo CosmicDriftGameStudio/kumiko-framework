@@ -29,16 +29,18 @@ export function readProbeSecretFromEnv(
 }
 
 // Wrong secret and any handler failure look the same to the caller: 401.
-function bearerProbeHandler(queryName: string): HttpRouteHandler {
-  return async (c, { systemQuery }) => {
-    const bearerToken = /^Bearer (.+)$/.exec(c.req.header("authorization") ?? "")?.[1];
-    if (bearerToken === undefined) return c.body(null, 401);
-    try {
-      return c.json(await systemQuery(queryName, { bearerToken }, SYSTEM_TENANT_ID));
-    } catch {
-      return c.body(null, 401);
-    }
-  };
+async function answerBearerProbe(
+  c: Parameters<HttpRouteHandler>[0],
+  systemQuery: Parameters<HttpRouteHandler>[1]["systemQuery"],
+  queryName: string,
+): Promise<Response> {
+  const bearerToken = /^Bearer (.+)$/.exec(c.req.header("authorization") ?? "")?.[1];
+  if (bearerToken === undefined) return c.body(null, 401);
+  try {
+    return c.json(await systemQuery(queryName, { bearerToken }, SYSTEM_TENANT_ID));
+  } catch {
+    return c.body(null, 401);
+  }
 }
 
 export function registerLastActivityProbe(r: FeatureRegistrar, secret: string): void {
@@ -54,7 +56,7 @@ export function registerLastActivityProbe(r: FeatureRegistrar, secret: string): 
     path: "/sessions/last-activity",
     anonymous: true,
     rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
-    handler: bearerProbeHandler(LAST_ACTIVITY_PROBE_QUERY),
+    handler: (c, { systemQuery }) => answerBearerProbe(c, systemQuery, LAST_ACTIVITY_PROBE_QUERY),
   });
   r.queryHandler(createUsageProbeQuery(secret));
   r.httpRoute({
@@ -62,6 +64,6 @@ export function registerLastActivityProbe(r: FeatureRegistrar, secret: string): 
     path: "/sessions/usage",
     anonymous: true,
     rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
-    handler: bearerProbeHandler(USAGE_PROBE_QUERY),
+    handler: (c, { systemQuery }) => answerBearerProbe(c, systemQuery, USAGE_PROBE_QUERY),
   });
 }
