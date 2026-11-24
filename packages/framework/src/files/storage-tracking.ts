@@ -26,7 +26,7 @@ import { SHARED_INSTANCE_SENTINEL } from "../pipeline/index.ts";
 import { parseJsonOrThrow } from "../utils/index.ts";
 
 const FILE_REF_AGGREGATE_TYPE = "fileRef";
-const STORAGE_TRACKING_FEATURE_NAME = "files-storage-tracking";
+export const FILES_STORAGE_TRACKING_FEATURE = "files-storage-tracking";
 const TENANT_STORAGE_USAGE_MSP_NAME = "tenant-storage-usage";
 
 // fileRef is a standard ES entity, so usage tracking subscribes to its
@@ -94,7 +94,7 @@ export const tenantStorageUsageTable = pgTable("read_tenant_storage_usage", {
   lastUpdatedAt: instant("last_updated_at").default(sql`now()`).notNull(),
 });
 
-export const filesStorageTrackingFeature = defineFeature(STORAGE_TRACKING_FEATURE_NAME, (r) => {
+export const filesStorageTrackingFeature = defineFeature(FILES_STORAGE_TRACKING_FEATURE, (r) => {
   r.multiStreamProjection({
     name: TENANT_STORAGE_USAGE_MSP_NAME,
     table: tenantStorageUsageTable,
@@ -169,7 +169,7 @@ export const filesStorageTrackingFeature = defineFeature(STORAGE_TRACKING_FEATUR
 // kumiko_event_consumers — the same qualification registry-ingest.ts applies
 // to every multiStreamProjection (qualify(featureName, "projection", name)).
 const TENANT_STORAGE_USAGE_MSP_QN = qn(
-  toKebab(STORAGE_TRACKING_FEATURE_NAME),
+  toKebab(FILES_STORAGE_TRACKING_FEATURE),
   "projection",
   toKebab(TENANT_STORAGE_USAGE_MSP_NAME),
 );

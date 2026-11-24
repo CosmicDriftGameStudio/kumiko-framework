@@ -9,6 +9,11 @@ export {
 } from "./constants.ts";
 export type { SessionsFeatureOptions } from "./feature.ts";
 export { createSessionsFeature } from "./feature.ts";
+export {
+  USAGE_PROBE_QUERY,
+  type UsageProbeAnswer,
+  usageProbeAnswerSchema,
+} from "./handlers/usage-probe.query.ts";
 export { userSessionEntity, userSessionTable } from "./schema/user-session.ts";
 export type { SessionCallbacks, SessionCallbacksOptions } from "./session-callbacks.ts";
 export { createSessionCallbacks } from "./session-callbacks.ts";

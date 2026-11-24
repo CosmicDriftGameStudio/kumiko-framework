@@ -1,8 +1,10 @@
 import { type FeatureRegistrar, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import type { HttpRouteHandler } from "@cosmicdrift/kumiko-types/http-route";
 import {
   createLastActivityProbeQuery,
   LAST_ACTIVITY_PROBE_QUERY,
 } from "./last-activity-probe.query.ts";
+import { createUsageProbeQuery, USAGE_PROBE_QUERY } from "./usage-probe.query.ts";
 
 // The route is reachable anonymously, so a short secret would be guessable within the rate limit.
 const MIN_PROBE_SECRET_LENGTH = 32;
@@ -26,6 +28,19 @@ export function readProbeSecretFromEnv(
   return secret;
 }
 
+// Wrong secret and any handler failure look the same to the caller: 401.
+function bearerProbeHandler(queryName: string): HttpRouteHandler {
+  return async (c, { systemQuery }) => {
+    const bearerToken = /^Bearer (.+)$/.exec(c.req.header("authorization") ?? "")?.[1];
+    if (bearerToken === undefined) return c.body(null, 401);
+    try {
+      return c.json(await systemQuery(queryName, { bearerToken }, SYSTEM_TENANT_ID));
+    } catch {
+      return c.body(null, 401);
+    }
+  };
+}
+
 export function registerLastActivityProbe(r: FeatureRegistrar, secret: string): void {
   if (secret.length < MIN_PROBE_SECRET_LENGTH) {
     throw new Error(
@@ -39,20 +54,14 @@ export function registerLastActivityProbe(r: FeatureRegistrar, secret: string): 
     path: "/sessions/last-activity",
     anonymous: true,
     rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
-    handler: async (c, { systemQuery }) => {
-      const bearerToken = /^Bearer (.+)$/.exec(c.req.header("authorization") ?? "")?.[1];
-      if (bearerToken === undefined) return c.body(null, 401);
-      try {
-        const answer = await systemQuery(
-          LAST_ACTIVITY_PROBE_QUERY,
-          { bearerToken },
-          SYSTEM_TENANT_ID,
-        );
-        return c.json(answer);
-      } catch {
-        // Wrong secret and any handler failure look the same to the caller.
-        return c.body(null, 401);
-      }
-    },
+    handler: bearerProbeHandler(LAST_ACTIVITY_PROBE_QUERY),
+  });
+  r.queryHandler(createUsageProbeQuery(secret));
+  r.httpRoute({
+    method: "GET",
+    path: "/sessions/usage",
+    anonymous: true,
+    rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
+    handler: bearerProbeHandler(USAGE_PROBE_QUERY),
   });
 }

@@ -12,7 +12,7 @@ const EPOCH = Temporal.Instant.fromEpochMilliseconds(0);
 const PROBE_ESCAPE_HATCH_REASON =
   "answers one sibling app with the newest session activity across every tenant of this app, guarded by a shared secret";
 
-function secretsMatch(provided: string, expected: string): boolean {
+export function secretsMatch(provided: string, expected: string): boolean {
   const providedBytes = Buffer.from(provided);
   const expectedBytes = Buffer.from(expected);
   return (
