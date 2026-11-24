@@ -40,9 +40,9 @@ export const LETTER_FOUNDATION_I18N = {
   "screen:letter-foundation-system.title": { en: "Letters" },
   "letter-foundation.settings": { en: "Letters" },
   [LetterI18n.liveTitle]: { en: "Live letter sending" },
-  [LetterI18n.monthlyLimitTitle]: { en: "Monthly letter budget per tenant" },
+  [LetterI18n.monthlyLimitTitle]: { en: "Monthly letter sending budget per tenant" },
   [LetterI18n.monthlyLimitHelp]: {
-    en: "Net amount the approved letters of one tenant may cost per calendar month, including approved letters not yet handed over. Once it is used up, no further letter is approved until the next month or a higher budget. 0 € means no letter is approved.",
+    en: "Upper limit for the letter costs of one tenant per calendar month, net. Each letter counts with its full price at the print provider: printing, envelope, postage and, if chosen, registered mail. Approved letters not yet handed over already count. Once it is used up, no further letter is approved until the next month or a higher budget. 0 € means no letter is approved.",
   },
   [LetterI18n.notReadyForApproval]: {
     en: "Some of the selected letters are not ready for approval. A letter is ready when it waits for approval and its document was checked without a problem.",

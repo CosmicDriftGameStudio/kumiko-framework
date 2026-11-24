@@ -2344,9 +2344,9 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "screen:letter-foundation-tenant.title": "Lettere",
   "screen:letter-foundation-system.title": "Lettere di tutti i clienti",
   "letter-foundation.settings": "Lettere",
-  "letter-foundation.settings.monthlyLimit": "Budget mensile delle lettere per mandante",
+  "letter-foundation.settings.monthlyLimit": "Budget mensile per l'invio di lettere per mandante",
   "letter-foundation.settings.monthlyLimitHelp":
-    "Importo netto che le lettere approvate di un mandante possono costare per mese di calendario. Le lettere approvate non ancora consegnate contano. Esaurito il budget, non viene approvata nessuna lettera fino al mese successivo o fino a un budget più alto. Con 0 € nessuna lettera viene approvata.",
+    "Tetto dei costi delle lettere di un mandante per mese di calendario, al netto. Ogni lettera conta con il prezzo completo presso il fornitore di stampa: stampa, busta, affrancatura e, se scelta, raccomandata. Le lettere approvate non ancora consegnate contano già. Esaurito il budget, non viene approvata nessuna lettera fino al mese successivo o fino a un budget più alto. Con 0 € nessuna lettera viene approvata.",
   "letter-foundation.errors.notReadyForApproval":
     "Alcune delle lettere selezionate non sono ancora pronte per l'approvazione. Una lettera è pronta quando attende l'approvazione e il suo documento è stato verificato senza problemi.",
   "letter-foundation.errors.monthlyLimitNotCovered":

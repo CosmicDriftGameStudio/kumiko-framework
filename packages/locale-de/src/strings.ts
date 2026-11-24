@@ -2374,9 +2374,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Benutzername des LetterXpress-Kontos. Briefe gehen damit nur raus, solange „Echter Briefversand“ an ist.",
   "letter-provider-letterxpress.api-key-help":
     "API-Key des LetterXpress-Kontos. Er wird verschlüsselt gespeichert und nie wieder angezeigt; zum Ändern einen neuen eingeben.",
-  "letter-foundation.settings.monthlyLimit": "Monatsbudget für Briefe je Mandant",
+  "letter-foundation.settings.monthlyLimit": "Monatsbudget Briefversand je Mandant",
   "letter-foundation.settings.monthlyLimitHelp":
-    "So viel dürfen die freigegebenen Briefe eines Mandanten pro Kalendermonat netto kosten. Freigegebene Briefe, die noch nicht übergeben sind, zählen mit. Ist das Budget aufgebraucht, wird bis zum nächsten Monat oder bis zu einem höheren Budget kein Brief mehr freigegeben. Bei 0 € wird kein Brief freigegeben.",
+    "Obergrenze für die Briefkosten eines Mandanten pro Kalendermonat, netto. Jeder Brief zählt mit seinem vollen Preis beim Druckdienstleister: Druck, Umschlag, Porto und, falls gewählt, Einschreiben. Freigegebene Briefe, die noch nicht übergeben sind, zählen schon mit. Ist das Budget aufgebraucht, wird bis zum nächsten Monat oder bis zu einem höheren Budget kein Brief mehr freigegeben. Bei 0 € wird kein Brief freigegeben.",
   "letter-foundation.errors.notReadyForApproval":
     "Einige der ausgewählten Briefe sind noch nicht bereit für die Freigabe. Bereit ist ein Brief, der auf die Freigabe wartet und dessen Dokument ohne Problem geprüft wurde.",
   "letter-foundation.errors.monthlyLimitNotCovered":
