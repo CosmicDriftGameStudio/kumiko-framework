@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.28
+# syntax=docker/dockerfile:1.29
 #
 # Template-Dockerfile fuer eine Kumiko-basierte App.
 # Das Framework selbst wird nicht containerisiert — dies ist die Vorlage,

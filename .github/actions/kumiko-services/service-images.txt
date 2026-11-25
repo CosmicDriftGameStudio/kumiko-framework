@@ -1,9 +1,9 @@
 # Single place where CI service images are pinned: <key> <upstream-ref-with-tag> <index-digest>
 # Update = change the line (tag + multi-arch index digest from `docker buildx imagetools inspect <ref>`).
 # After merge, the "Mirror CI service images" workflow copies the new digest to GHCR.
-postgres docker.io/library/postgres:18.6-alpine sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
-redis docker.io/library/redis:8-alpine sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
-meilisearch docker.io/getmeili/meilisearch:v1.56 sha256:1f578fa865f8251894b3bf38d6668d6209a3f451f8f65ab953e129d4c1db5ef4
-rustfs docker.io/rustfs/rustfs:1.0.4 sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2
-aws-cli docker.io/amazon/aws-cli:2.39.3 sha256:d557b3524475d70dd3104cf44d96568ee3188897b73a6ece2b37aa50e1af362f
+postgres docker.io/library/postgres:18.7-alpine sha256:0115267ab5a509022df9319c77be365cef335adb71556c75f60f5360ee247e71
+redis docker.io/library/redis:8-alpine sha256:5af80107c1eeecb484a2269b80a26d12bfa6521787da4663bd9f19f60a163483
+meilisearch docker.io/getmeili/meilisearch:v1.58 sha256:cee0d2e31191594ff8e1651eb144aabd95b389a0bc3532327ecfb9ed91dffe7e
+rustfs docker.io/rustfs/rustfs:1.0.6 sha256:ee717072290bec9b11abfc0365f8310b00df1cd9b3639943edae47bdef05044a
+aws-cli docker.io/amazon/aws-cli:2.42.3 sha256:271de464e935f765aa2afb6ec69881e9f4a9afd3e978214a2b5f5ddcbbc161b5
 greenmail docker.io/greenmail/standalone:2.1.15 sha256:309ba544ea482e5d4265d09921cdab07c8dad2cc4481d715c9b8ff5d3f0a149f
