@@ -1929,6 +1929,14 @@ type DataTableFacetChip = {
 ## packages/renderer/src/data-table-view-types.ts
 
 ```ts
+type DataTableCellEditor = { // An editable select cell: the table draws a native select instead of the read-only value.
+  options: { value: string; label: string; }[];
+  value: string | null; // Current raw value; null or empty shows the placeholder.
+  required: boolean; // An empty value is drawn as an error.
+  placeholder: string;
+  ariaLabel: string;
+  onChange: (value: string) => void;
+};
 type DataTableColumnPin = ListColumnPin;
 type DataTableColumnPins = Readonly<Record<string, DataTableColumnPin>>;
 type DataTableColumnWidths = Readonly<Record<string, number>>;
@@ -2664,14 +2672,6 @@ type ConfigSourceBadgeProps = { // Source-badge for one cascade step (User / Ten
   screenScope?: ConfigScope; // Scope of the hosting screen.
 };
 type DataAttributes = Readonly<Record<`data-${string}`, string>>; // Escape hatch for `data-*` test hooks (e.g. an E2E selector) that don't warrant a dedicated typed prop.
-type DataTableCellEditor = { // An editable select cell: the table draws a native select instead of the read-only value.
-  options: { value: string; label: string; }[];
-  value: string | null; // Current raw value; null or empty shows the placeholder.
-  required: boolean; // An empty value is drawn as an error.
-  placeholder: string;
-  ariaLabel: string;
-  onChange: (value: string) => void;
-};
 type DataTableRowAction = {
   id: string; // Stable ID for aria-labels and data-testids.
   label: string; // Translated Label.

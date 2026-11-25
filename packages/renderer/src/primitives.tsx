@@ -52,7 +52,7 @@ import {
 import type { CardOptions } from "./card-options.ts";
 import type { DataTableBulk } from "./data-table-bulk-types.ts";
 import type { DataTableDateRangeFacet, DataTableFacet } from "./data-table-facet-types.ts";
-import type { DataTableTableBlock } from "./data-table-view-types.ts";
+import type { DataTableCellEditor, DataTableTableBlock } from "./data-table-view-types.ts";
 import type { EmbeddedListInputProps } from "./embedded-list-types.ts";
 import type {
   FieldIssue,
@@ -865,18 +865,6 @@ export type {
   KeyValueListProps,
 } from "./primitives-value-display-types.ts";
 
-/** An editable select cell: the table draws a native select instead of the read-only value. */
-export type DataTableCellEditor = {
-  readonly options: readonly { readonly value: string; readonly label: string }[];
-  /** Current raw value; null or empty shows the placeholder. */
-  readonly value: string | null;
-  /** An empty value is drawn as an error. */
-  readonly required: boolean;
-  readonly placeholder: string;
-  readonly ariaLabel: string;
-  readonly onChange: (value: string) => void;
-};
-
 export type DataTableProps = {
   readonly columns: readonly ListColumnViewModel[];
   readonly rows: readonly ListRowViewModel[];
@@ -974,12 +962,9 @@ export type DataTableProps = {
   /** Wires an edit path into a component column-renderer: `DataTableCell`
    *  passes this down as `ColumnRendererProps.onChange` for that cell,
    *  bound to `(rowId, column.field)`. Renderers without a component
-   *  renderer (format-spec, type-default) ignore it — read-only stays
-   *  read-only unless the column has a custom renderer that reads
-   *  `onChange`. */
+   *  renderer (format-spec, type-default) ignore it; read-only stays read-only
+   *  unless the column has a custom renderer that reads `onChange`. */
   readonly onCellChange?: (rowId: string, field: string, value: unknown) => void;
-  /** An editor for the select cell of this row, or undefined for the read-only value. A native
-   *  table that has no select cell shows the value instead. */
   readonly cellEditor?: (row: ListRowViewModel, field: string) => DataTableCellEditor | undefined;
   /** Overrides the row `data-testid` (default `row-${row.id}`) — for a
    *  screen that already has its own DOM-test/e2e naming scheme. */

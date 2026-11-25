@@ -76,7 +76,7 @@ describe("DataTable cellEditor", () => {
         onRowClick={(row) => opened.push(row.id)}
       />,
     );
-    const select = screen.getByTestId("cell-r1-status-select") as HTMLSelectElement;
+    const select = screen.getByRole("combobox", { name: "Status" }) as HTMLSelectElement;
     expect(select.value).toBe("open");
     fireEvent.click(select);
     fireEvent.change(select, { target: { value: "done" } });
@@ -92,7 +92,7 @@ describe("DataTable cellEditor", () => {
         cellEditor={editorFor([])}
       />,
     );
-    const select = screen.getByTestId("cell-r2-status-select") as HTMLSelectElement;
+    const select = screen.getByRole("combobox", { name: "Status" }) as HTMLSelectElement;
     expect(select.getAttribute("aria-invalid")).toBe("true");
     expect(select.selectedOptions[0]?.textContent).toBe("—");
   });

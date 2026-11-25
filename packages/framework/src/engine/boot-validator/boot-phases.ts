@@ -27,7 +27,6 @@ import {
   validateFileFields,
   validateHandlerAccess,
   validateLocatedTimestamps,
-  validateLockedWhen,
   validateMultiStreamProjections,
   validateReferenceFields,
   validateSearchableFieldReadAccess,
@@ -46,6 +45,7 @@ import { validateFieldConditions } from "./field-conditions.ts";
 import { validateHandlerFieldReferences } from "./handler-field-references.ts";
 import { validateHandlerSystemScope } from "./handler-system-scope.ts";
 import { validateJobRunAs } from "./job-run-as.ts";
+import { validateLockedWhen } from "./locked-when.ts";
 import { validateNavs } from "./nav.ts";
 import { validateOwnershipRules } from "./ownership.ts";
 import { validateParentOwnershipRules } from "./parent-ownership.ts";

@@ -17,9 +17,9 @@ import { conditionLeaves } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import { assertConditionShape } from "./condition-shape.ts";
-import { LOCKABLE_FIELD_TYPES } from "./entity-handler.ts";
 import { conditionComparisonValues } from "./entity-select.ts";
 import { FIELD_CONDITION_RULES } from "./field-conditions-rules.ts";
+import { LOCKABLE_FIELD_TYPES } from "./locked-when.ts";
 
 type Condition = NonBooleanFieldCondition;
 type LeafCondition = FieldConditionLeaf;

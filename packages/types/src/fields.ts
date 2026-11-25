@@ -15,9 +15,7 @@ export type {
   EmbeddedFilesSubFieldProps,
   EmbeddedImagesSubFieldProps,
   FieldCondition,
-  FieldConditionLeaf,
   FieldStateConditions,
-  NonBooleanFieldCondition,
 } from "./field-state-conditions.ts";
 
 // OwnershipMap is declared in ./ownership.ts — field-access maps to

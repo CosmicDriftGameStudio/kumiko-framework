@@ -136,10 +136,7 @@ export function renderDataCell(
       title={cellTitle(row.values[col.field])}
     >
       {editor !== undefined ? (
-        <CellEditorSelect
-          editor={editor}
-          testId={`${getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}-select`}
-        />
+        <CellEditorSelect editor={editor} />
       ) : (
         <FirstCellLink
           enabled={wrapsCellInOpener}

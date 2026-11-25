@@ -176,7 +176,9 @@ describe("RelatedListSection edit column", () => {
   test("the select appears only where `when` holds", async () => {
     setup();
     await waitFor(() => rtlScreen.getByTestId("row-r1"));
-    expect(rtlScreen.getByTestId("editor-r1")).toBeTruthy();
+    const editor = rtlScreen.getByTestId("editor-r1") as HTMLSelectElement;
+    expect(editor.value).toBe("open");
+    expect(Array.from(editor.options, (option) => option.value)).toEqual(["open", "done"]);
     expect(rtlScreen.queryByTestId("editor-r2")).toBeNull();
     expect(rtlScreen.getByTestId("value-r2").textContent).toBe("open");
   });

@@ -1143,10 +1143,30 @@ describe("writeform-section sample — footer writeForm and editable select cell
   test("note-board registers one footer form and an edit column", () => {
     const screen = registry.getScreen("note-desk:screen:note-board");
     if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
-    const footer = screen.layout.sections.find(
+    const footers = screen.layout.sections.filter(
       (section) => section.kind === "writeForm" && section.placement === "footer",
     );
-    expect(footer).toBeDefined();
+    expect(footers).toHaveLength(1);
+    expect(footers[0]).toMatchObject({
+      title: "Reply",
+      fields: ["body"],
+      actions: [{ id: "send", handler: "note-desk:write:note:approve" }],
+    });
+    const list = screen.layout.sections.find((section) => section.kind === "relatedList");
+    expect(list).toMatchObject({
+      columns: [
+        "title",
+        {
+          field: "priority",
+          edit: {
+            field: "category",
+            handler: "note-desk:write:note:update",
+            when: { field: "priority", ne: 0 },
+            required: true,
+          },
+        },
+      ],
+    });
   });
 });
 ```

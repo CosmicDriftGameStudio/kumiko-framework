@@ -1,7 +1,6 @@
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
-  ListColumnEdit,
   RelatedListRowTone,
   RowActionDrawer,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -14,7 +13,8 @@ import {
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { useAppFeatures } from "../app/app-features-context.tsx";
 import { useClientActionRuntime } from "../app/client-actions.tsx";
-import { type ErrorNotice, ErrorReference, errorNoticeOf } from "../app/error-reference.tsx";
+import { type ErrorNotice, ErrorReference } from "../app/error-reference.tsx";
+import type { FeatureSchema } from "../app/feature-schema.ts";
 import { useListBulk } from "../app/list-bulk-actions.ts";
 import {
   buildFilterFacets,
@@ -40,18 +40,15 @@ import {
   runProjectionRowNavigate,
 } from "../app/row-actions.ts";
 import { findEditScreenFor } from "../app/screen-access.ts";
-import { dispatcherErrorText, WriteFailedError } from "../app/write-failed-error.ts";
+import { dispatcherErrorText } from "../app/write-failed-error.ts";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
 import { rendererWarn } from "../dev-console.ts";
-import {
-  type EditRelatedListSectionViewModel,
-  type EditSectionViewModel,
-  EMPTY_VALUE_PLACEHOLDER,
-  fieldLabelKey,
-  fieldOptionLabelKey,
-  type ListRowViewModel,
-  type Translate,
+import type {
+  EditRelatedListSectionViewModel,
+  EditSectionViewModel,
+  ListRowViewModel,
+  Translate,
 } from "../headless/index.ts";
 import { buildRelatedListParentPayload } from "../hooks/related-list-parent-payload.ts";
 import { relatedListServerSort, useRelatedListRows } from "../hooks/use-related-list-rows.ts";
@@ -60,6 +57,7 @@ import { useOptionalLocale, useTranslation } from "../i18n.tsx";
 import { PageHeaderSlotAvailableProvider } from "../page-header-slot.ts";
 import { type DataTableFacet, type DataTableProps, usePrimitives } from "../primitives.tsx";
 import { ListGroupPageBridges } from "./list-group-page-bridges.tsx";
+import { useRelatedListCellEditor } from "./related-list-cell-editor.ts";
 import { RelatedPhotoGrid } from "./related-photo-grid.tsx";
 import { RenderEditActionButton } from "./render-edit-action-button.tsx";
 import type { RenderEditAction } from "./render-edit-types.ts";
@@ -142,52 +140,60 @@ function buildRowStruck(
   return (row) => evalFieldCondition(rule, { ...row.values });
 }
 
-/** Cell editors of the columns that declare `edit`: a select where `when` holds, written through the column's handler. */
-function buildCellEditor(args: {
-  readonly columns: EditRelatedListSectionViewModel["columns"];
+function NoticeBanner({
+  notice,
+  testId,
+}: {
+  readonly notice: ErrorNotice | null;
+  readonly testId: string;
+}): ReactNode {
+  const { Banner } = usePrimitives();
+  if (notice === null) return null;
+  return (
+    <Banner variant="error" testId={testId}>
+      {notice.message}
+      <ErrorReference requestId={notice.requestId} />
+    </Banner>
+  );
+}
+
+function useDefaultEditRowAction(
+  rowClick: EditRelatedListSectionViewModel["rowClick"],
+  appFeatures: readonly FeatureSchema[],
+  userRoles: ReturnType<typeof useUserRoles>,
+) {
+  const editScreen = useMemo(() => {
+    if (rowClick?.entity === undefined) return undefined;
+    return findEditScreenFor(rowClick.entity, appFeatures, userRoles);
+  }, [appFeatures, rowClick, userRoles]);
+  return useMemo(
+    () => buildDefaultEditRowAction(editScreen, rowClick?.idColumn ?? "id"),
+    [editScreen, rowClick],
+  );
+}
+
+/** The entity a related list reads from; list and label keys derive from it only when it resolves. */
+function useRelatedListSource(
+  entityRef: string | undefined,
+  featureName: string,
+  appFeatures: readonly FeatureSchema[],
+): {
   readonly sourceEntity: EntityDefinition | undefined;
-  readonly feature: string | undefined;
-  readonly entityName: string | undefined;
-  readonly translate: Translate;
-  readonly write: (handler: string, payload: Record<string, unknown>) => Promise<void>;
-}): DataTableProps["cellEditor"] {
-  const edits = new Map<string, ListColumnEdit>();
-  for (const column of args.columns) {
-    const normalized = normalizeListColumn(column);
-    if (normalized.edit !== undefined) edits.set(normalized.field, normalized.edit);
-  }
-  if (edits.size === 0) return undefined;
-  return (row, field) => {
-    const edit = edits.get(field);
-    if (edit === undefined) return undefined;
-    if (edit.when !== undefined && !evalFieldCondition(edit.when, { ...row.values }))
-      return undefined;
-    const editField = edit.field ?? field;
-    const fieldDef = args.sourceEntity?.fields[editField];
-    if (fieldDef?.type !== "select") return undefined;
-    const { feature, entityName, translate } = args;
-    const labelOf = (value: string): string => {
-      if (feature === undefined || entityName === undefined) return value;
-      const key = fieldOptionLabelKey(feature, entityName, editField, value);
-      const translated = translate(key);
-      return translated === key ? value : translated;
-    };
-    const current = row.values[editField];
-    const labelKey =
-      feature !== undefined && entityName !== undefined
-        ? fieldLabelKey(feature, entityName, editField)
-        : undefined;
-    const translatedLabel = labelKey === undefined ? editField : translate(labelKey);
-    return {
-      options: fieldDef.options.map((value) => ({ value, label: labelOf(value) })),
-      value: typeof current === "string" ? current : null,
-      required: edit.required === true,
-      placeholder: EMPTY_VALUE_PLACEHOLDER,
-      ariaLabel: translatedLabel === labelKey ? editField : translatedLabel,
-      onChange: (value) => {
-        void args.write(edit.handler, { id: row.id, [editField]: value });
-      },
-    };
+  readonly listFeatureName: string | undefined;
+  readonly listEntityName: string | undefined;
+} {
+  const target = useMemo(
+    () => (entityRef !== undefined ? parseRefTarget(entityRef, featureName) : undefined),
+    [entityRef, featureName],
+  );
+  const sourceEntity =
+    target !== undefined
+      ? appFeatures.find((f) => f.featureName === target.featureName)?.entities[target.entityName]
+      : undefined;
+  return {
+    sourceEntity,
+    listFeatureName: sourceEntity !== undefined ? target?.featureName : undefined,
+    listEntityName: sourceEntity !== undefined ? target?.entityName : undefined,
   };
 }
 
@@ -325,7 +331,6 @@ export function RelatedListSection({
 }): ReactNode {
   const { Banner, Section, FillContainer } = usePrimitives();
   const [emptyStateActionError, setEmptyStateActionError] = useState<ErrorNotice | null>(null);
-  const [cellEditError, setCellEditError] = useState<ErrorNotice | null>(null);
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const locale = useOptionalLocale();
@@ -337,30 +342,15 @@ export function RelatedListSection({
   const clientActions = useClientActionRuntime();
   const appFeatures = useAppFeatures();
   const userRoles = useUserRoles();
-  const defaultEditScreen = useMemo(() => {
-    const targetEntity = section.rowClick?.entity;
-    if (targetEntity === undefined) return undefined;
-    return findEditScreenFor(targetEntity, appFeatures, userRoles);
-  }, [appFeatures, section.rowClick, userRoles]);
-  const defaultEditRowAction = useMemo(
-    () => buildDefaultEditRowAction(defaultEditScreen, section.rowClick?.idColumn ?? "id"),
-    [defaultEditScreen, section.rowClick],
-  );
+  const defaultEditRowAction = useDefaultEditRowAction(section.rowClick, appFeatures, userRoles);
 
   // RenderList derives header and option-label keys from (featureName,
   // screen.entity), so a declared entity also supplies both.
-  const sourceTarget = useMemo(
-    () => (section.entity !== undefined ? parseRefTarget(section.entity, featureName) : undefined),
-    [section.entity, featureName],
+  const { sourceEntity, listFeatureName, listEntityName } = useRelatedListSource(
+    section.entity,
+    featureName,
+    appFeatures,
   );
-  const sourceEntity =
-    sourceTarget !== undefined
-      ? appFeatures.find((f) => f.featureName === sourceTarget.featureName)?.entities[
-          sourceTarget.entityName
-        ]
-      : undefined;
-  const listFeatureName = sourceEntity !== undefined ? sourceTarget?.featureName : undefined;
-  const listEntityName = sourceEntity !== undefined ? sourceTarget?.entityName : undefined;
   const entity = useMemo(
     () =>
       synthesizeRelatedListEntity(section.columns, sourceEntity, section.serverSortFields ?? []),
@@ -472,41 +462,14 @@ export function RelatedListSection({
   // a relatedList row has the identical "no guaranteed id field" shape a
   // query-projection row has, so navigate/writeHandler dispatch is shared
   // rather than a second implementation (fw editable-detail-screens).
-  const cellEditor = useMemo(
-    () =>
-      buildCellEditor({
-        columns: section.columns,
-        sourceEntity,
-        feature: listFeatureName,
-        entityName: listEntityName,
-        translate: effectiveTranslate,
-        write: async (handler, payload) => {
-          if (dispatcher === undefined) return;
-          try {
-            const result = await dispatcher.write(handler, payload);
-            if (!result.isSuccess) {
-              throw new WriteFailedError(
-                result.error,
-                dispatcherErrorText(result.error, effectiveTranslate),
-              );
-            }
-            setCellEditError(null);
-            await refetchSelfAndHost();
-          } catch (error) {
-            setCellEditError(errorNoticeOf(error));
-          }
-        },
-      }),
-    [
-      section.columns,
-      sourceEntity,
-      listFeatureName,
-      listEntityName,
-      effectiveTranslate,
-      dispatcher,
-      refetchSelfAndHost,
-    ],
-  );
+  const { cellEditor, cellEditError } = useRelatedListCellEditor({
+    columns: section.columns,
+    sourceEntity,
+    feature: listFeatureName,
+    entityName: listEntityName,
+    translate: effectiveTranslate,
+    refetch: refetchSelfAndHost,
+  });
   const rowActions = useMemo(
     () =>
       buildProjectionRowActions({
@@ -642,18 +605,8 @@ export function RelatedListSection({
           })}
         </Banner>
       )}
-      {emptyStateActionError !== null && (
-        <Banner variant="error" testId="related-list-empty-state-action-error">
-          {emptyStateActionError.message}
-          <ErrorReference requestId={emptyStateActionError.requestId} />
-        </Banner>
-      )}
-      {cellEditError !== null && (
-        <Banner variant="error" testId="related-list-cell-edit-error">
-          {cellEditError.message}
-          <ErrorReference requestId={cellEditError.requestId} />
-        </Banner>
-      )}
+      <NoticeBanner notice={emptyStateActionError} testId="related-list-empty-state-action-error" />
+      <NoticeBanner notice={cellEditError} testId="related-list-cell-edit-error" />
       <ListGroupPageBridges {...aggregates.groupPages} />
       {section.photoGrid !== undefined ? (
         listRows.rows.length === 0 ? (

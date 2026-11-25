@@ -1,22 +1,17 @@
-import { evalFieldCondition, isFooterWriteForm } from "@cosmicdrift/kumiko-framework/ui-types";
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
+import { type ReactNode, useState } from "react";
 import { pageHelpButtonOf } from "../components/page-help-button.tsx";
 import { RenderEdit } from "../components/render-edit.tsx";
-import { RenderEditActionButton } from "../components/render-edit-action-button.tsx";
-import type { WriteFormRegistry } from "../components/write-form-registry.ts";
 import {
-  type WriteFormDirtyReporter,
   WriteFormDirtyReporterProvider,
   WriteFormRegistryProvider,
 } from "../components/write-form-registry.ts";
-import { WriteFormSection } from "../components/write-form-section.tsx";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
-import { computeWriteFormSectionViewModel, type Translate } from "../headless/index.ts";
+import type { Translate } from "../headless/index.ts";
 import { useLocale, useTranslation } from "../i18n.tsx";
 import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
-import { screenFillsHeight } from "../screen-fills-height.ts";
 import { type DrawerDetailRenderer, useDrawerAction } from "./action-form-body.tsx";
 import { useAppFeatures } from "./app-features-context.tsx";
 import { useClientActionRuntime } from "./client-actions.tsx";
@@ -24,6 +19,11 @@ import { DrawerDetailScope } from "./drawer-detail-scope.tsx";
 import type { ErrorNotice } from "./error-reference.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { useNav } from "./nav.tsx";
+import { detailEditLayoutProps } from "./projection-detail-edit-layout.ts";
+import {
+  ProjectionDetailFooterForm,
+  useDetailScreenWithoutFooter,
+} from "./projection-detail-footer.tsx";
 import { hasRecordGuidance } from "./projection-detail-guidance-data.ts";
 import {
   type DetailRegionModel,
@@ -44,6 +44,7 @@ import { useProjectionDetailActions } from "./use-projection-detail-actions.ts";
 import { useProjectionDetailData } from "./use-projection-detail-data.ts";
 import { useProjectionDetailLayout } from "./use-projection-detail-layout.ts";
 import { useRelatedListTabCounts } from "./use-related-list-tab-counts.ts";
+import { useWriteFormTracking } from "./use-write-form-tracking.ts";
 
 // Detail opened from a row action inside a Drawer: own tab state, own record id.
 export const renderDetailInDrawer: DrawerDetailRenderer = ({
@@ -99,26 +100,7 @@ export function ProjectionDetailBody({
   const pageHeaderCompactContext = usePageHeaderCompact();
   const effectiveTranslate = translate ?? t;
   const nav = useNav();
-  // The footer form is no tab and no body section: everything below sees the screen without it.
-  const footerSection = useMemo(
-    () => declaredScreen.layout.sections.find(isFooterWriteForm),
-    [declaredScreen.layout.sections],
-  );
-  const screen = useMemo(
-    (): ProjectionDetailScreenWithTarget =>
-      footerSection === undefined
-        ? declaredScreen
-        : {
-            ...declaredScreen,
-            layout: {
-              ...declaredScreen.layout,
-              sections: declaredScreen.layout.sections.filter(
-                (section) => section !== footerSection,
-              ),
-            },
-          },
-    [declaredScreen, footerSection],
-  );
+  const { footerSection, screen } = useDetailScreenWithoutFooter(declaredScreen);
   // Singleton screens ignore whatever id the path happens to carry — the
   // server picks the row from session/context, so forwarding a path id
   // (even a stray/spoofed one) into the query or into extension sections'
@@ -141,23 +123,7 @@ export function ProjectionDetailBody({
   // headerActions moved out of RenderEdit's footer — this component owns
   // the failure-surfacing state RenderEdit used to own for them.
   const [actionError, setActionError] = useState<ErrorNotice | null>(null);
-  // writeForm sections register here so an action with `submitWith` can send their values.
-  const [writeForms] = useState<WriteFormRegistry>(() => new Map());
-  const [dirtyWriteForms, setDirtyWriteForms] = useState<ReadonlySet<string>>(() => new Set());
-  const reportWriteFormDirty = useCallback<WriteFormDirtyReporter>((formKey, dirty) => {
-    setDirtyWriteForms((current) => {
-      if (current.has(formKey) === dirty) return current;
-      const next = new Set(current);
-      if (dirty) next.add(formKey);
-      else next.delete(formKey);
-      return next;
-    });
-  }, []);
-
-  const anyWriteFormDirty = dirtyWriteForms.size > 0;
-  useEffect(() => {
-    onDirtyChange?.(anyWriteFormDirty);
-  }, [anyWriteFormDirty, onDirtyChange]);
+  const { writeForms, dirtyWriteForms, reportWriteFormDirty } = useWriteFormTracking(onDirtyChange);
 
   const appFeatures = useAppFeatures();
   const userRoles = useUserRoles();
@@ -191,23 +157,6 @@ export function ProjectionDetailBody({
       dirtyWriteForms,
       footerFormActions: footerSection?.actions,
     });
-  const shownRecord = detailQuery.data;
-  const footerForm = useMemo(
-    () =>
-      footerSection === undefined ||
-      shownRecord === null ||
-      (footerSection.visibleWhen !== undefined &&
-        !evalFieldCondition(footerSection.visibleWhen, { ...shownRecord }))
-        ? undefined
-        : computeWriteFormSectionViewModel(
-            footerSection,
-            declaredScreen.id,
-            shownRecord,
-            effectiveTranslate,
-            schema.featureName,
-          ),
-    [footerSection, shownRecord, declaredScreen.id, effectiveTranslate, schema.featureName],
-  );
   const pageHelp = detailPageHelpOf(
     screen,
     visibleSections,
@@ -275,6 +224,12 @@ export function ProjectionDetailBody({
     buildItemActions,
   };
   const regionPieces = deriveDetailRegionPieces(regionModel);
+  const editLayout = detailEditLayoutProps({
+    screen,
+    hasTabs,
+    activeSections,
+    translate: effectiveTranslate,
+  });
   const renderHeaderContent = (headerSlot: ReactNode | undefined): ReactNode =>
     renderDetailHeaderContent(regionModel, regionPieces, headerSlot);
   return (
@@ -298,21 +253,7 @@ export function ProjectionDetailBody({
           onRelatedListDrawerAction={openDrawer}
           {...(translate !== undefined && { translate })}
           {...(hasTabs && activeSection !== undefined && { activeTabId: activeSection.id })}
-          {...(screen.footerHint !== undefined && {
-            footerHint: effectiveTranslate(screen.footerHint),
-          })}
-          {...(hasTabs &&
-            activeSections.length === 1 &&
-            screen.layout.narrowTabs !== false && { hideSectionTitles: true })}
-          recordSections={{
-            labelTitles: true,
-            ...(hasTabs &&
-              activeSections.length > 1 &&
-              activeSections[0]?.tabLabel === undefined && { omitFirstTitle: true as const }),
-            ...(screen.pageNavigation === false && { pageNavigation: false as const }),
-            ...(screen.photosBeside === true && { photosBeside: true as const }),
-          }}
-          {...(screenFillsHeight(screen) && { fillScreenHeight: true })}
+          {...editLayout}
           {...((hasHeaderCard ||
             hasTabs ||
             hasRecordGuidance(screen) ||
@@ -325,22 +266,16 @@ export function ProjectionDetailBody({
           buildSectionActions={buildSectionActions}
           valueDisplay={screen.valueDisplay ?? "text"}
         />
-        {footerForm !== undefined && (
-          <WriteFormSection
-            section={footerForm}
+        {footerSection !== undefined && (
+          <ProjectionDetailFooterForm
+            section={footerSection}
+            screenId={declaredScreen.id}
             featureName={schema.featureName}
+            record={record}
             translate={effectiveTranslate}
+            buttons={footerFormButtons}
             onSubmitted={reloadDetail}
-            recordValues={record}
-            actions={footerFormButtons?.map((action) => (
-              <RenderEditActionButton
-                key={action.id}
-                action={action}
-                Button={primitives.Button}
-                Dialog={primitives.Dialog}
-                onError={setActionError}
-              />
-            ))}
+            onActionError={setActionError}
           />
         )}
         {renderProjectionDrawerHost({

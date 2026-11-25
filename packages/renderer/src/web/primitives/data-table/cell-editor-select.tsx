@@ -1,19 +1,12 @@
 import type { ReactNode } from "react";
-import type { DataTableCellEditor } from "../../../primitives.tsx";
+import type { DataTableCellEditor } from "../../../data-table-view-types.ts";
 
 /** Native select of an editable cell. Click and key events stop here so they never open the row. */
-export function CellEditorSelect({
-  editor,
-  testId,
-}: {
-  readonly editor: DataTableCellEditor;
-  readonly testId: string;
-}): ReactNode {
+export function CellEditorSelect({ editor }: { readonly editor: DataTableCellEditor }): ReactNode {
   const empty = editor.value === null || editor.value === "";
   const invalid = empty && editor.required;
   return (
     <select
-      data-testid={testId}
       aria-label={editor.ariaLabel}
       aria-invalid={invalid ? true : undefined}
       required={editor.required}
