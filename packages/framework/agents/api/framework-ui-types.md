@@ -740,7 +740,8 @@ type RowActionDrawer = {
   kind: "drawer";
   id: string;
   label: string;
-  screen: string; // Short, unqualified id of an `actionForm` screen in the same feature.
+  screen: string; // Short, unqualified id of an `actionForm` or `projectionDetail` screen in the same feature.
+  width?: "wide"; // `"wide"` opens a broad panel (up to 1280px) instead of the standard width; narrow viewports keep the full-screen drawer.
   params?: RowFieldExtractor; // Declarative prefill extracted from the clicked row.
   visible?: FieldCondition; // Per-row conditional visibility.
   showOnTabs?: string[]; // projectionDetail header action only: shown while one of these tab (section) ids is active.

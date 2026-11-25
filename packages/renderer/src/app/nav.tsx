@@ -247,6 +247,12 @@ export function NavProvider({ children, value }: NavProviderProps): ReactNode {
   );
 }
 
+/** Replaces the NavApi for a subtree without resetting the handoff slot of the
+ *  enclosing NavProvider (a nested NavProvider would drop pending prefill). */
+export function NavOverrideProvider({ children, value }: NavProviderProps): ReactNode {
+  return <NavContext.Provider value={value}>{children}</NavContext.Provider>;
+}
+
 // Navigates to a form screen (actionForm, secretMint, entityEdit-create) with
 // initial values carried in memory — never in the URL, so a link cannot
 // forge them and they are not limited to the screen's urlPrefillFields.

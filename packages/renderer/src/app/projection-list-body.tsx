@@ -14,6 +14,7 @@ import { FacetCountBridges } from "./facet-count-bridge.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { NamedFilterRemove } from "./named-filter-remove.tsx";
 import { useNav } from "./nav.tsx";
+import { renderDetailInDrawer } from "./projection-detail-body.tsx";
 import { renderProjectionDrawerHost } from "./projection-drawer-host.tsx";
 import {
   renderBadShapeBanner,
@@ -179,6 +180,7 @@ export function ProjectionListBody({
         userRoles,
         drawer,
         refreshRows,
+        renderDetail: renderDetailInDrawer,
       })}
     </>
   );

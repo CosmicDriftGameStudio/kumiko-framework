@@ -12,6 +12,8 @@ import { SheetTitle } from "../ui/sheet.tsx";
 import { Drawer } from "../widgets/drawer.tsx";
 
 const DRAWER_DIM_PERCENT = 32;
+// The widget caps any explicit width at 85vw, so a phone-sized window keeps a usable panel.
+const WIDE_DRAWER_WIDTH_PX = 1280;
 const PANEL_CLASS = "bg-background border-border-strong shadow-[-12px_0_32px_rgb(0_0_0/0.14)]";
 
 export function DefaultDrawer({
@@ -19,6 +21,7 @@ export function DefaultDrawer({
   onOpenChange,
   title,
   subtitle,
+  width,
   children,
   testId,
 }: DrawerProps): ReactNode {
@@ -30,6 +33,7 @@ export function DefaultDrawer({
       testId={testId}
       variant="flush"
       side="right"
+      {...(width === "wide" && { width: WIDE_DRAWER_WIDTH_PX })}
       backdrop={{ dimPercent: DRAWER_DIM_PERCENT }}
       showCloseButton={false}
       panelClassName={PANEL_CLASS}

@@ -1324,6 +1324,8 @@ export type DrawerProps = {
   readonly title?: string;
   /** Muted line under the title. */
   readonly subtitle?: string;
+  /** `"wide"` asks for a broad panel (1280px, capped at 85vw); default is the standard panel width. */
+  readonly width?: "wide";
   readonly children: ReactNode;
   readonly testId?: string;
 };

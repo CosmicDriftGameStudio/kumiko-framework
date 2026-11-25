@@ -58,6 +58,7 @@ function DrawerFormLayout({
   secondaryActions,
   summary,
   topBanner,
+  headerRegion,
   testId,
   children,
 }: Pick<
@@ -70,6 +71,7 @@ function DrawerFormLayout({
   | "testId"
   | "summary"
   | "topBanner"
+  | "headerRegion"
 > & {
   readonly children: ReactNode;
 }): ReactNode {
@@ -98,7 +100,10 @@ function DrawerFormLayout({
           <ScreenFormContext.Provider value={true}>
             <InsideDrawerProvider value={false}>
               <DrawerBodyContext.Provider value={true}>
-                <div className="flex flex-col gap-5">{children}</div>
+                <div className="flex flex-col gap-5">
+                  {headerRegion}
+                  {children}
+                </div>
               </DrawerBodyContext.Provider>
             </InsideDrawerProvider>
           </ScreenFormContext.Provider>
@@ -245,6 +250,7 @@ export function DefaultForm({
         secondaryActions={secondaryActions}
         summary={summary}
         topBanner={topBanner}
+        headerRegion={headerRegion}
         testId={testId}
       >
         {children}

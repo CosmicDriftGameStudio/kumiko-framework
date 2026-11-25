@@ -2704,6 +2704,7 @@ type DrawerProps = { // Side panel for hosting an existing self-contained form/w
   onOpenChange: (open: boolean) => void;
   title?: string;
   subtitle?: string; // Muted line under the title.
+  width?: "wide"; // `"wide"` asks for a broad panel (1280px, capped at 85vw); default is the standard panel width.
   children: ReactNode;
   testId?: string;
 };

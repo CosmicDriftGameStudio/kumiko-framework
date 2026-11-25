@@ -1,6 +1,10 @@
 import type { ReactNode } from "react";
 import type { Translate } from "../headless/index.ts";
-import { DrawerHost, type useDrawerAction } from "./action-form-body.tsx";
+import {
+  type DrawerDetailRenderer,
+  DrawerHost,
+  type useDrawerAction,
+} from "./action-form-body.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
 
 export type ProjectionDrawerModel = {
@@ -9,20 +13,23 @@ export type ProjectionDrawerModel = {
   readonly userRoles: Parameters<typeof DrawerHost>[0]["userRoles"];
   readonly drawer: Pick<
     ReturnType<typeof useDrawerAction>,
-    "drawerAction" | "drawerScreen" | "drawerInitialValues" | "closeDrawer"
+    "drawerAction" | "drawerScreen" | "drawerInitialValues" | "drawerRecordId" | "closeDrawer"
   >;
   readonly refreshRows: () => Promise<void>;
+  readonly renderDetail?: DrawerDetailRenderer;
 };
 
 export function renderProjectionDrawerHost(model: ProjectionDrawerModel): ReactNode {
-  const { schema, translate, userRoles, drawer, refreshRows } = model;
-  const { drawerAction, drawerScreen, drawerInitialValues, closeDrawer } = drawer;
+  const { schema, translate, userRoles, drawer, refreshRows, renderDetail } = model;
+  const { drawerAction, drawerScreen, drawerInitialValues, drawerRecordId, closeDrawer } = drawer;
   return (
     <DrawerHost
       schema={schema}
       drawerAction={drawerAction}
       drawerScreen={drawerScreen}
       {...(drawerInitialValues !== undefined && { drawerInitialValues })}
+      {...(drawerRecordId !== undefined && { drawerRecordId })}
+      {...(renderDetail !== undefined && { renderDetail })}
       userRoles={userRoles}
       {...(translate !== undefined && { translate })}
       onClose={closeDrawer}

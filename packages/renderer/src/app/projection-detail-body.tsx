@@ -15,9 +15,10 @@ import { useLocale, useTranslation } from "../i18n.tsx";
 import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
 import { screenFillsHeight } from "../screen-fills-height.ts";
-import { useDrawerAction } from "./action-form-body.tsx";
+import { type DrawerDetailRenderer, useDrawerAction } from "./action-form-body.tsx";
 import { useAppFeatures } from "./app-features-context.tsx";
 import { useClientActionRuntime } from "./client-actions.tsx";
+import { DrawerDetailScope } from "./drawer-detail-scope.tsx";
 import type { ErrorNotice } from "./error-reference.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { useNav } from "./nav.tsx";
@@ -41,6 +42,23 @@ import { useProjectionDetailActions } from "./use-projection-detail-actions.ts";
 import { useProjectionDetailData } from "./use-projection-detail-data.ts";
 import { useProjectionDetailLayout } from "./use-projection-detail-layout.ts";
 import { useRelatedListTabCounts } from "./use-related-list-tab-counts.ts";
+
+// Detail opened from a row action inside a Drawer: own tab state, own record id.
+export const renderDetailInDrawer: DrawerDetailRenderer = ({
+  schema,
+  screen,
+  translate,
+  entityId,
+}) => (
+  <DrawerDetailScope key={entityId}>
+    <ProjectionDetailBody
+      schema={schema}
+      screen={screen}
+      entityId={entityId}
+      {...(translate !== undefined && { translate })}
+    />
+  </DrawerDetailScope>
+);
 
 // Projection detail body: read-only single-row inspector over an explicit
 // query instead of an entity (see projection-detail-shim.ts for the debt
@@ -263,6 +281,7 @@ export function ProjectionDetailBody({
           userRoles,
           drawer,
           refreshRows: reloadDetail,
+          renderDetail: renderDetailInDrawer,
         })}
       </WriteFormDirtyReporterProvider>
     </WriteFormRegistryProvider>
