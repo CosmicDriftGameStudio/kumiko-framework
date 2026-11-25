@@ -20,13 +20,14 @@ export function FlushTable({
 }
 
 // Header cells stick to the scroll surface; the bottom rule is an inset
-// shadow because a border on a sticky cell scrolls away under border-collapse.
+// shadow because a border on a sticky cell scrolls away under border-collapse. z-20: above the
+// sticky actions cell of the rows (z-10), which would otherwise paint over the header.
 // Column weight (medium vs. semibold for the sorted one) lives on the th itself
 // in SortableHeader: a `[&_th]:font-*` rule here would outrank it.
 // Child selectors only: an expanded row nests a whole table inside a cell, and
 // descendant selectors would make its header sticky and re-pad its cells.
 export const FILL_TABLE_CLASS = cn(
-  "[&>thead>tr>th]:sticky [&>thead>tr>th]:top-0 [&>thead>tr>th]:z-10 [&>thead>tr>th]:h-[37px] [&>thead>tr>th]:bg-background [&>thead>tr>th]:px-3 [&>thead>tr>th]:text-[13.5px]",
+  "[&>thead>tr>th]:sticky [&>thead>tr>th]:top-0 [&>thead>tr>th]:z-20 [&>thead>tr>th]:h-[37px] [&>thead>tr>th]:bg-background [&>thead>tr>th]:px-3 [&>thead>tr>th]:text-[13.5px]",
   "[&>thead>tr>th]:shadow-[inset_0_-1.5px_0_var(--color-border-row)] [&>thead>tr>th_button]:text-[13.5px] [&>tbody>tr>td]:px-3 [&>tbody>tr>td]:py-0",
   "[&>*>tr>:first-child]:pl-6 [&>*>tr>:last-child]:pr-[34px]",
 );

@@ -460,6 +460,104 @@ describe("list and detail narrow rules", () => {
     ).toContain("dashboard/list-row-link-invalid");
   });
 
+  describe("rowLink.presentation", () => {
+    const withDetail = (rowLink: Record<string, unknown>) =>
+      screensFeature([
+        {
+          id: "orders",
+          type: "projectionList",
+          query: "shop:query:order:now",
+          columns: ["number"],
+        },
+        {
+          id: "order-detail",
+          type: "projectionDetail",
+          query: "shop:query:order:detail",
+          idParam: "id",
+          layout: { sections: [{ id: "main", title: "Main", fields: ["number"] }] },
+        },
+        { id: "overview", type: "dashboard", panels: [{ ...LIST, rowLink }] },
+      ]);
+    const POPUP_ID = "dashboard/list-row-link-invalid";
+
+    test("a popup onto a same-feature projectionDetail with paramField boots", () => {
+      expect(
+        ruleIdsOf([
+          withDetail({ screen: "order-detail", paramField: "number", presentation: "popup" }),
+        ]),
+      ).toEqual([]);
+      expect(
+        ruleIdsOf([
+          withDetail({ screen: "order-detail", paramField: "number", presentation: "page" }),
+        ]),
+      ).toEqual([]);
+    });
+
+    test("a popup with screenField is rejected", () => {
+      expect(ruleIdsOf([withDetail({ screenField: "number", presentation: "popup" })])).toContain(
+        POPUP_ID,
+      );
+      expect(ruleIdsOf([withDetail({ screenField: "number", presentation: "page" })])).toContain(
+        POPUP_ID,
+      );
+    });
+
+    test("a popup onto a projectionDetail of another feature is rejected", () => {
+      const other = defineFeature("other", (r) => {
+        r.queryHandler({
+          name: "order:detail",
+          schema: z.object({}),
+          handler: async () => ({ rows: [] }),
+          access: OPEN_TO_ALL,
+        });
+        r.screen({
+          id: "x-detail",
+          type: "projectionDetail",
+          query: "other:query:order:detail",
+          idParam: "id",
+          layout: { sections: [{ id: "main", title: "Main", fields: ["number"] }] },
+        } as never);
+      });
+      const dashboardFeature = screensFeature([
+        {
+          id: "overview",
+          type: "dashboard",
+          panels: [
+            {
+              ...LIST,
+              rowLink: {
+                screen: "other:screen:x-detail",
+                paramField: "number",
+                presentation: "popup",
+              },
+            },
+          ],
+        },
+      ]);
+      expect(ruleIdsOf([dashboardFeature, other])).toContain(POPUP_ID);
+    });
+
+    test("a popup without paramField is rejected", () => {
+      expect(ruleIdsOf([withDetail({ screen: "order-detail", presentation: "popup" })])).toContain(
+        POPUP_ID,
+      );
+    });
+
+    test("a popup onto a screen that is no projectionDetail is rejected", () => {
+      expect(
+        ruleIdsOf([withDetail({ screen: "orders", paramField: "number", presentation: "popup" })]),
+      ).toContain(POPUP_ID);
+    });
+
+    test("an unknown presentation is rejected", () => {
+      expect(
+        ruleIdsOf([
+          withDetail({ screen: "order-detail", paramField: "number", presentation: "modal" }),
+        ]),
+      ).toContain(POPUP_ID);
+    });
+  });
+
   test("steps.narrowLimit must be a positive integer", () => {
     const detail = (narrowLimit: number) =>
       screensFeature([

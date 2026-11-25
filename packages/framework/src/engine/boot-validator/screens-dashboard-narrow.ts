@@ -89,6 +89,36 @@ function validateListNarrow(context: string, panel: DashboardListPanel): void {
 }
 
 const ROW_LINK_ICONS: readonly unknown[] = ["arrow", "chevron"];
+const ROW_LINK_PRESENTATIONS: readonly unknown[] = ["page", "popup"];
+
+function validateRowLinkPresentation(
+  context: string,
+  rowLink: NonNullable<DashboardListPanel["rowLink"]>,
+): void {
+  const { presentation } = rowLink;
+  if (presentation === undefined) return;
+  if (!ROW_LINK_PRESENTATIONS.includes(presentation)) {
+    throw bootRuleError(DASHBOARD_RULES.listRowLinkInvalid, {
+      message: `${context} rowLink.presentation "${String(presentation)}" is not "page" or "popup".`,
+    });
+  }
+  if (rowLink.screenField !== undefined) {
+    throw bootRuleError(DASHBOARD_RULES.listRowLinkInvalid, {
+      message: `${context} rowLink.presentation only goes with screen, not screenField.`,
+    });
+  }
+  if (presentation !== "popup") return;
+  if (rowLink.screen === undefined) {
+    throw bootRuleError(DASHBOARD_RULES.listRowLinkInvalid, {
+      message: `${context} rowLink.presentation "popup" needs a fixed target screen; screenField rows name their target per row. Use screen with paramField or presentation "page".`,
+    });
+  }
+  if (rowLink.paramField === undefined) {
+    throw bootRuleError(DASHBOARD_RULES.listRowLinkInvalid, {
+      message: `${context} rowLink.presentation "popup" needs paramField: the popup opens the record named by its entityId.`,
+    });
+  }
+}
 
 /** The screen itself is checked by validateDashboardPanelLink; this covers the rest of the shape. */
 export function validateListRowLinkShape(context: string, panel: DashboardListPanel): void {
@@ -121,6 +151,7 @@ export function validateListRowLinkShape(context: string, panel: DashboardListPa
       });
     }
   }
+  validateRowLinkPresentation(context, rowLink);
   if (rowLink.icon !== undefined && !ROW_LINK_ICONS.includes(rowLink.icon)) {
     throw bootRuleError(DASHBOARD_RULES.listRowLinkInvalid, {
       message: `${context} rowLink.icon "${String(rowLink.icon)}" is not "arrow" or "chevron".`,

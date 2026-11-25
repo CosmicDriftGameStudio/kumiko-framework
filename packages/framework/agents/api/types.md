@@ -5353,7 +5353,7 @@ type DashboardHeaderSubtitle = {
   query: string;
   field: string;
 };
-type DashboardListRowLink = ({ screen: string; paramField?: string; screenField?: never; paramsField?: never; } | { screenField: string; paramsField?: string; screen?: never; paramField?: never; }) & { // Row link of a list panel: one fixed target screen (`screen`) or, when the rows point to different places, the screen named by each row (`screenField`).
+type DashboardListRowLink = ({ screen: string; paramField?: string; presentation?: "page" | "popup"; screenField?: never; paramsField?: never; } | { screenField: string; paramsField?: string; screen?: never; paramField?: never; presentation?: never; }) & { // Row link of a list panel: one fixed target screen (`screen`) or, when the rows point to different places, the screen named by each row (`screenField`).
   icon?: "arrow" | "chevron"; // "arrow" (default) draws ↗ for a jump to another place, "chevron" draws › for opening the row.
 };
 type DashboardListShowTotal = { // Texts of the "n of m" count in a list panel's subtitle; without `text` the default i18n text stands.

@@ -251,6 +251,7 @@ export function ProjectionDetailBody({
       beforeTabSwitch: inPlaceFormGuard.requestCloseThen,
     }),
   };
+  const fullPageFooter = footerSection !== undefined && !scrollContentOnly;
   const regionPieces = deriveDetailRegionPieces(regionModel);
   const editLayout = detailEditLayoutProps({
     screen,
@@ -281,59 +282,61 @@ export function ProjectionDetailBody({
             }}
           />
         )}
-        {/* Hidden, not unmounted, while the form is shown: an unsent footer note must survive it. */}
-        <PaneWrap
-          className={paneClassName(
-            scrollContentOnly,
-            "min-h-0 flex-1 overflow-y-auto",
-            inPlaceForm,
-          )}
-        >
-          {refetchErrorBanner}
-          <FlushDrawerBodyProvider value={flatHeader}>
-            <RenderEdit
-              key={entityId}
-              refreshToken={reloadNonce}
-              screen={renderedDetailScreen}
-              entity={entity}
-              featureName={schema.featureName}
-              initial={record}
-              entityId={effectiveEntityId}
-              customSubmit={async () => ({
-                isSuccess: true,
-                validationBlocked: false,
-                data: undefined,
-              })}
-              onReload={reloadDetail}
-              onRelatedListDrawerAction={openDrawer}
-              {...(translate !== undefined && { translate })}
-              {...(hasTabs && activeSection !== undefined && { activeTabId: activeSection.id })}
-              {...editLayout}
-              {...(!flatHeader &&
-                hasHeaderRegion(screen, hasHeaderCard, hasTabs) && {
-                  headerRegion: renderHeaderContent,
+        <FooterColumn enabled={fullPageFooter}>
+          {/* Hidden, not unmounted, while the form is shown: an unsent footer note must survive it. */}
+          <PaneWrap
+            className={
+              fullPageFooter
+                ? "min-h-0 flex-1"
+                : paneClassName(scrollContentOnly, "min-h-0 flex-1 overflow-y-auto", inPlaceForm)
+            }
+          >
+            {refetchErrorBanner}
+            <FlushDrawerBodyProvider value={flatHeader}>
+              <RenderEdit
+                key={entityId}
+                refreshToken={reloadNonce}
+                screen={renderedDetailScreen}
+                entity={entity}
+                featureName={schema.featureName}
+                initial={record}
+                entityId={effectiveEntityId}
+                customSubmit={async () => ({
+                  isSuccess: true,
+                  validationBlocked: false,
+                  data: undefined,
                 })}
-              {...(footerActions !== undefined &&
-                footerActions.length > 0 && { actions: footerActions })}
-              buildSectionActions={buildSectionActions}
-              valueDisplay={screen.valueDisplay ?? "text"}
-            />
-          </FlushDrawerBodyProvider>
-        </PaneWrap>
-        {footerSection !== undefined && (
-          <PaneWrap className={paneClassName(scrollContentOnly, "shrink-0", inPlaceForm)}>
-            <ProjectionDetailFooterForm
-              section={footerSection}
-              screenId={declaredScreen.id}
-              featureName={schema.featureName}
-              record={record}
-              translate={effectiveTranslate}
-              buttons={footerFormButtons}
-              onSubmitted={reloadDetail}
-              onActionError={setActionError}
-            />
+                onReload={reloadDetail}
+                onRelatedListDrawerAction={openDrawer}
+                {...(translate !== undefined && { translate })}
+                {...(hasTabs && activeSection !== undefined && { activeTabId: activeSection.id })}
+                {...editLayout}
+                {...(!flatHeader &&
+                  hasHeaderRegion(screen, hasHeaderCard, hasTabs) && {
+                    headerRegion: renderHeaderContent,
+                  })}
+                {...(footerActions !== undefined &&
+                  footerActions.length > 0 && { actions: footerActions })}
+                buildSectionActions={buildSectionActions}
+                valueDisplay={screen.valueDisplay ?? "text"}
+              />
+            </FlushDrawerBodyProvider>
           </PaneWrap>
-        )}
+          {footerSection !== undefined && (
+            <PaneWrap className={paneClassName(scrollContentOnly, "shrink-0", inPlaceForm)}>
+              <ProjectionDetailFooterForm
+                section={footerSection}
+                screenId={declaredScreen.id}
+                featureName={schema.featureName}
+                record={record}
+                translate={effectiveTranslate}
+                buttons={footerFormButtons}
+                onSubmitted={reloadDetail}
+                onActionError={setActionError}
+              />
+            </PaneWrap>
+          )}
+        </FooterColumn>
         {renderProjectionDrawerHost({
           schema,
           translate,
@@ -430,8 +433,23 @@ function paneClassName(
   return inPlaceForm === undefined ? base : `${base} hidden`;
 }
 
-// A wrapper only where a layout needs it: on the full page the footer's `sticky` must stay
-// relative to the page container, so there the children remain direct siblings.
+// Full page with a footer form: the body is `h-full`, so a footer sibling after it would push the
+// page past <main>'s height and give two scroll areas. In one flex column the body pane shrinks
+// instead and the form content scrolls itself; the footer stays a direct child so its `sticky`
+// still works where the shell does not constrain the height.
+function FooterColumn({
+  enabled,
+  children,
+}: {
+  readonly enabled: boolean;
+  readonly children: ReactNode;
+}): ReactNode {
+  const { FillContainer } = usePrimitives();
+  return enabled ? <FillContainer className="h-full">{children}</FillContainer> : children;
+}
+
+// A wrapper only where a drawer layout needs it; on the full page the children stay direct
+// siblings (see FooterColumn).
 function PaneWrap({
   className,
   children,

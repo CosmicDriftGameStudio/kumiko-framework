@@ -71,16 +71,16 @@ export function useDashboardRecord(
   }, [screen.refresh, recordRow]);
 
   const { register, refetchRegistered } = useRefetchRegistry();
-  const queryRuntime = useMemo(
-    () => ({ refreshIntervalMs, register }),
-    [refreshIntervalMs, register],
-  );
   const refetchAll = useCallback(async () => {
     await Promise.all([
       recordQueryName !== undefined ? refetchRecord() : Promise.resolve(),
       refetchRegistered(),
     ]);
   }, [recordQueryName, refetchRecord, refetchRegistered]);
+  const queryRuntime = useMemo(
+    () => ({ refreshIntervalMs, register, refetchAll }),
+    [refreshIntervalMs, register, refetchAll],
+  );
   return { recordQuery, recordRow, refetchRecord, queryRuntime, refetchAll };
 }
 
