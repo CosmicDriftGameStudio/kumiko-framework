@@ -167,10 +167,12 @@ export function createSignatureRequestEntity(
   );
 }
 
+const DEFAULT_SIGNER_RETENTION: Pick<SignatureRetention, "keepFor"> = {
+  keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR,
+};
+
 export function createSignatureSignerEntity(
-  retention: Pick<SignatureRetention, "keepFor"> = {
-    keepFor: DEFAULT_SIGNATURE_RETENTION_KEEP_FOR,
-  },
+  retention: Pick<SignatureRetention, "keepFor"> = DEFAULT_SIGNER_RETENTION,
 ) {
   return createEntity({
     name: SIGNATURE_SIGNER_ENTITY,

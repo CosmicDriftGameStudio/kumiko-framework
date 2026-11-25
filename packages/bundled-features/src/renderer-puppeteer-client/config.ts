@@ -18,7 +18,7 @@ export function loadClientConfig(env: NodeJS.ProcessEnv = process.env): ClientCo
     );
   }
   return {
-    serviceUrl: serviceUrl.replace(/\/+$/, ""), // trailing slash strippen
+    serviceUrl: serviceUrl.replace(/(?<!\/)\/+$/, ""), // trailing slash strippen
     authToken,
     requestTimeoutMs: parseIntEnv(env["PUPPETEER_CLIENT_TIMEOUT_MS"], 60_000),
     maxRetries: parseIntEnv(env["PUPPETEER_CLIENT_MAX_RETRIES"], 3),

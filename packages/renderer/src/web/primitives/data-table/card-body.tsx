@@ -47,13 +47,15 @@ function withoutPill(col: ListColumnViewModel): ListColumnViewModel {
   return rest;
 }
 
+type CardCellOptions = { readonly linksAllowed: boolean; readonly omitPill?: boolean };
+
+const DEFAULT_CARD_CELL_OPTIONS: CardCellOptions = { linksAllowed: false };
+
 function cardCell(
   m: DataTableModel,
   row: ListRowViewModel,
   col: ListColumnViewModel,
-  { linksAllowed, omitPill }: { readonly linksAllowed: boolean; readonly omitPill?: boolean } = {
-    linksAllowed: false,
-  },
+  { linksAllowed, omitPill }: CardCellOptions = DEFAULT_CARD_CELL_OPTIONS,
 ): ReactNode {
   const { onCellChange } = m;
   const opensRow = m.rowOpener(row) !== undefined;

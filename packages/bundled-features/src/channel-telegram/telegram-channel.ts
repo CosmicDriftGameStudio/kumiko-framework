@@ -86,7 +86,7 @@ export function createTelegramChannel(
       }
 
       const result = await postChatWebhook({
-        url: `${apiBaseUrl.replace(/\/+$/, "")}/bot${token}/sendMessage`,
+        url: `${apiBaseUrl.replace(/(?<!\/)\/+$/, "")}/bot${token}/sendMessage`,
         allowedHosts,
         requireHttps,
         timeoutMs: options.timeoutMs ?? DEFAULT_CHAT_TIMEOUT_MS,

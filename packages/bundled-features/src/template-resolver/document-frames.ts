@@ -73,7 +73,7 @@ export function flattenAddressSenderLine(compiledHtml: string): string {
     for (const paragraph of Array.from(body.querySelectorAll(ADDRESS_FIRST_PARAGRAPH_SELECTOR))) {
       if (!isSenderLine(paragraph)) continue;
       for (const text of textNodesBetweenFirstAndLastText(paragraph)) {
-        text.textContent = (text.textContent ?? "").replace(/\s*\r?\n\s*/g, " · ");
+        text.textContent = (text.textContent ?? "").replace(/(?<!\s)[^\S\n]*\n\s*/g, " · ");
       }
       appendStyle(paragraph, addressParagraphCss(true));
       changed = true;

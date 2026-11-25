@@ -45,6 +45,12 @@ describe("scrubLogText", () => {
     );
   });
 
+  test("masks an address that starts right after the previous one", () => {
+    expect(scrubLogText("no address, then ann@example.com_bob@example.org")).toBe(
+      "no address, then a***@example.com_***@example.org",
+    );
+  });
+
   test("leaves text without personal data untouched", () => {
     expect(scrubLogText("handler failed at step 3")).toBe("handler failed at step 3");
   });

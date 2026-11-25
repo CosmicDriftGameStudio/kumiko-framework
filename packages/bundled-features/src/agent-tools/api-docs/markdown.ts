@@ -1,4 +1,4 @@
-const TABLE_CELL_BREAKS = /\s*[\r\n]+\s*/g;
+const TABLE_CELL_BREAKS = /(?<!\s)[^\S\r\n]*[\r\n]\s*/g;
 
 export function escapeCell(text: string): string {
   return text.replace(TABLE_CELL_BREAKS, " ").replace(/\|/g, "\\|");

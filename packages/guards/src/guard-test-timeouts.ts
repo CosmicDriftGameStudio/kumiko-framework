@@ -98,7 +98,7 @@ const DESCRIBE_CONFIGURE_CALLEE = /(^|\.)describe\.configure$/;
 
 const HOOK_DECLARATION_CALLEE = /^(beforeAll|beforeEach|afterAll|afterEach)$/;
 
-const PLAYWRIGHT_FILE = /(^|\/)e2e[^/]*\/|\.spec\.tsx?$/;
+const PLAYWRIGHT_FILE = /(?:(^|\/)e2e[^/]*\/)|(?:\.spec\.tsx?$)/;
 const PLAYWRIGHT_CONFIG = /(^|\/)playwright[^/]*\.config\.tsx?$/;
 
 function isPlaywrightFile(file: string): boolean {

@@ -126,8 +126,9 @@ const ALLOWED_FUNCTIONS: ReadonlySet<string> = new Set<string>([
 // `<`/`>`/`{`/`}`/`@`/`;` (breakouts), no quotes (string sinks like `content`,
 // quoted `url("…")`). `*` and `/` are kept for `calc()`.
 const VALUE_CHARS = /^[a-zA-Z0-9 \t.,#%()/*+-]+$/;
-const FUNCTION_NAME = /([a-zA-Z][a-zA-Z0-9-]*)\s*\(/g;
-const IMPORTANT_SUFFIX = /\s*!\s*important\s*$/i;
+// An ident without "(" is consumed whole, so a long run is scanned once, not once per character.
+const IDENT_OR_FUNCTION = /([a-zA-Z][a-zA-Z0-9-]*)(\s*\()?/g;
+const IMPORTANT_SUFFIX = /(?<!\s)\s*!\s*important\s*$/i;
 
 // Permitted selector chars. Class/id/element idents, descendant/child/sibling
 // combinators, single-colon pseudo-CLASS, universal, `()` for `:not()`/
@@ -271,12 +272,9 @@ function sanitizeValue(prop: string, rawValue: string): string | null {
 
   // Every function token must be an allowed function — this is what closes
   // url()/expression()/var()/image-set() without matching their literal names.
-  FUNCTION_NAME.lastIndex = 0;
-  let m: RegExpExecArray | null = FUNCTION_NAME.exec(value);
-  while (m !== null) {
-    const fnName = m[1];
-    if (fnName === undefined || !ALLOWED_FUNCTIONS.has(fnName.toLowerCase())) return null;
-    m = FUNCTION_NAME.exec(value);
+  for (const [, name, openParen] of value.matchAll(IDENT_OR_FUNCTION)) {
+    if (openParen === undefined) continue;
+    if (name === undefined || !ALLOWED_FUNCTIONS.has(name.toLowerCase())) return null;
   }
 
   if (prop === "position" && !ALLOWED_POSITION_VALUES.has(value.toLowerCase())) {

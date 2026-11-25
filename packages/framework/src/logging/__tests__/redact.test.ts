@@ -31,6 +31,12 @@ describe("redactUrls", () => {
     expect(out).not.toContain("pass");
   });
 
+  test("finds a scheme behind plain words and a leading digit", () => {
+    expect(redactUrls("plain words 1https://host.example/secret end")).toBe(
+      "plain words 1https://host.example/[redacted] end",
+    );
+  });
+
   test("leaves text without URLs alone", () => {
     expect(redactUrls("socket hang up")).toBe("socket hang up");
   });

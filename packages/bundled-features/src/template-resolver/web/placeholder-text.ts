@@ -35,5 +35,5 @@ export function contentToLine(nodes: readonly JSONContent[] | undefined): string
 }
 
 export function singleLine(text: string): string {
-  return text.replace(/\s*[\r\n]+\s*/g, " ");
+  return text.replace(/(?<!\s)[^\S\r\n]*[\r\n]\s*/g, " ");
 }

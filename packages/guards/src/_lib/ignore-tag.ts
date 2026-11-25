@@ -46,10 +46,10 @@ export function consumeIgnoreTagOnLine(sf: SourceFile, line: number, tag: string
 }
 
 // Not anchored: lineHasIgnoreTag honours the tag anywhere in a line, so a prefixed tag must be checked too.
-export const KUMIKO_IGNORE_TAG_RE = /\bkumiko-lint-ignore\s+(\S+)(?:\s+(.*))?$/;
+export const KUMIKO_IGNORE_TAG_RE = /\bkumiko-lint-ignore\s+(\S+)(?:\s+(\S.*|))?$/;
 
 // Also matches the file-wide `kumiko-lint-ignore-file` form: reason checks cover both, the ledger tracks line markers only.
-export const KUMIKO_IGNORE_ANY_TAG_RE = /\bkumiko-lint-ignore(?:-file)?\s+(\S+)(?:\s+(.*))?$/;
+export const KUMIKO_IGNORE_ANY_TAG_RE = /\bkumiko-lint-ignore(?:-file)?\s+(\S+)(?:\s+(\S.*|))?$/;
 
 function taggedLineAt(node: Node, line: number, tag: string): string | undefined {
   const sf = node.getSourceFile();

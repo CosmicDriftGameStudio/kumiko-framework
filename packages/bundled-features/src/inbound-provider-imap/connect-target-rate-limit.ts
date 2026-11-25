@@ -26,7 +26,7 @@ export async function enforceConnectTargetLimit(
     });
   }
   // Trailing dot is the same DNS name; without stripping it `imap.x.com.` would get its own buckets.
-  const host = doc.host.toLowerCase().replace(/\.+$/, "");
+  const host = doc.host.toLowerCase().replace(/(?<!\.)\.+$/, "");
   try {
     await rateLimit.enforceAll([
       {

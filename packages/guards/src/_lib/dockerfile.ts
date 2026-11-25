@@ -3,14 +3,14 @@ export type DockerStage = { readonly lines: readonly string[] };
 export const NPM_AUTH_SECRET_ID = "npm_auth_token";
 
 const FROM_RE = /^\s*FROM\s/i;
-const BUN_INSTALL_RE = /^\s*RUN\s+.*\bbun\s+(?:install|i)\b/;
+const BUN_INSTALL_RE = /^\s*RUN\s+(?:\S.*)?\bbun\s+(?:install|i)\b/;
 const RUN_RE = /^\s*RUN\s/i;
 const HEREDOC_START_RE = /(?<![<$(])<<(?!<)[-~]?\s*(["']?)([A-Za-z_][A-Za-z0-9_]*)\1/;
 const COPY_FROM_RE = /^\s*COPY\s+--from=/;
 const COPY_RE = /^\s*COPY\s+/;
 const COPY_CONTEXT_RE = /^\s*COPY\s+(?:--\S+\s+)*\.\/?\s+\S+\s*$/;
 const LEGACY_TOKEN_ARG_RE = /^\s*ARG\s+(\S+\s+)*NPM_AUTH_TOKEN(\s*=.*)?\s*$/;
-const LEGACY_TOKEN_ENV_RE = /^\s*ENV\s+.*\bNPM_AUTH_TOKEN\b/;
+const LEGACY_TOKEN_ENV_RE = /^\s*ENV\s+(?:\S.*)?\bNPM_AUTH_TOKEN\b/;
 
 // Docker line continuations (`\` at EOL) and RUN heredoc bodies merged so a
 // multi-line RUN/COPY still matches as one logical instruction.
@@ -86,7 +86,7 @@ export function declaresRegistryTokenAsArgOrEnv(
   tokenVariables: ReadonlySet<string>,
 ): boolean {
   if (isLegacyTokenArgOrEnv(line)) return true;
-  const declared = /^\s*(?:ARG|ENV)\s+(.*)$/.exec(line)?.[1];
+  const declared = /^\s*(?:ARG|ENV)\s+(\S.*|)$/.exec(line)?.[1];
   if (declared === undefined) return false;
   return [...tokenVariables].some((variable) =>
     new RegExp(`(^|\\s)${variable}(=|\\s|$)`).test(declared),

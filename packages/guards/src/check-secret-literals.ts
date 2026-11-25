@@ -47,7 +47,7 @@ const STRING_FALLBACK = /(?:\?\?|\|\|)\s*(['"`])([^'"`\n]+)\1/g;
 // A secret-like identifier. Matched only against the text LEFT of the fallback
 // (assignee / property name): `cfg.title ?? "Secret Santa"` is a label, not a secret.
 const SECRET_NAME =
-  /[\w$]*(?:secret|password|passphrase|hmac|private[_-]?key|signing[_-]?key)[\w$]*/i;
+  /(?<![\w$])[\w$]*(?:secret|password|passphrase|hmac|private[_-]?key|signing[_-]?key)[\w$]*/i;
 // Short / numeric literals are versions or flags (e.g. `_CURRENT_VERSION ?? "1"`),
 // never a usable secret.
 const TRIVIAL_LITERAL = /^[\d.]+$/;
@@ -102,7 +102,7 @@ export type SecretLiteralHit = {
 // secret/password stays name-only so "Secret Santa" labels are not flagged.
 const SECRET_LITERAL_TOKEN = /hmac|private[_-]?key|signing[_-]?key/i;
 // Assignee / property name directly left of the fallback (`k = …`, `key: …`).
-const LHS_NAME = /([\w$]+)\s*[:=][^:=]*$/;
+const LHS_NAME = /(?<![\w$])([\w$]+)\s*[:=][^:=]*$/;
 const UNNAMED_PLACEHOLDER = "<unnamed>";
 
 type SecretFallback = { readonly name: string; readonly literalLength: number };

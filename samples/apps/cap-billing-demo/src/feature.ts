@@ -212,7 +212,7 @@ export const newsletterFeature = defineFeature(FEATURE_NAME, (r) => {
         read: access.roles("TenantAdmin", "SystemAdmin", "User"),
       }),
     },
-  }).tier;
+  });
 
   r.writeHandler(wrappedSendHandler);
 });

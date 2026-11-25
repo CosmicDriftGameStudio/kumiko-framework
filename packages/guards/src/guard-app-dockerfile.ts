@@ -79,7 +79,7 @@ function hasNpmrcScope(npmrcText: string | undefined): boolean {
   if (npmrcText === undefined) return false;
   return (
     new RegExp(`^\\s*${PRIVATE_SCOPE}:registry=`, "m").test(npmrcText) &&
-    /^\s*\/\/npm\.pkg\.github\.com\/:_authToken=/m.test(npmrcText)
+    /^[^\S\r\n\u2028\u2029]*\/\/npm\.pkg\.github\.com\/:_authToken=/m.test(npmrcText)
   );
 }
 
@@ -97,7 +97,7 @@ function tokenVariablesOf(
 ): Set<string> {
   const scope = bunfigScopeEntry(bunfigText);
   const bunfigToken = isPlainObject(scope) ? scope["token"] : undefined;
-  const npmrcAuthLine = /^\s*\/\/npm\.pkg\.github\.com\/:_authToken=(.*)$/m.exec(
+  const npmrcAuthLine = /^[^\S\r\n\u2028\u2029]*\/\/npm\.pkg\.github\.com\/:_authToken=(.*)$/m.exec(
     npmrcText ?? "",
   )?.[1];
   return new Set([

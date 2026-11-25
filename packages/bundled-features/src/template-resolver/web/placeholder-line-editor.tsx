@@ -46,6 +46,19 @@ const BlockLineBreaks = Extension.create({
 const NO_LABELS: Readonly<Record<string, string>> = {};
 const NO_NAMES: readonly string[] = [];
 
+// Index-based instead of /<[^>]*>/g: an unclosed "<" would rescan the rest of the input each time.
+function replaceTagsWithSpace(html: string): string {
+  let out = "";
+  let position = 0;
+  for (;;) {
+    const open = html.indexOf("<", position);
+    const close = open === -1 ? -1 : html.indexOf(">", open + 1);
+    if (close === -1) return out + html.slice(position);
+    out += `${html.slice(position, open)} `;
+    position = close + 1;
+  }
+}
+
 function LineEditorBody({
   id,
   initialValue,
@@ -116,7 +129,7 @@ function LineEditorBody({
       attributes: { id, role: "textbox", "aria-label": ariaLabel, "aria-multiline": "false" },
       transformPastedText: singleLine,
       // Rich pastes would bring several paragraphs; only their text is kept.
-      transformPastedHTML: (html) => singleLine(html.replace(/<[^>]*>/g, " ")),
+      transformPastedHTML: (html) => singleLine(replaceTagsWithSpace(html)),
     },
     onUpdate: ({ editor: e }) => onChange(contentToLine(e.getJSON().content?.[0]?.content)),
   });

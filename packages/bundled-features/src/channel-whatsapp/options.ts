@@ -117,7 +117,10 @@ function assertRateLimits(
 }
 
 export function resolveWhatsappOptions(options: ChannelWhatsappOptions): ResolvedWhatsappOptions {
-  const apiBaseUrl = (options.apiBaseUrl ?? WHATSAPP_DEFAULT_API_BASE_URL).replace(/\/+$/, "");
+  const apiBaseUrl = (options.apiBaseUrl ?? WHATSAPP_DEFAULT_API_BASE_URL).replace(
+    /(?<!\/)\/+$/,
+    "",
+  );
   const apiVersion = options.apiVersion ?? WHATSAPP_DEFAULT_API_VERSION;
   const allowedHosts = options.allowedHosts ?? WHATSAPP_DEFAULT_ALLOWED_HOSTS;
   const requireHttps = options.requireHttps ?? true;

@@ -288,13 +288,13 @@ function extractGuardedPattern(body: string, varName: string): GuardConfig | und
     if (depth > 0) ifBodyEnd++;
   }
   const ifBodyContent = body.slice(ifBodyStart, ifBodyEnd).trim();
-  const failRetMatch = ifBodyContent.match(/return\s*([^;]+)\s*;/);
+  const failRetMatch = ifBodyContent.match(/return([^;]+);/);
   if (!failRetMatch) return undefined;
   const failureReturn = failRetMatch[1]!.trim();
 
   // Extract trailing return after the if block
   const afterIf = body.slice(ifBodyEnd + 1).trim();
-  const succRetMatch = afterIf.match(/return\s*([^;]+)\s*;/);
+  const succRetMatch = afterIf.match(/return([^;]+);/);
   if (!succRetMatch) return undefined;
   const successReturn = succRetMatch[1]!.trim();
 

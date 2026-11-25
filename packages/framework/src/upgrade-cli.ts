@@ -431,7 +431,7 @@ function logOpenManual(
     out.log(`    ${printable(entry.id)} · ${printable(entry.version)} · ${printable(entry.title)}`);
     const entryDetails = details?.get(entry.id);
     if (entryDetails?.detail)
-      out.log(`      ${printable(entryDetails.detail.replace(/\s*\n\s*/g, " "))}`);
+      out.log(`      ${printable(entryDetails.detail.replace(/(?<!\s)[^\S\n]*\n\s*/g, " "))}`);
     if (entryDetails?.migration) out.log(`      → Migration: ${printable(entryDetails.migration)}`);
   }
   out.log(

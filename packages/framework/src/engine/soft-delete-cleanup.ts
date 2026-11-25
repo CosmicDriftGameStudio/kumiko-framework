@@ -153,6 +153,8 @@ async function forgetRow(writer: PurgeWriter, id: string): Promise<void> {
   if (!result.isSuccess) throw reraiseAsKumikoError(result.error);
 }
 
+const KEEP_HELD_FILES = { purgeHeldFiles: false } as const;
+
 async function purgeExpiredRows(
   writer: PurgeWriter,
   source: string,
@@ -161,7 +163,7 @@ async function purgeExpiredRows(
   cutoff: Temporal.Instant,
   ctx: Pick<JobContext, "services" | "obs" | "registry">,
   readDb: AnyDb = writer.db,
-  options: { readonly purgeHeldFiles: boolean } = { purgeHeldFiles: false },
+  options: { readonly purgeHeldFiles: boolean } = KEEP_HELD_FILES,
 ): Promise<void> {
   if (source === FILE_REF_ENTITY_NAME) {
     // The row is the only record of the storageKey, so its bytes go first.

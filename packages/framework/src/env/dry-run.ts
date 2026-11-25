@@ -162,7 +162,7 @@ function renderJson(fields: readonly EnvField[], options: DryRunOptions): string
 // A newline in a `.describe()` text would end the `#` comment, so the rest of
 // the description would run as a shell command or break the YAML.
 function oneLineDescription(f: EnvField): string | undefined {
-  return f.description?.replace(/\s*\r?\n\s*/g, " ");
+  return f.description?.replace(/(?<!\s)[^\S\n]*\n\s*/g, " ");
 }
 
 function pulumiConfigSetLine(f: EnvField, options: DryRunOptions): string {

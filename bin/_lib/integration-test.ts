@@ -47,8 +47,8 @@ export function parseBunTestRunOutput(output: string): BunTestRunTotals | null {
   const idx = output.lastIndexOf(lastRan[0]);
   const tail = output.slice(Math.max(0, idx - 400), idx);
 
-  const passMatch = tail.match(/(\d+) pass/);
-  const failMatch = tail.match(/(\d+) fail/);
+  const passMatch = tail.match(/(?<!\d)(\d+) pass/);
+  const failMatch = tail.match(/(?<!\d)(\d+) fail/);
 
   return {
     pass: passMatch ? Number(passMatch[1]) : 0,

@@ -27,7 +27,11 @@ export function base32Encode(bytes: Buffer): string {
 // character so a corrupted stored secret fails loud at read time instead of
 // silently producing wrong codes.
 export function base32Decode(encoded: string): Buffer {
-  const clean = encoded.trim().toUpperCase().replace(/\s+/g, "").replace(/=+$/, "");
+  const clean = encoded
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .replace(/(?<!=)=+$/, "");
   let bits = 0;
   let value = 0;
   const bytes: number[] = [];

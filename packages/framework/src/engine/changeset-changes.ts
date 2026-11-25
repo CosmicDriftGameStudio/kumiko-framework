@@ -75,7 +75,7 @@ function proseWithoutMetadata(markdown: string): string[] {
 }
 
 function sameTitle(title: string, line: string | undefined): boolean {
-  const normalize = (text: string) => text.replace(/[.\s]+$/, "").toLowerCase();
+  const normalize = (text: string) => text.replace(/(?<![.\s])[.\s]+$/, "").toLowerCase();
   return line !== undefined && normalize(title) === normalize(line);
 }
 

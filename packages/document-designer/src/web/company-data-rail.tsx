@@ -29,7 +29,7 @@ const COMPANY_CONFIG_KEYS: Readonly<Record<string, string>> = Object.fromEntries
 function textValueOf(values: ConfigValues | undefined, name: string): string {
   const key = COMPANY_CONFIG_KEYS[name];
   const value = key === undefined ? undefined : values?.[key]?.value;
-  return typeof value === "string" ? value.trim().replace(/\s*\n\s*/g, " · ") : "";
+  return typeof value === "string" ? value.trim().replace(/(?<!\s)[^\S\n]*\n\s*/g, " · ") : "";
 }
 
 // RailRow cannot color its label, and a missing value is a prompt rather than an error.

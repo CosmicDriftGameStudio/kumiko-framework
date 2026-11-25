@@ -1,7 +1,7 @@
 import { scanCommentTrivia } from "./comment-trivia";
 
 const COMMENT_MARKER_PREFIX_RE = /^\s*(?:\/\/+|\/\*+|\*+)?\s*/;
-const COMMENT_CLOSE_SUFFIX_RE = /\s*\*\/\s*\}?\s*$/;
+const COMMENT_CLOSE_SUFFIX_RE = /(?<!\s)\s*\*\/\s*(?:\}\s*)?$/;
 
 export type CommentLine = { readonly line: number; readonly body: string };
 

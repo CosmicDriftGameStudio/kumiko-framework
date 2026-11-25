@@ -44,7 +44,7 @@ const GUARD_SLUG = "lib-test-coverage";
 const IGNORE_TAG = `kumiko-lint-ignore ${GUARD_SLUG}`;
 
 const CITED_TEST_RE = /[\w./-]+\.test\.tsx?\b/g;
-const TAG_REASON_RE = /kumiko-lint-ignore(?:-file)?\s+\S+\s*(.*)$/;
+const TAG_REASON_RE = /kumiko-lint-ignore(?:-file)?\s+\S+(?!\S)\s*(\S.*|)$/;
 
 type Export = { readonly name: string; readonly node: Node };
 

@@ -42,7 +42,7 @@ const SCAN: ScanSpec = {
 
 const IGNORE_SLUG = "handler-definitions";
 const IGNORE_TAG = `kumiko-lint-ignore ${IGNORE_SLUG}`;
-const TEST_PATH = /(?:^|\/)__tests__\/|\.(?:test|integration|e2e|spec)\.[tj]sx?$/;
+const TEST_PATH = /(?:(?:^|\/)__tests__\/)|(?:\.(?:test|integration|e2e|spec)\.[tj]sx?$)/;
 const FEATURE_LOCATION =
   /(?:^|\/)(?:src\/features\/[^/]+|packages\/bundled-features\/src\/[^/]+)\/(.+)$/;
 const HANDLERS_DIR_PREFIX = "handlers/";

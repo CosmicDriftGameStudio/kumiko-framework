@@ -25,7 +25,7 @@ const MARKDOWN_IMAGE = /!\[[^\]]*\]\([^)]*\)/g;
 export function stripMarkdownImages(bodyMd: string): string {
   return bodyMd
     .replace(MARKDOWN_IMAGE, "")
-    .replace(/[ \t]+$/gm, "")
+    .replace(/(?<![ \t])[ \t]+$/gm, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }

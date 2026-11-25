@@ -73,13 +73,16 @@ function quotedStringEnd(value: string, start: number): number {
 function stripComments(value: string): string {
   let depth = 0;
   let out = "";
-  for (let i = 0; i < value.length; i++) {
+  let i = 0;
+  while (i < value.length) {
     const char = value.charAt(i);
     if (depth === 0 && char === '"') {
       const end = quotedStringEnd(value, i);
       out += value.slice(i, end);
-      i = end - 1;
-    } else if (char === "\\" && depth > 0) {
+      i = end;
+      continue;
+    }
+    if (char === "\\" && depth > 0) {
       i++;
     } else if (char === "(") {
       depth++;
@@ -88,6 +91,7 @@ function stripComments(value: string): string {
     } else if (depth === 0) {
       out += char;
     }
+    i++;
   }
   return out;
 }
@@ -95,18 +99,22 @@ function stripComments(value: string): string {
 function splitSegments(value: string): string[] {
   const segments: string[] = [];
   let current = "";
-  for (let i = 0; i < value.length; i++) {
+  let i = 0;
+  while (i < value.length) {
     const char = value.charAt(i);
     if (char === '"') {
       const end = quotedStringEnd(value, i);
       current += value.slice(i, end);
-      i = end - 1;
-    } else if (char === ";") {
+      i = end;
+      continue;
+    }
+    if (char === ";") {
       segments.push(current.trim());
       current = "";
     } else {
       current += char;
     }
+    i++;
   }
   segments.push(current.trim());
   return segments;
