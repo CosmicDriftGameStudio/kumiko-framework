@@ -49,6 +49,7 @@ export function FieldRendererOutput({
         <FileValueList
           fileIds={fileIds}
           previewOpenByDefault={renderer.previewOpenByDefault === true}
+          {...downloadButtonProps(field)}
           testId={valueTestId}
         />
       );
@@ -89,6 +90,16 @@ export function FieldRendererOutput({
     rendererWarn(`[kumiko] fieldRenderer "${componentName}" not registered`);
   }
   return <Text testId={valueTestId}>{stringValue(field.value)}</Text>;
+}
+
+// With field actions beside it, the download link becomes an outlined button to match them.
+function downloadButtonProps(field: EditFieldViewModel): {
+  readonly downloadAsButton?: true;
+  readonly boxed?: true;
+} {
+  return field.actions !== undefined && field.actions.length > 0
+    ? { downloadAsButton: true, boxed: true }
+    : {};
 }
 
 function stringPropertyOf(value: unknown, key: string): string | undefined {

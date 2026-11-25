@@ -11,6 +11,7 @@ import { describe, expect, test } from "bun:test";
 import {
   createRegistry,
   defineFeature,
+  FILE_STORAGE_PROVIDER_ENV,
   normalizeListColumn,
   validateBoot as validateBootRaw,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -28,7 +29,10 @@ import {
 } from "../order-board";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
-  validateBootRaw(withBootValidatorFixture(features));
+  // The upload tab uses a file field; the guard only checks that a provider is named.
+  validateBootRaw(withBootValidatorFixture(features), {
+    env: { [FILE_STORAGE_PROVIDER_ENV]: "inmemory" },
+  });
 }
 
 const orderDesk = createOrderDeskFeature();
@@ -57,6 +61,7 @@ describe("record-detail-layout showcase — registration", () => {
         { field: "placedAt", format: { format: "date", dateStyle: "medium" } },
       ],
       status: "status",
+      secondaryStatus: "totalNote",
     });
     expect(screen.metrics?.map((metric) => metric.field)).toEqual([
       "totalAmount",
@@ -73,6 +78,7 @@ describe("record-detail-layout showcase — registration", () => {
     expect(screen.layout.sections.map((s) => s.kind)).toEqual([
       "relatedList",
       "relatedList",
+      "writeForm",
       "fields",
       "extension",
     ]);
@@ -144,7 +150,16 @@ describe("record-detail-layout showcase — work queue", () => {
     expect(buttons.map((action) => [action.id, action.visible])).toEqual([
       ["remind", { field: "canRemind", eq: true }],
       ["open-order", { field: "canRemind", eq: false }],
+      ["quick-view", undefined],
     ]);
+    const noteAction = (screen.rowActions ?? []).find((action) => action.id === "remind-note");
+    expect(noteAction).toMatchObject({
+      kind: "drawer",
+      headingFields: ["orderNumber", "customerName"],
+      params: { pick: ["id"] },
+      width: "wide",
+      back: true,
+    });
     expect(screen.namedFilters?.[0]?.sort).toEqual({ field: "urgency", dir: "desc" });
     expect(screen.namedFilters?.[0]?.emptyState?.title).toBe("order-desk.orders.all-done");
     expect(screen.table?.totals).toBeUndefined();
@@ -323,6 +338,39 @@ describe("record-detail-layout showcase — empty states", () => {
         { when: { field: "status", eq: "pending" }, title: "order-desk.payments.empty-pending" },
       ],
     });
+  });
+});
+
+describe("record-detail-layout showcase — payments row tone", () => {
+  test("the payments tab tones its rows with an ordered rule list", () => {
+    const screen = registry.getScreen("order-desk:screen:order-detail");
+    if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
+    const payments = screen.layout.sections.find((section) => section.id === "payments");
+    if (payments?.kind !== "relatedList") throw new Error("expected the payments relatedList");
+    expect(payments.rowTone).toEqual([
+      { field: "status", eq: "pending", tone: "warn", fill: true },
+      { field: "status", eq: "settled", tone: "ok" },
+    ]);
+    expect(payments.rowActionsWhen).toEqual({ field: "paymentsCount", ne: 0 });
+  });
+
+  test("the orders list opens the detail in a popup with a pressed state, and the upload form names its host entity", () => {
+    const list = registry.getScreen("order-desk:screen:orders");
+    if (list?.type !== "projectionList") throw new Error("expected projectionList");
+    const quickView = list.rowActions?.find((action) => action.id === "quick-view");
+    if (quickView?.kind !== "drawer") throw new Error("expected the quick-view drawer action");
+    expect(quickView.width).toBe("popup");
+    expect(quickView.active).toEqual({ when: { field: "canRemind", eq: false } });
+
+    const detail = registry.getScreen("order-desk:screen:order-detail");
+    if (detail?.type !== "projectionDetail") throw new Error("expected projectionDetail");
+    const attach = detail.layout.sections.find((section) => section.id === "attach");
+    if (attach?.kind !== "writeForm") throw new Error("expected the attach writeForm");
+    expect(attach.uploadEntity).toBe("order-attachment");
+
+    const attachments = registry.getScreen("order-desk:screen:attachment-list");
+    if (attachments?.type !== "entityList") throw new Error("expected entityList");
+    expect(attachments.allowEdit).toBe(false);
   });
 });
 

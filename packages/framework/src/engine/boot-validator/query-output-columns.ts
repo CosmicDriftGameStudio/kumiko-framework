@@ -6,6 +6,7 @@ import type {
   DashboardScreenDefinition,
   DashboardStatPanel,
   EditLayout,
+  EditRelatedListSection,
   FieldCondition,
   ListColumnSpec,
   ProjectionDetailScreenDefinition,
@@ -14,7 +15,13 @@ import type {
 } from "@cosmicdrift/kumiko-types/screen";
 import type { ZodType } from "zod";
 import { isPagedQueryHandler } from "../define-handler.ts";
-import { conditionFields, normalizeListColumn, sectionFieldSpecs } from "../screen-helpers.ts";
+import {
+  conditionFields,
+  isFieldsEditSection,
+  normalizeEditField,
+  normalizeListColumn,
+  sectionFieldSpecs,
+} from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import { buildQueryHandlerMap } from "./projection-list-screens.ts";
@@ -180,6 +187,30 @@ function checkEditLayoutOutputColumns(
           `[Feature ${featureName}] Screen "${screenId}" (${screenType}) relatedList section "${section.title}" ${option} references field "${field}" which is not present in query "${section.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
       );
     }
+    checkRelatedListRowConditions(
+      rowShape,
+      section,
+      (rule, field) =>
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) relatedList section "${section.title}" ${rule} references field "${field}" which is not present in query "${section.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
+    );
+  }
+}
+
+// rowTone rules and rowAction `active` read the section's own row, like columns do.
+function checkRelatedListRowConditions(
+  rowShape: ShapeLookup | undefined,
+  section: EditRelatedListSection,
+  describe: (rule: string, field: string) => string,
+): void {
+  for (const action of section.rowActions ?? []) {
+    if (action.kind === "navigate" || action.kind === "clientAction") continue;
+    checkVisibleWhenFields(rowShape, action.active?.when, (field) =>
+      describe(`rowAction "${action.id}" active.field`, field),
+    );
+  }
+  const toneRules = section.rowTone === undefined ? [] : [section.rowTone].flat();
+  for (const rule of toneRules) {
+    checkVisibleWhenFields(rowShape, rule, (field) => describe("rowTone", field));
   }
 }
 
@@ -210,6 +241,7 @@ function checkProjectionDetailOutputFields(
       | "narrowSubtitle"
       | "subtitleHref"
       | "status"
+      | "secondaryStatus"
       | "statusToneField",
     field: string,
   ): void => {
@@ -236,12 +268,14 @@ function checkProjectionDetailOutputFields(
         }
       }
     }
-    const { shortTitle, narrowSubtitle, subtitleHref, status, statusToneField } = screen.header;
+    const { shortTitle, narrowSubtitle, subtitleHref, status, secondaryStatus, statusToneField } =
+      screen.header;
     const optionalParts = [
       ["shortTitle", shortTitle],
       ["narrowSubtitle", narrowSubtitle],
       ["subtitleHref", subtitleHref],
       ["status", status],
+      ["secondaryStatus", secondaryStatus],
       ["statusToneField", statusToneField],
     ] as const;
     for (const [part, field] of optionalParts) {
@@ -282,6 +316,36 @@ function checkProjectionDetailOutputFields(
   }
   checkDetailSectionFields(recordShape, prefix, screen);
   checkRelatedListToolbarActionFields(recordShape, featureName, screenId, screen);
+  checkFieldActionFields(recordShape, featureName, screenId, screen);
+}
+
+// Field actions run against the enclosing record like section actions, so their
+// visible/disabled/params/payload field refs are pinned to the same outputSchema shape.
+function checkFieldActionFields(
+  recordShape: ShapeLookup | undefined,
+  featureName: string,
+  screenId: string,
+  screen: ProjectionDetailScreenDefinition,
+): void {
+  // skip: no introspectable outputSchema, same additive policy as the rest of this module.
+  if (recordShape === undefined) return;
+  const fieldNames = new Set(Object.keys(recordShape));
+  for (const section of screen.layout.sections) {
+    if (!isFieldsEditSection(section)) continue;
+    for (const spec of sectionFieldSpecs(section)) {
+      for (const action of normalizeEditField(spec).actions ?? []) {
+        validateActionFieldRefs(
+          featureName,
+          screenId,
+          "rowAction",
+          action.id,
+          action,
+          fieldNames,
+          new Set(),
+        );
+      }
+    }
+  }
 }
 
 // Field-grid sections read the enclosing record (the query result), so a typo
@@ -307,6 +371,12 @@ function checkDetailSectionFields(
       section.visibleWhen,
       (conditionField) =>
         `${prefix} section "${section.title ?? section.id ?? "(untitled)"}" visibleWhen references field "${conditionField}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
+    );
+    checkVisibleWhenFields(
+      recordShape,
+      section.kind === "relatedList" ? section.rowActionsWhen : undefined,
+      (conditionField) =>
+        `${prefix} section "${section.title ?? section.id ?? "(untitled)"}" rowActionsWhen references field "${conditionField}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
     );
     if (section.kind === "stepList") {
       const stepField = section.field;

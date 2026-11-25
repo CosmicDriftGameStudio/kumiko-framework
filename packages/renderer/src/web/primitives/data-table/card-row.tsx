@@ -2,7 +2,7 @@ import { Fragment, type ReactNode } from "react";
 import type { ListRowViewModel } from "../../../headless/index.ts";
 import type { DataTableRowAction } from "../../../index.ts";
 import { cn } from "../../lib/cn.ts";
-import { cardToneClass } from "../data-table-cell.tsx";
+import { cardFillClass, cardToneClass } from "../data-table-cell.tsx";
 import { RowActionsCell } from "../row-actions.tsx";
 import {
   type CardRoles,
@@ -226,7 +226,10 @@ export function renderCard(m: DataTableModel, row: ListRowViewModel, roles: Card
     menuBesideTitle,
   });
   // In a list with row tones every card carries a stripe (neutral = grey) so the cards align.
-  const toneClass = cardToneClass(rowTone === undefined ? undefined : (rowTone(row) ?? "neutral"));
+  const fills = m.rowFill?.(row) === true;
+  const toneClass = fills
+    ? ""
+    : cardToneClass(rowTone === undefined ? undefined : (rowTone(row) ?? "neutral"));
   const toned = toneClass !== "";
   const rowItem = (
     <li
@@ -237,6 +240,7 @@ export function renderCard(m: DataTableModel, row: ListRowViewModel, roles: Card
         cardRowBaseClass(m),
         menuBesideTitle && "flex-wrap gap-y-1",
         toneClass,
+        fills && cardFillClass(rowTone?.(row)),
         m.focusedRowId === row.id && ASSISTANT_FOCUS_CARD_CLASS,
         // A toned card already pads past its inner 4px stripe (see cardToneClass); a later pl-* would override it.
         !toned && cardLeftPadding(leadingControls),

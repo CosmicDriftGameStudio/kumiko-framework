@@ -262,7 +262,18 @@ export {
   useTranslation,
 } from "./i18n.tsx";
 export { kumikoDefaultTranslations } from "./i18n-defaults.ts";
-export { InsideDrawerProvider, useInsideDrawer } from "./inside-drawer.ts";
+export {
+  DrawerCloseRequestProvider,
+  DrawerEscapeProvider,
+  FlushDrawerBodyProvider,
+  InPlaceFormProvider,
+  InsideDrawerProvider,
+  useDrawerCloseRequest,
+  useDrawerEscapeHandler,
+  useFlushDrawerBody,
+  useInPlaceForm,
+  useInsideDrawer,
+} from "./inside-drawer.ts";
 export {
   hasUnsavedInput,
   registerUnsavedInputSource,

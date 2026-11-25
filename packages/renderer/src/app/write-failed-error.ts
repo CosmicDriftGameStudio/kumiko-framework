@@ -28,9 +28,12 @@ export function unprocessableReasonText(
     return undefined;
   }
   const reason = error.details?.["reason"];
-  if (typeof reason !== "string") return undefined;
-  const text = translate(reason, error.i18nParams);
-  return text !== reason ? text : undefined;
+  if (typeof reason === "string") {
+    const text = translate(reason, error.i18nParams);
+    if (text !== reason) return text;
+  }
+  const detailMessage = error.details?.["message"];
+  return typeof detailMessage === "string" && detailMessage !== "" ? detailMessage : undefined;
 }
 
 // i18nKey takes precedence when the bundle knows it (translate returns

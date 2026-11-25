@@ -15,6 +15,10 @@ export type FileValueListProps = {
   readonly fileIds: readonly string[];
   /** Starts the inline PDF preview of the newest file open; uploads append, so that is the last id. */
   readonly previewOpenByDefault?: boolean;
+  /** Draws the download link as an outlined button (a field with actions beside it). */
+  readonly downloadAsButton?: boolean;
+  /** File icon and bold name on the left, the download button pushed to the right edge of the row. */
+  readonly boxed?: boolean;
   readonly testId?: string;
 };
 

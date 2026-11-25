@@ -814,9 +814,13 @@ export type DataTableRowAction = {
   /** Called with the clicked row's `ListRowViewModel`. May be async, allowing
    *  the renderer to show a loading state on the button while the promise resolves. */
   readonly onTrigger: (row: ListRowViewModel) => Promise<void> | void;
-  /** Controls per-row visibility (e.g. show "Start" only when
-   *  `status==="scheduled"`). */
+  /** Per-row visibility (e.g. show "Start" only when `status==="scheduled"`). */
   readonly isVisible?: (row: ListRowViewModel) => boolean;
+  readonly isDisabled?: (row: ListRowViewModel) => boolean;
+  /** Inline buttons only: true draws the button pressed (`aria-pressed`) and keeps its colour when also disabled. */
+  readonly isActive?: (row: ListRowViewModel) => boolean;
+  /** Fill of a pressed button: "danger" is solid destructive, unset an accent tint. */
+  readonly activeStyle?: "danger";
   /** This action is what a click on the row does. With `onRowClick` the table
    *  (except `"inline"` mode or editable cells) and the card layout drop it
    *  from the row menu, since the row itself is already the click target. */
@@ -872,6 +876,8 @@ export type DataTableProps = {
   readonly rowTone?: (row: ListRowViewModel) => SelectOptionTone | undefined;
   readonly rowMuted?: (row: ListRowViewModel) => boolean;
   readonly rowStruck?: (row: ListRowViewModel) => boolean;
+  /** Adds a light background in the row's tone color to the tone stripe. Renderers without it ignore it. */
+  readonly rowFill?: (row: ListRowViewModel) => boolean;
   readonly onRowClick?: (row: ListRowViewModel) => void;
   /** Current sorting, or null when unsorted. If columns contain a
    *  `sortable: true` field and `onSortChange` is set, the renderer makes
@@ -1321,8 +1327,14 @@ export type DrawerProps = {
   readonly title?: string;
   /** Muted line under the title. */
   readonly subtitle?: string;
-  /** `"wide"` asks for a broad panel (1280px, capped at 85vw); default is the standard panel width. */
-  readonly width?: "wide";
+  /** `"wide"` asks for a broad panel (1280px, capped at 85vw); `"popup"` fills the viewport minus a 24px margin on the web; default is the standard panel width. */
+  readonly width?: "wide" | "popup";
+  /** No visible title bar: the title stays for assistive tech and the close cross floats top right, because the hosted content brings its own header. */
+  readonly headerless?: true;
+  /** Escape pressed while open: return true to consume it, so the drawer stays open. */
+  readonly onEscapeKey?: () => boolean;
+  /** Header shows a back arrow left of the title instead of the close cross; it only closes this drawer. */
+  readonly back?: true;
   readonly children: ReactNode;
   readonly testId?: string;
 };

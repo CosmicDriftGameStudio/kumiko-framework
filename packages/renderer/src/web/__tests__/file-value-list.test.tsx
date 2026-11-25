@@ -131,6 +131,117 @@ describe("renderer format file on read-only fields", () => {
     expect(queryByText(PDF_ID)).toBeNull();
   });
 
+  test("a file field with actions gets its download as an outlined button, one without keeps the link", async () => {
+    const screenDef = {
+      id: "expose-detail",
+      type: "projectionDetail",
+      query: "demo:query:expose",
+      singleton: true,
+      layout: {
+        sections: [
+          {
+            title: "Unterlagen",
+            fields: [
+              {
+                field: "exposeFiles",
+                renderer: { format: "file" },
+                actions: [
+                  { kind: "navigate", id: "go", label: "actions.go", screen: "expose-detail" },
+                ],
+              },
+              { field: "otherFiles", renderer: { format: "file" } },
+            ],
+          },
+        ],
+      },
+    } as ProjectionDetailScreenDefinition;
+    const schema: FeatureSchema = {
+      featureName: "demo",
+      entities: {},
+      screens: [screenDef as FeatureSchema["screens"][number]],
+    };
+    const dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { id: "e1", exposeFiles: [PDF_ID], otherFiles: [PNG_ID] },
+      })) as never,
+    });
+    const { findByText, getByTestId } = render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={schema} qn="demo:screen:expose-detail" />
+      </DispatcherProvider>,
+    );
+    await findByText("Rechnung-Oktober.pdf");
+    await findByText("Beleg-Foto.png");
+    expect(getByTestId(`field-value-exposeFiles-${PDF_ID}-download`).className).toContain("border");
+    expect(getByTestId(`field-value-otherFiles-${PNG_ID}-download`).className).toContain(
+      "underline",
+    );
+  });
+
+  test("a file field with actions and a file sits in a primary box, one without a file shows a dash", async () => {
+    const screenDef = {
+      id: "expose-detail",
+      type: "projectionDetail",
+      query: "demo:query:expose",
+      singleton: true,
+      layout: {
+        sections: [
+          {
+            title: "Unterlagen",
+            fields: [
+              {
+                field: "exposeFiles",
+                renderer: { format: "file" },
+                actions: [
+                  { kind: "navigate", id: "go", label: "actions.go", screen: "expose-detail" },
+                ],
+              },
+              {
+                field: "emptyFiles",
+                renderer: { format: "file" },
+                actions: [
+                  {
+                    kind: "navigate",
+                    id: "go-empty",
+                    label: "actions.go",
+                    screen: "expose-detail",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    } as ProjectionDetailScreenDefinition;
+    const schema: FeatureSchema = {
+      featureName: "demo",
+      entities: {},
+      screens: [screenDef as FeatureSchema["screens"][number]],
+    };
+    const dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { id: "e1", exposeFiles: [PDF_ID], emptyFiles: [] },
+      })) as never,
+    });
+    const { findByText, getByTestId, queryByTestId } = render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={schema} qn="demo:screen:expose-detail" />
+      </DispatcherProvider>,
+    );
+    await findByText("Rechnung-Oktober.pdf");
+    const box = getByTestId("field-exposeFiles-file-box");
+    expect(box.className).toContain("border-primary/40");
+    expect(box.className).toContain("bg-primary/5");
+    expect(box.className).toContain("rounded-lg");
+    expect(getByTestId(`field-value-exposeFiles-${PDF_ID}-name`).className).toContain(
+      "font-semibold",
+    );
+    expect(queryByTestId("field-emptyFiles-file-box")).toBeNull();
+    expect(getByTestId("field-value-emptyFiles").textContent).toBe("—");
+  });
+
   test("a readOnly entityEdit field behaves the same", async () => {
     const entity = {
       fields: { docs: { type: "text", required: false } },

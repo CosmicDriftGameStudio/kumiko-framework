@@ -42,17 +42,54 @@ function layoutStatusFormat(
   return undefined;
 }
 
+export function headerSecondaryStatusTone(
+  header: NonNullable<ProjectionDetailScreenDefinition["header"]>,
+  record: Readonly<Record<string, unknown>>,
+): StatusBadgeOptionTone | undefined {
+  // skip: a header without secondaryStatus has no second badge
+  if (header.secondaryStatus === undefined) return undefined;
+  return statusToneForOption(String(record[header.secondaryStatus] ?? ""), header.statusTones);
+}
+
+function resolveStatusFieldText(
+  screen: ProjectionDetailScreenDefinition,
+  record: Readonly<Record<string, unknown>>,
+  translate: Translate,
+  statusField: string | undefined,
+  explicitFormat: FormatSpec | undefined,
+): string {
+  // skip: no field, no badge text
+  if (statusField === undefined) return "";
+  const format = explicitFormat ?? layoutStatusFormat(screen, statusField);
+  return formatOrRaw(format, record[statusField], translate);
+}
+
 export function resolveHeaderStatusText(
   screen: ProjectionDetailScreenDefinition,
   record: Readonly<Record<string, unknown>>,
   translate: Translate,
 ): string {
-  const statusField = screen.header?.status;
-  // skip: a header without status has no badge text
-  if (statusField === undefined) return "";
-  const raw = record[statusField];
-  const format = screen.header?.statusFormat ?? layoutStatusFormat(screen, statusField);
-  return formatOrRaw(format, raw, translate);
+  return resolveStatusFieldText(
+    screen,
+    record,
+    translate,
+    screen.header?.status,
+    screen.header?.statusFormat,
+  );
+}
+
+export function resolveHeaderSecondaryStatusText(
+  screen: ProjectionDetailScreenDefinition,
+  record: Readonly<Record<string, unknown>>,
+  translate: Translate,
+): string {
+  return resolveStatusFieldText(
+    screen,
+    record,
+    translate,
+    screen.header?.secondaryStatus,
+    undefined,
+  );
 }
 
 export function formatOrRaw(

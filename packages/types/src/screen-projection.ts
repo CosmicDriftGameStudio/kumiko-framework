@@ -233,6 +233,8 @@ export type RecordHeaderSpec = {
   /** i18n key of a short title for the phone top bar ("Approval") instead of the record title. */
   readonly narrowTitle?: string;
   readonly status?: string;
+  /** Record field of a second badge after the `status` badge; text and tone resolve like `status` (same `statusTones`). */
+  readonly secondaryStatus?: string;
   /** Formats the badge text (typically `enumOption` with a `keyPrefix`); tones still resolve on the raw value. Needs `status`. Without it, the `status` field's layout renderer is used when it is `enumOption` or `i18nText`. */
   readonly statusFormat?: FormatSpec;
   /** Record field holding an absolute http(s) URL. When present and the

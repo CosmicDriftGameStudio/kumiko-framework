@@ -3,6 +3,7 @@ import type {
   FeatureSchema,
   RelatedListToolbarAction,
   RowAction,
+  RowActionActive,
   RowActionClientAction,
   RowActionDrawer,
   RowActionNavigate,
@@ -130,6 +131,33 @@ export function runProjectionRowNavigate(
   // shape (resolveRowActionNavigateTarget), so this only guards types.
 }
 
+export function rowDisabledPredicate(condition: RowAction["disabled"]): {
+  readonly isDisabled?: (row: ListRowViewModel) => boolean;
+} {
+  if (condition === undefined) return {};
+  return { isDisabled: (row: ListRowViewModel) => evalFieldCondition(condition, row.values) };
+}
+
+export function rowActivePredicate(active: RowActionActive | undefined): {
+  readonly isActive?: (row: ListRowViewModel) => boolean;
+  readonly activeStyle?: "danger";
+} {
+  if (active === undefined) return {};
+  return {
+    isActive: (row: ListRowViewModel) => evalFieldCondition(active.when, row.values),
+    ...(active.style !== undefined && { activeStyle: active.style }),
+  };
+}
+
+function recordActionDisabled(
+  action: RowAction,
+  record: Readonly<Record<string, unknown>>,
+): { readonly disabled?: true } {
+  return action.disabled !== undefined && evalFieldCondition(action.disabled, record)
+    ? { disabled: true }
+    : {};
+}
+
 function buildNavigateRowAction(
   action: RowActionNavigate,
   translate: Translate,
@@ -151,6 +179,7 @@ function buildNavigateRowAction(
     ...(visible !== undefined && {
       isVisible: (row: ListRowViewModel) => evalFieldCondition(visible, row.values),
     }),
+    ...rowDisabledPredicate(action.disabled),
   };
 }
 
@@ -158,7 +187,18 @@ type OpenDrawer = (
   action: RowActionDrawer,
   initialValues: Readonly<Record<string, unknown>> | undefined,
   recordId?: string,
+  headingValues?: Readonly<Record<string, unknown>>,
 ) => void;
+
+// Only feeds the drawer heading; a missing value becomes "" so no "undefined" or raw
+// "{name}" ever shows.
+function headingValuesOf(
+  action: RowActionDrawer,
+  values: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> | undefined {
+  if (action.headingFields === undefined) return undefined;
+  return Object.fromEntries(action.headingFields.map((field) => [field, values[field] ?? ""]));
+}
 
 // Dedupes the "openDrawer not wired" warning per action id, since the
 // builders re-run inside a useMemo on every dep change.
@@ -191,6 +231,7 @@ export function runDrawerRowAction(
     action,
     action.params !== undefined ? evalRowExtractor(action.params, row.values) : undefined,
     row.id !== "" ? row.id : undefined,
+    headingValuesOf(action, row.values),
   );
 }
 
@@ -225,6 +266,8 @@ export function buildDrawerRowAction(
     ...(visible !== undefined && {
       isVisible: (row: ListRowViewModel) => evalFieldCondition(visible, row.values),
     }),
+    ...rowDisabledPredicate(action.disabled),
+    ...rowActivePredicate(action.active),
   };
 }
 
@@ -281,6 +324,8 @@ export function buildWriteHandlerRowAction(
     ...(writeVisible !== undefined && {
       isVisible: (row: ListRowViewModel) => evalFieldCondition(writeVisible, row.values),
     }),
+    ...rowDisabledPredicate(action.disabled),
+    ...rowActivePredicate(action.active),
   };
 }
 
@@ -321,6 +366,7 @@ export function buildClientActionRowAction(
     ...(visible !== undefined && {
       isVisible: (row: ListRowViewModel) => evalFieldCondition(visible, row.values),
     }),
+    ...rowDisabledPredicate(action.disabled),
   };
 }
 
@@ -667,14 +713,21 @@ function buildDrawerRecordAction(
     readonly record: Readonly<Record<string, unknown>>;
     readonly translate: Translate;
     readonly actionIcon: IconKey | undefined;
-    readonly openDrawer: (
-      action: RowActionDrawer,
-      initialValues: Readonly<Record<string, unknown>> | undefined,
-    ) => void;
+    readonly openDrawer: OpenDrawer;
     readonly discardChanges: DiscardChanges | undefined;
+    readonly writeForms: WriteFormRegistry | undefined;
+    readonly dirtyWriteForms: ReadonlySet<string> | undefined;
+    readonly footerActionIds: ReadonlySet<string> | undefined;
   },
 ): RenderEditAction {
-  const { record, translate, actionIcon, openDrawer, discardChanges } = options;
+  const { record, translate, actionIcon, openDrawer, writeForms, dirtyWriteForms } = options;
+  const takesFooterValues = options.footerActionIds?.has(action.id) === true;
+  // The opened form carries the footer's typed input, so only other unsent input is at risk.
+  const discardChanges =
+    takesFooterValues &&
+    [...(dirtyWriteForms ?? [])].every((formKey) => formKey === FOOTER_WRITE_FORM_DIRTY_KEY)
+      ? undefined
+      : options.discardChanges;
   return {
     id: action.id,
     label: translate(action.label),
@@ -687,9 +740,12 @@ function buildDrawerRecordAction(
     }),
     ...(actionIcon !== undefined && { icon: actionIcon }),
     onPress: () => {
-      const initialValues =
+      const ownValues =
         action.params !== undefined ? evalRowExtractor(action.params, record) : undefined;
-      openDrawer(action, initialValues);
+      const footerForm = takesFooterValues ? writeForms?.get(action.id) : undefined;
+      const initialValues =
+        footerForm === undefined ? ownValues : { ...ownValues, ...footerForm.getValues() };
+      openDrawer(action, initialValues, undefined, headingValuesOf(action, record));
     },
   };
 }
@@ -932,6 +988,9 @@ export function buildRecordActions(options: {
   for (const action of actions) {
     if (action.visible !== undefined && !evalFieldCondition(action.visible, record)) continue;
     const actionIcon = resolveActionIcon(action.id, action.icon);
+    const push = (built: RenderEditAction): void => {
+      out.push({ ...built, ...recordActionDisabled(action, record) });
+    };
     if (action.kind === "navigate") {
       const built = buildNavigateRecordAction(action, {
         record,
@@ -942,23 +1001,26 @@ export function buildRecordActions(options: {
         defaultScreenTargetEntityId,
         sameEntityScreenId,
       });
-      if (built !== undefined) out.push(built);
+      if (built !== undefined) push(built);
       continue;
     }
     if (action.kind === "drawer") {
-      out.push(
+      push(
         buildDrawerRecordAction(action, {
           record,
           translate,
           actionIcon,
           openDrawer,
           discardChanges,
+          writeForms,
+          dirtyWriteForms,
+          footerActionIds,
         }),
       );
       continue;
     }
     if (action.kind === "clientAction") {
-      out.push(
+      push(
         buildClientActionRecordAction(action, {
           record,
           translate,
@@ -973,7 +1035,7 @@ export function buildRecordActions(options: {
     }
     // writeHandler — skip without a dispatcher instead of crashing.
     if (dispatcher === undefined) continue;
-    out.push(
+    push(
       buildWriteHandlerRecordAction(action, {
         record,
         translate,

@@ -34,7 +34,13 @@
 // projectionDetail binds to an explicit query, not an entity: every field name below
 // (header, metrics, fields) is a column of that query's row.
 
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createFileField,
+  createTextField,
+  defineFeature,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { ORDER_DESK_I18N } from "./i18n.ts";
 import {
@@ -51,7 +57,23 @@ import {
   orderListSchema,
   orderSummarySchema,
 } from "./order-board.ts";
-import { orderDetailScreen, orderFactsScreen, ordersScreen, todayScreen } from "./screens.ts";
+import {
+  orderDetailScreen,
+  orderFactsScreen,
+  orderRemindScreen,
+  ordersScreen,
+  todayScreen,
+} from "./screens.ts";
+
+// The host of the detail's upload form: its file field `attachment` is what the form's file field is stored as.
+const orderAttachmentEntity = createEntity({
+  name: "order-attachment",
+  table: "read_order_attachments",
+  fields: {
+    title: createTextField({ personal: false, reason: "is_business_data", maxLength: 200 }),
+    attachment: createFileField(),
+  },
+});
 
 const rowIdSchema = z.object({ id: z.string() });
 const noPayloadSchema = z.object({});
@@ -166,9 +188,28 @@ export function createOrderDeskFeature(): FeatureDefinition {
       access: accessRoles,
     });
 
+    r.entity(orderAttachmentEntity);
+    r.writeHandler({
+      name: "order:attach",
+      schema: z.object({ attachment: z.string() }),
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+      access: accessRoles,
+    });
+
     r.translations({ keys: ORDER_DESK_I18N });
 
+    // `allowEdit: false` drops the automatic Edit row action; attachments are only added and removed.
+    r.screen({
+      id: "attachment-list",
+      type: "entityList",
+      entity: "order-attachment",
+      columns: ["title"],
+      allowEdit: false,
+      access: accessRoles,
+    });
+
     r.screen(ordersScreen);
+    r.screen(orderRemindScreen);
     r.screen(todayScreen);
     r.screen(orderDetailScreen);
     r.screen(orderFactsScreen);

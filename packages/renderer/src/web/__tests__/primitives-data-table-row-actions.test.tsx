@@ -641,6 +641,82 @@ describe("DataTable", () => {
   });
 });
 
+describe("DataTable row action isDisabled and outlined icon", () => {
+  const columns = [{ field: "name", label: "Name", type: "string", sortable: false }] as never;
+  const rows = [
+    { id: "r1", values: { id: "r1", name: "A" } },
+    { id: "r2", values: { id: "r2", name: "B" } },
+  ] as never;
+
+  test("an inline action is disabled only on the rows where isDisabled holds, and does not trigger", async () => {
+    const onTrigger = mock();
+    render(
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowActions={[
+          {
+            id: "send",
+            label: "Send",
+            onTrigger,
+            isDisabled: (row: { id: string }) => row.id === "r1",
+          },
+        ]}
+      />,
+    );
+    const first = screen.getByTestId("row-r1-action-send") as HTMLButtonElement;
+    const second = screen.getByTestId("row-r2-action-send") as HTMLButtonElement;
+    expect(first.disabled).toBe(true);
+    expect(second.disabled).toBe(false);
+    await userEvent.setup().click(first);
+    expect(onTrigger).not.toHaveBeenCalled();
+  });
+
+  test("a kebab item is disabled where isDisabled holds", async () => {
+    render(
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowActions={[
+          { id: "edit", label: "Edit", onTrigger: mock() },
+          { id: "send", label: "Send", onTrigger: mock(), isDisabled: () => true },
+        ]}
+      />,
+    );
+    await userEvent.setup().click(screen.getByTestId("row-r1-actions-menu"));
+    const item = await screen.findByTestId("row-r1-action-send");
+    expect(item.getAttribute("aria-disabled") === "true" || item.hasAttribute("disabled")).toBe(
+      true,
+    );
+  });
+
+  test("display icon with style secondary is an outlined icon button of the same size", () => {
+    render(
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowActions={[
+          { id: "plain", label: "Plain", icon: "pencil", display: "icon", onTrigger: mock() },
+          {
+            id: "outlined",
+            label: "Outlined",
+            icon: "pencil",
+            display: "icon",
+            style: "secondary",
+            onTrigger: mock(),
+          },
+        ]}
+      />,
+    );
+    const plain = screen.getByTestId("row-r1-action-plain");
+    const outlined = screen.getByTestId("row-r1-action-outlined");
+    expect(outlined.className).toContain("border-border-strong");
+    expect(plain.className).not.toContain("border-border-strong");
+    expect(outlined.className).toContain("w-8");
+    expect(outlined.className).toContain("h-8");
+  });
+});
+
 describe("DataTable inMenu: false on the rowClick action", () => {
   const columns = [{ field: "name", label: "Name", type: "string", sortable: false }] as never;
   const rows = [{ id: "r1", values: { name: "A" } }] as never;

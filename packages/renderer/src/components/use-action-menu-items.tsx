@@ -35,7 +35,7 @@ export function useActionMenuItems({
     label: action.label,
     ...(action.icon !== undefined && { icon: action.icon }),
     variant: action.style === "danger" ? ("danger" as const) : ("default" as const),
-    ...(busyActionId !== null && { disabled: true }),
+    ...((busyActionId !== null || action.disabled === true) && { disabled: true }),
     onSelect: () => {
       if (needsActionConfirm(action)) {
         setPendingAction(action);

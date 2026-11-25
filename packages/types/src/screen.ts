@@ -386,6 +386,7 @@ export type {
   ListSortSpec,
   RelatedListToolbarAction,
   RowAction,
+  RowActionActive,
   RowActionClientAction,
   RowActionDisplay,
   RowActionDrawer,

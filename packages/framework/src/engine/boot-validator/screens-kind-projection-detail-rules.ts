@@ -119,6 +119,12 @@ export const PROJECTION_DETAIL_RULES = {
     summary: "Every rendered writeForm field has a fieldDefs entry.",
     fix: "Add the field to fieldDefs.",
   },
+  writeFormUploadEntityInvalid: {
+    id: "projection-detail/write-form-upload-entity-invalid",
+    summary:
+      "A writeForm with a file, image, files or images field names uploadEntity, an entity that declares a file field of each such field's name.",
+    fix: "Set uploadEntity to the entity whose same-named file fields the handler saves through its executor, and give that entity a file field per form file field.",
+  },
   submitWithInvalid: {
     id: "projection-detail/submit-with-invalid",
     summary:

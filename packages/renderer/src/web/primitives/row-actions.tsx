@@ -216,28 +216,40 @@ function RowActionButton({
     display === "icon" || (display === undefined && iconOnly && resolvedIcon !== undefined);
   const linkLike = display === "link" || (display === undefined && asLink);
 
-  const variantClass = isSoftAiButton
-    ? "border border-transparent bg-primary/10 text-primary hover:bg-primary/15"
-    : isBorderedButton
-      ? action.style === "primary"
-        ? "border border-transparent bg-primary text-primary-foreground hover:bg-primary/90"
-        : action.style === "danger"
-          ? "border border-destructive/40 bg-card text-destructive hover:bg-destructive/10"
-          : "border border-border-strong bg-card text-foreground hover:bg-accent"
-      : action.style === "danger"
-        ? "text-destructive hover:bg-destructive/10"
-        : linkLike
-          ? "font-medium text-primary hover:bg-muted"
-          : action.style === "primary"
-            ? "text-primary hover:bg-primary/10"
-            : "text-foreground hover:bg-accent";
+  const isOutlinedIcon = display === "icon" && action.style === "secondary";
+  const isDisabled = action.isDisabled?.(row) === true;
+  const pressable = action.isActive !== undefined;
+  const isActive = action.isActive?.(row) === true;
+
+  const variantClass = isActive
+    ? action.activeStyle === "danger"
+      ? "border border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90"
+      : "border border-primary bg-accent text-primary hover:bg-accent"
+    : isSoftAiButton
+      ? "border border-transparent bg-primary/10 text-primary hover:bg-primary/15"
+      : isOutlinedIcon
+        ? "rounded-md border border-border-strong bg-card text-foreground hover:bg-accent"
+        : isBorderedButton
+          ? action.style === "primary"
+            ? "border border-transparent bg-primary text-primary-foreground hover:bg-primary/90"
+            : action.style === "danger"
+              ? "border border-destructive/40 bg-card text-destructive hover:bg-destructive/10"
+              : "border border-border-strong bg-card text-foreground hover:bg-accent"
+          : action.style === "danger"
+            ? "text-destructive hover:bg-destructive/10"
+            : linkLike
+              ? "font-medium text-primary hover:bg-muted"
+              : action.style === "primary"
+                ? "text-primary hover:bg-primary/10"
+                : "text-foreground hover:bg-accent";
 
   return (
     <>
       <button
         type="button"
         data-testid={`row-${row.id}-action-${action.id}`}
-        disabled={busy}
+        disabled={busy || isDisabled}
+        {...(pressable && { "aria-pressed": isActive })}
         {...(showIconOnly && { "aria-label": action.label, title: action.label })}
         onClick={(e) => {
           e.stopPropagation();
@@ -262,7 +274,9 @@ function RowActionButton({
                 : "h-8 rounded-sm max-md:h-11",
           showIconOnly ? "w-8 max-md:w-11" : !linkLike && !isBorderedButton && "px-2",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-          "disabled:opacity-50 disabled:pointer-events-none",
+          isActive
+            ? "disabled:pointer-events-none"
+            : "disabled:opacity-50 disabled:pointer-events-none",
           variantClass,
         )}
       >
@@ -337,6 +351,7 @@ function RowActionsKebab({
             <DropdownMenuItem
               key={action.id}
               data-testid={`row-${row.id}-action-${action.id}`}
+              disabled={action.isDisabled?.(row) === true}
               onSelect={(e) => {
                 e.preventDefault();
                 setMenuOpen(false);

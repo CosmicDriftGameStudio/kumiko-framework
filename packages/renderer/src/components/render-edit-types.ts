@@ -308,6 +308,8 @@ export type RenderEditAction = {
   readonly icon?: IconKey;
   /** "start" sets the button apart on the left of the form footer. */
   readonly align?: "start";
+  /** Shown but not clickable. */
+  readonly disabled?: true;
   /** Stays a visible button in the pinned footer below `sm` instead of folding into the "…" menu. */
   readonly pinnedOnPhone?: true;
 };

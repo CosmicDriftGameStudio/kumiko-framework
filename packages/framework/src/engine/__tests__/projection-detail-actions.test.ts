@@ -182,3 +182,73 @@ describe("validateBoot projectionDetail actions", () => {
     );
   });
 });
+
+describe("validateBoot projectionDetail field actions", () => {
+  test("a field action naming an unregistered write handler throws", () => {
+    const feature = defineFeature("app", (r) => {
+      registerStubQueryHandler(r, "rent:detail");
+      r.screen({
+        id: "rent-detail",
+        type: "projectionDetail",
+        query: "app:query:rent:detail",
+        layout: {
+          sections: [
+            {
+              title: "s",
+              fields: [
+                {
+                  field: "description",
+                  actions: [
+                    {
+                      kind: "writeHandler",
+                      id: "archive",
+                      label: "actions.archive",
+                      handler: "app:write:ghost",
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /action "archive" handler "app:write:ghost" is not a registered write-handler/,
+    );
+  });
+
+  test("a field action on an actionForm field is rejected", () => {
+    const feature = defineFeature("app", (r) => {
+      r.writeHandler({
+        name: "rent:note",
+        schema: z.object({ note: z.string() }),
+        handler: async () => ({ isSuccess: true as const, data: {} }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.screen({
+        id: "rent-note",
+        type: "actionForm",
+        handler: "app:write:rent:note",
+        fields: { note: { type: "text" } },
+        layout: {
+          sections: [
+            {
+              fields: [
+                {
+                  field: "note",
+                  actions: [
+                    { kind: "navigate", id: "go", label: "actions.go", screen: "rent-note" },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /field "note" sets actions, but field actions exist only on projectionDetail fields sections/,
+    );
+  });
+});

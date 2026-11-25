@@ -347,3 +347,54 @@ describe("entityList rowAction inMenu", () => {
     expect(() => validateBoot([makeFeature({ inMenu: false })])).toThrow(/inMenu: false/);
   });
 });
+
+describe("entityList drawer rowAction headingFields", () => {
+  function makeFeature(headingFields: readonly string[]) {
+    return defineFeature("shop", (r) => {
+      r.entity(
+        createEntity({
+          name: "product",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
+      r.writeHandler({
+        name: "note",
+        schema: z.object({ note: z.string() }),
+        handler: async () => ({ isSuccess: true as const, data: null }),
+        access: { roles: ["Admin"] },
+      });
+      r.screen({
+        id: "product-list",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+        rowActions: [
+          {
+            kind: "drawer",
+            id: "note",
+            label: "actions.note",
+            screen: "product-note",
+            headingFields,
+          },
+        ],
+      });
+      r.screen({
+        id: "product-note",
+        type: "actionForm",
+        handler: "shop:write:note",
+        fields: { note: { type: "text" } },
+        layout: { sections: [{ fields: ["note"] }] },
+      });
+    });
+  }
+
+  test("a field the row carries is accepted although the form does not declare it", () => {
+    expect(() => validateBoot([makeFeature(["name"])])).not.toThrow();
+  });
+
+  test("an unknown row field is rejected", () => {
+    expect(() => validateBoot([makeFeature(["ghost"])])).toThrow(
+      /headingFields references unknown field "ghost"/,
+    );
+  });
+});

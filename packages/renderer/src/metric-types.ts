@@ -38,4 +38,6 @@ export type MetricBandProps = {
   readonly splitPart?: "lead" | "tiles";
   /** The surrounding section already insets its content, so the band adds no padding of its own. */
   readonly flush?: boolean;
+  /** The metrics sit left-aligned in a plain row (small label over a larger value), like the rest of a flat header. */
+  readonly flat?: boolean;
 };

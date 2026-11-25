@@ -161,7 +161,26 @@ describe("DataTable row tone", () => {
     );
     const cell = screen.getByTestId("cell-r1-actions");
     expect(cell.className).toContain("md:bg-background");
-    expect(cell.className).not.toContain("color-mix");
+    // Only the hover state is mixed, so the resting cell stays opaque and the hover shows in it too.
+    expect(cell.className).not.toMatch(/(^|\s)md:bg-\[color-mix/);
+    expect(cell.className).toContain("md:group-hover/data-row:bg-[color-mix");
+  });
+
+  test("a filled row is tinted 4 % into the card colour and draws no stripe", () => {
+    const { container } = render(
+      <DataTable
+        columns={columns}
+        rows={rows}
+        testId="t"
+        rowTone={() => "bad"}
+        rowFill={() => true}
+        rowActions={rowActions}
+      />,
+    );
+    const row = container.querySelector('tr[data-tone="bad"]');
+    expect(row?.className).not.toContain("--row-stripe");
+    expect(row?.className).toContain("var(--color-status-bad)_4%,var(--color-card)");
+    expect(row?.className).toContain("[&_select]:border-status-bad");
   });
 
   test("a neutral tone draws no table stripe, a neutral card a grey one", () => {

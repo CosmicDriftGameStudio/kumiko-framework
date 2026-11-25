@@ -9,7 +9,14 @@ export const ACTIONS_CONTENT_ATTRIBUTE = "data-actions-content";
 
 export function stickyActionsCellClass(fillsHeight: boolean, inFooter = false): string {
   if (inFooter) return "md:sticky md:right-0 md:z-10 md:bg-muted";
-  return cn("md:sticky md:right-0 md:z-10", fillsHeight ? "md:bg-card" : "md:bg-background");
+  // An opaque sticky cell hides the row's hover colour, so the cell paints the same one: full muted on a
+  // filling table, the translucent default mixed in elsewhere.
+  return cn(
+    "md:sticky md:right-0 md:z-10",
+    fillsHeight
+      ? "md:bg-card md:group-hover/data-row:bg-muted"
+      : "md:bg-background md:group-hover/data-row:bg-[color-mix(in_srgb,var(--color-muted)_50%,var(--color-background))]",
+  );
 }
 
 export function ActionsHeaderCell({

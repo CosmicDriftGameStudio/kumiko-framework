@@ -16,7 +16,13 @@ import {
   type Translate,
 } from "../headless/index.ts";
 import { useLocale, useTranslation } from "../i18n.tsx";
-import { InsideDrawerProvider, useInsideDrawer } from "../inside-drawer.ts";
+import {
+  DrawerCloseRequestProvider,
+  DrawerEscapeProvider,
+  InsideDrawerProvider,
+  useDrawerCloseRequest,
+  useInsideDrawer,
+} from "../inside-drawer.ts";
 import { PageHeaderSlotAvailableProvider } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
 import { screenFillsHeight } from "../screen-fills-height.ts";
@@ -46,6 +52,7 @@ import {
 import type { FeatureSchema } from "./feature-schema.ts";
 import { hiddenRequiredFieldsFilled, layoutFieldNames } from "./layout-fields.ts";
 import { type NavApi, useHandoffForScreen, useNav } from "./nav.tsx";
+import { hasFlatDetailHeader } from "./projection-detail-flat-header.ts";
 import type { ProjectionDetailScreenWithTarget } from "./projection-detail-states.tsx";
 import { lastSegment } from "./qn.ts";
 import { qualifyScreenId } from "./qualify-screen-id.ts";
@@ -73,6 +80,7 @@ import {
   ScreenAccessDeniedBanner,
   ScreenMissingState,
 } from "./screen-shared.tsx";
+import { UnsavedInputDialog, useUnsavedInputGuard } from "./unsaved-input-guard.tsx";
 
 // ---- drawer-kind actions: ToolbarAction + RowAction ----
 //
@@ -86,9 +94,9 @@ import {
 // between the toolbar and row variants is prefill: a row action extracts
 // `initialValues` from the clicked row (see buildProjectionRowActions /
 // EntityListBody's rowActions builder); the toolbar variant has none.
-type DrawerLikeAction = Extract<ToolbarAction, { kind: "drawer" }> | RowActionDrawer;
+export type DrawerLikeAction = Extract<ToolbarAction, { kind: "drawer" }> | RowActionDrawer;
 
-type DrawerTargetScreen = ActionFormScreenDefinition | ProjectionDetailScreenWithTarget;
+export type DrawerTargetScreen = ActionFormScreenDefinition | ProjectionDetailScreenWithTarget;
 
 export type DrawerDetailRenderer = (props: {
   readonly schema: FeatureSchema;
@@ -103,10 +111,12 @@ export function useDrawerAction(schema: FeatureSchema): {
   readonly drawerScreen: DrawerTargetScreen | undefined;
   readonly drawerInitialValues: Readonly<Record<string, unknown>> | undefined;
   readonly drawerRecordId: string | undefined;
+  readonly drawerHeadingValues: Readonly<Record<string, unknown>> | undefined;
   readonly openDrawer: (
     action: DrawerLikeAction,
     initialValues?: Readonly<Record<string, unknown>>,
     recordId?: string,
+    headingValues?: Readonly<Record<string, unknown>>,
   ) => void;
   readonly closeDrawer: () => void;
 } {
@@ -114,6 +124,7 @@ export function useDrawerAction(schema: FeatureSchema): {
     readonly action: DrawerLikeAction;
     readonly initialValues: Readonly<Record<string, unknown>> | undefined;
     readonly recordId: string | undefined;
+    readonly headingValues: Readonly<Record<string, unknown>> | undefined;
   } | null>(null);
   const drawerAction = drawerState?.action ?? null;
   const drawerScreen = useMemo(() => {
@@ -131,7 +142,8 @@ export function useDrawerAction(schema: FeatureSchema): {
       action: DrawerLikeAction,
       initialValues?: Readonly<Record<string, unknown>>,
       recordId?: string,
-    ) => setDrawerState({ action, initialValues, recordId }),
+      headingValues?: Readonly<Record<string, unknown>>,
+    ) => setDrawerState({ action, initialValues, recordId, headingValues }),
     [],
   );
   const closeDrawer = useCallback(() => setDrawerState(null), []);
@@ -140,8 +152,28 @@ export function useDrawerAction(schema: FeatureSchema): {
     drawerScreen,
     drawerInitialValues: drawerState?.initialValues,
     drawerRecordId: drawerState?.recordId,
+    drawerHeadingValues: drawerState?.headingValues,
     openDrawer,
     closeDrawer,
+  };
+}
+
+/** Title and subtitle of a drawer-kind action; `{name}` placeholders come from the clicked row, never from the form. */
+export function resolveDrawerHeading(input: {
+  readonly action: DrawerLikeAction;
+  readonly translate: Translate;
+  readonly locale: string;
+  readonly headingValues: Readonly<Record<string, unknown>> | undefined;
+  readonly initialValues: Readonly<Record<string, unknown>> | undefined;
+}): { readonly title: string; readonly subtitle: string | undefined } {
+  const { action, translate, locale, headingValues, initialValues } = input;
+  const params = {
+    ...formatSummaryParams(headingValues, locale),
+    ...formatSummaryParams(initialValues, locale),
+  };
+  return {
+    title: translate(action.title ?? action.label, params),
+    subtitle: action.subtitle === undefined ? undefined : translate(action.subtitle, params),
   };
 }
 
@@ -151,6 +183,7 @@ export function DrawerHost({
   drawerScreen,
   drawerInitialValues,
   drawerRecordId,
+  drawerHeadingValues,
   renderDetail,
   userRoles,
   translate,
@@ -162,6 +195,8 @@ export function DrawerHost({
   readonly drawerScreen: DrawerTargetScreen | undefined;
   readonly drawerInitialValues?: Readonly<Record<string, unknown>>;
   readonly drawerRecordId?: string;
+  /** Feeds only the `{name}` placeholders of title and subtitle, never the form values. */
+  readonly drawerHeadingValues?: Readonly<Record<string, unknown>>;
   /** Required for a projectionDetail target; the host owns the import that avoids a module cycle. */
   readonly renderDetail?: DrawerDetailRenderer;
   readonly userRoles: readonly string[] | undefined;
@@ -169,24 +204,18 @@ export function DrawerHost({
   readonly onClose: () => void;
   readonly onSuccess: () => void;
 }): ReactNode {
-  const { Drawer, Dialog } = usePrimitives();
+  const { Drawer } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const locale = useLocale().locale();
   const isDetailTarget = drawerScreen?.type === "projectionDetail";
-  const [hasUnsavedInput, setHasUnsavedInput] = useState(false);
-  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
-  const closeAndReset = useCallback(() => {
-    setHasUnsavedInput(false);
-    setConfirmDiscardOpen(false);
-    // Actions in the detail may have changed the row, so closing it reloads the list like a submit.
+  // Actions in the detail may have changed the row, so closing it reloads the list like a submit.
+  const closeHost = useCallback(() => {
     if (isDetailTarget) onSuccess();
     else onClose();
   }, [isDetailTarget, onClose, onSuccess]);
-  const requestClose = useCallback(() => {
-    if (hasUnsavedInput) setConfirmDiscardOpen(true);
-    else closeAndReset();
-  }, [hasUnsavedInput, closeAndReset]);
+  const guard = useUnsavedInputGuard(closeHost);
+  const escapeHandlerRef = useRef<(() => boolean) | undefined>(undefined);
   if (drawerAction === null) return null;
 
   // Access mirrors kind:"navigate" exactly: the toolbar button itself stays
@@ -195,75 +224,122 @@ export function DrawerHost({
   // "Access denied" state KumikoScreen's top-level gate would show for a
   // direct hit on that screen, never the form.
   const allowed = screenAccessAllows(drawerScreen?.access, userRoles);
-  const titleParams = formatSummaryParams(drawerInitialValues, locale);
+  const heading = resolveDrawerHeading({
+    action: drawerAction,
+    translate: effectiveTranslate,
+    locale,
+    headingValues: drawerHeadingValues,
+    initialValues: drawerInitialValues,
+  });
+  // A detail with a flat header brings its own title, so the drawer shows no title bar above it.
+  const headerless =
+    allowed && drawerScreen?.type === "projectionDetail" && hasFlatDetailHeader(drawerScreen);
 
   return (
     <>
       <Drawer
         open={true}
         onOpenChange={(open) => {
-          if (!open) requestClose();
+          if (!open) guard.requestClose();
         }}
-        title={effectiveTranslate(drawerAction.title ?? drawerAction.label, titleParams)}
-        {...(drawerAction.subtitle !== undefined && {
-          subtitle: effectiveTranslate(drawerAction.subtitle, titleParams),
-        })}
+        onEscapeKey={() => escapeHandlerRef.current?.() ?? false}
+        title={heading.title}
+        {...(heading.subtitle !== undefined && { subtitle: heading.subtitle })}
         {...(drawerAction.width !== undefined && { width: drawerAction.width })}
+        {...(headerless && { headerless: true as const })}
+        {...("back" in drawerAction && drawerAction.back === true && { back: true as const })}
         testId={`toolbar-drawer-${drawerAction.id}`}
       >
         <PageHeaderSlotAvailableProvider value={false}>
           <InsideDrawerProvider value={true}>
-            {drawerScreen === undefined ? (
-              <ScreenMissingState
-                screenQn={drawerAction.screen}
-                testId="kumiko-toolbar-drawer-not-found"
-              />
-            ) : !allowed ? (
-              <ScreenAccessDeniedBanner
-                screenQn={drawerAction.screen}
-                testId="kumiko-toolbar-drawer-access-denied"
-              />
-            ) : drawerScreen.type === "projectionDetail" ? (
-              renderDetailTarget({
-                schema,
-                screen: drawerScreen,
-                translate,
-                entityId: drawerRecordId,
-                renderDetail,
-                onDirtyChange: setHasUnsavedInput,
-              })
-            ) : (
-              <ActionFormBody
-                schema={schema}
-                screen={drawerScreen}
-                {...(translate !== undefined && { translate })}
-                {...(drawerInitialValues !== undefined && {
-                  initialOverrides: drawerInitialValues,
-                })}
-                onSuccess={() => {
-                  setHasUnsavedInput(false);
-                  onSuccess();
-                }}
-                onDirtyChange={setHasUnsavedInput}
-                submitLabelFallback={drawerAction.label}
-              />
-            )}
+            <DrawerEscapeProvider value={escapeHandlerRef}>
+              <DrawerCloseRequestProvider value={guard.requestClose}>
+                <DrawerActionContent
+                  schema={schema}
+                  drawerAction={drawerAction}
+                  drawerScreen={drawerScreen}
+                  {...(drawerInitialValues !== undefined && { drawerInitialValues })}
+                  {...(drawerRecordId !== undefined && { drawerRecordId })}
+                  {...(renderDetail !== undefined && { renderDetail })}
+                  userRoles={userRoles}
+                  {...(translate !== undefined && { translate })}
+                  onDirtyChange={guard.setHasUnsavedInput}
+                  onFormSuccess={() => {
+                    guard.setHasUnsavedInput(false);
+                    onSuccess();
+                  }}
+                />
+              </DrawerCloseRequestProvider>
+            </DrawerEscapeProvider>
           </InsideDrawerProvider>
         </PageHeaderSlotAvailableProvider>
       </Drawer>
-      <Dialog
-        open={confirmDiscardOpen}
-        onOpenChange={setConfirmDiscardOpen}
-        title={t("kumiko.drawer.discard.title")}
-        description={t("kumiko.drawer.discard.body")}
-        confirmLabel={t("kumiko.drawer.discard.confirm")}
-        cancelLabel={t("kumiko.drawer.discard.cancel")}
-        variant="danger"
-        initialFocus="cancel"
-        onConfirm={closeAndReset}
-        testId="drawer-discard-dialog"
-      />
+      <UnsavedInputDialog guard={guard} />
     </>
+  );
+}
+
+/** What a drawer-kind action shows: the target form or detail, or the missing/denied state. Shared by the drawer and by a form shown in place. */
+export function DrawerActionContent({
+  schema,
+  drawerAction,
+  drawerScreen,
+  drawerInitialValues,
+  drawerRecordId,
+  renderDetail,
+  userRoles,
+  translate,
+  onDirtyChange,
+  onFormSuccess,
+  showCancel,
+}: {
+  readonly schema: FeatureSchema;
+  readonly drawerAction: DrawerLikeAction;
+  readonly drawerScreen: DrawerTargetScreen | undefined;
+  readonly drawerInitialValues?: Readonly<Record<string, unknown>>;
+  readonly drawerRecordId?: string;
+  readonly renderDetail?: DrawerDetailRenderer;
+  readonly userRoles: readonly string[] | undefined;
+  readonly translate?: Translate;
+  readonly onDirtyChange: (dirty: boolean) => void;
+  readonly onFormSuccess: () => void;
+  /** The form always offers Cancel (through the host's close request), not only with `cancelInDrawer`. */
+  readonly showCancel?: boolean;
+}): ReactNode {
+  if (drawerScreen === undefined) {
+    return (
+      <ScreenMissingState screenQn={drawerAction.screen} testId="kumiko-toolbar-drawer-not-found" />
+    );
+  }
+  if (!screenAccessAllows(drawerScreen.access, userRoles)) {
+    return (
+      <ScreenAccessDeniedBanner
+        screenQn={drawerAction.screen}
+        testId="kumiko-toolbar-drawer-access-denied"
+      />
+    );
+  }
+  if (drawerScreen.type === "projectionDetail") {
+    return renderDetailTarget({
+      schema,
+      screen: drawerScreen,
+      translate,
+      entityId: drawerRecordId,
+      renderDetail,
+      onDirtyChange,
+    });
+  }
+  return (
+    <ActionFormBody
+      schema={schema}
+      screen={drawerScreen}
+      {...(translate !== undefined && { translate })}
+      {...(drawerInitialValues !== undefined && { initialOverrides: drawerInitialValues })}
+      onSuccess={onFormSuccess}
+      onDirtyChange={onDirtyChange}
+      {...(showCancel === true && { showCancel })}
+      submitLabelFallback={drawerAction.label}
+    />
   );
 }
 
@@ -342,6 +418,7 @@ export function ActionFormBody({
   initialOverrides,
   onSuccess,
   onDirtyChange,
+  showCancel,
   submitLabelFallback,
 }: {
   readonly schema: FeatureSchema;
@@ -360,12 +437,15 @@ export function ActionFormBody({
   /** Drawer-hosted usage: reports unsaved input so the host can confirm
    *  before discarding it. */
   readonly onDirtyChange?: (dirty: boolean) => void;
+  /** Drawer-hosted usage: Cancel (through the host's close request) even without `cancelInDrawer`. */
+  readonly showCancel?: boolean;
   /** Drawer-hosted usage: submit label when the screen declares none (the opening action's label). */
   readonly submitLabelFallback?: string;
 }): ReactNode {
   const nav = useNav();
   const appFeatures = useAppFeatures();
   const insideDrawer = useInsideDrawer();
+  const requestDrawerClose = useDrawerCloseRequest();
   const locale = useLocale().locale();
   const { Banner, StatusBadge } = usePrimitives();
   // Unused when drawer-hosted — onSuccess wins below first.
@@ -606,16 +686,28 @@ export function ActionFormBody({
   // `false` switches the button off explicitly (single-action screens where
   // cancel would just be submit-without-sending).
   // returnTo wins over the declared target when both are present.
-  // A drawer closes through its × / Esc (which confirms unsaved input), so its footer has no Cancel.
+  // A drawer closes through its × / Esc (which confirms unsaved input), so its footer has no Cancel
+  // unless the screen opts in with `cancelInDrawer`, which routes Cancel through that same request.
   const handleCancel = useMemo<(() => void) | undefined>(() => {
-    if (insideDrawer) return undefined;
+    if (insideDrawer) {
+      return screen.cancelInDrawer === true || showCancel === true ? requestDrawerClose : undefined;
+    }
     const target =
       screen.cancelTarget ??
       (screen.redirect !== undefined ? redirectScreenTarget(screen.redirect) : undefined);
     if (target === undefined || target === false) return undefined;
     return () =>
       navigateToReturnOr(nav, returnTarget, () => nav.navigate({ screenId: lastSegment(target) }));
-  }, [nav, screen.redirect, screen.cancelTarget, insideDrawer, returnTarget]);
+  }, [
+    nav,
+    screen.redirect,
+    screen.cancelTarget,
+    screen.cancelInDrawer,
+    showCancel,
+    insideDrawer,
+    requestDrawerClose,
+    returnTarget,
+  ]);
   // Rendering the form before a tenant-declared currency lands would show the
   // fallback and, on a fast click, submit it — hold instead.
   if (currencyLoading) {

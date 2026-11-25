@@ -312,6 +312,7 @@ type ActionFormScreenDefinition = {
   resetOnSuccess?: boolean; // Reset the form to its initial values after a successful submit (prefill kept, typed values cleared).
   load?: ActionFormLoad; // Load the initial values from a query.
   cancelTarget?: string | false; // Target of the Cancel button.
+  cancelInDrawer?: true; // Opened in a drawer, show a Cancel button that closes it with the unsaved-input prompt (like the close button and Esc).
   listScreenId?: string; // Parent list screen (short id) for breadcrumb + nav highlighting when this screen has no nav entry of its own.
   slots?: ScreenSlots;
   access?: AccessRule;
@@ -555,6 +556,7 @@ type EditFieldSpec =
     badge?: FieldBadge; // Pill next to the label, e.g. "price source open" in `warn`.
     hintField?: string; // Value field whose non-empty text shows as a muted small hint under the field (e.g. "From the buyer: Skoda Octavia").
     hideOnNarrow?: true; // Leaves the field out below `sm`; its value is still submitted.
+    actions?: RowAction[]; // projectionDetail `fields` sections only: buttons right beside the value in the same cell, shown with an empty value too.
     refEntity?: string; // Marks this field as a reference lookup instead of a plain value — for projectionDetail fields, which have no `EntityDefinition` to carry a real `reference` field type.
     refLabelField?: string; // Row field on the referenced entity shown as the label (default "id").
     format?: "email" | "phone"; // Text format for projectionDetail fields, which have no `EntityDefinition` to carry it: a read-only value renders as a `mailto:`/`tel:` link.
@@ -591,7 +593,8 @@ type EditRelatedListSection = EditSectionPresentation & {
   rowActions?: RowAction[]; // Per-row actions — same type and dispatch semantics as `entityList`/ `projectionList`'s `rowActions` (writeHandler dispatch with a declarative `payload` extractor, or navigate).
   rowActionMode?: RowActionMode; // Layout of the row-action column — see `RowActionMode`.
   bulkActions?: ListBulkAction[]; // Bulk actions over checkbox-selected rows, each pointing at a writeHandler row action.
-  rowTone?: RelatedListRowTone; // Tints rows whose field matches — a declarative rule, not a function, so the screen definition stays serializable.
+  rowTone?: RelatedListRowTone | RelatedListRowTone[]; // Tints rows whose field matches — a declarative rule, not a function, so the screen definition stays serializable.
+  rowActionsWhen?: Exclude<FieldCondition, boolean>; // Parent-record condition (like `visibleWhen`): while it does not match, the list draws no row-action column, no bulk actions and no inline cell editing.
   struckWhen?: Exclude<FieldCondition, boolean>; // Rows where the `FieldCondition` (`{ field, eq }`, `{ field, in }` …) holds are greyed out and struck through, e.g. a lost offer line.
   toolbarActions?: RelatedListToolbarAction[]; // Toolbar actions above the table — same type and dispatch semantics as `entityList`/`projectionList`'s `toolbarActions` ("+ Anlegen" etc.), plus `visible`/`params` evaluated against the parent record (see RelatedListToolbarAction).
   countField?: string; // Record field rendered as a count badge in the tab label when the enclosing `EditLayout.mode` is "tabs" (e.g. an open-items counter).
@@ -693,6 +696,7 @@ type EntityListScreenDefinition = {
   createScreen?: string; // Short screen id (same feature) the create button opens instead of the entity's default edit screen.
   createUnavailable?: boolean; // Set by the role projection when `createScreen` is not reachable for the role: the renderer then shows no create button instead of falling back to the entity's edit screen.
   allowCreate?: boolean; // `false` hides this list's "+ New" button (and the empty-state create CTA) while the entity's edit screen keeps its create branch for other entry points, e.g. a prefilled action.
+  allowEdit?: boolean; // `false` suppresses the auto-generated "Edit" row action; declared `rowActions` are unaffected.
   columns: ListColumnSpec[];
   rowToneField?: string; // Row field holding a SelectOptionTone; the row is toned like relatedList `rowTone`, other values leave it untoned.
   mutedRowField?: string; // Row field (boolean): a row with a true value is drawn entirely in the muted text colour.
@@ -1696,6 +1700,8 @@ type RowActionWriteHandler = {
   confirm?: string; // i18n key for the confirm dialog description.
   confirmLabel?: string; // i18n key for the confirm button text in the dialog.
   visible?: FieldCondition; // Conditional visibility per row.
+  disabled?: FieldCondition; // Shown but not clickable while the condition holds.
+  active?: RowActionActive; // Pressed look for an inline button while the row matches; keeps its full colour when also disabled.
   showOnTabs?: string[]; // projectionDetail header action only: shown while one of these tab (section) ids is active.
   style?: "primary" | "secondary" | "danger"; // Visual style.
   icon?: IconKey; // Overrides the id-based default icon (see ACTION_ICON_BY_ID in kumiko-renderer) — closed IconKey vocabulary into the ICONS registry (renderer/web), analogous to EditFieldSpec.icon.
@@ -1866,7 +1872,7 @@ type TierResolverPlugin = { // Plugin shape for the tier-resolver extension.
   build: (deps: { db: DbConnection; registry: Registry; cacheSync?: CacheSyncBus; }) => Promise<EffectiveFeaturesResolver>;
 };
 type ToggleReader = (featureName: string) => boolean | undefined;
-type ToolbarAction = ({ kind: "navigate"; id: string; label: string; screen: string; tab?: string; style?: "primary" | "secondary" | "danger"; } | { kind: "writeHandler"; id: string; label: string; handler: string; payload?: Record<string, unknown>; confirm?: string; confirmLabel?: string; style?: "primary" | "secondary" | "danger"; } | { kind: "drawer"; id: string; label: string; screen: string; style?: "primary" | "secondary" | "danger"; title?: string; subtitle?: string; width?: "wide"; }) & {
+type ToolbarAction = ({ kind: "navigate"; id: string; label: string; screen: string; tab?: string; style?: "primary" | "secondary" | "danger"; } | { kind: "writeHandler"; id: string; label: string; handler: string; payload?: Record<string, unknown>; confirm?: string; confirmLabel?: string; style?: "primary" | "secondary" | "danger"; } | { kind: "drawer"; id: string; label: string; screen: string; style?: "primary" | "secondary" | "danger"; title?: string; subtitle?: string; width?: "wide" | "popup"; }) & {
   icon?: IconKey; // Icon of the button, in every list (entityList, projectionList, relatedList).
   visibleWhen?: DashboardPanelVisibility; // Shown only while the query's `field` equals `eq` (live, empty payload).
 };

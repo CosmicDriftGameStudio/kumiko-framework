@@ -128,9 +128,28 @@ function warnRelatedListEmptyStateDrawerDropped(actionId: string): void {
   );
 }
 
-function buildRowTone(rule: RelatedListRowTone | undefined): DataTableProps["rowTone"] {
-  if (rule === undefined) return undefined;
-  return (row) => (evalFieldCondition(rule, { ...row.values }) ? rule.tone : undefined);
+function buildRowTone(
+  rules: RelatedListRowTone | readonly RelatedListRowTone[] | undefined,
+): DataTableProps["rowTone"] {
+  if (rules === undefined) return undefined;
+  const ordered = isRowToneRuleList(rules) ? rules : [rules];
+  return (row) => ordered.find((rule) => evalFieldCondition(rule, { ...row.values }))?.tone;
+}
+
+function isRowToneRuleList(
+  rules: RelatedListRowTone | readonly RelatedListRowTone[],
+): rules is readonly RelatedListRowTone[] {
+  return Array.isArray(rules);
+}
+
+function buildRowFill(
+  rules: RelatedListRowTone | readonly RelatedListRowTone[] | undefined,
+): DataTableProps["rowFill"] {
+  if (rules === undefined) return undefined;
+  const ordered = isRowToneRuleList(rules) ? rules : [rules];
+  if (!ordered.some((rule) => rule.fill === true)) return undefined;
+  return (row) =>
+    ordered.find((rule) => evalFieldCondition(rule, { ...row.values }))?.fill === true;
 }
 
 function buildRowStruck(
@@ -336,6 +355,7 @@ export function RelatedListSection({
   const locale = useOptionalLocale();
   const rowTone = useMemo(() => buildRowTone(section.rowTone), [section.rowTone]);
   const rowStruck = useMemo(() => buildRowStruck(section.struckWhen), [section.struckWhen]);
+  const rowFill = useMemo(() => buildRowFill(section.rowTone), [section.rowTone]);
   const nav = useNav();
   const host = useReturnHost();
   const dispatcher = useOptionalDispatcher();
@@ -462,7 +482,10 @@ export function RelatedListSection({
   // a relatedList row has the identical "no guaranteed id field" shape a
   // query-projection row has, so navigate/writeHandler dispatch is shared
   // rather than a second implementation (fw editable-detail-screens).
-  const { cellEditor, cellEditError } = useRelatedListCellEditor({
+  const rowActionsEnabled =
+    section.rowActionsWhen === undefined ||
+    evalFieldCondition(section.rowActionsWhen, { ...record });
+  const { cellEditor: declaredCellEditor, cellEditError } = useRelatedListCellEditor({
     columns: section.columns,
     sourceEntity,
     feature: listFeatureName,
@@ -470,7 +493,8 @@ export function RelatedListSection({
     translate: effectiveTranslate,
     refetch: refetchSelfAndHost,
   });
-  const rowActions = useMemo(
+  const cellEditor = rowActionsEnabled ? declaredCellEditor : undefined;
+  const builtRowActions = useMemo(
     () =>
       buildProjectionRowActions({
         rowActions: section.rowActions,
@@ -495,8 +519,9 @@ export function RelatedListSection({
       host,
     ],
   );
+  const rowActions = rowActionsEnabled ? builtRowActions : undefined;
   const bulk = useListBulk({
-    bulkActions: section.bulkActions,
+    bulkActions: rowActionsEnabled ? section.bulkActions : undefined,
     rowActions: section.rowActions,
     translate: effectiveTranslate,
     dispatcher,
@@ -649,6 +674,7 @@ export function RelatedListSection({
             {...(bulk !== undefined && { bulk })}
             {...(rowTone !== undefined && { rowTone })}
             {...(rowStruck !== undefined && { rowStruck })}
+            {...(rowFill !== undefined && { rowFill })}
             {...(cellEditor !== undefined && { cellEditor })}
             {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}
             {...(emptyStateContent !== undefined && { emptyState: emptyStateContent })}

@@ -9,7 +9,7 @@ import { useIsBelowSmViewport } from "./use-narrow-viewport.ts";
 const METRIC_TILE_GRID_CLASSES =
   "grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-[repeat(auto-fit,minmax(min(12rem,100%),1fr))]";
 
-const InsideMetricBandContext = createContext(false);
+const InsideMetricBandContext = createContext<"none" | "band" | "flat">("none");
 
 // The screen-form column already insets and spaces its children; a band in its
 // header region must not add its own padding on top. DefaultCard resets this
@@ -25,6 +25,7 @@ export function DefaultMetricBand({
   tiles,
   splitPart,
   flush,
+  flat,
 }: MetricBandProps): ReactNode {
   const insideScreenFormColumn = useContext(InsideScreenFormColumnContext);
   const hasMetrics = Children.toArray(children).length > 0;
@@ -48,8 +49,17 @@ export function DefaultMetricBand({
         (tiles === true ? (
           <div className={METRIC_TILE_GRID_CLASSES}>{children}</div>
         ) : (
-          <InsideMetricBandContext.Provider value={true}>
-            <dl className="m-0 grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5">{children}</dl>
+          <InsideMetricBandContext.Provider value={flat === true ? "flat" : "band"}>
+            <dl
+              className={cn(
+                "m-0",
+                flat === true
+                  ? "flex flex-wrap gap-x-8 gap-y-3"
+                  : "grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5",
+              )}
+            >
+              {children}
+            </dl>
           </InsideMetricBandContext.Provider>
         ))}
     </div>
@@ -93,7 +103,7 @@ function MetricTile(props: MetricProps): ReactNode {
 }
 
 export function DefaultMetric(props: MetricProps): ReactNode {
-  const insideBand = useContext(InsideMetricBandContext);
+  const bandStyle = useContext(InsideMetricBandContext);
   const { sub } = useMetricSub(props);
   if (props.tile === true) return <MetricTile {...props} />;
   const { label, value, testId, onPress } = props;
@@ -110,7 +120,10 @@ export function DefaultMetric(props: MetricProps): ReactNode {
         {label}
       </dt>
       <dd
-        className="m-0 text-base font-medium tabular-nums text-foreground"
+        className={cn(
+          "m-0 tabular-nums text-foreground",
+          bandStyle === "flat" ? "text-[17px] font-semibold" : "text-base font-medium",
+        )}
         data-testid={testId !== undefined ? `${testId}-value` : undefined}
       >
         {onPress !== undefined ? (
@@ -131,5 +144,5 @@ export function DefaultMetric(props: MetricProps): ReactNode {
       </dd>
     </div>
   );
-  return insideBand ? item : <dl className="m-0">{item}</dl>;
+  return bandStyle !== "none" ? item : <dl className="m-0">{item}</dl>;
 }

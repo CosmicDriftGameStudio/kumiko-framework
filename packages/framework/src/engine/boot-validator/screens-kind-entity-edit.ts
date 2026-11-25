@@ -8,6 +8,7 @@ import {
 import type { EditSectionSpec, EntityEditScreenDefinition } from "../types/screen.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import { validateRedirectTarget } from "./screens-actions.ts";
+import { rejectFieldActions } from "./screens-field-actions.ts";
 import {
   validateEditFieldExtras,
   validateFieldFormRefs,
@@ -48,6 +49,7 @@ function validateEntityEditField(
       ),
     });
   }
+  rejectFieldActions(featureName, screenId, "entityEdit", normalized);
   validateNoWidgetRequiredField(featureName, screenId, entityDef, normalized);
   validateEditFieldExtras(featureName, screenId, entityDef, normalized);
   const fieldWhere = `[Feature ${featureName}] Screen "${screenId}" (entityEdit) field "${normalized.field}"`;

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { ListRowViewModel } from "../../../headless/index.ts";
 import { cn } from "../../lib/cn.ts";
 import { TableBody, TableCell, TableRow } from "../../ui/table.tsx";
-import { rowToneClass } from "../data-table-cell.tsx";
+import { rowFillClass, rowToneClass } from "../data-table-cell.tsx";
 import { HintReasonRowScope, hintReasonOf } from "../hint-reason-row.tsx";
 import { RowActionsCell } from "../row-actions.tsx";
 import { ActionsBodyCell } from "./actions-column.tsx";
@@ -74,7 +74,8 @@ function renderDataRow(m: DataTableModel, row: ListRowViewModel): ReactNode {
         data-tone={rowTone?.(row)}
         onClick={rowClickHandler(openRow)}
         className={cn(
-          rowToneClass(rowTone?.(row)),
+          "group/data-row",
+          m.rowFill?.(row) === true ? rowFillClass(rowTone?.(row)) : rowToneClass(rowTone?.(row)),
           opensOnClick && "cursor-pointer",
           m.focusedRowId === row.id && ASSISTANT_FOCUS_ROW_CLASS,
           "[&:has(+[data-reason-row])]:border-b-0",

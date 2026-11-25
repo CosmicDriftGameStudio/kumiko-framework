@@ -639,6 +639,52 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
     expect(badge.className).toContain("text-status-bad");
   });
 
+  test("secondaryStatus with a null value renders no empty badge", async () => {
+    const headerScreen: ProjectionDetailScreenDefinition = {
+      ...baseScreen,
+      header: { title: "tenantName", status: "state", secondaryStatus: "stage" },
+    };
+    const dispatcher = dispatcherReturning({ ...rowData, state: "overdue", stage: null });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaFor(headerScreen)}
+          qn="rentals:screen:rent-detail"
+          entityId="rent-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    screen.getByTestId("kumiko-screen-projection-detail-status");
+    expect(screen.queryByTestId("kumiko-screen-projection-detail-secondary-status")).toBeNull();
+  });
+
+  test("secondaryStatus renders a second badge, tone resolved from the shared statusTones", async () => {
+    const headerScreen: ProjectionDetailScreenDefinition = {
+      ...baseScreen,
+      header: { title: "tenantName", status: "state", secondaryStatus: "stage" },
+    };
+    const dispatcher = dispatcherReturning({ ...rowData, state: "overdue", stage: "overdue" });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaFor(headerScreen)}
+          qn="rentals:screen:rent-detail"
+          entityId="rent-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const secondary = screen.getByTestId("kumiko-screen-projection-detail-secondary-status");
+    expect(secondary.textContent).toBe("overdue");
+    expect(secondary.className).toContain("text-status-bad");
+    screen.getByTestId("kumiko-screen-projection-detail-status");
+  });
+
   test("an unmapped status value falls back to the muted tone", async () => {
     const headerScreen: ProjectionDetailScreenDefinition = {
       ...baseScreen,

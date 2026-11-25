@@ -4,7 +4,7 @@ import type {
   EntityEditScreenDefinition,
   RowAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { computeEditViewModel } from "../edit.ts";
+import { computeEditViewModel, computeWriteFormSectionViewModel } from "../edit.ts";
 import type {
   EditFieldsSectionViewModel,
   EditRelatedListSectionViewModel,
@@ -1417,6 +1417,52 @@ describe("computeEditViewModel — writeForm sections (fw editable-detail-screen
         required: true,
       },
     ]);
+  });
+
+  test("uploadEntity makes a file field upload as that entity's field, in a tab section and in the footer", () => {
+    const fieldDefs = { attachment: { type: "file", accept: ["pdf"] } } as never;
+    const vm = computeEditViewModel({
+      screen: editScreen(
+        {
+          sections: [
+            {
+              kind: "writeForm",
+              title: "Tab",
+              uploadEntity: "dossier",
+              fieldDefs,
+              fields: ["attachment"],
+              handler: "o:write:a",
+            },
+          ],
+        },
+        { id: "thing-detail" },
+      ),
+      entity: orderEntity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+    const footer = computeWriteFormSectionViewModel(
+      {
+        kind: "writeForm",
+        placement: "footer",
+        uploadEntity: "dossier",
+        fieldDefs,
+        fields: ["attachment"],
+      },
+      "thing-detail",
+      {},
+      translate,
+      "orders",
+    );
+
+    for (const section of [asWriteForm(vm.sections[0]), footer]) {
+      const [attachment] = section.fields;
+      expect(attachment?.entityType).toBe("dossier");
+      expect(attachment?.fieldName).toBe("attachment");
+      expect(attachment?.entityId).toBeUndefined();
+      expect(attachment?.uploadActionForm).toBeUndefined();
+    }
   });
 
   test("readOnly/required on a writeForm field come from the section's own fieldDefs, independent of the host entity", () => {

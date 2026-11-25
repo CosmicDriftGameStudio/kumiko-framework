@@ -56,7 +56,9 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
   metrics below `sm`), `MetricSpec.visibleWhen`, field option `concealed` (muted value with a lock),
   section `hideOnNarrow` and `after` (a registered component under the items tab card), and a
   second screen `order-facts` with a stacked layout and `pageNavigation: false`
-- not shown: `photosBeside` (needs a stored image file for `photoGrid`) and `recordSections.omitFirstTitle`
+- the payments tab tones its rows with a `rowTone` rule list (first match wins); the reminder-note
+  drawer action is `width: "wide"` with `back: true` (back arrow left of the title closes just that drawer)
+- not shown: row action `active` (pressed button), `rowActionsWhen` and `allowEdit: false`, `photosBeside` (needs a stored image file for `photoGrid`) and `recordSections.omitFirstTitle`
   (a renderer prop, not reachable from a screen declaration)
 - boot-validator catching two common author mistakes: a `metrics` entry
   with an empty `label`, and a `tabs` layout with fewer than two
@@ -1012,6 +1014,7 @@ import { describe, expect, test } from "bun:test";
 import {
   createRegistry,
   defineFeature,
+  FILE_STORAGE_PROVIDER_ENV,
   normalizeListColumn,
   validateBoot as validateBootRaw,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -1029,7 +1032,10 @@ import {
 } from "../order-board";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
-  validateBootRaw(withBootValidatorFixture(features));
+  // The upload tab uses a file field; the guard only checks that a provider is named.
+  validateBootRaw(withBootValidatorFixture(features), {
+    env: { [FILE_STORAGE_PROVIDER_ENV]: "inmemory" },
+  });
 }
 
 const orderDesk = createOrderDeskFeature();
@@ -1058,6 +1064,7 @@ describe("record-detail-layout showcase — registration", () => {
         { field: "placedAt", format: { format: "date", dateStyle: "medium" } },
       ],
       status: "status",
+      secondaryStatus: "totalNote",
     });
     expect(screen.metrics?.map((metric) => metric.field)).toEqual([
       "totalAmount",
@@ -1074,6 +1081,7 @@ describe("record-detail-layout showcase — registration", () => {
     expect(screen.layout.sections.map((s) => s.kind)).toEqual([
       "relatedList",
       "relatedList",
+      "writeForm",
       "fields",
       "extension",
     ]);
@@ -1145,7 +1153,16 @@ describe("record-detail-layout showcase — work queue", () => {
     expect(buttons.map((action) => [action.id, action.visible])).toEqual([
       ["remind", { field: "canRemind", eq: true }],
       ["open-order", { field: "canRemind", eq: false }],
+      ["quick-view", undefined],
     ]);
+    const noteAction = (screen.rowActions ?? []).find((action) => action.id === "remind-note");
+    expect(noteAction).toMatchObject({
+      kind: "drawer",
+      headingFields: ["orderNumber", "customerName"],
+      params: { pick: ["id"] },
+      width: "wide",
+      back: true,
+    });
     expect(screen.namedFilters?.[0]?.sort).toEqual({ field: "urgency", dir: "desc" });
     expect(screen.namedFilters?.[0]?.emptyState?.title).toBe("order-desk.orders.all-done");
     expect(screen.table?.totals).toBeUndefined();
@@ -1327,6 +1344,39 @@ describe("record-detail-layout showcase — empty states", () => {
   });
 });
 
+describe("record-detail-layout showcase — payments row tone", () => {
+  test("the payments tab tones its rows with an ordered rule list", () => {
+    const screen = registry.getScreen("order-desk:screen:order-detail");
+    if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
+    const payments = screen.layout.sections.find((section) => section.id === "payments");
+    if (payments?.kind !== "relatedList") throw new Error("expected the payments relatedList");
+    expect(payments.rowTone).toEqual([
+      { field: "status", eq: "pending", tone: "warn", fill: true },
+      { field: "status", eq: "settled", tone: "ok" },
+    ]);
+    expect(payments.rowActionsWhen).toEqual({ field: "paymentsCount", ne: 0 });
+  });
+
+  test("the orders list opens the detail in a popup with a pressed state, and the upload form names its host entity", () => {
+    const list = registry.getScreen("order-desk:screen:orders");
+    if (list?.type !== "projectionList") throw new Error("expected projectionList");
+    const quickView = list.rowActions?.find((action) => action.id === "quick-view");
+    if (quickView?.kind !== "drawer") throw new Error("expected the quick-view drawer action");
+    expect(quickView.width).toBe("popup");
+    expect(quickView.active).toEqual({ when: { field: "canRemind", eq: false } });
+
+    const detail = registry.getScreen("order-desk:screen:order-detail");
+    if (detail?.type !== "projectionDetail") throw new Error("expected projectionDetail");
+    const attach = detail.layout.sections.find((section) => section.id === "attach");
+    if (attach?.kind !== "writeForm") throw new Error("expected the attach writeForm");
+    expect(attach.uploadEntity).toBe("order-attachment");
+
+    const attachments = registry.getScreen("order-desk:screen:attachment-list");
+    if (attachments?.type !== "entityList") throw new Error("expected entityList");
+    expect(attachments.allowEdit).toBe(false);
+  });
+});
+
 describe("record-detail-layout showcase — boot-validator catches author mistakes", () => {
   test("metric with an empty label fails boot — no fallback to the raw column name", () => {
     const broken = defineFeature("broken-order-desk", (r) => {
@@ -1392,6 +1442,10 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
 
 ```ts
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import {
+  createFilesFeature,
+  createInMemoryFileProvider,
+} from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createOrderDeskFeature } from "../feature";
@@ -1400,7 +1454,12 @@ let stack: TestStack;
 const support = createTestUser({ roles: ["Support"], tenantId: testTenantId(1) });
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [createOrderDeskFeature()], systemHooks: [] });
+  // The upload tab's file field needs a storage provider and the files feature.
+  stack = await setupTestStack({
+    features: [createFilesFeature(), createOrderDeskFeature()],
+    files: { storageProvider: createInMemoryFileProvider() },
+    systemHooks: [],
+  });
 });
 
 afterAll(async () => {
@@ -1464,7 +1523,13 @@ describe("emptyState.paramsQuery over HTTP", () => {
 // projectionDetail binds to an explicit query, not an entity: every field name below
 // (header, metrics, fields) is a column of that query's row.
 
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createFileField,
+  createTextField,
+  defineFeature,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { ORDER_DESK_I18N } from "./i18n.ts";
 import {
@@ -1481,7 +1546,23 @@ import {
   orderListSchema,
   orderSummarySchema,
 } from "./order-board.ts";
-import { orderDetailScreen, orderFactsScreen, ordersScreen, todayScreen } from "./screens.ts";
+import {
+  orderDetailScreen,
+  orderFactsScreen,
+  orderRemindScreen,
+  ordersScreen,
+  todayScreen,
+} from "./screens.ts";
+
+// The host of the detail's upload form: its file field `attachment` is what the form's file field is stored as.
+const orderAttachmentEntity = createEntity({
+  name: "order-attachment",
+  table: "read_order_attachments",
+  fields: {
+    title: createTextField({ personal: false, reason: "is_business_data", maxLength: 200 }),
+    attachment: createFileField(),
+  },
+});
 
 const rowIdSchema = z.object({ id: z.string() });
 const noPayloadSchema = z.object({});
@@ -1596,9 +1677,28 @@ export function createOrderDeskFeature(): FeatureDefinition {
       access: accessRoles,
     });
 
+    r.entity(orderAttachmentEntity);
+    r.writeHandler({
+      name: "order:attach",
+      schema: z.object({ attachment: z.string() }),
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+      access: accessRoles,
+    });
+
     r.translations({ keys: ORDER_DESK_I18N });
 
+    // `allowEdit: false` drops the automatic Edit row action; attachments are only added and removed.
+    r.screen({
+      id: "attachment-list",
+      type: "entityList",
+      entity: "order-attachment",
+      columns: ["title"],
+      allowEdit: false,
+      access: accessRoles,
+    });
+
     r.screen(ordersScreen);
+    r.screen(orderRemindScreen);
     r.screen(todayScreen);
     r.screen(orderDetailScreen);
     r.screen(orderFactsScreen);
@@ -1661,7 +1761,13 @@ export const ORDER_DESK_I18N = {
   "order-desk.today.stat.collected": { en: "Collected" },
   "order-desk.action.open": { en: "Open" },
   "order-desk.action.remind": { en: "Send reminder" },
+  "order-desk.action.quick-view": { en: "Quick view" },
+  "order-desk.tab.attach": { en: "Attach file" },
+  "screen:attachment-list.title": { en: "Attachments" },
   "order-desk.action.open-order": { en: "Open order" },
+  "order-desk.action.remind-note": { en: "Reminder note" },
+  "order-desk.drawer.remind-title": { en: "Reminder for {orderNumber}" },
+  "order-desk.drawer.remind-subtitle": { en: "{customerName}" },
   "order-desk.action.prepare": { en: "Let the assistant prepare" },
   "order-desk.action.recordPayment": { en: "Record payment" },
   "order-desk.action.refreshOrder": { en: "Refresh" },
@@ -2227,7 +2333,7 @@ export function answerOrderDetail(id: string) {
 ### src/screens.ts
 
 ```ts
-import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { createFileField, type ScreenDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { accessRoles, ORDER_LIST_QUERY } from "./order-board.ts";
 
 export const ordersScreen: ScreenDefinition = {
@@ -2332,6 +2438,31 @@ export const ordersScreen: ScreenDefinition = {
       screen: "order-detail",
       display: "button",
       visible: { field: "canRemind", eq: false },
+    },
+    {
+      // The whole detail in a popup: 24px from every window edge, no title bar of its own.
+      kind: "drawer",
+      id: "quick-view",
+      label: "order-desk.action.quick-view",
+      screen: "order-detail",
+      width: "popup",
+      display: "button",
+      // Pressed while the reminder is already sent.
+      active: { when: { field: "canRemind", eq: false } },
+    },
+    {
+      kind: "drawer",
+      id: "remind-note",
+      label: "order-desk.action.remind-note",
+      screen: "order-remind",
+      width: "wide",
+      back: true,
+      title: "order-desk.drawer.remind-title",
+      subtitle: "order-desk.drawer.remind-subtitle",
+      // Only feeds the heading placeholders; the form does not declare these fields.
+      headingFields: ["orderNumber", "customerName"],
+      params: { pick: ["id"] },
+      inMenu: true,
     },
   ],
   access: accessRoles,
@@ -2523,6 +2654,8 @@ export const orderDetailScreen: ScreenDefinition = {
       { field: "placedAt", format: { format: "date", dateStyle: "medium" } },
     ],
     status: "status",
+    // A second badge beside `status`; it resolves its text and tone the same way.
+    secondaryStatus: "totalNote",
   },
   breadcrumb: { field: "path" },
   summary: { field: "summaryLine", narrowField: "summaryShort", toneField: "summaryTone" },
@@ -2619,6 +2752,14 @@ export const orderDetailScreen: ScreenDefinition = {
         title: "order-desk.tab.payments",
         countField: "paymentsCount",
         query: "order-desk:query:order:payments",
+        // First matching rule wins.
+        // No row actions while the order has no payment.
+        rowActionsWhen: { field: "paymentsCount", ne: 0 },
+        rowTone: [
+          // `fill` tints the row (4 % of the tone) and draws no stripe.
+          { field: "status", eq: "pending", tone: "warn", fill: true },
+          { field: "status", eq: "settled", tone: "ok" },
+        ],
         columns: [
           { field: "paidAt", label: "order-desk.col.paid-at" },
           {
@@ -2640,10 +2781,39 @@ export const orderDetailScreen: ScreenDefinition = {
         },
       },
       {
+        id: "attach",
+        kind: "writeForm",
+        title: "order-desk.tab.attach",
+        fieldDefs: { attachment: createFileField() },
+        // The upload is stored as this entity's file field, so the handler can bind it.
+        uploadEntity: "order-attachment",
+        fields: ["attachment"],
+        handler: "order-desk:write:order:attach",
+      },
+      {
         id: "details",
         kind: "fields",
         title: "order-desk.tab.details",
-        fields: ["shippingAddress", { field: "billingAddress", concealed: true }, "salesRep"],
+        fields: [
+          "shippingAddress",
+          { field: "billingAddress", concealed: true },
+          {
+            field: "salesRep",
+            // Buttons beside the value; they run against the enclosing record and show
+            // even when the value is empty.
+            actions: [
+              {
+                kind: "navigate",
+                id: "refresh-rep",
+                label: "order-desk.action.refreshOrder",
+                screen: "order-detail",
+                icon: "refresh",
+                display: "icon",
+                style: "secondary",
+              },
+            ],
+          },
+        ],
       },
       {
         id: "internal-note",
@@ -2669,6 +2839,8 @@ export const orderDetailScreen: ScreenDefinition = {
       label: "order-desk.action.downloadInvoice",
       screen: "order-detail",
       icon: "download",
+      // Shown but not clickable until the order has a payment.
+      disabled: { field: "paymentsCount", eq: 0 },
     },
     {
       kind: "navigate",
@@ -2708,5 +2880,13 @@ export const orderFactsScreen: ScreenDefinition = {
     ],
   },
   access: accessRoles,
+};
+
+export const orderRemindScreen: ScreenDefinition = {
+  id: "order-remind",
+  type: "actionForm",
+  handler: "order-desk:write:order:remind",
+  fields: { id: { type: "text", readOnly: true } },
+  layout: { sections: [{ fields: ["id"] }] },
 };
 ```

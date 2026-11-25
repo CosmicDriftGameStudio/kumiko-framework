@@ -196,6 +196,9 @@ export type ActionFormScreenDefinition = {
    *  reusable feature when the target feature is guaranteed to be
    *  mounted alongside it. */
   readonly cancelTarget?: string | false;
+  /** Opened in a drawer, show a Cancel button that closes it with the unsaved-input prompt
+   *  (like the close button and Esc). Without it a drawer form has no Cancel. */
+  readonly cancelInDrawer?: true;
   /** Parent list screen (short id) for breadcrumb + nav highlighting when
    *  this screen has no nav entry of its own. Same field/semantics as on
    *  `custom`/`projectionDetail`/`entityEdit`; an explicit value here wins

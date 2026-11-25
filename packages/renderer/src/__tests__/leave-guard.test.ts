@@ -3,6 +3,7 @@ import {
   hasUnsavedInput,
   registerUnsavedInputSource,
   requestLeave,
+  requestTabSwitch,
   setLeaveConfirmer,
 } from "../leave-guard.ts";
 
@@ -63,6 +64,20 @@ describe("leave guard registry", () => {
     const inner = mock(() => {});
     requestLeave(() => requestLeave(inner));
     expect(inner).toHaveBeenCalledTimes(1);
+    expect(confirmer).toHaveBeenCalledTimes(1);
+  });
+
+  test("a tab switch asks only about input the tab takes with it", () => {
+    const confirmer = mock(() => {});
+    cleanups.push(setLeaveConfirmer(confirmer));
+    cleanups.push(registerUnsavedInputSource(() => true, { outlivesTabSwitch: true }));
+    const proceed = mock(() => {});
+    requestTabSwitch(proceed);
+    expect(proceed).toHaveBeenCalledTimes(1);
+    expect(confirmer).not.toHaveBeenCalled();
+    cleanups.push(registerUnsavedInputSource(() => true));
+    requestTabSwitch(proceed);
+    expect(proceed).toHaveBeenCalledTimes(1);
     expect(confirmer).toHaveBeenCalledTimes(1);
   });
 

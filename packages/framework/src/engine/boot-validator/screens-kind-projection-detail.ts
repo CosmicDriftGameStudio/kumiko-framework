@@ -1,4 +1,6 @@
 import { SELECT_OPTION_TONES } from "@cosmicdrift/kumiko-types/fields";
+import { isFileField } from "../field-helpers.ts";
+import { findEntity } from "../find-entity.ts";
 import {
   isExtensionEditSection,
   isFieldsEditSection,
@@ -26,8 +28,10 @@ import {
   assertWriteHandlerRegistered,
   resolveRowActionNavigateTarget,
   validateActionHasIcon,
+  validateNavigateActionTab,
   validatePrimaryActionTarget,
 } from "./screens-actions.ts";
+import { rejectFieldActions } from "./screens-field-actions.ts";
 import {
   rejectWriteOnlyFormField,
   validateFieldsXorGroups,
@@ -469,6 +473,44 @@ function validateProjectionDetailRelatedList(
   });
 }
 
+// A form file is stored pending until a handler saves it; only an upload stored as the host
+// entity's field is bound by that entity's executor, so the form must name that entity.
+function validateWriteFormUploadEntity(
+  ctx: ScreenValidationContext,
+  screenId: string,
+  section: EditWriteFormSection,
+): void {
+  const where =
+    `[Feature ${ctx.feature.name}] Screen "${screenId}" (projectionDetail) section ` +
+    `"${section.title}" (writeForm)`;
+  const entityName = section.uploadEntity;
+  const entity = entityName === undefined ? undefined : findEntity(ctx.featureMap, entityName);
+  for (const [defName, fdef] of Object.entries(section.fieldDefs)) {
+    if (!isFileField(fdef)) continue;
+    if (entityName === undefined) {
+      throw bootRuleError(PROJECTION_DETAIL_RULES.writeFormUploadEntityInvalid, {
+        message:
+          `${where} has the file field "${defName}" but no uploadEntity — without it the ` +
+          `upload cannot be bound and fails. Set uploadEntity to the entity that has a file field "${defName}".`,
+      });
+    }
+    if (entity === undefined) {
+      throw bootRuleError(PROJECTION_DETAIL_RULES.writeFormUploadEntityInvalid, {
+        message:
+          `${where} has uploadEntity "${entityName}", which is not a registered entity. ` +
+          `Name an entity that has a file field "${defName}".`,
+      });
+    }
+    if (!isFileField(entity.fields[defName])) {
+      throw bootRuleError(PROJECTION_DETAIL_RULES.writeFormUploadEntityInvalid, {
+        message:
+          `${where} has the file field "${defName}", but entity "${entityName}" has no file field ` +
+          `of that name. Add it to the entity or rename the form field.`,
+      });
+    }
+  }
+}
+
 function validateProjectionDetailWriteForm(
   ctx: ScreenValidationContext,
   screenId: string,
@@ -490,6 +532,7 @@ function validateProjectionDetailWriteForm(
         `(writeForm) has zero fields — drop the section or add fields to it.`,
     });
   }
+  validateWriteFormUploadEntity(ctx, screenId, section);
   // A ref to a fieldDef the form never renders would never resolve.
   const writeFormFieldNames = new Set(section.fields.map((f) => normalizeEditField(f).field));
   for (const [defName, fdef] of Object.entries(section.fieldDefs)) {
@@ -510,6 +553,7 @@ function validateProjectionDetailWriteForm(
     );
   }
   for (const f of section.fields) {
+    rejectFieldActions(featureName, screenId, "projectionDetail writeForm", f);
     const fieldName = normalizeEditField(f).field;
     if (section.fieldDefs[fieldName] === undefined) {
       throw bootRuleError(PROJECTION_DETAIL_RULES.writeFormFieldWithoutDef, {
@@ -617,6 +661,7 @@ function validateProjectionDetailFooter(
 function validateProjectionDetailFieldsSection(
   ctx: ScreenValidationContext,
   screenId: string,
+  screen: ProjectionDetailScreenDefinition,
   section: EditFieldsSection,
 ): void {
   const featureName = ctx.feature.name;
@@ -633,6 +678,26 @@ function validateProjectionDetailFieldsSection(
         normalizedField.refEntity,
         featureName,
         ctx.featureMap,
+      );
+    }
+    for (const action of normalizedField.actions ?? []) {
+      // Text-only next to the value by default; a declared icon still has to be registered.
+      if (action.icon !== undefined)
+        validateActionHasIcon(
+          featureName,
+          screenId,
+          "projectionDetail",
+          `field "${normalizedField.field}" action`,
+          action,
+        );
+      validateRecordHeaderAction(ctx, screenId, "projectionDetail", screen.detailFor, action);
+      validateNavigateActionTab(
+        featureName,
+        screenId,
+        "projectionDetail",
+        `field "${normalizedField.field}" action`,
+        action,
+        ctx,
       );
     }
   }
@@ -677,7 +742,7 @@ function validateProjectionDetailSection(
     // field existence is checked against the outputSchema in query-output-columns
     return;
   } else {
-    validateProjectionDetailFieldsSection(ctx, screenId, section);
+    validateProjectionDetailFieldsSection(ctx, screenId, screen, section);
   }
 }
 

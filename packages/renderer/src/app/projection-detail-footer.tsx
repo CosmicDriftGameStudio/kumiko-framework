@@ -49,6 +49,7 @@ export function ProjectionDetailFooterForm({
         <RenderEditActionButton
           key={action.id}
           action={action}
+          outlinedDanger
           Button={Button}
           Dialog={Dialog}
           onError={onActionError}

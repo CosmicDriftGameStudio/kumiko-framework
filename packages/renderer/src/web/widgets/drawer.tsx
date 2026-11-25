@@ -76,6 +76,8 @@ export type DrawerPanelProps = {
   /** The body becomes a plain flex column with no padding or scrolling of its
    *  own, for children that bring their own scroll area and pinned footer. */
   readonly fillBody?: boolean;
+  /** Escape handler; `event.preventDefault()` keeps the drawer open. */
+  readonly onEscapeKeyDown?: (event: KeyboardEvent) => void;
 };
 
 const DRAWER_INSET_PROPERTY = {
@@ -138,6 +140,7 @@ export function Drawer({
   modal = true,
   panelClassName,
   fillBody = false,
+  onEscapeKeyDown,
 }: DrawerPanelProps): ReactNode {
   const t = useTranslation();
   const narrow = useIsNarrowViewport();
@@ -169,6 +172,7 @@ export function Drawer({
         // non-modal Root; only the dismiss-on-outside-interaction is left
         // to suppress, so a click into the page behind keeps the panel open.
         onInteractOutside={modal ? undefined : (event) => event.preventDefault()}
+        onEscapeKeyDown={onEscapeKeyDown}
         showCloseButton={showCloseButton}
         closeLabel={t("kumiko.dialog.close")}
         className={cn(

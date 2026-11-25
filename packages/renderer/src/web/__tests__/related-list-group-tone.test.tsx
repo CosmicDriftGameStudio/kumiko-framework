@@ -75,7 +75,10 @@ const baseSection: EditRelatedListSectionViewModel = {
   columns: ["datum", "status", "kanal"],
 };
 
-function renderSection(section: EditRelatedListSectionViewModel): void {
+function renderSection(
+  section: EditRelatedListSectionViewModel,
+  record: Readonly<Record<string, unknown>> = { id: "c1" },
+): void {
   render(
     <TokensProvider value={tokens}>
       <LocaleProvider
@@ -90,7 +93,7 @@ function renderSection(section: EditRelatedListSectionViewModel): void {
                   <RelatedListSection
                     section={section}
                     parentId="c1"
-                    record={{ id: "c1" }}
+                    record={record}
                     featureName="campaigns"
                   />
                 </AppFeaturesProvider>
@@ -113,5 +116,64 @@ describe("RelatedListSection rowTone", () => {
 
     expect((await screen.findByTestId("row-p3")).getAttribute("data-tone")).toBe("bad");
     expect(screen.getByTestId("row-p1").getAttribute("data-tone")).toBeNull();
+  });
+
+  test("a rule with fill adds the tone background to its rows only; a rule without fill keeps the stripe alone", async () => {
+    renderSection({
+      ...baseSection,
+      entity: "post",
+      rowTone: [
+        { field: "status", eq: "geplant", tone: "bad", fill: true },
+        { field: "status", eq: "gepostet", tone: "ok" },
+      ],
+    });
+
+    const filled = await screen.findByTestId("row-p3");
+    expect(filled.className).toContain("color-status-bad");
+    expect(filled.className).toContain("color-mix");
+    expect(screen.getByTestId("row-p1").className).not.toContain("color-mix");
+    expect(screen.getByTestId("row-p1").getAttribute("data-tone")).toBe("ok");
+  });
+
+  test("an rowTone rule list tints with the first matching rule", async () => {
+    renderSection({
+      ...baseSection,
+      entity: "post",
+      rowTone: [
+        { field: "kanal", eq: "instagram", tone: "warn" },
+        { field: "status", eq: "geplant", tone: "bad" },
+        { field: "status", eq: "gepostet", tone: "ok" },
+      ],
+    });
+
+    expect((await screen.findByTestId("row-p1")).getAttribute("data-tone")).toBe("ok");
+    expect(screen.getByTestId("row-p2").getAttribute("data-tone")).toBe("warn");
+    expect(screen.getByTestId("row-p3").getAttribute("data-tone")).toBe("warn");
+  });
+});
+
+describe("RelatedListSection rowActionsWhen", () => {
+  const withRowActions: EditRelatedListSectionViewModel = {
+    ...baseSection,
+    entity: "post",
+    rowActions: [
+      { id: "mark", label: "Mark", handler: "campaigns:write:post:mark", display: "button" },
+    ],
+    rowActionsWhen: { field: "phase", eq: "open" },
+  };
+
+  test("draws the row-action column while the parent record matches", async () => {
+    renderSection(withRowActions, { id: "c1", phase: "open" });
+
+    expect(await screen.findByTestId("row-p1-action-mark")).not.toBeNull();
+    expect(screen.queryByTestId("column-actions")).not.toBeNull();
+  });
+
+  test("draws no row-action column while the parent record does not match", async () => {
+    renderSection(withRowActions, { id: "c1", phase: "closed" });
+
+    expect(await screen.findByTestId("row-p1")).not.toBeNull();
+    expect(screen.queryByTestId("row-p1-action-mark")).toBeNull();
+    expect(screen.queryByTestId("column-actions")).toBeNull();
   });
 });

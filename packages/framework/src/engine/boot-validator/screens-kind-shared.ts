@@ -249,8 +249,11 @@ export function validateRecordSectionActions(
   section: EditSectionSpec,
 ): void {
   const actionContext = `section "${editSectionLabel(section)}" action`;
+  // Footer buttons are text-only by default; a declared icon still has to be registered.
+  const textOnly = isWriteFormEditSection(section) && section.placement === "footer";
   for (const action of section.actions ?? []) {
-    validateActionHasIcon(ctx.feature.name, screenId, kind, actionContext, action);
+    if (!textOnly || action.icon !== undefined)
+      validateActionHasIcon(ctx.feature.name, screenId, kind, actionContext, action);
     validateRecordActionRedirect(ctx.feature, screenId, kind, action, ctx);
     validateNavigateActionTab(ctx.feature.name, screenId, kind, actionContext, action, ctx);
   }

@@ -1,7 +1,7 @@
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
 import { resolveRecordTitle } from "../components/render-edit-helpers.tsx";
-import { requestLeave } from "../leave-guard.ts";
+import { requestTabSwitch } from "../leave-guard.ts";
 import type { ErrorNotice } from "./error-reference.tsx";
 import {
   type DetailGuidanceModel,
@@ -37,6 +37,8 @@ export type DetailRegionModel = DetailGuidanceModel & {
   readonly activeSection:
     | ProjectionDetailScreenDefinition["layout"]["sections"][number]
     | undefined;
+  /** Runs before a tab switch; the host may hold the switch back (a form shown in place) and call `proceed` later. */
+  readonly beforeTabSwitch?: (proceed: () => void) => void;
 };
 
 // Pieces built once per render and shared by the page-header and card layouts.
@@ -274,7 +276,7 @@ function renderHeaderCardBranch(
   const metricsOutsideCard = usesNarrowMetricsOrder(model) && hasMetrics;
   return (
     <>
-      {(hasHeaderCard || headerSlot !== undefined || recordTitle !== undefined) && (
+      {hasHeaderCard || headerSlot !== undefined || recordTitle !== undefined ? (
         <Card
           slots={{
             ...(titleSlot !== undefined && { title: titleSlot }),
@@ -288,6 +290,8 @@ function renderHeaderCardBranch(
           {hasMetrics && !metricsOutsideCard && renderMetricsBlock(model, pieces.metricItems)}
           {pieces.actionErrorBanner}
         </Card>
+      ) : (
+        pieces.actionErrorBanner
       )}
       {renderMobileSummary(model)}
       {renderDetailSummary(model)}
@@ -313,8 +317,76 @@ function renderDetailTabs(
         model.tabCounts,
       )}
       activeId={activeSection.id ?? ""}
-      onSelect={(id) => requestLeave(() => nav.setSearchParams({ tab: id }))}
+      onSelect={(id) => {
+        const switchTab = (): void => requestTabSwitch(() => nav.setSearchParams({ tab: id }));
+        if (model.beforeTabSwitch === undefined) switchTab();
+        else model.beforeTabSwitch(switchTab);
+      }}
     />
+  );
+}
+
+/** The tab strip alone, full width so its underline runs edge to edge; null when the detail has no tabs. */
+export function renderDetailTabStrip(model: DetailRegionModel): ReactNode {
+  const { hasTabs, activeSection } = model;
+  if (!hasTabs || activeSection === undefined) return null;
+  return wrapTabStrip(model, renderDetailTabs(model, activeSection, model.primitives.Tabs));
+}
+
+/** Drawer layout: title, badges, subtitle and metrics as one flat, non-scrolling block without a card. */
+export function renderFlatDetailHeader(
+  model: DetailRegionModel,
+  pieces: DetailRegionPieces,
+): ReactNode {
+  const { primitives, screen, record, hasHeaderActions, hasMetrics } = model;
+  const { FillContainer, Grid, MetricBand } = primitives;
+  const titleText = String(record[screen.header?.title ?? ""] ?? "");
+  const actions =
+    model.pageHelp !== undefined ? (
+      <Grid columns="auto">
+        {pieces.headerActionsContent}
+        {model.pageHelp}
+      </Grid>
+    ) : (
+      pieces.headerActionsContent
+    );
+  return (
+    <FillContainer className="shrink-0" testId="kumiko-screen-projection-detail-flat-header">
+      {renderDetailBreadcrumb(model)}
+      <FillContainer className="gap-3 px-6 pt-5 max-sm:px-4">
+        <FillContainer className="flex-row flex-wrap items-start justify-between gap-x-4 gap-y-2 pr-10">
+          <FillContainer className="min-w-0 gap-1">
+            <Grid columns="auto" tight testId="kumiko-screen-projection-detail-title-block">
+              <FillContainer
+                className="text-[22px] font-semibold tabular-nums"
+                testId="kumiko-screen-projection-detail-title"
+              >
+                {titleText}
+              </FillContainer>
+              {pieces.statusBadge}
+            </Grid>
+            {pieces.headerSubtitleSlot}
+          </FillContainer>
+          {(hasHeaderActions || model.pageHelp !== undefined) && actions}
+        </FillContainer>
+        {hasMetrics && pieces.metricItems !== undefined && (
+          <MetricBand
+            testId="kumiko-screen-projection-detail-metrics"
+            subtitle={undefined}
+            flush
+            flat
+          >
+            {pieces.metricItems}
+          </MetricBand>
+        )}
+      </FillContainer>
+      {renderMobileSummary(model)}
+      {renderDetailSummary(model)}
+      {renderDetailGuidance(model)}
+      {pieces.actionErrorBanner !== false && pieces.actionErrorBanner !== null && (
+        <FillContainer className="px-6 pt-3 max-sm:px-4">{pieces.actionErrorBanner}</FillContainer>
+      )}
+    </FillContainer>
   );
 }
 

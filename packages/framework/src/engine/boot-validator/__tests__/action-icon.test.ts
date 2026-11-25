@@ -6,6 +6,11 @@
 // share this one function.
 
 import { describe, expect, test } from "bun:test";
+import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
+import * as z from "zod";
+import { validateBoot } from "../../boot-validator.ts";
+import { defineFeature } from "../../define-feature.ts";
+import { BootValidationError } from "../boot-rule.ts";
 import { validateActionHasIcon } from "../screens.ts";
 
 describe("validateActionHasIcon", () => {
@@ -77,5 +82,78 @@ describe("validateActionHasIcon", () => {
         icon: "refresh-cw",
       }),
     ).toThrow(/no resolvable icon/);
+  });
+});
+
+describe("text-only buttons (footer form, field value)", () => {
+  const OPEN = { openToAll: { reason: "test handler callable by any signed-in test user" } };
+  const custom = {
+    kind: "writeHandler",
+    id: "custom-thing",
+    label: "actions.custom",
+    handler: "shop:write:custom",
+  } as const;
+
+  function ruleIds(sections: readonly unknown[]): readonly string[] {
+    const feature = defineFeature("shop", (r) => {
+      r.queryHandler({
+        name: "order:detail",
+        schema: z.object({}),
+        handler: async () => ({}),
+        access: OPEN,
+        outputSchema: z.object({ title: z.string() }),
+      });
+      r.writeHandler({
+        name: "custom",
+        schema: z.object({ id: z.string(), memo: z.string().optional() }),
+        handler: async () => ({ isSuccess: true as const, data: {} }),
+        access: OPEN,
+      });
+      r.screen({
+        id: "order-detail",
+        type: "projectionDetail",
+        query: "shop:query:order:detail",
+        layout: { sections },
+      } as never);
+    });
+    try {
+      validateBoot(withBootValidatorFixture([feature]));
+    } catch (e) {
+      if (e instanceof BootValidationError) return e.violations.map((v) => v.ruleId);
+      throw e;
+    }
+    return [];
+  }
+
+  const footer = (action: object) => [
+    { title: "s", fields: ["title"] },
+    {
+      id: "footer",
+      kind: "writeForm",
+      placement: "footer",
+      fieldDefs: { memo: { type: "text" } },
+      fields: ["memo"],
+      actions: [action],
+    },
+  ];
+  const beside = (action: object) => [
+    { title: "s", fields: [{ field: "title", actions: [action] }] },
+  ];
+
+  test("an action without a resolvable icon boots in both places", () => {
+    expect(ruleIds(footer(custom))).not.toContain("screen/action-icon");
+    expect(ruleIds(beside(custom))).not.toContain("screen/action-icon");
+  });
+
+  test("a declared but unregistered icon is still rejected in both places", () => {
+    const broken = { ...custom, icon: "refresh-cw" };
+    expect(ruleIds(footer(broken))).toContain("screen/action-icon");
+    expect(ruleIds(beside(broken))).toContain("screen/action-icon");
+  });
+
+  test("a section title action still needs an icon", () => {
+    expect(ruleIds([{ title: "s", fields: ["title"], actions: [custom] }])).toContain(
+      "screen/action-icon",
+    );
   });
 });

@@ -1,7 +1,10 @@
 import { type ReactNode, useContext } from "react";
 import {
+  FlushDrawerBodyProvider,
   type FormProps,
   InsideDrawerProvider,
+  useFlushDrawerBody,
+  useInPlaceForm,
   useInsideDrawer,
   useTranslation,
 } from "../../index.ts";
@@ -75,6 +78,9 @@ function DrawerFormLayout({
 > & {
   readonly children: ReactNode;
 }): ReactNode {
+  // A drawer stacks its fields; a form shown in place of a detail's tab content has the width of a page.
+  const stacksFields = !useInPlaceForm();
+  const flush = useFlushDrawerBody();
   return (
     <FormRoot
       onSubmit={onSubmit}
@@ -84,9 +90,16 @@ function DrawerFormLayout({
     >
       <div
         data-testid={testId !== undefined ? `${testId}-scroll` : undefined}
-        className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-5"
+        className={cn(
+          "flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto",
+          flush ? "pt-1 pb-3" : "px-6 py-5",
+        )}
       >
-        {topBanner}
+        {flush && topBanner !== undefined ? (
+          <div className="px-6 pt-3 max-sm:px-4">{topBanner}</div>
+        ) : (
+          topBanner
+        )}
         <FormSummaryBox summary={summary} testId={testId} />
         {subtitle !== undefined && (
           <p
@@ -99,11 +112,13 @@ function DrawerFormLayout({
         <InsideFormContext.Provider value={true}>
           <ScreenFormContext.Provider value={true}>
             <InsideDrawerProvider value={false}>
-              <DrawerBodyContext.Provider value={true}>
-                <div className="flex flex-col gap-5">
-                  {headerRegion}
-                  {children}
-                </div>
+              <DrawerBodyContext.Provider value={stacksFields}>
+                <FlushDrawerBodyProvider value={false}>
+                  <div className="flex flex-col gap-5">
+                    {headerRegion}
+                    {children}
+                  </div>
+                </FlushDrawerBodyProvider>
               </DrawerBodyContext.Provider>
             </InsideDrawerProvider>
           </ScreenFormContext.Provider>

@@ -721,9 +721,14 @@ type RelatedListEmptyStateVariant = { // Empty-state text for one parent-record 
   description?: string;
 };
 type RelatedListRowTone = Exclude<FieldCondition, boolean> & { // Row tint rule: rows where the `FieldCondition` (`{ field, eq }`, `{ field, in }` …) holds get the tone.
+  fill?: true; // Light background in the tone color in addition to the left stripe.
   tone: SelectOptionTone;
 };
 type RelatedListToolbarAction = (Extract<ToolbarAction, { kind: "navigate"; }> & { visible?: FieldCondition; params?: RowFieldExtractor; }) | (Extract<ToolbarAction, { kind: "writeHandler"; }> & { visible?: FieldCondition; params?: RowFieldExtractor; }) | (Extract<ToolbarAction, { kind: "drawer"; }> & { visible?: FieldCondition; params?: RowFieldExtractor; });
+type RowActionActive = { // Draws an inline row-action button as pressed (`aria-pressed`) while the row matches `when`.
+  when: Exclude<FieldCondition, boolean>;
+  style?: "danger";
+};
 type RowActionClientAction = {
   kind: "clientAction";
   id: string;
@@ -733,6 +738,7 @@ type RowActionClientAction = {
   confirm?: string; // i18n key for the confirm dialog description.
   confirmLabel?: string; // i18n key for the confirm button, default `label`.
   visible?: FieldCondition; // Conditional visibility per row.
+  disabled?: FieldCondition; // Shown but not clickable while the condition holds.
   showOnTabs?: string[]; // projectionDetail header action only: shown while one of these tab (section) ids is active.
   style?: "primary" | "secondary" | "danger"; // Visual style.
   icon?: IconKey; // Overrides the id-based default icon, see `RowActionWriteHandler.icon`.
@@ -745,15 +751,19 @@ type RowActionDrawer = {
   id: string;
   label: string;
   screen: string; // Short, unqualified id of an `actionForm` or `projectionDetail` screen in the same feature.
-  width?: "wide"; // `"wide"` opens a broad panel (up to 1280px) instead of the standard width; narrow viewports keep the full-screen drawer.
+  width?: "wide" | "popup"; // `"wide"` opens a broad panel (up to 1280px) instead of the standard width; `"popup"` fills the viewport minus a 24px margin like a large popup.
+  back?: true; // The drawer header shows a back arrow left of the title instead of the close cross; it closes only this drawer, returning to the one underneath.
   params?: RowFieldExtractor; // Declarative prefill extracted from the clicked row.
   visible?: FieldCondition; // Per-row conditional visibility.
+  disabled?: FieldCondition; // Shown but not clickable while the condition holds.
+  active?: RowActionActive; // Pressed look for an inline button while the row matches; keeps its full colour when also disabled.
   showOnTabs?: string[]; // projectionDetail header action only: shown while one of these tab (section) ids is active.
   style?: "primary" | "secondary" | "danger"; // Visual style only — unlike the writeHandler variants, "danger" does not force a confirm dialog here: the target form is the confirmation.
   icon?: IconKey; // Overrides the id-based default icon (see ACTION_ICON_BY_ID in kumiko-renderer) — closed IconKey vocabulary into the ICONS registry (renderer/web), analogous to EditFieldSpec.icon.
   display?: RowActionDisplay; // Inline render form in the row-action column — see `RowActionDisplay`.
   title?: string; // Drawer heading (i18n key) instead of the action `label`.
   subtitle?: string; // Line under the drawer heading (i18n key or a bare `{name}` template), resolved like `title`.
+  headingFields?: string[]; // Row fields that only feed `{name}` placeholders in `title` and `subtitle`.
   rowClick?: boolean; // Clicking the row opens this drawer with that row's `params`.
   inMenu?: false; // `false` keeps this action out of the row menu and action column in every row action mode, so a `rowClick` action does not leave a "..." column behind; the row click still runs it.
 };

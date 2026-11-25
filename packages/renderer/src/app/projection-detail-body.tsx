@@ -1,5 +1,5 @@
 import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { pageHelpButtonOf } from "../components/page-help-button.tsx";
 import { RenderEdit } from "../components/render-edit.tsx";
 import {
@@ -10,6 +10,7 @@ import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
 import type { Translate } from "../headless/index.ts";
 import { useLocale, useTranslation } from "../i18n.tsx";
+import { FlushDrawerBodyProvider } from "../inside-drawer.ts";
 import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
 import { type DrawerDetailRenderer, useDrawerAction } from "./action-form-body.tsx";
@@ -20,6 +21,7 @@ import type { ErrorNotice } from "./error-reference.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { useNav } from "./nav.tsx";
 import { detailEditLayoutProps } from "./projection-detail-edit-layout.ts";
+import { hasFlatDetailHeader } from "./projection-detail-flat-header.ts";
 import {
   ProjectionDetailFooterForm,
   useDetailScreenWithoutFooter,
@@ -29,7 +31,10 @@ import {
   type DetailRegionModel,
   deriveDetailRegionPieces,
   renderDetailHeaderContent,
+  renderDetailTabStrip,
+  renderFlatDetailHeader,
 } from "./projection-detail-header-region.tsx";
+import { InPlaceActionForm, isInPlaceFormAction } from "./projection-detail-inplace-form.tsx";
 import {
   type ProjectionDetailScreenWithTarget,
   renderDetailQueryError,
@@ -40,6 +45,7 @@ import { renderProjectionDrawerHost } from "./projection-drawer-host.tsx";
 import { QueryLoadingBanner } from "./query-state-banners.tsx";
 import { useReferenceLinkResolver } from "./reference-link.ts";
 import { useReturnHost, useReturnTarget } from "./return-to.tsx";
+import { useUnsavedInputGuard } from "./unsaved-input-guard.tsx";
 import { useProjectionDetailActions } from "./use-projection-detail-actions.ts";
 import { useProjectionDetailData } from "./use-projection-detail-data.ts";
 import { useProjectionDetailLayout } from "./use-projection-detail-layout.ts";
@@ -60,6 +66,7 @@ export const renderDetailInDrawer: DrawerDetailRenderer = ({
       screen={screen}
       entityId={entityId}
       onDirtyChange={onDirtyChange}
+      scrollContentOnly
       {...(translate !== undefined && { translate })}
     />
   </DrawerDetailScope>
@@ -82,6 +89,7 @@ export function ProjectionDetailBody({
   translate,
   entityId,
   onDirtyChange,
+  scrollContentOnly = false,
 }: {
   readonly schema: FeatureSchema;
   // detailFor sits on the ScreenDefinition intersection, not on the
@@ -92,6 +100,8 @@ export function ProjectionDetailBody({
   readonly entityId?: string;
   /** Reports whether any writeForm section holds unsent input (a drawer host asks before closing). */
   readonly onDirtyChange?: (dirty: boolean) => void;
+  /** Drawer hosting: only the record content scrolls, the footer form stays pinned below it. */
+  readonly scrollContentOnly?: boolean;
 }): ReactNode {
   const primitives = usePrimitives();
   const t = useTranslation();
@@ -116,14 +126,19 @@ export function ProjectionDetailBody({
     detailScreen,
     detailQuery,
     reloadNonce,
-    reloadDetail,
+    reloadDetail: reloadDetailData,
   } = useProjectionDetailData({ screen, nav, effectiveEntityId });
 
   // Header actions render directly via RenderEditActionButton
   // headerActions moved out of RenderEdit's footer — this component owns
   // the failure-surfacing state RenderEdit used to own for them.
   const [actionError, setActionError] = useState<ErrorNotice | null>(null);
-  const { writeForms, dirtyWriteForms, reportWriteFormDirty } = useWriteFormTracking(onDirtyChange);
+  // Every successful write of this detail reloads it (footer and header actions, related-list row
+  // actions and inline cell edits through reloadHost), so the reload is where a stale failure goes.
+  const reloadDetail = useCallback(async () => {
+    setActionError(null);
+    await reloadDetailData();
+  }, [reloadDetailData]);
 
   const appFeatures = useAppFeatures();
   const userRoles = useUserRoles();
@@ -136,6 +151,29 @@ export function ProjectionDetailBody({
   const returnTarget = screen.singleton === true ? undefined : returnTargetParam;
   const drawer = useDrawerAction(schema);
   const { openDrawer } = drawer;
+  // Writing forms and a form shown in place both ask before the hosting drawer discards them.
+  const [writeFormsDirty, setWriteFormsDirty] = useState(false);
+  const { writeForms, dirtyWriteForms, reportWriteFormDirty } =
+    useWriteFormTracking(setWriteFormsDirty);
+  const inPlaceFormGuard = useUnsavedInputGuard(drawer.closeDrawer);
+  // The submitted drawer form carried the footer's values, so they are no longer unsent.
+  const reloadAfterDrawer = () => {
+    if (drawer.drawerAction !== null) writeForms.get(drawer.drawerAction.id)?.rebase();
+    return reloadDetail();
+  };
+  const anyUnsavedInput = writeFormsDirty || inPlaceFormGuard.hasUnsavedInput;
+  useEffect(() => {
+    onDirtyChange?.(anyUnsavedInput);
+  }, [anyUnsavedInput, onDirtyChange]);
+  // Esc, back, tab switch and Cancel of that form share one discard question (inPlaceFormGuard).
+  const inPlaceForm =
+    scrollContentOnly &&
+    drawer.drawerAction !== null &&
+    drawer.drawerScreen !== undefined &&
+    isInPlaceFormAction(drawer.drawerAction, drawer.drawerScreen)
+      ? { action: drawer.drawerAction, screen: drawer.drawerScreen }
+      : undefined;
+  const flatHeader = scrollContentOnly && hasFlatDetailHeader(declaredScreen);
   const { buildSectionActions, buildItemActions, headerActions, footerActions, footerFormButtons } =
     useProjectionDetailActions({
       schema,
@@ -222,6 +260,9 @@ export function ProjectionDetailBody({
     activeSection,
     resolveReference,
     buildItemActions,
+    ...(inPlaceForm !== undefined && {
+      beforeTabSwitch: inPlaceFormGuard.requestCloseThen,
+    }),
   };
   const regionPieces = deriveDetailRegionPieces(regionModel);
   const editLayout = detailEditLayoutProps({
@@ -235,55 +276,96 @@ export function ProjectionDetailBody({
   return (
     <WriteFormRegistryProvider value={writeForms}>
       <WriteFormDirtyReporterProvider value={reportWriteFormDirty}>
-        {refetchErrorBanner}
-        <RenderEdit
-          key={entityId}
-          refreshToken={reloadNonce}
-          screen={renderedDetailScreen}
-          entity={entity}
-          featureName={schema.featureName}
-          initial={record}
-          entityId={effectiveEntityId}
-          customSubmit={async () => ({
-            isSuccess: true,
-            validationBlocked: false,
-            data: undefined,
-          })}
-          onReload={reloadDetail}
-          onRelatedListDrawerAction={openDrawer}
-          {...(translate !== undefined && { translate })}
-          {...(hasTabs && activeSection !== undefined && { activeTabId: activeSection.id })}
-          {...editLayout}
-          {...((hasHeaderCard ||
-            hasTabs ||
-            hasRecordGuidance(screen) ||
-            screen.slots?.header !== undefined ||
-            screen.recordTitleField !== undefined) && {
-            headerRegion: renderHeaderContent,
-          })}
-          {...(footerActions !== undefined &&
-            footerActions.length > 0 && { actions: footerActions })}
-          buildSectionActions={buildSectionActions}
-          valueDisplay={screen.valueDisplay ?? "text"}
-        />
-        {footerSection !== undefined && (
-          <ProjectionDetailFooterForm
-            section={footerSection}
-            screenId={declaredScreen.id}
-            featureName={schema.featureName}
-            record={record}
-            translate={effectiveTranslate}
-            buttons={footerFormButtons}
-            onSubmitted={reloadDetail}
-            onActionError={setActionError}
+        {flatHeader && renderFlatDetailHeader(regionModel, regionPieces)}
+        {flatHeader && renderDetailTabStrip(regionModel)}
+        {inPlaceForm !== undefined && (
+          <InPlaceActionForm
+            schema={schema}
+            action={inPlaceForm.action}
+            screen={inPlaceForm.screen}
+            initialValues={drawer.drawerInitialValues}
+            headingValues={drawer.drawerHeadingValues}
+            translate={translate}
+            userRoles={userRoles}
+            guard={inPlaceFormGuard}
+            onSubmitted={() => {
+              drawer.closeDrawer();
+              void reloadAfterDrawer();
+            }}
           />
+        )}
+        {/* Hidden, not unmounted, while the form is shown: an unsent footer note must survive it. */}
+        <PaneWrap
+          className={
+            scrollContentOnly
+              ? `min-h-0 flex-1 overflow-y-auto${inPlaceForm !== undefined ? " hidden" : ""}`
+              : undefined
+          }
+        >
+          {refetchErrorBanner}
+          <FlushDrawerBodyProvider value={flatHeader}>
+            <RenderEdit
+              key={entityId}
+              refreshToken={reloadNonce}
+              screen={renderedDetailScreen}
+              entity={entity}
+              featureName={schema.featureName}
+              initial={record}
+              entityId={effectiveEntityId}
+              customSubmit={async () => ({
+                isSuccess: true,
+                validationBlocked: false,
+                data: undefined,
+              })}
+              onReload={reloadDetail}
+              onRelatedListDrawerAction={openDrawer}
+              {...(translate !== undefined && { translate })}
+              {...(hasTabs && activeSection !== undefined && { activeTabId: activeSection.id })}
+              {...editLayout}
+              {...(!flatHeader &&
+                (hasHeaderCard ||
+                  hasTabs ||
+                  hasRecordGuidance(screen) ||
+                  screen.slots?.header !== undefined ||
+                  screen.recordTitleField !== undefined) && {
+                  headerRegion: renderHeaderContent,
+                })}
+              {...(footerActions !== undefined &&
+                footerActions.length > 0 && { actions: footerActions })}
+              buildSectionActions={buildSectionActions}
+              valueDisplay={screen.valueDisplay ?? "text"}
+            />
+          </FlushDrawerBodyProvider>
+        </PaneWrap>
+        {footerSection !== undefined && (
+          <PaneWrap
+            className={
+              scrollContentOnly
+                ? `shrink-0${inPlaceForm !== undefined ? " hidden" : ""}`
+                : undefined
+            }
+          >
+            <ProjectionDetailFooterForm
+              section={footerSection}
+              screenId={declaredScreen.id}
+              featureName={schema.featureName}
+              record={record}
+              translate={effectiveTranslate}
+              buttons={footerFormButtons}
+              onSubmitted={reloadDetail}
+              onActionError={setActionError}
+            />
+          </PaneWrap>
         )}
         {renderProjectionDrawerHost({
           schema,
           translate,
           userRoles,
-          drawer,
-          refreshRows: reloadDetail,
+          drawer:
+            inPlaceForm === undefined
+              ? drawer
+              : { ...drawer, drawerAction: null, drawerScreen: undefined },
+          refreshRows: reloadAfterDrawer,
           renderDetail: renderDetailInDrawer,
         })}
       </WriteFormDirtyReporterProvider>
@@ -316,4 +398,16 @@ function detailPageHelpOf(
     translate,
     appFeatures,
   });
+}
+
+// A wrapper only where a layout needs it: on the full page the footer's `sticky` must stay
+// relative to the page container, so there the children remain direct siblings.
+function PaneWrap({
+  className,
+  children,
+}: {
+  readonly className: string | undefined;
+  readonly children: ReactNode;
+}): ReactNode {
+  return className === undefined ? children : <div className={className}>{children}</div>;
 }

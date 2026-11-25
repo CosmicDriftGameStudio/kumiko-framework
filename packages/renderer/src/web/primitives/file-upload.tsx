@@ -105,7 +105,7 @@ export function FileUploadInput({
   const acceptAttr = toAcceptAttr(accept);
 
   return (
-    <div className="flex items-center gap-4">
+    <div data-slot="file-upload" className="flex items-center gap-4">
       {kind === "image" && value !== null && (
         <FileThumbnail
           fileId={value}
@@ -118,7 +118,11 @@ export function FileUploadInput({
         </div>
       )}
       {kind === "file" && value !== null && (
-        <FileNameLink fileId={value} fallbackLabel={t("kumiko.field.file-upload.attached")} />
+        <FileNameLink
+          fileId={value}
+          fallbackLabel={t("kumiko.field.file-upload.attached")}
+          className="min-w-0 truncate"
+        />
       )}
       <input
         ref={inputRef}
@@ -139,6 +143,7 @@ export function FileUploadInput({
             type="button"
             variant="outline"
             size="sm"
+            data-slot="file-upload-pick"
             disabled={uploading}
             onClick={() => inputRef.current?.click()}
             {...(testId !== undefined && { "data-testid": `${testId}-pick` })}

@@ -1,5 +1,7 @@
+import { isFormatSpec } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
 import { createContext, useContext } from "react";
+import { fileIdsOf } from "../file-ids-of.ts";
 import type { EditFieldViewModel, FieldIssue } from "../headless/index.ts";
 import { useLocale, useTranslation } from "../i18n.tsx";
 import { type FieldProps, usePrimitives } from "../primitives.tsx";
@@ -63,7 +65,15 @@ export type RenderFieldProps = {
   readonly fillDisabled?: boolean;
   /** Label stays for screen readers only (sr-only). */
   readonly hideLabel?: boolean;
+  /** Buttons rendered right beside the value, in the same row (wrapping). */
+  readonly valueActions?: ReactNode;
 };
+
+// A file field with actions and a file shows as one bordered box; without a file it is a dash beside the action.
+function holdsFile(field: EditFieldViewModel): boolean {
+  const renderer = field.renderer;
+  return isFormatSpec(renderer) && renderer.format === "file" && fileIdsOf(field.value).length > 0;
+}
 
 export const AllFieldsRequiredProvider = HideRequiredMarkerContext.Provider;
 
@@ -147,6 +157,7 @@ export function RenderField({
   accent,
   fillDisabled,
   hideLabel,
+  valueActions,
 }: RenderFieldProps): ReactNode {
   const { Field, Input, Banner, Text, JsonView, Link } = usePrimitives();
   // The app locale is required for money/date inputs; otherwise they fall back
@@ -209,7 +220,25 @@ export function RenderField({
       })}
       testId={`field-${field.field}`}
     >
-      {control}
+      {valueActions === undefined ? (
+        control
+      ) : (
+        <div
+          className={
+            holdsFile(field)
+              ? "flex w-full flex-wrap items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3.5"
+              : "flex flex-wrap items-center gap-2"
+          }
+          data-testid={holdsFile(field) ? `field-${field.field}-file-box` : undefined}
+        >
+          <div className={holdsFile(field) ? "min-w-0 flex-1" : undefined}>{control}</div>
+          {holdsFile(field) ? (
+            <div className="flex flex-wrap items-center gap-2">{valueActions}</div>
+          ) : (
+            valueActions
+          )}
+        </div>
+      )}
     </Field>
   );
 }

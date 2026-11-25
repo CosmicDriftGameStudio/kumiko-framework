@@ -1,4 +1,4 @@
-import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { createFileField, type ScreenDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { accessRoles, ORDER_LIST_QUERY } from "./order-board.ts";
 
 export const ordersScreen: ScreenDefinition = {
@@ -103,6 +103,31 @@ export const ordersScreen: ScreenDefinition = {
       screen: "order-detail",
       display: "button",
       visible: { field: "canRemind", eq: false },
+    },
+    {
+      // The whole detail in a popup: 24px from every window edge, no title bar of its own.
+      kind: "drawer",
+      id: "quick-view",
+      label: "order-desk.action.quick-view",
+      screen: "order-detail",
+      width: "popup",
+      display: "button",
+      // Pressed while the reminder is already sent.
+      active: { when: { field: "canRemind", eq: false } },
+    },
+    {
+      kind: "drawer",
+      id: "remind-note",
+      label: "order-desk.action.remind-note",
+      screen: "order-remind",
+      width: "wide",
+      back: true,
+      title: "order-desk.drawer.remind-title",
+      subtitle: "order-desk.drawer.remind-subtitle",
+      // Only feeds the heading placeholders; the form does not declare these fields.
+      headingFields: ["orderNumber", "customerName"],
+      params: { pick: ["id"] },
+      inMenu: true,
     },
   ],
   access: accessRoles,
@@ -294,6 +319,8 @@ export const orderDetailScreen: ScreenDefinition = {
       { field: "placedAt", format: { format: "date", dateStyle: "medium" } },
     ],
     status: "status",
+    // A second badge beside `status`; it resolves its text and tone the same way.
+    secondaryStatus: "totalNote",
   },
   breadcrumb: { field: "path" },
   summary: { field: "summaryLine", narrowField: "summaryShort", toneField: "summaryTone" },
@@ -390,6 +417,14 @@ export const orderDetailScreen: ScreenDefinition = {
         title: "order-desk.tab.payments",
         countField: "paymentsCount",
         query: "order-desk:query:order:payments",
+        // First matching rule wins.
+        // No row actions while the order has no payment.
+        rowActionsWhen: { field: "paymentsCount", ne: 0 },
+        rowTone: [
+          // `fill` tints the row (4 % of the tone) and draws no stripe.
+          { field: "status", eq: "pending", tone: "warn", fill: true },
+          { field: "status", eq: "settled", tone: "ok" },
+        ],
         columns: [
           { field: "paidAt", label: "order-desk.col.paid-at" },
           {
@@ -411,10 +446,39 @@ export const orderDetailScreen: ScreenDefinition = {
         },
       },
       {
+        id: "attach",
+        kind: "writeForm",
+        title: "order-desk.tab.attach",
+        fieldDefs: { attachment: createFileField() },
+        // The upload is stored as this entity's file field, so the handler can bind it.
+        uploadEntity: "order-attachment",
+        fields: ["attachment"],
+        handler: "order-desk:write:order:attach",
+      },
+      {
         id: "details",
         kind: "fields",
         title: "order-desk.tab.details",
-        fields: ["shippingAddress", { field: "billingAddress", concealed: true }, "salesRep"],
+        fields: [
+          "shippingAddress",
+          { field: "billingAddress", concealed: true },
+          {
+            field: "salesRep",
+            // Buttons beside the value; they run against the enclosing record and show
+            // even when the value is empty.
+            actions: [
+              {
+                kind: "navigate",
+                id: "refresh-rep",
+                label: "order-desk.action.refreshOrder",
+                screen: "order-detail",
+                icon: "refresh",
+                display: "icon",
+                style: "secondary",
+              },
+            ],
+          },
+        ],
       },
       {
         id: "internal-note",
@@ -440,6 +504,8 @@ export const orderDetailScreen: ScreenDefinition = {
       label: "order-desk.action.downloadInvoice",
       screen: "order-detail",
       icon: "download",
+      // Shown but not clickable until the order has a payment.
+      disabled: { field: "paymentsCount", eq: 0 },
     },
     {
       kind: "navigate",
@@ -479,4 +545,12 @@ export const orderFactsScreen: ScreenDefinition = {
     ],
   },
   access: accessRoles,
+};
+
+export const orderRemindScreen: ScreenDefinition = {
+  id: "order-remind",
+  type: "actionForm",
+  handler: "order-desk:write:order:remind",
+  fields: { id: { type: "text", readOnly: true } },
+  layout: { sections: [{ fields: ["id"] }] },
 };

@@ -42,8 +42,11 @@ export function RenderEditActionConfirmDialog({
   );
 }
 
+const OUTLINED_DANGER_CLASSES = "text-destructive hover:text-destructive";
+
 // `display: "link"` wins over a plain style; only a danger style keeps its look.
-function actionButtonVariant(action: RenderEditAction) {
+function actionButtonVariant(action: RenderEditAction, outlinedDanger: boolean) {
+  if (outlinedDanger && action.style === "danger") return "secondary" as const;
   return action.display === "link" && action.style !== "danger"
     ? ("link" as const)
     : (action.style ?? "secondary");
@@ -57,6 +60,7 @@ export function RenderEditActionButton({
   action,
   iconOnly = false,
   hideIcon = false,
+  outlinedDanger = false,
   size,
   className,
   Button,
@@ -69,6 +73,8 @@ export function RenderEditActionButton({
   readonly iconOnly?: boolean;
   /** Record-header actions are text-only; the icon still shows when collapsed to icon-only. */
   readonly hideIcon?: boolean;
+  /** A danger action renders as an outlined button with destructive text instead of a filled red one; its confirm rule is unchanged. */
+  readonly outlinedDanger?: boolean;
   /** Compact buttons for dense rows; an icon-only collapse keeps its own size. */
   readonly size?: "sm";
   /** Layout extras on the button, merged with the compact-tap classes. */
@@ -92,10 +98,11 @@ export function RenderEditActionButton({
     }
   };
 
-  const variant = actionButtonVariant(action);
+  const variant = actionButtonVariant(action, outlinedDanger);
   const showIconOnly = iconOnly && action.icon !== undefined;
   const buttonClassName = [
     !showIconOnly && size !== undefined ? COMPACT_TAP_CLASSES : undefined,
+    outlinedDanger && action.style === "danger" ? OUTLINED_DANGER_CLASSES : undefined,
     className,
   ]
     .filter((name) => name !== undefined)
@@ -107,6 +114,7 @@ export function RenderEditActionButton({
         type="button"
         variant={variant}
         loading={busy}
+        {...(action.disabled === true && { disabled: true })}
         {...(action.icon !== undefined && (!hideIcon || showIconOnly) && { icon: action.icon })}
         {...(!showIconOnly && size !== undefined && { size })}
         {...(buttonClassName !== "" && { className: buttonClassName })}
