@@ -136,10 +136,10 @@ function checkDetailNavigate(feature: FeatureDefinition, screen: EntityListScree
   const opensDetailInDrawer = (action: RowAction): boolean => {
     if (action.kind !== "drawer" || action.rowClick !== true) return false;
     const target = feature.screens[action.screen];
+    // A detail without detailFor names its record only through its query, so only a different detailFor rules it out.
     return (
       target?.type === "projectionDetail" &&
-      "detailFor" in target &&
-      target.detailFor === screen.entity
+      (target.detailFor === undefined || target.detailFor === screen.entity)
     );
   };
   const hasNavigate = (screen.rowActions ?? []).some(

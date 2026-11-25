@@ -93,7 +93,7 @@ describe("projectionDetail as a drawer target", () => {
 describe("entity-list/detail-without-navigate with a drawer detail", () => {
   function featureWith(opts: {
     readonly rowActions: readonly RowActionDrawer[];
-    readonly detailFor: string;
+    readonly detailFor?: string;
   }) {
     return defineFeature("shop", (r) => {
       r.entity(
@@ -114,7 +114,7 @@ describe("entity-list/detail-without-navigate with a drawer detail", () => {
       r.screen({
         id: "product-detail",
         type: "projectionDetail",
-        detailFor: opts.detailFor,
+        ...(opts.detailFor === undefined ? {} : { detailFor: opts.detailFor }),
         query: "shop:query:product-detail",
         layout: { sections: [{ fields: ["name"] }] },
       });
@@ -160,5 +160,11 @@ describe("entity-list/detail-without-navigate with a drawer detail", () => {
         featureWith({ rowActions: [rowClickDrawer], detailFor: "order" }),
       ]),
     ).toThrow(/detail screen exists/);
+  });
+
+  test("a rowClick drawer onto a projectionDetail without detailFor satisfies the rule", () => {
+    expect(() =>
+      validateEntityListScreens([featureWith({ rowActions: [rowClickDrawer] })]),
+    ).not.toThrow();
   });
 });
