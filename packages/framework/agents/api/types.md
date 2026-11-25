@@ -1330,6 +1330,7 @@ type JobRunnerOptions = {
   queueNamePrefix?: string | undefined;
   redisNamespace?: Pick<RedisNamespace, "keyPrefix" | "bullmqPrefix"> | undefined;
   maintenanceWindow?: MaintenanceWindow | undefined;
+  scheduleCronJobs?: boolean | undefined;
   bootRedisTimeoutMs?: number | undefined;
   schedulerSeenRefreshMs?: number | undefined;
   jobRetention?: { completedAgeSec?: number | undefined; failedAgeSec?: number | undefined; } | undefined;
