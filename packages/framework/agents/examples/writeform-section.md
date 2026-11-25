@@ -585,7 +585,10 @@ import {
   sectionFieldSpecs,
   validateBoot as validateBootRaw,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  FieldCondition,
+  ProjectionDetailScreenDefinition,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import { z } from "zod";
 import { noteDeskFeature } from "../feature";
@@ -944,7 +947,7 @@ describe("writeform-section sample — footer writeForm and editable select cell
         label: "Save",
         handler: "footer-desk:write:save",
         payload: { map: { itemId: "id" } },
-        icon: false as const,
+        icon: "save" as const,
       },
     ],
   };
@@ -1023,6 +1026,7 @@ describe("writeform-section sample — footer writeForm and editable select cell
       validateBoot([
         deskFeature([
           { fields: ["name"] },
+          // @ts-expect-error the type forbids a footer handler; boot must still reject it from untyped specs
           Object.assign({}, footerForm, { handler: "footer-desk:write:save" }),
         ]),
       ]),
@@ -1037,7 +1041,7 @@ describe("writeform-section sample — footer writeForm and editable select cell
 
   test("a footer action whose handler is not registered fails", () => {
     const actions = [
-      { id: "save", label: "Save", handler: "footer-desk:write:missing", icon: false as const },
+      { id: "save", label: "Save", handler: "footer-desk:write:missing", icon: "save" as const },
     ];
     expect(() =>
       validateBoot([deskFeature([{ fields: ["name"] }, { ...footerForm, actions }])]),
@@ -1051,7 +1055,7 @@ describe("writeform-section sample — footer writeForm and editable select cell
         label: "Save",
         handler: "footer-desk:write:save",
         payload: { map: { name: "id" } },
-        icon: false as const,
+        icon: "save" as const,
       },
     ];
     expect(() =>
@@ -1099,7 +1103,7 @@ describe("writeform-section sample — footer writeForm and editable select cell
   });
 
   test("edit.when must read fields of the entity and keep all at two or more entries", () => {
-    const section = (when: Record<string, unknown>) => ({
+    const section = (when: Exclude<FieldCondition, boolean>) => ({
       ...rows({ handler: "footer-desk:write:save" }),
       columns: [{ field: "status", edit: { handler: "footer-desk:write:save", when } }],
     });
@@ -1121,7 +1125,7 @@ describe("writeform-section sample — footer writeForm and editable select cell
       id: "save",
       label: "Save",
       handler: "footer-desk:write:save",
-      icon: false as const,
+      icon: "save" as const,
     };
     expect(() =>
       validateBoot([deskFeature([{ fields: ["name"] }, footerForm], undefined, [screenAction])]),
