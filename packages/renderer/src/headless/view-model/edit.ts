@@ -80,7 +80,7 @@ export type EditFormMode = "create" | "update";
 // packages/renderer/src/app/*-shim.ts) and recurse into computeEditViewModel
 // once. Split out of computeEditViewModel's section-map to keep that
 // function's own complexity from absorbing this branch's decision points.
-function computeWriteFormSectionViewModel<TValues extends Readonly<Record<string, unknown>>>(
+export function computeWriteFormSectionViewModel<TValues extends Readonly<Record<string, unknown>>>(
   sectionSpec: EditWriteFormSection,
   screenId: string,
   values: TValues,
@@ -117,7 +117,8 @@ function computeWriteFormSectionViewModel<TValues extends Readonly<Record<string
     columns: sectionSpec.columns ?? 1,
     fields,
     ...(sectionSpec.icon !== undefined && { icon: sectionSpec.icon }),
-    handler: sectionSpec.handler,
+    ...(sectionSpec.placement === "footer" && { placement: "footer" as const }),
+    ...(sectionSpec.handler !== undefined && { handler: sectionSpec.handler }),
     ...(sectionSpec.submitLabel !== undefined && {
       submitLabel: translate(sectionSpec.submitLabel),
     }),

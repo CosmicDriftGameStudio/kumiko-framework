@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { defaultPrimitives } from "../primitives/index.tsx";
-import { atViewportWidth, render, screen } from "./test-utils.tsx";
+import { atViewportWidth, fireEvent, render, screen } from "./test-utils.tsx";
 
 const { DataTable } = defaultPrimitives;
 
@@ -42,5 +42,71 @@ describe("DataTable rowStruck", () => {
       expect(screen.getByText("Open offer").closest(".line-through")).toBeNull();
       expect(screen.getByTestId("row-r1-card-buttons").closest(".line-through")).toBeNull();
     });
+  });
+});
+
+describe("DataTable cellEditor", () => {
+  const columns = [
+    { field: "name", label: "Name", type: "string" as const, sortable: false },
+    { field: "status", label: "Status", type: "select" as const, sortable: false },
+  ];
+  const editorFor = (changes: string[]) => (row: { readonly id: string }, field: string) =>
+    field === "status"
+      ? {
+          options: [
+            { value: "open", label: "Open" },
+            { value: "done", label: "Done" },
+          ],
+          value: row.id === "r1" ? "open" : null,
+          required: true,
+          placeholder: "—",
+          ariaLabel: "Status",
+          onChange: (value: string) => changes.push(`${row.id}:${value}`),
+        }
+      : undefined;
+
+  test("a select replaces the value, a choice reports the value and does not open the row", () => {
+    const changes: string[] = [];
+    const opened: string[] = [];
+    render(
+      <DataTable
+        columns={columns}
+        rows={[{ id: "r1", values: { name: "A", status: "open" } }]}
+        cellEditor={editorFor(changes)}
+        onRowClick={(row) => opened.push(row.id)}
+      />,
+    );
+    const select = screen.getByRole("combobox", { name: "Status" }) as HTMLSelectElement;
+    expect(select.value).toBe("open");
+    fireEvent.click(select);
+    fireEvent.change(select, { target: { value: "done" } });
+    expect(changes).toEqual(["r1:done"]);
+    expect(opened).toEqual([]);
+  });
+
+  test("an empty required value shows the placeholder as an error", () => {
+    render(
+      <DataTable
+        columns={columns}
+        rows={[{ id: "r2", values: { name: "B", status: null } }]}
+        cellEditor={editorFor([])}
+      />,
+    );
+    const select = screen.getByRole("combobox", { name: "Status" }) as HTMLSelectElement;
+    expect(select.getAttribute("aria-invalid")).toBe("true");
+    expect(select.selectedOptions[0]?.textContent).toBe("—");
+  });
+
+  test("a struck row does not strike the edit cell through, its other cells stay struck", () => {
+    render(
+      <DataTable
+        columns={columns}
+        rows={[{ id: "r1", values: { name: "A", status: "open" } }]}
+        rowStruck={() => true}
+        cellEditor={editorFor([])}
+      />,
+    );
+    expect(screen.getByTestId("cell-r1-status").className).not.toContain("line-through");
+    expect(screen.getByTestId("cell-r1-name").className).toContain("line-through");
   });
 });

@@ -52,7 +52,7 @@ import {
 import type { CardOptions } from "./card-options.ts";
 import type { DataTableBulk } from "./data-table-bulk-types.ts";
 import type { DataTableDateRangeFacet, DataTableFacet } from "./data-table-facet-types.ts";
-import type { DataTableTableBlock } from "./data-table-view-types.ts";
+import type { DataTableCellEditor, DataTableTableBlock } from "./data-table-view-types.ts";
 import type { EmbeddedListInputProps } from "./embedded-list-types.ts";
 import type {
   FieldIssue,
@@ -962,10 +962,10 @@ export type DataTableProps = {
   /** Wires an edit path into a component column-renderer: `DataTableCell`
    *  passes this down as `ColumnRendererProps.onChange` for that cell,
    *  bound to `(rowId, column.field)`. Renderers without a component
-   *  renderer (format-spec, type-default) ignore it — read-only stays
-   *  read-only unless the column has a custom renderer that reads
-   *  `onChange`. */
+   *  renderer (format-spec, type-default) ignore it; read-only stays read-only
+   *  unless the column has a custom renderer that reads `onChange`. */
   readonly onCellChange?: (rowId: string, field: string, value: unknown) => void;
+  readonly cellEditor?: (row: ListRowViewModel, field: string) => DataTableCellEditor | undefined;
   /** Overrides the row `data-testid` (default `row-${row.id}`) — for a
    *  screen that already has its own DOM-test/e2e naming scheme. */
   readonly getRowTestId?: (row: ListRowViewModel) => string;

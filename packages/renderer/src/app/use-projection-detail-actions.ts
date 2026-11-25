@@ -6,7 +6,10 @@ import {
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import { useCallback, useMemo } from "react";
 import type { RenderEditAction } from "../components/render-edit.tsx";
-import type { WriteFormRegistry } from "../components/write-form-registry.ts";
+import {
+  footerSubmitActionIds,
+  type WriteFormRegistry,
+} from "../components/write-form-registry.ts";
 import type { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import type { useUserRoles } from "../context/user-roles-context.tsx";
 import type { Translate } from "../headless/index.ts";
@@ -46,6 +49,8 @@ type DetailActionsInput = {
   readonly activeTabId: string | undefined;
   readonly writeForms: WriteFormRegistry;
   readonly dirtyWriteForms: ReadonlySet<string>;
+  /** `actions` of the screen's footer writeForm, which sends the form with each writeHandler action. */
+  readonly footerFormActions: readonly RowAction[] | undefined;
 };
 
 function isShownOnTab(action: RowAction, activeTabId: string | undefined): boolean {
@@ -74,6 +79,7 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
     activeTabId,
     writeForms,
     dirtyWriteForms,
+    footerFormActions,
   } = input;
   // Same question as entityEdit: these actions reload the detail and drop the typed input.
   const discardChanges = useMemo(
@@ -326,7 +332,57 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
             ),
     [recordActions, footerIds, screen.actions],
   );
-  return { buildSectionActions, buildItemActions, headerActions, footerActions };
+  const footerFormActionIds = useMemo(
+    () => new Set(footerSubmitActionIds(footerFormActions)),
+    [footerFormActions],
+  );
+  const footerFormButtons = useMemo(
+    () =>
+      footerFormActions === undefined
+        ? undefined
+        : buildRecordActions({
+            actions: footerFormActions,
+            record: detailQuery.data ?? {},
+            translate: effectiveTranslate,
+            nav,
+            host,
+            dispatcher,
+            openDrawer,
+            onWriteSuccess: reloadDetail,
+            onRecordLeft: handleRecordLeft,
+            ...(discardChanges !== undefined && { discardChanges }),
+            sameEntityScreenId,
+            clientActions,
+            writeForms,
+            submitWithIds: footerFormActionIds,
+            footerActionIds: footerFormActionIds,
+            dirtyWriteForms,
+          }),
+    [
+      footerFormActions,
+      footerFormActionIds,
+      detailQuery.data,
+      reloadDetail,
+      effectiveTranslate,
+      nav,
+      host,
+      dispatcher,
+      clientActions,
+      openDrawer,
+      handleRecordLeft,
+      discardChanges,
+      sameEntityScreenId,
+      writeForms,
+      dirtyWriteForms,
+    ],
+  );
+  return {
+    buildSectionActions,
+    buildItemActions,
+    headerActions,
+    footerActions,
+    footerFormButtons,
+  };
 }
 
 // Without a shown record id, a payload-less write or client action would fall back to the guidance item's own id (a step key, not a record id).

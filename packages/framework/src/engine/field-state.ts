@@ -1,5 +1,5 @@
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { evalFieldCondition, isUnchangedValue } from "./screen-helpers.ts";
+import { conditionFields, evalFieldCondition, isUnchangedValue } from "./screen-helpers.ts";
 import type { FieldDefinition, FieldStateConditions } from "./types/fields.ts";
 
 type RequiredState = FieldStateConditions & { readonly required?: boolean };
@@ -31,8 +31,8 @@ export function isFieldRequired(def: RequiredState, values: Record<string, unkno
 function watchedKeys(name: string, def: FieldStateConditions): readonly string[] {
   return [
     name,
-    ...(def.requiredWhen ? [def.requiredWhen.field] : []),
-    ...(def.visibleWhen ? [def.visibleWhen.field] : []),
+    ...(def.requiredWhen ? conditionFields(def.requiredWhen) : []),
+    ...(def.visibleWhen ? conditionFields(def.visibleWhen) : []),
   ];
 }
 

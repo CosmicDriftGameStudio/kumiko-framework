@@ -9,7 +9,12 @@ import {
 } from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { isKebabSegment, isValidQn, parseQn, qualifyEntityName } from "../qualified-name.ts";
-import { isFieldsEditSection, normalizeEditField, sectionFieldSpecs } from "../screen-helpers.ts";
+import {
+  conditionFields,
+  isFieldsEditSection,
+  normalizeEditField,
+  sectionFieldSpecs,
+} from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import type {
   ActionFormRedirect,
@@ -28,6 +33,7 @@ import type {
   ToolbarAction,
 } from "../types/screen.ts";
 import { bootRuleError } from "./boot-rule.ts";
+import { assertConditionShape } from "./condition-shape.ts";
 import { SCREEN_ACTION_RULES } from "./screens-actions-rules.ts";
 
 export function isRowClickAction(action: RowAction): boolean {
@@ -310,18 +316,19 @@ function checkVisibleFieldRef(
   rowMeta: ReadonlySet<string>,
   derivedFieldNames: ReadonlySet<string>,
 ): void {
-  if (
-    visible !== undefined &&
-    typeof visible !== "boolean" &&
-    !rowMeta.has(visible.field) &&
-    !fieldNames.has(visible.field) &&
-    !derivedFieldNames.has(visible.field)
-  ) {
+  // skip: a missing or static visible has no field to check
+  if (visible === undefined || typeof visible === "boolean") return;
+  assertConditionShape(
+    `[Feature ${site.featureName}] Screen "${site.screenId}" ${site.actionKind} "${site.actionId}" visible`,
+    visible,
+  );
+  for (const name of conditionFields(visible)) {
+    if (rowMeta.has(name) || fieldNames.has(name) || derivedFieldNames.has(name)) continue;
     const knownWithDerived = sortedOrNone([...fieldNames, ...derivedFieldNames]);
     throw bootRuleError(SCREEN_ACTION_RULES.actionVisibleUnknownField, {
       message:
         `[Feature ${site.featureName}] Screen "${site.screenId}" ${site.actionKind} "${site.actionId}" ` +
-        `visible.field references unknown field "${visible.field}". Known fields: ${knownWithDerived}.`,
+        `visible.field references unknown field "${name}". Known fields: ${knownWithDerived}.`,
     });
   }
 }

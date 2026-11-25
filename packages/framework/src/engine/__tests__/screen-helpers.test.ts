@@ -121,3 +121,36 @@ describe("resolveNavParentScreen()", () => {
     expect(resolveNavParentScreen([list, detail], detail, (s) => s.id)).toBe(list);
   });
 });
+
+describe("evalFieldCondition() all", () => {
+  const approvable: FieldCondition = {
+    all: [
+      { field: "stage", in: ["won", "partial"] },
+      { field: "approval", eq: "pending" },
+    ],
+  };
+
+  test("holds only while every entry holds", () => {
+    expect(evalFieldCondition(approvable, { stage: "won", approval: "pending" })).toBe(true);
+    expect(evalFieldCondition(approvable, { stage: "partial", approval: "pending" })).toBe(true);
+    expect(evalFieldCondition(approvable, { stage: "lost", approval: "pending" })).toBe(false);
+    expect(evalFieldCondition(approvable, { stage: "won", approval: "done" })).toBe(false);
+  });
+
+  test("nested all combines recursively", () => {
+    const cond: FieldCondition = {
+      all: [
+        { field: "a", eq: 1 },
+        {
+          all: [
+            { field: "b", ne: 2 },
+            { field: "c", notIn: [3] },
+          ],
+        },
+      ],
+    };
+    expect(evalFieldCondition(cond, { a: 1, b: 0, c: 0 })).toBe(true);
+    expect(evalFieldCondition(cond, { a: 1, b: 2, c: 0 })).toBe(false);
+    expect(evalFieldCondition(cond, { a: 1, b: 0, c: 3 })).toBe(false);
+  });
+});

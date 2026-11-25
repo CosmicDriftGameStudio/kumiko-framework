@@ -90,6 +90,8 @@ export type RenderListProps = {
   /** Forwarded to `DataTableProps.bulk` / `rowTone`. */
   readonly bulk?: DataTableProps["bulk"];
   readonly rowTone?: DataTableProps["rowTone"];
+  /** Forwarded to `DataTableProps.cellEditor` (relatedList `edit` columns). */
+  readonly cellEditor?: DataTableProps["cellEditor"];
   /** Toolbar actions in the list header in resolved form. KumikoScreen
    *  builds them from EntityListScreenDefinition.toolbarActions:
    *  navigate targets use useNav and handler-QN uses a dispatcher call.

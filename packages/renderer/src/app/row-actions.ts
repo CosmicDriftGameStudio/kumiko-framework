@@ -15,7 +15,10 @@ import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
 import type { RenderEditAction } from "../components/render-edit-types.ts";
 import type { ToolbarActionButton } from "../components/render-list.tsx";
-import type { WriteFormRegistry } from "../components/write-form-registry.ts";
+import {
+  FOOTER_WRITE_FORM_DIRTY_KEY,
+  type WriteFormRegistry,
+} from "../components/write-form-registry.ts";
 import { rendererError, rendererWarn } from "../dev-console.ts";
 import type { Dispatcher, ListRowViewModel, Translate } from "../headless/index.ts";
 import type { DataTableRowAction } from "../primitives.tsx";
@@ -769,6 +772,7 @@ function buildWriteHandlerRecordAction(
     readonly writeForms: WriteFormRegistry | undefined;
     readonly submitWithIds: ReadonlySet<string> | undefined;
     readonly dirtyWriteForms: ReadonlySet<string> | undefined;
+    readonly footerActionIds: ReadonlySet<string> | undefined;
   },
 ): RenderEditAction {
   const {
@@ -782,12 +786,15 @@ function buildWriteHandlerRecordAction(
     writeForms,
     submitWithIds,
     dirtyWriteForms,
+    footerActionIds,
   } = options;
   // An action that submits a writeForm sends that form's typed input, so it asks only when another
   // writeForm on the page holds input the reload would drop.
+  const ownDirtyKey =
+    footerActionIds?.has(action.id) === true ? FOOTER_WRITE_FORM_DIRTY_KEY : action.id;
   const sendsAllDirtyInput =
     submitWithIds?.has(action.id) === true &&
-    [...(dirtyWriteForms ?? [])].every((formKey) => formKey === action.id);
+    [...(dirtyWriteForms ?? [])].every((formKey) => formKey === ownDirtyKey);
   const discardChanges = sendsAllDirtyInput ? undefined : options.discardChanges;
   const shownRecordId = defaultWritePayloadId ?? record["id"];
   const confirm = withDiscardHint(
@@ -898,6 +905,8 @@ export function buildRecordActions(options: {
   readonly submitWithIds?: ReadonlySet<string>;
   /** Keys of the writeForm sections holding unsaved input; a `submitWith` form reports its action id. */
   readonly dirtyWriteForms?: ReadonlySet<string>;
+  /** Ids of the actions that send the screen's footer writeForm; they also belong to `submitWithIds`. */
+  readonly footerActionIds?: ReadonlySet<string>;
 }): readonly RenderEditAction[] | undefined {
   const {
     actions,
@@ -917,6 +926,7 @@ export function buildRecordActions(options: {
     writeForms,
     submitWithIds,
     dirtyWriteForms,
+    footerActionIds,
   } = options;
   const out: RenderEditAction[] = [];
   for (const action of actions) {
@@ -976,6 +986,7 @@ export function buildRecordActions(options: {
         writeForms,
         submitWithIds,
         dirtyWriteForms,
+        footerActionIds,
       }),
     );
   }

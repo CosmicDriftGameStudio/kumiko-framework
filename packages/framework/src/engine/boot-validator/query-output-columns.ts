@@ -6,6 +6,7 @@ import type {
   DashboardScreenDefinition,
   DashboardStatPanel,
   EditLayout,
+  FieldCondition,
   ListColumnSpec,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
@@ -13,7 +14,7 @@ import type {
 } from "@cosmicdrift/kumiko-types/screen";
 import type { ZodType } from "zod";
 import { isPagedQueryHandler } from "../define-handler.ts";
-import { normalizeListColumn, sectionFieldSpecs } from "../screen-helpers.ts";
+import { conditionFields, normalizeListColumn, sectionFieldSpecs } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import { buildQueryHandlerMap } from "./projection-list-screens.ts";
@@ -182,6 +183,17 @@ function checkEditLayoutOutputColumns(
   }
 }
 
+function checkVisibleWhenFields(
+  shape: ShapeLookup | undefined,
+  visibleWhen: Exclude<FieldCondition, boolean> | undefined,
+  describe: (field: string) => string,
+): void {
+  if (visibleWhen === undefined) return;
+  for (const field of conditionFields(visibleWhen)) {
+    checkFieldExists(shape, field, () => describe(field));
+  }
+}
+
 function checkProjectionDetailOutputFields(
   queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
   featureName: string,
@@ -253,15 +265,12 @@ function checkProjectionDetailOutputFields(
       () =>
         `${prefix} metrics references field "${field}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
     );
-    if (metric.visibleWhen !== undefined) {
-      const conditionField = metric.visibleWhen.field;
-      checkFieldExists(
-        recordShape,
-        conditionField,
-        () =>
-          `${prefix} metric "${field}" visibleWhen references field "${conditionField}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
-      );
-    }
+    checkVisibleWhenFields(
+      recordShape,
+      metric.visibleWhen,
+      (conditionField) =>
+        `${prefix} metric "${field}" visibleWhen references field "${conditionField}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
+    );
   }
   for (const { option, field } of detailGuidanceFieldRefs(screen)) {
     checkFieldExists(
@@ -293,15 +302,12 @@ function checkDetailSectionFields(
           `${prefix} section "${section.title ?? "(untitled)"}" countField references field "${countField}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
       );
     }
-    if (section.visibleWhen !== undefined) {
-      const conditionField = section.visibleWhen.field;
-      checkFieldExists(
-        recordShape,
-        conditionField,
-        () =>
-          `${prefix} section "${section.title ?? section.id ?? "(untitled)"}" visibleWhen references field "${conditionField}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
-      );
-    }
+    checkVisibleWhenFields(
+      recordShape,
+      section.visibleWhen,
+      (conditionField) =>
+        `${prefix} section "${section.title ?? section.id ?? "(untitled)"}" visibleWhen references field "${conditionField}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
+    );
     if (section.kind === "stepList") {
       const stepField = section.field;
       checkFieldExists(

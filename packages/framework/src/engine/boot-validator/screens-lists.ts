@@ -6,6 +6,7 @@ import { REFERENCE_LOOKUP_SOURCES } from "../../ui-types/list-row-meta.ts";
 import { parseRefTarget } from "../parse-ref-target.ts";
 import { qualifyEntityName } from "../qualified-name.ts";
 import {
+  conditionFields,
   explicitListScreenId,
   normalizeListColumn,
   resolveNavParentScreen,
@@ -20,6 +21,7 @@ import type {
   ScreenDefinition,
 } from "../types/screen.ts";
 import { bootRuleError } from "./boot-rule.ts";
+import { assertConditionShape } from "./condition-shape.ts";
 import { entityColumnType, validateDateOnlyAfterDays } from "./date-only-after-days.ts";
 import { ENTITY_LIST_RULES } from "./entity-list-screens-rules.ts";
 import { validateListBulkActions } from "./list-bulk-actions.ts";
@@ -198,6 +200,40 @@ function resolveSectionEntity(args: RelatedListSectionValidation): EntityDefinit
   return featureMap.get(target.featureName)?.entities?.[target.entityName];
 }
 
+// The cell's dropdown takes its options from the row entity's select field.
+function validateRelatedListColumnEdit(
+  args: RelatedListSectionValidation,
+  column: ReturnType<typeof normalizeListColumn>,
+  sectionEntity: EntityDefinition | undefined,
+): void {
+  const { edit } = column;
+  // skip: a plain column
+  if (edit === undefined) return;
+  const where = `[Feature ${args.featureName}] ${args.where} column "${column.field}" edit`;
+  if (sectionEntity === undefined) {
+    throw bootRuleError(LIST_SCREEN_RULES.columnEditInvalid, {
+      message: `${where} needs the section to set entity — the dropdown reads its options from that entity's select field.`,
+    });
+  }
+  const editField = edit.field ?? column.field;
+  if (sectionEntity.fields[editField]?.type !== "select") {
+    throw bootRuleError(LIST_SCREEN_RULES.columnEditInvalid, {
+      message: `${where} is only supported on a select field of entity "${args.section.entity}", but "${editField}" is not one.`,
+    });
+  }
+  if (edit.when !== undefined) {
+    assertConditionShape(`${where}.when`, edit.when);
+    for (const name of conditionFields(edit.when)) {
+      // skip: a row carries the entity's stored and derived fields
+      if (name in sectionEntity.fields || name in (sectionEntity.derivedFields ?? {})) continue;
+      throw bootRuleError(LIST_SCREEN_RULES.columnEditInvalid, {
+        message: `${where}.when reads "${name}", which is not a field of entity "${args.section.entity}".`,
+      });
+    }
+  }
+  assertWriteHandlerRegistered(args.featureName, where, edit.handler, args.allWriteHandlerQns);
+}
+
 export function validateRelatedListSection(args: RelatedListSectionValidation): void {
   const { featureName, featureMap, where, section } = args;
   if (!section.query || typeof section.query !== "string") {
@@ -219,7 +255,8 @@ export function validateRelatedListSection(args: RelatedListSectionValidation): 
   const sectionEntity = resolveSectionEntity(args);
   for (const col of section.columns) {
     const normalizedCol = normalizeListColumn(col);
-    validateColumnRendererForm(featureName, args.screenId, normalizedCol);
+    validateColumnRendererForm(featureName, args.screenId, normalizedCol, { allowEdit: true });
+    validateRelatedListColumnEdit(args, normalizedCol, sectionEntity);
     validateEnumOptionTones(`[Feature ${featureName}] ${where}`, normalizedCol);
     validateDateOnlyAfterDays(
       `[Feature ${featureName}] ${where}`,
@@ -521,8 +558,17 @@ export function validateColumnRendererForm(
     readonly renderer?: unknown;
     readonly linkScreenField?: string;
     readonly linkParamsField?: string;
+    readonly edit?: unknown;
   },
+  options?: { readonly allowEdit?: true },
 ): void {
+  if (column.edit !== undefined && options?.allowEdit !== true) {
+    throw bootRuleError(LIST_SCREEN_RULES.columnEditInvalid, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" column "${column.field}" sets edit — ` +
+        `an editable cell exists only in a relatedList section. Remove edit.`,
+    });
+  }
   validateEnumOptionTones(`[Feature ${featureName}] Screen "${screenId}"`, column);
   validateBooleanTones(`[Feature ${featureName}] Screen "${screenId}"`, column);
   validateRelativeTimeFormat(

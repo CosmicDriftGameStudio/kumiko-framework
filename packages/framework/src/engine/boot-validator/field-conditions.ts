@@ -6,17 +6,23 @@ import type {
   FieldDefinition,
   FieldStateConditions,
 } from "@cosmicdrift/kumiko-types/fields";
-import type { FieldCondition } from "@cosmicdrift/kumiko-types/screen";
+import type {
+  FieldConditionLeaf,
+  NonBooleanFieldCondition,
+} from "@cosmicdrift/kumiko-types/screen";
 import { isFileSubField } from "../../files/file-field-slots.ts";
 import { parseMaxSize } from "../../files/types.ts";
 import { isFileField } from "../field-helpers.ts";
+import { conditionLeaves } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
-import { LOCKABLE_FIELD_TYPES } from "./entity-handler.ts";
+import { assertConditionShape } from "./condition-shape.ts";
 import { conditionComparisonValues } from "./entity-select.ts";
 import { FIELD_CONDITION_RULES } from "./field-conditions-rules.ts";
+import { LOCKABLE_FIELD_TYPES } from "./locked-when.ts";
 
-type Condition = Exclude<FieldCondition, boolean>;
+type Condition = NonBooleanFieldCondition;
+type LeafCondition = FieldConditionLeaf;
 type StateKey = keyof FieldStateConditions;
 
 const STATE_KEYS: readonly StateKey[] = ["visibleWhen", "requiredWhen"];
@@ -54,7 +60,7 @@ function assertNoRequiredConflict(
 function assertComparisonValuesAreOptions(
   where: string,
   key: StateKey,
-  condition: Condition,
+  condition: LeafCondition,
   options: readonly string[],
 ): void {
   for (const value of conditionComparisonValues(condition)) {
@@ -70,7 +76,20 @@ function assertTopLevelCondition(
   where: string,
   key: StateKey,
   fieldName: string,
-  condition: Condition,
+  whole: Condition,
+  entity: EntityDefinition,
+): void {
+  assertConditionShape(`${where} ${key}`, whole);
+  for (const condition of conditionLeaves(whole)) {
+    assertTopLevelLeaf(where, key, fieldName, condition, entity);
+  }
+}
+
+function assertTopLevelLeaf(
+  where: string,
+  key: StateKey,
+  fieldName: string,
+  condition: LeafCondition,
   entity: EntityDefinition,
 ): void {
   const target = entity.fields[condition.field];
@@ -98,7 +117,20 @@ function assertSubFieldCondition(
   where: string,
   key: StateKey | "when",
   subName: string | undefined,
-  condition: Condition,
+  whole: Condition,
+  embedded: EmbeddedFieldDef,
+): void {
+  assertConditionShape(`${where} ${key}`, whole);
+  for (const condition of conditionLeaves(whole)) {
+    assertSubFieldLeaf(where, key, subName, condition, embedded);
+  }
+}
+
+function assertSubFieldLeaf(
+  where: string,
+  key: StateKey | "when",
+  subName: string | undefined,
+  condition: LeafCondition,
   embedded: EmbeddedFieldDef,
 ): void {
   const target = embedded.schema[condition.field];
@@ -232,10 +264,12 @@ function assertDerivedCells(where: string, embedded: EmbeddedFieldDef): void {
     }
     if (cell.when !== undefined) {
       assertSubFieldCondition(`${where}.${name}`, "when", undefined, cell.when, embedded);
-      if (cell.when.field in (embedded.derived ?? {})) {
-        throw bootRuleError(FIELD_CONDITION_RULES.derivedWhenReadsDerived, {
-          message: `${where} has a derived cell "${name}" whose when reads the derived cell "${cell.when.field}". Read a stored sub-field.`,
-        });
+      for (const leaf of conditionLeaves(cell.when)) {
+        if (leaf.field in (embedded.derived ?? {})) {
+          throw bootRuleError(FIELD_CONDITION_RULES.derivedWhenReadsDerived, {
+            message: `${where} has a derived cell "${name}" whose when reads the derived cell "${leaf.field}". Read a stored sub-field.`,
+          });
+        }
       }
     }
   }

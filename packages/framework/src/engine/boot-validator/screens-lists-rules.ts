@@ -32,6 +32,12 @@ export const LIST_SCREEN_RULES = {
     summary: "relatedList toolbarActions use visible instead of visibleWhen.",
     fix: "Use visible, a condition on the enclosing record.",
   },
+  columnEditInvalid: {
+    id: "list/column-edit-invalid",
+    summary:
+      "A column's edit is set on a relatedList column only and names a registered write handler and a select field of the section's entity.",
+    fix: "Move edit to a relatedList column with an entity, point it at a registered write handler and a select field, or remove it.",
+  },
   dateOnlyAfterDaysInvalid: {
     id: "list/date-only-after-days-invalid",
     summary: "A column's dateOnlyAfterDays is a non-negative whole number of days.",

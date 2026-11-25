@@ -13,6 +13,7 @@ import {
   TABULAR_COLUMN_TYPES,
 } from "../data-table-cell.tsx";
 import { stickyActionsCellClass } from "./actions-column.tsx";
+import { CellEditorSelect } from "./cell-editor-select.tsx";
 import { columnCellPresentationProps } from "./data-cell-props.ts";
 import { hintColumnWidthStyle } from "./hint-column-width.ts";
 import { isRowActionColumn, isStickyRowActionColumn } from "./row-action-column.ts";
@@ -98,7 +99,14 @@ function cellTextClass(
   col: ListColumnViewModel,
   colIndex: number,
 ): string {
-  if (isStruckRow(m, row) && !isRowActionColumn(col)) return "text-muted-foreground line-through";
+  // An editable cell stays legible in a struck row: the select is the way to fix the row.
+  if (
+    isStruckRow(m, row) &&
+    !isRowActionColumn(col) &&
+    m.cellEditor?.(row, col.field) === undefined
+  ) {
+    return "text-muted-foreground line-through";
+  }
   if (col.tone === "muted") return "text-muted-foreground";
   if (col.emphasis === true) return "font-semibold text-foreground";
   if (isMutedRow(m, row)) return "text-muted-foreground";
@@ -117,6 +125,7 @@ export function renderDataCell(
   const bodyPin = m.pins.bodyCell(col.field);
   const linksFirstCell = colIndex === 0 && opensOnClick && onCellChange === undefined;
   const wrapsCellInOpener = linksFirstCell && col.hint === undefined;
+  const editor = m.cellEditor?.(row, col.field);
   return (
     <TableCell
       key={col.field}
@@ -126,32 +135,36 @@ export function renderDataCell(
       style={{ ...bodyPin.style, ...hintColumnWidthStyle(col, m.sizing !== undefined) }}
       title={cellTitle(row.values[col.field])}
     >
-      <FirstCellLink
-        enabled={wrapsCellInOpener}
-        onOpen={() => onRowClick?.(row)}
-        empty={col.hint === undefined && isEmptyCellValue(row.values[col.field])}
-        emptyLabel={m.rowClickLabel}
-        emptyPlaceholder={col.emptyPlaceholder}
-      >
-        <DataTableCell
-          value={row.values[col.field]}
-          row={row.values}
-          field={col.field}
-          type={col.type}
-          renderer={col.renderer}
-          translate={tableTranslate}
-          locale={tableLocale}
-          {...columnCellPresentationProps(col)}
-          {...(col.fileDisplay !== undefined && {
-            fileDisplay: col.fileDisplay,
-          })}
-          {...(onCellChange !== undefined && {
-            onChange: (value: unknown) => onCellChange(row.id, col.field, value),
-          })}
-          {...cellLinkProp(col, row, !linksFirstCell)}
-          {...(linksFirstCell && !wrapsCellInOpener && { onOpenRow: () => onRowClick?.(row) })}
-        />
-      </FirstCellLink>
+      {editor !== undefined ? (
+        <CellEditorSelect editor={editor} />
+      ) : (
+        <FirstCellLink
+          enabled={wrapsCellInOpener}
+          onOpen={() => onRowClick?.(row)}
+          empty={col.hint === undefined && isEmptyCellValue(row.values[col.field])}
+          emptyLabel={m.rowClickLabel}
+          emptyPlaceholder={col.emptyPlaceholder}
+        >
+          <DataTableCell
+            value={row.values[col.field]}
+            row={row.values}
+            field={col.field}
+            type={col.type}
+            renderer={col.renderer}
+            translate={tableTranslate}
+            locale={tableLocale}
+            {...columnCellPresentationProps(col)}
+            {...(col.fileDisplay !== undefined && {
+              fileDisplay: col.fileDisplay,
+            })}
+            {...(onCellChange !== undefined && {
+              onChange: (value: unknown) => onCellChange(row.id, col.field, value),
+            })}
+            {...cellLinkProp(col, row, !linksFirstCell)}
+            {...(linksFirstCell && !wrapsCellInOpener && { onOpenRow: () => onRowClick?.(row) })}
+          />
+        </FirstCellLink>
+      )}
     </TableCell>
   );
 }

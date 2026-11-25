@@ -644,7 +644,10 @@ export type EditWriteFormSectionViewModel = {
   readonly columns: number;
   readonly fields: readonly EditFieldViewModel[];
   readonly icon?: IconKey;
-  readonly handler: string;
+  /** From `EditWriteFormSection.placement`: a footer form is rendered by the screen, not in the section flow. */
+  readonly placement?: "footer";
+  /** Absent on a footer form: its actions write. */
+  readonly handler?: string;
   readonly submitLabel?: string;
   /** From `EditWriteFormSection.submitWith`. */
   readonly submitWith?: string;

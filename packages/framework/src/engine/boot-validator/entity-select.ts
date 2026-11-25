@@ -1,9 +1,11 @@
 import type { MultiSelectFieldDef } from "@cosmicdrift/kumiko-types/fields";
 import { SELECT_OPTION_TONES } from "@cosmicdrift/kumiko-types/fields";
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
-import type { FieldCondition } from "@cosmicdrift/kumiko-types/screen";
+import type { FieldConditionLeaf } from "@cosmicdrift/kumiko-types/screen";
+import { conditionLeaves } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
+import { assertConditionShape } from "./condition-shape.ts";
 import { ENTITY_SELECT_IMAGE_RULES } from "./entity-select-image-rules.ts";
 import { assertNotDispatchOnlyQuery } from "./query-refs.ts";
 import { isSelectOptionTone } from "./select-option-tone.ts";
@@ -136,9 +138,7 @@ export function validateEntitySelectAvailabilityQuery(
   }
 }
 
-export function conditionComparisonValues(
-  when: Exclude<FieldCondition, boolean>,
-): readonly unknown[] {
+export function conditionComparisonValues(when: FieldConditionLeaf): readonly unknown[] {
   if ("eq" in when) return [when.eq];
   if ("ne" in when) return [when.ne];
   if ("in" in when) return when.in;
@@ -183,25 +183,28 @@ export function validateEntitySelectConditionalOptions(feature: FeatureDefinitio
             });
           }
         }
-        const conditionField = rule.when.field;
-        if (conditionField === fieldName) {
-          throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.conditionalWhenOwnField, {
-            message: `${where} has ${ruleLabel}.when on its own field. Make the condition depend on a different field.`,
-          });
-        }
-        if (!(conditionField in entity.fields)) {
-          throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.conditionalWhenUnknownField, {
-            message: `${where} has ${ruleLabel}.when.field "${conditionField}" which is not a field of the entity. Use an existing field of the entity in when.field.`,
-          });
-        }
-        const conditionFieldDef = entity.fields[conditionField];
-        if (conditionFieldDef?.type === "select" || conditionFieldDef?.type === "multiSelect") {
-          const conditionOptions: readonly string[] = conditionFieldDef.options;
-          for (const value of conditionComparisonValues(rule.when)) {
-            if (typeof value !== "string" || !conditionOptions.includes(value)) {
-              throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.conditionalWhenValueNotOption, {
-                message: `${where} has ${ruleLabel}.when value "${String(value)}" which is not an option of "${conditionField}" (${conditionOptions.join(", ")}).`,
-              });
+        assertConditionShape(`${where} ${ruleLabel}.when`, rule.when);
+        for (const leaf of conditionLeaves(rule.when)) {
+          const conditionField = leaf.field;
+          if (conditionField === fieldName) {
+            throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.conditionalWhenOwnField, {
+              message: `${where} has ${ruleLabel}.when on its own field. Make the condition depend on a different field.`,
+            });
+          }
+          if (!(conditionField in entity.fields)) {
+            throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.conditionalWhenUnknownField, {
+              message: `${where} has ${ruleLabel}.when.field "${conditionField}" which is not a field of the entity. Use an existing field of the entity in when.field.`,
+            });
+          }
+          const conditionFieldDef = entity.fields[conditionField];
+          if (conditionFieldDef?.type === "select" || conditionFieldDef?.type === "multiSelect") {
+            const conditionOptions: readonly string[] = conditionFieldDef.options;
+            for (const value of conditionComparisonValues(leaf)) {
+              if (typeof value !== "string" || !conditionOptions.includes(value)) {
+                throw bootRuleError(ENTITY_SELECT_IMAGE_RULES.conditionalWhenValueNotOption, {
+                  message: `${where} has ${ruleLabel}.when value "${String(value)}" which is not an option of "${conditionField}" (${conditionOptions.join(", ")}).`,
+                });
+              }
             }
           }
         }

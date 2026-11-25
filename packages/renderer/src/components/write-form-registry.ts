@@ -1,3 +1,4 @@
+import type { RowAction } from "@cosmicdrift/kumiko-framework/ui-types";
 import { createContext, useContext, useEffect, useId } from "react";
 
 /** What an action with `submitWith` needs from the writeForm it submits: validate first,
@@ -29,6 +30,9 @@ const WriteFormDirtyReporterContext = createContext<WriteFormDirtyReporter | nul
 
 export const WriteFormDirtyReporterProvider = WriteFormDirtyReporterContext.Provider;
 
+/** Dirty key of a footer form: several actions send it, so no single action id can stand for it. */
+export const FOOTER_WRITE_FORM_DIRTY_KEY = "write-form-footer";
+
 /** `submitWith` doubles as the key, so the host can tell which action would send this input. */
 export function useReportWriteFormDirty(dirty: boolean, submitWith?: string): void {
   const report = useContext(WriteFormDirtyReporterContext);
@@ -39,4 +43,13 @@ export function useReportWriteFormDirty(dirty: boolean, submitWith?: string): vo
     report(formKey, dirty);
     return () => report(formKey, false);
   }, [report, formKey, dirty]);
+}
+
+/** Ids of the writeHandler actions of a footer form: each one sends the form's values with its own payload. */
+export function footerSubmitActionIds(
+  actions: readonly RowAction[] | undefined,
+): readonly string[] {
+  return (actions ?? [])
+    .filter((action) => action.kind === undefined || action.kind === "writeHandler")
+    .map((action) => action.id);
 }

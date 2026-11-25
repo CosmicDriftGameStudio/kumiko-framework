@@ -465,6 +465,8 @@ export {
   SYSTEM_ONLY_JSON_SCHEMA_KEY,
 } from "./schema-builder.ts";
 export {
+  conditionFields,
+  conditionLeaves,
   isFieldsEditSection,
   isUnchangedValue,
   normalizeEditField,

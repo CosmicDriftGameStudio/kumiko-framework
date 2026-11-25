@@ -1,17 +1,27 @@
 // Declarative field-state condition. Evaluated by the renderer against the
-// current row/form values. Five forms:
+// current row/form values. Six forms:
 //   boolean          — static on/off (e.g. readOnly: true)
 //   { field, eq }    — true when row[field] === eq
 //   { field, ne }    — true when row[field] !== ne
 //   { field, in }    — true when row[field] is one of the given values
 //   { field, notIn } — true when row[field] is none of the given values
+//   { all }          — true when every nested condition holds (AND, nestable)
+// `all` exists because a single leaf checks one field only; an action that
+// depends on two fields (stage in [...] AND approval eq pending) needs a
+// conjunction without a custom predicate, which would not survive the schema
+// JSON. Needs at least two entries (boot-validated); an OR is `in` on one field.
 // JSON-safe: survives buildAppSchema → GET /api/schema stringify.
-export type FieldCondition =
-  | boolean
+export type FieldConditionLeaf =
   | { readonly field: string; readonly eq: unknown }
   | { readonly field: string; readonly ne: unknown }
   | { readonly field: string; readonly in: readonly unknown[] }
   | { readonly field: string; readonly notIn: readonly unknown[] };
+
+export type FieldConditionAll = { readonly all: readonly NonBooleanFieldCondition[] };
+
+export type NonBooleanFieldCondition = FieldConditionLeaf | FieldConditionAll;
+
+export type FieldCondition = boolean | NonBooleanFieldCondition;
 
 export type FieldStateConditions = {
   /** Field is shown only while the condition holds on the record values. Hidden values are kept, never dropped. */

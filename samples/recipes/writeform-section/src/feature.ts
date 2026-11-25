@@ -65,6 +65,7 @@ export const noteDeskFeature = defineFeature("note-desk", (r) => {
       "screen:note-edit.title": { en: "Edit note" },
       "screen:note-detail.title": { en: "Note" },
       "screen:note-triage.title": { en: "Triage note" },
+      "screen:note-board.title": { en: "Note board" },
       "note-desk:triage.info-band": { en: "Check the category, then send the note on." },
       "note-desk:triage.badge-review": { en: "Needs review" },
       "note-desk:triage.priority-suffix": { en: "pts" },
@@ -216,6 +217,60 @@ export const noteDeskFeature = defineFeature("note-desk", (r) => {
       },
     ],
     footerActions: ["approve"],
+    access: open.access,
+  });
+  r.queryHandler({
+    name: "note:rows",
+    schema: z.object({ id: z.string() }),
+    handler: async () => ({ rows: [], nextCursor: null }),
+    ...open,
+  });
+
+  // Footer writeForm: the form sits under the body on every tab and its action "send" writes its
+  // own payload (noteId) plus the form values in one call. The category column is a select the
+  // user changes in place, only while the row is still open.
+  r.screen({
+    id: "note-board",
+    type: "projectionDetail",
+    query: "note-desk:query:note:summary",
+    layout: {
+      sections: [
+        {
+          kind: "relatedList",
+          title: "Notes",
+          query: "note-desk:query:note:rows",
+          entity: "note",
+          columns: [
+            "title",
+            {
+              // The priority cell turns into the category dropdown while the note is still weighted.
+              field: "priority",
+              edit: {
+                field: "category",
+                handler: "note-desk:write:note:update",
+                when: { field: "priority", ne: 0 },
+                required: true,
+              },
+            },
+          ],
+        },
+        {
+          kind: "writeForm",
+          placement: "footer",
+          title: "Reply",
+          fieldDefs: { body: NOTE_FIELDS.body },
+          fields: ["body"],
+          actions: [
+            {
+              id: "send",
+              label: "Send",
+              handler: "note-desk:write:note:approve",
+              payload: { map: { noteId: "id" } },
+            },
+          ],
+        },
+      ],
+    },
     access: open.access,
   });
 });

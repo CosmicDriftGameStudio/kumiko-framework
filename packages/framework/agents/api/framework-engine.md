@@ -26,6 +26,8 @@ function collectCardMetaOverflow(features: FeatureDefinition[]): CardMetaOverflo
 function collectWriteHandlerQns(features: FeatureDefinition[]): Set<string>;
 function compareVersions(a: string, b: string): number;
 function computeEffectiveFeatures(registry: Registry, readToggle: ToggleReader): ReadonlySet<string>;
+function conditionFields(cond: Exclude<FieldCondition, boolean>): string[]; // Every field name the condition reads, in declaration order.
+function conditionLeaves(cond: Exclude<FieldCondition, boolean>): FieldConditionLeaf[]; // The single-field conditions an `all` combines (the condition itself when it is no `all`).
 function createAnonymousUser(tenantId: TenantId): SessionUser;
 function createBigIntField<R extends true | false = false>(overrides?: Partial<Omit<BigIntFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind & { required?: R; }): BigIntFieldDef & { required: R; };
 function createBooleanField<R extends true | false = false>(overrides?: Partial<Omit<BooleanFieldDef, "type" | "required">> & { required?: R; }): BooleanFieldDef & { required: R; default: boolean; };
@@ -860,25 +862,7 @@ type FeatureRegistrar<TFeature extends string = string> = { // `TFeature` is the
   treeActions<const TActions extends Record<string, TreeActionDef>>(actions: TActions): TreeActionsHandle<TFeature, TActions>;
   envSchema(schema: z.ZodObject<z.ZodRawShape>): void;
 };
-type FieldCondition =
-  | boolean
-  | {
-    field: string;
-    eq: unknown;
-  }
-  | {
-    field: string;
-    ne: unknown;
-  }
-  | {
-    field: string;
-    in: unknown[];
-  }
-  | {
-    field: string;
-    notIn: unknown[];
-  }
-;
+type FieldCondition = boolean | NonBooleanFieldCondition;
 type FieldDefinition = TextFieldDef | LongTextFieldDef | BooleanFieldDef | SelectFieldDef | MultiSelectFieldDef | NumberFieldDef | BigIntFieldDef | DecimalFieldDef | MoneyFieldDef | ReferenceFieldDef | EmbeddedFieldDef | JsonbFieldDef | DateFieldDef | TimestampFieldDef | TzFieldDef | LocatedTimestampFieldDef | FileFieldDef | ImageFieldDef | FilesFieldDef | ImagesFieldDef;
 interface FieldFormatRegistry {
   timestamp: {
@@ -1140,6 +1124,7 @@ type ListColumnSpec =
     linkScreenField?: string; // Row field holding a screen QN (`<feature>:screen:<id>`): the cell links to that screen when the row sets it and the user may open it.
     linkParamsField?: string; // Row field holding a params object for the linkScreenField target: `entityId` opens that record, the other keys become search params (e.g. actionForm prefill).
     hint?: ListColumnHint; // "To do" cell: the column's field holds a sentence, shown emphasized in the row tone; an empty value shows `emptyLabel`.
+    edit?: ListColumnEdit; // relatedList only, select fields of the row entity: in rows where `when` holds (always, without it) the cell is a dropdown of the field's options (`edit.field` names another select field of the row entity, default the column's own) instead of the value; a change dispatches `handler` at once with `{ id: row.id, [edit.field ??
   }
 ;
 type ListDefaultsOptions = { // One `table` block for every entityList, projectionList and relatedList of every composed feature.

@@ -8,9 +8,9 @@ Format: one line per function or constant, object and options types as property 
 
 | Import path | File | Exports |
 | --- | --- | --- |
-| `@cosmicdrift/kumiko-framework/engine` | `api/framework-engine.md` | 465 |
+| `@cosmicdrift/kumiko-framework/engine` | `api/framework-engine.md` | 467 |
 | `@cosmicdrift/kumiko-framework/errors` | `api/framework-errors.md` | 32 |
-| `@cosmicdrift/kumiko-framework/ui-types` | `api/framework-ui-types.md` | 207 |
+| `@cosmicdrift/kumiko-framework/ui-types` | `api/framework-ui-types.md` | 213 |
 | `@cosmicdrift/kumiko-framework/db` | `api/framework-db.md` | 182 |
 | `@cosmicdrift/kumiko-framework/event-store` | `api/framework-event-store.md` | 41 |
 | `@cosmicdrift/kumiko-framework/seeding` | `api/framework-seeding.md` | 6 |

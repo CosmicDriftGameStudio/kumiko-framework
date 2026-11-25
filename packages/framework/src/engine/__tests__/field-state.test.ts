@@ -114,3 +114,25 @@ describe("findMissingConditionalRequirements", () => {
     ).toEqual(["rows.0.note"]);
   });
 });
+
+describe("requiredWhen with all", () => {
+  const fields: Record<string, FieldDefinition> = {
+    kind: { type: "select", options: ["a", "b"] },
+    flag: { type: "boolean" },
+    note: {
+      type: "text",
+      requiredWhen: {
+        all: [
+          { field: "kind", eq: "a" },
+          { field: "flag", eq: true },
+        ],
+      },
+    },
+  };
+
+  test("is required only while every entry holds", () => {
+    expect(findMissingConditionalRequirements(fields, { kind: "a", flag: true })).toEqual(["note"]);
+    expect(findMissingConditionalRequirements(fields, { kind: "a", flag: false })).toEqual([]);
+    expect(findMissingConditionalRequirements(fields, { kind: "b", flag: true })).toEqual([]);
+  });
+});

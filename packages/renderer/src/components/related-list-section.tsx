@@ -14,6 +14,7 @@ import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { useAppFeatures } from "../app/app-features-context.tsx";
 import { useClientActionRuntime } from "../app/client-actions.tsx";
 import { type ErrorNotice, ErrorReference } from "../app/error-reference.tsx";
+import type { FeatureSchema } from "../app/feature-schema.ts";
 import { useListBulk } from "../app/list-bulk-actions.ts";
 import {
   buildFilterFacets,
@@ -56,6 +57,7 @@ import { useOptionalLocale, useTranslation } from "../i18n.tsx";
 import { PageHeaderSlotAvailableProvider } from "../page-header-slot.ts";
 import { type DataTableFacet, type DataTableProps, usePrimitives } from "../primitives.tsx";
 import { ListGroupPageBridges } from "./list-group-page-bridges.tsx";
+import { useRelatedListCellEditor } from "./related-list-cell-editor.ts";
 import { RelatedPhotoGrid } from "./related-photo-grid.tsx";
 import { RenderEditActionButton } from "./render-edit-action-button.tsx";
 import type { RenderEditAction } from "./render-edit-types.ts";
@@ -136,6 +138,63 @@ function buildRowStruck(
 ): DataTableProps["rowStruck"] {
   if (rule === undefined) return undefined;
   return (row) => evalFieldCondition(rule, { ...row.values });
+}
+
+function NoticeBanner({
+  notice,
+  testId,
+}: {
+  readonly notice: ErrorNotice | null;
+  readonly testId: string;
+}): ReactNode {
+  const { Banner } = usePrimitives();
+  if (notice === null) return null;
+  return (
+    <Banner variant="error" testId={testId}>
+      {notice.message}
+      <ErrorReference requestId={notice.requestId} />
+    </Banner>
+  );
+}
+
+function useDefaultEditRowAction(
+  rowClick: EditRelatedListSectionViewModel["rowClick"],
+  appFeatures: readonly FeatureSchema[],
+  userRoles: ReturnType<typeof useUserRoles>,
+) {
+  const editScreen = useMemo(() => {
+    if (rowClick?.entity === undefined) return undefined;
+    return findEditScreenFor(rowClick.entity, appFeatures, userRoles);
+  }, [appFeatures, rowClick, userRoles]);
+  return useMemo(
+    () => buildDefaultEditRowAction(editScreen, rowClick?.idColumn ?? "id"),
+    [editScreen, rowClick],
+  );
+}
+
+/** The entity a related list reads from; list and label keys derive from it only when it resolves. */
+function useRelatedListSource(
+  entityRef: string | undefined,
+  featureName: string,
+  appFeatures: readonly FeatureSchema[],
+): {
+  readonly sourceEntity: EntityDefinition | undefined;
+  readonly listFeatureName: string | undefined;
+  readonly listEntityName: string | undefined;
+} {
+  const target = useMemo(
+    () => (entityRef !== undefined ? parseRefTarget(entityRef, featureName) : undefined),
+    [entityRef, featureName],
+  );
+  const sourceEntity =
+    target !== undefined
+      ? appFeatures.find((f) => f.featureName === target.featureName)?.entities[target.entityName]
+      : undefined;
+  return {
+    sourceEntity,
+    listFeatureName: sourceEntity !== undefined ? target?.featureName : undefined,
+    listEntityName: sourceEntity !== undefined ? target?.entityName : undefined,
+  };
 }
 
 function RelatedListEmptyState({
@@ -283,30 +342,15 @@ export function RelatedListSection({
   const clientActions = useClientActionRuntime();
   const appFeatures = useAppFeatures();
   const userRoles = useUserRoles();
-  const defaultEditScreen = useMemo(() => {
-    const targetEntity = section.rowClick?.entity;
-    if (targetEntity === undefined) return undefined;
-    return findEditScreenFor(targetEntity, appFeatures, userRoles);
-  }, [appFeatures, section.rowClick, userRoles]);
-  const defaultEditRowAction = useMemo(
-    () => buildDefaultEditRowAction(defaultEditScreen, section.rowClick?.idColumn ?? "id"),
-    [defaultEditScreen, section.rowClick],
-  );
+  const defaultEditRowAction = useDefaultEditRowAction(section.rowClick, appFeatures, userRoles);
 
   // RenderList derives header and option-label keys from (featureName,
   // screen.entity), so a declared entity also supplies both.
-  const sourceTarget = useMemo(
-    () => (section.entity !== undefined ? parseRefTarget(section.entity, featureName) : undefined),
-    [section.entity, featureName],
+  const { sourceEntity, listFeatureName, listEntityName } = useRelatedListSource(
+    section.entity,
+    featureName,
+    appFeatures,
   );
-  const sourceEntity =
-    sourceTarget !== undefined
-      ? appFeatures.find((f) => f.featureName === sourceTarget.featureName)?.entities[
-          sourceTarget.entityName
-        ]
-      : undefined;
-  const listFeatureName = sourceEntity !== undefined ? sourceTarget?.featureName : undefined;
-  const listEntityName = sourceEntity !== undefined ? sourceTarget?.entityName : undefined;
   const entity = useMemo(
     () =>
       synthesizeRelatedListEntity(section.columns, sourceEntity, section.serverSortFields ?? []),
@@ -418,6 +462,14 @@ export function RelatedListSection({
   // a relatedList row has the identical "no guaranteed id field" shape a
   // query-projection row has, so navigate/writeHandler dispatch is shared
   // rather than a second implementation (fw editable-detail-screens).
+  const { cellEditor, cellEditError } = useRelatedListCellEditor({
+    columns: section.columns,
+    sourceEntity,
+    feature: listFeatureName,
+    entityName: listEntityName,
+    translate: effectiveTranslate,
+    refetch: refetchSelfAndHost,
+  });
   const rowActions = useMemo(
     () =>
       buildProjectionRowActions({
@@ -553,12 +605,8 @@ export function RelatedListSection({
           })}
         </Banner>
       )}
-      {emptyStateActionError !== null && (
-        <Banner variant="error" testId="related-list-empty-state-action-error">
-          {emptyStateActionError.message}
-          <ErrorReference requestId={emptyStateActionError.requestId} />
-        </Banner>
-      )}
+      <NoticeBanner notice={emptyStateActionError} testId="related-list-empty-state-action-error" />
+      <NoticeBanner notice={cellEditError} testId="related-list-cell-edit-error" />
       <ListGroupPageBridges {...aggregates.groupPages} />
       {section.photoGrid !== undefined ? (
         listRows.rows.length === 0 ? (
@@ -601,6 +649,7 @@ export function RelatedListSection({
             {...(bulk !== undefined && { bulk })}
             {...(rowTone !== undefined && { rowTone })}
             {...(rowStruck !== undefined && { rowStruck })}
+            {...(cellEditor !== undefined && { cellEditor })}
             {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}
             {...(emptyStateContent !== undefined && { emptyState: emptyStateContent })}
             {...listTable}

@@ -127,3 +127,15 @@ export type DataTableTableBlock = {
   readonly rangeFacets?: readonly DataTableRangeFacet[];
   readonly onRangeChange?: (field: string, bound: DataTableRangeBound, value: string) => void;
 };
+
+/** An editable select cell: the table draws a native select instead of the read-only value. */
+export type DataTableCellEditor = {
+  readonly options: readonly { readonly value: string; readonly label: string }[];
+  /** Current raw value; null or empty shows the placeholder. */
+  readonly value: string | null;
+  /** An empty value is drawn as an error. */
+  readonly required: boolean;
+  readonly placeholder: string;
+  readonly ariaLabel: string;
+  readonly onChange: (value: string) => void;
+};
