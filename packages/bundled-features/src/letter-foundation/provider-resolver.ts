@@ -74,6 +74,17 @@ function chooseLiveUsage(usages: readonly ProviderUsage[]): ProviderUsage {
   return only;
 }
 
+async function isLiveSwitchOn(ctx: LetterProviderSelectionContext): Promise<boolean> {
+  return (ctx.config ? await ctx.config(LETTER_LIVE_CONFIG) : undefined) === true;
+}
+
+/** Production with the live switch off: the provider cannot be chosen, by design. */
+export async function isProductionWithLiveSwitchOff(
+  ctx: LetterProviderSelectionContext,
+): Promise<boolean> {
+  return process.env["NODE_ENV"] === "production" && !(await isLiveSwitchOn(ctx));
+}
+
 /**
  * The provider plugin for this process, never per tenant. Outside production the inmemory provider
  * runs whatever the live switch says, so a wrong environment can never send a letter. In production the
@@ -93,8 +104,7 @@ export async function selectLetterProvider(
     }
     return { name: LETTER_INMEMORY_PROVIDER, live: false, plugin: pluginOf(inmemory) };
   }
-  const liveSwitch = ctx.config ? await ctx.config(LETTER_LIVE_CONFIG) : undefined;
-  if (liveSwitch !== true) {
+  if (!(await isLiveSwitchOn(ctx))) {
     throw new LetterProviderNotConfiguredError(
       `letter-foundation: in production the system config key "${LETTER_LIVE_CONFIG.name}" must be switched on.`,
     );

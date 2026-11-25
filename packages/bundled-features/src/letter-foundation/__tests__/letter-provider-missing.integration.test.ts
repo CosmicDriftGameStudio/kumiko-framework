@@ -5,7 +5,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { withEnv } from "@cosmicdrift/kumiko-testing/helpers";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { ConfigHandlers } from "../../config/index.ts";
-import { LETTER_STATE, LetterHandlers, LetterQueries } from "../constants.ts";
+import { letterSimulator } from "../../letter-provider-inmemory/simulator.ts";
+import { LETTER_STATE, LetterHandlers, LetterJobs, LetterQueries } from "../constants.ts";
 import { LETTER_PROVIDER_NOT_CONFIGURED } from "../provider-resolver.ts";
 import {
   APPROVER,
@@ -39,6 +40,12 @@ beforeEach(async () => {
 
 function inProductionWithoutLiveSwitch<T>(run: () => Promise<T>): Promise<T> {
   return withEnv({ NODE_ENV: "production" }, run);
+}
+
+async function dispatchPoll(): Promise<void> {
+  const runner = stack.jobRunner;
+  if (runner === undefined) throw new Error("test stack has no job runner");
+  await runner.dispatch(LetterJobs.poll, {});
 }
 
 describe("a provider that is not configured", () => {
@@ -84,5 +91,29 @@ describe("a provider that is not configured", () => {
     expect(error.httpStatus).toBe(422);
     expect(error.i18nKey).toBe(LETTER_PROVIDER_NOT_CONFIGURED.i18nKey);
     expect((await letterRow(letterId))?.["status"]).toBe(LETTER_STATE.accepted);
+  });
+
+  test("the poll job skips without calling a provider, while sending still refuses", async () => {
+    const input = await letterInput();
+    const callsBefore = { ...letterSimulator.calls };
+    await inProductionWithoutLiveSwitch(async () => {
+      await dispatchPoll();
+      await stack.drainJobs();
+      const error = await stack.http.writeErr(SEND, input, CLERK);
+      expect(error.i18nKey).toBe(LETTER_PROVIDER_NOT_CONFIGURED.i18nKey);
+    });
+    expect({ ...letterSimulator.calls }).toEqual(callsBefore);
+  });
+
+  test("the poll job still fails when the live switch is on but no real provider is registered", async () => {
+    await harness.setLive(true);
+    try {
+      await inProductionWithoutLiveSwitch(async () => {
+        await dispatchPoll();
+        await expect(stack.drainJobs()).rejects.toThrow(/no real provider is registered/);
+      });
+    } finally {
+      await harness.setLive(false);
+    }
   });
 });

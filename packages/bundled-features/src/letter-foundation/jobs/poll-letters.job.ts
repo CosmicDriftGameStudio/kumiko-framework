@@ -20,7 +20,11 @@ import {
   type LetterState,
 } from "../constants.ts";
 import { type LetterRow, letterExecutor } from "../entity.ts";
-import { isForeignProvider, resolveLetterProvider } from "../provider-resolver.ts";
+import {
+  isForeignProvider,
+  isProductionWithLiveSwitchOff,
+  resolveLetterProvider,
+} from "../provider-resolver.ts";
 import { isLetterPrepared } from "../row-guards.ts";
 import type { LetterProvider, LetterProviderStatus } from "../types.ts";
 import {
@@ -338,6 +342,11 @@ export type PollOptions = {
  *  letters at the provider, then to sent ones still inside the tracking window. */
 export async function pollLetters(ctx: JobContext, options: PollOptions): Promise<void> {
   const deadlineMs = Temporal.Now.instant().epochMilliseconds + LETTER_POLL_RUN_BUDGET_MS;
+  // skip: production with the live switch off has no provider to ask; sending refuses on its own
+  if (await isProductionWithLiveSwitchOff(ctx)) {
+    ctx.obs.log.info("[letter-foundation:poll] live switch off, skipping poll");
+    return;
+  }
   const { name, provider, capabilities } = await resolveLetterProvider(ctx);
   const poll: PollProvider = { name, provider, giveUpMs: options.giveUpMs };
   const now = ctx.tz.now();
