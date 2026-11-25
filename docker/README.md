@@ -10,7 +10,7 @@ expected to come from managed providers.
 |-------|-------|
 | `Dockerfile` | Multi-stage Bun image, non-root, HEALTHCHECK on `/health` |
 | `compose.prod.yml` | Reference compose file for a single app container |
-| `Dockerfile.dockerignore` | Keeps `.git`, `.env*` files, `*.pem`/`*.key` files, `node_modules`, tests, docs and coverage out of the build context; BuildKit reads it only next to the `Dockerfile`, so copy it along |
+| `Dockerfile.dockerignore` | Keeps `.git`, `.env*` files, `*.pem`/`*.key` files, `.npmrc`, `.claude`, `.wt`, `docker-compose*.yml`, `node_modules`, tests, docs and coverage out of the build context; BuildKit reads it only next to the `Dockerfile`, so copy it along |
 
 ## Build & Run
 
