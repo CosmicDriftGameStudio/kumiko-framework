@@ -38,6 +38,7 @@ const feature = defineFeature("sleepy", (r) => {
 async function withRunner(
   seed: (queue: Queue) => Promise<void>,
   verify: (queue: Queue) => Promise<void>,
+  scheduleCronJobs?: boolean,
 ): Promise<void> {
   const prefix = testRunQueueNamePrefix("kumiko-test-nowake");
   const queue = new Queue(`${prefix}-worker`, {
@@ -50,6 +51,7 @@ async function withRunner(
     redisUrl,
     consumerLane: "worker",
     queueNamePrefix: prefix,
+    scheduleCronJobs,
   });
   try {
     await seed(queue);
@@ -81,6 +83,17 @@ describe("schedulers that do not wake a sleeping app", () => {
         expect(delayedIds[0]).toStartWith("repeat:scheduler-nowake-sleepy-job-sweep:");
         expect(delayedIds[1]).toStartWith("repeat:scheduler-sleepy-job-tidy:");
       },
+    );
+  });
+
+  test("with scheduleCronJobs false no cron job is scheduled on the wall clock", async () => {
+    await withRunner(
+      async () => {},
+      async (queue) => {
+        expect(await schedulerKeys(queue)).toEqual([]);
+        expect(await queue.getDelayed()).toHaveLength(0);
+      },
+      false,
     );
   });
 

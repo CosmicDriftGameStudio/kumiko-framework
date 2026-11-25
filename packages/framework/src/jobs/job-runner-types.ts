@@ -123,6 +123,9 @@ export type JobRunnerOptions = {
   // UTC time of day for `{ maintenance: true }` jobs (default 03:00). Read when the runner starts,
   // so changing it re-registers the schedulers on the next boot.
   maintenanceWindow?: MaintenanceWindow | undefined;
+  // false keeps cron jobs off the wall-clock schedule: a test stack runs on a manual clock, and a
+  // cron tick landing mid-test changes rows the test asserts. Such tests dispatch the job by hand.
+  scheduleCronJobs?: boolean | undefined;
   // Override how long start() waits for the worker's Redis connection
   // before failing boot. Defaults to BOOT_REDIS_TIMEOUT_MS; tests shrink it
   // to keep an unreachable-Redis assertion fast.
