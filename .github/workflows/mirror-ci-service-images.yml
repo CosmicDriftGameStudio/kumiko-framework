@@ -43,7 +43,17 @@ jobs:
           while read -r key repo tag digest; do
             target="$MIRROR_PREFIX/$key:$tag"
             skopeo copy --all --preserve-digests --retry-times 3 "docker://$repo@$digest" "docker://$target"
-            actual="sha256:$(skopeo inspect --raw "docker://$target" | sha256sum | cut -d' ' -f1)"
+            # ghcr can answer "manifest unknown" for a tag written a moment ago; an
+            # empty read would hash to the empty-string digest, so read until it is there.
+            # The raw bytes go to a file: command substitution would drop a trailing newline.
+            manifest="$RUNNER_TEMP/manifest.json"
+            : >"$manifest"
+            for attempt in 1 2 3 4 5 6; do
+              skopeo inspect --raw "docker://$target" >"$manifest" && [ -s "$manifest" ] && break
+              echo "manifest of $target not readable yet (attempt $attempt)"
+              sleep 10
+            done
+            actual="sha256:$(sha256sum "$manifest" | cut -d' ' -f1)"
             if [ "$actual" != "$digest" ]; then
               echo "::error::mirrored $target has digest $actual, expected $digest"
               exit 1
