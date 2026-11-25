@@ -8,7 +8,14 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import type { FeatureSchema, NavApi } from "../../index.ts";
-import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
+import {
+  createStaticLocaleResolver,
+  DispatcherProvider,
+  KumikoScreen,
+  kumikoDefaultTranslations,
+  LocaleProvider,
+  NavProvider,
+} from "../../index.ts";
 import {
   createMockDispatcher,
   type MockQueryHandler,
@@ -97,7 +104,10 @@ type Harness = {
   readonly setSearchParams: ReturnType<typeof mock<NavApi["setSearchParams"]>>;
 };
 
-function renderList(): Harness {
+function renderList(
+  schemaUnderTest: FeatureSchema = schema,
+  translations?: Readonly<Record<string, Readonly<Record<string, string>>>>,
+): Harness {
   const queries: { type: string; payload: unknown }[] = [];
   let status = "draft";
   const query: MockQueryHandler = async (type: string, payload: unknown) => {
@@ -129,12 +139,24 @@ function renderList(): Harness {
     searchParams: {},
     setSearchParams,
   };
-  render(
+  const screenTree = (
     <NavProvider value={nav}>
       <DispatcherProvider dispatcher={createMockDispatcher({ query, write })}>
-        <KumikoScreen schema={schema} qn="offers:screen:offer-list" />
+        <KumikoScreen schema={schemaUnderTest} qn="offers:screen:offer-list" />
       </DispatcherProvider>
-    </NavProvider>,
+    </NavProvider>
+  );
+  render(
+    translations === undefined ? (
+      screenTree
+    ) : (
+      <LocaleProvider
+        resolver={createStaticLocaleResolver()}
+        fallbackBundles={[kumikoDefaultTranslations, translations]}
+      >
+        {screenTree}
+      </LocaleProvider>
+    ),
   );
   return { queries, write, setSearchParams };
 }
@@ -297,5 +319,331 @@ describe("row click opens the projectionDetail in a drawer", () => {
         listQueriesBefore,
       ),
     );
+  });
+});
+
+function renderWith(
+  schemaUnderTest: FeatureSchema,
+  detail: Readonly<Record<string, unknown>>,
+  write?: ReturnType<typeof mock<MockWriteHandler>>,
+  translations?: Readonly<Record<string, Readonly<Record<string, string>>>>,
+): void {
+  const query: MockQueryHandler = async (type: string) =>
+    type === "offers:query:offer:list"
+      ? {
+          isSuccess: true,
+          data: { rows: [{ id: "o1", title: "Offer 1", quoteNumber: "A-17" }], nextCursor: null },
+        }
+      : { isSuccess: true, data: { id: "o1", ...detail } };
+  const screenTree = (
+    <DispatcherProvider dispatcher={createMockDispatcher({ query, ...(write && { write }) })}>
+      <KumikoScreen schema={schemaUnderTest} qn="offers:screen:offer-list" />
+    </DispatcherProvider>
+  );
+  render(
+    translations === undefined ? (
+      screenTree
+    ) : (
+      <LocaleProvider
+        resolver={createStaticLocaleResolver()}
+        fallbackBundles={[kumikoDefaultTranslations, translations]}
+      >
+        {screenTree}
+      </LocaleProvider>
+    ),
+  );
+}
+
+function withDetail(
+  extra: Partial<ProjectionDetailScreenDefinition>,
+  listExtra: Partial<(typeof offerList.rowActions & object)[number]> = {},
+): FeatureSchema {
+  return {
+    ...schema,
+    screens: [
+      {
+        ...offerList,
+        rowActions: [{ ...offerList.rowActions?.[0], ...listExtra } as never],
+      },
+      { ...offerDetail, layout: { mode: "single", sections: [] }, ...extra },
+      positionNote,
+    ],
+  };
+}
+
+describe("detail drawer layout and header", () => {
+  const footerSchema = withDetail({
+    layout: {
+      mode: "single",
+      sections: [
+        { id: "details", title: "Details", fields: ["status"] },
+        {
+          kind: "writeForm",
+          placement: "footer",
+          fieldDefs: { message: { type: "text" } },
+          fields: ["message"],
+          actions: [
+            { kind: "writeHandler", id: "send", label: "Send", handler: "offers:write:offer:send" },
+          ],
+        },
+      ],
+    },
+  });
+
+  test("only the record content scrolls; the footer is a pinned sibling below it", async () => {
+    renderWith(footerSchema, { status: "draft" });
+    await openDetail();
+    const drawer = screen.getByTestId(DETAIL_DRAWER);
+    const footer = await waitFor(() => within(drawer).getByTestId("write-form-footer"));
+    const scroller = within(drawer).getByTestId("field-value-status").closest(".overflow-y-auto");
+    expect(scroller).not.toBeNull();
+    expect(scroller?.contains(footer)).toBe(false);
+    const pinned = footer.parentElement;
+    expect(pinned?.className).toContain("shrink-0");
+    expect(pinned?.className).not.toContain("border-t");
+    expect(pinned?.previousElementSibling?.className).toContain("overflow-y-auto");
+    expect(pinned?.previousElementSibling?.contains(scroller)).toBe(true);
+  });
+
+  test("the drawer header shows the primary and the secondary status badge", async () => {
+    renderWith(
+      withDetail({ header: { title: "status", status: "status", secondaryStatus: "stage" } }),
+      { status: "draft", stage: "overdue" },
+    );
+    await openDetail();
+    const drawer = screen.getByTestId(DETAIL_DRAWER);
+    await waitFor(() =>
+      within(drawer).getByTestId("kumiko-screen-projection-detail-secondary-status"),
+    );
+    expect(
+      within(drawer).getByTestId("kumiko-screen-projection-detail-secondary-status").textContent,
+    ).toBe("overdue");
+    within(drawer).getByTestId("kumiko-screen-projection-detail-status");
+  });
+
+  test("title and subtitle resolve {name} params picked from the row", async () => {
+    renderWith(
+      withDetail(
+        { layout: { mode: "single", sections: [{ id: "d", title: "D", fields: ["status"] }] } },
+        {
+          title: "offers:drawer:title",
+          subtitle: "offers:drawer:subtitle",
+          params: { pick: ["quoteNumber", "title"] },
+        },
+      ),
+      { status: "draft" },
+      undefined,
+      {
+        en: {
+          "offers:drawer:title": "Quote {quoteNumber}",
+          "offers:drawer:subtitle": "For {title}",
+        },
+      },
+    );
+    await openDetail();
+    expect(screen.getByTestId(`${DETAIL_DRAWER}-header`).textContent).toContain("Quote A-17");
+    expect(screen.getByTestId(`${DETAIL_DRAWER}-subtitle`).textContent).toBe("For Offer 1");
+  });
+});
+
+describe("headingFields feed the drawer heading only", () => {
+  const headingSchema: FeatureSchema = {
+    ...schema,
+    screens: [
+      offerList,
+      {
+        ...offerDetail,
+        layout: {
+          mode: "single",
+          sections: [
+            {
+              id: "positions",
+              kind: "relatedList",
+              title: "Positions",
+              query: "offers:query:offer:positions",
+              parentParam: "offerId",
+              columns: [{ field: "label", label: "offers:col:label" }],
+              rowActions: [
+                {
+                  kind: "drawer",
+                  id: "add-note",
+                  label: "offers:action:add-note",
+                  screen: "position-note",
+                  title: "offers:drawer:title",
+                  subtitle: "offers:drawer:subtitle",
+                  headingFields: ["label", "gone"],
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        ...positionNote,
+        fields: { note: { type: "text", required: true } },
+        layout: { sections: [{ fields: ["note"] }] },
+      },
+    ],
+  };
+
+  test("the subtitle shows the row values, a missing one as empty text, and the payload stays clean", async () => {
+    const { write } = renderList(headingSchema, {
+      en: {
+        "offers:drawer:title": "Note",
+        "offers:drawer:subtitle": "{label} / {gone}",
+      },
+    });
+    await openDetail();
+    const detailDrawer = screen.getByTestId(DETAIL_DRAWER);
+    const user = userEvent.setup();
+    await user.click(
+      await waitFor(() => within(detailDrawer).getByTestId("row-p1-action-add-note")),
+    );
+
+    const noteDrawer = await waitFor(() => screen.getByTestId("toolbar-drawer-add-note"));
+    expect(within(noteDrawer).getByTestId("toolbar-drawer-add-note-subtitle").textContent).toBe(
+      "Position A / ",
+    );
+    const noteInput = within(noteDrawer).getByTestId("field-note").querySelector("input");
+    if (noteInput === null) throw new Error("expected an <input> inside field-note");
+    await user.type(noteInput, "hello");
+    await user.click(within(noteDrawer).getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    expect(write.mock.calls[0]?.[1]).toEqual({ note: "hello" });
+  });
+});
+
+describe("field actions in a fields section", () => {
+  const fieldActionSchema = (statusValue: unknown): [FeatureSchema, unknown] => [
+    withDetail({
+      layout: {
+        mode: "single",
+        sections: [
+          {
+            id: "d",
+            title: "D",
+            fields: [
+              {
+                field: "status",
+                actions: [
+                  {
+                    kind: "writeHandler",
+                    id: "regenerate",
+                    label: "Regenerate",
+                    handler: "offers:write:offer:regenerate",
+                    display: "button",
+                  },
+                  {
+                    kind: "drawer",
+                    id: "annotate",
+                    label: "Annotate",
+                    screen: "position-note",
+                    display: "button",
+                    params: { pick: ["status"] },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    }),
+    statusValue,
+  ];
+
+  test("buttons sit beside the value and a write action runs against the record", async () => {
+    const [schemaUnderTest] = fieldActionSchema("draft");
+    const write = mock<MockWriteHandler>(async () => ({ isSuccess: true, data: {} }));
+    renderWith(schemaUnderTest, { status: "draft" }, write);
+    await openDetail();
+    const drawer = screen.getByTestId(DETAIL_DRAWER);
+    const holder = await waitFor(() => within(drawer).getByTestId("field-status"));
+    within(holder).getByTestId("render-edit-action-annotate");
+    await userEvent.setup().click(within(holder).getByTestId("render-edit-action-regenerate"));
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    expect(write.mock.calls[0]?.[0]).toBe("offers:write:offer:regenerate");
+  });
+
+  test("buttons render when the value is empty", async () => {
+    const [schemaUnderTest] = fieldActionSchema("");
+    renderWith(schemaUnderTest, { status: null });
+    await openDetail();
+    const drawer = screen.getByTestId(DETAIL_DRAWER);
+    const holder = await waitFor(() => within(drawer).getByTestId("field-status"));
+    within(holder).getByTestId("render-edit-action-regenerate");
+  });
+
+  test("a drawer field action opens its screen in a second drawer with the record prefill", async () => {
+    const [schemaUnderTest] = fieldActionSchema("draft");
+    renderWith(schemaUnderTest, { status: "draft" });
+    await openDetail();
+    const drawer = screen.getByTestId(DETAIL_DRAWER);
+    const holder = await waitFor(() => within(drawer).getByTestId("field-status"));
+    await userEvent.setup().click(within(holder).getByTestId("render-edit-action-annotate"));
+    await waitFor(() => screen.getByTestId("toolbar-drawer-annotate"));
+    screen.getByTestId(DETAIL_DRAWER);
+  });
+});
+
+describe("actionForm cancelInDrawer", () => {
+  const cancelSchema = (cancelInDrawer: boolean): FeatureSchema => ({
+    ...schema,
+    screens: [
+      offerList,
+      offerDetail,
+      { ...positionNote, ...(cancelInDrawer && { cancelInDrawer: true as const }) },
+    ],
+  });
+
+  async function openNote(schemaUnderTest: FeatureSchema): Promise<HTMLElement> {
+    const query: MockQueryHandler = async (type: string) =>
+      type === "offers:query:offer:list"
+        ? { isSuccess: true, data: { rows: [{ id: "o1", title: "Offer 1" }], nextCursor: null } }
+        : type === "offers:query:offer:detail"
+          ? { isSuccess: true, data: { id: "o1", status: "draft" } }
+          : {
+              isSuccess: true,
+              data: { rows: [{ id: "p1", label: "Position A" }], nextCursor: null },
+            };
+    render(
+      <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
+        <KumikoScreen schema={schemaUnderTest} qn="offers:screen:offer-list" />
+      </DispatcherProvider>,
+    );
+    await openDetail();
+    const detailDrawer = screen.getByTestId(DETAIL_DRAWER);
+    const user = userEvent.setup();
+    await waitFor(() => within(detailDrawer).getByTestId("kumiko-screen-projection-detail-tabs"));
+    await user.click(
+      within(detailDrawer).getByTestId("kumiko-screen-projection-detail-tabs-positions"),
+    );
+    await waitFor(() => within(detailDrawer).getByText("Position A"));
+    await user.click(within(detailDrawer).getByTestId("row-p1-action-add-note"));
+    return waitFor(() => screen.getByTestId("toolbar-drawer-add-note"));
+  }
+
+  test("without the flag a drawer form has no Cancel button", async () => {
+    const noteDrawer = await openNote(cancelSchema(false));
+    expect(within(noteDrawer).queryByTestId("render-edit-cancel")).toBeNull();
+  });
+
+  test("Cancel closes the pristine drawer, labelled Cancel", async () => {
+    const noteDrawer = await openNote(cancelSchema(true));
+    const cancel = within(noteDrawer).getByTestId("render-edit-cancel");
+    expect(cancel.textContent).toMatch(/cancel|abbrech/i);
+    await userEvent.setup().click(cancel);
+    await waitFor(() => expect(screen.queryByTestId("toolbar-drawer-add-note")).toBeNull());
+  });
+
+  test("Cancel asks before discarding unsent input", async () => {
+    const noteDrawer = await openNote(cancelSchema(true));
+    const user = userEvent.setup();
+    const input = within(noteDrawer).getByTestId("field-note").querySelector("input");
+    if (input === null) throw new Error("expected an <input> inside field-note");
+    await user.type(input, "unsent");
+    await user.click(within(noteDrawer).getByTestId("render-edit-cancel"));
+    await waitFor(() => screen.getByTestId("drawer-discard-dialog"));
+    screen.getByTestId("toolbar-drawer-add-note");
   });
 });

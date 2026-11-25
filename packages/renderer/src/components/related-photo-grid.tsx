@@ -61,6 +61,7 @@ export function RelatedPhotoGrid({
                   id: action.id,
                   label: action.label,
                   onPress: () => action.onTrigger(vm),
+                  ...(action.isDisabled?.(vm) === true && { disabled: true as const }),
                   ...(action.style !== undefined && { style: action.style }),
                   ...(action.display !== undefined && { display: action.display }),
                   ...(action.confirm !== undefined && {

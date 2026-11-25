@@ -276,7 +276,7 @@ const NO_DERIVED_FIELDS: ReadonlySet<string> = new Set();
 type ActionFieldRefSite = {
   readonly featureName: string;
   readonly screenId: string;
-  readonly actionKind: "rowAction" | "toolbarAction";
+  readonly actionKind: "rowAction" | "toolbarAction" | "fieldAction";
   readonly actionId: string;
 };
 
@@ -315,11 +315,12 @@ function checkVisibleFieldRef(
   fieldNames: ReadonlySet<string>,
   rowMeta: ReadonlySet<string>,
   derivedFieldNames: ReadonlySet<string>,
+  property: "visible" | "disabled" | "active" = "visible",
 ): void {
-  // skip: a missing or static visible has no field to check
+  // skip: a missing or static condition has no field to check
   if (visible === undefined || typeof visible === "boolean") return;
   assertConditionShape(
-    `[Feature ${site.featureName}] Screen "${site.screenId}" ${site.actionKind} "${site.actionId}" visible`,
+    `[Feature ${site.featureName}] Screen "${site.screenId}" ${site.actionKind} "${site.actionId}" ${property}`,
     visible,
   );
   for (const name of conditionFields(visible)) {
@@ -328,7 +329,7 @@ function checkVisibleFieldRef(
     throw bootRuleError(SCREEN_ACTION_RULES.actionVisibleUnknownField, {
       message:
         `[Feature ${site.featureName}] Screen "${site.screenId}" ${site.actionKind} "${site.actionId}" ` +
-        `visible.field references unknown field "${name}". Known fields: ${knownWithDerived}.`,
+        `${property}.field references unknown field "${name}". Known fields: ${knownWithDerived}.`,
     });
   }
 }
@@ -346,7 +347,7 @@ function checkVisibleFieldRef(
 export function validateActionFieldRefs(
   featureName: string,
   screenId: string,
-  actionKind: "rowAction" | "toolbarAction",
+  actionKind: "rowAction" | "toolbarAction" | "fieldAction",
   actionId: string,
   action: RowAction | ToolbarAction | RelatedListToolbarAction,
   fieldNames: ReadonlySet<string>,
@@ -364,7 +365,19 @@ export function validateActionFieldRefs(
   const entityId: string | undefined = "entityId" in action ? action.entityId : undefined;
   checkExtractorFieldRefs(site, "payload", payload, fieldNames, rowMeta);
   checkExtractorFieldRefs(site, "params", params, fieldNames, rowMeta);
+  const headingFields = "headingFields" in action ? action.headingFields : undefined;
+  checkExtractorFieldRefs(
+    site,
+    "headingFields",
+    headingFields && { pick: headingFields },
+    fieldNames,
+    rowMeta,
+  );
   checkVisibleFieldRef(site, visible, fieldNames, rowMeta, derivedFieldNames);
+  const disabled: FieldCondition | undefined = "disabled" in action ? action.disabled : undefined;
+  checkVisibleFieldRef(site, disabled, fieldNames, rowMeta, derivedFieldNames, "disabled");
+  const activeWhen = "active" in action ? action.active?.when : undefined;
+  checkVisibleFieldRef(site, activeWhen, fieldNames, rowMeta, derivedFieldNames, "active");
   if (entityId !== undefined && entityId !== "id" && !fieldNames.has(entityId)) {
     throw bootRuleError(SCREEN_ACTION_RULES.actionEntityIdUnknownField, {
       message:

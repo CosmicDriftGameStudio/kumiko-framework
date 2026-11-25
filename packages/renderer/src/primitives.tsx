@@ -61,6 +61,7 @@ import type {
   RuntimeRenderer,
 } from "./headless/index.ts";
 import type { MetricBandProps, MetricProps } from "./metric-types.ts";
+import type { DrawerProps } from "./primitives-drawer-types.ts";
 import type {
   PhotoGridProps,
   RecordBreadcrumbProps,
@@ -814,9 +815,13 @@ export type DataTableRowAction = {
   /** Called with the clicked row's `ListRowViewModel`. May be async, allowing
    *  the renderer to show a loading state on the button while the promise resolves. */
   readonly onTrigger: (row: ListRowViewModel) => Promise<void> | void;
-  /** Controls per-row visibility (e.g. show "Start" only when
-   *  `status==="scheduled"`). */
+  /** Per-row visibility (e.g. show "Start" only when `status==="scheduled"`). */
   readonly isVisible?: (row: ListRowViewModel) => boolean;
+  readonly isDisabled?: (row: ListRowViewModel) => boolean;
+  /** Inline buttons only: true draws the button pressed (`aria-pressed`) and keeps its colour when also disabled. */
+  readonly isActive?: (row: ListRowViewModel) => boolean;
+  /** Fill of a pressed button: "danger" is solid destructive, unset an accent tint. */
+  readonly activeStyle?: "danger";
   /** This action is what a click on the row does. With `onRowClick` the table
    *  (except `"inline"` mode or editable cells) and the card layout drop it
    *  from the row menu, since the row itself is already the click target. */
@@ -852,6 +857,7 @@ export type {
   DataTableFacetChip,
 } from "./data-table-facet-types.ts";
 export type { MetricBandProps, MetricProps } from "./metric-types.ts";
+export type { DrawerProps } from "./primitives-drawer-types.ts";
 export type {
   PhotoGridProps,
   RecordBreadcrumbProps,
@@ -872,6 +878,8 @@ export type DataTableProps = {
   readonly rowTone?: (row: ListRowViewModel) => SelectOptionTone | undefined;
   readonly rowMuted?: (row: ListRowViewModel) => boolean;
   readonly rowStruck?: (row: ListRowViewModel) => boolean;
+  /** Adds a light background in the row's tone color to the tone stripe. Renderers without it ignore it. */
+  readonly rowFill?: (row: ListRowViewModel) => boolean;
   readonly onRowClick?: (row: ListRowViewModel) => void;
   /** Current sorting, or null when unsorted. If columns contain a
    *  `sortable: true` field and `onSortChange` is set, the renderer makes
@@ -1159,11 +1167,11 @@ export type FillContainerProps = {
   readonly testId?: string;
   /** Layout extras, merged via cn(). */
   readonly className?: string;
-  /** Claims the remaining height of the flex chain (`flex-1`) instead of
-   *  sizing to its content, so a footer inside the child sits at the bottom
-   *  edge even with few rows. Set only when the screen fills the shell
-   *  height. */
+  /** Claims the remaining height of the flex chain (`flex-1`) instead of sizing to its content, so a
+   *  footer inside sits at the bottom edge even with few rows. Only when the screen fills the shell height. */
   readonly grow?: boolean;
+  /** On unmount the element focused at mount gets the focus back. */
+  readonly restoreFocus?: true;
   /** Extra `data-*` attributes on the container. */
   readonly dataAttributes?: DataAttributes;
 };
@@ -1310,21 +1318,6 @@ export type ModalProps = {
   readonly testId?: string;
   /** "wide" suits content with lists beside actions; web caps it at the viewport. */
   readonly size?: "default" | "wide";
-};
-
-/** Side panel hosting a self-contained form or detail without leaving the underlying screen: a
- *  `kind: "drawer"` action mounts an actionForm or a projectionDetail here instead of a full page.
- *  Same bare content shell as `Modal` (no footer buttons of its own), slide-in instead of overlay. */
-export type DrawerProps = {
-  readonly open: boolean;
-  readonly onOpenChange: (open: boolean) => void;
-  readonly title?: string;
-  /** Muted line under the title. */
-  readonly subtitle?: string;
-  /** `"wide"` asks for a broad panel (1280px, capped at 85vw); default is the standard panel width. */
-  readonly width?: "wide";
-  readonly children: ReactNode;
-  readonly testId?: string;
 };
 
 export type LightboxImage = { readonly src: string; readonly alt: string };

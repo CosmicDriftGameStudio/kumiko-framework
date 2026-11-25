@@ -45,11 +45,15 @@ export function useReportWriteFormDirty(dirty: boolean, submitWith?: string): vo
   }, [report, formKey, dirty]);
 }
 
-/** Ids of the writeHandler actions of a footer form: each one sends the form's values with its own payload. */
+/** Ids of the footer actions that take the form's values: a writeHandler sends them with its own payload,
+ *  a drawer hands them to the form it opens. */
 export function footerSubmitActionIds(
   actions: readonly RowAction[] | undefined,
 ): readonly string[] {
   return (actions ?? [])
-    .filter((action) => action.kind === undefined || action.kind === "writeHandler")
+    .filter(
+      (action) =>
+        action.kind === undefined || action.kind === "writeHandler" || action.kind === "drawer",
+    )
     .map((action) => action.id);
 }

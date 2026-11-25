@@ -99,7 +99,8 @@ function FieldLabelElement({
       id={fieldLabelId(id)}
       htmlFor={id}
       className={cn(
-        "min-w-0 gap-0 text-[13px]",
+        // The vendored label is leading-none; with the truncate span's overflow-hidden that clips descenders.
+        "min-w-0 gap-0 text-[13px] leading-snug",
         hasError ? "text-destructive" : "text-foreground",
         hideLabel === true && "sr-only",
       )}

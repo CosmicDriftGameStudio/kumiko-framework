@@ -431,6 +431,8 @@ export type EditFieldViewModel = {
   readonly hintField?: string;
   /** From EditFieldSpec.hideOnNarrow. */
   readonly hideOnNarrow?: true;
+  /** From EditFieldSpec.actions, still untranslated RowActions. */
+  readonly actions?: readonly RowAction[];
   /** Only set for an embedded-LIST field (`multiple: true`) — the per-cell
    *  metadata the renderer needs to draw each column/cell. Absent for a
    *  plain (non-list) embedded field. */
@@ -607,7 +609,8 @@ export type EditRelatedListSectionViewModel = {
   readonly rowActions?: readonly RowAction[];
   readonly rowActionMode?: RowActionMode;
   readonly bulkActions?: readonly ListBulkAction[];
-  readonly rowTone?: RelatedListRowTone;
+  readonly rowTone?: RelatedListRowTone | readonly RelatedListRowTone[];
+  readonly rowActionsWhen?: Exclude<FieldCondition, boolean>;
   readonly struckWhen?: Exclude<FieldCondition, boolean>;
   readonly toolbarActions?: readonly RelatedListToolbarAction[];
   /** From `EditRelatedListSection.actions` — rendered in the

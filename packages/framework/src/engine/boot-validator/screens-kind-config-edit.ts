@@ -11,6 +11,7 @@ import type {
 } from "../types/screen.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import { CONFIG_EDIT_ACTION_RULES } from "./config-edit-action-rules.ts";
+import { rejectFieldActions } from "./screens-field-actions.ts";
 import {
   isWriteOnlyField,
   validateConfigEditSecretField,
@@ -62,6 +63,7 @@ function validateConfigEditFieldsSection(
   validateFieldsXorGroups(`[Feature ${featureName}] Screen "${screenId}" (configEdit)`, section);
   for (const fieldSpec of sectionFieldSpecs(section)) {
     const normalized = normalizeEditField(fieldSpec);
+    rejectFieldActions(featureName, screenId, "configEdit", normalized);
     if (!fieldNames.has(normalized.field)) {
       throw bootRuleError(SCREEN_KIND_RULES.configEditLayoutUnknownField, {
         message:

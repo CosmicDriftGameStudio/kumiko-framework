@@ -466,8 +466,14 @@ function EntityEditUpdateForm({
   // A singleton stays on its own screen after saving (onSaved/refetch) —
   // returnTo would fight that.
   const returnTarget = screen.singleton === true ? undefined : returnTargetParam;
-  const { drawerAction, drawerScreen, drawerInitialValues, openDrawer, closeDrawer } =
-    useDrawerAction(schema);
+  const {
+    drawerAction,
+    drawerScreen,
+    drawerInitialValues,
+    drawerHeadingValues,
+    openDrawer,
+    closeDrawer,
+  } = useDrawerAction(schema);
   // Header action buttons (fw entityEdit-actions) — same shape/dispatch
   // pattern as ProjectionDetailBody.headerActions above (the edited record
   // stands in for the "row"), minus the cross-feature defaultEditAction
@@ -516,8 +522,12 @@ function EntityEditUpdateForm({
     [screen.entity, schema, appFeatures, entityId],
   );
   const buildSectionActions = useCallback(
-    (actions: readonly RowAction[]): readonly RenderEditAction[] | undefined =>
+    (
+      actions: readonly RowAction[],
+      iconOptions?: { readonly declaredIconsOnly?: boolean },
+    ): readonly RenderEditAction[] | undefined =>
       buildRecordActions({
+        ...iconOptions,
         actions,
         record,
         translate: effectiveTranslate,
@@ -657,6 +667,7 @@ function EntityEditUpdateForm({
         drawerAction={drawerAction}
         drawerScreen={drawerScreen}
         {...(drawerInitialValues !== undefined && { drawerInitialValues })}
+        {...(drawerHeadingValues !== undefined && { drawerHeadingValues })}
         userRoles={userRoles}
         {...(translate !== undefined && { translate })}
         onClose={closeDrawer}

@@ -1,4 +1,6 @@
 import { SELECT_OPTION_TONES } from "@cosmicdrift/kumiko-types/fields";
+import { isFileField } from "../field-helpers.ts";
+import { findEntity } from "../find-entity.ts";
 import {
   isExtensionEditSection,
   isFieldsEditSection,
@@ -24,10 +26,16 @@ import { bootRuleError } from "./boot-rule.ts";
 import { validateRelativeTimeFormat } from "./relative-time-format.ts";
 import {
   assertWriteHandlerRegistered,
+  isSensitiveOrPasswordField,
+  renderedEditFieldNames,
   resolveRowActionNavigateTarget,
+  rowFieldExtractorKeys,
   validateActionHasIcon,
+  validateDrawerTargetAction,
+  validateNavigateActionTab,
   validatePrimaryActionTarget,
 } from "./screens-actions.ts";
+import { rejectFieldActions } from "./screens-field-actions.ts";
 import {
   rejectWriteOnlyFormField,
   validateFieldsXorGroups,
@@ -138,9 +146,17 @@ function validateProjectionDetailInitialTab(
   }
 }
 
+type FooterDrawerAction = Extract<RowAction, { readonly kind: "drawer" }>;
+
+// A drawer action sends its `params` (as prefill), a writeHandler action its `payload`.
 function payloadKeysOf(
-  action: Exclude<RowAction, { readonly kind: "navigate" | "drawer" | "clientAction" }>,
+  action:
+    | Exclude<RowAction, { readonly kind: "navigate" | "drawer" | "clientAction" }>
+    | FooterDrawerAction,
 ): string[] {
+  if (action.kind === "drawer") {
+    return action.params === undefined ? [] : [...rowFieldExtractorKeys(action.params)];
+  }
   const { payload } = action;
   if (payload === undefined) return ["id"];
   return "pick" in payload ? [...payload.pick] : Object.keys(payload.map);
@@ -469,6 +485,44 @@ function validateProjectionDetailRelatedList(
   });
 }
 
+// A form file is stored pending until a handler saves it; only an upload stored as the host
+// entity's field is bound by that entity's executor, so the form must name that entity.
+function validateWriteFormUploadEntity(
+  ctx: ScreenValidationContext,
+  screenId: string,
+  section: EditWriteFormSection,
+): void {
+  const where =
+    `[Feature ${ctx.feature.name}] Screen "${screenId}" (projectionDetail) section ` +
+    `"${section.title}" (writeForm)`;
+  const entityName = section.uploadEntity;
+  const entity = entityName === undefined ? undefined : findEntity(ctx.featureMap, entityName);
+  for (const [defName, fdef] of Object.entries(section.fieldDefs)) {
+    if (!isFileField(fdef)) continue;
+    if (entityName === undefined) {
+      throw bootRuleError(PROJECTION_DETAIL_RULES.writeFormUploadEntityInvalid, {
+        message:
+          `${where} has the file field "${defName}" but no uploadEntity — without it the ` +
+          `upload cannot be bound and fails. Set uploadEntity to the entity that has a file field "${defName}".`,
+      });
+    }
+    if (entity === undefined) {
+      throw bootRuleError(PROJECTION_DETAIL_RULES.writeFormUploadEntityInvalid, {
+        message:
+          `${where} has uploadEntity "${entityName}", which is not a registered entity. ` +
+          `Name an entity that has a file field "${defName}".`,
+      });
+    }
+    if (!isFileField(entity.fields[defName])) {
+      throw bootRuleError(PROJECTION_DETAIL_RULES.writeFormUploadEntityInvalid, {
+        message:
+          `${where} has the file field "${defName}", but entity "${entityName}" has no file field ` +
+          `of that name. Add it to the entity or rename the form field.`,
+      });
+    }
+  }
+}
+
 function validateProjectionDetailWriteForm(
   ctx: ScreenValidationContext,
   screenId: string,
@@ -490,6 +544,7 @@ function validateProjectionDetailWriteForm(
         `(writeForm) has zero fields — drop the section or add fields to it.`,
     });
   }
+  validateWriteFormUploadEntity(ctx, screenId, section);
   // A ref to a fieldDef the form never renders would never resolve.
   const writeFormFieldNames = new Set(section.fields.map((f) => normalizeEditField(f).field));
   for (const [defName, fdef] of Object.entries(section.fieldDefs)) {
@@ -510,6 +565,7 @@ function validateProjectionDetailWriteForm(
     );
   }
   for (const f of section.fields) {
+    rejectFieldActions(featureName, screenId, "projectionDetail writeForm", f);
     const fieldName = normalizeEditField(f).field;
     if (section.fieldDefs[fieldName] === undefined) {
       throw bootRuleError(PROJECTION_DETAIL_RULES.writeFormFieldWithoutDef, {
@@ -548,6 +604,51 @@ function withoutFooterSections(
       sections: screen.layout.sections.filter((section) => !isFooterWriteForm(section)),
     },
   };
+}
+
+// A drawer action submits the footer input by prefilling its actionForm, so that form must take
+// every footer field; one it does not render, or marks sensitive, would be dropped without a trace.
+function validateFooterDrawerTarget(
+  ctx: ScreenValidationContext,
+  screenId: string,
+  where: string,
+  action: FooterDrawerAction,
+  footerFields: ReadonlySet<string>,
+): void {
+  validateDrawerTargetAction(
+    ctx.feature.name,
+    screenId,
+    "projectionDetail",
+    "action",
+    action,
+    ctx.feature.screens,
+  );
+  const target = ctx.feature.screens[action.screen];
+  // skip: validateDrawerTargetAction rejected every other target type
+  if (target?.type !== "actionForm") return;
+  const about = `${where} action "${action.id}" opens drawer-target "${action.screen}"`;
+  const invalid = (message: string): Error =>
+    bootRuleError(PROJECTION_DETAIL_RULES.footerWriteFormInvalid, { message });
+  if (target.load !== undefined) {
+    throw invalid(
+      `${about}, which declares load — a loaded form takes its values from the record, so it would ignore the footer input. Point the action at an actionForm without load.`,
+    );
+  }
+  const rendered = renderedEditFieldNames(target.layout.sections);
+  const missing = [...footerFields].filter((name) => !rendered.has(name));
+  if (missing.length > 0) {
+    throw invalid(
+      `${about}, whose layout does not list the footer field(s) ${missing.map((name) => `"${name}"`).join(", ")} — the footer input would be lost on submit. List each footer field in the target's layout (visible: false is enough).`,
+    );
+  }
+  const withheld = [...footerFields].find((name) =>
+    isSensitiveOrPasswordField(target.fields[name]),
+  );
+  if (withheld !== undefined) {
+    throw invalid(
+      `${about}, which marks the footer field "${withheld}" as sensitive or password — the renderer never prefills those, so the input would be lost on submit. Use a non-sensitive field in the target.`,
+    );
+  }
 }
 
 // Footer actions send the form's values with their own payload, so a missing writeHandler action
@@ -593,18 +694,26 @@ function validateProjectionDetailFooter(
     );
   }
   const fieldNames = new Set(section.fields.map((f) => normalizeEditField(f).field));
-  for (const action of writeActions) {
+  const submittingActions = (section.actions ?? []).filter(
+    (action): action is RowActionWriteHandler | FooterDrawerAction =>
+      action.kind === undefined || action.kind === "writeHandler" || action.kind === "drawer",
+  );
+  for (const action of submittingActions) {
     if ((screen.actions ?? []).some((own) => own.id === action.id)) {
       throw invalid(
         `${where} action "${action.id}" has the id of an action of the screen — the form registry and the buttons are keyed by action id, so the two would collide. Rename the footer action.`,
       );
     }
-    assertWriteHandlerRegistered(
-      ctx.feature.name,
-      `${where} action "${action.id}"`,
-      action.handler,
-      ctx.allWriteHandlerQns,
-    );
+    if (action.kind === "drawer") {
+      validateFooterDrawerTarget(ctx, screenId, where, action, fieldNames);
+    } else {
+      assertWriteHandlerRegistered(
+        ctx.feature.name,
+        `${where} action "${action.id}"`,
+        action.handler,
+        ctx.allWriteHandlerQns,
+      );
+    }
     const clash = payloadKeysOf(action).find((key) => fieldNames.has(key));
     if (clash !== undefined) {
       throw invalid(
@@ -617,6 +726,7 @@ function validateProjectionDetailFooter(
 function validateProjectionDetailFieldsSection(
   ctx: ScreenValidationContext,
   screenId: string,
+  screen: ProjectionDetailScreenDefinition,
   section: EditFieldsSection,
 ): void {
   const featureName = ctx.feature.name;
@@ -633,6 +743,26 @@ function validateProjectionDetailFieldsSection(
         normalizedField.refEntity,
         featureName,
         ctx.featureMap,
+      );
+    }
+    for (const action of normalizedField.actions ?? []) {
+      // Text-only next to the value by default; a declared icon still has to be registered.
+      if (action.icon !== undefined)
+        validateActionHasIcon(
+          featureName,
+          screenId,
+          "projectionDetail",
+          `field "${normalizedField.field}" action`,
+          action,
+        );
+      validateRecordHeaderAction(ctx, screenId, "projectionDetail", screen.detailFor, action);
+      validateNavigateActionTab(
+        featureName,
+        screenId,
+        "projectionDetail",
+        `field "${normalizedField.field}" action`,
+        action,
+        ctx,
       );
     }
   }
@@ -677,7 +807,7 @@ function validateProjectionDetailSection(
     // field existence is checked against the outputSchema in query-output-columns
     return;
   } else {
-    validateProjectionDetailFieldsSection(ctx, screenId, section);
+    validateProjectionDetailFieldsSection(ctx, screenId, screen, section);
   }
 }
 

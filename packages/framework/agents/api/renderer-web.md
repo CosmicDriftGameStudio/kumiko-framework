@@ -483,6 +483,7 @@ type DataTableProps = DataTableTableBlock & {
   rowTone?: (row: ListRowViewModel) => SelectOptionTone | undefined; // Tints a row; `rowMuted` greys it, `rowStruck` greys and strikes it except the row-action column.
   rowMuted?: (row: ListRowViewModel) => boolean;
   rowStruck?: (row: ListRowViewModel) => boolean;
+  rowFill?: (row: ListRowViewModel) => boolean; // Adds a light background in the row's tone color to the tone stripe.
   onRowClick?: (row: ListRowViewModel) => void;
   sort?: DataTableSort | null; // Current sorting, or null when unsorted.
   onSortChange?: (next: DataTableSort | null) => void; // Called with the next sort state after a header click (asc → desc → null); the caller updates URL state or the query parameter and refetches.
@@ -589,6 +590,7 @@ type DrawerPanelProps = {
   modal?: boolean; // `false` runs the drawer as a panel beside the page instead of over it: no overlay, no focus trap, and the page behind stays interactive, so text there can be selected and copied.
   panelClassName?: string; // Extra classes for the panel, merged over the built-in ones.
   fillBody?: boolean; // The body becomes a plain flex column with no padding or scrolling of its own, for children that bring their own scroll area and pinned footer.
+  onEscapeKeyDown?: (event: KeyboardEvent) => void; // Escape handler; `event.preventDefault()` keeps the drawer open.
 };
 type EditorActionTestIds = {
   discard: string;
@@ -1521,7 +1523,7 @@ type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   dirtyFooter?: boolean; // Show the unsaved-changes footer (count, Discard, "Save changes") even without an entity id or a screen-height form — for hosts that edit an existing server-side record through `customSubmit` (configEdit, also when embedded as a dashboard panel).
   validateOnChange?: boolean; // Validate the edited field right after each change instead of only on submit, so a bounds violation shows at the field while the Save button looks enabled.
   headerRegion?: ReactNode | ((headerSlot: ReactNode | undefined) => ReactNode); // Extra content rendered above the card, sharing its left padding and width — for a host with its own header region (title/metrics/tabs) that would otherwise render as unpadded siblings before RenderEdit.
-  buildSectionActions?: (actions: RowAction[]) => RenderEditAction[] | undefined; // resolves an `EditFieldsSection`/`EditExtensionSection`/ `EditRelatedListSection`/`EditWriteFormSection`'s own `actions` into already-bound buttons, rendered in that section's title row — same split as `onCopyLink`/header `actions`: RenderEdit has no dispatcher/nav context of its own, so the caller (which does) resolves each RowAction against the record being edited.
+  buildSectionActions?: (actions: RowAction[], options?: { declaredIconsOnly?: boolean; }) => RenderEditAction[] | undefined; // resolves an `EditFieldsSection`/`EditExtensionSection`/ `EditRelatedListSection`/`EditWriteFormSection`'s own `actions` into already-bound buttons, rendered in that section's title row — same split as `onCopyLink`/header `actions`: RenderEdit has no dispatcher/nav context of its own, so the caller (which does) resolves each RowAction against the record being edited.
 };
 type RenderFieldProps = {
   field: EditFieldViewModel;
@@ -1542,6 +1544,7 @@ type RenderFieldProps = {
   accent?: boolean;
   fillDisabled?: boolean; // The surrounding form is locked as a whole: the fill button stays visible but inert, unlike a single readOnly field whose fill button keeps working.
   hideLabel?: boolean; // Label stays for screen readers only (sr-only).
+  valueActions?: ReactNode; // Buttons rendered right beside the value, in the same row (wrapping).
 };
 type RenderListProps = DataTableTableBlockProps & {
   screen: EntityListScreenDefinition;

@@ -1,4 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import {
+  createFilesFeature,
+  createInMemoryFileProvider,
+} from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createOrderDeskFeature } from "../feature";
@@ -7,7 +11,12 @@ let stack: TestStack;
 const support = createTestUser({ roles: ["Support"], tenantId: testTenantId(1) });
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [createOrderDeskFeature()], systemHooks: [] });
+  // The upload tab's file field needs a storage provider and the files feature.
+  stack = await setupTestStack({
+    features: [createFilesFeature(), createOrderDeskFeature()],
+    files: { storageProvider: createInMemoryFileProvider() },
+    systemHooks: [],
+  });
 });
 
 afterAll(async () => {

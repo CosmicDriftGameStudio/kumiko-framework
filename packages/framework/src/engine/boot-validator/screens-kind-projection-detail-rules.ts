@@ -119,6 +119,12 @@ export const PROJECTION_DETAIL_RULES = {
     summary: "Every rendered writeForm field has a fieldDefs entry.",
     fix: "Add the field to fieldDefs.",
   },
+  writeFormUploadEntityInvalid: {
+    id: "projection-detail/write-form-upload-entity-invalid",
+    summary:
+      "A writeForm with a file, image, files or images field names uploadEntity, an entity that declares a file field of each such field's name.",
+    fix: "Set uploadEntity to the entity whose same-named file fields the handler saves through its executor, and give that entity a file field per form file field.",
+  },
   submitWithInvalid: {
     id: "projection-detail/submit-with-invalid",
     summary:
@@ -128,8 +134,8 @@ export const PROJECTION_DETAIL_RULES = {
   footerWriteFormInvalid: {
     id: "projection-detail/footer-write-form-invalid",
     summary:
-      "A footer writeForm is declared once per screen, sets no handler, submitLabel or submitWith, stays out of wizard layouts, and its writeHandler actions are registered and share no payload key with its fields.",
-    fix: "Declare one footer form, send it through at least one writeHandler action in its actions, and rename a colliding field or payload key.",
+      "A footer writeForm is declared once per screen, sets no handler, submitLabel or submitWith, stays out of wizard layouts, and its writeHandler actions are registered, no action reuses an id of the screen's actions, and no action shares a payload key (drawer: params key) with its fields. A drawer action opens an actionForm without load whose layout lists every footer field, none of them sensitive or password.",
+    fix: "Declare one footer form, send it through at least one writeHandler action in its actions, rename a colliding field, payload key or action id, and give a drawer action's target an actionForm without load that lists every footer field.",
   },
   presentationOptionInvalid: {
     id: "projection-detail/presentation-option-invalid",

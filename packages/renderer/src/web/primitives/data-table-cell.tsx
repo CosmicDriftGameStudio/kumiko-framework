@@ -506,6 +506,40 @@ export function rowToneClass(tone: SelectOptionTone | undefined): string {
   return tone === undefined ? "" : ROW_TONE_STRIPE_CLASS[tone];
 }
 
+// `fill` tints the row in the tone colour (4 % mixed into the card colour) and draws no stripe.
+// Pinned and sticky cells paint an opaque background of their own, so the tint and the hover colour
+// sit on every cell instead of on the row. A native select in a bad/critical row takes the tone as
+// border, text and a 5 % background. Class names are spelled out so Tailwind finds them.
+const SELECT_BAD =
+  "[&_select]:border-status-bad [&_select]:text-status-bad [&_select]:bg-status-bad/5";
+const SELECT_CRITICAL =
+  "[&_select]:border-status-critical [&_select]:text-status-critical [&_select]:bg-status-critical/5";
+const ROW_TONE_FILL_CLASS: Readonly<Record<SelectOptionTone, string>> = {
+  bad: `[&>td]:bg-[color-mix(in_srgb,var(--color-status-bad)_4%,var(--color-card))] hover:[&>td]:bg-[color-mix(in_srgb,var(--color-status-bad)_4%,color-mix(in_srgb,var(--color-muted)_50%,var(--color-card)))] ${SELECT_BAD}`,
+  warn: "[&>td]:bg-[color-mix(in_srgb,var(--color-status-warn)_4%,var(--color-card))] hover:[&>td]:bg-[color-mix(in_srgb,var(--color-status-warn)_4%,color-mix(in_srgb,var(--color-muted)_50%,var(--color-card)))]",
+  ok: "[&>td]:bg-[color-mix(in_srgb,var(--color-status-ok)_4%,var(--color-card))] hover:[&>td]:bg-[color-mix(in_srgb,var(--color-status-ok)_4%,color-mix(in_srgb,var(--color-muted)_50%,var(--color-card)))]",
+  critical: `[&>td]:bg-[color-mix(in_srgb,var(--color-status-critical)_4%,var(--color-card))] hover:[&>td]:bg-[color-mix(in_srgb,var(--color-status-critical)_4%,color-mix(in_srgb,var(--color-muted)_50%,var(--color-card)))] ${SELECT_CRITICAL}`,
+  accent:
+    "[&>td]:bg-[color-mix(in_srgb,var(--color-primary)_4%,var(--color-card))] hover:[&>td]:bg-[color-mix(in_srgb,var(--color-primary)_4%,color-mix(in_srgb,var(--color-muted)_50%,var(--color-card)))]",
+  neutral: "",
+};
+const CARD_TONE_FILL_CLASS: Readonly<Record<SelectOptionTone, string>> = {
+  bad: `bg-[color-mix(in_srgb,var(--color-status-bad)_4%,var(--color-card))] ${SELECT_BAD}`,
+  warn: "bg-[color-mix(in_srgb,var(--color-status-warn)_4%,var(--color-card))]",
+  ok: "bg-[color-mix(in_srgb,var(--color-status-ok)_4%,var(--color-card))]",
+  critical: `bg-[color-mix(in_srgb,var(--color-status-critical)_4%,var(--color-card))] ${SELECT_CRITICAL}`,
+  accent: "bg-[color-mix(in_srgb,var(--color-primary)_4%,var(--color-card))]",
+  neutral: "",
+};
+
+export function rowFillClass(tone: SelectOptionTone | undefined): string {
+  return tone === undefined ? "" : ROW_TONE_FILL_CLASS[tone];
+}
+
+export function cardFillClass(tone: SelectOptionTone | undefined): string {
+  return tone === undefined ? "" : CARD_TONE_FILL_CLASS[tone];
+}
+
 const TONE_DOT_CLASS: Readonly<Record<SelectOptionTone, string>> = {
   bad: "bg-status-bad",
   warn: "bg-status-warn",

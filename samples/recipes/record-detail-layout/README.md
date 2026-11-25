@@ -48,7 +48,9 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
   metrics below `sm`), `MetricSpec.visibleWhen`, field option `concealed` (muted value with a lock),
   section `hideOnNarrow` and `after` (a registered component under the items tab card), and a
   second screen `order-facts` with a stacked layout and `pageNavigation: false`
-- not shown: `photosBeside` (needs a stored image file for `photoGrid`) and `recordSections.omitFirstTitle`
+- the payments tab tones its rows with a `rowTone` rule list (first match wins); the reminder-note
+  drawer action is `width: "wide"` with `back: true` (back arrow left of the title closes just that drawer)
+- not shown: row action `active` (pressed button), `rowActionsWhen` and `allowEdit: false`, `photosBeside` (needs a stored image file for `photoGrid`) and `recordSections.omitFirstTitle`
   (a renderer prop, not reachable from a screen declaration)
 - boot-validator catching two common author mistakes: a `metrics` entry
   with an empty `label`, and a `tabs` layout with fewer than two

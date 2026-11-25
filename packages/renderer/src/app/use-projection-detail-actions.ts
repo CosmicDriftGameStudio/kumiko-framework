@@ -192,8 +192,12 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
     [detailQuery.data, screen.detailFor, appFeatures],
   );
   const buildSectionActions = useCallback(
-    (actions: readonly RowAction[]): readonly RenderEditAction[] | undefined =>
+    (
+      actions: readonly RowAction[],
+      iconOptions?: { readonly declaredIconsOnly?: boolean },
+    ): readonly RenderEditAction[] | undefined =>
       buildRecordActions({
+        ...iconOptions,
         actions,
         record: detailQuery.data ?? {},
         translate: effectiveTranslate,
@@ -357,6 +361,7 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
             submitWithIds: footerFormActionIds,
             footerActionIds: footerFormActionIds,
             dirtyWriteForms,
+            declaredIconsOnly: true,
           }),
     [
       footerFormActions,

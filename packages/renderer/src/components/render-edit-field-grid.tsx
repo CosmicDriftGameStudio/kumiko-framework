@@ -3,6 +3,7 @@ import type { EditFieldViewModel, FormValues } from "../headless/index.ts";
 import type { StatusBadgeProps } from "../primitives.tsx";
 import { statusToneForOptionTone } from "../status-tone.ts";
 import { fieldCellWidth, GridCellForField } from "./grid-cell-for-field.tsx";
+import { RenderEditActionButton } from "./render-edit-action-button.tsx";
 import { fieldApprovalAppendix, isApprovalLockedField } from "./render-edit-field-approval.tsx";
 import type {
   FieldsSection,
@@ -67,6 +68,26 @@ function spanLongValue(field: EditFieldViewModel, columns: number): EditFieldVie
   return { ...field, span: columns };
 }
 
+function fieldValueActions<TValues extends FormValues, TCtx>(
+  { engine: { props, state } }: RenderEditModel<TValues, TCtx>,
+  field: EditFieldViewModel,
+): ReactNode {
+  if (field.actions === undefined || field.actions.length === 0) return undefined;
+  const { Button, Dialog } = state.primitives;
+  const buttons = props
+    .buildSectionActions?.(field.actions, { declaredIconsOnly: true })
+    ?.map((action) => (
+      <RenderEditActionButton
+        key={action.id}
+        action={action}
+        Button={Button}
+        Dialog={Dialog}
+        onError={state.setActionError}
+      />
+    ));
+  return buttons === undefined || buttons.length === 0 ? undefined : buttons;
+}
+
 function createFieldCellRenderer<TValues extends FormValues, TCtx>(
   model: RenderEditModel<TValues, TCtx>,
   section: FieldsSection,
@@ -88,9 +109,11 @@ function createFieldCellRenderer<TValues extends FormValues, TCtx>(
     const field = facts ? spanLongValue(rawField, columns) : rawField;
     const appendix = appendixCellProps(props, field, snapshot.values, state.primitives.StatusBadge);
     const approvalAppendix = fieldApprovalAppendix(model, field);
+    const valueActions = fieldValueActions(model, field);
     return (
       <GridCellForField
         key={field.field}
+        {...(valueActions !== undefined && { valueActions })}
         {...lockedFieldCellProps(model, field, disabled)}
         columns={columns}
         {...(!isSettingsList && flows && { flow: true })}

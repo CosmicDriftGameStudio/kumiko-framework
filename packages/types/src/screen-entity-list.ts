@@ -291,6 +291,13 @@ export type RowAction = (
   readonly align?: "start";
 };
 
+/** Draws an inline row-action button as pressed (`aria-pressed`) while the row matches `when`.
+ *  `style: "danger"` fills it with the destructive colour, otherwise it gets an accent tint. */
+export type RowActionActive = {
+  readonly when: Exclude<FieldCondition, boolean>;
+  readonly style?: "danger";
+};
+
 export type RowActionWriteHandler = {
   /** Default for RowActions without an explicitly set `kind` —
    *  backwards-compatible form. Can also be set explicitly. */
@@ -318,6 +325,10 @@ export type RowActionWriteHandler = {
   readonly confirmLabel?: string;
   /** Conditional visibility per row. */
   readonly visible?: FieldCondition;
+  /** Shown but not clickable while the condition holds. */
+  readonly disabled?: FieldCondition;
+  /** Pressed look for an inline button while the row matches; keeps its full colour when also disabled. */
+  readonly active?: RowActionActive;
   /** projectionDetail header action only: shown while one of these tab (section) ids is active. Needs `layout.mode: "tabs"`; default every tab. */
   readonly showOnTabs?: readonly string[];
   /** Visual style. "danger" renders red + forces a confirm dialog (even
@@ -360,6 +371,8 @@ export type RowActionNavigateBase = {
   readonly tab?: string;
   /** Conditional visibility per row. */
   readonly visible?: FieldCondition;
+  /** Shown but not clickable while the condition holds. */
+  readonly disabled?: FieldCondition;
   /** projectionDetail header action only: shown while one of these tab (section) ids is active. Needs `layout.mode: "tabs"`; default every tab. */
   readonly showOnTabs?: readonly string[];
   /** Visual style only — unlike the writeHandler variants, "danger" does not
@@ -412,13 +425,21 @@ export type RowActionDrawer = {
    *  docs/plans/bundled-features-screen-standardisierung.md §2.6c). */
   readonly screen: string;
   /** `"wide"` opens a broad panel (up to 1280px) instead of the standard
-   *  width; narrow viewports keep the full-screen drawer. */
-  readonly width?: "wide";
+   *  width; `"popup"` fills the viewport minus a 24px margin like a large popup.
+   *  Narrow viewports keep the full-screen drawer. */
+  readonly width?: "wide" | "popup";
+  /** The drawer header shows a back arrow left of the title instead of the close cross; it closes only
+   *  this drawer, returning to the one underneath. */
+  readonly back?: true;
   /** Declarative prefill extracted from the clicked row. `pick` extracts
    *  fields of the same name; `map` renames them. */
   readonly params?: RowFieldExtractor;
   /** Per-row conditional visibility. */
   readonly visible?: FieldCondition;
+  /** Shown but not clickable while the condition holds. */
+  readonly disabled?: FieldCondition;
+  /** Pressed look for an inline button while the row matches; keeps its full colour when also disabled. */
+  readonly active?: RowActionActive;
   /** projectionDetail header action only: shown while one of these tab (section) ids is active. Needs `layout.mode: "tabs"`; default every tab. */
   readonly showOnTabs?: readonly string[];
   /** Visual style only — unlike the writeHandler variants, "danger" does not
@@ -437,6 +458,11 @@ export type RowActionDrawer = {
   /** Line under the drawer heading (i18n key or a bare `{name}` template),
    *  resolved like `title`. */
   readonly subtitle?: string;
+  /** Row fields that only feed `{name}` placeholders in `title` and `subtitle`. Unlike
+   *  `params` they are never prefilled into the target form or sent in a payload, so the
+   *  target does not need to declare them. A prefill param of the same name wins. A
+   *  missing or empty value renders as an empty string. */
+  readonly headingFields?: readonly string[];
   /** Clicking the row opens this drawer with that row's `params`. At most one
    *  `rowClick` action (navigate or drawer) per list; rejected on
    *  projectionDetail header actions, like navigate's. */
@@ -462,6 +488,8 @@ export type RowActionClientAction = {
   readonly confirmLabel?: string;
   /** Conditional visibility per row. */
   readonly visible?: FieldCondition;
+  /** Shown but not clickable while the condition holds. */
+  readonly disabled?: FieldCondition;
   /** projectionDetail header action only: shown while one of these tab (section) ids is active. Needs `layout.mode: "tabs"`; default every tab. */
   readonly showOnTabs?: readonly string[];
   /** Visual style. "danger" forces a confirm dialog, like a writeHandler. */
@@ -527,8 +555,8 @@ export type ToolbarAction = (
       readonly title?: string;
       /** Line under the drawer heading (i18n key). */
       readonly subtitle?: string;
-      /** `"wide"` opens a broad panel (up to 1280px) instead of the standard width. */
-      readonly width?: "wide";
+      /** `"wide"` opens a broad panel (up to 1280px) instead of the standard width; `"popup"` fills the viewport minus a 24px margin. */
+      readonly width?: "wide" | "popup";
     }
 ) & {
   /** Icon of the button, in every list (entityList, projectionList, relatedList). Without it the id-derived default applies (`create` → plus). */
@@ -631,6 +659,8 @@ export type EntityListScreenDefinition = {
   readonly createUnavailable?: boolean;
   /** `false` hides this list's "+ New" button (and the empty-state create CTA) while the entity's edit screen keeps its create branch for other entry points, e.g. a prefilled action. Default `true`. */
   readonly allowCreate?: boolean;
+  /** `false` suppresses the auto-generated "Edit" row action; declared `rowActions` are unaffected. Default `true`. */
+  readonly allowEdit?: boolean;
   readonly columns: readonly ListColumnSpec[];
   /** Row field holding a SelectOptionTone; the row is toned like relatedList `rowTone`, other values leave it untoned. */
   readonly rowToneField?: string;

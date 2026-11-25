@@ -14,7 +14,9 @@ import { HeaderActionsBar } from "./header-actions-bar.tsx";
 import type { NavApi } from "./nav.tsx";
 import {
   formatOrRaw,
+  headerSecondaryStatusTone,
   headerStatusTone,
+  resolveHeaderSecondaryStatusText,
   resolveHeaderStatusText,
   resolveSubtitleHref,
 } from "./projection-detail-header-model.ts";
@@ -94,6 +96,7 @@ export function renderHeaderTitleSlot(model: DetailHeaderModel): ReactNode {
           tone={headerStatusTone(header, record)}
           testId="kumiko-screen-projection-detail-status"
         />
+        {renderSecondaryStatusBadge(model)}
       </Grid>
     ) : (
       <Text testId="kumiko-screen-projection-detail-title">
@@ -409,13 +412,32 @@ export function renderStatusBadge(model: DetailHeaderModel): ReactNode {
   const { screen, record, primitives } = model;
   const { StatusBadge } = primitives;
   const header = screen.header;
-  return header?.status !== undefined ? (
-    <StatusBadge
-      value={resolveHeaderStatusText(screen, record, model.effectiveTranslate)}
-      tone={headerStatusTone(header, record)}
-      testId="kumiko-screen-projection-detail-status"
+  if (header?.status === undefined) return undefined;
+  return (
+    <>
+      <StatusBadge
+        value={resolveHeaderStatusText(screen, record, model.effectiveTranslate)}
+        tone={headerStatusTone(header, record)}
+        testId="kumiko-screen-projection-detail-status"
+      />
+      {renderSecondaryStatusBadge(model)}
+    </>
+  );
+}
+
+function renderSecondaryStatusBadge(model: DetailHeaderModel): ReactNode {
+  const { screen, record, primitives } = model;
+  const header = screen.header;
+  if (header?.secondaryStatus === undefined) return undefined;
+  const text = resolveHeaderSecondaryStatusText(screen, record, model.effectiveTranslate);
+  if (text === "") return undefined;
+  return (
+    <primitives.StatusBadge
+      value={text}
+      tone={headerSecondaryStatusTone(header, record)}
+      testId="kumiko-screen-projection-detail-secondary-status"
     />
-  ) : undefined;
+  );
 }
 
 // Lives in the band's subtitle row so it shares the metrics' horizontal inset.

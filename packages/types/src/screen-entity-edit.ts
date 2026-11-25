@@ -83,6 +83,9 @@ export type EditFieldSpec =
       readonly hintField?: string;
       /** Leaves the field out below `sm`; its value is still submitted. */
       readonly hideOnNarrow?: true;
+      /** projectionDetail `fields` sections only: buttons right beside the value in the same cell,
+       *  shown with an empty value too. Rejected on every other screen kind. */
+      readonly actions?: readonly RowAction[];
       /** Marks this field as a reference lookup instead of a plain value —
        *  for projectionDetail fields, which have no `EntityDefinition` to
        *  carry a real `reference` field type. Same target convention as
@@ -365,6 +368,8 @@ export function relatedListGroupHeaderLabel(
 /** Row tint rule: rows where the `FieldCondition` (`{ field, eq }`, `{ field,
  *  in }` …) holds get the tone. `bad` renders red. */
 export type RelatedListRowTone = Exclude<FieldCondition, boolean> & {
+  /** Light background in the tone color in addition to the left stripe. */
+  readonly fill?: true;
   readonly tone: SelectOptionTone;
 };
 
@@ -506,8 +511,11 @@ export type EditRelatedListSection = EditSectionPresentation & {
   /** Bulk actions over checkbox-selected rows, each pointing at a writeHandler row action. Adds a checkbox column and a selection bar; without it the list has no checkboxes. */
   readonly bulkActions?: readonly ListBulkAction[];
   /** Tints rows whose field matches — a declarative rule, not a function, so
-   *  the screen definition stays serializable. */
-  readonly rowTone?: RelatedListRowTone;
+   *  the screen definition stays serializable. An array is evaluated in order, the first matching rule wins. */
+  readonly rowTone?: RelatedListRowTone | readonly RelatedListRowTone[];
+  /** Parent-record condition (like `visibleWhen`): while it does not match, the list draws no row-action
+   *  column, no bulk actions and no inline cell editing. */
+  readonly rowActionsWhen?: Exclude<FieldCondition, boolean>;
   /** Rows where the `FieldCondition` (`{ field, eq }`, `{ field, in }` …) holds are greyed out and struck
    *  through, e.g. a lost offer line. The row-action column stays readable. */
   readonly struckWhen?: Exclude<FieldCondition, boolean>;
@@ -594,6 +602,8 @@ type EditWriteFormShared = EditSectionPresentation & {
   /** Field-type map for this section's own form — same shape as
    *  `ActionFormScreenDefinition.fields`. */
   readonly fieldDefs: Readonly<Record<string, FieldDefinition>>;
+  /** Entity whose file fields of the same name this form's file fields upload as, so a handler saving them through that entity's executor binds the upload. Required when `fieldDefs` has a file, image, files or images field; the entity must declare a file field of that name. */
+  readonly uploadEntity?: string;
   /** Rendered fields, in order — same shape as `EditFieldsSection.fields`.
    *  Every referenced field must have an entry in `fieldDefs`. */
   readonly fields: readonly EditFieldSpec[];

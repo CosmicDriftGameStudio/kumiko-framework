@@ -9,20 +9,34 @@ type LeaveConfirmer = (decision: {
   readonly cancel: () => void;
 }) => void;
 
-const sources = new Set<UnsavedInputSource>();
+type SourceOptions = {
+  /** The form stays mounted across the tabs of its record, so a tab switch loses none of its input. */
+  readonly outlivesTabSwitch?: boolean;
+};
+
+const sources = new Map<UnsavedInputSource, SourceOptions>();
 let confirmer: LeaveConfirmer | undefined;
 // While a confirmed (or unguarded) leave runs, navigation calls nested inside it must not ask a second time.
 let runningLeaveDepth = 0;
 
-export function registerUnsavedInputSource(source: UnsavedInputSource): () => void {
-  sources.add(source);
+export function registerUnsavedInputSource(
+  source: UnsavedInputSource,
+  options: SourceOptions = {},
+): () => void {
+  sources.set(source, options);
   return () => {
     sources.delete(source);
   };
 }
 
 export function hasUnsavedInput(): boolean {
-  for (const source of sources) if (source()) return true;
+  for (const source of sources.keys()) if (source()) return true;
+  return false;
+}
+
+function tabSwitchLosesInput(): boolean {
+  for (const [source, { outlivesTabSwitch }] of sources)
+    if (outlivesTabSwitch !== true && source()) return true;
   return false;
 }
 
@@ -44,6 +58,12 @@ export function requestLeave(proceed: () => void, cancel: () => void = () => {})
   confirmer({ proceed: () => runLeave(proceed), cancel });
 }
 
+/** `requestLeave` for a switch between the tabs of one record: input in a form below the tabs stays. */
+export function requestTabSwitch(proceed: () => void): void {
+  if (tabSwitchLosesInput()) requestLeave(proceed);
+  else runLeave(proceed);
+}
+
 /** For a leave whose unsaved input is carried along and restored on return: nothing is lost, so no question. */
 export function leaveWithoutAsking(proceed: () => void): void {
   runLeave(proceed);
@@ -60,8 +80,12 @@ function runLeave(proceed: () => void): void {
 
 /** `isDirty` is read lazily, at guard time, so a form can report "clean"
  *  synchronously after a successful save — before React re-renders. */
-export function useUnsavedInputSource(isDirty: () => boolean): void {
+export function useUnsavedInputSource(isDirty: () => boolean, options: SourceOptions = {}): void {
   const isDirtyRef = useRef(isDirty);
   isDirtyRef.current = isDirty;
-  useEffect(() => registerUnsavedInputSource(() => isDirtyRef.current()), []);
+  const outlivesTabSwitch = options.outlivesTabSwitch === true;
+  useEffect(
+    () => registerUnsavedInputSource(() => isDirtyRef.current(), { outlivesTabSwitch }),
+    [outlivesTabSwitch],
+  );
 }

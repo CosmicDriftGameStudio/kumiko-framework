@@ -13,7 +13,12 @@ export type ProjectionDrawerModel = {
   readonly userRoles: Parameters<typeof DrawerHost>[0]["userRoles"];
   readonly drawer: Pick<
     ReturnType<typeof useDrawerAction>,
-    "drawerAction" | "drawerScreen" | "drawerInitialValues" | "drawerRecordId" | "closeDrawer"
+    | "drawerAction"
+    | "drawerScreen"
+    | "drawerInitialValues"
+    | "drawerRecordId"
+    | "drawerHeadingValues"
+    | "closeDrawer"
   >;
   readonly refreshRows: () => Promise<void>;
   readonly renderDetail?: DrawerDetailRenderer;
@@ -21,7 +26,14 @@ export type ProjectionDrawerModel = {
 
 export function renderProjectionDrawerHost(model: ProjectionDrawerModel): ReactNode {
   const { schema, translate, userRoles, drawer, refreshRows, renderDetail } = model;
-  const { drawerAction, drawerScreen, drawerInitialValues, drawerRecordId, closeDrawer } = drawer;
+  const {
+    drawerAction,
+    drawerScreen,
+    drawerInitialValues,
+    drawerRecordId,
+    drawerHeadingValues,
+    closeDrawer,
+  } = drawer;
   return (
     <DrawerHost
       schema={schema}
@@ -29,6 +41,7 @@ export function renderProjectionDrawerHost(model: ProjectionDrawerModel): ReactN
       drawerScreen={drawerScreen}
       {...(drawerInitialValues !== undefined && { drawerInitialValues })}
       {...(drawerRecordId !== undefined && { drawerRecordId })}
+      {...(drawerHeadingValues !== undefined && { drawerHeadingValues })}
       {...(renderDetail !== undefined && { renderDetail })}
       userRoles={userRoles}
       {...(translate !== undefined && { translate })}

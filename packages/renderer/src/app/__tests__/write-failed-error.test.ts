@@ -33,6 +33,25 @@ describe("dispatcherErrorText with an unprocessable reason", () => {
     expect(dispatcherErrorText(error, translate)).toBe("Generic");
   });
 
+  test("an untranslated reason falls back to a non-empty details.message", () => {
+    const error = unprocessableError({
+      details: { reason: "x.unknown", message: "The PDF has no pages." },
+    });
+    expect(dispatcherErrorText(error, translate)).toBe("The PDF has no pages.");
+  });
+
+  test("a translated reason wins over details.message", () => {
+    const error = unprocessableError({
+      details: { reason: "banking.invalid_iban", message: "raw text" },
+    });
+    expect(dispatcherErrorText(error, translate)).toBe("The IBAN is not valid.");
+  });
+
+  test("an empty details.message does not replace the generic text", () => {
+    const error = unprocessableError({ details: { reason: "x.unknown", message: "" } });
+    expect(dispatcherErrorText(error, translate)).toBe("Generic");
+  });
+
   test("an explicit i18nKey on the error wins over the reason", () => {
     const error = unprocessableError({ i18nKey: "errors.custom" });
     expect(dispatcherErrorText(error, translate)).toBe("Custom");

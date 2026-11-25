@@ -13,6 +13,7 @@ import type {
 import { I18N_KEY_PARAM } from "../headless/index.ts";
 import { useForm } from "../hooks/use-form.ts";
 import { useTranslation } from "../i18n.tsx";
+import { NarrowFileInputProvider, useInsideDrawer } from "../inside-drawer.ts";
 import { useUnsavedInputSource } from "../leave-guard.ts";
 import { STICKY_PRIMARY_ACTION_PROP, usePrimitives } from "../primitives.tsx";
 import { GridCellForField } from "./grid-cell-for-field.tsx";
@@ -154,7 +155,7 @@ export function WriteFormSection({
   actions,
   onFooterAction,
 }: WriteFormSectionProps): ReactNode {
-  const { Grid, GridCell, Button, StatusBadge, FillContainer } = usePrimitives();
+  const { GridCell, Button, StatusBadge, FillContainer } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
 
@@ -170,8 +171,10 @@ export function WriteFormSection({
     }),
     schema,
   });
-  useUnsavedInputSource(() => controller.getSnapshot().isDirty);
   const isFooter = section.placement === "footer";
+  useUnsavedInputSource(() => controller.getSnapshot().isDirty, { outlivesTabSwitch: isFooter });
+  const insideDrawer = useInsideDrawer();
+  const gutter = insideDrawer ? "px-6 max-sm:px-4" : "px-4";
   const { submitWith } = section;
   useReportWriteFormDirty(snapshot.isDirty, isFooter ? FOOTER_WRITE_FORM_DIRTY_KEY : submitWith);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -245,31 +248,37 @@ export function WriteFormSection({
 
   const content = (
     <>
-      <Grid columns={section.columns}>
+      <FieldsFrame isFooter={isFooter} columns={section.columns}>
         {section.fields.map((field: EditFieldViewModel) => (
-          <GridCellForField
-            key={field.field}
-            field={{ ...field, value: snapshot.values[field.field] }}
-            columns={section.columns}
-            issues={snapshot.errors[field.field]}
-            onChange={(v) => {
-              controller.setField(field.field, v);
-              const errors = controller.getSnapshot().errors;
-              const remaining = issuesAfterEdit(errors, field.field);
-              if (remaining !== errors) controller.setErrors(remaining);
-              setError(null);
-            }}
-            GridCell={GridCell}
-            featureName={featureName}
-            {...appendixCellProps({}, field, { ...recordValues, ...snapshot.values }, StatusBadge)}
-            allIssues={snapshot.errors}
-            valueDisplay="form"
-            row={snapshot.values}
-            {...(hideTitle !== true &&
-              section.title !== undefined && { sectionTitle: section.title })}
-          />
+          <FieldFrame key={field.field} isFooter={isFooter} field={field}>
+            <GridCellForField
+              field={{ ...field, value: snapshot.values[field.field] }}
+              columns={section.columns}
+              issues={snapshot.errors[field.field]}
+              onChange={(v) => {
+                controller.setField(field.field, v);
+                const errors = controller.getSnapshot().errors;
+                const remaining = issuesAfterEdit(errors, field.field);
+                if (remaining !== errors) controller.setErrors(remaining);
+                setError(null);
+              }}
+              GridCell={GridCell}
+              featureName={featureName}
+              {...appendixCellProps(
+                {},
+                field,
+                { ...recordValues, ...snapshot.values },
+                StatusBadge,
+              )}
+              allIssues={snapshot.errors}
+              valueDisplay="form"
+              row={snapshot.values}
+              {...(hideTitle !== true &&
+                section.title !== undefined && { sectionTitle: section.title })}
+            />
+          </FieldFrame>
         ))}
-      </Grid>
+      </FieldsFrame>
       <WriteFormFeedback
         error={error}
         submitRow={
@@ -284,12 +293,14 @@ export function WriteFormSection({
   if (isFooter) {
     return (
       <FillContainer
-        className="sticky bottom-0 z-10 gap-2 border-t bg-background px-4 py-3"
+        {...(!insideDrawer && { className: "sticky bottom-0 z-10 bg-background" })}
         testId="write-form-footer"
       >
-        {content}
+        <FillContainer className={`gap-2 py-3 ${gutter}`}>{content}</FillContainer>
         {actions !== undefined && (
-          <FillContainer className="flex-row flex-wrap items-center justify-end gap-2">
+          <FillContainer
+            className={`flex-row flex-wrap items-center justify-end gap-2 border-t py-3 ${gutter}`}
+          >
             {actions}
           </FillContainer>
         )}
@@ -307,6 +318,43 @@ export function WriteFormSection({
     >
       {content}
     </WriteFormSectionFrame>
+  );
+}
+
+function FieldsFrame({
+  isFooter,
+  columns,
+  children,
+}: {
+  readonly isFooter: boolean;
+  readonly columns: number;
+  readonly children: ReactNode;
+}): ReactNode {
+  const { Grid, FillContainer } = usePrimitives();
+  if (!isFooter) return <Grid columns={columns}>{children}</Grid>;
+  return <FillContainer className="gap-4 sm:flex-row sm:items-start">{children}</FillContainer>;
+}
+
+// In the footer a file field keeps a fixed column and the other fields share the rest.
+function FieldFrame({
+  isFooter,
+  field,
+  children,
+}: {
+  readonly isFooter: boolean;
+  readonly field: EditFieldViewModel;
+  readonly children: ReactNode;
+}): ReactNode {
+  const { FillContainer } = usePrimitives();
+  if (!isFooter) return children;
+  const holdsFile = field.type === "file" || field.type === "image";
+  return (
+    <FillContainer
+      className={`min-w-0 ${holdsFile ? "sm:w-[260px] sm:shrink-0" : "sm:flex-1"}`}
+      testId={`write-form-footer-field-${field.field}`}
+    >
+      <NarrowFileInputProvider value={true}>{children}</NarrowFileInputProvider>
+    </FillContainer>
   );
 }
 

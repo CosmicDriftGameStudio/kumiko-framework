@@ -104,7 +104,16 @@ export function computeWriteFormSectionViewModel<TValues extends Readonly<Record
     featureName,
   });
   const innerSection = inner.sections[0];
-  const fields = innerSection?.kind === "fields" ? innerSection.fields : [];
+  const innerFields = innerSection?.kind === "fields" ? innerSection.fields : [];
+  // A handler saving the file through the host entity's executor only binds uploads stored as that
+  // entity's field, so the hints name it instead of the pseudo-entity.
+  const { uploadEntity } = sectionSpec;
+  const fields =
+    uploadEntity === undefined
+      ? innerFields
+      : innerFields.map((field) =>
+          field.entityType === undefined ? field : { ...field, entityType: uploadEntity },
+        );
   return {
     kind: "writeForm" as const,
     ...(sectionSpec.title !== undefined && { title: translate(sectionSpec.title) }),
@@ -257,6 +266,9 @@ function relatedListRowProps(sectionSpec: EditRelatedListSection) {
     ...(sectionSpec.rowActionMode !== undefined && { rowActionMode: sectionSpec.rowActionMode }),
     ...(sectionSpec.bulkActions !== undefined && { bulkActions: sectionSpec.bulkActions }),
     ...(sectionSpec.rowTone !== undefined && { rowTone: sectionSpec.rowTone }),
+    ...(sectionSpec.rowActionsWhen !== undefined && {
+      rowActionsWhen: sectionSpec.rowActionsWhen,
+    }),
     ...(sectionSpec.struckWhen !== undefined && { struckWhen: sectionSpec.struckWhen }),
     ...(sectionSpec.toolbarActions !== undefined && { toolbarActions: sectionSpec.toolbarActions }),
     ...(sectionSpec.actions !== undefined && { actions: sectionSpec.actions }),
@@ -317,6 +329,7 @@ type FieldAffixHints = Pick<
   | "badge"
   | "hintField"
   | "hideOnNarrow"
+  | "actions"
 >;
 
 function contextDocumentHints(
@@ -389,6 +402,7 @@ function deriveFieldAffixHints(
     }),
     ...(normalized.hintField !== undefined && { hintField: normalized.hintField }),
     ...(normalized.hideOnNarrow === true && { hideOnNarrow: true as const }),
+    ...(normalized.actions !== undefined && { actions: normalized.actions }),
   };
 }
 

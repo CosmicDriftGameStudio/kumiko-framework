@@ -1792,6 +1792,7 @@ type RenderEditAction = {
   confirmRequired?: boolean; // Overrides the default "danger implies a confirm dialog" rule.
   icon?: IconKey; // Resolved icon (author `RowAction.icon` or the id-derived default) — drives both the icon-left-of-text render and the icon-only collapse rule (see `shouldRenderActionsIconOnly`).
   align?: "start"; // "start" sets the button apart on the left of the form footer.
+  disabled?: true; // Shown but not clickable.
   pinnedOnPhone?: true; // Stays a visible button in the pinned footer below `sm` instead of folding into the "…" menu.
 };
 ```
@@ -2343,6 +2344,7 @@ type EditFieldViewModel = {
   badge?: FieldBadge; // From EditFieldSpec.badge, a fixed `label` already translated.
   hintField?: string; // From EditFieldSpec.hintField.
   hideOnNarrow?: true; // From EditFieldSpec.hideOnNarrow.
+  actions?: RowAction[]; // From EditFieldSpec.actions, still untranslated RowActions.
   embeddedListCells?: EmbeddedListCellViewModel[]; // Only set for an embedded-LIST field (`multiple: true`) — the per-cell metadata the renderer needs to draw each column/cell.
   embeddedListMinItems?: number; // Minimum row count for the embedded list.
   embeddedListMaxItems?: number; // Maximum row count for the embedded list.
@@ -2473,6 +2475,7 @@ type MetricBandProps = { // Band above the tabs of a record detail: optional sub
   testId?: string;
   splitPart?: "lead" | "tiles"; // One half of a band split for the narrow order: lead drops the bottom padding, tiles uses pt-3.
   flush?: boolean; // The surrounding section already insets its content, so the band adds no padding of its own.
+  flat?: boolean; // The metrics sit left-aligned in a plain row (small label over a larger value), like the rest of a flat header.
 };
 type MetricProps = { // Compact label/value tile (record-detail metrics band).
   label: string;
@@ -2485,6 +2488,23 @@ type MetricProps = { // Compact label/value tile (record-detail metrics band).
   icon?: NavIconKey;
   sub?: string; // Small muted line under the value (see `MetricSpec.subField`).
   narrowSub?: string; // Replaces `sub` below `sm` (see `MetricSpec.subFieldNarrow`).
+};
+```
+
+## packages/renderer/src/primitives-drawer-types.ts
+
+```ts
+type DrawerProps = { // Side panel hosting a self-contained form or detail without leaving the underlying screen: a `kind: "drawer"` action mounts an actionForm or a projectionDetail here instead of a full page.
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title?: string;
+  subtitle?: string; // Muted line under the title.
+  width?: "wide" | "popup"; // `"wide"` asks for a broad panel (1280px, capped at 85vw); `"popup"` fills the viewport minus a 24px margin on the web; default is the standard panel width.
+  headerless?: true; // No visible title bar: the title stays for assistive tech and the close cross floats top right, because the hosted content brings its own header.
+  onEscapeKey?: () => boolean; // Escape pressed while open: return true to consume it, so the drawer stays open.
+  back?: true; // Header shows a back arrow left of the title instead of the close cross; it only closes this drawer.
+  children: ReactNode;
+  testId?: string;
 };
 ```
 
@@ -2600,6 +2620,8 @@ type StickyActionBarProps = { // Thumb-reach action row for custom screens: pinn
 type FileValueListProps = { // Read-only list of stored files (FileRef ids): name, download link and, for PDFs, an inline preview.
   fileIds: string[];
   previewOpenByDefault?: boolean; // Starts the inline PDF preview of the newest file open; uploads append, so that is the last id.
+  downloadAsButton?: boolean; // Draws the download link as an outlined button (a field with actions beside it).
+  boxed?: boolean; // File icon and bold name on the left, the download button pushed to the right edge of the row.
   testId?: string;
 };
 type JsonViewProps = { // Structured JSON display (audit payload/metadata, job logs, unsupported jsonb/embedded field fallback).
@@ -2680,7 +2702,10 @@ type DataTableRowAction = {
   confirmLabel?: string; // Translated confirm-button label in the dialog.
   confirmRequired?: boolean; // Overrides the default "danger implies a confirm dialog" rule.
   onTrigger: (row: ListRowViewModel) => Promise<void> | void; // Called with the clicked row's `ListRowViewModel`.
-  isVisible?: (row: ListRowViewModel) => boolean; // Controls per-row visibility (e.g. show "Start" only when `status==="scheduled"`).
+  isVisible?: (row: ListRowViewModel) => boolean; // Per-row visibility (e.g. show "Start" only when `status==="scheduled"`).
+  isDisabled?: (row: ListRowViewModel) => boolean;
+  isActive?: (row: ListRowViewModel) => boolean; // Inline buttons only: true draws the button pressed (`aria-pressed`) and keeps its colour when also disabled.
+  activeStyle?: "danger"; // Fill of a pressed button: "danger" is solid destructive, unset an accent tint.
   rowClick?: boolean; // This action is what a click on the row does.
   inMenu?: false; // `false`: never in the row menu or action column; the row click still runs it.
   icon?: IconKey; // Resolved icon (author or id-derived default); drives the icon-left render and the icon-only collapse.
@@ -2707,21 +2732,13 @@ type DialogProps = { // Modal dialog for confirmations or compact sub-forms.
   children?: ReactNode; // Optional additional content between the description and buttons, such as an input when the dialog also collects data.
   testId?: string;
 };
-type DrawerProps = { // Side panel hosting a self-contained form or detail without leaving the underlying screen: a `kind: "drawer"` action mounts an actionForm or a projectionDetail here instead of a full page.
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title?: string;
-  subtitle?: string; // Muted line under the title.
-  width?: "wide"; // `"wide"` asks for a broad panel (1280px, capped at 85vw); default is the standard panel width.
-  children: ReactNode;
-  testId?: string;
-};
 type FieldCellWidth = "text" | "number" | "money" | "date" | "timestamp" | "select" | "full" | "toggle"; // Width class of a field cell inside a `flow` grid: sized by what the field holds.
 type FillContainerProps = { // Chromeless flex-fill layout host — no title, no card frame, no padding, just a container that sizes to its content and, once the ancestor chain is height-constrained, shrinks so one scrolling child can scroll internally instead of the page growing.
   children: ReactNode;
   testId?: string;
   className?: string; // Layout extras, merged via cn().
-  grow?: boolean; // Claims the remaining height of the flex chain (`flex-1`) instead of sizing to its content, so a footer inside the child sits at the bottom edge even with few rows.
+  grow?: boolean; // Claims the remaining height of the flex chain (`flex-1`) instead of sizing to its content, so a footer inside sits at the bottom edge even with few rows.
+  restoreFocus?: true; // On unmount the element focused at mount gets the focus back.
   dataAttributes?: DataAttributes; // Extra `data-*` attributes on the container.
 };
 type FormSectionNavItem = { // One entry of a form's "on this page" navigation: `id` matches the `SectionProps.id` of the section it scrolls to.
@@ -5409,6 +5426,7 @@ type EditWriteFormShared = EditSectionPresentation & {
   columns?: number;
   icon?: IconKey;
   fieldDefs: Readonly<Record<string, FieldDefinition>>; // Field-type map for this section's own form — same shape as `ActionFormScreenDefinition.fields`.
+  uploadEntity?: string; // Entity whose file fields of the same name this form's file fields upload as, so a handler saving them through that entity's executor binds the upload.
   fields: EditFieldSpec[]; // Rendered fields, in order — same shape as `EditFieldsSection.fields`.
   actions?: RowAction[]; // Rendered top-right in the section's Card title row — same navigate/drawer/writeHandler dispatch as `ProjectionDetailScreenDefinition.actions`, evaluated against the same record.
 };
@@ -5439,6 +5457,7 @@ type RowActionNavigateBase = {
   params?: RowFieldExtractor; // Declarative URL search params extracted from the clicked row.
   tab?: string; // Section id of the tab to activate on the target projectionDetail (layout.mode "tabs"); merged into the navigate search params next to returnTo.
   visible?: FieldCondition; // Conditional visibility per row.
+  disabled?: FieldCondition; // Shown but not clickable while the condition holds.
   showOnTabs?: string[]; // projectionDetail header action only: shown while one of these tab (section) ids is active.
   style?: "primary" | "secondary" | "danger"; // Visual style only — unlike the writeHandler variants, "danger" does not force a confirm dialog here: the target form is the confirmation.
   rowClick?: boolean; // When true, a click on the whole row (not just the action menu) triggers this navigate action.
@@ -5538,6 +5557,7 @@ type RecordHeaderSpec = {
   narrowSubtitle?: string; // Field holding a plain-text subtitle shown instead of `subtitle` below `sm` (e.g. "Main St 12, Berlin · 3 rooms").
   narrowTitle?: string; // i18n key of a short title for the phone top bar ("Approval") instead of the record title.
   status?: string;
+  secondaryStatus?: string; // Record field of a second badge after the `status` badge; text and tone resolve like `status` (same `statusTones`).
   statusFormat?: FormatSpec; // Formats the badge text (typically `enumOption` with a `keyPrefix`); tones still resolve on the raw value.
   subtitleHref?: string; // Record field holding an absolute http(s) URL.
   statusToneField?: string; // Record field whose value selects the `statusTones` entry, for a badge text that carries more than the state (e.g. "Terminated on 31.03.2027").

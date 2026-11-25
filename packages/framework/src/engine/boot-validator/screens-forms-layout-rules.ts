@@ -102,6 +102,11 @@ export const FORM_LAYOUT_RULES = {
     summary: "Inline form layouts have no writeForm sections.",
     fix: "Move the section to a projectionDetail screen or remove it.",
   },
+  fieldActionsUnsupported: {
+    id: "form/field-actions-unsupported",
+    summary: "Field actions exist only on fields sections of a projectionDetail screen.",
+    fix: "Remove actions from the field, or move the field to a projectionDetail fields section.",
+  },
   layoutUnknownField: {
     id: "form/layout-unknown-field",
     summary: "Layout fields name fields of the form.",

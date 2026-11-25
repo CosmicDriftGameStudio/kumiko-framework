@@ -40,6 +40,7 @@ import {
   validateScreenNavTarget,
 } from "./screens-actions.ts";
 import { SCREEN_ACTION_RULES } from "./screens-actions-rules.ts";
+import { rejectFieldActions } from "./screens-field-actions.ts";
 import { FORM_LAYOUT_RULES } from "./screens-forms-layout-rules.ts";
 import { FORM_FIELD_RULES } from "./screens-forms-rules.ts";
 
@@ -882,6 +883,7 @@ function validateFormLayoutSections(
     validateFieldsXorGroups(`[Feature ${featureName}] Screen "${screenId}" (${context})`, section);
     for (const fieldSpec of sectionFieldSpecs(section)) {
       const normalized = normalizeEditField(fieldSpec);
+      rejectFieldActions(featureName, screenId, context, normalized);
       if (!fieldNames.has(normalized.field)) {
         throw bootRuleError(FORM_LAYOUT_RULES.layoutUnknownField, {
           message:

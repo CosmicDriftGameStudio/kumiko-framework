@@ -286,6 +286,7 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  actions for that section. */
   readonly buildSectionActions?: (
     actions: readonly RowAction[],
+    options?: { readonly declaredIconsOnly?: boolean },
   ) => readonly RenderEditAction[] | undefined;
 };
 
@@ -308,6 +309,8 @@ export type RenderEditAction = {
   readonly icon?: IconKey;
   /** "start" sets the button apart on the left of the form footer. */
   readonly align?: "start";
+  /** Shown but not clickable. */
+  readonly disabled?: true;
   /** Stays a visible button in the pinned footer below `sm` instead of folding into the "…" menu. */
   readonly pinnedOnPhone?: true;
 };

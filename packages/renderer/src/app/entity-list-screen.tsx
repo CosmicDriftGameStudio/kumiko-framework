@@ -63,6 +63,7 @@ import {
   buildWriteHandlerRowAction,
   findRowClickAction,
   navigateActionSearchParams,
+  rowDisabledPredicate,
   runDrawerRowAction,
 } from "./row-actions.ts";
 import { findEditScreenFor } from "./screen-access.ts";
@@ -170,6 +171,7 @@ function EntityListBody({
     drawerScreen,
     drawerInitialValues,
     drawerRecordId,
+    drawerHeadingValues,
     openDrawer,
     closeDrawer,
   } = useDrawerAction(schema);
@@ -401,9 +403,10 @@ function EntityListBody({
     const declared = screen.rowActions ?? [];
     // Prepended unless a declared rowAction already has id "edit" — declared wins.
     const declaredHasEdit = declared.some((a) => a.id === "edit");
-    const defaultEditRowAction = declaredHasEdit
-      ? undefined
-      : buildDefaultEditRowAction(defaultEditScreen);
+    const defaultEditRowAction =
+      declaredHasEdit || screen.allowEdit === false
+        ? undefined
+        : buildDefaultEditRowAction(defaultEditScreen);
     const effectiveActions: readonly RowAction[] =
       defaultEditRowAction !== undefined ? [defaultEditRowAction, ...declared] : declared;
     if (effectiveActions.length === 0) return undefined;
@@ -428,6 +431,7 @@ function EntityListBody({
             ...(actionVisible !== undefined && {
               isVisible: (row: ListRowViewModel) => evalFieldCondition(actionVisible, row.values),
             }),
+            ...rowDisabledPredicate(action.disabled),
           };
         }
         if (action.kind === "drawer") {
@@ -452,6 +456,7 @@ function EntityListBody({
       .filter((a: DataTableRowAction | null): a is DataTableRowAction => a !== null);
   }, [
     screen.rowActions,
+    screen.allowEdit,
     defaultEditScreen,
     effectiveTranslate,
     dispatcher,
@@ -676,6 +681,7 @@ function EntityListBody({
         drawerScreen={drawerScreen}
         {...(drawerInitialValues !== undefined && { drawerInitialValues })}
         {...(drawerRecordId !== undefined && { drawerRecordId })}
+        {...(drawerHeadingValues !== undefined && { drawerHeadingValues })}
         renderDetail={renderDetailInDrawer}
         userRoles={userRoles}
         {...(translate !== undefined && { translate })}

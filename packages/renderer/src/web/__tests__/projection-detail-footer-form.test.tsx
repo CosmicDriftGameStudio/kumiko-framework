@@ -2,7 +2,10 @@
 // actions send the form values together with their own payload in one write.
 
 import { describe, expect, test } from "bun:test";
-import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  ProjectionDetailScreenDefinition,
+  RowAction,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema, NavApi } from "../../index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
@@ -80,6 +83,15 @@ describe("projectionDetail footer writeForm", () => {
     expect(screen.getAllByTestId("write-form-footer")).toHaveLength(1);
   });
 
+  test("on the full page the footer is no wrapped pane, so its sticky stays page-relative", async () => {
+    renderTab("first", []);
+    const footer = await waitFor(() => screen.getByTestId("write-form-footer"));
+    const form = screen.getByTestId("render-edit-form");
+    expect(footer.closest(".shrink-0")).toBeNull();
+    expect(form.closest(".overflow-y-auto")).toBeNull();
+    expect(form.parentElement?.contains(footer)).toBe(true);
+  });
+
   test("the footer is also there on the second tab", async () => {
     renderTab("second", []);
     await waitFor(() => screen.getByTestId("write-form-footer"));
@@ -113,5 +125,157 @@ describe("projectionDetail footer writeForm", () => {
     });
 
     expect(writes).toEqual([]);
+  });
+});
+
+type Call = { readonly type: string; readonly payload: unknown };
+
+const failingSend = {
+  isSuccess: false as const,
+  error: { code: "BOOM", httpStatus: 422, i18nKey: "errors.boom", message: "Choose a reason" },
+};
+
+function renderDetail(
+  detail: ProjectionDetailScreenDefinition,
+  tab: string,
+  calls: Call[],
+  write: (type: string) => Awaited<ReturnType<Dispatcher["write"]>>,
+  extraScreens: FeatureSchema["screens"] = [],
+): void {
+  const dispatcher: Dispatcher = createMockDispatcher({
+    query: async (type: string) =>
+      type === "notes:query:note:items"
+        ? { isSuccess: true, data: { rows: [{ id: "p1", label: "Line 1" }], nextCursor: null } }
+        : { isSuccess: true, data: { id: "note-1", title: "Hello" } },
+    write: async (type: string, payload: unknown) => {
+      calls.push({ type, payload });
+      return write(type);
+    },
+  });
+  const navApi: NavApi = {
+    route: undefined,
+    navigate: () => {},
+    replace: () => {},
+    hrefFor: () => "",
+    searchParams: { tab },
+    setSearchParams: () => {},
+  };
+  render(
+    <NavProvider value={navApi}>
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={{ featureName: "notes", entities: {}, screens: [detail, ...extraScreens] }}
+          qn="notes:screen:note-detail"
+          entityId="note-1"
+        />
+      </DispatcherProvider>
+    </NavProvider>,
+  );
+}
+
+const sendAction = {
+  kind: "writeHandler" as const,
+  id: "send",
+  label: "Send",
+  handler: "notes:write:send",
+  payload: { map: { noteId: "id" } },
+};
+
+const footerWriteForm = (actions: readonly RowAction[]) => ({
+  kind: "writeForm" as const,
+  placement: "footer" as const,
+  fieldDefs: { message: { type: "text" as const } },
+  fields: ["message"],
+  actions,
+});
+
+describe("projectionDetail action error banner", () => {
+  const withItems: ProjectionDetailScreenDefinition = {
+    ...footerScreen,
+    layout: {
+      mode: "tabs",
+      sections: [
+        { id: "first", tabLabel: "First", title: "First", fields: ["title"] },
+        {
+          id: "items",
+          tabLabel: "Items",
+          kind: "relatedList",
+          title: "Items",
+          query: "notes:query:note:items",
+          parentParam: "noteId",
+          columns: [{ field: "label", label: "notes:col:label" }],
+          rowActions: [
+            { kind: "writeHandler", id: "close", label: "Close", handler: "notes:write:close" },
+          ],
+        },
+        footerWriteForm([sendAction]),
+      ],
+    },
+  };
+
+  test("stays after a failed footer action and goes with the next successful related-list row action", async () => {
+    const calls: Call[] = [];
+    renderDetail(withItems, "items", calls, (type) =>
+      type === "notes:write:send" ? failingSend : { isSuccess: true, data: {} },
+    );
+    await act(async () => {
+      fireEvent.click(await waitFor(() => screen.getByTestId("render-edit-action-send")));
+      await Promise.resolve();
+    });
+    await waitFor(() => screen.getByTestId("render-edit-action-error"));
+
+    await act(async () => {
+      fireEvent.click(await waitFor(() => screen.getByTestId("row-p1-action-close")));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(calls.map((call) => call.type)).toContain("notes:write:close"));
+    await waitFor(() => expect(screen.queryByTestId("render-edit-action-error")).toBeNull());
+  });
+});
+
+describe("projectionDetail footer danger actions", () => {
+  const noteForm: FeatureSchema["screens"][number] = {
+    id: "note-form",
+    type: "actionForm",
+    handler: "notes:write:note",
+    fields: { note: { type: "text" } },
+    layout: { sections: [{ fields: ["note"] }] },
+  };
+  const withDanger: ProjectionDetailScreenDefinition = {
+    ...footerScreen,
+    layout: {
+      mode: "tabs",
+      sections: [
+        { id: "first", tabLabel: "First", title: "First", fields: ["title"] },
+        { id: "second", tabLabel: "Second", title: "Second", fields: ["title"] },
+        footerWriteForm([
+          { ...sendAction, style: "danger" },
+          {
+            kind: "drawer",
+            id: "open-form",
+            label: "Open form",
+            screen: "note-form",
+            style: "danger",
+          },
+        ]),
+      ],
+    },
+  };
+
+  test("a danger action is an outlined button with destructive text, not a filled red one", async () => {
+    renderDetail(withDanger, "first", [], () => ({ isSuccess: true, data: {} }), [noteForm]);
+    const button = await waitFor(() => screen.getByTestId("render-edit-action-send"));
+    expect(button.className).toContain("text-destructive");
+    expect(button.className).not.toContain("bg-destructive");
+    expect(button.className).toContain("border");
+  });
+
+  test("a danger drawer action opens its drawer without a confirm", async () => {
+    renderDetail(withDanger, "first", [], () => ({ isSuccess: true, data: {} }), [noteForm]);
+    fireEvent.click(await waitFor(() => screen.getByTestId("render-edit-action-open-form")));
+
+    await waitFor(() => screen.getByTestId("toolbar-drawer-open-form"));
+    expect(screen.queryByTestId("render-edit-action-open-form-dialog")).toBeNull();
   });
 });
