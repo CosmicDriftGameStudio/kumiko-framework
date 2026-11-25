@@ -9,10 +9,15 @@ const ENTITIES: Readonly<Record<string, string>> = {
   "&nbsp;": " ",
 };
 
-// Tags need a closing ">"; "<" after the last ">" can never start one, which keeps the strip linear.
+// Splitting on ">" instead of matching "<[^>]*>" keeps the strip linear for unclosed "<".
 function stripTags(text: string): string {
-  const tagEnd = text.lastIndexOf(">") + 1;
-  return text.slice(0, tagEnd).replace(/<[^>]*>/g, "") + text.slice(tagEnd);
+  const segments = text.split(">");
+  const unclosedRest = segments.pop() ?? "";
+  const keptText = segments.map((segment) => {
+    const tagStart = segment.indexOf("<");
+    return tagStart === -1 ? `${segment}>` : segment.slice(0, tagStart);
+  });
+  return keptText.join("") + unclosedRest;
 }
 
 // Regex instead of DOMParser: the renderer also runs on React Native, which has no DOM.
