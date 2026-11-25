@@ -95,6 +95,7 @@ export type DrawerDetailRenderer = (props: {
   readonly screen: ProjectionDetailScreenWithTarget;
   readonly translate: Translate | undefined;
   readonly entityId: string;
+  readonly onDirtyChange: (dirty: boolean) => void;
 }) => ReactNode;
 
 export function useDrawerAction(schema: FeatureSchema): {
@@ -172,13 +173,16 @@ export function DrawerHost({
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const locale = useLocale().locale();
+  const isDetailTarget = drawerScreen?.type === "projectionDetail";
   const [hasUnsavedInput, setHasUnsavedInput] = useState(false);
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const closeAndReset = useCallback(() => {
     setHasUnsavedInput(false);
     setConfirmDiscardOpen(false);
-    onClose();
-  }, [onClose]);
+    // Actions in the detail may have changed the row, so closing it reloads the list like a submit.
+    if (isDetailTarget) onSuccess();
+    else onClose();
+  }, [isDetailTarget, onClose, onSuccess]);
   const requestClose = useCallback(() => {
     if (hasUnsavedInput) setConfirmDiscardOpen(true);
     else closeAndReset();
@@ -198,10 +202,7 @@ export function DrawerHost({
       <Drawer
         open={true}
         onOpenChange={(open) => {
-          if (open) return;
-          // A detail has no unsaved input of its own; closing it reloads the list behind it.
-          if (drawerScreen?.type === "projectionDetail") onSuccess();
-          else requestClose();
+          if (!open) requestClose();
         }}
         title={effectiveTranslate(drawerAction.title ?? drawerAction.label, titleParams)}
         {...(drawerAction.subtitle !== undefined && {
@@ -229,6 +230,7 @@ export function DrawerHost({
                 translate,
                 entityId: drawerRecordId,
                 renderDetail,
+                onDirtyChange: setHasUnsavedInput,
               })
             ) : (
               <ActionFormBody
@@ -271,14 +273,15 @@ function renderDetailTarget(input: {
   readonly translate: Translate | undefined;
   readonly entityId: string | undefined;
   readonly renderDetail: DrawerDetailRenderer | undefined;
+  readonly onDirtyChange: (dirty: boolean) => void;
 }): ReactNode {
-  const { schema, screen, translate, entityId, renderDetail } = input;
+  const { schema, screen, translate, entityId, renderDetail, onDirtyChange } = input;
   if (renderDetail === undefined || entityId === undefined) {
     return (
       <ScreenMissingState screenQn={screen.id} testId="kumiko-toolbar-drawer-detail-unavailable" />
     );
   }
-  return renderDetail({ schema, screen, translate, entityId });
+  return renderDetail({ schema, screen, translate, entityId, onDirtyChange });
 }
 
 function declaresSuccessContent(screen: ActionFormScreenDefinition): boolean {

@@ -184,11 +184,10 @@ export function runDrawerRowAction(
   openDrawer: OpenDrawer,
   row: ListRowViewModel,
 ): void {
-  const rowId = row.values["id"];
   openDrawer(
     action,
     action.params !== undefined ? evalRowExtractor(action.params, row.values) : undefined,
-    typeof rowId === "string" ? rowId : undefined,
+    row.id !== "" ? row.id : undefined,
   );
 }
 

@@ -1,5 +1,5 @@
 import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { type ReactNode, useCallback, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { pageHelpButtonOf } from "../components/page-help-button.tsx";
 import { RenderEdit } from "../components/render-edit.tsx";
 import type { WriteFormRegistry } from "../components/write-form-registry.ts";
@@ -49,12 +49,14 @@ export const renderDetailInDrawer: DrawerDetailRenderer = ({
   screen,
   translate,
   entityId,
+  onDirtyChange,
 }) => (
   <DrawerDetailScope key={entityId}>
     <ProjectionDetailBody
       schema={schema}
       screen={screen}
       entityId={entityId}
+      onDirtyChange={onDirtyChange}
       {...(translate !== undefined && { translate })}
     />
   </DrawerDetailScope>
@@ -76,6 +78,7 @@ export function ProjectionDetailBody({
   screen,
   translate,
   entityId,
+  onDirtyChange,
 }: {
   readonly schema: FeatureSchema;
   // detailFor sits on the ScreenDefinition intersection, not on the
@@ -84,6 +87,8 @@ export function ProjectionDetailBody({
   readonly screen: ProjectionDetailScreenWithTarget;
   readonly translate?: Translate;
   readonly entityId?: string;
+  /** Reports whether any writeForm section holds unsent input (a drawer host asks before closing). */
+  readonly onDirtyChange?: (dirty: boolean) => void;
 }): ReactNode {
   const primitives = usePrimitives();
   const t = useTranslation();
@@ -126,6 +131,11 @@ export function ProjectionDetailBody({
       return next;
     });
   }, []);
+
+  const anyWriteFormDirty = dirtyWriteForms.size > 0;
+  useEffect(() => {
+    onDirtyChange?.(anyWriteFormDirty);
+  }, [anyWriteFormDirty, onDirtyChange]);
 
   const appFeatures = useAppFeatures();
   const userRoles = useUserRoles();

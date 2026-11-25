@@ -141,6 +141,61 @@ function renderList(): Harness {
 
 const DETAIL_DRAWER = "toolbar-drawer-open-offer";
 
+describe("detail drawer with unsent writeForm input", () => {
+  test("closing asks before discarding the input, and keeps the drawer open meanwhile", async () => {
+    const withWriteForm: FeatureSchema = {
+      ...schema,
+      screens: [
+        offerList,
+        {
+          ...offerDetail,
+          layout: {
+            mode: "tabs",
+            sections: [
+              ...offerDetail.layout.sections,
+              {
+                id: "note",
+                tabLabel: "Note",
+                kind: "writeForm",
+                title: "Add note",
+                fieldDefs: { body: { type: "text" } },
+                fields: ["body"],
+                handler: "offers:write:offer:add-note",
+              },
+            ],
+          },
+        },
+        positionNote,
+      ],
+    };
+    const query: MockQueryHandler = async (type: string) =>
+      type === "offers:query:offer:list"
+        ? { isSuccess: true, data: { rows: [{ id: "o1", title: "Offer 1" }], nextCursor: null } }
+        : { isSuccess: true, data: { id: "o1", status: "draft" } };
+    render(
+      <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
+        <KumikoScreen schema={withWriteForm} qn="offers:screen:offer-list" />
+      </DispatcherProvider>,
+    );
+    await openDetail();
+    const drawer = screen.getByTestId(DETAIL_DRAWER);
+    const user = userEvent.setup();
+    await waitFor(() => within(drawer).getByTestId("kumiko-screen-projection-detail-tabs-note"));
+    await user.click(within(drawer).getByTestId("kumiko-screen-projection-detail-tabs-note"));
+    const input = await waitFor(() => {
+      const el = within(drawer).getByTestId("field-body").querySelector("input");
+      if (el === null) throw new Error("expected an <input> inside field-body");
+      return el;
+    });
+    await user.type(input, "unsent");
+
+    await user.click(within(drawer).getByRole("button", { name: /close|schlie/i }));
+
+    await waitFor(() => screen.getByTestId("drawer-discard-dialog"));
+    expect(screen.getByTestId(DETAIL_DRAWER)).toBeTruthy();
+  });
+});
+
 async function openDetail(): Promise<void> {
   await waitFor(() => screen.getByText("Offer 1"));
   await userEvent.setup().click(screen.getByText("Offer 1"));

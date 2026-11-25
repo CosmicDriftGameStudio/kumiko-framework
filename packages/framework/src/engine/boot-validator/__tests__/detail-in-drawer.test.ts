@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
+import type { RowActionDrawer } from "@cosmicdrift/kumiko-types/screen";
 import { registerStubQueryHandler } from "../../__tests__/stub-query-handler.ts";
 import { validateBoot as validateBootRaw } from "../../boot-validator.ts";
 import { defineFeature } from "../../define-feature.ts";
@@ -9,15 +10,6 @@ import { validateEntityListScreens } from "../entity-list-screens.ts";
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
 }
-
-type DrawerRowAction = {
-  readonly kind: "drawer";
-  readonly id: string;
-  readonly label: string;
-  readonly screen: string;
-  readonly rowClick?: boolean;
-  readonly width?: "wide";
-};
 
 describe("projectionDetail as a drawer target", () => {
   test("a rowAction may open a projectionDetail in the drawer", () => {
@@ -100,7 +92,7 @@ describe("projectionDetail as a drawer target", () => {
 
 describe("entity-list/detail-without-navigate with a drawer detail", () => {
   function featureWith(opts: {
-    readonly rowActions: readonly DrawerRowAction[];
+    readonly rowActions: readonly RowActionDrawer[];
     readonly detailFor: string;
   }) {
     return defineFeature("shop", (r) => {
@@ -137,7 +129,7 @@ describe("entity-list/detail-without-navigate with a drawer detail", () => {
     });
   }
 
-  const rowClickDrawer: DrawerRowAction = {
+  const rowClickDrawer: RowActionDrawer = {
     kind: "drawer",
     id: "open",
     label: "shop:action:open",
