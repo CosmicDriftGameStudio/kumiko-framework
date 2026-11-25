@@ -276,7 +276,7 @@ const NO_DERIVED_FIELDS: ReadonlySet<string> = new Set();
 type ActionFieldRefSite = {
   readonly featureName: string;
   readonly screenId: string;
-  readonly actionKind: "rowAction" | "toolbarAction";
+  readonly actionKind: "rowAction" | "toolbarAction" | "fieldAction";
   readonly actionId: string;
 };
 
@@ -347,7 +347,7 @@ function checkVisibleFieldRef(
 export function validateActionFieldRefs(
   featureName: string,
   screenId: string,
-  actionKind: "rowAction" | "toolbarAction",
+  actionKind: "rowAction" | "toolbarAction" | "fieldAction",
   actionId: string,
   action: RowAction | ToolbarAction | RelatedListToolbarAction,
   fieldNames: ReadonlySet<string>,

@@ -522,8 +522,12 @@ function EntityEditUpdateForm({
     [screen.entity, schema, appFeatures, entityId],
   );
   const buildSectionActions = useCallback(
-    (actions: readonly RowAction[]): readonly RenderEditAction[] | undefined =>
+    (
+      actions: readonly RowAction[],
+      iconOptions?: { readonly declaredIconsOnly?: boolean },
+    ): readonly RenderEditAction[] | undefined =>
       buildRecordActions({
+        ...iconOptions,
         actions,
         record,
         translate: effectiveTranslate,

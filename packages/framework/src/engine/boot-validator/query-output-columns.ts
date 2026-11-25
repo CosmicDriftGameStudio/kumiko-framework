@@ -333,12 +333,13 @@ function checkFieldActionFields(
   for (const section of screen.layout.sections) {
     if (!isFieldsEditSection(section)) continue;
     for (const spec of sectionFieldSpecs(section)) {
-      for (const action of normalizeEditField(spec).actions ?? []) {
+      const { field, actions } = normalizeEditField(spec);
+      for (const action of actions ?? []) {
         validateActionFieldRefs(
           featureName,
           screenId,
-          "rowAction",
-          action.id,
+          "fieldAction",
+          `${field}.${action.id}`,
           action,
           fieldNames,
           new Set(),

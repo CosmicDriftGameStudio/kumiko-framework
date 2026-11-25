@@ -89,15 +89,11 @@ export function InPlaceActionForm({
             ariaLabel={t("kumiko.actions.back")}
             onClick={requestClose}
             ref={backRef}
-            testId={`${testId}-back`}
           />
           <FillContainer className="min-w-0 flex-row flex-wrap items-baseline gap-x-3">
             <FillContainer className="text-base font-semibold">{heading.title}</FillContainer>
             {heading.subtitle !== undefined && (
-              <FillContainer
-                className="text-sm text-muted-foreground"
-                testId={`${testId}-subtitle`}
-              >
+              <FillContainer className="text-sm text-muted-foreground">
                 {heading.subtitle}
               </FillContainer>
             )}

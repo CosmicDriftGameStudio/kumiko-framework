@@ -5,12 +5,7 @@ import { validateBoot as validateBootRaw } from "../boot-validator.ts";
 import { createTenantConfig } from "../config-helpers.ts";
 import { defineFeature } from "../define-feature.ts";
 import { defineEntityListHandler } from "../entity-handlers.ts";
-import {
-  createDerivedField,
-  createEntity,
-  createFileField,
-  createTextField,
-} from "../factories.ts";
+import { createDerivedField, createEntity, createTextField } from "../factories.ts";
 import { createRegistry } from "../registry.ts";
 import type { ScreenDefinition } from "../types/screen.ts";
 import { registerStubQueryHandler } from "./stub-query-handler.ts";
@@ -1058,59 +1053,6 @@ describe("r.screen() — registration", () => {
       }),
     ];
     expect(() => validateBoot(features)).toThrow(/\(writeForm\) has zero fields/);
-  });
-
-  describe("projectionDetail writeForm file fields need an uploadEntity", () => {
-    const featuresFor = (uploadEntity: string | undefined, formField = "attachment") => [
-      defineFeature("app", (r) => {
-        registerStubQueryHandler(r, "foo:detail");
-        r.entity(
-          createEntity({
-            name: "dossier",
-            table: "upload_dossiers",
-            fields: {
-              title: createTextField({ personal: false, reason: "test_fixture" }),
-              attachment: createFileField(),
-            },
-          }),
-        );
-        r.screen({
-          id: "x",
-          type: "projectionDetail",
-          query: "app:query:foo:detail",
-          layout: {
-            sections: [
-              {
-                kind: "writeForm",
-                title: "s",
-                ...(uploadEntity !== undefined && { uploadEntity }),
-                fieldDefs: { [formField]: createFileField() },
-                fields: [formField],
-                handler: "app:write:save",
-              },
-            ],
-          },
-        });
-      }),
-    ];
-
-    test("a file field without uploadEntity fails boot", () => {
-      expect(() => validateBoot(featuresFor(undefined))).toThrow(
-        /file field "attachment" but no uploadEntity/,
-      );
-    });
-
-    test("an uploadEntity that is not a registered entity fails boot", () => {
-      expect(() => validateBoot(featuresFor("ghost"))).toThrow(
-        /uploadEntity "ghost", which is not a registered entity/,
-      );
-    });
-
-    test("an uploadEntity without a file field of that name fails boot", () => {
-      expect(() => validateBoot(featuresFor("dossier", "title"))).toThrow(
-        /file field "title", but entity "dossier" has no file field/,
-      );
-    });
   });
 
   test("validateBoot rejects a projectionDetail writeForm field with no entry in fieldDefs (fw editable-detail-screens)", () => {

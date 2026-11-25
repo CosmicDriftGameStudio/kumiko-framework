@@ -210,6 +210,35 @@ function cardSections(
   };
 }
 
+function cardRowClassName(
+  m: DataTableModel,
+  row: ListRowViewModel,
+  layout: {
+    readonly menuBesideTitle: boolean;
+    readonly hasMenu: boolean;
+    readonly leadingControls: boolean;
+  },
+): string {
+  const { rowTone } = m;
+  // In a list with row tones every card carries a stripe (neutral = grey) so the cards align.
+  const fills = m.rowFill?.(row) === true;
+  const toneClass = fills
+    ? ""
+    : cardToneClass(rowTone === undefined ? undefined : (rowTone(row) ?? "neutral"));
+  const toned = toneClass !== "";
+  return cn(
+    cardRowBaseClass(m),
+    layout.menuBesideTitle && "flex-wrap gap-y-1",
+    toneClass,
+    fills && cardFillClass(rowTone?.(row)),
+    m.focusedRowId === row.id && ASSISTANT_FOCUS_CARD_CLASS,
+    // A toned card already pads past its inner 4px stripe (see cardToneClass); a later pl-* would override it.
+    !toned && cardLeftPadding(layout.leadingControls),
+    layout.hasMenu ? "pr-2" : "pr-4",
+    m.density.card,
+  );
+}
+
 export function renderCard(m: DataTableModel, row: ListRowViewModel, roles: CardRoles): ReactNode {
   const { rowTone } = m;
   const openRow = m.rowOpener(row);
@@ -225,28 +254,12 @@ export function renderCard(m: DataTableModel, row: ListRowViewModel, roles: Card
     linkColumns,
     menuBesideTitle,
   });
-  // In a list with row tones every card carries a stripe (neutral = grey) so the cards align.
-  const fills = m.rowFill?.(row) === true;
-  const toneClass = fills
-    ? ""
-    : cardToneClass(rowTone === undefined ? undefined : (rowTone(row) ?? "neutral"));
-  const toned = toneClass !== "";
   const rowItem = (
     <li
       key={row.id}
       data-testid={m.rowTestId(row)}
       data-tone={rowTone?.(row)}
-      className={cn(
-        cardRowBaseClass(m),
-        menuBesideTitle && "flex-wrap gap-y-1",
-        toneClass,
-        fills && cardFillClass(rowTone?.(row)),
-        m.focusedRowId === row.id && ASSISTANT_FOCUS_CARD_CLASS,
-        // A toned card already pads past its inner 4px stripe (see cardToneClass); a later pl-* would override it.
-        !toned && cardLeftPadding(leadingControls),
-        hasMenu ? "pr-2" : "pr-4",
-        m.density.card,
-      )}
+      className={cardRowClassName(m, row, { menuBesideTitle, hasMenu, leadingControls })}
       {...(openRow !== undefined && { onClick: rowClickHandler(openRow) })}
     >
       {sections.top}

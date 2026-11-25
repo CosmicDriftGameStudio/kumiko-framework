@@ -31,10 +31,7 @@ function FileValueRow({
     <li className="flex flex-col gap-2" data-testid={testId}>
       <div className="flex flex-wrap items-center gap-3">
         {boxed && <FileText className="size-5 shrink-0 text-primary" aria-hidden="true" />}
-        <span
-          className={cn("min-w-0 truncate text-sm", boxed && "font-semibold")}
-          {...(testId !== undefined && { "data-testid": `${testId}-name` })}
-        >
+        <span className={cn("min-w-0 truncate text-sm", boxed && "font-semibold")}>
           {meta?.fileName ?? fileId.slice(0, 8)}
         </span>
         <a

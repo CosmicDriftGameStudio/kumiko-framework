@@ -128,28 +128,23 @@ function warnRelatedListEmptyStateDrawerDropped(actionId: string): void {
   );
 }
 
-function buildRowTone(
-  rules: RelatedListRowTone | readonly RelatedListRowTone[] | undefined,
-): DataTableProps["rowTone"] {
-  if (rules === undefined) return undefined;
-  const ordered = isRowToneRuleList(rules) ? rules : [rules];
-  return (row) => ordered.find((rule) => evalFieldCondition(rule, { ...row.values }))?.tone;
+type RowToneRules = RelatedListRowTone | readonly RelatedListRowTone[];
+
+function matchingRowToneRule(
+  rules: RowToneRules,
+  row: ListRowViewModel,
+): RelatedListRowTone | undefined {
+  return [rules].flat().find((rule) => evalFieldCondition(rule, { ...row.values }));
 }
 
-function isRowToneRuleList(
-  rules: RelatedListRowTone | readonly RelatedListRowTone[],
-): rules is readonly RelatedListRowTone[] {
-  return Array.isArray(rules);
+function buildRowTone(rules: RowToneRules | undefined): DataTableProps["rowTone"] {
+  if (rules === undefined) return undefined;
+  return (row) => matchingRowToneRule(rules, row)?.tone;
 }
 
-function buildRowFill(
-  rules: RelatedListRowTone | readonly RelatedListRowTone[] | undefined,
-): DataTableProps["rowFill"] {
-  if (rules === undefined) return undefined;
-  const ordered = isRowToneRuleList(rules) ? rules : [rules];
-  if (!ordered.some((rule) => rule.fill === true)) return undefined;
-  return (row) =>
-    ordered.find((rule) => evalFieldCondition(rule, { ...row.values }))?.fill === true;
+function buildRowFill(rules: RowToneRules | undefined): DataTableProps["rowFill"] {
+  if (rules === undefined || ![rules].flat().some((rule) => rule.fill === true)) return undefined;
+  return (row) => matchingRowToneRule(rules, row)?.fill === true;
 }
 
 function buildRowStruck(
@@ -242,6 +237,15 @@ function RelatedListEmptyState({
   );
 }
 
+function renderEmptyState(input: {
+  readonly text: ReturnType<typeof pickEmptyStateText>;
+  readonly actionButton: RenderEditAction | undefined;
+  readonly onActionError: (error: ErrorNotice | null) => void;
+}): ReactNode {
+  const { text, ...action } = input;
+  return text === undefined ? undefined : <RelatedListEmptyState text={text} {...action} />;
+}
+
 function EmbeddedRelatedListCard({
   title,
   actions,
@@ -291,6 +295,145 @@ function buildRelatedListRowClick(
       runDrawerRowAction(rowClickAction, onOpenDrawer, row);
     }
   };
+}
+
+function useEmptyStateActionButton({
+  section,
+  record,
+  translate,
+  nav,
+  host,
+  dispatcher,
+  clientActions,
+  onOpenDrawer,
+  refetch,
+}: {
+  readonly section: EditRelatedListSectionViewModel;
+  readonly record: Readonly<Record<string, unknown>>;
+  readonly translate: Translate;
+  readonly nav: ReturnType<typeof useNav>;
+  readonly host: ReturnType<typeof useReturnHost>;
+  readonly dispatcher: ReturnType<typeof useOptionalDispatcher>;
+  readonly clientActions: ReturnType<typeof useClientActionRuntime>;
+  readonly onOpenDrawer: Parameters<typeof runDrawerRowAction>[1] | undefined;
+  readonly refetch: () => void | Promise<void>;
+}) {
+  // emptyState.action is a RowAction — the same record-bound action shape
+  // (and evalRowExtractor payload/params evaluation) screen-level and
+  // section-level actions already use via buildRecordActions, NOT the
+  // toolbar-action builder (whose `payload` is a literal Record, not a
+  // RowFieldExtractor — casting a RowAction into it would silently skip the
+  // declared `pick`/`map` evaluation). "Row" here is the parent record: a
+  // relatedList's emptyState has no row of its own.
+  return useMemo(() => {
+    const action = section.emptyState?.action;
+    if (action === undefined) return undefined;
+    if (action.kind === "drawer" && onOpenDrawer === undefined) {
+      warnRelatedListEmptyStateDrawerDropped(action.id);
+      return undefined;
+    }
+    return buildRecordActions({
+      actions: [action],
+      record,
+      translate,
+      nav,
+      host,
+      dispatcher,
+      openDrawer: onOpenDrawer ?? (() => {}),
+      onWriteSuccess: refetch,
+      clientActions,
+    })?.[0];
+  }, [
+    section.emptyState,
+    record,
+    translate,
+    nav,
+    host,
+    dispatcher,
+    clientActions,
+    onOpenDrawer,
+    refetch,
+  ]);
+}
+
+function useRelatedListFacets(
+  section: EditRelatedListSectionViewModel,
+  filters: Parameters<typeof buildFilterPayload>[0],
+  translate: Translate,
+  featureName: string,
+) {
+  const facetSpecs = useMemo(
+    () => resolveProjectionFacetSpecs(section.facets, translate, featureName),
+    [section.facets, translate, featureName],
+  );
+  const [referenceFacetOptions, setReferenceFacetOptions] = useState<
+    Record<string, ReferenceFacetState>
+  >({});
+  const handleFacetOptions = useCallback(
+    (field: string, state: ReferenceFacetState) =>
+      setReferenceFacetOptions((prev) => withReferenceFacetState(prev, field, state)),
+    [],
+  );
+  const resolvedFacetSpecs = useMemo(
+    () => mergeReferenceFacetOptions(facetSpecs, referenceFacetOptions),
+    [facetSpecs, referenceFacetOptions],
+  );
+  const filterPayload = useMemo(
+    () =>
+      buildFilterPayload(
+        filters,
+        (field) => resolvedFacetSpecs.find((spec) => spec.field === field)?.type,
+      ),
+    [filters, resolvedFacetSpecs],
+  );
+  const filterFacets = useMemo<DataTableFacet[]>(
+    () => buildFilterFacets(resolvedFacetSpecs),
+    [resolvedFacetSpecs],
+  );
+  return { facetSpecs, filterFacets, filterPayload, handleFacetOptions };
+}
+
+function useRelatedListPayload({
+  section,
+  parentId,
+  search,
+  filterPayload,
+  serverSort,
+}: {
+  readonly section: EditRelatedListSectionViewModel;
+  readonly parentId: string;
+  readonly search: string;
+  readonly filterPayload: ReturnType<typeof buildFilterPayload>;
+  readonly serverSort: ReturnType<typeof relatedListServerSort>;
+}) {
+  return useMemo(
+    () => ({
+      // Kept separate from `filterPayload` (user facets) below so a facet selection can never
+      // clear or overwrite the parent pin.
+      ...buildRelatedListParentPayload(
+        { parentFilter: section.parentFilter, parentParam: section.parentParam },
+        parentId,
+      ),
+      ...(section.pageSize !== undefined && { limit: section.pageSize }),
+      // Gated on the declared capability, not just on state carrying a value —
+      // same rule as ProjectionListBody: a param the bound query's Zod schema
+      // doesn't accept would 422 the whole section.
+      ...(section.searchable === true && search !== "" && { search }),
+      ...(section.facets !== undefined && filterPayload.length > 0 && { filters: filterPayload }),
+      ...(serverSort !== undefined && { sort: serverSort.field, sortDirection: serverSort.dir }),
+    }),
+    [
+      section.parentFilter,
+      section.parentParam,
+      section.pageSize,
+      section.searchable,
+      section.facets,
+      parentId,
+      search,
+      filterPayload,
+      serverSort,
+    ],
+  );
 }
 
 export function RelatedListSection({
@@ -397,64 +540,15 @@ export function RelatedListSection({
   const { search, filters, sort, setSearch, setFilters, setSort, listTable, groupField } =
     useRelatedListState(section, nav.route?.screenId);
 
-  const facetSpecs = useMemo(
-    () => resolveProjectionFacetSpecs(section.facets, effectiveTranslate, featureName),
-    [section.facets, effectiveTranslate, featureName],
-  );
-  const [referenceFacetOptions, setReferenceFacetOptions] = useState<
-    Record<string, ReferenceFacetState>
-  >({});
-  const handleFacetOptions = useCallback(
-    (field: string, state: ReferenceFacetState) =>
-      setReferenceFacetOptions((prev) => withReferenceFacetState(prev, field, state)),
-    [],
-  );
-  const resolvedFacetSpecs = useMemo(
-    () => mergeReferenceFacetOptions(facetSpecs, referenceFacetOptions),
-    [facetSpecs, referenceFacetOptions],
-  );
-  const filterPayload = useMemo(
-    () =>
-      buildFilterPayload(
-        filters,
-        (field) => resolvedFacetSpecs.find((spec) => spec.field === field)?.type,
-      ),
-    [filters, resolvedFacetSpecs],
-  );
-  const filterFacets = useMemo<DataTableFacet[]>(
-    () => buildFilterFacets(resolvedFacetSpecs),
-    [resolvedFacetSpecs],
+  const { facetSpecs, filterFacets, filterPayload, handleFacetOptions } = useRelatedListFacets(
+    section,
+    filters,
+    effectiveTranslate,
+    featureName,
   );
 
   const serverSort = relatedListServerSort(section, sort);
-  const payload = useMemo(
-    () => ({
-      // Kept separate from `filterPayload` (user facets) below so a facet selection can never
-      // clear or overwrite the parent pin.
-      ...buildRelatedListParentPayload(
-        { parentFilter: section.parentFilter, parentParam: section.parentParam },
-        parentId,
-      ),
-      ...(section.pageSize !== undefined && { limit: section.pageSize }),
-      // Gated on the declared capability, not just on state carrying a value —
-      // same rule as ProjectionListBody: a param the bound query's Zod schema
-      // doesn't accept would 422 the whole section.
-      ...(section.searchable === true && search !== "" && { search }),
-      ...(section.facets !== undefined && filterPayload.length > 0 && { filters: filterPayload }),
-      ...(serverSort !== undefined && { sort: serverSort.field, sortDirection: serverSort.dir }),
-    }),
-    [
-      section.parentFilter,
-      section.parentParam,
-      section.pageSize,
-      section.searchable,
-      section.facets,
-      parentId,
-      search,
-      filterPayload,
-      serverSort,
-    ],
-  );
+  const payload = useRelatedListPayload({ section, parentId, search, filterPayload, serverSort });
 
   const listRows = useRelatedListRows({
     section,
@@ -566,51 +660,22 @@ export function RelatedListSection({
     ],
   );
 
-  // emptyState.action is a RowAction — the same record-bound action shape
-  // (and evalRowExtractor payload/params evaluation) screen-level and
-  // section-level actions already use via buildRecordActions, NOT the
-  // toolbar-action builder (whose `payload` is a literal Record, not a
-  // RowFieldExtractor — casting a RowAction into it would silently skip the
-  // declared `pick`/`map` evaluation). "Row" here is the parent record: a
-  // relatedList's emptyState has no row of its own.
-  const emptyStateActionButton = useMemo(() => {
-    const action = section.emptyState?.action;
-    if (action === undefined) return undefined;
-    if (action.kind === "drawer" && onOpenDrawer === undefined) {
-      warnRelatedListEmptyStateDrawerDropped(action.id);
-      return undefined;
-    }
-    return buildRecordActions({
-      actions: [action],
-      record,
-      translate: effectiveTranslate,
-      nav,
-      host,
-      dispatcher,
-      openDrawer: onOpenDrawer ?? (() => {}),
-      onWriteSuccess: refetchSelfAndHost,
-      clientActions,
-    })?.[0];
-  }, [
-    section.emptyState,
+  const emptyStateActionButton = useEmptyStateActionButton({
+    section,
     record,
-    effectiveTranslate,
+    translate: effectiveTranslate,
     nav,
     host,
     dispatcher,
     clientActions,
     onOpenDrawer,
-    refetchSelfAndHost,
-  ]);
-  const emptyStateText = pickEmptyStateText(section.emptyState, record);
-  const emptyStateContent =
-    emptyStateText !== undefined ? (
-      <RelatedListEmptyState
-        text={emptyStateText}
-        actionButton={emptyStateActionButton}
-        onActionError={setEmptyStateActionError}
-      />
-    ) : undefined;
+    refetch: refetchSelfAndHost,
+  });
+  const emptyStateContent = renderEmptyState({
+    text: pickEmptyStateText(section.emptyState, record),
+    actionButton: emptyStateActionButton,
+    onActionError: setEmptyStateActionError,
+  });
 
   // The section has no pager; the banner says more rows exist than are shown.
   const content = listRows.firstLoad ? (

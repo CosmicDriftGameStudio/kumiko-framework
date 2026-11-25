@@ -165,14 +165,14 @@ describe("RelatedListSection rowActionsWhen", () => {
   test("draws the row-action column while the parent record matches", async () => {
     renderSection(withRowActions, { id: "c1", phase: "open" });
 
-    expect(await screen.findByTestId("row-p1-action-mark")).not.toBeNull();
+    await screen.findByTestId("row-p1-action-mark");
     expect(screen.queryByTestId("column-actions")).not.toBeNull();
   });
 
   test("draws no row-action column while the parent record does not match", async () => {
     renderSection(withRowActions, { id: "c1", phase: "closed" });
 
-    expect(await screen.findByTestId("row-p1")).not.toBeNull();
+    await screen.findByTestId("row-p1");
     expect(screen.queryByTestId("row-p1-action-mark")).toBeNull();
     expect(screen.queryByTestId("column-actions")).toBeNull();
   });

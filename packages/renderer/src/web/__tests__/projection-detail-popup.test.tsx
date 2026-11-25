@@ -10,7 +10,12 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import type { FeatureSchema } from "../../index.ts";
-import { DispatcherProvider, KumikoScreen, setLeaveConfirmer } from "../../index.ts";
+import {
+  DispatcherProvider,
+  KumikoScreen,
+  LeaveGuardDialog,
+  setLeaveConfirmer,
+} from "../../index.ts";
 import {
   createMockDispatcher,
   fireEvent,
@@ -67,7 +72,12 @@ const offerDetail: ProjectionDetailScreenDefinition = {
         fields: [
           {
             field: "status",
-            actions: [approve, { ...approve, id: "approve-iconed", icon: "check" }],
+            actions: [
+              approve,
+              { ...approve, id: "approve-iconed", icon: "check" },
+              // Same id as the footer's drawer action, but not an action of the footer form.
+              { kind: "drawer", id: "lost-with-reason", label: "Open note", screen: "offer-edit" },
+            ],
           },
         ],
       },
@@ -110,6 +120,14 @@ const offerDetail: ProjectionDetailScreenDefinition = {
       screen: "offer-edit",
       back: true,
     },
+    {
+      kind: "drawer",
+      id: "lost-header",
+      label: "Lost via header",
+      screen: "offer-lost",
+      params: { map: { offerId: "id" } },
+      back: true,
+    },
   ],
 };
 
@@ -145,7 +163,7 @@ const schema: FeatureSchema = {
   screens: [offerList, offerDetail, offerEdit, offerLost],
 };
 
-function renderList(): {
+function renderList(options: { readonly leaveGuard?: boolean } = {}): {
   readonly write: ReturnType<typeof mock<MockWriteHandler>>;
   readonly detailLoads: () => number;
 } {
@@ -167,6 +185,7 @@ function renderList(): {
   render(
     <DispatcherProvider dispatcher={createMockDispatcher({ query, write })}>
       <KumikoScreen schema={schema} qn="offers:screen:offer-list" />
+      {options.leaveGuard === true && <LeaveGuardDialog />}
     </DispatcherProvider>,
   );
   return { write, detailLoads: () => detailLoads };
@@ -210,7 +229,9 @@ describe("popup drawer", () => {
   test("the × button closes the popup", async () => {
     renderList();
     await openDetail();
-    await userEvent.setup().click(screen.getByTestId(`${DRAWER}-close`));
+    await userEvent
+      .setup()
+      .click(within(screen.getByTestId(DRAWER)).getByRole("button", { name: "Close" }));
     await waitFor(() => expect(screen.queryByTestId(DRAWER)).toBeNull());
   });
 
@@ -267,17 +288,15 @@ describe("in-place edit inside the popup", () => {
     const drawer = await openDetail();
     await openForm(drawer);
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
-    expect(within(drawer).getByTestId(`${FORM_DRAWER}-back`)).toBeTruthy();
-    expect(within(drawer).getByTestId(`${FORM_DRAWER}-subtitle`).textContent).toBe(
-      "Offer subtitle",
-    );
+    within(drawer).getByRole("button", { name: "Back" });
+    within(drawer).getByText("Offer subtitle");
   });
 
   test("back without input returns to the tabs without asking", async () => {
     renderList();
     const drawer = await openDetail();
     await openForm(drawer);
-    await userEvent.setup().click(within(drawer).getByTestId(`${FORM_DRAWER}-back`));
+    await userEvent.setup().click(within(drawer).getByRole("button", { name: "Back" }));
     await waitFor(() => expect(within(drawer).queryByTestId(FORM_DRAWER)).toBeNull());
     expect(screen.queryByTestId("drawer-discard-dialog")).toBeNull();
     within(drawer).getByTestId("kumiko-screen-projection-detail-tabs");
@@ -290,10 +309,10 @@ describe("in-place edit inside the popup", () => {
     await typeNote(drawer, "draft");
     await userEvent.setup().keyboard("{Escape}");
     await waitFor(() => screen.getByTestId("drawer-discard-dialog"));
-    expect(screen.getByTestId(DRAWER)).toBeTruthy();
+    screen.getByTestId(DRAWER);
     await userEvent.setup().click(screen.getByRole("button", { name: /discard|verwerfen/i }));
     await waitFor(() => expect(within(drawer).queryByTestId(FORM_DRAWER)).toBeNull());
-    expect(screen.getByTestId(DRAWER)).toBeTruthy();
+    screen.getByTestId(DRAWER);
   });
 
   test("a tab click asks about unsent input, then closes the form and switches the tab", async () => {
@@ -318,7 +337,7 @@ describe("in-place edit inside the popup", () => {
     const memo = within(drawer).getByTestId("field-memo").querySelector("input");
     if (memo === null) throw new Error("expected the footer input");
     fireEvent.change(memo, { target: { value: "keep me" } });
-    await user.click(within(drawer).getByTestId(`${FORM_DRAWER}-back`));
+    await user.click(within(drawer).getByRole("button", { name: "Back" }));
     await waitFor(() => expect(within(drawer).queryByTestId(FORM_DRAWER)).toBeNull());
     const after = within(drawer).getByTestId("field-memo").querySelector("input");
     expect(after?.value).toBe("keep me");
@@ -350,7 +369,7 @@ describe("in-place edit inside the popup", () => {
     const memo = footer.querySelector("input");
     if (memo === null) throw new Error("expected the footer input");
     fireEvent.change(memo, { target: { value: "keep me" } });
-    await user.click(within(drawer).getByTestId("render-edit-action-lost-with-reason"));
+    await user.click(within(drawer).getByRole("button", { name: "Lost with reason" }));
     const form = await waitFor(() =>
       within(drawer).getByTestId("toolbar-drawer-lost-with-reason-body"),
     );
@@ -387,5 +406,69 @@ describe("in-place edit inside the popup", () => {
     await waitFor(() => expect(write).toHaveBeenCalled());
     await waitFor(() => expect(within(drawer).queryByTestId(FORM_DRAWER)).toBeNull());
     await waitFor(() => expect(detailLoads()).toBeGreaterThan(loadsBefore));
+  });
+
+  test("a confirmed tab switch asks once: the closed form raises no second leave question", async () => {
+    renderList({ leaveGuard: true });
+    const drawer = await openDetail();
+    const user = userEvent.setup();
+    await openForm(drawer);
+    await typeNote(drawer, "draft");
+    const notesTab = "kumiko-screen-projection-detail-tabs-notes";
+    await user.click(within(drawer).getByTestId(notesTab));
+    await waitFor(() => screen.getByTestId("drawer-discard-dialog"));
+    await user.click(screen.getByRole("button", { name: "Discard" }));
+    await waitFor(() =>
+      expect(within(drawer).getByTestId(notesTab).getAttribute("aria-selected")).toBe("true"),
+    );
+    expect(within(drawer).queryByTestId(FORM_DRAWER)).toBeNull();
+    expect(screen.queryByTestId("leave-guard-dialog")).toBeNull();
+  });
+
+  test("a header action asks before it replaces a form holding input", async () => {
+    renderList();
+    const drawer = await openDetail();
+    const user = userEvent.setup();
+    await openForm(drawer);
+    await typeNote(drawer, "draft");
+    await user.click(within(drawer).getByRole("button", { name: "Lost via header" }));
+    await waitFor(() => screen.getByTestId("drawer-discard-dialog"));
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+    await waitFor(() => expect(screen.queryByTestId("drawer-discard-dialog")).toBeNull());
+    expect(within(drawer).getByTestId(`${FORM_DRAWER}-body`).querySelector("input")?.value).toBe(
+      "draft",
+    );
+    await user.click(within(drawer).getByRole("button", { name: "Lost via header" }));
+    await waitFor(() => screen.getByTestId("drawer-discard-dialog"));
+    await user.click(screen.getByRole("button", { name: "Discard" }));
+    const next = await waitFor(() => within(drawer).getByTestId("toolbar-drawer-lost-header-body"));
+    expect(within(drawer).queryByTestId(FORM_DRAWER)).toBeNull();
+    expect(within(next).getByTestId("field-reason").querySelector("input")?.value).toBe("");
+  });
+
+  test("a drawer action with the footer action's id, but not from the footer, leaves the footer note unsent", async () => {
+    const { write, detailLoads } = renderList();
+    const drawer = await openDetail();
+    const user = userEvent.setup();
+    const footer = await waitFor(() => within(drawer).getByTestId("field-memo"));
+    const memo = footer.querySelector("input");
+    if (memo === null) throw new Error("expected the footer input");
+    fireEvent.change(memo, { target: { value: "keep me" } });
+    await user.click(within(drawer).getByRole("button", { name: "Open note" }));
+    // The unsent footer note is asked about first; the form itself keeps it.
+    await user.click(await screen.findByRole("button", { name: "Discard changes and continue" }));
+    const form = await waitFor(() => screen.getByTestId("toolbar-drawer-lost-with-reason"));
+    const loadsBefore = detailLoads();
+    const note = await waitFor(() => {
+      const el = within(form).getByTestId("field-note").querySelector("input");
+      if (el === null) throw new Error("expected the note input");
+      return el;
+    });
+    await user.type(note, "done");
+    await user.click(form.querySelector("button[type='submit']") as HTMLElement);
+    await waitFor(() => expect(write).toHaveBeenCalled());
+    await waitFor(() => expect(detailLoads()).toBeGreaterThan(loadsBefore));
+    await user.click(within(drawer).getByRole("button", { name: "Close" }));
+    await waitFor(() => screen.getByTestId("drawer-discard-dialog"));
   });
 });

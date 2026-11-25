@@ -1,5 +1,5 @@
 import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useState } from "react";
 import { pageHelpButtonOf } from "../components/page-help-button.tsx";
 import { RenderEdit } from "../components/render-edit.tsx";
 import {
@@ -13,7 +13,7 @@ import { useLocale, useTranslation } from "../i18n.tsx";
 import { FlushDrawerBodyProvider } from "../inside-drawer.ts";
 import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
-import { type DrawerDetailRenderer, useDrawerAction } from "./action-form-body.tsx";
+import type { DrawerDetailRenderer } from "./action-form-body.tsx";
 import { useAppFeatures } from "./app-features-context.tsx";
 import { useClientActionRuntime } from "./client-actions.tsx";
 import { DrawerDetailScope } from "./drawer-detail-scope.tsx";
@@ -34,7 +34,7 @@ import {
   renderDetailTabStrip,
   renderFlatDetailHeader,
 } from "./projection-detail-header-region.tsx";
-import { InPlaceActionForm, isInPlaceFormAction } from "./projection-detail-inplace-form.tsx";
+import { InPlaceActionForm } from "./projection-detail-inplace-form.tsx";
 import {
   type ProjectionDetailScreenWithTarget,
   renderDetailQueryError,
@@ -45,12 +45,11 @@ import { renderProjectionDrawerHost } from "./projection-drawer-host.tsx";
 import { QueryLoadingBanner } from "./query-state-banners.tsx";
 import { useReferenceLinkResolver } from "./reference-link.ts";
 import { useReturnHost, useReturnTarget } from "./return-to.tsx";
-import { useUnsavedInputGuard } from "./unsaved-input-guard.tsx";
+import { useDetailDrawerState } from "./use-detail-drawer-state.ts";
 import { useProjectionDetailActions } from "./use-projection-detail-actions.ts";
 import { useProjectionDetailData } from "./use-projection-detail-data.ts";
 import { useProjectionDetailLayout } from "./use-projection-detail-layout.ts";
 import { useRelatedListTabCounts } from "./use-related-list-tab-counts.ts";
-import { useWriteFormTracking } from "./use-write-form-tracking.ts";
 
 // Detail opened from a row action inside a Drawer: own tab state, own record id.
 export const renderDetailInDrawer: DrawerDetailRenderer = ({
@@ -149,30 +148,22 @@ export function ProjectionDetailBody({
   const returnTargetParam = useReturnTarget(screen.id);
   // A singleton has no record route to come back to — same as entityEdit.
   const returnTarget = screen.singleton === true ? undefined : returnTargetParam;
-  const drawer = useDrawerAction(schema);
-  const { openDrawer } = drawer;
-  // Writing forms and a form shown in place both ask before the hosting drawer discards them.
-  const [writeFormsDirty, setWriteFormsDirty] = useState(false);
-  const { writeForms, dirtyWriteForms, reportWriteFormDirty } =
-    useWriteFormTracking(setWriteFormsDirty);
-  const inPlaceFormGuard = useUnsavedInputGuard(drawer.closeDrawer);
-  // The submitted drawer form carried the footer's values, so they are no longer unsent.
-  const reloadAfterDrawer = () => {
-    if (drawer.drawerAction !== null) writeForms.get(drawer.drawerAction.id)?.rebase();
-    return reloadDetail();
-  };
-  const anyUnsavedInput = writeFormsDirty || inPlaceFormGuard.hasUnsavedInput;
-  useEffect(() => {
-    onDirtyChange?.(anyUnsavedInput);
-  }, [anyUnsavedInput, onDirtyChange]);
-  // Esc, back, tab switch and Cancel of that form share one discard question (inPlaceFormGuard).
-  const inPlaceForm =
-    scrollContentOnly &&
-    drawer.drawerAction !== null &&
-    drawer.drawerScreen !== undefined &&
-    isInPlaceFormAction(drawer.drawerAction, drawer.drawerScreen)
-      ? { action: drawer.drawerAction, screen: drawer.drawerScreen }
-      : undefined;
+  const {
+    drawer,
+    openDrawer,
+    inPlaceForm,
+    inPlaceFormGuard,
+    writeForms,
+    dirtyWriteForms,
+    reportWriteFormDirty,
+    reloadAfterDrawer,
+  } = useDetailDrawerState({
+    schema,
+    scrollContentOnly,
+    footerSection,
+    reloadDetail,
+    onDirtyChange,
+  });
   const flatHeader = scrollContentOnly && hasFlatDetailHeader(declaredScreen);
   const { buildSectionActions, buildItemActions, headerActions, footerActions, footerFormButtons } =
     useProjectionDetailActions({
@@ -211,15 +202,14 @@ export function ProjectionDetailBody({
     parentId: effectiveEntityId ?? (typeof recordId === "string" ? recordId : undefined),
   });
 
-  if (effectiveEntityId === undefined && screen.singleton !== true) {
-    return renderMissingIdBanner(primitives, screen);
-  }
-  if (detailQuery.loading && detailQuery.data === null) {
-    return <QueryLoadingBanner />;
-  }
-  if (detailQuery.error && detailQuery.data === null) {
-    return renderDetailQueryError(detailQuery.error, effectiveTranslate, detailQuery.refetch);
-  }
+  const unavailableState = renderDetailUnavailableState({
+    primitives,
+    screen,
+    effectiveEntityId,
+    detailQuery,
+    effectiveTranslate,
+  });
+  if (unavailableState !== null) return unavailableState;
   // A failed refetch keeps the last good record on screen.
   const refetchErrorBanner = detailQuery.error
     ? renderDetailQueryError(detailQuery.error, effectiveTranslate, detailQuery.refetch)
@@ -228,10 +218,7 @@ export function ProjectionDetailBody({
   if (!record) {
     return renderRecordNotFound({ schema, screen, nav, returnTarget, effectiveTranslate });
   }
-  const visibleMetrics = screen.metrics?.filter(
-    (metric) =>
-      metric.visibleWhen === undefined || evalFieldCondition(metric.visibleWhen, { ...record }),
-  );
+  const visibleMetrics = visibleMetricsOf(screen, record);
   const regionModel: DetailRegionModel = {
     screen: {
       ...screen,
@@ -296,11 +283,11 @@ export function ProjectionDetailBody({
         )}
         {/* Hidden, not unmounted, while the form is shown: an unsent footer note must survive it. */}
         <PaneWrap
-          className={
-            scrollContentOnly
-              ? `min-h-0 flex-1 overflow-y-auto${inPlaceForm !== undefined ? " hidden" : ""}`
-              : undefined
-          }
+          className={paneClassName(
+            scrollContentOnly,
+            "min-h-0 flex-1 overflow-y-auto",
+            inPlaceForm,
+          )}
         >
           {refetchErrorBanner}
           <FlushDrawerBodyProvider value={flatHeader}>
@@ -323,11 +310,7 @@ export function ProjectionDetailBody({
               {...(hasTabs && activeSection !== undefined && { activeTabId: activeSection.id })}
               {...editLayout}
               {...(!flatHeader &&
-                (hasHeaderCard ||
-                  hasTabs ||
-                  hasRecordGuidance(screen) ||
-                  screen.slots?.header !== undefined ||
-                  screen.recordTitleField !== undefined) && {
+                hasHeaderRegion(screen, hasHeaderCard, hasTabs) && {
                   headerRegion: renderHeaderContent,
                 })}
               {...(footerActions !== undefined &&
@@ -338,13 +321,7 @@ export function ProjectionDetailBody({
           </FlushDrawerBodyProvider>
         </PaneWrap>
         {footerSection !== undefined && (
-          <PaneWrap
-            className={
-              scrollContentOnly
-                ? `shrink-0${inPlaceForm !== undefined ? " hidden" : ""}`
-                : undefined
-            }
-          >
+          <PaneWrap className={paneClassName(scrollContentOnly, "shrink-0", inPlaceForm)}>
             <ProjectionDetailFooterForm
               section={footerSection}
               screenId={declaredScreen.id}
@@ -398,6 +375,59 @@ function detailPageHelpOf(
     translate,
     appFeatures,
   });
+}
+
+// null: a record is on screen (possibly with a refetch error); otherwise the banner that replaces the body.
+function renderDetailUnavailableState(input: {
+  readonly primitives: ReturnType<typeof usePrimitives>;
+  readonly screen: ProjectionDetailScreenWithTarget;
+  readonly effectiveEntityId: string | undefined;
+  readonly detailQuery: ReturnType<typeof useProjectionDetailData>["detailQuery"];
+  readonly effectiveTranslate: Translate;
+}): ReactNode {
+  const { primitives, screen, effectiveEntityId, detailQuery, effectiveTranslate } = input;
+  if (effectiveEntityId === undefined && screen.singleton !== true) {
+    return renderMissingIdBanner(primitives, screen);
+  }
+  if (detailQuery.data !== null) return null;
+  if (detailQuery.loading) return <QueryLoadingBanner />;
+  if (detailQuery.error) {
+    return renderDetailQueryError(detailQuery.error, effectiveTranslate, detailQuery.refetch);
+  }
+  return null;
+}
+
+function visibleMetricsOf(
+  screen: ProjectionDetailScreenWithTarget,
+  record: Readonly<Record<string, unknown>>,
+): ProjectionDetailScreenWithTarget["metrics"] {
+  return screen.metrics?.filter(
+    (metric) =>
+      metric.visibleWhen === undefined || evalFieldCondition(metric.visibleWhen, { ...record }),
+  );
+}
+
+function hasHeaderRegion(
+  screen: ProjectionDetailScreenWithTarget,
+  hasHeaderCard: boolean,
+  hasTabs: boolean,
+): boolean {
+  return (
+    hasHeaderCard ||
+    hasTabs ||
+    hasRecordGuidance(screen) ||
+    screen.slots?.header !== undefined ||
+    screen.recordTitleField !== undefined
+  );
+}
+
+function paneClassName(
+  scrollContentOnly: boolean,
+  base: string,
+  inPlaceForm: object | undefined,
+): string | undefined {
+  if (!scrollContentOnly) return undefined;
+  return inPlaceForm === undefined ? base : `${base} hidden`;
 }
 
 // A wrapper only where a layout needs it: on the full page the footer's `sticky` must stay

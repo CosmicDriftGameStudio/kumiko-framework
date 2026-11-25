@@ -74,19 +74,12 @@ function fieldValueActions<TValues extends FormValues, TCtx>(
 ): ReactNode {
   if (field.actions === undefined || field.actions.length === 0) return undefined;
   const { Button, Dialog } = state.primitives;
-  // Text-only unless the author declared an icon: next to a value an id-derived glyph is noise.
-  const withIcon = new Set(
-    field.actions.flatMap((action) =>
-      action.icon === undefined || action.icon === false ? [] : [action.id],
-    ),
-  );
   const buttons = props
-    .buildSectionActions?.(field.actions)
+    .buildSectionActions?.(field.actions, { declaredIconsOnly: true })
     ?.map((action) => (
       <RenderEditActionButton
         key={action.id}
         action={action}
-        hideIcon={!withIcon.has(action.id)}
         Button={Button}
         Dialog={Dialog}
         onError={state.setActionError}

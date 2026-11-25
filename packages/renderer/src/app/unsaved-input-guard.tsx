@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
 
@@ -19,13 +19,20 @@ export function useUnsavedInputGuard(close: () => void): UnsavedInputGuard {
   const [hasUnsavedInput, setHasUnsavedInput] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const afterCloseRef = useRef<(() => void) | undefined>(undefined);
+  const [afterClose, setAfterClose] = useState<{ readonly run: () => void } | null>(null);
+  // `next` waits for the commit that unmounts the form: run synchronously, that form still reports dirty and a second leave question follows.
+  useEffect(() => {
+    if (afterClose === null) return;
+    setAfterClose(null);
+    afterClose.run();
+  }, [afterClose]);
   const confirmDiscard = useCallback(() => {
     setHasUnsavedInput(false);
     setConfirmOpen(false);
     close();
     const next = afterCloseRef.current;
     afterCloseRef.current = undefined;
-    next?.();
+    if (next !== undefined) setAfterClose({ run: next });
   }, [close]);
   // The next request always overwrites a stale `afterCloseRef`, and the dialog may report "closed" before or after its confirm.
   const cancelDiscard = useCallback(() => setConfirmOpen(false), []);

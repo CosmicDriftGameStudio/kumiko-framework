@@ -286,6 +286,7 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  actions for that section. */
   readonly buildSectionActions?: (
     actions: readonly RowAction[],
+    options?: { readonly declaredIconsOnly?: boolean },
   ) => readonly RenderEditAction[] | undefined;
 };
 

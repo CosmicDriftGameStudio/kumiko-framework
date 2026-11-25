@@ -53,21 +53,6 @@ type DetailActionsInput = {
   readonly footerFormActions: readonly RowAction[] | undefined;
 };
 
-// A footer button is text-only unless its author declared an icon: the id-derived default would put a stray glyph on e.g. a danger button.
-function withDeclaredIconsOnly(
-  declared: readonly RowAction[],
-  built: readonly RenderEditAction[] | undefined,
-): readonly RenderEditAction[] | undefined {
-  return built?.map((button) => {
-    const hasDeclaredIcon = declared.some(
-      (action) => action.id === button.id && action.icon !== undefined && action.icon !== false,
-    );
-    if (hasDeclaredIcon || button.icon === undefined) return button;
-    const { icon: _derivedIcon, ...withoutIcon } = button;
-    return withoutIcon;
-  });
-}
-
 function isShownOnTab(action: RowAction, activeTabId: string | undefined): boolean {
   return (
     action.showOnTabs === undefined ||
@@ -207,8 +192,12 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
     [detailQuery.data, screen.detailFor, appFeatures],
   );
   const buildSectionActions = useCallback(
-    (actions: readonly RowAction[]): readonly RenderEditAction[] | undefined =>
+    (
+      actions: readonly RowAction[],
+      iconOptions?: { readonly declaredIconsOnly?: boolean },
+    ): readonly RenderEditAction[] | undefined =>
       buildRecordActions({
+        ...iconOptions,
         actions,
         record: detailQuery.data ?? {},
         translate: effectiveTranslate,
@@ -355,27 +344,25 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
     () =>
       footerFormActions === undefined
         ? undefined
-        : withDeclaredIconsOnly(
-            footerFormActions,
-            buildRecordActions({
-              actions: footerFormActions,
-              record: detailQuery.data ?? {},
-              translate: effectiveTranslate,
-              nav,
-              host,
-              dispatcher,
-              openDrawer,
-              onWriteSuccess: reloadDetail,
-              onRecordLeft: handleRecordLeft,
-              ...(discardChanges !== undefined && { discardChanges }),
-              sameEntityScreenId,
-              clientActions,
-              writeForms,
-              submitWithIds: footerFormActionIds,
-              footerActionIds: footerFormActionIds,
-              dirtyWriteForms,
-            }),
-          ),
+        : buildRecordActions({
+            actions: footerFormActions,
+            record: detailQuery.data ?? {},
+            translate: effectiveTranslate,
+            nav,
+            host,
+            dispatcher,
+            openDrawer,
+            onWriteSuccess: reloadDetail,
+            onRecordLeft: handleRecordLeft,
+            ...(discardChanges !== undefined && { discardChanges }),
+            sameEntityScreenId,
+            clientActions,
+            writeForms,
+            submitWithIds: footerFormActionIds,
+            footerActionIds: footerFormActionIds,
+            dirtyWriteForms,
+            declaredIconsOnly: true,
+          }),
     [
       footerFormActions,
       footerFormActionIds,

@@ -225,20 +225,17 @@ describe("renderer format file on read-only fields", () => {
         data: { id: "e1", exposeFiles: [PDF_ID], emptyFiles: [] },
       })) as never,
     });
-    const { findByText, getByTestId, queryByTestId } = render(
+    const { findByText, getByTestId } = render(
       <DispatcherProvider dispatcher={dispatcher}>
         <KumikoScreen schema={schema} qn="demo:screen:expose-detail" />
       </DispatcherProvider>,
     );
-    await findByText("Rechnung-Oktober.pdf");
-    const box = getByTestId("field-exposeFiles-file-box");
-    expect(box.className).toContain("border-primary/40");
-    expect(box.className).toContain("bg-primary/5");
-    expect(box.className).toContain("rounded-lg");
-    expect(getByTestId(`field-value-exposeFiles-${PDF_ID}-name`).className).toContain(
-      "font-semibold",
-    );
-    expect(queryByTestId("field-emptyFiles-file-box")).toBeNull();
+    const fileName = await findByText("Rechnung-Oktober.pdf");
+    const box = fileName.closest(".rounded-lg");
+    expect(box?.className).toContain("border-primary/40");
+    expect(box?.className).toContain("bg-primary/5");
+    expect(fileName.className).toContain("font-semibold");
+    expect(getByTestId("field-emptyFiles").querySelector(".rounded-lg")).toBeNull();
     expect(getByTestId("field-value-emptyFiles").textContent).toBe("—");
   });
 

@@ -963,6 +963,8 @@ export function buildRecordActions(options: {
   readonly dirtyWriteForms?: ReadonlySet<string>;
   /** Ids of the actions that send the screen's footer writeForm; they also belong to `submitWithIds`. */
   readonly footerActionIds?: ReadonlySet<string>;
+  /** Buttons are text-only unless their action declares an icon: an id-derived glyph would be noise (a danger button, a value action). */
+  readonly declaredIconsOnly?: boolean;
 }): readonly RenderEditAction[] | undefined {
   const {
     actions,
@@ -983,11 +985,15 @@ export function buildRecordActions(options: {
     submitWithIds,
     dirtyWriteForms,
     footerActionIds,
+    declaredIconsOnly,
   } = options;
   const out: RenderEditAction[] = [];
   for (const action of actions) {
     if (action.visible !== undefined && !evalFieldCondition(action.visible, record)) continue;
-    const actionIcon = resolveActionIcon(action.id, action.icon);
+    const actionIcon =
+      declaredIconsOnly === true && action.icon === undefined && action.display !== "icon"
+        ? undefined
+        : resolveActionIcon(action.id, action.icon);
     const push = (built: RenderEditAction): void => {
       out.push({ ...built, ...recordActionDisabled(action, record) });
     };

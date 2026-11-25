@@ -229,7 +229,6 @@ export function RenderField({
               ? "flex w-full flex-wrap items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3.5"
               : "flex flex-wrap items-center gap-2"
           }
-          data-testid={holdsFile(field) ? `field-${field.field}-file-box` : undefined}
         >
           <div className={holdsFile(field) ? "min-w-0 flex-1" : undefined}>{control}</div>
           {holdsFile(field) ? (

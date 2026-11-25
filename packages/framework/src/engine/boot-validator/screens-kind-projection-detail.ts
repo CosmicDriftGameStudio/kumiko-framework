@@ -26,8 +26,12 @@ import { bootRuleError } from "./boot-rule.ts";
 import { validateRelativeTimeFormat } from "./relative-time-format.ts";
 import {
   assertWriteHandlerRegistered,
+  isSensitiveOrPasswordField,
+  renderedEditFieldNames,
   resolveRowActionNavigateTarget,
+  rowFieldExtractorKeys,
   validateActionHasIcon,
+  validateDrawerTargetAction,
   validateNavigateActionTab,
   validatePrimaryActionTarget,
 } from "./screens-actions.ts";
@@ -142,9 +146,17 @@ function validateProjectionDetailInitialTab(
   }
 }
 
+type FooterDrawerAction = Extract<RowAction, { readonly kind: "drawer" }>;
+
+// A drawer action sends its `params` (as prefill), a writeHandler action its `payload`.
 function payloadKeysOf(
-  action: Exclude<RowAction, { readonly kind: "navigate" | "drawer" | "clientAction" }>,
+  action:
+    | Exclude<RowAction, { readonly kind: "navigate" | "drawer" | "clientAction" }>
+    | FooterDrawerAction,
 ): string[] {
+  if (action.kind === "drawer") {
+    return action.params === undefined ? [] : [...rowFieldExtractorKeys(action.params)];
+  }
   const { payload } = action;
   if (payload === undefined) return ["id"];
   return "pick" in payload ? [...payload.pick] : Object.keys(payload.map);
@@ -594,6 +606,51 @@ function withoutFooterSections(
   };
 }
 
+// A drawer action submits the footer input by prefilling its actionForm, so that form must take
+// every footer field; one it does not render, or marks sensitive, would be dropped without a trace.
+function validateFooterDrawerTarget(
+  ctx: ScreenValidationContext,
+  screenId: string,
+  where: string,
+  action: FooterDrawerAction,
+  footerFields: ReadonlySet<string>,
+): void {
+  validateDrawerTargetAction(
+    ctx.feature.name,
+    screenId,
+    "projectionDetail",
+    "action",
+    action,
+    ctx.feature.screens,
+  );
+  const target = ctx.feature.screens[action.screen];
+  // skip: validateDrawerTargetAction rejected every other target type
+  if (target?.type !== "actionForm") return;
+  const about = `${where} action "${action.id}" opens drawer-target "${action.screen}"`;
+  const invalid = (message: string): Error =>
+    bootRuleError(PROJECTION_DETAIL_RULES.footerWriteFormInvalid, { message });
+  if (target.load !== undefined) {
+    throw invalid(
+      `${about}, which declares load — a loaded form takes its values from the record, so it would ignore the footer input. Point the action at an actionForm without load.`,
+    );
+  }
+  const rendered = renderedEditFieldNames(target.layout.sections);
+  const missing = [...footerFields].filter((name) => !rendered.has(name));
+  if (missing.length > 0) {
+    throw invalid(
+      `${about}, whose layout does not list the footer field(s) ${missing.map((name) => `"${name}"`).join(", ")} — the footer input would be lost on submit. List each footer field in the target's layout (visible: false is enough).`,
+    );
+  }
+  const withheld = [...footerFields].find((name) =>
+    isSensitiveOrPasswordField(target.fields[name]),
+  );
+  if (withheld !== undefined) {
+    throw invalid(
+      `${about}, which marks the footer field "${withheld}" as sensitive or password — the renderer never prefills those, so the input would be lost on submit. Use a non-sensitive field in the target.`,
+    );
+  }
+}
+
 // Footer actions send the form's values with their own payload, so a missing writeHandler action
 // leaves a form nothing could submit, and a shared key would make the write ambiguous.
 function validateProjectionDetailFooter(
@@ -637,18 +694,26 @@ function validateProjectionDetailFooter(
     );
   }
   const fieldNames = new Set(section.fields.map((f) => normalizeEditField(f).field));
-  for (const action of writeActions) {
+  const submittingActions = (section.actions ?? []).filter(
+    (action): action is RowActionWriteHandler | FooterDrawerAction =>
+      action.kind === undefined || action.kind === "writeHandler" || action.kind === "drawer",
+  );
+  for (const action of submittingActions) {
     if ((screen.actions ?? []).some((own) => own.id === action.id)) {
       throw invalid(
         `${where} action "${action.id}" has the id of an action of the screen — the form registry and the buttons are keyed by action id, so the two would collide. Rename the footer action.`,
       );
     }
-    assertWriteHandlerRegistered(
-      ctx.feature.name,
-      `${where} action "${action.id}"`,
-      action.handler,
-      ctx.allWriteHandlerQns,
-    );
+    if (action.kind === "drawer") {
+      validateFooterDrawerTarget(ctx, screenId, where, action, fieldNames);
+    } else {
+      assertWriteHandlerRegistered(
+        ctx.feature.name,
+        `${where} action "${action.id}"`,
+        action.handler,
+        ctx.allWriteHandlerQns,
+      );
+    }
     const clash = payloadKeysOf(action).find((key) => fieldNames.has(key));
     if (clash !== undefined) {
       throw invalid(

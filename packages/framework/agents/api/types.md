@@ -2491,6 +2491,23 @@ type MetricProps = { // Compact label/value tile (record-detail metrics band).
 };
 ```
 
+## packages/renderer/src/primitives-drawer-types.ts
+
+```ts
+type DrawerProps = { // Side panel hosting a self-contained form or detail without leaving the underlying screen: a `kind: "drawer"` action mounts an actionForm or a projectionDetail here instead of a full page.
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title?: string;
+  subtitle?: string; // Muted line under the title.
+  width?: "wide" | "popup"; // `"wide"` asks for a broad panel (1280px, capped at 85vw); `"popup"` fills the viewport minus a 24px margin on the web; default is the standard panel width.
+  headerless?: true; // No visible title bar: the title stays for assistive tech and the close cross floats top right, because the hosted content brings its own header.
+  onEscapeKey?: () => boolean; // Escape pressed while open: return true to consume it, so the drawer stays open.
+  back?: true; // Header shows a back arrow left of the title instead of the close cross; it only closes this drawer.
+  children: ReactNode;
+  testId?: string;
+};
+```
+
 ## packages/renderer/src/primitives-record-guidance.ts
 
 ```ts
@@ -2713,18 +2730,6 @@ type DialogProps = { // Modal dialog for confirmations or compact sub-forms.
   initialFocus?: "confirm" | "cancel"; // Which button takes focus on open.
   onConfirm: () => void | Promise<void>; // Called when the user confirms.
   children?: ReactNode; // Optional additional content between the description and buttons, such as an input when the dialog also collects data.
-  testId?: string;
-};
-type DrawerProps = { // Side panel hosting a self-contained form or detail without leaving the underlying screen: a `kind: "drawer"` action mounts an actionForm or a projectionDetail here instead of a full page.
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title?: string;
-  subtitle?: string; // Muted line under the title.
-  width?: "wide" | "popup"; // `"wide"` asks for a broad panel (1280px, capped at 85vw); `"popup"` fills the viewport minus a 24px margin on the web; default is the standard panel width.
-  headerless?: true; // No visible title bar: the title stays for assistive tech and the close cross floats top right, because the hosted content brings its own header.
-  onEscapeKey?: () => boolean; // Escape pressed while open: return true to consume it, so the drawer stays open.
-  back?: true; // Header shows a back arrow left of the title instead of the close cross; it only closes this drawer.
-  children: ReactNode;
   testId?: string;
 };
 type FieldCellWidth = "text" | "number" | "money" | "date" | "timestamp" | "select" | "full" | "toggle"; // Width class of a field cell inside a `flow` grid: sized by what the field holds.

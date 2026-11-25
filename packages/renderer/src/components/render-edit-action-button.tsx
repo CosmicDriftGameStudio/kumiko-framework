@@ -52,6 +52,38 @@ function actionButtonVariant(action: RenderEditAction, outlinedDanger: boolean) 
     : (action.style ?? "secondary");
 }
 
+function actionButtonLookProps(
+  action: RenderEditAction,
+  look: {
+    readonly showIconOnly: boolean;
+    readonly hideIcon: boolean;
+    readonly outlinedDanger: boolean;
+    readonly size: "sm" | undefined;
+    readonly className: string | undefined;
+  },
+) {
+  const { showIconOnly, hideIcon, outlinedDanger, size, className } = look;
+  const buttonClassName = [
+    !showIconOnly && size !== undefined ? COMPACT_TAP_CLASSES : undefined,
+    outlinedDanger && action.style === "danger" ? OUTLINED_DANGER_CLASSES : undefined,
+    className,
+  ]
+    .filter((name) => name !== undefined)
+    .join(" ");
+  return {
+    variant: actionButtonVariant(action, outlinedDanger),
+    ...(action.disabled === true && { disabled: true }),
+    ...(action.icon !== undefined && (!hideIcon || showIconOnly) && { icon: action.icon }),
+    ...(!showIconOnly && size !== undefined && { size }),
+    ...(buttonClassName !== "" && { className: buttonClassName }),
+    ...(showIconOnly && {
+      size: "icon" as const,
+      ariaLabel: action.label,
+      title: action.label,
+    }),
+  };
+}
+
 // One header action + its own busy/confirm state — same pattern as
 // render-list.tsx's ToolbarActionView (each RenderEditAction is
 // independently bound by the caller, there is no shared trigger pipeline
@@ -98,30 +130,19 @@ export function RenderEditActionButton({
     }
   };
 
-  const variant = actionButtonVariant(action, outlinedDanger);
   const showIconOnly = iconOnly && action.icon !== undefined;
-  const buttonClassName = [
-    !showIconOnly && size !== undefined ? COMPACT_TAP_CLASSES : undefined,
-    outlinedDanger && action.style === "danger" ? OUTLINED_DANGER_CLASSES : undefined,
-    className,
-  ]
-    .filter((name) => name !== undefined)
-    .join(" ");
 
   return (
     <>
       <Button
         type="button"
-        variant={variant}
         loading={busy}
-        {...(action.disabled === true && { disabled: true })}
-        {...(action.icon !== undefined && (!hideIcon || showIconOnly) && { icon: action.icon })}
-        {...(!showIconOnly && size !== undefined && { size })}
-        {...(buttonClassName !== "" && { className: buttonClassName })}
-        {...(showIconOnly && {
-          size: "icon" as const,
-          ariaLabel: action.label,
-          title: action.label,
+        {...actionButtonLookProps(action, {
+          showIconOnly,
+          hideIcon,
+          outlinedDanger,
+          size,
+          className,
         })}
         onClick={() => {
           if (needsActionConfirm(action)) {

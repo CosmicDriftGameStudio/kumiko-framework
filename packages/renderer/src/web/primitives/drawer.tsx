@@ -22,6 +22,74 @@ const PANEL_CLASS = "bg-background border-border-strong shadow-[-12px_0_32px_rgb
 const POPUP_PANEL_CLASS =
   "inset-6 h-auto w-auto max-w-none sm:max-w-none rounded-xl border border-border-strong bg-card shadow-2xl";
 
+function DrawerCloseButton({
+  onClose,
+  className,
+}: {
+  readonly onClose: () => void;
+  readonly className?: string;
+}): ReactNode {
+  const t = useTranslation();
+  return (
+    <button
+      type="button"
+      aria-label={t("kumiko.dialog.close")}
+      onClick={onClose}
+      className={cn(ICON_BUTTON_CLASS, className)}
+    >
+      <XIcon className="size-4" />
+    </button>
+  );
+}
+
+function DrawerHeader({
+  title,
+  subtitle,
+  hasBack,
+  onClose,
+  testId,
+}: {
+  readonly title: string | undefined;
+  readonly subtitle: string | undefined;
+  readonly hasBack: boolean;
+  readonly onClose: () => void;
+  readonly testId: string | undefined;
+}): ReactNode {
+  const t = useTranslation();
+  return (
+    <div
+      data-testid={testId !== undefined ? `${testId}-header` : undefined}
+      className={cn(
+        "flex min-h-14 shrink-0 items-center gap-3 border-b border-border py-2 pr-3",
+        hasBack ? "pl-3" : "pl-6",
+      )}
+    >
+      {hasBack && (
+        <button
+          type="button"
+          aria-label={t("kumiko.actions.back")}
+          onClick={onClose}
+          className={ICON_BUTTON_CLASS}
+        >
+          <ArrowLeftIcon className="size-4" />
+        </button>
+      )}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <SheetTitle className="text-base font-semibold">{title ?? ""}</SheetTitle>
+        {subtitle !== undefined && (
+          <p
+            data-testid={testId !== undefined ? `${testId}-subtitle` : undefined}
+            className="text-sm text-muted-foreground"
+          >
+            {subtitle}
+          </p>
+        )}
+      </div>
+      {!hasBack && <DrawerCloseButton onClose={onClose} />}
+    </div>
+  );
+}
+
 export function DefaultDrawer({
   open,
   onOpenChange,
@@ -34,19 +102,7 @@ export function DefaultDrawer({
   children,
   testId,
 }: DrawerProps): ReactNode {
-  const t = useTranslation();
-  const hasBack = back === true;
-  const closeButton = (className?: string): ReactNode => (
-    <button
-      type="button"
-      aria-label={t("kumiko.dialog.close")}
-      data-testid={testId !== undefined ? `${testId}-close` : undefined}
-      onClick={() => onOpenChange(false)}
-      className={cn(ICON_BUTTON_CLASS, className)}
-    >
-      <XIcon className="size-4" />
-    </button>
-  );
+  const close = (): void => onOpenChange(false);
   return (
     <Drawer
       open={open}
@@ -68,40 +124,16 @@ export function DefaultDrawer({
       {headerless === true ? (
         <>
           <SheetTitle className="sr-only">{title ?? ""}</SheetTitle>
-          {closeButton("absolute right-4 top-4 z-10")}
+          <DrawerCloseButton onClose={close} className="absolute right-4 top-4 z-10" />
         </>
       ) : (
-        <div
-          data-testid={testId !== undefined ? `${testId}-header` : undefined}
-          className={cn(
-            "flex min-h-14 shrink-0 items-center gap-3 border-b border-border py-2 pr-3",
-            hasBack ? "pl-3" : "pl-6",
-          )}
-        >
-          {hasBack && (
-            <button
-              type="button"
-              aria-label={t("kumiko.actions.back")}
-              data-testid={testId !== undefined ? `${testId}-back` : undefined}
-              onClick={() => onOpenChange(false)}
-              className={ICON_BUTTON_CLASS}
-            >
-              <ArrowLeftIcon className="size-4" />
-            </button>
-          )}
-          <div className="flex min-w-0 flex-1 flex-col">
-            <SheetTitle className="text-base font-semibold">{title ?? ""}</SheetTitle>
-            {subtitle !== undefined && (
-              <p
-                data-testid={testId !== undefined ? `${testId}-subtitle` : undefined}
-                className="text-sm text-muted-foreground"
-              >
-                {subtitle}
-              </p>
-            )}
-          </div>
-          {!hasBack && closeButton()}
-        </div>
+        <DrawerHeader
+          title={title}
+          subtitle={subtitle}
+          hasBack={back === true}
+          onClose={close}
+          testId={testId}
+        />
       )}
       {/* React re-parents portal content into the enclosing React tree for event bubbling (it only
          escapes the DOM tree, not the fiber tree) — without stopping it here, submitting the
