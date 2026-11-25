@@ -131,6 +131,13 @@ function buildRowTone(rule: RelatedListRowTone | undefined): DataTableProps["row
   return (row) => (evalFieldCondition(rule, { ...row.values }) ? rule.tone : undefined);
 }
 
+function buildRowStruck(
+  rule: EditRelatedListSectionViewModel["struckWhen"],
+): DataTableProps["rowStruck"] {
+  if (rule === undefined) return undefined;
+  return (row) => evalFieldCondition(rule, { ...row.values });
+}
+
 function RelatedListEmptyState({
   text,
   actionButton,
@@ -269,6 +276,7 @@ export function RelatedListSection({
   const effectiveTranslate = translate ?? t;
   const locale = useOptionalLocale();
   const rowTone = useMemo(() => buildRowTone(section.rowTone), [section.rowTone]);
+  const rowStruck = useMemo(() => buildRowStruck(section.struckWhen), [section.struckWhen]);
   const nav = useNav();
   const host = useReturnHost();
   const dispatcher = useOptionalDispatcher();
@@ -592,6 +600,7 @@ export function RelatedListSection({
             {...(section.rowActionMode !== undefined && { rowActionMode: section.rowActionMode })}
             {...(bulk !== undefined && { bulk })}
             {...(rowTone !== undefined && { rowTone })}
+            {...(rowStruck !== undefined && { rowStruck })}
             {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}
             {...(emptyStateContent !== undefined && { emptyState: emptyStateContent })}
             {...listTable}

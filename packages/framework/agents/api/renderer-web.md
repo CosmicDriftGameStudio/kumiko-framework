@@ -480,8 +480,9 @@ type CreatePublicSurfaceOptions = {
 type DataTableProps = DataTableTableBlock & {
   columns: ListColumnViewModel[];
   rows: ListRowViewModel[];
-  rowTone?: (row: ListRowViewModel) => SelectOptionTone | undefined; // Tints a row.
-  rowMuted?: (row: ListRowViewModel) => boolean; // Draws the whole row in the muted text colour.
+  rowTone?: (row: ListRowViewModel) => SelectOptionTone | undefined; // Tints a row; `rowMuted` greys it, `rowStruck` greys and strikes it except the row-action column.
+  rowMuted?: (row: ListRowViewModel) => boolean;
+  rowStruck?: (row: ListRowViewModel) => boolean;
   onRowClick?: (row: ListRowViewModel) => void;
   sort?: DataTableSort | null; // Current sorting, or null when unsorted.
   onSortChange?: (next: DataTableSort | null) => void; // Called with the next sort state after a header click (asc → desc → null); the caller updates URL state or the query parameter and refetches.

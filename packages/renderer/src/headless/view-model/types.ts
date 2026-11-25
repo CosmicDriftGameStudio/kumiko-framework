@@ -608,6 +608,7 @@ export type EditRelatedListSectionViewModel = {
   readonly rowActionMode?: RowActionMode;
   readonly bulkActions?: readonly ListBulkAction[];
   readonly rowTone?: RelatedListRowTone;
+  readonly struckWhen?: Exclude<FieldCondition, boolean>;
   readonly toolbarActions?: readonly RelatedListToolbarAction[];
   /** From `EditRelatedListSection.actions` — rendered in the
    *  Section's title row, distinct from `toolbarActions` (which render

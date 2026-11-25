@@ -182,8 +182,17 @@ function cardSections(
   const { bodyRoles, openRow, buttonActions, linkColumns } = input;
   const withOpener = (body: ReactNode): ReactNode =>
     openRow !== undefined ? renderCardOpenButton(openRow, body) : body;
+  // Only the card text is struck; the actions stay readable, so they are never wrapped.
+  const struck = (body: ReactNode, grow: boolean): ReactNode =>
+    m.rowStruck?.(row) === true ? (
+      <div className={cn("min-w-0 text-muted-foreground line-through", grow && "flex-1")}>
+        {body}
+      </div>
+    ) : (
+      body
+    );
   if (!input.menuBesideTitle) {
-    const main = withOpener(renderCardBody(m, row, bodyRoles));
+    const main = withOpener(struck(renderCardBody(m, row, bodyRoles), true));
     return {
       top: null,
       content: renderCardContent(m, row, main, buttonActions, linkColumns),
@@ -191,12 +200,12 @@ function cardSections(
     };
   }
   const parts = cardBodyParts(m, row, bodyRoles);
-  const below = renderCardContent(m, row, parts.meta, buttonActions, linkColumns);
+  const below = renderCardContent(m, row, struck(parts.meta, false), buttonActions, linkColumns);
   return {
     top: parts.top !== null && (
-      <div className="flex min-w-0 basis-full flex-col gap-1">{parts.top}</div>
+      <div className="flex min-w-0 basis-full flex-col gap-1">{struck(parts.top, false)}</div>
     ),
-    content: <div className="flex min-w-0 flex-1">{withOpener(parts.heading)}</div>,
+    content: <div className="flex min-w-0 flex-1">{withOpener(struck(parts.heading, true))}</div>,
     below: below !== null && <div className="flex min-w-0 basis-full">{below}</div>,
   };
 }

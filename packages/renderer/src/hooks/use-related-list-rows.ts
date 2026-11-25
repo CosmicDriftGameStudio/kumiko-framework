@@ -119,9 +119,15 @@ export function useRelatedListRows(args: {
     void refetchOwn();
   }, [refreshToken, refetchOwn]);
   const refetchSelfAndHost = useCallback(async (): Promise<void> => {
-    await refetchOwn();
-    await onAfterWrite?.();
-  }, [refetchOwn, onAfterWrite]);
+    if (onAfterWrite === undefined) {
+      await refetchOwn();
+      return;
+    }
+    await onAfterWrite();
+    // A host that passes a refreshToken changes it when it reloads, and that change
+    // refetches the list; refetching here too would query it twice per write.
+    if (refreshToken === undefined) await refetchOwn();
+  }, [refetchOwn, onAfterWrite, refreshToken]);
 
   const sortAccessors = useMemo(() => {
     const accessors: Record<string, (row: Row) => string | number | null> = {};

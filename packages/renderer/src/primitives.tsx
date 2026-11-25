@@ -868,10 +868,10 @@ export type {
 export type DataTableProps = {
   readonly columns: readonly ListColumnViewModel[];
   readonly rows: readonly ListRowViewModel[];
-  /** Tints a row. Renderers without row tinting ignore it. */
+  /** Tints a row; `rowMuted` greys it, `rowStruck` greys and strikes it except the row-action column. Renderers without them ignore them. */
   readonly rowTone?: (row: ListRowViewModel) => SelectOptionTone | undefined;
-  /** Draws the whole row in the muted text colour. */
   readonly rowMuted?: (row: ListRowViewModel) => boolean;
+  readonly rowStruck?: (row: ListRowViewModel) => boolean;
   readonly onRowClick?: (row: ListRowViewModel) => void;
   /** Current sorting, or null when unsorted. If columns contain a
    *  `sortable: true` field and `onSortChange` is set, the renderer makes

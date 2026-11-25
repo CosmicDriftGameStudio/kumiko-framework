@@ -256,6 +256,7 @@ function relatedListRowProps(sectionSpec: EditRelatedListSection) {
     ...(sectionSpec.rowActionMode !== undefined && { rowActionMode: sectionSpec.rowActionMode }),
     ...(sectionSpec.bulkActions !== undefined && { bulkActions: sectionSpec.bulkActions }),
     ...(sectionSpec.rowTone !== undefined && { rowTone: sectionSpec.rowTone }),
+    ...(sectionSpec.struckWhen !== undefined && { struckWhen: sectionSpec.struckWhen }),
     ...(sectionSpec.toolbarActions !== undefined && { toolbarActions: sectionSpec.toolbarActions }),
     ...(sectionSpec.actions !== undefined && { actions: sectionSpec.actions }),
     ...(sectionSpec.photoGrid !== undefined && { photoGrid: sectionSpec.photoGrid }),

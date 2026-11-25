@@ -84,6 +84,10 @@ function dataCellClassName(
   );
 }
 
+function isStruckRow(m: DataTableModel, row: ListRowViewModel): boolean {
+  return m.rowStruck?.(row) === true;
+}
+
 function isMutedRow(m: DataTableModel, row: ListRowViewModel): boolean {
   return m.rowMuted?.(row) === true;
 }
@@ -94,6 +98,7 @@ function cellTextClass(
   col: ListColumnViewModel,
   colIndex: number,
 ): string {
+  if (isStruckRow(m, row) && !isRowActionColumn(col)) return "text-muted-foreground line-through";
   if (col.tone === "muted") return "text-muted-foreground";
   if (col.emphasis === true) return "font-semibold text-foreground";
   if (isMutedRow(m, row)) return "text-muted-foreground";
