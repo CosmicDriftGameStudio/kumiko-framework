@@ -2699,7 +2699,7 @@ type DialogProps = { // Modal dialog for confirmations or compact sub-forms.
   children?: ReactNode; // Optional additional content between the description and buttons, such as an input when the dialog also collects data.
   testId?: string;
 };
-type DrawerProps = { // Side panel for hosting an existing self-contained form/widget (own submit/cancel buttons) without leaving the underlying screen — e.g. a toolbar action's `kind: "drawer"` mounts an actionForm here instead of navigating to a full page.
+type DrawerProps = { // Side panel hosting a self-contained form or detail without leaving the underlying screen: a `kind: "drawer"` action mounts an actionForm or a projectionDetail here instead of a full page.
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title?: string;

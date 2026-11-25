@@ -14,7 +14,7 @@
     "packages/framework/src/jobs/__tests__/jobs.integration.test.ts": 2195,
     "packages/renderer/src/components/__tests__/related-list-section.test.tsx": 1801,
     "packages/renderer/src/headless/view-model/__tests__/edit.test.ts": 1722,
-    "packages/renderer/src/primitives.tsx": 1698,
+    "packages/renderer/src/primitives.tsx": 1697,
     "packages/renderer/src/web/__tests__/dashboard-panels.test.tsx": 2331,
     "packages/renderer/src/web/__tests__/kumiko-screen.test.tsx": 1570,
     "packages/renderer/src/web/__tests__/projection-detail.test.tsx": 2101,
