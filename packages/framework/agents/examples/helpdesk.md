@@ -18,6 +18,7 @@ SystemAdmins reply from the admin. Phone is off and Telegram is not mounted unle
 turns them on (`fields.phone`, `telegram: true`).
 
 **What the recipe demonstrates:**
+
 - Mounting `createHelpdeskFeature` with its companions (config, delivery, user-data-rights,
   files, notes-history)
 - The anonymous flow: `helpdesk:query:challenge` hands out a proof-of-work challenge,

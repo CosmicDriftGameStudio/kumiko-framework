@@ -4,7 +4,7 @@
 # **Warum nicht alpine:** chromium needs glibc; alpine = musl. Debian-slim
 # ist die kleinste-glibc-base mit chromium-Support.
 #
-# **Bun version:** base tag 1.4.4 matches setup-bun 1.4.4 in ci.yml.
+# **Bun version:** base tag 1.4.5 matches setup-bun 1.4.5 in ci.yml.
 #
 # **Install:** seeded from the repo bun.lock (like the app images) and run frozen, so transitive
 # dependencies stay on the tested versions with integrity hashes. See src/seed-lockfile.ts.

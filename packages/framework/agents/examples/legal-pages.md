@@ -13,6 +13,7 @@ auto-rendered Imprint + Privacy-Policy pages, with Markdown authoring
 and a boot check for required content.
 
 **What the recipe demonstrates:**
+
 - Activate both features in `runProdApp({ features: [...] })`
 - Required wirings: `anonymousAccess` + `extraContext.templateResolver`
 - Initial seed of the DE required blocks (Imprint + Privacy) for SYSTEM_TENANT
@@ -41,12 +42,14 @@ bun kumiko test all samples/recipes/legal-pages/
 ```
 
 Expected output:
+
 ```
 Test Files  1 passed (1)
      Tests  5 passed (5)
 ```
 
 When the tests are green:
+
 - template-resolver + legal-pages are compatible
 - Table schema is clean via `unsafeCreateEntityTable(stack.db, textBlockEntity)`
 - Routes are reachable via `stack.app.request("/legal/impressum")`

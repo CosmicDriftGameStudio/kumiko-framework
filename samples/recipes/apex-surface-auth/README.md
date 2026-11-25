@@ -94,9 +94,8 @@ the response does not wait for it.
 
 GDPR Art. 17 applies when the user **cannot log in** (lockout). The flow is
 email-verified (magic link), not login-gated. The HMAC token carries `userId`
-
-- expiry (no DB table); purpose `"deletion-request"` blocks replay on other
-  token endpoints. Second confirm is idempotent (`user_not_in_active_state`).
+and expiry (no DB table); purpose `"deletion-request"` blocks replay on other
+token endpoints. Second confirm is idempotent (`user_not_in_active_state`).
 
 ## Tests
 
