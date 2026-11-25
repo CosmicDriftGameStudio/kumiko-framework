@@ -192,7 +192,7 @@ describe("detail drawer with unsent writeForm input", () => {
     await user.click(within(drawer).getByRole("button", { name: /close|schlie/i }));
 
     await waitFor(() => screen.getByTestId("drawer-discard-dialog"));
-    expect(screen.getByTestId(DETAIL_DRAWER)).toBeTruthy();
+    screen.getByTestId(DETAIL_DRAWER);
   });
 });
 
@@ -209,7 +209,7 @@ describe("row click opens the projectionDetail in a drawer", () => {
 
     const drawer = screen.getByTestId(DETAIL_DRAWER);
     await waitFor(() => within(drawer).getByTestId("field-value-status"));
-    expect(within(drawer).getByTestId("kumiko-screen-projection-detail-tabs")).toBeTruthy();
+    within(drawer).getByTestId("kumiko-screen-projection-detail-tabs");
     const detailQuery = queries.find((q) => q.type === "offers:query:offer:detail");
     expect(detailQuery?.payload).toEqual({ offerId: "o1" });
     expect(drawer.getAttribute("style") ?? "").toContain("width: 1280px");
@@ -263,7 +263,7 @@ describe("row click opens the projectionDetail in a drawer", () => {
     await user.click(within(detailDrawer).getByTestId("row-p1-action-add-note"));
 
     const noteDrawer = await waitFor(() => screen.getByTestId("toolbar-drawer-add-note"));
-    expect(screen.getByTestId(DETAIL_DRAWER)).toBeTruthy();
+    screen.getByTestId(DETAIL_DRAWER);
     const labelInput = within(noteDrawer).getByTestId("field-label").querySelector("input");
     expect(labelInput?.value).toBe("Position A");
     const noteInput = within(noteDrawer).getByTestId("field-note").querySelector("input");
@@ -279,7 +279,7 @@ describe("row click opens the projectionDetail in a drawer", () => {
         queries.filter((q) => q.type === "offers:query:offer:positions").length,
       ).toBeGreaterThan(positionQueriesBefore),
     );
-    expect(screen.getByTestId(DETAIL_DRAWER)).toBeTruthy();
+    screen.getByTestId(DETAIL_DRAWER);
   });
 
   test("closing the detail drawer reloads the list behind it", async () => {
