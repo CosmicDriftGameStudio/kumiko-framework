@@ -221,6 +221,8 @@ export type TestStackOptions = {
      *  query, same as prod. Only needed for suites that fan a job over
      *  tenants without mounting the tenant feature. */
     getActiveTenantIds?: JobRunnerOptions["getActiveTenantIds"];
+    /** false: cron jobs get no wall-clock schedule, the test dispatches them itself. */
+    scheduleCronJobs?: boolean;
     /** Run-log callbacks (job_runs / tenant job failures), built once registry
      *  and db exist. The framework can't import the bundled jobs feature, so the
      *  dev-server wrapper supplies prod's `jobRunLoggerCallbacks` here. They are

@@ -85,7 +85,7 @@ export type ScaffoldTestSetupFactory = (input: {
 
 // Exact pin (no caret): the generated files are formatted to this Biome's output,
 // and a scaffold-lint test keeps it equal to the monorepo's own Biome version.
-export const SCAFFOLD_BIOME_VERSION = "2.6.4";
+export const SCAFFOLD_BIOME_VERSION = "2.6.9";
 
 const SCAFFOLD_GITIGNORE = `node_modules/
 dist/
@@ -337,7 +337,7 @@ function renderPackageJson(
         "@tailwindcss/cli": "^4.3.0",
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
-        "bun-types": "^1.4.4",
+        "bun-types": "^1.4.5",
         tailwindcss: "^4.3.0",
         typescript: "^6.0.3",
         ...testSetup?.devDependencies,

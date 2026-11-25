@@ -59,6 +59,7 @@ return ordersLiteFailures.fail("alreadyPaid", { orderId });
 ```
 
 **Rules:**
+
 - `snake_case`, no spaces
 - One `defineFailureReasons` table per feature; the key is the camelCase name, the slug is its snake_case form, the i18n key is `<feature>.errors.<name>`. Register `translationKeys` with `r.translations` and in the client bundle
 - Framework reasons (`stale_state`, `invalid_transition`, `field_access_denied`, `delete_restricted`) come from `FrameworkReasons` — **reuse, don't duplicate**

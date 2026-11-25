@@ -324,18 +324,18 @@
     }
   },
   "devDependencies": {
-    "bun-types": "^1.4.4",
-    "hono": "^4.13.14",
+    "bun-types": "^1.4.5",
+    "hono": "^4.13.22",
     "temporal-polyfill": "^0.3.2",
     "zod": "^4.6.7",
     "ioredis": "^5.11.1"
   },
   "peerDependencies": {
-    "hono": "^4.13.14",
+    "hono": "^4.13.22",
     "temporal-polyfill": "^0.3.2",
     "zod": "^4.6.7",
     "ioredis": "^5.11.1",
-    "bun-types": "^1.4.4"
+    "bun-types": "^1.4.5"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",

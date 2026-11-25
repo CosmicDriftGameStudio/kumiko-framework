@@ -4,7 +4,7 @@
 # **Warum nicht alpine:** chromium needs glibc; alpine = musl. Debian-slim
 # ist die kleinste-glibc-base mit chromium-Support.
 #
-# **Bun version:** base tag 1.4.4 matches setup-bun 1.4.4 in ci.yml.
+# **Bun version:** base tag 1.4.5 matches setup-bun 1.4.5 in ci.yml.
 #
 # **Install:** seeded from the repo bun.lock (like the app images) and run frozen, so transitive
 # dependencies stay on the tested versions with integrity hashes. See src/seed-lockfile.ts.
@@ -14,7 +14,7 @@
 # OOM-Kill durch K8s ist intended (Pod-restart-policy: Always).
 
 # bun aborts under QEMU, so the install runs on the build host for the target CPU. --ignore-scripts keeps host-arch lifecycle builds out of the image.
-FROM --platform=$BUILDPLATFORM oven/bun:1.4.4-slim AS deps
+FROM --platform=$BUILDPLATFORM oven/bun:1.4.5-slim AS deps
 ARG TARGETARCH
 WORKDIR /app
 COPY apps/puppeteer-service/package.json bun.lock apps/puppeteer-service/src/seed-lockfile.ts ./
@@ -26,7 +26,7 @@ RUN bun seed-lockfile.ts \
     && HTTPS_PROXY=http://127.0.0.1:9 HTTP_PROXY=http://127.0.0.1:9 bun install --lockfile-only \
     && bun install --production --frozen-lockfile --os=linux --cpu="$(case "$TARGETARCH" in amd64) echo x64 ;; arm64) echo arm64 ;; *) echo "unsupported TARGETARCH '$TARGETARCH'" >&2; exit 1 ;; esac)" --ignore-scripts
 
-FROM oven/bun:1.4.4-slim AS runtime
+FROM oven/bun:1.4.5-slim AS runtime
 
 # Chromium-Dependencies für Headless-Betrieb. System-chromium (debian-package)
 # statt Puppeteer's prebuilt Chrome for Testing — letzteres ist x86_64-only

@@ -68,6 +68,7 @@ See [template-resolver/README.md](../template-resolver/README.md).
 | `GET /legal/privacy`     | `privacy` / `en` | "Privacy Policy"                  |
 
 Response:
+
 - `200 text/html` — block exists + has content. Cache header `public, max-age=300`.
 - `404 text/plain` — block missing. Hint: "Tenant admin must set this text block".
 - `503 text/plain` — `app.fetch` to `/api/query` failed (anonymousAccess missing?).

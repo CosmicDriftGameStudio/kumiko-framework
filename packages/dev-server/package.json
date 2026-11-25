@@ -92,10 +92,10 @@
     "zod": "^4.6.7"
   },
   "peerDependencies": {
-    "bun-types": "^1.4.4"
+    "bun-types": "^1.4.5"
   },
   "devDependencies": {
-    "bun-types": "^1.4.4"
+    "bun-types": "^1.4.5"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",

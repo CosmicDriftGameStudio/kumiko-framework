@@ -243,7 +243,12 @@ export function createLetterHarness(
       files: { storageProvider: fileProvider },
       masterKeyProvider,
       now: START_INSTANT,
-      jobs: { consumerLane: "worker", getActiveTenantIds: async () => [TENANT] },
+      // The poll cron would fire on the wall clock and resolve unknown handovers mid-test.
+      jobs: {
+        consumerLane: "worker",
+        getActiveTenantIds: async () => [TENANT],
+        scheduleCronJobs: false,
+      },
       extraContext: (deps) => {
         secretsContext = createSecretsContext({
           db: deps.db,

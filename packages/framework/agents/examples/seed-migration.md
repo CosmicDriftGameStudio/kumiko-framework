@@ -33,6 +33,7 @@ bun samples/recipes/seed-migration/scripts/smoke.ts --seeds-dir ./seeds
 ```
 
 Erwarteter Output:
+
 ```
 seed: 2026-05-20-fix-admin-roles.ts
   ✓ loads: "ergänze TenantAdmin-Rolle"

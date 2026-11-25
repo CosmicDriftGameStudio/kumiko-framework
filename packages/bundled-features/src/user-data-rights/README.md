@@ -60,11 +60,13 @@ session-auth-Pfad), siehe `handlers/download-by-{token,job}.query.ts`.
 ## Cross-Feature-API
 
 **Exposes:**
+
 - `userDataRights.runExport` — über die public Runner-Exports
   (`runUserExport`, `runForgetCleanup`)
 - `userDataRights.runForget`
 
 **Uses:**
+
 - `compliance.forTenant` (Grace-Period aus Profile)
 - `retention.policyFor` (blockDelete-Konsultation, anonymize statt delete)
 - `sessions.revokeAllForUser` (Restriction killt aktive Sessions)

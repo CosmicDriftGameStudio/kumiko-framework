@@ -75,6 +75,7 @@ Also: in the `bun build` stage, do NOT run `--minify` over the seed files (they 
 The seed body does **NOT** run atomically with the marker (see “What is NOT guaranteed” below). If a seed throws midway, the events already committed remain, but the marker does not → retry on the next boot. **Seeds must be idempotent.**
 
 Standard pattern:
+
 ```ts
 const memberships = await ctx.findMembershipsOfUser(adminId);
 for (const m of memberships) {
@@ -84,6 +85,7 @@ for (const m of memberships) {
 ```
 
 Anti-pattern (NOT idempotent):
+
 ```ts
 for (let i = 0; i < 5; i++) {
   await ctx.systemWriteAs("create-something", { ... }); // ← re-run produces duplicates

@@ -5,6 +5,7 @@ user session. It pairs once through the OAuth device flow and then uses a revoca
 token.
 
 **What the recipe demonstrates:**
+
 - Mount `createConnectorsFeature()` and `createConnectorRoutes()` (as `extraRoutes`)
 - Pairing: the satellite asks for a code, a TenantAdmin confirms it through
   `connectors:write:approve-device`, the satellite collects its `ksat_` token once

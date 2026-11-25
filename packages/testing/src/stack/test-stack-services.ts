@@ -197,6 +197,9 @@ export function createStackJobRunner(
     ...(options.jobs.consumerLane !== undefined && { consumerLane: options.jobs.consumerLane }),
     queueNamePrefix:
       options.jobs.queueNamePrefix ?? queueNamePrefixForTestRedis(testRedis.keyPrefix),
+    ...(options.jobs.scheduleCronJobs !== undefined && {
+      scheduleCronJobs: options.jobs.scheduleCronJobs,
+    }),
     ...(options.jobs.getActiveTenantIds !== undefined && {
       getActiveTenantIds: options.jobs.getActiveTenantIds,
     }),

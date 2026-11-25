@@ -434,6 +434,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     skipIfPresent?: ReadonlySet<string>,
   ): Promise<RecreatedScheduler[]> {
     const upserted: RecreatedScheduler[] = [];
+    if (options.scheduleCronJobs === false) return upserted;
     for (const [name, jobDef] of allJobs) {
       if (laneForJob(jobDef) !== lane) continue;
       if (isScheduledTrigger(jobDef.trigger)) {

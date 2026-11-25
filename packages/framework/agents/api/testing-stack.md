@@ -133,6 +133,7 @@ type TestStackOptions = {
     consumerLane?: JobRunIn;
     queueNamePrefix?: string; // Default: unique per stack, derived from its test Redis keyPrefix.
     getActiveTenantIds?: JobRunnerOptions["getActiveTenantIds"]; // Source of active tenant ids for `perTenant: true` jobs.
+    scheduleCronJobs?: boolean; // false: cron jobs get no wall-clock schedule, the test dispatches them itself.
     runLogger?: (deps: { registry: Registry; db: DbConnection; }) => Pick<JobRunnerOptions, "onJobStart" | "onJobComplete" | "onJobFailed" | "onJobQueued" | "onJobDropped"> | undefined; // Run-log callbacks (job_runs / tenant job failures), built once registry and db exist.
   }; // Opt-in JobRunner wired into ctx.services.jobRunner and merged into dispatcherOptions so event-triggered jobs enqueue on commit — mirrors the prod entrypoint's `buildJobRunnerWithHook`.
   eventDispatcherPollIntervalMs?: number; // Override the event dispatcher's polling-timer interval.
