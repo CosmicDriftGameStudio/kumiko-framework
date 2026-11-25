@@ -38,21 +38,25 @@ see `feature.ts` for the workspaces' `access.roles` configuration.
 ## What to try
 
 **Workspace switch**
+
 - Three tabs in the topbar: System Admin / Cockpit / Driver.
 - Clicking switches → URL is rewritten to `/dispatch/order-list`,
   sidebar navs filter to the members of the active workspace.
 
 **Cross-feature nav**
+
 - Click the "Driver" workspace → you see "New Order" (from `demo`) +
   "My Tour" (from `demo-driver`). Both features each register a nav,
   and the engine merges them into the Driver workspace.
 
 **Default resolution**
+
 - URL without a workspace segment → lands on `admin` (default-flagged).
 - URL with an unknown workspace → falls back to default.
 - URL with `/admin` (no screen) → auto-fills the first nav member.
 
 **URL = source of truth**
+
 - Reload mid-`dispatch`-workspace → stays there.
 - Browser back after a workspace switch → returns to the previous
   workspace (replaceState is used for initial fills, pushState for

@@ -5,6 +5,7 @@ opt-in, tier-gated **custom CSS** — the framework generalization of the
 `legal-pages`/`wrapLayout` render pattern, hardened for untrusted tenant input.
 
 **What the recipe demonstrates:**
+
 - Compose `managed-pages` with the `branding` feature (+ its `config` dependency and the
   `branding-css` companion toggle) in `runProdApp({ features: [...] })`. Branding lives in its
   own feature `branding`; managed-pages requires it and reads `branding:query:tokens` at render time
@@ -39,6 +40,7 @@ bun kumiko test all samples/recipes/managed-pages/
 ```
 
 When the tests are green:
+
 - A published page is reachable via `stack.app.request("/p/about")`; a draft is `404`
 - Per-tenant content is cache-isolated (`Vary: Host`)
 - Raw HTML in a Markdown body is escaped (no `<script>` execution)

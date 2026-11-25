@@ -10,6 +10,7 @@ spec also paints a product-board mock (`hero-app.png`), uses it in the hero
 
 `buildLandingPage`'s `head.schemaJson` combines `organizationSchema` +
 `webPageSchema` (from the `seo` feature) into one `@graph` block — Organization
+
 - WebPage nodes in a single `<script type="application/ld+json">`, which
   `renderApexPage` already knows how to emit. This is the seam an app extends
   with `faqPageSchema` for an FAQ section, or its own custom schema.org type.

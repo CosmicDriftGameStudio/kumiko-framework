@@ -71,25 +71,30 @@ topbar toggles between "Dev Tenant" (role Admin) and "Beta Tenant"
 ## What to try
 
 **Form + validation**
+
 - Type into **Title** — the form controller pins `dirty` + `changes`.
 - Empty title + submit → `required` validation blocks, no network call.
 - Tick **Is urgent** → the `notes` field appears with a required marker.
 - Submit with urgent + empty notes → field error.
 
 **Optimistic locking**
+
 - Open the form for a task in tab A.
 - Edit the same task in tab B, save.
 - Tab A: save → banner "Version conflict, reload".
 
 **Tenant switch**
+
 - Click the tenant switcher in the topbar → switches to the Beta tenant.
 - Task list is empty (Beta has none), role flips to User.
 
 **Theme toggle**
+
 - Click sun/moon top-right — `<html>` class toggles between `light`
   and `dark`, Tailwind tokens follow.
 
 **Language**
+
 - LanguageSwitcher → de/en, nav labels switch instantly
   (`tasks.nav.list` → "Aufgaben" / "Tasks").
 
