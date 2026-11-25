@@ -33,6 +33,8 @@ const TEST_API_KEY = "sk_test_dummy_apikey";
 // that one list call so the client stays a real SDK round trip.
 let sessionLookup: "found" | "empty" | "unavailable" = "found";
 const fixtureApi = Bun.serve({
+  // A wildcard bind shares its port with a server on 127.0.0.1, which would then answer instead.
+  hostname: "127.0.0.1",
   port: 0,
   fetch: (request) => {
     const url = new URL(request.url);
