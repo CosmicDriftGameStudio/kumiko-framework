@@ -325,6 +325,7 @@ export function RelatedListSection({
 }): ReactNode {
   const { Banner, Section, FillContainer } = usePrimitives();
   const [emptyStateActionError, setEmptyStateActionError] = useState<ErrorNotice | null>(null);
+  const [cellEditError, setCellEditError] = useState<ErrorNotice | null>(null);
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const locale = useOptionalLocale();
@@ -489,10 +490,10 @@ export function RelatedListSection({
                 dispatcherErrorText(result.error, effectiveTranslate),
               );
             }
-            setEmptyStateActionError(null);
+            setCellEditError(null);
             await refetchSelfAndHost();
           } catch (error) {
-            setEmptyStateActionError(errorNoticeOf(error));
+            setCellEditError(errorNoticeOf(error));
           }
         },
       }),
@@ -645,6 +646,12 @@ export function RelatedListSection({
         <Banner variant="error" testId="related-list-empty-state-action-error">
           {emptyStateActionError.message}
           <ErrorReference requestId={emptyStateActionError.requestId} />
+        </Banner>
+      )}
+      {cellEditError !== null && (
+        <Banner variant="error" testId="related-list-cell-edit-error">
+          {cellEditError.message}
+          <ErrorReference requestId={cellEditError.requestId} />
         </Banner>
       )}
       <ListGroupPageBridges {...aggregates.groupPages} />

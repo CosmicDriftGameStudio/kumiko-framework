@@ -1,7 +1,7 @@
 import type { MultiSelectFieldDef } from "@cosmicdrift/kumiko-types/fields";
 import { SELECT_OPTION_TONES } from "@cosmicdrift/kumiko-types/fields";
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
-import type { FieldCondition } from "@cosmicdrift/kumiko-types/screen";
+import type { FieldConditionLeaf } from "@cosmicdrift/kumiko-types/screen";
 import { conditionLeaves } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
@@ -138,9 +138,7 @@ export function validateEntitySelectAvailabilityQuery(
   }
 }
 
-export function conditionComparisonValues(
-  when: Exclude<FieldCondition, boolean | { readonly all: unknown }>,
-): readonly unknown[] {
+export function conditionComparisonValues(when: FieldConditionLeaf): readonly unknown[] {
   if ("eq" in when) return [when.eq];
   if ("ne" in when) return [when.ne];
   if ("in" in when) return when.in;

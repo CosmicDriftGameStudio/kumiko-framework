@@ -1,4 +1,5 @@
 import type { SortNulls } from "@cosmicdrift/kumiko-types/fields";
+import type { FieldConditionLeaf } from "@cosmicdrift/kumiko-types/screen";
 import { createFallbackLogger } from "../logging/utils.ts";
 import type { FieldDefinition, SelectFieldDef } from "./types/fields.ts";
 import type {
@@ -8,6 +9,7 @@ import type {
   EditFieldSpec,
   EditFieldsSection,
   EditSectionSpec,
+  EditWriteFormFooterSection,
   EditWriteFormSection,
   EntityEditScreenDefinition,
   FieldCondition,
@@ -133,6 +135,10 @@ export function isWriteFormEditSection(section: EditSectionSpec): section is Edi
   return section.kind === "writeForm";
 }
 
+export function isFooterWriteForm(section: EditSectionSpec): section is EditWriteFormFooterSection {
+  return isWriteFormEditSection(section) && section.placement === "footer";
+}
+
 /** Structural reader contract for every section that can carry `fields` and/or `groups`: the
  *  `EditFieldsSection` union members and `EditWriteFormSection` all assign without narrowing. */
 export type FieldsOrGroupsSection = {
@@ -208,8 +214,6 @@ export function evalFieldCondition(cond: FieldCondition, values: Record<string, 
   if ("notIn" in cond) return !cond.notIn.includes(val);
   return val !== cond.ne;
 }
-
-type FieldConditionLeaf = Exclude<FieldCondition, boolean | { readonly all: unknown }>;
 
 /** The single-field conditions an `all` combines (the condition itself when it is no `all`). */
 export function conditionLeaves(

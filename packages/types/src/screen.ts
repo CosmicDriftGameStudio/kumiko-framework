@@ -176,7 +176,7 @@ export type FormatSpec = {
 //   - FormatSpec        → declarative value formatter, JSON-safe ({ format: "timestamp" } etc.)
 export type FieldRenderer = PlatformComponent | string | FormatSpec;
 
-export type { FieldCondition } from "./fields.ts";
+export type { FieldCondition, FieldConditionLeaf, NonBooleanFieldCondition } from "./fields.ts";
 
 // --- shared slots (Level 4 from ui-architecture.md) ---
 

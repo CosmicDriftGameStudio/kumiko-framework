@@ -1120,7 +1120,6 @@ type EmptyStateText = {
   title: string;
   description?: string | undefined;
 };
-type FieldConditionLeaf = Exclude<FieldCondition, boolean | { all: unknown; }>;
 type FieldsOrGroupsSection = { // Structural reader contract for every section that can carry `fields` and/or `groups`: the `EditFieldsSection` union members and `EditWriteFormSection` all assign without narrowing.
   fields?: EditFieldSpec[];
   groups?: { title: string; fields: EditFieldSpec[]; }[];

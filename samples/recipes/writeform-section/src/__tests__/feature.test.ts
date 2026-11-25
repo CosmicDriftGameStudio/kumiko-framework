@@ -383,6 +383,7 @@ describe("writeform-section sample — footer writeForm and editable select cell
   const deskFeature = (
     sections: ProjectionDetailScreenDefinition["layout"]["sections"],
     mode?: "tabs",
+    actions?: ProjectionDetailScreenDefinition["actions"],
   ) =>
     defineFeature("footer-desk", (r) => {
       r.translations({
@@ -413,6 +414,7 @@ describe("writeform-section sample — footer writeForm and editable select cell
         type: "projectionDetail",
         query: "footer-desk:query:item:detail",
         layout: { ...(mode !== undefined && { mode }), sections },
+        ...(actions !== undefined && { actions }),
       });
     });
 
@@ -525,6 +527,36 @@ describe("writeform-section sample — footer writeForm and editable select cell
     expect(() => validateBoot([deskFeature([{ fields: ["name"] }, section("name")])])).toThrow(
       '"name" is not one',
     );
+  });
+
+  test("edit.when must read fields of the entity and keep all at two or more entries", () => {
+    const section = (when: Record<string, unknown>) => ({
+      ...rows({ handler: "footer-desk:write:save" }),
+      columns: [{ field: "status", edit: { handler: "footer-desk:write:save", when } }],
+    });
+    expect(() =>
+      validateBoot([deskFeature([{ fields: ["name"] }, section({ field: "name", eq: "x" })])]),
+    ).not.toThrow();
+    expect(() =>
+      validateBoot([deskFeature([{ fields: ["name"] }, section({ field: "nope", eq: "x" })])]),
+    ).toThrow('reads "nope"');
+    expect(() =>
+      validateBoot([
+        deskFeature([{ fields: ["name"] }, section({ all: [{ field: "name", eq: "x" }] })]),
+      ]),
+    ).toThrow('"all" condition with 1 entries');
+  });
+
+  test("a footer action id that an action of the screen also uses fails", () => {
+    const screenAction = {
+      id: "save",
+      label: "Save",
+      handler: "footer-desk:write:save",
+      icon: false as const,
+    };
+    expect(() =>
+      validateBoot([deskFeature([{ fields: ["name"] }, footerForm], undefined, [screenAction])]),
+    ).toThrow("has the id of an action of the screen");
   });
 
   test("an edit column with an unregistered handler fails", () => {

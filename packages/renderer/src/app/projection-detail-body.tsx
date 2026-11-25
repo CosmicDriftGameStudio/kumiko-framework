@@ -1,9 +1,4 @@
-import {
-  type EditSectionSpec,
-  type EditWriteFormFooterSection,
-  evalFieldCondition,
-  isWriteFormEditSection,
-} from "@cosmicdrift/kumiko-framework/ui-types";
+import { evalFieldCondition, isFooterWriteForm } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { pageHelpButtonOf } from "../components/page-help-button.tsx";
 import { RenderEdit } from "../components/render-edit.tsx";
@@ -80,10 +75,6 @@ export const renderDetailInDrawer: DrawerDetailRenderer = ({
 // against controller.submit() without a submit config if there were no
 // customSubmit; the no-op makes that path harmless instead of leaving it to
 // chance.
-function isFooterWriteForm(section: EditSectionSpec): section is EditWriteFormFooterSection {
-  return isWriteFormEditSection(section) && section.placement === "footer";
-}
-
 export function ProjectionDetailBody({
   schema,
   screen: declaredScreen,

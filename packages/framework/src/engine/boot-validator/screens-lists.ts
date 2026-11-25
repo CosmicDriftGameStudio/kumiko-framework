@@ -6,6 +6,7 @@ import { REFERENCE_LOOKUP_SOURCES } from "../../ui-types/list-row-meta.ts";
 import { parseRefTarget } from "../parse-ref-target.ts";
 import { qualifyEntityName } from "../qualified-name.ts";
 import {
+  conditionFields,
   explicitListScreenId,
   normalizeListColumn,
   resolveNavParentScreen,
@@ -20,6 +21,7 @@ import type {
   ScreenDefinition,
 } from "../types/screen.ts";
 import { bootRuleError } from "./boot-rule.ts";
+import { assertConditionShape } from "./condition-shape.ts";
 import { entityColumnType, validateDateOnlyAfterDays } from "./date-only-after-days.ts";
 import { ENTITY_LIST_RULES } from "./entity-list-screens-rules.ts";
 import { validateListBulkActions } from "./list-bulk-actions.ts";
@@ -218,6 +220,16 @@ function validateRelatedListColumnEdit(
     throw bootRuleError(LIST_SCREEN_RULES.columnEditInvalid, {
       message: `${where} is only supported on a select field of entity "${args.section.entity}", but "${editField}" is not one.`,
     });
+  }
+  if (edit.when !== undefined) {
+    assertConditionShape(`${where}.when`, edit.when);
+    for (const name of conditionFields(edit.when)) {
+      // skip: a row carries the entity's stored and derived fields
+      if (name in sectionEntity.fields || name in (sectionEntity.derivedFields ?? {})) continue;
+      throw bootRuleError(LIST_SCREEN_RULES.columnEditInvalid, {
+        message: `${where}.when reads "${name}", which is not a field of entity "${args.section.entity}".`,
+      });
+    }
   }
   assertWriteHandlerRegistered(args.featureName, where, edit.handler, args.allWriteHandlerQns);
 }

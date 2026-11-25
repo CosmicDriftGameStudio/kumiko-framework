@@ -997,29 +997,27 @@ function assertLockedWhenLeaf(
   feature: FeatureDefinition,
   leafField: string,
 ): void {
-  {
-    const where = `Entity "${entityName}" in feature "${feature.name}": lockedWhen field "${leafField}"`;
-    const field = entity.fields[leafField];
-    if (!field) {
-      throw bootRuleError(ENTITY_STRUCTURE_RULES.lockedWhenUnknownField, {
-        message: `${where} is not a field of the entity (known: ${Object.keys(entity.fields).sort().join(", ")}).`,
-      });
-    }
-    if (isCiphertextAtRest(field)) {
-      throw bootRuleError(ENTITY_STRUCTURE_RULES.lockedWhenCiphertextField, {
-        message: `${where} is personal or encrypted — the lock condition is evaluated on the stored value, which is ciphertext. Use a plaintext field.`,
-      });
-    }
-    if (field.access?.read !== undefined) {
-      throw bootRuleError(ENTITY_STRUCTURE_RULES.lockedWhenReadRestricted, {
-        message: `${where} has a read restriction — roles that cannot read it get records without it, and the client would show every record as locked. Drop field access.read or use another field.`,
-      });
-    }
-    if (!LOCKABLE_FIELD_TYPES.has(field.type)) {
-      throw bootRuleError(FIELD_CONDITION_RULES.conditionFieldTypeNotComparable, {
-        message: `${where} has type "${field.type}", which does not store a plain scalar the condition can compare. Use a text, select, boolean, number or reference field.`,
-      });
-    }
+  const where = `Entity "${entityName}" in feature "${feature.name}": lockedWhen field "${leafField}"`;
+  const field = entity.fields[leafField];
+  if (!field) {
+    throw bootRuleError(ENTITY_STRUCTURE_RULES.lockedWhenUnknownField, {
+      message: `${where} is not a field of the entity (known: ${Object.keys(entity.fields).sort().join(", ")}).`,
+    });
+  }
+  if (isCiphertextAtRest(field)) {
+    throw bootRuleError(ENTITY_STRUCTURE_RULES.lockedWhenCiphertextField, {
+      message: `${where} is personal or encrypted — the lock condition is evaluated on the stored value, which is ciphertext. Use a plaintext field.`,
+    });
+  }
+  if (field.access?.read !== undefined) {
+    throw bootRuleError(ENTITY_STRUCTURE_RULES.lockedWhenReadRestricted, {
+      message: `${where} has a read restriction — roles that cannot read it get records without it, and the client would show every record as locked. Drop field access.read or use another field.`,
+    });
+  }
+  if (!LOCKABLE_FIELD_TYPES.has(field.type)) {
+    throw bootRuleError(FIELD_CONDITION_RULES.conditionFieldTypeNotComparable, {
+      message: `${where} has type "${field.type}", which does not store a plain scalar the condition can compare. Use a text, select, boolean, number or reference field.`,
+    });
   }
 }
 

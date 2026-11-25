@@ -2,6 +2,7 @@ import { SELECT_OPTION_TONES } from "@cosmicdrift/kumiko-types/fields";
 import {
   isExtensionEditSection,
   isFieldsEditSection,
+  isFooterWriteForm,
   isWriteFormEditSection,
   normalizeEditField,
   sectionFieldSpecs,
@@ -17,6 +18,7 @@ import type {
   ProjectionDetailScreenDefinition,
   RecordHeaderSubtitlePart,
   RowAction,
+  RowActionWriteHandler,
 } from "../types/screen.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import { validateRelativeTimeFormat } from "./relative-time-format.ts";
@@ -536,10 +538,6 @@ function validateProjectionDetailWriteForm(
   );
 }
 
-function isFooterWriteForm(section: EditSectionSpec): section is EditWriteFormFooterSection {
-  return isWriteFormEditSection(section) && section.placement === "footer";
-}
-
 function withoutFooterSections(
   screen: ProjectionDetailScreenDefinition,
 ): ProjectionDetailScreenDefinition {
@@ -586,7 +584,8 @@ function validateProjectionDetailFooter(
   validateRecordSectionActions(ctx, screenId, "projectionDetail", section);
   validateProjectionDetailWriteForm(ctx, screenId, screen, section);
   const writeActions = (section.actions ?? []).filter(
-    (action) => action.kind === undefined || action.kind === "writeHandler",
+    (action): action is RowActionWriteHandler =>
+      action.kind === undefined || action.kind === "writeHandler",
   );
   if (writeActions.length === 0) {
     throw invalid(
@@ -595,7 +594,11 @@ function validateProjectionDetailFooter(
   }
   const fieldNames = new Set(section.fields.map((f) => normalizeEditField(f).field));
   for (const action of writeActions) {
-    if (action.kind !== undefined && action.kind !== "writeHandler") continue;
+    if ((screen.actions ?? []).some((own) => own.id === action.id)) {
+      throw invalid(
+        `${where} action "${action.id}" has the id of an action of the screen — the form registry and the buttons are keyed by action id, so the two would collide. Rename the footer action.`,
+      );
+    }
     assertWriteHandlerRegistered(
       ctx.feature.name,
       `${where} action "${action.id}"`,

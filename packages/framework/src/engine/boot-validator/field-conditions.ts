@@ -6,7 +6,10 @@ import type {
   FieldDefinition,
   FieldStateConditions,
 } from "@cosmicdrift/kumiko-types/fields";
-import type { FieldCondition } from "@cosmicdrift/kumiko-types/screen";
+import type {
+  FieldConditionLeaf,
+  NonBooleanFieldCondition,
+} from "@cosmicdrift/kumiko-types/screen";
 import { isFileSubField } from "../../files/file-field-slots.ts";
 import { parseMaxSize } from "../../files/types.ts";
 import { isFileField } from "../field-helpers.ts";
@@ -18,8 +21,8 @@ import { LOCKABLE_FIELD_TYPES } from "./entity-handler.ts";
 import { conditionComparisonValues } from "./entity-select.ts";
 import { FIELD_CONDITION_RULES } from "./field-conditions-rules.ts";
 
-type Condition = Exclude<FieldCondition, boolean>;
-type LeafCondition = Exclude<Condition, { readonly all: unknown }>;
+type Condition = NonBooleanFieldCondition;
+type LeafCondition = FieldConditionLeaf;
 type StateKey = keyof FieldStateConditions;
 
 const STATE_KEYS: readonly StateKey[] = ["visibleWhen", "requiredWhen"];

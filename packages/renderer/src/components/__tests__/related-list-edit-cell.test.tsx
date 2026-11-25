@@ -12,11 +12,20 @@ import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { EditRelatedListSectionViewModel } from "../../headless/index.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
+import { mapServerError } from "../../live/error-mapping.ts";
 import { type DataTableProps, PrimitivesProvider } from "../../primitives.tsx";
 import { createMockDispatcher, createStubPrimitives } from "../../testing.ts";
 import { RelatedListSection } from "../related-list-section.tsx";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
+
+const testBanner = ({
+  children,
+  testId,
+}: {
+  readonly children?: ReactNode;
+  readonly testId?: string;
+}): ReactNode => <div data-testid={testId}>{children}</div>;
 
 const nav: NavApi = {
   route: undefined,
@@ -60,6 +69,13 @@ const editorTable: ComponentType<DataTableProps> = ({ rows, columns, cellEditor 
   </table>
 );
 
+const writeDenied = mapServerError({
+  code: "access_denied",
+  httpStatus: 403,
+  i18nKey: "errors.access.denied",
+  message: "You don't have permission to do this.",
+});
+
 const itemEntity = createEntity({
   name: "item",
   table: "read_test_edit_cell_items",
@@ -85,14 +101,19 @@ const section: EditRelatedListSectionViewModel = {
   ],
 };
 
-function setup(sectionUnderTest: EditRelatedListSectionViewModel = section) {
+function setup(
+  sectionUnderTest: EditRelatedListSectionViewModel = section,
+  options: { readonly failWrites?: true } = {},
+) {
   const writes: Array<{ type: string; payload: unknown }> = [];
   let listQueries = 0;
   let hostReloads = 0;
   const dispatcher = createMockDispatcher({
     write: async (type, payload) => {
       writes.push({ type, payload });
-      return { isSuccess: true, data: null };
+      return options.failWrites === true
+        ? { isSuccess: false, error: writeDenied }
+        : { isSuccess: true, data: null };
     },
     query: async () => {
       listQueries += 1;
@@ -117,7 +138,7 @@ function setup(sectionUnderTest: EditRelatedListSectionViewModel = section) {
       <DispatcherProvider dispatcher={dispatcher}>
         <PrimitivesProvider
           value={createStubPrimitives({
-            Banner: passChildren,
+            Banner: testBanner,
             Section: passChildren,
             Card: passChildren,
             DataTable: editorTable,
@@ -195,5 +216,19 @@ describe("RelatedListSection edit column", () => {
 
     await waitFor(() => expect(run.writes).toHaveLength(1));
     expect(run.writes[0]?.payload).toEqual({ id: "r1", status: "done" });
+  });
+  test("a failed write shows its error in the cell-edit banner and leaves the list alone", async () => {
+    const run = setup(section, { failWrites: true });
+    await waitFor(() => rtlScreen.getByTestId("editor-r1"));
+
+    fireEvent.change(rtlScreen.getByTestId("editor-r1"), { target: { value: "done" } });
+
+    await waitFor(() => rtlScreen.getByTestId("related-list-cell-edit-error"));
+    expect(rtlScreen.getByTestId("related-list-cell-edit-error").textContent).toContain(
+      "You don't have permission to do this.",
+    );
+    await settle();
+    expect(run.hostReloads()).toBe(0);
+    expect(run.listQueries()).toBe(1);
   });
 });
