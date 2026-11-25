@@ -588,7 +588,7 @@ describe("backfillEventPiiEncryption", () => {
   });
 
   test("throws without a configured KMS", async () => {
-    expect(backfillEventPiiEncryption(testDb.db, registry)).rejects.toThrow(
+    await expect(backfillEventPiiEncryption(testDb.db, registry)).rejects.toThrow(
       /requires a configured subject KMS/,
     );
   });

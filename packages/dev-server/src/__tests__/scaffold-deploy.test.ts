@@ -21,6 +21,9 @@ describe("scaffoldDeploy", () => {
     expect(result.files.every((f) => f.written)).toBe(true);
     expect(existsSync(join(tmp, "deploy", "Dockerfile"))).toBe(true);
     expect(existsSync(join(tmp, "deploy", "Dockerfile.dockerignore"))).toBe(true);
+    expect(readFileSync(join(tmp, "deploy", "Dockerfile.dockerignore"), "utf8")).toContain(
+      "\n**/.env*\n",
+    );
     expect(existsSync(join(tmp, "deploy", "migrate-step.sh"))).toBe(true);
   });
 

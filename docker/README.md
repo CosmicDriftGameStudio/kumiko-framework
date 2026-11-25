@@ -10,7 +10,7 @@ expected to come from managed providers.
 |-------|-------|
 | `Dockerfile` | Multi-stage Bun image, non-root, HEALTHCHECK on `/health` |
 | `compose.prod.yml` | Reference compose file for a single app container |
-| `../.dockerignore` | Keeps tests, docs, samples, and local secrets out of the image |
+| `Dockerfile.dockerignore` | Keeps `.git`, `.env*` files, `*.pem`/`*.key` files, `node_modules`, tests, docs and coverage out of the build context; BuildKit reads it only next to the `Dockerfile`, so copy it along |
 
 ## Build & Run
 
@@ -51,8 +51,8 @@ S3_SECRET_ACCESS_KEY=...
    uncomment the `COPY packages/*/package.json` block in the Dockerfile.
 3. **Port** — hardcoded to 3000. Adjust `EXPOSE` + `HEALTHCHECK` if
    your server listens on a different port.
-4. **Build-time secrets** — the image only contains what `.dockerignore`
-   lets through. After the first build, verify no `.env` file ended up
+4. **Build-time secrets** — the image only contains what
+   `Dockerfile.dockerignore` lets through (copy it next to the `Dockerfile`). After the first build, verify no `.env` file ended up
    inside: `docker run --rm my-kumiko-app find /app -name '.env*'`
 
 ## What this template does NOT do

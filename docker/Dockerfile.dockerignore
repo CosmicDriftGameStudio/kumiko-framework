@@ -1,0 +1,12 @@
+.git
+**/.env*
+**/*.pem
+**/*.key
+node_modules
+**/node_modules
+coverage
+.DS_Store
+**/__tests__
+**/*.test.ts
+**/*.test.tsx
+docs

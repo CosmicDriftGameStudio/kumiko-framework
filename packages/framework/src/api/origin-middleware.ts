@@ -5,8 +5,12 @@ import { getAuthTransport } from "./auth-middleware.ts";
 // Canonical comparable form for an Origin / allowlist entry: lowercased, no
 // trailing slash. Origin headers are scheme+host(+port) without a path, but
 // config entries are hand-written and may carry a stray slash or mixed case.
+// The lookbehind keeps the trailing-slash trim linear on long slash runs.
 export function normalizeOrigin(value: string): string {
-  return value.trim().toLowerCase().replace(/\/+$/, "");
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/(?<!\/)\/+$/, "");
 }
 
 // Exact-match against a pre-normalized allowlist. No wildcards by design:

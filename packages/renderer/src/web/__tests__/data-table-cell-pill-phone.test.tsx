@@ -19,7 +19,7 @@ describe("DataTableCell pillField", () => {
   });
 
   test("an empty pill field leaves the plain cell", () => {
-    render(
+    const { container } = render(
       <DataTableCell
         value="Golf"
         row={{ vehicle: "Golf", state: "" }}
@@ -29,6 +29,11 @@ describe("DataTableCell pillField", () => {
       />,
     );
     screen.getByText("Golf");
+    const withEmptyPill = container.innerHTML;
+    const plain = render(
+      <DataTableCell value="Golf" row={{ vehicle: "Golf" }} field="vehicle" type="string" />,
+    );
+    expect(withEmptyPill).toBe(plain.container.innerHTML);
   });
 });
 

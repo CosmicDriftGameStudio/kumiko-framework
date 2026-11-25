@@ -51,7 +51,7 @@ describe("ToastProvider + useToast", () => {
         <ToastTrigger options={[{ title: "Copied" }]} />
       </ToastProvider>,
     );
-    screen.getByText("Copied");
+    expect(screen.getByText("Copied").nextElementSibling).toBeNull();
   });
 
   test("docsUrl: renders Learn-more link (i18n default) with target=_blank", () => {

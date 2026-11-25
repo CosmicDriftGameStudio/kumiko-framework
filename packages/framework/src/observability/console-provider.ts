@@ -27,7 +27,7 @@ function renderTree(
       span.endTime !== undefined
         ? `${(span.endTime - span.startTime).toFixed(1)}ms`
         : "(unfinished)";
-    const statusTag = span.status === "error" ? " [ERR]" : span.status === "ok" ? "" : "";
+    const statusTag = span.status === "error" ? " [ERR]" : "";
     lines.push(`${prefix}${connector}${span.name} (${duration})${statusTag}`);
 
     const attrKeys = Object.keys(span.attributes);

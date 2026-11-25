@@ -55,8 +55,9 @@ function isRequestReader(c: unknown): c is RequestReader {
 // Hono routes on the decoded path and ignores a trailing slash, so the
 // allowlist must compare the same shape: "/api/%71uery" and "/api/query/"
 // reach the query handler too.
+// The lookbehind keeps the trailing-slash trim linear on long slash runs.
 function routedPathOf(c: RequestReader): string {
-  return c.req.path.length > 1 ? c.req.path.replace(/\/+$/, "") : c.req.path;
+  return c.req.path.length > 1 ? c.req.path.replace(/(?<!\/)\/+$/, "") : c.req.path;
 }
 
 // "example.com" and "www.example.com" are one site: a host without its own

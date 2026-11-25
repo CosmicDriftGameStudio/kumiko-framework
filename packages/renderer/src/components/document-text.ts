@@ -9,12 +9,18 @@ const ENTITIES: Readonly<Record<string, string>> = {
   "&nbsp;": " ",
 };
 
+// Tags need a closing ">"; "<" after the last ">" can never start one, which keeps the strip linear.
+function stripTags(text: string): string {
+  const tagEnd = text.lastIndexOf(">") + 1;
+  return text.slice(0, tagEnd).replace(/<[^>]*>/g, "") + text.slice(tagEnd);
+}
+
 // Regex instead of DOMParser: the renderer also runs on React Native, which has no DOM.
 export function documentHtmlToText(html: string): string {
-  return html
+  const withBlockBreaks = html
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|li|h[1-6]|blockquote)>/gi, "\n\n")
-    .replace(/<[^>]*>/g, "")
+    .replace(/<\/(p|div|li|h[1-6]|blockquote)>/gi, "\n\n");
+  return stripTags(withBlockBreaks)
     .replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, (entity) => ENTITIES[entity] ?? entity)
     .replace(/\n{3,}/g, "\n\n")
     .trim();
