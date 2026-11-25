@@ -13,7 +13,7 @@ import type {
 import { I18N_KEY_PARAM } from "../headless/index.ts";
 import { useForm } from "../hooks/use-form.ts";
 import { useTranslation } from "../i18n.tsx";
-import { useInsideDrawer } from "../inside-drawer.ts";
+import { NarrowFileInputProvider, useInsideDrawer } from "../inside-drawer.ts";
 import { useUnsavedInputSource } from "../leave-guard.ts";
 import { STICKY_PRIMARY_ACTION_PROP, usePrimitives } from "../primitives.tsx";
 import { GridCellForField } from "./grid-cell-for-field.tsx";
@@ -335,9 +335,6 @@ function FieldsFrame({
   return <FillContainer className="gap-4 sm:flex-row sm:items-start">{children}</FillContainer>;
 }
 
-const FOOTER_FILE_CELL_CLASS =
-  "sm:w-[260px] sm:shrink-0 [&_[data-slot=file-upload]]:flex-wrap [&_[data-slot=file-upload]]:gap-2 [&_[data-slot=file-upload]>a]:basis-full [&_[data-slot=file-upload-pick]]:h-9 [&_[data-slot=file-upload-pick]]:flex-1";
-
 // In the footer a file field keeps a fixed column and the other fields share the rest.
 function FieldFrame({
   isFooter,
@@ -353,10 +350,10 @@ function FieldFrame({
   const holdsFile = field.type === "file" || field.type === "image";
   return (
     <FillContainer
-      className={`min-w-0 ${holdsFile ? FOOTER_FILE_CELL_CLASS : "sm:flex-1"}`}
+      className={`min-w-0 ${holdsFile ? "sm:w-[260px] sm:shrink-0" : "sm:flex-1"}`}
       testId={`write-form-footer-field-${field.field}`}
     >
-      {children}
+      <NarrowFileInputProvider value={true}>{children}</NarrowFileInputProvider>
     </FillContainer>
   );
 }

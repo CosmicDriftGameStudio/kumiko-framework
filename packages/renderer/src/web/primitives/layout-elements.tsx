@@ -1,4 +1,11 @@
-import { Children, type CSSProperties, type MouseEvent, type ReactNode, useContext } from "react";
+import {
+  Children,
+  type CSSProperties,
+  type MouseEvent,
+  type ReactNode,
+  useContext,
+  useEffect,
+} from "react";
 import { isSafeHref } from "../../headless/index.ts";
 import type {
   FieldCellWidth,
@@ -194,13 +201,25 @@ export function DefaultSection({
   );
 }
 
+function useRestoreFocusOnUnmount(enabled: boolean): void {
+  useEffect(() => {
+    if (!enabled) return;
+    const trigger = document.activeElement;
+    return () => {
+      if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus();
+    };
+  }, [enabled]);
+}
+
 export function DefaultFillContainer({
   children,
   testId,
   grow,
   className,
+  restoreFocus,
   dataAttributes,
 }: FillContainerProps): ReactNode {
+  useRestoreFocusOnUnmount(restoreFocus === true);
   // flex-1 only on request (`grow`, set under fillScreenHeight): without it the
   // container sizes to its content and only shrinks (min-h-0), so a two-row
   // table in a non-fixed-height screen does not stretch.

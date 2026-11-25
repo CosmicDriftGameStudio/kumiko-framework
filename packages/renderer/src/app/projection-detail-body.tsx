@@ -439,5 +439,10 @@ function PaneWrap({
   readonly className: string | undefined;
   readonly children: ReactNode;
 }): ReactNode {
-  return className === undefined ? children : <div className={className}>{children}</div>;
+  const { FillContainer } = usePrimitives();
+  return className === undefined ? (
+    children
+  ) : (
+    <FillContainer className={className}>{children}</FillContainer>
+  );
 }

@@ -1167,11 +1167,11 @@ export type FillContainerProps = {
   readonly testId?: string;
   /** Layout extras, merged via cn(). */
   readonly className?: string;
-  /** Claims the remaining height of the flex chain (`flex-1`) instead of
-   *  sizing to its content, so a footer inside the child sits at the bottom
-   *  edge even with few rows. Set only when the screen fills the shell
-   *  height. */
+  /** Claims the remaining height of the flex chain (`flex-1`) instead of sizing to its content, so a
+   *  footer inside sits at the bottom edge even with few rows. Only when the screen fills the shell height. */
   readonly grow?: boolean;
+  /** On unmount the element focused at mount gets the focus back. */
+  readonly restoreFocus?: true;
   /** Extra `data-*` attributes on the container. */
   readonly dataAttributes?: DataAttributes;
 };

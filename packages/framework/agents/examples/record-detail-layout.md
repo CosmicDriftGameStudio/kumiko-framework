@@ -2462,7 +2462,6 @@ export const ordersScreen: ScreenDefinition = {
       // Only feeds the heading placeholders; the form does not declare these fields.
       headingFields: ["orderNumber", "customerName"],
       params: { pick: ["id"] },
-      inMenu: true,
     },
   ],
   access: accessRoles,
@@ -2886,7 +2885,7 @@ export const orderRemindScreen: ScreenDefinition = {
   id: "order-remind",
   type: "actionForm",
   handler: "order-desk:write:order:remind",
-  fields: { id: { type: "text", readOnly: true } },
-  layout: { sections: [{ fields: ["id"] }] },
+  fields: { id: { type: "text" } },
+  layout: { sections: [{ fields: [{ field: "id", readOnly: true }] }] },
 };
 ```

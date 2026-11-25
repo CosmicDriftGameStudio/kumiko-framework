@@ -21,18 +21,6 @@ export function isInPlaceFormAction(action: DrawerLikeAction, screen: DrawerTarg
   return "back" in action && action.back === true && screen.type === "actionForm";
 }
 
-// The element focused when the form opens gets the focus back when it closes.
-function useRestoreFocusOnClose(): void {
-  const triggerRef = useRef<Element | null>(null);
-  useEffect(() => {
-    triggerRef.current = document.activeElement;
-    return () => {
-      const trigger = triggerRef.current;
-      if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus();
-    };
-  }, []);
-}
-
 export function InPlaceActionForm({
   schema,
   action,
@@ -65,7 +53,6 @@ export function InPlaceActionForm({
     return true;
   }, [requestClose]);
   useDrawerEscapeHandler(consumeEscape);
-  useRestoreFocusOnClose();
   useEffect(() => backRef.current?.focus(), []);
   const heading = resolveDrawerHeading({
     action,
@@ -77,7 +64,7 @@ export function InPlaceActionForm({
   const testId = `toolbar-drawer-${action.id}`;
   return (
     <InPlaceFormProvider value={true}>
-      <FillContainer grow className="min-w-0" testId={testId}>
+      <FillContainer grow restoreFocus className="min-w-0" testId={testId}>
         <FillContainer
           className="shrink-0 flex-row items-center gap-3 px-6 pt-4 max-sm:px-4"
           testId={`${testId}-header`}

@@ -159,7 +159,7 @@ export function RenderField({
   hideLabel,
   valueActions,
 }: RenderFieldProps): ReactNode {
-  const { Field, Input, Banner, Text, JsonView, Link } = usePrimitives();
+  const { Field, FillContainer, Input, Banner, Text, JsonView, Link } = usePrimitives();
   // The app locale is required for money/date inputs; otherwise they fall back
   // to navigator.language instead of the selected app language. RenderField is
   // publicly exported and therefore requires a LocaleProvider; standalone
@@ -223,20 +223,27 @@ export function RenderField({
       {valueActions === undefined ? (
         control
       ) : (
-        <div
+        <FillContainer
           className={
             holdsFile(field)
-              ? "flex w-full flex-wrap items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3.5"
-              : "flex flex-wrap items-center gap-2"
+              ? "w-full flex-row flex-wrap items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3.5"
+              : "flex-row flex-wrap items-center gap-2"
           }
         >
-          <div className={holdsFile(field) ? "min-w-0 flex-1" : undefined}>{control}</div>
           {holdsFile(field) ? (
-            <div className="flex flex-wrap items-center gap-2">{valueActions}</div>
+            <>
+              <FillContainer className="min-w-0 flex-1">{control}</FillContainer>
+              <FillContainer className="flex-row flex-wrap items-center gap-2">
+                {valueActions}
+              </FillContainer>
+            </>
           ) : (
-            valueActions
+            <>
+              {control}
+              {valueActions}
+            </>
           )}
-        </div>
+        </FillContainer>
       )}
     </Field>
   );

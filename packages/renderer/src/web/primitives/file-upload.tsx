@@ -8,8 +8,10 @@
 import { ImageIcon, Loader2, Upload } from "lucide-react";
 import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
 import { useSessionEndedSignal, useTrackFormUpload, useTranslation } from "../../index.ts";
+import { useNarrowFileInput } from "../../inside-drawer.ts";
 import { isSessionEndedCause } from "../../session/session-ended.tsx";
 import { toAcceptAttr } from "../lib/accept-attr.ts";
+import { cn } from "../lib/cn.ts";
 import { resizeImageBeforeUpload } from "../lib/resize-image.ts";
 import { uploadErrorKey } from "../lib/upload-error-key.ts";
 import { uploadFileRef } from "../lib/upload-file-ref.ts";
@@ -102,10 +104,14 @@ export function FileUploadInput({
     }
   }
 
+  const narrow = useNarrowFileInput();
   const acceptAttr = toAcceptAttr(accept);
 
   return (
-    <div data-slot="file-upload" className="flex items-center gap-4">
+    <div
+      data-slot="file-upload"
+      className={cn("flex items-center", narrow ? "flex-wrap gap-2" : "gap-4")}
+    >
       {kind === "image" && value !== null && (
         <FileThumbnail
           fileId={value}
@@ -121,7 +127,7 @@ export function FileUploadInput({
         <FileNameLink
           fileId={value}
           fallbackLabel={t("kumiko.field.file-upload.attached")}
-          className="min-w-0 truncate"
+          className={cn("min-w-0 truncate", narrow && "basis-full")}
         />
       )}
       <input
@@ -144,6 +150,7 @@ export function FileUploadInput({
             variant="outline"
             size="sm"
             data-slot="file-upload-pick"
+            {...(narrow && { className: "h-9 flex-1" })}
             disabled={uploading}
             onClick={() => inputRef.current?.click()}
             {...(testId !== undefined && { "data-testid": `${testId}-pick` })}

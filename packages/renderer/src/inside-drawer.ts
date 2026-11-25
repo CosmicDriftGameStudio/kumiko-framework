@@ -41,6 +41,16 @@ export function useFlushDrawerBody(): boolean {
   return useContext(FlushDrawerBodyContext);
 }
 
+// True in the footer form of a detail: a file input then fits a narrow column, the file name on its
+// own line above the buttons.
+const NarrowFileInputContext = createContext(false);
+
+export const NarrowFileInputProvider = NarrowFileInputContext.Provider;
+
+export function useNarrowFileInput(): boolean {
+  return useContext(NarrowFileInputContext);
+}
+
 // Escape inside a drawer-hosted detail closes a form shown in place before it closes the drawer.
 export type DrawerEscapeHandlerRef = { current: (() => boolean) | undefined };
 

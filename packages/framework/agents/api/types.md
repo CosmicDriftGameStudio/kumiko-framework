@@ -2737,7 +2737,8 @@ type FillContainerProps = { // Chromeless flex-fill layout host — no title, no
   children: ReactNode;
   testId?: string;
   className?: string; // Layout extras, merged via cn().
-  grow?: boolean; // Claims the remaining height of the flex chain (`flex-1`) instead of sizing to its content, so a footer inside the child sits at the bottom edge even with few rows.
+  grow?: boolean; // Claims the remaining height of the flex chain (`flex-1`) instead of sizing to its content, so a footer inside sits at the bottom edge even with few rows.
+  restoreFocus?: true; // On unmount the element focused at mount gets the focus back.
   dataAttributes?: DataAttributes; // Extra `data-*` attributes on the container.
 };
 type FormSectionNavItem = { // One entry of a form's "on this page" navigation: `id` matches the `SectionProps.id` of the section it scrolls to.
