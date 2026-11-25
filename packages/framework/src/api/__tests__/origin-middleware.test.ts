@@ -55,6 +55,13 @@ describe("normalizeOrigin", () => {
     expect(normalizeOrigin("  https://admin.example.eu  ")).toBe("https://admin.example.eu");
     expect(normalizeOrigin("https://admin.example.eu")).toBe("https://admin.example.eu");
   });
+
+  test("strips every trailing slash", () => {
+    expect(normalizeOrigin("https://admin.example.eu///")).toBe("https://admin.example.eu");
+    expect(normalizeOrigin(`https://admin.example.eu${"/".repeat(5000)}`)).toBe(
+      "https://admin.example.eu",
+    );
+  });
 });
 
 describe("isOriginAllowed", () => {

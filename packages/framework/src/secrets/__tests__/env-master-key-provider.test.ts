@@ -59,6 +59,18 @@ describe("EnvMasterKeyProvider — keyring loading", () => {
     ).toThrow(/currentVersion=7 not present/);
   });
 
+  test("lists keyring versions in numeric order when CURRENT_VERSION is absent", () => {
+    expect(() =>
+      createEnvMasterKeyProvider({
+        env: env({
+          KUMIKO_SECRETS_MASTER_KEY_V10: randomBytes(32).toString("base64"),
+          KUMIKO_SECRETS_MASTER_KEY_V2: randomBytes(32).toString("base64"),
+          KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "7",
+        }),
+      }),
+    ).toThrow(/have versions: 2,10\)/);
+  });
+
   test("rejects KEK with wrong byte length (not AES-256)", () => {
     expect(() =>
       createEnvMasterKeyProvider({
@@ -106,6 +118,17 @@ describe("EnvMasterKeyProvider — wrap/unwrap", () => {
       }),
     });
     await expect(provider.unwrapDek(Buffer.alloc(60), 99)).rejects.toThrow(/no KEK for version 99/);
+  });
+
+  test("lists keyring versions in numeric order when a KEK is missing", async () => {
+    const provider = createEnvMasterKeyProvider({
+      env: env({
+        KUMIKO_SECRETS_MASTER_KEY_V10: randomBytes(32).toString("base64"),
+        KUMIKO_SECRETS_MASTER_KEY_V2: randomBytes(32).toString("base64"),
+        KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "2",
+      }),
+    });
+    await expect(provider.unwrapDek(Buffer.alloc(60), 99)).rejects.toThrow(/keyring has \[2,10\]/);
   });
 
   test("isAvailable returns true after successful boot", async () => {

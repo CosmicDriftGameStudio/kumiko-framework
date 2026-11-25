@@ -73,7 +73,7 @@ export function createEnvMasterKeyProvider(
         throw new InternalError({
           message:
             `[secrets] no KEK for version ${kekVersion} — ` +
-            `keyring has [${[...keyring.keys()].sort().join(",")}]. ` +
+            `keyring has [${[...keyring.keys()].sort((a, b) => a - b).join(",")}]. ` +
             `If you retired an old version, you must rotate rows off it first.`,
         });
       }
@@ -107,7 +107,7 @@ function loadValidatedKeyring(env: Readonly<Record<string, string | undefined>>)
     throw new InternalError({
       message:
         `[secrets] currentVersion=${current} not present in keyring ` +
-        `(have versions: ${[...keyring.keys()].sort().join(",")}). ` +
+        `(have versions: ${[...keyring.keys()].sort((a, b) => a - b).join(",")}). ` +
         `Check KUMIKO_SECRETS_MASTER_KEY_V${current} is set.`,
     });
   }

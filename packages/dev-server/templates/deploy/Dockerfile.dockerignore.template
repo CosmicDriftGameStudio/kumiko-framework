@@ -13,12 +13,10 @@
 .idea
 
 # Local env + secrets — must NEVER leak into a layer
-.env
-.env.local
-.env.*.local
-**/.env
-*.pem
-*.key
+**/.env*
+!**/.env.example
+**/*.pem
+**/*.key
 
 # Tests + coverage (not in production image)
 **/__tests__

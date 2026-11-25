@@ -78,7 +78,7 @@ describe("KEK rotation", () => {
       platformKek: KEK_V2,
       kekVersion: 2,
     });
-    expect(misconfigured.getKey(oldSubject, ctx)).rejects.toThrow(/pass previousKeks/);
+    await expect(misconfigured.getKey(oldSubject, ctx)).rejects.toThrow(/pass previousKeks/);
     await misconfigured.close();
   });
 

@@ -7,6 +7,19 @@ describe("documentHtmlToText", () => {
       documentHtmlToText("<p>Hi <strong>Anna</strong>,</p><p>line 1<br>line 2 &amp; more</p>"),
     ).toBe("Hi Anna,\n\nline 1\nline 2 & more");
   });
+
+  test("leaves a long run of unclosed angle brackets unchanged", () => {
+    const value = "<".repeat(200000);
+    expect(documentHtmlToText(value)).toBe(value);
+  });
+
+  test("drops a tag whose attribute contains an angle bracket", () => {
+    expect(documentHtmlToText('<p title="a<b">x</p>')).toBe("x");
+  });
+
+  test("keeps an angle bracket after the last tag", () => {
+    expect(documentHtmlToText("<b>a</b> 1 < 2")).toBe("a 1 < 2");
+  });
 });
 
 describe("textToDocumentHtml", () => {

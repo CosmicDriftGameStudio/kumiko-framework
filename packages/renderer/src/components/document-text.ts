@@ -9,12 +9,23 @@ const ENTITIES: Readonly<Record<string, string>> = {
   "&nbsp;": " ",
 };
 
+// Splitting on ">" instead of matching "<[^>]*>" keeps the strip linear for unclosed "<".
+function stripTags(text: string): string {
+  const segments = text.split(">");
+  const unclosedRest = segments.pop() ?? "";
+  const keptText = segments.map((segment) => {
+    const tagStart = segment.indexOf("<");
+    return tagStart === -1 ? `${segment}>` : segment.slice(0, tagStart);
+  });
+  return keptText.join("") + unclosedRest;
+}
+
 // Regex instead of DOMParser: the renderer also runs on React Native, which has no DOM.
 export function documentHtmlToText(html: string): string {
-  return html
+  const withBlockBreaks = html
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|li|h[1-6]|blockquote)>/gi, "\n\n")
-    .replace(/<[^>]*>/g, "")
+    .replace(/<\/(p|div|li|h[1-6]|blockquote)>/gi, "\n\n");
+  return stripTags(withBlockBreaks)
     .replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, (entity) => ENTITIES[entity] ?? entity)
     .replace(/\n{3,}/g, "\n\n")
     .trim();
