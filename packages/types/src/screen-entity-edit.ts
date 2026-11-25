@@ -508,6 +508,9 @@ export type EditRelatedListSection = EditSectionPresentation & {
   /** Tints rows whose field matches — a declarative rule, not a function, so
    *  the screen definition stays serializable. */
   readonly rowTone?: RelatedListRowTone;
+  /** Rows where the `FieldCondition` (`{ field, eq }`, `{ field, in }` …) holds are greyed out and struck
+   *  through, e.g. a lost offer line. The row-action column stays readable. */
+  readonly struckWhen?: Exclude<FieldCondition, boolean>;
   /** Toolbar actions above the table — same type and dispatch semantics as
    *  `entityList`/`projectionList`'s `toolbarActions` ("+ Anlegen" etc.),
    *  plus `visible`/`params` evaluated against the parent record (see

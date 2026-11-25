@@ -80,6 +80,16 @@ function renderExtensionSection<TValues extends FormValues, TCtx>(
   return wrapWizardStep(section.title, wrapped);
 }
 
+// A row write can change the host record (e.g. a field a header action's
+// visibility depends on), so the host reloads like after a drawer form.
+// Not with unsaved input: the reload remounts the form and would drop it.
+function hostReloadAfterRowWrite(
+  onReload: (() => void) | undefined,
+  hasUnsavedInput: boolean,
+): { readonly onAfterWrite?: () => void } {
+  return onReload === undefined || hasUnsavedInput ? {} : { onAfterWrite: onReload };
+}
+
 function renderRelatedListSection<TValues extends FormValues, TCtx>(
   { model, sectionIndex, sectionActionsEl }: SectionRenderContext<TValues, TCtx>,
   section: RelatedListSectionModel,
@@ -87,6 +97,10 @@ function renderRelatedListSection<TValues extends FormValues, TCtx>(
   const { props, form, sections, state } = model.engine;
   const { FillContainer } = state.primitives;
   const { hideSectionTitles, fillScreenHeight, refreshToken, onRelatedListDrawerAction } = props;
+  const hostReload = hostReloadAfterRowWrite(
+    props.onReload,
+    form.snapshot.isDirty || state.extensionDirty,
+  );
   // parentId is the displayed record's id — without it there's no
   // parent row whose related rows could be queried.
   // Rejected at boot in wizard layouts, so no WizardStepGroup here.
@@ -108,6 +122,7 @@ function renderRelatedListSection<TValues extends FormValues, TCtx>(
       {...(sectionIndex === 0 &&
         props.recordSections?.omitFirstTitle === true && { omitTitle: true })}
       {...(refreshToken !== undefined && { refreshToken })}
+      {...hostReload}
       // Tabs mode: actions move to the outer Card below — the
       // hideTitle branch of RelatedListSection has no title row to
       // render them into.

@@ -590,6 +590,7 @@ type EditRelatedListSection = EditSectionPresentation & {
   rowActionMode?: RowActionMode; // Layout of the row-action column — see `RowActionMode`.
   bulkActions?: ListBulkAction[]; // Bulk actions over checkbox-selected rows, each pointing at a writeHandler row action.
   rowTone?: RelatedListRowTone; // Tints rows whose field matches — a declarative rule, not a function, so the screen definition stays serializable.
+  struckWhen?: Exclude<FieldCondition, boolean>; // Rows where the `FieldCondition` (`{ field, eq }`, `{ field, in }` …) holds are greyed out and struck through, e.g. a lost offer line.
   toolbarActions?: RelatedListToolbarAction[]; // Toolbar actions above the table — same type and dispatch semantics as `entityList`/`projectionList`'s `toolbarActions` ("+ Anlegen" etc.), plus `visible`/`params` evaluated against the parent record (see RelatedListToolbarAction).
   countField?: string; // Record field rendered as a count badge in the tab label when the enclosing `EditLayout.mode` is "tabs" (e.g. an open-items counter).
   count?: true; // Tab badge counted from this section's own query (`limit: 1, totalCount: true` → `total`), so it matches the tab's rows and stays live.
