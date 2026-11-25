@@ -112,13 +112,15 @@ test("layout editor: header text lies in the top margin, a click in the footer a
   await page.goto(LAYOUT_URL);
   await expect(page.getByTestId("document-designer-layout-editor")).toBeVisible();
 
-  const paperBox = await page.getByTestId("document-designer-paper").boundingBox();
-  const regionBox = await page.getByTestId("document-designer-region-header").boundingBox();
-  expect(paperBox).not.toBeNull();
-  expect(regionBox).not.toBeNull();
-  const { y: paperY, width: paperWidth } = paperBox as NonNullable<typeof paperBox>;
-  const regionTopMm =
-    (((regionBox as NonNullable<typeof regionBox>).y - paperY) * 210) / paperWidth;
+  // Both boxes in one call: the toolbar of the active region mounts late and moves the paper.
+  const regionTopMm = await page
+    .getByTestId("document-designer-region-header")
+    .evaluate((regionElement) => {
+      const paperElement = regionElement.closest('[data-testid="document-designer-paper"]');
+      if (paperElement === null) throw new Error("header region outside the paper");
+      const paperBox = paperElement.getBoundingClientRect();
+      return ((regionElement.getBoundingClientRect().top - paperBox.top) * 210) / paperBox.width;
+    });
   expect(regionTopMm).toBeLessThan(HEADER_REGION_MAX_TOP_MM);
 
   const footer = page.getByTestId("document-designer-region-footer");
