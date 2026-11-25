@@ -67,8 +67,9 @@ export const SCREEN_ACTION_RULES = {
   },
   drawerTargetNotActionForm: {
     id: "screen/drawer-target-not-action-form",
-    summary: "A drawer action targets an actionForm screen.",
-    fix: "Point screen at an actionForm screen, or use kind: navigate for a full-page target.",
+    summary:
+      "A drawer action targets an actionForm screen, or a projectionDetail screen from a rowAction.",
+    fix: "Point screen at an actionForm screen (projectionDetail only from a rowAction), or use kind: navigate for a full-page target.",
   },
   prefillParamUnknownField: {
     id: "screen/prefill-param-unknown-field",

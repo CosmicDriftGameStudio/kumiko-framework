@@ -1,5 +1,5 @@
 import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { type ReactNode, useCallback, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { pageHelpButtonOf } from "../components/page-help-button.tsx";
 import { RenderEdit } from "../components/render-edit.tsx";
 import type { WriteFormRegistry } from "../components/write-form-registry.ts";
@@ -15,9 +15,10 @@ import { useLocale, useTranslation } from "../i18n.tsx";
 import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
 import { screenFillsHeight } from "../screen-fills-height.ts";
-import { useDrawerAction } from "./action-form-body.tsx";
+import { type DrawerDetailRenderer, useDrawerAction } from "./action-form-body.tsx";
 import { useAppFeatures } from "./app-features-context.tsx";
 import { useClientActionRuntime } from "./client-actions.tsx";
+import { DrawerDetailScope } from "./drawer-detail-scope.tsx";
 import type { ErrorNotice } from "./error-reference.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { useNav } from "./nav.tsx";
@@ -42,6 +43,25 @@ import { useProjectionDetailData } from "./use-projection-detail-data.ts";
 import { useProjectionDetailLayout } from "./use-projection-detail-layout.ts";
 import { useRelatedListTabCounts } from "./use-related-list-tab-counts.ts";
 
+// Detail opened from a row action inside a Drawer: own tab state, own record id.
+export const renderDetailInDrawer: DrawerDetailRenderer = ({
+  schema,
+  screen,
+  translate,
+  entityId,
+  onDirtyChange,
+}) => (
+  <DrawerDetailScope key={entityId}>
+    <ProjectionDetailBody
+      schema={schema}
+      screen={screen}
+      entityId={entityId}
+      onDirtyChange={onDirtyChange}
+      {...(translate !== undefined && { translate })}
+    />
+  </DrawerDetailScope>
+);
+
 // Projection detail body: read-only single-row inspector over an explicit
 // query instead of an entity (see projection-detail-shim.ts for the debt
 // doc). Fetches itself via `screen.query` + `idParam` (like
@@ -58,6 +78,7 @@ export function ProjectionDetailBody({
   screen,
   translate,
   entityId,
+  onDirtyChange,
 }: {
   readonly schema: FeatureSchema;
   // detailFor sits on the ScreenDefinition intersection, not on the
@@ -66,6 +87,8 @@ export function ProjectionDetailBody({
   readonly screen: ProjectionDetailScreenWithTarget;
   readonly translate?: Translate;
   readonly entityId?: string;
+  /** Reports whether any writeForm section holds unsent input (a drawer host asks before closing). */
+  readonly onDirtyChange?: (dirty: boolean) => void;
 }): ReactNode {
   const primitives = usePrimitives();
   const t = useTranslation();
@@ -108,6 +131,11 @@ export function ProjectionDetailBody({
       return next;
     });
   }, []);
+
+  const anyWriteFormDirty = dirtyWriteForms.size > 0;
+  useEffect(() => {
+    onDirtyChange?.(anyWriteFormDirty);
+  }, [anyWriteFormDirty, onDirtyChange]);
 
   const appFeatures = useAppFeatures();
   const userRoles = useUserRoles();
@@ -263,6 +291,7 @@ export function ProjectionDetailBody({
           userRoles,
           drawer,
           refreshRows: reloadDetail,
+          renderDetail: renderDetailInDrawer,
         })}
       </WriteFormDirtyReporterProvider>
     </WriteFormRegistryProvider>

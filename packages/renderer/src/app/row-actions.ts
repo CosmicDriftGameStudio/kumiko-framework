@@ -154,6 +154,7 @@ function buildNavigateRowAction(
 type OpenDrawer = (
   action: RowActionDrawer,
   initialValues: Readonly<Record<string, unknown>> | undefined,
+  recordId?: string,
 ) => void;
 
 // Dedupes the "openDrawer not wired" warning per action id, since the
@@ -186,6 +187,7 @@ export function runDrawerRowAction(
   openDrawer(
     action,
     action.params !== undefined ? evalRowExtractor(action.params, row.values) : undefined,
+    row.id !== "" ? row.id : undefined,
   );
 }
 

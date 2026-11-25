@@ -1312,18 +1312,17 @@ export type ModalProps = {
   readonly size?: "default" | "wide";
 };
 
-/** Side panel for hosting an existing self-contained form/widget (own
- *  submit/cancel buttons) without leaving the underlying screen — e.g. a
- *  toolbar action's `kind: "drawer"` mounts an actionForm here instead of
- *  navigating to a full page. Same "bare content shell, no
- *  footer buttons of its own" contract as `Modal`, slide-in instead of
- *  centered overlay. */
+/** Side panel hosting a self-contained form or detail without leaving the underlying screen: a
+ *  `kind: "drawer"` action mounts an actionForm or a projectionDetail here instead of a full page.
+ *  Same bare content shell as `Modal` (no footer buttons of its own), slide-in instead of overlay. */
 export type DrawerProps = {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly title?: string;
   /** Muted line under the title. */
   readonly subtitle?: string;
+  /** `"wide"` asks for a broad panel (1280px, capped at 85vw); default is the standard panel width. */
+  readonly width?: "wide";
   readonly children: ReactNode;
   readonly testId?: string;
 };

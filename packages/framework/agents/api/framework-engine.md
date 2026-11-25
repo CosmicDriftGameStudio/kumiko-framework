@@ -1880,7 +1880,7 @@ type TierResolverPlugin = { // Plugin shape for the tier-resolver extension.
   build: (deps: { db: DbConnection; registry: Registry; cacheSync?: CacheSyncBus; }) => Promise<EffectiveFeaturesResolver>;
 };
 type ToggleReader = (featureName: string) => boolean | undefined;
-type ToolbarAction = ({ kind: "navigate"; id: string; label: string; screen: string; tab?: string; style?: "primary" | "secondary" | "danger"; } | { kind: "writeHandler"; id: string; label: string; handler: string; payload?: Record<string, unknown>; confirm?: string; confirmLabel?: string; style?: "primary" | "secondary" | "danger"; } | { kind: "drawer"; id: string; label: string; screen: string; style?: "primary" | "secondary" | "danger"; title?: string; subtitle?: string; }) & {
+type ToolbarAction = ({ kind: "navigate"; id: string; label: string; screen: string; tab?: string; style?: "primary" | "secondary" | "danger"; } | { kind: "writeHandler"; id: string; label: string; handler: string; payload?: Record<string, unknown>; confirm?: string; confirmLabel?: string; style?: "primary" | "secondary" | "danger"; } | { kind: "drawer"; id: string; label: string; screen: string; style?: "primary" | "secondary" | "danger"; title?: string; subtitle?: string; width?: "wide"; }) & {
   icon?: IconKey; // Icon of the button, in every list (entityList, projectionList, relatedList).
   visibleWhen?: DashboardPanelVisibility; // Shown only while the query's `field` equals `eq` (live, empty payload).
 };

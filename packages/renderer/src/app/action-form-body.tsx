@@ -46,6 +46,7 @@ import {
 import type { FeatureSchema } from "./feature-schema.ts";
 import { hiddenRequiredFieldsFilled, layoutFieldNames } from "./layout-fields.ts";
 import { type NavApi, useHandoffForScreen, useNav } from "./nav.tsx";
+import type { ProjectionDetailScreenWithTarget } from "./projection-detail-states.tsx";
 import { lastSegment } from "./qn.ts";
 import { qualifyScreenId } from "./qualify-screen-id.ts";
 import { QueryLoadingBanner } from "./query-state-banners.tsx";
@@ -87,19 +88,32 @@ import {
 // EntityListBody's rowActions builder); the toolbar variant has none.
 type DrawerLikeAction = Extract<ToolbarAction, { kind: "drawer" }> | RowActionDrawer;
 
+type DrawerTargetScreen = ActionFormScreenDefinition | ProjectionDetailScreenWithTarget;
+
+export type DrawerDetailRenderer = (props: {
+  readonly schema: FeatureSchema;
+  readonly screen: ProjectionDetailScreenWithTarget;
+  readonly translate: Translate | undefined;
+  readonly entityId: string;
+  readonly onDirtyChange: (dirty: boolean) => void;
+}) => ReactNode;
+
 export function useDrawerAction(schema: FeatureSchema): {
   readonly drawerAction: DrawerLikeAction | null;
-  readonly drawerScreen: ActionFormScreenDefinition | undefined;
+  readonly drawerScreen: DrawerTargetScreen | undefined;
   readonly drawerInitialValues: Readonly<Record<string, unknown>> | undefined;
+  readonly drawerRecordId: string | undefined;
   readonly openDrawer: (
     action: DrawerLikeAction,
     initialValues?: Readonly<Record<string, unknown>>,
+    recordId?: string,
   ) => void;
   readonly closeDrawer: () => void;
 } {
   const [drawerState, setDrawerState] = useState<{
     readonly action: DrawerLikeAction;
     readonly initialValues: Readonly<Record<string, unknown>> | undefined;
+    readonly recordId: string | undefined;
   } | null>(null);
   const drawerAction = drawerState?.action ?? null;
   const drawerScreen = useMemo(() => {
@@ -107,13 +121,17 @@ export function useDrawerAction(schema: FeatureSchema): {
     // Same same-feature, short-id resolution as runNavigate — the drawer's
     // `screen` reference is scoped to schema.screens, not cross-feature.
     return schema.screens.find(
-      (s): s is ActionFormScreenDefinition =>
-        s.type === "actionForm" && lastSegment(s.id) === drawerAction.screen,
+      (s): s is DrawerTargetScreen =>
+        (s.type === "actionForm" || s.type === "projectionDetail") &&
+        lastSegment(s.id) === drawerAction.screen,
     );
   }, [drawerAction, schema.screens]);
   const openDrawer = useCallback(
-    (action: DrawerLikeAction, initialValues?: Readonly<Record<string, unknown>>) =>
-      setDrawerState({ action, initialValues }),
+    (
+      action: DrawerLikeAction,
+      initialValues?: Readonly<Record<string, unknown>>,
+      recordId?: string,
+    ) => setDrawerState({ action, initialValues, recordId }),
     [],
   );
   const closeDrawer = useCallback(() => setDrawerState(null), []);
@@ -121,6 +139,7 @@ export function useDrawerAction(schema: FeatureSchema): {
     drawerAction,
     drawerScreen,
     drawerInitialValues: drawerState?.initialValues,
+    drawerRecordId: drawerState?.recordId,
     openDrawer,
     closeDrawer,
   };
@@ -131,6 +150,8 @@ export function DrawerHost({
   drawerAction,
   drawerScreen,
   drawerInitialValues,
+  drawerRecordId,
+  renderDetail,
   userRoles,
   translate,
   onClose,
@@ -138,8 +159,11 @@ export function DrawerHost({
 }: {
   readonly schema: FeatureSchema;
   readonly drawerAction: DrawerLikeAction | null;
-  readonly drawerScreen: ActionFormScreenDefinition | undefined;
+  readonly drawerScreen: DrawerTargetScreen | undefined;
   readonly drawerInitialValues?: Readonly<Record<string, unknown>>;
+  readonly drawerRecordId?: string;
+  /** Required for a projectionDetail target; the host owns the import that avoids a module cycle. */
+  readonly renderDetail?: DrawerDetailRenderer;
   readonly userRoles: readonly string[] | undefined;
   readonly translate?: Translate;
   readonly onClose: () => void;
@@ -149,13 +173,16 @@ export function DrawerHost({
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const locale = useLocale().locale();
+  const isDetailTarget = drawerScreen?.type === "projectionDetail";
   const [hasUnsavedInput, setHasUnsavedInput] = useState(false);
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const closeAndReset = useCallback(() => {
     setHasUnsavedInput(false);
     setConfirmDiscardOpen(false);
-    onClose();
-  }, [onClose]);
+    // Actions in the detail may have changed the row, so closing it reloads the list like a submit.
+    if (isDetailTarget) onSuccess();
+    else onClose();
+  }, [isDetailTarget, onClose, onSuccess]);
   const requestClose = useCallback(() => {
     if (hasUnsavedInput) setConfirmDiscardOpen(true);
     else closeAndReset();
@@ -181,6 +208,7 @@ export function DrawerHost({
         {...(drawerAction.subtitle !== undefined && {
           subtitle: effectiveTranslate(drawerAction.subtitle, titleParams),
         })}
+        {...(drawerAction.width !== undefined && { width: drawerAction.width })}
         testId={`toolbar-drawer-${drawerAction.id}`}
       >
         <PageHeaderSlotAvailableProvider value={false}>
@@ -195,6 +223,15 @@ export function DrawerHost({
                 screenQn={drawerAction.screen}
                 testId="kumiko-toolbar-drawer-access-denied"
               />
+            ) : drawerScreen.type === "projectionDetail" ? (
+              renderDetailTarget({
+                schema,
+                screen: drawerScreen,
+                translate,
+                entityId: drawerRecordId,
+                renderDetail,
+                onDirtyChange: setHasUnsavedInput,
+              })
             ) : (
               <ActionFormBody
                 schema={schema}
@@ -228,6 +265,23 @@ export function DrawerHost({
       />
     </>
   );
+}
+
+function renderDetailTarget(input: {
+  readonly schema: FeatureSchema;
+  readonly screen: ProjectionDetailScreenWithTarget;
+  readonly translate: Translate | undefined;
+  readonly entityId: string | undefined;
+  readonly renderDetail: DrawerDetailRenderer | undefined;
+  readonly onDirtyChange: (dirty: boolean) => void;
+}): ReactNode {
+  const { schema, screen, translate, entityId, renderDetail, onDirtyChange } = input;
+  if (renderDetail === undefined || entityId === undefined) {
+    return (
+      <ScreenMissingState screenQn={screen.id} testId="kumiko-toolbar-drawer-detail-unavailable" />
+    );
+  }
+  return renderDetail({ schema, screen, translate, entityId, onDirtyChange });
 }
 
 function declaresSuccessContent(screen: ActionFormScreenDefinition): boolean {

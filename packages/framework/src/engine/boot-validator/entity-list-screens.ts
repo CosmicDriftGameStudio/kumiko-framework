@@ -1,6 +1,7 @@
 import {
   type EntityListScreenDefinition,
   entityHasFilterableFields,
+  type RowAction,
 } from "@cosmicdrift/kumiko-types/screen";
 import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta.ts";
 import { normalizeListColumn } from "../screen-helpers.ts";
@@ -132,12 +133,22 @@ function checkSortSpecColumn(
 function checkDetailNavigate(feature: FeatureDefinition, screen: EntityListScreenDefinition): void {
   // skip: only lists with a detail screen need a navigate row action
   if (!hasEntityEditDetail(feature, screen.entity)) return;
+  const opensDetailInDrawer = (action: RowAction): boolean => {
+    if (action.kind !== "drawer" || action.rowClick !== true) return false;
+    const target = feature.screens[action.screen];
+    // A detail without detailFor names its record only through its query, so only a different detailFor rules it out.
+    return (
+      target?.type === "projectionDetail" &&
+      (target.detailFor === undefined || target.detailFor === screen.entity)
+    );
+  };
   const hasNavigate = (screen.rowActions ?? []).some(
-    (a) => a.kind === "navigate" && (a.id === "view" || a.id === "edit"),
+    (a) =>
+      (a.kind === "navigate" && (a.id === "view" || a.id === "edit")) || opensDetailInDrawer(a),
   );
   if (!hasNavigate) {
     throw bootRuleError(ENTITY_LIST_RULES.detailWithoutNavigate, {
-      message: `${screenPrefix(feature, screen)}: detail screen exists — add a navigate rowAction with id "view" or "edit"`,
+      message: `${screenPrefix(feature, screen)}: detail screen exists — add a navigate rowAction with id "view" or "edit", or a rowClick drawer rowAction onto a projectionDetail with detailFor "${screen.entity}"`,
     });
   }
 }

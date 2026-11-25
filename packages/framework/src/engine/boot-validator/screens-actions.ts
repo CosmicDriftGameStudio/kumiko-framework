@@ -471,15 +471,22 @@ export function validateDrawerTargetAction(
   }
   // secretMint is intentionally excluded — a one-time secret reveal belongs on
   // its own page, not layered in a Drawer above a list.
-  if (target.type !== "actionForm") {
+  // A detail needs the clicked record's id: only a row action has one.
+  const isRowDetailTarget = target.type === "projectionDetail" && actionLabel === "rowAction";
+  if (target.type !== "actionForm" && !isRowDetailTarget) {
     throw bootRuleError(SCREEN_ACTION_RULES.drawerTargetNotActionForm, {
       message:
         `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}" ` +
-        `drawer-target "${action.screen}" is a "${target.type}" screen, not an actionForm. ` +
-        `kind:"drawer" mounts an actionForm inside a Drawer widget — point "screen" at an ` +
-        `actionForm screen, or use kind:"navigate" for a full-page target.`,
+        `drawer-target "${action.screen}" is a "${target.type}" screen, not an actionForm` +
+        (target.type === "projectionDetail"
+          ? " (a projectionDetail opens only from a rowAction). "
+          : ". ") +
+        `kind:"drawer" mounts an actionForm (or, from a rowAction, a projectionDetail) inside a Drawer widget — point "screen" at one, ` +
+        `or use kind:"navigate" for a full-page target.`,
     });
   }
+  // skip: a projectionDetail target takes its record from the row id, not from prefill.
+  if (target.type !== "actionForm") return;
   // The renderer (mergeSearchParamsIntoInitial) silently drops a prefill key
   // when the target doesn't declare the field, marks it sensitive/password,
   // or doesn't render it in its layout — each would only show up as an empty

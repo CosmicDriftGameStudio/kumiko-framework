@@ -47,6 +47,7 @@ import {
 } from "./named-filter-facet.ts";
 import { NamedFilterRemove } from "./named-filter-remove.tsx";
 import { type ScreenTarget, useNav } from "./nav.tsx";
+import { renderDetailInDrawer } from "./projection-detail-body.tsx";
 import { QueryErrorBanner, QueryLoadingBanner } from "./query-state-banners.tsx";
 import {
   ReferenceFacetBridges,
@@ -164,8 +165,14 @@ function EntityListBody({
   const host = useReturnHost();
   const userRoles = useUserRoles();
   const appFeatures = useAppFeatures();
-  const { drawerAction, drawerScreen, drawerInitialValues, openDrawer, closeDrawer } =
-    useDrawerAction(schema);
+  const {
+    drawerAction,
+    drawerScreen,
+    drawerInitialValues,
+    drawerRecordId,
+    openDrawer,
+    closeDrawer,
+  } = useDrawerAction(schema);
   const defaultEditScreen = useMemo(
     () => findEditScreenFor(screen.entity, appFeatures, userRoles),
     [appFeatures, screen.entity, userRoles],
@@ -668,6 +675,8 @@ function EntityListBody({
         drawerAction={drawerAction}
         drawerScreen={drawerScreen}
         {...(drawerInitialValues !== undefined && { drawerInitialValues })}
+        {...(drawerRecordId !== undefined && { drawerRecordId })}
+        renderDetail={renderDetailInDrawer}
         userRoles={userRoles}
         {...(translate !== undefined && { translate })}
         onClose={closeDrawer}

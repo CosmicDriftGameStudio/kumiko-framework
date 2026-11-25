@@ -23,8 +23,9 @@ export const ENTITY_LIST_RULES = {
   },
   detailWithoutNavigate: {
     id: "entity-list/detail-without-navigate",
-    summary: "A list whose entity has a detail screen offers a navigate row action.",
-    fix: 'Add a navigate rowAction with id "view" or "edit".',
+    summary:
+      "A list whose entity has a detail screen offers a navigate row action or a rowClick drawer onto its projectionDetail.",
+    fix: 'Add a navigate rowAction with id "view" or "edit", or a rowClick drawer rowAction onto a projectionDetail with detailFor.',
   },
   unknownNamedFilter: {
     id: "entity-list/unknown-named-filter",

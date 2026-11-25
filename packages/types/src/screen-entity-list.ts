@@ -391,11 +391,16 @@ export type RowActionDrawer = {
   readonly kind: "drawer";
   readonly id: string;
   readonly label: string;
-  /** Short, unqualified id of an `actionForm` screen in the same feature.
-   *  Boot validator rejects a missing screen and a screen whose `type`
-   *  isn't `actionForm` — same check as ToolbarAction's drawer variant
-   *  (see docs/plans/bundled-features-screen-standardisierung.md §2.6c). */
+  /** Short, unqualified id of an `actionForm` or `projectionDetail` screen in
+   *  the same feature. A projectionDetail target opens that record's detail
+   *  (tabs, related lists, actions) in the drawer; the clicked row's `id` is
+   *  the record id, `params` is not needed. Boot validator rejects a missing
+   *  screen and any other screen type (see
+   *  docs/plans/bundled-features-screen-standardisierung.md §2.6c). */
   readonly screen: string;
+  /** `"wide"` opens a broad panel (up to 1280px) instead of the standard
+   *  width; narrow viewports keep the full-screen drawer. */
+  readonly width?: "wide";
   /** Declarative prefill extracted from the clicked row. `pick` extracts
    *  fields of the same name; `map` renames them. */
   readonly params?: RowFieldExtractor;
@@ -509,6 +514,8 @@ export type ToolbarAction = (
       readonly title?: string;
       /** Line under the drawer heading (i18n key). */
       readonly subtitle?: string;
+      /** `"wide"` opens a broad panel (up to 1280px) instead of the standard width. */
+      readonly width?: "wide";
     }
 ) & {
   /** Icon of the button, in every list (entityList, projectionList, relatedList). Without it the id-derived default applies (`create` → plus). */
