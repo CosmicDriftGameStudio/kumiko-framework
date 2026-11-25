@@ -1,5 +1,6 @@
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import {
+  conditionFields,
   isExtensionEditSection,
   normalizeEditField,
   sectionFieldSpecs,
@@ -106,11 +107,15 @@ export function validateEntityEditScreen(
         `(known: ${[...fieldNames].sort().join(", ")}).`,
     });
   }
-  if (typeof screen.readOnly === "object" && !fieldNames.has(screen.readOnly.field)) {
+  const unknownReadOnlyField =
+    typeof screen.readOnly === "object"
+      ? conditionFields(screen.readOnly).find((field) => !fieldNames.has(field))
+      : undefined;
+  if (unknownReadOnlyField !== undefined) {
     throw bootRuleError(SCREEN_KIND_RULES.entityEditReadOnlyFieldUnknown, {
       message:
         `[Feature ${featureName}] Screen "${screenId}" (entityEdit) readOnly condition field ` +
-        `"${screen.readOnly.field}" is not a field of entity "${screen.entity}" ` +
+        `"${unknownReadOnlyField}" is not a field of entity "${screen.entity}" ` +
         `(known: ${[...fieldNames].sort().join(", ")}).`,
     });
   }

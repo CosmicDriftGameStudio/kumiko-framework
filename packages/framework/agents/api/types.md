@@ -1120,6 +1120,7 @@ type EmptyStateText = {
   title: string;
   description?: string | undefined;
 };
+type FieldConditionLeaf = Exclude<FieldCondition, boolean | { all: unknown; }>;
 type FieldsOrGroupsSection = { // Structural reader contract for every section that can carry `fields` and/or `groups`: the `EditFieldsSection` union members and `EditWriteFormSection` all assign without narrowing.
   fields?: EditFieldSpec[];
   groups?: { title: string; fields: EditFieldSpec[]; }[];
@@ -2664,6 +2665,14 @@ type ConfigSourceBadgeProps = { // Source-badge for one cascade step (User / Ten
   screenScope?: ConfigScope; // Scope of the hosting screen.
 };
 type DataAttributes = Readonly<Record<`data-${string}`, string>>; // Escape hatch for `data-*` test hooks (e.g. an E2E selector) that don't warrant a dedicated typed prop.
+type DataTableCellEditor = { // An editable select cell: the table draws a native select instead of the read-only value.
+  options: { value: string; label: string; }[];
+  value: string | null; // Current raw value; null or empty shows the placeholder.
+  required: boolean; // An empty value is drawn as an error.
+  placeholder: string;
+  ariaLabel: string;
+  onChange: (value: string) => void;
+};
 type DataTableRowAction = {
   id: string; // Stable ID for aria-labels and data-testids.
   label: string; // Translated Label.
@@ -3877,10 +3886,32 @@ type EmbeddedFilesSubFieldProps = { // Value is an array of FileRef ids; `file_r
 type EmbeddedImagesSubFieldProps = EmbeddedFilesSubFieldProps & {
   capture?: "environment" | "user";
 };
+type FieldConditionAll = {
+  all: NonBooleanFieldCondition[];
+};
+type FieldConditionLeaf =
+  | {
+    field: string;
+    eq: unknown;
+  }
+  | {
+    field: string;
+    ne: unknown;
+  }
+  | {
+    field: string;
+    in: unknown[];
+  }
+  | {
+    field: string;
+    notIn: unknown[];
+  }
+;
 type FieldStateConditions = {
   visibleWhen?: Exclude<FieldCondition, boolean>; // Field is shown only while the condition holds on the record values.
   requiredWhen?: Exclude<FieldCondition, boolean>; // Field is required while the condition holds (and the field is visible).
 };
+type NonBooleanFieldCondition = FieldConditionLeaf | FieldConditionAll;
 ```
 
 ## packages/types/src/fields-derived.ts
@@ -5368,6 +5399,19 @@ type EditSectionPresentation = { // Presentation options every section kind of a
   hideOnNarrow?: true; // Leaves the section out below `sm`.
   showOnNarrowOnly?: true; // Shows the section only below `sm` (e.g. a compact facts block for phones).
   titleOnNarrow?: false; // `false` leaves the section title out below `sm` (phone); the title stays from `sm` up.
+};
+type EditWriteFormShared = EditSectionPresentation & {
+  id?: string; // Kebab-case tab id, used as the `?tab=` value.
+  visibleWhen?: Exclude<FieldCondition, boolean>; // projectionDetail only: shows the section (and its tab) only while the loaded record matches, same `{ field, eq | ne | in | notIn }` syntax as a field's `visibleWhen`.
+  kind: "writeForm";
+  title?: string;
+  description?: string;
+  descriptionNarrow?: string; // i18n key of a short text shown instead of `description` below `sm`.
+  columns?: number;
+  icon?: IconKey;
+  fieldDefs: Readonly<Record<string, FieldDefinition>>; // Field-type map for this section's own form — same shape as `ActionFormScreenDefinition.fields`.
+  fields: EditFieldSpec[]; // Rendered fields, in order — same shape as `EditFieldsSection.fields`.
+  actions?: RowAction[]; // Rendered top-right in the section's Card title row — same navigate/drawer/writeHandler dispatch as `ProjectionDetailScreenDefinition.actions`, evaluated against the same record.
 };
 type EntityEditActionPlacement = "inline" | "menu";
 type EntityWriteExcludedFields = {

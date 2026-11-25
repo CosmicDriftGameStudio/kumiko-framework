@@ -11,9 +11,11 @@ import { holdsFileRefs } from "../../files/file-field-slots.ts";
 import { access as accessPresets } from "../config-helpers.ts";
 import { parseRefTarget } from "../parse-ref-target.ts";
 import { QnTypes, qualifyEntityName } from "../qualified-name.ts";
+import { conditionLeaves } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { validateAgentProposalEffect } from "./agent-effect.ts";
 import { bootRuleError } from "./boot-rule.ts";
+import { assertConditionShape } from "./condition-shape.ts";
 import { HANDLER_ACCESS_RULES } from "./entity-handler-access-rules.ts";
 import { ENTITY_REFERENCE_EMBEDDED_RULES } from "./entity-reference-embedded-rules.ts";
 import { ENTITY_STRUCTURE_RULES } from "./entity-structure-rules.ts";
@@ -980,8 +982,24 @@ export function validateLockedWhen(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     const { lockedWhen } = entity;
     if (typeof lockedWhen !== "object") continue;
-    const where = `Entity "${entityName}" in feature "${feature.name}": lockedWhen field "${lockedWhen.field}"`;
-    const field = entity.fields[lockedWhen.field];
+    assertConditionShape(
+      `Entity "${entityName}" in feature "${feature.name}": lockedWhen`,
+      lockedWhen,
+    );
+    for (const leaf of conditionLeaves(lockedWhen))
+      assertLockedWhenLeaf(entityName, entity, feature, leaf.field);
+  }
+}
+
+function assertLockedWhenLeaf(
+  entityName: string,
+  entity: EntityDefinition,
+  feature: FeatureDefinition,
+  leafField: string,
+): void {
+  {
+    const where = `Entity "${entityName}" in feature "${feature.name}": lockedWhen field "${leafField}"`;
+    const field = entity.fields[leafField];
     if (!field) {
       throw bootRuleError(ENTITY_STRUCTURE_RULES.lockedWhenUnknownField, {
         message: `${where} is not a field of the entity (known: ${Object.keys(entity.fields).sort().join(", ")}).`,

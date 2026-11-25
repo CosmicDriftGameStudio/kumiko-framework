@@ -201,11 +201,26 @@ export function instantSortKey(value: string): string | undefined {
  *  already drifted in shape. */
 export function evalFieldCondition(cond: FieldCondition, values: Record<string, unknown>): boolean {
   if (typeof cond === "boolean") return cond;
+  if ("all" in cond) return cond.all.every((part) => evalFieldCondition(part, values));
   const val = values[cond.field];
   if ("eq" in cond) return val === cond.eq;
   if ("in" in cond) return cond.in.includes(val);
   if ("notIn" in cond) return !cond.notIn.includes(val);
   return val !== cond.ne;
+}
+
+type FieldConditionLeaf = Exclude<FieldCondition, boolean | { readonly all: unknown }>;
+
+/** The single-field conditions an `all` combines (the condition itself when it is no `all`). */
+export function conditionLeaves(
+  cond: Exclude<FieldCondition, boolean>,
+): readonly FieldConditionLeaf[] {
+  return "all" in cond ? cond.all.flatMap(conditionLeaves) : [cond];
+}
+
+/** Every field name the condition reads, in declaration order. */
+export function conditionFields(cond: Exclude<FieldCondition, boolean>): readonly string[] {
+  return conditionLeaves(cond).map((leaf) => leaf.field);
 }
 
 type EmptyStateText = { readonly title: string; readonly description?: string | undefined };
@@ -233,7 +248,8 @@ export function isRecordLocked(
   row: Readonly<Record<string, unknown>>,
 ): boolean {
   if (lockedWhen === undefined) return false;
-  if (typeof lockedWhen === "object" && !(lockedWhen.field in row)) return true;
+  if (typeof lockedWhen === "object" && !conditionFields(lockedWhen).every((name) => name in row))
+    return true;
   return evalFieldCondition(lockedWhen, { ...row });
 }
 
@@ -282,7 +298,10 @@ export function findUnavailableSelectOptions(
     const value = values[name];
     if (typeof value !== "string" || value === "") continue;
     if (previous) {
-      const watched = [name, ...def.conditionalOptions.map((rule) => rule.when.field)];
+      const watched = [
+        name,
+        ...def.conditionalOptions.flatMap((rule) => conditionFields(rule.when)),
+      ];
       if (watched.every((key) => isUnchangedValue(values[key], previous[key]))) continue;
     }
     const allowed = availableSelectOptions(def, values);

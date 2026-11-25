@@ -576,7 +576,7 @@ export type RelatedListEmptyStateSpec = ListEmptyStateSpec & {
 // `EditFieldsSection.fields`. Only supported on projectionDetail — the
 // boot-validator rejects it on entityEdit/configEdit/actionForm, same as
 // `relatedList`.
-export type EditWriteFormSection = EditSectionPresentation & {
+type EditWriteFormShared = EditSectionPresentation & {
   /** Kebab-case tab id, used as the `?tab=` value. Required by the
    *  boot-validator when the enclosing `EditLayout.mode` is "tabs". */
   readonly id?: string;
@@ -597,6 +597,16 @@ export type EditWriteFormSection = EditSectionPresentation & {
   /** Rendered fields, in order — same shape as `EditFieldsSection.fields`.
    *  Every referenced field must have an entry in `fieldDefs`. */
   readonly fields: readonly EditFieldSpec[];
+  /** Rendered top-right in the section's Card title row — same
+   *  navigate/drawer/writeHandler dispatch as `ProjectionDetailScreenDefinition.actions`,
+   *  evaluated against the same record. Every action must resolve an icon
+   *  (declared or id-derived); the boot-validator rejects one that doesn't. */
+  readonly actions?: readonly RowAction[];
+};
+
+/** A writeForm in the flow of the page, with its own submit button (or `submitWith`). */
+export type EditWriteFormInlineSection = EditWriteFormShared & {
+  readonly placement?: undefined;
   /** Write-handler QN dispatched on submit. The submitted values (not a
    *  diff) land 1:1 as payload, same as `ActionFormScreenDefinition.handler`.
    *  The payload carries only this section's own fields — no parent/record
@@ -609,12 +619,20 @@ export type EditWriteFormSection = EditSectionPresentation & {
   readonly submitLabel?: string;
   /** Id of a writeHandler action in the screen's `actions`. The section then has no submit button of its own: the action sends its own payload plus this form's current values in one write to the action's handler, after the form validated (an invalid form sends nothing). A form field named like a payload key of the action is rejected at boot; `handler` is not dispatched. */
   readonly submitWith?: string;
-  /** Rendered top-right in the section's Card title row — same
-   *  navigate/drawer/writeHandler dispatch as `ProjectionDetailScreenDefinition.actions`,
-   *  evaluated against the same record. Every action must resolve an icon
-   *  (declared or id-derived); the boot-validator rejects one that doesn't. */
-  readonly actions?: readonly RowAction[];
 };
+
+/** A writeForm pinned under the tab content on every tab (projectionDetail only, at most one per screen).
+ *  Its fields sit in a compact row, its `actions` are the buttons: each writeHandler action sends its own
+ *  payload plus the form's values in one write after the form validated. It has no submit button, handler
+ *  or submitWith of its own and is no tab, so `id` and `title` are not needed in tabs mode. */
+export type EditWriteFormFooterSection = EditWriteFormShared & {
+  readonly placement: "footer";
+  readonly handler?: never;
+  readonly submitLabel?: never;
+  readonly submitWith?: never;
+};
+
+export type EditWriteFormSection = EditWriteFormInlineSection | EditWriteFormFooterSection;
 
 // Max width of the form container (see FormScreenShell in renderer/web).
 /** "settings": 940px settings column (configEdit compact). */

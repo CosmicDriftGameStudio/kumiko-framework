@@ -125,6 +125,12 @@ export const PROJECTION_DETAIL_RULES = {
       "A writeForm submitWith names a writeHandler action of the screen, no other form uses the same action, and no form field shares a name with the action's payload keys.",
     fix: "Point submitWith at a writeHandler action id in screen.actions, give each form its own action, and rename the colliding field or payload key.",
   },
+  footerWriteFormInvalid: {
+    id: "projection-detail/footer-write-form-invalid",
+    summary:
+      "A footer writeForm is declared once per screen, sets no handler, submitLabel or submitWith, stays out of wizard layouts, and its writeHandler actions are registered and share no payload key with its fields.",
+    fix: "Declare one footer form, send it through at least one writeHandler action in its actions, and rename a colliding field or payload key.",
+  },
   presentationOptionInvalid: {
     id: "projection-detail/presentation-option-invalid",
     summary:

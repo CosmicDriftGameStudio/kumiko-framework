@@ -19,7 +19,12 @@ import { GridCellForField } from "./grid-cell-for-field.tsx";
 import { narrowAwareDescription } from "./narrow-description.tsx";
 import { appendixCellProps } from "./render-edit-field-grid.tsx";
 import { hasIssueWithoutVisibleField, issuesAfterEdit } from "./render-edit-logic.ts";
-import { useReportWriteFormDirty, useWriteFormRegistry } from "./write-form-registry.ts";
+import {
+  FOOTER_WRITE_FORM_DIRTY_KEY,
+  footerSubmitActionIds,
+  useReportWriteFormDirty,
+  useWriteFormRegistry,
+} from "./write-form-registry.ts";
 
 function buildWriteFormSchema(fields: readonly EditFieldViewModel[]): z.ZodType {
   return z
@@ -79,14 +84,14 @@ function submitErrorNotice(
 type FormController = ReturnType<typeof useForm>["controller"];
 
 function useRegisterWriteForm(
-  submitWith: string | undefined,
+  registryKeys: readonly string[],
   controller: FormController,
   fields: readonly EditFieldViewModel[],
 ): void {
   const registry = useWriteFormRegistry();
   useEffect(() => {
-    if (submitWith === undefined || registry === null) return;
-    registry.set(submitWith, {
+    if (registryKeys.length === 0 || registry === null) return;
+    const handle = {
       validate: () => controller.validate(),
       invalidFieldLabels: () =>
         Object.keys(controller.getSnapshot().errors).map(
@@ -98,11 +103,12 @@ function useRegisterWriteForm(
         return stripUntouchedEmptyStrings(values, initial, new Set());
       },
       rebase: () => controller.rebase(),
-    });
-    return () => {
-      registry.delete(submitWith);
     };
-  }, [registry, submitWith, controller, fields]);
+    for (const key of registryKeys) registry.set(key, handle);
+    return () => {
+      for (const key of registryKeys) registry.delete(key);
+    };
+  }, [registry, registryKeys, controller, fields]);
 }
 
 function WriteFormFeedback({
@@ -148,7 +154,7 @@ export function WriteFormSection({
   actions,
   onFooterAction,
 }: WriteFormSectionProps): ReactNode {
-  const { Grid, GridCell, Button, StatusBadge } = usePrimitives();
+  const { Grid, GridCell, Button, StatusBadge, FillContainer } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
 
@@ -159,15 +165,27 @@ export function WriteFormSection({
   const schema = useMemo(() => buildWriteFormSchema(section.fields), [section.fields]);
   const { controller, snapshot } = useForm({
     initial,
-    submit: { type: section.handler, payloadMode: "values" },
+    ...(section.handler !== undefined && {
+      submit: { type: section.handler, payloadMode: "values" as const },
+    }),
     schema,
   });
   useUnsavedInputSource(() => controller.getSnapshot().isDirty);
-  useReportWriteFormDirty(snapshot.isDirty, section.submitWith);
+  const isFooter = section.placement === "footer";
+  const { submitWith } = section;
+  useReportWriteFormDirty(snapshot.isDirty, isFooter ? FOOTER_WRITE_FORM_DIRTY_KEY : submitWith);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<ErrorNotice | null>(null);
-  const { submitWith } = section;
-  useRegisterWriteForm(submitWith, controller, section.fields);
+  const registryKeys = useMemo(
+    () =>
+      isFooter
+        ? footerSubmitActionIds(section.actions)
+        : submitWith === undefined
+          ? []
+          : [submitWith],
+    [isFooter, submitWith, section.actions],
+  );
+  useRegisterWriteForm(registryKeys, controller, section.fields);
 
   async function handleSubmit(): Promise<void> {
     if (isSubmitting) return;
@@ -202,7 +220,7 @@ export function WriteFormSection({
   // latest handleSubmit through a ref instead of capturing a stale closure.
   const handleSubmitRef = useRef(handleSubmit);
   handleSubmitRef.current = handleSubmit;
-  const sectionTestId = `write-form-${section.title ?? section.handler}`;
+  const sectionTestId = `write-form-${section.title ?? section.handler ?? "footer"}`;
   const submitLabel = section.submitLabel ?? effectiveTranslate("kumiko.actions.save");
   const submitButton = (
     <Button
@@ -254,10 +272,30 @@ export function WriteFormSection({
       </Grid>
       <WriteFormFeedback
         error={error}
-        submitRow={onFooterAction === undefined && submitWith === undefined ? submitButton : null}
+        submitRow={
+          onFooterAction === undefined && submitWith === undefined && !isFooter
+            ? submitButton
+            : null
+        }
       />
     </>
   );
+
+  if (isFooter) {
+    return (
+      <FillContainer
+        className="sticky bottom-0 z-10 gap-2 border-t bg-background px-4 py-3"
+        testId="write-form-footer"
+      >
+        {content}
+        {actions !== undefined && (
+          <FillContainer className="flex-row flex-wrap items-center justify-end gap-2">
+            {actions}
+          </FillContainer>
+        )}
+      </FillContainer>
+    );
+  }
 
   return (
     <WriteFormSectionFrame

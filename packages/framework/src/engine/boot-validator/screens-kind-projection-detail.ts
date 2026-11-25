@@ -11,6 +11,7 @@ import type {
   EditFieldsSection,
   EditRelatedListSection,
   EditSectionSpec,
+  EditWriteFormFooterSection,
   EditWriteFormSection,
   MetricSpec,
   ProjectionDetailScreenDefinition,
@@ -525,12 +526,89 @@ function validateProjectionDetailWriteForm(
         `stepped form. Remove mode: "wizard" or drop the writeForm section.`,
     });
   }
+  // skip: a footer form has no handler of its own, its actions write
+  if (section.placement === "footer") return;
   assertWriteHandlerRegistered(
     featureName,
     `Screen "${screenId}" (projectionDetail) section "${section.title}" (writeForm)`,
     section.handler,
     ctx.allWriteHandlerQns,
   );
+}
+
+function isFooterWriteForm(section: EditSectionSpec): section is EditWriteFormFooterSection {
+  return isWriteFormEditSection(section) && section.placement === "footer";
+}
+
+function withoutFooterSections(
+  screen: ProjectionDetailScreenDefinition,
+): ProjectionDetailScreenDefinition {
+  return {
+    ...screen,
+    layout: {
+      ...screen.layout,
+      sections: screen.layout.sections.filter((section) => !isFooterWriteForm(section)),
+    },
+  };
+}
+
+// Footer actions send the form's values with their own payload, so a missing writeHandler action
+// leaves a form nothing could submit, and a shared key would make the write ambiguous.
+function validateProjectionDetailFooter(
+  ctx: ScreenValidationContext,
+  screenId: string,
+  screen: ProjectionDetailScreenDefinition,
+  section: EditWriteFormFooterSection,
+  footerCount: number,
+): void {
+  const where = `[Feature ${ctx.feature.name}] Screen "${screenId}" (projectionDetail) footer writeForm`;
+  const invalid = (message: string): Error =>
+    bootRuleError(PROJECTION_DETAIL_RULES.footerWriteFormInvalid, { message });
+  if (footerCount > 1) {
+    throw invalid(
+      `${where} is declared ${footerCount} times — a screen has at most one footer form.`,
+    );
+  }
+  if (
+    section.handler !== undefined ||
+    section.submitLabel !== undefined ||
+    section.submitWith !== undefined
+  ) {
+    throw invalid(
+      `${where} sets handler, submitLabel or submitWith — a footer form has no submit button of its own; its actions send it.`,
+    );
+  }
+  if (screen.layout.mode === "wizard") {
+    throw invalid(
+      `${where} is not supported in a wizard layout. Remove mode: "wizard" or the footer.`,
+    );
+  }
+  validateRecordSectionActions(ctx, screenId, "projectionDetail", section);
+  validateProjectionDetailWriteForm(ctx, screenId, screen, section);
+  const writeActions = (section.actions ?? []).filter(
+    (action) => action.kind === undefined || action.kind === "writeHandler",
+  );
+  if (writeActions.length === 0) {
+    throw invalid(
+      `${where} has no writeHandler action in its actions — nothing would submit the form.`,
+    );
+  }
+  const fieldNames = new Set(section.fields.map((f) => normalizeEditField(f).field));
+  for (const action of writeActions) {
+    if (action.kind !== undefined && action.kind !== "writeHandler") continue;
+    assertWriteHandlerRegistered(
+      ctx.feature.name,
+      `${where} action "${action.id}"`,
+      action.handler,
+      ctx.allWriteHandlerQns,
+    );
+    const clash = payloadKeysOf(action).find((key) => fieldNames.has(key));
+    if (clash !== undefined) {
+      throw invalid(
+        `${where} has the field "${clash}", which action "${action.id}" also sends in its payload — the write would be ambiguous. Rename the field or the payload key.`,
+      );
+    }
+  }
 }
 
 function validateProjectionDetailFieldsSection(
@@ -630,9 +708,15 @@ function validateHeaderActionShowOnTabs(
 export function validateProjectionDetailScreen(
   ctx: ScreenValidationContext,
   screenId: string,
-  screen: ProjectionDetailScreenDefinition,
+  fullScreen: ProjectionDetailScreenDefinition,
 ): void {
   const featureName = ctx.feature.name;
+  // A footer form is no tab and no body section: tab, id and emptiness rules see only the body.
+  const screen = withoutFooterSections(fullScreen);
+  const footers = fullScreen.layout.sections.filter(isFooterWriteForm);
+  for (const footer of footers) {
+    validateProjectionDetailFooter(ctx, screenId, screen, footer, footers.length);
+  }
   rejectMissingQuery(featureName, screenId, "projectionDetail", screen.query);
   validateProjectionDetailFlags(featureName, screenId, screen);
   rejectEmptySections(featureName, screenId, "projectionDetail", screen.layout.sections.length);

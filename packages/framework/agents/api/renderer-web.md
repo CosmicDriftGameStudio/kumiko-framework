@@ -516,6 +516,7 @@ type DataTableProps = DataTableTableBlock & {
   hasMore?: boolean; // When false and `onReachEnd` is set, the renderer shows an end-of-list message instead of the sentinel.
   testId?: string;
   onCellChange?: (rowId: string, field: string, value: unknown) => void; // Wires an edit path into a component column-renderer: `DataTableCell` passes this down as `ColumnRendererProps.onChange` for that cell, bound to `(rowId, column.field)`.
+  cellEditor?: (row: ListRowViewModel, field: string) => DataTableCellEditor | undefined; // An editor for the select cell of this row, or undefined for the read-only value.
   getRowTestId?: (row: ListRowViewModel) => string; // Overrides the row `data-testid` (default `row-${row.id}`) — for a screen that already has its own DOM-test/e2e naming scheme.
   getCellTestId?: (row: ListRowViewModel, field: string) => string; // Overrides the cell `data-testid` (default `cell-${row.id}-${field}`).
   chromeless?: boolean; // Drops the table's own rounded/border/card background — for a host that already provides the surrounding boundary (a tab panel) and would otherwise show a card nested inside that boundary.
@@ -1579,6 +1580,7 @@ type RenderListProps = DataTableTableBlockProps & {
   rowActionMode?: DataTableRowActionMode; // How the row-action column renders (see `DataTableProps.rowActionMode`).
   bulk?: DataTableProps["bulk"]; // Forwarded to `DataTableProps.bulk` / `rowTone`.
   rowTone?: DataTableProps["rowTone"];
+  cellEditor?: DataTableProps["cellEditor"]; // Forwarded to `DataTableProps.cellEditor` (relatedList `edit` columns).
   toolbarActions?: ToolbarActionButton[]; // Toolbar actions in the list header in resolved form.
   filterFacets?: DataTableFacet[]; // Faceted filter dropdowns.
   filterValues?: Readonly<Record<string, string[]>>; // Currently selected facet values by field (from URL state).

@@ -5,6 +5,7 @@ import type {
   FieldDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
+  conditionFields,
   evalFieldCondition,
   findMissingConditionalRequirements,
   findUnavailableSelectOptions,
@@ -108,11 +109,15 @@ function addUnavailableOptionIssues(
     unchangedFrom,
   )) {
     const lockedDef = lockedSelectFields[issue.field];
-    const blamedField =
+    const blockingRule =
       lockedDef !== undefined && lockedDef.type === "select"
-        ? (lockedDef.conditionalOptions?.find(
+        ? lockedDef.conditionalOptions?.find(
             (rule) => rule.options.includes(issue.value) && !evalFieldCondition(rule.when, record),
-          )?.when.field ?? issue.field)
+          )
+        : undefined;
+    const blamedField =
+      blockingRule !== undefined
+        ? (conditionFields(blockingRule.when)[0] ?? issue.field)
         : issue.field;
     ctx.addIssue({
       code: "custom",

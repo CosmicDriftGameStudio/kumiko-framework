@@ -289,3 +289,82 @@ describe("select sub-field optionTones", () => {
     ).toThrow(/optionTones\["bad"\]/);
   });
 });
+
+describe("all conditions", () => {
+  const status: EntityFieldDefinition = { type: "select", options: ["a", "b"] };
+
+  test("accepts all over known fields, nested", () => {
+    expect(() =>
+      validate({
+        status,
+        flag: { type: "boolean" },
+        note: text({
+          visibleWhen: {
+            all: [
+              { field: "status", eq: "a" },
+              {
+                all: [
+                  { field: "flag", eq: true },
+                  { field: "status", ne: "b" },
+                ],
+              },
+            ],
+          },
+        }),
+      }),
+    ).not.toThrow();
+  });
+
+  test("rejects an unknown field inside all", () => {
+    expect(() =>
+      validate({
+        status,
+        note: text({
+          visibleWhen: {
+            all: [
+              { field: "status", eq: "a" },
+              { field: "nope", eq: 1 },
+            ],
+          },
+        }),
+      }),
+    ).toThrow(/not a field of the entity/);
+  });
+
+  test("checks select option values inside all", () => {
+    expect(() =>
+      validate({
+        status,
+        flag: { type: "boolean" },
+        note: text({
+          requiredWhen: {
+            all: [
+              { field: "flag", eq: true },
+              { field: "status", eq: "zzz" },
+            ],
+          },
+        }),
+      }),
+    ).toThrow(/not an option/);
+  });
+
+  test("rejects all with a single entry", () => {
+    expect(() =>
+      validate({ status, note: text({ visibleWhen: { all: [{ field: "status", eq: "a" }] } }) }),
+    ).toThrow(/at least two/);
+  });
+
+  test("rejects a nested all with a single entry", () => {
+    expect(() =>
+      validate({
+        status,
+        flag: { type: "boolean" },
+        note: text({
+          visibleWhen: {
+            all: [{ field: "flag", eq: true }, { all: [{ field: "status", eq: "a" }] }],
+          },
+        }),
+      }),
+    ).toThrow(/at least two/);
+  });
+});

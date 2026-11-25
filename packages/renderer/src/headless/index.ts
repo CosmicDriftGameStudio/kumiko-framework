@@ -147,6 +147,7 @@ export {
   computeEditViewModel,
   computeListViewModel,
   computeRelatedListSectionViewModel,
+  computeWriteFormSectionViewModel,
   embeddedCellLabelKey,
   embeddedCellOptionLabelKey,
   fieldLabelKey,

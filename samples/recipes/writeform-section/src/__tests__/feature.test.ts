@@ -8,7 +8,9 @@
 
 import { describe, expect, test } from "bun:test";
 import {
+  createEntity,
   createRegistry,
+  createSelectField,
   createTextField,
   defineFeature,
   sectionFieldSpecs,
@@ -346,5 +348,199 @@ describe("writeform-section sample — presentation options are checked at boot"
       icon: false as const,
     };
     expect(() => validateBoot([detailFeature({ sections: [{ fields }] }, [action])])).not.toThrow();
+  });
+});
+
+describe("writeform-section sample — footer writeForm and editable select cell", () => {
+  const access = {
+    openToAll: { reason: "test handler callable by any signed-in test user" },
+  } as const;
+  const text = createTextField({ personal: false, reason: "is_business_data" });
+  const itemEntity = createEntity({
+    name: "item",
+    table: "read_sample_footer_items",
+    fields: {
+      name: text,
+      status: createSelectField({ options: ["open", "done"] as const }),
+    },
+  });
+  const footerForm = {
+    kind: "writeForm" as const,
+    placement: "footer" as const,
+    fieldDefs: { name: text },
+    fields: ["name"],
+    actions: [
+      {
+        id: "save",
+        label: "Save",
+        handler: "footer-desk:write:save",
+        payload: { map: { itemId: "id" } },
+        icon: false as const,
+      },
+    ],
+  };
+
+  const deskFeature = (
+    sections: ProjectionDetailScreenDefinition["layout"]["sections"],
+    mode?: "tabs",
+  ) =>
+    defineFeature("footer-desk", (r) => {
+      r.translations({
+        keys: {
+          "screen:x.title": { en: "X" },
+          "footer-desk:entity:__write-form-section__:field:name": { en: "Name" },
+          "footer-desk:entity:item:field:name": { en: "Name" },
+          "footer-desk:entity:item:field:status": { en: "Status" },
+          "footer-desk:entity:item:field:status:option:open": { en: "Open" },
+          "footer-desk:entity:item:field:status:option:done": { en: "Done" },
+        },
+      });
+      r.entity(itemEntity);
+      r.queryHandler({
+        name: "item:detail",
+        schema: z.object({ id: z.string() }),
+        handler: async () => ({}),
+        access,
+      });
+      r.writeHandler({
+        name: "save",
+        schema: z.object({}).passthrough(),
+        handler: async () => ({ isSuccess: true as const, data: null }),
+        access,
+      });
+      r.screen({
+        id: "x",
+        type: "projectionDetail",
+        query: "footer-desk:query:item:detail",
+        layout: { ...(mode !== undefined && { mode }), sections },
+      });
+    });
+
+  const rows = (edit: { readonly handler: string }, entity: string | null = "item") =>
+    ({
+      kind: "relatedList" as const,
+      title: "Items",
+      query: "footer-desk:query:item:detail",
+      ...(entity !== null && { entity }),
+      columns: [{ field: "status", edit }],
+    }) as const;
+
+  test("a footer form beside a body section boots; tabs mode needs no id for it", () => {
+    expect(() => validateBoot([deskFeature([{ fields: ["name"] }, footerForm])])).not.toThrow();
+    expect(() =>
+      validateBoot([
+        deskFeature(
+          [
+            { id: "a", title: "A", tabLabel: "A", fields: ["name"] },
+            { id: "b", title: "B", tabLabel: "B", fields: ["name"] },
+            footerForm,
+          ],
+          "tabs",
+        ),
+      ]),
+    ).not.toThrow();
+  });
+
+  test("two footer forms fail", () => {
+    expect(() =>
+      validateBoot([deskFeature([{ fields: ["name"] }, footerForm, footerForm])]),
+    ).toThrow("at most one footer form");
+  });
+
+  test("a footer form with handler or submitWith fails", () => {
+    expect(() =>
+      validateBoot([
+        deskFeature([
+          { fields: ["name"] },
+          Object.assign({}, footerForm, { handler: "footer-desk:write:save" }),
+        ]),
+      ]),
+    ).toThrow("sets handler, submitLabel or submitWith");
+  });
+
+  test("a footer form without a writeHandler action fails", () => {
+    expect(() =>
+      validateBoot([deskFeature([{ fields: ["name"] }, { ...footerForm, actions: [] }])]),
+    ).toThrow("no writeHandler action");
+  });
+
+  test("a footer action whose handler is not registered fails", () => {
+    const actions = [
+      { id: "save", label: "Save", handler: "footer-desk:write:missing", icon: false as const },
+    ];
+    expect(() =>
+      validateBoot([deskFeature([{ fields: ["name"] }, { ...footerForm, actions }])]),
+    ).toThrow("footer-desk:write:missing");
+  });
+
+  test("a footer field that an action also sends in its payload fails", () => {
+    const actions = [
+      {
+        id: "save",
+        label: "Save",
+        handler: "footer-desk:write:save",
+        payload: { map: { name: "id" } },
+        icon: false as const,
+      },
+    ];
+    expect(() =>
+      validateBoot([deskFeature([{ fields: ["name"] }, { ...footerForm, actions }])]),
+    ).toThrow('has the field "name"');
+  });
+
+  test("an edit column on a select field of the section's entity boots", () => {
+    expect(() =>
+      validateBoot([
+        deskFeature([{ fields: ["name"] }, rows({ handler: "footer-desk:write:save" })]),
+      ]),
+    ).not.toThrow();
+  });
+
+  test("an edit column needs an entity", () => {
+    expect(() =>
+      validateBoot([
+        deskFeature([{ fields: ["name"] }, rows({ handler: "footer-desk:write:save" }, null)]),
+      ]),
+    ).toThrow("needs the section to set entity");
+  });
+
+  test("an edit column on a non-select field fails", () => {
+    const section = {
+      ...rows({ handler: "footer-desk:write:save" }),
+      columns: [{ field: "name", edit: { handler: "footer-desk:write:save" } }],
+    };
+    expect(() => validateBoot([deskFeature([{ fields: ["name"] }, section])])).toThrow(
+      "is not one",
+    );
+  });
+
+  test("edit.field must name a select field of the entity", () => {
+    const section = (field: string) => ({
+      ...rows({ handler: "footer-desk:write:save" }),
+      columns: [{ field: "name", edit: { field, handler: "footer-desk:write:save" } }],
+    });
+    expect(() =>
+      validateBoot([deskFeature([{ fields: ["name"] }, section("status")])]),
+    ).not.toThrow();
+    expect(() => validateBoot([deskFeature([{ fields: ["name"] }, section("name")])])).toThrow(
+      '"name" is not one',
+    );
+  });
+
+  test("an edit column with an unregistered handler fails", () => {
+    expect(() =>
+      validateBoot([
+        deskFeature([{ fields: ["name"] }, rows({ handler: "footer-desk:write:missing" })]),
+      ]),
+    ).toThrow("footer-desk:write:missing");
+  });
+
+  test("note-board registers one footer form and an edit column", () => {
+    const screen = registry.getScreen("note-desk:screen:note-board");
+    if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
+    const footer = screen.layout.sections.find(
+      (section) => section.kind === "writeForm" && section.placement === "footer",
+    );
+    expect(footer).toBeDefined();
   });
 });

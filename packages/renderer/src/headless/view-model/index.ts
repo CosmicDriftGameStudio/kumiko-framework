@@ -1,5 +1,9 @@
 export type { ComputeEditViewModelInput, EditFormMode } from "./edit.ts";
-export { computeEditViewModel, computeRelatedListSectionViewModel } from "./edit.ts";
+export {
+  computeEditViewModel,
+  computeRelatedListSectionViewModel,
+  computeWriteFormSectionViewModel,
+} from "./edit.ts";
 export type {
   DerivedCellRoundingTarget,
   EmbeddedDerivedOp,

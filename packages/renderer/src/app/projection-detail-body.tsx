@@ -1,16 +1,23 @@
-import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import {
+  type EditSectionSpec,
+  type EditWriteFormFooterSection,
+  evalFieldCondition,
+  isWriteFormEditSection,
+} from "@cosmicdrift/kumiko-framework/ui-types";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { pageHelpButtonOf } from "../components/page-help-button.tsx";
 import { RenderEdit } from "../components/render-edit.tsx";
+import { RenderEditActionButton } from "../components/render-edit-action-button.tsx";
 import type { WriteFormRegistry } from "../components/write-form-registry.ts";
 import {
   type WriteFormDirtyReporter,
   WriteFormDirtyReporterProvider,
   WriteFormRegistryProvider,
 } from "../components/write-form-registry.ts";
+import { WriteFormSection } from "../components/write-form-section.tsx";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
-import type { Translate } from "../headless/index.ts";
+import { computeWriteFormSectionViewModel, type Translate } from "../headless/index.ts";
 import { useLocale, useTranslation } from "../i18n.tsx";
 import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
@@ -73,9 +80,13 @@ export const renderDetailInDrawer: DrawerDetailRenderer = ({
 // against controller.submit() without a submit config if there were no
 // customSubmit; the no-op makes that path harmless instead of leaving it to
 // chance.
+function isFooterWriteForm(section: EditSectionSpec): section is EditWriteFormFooterSection {
+  return isWriteFormEditSection(section) && section.placement === "footer";
+}
+
 export function ProjectionDetailBody({
   schema,
-  screen,
+  screen: declaredScreen,
   translate,
   entityId,
   onDirtyChange,
@@ -97,6 +108,26 @@ export function ProjectionDetailBody({
   const pageHeaderCompactContext = usePageHeaderCompact();
   const effectiveTranslate = translate ?? t;
   const nav = useNav();
+  // The footer form is no tab and no body section: everything below sees the screen without it.
+  const footerSection = useMemo(
+    () => declaredScreen.layout.sections.find(isFooterWriteForm),
+    [declaredScreen.layout.sections],
+  );
+  const screen = useMemo(
+    (): ProjectionDetailScreenWithTarget =>
+      footerSection === undefined
+        ? declaredScreen
+        : {
+            ...declaredScreen,
+            layout: {
+              ...declaredScreen.layout,
+              sections: declaredScreen.layout.sections.filter(
+                (section) => section !== footerSection,
+              ),
+            },
+          },
+    [declaredScreen, footerSection],
+  );
   // Singleton screens ignore whatever id the path happens to carry — the
   // server picks the row from session/context, so forwarding a path id
   // (even a stray/spoofed one) into the query or into extension sections'
@@ -148,7 +179,7 @@ export function ProjectionDetailBody({
   const returnTarget = screen.singleton === true ? undefined : returnTargetParam;
   const drawer = useDrawerAction(schema);
   const { openDrawer } = drawer;
-  const { buildSectionActions, buildItemActions, headerActions, footerActions } =
+  const { buildSectionActions, buildItemActions, headerActions, footerActions, footerFormButtons } =
     useProjectionDetailActions({
       schema,
       screen,
@@ -167,7 +198,25 @@ export function ProjectionDetailBody({
       activeTabId: activeSection?.id,
       writeForms,
       dirtyWriteForms,
+      footerFormActions: footerSection?.actions,
     });
+  const shownRecord = detailQuery.data;
+  const footerForm = useMemo(
+    () =>
+      footerSection === undefined ||
+      shownRecord === null ||
+      (footerSection.visibleWhen !== undefined &&
+        !evalFieldCondition(footerSection.visibleWhen, { ...shownRecord }))
+        ? undefined
+        : computeWriteFormSectionViewModel(
+            footerSection,
+            declaredScreen.id,
+            shownRecord,
+            effectiveTranslate,
+            schema.featureName,
+          ),
+    [footerSection, shownRecord, declaredScreen.id, effectiveTranslate, schema.featureName],
+  );
   const pageHelp = detailPageHelpOf(
     screen,
     visibleSections,
@@ -285,6 +334,24 @@ export function ProjectionDetailBody({
           buildSectionActions={buildSectionActions}
           valueDisplay={screen.valueDisplay ?? "text"}
         />
+        {footerForm !== undefined && (
+          <WriteFormSection
+            section={footerForm}
+            featureName={schema.featureName}
+            translate={effectiveTranslate}
+            onSubmitted={reloadDetail}
+            recordValues={record}
+            actions={footerFormButtons?.map((action) => (
+              <RenderEditActionButton
+                key={action.id}
+                action={action}
+                Button={primitives.Button}
+                Dialog={primitives.Dialog}
+                onError={setActionError}
+              />
+            ))}
+          />
+        )}
         {renderProjectionDrawerHost({
           schema,
           translate,

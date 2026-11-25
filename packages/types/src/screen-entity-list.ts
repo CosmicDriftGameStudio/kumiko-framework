@@ -141,7 +141,20 @@ export type ListColumnSpec =
       readonly linkParamsField?: string;
       /** "To do" cell: the column's field holds a sentence, shown emphasized in the row tone; an empty value shows `emptyLabel`. Owns the cell rendering, so no `renderer`. */
       readonly hint?: ListColumnHint;
+      /** relatedList only, select fields of the row entity: in rows where `when` holds (always, without it) the cell is a dropdown of the field's options (`edit.field` names another select field of the row entity, default the column's own) instead of the value; a change dispatches `handler` at once with `{ id: row.id, [edit.field ?? field]: value }`, then the list and the host record reload. `required` marks an empty cell as missing. */
+      readonly edit?: ListColumnEdit;
     };
+
+export type ListColumnEdit = {
+  /** Write-handler QN dispatched with the row id and the chosen value. */
+  readonly handler: string;
+  /** Select field of the row entity the dropdown edits; default is the column's own field. Set, the cell shows that field's
+   *  dropdown (options, labels, value, write payload) instead of the column's value. */
+  readonly field?: string;
+  /** Evaluated against the row; the cell edits only where it holds. */
+  readonly when?: Exclude<FieldCondition, boolean>;
+  readonly required?: true;
+};
 
 export type ListColumnHint = {
   /** Row field with a second, muted line (e.g. the due date as text). */

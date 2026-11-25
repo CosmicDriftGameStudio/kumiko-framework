@@ -13,7 +13,7 @@ import type {
 } from "@cosmicdrift/kumiko-types/screen";
 import type { ZodType } from "zod";
 import { isPagedQueryHandler } from "../define-handler.ts";
-import { normalizeListColumn, sectionFieldSpecs } from "../screen-helpers.ts";
+import { conditionFields, normalizeListColumn, sectionFieldSpecs } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import { buildQueryHandlerMap } from "./projection-list-screens.ts";
@@ -253,8 +253,9 @@ function checkProjectionDetailOutputFields(
       () =>
         `${prefix} metrics references field "${field}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
     );
-    if (metric.visibleWhen !== undefined) {
-      const conditionField = metric.visibleWhen.field;
+    for (const conditionField of metric.visibleWhen === undefined
+      ? []
+      : conditionFields(metric.visibleWhen)) {
       checkFieldExists(
         recordShape,
         conditionField,
@@ -293,8 +294,9 @@ function checkDetailSectionFields(
           `${prefix} section "${section.title ?? "(untitled)"}" countField references field "${countField}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
       );
     }
-    if (section.visibleWhen !== undefined) {
-      const conditionField = section.visibleWhen.field;
+    for (const conditionField of section.visibleWhen === undefined
+      ? []
+      : conditionFields(section.visibleWhen)) {
       checkFieldExists(
         recordShape,
         conditionField,

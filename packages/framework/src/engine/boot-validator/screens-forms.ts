@@ -7,8 +7,9 @@ import type {
 } from "@cosmicdrift/kumiko-types/fields";
 import { NO_WIDGET_FIELD_TYPES, optionsQueryFieldRefs } from "@cosmicdrift/kumiko-types/fields";
 import { isKebabSegment } from "../qualified-name.ts";
-import type { FieldsOrGroupsSection } from "../screen-helpers.ts";
 import {
+  conditionFields,
+  type FieldsOrGroupsSection,
   isExtensionEditSection,
   isFieldsEditSection,
   isWriteFormEditSection,
@@ -28,6 +29,7 @@ import type {
 } from "../types/screen.ts";
 import { validateActionFormPreview } from "./action-form-preview.ts";
 import { bootRuleError } from "./boot-rule.ts";
+import { assertConditionShape } from "./condition-shape.ts";
 import { validateFormDerivations, validateFormDerivationsEnforced } from "./form-derivations.ts";
 import type { NavigateTargetLookups } from "./screens-actions.ts";
 import {
@@ -424,10 +426,14 @@ function validateWizardOptions(
     }
   }
   const condition = wizard?.submitDisabledWhen;
-  if (typeof condition === "object" && !allFieldNames.has(condition.field)) {
-    throw bootRuleError(FORM_LAYOUT_RULES.wizardSubmitConditionFieldUnknown, {
-      message: `${where} layout.wizard.submitDisabledWhen names field "${condition.field}", which no section declares. Use a field name declared in one of the sections.`,
-    });
+  if (typeof condition === "object") {
+    assertConditionShape(`${where} layout.wizard.submitDisabledWhen`, condition);
+    for (const name of conditionFields(condition)) {
+      if (allFieldNames.has(name)) continue;
+      throw bootRuleError(FORM_LAYOUT_RULES.wizardSubmitConditionFieldUnknown, {
+        message: `${where} layout.wizard.submitDisabledWhen names field "${name}", which no section declares. Use a field name declared in one of the sections.`,
+      });
+    }
   }
 }
 

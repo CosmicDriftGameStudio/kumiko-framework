@@ -464,22 +464,19 @@ type EditStepListSection = EditSectionPresentation & { // Vertical numbered step
   field: string; // Output field of the detail query holding a `StepListItem[]`.
   actions?: undefined; // Present only so section-actions readers accept the union; a step list has no title-row actions.
 };
-type EditWriteFormSection = EditSectionPresentation & {
-  id?: string; // Kebab-case tab id, used as the `?tab=` value.
-  visibleWhen?: Exclude<FieldCondition, boolean>; // projectionDetail only: shows the section (and its tab) only while the loaded record matches, same `{ field, eq | ne | in | notIn }` syntax as a field's `visibleWhen`.
-  kind: "writeForm";
-  title?: string;
-  description?: string;
-  descriptionNarrow?: string; // i18n key of a short text shown instead of `description` below `sm`.
-  columns?: number;
-  icon?: IconKey;
-  fieldDefs: Readonly<Record<string, FieldDefinition>>; // Field-type map for this section's own form — same shape as `ActionFormScreenDefinition.fields`.
-  fields: EditFieldSpec[]; // Rendered fields, in order — same shape as `EditFieldsSection.fields`.
+type EditWriteFormFooterSection = EditWriteFormShared & { // A writeForm pinned under the tab content on every tab (projectionDetail only, at most one per screen).
+  placement: "footer";
+  handler?: never;
+  submitLabel?: never;
+  submitWith?: never;
+};
+type EditWriteFormInlineSection = EditWriteFormShared & { // A writeForm in the flow of the page, with its own submit button (or `submitWith`).
+  placement?: undefined;
   handler: string; // Write-handler QN dispatched on submit.
   submitLabel?: string; // i18n-key for the submit button.
   submitWith?: string; // Id of a writeHandler action in the screen's `actions`.
-  actions?: RowAction[]; // Rendered top-right in the section's Card title row — same navigate/drawer/writeHandler dispatch as `ProjectionDetailScreenDefinition.actions`, evaluated against the same record.
 };
+type EditWriteFormSection = EditWriteFormInlineSection | EditWriteFormFooterSection;
 type EmbeddedDerivedCellDef = ({ op: "multiply" | "sum" | "subtract" | "percent"; from: string[]; } | { op: "inRange"; from: string[]; inside: string; outside: string; }) & { // A cell computed from other cells of the same row.
   when?: Exclude<FieldCondition, boolean>; // Row-level condition on a sibling sub-field.
 };
@@ -567,6 +564,12 @@ type FormWidth = "3xl" | "4xl" | "settings" | "full"; // "settings": 940px setti
 type Formality = "formal" | "informal";
 type IconKey = NavIconKey;
 type ListBulkAction = ListBulkRowAction | ListBulkFormAction; // An action over checkbox-selected rows: a writeHandler row action per row (`rowAction`) or one form for all rows (`screen` + `idsField`).
+type ListColumnEdit = {
+  handler: string; // Write-handler QN dispatched with the row id and the chosen value.
+  field?: string; // Select field of the row entity the dropdown edits; default is the column's own field.
+  when?: Exclude<FieldCondition, boolean>; // Evaluated against the row; the cell edits only where it holds.
+  required?: true;
+};
 type ListColumnHint = {
   detailField?: string; // Row field with a second, muted line (e.g. the due date as text).
   narrowDetailField?: string; // Row field shown as the detail line below `sm` instead of `detailField` (a shorter line, e.g. "5 days · Anna Schneider").
@@ -839,4 +842,4 @@ type WorkspaceSchema = {
 };
 ```
 
-Also exported here, documented in `api/framework-engine.md`: `AccessRule`, `ActionFormScreenDefinition`, `ConfigEditScreenDefinition`, `DashboardCustomPanel`, `DashboardI18nText`, `EditFieldSpec`, `EditRelatedListSection`, `EditSectionSpec`, `EntityDefinition`, `EntityEditScreenDefinition`, `EntityListScreenDefinition`, `FieldCondition`, `FieldDefinition`, `HandlerTranslationTexts`, `HandlerTranslations`, `ListColumnSpec`, `ListFacetSpec`, `ListTableOptions`, `MetricNavigate`, `NavDefinition`, `NavIconKey`, `ProjectionDetailScreenDefinition`, `ProjectionListScreenDefinition`, `RowAction`, `RowActionWriteHandler`, `ScreenDefinition`, `SecretMintScreenDefinition`, `TargetRef`, `ToolbarAction`, `TreeAction`, `WorkspaceDefinition`, `handlerFieldLabelKey`, `handlerTitleKey`, `handlerTranslationKeys`, `isFieldsEditSection`, `isOpenToAllGranted`, `isUnchangedValue`, `normalizeEditField`, `normalizeListColumn`, `parseRefTarget`, `sectionFieldSpecs`
+Also exported here, documented in `api/framework-engine.md`: `AccessRule`, `ActionFormScreenDefinition`, `ConfigEditScreenDefinition`, `DashboardCustomPanel`, `DashboardI18nText`, `EditFieldSpec`, `EditRelatedListSection`, `EditSectionSpec`, `EntityDefinition`, `EntityEditScreenDefinition`, `EntityListScreenDefinition`, `FieldCondition`, `FieldDefinition`, `HandlerTranslationTexts`, `HandlerTranslations`, `ListColumnSpec`, `ListFacetSpec`, `ListTableOptions`, `MetricNavigate`, `NavDefinition`, `NavIconKey`, `ProjectionDetailScreenDefinition`, `ProjectionListScreenDefinition`, `RowAction`, `RowActionWriteHandler`, `ScreenDefinition`, `SecretMintScreenDefinition`, `TargetRef`, `ToolbarAction`, `TreeAction`, `WorkspaceDefinition`, `conditionFields`, `handlerFieldLabelKey`, `handlerTitleKey`, `handlerTranslationKeys`, `isFieldsEditSection`, `isOpenToAllGranted`, `isUnchangedValue`, `normalizeEditField`, `normalizeListColumn`, `parseRefTarget`, `sectionFieldSpecs`

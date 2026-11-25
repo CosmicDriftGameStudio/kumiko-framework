@@ -16,6 +16,11 @@ export const FIELD_CONDITION_RULES = {
     summary: "A condition on a select field compares only against options of that field.",
     fix: "Compare against one of the select field's options.",
   },
+  allNeedsTwoConditions: {
+    id: "field-condition/all-needs-two-conditions",
+    summary: "An all condition lists at least two conditions.",
+    fix: "Add the missing condition to all, or use the single condition directly.",
+  },
   conditionOnOwnField: {
     id: "field-condition/on-own-field",
     summary:

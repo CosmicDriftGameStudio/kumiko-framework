@@ -1,6 +1,7 @@
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
+  ListColumnEdit,
   RelatedListRowTone,
   RowActionDrawer,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -13,7 +14,7 @@ import {
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { useAppFeatures } from "../app/app-features-context.tsx";
 import { useClientActionRuntime } from "../app/client-actions.tsx";
-import { type ErrorNotice, ErrorReference } from "../app/error-reference.tsx";
+import { type ErrorNotice, ErrorReference, errorNoticeOf } from "../app/error-reference.tsx";
 import { useListBulk } from "../app/list-bulk-actions.ts";
 import {
   buildFilterFacets,
@@ -39,15 +40,18 @@ import {
   runProjectionRowNavigate,
 } from "../app/row-actions.ts";
 import { findEditScreenFor } from "../app/screen-access.ts";
-import { dispatcherErrorText } from "../app/write-failed-error.ts";
+import { dispatcherErrorText, WriteFailedError } from "../app/write-failed-error.ts";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
 import { rendererWarn } from "../dev-console.ts";
-import type {
-  EditRelatedListSectionViewModel,
-  EditSectionViewModel,
-  ListRowViewModel,
-  Translate,
+import {
+  type EditRelatedListSectionViewModel,
+  type EditSectionViewModel,
+  EMPTY_VALUE_PLACEHOLDER,
+  fieldLabelKey,
+  fieldOptionLabelKey,
+  type ListRowViewModel,
+  type Translate,
 } from "../headless/index.ts";
 import { buildRelatedListParentPayload } from "../hooks/related-list-parent-payload.ts";
 import { relatedListServerSort, useRelatedListRows } from "../hooks/use-related-list-rows.ts";
@@ -136,6 +140,55 @@ function buildRowStruck(
 ): DataTableProps["rowStruck"] {
   if (rule === undefined) return undefined;
   return (row) => evalFieldCondition(rule, { ...row.values });
+}
+
+/** Cell editors of the columns that declare `edit`: a select where `when` holds, written through the column's handler. */
+function buildCellEditor(args: {
+  readonly columns: EditRelatedListSectionViewModel["columns"];
+  readonly sourceEntity: EntityDefinition | undefined;
+  readonly feature: string | undefined;
+  readonly entityName: string | undefined;
+  readonly translate: Translate;
+  readonly write: (handler: string, payload: Record<string, unknown>) => Promise<void>;
+}): DataTableProps["cellEditor"] {
+  const edits = new Map<string, ListColumnEdit>();
+  for (const column of args.columns) {
+    const normalized = normalizeListColumn(column);
+    if (normalized.edit !== undefined) edits.set(normalized.field, normalized.edit);
+  }
+  if (edits.size === 0) return undefined;
+  return (row, field) => {
+    const edit = edits.get(field);
+    if (edit === undefined) return undefined;
+    if (edit.when !== undefined && !evalFieldCondition(edit.when, { ...row.values }))
+      return undefined;
+    const editField = edit.field ?? field;
+    const fieldDef = args.sourceEntity?.fields[editField];
+    if (fieldDef?.type !== "select") return undefined;
+    const { feature, entityName, translate } = args;
+    const labelOf = (value: string): string => {
+      if (feature === undefined || entityName === undefined) return value;
+      const key = fieldOptionLabelKey(feature, entityName, editField, value);
+      const translated = translate(key);
+      return translated === key ? value : translated;
+    };
+    const current = row.values[editField];
+    const labelKey =
+      feature !== undefined && entityName !== undefined
+        ? fieldLabelKey(feature, entityName, editField)
+        : undefined;
+    const translatedLabel = labelKey === undefined ? editField : translate(labelKey);
+    return {
+      options: fieldDef.options.map((value) => ({ value, label: labelOf(value) })),
+      value: typeof current === "string" ? current : null,
+      required: edit.required === true,
+      placeholder: EMPTY_VALUE_PLACEHOLDER,
+      ariaLabel: translatedLabel === labelKey ? editField : translatedLabel,
+      onChange: (value) => {
+        void args.write(edit.handler, { id: row.id, [editField]: value });
+      },
+    };
+  };
 }
 
 function RelatedListEmptyState({
@@ -418,6 +471,41 @@ export function RelatedListSection({
   // a relatedList row has the identical "no guaranteed id field" shape a
   // query-projection row has, so navigate/writeHandler dispatch is shared
   // rather than a second implementation (fw editable-detail-screens).
+  const cellEditor = useMemo(
+    () =>
+      buildCellEditor({
+        columns: section.columns,
+        sourceEntity,
+        feature: listFeatureName,
+        entityName: listEntityName,
+        translate: effectiveTranslate,
+        write: async (handler, payload) => {
+          if (dispatcher === undefined) return;
+          try {
+            const result = await dispatcher.write(handler, payload);
+            if (!result.isSuccess) {
+              throw new WriteFailedError(
+                result.error,
+                dispatcherErrorText(result.error, effectiveTranslate),
+              );
+            }
+            setEmptyStateActionError(null);
+            await refetchSelfAndHost();
+          } catch (error) {
+            setEmptyStateActionError(errorNoticeOf(error));
+          }
+        },
+      }),
+    [
+      section.columns,
+      sourceEntity,
+      listFeatureName,
+      listEntityName,
+      effectiveTranslate,
+      dispatcher,
+      refetchSelfAndHost,
+    ],
+  );
   const rowActions = useMemo(
     () =>
       buildProjectionRowActions({
@@ -601,6 +689,7 @@ export function RelatedListSection({
             {...(bulk !== undefined && { bulk })}
             {...(rowTone !== undefined && { rowTone })}
             {...(rowStruck !== undefined && { rowStruck })}
+            {...(cellEditor !== undefined && { cellEditor })}
             {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}
             {...(emptyStateContent !== undefined && { emptyState: emptyStateContent })}
             {...listTable}
