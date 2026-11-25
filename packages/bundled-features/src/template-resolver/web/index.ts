@@ -78,6 +78,7 @@ export {
   PlaceholderLineEditor,
   type PlaceholderLineEditorProps,
 } from "./placeholder-line-editor-lazy.tsx";
+export { replaceTagsWithSpace } from "./placeholder-text.ts";
 export { previewTargetOfKind } from "./preview-targets.ts";
 export {
   TemplateResolverErrors,

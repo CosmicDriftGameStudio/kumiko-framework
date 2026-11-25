@@ -13,7 +13,12 @@ import { createVariableView } from "./document-editor-extensions.ts";
 import { DocumentVariable } from "./document-schema.ts";
 import type { DocumentEditorHandle } from "./document-toolbar-blocks.ts";
 import { useEditorHandleReport } from "./editor-handle.ts";
-import { contentToLine, lineToContent, singleLine } from "./placeholder-text.ts";
+import {
+  contentToLine,
+  lineToContent,
+  replaceTagsWithSpace,
+  singleLine,
+} from "./placeholder-text.ts";
 import { useStableByKey } from "./use-stable-by-key.ts";
 
 export type PlaceholderLineEditorProps = {
@@ -45,19 +50,6 @@ const BlockLineBreaks = Extension.create({
 
 const NO_LABELS: Readonly<Record<string, string>> = {};
 const NO_NAMES: readonly string[] = [];
-
-// Index-based instead of /<[^>]*>/g: an unclosed "<" would rescan the rest of the input each time.
-function replaceTagsWithSpace(html: string): string {
-  let out = "";
-  let position = 0;
-  for (;;) {
-    const open = html.indexOf("<", position);
-    const close = open === -1 ? -1 : html.indexOf(">", open + 1);
-    if (close === -1) return out + html.slice(position);
-    out += `${html.slice(position, open)} `;
-    position = close + 1;
-  }
-}
 
 function LineEditorBody({
   id,

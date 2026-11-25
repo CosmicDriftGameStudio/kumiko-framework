@@ -81,6 +81,18 @@ describe("sanitizeTenantCss — named attack classes", () => {
     expect(out).not.toContain("javascript");
   });
 
+  test("a function right behind an ident, a digit or a dash is still caught", () => {
+    expect(css(".x { border: solid   url(x); }")).toBe("");
+    expect(css(".x { width: 1url(x); }")).toBe("");
+    expect(css(".x { width: a-url(x); }")).toBe("");
+  });
+
+  test("calc() with !important survives", () => {
+    const out = css(".x { width: calc(1px + 2px) !important; }");
+    expect(out).toContain("calc(1px + 2px)");
+    expect(out).toContain("!important");
+  });
+
   test("expression() is dropped", () => {
     expect(css(".x { width: expression(alert(1)); }")).toBe("");
   });

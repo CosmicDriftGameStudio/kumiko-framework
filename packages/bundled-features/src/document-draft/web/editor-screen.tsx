@@ -36,6 +36,7 @@ import {
   DocumentContentEditor,
   dateVariableNames,
   PDF_DOCUMENT_BLOCKS,
+  replaceTagsWithSpace,
   systemPlaceholderLabel,
   translatedOr,
 } from "../../template-resolver/web/index.ts";
@@ -158,19 +159,6 @@ function statusBadgeToneOf(status: DocumentDraftStatus) {
 
 function hasNoTitle(record: DraftRecord): boolean {
   return record.templateTitle === null || record.templateTitle === "";
-}
-
-// Index-based instead of /<[^>]*>/g: an unclosed "<" would rescan the rest of the input each time.
-function replaceTagsWithSpace(html: string): string {
-  let out = "";
-  let position = 0;
-  for (;;) {
-    const open = html.indexOf("<", position);
-    const close = open === -1 ? -1 : html.indexOf(">", open + 1);
-    if (close === -1) return out + html.slice(position);
-    out += `${html.slice(position, open)} `;
-    position = close + 1;
-  }
 }
 
 function plainTextOf(html: string): string {
