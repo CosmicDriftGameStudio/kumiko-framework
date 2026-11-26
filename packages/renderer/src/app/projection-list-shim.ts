@@ -113,6 +113,7 @@ export function synthesizeProjectionScreen(
     ...(screen.defaultSort !== undefined && { defaultSort: screen.defaultSort }),
     ...(screen.searchable !== undefined && { searchable: screen.searchable }),
     ...(screen.createLabel !== undefined && { createLabel: screen.createLabel }),
+    ...(screen.createIcon !== undefined && { createIcon: screen.createIcon }),
     ...(screen.itemNounKey !== undefined && { itemNounKey: screen.itemNounKey }),
     ...(screen.searchPlaceholder !== undefined && { searchPlaceholder: screen.searchPlaceholder }),
     ...(screen.slots !== undefined && { slots: screen.slots }),

@@ -18,6 +18,7 @@ import {
 } from "./render-list-table-props.ts";
 import {
   composeEmptyState,
+  createIconOf,
   type ListToolbarModel,
   renderCreateButton,
   renderHeaderActions,
@@ -205,6 +206,7 @@ export function RenderList(props: RenderListProps): ReactNode {
     translate,
     createInPageHeader: pageHeaderOffersCreate,
     effectiveCreateLabel,
+    createIcon: createIconOf(screen),
   });
   const toolbarTitle = resolveToolbarTitle(screen, translate);
 

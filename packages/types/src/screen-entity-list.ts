@@ -731,6 +731,8 @@ export type EntityListScreenDefinition = {
   readonly emptyState?: ListEmptyStateSpec;
   /** i18n key for the primary create button label (default `kumiko.actions.create`). */
   readonly createLabel?: string;
+  /** Icon of the create button, default "plus". */
+  readonly createIcon?: IconKey;
   /** "toolbar": from `md` up (below md the compact header keeps its "+") the create button ends the filter row instead of standing in the header. Default "header". Needs a create button (no `allowCreate: false`). */
   readonly createPlacement?: "header" | "toolbar";
   /** From `sm` up, a "Sorted by" select in the filter row (same options as the narrow sort control); column headers stay sortable. */
