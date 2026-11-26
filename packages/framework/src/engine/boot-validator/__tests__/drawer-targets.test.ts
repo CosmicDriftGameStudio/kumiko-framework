@@ -502,61 +502,65 @@ describe("projectionList rowAction drawer", () => {
     );
   });
 
-  test("params pick a field the target actionForm declares → no throw", () => {
-    expect(() => validateBoot([makeFeature({ params: { pick: ["qty"] } })])).not.toThrow();
+  type MakeFeatureOpts = Parameters<typeof makeFeature>[0];
+
+  test.each<{ readonly title: string; readonly opts: MakeFeatureOpts }>([
+    {
+      title: "params pick a field the target actionForm declares",
+      opts: { params: { pick: ["qty"] } },
+    },
+    {
+      title: "params map to a declared target key",
+      opts: { params: { map: { qty: "productQty" } } },
+    },
+  ])("$title → no throw", ({ opts }) => {
+    expect(() => validateBoot([makeFeature(opts)])).not.toThrow();
   });
 
-  test("params pick a field the target actionForm does not declare → throw", () => {
-    expect(() => validateBoot([makeFeature({ params: { pick: ["nope"] } })])).toThrow(
-      /rowAction "open-drawer" params prefills "nope", which drawer-target "restock-form" does not declare as a field/,
-    );
-  });
-
-  test("params map to a target key the actionForm does not declare → throw", () => {
-    expect(() => validateBoot([makeFeature({ params: { map: { nope: "productQty" } } })])).toThrow(
-      /params prefills "nope", which drawer-target "restock-form" does not declare/,
-    );
-  });
-
-  test("params prefill a sensitive target field → throw", () => {
-    expect(() =>
-      validateBoot([
-        makeFeature({
-          params: { pick: ["secret"] },
-          targetFields: { secret: { type: "text", sensitive: true } },
-          layoutFields: ["secret"],
-        }),
-      ]),
-    ).toThrow(/params prefills "secret", which drawer-target "restock-form" marks as sensitive/);
-  });
-
-  test("params prefill a password-format target field → throw", () => {
-    expect(() =>
-      validateBoot([
-        makeFeature({
-          params: { pick: ["pw"] },
-          targetFields: { pw: { type: "text", format: "password" } },
-          layoutFields: ["pw"],
-        }),
-      ]),
-    ).toThrow(/params prefills "pw", which drawer-target "restock-form" marks as sensitive/);
-  });
-
-  test("params prefill a declared field the target layout does not render → throw", () => {
-    expect(() =>
-      validateBoot([
-        makeFeature({
-          params: { pick: ["hidden"] },
-          targetFields: { qty: { type: "number" }, hidden: { type: "text" } },
-          layoutFields: ["qty"],
-        }),
-      ]),
-    ).toThrow(/params prefills "hidden", which drawer-target "restock-form" does not render/);
-  });
-
-  test("params map to a declared target key → no throw", () => {
-    expect(() =>
-      validateBoot([makeFeature({ params: { map: { qty: "productQty" } } })]),
-    ).not.toThrow();
+  test.each<{
+    readonly title: string;
+    readonly opts: MakeFeatureOpts;
+    readonly error: RegExp;
+  }>([
+    {
+      title: "params pick a field the target actionForm does not declare",
+      opts: { params: { pick: ["nope"] } },
+      error:
+        /rowAction "open-drawer" params prefills "nope", which drawer-target "restock-form" does not declare as a field/,
+    },
+    {
+      title: "params map to a target key the actionForm does not declare",
+      opts: { params: { map: { nope: "productQty" } } },
+      error: /params prefills "nope", which drawer-target "restock-form" does not declare/,
+    },
+    {
+      title: "params prefill a sensitive target field",
+      opts: {
+        params: { pick: ["secret"] },
+        targetFields: { secret: { type: "text", sensitive: true } },
+        layoutFields: ["secret"],
+      },
+      error: /params prefills "secret", which drawer-target "restock-form" marks as sensitive/,
+    },
+    {
+      title: "params prefill a password-format target field",
+      opts: {
+        params: { pick: ["pw"] },
+        targetFields: { pw: { type: "text", format: "password" } },
+        layoutFields: ["pw"],
+      },
+      error: /params prefills "pw", which drawer-target "restock-form" marks as sensitive/,
+    },
+    {
+      title: "params prefill a declared field the target layout does not render",
+      opts: {
+        params: { pick: ["hidden"] },
+        targetFields: { qty: { type: "number" }, hidden: { type: "text" } },
+        layoutFields: ["qty"],
+      },
+      error: /params prefills "hidden", which drawer-target "restock-form" does not render/,
+    },
+  ])("$title → throw", ({ opts, error }) => {
+    expect(() => validateBoot([makeFeature(opts)])).toThrow(error);
   });
 });

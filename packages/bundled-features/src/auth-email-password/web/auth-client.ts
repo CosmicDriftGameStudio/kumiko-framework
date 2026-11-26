@@ -169,7 +169,7 @@ function tokenFailure(failure: StaticFailure): AuthTokenFailure {
   };
 }
 
-type AuthTokenResult = { ok: true } | { ok: false; error: AuthTokenFailure };
+export type AuthTokenResult = { ok: true } | { ok: false; error: AuthTokenFailure };
 
 async function postTokenRequest(
   path: string,

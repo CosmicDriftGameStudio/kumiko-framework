@@ -158,6 +158,23 @@ function recordActionDisabled(
     : {};
 }
 
+function navigationRowActionBase(
+  action: RowActionNavigate | RowActionDrawer,
+  translate: Translate,
+) {
+  const actionIcon = resolveActionIcon(action.id, action.icon);
+  return {
+    id: action.id,
+    label: translate(action.label),
+    ...(action.style !== undefined && { style: action.style }),
+    ...(action.display !== undefined && { display: action.display }),
+    confirmRequired: false as const,
+    ...(action.rowClick === true && { rowClick: true as const }),
+    ...(action.inMenu === false && { inMenu: false as const }),
+    ...(actionIcon !== undefined && { icon: actionIcon }),
+  };
+}
+
 function buildNavigateRowAction(
   action: RowActionNavigate,
   translate: Translate,
@@ -165,16 +182,8 @@ function buildNavigateRowAction(
   host: ReturnHost | undefined,
 ): DataTableRowAction {
   const { visible } = action;
-  const actionIcon = resolveActionIcon(action.id, action.icon);
   return {
-    id: action.id,
-    label: translate(action.label),
-    ...(action.style !== undefined && { style: action.style }),
-    ...(action.display !== undefined && { display: action.display }),
-    confirmRequired: false,
-    ...(action.rowClick === true && { rowClick: true }),
-    ...(action.inMenu === false && { inMenu: false as const }),
-    ...(actionIcon !== undefined && { icon: actionIcon }),
+    ...navigationRowActionBase(action, translate),
     onTrigger: (row: ListRowViewModel) => runProjectionRowNavigate(nav, action, row, host),
     ...(visible !== undefined && {
       isVisible: (row: ListRowViewModel) => evalFieldCondition(visible, row.values),
@@ -252,16 +261,8 @@ export function buildDrawerRowAction(
   openDrawer: OpenDrawer,
 ): DataTableRowAction {
   const { visible } = action;
-  const actionIcon = resolveActionIcon(action.id, action.icon);
   return {
-    id: action.id,
-    label: translate(action.label),
-    ...(action.style !== undefined && { style: action.style }),
-    ...(action.display !== undefined && { display: action.display }),
-    confirmRequired: false,
-    ...(action.rowClick === true && { rowClick: true }),
-    ...(action.inMenu === false && { inMenu: false as const }),
-    ...(actionIcon !== undefined && { icon: actionIcon }),
+    ...navigationRowActionBase(action, translate),
     onTrigger: (row: ListRowViewModel) => runDrawerRowAction(action, openDrawer, row),
     ...(visible !== undefined && {
       isVisible: (row: ListRowViewModel) => evalFieldCondition(visible, row.values),
@@ -750,6 +751,31 @@ function buildDrawerRecordAction(
   };
 }
 
+function confirmablePressAction(
+  action: RowActionClientAction | RowActionWriteHandler,
+  translate: Translate,
+  actionIcon: IconKey | undefined,
+  discardChanges: DiscardChanges | undefined,
+) {
+  const confirm = withDiscardHint(
+    action.confirm !== undefined ? translate(action.confirm) : undefined,
+    discardChanges,
+  );
+  // The discard label wins: the action then also throws away the unsaved input.
+  const confirmLabel =
+    discardChanges?.confirmLabel ??
+    (action.confirmLabel !== undefined ? translate(action.confirmLabel) : undefined);
+  return {
+    id: action.id,
+    label: translate(action.label),
+    ...(action.style !== undefined && { style: action.style }),
+    ...(action.display !== undefined && { display: action.display }),
+    ...(actionIcon !== undefined && { icon: actionIcon }),
+    ...(confirm !== undefined && { confirm }),
+    ...(confirmLabel !== undefined && { confirmLabel }),
+  };
+}
+
 function buildClientActionRecordAction(
   action: RowActionClientAction,
   options: {
@@ -771,21 +797,8 @@ function buildClientActionRecordAction(
     defaultWritePayloadId,
     discardChanges,
   } = options;
-  const confirm = withDiscardHint(
-    action.confirm !== undefined ? translate(action.confirm) : undefined,
-    discardChanges,
-  );
-  const confirmLabel =
-    discardChanges?.confirmLabel ??
-    (action.confirmLabel !== undefined ? translate(action.confirmLabel) : undefined);
   return {
-    id: action.id,
-    label: translate(action.label),
-    ...(action.style !== undefined && { style: action.style }),
-    ...(action.display !== undefined && { display: action.display }),
-    ...(actionIcon !== undefined && { icon: actionIcon }),
-    ...(confirm !== undefined && { confirm }),
-    ...(confirmLabel !== undefined && { confirmLabel }),
+    ...confirmablePressAction(action, translate, actionIcon, discardChanges),
     onPress: async () => {
       const succeeded = await runClientAction({
         action,
@@ -853,22 +866,8 @@ function buildWriteHandlerRecordAction(
     [...(dirtyWriteForms ?? [])].every((formKey) => formKey === ownDirtyKey);
   const discardChanges = sendsAllDirtyInput ? undefined : options.discardChanges;
   const shownRecordId = defaultWritePayloadId ?? record["id"];
-  const confirm = withDiscardHint(
-    action.confirm !== undefined ? translate(action.confirm) : undefined,
-    discardChanges,
-  );
-  // The discard label wins: the action then also throws away the unsaved input.
-  const confirmLabel =
-    discardChanges?.confirmLabel ??
-    (action.confirmLabel !== undefined ? translate(action.confirmLabel) : undefined);
   return {
-    id: action.id,
-    label: translate(action.label),
-    ...(action.style !== undefined && { style: action.style }),
-    ...(action.display !== undefined && { display: action.display }),
-    ...(actionIcon !== undefined && { icon: actionIcon }),
-    ...(confirm !== undefined && { confirm }),
-    ...(confirmLabel !== undefined && { confirmLabel }),
+    ...confirmablePressAction(action, translate, actionIcon, discardChanges),
     onPress: async () => {
       const ownPayload =
         action.payload !== undefined

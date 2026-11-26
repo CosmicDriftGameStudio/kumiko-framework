@@ -1,5 +1,6 @@
 import type {
   EditFieldSpec,
+  EditRelatedListSection,
   EditSectionSpec,
   EmbeddedDerivedCellDef,
   FieldAffix,
@@ -15,7 +16,6 @@ import type {
   ListColumnSpec,
   ListFacetSpec,
   ListSortSpec,
-  ListTableOptions,
   OptionsQueryPayload,
   PageHelpSpec,
   PlatformComponent,
@@ -585,21 +585,22 @@ export type EditStepListSectionViewModel = {
   readonly actions?: undefined;
 };
 
-export type EditRelatedListSectionViewModel = {
+export type EditRelatedListSectionViewModel = Pick<
+  EditRelatedListSection,
+  | "query"
+  | "parentParam"
+  | "parentFilter"
+  | "columns"
+  | "entity"
+  | "description"
+  | "itemNoun"
+  | "pageSize"
+  | "table"
+> & {
   readonly kind: "relatedList";
   readonly id?: string;
   readonly title: string;
   readonly pageHelp?: PageHelpSpec;
-  readonly query: string;
-  readonly parentParam?: string;
-  readonly parentFilter?: { readonly field: string };
-  readonly columns: readonly ListColumnSpec[];
-  readonly entity?: string;
-  readonly description?: string;
-  /** Untranslated plural-forms key, resolved with the row count by the list footer. */
-  readonly itemNoun?: string;
-  readonly pageSize?: number;
-  readonly table?: ListTableOptions;
   readonly defaultSort?: ListSortSpec;
   /** From `EditRelatedListSection.serverSortFields` (derived by buildAppSchema). */
   readonly serverSortFields?: readonly string[];
