@@ -20,7 +20,7 @@ export function documentStepKeyOf(label: string): string {
     .replace(/\p{M}/gu, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/^-+|(?<!-)-+$/g, "")
     .slice(0, 40);
 }
 

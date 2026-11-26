@@ -170,7 +170,7 @@ export function uniqueResourceKey(source: string, taken: readonly string[]): str
     withoutExtension
       .toLowerCase()
       .replace(/[^a-z0-9._-]+/g, "-")
-      .replace(/^-+|-+$/g, "")
+      .replace(/^-+|(?<!-)-+$/g, "")
       .slice(0, KEY_MAX_LENGTH - 4) || "resource";
   if (!taken.includes(base)) return base;
   for (let n = 2; ; n += 1) {

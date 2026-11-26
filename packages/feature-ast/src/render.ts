@@ -316,7 +316,7 @@ function renderUseExtension(p: UseExtensionPattern): string {
   const optionsBody = renderValue(p.options)
     .trim()
     .replace(/^\{\s*/, "")
-    .replace(/\s*\}$/, "");
+    .replace(/(?<!\s)\s*\}$/, "");
   return `r.applyExtension({ ${head}, ${optionsBody} });`;
 }
 

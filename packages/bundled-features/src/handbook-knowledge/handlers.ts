@@ -56,7 +56,9 @@ export function createReadPageQuery(
       const { page, locale } = found;
       const { bodyMd, truncated } = truncateBody(page.bodyMd);
       const pagePath =
-        publicPath === undefined ? undefined : `${publicPath.replace(/\/+$/, "")}/${page.id}`;
+        publicPath === undefined
+          ? undefined
+          : `${publicPath.replace(/(?<!\/)\/+$/, "")}/${page.id}`;
       return {
         id: page.id,
         kind: page.kind,

@@ -86,9 +86,12 @@ export async function resolveDeletionGracePeriod(
   if (tenantIds.length === 0) tenantIds.push(callerTenantId);
 
   const specs = await Promise.all(tenantIds.map((tenantId) => resolveGracePeriod(ctx, tenantId)));
-  return [MIN_DELETION_GRACE_PERIOD, ...specs.map(clampToDeletionBounds)].reduce((longest, spec) =>
-    durationSpecMs(spec) > durationSpecMs(longest) ? spec : longest,
-  );
+  return specs
+    .map(clampToDeletionBounds)
+    .reduce(
+      (longest, spec) => (durationSpecMs(spec) > durationSpecMs(longest) ? spec : longest),
+      MIN_DELETION_GRACE_PERIOD,
+    );
 }
 
 export type StartGracePeriodResult =

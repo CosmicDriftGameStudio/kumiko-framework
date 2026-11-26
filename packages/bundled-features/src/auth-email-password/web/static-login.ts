@@ -126,7 +126,7 @@ export type MarketingLoginPaths = {
 };
 
 function trimTrailingSlashes(pathname: string): string {
-  return pathname.replace(/\/+$/, "");
+  return pathname.replace(/(?<!\/)\/+$/, "");
 }
 
 export function isMarketingLoginPath(pathname: string, localePaths: MarketingLoginPaths): boolean {

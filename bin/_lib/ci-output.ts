@@ -1,4 +1,5 @@
-const ANSI_ESCAPE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
+const ESC = String.fromCharCode(0x1b);
+const ANSI_ESCAPE = new RegExp(String.raw`${ESC}(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])`, "g");
 const DIAGNOSTIC_LINE =
   /^(?:::)?(?:warning|warn|error|fail(?:ed|ure)?)(?::|\b)|^\[(?:kumiko|api|security|channel-email|user-profile|runProdApp|composeFeatures|check-security|runtime-isolation|tailwind-[^\]]+ WARN)/i;
 const ACTIONABLE_MESSAGE =
@@ -40,7 +41,7 @@ export function findOutputDiagnostics(output: string, limit = 6): OutputDiagnost
     if (/^(?:\d+ (?:pass|fail|skip)|Ran \d+ tests?|(?:Files|Dirs|Tests):)/i.test(line)) continue;
     // [runProdApp] is used for routine boot progress as well as real
     // warnings/aborts — exclude the known-benign progress phrasing only.
-    if (/^\[runProdApp\]\s*(?:booting\b|boot validation OK\b|checking schema drift\b|.*received — draining|graceful shutdown complete\b|ready on\b)/i.test(line)) continue;
+    if (/^\[runProdApp\]\s*(?:booting\b|boot validation OK\b|checking schema drift\b|(?:\S.*)?received — draining|graceful shutdown complete\b|ready on\b)/i.test(line)) continue;
     if (line.length === 0 || (!DIAGNOSTIC_LINE.test(line) && !ACTIONABLE_MESSAGE.test(line))) {
       continue;
     }
@@ -233,9 +234,9 @@ export function formatBunTestSummary(output: string): string | undefined {
   // Counts precede the "Ran N tests" line; take the occurrence closest to
   // it so an earlier, unrelated test block in the same output can't be picked up.
   const head = output.slice(Math.max(0, idx - 500), idx);
-  const pass = lastMatchCount(head, /(\d+) pass/g);
-  const fail = lastMatchCount(head, /(\d+) fail/g);
-  const skip = lastMatchCount(head, /(\d+) skip/g);
+  const pass = lastMatchCount(head, /(?<!\d)(\d+) pass/g);
+  const fail = lastMatchCount(head, /(?<!\d)(\d+) fail/g);
+  const skip = lastMatchCount(head, /(?<!\d)(\d+) skip/g);
   const tests = Number(lastRan[1]);
   const files = Number(lastRan[2]);
   const duration = lastRan[3];

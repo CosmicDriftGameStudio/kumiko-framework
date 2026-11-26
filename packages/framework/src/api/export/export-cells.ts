@@ -26,7 +26,8 @@ function numberCell(value: number, format?: string): Cell {
 }
 
 function toFiniteNumber(value: unknown): number | undefined {
-  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  const n =
+    typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
   return value !== "" && Number.isFinite(n) ? n : undefined;
 }
 

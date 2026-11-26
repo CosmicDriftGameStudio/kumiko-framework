@@ -163,8 +163,10 @@ function scanPackageJsonScripts(root: RepoRoot, findings: TextLineFinding[]): nu
 // A bare substring match would accept the entry inside a TOML comment or under
 // another key such as coveragePathIgnorePatterns, which leaves `bun test` unguarded.
 function ignoresRealTests(bunfigToml: string): boolean {
-  const withoutComments = bunfigToml.replace(/^\s*#.*$/gm, "");
-  const match = /^\s*pathIgnorePatterns\s*=\s*\[([^\]]*)\]/m.exec(withoutComments);
+  const withoutComments = bunfigToml.replace(/^[^\S\r\n\u2028\u2029]*#.*$/gm, "");
+  const match = /^[^\S\r\n\u2028\u2029]*pathIgnorePatterns\s*=\s*\[([^\]]*)\]/m.exec(
+    withoutComments,
+  );
   return match?.[1]?.includes(`"${REAL_TEST_IGNORE_ENTRY}"`) ?? false;
 }
 

@@ -36,6 +36,7 @@ import {
   DocumentContentEditor,
   dateVariableNames,
   PDF_DOCUMENT_BLOCKS,
+  replaceTagsWithSpace,
   systemPlaceholderLabel,
   translatedOr,
 } from "../../template-resolver/web/index.ts";
@@ -161,10 +162,7 @@ function hasNoTitle(record: DraftRecord): boolean {
 }
 
 function plainTextOf(html: string): string {
-  const text = html
-    .replace(/<[^>]*>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  const text = replaceTagsWithSpace(html).replace(/\s+/g, " ").trim();
   return text.length > MAX_DEVIATION_TEXT_LENGTH
     ? `${text.slice(0, MAX_DEVIATION_TEXT_LENGTH)}…`
     : text;

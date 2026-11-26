@@ -64,6 +64,6 @@ export function isGenericReason(text: string): boolean {
   if (GENERIC_PREFIXES.some((prefix) => lowered.startsWith(prefix))) {
     return true;
   }
-  const stripped = lowered.replace(/[.!:;,]+$/, "").trim();
+  const stripped = lowered.replace(/(?<![.!:;,])[.!:;,]+$/, "").trim();
   return GENERIC_REASONS.has(stripped);
 }

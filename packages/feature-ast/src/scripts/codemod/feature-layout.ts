@@ -48,7 +48,7 @@ const IMPLICIT_FEATURE_PATTERNS: readonly RegExp[] = [
   /^(.*\/src\/features\/[^/]+)\/(.+)$/,
   /^(.*\/bundled-features\/src\/[^/]+)\/(.+)$/,
 ];
-const TEST_PATH = /(?:^|\/)__tests__\/|\.(?:test|integration|e2e|spec)\.[tj]sx?$/;
+const TEST_PATH = /(?:(?:^|\/)__tests__\/)|(?:\.(?:test|integration|e2e|spec)\.[tj]sx?$)/;
 
 export interface FeatureLayoutOptions {
   readonly featureDirs?: readonly string[];

@@ -43,7 +43,7 @@ function pickDefaultAuthPage(
   basePath: string,
   children: ReactNode,
 ): ReactNode {
-  const trimmed = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  const trimmed = pathname.length > 1 ? pathname.replace(/(?<!\/)\/+$/, "") : pathname;
   const path = stripBasePath(trimmed, basePath);
   if (path === DEFAULT_FORGOT_PASSWORD_PATH) return <ForgotPasswordScreen loginHref={loginHref} />;
   if (path === resolvedPaths.resetPassword) {

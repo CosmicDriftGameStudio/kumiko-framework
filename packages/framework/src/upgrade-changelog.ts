@@ -67,18 +67,21 @@ export function renderUpgradeSection(section: UpgradeChangelogSection): string {
 function splitSections(content: string): { header: string; sections: string[] } {
   const lines = content.split("\n");
   const firstSection = lines.findIndex((line) => SECTION_START.test(line));
-  if (firstSection === -1) return { header: content.replace(/\n*$/, "\n"), sections: [] };
-  const header = lines.slice(0, firstSection).join("\n").replace(/\n*$/, "\n");
+  if (firstSection === -1) return { header: content.replace(/(?<!\n)\n*$/, "\n"), sections: [] };
+  const header = lines
+    .slice(0, firstSection)
+    .join("\n")
+    .replace(/(?<!\n)\n*$/, "\n");
   const sections: string[] = [];
   let current: string[] = [];
   for (const line of lines.slice(firstSection)) {
     if (SECTION_START.test(line) && current.length > 0) {
-      sections.push(current.join("\n").replace(/\n*$/, "\n"));
+      sections.push(current.join("\n").replace(/(?<!\n)\n*$/, "\n"));
       current = [];
     }
     current.push(line);
   }
-  sections.push(current.join("\n").replace(/\n*$/, "\n"));
+  sections.push(current.join("\n").replace(/(?<!\n)\n*$/, "\n"));
   return { header, sections };
 }
 

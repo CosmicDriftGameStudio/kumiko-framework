@@ -71,5 +71,5 @@ export function appJobsOf(content: string): string {
 export function withAppJobsOf(rendered: string, existing: string): string {
   const appJobs = appJobsOf(existing);
   if (appJobs === "") return rendered;
-  return `${rendered.replace(/\n+$/, "")}\n\n${appJobs}\n`;
+  return `${rendered.replace(/(?<!\n)\n+$/, "")}\n\n${appJobs}\n`;
 }

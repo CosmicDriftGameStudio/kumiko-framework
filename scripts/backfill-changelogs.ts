@@ -39,7 +39,7 @@ type RepoMode = "framework" | "enterprise";
 
 const TITLE_MAX = 90;
 const BUNDLED = "@cosmicdrift/kumiko-bundled-features";
-const SECTION_RE = /^## (@[^\s@]+(?:\/[^@\s]+)?)@(\d+\.\d+\.\d+)\s*$/;
+const SECTION_RE = /^## (@[^\s@]+)@(\d+\.\d+\.\d+)\s*$/;
 const BUMP_RE = /^### (Major|Minor|Patch) Changes\s*$/;
 const BULLET_RE = /^-\s+([0-9a-f]{7,40}):\s+(\S.*)$/i;
 const NOISE_RE = /^Updated dependencies/i;

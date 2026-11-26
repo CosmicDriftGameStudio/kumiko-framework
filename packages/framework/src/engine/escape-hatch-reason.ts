@@ -31,7 +31,7 @@ const PLACEHOLDER_REASON_PREFIXES = ["todo:", "fixme:", "tbd:"];
 export function reasonProblem(reason: string): string | undefined {
   const lowered = reason.trim().toLowerCase();
   if (lowered.length === 0) return "the reason must be a non-empty explanation";
-  const stripped = lowered.replace(/[.!:;,]+$/, "").trim();
+  const stripped = lowered.replace(/(?<![.!:;,])[.!:;,]+$/, "").trim();
   if (
     PLACEHOLDER_REASON_PREFIXES.some((prefix) => lowered.startsWith(prefix)) ||
     PLACEHOLDER_REASONS.has(stripped)

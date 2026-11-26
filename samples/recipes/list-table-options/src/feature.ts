@@ -107,20 +107,23 @@ async function planStatusChanges(
   }
   return { rows };
 }
+
+const DEFAULT_TASK_TABLE: ListTableOptions = {
+  rememberState: true,
+  resetAll: true,
+  columnPicker: true,
+  density: { default: "comfortable", userChoice: true },
+  pinning: true,
+  resizing: true,
+  keyboardNavigation: true,
+  export: { xlsx: true, maxRows: 5000 },
+  grouping: { field: "status", collapsedWhen: "done", userChoice: true, fields: ["priority"] },
+  totals: [{ field: "estimateHours", kind: "sum" }],
+};
+
 // Overridable so a test can feed the boot validator a block that must be rejected.
 export function createTaskBoardFeature(
-  taskTable: ListTableOptions = {
-    rememberState: true,
-    resetAll: true,
-    columnPicker: true,
-    density: { default: "comfortable", userChoice: true },
-    pinning: true,
-    resizing: true,
-    keyboardNavigation: true,
-    export: { xlsx: true, maxRows: 5000 },
-    grouping: { field: "status", collapsedWhen: "done", userChoice: true, fields: ["priority"] },
-    totals: [{ field: "estimateHours", kind: "sum" }],
-  },
+  taskTable: ListTableOptions = DEFAULT_TASK_TABLE,
 ): FeatureDefinition {
   return defineFeature("task-board", (r) => {
     r.crud(taskEntity, { write: openAccess, read: openAccess });

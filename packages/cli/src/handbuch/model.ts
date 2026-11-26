@@ -121,7 +121,7 @@ export function parseFrontmatter(raw: string): {
   if (block === undefined || body === undefined) return { data: {}, body: raw };
   const data: Record<string, string> = {};
   for (const line of block.split(/\r?\n/)) {
-    const pair = line.match(/^([a-zA-Z][a-zA-Z-]*):\s*(.*)$/);
+    const pair = line.match(/^([a-zA-Z][a-zA-Z-]*):\s*(?!\s)(.*)$/);
     const key = pair?.[1];
     const value = pair?.[2];
     if (key !== undefined && value !== undefined)
@@ -151,7 +151,7 @@ export function parseFrontmatterList(raw: string, key: string): string[] {
   if (inline) return parseList(inline);
   const items: string[] = [];
   for (const line of lines.slice(start + 1)) {
-    const item = line.match(/^\s*-\s+(.*)$/)?.[1];
+    const item = line.match(/^\s*-\s+(?!\s)(.*)$/)?.[1];
     if (item === undefined) break;
     items.push(item.trim().replace(/^["']|["']$/g, ""));
   }
@@ -177,7 +177,7 @@ export function isLocalImageRef(href: string): boolean {
 
 export function localImageRefs(body: string): string[] {
   const refs = new Set<string>();
-  for (const match of body.matchAll(/!\[[^\]]*\]\(([^)\s]+)[^)]*\)/g)) {
+  for (const match of body.matchAll(/!\[[^\]]*\]\(([^)\s]+)(?![^)\s])[^)]*\)/g)) {
     const href = match[1];
     if (href && isLocalImageRef(href)) refs.add(href);
   }

@@ -8,7 +8,7 @@
 export function toKebab(input: string): string {
   return input
     .replace(/\./g, "-") // dots → dashes
-    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2") // consecutive uppercase: SSEBroadcast → SSE-Broadcast
+    .replace(/(?<![A-Z])([A-Z]+)([A-Z][a-z])/g, "$1-$2") // consecutive uppercase: SSEBroadcast → SSE-Broadcast
     .replace(/([a-z0-9])([A-Z])/g, "$1-$2") // camelCase boundaries: ticketAssigned → ticket-Assigned
     .toLowerCase();
 }

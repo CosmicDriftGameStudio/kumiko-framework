@@ -123,7 +123,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           env: "TENANT_MODEL",
         }),
       },
-    }).tenantModel;
+    });
 
     r.entity(exportJobEntity);
     r.entity(exportDownloadTokenEntity);

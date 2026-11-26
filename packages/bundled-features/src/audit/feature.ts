@@ -76,7 +76,7 @@ export function createAuditFeature(): FeatureDefinition {
             bounds: { min: 1 },
           }),
         },
-      }).escapeHatchRetentionDays;
+      });
 
       r.job({
         name: "escape-hatch-retention",

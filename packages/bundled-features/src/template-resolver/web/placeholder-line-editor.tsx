@@ -13,7 +13,12 @@ import { createVariableView } from "./document-editor-extensions.ts";
 import { DocumentVariable } from "./document-schema.ts";
 import type { DocumentEditorHandle } from "./document-toolbar-blocks.ts";
 import { useEditorHandleReport } from "./editor-handle.ts";
-import { contentToLine, lineToContent, singleLine } from "./placeholder-text.ts";
+import {
+  contentToLine,
+  lineToContent,
+  replaceTagsWithSpace,
+  singleLine,
+} from "./placeholder-text.ts";
 import { useStableByKey } from "./use-stable-by-key.ts";
 
 export type PlaceholderLineEditorProps = {
@@ -116,7 +121,7 @@ function LineEditorBody({
       attributes: { id, role: "textbox", "aria-label": ariaLabel, "aria-multiline": "false" },
       transformPastedText: singleLine,
       // Rich pastes would bring several paragraphs; only their text is kept.
-      transformPastedHTML: (html) => singleLine(html.replace(/<[^>]*>/g, " ")),
+      transformPastedHTML: (html) => singleLine(replaceTagsWithSpace(html)),
     },
     onUpdate: ({ editor: e }) => onChange(contentToLine(e.getJSON().content?.[0]?.content)),
   });

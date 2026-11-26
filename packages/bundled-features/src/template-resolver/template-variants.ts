@@ -44,7 +44,7 @@ export function variantNameFromTitle(title: string): string {
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/^-+|(?<!-)-+$/g, "")
     .slice(0, VARIANT_NAME_MAX_LENGTH)
-    .replace(/-+$/g, "");
+    .replace(/(?<!-)-+$/g, "");
 }

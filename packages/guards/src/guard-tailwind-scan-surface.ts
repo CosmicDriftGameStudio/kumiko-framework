@@ -229,7 +229,7 @@ function classNameExampleIn(pkgDir: string): string | undefined {
   const srcDir = path.join(pkgDir, "src");
   if (!existsSync(srcDir)) return undefined;
   for (const rel of new Glob("**/*.tsx").scanSync({ cwd: srcDir })) {
-    if (/__tests__|\.test\.tsx$/.test(rel)) continue;
+    if (/(?:__tests__)|(?:\.test\.tsx$)/.test(rel)) continue;
     const abs = path.join(srcDir, rel);
     let content: string;
     try {
@@ -423,7 +423,7 @@ interface NodeModulesSourceEntry {
 // mirrors how npm itself matches `files` entries against publish candidates.
 function filesFieldCoversSegment(filesField: readonly string[], segment: string): boolean {
   return filesField.some((entry) => {
-    const normalized = entry.replace(/^\.\//, "").replace(/\/+$/, "");
+    const normalized = entry.replace(/^\.\//, "").replace(/(?<!\/)\/+$/, "");
     return normalized === segment || normalized.startsWith(`${segment}/`);
   });
 }

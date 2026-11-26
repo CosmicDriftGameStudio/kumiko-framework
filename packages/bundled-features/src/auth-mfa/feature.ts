@@ -76,7 +76,7 @@ export function createAuthMfaFeature(
     // the app boots clean and the first MFA login dies at runtime on an
     // unknown handler instead of failing at mount time.
     r.requires({ features: ["tenant"] });
-    r.config({ keys: { required: mfaRequiredConfigKey(opts.requiredPolicy) } }).required;
+    r.config({ keys: { required: mfaRequiredConfigKey(opts.requiredPolicy) } });
 
     // Declarative secretMint screen — mint (no input) -> reveal QR/secret/
     // recovery-codes -> confirm with a code. App places it via r.nav in its

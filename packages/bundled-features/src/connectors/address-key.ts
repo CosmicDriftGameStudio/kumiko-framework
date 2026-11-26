@@ -12,7 +12,7 @@ function isIpv6Loopback(hextets: readonly number[]): boolean {
 
 function ipv6Hextets(ip: string): number[] {
   let text = ip;
-  const dotted = /(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(text);
+  const dotted = /(?<!\d)(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(text);
   if (dotted !== null) {
     const [a = 0, b = 0, c = 0, d = 0] = dotted.slice(1).map(Number);
     text = `${text.slice(0, dotted.index)}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`;

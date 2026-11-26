@@ -35,5 +35,18 @@ export function contentToLine(nodes: readonly JSONContent[] | undefined): string
 }
 
 export function singleLine(text: string): string {
-  return text.replace(/\s*[\r\n]+\s*/g, " ");
+  return text.replace(/(?<!\s)[^\S\r\n]*[\r\n]\s*/g, " ");
+}
+
+// Index-based instead of /<[^>]*>/g: an unclosed "<" would rescan the rest of the input each time.
+export function replaceTagsWithSpace(html: string): string {
+  let out = "";
+  let position = 0;
+  for (;;) {
+    const open = html.indexOf("<", position);
+    const close = open === -1 ? -1 : html.indexOf(">", open + 1);
+    if (close === -1) return out + html.slice(position);
+    out += `${html.slice(position, open)} `;
+    position = close + 1;
+  }
 }

@@ -7,7 +7,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(\s*|^\s*import\s*)["'](\.{1,2}\/[^"']*)["']/gm;
+const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(\s*|^[^\S\r\n\u2028\u2029]*import\s*)["'](\.{1,2}\/[^"']*)["']/gm;
 
 function collectEmittedFiles(dir, out) {
 	for (const entry of readdirSync(dir)) {
@@ -52,9 +52,9 @@ for (const file of emitted) {
 	// Block comments go first: a stray backtick in JSDoc would otherwise pair with the next real template literal
 	// and swallow the imports between them. Only comments that open a line are stripped, so a "/*" inside a string stays.
 	const code = readFileSync(file, "utf8")
-		.replace(/^\s*\/\*[\s\S]*?\*\//gm, "")
-		.replace(/^\s*\/\/.*$/gm, "")
-		.replace(/^\s*["'].*$/gm, "")
+		.replace(/^[^\S\r\n\u2028\u2029]*\/\*[\s\S]*?\*\//gm, "")
+		.replace(/^[^\S\r\n\u2028\u2029]*\/\/.*$/gm, "")
+		.replace(/^[^\S\r\n\u2028\u2029]*["'].*$/gm, "")
 		.replace(/`(?:\\.|[^`\\])*`/gs, "``");
 	for (const [, specifier] of code.matchAll(SPECIFIER)) {
 		const { target, problem } = resolveLikeNode(specifier, file);

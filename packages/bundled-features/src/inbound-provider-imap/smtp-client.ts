@@ -50,7 +50,7 @@ export class SmtpFailureError extends Error {
 
 const LOGIN_CODES = ["EAUTH", "ENOAUTH"];
 const CONNECTION_CODES = ["ECONNECTION", "ETIMEDOUT", "ESOCKET", "EDNS", "EPROXY"];
-const TLS_CODE = /^(ETLS|ERR_SSL|ERR_TLS)|CERT|SELF_SIGNED|UNABLE_TO_VERIFY/;
+const TLS_CODE = /(?:^(?:ETLS|ERR_SSL|ERR_TLS))|CERT|SELF_SIGNED|UNABLE_TO_VERIFY/;
 
 // nodemailer wraps a TLS handshake error as ESOCKET and keeps the TLS code as originalCode.
 function isTlsFailure(code: string, originalCode: unknown): boolean {

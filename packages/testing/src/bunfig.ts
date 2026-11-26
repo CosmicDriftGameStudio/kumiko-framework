@@ -264,7 +264,7 @@ export function mergeBunfig(generated: string, existingContent: string): BunfigM
   }
   if (foreignBlocks.length === 0) return { ok: true, content };
   const foreignText = foreignBlocks
-    .map((block) => `[${block.header}]\n${block.lines.join("\n").replace(/\n+$/, "")}\n`)
+    .map((block) => `[${block.header}]\n${block.lines.join("\n").replace(/(?<!\n)\n+$/, "")}\n`)
     .join("\n");
   return { ok: true, content: `${content}\n${foreignText}` };
 }

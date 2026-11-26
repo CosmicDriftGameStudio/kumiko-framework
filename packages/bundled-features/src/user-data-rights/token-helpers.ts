@@ -48,5 +48,8 @@ function uint8ArrayToBase64Url(bytes: Uint8Array): string {
   for (let i = 0; i < bytes.length; i++) {
     binary += String.fromCharCode(bytes[i] as number); // @cast-boundary dynamic-key
   }
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/(?<!=)=+$/, "");
 }

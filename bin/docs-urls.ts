@@ -5,7 +5,7 @@ export const DOCS_LOCALE = "en";
 
 /** Locale-prefixed docs page, always trailing slash (matches Astro i18n routes). */
 export function docsPageUrl(path: string): string {
-  const trimmed = path.replace(/^\/+/, "").replace(/\/+$/, "");
+  const trimmed = path.replace(/^\/+/, "").replace(/(?<!\/)\/+$/, "");
   return `${DOCS_ORIGIN}/${DOCS_LOCALE}/${trimmed}/`;
 }
 
