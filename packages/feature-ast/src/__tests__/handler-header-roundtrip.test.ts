@@ -36,115 +36,60 @@ const DEFAULT_IMPORTS = [
   'import * as z from "zod";',
 ] as const;
 
-describe("access: ADMIN, imported const (object form)", () => {
+describe.each<{
+  readonly title: string;
+  readonly preamble: string;
+  readonly access: string;
+}>([
+  {
+    title: "access: ADMIN, imported const (object form)",
+    preamble: 'import { ADMIN } from "./access-consts";',
+    access: "ADMIN",
+  },
+  {
+    title: 'access: LOCAL, same-file const { roles: ["Admin"] }',
+    preamble: 'const LOCAL = { roles: ["Admin"] };',
+    access: "LOCAL",
+  },
+  {
+    title: "access: { roles: [ROLE_X] }, partially-literal object",
+    preamble: 'import { ROLE_X } from "./roles";',
+    access: "{ roles: [ROLE_X] }",
+  },
+])("$title", ({ preamble, access }) => {
   const source = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
-import { ADMIN } from "./access-consts";
+${preamble}
 
 defineFeature("f", (r) => {
   r.writeHandler({
     name: "x",
     schema: z.object({}),
     handler: async () => {},
-    access: ADMIN,
+    access: ${access},
   });
 });
 `;
   const result = parse(source);
 
-  test("parses with no errors and keeps access as a raw sentinel", () => {
+  test("keeps the whole initializer verbatim as a raw sentinel", () => {
     expect(result.errors).toEqual([]);
     const pattern = findPattern(result.patterns, "writeHandler");
-    expect(pattern).toMatchObject({ access: { __raw: "ADMIN" } });
+    expect(pattern).toMatchObject({ access: { __raw: access } });
   });
 
   test("render → parse roundtrip keeps the reference verbatim", () => {
     const rendered = renderFeatureFile({
       featureName: result.featureName ?? "",
       patterns: result.patterns,
-      imports: [...DEFAULT_IMPORTS, 'import { ADMIN } from "./access-consts";'],
+      imports: [...DEFAULT_IMPORTS, preamble],
     });
-    expect(rendered).toContain("access: ADMIN,");
+    expect(rendered).toContain(`access: ${access},`);
     const reparsed = parse(rendered);
     expect(reparsed.errors).toEqual([]);
     const reparsedPattern = findPattern(reparsed.patterns, "writeHandler");
-    expect(reparsedPattern).toMatchObject({ access: { __raw: "ADMIN" } });
-  });
-});
-
-describe('access: LOCAL, same-file const { roles: ["Admin"] }', () => {
-  const source = `
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
-
-const LOCAL = { roles: ["Admin"] };
-
-defineFeature("f", (r) => {
-  r.writeHandler({
-    name: "x",
-    schema: z.object({}),
-    handler: async () => {},
-    access: LOCAL,
-  });
-});
-`;
-  const result = parse(source);
-
-  test("keeps access as a raw sentinel even though LOCAL is same-file", () => {
-    expect(result.errors).toEqual([]);
-    const pattern = findPattern(result.patterns, "writeHandler");
-    expect(pattern).toMatchObject({ access: { __raw: "LOCAL" } });
-  });
-
-  test("render → parse roundtrip keeps the reference verbatim", () => {
-    const rendered = renderFeatureFile({
-      featureName: result.featureName ?? "",
-      patterns: result.patterns,
-      imports: [...DEFAULT_IMPORTS, 'const LOCAL = { roles: ["Admin"] };'],
-    });
-    expect(rendered).toContain("access: LOCAL,");
-    const reparsed = parse(rendered);
-    expect(reparsed.errors).toEqual([]);
-    const reparsedPattern = findPattern(reparsed.patterns, "writeHandler");
-    expect(reparsedPattern).toMatchObject({ access: { __raw: "LOCAL" } });
-  });
-});
-
-describe("access: { roles: [ROLE_X] }, partially-literal object", () => {
-  const source = `
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { z } from "zod";
-import { ROLE_X } from "./roles";
-
-defineFeature("f", (r) => {
-  r.writeHandler({
-    name: "x",
-    schema: z.object({}),
-    handler: async () => {},
-    access: { roles: [ROLE_X] },
-  });
-});
-`;
-  const result = parse(source);
-
-  test("keeps the whole initializer verbatim, not just ROLE_X", () => {
-    expect(result.errors).toEqual([]);
-    const pattern = findPattern(result.patterns, "writeHandler");
-    expect(pattern).toMatchObject({ access: { __raw: "{ roles: [ROLE_X] }" } });
-  });
-
-  test("render → parse roundtrip keeps the reference verbatim", () => {
-    const rendered = renderFeatureFile({
-      featureName: result.featureName ?? "",
-      patterns: result.patterns,
-      imports: [...DEFAULT_IMPORTS, 'import { ROLE_X } from "./roles";'],
-    });
-    expect(rendered).toContain("access: { roles: [ROLE_X] },");
-    const reparsed = parse(rendered);
-    expect(reparsed.errors).toEqual([]);
-    const reparsedPattern = findPattern(reparsed.patterns, "writeHandler");
-    expect(reparsedPattern).toMatchObject({ access: { __raw: "{ roles: [ROLE_X] }" } });
+    expect(reparsedPattern).toMatchObject({ access: { __raw: access } });
   });
 });
 

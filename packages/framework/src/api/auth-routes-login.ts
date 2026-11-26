@@ -5,7 +5,7 @@ import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { Routes } from "./api-constants.ts";
 import { inMemoryLoginRateLimiterFallback } from "./auth-rate-limiters.ts";
 import type { AuthRouteContext } from "./auth-routes-context.ts";
-import { handlerFailureResponse } from "./auth-routes-shared.ts";
+import { handlerFailureResponse, type PendingMfaStep } from "./auth-routes-shared.ts";
 
 // Body schema for POST /auth/login. Enforced BEFORE rate-limit so that a
 // malformed body (`email: 42`, missing password, …) returns 400 instead of
@@ -67,10 +67,7 @@ export function registerLoginRoute(ctx: AuthRouteContext): void {
       // block when enforcement policy demands MFA but the user never
       // enrolled (see auth-mfa's config.ts for why this has no in-band
       // recovery yet).
-      const data = result.data as
-        | { kind: "auth-session"; session: SessionUser }
-        | { kind: "mfa-challenge"; challengeToken: string }
-        | { kind: "mfa-setup-required"; preauthSetupToken: string };
+      const data = result.data as { kind: "auth-session"; session: SessionUser } | PendingMfaStep;
 
       if (data.kind === "mfa-setup-required") {
         // No session, no challenge — the client must show an

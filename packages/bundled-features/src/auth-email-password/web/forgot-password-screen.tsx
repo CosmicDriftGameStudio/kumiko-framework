@@ -8,11 +8,10 @@
 // (for example, /forgot-password); the LoginScreen can link to that app
 // route with a "Forgot password?" link.
 
-import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { type FormEvent, type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
 import { requestPasswordReset } from "./auth-client.ts";
-import { AuthCard } from "./auth-form-primitives.tsx";
 import { resolveReturnTo } from "./auth-redirect.ts";
+import { EmailRequestScreen } from "./email-request-screen.tsx";
 
 export type ForgotPasswordScreenProps = {
   readonly title?: string;
@@ -31,85 +30,24 @@ export function ForgotPasswordScreen({
   loginHref = "/login",
   returnTo,
 }: ForgotPasswordScreenProps): ReactNode {
-  const t = useTranslation();
-  const { Form, Field, Input, Button, Banner, Link } = usePrimitives();
-  const [email, setEmail] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // guard:dup-ok — same submission pattern as signup-screen, but with different API endpoints and state
-  const doSubmit = async (): Promise<void> => {
-    setSubmitting(true);
-    setError(null);
-    try {
-      const res = await requestPasswordReset(email, resolveReturnTo(returnTo));
-      if (res.ok) {
-        setDone(true);
-      } else if (res.error.reason === "rate_limited") {
-        const minutes =
-          res.error.retryAfterSeconds !== undefined
-            ? Math.ceil(res.error.retryAfterSeconds / 60)
-            : undefined;
-        setError(
-          minutes !== undefined
-            ? t("auth.errors.accountLockedRetry", { minutes })
-            : t("auth.errors.rateLimited"),
-        );
-      } else {
-        setError(t("auth.errors.unknownError"));
-      }
-    } catch {
-      setError(t("auth.errors.unknownError"));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const onSubmit = (e?: FormEvent): void => {
-    e?.preventDefault();
-    void doSubmit();
-  };
-
-  const effectiveTitle = title ?? t("auth.forgotPassword.title");
-
   return (
-    <AuthCard title={effectiveTitle} subtitle={subtitle}>
-      {done ? (
-        <>
-          <Banner variant="info">
-            <p className="font-medium text-foreground">{t("auth.forgotPassword.successTitle")}</p>
-            <p className="mt-1">{t("auth.forgotPassword.successBody")}</p>
-          </Banner>
-          <Link href={loginHref} variant="muted">
-            {t("auth.forgotPassword.backToLogin")}
-          </Link>
-        </>
-      ) : (
-        <>
-          <p className="text-sm text-muted-foreground">{t("auth.forgotPassword.intro")}</p>
-          <Form onSubmit={onSubmit}>
-            <Field id="forgot-email" label={t("auth.forgotPassword.email")} required>
-              <Input
-                kind="text"
-                id="forgot-email"
-                name="forgot-email"
-                value={email}
-                onChange={setEmail}
-                disabled={submitting}
-                required
-              />
-            </Field>
-            {error !== null && <Banner variant="error">{error}</Banner>}
-            <Button type="submit" loading={submitting} disabled={submitting}>
-              {submitting ? t("auth.forgotPassword.submitting") : t("auth.forgotPassword.submit")}
-            </Button>
-          </Form>
-          <Link href={loginHref} variant="muted" className="self-center">
-            {t("auth.forgotPassword.backToLogin")}
-          </Link>
-        </>
-      )}
-    </AuthCard>
+    <EmailRequestScreen
+      title={title}
+      subtitle={subtitle}
+      loginHref={loginHref}
+      fieldId="forgot-email"
+      textKeys={{
+        title: "auth.forgotPassword.title",
+        intro: "auth.forgotPassword.intro",
+        email: "auth.forgotPassword.email",
+        submit: "auth.forgotPassword.submit",
+        submitting: "auth.forgotPassword.submitting",
+        successTitle: "auth.forgotPassword.successTitle",
+        successBody: "auth.forgotPassword.successBody",
+        backToLogin: "auth.forgotPassword.backToLogin",
+        rateLimitedWithMinutes: "auth.errors.accountLockedRetry",
+      }}
+      submitEmail={(email) => requestPasswordReset(email, resolveReturnTo(returnTo))}
+    />
   );
 }

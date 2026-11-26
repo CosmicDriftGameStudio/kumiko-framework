@@ -101,14 +101,17 @@ export function readNamedOptions(
   return { kind: "ok", name: nameInit.getLiteralValue(), options: optionsWithoutName };
 }
 
-export function extractConfig(
+function readKeysArgument(
   call: CallExpression,
   sourceFile: SourceFile,
-): ExtractOutput<ConfigPattern> {
+  methodName: string,
+):
+  | { readonly kind: "keys"; readonly keys: Record<string, unknown> }
+  | { readonly kind: "error"; readonly error: ParseError } {
   const arg = call.getArguments()[0];
   if (!arg) {
     return fail(
-      "config",
+      methodName,
       sourceLocationFromNode(call, sourceFile),
       "expected `{ keys: { ... } }` as first argument",
     );
@@ -116,7 +119,7 @@ export function extractConfig(
   const obj = readDataLiteralNode(arg);
   if (!isPlainObject(obj)) {
     return fail(
-      "config",
+      methodName,
       sourceLocationFromNode(call, sourceFile),
       "argument could not be read as a plain object",
     );
@@ -124,11 +127,21 @@ export function extractConfig(
   const keys = obj["keys"];
   if (!isPlainObject(keys)) {
     return fail(
-      "config",
+      methodName,
       sourceLocationFromNode(call, sourceFile),
       "missing or non-object `keys` property",
     );
   }
+  return { kind: "keys", keys };
+}
+
+export function extractConfig(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<ConfigPattern> {
+  const read = readKeysArgument(call, sourceFile, "config");
+  if (read.kind === "error") return read;
+  const keys = read.keys;
   return ok({
     kind: "config",
     source: sourceLocationFromNode(call, sourceFile),
@@ -140,30 +153,9 @@ export function extractTranslations(
   call: CallExpression,
   sourceFile: SourceFile,
 ): ExtractOutput<TranslationsPattern> {
-  const arg = call.getArguments()[0];
-  if (!arg) {
-    return fail(
-      "translations",
-      sourceLocationFromNode(call, sourceFile),
-      "expected `{ keys: { ... } }` as first argument",
-    );
-  }
-  const obj = readDataLiteralNode(arg);
-  if (!isPlainObject(obj)) {
-    return fail(
-      "translations",
-      sourceLocationFromNode(call, sourceFile),
-      "argument could not be read as a plain object",
-    );
-  }
-  const keys = obj["keys"];
-  if (!isPlainObject(keys)) {
-    return fail(
-      "translations",
-      sourceLocationFromNode(call, sourceFile),
-      "missing or non-object `keys` property",
-    );
-  }
+  const read = readKeysArgument(call, sourceFile, "translations");
+  if (read.kind === "error") return read;
+  const keys = read.keys;
   return ok({
     kind: "translations",
     source: sourceLocationFromNode(call, sourceFile),
