@@ -27,6 +27,7 @@ import {
   type DashboardListTableColumn,
   DashboardReferenceListTable,
 } from "./dashboard-reference-list-table.tsx";
+import { useRowLinkPopup } from "./dashboard-row-popup.tsx";
 import { QueryPanel, type ScreenParams, useDashboardFormats } from "./dashboard-shared.tsx";
 
 type ListEnvelope = {
@@ -364,80 +365,84 @@ export function ListPanelBody({
     toTableColumn(c, panel, locale, translate, resolveScreenLink),
   );
   const { footerLink } = panel;
+  const { withPopup, popupHost } = useRowLinkPopup({ panel, label, featureName, translate });
   return (
-    <QueryPanel<ListEnvelope>
-      panel={panel}
-      label={label}
-      subtitle={
-        panel.subtitle === undefined && panel.showTotal === undefined
-          ? undefined
-          : (data) => listSubtitle(panel, limitedEnvelope(data, narrowLimit), translate)
-      }
-      {...(narrowLayout === "cards" && {
-        replaceShell: (data: ListEnvelope) => (
-          <NarrowCardsPanel
-            panel={panel}
-            label={label}
-            data={limitedEnvelope(data, narrowLimit)}
-            columns={columns}
-            featureName={featureName}
-            translate={translate}
-          />
-        ),
-      })}
-      {...(narrowLayout === "line" &&
-        footerLink !== undefined && {
+    <>
+      <QueryPanel<ListEnvelope>
+        panel={panel}
+        label={label}
+        subtitle={
+          panel.subtitle === undefined && panel.showTotal === undefined
+            ? undefined
+            : (data) => listSubtitle(panel, limitedEnvelope(data, narrowLimit), translate)
+        }
+        {...(narrowLayout === "cards" && {
           replaceShell: (data: ListEnvelope) => (
-            <ListLine
+            <NarrowCardsPanel
               panel={panel}
               label={label}
-              data={data}
-              link={footerLink}
+              data={limitedEnvelope(data, narrowLimit)}
+              columns={columns}
+              featureName={featureName}
               translate={translate}
-              screenId={screenId}
-              screenParams={screenParams}
             />
           ),
         })}
-      {...(panel.subtitle !== undefined && { staticSubtitle: translate(panel.subtitle) })}
-      footer={
-        footerLink === undefined || (footerLink.narrowOnly === true && narrow === undefined)
-          ? undefined
-          : (data) => (
-              <ListFooter
+        {...(narrowLayout === "line" &&
+          footerLink !== undefined && {
+            replaceShell: (data: ListEnvelope) => (
+              <ListLine
+                panel={panel}
+                label={label}
+                data={data}
                 link={footerLink}
-                data={limitedEnvelope(data, narrowLimit)}
-                narrow={narrow !== undefined}
                 translate={translate}
+                screenId={screenId}
+                screenParams={screenParams}
               />
-            )
-      }
-      screenParams={screenParams}
-      translate={translate}
-      skeleton="rows"
-      isEmpty={(data) => (data.rows ?? []).length === 0}
-    >
-      {(data) => (
-        <DashboardReferenceListTable
-          columns={columns}
-          rows={limitedEnvelope(data, narrowLimit).rows ?? []}
-          featureName={featureName}
-          formatPercent={formatPercent}
-          formatNumber={formatNumber}
-          formatDateTime={formatDateTime}
-          translate={translate}
-          {...(narrowLayout === "cards" && { narrowCards: true })}
-          {...(panel.rowLink !== undefined && {
-            rowLink: {
-              linkFor: rowLinkResolverOf(panel.rowLink, resolveScreenLink),
-              icon: panel.rowLink.icon ?? "arrow",
-            },
+            ),
           })}
-          {...(panel.rowToneField !== undefined && { rowToneField: panel.rowToneField })}
-          {...(panel.rowToneMarker !== undefined && { rowToneMarker: panel.rowToneMarker })}
-          {...(panel.showHeader !== undefined && { showHeader: panel.showHeader })}
-        />
-      )}
-    </QueryPanel>
+        {...(panel.subtitle !== undefined && { staticSubtitle: translate(panel.subtitle) })}
+        footer={
+          footerLink === undefined || (footerLink.narrowOnly === true && narrow === undefined)
+            ? undefined
+            : (data) => (
+                <ListFooter
+                  link={footerLink}
+                  data={limitedEnvelope(data, narrowLimit)}
+                  narrow={narrow !== undefined}
+                  translate={translate}
+                />
+              )
+        }
+        screenParams={screenParams}
+        translate={translate}
+        skeleton="rows"
+        isEmpty={(data) => (data.rows ?? []).length === 0}
+      >
+        {(data) => (
+          <DashboardReferenceListTable
+            columns={columns}
+            rows={limitedEnvelope(data, narrowLimit).rows ?? []}
+            featureName={featureName}
+            formatPercent={formatPercent}
+            formatNumber={formatNumber}
+            formatDateTime={formatDateTime}
+            translate={translate}
+            {...(narrowLayout === "cards" && { narrowCards: true })}
+            {...(panel.rowLink !== undefined && {
+              rowLink: {
+                linkFor: withPopup(rowLinkResolverOf(panel.rowLink, resolveScreenLink)),
+                icon: panel.rowLink.icon ?? "arrow",
+              },
+            })}
+            {...(panel.rowToneField !== undefined && { rowToneField: panel.rowToneField })}
+            {...(panel.rowToneMarker !== undefined && { rowToneMarker: panel.rowToneMarker })}
+            {...(panel.showHeader !== undefined && { showHeader: panel.showHeader })}
+          />
+        )}
+      </QueryPanel>
+      {popupHost}
+    </>
   );
 }

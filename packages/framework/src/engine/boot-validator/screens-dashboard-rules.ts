@@ -176,8 +176,8 @@ export const DASHBOARD_RULES = {
   listRowLinkInvalid: {
     id: "dashboard/list-row-link-invalid",
     summary:
-      'A list panel rowLink names exactly one target (a registered screen, or the row field screenField holding it), takes the matching params field (paramField with screen, paramsField with screenField), non-empty field names and an icon of "arrow" or "chevron".',
-    fix: 'Set either rowLink.screen to a registered screen (params from paramField) or rowLink.screenField to the row field holding the screen name (params from paramsField), and icon to "arrow" or "chevron".',
+      'A list panel rowLink names exactly one target (a registered screen, or the row field screenField holding it), takes the matching params field (paramField with screen, paramsField with screenField), non-empty field names, an icon of "arrow" or "chevron" and a presentation of "page" or "popup" (popup needs screen with paramField and a projectionDetail of the same feature).',
+    fix: 'Set either rowLink.screen to a registered screen (params from paramField) or rowLink.screenField to the row field holding the screen name (params from paramsField), icon to "arrow" or "chevron", and presentation to "page" or "popup" (popup: same-feature projectionDetail plus paramField).',
   },
   listRowToneMarkerInvalid: {
     id: "dashboard/list-row-tone-marker-invalid",

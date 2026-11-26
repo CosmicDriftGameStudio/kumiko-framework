@@ -345,6 +345,8 @@ export type DashboardListRowLink = {
       readonly screen: string;
       /** Row field holding the params object of the target (`entityId` opens that record, other keys become search params). */
       readonly paramField?: string;
+      /** "popup" opens the row as a popup over the dashboard (a projectionDetail of this feature, needs paramField); the link itself (new tab, copy) stays the page. */
+      readonly presentation?: "page" | "popup";
       readonly screenField?: never;
       readonly paramsField?: never;
     }
@@ -355,6 +357,7 @@ export type DashboardListRowLink = {
       readonly paramsField?: string;
       readonly screen?: never;
       readonly paramField?: never;
+      readonly presentation?: never;
     }
 );
 

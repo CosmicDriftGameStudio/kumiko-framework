@@ -42,7 +42,19 @@ const footerScreen: ProjectionDetailScreenDefinition = {
 
 const schema: FeatureSchema = { featureName: "notes", entities: {}, screens: [footerScreen] };
 
-function renderTab(tab: string, writes: Array<{ type: string; payload: unknown }>): void {
+const screenWithoutFooter: ProjectionDetailScreenDefinition = {
+  ...footerScreen,
+  layout: {
+    mode: "tabs",
+    sections: footerScreen.layout.sections.filter((section) => !("kind" in section)),
+  },
+};
+
+function renderTab(
+  tab: string,
+  writes: Array<{ type: string; payload: unknown }>,
+  featureSchema: FeatureSchema = schema,
+): void {
   const dispatcher: Dispatcher = createMockDispatcher({
     query: async () => ({ isSuccess: true, data: { id: "note-1", title: "Hello" } }),
     write: async (type: string, payload: unknown) => {
@@ -61,7 +73,7 @@ function renderTab(tab: string, writes: Array<{ type: string; payload: unknown }
   render(
     <NavProvider value={navApi}>
       <DispatcherProvider dispatcher={dispatcher}>
-        <KumikoScreen schema={schema} qn="notes:screen:note-detail" entityId="note-1" />
+        <KumikoScreen schema={featureSchema} qn="notes:screen:note-detail" entityId="note-1" />
       </DispatcherProvider>
     </NavProvider>,
   );
@@ -83,13 +95,27 @@ describe("projectionDetail footer writeForm", () => {
     expect(screen.getAllByTestId("write-form-footer")).toHaveLength(1);
   });
 
-  test("on the full page the footer is no wrapped pane, so its sticky stays page-relative", async () => {
+  test("on the full page body and footer share one h-full column and the body pane does not scroll", async () => {
     renderTab("first", []);
     const footer = await waitFor(() => screen.getByTestId("write-form-footer"));
     const form = screen.getByTestId("render-edit-form");
-    expect(footer.closest(".shrink-0")).toBeNull();
+    const column = footer.parentElement;
+    expect(column?.classList.contains("h-full")).toBe(true);
+    expect(footer.classList.contains("shrink-0")).toBe(true);
+    const bodyPane = form.closest(".min-h-0.flex-1");
+    expect(bodyPane?.parentElement).toBe(column);
     expect(form.closest(".overflow-y-auto")).toBeNull();
-    expect(form.parentElement?.contains(footer)).toBe(true);
+  });
+
+  test("without a footer form the body gets no column wrapper", async () => {
+    renderTab("first", [], {
+      featureName: "notes",
+      entities: {},
+      screens: [screenWithoutFooter],
+    });
+    const form = await waitFor(() => screen.getByTestId("render-edit-form"));
+    expect(screen.queryByTestId("write-form-footer")).toBeNull();
+    expect(form.closest(".min-h-0.flex-1")).toBeNull();
   });
 
   test("the footer is also there on the second tab", async () => {

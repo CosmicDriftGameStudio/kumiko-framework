@@ -78,11 +78,14 @@ type DashboardQueryRuntime = {
   readonly refreshIntervalMs: number | undefined;
   /** Adds a query's refetch to the set `refetchAll` walks; returns its removal. */
   readonly register: (refetch: RefetchQuery) => () => void;
+  /** Reloads the record query and every registered panel query, e.g. after a popup changed a row. */
+  readonly refetchAll: RefetchQuery;
 };
 
 export const DashboardQueryContext = createContext<DashboardQueryRuntime>({
   refreshIntervalMs: undefined,
   register: () => () => {},
+  refetchAll: async () => {},
 });
 
 export function useRefetchRegistry(): {

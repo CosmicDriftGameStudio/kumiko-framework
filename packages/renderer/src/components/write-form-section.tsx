@@ -293,7 +293,7 @@ export function WriteFormSection({
   if (isFooter) {
     return (
       <FillContainer
-        {...(!insideDrawer && { className: "sticky bottom-0 z-10 bg-background" })}
+        {...(!insideDrawer && { className: "sticky bottom-0 z-10 shrink-0 bg-background" })}
         testId="write-form-footer"
       >
         <FillContainer className={`gap-2 py-3 ${gutter}`}>{content}</FillContainer>

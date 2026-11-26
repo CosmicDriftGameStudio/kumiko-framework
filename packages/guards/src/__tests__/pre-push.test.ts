@@ -96,6 +96,9 @@ beforeAll(() => {
       "user.email=test@example.com",
       "-c",
       "user.name=test",
+      // Detached auto-maintenance after the commit writes .git/objects/maintenance.lock while initGitRepo copies the template.
+      "-c",
+      "maintenance.auto=false",
       "commit",
       "-q",
       "--allow-empty",
