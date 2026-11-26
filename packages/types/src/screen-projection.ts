@@ -155,6 +155,8 @@ export type ProjectionListScreenDefinition = {
   readonly emptyState?: ListEmptyStateSpec;
   /** i18n key for the primary create button label (default `kumiko.actions.create`). */
   readonly createLabel?: string;
+  /** Icon of the create button, default "plus". */
+  readonly createIcon?: NavIconKey;
   /** i18n key of the plural noun for the list size in the phone sort line ('{count}' pluralised, e.g. "contract"/"contracts"). Default `<feature>:entity:<entity>:noun`, which a projectionList has no entity for. */
   readonly itemNounKey?: string;
   /** i18n key for the search field placeholder (default `kumiko.list.search-placeholder`). */

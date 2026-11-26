@@ -719,6 +719,7 @@ type EntityListScreenDefinition = {
   namedFilterFacet?: NamedFilterFacetOptions; // Presentation of `namedFilters` in the toolbar; needs `namedFilters`.
   emptyState?: ListEmptyStateSpec; // Replaces the default empty-list title/hint; the create button stays when the list can create.
   createLabel?: string; // i18n key for the primary create button label (default `kumiko.actions.create`).
+  createIcon?: IconKey; // Icon of the create button, default "plus".
   createPlacement?: "header" | "toolbar"; // "toolbar": from `md` up (below md the compact header keeps its "+") the create button ends the filter row instead of standing in the header.
   toolbarSort?: true; // From `sm` up, a "Sorted by" select in the filter row (same options as the narrow sort control); column headers stay sortable.
   narrowFacets?: ListNarrowFacets; // "pills": below `sm` the select facets render as rounded pill triggers with a stronger border; from `sm` up unchanged.
@@ -1514,6 +1515,7 @@ type ProjectionListScreenDefinition = {
   sortOptions?: ListSortOption[]; // Choices of the "Sorted by" select in the toolbar (and the narrow-width sort control) instead of one entry per column; every field must be sortable.
   emptyState?: ListEmptyStateSpec; // Replaces the default empty-list title/hint; the create button stays when the list can create.
   createLabel?: string; // i18n key for the primary create button label (default `kumiko.actions.create`).
+  createIcon?: NavIconKey; // Icon of the create button, default "plus".
   itemNounKey?: string; // i18n key of the plural noun for the list size in the phone sort line ('{count}' pluralised, e.g. "contract"/"contracts").
   searchPlaceholder?: string; // i18n key for the search field placeholder (default `kumiko.list.search-placeholder`).
   searchable?: boolean;

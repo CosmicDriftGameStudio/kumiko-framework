@@ -19,12 +19,14 @@ import {
 } from "../../primitives.tsx";
 import { createStubPrimitives } from "../../testing.ts";
 import { RenderList } from "../render-list.tsx";
+import { composeEmptyState } from "../render-list-toolbar.tsx";
 import { withPlusIconFallback } from "../render-list-toolbar-model.ts";
 
-const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId, size }) => (
+const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId, size, icon }) => (
   <button
     type="button"
     data-testid={testId}
+    data-icon={icon}
     data-size={size ?? "md"}
     onClick={() => {
       void onClick?.();
@@ -105,6 +107,7 @@ function renderList(
   createPlacement: "header" | "toolbar",
   placement: Pick<EntityListScreenDefinition, "toolbarActionsPlacement"> = {},
   withAction = false,
+  createIcon?: EntityListScreenDefinition["createIcon"],
 ): void {
   render(
     <LocaleProvider
@@ -115,7 +118,12 @@ function renderList(
         <PageHeaderSlotAvailableProvider value={true}>
           <PageHeaderCompactProvider value={compact}>
             <RenderList
-              screen={{ ...listScreen, createPlacement, ...placement }}
+              screen={{
+                ...listScreen,
+                createPlacement,
+                ...placement,
+                ...(createIcon !== undefined && { createIcon }),
+              }}
               entity={entity}
               rows={[]}
               featureName="header-fixture"
@@ -150,6 +158,48 @@ describe("RenderList createPlacement", () => {
     expect(
       within(rtlScreen.getByTestId("toolbar-end")).queryByTestId("render-list-create"),
     ).toBeNull();
+  });
+});
+
+describe("RenderList createIcon", () => {
+  test.each([
+    { compact: false, label: "normal button" },
+    { compact: true, label: "compact icon-only button" },
+  ])("$label: createIcon replaces the default plus", ({ compact }) => {
+    renderList(compact, "header", {}, false, "calendar");
+    expect(rtlScreen.getByTestId("render-list-create").getAttribute("data-icon")).toBe("calendar");
+  });
+
+  test.each([false, true])("compact=%p: without createIcon the button keeps plus", (compact) => {
+    renderList(compact, "header");
+    expect(rtlScreen.getByTestId("render-list-create").getAttribute("data-icon")).toBe("plus");
+  });
+
+  test.each([
+    { createIcon: "calendar" as const, expected: "calendar" },
+    { createIcon: "plus" as const, expected: "plus" },
+  ])("the empty-state create button shows $expected", ({ createIcon, expected }) => {
+    render(
+      <PrimitivesProvider value={testPrimitives}>
+        {composeEmptyState({
+          Button: TestButton,
+          emptyState: undefined,
+          onCreate: () => {},
+          emptyContent: undefined,
+          narrowed: false,
+          namedFilterEmpty: undefined,
+          defaultFilterActive: false,
+          onFilterReset: undefined,
+          translate: (key) => key,
+          createInPageHeader: false,
+          effectiveCreateLabel: "New",
+          createIcon,
+        })}
+      </PrimitivesProvider>,
+    );
+    expect(rtlScreen.getByTestId("render-list-empty-create").getAttribute("data-icon")).toBe(
+      expected,
+    );
   });
 });
 

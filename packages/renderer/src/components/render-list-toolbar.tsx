@@ -1,4 +1,4 @@
-import type { EntityListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { EntityListScreenDefinition, IconKey } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
 import type { Translate } from "../headless/index.ts";
 import type { ActionMenuItemSpec, usePrimitives } from "../primitives.tsx";
@@ -25,12 +25,18 @@ export type ListToolbarModel = {
   readonly split: ToolbarActionSplit;
 };
 
+export function createIconOf(screen: Pick<EntityListScreenDefinition, "createIcon">): IconKey {
+  return screen.createIcon ?? "plus";
+}
+
 export function renderCreateButton(model: ListToolbarModel): ReactNode {
-  const { Button, onCreate, createInPageHeader, pageHeaderCompact, effectiveCreateLabel } = model;
+  const { Button, onCreate, createInPageHeader, pageHeaderCompact, effectiveCreateLabel, screen } =
+    model;
+  const createIcon = createIconOf(screen);
   return onCreate !== undefined && createInPageHeader && pageHeaderCompact ? (
     <Button
       variant="primary"
-      icon="plus"
+      icon={createIcon}
       size="icon"
       ariaLabel={effectiveCreateLabel}
       title={effectiveCreateLabel}
@@ -40,7 +46,7 @@ export function renderCreateButton(model: ListToolbarModel): ReactNode {
   ) : onCreate !== undefined ? (
     <Button
       variant="primary"
-      icon="plus"
+      icon={createIcon}
       onClick={onCreate}
       testId="render-list-create"
       className="px-3.5"
@@ -130,6 +136,7 @@ type EmptyStateModel = {
   readonly translate: Translate;
   readonly createInPageHeader: boolean;
   readonly effectiveCreateLabel: string;
+  readonly createIcon: IconKey;
 };
 
 // Empty state: by default, show a heading, description, and optional CTA
@@ -149,6 +156,7 @@ export function composeEmptyState(model: EmptyStateModel): ReactNode {
     translate,
     createInPageHeader,
     effectiveCreateLabel,
+    createIcon,
   } = model;
   return (
     emptyState ??
@@ -164,7 +172,7 @@ export function composeEmptyState(model: EmptyStateModel): ReactNode {
           onCreate !== undefined && !narrowed && !defaultFilterActive && !createInPageHeader ? (
             <Button
               variant="primary"
-              icon="plus"
+              icon={createIcon}
               onClick={onCreate}
               testId="render-list-empty-create"
             >
