@@ -207,6 +207,19 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
   const TEST_ADMIN_PASSWORD = "test-admin-password-0001";
   const createdDirs: string[] = [];
 
+  // Every KMS variable of the shell (trio, *_CIPHERTEXT twins, versions) is dropped: a real trio
+  // flips resolveKmsWiring into the active-KMS branch, and an empty one is invalid for crypto-shredding.
+  const KMS_ENV_PREFIXES = ["PLATFORM_KEK", "SUBJECT_KEYS_DATABASE_URL", "KUMIKO_BLIND_INDEX_KEY"];
+  function hostEnvWithoutKms(): Record<string, string | undefined> {
+    return Object.fromEntries(
+      Object.entries(process.env).filter(
+        ([name]) =>
+          name !== "KUMIKO_DRY_RUN_ENV" &&
+          !KMS_ENV_PREFIXES.some((prefix) => name.startsWith(prefix)),
+      ),
+    );
+  }
+
   async function runGeneratedMain(
     name: string,
     envOverrides: Record<string, string>,
@@ -218,7 +231,7 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
     expect(await runCreate({ name, yes: true, cwd, log: () => {} })).toBe(0);
 
     // A dev machine may export the variable; drop it so only the test decides.
-    const { DEMO_ADMIN_PASSWORD: _inherited, ...inheritedEnv } = process.env;
+    const { DEMO_ADMIN_PASSWORD: _inherited, ...inheritedEnv } = hostEnvWithoutKms();
     const proc = Bun.spawn({
       cmd: ["bun", "bin/main.ts"],
       cwd: join(cwd, name),
@@ -228,9 +241,6 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
         KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.alloc(32, 7).toString("base64"),
         DATABASE_URL: "postgres://dummy:dummy@127.0.0.1:1/dummy",
         REDIS_URL: "redis://127.0.0.1:1",
-        PLATFORM_KEK: "",
-        SUBJECT_KEYS_DATABASE_URL: "",
-        KUMIKO_BLIND_INDEX_KEY: "",
         ...(withAdminPassword ? { DEMO_ADMIN_PASSWORD: TEST_ADMIN_PASSWORD } : {}),
         ...envOverrides,
       },
@@ -298,20 +308,13 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
       cmd: ["bun", "bin/main.ts"],
       cwd: appDir,
       env: {
-        ...process.env,
+        ...hostEnvWithoutKms(),
         KUMIKO_DRY_RUN_ENV: "boot",
         JWT_SECRET: "a".repeat(32),
         KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.alloc(32, 7).toString("base64"),
         DEMO_ADMIN_PASSWORD: TEST_ADMIN_PASSWORD,
         DATABASE_URL: "postgres://dummy:dummy@127.0.0.1:1/dummy",
         REDIS_URL: "redis://127.0.0.1:1",
-        // Pinned empty, not inherited from process.env: a dev machine with
-        // the real trio set would otherwise flip resolveKmsWiring into the
-        // ActiveKmsWiring branch (and its KMS health check) instead of the
-        // plaintext fallback this test exercises.
-        PLATFORM_KEK: "",
-        SUBJECT_KEYS_DATABASE_URL: "",
-        KUMIKO_BLIND_INDEX_KEY: "",
       },
       stdout: "pipe",
       stderr: "pipe",
@@ -329,7 +332,7 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
     expect(`${stdout}${stderr}`).toContain("stored in PLAINTEXT");
   });
 
-  test("NODE_ENV=production with an empty KMS trio aborts the generated bin/main.ts", async () => {
+  test("NODE_ENV=production without the KMS trio aborts the generated bin/main.ts", async () => {
     mkdirSync(FIXTURE_ROOT, { recursive: true });
     const cwd = mkdtempSync(join(FIXTURE_ROOT, "boot-prod-"));
     createdDirs.push(cwd);
@@ -338,21 +341,12 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
     expect(exitCode).toBe(0);
 
     // A real boot, not KUMIKO_DRY_RUN_ENV=boot: the dry run only lists missing variables and
-    // exits 0. Every KMS variable of the shell (trio, *_CIPHERTEXT twins, versions) is dropped,
-    // since a twin would stand in for its slot and the result would depend on the developer shell.
-    const kmsEnvPrefixes = ["PLATFORM_KEK", "SUBJECT_KEYS_DATABASE_URL", "KUMIKO_BLIND_INDEX_KEY"];
-    const hostEnv = Object.fromEntries(
-      Object.entries(process.env).filter(
-        ([name]) =>
-          name !== "KUMIKO_DRY_RUN_ENV" &&
-          !kmsEnvPrefixes.some((prefix) => name.startsWith(prefix)),
-      ),
-    );
+    // exits 0.
     const proc = Bun.spawn({
       cmd: ["bun", "bin/main.ts"],
       cwd: join(cwd, "boot-prod-fixture"),
       env: {
-        ...hostEnv,
+        ...hostEnvWithoutKms(),
         NODE_ENV: "production",
         JWT_SECRET: "a".repeat(32),
         KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.alloc(32, 7).toString("base64"),
@@ -372,7 +366,7 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
     expect(code, `stdout:\n${stdout}\nstderr:\n${stderr}`).not.toBe(0);
     const output = `${stdout}${stderr}`;
     for (const name of ["PLATFORM_KEK", "SUBJECT_KEYS_DATABASE_URL", "KUMIKO_BLIND_INDEX_KEY"]) {
-      expect(output).toContain(`${name} (runProdApp.kmsMode, required, missing)`);
+      expect(output).toContain(`${name} (crypto-shredding, required, missing)`);
     }
   });
 });

@@ -329,6 +329,27 @@ describe("scaffoldApp", () => {
     expect(sql).toContain('CREATE TABLE IF NOT EXISTS "read_users"');
   });
 
+  test("init migration includes the security baseline audit table", async () => {
+    const dest = join(tmp, "my-shop");
+    await scaffoldApp({ name: "my-shop", destination: dest });
+
+    const sql = readFileSync(join(dest, "kumiko/migrations/0001_init.sql"), "utf-8");
+    expect(sql).toContain('CREATE TABLE IF NOT EXISTS "store_access_log"');
+  });
+
+  test("run-config.ts mounts the security baseline right after sessions", async () => {
+    const dest = join(tmp, "my-shop");
+    await scaffoldApp({ name: "my-shop", destination: dest });
+
+    const runConfig = readFileSync(join(dest, "src/run-config.ts"), "utf-8");
+    expect(runConfig).toContain(
+      'import { composeSecurityStack } from "@cosmicdrift/kumiko-dev-server/compose-stacks";',
+    );
+    expect(runConfig).toMatch(
+      /createSessionsFeature\(\),\s+\.\.\.composeSecurityStack\(\{ includeSessions: false \}\),/,
+    );
+  });
+
   test("kumiko.config.ts is the single feature source for kumiko/schema.ts and bin/kumiko.ts", async () => {
     const dest = join(tmp, "my-shop");
     await scaffoldApp({ name: "my-shop", destination: dest });
@@ -472,9 +493,9 @@ describe("scaffoldApp", () => {
     await scaffoldApp({ name: "my-shop", destination: dest });
 
     const env = readFileSync(join(dest, ".env.example"), "utf-8");
-    expect(env).toContain("PLATFORM_KEK=\n");
-    expect(env).toContain("SUBJECT_KEYS_DATABASE_URL=\n");
-    expect(env).toContain("KUMIKO_BLIND_INDEX_KEY=\n");
+    expect(env).toContain("# PLATFORM_KEK=\n");
+    expect(env).toContain("# SUBJECT_KEYS_DATABASE_URL=\n");
+    expect(env).toContain("# KUMIKO_BLIND_INDEX_KEY=\n");
   });
 
   test("docker-compose.yml ports + credentials match the .env.example *_URL defaults", async () => {
@@ -814,20 +835,24 @@ describe("generated default app actually boots", () => {
 
     await scaffoldApp({ name: "boot-fixture", destination: dest });
 
+    // An empty KMS value is invalid under the crypto-shredding env contract; only absence means plaintext.
+    const {
+      PLATFORM_KEK: _kek,
+      SUBJECT_KEYS_DATABASE_URL: _keysDb,
+      KUMIKO_BLIND_INDEX_KEY: _blindIndexKey,
+      ...hostEnv
+    } = process.env;
     const proc = Bun.spawn({
       cmd: ["bun", "bin/main.ts"],
       cwd: dest,
       env: {
-        ...process.env,
+        ...hostEnv,
         KUMIKO_DRY_RUN_ENV: "boot",
         DEMO_ADMIN_PASSWORD: "test-admin-password-0001",
         JWT_SECRET: "a".repeat(32),
         KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.alloc(32, 7).toString("base64"),
         DATABASE_URL: "postgres://dummy:dummy@127.0.0.1:1/dummy",
         REDIS_URL: "redis://127.0.0.1:1",
-        PLATFORM_KEK: "",
-        SUBJECT_KEYS_DATABASE_URL: "",
-        KUMIKO_BLIND_INDEX_KEY: "",
       },
       stdout: "pipe",
       stderr: "pipe",

@@ -374,6 +374,16 @@ const FOUNDATION_FEATURES: ReadonlyArray<ScaffoldFeatureEntry> = [
   },
 ];
 
+// audit needs the user and tenant tables, so the rest of the security baseline
+// (crypto-shredding, rate-limiting, audit) only follows a mounted sessions entry.
+const SECURITY_BASELINE_FEATURE: ScaffoldFeatureEntry = {
+  name: "security-baseline",
+  importPath: "@cosmicdrift/kumiko-dev-server/compose-stacks",
+  exportName: "composeSecurityStack",
+  callExpression: "...composeSecurityStack({ includeSessions: false })",
+  callArgs: [{ includeSessions: false }],
+};
+
 // composeFeatures({ includeBundled: true }) auto-mounts these four foundation features.
 // Listing them again in APP_FEATURES caused duplicate-registration warnings in
 // scaffolded `bun dev`; filtering also protects direct scaffoldApp() calls that
@@ -393,7 +403,23 @@ function effectiveScaffoldFeatures(
   const effective = base.filter((f) => !COMPOSE_AUTO_MOUNTED_NAMES.has(f.name));
   const needsDelivery =
     starter === "blank" && !effective.some((f) => f.name === BLANK_STARTER_DELIVERY_FEATURE.name);
-  return needsDelivery ? [...effective, BLANK_STARTER_DELIVERY_FEATURE] : effective;
+  return withSecurityBaseline(
+    needsDelivery ? [...effective, BLANK_STARTER_DELIVERY_FEATURE] : effective,
+  );
+}
+
+function withSecurityBaseline(
+  features: ReadonlyArray<ScaffoldFeatureEntry>,
+): ReadonlyArray<ScaffoldFeatureEntry> {
+  const sessionsIndex = features.findIndex((f) => f.name === "sessions");
+  if (sessionsIndex === -1 || features.some((f) => f.name === SECURITY_BASELINE_FEATURE.name)) {
+    return features;
+  }
+  return [
+    ...features.slice(0, sessionsIndex + 1),
+    SECURITY_BASELINE_FEATURE,
+    ...features.slice(sessionsIndex + 1),
+  ];
 }
 
 function renderRunConfig(
@@ -670,16 +696,16 @@ KUMIKO_SECRETS_MASTER_KEY_V1=
 
 ${adminBlock}
 # Subject-keys KMS for PII fields (user, tenant-invitation, fileRef). All-or-none.
-# Unset → local boot with plaintext PII + warning; NODE_ENV=production requires
+# Left commented out → local boot with plaintext PII + warning (an empty value is invalid); NODE_ENV=production requires
 # the trio (runProdApp kmsMode "required"); prod may supply any key as
 # <NAME>_CIPHERTEXT (Key Manager). Generate PLATFORM_KEK / KUMIKO_BLIND_INDEX_KEY
 # with: openssl rand -base64 32. SUBJECT_KEYS_DATABASE_URL must be a dedicated
 # subject-keys cluster (not the app DB) — see kms-adapter.md.
-PLATFORM_KEK=
+# PLATFORM_KEK=
 # Separate Postgres instance for subject keys — never DATABASE_URL (retention
 # must outlive app-DB backups for crypto-shredding).
-SUBJECT_KEYS_DATABASE_URL=
-KUMIKO_BLIND_INDEX_KEY=
+# SUBJECT_KEYS_DATABASE_URL=
+# KUMIKO_BLIND_INDEX_KEY=
 
 # Dev-only: persistent DB for \`bun dev\`. Without this var every reboot starts
 # a fresh kumiko_test_<random> DB → admin login + data gone on every edit.
@@ -892,7 +918,10 @@ async function instantiateScaffoldFeatures(
       );
     }
     if (typeof exp === "function") {
-      instances.push((exp as (...args: unknown[]) => FeatureDefinition)(...(entry.callArgs ?? [])));
+      instances.push(
+        // flat(): a stack factory such as composeSecurityStack returns several features.
+        ...[(exp as (...args: unknown[]) => FeatureDefinition)(...(entry.callArgs ?? []))].flat(),
+      );
     } else {
       instances.push(exp as FeatureDefinition);
     }
