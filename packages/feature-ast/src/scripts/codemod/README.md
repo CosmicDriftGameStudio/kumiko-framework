@@ -145,3 +145,20 @@ non-literal returns, a dynamic schema (a parameter or local of the factory, or a
 that does not match the schema is kept and reported, the definition itself is converted. Safe to rerun.
 The analysis spans the project root (nearest `biome.json`, `tsconfig.json` there is used for module
 resolution), so run it on the directory that holds the handlers and their uses.
+
+## security-baseline-stack
+
+Mounts crypto-shredding, rate-limiting and audit next to sessions: `src/run-config.ts` gets
+`...composeSecurityStack({ includeSessions: false })` right after `createSessionsFeature()` in the
+`APP_FEATURES` array literal, plus the import from `@cosmicdrift/kumiko-dev-server/compose-stacks`.
+Run `kumiko-schema generate` afterwards for the audit table.
+
+```bash
+bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/security-baseline-stack.ts <dir> [--check | --dry-run | --write] [--no-format]
+```
+
+Left unchanged: apps that already mount `composeSecurityStack`, `createCryptoShreddingFeature`,
+`createRateLimitingFeature` or `createAuditFeature`, and apps whose `APP_FEATURES` is no array literal
+or has no `createSessionsFeature()`. Reported as `manual` and left alone: a `bin/main.ts` that hands no
+`kmsMode`, `kms`, `allowPlaintextPii` or `...kmsWiring` to `runProdApp` (crypto-shredding would abort
+the boot), and one that sets `rateLimit: false` (rate-limiting would abort it).
