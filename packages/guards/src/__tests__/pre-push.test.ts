@@ -652,7 +652,21 @@ describe("kumiko-pre-push", () => {
       expect(output).toContain("typecheck: no script, skipped");
       expect(output).toContain("lint: no script, skipped");
       expect(output).toContain("test:dom: no script, skipped");
+      expect(output).toContain("test:lib-coverage: no script, skipped");
       expect(readFileSync(join(worktreeDir, "marker-test.txt"), "utf-8")).toContain("MARKER_TEST");
+    });
+
+    test("test:lib-coverage runs after test when declared", () => {
+      const worktreeDir = setupWorktree({
+        test: `echo test >> ${HOOK_LOG_NAME}`,
+        "test:lib-coverage": `echo test:lib-coverage >> ${HOOK_LOG_NAME}`,
+      });
+
+      const { exitCode } = runHook(worktreeDir, tmp, { KUMIKO_PRE_PUSH_POOL: "4" });
+
+      expect(exitCode).toBe(0);
+      const logged = readFileSync(join(worktreeDir, HOOK_LOG_NAME), "utf-8").trim().split("\n");
+      expect(logged).toEqual(["test", "test:lib-coverage"]);
     });
 
     test("a worktree without a test script refuses the push", () => {

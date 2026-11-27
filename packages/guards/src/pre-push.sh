@@ -6,7 +6,7 @@
 #      scripts/check-wt.sh, delegate to it.
 #   2. Else if running inside a worktree under the parent workspace (no
 #      check-wt.sh), run this worktree's own package.json scripts
-#      (typecheck, lint, test, test:dom) plus the consumer-CI guards
+#      (typecheck, lint, test, test:dom, test:lib-coverage) plus the consumer-CI guards
 #      (kumiko-guards guards/ui/checks/comment-lang) directly, in parallel
 #      lanes via run-steps-parallel.ts —
 #      the parent's `bun check` would otherwise check the main checkout
@@ -290,7 +290,7 @@ add_step() {
 if [ "$(git rev-parse --path-format=absolute --git-dir)" != "$GIT_COMMON_DIR" ] \
    && [ -n "$PARENT_DIR" ]; then
   cd "$REPO_ROOT"
-  echo "[pre-push] worktree without scripts/check-wt.sh — running this worktree's package.json scripts (typecheck, lint, test, test:dom) and guards (guards, ui, checks, comment-lang, public-exports-changelog)…"
+  echo "[pre-push] worktree without scripts/check-wt.sh — running this worktree's package.json scripts (typecheck, lint, test, test:dom, test:lib-coverage) and guards (guards, ui, checks, comment-lang, public-exports-changelog)…"
   if ! has_package_script test; then
     echo "[pre-push] FATAL: worktree without a package.json \"test\" script — nothing to run, refusing push." >&2
     echo "Add a \"test\" script to package.json." >&2
@@ -301,11 +301,12 @@ if [ "$(git rev-parse --path-format=absolute --git-dir)" != "$GIT_COMMON_DIR" ] 
     echo "[pre-push] FATAL: run-steps-parallel.ts not found next to the resolved hook — refusing push" >&2
     exit 1
   fi
-  # test:dom stays behind test (always declared, see above) in one lane: both are
-  # bun test runs over the same repo and have always run one after the other.
-  for SCRIPT_NAME in typecheck lint test test:dom; do
+  # test:dom and test:lib-coverage stay behind test (always declared, see above)
+  # in one lane: all are bun test runs over the same repo and must not share the
+  # CPU with test.
+  for SCRIPT_NAME in typecheck lint test test:dom test:lib-coverage; do
     STEP_FLAG="--step"
-    [ "$SCRIPT_NAME" = "test:dom" ] && STEP_FLAG="--then"
+    case "$SCRIPT_NAME" in test:dom|test:lib-coverage) STEP_FLAG="--then" ;; esac
     if has_package_script "$SCRIPT_NAME"; then
       add_step "$STEP_FLAG" "$SCRIPT_NAME" "bun run $SCRIPT_NAME"
     else
