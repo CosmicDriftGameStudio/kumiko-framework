@@ -11,7 +11,7 @@ import {
   createUnlimitedRateLimitResolver,
   type Dispatcher,
 } from "@cosmicdrift/kumiko-framework/pipeline";
-import { applyStandardBootSeeds } from "./boot/shared-boot-steps.ts";
+import { applyStandardBootSeeds, runSeedFollowUps } from "./boot/shared-boot-steps.ts";
 import { runStreamTenantBackfillOnBoot } from "./boot/stream-tenant-backfill-on-boot.ts";
 import type { RunProdAppOptions } from "./run-prod-app.ts";
 import type { ProdBootConfig, ProdComposedFeatures } from "./run-prod-app-config.ts";
@@ -118,7 +118,7 @@ export async function runProdBootSeeds(
         ...(options.search === "none" && { search: options.search }),
         ...(options.databaseWait && { databaseWait: options.databaseWait }),
       });
-      await applyStandardBootSeeds({
+      const { followUps } = await applyStandardBootSeeds({
         db: connections.db,
         registry: composed.registry,
         admin: composed.effectiveAuth?.admin,
@@ -128,7 +128,9 @@ export async function runProdBootSeeds(
         ...(options.databaseWait && { databaseWait: options.databaseWait }),
       });
       const hasSeeds =
-        config.bootOptionWiring.customSeeds.length > 0 || options.seedsDir !== undefined;
+        config.bootOptionWiring.customSeeds.length > 0 ||
+        options.seedsDir !== undefined ||
+        followUps.length > 0;
       const seedContext = hasSeeds ? buildSeedContext(run) : undefined;
       const seedDispatcher = seedContext
         ? withSeedErrorContext(
@@ -139,6 +141,12 @@ export async function runProdBootSeeds(
             }),
           )
         : undefined;
+      if (seedDispatcher) {
+        await runSeedFollowUps(followUps, {
+          dispatcher: seedDispatcher,
+          registry: composed.registry,
+        });
+      }
       if (seedDispatcher && seedContext) {
         await runCustomSeeds(run, seedContext, seedDispatcher);
       }

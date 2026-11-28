@@ -21,6 +21,7 @@ import {
   type RequestAccountUnlockOptions,
 } from "./handlers/request-account-unlock.write.ts";
 import { createRequestEmailVerificationHandler } from "./handlers/request-email-verification.write.ts";
+import { createRequestInitialPasswordHandler } from "./handlers/request-initial-password.write.ts";
 import { createRequestPasswordResetHandler } from "./handlers/request-password-reset.write.ts";
 import { createResetPasswordHandler } from "./handlers/reset-password.write.ts";
 import { selfRegistrationStatusQuery } from "./handlers/self-registration-status.query.ts";
@@ -203,6 +204,11 @@ export function createAuthEmailPasswordFeature(
       localizedTemplate: authMailLocalizedTemplate("passwordReset"),
     });
     r.notification({
+      name: "initial-password",
+      variables: AUTH_MAIL_VARIABLES,
+      localizedTemplate: authMailLocalizedTemplate("initialPassword"),
+    });
+    r.notification({
       name: "account-unlock",
       variables: AUTH_MAIL_VARIABLES,
       localizedTemplate: authMailLocalizedTemplate("accountUnlock"),
@@ -242,6 +248,7 @@ export function createAuthEmailPasswordFeature(
     if (opts.passwordReset) {
       r.writeHandler(createRequestPasswordResetHandler(opts.passwordReset));
       r.writeHandler(createResetPasswordHandler(opts.passwordReset));
+      r.writeHandler(createRequestInitialPasswordHandler(opts.passwordReset));
     }
 
     if (opts.emailVerification) {

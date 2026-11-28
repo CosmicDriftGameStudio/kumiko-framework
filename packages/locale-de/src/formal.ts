@@ -95,6 +95,13 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
     "Falls Sie sich nicht registriert haben, können Sie diese E-Mail ignorieren. Es wird kein Account erstellt, solange Sie den Link nicht öffnen.",
   "auth.mail.activation.intro":
     "klicken Sie auf den folgenden Link, um Ihren {app}-Account zu aktivieren. Im nächsten Schritt setzen Sie Ihr Passwort:",
+  "auth.mail.initialPassword.expiry":
+    "Der Link ist {duration} gültig (bis {when}). Danach fordern Sie über „Passwort vergessen?“ auf der Anmeldeseite einen neuen an.",
+  "auth.mail.initialPassword.ignore":
+    "Falls Sie dieses Konto nicht erwartet haben, können Sie diese E-Mail ignorieren.",
+  "auth.mail.initialPassword.intro":
+    "Ihr {app}-Konto wurde angelegt. Klicken Sie auf den folgenden Link, um Ihr Passwort festzulegen:",
+  "auth.mail.initialPassword.subject": "{app} — Ihr Zugang: Passwort festlegen",
   "auth.mail.invite.ignore":
     "Falls Sie diese Einladung nicht erwartet haben, können Sie diese E-Mail ignorieren.",
   "auth.mail.invite.intro":

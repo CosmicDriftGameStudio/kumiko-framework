@@ -41,7 +41,7 @@ import type { CacheSyncBus } from "@cosmicdrift/kumiko-framework/redis";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import type { FeatureTogglesWiring } from "../boot-options/feature-toggles-option.ts";
-import type { DbSeedFn } from "../boot-options/seed-shortcuts.ts";
+import type { DbSeedFn, SeedFollowUp } from "../boot-options/seed-shortcuts.ts";
 import {
   type AuthOptionsCarrier,
   buildComposeAuthOptions,
@@ -116,6 +116,15 @@ export async function buildEffectiveFeaturesResolver(deps: {
   return bound.resolver;
 }
 
+export async function runSeedFollowUps(
+  followUps: readonly SeedFollowUp[],
+  deps: Parameters<SeedFollowUp>[0],
+): Promise<void> {
+  for (const followUp of followUps) {
+    await followUp(deps);
+  }
+}
+
 export const BOOT_SEEDS_LOCK_KEY = 0x62_73_65_64; // 'bsed'
 
 export async function applyStandardBootSeeds(deps: {
@@ -126,9 +135,10 @@ export async function applyStandardBootSeeds(deps: {
   readonly cipher: EnvelopeCipher | undefined;
   readonly processName: string;
   readonly databaseWait?: DatabaseWaitClock;
-}): Promise<{ readonly adminUserId?: string }> {
+}): Promise<{ readonly adminUserId?: string; readonly followUps: readonly SeedFollowUp[] }> {
   const { db, registry, admin, shortcutSeeds, cipher, processName, databaseWait } = deps;
   let adminUserId: string | undefined;
+  let followUps: SeedFollowUp[] = [];
   // Seeds are idempotent, so a transient connection error re-runs the whole sequence; any other
   // error stays fatal. Later boot steps build on the seeds, so this cannot continue in the background.
   await waitUntilDatabaseReachable(
@@ -136,13 +146,15 @@ export async function applyStandardBootSeeds(deps: {
     // otherwise both insert the same admin.
     () =>
       withSessionAdvisoryLock(db, BOOT_SEEDS_LOCK_KEY, async () => {
+        followUps = [];
         if (admin) {
           // Operator-created account, not a self-registration: under emailVerificationMode "strict"
           // an unverified seed admin could never log in. `admin.emailVerified` still overrides.
           adminUserId = (await seedAdminGuarded(db, { emailVerified: true, ...admin })).id;
         }
         for (const seed of shortcutSeeds) {
-          await seed(db);
+          const followUp = await seed(db);
+          if (typeof followUp === "function") followUps.push(followUp);
         }
         // The helper indirection is what config-seed-boot.integration.ts pins — keep it as a single call.
         await applyBootSeeds({
@@ -153,7 +165,7 @@ export async function applyStandardBootSeeds(deps: {
       }),
     { ...databaseWait, processName, target: "database (boot seeds)" },
   );
-  return adminUserId === undefined ? {} : { adminUserId };
+  return adminUserId === undefined ? { followUps } : { adminUserId, followUps };
 }
 
 const MFA_ROUTE_HANDLERS = {

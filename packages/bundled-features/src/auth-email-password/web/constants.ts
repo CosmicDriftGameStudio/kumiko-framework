@@ -13,6 +13,8 @@ export const AuthHandlers = {
   logout: "auth-email-password:write:logout",
   changePassword: "auth-email-password:write:change-password",
   requestPasswordReset: "auth-email-password:write:request-password-reset",
+  // System-only: mails the first set-password link (long-lived) to an account created by boot seeds.
+  requestInitialPassword: "auth-email-password:write:request-initial-password",
   resetPassword: "auth-email-password:write:reset-password",
   requestEmailVerification: "auth-email-password:write:request-email-verification",
   verifyEmail: "auth-email-password:write:verify-email",
@@ -130,6 +132,8 @@ export const AUTH_LOCKOUT_DEFAULT_DURATION_MINUTES = 15;
 export const AUTH_UNLOCK_DEFAULT_TTL_MINUTES = 15;
 
 export const AUTH_RESET_DEFAULT_TTL_MINUTES = 15;
+// The first set-password mail is sent at boot and opened whenever the owner gets to it.
+export const AUTH_INITIAL_PASSWORD_DEFAULT_TTL_MINUTES = 72 * 60;
 // Verification tokens live longer by default because the user may not be
 // at their computer the moment they sign up — 24h covers "verify after
 // I've got home from work". The HMAC-signed token is still single-use

@@ -99,6 +99,15 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "click the link below to activate your {app} account. The next step is choosing your password:",
   "auth.mail.activation.subject": "{app} — Activate your account",
   "auth.mail.appNameDefault": "Account",
+  "auth.mail.initialPassword.button": "Set password",
+  "auth.mail.initialPassword.expiry":
+    "The link is valid for {duration} (until {when}). After that, use “Forgot password?” on the sign-in page.",
+  "auth.mail.initialPassword.greeting": "Hi,",
+  "auth.mail.initialPassword.ignore":
+    "If you weren't expecting this account, you can ignore this email.",
+  "auth.mail.initialPassword.intro":
+    "your {app} account has been created. Click the link below to set your password:",
+  "auth.mail.initialPassword.subject": "{app} — Your access: set your password",
   "auth.mail.invite.button": "Accept invitation",
   "auth.mail.invite.expiry": "The link is valid for {duration} (until {when}).",
   "auth.mail.invite.greeting": "Hi,",

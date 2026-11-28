@@ -34,7 +34,7 @@ import {
 import { createUserFeature, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
+import { createAnonymousUser, createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
@@ -43,7 +43,7 @@ import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import type { TenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import { resolveSeedShortcuts } from "../../boot-options/seed-shortcuts.ts";
-import { applyStandardBootSeeds } from "../shared-boot-steps.ts";
+import { applyStandardBootSeeds, runSeedFollowUps } from "../shared-boot-steps.ts";
 
 registerMailTranslations("de", localeDeBundle);
 
@@ -99,23 +99,33 @@ beforeEach(async () => {
   emailTransport.sent.length = 0;
 });
 
-function bootSeeds(
+async function bootSeeds(
   envSource: Record<string, string | undefined>,
-  options: { readonly roles?: readonly string[]; readonly ensureRoles?: boolean } = {},
+  options: {
+    readonly roles?: readonly string[];
+    readonly ensureRoles?: boolean;
+    readonly sendSetPasswordMail?: boolean;
+    readonly target?: TestStack;
+  } = {},
 ) {
-  return applyStandardBootSeeds({
-    db: stack.db,
-    registry: stack.registry,
+  const { target = stack, ...seedOptions } = options;
+  const { followUps } = await applyStandardBootSeeds({
+    db: target.db,
+    registry: target.registry,
     admin: undefined,
     shortcutSeeds: resolveSeedShortcuts(
       {
-        bootstrapAdminFromEnv: { tenant: { id: TENANT_ID, key: "app", name: "App" }, ...options },
+        bootstrapAdminFromEnv: {
+          tenant: { id: TENANT_ID, key: "app", name: "App" },
+          ...seedOptions,
+        },
       },
       { envSource, hasAuth: true, hasAuthAdmin: false },
     ),
     cipher: undefined,
     processName: "test",
   });
+  await runSeedFollowUps(followUps, { dispatcher: target.dispatcher, registry: target.registry });
 }
 
 const withCreator = { [BOOTSTRAP_ADMIN_EMAIL_ENV]: CREATOR_EMAIL };
@@ -274,6 +284,118 @@ describe("bootstrap admin seed", () => {
     await bootSeeds({});
 
     expect(await selectMany(stack.db, userTable)).toHaveLength(0);
+  });
+});
+
+describe("bootstrap admin set-password mail", () => {
+  const creatorMails = () => emailTransport.sent.filter((sent) => sent.to === CREATOR_EMAIL);
+
+  test("a newly created owner gets one reset mail whose link sets the password", async () => {
+    await bootSeeds(withCreator, { sendSetPasswordMail: true });
+
+    expect(creatorMails()).toHaveLength(1);
+    const text = creatorMails()[0]?.text ?? "";
+    expect(creatorMails()[0]?.subject).toContain("set your password");
+    expect(text).toContain(APP_RESET_URL);
+    const token = text.match(/\?token=([^&\s\]]+)/)?.[1];
+    if (token === undefined) throw new Error("reset mail with token missing");
+    const reset = await stack.http.raw("POST", "/api/auth/reset-password", {
+      token: decodeURIComponent(token),
+      newPassword: NEW_PASSWORD,
+    });
+    expect(reset.status).toBe(200);
+    expect((await login(NEW_PASSWORD)).status).toBe(200);
+  });
+
+  test("the link stays valid for 72 hours, not for the reset flow's 15 minutes", async () => {
+    await bootSeeds(withCreator, { sendSetPasswordMail: true });
+
+    const token = creatorMails()[0]?.text?.match(/\?token=([^&\s\]]+)/)?.[1];
+    if (token === undefined) throw new Error("set-password mail with token missing");
+    const expiresAtMs = Number(decodeURIComponent(token).split(".")[1]);
+    const expectedMs = Date.now() + 72 * 60 * 60 * 1000;
+    expect(Math.abs(expiresAtMs - expectedMs)).toBeLessThan(5 * 60 * 1000);
+  });
+
+  test("a retried seed function in the same process still yields the follow-up", async () => {
+    const [seed] = resolveSeedShortcuts(
+      {
+        bootstrapAdminFromEnv: {
+          tenant: { id: TENANT_ID, key: "app", name: "App" },
+          sendSetPasswordMail: true,
+        },
+      },
+      { envSource: withCreator, hasAuth: true, hasAuthAdmin: false },
+    );
+    if (seed === undefined) throw new Error("bootstrap seed missing");
+
+    expect(typeof (await seed(stack.db))).toBe("function");
+    expect(typeof (await seed(stack.db))).toBe("function");
+
+    const [freshProcessSeed] = resolveSeedShortcuts(
+      {
+        bootstrapAdminFromEnv: {
+          tenant: { id: TENANT_ID, key: "app", name: "App" },
+          sendSetPasswordMail: true,
+        },
+      },
+      { envSource: withCreator, hasAuth: true, hasAuthAdmin: false },
+    );
+    expect(await freshProcessSeed?.(stack.db)).toBeUndefined();
+  });
+
+  test("an anonymous caller cannot request the long-lived set-password link", async () => {
+    await bootSeeds(withCreator);
+
+    const result = await stack.dispatcher.write(
+      AuthHandlers.requestInitialPassword,
+      { email: CREATOR_EMAIL },
+      createAnonymousUser(TENANT_ID),
+    );
+
+    expect(result.isSuccess).toBe(false);
+    expect(creatorMails()).toHaveLength(0);
+  });
+
+  test("a second boot with the same owner sends no second mail", async () => {
+    await bootSeeds(withCreator, { sendSetPasswordMail: true });
+    await bootSeeds(withCreator, { sendSetPasswordMail: true });
+
+    expect(creatorMails()).toHaveLength(1);
+  });
+
+  test("without a password-reset flow the boot succeeds and no mail goes out", async () => {
+    const withoutMail = await setupTestStack({
+      features: [
+        createConfigFeature(),
+        createUserFeature(),
+        createTenantFeature(),
+        createTemplateResolverFeature(),
+        createRendererFoundationFeature(),
+        createRendererMailHtmlFeature(),
+        createDeliveryFeature(),
+        createAuthEmailPasswordFeature({}),
+      ],
+      authConfig: {
+        membershipQuery: "tenant:query:memberships",
+        loginHandler: AuthHandlers.login,
+      },
+    });
+    try {
+      await bootSeeds(withCreator, { sendSetPasswordMail: true, target: withoutMail });
+
+      expect(await selectMany(withoutMail.db, userTable, { email: CREATOR_EMAIL })).toHaveLength(1);
+      expect(creatorMails()).toHaveLength(0);
+    } finally {
+      await withoutMail.cleanup();
+    }
+  });
+
+  test("without the option no mail goes out", async () => {
+    await bootSeeds(withCreator);
+
+    expect(await creatorRows()).toHaveLength(1);
+    expect(creatorMails()).toHaveLength(0);
   });
 });
 

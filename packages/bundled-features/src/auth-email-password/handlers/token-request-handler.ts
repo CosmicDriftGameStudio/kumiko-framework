@@ -64,6 +64,9 @@ export type TokenRequestSpec<TName extends string, TSuccessKind extends string> 
   // Only flows whose landing page can continue to a page (password reset) put the request's
   // returnTo into the mail link; verification and unlock ignore it.
   readonly forwardsReturnTo: boolean;
+  // Default anonymous (the request side of a public flow). A flow that mints a long-lived
+  // token must not be reachable by an anonymous caller and passes a narrower access.
+  readonly access?: { readonly roles: readonly string[] };
 };
 
 export type TokenRequestOptions = {
@@ -95,7 +98,7 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
   return defineWriteHandler<TName, typeof RequestTokenSchema, TokenRequestData<TSuccessKind>>({
     name: spec.handlerName,
     schema: RequestTokenSchema,
-    access: { roles: ["anonymous"] },
+    access: spec.access ?? { roles: ["anonymous"] },
     // Pre-auth flows: the caller has no session, so the agent can never run them for a user.
     agent: { expose: false },
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },

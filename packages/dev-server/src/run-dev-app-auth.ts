@@ -26,6 +26,7 @@ import {
   applyStandardBootSeeds,
   assertMfaSwitchTenantGate,
   buildEffectiveFeaturesResolver,
+  runSeedFollowUps,
 } from "@cosmicdrift/kumiko-server-runtime/boot/shared-boot-steps";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import type { DevBootConfig } from "./run-dev-app-config.ts";
@@ -194,7 +195,7 @@ export async function runDevAfterSetup(stack: TestStack, ctx: DevAfterSetupConte
   // Apply r.config({ seeds }) declared by any registered feature.
   // Runs before user-supplied seed callbacks so those can read /
   // override the deploy-defaults.
-  const { adminUserId } = await applyStandardBootSeeds({
+  const { adminUserId, followUps } = await applyStandardBootSeeds({
     db: stack.db,
     registry: stack.registry,
     admin: effectiveAuth?.admin,
@@ -202,6 +203,7 @@ export async function runDevAfterSetup(stack: TestStack, ctx: DevAfterSetupConte
     cipher: bootCrypto.configCipher,
     processName: "runDevApp",
   });
+  await runSeedFollowUps(followUps, { dispatcher: stack.dispatcher, registry: stack.registry });
   const firstMembership = effectiveAuth?.admin?.memberships[0];
   const admin: SessionUser | undefined =
     adminUserId !== undefined && firstMembership !== undefined
