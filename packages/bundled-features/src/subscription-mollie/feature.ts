@@ -5,8 +5,8 @@
 //
 // **Factory pattern (analogous to subscription-stripe):** reads the API key
 // at mount time from the factory options (typically process.env from the app
-// builder's bin/server.ts). Mollie has NO webhook secret — Mollie SDK
-// 4.5.0 provides no native HMAC signature verification API. Security comes
+// builder's bin/server.ts). Mollie has NO webhook secret — the Mollie SDK
+// provides no native HMAC signature verification API. Security comes
 // from non-guessable IDs + API validation; the app builder can optionally
 // add a URL-token wrapper in front.
 //
@@ -45,8 +45,9 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createMollieClient } from "@mollie/api-client";
+import { Client } from "mollie-api-typescript";
 import * as z from "zod";
+import { mollieClientShapeOf } from "./adapter.ts";
 import { SUBSCRIPTION_MOLLIE_BOOT_RULES } from "./boot-rules.ts";
 import { MOLLIE_PROVIDER_NAME, SUBSCRIPTION_MOLLIE_FEATURE } from "./constants.ts";
 import { createMollieCheckoutSession, type MolliePriceConfig } from "./plugin-methods.ts";
@@ -85,7 +86,7 @@ export type SubscriptionMollieOptions = {
   readonly priceToConfig: Readonly<Record<string, MolliePriceConfig>>;
   /** @internal Test-only injection port: replaces the verify-webhook fetch
    *  client with a mock instance. Production leaves this undefined; the
-   *  factory builds the adapter from `createMollieClient(apiKey)`. The
+   *  factory builds the adapter from `new Client({ security: { apiKey } })`. The
    *  integration test (mollie-foundation.integration.ts) uses it so the real
    *  factory code (drift validation, plugin registration) runs in the test
    *  path without making Mollie API calls. */
@@ -123,24 +124,10 @@ export function createSubscriptionMollieFeature(
     });
   }
 
-  const client = createMollieClient({ apiKey: options.apiKey });
+  const client = new Client({ security: { apiKey: options.apiKey } });
 
-  // Adapter that binds the plugin's minimal fetch client to the full Mollie
-  // client. The minimal plugin fetch API lets tests mock it without mocking
-  // the full MollieClient.
-  const fetchAdapter: MollieClientShape = options._clientShapeForTests ?? {
-    payments: { get: (id: string) => client.payments.get(id) },
-    customerSubscriptions: {
-      get: (subId: string, customerId: string) =>
-        client.customerSubscriptions.get(subId, { customerId }),
-      list: async (customerId: string) => {
-        const page = await client.customerSubscriptions.page({ customerId });
-        return [...page];
-      },
-      create: (customerId, params) =>
-        client.customerSubscriptions.create({ customerId, ...params }),
-    },
-  };
+  const fetchAdapter: MollieClientShape =
+    options._clientShapeForTests ?? mollieClientShapeOf(client);
 
   const verifyAndParse = verifyAndParseMollieWebhook(fetchAdapter, {
     priceToTier: options.priceToTier,

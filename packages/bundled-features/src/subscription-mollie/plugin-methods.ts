@@ -16,8 +16,8 @@
 
 import type { SubscriptionProviderPlugin } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import type { MollieClient, Payment } from "@mollie/api-client";
-import { SequenceType } from "@mollie/api-client";
+import type { Client } from "mollie-api-typescript";
+import { SequenceType } from "mollie-api-typescript/models";
 
 export type MollieCheckoutOptions = Parameters<
   NonNullable<SubscriptionProviderPlugin["createCheckoutSession"]>
@@ -36,7 +36,7 @@ export type MolliePriceConfig = {
 };
 
 export function createMollieCheckoutSession(
-  client: MollieClient,
+  client: Client,
   priceToConfig: Readonly<Record<string, MolliePriceConfig>>,
   appWebhookUrl: string,
 ) {
@@ -60,7 +60,7 @@ export function createMollieCheckoutSession(
     let customerId = options.providerCustomerId;
     if (!customerId) {
       const customer = await client.customers.create({
-        metadata: { tenantId: options.tenantId },
+        entityCustomer: { metadata: { tenantId: options.tenantId } },
       });
       customerId = customer.id;
     }
@@ -69,30 +69,30 @@ export function createMollieCheckoutSession(
     // setup. Oneoff payments carry no subscriptionId and are not
     // sequenceType "first", so verifyAndParseMollieWebhook drops them before
     // any mandate/subscription handling.
-    const sequenceType = options.mode === "payment" ? SequenceType.oneoff : SequenceType.first;
+    const sequenceType = options.mode === "payment" ? SequenceType.Oneoff : SequenceType.First;
 
-    // payments.create is overloaded (Promise or void with a callback);
-    // explicitly cast to the Promise<Payment> overload.
-    const payment = (await (client.payments.create({
-      amount: { currency: priceCfg.amountCurrency, value: priceCfg.amountValue },
-      description: priceCfg.description,
-      sequenceType,
-      customerId,
-      redirectUrl: options.successUrl,
-      cancelUrl: options.cancelUrl,
-      webhookUrl: appWebhookUrl,
-      metadata: {
-        tenantId: options.tenantId,
-        priceId: options.priceId,
+    const payment = await client.payments.create({
+      paymentRequest: {
+        amount: { currency: priceCfg.amountCurrency, value: priceCfg.amountValue },
+        description: priceCfg.description,
+        sequenceType,
+        customerId,
+        redirectUrl: options.successUrl,
+        cancelUrl: options.cancelUrl,
+        webhookUrl: appWebhookUrl,
+        metadata: {
+          tenantId: options.tenantId,
+          priceId: options.priceId,
+        },
       },
-    }) as Promise<Payment>)) satisfies Payment; // @cast-boundary engine-bridge
+    });
 
-    const checkoutHref = payment.getCheckoutUrl();
+    const checkoutHref = payment.links.checkout?.href;
     if (!checkoutHref) {
       const mandateHint =
-        sequenceType === SequenceType.first ? " — first-payment-mandates ggf. nicht aktiviert" : "";
+        sequenceType === SequenceType.First ? " — first-payment-mandates ggf. nicht aktiviert" : "";
       throw new Error(
-        `subscription-mollie: payment.getCheckoutUrl() returned null (sequenceType=${sequenceType})${mandateHint}`,
+        `subscription-mollie: payment.links.checkout is missing (sequenceType=${sequenceType})${mandateHint}`,
       );
     }
     return { url: checkoutHref, providerCheckoutId: payment.id };

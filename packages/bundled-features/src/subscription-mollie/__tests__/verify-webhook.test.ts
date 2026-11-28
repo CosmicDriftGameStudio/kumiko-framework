@@ -8,6 +8,7 @@ import {
   SubscriptionEventTypes,
   SubscriptionStatuses,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import { ClientError } from "mollie-api-typescript/models/errors";
 import {
   extractMollieId,
   type MollieClientShape,
@@ -302,8 +303,19 @@ describe("verifyAndParseMollieWebhook — error + ignore paths", () => {
   });
 
   test("Mollie-API rejectet payment-fetch (= garbage-id) → null (foundation 200 ignored)", async () => {
-    const client = buildClient({ paymentReject: new Error("Mollie 404: not found") });
+    const client = buildClient({
+      paymentReject: new ClientError("not found", {
+        request: new Request("https://api.mollie.com/v2/payments/tr_garbage"),
+        response: new Response(null, { status: 404 }),
+        body: "",
+      }),
+    });
     expect(await verify(client)("id=tr_garbage", {})).toBeNull();
+  });
+
+  test("non-404 failure of the payment fetch is rethrown (Mollie must redeliver)", async () => {
+    const client = buildClient({ paymentReject: new Error("socket hang up") });
+    await expect(verify(client)("id=tr_garbage", {})).rejects.toThrow("socket hang up");
   });
 
   test("payment without subscriptionId AND not first-payment-paid → null (= one-shot, not our domain)", async () => {

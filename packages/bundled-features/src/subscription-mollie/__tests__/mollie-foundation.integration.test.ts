@@ -33,9 +33,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type {
-  Payment as MolliePayment,
-  Subscription as MollieSubscription,
-} from "@mollie/api-client";
+  PaymentResponse as MolliePayment,
+  SubscriptionResponse as MollieSubscription,
+} from "mollie-api-typescript/models";
 import { ledgerWriteAs } from "../../billing-foundation/__tests__/ledgered-subscription.ts";
 import { CHECKOUT_OPENED_EVENT_QN } from "../../billing-foundation/events.ts";
 import { SubscriptionFoundationHandlers } from "../../billing-foundation/web/constants.ts";

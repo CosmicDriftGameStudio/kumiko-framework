@@ -200,7 +200,7 @@
     "@fontsource/carlito": "^5.3.0",
     "@fontsource/cousine": "^5.3.0",
     "@fontsource/tinos": "^5.3.0",
-    "@mollie/api-client": "^4.6.0",
+    "mollie-api-typescript": "1.12.48",
     "@node-rs/argon2": "^2.2.2",
     "@tiptap/core": "^3.35.0",
     "@tiptap/extension-link": "^3.35.0",

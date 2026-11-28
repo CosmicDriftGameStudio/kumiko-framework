@@ -2,11 +2,11 @@
 
 import { describe, expect, test } from "bun:test";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import type { Client } from "mollie-api-typescript";
 import type {
-  MollieClient,
-  Payment as MolliePayment,
-  Subscription as MollieSubscription,
-} from "@mollie/api-client";
+  PaymentResponse as MolliePayment,
+  SubscriptionResponse as MollieSubscription,
+} from "mollie-api-typescript/models";
 import { describeSubscriptionProviderContract } from "../../billing-foundation/__tests__/subscription-provider-contract.ts";
 import { MOLLIE_PROVIDER_NAME, SUBSCRIPTION_MOLLIE_FEATURE } from "../constants.ts";
 import { createSubscriptionMollieFeature } from "../feature.ts";
@@ -163,10 +163,10 @@ function buildMollieContractFixture() {
     payments: {
       create: async () => ({
         id: "tr_contract_checkout",
-        getCheckoutUrl: () => "https://www.mollie.com/checkout/contract-test",
+        links: { checkout: { href: "https://www.mollie.com/checkout/contract-test" } },
       }),
     },
-  } as unknown as MollieClient;
+  } as unknown as Client;
 
   return {
     plugin: {
