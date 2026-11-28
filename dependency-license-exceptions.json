@@ -40,6 +40,14 @@
       "reason": "MIT-Lizenz (siehe GitHub-Repo). Der License-Scanner erkennt 'null' aus den Metadata.",
       "reviewedBy": "Marc, 2026-05-12",
       "expires": "2027-05-12"
+    },
+    {
+      "package": "mollie-api-typescript",
+      "version": "1.x",
+      "license": "BSD-2-Clause",
+      "reason": "Offizielles Mollie-SDK, Nachfolger von @mollie/api-client. package.json hat kein license-Feld, die mitgelieferte LICENSE.md ist BSD 2-Clause.",
+      "reviewedBy": "Agent, 2026-11-28 (offen für Marc)",
+      "expires": "2027-11-28"
     }
   ]
 }
