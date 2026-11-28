@@ -20,6 +20,15 @@ export const AUTH_MAIL_EN: Readonly<Record<string, string>> = {
   "auth.mail.reset.expiry": "The link is valid for {duration} (until {when}).",
   "auth.mail.reset.ignore":
     "If you didn't request a reset, you can safely ignore this email — your password won't change.",
+  "auth.mail.initialPassword.subject": "{app} — Your access: set your password",
+  "auth.mail.initialPassword.greeting": "Hi,",
+  "auth.mail.initialPassword.intro":
+    "your {app} account has been created. Click the link below to set your password:",
+  "auth.mail.initialPassword.button": "Set password",
+  "auth.mail.initialPassword.expiry":
+    "The link is valid for {duration} (until {when}). After that, use “Forgot password?” on the sign-in page.",
+  "auth.mail.initialPassword.ignore":
+    "If you weren't expecting this account, you can ignore this email.",
   "auth.mail.verify.subject": "{app} — Verify your email",
   "auth.mail.verify.greeting": "Welcome,",
   "auth.mail.verify.intro": "please verify your email address for {app} to activate your account:",

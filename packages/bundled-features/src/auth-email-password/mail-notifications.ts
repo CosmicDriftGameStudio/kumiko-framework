@@ -11,6 +11,7 @@ import { AUTH_EMAIL_PASSWORD_FEATURE } from "./web/constants.ts";
 
 export const AUTH_MAIL_KINDS = {
   passwordReset: { name: "password-reset", translationKey: "reset" },
+  initialPassword: { name: "initial-password", translationKey: "initialPassword" },
   accountUnlock: { name: "account-unlock", translationKey: "unlock" },
   emailVerification: { name: "email-verification", translationKey: "verify" },
   signupActivation: { name: "signup-activation", translationKey: "activation" },
@@ -39,6 +40,7 @@ function authMailType(kind: AuthMailKind): string {
 
 export const AuthMailNotificationTypes: Readonly<Record<AuthMailKind, string>> = {
   passwordReset: authMailType("passwordReset"),
+  initialPassword: authMailType("initialPassword"),
   accountUnlock: authMailType("accountUnlock"),
   emailVerification: authMailType("emailVerification"),
   signupActivation: authMailType("signupActivation"),
@@ -51,6 +53,7 @@ function subjectKey(kind: AuthMailKind): string {
 
 const ALL_AUTH_MAIL_KINDS: readonly AuthMailKind[] = [
   "passwordReset",
+  "initialPassword",
   "accountUnlock",
   "emailVerification",
   "signupActivation",

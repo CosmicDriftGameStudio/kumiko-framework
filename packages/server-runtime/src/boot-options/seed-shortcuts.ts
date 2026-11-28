@@ -1,3 +1,4 @@
+import { AuthHandlers } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import {
   ensureBootstrapAdminRoles,
   type SeedAdminOptions,
@@ -8,8 +9,13 @@ import {
 import { BOOTSTRAP_ADMIN_EMAIL_ENV } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { createSystemUser, type Registry } from "@cosmicdrift/kumiko-framework/engine";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
+import type { Dispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 import { parseTenantId, type TenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import type { ProdSeedFn } from "../run-prod-app.ts";
+
+const log = createFallbackLogger("seed-shortcuts");
 
 export type ProdSeedTenant = {
   /** Default: `DEMO_TENANT_ID` from the env. */
@@ -37,6 +43,7 @@ type SeededAccountOptions = {
  *    admin WITHOUT a password in `tenant` (default `demoTenant`) with `Admin` + `TenantAdmin`
  *    and the global role `SystemAdmin`; it sets its password via password reset. One-shot:
  *    skipped when the account already has a password or the tenant already has another member.
+ *    With `sendSetPasswordMail`, a newly created account gets one set-password mail.
  *  - `run`: free seed functions, same contract as the array form.
  *
  *  @example
@@ -60,11 +67,46 @@ export type ProdSeedsConfig = {
         readonly globalRoles?: readonly string[];
         /** Every boot, add `roles` the owner's existing membership lacks (additive, never removes). */
         readonly ensureRoles?: boolean;
+        /** After the account was created in this boot, send it one set-password mail (valid 72 h) so the
+         *  owner can set a password without "Forgot password?". No-op without the
+         *  password-reset flow (needs `mail` + `auth.mail`); a send failure never aborts the boot. */
+        readonly sendSetPasswordMail?: boolean;
       });
   readonly run?: readonly ProdSeedFn[];
 };
 
-export type DbSeedFn = (db: DbConnection) => Promise<void>;
+/** Runs after the boot dispatcher exists; seeds only have a db when they run. */
+export type SeedFollowUp = (deps: {
+  readonly dispatcher: Pick<Dispatcher, "write">;
+  readonly registry: Registry;
+}) => Promise<void>;
+
+export type DbSeedFn = (db: DbConnection) => Promise<SeedFollowUp | undefined>;
+
+function sendSetPasswordMail(email: string, tenantId: TenantId): SeedFollowUp {
+  return async ({ dispatcher, registry }) => {
+    if (!registry.getWriteHandler(AuthHandlers.requestInitialPassword)) {
+      log.info("bootstrap admin: no password-reset flow configured, set-password mail skipped");
+      return;
+    }
+    try {
+      const result = await dispatcher.write(
+        AuthHandlers.requestInitialPassword,
+        { email },
+        // System-only handler: an anonymous caller must not be able to mint its 72 h token.
+        createSystemUser(tenantId),
+      );
+      if (!result.isSuccess) {
+        log.warn(`bootstrap admin: set-password mail failed (${result.error.code})`);
+      }
+    } catch (error) {
+      // Name only: the message of a transport error can carry the recipient address.
+      log.warn(
+        `bootstrap admin: set-password mail failed (${error instanceof Error ? error.name : "unknown"})`,
+      );
+    }
+  };
+}
 
 const DEFAULT_DEMO_ADMIN_ROLES = ["Admin", ROLES.TenantAdmin] as const;
 const DEFAULT_SYSADMIN_TENANT_ROLES = ["User"] as const;
@@ -114,6 +156,7 @@ function seedAccount(admin: SeedAdminOptions): DbSeedFn {
     // Operator-created account, not a self-registration: under emailVerificationMode "strict"
     // an unverified seed account could never log in. An explicit `emailVerified` still overrides.
     await seedAdminGuarded(db, { emailVerified: true, ...admin });
+    return undefined;
   };
 }
 
@@ -195,11 +238,21 @@ function buildBootstrapAdminSeed(
     emailVerified: options.emailVerified ?? true,
     memberships: [membershipOf(tenant, membershipRoles)],
   };
+  // waitUntilDatabaseReachable re-runs the seeds after a transient connection error; the retry
+  // finds the row the first attempt inserted, so "created" must outlive the attempt.
+  let createdInThisProcess = false;
   return async (db) => {
-    await seedBootstrapAdmin(db, admin);
+    const seeded = await seedBootstrapAdmin(db, admin);
+    if ("created" in seeded && seeded.created) createdInThisProcess = true;
     if (options.ensureRoles) {
       await ensureBootstrapAdminRoles(db, { email, tenantId: tenant.id, roles: membershipRoles });
     }
+    // Only the process that inserted the account mails: a later boot (pod restart, rolling
+    // deploy) builds a fresh seed fn, finds the row and stays silent, so no extra state is needed.
+    if (options.sendSetPasswordMail && createdInThisProcess) {
+      return sendSetPasswordMail(email, tenant.id);
+    }
+    return undefined;
   };
 }
 
@@ -234,6 +287,7 @@ export function resolveSeedShortcuts(
   if (demoTenant) {
     result.push(async (db) => {
       await seedTenant(db, demoTenant);
+      return undefined;
     });
   }
   if (seeds.demoAdminFromEnv) {

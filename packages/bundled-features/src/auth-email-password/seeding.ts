@@ -489,12 +489,12 @@ async function tenantHasForeignMember(
  * an escalation) and when the target tenant already has another member (owner
  * deleted or changed their email: re-seeding would mint a new passwordless
  * SystemAdmin). Only our own passwordless account is completed, so a partial
- * earlier seed converges.
+ * earlier seed converges. `created` is true only when this call inserted the account.
  */
 export async function seedBootstrapAdmin(
   db: DbRunner,
   options: SeedAdminOptions,
-): Promise<{ id: string } | { skipped: "has-password" | "tenant-has-members" }> {
+): Promise<{ id: string; created: boolean } | { skipped: "has-password" | "tenant-has-members" }> {
   const existing = await findExistingUserRowForEmail(db, options.email);
   if (existing && hasPassword(existing)) {
     log.info("seedBootstrapAdmin: the account already has a password, bootstrap seed skipped");
@@ -516,7 +516,7 @@ export async function seedBootstrapAdmin(
     log.info("seedBootstrapAdmin: the account got a password meanwhile, bootstrap seed skipped");
     return { skipped: "has-password" };
   }
-  return seeded;
+  return { ...seeded, created: existing === undefined };
 }
 
 /**

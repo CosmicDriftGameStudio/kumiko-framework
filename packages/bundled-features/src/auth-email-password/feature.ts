@@ -21,6 +21,7 @@ import {
   type RequestAccountUnlockOptions,
 } from "./handlers/request-account-unlock.write.ts";
 import { createRequestEmailVerificationHandler } from "./handlers/request-email-verification.write.ts";
+import { createRequestInitialPasswordHandler } from "./handlers/request-initial-password.write.ts";
 import { createRequestPasswordResetHandler } from "./handlers/request-password-reset.write.ts";
 import { createResetPasswordHandler } from "./handlers/reset-password.write.ts";
 import { selfRegistrationStatusQuery } from "./handlers/self-registration-status.query.ts";
@@ -69,9 +70,7 @@ export const authEmailPasswordEnvSchema = z.object({
 // Opt-in configuration for the password-reset flow. When omitted the
 // request-password-reset / reset-password handlers are not registered —
 // the framework-level routes stay 404 and callers know the flow is off.
-// Keeping this at the feature level (rather than via env) means the caller
-// explicitly acknowledges that reset is wired and that they have a working
-// sendResetEmail callback on the framework side.
+// Also gates the system-only request-initial-password handler (same secret, appUrl, mail setup).
 export type PasswordResetOptions = {
   readonly hmacSecret: string;
   readonly tokenTtlMinutes?: number;
@@ -203,6 +202,11 @@ export function createAuthEmailPasswordFeature(
       localizedTemplate: authMailLocalizedTemplate("passwordReset"),
     });
     r.notification({
+      name: "initial-password",
+      variables: AUTH_MAIL_VARIABLES,
+      localizedTemplate: authMailLocalizedTemplate("initialPassword"),
+    });
+    r.notification({
       name: "account-unlock",
       variables: AUTH_MAIL_VARIABLES,
       localizedTemplate: authMailLocalizedTemplate("accountUnlock"),
@@ -242,6 +246,7 @@ export function createAuthEmailPasswordFeature(
     if (opts.passwordReset) {
       r.writeHandler(createRequestPasswordResetHandler(opts.passwordReset));
       r.writeHandler(createResetPasswordHandler(opts.passwordReset));
+      r.writeHandler(createRequestInitialPasswordHandler(opts.passwordReset));
     }
 
     if (opts.emailVerification) {

@@ -157,6 +157,15 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "fai clic sul link qui sotto per attivare il tuo account {app}. Il passaggio successivo è scegliere la password:",
   "auth.mail.activation.subject": "{app} — Attiva il tuo account",
   "auth.mail.appNameDefault": "Account",
+  "auth.mail.initialPassword.button": "Imposta la password",
+  "auth.mail.initialPassword.expiry":
+    "Il link è valido per {duration} (fino a {when}). Dopo, usa «Password dimenticata?» nella pagina di accesso.",
+  "auth.mail.initialPassword.greeting": "Ciao,",
+  "auth.mail.initialPassword.ignore":
+    "Se non ti aspettavi questo account, puoi ignorare questa e-mail.",
+  "auth.mail.initialPassword.intro":
+    "il tuo account {app} è stato creato. Fai clic sul link qui sotto per impostare la password:",
+  "auth.mail.initialPassword.subject": "{app} — Il tuo accesso: imposta la password",
   "auth.mail.invite.button": "Accetta l'invito",
   "auth.mail.invite.expiry": "Il link è valido per {duration} (fino a {when}).",
   "auth.mail.invite.greeting": "Ciao,",

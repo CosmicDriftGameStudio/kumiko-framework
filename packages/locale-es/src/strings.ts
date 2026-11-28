@@ -159,6 +159,14 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "haz clic en el siguiente enlace para activar tu cuenta de {app}. El siguiente paso es elegir tu contraseña:",
   "auth.mail.activation.subject": "{app} — Activa tu cuenta",
   "auth.mail.appNameDefault": "Cuenta",
+  "auth.mail.initialPassword.button": "Establecer contraseña",
+  "auth.mail.initialPassword.expiry":
+    "El enlace es válido durante {duration} (hasta {when}). Después, usa «¿Olvidaste tu contraseña?» en la página de inicio de sesión.",
+  "auth.mail.initialPassword.greeting": "Hola,",
+  "auth.mail.initialPassword.ignore": "Si no esperabas esta cuenta, puedes ignorar este correo.",
+  "auth.mail.initialPassword.intro":
+    "tu cuenta de {app} ha sido creada. Haz clic en el siguiente enlace para establecer tu contraseña:",
+  "auth.mail.initialPassword.subject": "{app} — Tu acceso: establece tu contraseña",
   "auth.mail.invite.button": "Aceptar invitación",
   "auth.mail.invite.expiry": "El enlace es válido durante {duration} (hasta {when}).",
   "auth.mail.invite.greeting": "Hola,",
