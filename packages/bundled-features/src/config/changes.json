@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "Config keys of type number can declare a currency and show an amount field"
+  },
+  {
     "version": "0.425.0",
     "type": "improvement",
     "title": "Config reads load all cascade rows at once"

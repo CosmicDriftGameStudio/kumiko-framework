@@ -1,5 +1,79 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.427.0
+
+### Patch Changes
+
+- b880f08: The entity row repair runs once more after the boot run, so rows written by previous-release pods during a rolling deploy get repaired too.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: Entity row repair gets a follow-up run
+  detail: `startEntityRowRepairsOnBoot` runs the version alignment and the user-email normalization once at boot and once more 30 minutes after the boot run ended (`followUpDelayMs`), under the same advisory lock. Pods of the previous release keep writing the old row shape while a rolling deploy runs; what they wrote after the last new pod booted stayed wrong until the next deploy. Shutdown cancels a pending follow-up and waits for a running one. It is no recurring job.
+  -->
+- Updated dependencies [9c25606]
+- Updated dependencies [af73a16]
+- Updated dependencies [341f713]
+- Updated dependencies [726c8b6]
+- Updated dependencies [50c4902]
+- Updated dependencies [268beed]
+- Updated dependencies [0963398]
+- Updated dependencies [3ecf59e]
+- Updated dependencies [7996893]
+- Updated dependencies [184b0f3]
+- Updated dependencies [4096b8d]
+- Updated dependencies [0963398]
+- Updated dependencies [4096b8d]
+- Updated dependencies [23e3d73]
+- Updated dependencies [7996893]
+- Updated dependencies [23e3d73]
+- Updated dependencies [a32bd27]
+- Updated dependencies [23e3d73]
+- Updated dependencies [23e3d73]
+- Updated dependencies [23e3d73]
+- Updated dependencies [0963398]
+- Updated dependencies [3d83cc7]
+- Updated dependencies [5e7231a]
+- Updated dependencies [6cf684b]
+- Updated dependencies [96ac59a]
+- Updated dependencies [6453cd2]
+- Updated dependencies [4096b8d]
+- Updated dependencies [89d598d]
+- Updated dependencies [853f844]
+- Updated dependencies [0eec1dd]
+- Updated dependencies [909e7da]
+- Updated dependencies [4eeaa6a]
+- Updated dependencies [4096b8d]
+- Updated dependencies [23e3d73]
+- Updated dependencies [623e88d]
+- Updated dependencies [0963398]
+- Updated dependencies [e7a3b4b]
+- Updated dependencies [81b60cf]
+- Updated dependencies [4096b8d]
+- Updated dependencies [23e3d73]
+- Updated dependencies [8e8e08d]
+- Updated dependencies [8e8e08d]
+- Updated dependencies [bd5748a]
+- Updated dependencies [3e00c72]
+- Updated dependencies [3c4d3bd]
+- Updated dependencies [7789ce5]
+- Updated dependencies [aa89fa9]
+- Updated dependencies [a316ed9]
+- Updated dependencies [0ef8b2e]
+- Updated dependencies [0ef8b2e]
+- Updated dependencies [913085a]
+- Updated dependencies [e5e2407]
+- Updated dependencies [b1eb9f1]
+- Updated dependencies [6f763c5]
+- Updated dependencies [cf5bd05]
+- Updated dependencies [6d848fc]
+- Updated dependencies [1fff5d3]
+  - @cosmicdrift/kumiko-types@0.427.0
+  - @cosmicdrift/kumiko-framework@0.427.0
+  - @cosmicdrift/kumiko-renderer@0.427.0
+  - @cosmicdrift/kumiko-bundled-features@0.427.0
+
 ## 0.426.1
 
 ### Patch Changes

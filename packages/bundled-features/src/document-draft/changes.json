@@ -1,5 +1,20 @@
 [
   {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "Draft editor returns to the calling screen; unfinalizedTemplates for app-printed drafts"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "subjectAccess adds a role rule per subject type"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "A rich text placeholder chip shows its text instead of HTML"
+  },
+  {
     "version": "0.425.0",
     "type": "breaking",
     "title": "Document drafts are visible through their subject row",

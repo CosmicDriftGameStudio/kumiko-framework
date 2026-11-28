@@ -1,0 +1,7 @@
+[
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "`letter-provider-inmemory`: a letter provider for tests and demos that sends nothing"
+  }
+]

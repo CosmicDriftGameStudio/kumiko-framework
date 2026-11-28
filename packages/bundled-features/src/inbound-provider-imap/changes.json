@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "IMAP mails without a text part get their text from the sanitized HTML"
+  },
+  {
     "version": "0.414.0",
     "type": "fix",
     "title": "IMAP connect limited per target host, send failures classified correctly, watch and poll share one fetch path"

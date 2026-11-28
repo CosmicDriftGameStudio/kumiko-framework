@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "The Direct-Entity-Writes guard finds tables that are destructured from `createEntityExecutor`"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "Worktree pre-push runs test:lib-coverage when the package declares it"
+  },
+  {
     "version": "0.425.0",
     "type": "fix",
     "title": "As-Casts Audit hints name the kumiko-guards command"

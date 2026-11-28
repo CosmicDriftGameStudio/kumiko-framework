@@ -1,5 +1,349 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.427.0
+
+### Minor Changes
+
+- 23e3d73: Image fields without `accept` take only raster formats.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Image fields without accept take only jpg, jpeg, png, gif, webp, avif, heic and heif
+  detail: createImageField and createImagesField without accept used to take every file. New uploads and pending uploads bound to such a field are now checked against jpg, jpeg, png, gif, webp, avif, heic and heif, and the file picker offers the same list. Files a record already holds are untouched, and moving a stored file with rebindFileRef still checks only an explicit accept.
+  migration: Image fields that should take SVG, PDF, BMP or TIFF need an explicit accept; accept [] allows everything.
+  affects: createImageField, createImagesField, accept
+  -->
+- 7789ce5: Boot rejects a bulk form action whose target handler schema does not bound the ids field to `MAX_BULK_SELECTION`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Bulk form actions need a bounded ids field in the handler schema
+  detail: `list-bulk/form-ids-field-unbounded` fails boot when the write handler of a bulk form action declares its `idsField` without `z.array(...).max(n)` and `n <= MAX_BULK_SELECTION`, in every option of a union or discriminated union. A handler schema that is not an object or a union of objects also fails, because its bound cannot be read. The client cap does not bind a direct `/api/write`, so the handler schema must. Optional and nullable wrappers are unwrapped.
+  migration: Declare `<idsField>: z.array(...).max(MAX_BULK_SELECTION)` in the schema of every write handler behind a bulk form action (in each option of a union), and give the handler an object schema.
+  affects: list-bulk, form-ids-field-unbounded, MAX_BULK_SELECTION, bulkActions
+  -->
+- b1eb9f1: The no-raw-hooks lint rule also checks .ts files under web/ and public/.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: no-raw-hooks also checks .ts files under web/ and public/
+  detail: The Biome rule `no-raw-hooks` used to look at .tsx files only, so a raw `useEffect` inside a hook file such as `web/use-thing.ts` slipped through. Apps with a raw useEffect in web/*.ts or public/*.ts hooks now see the lint error.
+  migration: Use a framework hook (`useDraft` with `initialFrom` for a form draft from query data, `useQuery`, `useNow`, `useDebouncedValue`, `useOnKeyChange` for effects that run once per key change) or add a `biome-ignore lint/plugin` with a reason for a real DOM integration.
+  affects: no-raw-hooks, useEffect, biome
+  -->
+
+### Patch Changes
+
+- 9c25606: actionForm `redirect.onlyWith` makes the redirect depend on a result field and falls back to the success box.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: actionForm redirect can depend on a result field and fall back to the success box
+  detail: `redirect.onlyWith` names a flat field of the success payload. The form navigates only when that field is a non-empty string; otherwise it stays put and shows its `successMessage`, `successFacts`, `successItems` and `successLinks`, which boot now accepts next to a redirect that sets `onlyWith`.
+  -->
+- af73a16: A number config key can carry a `currency`, so its generated settings mask shows an amount field.
+  
+  <!-- kumiko-changes
+  feature: config
+  type: improvement
+  title: Config keys of type number can declare a currency and show an amount field
+  detail: `currency: { kind: "literal", code }` (or `{ kind: "tenant" }`) on a number config key marks the stored integer as an amount in the smallest currency unit. The generated settings mask then shows a money field instead of a plain number, and `config:query:schema` returns the `currency`. Boot rejects `currency` on a non-number key, and `createApp` checks a literal code against the app's `currencies`. The stored value does not change.
+  -->
+- 341f713: Dashboard and list design options, all opt-in. The one default change: number and currency columns in dashboard list panels are right-aligned and do not wrap.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Dashboards and lists gain opt-in design options for sub-line tone, unframed stat cards, bar chart details, segment rows, header subtitle and boolean pills
+  detail: Stat panels take `subToneField` (a stat tone: default, positive, ok, warn or negative) to color the sub line. A stat-group takes `framed: false` (with layout cards, no label, subtitle or link) to draw separate cards without the outer frame, each with its sub line under the value. A stacked-bars chart takes `barValueLabels`, `highlightLast`, `hideYAxis`, `hideLegend`, `labelEveryBucket` and `lastBucketLabel: "date"`; a segment-bars chart takes `layout: "rows"`, `hideLegend` and `singleTone` (one tone for all dynamic segment keys, not with seriesTones or seriesColors). The `currency` format takes `amountIn: "major"` for whole-unit amounts, the `unit` format takes `minimumFractionDigits` and `maximumFractionDigits`. A dashboard takes `showTitle: true` for the screen title as page heading, `sideWidth: "wide"` for a 2/5 side column in main-side, and `headerSubtitle: { query, field }` to show a dynamic line under the title. A rowAction takes `inMenu: false` to stay out of the row menu. A dashboard list panel right-aligns number and currency columns and keeps them on one line. The boolean list format takes `trueTone` and `falseTone` (each needs its label) to draw a status pill.
+  -->
+- 726c8b6: Dashboard list rows can open their record as a popup (rowLink.presentation); a full detail page with a footer form scrolls in one place only.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Dashboard list rows can open their record as a popup, and a detail page with a footer form scrolls in one place
+  detail: A dashboard list panel `rowLink` takes `presentation: "popup"` (with `screen` and `paramField`, the target a projectionDetail of the same feature) to open the row's record in a popup over the dashboard; the arrow link still points to the page, so a new tab or copy keeps working. Closing the popup reloads every panel of the dashboard. Boot validation rejects a popup with `screenField`, without `paramField`, or onto a screen that is no same-feature projectionDetail. On a full projectionDetail page with a footer form, header, tabs and footer stay visible and only the form content scrolls; before, the page and the form scrolled separately. A sticky table header now stays above the sticky row actions column, which used to paint over it while scrolling.
+  -->
+- 50c4902: Duplicated code in the forgot-password and unlock screens, the IMAP screens and row actions is shared; behaviour is unchanged.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Email request screens, IMAP screens and row actions share their duplicated code
+  detail: The forgot-password and account-unlock screens render one shared screen, the IMAP connect screens share their fields, and row actions share their base properties. Texts and test ids are unchanged; nothing to do for apps.
+  -->
+- 268beed: Dependency round: hono 4.13.22 (security fixes), the meilisearch peer range is `^0.63.0`, and the remaining minor/patch updates. Scaffolded apps pin Bun 1.4.5 and Biome 2.6.9. Managed workflows render the infra reusables at `reusables-v3.0.0`, and the image build pin moves to the same tag.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: hono 4.13.22, meilisearch peer ^0.63.0, managed workflows on infra reusables-v3.0.0
+  detail: hono moves to 4.13.22 for the open security advisories. The optional meilisearch peer range is `^0.63.0`; apps on 0.62 only see a peer warning and move with their own dependency update. Scaffolded apps pin Bun 1.4.5 and Biome 2.6.9. When `kumiko.deploy.infraRef` is unset, managed ci.yml and release.yml render the infra reusables at `reusables-v3.0.0`, and the image build pin moves to the same tag, so installs, tests and the image build get the read-only package token instead of the write PAT. Generated workflows pass `secrets: inherit`; the org secret `GH_PACKAGES_READ_TOKEN` (classic PAT, `read:packages` only) must be visible to the repo, or `_app-deploy` stops with "GH_PACKAGES_READ_TOKEN missing".
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: scheduleCronJobs: false keeps cron jobs off the wall clock in a test stack
+  detail: `createJobRunner` and `setupTestStack({ jobs })` take `scheduleCronJobs: false`. Cron jobs then get no schedule, so a test on a manual clock is not hit by a real cron tick halfway through; the test dispatches the job itself. Default stays on.
+  -->
+- 0963398: derivatives-sharp names the image types it can decode, and the renderer lookup honors that list.
+  
+  <!-- kumiko-changes
+  feature: derivatives-sharp
+  type: fix
+  title: Variants of HEIC, HEIF and BMP files answer 415 or 404 instead of failing on every request
+  detail: derivatives-sharp registered its renderer for image/*, which also matched types the sharp build cannot decode. A variant request for such a file read the original and failed each time, with 500 on the signed-in route and 503 on the public route. It still registers image/*, but now lists the types it decodes (image/jpeg, image/jpg, image/png, image/webp, image/avif, image/gif and image/tiff) in the new optional field sourceMimeTypes of the DerivativeRendererPlugin. Other types such as HEIC, HEIF, BMP and SVG get no renderer, so the signed-in route answers 415 and the public route 404 before the original is read. An exact renderer registered by an app still wins over the wildcard, whatever the mount order. A wildcard renderer without sourceMimeTypes keeps applying to every type under it.
+  -->
+- 3ecf59e: A projectionDetail in a drawer gets a pinned footer, disabled and outlined-icon actions, field actions, a second header badge and an opt-in Cancel on drawer forms.
+  
+  A drawer row action can name `headingFields`: row fields that fill `{name}` placeholders in its title and subtitle without being prefilled or sent.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Detail drawer polish, field actions, disabled actions, secondaryStatus, cancelInDrawer
+  detail: `RowActionDrawer.headingFields` lists row fields that only fill `{name}` placeholders in title and subtitle, never the form values or payload; a prefill param of the same name wins, a missing value is empty text, boot checks the names against the row. `RowAction.disabled` shows an action but blocks the click while its `FieldCondition` holds. `display: "icon"` with `style: "secondary"` is an outlined icon button. `header.secondaryStatus` renders a second status badge, text and tone resolved like `status` (it shares `statusTones`). `EditFieldSpec.actions` puts buttons beside the value of a projectionDetail fields-section field, also when it is empty; boot rejects them on other screens and validates the actions. A file field with actions shows an outlined Download button. In a drawer only the record content scrolls and the footer writeForm stays pinned; the footer variant shows the fields, then a bordered row of right-aligned buttons. actionForm `cancelInDrawer: true` adds a Cancel button to its drawer that closes with the unsaved-input prompt. An unprocessable error with an untranslated `details.reason` now shows a non-empty `details.message`.
+  -->
+  
+  An entityList can drop its automatic Edit action, a relatedList tones rows with a rule list and hides its row actions by parent record, row action buttons can show a pressed state, and a drawer action can show a back arrow.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: entityList allowEdit
+  detail: `EntityListScreenDefinition.allowEdit: false` suppresses the automatically added "Edit" row action; declared `rowActions` are unaffected. Default `true`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: relatedList rowTone rule list
+  detail: `EditRelatedListSection.rowTone` also accepts an array of rules; the first matching rule decides the row tone. `fill: true` on a rule adds a light background in the tone color (`DataTableProps.rowFill`, table rows and cards; pinned cells carry the tint too) next to the left stripe. Boot checks the fields of every rule against the section's row query.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Row action active state
+  detail: `active: { when, style? }` on writeHandler and drawer row actions draws an inline button (display button or icon) pressed while the row matches `when`: `aria-pressed="true"`, accent tint, or with `style: "danger"` filled destructive. A pressed and disabled button keeps its full colour but stays unclickable. `aria-pressed` only exists when `active` is declared. Boot checks the `when` field against the row fields.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: relatedList rowActionsWhen
+  detail: `EditRelatedListSection.rowActionsWhen` is a condition on the parent record, like `visibleWhen`. While it does not match, the list draws no row-action column, no bulk actions and no inline cell editing. Boot checks the field against the detail query's outputSchema.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Drawer row action back arrow
+  detail: `RowActionDrawer.back: true` shows a back arrow left of the drawer title instead of the close cross on the right; it closes only this drawer and returns to the one underneath. With `width: "wide"` the stacked drawer covers a wide detail drawer completely. `DrawerProps.back` is the matching primitive prop. Field labels in forms and detail views no longer clip descenders.
+  -->
+  
+  A projectionDetail writeForm file field uploads through a host entity, a stale action error banner clears, and a danger footer action is outlined.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: projectionDetail writeForm file upload via uploadEntity, action error banner, outlined danger footer action
+  detail: A file, image, files or images field in a projectionDetail writeForm section (tab section or footer) now needs `uploadEntity`: the entity whose file field of the same name the upload is stored as (`entityType` + `fieldName`, no record id), so a write handler that saves the file through that entity's executor (`executor.update({ id, version, changes: { attachment } })`) binds it and other record readers can download it. Boot rejects a form file field without `uploadEntity`, an unknown entity, and an entity without a file field of that name (`projection-detail/write-form-upload-entity-invalid`). Such a field always failed with 400 `unresolvable_field` before, so no working screen breaks. The detail's action error banner clears on the next successful write of that detail (footer or header action, related-list row action, inline cell edit). A footer action with `style: "danger"` is an outlined button with destructive text; its confirm rule is unchanged.
+  -->
+  
+  A projectionDetail opened from a list row can fill a large popup, edit in place and show its file field as a box.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Popup drawer, flat detail header, in-place edit, file box, fill tint
+  detail: `RowActionDrawer.width` and `ToolbarAction` drawer width take `"popup"`: the panel keeps 24px to every window edge, fills the rest (no 85vw cap), is rounded with the card colour; `"wide"` and the phone full screen stay. A drawer that hosts a projectionDetail with a `header` (and no `slots.header`) has no title bar: the detail shows its title, badges, subtitle and metrics as one flat block without a card (metrics left-aligned under the title), the tab strip below it with a full-width underline, header actions on the right next to the close cross, the tab content scrolls with 24px padding; summary, guidance, breadcrumb and the action error banner stay. The action error banner now also shows when the header has no card. The full page is unchanged. A drawer row or header action with `back: true` inside such a detail shows its form in place of the tab content (back button with outlined chevron, title and subtitle beside it, Cancel and Submit pinned below, fields side by side) instead of a second drawer; the tabs and the footer form stay mounted, so an unsent footer note survives. Back, Cancel, Escape and a tab click ask the same "discard unsaved input?" question when the form has input; Escape closes only the form, the cross closes the popup (with that question when the form is dirty); focus moves to the back button and returns to the trigger. Outside such a detail `back` still opens a drawer. The pinned footer form has 24px padding and the card colour in a drawer, no separator above its field row, and its buttons show an icon only when the action declares one (an id-derived icon, e.g. a chevron, no longer appears). A file field with field actions and a file shows as a bordered box (file icon, bold name, outlined Download and the actions on the right, wrapping on phones); without a file it shows a dash beside the action. A row tone rule with `fill: true` tints the row 4 % of the tone into the card colour and draws no stripe; a native select in a bad or critical filled row takes the tone as border, text and light background; the row hover colour now also covers the sticky actions cell.
+  -->
+  
+  Typed footer input of a projectionDetail survives a tab switch and travels with a footer drawer action.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Footer drawer action carries the footer input, tab switch keeps it, icon optional on footer and field actions
+  detail: A `kind: "drawer"` action of the detail's footer writeForm opens with the current footer input on top of its own prefill values, asks no "discard unsaved input?" question for that input, and after its submit the footer form takes the reloaded record as its new base. Switching tabs no longer asks that question for unsent footer input, because the footer form stays mounted; leaving the record and an in-place edit form still ask. Boot no longer requires an `icon` on footer and field actions, they render as labelled buttons. A default form inside a popup detail sits flush in the drawer body instead of adding its own card padding. Boot applies the footer rules to drawer actions too (`projection-detail/footer-write-form-invalid`): the id must differ from the screen's actions, `params` keys must not equal a footer field, and the target actionForm needs no `load`, must list every footer field in its layout (`visible: false` is enough) and must not mark one sensitive or password, since the submit stands for sending the footer input. A bad field reference in a field action now names the field and the action.
+  -->
+- 7996893: A projectionDetail can pin one writeForm as a footer under every tab, and a relatedList select column can be edited in place.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Footer form on a detail screen and an editable select cell in related lists
+  detail: A writeForm section with `placement: "footer"` renders as a fixed footer under the tab content on every tab, is no tab of its own and sets no `handler`, `submitLabel` or `submitWith`. Each writeHandler action in its `actions` validates the form and sends its own payload plus the form values in one write. Boot rejects a second footer, a footer in a wizard layout, and a footer without a registered writeHandler action. A relatedList column can set `edit: { handler, when?, required? }` on a select field of the section's entity: where `when` holds the cell is a select, a choice writes `{ id, [field] }` through the handler and reloads the list and the host. `edit.field` names another select field of the entity: the column's cell then shows that field's dropdown, options and value, and writes `{ id, [edit.field] }`. A struck row does not strike the select. Native tables show the value instead of the select.
+  -->
+- 184b0f3: A list row action `kind: "drawer"` can open a `projectionDetail` in a wide drawer instead of a page.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Open a projectionDetail in a drawer from a list row
+  detail: A rowAction `{ kind: "drawer", screen: "<projectionDetail id>", rowClick: true, width: "wide" }` opens the record's detail (tabs, related lists, header actions) in a drawer over the list; the row `id` is the record id. Related-list row actions of kind drawer open their actionForm in a second drawer. Closing the detail reloads the list. The `entity-list/detail-without-navigate` rule accepts such a rowClick drawer as the detail entry; `screen/drawer-target-not-action-form` allows a projectionDetail target from a rowAction.
+  -->
+- 23e3d73: `egress`: more reserved IPv6 ranges are refused, and the caller's abort signal now also covers DNS resolution.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: `egress` refuses Teredo, discard, benchmarking, documentation and multicast IPv6 ranges and aborts a hanging DNS lookup with the caller's signal
+  detail: `external` and `tenant-supplied` (and `isPublicHost`, `resolvePublicHost`, `resolvePublicHostname`) now also refuse 2001::/32, 100::/64, 2001:2::/48, 2001:db8::/32, 3fff::/20 and ff00::/8. When the caller passes `init.signal`, an abort or timeout during the DNS lookup rejects with the signal's reason, the same error fetch throws, instead of waiting for the resolver. egress still sets no default deadline or response size limit; pass your own signal and cap the body you read.
+  -->
+- 7996893: `FieldCondition` gains an `all` form that combines conditions on several fields with AND.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Field conditions can combine several fields with all
+  detail: `{ all: [{ field: "stage", in: ["won", "partial"] }, { field: "approval", eq: "pending" }] }` holds while every entry holds, so a row action's `visible`, `visibleWhen`, `requiredWhen` and `lockedWhen` can depend on more than one field. Entries nest, boot rejects an `all` with fewer than two entries and checks every referenced field like a single condition.
+  -->
+- 23e3d73: The declared type of an upload is checked against its bytes for png, jpeg, gif, webp, tiff and pdf.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: The declared type of an upload is verified against its bytes
+  detail: For png, jpeg, gif, webp, tiff and pdf the declared type is checked against the bytes. Unknown content is stored as application/octet-stream (this includes a PDF with bytes in front of its header when the name has no extension), a contradicting known type is normalized to the sniffed type, or rejected when the field's accept has no matching extension. A declared type that has no signature check (for example image/svg+xml on a file named .bmp) is stored as application/octet-stream when the field's accept lists none of its extensions. Names without an extension get a .bin storage key instead of the whole name as extension, and TIFF is recognized by its signature.
+  -->
+- 0963398: Uploads named .heic, .heif or .avif are checked against the brands in their file header.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: heic, heif and avif uploads are verified against their file header
+  detail: A file named .heic, .heif or .avif, or declared as image/heic, image/heif or image/avif, has to list a matching still-image brand in its ftyp box (avif or avis, heic, heix, heim or heis, mif1), as major or compatible brand within the first 64 bytes. Other content under these names is refused with content_mismatch, or stored under its real type when the field accepts that type, the same as for png and pdf. mp4, mov and m4a share the container and are not taken for images, and a file that lists only a sequence brand (hevc, hevx, msf1) is refused. Stored files whose bytes and stored type agree are served as image/heic, image/heif or image/avif instead of application/octet-stream. A file stored earlier under one of these extensions with a different stored type no longer fits a field whose accept lists that extension.
+  -->
+- 853f844: Log redaction, the custom CSS filter, string trims and text parsing no longer slow down quadratically on long runs of the same characters; results are unchanged.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Log redaction, CSS filter and string trims scan long inputs once
+  detail: URL and email redaction in logs, the custom CSS function check, trailing slash, dash, equals and newline trims, and several parsers in the CLI, dev server and guards rescanned long runs of the same characters once per character. They now scan each run once. Output is unchanged.
+  -->
+- 0eec1dd: Origin and path trailing-slash trimming, sender address parsing and document text conversion run in linear time; master key versions in error messages sort numerically; the generated deploy/Dockerfile.dockerignore excludes .env* (except .env.example), .pem and .key files.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Linear-time string trimming and parsing, numeric key versions in errors, .env* excluded from the image build context
+  detail: Trimming trailing slashes from origins and routed paths, parsing the inbound sender address and converting document HTML to text no longer backtrack on long slash, whitespace or angle-bracket runs. The master key provider lists keyring versions in numeric order in its error messages, so version 10 follows version 2. The managed `deploy/Dockerfile.dockerignore` excludes `**/.env*` (except `.env.example`), `**/*.pem` and `**/*.key` from the build context; `kumiko sync-managed --write` refreshes the file.
+  -->
+- 623e88d: PDF uploads are accepted when bytes precede the `%PDF-` header within the first 1024 bytes.
+  
+  <!-- kumiko-changes
+  feature: files
+  type: fix
+  title: PDFs with bytes before the header are no longer rejected
+  detail: Content sniffing looked for `%PDF-` only at byte 0, so PDFs from scanners and ERP exports that write a short preamble were rejected with `file_rejected`, although every reader opens them. The header may now start anywhere in the first 1024 bytes, as Acrobat allows. Files with another signature at byte 0 keep their type, and the serve path reads a 1028-byte prefix for the same check. Template attachments use the same sniffing, the PDF rasterizer accepts the same headers, and a generic mail attachment that looks like XML stays XML even when it quotes the header.
+  -->
+- e7a3b4b: perTenant jobs skip the system tenant unless they set `includeSystemTenant`, also when the system tenant has an enabled tenant row.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: perTenant jobs no longer run for the system tenant unless they set includeSystemTenant
+  detail: The fan-out took every enabled tenant row, so an app with a tenant row for the system tenant ran every perTenant job there too, and member-scoped jobs failed with "queryAsMember needs a tenant-scoped context". The system tenant now only gets a run with `includeSystemTenant: true`.
+  -->
+- 4096b8d: projectionList `defaultNamedFilter` opens the list with one named filter active.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: projectionList can open with a default named filter
+  detail: `defaultNamedFilter` names one id of `namedFilters`. While the URL carries no filter, that chip is active and the filter is sent with every list and count query, also when the list is embedded as a dashboard screen panel. The user switches to another chip; the default itself cannot be switched off. Boot fails when the id is not in `namedFilters`.
+  -->
+- 23e3d73: The public variant route answers 404 for files without a registered renderer, and `resolveRenderer` is exported from `./derivatives` again.
+  
+  <!-- kumiko-changes
+  feature: file-derivatives
+  type: fix
+  title: The public variant answers 404 instead of 503 when no renderer is registered for the file type
+  detail: The route checks the stored mimeType against the registered renderers before the predicate runs. Without a match it answers 404, the same as for an unknown file, so the response does not reveal whether the file exists.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: resolveRenderer is exported from ./derivatives again
+  detail: Callers can check whether a renderer is registered for a mimeType before asking for a variant.
+  -->
+- 8e8e08d: A related list section can declare `struckWhen`, which greys out and strikes through the rows matching a field condition.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Related list rows can be struck through with struckWhen
+  detail: `struckWhen: { field, eq | ne | in | notIn }` on a relatedList section draws matching rows muted and line-through, for example a lost offer line. The row-action column stays readable so an undo action is still legible. `DataTableProps` gains `rowStruck`; renderers without it ignore it.
+  -->
+- 3e00c72: POST /auth/session-exchange gives its rate-limit slot back after a successful exchange, so legitimate logins behind one NAT IP no longer lock each other out while failed attempts stay counted. The refund is bound to the window the slot was counted in.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Successful session exchanges no longer exhaust the IP and method rate limit
+  detail: The route still counts before dispatching, so a parallel burst of failures cannot exceed the limit. After a successful exchange it returns exactly its own reservation: the new optional `LoginRateLimiter.reserve(key)` counts like `check` and names the window (`{ allowed, window }`), and `refund(key, window)` gives the slot back only while that window is still the key's current one, so a slot of an expired window cannot shrink the counter of the next one. The in-memory and Redis limiters implement both (Redis keeps a window id in a companion `:w` key). No reset, so one success cannot reopen guessing slots taken by others. A failing refund is logged and leaves the slot counted; the exchange still succeeds. Custom limiters without `reserve`/`refund` keep the old behavior.
+  -->
+- 3c4d3bd: A soft-deleted row keeps holding its file: sharing checks count it, a rebind may target it, and the soft-delete cleanup removes bytes and fileRef together with the last holder. Subject erasure purges a file shared by several records of the same subject (live or soft-deleted).
+  
+  <!-- kumiko-changes
+  feature: files
+  type: fix
+  title: Soft-deleted rows keep holding their files until they are forgotten for good
+  detail: A soft-delete keeps the bytes so a restore finds the file (see DELETE /files/:id). The shared-file check of retention hardDelete and subject erasure used to ignore soft-deleted holders and deleted the bytes under them; it now counts them, preferring a live holder for the rebind. `rebindFileRef` accepts a soft-deleted target in the system user's tenant. The per-tenant soft-delete cleanup now purges the bytes, derivatives and fileRef of an expired row before forgetting it, and keeps the row when that fails; system-scoped entities keep the previous behavior. `purgeRowFileRefs` and its helpers moved from bundled-features to the framework `files` entry; bundled-features/shared re-exports them.
+  -->
+- a316ed9: A re-created cron scheduler yields when the other wake flag's scheduler appeared meanwhile, so a rolling update no longer fires the job twice per slot.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Cron scheduler no longer doubles after a rolling update
+  detail: The refresh tick that re-creates missing cron schedulers lists first and upserts later without a lock. When a newer runner with the other `wakesSleepingApp` flag started in between and removed the older id as superseded, the older runner brought its id back and both existed. After the upsert the runner now reads the scheduler ids again and removes the id it just created if the other flag's id exists. If both runners create at the same moment, both yield and the next tick creates one.
+  -->
+- e5e2407: Storage-delete and delivery failures log only the error class and code, not adapter text or storage keys.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: failure logs name the error class instead of adapter text
+  detail: New `errorKindOf` in `@cosmicdrift/kumiko-framework/logging`, also re-exported from bundled-features shared. The `storage delete failed` warning no longer logs the storage key or the adapter message, and delivery channel and dispatch failures log the error class instead of a redacted message.
+  -->
+- 1fff5d3: Sessions serves `GET /sessions/usage` next to the last-activity probe.
+  
+  <!-- kumiko-changes
+  feature: sessions
+  type: improvement
+  title: sessions serves GET /sessions/usage with database size, file bytes and mails sent this month
+  detail: A sibling app presenting the same probe secret gets `{ dbBytes, fileBytes, mailsSentThisMonth }` summed across every tenant; `fileBytes` and `mailsSentThisMonth` are null when files-storage-tracking or delivery is not mounted. The schema is exported as `usageProbeAnswerSchema`.
+  -->
+- Updated dependencies [9c25606]
+- Updated dependencies [af73a16]
+- Updated dependencies [341f713]
+- Updated dependencies [726c8b6]
+- Updated dependencies [268beed]
+- Updated dependencies [0963398]
+- Updated dependencies [3ecf59e]
+- Updated dependencies [7996893]
+- Updated dependencies [184b0f3]
+- Updated dependencies [4096b8d]
+- Updated dependencies [7996893]
+- Updated dependencies [853f844]
+- Updated dependencies [909e7da]
+- Updated dependencies [e7a3b4b]
+- Updated dependencies [81b60cf]
+- Updated dependencies [4096b8d]
+- Updated dependencies [8e8e08d]
+  - @cosmicdrift/kumiko-types@0.427.0
+
 ## 0.426.1
 
 ### Patch Changes

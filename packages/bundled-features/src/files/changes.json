@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "PDFs with bytes before the header are no longer rejected"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Soft-deleted rows keep holding their files until they are forgotten for good"
+  },
+  {
     "version": "0.426.0",
     "type": "fix",
     "title": "Shared files survive the purge of their bound row"

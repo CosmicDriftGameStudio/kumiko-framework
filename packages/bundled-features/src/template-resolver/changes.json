@@ -1,5 +1,25 @@
 [
   {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Document HTML with more than 20,000 tags or nested deeper than 512 levels is refused with a field error"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "PDF layouts accept `postal` to drop fold marks, corner marks, paper colour and bleed images"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Date format control only for date variables"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "A published variant follows the delivered base's variables"
+  },
+  {
     "version": "0.426.1",
     "type": "fix",
     "title": "Template resolver review fixes"

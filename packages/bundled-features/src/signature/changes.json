@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Signature and letters refuse PDFs whose object streams need more than 16 MiB of decoder buffer, whose xref stream declares more entries than it holds, or whose page tree is too large"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "pdf-lib is pinned to 1.17.1, the version the PDF limits are tested with"
+  },
+  {
     "version": "0.426.0",
     "type": "breaking",
     "title": "Sealed signature PDF belongs to its request",

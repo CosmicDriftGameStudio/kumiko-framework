@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "sessions serves GET /sessions/usage with database size, file bytes and mails sent this month"
+  },
+  {
     "version": "0.425.0",
     "type": "improvement",
     "title": "Session and token lists no longer flood the KMS pool"

@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "file-foundation exports the helpers for generated files"
+  },
+  {
     "version": "0.425.0",
     "type": "breaking",
     "title": "Storage provider selection is SystemAdmin-only",

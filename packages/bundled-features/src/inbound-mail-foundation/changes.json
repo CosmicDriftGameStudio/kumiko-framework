@@ -1,5 +1,20 @@
 [
   {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Inbound HTML nested deeper than 1000 levels or with more than 250,000 tags is no longer sanitized"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Sender check hint names the precondition for a trusted mail server ID"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "sendMailFromAccount attaches bytes from the same beforeTransaction"
+  },
+  {
     "version": "0.425.0",
     "type": "fix",
     "title": "OAuth connect leaves the mailbox name empty instead of copying the address"

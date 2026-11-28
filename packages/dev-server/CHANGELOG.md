@@ -1,5 +1,127 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.427.0
+
+### Patch Changes
+
+- 268beed: Dependency round: hono 4.13.22 (security fixes), the meilisearch peer range is `^0.63.0`, and the remaining minor/patch updates. Scaffolded apps pin Bun 1.4.5 and Biome 2.6.9. Managed workflows render the infra reusables at `reusables-v3.0.0`, and the image build pin moves to the same tag.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: hono 4.13.22, meilisearch peer ^0.63.0, managed workflows on infra reusables-v3.0.0
+  detail: hono moves to 4.13.22 for the open security advisories. The optional meilisearch peer range is `^0.63.0`; apps on 0.62 only see a peer warning and move with their own dependency update. Scaffolded apps pin Bun 1.4.5 and Biome 2.6.9. When `kumiko.deploy.infraRef` is unset, managed ci.yml and release.yml render the infra reusables at `reusables-v3.0.0`, and the image build pin moves to the same tag, so installs, tests and the image build get the read-only package token instead of the write PAT. Generated workflows pass `secrets: inherit`; the org secret `GH_PACKAGES_READ_TOKEN` (classic PAT, `read:packages` only) must be visible to the repo, or `_app-deploy` stops with "GH_PACKAGES_READ_TOKEN missing".
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: scheduleCronJobs: false keeps cron jobs off the wall clock in a test stack
+  detail: `createJobRunner` and `setupTestStack({ jobs })` take `scheduleCronJobs: false`. Cron jobs then get no schedule, so a test on a manual clock is not hit by a real cron tick halfway through; the test dispatches the job itself. Default stays on.
+  -->
+- 853f844: Log redaction, the custom CSS filter, string trims and text parsing no longer slow down quadratically on long runs of the same characters; results are unchanged.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Log redaction, CSS filter and string trims scan long inputs once
+  detail: URL and email redaction in logs, the custom CSS function check, trailing slash, dash, equals and newline trims, and several parsers in the CLI, dev server and guards rescanned long runs of the same characters once per character. They now scan each run once. Output is unchanged.
+  -->
+- 0eec1dd: Origin and path trailing-slash trimming, sender address parsing and document text conversion run in linear time; master key versions in error messages sort numerically; the generated deploy/Dockerfile.dockerignore excludes .env* (except .env.example), .pem and .key files.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Linear-time string trimming and parsing, numeric key versions in errors, .env* excluded from the image build context
+  detail: Trimming trailing slashes from origins and routed paths, parsing the inbound sender address and converting document HTML to text no longer backtrack on long slash, whitespace or angle-bracket runs. The master key provider lists keyring versions in numeric order in its error messages, so version 10 follows version 2. The managed `deploy/Dockerfile.dockerignore` excludes `**/.env*` (except `.env.example`), `**/*.pem` and `**/*.key` from the build context; `kumiko sync-managed --write` refreshes the file.
+  -->
+- fd06a70: Scaffolded apps mount the security baseline, and `kumiko-upgrade` adds it to existing apps.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Scaffolded apps mount crypto-shredding, rate-limiting and audit next to sessions
+  detail: `scaffoldApp` adds `...composeSecurityStack({ includeSessions: false })` after `createSessionsFeature()` in `src/run-config.ts`, so a production boot no longer warns that the security baseline is incomplete. The initial migration contains the audit table `store_access_log`. crypto-shredding brings the `PLATFORM_KEK`, `SUBJECT_KEYS_DATABASE_URL` and `KUMIKO_BLIND_INDEX_KEY` env block, in which an empty value is invalid, so the scaffolded `.env.example` now lists the three variables commented out.
+  migration: Run the codemod. It adds `...composeSecurityStack({ includeSessions: false })` and its import after `createSessionsFeature()` in the `APP_FEATURES` array literal of `src/run-config.ts`. It skips apps that already mount composeSecurityStack, createCryptoShreddingFeature, createRateLimitingFeature or createAuditFeature, and lists apps as manual whose `bin/main.ts` passes no kmsMode, kms, allowPlaintextPii or kmsWiring to runProdApp (crypto-shredding would abort their boot) or sets `rateLimit: false` (rate-limiting would abort it). Afterwards run `kumiko-schema generate` for the audit table, and remove empty `PLATFORM_KEK=`, `SUBJECT_KEYS_DATABASE_URL=` and `KUMIKO_BLIND_INDEX_KEY=` lines from env files.
+  codemod: scripts/codemod/security-baseline-stack.ts
+  -->
+- 2b2f2e7: `kumiko-build` keeps `process.env.NODE_ENV` a runtime read in the server bundle.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: The production server bundle reads NODE_ENV at runtime
+  detail: Bun.build inlined the build host's NODE_ENV into `process.env.NODE_ENV`. The image build runs without it, so a deployed server took the development branch of every such check, for example the JSON-safety check in buildAppSchema. The bundle now reads the container's NODE_ENV.
+  -->
+- Updated dependencies [9c25606]
+- Updated dependencies [af73a16]
+- Updated dependencies [341f713]
+- Updated dependencies [726c8b6]
+- Updated dependencies [50c4902]
+- Updated dependencies [268beed]
+- Updated dependencies [0963398]
+- Updated dependencies [3ecf59e]
+- Updated dependencies [7996893]
+- Updated dependencies [184b0f3]
+- Updated dependencies [4096b8d]
+- Updated dependencies [0963398]
+- Updated dependencies [4096b8d]
+- Updated dependencies [23e3d73]
+- Updated dependencies [7996893]
+- Updated dependencies [23e3d73]
+- Updated dependencies [a32bd27]
+- Updated dependencies [23e3d73]
+- Updated dependencies [23e3d73]
+- Updated dependencies [23e3d73]
+- Updated dependencies [0963398]
+- Updated dependencies [3d83cc7]
+- Updated dependencies [5e7231a]
+- Updated dependencies [6cf684b]
+- Updated dependencies [96ac59a]
+- Updated dependencies [6453cd2]
+- Updated dependencies [4096b8d]
+- Updated dependencies [89d598d]
+- Updated dependencies [853f844]
+- Updated dependencies [0eec1dd]
+- Updated dependencies [909e7da]
+- Updated dependencies [4eeaa6a]
+- Updated dependencies [4096b8d]
+- Updated dependencies [23e3d73]
+- Updated dependencies [623e88d]
+- Updated dependencies [0963398]
+- Updated dependencies [e7a3b4b]
+- Updated dependencies [6873209]
+- Updated dependencies [81b60cf]
+- Updated dependencies [4096b8d]
+- Updated dependencies [23e3d73]
+- Updated dependencies [8e8e08d]
+- Updated dependencies [8e8e08d]
+- Updated dependencies [bd5748a]
+- Updated dependencies [3e00c72]
+- Updated dependencies [3c4d3bd]
+- Updated dependencies [7789ce5]
+- Updated dependencies [aa89fa9]
+- Updated dependencies [a316ed9]
+- Updated dependencies [0ef8b2e]
+- Updated dependencies [0ef8b2e]
+- Updated dependencies [b880f08]
+- Updated dependencies [913085a]
+- Updated dependencies [e5e2407]
+- Updated dependencies [b1eb9f1]
+- Updated dependencies [6f763c5]
+- Updated dependencies [cf5bd05]
+- Updated dependencies [6d848fc]
+- Updated dependencies [fd06a70]
+- Updated dependencies [1fff5d3]
+  - @cosmicdrift/kumiko-types@0.427.0
+  - @cosmicdrift/kumiko-framework@0.427.0
+  - @cosmicdrift/kumiko-renderer@0.427.0
+  - @cosmicdrift/kumiko-bundled-features@0.427.0
+  - @cosmicdrift/kumiko-feature-ast@0.427.0
+  - @cosmicdrift/kumiko-testing@0.427.0
+  - @cosmicdrift/kumiko-guards@0.427.0
+  - @cosmicdrift/kumiko-server-runtime@0.427.0
+
 ## 0.426.1
 
 ### Patch Changes

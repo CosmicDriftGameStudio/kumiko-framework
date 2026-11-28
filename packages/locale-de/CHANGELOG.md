@@ -1,5 +1,122 @@
 # @cosmicdrift/kumiko-locale-de
 
+## 0.427.0
+
+### Patch Changes
+
+- 4096b8d: document-draft editor returns to its caller, and drafts an app prints itself can no longer be finalized.
+  
+  <!-- kumiko-changes
+  feature: document-draft
+  type: improvement
+  title: Draft editor returns to the calling screen; unfinalizedTemplates for app-printed drafts
+  detail: Opened with `returnTo`, the editor shows a Back button and goes back there after finalize or discard, ahead of `subjectScreens`. The new option `unfinalizedTemplates` lists template slugs whose drafts stay open because the app prints them itself (for example one letter per recipient at send): `finalize` answers 422 `document_draft_not_finalizable`, the `blocks` query reports `finalizable: false` and the editor hides Finalize.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-draft
+  type: improvement
+  title: subjectAccess adds a role rule per subject type
+  detail: The new option `subjectAccess` maps a subject type to an `AccessRule` that create, patch, save, finalize, revise, discard, blocks and by-subject check on top of `access`. A user who misses the rule gets the same 404 as for an unreadable subject. Keys must be in `subjectTypes`, otherwise boot fails; subject types without an entry stay governed by `access` alone.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: returnTo can point back to an actionForm opened for one record
+  detail: `resolveReturnTarget` now accepts an entity id for an `actionForm` screen as well as for `entityEdit` and `projectionDetail`, so a screen opened from a record's action form (such as the document-draft editor opened from a send mask) gets a Back button to that form.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: A form's input survives a returnTo round trip
+  detail: `navigateWithReturnTo` takes the host form's current values as an optional fifth argument `carry`. They stay in memory, come back when the opened screen jumps home through returnTo, and win over the loaded record, so the jump leaves without the "discard changes?" question and the form can be submitted right away. Without `carry` nothing changes, and a navigation without it drops carry left behind by an earlier visit.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-draft
+  type: fix
+  title: A rich text placeholder chip shows its text instead of HTML
+  detail: In the draft editor a filled `richText` variable showed its raw markup in the chip, for example `<p>hiermit erhalten Sie …</p>`. The chip now shows the plain text; the printed document is unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: letter-foundation
+  type: improvement
+  title: Shorter file name for the merged letter PDF
+  detail: The merged PDF is stored as `letter-<last 8 characters of the id>.pdf` instead of the full uuid, so a file column in a letter list no longer crowds out its neighbours. Existing letters keep their stored name.
+  -->
+- 0963398: Template, layout, draft and page bodies are sanitized within a tag and nesting budget.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Document HTML with more than 20,000 tags or nested deeper than 512 levels is refused with a field error
+  detail: The document sanitizer counts the tags before it parses and measures the nesting before it scans. A body past either limit gets the violation too_many_tags or nested_too_deep (keys templateResolver.errors.document.tooManyTags and nestedTooDeep) on save, preview and validate, also for layouts, document drafts and managed pages. Before, a body of 75,000 characters nested 15,000 levels deep ended the request with a stack overflow, and a body of 200,000 characters made of tags took 0.6 s and about 900 MB of memory. The largest shipped template has about 500 tags.
+  -->
+- 23e3d73: The sender check hint says the mail server ID belongs only to a server that stamps every incoming mail.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: fix
+  title: Sender check hint names the precondition for a trusted mail server ID
+  detail: The hint on the sender check field and the inbound mail guide now say to enter the authserv-id only when that server adds an Authentication-Results header to every incoming mail. Otherwise a forged topmost header counts as checked. No behaviour changes.
+  -->
+- 3d83cc7: `letter-foundation`: approval checks the monthly limit, and duplex letters start every file on a new sheet.
+  
+  <!-- kumiko-changes
+  feature: letter-foundation
+  type: improvement
+  title: `letter-foundation`: `approve` refuses a letter the monthly limit does not cover; every file of a duplex letter starts on a new sheet
+  detail: `approve` fails with `letter_monthly_limit_not_covered` when the limit minus the month's usage and the price of all approved, not yet handed-over letters is smaller than the price of the letter; the letter stays in `awaiting-approval`. The preview counts the same way. The reservation at handover stays the binding check. `cancelLetterBeforeHandover(ctx, letterId)` cancels a waiting or approved letter without the `LetterApprover` role check. In duplex, a blank page follows a file with an odd page count, so the next file begins on a new sheet; sheets and price come from the merged document.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: The Direct-Entity-Writes guard finds tables that are destructured from `createEntityExecutor`
+  detail: `export const { executor, table: fooTable } = createEntityExecutor(entity)` now counts as an event-sourced table, in the guard and in the `kumiko-es-tables.json` catalog of a package. Before, such tables (for example `letterTable`, `signatureRequestTable`) were missing from the catalog, so a consumer's direct write on them went unnoticed.
+  -->
+- 4096b8d: `letter-foundation` prepares every letter right after it is created, can approve letters automatically and approves a selection in one step.
+  
+  <!-- kumiko-changes
+  feature: letter-foundation
+  type: improvement
+  title: A letter is prepared when it is created; `approval: "auto"` and `approve-many`
+  detail: `sendLetter` now announces a `created` event and the job `prepare` merges the PDF, counts pages and sheets and quotes the price, so `preview` and `approve` read stored values. A document problem is kept in `preparationIssue` and the letter keeps waiting; the poll prepares again a letter the job missed for 15 minutes. `sendLetter(ctx, input, { approval: "auto" })` (field `approvalMode`; the option is not part of `SendLetterInput`, so a client payload cannot request it) lets the job approve a prepared letter within the monthly limit. The write handler `approve-many` (role `LetterApprover`) approves a selection all or none and fails with `letter_not_ready_for_approval` otherwise; the query `budget` returns `limitCents` and `usedCents`; `quoteLetter(ctx, spec)` prices a document before it exists as a letter. `preview` additionally returns `mergedFileRefId` and `preparationIssue`. `SendLetterContext` now needs `dispatch`, which every handler context has. The monthly limit appears on the generated settings screen.
+  -->
+- Updated dependencies [9c25606]
+- Updated dependencies [af73a16]
+- Updated dependencies [341f713]
+- Updated dependencies [726c8b6]
+- Updated dependencies [50c4902]
+- Updated dependencies [268beed]
+- Updated dependencies [0963398]
+- Updated dependencies [3ecf59e]
+- Updated dependencies [7996893]
+- Updated dependencies [184b0f3]
+- Updated dependencies [23e3d73]
+- Updated dependencies [7996893]
+- Updated dependencies [23e3d73]
+- Updated dependencies [23e3d73]
+- Updated dependencies [0963398]
+- Updated dependencies [853f844]
+- Updated dependencies [0eec1dd]
+- Updated dependencies [623e88d]
+- Updated dependencies [e7a3b4b]
+- Updated dependencies [4096b8d]
+- Updated dependencies [23e3d73]
+- Updated dependencies [8e8e08d]
+- Updated dependencies [3e00c72]
+- Updated dependencies [3c4d3bd]
+- Updated dependencies [7789ce5]
+- Updated dependencies [a316ed9]
+- Updated dependencies [e5e2407]
+- Updated dependencies [b1eb9f1]
+- Updated dependencies [1fff5d3]
+  - @cosmicdrift/kumiko-framework@0.427.0
+
 ## 0.426.1
 
 ### Patch Changes

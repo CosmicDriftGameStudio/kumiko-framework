@@ -1,5 +1,410 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.427.0
+
+### Patch Changes
+
+- af73a16: A number config key can carry a `currency`, so its generated settings mask shows an amount field.
+  
+  <!-- kumiko-changes
+  feature: config
+  type: improvement
+  title: Config keys of type number can declare a currency and show an amount field
+  detail: `currency: { kind: "literal", code }` (or `{ kind: "tenant" }`) on a number config key marks the stored integer as an amount in the smallest currency unit. The generated settings mask then shows a money field instead of a plain number, and `config:query:schema` returns the `currency`. Boot rejects `currency` on a non-number key, and `createApp` checks a literal code against the app's `currencies`. The stored value does not change.
+  -->
+- 50c4902: Duplicated code in the forgot-password and unlock screens, the IMAP screens and row actions is shared; behaviour is unchanged.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Email request screens, IMAP screens and row actions share their duplicated code
+  detail: The forgot-password and account-unlock screens render one shared screen, the IMAP connect screens share their fields, and row actions share their base properties. Texts and test ids are unchanged; nothing to do for apps.
+  -->
+- 268beed: Dependency round: hono 4.13.22 (security fixes), the meilisearch peer range is `^0.63.0`, and the remaining minor/patch updates. Scaffolded apps pin Bun 1.4.5 and Biome 2.6.9. Managed workflows render the infra reusables at `reusables-v3.0.0`, and the image build pin moves to the same tag.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: hono 4.13.22, meilisearch peer ^0.63.0, managed workflows on infra reusables-v3.0.0
+  detail: hono moves to 4.13.22 for the open security advisories. The optional meilisearch peer range is `^0.63.0`; apps on 0.62 only see a peer warning and move with their own dependency update. Scaffolded apps pin Bun 1.4.5 and Biome 2.6.9. When `kumiko.deploy.infraRef` is unset, managed ci.yml and release.yml render the infra reusables at `reusables-v3.0.0`, and the image build pin moves to the same tag, so installs, tests and the image build get the read-only package token instead of the write PAT. Generated workflows pass `secrets: inherit`; the org secret `GH_PACKAGES_READ_TOKEN` (classic PAT, `read:packages` only) must be visible to the repo, or `_app-deploy` stops with "GH_PACKAGES_READ_TOKEN missing".
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: scheduleCronJobs: false keeps cron jobs off the wall clock in a test stack
+  detail: `createJobRunner` and `setupTestStack({ jobs })` take `scheduleCronJobs: false`. Cron jobs then get no schedule, so a test on a manual clock is not hit by a real cron tick halfway through; the test dispatches the job itself. Default stays on.
+  -->
+- 0963398: derivatives-sharp names the image types it can decode, and the renderer lookup honors that list.
+  
+  <!-- kumiko-changes
+  feature: derivatives-sharp
+  type: fix
+  title: Variants of HEIC, HEIF and BMP files answer 415 or 404 instead of failing on every request
+  detail: derivatives-sharp registered its renderer for image/*, which also matched types the sharp build cannot decode. A variant request for such a file read the original and failed each time, with 500 on the signed-in route and 503 on the public route. It still registers image/*, but now lists the types it decodes (image/jpeg, image/jpg, image/png, image/webp, image/avif, image/gif and image/tiff) in the new optional field sourceMimeTypes of the DerivativeRendererPlugin. Other types such as HEIC, HEIF, BMP and SVG get no renderer, so the signed-in route answers 415 and the public route 404 before the original is read. An exact renderer registered by an app still wins over the wildcard, whatever the mount order. A wildcard renderer without sourceMimeTypes keeps applying to every type under it.
+  -->
+- 4096b8d: document-draft editor returns to its caller, and drafts an app prints itself can no longer be finalized.
+  
+  <!-- kumiko-changes
+  feature: document-draft
+  type: improvement
+  title: Draft editor returns to the calling screen; unfinalizedTemplates for app-printed drafts
+  detail: Opened with `returnTo`, the editor shows a Back button and goes back there after finalize or discard, ahead of `subjectScreens`. The new option `unfinalizedTemplates` lists template slugs whose drafts stay open because the app prints them itself (for example one letter per recipient at send): `finalize` answers 422 `document_draft_not_finalizable`, the `blocks` query reports `finalizable: false` and the editor hides Finalize.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-draft
+  type: improvement
+  title: subjectAccess adds a role rule per subject type
+  detail: The new option `subjectAccess` maps a subject type to an `AccessRule` that create, patch, save, finalize, revise, discard, blocks and by-subject check on top of `access`. A user who misses the rule gets the same 404 as for an unreadable subject. Keys must be in `subjectTypes`, otherwise boot fails; subject types without an entry stay governed by `access` alone.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: returnTo can point back to an actionForm opened for one record
+  detail: `resolveReturnTarget` now accepts an entity id for an `actionForm` screen as well as for `entityEdit` and `projectionDetail`, so a screen opened from a record's action form (such as the document-draft editor opened from a send mask) gets a Back button to that form.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: A form's input survives a returnTo round trip
+  detail: `navigateWithReturnTo` takes the host form's current values as an optional fifth argument `carry`. They stay in memory, come back when the opened screen jumps home through returnTo, and win over the loaded record, so the jump leaves without the "discard changes?" question and the form can be submitted right away. Without `carry` nothing changes, and a navigation without it drops carry left behind by an earlier visit.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-draft
+  type: fix
+  title: A rich text placeholder chip shows its text instead of HTML
+  detail: In the draft editor a filled `richText` variable showed its raw markup in the chip, for example `<p>hiermit erhalten Sie …</p>`. The chip now shows the plain text; the printed document is unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: letter-foundation
+  type: improvement
+  title: Shorter file name for the merged letter PDF
+  detail: The merged PDF is stored as `letter-<last 8 characters of the id>.pdf` instead of the full uuid, so a file column in a letter list no longer crowds out its neighbours. Existing letters keep their stored name.
+  -->
+- 0963398: Template, layout, draft and page bodies are sanitized within a tag and nesting budget.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Document HTML with more than 20,000 tags or nested deeper than 512 levels is refused with a field error
+  detail: The document sanitizer counts the tags before it parses and measures the nesting before it scans. A body past either limit gets the violation too_many_tags or nested_too_deep (keys templateResolver.errors.document.tooManyTags and nestedTooDeep) on save, preview and validate, also for layouts, document drafts and managed pages. Before, a body of 75,000 characters nested 15,000 levels deep ended the request with a stack overflow, and a body of 200,000 characters made of tags took 0.6 s and about 900 MB of memory. The largest shipped template has about 500 tags.
+  -->
+- 23e3d73: Inbound HTML is sanitized within a nesting and tag budget, and IMAP mails without a text part take their text from the sanitized HTML.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: fix
+  title: Inbound HTML nested deeper than 1000 levels or with more than 250,000 tags is no longer sanitized
+  detail: The sanitizer tracks the elements the parser reports as open while it parses and stops past 1000 levels; the body then has no HTML view, keeps its text and its stored original, as with HTML over 500,000 bytes. Before, deep or tag-heavy HTML from any sender could hold the worker for minutes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-provider-imap
+  type: fix
+  title: IMAP mails without a text part get their text from the sanitized HTML
+  detail: mailparser no longer converts HTML to text and no longer inlines cid images as data: URLs. A mail without a text part takes its text and snippet from the sanitized HTML, also inside multipart/related or mixed, where it had none before; in a mixed mail with an HTML part and a text part the text covers both. HTML nested past the limit leaves the text empty and keeps the mail. Past 250,000 tags only the HTML before the 250,000th tag becomes text. The text also stays empty when the quote and list depth times the HTML length exceeds 5,000,000 characters, which stops a few hundred nested quotes from producing hundreds of megabytes of text.
+  -->
+- 23e3d73: The sender check hint says the mail server ID belongs only to a server that stamps every incoming mail.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: fix
+  title: Sender check hint names the precondition for a trusted mail server ID
+  detail: The hint on the sender check field and the inbound mail guide now say to enter the authserv-id only when that server adds an Authentication-Results header to every incoming mail. Otherwise a forged topmost header counts as checked. No behaviour changes.
+  -->
+- 3d83cc7: `letter-foundation`: approval checks the monthly limit, and duplex letters start every file on a new sheet.
+  
+  <!-- kumiko-changes
+  feature: letter-foundation
+  type: improvement
+  title: `letter-foundation`: `approve` refuses a letter the monthly limit does not cover; every file of a duplex letter starts on a new sheet
+  detail: `approve` fails with `letter_monthly_limit_not_covered` when the limit minus the month's usage and the price of all approved, not yet handed-over letters is smaller than the price of the letter; the letter stays in `awaiting-approval`. The preview counts the same way. The reservation at handover stays the binding check. `cancelLetterBeforeHandover(ctx, letterId)` cancels a waiting or approved letter without the `LetterApprover` role check. In duplex, a blank page follows a file with an odd page count, so the next file begins on a new sheet; sheets and price come from the merged document.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: The Direct-Entity-Writes guard finds tables that are destructured from `createEntityExecutor`
+  detail: `export const { executor, table: fooTable } = createEntityExecutor(entity)` now counts as an event-sourced table, in the guard and in the `kumiko-es-tables.json` catalog of a package. Before, such tables (for example `letterTable`, `signatureRequestTable`) were missing from the catalog, so a consumer's direct write on them went unnoticed.
+  -->
+- 5e7231a: `letter-foundation` README and recipe call the monthly limit a budget and say where it is set.
+  
+  <!-- kumiko-changes
+  feature: letter-foundation
+  type: fix
+  title: Letter docs name the monthly budget and where to set it
+  detail: The feature README and the letter-foundation recipe say "monthly budget" like the settings mask. The README names both places (Settings › Platform › Letters for the default, Settings › Tenant › Letters for one tenant), and the recipe says that a budget of 0 makes `approve` refuse the letter; only a budget lowered after approval fails the handover with `monthly-limit`.
+  -->
+- 6cf684b: Building blocks for postal letters: `releaseCapUsage` is exported, cap-overview knows the `cents` unit, PDF layouts accept `postal`, and the shared PDF helpers (`mergePdfs`, `checkPostalPdf`) move out of signature.
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: improvement
+  title: `releaseCapUsage` is exported
+  detail: `releaseCapUsage` gives back a booked amount, for example when the operation that reserved it failed afterwards. The counter never drops below 0. It is now exported from the cap-counter barrel next to `bookCapUsage`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: improvement
+  title: cap-overview shows amounts in `cents`
+  detail: A cap can use the unit `cents`. The card shows the value divided by 100 with two decimals in the number format of the language, without a currency symbol, so 1234 reads 12,34 in German. Name the currency in the cap label.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: PDF layouts accept `postal` to drop fold marks, corner marks, paper colour and bleed images
+  detail: A pdf-layout with `postal: true` prints without fold marks, corner marks and paper colour, and hides full-bleed header and footer images, even when the layout sets them. `renderPdfBytes` and `renderPdfBeforeTransaction` take `postal: true` to print one render that way, whatever the layout sets. Without the field or the option nothing changes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: file-foundation
+  type: improvement
+  title: file-foundation exports the helpers for generated files
+  detail: `readTenantFile`, `storeGeneratedFile`, `discardGeneratedFile` and `MAX_DOCUMENT_BYTES` are exported from file-foundation. `readTenantFile` returns `null` when the stored bytes are gone, as it already did for a file above the size limit. A signature request whose document is gone therefore ends as failed instead of being retried on every sweep.
+  -->
+- 96ac59a: The letter poll job skips quietly in production while the live switch is off instead of failing every run
+  
+  Sending a letter still refuses while the switch is off; with the switch on, a missing provider still fails the poll.
+  
+  <!-- kumiko-changes
+  feature: letter-foundation
+  type: fix
+  title: The letter poll job skips quietly in production while the live switch is off instead of failing every run
+  -->
+- 6453cd2: New bundled features `letter-foundation` and `letter-provider-inmemory` for sending PDFs as postal letters through a print provider.
+  
+  <!-- kumiko-changes
+  feature: letter-foundation
+  type: improvement
+  title: `letter-foundation`: send PDFs as postal letters through a print provider, with approval, cap counting and a monthly cost limit per tenant
+  detail: New feature with the `letterProvider` extension point and `letter-provider-inmemory`. Letters are created with `sendLetter`, approved by a user with the role `LetterApprover` and handed to the provider by a job. A letter names its shipping mode (`standard`, `einwurf`, `uebergabe`, `rueckschein`) and its envelope (`folded`, or `flat` for unfolded A4 in a C4 envelope); what a provider lacks is refused. A letter declared as `schriftform` is refused unless the app passes `formRiskAcknowledged: true`. The limit is the config key `monthlyCostLimitCents`, 0 until it is set. Live sending needs the system config key `live` switched on and only happens in production. In production with the switch off letters are refused with `letter_provider_not_configured`. A handover that got no answer keeps its price booked until the poll job or a privileged user (`resolve-unknown`) settles it, and no letter is sent twice. An approved letter that cannot be handed over for two hours fails with `handover-stalled`. A letter stays with the provider it was approved with: after a provider change the poll leaves it alone, `cancel` and `resolve-unknown` with a `providerJobId` refuse it with `letter_provider_changed`, and an unsent letter fails with `provider-changed`. The data export of a user lists the letters the user created or approved, without the recipient. See `docs/guides/letters.md`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: letter-provider-inmemory
+  type: improvement
+  title: `letter-provider-inmemory`: a letter provider for tests and demos that sends nothing
+  detail: Registers the `inmemory` provider for `letter-foundation`. It runs whenever the live switch is off, and tests steer it with `letterSimulator.setScenario` (accept, reject, timeout, on hold, other price or recognized address) and `setClock`.
+  -->
+- 4096b8d: `letter-foundation` prepares every letter right after it is created, can approve letters automatically and approves a selection in one step.
+  
+  <!-- kumiko-changes
+  feature: letter-foundation
+  type: improvement
+  title: A letter is prepared when it is created; `approval: "auto"` and `approve-many`
+  detail: `sendLetter` now announces a `created` event and the job `prepare` merges the PDF, counts pages and sheets and quotes the price, so `preview` and `approve` read stored values. A document problem is kept in `preparationIssue` and the letter keeps waiting; the poll prepares again a letter the job missed for 15 minutes. `sendLetter(ctx, input, { approval: "auto" })` (field `approvalMode`; the option is not part of `SendLetterInput`, so a client payload cannot request it) lets the job approve a prepared letter within the monthly limit. The write handler `approve-many` (role `LetterApprover`) approves a selection all or none and fails with `letter_not_ready_for_approval` otherwise; the query `budget` returns `limitCents` and `usedCents`; `quoteLetter(ctx, spec)` prices a document before it exists as a letter. `preview` additionally returns `mergedFileRefId` and `preparationIssue`. `SendLetterContext` now needs `dispatch`, which every handler context has. The monthly limit appears on the generated settings screen.
+  -->
+- 89d598d: New bundled feature `letter-provider-letterxpress`, the first real provider for `letter-foundation`.
+  
+  <!-- kumiko-changes
+  feature: letter-provider-letterxpress
+  type: improvement
+  title: `letter-provider-letterxpress`: LetterXpress as a provider for `letter-foundation`
+  detail: Standard letters and registered mail (`einwurf`, `uebergabe`) within Germany through the LetterXpress API v3, folded or unfolded in a C4 envelope. LetterXpress honors C4 up to 8 sheets and chooses the envelope itself above that, which the preview reports as `envelopeLeftToProvider`. No return receipt (`rueckschein`). Needs the system config keys `username` and `api-key`. The provider runs only when the `letter-foundation` system config key `live` is on; without the live switch `letter-foundation` never calls LetterXpress. A throttled handover (HTTP 429) waits up to a minute, is repeated once and then rejected, because nothing was created.
+  -->
+- 853f844: Log redaction, the custom CSS filter, string trims and text parsing no longer slow down quadratically on long runs of the same characters; results are unchanged.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Log redaction, CSS filter and string trims scan long inputs once
+  detail: URL and email redaction in logs, the custom CSS function check, trailing slash, dash, equals and newline trims, and several parsers in the CLI, dev server and guards rescanned long runs of the same characters once per character. They now scan each run once. Output is unchanged.
+  -->
+- 0eec1dd: Origin and path trailing-slash trimming, sender address parsing and document text conversion run in linear time; master key versions in error messages sort numerically; the generated deploy/Dockerfile.dockerignore excludes .env* (except .env.example), .pem and .key files.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Linear-time string trimming and parsing, numeric key versions in errors, .env* excluded from the image build context
+  detail: Trimming trailing slashes from origins and routed paths, parsing the inbound sender address and converting document HTML to text no longer backtrack on long slash, whitespace or angle-bracket runs. The master key provider lists keyring versions in numeric order in its error messages, so version 10 follows version 2. The managed `deploy/Dockerfile.dockerignore` excludes `**/.env*` (except `.env.example`), `**/*.pem` and `**/*.key` from the build context; `kumiko sync-managed --write` refreshes the file.
+  -->
+- 4eeaa6a: The Mollie plugin uses the `mollie-api-typescript` SDK, since `@mollie/api-client` is deprecated.
+  
+  <!-- kumiko-changes
+  feature: subscription-mollie
+  type: fix
+  title: subscription-mollie moves to the maintained Mollie SDK
+  detail: The `@mollie/api-client` package is deprecated, so `subscription-mollie` now calls the Mollie API through `mollie-api-typescript`. The plugin options, exports and Mollie endpoints stay the same. A webhook whose payment lookup fails for any reason other than an unknown id (network, unexpected response) is now answered as a failure, so Mollie delivers it again instead of it being dropped with a 200.
+  -->
+- 4096b8d: A mail sent in beforeTransaction can attach bytes the handler just produced, such as a freshly rendered PDF.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: sendMailFromAccount attaches bytes from the same beforeTransaction
+  detail: `sendMailFromAccount` takes `attachedBytes` (fileName, mimeType, data). They go out after the files of `attachmentFileIds`, share the limit of 10 attachments and OUTBOUND_ATTACHMENTS_MAX_BYTES, and are not access-checked because the caller holds them. `renderPdfBeforeTransaction` returns the PDF as `pdfBytes` on its upload when called with `keepPdfBytes: true`, so one handler can mail the PDF and store it with `storeRenderedPdf`. The `inmemory` provider can now send and records mails for `sentMailsOf(accountId)`.
+  -->
+- 23e3d73: Signature and letter PDFs are refused when their stream decoders, xref stream or page tree exceed fixed limits.
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: fix
+  title: Signature and letters refuse PDFs whose object streams need more than 16 MiB of decoder buffer, whose xref stream declares more entries than it holds, or whose page tree is too large
+  detail: `signature` request, its sweep and `letter-foundation` (`mergePdfs`, `checkPostalPdf`) load PDFs with limits. The decoders of object streams and xref streams may take at most 16 MiB of buffer per load (reached from about 8 MiB of decoded data on; a legitimate PDF with 2000 pages needs about 5 MiB). An xref stream may not declare more entries than its decoded bytes can hold. The page tree may have at most 20000 visited nodes, which stops cycles and fan-out over shared kids. A PDF over a limit is refused like an unreadable file (`document_not_a_pdf`, `documentUnreadable`, `unreadable`). pdf-lib calls outside these loads are unchanged.
+  -->
+- 623e88d: PDF uploads are accepted when bytes precede the `%PDF-` header within the first 1024 bytes.
+  
+  <!-- kumiko-changes
+  feature: files
+  type: fix
+  title: PDFs with bytes before the header are no longer rejected
+  detail: Content sniffing looked for `%PDF-` only at byte 0, so PDFs from scanners and ERP exports that write a short preamble were rejected with `file_rejected`, although every reader opens them. The header may now start anywhere in the first 1024 bytes, as Acrobat allows. Files with another signature at byte 0 keep their type, and the serve path reads a 1028-byte prefix for the same check. Template attachments use the same sniffing, the PDF rasterizer accepts the same headers, and a generic mail attachment that looks like XML stays XML even when it quotes the header.
+  -->
+- 0963398: pdf-lib is pinned to the exact version the PDF limits are verified against.
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: fix
+  title: pdf-lib is pinned to 1.17.1, the version the PDF limits are tested with
+  detail: The PDF limits of signature and letter-foundation wrap internals of pdf-lib. The dependency was a range (^1.17.1), so an app could install a newer pdf-lib that the limits were never tested against. It is now the exact version 1.17.1, and a test fails when the pin and the installed version differ.
+  -->
+- 23e3d73: The public variant route answers 404 for files without a registered renderer, and `resolveRenderer` is exported from `./derivatives` again.
+  
+  <!-- kumiko-changes
+  feature: file-derivatives
+  type: fix
+  title: The public variant answers 404 instead of 503 when no renderer is registered for the file type
+  detail: The route checks the stored mimeType against the registered renderers before the predicate runs. Without a match it answers 404, the same as for an unknown file, so the response does not reveal whether the file exists.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: resolveRenderer is exported from ./derivatives again
+  detail: Callers can check whether a renderer is registered for a mimeType before asking for a variant.
+  -->
+- 3c4d3bd: A soft-deleted row keeps holding its file: sharing checks count it, a rebind may target it, and the soft-delete cleanup removes bytes and fileRef together with the last holder. Subject erasure purges a file shared by several records of the same subject (live or soft-deleted).
+  
+  <!-- kumiko-changes
+  feature: files
+  type: fix
+  title: Soft-deleted rows keep holding their files until they are forgotten for good
+  detail: A soft-delete keeps the bytes so a restore finds the file (see DELETE /files/:id). The shared-file check of retention hardDelete and subject erasure used to ignore soft-deleted holders and deleted the bytes under them; it now counts them, preferring a live holder for the rebind. `rebindFileRef` accepts a soft-deleted target in the system user's tenant. The per-tenant soft-delete cleanup now purges the bytes, derivatives and fileRef of an expired row before forgetting it, and keeps the row when that fails; system-scoped entities keep the previous behavior. `purgeRowFileRefs` and its helpers moved from bundled-features to the framework `files` entry; bundled-features/shared re-exports them.
+  -->
+- 0ef8b2e: The short/long date format control and the chip date hint appear only for date variables.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Date format control only for date variables
+  detail: The document editor offered the short/long date format for every placeholder and showed a date hint on its chip, although only variables of type `date` use it. `DocumentEditorProps` gains `dateVariables` (names of the date variables); the format buttons and the chip hint appear only for those. The PDF and mail designers and the document draft editor pass it from the variable schema.
+  -->
+- 0ef8b2e: A `document` field with `formatting: "text"` keeps a value that holds only an image, divider or table, and drops such blocks from pasted content.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Text-formatted document fields keep image-only values and filter pasted blocks
+  detail: A `document` field with `formatting: "text"` treated a value without text as empty, so a document holding only an image, divider or table was stored as "". Only a value without text and without such blocks is empty now. In the template-resolver editor, pasted images, dividers, buttons, page breaks and step blocks are dropped in text mode and pasted tables keep their cell text as paragraphs; blocks already in the stored value stay untouched.
+  -->
+- 913085a: A test now covers the connector heartbeat for a device whose connector row is gone: it answers without a name and still hands over the retry signal once.
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: fix
+  title: heartbeat without connector name is covered by a test
+  detail: The heartbeat answer omits `name` when the connector lookup finds nothing. A new integration test pins this and that the retry flag still rides on exactly one answer.
+  -->
+- e5e2407: Storage-delete and delivery failures log only the error class and code, not adapter text or storage keys.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: failure logs name the error class instead of adapter text
+  detail: New `errorKindOf` in `@cosmicdrift/kumiko-framework/logging`, also re-exported from bundled-features shared. The `storage delete failed` warning no longer logs the storage key or the adapter message, and delivery channel and dispatch failures log the error class instead of a redacted message.
+  -->
+- b1eb9f1: The no-raw-hooks lint rule also checks .ts files under web/ and public/.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: no-raw-hooks also checks .ts files under web/ and public/
+  detail: The Biome rule `no-raw-hooks` used to look at .tsx files only, so a raw `useEffect` inside a hook file such as `web/use-thing.ts` slipped through. Apps with a raw useEffect in web/*.ts or public/*.ts hooks now see the lint error.
+  migration: Use a framework hook (`useDraft` with `initialFrom` for a form draft from query data, `useQuery`, `useNow`, `useDebouncedValue`, `useOnKeyChange` for effects that run once per key change) or add a `biome-ignore lint/plugin` with a reason for a real DOM integration.
+  affects: no-raw-hooks, useEffect, biome
+  -->
+- 6f763c5: Delivery jobs, the retention file cleanup and the tier sync no longer put adapter or storage error texts and storage keys into logs or error results.
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Adapter error texts and storage keys stay out of logs and run rows
+  detail: `redactErrorText` strips only emails, URLs and bot tokens, not names, phone numbers or storage keys. `delivery.send` and `delivery.render` now log the error class and an optional string code instead of the adapter text. The `data-retention` hard-delete file cleanup logs the error class and a failed-file count instead of storage keys and storage error texts. `subscription-tier-sync` reports `tier sync threw <class>` and `afterSync threw <class>` instead of the thrown message, so the `InternalError` text and the webhook warn log carry no adapter text either. The new `errorKindOf` helper in `@cosmicdrift/kumiko-framework/logging` builds the class and code text.
+  -->
+- cf5bd05: A connector upload stamps its quota decision time before the quota check, so a slowly accepted upload no longer clears the storage-full flag set by a later refused one.
+  
+  <!-- kumiko-changes
+  feature: connectors
+  type: fix
+  title: storage-full flag survives a slow earlier upload
+  detail: The device touch of an upload now carries the instant taken before the upload was dispatched. An early upload that is accepted late cannot clear the refusal of an upload that began after it.
+  -->
+- 6d848fc: Publishing a template variant takes its variables from the delivered base, not from the base's open draft.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: A published variant follows the delivered base's variables
+  detail: Publishing a variant synced its variable schema from the base as the tenant edits it, including an unpublished base draft, so the variant went live with variables the delivered base lacks. Publish now syncs from the delivered base (the tenant's active row, else the active system default). Saving a variant draft still follows the base draft; a variant that uses a placeholder only the base draft knows is refused at publish until the base is published.
+  -->
+- 1fff5d3: Sessions serves `GET /sessions/usage` next to the last-activity probe.
+  
+  <!-- kumiko-changes
+  feature: sessions
+  type: improvement
+  title: sessions serves GET /sessions/usage with database size, file bytes and mails sent this month
+  detail: A sibling app presenting the same probe secret gets `{ dbBytes, fileBytes, mailsSentThisMonth }` summed across every tenant; `fileBytes` and `mailsSentThisMonth` are null when files-storage-tracking or delivery is not mounted. The schema is exported as `usageProbeAnswerSchema`.
+  -->
+- Updated dependencies [9c25606]
+- Updated dependencies [af73a16]
+- Updated dependencies [341f713]
+- Updated dependencies [726c8b6]
+- Updated dependencies [50c4902]
+- Updated dependencies [268beed]
+- Updated dependencies [0963398]
+- Updated dependencies [3ecf59e]
+- Updated dependencies [7996893]
+- Updated dependencies [184b0f3]
+- Updated dependencies [4096b8d]
+- Updated dependencies [4096b8d]
+- Updated dependencies [23e3d73]
+- Updated dependencies [7996893]
+- Updated dependencies [23e3d73]
+- Updated dependencies [a32bd27]
+- Updated dependencies [23e3d73]
+- Updated dependencies [0963398]
+- Updated dependencies [853f844]
+- Updated dependencies [0eec1dd]
+- Updated dependencies [909e7da]
+- Updated dependencies [623e88d]
+- Updated dependencies [e7a3b4b]
+- Updated dependencies [81b60cf]
+- Updated dependencies [4096b8d]
+- Updated dependencies [23e3d73]
+- Updated dependencies [8e8e08d]
+- Updated dependencies [8e8e08d]
+- Updated dependencies [bd5748a]
+- Updated dependencies [3e00c72]
+- Updated dependencies [3c4d3bd]
+- Updated dependencies [7789ce5]
+- Updated dependencies [aa89fa9]
+- Updated dependencies [a316ed9]
+- Updated dependencies [0ef8b2e]
+- Updated dependencies [e5e2407]
+- Updated dependencies [b1eb9f1]
+- Updated dependencies [1fff5d3]
+  - @cosmicdrift/kumiko-types@0.427.0
+  - @cosmicdrift/kumiko-framework@0.427.0
+  - @cosmicdrift/kumiko-renderer@0.427.0
+  - @cosmicdrift/kumiko-testing@0.427.0
+
 ## 0.426.1
 
 ### Patch Changes
