@@ -28,6 +28,7 @@ import type {
   PaymentResponse as MolliePayment,
   SubscriptionResponse,
 } from "mollie-api-typescript/models";
+import { ClientError } from "mollie-api-typescript/models/errors";
 import { MOLLIE_PROVIDER_NAME } from "./constants.ts";
 import type { MolliePriceConfig } from "./plugin-methods.ts";
 
@@ -85,9 +86,11 @@ export function verifyAndParseMollieWebhook(
       let payment: MolliePayment;
       try {
         payment = await client.payments.get(id);
-      } catch {
-        // Garbage-id → Mollie 404 → Foundation 200 ignored.
-        return null;
+      } catch (error) {
+        // Garbage-id → Mollie 404 → Foundation 200 ignored. Anything else
+        // (network, response-validation drift) must surface so Mollie redelivers.
+        if (isMollieNotFound(error)) return null;
+        throw error;
       }
       triggerPayment = payment;
       const customerId = payment.customerId;
@@ -96,8 +99,9 @@ export function verifyAndParseMollieWebhook(
       if (payment.subscriptionId) {
         try {
           subscription = await client.customerSubscriptions.get(payment.subscriptionId, customerId);
-        } catch {
-          return null;
+        } catch (error) {
+          if (isMollieNotFound(error)) return null;
+          throw error;
         }
       } else if (payment.sequenceType === "first" && payment.status === "paid") {
         subscription = await ensureSubscriptionForMandate(client, options, payment);
@@ -195,6 +199,11 @@ async function ensureSubscriptionForMandate(
 // =============================================================================
 // Helpers (exported for tests)
 // =============================================================================
+
+/** 404 arrives as ErrorResponse or, without the error body, ClientDefaultError; both extend ClientError. */
+function isMollieNotFound(error: unknown): boolean {
+  return error instanceof ClientError && error.statusCode === 404;
+}
 
 /** Mollie metadata is free-form (string | number | object | string[]); the plugin
  *  only ever writes flat string maps, so anything else reads as absent. */

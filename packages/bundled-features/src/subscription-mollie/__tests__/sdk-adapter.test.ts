@@ -7,6 +7,7 @@ import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { Client } from "mollie-api-typescript";
 import { mollieClientShapeOf } from "../adapter.ts";
 import { createMollieCheckoutSession } from "../plugin-methods.ts";
+import { verifyAndParseMollieWebhook } from "../verify-webhook.ts";
 
 type SeenRequest = {
   readonly method: string;
@@ -87,6 +88,23 @@ const customerBody = {
 function respond(method: string, path: string): { status: number; body: unknown } {
   if (method === "GET" && path === "/v2/payments/tr_stub_1") {
     return { status: 200, body: paymentBody() };
+  }
+  if (method === "GET" && path === "/v2/payments/tr_bad") {
+    const { _links: _omitted, ...withoutLinks } = paymentBody();
+    return { status: 200, body: withoutLinks };
+  }
+  if (method === "GET" && path === "/v2/payments/tr_missing") {
+    return {
+      status: 404,
+      body: {
+        status: 404,
+        title: "Not Found",
+        detail: "No payment exists with token tr_missing.",
+        _links: {
+          documentation: url("https://docs.mollie.com/errors"),
+        },
+      },
+    };
   }
   if (method === "POST" && path === "/v2/payments") {
     return { status: 201, body: paymentBody({ status: "open" }) };
@@ -231,5 +249,40 @@ describe("createMollieCheckoutSession against the real SDK client", () => {
       customerId: "cst_stub_1",
       metadata: { tenantId: "tenant-1", priceId: "plan_pro" },
     });
+  });
+});
+
+describe("verifyAndParseMollieWebhook with the real SDK client", () => {
+  const verify = verifyAndParseMollieWebhook(adapter, {
+    priceToTier: { plan_pro: "pro" },
+    priceToConfig: {
+      plan_pro: {
+        amountValue: "9.99",
+        amountCurrency: "EUR",
+        interval: "1 month",
+        description: "Pro Plan",
+      },
+    },
+  });
+  const formHeaders = { "content-type": "application/x-www-form-urlencoded" };
+
+  test("form-urlencoded id → event built from zod-parsed metadata", async () => {
+    // Stub payment is first+paid without subscriptionId → plugin creates the subscription.
+    const event = await verify("id=tr_stub_1", formHeaders);
+    expect(event).toMatchObject({
+      providerEventId: "tr_stub_1",
+      tenantId: "tenant-1",
+      tier: "pro",
+      providerSubscriptionId: "sub_stub_1",
+      providerCheckoutId: "tr_stub_1",
+    });
+  });
+
+  test("response that fails SDK validation throws instead of being ignored", async () => {
+    await expect(verify("id=tr_bad", formHeaders)).rejects.toThrow();
+  });
+
+  test("404 from Mollie → null", async () => {
+    expect(await verify("id=tr_missing", formHeaders)).toBeNull();
   });
 });
