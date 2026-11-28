@@ -51,15 +51,6 @@ function subjectKey(kind: AuthMailKind): string {
   return `auth.mail.${AUTH_MAIL_KINDS[kind].translationKey}.subject`;
 }
 
-/** Kinds whose mail uses the plain variable set (every kind except invite, which also names a role). */
-export const MAGIC_LINK_MAIL_KINDS: readonly AuthMailKind[] = [
-  "passwordReset",
-  "initialPassword",
-  "accountUnlock",
-  "emailVerification",
-  "signupActivation",
-];
-
 const ALL_AUTH_MAIL_KINDS: readonly AuthMailKind[] = [
   "passwordReset",
   "initialPassword",

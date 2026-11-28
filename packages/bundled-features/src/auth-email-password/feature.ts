@@ -34,11 +34,9 @@ import { createSwitchTenantMfaGateHandler } from "./handlers/switch-tenant-mfa-g
 import { createVerifyEmailHandler } from "./handlers/verify-email.write.ts";
 import { AUTH_EMAIL_PASSWORD_HANDLER_I18N } from "./i18n.ts";
 import {
-  AUTH_MAIL_KINDS,
   AUTH_MAIL_VARIABLES,
   authMailLocalizedTemplate,
   INVITE_MAIL_VARIABLES,
-  MAGIC_LINK_MAIL_KINDS,
   sendsMagicLinkMail,
 } from "./mail-notifications.ts";
 import { assertSignedTokenSecretsLongEnough } from "./validate-options.ts";
@@ -72,9 +70,7 @@ export const authEmailPasswordEnvSchema = z.object({
 // Opt-in configuration for the password-reset flow. When omitted the
 // request-password-reset / reset-password handlers are not registered —
 // the framework-level routes stay 404 and callers know the flow is off.
-// Keeping this at the feature level (rather than via env) means the caller
-// explicitly acknowledges that reset is wired and that they have a working
-// sendResetEmail callback on the framework side.
+// Also gates the system-only request-initial-password handler (same secret, appUrl, mail setup).
 export type PasswordResetOptions = {
   readonly hmacSecret: string;
   readonly tokenTtlMinutes?: number;
@@ -200,13 +196,31 @@ export function createAuthEmailPasswordFeature(
 
     // Declared unconditionally: apps also issue the activation link from their
     // own flows (issueSignupActivation) without enabling the signup option.
-    for (const kind of MAGIC_LINK_MAIL_KINDS) {
-      r.notification({
-        name: AUTH_MAIL_KINDS[kind].name,
-        variables: AUTH_MAIL_VARIABLES,
-        localizedTemplate: authMailLocalizedTemplate(kind),
-      });
-    }
+    r.notification({
+      name: "password-reset",
+      variables: AUTH_MAIL_VARIABLES,
+      localizedTemplate: authMailLocalizedTemplate("passwordReset"),
+    });
+    r.notification({
+      name: "initial-password",
+      variables: AUTH_MAIL_VARIABLES,
+      localizedTemplate: authMailLocalizedTemplate("initialPassword"),
+    });
+    r.notification({
+      name: "account-unlock",
+      variables: AUTH_MAIL_VARIABLES,
+      localizedTemplate: authMailLocalizedTemplate("accountUnlock"),
+    });
+    r.notification({
+      name: "email-verification",
+      variables: AUTH_MAIL_VARIABLES,
+      localizedTemplate: authMailLocalizedTemplate("emailVerification"),
+    });
+    r.notification({
+      name: "signup-activation",
+      variables: AUTH_MAIL_VARIABLES,
+      localizedTemplate: authMailLocalizedTemplate("signupActivation"),
+    });
     r.notification({
       name: "invite",
       variables: INVITE_MAIL_VARIABLES,
