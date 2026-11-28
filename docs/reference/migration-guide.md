@@ -2,13 +2,35 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-11-21
+verified: 2026-11-28
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.427.0
+
+### framework-core
+
+**Image fields without accept take only jpg, jpeg, png, gif, webp, avif, heic and heif**
+
+createImageField and createImagesField without accept used to take every file. New uploads and pending uploads bound to such a field are now checked against jpg, jpeg, png, gif, webp, avif, heic and heif, and the file picker offers the same list. Files a record already holds are untouched, and moving a stored file with rebindFileRef still checks only an explicit accept.
+
+**Migration:** Image fields that should take SVG, PDF, BMP or TIFF need an explicit accept; accept [] allows everything.
+
+**Bulk form actions need a bounded ids field in the handler schema**
+
+`list-bulk/form-ids-field-unbounded` fails boot when the write handler of a bulk form action declares its `idsField` without `z.array(...).max(n)` and `n <= MAX_BULK_SELECTION`, in every option of a union or discriminated union. A handler schema that is not an object or a union of objects also fails, because its bound cannot be read. The client cap does not bind a direct `/api/write`, so the handler schema must. Optional and nullable wrappers are unwrapped.
+
+**Migration:** Declare `<idsField>: z.array(...).max(MAX_BULK_SELECTION)` in the schema of every write handler behind a bulk form action (in each option of a union), and give the handler an object schema.
+
+**no-raw-hooks also checks .ts files under web/ and public/**
+
+The Biome rule `no-raw-hooks` used to look at .tsx files only, so a raw `useEffect` inside a hook file such as `web/use-thing.ts` slipped through. Apps with a raw useEffect in web/*.ts or public/*.ts hooks now see the lint error.
+
+**Migration:** Use a framework hook (`useDraft` with `initialFrom` for a form draft from query data, `useQuery`, `useNow`, `useDebouncedValue`, `useOnKeyChange` for effects that run once per key change) or add a `biome-ignore lint/plugin` with a reason for a real DOM integration.
 
 ## 0.426.0
 

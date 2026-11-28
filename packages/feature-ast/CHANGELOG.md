@@ -1,5 +1,70 @@
 # @cosmicdrift/kumiko-feature-ast
 
+## 0.427.0
+
+### Patch Changes
+
+- 50c4902: Duplicated code in the forgot-password and unlock screens, the IMAP screens and row actions is shared; behaviour is unchanged.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Email request screens, IMAP screens and row actions share their duplicated code
+  detail: The forgot-password and account-unlock screens render one shared screen, the IMAP connect screens share their fields, and row actions share their base properties. Texts and test ids are unchanged; nothing to do for apps.
+  -->
+- 853f844: Log redaction, the custom CSS filter, string trims and text parsing no longer slow down quadratically on long runs of the same characters; results are unchanged.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Log redaction, CSS filter and string trims scan long inputs once
+  detail: URL and email redaction in logs, the custom CSS function check, trailing slash, dash, equals and newline trims, and several parsers in the CLI, dev server and guards rescanned long runs of the same characters once per character. They now scan each run once. Output is unchanged.
+  -->
+- fd06a70: Scaffolded apps mount the security baseline, and `kumiko-upgrade` adds it to existing apps.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Scaffolded apps mount crypto-shredding, rate-limiting and audit next to sessions
+  detail: `scaffoldApp` adds `...composeSecurityStack({ includeSessions: false })` after `createSessionsFeature()` in `src/run-config.ts`, so a production boot no longer warns that the security baseline is incomplete. The initial migration contains the audit table `store_access_log`. crypto-shredding brings the `PLATFORM_KEK`, `SUBJECT_KEYS_DATABASE_URL` and `KUMIKO_BLIND_INDEX_KEY` env block, in which an empty value is invalid, so the scaffolded `.env.example` now lists the three variables commented out.
+  migration: Run the codemod. It adds `...composeSecurityStack({ includeSessions: false })` and its import after `createSessionsFeature()` in the `APP_FEATURES` array literal of `src/run-config.ts`. It skips apps that already mount composeSecurityStack, createCryptoShreddingFeature, createRateLimitingFeature or createAuditFeature, and lists apps as manual whose `bin/main.ts` passes no kmsMode, kms, allowPlaintextPii or kmsWiring to runProdApp (crypto-shredding would abort their boot) or sets `rateLimit: false` (rate-limiting would abort it). Afterwards run `kumiko-schema generate` for the audit table, and remove empty `PLATFORM_KEK=`, `SUBJECT_KEYS_DATABASE_URL=` and `KUMIKO_BLIND_INDEX_KEY=` lines from env files.
+  codemod: scripts/codemod/security-baseline-stack.ts
+  -->
+- Updated dependencies [9c25606]
+- Updated dependencies [af73a16]
+- Updated dependencies [341f713]
+- Updated dependencies [726c8b6]
+- Updated dependencies [50c4902]
+- Updated dependencies [268beed]
+- Updated dependencies [0963398]
+- Updated dependencies [3ecf59e]
+- Updated dependencies [7996893]
+- Updated dependencies [184b0f3]
+- Updated dependencies [4096b8d]
+- Updated dependencies [23e3d73]
+- Updated dependencies [7996893]
+- Updated dependencies [23e3d73]
+- Updated dependencies [23e3d73]
+- Updated dependencies [0963398]
+- Updated dependencies [853f844]
+- Updated dependencies [0eec1dd]
+- Updated dependencies [909e7da]
+- Updated dependencies [623e88d]
+- Updated dependencies [e7a3b4b]
+- Updated dependencies [81b60cf]
+- Updated dependencies [4096b8d]
+- Updated dependencies [23e3d73]
+- Updated dependencies [8e8e08d]
+- Updated dependencies [3e00c72]
+- Updated dependencies [3c4d3bd]
+- Updated dependencies [7789ce5]
+- Updated dependencies [a316ed9]
+- Updated dependencies [e5e2407]
+- Updated dependencies [b1eb9f1]
+- Updated dependencies [1fff5d3]
+  - @cosmicdrift/kumiko-types@0.427.0
+  - @cosmicdrift/kumiko-framework@0.427.0
+
 ## 0.426.1
 
 ### Patch Changes

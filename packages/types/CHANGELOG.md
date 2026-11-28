@@ -1,5 +1,219 @@
 # @cosmicdrift/kumiko-types
 
+## 0.427.0
+
+### Patch Changes
+
+- 9c25606: actionForm `redirect.onlyWith` makes the redirect depend on a result field and falls back to the success box.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: actionForm redirect can depend on a result field and fall back to the success box
+  detail: `redirect.onlyWith` names a flat field of the success payload. The form navigates only when that field is a non-empty string; otherwise it stays put and shows its `successMessage`, `successFacts`, `successItems` and `successLinks`, which boot now accepts next to a redirect that sets `onlyWith`.
+  -->
+- af73a16: A number config key can carry a `currency`, so its generated settings mask shows an amount field.
+  
+  <!-- kumiko-changes
+  feature: config
+  type: improvement
+  title: Config keys of type number can declare a currency and show an amount field
+  detail: `currency: { kind: "literal", code }` (or `{ kind: "tenant" }`) on a number config key marks the stored integer as an amount in the smallest currency unit. The generated settings mask then shows a money field instead of a plain number, and `config:query:schema` returns the `currency`. Boot rejects `currency` on a non-number key, and `createApp` checks a literal code against the app's `currencies`. The stored value does not change.
+  -->
+- 341f713: Dashboard and list design options, all opt-in. The one default change: number and currency columns in dashboard list panels are right-aligned and do not wrap.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Dashboards and lists gain opt-in design options for sub-line tone, unframed stat cards, bar chart details, segment rows, header subtitle and boolean pills
+  detail: Stat panels take `subToneField` (a stat tone: default, positive, ok, warn or negative) to color the sub line. A stat-group takes `framed: false` (with layout cards, no label, subtitle or link) to draw separate cards without the outer frame, each with its sub line under the value. A stacked-bars chart takes `barValueLabels`, `highlightLast`, `hideYAxis`, `hideLegend`, `labelEveryBucket` and `lastBucketLabel: "date"`; a segment-bars chart takes `layout: "rows"`, `hideLegend` and `singleTone` (one tone for all dynamic segment keys, not with seriesTones or seriesColors). The `currency` format takes `amountIn: "major"` for whole-unit amounts, the `unit` format takes `minimumFractionDigits` and `maximumFractionDigits`. A dashboard takes `showTitle: true` for the screen title as page heading, `sideWidth: "wide"` for a 2/5 side column in main-side, and `headerSubtitle: { query, field }` to show a dynamic line under the title. A rowAction takes `inMenu: false` to stay out of the row menu. A dashboard list panel right-aligns number and currency columns and keeps them on one line. The boolean list format takes `trueTone` and `falseTone` (each needs its label) to draw a status pill.
+  -->
+- 726c8b6: Dashboard list rows can open their record as a popup (rowLink.presentation); a full detail page with a footer form scrolls in one place only.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Dashboard list rows can open their record as a popup, and a detail page with a footer form scrolls in one place
+  detail: A dashboard list panel `rowLink` takes `presentation: "popup"` (with `screen` and `paramField`, the target a projectionDetail of the same feature) to open the row's record in a popup over the dashboard; the arrow link still points to the page, so a new tab or copy keeps working. Closing the popup reloads every panel of the dashboard. Boot validation rejects a popup with `screenField`, without `paramField`, or onto a screen that is no same-feature projectionDetail. On a full projectionDetail page with a footer form, header, tabs and footer stay visible and only the form content scrolls; before, the page and the form scrolled separately. A sticky table header now stays above the sticky row actions column, which used to paint over it while scrolling.
+  -->
+- 268beed: Dependency round: hono 4.13.22 (security fixes), the meilisearch peer range is `^0.63.0`, and the remaining minor/patch updates. Scaffolded apps pin Bun 1.4.5 and Biome 2.6.9. Managed workflows render the infra reusables at `reusables-v3.0.0`, and the image build pin moves to the same tag.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: hono 4.13.22, meilisearch peer ^0.63.0, managed workflows on infra reusables-v3.0.0
+  detail: hono moves to 4.13.22 for the open security advisories. The optional meilisearch peer range is `^0.63.0`; apps on 0.62 only see a peer warning and move with their own dependency update. Scaffolded apps pin Bun 1.4.5 and Biome 2.6.9. When `kumiko.deploy.infraRef` is unset, managed ci.yml and release.yml render the infra reusables at `reusables-v3.0.0`, and the image build pin moves to the same tag, so installs, tests and the image build get the read-only package token instead of the write PAT. Generated workflows pass `secrets: inherit`; the org secret `GH_PACKAGES_READ_TOKEN` (classic PAT, `read:packages` only) must be visible to the repo, or `_app-deploy` stops with "GH_PACKAGES_READ_TOKEN missing".
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: scheduleCronJobs: false keeps cron jobs off the wall clock in a test stack
+  detail: `createJobRunner` and `setupTestStack({ jobs })` take `scheduleCronJobs: false`. Cron jobs then get no schedule, so a test on a manual clock is not hit by a real cron tick halfway through; the test dispatches the job itself. Default stays on.
+  -->
+- 0963398: derivatives-sharp names the image types it can decode, and the renderer lookup honors that list.
+  
+  <!-- kumiko-changes
+  feature: derivatives-sharp
+  type: fix
+  title: Variants of HEIC, HEIF and BMP files answer 415 or 404 instead of failing on every request
+  detail: derivatives-sharp registered its renderer for image/*, which also matched types the sharp build cannot decode. A variant request for such a file read the original and failed each time, with 500 on the signed-in route and 503 on the public route. It still registers image/*, but now lists the types it decodes (image/jpeg, image/jpg, image/png, image/webp, image/avif, image/gif and image/tiff) in the new optional field sourceMimeTypes of the DerivativeRendererPlugin. Other types such as HEIC, HEIF, BMP and SVG get no renderer, so the signed-in route answers 415 and the public route 404 before the original is read. An exact renderer registered by an app still wins over the wildcard, whatever the mount order. A wildcard renderer without sourceMimeTypes keeps applying to every type under it.
+  -->
+- 3ecf59e: A projectionDetail in a drawer gets a pinned footer, disabled and outlined-icon actions, field actions, a second header badge and an opt-in Cancel on drawer forms.
+  
+  A drawer row action can name `headingFields`: row fields that fill `{name}` placeholders in its title and subtitle without being prefilled or sent.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Detail drawer polish, field actions, disabled actions, secondaryStatus, cancelInDrawer
+  detail: `RowActionDrawer.headingFields` lists row fields that only fill `{name}` placeholders in title and subtitle, never the form values or payload; a prefill param of the same name wins, a missing value is empty text, boot checks the names against the row. `RowAction.disabled` shows an action but blocks the click while its `FieldCondition` holds. `display: "icon"` with `style: "secondary"` is an outlined icon button. `header.secondaryStatus` renders a second status badge, text and tone resolved like `status` (it shares `statusTones`). `EditFieldSpec.actions` puts buttons beside the value of a projectionDetail fields-section field, also when it is empty; boot rejects them on other screens and validates the actions. A file field with actions shows an outlined Download button. In a drawer only the record content scrolls and the footer writeForm stays pinned; the footer variant shows the fields, then a bordered row of right-aligned buttons. actionForm `cancelInDrawer: true` adds a Cancel button to its drawer that closes with the unsaved-input prompt. An unprocessable error with an untranslated `details.reason` now shows a non-empty `details.message`.
+  -->
+  
+  An entityList can drop its automatic Edit action, a relatedList tones rows with a rule list and hides its row actions by parent record, row action buttons can show a pressed state, and a drawer action can show a back arrow.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: entityList allowEdit
+  detail: `EntityListScreenDefinition.allowEdit: false` suppresses the automatically added "Edit" row action; declared `rowActions` are unaffected. Default `true`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: relatedList rowTone rule list
+  detail: `EditRelatedListSection.rowTone` also accepts an array of rules; the first matching rule decides the row tone. `fill: true` on a rule adds a light background in the tone color (`DataTableProps.rowFill`, table rows and cards; pinned cells carry the tint too) next to the left stripe. Boot checks the fields of every rule against the section's row query.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Row action active state
+  detail: `active: { when, style? }` on writeHandler and drawer row actions draws an inline button (display button or icon) pressed while the row matches `when`: `aria-pressed="true"`, accent tint, or with `style: "danger"` filled destructive. A pressed and disabled button keeps its full colour but stays unclickable. `aria-pressed` only exists when `active` is declared. Boot checks the `when` field against the row fields.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: relatedList rowActionsWhen
+  detail: `EditRelatedListSection.rowActionsWhen` is a condition on the parent record, like `visibleWhen`. While it does not match, the list draws no row-action column, no bulk actions and no inline cell editing. Boot checks the field against the detail query's outputSchema.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Drawer row action back arrow
+  detail: `RowActionDrawer.back: true` shows a back arrow left of the drawer title instead of the close cross on the right; it closes only this drawer and returns to the one underneath. With `width: "wide"` the stacked drawer covers a wide detail drawer completely. `DrawerProps.back` is the matching primitive prop. Field labels in forms and detail views no longer clip descenders.
+  -->
+  
+  A projectionDetail writeForm file field uploads through a host entity, a stale action error banner clears, and a danger footer action is outlined.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: projectionDetail writeForm file upload via uploadEntity, action error banner, outlined danger footer action
+  detail: A file, image, files or images field in a projectionDetail writeForm section (tab section or footer) now needs `uploadEntity`: the entity whose file field of the same name the upload is stored as (`entityType` + `fieldName`, no record id), so a write handler that saves the file through that entity's executor (`executor.update({ id, version, changes: { attachment } })`) binds it and other record readers can download it. Boot rejects a form file field without `uploadEntity`, an unknown entity, and an entity without a file field of that name (`projection-detail/write-form-upload-entity-invalid`). Such a field always failed with 400 `unresolvable_field` before, so no working screen breaks. The detail's action error banner clears on the next successful write of that detail (footer or header action, related-list row action, inline cell edit). A footer action with `style: "danger"` is an outlined button with destructive text; its confirm rule is unchanged.
+  -->
+  
+  A projectionDetail opened from a list row can fill a large popup, edit in place and show its file field as a box.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Popup drawer, flat detail header, in-place edit, file box, fill tint
+  detail: `RowActionDrawer.width` and `ToolbarAction` drawer width take `"popup"`: the panel keeps 24px to every window edge, fills the rest (no 85vw cap), is rounded with the card colour; `"wide"` and the phone full screen stay. A drawer that hosts a projectionDetail with a `header` (and no `slots.header`) has no title bar: the detail shows its title, badges, subtitle and metrics as one flat block without a card (metrics left-aligned under the title), the tab strip below it with a full-width underline, header actions on the right next to the close cross, the tab content scrolls with 24px padding; summary, guidance, breadcrumb and the action error banner stay. The action error banner now also shows when the header has no card. The full page is unchanged. A drawer row or header action with `back: true` inside such a detail shows its form in place of the tab content (back button with outlined chevron, title and subtitle beside it, Cancel and Submit pinned below, fields side by side) instead of a second drawer; the tabs and the footer form stay mounted, so an unsent footer note survives. Back, Cancel, Escape and a tab click ask the same "discard unsaved input?" question when the form has input; Escape closes only the form, the cross closes the popup (with that question when the form is dirty); focus moves to the back button and returns to the trigger. Outside such a detail `back` still opens a drawer. The pinned footer form has 24px padding and the card colour in a drawer, no separator above its field row, and its buttons show an icon only when the action declares one (an id-derived icon, e.g. a chevron, no longer appears). A file field with field actions and a file shows as a bordered box (file icon, bold name, outlined Download and the actions on the right, wrapping on phones); without a file it shows a dash beside the action. A row tone rule with `fill: true` tints the row 4 % of the tone into the card colour and draws no stripe; a native select in a bad or critical filled row takes the tone as border, text and light background; the row hover colour now also covers the sticky actions cell.
+  -->
+  
+  Typed footer input of a projectionDetail survives a tab switch and travels with a footer drawer action.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Footer drawer action carries the footer input, tab switch keeps it, icon optional on footer and field actions
+  detail: A `kind: "drawer"` action of the detail's footer writeForm opens with the current footer input on top of its own prefill values, asks no "discard unsaved input?" question for that input, and after its submit the footer form takes the reloaded record as its new base. Switching tabs no longer asks that question for unsent footer input, because the footer form stays mounted; leaving the record and an in-place edit form still ask. Boot no longer requires an `icon` on footer and field actions, they render as labelled buttons. A default form inside a popup detail sits flush in the drawer body instead of adding its own card padding. Boot applies the footer rules to drawer actions too (`projection-detail/footer-write-form-invalid`): the id must differ from the screen's actions, `params` keys must not equal a footer field, and the target actionForm needs no `load`, must list every footer field in its layout (`visible: false` is enough) and must not mark one sensitive or password, since the submit stands for sending the footer input. A bad field reference in a field action now names the field and the action.
+  -->
+- 7996893: A projectionDetail can pin one writeForm as a footer under every tab, and a relatedList select column can be edited in place.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Footer form on a detail screen and an editable select cell in related lists
+  detail: A writeForm section with `placement: "footer"` renders as a fixed footer under the tab content on every tab, is no tab of its own and sets no `handler`, `submitLabel` or `submitWith`. Each writeHandler action in its `actions` validates the form and sends its own payload plus the form values in one write. Boot rejects a second footer, a footer in a wizard layout, and a footer without a registered writeHandler action. A relatedList column can set `edit: { handler, when?, required? }` on a select field of the section's entity: where `when` holds the cell is a select, a choice writes `{ id, [field] }` through the handler and reloads the list and the host. `edit.field` names another select field of the entity: the column's cell then shows that field's dropdown, options and value, and writes `{ id, [edit.field] }`. A struck row does not strike the select. Native tables show the value instead of the select.
+  -->
+- 184b0f3: A list row action `kind: "drawer"` can open a `projectionDetail` in a wide drawer instead of a page.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Open a projectionDetail in a drawer from a list row
+  detail: A rowAction `{ kind: "drawer", screen: "<projectionDetail id>", rowClick: true, width: "wide" }` opens the record's detail (tabs, related lists, header actions) in a drawer over the list; the row `id` is the record id. Related-list row actions of kind drawer open their actionForm in a second drawer. Closing the detail reloads the list. The `entity-list/detail-without-navigate` rule accepts such a rowClick drawer as the detail entry; `screen/drawer-target-not-action-form` allows a projectionDetail target from a rowAction.
+  -->
+- 4096b8d: `slots.sidebar` puts a component in a column next to the form of an edit screen.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: slots.sidebar renders a column right of the form
+  detail: On entityEdit, actionForm and configEdit screens, `slots.sidebar` shows a component in a sticky column from `xl`; the form column keeps its width, and the section navigation is dropped. Below `xl`, and outside the padded screen form, it renders under the sections. The component receives the live form values.
+  -->
+- 7996893: `FieldCondition` gains an `all` form that combines conditions on several fields with AND.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Field conditions can combine several fields with all
+  detail: `{ all: [{ field: "stage", in: ["won", "partial"] }, { field: "approval", eq: "pending" }] }` holds while every entry holds, so a row action's `visible`, `visibleWhen`, `requiredWhen` and `lockedWhen` can depend on more than one field. Entries nest, boot rejects an `all` with fewer than two entries and checks every referenced field like a single condition.
+  -->
+- 853f844: Log redaction, the custom CSS filter, string trims and text parsing no longer slow down quadratically on long runs of the same characters; results are unchanged.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Log redaction, CSS filter and string trims scan long inputs once
+  detail: URL and email redaction in logs, the custom CSS function check, trailing slash, dash, equals and newline trims, and several parsers in the CLI, dev server and guards rescanned long runs of the same characters once per character. They now scan each run once. Output is unchanged.
+  -->
+- 909e7da: List screens take `createIcon` to pick the symbol of the create button.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: entityList and projectionList take createIcon for the create button symbol
+  detail: `createIcon` (an IconKey) replaces the fixed "plus" on the list's create buttons: the header button (compact and normal) and the one in the empty state. Default stays "plus".
+  -->
+- e7a3b4b: perTenant jobs skip the system tenant unless they set `includeSystemTenant`, also when the system tenant has an enabled tenant row.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: perTenant jobs no longer run for the system tenant unless they set includeSystemTenant
+  detail: The fan-out took every enabled tenant row, so an app with a tenant row for the system tenant ran every perTenant job there too, and member-scoped jobs failed with "queryAsMember needs a tenant-scoped context". The system tenant now only gets a run with `includeSystemTenant: true`.
+  -->
+- 81b60cf: actionForm preview: phone cards label every value, right-align labeled amounts, and the preview list columns get `emphasize` and `hideZeroOnCard`.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Preview cards on a phone read like a small calculation
+  detail: The preview table of an actionForm turns into cards on a narrow screen, where no column header is visible. Each value now shows its column label. Every `cardLabel` column of number or money type on its own card line, in any DataTable including entityList screens, now puts the name left and the figure right-aligned, like the totals card; labeled text and narrowInline values keep "Label: value". Two new options on a preview list column: `emphasize` draws the row's result bold with a rule above it on the card, `hideZeroOnCard` leaves a zero amount off the card while the table keeps it. Put signs in the labels ("− Paid", "= Open") and a card reads as rent minus payments equals open.
+  -->
+- 4096b8d: projectionList `defaultNamedFilter` opens the list with one named filter active.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: projectionList can open with a default named filter
+  detail: `defaultNamedFilter` names one id of `namedFilters`. While the URL carries no filter, that chip is active and the filter is sent with every list and count query, also when the list is embedded as a dashboard screen panel. The user switches to another chip; the default itself cannot be switched off. Boot fails when the id is not in `namedFilters`.
+  -->
+- 8e8e08d: A related list section can declare `struckWhen`, which greys out and strikes through the rows matching a field condition.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Related list rows can be struck through with struckWhen
+  detail: `struckWhen: { field, eq | ne | in | notIn }` on a relatedList section draws matching rows muted and line-through, for example a lost offer line. The row-action column stays readable so an undo action is still legible. `DataTableProps` gains `rowStruck`; renderers without it ignore it.
+  -->
+
 ## 0.426.1
 
 ### Patch Changes

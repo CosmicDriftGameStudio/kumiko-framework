@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "The public variant answers 404 instead of 503 when no renderer is registered for the file type"
+  },
+  {
     "version": "0.425.0",
     "type": "improvement",
     "title": "Public media route skips the storage read on 304"

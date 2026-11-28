@@ -1,5 +1,70 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.427.0
+
+### Patch Changes
+
+- 268beed: Dependency round: hono 4.13.22 (security fixes), the meilisearch peer range is `^0.63.0`, and the remaining minor/patch updates. Scaffolded apps pin Bun 1.4.5 and Biome 2.6.9. Managed workflows render the infra reusables at `reusables-v3.0.0`, and the image build pin moves to the same tag.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: hono 4.13.22, meilisearch peer ^0.63.0, managed workflows on infra reusables-v3.0.0
+  detail: hono moves to 4.13.22 for the open security advisories. The optional meilisearch peer range is `^0.63.0`; apps on 0.62 only see a peer warning and move with their own dependency update. Scaffolded apps pin Bun 1.4.5 and Biome 2.6.9. When `kumiko.deploy.infraRef` is unset, managed ci.yml and release.yml render the infra reusables at `reusables-v3.0.0`, and the image build pin moves to the same tag, so installs, tests and the image build get the read-only package token instead of the write PAT. Generated workflows pass `secrets: inherit`; the org secret `GH_PACKAGES_READ_TOKEN` (classic PAT, `read:packages` only) must be visible to the repo, or `_app-deploy` stops with "GH_PACKAGES_READ_TOKEN missing".
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: scheduleCronJobs: false keeps cron jobs off the wall clock in a test stack
+  detail: `createJobRunner` and `setupTestStack({ jobs })` take `scheduleCronJobs: false`. Cron jobs then get no schedule, so a test on a manual clock is not hit by a real cron tick halfway through; the test dispatches the job itself. Default stays on.
+  -->
+- 853f844: Log redaction, the custom CSS filter, string trims and text parsing no longer slow down quadratically on long runs of the same characters; results are unchanged.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Log redaction, CSS filter and string trims scan long inputs once
+  detail: URL and email redaction in logs, the custom CSS function check, trailing slash, dash, equals and newline trims, and several parsers in the CLI, dev server and guards rescanned long runs of the same characters once per character. They now scan each run once. Output is unchanged.
+  -->
+- Updated dependencies [9c25606]
+- Updated dependencies [af73a16]
+- Updated dependencies [341f713]
+- Updated dependencies [726c8b6]
+- Updated dependencies [50c4902]
+- Updated dependencies [268beed]
+- Updated dependencies [0963398]
+- Updated dependencies [3ecf59e]
+- Updated dependencies [7996893]
+- Updated dependencies [184b0f3]
+- Updated dependencies [4096b8d]
+- Updated dependencies [23e3d73]
+- Updated dependencies [7996893]
+- Updated dependencies [23e3d73]
+- Updated dependencies [23e3d73]
+- Updated dependencies [0963398]
+- Updated dependencies [3d83cc7]
+- Updated dependencies [853f844]
+- Updated dependencies [0eec1dd]
+- Updated dependencies [909e7da]
+- Updated dependencies [623e88d]
+- Updated dependencies [e7a3b4b]
+- Updated dependencies [6873209]
+- Updated dependencies [81b60cf]
+- Updated dependencies [4096b8d]
+- Updated dependencies [23e3d73]
+- Updated dependencies [8e8e08d]
+- Updated dependencies [3e00c72]
+- Updated dependencies [3c4d3bd]
+- Updated dependencies [7789ce5]
+- Updated dependencies [a316ed9]
+- Updated dependencies [e5e2407]
+- Updated dependencies [b1eb9f1]
+- Updated dependencies [1fff5d3]
+  - @cosmicdrift/kumiko-types@0.427.0
+  - @cosmicdrift/kumiko-framework@0.427.0
+  - @cosmicdrift/kumiko-guards@0.427.0
+
 ## 0.426.1
 
 ### Patch Changes

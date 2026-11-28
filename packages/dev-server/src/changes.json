@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "Scaffolded apps mount crypto-shredding, rate-limiting and audit next to sessions",
+    "migration": "Run the codemod. It adds `...composeSecurityStack({ includeSessions: false })` and its import after `createSessionsFeature()` in the `APP_FEATURES` array literal of `src/run-config.ts`. It skips apps that already mount composeSecurityStack, createCryptoShreddingFeature, createRateLimitingFeature or createAuditFeature, and lists apps as manual whose `bin/main.ts` passes no kmsMode, kms, allowPlaintextPii or kmsWiring to runProdApp (crypto-shredding would abort their boot) or sets `rateLimit: false` (rate-limiting would abort it). Afterwards run `kumiko-schema generate` for the audit table, and remove empty `PLATFORM_KEK=`, `SUBJECT_KEYS_DATABASE_URL=` and `KUMIKO_BLIND_INDEX_KEY=` lines from env files.",
+    "codemod": "scripts/codemod/security-baseline-stack.ts"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "The production server bundle reads NODE_ENV at runtime"
+  },
+  {
     "version": "0.426.1",
     "type": "fix",
     "title": "dist-server installs meilisearch only when the app declares it",

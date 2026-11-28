@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Variants of HEIC, HEIF and BMP files answer 415 or 404 instead of failing on every request"
+  },
+  {
     "version": "0.370.0",
     "type": "breaking",
     "title": "The deprecated derivativesSharpFeature constant is removed",

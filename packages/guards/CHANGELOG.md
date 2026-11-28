@@ -1,5 +1,76 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.427.0
+
+### Patch Changes
+
+- 3d83cc7: `letter-foundation`: approval checks the monthly limit, and duplex letters start every file on a new sheet.
+  
+  <!-- kumiko-changes
+  feature: letter-foundation
+  type: improvement
+  title: `letter-foundation`: `approve` refuses a letter the monthly limit does not cover; every file of a duplex letter starts on a new sheet
+  detail: `approve` fails with `letter_monthly_limit_not_covered` when the limit minus the month's usage and the price of all approved, not yet handed-over letters is smaller than the price of the letter; the letter stays in `awaiting-approval`. The preview counts the same way. The reservation at handover stays the binding check. `cancelLetterBeforeHandover(ctx, letterId)` cancels a waiting or approved letter without the `LetterApprover` role check. In duplex, a blank page follows a file with an odd page count, so the next file begins on a new sheet; sheets and price come from the merged document.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: The Direct-Entity-Writes guard finds tables that are destructured from `createEntityExecutor`
+  detail: `export const { executor, table: fooTable } = createEntityExecutor(entity)` now counts as an event-sourced table, in the guard and in the `kumiko-es-tables.json` catalog of a package. Before, such tables (for example `letterTable`, `signatureRequestTable`) were missing from the catalog, so a consumer's direct write on them went unnoticed.
+  -->
+- 853f844: Log redaction, the custom CSS filter, string trims and text parsing no longer slow down quadratically on long runs of the same characters; results are unchanged.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Log redaction, CSS filter and string trims scan long inputs once
+  detail: URL and email redaction in logs, the custom CSS function check, trailing slash, dash, equals and newline trims, and several parsers in the CLI, dev server and guards rescanned long runs of the same characters once per character. They now scan each run once. Output is unchanged.
+  -->
+- 6873209: Worktree pre-push runs test:lib-coverage when the package declares it
+  
+  The hook runs `test:lib-coverage` after `test` and `test:dom` in the same lane, so per-file coverage thresholds fail before CI does. Packages without the script see it reported as skipped.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Worktree pre-push runs test:lib-coverage when the package declares it
+  -->
+- Updated dependencies [9c25606]
+- Updated dependencies [af73a16]
+- Updated dependencies [341f713]
+- Updated dependencies [726c8b6]
+- Updated dependencies [50c4902]
+- Updated dependencies [268beed]
+- Updated dependencies [0963398]
+- Updated dependencies [3ecf59e]
+- Updated dependencies [7996893]
+- Updated dependencies [184b0f3]
+- Updated dependencies [4096b8d]
+- Updated dependencies [23e3d73]
+- Updated dependencies [7996893]
+- Updated dependencies [23e3d73]
+- Updated dependencies [23e3d73]
+- Updated dependencies [0963398]
+- Updated dependencies [853f844]
+- Updated dependencies [0eec1dd]
+- Updated dependencies [909e7da]
+- Updated dependencies [623e88d]
+- Updated dependencies [e7a3b4b]
+- Updated dependencies [81b60cf]
+- Updated dependencies [4096b8d]
+- Updated dependencies [23e3d73]
+- Updated dependencies [8e8e08d]
+- Updated dependencies [3e00c72]
+- Updated dependencies [3c4d3bd]
+- Updated dependencies [7789ce5]
+- Updated dependencies [a316ed9]
+- Updated dependencies [e5e2407]
+- Updated dependencies [b1eb9f1]
+- Updated dependencies [1fff5d3]
+  - @cosmicdrift/kumiko-types@0.427.0
+  - @cosmicdrift/kumiko-framework@0.427.0
+
 ## 0.426.1
 
 ### Patch Changes

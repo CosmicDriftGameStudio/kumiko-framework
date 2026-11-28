@@ -1,5 +1,141 @@
 [
   {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "actionForm redirect can depend on a result field and fall back to the success box"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "Dashboards and lists gain opt-in design options for sub-line tone, unframed stat cards, bar chart details, segment rows, header subtitle and boolean pills"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "Dashboard list rows can open their record as a popup, and a detail page with a footer form scrolls in one place"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "Detail drawer polish, field actions, disabled actions, secondaryStatus, cancelInDrawer"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "entityList allowEdit"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "relatedList rowTone rule list"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "Row action active state"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "relatedList rowActionsWhen"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "Drawer row action back arrow"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "projectionDetail writeForm file upload via uploadEntity, action error banner, outlined danger footer action"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "Popup drawer, flat detail header, in-place edit, file box, fill tint"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "Footer drawer action carries the footer input, tab switch keeps it, icon optional on footer and field actions"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "Footer form on a detail screen and an editable select cell in related lists"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "Open a projectionDetail in a drawer from a list row"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "returnTo can point back to an actionForm opened for one record"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "A form's input survives a returnTo round trip"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "slots.sidebar renders a column right of the form"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "Field conditions can combine several fields with all"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Form sidebar no longer wider than the screen on phones"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "entityList and projectionList take createIcon for the create button symbol"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Preview cards on a phone read like a small calculation"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "projectionList can open with a default named filter"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Related list row actions reload the host record"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "Related list rows can be struck through with struckWhen"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "useOnKeyChange runs a callback once per key change without a raw useEffect",
+    "migration": "Effects that run once per key change (a mutation or refetch triggered by an id or status) should switch to `useOnKeyChange`; app repos need this to pass the no-raw-hooks guard."
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Changelog of 0.426.0 no longer promises a fact test id"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Text-formatted document fields keep image-only values and filter pasted blocks"
+  },
+  {
     "version": "0.426.1",
     "type": "fix",
     "title": "actionForm facts, submitThrough and document fallback fixes"

@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "subscription-mollie moves to the maintained Mollie SDK"
+  },
+  {
     "version": "0.414.0",
     "type": "breaking",
     "title": "Mollie first payments are matched by payment id, consentId metadata is gone",

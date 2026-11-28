@@ -1,0 +1,7 @@
+[
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "`letter-provider-letterxpress`: LetterXpress as a provider for `letter-foundation`"
+  }
+]

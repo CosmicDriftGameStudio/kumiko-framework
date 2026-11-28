@@ -1,5 +1,99 @@
 [
   {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Email request screens, IMAP screens and row actions share their duplicated code"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "hono 4.13.22, meilisearch peer ^0.63.0, managed workflows on infra reusables-v3.0.0"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "scheduleCronJobs: false keeps cron jobs off the wall clock in a test stack"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "`egress` refuses Teredo, discard, benchmarking, documentation and multicast IPv6 ranges and aborts a hanging DNS lookup with the caller's signal"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "The declared type of an upload is verified against its bytes"
+  },
+  {
+    "version": "0.427.0",
+    "type": "breaking",
+    "title": "Image fields without accept take only jpg, jpeg, png, gif, webp, avif, heic and heif",
+    "detail": "createImageField and createImagesField without accept used to take every file. New uploads and pending uploads bound to such a field are now checked against jpg, jpeg, png, gif, webp, avif, heic and heif, and the file picker offers the same list. Files a record already holds are untouched, and moving a stored file with rebindFileRef still checks only an explicit accept.",
+    "migration": "Image fields that should take SVG, PDF, BMP or TIFF need an explicit accept; accept [] allows everything.",
+    "affects": ["createImageField", "createImagesField", "accept"]
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "heic, heif and avif uploads are verified against their file header"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Log redaction, CSS filter and string trims scan long inputs once"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Linear-time string trimming and parsing, numeric key versions in errors, .env* excluded from the image build context"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "perTenant jobs no longer run for the system tenant unless they set includeSystemTenant"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "resolveRenderer is exported from ./derivatives again"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Successful session exchanges no longer exhaust the IP and method rate limit"
+  },
+  {
+    "version": "0.427.0",
+    "type": "breaking",
+    "title": "Bulk form actions need a bounded ids field in the handler schema",
+    "detail": "`list-bulk/form-ids-field-unbounded` fails boot when the write handler of a bulk form action declares its `idsField` without `z.array(...).max(n)` and `n <= MAX_BULK_SELECTION`, in every option of a union or discriminated union. A handler schema that is not an object or a union of objects also fails, because its bound cannot be read. The client cap does not bind a direct `/api/write`, so the handler schema must. Optional and nullable wrappers are unwrapped.",
+    "migration": "Declare `<idsField>: z.array(...).max(MAX_BULK_SELECTION)` in the schema of every write handler behind a bulk form action (in each option of a union), and give the handler an object schema.",
+    "affects": [
+      "list-bulk",
+      "form-ids-field-unbounded",
+      "MAX_BULK_SELECTION",
+      "bulkActions"
+    ]
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Cron scheduler no longer doubles after a rolling update"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "failure logs name the error class instead of adapter text"
+  },
+  {
+    "version": "0.427.0",
+    "type": "breaking",
+    "title": "no-raw-hooks also checks .ts files under web/ and public/",
+    "detail": "The Biome rule `no-raw-hooks` used to look at .tsx files only, so a raw `useEffect` inside a hook file such as `web/use-thing.ts` slipped through. Apps with a raw useEffect in web/*.ts or public/*.ts hooks now see the lint error.",
+    "migration": "Use a framework hook (`useDraft` with `initialFrom` for a form draft from query data, `useQuery`, `useNow`, `useDebouncedValue`, `useOnKeyChange` for effects that run once per key change) or add a `biome-ignore lint/plugin` with a reason for a real DOM integration.",
+    "affects": ["no-raw-hooks", "useEffect", "biome"]
+  },
+  {
     "version": "0.426.1",
     "type": "fix",
     "title": "Boot validator review fixes"

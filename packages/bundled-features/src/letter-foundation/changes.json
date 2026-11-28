@@ -1,0 +1,32 @@
+[
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "Shorter file name for the merged letter PDF"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "`letter-foundation`: `approve` refuses a letter the monthly limit does not cover; every file of a duplex letter starts on a new sheet"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "Letter docs name the monthly budget and where to set it"
+  },
+  {
+    "version": "0.427.0",
+    "type": "fix",
+    "title": "The letter poll job skips quietly in production while the live switch is off instead of failing every run"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "`letter-foundation`: send PDFs as postal letters through a print provider, with approval, cap counting and a monthly cost limit per tenant"
+  },
+  {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "A letter is prepared when it is created; `approval: \"auto\"` and `approve-many`"
+  }
+]

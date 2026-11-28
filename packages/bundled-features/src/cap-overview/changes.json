@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "cap-overview shows amounts in `cents`"
+  },
+  {
     "version": "0.425.0",
     "type": "breaking",
     "title": "caps:usage hands cap callbacks a tenant-scoped db without unsafeRaw",

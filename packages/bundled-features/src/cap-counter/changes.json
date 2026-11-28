@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.427.0",
+    "type": "improvement",
+    "title": "`releaseCapUsage` is exported"
+  },
+  {
     "version": "0.425.0",
     "type": "improvement",
     "title": "calendarCapReservationHandle can settle the actual amount"

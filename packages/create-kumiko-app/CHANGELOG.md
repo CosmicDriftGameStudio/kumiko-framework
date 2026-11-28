@@ -1,5 +1,54 @@
 # create-kumiko-app
 
+## 0.427.0
+
+### Patch Changes
+
+- 50c4902: Duplicated code in the forgot-password and unlock screens, the IMAP screens and row actions is shared; behaviour is unchanged.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Email request screens, IMAP screens and row actions share their duplicated code
+  detail: The forgot-password and account-unlock screens render one shared screen, the IMAP connect screens share their fields, and row actions share their base properties. Texts and test ids are unchanged; nothing to do for apps.
+  -->
+- Updated dependencies [9c25606]
+- Updated dependencies [af73a16]
+- Updated dependencies [341f713]
+- Updated dependencies [726c8b6]
+- Updated dependencies [50c4902]
+- Updated dependencies [268beed]
+- Updated dependencies [0963398]
+- Updated dependencies [3ecf59e]
+- Updated dependencies [7996893]
+- Updated dependencies [184b0f3]
+- Updated dependencies [23e3d73]
+- Updated dependencies [7996893]
+- Updated dependencies [23e3d73]
+- Updated dependencies [23e3d73]
+- Updated dependencies [0963398]
+- Updated dependencies [853f844]
+- Updated dependencies [0eec1dd]
+- Updated dependencies [623e88d]
+- Updated dependencies [e7a3b4b]
+- Updated dependencies [4096b8d]
+- Updated dependencies [23e3d73]
+- Updated dependencies [8e8e08d]
+- Updated dependencies [3e00c72]
+- Updated dependencies [3c4d3bd]
+- Updated dependencies [7789ce5]
+- Updated dependencies [a316ed9]
+- Updated dependencies [b880f08]
+- Updated dependencies [e5e2407]
+- Updated dependencies [b1eb9f1]
+- Updated dependencies [fd06a70]
+- Updated dependencies [2b2f2e7]
+- Updated dependencies [1fff5d3]
+  - @cosmicdrift/kumiko-framework@0.427.0
+  - @cosmicdrift/kumiko-dev-server@0.427.0
+  - @cosmicdrift/kumiko-testing@0.427.0
+  - @cosmicdrift/kumiko-server-runtime@0.427.0
+
 ## 0.426.1
 
 ### Patch Changes
