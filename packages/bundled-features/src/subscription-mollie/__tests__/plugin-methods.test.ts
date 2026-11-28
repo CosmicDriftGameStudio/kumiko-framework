@@ -5,7 +5,7 @@
 
 import { describe, expect, spyOn, test } from "bun:test";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import type { MollieClient } from "@mollie/api-client";
+import type { Client } from "mollie-api-typescript";
 import { createMollieCheckoutSession, type MolliePriceConfig } from "../plugin-methods.ts";
 
 const PRICE_CONFIG: Readonly<Record<string, MolliePriceConfig>> = {
@@ -20,11 +20,8 @@ const PRICE_CONFIG: Readonly<Record<string, MolliePriceConfig>> = {
 const WEBHOOK_URL = "https://app.example.com/api/subscription/webhook/mollie";
 const stubCtx = {} as HandlerContext;
 
-// No `: MollieClient` return-type annotation — keeping the inferred narrow
-// shape lets spyOn resolve a non-overloaded signature for `payments.create`
-// (MollieClient's real signature is Promise|void-overloaded, which makes
-// spyOn(...).mockResolvedValue infer `never`, see plugin-methods.ts's own
-// `@cast-boundary` comment on the same overload).
+// No `: Client` return-type annotation — the inferred narrow shape keeps
+// spyOn(...).mockResolvedValue typed against the mock, not the full SDK.
 function buildClient() {
   return {
     customers: {
@@ -33,7 +30,7 @@ function buildClient() {
     payments: {
       create: async () => ({
         id: "tr_mock",
-        getCheckoutUrl: () => "https://www.mollie.com/checkout/mock",
+        links: { checkout: { href: "https://www.mollie.com/checkout/mock" } },
       }),
     },
   };
@@ -44,11 +41,11 @@ describe("createMollieCheckoutSession", () => {
     const client = buildClient();
     const createMock = spyOn(client.payments, "create").mockResolvedValue({
       id: "tr_first",
-      getCheckoutUrl: () => "https://www.mollie.com/checkout/mock",
+      links: { checkout: { href: "https://www.mollie.com/checkout/mock" } },
     });
 
     const checkout = createMollieCheckoutSession(
-      client as unknown as MollieClient,
+      client as unknown as Client,
       PRICE_CONFIG,
       WEBHOOK_URL,
     );
@@ -64,17 +61,21 @@ describe("createMollieCheckoutSession", () => {
       url: "https://www.mollie.com/checkout/mock",
       providerCheckoutId: "tr_first",
     });
-    expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ sequenceType: "first" }));
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentRequest: expect.objectContaining({ sequenceType: "first" }),
+      }),
+    );
   });
 
   test("only tenantId and priceId ride in the payment metadata", async () => {
     const client = buildClient();
     const createMock = spyOn(client.payments, "create").mockResolvedValue({
       id: "tr_meta",
-      getCheckoutUrl: () => "https://www.mollie.com/checkout/mock",
+      links: { checkout: { href: "https://www.mollie.com/checkout/mock" } },
     });
     const checkout = createMollieCheckoutSession(
-      client as unknown as MollieClient,
+      client as unknown as Client,
       PRICE_CONFIG,
       WEBHOOK_URL,
     );
@@ -87,7 +88,9 @@ describe("createMollieCheckoutSession", () => {
     });
     expect(createMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        metadata: { tenantId: "tenant-001", priceId: "plan_pro" },
+        paymentRequest: expect.objectContaining({
+          metadata: { tenantId: "tenant-001", priceId: "plan_pro" },
+        }),
       }),
     );
   });
@@ -96,11 +99,11 @@ describe("createMollieCheckoutSession", () => {
     const client = buildClient();
     const createMock = spyOn(client.payments, "create").mockResolvedValue({
       id: "tr_topup",
-      getCheckoutUrl: () => "https://www.mollie.com/checkout/topup",
+      links: { checkout: { href: "https://www.mollie.com/checkout/topup" } },
     });
 
     const checkout = createMollieCheckoutSession(
-      client as unknown as MollieClient,
+      client as unknown as Client,
       PRICE_CONFIG,
       WEBHOOK_URL,
     );
@@ -117,7 +120,11 @@ describe("createMollieCheckoutSession", () => {
       url: "https://www.mollie.com/checkout/topup",
       providerCheckoutId: "tr_topup",
     });
-    expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ sequenceType: "oneoff" }));
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentRequest: expect.objectContaining({ sequenceType: "oneoff" }),
+      }),
+    );
   });
 
   const TOPUP_CONFIG: Readonly<Record<string, MolliePriceConfig>> = {
@@ -135,7 +142,7 @@ describe("createMollieCheckoutSession", () => {
     const client = buildClient();
     const createMock = spyOn(client.payments, "create");
     const checkout = createMollieCheckoutSession(
-      client as unknown as MollieClient,
+      client as unknown as Client,
       TOPUP_CONFIG,
       WEBHOOK_URL,
     );
@@ -147,7 +154,7 @@ describe("createMollieCheckoutSession", () => {
   test("price without interval with mode='payment' → one-off checkout works", async () => {
     const client = buildClient();
     const checkout = createMollieCheckoutSession(
-      client as unknown as MollieClient,
+      client as unknown as Client,
       TOPUP_CONFIG,
       WEBHOOK_URL,
     );
@@ -161,9 +168,9 @@ describe("createMollieCheckoutSession", () => {
 
   test("null checkout url: mandate hint only for first payments", async () => {
     const client = buildClient();
-    spyOn(client.payments, "create").mockResolvedValue({ getCheckoutUrl: () => null } as never);
+    spyOn(client.payments, "create").mockResolvedValue({ links: {} } as never);
     const checkout = createMollieCheckoutSession(
-      client as unknown as MollieClient,
+      client as unknown as Client,
       PRICE_CONFIG,
       WEBHOOK_URL,
     );

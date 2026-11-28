@@ -24,13 +24,20 @@ import {
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type {
-  Payment as MolliePayment,
-  Subscription as MollieSubscription,
-} from "@mollie/api-client";
+  Metadata,
+  PaymentResponse as MolliePayment,
+  SubscriptionResponse,
+} from "mollie-api-typescript/models";
 import { MOLLIE_PROVIDER_NAME } from "./constants.ts";
 import type { MolliePriceConfig } from "./plugin-methods.ts";
 
 const log = createFallbackLogger("subscription-mollie");
+
+/** The fields the plugin reads; subscription list items carry fewer `links` than a single get. */
+type MollieSubscription = Pick<
+  SubscriptionResponse,
+  "id" | "customerId" | "status" | "nextPaymentDate" | "startDate" | "metadata"
+>;
 
 /** Minimal subset of the Mollie client used by the plugin — kept separate
  *  so tests can mock it without the full MollieClient. The adapter in
@@ -106,10 +113,9 @@ export function verifyAndParseMollieWebhook(
       return null;
     }
 
-    const metadata = (subscription.metadata as Record<string, string> | null) ?? {}; // @cast-boundary engine-bridge
-    const tenantId = metadata["tenantId"];
+    const tenantId = readStringMetadata(subscription.metadata, "tenantId");
     if (!tenantId || tenantId.length === 0) return null;
-    const priceId = metadata["priceId"];
+    const priceId = readStringMetadata(subscription.metadata, "priceId");
     if (!priceId) return null;
     const tier = options.priceToTier[priceId];
     if (!tier) return null;
@@ -160,9 +166,8 @@ async function ensureSubscriptionForMandate(
 ): Promise<MollieSubscription | null> {
   const customerId = payment.customerId;
   if (!customerId) return null;
-  const paymentMetadata = (payment.metadata as Record<string, string> | null) ?? {}; // @cast-boundary engine-bridge
-  const tenantId = paymentMetadata["tenantId"];
-  const priceId = paymentMetadata["priceId"];
+  const tenantId = readStringMetadata(payment.metadata, "tenantId");
+  const priceId = readStringMetadata(payment.metadata, "priceId");
   if (!tenantId || !priceId) return null;
   const priceCfg = options.priceToConfig[priceId];
   if (!priceCfg) return null;
@@ -174,7 +179,7 @@ async function ensureSubscriptionForMandate(
   const existing = await client.customerSubscriptions.list(customerId);
   const matchingExisting = existing.find(
     (sub) =>
-      (sub.metadata as Record<string, string> | null)?.["priceId"] === priceId && // @cast-boundary engine-bridge
+      readStringMetadata(sub.metadata, "priceId") === priceId &&
       (sub.status === "active" || sub.status === "pending"),
   );
   if (matchingExisting) return matchingExisting;
@@ -190,6 +195,18 @@ async function ensureSubscriptionForMandate(
 // =============================================================================
 // Helpers (exported for tests)
 // =============================================================================
+
+/** Mollie metadata is free-form (string | number | object | string[]); the plugin
+ *  only ever writes flat string maps, so anything else reads as absent. */
+function readStringMetadata(
+  metadata: Metadata | null | undefined,
+  key: string,
+): string | undefined {
+  if (typeof metadata !== "object" || metadata === null || Array.isArray(metadata))
+    return undefined;
+  const value: unknown = metadata[key];
+  return typeof value === "string" ? value : undefined;
+}
 
 /** Extracts `id` from rawBody — supports form-urlencoded and JSON. */
 export function extractMollieId(rawBody: string, headers: Record<string, string>): string | null {
