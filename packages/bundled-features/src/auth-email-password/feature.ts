@@ -34,9 +34,11 @@ import { createSwitchTenantMfaGateHandler } from "./handlers/switch-tenant-mfa-g
 import { createVerifyEmailHandler } from "./handlers/verify-email.write.ts";
 import { AUTH_EMAIL_PASSWORD_HANDLER_I18N } from "./i18n.ts";
 import {
+  AUTH_MAIL_KINDS,
   AUTH_MAIL_VARIABLES,
   authMailLocalizedTemplate,
   INVITE_MAIL_VARIABLES,
+  MAGIC_LINK_MAIL_KINDS,
   sendsMagicLinkMail,
 } from "./mail-notifications.ts";
 import { assertSignedTokenSecretsLongEnough } from "./validate-options.ts";
@@ -198,31 +200,13 @@ export function createAuthEmailPasswordFeature(
 
     // Declared unconditionally: apps also issue the activation link from their
     // own flows (issueSignupActivation) without enabling the signup option.
-    r.notification({
-      name: "password-reset",
-      variables: AUTH_MAIL_VARIABLES,
-      localizedTemplate: authMailLocalizedTemplate("passwordReset"),
-    });
-    r.notification({
-      name: "initial-password",
-      variables: AUTH_MAIL_VARIABLES,
-      localizedTemplate: authMailLocalizedTemplate("initialPassword"),
-    });
-    r.notification({
-      name: "account-unlock",
-      variables: AUTH_MAIL_VARIABLES,
-      localizedTemplate: authMailLocalizedTemplate("accountUnlock"),
-    });
-    r.notification({
-      name: "email-verification",
-      variables: AUTH_MAIL_VARIABLES,
-      localizedTemplate: authMailLocalizedTemplate("emailVerification"),
-    });
-    r.notification({
-      name: "signup-activation",
-      variables: AUTH_MAIL_VARIABLES,
-      localizedTemplate: authMailLocalizedTemplate("signupActivation"),
-    });
+    for (const kind of MAGIC_LINK_MAIL_KINDS) {
+      r.notification({
+        name: AUTH_MAIL_KINDS[kind].name,
+        variables: AUTH_MAIL_VARIABLES,
+        localizedTemplate: authMailLocalizedTemplate(kind),
+      });
+    }
     r.notification({
       name: "invite",
       variables: INVITE_MAIL_VARIABLES,

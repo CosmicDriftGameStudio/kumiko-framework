@@ -95,6 +95,21 @@ async function runSeedMigrations(
   });
 }
 
+function createBootSeedDispatcher(
+  registry: ProdComposedFeatures["registry"],
+  seedContext: ReturnType<typeof buildSeedContext>,
+  entrypoint: ProdEntrypoint,
+  dispatcherOptions: ProdEntrypointOptions["dispatcherOptions"],
+): Dispatcher {
+  return withSeedErrorContext(
+    createDispatcher(registry, seedContext, {
+      ...dispatcherOptions,
+      lifecycle: entrypoint.lifecycleHooks,
+      ...(entrypoint.mode === "all-in-one" && { jobRunner: entrypoint.jobRunner }),
+    }),
+  );
+}
+
 // Seeds: admin first, then config-seeds from r.config({seeds}),
 // then app-specific. All idempotent — runProdApp doesn't gate
 // "first boot" via flag, every seed-step checks its own
@@ -133,13 +148,7 @@ export async function runProdBootSeeds(
         followUps.length > 0;
       const seedContext = hasSeeds ? buildSeedContext(run) : undefined;
       const seedDispatcher = seedContext
-        ? withSeedErrorContext(
-            createDispatcher(composed.registry, seedContext, {
-              ...dispatcherOptions,
-              lifecycle: entrypoint.lifecycleHooks,
-              ...(entrypoint.mode === "all-in-one" && { jobRunner: entrypoint.jobRunner }),
-            }),
-          )
+        ? createBootSeedDispatcher(composed.registry, seedContext, entrypoint, dispatcherOptions)
         : undefined;
       if (seedDispatcher) {
         await runSeedFollowUps(followUps, {
